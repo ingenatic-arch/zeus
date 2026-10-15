@@ -1,0 +1,98 @@
+:root {
+  --ink: #4a3420;
+  --ink-soft: #7a5c3c;
+  --parchment: #fbf2dd;
+  --parchment-deep: #efdcb3;
+  --edge: #b88a50;
+  --terracotta: #c8643b;
+  --terracotta-deep: #a24e2c;
+  --olive: #6f7d3c;
+  --serif: 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Palladio L', Georgia, 'Times New Roman', serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
+#app { position: fixed; inset: 0; }
+#scene { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+#ui { position: absolute; inset: 0; pointer-events: none; font-family: var(--serif); color: var(--ink); }
+#ui > * { pointer-events: auto; }
+
+#loading {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--serif); font-size: 22px; letter-spacing: 0.04em; color: var(--ink);
+  background: radial-gradient(circle at 50% 40%, #fdf4e0, #e6d3aa);
+  transition: opacity 0.6s ease;
+}
+#loading.gone { opacity: 0; pointer-events: none; }
+
+/* A thin Greek-key band, drawn as an inline SVG (no network). */
+.meander {
+  height: 7px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='7' viewBox='0 0 14 7'%3E%3Cpath d='M0 6.5h10.5V.5h-7v3.5h3.5V2.5' fill='none' stroke='%23b88a50' stroke-width='1'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  opacity: 0.85;
+}
+
+.topbar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 0;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 rgba(120, 80, 40, 0.25), 0 8px 24px rgba(60, 40, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 4px 10px 6px;
+  user-select: none;
+}
+.topbar .row { display: flex; align-items: center; gap: 14px; padding: 4px 4px 2px; }
+.date { display: flex; flex-direction: column; align-items: center; min-width: 168px; }
+.date .month { font-size: 19px; font-variant: small-caps; letter-spacing: 0.05em; line-height: 1.1; }
+.date .days { display: flex; gap: 2px; margin-top: 4px; }
+.date .days i { display: block; width: 4px; height: 4px; border-radius: 2px; background: rgba(122, 92, 60, 0.22); }
+.date .days i.on { background: var(--terracotta); }
+.divider { width: 1px; align-self: stretch; background: linear-gradient(transparent, var(--edge), transparent); opacity: 0.7; }
+
+.speeds { display: flex; gap: 5px; }
+.btn {
+  appearance: none; border: 1.5px solid var(--edge); background: #fff8ea; color: var(--ink);
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; padding: 0;
+  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.28);
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.btn:hover { background: #fff2d6; }
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(120, 80, 40, 0.28); }
+.btn.on { background: var(--terracotta); border-color: var(--terracotta-deep); color: #fff6e4; }
+.btn svg { width: 16px; height: 16px; fill: currentColor; }
+.btn:focus-visible { outline: 2px solid var(--olive); outline-offset: 2px; }
+
+.corner { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; }
+.corner .btn { width: 40px; height: 40px; background: linear-gradient(180deg, var(--parchment), var(--parchment-deep)); }
+.corner .btn svg { width: 22px; height: 22px; }
+.help-q { font-size: 21px; font-weight: bold; line-height: 1; }
+
+.help {
+  position: absolute; top: 64px; right: 14px; width: 300px;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 14px; padding: 12px 16px 14px;
+  box-shadow: 0 8px 24px rgba(60, 40, 20, 0.22);
+  font-size: 14.5px; line-height: 1.45;
+}
+.help[hidden] { display: none; }
+.help h2 { margin: 2px 0 8px; font-size: 17px; font-variant: small-caps; letter-spacing: 0.05em; font-weight: normal; }
+.help dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.help dt { font-weight: bold; color: var(--ink-soft); white-space: nowrap; }
+.help dd { margin: 0; }
+
+.hint {
+  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+  background: rgba(251, 242, 221, 0.92); border: 1px solid var(--edge); border-radius: 999px;
+  padding: 7px 18px; font-size: 14.5px; color: var(--ink); white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
+  transition: opacity 1.2s ease;
+}
+.hint.gone { opacity: 0; pointer-events: none; }
+
+@media (max-width: 640px) {
+  .date { min-width: 120px; }
+  .date .month { font-size: 16px; }
+  .hint { white-space: normal; width: calc(100% - 32px); text-align: center; border-radius: 14px; }
+}
