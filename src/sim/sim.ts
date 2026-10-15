@@ -139,7 +139,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   }
 }
 
-const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], trees: [], cost: 0 });
+const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], trees: [], cost: 0 });
 
 function record(s: SimState, e: UndoEntry): void {
   if (e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length + e.trees.length === 0) return;
@@ -249,6 +249,7 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
   }
   for (const b of homes) {
     e.removedPlots.push(b.z * n + b.x);
+    e.removedIds.push(b.id);
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
@@ -268,12 +269,17 @@ function undoLast(s: SimState, map: CoastMap): void {
   // What it removed comes back where the ground is still free. A home comes
   // back as an empty plot: its family has already gone.
   for (const t of e.removedRoads) if (roadRefusal(map, s, t % n, Math.floor(t / n)) === '') s.tiles[t] = TILE_ROAD;
-  const plots = e.removedPlots.slice().sort((a, b) => a - b);
-  for (const t of plots) {
+  // Older undo entries that placed those plots now point at the new ones,
+  // so undoing them takes the plot away again (and refunds it only once).
+  const order = e.removedPlots.map((_, i) => i).sort((a, b) => e.removedPlots[a] - e.removedPlots[b]);
+  const renamed = new Map<number, number>();
+  for (const i of order) {
+    const t = e.removedPlots[i];
     const x = t % n;
     const z = Math.floor(t / n);
-    if (plotRefusal(map, s, x, z) === '') addPlot(s, n, x, z);
+    if (plotRefusal(map, s, x, z) === '') renamed.set(e.removedIds[i], addPlot(s, n, x, z).id);
   }
+  if (renamed.size) for (const older of s.undo) older.plots = older.plots.map((id) => renamed.get(id) ?? id);
   // Plants grow back where nothing stands.
   if (e.trees.length) {
     const tiles = mapIndex(map).treeTiles;

@@ -60,6 +60,8 @@ export interface UndoEntry {
   removedRoads: number[];
   /** Plots it removed (top-left tiles). */
   removedPlots: number[];
+  /** The ids those plots had (same order), so an undo that brings them back can keep older entries pointing at them. */
+  removedIds: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */

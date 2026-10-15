@@ -177,6 +177,64 @@ describe('settlers', () => {
     expect(sim.state.population).toBeGreaterThan(0);
   });
 
+  it('turn round at once when the tile just ahead of them is cut, instead of stepping over the gap', () => {
+    const sim = new Sim(2);
+    sim.enqueue({ type: 'road', tiles: row(0, 30, 80) });
+    sim.enqueue({ type: 'plots', at: [T(28, 78)] });
+    // Walk them a little way onto the map, half-way between two tiles.
+    watchWalkers(sim, 1);
+    while (!(sim.state.walkers.length && sim.state.walkers[0].tiles[sim.state.walkers[0].seg] >= 0 && sim.state.walkers[0].along > 0.3)) watchWalkers(sim, 1);
+    const w = sim.state.walkers[0];
+    const ahead = w.tiles[w.seg + 1];
+    sim.enqueue({ type: 'clear', x0: ahead % N, z0: 80, x1: ahead % N, z1: 80 });
+    watchWalkers(sim, 400, (s) => {
+      for (const v of s.walkers) {
+        const x = v.path[v.seg * 2];
+        expect(x).toBeLessThan((ahead % N) + 0.5);
+      }
+    });
+    expect(sim.state.population).toBe(0);
+    expect(sim.state.walkers).toEqual([]);
+    expect(sim.state.buildings[0].incoming).toBe(0);
+  });
+
+  it('a family cleared from a tent with no road out walks off across the fields', () => {
+    const sim = new Sim(2);
+    sim.enqueue({ type: 'road', tiles: row(0, 14, 80) });
+    sim.enqueue({ type: 'plots', at: [T(10, 78)] });
+    sim.run(1500);
+    expect(sim.state.population).toBe(5);
+    // Clear the tent and the road beside it, cutting it off from the edge.
+    sim.enqueue({ type: 'clear', x0: 9, z0: 78, x1: 11, z1: 80 });
+    sim.step();
+    expect(sim.state.population).toBe(0);
+    expect(sim.state.walkers.map((w) => [w.kind, w.people])).toEqual([['leaver', 5]]);
+    const w = sim.state.walkers[0];
+    expect(w.tiles.every((t) => t === -1)).toBe(true);
+    sim.run(600);
+    expect(sim.state.walkers).toEqual([]);
+  });
+
+  it('undoing a clear, then the plots it cleared, takes the plots away and refunds them once', () => {
+    const sim = new Sim(2);
+    sim.enqueue({ type: 'road', tiles: row(0, 14, 80) });
+    sim.step();
+    const before = sim.state.money;
+    sim.enqueue({ type: 'plots', at: [T(4, 78), T(6, 78)] });
+    sim.step();
+    sim.enqueue({ type: 'clear', x0: 4, z0: 78, x1: 6, z1: 78 });
+    sim.step();
+    expect(sim.state.buildings).toEqual([]);
+    sim.enqueue({ type: 'undo' });
+    sim.step();
+    expect(sim.state.buildings.length).toBe(2);
+    sim.enqueue({ type: 'undo' });
+    sim.step();
+    expect(sim.state.buildings).toEqual([]);
+    expect(sim.state.money).toBe(before);
+    expect(sim.state.tiles[T(4, 78)]).toBe(TILE_EMPTY);
+  });
+
   it('clearing a tent sends its family out and lowers the population; undo brings back an empty plot', () => {
     const sim = new Sim(2);
     sim.enqueue({ type: 'road', tiles: row(0, 14, 80) });

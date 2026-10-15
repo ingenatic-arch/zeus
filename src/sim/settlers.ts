@@ -6,7 +6,7 @@
 import type { CoastMap } from '../map/bake';
 import { PLOT_SIZE, plotNeighbours } from './build';
 import { nextInt } from './rng';
-import { edgeRoads, nearestEdge, nearestReached, roadSearch, tracePath, type Search } from './roads';
+import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 
 /** How often (ticks) the city looks for a home for a new group of settlers. */
@@ -74,10 +74,11 @@ function setPath(w: Walker, pts: Array<[number, number, number]>): void {
   w.route++;
 }
 
-function roadPoints(size: number, tiles: number[]): Array<[number, number, number]> {
+function roadPoints(s: SimState, size: number, tiles: number[]): Array<[number, number, number]> {
   return tiles.map((t) => {
     const [x, z] = centre(size, t);
-    return [x, z, t];
+    // A tile that is no longer a road (just cleared under a walker) is walked as open ground.
+    return [x, z, s.tiles[t] === TILE_ROAD ? t : -1];
   });
 }
 
@@ -119,44 +120,102 @@ export function spawnSettlers(s: SimState, map: CoastMap): void {
   const [ox, oz] = offMapPoint(size, road[0]);
   const [px, pz] = plotCentre(b);
   const w: Walker = { id: s.nextId++, kind: 'settler', people, home: b.id, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0 };
-  setPath(w, [[ox, oz, -1], ...roadPoints(size, road), [px, pz, -1]]);
+  setPath(w, [[ox, oz, -1], ...roadPoints(s, size, road), [px, pz, -1]]);
   b.incoming += people;
   s.walkers.push(w);
 }
 
 /**
  * Send people out of the city from a spot beside the given road tiles
- * (a home being cleared). Returns false if no road leads out.
+ * (a home being cleared): along the road to the edge if one leads there,
+ * otherwise on foot across the fields. Returns false if there is no way out at all.
  */
 export function sendLeavers(s: SimState, map: CoastMap, people: number, from: [number, number], roads: number[]): boolean {
-  const size = map.size;
-  const starts = roads.filter((t) => s.tiles[t] === TILE_ROAD);
-  if (people <= 0 || starts.length === 0) return false;
-  const search = roadSearch(s, size, starts);
-  const edge = nearestEdge(search, s, size);
-  if (edge < 0) return false;
-  const road = tracePath(search, edge);
-  const [ox, oz] = offMapPoint(size, edge);
+  if (people <= 0) return false;
   const w: Walker = { id: s.nextId++, kind: 'leaver', people, home: 0, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0 };
-  setPath(w, [[from[0], from[1], -1], ...roadPoints(size, road), [ox, oz, -1]]);
+  const starts = roads.filter((t) => s.tiles[t] === TILE_ROAD);
+  if (!walkOut(s, map, w, from, starts)) {
+    s.nextId--;
+    return false;
+  }
   s.walkers.push(w);
   return true;
 }
 
-/** Find a new way for a walker standing at waypoint `w.seg`. Returns false if it should vanish. */
+/**
+ * Point a walker out of the city from where it stands: along the road from
+ * the given road tiles (or the tile it stands on) to the nearest edge, or, if
+ * no road leads out, straight across the fields to the nearest edge.
+ */
+function walkOut(s: SimState, map: CoastMap, w: Walker, here: [number, number], roads: number[], ahead = -1): boolean {
+  const size = map.size;
+  const start: Array<[number, number, number]> = [[here[0], here[1], -1]];
+  if (roads.length) {
+    const search = roadSearch(s, size, roads);
+    const edge = nearestEdge(search, s, size);
+    if (edge >= 0) {
+      const [ox, oz] = offMapPoint(size, edge);
+      setPath(w, [...start, ...roadPoints(s, size, onward(tracePath(search, edge), ahead)), [ox, oz, -1]]);
+      return true;
+    }
+  }
+  const tx = Math.min(size - 1, Math.max(0, Math.floor(here[0])));
+  const tz = Math.min(size - 1, Math.max(0, Math.floor(here[1])));
+  const way = overland(map, tz * size + tx);
+  if (!way) return false;
+  const pts: Array<[number, number, number]> = [...start];
+  for (let i = 0; i < way.points.length; i += 2) pts.push([way.points[i], way.points[i + 1], -1]);
+  const [ox, oz] = offMapPoint(size, way.edge);
+  pts.push([ox, oz, -1]);
+  setPath(w, pts);
+  return true;
+}
+
+/**
+ * A walker re-routing between two road tiles starts its new way from the tile
+ * behind it; if the way goes on through the tile ahead, skip the step back.
+ */
+function onward(tiles: number[], ahead: number): number[] {
+  return ahead >= 0 && tiles.length > 1 && tiles[1] === ahead ? tiles.slice(1) : tiles;
+}
+
+/** Where a walker is now, between its waypoints. */
+function position(w: Walker): [number, number] {
+  const i = w.seg * 2;
+  if (i + 3 >= w.path.length) return [w.path[w.path.length - 2], w.path[w.path.length - 1]];
+  const x0 = w.path[i];
+  const z0 = w.path[i + 1];
+  const len = Math.hypot(w.path[i + 2] - x0, w.path[i + 3] - z0) || 1;
+  const f = Math.min(1, w.along / len);
+  return [x0 + (w.path[i + 2] - x0) * f, z0 + (w.path[i + 3] - z0) * f];
+}
+
+/**
+ * Find a new way for a walker whose road ahead was cut or whose home has gone,
+ * starting from where it stands (it turns round if it must). Returns false if
+ * it should vanish.
+ */
 function reroute(s: SimState, map: CoastMap, w: Walker): boolean {
   const size = map.size;
-  const here: [number, number] = [w.path[w.seg * 2], w.path[w.seg * 2 + 1]];
+  const here = position(w);
+  const ahead = w.seg + 1 < w.tiles.length ? w.tiles[w.seg + 1] : -1;
   // Off the road (beyond the edge, or at a plot): step back onto the last road tile walked.
   let cur = w.tiles[w.seg];
   for (let k = w.seg; cur < 0 && k >= 0; k--) cur = w.tiles[k];
   if (cur < 0) {
-    // Still outside the map: the way in has gone, so turn back.
-    if (w.home) {
+    if (w.kind === 'settler') {
+      // Still outside the map: the way in has gone, so turn back the way they came.
       const b = findBuilding(s, w.home);
       if (b) b.incoming -= w.people;
+      w.kind = 'leaver';
+      w.home = 0;
+      setPath(w, [
+        [here[0], here[1], -1],
+        [w.path[0], w.path[1], -1],
+      ]);
+      return true;
     }
-    return false;
+    return walkOut(s, map, w, here, []);
   }
   const search = roadSearch(s, size, [cur]);
   const start: Array<[number, number, number]> = [[here[0], here[1], -1]];
@@ -181,18 +240,14 @@ function reroute(s: SimState, map: CoastMap, w: Walker): boolean {
     }
     if (b && at >= 0) {
       const [px, pz] = plotCentre(b);
-      setPath(w, [...start, ...roadPoints(size, tracePath(search, at)), [px, pz, -1]]);
+      setPath(w, [...start, ...roadPoints(s, size, onward(tracePath(search, at), ahead)), [px, pz, -1]]);
       return true;
     }
     // Nowhere to live: walk back out.
     w.kind = 'leaver';
     w.home = 0;
   }
-  const edge = nearestEdge(search, s, size);
-  if (edge < 0) return false;
-  const [ox, oz] = offMapPoint(size, edge);
-  setPath(w, [...start, ...roadPoints(size, tracePath(search, edge)), [ox, oz, -1]]);
-  return true;
+  return walkOut(s, map, w, here, [cur], ahead);
 }
 
 /** Is the way ahead still open (the next tile still a road, the home still there)? */
@@ -229,6 +284,8 @@ export function stepWalkers(s: SimState, map: CoastMap): void {
 }
 
 function moveWalker(s: SimState, map: CoastMap, w: Walker): boolean {
+  // The road just ahead may have been cut (or the home cleared) since the last tick.
+  if (!aheadOk(s, w) && !reroute(s, map, w)) return false;
   let move = WALK_SPEED;
   // A few hops at most per tick; the loop guards against zero-length segments.
   for (let guard = 0; guard < 8 && move > 0; guard++) {

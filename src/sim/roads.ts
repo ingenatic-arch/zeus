@@ -103,6 +103,66 @@ export function nearestEdge(search: Search, s: SimState, size: number): number {
   return best;
 }
 
+/**
+ * A way on foot across open land (not water or steep rock) from a tile to the
+ * nearest tile on the map's edge, for people leaving with no road out. Returns
+ * waypoints (x, z pairs at tile centres, straightened where the ground between
+ * allows) ending on the edge tile, or null if there is no way.
+ */
+export function overland(map: CoastMap, from: number): { points: number[]; edge: number } | null {
+  const size = map.size;
+  const ground = mapIndex(map).ground;
+  const open = (t: number): boolean => ground[t] !== Ground.Water && ground[t] !== Ground.Steep && ground[t] !== Ground.OffMap;
+  const parent = new Int32Array(size * size).fill(-1);
+  const queue = new Int32Array(size * size);
+  let head = 0;
+  let tail = 0;
+  parent[from] = from;
+  queue[tail++] = from;
+  const nb: number[] = [];
+  let edge = -1;
+  while (head < tail) {
+    const t = queue[head++];
+    if (isEdgeTile(size, t)) {
+      edge = t;
+      break;
+    }
+    for (const u of neighbours(size, t, nb)) {
+      if (parent[u] !== -1 || !open(u)) continue;
+      parent[u] = t;
+      queue[tail++] = u;
+    }
+  }
+  if (edge < 0) return null;
+  const tiles = tracePath({ parent, dist: parent }, edge);
+  // Straighten: from each point, go straight to the furthest later one the
+  // ground between allows.
+  const cx = (t: number): number => (t % size) + 0.5;
+  const cz = (t: number): number => Math.floor(t / size) + 0.5;
+  const clear = (a: number, b: number): boolean => {
+    const ax = cx(a);
+    const az = cz(a);
+    const len = Math.hypot(cx(b) - ax, cz(b) - az);
+    const steps = Math.ceil(len * 4);
+    for (let k = 1; k < steps; k++) {
+      const f = k / steps;
+      const x = Math.floor(ax + (cx(b) - ax) * f);
+      const z = Math.floor(az + (cz(b) - az) * f);
+      if (!open(z * size + x)) return false;
+    }
+    return true;
+  };
+  const points: number[] = [cx(tiles[0]), cz(tiles[0])];
+  let i = 0;
+  while (i < tiles.length - 1) {
+    let j = tiles.length - 1;
+    while (j > i + 1 && !clear(tiles[i], tiles[j])) j--;
+    points.push(cx(tiles[j]), cz(tiles[j]));
+    i = j;
+  }
+  return { points, edge };
+}
+
 // ---------------------------------------------------------------------------
 // Laying a road: A* over buildable tiles from one tile to another, with a
 // penalty for turning so roads run straight where they can. Existing roads
