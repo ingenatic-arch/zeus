@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FIELD_MIN, FIELD_N, OUTER_STEP, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
+import { FIELD_MIN, FIELD_N, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { coast, MAP_SIZE } from '../map/coast';
 import { hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
 import { col, PAL } from './palette';
@@ -17,7 +17,8 @@ function groundColour(map: CoastMap, x: number, z: number, h: number, ny: number
   const steep = 1 - ny;
   const q = map.riverAt(x, z);
   const inRiver = q.d < q.width + 0.1 && q.surface > 0.02;
-  const bankAmt = q.surface > 0.05 && h < q.surface + 0.25 ? 1 - smoothstep(q.width + 0.1, q.width + 0.9, q.d) : 0;
+  // The pebbly shelf beside the stream, out to where the bank rises from the water.
+  const bankAmt = q.surface > 0.05 && h < q.surface + 0.25 ? 1 - smoothstep(q.width + RIVER_SHELF - 0.1, q.width + RIVER_SHELF + 0.6, q.d) : 0;
   const onBank = bankAmt > 0.5;
 
   if (inRiver) {

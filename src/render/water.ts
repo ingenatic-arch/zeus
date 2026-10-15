@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { FIELD_MIN, FIELD_N, type CoastMap } from '../map/bake';
+import { FIELD_MIN, FIELD_N, RIVER_EDGE_FADE, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
+import { smoothstep } from '../map/noise';
 import { col, PAL } from './palette';
 
 /**
@@ -20,15 +21,26 @@ const vertex = /* glsl */ `
   uniform float uFieldSize;
   attribute vec2 aFlow;
   attribute float aFade;
+  attribute float aEdge;
   varying float vFade;
+  varying float vEdge;
   varying vec3 vWorld;
   varying float vBaseY;
   varying vec2 vFlow;
 
-  float ground(vec2 p) {
+  // The baked ground: r is the height, g how much the river covers the spot.
+  // Beyond the baked field the sea floor carries on from the field's edge
+  // and slopes gently away, so the water's colour has no seam there.
+  vec2 groundAt(vec2 p) {
     vec2 uv = (p - uFieldMin + 0.5) / uFieldSize;
-    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return -9.0;
-    return texture2D(uGround, uv).r;
+    vec2 g = texture2D(uGround, clamp(uv, 0.0, 1.0)).rg;
+    vec2 out_ = abs(uv - clamp(uv, 0.0, 1.0)) * uFieldSize;
+    float beyond = max(out_.x, out_.y);
+    if (beyond > 0.0) {
+      float r = mix(g.r, min(g.r, -1.0), smoothstep(0.0, 40.0, beyond));
+      g = vec2(mix(r, -9.0, smoothstep(0.0, 400.0, beyond)), 0.0);
+    }
+    return g;
   }
 
   float waves(vec2 p, float t) {
@@ -43,13 +55,17 @@ const vertex = /* glsl */ `
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
     vBaseY = wp.y;
-    float depth = wp.y - ground(wp.xz);
+    vec2 g = groundAt(wp.xz);
+    float depth = wp.y - g.r;
     float edge = 1.0 - smoothstep(110.0, 128.0, max(abs(wp.x - 64.0), abs(wp.z - 64.0)) - 64.0);
     float amp = uWaveAmp * smoothstep(0.0, 1.6, depth) * mix(1.0, edge, 1.0 - uRiver);
+    // The sea lies flat under the river's mouth, so the river always shows above it.
+    amp *= 1.0 - g.g * (1.0 - uRiver);
     wp.y += waves(wp.xz, uTime) * amp * (0.6 + 0.6 * length(uWind));
     vWorld = wp.xyz;
     vFlow = aFlow;
     vFade = aFade;
+    vEdge = aEdge;
     vec4 mvPosition = viewMatrix * wp;
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -76,11 +92,19 @@ const fragment = /* glsl */ `
   varying float vBaseY;
   varying vec2 vFlow;
   varying float vFade;
+  varying float vEdge;
+  uniform vec2 uEdgeFade;
 
-  float ground(vec2 p) {
+  vec2 groundAt(vec2 p) {
     vec2 uv = (p - uFieldMin + 0.5) / uFieldSize;
-    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return -9.0;
-    return texture2D(uGround, uv).r;
+    vec2 g = texture2D(uGround, clamp(uv, 0.0, 1.0)).rg;
+    vec2 out_ = abs(uv - clamp(uv, 0.0, 1.0)) * uFieldSize;
+    float beyond = max(out_.x, out_.y);
+    if (beyond > 0.0) {
+      float r = mix(g.r, min(g.r, -1.0), smoothstep(0.0, 40.0, beyond));
+      g = vec2(mix(r, -9.0, smoothstep(0.0, 400.0, beyond)), 0.0);
+    }
+    return g;
   }
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -89,7 +113,8 @@ const fragment = /* glsl */ `
     vec3 N = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
     if (N.y < 0.0) N = -N;
     vec3 V = normalize(cameraPosition - vWorld);
-    float depth = max(vBaseY - ground(vWorld.xz), 0.0);
+    vec2 g = groundAt(vWorld.xz);
+    float depth = max(vBaseY - g.r, 0.0);
 
     vec3 c;
     if (uRiver > 0.5) {
@@ -138,7 +163,19 @@ const fragment = /* glsl */ `
 
     float alpha = mix(0.62, 0.94, smoothstep(0.0, 2.5, depth));
     alpha = max(alpha, foam);
-    alpha *= vFade;
+    if (uRiver > 0.5) {
+      // The stream draws its own edge, a smooth curve with a thin line of foam,
+      // fading out over the shallow shelf before the bank breaks the surface.
+      float rim = smoothstep(uEdgeFade.x - 0.16, uEdgeFade.x, vEdge);
+      c = mix(c, uFoam, rim * 0.6);
+      alpha = max(alpha, rim * 0.8);
+      alpha *= 1.0 - smoothstep(uEdgeFade.x, uEdgeFade.y, vEdge);
+      alpha *= vFade;
+    } else {
+      // Where the river runs out into the bay, the sea gives way to it.
+      alpha *= 1.0 - g.g;
+    }
+    if (alpha < 0.004) discard;
     gl_FragColor = vec4(c, alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -152,10 +189,39 @@ export interface Water {
   setSun(dir: THREE.Vector3): void;
 }
 
+/** How strongly the river shows at each point, from the edge of the stream and its fade into the sea. */
+function riverCover(map: CoastMap, x: number, z: number): number {
+  const q = map.riverAt(x, z);
+  if (q.t > 0.995) return 0;
+  return (1 - smoothstep(RIVER_EDGE_FADE[0], RIVER_EDGE_FADE[1], q.d - q.width)) * Math.min(1, q.surface / 0.25);
+}
+
+/** The ground under the water, baked for the shader: r is the height, g how much the river covers it. */
 function groundTexture(map: CoastMap): THREE.DataTexture {
-  const data = new Uint16Array(FIELD_N * FIELD_N);
-  for (let i = 0; i < data.length; i++) data[i] = THREE.DataUtils.toHalfFloat(map.heights[i]);
-  const tex = new THREE.DataTexture(data, FIELD_N, FIELD_N, THREE.RedFormat, THREE.HalfFloatType);
+  const n = FIELD_N * FIELD_N;
+  const data = new Uint16Array(n * 2);
+  for (let i = 0; i < n; i++) data[i * 2] = THREE.DataUtils.toHalfFloat(map.heights[i]);
+  // The river's cover only matters where it meets the sea, near its mouth.
+  const r = map.river;
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let z0 = Infinity;
+  let z1 = -Infinity;
+  for (let i = 0; i < r.xs.length; i++) {
+    if (r.surface[i] > 0.4) continue;
+    x0 = Math.min(x0, r.xs[i]);
+    x1 = Math.max(x1, r.xs[i]);
+    z0 = Math.min(z0, r.zs[i]);
+    z1 = Math.max(z1, r.zs[i]);
+  }
+  const pad = 6;
+  for (let z = Math.floor(z0) - pad; z <= Math.ceil(z1) + pad; z++) {
+    for (let x = Math.floor(x0) - pad; x <= Math.ceil(x1) + pad; x++) {
+      if (!map.inField(x, z)) continue;
+      data[map.idx(x, z) * 2 + 1] = THREE.DataUtils.toHalfFloat(riverCover(map, x, z));
+    }
+  }
+  const tex = new THREE.DataTexture(data, FIELD_N, FIELD_N, THREE.RGFormat, THREE.HalfFloatType);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -172,15 +238,12 @@ function makeMaterial(shared: Record<string, THREE.IUniform>, river: boolean): T
     fog: true,
     // The horizon skirt's quads face either way; the underside is never seen anyway.
     side: THREE.DoubleSide,
-    depthWrite: true,
+    // The sea is drawn first and leaves the depth alone, so it can never hide
+    // the river where the two meet; nothing else transparent comes after.
+    depthWrite: river,
   });
   // Share the live uniforms (time, sun, colours) between both materials.
   Object.assign(m.uniforms, shared);
-  if (river) {
-    m.polygonOffset = true;
-    m.polygonOffsetFactor = -1;
-    m.polygonOffsetUnits = -2;
-  }
   return m;
 }
 
@@ -234,6 +297,7 @@ function seaGeometry(map: CoastMap): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
   g.setAttribute('aFade', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3).fill(1), 1));
+  g.setAttribute('aEdge', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3).fill(-10), 1));
   g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
@@ -244,6 +308,7 @@ function riverGeometry(map: CoastMap): THREE.BufferGeometry {
   const pos: number[] = [];
   const flow: number[] = [];
   const fade: number[] = [];
+  const edge: number[] = [];
   const idx: number[] = [];
   const ids = new Map<number, number>();
   const vert = (x: number, z: number): number => {
@@ -256,6 +321,8 @@ function riverGeometry(map: CoastMap): THREE.BufferGeometry {
       flow.push(q.dirX, q.dirZ);
       // Melt into the sea where the river reaches sea level.
       fade.push(Math.min(1, q.surface / 0.25));
+      // Distance past the stream's edge; the shader fades the water out over the shelf.
+      edge.push(q.d - q.width);
       ids.set(k, v);
     }
     return v;
@@ -263,7 +330,8 @@ function riverGeometry(map: CoastMap): THREE.BufferGeometry {
   for (let z = 0; z < MAP_SIZE; z++) {
     for (let x = 0; x < MAP_SIZE; x++) {
       const q = map.riverAt(x + 0.5, z + 0.5);
-      if (q.d > q.width + 1.3 || q.t > 0.995) continue;
+      // Cover every cell the faded edge can reach (half a cell's diagonal past it).
+      if (q.d > q.width + RIVER_EDGE_FADE[1] + 0.75 || q.t > 0.995) continue;
       const a = vert(x, z);
       const b = vert(x + 1, z);
       const c = vert(x, z + 1);
@@ -275,6 +343,7 @@ function riverGeometry(map: CoastMap): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new THREE.Float32BufferAttribute(flow, 2));
   g.setAttribute('aFade', new THREE.Float32BufferAttribute(fade, 1));
+  g.setAttribute('aEdge', new THREE.Float32BufferAttribute(edge, 1));
   g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
@@ -295,6 +364,7 @@ export function buildWater(map: CoastMap): Water {
     uGround: { value: groundTexture(map) },
     uFieldMin: { value: new THREE.Vector2(FIELD_MIN, FIELD_MIN) },
     uFieldSize: { value: FIELD_N },
+    uEdgeFade: { value: new THREE.Vector2(...RIVER_EDGE_FADE) },
   };
   const group = new THREE.Group();
   group.name = 'water';

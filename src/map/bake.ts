@@ -19,6 +19,12 @@ export const FIELD_MIN = -MAP_MARGIN;
 export const FIELD_N = MAP_SIZE + 2 * MAP_MARGIN + 1;
 export const OUTER_STEP = 2;
 
+/** The shelf beside the stream: how far it reaches past the water's edge, and how far under the surface. */
+export const RIVER_SHELF = 1.0;
+export const RIVER_SHELF_DEPTH = 0.12;
+/** Where the river's water fades out, measured from the edge of the stream. */
+export const RIVER_EDGE_FADE: [number, number] = [0.16, 0.32];
+
 export const WATER_NONE = 0;
 export const WATER_SEA = 1;
 export const WATER_RIVER = 2;
@@ -478,16 +484,22 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       const s = q.surface;
       const w = q.width;
       const V = q.valley;
+      // Beside the stream a pebbly shelf lies just under the water line, so
+      // the ground only breaks the surface a little way out, beyond where the
+      // water fades away: the water draws its own smooth edge instead of the
+      // one-unit terrain facets cutting a saw-tooth through it.
+      const bank = s + 0.05 + 0.3 * smoothstep(w + RIVER_SHELF, w + RIVER_SHELF + 0.8, q.d);
       if (q.d < w) {
         const depth = lerp(0.35, 0.95, q.t);
-        heights[k] = Math.min(h0, s - 0.1 - depth * (1 - (q.d / w) ** 4));
+        heights[k] = Math.min(h0, s - RIVER_SHELF_DEPTH - depth * (1 - (q.d / w) ** 4));
+      } else if (q.d < w + RIVER_SHELF) {
+        heights[k] = Math.min(h0, s - RIVER_SHELF_DEPTH);
       } else if (h0 > s) {
-        const bank = s + 0.3 * smoothstep(w - 0.2, w + 1.0, q.d);
-        const blend = smoothstep(w + 0.8, w + V, q.d);
+        const blend = smoothstep(w + RIVER_SHELF + 0.5, w + V, q.d);
         heights[k] = Math.min(h0, lerp(bank, h0, blend));
-      } else if (s > 0.3 && q.d < w + 2) {
+      } else if (s > 0.3 && q.d < w + RIVER_SHELF + 1.5) {
         // Never let the bank dip below the water beside it (no floating water).
-        heights[k] = s + 0.3 * smoothstep(w - 0.2, w + 1.0, q.d);
+        heights[k] = bank;
       }
       // The flood plain is fertile; it fades away from the water.
       if (shore[k] > 1) {
@@ -537,7 +549,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       tileFertility[t] = (fertility[cs[0]] + fertility[cs[1]] + fertility[cs[2]] + fertility[cs[3]]) / 4;
       const q = queryRiver(river, tx + 0.5, tz + 0.5);
       const minH = Math.min(heights[cs[0]], heights[cs[1]], heights[cs[2]], heights[cs[3]]);
-      if (q.d < q.width + 0.35 && q.surface > 0.03) tileWater[t] = WATER_RIVER;
+      if (q.d < q.width + RIVER_EDGE_FADE[1] && q.surface > 0.03) tileWater[t] = WATER_RIVER;
       else if (minH < 0) tileWater[t] = WATER_SEA;
     }
   }
