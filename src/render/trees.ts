@@ -131,6 +131,23 @@ function reeds(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+function flowers(): THREE.BufferGeometry {
+  const parts: Part[] = [{ geo: blob(0.18, 0, 0.05, 0, 0.45, 15), color: PAL.scrub }];
+  const heads: Array<[number, number, number, string]> = [
+    [0.0, 0.0, 0.16, PAL.poppy],
+    [0.17, 0.08, 0.13, PAL.poppy],
+    [-0.14, 0.1, 0.12, PAL.daisy],
+    [0.06, -0.16, 0.14, PAL.poppy],
+    [-0.12, -0.1, 0.11, PAL.daisy],
+    [0.2, -0.12, 0.1, PAL.broom],
+  ];
+  for (const [x, z, h, c] of heads) {
+    // Heads only (no stems): from any distance you see the dots of colour.
+    parts.push({ geo: new THREE.OctahedronGeometry(0.04, 0).scale(1, 0.75, 1).translate(x, h * 0.75, z), color: c });
+  }
+  return merge(parts);
+}
+
 const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Olive]: olive,
   [TreeKind.Pine]: pine,
@@ -139,6 +156,7 @@ const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Broom]: broom,
   [TreeKind.Rock]: rock,
   [TreeKind.Reed]: reeds,
+  [TreeKind.Flowers]: flowers,
 };
 
 /** How much the colour of each kind varies between instances. */
@@ -150,9 +168,37 @@ const TINT: Record<TreeKind, number> = {
   [TreeKind.Broom]: 0.08,
   [TreeKind.Rock]: 0.1,
   [TreeKind.Reed]: 0.1,
+  [TreeKind.Flowers]: 0.12,
 };
 
-export function buildTrees(map: CoastMap): THREE.Group {
+/** Plants lean gently in the breeze: the higher up, the more they move. */
+function swaying(mat: THREE.MeshStandardMaterial, time: { value: number }, amount: number): THREE.MeshStandardMaterial {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = time;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          vec2 ip = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
+          float ph = uTime * 1.4 + ip.x * 0.31 + ip.y * 0.23;
+          float bend = max(transformed.y - 0.15, 0.0) * ${amount.toFixed(3)};
+          transformed.x += (sin(ph) + 0.4 * sin(ph * 2.3)) * bend;
+          transformed.z += cos(ph * 0.8) * bend * 0.5;
+        #endif`,
+      );
+  };
+  mat.customProgramCacheKey = () => `sway-${amount}`;
+  return mat;
+}
+
+export interface Plants {
+  group: THREE.Group;
+  update(time: number): void;
+}
+
+export function buildTrees(map: CoastMap): Plants {
   const group = new THREE.Group();
   group.name = 'trees';
   const byKind = new Map<TreeKind, TreeInstance[]>();
@@ -161,7 +207,14 @@ export function buildTrees(map: CoastMap): THREE.Group {
     list.push(t);
     byKind.set(t.kind, list);
   }
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0 });
+  const time = { value: 0 };
+  const plain = (): THREE.MeshStandardMaterial =>
+    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0 });
+  const rockMat = plain();
+  const treeMat = swaying(plain(), time, 0.035);
+  const grassMat = swaying(plain(), time, 0.12);
+  const materialFor = (k: TreeKind): THREE.Material =>
+    k === TreeKind.Rock ? rockMat : k === TreeKind.Reed || k === TreeKind.Flowers ? grassMat : treeMat;
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
@@ -169,9 +222,9 @@ export function buildTrees(map: CoastMap): THREE.Group {
   const up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
   for (const [kind, list] of byKind) {
-    const mesh = new THREE.InstancedMesh(MODELS[kind](), mat, list.length);
+    const mesh = new THREE.InstancedMesh(MODELS[kind](), materialFor(kind), list.length);
     mesh.name = `trees-${TreeKind[kind]}`;
-    mesh.castShadow = kind !== TreeKind.Reed;
+    mesh.castShadow = kind !== TreeKind.Reed && kind !== TreeKind.Flowers;
     mesh.receiveShadow = true;
     list.forEach((t, i) => {
       // Sit the base slightly into the ground so slopes never show a gap.
@@ -191,5 +244,10 @@ export function buildTrees(map: CoastMap): THREE.Group {
     mesh.computeBoundingSphere();
     group.add(mesh);
   }
-  return group;
+  return {
+    group,
+    update(t: number) {
+      time.value = t;
+    },
+  };
 }

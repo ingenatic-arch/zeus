@@ -31,6 +31,7 @@ export enum TreeKind {
   Broom = 4,
   Rock = 5,
   Reed = 6,
+  Flowers = 7,
 }
 
 export interface TreeInstance {
@@ -663,6 +664,20 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
       if (roll < scrubChance + 0.012 * smoothstep(3, 10, d) * (1 - fert) * outsideFade) {
         put(TreeKind.Pine, px, pz, rng.range(0.85, 1.2));
       }
+    }
+  }
+
+  // Wild flowers in drifts on the meadows and the river plain.
+  for (let z = -10; z < MAP_SIZE + 10; z += 1.15) {
+    for (let x = -10; x < MAP_SIZE + 10; x += 1.15) {
+      const px = x + rng.range(-0.5, 0.5);
+      const pz = z + rng.range(-0.5, 0.5);
+      const drift = valueNoise(px * 0.13, pz * 0.13, seed + 81);
+      const fert = map.sample(map.fertility, px, pz);
+      const chance = smoothstep(0.62, 0.85, drift) * (0.25 + 0.6 * fert) * (1 - map.sample(map.rock, px, pz));
+      if (rng.float() >= chance) continue;
+      if (!groundOk(px, pz, 0.5)) continue;
+      put(TreeKind.Flowers, px, pz, rng.range(0.8, 1.2), false);
     }
   }
 

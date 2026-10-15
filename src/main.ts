@@ -18,6 +18,9 @@ interface Probe {
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
+  view?: () => Required<CameraView>;
+  tick?: () => number;
+  meshes?: () => Array<{ name: string; count: number; triangles: number; shadow: boolean }>;
 }
 
 const params = new URLSearchParams(location.search);
@@ -41,7 +44,8 @@ function start(): void {
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   canvas.tabIndex = 0;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  // Capped at 1.5: on high-density screens full resolution costs a lot of shading for little gain.
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -75,14 +79,31 @@ function start(): void {
   });
   probe.setView = (name: string) => rig.jumpTo(VIEWS[name] ?? VIEWS.coast);
   probe.jump = (v: CameraView) => rig.jumpTo(v);
+  probe.view = () => rig.view;
+  probe.tick = () => sim.state.tick;
+  probe.meshes = () => {
+    const out: Array<{ name: string; count: number; triangles: number; shadow: boolean }> = [];
+    world.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const g = m.geometry;
+      const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+      const count = (m as THREE.InstancedMesh).isInstancedMesh ? (m as THREE.InstancedMesh).count : 1;
+      out.push({ name: m.name, count, triangles: tris * count, shadow: m.castShadow });
+    });
+    return out;
+  };
 
   let last = performance.now();
   let time = 0;
   renderer.setAnimationLoop((now) => {
-    const dt = Math.min(0.1, (now - last) / 1000);
+    const raw = Math.max(0, (now - last) / 1000);
     last = now;
+    // The clock keeps real time even when frames are slow (up to a second's
+    // gap); animation and the camera take smaller steps so nothing lurches.
+    driver.update(Math.min(1, raw));
+    const dt = Math.min(0.1, raw);
     time += dt;
-    driver.update(dt);
     pollKeys(dt);
     rig.update(dt);
     const w = sim.state.wind;

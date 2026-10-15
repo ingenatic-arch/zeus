@@ -15,6 +15,7 @@ const SHOTS = {
   headland: '?cam=headland&speed=paused&shot=1',
   mouth: '?cam=mouth&speed=paused&shot=1',
   ui: '?demo=coast',
+  help: '?demo=coast&speed=paused',
 };
 
 const want = process.argv.slice(2);
@@ -34,6 +35,7 @@ for (const name of names) {
   await page.goto(url + q);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
+  if (name === 'help') await page.keyboard.press('h');
   const file = `${outDir}/${name.replace(/[^a-z0-9-]+/gi, '_')}.png`;
   await page.screenshot({ path: file });
   console.log(`${name}: ${file} (${Date.now() - t0} ms)`);

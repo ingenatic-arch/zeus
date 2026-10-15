@@ -5,7 +5,7 @@ import type { CameraRig } from './cameraRig';
 import { col, PAL } from './palette';
 import { buildSky } from './sky';
 import { buildTerrain } from './terrain';
-import { buildTrees } from './trees';
+import { buildTrees, type Plants } from './trees';
 import { buildWater, type Water } from './water';
 
 /** Direction towards the sun: a warm afternoon sun from the south-west. */
@@ -15,6 +15,7 @@ export const SUN_DIR = new THREE.Vector3(-0.62, 0.62, 0.48).normalize();
 export class World {
   readonly scene = new THREE.Scene();
   readonly water: Water;
+  readonly plants: Plants;
   private readonly sun: THREE.DirectionalLight;
   private readonly fog: THREE.Fog;
 
@@ -26,7 +27,8 @@ export class World {
 
     scene.add(buildSky(SUN_DIR));
     scene.add(buildTerrain(map));
-    scene.add(buildTrees(map));
+    this.plants = buildTrees(map);
+    scene.add(this.plants.group);
     this.water = buildWater(map);
     this.water.setSun(SUN_DIR);
     scene.add(this.water.group);
@@ -46,6 +48,7 @@ export class World {
   /** Keep the shadow box around what the camera is looking at, sized to the view. */
   update(time: number, rig: CameraRig, windAngle: number, windStrength: number): void {
     this.water.update(time, windAngle, windStrength);
+    this.plants.update(time);
     const t = rig.target;
     const size = clamp(rig.distance * 0.9, 14, 120);
     const sh = this.sun.shadow.camera;

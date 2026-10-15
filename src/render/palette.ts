@@ -39,6 +39,8 @@ export const PAL = {
   rock: '#c2b49b',
   reed: '#a3b25c',
   reedTip: '#c9a865',
+  poppy: '#d9442e',
+  daisy: '#fbf6e8',
   // Sky and light
   skyZenith: '#4f9fe0',
   skyReflect: '#a9d6ec',

@@ -13,6 +13,6 @@ export async function launch() {
   return chromium.launch({
     executablePath,
     headless: true,
-    args: ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'],
+    args: ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl', '--disable-background-networking', '--disable-component-update', '--no-first-run'],
   });
 }

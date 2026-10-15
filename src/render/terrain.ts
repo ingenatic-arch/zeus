@@ -133,7 +133,8 @@ export function buildTerrain(map: CoastMap): THREE.Group {
   }
   const outerMesh = new THREE.Mesh(buildGrid(map, outer, OUTER_STEP), mat);
   outerMesh.receiveShadow = true;
-  outerMesh.castShadow = true;
+  // The scenery beyond the map is never inside the shadow box's interesting part.
+  outerMesh.castShadow = false;
   outerMesh.name = 'terrain-surroundings';
   group.add(outerMesh);
   return group;
