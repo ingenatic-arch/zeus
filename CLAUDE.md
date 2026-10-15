@@ -8,7 +8,7 @@ Read `docs/vision/VISION.md` first. When anything disagrees with it, the vision 
 - `docs/specs/YYYY-MM-DD-<phase-name>-design.md`: one spec per phase.
 - `docs/plans/YYYY-MM-DD-slice-<N>-<slice-name>.md`: one plan per slice, numbered across the whole project.
 - `docs/CHECKINS.md`: notes to Oliver, newest first, one per slice plus a summary per phase.
-- Until a GitHub repository exists, the git repository (code, docs and `.git` history) lives in the shared project folder at `/mnt/project-files/zeus/`. Sessions work in a local copy (for example `/home/claude/zeus`, with `node_modules` installed locally, never in the shared folder) and copy it back to the shared folder after each commit, excluding `node_modules/` and `dist/`.
+- The code lives on GitHub at `ingenatic-arch/zeus` (branch `main`). Push after every commit. A mirror (code, docs and `.git` history, without `node_modules/` or `dist/`) is also copied to the shared project folder `/mnt/project-files/zeus/` with `scripts/sync-to-shared.sh` so other threads can read it; never edit files there directly.
 
 ## Run mode
 
