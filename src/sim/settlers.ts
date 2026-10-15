@@ -1,85 +1,45 @@
-/**
- * Settlers and leavers: groups who walk the road network. Settlers come in
- * where a road meets the edge of the map, walk to a plot with room and
- * pitch a tent (or join one); leavers walk out the same way.
- */
 import type { CoastMap } from '../map/bake';
-import { PLOT_SIZE, plotNeighbours } from './build';
+import { plotNeighbours } from './build';
+import { capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
 import { nextInt } from './rng';
 import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
+import { newWalker, offMapPoint, plotCentre, position, roadPoints, setPath, WALK_SPEED } from './walk';
 
-/** How often (ticks) the city looks for a home for a new group of settlers. */
+export { capacity, findBuilding, HOME_CAPACITY, recountPopulation, WALK_SPEED };
+
+/** The longest wait (ticks) between looks for a home for new settlers: room for one small family, no water. */
 export const SETTLER_INTERVAL = 40;
-/** Most settler groups on the road at once. */
-export const MAX_SETTLER_GROUPS = 8;
-/** Walking speed, tiles per tick (1.2 tiles a second at normal speed). */
-export const WALK_SPEED = 0.12;
-/** How far beyond the map's edge walkers appear and disappear. */
-export const OFF_MAP = 5;
-/** People a home holds, by level (0: an empty plot, which the first family turns into a tent). */
-export const HOME_CAPACITY = [5, 5];
+/** The shortest wait, however much room there is. */
+export const SETTLER_INTERVAL_MIN = 12;
+/** Most settler groups on the road at once, however much room there is. */
+export const MAX_SETTLER_GROUPS = 30;
 
-export function capacity(b: Building): number {
-  return HOME_CAPACITY[Math.min(b.level, HOME_CAPACITY.length - 1)];
+/**
+ * How long to wait before the next group of settlers, given the free room in
+ * homes the road reaches and the share of lived-in homes with water: more room
+ * and more water bring people sooner.
+ */
+export function arrivalInterval(room: number, water: number): number {
+  const t = Math.round(SETTLER_INTERVAL / (1 + room / 30 + 1.2 * water));
+  return Math.max(SETTLER_INTERVAL_MIN, Math.min(SETTLER_INTERVAL, t));
 }
 
-export function findBuilding(s: SimState, id: number): Building | undefined {
-  // Buildings are kept in id order.
-  let lo = 0;
-  let hi = s.buildings.length - 1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    const b = s.buildings[mid];
-    if (b.id === id) return b;
-    if (b.id < id) lo = mid + 1;
-    else hi = mid - 1;
+/** How many groups may be on the road at once, given the free room they could fill. */
+export function maxGroups(room: number): number {
+  return Math.min(MAX_SETTLER_GROUPS, 4 + Math.floor(room / 8));
+}
+
+/** The share of lived-in homes that have water now (0 if nobody lives anywhere). */
+export function waterShare(s: SimState): number {
+  let lived = 0;
+  let wet = 0;
+  for (const b of s.buildings) {
+    if (b.kind !== 'home' || b.level === 0) continue;
+    lived++;
+    if (b.waterUntil > s.tick) wet++;
   }
-  return undefined;
-}
-
-export function recountPopulation(s: SimState): void {
-  let p = 0;
-  for (const b of s.buildings) p += b.people;
-  s.population = p;
-}
-
-const centre = (size: number, t: number): [number, number] => {
-  const tx = t % size;
-  return [tx + 0.5, (t - tx) / size + 0.5];
-};
-
-/** Where a walker steps on or off the map beyond an edge road tile. */
-function offMapPoint(size: number, t: number): [number, number] {
-  const tx = t % size;
-  const tz = (t - tx) / size;
-  if (tx === 0) return [-OFF_MAP + 0.5, tz + 0.5];
-  if (tx === size - 1) return [size + OFF_MAP - 0.5, tz + 0.5];
-  if (tz === 0) return [tx + 0.5, -OFF_MAP + 0.5];
-  return [tx + 0.5, size + OFF_MAP - 0.5];
-}
-
-const plotCentre = (b: Building): [number, number] => [b.x + PLOT_SIZE / 2, b.z + PLOT_SIZE / 2];
-
-/** Build a walker's path from waypoints: [x, z, tile] triples. */
-function setPath(w: Walker, pts: Array<[number, number, number]>): void {
-  w.path = [];
-  w.tiles = [];
-  for (const [x, z, t] of pts) {
-    w.path.push(x, z);
-    w.tiles.push(t);
-  }
-  w.seg = 0;
-  w.along = 0;
-  w.route++;
-}
-
-function roadPoints(s: SimState, size: number, tiles: number[]): Array<[number, number, number]> {
-  return tiles.map((t) => {
-    const [x, z] = centre(size, t);
-    // A tile that is no longer a road (just cleared under a walker) is walked as open ground.
-    return [x, z, s.tiles[t] === TILE_ROAD ? t : -1];
-  });
+  return lived ? wet / lived : 0;
 }
 
 /** Homes that could take a group, best first: empty plots, then tents with room. */
@@ -87,39 +47,64 @@ function homesWithRoom(s: SimState): Building[] {
   const empty: Building[] = [];
   const room: Building[] = [];
   for (const b of s.buildings) {
+    if (b.kind !== 'home') continue;
     if (b.level === 0 && b.people === 0 && b.incoming === 0) empty.push(b);
     else if (b.level > 0 && b.people + b.incoming < capacity(b)) room.push(b);
   }
   return empty.concat(room);
 }
 
-/** The first home with room that the search reaches, and the road tile beside it. */
-function reachableHome(s: SimState, size: number, search: Search): { b: Building; at: number } | null {
+const roomIn = (b: Building): number => capacity(b) - b.people - b.incoming;
+
+/**
+ * The first home the search reaches with room for `need` people, and the road
+ * tile beside it; failing that, the reachable home with the most room.
+ */
+function reachableHome(s: SimState, size: number, search: Search, need = 1): { b: Building; at: number } | null {
+  let best: { b: Building; at: number } | null = null;
   for (const b of homesWithRoom(s)) {
     const at = nearestReached(search, plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD));
-    if (at >= 0) return { b, at };
+    if (at < 0) continue;
+    if (roomIn(b) >= need) return { b, at };
+    if (!best || roomIn(b) > roomIn(best.b)) best = { b, at };
   }
-  return null;
+  return best;
 }
 
-/** Look for a home for a new group, and send them in from the edge. */
+/** Free room in homes the search reaches. */
+function reachableRoom(s: SimState, size: number, search: Search): number {
+  let room = 0;
+  for (const b of homesWithRoom(s)) {
+    if (nearestReached(search, plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD)) >= 0) room += roomIn(b);
+  }
+  return room;
+}
+
+/**
+ * Look for a home for a new group, and send them in from the edge. Sets how
+ * long until the next look, from the room there is and how much of the city has water.
+ */
 export function spawnSettlers(s: SimState, map: CoastMap): void {
   const size = map.size;
-  let groups = 0;
-  for (const w of s.walkers) if (w.kind === 'settler') groups++;
-  if (groups >= MAX_SETTLER_GROUPS) return;
+  s.settlerClock = SETTLER_INTERVAL;
   const edges = edgeRoads(s, size);
   if (edges.length === 0) return;
   const search = roadSearch(s, size, edges);
+  const room = reachableRoom(s, size, search);
+  if (room === 0) return;
+  s.settlerClock = arrivalInterval(room, waterShare(s));
+  let groups = 0;
+  for (const w of s.walkers) if (w.kind === 'settler') groups++;
+  if (groups >= maxGroups(room)) return;
   const found = reachableHome(s, size, search);
   if (!found) return;
   const { b, at } = found;
-  const room = capacity(b) - b.people - b.incoming;
-  const people = Math.min(room, 2 + nextInt(s.rng, 3));
+  const people = Math.min(roomIn(b), 2 + nextInt(s.rng, 3));
   const road = tracePath(search, at);
   const [ox, oz] = offMapPoint(size, road[0]);
   const [px, pz] = plotCentre(b);
-  const w: Walker = { id: s.nextId++, kind: 'settler', people, home: b.id, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0 };
+  const w = newWalker(s, 'settler', people);
+  w.home = b.id;
   setPath(w, [[ox, oz, -1], ...roadPoints(s, size, road), [px, pz, -1]]);
   b.incoming += people;
   s.walkers.push(w);
@@ -132,7 +117,7 @@ export function spawnSettlers(s: SimState, map: CoastMap): void {
  */
 export function sendLeavers(s: SimState, map: CoastMap, people: number, from: [number, number], roads: number[]): boolean {
   if (people <= 0) return false;
-  const w: Walker = { id: s.nextId++, kind: 'leaver', people, home: 0, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0 };
+  const w = newWalker(s, 'leaver', people);
   const starts = roads.filter((t) => s.tiles[t] === TILE_ROAD);
   if (!walkOut(s, map, w, from, starts)) {
     s.nextId--;
@@ -179,17 +164,6 @@ function onward(tiles: number[], ahead: number): number[] {
   return ahead >= 0 && tiles.length > 1 && tiles[1] === ahead ? tiles.slice(1) : tiles;
 }
 
-/** Where a walker is now, between its waypoints. */
-function position(w: Walker): [number, number] {
-  const i = w.seg * 2;
-  if (i + 3 >= w.path.length) return [w.path[w.path.length - 2], w.path[w.path.length - 1]];
-  const x0 = w.path[i];
-  const z0 = w.path[i + 1];
-  const len = Math.hypot(w.path[i + 2] - x0, w.path[i + 3] - z0) || 1;
-  const f = Math.min(1, w.along / len);
-  return [x0 + (w.path[i + 2] - x0) * f, z0 + (w.path[i + 3] - z0) * f];
-}
-
 /**
  * Find a new way for a walker whose road ahead was cut or whose home has gone,
  * starting from where it stands (it turns round if it must). Returns false if
@@ -230,10 +204,12 @@ function reroute(s: SimState, map: CoastMap, w: Walker): boolean {
       }
     }
     if (!b) {
-      const found = reachableHome(s, size, search);
-      if (found && capacity(found.b) - found.b.people - found.b.incoming >= w.people) {
+      // Anywhere else with room for them all; failing that, as many as fit (the rest go elsewhere).
+      const found = reachableHome(s, size, search, w.people);
+      if (found) {
         b = found.b;
         at = found.at;
+        w.people = Math.min(w.people, roomIn(b));
         b.incoming += w.people;
         w.home = b.id;
       }
@@ -258,32 +234,30 @@ function aheadOk(s: SimState, w: Walker): boolean {
   return true;
 }
 
-/** Settlers reach their home. */
+/** Does the walker's home still have room for it (it may have shrunk since they set off)? */
+function homeTakes(s: SimState, w: Walker): boolean {
+  const b = findBuilding(s, w.home);
+  return !!b && capacity(b) - b.people > 0;
+}
+
+/** Settlers reach their home; as many as fit move in. */
 function arrive(s: SimState, w: Walker): void {
   const b = findBuilding(s, w.home);
   if (!b) return;
   b.incoming -= w.people;
-  b.people += w.people;
+  const people = Math.min(w.people, capacity(b) - b.people);
+  b.people += people;
   if (b.level === 0) {
     b.level = 1;
     b.since = s.tick;
   }
-  s.arrived += w.people;
+  s.arrived += people;
   recountPopulation(s);
   s.rev++;
 }
 
-/** Move every walker one tick along. */
-export function stepWalkers(s: SimState, map: CoastMap): void {
-  if (s.walkers.length === 0) return;
-  const keep: Walker[] = [];
-  for (const w of s.walkers) {
-    if (moveWalker(s, map, w)) keep.push(w);
-  }
-  s.walkers = keep;
-}
-
-function moveWalker(s: SimState, map: CoastMap, w: Walker): boolean {
+/** Move a settler or leaver group one tick along. Returns false when it is done (arrived, or gone). */
+export function moveGroup(s: SimState, map: CoastMap, w: Walker): boolean {
   // The road just ahead may have been cut (or the home cleared) since the last tick.
   if (!aheadOk(s, w) && !reroute(s, map, w)) return false;
   let move = WALK_SPEED;
@@ -307,10 +281,14 @@ function moveWalker(s: SimState, map: CoastMap, w: Walker): boolean {
     if (w.seg >= last) {
       // The end of the path.
       if (w.kind === 'settler') {
-        if (findBuilding(s, w.home)) {
+        if (homeTakes(s, w)) {
           arrive(s, w);
           return false;
         }
+        // Gone, or full since they set off: look elsewhere.
+        const b = findBuilding(s, w.home);
+        if (b) b.incoming -= w.people;
+        w.home = 0;
         if (!reroute(s, map, w)) return false;
         continue;
       }
@@ -320,25 +298,4 @@ function moveWalker(s: SimState, map: CoastMap, w: Walker): boolean {
     if (!aheadOk(s, w) && !reroute(s, map, w)) return false;
   }
   return true;
-}
-
-/** What a home is waiting for, or who lives there, in a few plain words. */
-export function homeStatus(s: SimState, map: CoastMap, b: Building): string {
-  const size = map.size;
-  const beside = plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD);
-  let reach = '';
-  if (beside.length === 0) reach = 'Needs a road beside it';
-  else {
-    const edges = edgeRoads(s, size);
-    const search = roadSearch(s, size, edges);
-    if (nearestReached(search, beside) < 0) reach = 'Needs its road joined to the edge of the map, where settlers come in';
-  }
-  const who = b.people === 1 ? '1 person' : `${b.people} people`;
-  if (b.level === 0) {
-    if (b.incoming > 0) return 'A housing plot · settlers are on their way';
-    return reach ? `A housing plot · ${reach.toLowerCase()}` : 'A housing plot · waiting for settlers';
-  }
-  const full = b.people >= capacity(b);
-  const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : reach ? '' : ' · room for more';
-  return `A tent · ${who}${more}`;
 }

@@ -15,6 +15,7 @@ const SCRIPT: Array<[number, Command]> = [
   [40, { type: 'plots', at: [T(4, 78), T(8, 78), T(12, 78), T(4, 81), T(8, 81)] }],
   [200, { type: 'road', tiles: col(24, 66, 79) }],
   [260, { type: 'plots', at: [T(22, 70), T(25, 70), T(22, 74), T(25, 74), T(16, 78)] }],
+  [300, { type: 'fountain', at: [T(18, 81)] }],
   [900, { type: 'clear', x0: 8, z0: 81, x1: 9, z1: 82 }],
   [1300, { type: 'undo' }],
   [1600, { type: 'clear', x0: 24, z0: 70, x1: 24, z1: 71 }],
@@ -35,6 +36,8 @@ describe('simulation determinism', () => {
   it('same seed and same commands give the same city', () => {
     const a = scripted(1234);
     expect(a.state.population).toBeGreaterThan(10);
+    // The fountain's carrier has been at work: some tents are huts.
+    expect(a.state.buildings.some((b) => b.kind === 'home' && b.level === 2)).toBe(true);
     expect(serialize(a.state)).toEqual(serialize(scripted(1234).state));
   });
 
@@ -85,10 +88,22 @@ describe('simulation determinism', () => {
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
 
+  it('save round-trip carries on identically with the water carrier on her round', () => {
+    const a = scripted(9, 700);
+    expect(a.state.walkers.some((w) => w.kind === 'water' && w.steps > 3)).toBe(true);
+    const b = new Sim(9);
+    b.state = deserialize(serialize(a.state));
+    a.run(2000);
+    b.run(2000);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+  });
+
   it('refuses a save from another version with a plain message', () => {
     const s = JSON.parse(serialize(new Sim(1).state));
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
+    s.version = 2;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 2 and this game reads version 3/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {

@@ -1,18 +1,24 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 2;
+export const SIM_STATE_VERSION = 3;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
+/** What a building is. */
+export type BuildingKind = 'home' | 'fountain';
+
 /**
- * A home: a 2 x 2 housing plot whose top-left tile is (x, z). Level 0 is an
- * empty plot marked out for settlers; level 1 is a tent.
+ * A building on a 2 x 2 footprint whose top-left tile is (x, z).
+ * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut.
+ * Every building carries every field (zero where it doesn't apply), so the
+ * state stays uniform plain data.
  */
 export interface Building {
   id: number;
+  kind: BuildingKind;
   x: number;
   z: number;
   level: number;
@@ -24,6 +30,14 @@ export interface Building {
   placed: number;
   /** Tick it last changed level (the tent going up), for the renderer's little rise. */
   since: number;
+  /** A home: the tick its water lasts until (0: it has never had any). */
+  waterUntil: number;
+  /** A fountain: its water carrier out on the streets (walker id), or 0. */
+  walker: number;
+  /** A fountain: ticks until the next carrier sets off. */
+  clock: number;
+  /** A fountain: how many carriers it has sent (which side the next one leaves by). */
+  turn: number;
 }
 
 /**
@@ -34,7 +48,8 @@ export interface Building {
  */
 export interface Walker {
   id: number;
-  kind: 'settler' | 'leaver';
+  /** Settlers, leavers, or a fountain's water carrier. */
+  kind: 'settler' | 'leaver' | 'water';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;
@@ -48,20 +63,28 @@ export interface Walker {
   walked: number;
   /** Bumped when the walker takes a new path, so the renderer can re-read it. */
   route: number;
+  /** A water carrier: the fountain she belongs to (0 for others). */
+  origin: number;
+  /** A water carrier: heading home. */
+  back: boolean;
+  /** A water carrier: road tiles walked out on this round. */
+  steps: number;
 }
 
 /** What one build action changed, so it can be undone. */
 export interface UndoEntry {
   /** Road tiles it laid. */
   roads: number[];
-  /** Building ids it placed. */
+  /** Building ids it placed (plots and fountains). */
   plots: number[];
   /** Road tiles it removed. */
   removedRoads: number[];
-  /** Plots it removed (top-left tiles). */
+  /** Buildings it removed (top-left tiles). */
   removedPlots: number[];
   /** The ids those plots had (same order), so an undo that brings them back can keep older entries pointing at them. */
   removedIds: number[];
+  /** What each of them was (same order). */
+  removedKinds: BuildingKind[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -94,6 +117,14 @@ export interface SimState {
   population: number;
   /** One entry per map tile (tz * size + tx): TILE_EMPTY, TILE_ROAD or a building id. */
   tiles: number[];
+  /** One entry per map tile: the tick a water carrier last stood there (0 never), for the overlay. */
+  carried: number[];
+  /**
+   * One entry per map tile: at a junction, which way (1 north, 2 west, 3 east,
+   * 4 south; 0 never) a water carrier last left it. The next one takes the next
+   * way round, so over a few rounds every street in reach gets walked.
+   */
+  exits: number[];
   buildings: Building[];
   walkers: Walker[];
   nextId: number;
@@ -105,6 +136,8 @@ export interface SimState {
   settlerClock: number;
   /** Bumped whenever tiles, buildings or trees change. */
   rev: number;
+  /** Bumped only when tiles change (what a road route depends on). */
+  tilesRev: number;
   /** Running totals. */
   arrived: number;
   left: number;

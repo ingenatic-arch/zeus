@@ -1,11 +1,13 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
-import { mapIndex, PLOT_COST, PLOT_SIZE, plotNeighbours, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY } from './build';
+import { FOUNTAIN_COST, mapIndex, PLOT_COST, PLOT_SIZE, plotNeighbours, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY } from './build';
+import { findBuilding, recountPopulation } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, type SimDate } from './clock';
 import type { Command, StampedCommand } from './commands';
 import { nextFloat, seedRng } from './rng';
-import { findBuilding, recountPopulation, sendLeavers, SETTLER_INTERVAL, spawnSettlers, stepWalkers } from './settlers';
-import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type SimState, type UndoEntry } from './state';
+import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
+import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type SimState, type UndoEntry } from './state';
+import { FIRST_CARRIER, moveCarrier, stepFountains, stepHouses } from './water';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -24,6 +26,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
+    carried: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0),
+    exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0),
     buildings: [],
     walkers: [],
     nextId: 1,
@@ -31,6 +35,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     undo: [],
     settlerClock: SETTLER_INTERVAL,
     rev: 0,
+    tilesRev: 0,
     arrived: 0,
     left: 0,
   };
@@ -101,10 +106,10 @@ export class Sim {
     const t = s.tick + 1;
     s.tick = t;
     stepWalkers(s, this.map);
-    if (--s.settlerClock <= 0) {
-      s.settlerClock = SETTLER_INTERVAL;
-      spawnSettlers(s, this.map);
-    }
+    stepFountains(s, this.map);
+    // Each look for a home sets how long until the next.
+    if (--s.settlerClock <= 0) spawnSettlers(s, this.map);
+    stepHouses(s, this.map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -128,7 +133,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       record(s, layRoads(s, map, c.tiles));
       break;
     case 'plots':
-      record(s, placePlots(s, map, c.at));
+      record(s, placePlots(s, map, c.at, 'home'));
+      break;
+    case 'fountain':
+      record(s, placePlots(s, map, c.at, 'fountain'));
       break;
     case 'clear':
       record(s, clearArea(s, map, c.x0, c.z0, c.x1, c.z1));
@@ -139,13 +147,15 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   }
 }
 
-const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], trees: [], cost: 0 });
+const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], trees: [], cost: 0 });
 
 function record(s: SimState, e: UndoEntry): void {
-  if (e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length + e.trees.length === 0) return;
+  const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
+  if (tiles + e.trees.length === 0) return;
   s.undo.push(e);
   if (s.undo.length > UNDO_DEPTH) s.undo.shift();
   s.rev++;
+  if (tiles) s.tilesRev++;
 }
 
 /** Clear the plants standing on a tile; returns the tree indices newly cleared. */
@@ -186,26 +196,28 @@ function plotTiles(n: number, x: number, z: number): number[] {
   return out;
 }
 
-function addPlot(s: SimState, n: number, x: number, z: number): Building {
-  const b: Building = { id: s.nextId++, x, z, level: 0, people: 0, incoming: 0, placed: s.tick, since: s.tick };
+function addPlot(s: SimState, n: number, x: number, z: number, kind: BuildingKind): Building {
+  const b: Building = { id: s.nextId++, kind, x, z, level: 0, people: 0, incoming: 0, placed: s.tick, since: s.tick, waterUntil: 0, walker: 0, clock: kind === 'fountain' ? FIRST_CARRIER : 0, turn: 0 };
   s.buildings.push(b);
   for (const t of plotTiles(n, x, z)) s.tiles[t] = b.id;
   return b;
 }
 
-function placePlots(s: SimState, map: CoastMap, at: number[]): UndoEntry {
+/** Housing plots or fountains: 2 x 2 buildings on the same ground rules. */
+function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
+  const cost = kind === 'fountain' ? FOUNTAIN_COST : PLOT_COST;
   const covered: number[] = [];
   for (const t of at) {
     if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
-    if (s.money < PLOT_COST) break;
+    if (s.money < cost) break;
     const x = t % n;
     const z = Math.floor(t / n);
     if (plotRefusal(map, s, x, z) !== '') continue;
-    const b = addPlot(s, n, x, z);
-    s.money -= PLOT_COST;
-    e.cost += PLOT_COST;
+    const b = addPlot(s, n, x, z, kind);
+    s.money -= cost;
+    e.cost += cost;
     e.plots.push(b.id);
     covered.push(...plotTiles(n, x, z));
   }
@@ -213,11 +225,15 @@ function placePlots(s: SimState, map: CoastMap, at: number[]): UndoEntry {
   return e;
 }
 
-/** Take a home down: its family packs up and walks out (or just leaves, if no road leads out). */
+/**
+ * Take a building down: a home's family packs up and walks out (or just
+ * leaves, if no road leads out); a fountain's water carrier goes home at once.
+ */
 function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   const n = map.size;
   for (const t of plotTiles(n, b.x, b.z)) s.tiles[t] = TILE_EMPTY;
   s.buildings = s.buildings.filter((o) => o !== b);
+  if (b.kind === 'fountain') s.walkers = s.walkers.filter((w) => w.origin !== b.id);
   if (b.people > 0) {
     s.left += b.people;
     sendLeavers(s, map, b.people, [b.x + PLOT_SIZE / 2, b.z + PLOT_SIZE / 2], plotNeighbours(n, b.x, b.z));
@@ -250,6 +266,7 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
   for (const b of homes) {
     e.removedPlots.push(b.z * n + b.x);
     e.removedIds.push(b.id);
+    e.removedKinds.push(b.kind);
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
@@ -277,7 +294,7 @@ function undoLast(s: SimState, map: CoastMap): void {
     const t = e.removedPlots[i];
     const x = t % n;
     const z = Math.floor(t / n);
-    if (plotRefusal(map, s, x, z) === '') renamed.set(e.removedIds[i], addPlot(s, n, x, z).id);
+    if (plotRefusal(map, s, x, z) === '') renamed.set(e.removedIds[i], addPlot(s, n, x, z, e.removedKinds[i] ?? 'home').id);
   }
   if (renamed.size) for (const older of s.undo) older.plots = older.plots.map((id) => renamed.get(id) ?? id);
   // Plants grow back where nothing stands.
@@ -287,6 +304,17 @@ function undoLast(s: SimState, map: CoastMap): void {
     s.cleared = s.cleared.filter((i) => !back.has(i));
   }
   s.rev++;
+  s.tilesRev++;
+}
+
+/** Move every walker one tick along. */
+function stepWalkers(s: SimState, map: CoastMap): void {
+  if (s.walkers.length === 0) return;
+  const keep = [];
+  for (const w of s.walkers) {
+    if (w.kind === 'water' ? moveCarrier(s, map, w) : moveGroup(s, map, w)) keep.push(w);
+  }
+  s.walkers = keep;
 }
 
 function driftWind(s: SimState): void {

@@ -12,6 +12,8 @@ export type Command =
   | { type: 'road'; tiles: number[] }
   /** Mark out 2 x 2 housing plots with these top-left tiles, in order. */
   | { type: 'plots'; at: number[] }
+  /** Build 2 x 2 fountains with these top-left tiles, in order. */
+  | { type: 'fountain'; at: number[] }
   /** Clear a rectangle of tiles (inclusive): roads, homes, and trees on empty ground. */
   | { type: 'clear'; x0: number; z0: number; x1: number; z1: number }
   /** Undo the last build action. */

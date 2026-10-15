@@ -8,6 +8,7 @@ import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
 
 export const ROAD_COST = 4;
 export const PLOT_COST = 10;
+export const FOUNTAIN_COST = 150;
 export const STARTING_MONEY = 5000;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
