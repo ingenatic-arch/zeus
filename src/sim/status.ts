@@ -81,10 +81,10 @@ export function fountainStatus(s: SimState, map: CoastMap, f: Building): Status 
 
 function carrierLine(w: Walker): string {
   if (w.back) return 'The water carrier is heading home';
-  return `The water carrier is out, ${w.steps} of ${CARRIER_WALK} steps into her round`;
+  return `The water carrier is out, ${w.steps} of ${CARRIER_WALK} new road tiles into her round`;
 }
 
 export function carrierStatus(w: Walker): Status {
   if (w.back) return { title: 'Water carrier', detail: 'Heading home to her fountain, watering homes on the way' };
-  return { title: 'Water carrier', detail: `Out on her round, ${w.steps} of ${CARRIER_WALK} steps · she heads for the homes whose water is running lowest` };
+  return { title: 'Water carrier', detail: `Out on her round, ${w.steps} of ${CARRIER_WALK} new road tiles walked · she heads for the homes whose water is running lowest` };
 }

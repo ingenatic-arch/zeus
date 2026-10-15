@@ -7,7 +7,8 @@
  * lowest (looking a little way down each road), taking the next way round
  * from the last carrier's when it makes no difference; she turns round at dead
  * ends, at the edge of her reach, and where no homes lie ahead but some lie
- * behind. After CARRIER_WALK tiles she heads home by the shortest road. Every home beside a road tile she stands on has water for
+ * behind. After CARRIER_WALK tiles of road not yet walked this round (or twice
+ * that in all) she heads home by the shortest road. Every home beside a road tile she stands on has water for
  * WATER_LASTS ticks. Tents with water become huts; huts whose water has run
  * out for a month go back to tents.
  */
@@ -22,8 +23,10 @@ import { CARRIER_SPEED, centre, newWalker, plotCentre, position, setPath } from 
 
 /** How far by road from her fountain a water carrier ever goes: her reach. */
 export const CARRIER_RANGE = 32;
-/** Road tiles she walks out on a round (wandering within her reach) before she turns for home. */
+/** Road tiles not yet walked this round that she walks out on (wandering within her reach) before she turns for home. */
 export const CARRIER_WALK = 48;
+/** However much of it was road already walked, she turns for home after this many times CARRIER_WALK tiles. */
+const WALK_LIMIT = 2;
 /** How long a home keeps its water after she passes (four months). */
 export const WATER_LASTS = 4 * TICKS_PER_MONTH;
 /** How long after its water runs out a hut goes back to a tent (a month). */
@@ -98,6 +101,7 @@ export function stepFountains(s: SimState, map: CoastMap): void {
     f.turn++;
     const w = newWalker(s, 'water', 1);
     w.origin = f.id;
+    w.since = s.tick;
     const [dx, dz] = door(size, f, start);
     const [sx, sz] = centre(size, start);
     setPath(w, [
@@ -284,6 +288,8 @@ export function moveCarrier(s: SimState, map: CoastMap, w: Walker): boolean {
     w.seg++;
     w.along = 0;
     const t = w.tiles[w.seg];
+    // Road nobody has walked yet this round counts towards her round; going back over it hardly does.
+    const fresh = t >= 0 && s.carried[t] < w.since;
     if (t >= 0) {
       serve(s, size, t);
       s.carried[t] = s.tick;
@@ -296,9 +302,9 @@ export function moveCarrier(s: SimState, map: CoastMap, w: Walker): boolean {
     if (w.back) return done(f);
     if (t < 0) return done(f);
     const prev = w.seg > 0 ? w.tiles[w.seg - 1] : -1;
-    if (prev >= 0) w.steps++;
+    if (prev >= 0 && fresh) w.steps++;
     const [x, z] = centre(size, t);
-    if (w.steps >= CARRIER_WALK) {
+    if (w.steps >= CARRIER_WALK || w.walked >= WALK_LIMIT * CARRIER_WALK) {
       if (!headHome(s, size, w, f, t, [x, z])) return done(f);
       continue;
     }

@@ -67,8 +67,10 @@ export interface Walker {
   origin: number;
   /** A water carrier: heading home. */
   back: boolean;
-  /** A water carrier: road tiles walked out on this round. */
+  /** A water carrier: road tiles walked out on this round that nobody had walked yet this round. */
   steps: number;
+  /** A water carrier: the tick she set off on this round. */
+  since: number;
 }
 
 /** What one build action changed, so it can be undone. */

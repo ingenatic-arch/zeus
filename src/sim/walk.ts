@@ -8,7 +8,7 @@ import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 /** Walking speed of settlers and leavers, tiles per tick (1.2 tiles a second at normal speed). */
 export const WALK_SPEED = 0.12;
 /** The water carrier walks a little slower, so she is easy to follow (1 tile a second). */
-export const CARRIER_SPEED = 0.1;
+export const CARRIER_SPEED = 0.12;
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
@@ -24,7 +24,7 @@ export const plotCentre = (b: Building): [number, number] => [b.x + PLOT_SIZE / 
 
 /** A new walker with every field set. */
 export function newWalker(s: SimState, kind: Walker['kind'], people: number): Walker {
-  return { id: s.nextId++, kind, people, home: 0, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0, origin: 0, back: false, steps: 0 };
+  return { id: s.nextId++, kind, people, home: 0, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0, origin: 0, back: false, steps: 0, since: 0 };
 }
 
 /** Where a walker steps on or off the map beyond an edge road tile. */
