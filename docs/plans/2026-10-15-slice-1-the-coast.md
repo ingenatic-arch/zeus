@@ -107,3 +107,25 @@ What headless can't tell: real frame time, and load time over a real network. Th
 - Commands: replace the placeholder `mark` with the real ones; the queue, log and replay test are ready.
 - Left-drag is pan only; once tools exist it should place while a tool is selected (pan stays on right/middle or with no tool).
 - Plants are single instanced meshes per kind spanning the whole field, so nothing is culled. With buildings and walkers added, chunk instanced meshes by area so views and the shadow pass can skip what's off screen.
+
+## Review
+
+*15 Oct 2026. A reviewer pass that used the slice as Oliver would (every "What to try" step, headless Chromium, screenshots from every prepared view and from far out in each direction) and fixed what it found. The check-in's "What the review changed" says the same in plain words.*
+
+**Fixed.**
+- Keyboard (`src/game/input.ts`, `clockDriver.ts`): Space resumes the speed that was running before the pause (was always normal) and ignores key repeat (holding it flickered); held keys are tracked by `e.code` with the action fixed at keydown, so releasing Shift before "=" no longer leaves zoom running; Q/E repeat only once the previous quarter turn is nearly done; speed digits also match `Digit1`–`Digit3`/numpad. A test covers the resume.
+- Zoom to pointer (`cameraRig.ts`): the anchor's pull is capped at 3× the view distance, so one wheel notch aimed near the horizon at street level no longer moves the view ~17 units.
+- River edges (`bake.ts`, `water.ts`, `terrain.ts`): a shelf `RIVER_SHELF_DEPTH` under the surface reaches `RIVER_SHELF` past the stream's edge, and the river mesh carries the distance past the edge per vertex, so the shader fades the water out (`RIVER_EDGE_FADE`) with a thin foam rim before the bank breaks the surface. The water's edge is now a smooth curve. The polygon offset on the river is gone (it pulled foam through near-flush banks as white flecks from afar). `tileWater` river tiles use the same fade distance.
+- River mouth (`water.ts`): the ground texture is now RG (height, river cover); the sea fades out and lies flat where the river covers it, and the sea no longer writes depth, so the river shows over it without the old pale squares.
+- Far sea (`water.ts`): beyond the baked field the sea floor carries on from the field's edge and slopes away, instead of jumping to −9 (a hard colour line); the skirt shares the grid's edge vertices (a hairline crack is gone); the skirt reaches north to z = 20 to fill the far coast's bays.
+- Far scenery (`terrain.ts`, `bake.ts`): replaced the extruded perimeter rings with square bands of square cells (`FAR_BANDS`, cells 4 → 256, doubling), stitched crack-free by putting each band's in-between outer-edge points on the coarser band's edge; the field's outer edge is linear between `FAR_STEP` corners for the same reason. The far coastline wanders (±55 units of noise, growing away from the field) and the far sea floor shelves from 0 instead of stepping to −4. ~21k triangles (was ~7k).
+- Horizon (`sky.ts`): the sky is no longer tone-mapped, matching the fog colour, which removes a line along the horizon.
+- Shadows (`world.ts`): the shadow box is at least 24 units and, close to the ground, slides ahead of the aim point, so the middle distance keeps its shadows at street level.
+
+**Checks after the review.** Typecheck clean; 26 tests pass; build succeeds; `npm run smoke` passes; the built `dist/` loads from a nested subpath with no failed requests; the page makes no requests beyond its own three files. `npm run measure`: 153 KB gzipped, ready in ~2.3 s headless, ~542 k triangles, 21 draw calls.
+
+**For slice 2 (found in review, not fixed here).**
+- The river shelf lies just under the water for up to one unit past the visible water's edge, on tiles `tileWater` marks as land. The building rule should refuse tiles whose corners sit below the local river surface (`map.heightAt` below `map.riverAt().surface`), or treat them as river bank.
+- Every plant kind is one instanced mesh over the whole field with a field-sized bounding sphere: nothing is ever frustum-culled, and all of it goes through the shadow pass. Chunk instanced meshes by area before adding buildings and walkers, and give each chunk its own bounds.
+- Clearing trees for roads and plots: the scatter is baked map data, so the cleared set must live in the sim state (for saves and replay) and the instanced meshes must be rebuilt or compacted from it.
+- `CameraRig.groundUnder()` marches a ray against `heightAt` (sea and river count as their floor or sea level) and is fine for picking a tile under the pointer on each move.

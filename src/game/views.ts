@@ -7,7 +7,7 @@ export const VIEWS: Record<string, CameraView> = {
   overview: { x: 64, z: 62, yaw: 0, dist: 170, tilt: 0.2 },
   // Street level on the fertile river bank, looking upstream to the hills.
   river: { x: 52, z: 59, yaw: 0.95, dist: 8, tilt: 0.02 },
-  // From above the river mouth out over the bay to the headland.
+  // Over the bay and its islet from the east shore, looking out towards the afternoon sun.
   bay: { x: 74, z: 86, yaw: 2.6, dist: 42, tilt: -0.02 },
   // The rocky hills where the river rises.
   hills: { x: 26, z: 24, yaw: 0.7, dist: 34, tilt: 0 },

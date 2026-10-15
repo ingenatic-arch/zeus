@@ -30,16 +30,28 @@ The game now opens on a sunny stretch of Greek coast you can fly around, with a 
 - The opening view: is that the right first look at the coast?
 
 ### Known rough edges
-- At very close zoom the river's edges are jagged, drawn as a pebbly margin; the land is shaped in one-tile steps and the stream is only a few tiles wide.
-- The far scenery beyond the coast is simple and only meant to be seen through the haze; looking straight along the coast from very far out shows long, plain slopes.
+- The river's water now has a smooth edge (see below), but the pebbly strip between the water and the grass still meets the grass in little triangular steps, because the land is shaped in one-tile steps and the stream is only a few tiles wide.
+- The far scenery beyond the coast is simpler than the coast itself and only meant to be seen through the haze.
 - There's nothing to build yet, and no population or money in the top bar; those come with streets and settlers next.
 - No sound yet.
 - I couldn't measure the frame rate: I can only run the game with software graphics here, which tells us nothing about your laptop. It would help to hear whether it runs smoothly for you, and on what machine.
 
 ### Measurements
 - Before: nothing existed.
-- Download: 151 KB compressed (three files).
+- Download: 153 KB compressed (three files).
 - Load: about 2.5 seconds to the first picture on my machine using software graphics, of which shaping the coast takes about a third of a second; on a real graphics card it should be quicker. The target is under 3 seconds.
-- Drawing: about 530,000 triangles in 21 batches each frame, the same in every view. That should sit well within a laptop graphics chip's reach, but the town will need room too, so I've noted ways to trim it before the town grows.
+- Drawing: about 540,000 triangles in 21 batches each frame (after the review's changes), the same in every view. That should sit well within a laptop graphics chip's reach, but the town will need room too, so I've noted ways to trim it before the town grows.
 - Frame rate: not measured (see above). The target is 60 frames a second on a mid-range laptop with a few hundred buildings, which can only be judged once the town exists.
 
+### What the review changed
+A second pass went through every "What to try" step above in a browser, looked at screenshots from each prepared view and from far out in every direction, and fixed what it found:
+- Space now carries on at the speed you had before you paused; it used to always go back to normal speed. Holding Space down no longer flickers between paused and running.
+- Keyboard zoom could get stuck: pressing "+" (Shift and "=") and letting go of Shift first left the view zooming in on its own. Fixed. Holding Q or E now turns a quarter at a time, instead of piling up turns that kept spinning after you let go. The 1, 2 and 3 speed keys also work on keyboards where the digits need Shift.
+- Scrolling near the ground with the pointer towards the horizon used to throw the view a long way in a single notch; now it only drifts a little that way.
+- The river's edge: the water now draws its own smooth edge with a thin line of foam, over a narrow pebbly shelf, instead of the land's triangles cutting a saw-tooth into it. Small white flecks that showed beside the upper river from far away are gone.
+- The river mouth: the river now melts into the bay; before, the two waters overlapped in pale squares where they met.
+- The far sea had a hard line where its colour jumped and a thin crack running across it, and a faint line ran along the horizon where the sky met the haze. All three are gone.
+- The far scenery is rebuilt: the hills beyond the map no longer streak into long stripes or fan out in wedges at the corners, and the coastline wanders into headlands and bays as it runs off to the horizon instead of a ruler-straight edge with a pale wall where land met sea.
+- Down at street level, trees further ahead now cast shadows too; before, shadows stopped a short way in front of you.
+
+Whether these read better is for you to judge.
