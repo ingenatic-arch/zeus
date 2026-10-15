@@ -86,7 +86,7 @@ for (const cam of ['coast', 'overview', 'river', 'bay', 'hills', 'street', 'head
 }
 
 // Every demo link loads from a bare hash token (the published page only gets the hash).
-for (const token of ['coast', 'streets', 'settlers', 'build', 'river', 'streets-fast']) {
+for (const token of ['coast', 'streets', 'settlers', 'build', 'river', 'water', 'carrier', 'fountain', 'water-overlay', 'streets-fast']) {
   await page.goto('about:blank');
   await page.goto(url + '#' + token);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
@@ -156,7 +156,90 @@ const c3 = await city();
 if (c3.homes !== 5) fail(`undo did not bring the plot back (${c3.homes})`);
 await page.keyboard.press('Escape');
 
+// Water: the fountain tool and its preview, placing one, the overlay, the carrier, huts, hover and follow.
+await page.goto('about:blank');
+await page.goto(url + '#fountain-paused');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+await frames(3);
+c = await city();
+if (c.tool !== 'fountain') fail('#fountain did not pick the fountain tool');
+if (!c.overlay) fail('the water overlay is not shown while placing a fountain');
+if (c.fountains !== 0 || c.huts !== 0) fail(`#fountain should start with no fountain and no huts (${JSON.stringify(c)})`);
+const tip = () => page.evaluate(() => window.__zeus.tipText());
+p = await at(28, 82);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const ftip = await tip();
+if (!/would reach \d+ homes/.test(ftip ?? '')) fail(`fountain preview tip: ${ftip}`);
+// Moving about inside the same tile doesn't rewrite the marks texture.
+const w0 = (await city()).markWrites;
+for (let i = 1; i <= 4; i++) await page.mouse.move(p.x + i, p.y);
+await frames(2);
+const w1 = (await city()).markWrites;
+if (w1 !== w0) fail(`pointer moves within one tile rewrote the marks ${w1 - w0} times`);
+const m0 = (await city()).money;
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (c.fountains !== 1 || m0 - c.money !== 150) fail(`clicking placed ${c.fountains} fountains for ${m0 - c.money} dr`);
+await page.keyboard.press('Escape');
+await frames(2);
+if ((await city()).overlay) fail('the overlay stayed on after putting the fountain tool down');
+await page.keyboard.press('o');
+await frames(2);
+if (!(await city()).overlay) fail('O did not show the water overlay');
+await page.keyboard.press('o');
+await frames(2);
+if ((await city()).overlay) fail('O did not hide the water overlay');
+// The road tool's route isn't worked out again as settlers arrive and tents turn to huts.
+await page.keyboard.press('t');
+p = await at(30.5, 84.5);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const r0 = (await city()).routes;
+await page.keyboard.press('3');
+await page.waitForFunction(() => window.__zeus.city().huts > 0 && window.__zeus.city().carriers > 0, null, { timeout: 180000 });
+await page.keyboard.press('Space');
+await frames(2);
+c = await city();
+if (c.routes !== r0) fail(`the road preview was worked out ${c.routes - r0} more times while only settlers and houses changed`);
+if (!(c.watered > 0)) fail('no home has water');
+await page.keyboard.press('Escape');
+// Hovering the carrier names her; clicking her follows her; Esc stops.
+await page.goto('about:blank');
+await page.goto(url + '#water-paused');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+await frames(3);
+c = await city();
+if (!(c.huts > 10 && c.carriers === 1 && c.fountains === 1)) fail(`#water: ${JSON.stringify(c)}`);
+const sc = await page.evaluate(() => window.__zeus.carrier());
+if (!sc) fail('#water: no carrier on screen');
+else {
+  await page.mouse.move(sc.x, sc.y);
+  await frames(2);
+  const ct = await tip();
+  if (!/^Water carrier/.test(ct ?? '')) fail(`hovering the carrier: ${ct}`);
+  await page.mouse.click(sc.x, sc.y);
+  await frames(2);
+  if (!(await city()).following) fail('clicking the carrier did not follow her');
+  await page.keyboard.press('Escape');
+  await frames(2);
+  if ((await city()).following) fail('Esc did not stop following');
+}
+// Hovering a home says what reaches it.
+const home = await page.evaluate(() => window.__zeus.screenOf(17, 79));
+await page.mouse.move(home.x, home.y);
+await frames(2);
+const ht = await tip();
+if (!/water/i.test(ht ?? '')) fail(`hovering a home: ${ht}`);
+// #carrier starts following.
+await page.goto('about:blank');
+await page.goto(url + '#carrier-paused');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+await frames(3);
+if (!(await city()).following) fail('#carrier is not following the carrier');
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'));
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache)');
 await browser.close();
 server.close();

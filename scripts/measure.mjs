@@ -87,6 +87,24 @@ for (const cam of ['streets', 'settlers', 'overview']) {
 }
 console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
 await summarise();
+
+// The watered neighbourhood (slice 3): fountain, carrier, huts, and the water overlay.
+await page.goto('about:blank');
+const t2 = Date.now();
+await page.goto(url + '#water-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+console.log(`load #water (local, headless): ready in ${Date.now() - t2} ms`);
+for (const [cam, overlay] of [['water', false], ['water', true], ['carrier', false], ['overview', false]]) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const on = await page.evaluate(() => window.__zeus.city().overlay);
+  if (on !== overlay) await page.keyboard.press('o');
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#water view ${(cam + (overlay ? '+overlay' : '')).padEnd(16)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
+await summarise();
 const mem = await page.evaluate(() => window.__zeus.info());
 console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures`);
 await browser.close();
