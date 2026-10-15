@@ -30,6 +30,7 @@ Read `docs/vision/VISION.md` first. When anything disagrees with it, the vision 
 - All art is generated in code (low-poly meshes, procedural textures and palettes); no external art assets unless Oliver asks.
 - Saves are plain serialised simulation state, versioned, so old saves either load or fail with a clear message.
 - Every slice leaves the game playable, with a demo link (for example a URL parameter) that drops Oliver straight into the new thing.
+- Demo links are bare hash tokens like `#streets`, because the published page only receives the hash.
 
 ## Budgets (targets, tuned by eye and revisited each phase)
 

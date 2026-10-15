@@ -103,4 +103,41 @@ Measured at `39079a1` (the end of slice 1's review), `npm run measure`, headless
 
 ## As built
 
-*(to fill in)*
+*15 Oct 2026.*
+
+**What exists.**
+- `src/sim/`: state version 2 (`state.ts`) with money, population, tiles, homes, walkers, cleared trees, an undo stack of 10 and a `rev` counter. `build.ts`: the build rules and a per-map index (ground class and rise per tile, which plants stand on which tile), worked out once in ~20 ms. `roads.ts`: breadth-first search over road tiles, edge roads, path tracing, and A* with a turn penalty for laying roads. `settlers.ts`: spawning groups at the edge, walking, re-routing, arriving, leavers, and `homeStatus()` for the hover tip. `sim.ts`: the commands (`road`, `plots`, `clear`, `undo`) and `flush()`, which applies the next tick's commands at once without advancing time (what `step()` does first), so you can build while paused and the log and replay are unchanged. `coastMap()` in `src/map/bake.ts` bakes the coast once for the sim and the renderer.
+- `src/render/`: `chunks.ts` (`ChunkedInstances`: one InstancedMesh per square chunk with bounds set from the chunk's area and height range, filled per chunk or every frame); `trees.ts` now chunked and synced from `state.cleared`; `streets.ts` (paving and plot ground per 32-tile chunk, worn tracks off the map edge); `homes.ts` (stakes, two tent models, the rise when pitched, smoke); `walkers.ts` (two person models with a per-person tunic colour through a tint mask in the shader, walking in a loose line with a bob); `placement.ts` (grid, preview and edge glow shader drawn on the terrain's own geometry); `city.ts` (rebuilds only the chunks whose tiles changed).
+- `src/game/`: `tools.ts` (road, housing, clear, undo; previews, costs and reasons; sends commands and flushes), `input.ts` (left-drag places with a tool, pans without; middle-drag pans; right-click without a drag puts the tool down; T, H, X, U, Ctrl+Z, Esc), `links.ts` (hash tokens and query parameters), `demos.ts` (`streets`, `settlers`, `build`, `coast`).
+- `src/ui/`: population and drachmas in the top bar with a brief +/−, the build bar and its hint line, the pointer tip, "+N" floating up from tents, the controls card's new Building section.
+- Scripts: `smoke.mjs` now also loads every hash link and drives the tools (road by drag, plots by drag, right-click, settlers arriving at fastest, clearing a tent, undo); `measure.mjs` records the `#streets` scene and sums chunked meshes by kind; `screenshots.mjs` takes `name@x,z,yaw,dist,tilt` and hash links; `drive.mjs` screenshots a whole build session; `debug-ground.mjs` prints the buildable ground as text.
+
+**Deviations from the plan.**
+- Settlers come every 40 ticks (4 s at normal speed), at most 8 groups on the road, not every 12 ticks with 12 groups: at 12 the road filled with an unbroken queue of people.
+- Plants are chunked at 64 units, not 32: 32-unit chunks took the opening view from 21 to 341 draw calls for 5% fewer triangles. 64 gives 125 calls in the widest views, 69–88 up close, and still skips 25–30% of triangles up close. Homes, roads and walkers use 32.
+- Added: worn tracks where a road leaves the map (so the road visibly leads somewhere), smoke from the cooking fires, a "+N" over a tent when people move in, hover tips on homes with no tool picked, `flush()` so building works while paused.
+- H now picks housing; the controls card opens with "?" only.
+- No bridges: the river cuts the map in two, so land east of the river is settled from the east edge.
+
+**Checks.** Typecheck clean; `npm test` 39 tests in 6 files pass (13 new: determinism with real building, replay, save mid-walk, building while paused equals building next tick, the build rules including the river's underwater shelf, money, trees cleared and restored, routes around homes and not across the river, settlers entering only by road, cut roads, clearing and undo); `npm run build` succeeds; `npm run smoke` passes; `#coast`, `#river` and the other slice 1 views load and look as before apart from the new top bar figures and build bar.
+
+**Measurements** (`npm run measure`, headless Chromium with software WebGL, 1920 × 1080):
+
+| | Before (`39079a1`) | After |
+|---|---|---|
+| Tests | 26 | 39 |
+| Bundle | 582 KB raw, 153 KB gzipped | 630 KB raw, 169 KB gzipped |
+| Load to first frame (local, headless) | 2.2–3.0 s over repeated runs (scene build ~0.65 s) | 2.1–2.9 s over repeated runs (scene build ~0.7 s); `#streets` the same |
+| Triangles, opening view | 542 k | 542 k (everything is in view) |
+| Triangles, close views (`river`, `street`, `bay`) | 542 k | 376–403 k |
+| Draw calls, opening view / close views | 21 / 21 | 125 / 69–76 |
+| `#streets` (24 homes, 59 road tiles, 8 groups walking) | — | 384 k triangles, 88 draw calls; the town itself adds about 11 k triangles |
+
+The single "ready in 0.69 s" in the plan's Before was a fast first run; measured side by side against a build of `39079a1`, load time is unchanged. Frame rate still can't be measured here.
+
+**For slice 3.**
+- Service walkers can reuse `roadSearch` / `tracePath` and the `Walker` shape; `Walkers` in the renderer lines a group up by distance along the path, which also suits a single water carrier.
+- `CityView.sync` diffs `state.tiles` and the homes on every `rev` change; a fountain can be a new building kind in `state.buildings` (add a `kind` field and bump the state version).
+- `homeStatus()` is the place for "what reaches this house" in the hover tip.
+- Homes are refilled for every chunk on any change to the homes; fine for hundreds, worth narrowing for thousands.
+- The tent's capacity (5) and the empty plot's are in `HOME_CAPACITY`; hut and above will extend it.
