@@ -170,6 +170,8 @@ function makeMaterial(shared: Record<string, THREE.IUniform>, river: boolean): T
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uRiver: { value: river ? 1 : 0 }, uWaveAmp: { value: river ? 0.02 : 0.11 } }]),
     transparent: true,
     fog: true,
+    // The horizon skirt's quads face either way; the underside is never seen anyway.
+    side: THREE.DoubleSide,
     depthWrite: true,
   });
   // Share the live uniforms (time, sun, colours) between both materials.
@@ -215,17 +217,19 @@ function seaGeometry(map: CoastMap): THREE.BufferGeometry {
       idx.push(a, c, b, b, c, d);
     }
   }
-  // Skirt: a ring of big flat quads from the field edge out to the horizon.
+  // Skirt: big flat quads carrying the sea out to the horizon on the sea side
+  // only (south of the coast line where it leaves the field), so the land
+  // beyond the map reads as more land rather than an island.
   const R = 6000;
-  const base = pos.length / 3;
-  pos.push(lo, 0, lo, hi, 0, lo, hi, 0, hi, lo, 0, hi, -R, 0, -R, R, 0, -R, R, 0, R, -R, 0, R);
-  const ring = [
-    [0, 1, 5, 4],
-    [1, 2, 6, 5],
-    [2, 3, 7, 6],
-    [3, 0, 4, 7],
-  ];
-  for (const [p, q, r, s] of ring) idx.push(base + p, base + s, base + q, base + q, base + s, base + r);
+  const zs = 96;
+  const quad = (x0: number, z0: number, x1: number, z1: number): void => {
+    const b = pos.length / 3;
+    pos.push(x0, 0, z0, x1, 0, z0, x0, 0, z1, x1, 0, z1);
+    idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+  };
+  quad(-R, zs, lo, R); // west
+  quad(hi, zs, R, R); // east
+  quad(lo, hi, hi, R); // south
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));

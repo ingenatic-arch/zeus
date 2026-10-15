@@ -207,7 +207,7 @@ function catmull(p0: number, p1: number, p2: number, p3: number, t: number): num
 }
 
 /** z of the shoreline at x (smooth through the authored points). */
-function shoreZ(pts: [number, number][], x: number): number {
+export function shoreZ(pts: [number, number][], x: number): number {
   if (x <= pts[0][0]) return pts[0][1];
   const last = pts.length - 1;
   if (x >= pts[last][0]) return pts[last][1];

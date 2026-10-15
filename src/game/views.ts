@@ -3,7 +3,7 @@ import type { CameraView } from '../render/cameraRig';
 /** Prepared camera framings, reachable as ?cam=<name>. */
 export const VIEWS: Record<string, CameraView> = {
   // The opening view: the bay in front, the river valley and hills behind.
-  coast: { x: 61, z: 54, yaw: 0.12, dist: 92, tilt: -0.66 },
+  coast: { x: 62, z: 62, yaw: 0.12, dist: 100, tilt: -0.66 },
   overview: { x: 64, z: 62, yaw: 0, dist: 170, tilt: 0.2 },
   // Street level on the fertile river bank, looking upstream to the hills.
   river: { x: 52, z: 59, yaw: 0.95, dist: 8, tilt: 0.02 },

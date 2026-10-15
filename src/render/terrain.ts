@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { FIELD_MIN, FIELD_N, OUTER_STEP, splitsMainDiagonal, type CoastMap } from '../map/bake';
-import { MAP_SIZE } from '../map/coast';
-import { hash2, smoothstep, valueNoise } from '../map/noise';
+import { FIELD_MIN, FIELD_N, OUTER_STEP, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
+import { coast, MAP_SIZE } from '../map/coast';
+import { hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
 import { col, PAL } from './palette';
 
 const tmp = new THREE.Color();
@@ -17,13 +17,16 @@ function groundColour(map: CoastMap, x: number, z: number, h: number, ny: number
   const steep = 1 - ny;
   const q = map.riverAt(x, z);
   const inRiver = q.d < q.width + 0.1 && q.surface > 0.02;
-  const onBank = q.d < q.width + 0.65 && q.surface > 0.05 && h < q.surface + 0.22;
+  const bankAmt = q.surface > 0.05 && h < q.surface + 0.25 ? 1 - smoothstep(q.width + 0.1, q.width + 0.9, q.d) : 0;
+  const onBank = bankAmt > 0.5;
 
   if (inRiver) {
     out.copy(col(PAL.riverBed));
   } else if (onBank) {
     // A pebbly margin where the water's edge meets the grass.
     out.copy(col(PAL.riverBank)).lerp(col(PAL.wetSand), hash2(Math.floor(x * 3.1), Math.floor(z * 2.9), 78) * 0.5);
+    // Soften the margin into the grass so the facets don't form a row of teeth.
+    out.lerp(col(PAL.lush), smoothstep(0.85, 0.5, bankAmt) * 0.55);
   } else if (h < -0.04) {
     out.copy(col(PAL.seabed)).lerp(col(PAL.seabedDeep), smoothstep(0.4, 5, -h));
   } else {
@@ -110,6 +113,89 @@ function buildGrid(map: CoastMap, cells: Array<[number, number]>, step: number):
   return g;
 }
 
+/** Height of the far scenery: the coast carries on, with mountains rising inland. */
+function farHeight(x: number, z: number): number {
+  const d = shoreZ(coast.shore, x) - z;
+  if (d < 0) return -4 - Math.min(-d * 0.05, 6);
+  const plain = 1.6 * (1 - Math.exp(-d / 15));
+  const ridges = 0.35 + 0.65 * ridged(x * 0.006, z * 0.006, 4242, 4);
+  return plain + 30 * ridges * smoothstep(20, 260, d);
+}
+
+function farColour(h: number, ny: number, x: number, z: number, out: THREE.Color): THREE.Color {
+  const n = valueNoise(x * 0.02, z * 0.02, 905);
+  out.copy(col(PAL.dryGrass)).lerp(col(PAL.meadow), smoothstep(0.35, 0.7, n));
+  if (h < 0.3) out.lerp(col(PAL.sand), 1 - smoothstep(0.1, 0.3, h));
+  const rock = Math.max(smoothstep(8, 22, h + n * 6), smoothstep(0.25, 0.5, 1 - ny));
+  out.lerp(col(PAL.rockWarm).clone().lerp(col(PAL.rockGrey), n), rock);
+  // Only a whisper of per-facet variation: the far rings are long thin facets that would stripe.
+  return out.multiplyScalar(0.98 + 0.03 * hash2(Math.floor(x / 40), Math.floor(z / 40), 79));
+}
+
+/**
+ * Scenery out to the horizon: square rings extruded from the edge of the
+ * baked field, sharing its edge vertices exactly (no cracks), widening and
+ * blending into a simple far landscape that the haze swallows.
+ */
+function buildFarLand(map: CoastMap): THREE.BufferGeometry {
+  const lo = FIELD_MIN;
+  const hi = FIELD_MIN + FIELD_N - 1;
+  const step = OUTER_STEP * 2;
+  // The field's perimeter, counter-clockwise from above, with outward directions.
+  const perim: Array<{ x: number; z: number; dx: number; dz: number }> = [];
+  for (let x = lo; x < hi; x += step) perim.push({ x, z: lo, dx: x === lo ? -1 : 0, dz: -1 });
+  for (let z = lo; z < hi; z += step) perim.push({ x: hi, z, dx: 1, dz: z === lo ? -1 : 0 });
+  for (let x = hi; x > lo; x -= step) perim.push({ x, z: hi, dx: x === hi ? 1 : 0, dz: 1 });
+  for (let z = hi; z > lo; z -= step) perim.push({ x: lo, z, dx: -1, dz: z === hi ? 1 : 0 });
+  const rings = [0, 10, 28, 60, 120, 220, 400, 700, 1200, 2200];
+  const pts: THREE.Vector3[][] = rings.map((D) =>
+    perim.map((p) => {
+      const x = p.x + p.dx * D;
+      const z = p.z + p.dz * D;
+      const edge = map.corner(p.x, p.z);
+      const h = D === 0 ? edge : lerp(edge, farHeight(x, z), smoothstep(0, 140, D));
+      return new THREE.Vector3(x, h, z);
+    }),
+  );
+  const pos: number[] = [];
+  const colors: number[] = [];
+  const c = new THREE.Color();
+  const e1 = new THREE.Vector3();
+  const e2 = new THREE.Vector3();
+  const nrm = new THREE.Vector3();
+  const tri = (a: THREE.Vector3, b: THREE.Vector3, d: THREE.Vector3): void => {
+    e1.subVectors(b, a);
+    e2.subVectors(d, a);
+    // Right-hand normal of a->b->d; three.js treats counter-clockwise (normal up) as the front.
+    nrm.crossVectors(e1, e2).normalize();
+    const cx = (a.x + b.x + d.x) / 3;
+    const cz = (a.z + b.z + d.z) / 3;
+    farColour((a.y + b.y + d.y) / 3, Math.abs(nrm.y), cx, cz, c);
+    for (const v of nrm.y >= 0 ? [a, b, d] : [a, d, b]) {
+      pos.push(v.x, v.y, v.z);
+      colors.push(c.r, c.g, c.b);
+    }
+  };
+  const n = perim.length;
+  for (let r = 0; r < rings.length - 1; r++) {
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const a = pts[r][i];
+      const b = pts[r][j];
+      const a2 = pts[r + 1][i];
+      const b2 = pts[r + 1][j];
+      tri(a, a2, b);
+      tri(b, a2, b2);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
+}
+
 export function buildTerrain(map: CoastMap): THREE.Group {
   const group = new THREE.Group();
   group.name = 'terrain';
@@ -137,5 +223,10 @@ export function buildTerrain(map: CoastMap): THREE.Group {
   outerMesh.castShadow = false;
   outerMesh.name = 'terrain-surroundings';
   group.add(outerMesh);
+
+  const far = new THREE.Mesh(buildFarLand(map), mat);
+  far.name = 'terrain-far';
+  far.receiveShadow = false;
+  group.add(far);
   return group;
 }

@@ -29,7 +29,7 @@ export function buildSky(sunDir: THREE.Vector3): THREE.Mesh {
       varying vec3 vDir;
       void main() {
         float h = max(vDir.y, 0.0);
-        vec3 c = mix(uHorizon, uZenith, pow(smoothstep(0.0, 0.45, h), 0.6));
+        vec3 c = mix(uHorizon, uZenith, pow(smoothstep(0.0, 0.4, h), 0.45));
         float s = max(dot(normalize(vDir), uSun), 0.0);
         c += uSunCol * (pow(s, 12.0) * 0.18 + pow(s, 400.0) * 0.6);
         gl_FragColor = vec4(c, 1.0);
