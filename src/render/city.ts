@@ -33,7 +33,7 @@ export class CityView {
 
   update(s: SimState, alpha: number, time: number): void {
     if (s.rev !== this.rev) this.sync(s);
-    this.homes.update(time);
+    this.homes.update(time, s.wind.angle);
     this.walkers.update(s, alpha, time);
   }
 

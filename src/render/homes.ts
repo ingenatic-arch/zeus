@@ -102,13 +102,15 @@ function tentB(): THREE.BufferGeometry {
   parts.push({ geo: lumpy(new THREE.ConeGeometry(0.56, 0.86, 8), 0.05, 31).translate(-0.18, 0.43, -0.12), color: PAL.canvas });
   parts.push({ geo: cyl(0.42, 0.47, 0.1, 8).translate(-0.18, 0.2, -0.12), color: PAL.canvasBlue });
   parts.push({ geo: cyl(0.02, 0.02, 0.2, 4).translate(-0.18, 0.92, -0.12), color: PAL.pole });
-  parts.push({ geo: doorway(0.3, 0.42, 0.33).translate(0, 0, -0.12), color: PAL.door });
-  // The awning: a sloping sheet on two poles.
-  parts.push({ geo: new THREE.BoxGeometry(0.62, 0.02, 0.42).rotateX(0.35).translate(0.2, 0.42, 0.6), color: PAL.canvasShade });
-  parts.push({ geo: cyl(0.015, 0.015, 0.36, 4).translate(-0.08, 0.18, 0.78), color: PAL.pole });
-  parts.push({ geo: cyl(0.015, 0.015, 0.36, 4).translate(0.48, 0.18, 0.78), color: PAL.pole });
-  parts.push(bundle(0.05, 0.6, 1, PAL.bundleRed, 32));
-  parts.push(bundle(0.32, 0.58, 0.85, PAL.bundleBlue, 33));
+  // The doorway lies on the cone's slope, facing +x.
+  const door = new THREE.BufferGeometry();
+  door.setAttribute('position', new THREE.Float32BufferAttribute([0.395, 0.0, 0.13, 0.395, 0.0, -0.13, 0.16, 0.4, 0], 3));
+  parts.push({ geo: door.translate(0, 0, -0.12), color: PAL.door });
+  // A small ochre lean-to tent beside it.
+  parts.push({ geo: prism(0.56, 0.27, 0.4).rotateY(Math.PI / 2).translate(0.32, 0, 0.62), color: PAL.canvasOchre });
+  parts.push({ geo: doorway(0.3, 0.27, 0.0).rotateY(-Math.PI / 2).translate(0.32, 0, 0.903), color: PAL.door });
+  parts.push(bundle(-0.1, 0.62, 1, PAL.bundleRed, 32));
+  parts.push(bundle(0.72, 0.42, 0.85, PAL.bundleBlue, 33));
   parts.push(...campfire(0.62, -0.5, 2));
   parts.push(amphora(-0.72, 0.7, 0.22));
   parts.push({ geo: new THREE.BoxGeometry(0.22, 0.12, 0.16).translate(0.75, 0.06, 0.15), color: PAL.trunk });
@@ -122,7 +124,7 @@ function stake(): THREE.BufferGeometry {
   const back = new THREE.BufferGeometry();
   back.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.25, 0, 0, 0.34, 0, 0.13, 0.3, 0.0], 3));
   return merge([
-    { geo: new THREE.BoxGeometry(0.035, 0.36, 0.035).translate(0, 0.16, 0), color: PAL.stake },
+    { geo: new THREE.BoxGeometry(0.03, 0.36, 0.03).translate(0, 0.16, 0), color: PAL.stake },
     { geo: flag, color: PAL.flag },
     { geo: back, color: PAL.flag },
   ]);
@@ -142,6 +144,7 @@ function facing(s: SimState, size: number, b: Building): number {
 }
 
 const RISE_SECONDS = 0.9;
+const UP = new THREE.Vector3(0, 1, 0);
 
 /**
  * Stakes on empty plots and tents on lived-in ones, instanced per chunk and
@@ -157,6 +160,13 @@ export class Homes {
   private rising = new Map<number, number>();
   private time = 0;
   private state: SimState | null = null;
+  /** Where each tent's fire is (world), by chunk, for the smoke. */
+  private fires = new Map<number, Array<[number, number, number, number]>>();
+  private readonly smoke: ChunkedInstances;
+  private readonly sm = new THREE.Matrix4();
+  private readonly sq = new THREE.Quaternion();
+  private readonly sp = new THREE.Vector3();
+  private readonly ss = new THREE.Vector3();
 
   constructor(private readonly map: CoastMap) {
     this.group.name = 'homes';
@@ -166,6 +176,33 @@ export class Homes {
     this.stakes = new ChunkedInstances('stakes', stake(), mat, HOME_CHUNK, opts);
     for (const t of this.tents) this.group.add(t.group);
     this.group.add(this.stakes.group);
+    const puff = new THREE.IcosahedronGeometry(1, 0);
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
+    this.smoke = new ChunkedInstances('smoke', puff, smokeMat, HOME_CHUNK, { castShadow: false, receiveShadow: false, colors: false });
+    this.group.add(this.smoke.group);
+  }
+
+  /** A wisp of smoke from every fire, drifting with the breeze. */
+  private updateSmoke(time: number, windAngle: number): void {
+    const wx = Math.cos(windAngle);
+    const wz = Math.sin(windAngle);
+    this.smoke.begin();
+    for (const list of this.fires.values()) {
+      for (const [x, y, z, seed] of list) {
+        for (let k = 0; k < 4; k++) {
+          const f = (time / 3.6 + k / 4 + seed) % 1;
+          // Small near the fire, swelling as it rises, then gone.
+          const r = (0.025 + 0.075 * f) * Math.min(1, (1 - f) * 4);
+          const drift = f * f * 0.3;
+          this.sp.set(x + wx * drift, y + 0.14 + f * 0.6, z + wz * drift);
+          this.sq.setFromAxisAngle(UP, seed * 10 + f * 2);
+          this.ss.set(r, r * 0.85, r);
+          this.sm.compose(this.sp, this.sq, this.ss);
+          this.smoke.push(this.sm);
+        }
+      }
+    }
+    this.smoke.end();
   }
 
   private key(b: Building): number {
@@ -192,8 +229,9 @@ export class Homes {
     for (const k of dirty) this.fill(k);
   }
 
-  update(time: number): void {
+  update(time: number, windAngle = 0): void {
     this.time = time;
+    this.updateSmoke(time, windAngle);
     if (this.rising.size === 0 || !this.state) return;
     const dirty = new Set<number>();
     for (const [id, t0] of this.rising) {
@@ -223,6 +261,9 @@ export class Homes {
     const up = new THREE.Vector3(0, 1, 0);
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
+    const fires: Array<[number, number, number, number]> = [];
+    const fireAt = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
+    const fp = new THREE.Vector3();
     tentsBy.forEach((bs, v) => {
       this.tents[v].set(kx, kz, bs.length, (i, m) => {
         const b = bs[i];
@@ -242,8 +283,13 @@ export class Homes {
         q.setFromAxisAngle(up, facing(s, size, b));
         sc.set(1, k, mirror);
         m.compose(p, q, sc);
+        if (k === 1) {
+          fp.copy(fireAt[v]).applyMatrix4(m);
+          fires.push([fp.x, map.heightAt(fp.x, fp.z), fp.z, hash2(b.id, 5, 42)]);
+        }
       });
     });
+    this.fires.set(key, fires);
     const corners: Array<[number, number]> = [];
     for (const b of plots) {
       const a = 0.14;
@@ -254,7 +300,7 @@ export class Homes {
       const [x, z] = corners[i];
       p.set(x, map.heightAt(x, z) - 0.02, z);
       q.setFromAxisAngle(up, (i % 4) * 0.9 + 0.4);
-      sc.set(1, 1, 1);
+      sc.set(0.72, 0.72, 0.72);
       m.compose(p, q, sc);
     });
   }

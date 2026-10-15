@@ -10,8 +10,10 @@ export const STREET_CHUNK = 32;
 /** How far the paving sits above the ground (plus a polygon offset). */
 const LIFT = 0.035;
 /** How far a road stops short of a tile's edge where it doesn't join a neighbour. */
-const INSET = 0.17;
-const U = [0, INSET, 1 - INSET, 1];
+const INSET = 0.1;
+/** Sub-grid across a tile: the rim strips, and a centre line so the middle of the road can be lighter than its edges. */
+const U = [0, INSET, 0.5, 1 - INSET, 1];
+const SUB = U.length - 1;
 
 /**
  * The paving of the roads and the trodden ground of plots: meshes that lie
@@ -68,15 +70,16 @@ export class Streets {
     const pos: number[] = [];
     const colors: number[] = [];
     const road = (tx: number, tz: number): boolean => tx >= 0 && tz >= 0 && tx < size && tz < size && s.tiles[tz * size + tx] === TILE_ROAD;
-    // Is the global sub-cell (gx, gz) paved? Each tile is split 3 x 3.
+    // Is the global sub-cell (gx, gz) paved? Each tile is split SUB x SUB;
+    // the outer strips are paved only where the road joins a neighbour.
     const paved = (gx: number, gz: number): boolean => {
-      const tx = Math.floor(gx / 3);
-      const tz = Math.floor(gz / 3);
+      const tx = Math.floor(gx / SUB);
+      const tz = Math.floor(gz / SUB);
       if (!road(tx, tz)) return false;
-      const i = gx - tx * 3;
-      const j = gz - tz * 3;
-      const dx = i === 0 ? -1 : i === 2 ? 1 : 0;
-      const dz = j === 0 ? -1 : j === 2 ? 1 : 0;
+      const i = gx - tx * SUB;
+      const j = gz - tz * SUB;
+      const dx = i === 0 ? -1 : i === SUB - 1 ? 1 : 0;
+      const dz = j === 0 ? -1 : j === SUB - 1 ? 1 : 0;
       if (dx !== 0 && !road(tx + dx, tz)) return false;
       if (dz !== 0 && !road(tx, tz + dz)) return false;
       if (dx !== 0 && dz !== 0 && !road(tx + dx, tz + dz)) return false;
@@ -109,6 +112,14 @@ export class Streets {
         vert(x1, z0, c10); vert(x0, z1, c01); vert(x1, z1, c11);
       }
     };
+    // A quad split along its own better diagonal (for ground beyond the map's tiles).
+    const quadFlat = (xa: number, za: number, xb: number, zb: number, c00: THREE.Color, c10: THREE.Color, c01: THREE.Color, c11: THREE.Color): void => {
+      const h00 = map.heightAt(xa, za);
+      const h10 = map.heightAt(xb, za);
+      const h01 = map.heightAt(xa, zb);
+      const h11 = map.heightAt(xb, zb);
+      quad(xa, za, xb, zb, splitsMainDiagonal(h00, h10, h01, h11), c00, c10, c01, c11);
+    };
     const x1 = Math.min(size, cx + STREET_CHUNK);
     const z1 = Math.min(size, cz + STREET_CHUNK);
     const vc = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
@@ -123,11 +134,11 @@ export class Streets {
           const inside = paved(gvx - 1, gvz - 1) && paved(gvx, gvz - 1) && paved(gvx - 1, gvz) && paved(gvx, gvz);
           return out.copy(inside ? pave : edge).multiplyScalar(jit);
         };
-        for (let j = 0; j < 3; j++) {
-          for (let i = 0; i < 3; i++) {
-            if (!paved(tx * 3 + i, tz * 3 + j)) continue;
-            const gx = tx * 3 + i;
-            const gz = tz * 3 + j;
+        for (let j = 0; j < SUB; j++) {
+          for (let i = 0; i < SUB; i++) {
+            const gx = tx * SUB + i;
+            const gz = tz * SUB + j;
+            if (!paved(gx, gz)) continue;
             colourAt(gx, gz, vc[0]);
             colourAt(gx + 1, gz, vc[1]);
             colourAt(gx, gz + 1, vc[2]);
@@ -135,6 +146,19 @@ export class Streets {
             quad(tx + U[i], tz + U[j], tx + U[i + 1], tz + U[j + 1], main, vc[0], vc[1], vc[2], vc[3]);
           }
         }
+      }
+    }
+    // Where a road meets the map's edge, a worn track carries on into the
+    // countryside: the way settlers come in.
+    for (let tz = cz; tz < z1; tz++) {
+      for (let tx = cx; tx < x1; tx++) {
+        if (!road(tx, tz)) continue;
+        const out: Array<[number, number]> = [];
+        if (tx === 0) out.push([-1, 0]);
+        if (tx === size - 1) out.push([1, 0]);
+        if (tz === 0) out.push([0, -1]);
+        if (tz === size - 1) out.push([0, 1]);
+        for (const [dx, dz] of out) this.track(tx + 0.5 + dx * 0.5, tz + 0.5 + dz * 0.5, dx, dz, quadFlat);
       }
     }
     // Plots: an outline marked on the grass, then trodden earth once a tent is up.
@@ -149,6 +173,41 @@ export class Streets {
     g.computeVertexNormals();
     g.computeBoundingSphere();
     return g;
+  }
+
+  /** A dirt track from (x, z) running off the map in direction (dx, dz), narrowing as it goes. */
+  private track(
+    x: number,
+    z: number,
+    dx: number,
+    dz: number,
+    quad: (xa: number, za: number, xb: number, zb: number, a: THREE.Color, b: THREE.Color, c: THREE.Color, d: THREE.Color) => void,
+  ): void {
+    const len = 7;
+    const steps = 14;
+    const earth = col(PAL.roadEdge);
+    const grass = col(PAL.earth);
+    const ca = new THREE.Color();
+    const cb = new THREE.Color();
+    for (let k = 0; k < steps; k++) {
+      const a = (k / steps) * len;
+      const b = ((k + 1) / steps) * len;
+      const wa = 0.36 * (1 - (0.45 * k) / steps);
+      const wb = 0.36 * (1 - (0.45 * (k + 1)) / steps);
+      ca.copy(earth).lerp(grass, k / steps);
+      cb.copy(earth).lerp(grass, (k + 1) / steps);
+      const w = Math.max(wa, wb);
+      // Along x or along z; the quad spans the track's width across.
+      if (dx !== 0) {
+        const xa = x + dx * a;
+        const xb = x + dx * b;
+        quad(Math.min(xa, xb), z - w, Math.max(xa, xb), z + w, dx > 0 ? ca : cb, dx > 0 ? cb : ca, dx > 0 ? ca : cb, dx > 0 ? cb : ca);
+      } else {
+        const za = z + dz * a;
+        const zb = z + dz * b;
+        quad(x - w, Math.min(za, zb), x + w, Math.max(za, zb), dz > 0 ? ca : cb, dz > 0 ? ca : cb, dz > 0 ? cb : ca, dz > 0 ? cb : ca);
+      }
+    }
   }
 
   private plotGround(

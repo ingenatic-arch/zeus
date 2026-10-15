@@ -33,7 +33,9 @@ page.on('console', (m) => {
   if (m.type() === 'error' || m.type() === 'warning') console.log(`[${m.type()}]`, m.text());
 });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-for (const name of names) {
+for (const arg of names) {
+  // "name@x,z,yaw,dist,tilt" jumps the camera there after loading.
+  const [name, cam] = arg.split('@');
   const q = SHOTS[name] ?? (name.startsWith('?') || name.startsWith('#') ? name : `?cam=${name}&speed=paused&shot=1`);
   const t0 = Date.now();
   await page.goto('about:blank');
@@ -41,7 +43,13 @@ for (const name of names) {
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
   if (name === 'help') await page.keyboard.press('?');
-  const file = `${outDir}/${name.replace(/[^a-z0-9-]+/gi, '_')}.png`;
+  if (cam) {
+    const [x, z, yaw, dist, tilt] = cam.split(',').map(Number);
+    await page.evaluate((v) => window.__zeus.jump(v), { x, z, yaw, dist, tilt });
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  }
+  const file = `${outDir}/${arg.replace(/[^a-z0-9-]+/gi, '_')}.png`;
   await page.screenshot({ path: file });
   console.log(`${name}: ${file} (${Date.now() - t0} ms)`);
 }

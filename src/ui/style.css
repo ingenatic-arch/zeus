@@ -100,17 +100,17 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 }
 
 /* Population and drachmas in the top bar. */
-.stat { display: flex; align-items: center; gap: 6px; position: relative; min-width: 66px; font-size: 18px; font-variant-numeric: lining-nums tabular-nums; }
+.stat { display: flex; align-items: center; gap: 6px; position: relative; min-width: 104px; font-size: 18px; font-variant-numeric: lining-nums tabular-nums; }
 .stat svg { width: 20px; height: 18px; fill: var(--ink-soft); flex: none; }
 .stat.money svg { width: 18px; }
 .stat.money svg circle { fill: #d9a441; }
 .stat.money svg .inner { fill: none; stroke: #a8772a; stroke-width: 0.9; }
 .stat.money svg .mark { fill: #a8772a; }
 .stat .delta {
-  position: absolute; left: 26px; top: 100%; margin-top: 2px; font-size: 13px; font-weight: bold;
-  opacity: 0; transform: translateY(-3px); transition: opacity 0.25s ease, transform 0.25s ease; pointer-events: none; white-space: nowrap;
+  font-size: 12.5px; font-weight: bold; margin-left: -2px; align-self: flex-start; margin-top: 1px;
+  opacity: 0; transition: opacity 0.3s ease; pointer-events: none; white-space: nowrap;
 }
-.stat .delta.show { opacity: 1; transform: translateY(0); }
+.stat .delta.show { opacity: 1; }
 .stat .delta.up { color: #5f7f2c; }
 .stat .delta.down { color: var(--terracotta-deep); }
 

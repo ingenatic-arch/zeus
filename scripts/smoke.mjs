@@ -72,12 +72,84 @@ if (!speed?.startsWith('Pause')) fail(`pause button not lit (${speed})`);
 
 // Every prepared view loads.
 for (const cam of ['coast', 'overview', 'river', 'bay', 'hills', 'street', 'headland', 'mouth']) {
+  await page.goto('about:blank');
   await page.goto(url + `?cam=${cam}&speed=paused`);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await frames(2);
 }
 
+// Every demo link loads from a bare hash token (the published page only gets the hash).
+for (const token of ['coast', 'streets', 'settlers', 'build', 'river', 'streets-fast']) {
+  await page.goto('about:blank');
+  await page.goto(url + '#' + token);
+  await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  await frames(2);
+}
+const streets = await page.evaluate(() => window.__zeus.city());
+if (!(streets.tents > 0 && streets.roads > 0)) fail(`#streets-fast has no tents or roads (${JSON.stringify(streets)})`);
+const fast = await page.evaluate(() => document.querySelector('.speeds .on')?.getAttribute('aria-label'));
+if (!fast?.startsWith('Fast')) fail(`#streets-fast did not start fast (${fast})`);
+
+// Building: the road tool, a road in from the west edge, plots beside it, settlers, clearing and undo.
+await page.goto('about:blank');
+await page.goto(url + '#build-paused');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+await page.evaluate(() => window.__zeus.jump({ x: 10, z: 79, yaw: 0, dist: 24, tilt: 0 }));
+await frames(3);
+const at = (x, z) => page.evaluate(([x, z]) => window.__zeus.screenOf(x, z), [x, z]);
+const city = () => page.evaluate(() => window.__zeus.city());
+if ((await city()).tool !== 'road') fail('#build did not pick the road tool');
+const v5 = await page.evaluate(() => window.__zeus.view());
+let p = await at(0.5, 80.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+p = await at(16.5, 80.5);
+await page.mouse.move(p.x, p.y, { steps: 6 });
+await page.mouse.up();
+await frames(2);
+let c = await city();
+if (c.roads !== 17) fail(`left-drag with the road tool laid ${c.roads} road tiles, not 17`);
+if (c.money !== 5000 - 17 * 4) fail(`roads cost ${5000 - c.money}, not ${17 * 4}`);
+const v6 = await page.evaluate(() => window.__zeus.view());
+if (Math.hypot(v6.x - v5.x, v6.z - v5.z) > 0.01) fail('left-drag with a tool also panned the view');
+// Housing plots by key.
+await page.keyboard.press('h');
+p = await at(5, 79);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+p = await at(13, 79);
+await page.mouse.move(p.x, p.y, { steps: 4 });
+await page.mouse.up();
+await frames(2);
+c = await city();
+if (c.homes !== 5) fail(`dragged ${c.homes} plots, not 5`);
+// Right-click puts the tool down; with no tool, left-drag pans again.
+await page.mouse.click(p.x, p.y, { button: 'right' });
+await frames(2);
+if ((await city()).tool !== null) fail('right-click did not put the tool down');
+// Settlers come (fastest speed).
+await page.keyboard.press('3');
+await page.waitForFunction(() => window.__zeus.city().tents >= 2, null, { timeout: 120000 });
+c = await city();
+if (!(c.population > 0)) fail('no settlers moved in');
+await page.keyboard.press('Space');
+// Clear one tent; its family leaves.
+await page.keyboard.press('x');
+p = await at(5.5, 78.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+await page.mouse.up();
+await frames(2);
+const c2 = await city();
+if (!(c2.homes === 4 && c2.population < c.population)) fail(`clearing a tent: ${JSON.stringify(c)} -> ${JSON.stringify(c2)}`);
+// Undo brings the plot back.
+await page.keyboard.press('u');
+await frames(2);
+const c3 = await city();
+if (c3.homes !== 5) fail(`undo did not bring the plot back (${c3.homes})`);
+await page.keyboard.press('Escape');
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'));
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo)');
 await browser.close();
 server.close();

@@ -44,7 +44,7 @@ export const PAL = {
   // Streets and homes
   road: '#e6d3a6',
   roadEdge: '#bfa072',
-  plotLine: '#e8dcae',
+  plotLine: '#ddd09c',
   earth: '#c9ad7a',
   earthWorn: '#a98a5c',
   stake: '#8a6a48',

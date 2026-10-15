@@ -10,9 +10,9 @@ import { edgeRoads, nearestEdge, nearestReached, roadSearch, tracePath, type Sea
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 
 /** How often (ticks) the city looks for a home for a new group of settlers. */
-export const SETTLER_INTERVAL = 12;
+export const SETTLER_INTERVAL = 40;
 /** Most settler groups on the road at once. */
-export const MAX_SETTLER_GROUPS = 12;
+export const MAX_SETTLER_GROUPS = 8;
 /** Walking speed, tiles per tick (1.2 tiles a second at normal speed). */
 export const WALK_SPEED = 0.12;
 /** How far beyond the map's edge walkers appear and disappear. */

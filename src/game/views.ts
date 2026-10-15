@@ -20,7 +20,7 @@ export const VIEWS: Record<string, CameraView> = {
   // The first neighbourhood (slice 2's demo), from the south-east.
   streets: { x: 26, z: 75, yaw: 0.55, dist: 30, tilt: -0.1 },
   // Street level on the road in from the west, settlers walking towards the camera.
-  settlers: { x: 13, z: 80.5, yaw: -1.35, dist: 6, tilt: 0.04 },
+  settlers: { x: 6, z: 80.5, yaw: 1.2, dist: 7, tilt: 0.04 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

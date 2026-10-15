@@ -141,7 +141,7 @@ export class Walkers {
         const moving = d > 0 && d < total ? 1 : 0;
         const bob = Math.abs(Math.sin(phase)) * 0.022 * moving;
         const child = w.people >= 3 && k === w.people - 1;
-        const sc = child ? 0.72 : 0.94 + 0.12 * hash2(seed, 1, 61);
+        const sc = child ? 0.66 : 0.84 + 0.1 * hash2(seed, 1, 61);
         this.e.set(Math.sin(phase) * 0.06 * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.map.heightAt(x, z) + 0.03 + bob, z);
