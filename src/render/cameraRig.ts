@@ -123,8 +123,19 @@ export class CameraRig {
     this.goal.dist = clamp(before * factor, MIN_DIST, MAX_DIST);
     const k = 1 - this.goal.dist / before;
     if (anchor) {
-      this.goal.x += (anchor.x - this.goal.x) * k;
-      this.goal.z += (anchor.z - this.goal.z) * k;
+      // Near the ground the point under the pointer can be far off towards
+      // the horizon; heading for it in full would lurch the view, so a
+      // distant point only draws the view a little way its way.
+      let ax = anchor.x - this.goal.x;
+      let az = anchor.z - this.goal.z;
+      const len = Math.hypot(ax, az);
+      const cap = before * 3;
+      if (len > cap) {
+        ax *= cap / len;
+        az *= cap / len;
+      }
+      this.goal.x += ax * k;
+      this.goal.z += az * k;
       this.clampGoal();
     }
   }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { clamp } from '../map/noise';
+import { clamp, smoothstep } from '../map/noise';
 import type { CameraRig } from './cameraRig';
 import { col, PAL } from './palette';
 import { buildSky } from './sky';
@@ -50,13 +50,18 @@ export class World {
     this.water.update(time, windAngle, windStrength);
     this.plants.update(time);
     const t = rig.target;
-    const size = clamp(rig.distance * 0.9, 14, 120);
+    const size = clamp(rig.distance * 0.9, 24, 120);
     const sh = this.sun.shadow.camera;
+    // Looking along the ground from close up, most of what's in view lies
+    // beyond the aim point, so the box slides forward to keep shadows under
+    // the trees ahead. From higher up the box is big enough as it is.
+    const v = rig.view;
+    const ahead = size * 0.6 * (1 - smoothstep(0.35, 1.0, rig.pitch(v.dist, v.tilt))) * (1 - smoothstep(10, 40, v.dist));
     // Snap the box to whole shadow-map texels so shadows don't shimmer while panning.
     const texel = (size * 2) / this.sun.shadow.mapSize.x;
-    const snap = (v: number): number => Math.round(v / texel) * texel;
-    const cx = snap(t.x);
-    const cz = snap(t.z);
+    const snap = (val: number): number => Math.round(val / texel) * texel;
+    const cx = snap(t.x - Math.sin(v.yaw) * ahead);
+    const cz = snap(t.z - Math.cos(v.yaw) * ahead);
     this.sun.target.position.set(cx, t.y, cz);
     this.sun.position.set(cx, t.y, cz).addScaledVector(SUN_DIR, 200);
     if (sh.right !== size) {
