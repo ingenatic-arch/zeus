@@ -15,6 +15,8 @@ const MAX_TICKS_PER_FRAME = 40;
  */
 export class ClockDriver {
   speed: Speed;
+  /** The speed Space resumes to: whatever was running before the pause. */
+  private resume: Exclude<Speed, 'paused'> = 'normal';
   private acc = 0;
   private listeners: Array<(s: Speed) => void> = [];
 
@@ -23,17 +25,20 @@ export class ClockDriver {
     speed: Speed = 'normal',
   ) {
     this.speed = speed;
+    if (speed !== 'paused') this.resume = speed;
   }
 
   setSpeed(s: Speed): void {
     if (s === this.speed) return;
     this.speed = s;
     if (s === 'paused') this.acc = 0;
+    else this.resume = s;
     for (const l of this.listeners) l(s);
   }
 
-  togglePause(resumeTo: Speed = 'normal'): void {
-    this.setSpeed(this.speed === 'paused' ? resumeTo : 'paused');
+  /** Pause, or carry on at the speed that was running before. */
+  togglePause(): void {
+    this.setSpeed(this.speed === 'paused' ? this.resume : 'paused');
   }
 
   onSpeedChange(l: (s: Speed) => void): void {

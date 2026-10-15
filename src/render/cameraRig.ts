@@ -51,6 +51,11 @@ export class CameraRig {
     return new THREE.Vector3(this.cur.x, this.groundY, this.cur.z);
   }
 
+  /** How far the view still has to turn to reach where it is heading (radians). */
+  get turnRemaining(): number {
+    return Math.abs(this.goal.yaw - this.cur.yaw);
+  }
+
   get distance(): number {
     return this.cur.dist;
   }

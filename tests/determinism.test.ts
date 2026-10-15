@@ -78,4 +78,13 @@ describe('simulation determinism', () => {
     d.update(TICKS_PER_MONTH / 10);
     expect(sim.state.tick).toBe(Math.min(TICKS_PER_MONTH, 40));
   });
+
+  it('pausing and carrying on returns to the speed that was running', () => {
+    const d = new ClockDriver(new Sim(3), 'normal');
+    d.setSpeed('fastest');
+    d.togglePause();
+    expect(d.speed).toBe('paused');
+    d.togglePause();
+    expect(d.speed).toBe('fastest');
+  });
 });
