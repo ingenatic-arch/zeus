@@ -18,6 +18,8 @@ import { clamp, fbm, lerp, ridged, smoothstep, valueNoise } from './noise';
 export const FIELD_MIN = -MAP_MARGIN;
 export const FIELD_N = MAP_SIZE + 2 * MAP_MARGIN + 1;
 export const OUTER_STEP = 2;
+/** Size of the first band of far scenery's cells, beyond the field. */
+export const FAR_STEP = 4;
 
 /** The shelf beside the stream: how far it reaches past the water's edge, and how far under the surface. */
 export const RIVER_SHELF = 1.0;
@@ -537,6 +539,21 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   fixLine((t) => hi * N + t);
   fixLine((t) => t * N + lo);
   fixLine((t) => t * N + hi);
+  // Likewise the field's own outer edge, where the far scenery meets it in
+  // cells of FAR_STEP units.
+  for (let t = 0; t < N - 1; t += FAR_STEP) {
+    for (let u = 1; u < FAR_STEP; u++) {
+      const f = u / FAR_STEP;
+      for (const [a, b, m] of [
+        [t, t + FAR_STEP, t + u],
+        [(N - 1) * N + t, (N - 1) * N + t + FAR_STEP, (N - 1) * N + t + u],
+        [t * N, (t + FAR_STEP) * N, (t + u) * N],
+        [t * N + N - 1, (t + FAR_STEP) * N + N - 1, (t + u) * N + N - 1],
+      ]) {
+        heights[m] = lerp(heights[a], heights[b], f);
+      }
+    }
+  }
 
   // 6. Tiles: water and fertility.
   const tileWater = new Uint8Array(MAP_SIZE * MAP_SIZE);

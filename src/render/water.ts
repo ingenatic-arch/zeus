@@ -284,15 +284,22 @@ function seaGeometry(map: CoastMap): THREE.BufferGeometry {
   // only (south of the coast line where it leaves the field), so the land
   // beyond the map reads as more land rather than an island.
   const R = 6000;
-  const zs = 96;
+  // Far enough north to fill the far coast's bays; the land hides the rest.
+  const zs = 20;
   const quad = (x0: number, z0: number, x1: number, z1: number): void => {
     const b = pos.length / 3;
     pos.push(x0, 0, z0, x1, 0, z0, x0, 0, z1, x1, 0, z1);
     idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
   };
-  quad(-R, zs, lo, R); // west
-  quad(hi, zs, R, R); // east
-  quad(lo, hi, hi, R); // south
+  // Along the edge of the grid the skirt shares the grid's vertices, so the
+  // two meet without a hairline crack.
+  for (let z = zs; z < hi; z += step) {
+    quad(-R, z, lo, z + step); // west
+    quad(hi, z, R, z + step); // east
+  }
+  for (let x = lo; x < hi; x += step) quad(x, hi, x + step, R); // south
+  quad(-R, hi, lo, R);
+  quad(hi, hi, R, R);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));

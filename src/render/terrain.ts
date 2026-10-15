@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { FIELD_MIN, FIELD_N, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
+import { FAR_STEP, FIELD_MIN, FIELD_N, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { coast, MAP_SIZE } from '../map/coast';
-import { hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
+import { clamp, fbm, hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
 import { col, PAL } from './palette';
 
 const tmp = new THREE.Color();
@@ -116,8 +116,13 @@ function buildGrid(map: CoastMap, cells: Array<[number, number]>, step: number):
 
 /** Height of the far scenery: the coast carries on, with mountains rising inland. */
 function farHeight(x: number, z: number): number {
-  const d = shoreZ(coast.shore, x) - z;
-  if (d < 0) return -4 - Math.min(-d * 0.05, 6);
+  // Away from the map the coastline wanders into headlands and bays, so
+  // it doesn't run ruler-straight to the horizon.
+  const beyond = Math.max(FIELD_MIN - x, x - (FIELD_MIN + FIELD_N - 1), 0);
+  const wander = 55 * fbm(x * 0.0045, 3.3, 4343, 3) * smoothstep(0, 260, beyond);
+  const d = shoreZ(coast.shore, x) + wander - z;
+  // The sea floor shelves away from the beach (no step at the waterline).
+  if (d < 0) return -Math.min(-d * 0.08, 10);
   const plain = 1.6 * (1 - Math.exp(-d / 15));
   const ridges = 0.35 + 0.65 * ridged(x * 0.006, z * 0.006, 4242, 4);
   return plain + 30 * ridges * smoothstep(20, 260, d);
@@ -129,65 +134,108 @@ function farColour(h: number, ny: number, x: number, z: number, out: THREE.Color
   if (h < 0.3) out.lerp(col(PAL.sand), 1 - smoothstep(0.1, 0.3, h));
   const rock = Math.max(smoothstep(8, 22, h + n * 6), smoothstep(0.25, 0.5, 1 - ny));
   out.lerp(col(PAL.rockWarm).clone().lerp(col(PAL.rockGrey), n), rock);
-  // Only a whisper of per-facet variation: the far rings are long thin facets that would stripe.
+  // Only a whisper of per-facet variation: far off it would just shimmer.
   return out.multiplyScalar(0.98 + 0.03 * hash2(Math.floor(x / 40), Math.floor(z / 40), 79));
 }
 
 /**
- * Scenery out to the horizon: square rings extruded from the edge of the
- * baked field, sharing its edge vertices exactly (no cracks), widening and
- * blending into a simple far landscape that the haze swallows.
+ * Bands of far scenery around the baked field, out to the horizon: square
+ * rings of square cells, each band's cells twice the size of the last (so
+ * there are no long thin facets to streak). Where a band meets a coarser
+ * one, its in-between edge points sit on the coarser band's straight edge,
+ * so nothing cracks; the field's own edge is shaped the same way in the bake.
  */
+const FAR_BANDS: Array<[cell: number, outerHalf: number]> = [
+  [FAR_STEP, 224],
+  [8, 288],
+  [16, 416],
+  [32, 640],
+  [64, 1152],
+  [128, 2304],
+  [256, 4352],
+];
+
 function buildFarLand(map: CoastMap): THREE.BufferGeometry {
   const lo = FIELD_MIN;
   const hi = FIELD_MIN + FIELD_N - 1;
-  const step = OUTER_STEP * 2;
-  // The field's perimeter, counter-clockwise from above, with outward directions.
-  const perim: Array<{ x: number; z: number; dx: number; dz: number }> = [];
-  for (let x = lo; x < hi; x += step) perim.push({ x, z: lo, dx: x === lo ? -1 : 0, dz: -1 });
-  for (let z = lo; z < hi; z += step) perim.push({ x: hi, z, dx: 1, dz: z === lo ? -1 : 0 });
-  for (let x = hi; x > lo; x -= step) perim.push({ x, z: hi, dx: x === hi ? 1 : 0, dz: 1 });
-  for (let z = hi; z > lo; z -= step) perim.push({ x: lo, z, dx: -1, dz: z === hi ? 1 : 0 });
-  const rings = [0, 10, 28, 60, 120, 220, 400, 700, 1200, 2200];
-  const pts: THREE.Vector3[][] = rings.map((D) =>
-    perim.map((p) => {
-      const x = p.x + p.dx * D;
-      const z = p.z + p.dz * D;
-      const edge = map.corner(p.x, p.z);
-      const h = D === 0 ? edge : lerp(edge, farHeight(x, z), smoothstep(0, 140, D));
-      return new THREE.Vector3(x, h, z);
-    }),
-  );
+  const cx = (lo + hi) / 2;
+  const fieldHalf = (hi - lo) / 2;
+  const raw = (x: number, z: number): number => {
+    const D = Math.max(Math.abs(x - cx), Math.abs(z - cx)) - fieldHalf;
+    if (D <= 0) return map.corner(x, z);
+    const edge = map.corner(clamp(x, lo, hi), clamp(z, lo, hi));
+    return lerp(edge, farHeight(x, z), smoothstep(0, 140, D));
+  };
   const pos: number[] = [];
   const colors: number[] = [];
   const c = new THREE.Color();
   const e1 = new THREE.Vector3();
   const e2 = new THREE.Vector3();
   const nrm = new THREE.Vector3();
+  const va = new THREE.Vector3();
+  const vb = new THREE.Vector3();
+  const vc = new THREE.Vector3();
   const tri = (a: THREE.Vector3, b: THREE.Vector3, d: THREE.Vector3): void => {
     e1.subVectors(b, a);
     e2.subVectors(d, a);
-    // Right-hand normal of a->b->d; three.js treats counter-clockwise (normal up) as the front.
     nrm.crossVectors(e1, e2).normalize();
-    const cx = (a.x + b.x + d.x) / 3;
-    const cz = (a.z + b.z + d.z) / 3;
-    farColour((a.y + b.y + d.y) / 3, Math.abs(nrm.y), cx, cz, c);
+    farColour((a.y + b.y + d.y) / 3, Math.abs(nrm.y), (a.x + b.x + d.x) / 3, (a.z + b.z + d.z) / 3, c);
+    // Wound so the normal points up: counter-clockwise from above, the front face for three.js.
     for (const v of nrm.y >= 0 ? [a, b, d] : [a, d, b]) {
       pos.push(v.x, v.y, v.z);
       colors.push(c.r, c.g, c.b);
     }
   };
-  const n = perim.length;
-  for (let r = 0; r < rings.length - 1; r++) {
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      const a = pts[r][i];
-      const b = pts[r][j];
-      const a2 = pts[r + 1][i];
-      const b2 = pts[r + 1][j];
-      tri(a, a2, b);
-      tri(b, a2, b2);
+  let inner = fieldHalf;
+  for (let b = 0; b < FAR_BANDS.length; b++) {
+    const [cell, outer] = FAR_BANDS[b];
+    const coarser = b + 1 < FAR_BANDS.length ? FAR_BANDS[b + 1][0] : cell;
+    // Height of a corner of this band; on its outer edge, points between the
+    // next band's corners lie on that band's straight edge.
+    const h = (x: number, z: number): number => {
+      const ox = Math.abs(x - cx) === outer;
+      const oz = Math.abs(z - cx) === outer;
+      if (coarser !== cell && (ox || oz)) {
+        const along = ox ? z : x;
+        if (Math.round((along - cx) / cell) % 2 !== 0) {
+          return ox ? (raw(x, z - cell) + raw(x, z + cell)) / 2 : (raw(x - cell, z) + raw(x + cell, z)) / 2;
+        }
+      }
+      return raw(x, z);
+    };
+    const n = (2 * outer) / cell;
+    const x0 = cx - outer;
+    // Heights of the band's lattice, computed once per corner.
+    const hs = new Float32Array((n + 1) * (n + 1)).fill(NaN);
+    const corner = (i: number, j: number): number => {
+      const k = j * (n + 1) + i;
+      if (Number.isNaN(hs[k])) hs[k] = h(x0 + i * cell, x0 + j * cell);
+      return hs[k];
+    };
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const xa = x0 + i * cell;
+        const za = x0 + j * cell;
+        // Only the ring between this band's inner and outer edges.
+        if (xa >= cx - inner && xa + cell <= cx + inner && za >= cx - inner && za + cell <= cx + inner) continue;
+        const h00 = corner(i, j);
+        const h10 = corner(i + 1, j);
+        const h01 = corner(i, j + 1);
+        const h11 = corner(i + 1, j + 1);
+        const p00 = new THREE.Vector3(xa, h00, za);
+        const p10 = new THREE.Vector3(xa + cell, h10, za);
+        const p01 = new THREE.Vector3(xa, h01, za + cell);
+        const p11 = new THREE.Vector3(xa + cell, h11, za + cell);
+        if (splitsMainDiagonal(h00, h10, h01, h11)) {
+          tri(va.copy(p00), vb.copy(p11), vc.copy(p10));
+          tri(va.copy(p00), vb.copy(p01), vc.copy(p11));
+        } else {
+          tri(va.copy(p00), vb.copy(p01), vc.copy(p10));
+          tri(va.copy(p10), vb.copy(p01), vc.copy(p11));
+        }
+      }
     }
+    inner = outer;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
