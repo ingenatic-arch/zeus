@@ -1,50 +1,102 @@
 import './ui/style.css';
 import * as THREE from 'three';
-import { ClockDriver, type Speed } from './game/clockDriver';
+import { ClockDriver, SPEEDS, type Speed } from './game/clockDriver';
+import { attachInput } from './game/input';
+import { DEMOS, VIEWS } from './game/views';
+import { bakeCoast } from './map/bake';
+import { CameraRig, type CameraView } from './render/cameraRig';
+import { World } from './render/world';
 import { Sim } from './sim/sim';
+import { buildCorner } from './ui/help';
 import { TopBar } from './ui/topbar';
 
-const params = new URLSearchParams(location.search);
-const sim = new Sim();
-const driver = new ClockDriver(sim, (params.get('speed') as Speed) || 'normal');
-const ui = document.getElementById('ui') as HTMLElement;
-const topbar = new TopBar(ui, driver);
-
-const canvas = document.getElementById('scene') as HTMLCanvasElement;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-const scene = new THREE.Scene();
-scene.background = new THREE.Color('#bfe0f0');
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-camera.position.set(0, 40, 60);
-camera.lookAt(0, 0, 0);
-scene.add(new THREE.Mesh(new THREE.PlaneGeometry(100, 100).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#a8b85a' })));
-scene.add(new THREE.HemisphereLight('#ffffff', '#886644', 2));
-
-function resize(): void {
-  renderer.setSize(innerWidth, innerHeight, false);
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
+interface Probe {
+  ready: boolean;
+  frames: number;
+  bakeMs: number;
+  startMs: number;
+  info?: () => { triangles: number; calls: number; geometries: number; textures: number };
+  setView?: (name: string) => void;
+  jump?: (view: CameraView) => void;
 }
-addEventListener('resize', resize);
-resize();
 
-addEventListener('keydown', (e) => {
-  if (e.code === 'Space') driver.togglePause();
-  if (e.key === '1') driver.setSpeed('normal');
-  if (e.key === '2') driver.setSpeed('fast');
-  if (e.key === '3') driver.setSpeed('fastest');
-});
+const params = new URLSearchParams(location.search);
+const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0 };
+(window as unknown as { __zeus: Probe }).__zeus = probe;
 
-const probe = ((window as unknown as { __zeus: { ready: boolean; frames: number } }).__zeus = { ready: false, frames: 0 });
-let last = performance.now();
-renderer.setAnimationLoop((now) => {
-  const dt = Math.min(0.25, (now - last) / 1000);
-  last = now;
-  driver.update(dt);
-  topbar.showDate(sim.date);
-  renderer.render(scene, camera);
-  probe.frames++;
-});
-document.getElementById('loading')?.classList.add('gone');
-probe.ready = true;
+function start(): void {
+  const t0 = performance.now();
+  const demo = DEMOS[params.get('demo') ?? ''];
+  const viewName = params.get('cam') ?? demo?.view ?? 'coast';
+  const view = VIEWS[viewName] ?? VIEWS.coast;
+  const speedParam = params.get('speed') as Speed | null;
+  const speed: Speed = speedParam && SPEEDS.includes(speedParam) ? speedParam : 'normal';
+  const shot = params.has('shot');
+
+  const sim = new Sim();
+  const driver = new ClockDriver(sim, speed);
+  const map = bakeCoast();
+  probe.bakeMs = performance.now() - t0;
+
+  const canvas = document.getElementById('scene') as HTMLCanvasElement;
+  canvas.tabIndex = 0;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const world = new World(map);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
+  const rig = new CameraRig(camera, map, view);
+
+  const ui = document.getElementById('ui') as HTMLElement;
+  const topbar = new TopBar(ui, driver);
+  const corner = buildCorner(ui, () => rig.faceNorth(), !shot);
+  const pollKeys = attachInput(canvas, rig, driver, () => corner.toggleHelp());
+
+  const resize = (): void => {
+    const w = canvas.clientWidth || innerWidth;
+    const h = canvas.clientHeight || innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  };
+  addEventListener('resize', resize);
+  resize();
+
+  probe.info = () => ({
+    triangles: renderer.info.render.triangles,
+    calls: renderer.info.render.calls,
+    geometries: renderer.info.memory.geometries,
+    textures: renderer.info.memory.textures,
+  });
+  probe.setView = (name: string) => rig.jumpTo(VIEWS[name] ?? VIEWS.coast);
+  probe.jump = (v: CameraView) => rig.jumpTo(v);
+
+  let last = performance.now();
+  let time = 0;
+  renderer.setAnimationLoop((now) => {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    time += dt;
+    driver.update(dt);
+    pollKeys(dt);
+    rig.update(dt);
+    const w = sim.state.wind;
+    world.update(time, rig, w.angle, w.strength);
+    topbar.showDate(sim.date);
+    corner.setHeading(rig.view.yaw);
+    renderer.render(world.scene, camera);
+    probe.frames++;
+  });
+
+  document.getElementById('loading')?.classList.add('gone');
+  probe.startMs = performance.now() - t0;
+  probe.ready = true;
+}
+
+// Let the loading card paint before the coast is shaped.
+requestAnimationFrame(() => setTimeout(start, 0));

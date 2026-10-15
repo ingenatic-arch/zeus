@@ -12,6 +12,8 @@ const SHOTS = {
   river: '?cam=river&speed=paused&shot=1',
   hills: '?cam=hills&speed=paused&shot=1',
   street: '?cam=street&speed=paused&shot=1',
+  headland: '?cam=headland&speed=paused&shot=1',
+  mouth: '?cam=mouth&speed=paused&shot=1',
   ui: '?demo=coast',
 };
 
@@ -27,7 +29,7 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 for (const name of names) {
-  const q = SHOTS[name] ?? name;
+  const q = SHOTS[name] ?? (name.startsWith('?') ? name : `?cam=${name}&speed=paused&shot=1`);
   const t0 = Date.now();
   await page.goto(url + q);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
