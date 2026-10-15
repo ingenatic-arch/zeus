@@ -33,6 +33,8 @@ export interface PointerTools {
   cancel(): void;
   /** A key that isn't a camera or clock key; true if it was used. */
   key(k: string, e: KeyboardEvent): boolean;
+  /** A left click without a drag and with no tool picked: the ground point under it (or null), and its screen position. */
+  click?(world: { x: number; z: number } | null, sx: number, sy: number): void;
 }
 
 /**
@@ -92,6 +94,7 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
         if (e.type === 'pointercancel') tools?.cancel();
         else tools?.up();
       } else if (d.button === 2 && d.moved < 5) tools?.cancel();
+      else if (d.button === 0 && d.moved < 5 && e.type === 'pointerup') tools?.click?.(ground(e), e.clientX, e.clientY);
     }
   };
   canvas.addEventListener('pointerup', end);

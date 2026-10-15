@@ -20,6 +20,11 @@ const SHOTS = {
   settlers: '#settlers-paused-shot',
   build: '#build-paused-shot',
   'streets-ui': '#streets-paused',
+  water: '#water-paused-shot',
+  'water-ui': '#water-paused',
+  'water-overlay': '#water-overlay-paused',
+  carrier: '#carrier-shot',
+  fountain: '#fountain-paused',
 };
 
 const want = process.argv.slice(2);

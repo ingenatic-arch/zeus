@@ -1,31 +1,44 @@
 import type { ToolName, ToolTip } from '../game/tools';
-import { PLOT_COST, ROAD_COST } from '../sim/build';
+import { FOUNTAIN_COST, PLOT_COST, ROAD_COST } from '../sim/build';
 
-const ICONS: Record<ToolName | 'undo', string> = {
+const ICONS: Record<ToolName | 'undo' | 'water', string> = {
   // Paving stones running off into the distance.
   road: '<svg viewBox="0 0 24 24"><path d="M9 3h6l5 18H4z" class="fill-soft"/><path d="M11 6h2v3h-2zM10.6 11h2.8v3.4h-2.8zM10.1 16.6h3.8v3.6h-3.8z" class="fill-ink"/></svg>',
   // A tent.
   housing: '<svg viewBox="0 0 24 24"><path d="M12 4 2.5 20h19z" class="fill-soft"/><path d="M12 9.5 8.4 20h7.2z" class="fill-ink"/><path d="M12 4v-1.6" class="stroke-ink"/><path d="M2 20.6h20" class="stroke-ink"/></svg>',
+  // A basin on a column, spilling water.
+  fountain:
+    '<svg viewBox="0 0 24 24"><path d="M3.5 15.5h17l-1.6 4.5H5.1z" class="fill-soft"/><path d="M11 7.5h2v8h-2z" class="fill-ink"/><path d="M7.6 6.2h8.8c-.4 1.6-2.2 2.4-4.4 2.4S8 7.8 7.6 6.2z" class="fill-soft"/><path d="M8.2 8.2c-1.4 1.6-2 3.6-2.2 6M15.8 8.2c1.4 1.6 2 3.6 2.2 6" class="stroke-water"/></svg>',
+  // A drop of water.
+  water: '<svg viewBox="0 0 24 24"><path d="M12 2.8c3.3 4.6 6.2 8.2 6.2 11.6a6.2 6.2 0 0 1-12.4 0c0-3.4 2.9-7 6.2-11.6z" class="fill-water"/><path d="M9.2 14.6a2.9 2.9 0 0 0 2.6 3" class="stroke-shine"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
 
-const INFO: Record<ToolName | 'undo', { name: string; key: string; cost: string; hint: string }> = {
+const INFO: Record<ToolName | 'undo' | 'water', { name: string; key: string; cost: string; hint: string }> = {
   road: { name: 'Road', key: 'T', cost: `${ROAD_COST} dr a tile`, hint: 'Drag to lay a road. Settlers walk in where a road meets the edge of the map (glowing gold).' },
   housing: { name: 'Housing', key: 'H', cost: `${PLOT_COST} dr a plot`, hint: 'Click or drag to mark out plots beside a road. Settlers will come and pitch tents.' },
+  fountain: {
+    name: 'Fountain',
+    key: 'B',
+    cost: `${FOUNTAIN_COST} dr`,
+    hint: 'Click beside a road. Its water carrier walks the streets nearby, and homes she passes get water.',
+  },
   clear: { name: 'Clear land', key: 'X', cost: 'free', hint: 'Drag over roads, homes or trees to clear them. Families in cleared homes leave.' },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
+  water: { name: 'Water overlay', key: 'O', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, clear, undo. */
+/** The build bar along the bottom: road, housing, fountain, clear, undo, and the water overlay. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
   private readonly undoBtn: HTMLButtonElement;
+  private readonly waterBtn: HTMLButtonElement;
 
-  constructor(root: HTMLElement, onTool: (t: ToolName) => void, onUndo: () => void) {
+  constructor(root: HTMLElement, onTool: (t: ToolName) => void, onUndo: () => void, onWater: () => void) {
     const bar = document.createElement('div');
     bar.className = 'buildbar';
     const hint = document.createElement('div');
@@ -33,7 +46,7 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'clear'] as ToolName[]) {
+    for (const t of ['road', 'housing', 'fountain', 'clear'] as ToolName[]) {
       const b = this.button(t);
       b.addEventListener('click', () => onTool(t));
       bar.appendChild(b);
@@ -45,10 +58,23 @@ export class BuildBar {
     this.undoBtn = this.button('undo');
     this.undoBtn.addEventListener('click', onUndo);
     bar.appendChild(this.undoBtn);
+    const sep2 = document.createElement('div');
+    sep2.className = 'divider';
+    bar.appendChild(sep2);
+    this.waterBtn = this.button('water');
+    this.waterBtn.classList.add('overlay');
+    this.waterBtn.addEventListener('click', onWater);
+    bar.appendChild(this.waterBtn);
     root.appendChild(bar);
   }
 
-  private button(t: ToolName | 'undo'): HTMLButtonElement {
+  /** Light the overlay button while the water overlay shows. */
+  showWater(on: boolean): void {
+    this.waterBtn.classList.toggle('on', on);
+    this.waterBtn.setAttribute('aria-pressed', String(on));
+  }
+
+  private button(t: ToolName | 'undo' | 'water'): HTMLButtonElement {
     const i = INFO[t];
     const b = document.createElement('button');
     b.className = 'btn tool';
@@ -86,7 +112,17 @@ export function pointerTip(root: HTMLElement): ToolTip {
         return;
       }
       el.hidden = false;
-      if (el.textContent !== text) el.textContent = text;
+      if (el.dataset.text !== text) {
+        el.dataset.text = text;
+        const [head, ...rest] = text.split('\n');
+        el.textContent = head;
+        if (rest.length) {
+          const sub = document.createElement('span');
+          sub.className = 'sub';
+          sub.textContent = rest.join('\n');
+          el.appendChild(sub);
+        }
+      }
       el.classList.toggle('bad', bad);
       // Beside the pointer, flipped to its other side near the window's edge so it stays readable.
       const w = el.offsetWidth;

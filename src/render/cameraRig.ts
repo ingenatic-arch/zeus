@@ -74,8 +74,19 @@ export class CameraRig {
     while (this.goal.yaw - this.cur.yaw < -Math.PI) this.goal.yaw += Math.PI * 2;
   }
 
+  /** How many times the player has panned (keys or drag); following stops when this changes. */
+  pans = 0;
+
+  /** Keep the aim point on something moving (smoothed like any other move). */
+  follow(x: number, z: number): void {
+    this.goal.x = x;
+    this.goal.z = z;
+    this.clampGoal();
+  }
+
   /** Pan by a screen-relative amount in world units (right, forward). */
   pan(right: number, forward: number): void {
+    this.pans++;
     const c = Math.cos(this.goal.yaw);
     const s = Math.sin(this.goal.yaw);
     this.goal.x += right * c - forward * s;

@@ -110,6 +110,27 @@ export function spawnSettlers(s: SimState, map: CoastMap): void {
   s.walkers.push(w);
 }
 
+/** How settling is going, for the population's tooltip. */
+export interface Outlook {
+  /** Is there a road in from the map's edge at all? */
+  road: boolean;
+  /** Free room in homes that road reaches. */
+  room: number;
+  /** Share of lived-in homes with water. */
+  water: number;
+  /** Ticks between groups of newcomers. */
+  interval: number;
+}
+
+export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
+  const size = map.size;
+  const edges = edgeRoads(s, size);
+  const water = waterShare(s);
+  if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL };
+  const room = reachableRoom(s, size, roadSearch(s, size, edges));
+  return { road: true, room, water, interval: arrivalInterval(room, water) };
+}
+
 /**
  * Send people out of the city from a spot beside the given road tiles
  * (a home being cleared): along the road to the edge if one leads there,

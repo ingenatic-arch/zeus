@@ -134,6 +134,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .btn.tool.on .fill-soft { fill: #ffe9bf; stroke: #fff6e4; }
 .btn.tool.on .fill-ink { fill: #fff6e4; }
 .btn.tool.on .stroke-ink { stroke: #fff6e4; }
+.btn.tool .stroke-water { fill: none; stroke: #4fa9d6; stroke-width: 1.7; stroke-linecap: round; }
+.btn.tool .fill-water { fill: #6fb8e6; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .stroke-shine { fill: none; stroke: #e8f7ff; stroke-width: 1.5; stroke-linecap: round; }
+.btn.tool.overlay.on { background: #3f86c4; border-color: #2c6a9f; }
+.btn.tool.overlay.on .fill-water { fill: #bfe6ff; stroke: #fff6e4; }
 .btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
 .btn.tool.on .key { color: #fff6e4; }
 .btn.tool:disabled { opacity: 0.45; cursor: default; }
@@ -149,14 +154,31 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .pointer-tip {
   position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5;
   background: rgba(251, 242, 221, 0.95); border: 1px solid var(--edge); border-radius: 8px;
-  padding: 3px 9px; font-size: 13.5px; color: var(--ink); white-space: nowrap;
+  padding: 3px 9px; font-size: 13.5px; color: var(--ink); white-space: pre; line-height: 1.4;
   box-shadow: 0 3px 10px rgba(60, 40, 20, 0.18);
 }
 .pointer-tip.bad { color: var(--terracotta-deep); border-color: var(--terracotta); }
 .pointer-tip[hidden] { display: none; }
+
+/* The first line of a hover tip, the second smaller. */
+.pointer-tip .sub { display: block; font-size: 12.5px; color: var(--ink-soft); }
+.pointer-tip.bad .sub { color: var(--terracotta-deep); }
+
+/* "Following the water carrier" while the camera follows her. */
+.follow-chip {
+  position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
+  background: rgba(251, 242, 221, 0.94); border: 1px solid var(--edge); border-radius: 999px;
+  padding: 5px 14px; font-size: 13.5px; color: var(--ink); white-space: nowrap; pointer-events: none;
+  box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
+}
+.follow-chip[hidden] { display: none; }
+#ui > .follow-chip { pointer-events: none; }
 
 /* "+3" floating up from a tent when a family moves in. */
 .floater {
   position: absolute; left: 0; top: 0; pointer-events: none; font-size: 16px; font-weight: bold;
   color: #fff8e6; text-shadow: 0 1px 0 #7a5c3c, 0 0 6px rgba(90, 60, 30, 0.7); white-space: nowrap;
 }
+
+.floater.water { color: #e6f6ff; text-shadow: 0 1px 0 #2c5f8f, 0 0 6px rgba(30, 80, 140, 0.75); font-size: 15px; }
+.floater.dry { color: #fff1e4; text-shadow: 0 1px 0 #8a3a1c, 0 0 6px rgba(140, 50, 20, 0.7); font-size: 14px; }

@@ -14,6 +14,8 @@ export interface Demo {
   speed?: Speed;
   /** A tool picked from the start. */
   tool?: ToolName;
+  /** The camera follows the first water carrier. */
+  follow?: boolean;
   setup?: (sim: Sim) => void;
 }
 
@@ -46,9 +48,48 @@ function neighbourhood(ticks: number): (sim: Sim) => void {
   };
 }
 
+/**
+ * A bigger neighbourhood for the water demos, on the same plain: the road in
+ * from the west, a lane running a long way north from the main junction with
+ * streets off it, and homes along them, some at the lane's far end, beyond
+ * the reach of a fountain by the junction. With `fountain`, one goes in by
+ * the junction once the first tents are up. `ticks` sets how far it has got.
+ */
+function waterTown(ticks: number, fountain: boolean): (sim: Sim) => void {
+  return (sim) => {
+    const at = (t: number, c: Parameters<Sim['enqueue']>[0]): void => {
+      if (sim.state.tick < t) sim.run(t - sim.state.tick);
+      sim.enqueue(c);
+      sim.flush();
+    };
+    at(0, { type: 'road', tiles: [...row(0, 36, 80), ...col(26, 42, 79), ...row(27, 34, 70), ...row(16, 25, 74)] });
+    at(0, {
+      type: 'plots',
+      at: [
+        ...[16, 18, 20, 22, 24, 27, 29, 31, 33].map((x) => T(x, 78)),
+        ...[16, 18, 20, 22, 24, 29, 31, 33].map((x) => T(x, 81)),
+        ...[16, 18, 20, 22, 24].map((x) => T(x, 72)),
+        ...[16, 18, 20].map((x) => T(x, 75)),
+        T(24, 76),
+        T(27, 76),
+        T(27, 74),
+        ...[27, 29, 31, 33].map((x) => T(x, 68)),
+        ...[27, 29, 31, 33].map((x) => T(x, 71)),
+        // Up the lane: two pairs near the junction, three pairs at its far end.
+        ...[66, 64, 46, 44, 42].flatMap((z) => [T(24, z), T(27, z)]),
+      ],
+    });
+    if (fountain) at(300, { type: 'fountain', at: [T(27, 81)] });
+    if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
+  };
+}
+
 export const DEMOS: Record<string, Demo> = {
   coast: { view: 'coast' },
   streets: { view: 'streets', setup: neighbourhood(560) },
   settlers: { view: 'settlers', setup: neighbourhood(230) },
   build: { view: 'build', tool: 'road' },
+  water: { view: 'water', setup: waterTown(1500, true) },
+  carrier: { view: 'carrier', setup: waterTown(1500, true), follow: true },
+  fountain: { view: 'fountain', tool: 'fountain', setup: waterTown(700, false) },
 };

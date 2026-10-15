@@ -55,7 +55,7 @@ export class CityView {
       }
     }
     // Homes changing level re-draw their patch of ground.
-    const key = s.buildings.map((b) => `${b.id}:${b.level}`).join(',');
+    const key = s.buildings.map((b) => `${b.id}:${b.kind}:${b.level}`).join(',');
     if (key !== this.buildingsKey) {
       for (const b of s.buildings) dirty.add(this.streets.chunkKey(b.x, b.z));
       this.buildingsKey = key;

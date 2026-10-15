@@ -65,6 +65,26 @@ export const PAL = {
   bundleCream: '#eadfc4',
   rug: '#9b4a35',
   rugStripe: '#e7c66a',
+  // Huts
+  mudWall: '#d8b68a',
+  mudWallShade: '#c9a576',
+  plinth: '#b3a58d',
+  thatch: '#d9b45c',
+  thatchDark: '#b8913f',
+  wood: '#8a6542',
+  woodDark: '#6a4c33',
+  pithos: '#c0703f',
+  // The fountain and water
+  fountainStone: '#e6dcc6',
+  fountainStoneShade: '#cbbd9f',
+  paving: '#ddd1b6',
+  pavingDark: '#c9bb9c',
+  basinWater: '#4fb9d6',
+  basinWaterLight: '#9fe0ee',
+  spout: '#bfeaf3',
+  // The water carrier
+  carrierDress: '#7fa9cf',
+  carrierShawl: '#efe4c8',
   skin: '#d9a273',
   hair: '#4b3526',
   // Tunics (picked per person)

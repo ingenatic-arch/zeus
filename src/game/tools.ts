@@ -5,15 +5,17 @@
  * talks to the sim only through its command queue.
  */
 import { WATER_NONE } from '../map/bake';
-import { Ground, mapIndex, PLOT_COST, PLOT_SIZE, plotNeighbours, plotRefusal, ROAD_COST, roadRefusal } from '../sim/build';
+import { FOUNTAIN_COST, Ground, mapIndex, PLOT_COST, PLOT_SIZE, plotNeighbours, plotRefusal, ROAD_COST, roadRefusal } from '../sim/build';
+import { findBuilding } from '../sim/buildings';
 import { roadRoute } from '../sim/roads';
-import { findBuilding } from '../sim/settlers';
 import type { Sim } from '../sim/sim';
 import { TILE_ROAD } from '../sim/state';
+import { CARRIER_RANGE } from '../sim/water';
+import { previewReach, type WaterOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, type Placement } from '../render/placement';
 
-export type ToolName = 'road' | 'housing' | 'clear';
-export const TOOLS: readonly ToolName[] = ['road', 'housing', 'clear'];
+export type ToolName = 'road' | 'housing' | 'fountain' | 'clear';
+export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'clear'];
 
 export interface ToolTip {
   /** Show text near the pointer (screen px), or hide with null. */
@@ -33,6 +35,8 @@ export class Tools {
   private lastRev = -1;
   private routeKey = '';
   private route: number[] | null = null;
+  private reachKey = '';
+  private reach = { homes: 0, dry: 0 };
   /** What a release would send. */
   private pending: (() => void) | null = null;
 
@@ -40,6 +44,7 @@ export class Tools {
     private readonly sim: Sim,
     private readonly placement: Placement,
     private readonly tip: ToolTip,
+    private readonly overlay?: WaterOverlay,
   ) {}
 
   onChange(l: (t: ToolName | null) => void): void {
@@ -62,9 +67,14 @@ export class Tools {
         if (map.tileWater[i] !== WATER_NONE) return false;
         const g = ix.ground[i];
         if (t === 'road') return g === Ground.Steep || g === Ground.Water;
-        if (t === 'housing') return g !== Ground.Ok;
+        if (t === 'housing' || t === 'fountain') return g !== Ground.Ok;
         return false;
       });
+    }
+    // Placing a fountain shows the water overlay, and what the new one would reach.
+    if (this.overlay) {
+      this.overlay.forced = t === 'fountain';
+      if (t !== 'fountain') this.overlay.setPreview(null);
     }
     this.preview();
     for (const l of this.listeners) l(t);
@@ -81,13 +91,13 @@ export class Tools {
       this.hoverZ = world.z;
       this.hover = Math.floor(world.z) * n + Math.floor(world.x);
     }
-    if (world) this.placement.setCursor(world.x, world.z, this.tool === 'housing' ? 11 : 9);
+    if (world) this.placement.setCursor(world.x, world.z, this.tool === 'housing' || this.tool === 'fountain' ? 11 : 9);
     this.preview();
   }
 
   down(): void {
     if (!this.tool || this.hover < 0) return;
-    this.anchor = this.tool === 'housing' ? this.plotAt() : this.hover;
+    this.anchor = this.tool === 'housing' || this.tool === 'fountain' ? this.plotAt() : this.hover;
     this.preview();
   }
 
@@ -116,6 +126,9 @@ export class Tools {
   frame(): void {
     if (this.sim.state.rev !== this.lastRev) this.preview();
   }
+
+  /** How many times a road route has been worked out (for the smoke test: it shouldn't follow settlers arriving). */
+  routesFound = 0;
 
   private send(c: Parameters<Sim['enqueue']>[0]): void {
     this.sim.enqueue(c);
@@ -146,11 +159,12 @@ export class Tools {
     const [sx, sy] = this.screen;
     if (this.tool === 'road') {
       const from = this.anchor >= 0 ? this.anchor : this.hover;
-      // The route only changes when the tiles or the city do.
-      const key = `${from}:${this.hover}:${s.rev}`;
+      // The route only changes when the tiles do (not when settlers arrive or houses grow).
+      const key = `${from}:${this.hover}:${s.tilesRev}`;
       if (this.routeKey !== key) {
         this.routeKey = key;
         this.route = roadRoute(map, s, from, this.hover);
+        this.routesFound++;
       }
       const route = this.route;
       if (!route) {
@@ -180,6 +194,38 @@ export class Tools {
       if (lay.length < fresh.length) this.tip.show(`Not enough drachmas: ${fmt(fresh.length * ROAD_COST)} dr for ${fresh.length} tiles`, sx, sy, true);
       else this.tip.show(`Road · ${fresh.length} ${fresh.length === 1 ? 'tile' : 'tiles'} · ${fmt(cost)} dr`, sx, sy);
       if (lay.length) this.pending = () => this.send({ type: 'road', tiles: lay });
+      return;
+    }
+    if (this.tool === 'fountain') {
+      this.overlay?.setPreview(null);
+      const at = this.plotAt();
+      const x = at % n;
+      const z = Math.floor(at / n);
+      const r = plotRefusal(map, s, x, z) || (s.money < FOUNTAIN_COST ? 'Not enough drachmas' : '');
+      for (let dz = 0; dz < PLOT_SIZE; dz++) for (let dx = 0; dx < PLOT_SIZE; dx++) if (x + dx < n && z + dz < n) marks.set((z + dz) * n + x + dx, r ? MARK_BAD : MARK_OK);
+      this.placement.setMarks(marks);
+      if (r) {
+        this.tip.show(r, sx, sy, true);
+        return;
+      }
+      const roads = plotNeighbours(n, x, z).filter((t) => s.tiles[t] === TILE_ROAD);
+      let text = `Fountain · ${fmt(FOUNTAIN_COST)} dr`;
+      if (roads.length === 0) text += '\nNeeds a road beside it, for the water carrier to walk';
+      else {
+        this.overlay?.setPreview(roads);
+        const key = `${at}:${s.tilesRev}:${s.rev}`;
+        if (key !== this.reachKey) {
+          this.reachKey = key;
+          this.reach = previewReach(s, n, roads);
+        }
+        const { homes, dry } = this.reach;
+        text +=
+          homes === 0
+            ? `\nNo homes within ${CARRIER_RANGE} steps along the road yet`
+            : `\nIts water carrier would reach ${homes} ${homes === 1 ? 'home' : 'homes'}${dry ? ` · ${dry} without water now` : ''}`;
+      }
+      this.tip.show(text, sx, sy);
+      this.pending = () => this.send({ type: 'fountain', at: [at] });
       return;
     }
     if (this.tool === 'housing') {

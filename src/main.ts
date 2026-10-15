@@ -9,11 +9,14 @@ import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
+import { WaterOverlay } from './render/overlay';
 import { Placement } from './render/placement';
 import { World } from './render/world';
 import { PLOT_SIZE } from './sim/build';
 import { findBuilding } from './sim/buildings';
-import { homeStatus } from './sim/status';
+import { arrivalOutlook } from './sim/settlers';
+import { carrierStatus, homeStatus, type Status } from './sim/status';
+import type { Building } from './sim/state';
 import { Sim } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
@@ -31,7 +34,30 @@ interface Probe {
   view?: () => Required<CameraView>;
   tick?: () => number;
   meshes?: () => Array<{ name: string; count: number; triangles: number; shadow: boolean }>;
-  city?: () => { population: number; money: number; homes: number; tents: number; walkers: number; people: number; roads: number; cleared: number; tool: string | null };
+  city?: () => {
+    population: number;
+    money: number;
+    homes: number;
+    tents: number;
+    huts: number;
+    fountains: number;
+    carriers: number;
+    watered: number;
+    walkers: number;
+    people: number;
+    roads: number;
+    cleared: number;
+    tool: string | null;
+    overlay: boolean;
+    following: boolean;
+    routes: number;
+    markWrites: number;
+    homesRefilled: number;
+  };
+  /** Screen position of the first water carrier, if one is out. */
+  carrier?: () => { x: number; y: number } | null;
+  /** The text of the pointer tip, if it shows. */
+  tipText?: () => string | null;
   tool?: (t: string | null) => void;
   /** Screen position of a world point (for driving the mouse in tests). */
   screenOf?: (x: number, z: number) => { x: number; y: number };
@@ -72,6 +98,9 @@ function start(): void {
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
+  const overlay = new WaterOverlay(map, placement);
+  overlay.wanted = launch.overlay;
+  world.scene.add(overlay.group);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   const rig = new CameraRig(camera, map, view);
 
@@ -80,23 +109,76 @@ function start(): void {
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool);
   const tip = pointerTip(ui);
-  const tools = new Tools(sim, placement, tip);
-  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo());
+  const tools = new Tools(sim, placement, tip, overlay);
+  const toggleWater = (): void => {
+    overlay.wanted = !overlay.wanted;
+  };
+  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), toggleWater);
   tools.onChange((t) => bar.showTool(t));
   const floaters = new Floaters(ui);
+  const followChip = document.createElement('div');
+  followChip.className = 'follow-chip';
+  followChip.hidden = true;
+  followChip.textContent = 'Following the water carrier · drag the map or press Esc to stop';
+  ui.appendChild(followChip);
 
-  // With no tool picked, hovering a home says who lives there or what it's waiting for.
-  const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
+  /** The water carrier nearest a screen point (within a few pixels), if any. */
+  const carrierNear = (sx: number, sy: number): number => {
+    const r = canvas.getBoundingClientRect();
+    let best = -1;
+    let bd = 22 * 22;
+    const v = new THREE.Vector3();
+    for (const [id, pos] of city.walkers.carrierAt) {
+      v.copy(pos).setY(pos.y + 0.3).project(camera);
+      if (v.z > 1) continue;
+      const dx = r.left + (v.x * 0.5 + 0.5) * r.width - sx;
+      const dy = r.top + (-v.y * 0.5 + 0.5) * r.height - sy;
+      if (dx * dx + dy * dy < bd) {
+        bd = dx * dx + dy * dy;
+        best = id;
+      }
+    }
+    return best;
+  };
+  const buildingAt = (world: { x: number; z: number } | null): Building | undefined => {
     const n = map.size;
-    if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return tip.show(null);
+    if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return undefined;
     const on = sim.state.tiles[Math.floor(world.z) * n + Math.floor(world.x)];
-    const b = on > 0 ? findBuilding(sim.state, on) : undefined;
+    return on > 0 ? findBuilding(sim.state, on) : undefined;
+  };
+  const showStatus = (st: Status, sx: number, sy: number): void => tip.show(st.detail ? `${st.title}\n${st.detail}` : st.title, sx, sy);
+
+  // With no tool picked, hovering a home says who lives there and what reaches it; a fountain or its carrier, what she's doing.
+  const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
+    const c = carrierNear(sx, sy);
+    const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
+    if (w) return showStatus(carrierStatus(w), sx, sy);
+    const b = buildingAt(world);
     if (!b) return tip.show(null);
-    const st = homeStatus(sim.state, map, b);
-    tip.show(st.detail ? `${st.title}\n${st.detail}` : st.title, sx, sy);
+    showStatus(homeStatus(sim.state, map, b), sx, sy);
+  };
+
+  // Following a water carrier: through her rests and new rounds, until the player moves the view.
+  let follow: { fountain: number; pans: number } | null = null;
+  const startFollow = (fountain: number): void => {
+    follow = { fountain, pans: rig.pans };
+    followChip.hidden = false;
+  };
+  const stopFollow = (): void => {
+    follow = null;
+    followChip.hidden = true;
+  };
+  const updateFollow = (): void => {
+    if (!follow) return;
+    if (rig.pans !== follow.pans) return stopFollow();
+    const f = findBuilding(sim.state, follow.fountain);
+    if (!f) return stopFollow();
+    const pos = city.walkers.carrierAt.get(f.walker);
+    if (pos) rig.follow(pos.x, pos.z);
+    else rig.follow(f.x + 1, f.z + 1);
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
-  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', x: 'clear' };
+  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', x: 'clear' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -108,10 +190,25 @@ function start(): void {
     },
     down: () => tools.down(),
     up: () => tools.up(),
-    cancel: () => tools.cancel(),
+    cancel: () => {
+      if (tools.tool || !follow) tools.cancel();
+      else stopFollow();
+    },
+    click(w, sx, sy) {
+      // A water carrier, or a fountain: follow her.
+      const c = carrierNear(sx, sy);
+      const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
+      if (walker) return startFollow(walker.origin);
+      const b = buildingAt(w);
+      if (b?.kind === 'fountain') startFollow(b.id);
+    },
     key(k) {
       if (k === 'undo' || k === 'u') {
         tools.undo();
+        return true;
+      }
+      if (k === 'o') {
+        toggleWater();
         return true;
       }
       const t = TOOL_KEYS[k];
@@ -127,6 +224,10 @@ function start(): void {
   });
   const pollKeys = attachInput(canvas, rig, driver, () => corner.toggleHelp(), pointerTools);
   if (demo?.tool) tools.select(demo.tool);
+  if (demo?.follow) {
+    const f = sim.state.buildings.find((b) => b.kind === 'fountain');
+    if (f) startFollow(f.id);
+  }
 
   const resize = (): void => {
     const w = canvas.clientWidth || innerWidth;
@@ -163,17 +264,38 @@ function start(): void {
   };
   probe.city = () => {
     const s = sim.state;
+    const homes = s.buildings.filter((b) => b.kind === 'home');
     return {
       population: s.population,
       money: s.money,
-      homes: s.buildings.length,
-      tents: s.buildings.filter((b) => b.level > 0).length,
+      homes: homes.length,
+      tents: homes.filter((b) => b.level === 1).length,
+      huts: homes.filter((b) => b.level === 2).length,
+      fountains: s.buildings.length - homes.length,
+      carriers: s.walkers.filter((w) => w.kind === 'water').length,
+      watered: homes.filter((b) => b.waterUntil > s.tick).length,
       walkers: s.walkers.length,
       people: city.walkers.count,
       roads: s.tiles.filter((t) => t === -1).length,
       cleared: s.cleared.length,
       tool: tools.tool,
+      overlay: overlay.on,
+      following: follow !== null,
+      routes: tools.routesFound,
+      markWrites: placement.markWrites,
+      homesRefilled: city.homes.lastRefilled,
     };
+  };
+  probe.carrier = () => {
+    const first = [...city.walkers.carrierAt.values()][0];
+    if (!first) return null;
+    const v = first.clone().setY(first.y + 0.3).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
+  probe.tipText = () => {
+    const el = document.querySelector('.pointer-tip') as HTMLElement | null;
+    return el && !el.hidden ? (el.dataset.text ?? el.textContent) : null;
   };
   probe.tool = (t) => tools.select(t as ToolName | null);
   probe.speed = (s) => driver.setSpeed(s);
@@ -183,10 +305,16 @@ function start(): void {
     return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
   };
 
-  // Families moving in: "+3" floats up from their tent.
-  const known = new Map<number, number>();
-  for (const b of sim.state.buildings) known.set(b.id, b.people);
+  // Families moving in: "+3" floats up from their tent; "Hut" when a tent becomes a hut.
+  const known = new Map<number, { people: number; level: number }>();
+  const remember = (): void => {
+    known.clear();
+    for (const b of sim.state.buildings) known.set(b.id, { people: b.people, level: b.level });
+  };
+  remember();
   let seenRev = sim.state.rev;
+  // The population's tooltip says how often newcomers are coming, and why.
+  let outlookAt = -Infinity;
 
   let last = performance.now();
   let time = 0;
@@ -204,18 +332,25 @@ function start(): void {
     if (s.rev !== seenRev) {
       seenRev = s.rev;
       for (const b of s.buildings) {
-        const before = known.get(b.id) ?? 0;
-        if (b.people > before) {
-          const cx = b.x + PLOT_SIZE / 2;
-          const cz = b.z + PLOT_SIZE / 2;
-          floaters.add(`+${b.people - before}`, new THREE.Vector3(cx, map.heightAt(cx, cz), cz), time);
-        }
+        const before = known.get(b.id) ?? { people: 0, level: 0 };
+        const cx = b.x + PLOT_SIZE / 2;
+        const cz = b.z + PLOT_SIZE / 2;
+        const at = new THREE.Vector3(cx, map.heightAt(cx, cz), cz);
+        if (b.people > before.people) floaters.add(`+${b.people - before.people}`, at, time);
+        if (b.kind === 'home' && b.level === 2 && before.level === 1) floaters.add('Hut', at.setY(at.y + 0.5), time, 'water');
+        if (b.kind === 'home' && b.level === 1 && before.level === 2) floaters.add('Back to a tent', at.setY(at.y + 0.5), time, 'dry');
       }
-      known.clear();
-      for (const b of s.buildings) known.set(b.id, b.people);
+      remember();
+    }
+    if (time - outlookAt > 2) {
+      outlookAt = time;
+      topbar.setPeopleTip(arrivalOutlook(s, map));
     }
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
+    updateFollow();
+    overlay.update(s, time);
+    bar.showWater(overlay.on);
     placement.update(time);
     tools.frame();
     topbar.showDate(sim.date);

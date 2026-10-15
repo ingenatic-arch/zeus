@@ -7,11 +7,27 @@ export const MARK_OK = 1;
 export const MARK_BAD = 2;
 export const MARK_CLEAR = 3;
 
+/**
+ * The water overlay's codes, one per tile in the texture's alpha channel:
+ * 1–100 a road in a water carrier's reach (brighter nearer the fountain),
+ * 101–200 the same, walked by a carrier lately, 201 a road the fountain being
+ * placed would bring into reach, 210–249 a home with water (more the fresher),
+ * 250 a lived-in home without water, 252 a fountain.
+ */
+export const WATER_REACH = 1;
+export const WATER_WALKED = 101;
+export const WATER_PREVIEW = 201;
+export const WATER_HOME = 210;
+export const WATER_DRY = 250;
+export const WATER_FOUNTAIN = 252;
+
 const vertex = /* glsl */ `
   varying vec3 vWorld;
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
     vWorld = wp.xyz;
+    // A hair above the road paving (which sits 0.035 above the ground), so road tiles take the tint too.
+    wp.y += 0.05;
     gl_Position = projectionMatrix * viewMatrix * wp;
   }
 `;
@@ -23,16 +39,18 @@ const fragment = /* glsl */ `
   uniform float uRadius;
   uniform float uEdgeGlow;
   uniform float uTime;
+  uniform float uGrid;
+  uniform float uOverlay;
   varying vec3 vWorld;
 
   void main() {
     vec2 p = vWorld.xz;
     if (p.x < 0.0 || p.y < 0.0 || p.x > uSize || p.y > uSize) discard;
     vec2 tile = floor(p);
-    // r: what the drag does here; g: the ground can't take this tool; b: the map's edge.
-    vec3 m = texture2D(uMarks, (tile + 0.5) / uSize).rgb;
+    // r: what the drag does here; g: the ground can't take this tool; b: the map's edge; a: the water overlay.
+    vec4 m = texture2D(uMarks, (tile + 0.5) / uSize);
     float mark = floor(m.r * 255.0 + 0.5);
-    float near = 1.0 - smoothstep(uRadius * 0.45, uRadius, distance(p, uCursor));
+    float near = (1.0 - smoothstep(uRadius * 0.45, uRadius, distance(p, uCursor))) * uGrid;
 
     // The faint grid, fading away from the pointer.
     vec2 f = abs(fract(p) - 0.5);
@@ -40,6 +58,27 @@ const fragment = /* glsl */ `
     float w = fwidth(p.x) + fwidth(p.y);
     float line = 1.0 - smoothstep(0.0, w * 0.9, d);
     vec4 col = vec4(1.0, 0.97, 0.88, line * 0.38 * near);
+
+    // The water overlay (see WATER_* codes): reach on the roads, water on the homes.
+    float o = floor(m.a * 255.0 + 0.5) * uOverlay;
+    float edge = smoothstep(0.30, 0.48, max(f.x, f.y));
+    if (o > 0.5 && o < 100.5) {
+      float k = (o - 1.0) / 99.0;
+      col = vec4(0.36, 0.64, 0.95, 0.16 + 0.26 * k);
+    } else if (o > 100.5 && o < 200.5) {
+      float k = (o - 101.0) / 99.0;
+      col = vec4(0.22, 0.72, 1.0, 0.34 + 0.34 * k);
+    } else if (o > 200.5 && o < 201.5) {
+      col = vec4(0.62, 0.92, 1.0, 0.45 + 0.2 * sin(uTime * 4.0));
+    } else if (o > 209.5 && o < 249.5) {
+      float k = (o - 210.0) / 39.0;
+      col = vec4(0.2, 0.5, 0.95, (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
+    } else if (o > 249.5 && o < 250.5) {
+      col = vec4(0.86, 0.36, 0.2, 0.42 * (0.7 + 0.3 * edge));
+    } else if (o > 251.5 && o < 252.5) {
+      col = vec4(0.3, 0.82, 1.0, 0.6);
+    }
+    if (o > 0.5) col.rgb = mix(col.rgb, vec3(1.0, 0.97, 0.88), line * 0.5 * near);
 
     // Ground the tool can't use, near the pointer: a soft rust wash.
     col = mix(col, vec4(0.78, 0.32, 0.2, 0.22), m.g * near * (1.0 - line * 0.5));
@@ -53,6 +92,7 @@ const fragment = /* glsl */ `
     if (mark > 0.5 && mark < 1.5) col = vec4(1.0, 0.97, 0.85, 0.42 + 0.25 * rim);
     else if (mark > 1.5 && mark < 2.5) col = vec4(0.9, 0.22, 0.14, 0.5 + 0.25 * rim);
     else if (mark > 2.5) col = vec4(1.0, 0.5, 0.15, 0.5 + 0.25 * rim);
+    if (mark < 0.5 && o < 0.5 && uGrid < 0.5) discard;
     if (col.a < 0.003) discard;
     gl_FragColor = col;
   }
@@ -91,6 +131,8 @@ export class Placement {
       uRadius: { value: 9 },
       uEdgeGlow: { value: 0 },
       uTime: { value: 0 },
+      uGrid: { value: 0 },
+      uOverlay: { value: 0 },
     };
     const mat = new THREE.ShaderMaterial({
       vertexShader: vertex,
@@ -109,9 +151,35 @@ export class Placement {
     this.mesh.frustumCulled = false;
   }
 
+  private tool = false;
+  private overlay = false;
+
+  /** A tool is picked (the grid and the drag's tiles show); the road tool also lights the map's edge. */
   show(on: boolean, edgeGlow: boolean): void {
-    this.mesh.visible = on;
+    this.tool = on;
+    this.uniforms.uGrid.value = on ? 1 : 0;
     this.uniforms.uEdgeGlow.value = edgeGlow ? 1 : 0;
+    this.mesh.visible = this.tool || this.overlay;
+  }
+
+  /** The water overlay on or off. */
+  showOverlay(on: boolean): void {
+    this.overlay = on;
+    this.uniforms.uOverlay.value = on ? 1 : 0;
+    this.mesh.visible = this.tool || this.overlay;
+  }
+
+  /** The water overlay's code for every tile (WATER_* values). */
+  setOverlay(codes: Uint8Array): void {
+    const d = this.data;
+    let changed = false;
+    for (let t = 0; t < codes.length; t++) {
+      if (d[t * 4 + 3] !== codes[t]) {
+        d[t * 4 + 3] = codes[t];
+        changed = true;
+      }
+    }
+    if (changed) this.tex.needsUpdate = true;
   }
 
   setCursor(x: number, z: number, radius: number): void {
@@ -129,10 +197,31 @@ export class Placement {
     this.tex.needsUpdate = true;
   }
 
-  /** The drag's tiles and what it would do to each. */
+  private marks = new Map<number, number>();
+
+  /** The drag's tiles and what it would do to each. The texture is touched only if they changed. */
   setMarks(marks: ReadonlyMap<number, number>): void {
-    for (let t = 0; t < this.size * this.size; t++) this.data[t * 4] = 0;
+    const old = this.marks;
+    if (old.size === marks.size) {
+      let same = true;
+      for (const [t, v] of marks) {
+        if (old.get(t) !== v) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return;
+    }
+    for (const t of old.keys()) this.data[t * 4] = 0;
     for (const [t, v] of marks) this.data[t * 4] = v;
+    this.marks = new Map(marks);
+    this.writes++;
     this.tex.needsUpdate = true;
   }
+
+  /** How many times the marks have been written to the texture (for the smoke test). */
+  get markWrites(): number {
+    return this.writes;
+  }
+  private writes = 0;
 }

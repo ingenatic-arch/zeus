@@ -1,5 +1,7 @@
 import { DAYS_PER_MONTH, formatYear, type SimDate } from '../sim/clock';
 import type { ClockDriver, Speed } from '../game/clockDriver';
+import { TICKS_PER_SECOND } from '../sim/clock';
+import type { Outlook } from '../sim/settlers';
 
 const ICONS: Record<Speed, string> = {
   paused: '<svg viewBox="0 0 16 16"><rect x="3" y="2.5" width="3.6" height="11" rx="1"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1"/></svg>',
@@ -99,6 +101,21 @@ export class TopBar {
       st.delta.classList.remove('show');
       st.timer = 0;
     }
+  }
+
+  /** The population's tooltip: how often newcomers are arriving, and why. */
+  setPeopleTip(o: Outlook): void {
+    const el = this.bar.querySelector('.stat.people') as HTMLElement;
+    let why: string;
+    if (!o.road) why = 'Settlers come in where a road meets the edge of the map.';
+    else if (o.room === 0) why = 'No room for newcomers: mark out more plots, or bring water so tents grow into huts.';
+    else {
+      const secs = o.interval / TICKS_PER_SECOND;
+      const every = secs < 1.95 ? `${secs.toFixed(1)} seconds` : `${Math.round(secs)} seconds`;
+      why = `Room for ${o.room} more · water reaches ${Math.round(o.water * 100)}% of homes · newcomers about every ${every} at normal speed (more room and more water bring them sooner).`;
+    }
+    const text = `People living in your city. ${why}`;
+    if (el.title !== text) el.title = text;
   }
 
   showSpeed(s: Speed): void {
