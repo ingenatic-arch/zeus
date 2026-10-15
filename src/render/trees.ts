@@ -201,8 +201,13 @@ export interface Plants {
   sync(cleared: readonly number[]): void;
 }
 
-/** Plants are drawn in square chunks of this many units, so what's off screen is skipped. */
-export const PLANT_CHUNK = 32;
+/**
+ * Plants are drawn in square chunks of this many units, so what's off screen
+ * (and outside the shadow box) is skipped. Measured trade-off: 32-unit chunks
+ * saved another ~13% of triangles up close but more than doubled the draw
+ * calls (273 against 125 in the opening view), which costs more on the CPU.
+ */
+export const PLANT_CHUNK = 64;
 
 export function buildTrees(map: CoastMap): Plants {
   const group = new THREE.Group();

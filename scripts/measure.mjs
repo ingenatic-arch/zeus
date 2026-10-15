@@ -56,8 +56,37 @@ for (const cam of ['coast', 'overview', 'river', 'street', 'bay']) {
     `view ${cam.padEnd(9)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}  (headless software fps ${fps.toFixed(1)}, not representative)`,
   );
 }
-for (const m of await page.evaluate(() => window.__zeus.meshes()))
-  console.log(`  mesh ${m.name.padEnd(22)} instances ${String(m.count).padStart(5)}  triangles ${String(m.triangles).padStart(7)}${m.shadow ? '  casts shadow' : ''}`);
+// Meshes by kind (chunked meshes summed: "trees-Olive-12345" -> "trees-Olive").
+const summarise = async () => {
+  const kinds = new Map();
+  for (const m of await page.evaluate(() => window.__zeus.meshes())) {
+    const k = m.name.replace(/-\d+$/, '');
+    const e = kinds.get(k) ?? { chunks: 0, count: 0, triangles: 0, shadow: m.shadow };
+    e.chunks++;
+    e.count += m.count;
+    e.triangles += m.triangles;
+    kinds.set(k, e);
+  }
+  for (const [k, m] of kinds)
+    console.log(`  mesh ${k.padEnd(22)} chunks ${String(m.chunks).padStart(3)}  instances ${String(m.count).padStart(5)}  triangles ${String(m.triangles).padStart(7)}${m.shadow ? '  casts shadow' : ''}`);
+};
+await summarise();
+
+// The prepared neighbourhood (slice 2): roads, plots, tents and settlers.
+await page.goto('about:blank');
+const t1 = Date.now();
+await page.goto(url + '#streets-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+console.log(`load #streets (local, headless): ready in ${Date.now() - t1} ms`);
+for (const cam of ['streets', 'settlers', 'overview']) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#streets view ${cam.padEnd(9)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
+await summarise();
 const mem = await page.evaluate(() => window.__zeus.info());
 console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures`);
 await browser.close();

@@ -31,6 +31,8 @@ export class Tools {
   private screen: [number, number] = [0, 0];
   private listeners: Array<(t: ToolName | null) => void> = [];
   private lastRev = -1;
+  private routeKey = '';
+  private route: number[] | null = null;
   /** What a release would send. */
   private pending: (() => void) | null = null;
 
@@ -144,7 +146,13 @@ export class Tools {
     const [sx, sy] = this.screen;
     if (this.tool === 'road') {
       const from = this.anchor >= 0 ? this.anchor : this.hover;
-      const route = roadRoute(map, s, from, this.hover);
+      // The route only changes when the tiles or the city do.
+      const key = `${from}:${this.hover}:${s.rev}`;
+      if (this.routeKey !== key) {
+        this.routeKey = key;
+        this.route = roadRoute(map, s, from, this.hover);
+      }
+      const route = this.route;
       if (!route) {
         // Show the straight way, and why it's blocked.
         let reason = '';
