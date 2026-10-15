@@ -141,3 +141,33 @@ The single "ready in 0.69 s" in the plan's Before was a fast first run; measured
 - `homeStatus()` is the place for "what reaches this house" in the hover tip.
 - Homes are refilled for every chunk on any change to the homes; fine for hundreds, worth narrowing for thousands.
 - The tent's capacity (5) and the empty plot's are in `HOME_CAPACITY`; hut and above will extend it.
+
+## Review
+
+*15 Oct 2026, a second pass after the build: read the diff from `39079a1`, drove every check-in step in headless Chromium with screenshots, and probed the sim with throwaway scripts.*
+
+**Found and fixed.**
+- *Labels caught the pointer* (since slice 1). `#ui > * { pointer-events: auto }` has id specificity, so it beat `pointer-events: none` on `.hint.gone`, `.pointer-tip`, `.tool-hint` and `.floater`. The faded first-time hint stayed an invisible pill above the build bar that swallowed clicks and drags on the canvas for the rest of the session; the pointer label and "+N" floaters could intercept the pointer too. Explicit `#ui > .hint, …` rules now win. `smoke.mjs` checks `elementFromPoint` at the hint is the canvas.
+- *Undo refunded plots it didn't remove.* plots (id 5) → clear → undo (plot re-added as id 6) → undo plots (looks for id 5, finds nothing) left the plot standing and refunded it. `UndoEntry.removedIds` records the ids a clear removed; undoing the clear maps old ids to the re-added plots' ids in the older entries. Not a version bump: state v2 was born in this slice and nothing has saved it.
+- *Walkers stepped over a cut tile.* `aheadOk` ran only on reaching a waypoint, so cutting the tile a walker was heading for let it walk onto the gap and carry on. `moveWalker` now checks the way ahead at the start of every tick. `reroute` starts the new path from the walker's interpolated position (`position()`), steps back to the tile behind if it must (`onward()` skips that step when the new way goes on through the tile ahead), and marks any non-road tile in a traced path as off-road.
+- *Families vanished when cleared with their road.* `sendLeavers` found no road from a cleared plot whose road went in the same rectangle, so the family disappeared (step 5 of the check-in usually did exactly this). `walkOut()` now falls back to `overland()` in `roads.ts`: a BFS over tiles that are not water, steep or a home, to the nearest edge tile, straightened by line-of-sight, all waypoints off-road (−1). Leavers that lose their road mid-walk use the same fallback. A settler group still off the map when its edge road is cut turns back to where it appeared instead of vanishing.
+- *UI:* the pointer label flips to the pointer's other side near the window edge (it ran off screen at the right); `#build` (a demo with a tool picked) no longer shows "Drag to move…"; the controls card says undo takes back clearing too; "No way through · <reason>" instead of a doubled colon.
+- Three tests added to `tests/city.test.ts` (each fails on the code before the fix): turning round at a tile cut just ahead, leaving across the fields with no road out, undo of clear-then-plots refunding once. 42 tests.
+
+**Checked and left as built.**
+- `Sim.flush()`: a command stamped `tick + 1` is applied before `stepWalkers` whether by `flush()` or by `step()`, with the same `s.tick` (so `placed`/`since` match) and in seq order within the tick; the log is identical, and the existing "building while paused equals building next tick" and replay tests cover it.
+- Draw calls (125 opening view, 144 for `#streets` overview): acceptable for desktop GPUs. Homes, roads and walkers are bounded at 16 chunks each on a 128-tile map (×2 with shadows), so a full town stays a few hundred calls at most. Revisit if a real machine struggles.
+- The wet-bank margin (about a tile of grass beside the pebbles) reads clearly with the red wash; left for Oliver's eye as the check-in asks.
+- Smoke: pale low-poly puffs that read as small hexagons up close and specks far off. Left in the check-in's rough edges.
+- Controls card text matches `input.ts` (Shift+left-drag also orbits, unlisted). The `#settlers` camera does look west, into the oncoming groups.
+- The river split: confirmed no road route anywhere between the two banks (the crags close the gap north of the spring); the check-in's rough edge now says so and names the east and north edges.
+- Sim cost: 276 plots and 503 road tiles, 20,000 ticks in 94 ms (0.005 ms a tick).
+
+**After the review.** Typecheck clean; 42 tests in 6 files pass; `npm run build`, `npm run smoke` pass; `npm run measure` as in the table above (bundle 632 KB raw, 170 KB gzipped).
+
+**For slice 3.**
+- `Tools.frame()` re-previews on every `rev` change, and the road preview's route cache is keyed on `rev`, so every settler arrival re-runs A* (up to 60k visits when the route is blocked) while the road tool hovers. Key the cache on a tiles-only revision before adding more things that bump `rev`.
+- At one group every 40 ticks, a town of ~280 plots takes about half an hour at normal speed to fill. Slice 3 or 4 should tie arrival rate to room and attractiveness rather than a fixed clock.
+- In `reroute`, a settler whose home went takes the first reachable home with any room and gives up if that home has less room than the group, even if another home could take them.
+- `overland()` costs a full-map BFS and an O(n²) straightening pass, fine on a clear; don't call it per tick.
+- Leavers walk round homes but straight through fields and across roads; service walkers in slice 3 should stay on `roadSearch`.

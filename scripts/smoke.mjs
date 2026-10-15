@@ -26,6 +26,13 @@ await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout:
 await frames(3);
 const v0 = await page.evaluate(() => window.__zeus.view());
 
+// Labels over the map (the first-time hint, even once faded) never catch the pointer.
+const under = await page.evaluate(() => {
+  const h = document.querySelector('.hint')?.getBoundingClientRect();
+  return h ? document.elementFromPoint(h.x + h.width / 2, h.y + h.height / 2)?.tagName : 'CANVAS';
+});
+if (under !== 'CANVAS') fail(`the hint catches the pointer (${under})`);
+
 // Left-drag pans.
 await page.mouse.move(640, 400);
 await page.mouse.down();

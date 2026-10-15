@@ -20,7 +20,7 @@ Nothing to break yet: there are no saves until slice 7.
 - Links are now short tokens after a #, like `#streets`, so they work on the published page.
 
 ### What to try
-1. Open `#streets` for a little neighbourhood on the plain between the olive grove and the river mouth, a few months in: some tents up, more plots waiting, families on the road. Time is running, so watch them arrive; zoom right in on a tent.
+1. Open `#streets` for a little neighbourhood on the plain between the olive grove and the river mouth, a month or so in: some tents up, more plots waiting, families on the road. Time is running, so watch them arrive; zoom right in on a tent.
 2. Open `#settlers` to stand by the road in from the west and watch families walk towards you with their bundles.
 3. Open `#build` for fresh land with the road tool already picked. Drag a road in from the gold edge of the map, press H and drag out a row of plots beside it, then press 2 or 3 to hurry the settlers along.
 4. In `#build`, try to lay a road across the river or up into the rocky hills, and drag plots over the river bank, to see what's refused and why.
@@ -38,7 +38,7 @@ Nothing to break yet: there are no saves until slice 7.
 - Left-drag places while a tool is picked; with a tool picked you move with the keys or the middle button. Does that work for you?
 
 ### Known rough edges
-- There are no bridges, so the river cuts the map in two: land east of it has to be settled by a road from the east edge.
+- There are no bridges yet, and the river and the crags where it rises cut the map in two: a road can't get from one side to the other. Land east of the river needs its own road in from the east or north edge of the map.
 - Settlers come for as long as there's room; nothing yet makes the city more or less attractive to them.
 - Clearing a tent can't be fully undone: the plot comes back, the family doesn't.
 - The smoke from the fires is a few small pale puffs; it may read as specks from some angles.
@@ -51,6 +51,17 @@ Nothing to break yet: there are no saves until slice 7.
 - Drawing, opening view: about 540,000 triangles (same as before) in 125 batches (was 21). Close-up views: 380,000–400,000 triangles (was 540,000) in about 70 batches.
 - The `#streets` neighbourhood (24 homes, 59 road tiles, 8 groups walking) adds only about 11,000 triangles.
 - Frame rate: not measured (see above). Target: 60 frames a second on a mid-range laptop.
+
+### What the review changed
+A second pass went through every "What to try" step above in a browser, looked at the screenshots, and tried to break the new tools. What it fixed:
+- An invisible strip above the build bar swallowed clicks and drags on the map: the first-time hint ("Drag to move…") kept catching the mouse after it had faded away. The little labels by the pointer and the "+3"s could also get in the way of the mouse. None of them catch it now. (This one had been there since the coast.)
+- Undo could hand out free plots: clearing some plots, undoing that, then undoing the plots themselves left the plots standing and still gave the drachmas back. Now the plots go and you get the money back once.
+- Clearing a tent together with the road beside it (step 5) often cut the family off from the edge of the map, and they simply vanished. Now a family with no road out packs up and walks off across the fields to the nearest edge of the map, going round other people's tents.
+- Families on the road no longer step over a piece of road you've just cleared in front of them: they stop and turn round where they stand. A group still beyond the edge of the map when you cut their way in turns back, instead of vanishing.
+- The label by the pointer flips to the other side near the edge of the window, so it can always be read.
+- `#build` no longer greets you with "Drag to move", since there dragging lays road; the controls card ("?") now says undo also takes back clearing.
+
+Things I looked at and left for you to judge: the extra drawing batches (about 125 in the opening view instead of 21), which should be well within a laptop's reach but I can't measure here; the strip of about a tile beside the river that's off limits; and the smoke, which up close is a few pale puffs.
 
 ## Slice 1 — The coast (15 Oct)
 
