@@ -729,3 +729,14 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
   }
   return out;
 }
+
+let baked: CoastMap | null = null;
+
+/**
+ * The coast, baked once and shared: the sim and the renderer read the same
+ * grids. Baking is deterministic, so a memo changes nothing but the cost.
+ */
+export function coastMap(): CoastMap {
+  if (!baked) baked = bakeCoast();
+  return baked;
+}

@@ -4,11 +4,18 @@
  * that tick, in the order it was queued. The applied commands form a log;
  * replaying the log on a fresh sim with the same seed gives the same state.
  *
- * Slice 1 has no gameplay yet, so the only command is a placeholder 'mark'
- * (a note in the log that changes nothing but the command counter). Slice 2
- * adds the real ones: place road, place plot, demolish, undo.
+ * Commands carry exactly what to build (tile lists), not how the tool chose
+ * it, so a replay never depends on the route-finding of the day.
  */
-export type Command = { type: 'mark'; label: string };
+export type Command =
+  /** Lay road on these tiles (tile indices), in order. */
+  | { type: 'road'; tiles: number[] }
+  /** Mark out 2 x 2 housing plots with these top-left tiles, in order. */
+  | { type: 'plots'; at: number[] }
+  /** Clear a rectangle of tiles (inclusive): roads, homes, and trees on empty ground. */
+  | { type: 'clear'; x0: number; z0: number; x1: number; z1: number }
+  /** Undo the last build action. */
+  | { type: 'undo' };
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

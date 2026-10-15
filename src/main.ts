@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ClockDriver, SPEEDS, type Speed } from './game/clockDriver';
 import { attachInput } from './game/input';
 import { DEMOS, VIEWS } from './game/views';
-import { bakeCoast } from './map/bake';
+import { coastMap } from './map/bake';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { World } from './render/world';
 import { Sim } from './sim/sim';
@@ -38,7 +38,7 @@ function start(): void {
 
   const sim = new Sim();
   const driver = new ClockDriver(sim, speed);
-  const map = bakeCoast();
+  const map = coastMap();
   probe.bakeMs = performance.now() - t0;
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
