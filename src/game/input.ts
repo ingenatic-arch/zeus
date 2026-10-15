@@ -21,40 +21,84 @@ const HOLD_KEYS: Record<string, HoldAction> = {
   _: 'zoomOut',
 };
 
+/** What the pointer does over the ground when a tool is picked, and the tool keys. */
+export interface PointerTools {
+  /** Is a tool picked (so the left button places)? */
+  readonly active: boolean;
+  /** The pointer moved: the ground point under it (or null), and its screen position. */
+  pointer(world: { x: number; z: number } | null, sx: number, sy: number): void;
+  down(): void;
+  up(): void;
+  /** Let go of a drag, or put the tool down. */
+  cancel(): void;
+  /** A key that isn't a camera or clock key; true if it was used. */
+  key(k: string, e: KeyboardEvent): boolean;
+}
+
 /**
- * Mouse and keyboard for the camera and the clock.
- * Left-drag pans, right- or middle-drag orbits and tilts, the wheel zooms
- * towards the pointer. WASD/arrows pan, Q/E turn 90°, R/F tilt, +/- zoom,
- * Space pauses, 1-3 pick a speed, N faces north.
+ * Mouse and keyboard for the camera, the clock and the tools.
+ * With no tool picked, left-drag pans; with one, left-drag places. Middle-drag
+ * always pans, right-drag orbits and tilts (a right-click without dragging
+ * puts the tool down), the wheel zooms towards the pointer. WASD/arrows pan,
+ * Q/E turn 90°, R/F tilt, +/- zoom, Space pauses, 1-3 pick a speed, N faces
+ * north.
  */
-export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: ClockDriver, onHelp: () => void): (dt: number) => void {
+export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: ClockDriver, onHelp: () => void, tools?: PointerTools): (dt: number) => void {
   const held = new Map<string, HoldAction>();
-  let drag: { mode: 'pan' | 'orbit'; x: number; y: number; id: number } | null = null;
+  let drag: { mode: 'pan' | 'orbit' | 'tool'; x: number; y: number; id: number; button: number; moved: number } | null = null;
+
+  const ground = (e: PointerEvent): { x: number; z: number } | null => {
+    const r = canvas.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
+    const ny = -((e.clientY - r.top) / r.height) * 2 + 1;
+    const p = rig.groundUnder(nx, ny);
+    return p ? { x: p.x, z: p.z } : null;
+  };
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus();
-    drag = { mode: e.button === 0 && !e.shiftKey ? 'pan' : 'orbit', x: e.clientX, y: e.clientY, id: e.pointerId };
+    let mode: 'pan' | 'orbit' | 'tool';
+    if (e.button === 0 && !e.shiftKey) mode = tools?.active ? 'tool' : 'pan';
+    else if (e.button === 1) mode = 'pan';
+    else mode = 'orbit';
+    drag = { mode, x: e.clientX, y: e.clientY, id: e.pointerId, button: e.button, moved: 0 };
     canvas.setPointerCapture(e.pointerId);
-    canvas.style.cursor = drag.mode === 'pan' ? 'grabbing' : 'move';
+    if (mode === 'tool') {
+      tools?.pointer(ground(e), e.clientX, e.clientY);
+      tools?.down();
+    } else canvas.style.cursor = mode === 'pan' ? 'grabbing' : 'move';
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag || e.pointerId !== drag.id) {
+      if (!drag && tools) tools.pointer(ground(e), e.clientX, e.clientY);
+      return;
+    }
     const dx = e.clientX - drag.x;
     const dy = e.clientY - drag.y;
     drag.x = e.clientX;
     drag.y = e.clientY;
-    if (drag.mode === 'pan') rig.dragPan(dx, dy, canvas.clientHeight);
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    if (drag.mode === 'tool') tools?.pointer(ground(e), e.clientX, e.clientY);
+    else if (drag.mode === 'pan') rig.dragPan(dx, dy, canvas.clientHeight);
     else rig.orbit(-dx * 0.006, dy * 0.004);
   });
   const end = (e: PointerEvent): void => {
     if (drag && e.pointerId === drag.id) {
+      const d = drag;
       drag = null;
       canvas.style.cursor = '';
+      if (d.mode === 'tool') {
+        if (e.type === 'pointercancel') tools?.cancel();
+        else tools?.up();
+      } else if (d.button === 2 && d.moved < 5) tools?.cancel();
     }
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointerleave', () => {
+    if (!drag) tools?.pointer(null, 0, 0);
+  });
   canvas.addEventListener(
     'wheel',
     (e) => {
@@ -73,8 +117,18 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
   // when the key went down, so releasing Shift before "=" (or any layout
   // quirk) can never leave a key stuck down.
   addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement) return;
     const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z' && !e.repeat && tools) {
+      tools.key('undo', e);
+      e.preventDefault();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (k === 'escape') {
+      tools?.cancel();
+      return;
+    }
     if (e.code === 'Space' || k === ' ') {
       // A held Space would otherwise flicker between paused and running.
       if (!e.repeat) driver.togglePause();
@@ -99,7 +153,8 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     else if (digit === '2') driver.setSpeed('fast');
     else if (digit === '3') driver.setSpeed('fastest');
     else if (k === 'n') rig.faceNorth();
-    else if (k === '?' || k === 'h') onHelp();
+    else if (k === '?') onHelp();
+    else tools?.key(k, e);
   });
   addEventListener('keyup', (e) => {
     held.delete(e.code || e.key.toLowerCase());

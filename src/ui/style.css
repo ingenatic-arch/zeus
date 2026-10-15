@@ -85,7 +85,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .help dd { margin: 0; }
 
 .hint {
-  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+  position: absolute; bottom: 124px; left: 50%; transform: translateX(-50%);
   background: rgba(251, 242, 221, 0.92); border: 1px solid var(--edge); border-radius: 999px;
   padding: 7px 18px; font-size: 14.5px; color: var(--ink); white-space: nowrap;
   box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
@@ -97,4 +97,64 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
   .date { min-width: 120px; }
   .date .month { font-size: 16px; }
   .hint { white-space: normal; width: calc(100% - 32px); text-align: center; border-radius: 14px; }
+}
+
+/* Population and drachmas in the top bar. */
+.stat { display: flex; align-items: center; gap: 6px; position: relative; min-width: 66px; font-size: 18px; font-variant-numeric: lining-nums tabular-nums; }
+.stat svg { width: 20px; height: 18px; fill: var(--ink-soft); flex: none; }
+.stat.money svg { width: 18px; }
+.stat.money svg circle { fill: #d9a441; }
+.stat.money svg .inner { fill: none; stroke: #a8772a; stroke-width: 0.9; }
+.stat.money svg .mark { fill: #a8772a; }
+.stat .delta {
+  position: absolute; left: 26px; top: 100%; margin-top: 2px; font-size: 13px; font-weight: bold;
+  opacity: 0; transform: translateY(-3px); transition: opacity 0.25s ease, transform 0.25s ease; pointer-events: none; white-space: nowrap;
+}
+.stat .delta.show { opacity: 1; transform: translateY(0); }
+.stat .delta.up { color: #5f7f2c; }
+.stat .delta.down { color: var(--terracotta-deep); }
+
+/* The build bar along the bottom. */
+.buildbar {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 16px;
+  box-shadow: 0 3px 0 rgba(120, 80, 40, 0.25), 0 8px 24px rgba(60, 40, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  user-select: none;
+}
+.buildbar .divider { height: 30px; align-self: center; }
+.btn.tool { width: 46px; height: 46px; border-radius: 12px; position: relative; }
+.btn.tool svg { width: 28px; height: 28px; }
+.btn.tool .fill-soft { fill: #e9cf98; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .fill-ink { fill: var(--ink); }
+.btn.tool .stroke-ink { fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn.tool.on .fill-soft { fill: #ffe9bf; stroke: #fff6e4; }
+.btn.tool.on .fill-ink { fill: #fff6e4; }
+.btn.tool.on .stroke-ink { stroke: #fff6e4; }
+.btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
+.btn.tool.on .key { color: #fff6e4; }
+.btn.tool:disabled { opacity: 0.45; cursor: default; }
+
+.tool-hint {
+  position: absolute; bottom: 82px; left: 50%; transform: translateX(-50%);
+  background: rgba(251, 242, 221, 0.94); border: 1px solid var(--edge); border-radius: 999px;
+  padding: 6px 16px; font-size: 14px; color: var(--ink); white-space: nowrap; pointer-events: none;
+  box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
+}
+.tool-hint[hidden] { display: none; }
+
+.pointer-tip {
+  position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5;
+  background: rgba(251, 242, 221, 0.95); border: 1px solid var(--edge); border-radius: 8px;
+  padding: 3px 9px; font-size: 13.5px; color: var(--ink); white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(60, 40, 20, 0.18);
+}
+.pointer-tip.bad { color: var(--terracotta-deep); border-color: var(--terracotta); }
+.pointer-tip[hidden] { display: none; }
+
+/* "+3" floating up from a tent when a family moves in. */
+.floater {
+  position: absolute; left: 0; top: 0; pointer-events: none; font-size: 16px; font-weight: bold;
+  color: #fff8e6; text-shadow: 0 1px 0 #7a5c3c, 0 0 6px rgba(90, 60, 30, 0.7); white-space: nowrap;
 }

@@ -1,0 +1,212 @@
+import * as THREE from 'three';
+import { splitsMainDiagonal, type CoastMap } from '../map/bake';
+import { hash2 } from '../map/noise';
+import { PLOT_SIZE } from '../sim/build';
+import { TILE_ROAD, type Building, type SimState } from '../sim/state';
+import { col, PAL } from './palette';
+
+/** Roads and the marked-out ground of plots are drawn in chunks of this many tiles. */
+export const STREET_CHUNK = 32;
+/** How far the paving sits above the ground (plus a polygon offset). */
+const LIFT = 0.035;
+/** How far a road stops short of a tile's edge where it doesn't join a neighbour. */
+const INSET = 0.17;
+const U = [0, INSET, 1 - INSET, 1];
+
+/**
+ * The paving of the roads and the trodden ground of plots: meshes that lie
+ * on the terrain's own triangles, rebuilt chunk by chunk when tiles change.
+ */
+export class Streets {
+  readonly group = new THREE.Group();
+  private readonly meshes = new Map<number, THREE.Mesh>();
+  private readonly material: THREE.MeshStandardMaterial;
+
+  constructor(private readonly map: CoastMap) {
+    this.group.name = 'streets';
+    this.material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      flatShading: true,
+      roughness: 0.95,
+      metalness: 0,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -4,
+    });
+  }
+
+  chunkKey(tx: number, tz: number): number {
+    const n = Math.ceil(this.map.size / STREET_CHUNK);
+    return Math.floor(tz / STREET_CHUNK) * n + Math.floor(tx / STREET_CHUNK);
+  }
+
+  /** Rebuild the given chunks from the state. */
+  rebuild(s: SimState, keys: Iterable<number>): void {
+    const n = Math.ceil(this.map.size / STREET_CHUNK);
+    for (const key of keys) {
+      const cx = (key % n) * STREET_CHUNK;
+      const cz = Math.floor(key / n) * STREET_CHUNK;
+      const geo = this.buildChunk(s, cx, cz);
+      const old = this.meshes.get(key);
+      if (old) {
+        this.group.remove(old);
+        old.geometry.dispose();
+        this.meshes.delete(key);
+      }
+      if (!geo) continue;
+      const mesh = new THREE.Mesh(geo, this.material);
+      mesh.name = `streets-${key}`;
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
+      this.meshes.set(key, mesh);
+    }
+  }
+
+  private buildChunk(s: SimState, cx: number, cz: number): THREE.BufferGeometry | null {
+    const map = this.map;
+    const size = map.size;
+    const pos: number[] = [];
+    const colors: number[] = [];
+    const road = (tx: number, tz: number): boolean => tx >= 0 && tz >= 0 && tx < size && tz < size && s.tiles[tz * size + tx] === TILE_ROAD;
+    // Is the global sub-cell (gx, gz) paved? Each tile is split 3 x 3.
+    const paved = (gx: number, gz: number): boolean => {
+      const tx = Math.floor(gx / 3);
+      const tz = Math.floor(gz / 3);
+      if (!road(tx, tz)) return false;
+      const i = gx - tx * 3;
+      const j = gz - tz * 3;
+      const dx = i === 0 ? -1 : i === 2 ? 1 : 0;
+      const dz = j === 0 ? -1 : j === 2 ? 1 : 0;
+      if (dx !== 0 && !road(tx + dx, tz)) return false;
+      if (dz !== 0 && !road(tx, tz + dz)) return false;
+      if (dx !== 0 && dz !== 0 && !road(tx + dx, tz + dz)) return false;
+      return true;
+    };
+    const pave = col(PAL.road);
+    const edge = col(PAL.roadEdge);
+    const c = new THREE.Color();
+    const vert = (x: number, z: number, cr: THREE.Color): void => {
+      pos.push(x, map.heightAt(x, z) + LIFT, z);
+      colors.push(cr.r, cr.g, cr.b);
+    };
+    const quad = (
+      x0: number,
+      z0: number,
+      x1: number,
+      z1: number,
+      main: boolean,
+      c00: THREE.Color,
+      c10: THREE.Color,
+      c01: THREE.Color,
+      c11: THREE.Color,
+    ): void => {
+      // Split the same way as the terrain triangle underneath, so the paving lies flush.
+      if (main) {
+        vert(x0, z0, c00); vert(x1, z1, c11); vert(x1, z0, c10);
+        vert(x0, z0, c00); vert(x0, z1, c01); vert(x1, z1, c11);
+      } else {
+        vert(x0, z0, c00); vert(x0, z1, c01); vert(x1, z0, c10);
+        vert(x1, z0, c10); vert(x0, z1, c01); vert(x1, z1, c11);
+      }
+    };
+    const x1 = Math.min(size, cx + STREET_CHUNK);
+    const z1 = Math.min(size, cz + STREET_CHUNK);
+    const vc = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+    for (let tz = cz; tz < z1; tz++) {
+      for (let tx = cx; tx < x1; tx++) {
+        if (!road(tx, tz)) continue;
+        const main = splitsMainDiagonal(map.corner(tx, tz), map.corner(tx + 1, tz), map.corner(tx, tz + 1), map.corner(tx + 1, tz + 1));
+        // Paving stones vary a little from tile to tile.
+        const jit = 0.95 + 0.08 * hash2(tx, tz, 311);
+        const colourAt = (gvx: number, gvz: number, out: THREE.Color): THREE.Color => {
+          // A vertex inside the paved area is paving; on its rim, the worn edge.
+          const inside = paved(gvx - 1, gvz - 1) && paved(gvx, gvz - 1) && paved(gvx - 1, gvz) && paved(gvx, gvz);
+          return out.copy(inside ? pave : edge).multiplyScalar(jit);
+        };
+        for (let j = 0; j < 3; j++) {
+          for (let i = 0; i < 3; i++) {
+            if (!paved(tx * 3 + i, tz * 3 + j)) continue;
+            const gx = tx * 3 + i;
+            const gz = tz * 3 + j;
+            colourAt(gx, gz, vc[0]);
+            colourAt(gx + 1, gz, vc[1]);
+            colourAt(gx, gz + 1, vc[2]);
+            colourAt(gx + 1, gz + 1, vc[3]);
+            quad(tx + U[i], tz + U[j], tx + U[i + 1], tz + U[j + 1], main, vc[0], vc[1], vc[2], vc[3]);
+          }
+        }
+      }
+    }
+    // Plots: an outline marked on the grass, then trodden earth once a tent is up.
+    for (const b of s.buildings) {
+      if (b.x < cx || b.x >= x1 || b.z < cz || b.z >= z1) continue;
+      this.plotGround(b, quad, c);
+    }
+    if (pos.length === 0) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    g.computeVertexNormals();
+    g.computeBoundingSphere();
+    return g;
+  }
+
+  private plotGround(
+    b: Building,
+    quad: (x0: number, z0: number, x1: number, z1: number, main: boolean, a: THREE.Color, b: THREE.Color, c: THREE.Color, d: THREE.Color) => void,
+    c: THREE.Color,
+  ): void {
+    const map = this.map;
+    const S = PLOT_SIZE;
+    const inset = 0.12;
+    const steps = 8;
+    const at = (k: number): number => inset + ((S - 2 * inset) * k) / steps;
+    const main = (x: number, z: number): boolean => {
+      const tx = Math.floor(x);
+      const tz = Math.floor(z);
+      return splitsMainDiagonal(map.corner(tx, tz), map.corner(tx + 1, tz), map.corner(tx, tz + 1), map.corner(tx + 1, tz + 1));
+    };
+    if (b.level === 0) {
+      // A pale line of trodden grass round the plot.
+      c.copy(col(PAL.plotLine));
+      const w = 0.09;
+      for (let k = 0; k < steps; k++) {
+        const a0 = at(k);
+        const a1 = at(k + 1);
+        const x = b.x;
+        const z = b.z;
+        quad(x + a0, z + inset, x + a1, z + inset + w, main(x + a0, z + inset), c, c, c, c);
+        quad(x + a0, z + S - inset - w, x + a1, z + S - inset, main(x + a0, z + S - inset - w), c, c, c, c);
+        quad(x + inset, z + a0, x + inset + w, z + a1, main(x + inset, z + a0), c, c, c, c);
+        quad(x + S - inset - w, z + a0, x + S - inset, z + a1, main(x + S - inset - w, z + a0), c, c, c, c);
+      }
+      return;
+    }
+    // Trodden earth, darker in the middle where the family sits round the fire.
+    const earth = col(PAL.earth);
+    const worn = col(PAL.earthWorn);
+    const cs = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+    const shade = (x: number, z: number, out: THREE.Color): THREE.Color => {
+      const d = Math.hypot(x - b.x - S / 2, z - b.z - S / 2) / (S / 2);
+      const j = 0.94 + 0.1 * hash2(Math.round(x * 4), Math.round(z * 4), 313);
+      return out.copy(worn).lerp(earth, Math.min(1, d * 1.1)).multiplyScalar(j);
+    };
+    for (let j = 0; j < steps; j++) {
+      for (let i = 0; i < steps; i++) {
+        const xa = b.x + at(i);
+        const xb = b.x + at(i + 1);
+        const za = b.z + at(j);
+        const zb = b.z + at(j + 1);
+        // Round off the corners of the patch.
+        const ci = Math.min(i, steps - 1 - i);
+        const cj = Math.min(j, steps - 1 - j);
+        if (ci + cj === 0) continue;
+        shade(xa, za, cs[0]);
+        shade(xb, za, cs[1]);
+        shade(xa, zb, cs[2]);
+        shade(xb, zb, cs[3]);
+        quad(xa, za, xb, zb, main(xa, za), cs[0], cs[1], cs[2], cs[3]);
+      }
+    }
+  }
+}

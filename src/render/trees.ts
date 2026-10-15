@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { TreeKind, type CoastMap, type TreeInstance } from '../map/bake';
+import { TreeKind, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { ChunkedInstances } from './chunks';
 import { col, PAL } from './palette';
 
 /**
@@ -9,10 +10,10 @@ import { col, PAL } from './palette';
  * whole kind draws in a single call.
  */
 
-type Part = { geo: THREE.BufferGeometry; color: string };
+export type Part = { geo: THREE.BufferGeometry; color: string };
 
 /** Nudge vertices by a seeded amount so shapes look hand-made, not machined. */
-function lumpy(geo: THREE.BufferGeometry, amount: number, seed: number): THREE.BufferGeometry {
+export function lumpy(geo: THREE.BufferGeometry, amount: number, seed: number): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   const p = g.attributes.position as THREE.BufferAttribute;
   // Same position -> same nudge, so shared corners stay joined.
@@ -27,7 +28,7 @@ function lumpy(geo: THREE.BufferGeometry, amount: number, seed: number): THREE.B
   return g;
 }
 
-function merge(parts: Part[]): THREE.BufferGeometry {
+export function merge(parts: Part[]): THREE.BufferGeometry {
   const positions: number[] = [];
   const colors: number[] = [];
   for (const { geo, color } of parts) {
@@ -196,17 +197,16 @@ function swaying(mat: THREE.MeshStandardMaterial, time: { value: number }, amoun
 export interface Plants {
   group: THREE.Group;
   update(time: number): void;
+  /** Show only the plants not cleared away (indices into map.trees). */
+  sync(cleared: readonly number[]): void;
 }
+
+/** Plants are drawn in square chunks of this many units, so what's off screen is skipped. */
+export const PLANT_CHUNK = 32;
 
 export function buildTrees(map: CoastMap): Plants {
   const group = new THREE.Group();
   group.name = 'trees';
-  const byKind = new Map<TreeKind, TreeInstance[]>();
-  for (const t of map.trees) {
-    const list = byKind.get(t.kind) ?? [];
-    list.push(t);
-    byKind.set(t.kind, list);
-  }
   const time = { value: 0 };
   const plain = (): THREE.MeshStandardMaterial =>
     new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0 });
@@ -215,39 +215,77 @@ export function buildTrees(map: CoastMap): Plants {
   const grassMat = swaying(plain(), time, 0.12);
   const materialFor = (k: TreeKind): THREE.Material =>
     k === TreeKind.Rock ? rockMat : k === TreeKind.Reed || k === TreeKind.Flowers ? grassMat : treeMat;
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  const p = new THREE.Vector3();
-  const up = new THREE.Vector3(0, 1, 0);
-  const c = new THREE.Color();
-  for (const [kind, list] of byKind) {
-    const mesh = new THREE.InstancedMesh(MODELS[kind](), materialFor(kind), list.length);
-    mesh.name = `trees-${TreeKind[kind]}`;
-    mesh.castShadow = kind !== TreeKind.Reed && kind !== TreeKind.Flowers;
-    mesh.receiveShadow = true;
-    list.forEach((t, i) => {
-      // Sit the base slightly into the ground so slopes never show a gap.
-      const y = Math.min(map.heightAt(t.x, t.z), map.heightAt(t.x + 0.25, t.z + 0.25), map.heightAt(t.x - 0.25, t.z - 0.25)) - 0.04;
-      p.set(t.x, y, t.z);
-      q.setFromAxisAngle(up, t.rot);
-      const squash = kind === TreeKind.Rock ? 0.8 + 0.4 * ((t.tint + 1) / 2) : 1;
-      s.set(t.scale, t.scale * squash, t.scale);
-      m.compose(p, q, s);
-      mesh.setMatrixAt(i, m);
-      const k = 1 + t.tint * TINT[kind];
-      c.setRGB(k, k * (1 + t.tint * 0.02), k * (1 - t.tint * 0.03));
-      mesh.setColorAt(i, c);
+
+  // One chunked set of meshes per kind; each chunk knows its trees.
+  const kinds = new Map<TreeKind, { inst: ChunkedInstances; byChunk: Map<number, number[]> }>();
+  map.trees.forEach((t, i) => {
+    let k = kinds.get(t.kind);
+    if (!k) {
+      const shadow = t.kind !== TreeKind.Reed && t.kind !== TreeKind.Flowers;
+      const inst = new ChunkedInstances(`trees-${TreeKind[t.kind]}`, MODELS[t.kind](), materialFor(t.kind), PLANT_CHUNK, {
+        castShadow: shadow,
+        receiveShadow: true,
+        colors: true,
+      });
+      k = { inst, byChunk: new Map() };
+      kinds.set(t.kind, k);
+      group.add(inst.group);
+    }
+    const key = k.inst.key(t.x, t.z);
+    const list = k.byChunk.get(key);
+    if (list) list.push(i);
+    else k.byChunk.set(key, [i]);
+  });
+
+  // Where each tree stands, worked out once.
+  const mats = map.trees.map((t) => {
+    const m = new THREE.Matrix4();
+    // Sit the base slightly into the ground so slopes never show a gap.
+    const y = Math.min(map.heightAt(t.x, t.z), map.heightAt(t.x + 0.25, t.z + 0.25), map.heightAt(t.x - 0.25, t.z - 0.25)) - 0.04;
+    const squash = t.kind === TreeKind.Rock ? 0.8 + 0.4 * ((t.tint + 1) / 2) : 1;
+    m.compose(
+      new THREE.Vector3(t.x, y, t.z),
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.rot),
+      new THREE.Vector3(t.scale, t.scale * squash, t.scale),
+    );
+    return m;
+  });
+  const fill = (kind: TreeKind, key: number, gone: ReadonlySet<number>): void => {
+    const k = kinds.get(kind);
+    if (!k) return;
+    const ids = (k.byChunk.get(key) ?? []).filter((i) => !gone.has(i));
+    if (ids.length === 0 && !(k.byChunk.get(key) ?? []).length) return;
+    const first = map.trees[(k.byChunk.get(key) as number[])[0]];
+    k.inst.set(first.x, first.z, ids.length, (n, m, c) => {
+      const t = map.trees[ids[n]];
+      m.copy(mats[ids[n]]);
+      const v = 1 + t.tint * TINT[kind];
+      c.setRGB(v, v * (1 + t.tint * 0.02), v * (1 - t.tint * 0.03));
     });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    group.add(mesh);
-  }
+  };
+  let gone = new Set<number>();
+  for (const [kind, k] of kinds) for (const key of k.byChunk.keys()) fill(kind, key, gone);
+
   return {
     group,
     update(t: number) {
       time.value = t;
+    },
+    sync(cleared: readonly number[]) {
+      const next = new Set(cleared);
+      const dirty = new Map<TreeKind, Set<number>>();
+      const mark = (i: number): void => {
+        const t = map.trees[i];
+        const k = kinds.get(t.kind);
+        if (!k) return;
+        const set = dirty.get(t.kind) ?? new Set<number>();
+        set.add(k.inst.key(t.x, t.z));
+        dirty.set(t.kind, set);
+      };
+      for (const i of next) if (!gone.has(i)) mark(i);
+      for (const i of gone) if (!next.has(i)) mark(i);
+      gone = next;
+      for (const [kind, keys] of dirty) for (const key of keys) fill(kind, key, next);
     },
   };
 }

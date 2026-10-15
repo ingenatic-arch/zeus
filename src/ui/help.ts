@@ -20,7 +20,8 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
   help.innerHTML = `
     <h2>Getting about</h2>
     <dl>
-      <dt>Left-drag</dt><dd>Move across the land</dd>
+      <dt>Left-drag</dt><dd>Move across the land (with a tool picked: build)</dd>
+      <dt>Middle-drag</dt><dd>Move across the land</dd>
       <dt>Right-drag</dt><dd>Turn and tilt the view</dd>
       <dt>Wheel</dt><dd>Zoom, down to street level</dd>
       <dt>W A S D</dt><dd>Move (or the arrow keys)</dd>
@@ -28,6 +29,14 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>R / F</dt><dd>Tilt up / down</dd>
       <dt>+ / −</dt><dd>Zoom in / out</dd>
       <dt>N</dt><dd>Face north</dd>
+    </dl>
+    <h2 style="margin-top:12px">Building</h2>
+    <dl>
+      <dt>T</dt><dd>Road: drag to lay it</dd>
+      <dt>H</dt><dd>Housing plots: click or drag</dd>
+      <dt>X</dt><dd>Clear land: drag over it</dd>
+      <dt>U / Ctrl+Z</dt><dd>Undo the last thing built</dd>
+      <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

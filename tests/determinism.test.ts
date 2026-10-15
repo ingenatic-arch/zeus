@@ -62,6 +62,19 @@ describe('simulation determinism', () => {
     expect(b.seq).toBeGreaterThan(a.seq);
   });
 
+  it('building at once (as while paused) gives the same city as building on the next tick', () => {
+    const live = new Sim(11);
+    live.run(30);
+    live.enqueue({ type: 'road', tiles: row(0, 12, 80) });
+    live.flush();
+    expect(live.state.tiles[T(5, 80)]).toBe(-1);
+    live.enqueue({ type: 'plots', at: [T(4, 78)] });
+    live.flush();
+    live.run(600);
+    const again = replay(11, live.log, live.state.tick);
+    expect(serialize(again.state)).toEqual(serialize(live.state));
+  });
+
   it('save round-trip carries on identically, even with settlers on the road', () => {
     const a = scripted(9, 300);
     expect(a.state.walkers.length).toBeGreaterThan(0);

@@ -264,3 +264,24 @@ function moveWalker(s: SimState, map: CoastMap, w: Walker): boolean {
   }
   return true;
 }
+
+/** What a home is waiting for, or who lives there, in a few plain words. */
+export function homeStatus(s: SimState, map: CoastMap, b: Building): string {
+  const size = map.size;
+  const beside = plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD);
+  let reach = '';
+  if (beside.length === 0) reach = 'Needs a road beside it';
+  else {
+    const edges = edgeRoads(s, size);
+    const search = roadSearch(s, size, edges);
+    if (nearestReached(search, beside) < 0) reach = 'Needs its road joined to the edge of the map, where settlers come in';
+  }
+  const who = b.people === 1 ? '1 person' : `${b.people} people`;
+  if (b.level === 0) {
+    if (b.incoming > 0) return 'A housing plot · settlers are on their way';
+    return reach ? `A housing plot · ${reach.toLowerCase()}` : 'A housing plot · waiting for settlers';
+  }
+  const full = b.people >= capacity(b);
+  const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : reach ? '' : ' · room for more';
+  return `A tent · ${who}${more}`;
+}

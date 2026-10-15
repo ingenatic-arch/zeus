@@ -76,21 +76,30 @@ export class Sim {
     return stamped;
   }
 
-  /** Advance one fixed tick. */
+  /**
+   * Apply the commands due at the start of the next tick now, without
+   * advancing time. It is exactly what step() does first, so the log and a
+   * replay are unchanged; it lets you build while the clock is paused, and
+   * shows the result at once while it runs.
+   */
+  flush(): void {
+    if (this.queue.length === 0) return;
+    const t = this.state.tick + 1;
+    const due = this.queue.filter((c) => c.tick === t).sort((a, b) => a.seq - b.seq);
+    if (due.length === 0) return;
+    this.queue = this.queue.filter((c) => c.tick !== t);
+    for (const c of due) {
+      applyCommand(this.state, this.map, c.command);
+      this.log.push(c);
+    }
+  }
+
+  /** Advance one fixed tick: first the commands due on it, then everything that moves. */
   step(): void {
+    this.flush();
     const s = this.state;
     const t = s.tick + 1;
     s.tick = t;
-    if (this.queue.length > 0) {
-      const due = this.queue.filter((c) => c.tick === t).sort((a, b) => a.seq - b.seq);
-      if (due.length > 0) {
-        this.queue = this.queue.filter((c) => c.tick !== t);
-        for (const c of due) {
-          applyCommand(s, this.map, c.command);
-          this.log.push(c);
-        }
-      }
-    }
     stepWalkers(s, this.map);
     if (--s.settlerClock <= 0) {
       s.settlerClock = SETTLER_INTERVAL;
