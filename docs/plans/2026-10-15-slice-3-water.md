@@ -104,4 +104,37 @@ Settlers then come to fill the huts' extra room as they do for tents.
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits: `6b73476` plan; `8e8ec62` sim; `0d96e47` render and UI; `16bb183` carrier round tuning; `36355bf` look and tune; `3895dd7` smoke and measure; then this write-up and the check-in.
+
+**Where it differs from the design above**, all found by running the sim on the demo town and looking:
+- *Water lasts 4 months (1,200 ticks), not 2.* With 2 months, one carrier could not get round even a compact town of about 45 homes before the first homes she watered dried out again, so huts kept falling back to tents in a town that was well inside her reach.
+- *How she chooses at a junction.* Picking at random among ways not walked this round left about half the homes in reach dry. Preferring the oldest-walked road drew her into empty dead ends. As built, at a junction she looks up to 16 road tiles down each way (not past her reach) and takes the way to the home whose water runs out soonest; where that is a tie (often: nobody watered yet), she takes the next way round from the one a carrier last took out of that junction (`SimState.exits`), so successive rounds cover different streets. Where no lived-in home lies ahead but some lie behind, she turns round rather than walk an empty road. No random numbers are used.
+- *Range and round are two numbers.* `CARRIER_RANGE = 32` is how far by road from her fountain she ever goes (and what the overlay and the hover tip use); `CARRIER_WALK = 48` is how much road she walks on a round. Only road not yet walked this round counts towards the 48, so going back down a dead end or along a street she has just watered doesn't use up her round; she turns for home after 96 tiles in all whatever happens.
+- *She walks at 1.2 tiles a second*, the same as settlers (0.12 a tick), not slower: at 1 tile a second her rounds were too long for a town of this size. Her bright blue dress and big jar make her easy to pick out anyway.
+- *No `trail` field.* Instead `SimState.carried` (the tick a carrier last stood on each road tile; the overlay draws recently walked roads brighter) and `SimState.exits` (above). Walkers gained `origin`, `back`, `steps` and `since` (the tick her round began).
+- *Huts have mud walls, not whitewash.* Whitewashed, they read as cottages, which is the next step up (slice 4).
+- *Settler groups on the road*: at most `4 + room / 8`, up to 30, as designed.
+
+**Handed-over findings, as built:**
+- Road preview route cached on `tilesRev` (`Tools.routesFound` counts recomputes; the smoke test checks it doesn't grow while settlers arrive and tents turn to huts).
+- Arrival rate tied to free room and water: `arrivalInterval(room, water)`; the population tooltip says how often newcomers come and why.
+- Rerouted settlers take a home with room for the whole group, else the one with the most room (the group is trimmed); a group finding its home full on arrival does the same.
+- The carrier uses `roadSearch`/`tracePath` and the shared walker shape (`src/sim/walk.ts`); never `overland()`.
+- `Homes.sync` refills only chunks whose buildings changed look (kind, level, facing), counted in `homesRefilled`.
+- `Building.kind`, state version 3 (version 2 refused plainly); `homeStatus()` (now in `src/sim/status.ts`) gives "what reaches this house".
+- The placing texture is rewritten only when marks change (`markWrites`; the smoke test checks pointer moves within one tile write nothing).
+- No bridges.
+
+**Checks at the end:** 54 tests in 7 files pass (11 new in `tests/water.test.ts`, 1 new in determinism: save and load mid-round, with the scripted city now gaining a fountain and huts); typecheck clean; `npm run build` clean; `npm run smoke` passes with the new water steps; `npm run measure` below. A scratch run of a 161-building, 492-road-tile town with 20 fountains costs 0.065 ms a sim tick.
+
+| | Before | After |
+|---|---|---|
+| Tests | 42 | 54 |
+| Bundle | 632 KB raw, 170 KB gzipped | 657 KB raw, 178 KB gzipped |
+| Load (local, headless) | ready in 2.9 s (2.1–2.9) | ready in 2.7 s |
+| Opening view / close views | 542 k triangles, 125 calls / 376–403 k, 69–76 | unchanged |
+| `#streets` | 384 k, 88 calls (overview 558 k, 144) | 389 k, 88 (overview 563 k, 144) |
+| `#water` (46 homes, 40 huts, 93 road tiles, 21 walkers) | — | 511 k, 112 calls; overlay on 545 k, 114; street level 491 k, 104; overview 652 k, 156 |
+| GPU objects | 22 geometries, 4 textures | 28 geometries, 5 textures |
+
+A hut is about 900–1,200 triangles (a tent about 450–530); 40 huts add about 41 k. A few hundred huts would add 250–350 k, worth watching against the frame-rate budget once it can be measured on real hardware.
