@@ -161,7 +161,7 @@ function walkOut(s: SimState, map: CoastMap, w: Walker, here: [number, number], 
   }
   const tx = Math.min(size - 1, Math.max(0, Math.floor(here[0])));
   const tz = Math.min(size - 1, Math.max(0, Math.floor(here[1])));
-  const way = overland(map, tz * size + tx);
+  const way = overland(map, s, tz * size + tx);
   if (!way) return false;
   const pts: Array<[number, number, number]> = [...start];
   for (let i = 0; i < way.points.length; i += 2) pts.push([way.points[i], way.points[i + 1], -1]);

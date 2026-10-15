@@ -35,7 +35,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>T</dt><dd>Road: drag to lay it</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>X</dt><dd>Clear land: drag over it</dd>
-      <dt>U / Ctrl+Z</dt><dd>Undo the last thing built</dd>
+      <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>

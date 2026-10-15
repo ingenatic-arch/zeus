@@ -104,15 +104,16 @@ export function nearestEdge(search: Search, s: SimState, size: number): number {
 }
 
 /**
- * A way on foot across open land (not water or steep rock) from a tile to the
+ * A way on foot across open land (not water, steep rock or homes) from a tile to the
  * nearest tile on the map's edge, for people leaving with no road out. Returns
  * waypoints (x, z pairs at tile centres, straightened where the ground between
  * allows) ending on the edge tile, or null if there is no way.
  */
-export function overland(map: CoastMap, from: number): { points: number[]; edge: number } | null {
+export function overland(map: CoastMap, s: SimState, from: number): { points: number[]; edge: number } | null {
   const size = map.size;
   const ground = mapIndex(map).ground;
-  const open = (t: number): boolean => ground[t] !== Ground.Water && ground[t] !== Ground.Steep && ground[t] !== Ground.OffMap;
+  // Round other people's homes, not through them.
+  const open = (t: number): boolean => ground[t] !== Ground.Water && ground[t] !== Ground.Steep && s.tiles[t] <= TILE_EMPTY;
   const parent = new Int32Array(size * size).fill(-1);
   const queue = new Int32Array(size * size);
   let head = 0;

@@ -88,7 +88,14 @@ export function pointerTip(root: HTMLElement): ToolTip {
       el.hidden = false;
       if (el.textContent !== text) el.textContent = text;
       el.classList.toggle('bad', bad);
-      el.style.transform = `translate(${Math.round(x + 16)}px, ${Math.round(y + 18)}px)`;
+      // Beside the pointer, flipped to its other side near the window's edge so it stays readable.
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      let left = x + 16;
+      let top = y + 18;
+      if (left + w > root.clientWidth - 8) left = Math.max(8, x - 16 - w);
+      if (top + h > root.clientHeight - 8) top = Math.max(8, y - 18 - h);
+      el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
     },
   };
 }

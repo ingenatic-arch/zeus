@@ -76,7 +76,8 @@ function start(): void {
 
   const ui = document.getElementById('ui') as HTMLElement;
   const topbar = new TopBar(ui, driver);
-  const corner = buildCorner(ui, () => rig.faceNorth(), !shot);
+  // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
+  const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip);
   const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo());

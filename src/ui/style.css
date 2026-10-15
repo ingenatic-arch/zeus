@@ -16,6 +16,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 #scene { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
 #ui { position: absolute; inset: 0; pointer-events: none; font-family: var(--serif); color: var(--ink); }
 #ui > * { pointer-events: auto; }
+/* Labels over the map never catch the pointer (the id rule above would otherwise win over their own classes). */
+#ui > .hint, #ui > .tool-hint, #ui > .pointer-tip, #ui > .floater { pointer-events: none; }
 
 #loading {
   position: absolute; inset: 0; display: grid; place-items: center;

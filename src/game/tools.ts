@@ -164,7 +164,7 @@ export class Tools {
           } else marks.set(t, MARK_OK);
         }
         this.placement.setMarks(marks);
-        this.tip.show(from === this.hover ? reason : `No way through: ${reason.toLowerCase() || 'blocked'}`, sx, sy, true);
+        this.tip.show(from === this.hover ? reason : `No way through · ${reason || 'Blocked'}`, sx, sy, true);
         return;
       }
       const fresh = route.filter((t) => s.tiles[t] !== TILE_ROAD);
