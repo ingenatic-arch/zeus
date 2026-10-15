@@ -7,6 +7,10 @@ export function buildSky(sunDir: THREE.Vector3): THREE.Mesh {
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
+    // The haze (fog) colour is not tone-mapped, so the sky isn't either:
+    // otherwise the sky at the horizon is a shade darker than the haze below
+    // it, and a line runs along the horizon.
+    toneMapped: false,
     uniforms: {
       uZenith: { value: col(PAL.skyZenith).clone() },
       uHorizon: { value: col(PAL.skyHorizon).clone() },
