@@ -83,8 +83,8 @@ export const PAL = {
   basinWaterLight: '#9fe0ee',
   spout: '#bfeaf3',
   // The water carrier
-  carrierDress: '#7fa9cf',
-  carrierShawl: '#efe4c8',
+  carrierDress: '#5fb0e8',
+  carrierShawl: '#f6f1e4',
   skin: '#d9a273',
   hair: '#4b3526',
   // Tunics (picked per person)

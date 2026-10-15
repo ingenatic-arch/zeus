@@ -82,7 +82,7 @@ function carrier(): THREE.BufferGeometry {
     { geo: new THREE.IcosahedronGeometry(0.058, 0).scale(1, 0.72, 1).translate(-0.014, 0.385, 0), color: PAL.hair },
     // A little pad and the jar, lying a touch sideways like a hydria.
     { geo: new THREE.CylinderGeometry(0.04, 0.04, 0.015, 6).translate(0, 0.42, 0), color: PAL.carrierShawl },
-    { geo: new THREE.LatheGeometry(jar, 7).rotateZ(0.12).translate(0, 0.425, 0), color: PAL.pot },
+    { geo: new THREE.LatheGeometry(jar, 7).scale(1.4, 1.35, 1.4).rotateZ(0.12).translate(0, 0.425, 0), color: PAL.pot },
   ];
   return mergeTinted(parts);
 }
