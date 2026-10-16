@@ -110,7 +110,7 @@ function neighbourhood(ticks: number): (sim: Sim) => void {
  * the reach of a fountain by the junction. With `fountain`, one goes in by
  * the junction once the first tents are up. `ticks` sets how far it has got.
  */
-function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void, officeAt = ticks): (sim: Sim) => void {
+function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void, officeAt = ticks - OFFICE_LEAD): (sim: Sim) => void {
   return (sim) => {
     const at: At = (t, c) => {
       if (sim.state.tick < t) sim.run(t - sim.state.tick);
@@ -136,7 +136,7 @@ function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void, of
       ],
     });
     if (fountain) at(300, { type: 'fountain', at: [T(27, 81)] });
-    // The tax office goes in after whatever else is built at officeAt (by default when the scene opens); until then wages come out of what the town started with.
+    // The tax office goes in after whatever else is built at officeAt (by default a day before the scene opens, so its workers have been shared out by then); until then wages come out of what the town started with.
     let placed = !fountain;
     const office = (): void => {
       placed = true;
@@ -153,6 +153,8 @@ function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void, of
 
 type At = (t: number, c: Parameters<Sim['enqueue']>[0]) => void;
 
+/** How long before a water or food town's scene opens its tax office goes in (a day: workers are shared out once a day, so the office is staffed when it opens). */
+const OFFICE_LEAD = 10;
 /** Where the water, food and culture towns' tax office stands: beside the lane, between the town and the hamlet at its far end. */
 const LANE_OFFICE = { x: 24, z: 60 };
 /** The culture towns' second tax office: on the west street, by the junction with the lane. */
@@ -421,7 +423,8 @@ export const DEMOS: Record<string, Demo> = {
   vendor: { view: 'vendor', setup: foodTown(FOOD_TICKS), follow: 'food', overlay: 'food' },
   harvest: { view: 'harvest', setup: foodTown(HARVEST_TICKS), follow: 'cart', overlay: 'food' },
   chain: { view: 'chain', tool: 'farm', setup: waterTown(1500, true), overlay: 'food' },
-  workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0), overlay: 'food' },
+  // #workers' office goes in as it opens, so the jobs it shows short are the farms' and the granary's (the office joins them next morning).
+  workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0, { officeAt: WORKERS_TICKS }), overlay: 'food' },
   bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
   people: { view: 'people', setup: foodTown(FOOD_TICKS), overlay: 'missing', open: (s) => nearest(s, 30, 67) },
   warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
