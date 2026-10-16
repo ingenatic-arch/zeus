@@ -75,6 +75,8 @@ interface Probe {
   carrier?: () => { x: number; y: number } | null;
   /** Screen position of the first walker of a kind (water, food, cart, porter), if one is out. */
   walker?: (kind: string) => { x: number; y: number } | null;
+  /** World position of the first walker of a kind, if one is out. */
+  where?: (kind: string) => { x: number; z: number } | null;
   /** The text of the pointer tip, if it shows. */
   tipText?: () => string | null;
   tool?: (t: string | null) => void;
@@ -357,6 +359,10 @@ function start(): void {
     return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
   };
   probe.carrier = () => probe.walker?.('water') ?? null;
+  probe.where = (kind: string) => {
+    const first = [...city.walkers.serviceAt.values()].find((o) => o.kind === kind)?.pos;
+    return first ? { x: first.x, z: first.z } : null;
+  };
   probe.tipText = () => {
     const el = document.querySelector('.pointer-tip') as HTMLElement | null;
     return el && !el.hidden ? (el.dataset.text ?? el.textContent) : null;

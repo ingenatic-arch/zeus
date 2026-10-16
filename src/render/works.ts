@@ -160,7 +160,6 @@ function granaryModel(): THREE.BufferGeometry {
   // The yard: a low wall at the front corners, a jar, a pallet for the sacks.
   parts.push(...stoneWall(0.8, -1.42, 1.42, -1.42, 195));
   parts.push(...stoneWall(0.8, 1.42, 1.42, 1.42, 196));
-  parts.push({ geo: slab(0.2, -0.5, 1.15, 0.5, 0, 0.04), color: PAL.wood });
   parts.push(amphora(1.3, -1.05, 0.24));
   return merge(parts);
 }
@@ -449,19 +448,19 @@ export class Works {
     this.stooks.set(kx, kz, stooks.length, (n, m) => {
       const { b, i } = stooks[n];
       const [lx, lz] = stookAt[i];
-      part(b, m, lx, lz, i * 0.7, [1, 1, 1], false, 0.04);
+      part(b, m, lx, lz, i * 0.7, [1, 1, 1], true, 0.02);
     });
 
-    // Sacks on the granary's pallet: a layer of ten, then four on top.
+    // Sacks stacked in the granary's yard: a layer of ten, then four on top.
     const sackAt: Array<[number, number, number]> = [];
-    for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) sackAt.push([0.5 + r * 0.25, -0.4 + c * 0.2, 0.04]);
-    for (let c = 0; c < 4; c++) sackAt.push([0.62, -0.3 + c * 0.2, 0.17]);
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) sackAt.push([0.55 + r * 0.25, -0.4 + c * 0.2, 0]);
+    for (let c = 0; c < 4; c++) sackAt.push([0.67, -0.3 + c * 0.2, 0.13]);
     const sacks: Array<{ b: Building; i: number }> = [];
     for (const b of granaries) for (let i = 0; i < shown(b.stock, GRANARY_CAP, SACKS); i++) sacks.push({ b, i });
     this.sacks.set(kx, kz, sacks.length, (n, m) => {
       const { b, i } = sacks[n];
       const [lx, lz, y] = sackAt[i];
-      part(b, m, lx, lz, 1.57 + (hash2(b.id, i, 198) - 0.5) * 0.5, [1, 1, 1], false, y);
+      part(b, m, lx, lz, 1.57 + (hash2(b.id, i, 198) - 0.5) * 0.5, [1, 1, 1], true, y + 0.01);
     });
 
     // Loaves in the stall's baskets.

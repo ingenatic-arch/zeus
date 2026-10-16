@@ -239,7 +239,109 @@ await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout:
 await frames(3);
 if (!(await city()).following) fail('#carrier is not following the carrier');
 
+
+// Food: the fed town, its counters, hovering the vendor and a farm, the food overlay.
+const open = async (hash) => {
+  await page.goto('about:blank');
+  await page.goto(url + hash);
+  await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  await frames(3);
+};
+await open('#food-paused');
+c = await city();
+if (!(c.cottages > 10 && c.farms === 3 && c.granaries === 1 && c.agoras === 1 && c.fed > 10 && c.jobs === 44 && c.filled === 44)) fail(`#food: ${JSON.stringify(c)}`);
+if (!(c.rent > 0)) fail(`#food: no rent paid (${c.rent})`);
+const sv = await page.evaluate(() => window.__zeus.walker('food'));
+if (sv) {
+  await page.mouse.move(sv.x, sv.y);
+  await frames(2);
+  const vt = await tip();
+  if (!/^Food vendor/.test(vt ?? '')) fail(`hovering the food vendor: ${vt}`);
+}
+await page.keyboard.press('l');
+await frames(2);
+if ((await city()).overlayMode !== 'food') fail('L did not show the food overlay');
+await page.keyboard.press('o');
+await frames(2);
+if ((await city()).overlayMode !== 'water') fail('O did not switch to the water overlay');
+await page.keyboard.press('o');
+await frames(2);
+if ((await city()).overlay) fail('O did not hide the overlay');
+// #chain opens with the food overlay; #vendor follows her.
+await open('#chain-paused');
+if ((await city()).overlayMode !== 'food') fail('#chain did not open with the food overlay');
+await open('#vendor-paused');
+if (!(await city()).following) fail('#vendor is not following the food vendor');
+// Workers: the chain built in a town of tents is short of hands, and says so.
+await open('#workers-paused');
+c = await city();
+if (!(c.filled < c.jobs)) fail(`#workers is not short of workers (${c.filled} of ${c.jobs})`);
+p = await at(48.5, 61.5);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const wt = await tip();
+if (!/A wheat farm[\s\S]*(No workers|Short of workers)/.test(wt ?? '')) fail(`hovering a farm short of workers: ${wt}`);
+// The farm tool: its label on fertile land, a refusal on dry land, and placing one.
+await page.keyboard.press('m');
+p = await at(41.5, 58.5);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const mt = await tip();
+if (!/^Wheat farm · 200 dr[\s\S]*measures of wheat/.test(mt ?? '')) fail(`farm tool label: ${mt}`);
+const fm0 = (await city()).money;
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (c.farms !== 4 || fm0 - c.money !== 200) fail(`placing a farm: ${c.farms} farms for ${fm0 - c.money} dr`);
+p = await at(12.5, 62.5);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const nt = await tip();
+if (!/Not fertile enough/.test(nt ?? '')) fail(`farm tool on dry land: ${nt}`);
+await page.keyboard.press('Escape');
+// A bridge: drag a road straight across the river where it is narrow; undo takes it away.
+await open('#water-paused');
+await page.evaluate(() => window.__zeus.jump({ x: 34, z: 42, yaw: -0.35, dist: 22, tilt: -0.2 }));
+await frames(3);
+await page.keyboard.press('t');
+const b0 = await at(29.5, 41.5);
+const b1 = await at(40.5, 41.5);
+await page.mouse.move(b0.x, b0.y);
+await frames(1);
+await page.mouse.down();
+await page.mouse.move(b1.x, b1.y, { steps: 8 });
+await frames(2);
+const bt = await tip();
+if (!/a bridge of 7 tiles/.test(bt ?? '')) fail(`bridge drag label: ${bt}`);
+await page.mouse.up();
+await frames(2);
+c = await city();
+if (c.bridges !== 7) fail(`the bridge was not built (${c.bridges} bridge tiles)`);
+await page.keyboard.press('u');
+await frames(2);
+if ((await city()).bridges !== 0) fail('undo did not take the bridge away');
+await page.keyboard.press('Escape');
+// Carts cross the bridge in #bridge; clearing a farm takes its carts with it.
+await open('#bridge-paused');
+c = await city();
+if (!(c.bridges === 7 && c.farms === 3 && c.carts > 0)) fail(`#bridge: ${JSON.stringify(c)}`);
+await open('#harvest-paused');
+const h0 = await city();
+await page.keyboard.press('x');
+const x0 = await at(47.2, 60.2);
+const x1 = await at(49.8, 62.8);
+await page.mouse.move(x0.x, x0.y);
+await page.mouse.down();
+await page.mouse.move(x1.x, x1.y, { steps: 4 });
+await page.mouse.up();
+await frames(2);
+const h1 = await city();
+if (h1.farms !== h0.farms - 1) fail(`clearing a farm: ${h0.farms} -> ${h1.farms}`);
+await page.keyboard.press('Escape');
+await page.keyboard.press('3');
+await frames(30);
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'));
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

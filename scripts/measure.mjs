@@ -105,6 +105,24 @@ for (const [cam, overlay] of [['water', false], ['water', true], ['carrier', fal
 }
 console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
 await summarise();
+
+// The fed town (slice 4): farms, granary, agora, cottages, carts, porter and vendor, and the food overlay.
+await page.goto('about:blank');
+const t3 = Date.now();
+await page.goto(url + '#food-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+console.log(`load #food (local, headless): ready in ${Date.now() - t3} ms`);
+for (const [cam, overlay] of [['food', false], ['food', true], ['vendor', false], ['harvest', false], ['chain', false], ['overview', false]]) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const on = await page.evaluate(() => window.__zeus.city().overlay);
+  if (on !== overlay) await page.keyboard.press('l');
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#food view ${(cam + (overlay ? '+overlay' : '')).padEnd(16)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
+await summarise();
 const mem = await page.evaluate(() => window.__zeus.info());
 console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures`);
 await browser.close();
