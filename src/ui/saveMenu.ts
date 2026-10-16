@@ -120,7 +120,7 @@ export class SaveMenu {
       this.card.innerHTML = `
         <button class="close" data-act="close" aria-label="Close">×</button>
         <h2>Your town</h2>
-        <p class="none">Saving isn’t available in this window: the browser keeps nothing for this page here (a private window, perhaps, or site data turned off). The town plays on as usual; it just can’t be kept when you leave.</p>`;
+        <p class="none">Saving isn’t available in this window: the browser keeps nothing for this page here (site data may be turned off for it). The town plays on as usual; it just can’t be kept when you leave.</p>`;
       return;
     }
     const auto = this.host.autosave();

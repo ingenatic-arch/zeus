@@ -117,4 +117,41 @@ Earlier check-in promises, scripted at `99b1c81` (the numbers the walker change 
 
 ## As built
 
-(Filled in at the end of the slice.)
+Commits: `9c5a03a` (this plan), `21872e1` (sim and game logic), `d9e8c49` (saves menu, sound, welcome card, shortfall lines, no-road caution), `ad62865` (smoke test), `7e3ff54` (merged homes and plants, walking legs, publish-prep), `1eb1315` (look and feel), and the check-in commit.
+
+**What changed from the design above**
+- *`#town`'s site and story*: the town stands on the east bank between the flood plain and the bay, but its road comes in from the **west** edge, up a lane on the west bank and over the bridge at the river's narrows (z 41), then along a main street through the wheat on the flood plain (seven farms and the granary, just over the bridge) to the town. Settlers walk the whole way in, so the road and the bridge are always busy. The core is a grid of fine houses round a fountain, the agora, the shrine and the theatre; townhouses and cottages stand along the street east of it round a second fountain and agora; the huts are a hamlet by the lane on the west bank with its own fountain; tents are on the newest plots at the hamlet's end. It is built through the command queue over 7,200 ticks (two years); it opens half a year after the last plots went down, because earlier the actor's first rounds left the far corner of the core warned about plays for a while. It is framed from the hills behind it (north), looking down over the core to the sea, the river, the bridge and the farms, which shows more of the story than the view over the bay did.
+- *At load*: 635 people in 81 lived-in homes (5 tents, 21 huts, 10 cottages, 6 townhouses, 39 fine houses), 96 buildings, about 40 walkers, 101 of 101 jobs filled, no warnings. Over two game years: no home goes down a level, at most a home or two warned for a few days at a time (12 home-days in all), and the population fills up to about 1,290. Bread holds for about 18 months (the farms grow about 1,190 a month); after that the bread line appears, with the granary still full.
+- *Saves*: as designed, with the slot buttons called Open, a two-click confirmation when the town on screen has changes not saved, and opening the hand save first keeps the town on screen in the autosave. "Start again on an empty coast" sits at the foot of the card. The note after opening a save reads like "Welcome back · June, 748 BC · 412 people". A save's label carries its tick too. A damaged undo list costs only the undo (dropped), rather than refusing the town. A `#town` save is 452 KB.
+- *Autosave*: every three game months and on `pagehide`/`visibilitychange` (hidden), once the player has built, cleared or saved in this session, or opened a save; not when undoing, not when nothing has changed since the last save, and never while the page is reloading to open another save.
+- *Welcome card*: "A coast to build on", three numbered steps (road T, housing H, fountain B), a line pointing at the bar along the bottom, "Start building" and "See a grown town" (`#town`); "Carry on" with the save's date and people when there is one; a plain line when storage isn't available. It goes when a tool is picked. A save that can't be opened shows the reason at the top of the same card.
+- *Shortfall lines*: under the top bar, in a stack with the follow chip and the overlay legend. A line shows after its shortfall has held three game days (or at once if it stands when the game opens, so a paused demo shows it) and goes after three days without. Clicking the bread line flies to the granary and turns the food overlay on; the workers line flies to the first short-handed place. When the rounded numbers would read the same it says "the town now eats a little more wheat than the farms grow (about 570 measures a month)".
+- *No-road caution*: every workplace (fountain, farm, granary, agora, shrine, theatre) shows an amber footprint and an amber caution line when no road is beside it. The "no homes reach it by road yet" line was not built.
+- *Sound*: as designed, plus wind that rises as the camera goes up. No key for mute (M is the farm); it is a button in the corner, left of the saves button.
+- *Look and feel*: walkers' legs swing about the hip in the vertex shader, phased by where they stand, and the bob follows the same stride; settlers' arms swing against their legs; the ox walks a diagonal gait; the long-robed women (carrier, vendor, priestess) only bob. Townhouses and fine houses have windows on their backs (the walls you see from the next street were blank). About four in nine cottages, townhouses and fine houses have a wisp of hearth smoke from the roof. The light was left as it was.
+- *Draw calls*: settled homes, shrines, fountain stones and plot stakes are merged into one mesh per 32-unit chunk; a home rising into place is drawn instanced until it has risen (its chunk's merged mesh is rebuilt once when it starts and once when it ends). Plants are merged per 64-unit chunk into rocks, trees and grasses; the sway now reads where each plant stands from a per-vertex attribute.
+- *Four-need signs*: `window.__zeus.warnAll(id)` (debug, screenshots only) makes a home lack every need it has; `node scripts/screenshots.mjs four-needs` shows a fine house in `#fine` with the four-icon sign, close up.
+- *Publishing*: `npm run publish-prep` as designed; checked by serving `publish/` and opening `#town` from it.
+
+**The earlier check-ins' promises, re-checked** (scripted at the end of the slice, same scripts as Before). Every earlier demo's state at load hashes exactly as before (the walker rule only changes choices where a home is warned, and the demos build without warnings). What moved: `#closed` rebuilt and mended at once, 7 drops (only the 7 cut-off homes, which were already past saving) instead of 15, the last on day 17 instead of 39, and all 38 fine again by day 47 instead of 69; `#grow` played through without the extra farms, 15 drops instead of 17. Unchanged: `#warning` 7 warned, 26–31 days left, all clear by day 14 with no drops; `#decline` 3 days, 7 drops in 10 days; `#missing` with two farms 22 drops, back to cottages by day 176; no drops over two years in `#food`, `#workers`, `#bridge`, `#shrine`, `#theatre`, `#fine`; `#closed` left alone 59 drops; `#grow` with farms 0 drops and 38 fine. In `#grow` without more farms, the bread line shows from about day 127.
+
+**After** (same machine and method as Before):
+
+| | Before | After |
+|---|---|---|
+| Tests | 101 in 10 files | 118 in 12 files, all passing; typecheck clean |
+| Bundle | 815 KB raw, 229 KB gzipped | 856 KB raw, 242 KB gzipped |
+| Load (page clock) | ready 1.14 s, first frame 1.39 s | ready 1.02 s, first frame 1.26 s |
+| Opening view | 542 k, 125 calls | 534 k, 57 |
+| Close views (river, street, bay) | 376–403 k, 69–76 | 354–376 k, 26–30 |
+| `#streets` / overview | 389 k, 88 / 563 k, 144 | 384 k, 42 / 562 k, 74 |
+| `#water` / overview | 511 k, 112 / 652 k, 156 | 489 k, 54 / 652 k, 82 |
+| `#food` / overview | 458 k, 125 / 616 k, 174 | 426 k, 69 / 617 k, 102 |
+| `#warning` / overview | 470 k, 129 / 649 k, 187 | 470 k, 84 / 650 k, 115 |
+| `#fine` / overview | 488 k, 134 / 662 k, 190 | 494 k, 82 / 673 k, 114 |
+| `#closed` / overview | 482 k, 151 / 655 k, 207 | 475 k, 98 / 666 k, 131 |
+| `#town` / street / overview | (188 / 150 / 215 calls before the merging) | 650 k, 103 / 587 k, 89 / 766 k, 128 |
+| Update per frame, paused / running | `#food` 0.50 / 0.88 ms; `#fine` 0.42 / 0.98 | `#food` 0.54 / 1.03; `#fine` 0.64 / 1.37; `#town` 0.72 / 3.4 |
+| GPU objects | 43 geometries, 4 textures | 52 geometries, 4 textures |
+
+The running update times include the sim's steps for about a second of game time per frame (headless frames come about once a second), so they overstate a real frame; `#town`'s also includes rebuilding a chunk's merged homes when one changes look.

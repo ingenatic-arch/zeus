@@ -426,7 +426,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
       const stores = months >= 1.5 ? ` The granaries and stalls hold about ${Math.round(months)} months’ worth.` : months >= 0.5 ? ' The granaries and stalls hold about a month’s worth.' : ' The granaries are nearly empty.';
       const granary = s.buildings.find((g) => g.kind === 'granary');
       if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; a farm is short of workers (${slow.workers} of ${JOBS.farm}).${stores}`, at: slow.id });
-      else {
+      else if (roundTen(bal.grown) === roundTen(bal.eaten)) {
+        // Rounded, the two would read the same: say which way it tips.
+        out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${stores}`, at: granary?.id ?? farms[0].id });
+      } else {
         const words = balanceWords(bal).replace(/; (another farm|\w+ more farms) would feed it$/, (_, n: string) => `. ${n[0].toUpperCase()}${n.slice(1)} would keep it fed.`);
         out.push({ need: 'food', text: `Bread: ${words}${stores}`, at: granary?.id ?? farms[0].id });
       }
