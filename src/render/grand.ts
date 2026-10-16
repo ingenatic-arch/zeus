@@ -321,19 +321,36 @@ export function theatreModel(): THREE.BufferGeometry {
   }
   const phi0 = Math.PI - 0.32;
   const phiLen = Math.PI + 0.64;
-  // Each tier's riser in shade and its seat in the light, so the steps read from above.
+  // Each tier's riser in shade and its seat in the light, so the steps read from above; the
+  // seats alternate a little in tone, so the rows still read as rings from behind the bowl,
+  // where the risers face away.
+  let tread = 0;
   for (let i = 0; i < prof.length - 1; i++) {
     const a = prof[i];
     const c = prof[i + 1];
     const riser = Math.abs(a.x - c.x) < 1e-6;
-    parts.push({ geo: new THREE.LatheGeometry([a, c], 18, phi0, phiLen).translate(ox, 0, 0), color: riser ? PAL.seatStoneShade : PAL.seatStone });
+    const color = riser ? PAL.seatStoneShade : tread++ % 2 ? PAL.seatStoneAlt : PAL.seatStone;
+    parts.push({ geo: new THREE.LatheGeometry([a, c], 18, phi0, phiLen).translate(ox, 0, 0), color });
+  }
+  // Stairways up through the seats, dark wedges from the orchestra to the top row.
+  for (let k = 1; k <= 4; k++) {
+    const phi = phi0 + (phiLen * k) / 5;
+    for (let i = 0; i < tiers; i++) {
+      const r = r0 + dr * (i + 0.5);
+      const y = 0.08 + 0.095 * i;
+      parts.push({ geo: slab(-0.035, -dr / 2, 0.035, dr / 2, y - 0.04, y + 0.006).rotateY(phi).translate(ox + r * Math.sin(phi), 0, r * Math.cos(phi)), color: PAL.seatStair });
+    }
   }
   // Behind the top row, a grassy bank slopes down to the ground, as if the seats were cut into a hillside.
+  // A band of dressed stone round the top, so from behind (and from above) the bowl reads as built seats, not a mound.
   const topY = prof[prof.length - 1].y;
-  const bank = [new THREE.Vector2(R, topY), new THREE.Vector2(R + 0.07, topY - 0.06), new THREE.Vector2(1.48, 0)];
+  const wallY = topY * 0.55;
+  const wall = [new THREE.Vector2(R, topY), new THREE.Vector2(R + 0.04, topY), new THREE.Vector2(R + 0.04, wallY)];
+  parts.push({ geo: new THREE.LatheGeometry(wall, 18, phi0, phiLen).translate(ox, 0, 0), color: PAL.seatStoneShade });
+  const bank = [new THREE.Vector2(R + 0.04, wallY), new THREE.Vector2(1.48, 0)];
   parts.push({ geo: new THREE.LatheGeometry(bank, 18, phi0, phiLen).translate(ox, 0, 0), color: PAL.meadow });
   // The cut ends of the bowl, closed with the same profile (seats and bank).
-  const shape = new THREE.Shape([...prof, ...bank.slice(1)].map((p) => new THREE.Vector2(p.x, p.y)));
+  const shape = new THREE.Shape([...prof, ...wall.slice(1), ...bank.slice(1)].map((p) => new THREE.Vector2(p.x, p.y)));
   for (const phi of [phi0, phi0 + phiLen]) parts.push({ geo: new THREE.ShapeGeometry(shape).rotateY(phi - Math.PI / 2).translate(ox, 0, 0), color: PAL.seatStoneShade });
   // A scatter of people on the seats, watching.
   const tunics = [PAL.tunicTerracotta, PAL.tunicBlue, PAL.tunicOchre, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];

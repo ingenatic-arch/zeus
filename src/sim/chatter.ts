@@ -260,13 +260,16 @@ export function situationOf(s: SimState, b: Building): Situation {
 
 /**
  * Lines that only suit some homes: in the lists any level can be in (a warning,
- * packing up, a drop), a line about a cottage only in a cottage; talk of a
- * theatre to come only while there is none.
+ * packing up, a drop), a line about a cottage only in a cottage (and in the
+ * blessings warning, which townhouses and fine houses share, a townhouse only
+ * in a townhouse); wishing for a shrine or a theatre only while there is none.
  */
 function suits(s: SimState, b: Building, sit: Situation, template: string): boolean {
   const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'urgent' || sit === 'down';
   if (anyLevel && /cottage/i.test(template) && b.level !== COTTAGE) return false;
-  if (/talk of a theatre/.test(template) && s.buildings.some((o) => o.kind === 'theatre')) return false;
+  if (sit === 'noShrine' && /townhouse/.test(template) && b.level !== TOWNHOUSE) return false;
+  if (/talk of a theatre|had a theatre|need a proper theatre/.test(template) && s.buildings.some((o) => o.kind === 'theatre')) return false;
+  if (/somewhere proper to thank the gods/.test(template) && s.buildings.some((o) => o.kind === 'shrine')) return false;
   return true;
 }
 

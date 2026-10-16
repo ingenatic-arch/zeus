@@ -280,7 +280,7 @@ export interface Mood {
 }
 
 const span = (ticks: number): string => {
-  const d = Math.max(1, Math.round(ticks / TICKS_PER_DAY));
+  const d = Math.max(1, Math.ceil(ticks / TICKS_PER_DAY));
   if (d > 60) return `${Math.round(d / 30)} months`;
   return d === 1 ? 'a day' : `${d} days`;
 };

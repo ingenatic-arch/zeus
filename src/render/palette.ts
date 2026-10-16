@@ -123,6 +123,8 @@ export const PAL = {
   rose: '#d8607c',
   seatStone: '#e4d6b6',
   seatStoneShade: '#cdbd98',
+  seatStoneAlt: '#d6c7a4',
+  seatStair: '#a8987a',
   skene: '#efe3c8',
   courtyard: '#e4d5b4',
   // The ox cart, the porter and the food vendor
