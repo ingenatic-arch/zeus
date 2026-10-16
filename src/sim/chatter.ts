@@ -8,7 +8,8 @@
  */
 import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { ageOf, cityHas, URGENT, warningOf } from './folk';
+import { ageOf, cityHas, URGENT, wantsMoreFood, warningOf } from './folk';
+import { kindsNeeded, onTable } from './foods';
 import { HARSH, HEAVY, taxedLately } from './taxes';
 import type { Building, Family, Person, SimState } from './state';
 
@@ -94,6 +95,7 @@ export const LINES = {
     '{adult} keeps reciting bits of plays from {origin}, doing all the voices. We need a proper theatre.',
     'We have a staircase. Nobody in {origin} has a staircase. I mention it in every letter.',
     'The priestess still calls by. She says ours is the most blessed house on the street. She says that to everyone.',
+    'Bread and cheese for lunch, a bit of venison on feast days. {kin} has started saying “we” like a magistrate.',
   ],
   townhousePlays: [
     'The actor stopped at our door and did the whole death scene. {kin} applauded for an hour.',
@@ -112,6 +114,24 @@ export const LINES = {
     'Our cousins from {origin} came to stay. They stood in the courtyard and said nothing for a long while.',
     'The painted band under the eaves is blue and ochre. {adult} chose it, and chose well.',
     'We used to fetch water from the river. Now we have opinions about the chorus.',
+    'Boar on the spit, cheese from the dairy, bread still warm. {head} raised a cup to the hunters.',
+    '{adult} says the goat’s cheese from up the lane is better than anything in {origin}. Don’t tell {origin}.',
+  ],
+  plainTable: [
+    'Bread, bread and more bread. {kin} asked if we could have it with something. I said, with more bread.',
+    'The neighbours up the hill eat cheese. Cheese! {head} says we could live like that too.',
+    'A house this fine and nothing but loaves on the table. {adult} has started naming them.',
+    'If the market sold a bit of meat now and then, {head} says we’d build another floor.',
+    '{kin} dreams of goat’s cheese. Not the goat. The cheese.',
+    'Bread is the staff of life, they say. A staff is a stick. I would like something besides a stick.',
+  ],
+  noVariety: [
+    'No meat, no cheese, just bread again. {head} says a proper house keeps a proper table.',
+    'The food vendor came with nothing but loaves. {kin} looked at the basket and sighed.',
+    'We had cheese last month. I still think about it. {adult} has stopped talking about it, which is worse.',
+    'If the hunters don’t bring something back soon, we’ll have to live smaller.',
+    'Bread for breakfast, bread for dinner. The goat gets the crusts and even it looks bored.',
+    'A house like ours eating like a cottage. {head} is ashamed to have the neighbours in.',
   ],
   noShrine: [
     'No priestess for weeks. We’ve been praying on our own, and I don’t think we’re doing it right.',
@@ -269,7 +289,8 @@ export function situationOf(s: SimState, b: Building): Situation {
   const f = b.family;
   const warn = warningOf(s, b);
   if (warn && warn.left <= URGENT) return 'urgent';
-  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? 'noFood' : warn.need === 'religion' ? 'noShrine' : 'noPlays';
+  // Short of food: no food at all, or bread but not the other kinds a townhouse or a fine house keeps.
+  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? (onTable(b, s.tick) > 0 ? 'noVariety' : 'noFood') : warn.need === 'religion' ? 'noShrine' : 'noPlays';
   const lastOf = (what: string): number => {
     if (f) for (let i = f.story.length - 1; i >= 0; i--) if (f.story[i].what === what) return f.story[i].tick;
     return -1;
@@ -280,6 +301,10 @@ export function situationOf(s: SimState, b: Building): Situation {
   if (f && s.tick - f.came < TICKS_PER_MONTH) return 'new';
   if (b.level === TENT) return b.waterUntil > s.tick ? 'tentWet' : 'tentDry';
   if (b.level === HUT) return b.foodUntil > s.tick ? 'hutBread' : 'hutNoBread';
+  // Ready to grow but for a second (or third) kind of food on the table.
+  if ((b.level === COTTAGE && b.religionUntil > s.tick) || (b.level === TOWNHOUSE && b.cultureUntil > s.tick)) {
+    if (onTable(b, s.tick) < kindsNeeded(b.level + 1) && (wantsMoreFood(s, b) || cityHas(s).kinds < kindsNeeded(b.level + 1))) return 'plainTable';
+  }
   if (b.level === COTTAGE) return b.religionUntil > s.tick ? 'cottageBlessed' : 'cottage';
   if (b.level === TOWNHOUSE) return b.cultureUntil > s.tick ? 'townhousePlays' : 'townhouse';
   return 'fine';
@@ -292,7 +317,7 @@ export function situationOf(s: SimState, b: Building): Situation {
  * in a townhouse); wishing for a shrine or a theatre only while there is none.
  */
 function suits(s: SimState, b: Building, sit: Situation, template: string): boolean {
-  const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'urgent' || sit === 'down';
+  const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'noVariety' || sit === 'urgent' || sit === 'down';
   if (anyLevel && /cottage/i.test(template) && b.level !== COTTAGE) return false;
   if (sit === 'noShrine' && /townhouse/.test(template) && b.level !== TOWNHOUSE) return false;
   if (/talk of a theatre|had a theatre|need a proper theatre/.test(template) && cityHas(s).theatre) return false;

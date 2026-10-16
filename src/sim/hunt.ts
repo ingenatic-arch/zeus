@@ -296,6 +296,29 @@ export function meatLimits(s: SimState, l: Building): { meat: number; game: bool
   return grows < carried ? { meat: Math.round(grows), game: true } : { meat: Math.round(carried), game: false };
 }
 
+/**
+ * What a lodge would find if built with its top-left corner at (x, z), fully
+ * staffed: the herds in reach (nearest first, with how far), and about how
+ * much meat a month it would bring (see meatLimits), sharing the herds with
+ * the lodges already after them.
+ */
+export function lodgeOutlook(s: SimState, x: number, z: number): { game: Array<{ h: Herd; d: number }>; meat: number; byGame: boolean; shared: number } {
+  const cx = x + 1.5;
+  const cz = z + 1.5;
+  const game = s.herds
+    .map((h) => ({ h, d: Math.hypot(h.x - cx, h.z - cz) }))
+    .filter((g) => g.d <= HUNT_RANGE)
+    .sort((a, b) => a.d - b.d);
+  const others = s.buildings.filter((o) => o.kind === 'lodge' && huntersFor(o) > 0);
+  const shared = others.filter((o) => game.some((g) => herdDistance(o, g.h) <= HUNT_RANGE)).length;
+  const spare = game.filter((g) => g.h.head > MIN_HEAD);
+  if (spare.length === 0) return { game, meat: 0, byGame: true, shared };
+  const trip = (2 * spare[0].d * 1.15) / HUNTER_SPEED + STALK;
+  const carried = (MAX_HUNTERS * MEAT_KILL * TICKS_PER_MONTH) / Math.max(trip, HUNTER_GAP);
+  const grows = game.reduce((n, g) => n + (MEAT_KILL * TICKS_PER_MONTH) / regrowIn(g.h) / (1 + others.filter((o) => herdDistance(o, g.h) <= HUNT_RANGE).length), 0);
+  return grows < carried ? { game, meat: Math.round(grows), byGame: true, shared } : { game, meat: Math.round(carried), byGame: false, shared };
+}
+
 /** About how much meat a lodge brings in a month (see meatLimits). */
 export const meatPerMonth = (s: SimState, l: Building): number => meatLimits(s, l).meat;
 

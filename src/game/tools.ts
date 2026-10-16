@@ -12,8 +12,10 @@ import {
   bridgeSpan,
   buildingRefusal,
   COST,
+  DAIRY_GRASS_MIN,
   FARM_FERTILE_MIN,
   fertilityOf,
+  grassOf,
   Ground,
   isBridge,
   mapIndex,
@@ -23,9 +25,12 @@ import {
   plotRefusal,
   ROAD_COST,
   roadRefusal,
+  tileGrass,
 } from '../sim/build';
 import { beside, BUILDING_NAMES, findBuilding, JOBS, sideOf } from '../sim/buildings';
-import { GRANARY_CAP, GROW, HARVEST, VENDOR_RANGE } from '../sim/food';
+import { CHEESE_BATCH, CHEESE_EVERY, GRANARY_CAP, GRANARY_ROOM, GROW, HARVEST, VENDOR_RANGE } from '../sim/food';
+import { HUNT_RANGE, lodgeOutlook } from '../sim/hunt';
+import { herdName, MIN_HEAD } from '../sim/wild';
 import { roadRoute } from '../sim/roads';
 import type { Sim } from '../sim/sim';
 import { TILE_ROAD, type BuildingKind } from '../sim/state';
@@ -112,13 +117,15 @@ export class Tools {
         if (t === 'road') return g === Ground.Steep || g === Ground.Water;
         // A farm also needs fertile ground: the rest is washed rust near the pointer.
         if (t === 'farm') return g !== Ground.Ok || map.tileFertility[i] < FARM_FERTILE_MIN;
+        // A dairy needs grass for its goats: rock and sand are washed rust.
+        if (t === 'dairy') return g !== Ground.Ok || tileGrass(map, i) < DAIRY_GRASS_MIN;
         if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
         return false;
       });
     }
     // Placing a fountain shows the water overlay, and what the new one would reach; an agora, the food overlay; a farm or granary, the food overlay too (where the chain runs); a shrine, theatre or tax office, its own.
     if (this.overlay) {
-      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' ? 'food' : t === 'shrine' ? 'religion' : t === 'theatre' ? 'culture' : t === 'taxoffice' ? 'tax' : null;
+      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' || t === 'lodge' || t === 'dairy' ? 'food' : t === 'shrine' ? 'religion' : t === 'theatre' ? 'culture' : t === 'taxoffice' ? 'tax' : null;
       this.overlay.setPreview(null);
     }
     this.preview();
@@ -456,7 +463,8 @@ export class Tools {
     this.setMarks(marks);
     if (r) {
       const fert = kind === 'farm' ? ` (here ${Math.round(fertilityOf(map, x, z, side) * 100)}%, it needs ${Math.round(FARM_FERTILE_MIN * 100)}%)` : '';
-      this.tip.show(r + (r.startsWith('Not fertile') ? fert : ''), sx, sy, true);
+      const grass = kind === 'dairy' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round(DAIRY_GRASS_MIN * 100)}%)` : '';
+      this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : ''), sx, sy, true);
       return;
     }
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(A|The) /, '').replace(/^./, (c) => c.toUpperCase());
@@ -494,8 +502,26 @@ export class Tools {
       lines.push(`About ${fmt(Math.round(HARVEST * fert))} measures of wheat every ${months} months, fully worked`);
       if (roads.length === 0) warn = 'No road beside it: its workers couldn’t get there and its carts couldn’t take the harvest away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary')) lines.push('Its ox carts take the harvest to a granary: build one too');
+    } else if (kind === 'lodge') {
+      const o = lodgeOutlook(s, x, z);
+      if (o.game.length === 0) {
+        const near = s.herds.map((h) => ({ h, d: Math.hypot(h.x - x - 1.5, h.z - z - 1.5) })).sort((a, b) => a.d - b.d)[0];
+        warn = near ? `No game within reach: the nearest herd is ${herdName(near.h)}, ${Math.round(near.d)} tiles off; hunters go ${HUNT_RANGE} at most` : 'No game anywhere';
+      } else {
+        lines.push(`Game in reach: ${o.game.map((g) => `${herdName(g.h)} (${g.h.head} head, ${Math.round(g.d)} tiles)`).join(', ')}`);
+        if (o.meat > 0) lines.push(`About ${fmt(Math.round(o.meat / 10) * 10)} measures of meat a month, fully worked${o.byGame ? `: as fast as the game grows back${o.shared ? `, shared with ${o.shared === 1 ? 'the lodge' : `the ${o.shared} lodges`} already after it` : ''}` : ''}`);
+        else lines.push(`The herds in reach are down to their last ${MIN_HEAD}: nothing to hunt until they grow back`);
+      }
+      if (roads.length === 0) warn ||= 'No road beside it: its workers couldn’t get there and its carts couldn’t take the meat away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'granary')) lines.push('Its ox carts take the meat to a granary: build one too');
+    } else if (kind === 'dairy') {
+      const grass = grassOf(map, x, z, side);
+      text += ` · grass ${Math.round(grass * 100)}%`;
+      lines.push(`About ${fmt(Math.round(((CHEESE_BATCH * TICKS_PER_MONTH) / CHEESE_EVERY) * grass / 10) * 10)} measures of cheese a month, fully worked: the greener the pasture, the more`);
+      if (roads.length === 0) warn = 'No road beside it: its workers couldn’t get there and its carts couldn’t take the cheese away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'granary')) lines.push('Its ox carts take the cheese to a granary: build one too');
     } else {
-      lines.push(`Stores ${fmt(GRANARY_CAP)} measures: farms’ carts bring their wheat, the agora’s porter fetches it`);
+      lines.push(`Stores ${fmt(GRANARY_CAP)} measures of wheat and ${fmt(GRANARY_ROOM[1])} each of meat and cheese: carts bring them, the agora’s porter fetches them`);
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
     }
     this.tip.show([text, ...lines].join('\n'), sx, sy, false, warn);

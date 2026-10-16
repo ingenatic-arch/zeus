@@ -8,7 +8,8 @@ import { TILE_ROAD, type Building, type BuildingKind, type Round, type SimState 
 import { COLLECTOR_RANGE } from '../sim/taxes';
 import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
 import { TICKS_PER_MONTH } from '../sim/clock';
-import { warningOf, wantOf } from '../sim/folk';
+import { warningOf, wantOf, wantsMoreFood } from '../sim/folk';
+import { FOODS, foodUntil, kindsNeeded, tableUntil } from '../sim/foods';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
@@ -25,11 +26,12 @@ interface Mode {
 }
 
 /** What an overlay shows: a service's reach and supply (or where the tax collector reaches, and who has paid), or what each home is missing. */
-export type OverlayMode = Round | 'missing';
+export type OverlayMode = Round | 'missing' | 'variety';
 
 const MODES: Record<Round, Mode> = {
   water: { source: 'fountain', range: CARRIER_RANGE, lasts: WATER_LASTS, until: (b) => b.waterUntil, wants: (b) => b.kind === 'home' && b.level > 0 },
-  food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => b.foodUntil, wants: eatsBread },
+  // A home's food lasts as long as the kinds its level needs (its bread, for a hut or a cottage).
+  food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => tableUntil(b), wants: eatsBread },
   religion: { source: 'shrine', range: PRIESTESS_RANGE, lasts: RELIGION_LASTS, until: (b) => b.religionUntil, wants: wantsBlessing },
   culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
   // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month.
@@ -78,6 +80,9 @@ export class ServiceOverlay {
   private readonly p = new THREE.Vector3();
   private readonly s = new THREE.Vector3();
   private readonly c = new THREE.Color();
+  /** The variety overlay's blocks: bread, meat, cheese, and a kind that is lacking. */
+  private readonly foodTones = [new THREE.Color('#e2a43a'), new THREE.Color('#b8603e'), new THREE.Color('#f4dc78')];
+  private readonly shortTone = new THREE.Color('#5e3a46');
   private readonly tones: Record<Round, { has: THREE.Color; fresh: THREE.Color; none: THREE.Color }> = {
     water: { has: new THREE.Color('#3f8fe0'), fresh: new THREE.Color('#8fd8ff'), none: new THREE.Color('#d8643a') },
     food: { has: new THREE.Color('#e09a26'), fresh: new THREE.Color('#ffe08a'), none: new THREE.Color('#9a4a6a') },
@@ -129,13 +134,14 @@ export class ServiceOverlay {
   update(s: SimState, time: number): void {
     const mode = this.mode;
     this.group.visible = mode !== null;
-    this.placement.showOverlay(mode !== null, mode && mode !== 'missing' ? TONE[mode] : 0);
+    this.placement.showOverlay(mode !== null, mode === 'variety' ? TONE.food : mode && mode !== 'missing' ? TONE[mode] : 0);
     if (!mode) return;
     if (time - this.last < REFRESH && s.rev === this.lastRev && mode === this.lastMode) return;
     this.last = time;
     this.lastRev = s.rev;
     this.lastMode = mode;
     if (mode === 'missing') this.refreshMissing(s);
+    else if (mode === 'variety') this.refreshVariety(s);
     else this.refresh(s, mode);
   }
 
@@ -154,6 +160,70 @@ export class ServiceOverlay {
       for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }
     this.columns.count = 0;
+    this.placement.setOverlay(codes);
+  }
+
+  /**
+   * What is on each home's table: a little stack over it, a block for each
+   * kind of food it has (gold bread, red-brown meat, pale cheese), and a dark
+   * ring for each kind its level needs and lacks. The ground under a home is
+   * red where it is short of a kind it needs, amber where another kind the
+   * city makes would lift it a level, green where it has what it needs; the
+   * farms, lodges and dairies, the granaries and the agoras are marked, so
+   * where each food comes from reads at a glance.
+   */
+  private refreshVariety(s: SimState): void {
+    const size = this.map.size;
+    const codes = this.codes;
+    codes.fill(0);
+    const need = s.buildings.length * 3;
+    if (need > this.columns.instanceMatrix.count) this.grow(need);
+    let n = 0;
+    const SEG = 0.26;
+    for (const b of s.buildings) {
+      let code = 0;
+      if (b.kind === 'farm' || b.kind === 'lodge' || b.kind === 'dairy') code = FOOD_FARM;
+      else if (b.kind === 'granary') code = FOOD_GRANARY;
+      else if (b.kind === 'agora') code = WATER_FOUNTAIN;
+      else if (eatsBread(b)) {
+        const k = Math.max(1, kindsNeeded(b.level));
+        let on = 0;
+        const cx = b.x + 1;
+        const cz = b.z + 1;
+        const y0 = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.15;
+        for (const f of FOODS) {
+          if (foodUntil(b, f) <= s.tick) continue;
+          this.p.set(cx, y0 + on * SEG, cz);
+          this.s.set(1.25, SEG * 0.82, 1.25);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          this.columns.setColorAt(n, this.foodTones[f]);
+          n++;
+          on++;
+        }
+        // The kinds it needs and hasn't got: dark rings stacked on top.
+        const short = Math.max(0, k - on);
+        for (let i = 0; i < short; i++) {
+          this.p.set(cx, y0 + (on + i) * SEG, cz);
+          this.s.set(1.7, SEG * 0.35, 1.7);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          this.columns.setColorAt(n, this.shortTone);
+          n++;
+        }
+        // (A home from an older save still in its grace isn't short yet.)
+        const lacking = tableUntil(b) <= s.tick && s.tick >= b.grace;
+        code = lacking ? MISSING_WARN : wantsMoreFood(s, b) ? MISSING_WANT : MISSING_FINE;
+        for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+        continue;
+      }
+      if (!code) continue;
+      const side = sideOf(b.kind);
+      for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+    }
+    this.columns.count = n;
+    this.columns.instanceMatrix.needsUpdate = true;
+    if (this.columns.instanceColor) this.columns.instanceColor.needsUpdate = true;
     this.placement.setOverlay(codes);
   }
 
@@ -181,7 +251,7 @@ export class ServiceOverlay {
     for (const b of s.buildings) {
       let code = 0;
       if (b.kind === mode.source) code = WATER_FOUNTAIN;
-      else if (service === 'food' && b.kind === 'farm') code = FOOD_FARM;
+      else if (service === 'food' && (b.kind === 'farm' || b.kind === 'lodge' || b.kind === 'dairy')) code = FOOD_FARM;
       else if (service === 'food' && b.kind === 'granary') code = FOOD_GRANARY;
       else if (mode.wants(b)) {
         const left = mode.until(b) - s.tick;

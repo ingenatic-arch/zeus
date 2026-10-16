@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { BARN, GRANARY_CAP, GROW, STALL_CAP } from '../sim/food';
+import { BARN, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM } from '../sim/food';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { theatreModel } from './grand';
-import { amphora, cyl, facingOf, HOME_CHUNK, prism, stoneWall, windowX } from './homes';
+import { amphora, cyl, facingOf, HOME_CHUNK, prism, stoneWall, windowX, woodpile } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -250,17 +250,297 @@ function loaf(): THREE.BufferGeometry {
   ]);
 }
 
+/** A ham or a haunch: a fat teardrop, the knuckle of bone at its narrow end, along +y (it hangs). */
+function ham(): THREE.BufferGeometry {
+  const profile = [
+    new THREE.Vector2(0, -0.09),
+    new THREE.Vector2(0.045, -0.075),
+    new THREE.Vector2(0.06, -0.035),
+    new THREE.Vector2(0.052, 0.01),
+    new THREE.Vector2(0.03, 0.045),
+    new THREE.Vector2(0.014, 0.06),
+    new THREE.Vector2(0, 0.062),
+  ];
+  return merge([
+    { geo: new THREE.LatheGeometry(profile, 6).scale(1, 1, 0.8), color: PAL.meat },
+    { geo: new THREE.SphereGeometry(0.05, 6, 3, 0, Math.PI * 2, Math.PI * 0.55, Math.PI * 0.45).scale(1.05, 0.9, 0.85).translate(0, -0.035, 0), color: PAL.meatDark },
+    { geo: cyl(0.012, 0.014, 0.05, 5).translate(0, 0.08, 0), color: PAL.bone },
+    { geo: new THREE.IcosahedronGeometry(0.017, 0).translate(0, 0.105, 0), color: PAL.bone },
+  ]);
+}
+
+/** A wheel of cheese, flat on its side: a pale wheel with a darker rind round its rim. */
+function cheeseWheel(): THREE.BufferGeometry {
+  return merge([
+    { geo: cyl(0.075, 0.075, 0.055, 9).translate(0, 0.0275, 0), color: PAL.cheeseRind },
+    { geo: cyl(0.068, 0.068, 0.058, 9).translate(0, 0.029, 0), color: PAL.cheese },
+  ]);
+}
+
+/** Horizontal logs stacked into a wall from (x0, z0) to (x1, z1), `h` tall, notched past the ends. */
+function logWall(x0: number, z0: number, x1: number, z1: number, h: number, seed: number): Part[] {
+  const parts: Part[] = [];
+  const len = Math.hypot(x1 - x0, z1 - z0) + 0.1;
+  const yaw = -Math.atan2(z1 - z0, x1 - x0);
+  const r = 0.045;
+  const n = Math.round(h / (r * 1.8));
+  for (let i = 0; i < n; i++) {
+    const g = cyl(r, r, len, 6).rotateZ(Math.PI / 2).rotateY(yaw).translate((x0 + x1) / 2, r + i * r * 1.8, (z0 + z1) / 2);
+    parts.push({ geo: g, color: (i + seed) % 3 === 0 ? PAL.logDark : PAL.log });
+  }
+  return parts;
+}
+
+/**
+ * The hunting lodge: a log cabin under a steep bark roof at the back, a
+ * stag's antlers over its door; before it a drying rack where the meat hangs
+ * (drawn with the store), a hide stretched on a frame, spears leaning by
+ * the door, a fire pit with a spit, and a woodpile.
+ */
+function lodgeModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // The cabin: x -1.35..-0.15, z -1.3..0.35, door to the front (+x).
+  const x0 = -1.35;
+  const x1 = -0.15;
+  const z0 = -1.3;
+  const z1 = 0.35;
+  const wall = 0.62;
+  parts.push({ geo: slab(x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05, -0.45, 0.04), color: PAL.plinth });
+  parts.push(...logWall(x0, z0, x0, z1, wall, 1), ...logWall(x1, z0, x1, z1, wall, 2));
+  parts.push(...logWall(x0, z0, x1, z0, wall, 3), ...logWall(x0, z1, x1, z1, wall, 4));
+  parts.push({ geo: slab(x0 + 0.04, z0 + 0.04, x1 - 0.04, z1 - 0.04, 0.04, wall), color: PAL.logDark });
+  // A steep roof of bark shingles, its ridge along z, overhanging the front for a porch.
+  const cx = (x0 + x1) / 2;
+  const span = z1 - z0 + 0.3;
+  const rise = 0.5;
+  parts.push({ geo: lumpy(prism(span, (x1 - x0) / 2 + 0.16, rise).rotateY(Math.PI / 2), 0.02, 401).translate(cx, wall, (z0 + z1) / 2), color: PAL.bark });
+  // Courses of shingles down each slope.
+  for (const side of [-1, 1]) {
+    for (const k of [0.3, 0.62]) {
+      const y = wall + rise * (1 - k);
+      const x = cx + side * ((x1 - x0) / 2 + 0.16) * k;
+      parts.push({ geo: new THREE.BoxGeometry(0.03, 0.02, span).rotateZ(-side * Math.atan2(rise, (x1 - x0) / 2 + 0.16)).translate(x, y + 0.012, (z0 + z1) / 2), color: PAL.barkDark });
+    }
+  }
+  parts.push({ geo: cyl(0.035, 0.035, span + 0.04, 5).rotateX(Math.PI / 2).translate(cx, wall + rise, (z0 + z1) / 2), color: PAL.logDark });
+  // Crossed gable poles at the ridge's ends.
+  for (const z of [z0 - 0.15, z1 + 0.15]) {
+    parts.push({ geo: cyl(0.015, 0.015, 0.26, 4).rotateZ(0.6).translate(cx + 0.05, wall + rise + 0.08, z), color: PAL.logDark });
+    parts.push({ geo: cyl(0.015, 0.015, 0.26, 4).rotateZ(-0.6).translate(cx - 0.05, wall + rise + 0.08, z), color: PAL.logDark });
+  }
+  // The door and, over it, a stag's skull and antlers.
+  const dz = (z0 + z1) / 2;
+  parts.push({ geo: slab(x1 + 0.03, dz - 0.14, x1 + 0.05, dz + 0.14, 0.04, 0.48), color: PAL.door });
+  parts.push({ geo: new THREE.IcosahedronGeometry(0.045, 0).scale(0.8, 1, 0.9).translate(x1 + 0.07, 0.58, dz), color: PAL.bone });
+  for (const side of [-1, 1]) {
+    parts.push({ geo: cyl(0.01, 0.014, 0.2, 4).rotateX(side * 0.9).translate(x1 + 0.07, 0.66, dz + side * 0.08), color: PAL.antler });
+    parts.push({ geo: cyl(0.008, 0.01, 0.1, 4).rotateX(side * 0.2).translate(x1 + 0.07, 0.72, dz + side * 0.13), color: PAL.antler });
+    parts.push({ geo: cyl(0.008, 0.01, 0.09, 4).rotateX(side * 1.4).translate(x1 + 0.07, 0.69, dz + side * 0.17), color: PAL.antler });
+  }
+  // Spears leaning by the door, and a bow on a peg.
+  for (const [z, lean] of [[dz + 0.24, 0.14], [dz + 0.3, 0.2], [dz - 0.26, -0.16]] as Array<[number, number]>) {
+    parts.push({ geo: cyl(0.008, 0.008, 0.62, 3).rotateX(lean).rotateZ(-0.12).translate(x1 + 0.1, 0.3, z), color: PAL.wood });
+    parts.push({ geo: new THREE.ConeGeometry(0.016, 0.06, 3).rotateX(lean).rotateZ(-0.12).translate(x1 + 0.13, 0.62, z + lean * 0.3), color: PAL.rockGrey });
+  }
+  // A woodpile against the cabin's side, a chopping block.
+  parts.push(...woodpile(-0.75, 0.55));
+  parts.push({ geo: cyl(0.08, 0.09, 0.1, 7).translate(-0.02, 0.05, 0.55), color: PAL.log });
+  return merge(parts);
+}
+
+/** The lodge's drying rack, centred: two A-frames and a pole across, 0.58 up (the meat hangs from it). */
+function dryingRack(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (const z of [-0.72, 0.72]) {
+    parts.push({ geo: cyl(0.018, 0.02, 0.8, 4).rotateX(0.22).translate(0, 0.21, z - 0.06), color: PAL.wood });
+    parts.push({ geo: cyl(0.018, 0.02, 0.8, 4).rotateX(-0.22).translate(0, 0.21, z + 0.06), color: PAL.wood });
+  }
+  parts.push({ geo: cyl(0.016, 0.016, 1.6, 4).rotateX(Math.PI / 2).translate(0, 0.58, 0), color: PAL.woodDark });
+  return merge(parts);
+}
+
+/** A hide stretched on a frame of poles, leaning back, centred (smaller than a door, so it reads as a skin). */
+function hideFrame(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const hs = 0.16;
+  const lean = (g: THREE.BufferGeometry): THREE.BufferGeometry => g.rotateZ(0.35).translate(0, 0.24, 0);
+  parts.push({ geo: lean(slab(-hs, -0.004, hs, 0.004, -hs, hs)), color: PAL.hide });
+  for (const side of [-1, 1]) {
+    parts.push({ geo: lean(cyl(0.01, 0.01, 2 * hs + 0.1, 4).translate(side * (hs + 0.01), 0, 0)), color: PAL.woodDark });
+    parts.push({ geo: lean(cyl(0.01, 0.01, 2 * hs + 0.1, 4).rotateZ(Math.PI / 2).translate(0, side * (hs + 0.01), 0)), color: PAL.woodDark });
+  }
+  // Its feet run into the ground, so it stands on a slope.
+  for (const side of [-1, 1]) parts.push({ geo: cyl(0.01, 0.01, 0.2, 4).translate(0.06, -0.02, side * 0.17), color: PAL.woodDark });
+  return merge(parts);
+}
+
+/** A fire pit ringed with stones, a spit over it on two forked sticks, centred. */
+function firePit(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.05, 0), 0.35, 410 + i).translate(Math.cos(a) * 0.15, 0.025, Math.sin(a) * 0.15), color: PAL.stone });
+  }
+  parts.push({ geo: cyl(0.12, 0.12, 0.1, 8).translate(0, -0.04, 0), color: PAL.earthWorn });
+  parts.push({ geo: new THREE.ConeGeometry(0.07, 0.1, 5).translate(0, 0.05, 0), color: PAL.embers });
+  for (const z of [-0.2, 0.2]) parts.push({ geo: cyl(0.012, 0.012, 0.42, 4).translate(0, 0.11, z), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.01, 0.01, 0.46, 4).rotateX(Math.PI / 2).translate(0, 0.3, 0), color: PAL.woodDark });
+  return merge(parts);
+}
+
+/**
+ * The dairy: a little whitewashed stone dairy under tiles at the front
+ * corner, with a bench beside it where the cheeses stand (drawn with the
+ * store); pails and a stool by the door. The pen behind it (wattle fence,
+ * goat shed, hay rack, trough) is drawn in pieces that each stand on their
+ * own ground; the goats are drawn as they graze.
+ */
+/** The middle of the dairy's cheese bench, out from the house's side (local z). */
+const BENCH_Z = -0.08;
+
+function dairyModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // The dairy house: x 0.25..1.35, z -1.35..-0.25, door to the front.
+  const x0 = 0.25;
+  const x1 = 1.35;
+  const z0 = -1.35;
+  const z1 = -0.3;
+  parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, -0.45, 0.06), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.06, 0.6), color: PAL.whitewash });
+  parts.push({ geo: slab(x0 - 0.01, z0 - 0.01, x1 + 0.01, z1 + 0.01, 0.06, 0.14), color: PAL.granaryShade });
+  const cz = (z0 + z1) / 2;
+  parts.push({ geo: prism(x1 - x0 + 0.18, (z1 - z0) / 2 + 0.12, 0.34).translate((x0 + x1) / 2, 0.6, cz), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.03, 0.03, x1 - x0 + 0.2, 5).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, 0.94, cz), color: PAL.roofTileDark });
+  parts.push({ geo: slab(x1, cz - 0.12, x1 + 0.02, cz + 0.12, 0.06, 0.46), color: PAL.door });
+  parts.push(...windowX(x1 + 0.005, 0.42, cz + 0.32));
+  // The bench under the eaves for the cheeses, along the house's side towards the yard.
+  parts.push({ geo: slab(x0 + 0.08, BENCH_Z - 0.1, x1 - 0.08, BENCH_Z + 0.1, 0.2, 0.24), color: PAL.wood });
+  for (const x of [x0 + 0.12, x1 - 0.12]) parts.push({ geo: slab(x - 0.02, BENCH_Z - 0.08, x + 0.02, BENCH_Z + 0.08, -0.2, 0.2), color: PAL.woodDark });
+  // Pails and a milking stool by the door.
+  for (const [x, z] of [[1.25, 0.15], [1.08, 0.28]]) {
+    parts.push({ geo: cyl(0.05, 0.04, 0.08, 7).translate(x, 0.04, z), color: PAL.wood });
+    parts.push({ geo: cyl(0.044, 0.044, 0.01, 7).translate(x, 0.075, z), color: PAL.goat });
+  }
+  parts.push({ geo: cyl(0.05, 0.05, 0.02, 6).translate(0.95, 0.1, 0.1), color: PAL.woodDark });
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    parts.push({ geo: cyl(0.008, 0.008, 0.1, 3).translate(0.95 + Math.cos(a) * 0.03, 0.05, 0.1 + Math.sin(a) * 0.03), color: PAL.woodDark });
+  }
+  return merge(parts);
+}
+
+/** One length of wattle fence along x, PANEL long: a stake at each end, three bands of woven withies. */
+const PANEL = 0.36;
+function wattlePanel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (const x of [-PANEL / 2, PANEL / 2]) parts.push({ geo: cyl(0.014, 0.016, 0.5, 4).translate(x, 0.02, 0), color: PAL.woodDark });
+  for (const y of [0.08, 0.15, 0.22]) {
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(PANEL + 0.02, 0.06, 0.045, 2, 1, 1), 0.05, 421 + y * 10).translate(0, y, 0), color: PAL.wattle });
+  }
+  return merge(parts);
+}
+
+/** A goat shed, centred: wattle walls on three sides, open to the pen at +x, under a thatched ridge along x, hay inside. */
+function goatShed(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const hx = 0.3;
+  const hz = 0.32;
+  const h = 0.34;
+  parts.push({ geo: slab(-hx, -hz, -hx + 0.05, hz, -0.2, h), color: PAL.wattle });
+  parts.push({ geo: slab(-hx, hz - 0.05, hx, hz, -0.2, h), color: PAL.wattle });
+  parts.push({ geo: slab(-hx, -hz, hx, -hz + 0.05, -0.2, h), color: PAL.wattle });
+  // Corner posts at the open front.
+  for (const z of [-hz + 0.03, hz - 0.03]) parts.push({ geo: cyl(0.02, 0.024, h + 0.2, 4).translate(hx - 0.02, h / 2 - 0.1, z), color: PAL.woodDark });
+  parts.push({ geo: lumpy(prism(2 * hx + 0.14, hz + 0.08, 0.2), 0.02, 426).translate(0, h, 0), color: PAL.thatch });
+  parts.push({ geo: cyl(0.025, 0.025, 2 * hx + 0.16, 5).rotateZ(Math.PI / 2).translate(0, h + 0.2, 0), color: PAL.thatchDark });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.14, 0), 0.2, 427).scale(1.3, 0.55, 1.2).translate(-0.05, 0.05, 0.05), color: PAL.hay });
+  return merge(parts);
+}
+
+/** A hay rack along z, centred: a slatted trough on legs, heaped with hay. */
+function hayRack(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.05, -0.35, 0.05, 0.35, 0.18, 0.3), color: PAL.woodDark });
+  for (const z of [-0.32, 0.32]) parts.push({ geo: slab(-0.04, z - 0.02, 0.04, z + 0.02, -0.2, 0.18), color: PAL.woodDark });
+  parts.push({ geo: lumpy(slab(-0.04, -0.31, 0.04, 0.31, 0.22, 0.38), 0.08, 428), color: PAL.hay });
+  return merge(parts);
+}
+
+/** A water trough along x, centred. */
+function trough(): THREE.BufferGeometry {
+  return merge([
+    { geo: slab(-0.25, -0.06, 0.25, 0.06, -0.2, 0.08), color: PAL.wood },
+    { geo: slab(-0.23, -0.04, 0.23, 0.04, 0.07, 0.081), color: PAL.shallow },
+  ]);
+}
+
+/** Where a piece of a lodge or dairy stands in the building's frame: at (lx, lz), turned by yaw, sampled for its ground over r. */
+type Piece = 'panel' | 'shed' | 'hayrack' | 'trough' | 'rack' | 'hide' | 'firepit';
+type Placed = { piece: Piece; lx: number; lz: number; yaw: number; len: number; r: number };
+
+/** The dairy's pen: wattle round x -1.42..0.12, z -1.42..1.42, with a gap at the front for the goats; the shed, the rack, the trough. */
+const DAIRY_PIECES: Placed[] = (() => {
+  const out: Placed[] = [];
+  const side = (a: [number, number], b: [number, number]): void => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(1, Math.round(len / PANEL));
+    const yaw = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+    for (let i = 0; i < n; i++) {
+      const f = (i + 0.5) / n;
+      out.push({ piece: 'panel', lx: a[0] + (b[0] - a[0]) * f, lz: a[1] + (b[1] - a[1]) * f, yaw, len: len / n / PANEL, r: PANEL / 2 });
+    }
+  };
+  const px0 = -1.42;
+  const px1 = 0.12;
+  const pz0 = -1.42;
+  const pz1 = 1.42;
+  side([px0, pz0], [px0, pz1]);
+  side([px0, pz0], [px1, pz0]);
+  side([px0, pz1], [px1, pz1]);
+  side([px1, pz0], [px1, -0.25]);
+  side([px1, 0.45], [px1, pz1]);
+  out.push({ piece: 'shed', lx: -1.05, lz: 1.0, yaw: 0, len: 1, r: 0.32 });
+  out.push({ piece: 'hayrack', lx: -1.25, lz: -0.15, yaw: 0, len: 1, r: 0.3 });
+  out.push({ piece: 'trough', lx: -0.25, lz: -1.24, yaw: 0, len: 1, r: 0.25 });
+  return out;
+})();
+
+/** The lodge's yard: the drying rack, the hide on its frame, the fire pit. */
+const LODGE_PIECES: Placed[] = [
+  { piece: 'rack', lx: 0.62, lz: 0, yaw: 0, len: 1, r: 0.7 },
+  { piece: 'hide', lx: 0.35, lz: 1.05, yaw: 0, len: 1, r: 0.15 },
+  { piece: 'firepit', lx: 1.0, lz: -0.95, yaw: 0, len: 1, r: 0.18 },
+];
+/** The lodge's rack (where the meat hangs). */
+const RACK_PIECE = LODGE_PIECES[0];
+
+/** The part of a lodge or dairy its main building's floor is levelled to: the cabin, or the dairy with its bench and pails (local x0, z0, x1, z1). */
+const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, number]>> = {
+  lodge: [-1.4, -1.35, 0.0, 0.6],
+  dairy: [0.2, -1.4, 1.4, 0.3],
+};
+
 // ---------------------------------------------------------------------------
 
 const UP = new THREE.Vector3(0, 1, 0);
+/** A ham laid on its side (applied after its placing). */
+const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre';
-const isWork = (b: Building): b is Building & { kind: WorkKind } => b.kind === 'farm' || b.kind === 'granary' || b.kind === 'agora' || b.kind === 'theatre';
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy';
+const isWork = (b: Building): b is Building & { kind: WorkKind } =>
+  b.kind === 'farm' || b.kind === 'granary' || b.kind === 'agora' || b.kind === 'theatre' || b.kind === 'lodge' || b.kind === 'dairy';
 
 /** How many stooks, sacks or loaves show for a building's stock. */
 const STOOKS = 6;
 const SACKS = 14;
-const LOAVES = 9;
+const LOAVES = 6;
+/** Hams on a lodge's rack, in a granary's yard, on the stall; cheeses on a dairy's bench, in a granary, on the stall. */
+const RACK = 6;
+const BENCH = 8;
+const STORE_HAMS = 6;
+const STORE_CHEESES = 6;
+const STALL_HAMS = 3;
+const STALL_CHEESES = 3;
 const shown = (stock: number, cap: number, most: number): number => (stock <= 0 ? 0 : Math.max(1, Math.min(most, Math.ceil((stock / cap) * most))));
 /**
  * The stall's baskets look full from about two-thirds of its stock down (the
@@ -268,6 +548,8 @@ const shown = (stock: number, cap: number, most: number): number => (stock <= 0 
  * reads as a well-stocked one.
  */
 const STALL_FULL = STALL_CAP * 0.65;
+const STALL_FULL_MEAT = STALL_ROOM[1] * 0.65;
+const STALL_FULL_CHEESE = STALL_ROOM[2] * 0.65;
 /** The wheat's look changes in this many steps as it grows. */
 const GROWTH_STEPS = 16;
 
@@ -289,6 +571,12 @@ export class Works {
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
   private readonly loaves: ChunkedInstances;
+  private readonly lodges: ChunkedInstances;
+  private readonly dairies: ChunkedInstances;
+  private readonly hams: ChunkedInstances;
+  private readonly cheeses: ChunkedInstances;
+  /** The lodges' and dairies' yard pieces, each standing on its own ground. */
+  private readonly pieces: Record<Piece, ChunkedInstances>;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -318,7 +606,20 @@ export class Works {
     this.stooks = new ChunkedInstances('stooks', stook(), mat, HOME_CHUNK, opts);
     this.sacks = new ChunkedInstances('sacks', sack(), mat, HOME_CHUNK, opts);
     this.loaves = new ChunkedInstances('loaves', loaf(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
-    this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.theatres, this.wheat, this.stooks, this.sacks, this.loaves];
+    this.lodges = new ChunkedInstances('lodge', lodgeModel(), mat, HOME_CHUNK, opts);
+    this.dairies = new ChunkedInstances('dairy', dairyModel(), mat, HOME_CHUNK, opts);
+    this.hams = new ChunkedInstances('hams', ham(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
+    this.cheeses = new ChunkedInstances('cheeses', cheeseWheel(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
+    this.pieces = {
+      panel: new ChunkedInstances('dairy-fence', wattlePanel(), mat, HOME_CHUNK, opts),
+      shed: new ChunkedInstances('goat-shed', goatShed(), mat, HOME_CHUNK, opts),
+      hayrack: new ChunkedInstances('hay-rack', hayRack(), mat, HOME_CHUNK, opts),
+      trough: new ChunkedInstances('trough', trough(), mat, HOME_CHUNK, opts),
+      rack: new ChunkedInstances('drying-rack', dryingRack(), mat, HOME_CHUNK, opts),
+      hide: new ChunkedInstances('hide', hideFrame(), mat, HOME_CHUNK, opts),
+      firepit: new ChunkedInstances('fire-pit', firePit(), mat, HOME_CHUNK, opts),
+    };
+    this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.theatres, this.wheat, this.stooks, this.sacks, this.loaves, this.lodges, this.dairies, this.hams, this.cheeses, ...Object.values(this.pieces)];
     for (const c of this.all) this.group.add(c.group);
   }
 
@@ -333,9 +634,11 @@ export class Works {
       const g = Math.floor((b.growth / GROW) * GROWTH_STEPS);
       return `farm:${face}:${g}:${rateOf(b) > 0 ? 1 : 0}:${shown(b.stock, BARN, STOOKS)}`;
     }
-    if (b.kind === 'granary') return `granary:${face}:${shown(b.stock, GRANARY_CAP, SACKS)}`;
+    if (b.kind === 'granary') return `granary:${face}:${shown(b.stock, GRANARY_CAP, SACKS)}:${shown(b.meat, GRANARY_ROOM[1], STORE_HAMS)}:${shown(b.cheese, GRANARY_ROOM[2], STORE_CHEESES)}`;
     if (b.kind === 'theatre') return `theatre:${face}`;
-    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}`;
+    if (b.kind === 'lodge') return `lodge:${face}:${shown(b.meat, LODGE_STORE, RACK)}`;
+    if (b.kind === 'dairy') return `dairy:${face}:${shown(b.cheese, DAIRY_STORE, BENCH)}`;
+    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}:${shown(b.meat, STALL_FULL_MEAT, STALL_HAMS)}:${shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES)}`;
   }
 
   private seenRev = -1;
@@ -398,9 +701,25 @@ export class Works {
     const granaries = list.filter((b) => b.kind === 'granary');
     const agoras = list.filter((b) => b.kind === 'agora');
     const theatres = list.filter((b) => b.kind === 'theatre');
+    const lodges = list.filter((b) => b.kind === 'lodge');
+    const dairies = list.filter((b) => b.kind === 'dairy');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
+    /** The lowest ground under a box at (lx, lz) of half-sizes (hx, hz) in a frame centred at (cx, cz) turned by yaw: its middle, corners and edge middles. */
+    const lowest = (cx: number, cz: number, yaw: number, lx: number, lz: number, hx: number, hz: number): number => {
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      let y = Infinity;
+      for (const ax of [-1, 0, 1]) {
+        for (const az of [-1, 0, 1]) {
+          const x = lx + ax * hx;
+          const z = lz + az * hz;
+          y = Math.min(y, map.heightAt(cx + x * c + z * sn, cz - x * sn + z * c));
+        }
+      }
+      return y;
+    };
     // Each building's frame: its middle at the lowest of its footprint's middle (so nothing floats), turned to face its road.
     const frames = new Map<number, { x: number; y: number; z: number; yaw: number; k: number }>();
     const frame = (b: Building): { x: number; y: number; z: number; yaw: number; k: number } => {
@@ -408,15 +727,23 @@ export class Works {
       if (f) return f;
       const cx = b.x + 1.5;
       const cz = b.z + 1.5;
-      let y = map.heightAt(cx, cz);
-      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
+      const yaw = facingOf(s, size, b);
+      let y: number;
+      const foot = MAIN_FOOT[b.kind];
+      if (foot) {
+        // Levelled to the lowest ground under its main building only (its yard pieces stand on their own).
+        y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2);
+      } else {
+        y = map.heightAt(cx, cz);
+        for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
+      }
       const t0 = this.rising.get(b.id);
       let k = 1;
       if (t0 !== undefined) {
         const t = Math.min(1, (this.time - t0) / RISE_SECONDS);
         k = t < 1 ? Math.max(0.02, 1 - Math.pow(1 - t, 3) + Math.sin(t * Math.PI) * 0.1) : 1;
       }
-      f = { x: cx, y: y + 0.01, z: cz, yaw: facingOf(s, size, b), k };
+      f = { x: cx, y: y + 0.01, z: cz, yaw, k };
       frames.set(b.id, f);
       return f;
     };
@@ -427,14 +754,15 @@ export class Works {
       sc.set(1, f.k, 1);
       m.compose(p, q, sc);
     };
-    /** A part at (lx, lz) in a building's frame, standing on the ground there (or at the building's floor). */
-    const part = (b: Building, m: THREE.Matrix4, lx: number, lz: number, yaw: number, s3: [number, number, number], ownGround: boolean, lift = 0): void => {
+    /** A part at (lx, lz) in a building's frame, standing on the ground there (true), at the building's floor (false) or at a given height. */
+    const part = (b: Building, m: THREE.Matrix4, lx: number, lz: number, yaw: number, s3: [number, number, number], ownGround: boolean | number, lift = 0): void => {
       const f = frame(b);
       const c = Math.cos(f.yaw);
       const sn = Math.sin(f.yaw);
       const wx = f.x + lx * c + lz * sn;
       const wz = f.z - lx * sn + lz * c;
-      p.set(wx, (ownGround ? map.heightAt(wx, wz) : f.y) + lift * f.k, wz);
+      const base = typeof ownGround === 'number' ? ownGround : ownGround ? map.heightAt(wx, wz) : f.y;
+      p.set(wx, base + lift * f.k, wz);
       q.setFromAxisAngle(UP, f.yaw + yaw);
       sc.set(s3[0], s3[1] * f.k, s3[2]);
       m.compose(p, q, sc);
@@ -444,6 +772,30 @@ export class Works {
     this.agoras.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
     this.awnings.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
     this.theatres.set(kx, kz, theatres.length, (i, m) => whole(theatres[i], m));
+    this.lodges.set(kx, kz, lodges.length, (i, m) => whole(lodges[i], m));
+    this.dairies.set(kx, kz, dairies.length, (i, m) => whole(dairies[i], m));
+    // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
+    const pieceBase = (b: Building, pl: Placed): number => {
+      const f = frame(b);
+      return lowest(f.x, f.z, f.yaw, pl.lx, pl.lz, pl.r, pl.r) + 0.01;
+    };
+    const placed = new Map<Piece, Array<{ b: Building; pl: Placed }>>();
+    for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES]] as Array<[Building[], Placed[]]>) {
+      for (const b of list) {
+        for (const pl of layout) {
+          const at = placed.get(pl.piece);
+          if (at) at.push({ b, pl });
+          else placed.set(pl.piece, [{ b, pl }]);
+        }
+      }
+    }
+    for (const [name, inst] of Object.entries(this.pieces) as Array<[Piece, ChunkedInstances]>) {
+      const at = placed.get(name) ?? [];
+      inst.set(kx, kz, at.length, (n, m) => {
+        const { b, pl } = at[n];
+        part(b, m, pl.lx, pl.lz, pl.yaw, [pl.len, 1, 1], pieceBase(b, pl));
+      });
+    }
 
     // The wheat: six rows across the field behind the yard, as tall and as golden as the crop is grown.
     const ROWS = 6;
@@ -489,16 +841,59 @@ export class Works {
       part(b, m, lx, lz, 1.57 + (hash2(b.id, i, 198) - 0.5) * 0.5, [1, 1, 1], true, y + 0.01);
     });
 
-    // Loaves in the stall's baskets.
+    // Loaves in two of the stall's baskets (the third holds the cheeses).
     const loaves: Array<{ b: Building; i: number }> = [];
     for (const b of agoras) for (let i = 0; i < shown(b.stock, STALL_FULL, LOAVES); i++) loaves.push({ b, i });
     this.loaves.set(kx, kz, loaves.length, (n, m) => {
       const { b, i } = loaves[n];
-      const basket = i % 3;
-      const k = Math.floor(i / 3);
+      const basket = i % 2;
+      const k = Math.floor(i / 2);
       const lz = -0.36 + basket * 0.36 + (k - 1) * 0.05;
       const lx = 0.42 + (k === 1 ? 0.05 : -0.03);
       part(b, m, lx, lz, i * 1.1, [1, 1, 1], false, 0.38 + (k === 2 ? 0.03 : 0));
+    });
+
+    // Meat: hams hanging on the lodge's rack, laid in a granary's yard, hung at the front of the stall.
+    const hams: Array<{ b: Building; i: number }> = [];
+    for (const b of lodges) for (let i = 0; i < shown(b.meat, LODGE_STORE, RACK); i++) hams.push({ b, i });
+    for (const b of granaries) for (let i = 0; i < shown(b.meat, GRANARY_ROOM[1], STORE_HAMS); i++) hams.push({ b, i });
+    for (const b of agoras) for (let i = 0; i < shown(b.meat, STALL_FULL_MEAT, STALL_HAMS); i++) hams.push({ b, i });
+    this.hams.set(kx, kz, hams.length, (n, m) => {
+      const { b, i } = hams[n];
+      if (b.kind === 'lodge') {
+        // Two to a side of each frame's middle, hanging from the pole (0.58 up), swaying a little each.
+        const lz = -0.55 + i * 0.22;
+        part(b, m, RACK_PIECE.lx, lz, hash2(b.id, i, 431) * 2, [1.3, 1.3, 1.3], pieceBase(b, RACK_PIECE), 0.58 - 0.15);
+      } else if (b.kind === 'granary') {
+        // Laid on their sides, side by side in pairs, by the silo.
+        const lx = 1.0 + Math.floor(i / 2) * 0.16;
+        const lz = -0.72 + (i % 2) * 0.24;
+        part(b, m, lx, lz, Math.PI / 2 + (hash2(b.id, i, 432) - 0.5) * 0.5, [1, 1, 1], true, 0.05);
+        m.multiply(LIE);
+      } else {
+        // Hung under the awning's front edge.
+        part(b, m, 0.78, -0.3 + i * 0.3, i * 0.9, [0.9, 0.9, 0.9], false, 0.5);
+      }
+    });
+
+    // Cheese: wheels on the dairy's bench (then a second layer), in the granary's yard, in the stall's third basket.
+    const cheeses: Array<{ b: Building; i: number }> = [];
+    for (const b of dairies) for (let i = 0; i < shown(b.cheese, DAIRY_STORE, BENCH); i++) cheeses.push({ b, i });
+    for (const b of granaries) for (let i = 0; i < shown(b.cheese, GRANARY_ROOM[2], STORE_CHEESES); i++) cheeses.push({ b, i });
+    for (const b of agoras) for (let i = 0; i < shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES); i++) cheeses.push({ b, i });
+    this.cheeses.set(kx, kz, cheeses.length, (n, m) => {
+      const { b, i } = cheeses[n];
+      if (b.kind === 'dairy') {
+        const top = i >= 6;
+        const k = top ? i - 6 : i;
+        part(b, m, 0.42 + k * 0.155 + (top ? 0.3 : 0), BENCH_Z, hash2(b.id, i, 433), [1, 1, 1], false, 0.24 + (top ? 0.055 : 0));
+      } else if (b.kind === 'granary') {
+        const k = i % 3;
+        const layer = Math.floor(i / 3);
+        part(b, m, 1.1 + (k % 2) * 0.16, 0.36 + k * 0.15, hash2(b.id, i, 434), [1, 1, 1], true, 0.01 + layer * 0.055);
+      } else {
+        part(b, m, 0.42 + (i === 1 ? 0.05 : -0.03), 0.36 + (i - 1) * 0.05, i, [0.7, 0.7, 0.7], false, 0.38 + (i === 2 ? 0.04 : 0));
+      }
     });
   }
 }

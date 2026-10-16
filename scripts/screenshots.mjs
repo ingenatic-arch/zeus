@@ -70,10 +70,126 @@ const SHOTS = {
   harsh: '#harsh-paused',
   dry: '#dry',
   handin: '#town',
+  // Slice 9.
+  hunter: '#hunter',
+  'hunter-close': '#hunter',
+  'hunter-back': '#hunter',
+  dairy: '#dairy-paused-shot',
+  'dairy-ui': '#dairy-paused',
+  lodge: '#dairy-paused-shot',
+  table: '#table-paused',
+  'table-panel': '#table-paused',
+  overhunt: '#overhunt-paused',
+  'lodge-tip': '#overhunt-paused',
+  'dairy-tip': '#town-paused',
+  'dairy-refused': '#town-paused',
+  herd: '#dairy-paused-shot',
+  boar: '#overhunt-paused-shot',
+  granary: '#town-paused-shot',
+  stall: '#town-paused-shot',
+  'cart-meat': '#town',
 };
 
 /** Things to do on the page before a shot. */
 const BEFORE = {
+  hunter: async (page) => {
+    // Follow a hunter out until he is across country, then pause.
+    await page.waitForFunction(() => window.__zeus.where('hunter') !== null, null, { timeout: 240000 });
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 240000 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
+  },
+  'hunter-close': async (page) => {
+    await page.waitForFunction(() => window.__zeus.where('hunter') !== null, null, { timeout: 240000 });
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 60, t, { timeout: 240000 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.where('hunter');
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
+    });
+  },
+  'hunter-back': async (page) => {
+    // A hunter coming home with his kill, close by.
+    await page.waitForFunction(() => window.__zeus.homeward?.() !== null, null, { timeout: 400000, polling: 200 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.homeward();
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
+    });
+  },
+  lodge: async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 60.5, z: 33.5, yaw: 0.5, dist: 5, tilt: 0.3 }));
+  },
+  'dairy-ui': async (page) => {
+    const p = await page.evaluate(() => window.__zeus.screenOf(51.5, 39.5));
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+  },
+  'table-panel': async (page) => {
+    // The panel of a townhouse with two foods on its table.
+    await page.waitForFunction(() => window.__zeus.panelText().length > 0, null, { timeout: 120000 });
+  },
+  'lodge-tip': async (page) => {
+    // The lodge tool (the demo opens with it in hand) beside the lane south of the three lodges, the thinned deer in reach.
+    await page.evaluate(() => window.__zeus.jump({ x: 26, z: 52, yaw: 0.9, dist: 20, tilt: -0.1 }));
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 2, f, { timeout: 120000 });
+    const p = await page.evaluate(() => window.__zeus.screenOf(28.5, 52.5));
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+  },
+  'dairy-tip': async (page) => {
+    await page.evaluate(() => {
+      window.__zeus.tool('dairy');
+      window.__zeus.jump({ x: 52, z: 44, yaw: 2.2, dist: 22, tilt: -0.1 });
+    });
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 2, f, { timeout: 120000 });
+    const p = await page.evaluate(() => window.__zeus.screenOf(55.5, 39.5));
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+  },
+  'dairy-refused': async (page) => {
+    await page.evaluate(() => {
+      window.__zeus.tool('dairy');
+      window.__zeus.jump({ x: 86, z: 34, yaw: 2.2, dist: 22, tilt: -0.1 });
+    });
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 2, f, { timeout: 120000 });
+    const p = await page.evaluate(() => window.__zeus.screenOf(87.5, 34.5));
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+  },
+  herd: async (page) => {
+    // The deer in the north hills, close by, and the pointer over them.
+    const h = await page.evaluate(() => window.__zeus.herds().find((o) => o.kind === 'deer' && o.z < 25));
+    await page.evaluate((h) => window.__zeus.jump({ x: h.x, z: h.z, yaw: 0.6, dist: 4, tilt: 0.15 }), h);
+  },
+  boar: async (page) => {
+    const h = await page.evaluate(() => window.__zeus.herds().find((o) => o.kind === 'boar' && o.x < 30));
+    await page.evaluate((h) => window.__zeus.jump({ x: h.x, z: h.z, yaw: 0.6, dist: 4, tilt: 0.15 }), h);
+  },
+  granary: async (page) => {
+    await page.evaluate(() => {
+      const g = window.__zeus.buildingsOf('granary')[0];
+      window.__zeus.jump({ x: g.x + 1.5, z: g.z + 1.5, yaw: 3.7, dist: 5, tilt: 0.3 });
+    });
+  },
+  stall: async (page) => {
+    await page.evaluate(() => {
+      const g = window.__zeus.buildingsOf('agora')[0];
+      window.__zeus.jump({ x: g.x + 1.5, z: g.z + 1.5, yaw: 3.7, dist: 4, tilt: 0.3 });
+    });
+  },
+  'cart-meat': async (page) => {
+    await page.waitForFunction(() => window.__zeus.cartOf?.(1) !== null, null, { timeout: 400000, polling: 200 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.cartOf(1);
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
+    });
+  },
   rates: async (page) => {
     await page.click('.rate-chip');
   },

@@ -216,9 +216,9 @@ export class Streets {
   }
 
   /**
-   * The ground of a farm, granary or agora: a farm's field ploughed in
-   * furrows behind a trodden yard, a granary's beaten earth yard, the agora's
-   * paving stones.
+   * The ground of a farm, granary, agora, lodge or dairy: a farm's field
+   * ploughed in furrows behind a trodden yard, a granary's beaten earth yard,
+   * the agora's paving stones, a lodge's trodden yard, a dairy's cropped pen.
    */
   private worksGround(
     s: SimState,
@@ -245,6 +245,7 @@ export class Streets {
     const worn = col(PAL.earthWorn);
     const pave = col(PAL.agoraPave);
     const paveDark = col(PAL.agoraPaveDark);
+    const grass = col(PAL.meadow);
     const c = new THREE.Color();
     const at = (k: number): number => inset + ((S - 2 * inset) * k) / steps;
     for (let j = 0; j < steps; j++) {
@@ -268,6 +269,13 @@ export class Streets {
           } else c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
         } else if (b.kind === 'granary') {
           c.copy(worn).lerp(earth, Math.min(1, Math.abs(lz) / 1.6)).multiplyScalar(j2);
+        } else if (b.kind === 'lodge') {
+          // A trodden yard, worn most round the fire pit and the rack.
+          c.copy(earth).lerp(worn, Math.max(0, 1 - Math.hypot(lx - 0.7, lz + 0.3) / 1.4)).lerp(grass, Math.max(0, Math.min(0.5, (Math.abs(lz) - 1.0) * 1.2))).multiplyScalar(j2);
+        } else if (b.kind === 'dairy') {
+          // The pen behind: cropped pasture, trampled in patches; the yard in front, beaten earth.
+          if (lx < 0.14) c.copy(grass).lerp(worn, 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 318)).multiplyScalar(j2);
+          else c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
         } else {
           // Paving stones, half a unit square, in courses.
           const course = Math.floor((lx + 1.5) * 2);

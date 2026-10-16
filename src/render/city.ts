@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import type { SimState } from '../sim/state';
+import { Animals } from './animals';
 import { Bridges } from './bridges';
 import { facingOf, Homes } from './homes';
 import { Streets } from './streets';
@@ -20,6 +21,7 @@ export class CityView {
   readonly walkers: Walkers;
   readonly works: Works;
   readonly bridges: Bridges;
+  readonly animals: Animals;
   private rev = -1;
   private tilesRev = -1;
   private tiles: number[] = [];
@@ -37,8 +39,9 @@ export class CityView {
     this.walkers = new Walkers(map);
     this.works = new Works(map);
     this.bridges = new Bridges(map);
+    this.animals = new Animals(map);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group);
   }
 
   update(s: SimState, alpha: number, time: number): void {
@@ -46,6 +49,7 @@ export class CityView {
     this.homes.update(time, s.wind.angle);
     this.works.update(s, time);
     this.walkers.update(s, alpha, time);
+    this.animals.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

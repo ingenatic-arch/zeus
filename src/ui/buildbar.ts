@@ -41,6 +41,9 @@ const ICONS: Record<ButtonName, string> = {
     '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-plays"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
   // A stack of coin, for the tax overlay.
   tax: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="17.4" rx="7.4" ry="2.6" class="fill-tax"/><path d="M4.6 13.4v4c0 1.4 3.3 2.6 7.4 2.6s7.4-1.2 7.4-2.6v-4" class="fill-tax"/><ellipse cx="12" cy="13.4" rx="7.4" ry="2.6" class="fill-gold"/><path d="M6.2 9.6v3.4c0 1.2 2.6 2.2 5.8 2.2s5.8-1 5.8-2.2V9.6" class="fill-gold"/><ellipse cx="12" cy="9.6" rx="5.8" ry="2.2" class="fill-gold"/><path d="M10 9.6h4" class="stroke-ink"/></svg>',
+  // A loaf, a ham and a wedge of cheese, for the food variety overlay.
+  variety:
+    '<svg viewBox="0 0 24 24"><path d="M2.4 13.4c0-3 2.4-5.2 5.6-5.2s5.6 2.2 5.6 5.2c0 .9-.7 1.6-1.6 1.6H4c-.9 0-1.6-.7-1.6-1.6z" class="fill-gold"/><path d="M13.6 9.8c2.6-2.4 6.6-1.6 7.6 1.4.8 2.6-1.2 4.8-4 4.4l-2.2 2.6-1.6-1.4 1.6-2.4c-2-1-2.6-3-1.4-4.6z" class="fill-meat"/><path d="M5 21l7.6-4.8L20 21z" class="fill-cheese"/><circle cx="12.4" cy="19.4" r=".8" class="fill-ink"/></svg>',
   // A round loaf, for the food overlay.
   food: '<svg viewBox="0 0 24 24"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" class="fill-gold"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" class="stroke-ink"/></svg>',
   // A drop of water.
@@ -119,6 +122,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
+  variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };
 
 /** The build bar along the bottom: road, housing, fountain, farm, hunting lodge, dairy, granary, agora, shrine, theatre, tax office, clear, undo, and the overlays. */
@@ -156,7 +160,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
+    for (const o of ['water', 'food', 'variety', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));

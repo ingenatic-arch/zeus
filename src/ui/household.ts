@@ -10,7 +10,8 @@ import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { reachesWork, taxLine, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
+import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
+import { foodList, foodsOnTable, kindsNeeded } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -117,11 +118,15 @@ function moodBlock(m: Mood): string {
 /** Why a home lacks a need, in a few words. */
 function whyLacks(s: SimState, map: CoastMap, b: Building, need: Service): string {
   if (need === 'water') return whyDry(s, map, b);
-  if (need === 'food') return whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
+  if (need === 'food') {
+    // Some kinds on the table but not all its level needs: the food line says which, and why.
+    if (foodsOnTable(b, s.tick).length > 0) return foodLine(s, map, b).replace(/^Only /, 'only ');
+    return whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
+  }
   return need === 'religion' ? whyUnblessed(s, map, b) : whyNoPlays(s, map, b);
 }
 
-const TITLE: Record<Service, string> = { water: 'Water', food: 'Bread', religion: 'Blessings', culture: 'Plays' };
+const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion: 'Blessings', culture: 'Plays' };
 
 /** What the next level needs, in a sentence. */
 function nextLine(s: SimState, b: Building): string {
@@ -133,13 +138,20 @@ function nextLine(s: SimState, b: Building): string {
     const hand = fed > 0 ? ` (they have ${days(fed)}’ worth)` : '';
     return `To become a cottage: water, and a month’s bread in hand from the agora’s food vendor${fed >= COTTAGE_FOOD_MIN ? '' : hand}`;
   }
+  // The next level's food: two kinds for a townhouse, all three for a fine house, and whether the city makes them.
+  const has = cityHas(s);
+  const kinds = kindsNeeded(b.level + 1);
+  const food = kinds === 2 ? 'two kinds of food (bread and meat or cheese)' : 'all three kinds of food (bread, meat and cheese)';
+  const makers = has.kinds < kinds ? ` · the city makes only ${has.kinds === 1 ? 'one kind' : `${has.kinds} kinds`}: build ${[!has.makes[1] ? 'a hunting lodge' : '', !has.makes[2] ? 'a dairy' : ''].filter(Boolean).join(kinds - has.kinds > 1 ? ' and ' : ' or ')}` : '';
+  const onTable = foodsOnTable(b, s.tick).length;
+  const plate = onTable < kinds ? ` (they have ${onTable === 0 ? 'none' : foodList(foodsOnTable(b, s.tick))})` : '';
   if (b.level === COTTAGE) {
-    if (!cityHas(s).shrine) return 'To become a townhouse: the blessing of a shrine’s priestess. The city has no shrine yet';
-    return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and bread${settled}`;
+    if (!has.shrine) return `To become a townhouse: the blessing of a shrine’s priestess, and ${food}. The city has no shrine yet`;
+    return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and of ${food}${plate}${makers}${settled}`;
   }
   if (b.level === TOWNHOUSE) {
-    if (!cityHas(s).theatre) return 'To become a fine house: plays, brought by a theatre’s actor. The city has no theatre yet';
-    return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of everything else${settled}`;
+    if (!has.theatre) return `To become a fine house: plays, brought by a theatre’s actor, and ${food}. The city has no theatre yet`;
+    return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of ${food}${plate}${makers} and of everything else${settled}`;
   }
   return 'A fine house is as fine as homes get, for now';
 }
@@ -155,7 +167,8 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   for (const need of NEEDS) {
     if (!shown.has(need)) continue;
     const left = untilOf(b, need) - s.tick;
-    if (left > 0) has.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${need === 'religion' || need === 'culture' ? 'last' : 'lasts'} ${days(left)} more</span>`);
+    const table = need === 'food' ? ` · ${foodList(foodsOnTable(b, s.tick))}` : '';
+    if (left > 0) has.push(`${ICON[need]}<span><b>${TITLE[need]}</b>${table} · ${need === 'religion' || need === 'culture' ? 'last' : 'lasts'} ${days(left)} more</span>`);
     else lack.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${esc(whyLacks(s, map, b, need))}</span>`);
   }
   const able = canWork(b);

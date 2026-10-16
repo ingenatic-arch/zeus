@@ -16,7 +16,7 @@ const SPACING = 0.36;
  * A part of a walker's model. `leg` makes it a leg that swings as she walks:
  * [how far and which way it swings (+1, -1; less for an ox), the hip's x, the hip's height].
  */
-type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean; leg?: [number, number, number] };
+export type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean; leg?: [number, number, number] };
 
 /**
  * One full stride (two steps), in world units walked. Legs swing with the
@@ -26,7 +26,7 @@ type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean; leg?: [
 export const STRIDE = 0.44;
 
 /** Merge parts into one geometry with colours, a tint mask (1 where the per-person colour applies: the tunic) and the legs that swing. */
-function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
+export function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
   const pos: number[] = [];
   const colors: number[] = [];
   const tint: number[] = [];
@@ -105,9 +105,10 @@ function carrier(): THREE.BufferGeometry {
 
 /**
  * The food vendor: a woman in a saffron dress (the tinted part) with a pale
- * headscarf, carrying a wide flat basket of round loaves on her head.
+ * headscarf, carrying a wide flat basket of round loaves on her head
+ * (`mixed`: loaves, a ham and a cheese, when her stall has meat or cheese).
  */
-function vendor(): THREE.BufferGeometry {
+function vendor(mixed: boolean): THREE.BufferGeometry {
   const parts: TPart[] = [
     { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.3, 7).translate(0, 0.16, 0), color: '', tint: true },
     { geo: new THREE.CylinderGeometry(0.03, 0.04, 0.1, 7, 1, true).translate(0, 0.3, 0), color: PAL.vendorScarf },
@@ -118,14 +119,22 @@ function vendor(): THREE.BufferGeometry {
     // The basket and its loaves.
     { geo: new THREE.CylinderGeometry(0.115, 0.08, 0.04, 8).translate(0, 0.435, 0), color: PAL.basket },
   ];
-  for (const [x, z] of [[0.04, 0.03], [-0.04, 0.04], [0.0, -0.05], [-0.06, -0.02], [0.06, -0.03]]) {
-    parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 0.6, 1).translate(x, 0.47, z), color: PAL.loaf });
+  if (mixed) {
+    // Loaves, a ham and a wheel of cheese.
+    for (const [x, z] of [[0.05, 0.04], [-0.05, 0.05], [0.06, -0.04]]) parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 0.6, 1).translate(x, 0.47, z), color: PAL.loaf });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.04, 0).scale(1.4, 0.75, 0.9).rotateY(0.6).translate(-0.04, 0.475, -0.04), color: PAL.meat });
+    parts.push({ geo: new THREE.CylinderGeometry(0.008, 0.008, 0.05, 4).rotateZ(Math.PI / 2).rotateY(0.6).translate(-0.1, 0.48, 0.0), color: PAL.bone });
+    parts.push({ geo: new THREE.CylinderGeometry(0.042, 0.042, 0.035, 8).translate(0.0, 0.47, 0.0), color: PAL.cheese });
+  } else {
+    for (const [x, z] of [[0.04, 0.03], [-0.04, 0.04], [0.0, -0.05], [-0.06, -0.02], [0.06, -0.03]]) {
+      parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 0.6, 1).translate(x, 0.47, z), color: PAL.loaf });
+    }
   }
   return mergeTinted(parts);
 }
 
 /** Legs of a beast or a person: four (or two) thin posts. */
-const leg = (x: number, z: number, h: number, r: number, color: string, swing = 0): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color, leg: [swing, x, h] });
+export const leg = (x: number, z: number, h: number, r: number, color: string, swing = 0): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color, leg: [swing, x, h] });
 
 /**
  * The priestess: a woman in a long white robe (the tinted part) with a lilac
@@ -209,10 +218,11 @@ function collector(full: boolean): THREE.BufferGeometry {
 
 /**
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
- * (tinted tunic) walking at the ox's head. `loaded` stacks sacks of wheat on
- * the cart's bed.
+ * (tinted tunic) walking at the ox's head. Its load: golden sheaves of
+ * wheat, carcasses under a hide for meat, or wheels of cheese stacked on the bed.
  */
-function oxCart(loaded: boolean): THREE.BufferGeometry {
+function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese'): THREE.BufferGeometry {
+  const loaded = load === 'wheat';
   const parts: TPart[] = [];
   // The ox, facing +x.
   const ox = 0.2;
@@ -243,6 +253,20 @@ function oxCart(loaded: boolean): THREE.BufferGeometry {
       parts.push({ geo: new THREE.CylinderGeometry(0.04, 0.04, 0.025, 5).rotateX(Math.PI / 2).translate(x, 0.26 + y, 0), color: PAL.thatchDark });
     }
   }
+  if (load === 'meat') {
+    // Two carcasses lying across the bed, a hide thrown over them, a pair of antlers sticking up.
+    for (const [x, k] of [[-0.14, 0], [-0.26, 1]] as Array<[number, number]>) {
+      parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.07, 0), 0.2, 506 + k).scale(0.9, 0.8, 1.6).translate(x, 0.29, 0), color: k ? PAL.deer : PAL.boar });
+    }
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.2, 0.02, 0.22, 2, 1, 2), 0.2, 508).rotateZ(0.15).translate(-0.2, 0.35, 0.01), color: PAL.hide });
+    parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.009, 0.14, 3).rotateX(0.5).translate(-0.1, 0.38, 0.06), color: PAL.antler });
+    parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.009, 0.14, 3).rotateX(-0.5).translate(-0.1, 0.38, -0.06), color: PAL.antler });
+  } else if (load === 'cheese') {
+    // Wheels of cheese, two layers of them.
+    for (const [x, z, y] of [[-0.12, -0.06, 0], [-0.12, 0.06, 0], [-0.27, -0.06, 0], [-0.27, 0.06, 0], [-0.19, 0, 0.05], [-0.2, 0.0, 0.1]]) {
+      parts.push({ geo: new THREE.CylinderGeometry(0.06, 0.06, 0.045, 8).translate(x, 0.245 + y, z), color: y > 0.07 ? PAL.cheeseRind : PAL.cheese });
+    }
+  }
   // The driver, walking beside the ox with a goad.
   const dz = 0.17;
   const dx = 0.3;
@@ -256,9 +280,10 @@ function oxCart(loaded: boolean): THREE.BufferGeometry {
 
 /**
  * The porter: a man (tinted tunic) pushing a little two-wheeled handcart,
- * with sacks of grain on it when `loaded`.
+ * with sacks of grain on it (and a ham and a cheese with them, `mixed`).
  */
-function porter(loaded: boolean): THREE.BufferGeometry {
+function porter(load: 'none' | 'wheat' | 'mixed'): THREE.BufferGeometry {
+  const loaded = load !== 'none';
   const parts: TPart[] = [
     leg(-0.02, -0.03, 0.12, 0.02, PAL.skin, -0.8),
     leg(-0.02, 0.03, 0.12, 0.02, PAL.skin, 0.8),
@@ -277,16 +302,71 @@ function porter(loaded: boolean): THREE.BufferGeometry {
   for (const z of [-0.08, 0.08]) parts.push({ geo: new THREE.BoxGeometry(0.2, 0.015, 0.015).rotateZ(-0.35).translate(0.15, 0.21, z), color: PAL.cart });
   for (const z of [-0.12, 0.12]) parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.025, 8).rotateX(Math.PI / 2).translate(cx + 0.02, 0.08, z), color: PAL.woodDark });
   if (loaded) {
-    for (const [x, z, y] of [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]]) {
+    const sacks: Array<[number, number, number]> = load === 'mixed' ? [[cx - 0.05, -0.05, 0]] : [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]];
+    for (const [x, z, y] of sacks) {
       parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.065, 0), 0.15, 511).scale(1.15, 0.8, 0.85).translate(x, 0.21 + y, z), color: PAL.sack });
     }
+    if (load === 'mixed') {
+      parts.push({ geo: new THREE.CylinderGeometry(0.055, 0.055, 0.04, 8).translate(cx + 0.06, 0.19, 0.05), color: PAL.cheese });
+      parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.05, 0.04, 8).translate(cx + 0.06, 0.23, 0.05), color: PAL.cheeseRind });
+      parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.05, 0), 0.15, 512).scale(1.5, 0.8, 0.9).translate(cx + 0.02, 0.26, -0.02), color: PAL.meat });
+    }
+  }
+  return mergeTinted(parts);
+}
+
+/**
+ * The hunter: a man in a short olive tunic (the tinted part) and a fur cap,
+ * a spear held forward and a bow and quiver on his back. Coming home with a
+ * kill (`carry`), a deer or a boar is slung across his shoulders.
+ */
+function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.082, 0.2, 6).translate(0, 0.21, 0), color: '', tint: true },
+    // A belt and boots of hide.
+    { geo: new THREE.CylinderGeometry(0.07, 0.07, 0.025, 6).translate(0, 0.18, 0), color: PAL.hide },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    // A fur cap.
+    { geo: new THREE.IcosahedronGeometry(0.062, 0).scale(1, 0.62, 1).translate(-0.01, 0.4, 0), color: PAL.hide },
+    // The bow across the back and the quiver.
+    { geo: new THREE.TorusGeometry(0.13, 0.008, 3, 10, Math.PI * 0.9).rotateY(Math.PI / 2).rotateX(0.35).translate(-0.07, 0.24, 0), color: PAL.woodDark },
+    { geo: new THREE.CylinderGeometry(0.022, 0.018, 0.17, 5).rotateX(-0.4).translate(-0.07, 0.26, -0.03), color: PAL.hide },
+  ];
+  if (carry === 'none') {
+    // The spear held forward, ready; the other arm swinging.
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateZ(-0.8).translate(0.05, 0.25, 0.07), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, 0.62, 3).rotateZ(-1.25).translate(0.1, 0.29, 0.08), color: PAL.wood });
+    parts.push({ geo: new THREE.ConeGeometry(0.016, 0.07, 3).rotateZ(-1.25 - Math.PI / 2 + Math.PI).translate(0.4, 0.38, 0.08), color: PAL.rockGrey });
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateX(0.18).translate(0, 0.23, -0.07), color: PAL.skin, leg: [-0.55, 0, 0.3] });
+  } else {
+    // The kill across his shoulders, legs hanging either side; both hands up holding them, the spear as a staff.
+    const coat = carry === 'deer' ? PAL.deer : PAL.boar;
+    // The body draped over both shoulders, sagging in the middle.
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.075, 1), 0.12, 521).scale(0.85, 0.75, 2.1).translate(-0.02, 0.37, 0), color: coat });
+    for (const side of [-1, 1]) {
+      // Its legs, bound in pairs, splayed down at either end; his hand holding each pair.
+      parts.push({ geo: new THREE.CylinderGeometry(0.011, 0.008, 0.11, 4).rotateX(side * 0.5).translate(0.02, 0.31, side * 0.17), color: coat });
+      parts.push({ geo: new THREE.CylinderGeometry(0.011, 0.008, 0.11, 4).rotateX(side * 0.65).translate(-0.04, 0.32, side * 0.17), color: coat });
+      parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.13, 4).rotateX(side * 0.9).translate(0.03, 0.32, side * 0.08), color: PAL.skin });
+    }
+    // The head hanging at one side.
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1.4, 0.9, 0.9).rotateZ(-0.8).translate(0.04, 0.3, 0.13), color: coat });
+    if (carry === 'deer') {
+      parts.push({ geo: new THREE.CylinderGeometry(0.005, 0.008, 0.1, 3).rotateZ(0.5).rotateX(0.4).translate(0.08, 0.31, 0.17), color: PAL.antler });
+      parts.push({ geo: new THREE.CylinderGeometry(0.005, 0.008, 0.1, 3).rotateZ(-0.3).rotateX(0.4).translate(0.04, 0.29, 0.19), color: PAL.antler });
+    } else {
+      parts.push({ geo: new THREE.ConeGeometry(0.008, 0.04, 3).rotateX(-Math.PI / 2).translate(0.07, 0.27, 0.16), color: PAL.tusk });
+    }
+    parts.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, 0.56, 3).rotateZ(-0.12).translate(0.09, 0.27, -0.09), color: PAL.wood });
   }
   return mergeTinted(parts);
 }
 
 const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];
 
-function tintedMaterial(): THREE.MeshStandardMaterial {
+export function tintedMaterial(): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0 });
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
@@ -335,9 +415,13 @@ export class Walkers {
   private readonly actors: ChunkedInstances;
   /** Tax collectors: [a light satchel, a full one]. */
   private readonly collectors: [ChunkedInstances, ChunkedInstances];
-  /** Ox carts and porters: [empty, loaded]. */
-  private readonly carts: [ChunkedInstances, ChunkedInstances];
-  private readonly porters: [ChunkedInstances, ChunkedInstances];
+  /** Food vendors: [bread only, a mix]. */
+  private readonly vendorsMixed: ChunkedInstances;
+  /** Ox carts: [empty, wheat, meat, cheese]; porters: [empty, wheat, a mix]. */
+  private readonly carts: [ChunkedInstances, ChunkedInstances, ChunkedInstances, ChunkedInstances];
+  private readonly porters: [ChunkedInstances, ChunkedInstances, ChunkedInstances];
+  /** Hunters: [setting out, with a deer, with a boar]. */
+  private readonly hunters: [ChunkedInstances, ChunkedInstances, ChunkedInstances];
   private readonly all: ChunkedInstances[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -358,13 +442,28 @@ export class Walkers {
     const opts = { castShadow: true, receiveShadow: true, colors: true };
     this.kinds = [new ChunkedInstances('walkers-head', person('head'), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-back', person('back'), mat, WALKER_CHUNK, opts)];
     this.carriers = new ChunkedInstances('walkers-water', carrier(), mat, WALKER_CHUNK, opts);
-    this.vendors = new ChunkedInstances('walkers-food', vendor(), mat, WALKER_CHUNK, opts);
+    this.vendors = new ChunkedInstances('walkers-food', vendor(false), mat, WALKER_CHUNK, opts);
+    this.vendorsMixed = new ChunkedInstances('walkers-food-mixed', vendor(true), mat, WALKER_CHUNK, opts);
     this.priestesses = new ChunkedInstances('walkers-priestess', priestess(), mat, WALKER_CHUNK, opts);
     this.actors = new ChunkedInstances('walkers-actor', actor(), mat, WALKER_CHUNK, opts);
     this.collectors = [new ChunkedInstances('walkers-tax', collector(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-tax-full', collector(true), mat, WALKER_CHUNK, opts)];
-    this.carts = [new ChunkedInstances('walkers-cart', oxCart(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-cart-loaded', oxCart(true), mat, WALKER_CHUNK, opts)];
-    this.porters = [new ChunkedInstances('walkers-porter', porter(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-porter-loaded', porter(true), mat, WALKER_CHUNK, opts)];
-    this.all = [...this.kinds, this.carriers, this.vendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters];
+    this.carts = [
+      new ChunkedInstances('walkers-cart', oxCart('none'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-cart-loaded', oxCart('wheat'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-cart-meat', oxCart('meat'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-cart-cheese', oxCart('cheese'), mat, WALKER_CHUNK, opts),
+    ];
+    this.porters = [
+      new ChunkedInstances('walkers-porter', porter('none'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-porter-loaded', porter('wheat'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-porter-mixed', porter('mixed'), mat, WALKER_CHUNK, opts),
+    ];
+    this.hunters = [
+      new ChunkedInstances('walkers-hunter', hunter('none'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-hunter-deer', hunter('deer'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-hunter-boar', hunter('boar'), mat, WALKER_CHUNK, opts),
+    ];
+    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
     for (const k of this.all) this.group.add(k.group);
   }
 
@@ -408,11 +507,13 @@ export class Walkers {
     const robe = col(PAL.priestessRobe);
     const rose = col(PAL.actorTunic);
     const green = col(PAL.collectorTunic);
+    const olive = col(PAL.hunterTunic);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
       const total = cum[cum.length - 1];
-      const lead = Math.min(total, cum[w.seg] + w.along + alpha * speedOf(w));
+      // (Waiting, as a hunter stalking: no creeping on between ticks.)
+      const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * speedOf(w)));
       if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
@@ -430,13 +531,20 @@ export class Walkers {
         // The colour's sign tells the shader whether the legs swing (negated: standing still).
         const still = (c: THREE.Color): THREE.Color => (moving ? c : c.multiplyScalar(-1));
         if (w.kind === 'water') this.carriers.push(this.m, still(this.c.copy(dress)));
-        else if (w.kind === 'food') this.vendors.push(this.m, still(this.c.copy(saffron)));
+        else if (w.kind === 'food') {
+          const stall = state.buildings.find((b) => b.id === w.origin);
+          (stall && (stall.meat > 0 || stall.cheese > 0) ? this.vendorsMixed : this.vendors).push(this.m, still(this.c.copy(saffron)));
+        } else if (w.kind === 'hunter') {
+          const kill = w.back && w.load > 0 ? (state.herds[w.food]?.kind === 'boar' ? 2 : 1) : 0;
+          this.hunters[kill].push(this.m, still(this.c.copy(olive)));
+        }
         else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
-          (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, still(this.c));
+          if (cart) this.carts[w.load > 0 ? 1 + w.food : 0].push(this.m, still(this.c));
+          else this.porters[w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
         }
         const v = this.serviceAt.get(w.id);
         if (v) v.pos.copy(this.p);

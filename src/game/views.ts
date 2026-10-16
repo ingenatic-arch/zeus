@@ -71,6 +71,14 @@ export const VIEWS: Record<string, CameraView> = {
   compare: { x: 26, z: 61, yaw: 1.4, dist: 30, tilt: -0.12 },
   // The town after its theatre was cleared and the west street cut off, its homes warning.
   closed: { x: 24, z: 75, yaw: 0.6, dist: 26, tilt: -0.14 },
+  // Close over #town's hunting lodge on the north road (the camera then follows a hunter out to the deer in the north hills).
+  hunter: { x: 60.5, z: 31, yaw: 2.4, dist: 12, tilt: 0.2 },
+  // Low by #town's dairy, its goats in the pen and the cheeses on the bench.
+  dairy: { x: 51.5, z: 39.5, yaw: 2.2, dist: 7, tilt: 0.12 },
+  // The townhouses round the shrine, the food variety overlay on: what is on each table.
+  table: { x: 30, z: 73, yaw: 0.6, dist: 28, tilt: -0.14 },
+  // The three lodges up the lane and the deer below the crags they hunt.
+  overhunt: { x: 21, z: 47, yaw: 0.9, dist: 24, tilt: -0.1 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

@@ -42,8 +42,10 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road</dd>
       <dt>M</dt><dd>Wheat farm: on the green land by the river</dd>
-      <dt>G</dt><dd>Granary: where the farms’ carts take the wheat</dd>
-      <dt>K</dt><dd>Agora: its food vendor sells bread to huts</dd>
+      <dt>M M</dt><dd>Hunting lodge: within reach of the deer on the hills or the boar in the woods</dd>
+      <dt>M M M</dt><dd>Dairy: its goats need green pasture</dd>
+      <dt>G</dt><dd>Granary: where the carts take the wheat, meat and cheese</dd>
+      <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; townhouses need two kinds, fine houses all three</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; blessed cottages become townhouses</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; townhouses with plays become fine houses</dd>
       <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes</dd>
@@ -54,7 +56,8 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     <h2 style="margin-top:12px">Looking</h2>
     <dl>
       <dt>O</dt><dd>The water overlay: where water reaches</dd>
-      <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms and granaries</dd>
+      <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms, lodges, dairies and granaries</dd>
+      <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
       <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month</dd>

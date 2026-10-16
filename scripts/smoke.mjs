@@ -681,6 +681,47 @@ if (!(c.owed > 0 && c.taxRate === 0 && dryLines.some((l) => /^Money: the treasur
 await zeus(() => window.__zeus.ledger(true));
 await frames(2);
 if (!/owes [\d,]+ dr of this month’s wages/.test(await zeus(() => window.__zeus.ledgerText()))) fail('#dry ledger does not note the owed wages');
+// Slice 9. #hunter: following a hunter from the lodge, herds on the hills, goats at the dairy.
+await open('#hunter');
+c = await city();
+if (!(c.following && c.lodges > 0 && c.dairies > 0 && c.hunters > 0 && c.herdHead > 0 && c.animals > 0)) fail(`#hunter: ${JSON.stringify(c)}`);
+if (!/hunter/.test(await zeus(() => document.querySelector('.follow-chip')?.textContent ?? ''))) fail('#hunter follow chip does not name the hunter');
+// #dairy: hovering the dairy says how much cheese it holds; its goats are drawn.
+await open('#dairy-paused');
+c = await city();
+if (!(c.dairies > 0 && c.animals > c.herdHead)) fail(`#dairy: ${JSON.stringify(c)}`);
+p = await at(51.5, 39.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.move(p.x + 1, p.y + 1);
+await frames(2);
+const dt = await tip();
+if (!/^A dairy · [\d,]+ of [\d,]+ measures of cheese/.test(dt ?? '')) fail(`hovering the dairy: ${dt}`);
+// #table: the food variety overlay and its legend; homes with two foods or more.
+await open('#table-paused');
+c = await city();
+const legendText = await zeus(() => (document.querySelector('.legend')?.hidden ? '' : document.querySelector('.legend')?.textContent ?? ''));
+if (!(c.overlayMode === 'variety' && c.varied > 0 && /On the table/.test(legendText))) fail(`#table: ${legendText} ${JSON.stringify(c)}`);
+// L cycles the food overlay, then the variety overlay, then off.
+const ls = [];
+for (let i = 0; i < 3; i++) {
+  await page.keyboard.press('l');
+  await frames(1);
+  ls.push((await city()).overlayMode);
+}
+if (!(ls[0] !== 'variety' && ls[0] !== 'food' && ls[1] === 'food' && ls[2] === 'variety')) fail(`L did not cycle off, food, variety (${ls})`);
+// #overhunt: three lodges after one valley's deer; the lodge tool beside the lane says the game is shared and thin.
+await open('#overhunt-paused');
+c = await city();
+const herds = await zeus(() => window.__zeus.herds());
+if (!(c.tool === 'lodge' && c.lodges === 3 && herds.some((h) => h.kind === 'deer' && h.head <= 3))) fail(`#overhunt: ${JSON.stringify(herds)} ${JSON.stringify(c)}`);
+await zeus(() => window.__zeus.jump({ x: 26, z: 52, yaw: 0.9, dist: 20, tilt: -0.1 }));
+await frames(3);
+p = await at(28.5, 52.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.move(p.x + 1, p.y + 1);
+await frames(2);
+const lodgeTip = await tip();
+if (!/^Hunting lodge · 200 dr[\s\S]*Game in reach: the deer[\s\S]*shared with the 3 lodges/.test(lodgeTip ?? '')) fail(`lodge tip: ${lodgeTip}`);
 // A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
 await open('#saved-paused');
@@ -721,6 +762,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

@@ -23,10 +23,10 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
-import { homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
+import { herdStatus, homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
 import { kindTotal, monthOf, owedWages, totals } from './sim/treasury';
 import { purseTotal } from './sim/taxes';
-import { TILE_ROAD, type Building, type Walker } from './sim/state';
+import { TILE_ROAD, type Building, type Herd, type Walker } from './sim/state';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
@@ -103,6 +103,14 @@ interface Probe {
     routes: number;
     markWrites: number;
     homesRefilled: number;
+    lodges: number;
+    dairies: number;
+    hunters: number;
+    herdHead: number;
+    animals: number;
+    meat: number;
+    cheese: number;
+    varied: number;
   };
   /** Screen position of the first water carrier, if one is out. */
   carrier?: () => { x: number; y: number } | null;
@@ -114,6 +122,14 @@ interface Probe {
   tipText?: () => string | null;
   /** The household panel's text ('' when closed). */
   panelText?: () => string;
+  /** World position of a hunter on his way home with a kill, if any. */
+  homeward?: () => { x: number; z: number } | null;
+  /** World position of an ox cart carrying a food (0 wheat, 1 meat, 2 cheese), if any. */
+  cartOf?: (food: number) => { x: number; z: number } | null;
+  /** Buildings of a kind: top-left tile and id. */
+  buildingsOf?: (kind: string) => Array<{ id: number; x: number; z: number }>;
+  /** The wild herds: where each stands and how many head it has. */
+  herds?: () => Array<{ kind: string; x: number; z: number; head: number }>;
   /** Lived-in homes: where they are (top-left tile), their level, and whether they are warned. */
   homes?: () => Array<{ id: number; x: number; z: number; level: number; people: number; warned: boolean; left: number }>;
   tool?: (t: string | null) => void;
@@ -246,7 +262,11 @@ function start(): void {
   const legend = document.createElement('div');
   legend.className = 'legend';
   legend.hidden = true;
-  legend.innerHTML = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
+  const MISSING_LEGEND = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
+  const VARIETY_LEGEND =
+    '<b>On the table</b><span><i class="bread"></i>Bread</span><span><i class="meat"></i>Meat</span><span><i class="cheese"></i>Cheese</span><span><i class="short"></i>A kind it needs and lacks</span><span><i class="want"></i>Another kind would lift it</span>';
+  legend.innerHTML = MISSING_LEGEND;
+  let legendFor = 'missing';
   const lines = new TownLines(notices, (l) => {
     if (l.need === 'money') return ledger.toggle(true);
     const b = findBuilding(sim.state, l.at);
@@ -373,7 +393,7 @@ function start(): void {
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -399,6 +419,20 @@ function start(): void {
     const on = sim.state.tiles[Math.floor(world.z) * n + Math.floor(world.x)];
     return on > 0 ? findBuilding(sim.state, on) : undefined;
   };
+  /** The wild herd under a world point (its animals stand within a tile or so of its place), if any. */
+  const herdAt = (world: { x: number; z: number } | null): Herd | undefined => {
+    if (!world) return undefined;
+    let best: Herd | undefined;
+    let bd = 1.6;
+    for (const h of sim.state.herds) {
+      const d = Math.hypot(h.x - world.x, h.z - world.z);
+      if (d < bd) {
+        bd = d;
+        best = h;
+      }
+    }
+    return best;
+  };
   const bridgeAtPointer = (world: { x: number; z: number } | null): boolean => {
     const n = map.size;
     if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return false;
@@ -413,7 +447,11 @@ function start(): void {
     const ws = w ? walkerStatus(sim.state, w) : null;
     if (ws) return showStatus(ws, sx, sy);
     const b = buildingAt(world);
-    if (!b) return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
+    if (!b) {
+      const h = herdAt(world);
+      if (h) return showStatus(herdStatus(sim.state, h), sx, sy);
+      return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
+    }
     const st = homeStatus(sim.state, map, b);
     // A lived-in home: its family's name, and a click opens their panel.
     if (b.family && b.people > 0) {
@@ -457,7 +495,7 @@ function start(): void {
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -510,7 +548,8 @@ function start(): void {
         return true;
       }
       if (k === 'l') {
-        overlay.toggle('food');
+        // L: the food overlay, then what is on the tables, then off.
+        overlay.wanted = overlay.wanted === 'food' ? 'variety' : overlay.wanted === 'variety' ? null : 'food';
         return true;
       }
       if (k === 'i') {
@@ -533,8 +572,10 @@ function start(): void {
         ledger.toggle();
         return true;
       }
-      const t = TOOL_KEYS[k];
+      let t = TOOL_KEYS[k];
       if (!t) return false;
+      // M again: the farm, then the hunting lodge, then the dairy.
+      if (k === 'm') t = tools.tool === 'farm' ? 'lodge' : tools.tool === 'lodge' ? 'dairy' : 'farm';
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -548,7 +589,8 @@ function start(): void {
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
     const kind = demo.follow;
-    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : 'farm';
+    const from: Building['kind'] =
+      kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
     const w = ripest ? undefined : sim.state.walkers.find((o) => o.kind === kind);
@@ -677,6 +719,14 @@ function start(): void {
       routes: tools.routesFound,
       markWrites: placement.markWrites,
       homesRefilled: city.homes.lastRefilled,
+      lodges: of('lodge').length,
+      dairies: of('dairy').length,
+      hunters: s.walkers.filter((w) => w.kind === 'hunter').length,
+      herdHead: s.herds.reduce((a, h) => a + h.head, 0),
+      animals: city.animals.count,
+      meat: s.buildings.reduce((a, b) => a + b.meat, 0),
+      cheese: s.buildings.reduce((a, b) => a + b.cheese, 0),
+      varied: homes.filter((b) => [b.foodUntil, b.meatUntil, b.cheeseUntil].filter((u) => u > s.tick).length >= 2).length,
     };
   };
   probe.walker = (kind: string) => {
@@ -703,6 +753,15 @@ function start(): void {
         const w = warningOf(sim.state, b);
         return { id: b.id, x: b.x, z: b.z, level: b.level, people: b.people, warned: !!w, left: w ? w.left : -1 };
       });
+  const drawnAt = (pick: (w: Walker) => boolean): { x: number; z: number } | null => {
+    const w = sim.state.walkers.find(pick);
+    const at = w ? city.walkers.serviceAt.get(w.id) : undefined;
+    return at ? { x: at.pos.x, z: at.pos.z } : null;
+  };
+  probe.homeward = () => drawnAt((w) => w.kind === 'hunter' && w.back && w.load > 0);
+  probe.cartOf = (food) => drawnAt((w) => w.kind === 'cart' && w.food === food && w.load > 0);
+  probe.buildingsOf = (kind) => sim.state.buildings.filter((b) => b.kind === kind).map((b) => ({ id: b.id, x: b.x, z: b.z }));
+  probe.herds = () => sim.state.herds.map((h) => ({ kind: h.kind, x: h.x, z: h.z, head: h.head }));
   probe.tool = (t) => tools.select(t as ToolName | null);
   probe.saves = () => ({ available: saves.available, manual: saves.info('manual'), auto: saves.info('auto'), autosaving, loaded: loaded ? loaded.label.date : '', problem, lastSave });
   probe.saveNow = () => {
@@ -862,7 +921,11 @@ function start(): void {
     updateFollow();
     overlay.update(s, time);
     bar.showOverlay(overlay.mode);
-    legend.hidden = overlay.mode !== 'missing';
+    legend.hidden = overlay.mode !== 'missing' && overlay.mode !== 'variety';
+    if (!legend.hidden && legendFor !== overlay.mode) {
+      legendFor = overlay.mode as string;
+      legend.innerHTML = legendFor === 'variety' ? VARIETY_LEGEND : MISSING_LEGEND;
+    }
     signs.update(s, camera, time, overlay.mode === 'missing');
     ledger.update(s, map, time);
     const open = panel.update(s, map, time);

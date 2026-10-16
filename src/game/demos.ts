@@ -511,6 +511,6 @@ export const DEMOS: Record<string, Demo> = {
   collector: { view: 'collector', setup: town(TOWN_TICKS), follow: 'tax', overlay: 'tax', overlayOn: true },
   hunter: { view: 'hunter', setup: town(TOWN_TICKS), follow: 'hunter', overlay: 'food' },
   dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
-  table: { view: 'table', setup: cultureTown(SHRINE_TICKS + 150, false), overlay: 'food', overlayOn: true, open: (s) => varied(s) },
+  table: { view: 'table', setup: cultureTown(SHRINE_TICKS + 150, false), overlay: 'variety', overlayOn: true, open: (s) => varied(s) },
   overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
 };
