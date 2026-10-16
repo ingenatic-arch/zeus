@@ -264,7 +264,13 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
         '#include <begin_vertex>',
         `#include <begin_vertex>
         #ifdef USE_INSTANCING
-        if (aLeg.x != 0.0) {
+        // A walker standing still comes with its colour negated (see Walkers.update): legs together.
+        #ifdef USE_INSTANCING_COLOR
+        float moving = instanceColor.r < 0.0 ? 0.0 : 1.0;
+        #else
+        float moving = 1.0;
+        #endif
+        if (aLeg.x != 0.0 && moving > 0.0) {
           vec3 at = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
           float a = sin((at.x + at.z) * 6.2831853 / STRIDE) * 0.5 * aLeg.x;
           vec2 d = transformed.xy - aLeg.yz;
@@ -275,7 +281,7 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
         #endif`,
       )
       // The chunk has to be expanded here: at this point the shader still holds only its #include line.
-      .replace('#include <color_vertex>', THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aTint);'));
+      .replace('#include <color_vertex>', THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), abs(instanceColor.rgb), aTint);'));
   };
   mat.customProgramCacheKey = () => 'tinted-person';
   return mat;
@@ -382,13 +388,15 @@ export class Walkers {
         const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'priestess' ? 0.9 : 0.95;
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
-        if (w.kind === 'water') this.carriers.push(this.m, dress);
-        else if (w.kind === 'food') this.vendors.push(this.m, saffron);
-        else if (w.kind === 'priestess') this.priestesses.push(this.m, robe);
-        else if (w.kind === 'actor') this.actors.push(this.m, rose);
+        // The colour's sign tells the shader whether the legs swing (negated: standing still).
+        const still = (c: THREE.Color): THREE.Color => (moving ? c : c.multiplyScalar(-1));
+        if (w.kind === 'water') this.carriers.push(this.m, still(this.c.copy(dress)));
+        else if (w.kind === 'food') this.vendors.push(this.m, still(this.c.copy(saffron)));
+        else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
+        else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
-          (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, this.c);
+          (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, still(this.c));
         }
         const v = this.serviceAt.get(w.id);
         if (v) v.pos.copy(this.p);
@@ -414,6 +422,7 @@ export class Walkers {
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         this.c.copy(col(TUNICS[Math.floor(hash2(seed, 2, 62) * TUNICS.length)]));
+        if (!moving) this.c.multiplyScalar(-1);
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);
       }
     }

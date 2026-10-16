@@ -440,27 +440,104 @@ function roofTop(g: THREE.BufferGeometry): THREE.Vector3 {
 /** Homes, fountains and shrines (the two-by-two buildings) are drawn here; the farm, granary, agora and theatre by Works. */
 const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine';
 
+/** One settled thing's vertices, already placed in the world, and its bounds. */
+interface MergedPart {
+  pos: Float32Array;
+  nor: Float32Array;
+  col: Float32Array;
+  min: THREE.Vector3;
+  max: THREE.Vector3;
+}
+
+/** What goes into a chunk's merged mesh: a model, where it stands, and a key that changes whenever either would. */
+interface MergedItem {
+  key: string;
+  geo: THREE.BufferGeometry;
+  m: THREE.Matrix4;
+}
+
 /**
  * Every settled home, shrine, fountain and plot stake in a chunk merged into
  * one mesh: one draw (and one shadow draw) per chunk, whatever mix of houses
- * it holds. Rebuilt only when something in the chunk changes look.
+ * it holds. Rebuilt only when something in the chunk changes look. Each
+ * thing's placed vertices are kept, so a rebuild only places what is new and
+ * copies the rest (placing every vertex of a chunk of fine houses again took
+ * close to 20 ms, a visible hitch, each time one home changed look).
  */
 class MergedChunks {
   private readonly meshes = new Map<number, THREE.Mesh>();
+  private readonly parts = new Map<number, Map<string, MergedPart>>();
   private readonly nm = new THREE.Matrix3();
-  /** Vertices written by the last rebuild (for measuring). */
+  /** Vertices written by the last rebuild, and how many of them had to be placed afresh (for measuring). */
   lastVertices = 0;
+  lastPlaced = 0;
 
   constructor(
     private readonly group: THREE.Group,
     private readonly material: THREE.Material,
   ) {}
 
-  set(key: number, items: ReadonlyArray<{ geo: THREE.BufferGeometry; m: THREE.Matrix4 }>): void {
+  /** A model's vertices placed by a matrix. */
+  private place(geo: THREE.BufferGeometry, m: THREE.Matrix4): MergedPart {
+    const count = geo.attributes.position.count;
+    const sp = geo.attributes.position.array as Float32Array;
+    const sn = geo.attributes.normal.array as Float32Array;
+    const pos = new Float32Array(count * 3);
+    const nor = new Float32Array(count * 3);
+    const col = (geo.attributes.color.array as Float32Array).slice(0, count * 3);
+    const e = m.elements;
+    const ne = this.nm.getNormalMatrix(m).elements;
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (let j = 0; j < count * 3; j += 3) {
+      const x = sp[j];
+      const y = sp[j + 1];
+      const z = sp[j + 2];
+      const px = e[0] * x + e[4] * y + e[8] * z + e[12];
+      const py = e[1] * x + e[5] * y + e[9] * z + e[13];
+      const pz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      pos[j] = px;
+      pos[j + 1] = py;
+      pos[j + 2] = pz;
+      if (px < min.x) min.x = px;
+      if (py < min.y) min.y = py;
+      if (pz < min.z) min.z = pz;
+      if (px > max.x) max.x = px;
+      if (py > max.y) max.y = py;
+      if (pz > max.z) max.z = pz;
+      const a = sn[j];
+      const b = sn[j + 1];
+      const c = sn[j + 2];
+      const nx = ne[0] * a + ne[3] * b + ne[6] * c;
+      const ny = ne[1] * a + ne[4] * b + ne[7] * c;
+      const nz = ne[2] * a + ne[5] * b + ne[8] * c;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nor[j] = nx / l;
+      nor[j + 1] = ny / l;
+      nor[j + 2] = nz / l;
+    }
+    return { pos, nor, col, min, max };
+  }
+
+  set(key: number, items: ReadonlyArray<MergedItem>): void {
+    const was = this.parts.get(key);
+    const now = new Map<string, MergedPart>();
+    const order: MergedPart[] = [];
     let n = 0;
-    for (const it of items) n += it.geo.attributes.position.count;
+    let placed = 0;
+    for (const it of items) {
+      let part = was?.get(it.key);
+      if (!part) {
+        part = this.place(it.geo, it.m);
+        placed += part.pos.length / 3;
+      }
+      now.set(it.key, part);
+      order.push(part);
+      n += part.pos.length / 3;
+    }
     let mesh = this.meshes.get(key);
     if (n === 0) {
+      this.parts.delete(key);
       if (mesh) {
         this.group.remove(mesh);
         mesh.geometry.dispose();
@@ -468,49 +545,25 @@ class MergedChunks {
       }
       return;
     }
+    this.parts.set(key, now);
     const pos = new Float32Array(n * 3);
     const nor = new Float32Array(n * 3);
     const colr = new Float32Array(n * 3);
+    const box = new THREE.Box3();
     let o = 0;
-    for (const { geo, m } of items) {
-      const sp = geo.attributes.position.array as Float32Array;
-      const sn = geo.attributes.normal.array as Float32Array;
-      const sc = geo.attributes.color.array as Float32Array;
-      const e = m.elements;
-      const ne = this.nm.getNormalMatrix(m).elements;
-      const count = geo.attributes.position.count;
-      for (let i = 0; i < count; i++) {
-        const j = i * 3;
-        const x = sp[j];
-        const y = sp[j + 1];
-        const z = sp[j + 2];
-        pos[o] = e[0] * x + e[4] * y + e[8] * z + e[12];
-        pos[o + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
-        pos[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
-        const a = sn[j];
-        const b = sn[j + 1];
-        const c = sn[j + 2];
-        let nx = ne[0] * a + ne[3] * b + ne[6] * c;
-        let ny = ne[1] * a + ne[4] * b + ne[7] * c;
-        let nz = ne[2] * a + ne[5] * b + ne[8] * c;
-        const l = Math.hypot(nx, ny, nz) || 1;
-        nx /= l;
-        ny /= l;
-        nz /= l;
-        nor[o] = nx;
-        nor[o + 1] = ny;
-        nor[o + 2] = nz;
-        colr[o] = sc[j];
-        colr[o + 1] = sc[j + 1];
-        colr[o + 2] = sc[j + 2];
-        o += 3;
-      }
+    for (const part of order) {
+      pos.set(part.pos, o);
+      nor.set(part.nor, o);
+      colr.set(part.col, o);
+      o += part.pos.length;
+      box.expandByPoint(part.min).expandByPoint(part.max);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     g.setAttribute('color', new THREE.BufferAttribute(colr, 3));
-    g.computeBoundingSphere();
+    g.boundingBox = box;
+    g.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
     if (mesh) {
       mesh.geometry.dispose();
       mesh.geometry = g;
@@ -523,6 +576,7 @@ class MergedChunks {
       this.group.add(mesh);
     }
     this.lastVertices = n;
+    this.lastPlaced = placed;
   }
 }
 
@@ -733,7 +787,7 @@ export class Homes {
       return k;
     };
     // Settled buildings go into the chunk's merged mesh; rising ones are drawn instanced until they have risen.
-    const settled: Array<{ geo: THREE.BufferGeometry; m: THREE.Matrix4 }> = [];
+    const settled: MergedItem[] = [];
     const homes = (sets: Building[][], meshes: ChunkedInstances[], models: THREE.BufferGeometry[], fireAt: THREE.Vector3[] | null): void => {
       sets.forEach((bs, v) => {
         const up = bs.filter((b) => this.rising.has(b.id));
@@ -742,7 +796,7 @@ export class Homes {
           if (this.rising.has(b.id)) continue;
           const m = new THREE.Matrix4();
           place(b, m, true);
-          if (all) settled.push({ geo: models[v], m });
+          if (all) settled.push({ key: `${b.id}:${this.seen.get(b.id)?.sig}`, geo: models[v], m });
           if (fireAt) {
             fp.copy(fireAt[v]).applyMatrix4(m);
             fires.push([fp.x, map.heightAt(fp.x, fp.z), fp.z, hash2(b.id, 5, 42)]);
@@ -790,7 +844,7 @@ export class Homes {
         if (this.rising.has(b.id)) continue;
         const m = new THREE.Matrix4();
         place(b, m, false);
-        settled.push({ geo: this.fountainGeo, m });
+        settled.push({ key: `${b.id}:${this.seen.get(b.id)?.sig}`, geo: this.fountainGeo, m });
       }
     }
     this.fires.set(key, fires);
@@ -805,7 +859,7 @@ export class Homes {
         q.setFromAxisAngle(UP, i * 0.9 + 0.4);
         sc.set(0.72, 0.72, 0.72);
         m.compose(p, q, sc);
-        settled.push({ geo: this.stakeGeo, m });
+        settled.push({ key: `${b.id}:stake${i}`, geo: this.stakeGeo, m });
       });
     }
     this.merged.set(key, settled);
