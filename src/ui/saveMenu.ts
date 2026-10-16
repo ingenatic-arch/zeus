@@ -66,7 +66,7 @@ export class SaveMenu {
   toggle(show = this.card.hidden): void {
     this.card.hidden = !show;
     this.confirm = null;
-    if (show) this.render('');
+    if (show) this.render(this.problem ? `Not saved last time: ${this.problem}` : '');
   }
 
   /** A note by the corner for a few seconds: "Saved · June, 748 BC". */
@@ -85,9 +85,13 @@ export class SaveMenu {
   /** Save by hand (the button or Ctrl+S). */
   saveNow(): void {
     const why = this.host.save('manual');
+    this.problem = why;
     if (why) this.flash(why, true);
     if (this.open) this.render(why ? `Not saved: ${why}` : 'Saved.');
   }
+
+  /** Why the last save by hand failed ('' if it didn't), shown again when the card opens. */
+  private problem = '';
 
   private clicked(e: MouseEvent): void {
     const t = (e.target as HTMLElement).closest('button');

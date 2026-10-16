@@ -423,7 +423,10 @@ function start(): void {
     down: () => tools.down(),
     up: () => tools.up(),
     cancel: () => {
-      if (tools.tool) tools.cancel();
+      // Esc puts away the welcome card and the saves card first.
+      if (welcomeCard?.open) welcomeCard.dismiss();
+      else if (saveMenu.open) saveMenu.toggle(false);
+      else if (tools.tool) tools.cancel();
       else if (follow) stopFollow();
       else if (panel.open) panel.show(0);
       else tools.cancel();

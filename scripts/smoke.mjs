@@ -510,6 +510,17 @@ if (!snd.started) fail('sound did not start after a key press');
 await page.click('.mute-btn');
 await frames(1);
 if (!(await zeus(() => window.__zeus.sound())).muted) fail('the mute switch did not mute');
+// Muted, the audio is held (suspended), not just turned down.
+await page.waitForTimeout(700);
+await frames(1);
+if ((await zeus(() => window.__zeus.sound())).state !== 'suspended') fail(`muted sound is still running: ${JSON.stringify(await zeus(() => window.__zeus.sound()))}`);
+// Esc puts the welcome card away too.
+await open('#');
+await page.keyboard.press('Escape');
+await frames(2);
+if (await zeus(() => window.__zeus.welcome())) fail('Esc did not put the welcome card away');
+// Opened muted, a key press makes no sound at all.
+if ((await zeus(() => window.__zeus.sound())).started) fail('sound started while muted');
 // #town: every house level and kind of building, the bridge, a few hundred people, at normal speed.
 await open('#town');
 c = await city();
@@ -518,6 +529,8 @@ const townSpeed = await zeus(() => document.querySelector('.speeds .on')?.getAtt
 if (!townSpeed?.startsWith('Normal')) fail(`#town is not at normal speed (${townSpeed})`);
 if (!(await zeus(() => window.__zeus.sound())).muted) fail('the mute switch was not remembered');
 await page.click('.mute-btn');
+await frames(1);
+if ((await zeus(() => window.__zeus.sound())).state !== 'running') fail(`unmuting did not start the sound: ${JSON.stringify(await zeus(() => window.__zeus.sound()))}`);
 if ((await zeus(() => window.__zeus.townLines())).length) fail('#town opens with a shortfall line');
 // Saving by hand (Ctrl+S); #saved opens it where it was, and clears the link.
 await page.keyboard.press('Space');
