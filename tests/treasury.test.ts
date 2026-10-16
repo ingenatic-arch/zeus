@@ -246,6 +246,29 @@ describe('wages', () => {
     expect(s.money).toBe(PLOT_COST - 1);
     ledgerAddsUp(s);
   });
+
+  it('a town that has run dry and cleared its only tax office can still build one, for what the treasury holds', () => {
+    const sim = demo('dry');
+    const s = sim.state;
+    expect(s.money).toBeLessThan(TAX_OFFICE_COST);
+    const offices = s.buildings.filter((b) => b.kind === 'taxoffice');
+    for (const o of offices) sim.enqueue({ type: 'clear', x0: o.x, z0: o.z, x1: o.x, z1: o.z });
+    sim.flush();
+    expect(s.buildings.some((b) => b.kind === 'taxoffice')).toBe(false);
+    const o = offices[0];
+    const before = s.money;
+    sim.enqueue({ type: 'build', kind: 'taxoffice', at: [T(o.x, o.z)] });
+    sim.flush();
+    expect(s.buildings.filter((b) => b.kind === 'taxoffice').length).toBe(1);
+    expect(s.money).toBe(0);
+    expect(kindTotal(s.ledger.now, 'building')).toBeLessThanOrEqual(0);
+    expect(before).toBeLessThan(TAX_OFFICE_COST);
+    ledgerAddsUp(s);
+    // With an office standing again, the next one costs the full price.
+    sim.enqueue({ type: 'build', kind: 'taxoffice', at: [T(offices[1].x, offices[1].z)] });
+    sim.flush();
+    expect(s.buildings.filter((b) => b.kind === 'taxoffice').length).toBe(1);
+  });
 });
 
 describe('the demo towns and money', () => {

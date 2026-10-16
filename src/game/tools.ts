@@ -33,7 +33,7 @@ import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { COLLECTOR_RANGE, taxOf } from '../sim/taxes';
-import { hasTaxOffice, owedWages, reserve, spendable } from '../sim/treasury';
+import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/treasury';
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
@@ -445,7 +445,7 @@ export class Tools {
     const at = this.plotAt(side);
     const x = at % n;
     const z = Math.floor(at / n);
-    const cost = COST[kind];
+    const cost = priceOf(s, kind);
     const r = buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? keptBack(s) : 'Not enough drachmas');
     const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
     // Allowed, but no use without a road beside it: amber, not red.
@@ -466,6 +466,7 @@ export class Tools {
       if (kind === 'taxoffice') {
         const per = taxOf(s.taxRate, 3);
         lines.push(hasTaxOffice(s) ? 'Another collector, for the homes the others don’t reach' : 'Its tax collector brings in what each household he calls on owes: without one, no taxes come in');
+        if (cost < COST[kind]) lines.push(`With no tax office, one costs no more than the treasury holds: ${fmt(cost)} dr, not ${fmt(COST[kind])}`);
         lines.push(per > 0 ? `At this rate a cottage pays ${per} dr a month` : 'At this rate nobody pays: the collector still walks');
       }
       if (kind === 'shrine') lines.push('Its priestess blesses the homes she passes: a cottage with a month’s blessing in hand becomes a townhouse');

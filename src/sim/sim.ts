@@ -1,6 +1,6 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
-import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
+import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import type { Command, StampedCommand } from './commands';
@@ -15,7 +15,7 @@ import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settl
 import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type ServiceRecord, type SimState, type UndoEntry } from './state';
 import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
-import { freshLedger, income, pay, spendable, stepWages } from './treasury';
+import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -304,10 +304,10 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
 function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
-  const cost = COST[kind];
   const covered: number[] = [];
   for (const t of at) {
     if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
+    const cost = priceOf(s, kind);
     if (spendable(s, kind) < cost) break;
     const x = t % n;
     const z = Math.floor(t / n);

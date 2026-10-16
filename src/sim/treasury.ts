@@ -14,7 +14,7 @@
  * neither wages nor other building can spend it, so a city that has run dry
  * can always build one and recover.
  */
-import { TAX_OFFICE_COST } from './build';
+import { COST, TAX_OFFICE_COST } from './build';
 import { JOBS } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import type { Building, BuildingKind, Ledger, LedgerKind, SimState } from './state';
@@ -91,6 +91,17 @@ export function payable(s: SimState): number {
 export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): number {
   if (kind === 'taxoffice') return s.money;
   return Math.max(0, payable(s) - owedWages(s).owed);
+}
+
+/**
+ * What building one of this kind costs now: its price, except that while the
+ * city has no tax office, one costs at most what the treasury holds, so a
+ * town that has run dry, or cleared its only office, can always get taxes
+ * coming in again.
+ */
+export function priceOf(s: SimState, kind: BuildingKind): number {
+  const c = COST[kind];
+  return kind === 'taxoffice' && !hasTaxOffice(s) ? Math.min(c, Math.max(0, s.money)) : c;
 }
 
 /** Is a building a workplace (one that has jobs, so pays wages)? */
