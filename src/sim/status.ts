@@ -438,7 +438,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // Homes warning about bread: the stalls already run short between harvests.
   let hungry = 0;
   if (farms.length > 0 && bal.grown < bal.eaten * BREAD_SPARE) for (const b of s.buildings) if (b.kind === 'home' && warningsOf(s, b).some((w) => w.need === 'food')) hungry++;
-  const already = hungry ? ` ${hungry === 1 ? 'A home is' : `${fmt(hungry)} homes are`} already going without between harvests.` : '';
+  const already = hungry ? ` ${hungry === 1 ? 'A home is' : `${fmt(hungry)} homes are`} already going without.` : '';
   if (farms.length > 0 && hungry > 0 && bal.eaten <= bal.grown && !farms.some((f) => rateOf(f) < 1)) {
     // Enough on paper, but too little to spare: say so, and how many farms would give the tenth more.
     const more = Math.max(1, Math.ceil((bal.eaten * BREAD_SPARE - bal.grown) / bal.perFarm));
@@ -446,7 +446,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
     const granary = s.buildings.find((g) => g.kind === 'granary');
     out.push({
       need: 'food',
-      text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}, too little to spare.${already} ${n} would keep it fed.`,
+      text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}, too little to spare.${already.replace(/\.$/, ' between harvests.')} ${n} would keep it fed.`,
       at: granary?.id ?? farms[0].id,
     });
   } else if (bal.eaten > bal.grown && (farms.length > 0 || agora) && (farms.length === 0 || runsOut < BREAD_LEAD_MONTHS || hungry > 0)) {
@@ -464,13 +464,13 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
             : ' At this rate the granaries and stalls run empty within a month or so.';
       const granary = s.buildings.find((g) => g.kind === 'granary');
       const why = slow && roadsBeside(s, map.size, slow).length === 0 ? 'a farm has no road beside it, so nobody can work it' : `a farm is short of workers (${slow?.workers} of ${JOBS.farm})`;
-      if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; ${why}.${already}${stores}`, at: slow.id });
+      if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; ${why}.${stores}${already}`, at: slow.id });
       else if (roundTen(bal.grown) === roundTen(bal.eaten)) {
         // Rounded, the two would read the same: say which way it tips.
-        out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${already}${stores}`, at: granary?.id ?? farms[0].id });
+        out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${stores}${already}`, at: granary?.id ?? farms[0].id });
       } else {
         const words = balanceWords(bal).replace(/; (another farm|\w+ more farms) would feed it$/, (_, n: string) => `. ${n[0].toUpperCase()}${n.slice(1)} would keep it fed.`);
-        out.push({ need: 'food', text: `Bread: ${words}${already}${stores}`, at: granary?.id ?? farms[0].id });
+        out.push({ need: 'food', text: `Bread: ${words}${stores}${already}`, at: granary?.id ?? farms[0].id });
       }
     }
   }
