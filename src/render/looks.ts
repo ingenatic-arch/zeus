@@ -243,8 +243,9 @@ export class Look {
 /**
  * The walkers' and animals' merged meshes. Every instance runs as many
  * vertices as the biggest look in its mesh, so the many small looks (people
- * on foot, about 450 to 1,100 vertices) go in one, and the few big ones (ox
- * carts, hunters with a kill, the animals: up to about 2,000) in the other.
+ * on foot, porters with their handcarts, and the animals: up to about 1,600
+ * vertices) go in one, and the few big ones (ox carts, hunters with a kill: up
+ * to about 3,100) in the other.
  */
 export class FolkLooks {
   readonly group = new THREE.Group();

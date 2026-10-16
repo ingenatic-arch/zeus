@@ -106,11 +106,11 @@ export class Animals {
     folk: FolkLooks,
   ) {
     this.group.name = 'animals';
-    // A few dozen animals in all, spread over the hills: drawn with the carts in the folk's big merged mesh (see looks.ts).
-    this.stags = folk.big.look(deer(true));
-    this.hinds = folk.big.look(deer(false));
-    this.boars = folk.big.look(boar());
-    this.goats = folk.big.look(goat());
+    // A few dozen animals in all, spread over the hills: drawn with the people on foot in the folk's merged mesh (see looks.ts): their looks are no bigger than a vendor's, so they cost no padding there.
+    this.stags = folk.people.look(deer(true));
+    this.hinds = folk.people.look(deer(false));
+    this.boars = folk.people.look(boar());
+    this.goats = folk.people.look(goat());
     this.ground = mapIndex(map).ground;
   }
 
