@@ -332,6 +332,9 @@ describe('the demo towns and money', () => {
     expect(moneyLine(dry)?.need).toBe('money');
     const taxes = demo('taxes').state;
     expect(taxes.buildings.filter((b) => b.kind === 'taxoffice').length).toBe(2);
+    // The east street's homes: no collector has called in two months, so the tax overlay posts them.
+    const missed = homes(taxes).filter((b) => b.x >= 88 && (b.taxedAt === 0 || taxes.tick - b.taxedAt >= 2 * TICKS_PER_MONTH));
+    expect(missed.length).toBeGreaterThanOrEqual(10);
   });
 });
 

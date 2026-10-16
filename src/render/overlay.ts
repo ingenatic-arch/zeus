@@ -187,8 +187,15 @@ export class ServiceOverlay {
         const left = mode.until(b) - s.tick;
         const k = left > 0 ? Math.min(1, left / mode.lasts) : 0;
         code = left > 0 ? WATER_HOME + Math.round(39 * k) : WATER_DRY;
+        // A home a collector called on a month or two ago is only due again (his round takes about forty days):
+        // untinted, and no post, so the posts mark the homes no collector's round reaches.
+        if (service === 'tax' && left <= 0 && b.taxedAt > 0 && s.tick - b.taxedAt < 2 * TICKS_PER_MONTH) {
+          const side = sideOf(b.kind);
+          for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+          continue;
+        }
         // A post only over homes without, or with less than a month left: the ground's tint shows the rest.
-        // (Taxes last a month at most, so the tax overlay posts only the homes the collector hasn't called on.)
+        // (Taxes last a month at most, so the tax overlay posts only the homes no collector has called on in two months.)
         if (left >= TICKS_PER_MONTH || (service === 'tax' && left > 0)) {
           const side = sideOf(b.kind);
           for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;

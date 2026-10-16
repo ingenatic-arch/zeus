@@ -367,12 +367,13 @@ function town(ticks: number): (sim: Sim) => void {
  * unpaid at some workplaces (which work at half pace) and the money line says
  * so. #taxes: the east street's tax office cleared as the town opens, so the
  * tax overlay shows the street (and the hamlet on the west bank) that no
- * collector reaches, a month on so the street's last visits have lapsed.
+ * collector reaches, two months on so the street's last visits have lapsed
+ * (the overlay posts homes no collector has called on in two months).
  */
 const HARSH_FOR = 450;
 const DRY_AFTER = 50;
 const DRY_WAIT = 12000;
-const TAXES_AFTER = 310;
+const TAXES_AFTER = 620;
 
 function harshTown(sim: Sim): void {
   town(TOWN_TICKS)(sim);
@@ -395,7 +396,7 @@ function taxesTown(sim: Sim): void {
   town(TOWN_TICKS)(sim);
   sim.enqueue({ type: 'clear', x0: EAST_OFFICE.x, z0: EAST_OFFICE.z, x1: EAST_OFFICE.x, z1: EAST_OFFICE.z });
   sim.flush();
-  // A month on, so the street's last visit from its own collector has lapsed.
+  // Two months on, so the street's last visit from its own collector has lapsed.
   sim.run(TAXES_AFTER);
 }
 
