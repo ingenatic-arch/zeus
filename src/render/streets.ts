@@ -227,7 +227,8 @@ export class Streets {
   ): void {
     const map = this.map;
     const S = 3;
-    const steps = 24;
+    // The lodge's and the dairy's grounds are plain (a worn patch, a pen and a yard): a coarser grid will do.
+    const steps = b.kind === 'lodge' || b.kind === 'dairy' ? 12 : 24;
     const inset = 0.04;
     const cx = b.x + S / 2;
     const cz = b.z + S / 2;

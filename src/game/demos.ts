@@ -5,6 +5,7 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
+import { COTTAGE } from '../sim/buildings';
 import { warningOf } from '../sim/folk';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
@@ -315,6 +316,28 @@ function growTown(ticks: number): (sim: Sim) => void {
  * months on the herds are down to their last few head and the lodges send
  * fewer hunters; the herds grow back if lodges are cleared.
  */
+/**
+ * #table: the food town gets a shrine (its cottages are blessed but have only
+ * bread, so they stay cottages), then a dairy by the lane two months later;
+ * the scene opens as its first cheese reaches the stall, a few days before
+ * the cottages nearest the agora climb to townhouses.
+ */
+const TABLE_DAIRY = FOOD_TICKS + 600;
+const TABLE_TICKS = FOOD_TICKS + 1270;
+function tableTown(ticks: number): (sim: Sim) => void {
+  return foodTown(ticks, 400, 200, {
+    then: (at) => {
+      at(FOOD_TICKS, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
+      at(TABLE_DAIRY, { type: 'build', kind: 'dairy', at: [T(LANE_DAIRY.x, LANE_DAIRY.z)] });
+    },
+  });
+}
+/** The blessed cottage with only bread nearest the agora's north corner: the first to climb once cheese reaches it. */
+function aboutToClimb(s: SimState): number {
+  const ready = homes(s).filter((b) => b.level === COTTAGE && b.religionUntil > s.tick && b.cheeseUntil <= s.tick);
+  return nearest(s, 28, 69, ready.length ? ready : homes(s));
+}
+
 const OVERHUNT_AT = FOOD_TICKS - 300;
 const OVERHUNT_TICKS = FOOD_TICKS + 600;
 function overhuntTown(ticks: number): (sim: Sim) => void {
@@ -459,11 +482,6 @@ function taxesTown(sim: Sim): void {
   sim.run(TAXES_AFTER);
 }
 
-/** A cottage or townhouse with two kinds of food on its table, nearest the middle of the town (else the nearest home). */
-function varied(s: SimState): number {
-  const two = homes(s).filter((b) => (b.foodUntil > s.tick ? 1 : 0) + (b.meatUntil > s.tick ? 1 : 0) + (b.cheeseUntil > s.tick ? 1 : 0) >= 2);
-  return nearest(s, 28, 74, two.length ? two : homes(s));
-}
 
 /** The household that sent someone away for the taxes most recently, else the unhappiest. */
 function drivenOut(s: SimState): number {
@@ -511,6 +529,6 @@ export const DEMOS: Record<string, Demo> = {
   collector: { view: 'collector', setup: town(TOWN_TICKS), follow: 'tax', overlay: 'tax', overlayOn: true },
   hunter: { view: 'hunter', setup: town(TOWN_TICKS), follow: 'hunter', overlay: 'food' },
   dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
-  table: { view: 'table', setup: cultureTown(SHRINE_TICKS + 150, false), overlay: 'variety', overlayOn: true, open: (s) => varied(s) },
+  table: { view: 'table', setup: tableTown(TABLE_TICKS), overlay: 'variety', overlayOn: true, open: aboutToClimb },
   overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
 };

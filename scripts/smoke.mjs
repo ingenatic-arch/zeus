@@ -696,11 +696,12 @@ await page.mouse.move(p.x + 1, p.y + 1);
 await frames(2);
 const dt = await tip();
 if (!/^A dairy · [\d,]+ of [\d,]+ measures of cheese/.test(dt ?? '')) fail(`hovering the dairy: ${dt}`);
-// #table: the food variety overlay and its legend; homes with two foods or more.
+// #table: the food variety overlay and its legend; the panel open on a blessed cottage with only bread, saying it wants cheese.
 await open('#table-paused');
 c = await city();
 const legendText = await zeus(() => (document.querySelector('.legend')?.hidden ? '' : document.querySelector('.legend')?.textContent ?? ''));
-if (!(c.overlayMode === 'variety' && c.varied > 0 && /On the table/.test(legendText))) fail(`#table: ${legendText} ${JSON.stringify(c)}`);
+pt = await panelText();
+if (!(c.overlayMode === 'variety' && c.dairies === 1 && c.panel > 0 && /On the table/.test(legendText) && /two kinds of food[\s\S]*cheese/.test(pt ?? ''))) fail(`#table: ${legendText} ${pt} ${JSON.stringify(c)}`);
 // L cycles the food overlay, then the variety overlay, then off.
 const ls = [];
 for (let i = 0; i < 3; i++) {

@@ -581,6 +581,8 @@ export class Works {
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
   private rising = new Map<number, number>();
+  /** The ground under each lodge's and dairy's yard pieces, by building (see fill). */
+  private pieceGround = new Map<number, { yaw: number; x: number; z: number; y: Map<Placed, number> }>();
   private state: SimState | null = null;
   private lastState: SimState | null = null;
   private time = 0;
@@ -610,14 +612,16 @@ export class Works {
     this.dairies = new ChunkedInstances('dairy', dairyModel(), mat, HOME_CHUNK, opts);
     this.hams = new ChunkedInstances('hams', ham(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
     this.cheeses = new ChunkedInstances('cheeses', cheeseWheel(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
+    // The low, small pieces cast no shadow worth its draw.
+    const low = { castShadow: false, receiveShadow: true, colors: false };
     this.pieces = {
       panel: new ChunkedInstances('dairy-fence', wattlePanel(), mat, HOME_CHUNK, opts),
       shed: new ChunkedInstances('goat-shed', goatShed(), mat, HOME_CHUNK, opts),
       hayrack: new ChunkedInstances('hay-rack', hayRack(), mat, HOME_CHUNK, opts),
-      trough: new ChunkedInstances('trough', trough(), mat, HOME_CHUNK, opts),
+      trough: new ChunkedInstances('trough', trough(), mat, HOME_CHUNK, low),
       rack: new ChunkedInstances('drying-rack', dryingRack(), mat, HOME_CHUNK, opts),
-      hide: new ChunkedInstances('hide', hideFrame(), mat, HOME_CHUNK, opts),
-      firepit: new ChunkedInstances('fire-pit', firePit(), mat, HOME_CHUNK, opts),
+      hide: new ChunkedInstances('hide', hideFrame(), mat, HOME_CHUNK, low),
+      firepit: new ChunkedInstances('fire-pit', firePit(), mat, HOME_CHUNK, low),
     };
     this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.theatres, this.wheat, this.stooks, this.sacks, this.loaves, this.lodges, this.dairies, this.hams, this.cheeses, ...Object.values(this.pieces)];
     for (const c of this.all) this.group.add(c.group);
@@ -677,7 +681,11 @@ export class Works {
         if (animate && !was) this.rising.set(b.id, time);
       }
     }
-    for (const [id, was] of this.seen) if (!now.has(id)) dirty.add(was.key);
+    for (const [id, was] of this.seen) {
+      if (now.has(id)) continue;
+      dirty.add(was.key);
+      this.pieceGround.delete(id);
+    }
     for (const [id, t0] of this.rising) {
       if (time - t0 > RISE_SECONDS) this.rising.delete(id);
       const at = now.get(id);
@@ -775,9 +783,20 @@ export class Works {
     this.lodges.set(kx, kz, lodges.length, (i, m) => whole(lodges[i], m));
     this.dairies.set(kx, kz, dairies.length, (i, m) => whole(dairies[i], m));
     // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
+    // (Kept from fill to fill while the building stands and faces the same way: the ground doesn't change.)
     const pieceBase = (b: Building, pl: Placed): number => {
       const f = frame(b);
-      return lowest(f.x, f.z, f.yaw, pl.lx, pl.lz, pl.r, pl.r) + 0.01;
+      let got = this.pieceGround.get(b.id);
+      if (!got || got.yaw !== f.yaw || got.x !== f.x || got.z !== f.z) {
+        got = { yaw: f.yaw, x: f.x, z: f.z, y: new Map() };
+        this.pieceGround.set(b.id, got);
+      }
+      let y = got.y.get(pl);
+      if (y === undefined) {
+        y = lowest(f.x, f.z, f.yaw, pl.lx, pl.lz, pl.r, pl.r) + 0.01;
+        got.y.set(pl, y);
+      }
+      return y;
     };
     const placed = new Map<Piece, Array<{ b: Building; pl: Placed }>>();
     for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES]] as Array<[Building[], Placed[]]>) {
