@@ -458,10 +458,11 @@ export class Walkers {
       new ChunkedInstances('walkers-porter-loaded', porter('wheat'), mat, WALKER_CHUNK, opts),
       new ChunkedInstances('walkers-porter-mixed', porter('mixed'), mat, WALKER_CHUNK, opts),
     ];
+    // Hunters are few and roam the whole map across country: one batch each, not one per chunk they wander into.
     this.hunters = [
-      new ChunkedInstances('walkers-hunter', hunter('none'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-hunter-deer', hunter('deer'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-hunter-boar', hunter('boar'), mat, WALKER_CHUNK, opts),
+      new ChunkedInstances('walkers-hunter', hunter('none'), mat, map.size, opts),
+      new ChunkedInstances('walkers-hunter-deer', hunter('deer'), mat, map.size, opts),
+      new ChunkedInstances('walkers-hunter-boar', hunter('boar'), mat, map.size, opts),
     ];
     this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
     for (const k of this.all) this.group.add(k.group);

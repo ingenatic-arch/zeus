@@ -6,7 +6,7 @@ import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { theatreModel } from './grand';
-import { amphora, cyl, facingOf, HOME_CHUNK, prism, stoneWall, windowX, woodpile } from './homes';
+import { amphora, cyl, facingOf, HOME_CHUNK, MergedChunks, prism, stoneWall, windowX, woodpile, type MergedItem } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -562,21 +562,20 @@ const GROWTH_STEPS = 16;
  */
 export class Works {
   readonly group = new THREE.Group();
-  private readonly farms: ChunkedInstances;
-  private readonly granaries: ChunkedInstances;
-  private readonly agoras: ChunkedInstances;
-  private readonly awnings: ChunkedInstances;
-  private readonly theatres: ChunkedInstances;
+  /**
+   * The buildings themselves (farm, granary, agora and its awning, theatre,
+   * lodge and dairy) and the lodges' and dairies' yard pieces, merged into
+   * one mesh per chunk: one draw (and one shadow draw) however many kinds it
+   * holds. Rebuilt only when one of them is placed, cleared, turned or rising.
+   */
+  private readonly merged: MergedChunks;
+  private readonly models: Record<'farm' | 'granary' | 'agora' | 'awning' | 'theatre' | 'lodge' | 'dairy' | Piece, THREE.BufferGeometry>;
   private readonly wheat: ChunkedInstances;
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
   private readonly loaves: ChunkedInstances;
-  private readonly lodges: ChunkedInstances;
-  private readonly dairies: ChunkedInstances;
   private readonly hams: ChunkedInstances;
   private readonly cheeses: ChunkedInstances;
-  /** The lodges' and dairies' yard pieces, each standing on its own ground. */
-  private readonly pieces: Record<Piece, ChunkedInstances>;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -597,38 +596,39 @@ export class Works {
     this.group.name = 'works';
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
     const opts = { castShadow: true, receiveShadow: true, colors: false };
-    this.farms = new ChunkedInstances('farm', farmModel(), mat, HOME_CHUNK, opts);
-    this.granaries = new ChunkedInstances('granary', granaryModel(), mat, HOME_CHUNK, opts);
+    this.merged = new MergedChunks(this.group, mat, 'works-merged');
     const a = agoraModel();
-    this.agoras = new ChunkedInstances('agora', a.stone, mat, HOME_CHUNK, opts);
-    this.awnings = new ChunkedInstances('agora-awning', a.awning, mat, HOME_CHUNK, opts);
-    this.theatres = new ChunkedInstances('theatre', theatreModel(), mat, HOME_CHUNK, opts);
+    this.models = {
+      farm: farmModel(),
+      granary: granaryModel(),
+      agora: a.stone,
+      awning: a.awning,
+      theatre: theatreModel(),
+      lodge: lodgeModel(),
+      dairy: dairyModel(),
+      panel: wattlePanel(),
+      shed: goatShed(),
+      hayrack: hayRack(),
+      trough: trough(),
+      rack: dryingRack(),
+      hide: hideFrame(),
+      firepit: firePit(),
+    };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
     this.stooks = new ChunkedInstances('stooks', stook(), mat, HOME_CHUNK, opts);
     this.sacks = new ChunkedInstances('sacks', sack(), mat, HOME_CHUNK, opts);
     this.loaves = new ChunkedInstances('loaves', loaf(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
-    this.lodges = new ChunkedInstances('lodge', lodgeModel(), mat, HOME_CHUNK, opts);
-    this.dairies = new ChunkedInstances('dairy', dairyModel(), mat, HOME_CHUNK, opts);
-    this.hams = new ChunkedInstances('hams', ham(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
-    this.cheeses = new ChunkedInstances('cheeses', cheeseWheel(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
-    // The low, small pieces cast no shadow worth its draw.
-    const low = { castShadow: false, receiveShadow: true, colors: false };
-    this.pieces = {
-      panel: new ChunkedInstances('dairy-fence', wattlePanel(), mat, HOME_CHUNK, opts),
-      shed: new ChunkedInstances('goat-shed', goatShed(), mat, HOME_CHUNK, opts),
-      hayrack: new ChunkedInstances('hay-rack', hayRack(), mat, HOME_CHUNK, opts),
-      trough: new ChunkedInstances('trough', trough(), mat, HOME_CHUNK, low),
-      rack: new ChunkedInstances('drying-rack', dryingRack(), mat, HOME_CHUNK, opts),
-      hide: new ChunkedInstances('hide', hideFrame(), mat, HOME_CHUNK, low),
-      firepit: new ChunkedInstances('fire-pit', firePit(), mat, HOME_CHUNK, low),
-    };
-    this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.theatres, this.wheat, this.stooks, this.sacks, this.loaves, this.lodges, this.dairies, this.hams, this.cheeses, ...Object.values(this.pieces)];
+    // Hams and cheeses are few and far between (a lodge, a dairy, the granaries and stalls): one batch each for the whole map.
+    const ALL = map.size;
+    this.hams = new ChunkedInstances('hams', ham(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
+    this.cheeses = new ChunkedInstances('cheeses', cheeseWheel(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
+    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses];
     for (const c of this.all) this.group.add(c.group);
   }
 
   private key(b: Building): number {
-    return this.farms.key(b.x + 1.5, b.z + 1.5);
+    return this.wheat.key(b.x + 1.5, b.z + 1.5);
   }
 
   /** What a building looks like now: its facing and the state of its crop or stock. */
@@ -694,7 +694,35 @@ export class Works {
     this.seen = now;
     this.byChunk = next;
     for (const k of dirty) this.fill(k);
+    if (dirty.size) {
+      this.flush(this.hams, this.hamsBy);
+      this.flush(this.cheeses, this.cheesesBy);
+    }
     this.lastRefilled = dirty.size;
+  }
+
+  /** Hams and cheeses placed by each chunk's last fill, drawn in one batch each for the whole map. */
+  private hamsBy = new Map<number, THREE.Matrix4[]>();
+  private cheesesBy = new Map<number, THREE.Matrix4[]>();
+
+  private collect(into: Map<number, THREE.Matrix4[]>, key: number, n: number, write: (i: number, m: THREE.Matrix4) => void): void {
+    if (n === 0) {
+      into.delete(key);
+      return;
+    }
+    const out: THREE.Matrix4[] = [];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Matrix4();
+      write(i, m);
+      out.push(m);
+    }
+    into.set(key, out);
+  }
+
+  private flush(inst: ChunkedInstances, from: Map<number, THREE.Matrix4[]>): void {
+    const all: THREE.Matrix4[] = [];
+    for (const ms of from.values()) for (const m of ms) all.push(m);
+    inst.set(0, 0, all.length, (i, m) => void m.copy(all[i]));
   }
 
   private fill(key: number): void {
@@ -708,7 +736,6 @@ export class Works {
     const farms = list.filter((b) => b.kind === 'farm');
     const granaries = list.filter((b) => b.kind === 'granary');
     const agoras = list.filter((b) => b.kind === 'agora');
-    const theatres = list.filter((b) => b.kind === 'theatre');
     const lodges = list.filter((b) => b.kind === 'lodge');
     const dairies = list.filter((b) => b.kind === 'dairy');
     const q = new THREE.Quaternion();
@@ -775,13 +802,18 @@ export class Works {
       sc.set(s3[0], s3[1] * f.k, s3[2]);
       m.compose(p, q, sc);
     };
-    this.farms.set(kx, kz, farms.length, (i, m) => whole(farms[i], m));
-    this.granaries.set(kx, kz, granaries.length, (i, m) => whole(granaries[i], m));
-    this.agoras.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
-    this.awnings.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
-    this.theatres.set(kx, kz, theatres.length, (i, m) => whole(theatres[i], m));
-    this.lodges.set(kx, kz, lodges.length, (i, m) => whole(lodges[i], m));
-    this.dairies.set(kx, kz, dairies.length, (i, m) => whole(dairies[i], m));
+    // The buildings and their yard pieces, merged (keyed by where each stands and how far it has risen).
+    const items: MergedItem[] = [];
+    const add = (b: Building, model: keyof Works['models'], m: THREE.Matrix4, tag: string): void => {
+      const f = frame(b);
+      items.push({ key: `${b.id}:${tag}:${f.yaw.toFixed(3)}:${f.k.toFixed(3)}`, geo: this.models[model], m });
+    };
+    for (const b of list) {
+      const m = new THREE.Matrix4();
+      whole(b, m);
+      add(b, b.kind as WorkKind, m, b.kind);
+      if (b.kind === 'agora') add(b, 'awning', m, 'awning');
+    }
     // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
     // (Kept from fill to fill while the building stands and faces the same way: the ground doesn't change.)
     const pieceBase = (b: Building, pl: Placed): number => {
@@ -808,13 +840,14 @@ export class Works {
         }
       }
     }
-    for (const [name, inst] of Object.entries(this.pieces) as Array<[Piece, ChunkedInstances]>) {
-      const at = placed.get(name) ?? [];
-      inst.set(kx, kz, at.length, (n, m) => {
-        const { b, pl } = at[n];
+    for (const [name, at] of placed) {
+      at.forEach(({ b, pl }, n) => {
+        const m = new THREE.Matrix4();
         part(b, m, pl.lx, pl.lz, pl.yaw, [pl.len, 1, 1], pieceBase(b, pl));
+        add(b, name, m, `${name}${n}`);
       });
     }
+    this.merged.set(key, items);
 
     // The wheat: six rows across the field behind the yard, as tall and as golden as the crop is grown.
     const ROWS = 6;
@@ -877,7 +910,7 @@ export class Works {
     for (const b of lodges) for (let i = 0; i < shown(b.meat, LODGE_STORE, RACK); i++) hams.push({ b, i });
     for (const b of granaries) for (let i = 0; i < shown(b.meat, GRANARY_ROOM[1], STORE_HAMS); i++) hams.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.meat, STALL_FULL_MEAT, STALL_HAMS); i++) hams.push({ b, i });
-    this.hams.set(kx, kz, hams.length, (n, m) => {
+    this.collect(this.hamsBy, key, hams.length, (n, m) => {
       const { b, i } = hams[n];
       if (b.kind === 'lodge') {
         // Two to a side of each frame's middle, hanging from the pole (0.58 up), swaying a little each.
@@ -900,7 +933,7 @@ export class Works {
     for (const b of dairies) for (let i = 0; i < shown(b.cheese, DAIRY_STORE, BENCH); i++) cheeses.push({ b, i });
     for (const b of granaries) for (let i = 0; i < shown(b.cheese, GRANARY_ROOM[2], STORE_CHEESES); i++) cheeses.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES); i++) cheeses.push({ b, i });
-    this.cheeses.set(kx, kz, cheeses.length, (n, m) => {
+    this.collect(this.cheesesBy, key, cheeses.length, (n, m) => {
       const { b, i } = cheeses[n];
       if (b.kind === 'dairy') {
         const top = i >= 6;

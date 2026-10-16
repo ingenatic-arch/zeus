@@ -451,7 +451,7 @@ interface MergedPart {
 }
 
 /** What goes into a chunk's merged mesh: a model, where it stands, and a key that changes whenever either would. */
-interface MergedItem {
+export interface MergedItem {
   key: string;
   geo: THREE.BufferGeometry;
   m: THREE.Matrix4;
@@ -465,9 +465,11 @@ interface MergedItem {
  * copies the rest (placing every vertex of a chunk of fine houses again took
  * close to 20 ms, a visible hitch, each time one home changed look).
  */
-class MergedChunks {
+export class MergedChunks {
   private readonly meshes = new Map<number, THREE.Mesh>();
   private readonly parts = new Map<number, Map<string, MergedPart>>();
+  /** Each chunk's items' keys as last built, so a refill that changes nothing in it costs nothing. */
+  private readonly built = new Map<number, string>();
   private readonly nm = new THREE.Matrix3();
   /** Vertices written by the last rebuild, and how many of them had to be placed afresh (for measuring). */
   lastVertices = 0;
@@ -476,6 +478,7 @@ class MergedChunks {
   constructor(
     private readonly group: THREE.Group,
     private readonly material: THREE.Material,
+    private readonly name = 'homes-merged',
   ) {}
 
   /** A model's vertices placed by a matrix. */
@@ -521,6 +524,9 @@ class MergedChunks {
   }
 
   set(key: number, items: ReadonlyArray<MergedItem>): void {
+    const sig = items.map((it) => it.key).join('|');
+    if (this.built.get(key) === sig) return;
+    this.built.set(key, sig);
     const was = this.parts.get(key);
     const now = new Map<string, MergedPart>();
     const order: MergedPart[] = [];
@@ -570,7 +576,7 @@ class MergedChunks {
       mesh.geometry = g;
     } else {
       mesh = new THREE.Mesh(g, this.material);
-      mesh.name = `homes-merged-${key}`;
+      mesh.name = `${this.name}-${key}`;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.meshes.set(key, mesh);
