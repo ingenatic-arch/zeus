@@ -19,6 +19,15 @@
  * home's panel says what it lacks from the start. The wild herds start whole
  * where they live, with their own generator.
  *
+ * Version 8 to 9 (slice 10, olives and oil): every building gets empty
+ * stores of goods (`goods`, `goodsIn`), every home no oil yet
+ * (`goodsUntil`), no agora has stalls, and the oil vendor's round record
+ * starts empty. Townhouses now need oil, so every home's grace is at least
+ * eight months after loading (GRACE_OIL): time to plant a grove, build a
+ * press, a storehouse and an oil stall, and for the first oil to go round
+ * (a grove's first olives take two months to ripen). Food keeps the grace it
+ * had, if longer.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -26,6 +35,7 @@
 import { coastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { TICKS_PER_MONTH } from './clock';
+import { GOOD_COUNT } from './foods';
 import { SIM_STATE_VERSION, type SimState } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
@@ -33,6 +43,9 @@ import { freshHerds, wildRng } from './wild';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
+
+/** How long after loading a slice-9 save its homes' oil (and food) can first count as missing (see the version 8 to 9 notes). */
+export const GRACE_OIL = 8 * TICKS_PER_MONTH;
 
 /** The oldest state version this game can bring up to date. */
 export const OLDEST_READABLE = 6;
@@ -50,6 +63,7 @@ export function migrate(st: unknown): number {
   if (from >= SIM_STATE_VERSION || from < OLDEST_READABLE) return 0;
   if (from === 6) from6(st);
   if (st.version === 7) from7(st);
+  if (st.version === 8) from8(st);
   return from;
 }
 
@@ -102,4 +116,26 @@ function from7(st: Record<string, unknown>): void {
   const n = MAP_SIZE * MAP_SIZE;
   st.herds = Array.isArray(st.tiles) && st.tiles.length === n ? freshHerds(coastMap(), st as unknown as SimState) : [];
   st.version = 8;
+}
+
+function from8(st: Record<string, unknown>): void {
+  const tick = typeof st.tick === 'number' ? st.tick : 0;
+  const none = (): number[] => new Array<number>(GOOD_COUNT).fill(0);
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings) {
+      if (!isObj(b)) continue;
+      b.goods = none();
+      b.goodsIn = none();
+      b.goodsUntil = none();
+      b.stalls = 0;
+      b.vclock = none();
+      b.fetch = 0;
+      if (b.kind === 'home') b.grace = Math.max(typeof b.grace === 'number' ? b.grace : 0, tick + GRACE_OIL);
+    }
+  }
+  if (isObj(st.rounds)) {
+    const n = MAP_SIZE * MAP_SIZE;
+    st.rounds.oil = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+  }
+  st.version = 9;
 }

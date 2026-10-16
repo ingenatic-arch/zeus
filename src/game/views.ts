@@ -79,6 +79,16 @@ export const VIEWS: Record<string, CameraView> = {
   table: { x: 30, z: 73, yaw: 0.6, dist: 28, tilt: -0.14 },
   // The three lodges up the lane and the deer below the crags they hunt.
   overhunt: { x: 21, z: 47, yaw: 0.9, dist: 24, tilt: -0.1 },
+  // The dry slope by the lane, west of the farm road, ready for an olive grove; the blessed cottages beyond.
+  grove: { x: 26, z: 60, yaw: 0.9, dist: 22, tilt: -0.05 },
+  // #town's olive groves and press on the slope north of the core, carts on the road down.
+  oil: { x: 86, z: 26, yaw: 2.6, dist: 16, tilt: 0.15 },
+  // Close over #town's storehouse, its jars in the yard.
+  storehouse: { x: 88.5, z: 28.5, yaw: 2.3, dist: 8, tilt: 0.25 },
+  // Street level by #town's agora (the camera then follows the oil vendor).
+  oilvendor: { x: 66.5, z: 41, yaw: 0.9, dist: 11, tilt: 0.3 },
+  // The fine-house district after its press and storehouse were cleared, the oil overlay on.
+  nooil: { x: 27, z: 70, yaw: 0.6, dist: 30, tilt: -0.14 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

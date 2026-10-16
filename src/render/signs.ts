@@ -111,6 +111,34 @@ function templeGeometry(): THREE.BufferGeometry {
   return mergeFlat(parts);
 }
 
+/** A jar of oil, olive green: a round body, a neck and lip, two little handles. */
+function jarGeometry(): THREE.BufferGeometry {
+  const j = new THREE.Shape();
+  j.moveTo(-0.14, 0.62);
+  j.lineTo(0.14, 0.62);
+  j.lineTo(0.12, 0.38);
+  j.bezierCurveTo(0.6, 0.3, 0.6, -0.4, 0.2, -0.62);
+  j.lineTo(-0.2, -0.62);
+  j.bezierCurveTo(-0.6, -0.4, -0.6, 0.3, -0.12, 0.38);
+  j.closePath();
+  const lip = new THREE.Shape().moveTo(-0.22, 0.56).lineTo(0.22, 0.56).lineTo(0.22, 0.66).lineTo(-0.22, 0.66).closePath();
+  const parts = [flat(j, '#6f8a22', 0.04, 10), flat(lip, '#56701a', 0.05)];
+  for (const sx of [-1, 1]) {
+    const h = new THREE.Shape();
+    h.moveTo(sx * 0.12, 0.5);
+    h.lineTo(sx * 0.36, 0.48);
+    h.lineTo(sx * 0.36, 0.24);
+    h.lineTo(sx * 0.28, 0.26);
+    h.lineTo(sx * 0.28, 0.4);
+    h.lineTo(sx * 0.12, 0.42);
+    h.closePath();
+    parts.push(flat(h, '#56701a', 0.035));
+  }
+  const shine = new THREE.Shape().absellipse(-0.2, 0.0, 0.07, 0.18, 0, Math.PI * 2, false, 0.3);
+  parts.push(flat(shine, '#c4d870', 0.05, 8));
+  return mergeFlat(parts);
+}
+
 /** A smiling theatre mask, rose, its eyes and mouth cut through to the sign's face. */
 function maskGeometry(): THREE.BufferGeometry {
   const m = new THREE.Shape();
@@ -163,25 +191,26 @@ function wideRim(l: number): THREE.BufferGeometry {
 /** Half the straight run of the wide signs, for three and for four icons. */
 const WIDE3 = 0.95;
 const WIDE4 = 1.42;
+const WIDE5 = 1.9;
 /** How high over the ground a sign floats, by the home's level (over its roof). */
 const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4];
 
 interface Sign {
   b: Building;
-  /** What it lacks, in the fixed order: water, bread, blessings, plays. */
+  /** What it lacks, in the fixed order: water, bread, blessings, oil, plays. */
   needs: Service[];
   /** 0 just warned … 1 about to drop a level; -1 for a need to grow (shown with the "what's missing" overlay). */
   urgency: number;
 }
 
-type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | Service;
-const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', culture: 'culture' };
+type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | 'rim5' | 'face5' | Service;
+const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', oil: 'oil', culture: 'culture' };
 
 /**
  * Signs over homes that lack what they need: a round cream sign with a water
- * drop, a loaf, a little temple (blessings) or a mask (plays), or two side by
- * side; three or four needs take a wider sign with the icons in a row, always
- * in the same order (water, bread, blessings, plays) so a glance reads the
+ * drop, a loaf, a little temple (blessings), a jar (oil) or a mask (plays), or
+ * two side by side; three to five needs take a wider sign with the icons in a
+ * row, always in the same order (water, bread, blessings, oil, plays) so a glance reads the
  * same way every time. The rim is orange-red when the warning starts and
  * deep red as the two months run out, pulsing in the last days. Warned homes
  * always show theirs; with the "what's missing" overlay on, homes that only
@@ -231,14 +260,17 @@ export class Signs {
       face3: make('sign-face-3', wideFace(WIDE3), false),
       rim4: make('sign-rim-4', wideRim(WIDE4), true),
       face4: make('sign-face-4', wideFace(WIDE4), false),
+      rim5: make('sign-rim-5', wideRim(WIDE5), true),
+      face5: make('sign-face-5', wideFace(WIDE5), false),
       water: make('sign-drop', dropGeometry(), false),
       food: make('sign-loaf', loafGeometry(), false),
       religion: make('sign-temple', templeGeometry(), false),
+      oil: make('sign-jar', jarGeometry(), false),
       culture: make('sign-mask', maskGeometry(), false),
     };
     const at = (x: number, k: number): THREE.Matrix4 => new THREE.Matrix4().makeTranslation(x, 0.02, 0).multiply(new THREE.Matrix4().makeScale(k, k, 1));
     const row = (l: number, n: number, k: number): THREE.Matrix4[] => Array.from({ length: n }, (_, i) => at(-l + (2 * l * i) / (n - 1), k));
-    this.slots = [[], [new THREE.Matrix4()], [at(-0.4, 0.67), at(0.42, 0.67)], row(WIDE3, 3, 0.7), row(WIDE4, 4, 0.7)];
+    this.slots = [[], [new THREE.Matrix4()], [at(-0.4, 0.67), at(0.42, 0.67)], row(WIDE3, 3, 0.7), row(WIDE4, 4, 0.7), row(WIDE5, 5, 0.7)];
   }
 
   /** Which homes have signs, worked out again a few times a second (or when the day changes). */
@@ -301,7 +333,7 @@ export class Signs {
       this.p.y += (k - SIZE) * 1.4;
       this.sc.set(k, k, k);
       this.m.compose(this.p, q, this.sc);
-      const shape = needs.length >= 4 ? '4' : needs.length === 3 ? '3' : '';
+      const shape = needs.length >= 5 ? '5' : needs.length === 4 ? '4' : needs.length === 3 ? '3' : '';
       if (shape) wide++;
       const rim = this.meshes[`rim${shape}` as MeshName];
       const face = this.meshes[`face${shape}` as MeshName];
@@ -309,7 +341,7 @@ export class Signs {
       counts[`face${shape}` as MeshName]++;
       rim.setMatrixAt(ri, this.m);
       face.setMatrixAt(ri, this.m);
-      const slots = this.slots[Math.min(4, needs.length)];
+      const slots = this.slots[Math.min(5, needs.length)];
       needs.forEach((need, j) => {
         const key = ICON_OF[need];
         this.meshes[key].setMatrixAt(counts[key]++, this.icon.copy(this.m).multiply(slots[j]));

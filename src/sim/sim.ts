@@ -5,9 +5,11 @@ import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } 
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
-import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepDairies, stepFarms, stepLodgeCarts } from './food';
-import { addComing, type Food } from './foods';
-import { moveHunter, stepLodges } from './hunt';
+import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras } from './food';
+import { addComing, FIRST_GOOD, gi, held, isGood, noGoods, setHeld, WARE_NAMES, type Ware } from './foods';
+import { FIRST_STALL_VENDOR, hasStall, moveOilVendor, stallBit, stallPrice, stallRefusal, STALL_GOODS, STALL_NAMES, stallWalker, stepStalls } from './goods';
+import { moveHunter } from './hunt';
+import { stepMakers } from './production';
 import { folkRng } from './folk';
 import { migrate } from './migrate';
 import { stepHouses } from './houses';
@@ -42,7 +44,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), culture: freshRecord(), tax: freshRecord() },
+    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), oil: freshRecord(), culture: freshRecord(), tax: freshRecord() },
     taxRate: FAIR,
     ledger: freshLedger(STARTING_MONEY, 0),
     buildings: [],
@@ -137,11 +139,8 @@ export class Sim {
     stepWild(s, map);
     stepWalkers(s, map);
     stepFountains(s, map);
-    stepFarms(s, map);
-    stepLodges(s, map);
-    stepLodgeCarts(s, map);
-    stepDairies(s, map);
-    stepAgoras(s, map);
+    stepMakers(s, map);
+    stepAgoras(s, map, stepStalls);
     stepCulture(s, map);
     stepTaxOffices(s, map);
     // Each look for a home sets how long until the next.
@@ -184,6 +183,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
         s.rev++;
       }
       break;
+    case 'stall':
+      record(s, addStall(s, map, c.at, c.good));
+      break;
     case 'clear':
       record(s, clearArea(s, map, c.x0, c.z0, c.x1, c.z1));
       break;
@@ -203,6 +205,9 @@ const emptyEntry = (): UndoEntry => ({
   removedStock: [],
   removedMeat: [],
   removedCheese: [],
+  removedGoods: [],
+  removedStalls: [],
+  stalls: [],
   trees: [],
   cost: 0,
   tick: 0,
@@ -210,7 +215,7 @@ const emptyEntry = (): UndoEntry => ({
 
 function record(s: SimState, e: UndoEntry): void {
   const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
-  if (tiles + e.trees.length === 0) return;
+  if (tiles + e.trees.length + (e.stalls?.length ?? 0) === 0) return;
   e.tick = s.tick;
   s.undo.push(e);
   if (s.undo.length > UNDO_DEPTH) s.undo.shift();
@@ -291,7 +296,7 @@ function spanOf(map: CoastMap, s: SimState, run: number[]): boolean {
   return false;
 }
 
-function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0): Building {
+function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0, goods: number[] = noGoods(), stalls = 0): Building {
   const b: Building = {
     id: s.nextId++,
     kind,
@@ -325,6 +330,12 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     meatUntil: 0,
     cheeseUntil: 0,
     grace: 0,
+    goods: goods.slice(),
+    goodsIn: noGoods(),
+    goodsUntil: noGoods(),
+    stalls,
+    vclock: noGoods().map((_, k) => (stalls & (1 << k) ? FIRST_STALL_VENDOR : 0)),
+    fetch: 0,
   };
   s.buildings.push(b);
   for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
@@ -368,7 +379,7 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
       if (w.origin !== b.id) return true;
       if (w.kind === 'cart' && !w.back) {
         const g = findBuilding(s, w.target);
-        if (g) addComing(g, w.food as Food, -w.load);
+        if (g) addComing(g, w.food, -w.load);
       }
       // A tax collector hands in what he has collected.
       if (w.purse.length) handIn(s, w);
@@ -418,10 +429,39 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedStock.push(b.stock);
     e.removedMeat?.push(b.meat);
     e.removedCheese?.push(b.cheese);
+    e.removedGoods?.push(b.goods.slice());
+    e.removedStalls?.push(b.stalls);
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
   return e;
+}
+
+/** Add a stall for a good to the agora covering a tile, for its price (see stallRefusal). */
+function addStall(s: SimState, map: CoastMap, at: number, good: Ware): UndoEntry {
+  const e = emptyEntry();
+  if (!Number.isInteger(at) || !Number.isInteger(good)) return e;
+  if (stallRefusal(s, map.size, at, good, spendable(s, 'agora')) !== '') return e;
+  const a = findBuilding(s, s.tiles[at]);
+  if (!a) return e;
+  const cost = stallPrice(good);
+  a.stalls |= stallBit(good);
+  a.vclock[gi(good)] = FIRST_STALL_VENDOR;
+  pay(s, -cost, 'building', STALL_NAMES[good] ?? 'stall');
+  e.cost = cost;
+  e.stalls = [a.id, good];
+  s.looks++;
+  return e;
+}
+
+/** Take a stall off an agora again (an undo): its vendor and porter go with it. */
+function removeStall(s: SimState, a: Building, good: Ware): void {
+  if (!hasStall(a, good)) return;
+  a.stalls &= ~stallBit(good);
+  setHeld(a, good, 0);
+  a.vclock[gi(good)] = 0;
+  s.walkers = s.walkers.filter((w) => !stallWalker(w, a, good));
+  s.looks++;
 }
 
 /**
@@ -439,6 +479,15 @@ export function undoRefusal(s: SimState): string {
     if (b.people > 0) return b.kind === 'home' ? 'A family has moved in: clear it instead' : 'Someone lives there now';
     if (b.stock > 0) return b.kind === 'farm' ? 'There is grain in its barn now: clear it instead' : 'There is grain stored in it now: clear it instead';
     if (b.meat > 0 || b.cheese > 0) return `There is ${b.meat > 0 ? 'meat' : 'cheese'} stored in it now: clear it instead`;
+    const k = b.goods.findIndex((n) => n > 0);
+    if (k >= 0) return `There ${k === 0 ? 'are' : 'is'} ${WARE_NAMES[k + FIRST_GOOD]} stored in it now: clear it instead`;
+  }
+  const st = e.stalls ?? [];
+  for (let i = 0; i + 1 < st.length; i += 2) {
+    const a = findBuilding(s, st[i]);
+    const good = st[i + 1];
+    if (!a || !isGood(good)) continue;
+    if (held(a, good) > 0 || s.walkers.some((w) => stallWalker(w, a, good) && w.kind === 'porter' && w.load > 0)) return `There is ${WARE_NAMES[good]} on the stall now: it stays`;
   }
   return '';
 }
@@ -455,6 +504,11 @@ function undoLast(s: SimState, map: CoastMap): void {
   const e = s.undo.pop();
   if (!e) return;
   const n = map.size;
+  const st = e.stalls ?? [];
+  for (let i = 0; i + 1 < st.length; i += 2) {
+    const a = findBuilding(s, st[i]);
+    if (a && STALL_GOODS.includes(st[i + 1])) removeStall(s, a, st[i + 1]);
+  }
   for (const id of e.plots) {
     const b = findBuilding(s, id);
     if (b) removeBuilding(s, map, b);
@@ -478,10 +532,18 @@ function undoLast(s: SimState, map: CoastMap): void {
     const kind = e.removedKinds[i] ?? 'home';
     // A granary, farm, lodge, dairy or agora comes back with the food it held.
     const keep = kind !== 'home';
-    if (buildingRefusal(map, s, kind, x, z) === '')
-      renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0).id);
+    if (buildingRefusal(map, s, kind, x, z) === '') {
+      const goods = keep ? (e.removedGoods?.[i] ?? noGoods()) : noGoods();
+      const stalls = kind === 'agora' ? (e.removedStalls?.[i] ?? 0) : 0;
+      renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls).id);
+    }
   }
-  if (renamed.size) for (const older of s.undo) older.plots = older.plots.map((id) => renamed.get(id) ?? id);
+  if (renamed.size) {
+    for (const older of s.undo) {
+      older.plots = older.plots.map((id) => renamed.get(id) ?? id);
+      if (older.stalls) older.stalls = older.stalls.map((v, k) => (k % 2 === 0 ? (renamed.get(v) ?? v) : v));
+    }
+  }
   // Plants grow back where nothing stands.
   if (e.trees.length) {
     const tiles = mapIndex(map).treeTiles;
@@ -502,6 +564,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
         ? moveCarrier(s, map, w)
         : w.kind === 'food'
           ? moveVendor(s, map, w)
+          : w.kind === 'oil'
+            ? moveOilVendor(s, map, w)
           : w.kind === 'priestess' || w.kind === 'actor'
             ? moveCulture(s, map, w)
             : w.kind === 'tax'

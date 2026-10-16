@@ -394,10 +394,14 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 7 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
       changed += ' · Townhouses now need two kinds of food and fine houses all three: build a hunting lodge (M M) near the game and a dairy (M M M) on green land. They have six months before they start to worry.';
     }
+    // …and one saved before oil (slice 9 or older), with townhouses or better.
+    if (loaded.from !== undefined && loaded.from <= 8 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
+      changed += ' · Townhouses now need oil: plant olive groves on the dry slopes (M ×4), build an olive press (M ×5), a storehouse (G G) and an oil stall on an agora (K K). They have eight months before they start to worry.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -501,7 +505,7 @@ function start(): void {
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -554,8 +558,8 @@ function start(): void {
         return true;
       }
       if (k === 'l') {
-        // L: the food overlay, then what is on the tables, then off.
-        overlay.wanted = overlay.wanted === 'food' ? 'variety' : overlay.wanted === 'variety' ? null : 'food';
+        // L: the food overlay, then what is on the tables, then oil, then off.
+        overlay.wanted = overlay.wanted === 'food' ? 'variety' : overlay.wanted === 'variety' ? 'oil' : overlay.wanted === 'oil' ? null : 'food';
         return true;
       }
       if (k === 'i') {
@@ -580,8 +584,11 @@ function start(): void {
       }
       let t = TOOL_KEYS[k];
       if (!t) return false;
-      // M again: the farm, then the hunting lodge, then the dairy.
-      if (k === 'm') t = tools.tool === 'farm' ? 'lodge' : tools.tool === 'lodge' ? 'dairy' : 'farm';
+      // M again: the farm, then the hunting lodge, the dairy, the olive grove and the olive press.
+      if (k === 'm') t = tools.tool === 'farm' ? 'lodge' : tools.tool === 'lodge' ? 'dairy' : tools.tool === 'dairy' ? 'grove' : tools.tool === 'grove' ? 'press' : 'farm';
+      // G again: the granary, then the storehouse; K again: the agora, then its oil stall.
+      if (k === 'g') t = tools.tool === 'granary' ? 'storehouse' : 'granary';
+      if (k === 'k') t = tools.tool === 'agora' ? 'stall' : 'agora';
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -596,7 +603,7 @@ function start(): void {
   if (demo?.follow) {
     const kind = demo.follow;
     const from: Building['kind'] =
-      kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
+      kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
     // Hunters: the one who set out last (not one already on his way home), so the camera goes out with him to the herd and back.

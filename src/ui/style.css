@@ -246,6 +246,11 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool.on .fill-meat { fill: #ffc9b0; stroke: #fff6e4; }
 .btn.tool.on .stroke-meat { stroke: #fff6e4; }
 .btn.tool.on .fill-cheese { fill: #fff0b8; stroke: #fff6e4; }
+.btn.tool .fill-olive { fill: #9fb46a; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .fill-oil { fill: #8aa83a; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool.on .fill-olive { fill: #dfeab8; stroke: #fff6e4; }
+.btn.tool.on .fill-oil { fill: #d6e690; stroke: #fff6e4; }
+.btn.tool.overlay.oil.on { background: #6f8a22; border-color: #56701a; }
 .btn.tool.overlay.variety.on { background: #b0663c; border-color: #8a4c2a; }
 .btn.tool.overlay.variety.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
 .btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }

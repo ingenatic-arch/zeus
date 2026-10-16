@@ -57,8 +57,10 @@ describe('#town', () => {
     // offices, the east street and the theatre later), the far ends of the one priestess's reach (the two
     // fine houses at the core's east end, and the first townhouses on the east street) go up to about
     // eleven days without her blessing a few times in two years: 98 warned home-days, none down a level.
-    // It is not the walkers' routing (unchanged); slice 7's history had 12.
-    expect(warnedDays).toBeLessThan(120);
+    // It is not the walkers' routing (unchanged); slice 7's history had 12. Since slice 10's history (three
+    // wheat farms, an oil chain up the slope from the north street's east end), the two homes at the core's far
+    // east end also run a few days past their water a few times (59 home-days): 141 in all, none down a level.
+    expect(warnedDays).toBeLessThan(160);
   });
 });
 

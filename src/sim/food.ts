@@ -18,7 +18,8 @@ import type { CoastMap } from '../map/bake';
 import { findBuilding, HUT } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { DECLINE_AFTER, needsOf } from './folk';
-import { addComing, CHEESE, coming, FOODS, foodUntil, held, kindsNeeded, MEAT, nth, setFoodUntil, setHeld, WHEAT, type Food } from './foods';
+import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MEAT, nth, setFoodUntil, setHeld, type Food, type Ware } from './foods';
+import { BARN, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -31,20 +32,19 @@ import { restFor } from './water';
 export const GROW = 2 * TICKS_PER_MONTH;
 /** Measures a harvest brings on the most fertile ground. */
 export const HARVEST = 480;
-/** What a farm's barn holds; when full, nothing more grows. */
-export const BARN = 960;
+export { BARN, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, LODGE_STORE, roomFor, storeOf };
 /** What an ox cart carries of wheat… */
 export const CART_LOAD = 160;
-/** …and of each food (meat and cheese pack tighter than sheaves: one lodge's or dairy's carts keep up with what it makes). */
-export const CART_TAKE = [CART_LOAD, 240, 240];
+/**
+ * …and of each ware (meat and cheese pack tighter than sheaves: one lodge's
+ * or dairy's carts keep up with what it makes; then olives, oil, fleece,
+ * grapes and wine).
+ */
+export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200];
 /** Most carts a farm has on the road at once. */
 export const MAX_CARTS = 3;
 /** Ticks between carts setting off from the same farm. */
 export const CART_GAP = 30;
-/** What a granary holds of wheat. */
-export const GRANARY_CAP = 3200;
-/** What a granary holds of each food (each has its own room: wheat, meat, cheese). */
-export const GRANARY_ROOM = [GRANARY_CAP, 1200, 1200];
 /**
  * What the porter's handcart carries: enough that one agora's porter, some
  * fifteen road tiles from the granary, brings in well over the 800 measures
@@ -65,9 +65,6 @@ export const STALL_LOW = STALL_CAP - PORTER_LOAD;
 export const PORTER_TAKE = [PORTER_LOAD, 600, 600];
 export const STALL_ROOM = [STALL_CAP, 1200, 1200];
 export const STALL_LOW_AT = STALL_ROOM.map((r, f) => r - PORTER_TAKE[f]);
-/** What a hunting lodge's store and a dairy's hold. */
-export const LODGE_STORE = 800;
-export const DAIRY_STORE = 800;
 /** A dairy makes CHEESE_BATCH measures every CHEESE_EVERY ticks fully worked on the best grass (500 a month). */
 export const CHEESE_EVERY = 30;
 export const CHEESE_BATCH = 50;
@@ -75,6 +72,12 @@ export const CHEESE_BATCH = 50;
 export const HANDLE = 40;
 /** Ticks the porter waits after coming back with nothing before trying again. */
 export const PORTER_RETRY = 60;
+/**
+ * What an agora's stall holds of each good, and what its porter brings at
+ * most: he goes when it is down to half (GOOD_STALL_ROOM - GOOD_PORTER_TAKE).
+ */
+export const GOOD_STALL_ROOM = 800;
+export const GOOD_PORTER_TAKE = 400;
 /**
  * How far by road from the agora the food vendor ever goes, and how much
  * fresh road a round is (as for the priestess and the actor: with 48, one
@@ -91,6 +94,11 @@ export const FIRST_VENDOR = 20;
 /** The harvest a farm brings in on its ground. */
 export function harvestOf(map: CoastMap, f: Building): number {
   return Math.round(HARVEST * fertilityOf(map, f.x, f.z, 3));
+}
+
+/** The cheese a dairy makes a month, fully worked, on its grass. */
+export function cheeseOf(map: CoastMap, d: Building): number {
+  return Math.round(((CHEESE_BATCH * TICKS_PER_MONTH) / CHEESE_EVERY) * grassOf(map, d.x, d.z, 3));
 }
 
 /** Does this home buy food from the vendor? Huts and better with people in them (tents live off the land). */
@@ -168,19 +176,23 @@ export const FOOD: ServiceSpec = {
   rest: (b) => restFor(b, VENDOR_REST),
 };
 
-/** Carts out from a farm, or porters from the agora. */
+/** Carts out from a farm (or any maker), or porters from the agora. */
 export function errandsOut(s: SimState, b: Building): number {
   let n = 0;
   for (const w of s.walkers) if (w.origin === b.id && (w.kind === 'cart' || w.kind === 'porter')) n++;
   return n;
 }
 
+/** The agora's food porter (who carries foods) or its goods porter (who carries one good, `w.food`) is out. */
+export const isGoodsPorter = (w: Walker): boolean => w.kind === 'porter' && w.food >= FIRST_GOOD;
+export function portersOut(s: SimState, a: Building, goods: boolean): number {
+  let n = 0;
+  for (const w of s.walkers) if (w.origin === a.id && w.kind === 'porter' && (w.food >= FIRST_GOOD) === goods) n++;
+  return n;
+}
+
 /** Room left in a granary for wheat (its stock and what carts are bringing). */
 export const roomIn = (g: Building): number => GRANARY_CAP - g.stock - g.incoming;
-/** Room left in a granary for a food. */
-export const roomFor = (g: Building, f: Food): number => GRANARY_ROOM[f] - held(g, f) - coming(g, f);
-/** What a farm's barn, a lodge's store or a dairy holds of its food. */
-export const storeOf = (kind: Building['kind']): number => (kind === 'farm' ? BARN : kind === 'lodge' ? LODGE_STORE : DAIRY_STORE);
 /** Does any granary in the city hold some of this food? */
 const anyGranaryHas = (s: SimState, f: Food): boolean => s.buildings.some((g) => g.kind === 'granary' && held(g, f) > 0);
 /** Does a granary hold any food at all? */
@@ -191,7 +203,7 @@ const hasFood = (g: Building): boolean => g.stock > 0 || g.meat > 0 || g.cheese 
  * roadside) that passes `ok`: the building and the shortest way there, from
  * `from`'s side to the building's.
  */
-function nearestBy(s: SimState, size: number, fromTiles: number[], ok: (g: Building) => boolean): { g: Building; way: number[] } | null {
+export function nearestBy(s: SimState, size: number, fromTiles: number[], ok: (g: Building) => boolean): { g: Building; way: number[] } | null {
   if (fromTiles.length === 0) return null;
   const search = roadSearch(s, size, fromTiles);
   let best: { g: Building; way: number[] } | null = null;
@@ -207,7 +219,7 @@ function nearestBy(s: SimState, size: number, fromTiles: number[], ok: (g: Build
 }
 
 /** Waypoints from `here` along road tiles `way`, ending at the door of `to`. */
-function wayPoints(size: number, here: [number, number], way: number[], to: Building): Array<[number, number, number]> {
+export function wayPoints(size: number, here: [number, number], way: number[], to: Building): Array<[number, number, number]> {
   const pts: Array<[number, number, number]> = [[here[0], here[1], -1]];
   for (const t of way) {
     const [x, z] = centre(size, t);
@@ -218,65 +230,16 @@ function wayPoints(size: number, here: [number, number], way: number[], to: Buil
   return pts;
 }
 
-/** Farms: the crop grows with the workers, the harvest fills the barn, and carts take it to a granary. */
-export function stepFarms(s: SimState, map: CoastMap): void {
-  const size = map.size;
-  for (const f of s.buildings) {
-    if (f.kind !== 'farm') continue;
-    if (f.clock > 0) f.clock--;
-    const rate = rateOf(f);
-    if (f.stock < BARN && rate > 0) {
-      const before = Math.floor((f.growth / GROW) * 8);
-      f.growth += rate;
-      if (f.growth >= GROW) {
-        f.growth = 0;
-        f.stock = Math.min(BARN, f.stock + harvestOf(map, f));
-      }
-      if (Math.floor((f.growth / GROW) * 8) !== before) s.looks++;
-    }
-    sendCart(s, size, f, WHEAT);
-  }
-}
-
-/** The cheese a dairy makes a month, fully worked, on its grass. */
-export function cheeseOf(map: CoastMap, d: Building): number {
-  return Math.round(((CHEESE_BATCH * TICKS_PER_MONTH) / CHEESE_EVERY) * grassOf(map, d.x, d.z, 3));
-}
-
-/** Dairies: the goats give cheese as fast as the grass and the workers allow, and carts take it to a granary. */
-export function stepDairies(s: SimState, map: CoastMap): void {
-  const size = map.size;
-  for (const d of s.buildings) {
-    if (d.kind !== 'dairy') continue;
-    if (d.clock > 0) d.clock--;
-    const rate = rateOf(d);
-    if (d.cheese < DAIRY_STORE && rate > 0) {
-      d.growth += rate * grassOf(map, d.x, d.z, 3);
-      if (d.growth >= CHEESE_EVERY) {
-        d.growth -= CHEESE_EVERY;
-        d.cheese = Math.min(DAIRY_STORE, d.cheese + CHEESE_BATCH);
-        s.looks++;
-      }
-    }
-    sendCart(s, size, d, CHEESE);
-  }
-}
-
-/** A lodge's carts take its meat to a granary (its hunters are in hunt.ts). */
-export function stepLodgeCarts(s: SimState, map: CoastMap): void {
-  for (const l of s.buildings) {
-    if (l.kind !== 'lodge') continue;
-    if (l.clock > 0) l.clock--;
-    sendCart(s, map.size, l, MEAT);
-  }
-}
-
-/** Send an ox cart with a load of a food from a farm, lodge or dairy to the nearest granary with room, if it is time. */
-function sendCart(s: SimState, size: number, f: Building, food: Food): void {
+/**
+ * Send an ox cart with a load of a ware from a maker (a farm, lodge, dairy,
+ * grove or press) to the nearest building with room for it (foods to a
+ * granary, olives to a press, oil to a storehouse), if it is time.
+ */
+export function sendCart(s: SimState, size: number, f: Building, food: Ware): void {
   const stock = held(f, food);
   if (stock <= 0 || f.clock > 0 || errandsOut(s, f) >= MAX_CARTS) return;
   const roads = roadsBeside(s, size, f);
-  const found = nearestBy(s, size, roads, (g) => g.kind === 'granary' && roomFor(g, food) > 0);
+  const found = nearestBy(s, size, roads, (g) => roomFor(g, food) > 0);
   if (!found) {
     f.clock = CART_GAP;
     return;
@@ -297,8 +260,12 @@ function sendCart(s: SimState, size: number, f: Building, food: Food): void {
   f.clock = CART_GAP;
 }
 
-/** The agora: its porter fetches grain when the stall runs low, and its vendor walks while there is food. */
-export function stepAgoras(s: SimState, map: CoastMap): void {
+/**
+ * The agora: its porter fetches food when the stall runs low, and its vendor
+ * walks while there is food; then its stalls for goods (goods.ts), each with
+ * its vendor, and their porter.
+ */
+export function stepAgoras(s: SimState, map: CoastMap, stalls: (s: SimState, size: number, a: Building, rate: number) => void): void {
   const size = map.size;
   for (const a of s.buildings) {
     if (a.kind !== 'agora') continue;
@@ -307,26 +274,31 @@ export function stepAgoras(s: SimState, map: CoastMap): void {
     if (a.walker === 0 && --a.clock <= 0) {
       if (rate === 0 || foodsIn(a) === 0 || !sendOut(s, size, a, 'food')) a.clock = VENDOR_REST;
     }
-    // The porter (a.growth counts down to his next try) goes when wheat runs low, or meat or cheese that some granary has.
-    if (a.growth > 0) a.growth--;
-    if (rate === 0 || a.growth > 0 || errandsOut(s, a) > 0) continue;
-    let low = a.stock <= STALL_LOW ? 1 : 0;
-    if (a.meat <= STALL_LOW_AT[MEAT] && anyGranaryHas(s, MEAT)) low |= 2;
-    if (a.cheese <= STALL_LOW_AT[CHEESE] && anyGranaryHas(s, CHEESE)) low |= 4;
-    if (low === 0) continue;
-    const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => g.kind === 'granary' && (foodsIn(g) & low) !== 0);
-    if (!found) {
-      a.growth = PORTER_RETRY;
-      continue;
-    }
-    const w = newWalker(s, 'porter', 1);
-    w.origin = a.id;
-    w.target = found.g.id;
-    w.since = s.tick;
-    setPath(w, wayPoints(size, door(size, a, found.way[0]), found.way, found.g));
-    s.walkers.push(w);
-    a.growth = restFor(a, VENDOR_REST);
+    foodPorter(s, size, a, rate);
+    if (a.stalls) stalls(s, size, a, rate);
   }
+}
+
+/** The food porter (a.growth counts down to his next try) goes when wheat runs low, or meat or cheese that some granary has. */
+function foodPorter(s: SimState, size: number, a: Building, rate: number): void {
+  if (a.growth > 0) a.growth--;
+  if (rate === 0 || a.growth > 0 || portersOut(s, a, false) > 0) return;
+  let low = a.stock <= STALL_LOW ? 1 : 0;
+  if (a.meat <= STALL_LOW_AT[MEAT] && anyGranaryHas(s, MEAT)) low |= 2;
+  if (a.cheese <= STALL_LOW_AT[CHEESE] && anyGranaryHas(s, CHEESE)) low |= 4;
+  if (low === 0) return;
+  const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => g.kind === 'granary' && (foodsIn(g) & low) !== 0);
+  if (!found) {
+    a.growth = PORTER_RETRY;
+    return;
+  }
+  const w = newWalker(s, 'porter', 1);
+  w.origin = a.id;
+  w.target = found.g.id;
+  w.since = s.tick;
+  setPath(w, wayPoints(size, door(size, a, found.way[0]), found.way, found.g));
+  s.walkers.push(w);
+  a.growth = restFor(a, VENDOR_REST);
 }
 
 /** Move the food vendor one tick along. */
@@ -344,7 +316,7 @@ function lastRoad(s: SimState, w: Walker): number {
 }
 
 /** Send an errand walker along the road from where it stands to a building. False if no road joins them. */
-function goTo(s: SimState, size: number, w: Walker, to: Building, from: number): boolean {
+export function goTo(s: SimState, size: number, w: Walker, to: Building, from: number): boolean {
   if (from < 0) return false;
   const search = roadSearch(s, size, roadsBeside(s, size, to));
   if (search.dist[from] < 0) return false;
@@ -352,22 +324,33 @@ function goTo(s: SimState, size: number, w: Walker, to: Building, from: number):
   return true;
 }
 
+/** Is this where a cart or porter is going: a building with room for the cart's ware, the granary for the food porter, a store of his good for a goods porter? */
+export function fits(g: Building, w: Walker): boolean {
+  if (w.kind === 'cart') return roomOf(g.kind, w.food) > 0;
+  return w.food >= FIRST_GOOD ? isStore(g.kind) && roomOf(g.kind, w.food) > 0 : g.kind === 'granary';
+}
+
 /**
- * A cart or porter whose granary has gone (or whose way there was cut) looks
+ * A cart or porter whose store has gone (or whose way there was cut) looks
  * for another from where it stands; failing that, it turns for home. False if
  * it can get nowhere at all.
  */
 function rethink(s: SimState, size: number, w: Walker, origin: Building): boolean {
   const old = findBuilding(s, w.target);
-  if (old && w.kind === 'cart' && !w.back) addComing(old, w.food as Food, -w.load);
+  if (old && w.kind === 'cart' && !w.back) addComing(old, w.food, -w.load);
   w.wait = 0;
   const from = lastRoad(s, w);
   if (!w.back && from >= 0) {
-    const ok = w.kind === 'cart' ? (g: Building) => g.kind === 'granary' && roomFor(g, w.food as Food) >= w.load : (g: Building) => g.kind === 'granary' && hasFood(g);
+    const ok =
+      w.kind === 'cart'
+        ? (g: Building) => roomFor(g, w.food) >= w.load
+        : w.food >= FIRST_GOOD
+          ? (g: Building) => fits(g, w) && held(g, w.food) > 0
+          : (g: Building) => g.kind === 'granary' && hasFood(g);
     const found = nearestBy(s, size, [from], ok);
     if (found) {
       w.target = found.g.id;
-      if (w.kind === 'cart') addComing(found.g, w.food as Food, w.load);
+      if (w.kind === 'cart') addComing(found.g, w.food, w.load);
       setPath(w, wayPoints(size, position(w), found.way, found.g));
       return true;
     }
@@ -387,8 +370,12 @@ function lost(s: SimState, w: Walker, origin: Building): false {
 /** What a cart or porter carries goes into its own building (the barn, store or stall), as much as there is room for. */
 function bringBack(w: Walker, origin: Building): void {
   if (w.kind === 'cart') {
-    const f = w.food as Food;
+    const f = w.food;
     setHeld(origin, f, Math.min(storeOf(origin.kind), held(origin, f) + w.load));
+    return;
+  }
+  if (w.food >= FIRST_GOOD) {
+    setHeld(origin, w.food, Math.min(GOOD_STALL_ROOM, held(origin, w.food) + w.load));
     return;
   }
   origin.stock = Math.min(STALL_CAP, origin.stock + w.load);
@@ -404,15 +391,22 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
   // Loading or unloading at the granary's gate.
   if (w.wait > 0) {
     const g = findBuilding(s, w.target);
-    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(s, w, origin);
+    if (!g || !fits(g, w)) return rethink(s, size, w, origin) || lost(s, w, origin);
     w.wait -= rateOf(g);
     if (w.wait > 0) return true;
     w.wait = 0;
     if (w.kind === 'cart') {
-      const f = w.food as Food;
+      const f = w.food;
       addComing(g, f, -w.load);
-      setHeld(g, f, Math.min(GRANARY_ROOM[f], held(g, f) + w.load));
+      setHeld(g, f, Math.min(roomOf(g.kind, f), held(g, f) + w.load));
       w.load = 0;
+    } else if (w.food >= FIRST_GOOD) {
+      // A goods porter: up to a handcart of his good, as much as the stall has room for.
+      const f = w.food;
+      const take = Math.min(GOOD_PORTER_TAKE, held(g, f), Math.max(0, GOOD_STALL_ROOM - held(origin, f)));
+      setHeld(g, f, held(g, f) - take);
+      w.load = take;
+      if (take === 0) origin.fetch = PORTER_RETRY;
     } else {
       const take = Math.min(PORTER_LOAD, g.stock, Math.max(0, STALL_CAP - origin.stock));
       g.stock -= take;
@@ -466,7 +460,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
       return false;
     }
     const g = findBuilding(s, w.target);
-    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(s, w, origin);
+    if (!g || !fits(g, w)) return rethink(s, size, w, origin) || lost(s, w, origin);
     w.wait = HANDLE;
     break;
   }

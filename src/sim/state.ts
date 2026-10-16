@@ -1,19 +1,19 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 8;
+export const SIM_STATE_VERSION = 9;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse';
 
-/** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings and plays. */
-export type Service = 'water' | 'food' | 'religion' | 'culture';
+/** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil and plays. */
+export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture';
 
-/** Every walker's round with a record of the streets: the four services, and the tax collector's. */
+/** Every walker's round with a record of the streets: the five services, and the tax collector's. */
 export type Round = Service | 'tax';
 
 /**
@@ -83,6 +83,21 @@ export interface Building {
    * usual warning time from when it was loaded, not all at once.
    */
   grace: number;
+  /**
+   * Goods (see foods.ts: olives, oil, fleece, grapes, wine, one number each):
+   * what a grove, press, storehouse or agora stall holds (`goods`), the room
+   * carts on their way have reserved (`goodsIn`), and for a home the tick its
+   * supply of each lasts until (`goodsUntil`, 0: never had any).
+   */
+  goods: number[];
+  goodsIn: number[];
+  goodsUntil: number[];
+  /** An agora: the stalls it has for goods beside its food stall, a bit each (1 << (good - OLIVES); the oil stall is 2). */
+  stalls: number;
+  /** An agora: each good's stall vendor's clock (ticks until she next sets off; -1 while she is out). */
+  vclock: number[];
+  /** An agora: ticks until its goods porter next looks for a load. */
+  fetch: number;
 }
 
 /** Someone living in a home. */
@@ -138,8 +153,8 @@ export interface Family {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, a fountain's water carrier, an ox cart (from a farm, lodge or dairy), the agora's porter, its food vendor, a shrine's priestess, a theatre's actor, a tax office's collector or a lodge's hunter. */
-  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor' | 'tax' | 'hunter';
+  /** Settlers, leavers, a fountain's water carrier, an ox cart (from a farm, lodge, dairy, grove or press), the agora's porters, its food vendor and oil vendor, a shrine's priestess, a theatre's actor, a tax office's collector or a lodge's hunter. */
+  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;
@@ -161,11 +176,15 @@ export interface Walker {
   steps: number;
   /** A service walker: the tick she set off on this round. */
   since: number;
-  /** A cart or porter: the building it is heading for (a granary). */
+  /** A cart or porter: the building it is heading for (a granary, press or storehouse). */
   target: number;
-  /** A cart: measures of its food (`food`) it carries; the porter: measures of wheat; a hunter: meat. */
+  /** A cart: measures of its ware (`food`) it carries; the food porter: measures of wheat; a goods porter: of his good; a hunter: meat. */
   load: number;
-  /** A cart: what it carries (0 wheat, 1 meat, 2 cheese; see foods.ts). A hunter: the herd he is after (its index), or -1. */
+  /**
+   * A cart: the ware it carries (0 wheat, 1 meat, 2 cheese, 3 olives, 4 oil…;
+   * see foods.ts). A porter: 0 for the food porter, or the good he fetches. A
+   * hunter: the herd he is after (its index), or -1.
+   */
   food: number;
   /** The porter: measures of meat and of cheese he carries (0 for everyone else). */
   meat: number;
@@ -271,6 +290,11 @@ export interface UndoEntry {
   /** The meat and cheese each held (same order; missing in older saves: none). */
   removedMeat?: number[];
   removedCheese?: number[];
+  /** The goods each held and (an agora) the stalls it had (same order; missing in older saves: none). */
+  removedGoods?: number[][];
+  removedStalls?: number[];
+  /** Stalls it added, as [agora id, good] pairs (missing in older saves: none). */
+  stalls?: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */

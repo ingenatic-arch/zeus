@@ -10,6 +10,8 @@ import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, wantOf, wantsMoreFood } from '../sim/folk';
 import { FOODS, foodUntil, kindsNeeded, tableUntil } from '../sim/foods';
+import { goodUntil, hasStall, OIL_LASTS, usesOil } from '../sim/goods';
+import { OIL } from '../sim/foods';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
@@ -23,6 +25,8 @@ interface Mode {
   lasts: number;
   until: (b: Building) => number;
   wants: (b: Building) => boolean;
+  /** Which buildings of the source kind count (an agora with an oil stall); all if absent. */
+  from?: (b: Building) => boolean;
 }
 
 /** What an overlay shows: a service's reach and supply (or where the tax collector reaches, and who has paid), or what each home is missing. */
@@ -33,22 +37,23 @@ const MODES: Record<Round, Mode> = {
   // A home's food lasts as long as the kinds its level needs (its bread, for a hut or a cottage).
   food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => tableUntil(b), wants: eatsBread },
   religion: { source: 'shrine', range: PRIESTESS_RANGE, lasts: RELIGION_LASTS, until: (b) => b.religionUntil, wants: wantsBlessing },
+  oil: { source: 'agora', range: VENDOR_RANGE, lasts: OIL_LASTS, until: (b) => goodUntil(b, OIL), wants: usesOil, from: (b) => hasStall(b, OIL) },
   culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
   // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month.
   tax: { source: 'taxoffice', range: COLLECTOR_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.taxedAt > 0 ? b.taxedAt + TICKS_PER_MONTH : 0), wants: (b) => b.kind === 'home' && b.people > 0 },
 };
 
 /** Which of the placing overlay's five tones each service's overlay takes. */
-const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4 };
+const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5 };
 
 /** How high the top of each level of home stands (for the columns over them). */
 export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8];
 
 /** How far by road each road tile is from the nearest building of a kind (dist -1: none reaches it). */
-export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
+export function reachOf(s: SimState, size: number, kind: BuildingKind, from?: (b: Building) => boolean): Search {
   if (kind === 'fountain') return waterReach(s, size);
   const sources: number[] = [];
-  for (const b of s.buildings) if (b.kind === kind) sources.push(...roadsBeside(s, size, b));
+  for (const b of s.buildings) if (b.kind === kind && (!from || from(b))) sources.push(...roadsBeside(s, size, b));
   return roadSearch(s, size, sources);
 }
 
@@ -57,7 +62,7 @@ export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
  * service walker's reach and the homes' supply, tinted on the ground (through
  * the placing overlay's texture), and a column over every home that wants it
  * with less than a month left: blue for water, gold for food, lilac for
- * blessings, rose for plays, as tall as its supply is fresh, or a short stub
+ * blessings, olive green for oil, rose for plays, as tall as its supply is fresh, or a short stub
  * where there is none. While a fountain, agora, shrine or theatre is being placed it also shows what the
  * new one would reach. The food overlay marks farms and granaries too, so
  * the chain from field to stall reads at a glance.
@@ -87,6 +92,7 @@ export class ServiceOverlay {
     water: { has: new THREE.Color('#3f8fe0'), fresh: new THREE.Color('#8fd8ff'), none: new THREE.Color('#d8643a') },
     food: { has: new THREE.Color('#e09a26'), fresh: new THREE.Color('#ffe08a'), none: new THREE.Color('#9a4a6a') },
     religion: { has: new THREE.Color('#8a62d0'), fresh: new THREE.Color('#d6c2ff'), none: new THREE.Color('#9a7a52') },
+    oil: { has: new THREE.Color('#7f9c2a'), fresh: new THREE.Color('#dcea8c'), none: new THREE.Color('#8a4e34') },
     culture: { has: new THREE.Color('#d8506e'), fresh: new THREE.Color('#ffc2cf'), none: new THREE.Color('#5a7290') },
     tax: { has: new THREE.Color('#2f9a80'), fresh: new THREE.Color('#9fe6d2'), none: new THREE.Color('#e09a2a') },
   };
@@ -232,7 +238,7 @@ export class ServiceOverlay {
     const mode = MODES[service];
     const codes = this.codes;
     codes.fill(0);
-    const reach = reachOf(s, size, mode.source);
+    const reach = reachOf(s, size, mode.source, mode.from);
     const walkedAt = s.rounds[service].walked;
     const pre = this.preview ? roadSearch(s, size, this.preview).dist : null;
     for (let t = 0; t < codes.length; t++) {
@@ -250,9 +256,11 @@ export class ServiceOverlay {
     const tone = this.tones[service];
     for (const b of s.buildings) {
       let code = 0;
-      if (b.kind === mode.source) code = WATER_FOUNTAIN;
+      if (b.kind === mode.source && (!mode.from || mode.from(b))) code = WATER_FOUNTAIN;
       else if (service === 'food' && (b.kind === 'farm' || b.kind === 'lodge' || b.kind === 'dairy')) code = FOOD_FARM;
       else if (service === 'food' && b.kind === 'granary') code = FOOD_GRANARY;
+      else if (service === 'oil' && (b.kind === 'grove' || b.kind === 'press')) code = FOOD_FARM;
+      else if (service === 'oil' && b.kind === 'storehouse') code = FOOD_GRANARY;
       else if (mode.wants(b)) {
         const left = mode.until(b) - s.tick;
         const k = left > 0 ? Math.min(1, left / mode.lasts) : 0;

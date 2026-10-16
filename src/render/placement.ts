@@ -54,8 +54,8 @@ const fragment = /* glsl */ `
   varying vec3 vWorld;
 
   // The water overlay's blues, the food overlay's golds, the religion overlay's lilacs, the culture overlay's roses or the tax overlay's bronze-greens.
-  vec3 tone(vec3 water, vec3 food, vec3 bless, vec3 plays, vec3 tax) {
-    return uTone < 0.5 ? water : uTone < 1.5 ? food : uTone < 2.5 ? bless : uTone < 3.5 ? plays : tax;
+  vec3 tone(vec3 water, vec3 food, vec3 bless, vec3 plays, vec3 tax, vec3 oil) {
+    return uTone < 0.5 ? water : uTone < 1.5 ? food : uTone < 2.5 ? bless : uTone < 3.5 ? plays : uTone < 4.5 ? tax : oil;
   }
 
   void main() {
@@ -79,19 +79,19 @@ const fragment = /* glsl */ `
     float edge = smoothstep(0.30, 0.48, max(f.x, f.y));
     if (o > 0.5 && o < 100.5) {
       float k = (o - 1.0) / 99.0;
-      col = vec4(tone(vec3(0.36, 0.64, 0.95), vec3(0.95, 0.74, 0.3), vec3(0.66, 0.54, 0.92), vec3(0.95, 0.52, 0.62), vec3(0.3, 0.78, 0.66)), 0.16 + 0.26 * k);
+      col = vec4(tone(vec3(0.36, 0.64, 0.95), vec3(0.95, 0.74, 0.3), vec3(0.66, 0.54, 0.92), vec3(0.95, 0.52, 0.62), vec3(0.3, 0.78, 0.66), vec3(0.62, 0.74, 0.3)), 0.16 + 0.26 * k);
     } else if (o > 100.5 && o < 200.5) {
       float k = (o - 101.0) / 99.0;
-      col = vec4(tone(vec3(0.22, 0.72, 1.0), vec3(1.0, 0.66, 0.12), vec3(0.7, 0.46, 1.0), vec3(1.0, 0.4, 0.58), vec3(0.12, 0.76, 0.6)), 0.34 + 0.34 * k);
+      col = vec4(tone(vec3(0.22, 0.72, 1.0), vec3(1.0, 0.66, 0.12), vec3(0.7, 0.46, 1.0), vec3(1.0, 0.4, 0.58), vec3(0.12, 0.76, 0.6), vec3(0.6, 0.78, 0.16)), 0.34 + 0.34 * k);
     } else if (o > 200.5 && o < 201.5) {
-      col = vec4(tone(vec3(0.2, 0.62, 1.0), vec3(1.0, 0.7, 0.2), vec3(0.68, 0.5, 1.0), vec3(1.0, 0.46, 0.62), vec3(0.2, 0.74, 0.6)), 0.5 + 0.15 * sin(uTime * 4.0));
+      col = vec4(tone(vec3(0.2, 0.62, 1.0), vec3(1.0, 0.7, 0.2), vec3(0.68, 0.5, 1.0), vec3(1.0, 0.46, 0.62), vec3(0.2, 0.74, 0.6), vec3(0.62, 0.76, 0.2)), 0.5 + 0.15 * sin(uTime * 4.0));
     } else if (o > 209.5 && o < 249.5) {
       float k = (o - 210.0) / 39.0;
-      col = vec4(tone(vec3(0.2, 0.5, 0.95), vec3(0.92, 0.62, 0.14), vec3(0.56, 0.38, 0.9), vec3(0.9, 0.32, 0.5), vec3(0.12, 0.56, 0.46)), (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
+      col = vec4(tone(vec3(0.2, 0.5, 0.95), vec3(0.92, 0.62, 0.14), vec3(0.56, 0.38, 0.9), vec3(0.9, 0.32, 0.5), vec3(0.12, 0.56, 0.46), vec3(0.46, 0.6, 0.12)), (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
     } else if (o > 249.5 && o < 250.5) {
-      col = vec4(tone(vec3(0.86, 0.36, 0.2), vec3(0.62, 0.3, 0.42), vec3(0.62, 0.48, 0.3), vec3(0.36, 0.46, 0.6), vec3(0.8, 0.56, 0.24)), 0.42 * (0.7 + 0.3 * edge));
+      col = vec4(tone(vec3(0.86, 0.36, 0.2), vec3(0.62, 0.3, 0.42), vec3(0.62, 0.48, 0.3), vec3(0.36, 0.46, 0.6), vec3(0.8, 0.56, 0.24), vec3(0.66, 0.42, 0.24)), 0.42 * (0.7 + 0.3 * edge));
     } else if (o > 251.5 && o < 252.5) {
-      col = vec4(tone(vec3(0.3, 0.82, 1.0), vec3(1.0, 0.82, 0.3), vec3(0.8, 0.66, 1.0), vec3(1.0, 0.62, 0.72), vec3(0.36, 0.9, 0.76)), 0.6);
+      col = vec4(tone(vec3(0.3, 0.82, 1.0), vec3(1.0, 0.82, 0.3), vec3(0.8, 0.66, 1.0), vec3(1.0, 0.62, 0.72), vec3(0.36, 0.9, 0.76), vec3(0.78, 0.9, 0.4)), 0.6);
     } else if (o > 204.5 && o < 205.5) {
       col = vec4(0.86, 0.28, 0.18, (0.5 + 0.1 * sin(uTime * 3.0)) * (0.7 + 0.3 * edge));
     } else if (o > 205.5 && o < 206.5) {
@@ -218,7 +218,7 @@ export class Placement {
     this.mesh.visible = this.tool || this.overlay;
   }
 
-  /** A service overlay on or off, in its tone (0 water, 1 food, 2 religion, 3 culture, 4 taxes). */
+  /** A service overlay on or off, in its tone (0 water, 1 food, 2 religion, 3 culture, 4 taxes, 5 oil). */
   showOverlay(on: boolean, tone = 0): void {
     this.uniforms.uTone.value = tone;
     this.overlay = on;

@@ -18,6 +18,11 @@ export const THEATRE_COST = 400;
 export const TAX_OFFICE_COST = 150;
 export const LODGE_COST = 200;
 export const DAIRY_COST = 250;
+export const GROVE_COST = 150;
+export const PRESS_COST = 200;
+export const STOREHOUSE_COST = 200;
+/** What adding the oil stall to an agora costs. */
+export const STALL_COST = 100;
 /** A bridge costs this much a tile. */
 export const BRIDGE_COST = 40;
 /** The most tiles of river and wet bank a bridge spans. */
@@ -36,12 +41,17 @@ export const COST: Record<BuildingKind, number> = {
   taxoffice: TAX_OFFICE_COST,
   lodge: LODGE_COST,
   dairy: DAIRY_COST,
+  grove: GROVE_COST,
+  press: PRESS_COST,
+  storehouse: STOREHOUSE_COST,
 };
 
 /** A farm needs at least this mean fertility over its tiles (the green river land). */
 export const FARM_FERTILE_MIN = 0.5;
 /** A dairy needs at least this much grass over its footprint (see grassOf). */
 export const DAIRY_GRASS_MIN = 0.35;
+/** The olive ground an olive grove needs at least (0..1; see tileOlive). */
+export const GROVE_OLIVE_MIN = 0.35;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
 
@@ -297,18 +307,56 @@ export function grassOf(map: CoastMap, x: number, z: number, side: number): numb
   return g / (side * side);
 }
 
+const smooth = (a: number, b: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * How good a tile is for olives (0..1): dry ground (not the green flood plain
+ * by the river), not rock, above the shore, and best on a slope, where the
+ * wild olives grow. Most of the hillsides and the scrub suit; the river land,
+ * the crags and the sand do not.
+ */
+export function tileOlive(map: CoastMap, t: number): number {
+  const n = map.size;
+  const tx = t % n;
+  const tz = (t - tx) / n;
+  const dry = 1 - smooth(0.25, 0.6, map.tileFertility[t]);
+  const rock = map.sample(map.rock, tx + 0.5, tz + 0.5);
+  const up = smooth(0.3, 1.2, map.heightAt(tx + 0.5, tz + 0.5));
+  const slope = smooth(0.05, 0.4, mapIndex(map).rise[t]);
+  return dry * Math.max(0, 1 - rock * 1.5) * up * (0.45 + 0.55 * slope);
+}
+
+/** The mean olive ground of a footprint's tiles (0..1). */
+export function oliveOf(map: CoastMap, x: number, z: number, side: number): number {
+  const n = map.size;
+  let g = 0;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) g += tileOlive(map, Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx));
+  return g / (side * side);
+}
+
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
   const side = sideOf(kind);
-  const r = footprintRefusal(map, s, tx, tz, side);
+  const r = footprintRefusal(map, s, tx, tz, side, kind === 'grove');
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
+  if (kind === 'grove' && oliveOf(map, tx, tz, side) < GROVE_OLIVE_MIN) return 'Poor ground for olives: groves need the dry slopes, not the river land, rock or sand';
   return '';
 }
 
-/** Why a square footprint of this side can't have its top-left tile here, or '' if it can. */
-export function footprintRefusal(map: CoastMap, s: SimState, tx: number, tz: number, side: number): string {
+/**
+ * How uneven an olive grove's ground may be (the rise across its corners):
+ * its trees stand each on its own ground, terraced into the slope, so a grove
+ * takes hillsides too steep for a house or a press.
+ */
+export const GROVE_MAX_RISE = 2.2;
+
+/** Why a square footprint of this side can't have its top-left tile here, or '' if it can. `slope`: a grove's, which takes ground too steep for a home and more uneven ground. */
+export function footprintRefusal(map: CoastMap, s: SimState, tx: number, tz: number, side: number, slope = false): string {
   const n = map.size;
   const ix = mapIndex(map);
   for (let dz = 0; dz < side; dz++) {
@@ -318,14 +366,14 @@ export function footprintRefusal(map: CoastMap, s: SimState, tx: number, tz: num
       if (x < 0 || z < 0 || x >= n || z >= n) return GROUND_REASON[Ground.OffMap];
       const t = z * n + x;
       const g = ix.ground[t] as Ground;
-      if (g !== Ground.Ok) return GROUND_REASON[g];
+      if (g !== Ground.Ok && !(slope && g === Ground.SteepForHome)) return GROUND_REASON[g];
       if (s.tiles[t] !== TILE_EMPTY) return 'Something is built here';
     }
   }
   // Uneven ground across the whole footprint (each tile may be fine on its own).
   const hs: number[] = [];
   for (let dz = 0; dz <= side; dz++) for (let dx = 0; dx <= side; dx++) hs.push(map.corner(tx + dx, tz + dz));
-  if (Math.max(...hs) - Math.min(...hs) > HOME_MAX_RISE * (side <= 2 ? 1.6 : 2)) return side <= 2 ? GROUND_REASON[Ground.SteepForHome] : 'Too uneven for a building this size';
+  if (Math.max(...hs) - Math.min(...hs) > (slope ? GROVE_MAX_RISE : HOME_MAX_RISE * (side <= 2 ? 1.6 : 2))) return side <= 2 ? GROUND_REASON[Ground.SteepForHome] : 'Too uneven for a building this size';
   return '';
 }
 

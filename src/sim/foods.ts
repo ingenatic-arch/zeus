@@ -21,6 +21,31 @@ export const CHEESE = 2;
 export type Food = 0 | 1 | 2;
 export const FOODS: readonly Food[] = [WHEAT, MEAT, CHEESE];
 
+/**
+ * Every ware carried and stored, in a fixed order (saved by index): the
+ * three foods, then the goods (see goods.ts): olives, oil, fleece, grapes,
+ * wine. A building keeps foods in their own fields and goods in `goods`
+ * (one number per good, from FIRST_GOOD); a cart carries one ware.
+ */
+export const OLIVES = 3;
+export const OIL = 4;
+export const FLEECE = 5;
+export const GRAPES = 6;
+export const WINE = 7;
+export type Ware = number;
+export const FIRST_GOOD = OLIVES;
+/** How many goods there are (the length of a building's `goods`, `goodsIn` and `goodsUntil`). */
+export const GOOD_COUNT = 5;
+export const WARES: readonly Ware[] = [WHEAT, MEAT, CHEESE, OLIVES, OIL, FLEECE, GRAPES, WINE];
+/** Each ware by name, as it is stored and carried. */
+export const WARE_NAMES = ['wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine'] as const;
+/** Is a ware a good (rather than a food)? */
+export const isGood = (w: Ware): boolean => w >= FIRST_GOOD;
+/** A good's place in a building's `goods` arrays. */
+export const gi = (w: Ware): number => w - FIRST_GOOD;
+/** A fresh, empty set of goods for a building. */
+export const noGoods = (): number[] => new Array<number>(GOOD_COUNT).fill(0);
+
 /** Each food by name, as it is stored and carried. */
 export const FOOD_NAMES = ['wheat', 'meat', 'cheese'] as const;
 /** Each food as it is eaten: bread, meat, cheese. */
@@ -30,26 +55,28 @@ export const TABLE_NAMES = ['bread', 'meat', 'cheese'] as const;
 export const KINDS_NEEDED = [0, 0, 0, 1, 2, 3];
 export const kindsNeeded = (level: number): number => KINDS_NEEDED[Math.max(0, Math.min(level, KINDS_NEEDED.length - 1))];
 
-/** A building's store of a food. */
-export function held(b: Building, f: Food): number {
-  return f === WHEAT ? b.stock : f === MEAT ? b.meat : b.cheese;
+/** A building's store of a ware. */
+export function held(b: Building, f: Ware): number {
+  return f === WHEAT ? b.stock : f === MEAT ? b.meat : f === CHEESE ? b.cheese : b.goods[f - FIRST_GOOD];
 }
 
-export function setHeld(b: Building, f: Food, v: number): void {
+export function setHeld(b: Building, f: Ware, v: number): void {
   if (f === WHEAT) b.stock = v;
   else if (f === MEAT) b.meat = v;
-  else b.cheese = v;
+  else if (f === CHEESE) b.cheese = v;
+  else b.goods[f - FIRST_GOOD] = v;
 }
 
-/** Room in a granary that carts on their way have reserved for a food. */
-export function coming(b: Building, f: Food): number {
-  return f === WHEAT ? b.incoming : f === MEAT ? b.meatIn : b.cheeseIn;
+/** Room in a store that carts on their way have reserved for a ware. */
+export function coming(b: Building, f: Ware): number {
+  return f === WHEAT ? b.incoming : f === MEAT ? b.meatIn : f === CHEESE ? b.cheeseIn : b.goodsIn[f - FIRST_GOOD];
 }
 
-export function addComing(b: Building, f: Food, n: number): void {
+export function addComing(b: Building, f: Ware, n: number): void {
   if (f === WHEAT) b.incoming += n;
   else if (f === MEAT) b.meatIn += n;
-  else b.cheeseIn += n;
+  else if (f === CHEESE) b.cheeseIn += n;
+  else b.goodsIn[f - FIRST_GOOD] += n;
 }
 
 /** What the porter carries of a food (wheat in `load`). */
@@ -101,10 +128,6 @@ export function foodsOnTable(b: Building, tick: number): Food[] {
   return FOODS.filter((f) => foodUntil(b, f) > tick);
 }
 
-/** Which food each kind of building makes: a farm wheat, a lodge meat, a dairy cheese (-1: none). */
-export function foodMadeBy(kind: Building['kind']): Food | -1 {
-  return kind === 'farm' ? WHEAT : kind === 'lodge' ? MEAT : kind === 'dairy' ? CHEESE : -1;
-}
 
 /** "bread", "bread and cheese", "bread, meat and cheese". */
 export function foodList(fs: readonly Food[], join = 'and'): string {

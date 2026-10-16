@@ -206,11 +206,11 @@ describe('the hunting lodge', () => {
     const sim = new Sim();
     const s = sim.state;
     s.money = 10000;
-    // Out on the plain, far from any herd.
+    // Out on the plain, far from any herd (a lodge reaches a herd by the ground it roams, since slice 10).
     const far = s.herds.map((h) => h);
     for (const h of far) {
-      h.x = 0.5;
-      h.z = 0.5;
+      h.x = h.hx = 0.5;
+      h.z = h.hz = 0.5;
     }
     sim.enqueue({ type: 'road', tiles: [40, 41, 42, 43].map((x) => x + 70 * N) });
     sim.enqueue({ type: 'build', kind: 'lodge', at: [40 + 71 * N] });

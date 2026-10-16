@@ -49,10 +49,15 @@ export const huntersFor = (l: Building): number => {
   return r <= 0 ? 0 : Math.max(1, Math.floor(r * MAX_HUNTERS + 1e-9));
 };
 
-/** How far a herd is from a lodge, straight across country. */
+/**
+ * How far a herd is from a lodge, straight across country: from the middle of
+ * the ground it roams (its home spot), not where it stands this moment, so a
+ * herd wandering about near the edge of a lodge's reach doesn't drift in and
+ * out of it.
+ */
 export const herdDistance = (l: Building, h: Herd): number => {
   const [cx, cz] = centreOf(l);
-  return Math.hypot(h.x - cx, h.z - cz);
+  return Math.hypot(h.hx - cx, h.hz - cz);
 };
 
 /** The herds within a lodge's reach, nearest first, with how many head each has to spare (counting hunters already after it). */

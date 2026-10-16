@@ -10,7 +10,7 @@ import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
+import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoOil, whyNoPlays, whyUnblessed } from '../sim/status';
 import { foodList, foodsOnTable, kindsNeeded, onTable } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
@@ -43,6 +43,7 @@ const ICON = {
   food: '<svg viewBox="0 0 24 24" class="ic"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" fill="#e0a548" stroke="#8a5a14" stroke-width="1.2"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" stroke="#8a5a14" stroke-width="1.4" stroke-linecap="round"/></svg>',
   religion: '<svg viewBox="0 0 24 24" class="ic"><path d="M2.6 8.6 12 3.4l9.4 5.2z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" stroke="#4a3a6a" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 18.4h18.4v2.6H2.8z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   culture: '<svg viewBox="0 0 24 24" class="ic"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" fill="#e3778f" stroke="#7a2a40" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" fill="#7a2a40"/><path d="M8.2 13.6q3.8 4.2 7.6 0" fill="none" stroke="#7a2a40" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  oil: '<svg viewBox="0 0 24 24" class="ic"><path d="M10.4 3h3.2l-.3 3.2c3.6.9 5.4 3.9 5.4 7.3 0 3.6-2.2 6.4-4.6 7.5H9.9C7.5 19.9 5.3 17.1 5.3 13.5c0-3.4 1.8-6.4 5.4-7.3z" fill="#8aa83a" stroke="#3e4f12" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.8 6.8C6 6.6 5.4 8.4 6.6 9.6M16.2 6.8c1.8-.2 2.4 1.6 1.2 2.8" fill="none" stroke="#3e4f12" stroke-width="1.2" stroke-linecap="round"/><path d="M9 12.6q.4-2.4 2.2-3.2" fill="none" stroke="#d6e690" stroke-width="1.3" stroke-linecap="round"/></svg>',
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   tax: '<svg viewBox="0 0 16 16" class="ic"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#2f7f6a"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#4f9f88"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/></svg>',
   home: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 21v-8.5L12 6l8 6.5V21z" fill="#e9cf98" stroke="#4a3420" stroke-width="1.2" stroke-linejoin="round"/><path d="M10 21v-5h4v5z" fill="#4a3420"/></svg>',
@@ -126,10 +127,10 @@ function whyLacks(s: SimState, map: CoastMap, b: Building, need: Service): strin
     if (foodsOnTable(b, s.tick).length > 0) return foodLine(s, map, b).replace(/^Only /, 'only ');
     return whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
   }
-  return need === 'religion' ? whyUnblessed(s, map, b) : whyNoPlays(s, map, b);
+  return need === 'religion' ? whyUnblessed(s, map, b) : need === 'oil' ? whyNoOil(s, map, b) : whyNoPlays(s, map, b);
 }
 
-const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion: 'Blessings', culture: 'Plays' };
+const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion: 'Blessings', oil: 'Oil', culture: 'Plays' };
 
 /** What the next level needs, in a sentence. */
 function nextLine(s: SimState, b: Building): string {

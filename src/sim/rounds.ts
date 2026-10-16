@@ -40,6 +40,12 @@ export interface ServiceSpec {
   rest(b: Building): number;
   /** Whatever she does when her round is over (back, or lost): the tax collector hands in his satchel. */
   finish?(s: SimState, w: Walker): void;
+  /**
+   * A walker with her own clock on her building (a stall's vendor at the
+   * agora, beside the food vendor): sets it when her round is over, in place
+   * of the building's own `walker` and `clock`.
+   */
+  rested?(b: Building): void;
 }
 
 /** However much of it was road already walked, she turns for home after this many times `walk` tiles. */
@@ -75,8 +81,12 @@ export function distFrom(s: SimState, size: number, b: Building): Int32Array {
   return dist;
 }
 
-/** Send a service walker out from building `b` onto the next of its roadside tiles in turn. False if no road leads out. */
-export function sendOut(s: SimState, size: number, b: Building, kind: Walker['kind']): boolean {
+/**
+ * Send a service walker out from building `b` onto the next of its roadside
+ * tiles in turn. False if no road leads out. `own`: she keeps her own clock
+ * (see ServiceSpec.rested), so the building's `walker` is left alone.
+ */
+export function sendOut(s: SimState, size: number, b: Building, kind: Walker['kind'], own = false): boolean {
   const roads = roadsBeside(s, size, b);
   if (roads.length === 0) return false;
   const start = roads[b.turn % roads.length];
@@ -90,7 +100,7 @@ export function sendOut(s: SimState, size: number, b: Building, kind: Walker['ki
     [dx, dz, -1],
     [sx, sz, start],
   ]);
-  b.walker = w.id;
+  if (!own) b.walker = w.id;
   s.walkers.push(w);
   return true;
 }
@@ -164,7 +174,8 @@ function headHome(s: SimState, size: number, w: Walker, b: Building, cur: number
 
 /** She is gone (home, or lost): her building rests, then sends another. */
 function done(spec: ServiceSpec, b: Building | undefined): false {
-  if (b) {
+  if (b && spec.rested) spec.rested(b);
+  else if (b) {
     b.walker = 0;
     b.clock = spec.rest(b);
   }

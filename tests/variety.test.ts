@@ -7,13 +7,13 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
-import { GRACE } from '../src/sim/migrate';
+import { GRACE, GRACE_OIL } from '../src/sim/migrate';
 import { coastMap } from '../src/map/bake';
 import { MAP_SIZE } from '../src/map/coast';
 import { COTTAGE, FINE, TOWNHOUSE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { DECLINE_AFTER, moodOf, WARN_AFTER, warningsOf } from '../src/sim/folk';
-import { tableUntil } from '../src/sim/foods';
+import { OIL, tableUntil } from '../src/sim/foods';
 import { serialize, Sim } from '../src/sim/sim';
 import { foodLine, homeStatus, townLines } from '../src/sim/status';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
@@ -52,6 +52,11 @@ describe('two foods for a townhouse', () => {
     const s = sim.state;
     s.money = 5000;
     sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });
+    // And oil, which a townhouse needs too (slice 10): two groves by the lane, a press and a storehouse, an oil stall.
+    sim.enqueue({ type: 'build', kind: 'grove', at: [27 + 60 * N, 23 + 56 * N] });
+    sim.enqueue({ type: 'build', kind: 'press', at: [30 + 60 * N] });
+    sim.enqueue({ type: 'build', kind: 'storehouse', at: [33 + 60 * N] });
+    sim.enqueue({ type: 'stall', at: 27 + 71 * N, good: OIL });
     sim.run(3 * TICKS_PER_MONTH);
     expect(at(s, TOWNHOUSE).length).toBe(0);
     const blessed = at(s, COTTAGE).find((b) => b.religionUntil > s.tick)!;
@@ -129,13 +134,14 @@ describe('a save from slice 8', () => {
     expect(st.buildings.every((b) => b.meat === 0 && b.cheese === 0)).toBe(true);
     const fine = at(st, FINE);
     expect(fine.length).toBeGreaterThan(20);
-    expect(fine.every((b) => b.grace === st.tick + GRACE)).toBe(true);
+    // Through the slice 10 step too, which gives every home time to get oil: the longer grace.
+    expect(fine.every((b) => b.grace === st.tick + GRACE_OIL)).toBe(true);
     expect(foodLine(st, map, fine[0])).toMatch(/^Only bread on the table; a fine house needs all three · no meat or cheese yet: the city has no hunting lodge yet: build a hunting lodge/);
     expect(moodOf(st, fine[0], { agora: true, jobs: true, shrine: true, theatre: true }, 0).reasons.some((r) => /Only bread on the table: they’d like meat or cheese too/.test(r.text))).toBe(true);
     const sim = new Sim();
     sim.state = st;
     // No warning until WARN_AFTER past the grace, though the table has only bread; nothing goes down.
-    const down = drops(sim, GRACE + WARN_AFTER - TICKS_PER_DAY);
+    const down = drops(sim, GRACE_OIL + WARN_AFTER - TICKS_PER_DAY);
     expect(down.size).toBe(0);
     expect(fine.some((b) => warningsOf(st, b).some((w) => w.need === 'food'))).toBe(false);
     sim.run(2 * TICKS_PER_DAY);

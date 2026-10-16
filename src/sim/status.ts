@@ -6,7 +6,7 @@
  */
 import type { CoastMap } from '../map/bake';
 import { fertilityOf, grassOf } from './build';
-import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from './buildings';
+import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import {
@@ -33,9 +33,11 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
+import { OIL, OLIVES } from './foods';
 import { CHEESE, coming, FOOD_NAMES, foodList, FOODS, foodUntil, held, kindsNeeded, MEAT, TABLE_NAMES, tableUntil, WHEAT, type Food } from './foods';
 import { cityHas, foodsLacking, justOpened, missingSince, nextNeed, RISE_MIN, SETTLE, untilOf, wantsMoreFood, warningsOf } from './folk';
 import { herdDistance, herdsInReach, huntersFor, huntersOut, HUNT_RANGE, LODGE_MONTH, meatLimits, meatPerMonth } from './hunt';
+import { goodUntil, hasStall } from './goods';
 import { fleeing, herdName, MIN_HEAD, moving, regrowIn } from './wild';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf, workforce } from './labour';
@@ -88,7 +90,7 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), playsLine(s, map, b), workLine(s, map.size, b), taxLine(s, map, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), workLine(s, map.size, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */
@@ -419,7 +421,7 @@ function workLine(s: SimState, size: number, b: Building): string {
 
 /** How a workplace is staffed ('' if it needs nobody), and whether its wages are paid. */
 export function workersLine(s: SimState, map: CoastMap, b: Building): string {
-  const jobs = JOBS[b.kind];
+  const jobs = jobsAt(b);
   if (jobs === 0) return '';
   const staffed = staffLine(s, map, b, jobs);
   if (b.owed <= 0) return staffed;
@@ -548,7 +550,7 @@ export function lodgeStatus(s: SimState, map: CoastMap, l: Building): Status {
   else hunt = spare.length ? 'The hunters are resting · one sets out again soon' : 'Nobody hunts: there is no game to spare';
   let herds: string;
   if (game.length === 0) {
-    const near = s.herds.map((h) => ({ h, d: Math.hypot(h.x - l.x - 1.5, h.z - l.z - 1.5) })).sort((a, b) => a.d - b.d)[0];
+    const near = s.herds.map((h) => ({ h, d: herdDistance(l, h) })).sort((a, b) => a.d - b.d)[0];
     herds = near ? `No game within reach: the nearest herd is ${herdName(near.h)}, ${Math.round(near.d)} tiles off; hunters go ${HUNT_RANGE} at most` : 'No game anywhere';
   } else if (spare.length === 0) {
     herds = `Game is scarce: ${game.map((g) => `${herdName(g.h)} ${g.h.head === 1 ? 'has 1 head' : `has ${g.h.head} head`}`).join(', ')}, and hunters leave every herd its last ${MIN_HEAD} · a herd this thin grows back a head only every ${Math.round(Math.min(...game.map((g) => regrowIn(g.h))) / TICKS_PER_DAY)} days or so`;
@@ -645,6 +647,59 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
 }
 
 export { eatsBread };
+
+// ---------------------------------------------------------------------------
+// Oil: the grove, the press, the storehouse, the oil stall, and the homes.
+
+/** Agoras with an oil stall. */
+const oilStalls = (s: SimState): Building[] => s.buildings.filter((a) => hasStall(a, OIL));
+
+/** Why no oil reaches a cottage or better: the first link of the chain that is missing. */
+export function whyNoOil(s: SimState, map: CoastMap, b: Building): string {
+  const size = map.size;
+  const has = (k: BuildingKind): boolean => s.buildings.some((o) => o.kind === k);
+  if (!has('grove')) return 'the city has no olive grove yet: build one on the dry slopes (M, four times)';
+  if (!has('press')) return 'the city has no olive press yet for the groves’ carts to take their olives to';
+  if (!has('storehouse')) return 'the city has no storehouse yet for the press’s carts to take its jars to (G twice)';
+  const stalls = oilStalls(s);
+  if (stalls.length === 0) return 'no agora has an oil stall yet: press K twice and click an agora to add one';
+  if (roadsBeside(s, size, b).length === 0) return 'the oil vendor only sells to homes beside the road she walks';
+  const d = stepsToFountain(roadSearch(s, size, stalls.flatMap((a) => roadsBeside(s, size, a))), s, size, b);
+  if (d < 0) return 'no road joins it to an agora with an oil stall';
+  if (d > VENDOR_RANGE) return `the nearest oil stall is ${d} steps away by road; its oil vendor goes ${VENDOR_RANGE} at most`;
+  const reaching = stalls.filter((a) => roadsBeside(s, size, b).some((t) => distFrom(s, size, a)[t] >= 0 && distFrom(s, size, a)[t] <= VENDOR_RANGE));
+  if (reaching.length && reaching.every((a) => a.workers === 0)) return 'nobody works at the agora, so its oil vendor can’t go out';
+  if (reaching.every((a) => held(a, OIL) <= 0)) {
+    if (s.buildings.some((g) => g.kind === 'storehouse' && held(g, OIL) > 0)) return 'the oil stall is empty for now; its porter fetches jars from the storehouse';
+    const press = s.buildings.find((p) => p.kind === 'press');
+    if (press && held(press, OLIVES) <= 0 && held(press, OIL) <= 0) return 'no oil has reached a storehouse yet: the press waits for olives from the groves';
+    return 'no oil has reached a storehouse yet';
+  }
+  if (goodUntil(b, OIL) > 0) return 'within reach of an oil stall, but the oil vendor has taken other turns lately';
+  return 'within reach of an oil stall; the oil vendor hasn’t come this way yet';
+}
+
+/** A home's oil, for cottages and better ('' for a cottage while the city has no oil stall and it has none). */
+export function oilLine(s: SimState, map: CoastMap, b: Building): string {
+  if (b.kind !== 'home' || b.level < COTTAGE || b.people === 0) return '';
+  const until = goodUntil(b, OIL);
+  const left = until - s.tick;
+  const needs = b.level >= TOWNHOUSE;
+  if (left > 0) {
+    let grow = '';
+    if (!needs) grow = left < RISE_MIN ? ' · a townhouse needs a month’s oil in hand' : '';
+    return `Oil · lasts ${days(left)} more unless the oil vendor comes by again${grow}`;
+  }
+  if (needs) {
+    const since = missingSince(b, 'oil');
+    // (A home from an older save, in its grace, isn't counting yet.)
+    if (since > s.tick) return `No oil yet · they’ll put up with it for ${days(since - s.tick)} more: ${whyNoOil(s, map, b)}`;
+    const goes = DECLINE_AFTER - (s.tick - since);
+    return `No oil for ${days(s.tick - since)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the oil vendor comes: ${whyNoOil(s, map, b)}`;
+  }
+  if (!cityHas(s).oil) return '';
+  return `No oil · ${whyNoOil(s, map, b)}`;
+}
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
@@ -760,7 +815,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // A workplace built since workers were last shared out (once a day) hasn't had its chance yet.
   const waiting = wf.short.filter((b) => b.workers === 0 && s.tick - b.placed <= TICKS_PER_DAY);
   const short = wf.short.filter((b) => !waiting.includes(b));
-  const jobs = wf.jobs - waiting.reduce((n, b) => n + JOBS[b.kind], 0);
+  const jobs = wf.jobs - waiting.reduce((n, b) => n + jobsAt(b), 0);
   const filled = wf.filled;
   if (filled < jobs && short.length) {
     const open = jobs - filled;
@@ -773,7 +828,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
         : able < jobs
           ? `${able} people can work for ${jobs} jobs: more homes would help.`
           : 'More homes near it by road would help.';
-    out.push({ need: 'workers', text: `Workers: ${open} ${open === 1 ? 'job' : 'jobs'} unfilled. ${name[0].toUpperCase()}${name.slice(1)} has ${first.workers} of ${JOBS[first.kind]}${others}. ${fix}`, at: first.id });
+    out.push({ need: 'workers', text: `Workers: ${open} ${open === 1 ? 'job' : 'jobs'} unfilled. ${name[0].toUpperCase()}${name.slice(1)} has ${first.workers} of ${jobsAt(first)}${others}. ${fix}`, at: first.id });
   }
   const money = moneyLine(s);
   if (money) out.push(money);

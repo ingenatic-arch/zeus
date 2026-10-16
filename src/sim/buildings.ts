@@ -32,10 +32,26 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   taxoffice: 'A tax office',
   lodge: 'A hunting lodge',
   dairy: 'A dairy',
+  grove: 'An olive grove',
+  press: 'An olive press',
+  storehouse: 'A storehouse',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3 };
+
+/** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
+export const STALL_JOBS = 1;
+
+/** How many stalls for goods an agora has. */
+export const stallCount = (b: Building): number => {
+  let n = 0;
+  for (let m = b.stalls; m; m &= m - 1) n++;
+  return n;
+};
+
+/** Jobs a building offers: its kind's, and an agora's stalls'. */
+export const jobsAt = (b: Building): number => JOBS[b.kind] + (b.stalls ? stallCount(b) * STALL_JOBS : 0);
 
 /** Buildings drawn on a two-by-two footprint (the rest take three by three). */
 export const isSmall = (kind: BuildingKind): boolean => kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice';

@@ -8,6 +8,7 @@ import { chatterOf, LINES } from '../src/sim/chatter';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS } from '../src/sim/culture';
 import { ageOf, DECLINE_AFTER, leavingGroups, moodOf, needsOf, RISE_MIN, SETTLE, warningsOf, wantOf } from '../src/sim/folk';
+import { gi, OIL } from '../src/sim/foods';
 import { canWork } from '../src/sim/labour';
 import { distFrom } from '../src/sim/rounds';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
@@ -118,11 +119,12 @@ describe('going up, and staying up', () => {
     const s = sim.state;
     const c = homes(s).find((b) => b.level === COTTAGE && b.waterUntil > s.tick + RISE_MIN && b.foodUntil > s.tick + RISE_MIN)!;
     expect(c).toBeTruthy();
-    // Bread and cheese (#grow has a dairy): a townhouse needs two kinds of food.
+    // Bread and cheese (#grow has a dairy): a townhouse needs two kinds of food; and oil (#grow has an oil stall).
     const keep = (blessed: number): void => {
       c.waterUntil = Math.max(c.waterUntil, s.tick + 3 * TICKS_PER_MONTH);
       c.foodUntil = Math.max(c.foodUntil, s.tick + 3 * TICKS_PER_MONTH);
       c.cheeseUntil = Math.max(c.cheeseUntil, s.tick + 3 * TICKS_PER_MONTH);
+      c.goodsUntil[gi(OIL)] = Math.max(c.goodsUntil[gi(OIL)], s.tick + 3 * TICKS_PER_MONTH);
       c.religionUntil = s.tick + blessed;
     };
     // Just moved up: blessed and well supplied, but still a cottage until it has been one a month.
@@ -142,7 +144,7 @@ describe('going up, and staying up', () => {
     sim.run(TICKS_PER_DAY);
     expect(c.level).toBe(TOWNHOUSE);
     expect(c.family!.story.at(-1)?.what).toBe('up');
-    expect(needsOf(c)).toEqual(['water', 'food', 'religion']);
+    expect(needsOf(c)).toEqual(['water', 'food', 'religion', 'oil']);
   });
 
   it('no homes go back and forth: the town with a shrine, and with a theatre too, over two years', () => {
@@ -153,6 +155,8 @@ describe('going up, and staying up', () => {
   it('a street of fine houses on one agora: short of farms, the reason names the farms with numbers; with two more farms and a hunting lodge nobody goes down (#grow played through)', () => {
     const grow = (farms: boolean): Sim => {
       const sim = demo('grow');
+      // Since slice 10 #grow has spent its savings on oil (townhouses need it): this is about farms, not money.
+      sim.state.money = 5000;
       sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });
       // #grow has bread and cheese; fine houses need meat too.
       sim.enqueue({ type: 'build', kind: 'lodge', at: [27 + 52 * N] });
@@ -191,8 +195,9 @@ describe('warn, then decline, for blessings and plays', () => {
     const s = sim.state;
     const fine = homes(s).filter((b) => b.level === FINE);
     expect(fine.length).toBeGreaterThan(20);
-    const warned = fine.filter((b) => warningsOf(s, b).some((w) => w.need === 'culture'));
-    expect(warned.length).toBeGreaterThan(15);
+    // The fine houses warned about plays alone (the cut-off street's lack oil, blessings and water too, and its oil runs out first).
+    const warned = fine.filter((b) => warningsOf(s, b).length === 1 && warningsOf(s, b)[0].need === 'culture');
+    expect(warned.length).toBeGreaterThan(12);
     expect(homeStatus(s, map, warned[0]).detail).toMatch(/No plays for .* goes back to a townhouse in/);
     // Some homes in the cut-off street warn about three needs at once.
     expect(homes(s).some((b) => warningsOf(s, b).length >= 3)).toBe(true);

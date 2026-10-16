@@ -7,7 +7,7 @@
  * that while its wages are unpaid: see treasury.ts).
  */
 import type { CoastMap } from '../map/bake';
-import { JOBS, livedIn } from './buildings';
+import { jobsAt, livedIn } from './buildings';
 import { TICKS_PER_DAY } from './clock';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, SimState } from './state';
@@ -18,15 +18,14 @@ export const WORK_SHARE = 0.5;
 /** How many of a home's people can work. */
 export const canWork = (b: Building): number => (livedIn(b) ? Math.floor(b.people * WORK_SHARE) : 0);
 
-/** Jobs a building offers. */
-export const jobsAt = (b: Building): number => JOBS[b.kind];
+export { jobsAt };
 
 /** How hard a workplace works while its wages are unpaid this month. */
 export const UNPAID_RATE = 0.5;
 
 /** How hard a building works: the share of its jobs filled (1 for buildings that need nobody), halved while its wages are unpaid. */
 export function rateOf(b: Building): number {
-  const jobs = JOBS[b.kind];
+  const jobs = jobsAt(b);
   if (jobs === 0) return 1;
   const r = Math.min(1, b.workers / jobs);
   return b.owed > 0 ? r * UNPAID_RATE : r;
@@ -47,7 +46,7 @@ export function shareWork(s: SimState, map: CoastMap): void {
   for (const b of s.buildings) {
     b.workers = 0;
     b.unpaid = 0;
-    if (JOBS[b.kind] > 0) places.push(b);
+    if (jobsAt(b) > 0) places.push(b);
     else if (canWork(b) > 0) homes.push({ b, roads: roadsBeside(s, size, b), free: canWork(b) });
   }
   if (places.length > 0 && homes.length > 0) fill(s, size, places, homes);
@@ -70,7 +69,7 @@ function fill(s: SimState, size: number, places: Building[], homes: Array<{ b: B
   for (const [, pi, hi] of pairs) {
     const p = places[pi];
     const h = homes[hi];
-    const want = JOBS[p.kind] - p.workers;
+    const want = jobsAt(p) - p.workers;
     if (want <= 0 || h.free <= 0) continue;
     const take = Math.min(want, h.free);
     p.workers += take;
@@ -88,7 +87,7 @@ export function workforce(s: SimState): { jobs: number; filled: number; able: nu
   let able = 0;
   const short: Building[] = [];
   for (const b of s.buildings) {
-    const j = JOBS[b.kind];
+    const j = jobsAt(b);
     if (j > 0) {
       jobs += j;
       filled += b.workers;

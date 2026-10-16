@@ -13,6 +13,7 @@ import { MAP_SIZE } from '../map/coast';
 import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
 import { SIM_STATE_VERSION, type Round, type SimState } from '../sim/state';
+import { GOOD_COUNT } from '../sim/foods';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -211,15 +212,17 @@ const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
 const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len === undefined || v.length === len) && v.every(fin);
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
-const ROUNDS: readonly Round[] = ['water', 'food', 'religion', 'culture', 'tax'];
-const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy'];
-const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'priestess', 'actor', 'tax', 'hunter'];
+const ROUNDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'tax'];
+const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse'];
+const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter'];
 const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
-  'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace',
+  'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls', 'fetch',
 ];
+/** A building's goods: one number per good. */
+const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
 const HERD_NUMBERS = ['hx', 'hz', 'r', 'x', 'z', 'tx', 'tz', 'head', 'full', 'clock', 'grow', 'fled'];
 
@@ -259,6 +262,7 @@ export function stateProblem(st: unknown): string {
   for (const b of st.buildings as unknown[]) {
     if (!isObj(b) || typeof b.kind !== 'string' || !KINDS.includes(b.kind)) return damaged('a building is of no known kind');
     for (const k of BUILDING_NUMBERS) if (!fin(b[k])) return damaged(`a building’s ${k} is missing`);
+    for (const k of BUILDING_GOODS) if (!nums(b[k], GOOD_COUNT)) return damaged(`a building’s ${k} is wrong`);
     // Buildings are kept in id order (looking one up relies on it).
     if ((b.id as number) <= lastId) return damaged('its buildings are out of order');
     lastId = b.id as number;
@@ -309,6 +313,9 @@ function undoOk(u: unknown): boolean {
       nums(e.removedStock) &&
       (e.removedMeat === undefined || nums(e.removedMeat)) &&
       (e.removedCheese === undefined || nums(e.removedCheese)) &&
+      (e.removedGoods === undefined || (Array.isArray(e.removedGoods) && e.removedGoods.every((g: unknown) => nums(g, GOOD_COUNT)))) &&
+      (e.removedStalls === undefined || nums(e.removedStalls)) &&
+      (e.stalls === undefined || (nums(e.stalls) && (e.stalls as number[]).length % 2 === 0)) &&
       nums(e.trees) &&
       fin(e.cost) &&
       fin(e.tick),

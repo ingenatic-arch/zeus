@@ -2,8 +2,8 @@ import { DAYS_PER_MONTH, formatYear, type SimDate } from '../sim/clock';
 import type { ClockDriver, Speed } from '../game/clockDriver';
 import { TICKS_PER_SECOND } from '../sim/clock';
 import type { Outlook } from '../sim/settlers';
-import { JOBS } from '../sim/buildings';
-import type { BuildingKind } from '../sim/state';
+import { jobsAt } from '../sim/buildings';
+import type { Building } from '../sim/state';
 import { TAX_RATES, taxOf } from '../sim/taxes';
 
 const ICONS: Record<Speed, string> = {
@@ -118,7 +118,7 @@ export class TopBar {
   private workKey = '';
 
   /** Jobs filled of jobs, and the tooltip saying who's short. */
-  showWork(w: { jobs: number; filled: number; able: number; short: Array<{ kind: string; workers: number }> }, names: Record<string, string>): void {
+  showWork(w: { jobs: number; filled: number; able: number; short: Building[] }, names: Record<string, string>): void {
     const el = this.bar.querySelector('.stat.work') as HTMLElement;
     const key = `${w.jobs}:${w.filled}:${w.able}:${w.short.length}`;
     if (key === this.workKey) return;
@@ -129,7 +129,7 @@ export class TopBar {
     el.classList.toggle('short', w.filled < w.jobs);
     let text = `Jobs filled: ${w.filled} of ${w.jobs} · ${w.able} people can work (half of everyone in a lived-in home).`;
     if (w.short.length) {
-      const list = w.short.slice(0, 4).map((b) => `${names[b.kind] ?? b.kind} (${b.workers} of ${JOBS[b.kind as BuildingKind] ?? '?'})`);
+      const list = w.short.slice(0, 4).map((b) => `${names[b.kind] ?? b.kind} (${b.workers} of ${jobsAt(b)})`);
       text += ` Short of workers: ${list.join(', ')}${w.short.length > 4 ? ` and ${w.short.length - 4} more` : ''}. A short-handed place works slower; more homes nearby by road would help.`;
     } else if (w.jobs > 0) text += ' Every job is filled.';
     el.title = text;

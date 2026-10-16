@@ -72,21 +72,46 @@ export function walkable(map: CoastMap, s: SimState, t: number): boolean {
   return firm(mapIndex(map).ground[t]);
 }
 
-/** Is the straight line between two points (world units) over tiles that all pass `ok`? */
+/**
+ * Is the straight line between two points (world units) over tiles that all
+ * pass `ok`? Every tile the line touches counts, a corner it grazes too (both
+ * tiles beside the corner), so a walker on it never clips a building.
+ */
 export function lineClear(map: CoastMap, s: SimState, x0: number, z0: number, x1: number, z1: number, ok: (map: CoastMap, s: SimState, t: number) => boolean): boolean {
   const n = map.size;
-  const len = Math.hypot(x1 - x0, z1 - z0);
-  const steps = Math.max(1, Math.ceil(len / 0.25));
-  let last = -1;
-  for (let i = 0; i <= steps; i++) {
-    const f = i / steps;
-    const x = Math.floor(x0 + (x1 - x0) * f);
-    const z = Math.floor(z0 + (z1 - z0) * f);
-    if (x < 0 || z < 0 || x >= n || z >= n) return false;
-    const t = z * n + x;
-    if (t === last) continue;
-    last = t;
-    if (!ok(map, s, t)) return false;
+  const test = (x: number, z: number): boolean => x >= 0 && z >= 0 && x < n && z < n && ok(map, s, z * n + x);
+  let x = Math.floor(x0);
+  let z = Math.floor(z0);
+  const xe = Math.floor(x1);
+  const ze = Math.floor(z1);
+  if (!test(x, z)) return false;
+  const dx = x1 - x0;
+  const dz = z1 - z0;
+  const sx = dx > 0 ? 1 : -1;
+  const sz = dz > 0 ? 1 : -1;
+  // How far along the line (0 to 1) the next tile edge across x, and across z, comes; and the step between edges.
+  const ax = dx !== 0 ? Math.abs(1 / dx) : Infinity;
+  const az = dz !== 0 ? Math.abs(1 / dz) : Infinity;
+  let tx = dx !== 0 ? (dx > 0 ? x + 1 - x0 : x0 - x) * ax : Infinity;
+  let tz = dz !== 0 ? (dz > 0 ? z + 1 - z0 : z0 - z) * az : Infinity;
+  const EPS = 1e-9;
+  for (let guard = 0; guard < 4 * n && (x !== xe || z !== ze); guard++) {
+    if (Math.min(tx, tz) > 1) break;
+    if (Math.abs(tx - tz) < EPS) {
+      // Through a corner: both tiles beside it, then the one across.
+      if (!test(x + sx, z) || !test(x, z + sz)) return false;
+      x += sx;
+      z += sz;
+      tx += ax;
+      tz += az;
+    } else if (tx < tz) {
+      x += sx;
+      tx += ax;
+    } else {
+      z += sz;
+      tz += az;
+    }
+    if (!test(x, z)) return false;
   }
   return true;
 }

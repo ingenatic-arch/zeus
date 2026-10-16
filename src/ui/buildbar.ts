@@ -1,5 +1,5 @@
 import type { ToolName, ToolTip } from '../game/tools';
-import { AGORA_COST, BRIDGE_COST, DAIRY_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, LODGE_COST, PLOT_COST, ROAD_COST, SHRINE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
+import { AGORA_COST, BRIDGE_COST, DAIRY_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, GROVE_COST, LODGE_COST, PLOT_COST, PRESS_COST, ROAD_COST, SHRINE_COST, STALL_COST, STOREHOUSE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
@@ -20,6 +20,20 @@ const ICONS: Record<ButtonName, string> = {
   // A wheel of cheese with a wedge cut out.
   dairy:
     '<svg viewBox="0 0 24 24"><path d="M3 11.5v4.6c0 2 4 3.6 9 3.6s9-1.6 9-3.6v-4.6" class="fill-cheese"/><ellipse cx="12" cy="11.5" rx="9" ry="3.6" class="fill-soft"/><path d="M12 11.5 20.4 10.2 21 15.4 12 16z" class="fill-ink"/><circle cx="7.4" cy="15.6" r=".9" class="fill-ink"/><circle cx="9.8" cy="17.4" r=".7" class="fill-ink"/></svg>',
+  // An olive tree: a gnarled trunk under a silvery crown, dark olives in it.
+  grove:
+    '<svg viewBox="0 0 24 24"><path d="M11.2 21c.4-2.6-.6-4.4-2-6.2l1.6-.6c.8 1 1.2 1.8 1.4 2.6.4-1.4 1.2-2.6 2.4-3.4l1.2 1c-1.6 1.2-2.4 3.2-2.2 6.6z" class="fill-ink"/><path d="M4.4 10.6c-.6-3.4 2.4-6.6 6-6 1.6-1.8 5-1.6 6.4.4 2.6.2 4 2.8 3 5-.2 2.6-2.8 3.8-5 3.2-1.4 1.4-4 1.6-5.6.4-2.4.8-4.6-.6-4.8-3z" class="fill-olive"/><circle cx="9" cy="9.4" r="1.1" class="fill-ink"/><circle cx="14.4" cy="8.2" r="1.1" class="fill-ink"/><circle cx="16.6" cy="11" r="1.1" class="fill-ink"/><path d="M3 21.2h18" class="stroke-ink"/></svg>',
+  // An olive press: a round basin with an upright millstone and its pole.
+  press:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 15.4c0-1.6 4.2-2.8 9.4-2.8s9.4 1.2 9.4 2.8v2.8c0 1.6-4.2 2.8-9.4 2.8s-9.4-1.2-9.4-2.8z" class="fill-soft"/><ellipse cx="12" cy="15.4" rx="6.4" ry="1.7" class="fill-oil"/><path d="M12 6.4v9" class="stroke-ink"/><path d="M3.6 8.4 20.4 6" class="stroke-ink"/><rect x="8.6" y="8.8" width="6.8" height="6.6" rx="3.3" class="fill-soft"/><circle cx="12" cy="12.1" r="1.2" class="fill-ink"/></svg>',
+  // A walled yard with jars standing in it.
+  storehouse:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 21V10.4h18.8V21z" class="fill-soft"/><path d="M2 10.6 5 6.4h14l3 4.2z" class="fill-ink"/><path d="M6.6 20.6c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6zM13.8 20.6c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/><path d="M19.4 21v-6" class="stroke-ink"/></svg>',
+  // A stall under a striped awning, with a jar of oil.
+  stall:
+    '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M10.6 17.2c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2.8v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/></svg>',
+  // A jar of oil, for the oil overlay.
+  oil: '<svg viewBox="0 0 24 24"><path d="M10.4 3h3.2l-.3 3.2c3.6.9 5.4 3.9 5.4 7.3 0 3.6-2.2 6.4-4.6 7.5H9.9C7.5 19.9 5.3 17.1 5.3 13.5c0-3.4 1.8-6.4 5.4-7.3z" class="fill-oil"/><path d="M7.8 6.8C6 6.6 5.4 8.4 6.6 9.6M16.2 6.8c1.8-.2 2.4 1.6 1.2 2.8" class="stroke-ink"/><path d="M9 12.6q.4-2.4 2.2-3.2" class="stroke-shine"/></svg>',
   // A domed silo beside a storehouse.
   granary: '<svg viewBox="0 0 24 24"><path d="M2.8 21V11.5L8 8l5.2 3.5V21z" class="fill-soft"/><path d="M14 21v-8.2a3.6 3.6 0 0 1 7.2 0V21z" class="fill-gold"/><path d="M6.3 21v-4.6h3.4V21z" class="fill-ink"/><path d="M2 21.2h20" class="stroke-ink"/></svg>',
   // A stall under a striped awning, with loaves.
@@ -89,6 +103,30 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${DAIRY_COST} dr`,
     hint: 'Click on green pasture, beside a road. Its goats graze round it and give cheese, more on better grass; ox carts take it to a granary.',
   },
+  grove: {
+    name: 'Olive grove',
+    key: 'M ×4',
+    cost: `${GROVE_COST} dr`,
+    hint: 'Click on the dry slopes, beside a road (the river land, rock and sand won’t do). Its olives ripen for two months; ox carts take them to an olive press.',
+  },
+  press: {
+    name: 'Olive press',
+    key: 'M ×5',
+    cost: `${PRESS_COST} dr`,
+    hint: 'Click beside a road. Carts bring it the groves’ olives; it presses them into jars of oil, which its carts take to a storehouse.',
+  },
+  storehouse: {
+    name: 'Storehouse',
+    key: 'G G',
+    cost: `${STOREHOUSE_COST} dr`,
+    hint: 'Click beside a road. Carts bring jars of oil here, and an agora’s oil porter fetches them for its stall.',
+  },
+  stall: {
+    name: 'Oil stall',
+    key: 'K K',
+    cost: `${STALL_COST} dr`,
+    hint: 'Click an agora to add an oil stall. Its porter fetches oil from a storehouse and its oil vendor sells it; a townhouse needs oil.',
+  },
   granary: { name: 'Granary', key: 'G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Carts bring wheat, meat and cheese here, each in its own store, and the agora’s porter fetches them.' },
   agora: {
     name: 'Agora',
@@ -120,12 +158,13 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
   religion: { name: 'Religion overlay: where the priestess walks, and which homes are blessed', key: 'Y', cost: '', hint: '' },
   culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },
+  oil: { name: 'Oil overlay: where the oil vendor walks, which homes have oil, and the groves, presses and storehouses', key: 'L L L', cost: '', hint: '' },
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, fountain, farm, hunting lodge, dairy, granary, agora, shrine, theatre, tax office, clear, undo, and the overlays. */
+/** The build bar along the bottom: road, housing, fountain, farm, hunting lodge, dairy, olive grove, olive press, granary, storehouse, agora, oil stall, shrine, theatre, tax office, clear, undo, and the overlays. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
@@ -140,7 +179,7 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
+    for (const t of ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'grove', 'press', 'granary', 'storehouse', 'agora', 'stall', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
       if (t === 'farm' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
         const d = document.createElement('div');
         d.className = 'divider';
@@ -160,7 +199,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'variety', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
+    for (const o of ['water', 'food', 'variety', 'oil', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));

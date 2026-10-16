@@ -403,7 +403,7 @@ export function tintedMaterial(): THREE.MeshStandardMaterial {
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil';
 
 /** Settler and leaver groups, water carriers, food vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {
@@ -544,7 +544,7 @@ export class Walkers {
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
-          if (cart) this.carts[w.load > 0 ? 1 + w.food : 0].push(this.m, still(this.c));
+          if (cart) this.carts[w.load > 0 ? 1 + Math.min(2, w.food) : 0].push(this.m, still(this.c));
           else this.porters[w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
         }
         const v = this.serviceAt.get(w.id);
