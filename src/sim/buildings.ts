@@ -29,14 +29,18 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   agora: 'The agora',
   shrine: 'A shrine',
   theatre: 'A theatre',
+  taxoffice: 'A tax office',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3 };
+
+/** Buildings drawn on a two-by-two footprint (the rest take three by three). */
+export const isSmall = (kind: BuildingKind): boolean => kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice';
 
 /** The side of a building's square footprint, in tiles. */
 export function sideOf(kind: BuildingKind): number {
-  return kind === 'home' || kind === 'fountain' || kind === 'shrine' ? 2 : 3;
+  return isSmall(kind) ? 2 : 3;
 }
 
 export function capacity(b: Building): number {

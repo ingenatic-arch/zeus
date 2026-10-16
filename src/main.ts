@@ -22,7 +22,8 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
-import { homeStatus, townLines, walkerStatus, type Status } from './sim/status';
+import { homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
+import { kindTotal, owedWages } from './sim/treasury';
 import { TILE_ROAD, type Building, type Walker } from './sim/state';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
@@ -75,7 +76,11 @@ interface Probe {
     stored: number;
     stall: number;
     bridges: number;
-    rent: number;
+    taxes: number;
+    wages: number;
+    taxesNow: number;
+    owed: number;
+    taxRate: number;
     walkers: number;
     people: number;
     roads: number;
@@ -599,7 +604,11 @@ function start(): void {
       stored: sum(of('granary')),
       stall: sum(of('agora')),
       bridges: s.tiles.filter((_, t) => isBridge(map, s, t)).length,
-      rent: s.rent.paid,
+      taxes: kindTotal(s.ledger.last, 'taxes'),
+      wages: -kindTotal(s.ledger.last, 'wages'),
+      taxesNow: kindTotal(s.ledger.now, 'taxes'),
+      owed: owedWages(s).owed,
+      taxRate: s.taxRate,
       walkers: s.walkers.length,
       people: city.walkers.count,
       roads: s.tiles.filter((t) => t === -1).length,
@@ -728,7 +737,7 @@ function start(): void {
     if (time - outlookAt > 2) {
       outlookAt = time;
       topbar.setPeopleTip(arrivalOutlook(s, map));
-      topbar.setMoneyTip(s.rent);
+      topbar.setMoneyTip(moneyTip(s));
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;

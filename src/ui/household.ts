@@ -64,7 +64,7 @@ const UP_LINES = [
 /** One line of a household's story. */
 function storyLine(f: Family, e: Story, i: number): string {
   const who = nameList(e.names);
-  const need = e.need ? NEED_WORDS[e.need] : 'water';
+  const need = e.need && e.need !== 'tax' ? NEED_WORDS[e.need] : 'water';
   switch (e.what) {
     case 'came':
       return `${who} came from ${f.origin} and pitched a tent`;
@@ -91,13 +91,14 @@ function storyLine(f: Family, e: Story, i: number): string {
       let warned = -1;
       for (let j = i - 1; j >= 0 && warned < 0; j--) if (f.story[j].what === 'warn') warned = f.story[j].tick;
       const close = warned >= 0 && e.tick - warned > WARNING / 2;
-      const by = e.need ? BRINGER[e.need] : 'the water carrier';
+      const by = e.need && e.need !== 'tax' ? BRINGER[e.need] : 'the water carrier';
       return `${by[0].toUpperCase()}${by.slice(1)} came back${close ? ', just in time' : ''}`;
     }
     case 'down':
       return e.level === TENT ? `Went back to a tent, after two months without ${need}` : `Gave up the ${levelName(e.level + 1, '')} for ${levelName(e.level)}, after two months without ${need}`;
     case 'left':
       // Each family that left together has its own line.
+      if (e.need === 'tax') return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}: the taxes were too harsh` : `${who} moved away: the taxes were too harsh`;
       return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
   }
 }

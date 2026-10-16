@@ -99,7 +99,7 @@ function unit(s: SimState, n: number, taken: Person[], head: Person | null): Per
 }
 
 /** Note something in a household's story, keeping the last few. */
-export function tell(s: SimState, f: Family, what: Story['what'], level: number, names: string[] = [], need: '' | Service = ''): void {
+export function tell(s: SimState, f: Family, what: Story['what'], level: number, names: string[] = [], need: Story['need'] = ''): void {
   f.story.push({ tick: s.tick, what, need, level, names });
   if (f.story.length > STORY_LENGTH) f.story.splice(0, f.story.length - STORY_LENGTH);
 }
@@ -246,14 +246,14 @@ function knapsack(f: Family, units: Array<[number, number]>, groups: Array<{ idx
 
 /**
  * At least `n` people move away (see `leavingGroups`), the story naming each
- * group. Returns who left.
+ * group (and why, if it was the taxes). Returns who left.
  */
-export function moveOut(s: SimState, b: Building, n: number): Person[] {
+export function moveOut(s: SimState, b: Building, n: number, need: Story['need'] = ''): Person[] {
   const f = b.family;
   if (!f || n <= 0) return [];
   const groups = leavingGroups(s, f, n);
   const going = new Set(groups.flat());
-  for (const grp of groups) tell(s, f, 'left', b.level, grp.map((i) => f.members[i].name));
+  for (const grp of groups) tell(s, f, 'left', b.level, grp.map((i) => f.members[i].name), need);
   const gone = f.members.filter((_, i) => going.has(i));
   f.members = f.members.filter((_, i) => !going.has(i));
   if (f.members.length === 0) b.family = null;
@@ -369,6 +369,15 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
       else add(-1, 'No actor comes this way');
     }
   }
+  // Taxes, if a collector comes this way (heavy sours a mood a little, harsh a lot); and wages the treasury couldn't pay.
+  if (b.taxedAt > 0 && s.tick - b.taxedAt < 2 * TICKS_PER_MONTH) {
+    const r = s.taxRate;
+    if (r <= 0) add(1, 'No taxes to pay');
+    else if (r === 1) add(0, 'Taxes are light');
+    else if (r === 3) add(-1, 'Taxes are heavy');
+    else if (r >= 4) add(-4, 'Taxes are harsh: hardly worth staying');
+  }
+  if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');
     else if (b.workers === 0) add(0, workable === 1 ? 'No work to be had nearby' : `No work nearby for the ${workable} who could work`);

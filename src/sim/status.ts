@@ -17,6 +17,8 @@ import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, SimState, Walker } from './state';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
+import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxOf } from './taxes';
+import { hasTaxOffice, kindTotal, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
 
 export interface Status {
   title: string;
@@ -41,6 +43,7 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'granary') return granaryStatus(s, map, b);
   if (b.kind === 'agora') return agoraStatus(s, map, b);
   if (b.kind === 'shrine' || b.kind === 'theatre') return cultureStatus(s, map, b);
+  if (b.kind === 'taxoffice') return taxOfficeStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -57,7 +60,50 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), playsLine(s, map, b), workLine(s, map.size, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), playsLine(s, map, b), workLine(s, map.size, b), taxLine(s, map, b)) };
+}
+
+/** What a home pays the tax collector, or why he doesn't call. */
+export function taxLine(s: SimState, map: CoastMap, b: Building): string {
+  if (b.kind !== 'home' || b.level === 0 || b.people === 0) return '';
+  const would = taxOf(s.taxRate, b.level);
+  const rate = TAX_RATES[s.taxRate];
+  if (taxedLately(s, b)) return b.taxPaid > 0 ? `Taxes: paid the tax collector ${b.taxPaid} dr ${days(s.tick - b.taxedAt)} ago (${rate})` : 'Taxes: none to pay, the rate is none';
+  const why = whyUntaxed(s, map, b);
+  if (would === 0) return 'Taxes: none to pay, the rate is none';
+  return `Taxes: ${would} dr a month at ${rate} · ${why}`;
+}
+
+/** Why the tax collector hasn't called on a home this month. */
+export function whyUntaxed(s: SimState, map: CoastMap, b: Building): string {
+  const size = map.size;
+  const offices = s.buildings.filter((o) => o.kind === 'taxoffice');
+  if (offices.length === 0) return 'no tax office, so it pays nothing';
+  const beside = roadsBeside(s, size, b);
+  if (beside.length === 0) return 'the tax collector only calls on homes beside the road he walks';
+  const d = stepsToFountain(roadSearch(s, size, offices.flatMap((o) => roadsBeside(s, size, o))), s, size, b);
+  if (d < 0) return 'no road joins it to a tax office, so it pays nothing';
+  if (d > COLLECTOR_RANGE) return `the nearest tax office is ${d} steps away by road; its collector goes ${COLLECTOR_RANGE} at most, so it pays nothing`;
+  const reaching = offices.filter((o) => beside.some((t) => distFrom(s, size, o)[t] >= 0 && distFrom(s, size, o)[t] <= COLLECTOR_RANGE));
+  if (reaching.length && reaching.every((o) => o.workers === 0)) return 'nobody works at the tax office, so its collector can’t go out';
+  return 'no tax collector has called this month';
+}
+
+/** A tax office: its collector, and what came in. */
+export function taxOfficeStatus(s: SimState, map: CoastMap, o: Building): Status {
+  const title = BUILDING_NAMES.taxoffice;
+  if (roadsBeside(s, map.size, o).length === 0) return { title, detail: 'Needs a road beside it, for the tax collector to walk' };
+  const w = s.walkers.find((x) => x.id === o.walker);
+  let line: string;
+  if (w) {
+    const bag = purseTotal(w);
+    line = w.back ? `The tax collector is heading back with ${bag} dr` : `The tax collector is out, ${w.steps} of ${COLLECTOR_WALK} new road tiles into his round · ${bag} dr in his satchel`;
+  } else if (o.workers === 0) line = 'The tax collector can’t go out with nobody working the office';
+  else line = 'The tax collector is resting · he sets off again soon';
+  const homes = s.buildings.filter((b) => b.kind === 'home' && b.people > 0);
+  const paid = homes.filter((b) => taxedLately(s, b)).length;
+  const reach = `In the last month the city’s collectors have called on ${fmt(paid)} of its ${fmt(homes.length)} homes · the rate is ${TAX_RATES[s.taxRate]}`;
+  return { title, detail: lines(workersLine(s, map, o), line, reach) };
 }
 
 /** What each of the new services is called, and who brings it. */
@@ -266,15 +312,22 @@ function workLine(s: SimState, size: number, b: Building): string {
   if (able === 0) return '';
   const can = `${able} can work`;
   if (!s.buildings.some((o) => JOBS[o.kind] > 0)) return `${can} · nothing needs workers yet`;
-  if (b.workers >= able) return `${can} · ${able === 1 ? 'has' : 'all have'} work`;
   if (b.workers === 0) return `${can} · none has work: ${reachesWork(s, size, b) ? 'every job they can reach is taken' : 'no road joins it to a workplace'}`;
-  return `${can} · ${b.workers} have work; every other job they can reach is taken`;
+  const unpaid = b.unpaid > 0 ? ` · ${b.unpaid === b.workers ? 'their' : `${b.unpaid} of their`} wages unpaid this month` : '';
+  if (b.workers >= able) return `${can} · ${able === 1 ? 'has' : 'all have'} work${unpaid}`;
+  return `${can} · ${b.workers} have work; every other job they can reach is taken${unpaid}`;
 }
 
-/** How a workplace is staffed ('' if it needs nobody). */
+/** How a workplace is staffed ('' if it needs nobody), and whether its wages are paid. */
 export function workersLine(s: SimState, map: CoastMap, b: Building): string {
   const jobs = JOBS[b.kind];
   if (jobs === 0) return '';
+  const staffed = staffLine(s, map, b, jobs);
+  if (b.owed <= 0) return staffed;
+  return `${staffed}\nWages unpaid: the treasury owes its workers ${b.owed} dr this month, so they work at half pace · money coming in pays them first`;
+}
+
+function staffLine(s: SimState, map: CoastMap, b: Building, jobs: number): string {
   if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}`;
   if (b.workers === 0) {
     if (roadsBeside(s, map.size, b).length === 0) return `No workers · it needs ${jobs}, and a road beside it`;
@@ -284,7 +337,7 @@ export function workersLine(s: SimState, map: CoastMap, b: Building): string {
     if (joined) return `No workers · it needs ${jobs}; everyone who can reach it already works somewhere nearer home · more homes nearby would help`;
     return `No workers · it needs ${jobs} from homes joined to it by road`;
   }
-  return `Short of workers: ${b.workers} of ${jobs} · working at ${Math.round(rateOf(b) * 100)}% · more homes nearby would help`;
+  return `Short of workers: ${b.workers} of ${jobs} · working at ${Math.round(Math.min(1, b.workers / jobs) * 100)}% · more homes nearby would help`;
 }
 
 export function fountainStatus(s: SimState, map: CoastMap, f: Building): Status {
@@ -381,6 +434,11 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     if (w.back) return { title: 'Actor', detail: 'Heading back to the theatre, still in costume' };
     return { title: 'Actor', detail: `Out on his round, ${w.steps} of ${ACTOR_WALK} new road tiles walked · he heads for the townhouses and better that have gone longest without a play` };
   }
+  if (w.kind === 'tax') {
+    const bag = purseTotal(w);
+    if (w.back) return { title: 'Tax collector', detail: `Heading back to the tax office with ${bag} dr, collecting on the way` };
+    return { title: 'Tax collector', detail: `Out on his round, ${w.steps} of ${COLLECTOR_WALK} new road tiles walked · ${bag} dr in his satchel · he heads for the homes that haven’t paid this month` };
+  }
   if (w.kind === 'cart') {
     const g = findBuilding(s, w.target);
     if (w.back) return { title: 'Ox cart', detail: 'Heading back to its farm' };
@@ -399,7 +457,7 @@ export { eatsBread };
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'food' | 'workers';
+  need: 'food' | 'workers' | 'money';
   text: string;
   at: number;
 }
@@ -463,7 +521,12 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
             ? ` At this rate the granaries and stalls run empty in about ${Math.round(runsOut)} months.`
             : ' At this rate the granaries and stalls run empty within a month or so.';
       const granary = s.buildings.find((g) => g.kind === 'granary');
-      const why = slow && roadsBeside(s, map.size, slow).length === 0 ? 'a farm has no road beside it, so nobody can work it' : `a farm is short of workers (${slow?.workers} of ${JOBS.farm})`;
+      const why =
+        slow && roadsBeside(s, map.size, slow).length === 0
+          ? 'a farm has no road beside it, so nobody can work it'
+          : slow && slow.owed > 0 && slow.workers >= JOBS.farm
+            ? 'a farm’s wages are unpaid, so it works at half pace'
+            : `a farm is short of workers (${slow?.workers} of ${JOBS.farm})`;
       if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; ${why}.${stores}${already}`, at: slow.id });
       else if (roundTen(bal.grown) === roundTen(bal.eaten)) {
         // Rounded, the two would read the same: say which way it tips.
@@ -488,5 +551,62 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
           : 'More homes near it by road would help.';
     out.push({ need: 'workers', text: `Workers: ${open} ${open === 1 ? 'job' : 'jobs'} unfilled. ${name[0].toUpperCase()}${name.slice(1)} has ${first.workers} of ${JOBS[first.kind]}${others}. ${fix}`, at: first.id });
   }
+  const money = moneyLine(s);
+  if (money) out.push(money);
   return out;
+}
+
+/** The treasury runs dry within this many months at last month's rate before the money line warns. */
+export const MONEY_LEAD_MONTHS = 6;
+
+/**
+ * The money line: wages owed that the treasury can't pay; or wages going out
+ * with no tax office to bring taxes in; or, with a tax office that stood all
+ * last month, the treasury running dry within MONEY_LEAD_MONTHS at last
+ * month's rate. Null when the money is fine.
+ */
+export function moneyLine(s: SimState): TownLine | null {
+  const owed = owedWages(s);
+  if (owed.owed > 0) {
+    const first = s.buildings.find((b) => b.owed > 0);
+    const where = owed.places === 1 ? 'one workplace' : `${owed.places} workplaces`;
+    return {
+      need: 'money',
+      text: `Money: the treasury can’t pay this month’s wages at ${where} (${fmt(owed.owed)} dr for ${fmt(owed.workers)} workers), so they work at half pace. Money coming in pays them first${hasTaxOffice(s) ? '; higher taxes, or a tax collector reaching more homes, would help' : '; build a tax office, which the treasury has kept back the cost of'}.`,
+      at: first?.id ?? 0,
+    };
+  }
+  const bill = wageBill(s);
+  if (!hasTaxOffice(s)) {
+    if (bill <= 0) return null;
+    return { need: 'money', text: `Money: no taxes come in without a tax office, and wages go out, about ${fmt(bill)} dr a month. A tax office beside the houses sends out a tax collector.`, at: 0 };
+  }
+  const l = s.ledger;
+  if (l.month !== monthOf(s.tick) || l.last.length === 0) return null;
+  const lastMonth = (l.month - 1) * TICKS_PER_MONTH;
+  const office = s.buildings.find((b) => b.kind === 'taxoffice' && b.placed <= lastMonth);
+  if (!office) return null;
+  const t = totals(l.last);
+  if (t.net >= 0) return null;
+  const months = (s.money - reserve(s)) / -t.net;
+  if (months >= MONEY_LEAD_MONTHS) return null;
+  const taxes = kindTotal(l.last, 'taxes');
+  const wages = -kindTotal(l.last, 'wages');
+  const when = months < 1.5 ? 'within a month or so' : `in about ${Math.round(months)} months`;
+  return {
+    need: 'money',
+    text: `Money: last month taxes brought in ${fmt(taxes)} dr and wages took ${fmt(wages)}; at that rate the treasury runs dry ${when}. Higher taxes, or a tax collector reaching more homes, would help.`,
+    at: office.id,
+  };
+}
+
+/** The drachmas' tooltip: what the treasury holds, and last month in a line. */
+export function moneyTip(s: SimState): string {
+  const l = s.ledger;
+  const current = l.month === monthOf(s.tick);
+  const last = current ? l.last : l.month === monthOf(s.tick) - 1 ? l.now : [];
+  const head = 'Drachmas in the treasury · click for the ledger';
+  if (last.length === 0) return `${head}. Taxes come in with the tax collector; wages go out on the first of each month (${WAGE} dr a worker).`;
+  const t = totals(last);
+  return `${head}. Last month: ${fmt(t.in)} dr in, ${fmt(t.out)} out (${t.net >= 0 ? '+' : '−'}${fmt(Math.abs(t.net))}).`;
 }

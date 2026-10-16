@@ -249,8 +249,9 @@ const open = async (hash) => {
 };
 await open('#food-paused');
 c = await city();
-if (!(c.cottages > 10 && c.farms === 3 && c.granaries === 1 && c.agoras === 1 && c.fed > 10 && c.jobs === 44 && c.filled === 44)) fail(`#food: ${JSON.stringify(c)}`);
-if (!(c.rent > 0)) fail(`#food: no rent paid (${c.rent})`);
+if (!(c.cottages > 10 && c.farms === 3 && c.granaries === 1 && c.agoras === 1 && c.fed > 10 && c.jobs === 47 && c.filled >= 44)) fail(`#food: ${JSON.stringify(c)}`);
+// Wages went out last month (the tax office has only just gone in).
+if (!(c.wages > 0)) fail(`#food: no wages paid (${c.wages})`);
 const sv = await page.evaluate(() => window.__zeus.walker('food'));
 if (sv) {
   await page.mouse.move(sv.x, sv.y);

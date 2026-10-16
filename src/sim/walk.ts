@@ -15,10 +15,13 @@ export const CART_SPEED = 0.09;
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
-export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED);
+/** The tax collector walks half as fast again (see taxes.ts, which says why). */
+export const COLLECTOR_SPEED = CARRIER_SPEED * 1.5;
 
-/** Walkers who walk a service's round: the water carrier, the food vendor, the priestess and the actor. */
-export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor';
+export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : w.kind === 'tax' ? COLLECTOR_SPEED : isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED);
+
+/** Walkers who walk a round: the water carrier, the food vendor, the priestess, the actor and the tax collector. */
+export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor' || k === 'tax';
 
 /** The centre of a tile, world units. */
 export const centre = (size: number, t: number): [number, number] => {
@@ -50,6 +53,7 @@ export function newWalker(s: SimState, kind: Walker['kind'], people: number): Wa
     load: 0,
     wait: 0,
     trail: [],
+    purse: [],
   };
 }
 
@@ -128,7 +132,7 @@ export function besideRoad(s: SimState, size: number, t: number, out: Building[]
  * tick it would go down a level for want of it; for one that only wants it to
  * grow, when its supply runs out, on the same scale (see serviceScore).
  */
-export type NeedScore = (b: Building) => number;
+export type NeedScore = (b: Building, s: SimState) => number;
 
 /**
  * When a home would go down a level for want of a service (Infinity if its
@@ -197,7 +201,7 @@ export function wayNeeds(
     let low = Infinity;
     const arrive = s.tick + depth[t] * ticksATile;
     for (const b of besideRoad(s, size, t, near)) {
-      let v = score(b);
+      let v = score(b, s);
       if (v < Infinity && due && due(b) < arrive) v += TOO_LATE;
       if (v < low) low = v;
     }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { coastMap, WATER_NONE, WATER_RIVER, WATER_SEA } from '../src/map/bake';
 import { MAP_SIZE } from '../src/map/coast';
-import { Ground, mapIndex, PLOT_COST, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY } from '../src/sim/build';
+import { Ground, mapIndex, PLOT_COST, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY, TAX_OFFICE_COST } from '../src/sim/build';
 import { roadRoute } from '../src/sim/roads';
 import { HOME_CAPACITY } from '../src/sim/settlers';
 import { Sim } from '../src/sim/sim';
@@ -77,10 +77,11 @@ describe('where you can build', () => {
     sim.enqueue({ type: 'plots', at: [T(4, 78)] });
     sim.step();
     expect(sim.state.money).toBe(STARTING_MONEY - 10 * ROAD_COST - PLOT_COST);
-    sim.state.money = ROAD_COST * 2 + 1;
+    // With no tax office yet, the treasury keeps back what one costs: building stops short of it.
+    sim.state.money = TAX_OFFICE_COST + ROAD_COST * 2 + 1;
     sim.enqueue({ type: 'road', tiles: row(10, 20, 80) });
     sim.step();
-    expect(sim.state.money).toBe(1);
+    expect(sim.state.money).toBe(TAX_OFFICE_COST + 1);
     expect(sim.state.tiles[T(11, 80)]).toBe(TILE_ROAD);
     expect(sim.state.tiles[T(12, 80)]).toBe(TILE_EMPTY);
   });

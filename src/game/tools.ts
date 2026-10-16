@@ -408,6 +408,7 @@ export class Tools {
       agora: ['agora', 'agoras'],
       shrine: ['shrine', 'shrines'],
       theatre: ['theatre', 'theatres'],
+      taxoffice: ['tax office', 'tax offices'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     if (trees) bits.push(`trees on ${trees} ${trees === 1 ? 'tile' : 'tiles'}`);

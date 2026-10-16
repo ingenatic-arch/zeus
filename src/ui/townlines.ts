@@ -1,6 +1,6 @@
 /**
  * The shortfall lines under the top bar: what the town as a whole is short
- * of (bread, workers), in plain words, readable without hovering. A line
+ * of (bread, workers, money), in plain words, readable without hovering. A line
  * shows once the shortfall has held for a few days of game time and goes
  * once it has been gone for a few, so a family moving in or out doesn't make
  * it flicker. Clicking a line goes to the place it names.
@@ -15,6 +15,8 @@ const ICONS: Record<TownLine['need'], string> = {
   food: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V5" stroke="#a06f1c" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="8" cy="3.6" rx="1.5" ry="2.4" fill="#d9a441"/><ellipse cx="5.6" cy="6.4" rx="1.3" ry="2.2" fill="#d9a441" transform="rotate(-30 5.6 6.4)"/><ellipse cx="10.4" cy="6.4" rx="1.3" ry="2.2" fill="#d9a441" transform="rotate(30 10.4 6.4)"/><ellipse cx="5.8" cy="9.8" rx="1.2" ry="2" fill="#d9a441" transform="rotate(-30 5.8 9.8)"/><ellipse cx="10.2" cy="9.8" rx="1.2" ry="2" fill="#d9a441" transform="rotate(30 10.2 9.8)"/></svg>',
   workers:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
+  money:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#d9b04a"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/><path d="M5.4 6.4h5.2" stroke="#8a6414" stroke-width=".9" stroke-linecap="round"/></svg>',
 };
 
 export class TownLines {

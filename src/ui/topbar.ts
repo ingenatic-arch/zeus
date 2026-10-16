@@ -158,13 +158,9 @@ export class TopBar {
     (this.bar.querySelector('.stat.trouble') as HTMLElement).addEventListener('click', f);
   }
 
-  /** The treasury's tooltip: rent from last month. */
-  setMoneyTip(rent: { paid: number; homes: number }): void {
+  /** The treasury's tooltip (see moneyTip). */
+  setMoneyTip(text: string): void {
     const el = this.bar.querySelector('.stat.money') as HTMLElement;
-    const text =
-      rent.homes > 0
-        ? `Drachmas in the treasury. Rent last month: ${rent.paid} dr from ${rent.homes} ${rent.homes === 1 ? 'home' : 'homes'} (a tent pays 1 dr a month, a hut 2, a cottage 4).`
-        : 'Drachmas in the treasury. Lived-in homes pay rent on the first of each month: a tent 1 dr, a hut 2, a cottage 4.';
     if (el.title !== text) el.title = text;
   }
 

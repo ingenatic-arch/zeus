@@ -9,6 +9,7 @@
 import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { ageOf, cityHas, URGENT, warningOf } from './folk';
+import { HARSH, HEAVY, taxedLately } from './taxes';
 import type { Building, Family, Person, SimState } from './state';
 
 /**
@@ -180,6 +181,32 @@ export const LINES = {
     'Columns. Actual columns. {kin} has hugged every one of them.',
     'From a tent to this. If my mother in {origin} could see us now, she’d ask what it all cost.',
   ],
+  noTax: [
+    'No taxes this year, they say. {head} has bought a second goat to celebrate.',
+    'The tax man came by and took nothing. I made him a cup of wine anyway, out of shock.',
+    'No taxes! Somebody up at the tax office must be in love.',
+  ],
+  heavyTax: [
+    'The tax collector took a good bite out of the jar this month.',
+    '{head} counts the coins after the tax man goes, then counts them again, as if more might grow.',
+    'Heavier taxes again. Back in {origin} at least they had the decency to lie about it.',
+    'I hid the good amphora when the tax man came. He looked at the empty shelf for a long time.',
+    'Taxes up, and the roads still full of goat. Where does it all go?',
+  ],
+  harshTax: [
+    'Harsh taxes. The collector left us the pot, and said we were lucky to have that.',
+    'At these taxes, {adult} says {origin} is looking very fine this time of year.',
+    'We paid the tax man and now we eat lentils. Even the emergency lentils.',
+    'If the taxes don’t come down, some of us are leaving. I mean it this time.',
+    '{kin} asked why the tax man has a bigger satchel every month. I had no answer.',
+    'They tax the roof, the door, and soon the goat. The goat is very worried.',
+  ],
+  unpaid: [
+    'No wages this month. The treasury’s empty, they say. So is our jar.',
+    '{adult} works all day for nothing now. The overseer says the coins are “on their way”.',
+    'No pay, so we work slower. Slow work for no pay seems only fair.',
+    'They owe us a month. {head} has written it on the wall, in large letters.',
+  ],
   noWork: [
     'Still no work round here. Every job’s gone to someone who lives nearer.',
     'No work to be had round here. I’ve offered to count the olives. Twice.',
@@ -273,6 +300,21 @@ function suits(s: SimState, b: Building, sit: Situation, template: string): bool
   return true;
 }
 
+/**
+ * What the second line is about: unpaid wages, or the taxes if the collector
+ * calls here (harsh: always; heavy: every other time; none: now and then), or
+ * now and then work, if some can't find any; otherwise life in general.
+ */
+function secondOf(s: SimState, b: Building, bucket: number, noWork: boolean): Situation {
+  if (b.unpaid > 0 && bucket % 2 === 0) return 'unpaid';
+  // Taxes trouble a home only if a collector comes this way (the mood says the same: see moodOf).
+  const taxed = b.taxedAt > 0 && (taxedLately(s, b) || s.tick - b.taxedAt < 2 * TICKS_PER_MONTH);
+  if (taxed && s.taxRate >= HARSH) return 'harshTax';
+  if (taxed && s.taxRate === HEAVY && bucket % 2 === 1) return 'heavyTax';
+  if (taxed && s.taxRate === 0 && bucket % 3 === 1) return 'noTax';
+  return noWork && bucket % 3 === 0 ? 'noWork' : 'general';
+}
+
 export interface Line {
   who: Person;
   text: string;
@@ -314,7 +356,7 @@ export function chatterOf(s: SimState, b: Building, noWork = false): Line[] {
   if (talkers.length === 0) talkers.push(f.members[0]);
   const bucket = Math.floor((s.tick + (f.seed % CHATTER_EVERY)) / CHATTER_EVERY);
   const situation = situationOf(s, b);
-  const second: Situation = noWork && bucket % 3 === 0 ? 'noWork' : 'general';
+  const second = secondOf(s, b, bucket, noWork);
   const out: Line[] = [];
   const say = (sit: Situation, slot: number): void => {
     const list = LINES[sit];

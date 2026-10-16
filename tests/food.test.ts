@@ -5,7 +5,7 @@ import { AGORA_COST, BRIDGE_COST, FARM_COST, GRANARY_COST, isBridge, ROAD_COST, 
 import { COTTAGE, HOME_CAPACITY, HUT, JOBS } from '../src/sim/buildings';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import { BARN, FOOD_LASTS, GROW, harvestOf, VENDOR_RANGE } from '../src/sim/food';
-import { DECLINE_AFTER, RENT } from '../src/sim/houses';
+import { DECLINE_AFTER } from '../src/sim/houses';
 import { rateOf, shareWork } from '../src/sim/labour';
 import { roadRoute } from '../src/sim/roads';
 import { distFrom } from '../src/sim/rounds';
@@ -238,23 +238,6 @@ describe('workers', () => {
     sim.run(500);
     expect(sim.state.walkers.some((w) => w.kind === 'water')).toBe(false);
     expect(homeStatus(sim.state, map, sim.state.buildings[0]).detail).toMatch(/No workers/);
-  });
-});
-
-describe('rent', () => {
-  it('each lived-in household pays by its level on the first day of the month', () => {
-    const sim = village(5, { homes: 4 });
-    sim.run(TICKS_PER_MONTH - 1);
-    const s = sim.state;
-    const homes = s.buildings.filter((b) => b.kind === 'home');
-    Object.assign(homes[0], { level: 1, people: 3 });
-    Object.assign(homes[1], { level: HUT, people: 7, waterUntil: 1e6 });
-    Object.assign(homes[2], { level: COTTAGE, people: 11, waterUntil: 1e6, foodUntil: 1e6 });
-    Object.assign(homes[3], { level: 0, people: 0, incoming: 0 });
-    const before = s.money;
-    sim.step();
-    expect(s.money - before).toBe(RENT[1] + RENT[HUT] + RENT[COTTAGE]);
-    expect(s.rent).toEqual({ paid: RENT[1] + RENT[HUT] + RENT[COTTAGE], homes: 3 });
   });
 });
 

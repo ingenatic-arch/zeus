@@ -1,0 +1,142 @@
+/**
+ * The treasury: every drachma in or out goes through `pay`, with what it was
+ * for, and lands on a line of the ledger, so the ledger always adds up.
+ *
+ * Wages: on the first of each month every workplace is owed WAGE drachmas
+ * for each worker it has. The treasury pays them in building order, each in
+ * full or not at all; a workplace it can't pay keeps its wages owed for the
+ * month and works at half speed (see rateOf), and the households of its
+ * workers are told (see shareWork). Money that comes in pays owed wages
+ * first, so wages resume as soon as there is money. Nothing owed is carried
+ * into the next month: there is no debt, and the money never goes below zero.
+ *
+ * While the city has no tax office, the treasury keeps back what one costs:
+ * neither wages nor other building can spend it, so a city that has run dry
+ * can always build one and recover.
+ */
+import { TAX_OFFICE_COST } from './build';
+import { JOBS } from './buildings';
+import { TICKS_PER_MONTH } from './clock';
+import type { Building, BuildingKind, Ledger, LedgerKind, SimState } from './state';
+
+/** What a workplace pays each of its workers on the first of the month. */
+export const WAGE = 2;
+
+/** The month (since the founding) a tick falls in. */
+export const monthOf = (tick: number): number => Math.floor(tick / TICKS_PER_MONTH);
+
+/** A ledger for a treasury that holds `money` now, in the month of `tick`. */
+export function freshLedger(money: number, tick: number): Ledger {
+  return { month: monthOf(tick), start: money, now: [], lastStart: money, last: [] };
+}
+
+/** Start a new month in the ledger if the month has turned. */
+export function turnMonth(s: SimState): void {
+  const l = s.ledger;
+  const m = monthOf(s.tick);
+  if (m === l.month) return;
+  if (m === l.month + 1) {
+    l.lastStart = l.start;
+    l.last = l.now;
+  } else {
+    // Months with nothing in them (or time gone backwards): last month is empty.
+    l.lastStart = s.money;
+    l.last = [];
+  }
+  l.start = s.money;
+  l.now = [];
+  l.month = m;
+}
+
+/**
+ * The one way the treasury changes: `amount` drachmas in (positive) or out
+ * (negative), on the ledger line for this kind and what, counting `n`.
+ */
+export function pay(s: SimState, amount: number, kind: LedgerKind, what: string, n = 1): void {
+  if (amount === 0 && n === 0) return;
+  turnMonth(s);
+  s.money += amount;
+  const line = s.ledger.now.find((l) => l.kind === kind && l.what === what);
+  if (line) {
+    line.amount += amount;
+    line.n += n;
+  } else s.ledger.now.push({ kind, what, amount, n });
+}
+
+/** Money coming in: on the ledger, then to any wages still owed. */
+export function income(s: SimState, amount: number, kind: LedgerKind, what: string, n = 1): void {
+  pay(s, amount, kind, what, n);
+  settle(s);
+}
+
+/** Does the city have a tax office? */
+export const hasTaxOffice = (s: SimState): boolean => s.buildings.some((b) => b.kind === 'taxoffice');
+
+/** What the treasury keeps back for a tax office while the city has none. */
+export function reserve(s: SimState): number {
+  return hasTaxOffice(s) ? 0 : TAX_OFFICE_COST;
+}
+
+/** What building something of this kind (or laying road: 'road') can spend: everything for a tax office, otherwise all but the reserve. */
+export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): number {
+  if (kind === 'taxoffice') return s.money;
+  return Math.max(0, s.money - reserve(s));
+}
+
+/** Is a building a workplace (one that has jobs, so pays wages)? */
+export const isWorkplace = (b: Building): boolean => JOBS[b.kind] > 0;
+
+/** The first of the month: every workplace is owed its workers' wages, and the treasury pays what it can. */
+export function stepWages(s: SimState): void {
+  if (s.tick % TICKS_PER_MONTH !== 0) return;
+  turnMonth(s);
+  for (const b of s.buildings) b.owed = isWorkplace(b) ? b.workers * WAGE : 0;
+  settle(s);
+}
+
+/** Pay the wages still owed, in building order, each workplace in full or not at all. */
+export function settle(s: SimState): void {
+  for (const b of s.buildings) {
+    if (b.owed <= 0) continue;
+    if (spendable(s) < b.owed) continue;
+    pay(s, -b.owed, 'wages', b.kind, b.owed / WAGE);
+    b.owed = 0;
+  }
+}
+
+/** Wages owed and unpaid this month: how much, and at how many workplaces. */
+export function owedWages(s: SimState): { owed: number; places: number; workers: number } {
+  let owed = 0;
+  let places = 0;
+  for (const b of s.buildings) {
+    if (b.owed <= 0) continue;
+    owed += b.owed;
+    places++;
+  }
+  return { owed, places, workers: owed / WAGE };
+}
+
+/** What wages cost a month at the workplaces' present staffing. */
+export function wageBill(s: SimState): number {
+  let w = 0;
+  for (const b of s.buildings) if (isWorkplace(b)) w += b.workers * WAGE;
+  return w;
+}
+
+/** A ledger's lines added up: in, out and the net. */
+export function totals(lines: readonly { amount: number }[]): { in: number; out: number; net: number } {
+  let i = 0;
+  let o = 0;
+  for (const l of lines) {
+    if (l.amount >= 0) i += l.amount;
+    else o -= l.amount;
+  }
+  return { in: i, out: o, net: i - o };
+}
+
+/** What a ledger's lines of one kind add up to (negative for money out). */
+export function kindTotal(lines: readonly { kind: LedgerKind; amount: number }[], kind: LedgerKind): number {
+  let n = 0;
+  for (const l of lines) if (l.kind === kind) n += l.amount;
+  return n;
+}

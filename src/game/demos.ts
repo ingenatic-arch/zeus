@@ -7,6 +7,8 @@ import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
 import { warningOf } from '../sim/folk';
 import type { Sim } from '../sim/sim';
+import { FAIR, HARSH, HEAVY } from '../sim/taxes';
+import { wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
@@ -106,7 +108,7 @@ function neighbourhood(ticks: number): (sim: Sim) => void {
  * the reach of a fountain by the junction. With `fountain`, one goes in by
  * the junction once the first tents are up. `ticks` sets how far it has got.
  */
-function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void): (sim: Sim) => void {
+function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void, officeAt = ticks): (sim: Sim) => void {
   return (sim) => {
     const at: At = (t, c) => {
       if (sim.state.tick < t) sim.run(t - sim.state.tick);
@@ -132,12 +134,27 @@ function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void): (
       ],
     });
     if (fountain) at(300, { type: 'fountain', at: [T(27, 81)] });
-    food?.(at);
+    // The tax office goes in after whatever else is built at officeAt (by default when the scene opens); until then wages come out of what the town started with.
+    let placed = !fountain;
+    const office = (): void => {
+      placed = true;
+      at(officeAt, { type: 'build', kind: 'taxoffice', at: [T(LANE_OFFICE.x, LANE_OFFICE.z)] });
+    };
+    food?.((t, c) => {
+      if (!placed && t > officeAt) office();
+      at(t, c);
+    });
+    if (!placed) office();
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
   };
 }
 
 type At = (t: number, c: Parameters<Sim['enqueue']>[0]) => void;
+
+/** Where the water, food and culture towns' tax office stands: beside the lane, between the town and the hamlet at its far end. */
+const LANE_OFFICE = { x: 24, z: 60 };
+/** The culture towns' second tax office: on the west street, by the junction with the lane. */
+const WEST_OFFICE = { x: 22, z: 75 };
 
 /**
  * The water town given bread: once its huts are going up, a farm road runs
@@ -145,7 +162,7 @@ type At = (t: number, c: Parameters<Sim['enqueue']>[0]) => void;
  * farms on it and a granary half way, and an agora goes in by the junction
  * of the town's streets. `ticks` sets how far it has got.
  */
-function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: number; then?: (at: At) => void }): (sim: Sim) => void {
+function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: number; then?: (at: At) => void; officeAt?: number }): (sim: Sim) => void {
   const farms = more?.farms ?? 3;
   return waterTown(ticks, true, (at) => {
     at(start, { type: 'road', tiles: row(27, 50, 63) });
@@ -156,7 +173,7 @@ function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: nu
     if (farms > 1) at(start + stagger, { type: 'build', kind: 'farm', at: [T(44, 60)] });
     if (farms > 2) at(start + 2 * stagger, { type: 'build', kind: 'farm', at: [T(48, 64)] });
     more?.then?.(at);
-  });
+  }, more?.officeAt);
 }
 
 /**
@@ -230,6 +247,8 @@ const THEATRE = { x: 35, z: 81 };
  */
 function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) => void {
   return foodTown(ticks, 400, 200, {
+    // The tax offices go in with the shrine: the theatre and the bigger households' wages need taxes.
+    officeAt: SHRINE_AT,
     then: (at) => {
       at(SHRINE_AT, { type: 'road', tiles: row(51, 53, 63) });
       at(SHRINE_AT, { type: 'build', kind: 'farm', at: [T(41, 60), T(51, 64)] });
@@ -237,6 +256,8 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
       at(SHRINE_AT, { type: 'fountain', at: [T(24, 48)] });
       at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(27, 48)] });
       at(SHRINE_AT, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
+      // A second tax office on the west street, so the collectors between them reach most of the town.
+      at(SHRINE_AT, { type: 'build', kind: 'taxoffice', at: [T(WEST_OFFICE.x, WEST_OFFICE.z)] });
       if (theatre) at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       if (close) {
         at(CLOSE_AT, { type: 'clear', x0: THEATRE.x, z0: THEATRE.z, x1: THEATRE.x, z1: THEATRE.z });
@@ -261,6 +282,16 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
  * for a while), and its bread holds for well over a year as it fills up.
  */
 const TOWN_TICKS = 7200;
+/** How long before #town opens its taxes go back to fair (moods settle within a month). */
+const FAIR_AGAIN = 600;
+/** The longest #town's builder waits for the money for what goes in next. */
+const AFFORD_WAIT = 2400;
+/** #town's tax offices: one on the main street at the west end of the core… */
+const TOWN_OFFICE = { x: 61, z: 42 };
+/** …another at the head of the core's north street… */
+const NORTH_OFFICE = { x: 73, z: 31 };
+/** …and the east street's, beside its agora. */
+const EAST_OFFICE = { x: 100, z: 42 };
 const CORE_W = [63, 65, 67, 69, 71];
 const CORE_E = [75, 77, 79, 81, 83];
 const along = (xs: number[], z: number): number[] => xs.map((x) => T(x, z));
@@ -272,6 +303,11 @@ function town(ticks: number): (sim: Sim) => void {
       sim.enqueue(c);
       sim.flush();
     };
+    // As a player would: wait (from tick t) until the treasury can pay for what goes in next, and still pay a month's wages.
+    const afford = (t: number, cost: number): void => {
+      if (sim.state.tick < t) sim.run(t - sim.state.tick);
+      while (sim.state.money < cost + wageBill(sim.state) && sim.state.tick < t + AFFORD_WAIT) sim.run(30);
+    };
     // The way in, and the core's cross streets.
     at(0, { type: 'road', tiles: [...row(0, 26, 50), ...col(26, 41, 49).reverse(), ...row(27, 95, 41)] });
     at(0, { type: 'road', tiles: [...col(62, 33, 40), ...col(74, 33, 40), ...col(86, 33, 40), ...row(63, 85, 33)] });
@@ -281,23 +317,32 @@ function town(ticks: number): (sim: Sim) => void {
     });
     at(0, { type: 'fountain', at: [T(75, 39)] });
     at(150, { type: 'plots', at: [...along([...CORE_W, ...CORE_E], 34), ...along([...CORE_W, ...CORE_E], 31)] });
+    at(150, { type: 'build', kind: 'taxoffice', at: [T(NORTH_OFFICE.x, NORTH_OFFICE.z)] });
+    // Heavy taxes while the town is being built, as a player short of money would; fair again before it opens.
+    at(150, { type: 'tax', rate: HEAVY });
     // Bread: wheat on the flood plain along the main street, a granary and an agora.
     at(300, { type: 'build', kind: 'farm', at: [T(41, 42), T(44, 42), T(47, 42)] });
     at(300, { type: 'build', kind: 'granary', at: [T(53, 42)] });
     at(300, { type: 'build', kind: 'agora', at: [T(65, 42)] });
+    at(300, { type: 'build', kind: 'taxoffice', at: [T(TOWN_OFFICE.x, TOWN_OFFICE.z)] });
     at(500, { type: 'build', kind: 'farm', at: [T(38, 38), T(41, 38)] });
     at(2400, { type: 'build', kind: 'shrine', at: [T(68, 39)] });
     at(2400, { type: 'build', kind: 'farm', at: [T(50, 42)] });
-    at(3300, { type: 'build', kind: 'theatre', at: [T(57, 42)] });
-    // The street east of the core, with its own fountain and agora.
+    // The street east of the core, with its own fountain, agora and tax office.
+    afford(3600, 820);
     at(3600, { type: 'road', tiles: row(96, 112, 41) });
+    at(3600, { type: 'build', kind: 'taxoffice', at: [T(EAST_OFFICE.x, EAST_OFFICE.z)] });
     at(3600, {
       type: 'plots',
       at: [...along([88, 90, 92, 94, 96, 98, 102, 104, 106, 108, 110], 39), ...along([88, 90, 92, 94, 102, 104, 106, 108, 110], 42)],
     });
     at(3600, { type: 'build', kind: 'agora', at: [T(97, 42)] });
     at(3600, { type: 'fountain', at: [T(100, 39)] });
+    // The theatre, once the treasury has recovered from the new street.
+    afford(3900, 400);
+    at(3900, { type: 'build', kind: 'theatre', at: [T(57, 42)] });
     // The hamlet by the lane on the west bank, then the newest plots at its end.
+    afford(4500, 610);
     at(4500, {
       type: 'plots',
       at: [...along([8, 10, 12, 14, 16, 18, 20, 22], 48), ...along([10, 12, 14, 16, 18, 20, 22], 51), ...col(24, 42, 42), T(24, 44), T(24, 46), T(27, 42), T(27, 44), T(27, 48)],
@@ -305,8 +350,56 @@ function town(ticks: number): (sim: Sim) => void {
     at(4500, { type: 'fountain', at: [T(27, 46)] });
     at(4500, { type: 'build', kind: 'farm', at: [T(44, 38)] });
     at(ticks - 450, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
+    at(ticks - FAIR_AGAIN, { type: 'tax', rate: FAIR });
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
   };
+}
+
+/**
+ * The money demos all start from #town as it opens. #harsh: taxes turned up
+ * to harsh, a month and a half on, so moods have soured and a few households
+ * have sent someone away (the panel opens on the first that did). #dry: taxes
+ * set to none until the treasury runs out, then a few days more, so wages go
+ * unpaid at some workplaces (which work at half pace) and the money line says
+ * so. #taxes: the east street's tax office cleared as the town opens, so the
+ * tax overlay shows the street (and the hamlet on the west bank) that no
+ * collector reaches.
+ */
+const HARSH_FOR = 450;
+const DRY_AFTER = 50;
+const DRY_WAIT = 12000;
+
+function harshTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  sim.enqueue({ type: 'tax', rate: HARSH });
+  sim.flush();
+  sim.run(HARSH_FOR);
+}
+
+function dryTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  sim.enqueue({ type: 'tax', rate: 0 });
+  sim.flush();
+  const s = sim.state;
+  const end = s.tick + DRY_WAIT;
+  while (!s.buildings.some((b) => b.owed > 0) && s.tick < end) sim.run(10);
+  sim.run(DRY_AFTER);
+}
+
+function taxesTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  sim.enqueue({ type: 'clear', x0: EAST_OFFICE.x, z0: EAST_OFFICE.z, x1: EAST_OFFICE.x, z1: EAST_OFFICE.z });
+  sim.flush();
+}
+
+/** The household that sent someone away for the taxes most recently, else the unhappiest. */
+function drivenOut(s: SimState): number {
+  let best = 0;
+  let at = -1;
+  for (const b of homes(s)) {
+    for (const e of b.family!.story) if (e.what === 'left' && e.need === 'tax' && e.tick > at) [best, at] = [b.id, e.tick];
+  }
+  return best;
 }
 
 export const DEMOS: Record<string, Demo> = {
@@ -337,4 +430,7 @@ export const DEMOS: Record<string, Demo> = {
   fine: { view: 'fine', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
   compare: { view: 'compare', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
   closed: { view: 'closed', speed: 'paused', setup: cultureTown(CLOSED_TICKS, true, true), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
+  harsh: { view: 'town', setup: harshTown, overlay: 'missing', open: drivenOut },
+  dry: { view: 'town', speed: 'paused', setup: dryTown, overlay: 'missing', open: (s) => homes(s).find((b) => b.unpaid > 0)?.id ?? 0 },
+  taxes: { view: 'town', setup: taxesTown, overlay: 'missing' },
 };

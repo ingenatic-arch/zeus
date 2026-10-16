@@ -6,9 +6,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
-import { decodeSave, encodeSave, SafeStorage, Saves, type KeyValueStore } from '../src/game/saves';
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import { decodeSave, encodeSave, packRuns, SafeStorage, Saves, unpackRuns, type KeyValueStore } from '../src/game/saves';
+import { coastMap } from '../src/map/bake';
+import { TICKS_PER_MONTH } from '../src/sim/clock';
+import { townLines } from '../src/sim/status';
+import { FAIR } from '../src/sim/taxes';
 import { MAP_SIZE } from '../src/map/coast';
 import { serialize, Sim } from '../src/sim/sim';
+import { OLDEST_READABLE } from '../src/sim/migrate';
 import { SIM_STATE_VERSION } from '../src/sim/state';
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -70,6 +77,23 @@ describe('a save carries on identically', () => {
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
 
+  it('in #town with a tax collector out with coins in his satchel and wages owed at some workplaces', () => {
+    const a = demo('dry');
+    // Taxes back at fair: the collectors fill their satchels before the owed wages are paid.
+    a.enqueue({ type: 'tax', rate: FAIR });
+    let t = 0;
+    while (!a.state.walkers.some((w) => w.kind === 'tax' && w.purse.length > 0)) {
+      a.step();
+      expect(++t).toBeLessThan(600);
+    }
+    expect(a.state.buildings.some((b) => b.owed > 0)).toBe(true);
+    const b = reload(a);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+    a.run(1500);
+    b.run(1500);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+  });
+
   it('in #town: a few hundred people, every kind of building and walker', () => {
     const a = demo('town');
     a.run(37);
@@ -80,12 +104,83 @@ describe('a save carries on identically', () => {
   });
 });
 
+describe('saves from before', () => {
+  const text = gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString();
+
+  it('a phase 1 save (state version 6, rent and all) loads: rent is gone, taxes are fair, no tax office yet, and it plays on', () => {
+    expect(JSON.parse(text).state.version).toBe(6);
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    expect(got.file.from).toBe(6);
+    const st = got.file.state;
+    expect(st.version).toBe(SIM_STATE_VERSION);
+    expect((st as unknown as Record<string, unknown>).rent).toBeUndefined();
+    expect(st.taxRate).toBe(FAIR);
+    expect(st.ledger.start).toBe(st.money);
+    expect(st.rounds.tax.walked.length).toBe(MAP_SIZE * MAP_SIZE);
+    expect(st.buildings.every((b) => b.owed === 0 && b.taxedAt === 0)).toBe(true);
+    expect(st.walkers.every((w) => Array.isArray(w.purse))).toBe(true);
+    const sim = new Sim();
+    sim.state = st;
+    const before = st.money;
+    sim.run(2 * TICKS_PER_MONTH);
+    // Wages go out and nothing comes in until a tax office is built: the money line says so.
+    expect(st.money).toBeLessThan(before);
+    expect(townLines(st, coastMap()).find((l) => l.need === 'money')?.text).toMatch(/no taxes come in without a tax office/);
+    // Saved again, it is a save of this version, and carries on the same.
+    const again = new Sim();
+    const r = decodeSave(encodeSave(st, 2));
+    if (!r.ok) throw new Error(r.why);
+    expect(r.file.from).toBeUndefined();
+    again.state = r.file.state;
+    sim.run(600);
+    again.run(600);
+    expect(serialize(again.state)).toEqual(serialize(sim.state));
+  });
+
+  it('the save menu lists a phase 1 save as one it can open', () => {
+    const store = new Memory();
+    store.setItem('zeus-remake.save.manual', text);
+    const saves = new Saves(new SafeStorage(() => store));
+    const info = saves.info('manual');
+    expect(info?.why).toBe('');
+    expect(saves.newest()).toBe('manual');
+  });
+
+  it('a save written before round records were packed (envelope 1) still opens', () => {
+    const s = demo('food').state;
+    const f = JSON.parse(encodeSave(s, 3));
+    f.save = 1;
+    f.state.rounds = JSON.parse(JSON.stringify(s.rounds));
+    const r = decodeSave(JSON.stringify(f));
+    if (!r.ok) throw new Error(r.why);
+    expect(serialize(r.file.state)).toEqual(serialize(s));
+  });
+
+  it('#town saves at under half its phase 1 size, the round records packed as runs', () => {
+    const text = encodeSave(demo('town').state, 4);
+    expect(text.length).toBeLessThan(300_000);
+    const a = [0, 0, 0, 5, 5, 7, 0, 0];
+    expect(packRuns(a)).toEqual([0, 3, 5, 2, 7, 1, 0, 2]);
+    expect(unpackRuns(packRuns(a), a.length)).toEqual(a);
+    expect(unpackRuns([0, 3], 4)).toBeNull();
+    expect(unpackRuns([0, 5], 4)).toBeNull();
+    expect(unpackRuns([0, -1, 0, 5], 4)).toBeNull();
+    const f = JSON.parse(text);
+    f.state.rounds.water.walked = [0, 3];
+    const r = decodeSave(JSON.stringify(f));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.why).toMatch(/damaged/);
+  });
+});
+
 describe('a save that can’t be read says why', () => {
   const good = encodeSave(demo('streets').state, 5);
 
   it('a save from another version of the state', () => {
     const f = JSON.parse(good);
-    f.state.version = SIM_STATE_VERSION - 1;
+    // Phase 1's version (6) is brought up to date (see the migration tests); older than that can't be.
+    f.state.version = OLDEST_READABLE - 1;
     const r = decodeSave(JSON.stringify(f));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.why).toMatch(/older version of the game/);
@@ -124,6 +219,11 @@ describe('a save that can’t be read says why', () => {
       (st) => (st.buildings.find((b: any) => b.family).family.members = 'nobody'),
       (st) => (st.buildings = [st.buildings[1], st.buildings[0], ...st.buildings.slice(2)]),
       (st) => (st.mapId = 'mars'),
+      (st) => delete st.ledger,
+      (st) => (st.ledger.now = [{ kind: 'bribes', what: '', amount: 1, n: 1 }]),
+      (st) => delete st.rounds.tax,
+      (st) => delete st.buildings[0].owed,
+      (st) => delete st.taxRate,
     ];
     for (const brk of breaks) {
       const f = JSON.parse(good);

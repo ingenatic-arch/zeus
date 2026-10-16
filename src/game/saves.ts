@@ -11,11 +11,16 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import { dateOfTick, formatDate } from '../sim/clock';
-import { SIM_STATE_VERSION, type Service, type SimState } from '../sim/state';
+import { migrate } from '../sim/migrate';
+import { SIM_STATE_VERSION, type Round, type SimState } from '../sim/state';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
-/** Bump when the envelope changes. The state inside has its own version (SIM_STATE_VERSION). */
-export const SAVE_VERSION = 1;
+/**
+ * Bump when the envelope changes. The state inside has its own version
+ * (SIM_STATE_VERSION). 2: the round records (where each kind of walker has
+ * been, a number per tile, mostly nothing) are packed as runs. 1 is still read.
+ */
+export const SAVE_VERSION = 2;
 
 /** The autosave, and the save made by hand. */
 export type Slot = 'auto' | 'manual';
@@ -49,6 +54,8 @@ export interface SaveFile {
   savedAt: number;
   view?: SavedView;
   state: SimState;
+  /** On load only: the state version the save was brought up from (see migrate.ts), or absent. */
+  from?: number;
 }
 
 /** The part of the Web Storage API a save needs. */
@@ -122,8 +129,50 @@ export function labelOf(s: SimState): SaveLabel {
 
 /** A save, as the text that goes into storage. */
 export function encodeSave(s: SimState, savedAt: number, view?: SavedView): string {
-  const file: SaveFile = { format: SAVE_FORMAT, save: SAVE_VERSION, label: labelOf(s), savedAt, view, state: s };
+  const rounds: Record<string, { walked: number[]; exits: number[] }> = {};
+  for (const k of Object.keys(s.rounds) as Round[]) rounds[k] = { walked: packRuns(s.rounds[k].walked), exits: packRuns(s.rounds[k].exits) };
+  const file = { format: SAVE_FORMAT, save: SAVE_VERSION, label: labelOf(s), savedAt, view, state: { ...s, rounds } };
   return JSON.stringify(file);
+}
+
+/** A long list of numbers, mostly runs of the same one, as [value, count, value, count, …]. */
+export function packRuns(a: readonly number[]): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < a.length; ) {
+    let j = i + 1;
+    while (j < a.length && a[j] === a[i]) j++;
+    out.push(a[i], j - i);
+    i = j;
+  }
+  return out;
+}
+
+/** The list back from its runs, or null if the runs don't make a list of `len` numbers. */
+export function unpackRuns(p: unknown, len: number): number[] | null {
+  if (!Array.isArray(p) || p.length % 2 !== 0) return null;
+  const out: number[] = [];
+  for (let i = 0; i < p.length; i += 2) {
+    const v = p[i];
+    const c = p[i + 1];
+    if (!fin(v) || !Number.isInteger(c) || c < 1 || out.length + c > len) return null;
+    for (let k = 0; k < c; k++) out.push(v);
+  }
+  return out.length === len ? out : null;
+}
+
+/** Unpack a version-2 save's round records in place ('' if fine, or what's wrong). */
+function unpackRounds(st: unknown): string {
+  if (!isObj(st) || !isObj(st.rounds)) return '';
+  const n = MAP_SIZE * MAP_SIZE;
+  for (const [k, r] of Object.entries(st.rounds)) {
+    if (!isObj(r)) continue;
+    const walked = unpackRuns(r.walked, n);
+    const exits = unpackRuns(r.exits, n);
+    if (!walked || !exits) return `This save is damaged (the ${k} rounds are wrong), so it can’t be opened.`;
+    r.walked = walked;
+    r.exits = exits;
+  }
+  return '';
 }
 
 export type Decoded = { ok: true; file: SaveFile } | { ok: false; why: string };
@@ -139,6 +188,12 @@ export function decodeSave(text: string | null): Decoded {
   }
   if (!isObj(data) || data.format !== SAVE_FORMAT) return { ok: false, why: 'This isn’t a saved town from this game.' };
   if (typeof data.save !== 'number' || data.save > SAVE_VERSION) return { ok: false, why: `This save was made by a newer version of the game (save format ${String(data.save)}), so this one can’t open it.` };
+  if (data.save >= 2) {
+    const bad = unpackRounds(data.state);
+    if (bad) return { ok: false, why: bad };
+  }
+  // An older town is brought up to date first (rent became taxes in version 7).
+  const from = migrate(data.state);
   const why = stateProblem(data.state);
   if (why) return { ok: false, why };
   const state = data.state as SimState;
@@ -146,7 +201,9 @@ export function decodeSave(text: string | null): Decoded {
   if (!undoOk(state.undo)) state.undo = [];
   const view = isObj(data.view) && ['x', 'z', 'yaw', 'dist'].every((k) => fin((data.view as Record<string, unknown>)[k])) ? (data.view as unknown as SavedView) : undefined;
   const label = isObj(data.label) ? (data.label as unknown as SaveLabel) : labelOf(state);
-  return { ok: true, file: { format: SAVE_FORMAT, save: data.save, label, savedAt: fin(data.savedAt) ? data.savedAt : 0, view, state } };
+  const file: SaveFile = { format: SAVE_FORMAT, save: data.save, label, savedAt: fin(data.savedAt) ? data.savedAt : 0, view, state };
+  if (from) file.from = from;
+  return { ok: true, file };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -154,11 +211,15 @@ const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
 const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len === undefined || v.length === len) && v.every(fin);
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
-const SERVICES: readonly Service[] = ['water', 'food', 'religion', 'culture'];
-const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre'];
-const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'priestess', 'actor'];
-const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left'];
-const BUILDING_NUMBERS = ['id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth'];
+const ROUNDS: readonly Round[] = ['water', 'food', 'religion', 'culture', 'tax'];
+const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice'];
+const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'priestess', 'actor', 'tax'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building'];
+const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
+const BUILDING_NUMBERS = [
+  'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
+  'taxedAt', 'taxPaid', 'unpaid', 'owed',
+];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'wait'];
 
 /**
@@ -179,11 +240,11 @@ export function stateProblem(st: unknown): string {
   for (const k of STATE_NUMBERS) if (!fin(st[k])) return damaged(`its ${k} is missing`);
   if (!nums(st.rng, 4) || !nums(st.folk, 4)) return damaged('its random numbers are missing');
   if (!isObj(st.wind) || !fin(st.wind.angle) || !fin(st.wind.strength)) return damaged('its wind is missing');
-  if (!isObj(st.rent) || !fin(st.rent.paid) || !fin(st.rent.homes)) return damaged('its rent is missing');
+  if (!ledgerOk(st.ledger)) return damaged('its ledger is missing');
   const n = MAP_SIZE * MAP_SIZE;
   if (!nums(st.tiles, n) || !(st.tiles as number[]).every((t) => Number.isInteger(t) && t >= -1)) return damaged('its map of roads and buildings is wrong');
   if (!isObj(st.rounds)) return damaged('the walkers’ rounds are missing');
-  for (const sv of SERVICES) {
+  for (const sv of ROUNDS) {
     const r = (st.rounds as Record<string, unknown>)[sv];
     if (!isObj(r) || !nums(r.walked, n) || !nums(r.exits, n)) return damaged(`the ${sv} rounds are wrong`);
   }
@@ -203,11 +264,17 @@ export function stateProblem(st: unknown): string {
     if (!isObj(w) || typeof w.kind !== 'string' || !WALKER_KINDS.includes(w.kind)) return damaged('a walker is of no known kind');
     for (const k of WALKER_NUMBERS) if (!fin(w[k])) return damaged(`a walker’s ${k} is missing`);
     if (typeof w.back !== 'boolean' || !nums(w.path) || !nums(w.tiles) || !nums(w.trail)) return damaged('a walker’s way is missing');
+    if (!nums(w.purse) || (w.purse as number[]).length % 3 !== 0) return damaged('a tax collector’s satchel is wrong');
     const pts = (w.path as number[]).length / 2;
     if (pts < 1 || (w.tiles as number[]).length !== pts || (w.seg as number) < 0 || (w.seg as number) >= pts) return damaged('a walker is off her way');
   }
   if (!Array.isArray(st.undo)) return damaged('its undo list is missing');
   return '';
+}
+
+function ledgerOk(l: unknown): boolean {
+  if (!isObj(l) || !fin(l.month) || !fin(l.start) || !fin(l.lastStart) || !Array.isArray(l.now) || !Array.isArray(l.last)) return false;
+  return [...l.now, ...l.last].every((x: unknown) => isObj(x) && typeof x.kind === 'string' && LEDGER_KINDS.includes(x.kind) && typeof x.what === 'string' && fin(x.amount) && fin(x.n));
 }
 
 function familyOk(f: unknown): boolean {
@@ -276,7 +343,9 @@ export class Saves {
     try {
       const data = JSON.parse(text) as Partial<SaveFile>;
       if (data.format !== SAVE_FORMAT || !data.label || typeof data.label.date !== 'string') return { label: null, savedAt: 0, why: 'Damaged, or not a saved town' };
-      if (data.save !== SAVE_VERSION || data.state?.version !== SIM_STATE_VERSION) return { label: null, savedAt: 0, why: `From another version of the game (version ${String(data.state?.version ?? '?')})` };
+      const v = data.state?.version;
+      const readable = typeof v === 'number' && v <= SIM_STATE_VERSION && (v === SIM_STATE_VERSION || migrate({ version: v }) !== 0);
+      if (typeof data.save !== 'number' || data.save > SAVE_VERSION || !readable) return { label: null, savedAt: 0, why: `From another version of the game (version ${String(v ?? '?')})` };
       return { label: data.label, savedAt: fin(data.savedAt) ? data.savedAt : 0, why: '' };
     } catch {
       return { label: null, savedAt: 0, why: 'Damaged' };

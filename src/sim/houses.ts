@@ -10,20 +10,16 @@
  * the need is still missing two months later (counted from when it ran out,
  * or from the home's last change of level, whichever is later) it drops one
  * level, and the people it can no longer hold walk out. The household's
- * story notes each of these. Each household pays rent on the first day of
- * the month.
+ * story notes each of these. (Taxes are the tax collector's: src/sim/taxes.ts.)
  */
 import type { CoastMap } from '../map/bake';
 import { around, capacity, centreOf, COTTAGE, recountPopulation } from './buildings';
-import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
+import { TICKS_PER_DAY } from './clock';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, readyToRise, tell, warningsOf } from './folk';
 import { sendLeavers } from './settlers';
 import type { Building, SimState } from './state';
 
 export { COTTAGE_FOOD_MIN, DECLINE_AFTER };
-
-/** Rent a household pays each month, by level (plot, tent, hut, cottage, townhouse, fine house). */
-export const RENT = [0, 1, 2, 4, 6, 9];
 
 /** The need a home's level is missing longest and since when, or null if it has all it needs. */
 export const missing = missingNeed;
@@ -77,20 +73,6 @@ export function stepHouses(s: SimState, map: CoastMap): void {
     recountPopulation(s);
     s.rev++;
   }
-}
-
-/** Rent: on the first day of each month every lived-in household pays by its level. */
-export function stepRent(s: SimState): void {
-  if (s.tick % TICKS_PER_MONTH !== 0) return;
-  let paid = 0;
-  let homes = 0;
-  for (const b of s.buildings) {
-    if (b.kind !== 'home' || b.level === 0 || b.people === 0) continue;
-    paid += RENT[Math.min(b.level, RENT.length - 1)];
-    homes++;
-  }
-  s.money += paid;
-  s.rent = { paid, homes };
 }
 
 export { COTTAGE };

@@ -15,6 +15,7 @@ export const GRANARY_COST = 300;
 export const AGORA_COST = 250;
 export const SHRINE_COST = 200;
 export const THEATRE_COST = 400;
+export const TAX_OFFICE_COST = 150;
 /** A bridge costs this much a tile. */
 export const BRIDGE_COST = 40;
 /** The most tiles of river and wet bank a bridge spans. */
@@ -22,7 +23,16 @@ export const BRIDGE_MAX = 9;
 export const STARTING_MONEY = 5000;
 
 /** What each building costs. */
-export const COST: Record<BuildingKind, number> = { home: PLOT_COST, fountain: FOUNTAIN_COST, farm: FARM_COST, granary: GRANARY_COST, agora: AGORA_COST, shrine: SHRINE_COST, theatre: THEATRE_COST };
+export const COST: Record<BuildingKind, number> = {
+  home: PLOT_COST,
+  fountain: FOUNTAIN_COST,
+  farm: FARM_COST,
+  granary: GRANARY_COST,
+  agora: AGORA_COST,
+  shrine: SHRINE_COST,
+  theatre: THEATRE_COST,
+  taxoffice: TAX_OFFICE_COST,
+};
 
 /** A farm needs at least this mean fertility over its tiles (the green river land). */
 export const FARM_FERTILE_MIN = 0.5;

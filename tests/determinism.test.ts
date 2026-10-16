@@ -31,6 +31,10 @@ const SCRIPT: Array<[number, Command]> = [
   [450, { type: 'build', kind: 'farm', at: [T(48, 63)] }],
   [450, { type: 'build', kind: 'granary', at: [T(30, 67)] }],
   [450, { type: 'build', kind: 'agora', at: [T(26, 67)] }],
+  // Coin: a tax office, and the rate turned up and down again.
+  [500, { type: 'build', kind: 'taxoffice', at: [T(20, 78)] }],
+  [1300, { type: 'tax', rate: 3 }],
+  [2000, { type: 'tax', rate: 1 }],
 ].sort((a, b) => (a[0] as number) - (b[0] as number)) as Array<[number, Command]>;
 
 function scripted(seed: number, ticks = 5000): Sim {
@@ -51,6 +55,8 @@ describe('simulation determinism', () => {
     expect(a.state.buildings.some((b) => b.kind === 'home' && b.level >= 2)).toBe(true);
     // And the food chain: grain has reached homes.
     expect(a.state.buildings.some((b) => b.kind === 'home' && b.foodUntil > 0)).toBe(true);
+    // And the tax collector: taxes and wages are in the ledger.
+    expect(a.state.buildings.some((b) => b.kind === 'home' && b.taxedAt > 0)).toBe(true);
     expect(serialize(a.state)).toEqual(serialize(scripted(1234).state));
   });
 
@@ -149,7 +155,9 @@ describe('simulation determinism', () => {
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
     s.version = 5;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 5 and this game reads version 6/);
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 5 and this game reads version 7/);
+    s.version = 8;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 8 and this game reads version 7/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {

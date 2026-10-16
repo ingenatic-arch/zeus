@@ -7,12 +7,15 @@ import type { Command, StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepFarms } from './food';
 import { folkRng } from './folk';
-import { stepHouses, stepRent } from './houses';
+import { migrate } from './migrate';
+import { stepHouses } from './houses';
 import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
 import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
 import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type ServiceRecord, type SimState, type UndoEntry } from './state';
 import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
+import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
+import { freshLedger, income, pay, spendable, stepWages } from './treasury';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -34,8 +37,9 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), culture: freshRecord() },
-    rent: { paid: 0, homes: 0 },
+    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), culture: freshRecord(), tax: freshRecord() },
+    taxRate: FAIR,
+    ledger: freshLedger(STARTING_MONEY, 0),
     buildings: [],
     walkers: [],
     nextId: 1,
@@ -50,7 +54,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
   };
 }
 
-function freshRecord(): ServiceRecord {
+export function freshRecord(): ServiceRecord {
   return { walked: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0), exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0) };
 }
 
@@ -119,16 +123,19 @@ export class Sim {
     const t = s.tick + 1;
     s.tick = t;
     const map = this.map;
+    // The first of the month: wages (for the workers each place had yesterday), and what harsh taxes do.
+    stepWages(s);
+    stepHarsh(s, map);
     stepLabour(s, map);
     stepWalkers(s, map);
     stepFountains(s, map);
     stepFarms(s, map);
     stepAgoras(s, map);
     stepCulture(s, map);
+    stepTaxOffices(s, map);
     // Each look for a home sets how long until the next.
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
-    stepRent(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -158,7 +165,13 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       record(s, placePlots(s, map, c.at, 'fountain'));
       break;
     case 'build':
-      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora' || c.kind === 'shrine' || c.kind === 'theatre') record(s, placePlots(s, map, c.at, c.kind));
+      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora' || c.kind === 'shrine' || c.kind === 'theatre' || c.kind === 'taxoffice') record(s, placePlots(s, map, c.at, c.kind));
+      break;
+    case 'tax':
+      if (Number.isInteger(c.rate) && c.rate >= 0 && c.rate <= HARSH && c.rate !== s.taxRate) {
+        s.taxRate = c.rate;
+        s.rev++;
+      }
       break;
     case 'clear':
       record(s, clearArea(s, map, c.x0, c.z0, c.x1, c.z1));
@@ -218,17 +231,17 @@ function layRoads(s: SimState, map: CoastMap, tiles: number[]): UndoEntry {
       const span = spanOf(map, s, run);
       if (!span) continue;
       const cost = BRIDGE_COST * run.length;
-      if (s.money < cost) break;
+      if (spendable(s) < cost) break;
       for (const u of run) s.tiles[u] = TILE_ROAD;
-      s.money -= cost;
+      pay(s, -cost, 'building', 'bridge', run.length);
       e.cost += cost;
       e.roads.push(...run);
       continue;
     }
-    if (s.money < ROAD_COST) break;
+    if (spendable(s) < ROAD_COST) break;
     if (roadRefusal(map, s, t % n, Math.floor(t / n)) !== '') continue;
     s.tiles[t] = TILE_ROAD;
-    s.money -= ROAD_COST;
+    pay(s, -ROAD_COST, 'building', 'road');
     e.cost += ROAD_COST;
     e.roads.push(t);
   }
@@ -267,7 +280,8 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     since: s.tick,
     waterUntil: 0,
     walker: 0,
-    clock: kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : kind === 'shrine' ? FIRST_PRIESTESS : kind === 'theatre' ? FIRST_ACTOR : 0,
+    clock:
+      kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : kind === 'shrine' ? FIRST_PRIESTESS : kind === 'theatre' ? FIRST_ACTOR : kind === 'taxoffice' ? FIRST_COLLECTOR : 0,
     turn: 0,
     foodUntil: 0,
     religionUntil: 0,
@@ -276,6 +290,10 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     stock,
     growth: 0,
     family: null,
+    taxedAt: 0,
+    taxPaid: 0,
+    unpaid: 0,
+    owed: 0,
   };
   s.buildings.push(b);
   for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
@@ -290,12 +308,12 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
   const covered: number[] = [];
   for (const t of at) {
     if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
-    if (s.money < cost) break;
+    if (spendable(s, kind) < cost) break;
     const x = t % n;
     const z = Math.floor(t / n);
     if (buildingRefusal(map, s, kind, x, z) !== '') continue;
     const b = addBuilding(s, n, x, z, kind);
-    s.money -= cost;
+    pay(s, -cost, 'building', kind === 'home' ? 'plots' : kind);
     e.cost += cost;
     e.plots.push(b.id);
     covered.push(...footprint(n, x, z, sideOf(kind)));
@@ -321,6 +339,8 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
         const g = findBuilding(s, w.target);
         if (g) g.incoming -= w.load;
       }
+      // A tax collector hands in what he has collected.
+      if (w.purse.length) handIn(s, w);
       return false;
     });
   }
@@ -406,7 +426,7 @@ function undoLast(s: SimState, map: CoastMap): void {
     if (b) removeBuilding(s, map, b);
   }
   for (const t of e.roads) if (s.tiles[t] === TILE_ROAD) s.tiles[t] = TILE_EMPTY;
-  s.money += e.cost;
+  if (e.cost > 0) income(s, e.cost, 'refund', 'undone');
   // What it removed comes back where the ground is still free. A home comes
   // back as an empty plot: its family has already gone. Land first, then
   // bridges (whose ends are on the land).
@@ -448,6 +468,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
           ? moveVendor(s, map, w)
           : w.kind === 'priestess' || w.kind === 'actor'
             ? moveCulture(s, map, w)
+            : w.kind === 'tax'
+              ? moveCollector(s, map, w)
             : w.kind === 'cart' || w.kind === 'porter'
               ? moveErrand(s, map, w)
               : moveGroup(s, map, w);
@@ -470,8 +492,10 @@ export function serialize(s: SimState): string {
   return JSON.stringify(s);
 }
 
+/** A state back from its serialised form, brought up to date if it is older (see migrate.ts). */
 export function deserialize(json: string): SimState {
   const data = JSON.parse(json) as Partial<SimState>;
+  migrate(data);
   if (data.version !== SIM_STATE_VERSION) {
     throw new Error(`This save is from version ${String(data.version)} and this game reads version ${SIM_STATE_VERSION}.`);
   }

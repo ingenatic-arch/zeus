@@ -1,20 +1,23 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 6;
+export const SIM_STATE_VERSION = 7;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings and plays. */
 export type Service = 'water' | 'food' | 'religion' | 'culture';
 
+/** Every walker's round with a record of the streets: the four services, and the tax collector's. */
+export type Round = Service | 'tax';
+
 /**
- * A building on a square footprint (2 x 2 for homes, fountains and shrines,
+ * A building on a square footprint (2 x 2 for homes, fountains, shrines and tax offices,
  * 3 x 3 for the rest; see sideOf) whose top-left tile is (x, z).
  * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut,
  * 3 a cottage, 4 a townhouse, 5 a fine house.
@@ -57,6 +60,14 @@ export interface Building {
   growth: number;
   /** A lived-in home: the household living there (null for workplaces and empty plots). */
   family: Family | null;
+  /** A home: the tick a tax collector last taxed it (0: never). */
+  taxedAt: number;
+  /** A home: what it paid him then, in drachmas. */
+  taxPaid: number;
+  /** A home: how many of its workers work where wages went unpaid this month. */
+  unpaid: number;
+  /** A workplace: wages it is owed this month and hasn't been paid (0: paid, or nothing due). */
+  owed: number;
 }
 
 /** Someone living in a home. */
@@ -78,8 +89,8 @@ export interface Story {
   tick: number;
   /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away. */
   what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left';
-  /** The need it was about (a Service), or ''. */
-  need: '' | Service;
+  /** The need it was about (a Service), 'tax' for someone driven out by harsh taxes, or ''. */
+  need: '' | Service | 'tax';
   /** The home's level after it. */
   level: number;
   /** Who it was about. */
@@ -112,8 +123,8 @@ export interface Family {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, its food vendor, a shrine's priestess or a theatre's actor. */
-  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor';
+  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, its food vendor, a shrine's priestess, a theatre's actor or a tax office's collector. */
+  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor' | 'tax';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;
@@ -143,6 +154,8 @@ export interface Walker {
   wait: number;
   /** A service walker: the road tiles she has walked this round (which no longer count towards it). */
   trail: number[];
+  /** A tax collector: the coins in his satchel, by district, as [district, drachmas, …] pairs (empty for everyone else). */
+  purse: number[];
 }
 
 /** What a service's walkers have done on the streets, one entry per map tile. */
@@ -155,6 +168,39 @@ export interface ServiceRecord {
    * a few rounds every street in reach gets walked.
    */
   exits: number[];
+}
+
+/** What a line of the ledger is about. */
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building';
+
+/**
+ * A line of the ledger: every payment of one kind and about one thing (taxes
+ * from a district, wages for a kind of building, building a kind of thing)
+ * in a month, added up. `amount` is signed: in is positive, out negative.
+ */
+export interface LedgerLine {
+  kind: LedgerKind;
+  /** The district (taxes), the building kind (wages, building) or what was built or undone. */
+  what: string;
+  amount: number;
+  /** How many: homes that paid, workers paid, tiles laid, buildings built. */
+  n: number;
+}
+
+/**
+ * The treasury's accounts: this month's lines and last month's, each with
+ * the money it started with, so start + the lines = the money at its end
+ * (or now). Every change to the money goes through `pay` (treasury.ts).
+ */
+export interface Ledger {
+  /** The month (months since the founding) the `now` lines are for. */
+  month: number;
+  /** Money at the start of this month. */
+  start: number;
+  now: LedgerLine[];
+  /** Money at the start of last month, and last month's lines. */
+  lastStart: number;
+  last: LedgerLine[];
 }
 
 /** What one build action changed, so it can be undone. */
@@ -213,10 +259,12 @@ export interface SimState {
   population: number;
   /** One entry per map tile (tz * size + tx): TILE_EMPTY, TILE_ROAD or a building id. */
   tiles: number[];
-  /** Each service's record of the streets its walkers walk. */
-  rounds: Record<Service, ServiceRecord>;
-  /** Drachmas of rent paid at the start of this month, and by how many households. */
-  rent: { paid: number; homes: number };
+  /** Each round's record of the streets its walkers walk (the four services and the tax collectors). */
+  rounds: Record<Round, ServiceRecord>;
+  /** The tax rate: 0 none, 1 light, 2 fair, 3 heavy, 4 harsh. */
+  taxRate: number;
+  /** Where the treasury's drachmas came from and went, this month and last. */
+  ledger: Ledger;
   buildings: Building[];
   walkers: Walker[];
   nextId: number;

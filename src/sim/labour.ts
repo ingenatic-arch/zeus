@@ -3,7 +3,8 @@
  * age. Once a day the city's workers are shared out among the buildings that
  * need them, nearest first: every pair of lived-in home and workplace joined
  * by road is taken in order of road distance, and each pair fills what it
- * can. A building works at the share of its jobs that are filled.
+ * can. A building works at the share of its jobs that are filled (half
+ * that while its wages are unpaid: see treasury.ts).
  */
 import type { CoastMap } from '../map/bake';
 import { JOBS, livedIn } from './buildings';
@@ -20,10 +21,15 @@ export const canWork = (b: Building): number => (livedIn(b) ? Math.floor(b.peopl
 /** Jobs a building offers. */
 export const jobsAt = (b: Building): number => JOBS[b.kind];
 
-/** How hard a building works: the share of its jobs filled (1 for buildings that need nobody). */
+/** How hard a workplace works while its wages are unpaid this month. */
+export const UNPAID_RATE = 0.5;
+
+/** How hard a building works: the share of its jobs filled (1 for buildings that need nobody), halved while its wages are unpaid. */
 export function rateOf(b: Building): number {
   const jobs = JOBS[b.kind];
-  return jobs > 0 ? Math.min(1, b.workers / jobs) : 1;
+  if (jobs === 0) return 1;
+  const r = Math.min(1, b.workers / jobs);
+  return b.owed > 0 ? r * UNPAID_RATE : r;
 }
 
 /** Share the workers out, once a day. */
@@ -40,6 +46,7 @@ export function shareWork(s: SimState, map: CoastMap): void {
   const before = s.buildings.map((b) => b.workers);
   for (const b of s.buildings) {
     b.workers = 0;
+    b.unpaid = 0;
     if (JOBS[b.kind] > 0) places.push(b);
     else if (canWork(b) > 0) homes.push({ b, roads: roadsBeside(s, size, b), free: canWork(b) });
   }
@@ -69,6 +76,8 @@ function fill(s: SimState, size: number, places: Building[], homes: Array<{ b: B
     p.workers += take;
     h.free -= take;
     h.b.workers += take;
+    // Working where the wages went unpaid this month.
+    if (p.owed > 0) h.b.unpaid += take;
   }
 }
 

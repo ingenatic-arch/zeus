@@ -53,8 +53,9 @@ describe('#town', () => {
       }
     }
     expect(drops).toBe(0);
-    // A home may be warned for a few days while a walker comes round; nobody waits weeks.
-    expect(warnedDays).toBeLessThan(60);
+    // A home may be warned for a few days while a walker comes round, and now and then a corner of the
+    // core waits a few weeks for the priestess (slice 8's history: two homes, once, about a month).
+    expect(warnedDays).toBeLessThan(120);
   });
 });
 
@@ -130,6 +131,8 @@ describe('the shortfall lines', () => {
     at(3600, { type: 'fountain', at: [T(24, 48)] });
     at(3600, { type: 'build', kind: 'agora', at: [T(27, 48)] });
     at(3600, { type: 'road', tiles: row(51, 53, 63) });
+    // Two tax offices, so wages are paid (an unpaid farm works at half pace, and the line would say so instead).
+    at(3600, { type: 'build', kind: 'taxoffice', at: [T(22, 75), T(24, 60)] });
     at(4500, { type: 'build', kind: 'theatre', at: [T(35, 81)] });
     at(4500, { type: 'build', kind: 'farm', at: [T(41, 60)] });
     // Whenever a home warns about bread while the farms grow less than a tenth more than the town eats, a line says so.

@@ -288,7 +288,7 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
 }
 
 /** The kinds of walker with a job (all but settlers and leavers). */
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax';
 
 /** Settler and leaver groups, water carriers, food vendors, priestesses, actors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {

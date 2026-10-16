@@ -36,6 +36,8 @@ export interface ServiceSpec {
   serve(s: SimState, size: number, t: number, w: Walker): void;
   /** Ticks her building waits after she is back (or lost) before sending the next. */
   rest(b: Building): number;
+  /** Whatever she does when her round is over (back, or lost): the tax collector hands in his satchel. */
+  finish?(s: SimState, w: Walker): void;
 }
 
 /** However much of it was road already walked, she turns for home after this many times `walk` tiles. */
@@ -192,7 +194,11 @@ export function moveRounds(s: SimState, map: CoastMap, w: Walker, spec: ServiceS
   const size = map.size;
   const b = findBuilding(s, w.origin);
   if (!b || b.kind !== kind) return false;
-  if (!aheadOk(s, w) && !detour(s, size, w, b)) return done(spec, b);
+  const end = (): false => {
+    spec.finish?.(s, w);
+    return done(spec, b);
+  };
+  if (!aheadOk(s, w) && !detour(s, size, w, b)) return end();
   const walked = spec.record(s).walked;
   let move = spec.speed;
   for (let guard = 0; guard < 8 && move > 0; guard++) {
@@ -218,22 +224,22 @@ export function moveRounds(s: SimState, map: CoastMap, w: Walker, spec: ServiceS
       if (fresh) w.trail.push(t);
     }
     if (w.seg < last) {
-      if (!aheadOk(s, w) && !detour(s, size, w, b)) return done(spec, b);
+      if (!aheadOk(s, w) && !detour(s, size, w, b)) return end();
       continue;
     }
     // The end of this leg.
-    if (w.back) return done(spec, b);
-    if (t < 0) return done(spec, b);
+    if (w.back) return end();
+    if (t < 0) return end();
     const prev = w.seg > 0 ? w.tiles[w.seg - 1] : -1;
     if (prev >= 0 && fresh) w.steps++;
     const [x, z] = centre(size, t);
     if (w.steps >= spec.walk || w.walked >= WALK_LIMIT * spec.walk) {
-      if (!headHome(s, size, w, b, t, [x, z])) return done(spec, b);
+      if (!headHome(s, size, w, b, t, [x, z])) return end();
       continue;
     }
     const next = chooseNext(s, size, spec, b, t, prev);
     if (next < 0) {
-      if (!headHome(s, size, w, b, t, [x, z])) return done(spec, b);
+      if (!headHome(s, size, w, b, t, [x, z])) return end();
       continue;
     }
     const [nx, nz] = centre(size, next);
