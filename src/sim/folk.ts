@@ -515,7 +515,40 @@ export function wantOf(s: SimState, b: Building): '' | Service {
   if (b.kind !== 'home' || b.people === 0) return '';
   if (b.level === TENT) return b.waterUntil > s.tick ? '' : 'water';
   if (b.level === HUT) return b.foodUntil - s.tick >= COTTAGE_FOOD_MIN ? '' : 'food';
-  if (b.level === COTTAGE) return b.religionUntil - s.tick < RISE_MIN && s.buildings.some((o) => o.kind === 'shrine') ? 'religion' : '';
-  if (b.level === TOWNHOUSE) return b.cultureUntil - s.tick < RISE_MIN && s.buildings.some((o) => o.kind === 'theatre') ? 'culture' : '';
+  if (b.level === COTTAGE) return b.religionUntil - s.tick < RISE_MIN && cityHas(s).shrine ? 'religion' : '';
+  if (b.level === TOWNHOUSE) return b.cultureUntil - s.tick < RISE_MIN && cityHas(s).theatre ? 'culture' : '';
   return '';
+}
+
+/**
+ * Whether the city has a shrine and a theatre, worked out once per change of
+ * its buildings (`rev`, bumped whenever one is placed or cleared) and kept
+ * outside the state, like the road-distance cache: a pure function of it.
+ */
+const hasCache = new WeakMap<SimState, { rev: number; n: number; shrine: boolean; theatre: boolean }>();
+export function cityHas(s: SimState): { shrine: boolean; theatre: boolean } {
+  const hit = hasCache.get(s);
+  if (hit && hit.rev === s.rev && hit.n === s.buildings.length) return hit;
+  const fresh = { rev: s.rev, n: s.buildings.length, shrine: s.buildings.some((o) => o.kind === 'shrine'), theatre: s.buildings.some((o) => o.kind === 'theatre') };
+  hasCache.set(s, fresh);
+  return fresh;
+}
+
+/**
+ * A service walker's score for a home (see NeedScore in walk.ts): Infinity if
+ * it doesn't want her (`wants` false); for a home whose level needs the
+ * service, the tick it would go down a level without it (counting from its
+ * last change of level, so a home that has just gone down is not the most
+ * urgent); for one that only wants it to grow, when its supply runs out, on
+ * the same scale. Where nobody is warned this orders homes exactly as their
+ * supplies run out.
+ */
+export function serviceScore(b: Building, need: Service, wants: boolean): number {
+  if (!wants) return Infinity;
+  return (needsOf(b).includes(need) ? missingSince(b, need) : untilOf(b, need)) + DECLINE_AFTER;
+}
+
+/** When a home would go down a level for want of a service (Infinity if its level doesn't need it). */
+export function serviceDue(b: Building, need: Service): number {
+  return needsOf(b).includes(need) ? missingSince(b, need) + DECLINE_AFTER : Infinity;
 }

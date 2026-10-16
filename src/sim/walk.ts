@@ -123,10 +123,22 @@ export function besideRoad(s: SimState, size: number, t: number, out: Building[]
 }
 
 /**
- * How badly a home needs a service walker: the tick its service runs out
- * (lower is more urgent), or Infinity if it doesn't want her at all.
+ * How badly a home needs a service walker (lower is more urgent), or Infinity
+ * if it doesn't want her at all: for a home whose level needs the service, the
+ * tick it would go down a level for want of it; for one that only wants it to
+ * grow, when its supply runs out, on the same scale (see serviceScore).
  */
 export type NeedScore = (b: Building) => number;
+
+/**
+ * When a home would go down a level for want of a service (Infinity if its
+ * level doesn't need it). A walker who would get there later than this can't
+ * save it this round.
+ */
+export type NeedDue = (b: Building) => number;
+
+/** Added to a home's score when she would get there too late to save it: she goes where she can still save someone first. */
+export const TOO_LATE = 1e7;
 
 /** Scratch space for wayNeeds (not state: cleared by a fresh stamp on every search). */
 let stamp = new Int32Array(0);
@@ -142,9 +154,10 @@ const near: Building[] = [];
  * road steps from her building, at most `range`), out from all of `ways` at
  * once and never back through `cur`, so each road tile belongs to the way that
  * gets there first. A way's need is the lowest, over the homes beside its road
- * tiles, of their score (when their service runs out) plus how long she would
- * take to get there at `ticksATile`; Infinity if no home that wants her lies
- * that way. With `firstOnly`, stops at the first such home.
+ * tiles, of their score (see NeedScore) plus how long she would take to get
+ * there at `ticksATile`, with TOO_LATE added for a home she would reach after
+ * it has gone down (`due`); Infinity if no home that wants her lies that way.
+ * With `firstOnly`, stops at the first such home.
  */
 export function wayNeeds(
   s: SimState,
@@ -156,6 +169,7 @@ export function wayNeeds(
   cur: number,
   ways: number[],
   firstOnly = false,
+  due?: NeedDue,
 ): number[] {
   const total = size * size;
   if (stamp.length !== total) {
@@ -181,8 +195,10 @@ export function wayNeeds(
     const t = queue[head++];
     const i = owner[t];
     let low = Infinity;
+    const arrive = s.tick + depth[t] * ticksATile;
     for (const b of besideRoad(s, size, t, near)) {
-      const v = score(b);
+      let v = score(b);
+      if (v < Infinity && due && due(b) < arrive) v += TOO_LATE;
       if (v < low) low = v;
     }
     if (low < Infinity) {

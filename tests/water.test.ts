@@ -7,7 +7,10 @@ import { arrivalInterval } from '../src/sim/settlers';
 import { Sim } from '../src/sim/sim';
 import { homeStatus } from '../src/sim/status';
 import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
-import { CARRIER_RANGE, HUT, HUT_DECLINE_AFTER, stepsToFountain, waterReach, WATER_LASTS } from '../src/sim/water';
+import { CARRIER_RANGE, HUT, HUT_DECLINE_AFTER, stepsToFountain, WATER, waterReach, WATER_LASTS } from '../src/sim/water';
+import { distFrom } from '../src/sim/rounds';
+import { DECLINE_AFTER } from '../src/sim/folk';
+import { CARRIER_SPEED, wayNeeds } from '../src/sim/walk';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -200,6 +203,60 @@ describe('where she goes', () => {
       watchCarriers(sim, 3000);
       noneStarved(sim, 3000);
     }
+  });
+});
+
+describe('who she goes to first', () => {
+  /**
+   * A fountain at the middle of a long street, a hut at each end, ten road
+   * steps either way from the junction by the fountain: which way does she
+   * choose there, west or east?
+   */
+  function street(): { sim: Sim; west: Building; east: Building; choose: () => 'west' | 'east' } {
+    const sim = new Sim(5);
+    sim.enqueue({ type: 'road', tiles: row(0, 40, 80) });
+    sim.enqueue({ type: 'fountain', at: [T(20, 81)] });
+    sim.enqueue({ type: 'plots', at: [T(10, 78), T(30, 78)] });
+    sim.run(5);
+    const s = sim.state;
+    const west = at(s, 10, 78);
+    const east = at(s, 30, 78);
+    for (const b of [west, east]) Object.assign(b, { level: HUT, people: 5 });
+    s.tick = 10000;
+    const choose = (): 'west' | 'east' => {
+      const f = s.buildings.find((b) => b.kind === 'fountain')!;
+      const [w, e] = wayNeeds(s, N, distFrom(s, N, f), CARRIER_RANGE, WATER.score, 1 / CARRIER_SPEED, T(20, 80), [T(19, 80), T(21, 80)], false, WATER.due);
+      return w <= e ? 'west' : 'east';
+    };
+    return { sim, west, east, choose };
+  }
+
+  it('with nobody warned, the home whose water runs out first (as before)', () => {
+    const { west, east, choose } = street();
+    Object.assign(west, { waterUntil: 10300, since: 0 });
+    Object.assign(east, { waterUntil: 10200, since: 0 });
+    expect(choose()).toBe('east');
+    west.waterUntil = 10100;
+    expect(choose()).toBe('west');
+  });
+
+  it('the home closest to going down, not one that has just gone down after going without longer', () => {
+    const { west, east, choose } = street();
+    // West ran dry long ago but has just gone down a level (a fresh two months); east ran dry later, and is ten days from going down.
+    Object.assign(west, { waterUntil: 2000, since: 9900 });
+    Object.assign(east, { waterUntil: 10000 - DECLINE_AFTER + 100, since: 0 });
+    expect(choose()).toBe('east');
+  });
+
+  it('not a home she would reach too late to save, while another can still be saved', () => {
+    const { west, east, choose } = street();
+    // West goes down in 30 ticks, but she needs about 85 to get there; east has a month left.
+    Object.assign(west, { waterUntil: 10030 - DECLINE_AFTER, since: 0 });
+    Object.assign(east, { waterUntil: 10300 - DECLINE_AFTER, since: 0 });
+    expect(choose()).toBe('east');
+    // With nobody else wanting her, she still goes to it.
+    Object.assign(east, { level: 0, people: 0 });
+    expect(choose()).toBe('west');
   });
 });
 

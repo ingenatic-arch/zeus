@@ -1,10 +1,12 @@
 /**
- * Service walkers' rounds, shared by the water carrier and the food vendor
- * (and later the priestess and the actor). A service walker steps out of her
+ * Service walkers' rounds, shared by the water carrier, the food vendor, the
+ * priestess and the actor. A service walker steps out of her
  * building onto a road beside it and walks the roads a tile at a time, never
  * further than her range by road from her building. At a junction she heads
- * for the home in her reach whose service runs out soonest (counting the walk
- * there), taking the next way round from the last walker's when it makes no
+ * for the home in her reach that needs her soonest (counting the walk there):
+ * a home whose level needs her, by when it would go down without her; one
+ * that only wants her to grow, by when its supply runs out; a home she would
+ * reach too late to save only when nobody else needs her (see NeedScore), taking the next way round from the last walker's when it makes no
  * difference; she turns round at dead ends, at the edge of her reach, and
  * where no homes that want her lie ahead but some lie behind. After `walk`
  * tiles of road she hadn't walked yet this round (or twice that in all) she
@@ -15,7 +17,7 @@ import type { CoastMap } from '../map/bake';
 import { around, centreOf, findBuilding } from './buildings';
 import { roadSearch, tracePath } from './roads';
 import { TILE_ROAD, type Building, type ServiceRecord, type SimState, type Walker } from './state';
-import { centre, newWalker, position, roadNeighbours, setPath, wayNeeds, type NeedScore } from './walk';
+import { centre, newWalker, position, roadNeighbours, setPath, wayNeeds, type NeedDue, type NeedScore } from './walk';
 
 export interface ServiceSpec {
   /** Her own record of the streets. */
@@ -26,8 +28,10 @@ export interface ServiceSpec {
   walk: number;
   /** Tiles a tick. */
   speed: number;
-  /** When each home's service runs out (Infinity: it doesn't want her). */
+  /** How urgently each home wants her (Infinity: it doesn't want her); see NeedScore. */
   score: NeedScore;
+  /** When each home would go down for want of her (Infinity: its level doesn't need her). */
+  due: NeedDue;
   /** Serve the homes beside road tile `t`. */
   serve(s: SimState, size: number, t: number, w: Walker): void;
   /** Ticks her building waits after she is back (or lost) before sending the next. */
@@ -94,8 +98,8 @@ const dirOf = (size: number, from: number, to: number): number => (to === from -
  * Where she goes from road tile `cur`, having come from `prev` (-1 if from her
  * building or a turn), never beyond her reach: on along the road; round at a
  * dead end, or where no homes that want her lie ahead but some lie behind; and
- * at a junction the way to the home whose service runs out soonest (counting
- * the walk there), anywhere in her reach; if that is the same every way, the
+ * at a junction the way to the home that needs her soonest (counting the walk
+ * there; see NeedScore), anywhere in her reach; if that is the same every way, the
  * next way round from the one her service last took there. -1 if there is no road at all.
  */
 function chooseNext(s: SimState, size: number, spec: ServiceSpec, b: Building, cur: number, prev: number): number {
@@ -106,7 +110,7 @@ function chooseNext(s: SimState, size: number, spec: ServiceSpec, b: Building, c
   const on = all.filter((t) => t !== prev);
   if (on.length === 0) return all.length ? all[0] : -1;
   const behind = all.length > on.length;
-  const needs = (ways: number[], firstOnly = false): number[] => wayNeeds(s, size, dist, range, spec.score, tat, cur, ways, firstOnly);
+  const needs = (ways: number[], firstOnly = false): number[] => wayNeeds(s, size, dist, range, spec.score, tat, cur, ways, firstOnly, spec.due);
   if (on.length === 1) {
     // A plain stretch of road: on, unless it leads only to empty road and there are homes behind.
     if (!behind || needs(on, true)[0] < Infinity) return on[0];

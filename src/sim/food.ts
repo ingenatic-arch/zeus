@@ -14,6 +14,7 @@ import { fertilityOf } from './build';
 import type { CoastMap } from '../map/bake';
 import { findBuilding, HUT } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
+import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -84,7 +85,8 @@ export const FOOD: ServiceSpec = {
   range: VENDOR_RANGE,
   walk: VENDOR_WALK,
   speed: CARRIER_SPEED,
-  score: (b) => (eatsBread(b) ? b.foodUntil : Infinity),
+  score: (b) => serviceScore(b, 'food', eatsBread(b)),
+  due: (b) => serviceDue(b, 'food'),
   serve(s: SimState, size: number, t: number, w: Walker) {
     const stall = findBuilding(s, w.origin);
     if (!stall || stall.stock <= 0) return;

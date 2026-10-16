@@ -8,7 +8,11 @@ export interface Launch {
   shot: boolean;
   /** Start with the water overlay on. */
   overlay: boolean;
+  /** Open a saved town: the newest save (`#continue`), the autosave (`#autosave`) or the one saved by hand (`#saved`). */
+  load?: 'newest' | 'auto' | 'manual';
 }
+
+const LOADS: Record<string, Launch['load']> = { continue: 'newest', autosave: 'auto', saved: 'manual' };
 
 /**
  * Read a link. The published page only receives a bare hash, so links are
@@ -22,6 +26,7 @@ export function readLaunch(search: string, hash: string, demos: Record<string, u
     if (!part) continue;
     if (part === 'shot') out.shot = true;
     else if (part === 'overlay') out.overlay = true;
+    else if (Object.hasOwn(LOADS, part)) out.load = LOADS[part];
     else if ((SPEEDS as readonly string[]).includes(part)) out.speed = part as Speed;
     else if (part in demos && !out.demo) out.demo = part;
     else if (part in views) out.cam = part;

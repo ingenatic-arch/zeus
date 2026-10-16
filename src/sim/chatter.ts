@@ -8,7 +8,7 @@
  */
 import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { ageOf, URGENT, warningOf } from './folk';
+import { ageOf, cityHas, URGENT, warningOf } from './folk';
 import type { Building, Family, Person, SimState } from './state';
 
 /**
@@ -268,8 +268,8 @@ function suits(s: SimState, b: Building, sit: Situation, template: string): bool
   const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'urgent' || sit === 'down';
   if (anyLevel && /cottage/i.test(template) && b.level !== COTTAGE) return false;
   if (sit === 'noShrine' && /townhouse/.test(template) && b.level !== TOWNHOUSE) return false;
-  if (/talk of a theatre|had a theatre|need a proper theatre/.test(template) && s.buildings.some((o) => o.kind === 'theatre')) return false;
-  if (/somewhere proper to thank the gods/.test(template) && s.buildings.some((o) => o.kind === 'shrine')) return false;
+  if (/talk of a theatre|had a theatre|need a proper theatre/.test(template) && cityHas(s).theatre) return false;
+  if (/somewhere proper to thank the gods/.test(template) && cityHas(s).shrine) return false;
   return true;
 }
 

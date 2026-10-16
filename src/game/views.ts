@@ -4,6 +4,10 @@ import type { CameraView } from '../render/cameraRig';
 export const VIEWS: Record<string, CameraView> = {
   // The opening view: the bay in front, the river valley and hills behind.
   coast: { x: 62, z: 62, yaw: 0.12, dist: 100, tilt: -0.66 },
+  // #town: the town on the east bank from over the sea, the fine-house core, shrine and theatre in front, the farms and the bridge beyond to the left.
+  town: { x: 76, z: 40, yaw: 0.35, dist: 46, tilt: -0.15 },
+  // Street level in #town's core, by the fountain among the fine houses.
+  townstreet: { x: 72, z: 40.5, yaw: 0.6, dist: 9, tilt: 0.03 },
   overview: { x: 64, z: 62, yaw: 0, dist: 170, tilt: 0.2 },
   // Street level on the fertile river bank, looking upstream to the hills.
   river: { x: 52, z: 59, yaw: 0.95, dist: 8, tilt: 0.02 },

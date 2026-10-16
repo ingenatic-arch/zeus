@@ -8,7 +8,7 @@ import type { CoastMap } from '../map/bake';
 import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from '../sim/buildings';
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
-import { ageOf, BRINGER, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
+import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
 import { reachesWork, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
@@ -132,11 +132,11 @@ function nextLine(s: SimState, b: Building): string {
     return `To become a cottage: water, and a month’s bread in hand from the agora’s food vendor${fed >= COTTAGE_FOOD_MIN ? '' : hand}`;
   }
   if (b.level === COTTAGE) {
-    if (!s.buildings.some((o) => o.kind === 'shrine')) return 'To become a townhouse: the blessing of a shrine’s priestess. The city has no shrine yet';
+    if (!cityHas(s).shrine) return 'To become a townhouse: the blessing of a shrine’s priestess. The city has no shrine yet';
     return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and bread${settled}`;
   }
   if (b.level === TOWNHOUSE) {
-    if (!s.buildings.some((o) => o.kind === 'theatre')) return 'To become a fine house: plays, brought by a theatre’s actor. The city has no theatre yet';
+    if (!cityHas(s).theatre) return 'To become a fine house: plays, brought by a theatre’s actor. The city has no theatre yet';
     return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of everything else${settled}`;
   }
   return 'A fine house is as fine as homes get, for now';
@@ -148,8 +148,8 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   const lack: string[] = [];
   // The needs of their level, and the next level's if it is to be had in the city.
   const shown = new Set<Service>(['water', ...needsOf(b)]);
-  if (b.level === COTTAGE && s.buildings.some((o) => o.kind === 'shrine')) shown.add('religion');
-  if (b.level === TOWNHOUSE && s.buildings.some((o) => o.kind === 'theatre')) shown.add('culture');
+  if (b.level === COTTAGE && cityHas(s).shrine) shown.add('religion');
+  if (b.level === TOWNHOUSE && cityHas(s).theatre) shown.add('culture');
   for (const need of NEEDS) {
     if (!shown.has(need)) continue;
     const left = untilOf(b, need) - s.tick;

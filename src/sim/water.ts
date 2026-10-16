@@ -10,6 +10,7 @@
 import type { CoastMap } from '../map/bake';
 import { findBuilding, HOME_CAPACITY, HUT } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
+import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { roadSearch, type Search } from './roads';
 import { moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -39,7 +40,8 @@ export const WATER: ServiceSpec = {
   range: CARRIER_RANGE,
   walk: CARRIER_WALK,
   speed: CARRIER_SPEED,
-  score: (b) => (b.kind === 'home' && b.level > 0 ? b.waterUntil : Infinity),
+  score: (b) => serviceScore(b, 'water', b.kind === 'home' && b.level > 0),
+  due: (b) => serviceDue(b, 'water'),
   serve(s: SimState, size: number, t: number) {
     const until = s.tick + WATER_LASTS;
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.waterUntil < until) b.waterUntil = until;

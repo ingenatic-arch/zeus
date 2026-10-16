@@ -14,6 +14,7 @@
 import type { CoastMap } from '../map/bake';
 import { COTTAGE, TOWNHOUSE } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
+import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { moveRounds, sendOut, type ServiceSpec } from './rounds';
 import type { Building, BuildingKind, Service, SimState, Walker } from './state';
@@ -47,7 +48,8 @@ export const RELIGION: ServiceSpec = {
   range: PRIESTESS_RANGE,
   walk: PRIESTESS_WALK,
   speed: CARRIER_SPEED,
-  score: (b) => (wantsBlessing(b) ? b.religionUntil : Infinity),
+  score: (b) => serviceScore(b, 'religion', wantsBlessing(b)),
+  due: (b) => serviceDue(b, 'religion'),
   serve(s: SimState, size: number, t: number) {
     const until = s.tick + RELIGION_LASTS;
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.level > 0 && b.religionUntil < until) b.religionUntil = until;
@@ -61,7 +63,8 @@ export const CULTURE: ServiceSpec = {
   range: ACTOR_RANGE,
   walk: ACTOR_WALK,
   speed: CARRIER_SPEED,
-  score: (b) => (wantsPlays(b) ? b.cultureUntil : Infinity),
+  score: (b) => serviceScore(b, 'culture', wantsPlays(b)),
+  due: (b) => serviceDue(b, 'culture'),
   serve(s: SimState, size: number, t: number) {
     const until = s.tick + CULTURE_LASTS;
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.level > 0 && b.cultureUntil < until) b.cultureUntil = until;

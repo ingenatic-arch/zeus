@@ -246,8 +246,73 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
   });
 }
 
+/**
+ * #town: a town of a few hundred people a few years in, on the east bank of
+ * the river, where Oliver looks first. The way in runs from the west edge up
+ * a lane, over the bridge at the river's narrows and along a main street
+ * through the wheat on the flood plain to the town: a core of fine houses
+ * round a fountain, an agora, the shrine and the theatre; townhouses and
+ * cottages along the street east of it, round a second fountain and agora;
+ * huts in a hamlet by the lane on the west bank; tents on the newest plots
+ * at the hamlet's end. It grows outward the way a player would build it, so
+ * every house has earned its level. It opens half a year after the last
+ * plots went down, once every walker's round has settled (earlier, the
+ * actor's first rounds leave the far corner of the core warned about plays
+ * for a while), and its bread holds for well over a year as it fills up.
+ */
+const TOWN_TICKS = 7200;
+const CORE_W = [63, 65, 67, 69, 71];
+const CORE_E = [75, 77, 79, 81, 83];
+const along = (xs: number[], z: number): number[] => xs.map((x) => T(x, z));
+
+function town(ticks: number): (sim: Sim) => void {
+  return (sim) => {
+    const at: At = (t, c) => {
+      if (sim.state.tick < t) sim.run(t - sim.state.tick);
+      sim.enqueue(c);
+      sim.flush();
+    };
+    // The way in, and the core's cross streets.
+    at(0, { type: 'road', tiles: [...row(0, 26, 50), ...col(26, 41, 49).reverse(), ...row(27, 95, 41)] });
+    at(0, { type: 'road', tiles: [...col(62, 33, 40), ...col(74, 33, 40), ...col(86, 33, 40), ...row(63, 85, 33)] });
+    at(0, {
+      type: 'plots',
+      at: [...along([63, 65, 71, 77, 79, 81, 83], 39), ...along([63, 69, 71, ...CORE_E], 42)],
+    });
+    at(0, { type: 'fountain', at: [T(75, 39)] });
+    at(150, { type: 'plots', at: [...along([...CORE_W, ...CORE_E], 34), ...along([...CORE_W, ...CORE_E], 31)] });
+    // Bread: wheat on the flood plain along the main street, a granary and an agora.
+    at(300, { type: 'build', kind: 'farm', at: [T(41, 42), T(44, 42), T(47, 42)] });
+    at(300, { type: 'build', kind: 'granary', at: [T(53, 42)] });
+    at(300, { type: 'build', kind: 'agora', at: [T(65, 42)] });
+    at(500, { type: 'build', kind: 'farm', at: [T(38, 38), T(41, 38)] });
+    at(2400, { type: 'build', kind: 'shrine', at: [T(68, 39)] });
+    at(2400, { type: 'build', kind: 'farm', at: [T(50, 42)] });
+    at(3300, { type: 'build', kind: 'theatre', at: [T(57, 42)] });
+    // The street east of the core, with its own fountain and agora.
+    at(3600, { type: 'road', tiles: row(96, 112, 41) });
+    at(3600, {
+      type: 'plots',
+      at: [...along([88, 90, 92, 94, 96, 98, 102, 104, 106, 108, 110], 39), ...along([88, 90, 92, 94, 102, 104, 106, 108, 110], 42)],
+    });
+    at(3600, { type: 'build', kind: 'agora', at: [T(97, 42)] });
+    at(3600, { type: 'fountain', at: [T(100, 39)] });
+    // The hamlet by the lane on the west bank, then the newest plots at its end.
+    at(4500, {
+      type: 'plots',
+      at: [...along([8, 10, 12, 14, 16, 18, 20, 22], 48), ...along([10, 12, 14, 16, 18, 20, 22], 51), ...col(24, 42, 42), T(24, 44), T(24, 46), T(27, 42), T(27, 44), T(27, 48)],
+    });
+    at(4500, { type: 'fountain', at: [T(27, 46)] });
+    at(4500, { type: 'build', kind: 'farm', at: [T(44, 38)] });
+    at(ticks - 450, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
+    if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
+  };
+}
+
 export const DEMOS: Record<string, Demo> = {
   coast: { view: 'coast' },
+  town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
+  townstreet: { view: 'townstreet', setup: town(TOWN_TICKS), overlay: 'missing' },
   streets: { view: 'streets', setup: neighbourhood(560) },
   settlers: { view: 'settlers', setup: neighbourhood(230) },
   build: { view: 'build', tool: 'road' },
