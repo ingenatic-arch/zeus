@@ -454,17 +454,14 @@ const TOWN_LODGE = { x: 59, z: 32 };
 const TOWN_DAIRY = { x: 50, z: 38 };
 /**
  * #town's oil: a road up the slope north of the core from the head of its
- * east cross street, an olive grove at the top (the best olive ground on the
- * map) and a second beside it once the fine houses come, the press and the
- * storehouse below them (between the deer of the north hills and of the east
- * hills).
+ * east cross street, one olive grove at the top (the best olive ground on the
+ * map; one is enough for its townhouses and fine houses, and a second took
+ * the workers its hamlet needed), the press and the storehouse below it
+ * (between the deer of the north hills and of the east hills).
  */
 const TOWN_OIL_X = 86;
 const TOWN_OIL_ROAD = 23;
-const TOWN_GROVES = [
-  { x: 83, z: 23 },
-  { x: 87, z: 23 },
-];
+const TOWN_GROVES = [{ x: 83, z: 23 }];
 const TOWN_PRESS = { x: 83, z: 27 };
 const TOWN_STORE = { x: 87, z: 27 };
 const TOWN_OIL_COST = (33 - TOWN_OIL_ROAD) * ROAD_COST + GROVE_COST + PRESS_COST + STOREHOUSE_COST + STALL_COST;

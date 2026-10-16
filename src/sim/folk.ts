@@ -367,6 +367,21 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
       else add(-1, 'The priestess doesn’t come this way');
     }
   }
+  // Oil: a townhouse's need; a cottage likes it too, once there is an oil stall.
+  const oilUntil = b.goodsUntil[gi(OIL)];
+  if (b.level >= TOWNHOUSE) {
+    if (oilUntil > s.tick) add(1, 'Oil for the lamps and the bread');
+    else {
+      const since = missingSince(b, 'oil');
+      // (A home from an older save, in its grace, isn't counting yet.)
+      if (since > s.tick) add(0, 'They’d like oil for the lamps');
+      else if (s.tick - since < WARN_AFTER) add(-1, `The oil vendor is late (${span(s.tick - since)})`);
+      else add(s.tick - since > TICKS_PER_MONTH ? -3 : -2, `No oil for ${span(s.tick - since)}`);
+    }
+  } else if (b.level === COTTAGE) {
+    if (oilUntil > s.tick) add(1, 'Oil for the lamps');
+    else if (cityHas(s).oil) add(0, 'The oil vendor doesn’t come this way');
+  }
   // Plays: a fine house's need; a townhouse would like them, if there is a theatre.
   const plays = b.cultureUntil > s.tick;
   if (b.level >= FINE) {

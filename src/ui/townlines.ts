@@ -13,6 +13,7 @@ const SETTLE_DAYS = 3;
 
 const ICONS: Record<TownLine['need'], string> = {
   food: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V5" stroke="#a06f1c" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="8" cy="3.6" rx="1.5" ry="2.4" fill="#d9a441"/><ellipse cx="5.6" cy="6.4" rx="1.3" ry="2.2" fill="#d9a441" transform="rotate(-30 5.6 6.4)"/><ellipse cx="10.4" cy="6.4" rx="1.3" ry="2.2" fill="#d9a441" transform="rotate(30 10.4 6.4)"/><ellipse cx="5.8" cy="9.8" rx="1.2" ry="2" fill="#d9a441" transform="rotate(-30 5.8 9.8)"/><ellipse cx="10.2" cy="9.8" rx="1.2" ry="2" fill="#d9a441" transform="rotate(30 10.2 9.8)"/></svg>',
+  oil: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 1.8h2l-.2 2.1c2.4.6 3.6 2.6 3.6 4.9 0 2.4-1.5 4.3-3.1 5H6.7C5.1 13.1 3.6 11.2 3.6 8.8c0-2.3 1.2-4.3 3.6-4.9z" fill="#8aa83a" stroke="#3e4f12" stroke-width=".9" stroke-linejoin="round"/></svg>',
   workers:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   money:

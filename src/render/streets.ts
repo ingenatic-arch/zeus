@@ -216,9 +216,11 @@ export class Streets {
   }
 
   /**
-   * The ground of a farm, granary, agora, lodge or dairy: a farm's field
-   * ploughed in furrows behind a trodden yard, a granary's beaten earth yard,
-   * the agora's paving stones, a lodge's trodden yard, a dairy's cropped pen.
+   * The ground of a farm, granary, agora, lodge, dairy, grove, press or
+   * storehouse: a farm's field ploughed in furrows behind a trodden yard, a
+   * granary's beaten earth yard, the agora's paving stones, a lodge's trodden
+   * yard, a dairy's cropped pen, a grove's dry grass, a press's and a
+   * storehouse's beaten earth.
    */
   private worksGround(
     s: SimState,
@@ -228,7 +230,7 @@ export class Streets {
     const map = this.map;
     const S = 3;
     // The lodge's and the dairy's grounds are plain (a worn patch, a pen and a yard): a coarser grid will do.
-    const steps = b.kind === 'lodge' || b.kind === 'dairy' ? 12 : 24;
+    const steps = b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' ? 12 : 24;
     const inset = 0.04;
     const cx = b.x + S / 2;
     const cz = b.z + S / 2;
@@ -273,6 +275,14 @@ export class Streets {
         } else if (b.kind === 'lodge') {
           // A trodden yard, worn most round the fire pit and the rack.
           c.copy(earth).lerp(worn, Math.max(0, 1 - Math.hypot(lx - 0.7, lz + 0.3) / 1.4)).lerp(grass, Math.max(0, Math.min(0.5, (Math.abs(lz) - 1.0) * 1.2))).multiplyScalar(j2);
+        } else if (b.kind === 'grove') {
+          // Dry grass between the trees, trodden to earth along the front by the picker's hut.
+          const dry = col(PAL.dryGrass);
+          if (lx > 0.5) c.copy(worn).lerp(earth, 0.6).multiplyScalar(j2);
+          else c.copy(dry).lerp(earth, 0.35 + 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 320)).multiplyScalar(j2);
+        } else if (b.kind === 'press' || b.kind === 'storehouse') {
+          // Beaten earth, worn most at the front where the carts turn.
+          c.copy(earth).lerp(worn, Math.max(0, Math.min(1, (lx + 0.6) / 2))).multiplyScalar(j2);
         } else if (b.kind === 'dairy') {
           // The pen behind: cropped pasture, trampled in patches; the yard in front, beaten earth.
           if (lx < 0.14) c.copy(grass).lerp(worn, 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 318)).multiplyScalar(j2);

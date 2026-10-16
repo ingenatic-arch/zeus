@@ -96,6 +96,8 @@ export const LINES = {
     'We have a staircase. Nobody in {origin} has a staircase. I mention it in every letter.',
     'The priestess still calls by. She says ours is the most blessed house on the street. She says that to everyone.',
     'Bread and cheese for lunch, a bit of venison on feast days. {kin} has started saying “we” like a magistrate.',
+    'The oil vendor came by with two jars on her yoke. We have lamps lit upstairs and down, like a temple.',
+    '{adult} dips the bread in oil and calls it a feast. It is, a little.',
   ],
   townhousePlays: [
     'The actor stopped at our door and did the whole death scene. {kin} applauded for an hour.',
@@ -116,6 +118,7 @@ export const LINES = {
     'We used to fetch water from the river. Now we have opinions about the chorus.',
     'Boar on the spit, cheese from the dairy, bread still warm. {head} raised a cup to the hunters.',
     '{adult} says the goat’s cheese from up the lane is better than anything in {origin}. Don’t tell {origin}.',
+    'Lamps burning in every room till late. {head} says a fine house should glow. It glows.',
   ],
   plainTable: [
     'Bread, bread and more bread. {kin} asked if we could have it with something. I said, with more bread.',
@@ -148,6 +151,15 @@ export const LINES = {
     'Where has the actor got to? We’ve rehearsed our applause and everything.',
     'Columns are all very well, but you can’t watch a column.',
     'No plays, no talk, and no point in a courtyard to talk in, says {head}.',
+  ],
+  noOil: [
+    'No oil for the lamps. We go to bed with the hens now. {kin} says the hens are poor company.',
+    'Bread without oil is just bread. {head} says it as if it were a tragedy.',
+    'We’ve been cooking with the last scrapings of the jar. Next it’ll be the jar.',
+    'The oil vendor hasn’t been for weeks. {adult} rubbed the hinges with goat butter. The door smells odd.',
+    'A townhouse with dark windows. The neighbours will think we’ve gone back to {origin}.',
+    'Where is the oil vendor? The lamps are dry and so is {kin}’s hair.',
+    'No oil for the lamps, none for the bread, none for the skin. We’re drying out like figs.',
   ],
   noWater: [
     'No water carrier for days. We’re washing in olive oil, which is not the same.',
@@ -267,6 +279,8 @@ export const LINES = {
     'The ox carts rumble past at dawn. Better than a rooster, and they don’t peck.',
     'A sailor at the beach said Troy has walls a hundred feet high. I said, good for Troy.',
     '{kin} bet me a fig the wind would change by noon. I owe {kin} a fig.',
+    'They’re picking the olives on the slopes. You can hear them beating the branches from here.',
+    'The olive press groans all day. {kin} says it sounds like the ox with a cold.',
   ],
 } as const;
 
@@ -290,7 +304,7 @@ export function situationOf(s: SimState, b: Building): Situation {
   const warn = warningOf(s, b);
   if (warn && warn.left <= URGENT) return 'urgent';
   // Short of food: no food at all, or bread but not the other kinds a townhouse or a fine house keeps.
-  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? (onTable(b, s.tick) > 0 ? 'noVariety' : 'noFood') : warn.need === 'religion' ? 'noShrine' : 'noPlays';
+  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? (onTable(b, s.tick) > 0 ? 'noVariety' : 'noFood') : warn.need === 'religion' ? 'noShrine' : warn.need === 'oil' ? 'noOil' : 'noPlays';
   const lastOf = (what: string): number => {
     if (f) for (let i = f.story.length - 1; i >= 0; i--) if (f.story[i].what === what) return f.story[i].tick;
     return -1;

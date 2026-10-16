@@ -21,6 +21,8 @@ import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, findBuilding, TOWNHOUSE } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { lackWords, warningOf, warningsOf } from './sim/folk';
+import { held, OIL } from './sim/foods';
+import { goodUntil, hasStall } from './sim/goods';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { herdStatus, homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
@@ -126,6 +128,8 @@ interface Probe {
   homeward?: () => { x: number; z: number } | null;
   /** World position of an ox cart carrying a food (0 wheat, 1 meat, 2 cheese), if any. */
   cartOf?: (food: number) => { x: number; z: number } | null;
+  /** Where a porter carrying a ware (loaded) is drawn, if one is out. */
+  porterOf?: (ware: number) => { x: number; z: number } | null;
   /** Buildings of a kind: top-left tile and id. */
   buildingsOf?: (kind: string) => Array<{ id: number; x: number; z: number }>;
   /** The wild herds: where each stands and how many head it has. */
@@ -742,6 +746,14 @@ function start(): void {
       meat: s.buildings.reduce((a, b) => a + b.meat, 0),
       cheese: s.buildings.reduce((a, b) => a + b.cheese, 0),
       varied: homes.filter((b) => [b.foodUntil, b.meatUntil, b.cheeseUntil].filter((u) => u > s.tick).length >= 2).length,
+      groves: of('grove').length,
+      presses: of('press').length,
+      storehouses: of('storehouse').length,
+      oilStalls: of('agora').filter((a) => hasStall(a, OIL)).length,
+      oilVendors: s.walkers.filter((w) => w.kind === 'oil').length,
+      oil: s.buildings.reduce((a, b) => a + (b.kind === 'home' ? 0 : held(b, OIL)), 0),
+      oiled: homes.filter((b) => goodUntil(b, OIL) > s.tick).length,
+      noOil: homes.filter((b) => warningsOf(s, b).some((w) => w.need === 'oil')).length,
     };
   };
   probe.walker = (kind: string) => {
@@ -775,6 +787,7 @@ function start(): void {
   };
   probe.homeward = () => drawnAt((w) => w.kind === 'hunter' && w.back && w.load > 0);
   probe.cartOf = (food) => drawnAt((w) => w.kind === 'cart' && w.food === food && w.load > 0);
+  probe.porterOf = (ware) => drawnAt((w) => w.kind === 'porter' && w.food === ware && w.load > 0);
   probe.buildingsOf = (kind) => sim.state.buildings.filter((b) => b.kind === kind).map((b) => ({ id: b.id, x: b.x, z: b.z }));
   probe.herds = () => sim.state.herds.map((h) => ({ kind: h.kind, x: h.x, z: h.z, head: h.head }));
   probe.tool = (t) => tools.select(t as ToolName | null);

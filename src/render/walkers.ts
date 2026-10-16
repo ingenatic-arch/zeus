@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { OIL } from '../sim/foods';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
-import { ChunkedInstances } from './chunks';
+import { type FolkLooks, type Look, STRIDE } from './looks';
 import { col, PAL } from './palette';
 import { lumpy } from './trees';
 
-export const WALKER_CHUNK = 32;
 /** Space between people walking in a line. */
 const SPACING = 0.36;
 
@@ -18,12 +18,7 @@ const SPACING = 0.36;
  */
 export type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean; leg?: [number, number, number] };
 
-/**
- * One full stride (two steps), in world units walked. Legs swing with the
- * distance a walker has covered (worked out in the shader from where she
- * stands), so her feet keep pace with the ground at any speed.
- */
-export const STRIDE = 0.44;
+export { STRIDE };
 
 /** Merge parts into one geometry with colours, a tint mask (1 where the per-person colour applies: the tunic) and the legs that swing. */
 export function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
@@ -133,6 +128,50 @@ function vendor(mixed: boolean): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/** A jar of oil, standing, `h` tall, its foot at the origin: a round terracotta body, a narrow neck and a pale-green seal. */
+export function oilJar(h: number, seal = true): TPart[] {
+  const k = h / 0.15;
+  const body = [
+    new THREE.Vector2(0.0, 0),
+    new THREE.Vector2(0.025, 0.004),
+    new THREE.Vector2(0.055, 0.045),
+    new THREE.Vector2(0.05, 0.095),
+    new THREE.Vector2(0.022, 0.12),
+    new THREE.Vector2(0.02, 0.14),
+    new THREE.Vector2(0.026, 0.15),
+  ];
+  const parts: TPart[] = [{ geo: new THREE.LatheGeometry(body, 6).scale(k, k, k), color: PAL.oilJar }];
+  if (seal) parts.push({ geo: new THREE.CylinderGeometry(0.024 * k, 0.02 * k, 0.018 * k, 5).translate(0, 0.152 * k, 0), color: PAL.oilSeal });
+  return parts;
+}
+
+/** Parts moved as one. */
+const moved = (parts: TPart[], f: (g: THREE.BufferGeometry) => THREE.BufferGeometry): TPart[] => parts.map((p) => ({ ...p, geo: f(p.geo) }));
+
+/**
+ * The oil vendor: a woman in an olive-green dress (the tinted part) and a
+ * pale headscarf, a wooden yoke across her shoulders with a jar of oil
+ * hanging from each end, her hands up steadying it.
+ */
+function oilVendor(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.3, 7).translate(0, 0.16, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.03, 0.04, 0.1, 7, 1, true).translate(0, 0.3, 0), color: PAL.oilVendorScarf },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.72, 1).translate(-0.014, 0.385, 0), color: PAL.oilVendorScarf },
+    // The yoke across her shoulders, bowed a little, and both arms up to it.
+    { geo: new THREE.CylinderGeometry(0.011, 0.011, 0.5, 4).rotateX(Math.PI / 2).translate(-0.01, 0.315, 0), color: PAL.wood },
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.13, 4).rotateX(0.5).translate(0.02, 0.27, 0.085), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.13, 4).rotateX(-0.5).translate(0.02, 0.27, -0.085), color: PAL.skin },
+  ];
+  for (const z of [-0.22, 0.22]) {
+    // A cord down from the yoke's end to the jar's neck.
+    parts.push({ geo: new THREE.CylinderGeometry(0.004, 0.004, 0.09, 3).translate(-0.01, 0.27, z), color: PAL.woodDark });
+    parts.push(...moved(oilJar(0.15), (g) => g.translate(-0.01, 0.075, z)));
+  }
+  return mergeTinted(parts);
+}
+
 /** Legs of a beast or a person: four (or two) thin posts. */
 export const leg = (x: number, z: number, h: number, r: number, color: string, swing = 0): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color, leg: [swing, x, h] });
 
@@ -219,9 +258,10 @@ function collector(full: boolean): THREE.BufferGeometry {
 /**
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
  * (tinted tunic) walking at the ox's head. Its load: golden sheaves of
- * wheat, carcasses under a hide for meat, or wheels of cheese stacked on the bed.
+ * wheat, carcasses under a hide for meat, wheels of cheese stacked on the bed,
+ * baskets heaped with dark olives, or jars of oil bedded in straw.
  */
-function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese'): THREE.BufferGeometry {
+function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil'): THREE.BufferGeometry {
   const loaded = load === 'wheat';
   const parts: TPart[] = [];
   // The ox, facing +x.
@@ -266,6 +306,16 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese'): THREE.BufferGeometr
     for (const [x, z, y] of [[-0.12, -0.06, 0], [-0.12, 0.06, 0], [-0.27, -0.06, 0], [-0.27, 0.06, 0], [-0.19, 0, 0.05], [-0.2, 0.0, 0.1]]) {
       parts.push({ geo: new THREE.CylinderGeometry(0.06, 0.06, 0.045, 8).translate(x, 0.245 + y, z), color: y > 0.07 ? PAL.cheeseRind : PAL.cheese });
     }
+  } else if (load === 'olives') {
+    // Four round baskets heaped with ripe olives (dark, a few still green).
+    for (const [x, z, k] of [[-0.12, -0.065, 0], [-0.12, 0.065, 1], [-0.27, -0.065, 2], [-0.27, 0.065, 3]]) {
+      parts.push({ geo: new THREE.CylinderGeometry(0.068, 0.055, 0.08, 7).translate(x, 0.26, z), color: PAL.basket });
+      parts.push({ geo: lumpy(new THREE.SphereGeometry(0.062, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0.25, 530 + k).scale(1, 0.7, 1).translate(x, 0.295, z), color: k === 2 ? PAL.oliveGreen : PAL.oliveRipe });
+    }
+  } else if (load === 'oil') {
+    // Jars of oil standing in a bed of straw, two rows of three.
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.05, 0.22, 3, 1, 2), 0.2, 535).translate(cx, 0.245, 0), color: PAL.straw });
+    for (const x of [-0.1, -0.2, -0.3]) for (const z of [-0.055, 0.055]) parts.push(...moved(oilJar(0.15), (g) => g.translate(x, 0.22, z)));
   }
   // The driver, walking beside the ox with a goad.
   const dz = 0.17;
@@ -280,9 +330,10 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese'): THREE.BufferGeometr
 
 /**
  * The porter: a man (tinted tunic) pushing a little two-wheeled handcart,
- * with sacks of grain on it (and a ham and a cheese with them, `mixed`).
+ * with sacks of grain on it (and a ham and a cheese with them, `mixed`), or
+ * jars of oil for the oil stall.
  */
-function porter(load: 'none' | 'wheat' | 'mixed'): THREE.BufferGeometry {
+function porter(load: 'none' | 'wheat' | 'mixed' | 'oil'): THREE.BufferGeometry {
   const loaded = load !== 'none';
   const parts: TPart[] = [
     leg(-0.02, -0.03, 0.12, 0.02, PAL.skin, -0.8),
@@ -301,7 +352,9 @@ function porter(load: 'none' | 'wheat' | 'mixed'): THREE.BufferGeometry {
   parts.push({ geo: new THREE.BoxGeometry(0.24, 0.05, 0.015).translate(cx, 0.18, -0.1), color: PAL.woodDark });
   for (const z of [-0.08, 0.08]) parts.push({ geo: new THREE.BoxGeometry(0.2, 0.015, 0.015).rotateZ(-0.35).translate(0.15, 0.21, z), color: PAL.cart });
   for (const z of [-0.12, 0.12]) parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.025, 8).rotateX(Math.PI / 2).translate(cx + 0.02, 0.08, z), color: PAL.woodDark });
-  if (loaded) {
+  if (load === 'oil') {
+    for (const [x, z] of [[cx - 0.06, -0.05], [cx - 0.06, 0.05], [cx + 0.06, 0]]) parts.push(...moved(oilJar(0.14), (g) => g.translate(x, 0.165, z)));
+  } else if (loaded) {
     const sacks: Array<[number, number, number]> = load === 'mixed' ? [[cx - 0.05, -0.05, 0]] : [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]];
     for (const [x, z, y] of sacks) {
       parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.065, 0), 0.15, 511).scale(1.15, 0.8, 0.85).translate(x, 0.21 + y, z), color: PAL.sack });
@@ -366,63 +419,31 @@ function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
 
 const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];
 
-export function tintedMaterial(): THREE.MeshStandardMaterial {
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0 });
-  mat.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\nattribute float aTint;\nattribute vec3 aLeg;\nconst float STRIDE = ${STRIDE.toFixed(3)};`)
-      // Legs swing about the hip with the distance walked: the phase comes from where she stands (roads run along x and z).
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-        // A walker standing still comes with its colour negated (see Walkers.update): legs together.
-        #ifdef USE_INSTANCING_COLOR
-        float moving = instanceColor.r < 0.0 ? 0.0 : 1.0;
-        #else
-        float moving = 1.0;
-        #endif
-        if (aLeg.x != 0.0 && moving > 0.0) {
-          vec3 at = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-          float a = sin((at.x + at.z) * 6.2831853 / STRIDE) * 0.5 * aLeg.x;
-          vec2 d = transformed.xy - aLeg.yz;
-          float c = cos(a);
-          float s = sin(a);
-          transformed.xy = aLeg.yz + vec2(d.x * c - d.y * s, d.x * s + d.y * c);
-        }
-        #endif`,
-      )
-      // The chunk has to be expanded here: at this point the shader still holds only its #include line.
-      .replace('#include <color_vertex>', THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), abs(instanceColor.rgb), aTint);'));
-  };
-  mat.customProgramCacheKey = () => 'tinted-person';
-  return mat;
-}
-
 /** The kinds of walker with a job (all but settlers and leavers). */
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
 export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil';
 
-/** Settler and leaver groups, water carriers, food vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame. */
+/** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
   readonly group = new THREE.Group();
-  private readonly kinds: [ChunkedInstances, ChunkedInstances];
-  private readonly carriers: ChunkedInstances;
-  private readonly vendors: ChunkedInstances;
-  private readonly priestesses: ChunkedInstances;
-  private readonly actors: ChunkedInstances;
+  private readonly kinds: [Look, Look];
+  private readonly carriers: Look;
+  private readonly vendors: Look;
+  private readonly priestesses: Look;
+  private readonly actors: Look;
   /** Tax collectors: [a light satchel, a full one]. */
-  private readonly collectors: [ChunkedInstances, ChunkedInstances];
+  private readonly collectors: [Look, Look];
   /** Food vendors: [bread only, a mix]. */
-  private readonly vendorsMixed: ChunkedInstances;
-  /** Ox carts: [empty, wheat, meat, cheese]; porters: [empty, wheat, a mix]. */
-  private readonly carts: [ChunkedInstances, ChunkedInstances, ChunkedInstances, ChunkedInstances];
-  private readonly porters: [ChunkedInstances, ChunkedInstances, ChunkedInstances];
+  private readonly vendorsMixed: Look;
+  /** Ox carts: [empty, then by ware: wheat, meat, cheese, olives, oil]; porters: [empty, wheat, a mix, oil]. */
+  private readonly carts: Look[];
+  private readonly porters: [Look, Look, Look, Look];
+  private readonly oilVendors: Look;
   /** Hunters: [setting out, with a deer, with a boar]. */
-  private readonly hunters: [ChunkedInstances, ChunkedInstances, ChunkedInstances];
-  private readonly all: ChunkedInstances[];
+  private readonly hunters: [Look, Look, Look];
+  private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
   /** The height of the ground (or a bridge's deck) a walker stands on. */
@@ -435,37 +456,24 @@ export class Walkers {
   private readonly c = new THREE.Color();
   private readonly e = new THREE.Euler();
 
-  constructor(map: CoastMap) {
+  constructor(map: CoastMap, folk: FolkLooks) {
     this.group.name = 'walkers';
     this.ground = (x, z) => map.heightAt(x, z);
-    const mat = tintedMaterial();
-    const opts = { castShadow: true, receiveShadow: true, colors: true };
-    this.kinds = [new ChunkedInstances('walkers-head', person('head'), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-back', person('back'), mat, WALKER_CHUNK, opts)];
-    this.carriers = new ChunkedInstances('walkers-water', carrier(), mat, WALKER_CHUNK, opts);
-    this.vendors = new ChunkedInstances('walkers-food', vendor(false), mat, WALKER_CHUNK, opts);
-    this.vendorsMixed = new ChunkedInstances('walkers-food-mixed', vendor(true), mat, WALKER_CHUNK, opts);
-    this.priestesses = new ChunkedInstances('walkers-priestess', priestess(), mat, WALKER_CHUNK, opts);
-    this.actors = new ChunkedInstances('walkers-actor', actor(), mat, WALKER_CHUNK, opts);
-    this.collectors = [new ChunkedInstances('walkers-tax', collector(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-tax-full', collector(true), mat, WALKER_CHUNK, opts)];
-    this.carts = [
-      new ChunkedInstances('walkers-cart', oxCart('none'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-cart-loaded', oxCart('wheat'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-cart-meat', oxCart('meat'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-cart-cheese', oxCart('cheese'), mat, WALKER_CHUNK, opts),
-    ];
-    this.porters = [
-      new ChunkedInstances('walkers-porter', porter('none'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-porter-loaded', porter('wheat'), mat, WALKER_CHUNK, opts),
-      new ChunkedInstances('walkers-porter-mixed', porter('mixed'), mat, WALKER_CHUNK, opts),
-    ];
-    // Hunters are few and roam the whole map across country: one batch each, not one per chunk they wander into.
-    this.hunters = [
-      new ChunkedInstances('walkers-hunter', hunter('none'), mat, map.size, opts),
-      new ChunkedInstances('walkers-hunter-deer', hunter('deer'), mat, map.size, opts),
-      new ChunkedInstances('walkers-hunter-boar', hunter('boar'), mat, map.size, opts),
-    ];
-    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
-    for (const k of this.all) this.group.add(k.group);
+    // Every look goes into the folk's merged meshes (see looks.ts): one draw for all the people, one for the carts and hunters.
+    const small = (g: THREE.BufferGeometry): Look => folk.people.look(g);
+    const big = (g: THREE.BufferGeometry): Look => folk.big.look(g);
+    this.kinds = [small(person('head')), small(person('back'))];
+    this.carriers = small(carrier());
+    this.vendors = small(vendor(false));
+    this.vendorsMixed = small(vendor(true));
+    this.priestesses = small(priestess());
+    this.actors = small(actor());
+    this.collectors = [small(collector(false)), small(collector(true))];
+    this.oilVendors = small(oilVendor());
+    this.carts = [big(oxCart('none')), big(oxCart('wheat')), big(oxCart('meat')), big(oxCart('cheese')), big(oxCart('olives')), big(oxCart('oil'))];
+    this.porters = [small(porter('none')), small(porter('wheat')), small(porter('mixed')), small(porter('oil'))];
+    this.hunters = [small(hunter('none')), big(hunter('deer')), big(hunter('boar'))];
+    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
   }
 
   get count(): number {
@@ -501,7 +509,6 @@ export class Walkers {
   }
 
   update(state: SimState, alpha: number, _time: number): void {
-    for (const k of this.all) k.begin();
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
     const saffron = col(PAL.vendorDress);
@@ -509,6 +516,7 @@ export class Walkers {
     const rose = col(PAL.actorTunic);
     const green = col(PAL.collectorTunic);
     const olive = col(PAL.hunterTunic);
+    const oilDress = col(PAL.oilVendorDress);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -526,7 +534,7 @@ export class Walkers {
         this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
-        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'priestess' ? 0.9 : 0.95;
+        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'oil' || w.kind === 'priestess' ? 0.9 : 0.95;
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         // The colour's sign tells the shader whether the legs swing (negated: standing still).
@@ -535,7 +543,8 @@ export class Walkers {
         else if (w.kind === 'food') {
           const stall = state.buildings.find((b) => b.id === w.origin);
           (stall && (stall.meat > 0 || stall.cheese > 0) ? this.vendorsMixed : this.vendors).push(this.m, still(this.c.copy(saffron)));
-        } else if (w.kind === 'hunter') {
+        } else if (w.kind === 'oil') this.oilVendors.push(this.m, still(this.c.copy(oilDress)));
+        else if (w.kind === 'hunter') {
           const kill = w.back && w.load > 0 ? (state.herds[w.food]?.kind === 'boar' ? 2 : 1) : 0;
           this.hunters[kill].push(this.m, still(this.c.copy(olive)));
         }
@@ -544,8 +553,9 @@ export class Walkers {
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
-          if (cart) this.carts[w.load > 0 ? 1 + Math.min(2, w.food) : 0].push(this.m, still(this.c));
-          else this.porters[w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
+          // A cart shows its ware (wares past those with a look yet show as an empty cart).
+          if (cart) (this.carts[w.load > 0 ? 1 + w.food : 0] ?? this.carts[0]).push(this.m, still(this.c));
+          else this.porters[w.food === OIL ? (w.load > 0 ? 3 : 0) : w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
         }
         const v = this.serviceAt.get(w.id);
         if (v) v.pos.copy(this.p);
@@ -575,7 +585,6 @@ export class Walkers {
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);
       }
     }
-    for (const k of this.all) k.end();
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
   }

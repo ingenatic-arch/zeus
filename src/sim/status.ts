@@ -5,7 +5,7 @@
  * and further lines of detail ('' if none).
  */
 import type { CoastMap } from '../map/bake';
-import { fertilityOf, grassOf } from './build';
+import { fertilityOf, grassOf, oliveOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
@@ -23,6 +23,7 @@ import {
   GROW,
   HARVEST,
   harvestOf,
+  GOOD_STALL_ROOM,
   LODGE_STORE,
   roomFor,
   roomIn,
@@ -33,7 +34,10 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
-import { OIL, OLIVES } from './foods';
+import { FIRST_GOOD, OIL, OLIVES, WARE_NAMES, type Ware } from './foods';
+import { STALL_GOOD_LOW } from './goods';
+import { OLIVE_GROW, olivesOf, OIL_MONTH, stageOf, MAKERS } from './production';
+import { GROVE_STORE, PRESS_OLIVES, PRESS_STORE, roomFor as roomForWare, STOREHOUSE_OIL } from './stores';
 import { CHEESE, coming, FOOD_NAMES, foodList, FOODS, foodUntil, held, kindsNeeded, MEAT, TABLE_NAMES, tableUntil, WHEAT, type Food } from './foods';
 import { cityHas, foodsLacking, justOpened, missingSince, nextNeed, RISE_MIN, SETTLE, untilOf, wantsMoreFood, warningsOf } from './folk';
 import { herdDistance, herdsInReach, huntersFor, huntersOut, HUNT_RANGE, LODGE_MONTH, meatLimits, meatPerMonth } from './hunt';
@@ -74,6 +78,9 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'agora') return agoraStatus(s, map, b);
   if (b.kind === 'shrine' || b.kind === 'theatre') return cultureStatus(s, map, b);
   if (b.kind === 'taxoffice') return taxOfficeStatus(s, map, b);
+  if (b.kind === 'grove') return groveStatus(s, map, b);
+  if (b.kind === 'press') return pressStatus(s, map, b);
+  if (b.kind === 'storehouse') return storehouseStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -513,7 +520,7 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
   else if (a.workers === 0) vendor = 'Nobody works the stall, so the food vendor can’t go out';
   else if (foodsIn(a) === 0) vendor = 'The food vendor waits for the stall to have food';
   else vendor = 'The food vendor is resting · she sets off again soon';
-  const p = s.walkers.find((o) => o.kind === 'porter' && o.origin === a.id);
+  const p = s.walkers.find((o) => o.kind === 'porter' && o.origin === a.id && o.food < FIRST_GOOD);
   let porter = '';
   if (p) porter = p.back ? `The porter is bringing ${porterLoad(p)} from the granary` : 'The porter is on his way to the granary for food';
   else if (!s.buildings.some((g) => g.kind === 'granary')) porter = 'Build a granary: the porter fetches the stall’s food from it';
@@ -523,7 +530,7 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
     if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0 && nearestReached(search, roadsBeside(s, map.size, g)) >= 0)) porter = 'The porter can’t go: no road joins the agora to a granary with grain';
   }
   const rooms = `The stall holds ${fmt(STALL_ROOM[WHEAT])} of wheat and ${fmt(STALL_ROOM[MEAT])} each of meat and cheese; the porter goes when any runs below ${fmt(STALL_LOW_AT[MEAT])} (wheat ${fmt(STALL_LOW)})`;
-  return { title, detail: lines(workersLine(s, map, a), vendor, porter, rooms, balanceLine(s, map)) };
+  return { title, detail: lines(workersLine(s, map, a), vendor, porter, rooms, oilStallLines(s, a), balanceLine(s, map)) };
 }
 
 /** "1,200 measures of wheat, 300 of meat and 200 of cheese". */
@@ -622,14 +629,28 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     if (w.back) return { title: 'Tax collector', detail: `Heading back to the tax office with ${bag} dr, collecting on the way` };
     return { title: 'Tax collector', detail: `Out on his round, ${w.steps} of ${COLLECTOR_WALK} new road tiles walked · ${bag} dr in his satchel · he heads for the homes that haven’t paid this month` };
   }
+  if (w.kind === 'oil') {
+    const a = findBuilding(s, w.origin);
+    const stall = a ? ` · the oil stall has ${fmt(held(a, OIL))} jars` : '';
+    if (w.back) return { title: 'Oil vendor', detail: `Heading back to the agora, selling oil on the way${stall}` };
+    return { title: 'Oil vendor', detail: `Out on her round, ${w.steps} of ${VENDOR_WALK} new road tiles walked · she heads for the cottages and better whose oil is running lowest${stall}` };
+  }
   if (w.kind === 'cart') {
     const g = findBuilding(s, w.target);
     const o = findBuilding(s, w.origin);
-    const home = o?.kind === 'lodge' ? 'lodge' : o?.kind === 'dairy' ? 'dairy' : 'farm';
-    const what = FOOD_NAMES[w.food as Food] ?? 'wheat';
-    if (w.back) return { title: 'Ox cart', detail: `Heading back to its ${home}` };
-    if (w.wait > 0) return { title: 'Ox cart', detail: g && g.workers === 0 ? `Waiting at the granary’s gate: nobody works there to take the ${what} in` : `Unloading ${fmt(w.load)} measures of ${what} at the granary` };
-    return { title: 'Ox cart', detail: `Taking ${fmt(w.load)} measures of ${what} to the granary` };
+    const home = o ? CART_HOME[o.kind] ?? 'farm' : 'farm';
+    const what = WARE_NAMES[w.food] ?? 'wheat';
+    const to = g ? STORE_NAME[g.kind] ?? 'granary' : w.food === OLIVES ? 'olive press' : w.food === OIL ? 'storehouse' : 'granary';
+    const load = w.food === OIL ? `${fmt(w.load)} jars of oil` : `${fmt(w.load)} measures of ${what}`;
+    if (w.back) return { title: 'Ox cart', detail: w.load > 0 ? `Taking its ${what} back to its ${home}: nowhere has room for it` : `Heading back to its ${home}` };
+    if (w.wait > 0) return { title: 'Ox cart', detail: g && g.workers === 0 ? `Waiting at the ${to}’s gate: nobody works there to take the ${what} in` : `Unloading ${load} at the ${to}` };
+    return { title: 'Ox cart', detail: `Taking ${load} to the ${to}` };
+  }
+  if (w.kind === 'porter' && w.food >= FIRST_GOOD) {
+    const what = WARE_NAMES[w.food];
+    if (w.back) return { title: 'Porter', detail: w.load > 0 ? `Bringing ${fmt(w.load)} jars of ${what} to the agora’s ${what} stall` : 'Heading back to the agora empty-handed' };
+    if (w.wait > 0) return { title: 'Porter', detail: `Loading jars of ${what} at the storehouse` };
+    return { title: 'Porter', detail: `On his way to the storehouse for ${what} for the agora’s ${what} stall` };
   }
   if (w.kind === 'porter') {
     if (w.back) return { title: 'Porter', detail: w.load + w.meat + w.cheese > 0 ? `Bringing ${porterLoad(w)} to the agora’s food stall` : 'Heading back to the agora empty-handed' };
@@ -650,6 +671,102 @@ export { eatsBread };
 
 // ---------------------------------------------------------------------------
 // Oil: the grove, the press, the storehouse, the oil stall, and the homes.
+
+/** Where each kind's carts come home to, and what each store is called (for the carts' tips). */
+const CART_HOME: Partial<Record<BuildingKind, string>> = { farm: 'farm', lodge: 'lodge', dairy: 'dairy', grove: 'olive grove', press: 'olive press' };
+const STORE_NAME: Partial<Record<BuildingKind, string>> = { granary: 'granary', press: 'olive press', storehouse: 'storehouse' };
+
+/**
+ * Where a maker's ware goes (the grove's olives to a press, the press's oil
+ * to a storehouse): carts on the road, or why none go.
+ */
+function goodsCartLine(s: SimState, map: CoastMap, b: Building, w: Ware, to: BuildingKind, build: string): string {
+  if (roadsBeside(s, map.size, b).length === 0) return 'Needs a road beside it, for its workers and its carts';
+  const what = WARE_NAMES[w];
+  const name = STORE_NAME[to] ?? to;
+  const carts = errandsOut(s, b);
+  if (carts) return `${carts === 1 ? 'A cart is' : `${carts} carts are`} taking its ${what} to the ${name}`;
+  if (held(b, w) <= 0) return '';
+  if (!s.buildings.some((g) => g.kind === to)) return `Build ${build} for its carts to take the ${what} to`;
+  if (!s.buildings.some((g) => g.kind === to && roomForWare(g, w) > 0)) return `Every ${name} is full of ${what}: its carts wait for room`;
+  const search = roadSearch(s, map.size, roadsBeside(s, map.size, b));
+  if (!s.buildings.some((g) => g.kind === to && nearestReached(search, roadsBeside(s, map.size, g)) >= 0)) return `No road joins it to ${build.replace(/^an? /, 'an ').replace(/^an s/, 'a s')}`;
+  return '';
+}
+
+/** An olive grove: its ground, its crop, its store of picked olives. */
+export function groveStatus(s: SimState, map: CoastMap, g: Building): Status {
+  const olives = held(g, OLIVES);
+  const title = `${BUILDING_NAMES.grove} · olive ground ${Math.round(oliveOf(map, g.x, g.z, 3) * 100)}%`;
+  if (roadsBeside(s, map.size, g).length === 0) return { title, detail: 'Needs a road beside it, for its pickers and its carts' };
+  const rate = rateOf(g);
+  const harvest = olivesOf(map, g);
+  let crop: string;
+  if (olives >= GROVE_STORE) crop = 'The store is full of picked olives: nothing more is picked until carts take them away';
+  else if (rate === 0) crop = 'Nobody tends the trees or picks the olives with nobody working here';
+  else {
+    const stage = stageOf(g, MAKERS.grove!);
+    const look = stage < 2 ? 'the trees are in flower' : stage < 5 ? 'the olives are green on the trees' : 'the olives are ripening';
+    crop = `${cap(look)} · picked in about ${days((OLIVE_GROW - g.growth) / rate)}, about ${fmt(harvest)} measures${rate < 1 ? ' (later with fewer pickers)' : ''}`;
+  }
+  const store = `Picked: ${fmt(olives)} of ${fmt(GROVE_STORE)} measures of olives`;
+  const month = roundTen((harvest * TICKS_PER_MONTH) / OLIVE_GROW);
+  const yieldLine = rate > 0 ? `About ${fmt(month)} measures of olives a month fully worked: as many jars of oil once pressed` : '';
+  return { title, detail: lines(workersLine(s, map, g), crop, store, yieldLine, goodsCartLine(s, map, g, OLIVES, 'press', 'an olive press (M, five times)')) };
+}
+
+/** An olive press: olives in hand, jars made, where its oil goes. */
+export function pressStatus(s: SimState, map: CoastMap, p: Building): Status {
+  const olives = held(p, OLIVES);
+  const oil = held(p, OIL);
+  const title = `${BUILDING_NAMES.press} · ${fmt(oil)} of ${fmt(PRESS_STORE)} jars of oil`;
+  if (roadsBeside(s, map.size, p).length === 0) return { title, detail: 'Needs a road beside it, for its workers and its carts' };
+  const rate = rateOf(p);
+  let making: string;
+  if (oil >= PRESS_STORE) making = 'Its jars are all full: it presses nothing more until carts take the oil away';
+  else if (rate === 0) making = 'Nothing is pressed with nobody working here';
+  else if (olives <= 0) {
+    if (!s.buildings.some((g) => g.kind === 'grove')) making = 'It waits for olives: build an olive grove on the dry slopes (M, four times)';
+    else if (s.walkers.some((w) => w.kind === 'cart' && w.target === p.id)) making = 'It waits for olives: a cart is on its way from a grove';
+    else making = 'It waits for olives: the groves’ next picking is still growing';
+  } else making = `Pressing: about ${fmt(roundTen(OIL_MONTH * rate))} jars of oil a month while it has olives${rate < 1 ? ` (${fmt(OIL_MONTH)} fully worked)` : ''}`;
+  const coming_ = coming(p, OLIVES);
+  const inHand = `Olives waiting: ${fmt(olives)} of ${fmt(PRESS_OLIVES)} measures${coming_ > 0 ? ` · carts are bringing ${fmt(coming_)} more` : ''}`;
+  return { title, detail: lines(workersLine(s, map, p), making, inHand, goodsCartLine(s, map, p, OIL, 'storehouse', 'a storehouse (G twice)')) };
+}
+
+/** A storehouse: what it holds, what carts are bringing, who fetches from it. */
+export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Status {
+  const oil = held(g, OIL);
+  const title = `${BUILDING_NAMES.storehouse} · ${fmt(oil)} of ${fmt(STOREHOUSE_OIL)} jars of oil`;
+  if (roadsBeside(s, map.size, g).length === 0) return { title, detail: 'Needs a road beside it, for carts and porters to reach it' };
+  const bringing = coming(g, OIL);
+  const coming_ = bringing > 0 ? `Carts are bringing ${fmt(bringing)} jars of oil more` : !s.buildings.some((p) => p.kind === 'press') ? 'Build an olive press (M, five times): its carts bring the oil here' : '';
+  const full = oil >= STOREHOUSE_OIL ? 'Its oil room is full: carts with more wait for room, and the press fills its own jars' : '';
+  const porters = s.walkers.filter((w) => w.kind === 'porter' && w.target === g.id && w.food === OIL).length;
+  const fetch = porters ? `${porters === 1 ? 'A porter is' : `${porters} porters are`} fetching oil from here for an agora’s oil stall` : oil > 0 && !cityHas(s).oil ? 'No agora has an oil stall to sell it yet: K twice, then click an agora' : '';
+  const waiting = s.walkers.filter((w) => (w.kind === 'cart' || w.kind === 'porter') && w.target === g.id && w.wait > 0).length;
+  const gate = waiting && g.workers === 0 ? `${waiting === 1 ? 'A cart is' : `${waiting} are`} waiting at the gate: nobody works here to take it in` : '';
+  return { title, detail: lines(workersLine(s, map, g), coming_, full, fetch, gate) };
+}
+
+/** An agora's oil stall: its jars, its vendor, its porter ('' with no oil stall). */
+function oilStallLines(s: SimState, a: Building): string {
+  if (!hasStall(a, OIL)) return '';
+  const oil = held(a, OIL);
+  const w = s.walkers.find((o) => o.kind === 'oil' && o.origin === a.id);
+  let vendor: string;
+  if (w) vendor = w.back ? 'the oil vendor is heading back' : `the oil vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into her round`;
+  else if (a.workers === 0) vendor = 'nobody works the agora, so the oil vendor can’t go out';
+  else if (oil <= 0) vendor = 'the oil vendor waits for oil';
+  else vendor = 'the oil vendor is resting · she sets off again soon';
+  const p = s.walkers.find((o) => o.kind === 'porter' && o.origin === a.id && o.food === OIL);
+  let porter = '';
+  if (p) porter = p.back ? `Its porter is bringing ${fmt(p.load)} jars from the storehouse` : 'Its porter is on his way to the storehouse for oil';
+  else if (!s.buildings.some((g) => g.kind === 'storehouse')) porter = 'Build a storehouse (G twice): the oil stall’s porter fetches its jars from it';
+  else if (oil <= STALL_GOOD_LOW && !s.buildings.some((g) => g.kind === 'storehouse' && held(g, OIL) > 0)) porter = 'Its porter waits: no storehouse has any oil yet';
+  return lines(`Oil stall: ${fmt(oil)} of ${fmt(GOOD_STALL_ROOM)} jars · ${vendor}`, porter);
+}
 
 /** Agoras with an oil stall. */
 const oilStalls = (s: SimState): Building[] => s.buildings.filter((a) => hasStall(a, OIL));
@@ -703,7 +820,7 @@ export function oilLine(s: SimState, map: CoastMap, b: Building): string {
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'food' | 'workers' | 'money';
+  need: 'food' | 'oil' | 'workers' | 'money';
   text: string;
   at: number;
 }
@@ -810,6 +927,8 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
       at: makers[0].id,
     });
   }
+  const oilLine_ = oilTownLine(s, map);
+  if (oilLine_) out.push(oilLine_);
   const wf = workforce(s);
   const { able } = wf;
   // A workplace built since workers were last shared out (once a day) hasn't had its chance yet.
@@ -833,6 +952,28 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const money = moneyLine(s);
   if (money) out.push(money);
   return out;
+}
+
+/**
+ * Oil: homes warning for want of oil, and the first link of the chain that is
+ * missing (as whyNoOil says it for the first of them), pointing at that link
+ * where it stands (the grove, the press, the storehouse) or the first home.
+ */
+function oilTownLine(s: SimState, map: CoastMap): TownLine | null {
+  let short = 0;
+  let first: Building | null = null;
+  for (const b of s.buildings) {
+    if (b.kind !== 'home' || !warningsOf(s, b).some((w) => w.need === 'oil')) continue;
+    if (!first) first = b;
+    short++;
+  }
+  if (!first) return null;
+  const why = whyNoOil(s, map, first);
+  const going = `${short === 1 ? 'a townhouse is' : `${fmt(short)} homes are`} going without (townhouses and better need it)`;
+  const groves = s.buildings.filter((g) => g.kind === 'grove');
+  const slow = [...groves, ...s.buildings.filter((p) => p.kind === 'press')].find((b) => rateOf(b) < 1);
+  const more = slow ? ` ${cap(BUILDING_NAMES[slow.kind as 'grove' | 'press'].replace(/^An? /, 'the '))} is short of workers (${slow.workers} of ${jobsAt(slow)}).` : '';
+  return { need: 'oil', text: `Oil: ${going}: ${why}.${more}`, at: slow?.id ?? first.id };
 }
 
 /** The treasury runs dry within this many months at last month's rate before the money line warns. */

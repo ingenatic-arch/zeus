@@ -5,11 +5,11 @@ import { Ground, mapIndex } from '../sim/build';
 import { rateOf } from '../sim/labour';
 import { TILE_EMPTY, type Herd, type SimState } from '../sim/state';
 import { AMBLE, BOLT, BOLT_TIME, moving } from '../sim/wild';
-import { ChunkedInstances } from './chunks';
+import type { FolkLooks, Look } from './looks';
 import { facingOf } from './homes';
 import { col, PAL } from './palette';
 import { lumpy } from './trees';
-import { leg, mergeTinted, tintedMaterial, type TPart } from './walkers';
+import { leg, mergeTinted, type TPart } from './walkers';
 
 /**
  * The wild herds and the dairies' goats, redrawn every frame from the sim
@@ -87,11 +87,10 @@ const firm = (g: number): boolean => g === Ground.Ok || g === Ground.SteepForHom
 
 export class Animals {
   readonly group = new THREE.Group();
-  private readonly stags: ChunkedInstances;
-  private readonly hinds: ChunkedInstances;
-  private readonly boars: ChunkedInstances;
-  private readonly goats: ChunkedInstances;
-  private readonly all: ChunkedInstances[];
+  private readonly stags: Look;
+  private readonly hinds: Look;
+  private readonly boars: Look;
+  private readonly goats: Look;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly p = new THREE.Vector3();
@@ -102,18 +101,16 @@ export class Animals {
   /** Animals drawn last frame (for the measuring script). */
   count = 0;
 
-  constructor(private readonly map: CoastMap) {
+  constructor(
+    private readonly map: CoastMap,
+    folk: FolkLooks,
+  ) {
     this.group.name = 'animals';
-    const mat = tintedMaterial();
-    const opts = { castShadow: true, receiveShadow: true, colors: true };
-    // A few dozen animals in all, spread over the hills: one batch each for the whole map (not one per walker chunk), so a scattered herd costs no extra draws.
-    const ALL = map.size;
-    this.stags = new ChunkedInstances('animals-stag', deer(true), mat, ALL, opts);
-    this.hinds = new ChunkedInstances('animals-hind', deer(false), mat, ALL, opts);
-    this.boars = new ChunkedInstances('animals-boar', boar(), mat, ALL, opts);
-    this.goats = new ChunkedInstances('animals-goat', goat(), mat, ALL, opts);
-    this.all = [this.stags, this.hinds, this.boars, this.goats];
-    for (const k of this.all) this.group.add(k.group);
+    // A few dozen animals in all, spread over the hills: drawn with the carts in the folk's big merged mesh (see looks.ts).
+    this.stags = folk.big.look(deer(true));
+    this.hinds = folk.big.look(deer(false));
+    this.boars = folk.big.look(boar());
+    this.goats = folk.big.look(goat());
     this.ground = mapIndex(map).ground;
   }
 
@@ -127,7 +124,7 @@ export class Animals {
     return firm(this.ground[t]) && s.tiles[t] === TILE_EMPTY;
   }
 
-  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: ChunkedInstances): void {
+  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: Look): void {
     this.e.set(0, yaw, pitch, 'YXZ');
     this.q.setFromEuler(this.e);
     this.p.set(x, this.map.heightAt(x, z) + 0.01, z);
@@ -140,11 +137,9 @@ export class Animals {
   }
 
   update(s: SimState, alpha: number, time: number): void {
-    for (const k of this.all) k.begin();
     this.count = 0;
     for (let i = 0; i < s.herds.length; i++) this.herd(s, s.herds[i], i, alpha, time);
     for (const d of s.buildings) if (d.kind === 'dairy') this.dairy(s, d, time);
-    for (const k of this.all) k.end();
   }
 
   /** A herd's animals round its point: loosely bunched while grazing, strung out behind the leader on the move, scattered while bolting. */

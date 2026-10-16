@@ -31,7 +31,7 @@ import {
   tileGrass,
 } from '../sim/build';
 import { beside, BUILDING_NAMES, findBuilding, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
-import { OIL } from '../sim/foods';
+import { held, OIL, WARE_NAMES, WARES, WHEAT } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
 import { OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST } from '../sim/production';
 import { PRESS_OLIVES, STOREHOUSE_OIL } from '../sim/stores';
@@ -40,7 +40,7 @@ import { HUNT_RANGE, lodgeOutlook } from '../sim/hunt';
 import { herdName, MIN_HEAD } from '../sim/wild';
 import { roadRoute } from '../sim/roads';
 import type { Sim } from '../sim/sim';
-import { TILE_ROAD, type BuildingKind } from '../sim/state';
+import { TILE_ROAD, type Building, type BuildingKind } from '../sim/state';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
@@ -469,9 +469,11 @@ export class Tools {
     }
     let text = `Clear ${bits.join(', ')}`;
     if (people) text += ` · ${people === 1 ? '1 person leaves' : `${people} people leave`}`;
-    const stock = [...homes].map((id) => findBuilding(s, id)).filter((b) => b && b.kind !== 'home' && b.stock > 0);
-    if (stock.length) text += ' · the grain in it is lost';
-    this.tip.show(text, sx, sy, people > 0 || stock.length > 0);
+    // What the cleared workplaces and stores hold is lost with them: say what.
+    const works = [...homes].map((id) => findBuilding(s, id)).filter((b): b is Building => !!b && b.kind !== 'home');
+    const lost = WARES.filter((w) => works.some((b) => held(b, w) > 0)).map((w) => (w === WHEAT ? 'grain' : WARE_NAMES[w]));
+    if (lost.length) text += ` · the ${lost.length > 1 ? `${lost.slice(0, -1).join(', ')} and ${lost[lost.length - 1]}` : lost[0]} in ${works.length > 1 ? 'them' : 'it'} ${lost.length > 1 ? 'are' : 'is'} lost`;
+    this.tip.show(text, sx, sy, people > 0 || lost.length > 0);
     this.pending = () => this.send({ type: 'clear', x0, z0, x1, z1 });
   }
 
@@ -525,7 +527,7 @@ export class Tools {
       this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : r.startsWith('Poor ground for olives') ? olive : ''), sx, sy, true);
       return;
     }
-    const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(A|The) /, '').replace(/^./, (c) => c.toUpperCase());
+    const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(An?|The) /, '').replace(/^./, (c) => c.toUpperCase());
     let text = `${name} · ${fmt(cost)} dr · ${JOBS[kind]} workers`;
     const lines: string[] = [];
     let warn = '';

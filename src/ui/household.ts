@@ -150,8 +150,9 @@ function nextLine(s: SimState, b: Building): string {
   const onTable = foodsOnTable(b, s.tick).length;
   const plate = onTable < kinds ? ` (they have ${onTable === 0 ? 'none' : foodList(foodsOnTable(b, s.tick))})` : '';
   if (b.level === COTTAGE) {
-    if (!has.shrine) return `To become a townhouse: the blessing of a shrine’s priestess, and ${food}. The city has no shrine yet`;
-    return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and of ${food}${plate}${makers}${settled}`;
+    const oil = has.oil ? `, and a month’s oil from an oil vendor${short('oil')}` : ', and oil: the city has no oil stall yet (an olive grove, a press, a storehouse, then K twice on an agora)';
+    if (!has.shrine) return `To become a townhouse: the blessing of a shrine’s priestess, ${food}${oil}. The city has no shrine yet`;
+    return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and of ${food}${plate}${makers}${oil}${settled}`;
   }
   if (b.level === TOWNHOUSE) {
     if (!has.theatre) return `To become a fine house: plays, brought by a theatre’s actor, and ${food}. The city has no theatre yet`;
@@ -167,6 +168,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   // The needs of their level, and the next level's if it is to be had in the city.
   const shown = new Set<Service>(['water', ...needsOf(b)]);
   if (b.level === COTTAGE && cityHas(s).shrine) shown.add('religion');
+  if (b.level === COTTAGE && cityHas(s).oil) shown.add('oil');
   if (b.level === TOWNHOUSE && cityHas(s).theatre) shown.add('culture');
   for (const need of NEEDS) {
     if (!shown.has(need)) continue;

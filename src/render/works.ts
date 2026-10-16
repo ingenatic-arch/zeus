@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { BARN, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM } from '../sim/food';
+import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM } from '../sim/food';
+import { held, OIL, OLIVES } from '../sim/foods';
+import { hasStall } from '../sim/goods';
+import { MAKERS, stageOf } from '../sim/production';
+import { GROVE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_OIL } from '../sim/stores';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
@@ -475,8 +479,9 @@ function trough(): THREE.BufferGeometry {
 }
 
 /** Where a piece of a lodge or dairy stands in the building's frame: at (lx, lz), turned by yaw, sampled for its ground over r. */
-type Piece = 'panel' | 'shed' | 'hayrack' | 'trough' | 'rack' | 'hide' | 'firepit';
-type Placed = { piece: Piece; lx: number; lz: number; yaw: number; len: number; r: number };
+type Piece = 'panel' | 'shed' | 'hayrack' | 'trough' | 'rack' | 'hide' | 'firepit' | 'olivetree' | 'oliveladder' | 'terrace' | 'basin' | 'beampress' | 'yardwall' | 'gate';
+/** (r: the half-size of the ground sampled under it; rz across, when it differs.) */
+type Placed = { piece: Piece; lx: number; lz: number; yaw: number; len: number; r: number; rz?: number };
 
 /** The dairy's pen: wattle round x -1.42..0.12, z -1.42..1.42, with a gap at the front for the goats; the shed, the rack, the trough. */
 const DAIRY_PIECES: Placed[] = (() => {
@@ -511,6 +516,58 @@ const LODGE_PIECES: Placed[] = [
   { piece: 'hide', lx: 0.35, lz: 1.05, yaw: 0, len: 1, r: 0.15 },
   { piece: 'firepit', lx: 1.0, lz: -0.95, yaw: 0, len: 1, r: 0.18 },
 ];
+/**
+ * The grove: three rows of olive trees down the field (behind the hut), each
+ * on its own ground, one with a ladder in it; a dry-stone terrace wall along
+ * the back and the far side. (len: a tree's size.)
+ */
+const TERRACE = 0.5;
+const GROVE_PIECES: Placed[] = (() => {
+  const out: Placed[] = [];
+  const trees: Array<[number, number]> = [
+    [-1.0, -1.0], [-1.0, 0.0], [-1.0, 1.0],
+    [-0.05, -0.55], [-0.05, 0.5],
+    [0.95, 0.15], [0.95, 1.1],
+  ];
+  trees.forEach(([lx, lz], i) => {
+    const jx = (hash2(i, 1, 771) - 0.5) * 0.14;
+    const jz = (hash2(i, 2, 772) - 0.5) * 0.14;
+    out.push({ piece: i === 4 ? 'oliveladder' : 'olivetree', lx: lx + jx, lz: lz + jz, yaw: hash2(i, 3, 773) * Math.PI * 2, len: 0.9 + 0.22 * hash2(i, 4, 774), r: 0.1 });
+  });
+  for (let i = 0; i < 6; i++) out.push({ piece: 'terrace', lx: -1.45, lz: -1.25 + i * TERRACE, yaw: Math.PI / 2, len: 1, r: 0.25 });
+  for (let i = 0; i < 4; i++) out.push({ piece: 'terrace', lx: -1.2 + i * TERRACE, lz: 1.48, yaw: 0, len: 1, r: 0.25 });
+  return out;
+})();
+/** The press's yard: the crushing basin before the house, the beam press along its side. */
+const PRESS_PIECES: Placed[] = [
+  { piece: 'basin', lx: 0.62, lz: -0.62, yaw: 0, len: 1, r: 0.5 },
+  { piece: 'beampress', lx: -0.45, lz: 0.95, yaw: 0, len: 1, r: 0.95, rz: 0.22 },
+];
+
+const YARD_WALL = 0.5;
+/** The storehouse's yard walls (each length on its own ground) round the yard in front of the shed, and the gateway to the road. */
+const STORE_PIECES: Placed[] = (() => {
+  const out: Placed[] = [];
+  const side = (a: [number, number], b: [number, number]): void => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(1, Math.round(len / YARD_WALL));
+    const yaw = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+    for (let i = 0; i < n; i++) {
+      const f = (i + 0.5) / n;
+      out.push({ piece: 'yardwall', lx: a[0] + (b[0] - a[0]) * f, lz: a[1] + (b[1] - a[1]) * f, yaw, len: len / n / YARD_WALL, r: 0.25 });
+    }
+  };
+  side([-0.7, -1.43], [1.43, -1.43]);
+  side([-0.7, 1.43], [1.43, 1.43]);
+  side([1.43, -1.43], [1.43, -0.55]);
+  side([1.43, 0.55], [1.43, 1.43]);
+  out.push({ piece: 'gate', lx: 1.43, lz: 0, yaw: 0, len: 1, r: 0.12, rz: 0.55 });
+  return out;
+})();
+
+/** The grove's trees (where its olives hang). */
+const GROVE_TREES = GROVE_PIECES.filter((p) => p.piece === 'olivetree' || p.piece === 'oliveladder');
+
 /** The lodge's rack (where the meat hangs). */
 const RACK_PIECE = LODGE_PIECES[0];
 
@@ -518,7 +575,257 @@ const RACK_PIECE = LODGE_PIECES[0];
 const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, number]>> = {
   lodge: [-1.4, -1.35, 0.0, 0.6],
   dairy: [0.2, -1.4, 1.4, 0.3],
+  grove: [0.55, -1.4, 1.45, -0.5],
+  press: [-1.45, -1.43, -0.15, 0.3],
+  storehouse: [-1.48, -1.48, -0.7, 1.48],
 };
+/**
+ * Kinds levelled to the highest ground under their main building (or, with
+ * no MAIN_FOOT, their whole footprint) rather than the lowest: they go on the
+ * hillsides, and their floors and yards stand on terraces whose foundations
+ * run down the slope, so nothing is buried on the uphill side.
+ */
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse']);
+
+
+// ---------------------------------------------------------------------------
+// Olives and oil (slice 10).
+
+/**
+ * An olive tree of the grove, its foot at the origin, about 0.9 tall: a
+ * gnarled, leaning trunk forking into two, under a broad silver-green crown.
+ * Its trunk runs down into the slope. `ladder`: a ladder leaning into it.
+ */
+function groveTree(ladder: boolean): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: cyl(0.05, 0.09, 0.62, 5).rotateZ(0.16).translate(0.02, 0.13, 0), color: PAL.trunk });
+  parts.push({ geo: cyl(0.035, 0.05, 0.32, 4).rotateZ(-0.6).translate(0.1, 0.48, 0.02), color: PAL.trunk });
+  parts.push({ geo: cyl(0.03, 0.045, 0.3, 4).rotateX(0.55).translate(-0.04, 0.5, -0.08), color: PAL.trunk });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.34, 0), 0.25, 701).scale(1, 0.62, 1).translate(0.02, 0.74, 0), color: PAL.oliveLeaf });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.24, 0), 0.25, 702).scale(1, 0.66, 1).translate(0.22, 0.64, 0.12), color: PAL.oliveLeafDark });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.22, 0), 0.25, 703).scale(1, 0.66, 1).translate(-0.2, 0.66, -0.12), color: PAL.oliveLeaf });
+  if (ladder) {
+    // Two rails and four rungs, leaning into the crown from the front.
+    const lean = (g: THREE.BufferGeometry): THREE.BufferGeometry => g.rotateZ(0.42).translate(0.32, 0.3, 0);
+    for (const z of [-0.06, 0.06]) parts.push({ geo: lean(cyl(0.01, 0.01, 0.7, 3).translate(0, 0, z)), color: PAL.wood });
+    for (const y of [-0.24, -0.08, 0.08, 0.24]) parts.push({ geo: lean(cyl(0.008, 0.008, 0.12, 3).rotateX(Math.PI / 2).translate(0, y, 0)), color: PAL.woodDark });
+  }
+  return merge(parts);
+}
+
+/** Where a grove tree's olives hang: a scatter of points on the outside of its crown (shared by the fruit model). */
+const FRUIT_AT: Array<[number, number, number]> = (() => {
+  const out: Array<[number, number, number]> = [];
+  const crowns: Array<[number, number, number, number, number]> = [
+    [0.02, 0.74, 0, 0.34, 0.62],
+    [0.22, 0.64, 0.12, 0.24, 0.66],
+    [-0.2, 0.66, -0.12, 0.22, 0.66],
+  ];
+  for (let i = 0; i < 30; i++) {
+    const [cx, cy, cz, r, sy] = crowns[i % 3];
+    const a = hash2(i, 1, 711) * Math.PI * 2;
+    // The lower and outer half of the crown, where the fruit shows from above and beside.
+    const e = (hash2(i, 2, 712) - 0.6) * 1.1;
+    out.push([cx + Math.cos(a) * Math.cos(e) * r * 0.98, cy + Math.sin(e) * r * sy * 0.98, cz + Math.sin(a) * Math.cos(e) * r * 0.98]);
+  }
+  return out;
+})();
+
+/** A grove tree's olives, white (each tree's take their colour as they ripen, green to near black). */
+function groveFruit(): THREE.BufferGeometry {
+  return merge(FRUIT_AT.map(([x, y, z], i) => ({ geo: new THREE.IcosahedronGeometry(0.014 + 0.004 * hash2(i, 3, 713), 0).scale(1, 1.3, 1).translate(x, y, z), color: '#ffffff' })));
+}
+
+/** A length of dry-stone terrace wall along x, TERRACE long, its foot run down into the slope. */
+function terraceWall(): THREE.BufferGeometry {
+  const parts: Part[] = [{ geo: slab(-TERRACE / 2, -0.06, TERRACE / 2, 0.06, -0.4, 0.08), color: PAL.rockDark }];
+  for (let i = 0; i < 4; i++) {
+    const r = 0.07 + 0.02 * hash2(i, 1, 721);
+    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, 722 + i).scale(1.3, 0.7, 0.9).translate(-TERRACE / 2 + (i + 0.5) * (TERRACE / 4), 0.08 + r * 0.3, 0), color: i % 2 ? PAL.stone : PAL.rockWarm });
+  }
+  return merge(parts);
+}
+
+/**
+ * The grove's picker's hut at its front corner, by the road: a little
+ * rubble-stone hut under a thatched lean-to, a bench, a pile of empty
+ * baskets (the full ones are drawn with the store).
+ */
+function groveHut(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = 0.6;
+  const x1 = 1.3;
+  const z0 = -1.35;
+  const z1 = -0.75;
+  parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, -1.2, 0.05), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.42), color: PAL.mudWall });
+  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) parts.push({ geo: slab(x - 0.04, z - 0.04, x + 0.04, z + 0.04, 0.05, 0.34), color: PAL.stone });
+  // The lean-to roof, high at the back.
+  parts.push({ geo: lumpy(slab(-(x1 - x0) / 2 - 0.12, -(z1 - z0) / 2 - 0.1, (x1 - x0) / 2 + 0.14, (z1 - z0) / 2 + 0.1, 0, 0.06), 0.03, 731).rotateZ(-0.22).translate((x0 + x1) / 2, 0.5, (z0 + z1) / 2), color: PAL.thatch });
+  parts.push({ geo: slab(x1, -1.12, x1 + 0.02, -0.96, 0.05, 0.36), color: PAL.door });
+  // A bench and a stack of empty baskets by the door, the beating pole leant on the wall.
+  parts.push({ geo: slab(0.7, -0.62, 1.2, -0.52, 0.12, 0.16), color: PAL.wood });
+  for (const x of [0.74, 1.16]) parts.push({ geo: slab(x - 0.02, -0.6, x + 0.02, -0.54, -0.3, 0.12), color: PAL.woodDark });
+  for (let i = 0; i < 3; i++) parts.push({ geo: cyl(0.08, 0.065, 0.07, 7).translate(1.38, 0.035 + i * 0.05, -0.62), color: PAL.basket });
+  return merge(parts);
+}
+
+/** A round basket heaped with olives (picked: ripe and dark), on the ground. */
+function oliveBasket(): THREE.BufferGeometry {
+  return merge([
+    { geo: cyl(0.075, 0.06, 0.09, 7).translate(0, 0.045, 0), color: PAL.basket },
+    { geo: lumpy(new THREE.SphereGeometry(0.07, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0.25, 741).scale(1, 0.6, 1).translate(0, 0.085, 0), color: PAL.oliveRipe },
+  ]);
+}
+
+/** A tall jar of oil standing on the ground: terracotta, two handles, sealed with pale-green wax. */
+function oilJarModel(): THREE.BufferGeometry {
+  const body = [
+    new THREE.Vector2(0.0, 0),
+    new THREE.Vector2(0.03, 0.004),
+    new THREE.Vector2(0.075, 0.07),
+    new THREE.Vector2(0.07, 0.15),
+    new THREE.Vector2(0.03, 0.19),
+    new THREE.Vector2(0.026, 0.22),
+    new THREE.Vector2(0.034, 0.23),
+  ];
+  const parts: Part[] = [{ geo: new THREE.LatheGeometry(body, 7), color: PAL.oilJar }];
+  parts.push({ geo: cyl(0.031, 0.028, 0.02, 6).translate(0, 0.235, 0), color: PAL.oilSeal });
+  parts.push({ geo: cyl(0.074, 0.074, 0.02, 7).translate(0, 0.11, 0), color: PAL.oilJarDark });
+  for (const z of [-1, 1]) parts.push({ geo: new THREE.TorusGeometry(0.03, 0.008, 3, 6, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).translate(0, 0.19, z * 0.04), color: PAL.oilJarDark });
+  return merge(parts);
+}
+
+/**
+ * The olive press: a stone press house under tiles at the back, its door to
+ * the yard. Its yard pieces stand on their own ground (see PRESS_PIECES): the
+ * round crushing basin with its upright millstone on a pole, and the beam
+ * press along the house's side. Olive baskets and jars of oil are drawn with
+ * its store.
+ */
+function pressModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = -1.4;
+  const x1 = -0.2;
+  const z0 = -1.38;
+  const z1 = 0.25;
+  // Levelled to the top of its ground (HIGH_FOOT): the plinth runs down the slope.
+  parts.push({ geo: slab(x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05, -1.2, 0.08), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.08, 0.72), color: PAL.pressStone });
+  parts.push({ geo: slab(x0 - 0.01, z0 - 0.01, x1 + 0.01, z1 + 0.01, 0.08, 0.18), color: PAL.pressStoneDark });
+  const cx = (x0 + x1) / 2;
+  const cz = (z0 + z1) / 2;
+  parts.push({ geo: prism(z1 - z0 + 0.2, (x1 - x0) / 2 + 0.12, 0.38).rotateY(Math.PI / 2).translate(cx, 0.72, cz), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.03, 0.03, z1 - z0 + 0.22, 5).rotateX(Math.PI / 2).translate(cx, 1.1, cz), color: PAL.roofTileDark });
+  for (const side of [-1, 1]) {
+    const y = 0.72 + 0.38 * 0.5;
+    const x = cx + side * ((x1 - x0) / 2 + 0.12) * 0.5;
+    parts.push({ geo: new THREE.BoxGeometry(0.03, 0.02, z1 - z0 + 0.2).rotateZ(side * 0.55).translate(x, y + 0.012, cz), color: PAL.roofTileDark });
+  }
+  // The door to the yard, a step down from it, and a high window.
+  parts.push({ geo: slab(x1, -0.82, x1 + 0.02, -0.5, 0.08, 0.56), color: PAL.door });
+  parts.push({ geo: slab(x1 + 0.02, -0.86, x1 + 0.16, -0.46, -1.2, 0.04), color: PAL.pressStoneDark });
+  parts.push(...windowX(x1 + 0.005, 0.56, -0.05));
+  return merge(parts);
+}
+
+/** The press's crushing basin, centred: a stone ring with a raised rim full of olive paste, a pillar, the upright millstone and its pole. Its foot runs down into the slope. */
+function crushingBasin(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: cyl(0.46, 0.5, 0.6, 14).translate(0, -0.2, 0), color: PAL.pressStoneDark });
+  parts.push({ geo: cyl(0.48, 0.48, 0.06, 14).translate(0, 0.13, 0), color: PAL.pressStone });
+  parts.push({ geo: cyl(0.4, 0.4, 0.062, 14).translate(0, 0.135, 0), color: PAL.olivePaste });
+  parts.push({ geo: cyl(0.07, 0.08, 0.36, 7).translate(0, 0.3, 0), color: PAL.pressStone });
+  parts.push({ geo: cyl(0.2, 0.2, 0.12, 12).rotateX(Math.PI / 2).translate(0.2, 0.36, 0), color: PAL.millstone });
+  parts.push({ geo: cyl(0.03, 0.03, 0.14, 5).rotateX(Math.PI / 2).translate(0.2, 0.36, 0), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.018, 0.018, 0.95, 4).rotateZ(Math.PI / 2).translate(0.2, 0.42, 0), color: PAL.wood });
+  return merge(parts);
+}
+
+/**
+ * The beam press, along x, centred: the press bed with its stack of olive
+ * mats, the post the beam is anchored in, the long beam, and the weight
+ * stone hanging from its far end; a stone trough for the oil.
+ */
+function beamPress(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: cyl(0.2, 0.22, 0.4, 10).translate(-0.5, -0.15, 0), color: PAL.pressStone });
+  for (let i = 0; i < 4; i++) parts.push({ geo: cyl(0.15, 0.15, 0.04, 9).translate(-0.5, 0.07 + i * 0.045, 0), color: i % 2 ? PAL.basket : PAL.straw });
+  // The post the beam is anchored in, and the beam lying across the mats, out to the weight.
+  parts.push({ geo: cyl(0.045, 0.055, 0.9, 5).translate(-0.9, 0.0, 0), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.032, 0.042, 1.85, 5).rotateZ(Math.PI / 2 - 0.05).translate(0.0, 0.3, 0), color: PAL.wood });
+  parts.push({ geo: cyl(0.008, 0.008, 0.14, 3).translate(0.85, 0.22, 0), color: PAL.woodDark });
+  parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.12, 0), 0.2, 751).scale(1, 0.9, 1).translate(0.85, 0.1, 0), color: PAL.rockDark });
+  parts.push({ geo: slab(-0.32, -0.08, -0.12, 0.08, -0.3, 0.07), color: PAL.pressStoneDark });
+  return merge(parts);
+}
+
+/**
+ * The storehouse's shed along the back of its yard: a stone back wall, posts
+ * and a beam, a tiled lean-to roof sloping to the yard, straw for bedding
+ * the jars. Its yard walls and gateway stand on their own ground (see
+ * STORE_PIECES); the jars of oil stand in rows in the yard (drawn with its
+ * store), the corner by the gate left for bales and wine (slice 11).
+ */
+function storehouseModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // Levelled to the top of its ground (HIGH_FOOT): the paving's foundation runs down the slope.
+  parts.push({ geo: slab(-1.48, -1.48, -0.7, 1.48, -1.2, 0.04), color: PAL.paving });
+  parts.push({ geo: slab(-1.47, -1.47, -1.37, 1.47, 0.04, 1.0), color: PAL.stone });
+  for (const z of [-1.3, -0.45, 0.45, 1.3]) parts.push({ geo: cyl(0.035, 0.04, 0.72, 5).translate(-0.78, 0.38, z), color: PAL.wood });
+  parts.push({ geo: slab(-0.82, -1.42, -0.74, 1.42, 0.72, 0.78), color: PAL.woodDark });
+  parts.push({ geo: new THREE.BoxGeometry(0.9, 0.06, 3.0).rotateZ(-0.28).translate(-1.1, 0.92, 0), color: PAL.roofTile });
+  for (let k = 0; k < 10; k++) parts.push({ geo: new THREE.BoxGeometry(0.9, 0.025, 0.035).rotateZ(-0.28).translate(-1.1, 0.96, -1.4 + (k * 2.8) / 9), color: PAL.roofTileDark });
+  parts.push({ geo: lumpy(slab(-1.32, 0.6, -0.9, 1.3, 0.05, 0.14), 0.15, 763), color: PAL.straw });
+  return merge(parts);
+}
+
+/** A length of the storehouse's yard wall along x, YARD_WALL long: rubble stone with a coping, its foot run down into the slope. */
+function yardWall(): THREE.BufferGeometry {
+  const parts: Part[] = [
+    { geo: slab(-YARD_WALL / 2 - 0.01, -0.05, YARD_WALL / 2 + 0.01, 0.05, -0.6, 0.4), color: PAL.stone },
+    { geo: slab(-YARD_WALL / 2 - 0.02, -0.07, YARD_WALL / 2 + 0.02, 0.07, 0.4, 0.44), color: PAL.pressStone },
+  ];
+  for (let i = 0; i < 3; i++) {
+    const r = 0.05 + 0.02 * hash2(i, 1, 761);
+    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, 762 + i).scale(1.2, 0.8, 0.6).translate(-YARD_WALL / 2 + (i + 0.5) * (YARD_WALL / 3), 0.1 + 0.2 * hash2(i, 2, 763), 0.045), color: i % 2 ? PAL.rockDark : PAL.rockWarm });
+  }
+  return merge(parts);
+}
+
+/** The storehouse's gateway, across z, centred: two stone piers and a lintel, a pair of gates standing open into the yard. */
+function storeGate(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (const z of [-0.46, 0.46]) parts.push({ geo: slab(-0.09, z - 0.09, 0.09, z + 0.09, -0.6, 0.72), color: PAL.pressStone });
+  parts.push({ geo: slab(-0.11, -0.58, 0.11, 0.58, 0.72, 0.82), color: PAL.pressStoneDark });
+  for (const side of [-1, 1]) parts.push({ geo: slab(-0.34, side * 0.36 - 0.02, -0.08, side * 0.36 + 0.02, 0.02, 0.6), color: PAL.door });
+  return merge(parts);
+}
+
+/**
+ * The agora's oil stall, at the side of the square (local -z of the food
+ * stall): a narrow counter under a striped olive-and-cream awning on four
+ * poles. Its jars are drawn with its stock.
+ */
+const OIL_STALL_X = 0.42;
+const OIL_STALL_Z = -1.08;
+function oilStallModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const cx = OIL_STALL_X;
+  const cz = OIL_STALL_Z;
+  parts.push({ geo: slab(cx - 0.36, cz - 0.12, cx + 0.36, cz + 0.12, 0, 0.26), color: PAL.wood });
+  parts.push({ geo: slab(cx - 0.38, cz - 0.14, cx + 0.38, cz + 0.14, 0.26, 0.29), color: PAL.woodDark });
+  for (const [x, z] of [[cx - 0.42, cz - 0.24], [cx + 0.42, cz - 0.24], [cx - 0.42, cz + 0.2], [cx + 0.42, cz + 0.2]]) parts.push({ geo: cyl(0.016, 0.016, 0.72, 4).translate(x, 0.36, z), color: PAL.pole });
+  // The awning: stripes running front to back, sloping down to the front (+x).
+  for (let k = 0; k < 5; k++) {
+    const x0 = cx - 0.48 + (k * 0.96) / 5;
+    parts.push({ geo: slab(x0, -0.28, x0 + 0.96 / 5, 0.28, 0, 0.02).rotateX(0.18).translate(0, 0.73, cz - 0.02), color: k % 2 ? PAL.oilVendorScarf : PAL.oilVendorDress });
+  }
+  // A big jar on the ground at the end, a funnel and a ladle on the counter.
+  parts.push(amphora(cx + 0.5, cz + 0.02, 0.26));
+  parts.push({ geo: new THREE.ConeGeometry(0.03, 0.05, 5).rotateX(Math.PI).translate(cx - 0.28, 0.32, cz), color: PAL.oilJarDark });
+  return merge(parts);
+}
 
 // ---------------------------------------------------------------------------
 
@@ -526,9 +833,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy';
-const isWork = (b: Building): b is Building & { kind: WorkKind } =>
-  b.kind === 'farm' || b.kind === 'granary' || b.kind === 'agora' || b.kind === 'theatre' || b.kind === 'lodge' || b.kind === 'dairy';
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse']);
+const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
 const STOOKS = 6;
@@ -550,6 +857,16 @@ const shown = (stock: number, cap: number, most: number): number => (stock <= 0 
 const STALL_FULL = STALL_CAP * 0.65;
 const STALL_FULL_MEAT = STALL_ROOM[1] * 0.65;
 const STALL_FULL_CHEESE = STALL_ROOM[2] * 0.65;
+const STALL_FULL_OIL = GOOD_STALL_ROOM * 0.65;
+/** Baskets of olives by a grove's hut and at a press; jars by a press's door, in a storehouse's yard, on the oil stall. */
+const GROVE_BASKETS = 6;
+const PRESS_BASKETS = 5;
+const PRESS_JARS = 8;
+const STORE_JARS = 24;
+const STALL_JARS = 4;
+/** The olives' colour on the tree, from just set (green) to ripe (near black). */
+const FRUIT_GREEN = new THREE.Color(PAL.oliveGreen);
+const FRUIT_RIPE = new THREE.Color(PAL.oliveRipe);
 /** The wheat's look changes in this many steps as it grows. */
 const GROWTH_STEPS = 16;
 
@@ -569,13 +886,16 @@ export class Works {
    * holds. Rebuilt only when one of them is placed, cleared, turned or rising.
    */
   private readonly merged: MergedChunks;
-  private readonly models: Record<'farm' | 'granary' | 'agora' | 'awning' | 'theatre' | 'lodge' | 'dairy' | Piece, THREE.BufferGeometry>;
+  private readonly models: Record<WorkKind | 'awning' | 'oilstall' | Piece, THREE.BufferGeometry>;
   private readonly wheat: ChunkedInstances;
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
   private readonly loaves: ChunkedInstances;
   private readonly hams: ChunkedInstances;
   private readonly cheeses: ChunkedInstances;
+  private readonly fruit: ChunkedInstances;
+  private readonly baskets: ChunkedInstances;
+  private readonly jars: ChunkedInstances;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -613,6 +933,17 @@ export class Works {
       rack: dryingRack(),
       hide: hideFrame(),
       firepit: firePit(),
+      grove: groveHut(),
+      press: pressModel(),
+      storehouse: storehouseModel(),
+      oilstall: oilStallModel(),
+      olivetree: groveTree(false),
+      oliveladder: groveTree(true),
+      terrace: terraceWall(),
+      basin: crushingBasin(),
+      beampress: beamPress(),
+      yardwall: yardWall(),
+      gate: storeGate(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -623,7 +954,11 @@ export class Works {
     const ALL = map.size;
     this.hams = new ChunkedInstances('hams', ham(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
     this.cheeses = new ChunkedInstances('cheeses', cheeseWheel(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
-    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses];
+    // Olives on the trees (coloured as they ripen), baskets of olives and jars of oil: few, one batch each for the whole map.
+    this.fruit = new ChunkedInstances('olives', groveFruit(), mat, ALL, { castShadow: false, receiveShadow: true, colors: true });
+    this.baskets = new ChunkedInstances('olive-baskets', oliveBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
+    this.jars = new ChunkedInstances('oil-jars', oilJarModel(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars];
     for (const c of this.all) this.group.add(c.group);
   }
 
@@ -642,7 +977,11 @@ export class Works {
     if (b.kind === 'theatre') return `theatre:${face}`;
     if (b.kind === 'lodge') return `lodge:${face}:${shown(b.meat, LODGE_STORE, RACK)}`;
     if (b.kind === 'dairy') return `dairy:${face}:${shown(b.cheese, DAIRY_STORE, BENCH)}`;
-    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}:${shown(b.meat, STALL_FULL_MEAT, STALL_HAMS)}:${shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES)}`;
+    if (b.kind === 'grove') return `grove:${face}:${stageOf(b, MAKERS.grove!)}:${shown(held(b, OLIVES), GROVE_STORE, GROVE_BASKETS)}`;
+    if (b.kind === 'press') return `press:${face}:${shown(held(b, OLIVES), PRESS_OLIVES, PRESS_BASKETS)}:${shown(held(b, OIL), PRESS_STORE, PRESS_JARS)}`;
+    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}`;
+    const oil = hasStall(b, OIL) ? `:oil${shown(held(b, OIL), STALL_FULL_OIL, STALL_JARS)}` : '';
+    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}:${shown(b.meat, STALL_FULL_MEAT, STALL_HAMS)}:${shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES)}${oil}`;
   }
 
   private seenRev = -1;
@@ -697,6 +1036,9 @@ export class Works {
     if (dirty.size) {
       this.flush(this.hams, this.hamsBy);
       this.flush(this.cheeses, this.cheesesBy);
+      this.flush(this.baskets, this.basketsBy);
+      this.flush(this.jars, this.jarsBy);
+      this.flushColoured(this.fruit, this.fruitBy);
     }
     this.lastRefilled = dirty.size;
   }
@@ -704,6 +1046,10 @@ export class Works {
   /** Hams and cheeses placed by each chunk's last fill, drawn in one batch each for the whole map. */
   private hamsBy = new Map<number, THREE.Matrix4[]>();
   private cheesesBy = new Map<number, THREE.Matrix4[]>();
+  private basketsBy = new Map<number, THREE.Matrix4[]>();
+  private jarsBy = new Map<number, THREE.Matrix4[]>();
+  /** Each grove tree's olives and their colour, by chunk. */
+  private fruitBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
 
   private collect(into: Map<number, THREE.Matrix4[]>, key: number, n: number, write: (i: number, m: THREE.Matrix4) => void): void {
     if (n === 0) {
@@ -725,6 +1071,15 @@ export class Works {
     inst.set(0, 0, all.length, (i, m) => void m.copy(all[i]));
   }
 
+  private flushColoured(inst: ChunkedInstances, from: Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>): void {
+    const all: Array<{ m: THREE.Matrix4; c: THREE.Color }> = [];
+    for (const xs of from.values()) for (const x of xs) all.push(x);
+    inst.set(0, 0, all.length, (i, m, c) => {
+      m.copy(all[i].m);
+      c.copy(all[i].c);
+    });
+  }
+
   private fill(key: number): void {
     const s = this.state;
     if (!s) return;
@@ -738,19 +1093,23 @@ export class Works {
     const agoras = list.filter((b) => b.kind === 'agora');
     const lodges = list.filter((b) => b.kind === 'lodge');
     const dairies = list.filter((b) => b.kind === 'dairy');
+    const groves = list.filter((b) => b.kind === 'grove');
+    const presses = list.filter((b) => b.kind === 'press');
+    const storehouses = list.filter((b) => b.kind === 'storehouse');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
     /** The lowest ground under a box at (lx, lz) of half-sizes (hx, hz) in a frame centred at (cx, cz) turned by yaw: its middle, corners and edge middles. */
-    const lowest = (cx: number, cz: number, yaw: number, lx: number, lz: number, hx: number, hz: number): number => {
+    const lowest = (cx: number, cz: number, yaw: number, lx: number, lz: number, hx: number, hz: number, high = false): number => {
       const c = Math.cos(yaw);
       const sn = Math.sin(yaw);
-      let y = Infinity;
+      let y = high ? -Infinity : Infinity;
       for (const ax of [-1, 0, 1]) {
         for (const az of [-1, 0, 1]) {
           const x = lx + ax * hx;
           const z = lz + az * hz;
-          y = Math.min(y, map.heightAt(cx + x * c + z * sn, cz - x * sn + z * c));
+          const h = map.heightAt(cx + x * c + z * sn, cz - x * sn + z * c);
+          y = high ? Math.max(y, h) : Math.min(y, h);
         }
       }
       return y;
@@ -765,9 +1124,12 @@ export class Works {
       const yaw = facingOf(s, size, b);
       let y: number;
       const foot = MAIN_FOOT[b.kind];
+      const high = HIGH_FOOT.has(b.kind);
       if (foot) {
-        // Levelled to the lowest ground under its main building only (its yard pieces stand on their own).
-        y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2);
+        // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
+        y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
+      } else if (high) {
+        y = lowest(cx, cz, yaw, 0, 0, 1.45, 1.45, true);
       } else {
         y = map.heightAt(cx, cz);
         for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
@@ -813,6 +1175,7 @@ export class Works {
       whole(b, m);
       add(b, b.kind as WorkKind, m, b.kind);
       if (b.kind === 'agora') add(b, 'awning', m, 'awning');
+      if (hasStall(b, OIL)) add(b, 'oilstall', m, 'oilstall');
     }
     // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
     // (Kept from fill to fill while the building stands and faces the same way: the ground doesn't change.)
@@ -825,13 +1188,13 @@ export class Works {
       }
       let y = got.y.get(pl);
       if (y === undefined) {
-        y = lowest(f.x, f.z, f.yaw, pl.lx, pl.lz, pl.r, pl.r) + 0.01;
+        y = lowest(f.x, f.z, f.yaw, pl.lx, pl.lz, pl.r, pl.rz ?? pl.r) + 0.01;
         got.y.set(pl, y);
       }
       return y;
     };
     const placed = new Map<Piece, Array<{ b: Building; pl: Placed }>>();
-    for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES]] as Array<[Building[], Placed[]]>) {
+    for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES], [groves, GROVE_PIECES], [presses, PRESS_PIECES], [storehouses, STORE_PIECES]] as Array<[Building[], Placed[]]>) {
       for (const b of list) {
         for (const pl of layout) {
           const at = placed.get(pl.piece);
@@ -843,7 +1206,9 @@ export class Works {
     for (const [name, at] of placed) {
       at.forEach(({ b, pl }, n) => {
         const m = new THREE.Matrix4();
-        part(b, m, pl.lx, pl.lz, pl.yaw, [pl.len, 1, 1], pieceBase(b, pl));
+        // A tree is scaled whole (len: its size); a length of fence or wall only along its run.
+        const tree = pl.piece === 'olivetree' || pl.piece === 'oliveladder';
+        part(b, m, pl.lx, pl.lz, pl.yaw, tree ? [pl.len, pl.len, pl.len] : [pl.len, 1, 1], pieceBase(b, pl));
         add(b, name, m, `${name}${n}`);
       });
     }
@@ -945,6 +1310,58 @@ export class Works {
         part(b, m, 1.1 + (k % 2) * 0.16, 0.36 + k * 0.15, hash2(b.id, i, 434), [1, 1, 1], true, 0.01 + layer * 0.055);
       } else {
         part(b, m, 0.42 + (i === 1 ? 0.05 : -0.03), 0.36 + (i - 1) * 0.05, i, [0.7, 0.7, 0.7], false, 0.38 + (i === 2 ? 0.04 : 0));
+      }
+    });
+
+    // Olives on a grove's trees: none just after the picking, then more and darker as the crop grows (eighths), ripe near the harvest.
+    const fruit: Array<{ m: THREE.Matrix4; c: THREE.Color }> = [];
+    for (const b of groves) {
+      const stage = stageOf(b, MAKERS.grove!);
+      if (stage < 2) continue;
+      const ripe = Math.max(0, Math.min(1, (stage - 3) / 4));
+      for (const pl of GROVE_TREES) {
+        const m = new THREE.Matrix4();
+        part(b, m, pl.lx, pl.lz, pl.yaw, [pl.len, pl.len, pl.len], pieceBase(b, pl));
+        fruit.push({ m, c: FRUIT_GREEN.clone().lerp(FRUIT_RIPE, ripe) });
+      }
+    }
+    if (fruit.length) this.fruitBy.set(key, fruit);
+    else this.fruitBy.delete(key);
+
+    // Baskets of olives: picked ones by the grove's hut, and waiting at the press.
+    const baskets: Array<{ b: Building; i: number }> = [];
+    for (const b of groves) for (let i = 0; i < shown(held(b, OLIVES), GROVE_STORE, GROVE_BASKETS); i++) baskets.push({ b, i });
+    for (const b of presses) for (let i = 0; i < shown(held(b, OLIVES), PRESS_OLIVES, PRESS_BASKETS); i++) baskets.push({ b, i });
+    this.collect(this.basketsBy, key, baskets.length, (n, m) => {
+      const { b, i } = baskets[n];
+      if (b.kind === 'grove') {
+        // Under the hut's eaves and along its side, a second layer from the fourth.
+        const top = i >= 4;
+        const k = top ? i - 4 : i;
+        part(b, m, 0.62 + (k % 2) * 0.17 + (top ? 0.08 : 0), -0.4 + Math.floor(k / 2) * 0.17, hash2(b.id, i, 781), [1, 1, 1], true, top ? 0.09 : 0.01);
+      } else {
+        // In a row between the house and the crushing basin.
+        part(b, m, 0.2 + i * 0.17, 0.05, hash2(b.id, i, 782), [1, 1, 1], true, 0.01);
+      }
+    });
+
+    // Jars of oil: by the press's door, in rows in the storehouse's yard (front to back), on the oil stall's counter.
+    const jars: Array<{ b: Building; i: number }> = [];
+    for (const b of presses) for (let i = 0; i < shown(held(b, OIL), PRESS_STORE, PRESS_JARS); i++) jars.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS); i++) jars.push({ b, i });
+    for (const b of agoras) if (hasStall(b, OIL)) for (let i = 0; i < shown(held(b, OIL), STALL_FULL_OIL, STALL_JARS); i++) jars.push({ b, i });
+    this.collect(this.jarsBy, key, jars.length, (n, m) => {
+      const { b, i } = jars[n];
+      if (b.kind === 'press') {
+        // By the door, two rows of four.
+        part(b, m, 0.0 + Math.floor(i / 4) * 0.17, -1.3 + (i % 4) * 0.15, hash2(b.id, i, 783), [0.9, 0.9, 0.9], true, 0.0);
+      } else if (b.kind === 'storehouse') {
+        // Six rows of four across the yard, filling from the shed forward.
+        const row = Math.floor(i / 4);
+        const k = i % 4;
+        part(b, m, -0.5 + row * 0.25, -0.67 + k * 0.42 + (row % 2) * 0.08, hash2(b.id, i, 784), [1.05, 1.05, 1.05], true, 0.0);
+      } else {
+        part(b, m, OIL_STALL_X - 0.15 + i * 0.12, OIL_STALL_Z + (i % 2) * 0.04, i, [0.6, 0.6, 0.6], false, 0.29);
       }
     });
   }

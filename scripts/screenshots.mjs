@@ -88,6 +88,50 @@ const SHOTS = {
   granary: '#town-paused-shot',
   stall: '#town-paused-shot',
   'cart-meat': '#town',
+  // Slice 10.
+  grove: '#grove-paused',
+  'grove-built': '#oil-paused-shot',
+  'grove-close': '#oil-paused-shot',
+  'grove-tip': '#oil-paused',
+  press: '#oil-paused-shot',
+  'press-tip': '#oil-paused',
+  storehouse: '#storehouse-paused-shot',
+  'storehouse-tip': '#storehouse-paused',
+  'oil-stall': '#town-paused-shot',
+  'stall-tip': '#town-paused',
+  oilvendor: '#oilvendor',
+  'oilvendor-close': '#oilvendor',
+  'oil-overlay': '#oilvendor-paused',
+  nooil: '#nooil',
+  'cart-olives': '#town',
+  'cart-oil': '#town',
+  'porter-oil': '#town',
+};
+
+/** Hover the pointer over a world point (after a few frames, so the camera has settled). */
+const hover = async (page, x, z) => {
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 2, f, { timeout: 120000 });
+  const p = await page.evaluate(([x, z]) => window.__zeus.screenOf(x, z), [x, z]);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.move(p.x + 1, p.y + 1);
+};
+/** Jump close to the first building of a kind: (dx, dz) from its corner, and the camera's yaw, distance and tilt. */
+const closeTo = async (page, kind, yaw, dist, tilt, dx = 1.5, dz = 1.5) => {
+  const b = await page.evaluate((k) => window.__zeus.buildingsOf(k)[0], kind);
+  await page.evaluate((v) => window.__zeus.jump(v), { x: b.x + dx, z: b.z + dz, yaw, dist, tilt });
+  return b;
+};
+/** Follow a walker until it is under way, then pause and jump close to it. */
+const closeToWalker = async (page, find, ticks = 40) => {
+  await page.waitForFunction(find, null, { timeout: 400000, polling: 200 });
+  const t = await page.evaluate(() => window.__zeus.tick());
+  await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 5, t, { timeout: 240000 });
+  await page.evaluate((src) => {
+    window.__zeus.speed('paused');
+    const w = new Function(`return (${src})()`)();
+    if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
+  }, find.toString());
 };
 
 /** Things to do on the page before a shot. */
@@ -192,6 +236,51 @@ const BEFORE = {
   },
   rates: async (page) => {
     await page.click('.rate-chip');
+  },
+  grove: async (page) => {
+    // The grove tool over the dry slope by the lane.
+    await hover(page, 28.5, 61.5);
+  },
+  'grove-close': async (page) => {
+    await closeTo(page, 'grove', 2.4, 5, 0.25);
+  },
+  'grove-tip': async (page) => {
+    const b = await closeTo(page, 'grove', 2.4, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  press: async (page) => {
+    await closeTo(page, 'press', 2.4, 5, 0.25);
+  },
+  'press-tip': async (page) => {
+    const b = await closeTo(page, 'press', 2.4, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  'storehouse-tip': async (page) => {
+    const b = await closeTo(page, 'storehouse', 2.3, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  'oil-stall': async (page) => {
+    await closeTo(page, 'agora', 3.7, 4, 0.3);
+  },
+  'stall-tip': async (page) => {
+    const b = await closeTo(page, 'agora', 3.7, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  oilvendor: async (page) => {
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 240000 });
+  },
+  'oilvendor-close': async (page) => {
+    await closeToWalker(page, () => window.__zeus.where('oil'));
+  },
+  'cart-olives': async (page) => {
+    await closeToWalker(page, () => window.__zeus.cartOf(3));
+  },
+  'cart-oil': async (page) => {
+    await closeToWalker(page, () => window.__zeus.cartOf(4));
+  },
+  'porter-oil': async (page) => {
+    await closeToWalker(page, () => window.__zeus.porterOf?.(4) ?? null);
   },
   taxoffice: async (page) => {
     // Close over the tax office on #town's main street, and the north street's.

@@ -66,14 +66,19 @@ const quarter = Math.abs(Math.abs(v4.yaw - v3.yaw) - Math.PI / 2);
 if (quarter > 0.5) fail(`Q did not turn a quarter (${v3.yaw} -> ${v4.yaw})`);
 
 // Fastest speed moves the calendar on; Space pauses it.
+// (Waits on ticks and frames, not on the wall clock: a slow software renderer draws few frames a second.)
 await page.keyboard.press('3');
 const t0 = await page.evaluate(() => window.__zeus.tick());
-await page.waitForTimeout(1500);
+const f0 = await page.evaluate(() => window.__zeus.frames);
+await page.waitForFunction((t) => window.__zeus.tick() >= t + 20, t0, { timeout: 60000 }).catch(() => {});
 const t1 = await page.evaluate(() => window.__zeus.tick());
-if (t1 - t0 < 20) fail(`clock did not run at fastest (${t0} -> ${t1})`);
+const f1 = await page.evaluate(() => window.__zeus.frames);
+// At fastest, each frame moves the clock several ticks on (normal speed is about one tick every six frames).
+if (t1 - t0 < 20 || (t1 - t0) / Math.max(1, f1 - f0) < 0.5) fail(`clock did not run at fastest (${t0} -> ${t1} in ${f1 - f0} frames)`);
 await page.keyboard.press('Space');
+await frames(1);
 const t2 = await page.evaluate(() => window.__zeus.tick());
-await page.waitForTimeout(800);
+await frames(10);
 const t3 = await page.evaluate(() => window.__zeus.tick());
 if (t3 !== t2) fail('space did not pause');
 const speed = await page.evaluate(() => document.querySelector('.speeds .on')?.getAttribute('aria-label'));
@@ -488,13 +493,13 @@ if (!/^A fine house[\s\S]*Plays · last[\s\S]*A fine house is as fine as homes g
 // #actor: following the actor.
 await open('#actor');
 if (!(await city()).following) fail('#actor is not following the actor');
-// #closed: the theatre gone and the west street cut; wide signs for three needs, and the panel says what goes.
+// #closed: the theatre gone and the west street cut; wide signs for three or more needs (since slice 10 the cut street goes without oil too), and the panel says what goes.
 await open('#closed');
 c = await city();
 if (!(c.theatres === 0 && c.warned >= 15 && c.signs >= c.warned && c.signsWide >= 3 && c.panel > 0)) fail(`#closed: ${JSON.stringify(c)}`);
 pt = await panelText();
 if (!/they give up the (townhouse for a cottage|fine house for a townhouse)/.test(pt ?? '')) fail(`#closed panel: ${pt}`);
-if (!(await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'sign-rim-3' && m.count >= 3)))) fail('#closed: no wide signs drawn');
+if (!(await page.evaluate(() => window.__zeus.meshes().filter((m) => /^sign-rim-[345]$/.test(m.name)).reduce((n, m) => n + m.count, 0) >= 3))) fail('#closed: no wide signs drawn');
 
 // Slice 7: a town worth keeping.
 const zeus = (f, arg) => page.evaluate(f, arg);
@@ -702,14 +707,14 @@ c = await city();
 const legendText = await zeus(() => (document.querySelector('.legend')?.hidden ? '' : document.querySelector('.legend')?.textContent ?? ''));
 pt = await panelText();
 if (!(c.overlayMode === 'variety' && c.dairies === 1 && c.panel > 0 && /On the table/.test(legendText) && /two kinds of food[\s\S]*cheese/.test(pt ?? ''))) fail(`#table: ${legendText} ${pt} ${JSON.stringify(c)}`);
-// L cycles the food overlay, then the variety overlay, then off.
+// L cycles the food overlay, then the variety overlay, then oil, then off.
 const ls = [];
-for (let i = 0; i < 3; i++) {
+for (let i = 0; i < 4; i++) {
   await page.keyboard.press('l');
   await frames(1);
-  ls.push((await city()).overlayMode);
+  ls.push((await city()).overlay ? (await city()).overlayMode : 'off');
 }
-if (!(ls[0] !== 'variety' && ls[0] !== 'food' && ls[1] === 'food' && ls[2] === 'variety')) fail(`L did not cycle off, food, variety (${ls})`);
+if (ls.join() !== 'oil,off,food,variety') fail(`L did not cycle oil, off, food, variety (${ls})`);
 // #overhunt: three lodges after one valley's deer; the lodge tool beside the lane says the game is shared and thin.
 await open('#overhunt-paused');
 c = await city();
@@ -723,6 +728,64 @@ await page.mouse.move(p.x + 1, p.y + 1);
 await frames(2);
 const lodgeTip = await tip();
 if (!/^Hunting lodge · 200 dr[\s\S]*Game in reach: the deer[\s\S]*shared with the 3 lodges/.test(lodgeTip ?? '')) fail(`lodge tip: ${lodgeTip}`);
+// Slice 10. #grove: the grove tool over the dry slope says how good the ground is; a click builds one; K twice on the agora adds the oil stall.
+await open('#grove-paused');
+c = await city();
+if (!(c.tool === 'grove' && c.groves === 0 && c.oilStalls === 0 && c.overlayMode === 'oil')) fail(`#grove: ${JSON.stringify(c)}`);
+const groveTipAt = async (x, z) => {
+  p = await at(x, z);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.move(p.x + 1, p.y + 1);
+  await frames(2);
+  return tip();
+};
+let gt = await groveTipAt(28.5, 61.5);
+if (!/^Olive grove · [\d,]+ dr[\s\S]*olive/.test(gt ?? '')) fail(`grove tool tip: ${gt}`);
+const money0 = c.money;
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (!(c.groves === 1 && c.money < money0)) fail(`clicking the grove tool built nothing: ${gt} ${JSON.stringify(c)}`);
+// K twice: the oil stall tool; clicking the lane's agora adds its stall.
+await page.keyboard.press('k');
+await page.keyboard.press('k');
+await frames(1);
+if ((await city()).tool !== 'stall') fail(`K twice did not pick the oil stall (${(await city()).tool})`);
+await zeus(() => window.__zeus.jump({ x: 28.5, z: 49.5, yaw: 0.9, dist: 14, tilt: 0 }));
+await frames(4);
+gt = await groveTipAt(28.5, 49.5);
+const money1 = (await city()).money;
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (!(c.oilStalls === 1 && c.money < money1)) fail(`the oil stall tool on the agora: ${gt} ${JSON.stringify(c)}`);
+// #oil: the grove, the press and the storehouse say what they hold; carts carry olives and oil.
+await open('#oil-paused');
+c = await city();
+if (!(c.groves >= 1 && c.presses === 1 && c.storehouses === 1 && c.oilStalls === 2 && c.oiled > 20)) fail(`#oil: ${JSON.stringify(c)}`);
+for (const [kind, re] of [
+  ['grove', /^An olive grove · olive ground \d+%/],
+  ['press', /^An olive press · [\d,]+ of [\d,]+ jars of oil/],
+  ['storehouse', /^A storehouse · [\d,]+ of [\d,]+ jars of oil/],
+]) {
+  const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
+  await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
+  await frames(4);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  if (!re.test(t ?? '')) fail(`hovering the ${kind}: ${t}`);
+}
+// #oilvendor: following the oil vendor, the oil overlay on.
+await open('#oilvendor');
+c = await city();
+if (!(c.following && c.overlay && c.overlayMode === 'oil' && c.oilVendors > 0)) fail(`#oilvendor: ${JSON.stringify(c)}`);
+if (!/oil vendor/.test(await zeus(() => document.querySelector('.follow-chip')?.textContent ?? ''))) fail('#oilvendor follow chip does not name the oil vendor');
+// #nooil: fine houses warn for want of oil; the panel says why; a shortfall line names oil.
+await open('#nooil');
+c = await city();
+pt = await panelText();
+const oilLines = await zeus(() => window.__zeus.townLines());
+if (!(c.noOil > 0 && c.presses === 0 && c.panel > 0 && /Oil/.test(pt ?? '') && oilLines.some((l) => /^Oil: /.test(l)))) fail(`#nooil: ${JSON.stringify(oilLines)} ${pt} ${JSON.stringify(c)}`);
+if (errors.length) fail('page errors (slice 10):\n' + errors.join('\n'));
 // A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
 await open('#saved-paused');
@@ -763,6 +826,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

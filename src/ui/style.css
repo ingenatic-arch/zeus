@@ -403,6 +403,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
   animation: line-in 0.6s ease;
 }
 .townline.workers { border-left-color: #a9773f; }
+.townline.oil { border-left-color: #7d9636; }
 .townline:hover { background: #fff6e2; }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 @keyframes line-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
