@@ -60,8 +60,20 @@ function storyLine(f: Family, e: Story, i: number): string {
       return `${who} moved in`;
     case 'up':
       return e.level >= COTTAGE ? 'Became a cottage: whitewash, a tiled roof and bread on the table' : 'Built a hut, now that water comes to the door';
-    case 'warn':
+    case 'warn': {
+      // After going down a level for want of it, still without: they worry again.
+      let again = false;
+      for (let j = i - 1; j >= 0; j--) {
+        const o = f.story[j];
+        if (o.what === 'up' || (o.what === 'relief' && o.need === e.need)) break;
+        if (o.what === 'down' && o.need === e.need) {
+          again = true;
+          break;
+        }
+      }
+      if (again) return `Still no ${need}, even in the ${e.level === HUT ? 'hut' : 'cottage'}: they began to worry again`;
       return e.need === 'water' ? 'Ten days without water: they began to worry' : 'Ten days without bread: they began to worry';
+    }
     case 'relief': {
       // "Just in time" only when it was close (the warning more than half run).
       let warned = -1;
