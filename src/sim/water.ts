@@ -3,12 +3,13 @@
  *
  * A fountain beside a road sends out a water carrier. She walks the roads a
  * tile at a time, never further than CARRIER_RANGE road steps from her
- * fountain. At a junction she heads for the homes whose water is running
- * lowest (looking a little way down each road), taking the next way round
- * from the last carrier's when it makes no difference; she turns round at dead
+ * fountain. At a junction she heads for the home in her reach whose water
+ * runs out soonest (counting the walk there), taking the next way round from
+ * the last carrier's when it makes no difference; she turns round at dead
  * ends, at the edge of her reach, and where no homes lie ahead but some lie
  * behind. After CARRIER_WALK tiles of road not yet walked this round (or twice
- * that in all) she heads home by the shortest road. Every home beside a road tile she stands on has water for
+ * that in all) she heads home by the shortest road. Every home beside a road
+ * tile she stands on has water for
  * WATER_LASTS ticks. Tents with water become huts; huts whose water has run
  * out for a month go back to tents.
  */
@@ -139,8 +140,8 @@ function roadNeighbours(s: SimState, size: number, t: number): number[] {
 }
 
 
-/** How far ahead (road tiles) she looks at a junction for the homes that need her most. */
-const LOOK_AHEAD = 16;
+/** Ticks she takes to walk one road tile: how much a home further down a way counts against it. */
+const TICKS_A_TILE = 1 / CARRIER_SPEED;
 
 /** The lowest water among lived-in homes beside a road tile (Infinity if none). */
 function thirstiest(s: SimState, size: number, t: number): number {
@@ -157,29 +158,61 @@ function thirstiest(s: SimState, size: number, t: number): number {
   return low;
 }
 
+/** Scratch space for the searches below (not state: cleared by a fresh stamp on every search). */
+let stamp = new Int32Array(0);
+let owner = new Int32Array(0);
+let depth = new Int32Array(0);
+let queue = new Int32Array(0);
+let gen = 0;
+
 /**
- * How badly the homes down one way from a junction need water: the lowest
- * water among lived-in homes beside the road tiles within LOOK_AHEAD steps of
- * `start` (not going back through the junction, and within her reach);
- * Infinity if there are no homes that way.
+ * How badly the homes down each way from road tile `cur` need her: one
+ * breadth-first search over the roads within her reach, out from all of
+ * `ways` at once and never back through `cur`, so each road tile belongs to
+ * the way that gets there first. A way's need is the lowest, over the
+ * lived-in homes beside its road tiles, of when the home's water runs out
+ * plus how long she would take to get there (lower is more urgent); Infinity
+ * if no lived-in home lies that way. With `firstOnly`, stops at the first home found.
  */
-function need(s: SimState, size: number, dist: Int32Array, junction: number, start: number): number {
-  let low = thirstiest(s, size, start);
-  const seen = new Set<number>([junction, start]);
-  let front = [start];
-  for (let d = 1; d < LOOK_AHEAD && front.length; d++) {
-    const next: number[] = [];
-    for (const t of front) {
-      for (const u of roadNeighbours(s, size, t)) {
-        if (seen.has(u) || dist[u] < 0 || dist[u] > CARRIER_RANGE) continue;
-        seen.add(u);
-        next.push(u);
-        low = Math.min(low, thirstiest(s, size, u));
-      }
-    }
-    front = next;
+function wayNeeds(s: SimState, size: number, dist: Int32Array, cur: number, ways: number[], firstOnly = false): number[] {
+  const total = size * size;
+  if (stamp.length !== total) {
+    stamp = new Int32Array(total);
+    owner = new Int32Array(total);
+    depth = new Int32Array(total);
+    queue = new Int32Array(total);
+    gen = 0;
   }
-  return low;
+  gen++;
+  const needs = ways.map(() => Infinity);
+  let head = 0;
+  let tail = 0;
+  stamp[cur] = gen;
+  ways.forEach((t, i) => {
+    if (stamp[t] === gen) return;
+    stamp[t] = gen;
+    owner[t] = i;
+    depth[t] = 1;
+    queue[tail++] = t;
+  });
+  while (head < tail) {
+    const t = queue[head++];
+    const i = owner[t];
+    const low = thirstiest(s, size, t);
+    if (low < Infinity) {
+      const v = low + depth[t] * TICKS_A_TILE;
+      if (v < needs[i]) needs[i] = v;
+      if (firstOnly) return needs;
+    }
+    for (const u of roadNeighbours(s, size, t)) {
+      if (stamp[u] === gen || dist[u] < 0 || dist[u] > CARRIER_RANGE) continue;
+      stamp[u] = gen;
+      owner[u] = i;
+      depth[u] = depth[t] + 1;
+      queue[tail++] = u;
+    }
+  }
+  return needs;
 }
 
 /** Which way a step goes: 1 north, 2 west, 3 east, 4 south. */
@@ -188,21 +221,29 @@ const dirOf = (size: number, from: number, to: number): number => (to === from -
 /**
  * Where she goes from road tile `cur`, having come from `prev` (-1 if from her
  * fountain or a turn), never beyond her reach: on along the road; round at a
- * dead end, or where no homes lie ahead but some lie behind; and at a junction the way to the homes whose water is running
- * lowest; if that is the same every way, the next way round from the one a
- * carrier last took there. -1 if there is no road at all.
+ * dead end, or where no lived-in homes lie ahead but some lie behind; and at a
+ * junction the way to the home whose water runs out soonest (counting the
+ * walk there), anywhere in her reach; if that is the same every way, the next
+ * way round from the one a carrier last took there. -1 if there is no road at all.
  */
 function chooseNext(s: SimState, size: number, f: Building, cur: number, prev: number): number {
   const dist = fountainDist(s, size, f);
   const all = roadNeighbours(s, size, cur).filter((t) => dist[t] >= 0 && dist[t] <= CARRIER_RANGE);
   const on = all.filter((t) => t !== prev);
   if (on.length === 0) return all.length ? all[0] : -1;
-  const needs = on.map((t) => need(s, size, dist, cur, t));
-  const most = Math.min(...needs);
-  // No homes ahead, but some behind: don't walk an empty road, turn back.
-  if (most === Infinity && all.length > on.length && need(s, size, dist, cur, prev) < Infinity) return prev;
-  if (on.length === 1) return on[0];
-  const pool = on.filter((_, i) => needs[i] === most);
+  const behind = all.length > on.length;
+  if (on.length === 1) {
+    // A plain stretch of road: on, unless it leads only to empty road and there are homes behind.
+    if (!behind || wayNeeds(s, size, dist, cur, on, true)[0] < Infinity) return on[0];
+    return wayNeeds(s, size, dist, cur, [prev], true)[0] < Infinity ? prev : on[0];
+  }
+  // A junction: every way at once, the way back too, so that homes behind her
+  // count for the way back rather than for a long way round.
+  const needs = wayNeeds(s, size, dist, cur, behind ? [...on, prev] : on);
+  const ahead = needs.slice(0, on.length);
+  const most = Math.min(...ahead);
+  if (most === Infinity && behind && needs[on.length] < Infinity) return prev;
+  const pool = on.filter((_, i) => ahead[i] === most);
   const last = s.exits[cur];
   // The first way (in N, W, E, S order) after the last one taken, wrapping round.
   let pick = pool[0];

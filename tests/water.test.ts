@@ -7,7 +7,7 @@ import { arrivalInterval } from '../src/sim/settlers';
 import { Sim } from '../src/sim/sim';
 import { homeStatus } from '../src/sim/status';
 import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
-import { CARRIER_RANGE, HUT, HUT_DECLINE_AFTER, waterReach, WATER_LASTS } from '../src/sim/water';
+import { CARRIER_RANGE, HUT, HUT_DECLINE_AFTER, stepsToFountain, waterReach, WATER_LASTS } from '../src/sim/water';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -155,6 +155,46 @@ describe('the water carrier', () => {
     sim.step();
     expect(sim.state.buildings).toEqual([]);
     expect(sim.state.money).toBe(before);
+  });
+});
+
+describe('where she goes', () => {
+  /** Every lived-in home within her reach has been watered within the last `ticks`. */
+  function noneStarved(sim: Sim, ticks: number): void {
+    const s = sim.state;
+    const reach = waterReach(s, N);
+    for (const b of s.buildings) {
+      if (b.kind !== 'home' || b.level === 0) continue;
+      const d = stepsToFountain(reach, s, N, b);
+      if (d < 0 || d > CARRIER_RANGE) continue;
+      expect(b.waterUntil - WATER_LASTS, `home at ${b.x}, ${b.z}, ${d} steps away`).toBeGreaterThan(s.tick - ticks);
+    }
+  }
+
+  it('crosses a long empty stretch of road to homes still within her reach, even with homes by her fountain', () => {
+    const sim = new Sim(7);
+    sim.enqueue({ type: 'road', tiles: [...row(0, 22, 80), ...col(20, 55, 79)] });
+    sim.enqueue({ type: 'fountain', at: [T(21, 81)] });
+    // Two homes by the fountain; the rest 21 to 25 road steps up the lane, past 16 tiles of empty road.
+    sim.enqueue({ type: 'plots', at: [T(16, 78), T(16, 81), T(21, 55), T(18, 55), T(21, 57), T(18, 57), T(21, 59), T(18, 59)] });
+    for (let k = 0; k < 4; k++) {
+      watchCarriers(sim, 3000);
+      noneStarved(sim, 3000);
+    }
+    expect(sim.state.buildings.filter((b) => b.level === HUT).length).toBe(8);
+  });
+
+  it('on a loop her reach cuts in two, she takes turns round both sides and no home in reach goes dry for good', () => {
+    const sim = new Sim(6);
+    sim.enqueue({ type: 'road', tiles: [...row(0, 10, 70), ...row(10, 30, 60), ...row(10, 30, 76), ...col(10, 60, 76), ...col(30, 60, 76)] });
+    sim.enqueue({ type: 'fountain', at: [T(11, 66)] });
+    const at: number[] = [];
+    for (let x = 11; x <= 29; x += 2) at.push(T(x, 58), T(x, 61), T(x, 74), T(x, 77));
+    sim.enqueue({ type: 'plots', at });
+    for (let k = 0; k < 4; k++) {
+      watchCarriers(sim, 3000);
+      noneStarved(sim, 3000);
+    }
   });
 });
 
