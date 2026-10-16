@@ -161,7 +161,7 @@ describe('warn, then decline, for blessings and plays', () => {
     // Some homes in the cut-off street warn about three needs at once.
     expect(homes(s).some((b) => warningsOf(s, b).length >= 3)).toBe(true);
     const people = new Map(warned.map((b) => [b.id, b.people]));
-    const down = drops(sim, 2 * TICKS_PER_MONTH);
+    const down = drops(sim, 2 * TICKS_PER_MONTH + 3 * TICKS_PER_DAY);
     for (const b of warned) {
       expect(down.has(b.id)).toBe(true);
       expect(b.level).toBe(TOWNHOUSE);
@@ -249,7 +249,8 @@ describe('saves', () => {
   it('a save round-trip carries on identically with the priestess and the actor on their rounds', () => {
     const a = demo('theatre');
     let t = 0;
-    while (!(a.state.walkers.some((w) => w.kind === 'priestess' && w.seg > 2) && a.state.walkers.some((w) => w.kind === 'actor' && w.seg > 2))) {
+    // Both out and some way into their rounds.
+    while (!(a.state.walkers.some((w) => w.kind === 'priestess' && w.steps > 5) && a.state.walkers.some((w) => w.kind === 'actor' && w.steps > 5))) {
       a.step();
       expect(++t).toBeLessThan(2000);
     }

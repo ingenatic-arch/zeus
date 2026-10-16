@@ -36,7 +36,7 @@ const MISSING_TICKS = 3600;
  * (FOOD_TICKS), gets a shrine, two more farms and a fountain for the hamlet
  * at the lane's far end; three months later a theatre. The scenes open at
  * moments along it. #closed clears the theatre (and cuts the west street
- * off) half a year after it opened, and opens 100 days later, while the
+ * off) half a year after it opened, and opens four months later, while the
  * warnings are up but nothing has gone down yet.
  */
 const SHRINE_AT = FOOD_TICKS;
@@ -45,7 +45,7 @@ const SHRINE_TICKS = SHRINE_AT + 450;
 const THEATRE_TICKS = THEATRE_AT + 300;
 const FINE_TICKS = THEATRE_AT + 1800;
 const CLOSE_AT = FINE_TICKS;
-const CLOSED_TICKS = CLOSE_AT + 1000;
+const CLOSED_TICKS = CLOSE_AT + 1200;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -233,6 +233,7 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
       // The hamlet at the lane's far end: its own fountain and a small agora across the lane.
       at(SHRINE_AT, { type: 'fountain', at: [T(24, 48)] });
       at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(27, 48)] });
+      at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(6, 81)] });
       at(SHRINE_AT, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
       if (theatre) at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       if (close) {

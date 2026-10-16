@@ -72,7 +72,7 @@ export class CityView {
     // Only the chunks of buildings that came, went or changed (not every building's, as before).
     const keys = new Map<number, { key: string; chunk: number }>();
     for (const b of s.buildings) {
-      const key = `${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' ? '' : ':' + facingOf(s, size, b).toFixed(1)}`;
+      const key = `${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine' ? '' : ':' + facingOf(s, size, b).toFixed(1)}`;
       const chunk = this.streets.chunkKey(b.x, b.z);
       keys.set(b.id, { key, chunk });
       if (this.buildingKeys.get(b.id)?.key !== key) dirty.add(chunk);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { warningsOf, wantOf, WARNING } from '../sim/folk';
+import { NEEDS, warningsOf, wantOf, WARNING } from '../sim/folk';
 import type { Building, Service, SimState } from '../sim/state';
 
 /** How often (seconds) which homes have signs is worked out again. */
@@ -98,34 +98,108 @@ function loafGeometry(): THREE.BufferGeometry {
   return mergeFlat(parts);
 }
 
+/** A little temple, lilac: a pediment on three columns over a step. */
+function templeGeometry(): THREE.BufferGeometry {
+  const ped = new THREE.Shape();
+  ped.moveTo(-0.62, 0.2);
+  ped.lineTo(0.62, 0.2);
+  ped.lineTo(0, 0.6);
+  ped.closePath();
+  const rect = (x0: number, y0: number, x1: number, y1: number): THREE.Shape => new THREE.Shape().moveTo(x0, y0).lineTo(x1, y0).lineTo(x1, y1).lineTo(x0, y1).closePath();
+  const parts = [flat(ped, '#7f58c8', 0.04), flat(rect(-0.58, 0.08, 0.58, 0.2), '#6a46b0', 0.04), flat(rect(-0.64, -0.6, 0.64, -0.46), '#7f58c8', 0.04)];
+  for (const x of [-0.4, 0, 0.4]) parts.push(flat(rect(x - 0.08, -0.46, x + 0.08, 0.08), '#a585e6', 0.04));
+  return mergeFlat(parts);
+}
+
+/** A smiling theatre mask, rose, its eyes and mouth cut through to the sign's face. */
+function maskGeometry(): THREE.BufferGeometry {
+  const m = new THREE.Shape();
+  m.moveTo(-0.56, 0.5);
+  m.quadraticCurveTo(0, 0.36, 0.56, 0.5);
+  m.bezierCurveTo(0.62, -0.08, 0.36, -0.64, 0, -0.64);
+  m.bezierCurveTo(-0.36, -0.64, -0.62, -0.08, -0.56, 0.5);
+  for (const x of [-0.22, 0.22]) m.holes.push(new THREE.Path().absellipse(x, 0.14, 0.12, 0.08, 0, Math.PI * 2, false, x < 0 ? 0.25 : -0.25));
+  const mouth = new THREE.Path();
+  mouth.moveTo(-0.3, -0.16);
+  mouth.quadraticCurveTo(0, -0.12, 0.3, -0.16);
+  mouth.quadraticCurveTo(0, -0.5, -0.3, -0.16);
+  m.holes.push(mouth);
+  return mergeFlat([flat(m, '#d24a6a', 0.04, 10)]);
+}
+
+/** A capsule `l` either side of the middle, of radius `r`. */
+function capsule(l: number, r: number): THREE.Shape {
+  const c = new THREE.Shape();
+  c.moveTo(-l, -r);
+  c.lineTo(l, -r);
+  c.absarc(l, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  c.lineTo(-l, r);
+  c.absarc(-l, 0, r, Math.PI / 2, (3 * Math.PI) / 2, false);
+  return c;
+}
+
+/** The wide sign for three or four needs: a cream capsule with the tail, `l` either side of the middle. */
+function wideFace(l: number): THREE.BufferGeometry {
+  const tail = new THREE.Shape();
+  tail.moveTo(-0.32, -0.86);
+  tail.lineTo(0.32, -0.86);
+  tail.lineTo(0, -1.42);
+  tail.closePath();
+  return mergeFlat([flat(capsule(l, 1), '#fff6e2', 0.02, 12), flat(tail, '#fff6e2', 0.02)]);
+}
+
+function wideRim(l: number): THREE.BufferGeometry {
+  const ring = capsule(l, 1.2);
+  const hole = capsule(l, 0.98);
+  ring.holes.push(new THREE.Path(hole.getPoints(12)));
+  const tail = new THREE.Shape();
+  tail.moveTo(-0.5, -0.9);
+  tail.lineTo(0.5, -0.9);
+  tail.lineTo(0, -1.66);
+  tail.closePath();
+  return mergeFlat([flat(ring, '#ffffff', 0, 12), flat(tail, '#ffffff', 0)]);
+}
+
+/** Half the straight run of the wide signs, for three and for four icons. */
+const WIDE3 = 0.95;
+const WIDE4 = 1.42;
+/** How high over the ground a sign floats, by the home's level (over its roof). */
+const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4];
+
 interface Sign {
   b: Building;
-  /** What it lacks: one need, or both side by side. */
+  /** What it lacks, in the fixed order: water, bread, blessings, plays. */
   needs: Service[];
   /** 0 just warned … 1 about to drop a level; -1 for a need to grow (shown with the "what's missing" overlay). */
   urgency: number;
 }
 
+type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | Service;
+const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', culture: 'culture' };
+
 /**
  * Signs over homes that lack what they need: a round cream sign with a water
- * drop or a loaf (or both, side by side), its rim orange-red when the warning
- * starts and deep red as the two months run out, pulsing in the last days. Warned homes always show theirs;
- * with the "what's missing" overlay on, homes that only lack what they need
- * to grow show one too, with a gold rim. Signs face the camera and grow a
+ * drop, a loaf, a little temple (blessings) or a mask (plays), or two side by
+ * side; three or four needs take a wider sign with the icons in a row, always
+ * in the same order (water, bread, blessings, plays) so a glance reads the
+ * same way every time. The rim is orange-red when the warning starts and
+ * deep red as the two months run out, pulsing in the last days. Warned homes
+ * always show theirs; with the "what's missing" overlay on, homes that only
+ * lack what they need to grow show one too, with a gold rim. Signs face the
+ * camera, float over the roof (higher over the taller houses), and grow a
  * little with distance so they stay readable from the usual height.
  */
 export class Signs {
   readonly group = new THREE.Group();
-  private readonly meshes: { rim: THREE.InstancedMesh; face: THREE.InstancedMesh; drop: THREE.InstancedMesh; loaf: THREE.InstancedMesh };
+  private readonly meshes: Record<MeshName, THREE.InstancedMesh>;
   private signs: Sign[] = [];
   private last = -Infinity;
   private lastTick = -1;
   private lastAll = false;
   private readonly m = new THREE.Matrix4();
   private readonly icon = new THREE.Matrix4();
-  /** Where the drop and the loaf go on a sign that shows both. */
-  private readonly left = new THREE.Matrix4().makeTranslation(-0.4, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.68, 0.68, 1));
-  private readonly right = new THREE.Matrix4().makeTranslation(0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.66, 0.66, 1));
+  /** Where each icon goes, for one, two, three and four of them. */
+  private readonly slots: THREE.Matrix4[][];
   private readonly p = new THREE.Vector3();
   private readonly sc = new THREE.Vector3();
   private readonly c = new THREE.Color();
@@ -133,8 +207,9 @@ export class Signs {
   private readonly amber = new THREE.Color('#e0632c');
   private readonly red = new THREE.Color('#b8261a');
   private readonly gold = new THREE.Color('#e8c040');
-  /** Signs showing now (for the measuring script). */
+  /** Signs showing now (for the measuring script), and how many of them are wide. */
   count = 0;
+  wide = 0;
 
   constructor(private readonly map: CoastMap) {
     this.group.name = 'signs';
@@ -149,7 +224,21 @@ export class Signs {
       this.group.add(mesh);
       return mesh;
     };
-    this.meshes = { rim: make('sign-rim', rimGeometry(), true), face: make('sign-face', faceGeometry(), false), drop: make('sign-drop', dropGeometry(), false), loaf: make('sign-loaf', loafGeometry(), false) };
+    this.meshes = {
+      rim: make('sign-rim', rimGeometry(), true),
+      face: make('sign-face', faceGeometry(), false),
+      rim3: make('sign-rim-3', wideRim(WIDE3), true),
+      face3: make('sign-face-3', wideFace(WIDE3), false),
+      rim4: make('sign-rim-4', wideRim(WIDE4), true),
+      face4: make('sign-face-4', wideFace(WIDE4), false),
+      water: make('sign-drop', dropGeometry(), false),
+      food: make('sign-loaf', loafGeometry(), false),
+      religion: make('sign-temple', templeGeometry(), false),
+      culture: make('sign-mask', maskGeometry(), false),
+    };
+    const at = (x: number, k: number): THREE.Matrix4 => new THREE.Matrix4().makeTranslation(x, 0.02, 0).multiply(new THREE.Matrix4().makeScale(k, k, 1));
+    const row = (l: number, n: number, k: number): THREE.Matrix4[] => Array.from({ length: n }, (_, i) => at(-l + (2 * l * i) / (n - 1), k));
+    this.slots = [[], [new THREE.Matrix4()], [at(-0.4, 0.67), at(0.42, 0.67)], row(WIDE3, 3, 0.7), row(WIDE4, 4, 0.7)];
   }
 
   /** Which homes have signs, worked out again a few times a second (or when the day changes). */
@@ -158,7 +247,7 @@ export class Signs {
     for (const b of s.buildings) {
       if (b.kind !== 'home' || b.people === 0) continue;
       const ws = warningsOf(s, b);
-      if (ws.length) out.push({ b, needs: ws.map((w) => w.need), urgency: Math.min(1, Math.max(0, 1 - ws[0].left / WARNING)) });
+      if (ws.length) out.push({ b, needs: NEEDS.filter((n) => ws.some((w) => w.need === n)), urgency: Math.min(1, Math.max(0, 1 - ws[0].left / WARNING)) });
       else if (all) {
         const want = wantOf(s, b);
         if (want) out.push({ b, needs: [want], urgency: -1 });
@@ -168,7 +257,7 @@ export class Signs {
   }
 
   /** Grow an instanced mesh to hold n. */
-  private fit(key: keyof Signs['meshes'], n: number): void {
+  private fit(key: MeshName, n: number): void {
     const old = this.meshes[key];
     if (n <= old.instanceMatrix.count) return;
     const cap = Math.max(n, old.instanceMatrix.count * 2);
@@ -191,18 +280,18 @@ export class Signs {
       this.refresh(s, all);
     }
     const n = this.signs.length;
-    for (const k of ['rim', 'face', 'drop', 'loaf'] as const) this.fit(k, n);
-    const { rim, face, drop, loaf } = this.meshes;
-    let nd = 0;
-    let nl = 0;
+    const names = Object.keys(this.meshes) as MeshName[];
+    for (const k of names) this.fit(k, n);
+    const counts = Object.fromEntries(names.map((k) => [k, 0])) as Record<MeshName, number>;
     const q = camera.quaternion;
     const cam = camera.position;
+    let wide = 0;
     for (let i = 0; i < n; i++) {
       const { b, needs, urgency } = this.signs[i];
       const cx = b.x + 1;
       const cz = b.z + 1;
       const bob = Math.sin(time * 1.7 + b.id * 1.3) * 0.045;
-      this.p.set(cx, this.map.heightAt(cx, cz) + HEIGHT + bob, cz);
+      this.p.set(cx, this.map.heightAt(cx, cz) + HEIGHTS[Math.min(b.level, HEIGHTS.length - 1)] + bob, cz);
       // The same size on screen from about 16 units away out to far off (up to three times its size), so a sign
       // reads from the default height and from afar; closer than that it grows, but not to fill the view.
       const far = Math.min(3, Math.max(0.6, this.p.distanceTo(cam) / 27));
@@ -212,27 +301,32 @@ export class Signs {
       this.p.y += (k - SIZE) * 1.4;
       this.sc.set(k, k, k);
       this.m.compose(this.p, q, this.sc);
-      rim.setMatrixAt(i, this.m);
-      face.setMatrixAt(i, this.m);
-      if (needs.length === 1) {
-        if (needs[0] === 'water') drop.setMatrixAt(nd++, this.m);
-        else loaf.setMatrixAt(nl++, this.m);
-      } else {
-        // Both: the drop and the loaf side by side, a little smaller.
-        drop.setMatrixAt(nd++, this.icon.copy(this.m).multiply(this.left));
-        loaf.setMatrixAt(nl++, this.icon.copy(this.m).multiply(this.right));
-      }
+      const shape = needs.length >= 4 ? '4' : needs.length === 3 ? '3' : '';
+      if (shape) wide++;
+      const rim = this.meshes[`rim${shape}` as MeshName];
+      const face = this.meshes[`face${shape}` as MeshName];
+      const ri = counts[`rim${shape}` as MeshName]++;
+      counts[`face${shape}` as MeshName]++;
+      rim.setMatrixAt(ri, this.m);
+      face.setMatrixAt(ri, this.m);
+      const slots = this.slots[Math.min(4, needs.length)];
+      needs.forEach((need, j) => {
+        const key = ICON_OF[need];
+        this.meshes[key].setMatrixAt(counts[key]++, this.icon.copy(this.m).multiply(slots[j]));
+      });
       if (urgency < 0) this.c.copy(this.gold);
       else this.c.copy(this.amber).lerp(this.red, Math.min(1, urgency * 1.15));
-      rim.setColorAt(i, this.c);
+      rim.setColorAt(ri, this.c);
     }
-    rim.count = n;
-    face.count = n;
-    drop.count = nd;
-    loaf.count = nl;
-    for (const mesh of [rim, face, drop, loaf]) mesh.instanceMatrix.needsUpdate = true;
-    if (rim.instanceColor) rim.instanceColor.needsUpdate = true;
+    for (const k of names) {
+      const mesh = this.meshes[k];
+      mesh.count = counts[k];
+      mesh.visible = counts[k] > 0;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
     this.count = n;
+    this.wide = wide;
   }
 }
 

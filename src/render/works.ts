@@ -5,6 +5,7 @@ import { BARN, GRANARY_CAP, GROW, STALL_CAP } from '../sim/food';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
+import { theatreModel } from './grand';
 import { amphora, cyl, facingOf, HOME_CHUNK, prism, stoneWall, windowX } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
@@ -253,8 +254,8 @@ function loaf(): THREE.BufferGeometry {
 
 const UP = new THREE.Vector3(0, 1, 0);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora';
-const isWork = (b: Building): b is Building & { kind: WorkKind } => b.kind === 'farm' || b.kind === 'granary' || b.kind === 'agora';
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre';
+const isWork = (b: Building): b is Building & { kind: WorkKind } => b.kind === 'farm' || b.kind === 'granary' || b.kind === 'agora' || b.kind === 'theatre';
 
 /** How many stooks, sacks or loaves show for a building's stock. */
 const STOOKS = 6;
@@ -283,6 +284,7 @@ export class Works {
   private readonly granaries: ChunkedInstances;
   private readonly agoras: ChunkedInstances;
   private readonly awnings: ChunkedInstances;
+  private readonly theatres: ChunkedInstances;
   private readonly wheat: ChunkedInstances;
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
@@ -310,12 +312,13 @@ export class Works {
     const a = agoraModel();
     this.agoras = new ChunkedInstances('agora', a.stone, mat, HOME_CHUNK, opts);
     this.awnings = new ChunkedInstances('agora-awning', a.awning, mat, HOME_CHUNK, opts);
+    this.theatres = new ChunkedInstances('theatre', theatreModel(), mat, HOME_CHUNK, opts);
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
     this.stooks = new ChunkedInstances('stooks', stook(), mat, HOME_CHUNK, opts);
     this.sacks = new ChunkedInstances('sacks', sack(), mat, HOME_CHUNK, opts);
     this.loaves = new ChunkedInstances('loaves', loaf(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false });
-    this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.wheat, this.stooks, this.sacks, this.loaves];
+    this.all = [this.farms, this.granaries, this.agoras, this.awnings, this.theatres, this.wheat, this.stooks, this.sacks, this.loaves];
     for (const c of this.all) this.group.add(c.group);
   }
 
@@ -331,6 +334,7 @@ export class Works {
       return `farm:${face}:${g}:${rateOf(b) > 0 ? 1 : 0}:${shown(b.stock, BARN, STOOKS)}`;
     }
     if (b.kind === 'granary') return `granary:${face}:${shown(b.stock, GRANARY_CAP, SACKS)}`;
+    if (b.kind === 'theatre') return `theatre:${face}`;
     return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}`;
   }
 
@@ -393,6 +397,7 @@ export class Works {
     const farms = list.filter((b) => b.kind === 'farm');
     const granaries = list.filter((b) => b.kind === 'granary');
     const agoras = list.filter((b) => b.kind === 'agora');
+    const theatres = list.filter((b) => b.kind === 'theatre');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
@@ -438,6 +443,7 @@ export class Works {
     this.granaries.set(kx, kz, granaries.length, (i, m) => whole(granaries[i], m));
     this.agoras.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
     this.awnings.set(kx, kz, agoras.length, (i, m) => whole(agoras[i], m));
+    this.theatres.set(kx, kz, theatres.length, (i, m) => whole(theatres[i], m));
 
     // The wheat: six rows across the field behind the yard, as tall and as golden as the crop is grown.
     const ROWS = 6;

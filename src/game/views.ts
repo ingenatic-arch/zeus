@@ -47,6 +47,22 @@ export const VIEWS: Record<string, CameraView> = {
   decline: { x: 19, z: 75, yaw: 0.9, dist: 11, tilt: -0.03 },
   // The town short of bread, from above, the missing overlay on.
   missing: { x: 27, z: 70, yaw: 0.45, dist: 40, tilt: -0.2 },
+  // The grown food town of cottages, ready to place a shrine.
+  grow: { x: 30, z: 74, yaw: 0.6, dist: 32, tilt: -0.15 },
+  // The shrine by the agora's street and the first townhouses round it.
+  shrine: { x: 35, z: 77.5, yaw: 0.75, dist: 13, tilt: -0.04 },
+  // Close over the shrine (the camera then follows the priestess), high enough to see her over the two-storey houses.
+  priestess: { x: 34, z: 77, yaw: 0.9, dist: 11, tilt: 0.3 },
+  // The theatre beside the shrine, from the town side, looking over the seats to the sea.
+  theatre: { x: 36.5, z: 82.5, yaw: 3.9, dist: 12, tilt: 0.45 },
+  // Close over the theatre (the camera then follows the actor), high enough to see him over the houses.
+  actor: { x: 34, z: 80, yaw: 0.9, dist: 11, tilt: 0.3 },
+  // The fine-house district from above, the missing overlay on.
+  fine: { x: 27, z: 73, yaw: 0.6, dist: 30, tilt: -0.14 },
+  // Low along a street where a fine house stands by a townhouse and a cottage.
+  compare: { x: 22, z: 77, yaw: 0.7, dist: 10, tilt: -0.03 },
+  // The town after its theatre was cleared and the west street cut off, its homes warning.
+  closed: { x: 24, z: 75, yaw: 0.6, dist: 26, tilt: -0.14 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

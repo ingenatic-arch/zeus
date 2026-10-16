@@ -5,6 +5,7 @@ import { PLOT_SIZE } from '../sim/build';
 import { sideOf } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
+import { fineA, fineB, SHRINE_FIRE, shrineModel, townhouseA, townhouseB } from './grand';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -403,10 +404,11 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TENT_FIRES = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
 const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0.62)];
 
-type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'fountain';
-const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.level === 0 ? 'stakes' : b.level === 1 ? 'tent' : b.level === 2 ? 'hut' : 'cottage');
-/** Homes and fountains are drawn here; the farm, granary and agora by Works. */
-const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain';
+type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'fountain' | 'shrine';
+const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine'];
+const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.kind === 'shrine' ? 'shrine' : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)]);
+/** Homes, fountains and shrines (the two-by-two buildings) are drawn here; the farm, granary, agora and theatre by Works. */
+const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine';
 
 /**
  * Stakes on empty plots, tents and huts on lived-in ones, and fountains,
@@ -419,6 +421,9 @@ export class Homes {
   private readonly tents: ChunkedInstances[];
   private readonly huts: ChunkedInstances[];
   private readonly cottages: ChunkedInstances[];
+  private readonly townhouses: ChunkedInstances[];
+  private readonly fines: ChunkedInstances[];
+  private readonly shrines: ChunkedInstances;
   private readonly fountains: ChunkedInstances[];
   private readonly stakes: ChunkedInstances;
   /** Buildings by chunk, as last seen. */
@@ -445,6 +450,9 @@ export class Homes {
     this.tents = [new ChunkedInstances('tent-a', tentA(), mat, HOME_CHUNK, opts), new ChunkedInstances('tent-b', tentB(), mat, HOME_CHUNK, opts)];
     this.huts = [new ChunkedInstances('hut-a', hutA(), mat, HOME_CHUNK, opts), new ChunkedInstances('hut-b', hutB(), mat, HOME_CHUNK, opts)];
     this.cottages = [new ChunkedInstances('cottage-a', cottageA(), mat, HOME_CHUNK, opts), new ChunkedInstances('cottage-b', cottageB(), mat, HOME_CHUNK, opts)];
+    this.townhouses = [new ChunkedInstances('townhouse-a', townhouseA(), mat, HOME_CHUNK, opts), new ChunkedInstances('townhouse-b', townhouseB(), mat, HOME_CHUNK, opts)];
+    this.fines = [new ChunkedInstances('fine-a', fineA(), mat, HOME_CHUNK, opts), new ChunkedInstances('fine-b', fineB(), mat, HOME_CHUNK, opts)];
+    this.shrines = new ChunkedInstances('shrine', shrineModel(), mat, HOME_CHUNK, opts);
     const f = fountainModel();
     const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.2, metalness: 0, emissive: new THREE.Color('#1d6f86'), emissiveIntensity: 0.35 });
     this.fountains = [
@@ -452,7 +460,7 @@ export class Homes {
       new ChunkedInstances('fountain-water', f.water, waterMat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false }),
     ];
     this.stakes = new ChunkedInstances('stakes', stake(), mat, HOME_CHUNK, opts);
-    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.fountains]) this.group.add(t.group);
+    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, this.shrines, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     const puff = new THREE.IcosahedronGeometry(1, 0);
     const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
@@ -545,14 +553,20 @@ export class Homes {
     const tentsBy: Building[][] = [[], []];
     const hutsBy: Building[][] = [[], []];
     const cottagesBy: Building[][] = [[], []];
+    const townhousesBy: Building[][] = [[], []];
+    const finesBy: Building[][] = [[], []];
     const fountains: Building[] = [];
+    const shrines: Building[] = [];
     const plots: Building[] = [];
     for (const b of list) {
       const look = lookOf(b);
       if (look === 'tent') tentsBy[Math.floor(hash2(b.id, 1, 40) * 2)].push(b);
       else if (look === 'hut') hutsBy[Math.floor(hash2(b.id, 6, 40) * 2)].push(b);
       else if (look === 'cottage') cottagesBy[Math.floor(hash2(b.id, 7, 40) * 2)].push(b);
+      else if (look === 'townhouse') townhousesBy[Math.floor(hash2(b.id, 8, 40) * 2)].push(b);
+      else if (look === 'fine') finesBy[Math.floor(hash2(b.id, 9, 40) * 2)].push(b);
       else if (look === 'fountain') fountains.push(b);
+      else if (look === 'shrine') shrines.push(b);
       else plots.push(b);
     }
     const q = new THREE.Quaternion();
@@ -574,7 +588,7 @@ export class Homes {
         k = f < 1 ? Math.max(0.02, 1 - Math.pow(1 - f, 3) + Math.sin(f * Math.PI) * 0.12) : 1;
       }
       // A fountain's platform reaches down into the ground, so it stands at the middle of its footprint.
-      p.set(cx, (b.kind === 'fountain' ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
+      p.set(cx, (b.kind === 'fountain' || b.kind === 'shrine' ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
       q.setFromAxisAngle(UP, facing(s, size, b));
       sc.set(1, k, mirror && hash2(b.id, 2, 40) < 0.5 ? -1 : 1);
       m.compose(p, q, sc);
@@ -593,6 +607,15 @@ export class Homes {
     homes(tentsBy, this.tents, TENT_FIRES);
     homes(hutsBy, this.huts, HUT_FIRES);
     homes(cottagesBy, this.cottages, null);
+    homes(townhousesBy, this.townhouses, null);
+    homes(finesBy, this.fines, null);
+    // The shrine's altar fire smokes like a hearth.
+    this.shrines.set(kx, kz, shrines.length, (i, m) => {
+      if (place(shrines[i], m, false) === 1) {
+        fp.copy(SHRINE_FIRE).applyMatrix4(m);
+        fires.push([fp.x, fp.y - 0.12, fp.z, hash2(shrines[i].id, 5, 42)]);
+      }
+    });
     for (const mesh of this.fountains) mesh.set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
     this.fires.set(key, fires);
     const corners: Array<[number, number]> = [];

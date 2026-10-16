@@ -37,7 +37,7 @@ const MODES: Record<Service, Mode> = {
 const TONE: Record<Service, number> = { water: 0, food: 1, religion: 2, culture: 3 };
 
 /** How high the top of each level of home stands (for the columns over them). */
-export const ROOF = [0.5, 0.95, 1.0, 1.3, 1.62, 1.72];
+export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8];
 
 /** How far by road each road tile is from the nearest building of a kind (dist -1: none reaches it). */
 export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {

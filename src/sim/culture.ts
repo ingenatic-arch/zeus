@@ -22,9 +22,9 @@ import { restFor } from './water';
 
 /** How far by road from her building the priestess (or the actor) ever goes, and how much fresh road a round is. */
 export const PRIESTESS_RANGE = 32;
-export const PRIESTESS_WALK = 48;
+export const PRIESTESS_WALK = 64;
 export const ACTOR_RANGE = 32;
-export const ACTOR_WALK = 48;
+export const ACTOR_WALK = 64;
 /** How long a home keeps a blessing, or its plays, after she passes (four months). */
 export const RELIGION_LASTS = 4 * TICKS_PER_MONTH;
 export const CULTURE_LASTS = 4 * TICKS_PER_MONTH;

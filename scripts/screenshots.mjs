@@ -38,6 +38,17 @@ const SHOTS = {
   warning: '#warning-paused',
   decline: '#decline-paused',
   missing: '#missing-paused',
+  grow: '#grow-overlay-paused',
+  shrine: '#shrine-paused-shot',
+  'shrine-overlay': '#shrine-overlay-paused',
+  priestess: '#priestess-shot',
+  theatre: '#theatre-paused-shot',
+  'theatre-overlay': '#theatre-overlay-paused',
+  actor: '#actor-shot',
+  fine: '#fine-paused-shot',
+  'fine-overlay': '#fine-overlay-paused',
+  compare: '#compare-paused-shot',
+  closed: '#closed-paused',
 };
 
 const want = process.argv.slice(2);
