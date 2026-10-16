@@ -140,6 +140,22 @@ describe('taxes', () => {
     }
   });
 
+  it('a home called on while the rate was none pays as soon as the rate goes up, not a month later', () => {
+    const sim = demo('food');
+    const s = sim.state;
+    sim.enqueue({ type: 'tax', rate: 0 });
+    // Until he has called on some homes in the last ten days: at none, they paid nothing.
+    const lately = (): Building[] => homes(s).filter((b) => b.taxedAt > 0 && s.tick - b.taxedAt < TICKS_PER_MONTH / 3);
+    for (let t = 0; t < 3 * TICKS_PER_MONTH && lately().length < 3; t += 10) sim.run(10);
+    const visited = lately();
+    expect(visited.length).toBeGreaterThan(0);
+    expect(visited.every((b) => b.taxPaid === 0)).toBe(true);
+    sim.enqueue({ type: 'tax', rate: FAIR });
+    // Well within a month of their visit at none, the collector has called again and they have paid.
+    sim.run(TICKS_PER_MONTH / 2);
+    expect(visited.some((b) => b.taxPaid > 0 && s.tick - b.taxedAt < TICKS_PER_MONTH / 2)).toBe(true);
+  });
+
   it('heavy and harsh taxes sour the moods of the homes the collector calls on, and the chatter grumbles', () => {
     const sim = demo('town');
     const s = sim.state;

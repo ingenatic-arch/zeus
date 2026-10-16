@@ -68,9 +68,10 @@ export function taxLine(s: SimState, map: CoastMap, b: Building): string {
   if (b.kind !== 'home' || b.level === 0 || b.people === 0) return '';
   const would = taxOf(s.taxRate, b.level);
   const rate = TAX_RATES[s.taxRate];
-  if (taxedLately(s, b)) return b.taxPaid > 0 ? `Taxes: paid the tax collector ${b.taxPaid} dr ${days(s.tick - b.taxedAt)} ago (${rate})` : 'Taxes: none to pay, the rate is none';
-  const why = whyUntaxed(s, map, b);
+  if (taxedLately(s, b) && b.taxPaid > 0) return `Taxes: paid the tax collector ${b.taxPaid} dr ${days(s.tick - b.taxedAt)} ago (${rate})`;
   if (would === 0) return 'Taxes: none to pay, the rate is none';
+  // Called on while the rate was none: he comes back for it now the rate is up.
+  const why = taxedLately(s, b) ? 'the tax collector called while the rate was none, and comes back for it' : whyUntaxed(s, map, b);
   return `Taxes: ${would} dr a month at ${rate} · ${why}`;
 }
 
@@ -582,7 +583,7 @@ export function moneyLine(s: SimState): TownLine | null {
     const where = owed.places === 1 ? 'one workplace' : `${owed.places} workplaces`;
     return {
       need: 'money',
-      text: `Money: the treasury can’t pay this month’s wages at ${where} (${fmt(owed.owed)} dr for ${fmt(owed.workers)} workers), so they work at half pace. Money coming in pays them first${hasTaxOffice(s) ? '; higher taxes, or a tax collector reaching more homes, would help' : '; build a tax office, which the treasury has kept back the cost of'}.`,
+      text: `Money: the treasury can’t pay this month’s wages at ${where} (${fmt(owed.owed)} dr for ${fmt(owed.workers)} workers), so they work at half pace. Money coming in pays them first${!hasTaxOffice(s) ? '; build a tax office, which the treasury has kept back the cost of' : s.taxRate === 0 ? '; taxes are set to none, so the collectors bring nothing in' : '; higher taxes, or a tax collector reaching more homes, would help'}.`,
       at: first?.id ?? 0,
     };
   }

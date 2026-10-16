@@ -63,8 +63,12 @@ export const FIRST_COLLECTOR = 20;
 /** Has a tax collector called on a home within the last month (it pays at most once in any month)? */
 export const taxedLately = (s: SimState, b: Building): boolean => b.taxedAt > 0 && s.tick - b.taxedAt < TICKS_PER_MONTH;
 
-/** Does the collector want to call here? A lived-in home not taxed within the last month. */
-export const owesTax = (s: SimState, b: Building): boolean => livedIn(b) && !taxedLately(s, b);
+/**
+ * Does the collector want to call here? A lived-in home not taxed within the
+ * last month, or one he called on while the rate was none (it paid nothing)
+ * that would pay now: raising the rate from none brings taxes in at once.
+ */
+export const owesTax = (s: SimState, b: Building): boolean => livedIn(b) && (!taxedLately(s, b) || (b.taxPaid === 0 && taxOf(s.taxRate, b.level) > 0));
 
 const near: Building[] = [];
 

@@ -797,6 +797,9 @@ function start(): void {
       }
       remember();
       if (cue) sound.play(cue);
+    }
+    {
+      // Every frame, not only when the town changes: a collector handing in doesn't change the town's look.
       const out = new Set<number>();
       for (const w of s.walkers) {
         if (w.kind !== 'tax') continue;

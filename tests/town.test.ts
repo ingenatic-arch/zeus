@@ -53,8 +53,11 @@ describe('#town', () => {
       }
     }
     expect(drops).toBe(0);
-    // A home may be warned for a few days while a walker comes round, and now and then a corner of the
-    // core waits a few weeks for the priestess (slice 8's history: two homes, once, about a month).
+    // A home may be warned for a few days while a walker comes round. Since slice 8's history (three tax
+    // offices, the east street and the theatre later), the far ends of the one priestess's reach (the two
+    // fine houses at the core's east end, and the first townhouses on the east street) go up to about
+    // eleven days without her blessing a few times in two years: 98 warned home-days, none down a level.
+    // It is not the walkers' routing (unchanged); slice 7's history had 12.
     expect(warnedDays).toBeLessThan(120);
   });
 });
