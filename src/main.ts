@@ -759,6 +759,7 @@ function start(): void {
       }
     }
     sound.update(dt);
+    world.setSeason(sim.date.month / 12 + (sim.date.day - 1) / (12 * 30));
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
     updateFollow();
