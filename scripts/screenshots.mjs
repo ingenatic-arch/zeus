@@ -255,6 +255,9 @@ const BEFORE = {
     const b = await closeTo(page, 'press', 2.4, 9, 0.1);
     await hover(page, b.x + 1.5, b.z + 1.5);
   },
+  storehouse: async (page) => {
+    await closeTo(page, 'storehouse', 5.5, 5, 0.35);
+  },
   'storehouse-tip': async (page) => {
     const b = await closeTo(page, 'storehouse', 2.3, 9, 0.1);
     await hover(page, b.x + 1.5, b.z + 1.5);

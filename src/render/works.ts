@@ -658,12 +658,12 @@ function groveHut(): THREE.BufferGeometry {
   const z0 = -1.35;
   const z1 = -0.75;
   parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, -1.2, 0.05), color: PAL.plinth });
-  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.42), color: PAL.mudWall });
-  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) parts.push({ geo: slab(x - 0.04, z - 0.04, x + 0.04, z + 0.04, 0.05, 0.34), color: PAL.stone });
-  // The lean-to roof, high at the back.
-  parts.push({ geo: lumpy(slab(-(x1 - x0) / 2 - 0.12, -(z1 - z0) / 2 - 0.1, (x1 - x0) / 2 + 0.14, (z1 - z0) / 2 + 0.1, 0, 0.06), 0.03, 731).rotateZ(-0.22).translate((x0 + x1) / 2, 0.5, (z0 + z1) / 2), color: PAL.thatch });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.44), color: PAL.mudWall });
+  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) parts.push({ geo: slab(x - 0.04, z - 0.04, x + 0.04, z + 0.04, 0.05, 0.44), color: PAL.stone });
+  // A steep thatched roof, its ridge along the slope.
+  parts.push({ geo: lumpy(prism(x1 - x0 + 0.16, (z1 - z0) / 2 + 0.1, 0.36), 0.03, 731).translate((x0 + x1) / 2, 0.44, (z0 + z1) / 2), color: PAL.thatch });
   parts.push({ geo: slab(x1, -1.12, x1 + 0.02, -0.96, 0.05, 0.36), color: PAL.door });
-  // A bench and a stack of empty baskets by the door, the beating pole leant on the wall.
+  // A bench and a stack of empty baskets by the door.
   parts.push({ geo: slab(0.7, -0.62, 1.2, -0.52, 0.12, 0.16), color: PAL.wood });
   for (const x of [0.74, 1.16]) parts.push({ geo: slab(x - 0.02, -0.6, x + 0.02, -0.54, -0.3, 0.12), color: PAL.woodDark });
   for (let i = 0; i < 3; i++) parts.push({ geo: cyl(0.08, 0.065, 0.07, 7).translate(1.38, 0.035 + i * 0.05, -0.62), color: PAL.basket });
