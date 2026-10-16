@@ -14,8 +14,8 @@ export type Command =
   | { type: 'plots'; at: number[] }
   /** Build 2 x 2 fountains with these top-left tiles, in order. */
   | { type: 'fountain'; at: number[] }
-  /** Build farms, granaries or the agora (3 x 3) with these top-left tiles, in order. */
-  | { type: 'build'; kind: 'farm' | 'granary' | 'agora'; at: number[] }
+  /** Build farms, granaries, the agora or a theatre (3 x 3), or shrines (2 x 2), with these top-left tiles, in order. */
+  | { type: 'build'; kind: 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre'; at: number[] }
   /** Clear a rectangle of tiles (inclusive): roads, homes, and trees on empty ground. */
   | { type: 'clear'; x0: number; z0: number; x1: number; z1: number }
   /** Undo the last build action. */

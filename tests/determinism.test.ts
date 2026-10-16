@@ -148,8 +148,8 @@ describe('simulation determinism', () => {
     const s = JSON.parse(serialize(new Sim(1).state));
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
-    s.version = 4;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 4 and this game reads version 5/);
+    s.version = 5;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 5 and this game reads version 6/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {

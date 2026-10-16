@@ -4,6 +4,7 @@ import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, COST, Ground, isBri
 import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import type { Command, StampedCommand } from './commands';
+import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepFarms } from './food';
 import { folkRng } from './folk';
 import { stepHouses, stepRent } from './houses';
@@ -33,7 +34,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    rounds: { water: freshRecord(), food: freshRecord() },
+    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), culture: freshRecord() },
     rent: { paid: 0, homes: 0 },
     buildings: [],
     walkers: [],
@@ -123,6 +124,7 @@ export class Sim {
     stepFountains(s, map);
     stepFarms(s, map);
     stepAgoras(s, map);
+    stepCulture(s, map);
     // Each look for a home sets how long until the next.
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
@@ -156,7 +158,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       record(s, placePlots(s, map, c.at, 'fountain'));
       break;
     case 'build':
-      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora') record(s, placePlots(s, map, c.at, c.kind));
+      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora' || c.kind === 'shrine' || c.kind === 'theatre') record(s, placePlots(s, map, c.at, c.kind));
       break;
     case 'clear':
       record(s, clearArea(s, map, c.x0, c.z0, c.x1, c.z1));
@@ -265,9 +267,11 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     since: s.tick,
     waterUntil: 0,
     walker: 0,
-    clock: kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : 0,
+    clock: kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : kind === 'shrine' ? FIRST_PRIESTESS : kind === 'theatre' ? FIRST_ACTOR : 0,
     turn: 0,
     foodUntil: 0,
+    religionUntil: 0,
+    cultureUntil: 0,
     workers: 0,
     stock,
     growth: 0,
@@ -278,7 +282,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
   return b;
 }
 
-/** Housing plots, fountains, farms, granaries or the agora, on the same ground rules. */
+/** Housing plots, fountains, farms, granaries, the agora, shrines or theatres, on the same ground rules. */
 function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
@@ -303,7 +307,7 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
 /**
  * Take a building down: a home's family packs up and walks out (or just
  * leaves, if no road leads out); the walkers it sends out (a water carrier, a
- * farm's carts, the agora's vendor and porter) go home at once, giving back
+ * farm's carts, the agora's vendor and porter, a priestess, an actor) go home at once, giving back
  * any room a cart had reserved at a granary.
  */
 function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
@@ -438,7 +442,15 @@ function stepWalkers(s: SimState, map: CoastMap): void {
   const keep = [];
   for (const w of s.walkers) {
     const on =
-      w.kind === 'water' ? moveCarrier(s, map, w) : w.kind === 'food' ? moveVendor(s, map, w) : w.kind === 'cart' || w.kind === 'porter' ? moveErrand(s, map, w) : moveGroup(s, map, w);
+      w.kind === 'water'
+        ? moveCarrier(s, map, w)
+        : w.kind === 'food'
+          ? moveVendor(s, map, w)
+          : w.kind === 'priestess' || w.kind === 'actor'
+            ? moveCulture(s, map, w)
+            : w.kind === 'cart' || w.kind === 'porter'
+              ? moveErrand(s, map, w)
+              : moveGroup(s, map, w);
     if (on) keep.push(w);
   }
   s.walkers = keep;

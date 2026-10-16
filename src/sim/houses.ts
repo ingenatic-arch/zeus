@@ -1,8 +1,12 @@
 /**
  * Homes change with what reaches them, each looked at once a day (staggered
  * by id): a tent with people and water becomes a hut; a hut with water and a
- * month's bread in hand becomes a cottage. When what a home's level needs
- * runs out (a hut its water; a cottage its water or bread) it warns, and if
+ * month's bread in hand becomes a cottage; a cottage settled a month, with a
+ * month in hand of water, bread and the priestess's blessing, becomes a
+ * townhouse; a townhouse that also has plays, a fine house (see readyToRise).
+ * When what a home's level needs runs out (a hut its water; a cottage its
+ * water or bread; a townhouse those or its blessings; a fine house any of
+ * those or its plays) it warns, and if
  * the need is still missing two months later (counted from when it ran out,
  * or from the home's last change of level, whichever is later) it drops one
  * level, and the people it can no longer hold walk out. The household's
@@ -10,16 +14,16 @@
  * the month.
  */
 import type { CoastMap } from '../map/bake';
-import { around, capacity, centreOf, COTTAGE, HUT, recountPopulation, TENT } from './buildings';
+import { around, capacity, centreOf, COTTAGE, recountPopulation } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, tell, warningsOf } from './folk';
+import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, readyToRise, tell, warningsOf } from './folk';
 import { sendLeavers } from './settlers';
 import type { Building, SimState } from './state';
 
 export { COTTAGE_FOOD_MIN, DECLINE_AFTER };
 
-/** Rent a household pays each month, by level (plot, tent, hut, cottage). */
-export const RENT = [0, 1, 2, 4];
+/** Rent a household pays each month, by level (plot, tent, hut, cottage, townhouse, fine house). */
+export const RENT = [0, 1, 2, 4, 6, 9];
 
 /** The need a home's level is missing longest and since when, or null if it has all it needs. */
 export const missing = missingNeed;
@@ -38,14 +42,8 @@ export function stepHouses(s: SimState, map: CoastMap): void {
   let changed = false;
   for (const b of s.buildings) {
     if (b.kind !== 'home' || b.level === 0 || (s.tick + b.id) % TICKS_PER_DAY !== 0) continue;
-    const wet = b.waterUntil > s.tick;
-    if (b.level === TENT && wet && b.people > 0) {
-      rise(s, b, HUT);
-      changed = true;
-      continue;
-    }
-    if (b.level === HUT && wet && b.foodUntil - s.tick >= COTTAGE_FOOD_MIN && b.people > 0) {
-      rise(s, b, COTTAGE);
+    if (readyToRise(s, b)) {
+      rise(s, b, b.level + 1);
       changed = true;
       continue;
     }

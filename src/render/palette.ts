@@ -114,6 +114,17 @@ export const PAL = {
   // Bridges
   timber: '#9a7048',
   timberDark: '#7a5636',
+  // The townhouses and fine houses, the shrine and the theatre.
+  bandBlue: '#4f7fb4',
+  bandOchre: '#d9a440',
+  marble: '#f5f0e4',
+  marbleShade: '#ddd2bc',
+  lilac: '#9a7ad0',
+  rose: '#d8607c',
+  seatStone: '#e4d6b6',
+  seatStoneShade: '#cdbd98',
+  skene: '#efe3c8',
+  courtyard: '#e4d5b4',
   // The ox cart, the porter and the food vendor
   ox: '#a88866',
   oxDark: '#6e5440',
@@ -124,6 +135,15 @@ export const PAL = {
   // The water carrier
   carrierDress: '#5fb0e8',
   carrierShawl: '#f6f1e4',
+  priestessRobe: '#f7f3ec',
+  priestessMantle: '#9a7ad0',
+  offeringBowl: '#c9a24e',
+  actorTunic: '#d8607c',
+  actorCloak: '#e8b04a',
+  actorMouth: '#7a2a2a',
+  mask: '#f6ead2',
+  ivy: '#5f8a3e',
+  scroll: '#efe2bf',
   skin: '#d9a273',
   hair: '#4b3526',
   // Tunics (picked per person)

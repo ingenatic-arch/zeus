@@ -6,15 +6,16 @@
  */
 import type { CoastMap } from '../map/bake';
 import { fertilityOf } from './build';
-import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from './buildings';
+import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from './buildings';
+import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
 import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
-import { missingSince } from './folk';
+import { missingSince, RISE_MIN, SETTLE } from './folk';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
-import type { Building, SimState, Walker } from './state';
+import type { Building, BuildingKind, SimState, Walker } from './state';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 
 export interface Status {
@@ -39,6 +40,7 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'farm') return farmStatus(s, map, b);
   if (b.kind === 'granary') return granaryStatus(s, map, b);
   if (b.kind === 'agora') return agoraStatus(s, map, b);
+  if (b.kind === 'shrine' || b.kind === 'theatre') return cultureStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -55,7 +57,85 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), workLine(s, map.size, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), playsLine(s, map, b), workLine(s, map.size, b)) };
+}
+
+/** What each of the new services is called, and who brings it. */
+const KINDS = {
+  religion: { building: 'shrine' as BuildingKind, what: 'blessings', walker: 'priestess', range: PRIESTESS_RANGE, his: 'her' },
+  culture: { building: 'theatre' as BuildingKind, what: 'plays', walker: 'actor', range: ACTOR_RANGE, his: 'his' },
+};
+
+/** Why the priestess (or the actor) doesn't reach a home. */
+function whyNot(s: SimState, map: CoastMap, b: Building, service: 'religion' | 'culture'): string {
+  const k = KINDS[service];
+  const size = map.size;
+  const places = s.buildings.filter((o) => o.kind === k.building);
+  if (places.length === 0) return `build a ${k.building} beside a road nearby`;
+  if (roadsBeside(s, size, b).length === 0) return `the ${k.walker} only visits homes beside the road ${k.his === 'her' ? 'she' : 'he'} walks`;
+  const sources: number[] = [];
+  for (const o of places) sources.push(...roadsBeside(s, size, o));
+  const d = stepsToFountain(roadSearch(s, size, sources), s, size, b);
+  if (d < 0) return `no road joins it to a ${k.building}`;
+  if (d > k.range) return `the nearest ${k.building} is ${d} steps away by road; its ${k.walker} goes ${k.range} at most`;
+  // Within reach of one: is anyone working there?
+  const reaching = places.filter((o) => roadsBeside(s, size, b).some((t) => distFrom(s, size, o)[t] >= 0 && distFrom(s, size, o)[t] <= k.range));
+  if (reaching.length && reaching.every((o) => o.workers === 0)) return `nobody works at the ${k.building}, so its ${k.walker} can’t go out`;
+  if ((service === 'religion' ? b.religionUntil : b.cultureUntil) > 0) return `within reach of a ${k.building}, but the ${k.walker} has taken other turns lately`;
+  return `within reach of a ${k.building}; the ${k.walker} hasn’t come this way yet`;
+}
+
+/** Why no blessings reach a home. */
+export const whyUnblessed = (s: SimState, map: CoastMap, b: Building): string => whyNot(s, map, b, 'religion');
+/** Why no plays reach a home. */
+export const whyNoPlays = (s: SimState, map: CoastMap, b: Building): string => whyNot(s, map, b, 'culture');
+
+/**
+ * A line on blessings or plays, for the levels that need them or would like
+ * them (a cottage once the city has a shrine; a townhouse once it has a
+ * theatre), or ''.
+ */
+function cultureLine(s: SimState, map: CoastMap, b: Building, service: 'religion' | 'culture'): string {
+  const k = KINDS[service];
+  const wants = service === 'religion' ? COTTAGE : TOWNHOUSE;
+  if (b.kind !== 'home' || b.level < wants) return '';
+  const needs = b.level > wants;
+  if (!needs && !s.buildings.some((o) => o.kind === k.building)) return '';
+  const until = service === 'religion' ? b.religionUntil : b.cultureUntil;
+  const What = k.what[0].toUpperCase() + k.what.slice(1);
+  const left = until - s.tick;
+  if (left > 0) {
+    let grow = '';
+    if (!needs) {
+      const next = levelName(b.level + 1);
+      grow = left < RISE_MIN ? ` · ${next} needs a month’s ${k.what} in hand` : s.tick - b.since < SETTLE ? ` · ${next} once they’ve settled in` : '';
+    }
+    return `${What} · last ${days(left)} more unless the ${k.walker} comes by again${grow}`;
+  }
+  if (needs) {
+    const goes = DECLINE_AFTER - (s.tick - missingSince(b, service));
+    return `No ${k.what} for ${days(s.tick - until)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the ${k.walker} comes`;
+  }
+  return `No ${k.what} · ${whyNot(s, map, b, service)}`;
+}
+
+export const blessingLine = (s: SimState, map: CoastMap, b: Building): string => cultureLine(s, map, b, 'religion');
+export const playsLine = (s: SimState, map: CoastMap, b: Building): string => cultureLine(s, map, b, 'culture');
+
+/** A shrine or theatre: how it is staffed and where its walker is. */
+export function cultureStatus(s: SimState, map: CoastMap, b: Building): Status {
+  const k = b.kind === 'shrine' ? KINDS.religion : KINDS.culture;
+  const title = BUILDING_NAMES[b.kind as 'shrine' | 'theatre'];
+  const The = `The ${k.walker}`;
+  if (roadsBeside(s, map.size, b).length === 0) return { title, detail: `Needs a road beside it, for the ${k.walker} to walk` };
+  const w = s.walkers.find((o) => o.id === b.walker);
+  const walk = b.kind === 'shrine' ? PRIESTESS_WALK : ACTOR_WALK;
+  let line: string;
+  if (w) line = w.back ? `${The} is heading back` : `${The} is out, ${w.steps} of ${walk} new road tiles into ${k.his} round`;
+  else if (b.workers === 0) line = `${The} can’t go out with nobody working the ${k.building}`;
+  else line = `${The} is resting · ${k.his === 'her' ? 'she' : 'he'} sets off again soon`;
+  const who = b.kind === 'shrine' ? 'Cottages and better want her blessing: a cottage needs it to become a townhouse' : 'Townhouses and better want plays: a townhouse needs them to become a fine house';
+  return { title, detail: lines(workersLine(s, map, b), line, who) };
 }
 
 /** What water reaches a lived-in home, and if none, why not. */
@@ -67,7 +147,7 @@ export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Searc
   }
   if (b.level >= HUT) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'water'));
-    const to = b.level === HUT ? 'a tent' : 'a hut';
+    const to = levelName(b.level - 1);
     return `No water for ${days(s.tick - b.waterUntil)} · goes back to ${to} in ${days(goes)} unless the water carrier comes`;
   }
   return `No water · ${whyDry(s, map, b, reach)}`;
@@ -96,9 +176,9 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
     const grow = b.level === HUT && b.waterUntil > s.tick ? (left >= COTTAGE_FOOD_MIN ? ' · becoming a cottage' : ' · a cottage needs a month’s bread in hand') : '';
     return `Has food · lasts ${days(left)} more${grow}`;
   }
-  if (b.level === COTTAGE) {
+  if (b.level >= COTTAGE) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'food'));
-    return `No food for ${days(s.tick - b.foodUntil)} · goes back to a hut in ${days(goes)} unless the food vendor comes`;
+    return `No food for ${days(s.tick - b.foodUntil)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the food vendor comes`;
   }
   return `No food · ${whyHungry(s, map, b, agoras)}`;
 }
@@ -241,6 +321,14 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     const stall = a ? ` · the stall has ${fmt(a.stock)} measures` : '';
     if (w.back) return { title: 'Food vendor', detail: `Heading back to the agora, selling on the way${stall}` };
     return { title: 'Food vendor', detail: `Out on her round, ${w.steps} of ${VENDOR_WALK} new road tiles walked · she heads for the homes whose food is running lowest${stall}` };
+  }
+  if (w.kind === 'priestess') {
+    if (w.back) return { title: 'Priestess', detail: 'Heading back to her shrine, blessing homes on the way' };
+    return { title: 'Priestess', detail: `Out on her round, ${w.steps} of ${PRIESTESS_WALK} new road tiles walked · she heads for the cottages and better whose blessings are running out soonest` };
+  }
+  if (w.kind === 'actor') {
+    if (w.back) return { title: 'Actor', detail: 'Heading back to the theatre, still in costume' };
+    return { title: 'Actor', detail: `Out on his round, ${w.steps} of ${ACTOR_WALK} new road tiles walked · he heads for the townhouses and better that have gone longest without a play` };
   }
   if (w.kind === 'cart') {
     const g = findBuilding(s, w.target);

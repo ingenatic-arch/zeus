@@ -8,6 +8,7 @@ import { TILE_ROAD, type Building, type BuildingKind, type Service, type SimStat
 import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, wantOf } from '../sim/folk';
+import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -28,7 +29,15 @@ export type OverlayMode = Service | 'missing';
 const MODES: Record<Service, Mode> = {
   water: { source: 'fountain', range: CARRIER_RANGE, lasts: WATER_LASTS, until: (b) => b.waterUntil, wants: (b) => b.kind === 'home' && b.level > 0 },
   food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => b.foodUntil, wants: eatsBread },
+  religion: { source: 'shrine', range: PRIESTESS_RANGE, lasts: RELIGION_LASTS, until: (b) => b.religionUntil, wants: wantsBlessing },
+  culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
 };
+
+/** Which of the placing overlay's four tones each service's overlay takes. */
+const TONE: Record<Service, number> = { water: 0, food: 1, religion: 2, culture: 3 };
+
+/** How high the top of each level of home stands (for the columns over them). */
+export const ROOF = [0.5, 0.95, 1.0, 1.3, 1.62, 1.72];
 
 /** How far by road each road tile is from the nearest building of a kind (dist -1: none reaches it). */
 export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
@@ -39,11 +48,12 @@ export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
 }
 
 /**
- * The water and food overlays: road tiles in a service walker's reach and
- * the homes' supply, tinted on the ground (through the placing overlay's
- * texture), and a column over every home that wants it: blue for water,
- * gold for food, as tall as its supply is fresh, or a short stub where there
- * is none. While a fountain or agora is being placed it also shows what the
+ * The service overlays (water, food, religion and culture): road tiles in a
+ * service walker's reach and the homes' supply, tinted on the ground (through
+ * the placing overlay's texture), and a column over every home that wants it
+ * with less than a month left: blue for water, gold for food, lilac for
+ * blessings, rose for plays, as tall as its supply is fresh, or a short stub
+ * where there is none. While a fountain, agora, shrine or theatre is being placed it also shows what the
  * new one would reach. The food overlay marks farms and granaries too, so
  * the chain from field to stall reads at a glance.
  */
@@ -68,6 +78,8 @@ export class ServiceOverlay {
   private readonly tones: Record<Service, { has: THREE.Color; fresh: THREE.Color; none: THREE.Color }> = {
     water: { has: new THREE.Color('#3f8fe0'), fresh: new THREE.Color('#8fd8ff'), none: new THREE.Color('#d8643a') },
     food: { has: new THREE.Color('#e09a26'), fresh: new THREE.Color('#ffe08a'), none: new THREE.Color('#9a4a6a') },
+    religion: { has: new THREE.Color('#8a62d0'), fresh: new THREE.Color('#d6c2ff'), none: new THREE.Color('#9a7a52') },
+    culture: { has: new THREE.Color('#d8506e'), fresh: new THREE.Color('#ffc2cf'), none: new THREE.Color('#5a7290') },
   };
 
   constructor(
@@ -113,7 +125,7 @@ export class ServiceOverlay {
   update(s: SimState, time: number): void {
     const mode = this.mode;
     this.group.visible = mode !== null;
-    this.placement.showOverlay(mode !== null, mode === 'food');
+    this.placement.showOverlay(mode !== null, mode && mode !== 'missing' ? TONE[mode] : 0);
     if (!mode) return;
     if (time - this.last < REFRESH && s.rev === this.lastRev && mode === this.lastMode) return;
     this.last = time;
@@ -179,7 +191,7 @@ export class ServiceOverlay {
         }
         const cx = b.x + 1;
         const cz = b.z + 1;
-        const y = this.map.heightAt(cx, cz) + (b.level >= 3 ? 1.45 : b.level >= 2 ? 1.3 : 1.0);
+        const y = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.2;
         const h = left > 0 ? 0.2 + 2.4 * k : 0.22;
         this.p.set(cx, y, cz);
         this.s.set(left > 0 ? 1 : 1.5, h, left > 0 ? 1 : 1.5);

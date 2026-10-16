@@ -112,6 +112,55 @@ function vendor(): THREE.BufferGeometry {
 const leg = (x: number, z: number, h: number, r: number, color: string): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color });
 
 /**
+ * The priestess: a woman in a long white robe (the tinted part) with a lilac
+ * mantle over her shoulders and a lilac veil, carrying a shallow offering
+ * bowl before her with a little flame in it.
+ */
+function priestess(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.1, 0.32, 7).translate(0, 0.16, 0), color: '', tint: true },
+    // The mantle, a lilac cape falling from the shoulders down the back.
+    { geo: new THREE.CylinderGeometry(0.066, 0.09, 0.2, 7, 1, true, Math.PI * 0.55, Math.PI * 0.9).translate(0, 0.22, 0), color: PAL.priestessMantle },
+    { geo: new THREE.CylinderGeometry(0.064, 0.058, 0.05, 7).translate(0, 0.31, 0), color: PAL.priestessMantle },
+    // Both arms forward, holding the bowl.
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, 0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, -0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.065, 0.03, 0.03, 7).translate(0.13, 0.3, 0), color: PAL.offeringBowl },
+    { geo: new THREE.ConeGeometry(0.026, 0.07, 4).translate(0.13, 0.35, 0), color: PAL.flame },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    // The veil over her hair, falling to the shoulders.
+    { geo: new THREE.IcosahedronGeometry(0.064, 0).scale(1, 0.85, 1).translate(-0.016, 0.38, 0), color: PAL.priestessMantle },
+    { geo: new THREE.CylinderGeometry(0.05, 0.068, 0.08, 6).translate(-0.022, 0.32, 0), color: PAL.priestessMantle },
+  ];
+  return mergeTinted(parts);
+}
+
+/**
+ * The actor: a man in a rose tunic (the tinted part) and a short saffron
+ * cloak, wearing a big pale comic mask with a wide grin, one arm flung up as
+ * if mid-speech and a scroll of the plays in the other hand.
+ */
+function actor(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin),
+    { geo: new THREE.CylinderGeometry(0.055, 0.088, 0.22, 6).translate(0, 0.21, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.07, 0.1, 0.16, 6, 1, true, Math.PI * 0.6, Math.PI * 0.8).translate(0, 0.24, 0), color: PAL.actorCloak },
+    // An arm flung up, and one holding the scroll out.
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.17, 4).rotateX(0.7).translate(0.0, 0.36, 0.1), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateZ(-0.9).translate(0.05, 0.25, -0.07), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.018, 0.018, 0.09, 5).rotateX(Math.PI / 2).translate(0.11, 0.21, -0.08), color: PAL.scroll },
+    // The mask: a big pale face, dark eyes and a grinning mouth, and a wreath of ivy.
+    { geo: new THREE.IcosahedronGeometry(0.075, 0).scale(0.8, 1.05, 1).translate(0.01, 0.38, 0), color: PAL.mask },
+    { geo: new THREE.BoxGeometry(0.02, 0.018, 0.022).translate(0.066, 0.4, 0.028), color: PAL.door },
+    { geo: new THREE.BoxGeometry(0.02, 0.018, 0.022).translate(0.066, 0.4, -0.028), color: PAL.door },
+    { geo: new THREE.BoxGeometry(0.02, 0.022, 0.07).translate(0.066, 0.345, 0), color: PAL.actorMouth },
+    { geo: new THREE.CylinderGeometry(0.07, 0.07, 0.025, 7).translate(-0.004, 0.44, 0), color: PAL.ivy },
+  ];
+  return mergeTinted(parts);
+}
+
+/**
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
  * (tinted tunic) walking at the ox's head. `loaded` stacks sacks of wheat on
  * the cart's bed.
@@ -202,14 +251,16 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
 }
 
 /** The kinds of walker with a job (all but settlers and leavers). */
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor';
 
-/** Settler and leaver groups, water carriers, food vendors, ox carts and porters walking the roads, redrawn every frame. */
+/** Settler and leaver groups, water carriers, food vendors, priestesses, actors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {
   readonly group = new THREE.Group();
   private readonly kinds: [ChunkedInstances, ChunkedInstances];
   private readonly carriers: ChunkedInstances;
   private readonly vendors: ChunkedInstances;
+  private readonly priestesses: ChunkedInstances;
+  private readonly actors: ChunkedInstances;
   /** Ox carts and porters: [empty, loaded]. */
   private readonly carts: [ChunkedInstances, ChunkedInstances];
   private readonly porters: [ChunkedInstances, ChunkedInstances];
@@ -234,9 +285,11 @@ export class Walkers {
     this.kinds = [new ChunkedInstances('walkers-head', person('head'), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-back', person('back'), mat, WALKER_CHUNK, opts)];
     this.carriers = new ChunkedInstances('walkers-water', carrier(), mat, WALKER_CHUNK, opts);
     this.vendors = new ChunkedInstances('walkers-food', vendor(), mat, WALKER_CHUNK, opts);
+    this.priestesses = new ChunkedInstances('walkers-priestess', priestess(), mat, WALKER_CHUNK, opts);
+    this.actors = new ChunkedInstances('walkers-actor', actor(), mat, WALKER_CHUNK, opts);
     this.carts = [new ChunkedInstances('walkers-cart', oxCart(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-cart-loaded', oxCart(true), mat, WALKER_CHUNK, opts)];
     this.porters = [new ChunkedInstances('walkers-porter', porter(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-porter-loaded', porter(true), mat, WALKER_CHUNK, opts)];
-    this.all = [...this.kinds, this.carriers, this.vendors, ...this.carts, ...this.porters];
+    this.all = [...this.kinds, this.carriers, this.vendors, this.priestesses, this.actors, ...this.carts, ...this.porters];
     for (const k of this.all) this.group.add(k.group);
   }
 
@@ -277,6 +330,8 @@ export class Walkers {
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
     const saffron = col(PAL.vendorDress);
+    const robe = col(PAL.priestessRobe);
+    const rose = col(PAL.actorTunic);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -292,11 +347,13 @@ export class Walkers {
         this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
-        const sc = w.kind === 'water' || w.kind === 'food' ? 0.9 : 0.95;
+        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'priestess' ? 0.9 : 0.95;
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         if (w.kind === 'water') this.carriers.push(this.m, dress);
         else if (w.kind === 'food') this.vendors.push(this.m, saffron);
+        else if (w.kind === 'priestess') this.priestesses.push(this.m, robe);
+        else if (w.kind === 'actor') this.actors.push(this.m, rose);
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
           (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, this.c);

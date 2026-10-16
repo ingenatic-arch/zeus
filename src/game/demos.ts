@@ -31,6 +31,21 @@ const BRIDGE_TICKS = 2200;
 const CUT_WARNING = 1250;
 const CUT_DECLINE = 1480;
 const MISSING_TICKS = 3600;
+/**
+ * The culture demos share one history: the food town, grown a year
+ * (FOOD_TICKS), gets a shrine, two more farms and a fountain for the hamlet
+ * at the lane's far end; three months later a theatre. The scenes open at
+ * moments along it. #closed clears the theatre (and cuts the west street
+ * off) half a year after it opened, and opens 100 days later, while the
+ * warnings are up but nothing has gone down yet.
+ */
+const SHRINE_AT = FOOD_TICKS;
+const THEATRE_AT = SHRINE_AT + 900;
+const SHRINE_TICKS = SHRINE_AT + 450;
+const THEATRE_TICKS = THEATRE_AT + 300;
+const FINE_TICKS = THEATRE_AT + 1800;
+const CLOSE_AT = FINE_TICKS;
+const CLOSED_TICKS = CLOSE_AT + 1000;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -39,7 +54,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: OverlayMode;
   /** Start with that overlay on, even without `-overlay`. */
@@ -197,6 +212,37 @@ function bridgeTown(ticks: number): (sim: Sim) => void {
   });
 }
 
+/** Where the shrine and the theatre go: at the east end of the main road, beside the fountain. */
+const SHRINE = { x: 35, z: 78 };
+const THEATRE = { x: 35, z: 81 };
+
+/**
+ * The food town given the gods and the theatre (see SHRINE_AT): the farm road
+ * runs a little further east, with a farm at its end and another north of it,
+ * so the bigger households have bread; a fountain goes in at the lane's far
+ * end, so the hamlet there grows to cottages, beyond the shrine's and the
+ * theatre's reach. `close` clears the theatre and the west street's road then.
+ */
+function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) => void {
+  return foodTown(ticks, 400, 200, {
+    then: (at) => {
+      at(SHRINE_AT, { type: 'road', tiles: row(51, 53, 63) });
+      at(SHRINE_AT, { type: 'build', kind: 'farm', at: [T(41, 60), T(51, 64)] });
+      // A second granary at the end of the agora's street, so its porter keeps up with the bigger households.
+      at(SHRINE_AT, { type: 'build', kind: 'granary', at: [T(35, 69)] });
+      // The hamlet at the lane's far end: its own fountain and a small agora across the lane.
+      at(SHRINE_AT, { type: 'fountain', at: [T(24, 48)] });
+      at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(27, 48)] });
+      at(SHRINE_AT, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
+      if (theatre) at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
+      if (close) {
+        at(CLOSE_AT, { type: 'clear', x0: THEATRE.x, z0: THEATRE.z, x1: THEATRE.x, z1: THEATRE.z });
+        at(CLOSE_AT, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z });
+      }
+    },
+  });
+}
+
 export const DEMOS: Record<string, Demo> = {
   coast: { view: 'coast' },
   streets: { view: 'streets', setup: neighbourhood(560) },
@@ -215,4 +261,12 @@ export const DEMOS: Record<string, Demo> = {
   warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
   decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
+  grow: { view: 'grow', tool: 'shrine', setup: foodTown(FOOD_TICKS), overlay: 'religion' },
+  shrine: { view: 'shrine', setup: cultureTown(SHRINE_TICKS, false), overlay: 'religion' },
+  priestess: { view: 'priestess', setup: cultureTown(SHRINE_TICKS, false), follow: 'priestess', overlay: 'religion' },
+  theatre: { view: 'theatre', setup: cultureTown(THEATRE_TICKS), overlay: 'culture' },
+  actor: { view: 'actor', setup: cultureTown(THEATRE_TICKS), follow: 'actor', overlay: 'culture' },
+  fine: { view: 'fine', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
+  compare: { view: 'compare', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
+  closed: { view: 'closed', speed: 'paused', setup: cultureTown(CLOSED_TICKS, true, true), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
 };

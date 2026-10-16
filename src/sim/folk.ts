@@ -7,7 +7,7 @@
  * anything else that happens. A household's members always number exactly
  * its home's `people`.
  */
-import { capacity, COTTAGE, HUT, TENT } from './buildings';
+import { capacity, COTTAGE, FINE, HUT, levelName, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextInt, seedRng, type RngState } from './rng';
 import type { Building, Family, Kin, Person, Service, SimState, Story } from './state';
@@ -157,8 +157,10 @@ export function leavingGroups(s: SimState, f: Family, n: number): number[][] {
       if (alone) groups.push({ idx: [i], unit: u, single: true });
     }
   });
-  // At most a dozen choices (a household holds 13): try every combination, best first.
-  const g = groups.slice(-12);
+  // More than a dozen choices (a townhouse or fine house): a knapsack over the family units.
+  if (groups.length > EXACT_CHOICES) return knapsack(f, units, groups, n);
+  // A dozen choices or fewer (every cottage and smaller): try every combination, best first.
+  const g = groups;
   let best: number[][] | null = null;
   let bestCost = Infinity;
   for (let mask = 1; mask < 1 << g.length; mask++) {
@@ -185,6 +187,61 @@ export function leavingGroups(s: SimState, f: Family, n: number): number[][] {
   // Nobody can go without breaking up a family (it can't happen: the head's own family always fits in a tent): the newest leave.
   if (!best) return [Array.from({ length: Math.min(n, f.members.length - 1) }, (_, k) => f.members.length - 1 - k)];
   return best.sort((x, y) => y[0] - x[0]);
+}
+
+/** Up to this many choices of who leaves, every combination is tried. */
+const EXACT_CHOICES = 12;
+
+/**
+ * Who leaves from a big household, with the same costs as the full search
+ * (newer families first, singles only when a whole family won't do, as few
+ * extra as can be): for each family unit, either nobody, or some of its grown
+ * children and elderly parents (the newest first), or the whole unit; the
+ * cheapest mix that sends at least `n` is found by a knapsack over how many go.
+ */
+function knapsack(f: Family, units: Array<[number, number]>, groups: Array<{ idx: number[]; unit: number; single: boolean }>, n: number): number[][] {
+  const total = f.members.length;
+  // Each unit's options: [people, cost, groups].
+  const options = units.map((_, u) => {
+    const mine = groups.filter((g) => g.unit === u);
+    const singles = mine.filter((g) => g.single).sort((a, b) => b.idx[0] - a.idx[0]);
+    const whole = mine.find((g) => !g.single);
+    const each = (units.length - u) * 2;
+    const out: Array<{ people: number; cost: number; take: number[][] }> = [{ people: 0, cost: 0, take: [] }];
+    for (let k = 1; k <= singles.length; k++) out.push({ people: k, cost: k * (each + 15), take: singles.slice(0, k).map((g) => g.idx) });
+    if (whole) out.push({ people: whole.idx.length, cost: each, take: [whole.idx] });
+    return out;
+  });
+  // best[c]: the cheapest way for the units so far to send exactly c people (null: none).
+  let best: Array<{ cost: number; take: number[][] } | null> = Array.from({ length: total + 1 }, (_, c) => (c === 0 ? { cost: 0, take: [] } : null));
+  for (const opts of options) {
+    const next: typeof best = Array.from({ length: total + 1 }, () => null);
+    for (let c = 0; c <= total; c++) {
+      const b = best[c];
+      if (!b) continue;
+      for (const o of opts) {
+        const k = c + o.people;
+        if (k > total) continue;
+        const cost = b.cost + o.cost;
+        const was = next[k];
+        if (!was || cost < was.cost) next[k] = { cost, take: [...b.take, ...o.take] };
+      }
+    }
+    best = next;
+  }
+  let pick: number[][] | null = null;
+  let low = Infinity;
+  for (let c = n; c <= total; c++) {
+    const b = best[c];
+    if (!b) continue;
+    const cost = b.cost + (c - n) * 1000;
+    if (cost < low) {
+      low = cost;
+      pick = b.take;
+    }
+  }
+  if (!pick) return [Array.from({ length: Math.min(n, total - 1) }, (_, k) => total - 1 - k)];
+  return pick.map((g) => [...g]).sort((x, y) => y[0] - x[0]);
 }
 
 /**
@@ -239,7 +296,7 @@ const lastOf = (f: Family, what: Story['what']): Story | undefined => {
  * move up or down, and settling in. A pure reading of the home's state.
  * `ctx` says what the city offers (any agora at all, any jobs at all).
  */
-export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: boolean }, workable: number): Mood {
+export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: boolean; shrine?: boolean; theatre?: boolean }, workable: number): Mood {
   const reasons: Array<{ text: string; w: number }> = [];
   const add = (w: number, text: string): void => void reasons.push({ text, w });
   const f = b.family;
@@ -269,6 +326,32 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     else if (ctx.agora) add(-1, 'No bread from the market');
     else add(-1, 'No bread to be had: there’s no market yet');
   }
+  // The priestess's blessing: a townhouse's need; a cottage would like it, if there is a shrine to be had.
+  const blessed = b.religionUntil > s.tick;
+  if (b.level >= TOWNHOUSE) {
+    if (blessed) add(1, 'Blessed by the priestess');
+    else {
+      const gone = s.tick - b.religionUntil;
+      if (gone < WARN_AFTER) add(-1, `The priestess is late (${span(gone)})`);
+      else add(gone > TICKS_PER_MONTH ? -3 : -2, `No blessings for ${span(gone)}`);
+    }
+  } else if (b.level === COTTAGE) {
+    if (blessed) add(1, 'The priestess comes by with blessings');
+    else if (ctx.shrine) add(-1, 'The priestess doesn’t come this way');
+  }
+  // Plays: a fine house's need; a townhouse would like them, if there is a theatre.
+  const plays = b.cultureUntil > s.tick;
+  if (b.level >= FINE) {
+    if (plays) add(1, 'Evenings at the theatre');
+    else {
+      const gone = s.tick - b.cultureUntil;
+      if (gone < WARN_AFTER) add(-1, `The actor is late (${span(gone)})`);
+      else add(gone > TICKS_PER_MONTH ? -3 : -2, `No plays for ${span(gone)}`);
+    }
+  } else if (b.level === TOWNHOUSE) {
+    if (plays) add(1, 'The actor comes by with news of the plays');
+    else if (ctx.theatre) add(-1, 'No actor comes this way');
+  }
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');
     else if (b.workers === 0) add(0, workable === 1 ? 'No work to be had nearby' : `No work nearby for the ${workable} who could work`);
@@ -278,8 +361,8 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     const up = lastOf(f, 'up');
     const down = lastOf(f, 'down');
     const recent = 3 * TICKS_PER_MONTH;
-    if (down && s.tick - down.tick < recent && (!up || up.tick < down.tick)) add(-1, `Lost their ${down.level === HUT ? 'cottage' : 'hut'} lately`);
-    else if (up && s.tick - up.tick < recent) add(1, `Moved up to a ${up.level >= COTTAGE ? 'cottage' : 'hut'} lately`);
+    if (down && s.tick - down.tick < recent && (!up || up.tick < down.tick)) add(-1, `Lost their ${levelName(down.level + 1, '')} lately`);
+    else if (up && s.tick - up.tick < recent) add(1, `Moved up to ${levelName(up.level)} lately`);
     if (s.tick - f.came < TICKS_PER_MONTH) add(1, 'Glad of a place of their own');
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
@@ -309,15 +392,33 @@ export const WARNING = 2 * TICKS_PER_MONTH;
 export const DECLINE_AFTER = WARN_AFTER + WARNING;
 /** A hut needs at least this much bread in hand to become a cottage (a month). */
 export const COTTAGE_FOOD_MIN = TICKS_PER_MONTH;
+/** A cottage or townhouse needs at least this much of every need in hand to go up a level (a month)… */
+export const RISE_MIN = TICKS_PER_MONTH;
+/** …and to have been what it is for at least this long (a month), so it never climbs straight back after a drop. */
+export const SETTLE = TICKS_PER_MONTH;
 /** The last stretch of a warning, when the sign turns red and pulses. */
 export const URGENT = 10 * TICKS_PER_DAY;
 
-/** The needs a home's level has (a hut water; a cottage water and bread). */
+/** Every need, in the order they are always shown. */
+export const NEEDS: readonly Service[] = ['water', 'food', 'religion', 'culture'];
+
+/** Each need in a word, as people say it: water, bread, blessings, plays. */
+export const NEED_WORDS: Record<Service, string> = { water: 'water', food: 'bread', religion: 'blessings', culture: 'plays' };
+/** Who brings each need. */
+export const BRINGER: Record<Service, string> = { water: 'the water carrier', food: 'the food vendor', religion: 'the priestess', culture: 'the actor' };
+
+/** The needs a home's level has (a hut water; a cottage water and bread; a townhouse blessings too; a fine house plays as well). */
 export function needsOf(b: Building): Service[] {
-  if (b.kind !== 'home') return [];
-  if (b.level >= COTTAGE) return ['water', 'food'];
-  if (b.level >= HUT) return ['water'];
-  return [];
+  if (b.kind !== 'home' || b.level < HUT) return [];
+  return NEEDS.slice(0, Math.min(NEEDS.length, b.level - 1));
+}
+
+/** The need a home of this level must add to go up a level (a tent water, a hut bread, a cottage blessings, a townhouse plays), or '' at the top. */
+export const nextNeed = (level: number): '' | Service => (level >= TENT && level <= TOWNHOUSE ? NEEDS[level - 1] : '');
+
+/** The tick a home's supply of a need lasts until. */
+export function untilOf(b: Building, need: Service): number {
+  return need === 'water' ? b.waterUntil : need === 'food' ? b.foodUntil : need === 'religion' ? b.religionUntil : b.cultureUntil;
 }
 
 /**
@@ -326,14 +427,29 @@ export function needsOf(b: Building): Service[] {
  * if later.
  */
 export function missingSince(b: Building, need: Service): number {
-  const until = need === 'water' ? b.waterUntil : b.foodUntil;
-  return Math.max(until, b.since);
+  return Math.max(untilOf(b, need), b.since);
+}
+
+/**
+ * Is a home ready to go up a level now? A tent with water; a hut with water
+ * and a month's bread in hand; a cottage (or townhouse) with a month in hand
+ * of everything the next level needs, after a month as what it is.
+ */
+export function readyToRise(s: SimState, b: Building): boolean {
+  if (b.kind !== 'home' || b.people === 0) return false;
+  if (b.level === TENT) return b.waterUntil > s.tick;
+  if (b.level === HUT) return b.waterUntil > s.tick && b.foodUntil - s.tick >= COTTAGE_FOOD_MIN;
+  if (b.level === COTTAGE || b.level === TOWNHOUSE) {
+    if (s.tick - b.since < SETTLE) return false;
+    return NEEDS.slice(0, b.level).every((need) => untilOf(b, need) - s.tick >= RISE_MIN);
+  }
+  return false;
 }
 
 /**
  * The need a home's level is missing longest and since when, or null if it
- * has all it needs: 'water' or 'food' and the tick it ran out (or the home's
- * last change of level, if later).
+ * has all it needs: the need and the tick it ran out (or the home's last
+ * change of level, if later).
  */
 export function missingNeed(b: Building): { need: Service; since: number } | null {
   let worst: { need: Service; since: number } | null = null;
@@ -372,10 +488,17 @@ export function warningOf(s: SimState, b: Building): Warning | null {
   return warningsOf(s, b)[0] ?? null;
 }
 
-/** What a home needs to go up a level that it doesn't have now ('' if nothing, or it can't go higher yet). */
+/**
+ * What a home needs to go up a level that it doesn't have now ('' if nothing,
+ * or it can't go higher yet). A cottage counts as wanting the priestess only
+ * once the city has a shrine, and a townhouse plays once it has a theatre:
+ * until then they have all there is to be had.
+ */
 export function wantOf(s: SimState, b: Building): '' | Service {
   if (b.kind !== 'home' || b.people === 0) return '';
   if (b.level === TENT) return b.waterUntil > s.tick ? '' : 'water';
   if (b.level === HUT) return b.foodUntil - s.tick >= COTTAGE_FOOD_MIN ? '' : 'food';
+  if (b.level === COTTAGE) return b.religionUntil - s.tick < RISE_MIN && s.buildings.some((o) => o.kind === 'shrine') ? 'religion' : '';
+  if (b.level === TOWNHOUSE) return b.cultureUntil - s.tick < RISE_MIN && s.buildings.some((o) => o.kind === 'theatre') ? 'culture' : '';
   return '';
 }

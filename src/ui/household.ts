@@ -5,13 +5,13 @@
  * a second while open.
  */
 import type { CoastMap } from '../map/bake';
-import { capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from '../sim/buildings';
+import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from '../sim/buildings';
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
-import { ageOf, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
+import { ageOf, BRINGER, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { reachesWork, whyDry, whyHungry } from '../sim/status';
-import type { Building, Family, Person, SimState, Story } from '../sim/state';
+import { reachesWork, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
+import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -37,6 +37,8 @@ export function nameList(names: readonly string[]): string {
 const ICON = {
   water: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 2.8c3.3 4.6 6.2 8.2 6.2 11.6a6.2 6.2 0 0 1-12.4 0c0-3.4 2.9-7 6.2-11.6z" fill="#4f9be0" stroke="#2c5f8f" stroke-width="1.2"/></svg>',
   food: '<svg viewBox="0 0 24 24" class="ic"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" fill="#e0a548" stroke="#8a5a14" stroke-width="1.2"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" stroke="#8a5a14" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  religion: '<svg viewBox="0 0 24 24" class="ic"><path d="M2.6 8.6 12 3.4l9.4 5.2z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" stroke="#4a3a6a" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 18.4h18.4v2.6H2.8z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  culture: '<svg viewBox="0 0 24 24" class="ic"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" fill="#e3778f" stroke="#7a2a40" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" fill="#7a2a40"/><path d="M8.2 13.6q3.8 4.2 7.6 0" fill="none" stroke="#7a2a40" stroke-width="1.6" stroke-linecap="round"/></svg>',
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   home: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 21v-8.5L12 6l8 6.5V21z" fill="#e9cf98" stroke="#4a3420" stroke-width="1.2" stroke-linejoin="round"/><path d="M10 21v-5h4v5z" fill="#4a3420"/></svg>',
 };
@@ -49,17 +51,27 @@ function face(level: number): string {
   return `<svg viewBox="0 0 24 24" class="face"><circle cx="12" cy="12" r="10" fill="${fill}" stroke="#4a3420" stroke-width="1.2"/><circle cx="8.8" cy="10.6" r="1.25" fill="#4a3420"/><circle cx="15.2" cy="10.6" r="1.25" fill="#4a3420"/>${brows}<path d="${mouth}" fill="none" stroke="#4a3420" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 }
 
+/** What going up to each level brought. */
+const UP_LINES = [
+  '',
+  '',
+  'Built a hut, now that water comes to the door',
+  'Became a cottage: whitewash, a tiled roof and bread on the table',
+  'Became a townhouse: a second storey, a painted band under the eaves, and the priestess’s blessing',
+  'Became a fine house: a courtyard, columns at the door, and evenings at the theatre',
+];
+
 /** One line of a household's story. */
 function storyLine(f: Family, e: Story, i: number): string {
   const who = nameList(e.names);
-  const need = e.need === 'water' ? 'water' : 'bread';
+  const need = e.need ? NEED_WORDS[e.need] : 'water';
   switch (e.what) {
     case 'came':
       return `${who} came from ${f.origin} and pitched a tent`;
     case 'joined':
       return `${who} moved in`;
     case 'up':
-      return e.level >= COTTAGE ? 'Became a cottage: whitewash, a tiled roof and bread on the table' : 'Built a hut, now that water comes to the door';
+      return UP_LINES[Math.min(e.level, FINE)] || 'Moved up a level';
     case 'warn': {
       // After going down a level for want of it, still without: they worry again.
       let again = false;
@@ -71,18 +83,19 @@ function storyLine(f: Family, e: Story, i: number): string {
           break;
         }
       }
-      if (again) return `Still no ${need}, even in the ${e.level === HUT ? 'hut' : 'cottage'}: they began to worry again`;
-      return e.need === 'water' ? 'Ten days without water: they began to worry' : 'Ten days without bread: they began to worry';
+      if (again) return `Still no ${need}, even in the ${levelName(e.level, '')}: they began to worry again`;
+      return `Ten days without ${need}: they began to worry`;
     }
     case 'relief': {
       // "Just in time" only when it was close (the warning more than half run).
       let warned = -1;
       for (let j = i - 1; j >= 0 && warned < 0; j--) if (f.story[j].what === 'warn') warned = f.story[j].tick;
       const close = warned >= 0 && e.tick - warned > WARNING / 2;
-      return `${e.need === 'water' ? 'The water carrier' : 'The food vendor'} came back${close ? ', just in time' : ''}`;
+      const by = e.need ? BRINGER[e.need] : 'the water carrier';
+      return `${by[0].toUpperCase()}${by.slice(1)} came back${close ? ', just in time' : ''}`;
     }
     case 'down':
-      return e.level === HUT ? `Gave up the cottage for a hut, after two months without ${need}` : `Went back to a tent, after two months without ${need}`;
+      return e.level === TENT ? `Went back to a tent, after two months without ${need}` : `Gave up the ${levelName(e.level + 1, '')} for ${levelName(e.level)}, after two months without ${need}`;
     case 'left':
       // Each family that left together has its own line.
       return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
@@ -99,18 +112,49 @@ function moodBlock(m: Mood): string {
   return `<section class="mood">${face(m.level)}<div><div class="word">${m.word}</div><ul class="reasons">${reasons}</ul></div></section>`;
 }
 
+/** Why a home lacks a need, in a few words. */
+function whyLacks(s: SimState, map: CoastMap, b: Building, need: Service): string {
+  if (need === 'water') return whyDry(s, map, b);
+  if (need === 'food') return whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
+  return need === 'religion' ? whyUnblessed(s, map, b) : whyNoPlays(s, map, b);
+}
+
+const TITLE: Record<Service, string> = { water: 'Water', food: 'Bread', religion: 'Blessings', culture: 'Plays' };
+
+/** What the next level needs, in a sentence. */
+function nextLine(s: SimState, b: Building): string {
+  const fed = b.foodUntil - s.tick;
+  const settled = s.tick - b.since >= SETTLE ? '' : `, once they’ve been a ${levelName(b.level, '')} a month`;
+  const short = (need: Service): string => (untilOf(b, need) - s.tick >= RISE_MIN ? '' : ` (they have ${untilOf(b, need) > s.tick ? `${days(untilOf(b, need) - s.tick)}’ worth` : 'none'})`);
+  if (b.level === TENT) return 'To become a hut: water, brought by a fountain’s water carrier';
+  if (b.level === HUT) {
+    const hand = fed > 0 ? ` (they have ${days(fed)}’ worth)` : '';
+    return `To become a cottage: water, and a month’s bread in hand from the agora’s food vendor${fed >= COTTAGE_FOOD_MIN ? '' : hand}`;
+  }
+  if (b.level === COTTAGE) {
+    if (!s.buildings.some((o) => o.kind === 'shrine')) return 'To become a townhouse: the blessing of a shrine’s priestess. The city has no shrine yet';
+    return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and bread${settled}`;
+  }
+  if (b.level === TOWNHOUSE) {
+    if (!s.buildings.some((o) => o.kind === 'theatre')) return 'To become a fine house: plays, brought by a theatre’s actor. The city has no theatre yet';
+    return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of everything else${settled}`;
+  }
+  return 'A fine house is as fine as homes get, for now';
+}
+
 /** What they have and lack, and what the next level needs. */
 function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   const has: string[] = [];
   const lack: string[] = [];
-  const wet = b.waterUntil - s.tick;
-  const fed = b.foodUntil - s.tick;
-  const agoras = s.buildings.filter((o) => o.kind === 'agora');
-  if (wet > 0) has.push(`${ICON.water}<span><b>Water</b> · lasts ${days(wet)} more</span>`);
-  else lack.push(`${ICON.water}<span><b>Water</b> · ${esc(whyDry(s, map, b))}</span>`);
-  if (b.level >= HUT) {
-    if (fed > 0) has.push(`${ICON.food}<span><b>Bread</b> · lasts ${days(fed)} more</span>`);
-    else lack.push(`${ICON.food}<span><b>Bread</b> · ${esc(whyHungry(s, map, b, agoras))}</span>`);
+  // The needs of their level, and the next level's if it is to be had in the city.
+  const shown = new Set<Service>(['water', ...needsOf(b)]);
+  if (b.level === COTTAGE && s.buildings.some((o) => o.kind === 'shrine')) shown.add('religion');
+  if (b.level === TOWNHOUSE && s.buildings.some((o) => o.kind === 'theatre')) shown.add('culture');
+  for (const need of NEEDS) {
+    if (!shown.has(need)) continue;
+    const left = untilOf(b, need) - s.tick;
+    if (left > 0) has.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${need === 'religion' || need === 'culture' ? 'last' : 'lasts'} ${days(left)} more</span>`);
+    else lack.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${esc(whyLacks(s, map, b, need))}</span>`);
   }
   const able = canWork(b);
   if (able > 0 && s.buildings.some((o) => JOBS[o.kind] > 0)) {
@@ -120,36 +164,29 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
       lack.push(`${ICON.work}<span><b>Work</b> · ${b.workers ? `${able - b.workers} more` : `the ${able} who could`} would work, ${why}</span>`);
     }
   }
-  let next = '';
-  if (b.level === TENT) next = 'To become a hut: water, brought by a fountain’s water carrier';
-  else if (b.level === HUT) {
-    const hand = fed > 0 ? ` (they have ${days(fed)}’ worth)` : '';
-    next = `To become a cottage: water, and a month’s bread in hand from the agora’s food vendor${fed >= COTTAGE_FOOD_MIN ? '' : hand}`;
-  } else next = 'A cottage is as fine as homes get, for now';
+  const next = nextLine(s, b);
   const list = (items: string[]): string => (items.length ? `<ul class="chips">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '<p class="none">Nothing</p>');
   return `<section class="needs"><h3>What they have</h3>${list(has)}<h3>What they lack</h3>${list(lack)}<p class="next">${ICON.home}<span>${esc(next)}</span></p></section>`;
 }
 
 /** The warning box: what ran out, how long ago, how long they will put up with it, and what would help. */
 function warningBlock(s: SimState, map: CoastMap, b: Building): string {
-  const w = warningsOf(s, b)[0];
+  const ws = warningsOf(s, b);
+  const w = ws[0];
   if (!w) {
     // A few days late is ordinary: a softer note, no warning yet.
-    const late = b.level >= HUT && (b.waterUntil <= s.tick || (b.level >= COTTAGE && b.foodUntil <= s.tick));
-    if (!late) return '';
-    const need = b.waterUntil <= s.tick ? 'water' : 'food';
-    const until = need === 'water' ? b.waterUntil : b.foodUntil;
+    const need = needsOf(b).find((n) => untilOf(b, n) <= s.tick);
+    if (!need) return '';
+    const until = untilOf(b, need);
     const gone = s.tick - Math.max(until, b.since);
     // Gone longer than that: they have just moved down a level without it, and the count starts again.
     if (s.tick - until >= WARN_AFTER) {
-      return `<div class="late">${ICON[need]}<span>Still no ${need === 'water' ? 'water' : 'bread'}, ${days(s.tick - until)} now · they’ve made do with the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()}, and will start to worry again in ${days(WARN_AFTER - gone)}</span></div>`;
+      return `<div class="late">${ICON[need]}<span>Still no ${NEED_WORDS[need]}, ${days(s.tick - until)} now · they’ve made do with the ${levelName(b.level, '')}, and will start to worry again in ${days(WARN_AFTER - gone)}</span></div>`;
     }
-    return `<div class="late">${ICON[need]}<span>${need === 'water' ? 'The water carrier' : 'The food vendor'} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
+    const by = BRINGER[need];
+    return `<div class="late">${ICON[need]}<span>${by[0].toUpperCase()}${by.slice(1)} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
   }
-  const ws = warningsOf(s, b);
-  const word = (need: string): string => (need === 'water' ? 'water' : 'bread');
-  const to = b.level === HUT ? 'a tent' : 'a hut';
-  const agoras = s.buildings.filter((o) => o.kind === 'agora');
+  const to = levelName(b.level - 1);
   const share = Math.max(0, Math.min(1, w.left / WARNING));
   const urgent = w.left <= URGENT;
   // Who would go: whole families together, named.
@@ -158,12 +195,12 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   const going = groups.reduce((n, g) => n + g.length, 0);
   const label = (g: number[]): string => (!f ? '' : g.length >= 3 ? `${f.members[g[0]].name} and family` : nameList(g.map((i) => f.members[i].name)));
   const who = going > 0 ? ` ${going === 1 ? `${label(groups[0])} would move away` : `${going} of them would move away (${groups.map(label).join('; ')})`}.` : '';
-  const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${word(x.need)} for ${days(s.tick - x.since)}`).join(', ');
-  const fix = (need: string): string => (need === 'water' ? 'the water carrier' : 'the food vendor');
-  const also = ws.length > 1 ? ` Without ${word(ws[1].need)}, they go in ${days(ws[1].left)} all the same.` : '';
-  const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${x.need === 'water' ? 'Water' : 'Bread'}: ` : 'Why: '}${esc(x.need === 'water' ? whyDry(s, map, b) : whyHungry(s, map, b, agoras))}</p>`).join('');
-  const icons = ws.map((x) => ICON[x.need]).join('');
-  return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()} for ${to}, unless ${fix(w.need)} comes by.${esc(who)}${also}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
+  const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${NEED_WORDS[x.need]} for ${days(s.tick - x.since)}`).join(', ');
+  const also = ws.length > 1 ? ` Without ${ws.slice(1).map((x) => NEED_WORDS[x.need]).join(' or ')}, they go in ${days(ws[1].left)} all the same.` : '';
+  const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${TITLE[x.need]}: ` : 'Why: '}${esc(whyLacks(s, map, b, x.need))}</p>`).join('');
+  // The icons in the order the signs show them.
+  const icons = NEEDS.filter((n) => ws.some((x) => x.need === n)).map((n) => ICON[n]).join('');
+  return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${levelName(b.level, '')} for ${to}, unless ${BRINGER[w.need]} comes by.${esc(who)}${also}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
 }
 
 /** The whole panel's inner HTML for a home. */
@@ -174,7 +211,8 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const cap = capacity(b);
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
   const since = ` · here since ${when(f.came)}`;
-  const mood = moodOf(s, b, { agora: s.buildings.some((o) => o.kind === 'agora'), jobs: s.buildings.some((o) => JOBS[o.kind] > 0) }, canWork(b));
+  const has = (k: Building['kind']): boolean => s.buildings.some((o) => o.kind === k);
+  const mood = moodOf(s, b, { agora: has('agora'), jobs: s.buildings.some((o) => JOBS[o.kind] > 0), shrine: has('shrine'), theatre: has('theatre') }, canWork(b));
   const able = canWork(b);
   const talk = chatterOf(s, b, able > b.workers)
     .map((l) => `<blockquote>“${esc(l.text)}”<cite>${esc(l.who.name)}, ${ageOf(s, l.who)}</cite></blockquote>`)

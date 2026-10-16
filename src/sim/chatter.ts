@@ -6,7 +6,7 @@
  * order so a household goes through every line before it repeats one. Pure:
  * the same state always gives the same lines.
  */
-import { COTTAGE, HUT, TENT } from './buildings';
+import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { ageOf, URGENT, warningOf } from './folk';
 import type { Building, Family, Person, SimState } from './state';
@@ -75,6 +75,59 @@ export const LINES = {
     'We had guests from {origin}. They went home very quiet.',
     'All we need now is somewhere proper to thank the gods for all this.',
   ],
+  cottageBlessed: [
+    'The priestess came by and blessed the doorstep. {kin} has been stepping over it very carefully ever since.',
+    'We left honey cakes at the shrine. The priestess says the god was pleased. The ants certainly were.',
+    'Nobody’s quite sure which god the shrine is for. We pray to “whoever’s listening”, politely.',
+    '{adult} offered our second-best goat at the shrine. The goat had opinions about it.',
+    'With the gods on our side and bread on the table, {head} wants an upstairs. An upstairs!',
+    'The priestess smells of incense and figs. I’ve decided that’s what holiness smells of.',
+    '{kin} asked the priestess what the god looks like. She said, “Taller than you.” Fair.',
+    'Blessed, watered and fed. Next, says {head}, a second floor and a view over the neighbours.',
+  ],
+  townhouse: [
+    'Two floors! {kin} runs up the stairs just to come down them again.',
+    'From the upper room you can see right over the neighbours’ wall. We don’t look. Much.',
+    'A balcony, a bench and a pot of basil. {head} says we’re practically Corinthians now.',
+    'All this and nothing to do of an evening. If only the city had a theatre.',
+    '{adult} keeps reciting bits of plays from {origin}, doing all the voices. We need a proper theatre.',
+    'We have a staircase. Nobody in {origin} has a staircase. I mention it in every letter.',
+    'The priestess still calls by. She says ours is the most blessed house on the street. She says that to everyone.',
+  ],
+  townhousePlays: [
+    'The actor stopped at our door and did the whole death scene. {kin} applauded for an hour.',
+    'Comedy or tragedy tonight? {head} wants tragedy. I want to laugh. We’ll argue until it starts.',
+    '{adult} has been cast as “second shepherd”. No lines, but a very good hat.',
+    'The actor forgot his lines on our doorstep and made up new ones. Better ones, I thought.',
+    'With plays to go to, {head} wants a courtyard with columns, “for discussing them in”.',
+    'We saw a tragedy. Everyone died. {kin} cried, then asked if we could see it again tomorrow.',
+  ],
+  fine: [
+    'A courtyard with columns! {head} walks round it slowly, hands behind the back, like a philosopher.',
+    'We had the neighbours over to discuss the play. We disagreed beautifully until midnight.',
+    '{kin} says our cypress is the tallest in the city. {kin} has measured them all.',
+    'Tragedy in the afternoon, comedy in the evening, honey cakes in between. This is the life.',
+    'The priestess, the actor and the water carrier all came by before noon. It was like a festival.',
+    'Our cousins from {origin} came to stay. They stood in the courtyard and said nothing for a long while.',
+    'The painted band under the eaves is blue and ochre. {adult} chose it, and chose well.',
+    'We used to fetch water from the river. Now we have opinions about the chorus.',
+  ],
+  noShrine: [
+    'No priestess for weeks. We’ve been praying on our own, and I don’t think we’re doing it right.',
+    'The offering bowl is empty and so is the doorstep. {head} says the god is sulking.',
+    '{kin} made an offering of a pebble. I’m afraid the gods expect more of a townhouse.',
+    'Without a blessing, the upper floor feels a little too high up. Anything could happen.',
+    'Has anyone seen the priestess? White robe, lilac stole, smells of incense?',
+    'If the priestess doesn’t come soon, {head} says we’ll have to make do with less house.',
+  ],
+  noPlays: [
+    'No plays for weeks. {adult} has started performing for the goat. The goat is a harsh critic.',
+    'A fine house and nothing to talk about. We’ve started discussing the weather in verse.',
+    '{kin} acts out last month’s tragedy every evening. We know how it ends. Everyone dies.',
+    'Where has the actor got to? We’ve rehearsed our applause and everything.',
+    'Columns are all very well, but you can’t watch a column.',
+    'No plays, no talk, and no point in a courtyard to talk in, says {head}.',
+  ],
   noWater: [
     'No water carrier for days. We’re washing in olive oil, which is not the same.',
     '{kin} has taken to catching the morning dew in a cup. It takes all morning, and it’s still only a sip.',
@@ -116,6 +169,16 @@ export const LINES = {
     'A cottage! {head} has walked round it nine times today.',
     'We have a door that shuts and a window that opens. Civilisation.',
     'Whitewash everywhere. {kin} has whitewashed the goat, too.',
+  ],
+  upTownhouse: [
+    'An upper floor! {kin} has claimed the window with the view of the sea.',
+    'Two storeys. {head} has been up and down the stairs fourteen times today.',
+    'A townhouse, and the priestess blessed the new beams. They creak in a very holy way.',
+  ],
+  upFine: [
+    'A fine house! {head} keeps saying “our courtyard” to anyone who stands still.',
+    'Columns. Actual columns. {kin} has hugged every one of them.',
+    'From a tent to this. If my mother in {origin} could see us now, she’d ask what it all cost.',
   ],
   noWork: [
     'Still no work round here. Every job’s gone to someone who lives nearer.',
@@ -179,18 +242,32 @@ export function situationOf(s: SimState, b: Building): Situation {
   const f = b.family;
   const warn = warningOf(s, b);
   if (warn && warn.left <= URGENT) return 'urgent';
-  if (warn) return warn.need === 'water' ? 'noWater' : 'noFood';
+  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? 'noFood' : warn.need === 'religion' ? 'noShrine' : 'noPlays';
   const lastOf = (what: string): number => {
     if (f) for (let i = f.story.length - 1; i >= 0; i--) if (f.story[i].what === what) return f.story[i].tick;
     return -1;
   };
   // Just moved down a level, or up one (the change the home's level dates from).
   if (lastOf('down') === b.since && s.tick - b.since < 2 * TICKS_PER_MONTH) return 'down';
-  if (b.level >= HUT && lastOf('up') === b.since && s.tick - b.since < TICKS_PER_MONTH) return b.level >= COTTAGE ? 'upCottage' : 'upHut';
+  if (b.level >= HUT && lastOf('up') === b.since && s.tick - b.since < TICKS_PER_MONTH) return b.level >= FINE ? 'upFine' : b.level >= TOWNHOUSE ? 'upTownhouse' : b.level >= COTTAGE ? 'upCottage' : 'upHut';
   if (f && s.tick - f.came < TICKS_PER_MONTH) return 'new';
   if (b.level === TENT) return b.waterUntil > s.tick ? 'tentWet' : 'tentDry';
   if (b.level === HUT) return b.foodUntil > s.tick ? 'hutBread' : 'hutNoBread';
-  return 'cottage';
+  if (b.level === COTTAGE) return b.religionUntil > s.tick ? 'cottageBlessed' : 'cottage';
+  if (b.level === TOWNHOUSE) return b.cultureUntil > s.tick ? 'townhousePlays' : 'townhouse';
+  return 'fine';
+}
+
+/**
+ * Lines that only suit some homes: in the lists any level can be in (a warning,
+ * packing up, a drop), a line about a cottage only in a cottage; talk of a
+ * theatre to come only while there is none.
+ */
+function suits(s: SimState, b: Building, sit: Situation, template: string): boolean {
+  const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'urgent' || sit === 'down';
+  if (anyLevel && /cottage/i.test(template) && b.level !== COTTAGE) return false;
+  if (/talk of a theatre/.test(template) && s.buildings.some((o) => o.kind === 'theatre')) return false;
+  return true;
 }
 
 export interface Line {
@@ -248,7 +325,7 @@ export function chatterOf(s: SimState, b: Building, noWork = false): Line[] {
       const other = others.length ? others[mix(f.seed, bucket, slot + 13) % others.length] : null;
       const grown = others.filter((p) => ageOf(s, p) >= 16);
       const adult = grown.length ? grown[mix(f.seed, bucket, slot + 29) % grown.length] : null;
-      const text = fill(list[i], f, who, other, adult);
+      const text = suits(s, b, sit, list[i]) ? fill(list[i], f, who, other, adult) : null;
       if (!text || out.some((l) => l.text === text)) continue;
       out.push({ who, text });
       return;

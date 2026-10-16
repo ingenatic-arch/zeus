@@ -161,6 +161,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .btn.tool.overlay.food.on { background: #c98f2a; border-color: #a06f1c; }
 .btn.tool.overlay.food.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
 .btn.tool.overlay.on .fill-water { fill: #bfe6ff; stroke: #fff6e4; }
+.btn.tool .fill-bless { fill: #a98ae0; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .fill-plays { fill: #e3778f; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool.on .fill-bless { fill: #e2d6ff; stroke: #fff6e4; }
+.btn.tool.on .fill-plays { fill: #ffd2dc; stroke: #fff6e4; }
+.btn.tool.overlay.religion.on { background: #7a5cb8; border-color: #5c4392; }
+.btn.tool.overlay.culture.on { background: #c4506c; border-color: #9a3a52; }
 .btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
 .btn.tool.on .key { color: #fff6e4; }
 .btn.tool:disabled { opacity: 0.45; cursor: default; }
@@ -205,6 +211,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .floater.water { color: #e6f6ff; text-shadow: 0 1px 0 #2c5f8f, 0 0 6px rgba(30, 80, 140, 0.75); font-size: 15px; }
 .floater.dry { color: #fff1e4; text-shadow: 0 1px 0 #8a3a1c, 0 0 6px rgba(140, 50, 20, 0.7); font-size: 14px; }
 .floater.food { color: #fff6dc; text-shadow: 0 1px 0 #8a5a14, 0 0 6px rgba(150, 100, 20, 0.75); font-size: 15px; }
+.floater.religion { color: #f6f0ff; text-shadow: 0 1px 0 #5a3a8f, 0 0 6px rgba(90, 50, 150, 0.75); font-size: 15px; }
+.floater.culture { color: #fff0f3; text-shadow: 0 1px 0 #8f2a44, 0 0 6px rgba(150, 40, 70, 0.75); font-size: 15px; }
 
 /* The household panel: who lives in a home and how they are doing. */
 .household {

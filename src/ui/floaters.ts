@@ -7,7 +7,7 @@ export class Floaters {
 
   constructor(private readonly root: HTMLElement) {}
 
-  add(text: string, pos: THREE.Vector3, now: number, tone?: 'water' | 'dry' | 'food'): void {
+  add(text: string, pos: THREE.Vector3, now: number, tone?: 'water' | 'dry' | 'food' | 'religion' | 'culture'): void {
     const el = document.createElement('div');
     el.className = tone ? `floater ${tone}` : 'floater';
     el.textContent = text;

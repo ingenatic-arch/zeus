@@ -16,7 +16,7 @@ import { World } from './render/world';
 import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
 import { TICKS_PER_DAY } from './sim/clock';
-import { warningOf, warningsOf } from './sim/folk';
+import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { homeStatus, walkerStatus, type Status } from './sim/status';
@@ -171,7 +171,7 @@ function start(): void {
   followChip.className = 'follow-chip';
   followChip.hidden = true;
   ui.appendChild(followChip);
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -253,9 +253,9 @@ function start(): void {
     }
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
-  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', x: 'clear' };
+  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -305,6 +305,14 @@ function start(): void {
         overlay.toggle('missing');
         return true;
       }
+      if (k === 'y') {
+        overlay.toggle('religion');
+        return true;
+      }
+      if (k === 'c') {
+        overlay.toggle('culture');
+        return true;
+      }
       const t = TOOL_KEYS[k];
       if (!t) return false;
       tools.select(t);
@@ -320,7 +328,7 @@ function start(): void {
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
     const kind = demo.follow;
-    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : 'farm';
+    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
     const w = ripest ? undefined : sim.state.walkers.find((o) => o.kind === kind);
@@ -332,12 +340,14 @@ function start(): void {
   const opened = demo?.open?.(sim.state) ?? 0;
   if (opened) panel.show(opened);
 
+  /** "water", "water or bread", "water, bread or blessings". */
+  const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
   /** Homes in trouble, most urgent first. */
   const trouble = (): Array<{ b: Building; left: number; need: string }> => {
     const out: Array<{ b: Building; left: number; need: string }> = [];
     for (const b of sim.state.buildings) {
       const ws = warningsOf(sim.state, b);
-      if (ws.length) out.push({ b, left: ws[0].left, need: ws.map((w) => (w.need === 'water' ? 'water' : 'bread')).join(' or ') });
+      if (ws.length) out.push({ b, left: ws[0].left, need: orList(ws.map((w) => NEED_WORDS[w.need])) });
     }
     return out.sort((a, b) => a.left - b.left || a.b.id - b.b.id);
   };
@@ -397,16 +407,24 @@ function start(): void {
       tents: homes.filter((b) => b.level === 1).length,
       huts: homes.filter((b) => b.level === 2).length,
       cottages: homes.filter((b) => b.level === 3).length,
+      townhouses: homes.filter((b) => b.level === 4).length,
+      fine: homes.filter((b) => b.level === 5).length,
       fountains: of('fountain').length,
       farms: of('farm').length,
       granaries: of('granary').length,
       agoras: of('agora').length,
+      shrines: of('shrine').length,
+      theatres: of('theatre').length,
+      priestesses: s.walkers.filter((w) => w.kind === 'priestess').length,
+      actors: s.walkers.filter((w) => w.kind === 'actor').length,
       carriers: s.walkers.filter((w) => w.kind === 'water').length,
       vendors: s.walkers.filter((w) => w.kind === 'food').length,
       carts: s.walkers.filter((w) => w.kind === 'cart').length,
       porters: s.walkers.filter((w) => w.kind === 'porter').length,
       watered: homes.filter((b) => b.waterUntil > s.tick).length,
       fed: homes.filter((b) => b.foodUntil > s.tick).length,
+      blessed: homes.filter((b) => b.religionUntil > s.tick).length,
+      entertained: homes.filter((b) => b.cultureUntil > s.tick).length,
       jobs: wf.jobs,
       filled: wf.filled,
       barns: sum(of('farm')),
@@ -501,6 +519,10 @@ function start(): void {
         if (b.kind === 'home' && b.level === 1 && before.level === 2) floaters.add('Back to a tent', at.clone().setY(at.y + 0.5), time, 'dry');
         if (b.kind === 'home' && b.level === 3 && before.level === 2) floaters.add('Cottage', at.setY(at.y + 0.6), time, 'food');
         if (b.kind === 'home' && b.level === 2 && before.level === 3) floaters.add('Back to a hut', at.clone().setY(at.y + 0.6), time, 'dry');
+        if (b.kind === 'home' && b.level === 4 && before.level === 3) floaters.add('Townhouse', at.setY(at.y + 0.9), time, 'religion');
+        if (b.kind === 'home' && b.level === 3 && before.level === 4) floaters.add('Back to a cottage', at.clone().setY(at.y + 0.9), time, 'dry');
+        if (b.kind === 'home' && b.level === 5 && before.level === 4) floaters.add('Fine house', at.setY(at.y + 1.0), time, 'culture');
+        if (b.kind === 'home' && b.level === 4 && before.level === 5) floaters.add('Back to a townhouse', at.clone().setY(at.y + 1.0), time, 'dry');
         // People moving away from a home that stays (it went down a level).
         if (b.kind === 'home' && b.people < before.people && b.level < before.level) floaters.add(`−${before.people - b.people}`, at.clone().setY(at.y - 0.2), time, 'dry');
       }

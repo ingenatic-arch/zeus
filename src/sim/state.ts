@@ -1,22 +1,23 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 5;
+export const SIM_STATE_VERSION = 6;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre';
 
-/** The services walkers carry along the streets, each with its own record. */
-export type Service = 'water' | 'food';
+/** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings and plays. */
+export type Service = 'water' | 'food' | 'religion' | 'culture';
 
 /**
- * A building on a square footprint (2 x 2 for homes and fountains, 3 x 3 for
- * the rest; see sideOf) whose top-left tile is (x, z).
- * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut, 3 a cottage.
+ * A building on a square footprint (2 x 2 for homes, fountains and shrines,
+ * 3 x 3 for the rest; see sideOf) whose top-left tile is (x, z).
+ * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut,
+ * 3 a cottage, 4 a townhouse, 5 a fine house.
  * Every building carries every field (zero where it doesn't apply), so the
  * state stays uniform plain data.
  */
@@ -36,14 +37,18 @@ export interface Building {
   since: number;
   /** A home: the tick its water lasts until (0: it has never had any). */
   waterUntil: number;
-  /** A fountain: its water carrier out on the streets (walker id), or 0. */
+  /** A fountain, agora, shrine or theatre: its walker out on the streets (walker id), or 0. */
   walker: number;
-  /** A fountain: ticks until the next carrier sets off. */
+  /** A fountain, agora, shrine or theatre: ticks until its next walker sets off. */
   clock: number;
-  /** A fountain or agora: how many walkers it has sent (which side the next one leaves by). */
+  /** A fountain, agora, shrine or theatre: how many walkers it has sent (which side the next one leaves by). */
   turn: number;
   /** A home: the tick its food lasts until (0: it has never had any). */
   foodUntil: number;
+  /** A home: the tick the priestess's blessing lasts until (0: never had one). */
+  religionUntil: number;
+  /** A home: the tick its plays last until (0: never had any). */
+  cultureUntil: number;
   /** A workplace: the people working there. A home: how many of its people have work. */
   workers: number;
   /** Measures of wheat: in a farm's barn, a granary's store, or the agora's food stall. */
@@ -73,7 +78,7 @@ export interface Story {
   tick: number;
   /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away. */
   what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left';
-  /** The need it was about ('water' or 'food'), or ''. */
+  /** The need it was about (a Service), or ''. */
   need: '' | Service;
   /** The home's level after it. */
   level: number;
@@ -107,8 +112,8 @@ export interface Family {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, or its food vendor. */
-  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food';
+  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, its food vendor, a shrine's priestess or a theatre's actor. */
+  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;

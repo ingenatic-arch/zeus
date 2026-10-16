@@ -8,14 +8,17 @@ import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 
 /** Walking speed of settlers and leavers, tiles per tick (1.2 tiles a second at normal speed). */
 export const WALK_SPEED = 0.12;
-/** The water carrier and the food vendor walk at the settlers' pace. */
+/** The water carrier, the food vendor, the priestess and the actor walk at the settlers' pace. */
 export const CARRIER_SPEED = 0.12;
 /** An ox cart is a little slower. */
 export const CART_SPEED = 0.09;
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
-export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : w.kind === 'water' || w.kind === 'food' ? CARRIER_SPEED : WALK_SPEED);
+export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED);
+
+/** Walkers who walk a service's round: the water carrier, the food vendor, the priestess and the actor. */
+export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor';
 
 /** The centre of a tile, world units. */
 export const centre = (size: number, t: number): [number, number] => {

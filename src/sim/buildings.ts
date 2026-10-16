@@ -1,15 +1,25 @@
 /** Looking up buildings: their footprints, how many people a home holds, how many a workplace needs. */
 import type { Building, BuildingKind, SimState } from './state';
 
-/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage. */
-export const HOME_CAPACITY = [5, 5, 9, 13];
+/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage, 4 a townhouse, 5 a fine house. */
+export const HOME_CAPACITY = [5, 5, 9, 13, 17, 21];
 
 /** House levels by name, for the hover tips. */
-export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage'];
+export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage', 'A townhouse', 'A fine house'];
 
 export const TENT = 1;
 export const HUT = 2;
 export const COTTAGE = 3;
+export const TOWNHOUSE = 4;
+export const FINE = 5;
+/** The highest level a home can reach. */
+export const TOP_LEVEL = FINE;
+
+/** A level's name in a sentence: "a cottage", "the fine house" with `the`. */
+export const levelName = (level: number, article: 'a' | 'the' | '' = 'a'): string => {
+  const n = HOME_NAMES[Math.max(0, Math.min(level, HOME_NAMES.length - 1))].replace(/^An? /, '').toLowerCase();
+  return article ? `${article} ${n}` : n;
+};
 
 /** Names of the other buildings, for the hover tips. */
 export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
@@ -17,14 +27,16 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   farm: 'A wheat farm',
   granary: 'A granary',
   agora: 'The agora',
+  shrine: 'A shrine',
+  theatre: 'A theatre',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5 };
 
 /** The side of a building's square footprint, in tiles. */
 export function sideOf(kind: BuildingKind): number {
-  return kind === 'home' || kind === 'fountain' ? 2 : 3;
+  return kind === 'home' || kind === 'fountain' || kind === 'shrine' ? 2 : 3;
 }
 
 export function capacity(b: Building): number {

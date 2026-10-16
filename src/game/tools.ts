@@ -31,15 +31,16 @@ import type { Sim } from '../sim/sim';
 import { TILE_ROAD, type BuildingKind } from '../sim/state';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
+import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, type Placement } from '../render/placement';
 
-export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'clear';
-export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'clear'];
+export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'clear';
+export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'clear'];
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'granary' | 'agora';
-const isPlacer = (t: ToolName | null): t is Placer => t === 'fountain' || t === 'farm' || t === 'granary' || t === 'agora';
+type Placer = 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre';
+const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear';
 
 export interface ToolTip {
   /** Show text near the pointer (screen px), or hide with null. */
@@ -47,6 +48,14 @@ export interface ToolTip {
 }
 
 const fmt = (n: number): string => n.toLocaleString('en-GB');
+
+/** What each service building's walker brings, how far she goes, and to which homes. */
+const WALKS = {
+  fountain: { service: 'water', walker: 'water carrier', range: CARRIER_RANGE, what: 'water', none: 'homes', note: '' },
+  agora: { service: 'food', walker: 'food vendor', range: VENDOR_RANGE, what: 'food', none: 'huts', note: ' (tents live off the land)' },
+  shrine: { service: 'religion', walker: 'priestess', range: PRIESTESS_RANGE, what: 'blessings', none: 'cottages', note: ' (cottages and better want her blessing)' },
+  theatre: { service: 'culture', walker: 'actor', range: ACTOR_RANGE, what: 'plays', none: 'townhouses', note: ' (townhouses and better want plays)' },
+} as const;
 
 export class Tools {
   tool: ToolName | null = null;
@@ -97,9 +106,9 @@ export class Tools {
         return false;
       });
     }
-    // Placing a fountain shows the water overlay, and what the new one would reach; an agora, the food overlay; a farm or granary, the food overlay too (where the chain runs).
+    // Placing a fountain shows the water overlay, and what the new one would reach; an agora, the food overlay; a farm or granary, the food overlay too (where the chain runs); a shrine or theatre, its own.
     if (this.overlay) {
-      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' ? 'food' : null;
+      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' ? 'food' : t === 'shrine' ? 'religion' : t === 'theatre' ? 'culture' : null;
       this.overlay.setPreview(null);
     }
     this.preview();
@@ -390,6 +399,8 @@ export class Tools {
       farm: ['farm', 'farms'],
       granary: ['granary', 'granaries'],
       agora: ['agora', 'agoras'],
+      shrine: ['shrine', 'shrines'],
+      theatre: ['theatre', 'theatres'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     if (trees) bits.push(`trees on ${trees} ${trees === 1 ? 'tile' : 'tiles'}`);
@@ -405,7 +416,7 @@ export class Tools {
     this.pending = () => this.send({ type: 'clear', x0, z0, x1, z1 });
   }
 
-  /** Placing one fountain, farm, granary or agora: where it would go, what it costs, and what it would do there. */
+  /** Placing one fountain, farm, granary, agora, shrine or theatre: where it would go, what it costs, and what it would do there. */
   private placeOne(kind: Placer, sx: number, sy: number, marks: Map<number, number>): void {
     const s = this.sim.state;
     const map = this.sim.map;
@@ -428,10 +439,10 @@ export class Tools {
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(A|The) /, '').replace(/^./, (c) => c.toUpperCase());
     let text = `${name} · ${fmt(cost)} dr · ${JOBS[kind]} workers`;
     const lines: string[] = [];
-    if (kind === 'fountain' || kind === 'agora') {
-      const service = kind === 'fountain' ? 'water' : 'food';
-      const walker = kind === 'fountain' ? 'water carrier' : 'food vendor';
-      const range = kind === 'fountain' ? CARRIER_RANGE : VENDOR_RANGE;
+    if (kind === 'fountain' || kind === 'agora' || kind === 'shrine' || kind === 'theatre') {
+      const { service, walker, range, what, none, note } = WALKS[kind];
+      if (kind === 'shrine') lines.push('Its priestess blesses the homes she passes: a cottage with a month’s blessing in hand becomes a townhouse');
+      if (kind === 'theatre') lines.push('Its actor brings the plays to the homes he passes: a townhouse with a month’s plays in hand becomes a fine house');
       if (roads.length === 0) lines.push(`Needs a road beside it, for the ${walker} to walk`);
       else {
         this.overlay?.setPreview(roads);
@@ -441,8 +452,7 @@ export class Tools {
           this.reach = previewReach(s, n, roads, service);
         }
         const { homes, dry } = this.reach;
-        const what = kind === 'fountain' ? 'water' : 'food';
-        if (homes === 0) lines.push(kind === 'fountain' ? `No homes within ${range} steps along the road yet` : `No huts within ${range} steps along the road yet (tents live off the land)`);
+        if (homes === 0) lines.push(`No ${none} within ${range} steps along the road yet${note}`);
         else lines.push(`Its ${walker} would reach ${homes} ${homes === 1 ? 'home' : 'homes'}${dry ? ` · ${dry} without ${what} now` : ''}`);
       }
       if (kind === 'agora' && !s.buildings.some((b) => b.kind === 'granary')) lines.push('Its porter fetches grain from a granary: build one too');

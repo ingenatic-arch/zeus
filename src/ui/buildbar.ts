@@ -1,5 +1,5 @@
 import type { ToolName, ToolTip } from '../game/tools';
-import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST } from '../sim/build';
+import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST, SHRINE_COST, THEATRE_COST } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
@@ -18,6 +18,18 @@ const ICONS: Record<ButtonName, string> = {
   granary: '<svg viewBox="0 0 24 24"><path d="M2.8 21V11.5L8 8l5.2 3.5V21z" class="fill-soft"/><path d="M14 21v-8.2a3.6 3.6 0 0 1 7.2 0V21z" class="fill-gold"/><path d="M6.3 21v-4.6h3.4V21z" class="fill-ink"/><path d="M2 21.2h20" class="stroke-ink"/></svg>',
   // A stall under a striped awning, with loaves.
   agora: '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 15h11v5h-11z" class="fill-soft"/><path d="M8 15c0-1.7 1-2.6 2-2.6s2 .9 2 2.6zM12.4 15c0-1.7 1-2.6 2-2.6s2 .9 2 2.6z" class="fill-gold"/></svg>',
+  // A little temple: a pediment on four columns, an altar's flame before it.
+  shrine:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 8.6 12 3.4l9.4 5.2z" class="fill-soft"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" class="stroke-ink"/><path d="M2.8 18.4h18.4v2.6H2.8z" class="fill-soft"/><path d="M3.6 8.8h16.8v1.6H3.6z" class="fill-ink"/></svg>',
+  // A smiling theatre mask.
+  theatre:
+    '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-soft"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
+  // The temple again, in lilac, for the religion overlay.
+  religion:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 8.6 12 3.4l9.4 5.2z" class="fill-bless"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" class="stroke-ink"/><path d="M2.8 18.4h18.4v2.6H2.8z" class="fill-bless"/></svg>',
+  // The mask in rose, for the culture overlay.
+  culture:
+    '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-plays"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
   // A round loaf, for the food overlay.
   food: '<svg viewBox="0 0 24 24"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" class="fill-gold"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" class="stroke-ink"/></svg>',
   // A drop of water.
@@ -58,14 +70,28 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${AGORA_COST} dr`,
     hint: 'Click beside a road. Its food vendor walks the streets selling bread to huts; huts with water and food become cottages.',
   },
+  shrine: {
+    name: 'Shrine',
+    key: 'V',
+    cost: `${SHRINE_COST} dr`,
+    hint: 'Click beside a road. Its priestess walks the streets nearby blessing homes; a cottage with water, bread and her blessing becomes a townhouse.',
+  },
+  theatre: {
+    name: 'Theatre',
+    key: 'P',
+    cost: `${THEATRE_COST} dr`,
+    hint: 'Click beside a road (it takes three by three). Its actor walks the streets bringing the plays; a townhouse with plays becomes a fine house.',
+  },
   clear: { name: 'Clear land', key: 'X', cost: 'free', hint: 'Drag over roads, bridges, buildings or trees to clear them. Families in cleared homes leave.' },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay', key: 'O', cost: '', hint: '' },
   food: { name: 'Food overlay', key: 'L', cost: '', hint: '' },
+  religion: { name: 'Religion overlay: where the priestess walks, and which homes are blessed', key: 'Y', cost: '', hint: '' },
+  culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, fountain, farm, granary, agora, clear, undo, and the water and food overlays. */
+/** The build bar along the bottom: road, housing, fountain, farm, granary, agora, shrine, theatre, clear, undo, and the overlays. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
@@ -80,8 +106,8 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'clear'] as ToolName[]) {
-      if (t === 'farm' || t === 'clear') {
+    for (const t of ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'clear'] as ToolName[]) {
+      if (t === 'farm' || t === 'shrine' || t === 'clear') {
         const d = document.createElement('div');
         d.className = 'divider';
         bar.appendChild(d);
@@ -100,7 +126,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'missing'] as OverlayMode[]) {
+    for (const o of ['water', 'food', 'religion', 'culture', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));
