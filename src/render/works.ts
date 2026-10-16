@@ -261,6 +261,12 @@ const STOOKS = 6;
 const SACKS = 14;
 const LOAVES = 9;
 const shown = (stock: number, cap: number, most: number): number => (stock <= 0 ? 0 : Math.max(1, Math.min(most, Math.ceil((stock / cap) * most))));
+/**
+ * The stall's baskets look full from about two-thirds of its stock down (the
+ * porter tops it up from half), and thin out below that, so a working stall
+ * reads as a well-stocked one.
+ */
+const STALL_FULL = STALL_CAP * 0.65;
 /** The wheat's look changes in this many steps as it grows. */
 const GROWTH_STEPS = 16;
 
@@ -286,6 +292,7 @@ export class Works {
   private seen = new Map<number, { sig: string; key: number }>();
   private rising = new Map<number, number>();
   private state: SimState | null = null;
+  private lastState: SimState | null = null;
   private time = 0;
   private first = true;
   private readonly green = new THREE.Color(PAL.wheatGreen);
@@ -324,13 +331,26 @@ export class Works {
       return `farm:${face}:${g}:${rateOf(b) > 0 ? 1 : 0}:${shown(b.stock, BARN, STOOKS)}`;
     }
     if (b.kind === 'granary') return `granary:${face}:${shown(b.stock, GRANARY_CAP, SACKS)}`;
-    return `agora:${face}:${shown(b.stock, STALL_CAP, LOAVES)}`;
+    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}`;
   }
 
-  /** Bring the drawing up to date (cheap when nothing changed: it compares a short signature per building). */
+  private seenRev = -1;
+  private seenLooks = -1;
+
+  /**
+   * Bring the drawing up to date. Only looks again when buildings or roads
+   * changed (rev) or a crop or a stock did (looks), or while something is rising into place.
+   */
   update(s: SimState, time: number): void {
     this.state = s;
     this.time = time;
+    if (s.rev === this.seenRev && s.looks === this.seenLooks && this.rising.size === 0 && s === this.lastState) {
+      this.lastRefilled = 0;
+      return;
+    }
+    this.seenRev = s.rev;
+    this.seenLooks = s.looks;
+    this.lastState = s;
     const animate = !this.first;
     this.first = false;
     const next = new Map<number, Building[]>();
@@ -465,7 +485,7 @@ export class Works {
 
     // Loaves in the stall's baskets.
     const loaves: Array<{ b: Building; i: number }> = [];
-    for (const b of agoras) for (let i = 0; i < shown(b.stock, STALL_CAP, LOAVES); i++) loaves.push({ b, i });
+    for (const b of agoras) for (let i = 0; i < shown(b.stock, STALL_FULL, LOAVES); i++) loaves.push({ b, i });
     this.loaves.set(kx, kz, loaves.length, (n, m) => {
       const { b, i } = loaves[n];
       const basket = i % 3;

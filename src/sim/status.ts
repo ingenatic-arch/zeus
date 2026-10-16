@@ -74,7 +74,7 @@ export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Searc
 }
 
 /** Why no water reaches a home. */
-function whyDry(s: SimState, map: CoastMap, b: Building, reach?: Search): string {
+export function whyDry(s: SimState, map: CoastMap, b: Building, reach?: Search): string {
   const size = map.size;
   if (!s.buildings.some((o) => o.kind === 'fountain')) return 'build a fountain beside a road nearby';
   if (roadsBeside(s, size, b).length === 0) return 'a water carrier only waters homes beside the road she walks';
@@ -105,7 +105,7 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
 }
 
 /** Why no food reaches a hut or better. */
-function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Building[]): string {
+export function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Building[]): string {
   const size = map.size;
   if (agoras.length === 0) return 'build an agora, with a granary and a farm to fill it, so a food vendor walks the streets';
   if (roadsBeside(s, size, b).length === 0) return 'the food vendor only sells to homes beside the road she walks';

@@ -39,15 +39,16 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>G</dt><dd>Granary: where the farms' carts take the wheat</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread to huts</dd>
       <dt>X</dt><dd>Clear land: drag over it</dd>
-      <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared</dd>
+      <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared (within about a month)</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
     </dl>
     <h2 style="margin-top:12px">Looking</h2>
     <dl>
       <dt>O</dt><dd>The water overlay: where water reaches</dd>
       <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms and granaries</dd>
+      <dt>I</dt><dd>What's missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
-      <dt>Click</dt><dd>A walker with a job, or where she works: follow her (drag or Esc to stop)</dd>
+      <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop)</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

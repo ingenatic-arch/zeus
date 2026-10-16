@@ -24,11 +24,11 @@ export const MEN = [
 
 /** Ordinary women's names of the Greek world. */
 export const WOMEN = [
-  'Theano', 'Myrrhine', 'Agariste', 'Anthousa', 'Aristomache', 'Chrysis', 'Damaris', 'Demo', 'Doris', 'Eirene',
+  'Theano', 'Myrrhine', 'Agariste', 'Anthousa', 'Aristomache', 'Chrysis', 'Damaris', 'Nikippe', 'Doris', 'Eirene',
   'Elpis', 'Eukleia', 'Eunike', 'Glykera', 'Hegeso', 'Helike', 'Ione', 'Isidora', 'Kallisto', 'Kleio',
   'Korinna', 'Lampito', 'Melissa', 'Melitta', 'Nikarete', 'Pamphile', 'Phila', 'Philinna', 'Praxilla', 'Rhode',
   'Thaleia', 'Timarete', 'Xanthippe', 'Zoe', 'Hipparete', 'Archippe', 'Kleito', 'Mnesarete', 'Theodote', 'Krateia',
-  'Arete', 'Charis', 'Eurydike', 'Hedyle', 'Iris', 'Kalliope', 'Lyra', 'Malthake', 'Nikasion', 'Olympias',
+  'Arete', 'Charis', 'Eurydike', 'Hedyle', 'Iris', 'Kalliope', 'Kallippe', 'Malthake', 'Nikasion', 'Olympias',
   'Pythias', 'Sostrate', 'Stratonike', 'Telesilla', 'Euboule', 'Philomela', 'Thais', 'Aspasia', 'Eupraxia', 'Glauke',
 ];
 
@@ -74,21 +74,26 @@ function unit(s: SimState, n: number, taken: Person[], head: Person | null): Per
   const out: Person[] = [];
   const all = (): Person[] => [...taken, ...out];
   const female = nextInt(r, 2) === 0;
-  const age = 18 + nextInt(r, 38);
+  // A brother, sister or cousin of the head is of much the head's generation.
+  const age = head ? Math.max(17, Math.min(70, ageOf(s, head) - 14 + nextInt(r, 29))) : 18 + nextInt(r, 38);
   let role: Kin = 'head';
   if (head) role = nextInt(r, 3) === 0 ? 'cousin' : female ? 'sister' : 'brother';
   const lead = person(s, female, age, role, head ? head.name : '', all());
   out.push(lead);
   if (out.length < n) out.push(person(s, !female, Math.max(17, age - 4 + nextInt(r, 9)), female ? 'husband' : 'wife', lead.name, all()));
   while (out.length < n) {
-    // An elderly parent now and then, if the lead is old enough to have one about.
-    if (age >= 28 && age <= 50 && nextInt(r, 4) === 0 && !out.some((p) => p.role === 'mother' || p.role === 'father')) {
+    // An elderly parent now and then, if the lead is old enough to have one about (a brother or
+    // sister of the head shares the head's parents, who would have come with the head).
+    if (role !== 'brother' && role !== 'sister' && age >= 28 && age <= 50 && nextInt(r, 4) === 0 && !out.some((p) => p.role === 'mother' || p.role === 'father')) {
       const mum = nextInt(r, 3) > 0;
       out.push(person(s, mum, Math.min(82, age + 20 + nextInt(r, 10)), mum ? 'mother' : 'father', lead.name, all()));
       continue;
     }
     const girl = nextInt(r, 2) === 0;
-    out.push(person(s, girl, nextInt(r, Math.max(1, Math.min(16, age - 16))), girl ? 'daughter' : 'son', lead.name, all()));
+    // Children born while the lead was between about 17 and 44 (so an older lead's are grown).
+    const youngest = Math.max(0, age - 44);
+    const eldest = Math.max(youngest + 1, Math.min(age - 16, youngest + 18));
+    out.push(person(s, girl, youngest + nextInt(r, eldest - youngest), girl ? 'daughter' : 'son', lead.name, all()));
   }
   return out;
 }
@@ -144,7 +149,7 @@ export interface Mood {
   /** 0 fed up … 4 content. */
   level: number;
   word: (typeof MOODS)[number];
-  /** What lifts or weighs on them, best first: good (+1), bad (-1) or just so (0). */
+  /** What lifts or weighs on them, what matters most first: good (+1), bad (-1) or just so (0). */
   reasons: Array<{ text: string; tone: -1 | 0 | 1 }>;
 }
 
@@ -209,16 +214,15 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     if (came && s.tick - came.tick < TICKS_PER_MONTH) add(1, 'Glad of a place of their own');
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
-  let score = 0;
-  for (const r of reasons) score += r.w;
   // A few days from giving up: as low as it goes.
   const warn = warningOf(s, b);
-  if (warn && warn.left <= URGENT) {
-    score -= 2;
-    add(0, 'Packing up, unless something changes soon');
-  }
+  if (warn && warn.left <= URGENT) add(-2, 'Packing up, unless something changes soon');
+  let score = 0;
+  for (const r of reasons) score += r.w;
   const level = score >= 2 ? 4 : score >= 0 ? 3 : score >= -2 ? 2 : score >= -4 ? 1 : 0;
-  reasons.sort((a, b) => b.w - a.w);
+  // What matters most to how they feel comes first (the worst for a glum house, the best for a glad one); what is just so, last.
+  const glum = score < 0;
+  reasons.sort((a, b) => (a.w === 0 ? 1 : 0) - (b.w === 0 ? 1 : 0) || (glum ? a.w - b.w : b.w - a.w));
   return { level, word: MOODS[level], reasons: reasons.map(({ text, w }) => ({ text, tone: w > 0 ? 1 : w < 0 ? -1 : 0 })) };
 }
 

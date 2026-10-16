@@ -10,18 +10,21 @@ import { coastMap } from './map/bake';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
+import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
+import { warningOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { homeStatus, walkerStatus, type Status } from './sim/status';
 import type { Building, Walker } from './sim/state';
-import { Sim } from './sim/sim';
+import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
+import { HouseholdPanel } from './ui/household';
 import { TopBar } from './ui/topbar';
 
 interface Probe {
@@ -70,6 +73,10 @@ interface Probe {
     overlay: boolean;
     overlayMode: string | null;
     following: boolean;
+    warned: number;
+    signs: number;
+    panel: number;
+    undo: string;
     routes: number;
     markWrites: number;
     homesRefilled: number;
@@ -82,6 +89,10 @@ interface Probe {
   where?: (kind: string) => { x: number; z: number } | null;
   /** The text of the pointer tip, if it shows. */
   tipText?: () => string | null;
+  /** The household panel's text ('' when closed). */
+  panelText?: () => string;
+  /** Lived-in homes: where they are (top-left tile), their level, and whether they are warned. */
+  homes?: () => Array<{ id: number; x: number; z: number; level: number; people: number; warned: boolean; left: number }>;
   tool?: (t: string | null) => void;
   /** Screen position of a world point (for driving the mouse in tests). */
   screenOf?: (x: number, z: number) => { x: number; y: number };
@@ -123,8 +134,12 @@ function start(): void {
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
   const overlay = new ServiceOverlay(map, placement);
-  overlay.wanted = launch.overlay ? (demo?.overlay ?? 'water') : null;
+  overlay.wanted = launch.overlay || demo?.overlayOn ? (demo?.overlay ?? 'water') : null;
   world.scene.add(overlay.group);
+  const signs = new Signs(map);
+  world.scene.add(signs.group);
+  const selection = new Selection(map);
+  world.scene.add(selection.mesh);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   const rig = new CameraRig(camera, map, view);
 
@@ -137,6 +152,12 @@ function start(): void {
   const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
   tools.onChange((t) => bar.showTool(t));
   const floaters = new Floaters(ui);
+  const panel = new HouseholdPanel(ui, () => panel.show(0));
+  const legend = document.createElement('div');
+  legend.className = 'legend';
+  legend.hidden = true;
+  legend.innerHTML = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
+  ui.appendChild(legend);
   const followChip = document.createElement('div');
   followChip.className = 'follow-chip';
   followChip.hidden = true;
@@ -182,7 +203,14 @@ function start(): void {
     if (ws) return showStatus(ws, sx, sy);
     const b = buildingAt(world);
     if (!b) return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
-    showStatus(homeStatus(sim.state, map, b), sx, sy);
+    const st = homeStatus(sim.state, map, b);
+    // A lived-in home: its family's name, and a click opens their panel.
+    if (b.family && b.people > 0) {
+      const warn = warningOf(sim.state, b) ? '' : '';
+      st.title = `The house of ${b.family.name} · ${st.title.replace(/^A /, 'a ')}${warn}`;
+      if (panel.id !== b.id) st.detail = `${st.detail ? st.detail + '\n' : ''}Click to see who lives here`;
+    }
+    showStatus(st, sx, sy);
   };
 
   // Following a walker with a job: through her rests and new rounds (the next one from the same place), until the player moves the view.
@@ -232,8 +260,10 @@ function start(): void {
     down: () => tools.down(),
     up: () => tools.up(),
     cancel: () => {
-      if (tools.tool || !follow) tools.cancel();
-      else stopFollow();
+      if (tools.tool) tools.cancel();
+      else if (follow) stopFollow();
+      else if (panel.open) panel.show(0);
+      else tools.cancel();
     },
     click(w, sx, sy) {
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
@@ -241,6 +271,12 @@ function start(): void {
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
       const b = buildingAt(w);
+      // A lived-in home: who lives there. Open ground: close the panel.
+      if (b?.kind === 'home' && b.people > 0) {
+        panel.show(b.id);
+        return hover(w, sx, sy);
+      }
+      if (!b) panel.show(0);
       const kind = b ? FOLLOWS[b.kind] : undefined;
       if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
     },
@@ -255,6 +291,10 @@ function start(): void {
       }
       if (k === 'l') {
         overlay.toggle('food');
+        return true;
+      }
+      if (k === 'i') {
+        overlay.toggle('missing');
         return true;
       }
       const t = TOOL_KEYS[k];
@@ -279,6 +319,29 @@ function start(): void {
     const f = ripest ?? (w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from));
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
+
+  // A demo can open a household's panel from the start.
+  const opened = demo?.open?.(sim.state) ?? 0;
+  if (opened) panel.show(opened);
+
+  /** Homes in trouble, most urgent first. */
+  const trouble = (): Array<{ b: Building; left: number; need: string }> => {
+    const out: Array<{ b: Building; left: number; need: string }> = [];
+    for (const b of sim.state.buildings) {
+      const w = warningOf(sim.state, b);
+      if (w) out.push({ b, left: w.left, need: w.need });
+    }
+    return out.sort((a, b) => a.left - b.left || a.b.id - b.b.id);
+  };
+  topbar.onTrouble(() => {
+    const first = trouble()[0];
+    if (!first) return;
+    stopFollow();
+    panel.show(first.b.id);
+    const [cx, cz] = centreOf(first.b);
+    const v = rig.view;
+    rig.flyTo({ ...v, x: cx, z: cz, dist: Math.min(v.dist, 24) });
+  });
 
   const resize = (): void => {
     const w = canvas.clientWidth || innerWidth;
@@ -351,6 +414,10 @@ function start(): void {
       overlay: overlay.on,
       overlayMode: overlay.mode,
       following: follow !== null,
+      warned: s.buildings.filter((b) => warningOf(s, b)).length,
+      signs: signs.count,
+      panel: panel.id,
+      undo: undoRefusal(s),
       routes: tools.routesFound,
       markWrites: placement.markWrites,
       homesRefilled: city.homes.lastRefilled,
@@ -372,6 +439,14 @@ function start(): void {
     const el = document.querySelector('.pointer-tip') as HTMLElement | null;
     return el && !el.hidden ? (el.dataset.text ?? el.textContent) : null;
   };
+  probe.panelText = () => panel.text;
+  probe.homes = () =>
+    sim.state.buildings
+      .filter((b) => b.kind === 'home' && b.people > 0)
+      .map((b) => {
+        const w = warningOf(sim.state, b);
+        return { id: b.id, x: b.x, z: b.z, level: b.level, people: b.people, warned: !!w, left: w ? w.left : -1 };
+      });
   probe.tool = (t) => tools.select(t as ToolName | null);
   probe.speed = (s) => driver.setSpeed(s);
   probe.screenOf = (x, z) => {
@@ -391,6 +466,7 @@ function start(): void {
   // The population's tooltip says how often newcomers are coming, and why.
   let outlookAt = -Infinity;
   let workRev = -1;
+  let troubleAt = -Infinity;
 
   let last = performance.now();
   let time = 0;
@@ -413,9 +489,11 @@ function start(): void {
         const at = new THREE.Vector3(cx, map.heightAt(cx, cz), cz);
         if (b.people > before.people) floaters.add(`+${b.people - before.people}`, at, time);
         if (b.kind === 'home' && b.level === 2 && before.level === 1) floaters.add('Hut', at.setY(at.y + 0.5), time, 'water');
-        if (b.kind === 'home' && b.level === 1 && before.level === 2) floaters.add('Back to a tent', at.setY(at.y + 0.5), time, 'dry');
+        if (b.kind === 'home' && b.level === 1 && before.level === 2) floaters.add('Back to a tent', at.clone().setY(at.y + 0.5), time, 'dry');
         if (b.kind === 'home' && b.level === 3 && before.level === 2) floaters.add('Cottage', at.setY(at.y + 0.6), time, 'food');
-        if (b.kind === 'home' && b.level === 2 && before.level === 3) floaters.add('Back to a hut', at.setY(at.y + 0.6), time, 'dry');
+        if (b.kind === 'home' && b.level === 2 && before.level === 3) floaters.add('Back to a hut', at.clone().setY(at.y + 0.6), time, 'dry');
+        // People moving away from a home that stays (it went down a level).
+        if (b.kind === 'home' && b.people < before.people && b.level < before.level) floaters.add(`−${before.people - b.people}`, at.clone().setY(at.y - 0.2), time, 'dry');
       }
       remember();
     }
@@ -424,20 +502,30 @@ function start(): void {
       topbar.setPeopleTip(arrivalOutlook(s, map));
       topbar.setMoneyTip(s.rent);
     }
-    if (s.rev !== workRev) {
-      workRev = s.rev;
+    if (s.rev + s.looks !== workRev) {
+      workRev = s.rev + s.looks;
       topbar.showWork(workforce(s), BUILDING_NAMES);
+    }
+    if (time - troubleAt > 0.5) {
+      troubleAt = time;
+      topbar.showTrouble(trouble().map((h) => ({ name: h.b.family?.name ?? '?', need: h.need, days: Math.max(1, Math.ceil(h.left / 10)) })));
     }
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
     updateFollow();
     overlay.update(s, time);
     bar.showOverlay(overlay.mode);
+    legend.hidden = overlay.mode !== 'missing';
+    signs.update(s, camera, time, overlay.mode === 'missing');
+    const open = panel.update(s, map, time);
+    selection.set(open);
+    selection.update(time);
     placement.update(time);
     tools.frame();
     topbar.showDate(sim.date);
     topbar.showCity(s.population, s.money, time);
-    bar.setUndo(s.undo.length > 0);
+    const why = undoRefusal(s);
+    bar.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
     corner.setHeading(rig.view.yaw);
     renderer.render(world.scene, camera);
     floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);

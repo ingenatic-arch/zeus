@@ -6,7 +6,9 @@ import { roadSearch, type Search } from '../sim/roads';
 import { roadsBeside } from '../sim/rounds';
 import { TILE_ROAD, type Building, type BuildingKind, type Service, type SimState } from '../sim/state';
 import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
-import { FOOD_FARM, FOOD_GRANARY, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
+import { TICKS_PER_MONTH } from '../sim/clock';
+import { warningOf, wantOf } from '../sim/folk';
+import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
 const REFRESH = 0.25;
@@ -19,6 +21,9 @@ interface Mode {
   until: (b: Building) => number;
   wants: (b: Building) => boolean;
 }
+
+/** What an overlay shows: a service's reach and supply, or what each home is missing. */
+export type OverlayMode = Service | 'missing';
 
 const MODES: Record<Service, Mode> = {
   water: { source: 'fountain', range: CARRIER_RANGE, lasts: WATER_LASTS, until: (b) => b.waterUntil, wants: (b) => b.kind === 'home' && b.level > 0 },
@@ -45,14 +50,14 @@ export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
 export class ServiceOverlay {
   readonly group = new THREE.Group();
   /** Which overlay the player asked for, if any. */
-  wanted: Service | null = null;
+  wanted: OverlayMode | null = null;
   /** Which one a tool needs (placing a fountain or an agora), if any. */
   forced: Service | null = null;
   private columns: THREE.InstancedMesh;
   private readonly codes: Uint8Array;
   private last = -Infinity;
   private lastRev = -1;
-  private lastMode: Service | null = null;
+  private lastMode: OverlayMode | null = null;
   private preview: number[] | null = null;
   private previewKey = '';
   private readonly m = new THREE.Matrix4();
@@ -83,7 +88,7 @@ export class ServiceOverlay {
   }
 
   /** The overlay showing now: a tool's comes first. */
-  get mode(): Service | null {
+  get mode(): OverlayMode | null {
     return this.forced ?? this.wanted;
   }
 
@@ -92,7 +97,7 @@ export class ServiceOverlay {
   }
 
   /** Show this overlay, or hide it if it is the one showing. */
-  toggle(m: Service): void {
+  toggle(m: OverlayMode): void {
     this.wanted = this.wanted === m ? null : m;
   }
 
@@ -114,7 +119,26 @@ export class ServiceOverlay {
     this.last = time;
     this.lastRev = s.rev;
     this.lastMode = mode;
-    this.refresh(s, mode);
+    if (mode === 'missing') this.refreshMissing(s);
+    else this.refresh(s, mode);
+  }
+
+  /**
+   * What each lived-in home is missing: red where it is warned (it will drop
+   * a level), amber where it lacks what it needs to grow, green where it has
+   * all it needs. Roads are left as they are; the signs over the homes say which need.
+   */
+  private refreshMissing(s: SimState): void {
+    const size = this.map.size;
+    const codes = this.codes;
+    codes.fill(0);
+    for (const b of s.buildings) {
+      if (b.kind !== 'home' || b.people === 0) continue;
+      const code = warningOf(s, b) ? MISSING_WARN : wantOf(s, b) ? MISSING_WANT : MISSING_FINE;
+      for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+    }
+    this.columns.count = 0;
+    this.placement.setOverlay(codes);
   }
 
   private refresh(s: SimState, service: Service): void {
@@ -147,10 +171,16 @@ export class ServiceOverlay {
         const left = mode.until(b) - s.tick;
         const k = left > 0 ? Math.min(1, left / mode.lasts) : 0;
         code = left > 0 ? WATER_HOME + Math.round(39 * k) : WATER_DRY;
+        // A post only over homes without, or with less than a month left: the ground's tint shows the rest.
+        if (left >= TICKS_PER_MONTH) {
+          const side = sideOf(b.kind);
+          for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+          continue;
+        }
         const cx = b.x + 1;
         const cz = b.z + 1;
         const y = this.map.heightAt(cx, cz) + (b.level >= 3 ? 1.45 : b.level >= 2 ? 1.3 : 1.0);
-        const h = left > 0 ? 0.2 + 0.7 * k : 0.22;
+        const h = left > 0 ? 0.2 + 2.4 * k : 0.22;
         this.p.set(cx, y, cz);
         this.s.set(left > 0 ? 1 : 1.5, h, left > 0 ? 1 : 1.5);
         this.m.compose(this.p, this.q, this.s);

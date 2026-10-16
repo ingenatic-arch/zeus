@@ -23,6 +23,10 @@ export const WATER_FOUNTAIN = 252;
 /** In the food overlay (the same codes, in gold), and these two besides: a farm, a granary. */
 export const FOOD_FARM = 253;
 export const FOOD_GRANARY = 254;
+/** In the "what's missing" overlay: a home that is warned (it will drop a level), one that lacks what it needs to grow, one that has all it needs. */
+export const MISSING_WARN = 205;
+export const MISSING_WANT = 206;
+export const MISSING_FINE = 207;
 
 const vertex = /* glsl */ `
   varying vec3 vWorld;
@@ -84,6 +88,12 @@ const fragment = /* glsl */ `
       col = vec4(tone(vec3(0.86, 0.36, 0.2), vec3(0.62, 0.3, 0.42)), 0.42 * (0.7 + 0.3 * edge));
     } else if (o > 251.5 && o < 252.5) {
       col = vec4(tone(vec3(0.3, 0.82, 1.0), vec3(1.0, 0.82, 0.3)), 0.6);
+    } else if (o > 204.5 && o < 205.5) {
+      col = vec4(0.86, 0.28, 0.18, (0.5 + 0.1 * sin(uTime * 3.0)) * (0.7 + 0.3 * edge));
+    } else if (o > 205.5 && o < 206.5) {
+      col = vec4(0.96, 0.7, 0.2, 0.42 * (0.7 + 0.3 * edge));
+    } else if (o > 206.5 && o < 207.5) {
+      col = vec4(0.45, 0.72, 0.3, 0.34 * (0.7 + 0.3 * edge));
     } else if (o > 252.5 && o < 253.5) {
       col = vec4(0.7, 0.82, 0.28, 0.45 * (0.7 + 0.3 * edge));
     } else if (o > 253.5 && o < 254.5) {

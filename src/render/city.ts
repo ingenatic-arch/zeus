@@ -21,8 +21,11 @@ export class CityView {
   readonly works: Works;
   readonly bridges: Bridges;
   private rev = -1;
+  private tilesRev = -1;
   private tiles: number[] = [];
   private buildingKeys = new Map<number, { key: string; chunk: number }>();
+  /** The cleared-plants list last drawn (the sim replaces it whenever it changes). */
+  private cleared: readonly number[] | null = null;
 
   constructor(
     private readonly map: CoastMap,
@@ -50,8 +53,11 @@ export class CityView {
     this.rev = s.rev;
     const size = this.map.size;
     const dirty = new Set<number>();
-    // A changed tile changes its own chunk, and its neighbours' (roads join across).
-    for (let t = 0; t < s.tiles.length; t++) {
+    // A changed tile changes its own chunk, and its neighbours' (roads join across). Only looked
+    // for when the tiles changed (not when settlers arrive or a home changes level).
+    const tilesChanged = s.tilesRev !== this.tilesRev;
+    this.tilesRev = s.tilesRev;
+    for (let t = 0; tilesChanged && t < s.tiles.length; t++) {
       if (!first && this.tiles[t] === s.tiles[t]) continue;
       if (first && s.tiles[t] === 0) continue;
       const tx = t % size;
@@ -73,10 +79,13 @@ export class CityView {
     }
     for (const [id, was] of this.buildingKeys) if (!keys.has(id)) dirty.add(was.chunk);
     this.buildingKeys = keys;
-    this.tiles = s.tiles.slice();
-    this.streets.rebuild(s, dirty);
+    if (tilesChanged) this.tiles = s.tiles.slice();
+    if (dirty.size) this.streets.rebuild(s, dirty);
     this.homes.sync(s, !first);
-    this.bridges.sync(s);
-    this.plants.sync(s.cleared);
+    if (tilesChanged) this.bridges.sync(s);
+    if (s.cleared !== this.cleared) {
+      this.cleared = s.cleared;
+      this.plants.sync(s.cleared);
+    }
   }
 }

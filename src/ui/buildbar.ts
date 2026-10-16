@@ -1,8 +1,8 @@
 import type { ToolName, ToolTip } from '../game/tools';
 import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST } from '../sim/build';
-import type { Service } from '../sim/state';
+import type { OverlayMode } from '../render/overlay';
 
-type ButtonName = ToolName | 'undo' | Service;
+type ButtonName = ToolName | 'undo' | OverlayMode;
 
 const ICONS: Record<ButtonName, string> = {
   // Paving stones running off into the distance.
@@ -22,6 +22,9 @@ const ICONS: Record<ButtonName, string> = {
   food: '<svg viewBox="0 0 24 24"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" class="fill-gold"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" class="stroke-ink"/></svg>',
   // A drop of water.
   water: '<svg viewBox="0 0 24 24"><path d="M12 2.8c3.3 4.6 6.2 8.2 6.2 11.6a6.2 6.2 0 0 1-12.4 0c0-3.4 2.9-7 6.2-11.6z" class="fill-water"/><path d="M9.2 14.6a2.9 2.9 0 0 0 2.6 3" class="stroke-shine"/></svg>',
+  // A little house with a question over it, for the "what's missing" overlay.
+  missing:
+    '<svg viewBox="0 0 24 24"><path d="M4 21v-8.5L12 6l8 6.5V21z" class="fill-soft"/><path d="M10 21v-5h4v5z" class="fill-ink"/><path d="M9.6 3.9a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.7" class="stroke-warn"/><circle cx="12" cy="10.4" r="1" class="fill-warn"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
@@ -59,6 +62,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay', key: 'O', cost: '', hint: '' },
   food: { name: 'Food overlay', key: 'L', cost: '', hint: '' },
+  missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
 };
 
 /** The build bar along the bottom: road, housing, fountain, farm, granary, agora, clear, undo, and the water and food overlays. */
@@ -66,9 +70,9 @@ export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
   private readonly undoBtn: HTMLButtonElement;
-  private readonly overlayBtns = new Map<Service, HTMLButtonElement>();
+  private readonly overlayBtns = new Map<OverlayMode, HTMLButtonElement>();
 
-  constructor(root: HTMLElement, onTool: (t: ToolName) => void, onUndo: () => void, onOverlay: (o: Service) => void) {
+  constructor(root: HTMLElement, onTool: (t: ToolName) => void, onUndo: () => void, onOverlay: (o: OverlayMode) => void) {
     const bar = document.createElement('div');
     bar.className = 'buildbar';
     const hint = document.createElement('div');
@@ -96,7 +100,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food'] as Service[]) {
+    for (const o of ['water', 'food', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));
@@ -107,7 +111,7 @@ export class BuildBar {
   }
 
   /** Light the overlay button of the overlay showing, if any. */
-  showOverlay(mode: Service | null): void {
+  showOverlay(mode: OverlayMode | null): void {
     for (const [o, b] of this.overlayBtns) {
       b.classList.toggle('on', o === mode);
       b.setAttribute('aria-pressed', String(o === mode));
@@ -134,8 +138,16 @@ export class BuildBar {
     if (t) this.hint.textContent = `${INFO[t].hint}  Right-click or Esc to put it down.`;
   }
 
-  setUndo(available: boolean): void {
+  private undoWhy = '';
+
+  /** Undo is greyed out when the last action can't be undone, and its tooltip says why. */
+  setUndo(available: boolean, why = ''): void {
     this.undoBtn.disabled = !available;
+    if (why === this.undoWhy) return;
+    this.undoWhy = why;
+    const label = available || !why ? 'Undo (U) · the last thing you built or cleared, within about a month' : `Undo (U) · ${why}`;
+    this.undoBtn.title = label;
+    this.undoBtn.setAttribute('aria-label', label);
   }
 }
 

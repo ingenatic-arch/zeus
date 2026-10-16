@@ -33,6 +33,11 @@ const SHOTS = {
   chain: '#chain-paused',
   workers: '#workers-paused',
   bridge: '#bridge-paused-shot',
+  people: '#people-paused',
+  'people-overlay': '#people-overlay-paused',
+  warning: '#warning-paused',
+  decline: '#decline-paused',
+  missing: '#missing-paused',
 };
 
 const want = process.argv.slice(2);

@@ -40,6 +40,10 @@ export class TopBar {
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke-width="2.2" stroke-linecap="round" class="handle"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z"/></svg>
           <span class="num">0</span><span class="of"></span>
         </div>
+        <button class="stat trouble" hidden>
+          <svg viewBox="0 0 18 16" aria-hidden="true"><path d="M9 1.2 17.2 15H.8z" class="tri"/><path d="M9 5.6v4.6" class="mark"/><circle cx="9" cy="12.4" r="1" class="dot"/></svg>
+          <span class="num">0</span>
+        </button>
         <div class="divider"></div>
         <div class="date" title="The date in your city">
           <div class="month"></div>
@@ -127,6 +131,31 @@ export class TopBar {
       text += ` Short of workers: ${list.join(', ')}${w.short.length > 4 ? ` and ${w.short.length - 4} more` : ''}. A short-handed place works slower; more homes nearby by road would help.`;
     } else if (w.jobs > 0) text += ' Every job is filled.';
     el.title = text;
+  }
+
+  private troubleKey = '';
+
+  /**
+   * Homes in trouble (warned: they will drop a level unless what they lack
+   * comes): how many, and a tooltip naming the most urgent. Hidden when none.
+   */
+  showTrouble(list: Array<{ name: string; need: string; days: number }>): void {
+    const el = this.bar.querySelector('.stat.trouble') as HTMLButtonElement;
+    const key = list.map((h) => `${h.name}:${h.need}:${h.days}`).join('|');
+    if (key === this.troubleKey) return;
+    this.troubleKey = key;
+    el.hidden = list.length === 0;
+    if (!list.length) return;
+    (el.querySelector('.num') as HTMLElement).textContent = String(list.length);
+    const lines = list.slice(0, 5).map((h) => `· The house of ${h.name}: no ${h.need === 'water' ? 'water' : 'bread'}, ${h.days} ${h.days === 1 ? 'day' : 'days'} left`);
+    const more = list.length > 5 ? `\n· and ${list.length - 5} more` : '';
+    el.title = `${list.length === 1 ? 'A home is' : `${list.length} homes are`} in trouble: without what they need, and going down a level unless it comes.\n${lines.join('\n')}${more}\nClick to go to the most urgent.`;
+    el.setAttribute('aria-label', `${list.length} homes in trouble`);
+  }
+
+  /** Clicking the trouble count. */
+  onTrouble(f: () => void): void {
+    (this.bar.querySelector('.stat.trouble') as HTMLElement).addEventListener('click', f);
   }
 
   /** The treasury's tooltip: rent from last month. */

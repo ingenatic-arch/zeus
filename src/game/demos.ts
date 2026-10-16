@@ -4,8 +4,10 @@
  * little so there is something to see.
  */
 import { MAP_SIZE } from '../map/coast';
+import type { OverlayMode } from '../render/overlay';
+import { warningOf } from '../sim/folk';
 import type { Sim } from '../sim/sim';
-import type { Service } from '../sim/state';
+import type { Building, SimState } from '../sim/state';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
 
@@ -19,6 +21,16 @@ const FOOD_TICKS = 3600;
 const HARVEST_TICKS = 3790;
 const WORKERS_TICKS = 420;
 const BRIDGE_TICKS = 2200;
+/**
+ * The people demos: how long after the food town has grown (FOOD_TICKS) the
+ * scene opens, its west street having been cut off then (#warning: its homes ran dry over a month ago and have about a month
+ * left; #decline: the first of them is a few days from dropping a level),
+ * and how far the
+ * one-farm town of #missing has got.
+ */
+const CUT_WARNING = 1250;
+const CUT_DECLINE = 1480;
+const MISSING_TICKS = 3600;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -29,8 +41,12 @@ export interface Demo {
   /** The camera follows the first walker of this kind (or waits at her workplace). */
   follow?: 'water' | 'food' | 'cart' | 'porter';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
-  overlay?: Service;
+  overlay?: OverlayMode;
+  /** Start with that overlay on, even without `-overlay`. */
+  overlayOn?: boolean;
   setup?: (sim: Sim) => void;
+  /** The household whose panel is open from the start (a building id, 0 for none). */
+  open?: (s: SimState) => number;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -108,16 +124,54 @@ type At = (t: number, c: Parameters<Sim['enqueue']>[0]) => void;
  * farms on it and a granary half way, and an agora goes in by the junction
  * of the town's streets. `ticks` sets how far it has got.
  */
-function foodTown(ticks: number, start = 400, stagger = 200): (sim: Sim) => void {
+function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: number; then?: (at: At) => void }): (sim: Sim) => void {
+  const farms = more?.farms ?? 3;
   return waterTown(ticks, true, (at) => {
     at(start, { type: 'road', tiles: row(27, 50, 63) });
     at(start, { type: 'build', kind: 'farm', at: [T(47, 60)] });
     at(start, { type: 'build', kind: 'granary', at: [T(35, 64)] });
     at(start, { type: 'build', kind: 'agora', at: [T(27, 71)] });
     // The other two farms a little later, so their crops ripen in turn.
-    at(start + stagger, { type: 'build', kind: 'farm', at: [T(44, 60)] });
-    at(start + 2 * stagger, { type: 'build', kind: 'farm', at: [T(48, 64)] });
+    if (farms > 1) at(start + stagger, { type: 'build', kind: 'farm', at: [T(44, 60)] });
+    if (farms > 2) at(start + 2 * stagger, { type: 'build', kind: 'farm', at: [T(48, 64)] });
+    more?.then?.(at);
   });
+}
+
+/**
+ * The food town with its west street cut off: once the town has grown, the
+ * one tile of road that joins it to the lane is cleared, and the scene opens
+ * `after` ticks later. The water carrier and the vendor can no longer walk it. Its homes run dry
+ * about three months later (what they had stored lasts that long), warn, and
+ * two months after that drop a level each, one at a time, unless the road
+ * goes back.
+ */
+function cutTown(after: number): (sim: Sim) => void {
+  return foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: 25, z0: 74, x1: 25, z1: 74 }) });
+}
+
+const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.family);
+
+/** The lived-in home nearest a spot. */
+function nearest(s: SimState, x: number, z: number, among = homes(s)): number {
+  let best = 0;
+  let d = Infinity;
+  for (const b of among) {
+    const e = (b.x + 1 - x) ** 2 + (b.z + 1 - z) ** 2;
+    if (e < d) [best, d] = [b.id, e];
+  }
+  return best;
+}
+
+/** The warned home with the most (or least) time left. */
+function warned(s: SimState, most: boolean): number {
+  let best = 0;
+  let k = most ? -1 : Infinity;
+  for (const b of homes(s)) {
+    const w = warningOf(s, b);
+    if (w && (most ? w.left > k : w.left < k)) [best, k] = [b.id, w.left];
+  }
+  return best;
 }
 
 /**
@@ -152,4 +206,8 @@ export const DEMOS: Record<string, Demo> = {
   chain: { view: 'chain', tool: 'farm', setup: waterTown(1500, true), overlay: 'food' },
   workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0), overlay: 'food' },
   bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
+  people: { view: 'people', setup: foodTown(FOOD_TICKS), overlay: 'missing', open: (s) => nearest(s, 30, 67) },
+  warning: { view: 'warning', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true) },
+  decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false) },
+  missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
 };
