@@ -12,7 +12,7 @@
 import type { CoastMap } from '../map/bake';
 import { around, capacity, centreOf, COTTAGE, HUT, recountPopulation, TENT } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, tell, warningOf } from './folk';
+import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, tell, warningsOf } from './folk';
 import { sendLeavers } from './settlers';
 import type { Building, SimState } from './state';
 
@@ -29,7 +29,7 @@ function rise(s: SimState, b: Building, level: number): void {
   b.level = level;
   b.since = s.tick;
   if (b.family) {
-    b.family.warned = '';
+    b.family.warned = [];
     tell(s, b.family, 'up', level);
   }
 }
@@ -49,16 +49,13 @@ export function stepHouses(s: SimState, map: CoastMap): void {
       changed = true;
       continue;
     }
-    const warn = warningOf(s, b);
     const f = b.family;
     if (f) {
-      // The story notes a warning when it starts, and the relief if what was missing comes back in time.
-      const now = warn ? warn.need : '';
-      if (now !== f.warned) {
-        if (now) tell(s, f, 'warn', b.level, [], now);
-        else if (f.warned) tell(s, f, 'relief', b.level, [], f.warned);
-        f.warned = now;
-      }
+      // The story notes each warning when it starts, and the relief if what was missing comes back in time.
+      const now = warningsOf(s, b).map((w) => w.need);
+      for (const need of now) if (!f.warned.includes(need)) tell(s, f, 'warn', b.level, [], need);
+      for (const need of f.warned) if (!now.includes(need)) tell(s, f, 'relief', b.level, [], need);
+      f.warned = now;
     }
     const lack = missingNeed(b);
     if (!lack || lack.since > s.tick || s.tick - lack.since < DECLINE_AFTER) continue;
@@ -66,15 +63,16 @@ export function stepHouses(s: SimState, map: CoastMap): void {
     b.since = s.tick;
     changed = true;
     if (f) {
-      f.warned = '';
+      f.warned = [];
       tell(s, f, 'down', b.level, [], lack.need);
     }
+    // The people the lower level can't hold walk out: whole families together, so now and then a few more.
     const extra = b.people - capacity(b);
     if (extra > 0) {
-      b.people -= extra;
-      s.left += extra;
-      moveOut(s, b, extra);
-      sendLeavers(s, map, extra, centreOf(b), around(map.size, b));
+      const going = f ? moveOut(s, b, extra).length : extra;
+      b.people -= going;
+      s.left += going;
+      sendLeavers(s, map, going, centreOf(b), around(map.size, b));
     }
   }
   if (changed) {

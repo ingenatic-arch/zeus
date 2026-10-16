@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { warningOf, wantOf, WARNING } from '../sim/folk';
+import { warningsOf, wantOf, WARNING } from '../sim/folk';
 import type { Building, Service, SimState } from '../sim/state';
 
 /** How often (seconds) which homes have signs is worked out again. */
@@ -100,15 +100,16 @@ function loafGeometry(): THREE.BufferGeometry {
 
 interface Sign {
   b: Building;
-  need: Service;
+  /** What it lacks: one need, or both side by side. */
+  needs: Service[];
   /** 0 just warned … 1 about to drop a level; -1 for a need to grow (shown with the "what's missing" overlay). */
   urgency: number;
 }
 
 /**
  * Signs over homes that lack what they need: a round cream sign with a water
- * drop or a loaf, its rim amber when the warning starts and red as the two
- * months run out, pulsing in the last days. Warned homes always show theirs;
+ * drop or a loaf (or both, side by side), its rim orange-red when the warning
+ * starts and deep red as the two months run out, pulsing in the last days. Warned homes always show theirs;
  * with the "what's missing" overlay on, homes that only lack what they need
  * to grow show one too, with a gold rim. Signs face the camera and grow a
  * little with distance so they stay readable from the usual height.
@@ -121,12 +122,17 @@ export class Signs {
   private lastTick = -1;
   private lastAll = false;
   private readonly m = new THREE.Matrix4();
+  private readonly icon = new THREE.Matrix4();
+  /** Where the drop and the loaf go on a sign that shows both. */
+  private readonly left = new THREE.Matrix4().makeTranslation(-0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.62, 0.62, 1));
+  private readonly right = new THREE.Matrix4().makeTranslation(0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.62, 0.62, 1));
   private readonly p = new THREE.Vector3();
   private readonly sc = new THREE.Vector3();
   private readonly c = new THREE.Color();
-  private readonly amber = new THREE.Color('#e3a23a');
-  private readonly red = new THREE.Color('#c63d24');
-  private readonly gold = new THREE.Color('#c9a24a');
+  /** A warning's rim: orange-red when it starts, deep red as time runs out (the overlay's red); a need to grow: gold (its amber). */
+  private readonly amber = new THREE.Color('#e0632c');
+  private readonly red = new THREE.Color('#b8261a');
+  private readonly gold = new THREE.Color('#e8c040');
   /** Signs showing now (for the measuring script). */
   count = 0;
 
@@ -151,11 +157,11 @@ export class Signs {
     const out: Sign[] = [];
     for (const b of s.buildings) {
       if (b.kind !== 'home' || b.people === 0) continue;
-      const w = warningOf(s, b);
-      if (w) out.push({ b, need: w.need, urgency: Math.min(1, Math.max(0, 1 - w.left / WARNING)) });
+      const ws = warningsOf(s, b);
+      if (ws.length) out.push({ b, needs: ws.map((w) => w.need), urgency: Math.min(1, Math.max(0, 1 - ws[0].left / WARNING)) });
       else if (all) {
         const want = wantOf(s, b);
-        if (want) out.push({ b, need: want, urgency: -1 });
+        if (want) out.push({ b, needs: [want], urgency: -1 });
       }
     }
     this.signs = out;
@@ -192,7 +198,7 @@ export class Signs {
     const q = camera.quaternion;
     const cam = camera.position;
     for (let i = 0; i < n; i++) {
-      const { b, need, urgency } = this.signs[i];
+      const { b, needs, urgency } = this.signs[i];
       const cx = b.x + 1;
       const cz = b.z + 1;
       const bob = Math.sin(time * 1.7 + b.id * 1.3) * 0.045;
@@ -207,8 +213,14 @@ export class Signs {
       this.m.compose(this.p, q, this.sc);
       rim.setMatrixAt(i, this.m);
       face.setMatrixAt(i, this.m);
-      if (need === 'water') drop.setMatrixAt(nd++, this.m);
-      else loaf.setMatrixAt(nl++, this.m);
+      if (needs.length === 1) {
+        if (needs[0] === 'water') drop.setMatrixAt(nd++, this.m);
+        else loaf.setMatrixAt(nl++, this.m);
+      } else {
+        // Both: the drop and the loaf side by side, a little smaller.
+        drop.setMatrixAt(nd++, this.icon.copy(this.m).multiply(this.left));
+        loaf.setMatrixAt(nl++, this.icon.copy(this.m).multiply(this.right));
+      }
       if (urgency < 0) this.c.copy(this.gold);
       else this.c.copy(this.amber).lerp(this.red, Math.min(1, urgency * 1.15));
       rim.setColorAt(i, this.c);

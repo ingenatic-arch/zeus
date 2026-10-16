@@ -233,6 +233,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .household .warning { display: flex; gap: 9px; margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: #fdebd8; border: 1.5px solid #e3a23a; }
 .household .warning.urgent { background: #fbe0d6; border-color: #c63d24; }
 .household .warning .ic { width: 24px; height: 24px; }
+.household .warning .icons { display: flex; flex-direction: column; gap: 4px; flex: none; }
 .household .warning b { color: #8a3a1c; }
 .household .warning p { margin: 2px 0 0; font-size: 13px; }
 .household .warning .why { color: var(--ink-soft); font-size: 12.5px; }

@@ -12,17 +12,19 @@ import { ageOf, URGENT, warningOf } from './folk';
 import type { Building, Family, Person, SimState } from './state';
 
 /**
- * Lines by situation. {kin} is another member of the household, {head} the
- * head of the house (never said by the head themselves), {origin} where they
- * came from. Lines naming {kin} are only said in homes of two or more.
+ * Lines by situation. {kin} is another member of the household old enough
+ * to talk, {adult} another who is grown up, {head} the head of the house
+ * (never said by the head themselves), {origin} where they came from. A line
+ * whose {kin} or {adult} isn't there (a home of one, or only small children)
+ * isn't said.
  */
 export const LINES = {
   new: [
     'So this is home now. {kin} has already named the goat.',
     'We walked all the way from {origin} for this patch of dirt. It’s a lovely patch of dirt.',
     'First night under our own canvas. {kin} says the stars are bigger here than in {origin}.',
-    'Everyone in {origin} said we were mad. Look at us now: a tent and a view of the sea.',
-    '{kin} asked where the market is. Give the place a chance, I said.',
+    'Everyone back home said we were mad. Look at us now: a tent and a view of the sea.',
+    '{adult} asked where the market is. Give the place a chance, I said.',
     'The neighbours brought figs. I like the neighbours.',
     'We’ve unpacked the good pot. That means we’re staying.',
     'A new city, a new start. Mind the goat, {kin}.',
@@ -38,7 +40,7 @@ export const LINES = {
     'The whole street smells of people who walk a long way for water.',
   ],
   tentWet: [
-    'The water carrier came by! {kin} is already mixing mud for the walls.',
+    'The water carrier came by! {adult} is already mixing mud for the walls.',
     'Water at the door. Next, walls. Then a roof. Then a nap.',
     'With water this close we can build a real hut. Goodbye, canvas, you flapped well.',
     'That carrier’s jar is the loveliest thing I’ve seen since {origin}.',
@@ -51,7 +53,7 @@ export const LINES = {
     'When the market comes, I’m buying a loaf as big as {kin}’s head.',
     'We could live in a whitewashed cottage, if anyone round here sold bread.',
     'I traded a hen for a sack of barley. The hen looked happier about it than I did.',
-    'The bakers of {origin} would weep to see us eat porridge every day.',
+    'The bakers back in {origin} would weep to see us eat porridge every day.',
     'Thick walls, good thatch, no bread. Two out of three, as my mother used to say.',
   ],
   hutBread: [
@@ -75,8 +77,8 @@ export const LINES = {
   ],
   noWater: [
     'No water carrier for days. We’re washing in olive oil, which is not the same.',
-    '{kin} has started licking the dew off the fence in the mornings. It’s come to that.',
-    'The jar’s dry. If the carrier doesn’t come soon, it’s back to a tent for us.',
+    '{kin} has taken to catching the morning dew in a cup. It takes all morning, and it’s still only a sip.',
+    'The jar’s dry. If the carrier doesn’t come soon, some of us will have to go.',
     'We used to have water. Those were good days. Last month, mostly.',
     'Has anyone seen the water carrier? About so tall, blue dress, jar on her head?',
     'I walked to the river today. I’m not proud of it.',
@@ -87,20 +89,20 @@ export const LINES = {
     '{kin} keeps standing at the door, sniffing for bread. Nothing yet.',
     'No bread for days. A cottage without bread is just a very tidy hut.',
     'We’re down to the emergency lentils. Nobody likes the emergency lentils.',
-    'If the vendor doesn’t come soon, {kin} is off back to {origin}, where they bake twice a day.',
+    'If the vendor doesn’t come soon, {adult} is off back to {origin}, where they bake twice a day.',
     'I’ve started dreaming about crusts. Small ones, even.',
   ],
   urgent: [
-    'That’s it. If nothing comes by in a few days, {kin} goes to stay with my sister.',
+    'That’s it. If nothing comes by in a few days, some of us go to stay with my sister.',
     '{head} has started packing. Slowly, and sighing loudly, so the neighbours notice.',
     'We gave it two months. The gods can’t say we didn’t try.',
     'The cart’s half loaded. A few more days, and some of us are gone.',
-    'Last chance, city. I’m looking at you.',
+    'Last chance, city. The goat and I are watching.',
   ],
   down: [
     'Down in the world again. At least the goat doesn’t mind.',
     'Some of the family went back to {origin}. The house is very quiet now.',
-    'We had shutters once. Blue ones. I don’t want to talk about it.',
+    'We had a bigger house once. Last week, in fact. I don’t want to talk about it.',
     '{head} says it’s only for now. {head} said that about the last place, too.',
     'Fewer mouths to feed, I suppose. That’s the bright side. It isn’t very bright.',
     'We’ll build it all back, just as soon as somebody brings what we need.',
@@ -116,9 +118,9 @@ export const LINES = {
     'Whitewash everywhere. {kin} has whitewashed the goat, too.',
   ],
   noWork: [
-    '{kin} still can’t find work. Every job’s gone to someone who lives nearer.',
+    'Still no work round here. Every job’s gone to someone who lives nearer.',
     'No work to be had round here. I’ve offered to count the olives. Twice.',
-    'If anyone needs a strong back and a weak sense of direction, {kin} is free.',
+    'If anyone needs a strong back and a weak sense of direction, I’m free.',
   ],
   general: [
     'The sea was the colour of wine this morning. {kin} says that’s just how it is here.',
@@ -135,7 +137,7 @@ export const LINES = {
     'We traded our spare amphora for honey. Best trade since the goat.',
     'If Zeus must throw thunderbolts, I hope he aims at the hills.',
     'The sunset over the bay! Even the goat stopped chewing to look.',
-    '{kin} is teaching the children their letters. So far they know alpha and complaining.',
+    '{adult} is teaching the children of the street their letters. So far they know alpha and complaining.',
     'They say the fish here are very clever. They certainly avoid me.',
     'Our neighbour keeps bees. Our neighbour also keeps a lot of bee stings.',
     'The road dust gets everywhere. I found some in the soup.',
@@ -185,8 +187,7 @@ export function situationOf(s: SimState, b: Building): Situation {
   // Just moved down a level, or up one (the change the home's level dates from).
   if (lastOf('down') === b.since && s.tick - b.since < 2 * TICKS_PER_MONTH) return 'down';
   if (b.level >= HUT && lastOf('up') === b.since && s.tick - b.since < TICKS_PER_MONTH) return b.level >= COTTAGE ? 'upCottage' : 'upHut';
-  const came = f?.story.find((e) => e.what === 'came');
-  if (came && s.tick - came.tick < TICKS_PER_MONTH) return 'new';
+  if (f && s.tick - f.came < TICKS_PER_MONTH) return 'new';
   if (b.level === TENT) return b.waterUntil > s.tick ? 'tentWet' : 'tentDry';
   if (b.level === HUT) return b.foodUntil > s.tick ? 'hutBread' : 'hutNoBread';
   return 'cottage';
@@ -198,12 +199,14 @@ export interface Line {
 }
 
 /** Fill in a line's names for this speaker, or null if it doesn't suit them. */
-function fill(template: string, f: Family, who: Person, other: Person | null): string | null {
+function fill(template: string, f: Family, who: Person, other: Person | null, adult: Person | null): string | null {
   if (template.includes('{kin}') && !other) return null;
+  if (template.includes('{adult}') && !adult) return null;
   const head = f.members[0];
   if (template.includes('{head}') && (!head || head === who)) return null;
   return template
     .replaceAll('{kin}', other?.name ?? '')
+    .replaceAll('{adult}', adult?.name ?? '')
     .replaceAll('{head}', head?.name ?? '')
     .replaceAll('{origin}', f.origin);
 }
@@ -241,9 +244,11 @@ export function chatterOf(s: SimState, b: Building, noWork = false): Line[] {
       const pickWho = mix(f.seed, bucket, slot + tries * 7);
       let who = talkers[pickWho % talkers.length];
       if (out.length && talkers.length > 1 && who === out[0].who) who = talkers[(pickWho + 1) % talkers.length];
-      const others = f.members.filter((p) => p !== who);
+      const others = f.members.filter((p) => p !== who && ageOf(s, p) >= 4);
       const other = others.length ? others[mix(f.seed, bucket, slot + 13) % others.length] : null;
-      const text = fill(list[i], f, who, other);
+      const grown = others.filter((p) => ageOf(s, p) >= 16);
+      const adult = grown.length ? grown[mix(f.seed, bucket, slot + 29) % grown.length] : null;
+      const text = fill(list[i], f, who, other, adult);
       if (!text || out.some((l) => l.text === text)) continue;
       out.push({ who, text });
       return;

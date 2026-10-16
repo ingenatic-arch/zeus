@@ -9,7 +9,8 @@ import { fertilityOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from './buildings';
 import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
 import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
-import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missing } from './houses';
+import { missingSince } from './folk';
+import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
@@ -64,9 +65,8 @@ export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Searc
     if (b.level < HUT) return `Has water (${days(left)} left) · becoming a hut`;
     return `Has water · lasts ${days(left)} more unless the water carrier comes by again`;
   }
-  const lack = missing(b);
-  if (b.level >= HUT && lack?.need === 'water') {
-    const goes = DECLINE_AFTER - (s.tick - lack.since);
+  if (b.level >= HUT) {
+    const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'water'));
     const to = b.level === HUT ? 'a tent' : 'a hut';
     return `No water for ${days(s.tick - b.waterUntil)} · goes back to ${to} in ${days(goes)} unless the water carrier comes`;
   }
@@ -96,9 +96,8 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
     const grow = b.level === HUT && b.waterUntil > s.tick ? (left >= COTTAGE_FOOD_MIN ? ' · becoming a cottage' : ' · a cottage needs a month’s bread in hand') : '';
     return `Has food · lasts ${days(left)} more${grow}`;
   }
-  const lack = missing(b);
-  if (b.level === COTTAGE && lack?.need === 'food') {
-    const goes = DECLINE_AFTER - (s.tick - lack.since);
+  if (b.level === COTTAGE) {
+    const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'food'));
     return `No food for ${days(s.tick - b.foodUntil)} · goes back to a hut in ${days(goes)} unless the food vendor comes`;
   }
   return `No food · ${whyHungry(s, map, b, agoras)}`;

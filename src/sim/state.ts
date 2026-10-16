@@ -87,14 +87,16 @@ export interface Family {
   name: string;
   /** Where they came from. */
   origin: string;
+  /** When they came (the story keeps only the last few things that happened). */
+  came: number;
   /** For choosing what they say. */
   seed: number;
   /** Everyone living there, in the order they came (the head first). */
   members: Person[];
   /** The last few things that happened, oldest first. */
   story: Story[];
-  /** The need the home is warning about now ('' none), so the story notes each warning once. */
-  warned: '' | Service;
+  /** The needs the home is warning about now, so the story notes each warning (and each relief) once. */
+  warned: Service[];
 }
 
 /**

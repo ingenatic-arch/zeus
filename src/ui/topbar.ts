@@ -147,7 +147,7 @@ export class TopBar {
     el.hidden = list.length === 0;
     if (!list.length) return;
     (el.querySelector('.num') as HTMLElement).textContent = String(list.length);
-    const lines = list.slice(0, 5).map((h) => `· The house of ${h.name}: no ${h.need === 'water' ? 'water' : 'bread'}, ${h.days} ${h.days === 1 ? 'day' : 'days'} left`);
+    const lines = list.slice(0, 5).map((h) => `· The house of ${h.name}: no ${h.need}, ${h.days} ${h.days === 1 ? 'day' : 'days'} left`);
     const more = list.length > 5 ? `\n· and ${list.length - 5} more` : '';
     el.title = `${list.length === 1 ? 'A home is' : `${list.length} homes are`} in trouble: without what they need, and going down a level unless it comes.\n${lines.join('\n')}${more}\nClick to go to the most urgent.`;
     el.setAttribute('aria-label', `${list.length} homes in trouble`);

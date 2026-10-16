@@ -8,7 +8,7 @@ import type { CoastMap } from '../map/bake';
 import { capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from '../sim/buildings';
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
-import { ageOf, COTTAGE_FOOD_MIN, kinship, moodOf, WARN_AFTER, WARNING, warningOf, type Mood } from '../sim/folk';
+import { ageOf, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
 import { reachesWork, whyDry, whyHungry } from '../sim/status';
 import type { Building, Family, Person, SimState, Story } from '../sim/state';
@@ -72,7 +72,8 @@ function storyLine(f: Family, e: Story, i: number): string {
     case 'down':
       return e.level === HUT ? `Gave up the cottage for a hut, after two months without ${need}` : `Went back to a tent, after two months without ${need}`;
     case 'left':
-      return `${who} ${e.names.length === 1 ? 'moved' : 'moved'} away`;
+      // Each family that left together has its own line.
+      return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
   }
 }
 
@@ -119,7 +120,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
 
 /** The warning box: what ran out, how long ago, how long they will put up with it, and what would help. */
 function warningBlock(s: SimState, map: CoastMap, b: Building): string {
-  const w = warningOf(s, b);
+  const w = warningsOf(s, b)[0];
   if (!w) {
     // A few days late is ordinary: a softer note, no warning yet.
     const late = b.level >= HUT && (b.waterUntil <= s.tick || (b.level >= COTTAGE && b.foodUntil <= s.tick));
@@ -133,14 +134,24 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
     }
     return `<div class="late">${ICON[need]}<span>${need === 'water' ? 'The water carrier' : 'The food vendor'} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
   }
-  const what = w.need === 'water' ? 'water' : 'bread';
+  const ws = warningsOf(s, b);
+  const word = (need: string): string => (need === 'water' ? 'water' : 'bread');
   const to = b.level === HUT ? 'a tent' : 'a hut';
-  const help = w.need === 'water' ? whyDry(s, map, b) : whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
+  const agoras = s.buildings.filter((o) => o.kind === 'agora');
   const share = Math.max(0, Math.min(1, w.left / WARNING));
-  const urgent = w.left <= 10 * TICKS_PER_DAY;
-  const leave = b.people - capacity({ ...b, level: b.level - 1 });
-  const who = leave > 0 ? ` and ${leave === 1 ? 'one of them moves' : `${leave} of them move`} away` : '';
-  return `<div class="warning${urgent ? ' urgent' : ''}">${ICON[w.need]}<div><b>No ${what} for ${days(s.tick - w.since)}</b><p>In ${days(w.left)} they give up the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()} for ${to}${who}, unless ${w.need === 'water' ? 'the water carrier comes by' : 'the food vendor comes by'}.</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div><p class="why">Why: ${esc(help)}</p></div></div>`;
+  const urgent = w.left <= URGENT;
+  // Who would go: whole families together, named.
+  const f = b.family;
+  const groups = f ? leavingGroups(s, f, b.people - capacity({ ...b, level: b.level - 1 })) : [];
+  const going = groups.reduce((n, g) => n + g.length, 0);
+  const label = (g: number[]): string => (!f ? '' : g.length >= 3 ? `${f.members[g[0]].name} and family` : nameList(g.map((i) => f.members[i].name)));
+  const who = going > 0 ? `, and ${nameList(groups.map(label))} ${going === 1 ? 'moves' : 'move'} away${groups.length > 1 || groups[0].length >= 3 ? ` (${going} people)` : ''}` : '';
+  const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${word(x.need)} for ${days(s.tick - x.since)}`).join(', ');
+  const fix = (need: string): string => (need === 'water' ? 'the water carrier' : 'the food vendor');
+  const unless = `unless ${fix(w.need)} comes by.${ws.length > 1 ? ` Without ${word(ws[1].need)} they would go in ${days(ws[1].left)} all the same, unless ${fix(ws[1].need)} comes too.` : ''}`;
+  const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${x.need === 'water' ? 'Water' : 'Bread'}: ` : 'Why: '}${esc(x.need === 'water' ? whyDry(s, map, b) : whyHungry(s, map, b, agoras))}</p>`).join('');
+  const icons = ws.map((x) => ICON[x.need]).join('');
+  return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()} for ${to}${esc(who)}, ${unless}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
 }
 
 /** The whole panel's inner HTML for a home. */
@@ -150,8 +161,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   if (!f) return `<header><div class="kicker">${level}</div><h2>Nobody lives here</h2></header>`;
   const cap = capacity(b);
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
-  const came = f.story.find((e) => e.what === 'came');
-  const since = came ? ` · here since ${when(came.tick)}` : '';
+  const since = ` · here since ${when(f.came)}`;
   const mood = moodOf(s, b, { agora: s.buildings.some((o) => o.kind === 'agora'), jobs: s.buildings.some((o) => JOBS[o.kind] > 0) }, canWork(b));
   const able = canWork(b);
   const talk = chatterOf(s, b, able > b.workers)

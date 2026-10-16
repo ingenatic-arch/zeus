@@ -15,7 +15,8 @@ import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
-import { warningOf } from './sim/folk';
+import { TICKS_PER_DAY } from './sim/clock';
+import { warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { homeStatus, walkerStatus, type Status } from './sim/status';
@@ -208,8 +209,7 @@ function start(): void {
     const st = homeStatus(sim.state, map, b);
     // A lived-in home: its family's name, and a click opens their panel.
     if (b.family && b.people > 0) {
-      const warn = warningOf(sim.state, b) ? '' : '';
-      st.title = `The house of ${b.family.name} · ${st.title.replace(/^A /, 'a ')}${warn}`;
+      st.title = `The house of ${b.family.name} · ${st.title.replace(/^A /, 'a ')}`;
       if (panel.id !== b.id) st.detail = `${st.detail ? st.detail + '\n' : ''}Click to see who lives here`;
     }
     showStatus(st, sx, sy);
@@ -330,8 +330,8 @@ function start(): void {
   const trouble = (): Array<{ b: Building; left: number; need: string }> => {
     const out: Array<{ b: Building; left: number; need: string }> = [];
     for (const b of sim.state.buildings) {
-      const w = warningOf(sim.state, b);
-      if (w) out.push({ b, left: w.left, need: w.need });
+      const ws = warningsOf(sim.state, b);
+      if (ws.length) out.push({ b, left: ws[0].left, need: ws.map((w) => (w.need === 'water' ? 'water' : 'bread')).join(' or ') });
     }
     return out.sort((a, b) => a.left - b.left || a.b.id - b.b.id);
   };
@@ -511,7 +511,7 @@ function start(): void {
     }
     if (time - troubleAt > 0.5) {
       troubleAt = time;
-      topbar.showTrouble(trouble().map((h) => ({ name: h.b.family?.name ?? '?', need: h.need, days: Math.max(1, Math.ceil(h.left / 10)) })));
+      topbar.showTrouble(trouble().map((h) => ({ name: h.b.family?.name ?? '?', need: h.need, days: Math.max(1, Math.ceil(h.left / TICKS_PER_DAY)) })));
     }
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);

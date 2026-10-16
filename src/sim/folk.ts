@@ -35,7 +35,7 @@ export const WOMEN = [
 /** Where families come from. */
 export const ORIGINS = [
   'Megara', 'Corinth', 'Argos', 'Thebes', 'Aegina', 'Chalcis', 'Eretria', 'Naxos', 'Samos', 'Miletus',
-  'Chios', 'Paros', 'Sicyon', 'Phocis', 'a hill village in Arcadia', 'a fishing village on Euboea', 'Boeotia', 'Delphi', 'Rhodes', 'a farm near Sparta',
+  'Chios', 'Paros', 'Sicyon', 'Phocis', 'a hill village in Arcadia', 'a fishing village on Euboea', 'Boeotia', 'Delphi', 'Rhodes', 'the hills of Laconia',
 ];
 
 /** Story entries a household keeps. */
@@ -110,7 +110,7 @@ export function moveIn(s: SimState, b: Building, n: number): void {
   if (!b.family) {
     const r = s.folk;
     const members = unit(s, n, [], null);
-    b.family = { name: members[0].name, origin: pick(r, ORIGINS), seed: nextInt(r, 0x7fffffff), members, story: [], warned: '' };
+    b.family = { name: members[0].name, origin: pick(r, ORIGINS), came: s.tick, seed: nextInt(r, 0x7fffffff), members, story: [], warned: [] };
     tell(s, b.family, 'came', Math.max(b.level, TENT), members.map((p) => p.name));
     return;
   }
@@ -120,17 +120,86 @@ export function moveIn(s: SimState, b: Building, n: number): void {
   tell(s, f, 'joined', b.level, joined.map((p) => p.name));
 }
 
+/** A household's members by family unit: [first, end) index ranges, the head's unit first. */
+function unitsOf(f: Family): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  f.members.forEach((p, i) => {
+    if (p.role === 'head' || p.role === 'brother' || p.role === 'sister' || p.role === 'cousin') {
+      if (out.length) out[out.length - 1][1] = i;
+      out.push([i, f.members.length]);
+    }
+  });
+  return out;
+}
+
+/** Old enough to go off on their own. */
+const GROWN = 16;
+
 /**
- * People move away: the most recent to come go first (children before their
- * parents, a partner before the one they came with), so the head of the
- * house is the last to leave. Returns who left.
+ * Who leaves when at least `n` people must: whole families who joined the
+ * household (a brother, sister or cousin with their partner and children),
+ * and grown children or an elderly parent on their own, never the head of
+ * the house, and never a partner or a young child without the rest of their
+ * family. Exactly `n` if that can be done; if not, the fewest more (a family
+ * goes together rather than leave a child behind). The newest arrivals are
+ * the first to go. Returns groups of member indices (each group leaves
+ * together), or [] for none. Pure.
+ */
+export function leavingGroups(s: SimState, f: Family, n: number): number[][] {
+  if (n <= 0) return [];
+  const units = unitsOf(f);
+  const groups: Array<{ idx: number[]; unit: number; single: boolean }> = [];
+  units.forEach(([a, b], u) => {
+    if (u > 0) groups.push({ idx: Array.from({ length: b - a }, (_, k) => a + k), unit: u, single: false });
+    for (let i = a + 1; i < b; i++) {
+      const p = f.members[i];
+      const alone = ((p.role === 'son' || p.role === 'daughter') && ageOf(s, p) >= GROWN) || p.role === 'mother' || p.role === 'father';
+      if (alone) groups.push({ idx: [i], unit: u, single: true });
+    }
+  });
+  // At most a dozen choices (a household holds 13): try every combination, best first.
+  const g = groups.slice(-12);
+  let best: number[][] | null = null;
+  let bestCost = Infinity;
+  for (let mask = 1; mask < 1 << g.length; mask++) {
+    let count = 0;
+    let cost = 0;
+    const whole = new Set<number>();
+    const singles: number[] = [];
+    for (let k = 0; k < g.length; k++) {
+      if (!(mask & (1 << k))) continue;
+      count += g[k].idx.length;
+      if (g[k].single) singles.push(g[k].unit);
+      else whole.add(g[k].unit);
+      // Newer families and people go first; singles only when a whole family won't do.
+      cost += (units.length - g[k].unit) * 2 + (g[k].single ? 15 : 0);
+    }
+    if (count < n || singles.some((u) => whole.has(u))) continue;
+    cost += (count - n) * 1000;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = [];
+      for (let k = 0; k < g.length; k++) if (mask & (1 << k)) best.push(g[k].idx);
+    }
+  }
+  // Nobody can go without breaking up a family (it can't happen: the head's own family always fits in a tent): the newest leave.
+  if (!best) return [Array.from({ length: Math.min(n, f.members.length - 1) }, (_, k) => f.members.length - 1 - k)];
+  return best.sort((x, y) => y[0] - x[0]);
+}
+
+/**
+ * At least `n` people move away (see `leavingGroups`), the story naming each
+ * group. Returns who left.
  */
 export function moveOut(s: SimState, b: Building, n: number): Person[] {
   const f = b.family;
   if (!f || n <= 0) return [];
-  const gone = f.members.splice(Math.max(0, f.members.length - n), n).reverse();
+  const groups = leavingGroups(s, f, n);
+  const going = new Set(groups.flat());
+  for (const grp of groups) tell(s, f, 'left', b.level, grp.map((i) => f.members[i].name));
+  const gone = f.members.filter((_, i) => going.has(i));
+  f.members = f.members.filter((_, i) => !going.has(i));
   if (f.members.length === 0) b.family = null;
-  else tell(s, f, 'left', b.level, gone.map((p) => p.name));
   return gone;
 }
 
@@ -211,8 +280,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     const recent = 3 * TICKS_PER_MONTH;
     if (down && s.tick - down.tick < recent && (!up || up.tick < down.tick)) add(-1, `Lost their ${down.level === HUT ? 'cottage' : 'hut'} lately`);
     else if (up && s.tick - up.tick < recent) add(1, `Moved up to a ${up.level >= COTTAGE ? 'cottage' : 'hut'} lately`);
-    const came = f.story.find((e) => e.what === 'came');
-    if (came && s.tick - came.tick < TICKS_PER_MONTH) add(1, 'Glad of a place of their own');
+    if (s.tick - f.came < TICKS_PER_MONTH) add(1, 'Glad of a place of their own');
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
   // A few days from giving up: as low as it goes.
@@ -244,26 +312,64 @@ export const COTTAGE_FOOD_MIN = TICKS_PER_MONTH;
 /** The last stretch of a warning, when the sign turns red and pulses. */
 export const URGENT = 10 * TICKS_PER_DAY;
 
+/** The needs a home's level has (a hut water; a cottage water and bread). */
+export function needsOf(b: Building): Service[] {
+  if (b.kind !== 'home') return [];
+  if (b.level >= COTTAGE) return ['water', 'food'];
+  if (b.level >= HUT) return ['water'];
+  return [];
+}
+
+/**
+ * Since when a need of a home's level has been missing: the tick it ran out
+ * (in the future while it still has it), or the home's last change of level,
+ * if later.
+ */
+export function missingSince(b: Building, need: Service): number {
+  const until = need === 'water' ? b.waterUntil : b.foodUntil;
+  return Math.max(until, b.since);
+}
+
 /**
  * The need a home's level is missing longest and since when, or null if it
  * has all it needs: 'water' or 'food' and the tick it ran out (or the home's
  * last change of level, if later).
  */
 export function missingNeed(b: Building): { need: Service; since: number } | null {
-  const now = (until: number): number => Math.max(until, b.since);
   let worst: { need: Service; since: number } | null = null;
-  if (b.kind !== 'home') return null;
-  if (b.level >= HUT) worst = { need: 'water', since: now(b.waterUntil) };
-  if (b.level >= COTTAGE && (!worst || now(b.foodUntil) < worst.since)) worst = { need: 'food', since: now(b.foodUntil) };
+  for (const need of needsOf(b)) {
+    const since = missingSince(b, need);
+    if (!worst || since < worst.since) worst = { need, since };
+  }
   return worst;
 }
 
-/** A home's warning now: what it lacks, since when, and ticks left before it drops a level; null if it isn't warned (yet). */
-export function warningOf(s: SimState, b: Building): { need: Service; since: number; left: number } | null {
-  if (b.kind !== 'home' || b.level < HUT || b.people === 0) return null;
-  const lack = missingNeed(b);
-  if (!lack || s.tick - lack.since < WARN_AFTER) return null;
-  return { need: lack.need, since: lack.since, left: Math.max(0, DECLINE_AFTER - (s.tick - lack.since)) };
+export interface Warning {
+  need: Service;
+  since: number;
+  /** Ticks left before the home drops a level for want of it. */
+  left: number;
+}
+
+/**
+ * Every need a home is warning about now (missing for longer than the
+ * grace), the most urgent first; empty if none. A home drops a level when
+ * the first of them runs out of time.
+ */
+export function warningsOf(s: SimState, b: Building): Warning[] {
+  if (b.kind !== 'home' || b.level < HUT || b.people === 0) return [];
+  const out: Warning[] = [];
+  for (const need of needsOf(b)) {
+    const since = missingSince(b, need);
+    if (since > s.tick || s.tick - since < WARN_AFTER) continue;
+    out.push({ need, since, left: Math.max(0, DECLINE_AFTER - (s.tick - since)) });
+  }
+  return out.sort((a, c) => a.left - c.left);
+}
+
+/** A home's most urgent warning now: what it lacks, since when, and ticks left before it drops a level; null if it isn't warned (yet). */
+export function warningOf(s: SimState, b: Building): Warning | null {
+  return warningsOf(s, b)[0] ?? null;
 }
 
 /** What a home needs to go up a level that it doesn't have now ('' if nothing, or it can't go higher yet). */

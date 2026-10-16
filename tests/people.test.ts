@@ -164,7 +164,7 @@ describe('warn, then decline', () => {
     sim.run(TICKS_PER_DAY);
     expect(c.level).toBe(COTTAGE);
     expect(c.family!.story.at(-1)?.what).toBe('relief');
-    expect(c.family!.warned).toBe('');
+    expect(c.family!.warned).toEqual([]);
   });
 
   it('a hut with water becomes a cottage only with a month’s bread in hand', () => {
@@ -184,6 +184,38 @@ describe('warn, then decline', () => {
     sim.run(TICKS_PER_DAY);
     expect(h.level).toBe(COTTAGE);
     expect(h.family!.story.at(-1)?.what).toBe('up');
+  });
+});
+
+describe('who moves away', () => {
+  it('whole families go together: never the head, never a partner or a young child without the rest of their family', () => {
+    // The one-farm town of #missing, where bread is short and homes go down a level again and again.
+    const sim = new Sim();
+    DEMOS.missing.setup!(sim);
+    let drops = 0;
+    let extra = 0;
+    for (let t = 0; t < 2 * TICKS_PER_YEAR; t++) {
+      const before = new Map(homes(sim.state).map((b) => [b.id, { level: b.level, people: b.people }]));
+      sim.step();
+      for (const b of homes(sim.state)) {
+        const was = before.get(b.id);
+        if (!was || b.level >= was.level || !b.family) continue;
+        drops++;
+        const cap = HOME_CAPACITY[b.level];
+        expect(b.people).toBeLessThanOrEqual(cap);
+        extra += cap - b.people - Math.max(0, cap - was.people);
+        const f = b.family;
+        expect(f.members[0].role).toBe('head');
+        const here = new Set(f.members.map((p) => p.name));
+        for (const p of f.members) {
+          const tied = p.role === 'wife' || p.role === 'husband' || ((p.role === 'son' || p.role === 'daughter') && ageOf(sim.state, p) < 16);
+          if (tied) expect(here.has(p.kin), `${p.name}, ${p.role} of ${p.kin}, left behind`).toBe(true);
+        }
+      }
+    }
+    expect(drops).toBeGreaterThan(10);
+    // Families mostly fit what has to go exactly (74 drops, none over, when written).
+    expect(extra).toBeLessThanOrEqual(drops / 4);
   });
 });
 
