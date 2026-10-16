@@ -128,6 +128,36 @@ for (const [cam, overlay] of [['food', false], ['food', true], ['vendor', false]
 }
 console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
 await summarise();
+// The people who live there (slice 5): a street cut off and warning, signs, the panel, the what's-missing overlay.
+await page.goto('about:blank');
+const t4 = Date.now();
+await page.goto(url + '#warning-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+console.log(`load #warning (local, headless): ready in ${Date.now() - t4} ms`);
+for (const [cam, overlay] of [['warning', false], ['warning', true], ['decline', false], ['people', false], ['missing', true], ['overview', true]]) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const on = await page.evaluate(() => window.__zeus.city().overlay);
+  if (on !== overlay) await page.keyboard.press('i');
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#warning view ${(cam + (overlay ? '+missing' : '')).padEnd(16)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
+await summarise();
+
+// Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
+// running at normal speed, at a small window so headless frames come often enough to average.
+await page.setViewportSize({ width: 960, height: 540 });
+for (const hash of ['#food-paused-shot', '#food-shot']) {
+  await page.goto('about:blank');
+  await page.goto(url + hash);
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  await page.waitForTimeout(8000);
+  const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  console.log(`${hash.padEnd(18)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+}
 const mem = await page.evaluate(() => window.__zeus.info());
 console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures`);
 await browser.close();

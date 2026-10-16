@@ -345,6 +345,75 @@ await page.keyboard.press('3');
 await frames(30);
 
 if (errors.length) fail('page errors:\n' + errors.join('\n'));
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// The people who live there: the household panel, signs, the trouble count, the what's-missing overlay, undo's reach.
+const panelText = () => page.evaluate(() => window.__zeus.panelText());
+await open('#people-paused');
+c = await city();
+if (!(c.panel > 0 && c.warned === 0)) fail(`#people: ${JSON.stringify(c)}`);
+let pt = await panelText();
+if (!/The house of [\s\S]*Who lives here[\s\S]*head of the house[\s\S]*Their story/.test(pt ?? '')) fail(`#people panel: ${pt}`);
+const firstPanel = c.panel;
+// Hovering another home invites a click; clicking it opens its own panel.
+const others = (await page.evaluate(() => window.__zeus.homes())).filter((h) => h.id !== firstPanel && h.level === 3);
+const other = others.find((h) => Math.abs(h.x - 30) + Math.abs(h.z - 67) < 8) ?? others[0];
+p = await at(other.x + 1, other.z + 1);
+await page.mouse.move(p.x, p.y - 4);
+await frames(2);
+const hh = await tip();
+if (!/The house of [\s\S]*Click to see who lives here/.test(hh ?? '')) fail(`hovering a home: ${hh}`);
+await page.mouse.click(p.x, p.y - 4);
+await frames(2);
+c = await city();
+if (c.panel === firstPanel || c.panel === 0) fail(`clicking another home did not open its panel (${c.panel})`);
+await page.keyboard.press('Escape');
+await frames(2);
+if ((await city()).panel !== 0) fail('Esc did not close the household panel');
+// The undo button says why it can't (the demo's building was over a month ago).
+const undoTitle = await page.evaluate(() => document.querySelector('.btn[aria-label^="Undo"]')?.getAttribute('title'));
+if (!/about a month|Nothing to undo|clear it instead/.test(undoTitle ?? '')) fail(`undo button title: ${undoTitle}`);
+// I: the what's-missing overlay.
+await page.keyboard.press('i');
+await frames(2);
+if ((await city()).overlayMode !== 'missing') fail('I did not show the what’s-missing overlay');
+const legend = await page.evaluate(() => !document.querySelector('.legend')?.hidden);
+if (!legend) fail('the what’s-missing legend is not showing');
+await page.keyboard.press('i');
+await frames(2);
+if ((await city()).overlay) fail('I did not hide the overlay');
+// #warning: the cut-off street's homes warn, with signs, a trouble count and a panel; mending the road.
+await open('#warning-paused');
+c = await city();
+if (!(c.warned >= 5 && c.signs >= c.warned && c.tool === 'road' && c.panel > 0)) fail(`#warning: ${JSON.stringify(c)}`);
+pt = await panelText();
+if (!/No water for [\s\S]*they give up the cottage for a hut[\s\S]*no road joins it to a fountain/.test(pt ?? '')) fail(`#warning panel: ${pt}`);
+const trouble = await page.evaluate(() => {
+  const el = document.querySelector('.stat.trouble');
+  return el && !el.hidden ? el.textContent.trim() : '';
+});
+if (trouble !== String(c.warned)) fail(`trouble count "${trouble}" for ${c.warned} warned homes`);
+const cut0 = c.roads;
+p = await at(25.5, 74.5);
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (c.roads !== cut0 + 1 || c.undo !== '') fail(`mending the cut road: ${cut0} -> ${c.roads} roads, undo "${c.undo}"`);
+await page.keyboard.press('Escape');
+// #decline: running, the nearest home drops a level and people walk out.
+await open('#decline');
+c = await city();
+await page.evaluate(() => window.__zeus.speed('fastest'));
+await page.waitForFunction((n) => window.__zeus.city().cottages < n, c.cottages, { timeout: 60000 });
+pt = await panelText();
+if (!/^A hut/.test(pt ?? '') || !/Gave up the cottage for a hut/.test(pt) || !/moved away/.test(pt)) fail(`#decline panel after the drop: ${pt}`);
+// #missing: the overlay is on; the trouble count flies to the most urgent home and opens its panel.
+await open('#missing-paused');
+c = await city();
+if (!(c.overlayMode === 'missing' && c.warned > 0 && c.panel === 0)) fail(`#missing: ${JSON.stringify(c)}`);
+await page.click('.stat.trouble');
+await frames(3);
+const urgent = (await page.evaluate(() => window.__zeus.homes())).filter((h) => h.warned).sort((a, b) => a.left - b.left)[0];
+if ((await city()).panel !== urgent?.id) fail(`the trouble count did not open the most urgent home (${(await city()).panel} vs ${urgent?.id})`);
+
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

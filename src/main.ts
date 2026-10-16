@@ -32,6 +32,8 @@ interface Probe {
   frames: number;
   bakeMs: number;
   startMs: number;
+  /** Main-thread time spent before drawing, summed over all frames (sim steps and view updates), in ms. */
+  updateMs: number;
   /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
   readyAt?: number;
   firstFrameAt?: number;
@@ -99,7 +101,7 @@ interface Probe {
   speed?: (s: Speed) => void;
 }
 
-const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0 };
+const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0 };
 (window as unknown as { __zeus: Probe }).__zeus = probe;
 
 function start(): void {
@@ -471,6 +473,7 @@ function start(): void {
   let last = performance.now();
   let time = 0;
   renderer.setAnimationLoop((now) => {
+    const jsStart = performance.now();
     const raw = Math.max(0, (now - last) / 1000);
     last = now;
     // The clock keeps real time even when frames are slow (up to a second's
@@ -527,6 +530,8 @@ function start(): void {
     const why = undoRefusal(s);
     bar.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
     corner.setHeading(rig.view.yaw);
+    // What frames cost on the main thread before drawing (the sim's steps and every view's update), summed.
+    probe.updateMs += performance.now() - jsStart;
     renderer.render(world.scene, camera);
     floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);
     probe.frames++;
