@@ -94,7 +94,8 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float aTint;')
-      .replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aTint);');
+      // The chunk has to be expanded here: at this point the shader still holds only its #include line.
+      .replace('#include <color_vertex>', THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aTint);'));
   };
   mat.customProgramCacheKey = () => 'tinted-person';
   return mat;
