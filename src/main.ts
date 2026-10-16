@@ -44,6 +44,8 @@ interface Probe {
   /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
   readyAt?: number;
   firstFrameAt?: number;
+  /** How long the demo's town took to prepare (its setup ticks), within startMs. */
+  setupMs?: number;
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
@@ -112,7 +114,7 @@ interface Probe {
   saveNow?: () => string;
   /** The shortfall lines showing under the top bar. */
   townLines?: () => string[];
-  sound?: () => { started: boolean; muted: boolean; played: number };
+  sound?: () => { started: boolean; muted: boolean; played: number; state: string };
   welcome?: () => boolean;
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
@@ -132,7 +134,9 @@ function start(): void {
   const map = coastMap();
   probe.bakeMs = performance.now() - t0;
   const sim = new Sim();
+  const tSetup = performance.now();
   demo?.setup?.(sim);
+  probe.setupMs = performance.now() - tSetup;
 
   // A saved town asked for by the link (#continue, #autosave, #saved) is opened before anything draws it.
   const saves = new Saves(browserStorage());
@@ -246,6 +250,9 @@ function start(): void {
   let savedRev = loaded ? sim.state.rev : -1;
   let leaving = false;
   let lastSave = '';
+  /** Whether the note has said so after an autosave this session, and why the last autosave failed ('' if it didn't). */
+  let autoNoted = false;
+  let autoProblem = '';
   const writeSave = (slot: Slot): string => {
     const why = saves.save(slot, sim.state, Date.now(), rig.view);
     lastSave = why || `${slot}:${sim.state.tick}`;
@@ -285,7 +292,7 @@ function start(): void {
       go('');
     },
     unsaved: () => autosaving && sim.state.rev !== savedRev,
-    autosave: () => ({ on: autosaving }),
+    autosave: () => ({ on: autosaving, problem: autoProblem }),
   });
   const autosaveNow = (): void => {
     if (!autosaving || leaving || !saves.available || sim.state.rev === savedRev) return;
@@ -633,7 +640,7 @@ function start(): void {
     return lastSave.includes(':') ? '' : lastSave;
   };
   probe.townLines = () => lines.texts;
-  probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played });
+  probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
   probe.warnAll = (id) => {
     const b = findBuilding(sim.state, id);
@@ -684,11 +691,15 @@ function start(): void {
     if (s.rev !== seenRev) {
       seenRev = s.rev;
       let cue: Cue | null = null;
+      // A home's chime is heard only near the view (the sound module also keeps it to one a second).
+      const ear = rig.view;
+      const hearing = 8 + ear.dist * 0.6;
       for (const b of s.buildings) {
         const before = known.get(b.id) ?? { people: 0, level: 0 };
-        if (b.kind === 'home' && before.level > 0 && b.level > before.level) cue = 'rise';
-        else if (b.kind === 'home' && b.level < before.level && b.level > 0) cue ??= 'decline';
         const [cx, cz] = centreOf(b);
+        const heard = b.kind === 'home' && Math.hypot(cx - ear.x, cz - ear.z) < hearing;
+        if (heard && before.level > 0 && b.level > before.level) cue = 'rise';
+        else if (heard && b.level < before.level && b.level > 0) cue ??= 'decline';
         const at = new THREE.Vector3(cx, map.heightAt(cx, cz), cz);
         if (b.people > before.people) floaters.add(`+${b.people - before.people}`, at, time);
         if (b.kind === 'home' && b.level === 2 && before.level === 1) floaters.add('Hut', at.setY(at.y + 0.5), time, 'water');
@@ -725,7 +736,18 @@ function start(): void {
     }
     if (autosaving && s.tick - lastAuto >= AUTOSAVE_EVERY) {
       lastAuto = s.tick;
-      if (s.rev !== savedRev && saves.available && !writeSave('auto')) saveMenu.flash(`Saved by itself · ${labelOf(s).date}`);
+      if (s.rev !== savedRev && saves.available) {
+        const why = writeSave('auto');
+        // Said once a session (the saves card always shows when it last saved), and when it can't save, once for each reason.
+        if (!why) {
+          autoProblem = '';
+          if (!autoNoted) saveMenu.flash(`Saved by itself · ${labelOf(s).date}`);
+          autoNoted = true;
+        } else if (why !== autoProblem) {
+          autoProblem = why;
+          saveMenu.flash(`It couldn’t save by itself: ${why}`, true);
+        }
+      }
     }
     sound.update(dt);
     world.update(time, rig, s.wind.angle, s.wind.strength);
@@ -763,5 +785,12 @@ function start(): void {
   probe.ready = true;
 }
 
+// Say what the wait is for: a prepared town is played forward before it opens, and a save is read.
+{
+  const l = readLaunch(location.search, location.hash, DEMOS, VIEWS);
+  const card = document.getElementById('loading');
+  if (card && l.demo && DEMOS[l.demo]?.setup) card.textContent = 'Shaping the coast and getting the town ready…';
+  else if (card && l.load) card.textContent = 'Opening your town…';
+}
 // Let the loading card paint before the coast is shaped.
 requestAnimationFrame(() => setTimeout(start, 0));

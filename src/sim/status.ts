@@ -405,25 +405,42 @@ export interface TownLine {
 }
 
 /**
+ * Months of warning the bread line gives: it shows once the stores would run
+ * out within this many months at the rate the town is eating into them (a
+ * new farm's first harvest is two months off, and homes warn for two more
+ * before they go down), not merely when the farms tip below what the town
+ * eats while the granaries are full.
+ */
+export const BREAD_LEAD_MONTHS = 6;
+
+/**
  * What the town is short of, in a line each, readable without hovering: bread
  * (the farms growing less than the town eats, once there is a farm or an
- * agora) and workers (jobs unfilled). Empty when all is well.
+ * agora, and the stores running out within BREAD_LEAD_MONTHS) and workers
+ * (jobs unfilled). Empty when all is well.
  */
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = [];
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
-  if (bal.eaten > bal.grown && (farms.length > 0 || agora)) {
+  let stored = 0;
+  for (const g of s.buildings) if (g.kind === 'granary' || g.kind === 'agora') stored += g.stock;
+  // How many months the stores last at the rate the town eats into them.
+  const runsOut = stored / Math.max(1, bal.eaten - bal.grown);
+  if (bal.eaten > bal.grown && (farms.length > 0 || agora) && (farms.length === 0 || runsOut < BREAD_LEAD_MONTHS)) {
     const eats = fmt(roundTen(bal.eaten));
     if (farms.length === 0) {
       out.push({ need: 'food', text: `Bread: the town eats about ${eats} measures of wheat a month and no farm grows any yet. A wheat farm on the green land by the river would start it.`, at: agora?.id ?? 0 });
     } else {
       const slow = farms.find((f) => rateOf(f) < 1);
-      let stored = 0;
-      for (const g of s.buildings) if (g.kind === 'granary' || g.kind === 'agora') stored += g.stock;
       const months = stored / Math.max(1, bal.eaten);
-      const stores = months >= 1.5 ? ` The granaries and stalls hold about ${Math.round(months)} months’ worth.` : months >= 0.5 ? ' The granaries and stalls hold about a month’s worth.' : ' The granaries are nearly empty.';
+      const stores =
+        months < 0.5
+          ? ' The granaries are nearly empty.'
+          : runsOut >= 1.5
+            ? ` At this rate the granaries and stalls run empty in about ${Math.round(runsOut)} months.`
+            : ' At this rate the granaries and stalls run empty within a month or so.';
       const granary = s.buildings.find((g) => g.kind === 'granary');
       if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; a farm is short of workers (${slow.workers} of ${JOBS.farm}).${stores}`, at: slow.id });
       else if (roundTen(bal.grown) === roundTen(bal.eaten)) {

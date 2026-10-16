@@ -68,10 +68,14 @@ export class Sound {
   /** Sounds played (for the smoke test). */
   played = 0;
 
+  /** When each short cue last played (audio clock), so a busy town doesn't pile them up. */
+  private lastCue = new Map<Cue, number>();
+
   constructor() {
     this.muted = readMuted();
+    // Nothing is made while muted: the first click or key after unmuting starts it.
     const begin = (): void => {
-      this.start();
+      if (!this.muted) this.start();
       if (this.ctx) {
         removeEventListener('pointerdown', begin, true);
         removeEventListener('keydown', begin, true);
@@ -79,11 +83,38 @@ export class Sound {
     };
     addEventListener('pointerdown', begin, true);
     addEventListener('keydown', begin, true);
+    // Quiet while the tab is hidden (the frames stop, but the sea would go on).
+    document.addEventListener('visibilitychange', () => this.hold());
+  }
+
+  /** Whether the audio should be running now: started, not muted, the page visible. */
+  private get wanted(): boolean {
+    return !this.muted && document.visibilityState !== 'hidden';
+  }
+
+  /** Suspend or resume the audio to match `wanted` (a suspended context costs nothing). */
+  private hold(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (this.wanted) {
+      if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+    } else if (ctx.state === 'running') {
+      // Let the master fade before stopping the clock.
+      const c = ctx;
+      setTimeout(() => {
+        if (!this.wanted && c.state === 'running') void c.suspend().catch(() => undefined);
+      }, 400);
+    }
   }
 
   /** Whether sound has started (after the first click or key). */
   get started(): boolean {
     return this.ctx !== null;
+  }
+
+  /** The audio's state: 'none' before it starts, then 'running' or 'suspended' (held while muted or hidden). */
+  get state(): string {
+    return this.ctx?.state ?? 'none';
   }
 
   onChange(f: (m: boolean) => void): void {
@@ -93,7 +124,10 @@ export class Sound {
   setMuted(m: boolean): void {
     this.muted = m;
     writeMuted(m);
+    // Unmuting is a click, so the audio may start here if it never has.
+    if (!m) this.start();
     if (this.ctx && this.master) this.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.08);
+    this.hold();
     for (const f of this.changeFns) f(m);
   }
 
@@ -181,7 +215,11 @@ export class Sound {
   update(dt: number): void {
     const ctx = this.ctx;
     if (!ctx || !this.seaGain || !this.windGain || !this.seaFilter) return;
-    if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+    if (ctx.state !== 'running') {
+      // Held (muted or hidden), or the browser hasn't let it run yet.
+      if (ctx.state === 'suspended' && this.wanted) void ctx.resume().catch(() => undefined);
+      return;
+    }
     const l = this.listener;
     const now = ctx.currentTime;
     // How far up the camera is: near the ground, the town; high up, the wind.
@@ -219,6 +257,12 @@ export class Sound {
   play(cue: Cue): void {
     const ctx = this.ctx;
     if (!ctx || !this.master || this.muted) return;
+    // A home going up or down: at most one chime a second, however fast the town grows.
+    if (cue === 'rise' || cue === 'decline') {
+      const last = this.lastCue.get(cue) ?? -Infinity;
+      if (ctx.currentTime - last < 1) return;
+      this.lastCue.set(cue, ctx.currentTime);
+    }
     this.played++;
     switch (cue) {
       case 'road':

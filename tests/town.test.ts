@@ -12,7 +12,7 @@ import { TICKS_PER_DAY, TICKS_PER_YEAR } from '../src/sim/clock';
 import { mapIndex } from '../src/sim/build';
 import { warningOf } from '../src/sim/folk';
 import { Sim } from '../src/sim/sim';
-import { townLines } from '../src/sim/status';
+import { BREAD_LEAD_MONTHS, foodBalance, townLines } from '../src/sim/status';
 
 const map: CoastMap = coastMap();
 const demo = (name: string): Sim => {
@@ -64,6 +64,29 @@ describe('the shortfall lines', () => {
     const bread = lines.find((l) => l.need === 'food');
     expect(bread?.text).toMatch(/^Bread: the farms grow about [\d,]+ measures of wheat a month and the town eats about [\d,]+\. .* would keep it fed\./);
     expect(bread?.at).toBeGreaterThan(0);
+  });
+
+  it('a town eating a little more than its farms grow, with full granaries, has no bread line until the stores would run out within half a year', () => {
+    // #grow played on as in slice 6's check-in (the shrine, then the theatre), without more farms.
+    const sim = demo('grow');
+    const s = sim.state;
+    const n = map.size;
+    sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * n] });
+    sim.run(90 * TICKS_PER_DAY);
+    sim.enqueue({ type: 'build', kind: 'theatre', at: [35 + 81 * n] });
+    sim.run(60 * TICKS_PER_DAY);
+    const bal = foodBalance(s, map);
+    expect(bal.eaten).toBeGreaterThan(bal.grown);
+    expect(townLines(s, map).some((l) => l.need === 'food')).toBe(false);
+    // Left to grow, the line comes once the stores are within BREAD_LEAD_MONTHS of running out.
+    let line = '';
+    for (let d = 0; d < 200 && !line; d++) {
+      sim.run(TICKS_PER_DAY);
+      line = townLines(s, map).find((l) => l.need === 'food')?.text ?? '';
+    }
+    const m = /run empty in about (\d+) months/.exec(line);
+    expect(m && Number(m[1])).toBeGreaterThan(0);
+    expect(Number(m![1])).toBeLessThanOrEqual(BREAD_LEAD_MONTHS);
   });
 
   it('a town short of hands says how many jobs are unfilled and where', () => {

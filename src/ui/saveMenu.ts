@@ -18,7 +18,7 @@ export interface SaveHost {
   /** Built anything since the last save? */
   unsaved(): boolean;
   /** Whether the game is saving itself yet. */
-  autosave(): { on: boolean };
+  autosave(): { on: boolean; problem: string };
 }
 
 const SCROLL_ICON =
@@ -144,6 +144,7 @@ export class SaveMenu {
       <p class="said">${esc(said)}</p>
       <ul class="slots">${row('manual', saves.info('manual'))}${row('auto', saves.info('auto'))}</ul>
       <p class="auto">${autoText} Saves stay in this browser on this computer.</p>
+      ${auto.problem ? `<p class="said bad">The last time it tried, it couldn’t save by itself: ${esc(auto.problem)}</p>` : ''}
       <button class="link" data-act="fresh">Start again on an empty coast</button>`;
   }
 }
