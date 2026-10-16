@@ -4,7 +4,7 @@
  * Pure and deterministic (neighbours are always visited in the same order).
  */
 import type { CoastMap } from '../map/bake';
-import { Ground, isEdgeTile, mapIndex } from './build';
+import { BRIDGE_COST, bridgeSpan, Ground, isEdgeTile, mapIndex, ROAD_COST, roadRefusal } from './build';
 import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
 
 export interface Search {
@@ -218,19 +218,25 @@ class Heap {
 
 const TURN_COST = 0.6;
 const ROAD_STEP_COST = 0.35;
+/** Each tile of a new bridge, as a route cost: dearer than land, as it is in drachmas. */
+const BRIDGE_STEP_COST = BRIDGE_COST / ROAD_COST / 4;
 
-/** Can a new road run over this tile (or does one already)? */
+/** Can a new road run over this tile (or does one already, a bridge included)? */
 export function roadPassable(map: CoastMap, s: SimState, t: number): boolean {
-  const g = mapIndex(map).ground[t];
-  if (g !== Ground.Ok && g !== Ground.SteepForHome) return false;
   const on = s.tiles[t];
-  return on === TILE_EMPTY || on === TILE_ROAD;
+  if (on === TILE_ROAD) return true;
+  if (on !== TILE_EMPTY) return false;
+  const n = map.size;
+  return roadRefusal(map, s, t % n, Math.floor(t / n)) === '';
 }
 
 /**
  * The route a dragged road takes from `from` to `to` (tile indices), as a
  * list of tiles including both ends, or null if there is no way through.
  * Each step costs 1 (less along an existing road) and each turn a little more.
+ * It may cross the river by a new bridge (see bridgeSpan), but only on the
+ * row or column the drag starts or ends on, so a bridge goes where the player
+ * drags across rather than wherever the route finder likes.
  */
 export function roadRoute(map: CoastMap, s: SimState, from: number, to: number, maxVisits = 60000): number[] | null {
   const n = map.size;
@@ -253,6 +259,21 @@ export function roadRoute(map: CoastMap, s: SimState, from: number, to: number, 
   const fx = from % n;
   const fz = (from - fx) / n;
   const longX = Math.abs(tx - fx) >= Math.abs(tz - fz);
+  const ground = mapIndex(map).ground;
+  const tryStep = (st: number, dir: number, u: number, d: number, gc: number, span: number, onRoad: boolean): void => {
+    const horizontal = d === 2 || d === 3;
+    let cost = span > 0 ? span * BRIDGE_STEP_COST + 1 : onRoad ? ROAD_STEP_COST : 1;
+    if (dir !== 0 && dir !== d) cost += TURN_COST;
+    // A whisker of preference for the long axis first, to break ties the same way every time.
+    if (dir === 0 && horizontal !== longX) cost += 0.01;
+    const us = u * 5 + d;
+    const ng = gc + cost;
+    if (ng < g[us]) {
+      g[us] = ng;
+      from5[us] = st;
+      open.push(ng + h(u) * ROAD_STEP_COST, us);
+    }
+  };
   while (open.size > 0 && visits++ < maxVisits) {
     const st = open.pop();
     const t = (st / 5) | 0;
@@ -264,25 +285,35 @@ export function roadRoute(map: CoastMap, s: SimState, from: number, to: number, 
         out.push((c / 5) | 0);
         c = from5[c];
       }
-      return out.reverse();
+      out.reverse();
+      // Fill in the tiles of any bridge (a jump of more than one tile along a row or column).
+      const full: number[] = [out[0]];
+      for (let i = 1; i < out.length; i++) {
+        const a = out[i - 1];
+        const b = out[i];
+        const step = Math.abs(b - a) < n ? Math.sign(b - a) : Math.sign(b - a) * n;
+        for (let k = a + step; k !== b; k += step) full.push(k);
+        full.push(b);
+      }
+      return full;
     }
     const gc = g[st];
     neighbours(n, t, nb);
     for (const u of nb) {
-      if (!roadPassable(map, s, u)) continue;
       const d = u === t - n ? 1 : u === t - 1 ? 2 : u === t + 1 ? 3 : 4;
-      const horizontal = d === 2 || d === 3;
-      let cost = s.tiles[u] === TILE_ROAD ? ROAD_STEP_COST : 1;
-      if (dir !== 0 && dir !== d) cost += TURN_COST;
-      // A whisker of preference for the long axis first, to break ties the same way every time.
-      if (dir === 0 && horizontal !== longX) cost += 0.01;
-      const us = u * 5 + d;
-      const ng = gc + cost;
-      if (ng < g[us]) {
-        g[us] = ng;
-        from5[us] = st;
-        open.push(ng + h(u) * ROAD_STEP_COST, us);
+      if (roadPassable(map, s, u)) {
+        tryStep(st, dir, u, d, gc, 0, s.tiles[u] === TILE_ROAD);
+        continue;
       }
+      // A new bridge, straight over the river from land, on the drag's own row or column.
+      if (ground[u] !== Ground.Water || ground[t] === Ground.Water) continue;
+      const ux = t % n;
+      const uz = (t - ux) / n;
+      const onLine = d === 2 || d === 3 ? uz === fz || uz === tz : ux === fx || ux === tx;
+      if (!onLine) continue;
+      const span = bridgeSpan(map, s, t, d);
+      if (span.end < 0 || !roadPassable(map, s, span.end)) continue;
+      tryStep(st, dir, span.end, d, gc, span.tiles.length, s.tiles[span.end] === TILE_ROAD);
     }
   }
   return null;

@@ -1,72 +1,56 @@
 /**
- * Fountains and their water carriers, and houses growing with water.
+ * Fountains and their water carriers.
  *
- * A fountain beside a road sends out a water carrier. She walks the roads a
- * tile at a time, never further than CARRIER_RANGE road steps from her
- * fountain. At a junction she heads for the home in her reach whose water
- * runs out soonest (counting the walk there), taking the next way round from
- * the last carrier's when it makes no difference; she turns round at dead
- * ends, at the edge of her reach, and where no homes lie ahead but some lie
- * behind. After CARRIER_WALK tiles of road not yet walked this round (or twice
- * that in all) she heads home by the shortest road. Every home beside a road
- * tile she stands on has water for
- * WATER_LASTS ticks. Tents with water become huts; huts whose water has run
- * out for a month go back to tents.
+ * A fountain beside a road, with workers, sends out a water carrier. She
+ * walks her round (src/sim/rounds.ts) never further than CARRIER_RANGE road
+ * steps from her fountain, and every home beside a road tile she stands on
+ * has water for WATER_LASTS ticks. A short-handed fountain lets her rest
+ * longer between rounds; with nobody working it, she doesn't go out at all.
  */
 import type { CoastMap } from '../map/bake';
-import { PLOT_SIZE, plotNeighbours } from './build';
-import { capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
-import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { roadSearch, tracePath, type Search } from './roads';
-import { sendLeavers } from './settlers';
-import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
-import { CARRIER_SPEED, centre, newWalker, plotCentre, position, setPath } from './walk';
+import { findBuilding, HOME_CAPACITY, HUT } from './buildings';
+import { TICKS_PER_MONTH } from './clock';
+import { rateOf } from './labour';
+import { roadSearch, type Search } from './roads';
+import { moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import type { Building, SimState, Walker } from './state';
+import { besideRoad, CARRIER_SPEED } from './walk';
 
 /** How far by road from her fountain a water carrier ever goes: her reach. */
 export const CARRIER_RANGE = 32;
-/** Road tiles not yet walked this round that she walks out on (wandering within her reach) before she turns for home. */
+/** Road tiles she hadn't walked yet this round that she walks out on (wandering within her reach) before she turns for home. */
 export const CARRIER_WALK = 48;
-/** However much of it was road already walked, she turns for home after this many times CARRIER_WALK tiles. */
-const WALK_LIMIT = 2;
 /** How long a home keeps its water after she passes (four months). */
 export const WATER_LASTS = 4 * TICKS_PER_MONTH;
 /** How long after its water runs out a hut goes back to a tent (a month). */
 export const HUT_DECLINE_AFTER = TICKS_PER_MONTH;
 /** Ticks before the first carrier sets off from a new fountain. */
 export const FIRST_CARRIER = 20;
-/** Ticks a carrier rests at home before the next round. */
+/** Ticks a carrier rests at home before the next round, with the fountain fully staffed. */
 export const CARRIER_REST = 30;
-/** Level of a hut. */
-export const HUT = 2;
 
-/** Road tiles beside a building, in tile order. */
-export function roadsBeside(s: SimState, size: number, b: Building): number[] {
-  return plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD);
-}
+export { HUT, roadsBeside };
 
-/** The spot on a fountain's rim facing a road tile beside it, where the carrier steps out and back in. */
-function door(size: number, f: Building, road: number): [number, number] {
-  const [rx, rz] = centre(size, road);
-  const [fx, fz] = plotCentre(f);
-  return [rx + (fx - rx) * 0.55, rz + (fz - rz) * 0.55];
-}
+const near: Building[] = [];
 
-/**
- * How far by road each tile is from one fountain's roadside, worked out once
- * per fountain and road layout (a pure function of the state, cached outside it).
- */
-const reachCache = new WeakMap<SimState, Map<number, { rev: number; dist: Int32Array }>>();
-function fountainDist(s: SimState, size: number, f: Building): Int32Array {
-  let m = reachCache.get(s);
-  if (!m) {
-    m = new Map();
-    reachCache.set(s, m);
-  }
-  const hit = m.get(f.id);
-  if (hit && hit.rev === s.tilesRev) return hit.dist;
-  const dist = roadSearch(s, size, roadsBeside(s, size, f)).dist;
-  m.set(f.id, { rev: s.tilesRev, dist });
-  return dist;
+/** The water carrier's round. */
+export const WATER: ServiceSpec = {
+  record: (s) => s.rounds.water,
+  range: CARRIER_RANGE,
+  walk: CARRIER_WALK,
+  speed: CARRIER_SPEED,
+  score: (b) => (b.kind === 'home' && b.level > 0 ? b.waterUntil : Infinity),
+  serve(s: SimState, size: number, t: number) {
+    const until = s.tick + WATER_LASTS;
+    for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.waterUntil < until) b.waterUntil = until;
+  },
+  rest: (b) => restFor(b, CARRIER_REST),
+};
+
+/** How long a building rests between walkers: longer when short of workers. */
+export function restFor(b: Building, rest: number): number {
+  const r = rateOf(b);
+  return r > 0 ? Math.ceil(rest / r) : rest;
 }
 
 /** How far by road each road tile is from the nearest fountain (dist -1: no fountain reaches it). */
@@ -76,7 +60,7 @@ export function waterReach(s: SimState, size: number): Search {
   return roadSearch(s, size, sources);
 }
 
-/** The fewest road steps from a building's roadside to a fountain, or -1. */
+/** The fewest road steps from a building's roadside to the nearest source in a search, or -1. */
 export function stepsToFountain(reach: Search, s: SimState, size: number, b: Building): number {
   let best = -1;
   for (const t of roadsBeside(s, size, b)) {
@@ -86,313 +70,20 @@ export function stepsToFountain(reach: Search, s: SimState, size: number, b: Bui
   return best;
 }
 
-/** Fountains: send out a carrier when one is due. */
+/** Fountains: send out a carrier when one is due and someone works there. */
 export function stepFountains(s: SimState, map: CoastMap): void {
   const size = map.size;
   for (const f of s.buildings) {
     if (f.kind !== 'fountain' || f.walker !== 0) continue;
     if (--f.clock > 0) continue;
-    const roads = roadsBeside(s, size, f);
-    if (roads.length === 0) {
-      // No road to walk: look again in a little while.
-      f.clock = CARRIER_REST;
-      continue;
-    }
-    const start = roads[f.turn % roads.length];
-    f.turn++;
-    const w = newWalker(s, 'water', 1);
-    w.origin = f.id;
-    w.since = s.tick;
-    const [dx, dz] = door(size, f, start);
-    const [sx, sz] = centre(size, start);
-    setPath(w, [
-      [dx, dz, -1],
-      [sx, sz, start],
-    ]);
-    f.walker = w.id;
-    s.walkers.push(w);
+    // No road to walk, or nobody to work it: look again in a little while.
+    if (rateOf(f) === 0 || !sendOut(s, size, f, 'water')) f.clock = CARRIER_REST;
   }
-}
-
-/** Give water to every home beside a road tile. */
-function serve(s: SimState, size: number, t: number): void {
-  const tx = t % size;
-  const until = s.tick + WATER_LASTS;
-  for (const u of [t - size, t - 1, t + 1, t + size]) {
-    if (u < 0 || u >= size * size) continue;
-    if ((u === t - 1 && tx === 0) || (u === t + 1 && tx === size - 1)) continue;
-    const id = s.tiles[u];
-    if (id <= 0) continue;
-    const b = findBuilding(s, id);
-    if (b && b.kind === 'home' && b.waterUntil < until) b.waterUntil = until;
-  }
-}
-
-/** Road tiles joined to a tile, in a fixed order (north, west, east, south). */
-function roadNeighbours(s: SimState, size: number, t: number): number[] {
-  const tx = t % size;
-  const out: number[] = [];
-  if (t >= size && s.tiles[t - size] === TILE_ROAD) out.push(t - size);
-  if (tx > 0 && s.tiles[t - 1] === TILE_ROAD) out.push(t - 1);
-  if (tx < size - 1 && s.tiles[t + 1] === TILE_ROAD) out.push(t + 1);
-  if (t < size * (size - 1) && s.tiles[t + size] === TILE_ROAD) out.push(t + size);
-  return out;
-}
-
-
-/** Ticks she takes to walk one road tile: how much a home further down a way counts against it. */
-const TICKS_A_TILE = 1 / CARRIER_SPEED;
-
-/** The lowest water among lived-in homes beside a road tile (Infinity if none). */
-function thirstiest(s: SimState, size: number, t: number): number {
-  const tx = t % size;
-  let low = Infinity;
-  for (const u of [t - size, t - 1, t + 1, t + size]) {
-    if (u < 0 || u >= size * size) continue;
-    if ((u === t - 1 && tx === 0) || (u === t + 1 && tx === size - 1)) continue;
-    const id = s.tiles[u];
-    if (id <= 0) continue;
-    const b = findBuilding(s, id);
-    if (b && b.kind === 'home' && b.level > 0 && b.waterUntil < low) low = b.waterUntil;
-  }
-  return low;
-}
-
-/** Scratch space for the searches below (not state: cleared by a fresh stamp on every search). */
-let stamp = new Int32Array(0);
-let owner = new Int32Array(0);
-let depth = new Int32Array(0);
-let queue = new Int32Array(0);
-let gen = 0;
-
-/**
- * How badly the homes down each way from road tile `cur` need her: one
- * breadth-first search over the roads within her reach, out from all of
- * `ways` at once and never back through `cur`, so each road tile belongs to
- * the way that gets there first. A way's need is the lowest, over the
- * lived-in homes beside its road tiles, of when the home's water runs out
- * plus how long she would take to get there (lower is more urgent); Infinity
- * if no lived-in home lies that way. With `firstOnly`, stops at the first home found.
- */
-function wayNeeds(s: SimState, size: number, dist: Int32Array, cur: number, ways: number[], firstOnly = false): number[] {
-  const total = size * size;
-  if (stamp.length !== total) {
-    stamp = new Int32Array(total);
-    owner = new Int32Array(total);
-    depth = new Int32Array(total);
-    queue = new Int32Array(total);
-    gen = 0;
-  }
-  gen++;
-  const needs = ways.map(() => Infinity);
-  let head = 0;
-  let tail = 0;
-  stamp[cur] = gen;
-  ways.forEach((t, i) => {
-    if (stamp[t] === gen) return;
-    stamp[t] = gen;
-    owner[t] = i;
-    depth[t] = 1;
-    queue[tail++] = t;
-  });
-  while (head < tail) {
-    const t = queue[head++];
-    const i = owner[t];
-    const low = thirstiest(s, size, t);
-    if (low < Infinity) {
-      const v = low + depth[t] * TICKS_A_TILE;
-      if (v < needs[i]) needs[i] = v;
-      if (firstOnly) return needs;
-    }
-    for (const u of roadNeighbours(s, size, t)) {
-      if (stamp[u] === gen || dist[u] < 0 || dist[u] > CARRIER_RANGE) continue;
-      stamp[u] = gen;
-      owner[u] = i;
-      depth[u] = depth[t] + 1;
-      queue[tail++] = u;
-    }
-  }
-  return needs;
-}
-
-/** Which way a step goes: 1 north, 2 west, 3 east, 4 south. */
-const dirOf = (size: number, from: number, to: number): number => (to === from - size ? 1 : to === from - 1 ? 2 : to === from + 1 ? 3 : 4);
-
-/**
- * Where she goes from road tile `cur`, having come from `prev` (-1 if from her
- * fountain or a turn), never beyond her reach: on along the road; round at a
- * dead end, or where no lived-in homes lie ahead but some lie behind; and at a
- * junction the way to the home whose water runs out soonest (counting the
- * walk there), anywhere in her reach; if that is the same every way, the next
- * way round from the one a carrier last took there. -1 if there is no road at all.
- */
-function chooseNext(s: SimState, size: number, f: Building, cur: number, prev: number): number {
-  const dist = fountainDist(s, size, f);
-  const all = roadNeighbours(s, size, cur).filter((t) => dist[t] >= 0 && dist[t] <= CARRIER_RANGE);
-  const on = all.filter((t) => t !== prev);
-  if (on.length === 0) return all.length ? all[0] : -1;
-  const behind = all.length > on.length;
-  if (on.length === 1) {
-    // A plain stretch of road: on, unless it leads only to empty road and there are homes behind.
-    if (!behind || wayNeeds(s, size, dist, cur, on, true)[0] < Infinity) return on[0];
-    return wayNeeds(s, size, dist, cur, [prev], true)[0] < Infinity ? prev : on[0];
-  }
-  // A junction: every way at once, the way back too, so that homes behind her
-  // count for the way back rather than for a long way round.
-  const needs = wayNeeds(s, size, dist, cur, behind ? [...on, prev] : on);
-  const ahead = needs.slice(0, on.length);
-  const most = Math.min(...ahead);
-  if (most === Infinity && behind && needs[on.length] < Infinity) return prev;
-  const pool = on.filter((_, i) => ahead[i] === most);
-  const last = s.exits[cur];
-  // The first way (in N, W, E, S order) after the last one taken, wrapping round.
-  let pick = pool[0];
-  for (const t of pool) {
-    if (dirOf(size, cur, t) > last) {
-      pick = t;
-      break;
-    }
-  }
-  s.exits[cur] = dirOf(size, cur, pick);
-  return pick;
-}
-
-/** Turn for home from road tile `cur` (standing at `here`): the shortest road back to her fountain. False if there is none. */
-function headHome(s: SimState, size: number, w: Walker, f: Building, cur: number, here: [number, number]): boolean {
-  const roads = roadsBeside(s, size, f);
-  if (roads.length === 0 || s.tiles[cur] !== TILE_ROAD) return false;
-  const search = roadSearch(s, size, roads);
-  if (search.dist[cur] < 0) return false;
-  // From the fountain's side to here; walk it the other way.
-  const way = tracePath(search, cur).reverse();
-  const pts: Array<[number, number, number]> = [[here[0], here[1], -1]];
-  for (const t of way) {
-    const [x, z] = centre(size, t);
-    pts.push([x, z, t]);
-  }
-  const [dx, dz] = door(size, f, way[way.length - 1]);
-  pts.push([dx, dz, -1]);
-  w.back = true;
-  setPath(w, pts);
-  return true;
-}
-
-/** She is gone (home, or lost): the fountain rests, then sends another. */
-function done(f: Building | undefined): false {
-  if (f) {
-    f.walker = 0;
-    f.clock = CARRIER_REST;
-  }
-  return false;
-}
-
-/** Is the next waypoint still a road? */
-function aheadOk(s: SimState, w: Walker): boolean {
-  const next = w.tiles[w.seg + 1];
-  return next === undefined || next < 0 || s.tiles[next] === TILE_ROAD;
-}
-
-/** The road ahead was cut: turn round to the tile behind, or head home another way. */
-function detour(s: SimState, size: number, w: Walker, f: Building): boolean {
-  const here = position(w);
-  let cur = w.tiles[w.seg];
-  for (let k = w.seg; cur < 0 && k > 0; k--) cur = w.tiles[k - 1];
-  if (cur < 0 || s.tiles[cur] !== TILE_ROAD) return false;
-  if (w.back) return headHome(s, size, w, f, cur, here);
-  const [x, z] = centre(size, cur);
-  setPath(w, [
-    [here[0], here[1], -1],
-    [x, z, cur],
-  ]);
-  return true;
 }
 
 /** Move a water carrier one tick along. Returns false when she is done for this round. */
 export function moveCarrier(s: SimState, map: CoastMap, w: Walker): boolean {
-  const size = map.size;
-  const f = findBuilding(s, w.origin);
-  if (!f || f.kind !== 'fountain') return false;
-  if (!aheadOk(s, w) && !detour(s, size, w, f)) return done(f);
-  let move = CARRIER_SPEED;
-  for (let guard = 0; guard < 8 && move > 0; guard++) {
-    const last = w.path.length / 2 - 1;
-    const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
-    if (w.along + move < len) {
-      w.along += move;
-      w.walked += move;
-      break;
-    }
-    const step = len - w.along;
-    move -= step;
-    w.walked += step;
-    w.seg++;
-    w.along = 0;
-    const t = w.tiles[w.seg];
-    // Road nobody has walked yet this round counts towards her round; going back over it hardly does.
-    const fresh = t >= 0 && s.carried[t] < w.since;
-    if (t >= 0) {
-      serve(s, size, t);
-      s.carried[t] = s.tick;
-    }
-    if (w.seg < last) {
-      if (!aheadOk(s, w) && !detour(s, size, w, f)) return done(f);
-      continue;
-    }
-    // The end of this leg.
-    if (w.back) return done(f);
-    if (t < 0) return done(f);
-    const prev = w.seg > 0 ? w.tiles[w.seg - 1] : -1;
-    if (prev >= 0 && fresh) w.steps++;
-    const [x, z] = centre(size, t);
-    if (w.steps >= CARRIER_WALK || w.walked >= WALK_LIMIT * CARRIER_WALK) {
-      if (!headHome(s, size, w, f, t, [x, z])) return done(f);
-      continue;
-    }
-    const next = chooseNext(s, size, f, t, prev);
-    if (next < 0) {
-      if (!headHome(s, size, w, f, t, [x, z])) return done(f);
-      continue;
-    }
-    const [nx, nz] = centre(size, next);
-    setPath(w, [
-      [x, z, t],
-      [nx, nz, next],
-    ]);
-  }
-  return true;
+  return moveRounds(s, map, w, WATER, 'fountain');
 }
 
-/**
- * Homes change with what reaches them, each looked at once a day (staggered
- * by id): a tent with people and water becomes a hut; a hut whose water ran
- * out a month ago goes back to a tent, and the people it can't hold leave.
- */
-export function stepHouses(s: SimState, map: CoastMap): void {
-  let changed = false;
-  for (const b of s.buildings) {
-    if (b.kind !== 'home' || b.level === 0 || (s.tick + b.id) % TICKS_PER_DAY !== 0) continue;
-    const wet = b.waterUntil > s.tick;
-    if (b.level < HUT && wet && b.people > 0) {
-      b.level = HUT;
-      b.since = s.tick;
-      changed = true;
-    } else if (b.level === HUT && !wet && s.tick - b.waterUntil >= HUT_DECLINE_AFTER) {
-      b.level = HUT - 1;
-      b.since = s.tick;
-      changed = true;
-      const extra = b.people - capacity(b);
-      if (extra > 0) {
-        b.people -= extra;
-        s.left += extra;
-        sendLeavers(s, map, extra, [b.x + PLOT_SIZE / 2, b.z + PLOT_SIZE / 2], plotNeighbours(map.size, b.x, b.z));
-      }
-    }
-  }
-  if (changed) {
-    recountPopulation(s);
-    s.rev++;
-  }
-}
-
-export { HOME_CAPACITY };
+export { findBuilding, HOME_CAPACITY };

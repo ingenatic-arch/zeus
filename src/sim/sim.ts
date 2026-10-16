@@ -1,13 +1,16 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
-import { FOUNTAIN_COST, mapIndex, PLOT_COST, PLOT_SIZE, plotNeighbours, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY } from './build';
-import { findBuilding, recountPopulation } from './buildings';
+import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
+import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, type SimDate } from './clock';
 import type { Command, StampedCommand } from './commands';
+import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepFarms } from './food';
+import { stepHouses, stepRent } from './houses';
+import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
 import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
-import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type SimState, type UndoEntry } from './state';
-import { FIRST_CARRIER, moveCarrier, stepFountains, stepHouses } from './water';
+import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type ServiceRecord, type SimState, type UndoEntry } from './state';
+import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -26,8 +29,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    carried: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0),
-    exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0),
+    rounds: { water: freshRecord(), food: freshRecord() },
+    rent: { paid: 0, homes: 0 },
     buildings: [],
     walkers: [],
     nextId: 1,
@@ -39,6 +42,10 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     arrived: 0,
     left: 0,
   };
+}
+
+function freshRecord(): ServiceRecord {
+  return { walked: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0), exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0) };
 }
 
 /** The baked map a state's city sits on. */
@@ -105,11 +112,16 @@ export class Sim {
     const s = this.state;
     const t = s.tick + 1;
     s.tick = t;
-    stepWalkers(s, this.map);
-    stepFountains(s, this.map);
+    const map = this.map;
+    stepLabour(s, map);
+    stepWalkers(s, map);
+    stepFountains(s, map);
+    stepFarms(s, map);
+    stepAgoras(s, map);
     // Each look for a home sets how long until the next.
-    if (--s.settlerClock <= 0) spawnSettlers(s, this.map);
-    stepHouses(s, this.map);
+    if (--s.settlerClock <= 0) spawnSettlers(s, map);
+    stepHouses(s, map);
+    stepRent(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -138,6 +150,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     case 'fountain':
       record(s, placePlots(s, map, c.at, 'fountain'));
       break;
+    case 'build':
+      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora') record(s, placePlots(s, map, c.at, c.kind));
+      break;
     case 'clear':
       record(s, clearArea(s, map, c.x0, c.z0, c.x1, c.z1));
       break;
@@ -147,7 +162,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   }
 }
 
-const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], trees: [], cost: 0 });
+const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], removedStock: [], trees: [], cost: 0 });
 
 function record(s: SimState, e: UndoEntry): void {
   const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
@@ -174,11 +189,34 @@ function clearTrees(s: SimState, map: CoastMap, tiles: number[]): number[] {
   return fresh.sort((a, b) => a - b);
 }
 
+/**
+ * Lay road on the tiles in order. A run of wet tiles in the list is a bridge:
+ * laid whole, if it is a straight span of the river between two banks a road
+ * can take (see bridgeSpan) and can be paid for, or not at all.
+ */
 function layRoads(s: SimState, map: CoastMap, tiles: number[]): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
-  for (const t of tiles) {
-    if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
+  const ground = mapIndex(map).ground;
+  const valid = (t: number): boolean => Number.isInteger(t) && t >= 0 && t < n * n;
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i];
+    if (!valid(t)) continue;
+    if (ground[t] === Ground.Water) {
+      let j = i;
+      while (j < tiles.length && valid(tiles[j]) && ground[tiles[j]] === Ground.Water) j++;
+      const run = tiles.slice(i, j);
+      i = j - 1;
+      const span = spanOf(map, s, run);
+      if (!span) continue;
+      const cost = BRIDGE_COST * run.length;
+      if (s.money < cost) break;
+      for (const u of run) s.tiles[u] = TILE_ROAD;
+      s.money -= cost;
+      e.cost += cost;
+      e.roads.push(...run);
+      continue;
+    }
     if (s.money < ROAD_COST) break;
     if (roadRefusal(map, s, t % n, Math.floor(t / n)) !== '') continue;
     s.tiles[t] = TILE_ROAD;
@@ -190,36 +228,66 @@ function layRoads(s: SimState, map: CoastMap, tiles: number[]): UndoEntry {
   return e;
 }
 
-function plotTiles(n: number, x: number, z: number): number[] {
-  const out: number[] = [];
-  for (let dz = 0; dz < PLOT_SIZE; dz++) for (let dx = 0; dx < PLOT_SIZE; dx++) out.push((z + dz) * n + x + dx);
-  return out;
+/** Is this run of wet tiles, in order, a whole bridge span from a bank a road can take? */
+function spanOf(map: CoastMap, s: SimState, run: number[]): boolean {
+  const n = map.size;
+  const ground = mapIndex(map).ground;
+  // Which way it runs: along the list, or (for a single tile) whichever way is a span.
+  const dirs = run.length > 1 ? [run[1] - run[0] === -n ? 1 : run[1] - run[0] === -1 ? 2 : run[1] - run[0] === 1 ? 3 : run[1] - run[0] === n ? 4 : 0] : [1, 2, 3, 4];
+  for (const dir of dirs) {
+    if (dir === 0) return false;
+    const from = run[0] - stepOf(n, dir);
+    if (from < 0 || from >= n * n) continue;
+    if (ground[from] !== Ground.Ok && ground[from] !== Ground.SteepForHome) continue;
+    if (s.tiles[from] > 0) continue;
+    const span = bridgeSpan(map, s, from, dir);
+    if (span.end >= 0 && span.tiles.length === run.length && span.tiles.every((u, k) => u === run[k])) return true;
+  }
+  return false;
 }
 
-function addPlot(s: SimState, n: number, x: number, z: number, kind: BuildingKind): Building {
-  const b: Building = { id: s.nextId++, kind, x, z, level: 0, people: 0, incoming: 0, placed: s.tick, since: s.tick, waterUntil: 0, walker: 0, clock: kind === 'fountain' ? FIRST_CARRIER : 0, turn: 0 };
+function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0): Building {
+  const b: Building = {
+    id: s.nextId++,
+    kind,
+    x,
+    z,
+    level: 0,
+    people: 0,
+    incoming: 0,
+    placed: s.tick,
+    since: s.tick,
+    waterUntil: 0,
+    walker: 0,
+    clock: kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : 0,
+    turn: 0,
+    foodUntil: 0,
+    workers: 0,
+    stock,
+    growth: 0,
+  };
   s.buildings.push(b);
-  for (const t of plotTiles(n, x, z)) s.tiles[t] = b.id;
+  for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
   return b;
 }
 
-/** Housing plots or fountains: 2 x 2 buildings on the same ground rules. */
+/** Housing plots, fountains, farms, granaries or the agora, on the same ground rules. */
 function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
-  const cost = kind === 'fountain' ? FOUNTAIN_COST : PLOT_COST;
+  const cost = COST[kind];
   const covered: number[] = [];
   for (const t of at) {
     if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
     if (s.money < cost) break;
     const x = t % n;
     const z = Math.floor(t / n);
-    if (plotRefusal(map, s, x, z) !== '') continue;
-    const b = addPlot(s, n, x, z, kind);
+    if (buildingRefusal(map, s, kind, x, z) !== '') continue;
+    const b = addBuilding(s, n, x, z, kind);
     s.money -= cost;
     e.cost += cost;
     e.plots.push(b.id);
-    covered.push(...plotTiles(n, x, z));
+    covered.push(...footprint(n, x, z, sideOf(kind)));
   }
   e.trees = clearTrees(s, map, covered);
   return e;
@@ -227,16 +295,27 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
 
 /**
  * Take a building down: a home's family packs up and walks out (or just
- * leaves, if no road leads out); a fountain's water carrier goes home at once.
+ * leaves, if no road leads out); the walkers it sends out (a water carrier, a
+ * farm's carts, the agora's vendor and porter) go home at once, giving back
+ * any room a cart had reserved at a granary.
  */
 function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   const n = map.size;
-  for (const t of plotTiles(n, b.x, b.z)) s.tiles[t] = TILE_EMPTY;
+  for (const t of footprint(n, b.x, b.z, sideOf(b.kind))) s.tiles[t] = TILE_EMPTY;
   s.buildings = s.buildings.filter((o) => o !== b);
-  if (b.kind === 'fountain') s.walkers = s.walkers.filter((w) => w.origin !== b.id);
+  if (b.kind !== 'home') {
+    s.walkers = s.walkers.filter((w) => {
+      if (w.origin !== b.id) return true;
+      if (w.kind === 'cart' && !w.back) {
+        const g = findBuilding(s, w.target);
+        if (g) g.incoming -= w.load;
+      }
+      return false;
+    });
+  }
   if (b.people > 0) {
     s.left += b.people;
-    sendLeavers(s, map, b.people, [b.x + PLOT_SIZE / 2, b.z + PLOT_SIZE / 2], plotNeighbours(n, b.x, b.z));
+    sendLeavers(s, map, b.people, centreOf(b), around(n, b));
   }
   recountPopulation(s);
 }
@@ -250,23 +329,30 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
   const zb = Math.min(n - 1, Math.max(z0, z1));
   const empty: number[] = [];
   const homes: Building[] = [];
+  const roads = new Set<number>();
   for (let z = za; z <= zb; z++) {
     for (let x = xa; x <= xb; x++) {
       const t = z * n + x;
       const on = s.tiles[t];
       if (on === TILE_ROAD) {
-        s.tiles[t] = TILE_EMPTY;
-        e.removedRoads.push(t);
+        // Any tile of a bridge takes the whole bridge with it.
+        if (isBridge(map, s, t)) for (const u of bridgeAt(map, s, t)) roads.add(u);
+        else roads.add(t);
       } else if (on > 0) {
         const b = findBuilding(s, on);
         if (b && !homes.includes(b)) homes.push(b);
       } else empty.push(t);
     }
   }
+  for (const t of [...roads].sort((a, b) => a - b)) {
+    s.tiles[t] = TILE_EMPTY;
+    e.removedRoads.push(t);
+  }
   for (const b of homes) {
     e.removedPlots.push(b.z * n + b.x);
     e.removedIds.push(b.id);
     e.removedKinds.push(b.kind);
+    e.removedStock.push(b.stock);
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
@@ -284,8 +370,11 @@ function undoLast(s: SimState, map: CoastMap): void {
   for (const t of e.roads) if (s.tiles[t] === TILE_ROAD) s.tiles[t] = TILE_EMPTY;
   s.money += e.cost;
   // What it removed comes back where the ground is still free. A home comes
-  // back as an empty plot: its family has already gone.
-  for (const t of e.removedRoads) if (roadRefusal(map, s, t % n, Math.floor(t / n)) === '') s.tiles[t] = TILE_ROAD;
+  // back as an empty plot: its family has already gone. Land first, then
+  // bridges (whose ends are on the land).
+  const ground = mapIndex(map).ground;
+  for (const t of e.removedRoads) if (ground[t] !== Ground.Water && roadRefusal(map, s, t % n, Math.floor(t / n)) === '') s.tiles[t] = TILE_ROAD;
+  for (const t of e.removedRoads) if (ground[t] === Ground.Water && s.tiles[t] === TILE_EMPTY) s.tiles[t] = TILE_ROAD;
   // Older undo entries that placed those plots now point at the new ones,
   // so undoing them takes the plot away again (and refunds it only once).
   const order = e.removedPlots.map((_, i) => i).sort((a, b) => e.removedPlots[a] - e.removedPlots[b]);
@@ -294,7 +383,9 @@ function undoLast(s: SimState, map: CoastMap): void {
     const t = e.removedPlots[i];
     const x = t % n;
     const z = Math.floor(t / n);
-    if (plotRefusal(map, s, x, z) === '') renamed.set(e.removedIds[i], addPlot(s, n, x, z, e.removedKinds[i] ?? 'home').id);
+    const kind = e.removedKinds[i] ?? 'home';
+    // A granary, farm or agora comes back with the grain it held.
+    if (buildingRefusal(map, s, kind, x, z) === '') renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, kind === 'home' ? 0 : (e.removedStock?.[i] ?? 0)).id);
   }
   if (renamed.size) for (const older of s.undo) older.plots = older.plots.map((id) => renamed.get(id) ?? id);
   // Plants grow back where nothing stands.
@@ -312,7 +403,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
   if (s.walkers.length === 0) return;
   const keep = [];
   for (const w of s.walkers) {
-    if (w.kind === 'water' ? moveCarrier(s, map, w) : moveGroup(s, map, w)) keep.push(w);
+    const on =
+      w.kind === 'water' ? moveCarrier(s, map, w) : w.kind === 'food' ? moveVendor(s, map, w) : w.kind === 'cart' || w.kind === 'porter' ? moveErrand(s, map, w) : moveGroup(s, map, w);
+    if (on) keep.push(w);
   }
   s.walkers = keep;
 }

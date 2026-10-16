@@ -122,8 +122,8 @@ describe('roads and routes', () => {
     for (let i = 1; i < route!.length; i++) expect([1, N]).toContain(Math.abs(route![i - 1] - route![i]));
   });
 
-  it('there is no road across the river (no bridges yet)', () => {
-    expect(roadRoute(map, new Sim(1).state, T(40, 62), T(70, 62))).toBeNull();
+  it('there is no road across the river where it is too wide to bridge', () => {
+    expect(roadRoute(map, new Sim(1).state, T(50, 61), T(65, 60))).toBeNull();
   });
 
   it('a straight drag on open land is a straight road', () => {

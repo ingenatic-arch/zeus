@@ -1,18 +1,22 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 3;
+export const SIM_STATE_VERSION = 4;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora';
+
+/** The services walkers carry along the streets, each with its own record. */
+export type Service = 'water' | 'food';
 
 /**
- * A building on a 2 x 2 footprint whose top-left tile is (x, z).
- * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut.
+ * A building on a square footprint (2 x 2 for homes and fountains, 3 x 3 for
+ * the rest; see sideOf) whose top-left tile is (x, z).
+ * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut, 3 a cottage.
  * Every building carries every field (zero where it doesn't apply), so the
  * state stays uniform plain data.
  */
@@ -36,8 +40,16 @@ export interface Building {
   walker: number;
   /** A fountain: ticks until the next carrier sets off. */
   clock: number;
-  /** A fountain: how many carriers it has sent (which side the next one leaves by). */
+  /** A fountain or agora: how many walkers it has sent (which side the next one leaves by). */
   turn: number;
+  /** A home: the tick its food lasts until (0: it has never had any). */
+  foodUntil: number;
+  /** A workplace: the people working there. A home: how many of its people have work. */
+  workers: number;
+  /** Measures of wheat: in a farm's barn, a granary's store, or the agora's food stall. */
+  stock: number;
+  /** A farm: how far the crop has grown (ticks at full strength; harvest at GROW). */
+  growth: number;
 }
 
 /**
@@ -48,8 +60,8 @@ export interface Building {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, or a fountain's water carrier. */
-  kind: 'settler' | 'leaver' | 'water';
+  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, or its food vendor. */
+  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;
@@ -63,14 +75,34 @@ export interface Walker {
   walked: number;
   /** Bumped when the walker takes a new path, so the renderer can re-read it. */
   route: number;
-  /** A water carrier: the fountain she belongs to (0 for others). */
+  /** A service walker, cart or porter: the building it belongs to (0 for others). */
   origin: number;
-  /** A water carrier: heading home. */
+  /** Heading home. */
   back: boolean;
-  /** A water carrier: road tiles walked out on this round that nobody had walked yet this round. */
+  /** A service walker: road tiles walked out on this round that she hadn't walked yet this round. */
   steps: number;
-  /** A water carrier: the tick she set off on this round. */
+  /** A service walker: the tick she set off on this round. */
   since: number;
+  /** A cart or porter: the building it is heading for (a granary). */
+  target: number;
+  /** A cart or porter: measures of wheat it carries. */
+  load: number;
+  /** A cart or porter: ticks left unloading or loading where it stands. */
+  wait: number;
+  /** A service walker: the road tiles she has walked this round (which no longer count towards it). */
+  trail: number[];
+}
+
+/** What a service's walkers have done on the streets, one entry per map tile. */
+export interface ServiceRecord {
+  /** The tick one of its walkers last stood there (0 never), for the overlay. */
+  walked: number[];
+  /**
+   * At a junction, which way (1 north, 2 west, 3 east, 4 south; 0 never) one
+   * of its walkers last left it. The next one takes the next way round, so over
+   * a few rounds every street in reach gets walked.
+   */
+  exits: number[];
 }
 
 /** What one build action changed, so it can be undone. */
@@ -87,6 +119,8 @@ export interface UndoEntry {
   removedIds: number[];
   /** What each of them was (same order). */
   removedKinds: BuildingKind[];
+  /** The stock each held (same order), which comes back with it. */
+  removedStock: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -119,14 +153,10 @@ export interface SimState {
   population: number;
   /** One entry per map tile (tz * size + tx): TILE_EMPTY, TILE_ROAD or a building id. */
   tiles: number[];
-  /** One entry per map tile: the tick a water carrier last stood there (0 never), for the overlay. */
-  carried: number[];
-  /**
-   * One entry per map tile: at a junction, which way (1 north, 2 west, 3 east,
-   * 4 south; 0 never) a water carrier last left it. The next one takes the next
-   * way round, so over a few rounds every street in reach gets walked.
-   */
-  exits: number[];
+  /** Each service's record of the streets its walkers walk. */
+  rounds: Record<Service, ServiceRecord>;
+  /** Drachmas of rent paid at the start of this month, and by how many households. */
+  rent: { paid: number; homes: number };
   buildings: Building[];
   walkers: Walker[];
   nextId: number;

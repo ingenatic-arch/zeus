@@ -1,16 +1,65 @@
-/** Looking up buildings, and how many people a home holds. */
-import type { Building, SimState } from './state';
+/** Looking up buildings: their footprints, how many people a home holds, how many a workplace needs. */
+import type { Building, BuildingKind, SimState } from './state';
 
-/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut. */
-export const HOME_CAPACITY = [5, 5, 9];
+/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage. */
+export const HOME_CAPACITY = [5, 5, 9, 13];
 
 /** House levels by name, for the hover tips. */
-export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut'];
+export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage'];
+
+export const TENT = 1;
+export const HUT = 2;
+export const COTTAGE = 3;
+
+/** Names of the other buildings, for the hover tips. */
+export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
+  fountain: 'A fountain',
+  farm: 'A wheat farm',
+  granary: 'A granary',
+  agora: 'The agora',
+};
+
+/** Workers each kind of building needs (homes need none). */
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6 };
+
+/** The side of a building's square footprint, in tiles. */
+export function sideOf(kind: BuildingKind): number {
+  return kind === 'home' || kind === 'fountain' ? 2 : 3;
+}
 
 export function capacity(b: Building): number {
   if (b.kind !== 'home') return 0;
   return HOME_CAPACITY[Math.min(b.level, HOME_CAPACITY.length - 1)];
 }
+
+/** The tiles a footprint of this side covers, top-left at (x, z), in tile order. */
+export function footprint(size: number, x: number, z: number, side: number): number[] {
+  const out: number[] = [];
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) out.push((z + dz) * size + x + dx);
+  return out;
+}
+
+/** The tiles orthogonally beside a footprint (on the map), in tile order. */
+export function beside(size: number, x: number, z: number, side: number): number[] {
+  const out: number[] = [];
+  const add = (tx: number, tz: number): void => {
+    if (tx >= 0 && tz >= 0 && tx < size && tz < size) out.push(tz * size + tx);
+  };
+  for (let d = 0; d < side; d++) add(x + d, z - 1);
+  for (let d = 0; d < side; d++) add(x - 1, z + d);
+  for (let d = 0; d < side; d++) add(x + side, z + d);
+  for (let d = 0; d < side; d++) add(x + d, z + side);
+  return out.sort((a, b) => a - b);
+}
+
+/** The tiles beside a building. */
+export const around = (size: number, b: Building): number[] => beside(size, b.x, b.z, sideOf(b.kind));
+
+/** The middle of a building's footprint, world units. */
+export const centreOf = (b: Building): [number, number] => {
+  const h = sideOf(b.kind) / 2;
+  return [b.x + h, b.z + h];
+};
 
 export function findBuilding(s: SimState, id: number): Building | undefined {
   // Buildings are kept in id order.
@@ -31,3 +80,6 @@ export function recountPopulation(s: SimState): void {
   for (const b of s.buildings) p += b.people;
   s.population = p;
 }
+
+/** Is it a lived-in home? */
+export const livedIn = (b: Building): boolean => b.kind === 'home' && b.level > 0 && b.people > 0;

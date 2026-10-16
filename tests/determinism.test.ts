@@ -19,8 +19,15 @@ const SCRIPT: Array<[number, Command]> = [
   [900, { type: 'clear', x0: 8, z0: 81, x1: 9, z1: 82 }],
   [1300, { type: 'undo' }],
   [1600, { type: 'clear', x0: 24, z0: 70, x1: 24, z1: 71 }],
+  // (That cut the town off from the food chain for a while.)
+  [1900, { type: 'undo' }],
   [2400, { type: 'plots', at: [T(30, 76), T(30, 81)] }],
-];
+  // The food chain: a farm road east to the river land, a farm, a granary and the agora.
+  [400, { type: 'road', tiles: row(25, 52, 66) }],
+  [450, { type: 'build', kind: 'farm', at: [T(48, 63)] }],
+  [450, { type: 'build', kind: 'granary', at: [T(30, 67)] }],
+  [450, { type: 'build', kind: 'agora', at: [T(26, 67)] }],
+].sort((a, b) => (a[0] as number) - (b[0] as number)) as Array<[number, Command]>;
 
 function scripted(seed: number, ticks = 5000): Sim {
   const sim = new Sim(seed);
@@ -37,7 +44,9 @@ describe('simulation determinism', () => {
     const a = scripted(1234);
     expect(a.state.population).toBeGreaterThan(10);
     // The fountain's carrier has been at work: some tents are huts.
-    expect(a.state.buildings.some((b) => b.kind === 'home' && b.level === 2)).toBe(true);
+    expect(a.state.buildings.some((b) => b.kind === 'home' && b.level >= 2)).toBe(true);
+    // And the food chain: grain has reached homes.
+    expect(a.state.buildings.some((b) => b.kind === 'home' && b.foodUntil > 0)).toBe(true);
     expect(serialize(a.state)).toEqual(serialize(scripted(1234).state));
   });
 
@@ -98,12 +107,27 @@ describe('simulation determinism', () => {
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
 
+  it('save round-trip carries on identically with an ox cart on the road and the food vendor out', () => {
+    let t = 1200;
+    const a = scripted(9, t);
+    while (!(a.state.walkers.some((w) => w.kind === 'cart' && w.seg > 2) && a.state.walkers.some((w) => w.kind === 'food'))) {
+      a.step();
+      t++;
+      expect(t).toBeLessThan(6000);
+    }
+    const b = new Sim(9);
+    b.state = deserialize(serialize(a.state));
+    a.run(2000);
+    b.run(2000);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+  });
+
   it('refuses a save from another version with a plain message', () => {
     const s = JSON.parse(serialize(new Sim(1).state));
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
-    s.version = 2;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 2 and this game reads version 3/);
+    s.version = 3;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 3 and this game reads version 4/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {

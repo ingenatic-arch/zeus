@@ -1,6 +1,5 @@
 import type { CoastMap } from '../map/bake';
-import { plotNeighbours } from './build';
-import { capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
+import { around, capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
 import { nextInt } from './rng';
 import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
@@ -63,7 +62,7 @@ const roomIn = (b: Building): number => capacity(b) - b.people - b.incoming;
 function reachableHome(s: SimState, size: number, search: Search, need = 1): { b: Building; at: number } | null {
   let best: { b: Building; at: number } | null = null;
   for (const b of homesWithRoom(s)) {
-    const at = nearestReached(search, plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD));
+    const at = nearestReached(search, around(size, b).filter((t) => s.tiles[t] === TILE_ROAD));
     if (at < 0) continue;
     if (roomIn(b) >= need) return { b, at };
     if (!best || roomIn(b) > roomIn(best.b)) best = { b, at };
@@ -75,7 +74,7 @@ function reachableHome(s: SimState, size: number, search: Search, need = 1): { b
 function reachableRoom(s: SimState, size: number, search: Search): number {
   let room = 0;
   for (const b of homesWithRoom(s)) {
-    if (nearestReached(search, plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD)) >= 0) room += roomIn(b);
+    if (nearestReached(search, around(size, b).filter((t) => s.tiles[t] === TILE_ROAD)) >= 0) room += roomIn(b);
   }
   return room;
 }
@@ -218,7 +217,7 @@ function reroute(s: SimState, map: CoastMap, w: Walker): boolean {
     let b = findBuilding(s, w.home);
     let at = -1;
     if (b) {
-      at = nearestReached(search, plotNeighbours(size, b.x, b.z).filter((t) => s.tiles[t] === TILE_ROAD));
+      at = nearestReached(search, around(size, b).filter((t) => s.tiles[t] === TILE_ROAD));
       if (at < 0) {
         b.incoming -= w.people;
         b = undefined;

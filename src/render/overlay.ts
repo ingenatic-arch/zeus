@@ -90,7 +90,7 @@ export class WaterOverlay {
       const d = reach.dist[t];
       if (d >= 0 && d <= CARRIER_RANGE) {
         const k = Math.round(99 * (1 - d / (CARRIER_RANGE + 1)));
-        const walked = s.carried[t] > 0 && s.tick - s.carried[t] < WATER_LASTS;
+        const walked = s.rounds.water.walked[t] > 0 && s.tick - s.rounds.water.walked[t] < WATER_LASTS;
         codes[t] = (walked ? WATER_WALKED : WATER_REACH) + k;
       } else if (pre && pre[t] >= 0 && pre[t] <= CARRIER_RANGE) codes[t] = WATER_PREVIEW;
     }

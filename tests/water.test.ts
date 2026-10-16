@@ -119,7 +119,8 @@ describe('the water carrier', () => {
         const z = 60 + (cuts++ % 15);
         sim.enqueue({ type: 'clear', x0: 26, z0: z, x1: 26, z1: z });
       }
-      if (s.tick % 97 === 50) sim.enqueue({ type: 'undo' });
+      // (Only once there is a cut to undo: an undo before the first would take the plots away, and with them the fountain's workers.)
+      if (s.tick % 97 === 50 && s.tick > 97) sim.enqueue({ type: 'undo' });
       // (A cut can leave her on a stretch no longer joined to her fountain, so reach isn't checked here.)
     }, false);
     expect(rounds.size).toBeGreaterThanOrEqual(2);
@@ -136,7 +137,10 @@ describe('the water carrier', () => {
   it('clearing a fountain takes its carrier away; undo brings it back as a fountain; undoing the fountain refunds it', () => {
     const sim = new Sim(1);
     sim.enqueue({ type: 'road', tiles: row(0, 20, 80) });
-    sim.step();
+    // A family nearby to work the fountain (it needs workers since slice 4).
+    sim.enqueue({ type: 'plots', at: [T(4, 78)] });
+    sim.run(400);
+    expect(sim.state.population).toBeGreaterThan(0);
     const before = sim.state.money;
     sim.enqueue({ type: 'fountain', at: [T(10, 81)] });
     sim.run(60);
@@ -144,16 +148,17 @@ describe('the water carrier', () => {
     expect(sim.state.walkers.filter((w) => w.kind === 'water').length).toBe(1);
     sim.enqueue({ type: 'clear', x0: 10, z0: 81, x1: 11, z1: 82 });
     sim.step();
-    expect(sim.state.buildings).toEqual([]);
+    expect(sim.state.buildings.map((b) => b.kind)).toEqual(['home']);
     expect(sim.state.walkers.filter((w) => w.kind === 'water').length).toBe(0);
     sim.enqueue({ type: 'undo' });
     sim.step();
-    expect(sim.state.buildings.map((b) => b.kind)).toEqual(['fountain']);
+    expect(sim.state.buildings.map((b) => b.kind)).toEqual(['home', 'fountain']);
     sim.run(60);
     expect(sim.state.walkers.filter((w) => w.kind === 'water').length).toBe(1);
     sim.enqueue({ type: 'undo' });
     sim.step();
-    expect(sim.state.buildings).toEqual([]);
+    expect(sim.state.buildings.map((b) => b.kind)).toEqual(['home']);
+    // (No month began meanwhile, so no rent came in.)
     expect(sim.state.money).toBe(before);
   });
 });

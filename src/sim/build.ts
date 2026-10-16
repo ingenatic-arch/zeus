@@ -3,13 +3,27 @@
  * preview and the sim always agree. Pure functions of the baked map and the
  * sim state.
  */
-import { WATER_NONE, type CoastMap } from '../map/bake';
-import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
+import { WATER_NONE, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
+import { beside, sideOf } from './buildings';
+import { TILE_EMPTY, TILE_ROAD, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
 export const PLOT_COST = 10;
 export const FOUNTAIN_COST = 150;
+export const FARM_COST = 200;
+export const GRANARY_COST = 300;
+export const AGORA_COST = 250;
+/** A bridge costs this much a tile. */
+export const BRIDGE_COST = 40;
+/** The most tiles of river and wet bank a bridge spans. */
+export const BRIDGE_MAX = 9;
 export const STARTING_MONEY = 5000;
+
+/** What each building costs. */
+export const COST: Record<BuildingKind, number> = { home: PLOT_COST, fountain: FOUNTAIN_COST, farm: FARM_COST, granary: GRANARY_COST, agora: AGORA_COST };
+
+/** A farm needs at least this mean fertility over its tiles (the green river land). */
+export const FARM_FERTILE_MIN = 0.5;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
 
@@ -143,15 +157,122 @@ export function roadRefusal(map: CoastMap, s: SimState, tx: number, tz: number):
   const on = s.tiles[t];
   if (on === TILE_ROAD) return 'Already a road';
   if (on !== TILE_EMPTY) return 'Something is built here';
+  if (besideBridge(map, s, t)) return 'Too close to the side of a bridge';
   return '';
+}
+
+/** Is this tile part of a bridge (a road over the river or its wet bank)? */
+export function isBridge(map: CoastMap, s: SimState, t: number): boolean {
+  return s.tiles[t] === TILE_ROAD && mapIndex(map).ground[t] === Ground.Water;
+}
+
+/** Does a bridge run east-west through this bridge tile (rather than north-south)? */
+export function bridgeRunsEastWest(map: CoastMap, s: SimState, t: number): boolean {
+  const n = map.size;
+  const tx = t % n;
+  return (tx > 0 && s.tiles[t - 1] === TILE_ROAD) || (tx < n - 1 && s.tiles[t + 1] === TILE_ROAD);
+}
+
+/** Would a road on this tile touch the side of a bridge (rather than one of its ends)? */
+function besideBridge(map: CoastMap, s: SimState, t: number): boolean {
+  const n = map.size;
+  const tx = t % n;
+  const check = (u: number, eastWest: boolean): boolean => isBridge(map, s, u) && bridgeRunsEastWest(map, s, u) !== eastWest;
+  if (t >= n && check(t - n, false)) return true;
+  if (t < n * (n - 1) && check(t + n, false)) return true;
+  if (tx > 0 && check(t - 1, true)) return true;
+  if (tx < n - 1 && check(t + 1, true)) return true;
+  return false;
+}
+
+/** One step in a direction: 1 north, 2 west, 3 east, 4 south. */
+export const stepOf = (n: number, dir: number): number => (dir === 1 ? -n : dir === 2 ? -1 : dir === 3 ? 1 : n);
+
+/**
+ * A bridge from the land tile `from` straight out in direction `dir` over the
+ * river: the wet tiles it would span and the land tile it would reach, or why
+ * there can be none. Spans at most BRIDGE_MAX tiles of river and wet bank,
+ * never the sea, onto ground a road can take, with no road against its sides.
+ */
+export function bridgeSpan(map: CoastMap, s: SimState, from: number, dir: number): { tiles: number[]; end: number; reason: string } {
+  const n = map.size;
+  const ix = mapIndex(map);
+  const step = stepOf(n, dir);
+  const tiles: number[] = [];
+  let t = from;
+  let river = false;
+  let sea = false;
+  const none = (reason: string): { tiles: number[]; end: number; reason: string } => ({ tiles, end: -1, reason });
+  while (true) {
+    const tx = t % n;
+    // Off the map, or wrapping round a row.
+    if ((dir === 2 && tx === 0) || (dir === 3 && tx === n - 1) || t + step < 0 || t + step >= n * n) return none('');
+    t += step;
+    if (ix.ground[t] !== Ground.Water) break;
+    if (map.tileWater[t] === WATER_SEA) sea = true;
+    if (map.tileWater[t] === WATER_RIVER) river = true;
+    tiles.push(t);
+    if (tiles.length > BRIDGE_MAX + 4) break;
+  }
+  if (tiles.length === 0) return none('');
+  if (sea) return none('A bridge can’t cross the sea');
+  if (!river) return none('Too wet: water or the river bank');
+  if (tiles.length > BRIDGE_MAX) return none(`Too wide to bridge here: ${tiles.length > BRIDGE_MAX + 4 ? 'more than ' + (BRIDGE_MAX + 4) : tiles.length} tiles of river and bank (a bridge spans ${BRIDGE_MAX} at most)`);
+  const g = ix.ground[t];
+  if (g !== Ground.Ok && g !== Ground.SteepForHome) return none(`The far bank is ${GROUND_REASON[g as Ground].toLowerCase()}`);
+  if (s.tiles[t] > 0) return none('Something is built on the far bank');
+  for (const u of tiles) {
+    if (s.tiles[u] !== TILE_EMPTY) return none('Something is in the way');
+    // No road against a bridge's sides.
+    const ux = u % n;
+    const sides = dir === 1 || dir === 4 ? [ux > 0 ? u - 1 : -1, ux < n - 1 ? u + 1 : -1] : [u - n, u + n];
+    if (sides.some((v) => v >= 0 && v < n * n && s.tiles[v] === TILE_ROAD)) return none('Too close to another bridge');
+  }
+  return { tiles, end: t, reason: '' };
+}
+
+/** Every tile of the bridge through bridge tile `t`, in order along it. */
+export function bridgeAt(map: CoastMap, s: SimState, t: number): number[] {
+  const n = map.size;
+  const step = bridgeRunsEastWest(map, s, t) ? 1 : n;
+  let a = t;
+  while (a - step >= 0 && (step === n || (a % n) > 0) && isBridge(map, s, a - step)) a -= step;
+  const out: number[] = [];
+  for (let u = a; u < n * n && isBridge(map, s, u); u += step) {
+    out.push(u);
+    if (step === 1 && u % n === n - 1) break;
+  }
+  return out;
 }
 
 /** Why a 2 x 2 plot can't have its top-left tile here, or '' if it can. */
 export function plotRefusal(map: CoastMap, s: SimState, tx: number, tz: number): string {
+  return footprintRefusal(map, s, tx, tz, PLOT_SIZE);
+}
+
+/** The mean fertility of a footprint's tiles (0..1). */
+export function fertilityOf(map: CoastMap, x: number, z: number, side: number): number {
+  const n = map.size;
+  let f = 0;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) f += map.tileFertility[Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx)];
+  return f / (side * side);
+}
+
+/** Why a building of this kind can't have its top-left tile here, or '' if it can. */
+export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
+  const side = sideOf(kind);
+  const r = footprintRefusal(map, s, tx, tz, side);
+  if (r) return r;
+  if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
+  return '';
+}
+
+/** Why a square footprint of this side can't have its top-left tile here, or '' if it can. */
+export function footprintRefusal(map: CoastMap, s: SimState, tx: number, tz: number, side: number): string {
   const n = map.size;
   const ix = mapIndex(map);
-  for (let dz = 0; dz < PLOT_SIZE; dz++) {
-    for (let dx = 0; dx < PLOT_SIZE; dx++) {
+  for (let dz = 0; dz < side; dz++) {
+    for (let dx = 0; dx < side; dx++) {
       const x = tx + dx;
       const z = tz + dz;
       if (x < 0 || z < 0 || x >= n || z >= n) return GROUND_REASON[Ground.OffMap];
@@ -161,24 +282,16 @@ export function plotRefusal(map: CoastMap, s: SimState, tx: number, tz: number):
       if (s.tiles[t] !== TILE_EMPTY) return 'Something is built here';
     }
   }
-  // Uneven ground across the whole plot (each tile may be fine on its own).
+  // Uneven ground across the whole footprint (each tile may be fine on its own).
   const hs: number[] = [];
-  for (let dz = 0; dz <= PLOT_SIZE; dz++) for (let dx = 0; dx <= PLOT_SIZE; dx++) hs.push(map.corner(tx + dx, tz + dz));
-  if (Math.max(...hs) - Math.min(...hs) > HOME_MAX_RISE * 1.6) return GROUND_REASON[Ground.SteepForHome];
+  for (let dz = 0; dz <= side; dz++) for (let dx = 0; dx <= side; dx++) hs.push(map.corner(tx + dx, tz + dz));
+  if (Math.max(...hs) - Math.min(...hs) > HOME_MAX_RISE * (side <= 2 ? 1.6 : 2)) return side <= 2 ? GROUND_REASON[Ground.SteepForHome] : 'Too uneven for a building this size';
   return '';
 }
 
-/** The road tiles orthogonally beside a plot's footprint, in tile order. */
+/** The tiles orthogonally beside a 2 x 2 plot's footprint, in tile order. */
 export function plotNeighbours(size: number, x: number, z: number): number[] {
-  const out: number[] = [];
-  const add = (tx: number, tz: number): void => {
-    if (tx >= 0 && tz >= 0 && tx < size && tz < size) out.push(tz * size + tx);
-  };
-  for (let d = 0; d < PLOT_SIZE; d++) add(x + d, z - 1);
-  for (let d = 0; d < PLOT_SIZE; d++) add(x - 1, z + d);
-  for (let d = 0; d < PLOT_SIZE; d++) add(x + PLOT_SIZE, z + d);
-  for (let d = 0; d < PLOT_SIZE; d++) add(x + d, z + PLOT_SIZE);
-  return out.sort((a, b) => a - b);
+  return beside(size, x, z, PLOT_SIZE);
 }
 
 /** Is this tile on the map's outer edge? Roads there are where settlers come in. */

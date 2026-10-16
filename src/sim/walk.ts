@@ -1,18 +1,21 @@
 /**
  * What every walker shares: paths of waypoints, where a walker stands
- * between them, and how fast each kind walks.
+ * between them, how fast each kind walks, and the junction rule service
+ * walkers use to choose their way.
  */
-import { PLOT_SIZE } from './build';
+import { centreOf, findBuilding } from './buildings';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 
 /** Walking speed of settlers and leavers, tiles per tick (1.2 tiles a second at normal speed). */
 export const WALK_SPEED = 0.12;
-/** The water carrier walks a little slower, so she is easy to follow (1 tile a second). */
+/** The water carrier and the food vendor walk at the settlers' pace. */
 export const CARRIER_SPEED = 0.12;
+/** An ox cart is a little slower. */
+export const CART_SPEED = 0.09;
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
-export const speedOf = (w: Walker): number => (w.kind === 'water' ? CARRIER_SPEED : WALK_SPEED);
+export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : w.kind === 'water' || w.kind === 'food' ? CARRIER_SPEED : WALK_SPEED);
 
 /** The centre of a tile, world units. */
 export const centre = (size: number, t: number): [number, number] => {
@@ -20,11 +23,31 @@ export const centre = (size: number, t: number): [number, number] => {
   return [tx + 0.5, (t - tx) / size + 0.5];
 };
 
-export const plotCentre = (b: Building): [number, number] => [b.x + PLOT_SIZE / 2, b.z + PLOT_SIZE / 2];
+/** The middle of a building's footprint. */
+export const plotCentre = (b: Building): [number, number] => centreOf(b);
 
 /** A new walker with every field set. */
 export function newWalker(s: SimState, kind: Walker['kind'], people: number): Walker {
-  return { id: s.nextId++, kind, people, home: 0, path: [], tiles: [], seg: 0, along: 0, walked: 0, route: 0, origin: 0, back: false, steps: 0, since: 0 };
+  return {
+    id: s.nextId++,
+    kind,
+    people,
+    home: 0,
+    path: [],
+    tiles: [],
+    seg: 0,
+    along: 0,
+    walked: 0,
+    route: 0,
+    origin: 0,
+    back: false,
+    steps: 0,
+    since: 0,
+    target: 0,
+    load: 0,
+    wait: 0,
+    trail: [],
+  };
 }
 
 /** Where a walker steps on or off the map beyond an edge road tile. */
@@ -68,4 +91,109 @@ export function position(w: Walker): [number, number] {
   const len = Math.hypot(w.path[i + 2] - x0, w.path[i + 3] - z0) || 1;
   const f = Math.min(1, w.along / len);
   return [x0 + (w.path[i + 2] - x0) * f, z0 + (w.path[i + 3] - z0) * f];
+}
+
+/** Road tiles joined to a tile, in a fixed order (north, west, east, south). */
+export function roadNeighbours(s: SimState, size: number, t: number): number[] {
+  const tx = t % size;
+  const out: number[] = [];
+  if (t >= size && s.tiles[t - size] === TILE_ROAD) out.push(t - size);
+  if (tx > 0 && s.tiles[t - 1] === TILE_ROAD) out.push(t - 1);
+  if (tx < size - 1 && s.tiles[t + 1] === TILE_ROAD) out.push(t + 1);
+  if (t < size * (size - 1) && s.tiles[t + size] === TILE_ROAD) out.push(t + size);
+  return out;
+}
+
+/** The buildings beside a road tile (orthogonally), each once. */
+export function besideRoad(s: SimState, size: number, t: number, out: Building[]): Building[] {
+  out.length = 0;
+  const tx = t % size;
+  for (const u of [t - size, t - 1, t + 1, t + size]) {
+    if (u < 0 || u >= size * size) continue;
+    if ((u === t - 1 && tx === 0) || (u === t + 1 && tx === size - 1)) continue;
+    const id = s.tiles[u];
+    if (id <= 0) continue;
+    const b = findBuilding(s, id);
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
+}
+
+/**
+ * How badly a home needs a service walker: the tick its service runs out
+ * (lower is more urgent), or Infinity if it doesn't want her at all.
+ */
+export type NeedScore = (b: Building) => number;
+
+/** Scratch space for wayNeeds (not state: cleared by a fresh stamp on every search). */
+let stamp = new Int32Array(0);
+let owner = new Int32Array(0);
+let depth = new Int32Array(0);
+let queue = new Int32Array(0);
+let gen = 0;
+const near: Building[] = [];
+
+/**
+ * How badly the homes down each way from road tile `cur` need a service
+ * walker: one breadth-first search over the roads within her reach (`dist`,
+ * road steps from her building, at most `range`), out from all of `ways` at
+ * once and never back through `cur`, so each road tile belongs to the way that
+ * gets there first. A way's need is the lowest, over the homes beside its road
+ * tiles, of their score (when their service runs out) plus how long she would
+ * take to get there at `ticksATile`; Infinity if no home that wants her lies
+ * that way. With `firstOnly`, stops at the first such home.
+ */
+export function wayNeeds(
+  s: SimState,
+  size: number,
+  dist: Int32Array,
+  range: number,
+  score: NeedScore,
+  ticksATile: number,
+  cur: number,
+  ways: number[],
+  firstOnly = false,
+): number[] {
+  const total = size * size;
+  if (stamp.length !== total) {
+    stamp = new Int32Array(total);
+    owner = new Int32Array(total);
+    depth = new Int32Array(total);
+    queue = new Int32Array(total);
+    gen = 0;
+  }
+  gen++;
+  const needs = ways.map(() => Infinity);
+  let head = 0;
+  let tail = 0;
+  stamp[cur] = gen;
+  ways.forEach((t, i) => {
+    if (stamp[t] === gen) return;
+    stamp[t] = gen;
+    owner[t] = i;
+    depth[t] = 1;
+    queue[tail++] = t;
+  });
+  while (head < tail) {
+    const t = queue[head++];
+    const i = owner[t];
+    let low = Infinity;
+    for (const b of besideRoad(s, size, t, near)) {
+      const v = score(b);
+      if (v < low) low = v;
+    }
+    if (low < Infinity) {
+      const v = low + depth[t] * ticksATile;
+      if (v < needs[i]) needs[i] = v;
+      if (firstOnly) return needs;
+    }
+    for (const u of roadNeighbours(s, size, t)) {
+      if (stamp[u] === gen || dist[u] < 0 || dist[u] > range) continue;
+      stamp[u] = gen;
+      owner[u] = i;
+      depth[u] = depth[t] + 1;
+      queue[tail++] = u;
+    }
+  }
+  return needs;
 }
