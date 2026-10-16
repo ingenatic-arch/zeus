@@ -2,6 +2,8 @@ import { DAYS_PER_MONTH, formatYear, type SimDate } from '../sim/clock';
 import type { ClockDriver, Speed } from '../game/clockDriver';
 import { TICKS_PER_SECOND } from '../sim/clock';
 import type { Outlook } from '../sim/settlers';
+import { JOBS } from '../sim/buildings';
+import type { BuildingKind } from '../sim/state';
 
 const ICONS: Record<Speed, string> = {
   paused: '<svg viewBox="0 0 16 16"><rect x="3" y="2.5" width="3.6" height="11" rx="1"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1"/></svg>',
@@ -121,7 +123,7 @@ export class TopBar {
     el.classList.toggle('short', w.filled < w.jobs);
     let text = `Jobs filled: ${w.filled} of ${w.jobs} · ${w.able} people can work (half of everyone in a lived-in home).`;
     if (w.short.length) {
-      const list = w.short.slice(0, 4).map((b) => `${names[b.kind] ?? b.kind} (${b.workers} of its jobs filled)`);
+      const list = w.short.slice(0, 4).map((b) => `${names[b.kind] ?? b.kind} (${b.workers} of ${JOBS[b.kind as BuildingKind] ?? '?'})`);
       text += ` Short of workers: ${list.join(', ')}${w.short.length > 4 ? ` and ${w.short.length - 4} more` : ''}. A short-handed place works slower; more homes nearby by road would help.`;
     } else if (w.jobs > 0) text += ' Every job is filled.';
     el.title = text;

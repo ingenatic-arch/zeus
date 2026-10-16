@@ -22,7 +22,7 @@ export class CityView {
   readonly bridges: Bridges;
   private rev = -1;
   private tiles: number[] = [];
-  private buildingsKey = '';
+  private buildingKeys = new Map<number, { key: string; chunk: number }>();
 
   constructor(
     private readonly map: CoastMap,
@@ -63,12 +63,16 @@ export class CityView {
       }
     }
     // Homes changing level re-draw their patch of ground; so does a farm, granary or agora turning to face a new road.
-    const size2 = this.map.size;
-    const key = s.buildings.map((b) => `${b.id}:${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' ? '' : ':' + facingOf(s, size2, b).toFixed(1)}`).join(',');
-    if (key !== this.buildingsKey) {
-      for (const b of s.buildings) dirty.add(this.streets.chunkKey(b.x, b.z));
-      this.buildingsKey = key;
+    // Only the chunks of buildings that came, went or changed (not every building's, as before).
+    const keys = new Map<number, { key: string; chunk: number }>();
+    for (const b of s.buildings) {
+      const key = `${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' ? '' : ':' + facingOf(s, size, b).toFixed(1)}`;
+      const chunk = this.streets.chunkKey(b.x, b.z);
+      keys.set(b.id, { key, chunk });
+      if (this.buildingKeys.get(b.id)?.key !== key) dirty.add(chunk);
     }
+    for (const [id, was] of this.buildingKeys) if (!keys.has(id)) dirty.add(was.chunk);
+    this.buildingKeys = keys;
     this.tiles = s.tiles.slice();
     this.streets.rebuild(s, dirty);
     this.homes.sync(s, !first);
