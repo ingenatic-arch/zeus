@@ -11,7 +11,7 @@ import { ageOf, DECLINE_AFTER, leavingGroups, moodOf, needsOf, RISE_MIN, SETTLE,
 import { canWork } from '../src/sim/labour';
 import { distFrom } from '../src/sim/rounds';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
-import { homeStatus } from '../src/sim/status';
+import { homeStatus, whyHungry } from '../src/sim/status';
 import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
 
 const map = coastMap();
@@ -147,6 +147,32 @@ describe('going up, and staying up', () => {
     expect(drops(demo('shrine'), 2 * TICKS_PER_YEAR).size).toBe(0);
     expect(drops(demo('theatre'), 2 * TICKS_PER_YEAR).size).toBe(0);
   });
+
+  it('a street of fine houses on one agora: short of farms, the reason names the farms with numbers; with two more farms nobody goes down (#grow played through)', () => {
+    const grow = (farms: boolean): Sim => {
+      const sim = demo('grow');
+      sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });
+      if (farms) {
+        sim.enqueue({ type: 'road', tiles: [51, 52, 53].map((x) => x + 63 * N) });
+        sim.enqueue({ type: 'build', kind: 'farm', at: [41 + 60 * N, 51 + 64 * N] });
+      }
+      sim.run(90 * TICKS_PER_DAY);
+      sim.enqueue({ type: 'build', kind: 'theatre', at: [35 + 81 * N] });
+      return sim;
+    };
+    const fed = grow(true);
+    expect(drops(fed, 2 * TICKS_PER_YEAR - 90 * TICKS_PER_DAY).size).toBe(0);
+    expect(homes(fed.state).filter((b) => b.level === FINE).length).toBeGreaterThanOrEqual(36);
+    const short = grow(false);
+    let named = false;
+    for (let d = 0; d < 600 && !named; d++) {
+      short.run(TICKS_PER_DAY);
+      const hungry = homes(short.state).find((b) => b.level >= COTTAGE && b.foodUntil < short.state.tick);
+      const why = hungry ? whyHungry(short.state, map, hungry, short.state.buildings.filter((o) => o.kind === 'agora')) : '';
+      if (/farms grow about [\d,]+ measures of wheat a month and the town eats about [\d,]+; (another farm|\w+ more farms) would feed it/.test(why)) named = true;
+    }
+    expect(named).toBe(true);
+  });
 });
 
 describe('warn, then decline, for blessings and plays', () => {
@@ -170,8 +196,11 @@ describe('warn, then decline, for blessings and plays', () => {
       expect(b.family!.story.some((e) => e.what === 'down' && e.need === 'culture')).toBe(true);
     }
     // One level at a time: a townhouse that just came down doesn't drop again before another DECLINE_AFTER.
-    const more = drops(sim, DECLINE_AFTER - 2 * TICKS_PER_DAY);
-    for (const b of warned) expect(more.has(b.id)).toBe(false);
+    const more = drops(sim, DECLINE_AFTER);
+    for (const b of warned) {
+      const times = [...down.get(b.id)!, ...(more.get(b.id) ?? [])];
+      for (let i = 1; i < times.length; i++) expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(DECLINE_AFTER - TICKS_PER_DAY);
+    }
     // With the shrine still there, they stay townhouses.
     const again = drops(sim, 6 * TICKS_PER_MONTH);
     for (const b of warned) if (b.religionUntil > sim.state.tick) expect(again.has(b.id)).toBe(false);
@@ -220,6 +249,15 @@ describe('mood and chatter', () => {
     expect(m.reasons.some((r) => r.tone > 0 && /theatre/.test(r.text))).toBe(true);
     const lonely = homes(s).find((b) => b.level === COTTAGE && b.religionUntil <= s.tick);
     if (lonely) expect(moodOf(s, lonely, ctx, canWork(lonely)).reasons.some((r) => r.tone < 0 && /priestess/.test(r.text))).toBe(true);
+    // A month after the theatre opened, a townhouse the actor hasn't reached yet doesn't hold it against him.
+    const t = demo('theatre').state;
+    const waiting = homes(t).filter((b) => b.level === TOWNHOUSE && b.cultureUntil <= t.tick);
+    expect(waiting.length).toBeGreaterThan(0);
+    for (const b of waiting) {
+      const r = moodOf(t, b, ctx, canWork(b)).reasons.find((x) => /actor/.test(x.text))!;
+      expect(r.tone).toBe(0);
+      expect(r.text).toMatch(/hasn’t come this way yet/);
+    }
   });
 
   it('townhouses and fine houses talk about the shrine and the plays, every name filled in, and the hut’s lines stay the hut’s', () => {

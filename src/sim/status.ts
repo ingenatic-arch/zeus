@@ -8,9 +8,9 @@ import type { CoastMap } from '../map/bake';
 import { fertilityOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
-import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
-import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
-import { missingSince, RISE_MIN, SETTLE } from './folk';
+import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
+import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, HARVEST, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
+import { justOpened, missingSince, RISE_MIN, SETTLE } from './folk';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -81,7 +81,8 @@ function whyNot(s: SimState, map: CoastMap, b: Building, service: 'religion' | '
   // Within reach of one: is anyone working there?
   const reaching = places.filter((o) => roadsBeside(s, size, b).some((t) => distFrom(s, size, o)[t] >= 0 && distFrom(s, size, o)[t] <= k.range));
   if (reaching.length && reaching.every((o) => o.workers === 0)) return `nobody works at the ${k.building}, so its ${k.walker} can’t go out`;
-  if ((service === 'religion' ? b.religionUntil : b.cultureUntil) > 0) return `within reach of a ${k.building}, but the ${k.walker} has taken other turns lately`;
+  const until = service === 'religion' ? b.religionUntil : b.cultureUntil;
+  if (until > 0 && !justOpened(s, k.building as 'shrine' | 'theatre', until)) return `within reach of a ${k.building}, but the ${k.walker} has taken other turns lately`;
   return `within reach of a ${k.building}; the ${k.walker} hasn’t come this way yet`;
 }
 
@@ -183,6 +184,49 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
   return `No food · ${whyHungry(s, map, b, agoras)}`;
 }
 
+/**
+ * How much wheat the farms grow in a month at their present staffing, and how
+ * much the town eats (a measure a person a month, huts and better), with what
+ * one more farm like these would add.
+ */
+export function foodBalance(s: SimState, map: CoastMap): { grown: number; eaten: number; perFarm: number } {
+  let grown = 0;
+  let full = 0;
+  let farms = 0;
+  for (const f of s.buildings) {
+    if (f.kind !== 'farm') continue;
+    const h = (harvestOf(map, f) * TICKS_PER_MONTH) / GROW;
+    grown += h * rateOf(f);
+    full += h;
+    farms++;
+  }
+  let eaten = 0;
+  for (const b of s.buildings) if (eatsBread(b)) eaten += b.people;
+  return { grown, eaten, perFarm: farms ? full / farms : (HARVEST * TICKS_PER_MONTH) / GROW };
+}
+
+/** Round to the nearest ten from a hundred up. */
+const roundTen = (v: number): number => (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v));
+
+/** "the farms grow about 570 measures a month and the town eats about 800: two more farms would feed it". */
+export function balanceWords(bal: { grown: number; eaten: number; perFarm: number }): string {
+  // With a tenth to spare: the vendor tops homes up in bursts, and towns grow.
+  const more = Math.max(1, Math.ceil((bal.eaten * 1.1 - bal.grown) / bal.perFarm));
+  const n = more === 1 ? 'another farm' : `${more <= 9 ? ['', '', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][more] : more} more farms`;
+  return `the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}; ${n} would feed it`;
+}
+
+/** The town's wheat in a line, for the granary's and the agora's tips ('' before there are farms and people who eat bread). */
+export function balanceLine(s: SimState, map: CoastMap): string {
+  const bal = foodBalance(s, map);
+  if (bal.eaten === 0 || !s.buildings.some((f) => f.kind === 'farm')) return '';
+  const both = `The farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}`;
+  if (bal.eaten > bal.grown && s.buildings.some((f) => f.kind === 'farm' && rateOf(f) < 1)) return `${both}; a farm is short of workers (hover it to see why)`;
+  const words = balanceWords(bal);
+  if (bal.eaten > bal.grown) return `${words[0].toUpperCase()}${words.slice(1)}`;
+  return `The farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month; the town eats about ${fmt(roundTen(bal.eaten))}`;
+}
+
 /** Why no food reaches a hut or better. */
 export function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Building[]): string {
   const size = map.size;
@@ -193,15 +237,19 @@ export function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Build
   const d = stepsToFountain(roadSearch(s, size, sources), s, size, b);
   if (d < 0) return 'no road joins it to the agora';
   if (d > VENDOR_RANGE) return `the agora is ${d} steps away by road; its food vendor goes ${VENDOR_RANGE} at most`;
-  if (agoras.every((a) => a.stock <= 0)) return 'the agora’s food stall is empty';
-  // Little on the stall and little in the granaries: the town eats more than its farms grow.
+  // Little on the stall and in the granaries, or nothing on the stall while the town eats more than its farms grow: say why, with the numbers.
   const stored = s.buildings.reduce((n, g) => n + (g.kind === 'granary' ? g.stock : 0), 0);
-  if (agoras.every((a) => a.stock < STALL_CAP / 4) && stored < STALL_CAP / 2) {
+  const empty = agoras.every((a) => a.stock <= 0);
+  const bal = foodBalance(s, map);
+  const short = bal.eaten > bal.grown;
+  if ((agoras.every((a) => a.stock < STALL_CAP / 4) && stored < STALL_CAP / 2) || (empty && short)) {
+    const stall = empty ? 'the agora’s food stall is empty' : 'the agora’s stall runs low';
     // A farm short of hands grows slowly: say so before asking for another farm.
-    const farms = s.buildings.filter((o) => o.kind === 'farm');
-    if (farms.some((f) => rateOf(f) < 1)) return 'the agora’s stall runs low: a farm is short of workers (hover it to see why)';
-    return 'the agora’s stall runs low: the farms don’t grow enough for the town; another farm would help';
+    if (s.buildings.some((f) => f.kind === 'farm' && rateOf(f) < 1)) return `${stall}: a farm is short of workers (hover it to see why)`;
+    if (short) return `${stall}: ${balanceWords(bal)}`;
+    return `${stall} until the next harvest comes in`;
   }
+  if (empty) return 'the agora’s food stall is empty for now; its porter is fetching more from the granary';
   if (b.foodUntil > 0) return 'within reach of the agora, but the food vendor has taken other turns lately';
   return 'within reach of the agora; the food vendor hasn’t come this way yet';
 }
@@ -289,7 +337,10 @@ export function granaryStatus(s: SimState, map: CoastMap, g: Building): Status {
   const coming = g.incoming > 0 ? `Carts are bringing ${fmt(g.incoming)} more` : !s.buildings.some((f) => f.kind === 'farm') ? 'Build a wheat farm on the green land by the river to fill it' : '';
   const waiting = s.walkers.filter((w) => (w.kind === 'cart' || w.kind === 'porter') && w.target === g.id && w.wait > 0).length;
   const gate = waiting && g.workers === 0 ? `${waiting === 1 ? 'A cart is' : `${waiting} are`} waiting at the gate: nobody works here to take it in` : '';
-  return { title, detail: lines(workersLine(s, map, g), coming, gate) };
+  // Standing empty beside a granary that gets the grain: say why.
+  const others = s.buildings.filter((o) => o.kind === 'granary' && o !== g);
+  const idle = g.stock + g.incoming === 0 && others.some((o) => o.stock + o.incoming > 0) ? 'Empty for now: carts take their grain to the granary with room nearest their farm, and porters fetch from the nearest with grain' : '';
+  return { title, detail: lines(workersLine(s, map, g), coming, gate, idle, balanceLine(s, map)) };
 }
 
 export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
@@ -310,7 +361,7 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
     const search = roadSearch(s, map.size, roadsBeside(s, map.size, a));
     if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0 && nearestReached(search, roadsBeside(s, map.size, g)) >= 0)) porter = 'The porter can’t go: no road joins the agora to a granary with grain';
   }
-  return { title, detail: lines(workersLine(s, map, a), vendor, porter) };
+  return { title, detail: lines(workersLine(s, map, a), vendor, porter, balanceLine(s, map)) };
 }
 
 /** What any walker other than settlers is doing. */

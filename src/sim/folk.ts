@@ -292,6 +292,17 @@ const lastOf = (f: Family, what: Story['what']): Story | undefined => {
 };
 
 /**
+ * Has a shrine (or theatre) opened in the last two months, since this home's
+ * blessings (or plays) last ran out? Then not having them yet is no grievance:
+ * the priestess or the actor just hasn't got round to it.
+ */
+export function justOpened(s: SimState, kind: 'shrine' | 'theatre', until: number): boolean {
+  let newest = -Infinity;
+  for (const o of s.buildings) if (o.kind === kind && o.since > newest) newest = o.since;
+  return s.tick - newest < 2 * TICKS_PER_MONTH && until <= newest;
+}
+
+/**
  * How a household feels, and why: what they have and lack, work, a recent
  * move up or down, and settling in. A pure reading of the home's state.
  * `ctx` says what the city offers (any agora at all, any jobs at all).
@@ -337,7 +348,10 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     }
   } else if (b.level === COTTAGE) {
     if (blessed) add(1, 'The priestess comes by with blessings');
-    else if (ctx.shrine) add(-1, 'The priestess doesn’t come this way');
+    else if (ctx.shrine) {
+      if (justOpened(s, 'shrine', b.religionUntil)) add(0, 'A shrine has opened; the priestess hasn’t come this way yet');
+      else add(-1, 'The priestess doesn’t come this way');
+    }
   }
   // Plays: a fine house's need; a townhouse would like them, if there is a theatre.
   const plays = b.cultureUntil > s.tick;
@@ -350,7 +364,10 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     }
   } else if (b.level === TOWNHOUSE) {
     if (plays) add(1, 'The actor comes by with news of the plays');
-    else if (ctx.theatre) add(-1, 'No actor comes this way');
+    else if (ctx.theatre) {
+      if (justOpened(s, 'theatre', b.cultureUntil)) add(0, 'A theatre has opened; the actor hasn’t come this way yet');
+      else add(-1, 'No actor comes this way');
+    }
   }
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');

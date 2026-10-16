@@ -33,21 +33,23 @@ const CUT_DECLINE = 1480;
 const MISSING_TICKS = 3600;
 /**
  * The culture demos share one history: the food town, grown a year
- * (FOOD_TICKS), gets a shrine, two more farms and a fountain for the hamlet
- * at the lane's far end; three months later a theatre. The scenes open at
- * moments along it. #closed clears the theatre (and cuts the west street
- * off) half a year after it opened, and opens four months later: the fine
- * houses at the west end, where the actor came least often, have gone back
- * to townhouses by then, the rest warn about plays, and the cut-off street
- * warns about water, bread and blessings at once.
+ * (FOOD_TICKS), gets a shrine, two more farms and a fountain and an agora for
+ * the hamlet at the lane's far end; three months later a theatre. The scenes
+ * open at moments along it. #closed clears the theatre and cuts the west
+ * street off almost ten months after the theatre opened, and opens about
+ * two and a half months later, before any home has gone down: the fine houses
+ * the actor reached longest ago warn about plays, and the cut-off street
+ * about plays, blessings and water at once. (The plays at the two ends of
+ * the actor's round run out months apart, so a later moment has some homes
+ * gone down and an earlier one fewer signs.)
  */
 const SHRINE_AT = FOOD_TICKS;
 const THEATRE_AT = SHRINE_AT + 900;
 const SHRINE_TICKS = SHRINE_AT + 450;
 const THEATRE_TICKS = THEATRE_AT + 300;
 const FINE_TICKS = THEATRE_AT + 1800;
-const CLOSE_AT = FINE_TICKS;
-const CLOSED_TICKS = CLOSE_AT + 1200;
+const CLOSE_AT = FINE_TICKS + 1100;
+const CLOSED_TICKS = CLOSE_AT + 740;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -221,21 +223,19 @@ const THEATRE = { x: 35, z: 81 };
 /**
  * The food town given the gods and the theatre (see SHRINE_AT): the farm road
  * runs a little further east, with a farm at its end and another north of it,
- * so the bigger households have bread; a fountain goes in at the lane's far
- * end, so the hamlet there grows to cottages, beyond the shrine's and the
- * theatre's reach. `close` clears the theatre and the west street's road then.
+ * so the bigger households have bread; a fountain and an agora go in at the
+ * lane's far end, so the hamlet there grows to cottages, beyond the shrine's
+ * and the theatre's reach. `close` clears the theatre and the west street's
+ * road then.
  */
 function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) => void {
   return foodTown(ticks, 400, 200, {
     then: (at) => {
       at(SHRINE_AT, { type: 'road', tiles: row(51, 53, 63) });
       at(SHRINE_AT, { type: 'build', kind: 'farm', at: [T(41, 60), T(51, 64)] });
-      // A second granary at the end of the agora's street, so its porter keeps up with the bigger households.
-      at(SHRINE_AT, { type: 'build', kind: 'granary', at: [T(35, 69)] });
       // The hamlet at the lane's far end: its own fountain and a small agora across the lane.
       at(SHRINE_AT, { type: 'fountain', at: [T(24, 48)] });
       at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(27, 48)] });
-      at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(6, 81)] });
       at(SHRINE_AT, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
       if (theatre) at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       if (close) {

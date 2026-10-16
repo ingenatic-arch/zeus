@@ -35,8 +35,13 @@ export const MAX_CARTS = 3;
 export const CART_GAP = 30;
 /** What a granary holds. */
 export const GRANARY_CAP = 3200;
-/** What the porter's handcart carries. */
-export const PORTER_LOAD = 800;
+/**
+ * What the porter's handcart carries: enough that one agora's porter, some
+ * fifteen road tiles from the granary, brings in well over the 800 measures
+ * a month that 38 fine houses eat. (With 800 a load he brought about 650 a
+ * month, and a town of fine houses went short with full granaries.)
+ */
+export const PORTER_LOAD = 1200;
 /**
  * What the agora's food stall holds, and how low it gets before the porter
  * goes for more: as soon as there is room for a full handcart, so the stall
@@ -44,15 +49,19 @@ export const PORTER_LOAD = 800;
  * set off only once it was nearly empty, and a town of 40 cottages ate the
  * rest before he was back, so houses went back and forth with a full granary.)
  */
-export const STALL_CAP = 1600;
+export const STALL_CAP = 2400;
 export const STALL_LOW = STALL_CAP - PORTER_LOAD;
 /** Ticks a fully staffed granary takes to unload a cart or load a porter. */
 export const HANDLE = 40;
 /** Ticks the porter waits after coming back with nothing before trying again. */
 export const PORTER_RETRY = 60;
-/** How far by road from the agora the food vendor ever goes, and how much fresh road a round is. */
+/**
+ * How far by road from the agora the food vendor ever goes, and how much
+ * fresh road a round is (as for the priestess and the actor: with 48, one
+ * vendor left the ends of a town of fine houses short now and then).
+ */
 export const VENDOR_RANGE = 32;
-export const VENDOR_WALK = 48;
+export const VENDOR_WALK = 64;
 /** How long a home's food lasts once the vendor has topped it up (four months). */
 export const FOOD_LASTS = 4 * TICKS_PER_MONTH;
 /** Ticks the vendor rests between rounds at a fully staffed agora; before the first. */

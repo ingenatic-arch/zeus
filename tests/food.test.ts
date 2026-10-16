@@ -100,7 +100,8 @@ describe('the food chain', () => {
     const cottages = s.buildings.filter((b) => b.kind === 'home' && b.level === COTTAGE);
     expect(cottages.length).toBeGreaterThanOrEqual(10);
     for (const c of cottages) expect(c.people).toBeLessThanOrEqual(HOME_CAPACITY[COTTAGE]);
-    expect(homeStatus(s, map, cottages[0]).detail).toMatch(/Has food/);
+    // (One farm doesn't quite feed this village, so a cottage or two may be waiting for the vendor.)
+    expect(cottages.some((c) => /Has food/.test(homeStatus(s, map, c).detail))).toBe(true);
   });
 
   it('the harvest is the farm’s fertility times a full harvest, after two months at full strength', () => {
