@@ -117,4 +117,33 @@ The tip says "Short of workers: 4 of 10 · working at 40%", and a home's tip say
 
 ## As built
 
-*(filled in at the end)*
+Commits: plan `856e975`; sim `09aeab9`; render and UI `273974d`; look and tune `90ab04d`; demos matched to this plan, check-in and this section in the last commit.
+
+**Built as planned:** state v4 with per-service records; 3 × 3 footprints and the `build` command; workers shared nearest first each day, with every workplace (the fountain too) slowed in proportion and saying so; the farm, ox carts, granary, agora, porter and food vendor; `wayNeeds` in `walk.ts` with the round logic shared in `src/sim/rounds.ts`; cottages and their decline; rent; bridges (up to 9 tiles, on the drag's row or column); clearing and undo for all of it; the models, the food overlay, the tools and labels, hover tips, following, the jobs figure, the rent tooltip, the help card, and the six demo links.
+
+**Changed from the plan, and why:**
+- *The food stall holds 800 and the porter carries 400* (the plan said 400 and 200). With 200 a trip, one porter could bring the stall about 160 measures a month against the 350–400 a town of 40 huts eats, so the town in `#food` never got past half its huts fed while the granary sat full. With 400 it settles at about 35 cottages out of 44 homes.
+- *`#food` has three farms, not two,* built a few weeks apart so their fields ripen in turn (one gold, one green, one just cut at most moments) and carts are on the road more often. `#harvest` is the same town at the moment one field is nearly ripe while the carts from the other two are on the road, and follows a cart.
+- *The farmhouse is mud-walled under thatch,* not whitewashed under tiles, so it can't be mistaken for a cottage next door; the field rows run back from the yard, fenced on three sides.
+- *The bridge deck* rises in a low arch from the height of each bank (not flat at the higher bank), lifted wherever it would come within 0.32 of the water.
+- *The food overlay* marks homes without food with a plum stub (not terracotta, which the water overlay uses for "no water"), tints farms and granaries so the chain reads at a glance, and also comes on while placing a farm or granary.
+- *The wheat casts no shadow* (it is too fine to read and costs a shadow pass per field). The farm tool also washes rust over ground that is not fertile enough.
+- *Smaller fixes found on the way:* letting go of the mouse after pressing Esc mid-drag used to lay one road tile under the pointer (since slice 2); it no longer does. A bridge being dragged shows its marks floating above the water (they were hidden under it). Waits longer than two months read in months ("harvest in about 20 months" rather than "599 days").
+- *No far-away cottage model was needed:* cottages cost about 400–450 triangles each (huts about 890), and the `#food` overview (621 k) stays under the `#water` overview (652 k).
+
+**Tests:** 73 in 8 files, all passing; typecheck clean. `npm run smoke` adds the food town and both overlays, hovering the vendor, `#chain`, `#vendor` and `#harvest`, the workers demo and a short-handed farm's tip, the farm tool (label, placing, refusal on dry land), dragging a bridge and undoing it, carts on the bridge, and clearing a farm.
+
+**After** (same machine and method as Before):
+
+| | Before | After |
+|---|---|---|
+| Tests | 56 in 7 files | 73 in 8 files |
+| Bundle | 658 KB raw, 179 KB gzipped | 710 KB raw, 195 KB gzipped |
+| Load (local, headless, cold) | 2.9 s; bake 0.46 s, scene 0.84 s | 3.4 s; bake 0.43 s, scene 0.85 s (the slice 3 build measured 2.9–3.0 s in the same runs; see below) |
+| Opening / close views | 542 k, 125 calls / 376–403 k, 69–76 | unchanged |
+| `#streets` | 389 k, 88 (overview 563 k, 144) | unchanged |
+| `#water` | 511 k, 112; overlay 545 k, 114; street 491 k, 104; overview 652 k, 156 | unchanged |
+| `#food` (44 homes, 35 cottages, 3 farms, granary, agora, 17 walkers) | — | 463 k, 130; overlay 497 k, 132; vendor 444 k, 121; harvest 516 k, 141; overview 621 k, 179 |
+| GPU objects | 28 geometries, 5 textures | 43 geometries, 5 textures |
+
+The cold load is about 0.4 s slower than the slice 3 build measured side by side, but the game's own start-up (bake plus scene) is the same 0.8 s: nearly all of the 3.4 s is the headless browser waiting for its first paint before the game starts, so I couldn't tie the difference to the new code. Worth watching on a real machine.

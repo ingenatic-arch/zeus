@@ -267,9 +267,12 @@ if ((await city()).overlayMode !== 'water') fail('O did not switch to the water 
 await page.keyboard.press('o');
 await frames(2);
 if ((await city()).overlay) fail('O did not hide the overlay');
-// #chain opens with the food overlay; #vendor follows her.
+// #chain opens on the watered town with the farm tool (and so the food overlay); #vendor and #harvest follow.
 await open('#chain-paused');
-if ((await city()).overlayMode !== 'food') fail('#chain did not open with the food overlay');
+c = await city();
+if (c.tool !== 'farm' || c.overlayMode !== 'food' || c.farms !== 0) fail(`#chain: ${JSON.stringify(c)}`);
+await open('#harvest-paused');
+if (!(await city()).following) fail('#harvest is not following an ox cart');
 await open('#vendor-paused');
 if (!(await city()).following) fail('#vendor is not following the food vendor');
 // Workers: the chain built in a town of tents is short of hands, and says so.
@@ -324,7 +327,7 @@ await page.keyboard.press('Escape');
 // Carts cross the bridge in #bridge; clearing a farm takes its carts with it.
 await open('#bridge-paused');
 c = await city();
-if (!(c.bridges === 7 && c.farms === 3 && c.carts > 0)) fail(`#bridge: ${JSON.stringify(c)}`);
+if (!(c.bridges === 7 && c.farms === 3 && c.carts > 0 && c.tool === 'road')) fail(`#bridge: ${JSON.stringify(c)}`);
 await open('#harvest-paused');
 const h0 = await city();
 await page.keyboard.press('x');

@@ -27,6 +27,7 @@ There is nothing yet. Oliver wants to start where Zeus started: laying out stree
 - **Overlays** show coverage for water, food, religion and culture, plus a "what's missing" view that tints houses by their biggest unmet need. This is the readable-depth principle in practice.
 - **Households:** each has a family name, a few members with names and ages, a mood from content to fed up, what they have and what they lack, and a few lines of chatter in a warm, gently funny voice. Warnings appear on the house (an icon and a line in the panel) for about two months before it declines.
 - **Building tools:** road (drag to draw), housing plot, each service building, demolish, and undo for the last few actions.
+- **Bridges** (added 16 Oct, in slice 4, because the river splits the map in two): a road dragged straight across a narrow stretch of the river, up to 9 tiles of water and wet bank and never the sea, becomes a timber road bridge at 40 drachmas a tile. Walkers and carts cross it like any road; clearing any part of it clears the whole bridge.
 - **Saving:** an autosave every few months plus a manual save, both in the browser. Old saves that can't load say so plainly.
 - **Sound:** soft ambient sea and birds, and simple placement and walker sounds, all generated in code. Music waits for a later phase.
 - **Demo links:** every slice adds a link (a URL parameter, such as `?demo=water`) that drops Oliver straight into a prepared city showing the new thing.

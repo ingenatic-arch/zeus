@@ -2,6 +2,62 @@
 
 Notes to Oliver, newest first.
 
+## Slice 4 — Bread on the table (16 Oct)
+
+You can now build the city's first food chain: a wheat farm on the green land by the river, a granary and an agora, with ox carts, a porter and a food vendor at work, and huts that get water and food turning into whitewashed cottages. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+Nothing to break: there are no saves until slice 7. Two changes to what you saw before: every building now needs workers from nearby homes, so in `#fountain` the first water carrier waits until families have moved in; and rent arrives on the first of each month, so the drachmas in `#water` and `#streets` now tick up.
+
+### What's new
+- Wheat farm (M, 200 drachmas), on fertile ground by the river only: a mud-walled farmhouse under thatch with an open barn, a threshing floor and a haystack, and a fenced field of wheat in rows on ploughed furrows. The wheat grows from short green rows to tall gold over two months, then is cut to stubble, and stooks of sheaves stand on the threshing floor until the carts take them. While you hold the tool, ground that isn't fertile enough is washed rust-red near the pointer, and the label says how fertile the spot is and about how much it would harvest.
+- Ox carts: after each harvest the farm sends up to three carts, each an ox, a two-wheeled cart piled with golden sheaves and a driver walking at the ox's head, by the shortest road to a granary with room. They unload and come back empty.
+- Granary (G, 300 drachmas): a long stone storehouse under a tiled roof, two domed grain bins, and a yard where sacks pile up as it fills (it holds 3,200 measures; a measure feeds one person for a month).
+- Agora (K, 250 drachmas): a paved square with a small stoa of columns along the back, and a food stall under a red-and-white striped awning with baskets of loaves that fill and empty with its stock. When the stall is down to half, its porter pushes a handcart to the nearest granary and brings back sacks of grain.
+- The food vendor: a woman in a saffron dress with a wide flat basket of loaves on her head. She walks the streets the same way the water carrier does (her own reach of 32 road tiles, the hungriest homes first), and every hut or cottage beside her way has food for four months. Tents don't buy bread: their families live off the land until they have water.
+- Cottages: a hut with water and food becomes a cottage, whitewashed with blue shutters and a terracotta tiled roof, a walled yard with an olive tree or a vine pergola. "Cottage" floats up in gold. A cottage holds 13 people (a hut 9). A cottage whose food or water has been gone a month goes back to a hut, and the people it can no longer hold walk out.
+- Workers: half of each household can work. Jobs go to the nearest homes by road first: a fountain needs 2, a farm 10, a granary 6, the agora 6. A building short of workers works slower and says so when you hover it ("Short of workers: 4 of 10 · working at 40% · more homes nearby would help"). The top bar shows jobs filled out of jobs (red while any are empty); hover it to see which buildings are short.
+- Rent: on the first of each month every lived-in home pays: a tent 1 drachma, a hut 2, a cottage 4. Hover the drachmas to see last month's rent.
+- Bridges: drag a road straight across a narrow stretch of the river and it becomes a timber bridge, arched, with rails and piles in the water, at 40 drachmas a tile. The river is at least 6 tiles wide everywhere, so I let a bridge span up to 9 tiles (the 5 suggested would have allowed none); the narrow places are upstream, north of the town. Where it's too wide the label says so, and how wide it is. Clearing any part of a bridge clears all of it.
+- The food overlay (L, or the loaf button): roads in the vendor's reach turn gold, homes with food get a gold post (taller the longer it lasts), huts and cottages without food a short plum stub, and farms and the granary are tinted so you can see the whole chain. It comes on by itself while you place an agora, farm or granary, and the agora's label says how many homes its vendor would reach.
+- Hover any farm, granary, agora, cart, porter or vendor to see what it's doing: the crop and when it's harvested, the barn, the stock, who's on the road. A home's tip now has a food line and a work line. Click the vendor, a cart or the porter (or the agora or a farm) to follow them.
+
+### What to try
+1. Open `#food` for the town west of the river about a year on, with the whole chain running: three farms by the river, the granary half way along the farm road, the agora by the main junction, and most homes already cottages. Hover the agora, a cottage and a farm.
+2. Open `#food-overlay` (or press L in `#food`) to see the vendor's reach in gold, the posts over fed homes and the plum stubs over the hungry ones. Press O to flip to the water overlay.
+3. Open `#vendor` to follow the food vendor at street level on her round.
+4. Open `#harvest` at the farms: one field is gold and nearly ripe, the other two were cut lately, and the camera follows an ox cart down the farm road to the granary. Within a few seconds the gold field is cut too: drag the map back to the farms (that stops the following) to watch it happen and its carts set off.
+5. Open `#chain` for the watered town from `#water`, before any food buildings, with the farm tool picked. Build a farm on the green land by the river with a road beside it, a granary (G) and an agora (K) by the town, then press 3. The first harvest comes about 15 seconds later at fastest speed, and the first cottages about half a minute after you built. One farm can't feed this town; watch the plum stubs, then add a second and a third farm.
+6. Open `#workers` for a young town of tents with the whole chain just built. The jobs figure in the top bar is red. Hover the farms: the granary and agora are nearer the homes, so they took the workers first. Press 3 and watch the jobs fill as families move in.
+7. Open `#bridge` at the river north of the town: a bridge is already across, carts are bringing grain over it from farms on the far bank, and a second road stops at the bank by the granary with the road tool picked. Drag from the end of that road straight across the river to build another. Try dragging across where it's wider, or along the river, and read the label.
+8. In `#harvest`, clear a farm with X while its carts are out: they go with it. Press U to bring it back.
+
+### What I'd like your eye on
+- The wheat field as it grows, green rows to gold to stubble, both close up and from the default height. Up close it's a ridge of stalks with a fringe of ears; does it read as wheat?
+- Whether cottages read as a clear step up from huts, and whether the two kinds (gabled, and hipped with a vine pergola) sit well together.
+- The agora: is the stall under its striped awning easy to spot from the usual height, and does the stoa look right?
+- The ox carts: can you tell a loaded cart (golden sheaves) from an empty one, and is the ox clear against the road?
+- The food vendor in saffron next to the water carrier in blue: easy to tell apart?
+- The numbers. A farm harvests about 380–430 measures every two months on good ground; a town of 40 huts eats about 360 a month, and more as they become cottages, so it takes three farms. The stall holds 800 and the porter carries 400 (I doubled what I'd planned: at 200 the stall ran dry while the granary sat full). In `#food` that settles at about 35 cottages out of 44 homes, with a few going back and forth.
+- Workers going nearest first: in `#workers` the farms by the river wait while the granary and agora fill up. Is that the right feel, or should farms come first?
+- The bridge: its arch and rails, and whether 9 tiles is about the right limit.
+- The plum stub for "no food" in the food overlay (terracotta is already "no water").
+
+### Known rough edges
+- The food vendor sells to every hut or cottage she passes, even if the stall is nearly empty; the last homes on her round can get only a few days' food.
+- Workers are shared out once a day, so a new building waits up to a day before anyone works there, and after an undo the jobs are rebuilt the next day.
+- Three farms built at the same moment ripen together, so their carts come in a crowd; the demos stagger them.
+- Carts and walkers pass through each other on the road and on bridges.
+- The stall's loaves are small; from the default height its stock is easier to read from the hover tip than from the baskets.
+- In `#harvest`, carts heading home from the granary are empty, so the first carts you see may not be carrying anything.
+- There is no "what's missing" view yet; the food and water overlays have to be flipped between (that comes with slice 5's household panel).
+
+### Measurements
+- Download: 195 KB compressed (was 179 KB). Target: first load under 3 seconds.
+- Load: ready in about 3.4 seconds cold with software graphics on my machine; the slice 3 build measured 2.9–3.0 seconds in the same runs. The game's own start-up is unchanged at about 0.8 seconds; the rest is the headless browser waiting for its first paint, so I couldn't pin the difference on the new code. Worth watching on your machine.
+- The opening view, close-up views, `#streets` and `#water` draw exactly what they did: about 540,000 triangles in 125 batches for the opening view, and 511,000 in 112 for `#water`.
+- `#food` (44 homes, 35 of them cottages, 3 farms, a granary, the agora, 17 walkers): 463,000 triangles in 130 batches; with the overlay, 497,000 in 132; at the farms, 516,000 in 141; from the overview, 621,000 in 179. A cottage costs about 400–450 triangles (a hut about 890), so a town of cottages is cheaper to draw than a town of huts, and no far-away cottage model was needed.
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 3 — Water (15 Oct)
 
 You can now build a fountain, watch its water carrier walk the streets with a jar on her head, and see the tents she passes turn into thatched huts that hold more people. You weren't here while it was built: every choice below is mine, from the spec's defaults.

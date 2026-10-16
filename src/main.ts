@@ -120,7 +120,7 @@ function start(): void {
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
   const overlay = new ServiceOverlay(map, placement);
-  overlay.wanted = launch.overlay ? (demo?.overlay ?? 'water') : (demo?.opensWith ?? null);
+  overlay.wanted = launch.overlay ? (demo?.overlay ?? 'water') : null;
   world.scene.add(overlay.group);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   const rig = new CameraRig(camera, map, view);

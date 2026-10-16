@@ -12,7 +12,8 @@ import type { ToolName } from './tools';
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
  * harvest while carts take the others' to the granary; the chain built early
- * in a town of tents, short of hands; carts crossing the bridge.
+ * in a town of tents, short of hands; carts crossing the bridge. (#chain is
+ * the watered town of #water, before any food buildings.)
  */
 const FOOD_TICKS = 3600;
 const HARVEST_TICKS = 3790;
@@ -29,8 +30,6 @@ export interface Demo {
   follow?: 'water' | 'food' | 'cart' | 'porter';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: Service;
-  /** An overlay shown from the start, without `-overlay`. */
-  opensWith?: Service;
   setup?: (sim: Sim) => void;
 }
 
@@ -125,11 +124,14 @@ function foodTown(ticks: number, start = 400, stagger = 200): (sim: Sim) => void
  * The food town's farms across the river instead: the lane carries on north
  * to a road that bridges the river (seven tiles of water and wet bank) to
  * the fertile east bank, with farms either side of it there and the granary
- * on the town's side. The ox carts cross the bridge.
+ * on the town's side. The ox carts cross the bridge. A second road runs up
+ * past the granary and stops at the bank, for Oliver to bridge.
  */
 function bridgeTown(ticks: number): (sim: Sim) => void {
   return waterTown(ticks, true, (at) => {
     at(400, { type: 'road', tiles: [...col(26, 41, 41), ...row(27, 48, 41)] });
+    // A second road up past the granary to the bank, ready to be bridged.
+    at(400, { type: 'road', tiles: [...col(26, 36, 40), ...row(27, 29, 36)] });
     at(400, { type: 'build', kind: 'farm', at: [T(38, 38), T(41, 42), T(44, 42)] });
     at(400, { type: 'build', kind: 'granary', at: [T(27, 38)] });
     at(400, { type: 'build', kind: 'agora', at: [T(27, 71)] });
@@ -146,8 +148,8 @@ export const DEMOS: Record<string, Demo> = {
   fountain: { view: 'fountain', tool: 'fountain', setup: waterTown(700, false) },
   food: { view: 'food', setup: foodTown(FOOD_TICKS), overlay: 'food' },
   vendor: { view: 'vendor', setup: foodTown(FOOD_TICKS), follow: 'food', overlay: 'food' },
-  harvest: { view: 'harvest', setup: foodTown(HARVEST_TICKS), overlay: 'food' },
-  chain: { view: 'chain', setup: foodTown(FOOD_TICKS), overlay: 'food', opensWith: 'food' },
+  harvest: { view: 'harvest', setup: foodTown(HARVEST_TICKS), follow: 'cart', overlay: 'food' },
+  chain: { view: 'chain', tool: 'farm', setup: waterTown(1500, true), overlay: 'food' },
   workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0), overlay: 'food' },
-  bridge: { view: 'bridge', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
+  bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
 };
