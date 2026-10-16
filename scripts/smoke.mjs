@@ -493,6 +493,120 @@ pt = await panelText();
 if (!/they give up the (townhouse for a cottage|fine house for a townhouse)/.test(pt ?? '')) fail(`#closed panel: ${pt}`);
 if (!(await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'sign-rim-3' && m.count >= 3)))) fail('#closed: no wide signs drawn');
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// Slice 7: a town worth keeping.
+const zeus = (f, arg) => page.evaluate(f, arg);
+// The bare link: a welcome card pointing at the build bar and #town; picking a tool puts it away.
+await open('#');
+if (!(await zeus(() => window.__zeus.welcome()))) fail('no welcome card on the bare link');
+const wel = await zeus(() => ({ text: document.querySelector('.welcome')?.textContent ?? '', town: !!document.querySelector('.welcome a[href="#town"]') }));
+if (!/bar along the bottom/.test(wel.text) || !wel.town) fail(`welcome card: ${JSON.stringify(wel)}`);
+await page.mouse.move(640, 300);
+await page.keyboard.press('t');
+await frames(2);
+if (await zeus(() => window.__zeus.welcome())) fail('picking a tool did not put the welcome card away');
+// Sound starts on the first key; the mute switch works and is remembered.
+let snd = await zeus(() => window.__zeus.sound());
+if (!snd.started) fail('sound did not start after a key press');
+await page.click('.mute-btn');
+await frames(1);
+if (!(await zeus(() => window.__zeus.sound())).muted) fail('the mute switch did not mute');
+// #town: every house level and kind of building, the bridge, a few hundred people, at normal speed.
+await open('#town');
+c = await city();
+if (!(c.tents > 0 && c.huts > 0 && c.cottages > 0 && c.townhouses > 0 && c.fine > 0 && c.fountains > 0 && c.farms > 0 && c.granaries > 0 && c.agoras > 0 && c.shrines > 0 && c.theatres > 0 && c.bridges > 0 && c.population > 300 && c.population < 900 && c.warned === 0)) fail(`#town: ${JSON.stringify(c)}`);
+const townSpeed = await zeus(() => document.querySelector('.speeds .on')?.getAttribute('aria-label'));
+if (!townSpeed?.startsWith('Normal')) fail(`#town is not at normal speed (${townSpeed})`);
+if (!(await zeus(() => window.__zeus.sound())).muted) fail('the mute switch was not remembered');
+await page.click('.mute-btn');
+if ((await zeus(() => window.__zeus.townLines())).length) fail('#town opens with a shortfall line');
+// Saving by hand (Ctrl+S); #saved opens it where it was, and clears the link.
+await page.keyboard.press('Space');
+await frames(1);
+await page.keyboard.press('Control+s');
+await frames(2);
+let sav = await zeus(() => window.__zeus.saves());
+if (!sav.manual?.label) fail(`Ctrl+S did not save: ${JSON.stringify(sav)}`);
+const savedTick = sav.manual.label.tick;
+const note = await zeus(() => document.querySelector('.save-note')?.textContent ?? '');
+if (!/^Saved/.test(note)) fail(`no note after saving: ${note}`);
+await open('#saved-paused');
+sav = await zeus(() => window.__zeus.saves());
+if (!sav.loaded || (await zeus(() => window.__zeus.tick())) !== savedTick || !sav.autosaving) fail(`#saved did not open the save: ${JSON.stringify(sav)}`);
+if ((await zeus(() => location.hash)) !== '') fail('#saved left the link in place');
+if ((await city()).fine !== c.fine) fail('the saved town came back different');
+// The saves card lists it and offers to open it.
+await page.click('.saves-btn');
+await frames(1);
+const card = await zeus(() => document.querySelector('.saves')?.textContent ?? '');
+if (!/Saved by you[\s\S]*people[\s\S]*Open/.test(card)) fail(`saves card: ${card}`);
+await page.click('.saves .close');
+// A save from an older version, or damaged, fails in plain words and the coast opens with the welcome card.
+await zeus(() => localStorage.setItem('zeus-remake.save.manual', JSON.stringify({ format: 'zeus-remake-save', save: 1, label: { date: 'x', people: 1, money: 1, homes: 1, tick: 1 }, state: { version: 2 } })));
+await open('#saved');
+sav = await zeus(() => window.__zeus.saves());
+if (!/older version of the game/.test(sav.problem)) fail(`old save: ${JSON.stringify(sav)}`);
+const prob = await zeus(() => document.querySelector('.welcome .problem')?.textContent ?? '');
+if (!/couldn’t be opened/.test(prob)) fail(`old save message: ${prob}`);
+await zeus(() => localStorage.setItem('zeus-remake.save.manual', '{"format":"zeus-remake-save","save":1,"state":'));
+await open('#saved');
+if (!/damaged/.test((await zeus(() => window.__zeus.saves())).problem)) fail('a damaged save did not say so');
+// Building something turns the autosave on; leaving the page then saves it.
+await zeus(() => localStorage.clear());
+await open('#town-paused');
+if ((await zeus(() => window.__zeus.saves())).autosaving) fail('#town autosaves before anything is built');
+await zeus(() => window.__zeus.tool('road'));
+p = await at(70.5, 47.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+p = await at(74.5, 47.5);
+await page.mouse.move(p.x, p.y, { steps: 4 });
+await page.mouse.up();
+await frames(2);
+if (!(await zeus(() => window.__zeus.saves())).autosaving) fail('building a road did not turn the autosave on');
+await zeus(() => dispatchEvent(new Event('pagehide')));
+if (!(await zeus(() => window.__zeus.saves())).auto?.label) fail('leaving the page did not autosave');
+// #continue opens the newest save.
+await open('#continue-paused');
+if (!(await zeus(() => window.__zeus.saves())).loaded) fail('#continue did not open the autosave');
+// #missing: the bread line shows without hovering.
+await open('#missing-paused');
+const bread = await zeus(() => window.__zeus.townLines());
+if (!bread.some((l) => /^Bread: the farms grow about [\d,]+ measures/.test(l))) fail(`#missing has no bread line: ${JSON.stringify(bread)}`);
+// #workers: the workers line.
+await open('#workers-paused');
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /^Workers: \d+ jobs? unfilled/.test(l))) fail('#workers has no workers line');
+if (errors.length) fail('page errors:\n' + errors.join('\n'));
+// Storage that throws on every touch: saving says it isn't available, and the game plays on.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new Error('SecurityError: storage is blocked');
+      },
+    });
+  });
+  const pg = await ctx.newPage();
+  const errs = [];
+  pg.on('pageerror', (e) => errs.push(e.message));
+  await pg.goto(url + '#town');
+  await pg.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  const t0 = await pg.evaluate(() => window.__zeus.tick());
+  await pg.keyboard.press('Control+s');
+  await pg.click('.mute-btn');
+  await pg.waitForFunction((t) => window.__zeus.tick() > t + 5, t0, { timeout: 120000 });
+  const blocked = await pg.evaluate(() => ({ s: window.__zeus.saves(), note: document.querySelector('.save-note')?.textContent ?? '' }));
+  if (blocked.s.available || !/Saving isn’t available in this window/.test(blocked.note)) fail(`blocked storage: ${JSON.stringify(blocked)}`);
+  await pg.click('.saves-btn');
+  const bcard = await pg.evaluate(() => document.querySelector('.saves')?.textContent ?? '');
+  if (!/Saving isn’t available in this window/.test(bcard)) fail(`blocked storage card: ${bcard}`);
+  await pg.goto(url + '#continue');
+  await pg.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  if (!/isn’t available/.test((await pg.evaluate(() => window.__zeus.saves())).problem)) fail('#continue with blocked storage did not say why');
+  if (errs.length) fail('page errors with blocked storage:\n' + errs.join('\n'));
+  await ctx.close();
+}
+
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();
