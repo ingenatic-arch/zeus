@@ -442,6 +442,7 @@ function start(): void {
       following: follow !== null,
       warned: s.buildings.filter((b) => warningOf(s, b)).length,
       signs: signs.count,
+      signsWide: signs.wide,
       panel: panel.id,
       undo: undoRefusal(s),
       routes: tools.routesFound,

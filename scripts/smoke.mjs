@@ -426,6 +426,73 @@ await frames(3);
 const urgent = (await page.evaluate(() => window.__zeus.homes())).filter((h) => h.warned).sort((a, b) => a.left - b.left)[0];
 if ((await city()).panel !== urgent?.id) fail(`the trouble count did not open the most urgent home (${(await city()).panel} vs ${urgent?.id})`);
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// Slice 6: the shrine and the theatre, townhouses and fine houses.
+// #grow: the shrine tool picked over the grown town, its overlay forced; placing one costs 200 and sends out the priestess.
+await open('#grow-paused');
+c = await city();
+if (!(c.tool === 'shrine' && c.overlayMode === 'religion' && c.cottages > 20 && c.shrines === 0)) fail(`#grow: ${JSON.stringify(c)}`);
+const gm0 = c.money;
+p = await at(36, 79);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const st = await tip();
+if (!/^Shrine · 200 dr/.test(st ?? '') || !/priestess would reach \d+ homes?/.test(st ?? '')) fail(`shrine tool tip: ${st}`);
+await page.mouse.click(p.x, p.y);
+await frames(2);
+c = await city();
+if (!(c.shrines === 1 && c.money === gm0 - 200)) fail(`placing a shrine: ${JSON.stringify({ shrines: c.shrines, money: c.money, gm0 })}`);
+await page.keyboard.press('p');
+await frames(1);
+if ((await city()).tool !== 'theatre') fail('P did not pick the theatre tool');
+await page.keyboard.press('v');
+await frames(1);
+if ((await city()).tool !== 'shrine') fail('V did not pick the shrine tool');
+await page.keyboard.press('Escape');
+// #shrine: townhouses round the shrine; Y toggles the religion overlay; hovering a townhouse says it is blessed.
+await open('#shrine-paused');
+c = await city();
+if (!(c.shrines === 1 && c.townhouses >= 15 && c.blessed >= 15 && c.fine === 0)) fail(`#shrine: ${JSON.stringify(c)}`);
+await page.keyboard.press('y');
+await frames(2);
+if ((await city()).overlayMode !== 'religion') fail('Y did not show the religion overlay');
+await page.keyboard.press('y');
+const th = (await page.evaluate(() => window.__zeus.homes())).find((h) => h.level === 4);
+p = await at(th.x + 1, th.z + 1);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+const tht = await tip();
+if (!/townhouse[\s\S]*Blessings · last/.test(tht ?? '')) fail(`hovering a townhouse: ${tht}`);
+// #theatre: fine houses; C toggles the culture overlay; a fine house's panel shows its plays.
+await open('#theatre-paused');
+c = await city();
+if (!(c.theatres === 1 && c.fine >= 5 && c.entertained >= 5)) fail(`#theatre: ${JSON.stringify(c)}`);
+await page.keyboard.press('c');
+await frames(2);
+if ((await city()).overlayMode !== 'culture') fail('C did not show the culture overlay');
+await page.keyboard.press('c');
+// The fine house nearest the middle of the screen.
+let best = null;
+for (const h of (await page.evaluate(() => window.__zeus.homes())).filter((h) => h.level === 5)) {
+  const q = await at(h.x + 1, h.z + 1);
+  const d = Math.hypot(q.x - 640, q.y - 360);
+  if (!best || d < best.d) best = { d, q };
+}
+p = best.q;
+await page.mouse.click(p.x, p.y);
+await frames(3);
+pt = await panelText();
+if (!/^A fine house[\s\S]*Plays · last[\s\S]*A fine house is as fine as homes get/.test(pt ?? '')) fail(`fine house panel: ${pt}`);
+// #actor: following the actor.
+await open('#actor');
+if (!(await city()).following) fail('#actor is not following the actor');
+// #closed: the theatre gone and the west street cut; wide signs for three needs, and the panel says what goes.
+await open('#closed');
+c = await city();
+if (!(c.theatres === 0 && c.warned >= 15 && c.signs >= c.warned && c.signsWide >= 3 && c.panel > 0)) fail(`#closed: ${JSON.stringify(c)}`);
+pt = await panelText();
+if (!/they give up the (townhouse for a cottage|fine house for a townhouse)/.test(pt ?? '')) fail(`#closed panel: ${pt}`);
+if (!(await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'sign-rim-3' && m.count >= 3)))) fail('#closed: no wide signs drawn');
+
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

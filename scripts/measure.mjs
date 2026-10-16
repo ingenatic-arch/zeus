@@ -146,10 +146,38 @@ for (const [cam, overlay] of [['warning', false], ['warning', true], ['decline',
 console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
 await summarise();
 
+// Shrine and theatre (slice 6): the fine-house district, the theatre, the closed town's wide signs.
+await page.goto('about:blank');
+const t5 = Date.now();
+await page.goto(url + '#fine-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+console.log(`load #fine (local, headless): ready in ${Date.now() - t5} ms`);
+for (const [cam, overlay] of [['fine', false], ['fine', true], ['compare', false], ['theatre', false], ['shrine', false], ['overview', false]]) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const on = await page.evaluate(() => window.__zeus.city().overlay);
+  if (on !== overlay) await page.keyboard.press('i');
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#fine view ${(cam + (overlay ? '+missing' : '')).padEnd(16)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+console.log(`  city: ${JSON.stringify(await page.evaluate(() => window.__zeus.city()))}`);
+await summarise();
+await page.goto('about:blank');
+await page.goto(url + '#closed-paused-shot');
+await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+for (const cam of ['closed', 'overview']) {
+  await page.evaluate((c) => window.__zeus.setView(c), cam);
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#closed view ${cam.padEnd(14)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+}
+
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
