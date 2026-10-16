@@ -10,6 +10,7 @@ import { browserStorage, labelOf, Saves, type SaveFile, type Slot } from './game
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
+import { districtGrid } from './map/districts';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
@@ -148,6 +149,8 @@ function start(): void {
   const shot = launch.shot;
 
   const map = coastMap();
+  // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
+  districtGrid(map);
   probe.bakeMs = performance.now() - t0;
   const sim = new Sim();
   const tSetup = performance.now();

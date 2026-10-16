@@ -33,7 +33,7 @@ import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { COLLECTOR_RANGE, taxOf } from '../sim/taxes';
-import { hasTaxOffice, reserve, spendable } from '../sim/treasury';
+import { hasTaxOffice, owedWages, reserve, spendable } from '../sim/treasury';
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
@@ -60,8 +60,12 @@ const WALKS = {
   taxoffice: { service: 'tax', walker: 'tax collector', range: COLLECTOR_RANGE, what: 'taxes', none: 'lived-in homes', note: '' },
 } as const;
 
-/** Why a build that the drachmas would cover is refused: the treasury keeps back the price of a tax office while there is none. */
-const KEPT_BACK = (s: Parameters<typeof reserve>[0]): string => `Not enough drachmas · ${fmt(reserve(s))} dr is kept back for a tax office (Z): build that first`;
+/** Why a build that the drachmas would cover is refused: wages owed are paid first, and the treasury keeps back the price of a tax office while there is none. */
+function keptBack(s: Parameters<typeof reserve>[0]): string {
+  const owed = owedWages(s).owed;
+  if (owed > 0) return `Not enough drachmas · the ${fmt(owed)} dr of wages owed are paid first`;
+  return `Not enough drachmas · ${fmt(reserve(s))} dr is kept back for a tax office (Z): build that first`;
+}
 
 export class Tools {
   tool: ToolName | null = null;
@@ -306,7 +310,7 @@ export class Tools {
         return;
       }
       const span = bridge ? ` · a bridge of ${bridge} ${bridge === 1 ? 'tile' : 'tiles'} (${BRIDGE_COST} dr a tile)` : '';
-      const kept = reserve(s) && s.money >= total ? ` · ${fmt(reserve(s))} dr is kept back for a tax office (Z)` : '';
+      const kept = s.money >= total && spendable(s) < total ? ` · ${keptBack(s).replace(/^Not enough drachmas · /, '')}` : '';
       if (lay.length < fresh.length) this.tip.show(`Not enough drachmas: ${fmt(total)} dr for ${fresh.length} tiles${span}${kept}`, sx, sy, true);
       else this.tip.show(`Road · ${fresh.length} ${fresh.length === 1 ? 'tile' : 'tiles'}${span} · ${fmt(total)} dr`, sx, sy);
       if (lay.length) this.pending = () => this.send({ type: 'road', tiles: lay });
@@ -337,7 +341,7 @@ export class Tools {
             afford--;
             ok.push(z * n + x);
             if (!plotNeighbours(n, x, z).some((t) => s.tiles[t] === TILE_ROAD)) roadless++;
-          } else reason ||= r || (s.money >= PLOT_COST && reserve(s) ? KEPT_BACK(s) : 'Not enough drachmas');
+          } else reason ||= r || (s.money >= PLOT_COST ? keptBack(s) : 'Not enough drachmas');
           for (let dz = 0; dz < PLOT_SIZE; dz++) {
             for (let dx = 0; dx < PLOT_SIZE; dx++) {
               const tx = x + dx;
@@ -442,7 +446,7 @@ export class Tools {
     const x = at % n;
     const z = Math.floor(at / n);
     const cost = COST[kind];
-    const r = buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? KEPT_BACK(s) : 'Not enough drachmas');
+    const r = buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? keptBack(s) : 'Not enough drachmas');
     const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
     // Allowed, but no use without a road beside it: amber, not red.
     const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;

@@ -20,7 +20,7 @@ import { Sim } from '../src/sim/sim';
 import { moneyLine } from '../src/sim/status';
 import type { Building, SimState } from '../src/sim/state';
 import { COLLECTOR_RANGE, FAIR, HARSH, HEAVY, purseTotal, TAX, taxOf } from '../src/sim/taxes';
-import { kindTotal, totals, WAGE } from '../src/sim/treasury';
+import { kindTotal, spendable, totals, WAGE } from '../src/sim/treasury';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -195,6 +195,10 @@ describe('wages', () => {
     expect(owing.length).toBeGreaterThan(0);
     for (const b of owing) expect(rateOf(b)).toBeCloseTo(Math.min(1, b.workers / JOBS[b.kind]) * UNPAID_RATE);
     expect(moneyLine(s)?.text).toMatch(/^Money: the treasury can’t pay this month’s wages/);
+    // Nothing new can be built while wages are owed (but a tax office, which the town can always build).
+    expect(spendable(s)).toBe(0);
+    expect(spendable(s, 'farm')).toBe(0);
+    expect(spendable(s, 'taxoffice')).toBe(s.money);
     // The next daily share of work tells the households.
     sim.run(10);
     const unpaid = homes(s).filter((b) => b.unpaid > 0);

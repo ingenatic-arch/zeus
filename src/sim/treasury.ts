@@ -77,10 +77,20 @@ export function reserve(s: SimState): number {
   return hasTaxOffice(s) ? 0 : TAX_OFFICE_COST;
 }
 
-/** What building something of this kind (or laying road: 'road') can spend: everything for a tax office, otherwise all but the reserve. */
+/** What wages can be paid from: all but the reserve. */
+export function payable(s: SimState): number {
+  return Math.max(0, s.money - reserve(s));
+}
+
+/**
+ * What building something of this kind (or laying road: 'road') can spend:
+ * everything for a tax office (so a town can always get taxes going);
+ * otherwise what is left once the reserve is kept back and any wages still
+ * owed are set aside, so nothing new is built while workers go unpaid.
+ */
 export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): number {
   if (kind === 'taxoffice') return s.money;
-  return Math.max(0, s.money - reserve(s));
+  return Math.max(0, payable(s) - owedWages(s).owed);
 }
 
 /** Is a building a workplace (one that has jobs, so pays wages)? */
@@ -98,7 +108,7 @@ export function stepWages(s: SimState): void {
 export function settle(s: SimState): void {
   for (const b of s.buildings) {
     if (b.owed <= 0) continue;
-    if (spendable(s) < b.owed) continue;
+    if (payable(s) < b.owed) continue;
     pay(s, -b.owed, 'wages', b.kind, b.owed / WAGE);
     b.owed = 0;
   }
