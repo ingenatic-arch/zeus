@@ -10,9 +10,9 @@ import { coastMap, type CoastMap } from '../src/map/bake';
 import { FINE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_YEAR } from '../src/sim/clock';
 import { mapIndex } from '../src/sim/build';
-import { warningOf } from '../src/sim/folk';
+import { warningOf, warningsOf } from '../src/sim/folk';
 import { Sim } from '../src/sim/sim';
-import { BREAD_LEAD_MONTHS, foodBalance, townLines } from '../src/sim/status';
+import { BREAD_LEAD_MONTHS, BREAD_SPARE, foodBalance, townLines } from '../src/sim/status';
 
 const map: CoastMap = coastMap();
 const demo = (name: string): Sim => {
@@ -87,6 +87,64 @@ describe('the shortfall lines', () => {
     const m = /run empty in about (\d+) months/.exec(line);
     expect(m && Number(m[1])).toBeGreaterThan(0);
     expect(Number(m![1])).toBeLessThanOrEqual(BREAD_LEAD_MONTHS);
+  });
+
+  it('homes going without bread while the farms grow barely more than the town eats bring the bread line, with how many farms would fix it', () => {
+    // A town built the way a player would: streets, a fountain, three farms, a granary and an agora, then the shrine and the theatre, and a fourth farm.
+    const sim = new Sim();
+    const s = sim.state;
+    const n = map.size;
+    const T = (x: number, z: number): number => z * n + x;
+    const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
+    const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));
+    const at = (t: number, c: Parameters<Sim['enqueue']>[0]): void => {
+      if (s.tick < t) sim.run(t - s.tick);
+      sim.enqueue(c);
+      sim.flush();
+    };
+    at(0, { type: 'road', tiles: [...row(0, 36, 80), ...col(26, 42, 79), ...row(27, 34, 70), ...row(16, 25, 74)] });
+    at(0, {
+      type: 'plots',
+      at: [
+        ...[16, 18, 20, 22, 24, 27, 29, 31, 33].map((x) => T(x, 78)),
+        ...[16, 18, 20, 22, 24, 29, 31, 33].map((x) => T(x, 81)),
+        ...[16, 18, 20, 22, 24].map((x) => T(x, 72)),
+        ...[16, 18, 20].map((x) => T(x, 75)),
+        T(24, 76),
+        T(27, 76),
+        T(27, 74),
+        ...[27, 29, 31, 33].map((x) => T(x, 68)),
+        T(31, 71),
+        T(33, 71),
+        ...[66, 64, 46, 44, 42].flatMap((z) => [T(24, z), T(27, z)]),
+      ],
+    });
+    at(100, { type: 'fountain', at: [T(27, 81)] });
+    at(600, { type: 'road', tiles: row(27, 50, 63) });
+    at(600, { type: 'build', kind: 'farm', at: [T(47, 60)] });
+    at(600, { type: 'build', kind: 'granary', at: [T(35, 64)] });
+    at(600, { type: 'build', kind: 'agora', at: [T(27, 71)] });
+    at(900, { type: 'build', kind: 'farm', at: [T(44, 60)] });
+    at(1200, { type: 'build', kind: 'farm', at: [T(48, 64)] });
+    at(3600, { type: 'build', kind: 'shrine', at: [T(35, 78)] });
+    at(3600, { type: 'fountain', at: [T(24, 48)] });
+    at(3600, { type: 'build', kind: 'agora', at: [T(27, 48)] });
+    at(3600, { type: 'road', tiles: row(51, 53, 63) });
+    at(4500, { type: 'build', kind: 'theatre', at: [T(35, 81)] });
+    at(4500, { type: 'build', kind: 'farm', at: [T(41, 60)] });
+    // Whenever a home warns about bread while the farms grow less than a tenth more than the town eats, a line says so.
+    let seen = '';
+    for (let d = 0; d < 300; d++) {
+      sim.run(TICKS_PER_DAY);
+      const bal = foodBalance(s, map);
+      const hungry = s.buildings.some((b) => b.kind === 'home' && warningsOf(s, b).some((w) => w.need === 'food'));
+      if (!hungry || bal.grown >= bal.eaten * BREAD_SPARE) continue;
+      const line = townLines(s, map).find((l) => l.need === 'food')?.text ?? '';
+      expect(line, `day ${d}`).toMatch(/^Bread: .*(would keep it fed|would feed it)/);
+      if (bal.grown >= bal.eaten) seen = line;
+    }
+    // The case the line used to miss: enough on paper, too little to spare.
+    expect(seen).toMatch(/too little to spare\. (A home is|[\d,]+ homes are) already going without between harvests\. (Another farm|\w+ more farms) would keep it fed\.$/);
   });
 
   it('a town short of hands says how many jobs are unfilled and where', () => {

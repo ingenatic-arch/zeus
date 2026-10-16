@@ -10,7 +10,7 @@ import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS,
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, HARVEST, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
-import { justOpened, missingSince, RISE_MIN, SETTLE } from './folk';
+import { justOpened, missingSince, RISE_MIN, SETTLE, warningsOf } from './folk';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf, workforce } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -414,10 +414,17 @@ export interface TownLine {
 export const BREAD_LEAD_MONTHS = 6;
 
 /**
+ * The spare the farms need over what the town eats to keep every stall full
+ * between harvests (the same tenth the farm count in balanceWords leaves).
+ */
+export const BREAD_SPARE = 1.1;
+
+/**
  * What the town is short of, in a line each, readable without hovering: bread
  * (the farms growing less than the town eats, once there is a farm or an
- * agora, and the stores running out within BREAD_LEAD_MONTHS) and workers
- * (jobs unfilled). Empty when all is well.
+ * agora, and the stores running out within BREAD_LEAD_MONTHS; or homes
+ * already warning about bread while the farms grow less than a tenth more
+ * than the town eats) and workers (jobs unfilled). Empty when all is well.
  */
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = [];
@@ -428,7 +435,21 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   for (const g of s.buildings) if (g.kind === 'granary' || g.kind === 'agora') stored += g.stock;
   // How many months the stores last at the rate the town eats into them.
   const runsOut = stored / Math.max(1, bal.eaten - bal.grown);
-  if (bal.eaten > bal.grown && (farms.length > 0 || agora) && (farms.length === 0 || runsOut < BREAD_LEAD_MONTHS)) {
+  // Homes warning about bread: the stalls already run short between harvests.
+  let hungry = 0;
+  if (farms.length > 0 && bal.grown < bal.eaten * BREAD_SPARE) for (const b of s.buildings) if (b.kind === 'home' && warningsOf(s, b).some((w) => w.need === 'food')) hungry++;
+  const already = hungry ? ` ${hungry === 1 ? 'A home is' : `${fmt(hungry)} homes are`} already going without between harvests.` : '';
+  if (farms.length > 0 && hungry > 0 && bal.eaten <= bal.grown && !farms.some((f) => rateOf(f) < 1)) {
+    // Enough on paper, but too little to spare: say so, and how many farms would give the tenth more.
+    const more = Math.max(1, Math.ceil((bal.eaten * BREAD_SPARE - bal.grown) / bal.perFarm));
+    const n = more === 1 ? 'Another farm' : `${more <= 9 ? ['', '', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][more] : more} more farms`;
+    const granary = s.buildings.find((g) => g.kind === 'granary');
+    out.push({
+      need: 'food',
+      text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}, too little to spare.${already} ${n} would keep it fed.`,
+      at: granary?.id ?? farms[0].id,
+    });
+  } else if (bal.eaten > bal.grown && (farms.length > 0 || agora) && (farms.length === 0 || runsOut < BREAD_LEAD_MONTHS || hungry > 0)) {
     const eats = fmt(roundTen(bal.eaten));
     if (farms.length === 0) {
       out.push({ need: 'food', text: `Bread: the town eats about ${eats} measures of wheat a month and no farm grows any yet. A wheat farm on the green land by the river would start it.`, at: agora?.id ?? 0 });
@@ -442,13 +463,14 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
             ? ` At this rate the granaries and stalls run empty in about ${Math.round(runsOut)} months.`
             : ' At this rate the granaries and stalls run empty within a month or so.';
       const granary = s.buildings.find((g) => g.kind === 'granary');
-      if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; a farm is short of workers (${slow.workers} of ${JOBS.farm}).${stores}`, at: slow.id });
+      const why = slow && roadsBeside(s, map.size, slow).length === 0 ? 'a farm has no road beside it, so nobody can work it' : `a farm is short of workers (${slow?.workers} of ${JOBS.farm})`;
+      if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; ${why}.${already}${stores}`, at: slow.id });
       else if (roundTen(bal.grown) === roundTen(bal.eaten)) {
         // Rounded, the two would read the same: say which way it tips.
-        out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${stores}`, at: granary?.id ?? farms[0].id });
+        out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${already}${stores}`, at: granary?.id ?? farms[0].id });
       } else {
         const words = balanceWords(bal).replace(/; (another farm|\w+ more farms) would feed it$/, (_, n: string) => `. ${n[0].toUpperCase()}${n.slice(1)} would keep it fed.`);
-        out.push({ need: 'food', text: `Bread: ${words}${stores}`, at: granary?.id ?? farms[0].id });
+        out.push({ need: 'food', text: `Bread: ${words}${already}${stores}`, at: granary?.id ?? farms[0].id });
       }
     }
   }
@@ -458,7 +480,12 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
     const first = short[0];
     const name = (BUILDING_NAMES[first.kind as Exclude<BuildingKind, 'home'>] ?? 'A workplace').replace(/^A /, 'the ').replace(/^The /, 'the ');
     const others = short.length > 1 ? ` (and ${short.length - 1} more ${short.length === 2 ? 'place' : 'places'})` : '';
-    const fix = able < jobs ? `${able} people can work for ${jobs} jobs: more homes would help.` : 'More homes near it by road would help.';
+    const fix =
+      roadsBeside(s, map.size, first).length === 0
+        ? 'It has no road beside it, so nobody can get there: lay one along a side.'
+        : able < jobs
+          ? `${able} people can work for ${jobs} jobs: more homes would help.`
+          : 'More homes near it by road would help.';
     out.push({ need: 'workers', text: `Workers: ${open} ${open === 1 ? 'job' : 'jobs'} unfilled. ${name[0].toUpperCase()}${name.slice(1)} has ${first.workers} of ${JOBS[first.kind]}${others}. ${fix}`, at: first.id });
   }
   return out;
