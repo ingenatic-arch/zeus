@@ -161,7 +161,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
     if (b.workers > 0) has.push(`${ICON.work}<span><b>Work</b> for ${b.workers} of the ${able} who can work</span>`);
     if (b.workers < able) {
       const why = b.workers > 0 || reachesWork(s, map.size, b) ? 'but every job they can reach is taken' : 'but no road joins it to a workplace';
-      lack.push(`${ICON.work}<span><b>Work</b> · ${b.workers ? `${able - b.workers} more` : `the ${able} who could`} would work, ${why}</span>`);
+      lack.push(`${ICON.work}<span><b>Work</b> · ${b.workers ? `${able - b.workers} more would work` : able === 1 ? 'the one who can work would' : `all ${able} who can work would`}, ${why}</span>`);
     }
   }
   const next = nextLine(s, b);

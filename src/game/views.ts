@@ -59,8 +59,8 @@ export const VIEWS: Record<string, CameraView> = {
   actor: { x: 34, z: 80, yaw: 0.9, dist: 11, tilt: 0.3 },
   // The fine-house district from above, the missing overlay on.
   fine: { x: 27, z: 73, yaw: 0.6, dist: 30, tilt: -0.14 },
-  // Low along a street where a fine house stands by a townhouse and a cottage.
-  compare: { x: 22, z: 77, yaw: 0.7, dist: 10, tilt: -0.03 },
+  // Both districts from the east: the fine houses by the shrine and theatre on the left, the hamlet of cottages up the lane on the right.
+  compare: { x: 26, z: 61, yaw: 1.4, dist: 30, tilt: -0.12 },
   // The town after its theatre was cleared and the west street cut off, its homes warning.
   closed: { x: 24, z: 75, yaw: 0.6, dist: 26, tilt: -0.14 },
   // Open land near the west edge, ready to build.

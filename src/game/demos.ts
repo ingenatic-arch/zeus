@@ -36,8 +36,10 @@ const MISSING_TICKS = 3600;
  * (FOOD_TICKS), gets a shrine, two more farms and a fountain for the hamlet
  * at the lane's far end; three months later a theatre. The scenes open at
  * moments along it. #closed clears the theatre (and cuts the west street
- * off) half a year after it opened, and opens four months later, while the
- * warnings are up but nothing has gone down yet.
+ * off) half a year after it opened, and opens four months later: the fine
+ * houses at the west end, where the actor came least often, have gone back
+ * to townhouses by then, the rest warn about plays, and the cut-off street
+ * warns about water, bread and blessings at once.
  */
 const SHRINE_AT = FOOD_TICKS;
 const THEATRE_AT = SHRINE_AT + 900;

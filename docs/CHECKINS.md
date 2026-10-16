@@ -2,6 +2,61 @@
 
 Notes to Oliver, newest first.
 
+## Slice 6 — Shrine and theatre (16 Oct)
+
+The town gets its first taste of the gods and the stage: a shrine sends a priestess out with an offering bowl, a theatre sends an actor out with a mask, and cottages they reach climb to two-storey townhouses and then to fine houses round a little courtyard. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+Nothing to break: there are no saves until slice 7. Every earlier demo still opens on exactly the same town. The one thing you'll see change there: a cottage's panel now says what it needs to become a townhouse.
+
+### What's new
+- Shrine (V, 200 drachmas, 2 workers): a little marble temple on a stepped platform, four columns and a pediment to the road and a lilac band round the frieze, an altar in front with a smoking offering fire, jars of offerings and two cypresses behind. Its priestess, in a long white robe with a lilac mantle and veil, carrying a shallow bowl with a little flame in it, walks her round the way the water carrier and the food vendor do (32 road tiles' reach). Every cottage or better beside her way has the priestess's blessing for four months.
+- Theatre (P, 400 drachmas, 5 workers): tiers of pale stone seats round a paved orchestra, banked with grass behind, and the stage building along the road, with three doors, painted panels and masks over the doors, a low stage, and rose banners at its ends. A few people sit in the seats. Its actor, in a rose tunic and a short saffron cloak, wearing a big pale comic mask, one arm flung up mid-speech and a scroll of the plays in the other hand, walks his round on the same terms and brings plays to townhouses and fine houses.
+- Townhouses: a cottage with water, bread and the priestess's blessing, settled a month and with a month of each in hand, becomes a townhouse. There are two kinds: a two-storey house with its long side to the road, a timber balcony over the door and a walled yard with an olive tree and jars; and an L-shaped one, a two-storey block at the back and a one-storey wing to the road with a vine pergola on its roof terrace, beside a little walled court with a cypress and a bench. A townhouse holds 17 people and pays 6 drachmas rent.
+- Fine houses: a townhouse that also has plays becomes a fine house, again after a month settled with a month in hand. There are two kinds: a courtyard house, a two-storey hall with a colonnade across the back, low wings down the sides and a columned gateway in the front wall, so you look into a paved court with an olive tree; and a villa with a porch of four columns under a pediment, steps up to it, and a garden with a clipped hedge and two cypresses. A fine house holds 21 people and pays 9.
+- Going down works as before: ten days without, a two-month warning with a sign over the roof, then one level down, and the people it can't hold walk out as whole families. Big households (up to 21 people) now choose who goes the same way, never the head of the house and never breaking up a family.
+- Signs for three or four needs: a wider sign holds the water drop, the loaf, a lilac temple and a rose mask in a row, always in that order. Signs sit higher over the taller houses.
+- Two new overlays: religion (Y, or the temple button) shows where the priestess reaches in lilac, culture (C, or the mask button) where the actor reaches in rose. Posts stand over homes that want her or him and are without or running low. Placing a shrine or theatre turns its overlay on and says how many homes it would reach.
+- The household panel, hover tips, what's-missing overlay and trouble count all know the new needs: "Blessings · last 3 months more unless the priestess comes by again", "To become a fine house: plays from a theatre, with water, bread and blessings kept up", "Gave up the fine house for a townhouse, after two months without plays". A cottage only asks for blessings once there is a shrine in the city, and a townhouse for plays once there is a theatre, so towns without them read as before.
+- New talk: 47 lines for blessed cottages, townhouses with and without plays, fine houses, moving up, and going without the priestess or the plays ("We left honey cakes at the shrine. The priestess says the god was pleased. The ants certainly were.").
+
+### What to try
+1. Open `#grow`: the fed town of cottages from `#food`, with the shrine tool picked. Place the shrine beside the main road near its end, a few houses past the fountain (anywhere beside a road works; the label says how many homes the priestess would reach). Press 3 (four game days a second). In my run the first townhouses went up within ten game days, and every cottage on the streets was a townhouse after about three months. Then press P and put the theatre across the road from the shrine: fine houses start within ten days, and about four months later the whole street is fine houses. Leave it running: from about the seventh month, a few fine houses warn about bread, and in the second year some go back to townhouses, because one agora's vendor can't keep 21-person houses fed. In my run, a second agora at the west end of the main road and two more farms by the farm road stopped it (neither alone did).
+2. Open `#shrine` (add `-overlay` for the religion overlay, or press Y): the same town a month and a half after the shrine went in, townhouses going up among the cottages. Hover a townhouse and a cottage to compare what they say.
+3. Open `#priestess` to follow her at street level, and `#actor` to follow the actor (drag or Esc to stop).
+4. Open `#theatre` (C for the culture overlay): the theatre a month after it opened, seen from the north, fine houses starting to appear.
+5. Open `#fine`: the district from above six months after the theatre opened, every house on the streets a fine house. Click one to meet the household (21 people, with all four needs), and press I for the what's-missing overlay.
+6. Open `#compare`: the same moment from the east, the fine houses on the left and, on the right, the hamlet at the lane's far end, with its own fountain and agora but beyond the priestess's and the actor's reach, still cottages.
+7. Open `#closed`. It opens paused. Four months ago the theatre was cleared and one tile of the west street's road was cut (ringed in cream). The fine houses at the west end, where the actor came least, have already gone back to townhouses; 18 more warn about plays, and the cut-off street's townhouses show wide signs with three needs. The panel is open on the most urgent house, 20 days from going down. Press Space to watch them go down and families walk out. Or first rebuild the theatre across the road from the shrine (P) and lay the road back on the ringed tile (T): in my run 12 homes still went down a level before the actor reached them, and about three months later every home was a fine house again.
+
+### What I'd like your eye on
+- The four steps up: in `#compare` and `#fine`, can you tell a cottage from a townhouse from a fine house at the default height? Does each step look grander enough to be worth working for?
+- The priestess and the actor: easy to pick out from the blue water carrier and the saffron vendor, from above and at street level?
+- The shrine and the theatre: do they read as what they are? The theatre has a grassy bank behind its seats (a wall there hid the seats from the road side).
+- The wide signs in `#closed`: can you read three icons at a glance, and tell which need is which?
+- The pace: from the shrine going in to a street of fine houses took about seven game months in my run (under a minute at the fastest speed). Too quick, too slow? And the bread squeeze that follows in `#grow`: fair pressure, or a nuisance?
+- The overlay colours: the priestess's lilac and the actor's rose, against the water blue and the food gold.
+- The new talk: does it keep the voice of the earlier lines?
+
+### Known rough edges
+- In `#shrine`, while the cottages are turning into townhouses, a few homes at the west end warn about bread for a few weeks, then recover. Nobody goes down.
+- In the culture demos the town has a second granary by the agora's street, but it mostly stands empty: the porters go to the first.
+- Right after a theatre opens, townhouses it hasn't reached yet list "No actor comes this way" as a small minus in their mood, which reads as a grumble about something that has only just arrived.
+- No demo shows a four-need sign: by the time the cut-off street runs out of water, its houses have already lost their plays and gone back to townhouses, which don't need plays.
+- In `#closed`, the warnings and the drops overlap: the plays at the two ends of the actor's round run out about three months apart, longer than a warning lasts.
+- The culture towns draw more batches from the overview (up to 214, against 172–181 before). If your laptop struggles there, this is the first place I'd look.
+
+### Measurements
+- Tests: 100 in 10 files, all passing (was 90 in 9).
+- Download: 228 KB compressed (was 218 KB): the new houses, the shrine, the theatre, the two walkers, the signs and the talk.
+- Load: ready at 0.9 to 1.1 seconds and first frame at 1.2 to 1.35 seconds by the page's own clock over two runs (was 0.9 and 1.1).
+- Every earlier view draws exactly what it did, to the triangle: the opening view 542,000 triangles in 125 batches, `#food` 458,000 in 123, `#warning` 470,000 in 123.
+- Each new model is lean: a townhouse 524 or 616 triangles, a fine house 691 or 723, the shrine 633, the theatre 1,470 (a cottage is about 420).
+- `#fine` (786 people, 38 fine houses): 496,000 triangles in 144 batches; with what's missing on, 530,000 in 148; `#compare` 499,000 in 144; the theatre 441,000 in 117; the overview 670,000 in 200. `#closed` 494,000 in 158, the overview 668,000 in 214.
+- Main-thread time per frame before drawing: `#fine` about 0.6 ms paused and 1.1 ms running (`#food` 0.5 and 0.8 to 0.9; it was 0.4 and 0.7 before).
+- Homes going down a level over two years: `#shrine` 0, `#theatre` 0.
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
+
 ## Slice 5 — The people who live there (16 Oct)
 
 Every home is now a household you can click: a named family from somewhere in the Greek world, who they are, how they feel and why, what they have and lack, a line or two of their talk, and what has happened to them; when a home loses what it needs it warns you with a sign over its roof for two months before it goes down a level and some of the family walk out. You weren't here while it was built: every choice below is mine, from the spec's defaults.

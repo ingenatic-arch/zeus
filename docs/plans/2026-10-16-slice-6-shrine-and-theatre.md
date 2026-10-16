@@ -118,3 +118,42 @@ Measured at `b76713e` (the end of slice 5's review), headless Chromium with soft
 
 ## As built
 
+Built as designed, except where noted here. Commits: plan `69241fb`; sim `17ef0bc`; render, UI and demos `95c5603`; looked at and tuned, smoke and measure `f490f47`; this note and the check-in after.
+
+**Changes from the design**
+- *The priestess's and the actor's walk* is 64 fresh tiles a round, not 48. With 48, the well-run `#fine` town had homes at the far ends of the round warning about blessings and plays now and then (each walker took the other turns too often); with 64, none warn over two years. Reach (32 road steps), rest (30 ticks) and how long a visit lasts (four months) are as designed.
+- *The demo town needed more bread.* Townhouses and fine houses hold 17 and 21, so the food town's one agora couldn't keep up: its vendor's round "had taken other turns" and homes at the west end warned about bread. Rather than change the vendor (which would change every earlier demo), the culture town gets, at `SHRINE_AT`: the farm road carried three tiles further east with farms at (41,60) and (51,64) (five in all), a second granary at (35,69) by the agora's street, an agora at the west end of the main road (6,81), and for the hamlet at the lane's far end a fountain (24,48) and an agora (27,48). The second granary mostly stands empty: the porters go to the first.
+- *Who moves away*: `leavingGroups` keeps the exact search for 12 groups or fewer (`EXACT_CHOICES`), so every earlier town loses the same people; with more, `knapsack` chooses over the household's units (none of a unit, some of its grown children and elderly parents, or the whole unit) for the cheapest mix that sends at least `n`. Tested: never the head, never a family split, overshoot as small as the exact search allows, and quick for every big household in `#fine`.
+- *Rising* (`readyToRise`): a cottage or townhouse must have been at its level a month (`SETTLE`) and have every need of the next level lasting at least a month more (`RISE_MIN`). What's missing (`wantOf`) asks for blessings only once the city has a shrine, and for plays only once it has a theatre, so earlier towns read as before.
+- *`#closed`* opens four months after the theatre was cleared and the west street cut (`CLOSED_TICKS = CLOSE_AT + 1200`), paused, with the panel on the most urgent home and the cut tile ringed. By then the fine houses at the west end, where the actor came least often, have already gone back to townhouses (16 homes: 9 on the main road and the 7 cut off); 18 more fine houses warn about plays, and 6 of the 7 cut-off townhouses warn about water, bread and blessings at once. The plays at the two ends of the round run out about three months apart, longer than a warning lasts, so no single moment has every fine house warning and none gone down. Four-need signs are drawn and work, but no demo shows one: the cut-off homes have lost their plays (and their fine house) before their water runs out.
+- *Views*: `#fine` looks over the whole district from above rather than from street level (the fine houses are easier to take in together); `#compare` looks from the east with the fine houses on the left and the hamlet on the right.
+- *The theatre* has a grassy bank behind its top tier instead of a wall: from the road side a wall hid the seats. `#theatre` looks at it from the north, with the sea behind.
+- *Small extras*: the household panel's work line now reads "all 8 who can work would, but no road joins it to a workplace" (it read "the 8 who could would work"); the help card lists V, P, Y and C.
+
+**Triangles** (one instance; a cottage is 406–444): townhouse A 524, townhouse B 616, fine house A 723, fine house B 691, shrine 633 (its altar fire smokes with the hearths' shared puffs), theatre 1,470 (tiered seats, the bank, a stage building with a colonnade, eleven seated people). One new geometry overall (44, was 43).
+
+**Demos**, all from one history (`cultureTown`): `#grow` (the food town at a year, shrine tool picked, religion overlay on with `-overlay`): 38 cottages, 6 tents; `#shrine` 450 ticks after the shrine: 26 cottages, 18 townhouses, 499 people; `#theatre` 300 ticks after the theatre: 6 cottages (the hamlet), 21 townhouses, 17 fine houses, 593 people; `#fine` and `#compare` six months after the theatre: 38 fine houses and the hamlet's 6 cottages, 786 people, nobody warning; `#closed` as above, 781 people, 24 warning, the most urgent 20 days from going down. `#priestess` and `#actor` follow the walkers in `#shrine` and `#theatre`.
+
+**Churn**: no homes go down a level over two years in `#shrine` or `#theatre` (test). In `#shrine`, while the cottages are turning into townhouses (about ticks 4170–4650), some homes at the west end warn about bread for a few weeks and then recover; none go down. `#grow` played as the check-in suggests (shrine at (35,78) at once, theatre at (35,81) 90 days later, both through the command queue in a scratch run): every street home is a townhouse by day 80 and a fine house by day 210, with no warnings; from about day 220 a few fine houses warn about bread, and 12 drops follow by day 720 ("the food vendor has taken other turns lately", later "the agora's food stall is empty"). An agora at (6,81) alone or two farms alone at day 230 still give drops; both together give no drops at all, and no warnings after about day 390. `#closed` with the theatre rebuilt and the cut road laid back at once: 12 drops, then all 38 fine again by day 120; without, 42 drops in six months.
+
+**Earlier demos**: every earlier demo's state at load (buildings, levels, people, stock, supplies, walkers, households, hashed) is identical before and after this slice: `#streets`, `#settlers`, `#water`, `#carrier`, `#fountain`, `#food`, `#vendor`, `#harvest`, `#chain`, `#workers`, `#bridge`, `#people`, `#warning`, `#decline`, `#missing`. The panel's "to become" line for a cottage now names the townhouse.
+
+**After** (headless Chromium, software WebGL, 1920 × 1080):
+
+| | Before | After |
+|---|---|---|
+| Tests | 90 in 9 files | 100 in 10 files, all passing; typecheck clean |
+| Bundle | 777 KB raw, 218 KB gzipped | 813 KB raw, 228 KB gzipped |
+| Load (page clock) | ready 0.88 s, first frame 1.10 s | ready 0.92–1.10 s, first frame 1.18–1.35 s (two runs) |
+| Opening, `#streets`, `#water`, `#food`, `#warning` views | as in Before | unchanged, to the triangle and call |
+| `#fine` | — | 496 k, 144; with what's missing 530 k, 148; compare 499 k, 144; theatre 441 k, 117; overview 670 k, 200 |
+| `#closed` | — | 494 k, 158; overview 668 k, 214 |
+| GPU objects | 43 geometries, 4 textures | 44 geometries, 4 textures |
+| Main-thread update per frame, paused / running | `#food` 0.37 / 0.69 ms | `#food` 0.48–0.53 / 0.84–0.93 ms; `#fine` 0.57–0.58 / 1.11–1.13 ms |
+
+The overview's draw calls reach 200–214 in the culture towns (172–181 in earlier ones): each new model is its own instanced mesh per chunk. Frame rate can't be measured headless.
+
+**For the next slice**
+- The vendor's round is the limit on big households: with 17 and 21 people a home, one agora doesn't keep a street fed, and the demo needed three agoras. Worth looking at with the economy.
+- Right after a theatre opens, townhouses it hasn't reached yet say "No actor comes this way" as a mild minus in their mood, which reads as a complaint about something that's only just arrived.
+- Draw calls: 214 on the `#closed` overview. Merging the house kinds into fewer instanced meshes (or per-chunk merged statics) would bring them down if a laptop struggles.
