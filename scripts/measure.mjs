@@ -180,7 +180,12 @@ for (const cam of ['closed', 'overview']) {
   await page.goto('about:blank');
   await page.goto(url + '#town-paused-shot');
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
-  console.log(`#town setup and load ${Date.now() - t} ms (start ${(await page.evaluate(() => window.__zeus.startMs)).toFixed(0)} ms)`);
+  await page.waitForFunction(() => window.__zeus.frames > 0, null, { timeout: 120000 });
+  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, start: window.__zeus.startMs, ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt }));
+  // The page's own clock; Playwright's figure includes its polling and the first slow software-rendered frames.
+  console.log(
+    `#town by the page's clock: two years of setup ticks ${tp.setup.toFixed(0)} ms, scene start ${tp.start.toFixed(0)} ms in all, ready at ${tp.ready.toFixed(0)} ms, first frame at ${tp.first.toFixed(0)} ms (Playwright saw ready after ${Date.now() - t} ms)`,
+  );
   for (const cam of ['town', 'townstreet', 'overview']) {
     await page.evaluate((c) => window.__zeus.setView(c), cam);
     const f = await page.evaluate(() => window.__zeus.frames);

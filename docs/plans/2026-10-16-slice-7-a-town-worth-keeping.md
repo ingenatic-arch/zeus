@@ -155,3 +155,39 @@ Commits: `9c5a03a` (this plan), `21872e1` (sim and game logic), `d9e8c49` (saves
 | GPU objects | 43 geometries, 4 textures | 52 geometries, 4 textures |
 
 The running update times include the sim's steps for about a second of game time per frame (headless frames come about once a second), so they overstate a real frame; `#town`'s also includes rebuilding a chunk's merged homes when one changes look.
+
+## Review
+
+Reviewed after `b079c01`. Commits: `9b2be63` (sound held while muted or hidden and chimes near the view only, the autosave note once a session and failures said, the bread line's lead time, the loading card's words, `debug-map.mjs`), `4741505` (Esc for the welcome and saves cards, a failed save repeated on the card, smoke checks, check-in corrections), and this note (with `measure.mjs` printing `#town`'s times by the page clock).
+
+**What was wrong**
+- *`#town`'s opening time* in the check-in (4 to 6.5 s) was Playwright's wall time, which includes its polling and the first one-second frames of software rendering. By the page's clock (new `probe.setupMs`): the 7,200 setup ticks take 0.46 to 0.64 s, ready at 1.55 to 1.86 s, first frame at 2.03 to 2.40 s (the bare link: ready 1.10, first frame 1.32). Under the ~1 s threshold for the sim part, so no snapshot or render-free fast path was built; the loading card now says "Shaping the coast and getting the town ready…" (and "Opening your town…" for a save link), set at module load before the first paint.
+- *Sound*: `start()` created the AudioContext on the first gesture even when muted, and the sea and wind loops ran at zero gain for the whole session while muted, and on with the tab hidden (rAF stops, the loops don't). The rise and decline chimes fired for any home anywhere, with no rate limit (the plan said near the view and rate-limited). Gains and envelopes looked sane (master 1 into a −18 dB, 3:1 compressor, every one-shot scheduled to stop and left to GC; no clipping path).
+- *The autosave note* flashed every three game months (about every 20 s at fastest), and an autosave that failed was silent.
+- *The bread line* showed as soon as `eaten > grown`, so `#town` showed it from about month 18 with full granaries (about 5,000 stored against a shortfall of a few dozen a month).
+- *Esc* did nothing to the welcome card (the plan said Esc dismisses it).
+- *The saves card* forgot a failed save by hand once closed.
+- *`scripts/debug-map.mjs`* had no colour for `TreeKind.Flowers` (7), so `buf.set(undefined)` threw.
+
+**What changed**
+- `sound.ts`: `begin` starts only when not muted; `setMuted(false)` calls `start()` (it runs inside the click); `hold()` suspends the context 400 ms after the master fades (muted or `visibilityState === 'hidden'`) and resumes it when wanted; `update()` does nothing unless running; `rise`/`decline` at most once a second (`lastCue`); `state` getter for the probe. `main.ts` plays a home's chime only within `8 + 0.6 × dist` of the view centre.
+- `main.ts`: the autosave flashes once a session (`autoNoted`); a failure flashes once per distinct reason (`autoProblem`) and is passed to the card through `autosave()`. Esc / right-click without a tool: welcome card first, then the saves card, then as before. `probe.setupMs`.
+- `status.ts`: `BREAD_LEAD_MONTHS = 6`; the bread line (with farms) needs `stored / (eaten − grown) < 6` as well as `eaten > grown`; the stores clause says "At this rate the granaries and stalls run empty in about N months" (or "within a month or so"; "nearly empty" under half a month of eating). The no-farm line is unchanged.
+- `saveMenu.ts`: `problem` kept from `saveNow()` and shown when the card opens; the card shows the autosave's failure.
+- Tests (119): `#grow` played on (shrine, theatre at day 90, no farms): at day 150 the town eats more than it grows with no bread line; the line comes within 200 days and names at most six months. Smoke: muted sound is `suspended`, nothing starts while muted, unmuting runs it, Esc dismisses the welcome card.
+
+**Checked** (headless Chromium, scratch scripts; sim runs in vitest)
+- *Load path*: Ctrl+S during a road drag saves the town without the half-drawn road, which lands on release; Ctrl+S with the household panel open saves; `#saved` opens with the hash cleared, and undo straight after removes the road and refunds 20 dr; a reload then shows the welcome card with Carry on; opening the autosave from the card with newer changes asks twice, the `leaving` flag stops `pagehide` overwriting it, and the town that opens is the autosaved one (173 roads, not the 178 on screen).
+- *Storage*: a `#town` save is 463 K characters (488 K after two more years at 1,285 people; the four street records are 264 K of it, fixed by the map's size). Chromium took about 5.1 M characters in all before `QuotaExceededError`, so the two slots use under a fifth. With storage filled to the brim, Ctrl+S says "The browser’s storage for this page is full, so it couldn’t be saved." in the note, and now on the card.
+- *Merged homes*: `#grow` with the shrine placed, at fastest, 14 frames screenshotted while 38 cottages became townhouses in about a month (rebuilds every frame or two): no missing or flickering homes seen. The code keeps a rising home out of the merged mesh and instanced until it has risen, rebuilding the chunk at both ends.
+- *Plant sway*: the bend is the same size (local height above 0.15 × bend × the plant's scale); its direction is now world x for every plant (before, each plant's own rotated x), which reads more like one breeze. Paused screenshots of `#fine`, `#compare`, `#food`, `#missing`, `#people`, `#bridge` and `#grow` match slice 6's apart from the two new corner buttons and `#missing`'s bread line.
+- *The walkers' rule*: `#closed` mended at once rerun: 7 drops, the last on day 17, all 38 fine by day 47, as the check-in says. `#grow` without farms: bread line day 136, first bread warning day 355, first drop day 440.
+- *Bread in `#town`* over two years: the town eats more than it grows from day 536; stores stay between about 3,900 and 6,500; no bread line, no warning, no drop.
+- *Invariants*: typecheck clean; 119 tests in 12 files pass; build 858 KB raw, 242 KB gzipped; smoke ok; measure: draw calls unchanged from As built, `#town` update per frame running 3.9 to 5.4 ms across runs (the sim plus chunk rebuilds over about a second of game per headless frame).
+
+**Notes for the next slice**
+- *Merged-home rebuilds*: a 32-unit chunk of fine houses is around 100 k vertices (`fineA` alone is 2,709), rebuilt twice per change of look. A 20 s CPU profile of `#town` running put `MergedChunks.set` and `fill` at about 1.5 ms a frame on average, in spikes. If Oliver sees hitches on a laptop: 16-unit merge chunks, reused typed arrays, or a home kept instanced for a while after it changes.
+- *Legs at rest*: the leg swing comes from where a walker stands, with no "moving" input, so a walker standing still keeps whatever pose that spot gives (sometimes legs apart). A per-instance moving flag (instance colour alpha, or an attribute) would fix it.
+- *The autosave and demos*: building in any demo starts the autosave, so it holds whichever town was built in last (the check-in now says so). If Oliver wants demos never to touch it, gate `autosaving` on the demo (except `#town`).
+- *Save size*: the street records (`walked` and `exits` for four services, 16,384 each) are over half of every save; sparse or run-length encoding would halve saves if more slots come.
+- Unused cues: `click` and `arrive`. Merged plants' shadows don't sway (the default depth material), as before the merge.
