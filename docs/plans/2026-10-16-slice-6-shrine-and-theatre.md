@@ -157,3 +157,63 @@ The overview's draw calls reach 200–214 in the culture towns (172–181 in ear
 - The vendor's round is the limit on big households: with 17 and 21 people a home, one agora doesn't keep a street fed, and the demo needed three agoras. Worth looking at with the economy.
 - Right after a theatre opens, townhouses it hasn't reached yet say "No actor comes this way" as a mild minus in their mood, which reads as a complaint about something that's only just arrived.
 - Draw calls: 214 on the `#closed` overview. Merging the house kinds into fewer instanced meshes (or per-chunk merged statics) would bring them down if a laptop struggles.
+
+## Review
+
+Reviewed after `dc53e75`. Commits: `617529c` (one agora feeds a street of fine houses, the hungry reason and the granary and agora tips count the farms, `#closed` opens before any drop, the "not yet" mood, tests), `5db887f` (the theatre's stone rim and stairways, chatter that contradicts the town is skipped, mood days rounded like the panel's), `211cf67` (the warning box gives each other need its own days), and this note.
+
+**What was wrong**
+- *The vendor, not the farms, was the first limit.* One agora's porter brought about 650 measures a month to the stall (800 a load, one errand out at a time, the round trip from the granary). 38 fine houses eat about 800 a month (one measure a person a month). So the demo needed three agoras, and `#grow` still ran short with full granaries. The hungry reasons said "the food vendor has taken other turns lately" or "the stall is empty", which pointed Oliver at agoras when, once the porter keeps up, the real gap is wheat: three farms grow about 570 a month.
+- *The second granary stood empty* because carts go to the granary with room nearest their farm and porters to the nearest with grain; both were the first granary. That's correct behaviour. The demo didn't need the second granary once the porter carries enough, so it's gone, and an empty granary now says why in its tip.
+- *`#closed`* opened four months after the cut, after 16 west-end homes had already dropped.
+- *"No actor comes this way"* was a −1 mood reason from the moment a theatre opened. `whyNot` said "taken other turns" for a walker who had never come.
+- *The theatre* from the default yaw (0.6, from the road side) showed only its grass bank: a green drum.
+- *The warning box* gave one "all the same" date for every other missing need, though they run out at different times.
+- *Chatter*: three noShrine lines mention a townhouse and were drawn for huts and cottages. "talk of a theatre" lines were drawn with a theatre standing, and "somewhere proper to thank the gods" with a shrine standing.
+- *Mood vs panel days*: `span` rounded down and the panel's `days()` up.
+
+**What changed**
+- `food.ts`: `PORTER_LOAD` 800 → 1200, `STALL_CAP` 1600 → 2400 (`STALL_LOW = CAP − LOAD` as before), `VENDOR_WALK` 48 → 64 (the same as `PRIESTESS_WALK` and `ACTOR_WALK`; `CARRIER_WALK` stays 48 because a fountain's reach is what Oliver tunes by placement). One agora now keeps 38 fine houses fed when the wheat is there.
+- `status.ts`: `foodBalance(s, map)` gives `{ grown, eaten, perFarm }`. `grown` is Σ `harvestOf(f) × TICKS_PER_MONTH / GROW × rateOf(f)`; `eaten` is the people in homes that eat bread. `balanceWords` asks for `max(1, ceil((eaten × 1.1 − grown) / perFarm))` farms, which leaves a tenth to spare. `balanceLine` goes into the granary and agora tips: a short-handed farm is named first; then a shortfall in words; otherwise both numbers. `whyHungry`, after the reach checks, names the farms when the stalls are low and stored grain is under half a stall, or when the stall is empty and the town eats more than it grows. Otherwise it says "until the next harvest" or "its porter is fetching more". An empty granary while others hold grain says carts and porters go to the nearest.
+- `folk.ts`: `justOpened(s, kind, until)` is true while the newest shrine or theatre is under two months old and the home's need hasn't been met since it opened. `moodOf` gives a 0-tone "has opened; … hasn't come this way yet" then; `whyNot` skips "taken other turns". `span` uses `Math.ceil`.
+- `demos.ts`: `cultureTown` no longer builds the granary at (35,69) or the agora at (6,81). It keeps the farm road extension, the farms at (41,60) and (51,64), and the hamlet's fountain and agora. `CLOSE_AT = FINE_TICKS + 1100` and `CLOSED_TICKS = CLOSE_AT + 740` (about 2.5 months after the cut).
+- `grand.ts` / `palette.ts`: seat treads alternate `seatStone` and `seatStoneAlt` (#d6c7a4). There are four stairways a tier (`seatStair` #a8987a, rotated to the radius), and a dressed-stone band (`seatStoneShade`) from the top tier down to 0.55 of its height, before the grass bank. The theatre is 1,796 triangles (was 1,470).
+- `household.ts`: the "also" clause groups the other needs by days left.
+- `chatter.ts` `suits()`: the three filters above.
+- Tests (101): the `#grow` play-through (shrine, theatre at day 90, two farms with the road run on: no drops in two years, ≥ 36 fine houses; without the farms `whyHungry` names the farms with numbers). The "not yet" mood in `#theatre`. `#closed`'s one-level-at-a-time check now measures gaps between each home's own drops (≥ `DECLINE_AFTER` − 1 day). The one-farm village checks that some cottage has food, not the first.
+
+**Checked** (sim scratch runs; headless Chromium for the views):
+- *`#grow` played through*: the first townhouse comes on day 5 and all 38 by day 80. With the theatre on day 90, the first fine house comes on day 94 and all 38 by day 207. The tips show the shortfall from day ~130 ("another farm") and say "two more farms" from day ~230. Left alone, the first bread warning is on day 442 and the first drop on day 531, its reason naming two farms (17 drops by day 720). With two farms and the road built on day 0 or day 230: 0 warnings, 0 drops. On day 300: a few warnings, 0 drops. On day 400: 13 drops (two months to ripen, granary empty). A west agora alone still gives drops.
+- *Culture demos at load*:
+  - `#shrine`: 501 people, 0 warnings over two years (the churn is gone).
+  - `#theatre`: 602 people, 0 drops.
+  - `#fine` and `#compare`: 783 people, 38 fine, nobody warning. Brief bread warnings reach at most 5 homes, with 0 drops in two years.
+  - `#closed`: 863 people, 38 fine, 16 warning (9 plays only; 6 with three-need signs on the cut street; 1 with two). The panel home is 11.5 days from dropping, and money is 7,598. Left alone: 59 drops in 240 days. Rebuilt and mended at once: 15 drops (the 7 cut-off homes on days 12–17, then 8 on the west main road on days 34–39), and all 38 are fine by day 69.
+- *Earlier demos at load*: the houses, levels and people are the same except `#harvest` (473 people, was 470) and `#missing` (438, was 434; huts 2 → 3, cottages 36 → 35; 7 warning, was 9). Stocks differ everywhere. Re-ran each slice 5 claim:
+  - `#warning`: 7 warnings, 26–31 days; mended, all clear by day 13 with 0 drops.
+  - `#decline`: 3 days; 7 drops by day 10.
+  - `#missing` with two farms: 22 drops, back to cottages by ~day 180.
+  - `#people` opens on Sosias.
+  - `#chain`'s timing is unchanged (harvest at 609 ticks, first cottage at 1481).
+  - `#bridge` now has 0 drops in two years (was 14).
+- *Theatre*: screenshots from the default camera now show the stone rim and stairways; `#theatre` from the north still shows the tiers.
+
+**Invariants**: no `Math.random`, `Date`, `performance` or timers in `src/sim` or `src/map`; demo actions all go through the queue; no runtime fetches; the build is static with `base: './'`. Typecheck is clean, and 101 tests pass in 10 files. The build is 819 KB raw and 232 KB gzipped. `npm run smoke` is ok. `npm run measure`:
+- Load is ready at 1.01 s, first frame at 1.25 s.
+- The opening view is 542,256 triangles in 125 calls (unchanged). `#streets` 388,610 / 88 and `#water` 511,380 / 112 are unchanged.
+- `#food` is 457,978 / 125 (was 123) and `#warning` 469,739 / 129 (was 123): more loaves on the stalls.
+- `#fine`: 487,866 / 134; with what's missing 521,582 / 138; compare 490,582 / 134; theatre 432,731 / 109; overview 661,766 / 190.
+- `#closed`: 481,563 / 151; overview 655,463 / 207.
+- Update per frame, paused / running: `#fine` 0.39–0.46 / 1.07–1.21 ms; `#food` 0.47 / 0.88 ms.
+- 43 geometries, 4 textures.
+
+**State v6**: plain data. The new `Building` fields are `religionUntil` and `cultureUntil` (ticks); `BuildingKind` gains `shrine` and `theatre` and `Service` gains `religion` and `culture` (strings). `justOpened` reads the existing `Building.since`. Families keep v5's shape, with bigger households. There are no class instances, Maps or functions in `SimState`.
+
+**For slice 7 (and later)**
+- *Saves* must carry the v6 fields: `religionUntil`, `cultureUntil`, the building `since` (`justOpened` now reads it, so a loaded town must keep it), and v5's `Family.came` and `warned: Service[]`.
+- *Walker urgency vs the decline deadline*: at a junction a walker heads for the home whose need runs out soonest. `until` is a long-past tick for homes that have gone without longest, so a returning actor serves the cut-off street first, while west-end homes with less time to their drop wait. In `#closed`, 8 of the 15 drops come from this. Weighting by time left before the drop (now − `until` against `DECLINE_AFTER`) would save them. It's a rounds.ts change that touches every walker, so I left it.
+- *Four-need signs* can't happen in a demo with the current rules: needs expire months apart and decline counts from the first missing need, so a home never lacks four for long enough to warn about all four. Either accept that or test the layout directly.
+- *The food shortfall is only visible on hover* (the granary and agora tips) until homes warn, about ten months later in `#grow`. A top-bar or overlay hint would make it "pressure you can see coming" without hovering.
+- *Draw calls* reach 190–207 on the culture overviews. Each house kind and the shrine and theatre are their own instanced mesh per chunk. Not merged: the budget is still unmeasured on real hardware. Merging house kinds into one instanced mesh per chunk (with a per-instance variant) is the cheap lever if a laptop struggles.
+- *`wantOf`* scans every building for a shrine or theatre on every call (for each home, for the overlay and the panel): O(homes × buildings). Cheap at this size; cache a "has shrine / has theatre" flag on state if towns grow large.
+- *Labour*: farms built beside no road get no workers, and the tips say so. A farm next to the end of a road that doesn't quite reach it is easy to misplace, and the placement preview could warn.
