@@ -396,9 +396,9 @@ function start(): void {
     let changed = loaded.from === 6 ? ' · Rent is gone: taxes come in with a tax collector now. Build a tax office (Z) by the houses.' : '';
     // …and one saved before meat and cheese (slice 8 or older), with townhouses or better, says what they need now and how long they have.
     if (loaded.from !== undefined && loaded.from <= 7 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
-      changed += ' · Townhouses now need two kinds of food and fine houses all three: build a hunting lodge (M M) near the game and a dairy (M M M) on green land. They have six months before they start to worry.';
+      changed += ' · Townhouses now need two kinds of food and fine houses all three: build a hunting lodge (M M) near the game and a dairy (M M M) on green land.';
     }
-    // …and one saved before oil (slice 9 or older), with townhouses or better.
+    // …and one saved before oil (slice 9 or older), with townhouses or better; its grace (eight months from loading) covers the food above too.
     if (loaded.from !== undefined && loaded.from <= 8 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
       changed += ' · Townhouses now need oil: plant olive groves on the dry slopes (M ×4), build an olive press (M ×5), a storehouse (G G) and an oil stall on an agora (K K). They have eight months before they start to worry.';
     }

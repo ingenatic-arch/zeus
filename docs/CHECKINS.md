@@ -2,6 +2,54 @@
 
 Notes to Oliver, newest first.
 
+## Slice 10 — Olives and oil, and the storehouse (16 Oct)
+
+The city makes its first good: olive groves on the dry slopes, an olive press, a storehouse of jars and an oil stall at the agora, and townhouses now need oil. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing is lost. A slice 9 save opens with eight months' grace: its townhouses and fine houses say at once that they have no oil and why, but nothing warns or goes down for eight months, time to plant a grove, build a press, a storehouse and an oil stall and for the first oil to reach the homes (a little under four months in my run). The welcome back says what to build. Older saves get the same eight months, which covers the meat and cheese too. The cottage demos (`#water`, `#food`, `#vendor`, `#people`, `#warning`, `#decline`, `#missing` and the rest) open exactly as before. The demos with townhouses and fine houses needed oil to stay as they were, so their towns plant two groves by the lane and build a press, a storehouse and an oil stall before their lodge and dairy, with three tax offices to pay for it: `#shrine` opens with 21 cottages and 17 townhouses (was 18 and 20); `#theatre` and `#fine` open a couple of months later in the town's life, `#theatre` with 25 townhouses and 13 fine houses (21 and 17) and 290 drachmas (17), `#fine` with the same 38 fine houses and 561 drachmas (336). In `#closed` the cut-off street now goes without oil as well, so its signs show four icons, not three. `#town` runs three wheat farms instead of seven and one olive grove up the slope north of the main street, with a press and a storehouse below it: it opens with 596 people and 531 drachmas (was 616 and 728), 14 huts instead of 21, the same townhouses and fine houses.
+
+### What's new
+- The olive grove (M four times, 150 dr, 4 workers): seven gnarled olive trees (a ladder against one), each standing on its own ground on the slope, a low stone terrace wall, a mud-walled picker's hut under thatch, and baskets of olives as its store fills. The fruit shows green a quarter of the way to the harvest and darkens to purple-black as it ripens. A full harvest is 400 measures of olives every two months, by how good the olive ground is. Groves need dry ground: the hillsides and the scrub where the wild olives grow, not the river land, rock or sand. They take slopes too steep for a house. The placing tool tints poor ground and says how good the spot is and about how much oil a month a grove there would give.
+- The olive press (M five times, 200 dr, 4 workers): a stone press house under red tiles, a round crushing basin with an upright millstone, a beam press with its weight stone, olive baskets waiting and jars of oil by the door. It turns 30 measures of olives into 30 jars every three days while it has olives.
+- The storehouse (G twice, 200 dr, 3 workers): a walled yard with a gateway to the road, a lean-to shed at the back, and up to 24 jars standing in rows as it fills (1,600 jars of room). It's the shared store the next slices' fleece and wine and the trading post will use.
+- Ox carts take olives from the groves to the press (four baskets of dark olives) and jars from the press to the storehouse (six jars in straw).
+- The oil stall (K twice, then click an agora; 100 dr, one more worker): a small counter with a striped awning at the agora's side, jars on it as it is stocked. Its porter fetches jars from the storehouse with his handcart when it's half empty, and its oil vendor (an olive-green dress, a pale headscarf, a yoke with a jar on each end) walks the same kind of round as the food vendor. A home she reaches has oil for six months; it uses about a jar a month for every six people. Undo takes a new stall off again; clearing the agora takes it with it.
+- Townhouses need oil: a blessed cottage with two kinds of food climbs only once oil reaches it, and a townhouse or fine house without oil warns after ten days and goes down two months later, like the other needs. Cottages like oil too once there's an oil stall, but don't need it.
+- Readable: hovering a grove, press, storehouse or stall says what it holds, makes and waits for ("Oil stall: 501 of 800 jars · the oil vendor is out …"); carts, the porter and the vendor say what they carry. The household panel lists oil under what a home has and lacks, with the missing link ("the city has no olive press yet for the groves' carts to take their olives to"). A town line names how many homes are going without and why. Moods and chatter about oil for the lamps.
+- The oil overlay (L three times, or its button): the oil vendor's reach in olive green, a column over each home that wants oil, as tall as its oil is fresh.
+- Keys: M cycles farm, hunting lodge, dairy, olive grove and olive press; G cycles granary and storehouse; K cycles agora and oil stall; L cycles the food, variety and oil overlays and off.
+- Under the hood: all walkers and animals are now drawn together in two batches (people on foot and animals; ox carts and hunters carrying a kill) instead of one or two per kind, so there are fewer draws although this slice adds a vendor, carts and a porter.
+
+### What to try
+1. Open `#grove`: the culture town as its shrine has blessed its cottages. They have bread, meat and cheese but no oil, so none has climbed. The olive grove tool is in hand over the dry slope by the lane. Plant a grove, then build a press (M ×5) and a storehouse (G G) beside the road, and add an oil stall to the agora (K K, click the agora). Watch the cottages become townhouses as the oil reaches them. In my run, with two groves, a press and a storehouse by the lane, the first homes had oil and the first cottage became a townhouse 115 days after planting.
+2. Open `#oil`: `#town` over its olive grove and press on the slope north of the main street, carts coming and going. Hover the grove and the press.
+3. Open `#storehouse`: `#town` over its storehouse, jars standing in the yard. Hover it.
+4. Open `#oilvendor`: following the oil vendor at street level with the oil overlay on. Hover her, and the homes she passes.
+5. Open `#nooil`: the fine-house town about three months after its press and storehouse were cleared. Its fine houses warn without oil, the oil overlay is on and the panel is open on the house closest to going down. The town line says what's missing.
+6. Open one of your slice 9 saves (`#saved` or `#continue`): the welcome back says townhouses now need oil and they have eight months. Build the chain and watch the oil reach them.
+
+### What I'd like your eye on
+- The grove, press and storehouse close up (`#oil`, `#storehouse`): do they read as an olive grove, a press and a store, and apart from the farms and the houses? On a steep slope the press and storehouse stand on a tall stone base on their downhill side.
+- The olives ripening on the trees: from above, do the dark dots read as fruit?
+- The oil vendor with her yoke and the carts with jars (`#oilvendor`, `#oil`): readable from street level?
+- The pace: from planting a grove to the first oil in the homes took 115 days in `#grove` (two months to the first harvest, then the press, the storehouse, the porter and the vendor). Does that feel too slow for the cause and effect?
+- The demos open poorer and later again: `#town` with 531 drachmas, `#theatre` two months later than before.
+
+### Known rough edges
+- The press's millstone and beam don't move.
+- Walkers and animals now draw more triangles than before (every one in a batch has as many corners as the biggest look in it; the empty ones cost very little). There are far fewer draws.
+- The money in the culture demos is tight while they pay for oil, meat and cheese and the theatre: they run heavy taxes for a while. Money pressure is untouched otherwise (slice 14).
+
+### Measurements
+- Tests: 167 in 16 files, all passing (was 157 in 15). New: groves need olive ground and take slopes; the harvest by ground and workers; the press only from olives in hand; carts to the right store, and home when it's cleared; adding, undoing and clearing the oil stall; a vendor's visit; blessed cottages that climb once oil comes; `#nooil`'s fine houses going down and saying why; a real slice 9 save loading with eight months' grace and saving again identically; a save in the middle of the chain carrying on identically. Every cottage demo fingerprints exactly as before.
+- Smoke: extended with the grove tool and its tip, adding an oil stall, hovering a grove, press and storehouse, following the oil vendor, the oil overlay, and `#nooil`'s town line and panel. Every demo token opens with no page errors.
+- Download: 285 KB compressed (was 272 KB).
+- Load: ready at 1.30 seconds and first frame at 1.55 seconds by the page's own clock (was 1.39 and 1.67). `#town` ready at 1.84 s, first frame at 2.34 s (1.69 and 2.18). Target: under 3 seconds.
+- Draw batches, before → after: the opening view 63 → 59; `#food` 71 → 55; `#fine` 106 → 70; `#closed` 119 → 84; `#town` 118 → 79, its overview 144 → 105. Triangles: the opening view 566,000 → 581,000; `#food` 460,000 → 498,000; `#fine` 549,000 → 643,000; `#town` 704,000 → 760,000 (the padded walker shapes and the oil buildings).
+- Main-thread time per frame before drawing, paused / running: `#food` 0.57 / 1.12 ms (was 0.83 / 1.21), `#fine` 0.55 / 1.81 (1.04 / 1.87), `#town` 0.72 / 4.84 (1.32 / 6.32; the running figure is noisy).
+- A save of `#town`: 203 KB (was 215 KB).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 9 — Meat and cheese (16 Oct)
 
 The table gets varied: deer and boar roam the hills and woods, a hunting lodge sends hunters across country to bring them back, a dairy keeps goats and makes cheese, and both go through the granary and the stall to the homes. A townhouse now needs two kinds of food and a fine house all three. You weren't here while it was built: every choice below is mine, from the spec's defaults.
