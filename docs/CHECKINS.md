@@ -79,6 +79,41 @@ Noticed and left as they are (on the list for later):
 - Money piles up with nothing to spend it on: my four-year town was down to about 3,100 drachmas in its first summer and had 15,000 by the fourth year.
 - Pressing Start building on the bare link while a save exists: once you build, the new town's autosave replaces the old town's. Your save by hand is untouched, and Carry on is still offered first.
 
+### The phase, all told
+
+Phase 1, a living neighbourhood, is done: seven slices, each built, then reviewed and fixed, then a review of the whole phase. Here is what you can now do.
+
+- **The coast** (slice 1): fly over a hand-shaped stretch of Greek coast with a bay, a river from the hills, olive groves and moving water, from a bird's-eye view down to the river bank.
+- **Streets and settlers** (slice 2): draw roads that follow the ground, mark housing plots, and watch families walk in from the map edge and pitch tents. Clear and undo.
+- **Water** (slice 3): place fountains and watch the water carrier choose her way down your streets. Tents become huts where she reaches, and the water overlay shows the street she misses.
+- **Bread on the table** (slice 4): wheat farms on the river land, ox carts to the granary, an agora and a food vendor, workers drawn from the homes, rent, and timber bridges over the river. Fed huts become cottages.
+- **The people who live there** (slice 5): click any home to meet the family, with their names, mood, what they have and lack, and a line or two of chatter. Neglected homes warn first, then slip back a level, and whole families walk out of town.
+- **Shrine and theatre** (slice 6): a priestess and an actor walk the streets, and homes climb to townhouses and fine houses. Each service has its overlay, and the "what's missing" view shows them all.
+- **A town worth keeping** (slice 7): saving, by hand and by itself, with Carry on from the bare link; sound made in code; walkers that really walk; calm shortfall lines for bread and workers; and `#town`, a grown town of 635 people to open first.
+
+**Recorded for later**
+- Which god the shrine belongs to, and gods reacting to worship (the gods phase).
+- More foods and goods, storehouses, and the living market.
+- Taxes, wages and tax collectors, and something to spend money on: it piles up with nothing to buy (15,000 drachmas by year four in a town built the ordinary way).
+- Fire, collapse and crime, the original's hazards.
+- Generated maps, once the wider world exists; music.
+- Seasons that affect farming (today only the light changes).
+- Small things: "Back to a hut" notes stack when a whole street falls back; two shortfall lines can swap places; starting a new town replaces the old town's autosave; a demo you built in but didn't save loses its changes when you leave it.
+- Saves are about 450 KB each, and only two fit comfortably; more slots would need smaller saves.
+
+**Budgets that moved**
+- Download: 153 KB at slice 1, 246 KB now, from the extra buildings, walkers, sound and saves. Load stays well under the 3-second target: about 1.1 seconds to ready on the bare link and about 1.6 for `#town`, by the page's own clock.
+- Draw batches went up when the map was split into patches (slice 2) and back down when settled houses and plants were merged (slice 7): 57 in the opening view, 103 in `#town`.
+- Frame rate on a real laptop has never been measured. Only your machine can tell us whether `#town` holds 60 frames a second.
+
+**Questions for you**
+- Does `#town` hold a smooth frame rate on your laptop?
+- Is the seasonal light too subtle, and is the sound the right kind of quiet?
+- Does the bread line warn at the right moment, or does it nag?
+- Should a demo you've built in warn before you leave it, rather than dropping the changes?
+- Is money piling up acceptable for now?
+- What should the next phase be?
+
 ## Slice 6 — Shrine and theatre (16 Oct)
 
 The town gets its first taste of the gods and the stage: a shrine sends a priestess out with an offering bowl, a theatre sends an actor out with a mask, and cottages they reach climb to two-storey townhouses and then to fine houses round a little courtyard. You weren't here while it was built: every choice below is mine, from the spec's defaults.
