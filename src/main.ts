@@ -29,6 +29,9 @@ interface Probe {
   frames: number;
   bakeMs: number;
   startMs: number;
+  /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
+  readyAt?: number;
+  firstFrameAt?: number;
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
@@ -439,10 +442,12 @@ function start(): void {
     renderer.render(world.scene, camera);
     floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);
     probe.frames++;
+    if (probe.frames === 1) probe.firstFrameAt = performance.now();
   });
 
   document.getElementById('loading')?.classList.add('gone');
   probe.startMs = performance.now() - t0;
+  probe.readyAt = performance.now();
   probe.ready = true;
 }
 

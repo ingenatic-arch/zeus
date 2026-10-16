@@ -36,8 +36,13 @@ await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout:
 const tReady = Date.now() - t0;
 await page.waitForFunction(() => window.__zeus.frames > 1, null, { timeout: 120000 });
 const tFirstFrames = Date.now() - t0;
-const probe = await page.evaluate(() => ({ bake: window.__zeus.bakeMs, start: window.__zeus.startMs }));
-console.log(`load (local, headless): ready in ${tReady} ms, two frames drawn by ${tFirstFrames} ms; coast bake ${probe.bake.toFixed(0)} ms, scene build total ${probe.start.toFixed(0)} ms`);
+const probe = await page.evaluate(() => ({ bake: window.__zeus.bakeMs, start: window.__zeus.startMs, readyAt: window.__zeus.readyAt, firstFrameAt: window.__zeus.firstFrameAt }));
+// The page's own clock: when the game was ready and drew its first frame. Playwright only sees "ready"
+// at its next poll, after the first frames under software rendering (about a second each), so its
+// figure runs 1-2 s later than the game's own.
+console.log(
+  `load (local, headless): ready at ${probe.readyAt.toFixed(0)} ms and first frame drawn at ${probe.firstFrameAt.toFixed(0)} ms by the page's clock (Playwright saw ready at ${tReady} ms, two frames by ${tFirstFrames} ms); coast bake ${probe.bake.toFixed(0)} ms, scene build total ${probe.start.toFixed(0)} ms`,
+);
 
 for (const cam of ['coast', 'overview', 'river', 'street', 'bay']) {
   await page.evaluate((c) => window.__zeus.setView(c), cam);

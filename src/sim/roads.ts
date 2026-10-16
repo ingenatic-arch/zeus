@@ -4,7 +4,7 @@
  * Pure and deterministic (neighbours are always visited in the same order).
  */
 import type { CoastMap } from '../map/bake';
-import { BRIDGE_COST, bridgeSpan, Ground, isEdgeTile, mapIndex, ROAD_COST, roadRefusal } from './build';
+import { bridgeSpan, Ground, isEdgeTile, mapIndex, roadRefusal } from './build';
 import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
 
 export interface Search {
@@ -218,8 +218,13 @@ class Heap {
 
 const TURN_COST = 0.6;
 const ROAD_STEP_COST = 0.35;
-/** Each tile of a new bridge, as a route cost: dearer than land, as it is in drachmas. */
-const BRIDGE_STEP_COST = BRIDGE_COST / ROAD_COST / 4;
+/**
+ * Each tile of a new bridge, as a route cost: the same as a new tile of road
+ * on land. (When it was dearer, a drag straight across the river a few rows
+ * from an existing bridge went round over the old one instead; the label
+ * shows the drachmas either way.)
+ */
+const BRIDGE_STEP_COST = 1;
 
 /** Can a new road run over this tile (or does one already, a bridge included)? */
 export function roadPassable(map: CoastMap, s: SimState, t: number): boolean {

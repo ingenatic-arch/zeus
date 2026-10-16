@@ -12,7 +12,7 @@ import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STAL
 import { DECLINE_AFTER, missing } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
-import { roadsBeside } from './rounds';
+import { distFrom, roadsBeside } from './rounds';
 import type { Building, SimState, Walker } from './state';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 
@@ -137,6 +137,10 @@ export function workersLine(s: SimState, map: CoastMap, b: Building): string {
   if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}`;
   if (b.workers === 0) {
     if (roadsBeside(s, map.size, b).length === 0) return `No workers · it needs ${jobs}, and a road beside it`;
+    // Homes joined to it by road, whose workers all work somewhere nearer their homes.
+    const dist = distFrom(s, map.size, b);
+    const joined = s.buildings.some((h) => canWork(h) > 0 && roadsBeside(s, map.size, h).some((t) => dist[t] >= 0));
+    if (joined) return `No workers · it needs ${jobs}; everyone who can reach it already works somewhere nearer home · more homes nearby would help`;
     return `No workers · it needs ${jobs} from homes joined to it by road`;
   }
   return `Short of workers: ${b.workers} of ${jobs} · working at ${Math.round(rateOf(b) * 100)}% · more homes nearby would help`;
@@ -179,6 +183,10 @@ export function farmStatus(s: SimState, map: CoastMap, f: Building): Status {
   if (carts) barn += ` · ${carts === 1 ? 'a cart' : `${carts} carts`} on the road`;
   else if (f.stock > 0 && !s.buildings.some((g) => g.kind === 'granary')) barn += ' · build a granary for the carts to take it to';
   else if (f.stock > 0 && !s.buildings.some((g) => g.kind === 'granary' && roomIn(g) > 0)) barn += ' · every granary is full';
+  else if (f.stock > 0) {
+    const search = roadSearch(s, map.size, roadsBeside(s, map.size, f));
+    if (!s.buildings.some((g) => g.kind === 'granary' && nearestReached(search, roadsBeside(s, map.size, g)) >= 0)) barn += ' · no road joins it to a granary';
+  }
   return { title, detail: lines(workersLine(s, map, f), crop, barn) };
 }
 
@@ -205,6 +213,10 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
   if (p) porter = p.back ? `The porter is bringing ${fmt(p.load)} measures from the granary` : 'The porter is on his way to the granary for grain';
   else if (!s.buildings.some((g) => g.kind === 'granary')) porter = 'Build a granary: the porter fetches the stall’s grain from it';
   else if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0) && a.stock <= STALL_LOW) porter = 'The porter waits: no granary has any grain';
+  else if (a.stock <= STALL_LOW) {
+    const search = roadSearch(s, map.size, roadsBeside(s, map.size, a));
+    if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0 && nearestReached(search, roadsBeside(s, map.size, g)) >= 0)) porter = 'The porter can’t go: no road joins the agora to a granary with grain';
+  }
   return { title, detail: lines(workersLine(s, map, a), vendor, porter) };
 }
 

@@ -272,6 +272,15 @@ describe('bridges', () => {
     expect(before - sim.state.money).toBe(10 * ROAD_COST + 7 * BRIDGE_COST);
   });
 
+  it('a drag straight across near an existing bridge builds a new one rather than going round over the old', () => {
+    const sim = new Sim(1);
+    sim.enqueue({ type: 'road', tiles: [...Array.from({ length: 6 }, (_, i) => T(26, 36 + i)), ...roadRoute(map, sim.state, T(26, 41), T(44, 41))!, T(27, 36), T(28, 36), T(29, 36)] });
+    sim.step();
+    expect(row(31, 37, 41).every((t) => isBridge(map, sim.state, t))).toBe(true);
+    const route = roadRoute(map, sim.state, T(29, 36), T(40, 36));
+    expect(route).toEqual(row(29, 40, 36));
+  });
+
   it('refuses a span too wide, the sea, or one not on the drag’s line', () => {
     const s = new Sim(1).state;
     // Too wide on the lower river.
