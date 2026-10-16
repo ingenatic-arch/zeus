@@ -27,6 +27,18 @@ export const VIEWS: Record<string, CameraView> = {
   carrier: { x: 27, z: 79, yaw: 0.9, dist: 8, tilt: 0.03 },
   // Over the town of tents, ready to place a fountain.
   fountain: { x: 25, z: 74, yaw: 0.35, dist: 34, tilt: -0.18 },
+  // The food town: the agora by the junction, cottages round it, the farm road running off to the fields.
+  food: { x: 29, z: 68, yaw: 0.75, dist: 26, tilt: -0.1 },
+  // Street level by the agora (the camera then follows the food vendor).
+  vendor: { x: 28, z: 70, yaw: 0.9, dist: 8, tilt: 0.03 },
+  // Low over the wheat farms by the river, the farm road and the granary beyond.
+  harvest: { x: 46, z: 63, yaw: -0.6, dist: 14, tilt: -0.02 },
+  // The whole chain from above: the fields by the river, the granary, the agora and the town.
+  chain: { x: 37, z: 68, yaw: 0.35, dist: 46, tilt: -0.3 },
+  // The farms, granary and agora just built in a town of tents, short of workers.
+  workers: { x: 38, z: 66, yaw: 0.45, dist: 30, tilt: -0.15 },
+  // The timber bridge over the river, the farms on the far bank.
+  bridge: { x: 34, z: 42, yaw: -0.35, dist: 15, tilt: -0.05 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

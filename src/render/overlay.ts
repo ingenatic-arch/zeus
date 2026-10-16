@@ -1,31 +1,58 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { PLOT_SIZE } from '../sim/build';
-import { roadSearch } from '../sim/roads';
-import { TILE_ROAD, type SimState } from '../sim/state';
-import { CARRIER_RANGE, roadsBeside, waterReach, WATER_LASTS } from '../sim/water';
-import { WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
+import { sideOf } from '../sim/buildings';
+import { eatsBread, FOOD_LASTS, VENDOR_RANGE } from '../sim/food';
+import { roadSearch, type Search } from '../sim/roads';
+import { roadsBeside } from '../sim/rounds';
+import { TILE_ROAD, type Building, type BuildingKind, type Service, type SimState } from '../sim/state';
+import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
+import { FOOD_FARM, FOOD_GRANARY, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
 const REFRESH = 0.25;
 
+/** What each service's overlay reads: where its walkers start, how far they go, how long it lasts, and which homes want it. */
+interface Mode {
+  source: BuildingKind;
+  range: number;
+  lasts: number;
+  until: (b: Building) => number;
+  wants: (b: Building) => boolean;
+}
+
+const MODES: Record<Service, Mode> = {
+  water: { source: 'fountain', range: CARRIER_RANGE, lasts: WATER_LASTS, until: (b) => b.waterUntil, wants: (b) => b.kind === 'home' && b.level > 0 },
+  food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => b.foodUntil, wants: eatsBread },
+};
+
+/** How far by road each road tile is from the nearest building of a kind (dist -1: none reaches it). */
+export function reachOf(s: SimState, size: number, kind: BuildingKind): Search {
+  if (kind === 'fountain') return waterReach(s, size);
+  const sources: number[] = [];
+  for (const b of s.buildings) if (b.kind === kind) sources.push(...roadsBeside(s, size, b));
+  return roadSearch(s, size, sources);
+}
+
 /**
- * The water overlay: road tiles in a water carrier's reach and the homes'
- * water, tinted on the ground (through the placing overlay's texture), and a
- * column over every lived-in home: blue, as tall as its water is fresh, or a
- * short terracotta stub where there is none. While a fountain is being
- * placed it also shows what the new one would reach.
+ * The water and food overlays: road tiles in a service walker's reach and
+ * the homes' supply, tinted on the ground (through the placing overlay's
+ * texture), and a column over every home that wants it: blue for water,
+ * gold for food, as tall as its supply is fresh, or a short stub where there
+ * is none. While a fountain or agora is being placed it also shows what the
+ * new one would reach. The food overlay marks farms and granaries too, so
+ * the chain from field to stall reads at a glance.
  */
-export class WaterOverlay {
+export class ServiceOverlay {
   readonly group = new THREE.Group();
-  /** Shown because the player asked for it. */
-  wanted = false;
-  /** Shown because a tool needs it (placing a fountain). */
-  forced = false;
+  /** Which overlay the player asked for, if any. */
+  wanted: Service | null = null;
+  /** Which one a tool needs (placing a fountain or an agora), if any. */
+  forced: Service | null = null;
   private columns: THREE.InstancedMesh;
   private readonly codes: Uint8Array;
   private last = -Infinity;
   private lastRev = -1;
+  private lastMode: Service | null = null;
   private preview: number[] | null = null;
   private previewKey = '';
   private readonly m = new THREE.Matrix4();
@@ -33,20 +60,21 @@ export class WaterOverlay {
   private readonly p = new THREE.Vector3();
   private readonly s = new THREE.Vector3();
   private readonly c = new THREE.Color();
-  private readonly wet = new THREE.Color('#3f8fe0');
-  private readonly fresh = new THREE.Color('#8fd8ff');
-  private readonly dry = new THREE.Color('#d8643a');
+  private readonly tones: Record<Service, { has: THREE.Color; fresh: THREE.Color; none: THREE.Color }> = {
+    water: { has: new THREE.Color('#3f8fe0'), fresh: new THREE.Color('#8fd8ff'), none: new THREE.Color('#d8643a') },
+    food: { has: new THREE.Color('#e09a26'), fresh: new THREE.Color('#ffe08a'), none: new THREE.Color('#9a4a6a') },
+  };
 
   constructor(
     private readonly map: CoastMap,
     private readonly placement: Placement,
   ) {
-    this.group.name = 'water-overlay';
+    this.group.name = 'service-overlay';
     this.codes = new Uint8Array(map.size * map.size);
     const geo = new THREE.CylinderGeometry(0.1, 0.11, 1, 6).translate(0, 0.5, 0);
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0, flatShading: true, emissive: new THREE.Color('#203a55'), emissiveIntensity: 0.25 });
     this.columns = new THREE.InstancedMesh(geo, mat, 256);
-    this.columns.name = 'water-columns';
+    this.columns.name = 'overlay-columns';
     this.columns.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(256 * 3), 3);
     this.columns.count = 0;
     this.columns.frustumCulled = false;
@@ -54,11 +82,21 @@ export class WaterOverlay {
     this.group.visible = false;
   }
 
-  get on(): boolean {
-    return this.wanted || this.forced;
+  /** The overlay showing now: a tool's comes first. */
+  get mode(): Service | null {
+    return this.forced ?? this.wanted;
   }
 
-  /** Road tiles beside a fountain being placed (its reach is previewed), or null. */
+  get on(): boolean {
+    return this.mode !== null;
+  }
+
+  /** Show this overlay, or hide it if it is the one showing. */
+  toggle(m: Service): void {
+    this.wanted = this.wanted === m ? null : m;
+  }
+
+  /** Road tiles beside a fountain or agora being placed (its reach is previewed), or null. */
   setPreview(sources: number[] | null): void {
     const key = sources ? sources.join(',') : '';
     if (key === this.previewKey) return;
@@ -68,58 +106,63 @@ export class WaterOverlay {
   }
 
   update(s: SimState, time: number): void {
-    const on = this.on;
-    this.group.visible = on;
-    this.placement.showOverlay(on);
-    if (!on) return;
-    if (time - this.last < REFRESH && s.rev === this.lastRev) return;
+    const mode = this.mode;
+    this.group.visible = mode !== null;
+    this.placement.showOverlay(mode !== null, mode === 'food');
+    if (!mode) return;
+    if (time - this.last < REFRESH && s.rev === this.lastRev && mode === this.lastMode) return;
     this.last = time;
     this.lastRev = s.rev;
-    this.refresh(s);
+    this.lastMode = mode;
+    this.refresh(s, mode);
   }
 
-  private refresh(s: SimState): void {
+  private refresh(s: SimState, service: Service): void {
     const size = this.map.size;
+    const mode = MODES[service];
     const codes = this.codes;
     codes.fill(0);
-    const reach = waterReach(s, size);
+    const reach = reachOf(s, size, mode.source);
+    const walkedAt = s.rounds[service].walked;
     const pre = this.preview ? roadSearch(s, size, this.preview).dist : null;
     for (let t = 0; t < codes.length; t++) {
-      const on = s.tiles[t];
-      if (on !== TILE_ROAD) continue;
+      if (s.tiles[t] !== TILE_ROAD) continue;
       const d = reach.dist[t];
-      if (d >= 0 && d <= CARRIER_RANGE) {
-        const k = Math.round(99 * (1 - d / (CARRIER_RANGE + 1)));
-        const walked = s.rounds.water.walked[t] > 0 && s.tick - s.rounds.water.walked[t] < WATER_LASTS;
+      if (d >= 0 && d <= mode.range) {
+        const k = Math.round(99 * (1 - d / (mode.range + 1)));
+        const walked = walkedAt[t] > 0 && s.tick - walkedAt[t] < mode.lasts;
         codes[t] = (walked ? WATER_WALKED : WATER_REACH) + k;
-      } else if (pre && pre[t] >= 0 && pre[t] <= CARRIER_RANGE) codes[t] = WATER_PREVIEW;
+      } else if (pre && pre[t] >= 0 && pre[t] <= mode.range) codes[t] = WATER_PREVIEW;
     }
     let n = 0;
     const need = s.buildings.length;
-    if (need > this.columnsCap()) this.grow(need);
+    if (need > this.columns.instanceMatrix.count) this.grow(need);
+    const tone = this.tones[service];
     for (const b of s.buildings) {
       let code = 0;
-      if (b.kind === 'fountain') code = WATER_FOUNTAIN;
-      else if (b.level > 0) {
-        const left = b.waterUntil - s.tick;
-        const k = left > 0 ? Math.min(1, left / WATER_LASTS) : 0;
+      if (b.kind === mode.source) code = WATER_FOUNTAIN;
+      else if (service === 'food' && b.kind === 'farm') code = FOOD_FARM;
+      else if (service === 'food' && b.kind === 'granary') code = FOOD_GRANARY;
+      else if (mode.wants(b)) {
+        const left = mode.until(b) - s.tick;
+        const k = left > 0 ? Math.min(1, left / mode.lasts) : 0;
         code = left > 0 ? WATER_HOME + Math.round(39 * k) : WATER_DRY;
-        // The column.
-        const cx = b.x + PLOT_SIZE / 2;
-        const cz = b.z + PLOT_SIZE / 2;
-        const y = this.map.heightAt(cx, cz) + (b.level >= 2 ? 1.3 : 1.0);
+        const cx = b.x + 1;
+        const cz = b.z + 1;
+        const y = this.map.heightAt(cx, cz) + (b.level >= 3 ? 1.45 : b.level >= 2 ? 1.3 : 1.0);
         const h = left > 0 ? 0.2 + 0.7 * k : 0.22;
         this.p.set(cx, y, cz);
         this.s.set(left > 0 ? 1 : 1.5, h, left > 0 ? 1 : 1.5);
         this.m.compose(this.p, this.q, this.s);
         this.columns.setMatrixAt(n, this.m);
-        if (left > 0) this.c.copy(this.wet).lerp(this.fresh, k * 0.6);
-        else this.c.copy(this.dry);
+        if (left > 0) this.c.copy(tone.has).lerp(tone.fresh, k * 0.6);
+        else this.c.copy(tone.none);
         this.columns.setColorAt(n, this.c);
         n++;
       }
       if (!code) continue;
-      for (let dz = 0; dz < PLOT_SIZE; dz++) for (let dx = 0; dx < PLOT_SIZE; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+      const side = sideOf(b.kind);
+      for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }
     this.columns.count = n;
     this.columns.instanceMatrix.needsUpdate = true;
@@ -127,12 +170,8 @@ export class WaterOverlay {
     this.placement.setOverlay(codes);
   }
 
-  private columnsCap(): number {
-    return this.columns.instanceMatrix.count;
-  }
-
   private grow(need: number): void {
-    const cap = Math.max(need, this.columnsCap() * 2);
+    const cap = Math.max(need, this.columns.instanceMatrix.count * 2);
     const old = this.columns;
     const mesh = new THREE.InstancedMesh(old.geometry, old.material, cap);
     mesh.name = old.name;
@@ -145,17 +184,21 @@ export class WaterOverlay {
   }
 }
 
-/** Homes a new fountain with these roadside tiles would reach, and how many of them have no water now. */
-export function previewReach(s: SimState, size: number, sources: number[]): { homes: number; dry: number } {
+/**
+ * Homes a new fountain or agora with these roadside tiles would reach, and
+ * how many of them have no water (or food) now.
+ */
+export function previewReach(s: SimState, size: number, sources: number[], service: Service = 'water'): { homes: number; dry: number } {
   if (sources.length === 0) return { homes: 0, dry: 0 };
+  const mode = MODES[service];
   const dist = roadSearch(s, size, sources).dist;
   let homes = 0;
   let dry = 0;
   for (const b of s.buildings) {
-    if (b.kind !== 'home' || b.level === 0) continue;
-    if (!roadsBeside(s, size, b).some((t) => dist[t] >= 0 && dist[t] <= CARRIER_RANGE)) continue;
+    if (!mode.wants(b)) continue;
+    if (!roadsBeside(s, size, b).some((t) => dist[t] >= 0 && dist[t] <= mode.range)) continue;
     homes++;
-    if (b.waterUntil <= s.tick) dry++;
+    if (mode.until(b) <= s.tick) dry++;
   }
   return { homes, dry };
 }

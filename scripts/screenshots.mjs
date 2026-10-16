@@ -25,6 +25,14 @@ const SHOTS = {
   'water-overlay': '#water-overlay-paused',
   carrier: '#carrier-shot',
   fountain: '#fountain-paused',
+  food: '#food-paused-shot',
+  'food-ui': '#food-paused',
+  'food-overlay': '#food-overlay-paused',
+  vendor: '#vendor-shot',
+  harvest: '#harvest-paused-shot',
+  chain: '#chain-paused',
+  workers: '#workers-paused',
+  bridge: '#bridge-paused-shot',
 };
 
 const want = process.argv.slice(2);

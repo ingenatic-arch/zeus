@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { PLOT_SIZE } from '../sim/build';
+import { sideOf } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { PAL } from './palette';
@@ -15,7 +16,7 @@ export const HOME_CHUNK = 32;
 // origin, the footprint spans -1..1, and the doorway faces +x.
 
 /** A ridge tent: a triangular prism along x, open at neither end. */
-function prism(len: number, halfW: number, h: number): THREE.BufferGeometry {
+export function prism(len: number, halfW: number, h: number): THREE.BufferGeometry {
   const a = -len / 2;
   const b = len / 2;
   const p = [
@@ -40,7 +41,7 @@ function doorway(w: number, h: number, x: number): THREE.BufferGeometry {
   return g;
 }
 
-const cyl = (r0: number, r1: number, h: number, seg: number): THREE.CylinderGeometry => new THREE.CylinderGeometry(r0, r1, h, seg);
+export const cyl = (r0: number, r1: number, h: number, seg: number): THREE.CylinderGeometry => new THREE.CylinderGeometry(r0, r1, h, seg);
 
 function campfire(x: number, z: number, seed: number): Part[] {
   const parts: Part[] = [];
@@ -55,7 +56,7 @@ function campfire(x: number, z: number, seed: number): Part[] {
   return parts;
 }
 
-function amphora(x: number, z: number, h: number): Part {
+export function amphora(x: number, z: number, h: number): Part {
   const pts = [
     new THREE.Vector2(0.0, 0),
     new THREE.Vector2(0.03, 0.01),
@@ -127,7 +128,7 @@ function segment(a: THREE.Vector3, b: THREE.Vector3, r: number): THREE.BufferGeo
 }
 
 /** A low wall of rough stones, from (x0, z0) to (x1, z1). */
-function stoneWall(x0: number, z0: number, x1: number, z1: number, seed: number): Part[] {
+export function stoneWall(x0: number, z0: number, x1: number, z1: number, seed: number): Part[] {
   const parts: Part[] = [];
   const len = Math.hypot(x1 - x0, z1 - z0);
   const n = Math.max(2, Math.round(len / 0.12));
@@ -143,7 +144,7 @@ function stoneWall(x0: number, z0: number, x1: number, z1: number, seed: number)
 }
 
 /** A stack of split logs along z. */
-function woodpile(x: number, z: number): Part[] {
+export function woodpile(x: number, z: number): Part[] {
   const parts: Part[] = [];
   for (let row = 0; row < 3; row++) {
     for (let k = 0; k < 3 - row; k++) {
@@ -221,6 +222,106 @@ function hutB(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+/** A shuttered window on a wall facing +x (or, turned, any way): a dark pane between two blue shutters. */
+export function windowX(x: number, y: number, z: number): Part[] {
+  return [
+    { geo: new THREE.BoxGeometry(0.025, 0.13, 0.11).translate(x, y, z), color: PAL.door },
+    { geo: new THREE.BoxGeometry(0.02, 0.14, 0.055).translate(x + 0.012, y, z - 0.085), color: PAL.shutter },
+    { geo: new THREE.BoxGeometry(0.02, 0.14, 0.055).translate(x + 0.012, y, z + 0.085), color: PAL.shutter },
+  ];
+}
+
+/**
+ * A cottage: whitewashed walls on a stone footing under a terracotta tiled
+ * roof whose long side faces the road, a door between blue-shuttered windows,
+ * and a small walled yard with an olive tree, a bench and a storage jar.
+ * Kept lean (about the triangles of a hut).
+ */
+function cottageA(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const cx = -0.28;
+  const cz = -0.2;
+  const dx = 0.8;
+  const dz = 1.16;
+  const h = 0.56;
+  parts.push({ geo: new THREE.BoxGeometry(dx + 0.08, 0.08, dz + 0.08).translate(cx, 0.04, cz), color: PAL.plinth });
+  parts.push({ geo: new THREE.BoxGeometry(dx, h, dz).translate(cx, 0.08 + h / 2, cz), color: PAL.whitewash });
+  // The roof: a gable along z, a little overhang, a darker ridge.
+  const top = 0.08 + h;
+  parts.push({ geo: prism(dz + 0.16, dx / 2 + 0.1, 0.34).rotateY(Math.PI / 2).translate(cx, top, cz), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.03, 0.03, dz + 0.18, 5).rotateX(Math.PI / 2).translate(cx, top + 0.34, cz), color: PAL.roofTileDark });
+  // Courses of tiles: two darker lines along each slope.
+  for (const side of [-1, 1]) {
+    for (const k of [0.33, 0.66]) {
+      const y = top + 0.34 * (1 - k);
+      const x = cx + side * (dx / 2 + 0.1) * k;
+      parts.push({ geo: new THREE.BoxGeometry(0.03, 0.02, dz + 0.16).rotateZ(side * 0.69).translate(x, y + 0.012, cz), color: PAL.roofTileDark });
+    }
+  }
+  // The gable ends, whitewashed.
+  const gable = new THREE.BufferGeometry();
+  const gx = dx / 2;
+  gable.setAttribute('position', new THREE.Float32BufferAttribute([-gx, 0, 0, gx, 0, 0, 0, 0.32, 0, gx, 0, 0, -gx, 0, 0, 0, 0.32, 0], 3));
+  parts.push({ geo: gable.clone().translate(cx, top, cz + dz / 2 + 0.001), color: PAL.whitewashShade });
+  parts.push({ geo: gable.translate(cx, top, cz - dz / 2 - 0.001), color: PAL.whitewashShade });
+  // The door facing +x, a step, and windows either side.
+  const fx = cx + dx / 2;
+  parts.push({ geo: new THREE.BoxGeometry(0.03, 0.34, 0.2).translate(fx + 0.004, 0.08 + 0.17, cz), color: PAL.door });
+  parts.push({ geo: new THREE.BoxGeometry(0.1, 0.04, 0.28).translate(fx + 0.05, 0.02, cz), color: PAL.plinth });
+  parts.push(...windowX(fx + 0.004, 0.42, cz - 0.36), ...windowX(fx + 0.004, 0.42, cz + 0.36));
+  // The yard beside it: a low whitewashed wall, an olive tree, a bench and a jar.
+  parts.push({ geo: new THREE.BoxGeometry(1.5, 0.16, 0.07).translate(-0.18, 0.08, 0.9), color: PAL.whitewash });
+  parts.push({ geo: new THREE.BoxGeometry(0.07, 0.16, 0.5).translate(0.55, 0.08, 0.67), color: PAL.whitewash });
+  parts.push({ geo: cyl(0.03, 0.045, 0.34, 5).translate(-0.5, 0.17, 0.62), color: PAL.trunk });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.2, 0), 0.3, 141).scale(1.2, 0.8, 1.1).translate(-0.5, 0.42, 0.62), color: PAL.oliveLeaf });
+  parts.push({ geo: new THREE.BoxGeometry(0.3, 0.035, 0.1).translate(0.12, 0.13, 0.78), color: PAL.wood });
+  parts.push({ geo: new THREE.BoxGeometry(0.03, 0.12, 0.08).translate(0.0, 0.06, 0.78), color: PAL.woodDark });
+  parts.push({ geo: new THREE.BoxGeometry(0.03, 0.12, 0.08).translate(0.24, 0.06, 0.78), color: PAL.woodDark });
+  parts.push(amphora(0.3, -0.72, 0.22));
+  parts.push({ geo: new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(0.06, 0.01), new THREE.Vector2(0.11, 0.12), new THREE.Vector2(0.09, 0.23), new THREE.Vector2(0.05, 0.27)], 6).translate(0.62, 0, -0.5), color: PAL.pithos });
+  return merge(parts);
+}
+
+/**
+ * A squarer cottage under a hipped tile roof, with a vine-covered pergola on
+ * posts by the door, a bench beneath it, pots of herbs and a jar.
+ */
+function cottageB(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const cx = -0.3;
+  const cz = -0.1;
+  const w = 0.92;
+  const h = 0.54;
+  parts.push({ geo: new THREE.BoxGeometry(w + 0.08, 0.08, w + 0.08).translate(cx, 0.04, cz), color: PAL.plinth });
+  parts.push({ geo: new THREE.BoxGeometry(w, h, w).translate(cx, 0.08 + h / 2, cz), color: PAL.whitewash });
+  const top = 0.08 + h;
+  parts.push({ geo: new THREE.ConeGeometry((w / 2 + 0.11) * Math.SQRT2, 0.38, 4, 1).rotateY(Math.PI / 4).translate(cx, top + 0.19, cz), color: PAL.roofTile });
+  parts.push({ geo: new THREE.BoxGeometry(w + 0.2, 0.035, w + 0.2).translate(cx, top + 0.01, cz), color: PAL.roofTileDark });
+  const fx = cx + w / 2;
+  parts.push({ geo: new THREE.BoxGeometry(0.03, 0.34, 0.2).translate(fx + 0.004, 0.08 + 0.17, cz + 0.15), color: PAL.door });
+  parts.push(...windowX(fx + 0.004, 0.42, cz - 0.22));
+  // A window on the side.
+  parts.push({ geo: new THREE.BoxGeometry(0.12, 0.13, 0.025).translate(cx - 0.1, 0.42, cz - w / 2 - 0.004), color: PAL.door });
+  // The pergola: four posts, two beams, a roof of vine leaves.
+  const px0 = fx + 0.05;
+  const px1 = fx + 0.55;
+  const pz0 = cz + 0.0;
+  const pz1 = cz + 0.75;
+  for (const [x, z] of [[px0, pz0], [px1, pz0], [px0, pz1], [px1, pz1]]) parts.push({ geo: cyl(0.018, 0.018, 0.5, 4).translate(x, 0.25, z), color: PAL.wood });
+  parts.push({ geo: new THREE.BoxGeometry(0.04, 0.03, 0.82).translate(px0, 0.5, (pz0 + pz1) / 2), color: PAL.woodDark });
+  parts.push({ geo: new THREE.BoxGeometry(0.04, 0.03, 0.82).translate(px1, 0.5, (pz0 + pz1) / 2), color: PAL.woodDark });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.62, 0.07, 0.86, 2, 1, 2), 0.25, 151).translate((px0 + px1) / 2, 0.55, (pz0 + pz1) / 2), color: PAL.scrub });
+  parts.push({ geo: new THREE.BoxGeometry(0.1, 0.035, 0.36).translate(px0 + 0.12, 0.13, (pz0 + pz1) / 2 + 0.05), color: PAL.wood });
+  // Pots of herbs and a jar.
+  for (const [x, z, k] of [[-0.85, 0.62, 0], [-0.62, 0.72, 1]]) {
+    parts.push({ geo: cyl(0.05, 0.04, 0.08, 6).translate(x, 0.04, z), color: PAL.pot });
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.06, 0), 0.3, 160 + k).translate(x, 0.12, z), color: PAL.scrubDark });
+  }
+  parts.push(amphora(0.62, -0.72, 0.22));
+  parts.push(amphora(0.48, -0.8, 0.17));
+  return merge(parts);
+}
+
 /**
  * The fountain: a paved square with a round stone basin of water, a column in
  * the middle with a bowl that spills water back down in four streams, and a
@@ -275,16 +376,25 @@ function stake(): THREE.BufferGeometry {
 
 // ---------------------------------------------------------------------------
 
-/** Which way a home's doorway faces: towards a road beside it if there is one. */
-function facing(s: SimState, size: number, b: Building): number {
+/**
+ * Which way a building's front (its doorway) faces: towards a road beside it
+ * if there is one, trying the east side, then south, north and west. The
+ * model's front is +x; the yaw turns +x to (cos, -sin).
+ */
+export function facingOf(s: SimState, size: number, b: Building): number {
+  const n = sideOf(b.kind);
   const road = (tx: number, tz: number): boolean => tx >= 0 && tz >= 0 && tx < size && tz < size && s.tiles[tz * size + tx] === TILE_ROAD;
-  // +x is the model's front; yaw turns +x to (cos, -sin).
-  if (road(b.x + PLOT_SIZE, b.z) || road(b.x + PLOT_SIZE, b.z + 1)) return 0;
-  if (road(b.x, b.z + PLOT_SIZE) || road(b.x + 1, b.z + PLOT_SIZE)) return -Math.PI / 2;
-  if (road(b.x, b.z - 1) || road(b.x + 1, b.z - 1)) return Math.PI / 2;
-  if (road(b.x - 1, b.z) || road(b.x - 1, b.z + 1)) return Math.PI;
+  const any = (f: (d: number) => boolean): boolean => {
+    for (let d = 0; d < n; d++) if (f(d)) return true;
+    return false;
+  };
+  if (any((d) => road(b.x + n, b.z + d))) return 0;
+  if (any((d) => road(b.x + d, b.z + n))) return -Math.PI / 2;
+  if (any((d) => road(b.x + d, b.z - 1))) return Math.PI / 2;
+  if (any((d) => road(b.x - 1, b.z + d))) return Math.PI;
   return Math.floor(hash2(b.id, 3, 41) * 4) * (Math.PI / 2);
 }
+const facing = facingOf;
 
 const RISE_SECONDS = 0.9;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -293,8 +403,10 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TENT_FIRES = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
 const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0.62)];
 
-type Look = 'stakes' | 'tent' | 'hut' | 'fountain';
-const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.level === 0 ? 'stakes' : b.level === 1 ? 'tent' : 'hut');
+type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'fountain';
+const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.level === 0 ? 'stakes' : b.level === 1 ? 'tent' : b.level === 2 ? 'hut' : 'cottage');
+/** Homes and fountains are drawn here; the farm, granary and agora by Works. */
+const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain';
 
 /**
  * Stakes on empty plots, tents and huts on lived-in ones, and fountains,
@@ -306,6 +418,7 @@ export class Homes {
   readonly group = new THREE.Group();
   private readonly tents: ChunkedInstances[];
   private readonly huts: ChunkedInstances[];
+  private readonly cottages: ChunkedInstances[];
   private readonly fountains: ChunkedInstances[];
   private readonly stakes: ChunkedInstances;
   /** Buildings by chunk, as last seen. */
@@ -331,6 +444,7 @@ export class Homes {
     const opts = { castShadow: true, receiveShadow: true, colors: false };
     this.tents = [new ChunkedInstances('tent-a', tentA(), mat, HOME_CHUNK, opts), new ChunkedInstances('tent-b', tentB(), mat, HOME_CHUNK, opts)];
     this.huts = [new ChunkedInstances('hut-a', hutA(), mat, HOME_CHUNK, opts), new ChunkedInstances('hut-b', hutB(), mat, HOME_CHUNK, opts)];
+    this.cottages = [new ChunkedInstances('cottage-a', cottageA(), mat, HOME_CHUNK, opts), new ChunkedInstances('cottage-b', cottageB(), mat, HOME_CHUNK, opts)];
     const f = fountainModel();
     const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.2, metalness: 0, emissive: new THREE.Color('#1d6f86'), emissiveIntensity: 0.35 });
     this.fountains = [
@@ -338,7 +452,7 @@ export class Homes {
       new ChunkedInstances('fountain-water', f.water, waterMat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false }),
     ];
     this.stakes = new ChunkedInstances('stakes', stake(), mat, HOME_CHUNK, opts);
-    for (const t of [...this.tents, ...this.huts, ...this.fountains]) this.group.add(t.group);
+    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     const puff = new THREE.IcosahedronGeometry(1, 0);
     const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
@@ -384,6 +498,7 @@ export class Homes {
     const dirty = new Set<number>();
     const now = new Map<number, { sig: string; key: number }>();
     for (const b of s.buildings) {
+      if (!drawnHere(b)) continue;
       const k = this.key(b);
       const list = next.get(k);
       if (list) list.push(b);
@@ -429,12 +544,14 @@ export class Homes {
     const kz = (Math.floor(key / 1024) - 512 + 0.5) * HOME_CHUNK;
     const tentsBy: Building[][] = [[], []];
     const hutsBy: Building[][] = [[], []];
+    const cottagesBy: Building[][] = [[], []];
     const fountains: Building[] = [];
     const plots: Building[] = [];
     for (const b of list) {
       const look = lookOf(b);
       if (look === 'tent') tentsBy[Math.floor(hash2(b.id, 1, 40) * 2)].push(b);
       else if (look === 'hut') hutsBy[Math.floor(hash2(b.id, 6, 40) * 2)].push(b);
+      else if (look === 'cottage') cottagesBy[Math.floor(hash2(b.id, 7, 40) * 2)].push(b);
       else if (look === 'fountain') fountains.push(b);
       else plots.push(b);
     }
@@ -463,10 +580,10 @@ export class Homes {
       m.compose(p, q, sc);
       return k;
     };
-    const homes = (sets: Building[][], meshes: ChunkedInstances[], fireAt: THREE.Vector3[]): void => {
+    const homes = (sets: Building[][], meshes: ChunkedInstances[], fireAt: THREE.Vector3[] | null): void => {
       sets.forEach((bs, v) => {
         meshes[v].set(kx, kz, bs.length, (i, m) => {
-          if (place(bs[i], m, true) === 1) {
+          if (place(bs[i], m, true) === 1 && fireAt) {
             fp.copy(fireAt[v]).applyMatrix4(m);
             fires.push([fp.x, map.heightAt(fp.x, fp.z), fp.z, hash2(bs[i].id, 5, 42)]);
           }
@@ -475,6 +592,7 @@ export class Homes {
     };
     homes(tentsBy, this.tents, TENT_FIRES);
     homes(hutsBy, this.huts, HUT_FIRES);
+    homes(cottagesBy, this.cottages, null);
     for (const mesh of this.fountains) mesh.set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
     this.fires.set(key, fires);
     const corners: Array<[number, number]> = [];

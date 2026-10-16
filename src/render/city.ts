@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import type { SimState } from '../sim/state';
-import { Homes } from './homes';
+import { Bridges } from './bridges';
+import { facingOf, Homes } from './homes';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
+import { Works } from './works';
 
 /**
  * Everything the player has built and everyone walking about, read from the
@@ -16,6 +18,8 @@ export class CityView {
   readonly streets: Streets;
   readonly homes: Homes;
   readonly walkers: Walkers;
+  readonly works: Works;
+  readonly bridges: Bridges;
   private rev = -1;
   private tiles: number[] = [];
   private buildingsKey = '';
@@ -28,12 +32,16 @@ export class CityView {
     this.streets = new Streets(map);
     this.homes = new Homes(map);
     this.walkers = new Walkers(map);
-    this.group.add(this.streets.group, this.homes.group, this.walkers.group);
+    this.works = new Works(map);
+    this.bridges = new Bridges(map);
+    this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group);
   }
 
   update(s: SimState, alpha: number, time: number): void {
     if (s.rev !== this.rev) this.sync(s);
     this.homes.update(time, s.wind.angle);
+    this.works.update(s, time);
     this.walkers.update(s, alpha, time);
   }
 
@@ -54,8 +62,9 @@ export class CityView {
         if (x >= 0 && z >= 0 && x < size && z < size) dirty.add(this.streets.chunkKey(x, z));
       }
     }
-    // Homes changing level re-draw their patch of ground.
-    const key = s.buildings.map((b) => `${b.id}:${b.kind}:${b.level}`).join(',');
+    // Homes changing level re-draw their patch of ground; so does a farm, granary or agora turning to face a new road.
+    const size2 = this.map.size;
+    const key = s.buildings.map((b) => `${b.id}:${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' ? '' : ':' + facingOf(s, size2, b).toFixed(1)}`).join(',');
     if (key !== this.buildingsKey) {
       for (const b of s.buildings) dirty.add(this.streets.chunkKey(b.x, b.z));
       this.buildingsKey = key;
@@ -63,6 +72,7 @@ export class CityView {
     this.tiles = s.tiles.slice();
     this.streets.rebuild(s, dirty);
     this.homes.sync(s, !first);
+    this.bridges.sync(s);
     this.plants.sync(s.cleared);
   }
 }

@@ -7,7 +7,7 @@
 import type { CoastMap } from '../map/bake';
 import { fertilityOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from './buildings';
-import { TICKS_PER_DAY } from './clock';
+import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
 import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, VENDOR_RANGE, VENDOR_WALK } from './food';
 import { DECLINE_AFTER, missing } from './houses';
 import { canWork, rateOf } from './labour';
@@ -23,6 +23,8 @@ export interface Status {
 
 const days = (ticks: number): string => {
   const d = Math.max(1, Math.ceil(ticks / TICKS_PER_DAY));
+  // Long waits read better in months.
+  if (d > 60) return `${Math.round(d / DAYS_PER_MONTH)} months`;
   return d === 1 ? '1 day' : `${d} days`;
 };
 

@@ -87,6 +87,106 @@ function carrier(): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/**
+ * The food vendor: a woman in a saffron dress (the tinted part) with a pale
+ * headscarf, carrying a wide flat basket of round loaves on her head.
+ */
+function vendor(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.3, 7).translate(0, 0.16, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.03, 0.04, 0.1, 7, 1, true).translate(0, 0.3, 0), color: PAL.vendorScarf },
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(-0.2).translate(0.01, 0.23, -0.07), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.17, 4).rotateX(0.25).translate(0.0, 0.37, 0.07), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.72, 1).translate(-0.014, 0.385, 0), color: PAL.vendorScarf },
+    // The basket and its loaves.
+    { geo: new THREE.CylinderGeometry(0.115, 0.08, 0.04, 8).translate(0, 0.435, 0), color: PAL.basket },
+  ];
+  for (const [x, z] of [[0.04, 0.03], [-0.04, 0.04], [0.0, -0.05], [-0.06, -0.02], [0.06, -0.03]]) {
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 0.6, 1).translate(x, 0.47, z), color: PAL.loaf });
+  }
+  return mergeTinted(parts);
+}
+
+/** Legs of a beast or a person: four (or two) thin posts. */
+const leg = (x: number, z: number, h: number, r: number, color: string): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color });
+
+/**
+ * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
+ * (tinted tunic) walking at the ox's head. `loaded` stacks sacks of wheat on
+ * the cart's bed.
+ */
+function oxCart(loaded: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [];
+  // The ox, facing +x.
+  const ox = 0.2;
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.4, 0.18, 0.17, 2, 1, 1), 0.1, 501).translate(ox, 0.27, 0), color: PAL.ox });
+  // A humped shoulder and a pale belly.
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.09, 0), 0.1, 504).scale(1, 0.8, 0.9).translate(ox + 0.1, 0.35, 0), color: PAL.ox });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.13, 0.11, 0.1), 0.08, 502).translate(ox + 0.26, 0.29, 0), color: PAL.ox });
+  parts.push({ geo: new THREE.BoxGeometry(0.06, 0.06, 0.08).translate(ox + 0.33, 0.26, 0), color: PAL.oxDark });
+  parts.push({ geo: new THREE.CylinderGeometry(0.009, 0.016, 0.2, 4).rotateX(Math.PI / 2).translate(ox + 0.25, 0.37, 0), color: PAL.horn });
+  for (const [x, z] of [[ox - 0.14, -0.055], [ox - 0.14, 0.055], [ox + 0.14, -0.055], [ox + 0.14, 0.055]]) parts.push(leg(x, z, 0.19, 0.026, PAL.oxDark));
+  parts.push({ geo: new THREE.BoxGeometry(0.03, 0.03, 0.24).translate(ox + 0.18, 0.38, 0), color: PAL.woodDark });
+  // The cart behind: a pole to the yoke, the bed, the wheels.
+  parts.push({ geo: new THREE.BoxGeometry(0.4, 0.025, 0.025).translate(ox - 0.12, 0.26, 0), color: PAL.cart });
+  const cx = -0.2;
+  parts.push({ geo: new THREE.BoxGeometry(0.32, 0.04, 0.26).translate(cx, 0.2, 0), color: PAL.cart });
+  parts.push({ geo: new THREE.BoxGeometry(0.32, 0.07, 0.02).translate(cx, 0.25, 0.125), color: PAL.woodDark });
+  parts.push({ geo: new THREE.BoxGeometry(0.32, 0.07, 0.02).translate(cx, 0.25, -0.125), color: PAL.woodDark });
+  for (const z of [-0.15, 0.15]) {
+    parts.push({ geo: new THREE.CylinderGeometry(0.12, 0.12, 0.03, 8).rotateX(Math.PI / 2).translate(cx, 0.12, z), color: PAL.woodDark });
+    parts.push({ geo: new THREE.CylinderGeometry(0.03, 0.03, 0.04, 6).rotateX(Math.PI / 2).translate(cx, 0.12, z), color: PAL.cart });
+  }
+  if (loaded) {
+    // Golden sheaves piled on the bed, lying across it, ears outward, bound with a darker band.
+    for (const [x, y, k] of [[-0.11, 0, 0], [-0.2, 0, 1], [-0.29, 0, 2], [-0.155, 0.06, 3], [-0.245, 0.06, 4], [-0.2, 0.115, 5]]) {
+      const tilt = (hash2(k, 1, 505) - 0.5) * 0.3;
+      parts.push({ geo: new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5).rotateX(Math.PI / 2 + tilt).translate(x, 0.26 + y, 0), color: k % 2 ? PAL.sheaf : PAL.wheatGold });
+      parts.push({ geo: new THREE.CylinderGeometry(0.04, 0.04, 0.025, 5).rotateX(Math.PI / 2).translate(x, 0.26 + y, 0), color: PAL.thatchDark });
+    }
+  }
+  // The driver, walking beside the ox with a goad.
+  const dz = 0.17;
+  const dx = 0.3;
+  parts.push(leg(dx, dz - 0.025, 0.11, 0.018, PAL.skin), leg(dx, dz + 0.025, 0.11, 0.018, PAL.skin));
+  parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.075, 0.19, 6).translate(dx, 0.19, dz), color: '', tint: true });
+  parts.push({ geo: new THREE.IcosahedronGeometry(0.052, 0).translate(dx, 0.33, dz), color: PAL.skin });
+  parts.push({ geo: new THREE.IcosahedronGeometry(0.054, 0).scale(1, 0.7, 1).translate(dx - 0.01, 0.355, dz), color: PAL.hair });
+  parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.006, 0.36, 3).rotateZ(-0.9).translate(dx + 0.1, 0.3, dz - 0.04), color: PAL.wood });
+  return mergeTinted(parts);
+}
+
+/**
+ * The porter: a man (tinted tunic) pushing a little two-wheeled handcart,
+ * with sacks of grain on it when `loaded`.
+ */
+function porter(loaded: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(-0.02, -0.03, 0.12, 0.02, PAL.skin),
+    leg(-0.02, 0.03, 0.12, 0.02, PAL.skin),
+    { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.21, 6).rotateZ(-0.15).translate(0, 0.205, 0), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.058, 0).translate(0.03, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.7, 1).translate(0.018, 0.385, 0), color: PAL.hair },
+    // Arms reaching to the handles.
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.16, 4).rotateZ(-1.1).translate(0.08, 0.25, 0.07), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.16, 4).rotateZ(-1.1).translate(0.08, 0.25, -0.07), color: PAL.skin },
+  ];
+  // The handcart ahead of him.
+  const cx = 0.32;
+  parts.push({ geo: new THREE.BoxGeometry(0.24, 0.03, 0.2).translate(cx, 0.15, 0), color: PAL.cart });
+  parts.push({ geo: new THREE.BoxGeometry(0.24, 0.05, 0.015).translate(cx, 0.18, 0.1), color: PAL.woodDark });
+  parts.push({ geo: new THREE.BoxGeometry(0.24, 0.05, 0.015).translate(cx, 0.18, -0.1), color: PAL.woodDark });
+  for (const z of [-0.08, 0.08]) parts.push({ geo: new THREE.BoxGeometry(0.2, 0.015, 0.015).rotateZ(-0.35).translate(0.15, 0.21, z), color: PAL.cart });
+  for (const z of [-0.12, 0.12]) parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.025, 8).rotateX(Math.PI / 2).translate(cx + 0.02, 0.08, z), color: PAL.woodDark });
+  if (loaded) {
+    for (const [x, z, y] of [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]]) {
+      parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.065, 0), 0.15, 511).scale(1.15, 0.8, 0.85).translate(x, 0.21 + y, z), color: PAL.sack });
+    }
+  }
+  return mergeTinted(parts);
+}
+
 const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];
 
 function tintedMaterial(): THREE.MeshStandardMaterial {
@@ -101,13 +201,23 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
   return mat;
 }
 
-/** Settler and leaver groups and water carriers walking the roads, redrawn every frame. */
+/** The kinds of walker with a job (all but settlers and leavers). */
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter';
+
+/** Settler and leaver groups, water carriers, food vendors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {
   readonly group = new THREE.Group();
   private readonly kinds: [ChunkedInstances, ChunkedInstances];
   private readonly carriers: ChunkedInstances;
-  /** Where each water carrier was drawn this frame (for hovering, clicking and following). */
-  readonly carrierAt = new Map<number, THREE.Vector3>();
+  private readonly vendors: ChunkedInstances;
+  /** Ox carts and porters: [empty, loaded]. */
+  private readonly carts: [ChunkedInstances, ChunkedInstances];
+  private readonly porters: [ChunkedInstances, ChunkedInstances];
+  private readonly all: ChunkedInstances[];
+  /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
+  readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
+  /** The height of the ground (or a bridge's deck) a walker stands on. */
+  ground: (x: number, z: number) => number;
   private readonly paths = new Map<number, { route: number; cum: Float32Array }>();
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
@@ -116,18 +226,24 @@ export class Walkers {
   private readonly c = new THREE.Color();
   private readonly e = new THREE.Euler();
 
-  constructor(private readonly map: CoastMap) {
+  constructor(map: CoastMap) {
     this.group.name = 'walkers';
+    this.ground = (x, z) => map.heightAt(x, z);
     const mat = tintedMaterial();
     const opts = { castShadow: true, receiveShadow: true, colors: true };
     this.kinds = [new ChunkedInstances('walkers-head', person('head'), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-back', person('back'), mat, WALKER_CHUNK, opts)];
-    for (const k of this.kinds) this.group.add(k.group);
     this.carriers = new ChunkedInstances('walkers-water', carrier(), mat, WALKER_CHUNK, opts);
-    this.group.add(this.carriers.group);
+    this.vendors = new ChunkedInstances('walkers-food', vendor(), mat, WALKER_CHUNK, opts);
+    this.carts = [new ChunkedInstances('walkers-cart', oxCart(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-cart-loaded', oxCart(true), mat, WALKER_CHUNK, opts)];
+    this.porters = [new ChunkedInstances('walkers-porter', porter(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-porter-loaded', porter(true), mat, WALKER_CHUNK, opts)];
+    this.all = [...this.kinds, this.carriers, this.vendors, ...this.carts, ...this.porters];
+    for (const k of this.all) this.group.add(k.group);
   }
 
   get count(): number {
-    return this.kinds[0].count + this.kinds[1].count + this.carriers.count;
+    let n = 0;
+    for (const k of this.all) n += k.count;
+    return n;
   }
 
   private cum(w: Walker): Float32Array {
@@ -157,30 +273,37 @@ export class Walkers {
   }
 
   update(state: SimState, alpha: number, time: number): void {
-    for (const k of this.kinds) k.begin();
-    this.carriers.begin();
+    for (const k of this.all) k.begin();
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
+    const saffron = col(PAL.vendorDress);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
       const total = cum[cum.length - 1];
       const lead = Math.min(total, cum[w.seg] + w.along + alpha * speedOf(w));
-      if (w.kind === 'water') {
+      if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
-        const phase = time * 8 + w.id * 1.3;
-        const moving = lead < total ? 1 : 0;
-        // A steadier walk than the settlers': she is carrying a full jar.
-        const bob = Math.abs(Math.sin(phase)) * 0.012 * moving;
-        this.e.set(Math.sin(phase) * 0.03 * moving, Math.atan2(-dz, dx), 0, 'YXZ');
+        const moving = lead < total && w.wait <= 0 ? 1 : 0;
+        const cart = w.kind === 'cart';
+        const phase = time * (cart ? 5 : 8) + w.id * 1.3;
+        // A steadier walk than the settlers': she carries a full jar or basket; the cart rocks gently.
+        const bob = Math.abs(Math.sin(phase)) * (cart ? 0.006 : 0.012) * moving;
+        this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
-        this.p.set(x, this.map.heightAt(x, z) + 0.03 + bob, z);
-        this.s.set(0.9, 0.9, 0.9);
+        this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
+        const sc = w.kind === 'water' || w.kind === 'food' ? 0.9 : 0.95;
+        this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
-        this.carriers.push(this.m, dress);
-        const v = this.carrierAt.get(w.id);
-        if (v) v.copy(this.p);
-        else this.carrierAt.set(w.id, this.p.clone());
+        if (w.kind === 'water') this.carriers.push(this.m, dress);
+        else if (w.kind === 'food') this.vendors.push(this.m, saffron);
+        else {
+          this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
+          (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, this.c);
+        }
+        const v = this.serviceAt.get(w.id);
+        if (v) v.pos.copy(this.p);
+        else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: w.kind });
         continue;
       }
       for (let k = 0; k < w.people; k++) {
@@ -198,16 +321,15 @@ export class Walkers {
         const sc = child ? 0.66 : 0.84 + 0.1 * hash2(seed, 1, 61);
         this.e.set(Math.sin(phase) * 0.06 * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
-        this.p.set(x, this.map.heightAt(x, z) + 0.03 + bob, z);
+        this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         this.c.copy(col(TUNICS[Math.floor(hash2(seed, 2, 62) * TUNICS.length)]));
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);
       }
     }
-    for (const k of this.kinds) k.end();
-    this.carriers.end();
+    for (const k of this.all) k.end();
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);
-    for (const id of this.carrierAt.keys()) if (!live.has(id)) this.carrierAt.delete(id);
+    for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
   }
 }

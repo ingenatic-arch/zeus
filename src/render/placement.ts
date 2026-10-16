@@ -20,6 +20,9 @@ export const WATER_PREVIEW = 201;
 export const WATER_HOME = 210;
 export const WATER_DRY = 250;
 export const WATER_FOUNTAIN = 252;
+/** In the food overlay (the same codes, in gold), and these two besides: a farm, a granary. */
+export const FOOD_FARM = 253;
+export const FOOD_GRANARY = 254;
 
 const vertex = /* glsl */ `
   varying vec3 vWorld;
@@ -41,7 +44,11 @@ const fragment = /* glsl */ `
   uniform float uTime;
   uniform float uGrid;
   uniform float uOverlay;
+  uniform float uFood;
   varying vec3 vWorld;
+
+  // The water overlay's blues, or the food overlay's golds.
+  vec3 tone(vec3 water, vec3 food) { return mix(water, food, uFood); }
 
   void main() {
     vec2 p = vWorld.xz;
@@ -64,19 +71,23 @@ const fragment = /* glsl */ `
     float edge = smoothstep(0.30, 0.48, max(f.x, f.y));
     if (o > 0.5 && o < 100.5) {
       float k = (o - 1.0) / 99.0;
-      col = vec4(0.36, 0.64, 0.95, 0.16 + 0.26 * k);
+      col = vec4(tone(vec3(0.36, 0.64, 0.95), vec3(0.95, 0.74, 0.3)), 0.16 + 0.26 * k);
     } else if (o > 100.5 && o < 200.5) {
       float k = (o - 101.0) / 99.0;
-      col = vec4(0.22, 0.72, 1.0, 0.34 + 0.34 * k);
+      col = vec4(tone(vec3(0.22, 0.72, 1.0), vec3(1.0, 0.66, 0.12)), 0.34 + 0.34 * k);
     } else if (o > 200.5 && o < 201.5) {
-      col = vec4(0.2, 0.62, 1.0, 0.5 + 0.15 * sin(uTime * 4.0));
+      col = vec4(tone(vec3(0.2, 0.62, 1.0), vec3(1.0, 0.7, 0.2)), 0.5 + 0.15 * sin(uTime * 4.0));
     } else if (o > 209.5 && o < 249.5) {
       float k = (o - 210.0) / 39.0;
-      col = vec4(0.2, 0.5, 0.95, (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
+      col = vec4(tone(vec3(0.2, 0.5, 0.95), vec3(0.92, 0.62, 0.14)), (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
     } else if (o > 249.5 && o < 250.5) {
-      col = vec4(0.86, 0.36, 0.2, 0.42 * (0.7 + 0.3 * edge));
+      col = vec4(tone(vec3(0.86, 0.36, 0.2), vec3(0.62, 0.3, 0.42)), 0.42 * (0.7 + 0.3 * edge));
     } else if (o > 251.5 && o < 252.5) {
-      col = vec4(0.3, 0.82, 1.0, 0.6);
+      col = vec4(tone(vec3(0.3, 0.82, 1.0), vec3(1.0, 0.82, 0.3)), 0.6);
+    } else if (o > 252.5 && o < 253.5) {
+      col = vec4(0.7, 0.82, 0.28, 0.45 * (0.7 + 0.3 * edge));
+    } else if (o > 253.5 && o < 254.5) {
+      col = vec4(0.95, 0.85, 0.45, 0.5 * (0.7 + 0.3 * edge));
     }
     if (o > 0.5) col.rgb = mix(col.rgb, vec3(1.0, 0.97, 0.88), line * 0.5 * near);
 
@@ -133,6 +144,7 @@ export class Placement {
       uTime: { value: 0 },
       uGrid: { value: 0 },
       uOverlay: { value: 0 },
+      uFood: { value: 0 },
     };
     const mat = new THREE.ShaderMaterial({
       vertexShader: vertex,
@@ -149,6 +161,35 @@ export class Placement {
     this.mesh.renderOrder = 2;
     this.mesh.visible = false;
     this.mesh.frustumCulled = false;
+    // Marks over the river (a bridge being dragged) float at the deck's height, above the water.
+    const tile = new THREE.PlaneGeometry(0.92, 0.92).rotateX(-Math.PI / 2);
+    this.lifted = new THREE.InstancedMesh(tile, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false }), 32);
+    this.lifted.name = 'placement-lifted';
+    this.lifted.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(32 * 3), 3);
+    this.lifted.count = 0;
+    this.lifted.frustumCulled = false;
+    this.lifted.renderOrder = 3;
+    this.mesh.add(this.lifted);
+  }
+
+  private readonly lifted: THREE.InstancedMesh;
+
+  /** Marks drawn in the air over water: tile centres at a height, good or bad. */
+  setLifted(marks: ReadonlyArray<{ x: number; z: number; y: number; bad: boolean }>): void {
+    const m = new THREE.Matrix4();
+    const ok = new THREE.Color(1.0, 0.97, 0.85);
+    const bad = new THREE.Color(0.9, 0.22, 0.14);
+    const n = Math.min(marks.length, this.lifted.instanceMatrix.count);
+    for (let i = 0; i < n; i++) {
+      const k = marks[i];
+      m.makeTranslation(k.x, k.y, k.z);
+      this.lifted.setMatrixAt(i, m);
+      this.lifted.setColorAt(i, k.bad ? bad : ok);
+    }
+    if (this.lifted.count === 0 && n === 0) return;
+    this.lifted.count = n;
+    this.lifted.instanceMatrix.needsUpdate = true;
+    if (this.lifted.instanceColor) this.lifted.instanceColor.needsUpdate = true;
   }
 
   private tool = false;
@@ -162,8 +203,9 @@ export class Placement {
     this.mesh.visible = this.tool || this.overlay;
   }
 
-  /** The water overlay on or off. */
-  showOverlay(on: boolean): void {
+  /** The water overlay (or, with food, the food overlay) on or off. */
+  showOverlay(on: boolean, food = false): void {
+    this.uniforms.uFood.value = food ? 1 : 0;
     this.overlay = on;
     this.uniforms.uOverlay.value = on ? 1 : 0;
     this.mesh.visible = this.tool || this.overlay;

@@ -36,10 +36,10 @@ export const CART_GAP = 30;
 /** What a granary holds. */
 export const GRANARY_CAP = 3200;
 /** What the agora's food stall holds, and how low it gets before the porter goes for more. */
-export const STALL_CAP = 400;
-export const STALL_LOW = 200;
+export const STALL_CAP = 800;
+export const STALL_LOW = 400;
 /** What the porter's handcart carries. */
-export const PORTER_LOAD = 200;
+export const PORTER_LOAD = 400;
 /** Ticks a fully staffed granary takes to unload a cart or load a porter. */
 export const HANDLE = 40;
 /** Ticks the porter waits after coming back with nothing before trying again. */

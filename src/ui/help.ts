@@ -32,9 +32,12 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     </dl>
     <h2 style="margin-top:12px">Building</h2>
     <dl>
-      <dt>T</dt><dd>Road: drag to lay it</dd>
+      <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road</dd>
+      <dt>M</dt><dd>Wheat farm: on the green land by the river</dd>
+      <dt>G</dt><dd>Granary: where the farms' carts take the wheat</dd>
+      <dt>K</dt><dd>Agora: its food vendor sells bread to huts</dd>
       <dt>X</dt><dd>Clear land: drag over it</dd>
       <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
@@ -42,8 +45,9 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     <h2 style="margin-top:12px">Looking</h2>
     <dl>
       <dt>O</dt><dd>The water overlay: where water reaches</dd>
-      <dt>Hover</dt><dd>A home says who lives there and what reaches it</dd>
-      <dt>Click</dt><dd>A water carrier or her fountain: follow her (drag or Esc to stop)</dd>
+      <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms and granaries</dd>
+      <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
+      <dt>Click</dt><dd>A walker with a job, or where she works: follow her (drag or Esc to stop)</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

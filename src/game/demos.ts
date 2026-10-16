@@ -5,8 +5,19 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { Sim } from '../sim/sim';
+import type { Service } from '../sim/state';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
+
+/**
+ * How far the food demos have got: a town of cottages; one field ripe for
+ * harvest while carts take the others' to the granary; the chain built early
+ * in a town of tents, short of hands; carts crossing the bridge.
+ */
+const FOOD_TICKS = 3600;
+const HARVEST_TICKS = 3790;
+const WORKERS_TICKS = 420;
+const BRIDGE_TICKS = 2200;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -14,8 +25,12 @@ export interface Demo {
   speed?: Speed;
   /** A tool picked from the start. */
   tool?: ToolName;
-  /** The camera follows the first water carrier. */
-  follow?: boolean;
+  /** The camera follows the first walker of this kind (or waits at her workplace). */
+  follow?: 'water' | 'food' | 'cart' | 'porter';
+  /** Which overlay `-overlay` shows for this demo (water if not given). */
+  overlay?: Service;
+  /** An overlay shown from the start, without `-overlay`. */
+  opensWith?: Service;
   setup?: (sim: Sim) => void;
 }
 
@@ -55,9 +70,9 @@ function neighbourhood(ticks: number): (sim: Sim) => void {
  * the reach of a fountain by the junction. With `fountain`, one goes in by
  * the junction once the first tents are up. `ticks` sets how far it has got.
  */
-function waterTown(ticks: number, fountain: boolean): (sim: Sim) => void {
+function waterTown(ticks: number, fountain: boolean, food?: (at: At) => void): (sim: Sim) => void {
   return (sim) => {
-    const at = (t: number, c: Parameters<Sim['enqueue']>[0]): void => {
+    const at: At = (t, c) => {
       if (sim.state.tick < t) sim.run(t - sim.state.tick);
       sim.enqueue(c);
       sim.flush();
@@ -74,14 +89,51 @@ function waterTown(ticks: number, fountain: boolean): (sim: Sim) => void {
         T(27, 76),
         T(27, 74),
         ...[27, 29, 31, 33].map((x) => T(x, 68)),
-        ...[27, 29, 31, 33].map((x) => T(x, 71)),
+        // (With food, the agora takes the first two of these.)
+        ...(food ? [31, 33] : [27, 29, 31, 33]).map((x) => T(x, 71)),
         // Up the lane: two pairs near the junction, three pairs at its far end.
         ...[66, 64, 46, 44, 42].flatMap((z) => [T(24, z), T(27, z)]),
       ],
     });
     if (fountain) at(300, { type: 'fountain', at: [T(27, 81)] });
+    food?.(at);
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
   };
+}
+
+type At = (t: number, c: Parameters<Sim['enqueue']>[0]) => void;
+
+/**
+ * The water town given bread: once its huts are going up, a farm road runs
+ * east from the lane to the fertile land by the river, with three wheat
+ * farms on it and a granary half way, and an agora goes in by the junction
+ * of the town's streets. `ticks` sets how far it has got.
+ */
+function foodTown(ticks: number, start = 400, stagger = 200): (sim: Sim) => void {
+  return waterTown(ticks, true, (at) => {
+    at(start, { type: 'road', tiles: row(27, 50, 63) });
+    at(start, { type: 'build', kind: 'farm', at: [T(47, 60)] });
+    at(start, { type: 'build', kind: 'granary', at: [T(35, 64)] });
+    at(start, { type: 'build', kind: 'agora', at: [T(27, 71)] });
+    // The other two farms a little later, so their crops ripen in turn.
+    at(start + stagger, { type: 'build', kind: 'farm', at: [T(44, 60)] });
+    at(start + 2 * stagger, { type: 'build', kind: 'farm', at: [T(48, 64)] });
+  });
+}
+
+/**
+ * The food town's farms across the river instead: the lane carries on north
+ * to a road that bridges the river (seven tiles of water and wet bank) to
+ * the fertile east bank, with farms either side of it there and the granary
+ * on the town's side. The ox carts cross the bridge.
+ */
+function bridgeTown(ticks: number): (sim: Sim) => void {
+  return waterTown(ticks, true, (at) => {
+    at(400, { type: 'road', tiles: [...col(26, 41, 41), ...row(27, 48, 41)] });
+    at(400, { type: 'build', kind: 'farm', at: [T(38, 38), T(41, 42), T(44, 42)] });
+    at(400, { type: 'build', kind: 'granary', at: [T(27, 38)] });
+    at(400, { type: 'build', kind: 'agora', at: [T(27, 71)] });
+  });
 }
 
 export const DEMOS: Record<string, Demo> = {
@@ -90,6 +142,12 @@ export const DEMOS: Record<string, Demo> = {
   settlers: { view: 'settlers', setup: neighbourhood(230) },
   build: { view: 'build', tool: 'road' },
   water: { view: 'water', setup: waterTown(1500, true) },
-  carrier: { view: 'carrier', setup: waterTown(1500, true), follow: true },
+  carrier: { view: 'carrier', setup: waterTown(1500, true), follow: 'water' },
   fountain: { view: 'fountain', tool: 'fountain', setup: waterTown(700, false) },
+  food: { view: 'food', setup: foodTown(FOOD_TICKS), overlay: 'food' },
+  vendor: { view: 'vendor', setup: foodTown(FOOD_TICKS), follow: 'food', overlay: 'food' },
+  harvest: { view: 'harvest', setup: foodTown(HARVEST_TICKS), overlay: 'food' },
+  chain: { view: 'chain', setup: foodTown(FOOD_TICKS), overlay: 'food', opensWith: 'food' },
+  workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0), overlay: 'food' },
+  bridge: { view: 'bridge', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
 };

@@ -9,14 +9,15 @@ import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
-import { WaterOverlay } from './render/overlay';
+import { ServiceOverlay } from './render/overlay';
 import { Placement } from './render/placement';
 import { World } from './render/world';
-import { PLOT_SIZE } from './sim/build';
-import { findBuilding } from './sim/buildings';
+import { isBridge } from './sim/build';
+import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
+import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
-import { carrierStatus, homeStatus, type Status } from './sim/status';
-import type { Building } from './sim/state';
+import { homeStatus, walkerStatus, type Status } from './sim/status';
+import type { Building, Walker } from './sim/state';
 import { Sim } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
@@ -40,15 +41,31 @@ interface Probe {
     homes: number;
     tents: number;
     huts: number;
+    cottages: number;
     fountains: number;
+    farms: number;
+    granaries: number;
+    agoras: number;
     carriers: number;
+    vendors: number;
+    carts: number;
+    porters: number;
     watered: number;
+    fed: number;
+    jobs: number;
+    filled: number;
+    barns: number;
+    stored: number;
+    stall: number;
+    bridges: number;
+    rent: number;
     walkers: number;
     people: number;
     roads: number;
     cleared: number;
     tool: string | null;
     overlay: boolean;
+    overlayMode: string | null;
     following: boolean;
     routes: number;
     markWrites: number;
@@ -56,6 +73,8 @@ interface Probe {
   };
   /** Screen position of the first water carrier, if one is out. */
   carrier?: () => { x: number; y: number } | null;
+  /** Screen position of the first walker of a kind (water, food, cart, porter), if one is out. */
+  walker?: (kind: string) => { x: number; y: number } | null;
   /** The text of the pointer tip, if it shows. */
   tipText?: () => string | null;
   tool?: (t: string | null) => void;
@@ -98,8 +117,8 @@ function start(): void {
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
-  const overlay = new WaterOverlay(map, placement);
-  overlay.wanted = launch.overlay;
+  const overlay = new ServiceOverlay(map, placement);
+  overlay.wanted = launch.overlay ? (demo?.overlay ?? 'water') : (demo?.opensWith ?? null);
   world.scene.add(overlay.group);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   const rig = new CameraRig(camera, map, view);
@@ -110,25 +129,22 @@ function start(): void {
   const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
-  const toggleWater = (): void => {
-    overlay.wanted = !overlay.wanted;
-  };
-  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), toggleWater);
+  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
   tools.onChange((t) => bar.showTool(t));
   const floaters = new Floaters(ui);
   const followChip = document.createElement('div');
   followChip.className = 'follow-chip';
   followChip.hidden = true;
-  followChip.textContent = 'Following the water carrier · drag the map or press Esc to stop';
   ui.appendChild(followChip);
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter' };
 
-  /** The water carrier nearest a screen point (within a few pixels), if any. */
-  const carrierNear = (sx: number, sy: number): number => {
+  /** The walker with a job nearest a screen point (within a few pixels), if any. */
+  const walkerNear = (sx: number, sy: number): number => {
     const r = canvas.getBoundingClientRect();
     let best = -1;
     let bd = 22 * 22;
     const v = new THREE.Vector3();
-    for (const [id, pos] of city.walkers.carrierAt) {
+    for (const [id, { pos }] of city.walkers.serviceAt) {
       v.copy(pos).setY(pos.y + 0.3).project(camera);
       if (v.z > 1) continue;
       const dx = r.left + (v.x * 0.5 + 0.5) * r.width - sx;
@@ -146,22 +162,29 @@ function start(): void {
     const on = sim.state.tiles[Math.floor(world.z) * n + Math.floor(world.x)];
     return on > 0 ? findBuilding(sim.state, on) : undefined;
   };
+  const bridgeAtPointer = (world: { x: number; z: number } | null): boolean => {
+    const n = map.size;
+    if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return false;
+    return isBridge(map, sim.state, Math.floor(world.z) * n + Math.floor(world.x));
+  };
   const showStatus = (st: Status, sx: number, sy: number): void => tip.show(st.detail ? `${st.title}\n${st.detail}` : st.title, sx, sy);
 
-  // With no tool picked, hovering a home says who lives there and what reaches it; a fountain or its carrier, what she's doing.
+  // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
-    const c = carrierNear(sx, sy);
+    const c = walkerNear(sx, sy);
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
-    if (w) return showStatus(carrierStatus(w), sx, sy);
+    const ws = w ? walkerStatus(sim.state, w) : null;
+    if (ws) return showStatus(ws, sx, sy);
     const b = buildingAt(world);
-    if (!b) return tip.show(null);
+    if (!b) return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
     showStatus(homeStatus(sim.state, map, b), sx, sy);
   };
 
-  // Following a water carrier: through her rests and new rounds, until the player moves the view.
-  let follow: { fountain: number; pans: number } | null = null;
-  const startFollow = (fountain: number): void => {
-    follow = { fountain, pans: rig.pans };
+  // Following a walker with a job: through her rests and new rounds (the next one from the same place), until the player moves the view.
+  let follow: { walker: number; origin: number; kind: Walker['kind']; pans: number } | null = null;
+  const startFollow = (origin: number, kind: Walker['kind'], walker = 0): void => {
+    follow = { walker, origin, kind, pans: rig.pans };
+    followChip.textContent = `Following ${WALKER_NAMES[kind] ?? 'them'} · drag the map or press Esc to stop`;
     followChip.hidden = false;
   };
   const stopFollow = (): void => {
@@ -171,14 +194,27 @@ function start(): void {
   const updateFollow = (): void => {
     if (!follow) return;
     if (rig.pans !== follow.pans) return stopFollow();
-    const f = findBuilding(sim.state, follow.fountain);
+    const f = findBuilding(sim.state, follow.origin);
     if (!f) return stopFollow();
-    const pos = city.walkers.carrierAt.get(f.walker);
-    if (pos) rig.follow(pos.x, pos.z);
-    else rig.follow(f.x + 1, f.z + 1);
+    let at = city.walkers.serviceAt.get(follow.walker);
+    if (!at) {
+      // Her round is over: the next one out from the same place, if any.
+      const next = sim.state.walkers.find((o) => o.origin === f.id && o.kind === follow?.kind);
+      if (next) {
+        follow.walker = next.id;
+        at = city.walkers.serviceAt.get(next.id);
+      }
+    }
+    if (at) rig.follow(at.pos.x, at.pos.z);
+    else {
+      const [cx, cz] = centreOf(f);
+      rig.follow(cx, cz);
+    }
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
-  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', x: 'clear' };
+  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', x: 'clear' };
+  /** What clicking a workplace follows. */
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -195,12 +231,13 @@ function start(): void {
       else stopFollow();
     },
     click(w, sx, sy) {
-      // A water carrier, or a fountain: follow her.
-      const c = carrierNear(sx, sy);
+      // A walker with a job, or the fountain, agora or farm she works from: follow her.
+      const c = walkerNear(sx, sy);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
-      if (walker) return startFollow(walker.origin);
+      if (walker) return startFollow(walker.origin, walker.kind, walker.id);
       const b = buildingAt(w);
-      if (b?.kind === 'fountain') startFollow(b.id);
+      const kind = b ? FOLLOWS[b.kind] : undefined;
+      if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
     },
     key(k) {
       if (k === 'undo' || k === 'u') {
@@ -208,7 +245,11 @@ function start(): void {
         return true;
       }
       if (k === 'o') {
-        toggleWater();
+        overlay.toggle('water');
+        return true;
+      }
+      if (k === 'l') {
+        overlay.toggle('food');
         return true;
       }
       const t = TOOL_KEYS[k];
@@ -225,8 +266,11 @@ function start(): void {
   const pollKeys = attachInput(canvas, rig, driver, () => corner.toggleHelp(), pointerTools);
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
-    const f = sim.state.buildings.find((b) => b.kind === 'fountain');
-    if (f) startFollow(f.id);
+    const kind = demo.follow;
+    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : 'farm';
+    const w = sim.state.walkers.find((o) => o.kind === kind);
+    const f = w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from);
+    if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
 
   const resize = (): void => {
@@ -265,34 +309,54 @@ function start(): void {
   probe.city = () => {
     const s = sim.state;
     const homes = s.buildings.filter((b) => b.kind === 'home');
+    const of = (k: Building['kind']): Building[] => s.buildings.filter((b) => b.kind === k);
+    const sum = (bs: Building[]): number => bs.reduce((a, b) => a + b.stock, 0);
+    const wf = workforce(s);
     return {
       population: s.population,
       money: s.money,
       homes: homes.length,
       tents: homes.filter((b) => b.level === 1).length,
       huts: homes.filter((b) => b.level === 2).length,
-      fountains: s.buildings.length - homes.length,
+      cottages: homes.filter((b) => b.level === 3).length,
+      fountains: of('fountain').length,
+      farms: of('farm').length,
+      granaries: of('granary').length,
+      agoras: of('agora').length,
       carriers: s.walkers.filter((w) => w.kind === 'water').length,
+      vendors: s.walkers.filter((w) => w.kind === 'food').length,
+      carts: s.walkers.filter((w) => w.kind === 'cart').length,
+      porters: s.walkers.filter((w) => w.kind === 'porter').length,
       watered: homes.filter((b) => b.waterUntil > s.tick).length,
+      fed: homes.filter((b) => b.foodUntil > s.tick).length,
+      jobs: wf.jobs,
+      filled: wf.filled,
+      barns: sum(of('farm')),
+      stored: sum(of('granary')),
+      stall: sum(of('agora')),
+      bridges: s.tiles.filter((_, t) => isBridge(map, s, t)).length,
+      rent: s.rent.paid,
       walkers: s.walkers.length,
       people: city.walkers.count,
       roads: s.tiles.filter((t) => t === -1).length,
       cleared: s.cleared.length,
       tool: tools.tool,
       overlay: overlay.on,
+      overlayMode: overlay.mode,
       following: follow !== null,
       routes: tools.routesFound,
       markWrites: placement.markWrites,
       homesRefilled: city.homes.lastRefilled,
     };
   };
-  probe.carrier = () => {
-    const first = [...city.walkers.carrierAt.values()][0];
+  probe.walker = (kind: string) => {
+    const first = [...city.walkers.serviceAt.values()].find((o) => o.kind === kind)?.pos;
     if (!first) return null;
     const v = first.clone().setY(first.y + 0.3).project(camera);
     const r = canvas.getBoundingClientRect();
     return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
   };
+  probe.carrier = () => probe.walker?.('water') ?? null;
   probe.tipText = () => {
     const el = document.querySelector('.pointer-tip') as HTMLElement | null;
     return el && !el.hidden ? (el.dataset.text ?? el.textContent) : null;
@@ -315,6 +379,7 @@ function start(): void {
   let seenRev = sim.state.rev;
   // The population's tooltip says how often newcomers are coming, and why.
   let outlookAt = -Infinity;
+  let workRev = -1;
 
   let last = performance.now();
   let time = 0;
@@ -333,24 +398,30 @@ function start(): void {
       seenRev = s.rev;
       for (const b of s.buildings) {
         const before = known.get(b.id) ?? { people: 0, level: 0 };
-        const cx = b.x + PLOT_SIZE / 2;
-        const cz = b.z + PLOT_SIZE / 2;
+        const [cx, cz] = centreOf(b);
         const at = new THREE.Vector3(cx, map.heightAt(cx, cz), cz);
         if (b.people > before.people) floaters.add(`+${b.people - before.people}`, at, time);
         if (b.kind === 'home' && b.level === 2 && before.level === 1) floaters.add('Hut', at.setY(at.y + 0.5), time, 'water');
         if (b.kind === 'home' && b.level === 1 && before.level === 2) floaters.add('Back to a tent', at.setY(at.y + 0.5), time, 'dry');
+        if (b.kind === 'home' && b.level === 3 && before.level === 2) floaters.add('Cottage', at.setY(at.y + 0.6), time, 'food');
+        if (b.kind === 'home' && b.level === 2 && before.level === 3) floaters.add('Back to a hut', at.setY(at.y + 0.6), time, 'dry');
       }
       remember();
     }
     if (time - outlookAt > 2) {
       outlookAt = time;
       topbar.setPeopleTip(arrivalOutlook(s, map));
+      topbar.setMoneyTip(s.rent);
+    }
+    if (s.rev !== workRev) {
+      workRev = s.rev;
+      topbar.showWork(workforce(s), BUILDING_NAMES);
     }
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
     updateFollow();
     overlay.update(s, time);
-    bar.showWater(overlay.on);
+    bar.showOverlay(overlay.mode);
     placement.update(time);
     tools.frame();
     topbar.showDate(sim.date);

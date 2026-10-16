@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { PLOT_SIZE } from '../sim/build';
+import { Ground, mapIndex, PLOT_SIZE } from '../sim/build';
+import { sideOf } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
+import { facingOf } from './homes';
 import { col, PAL } from './palette';
 
 /** Roads and the marked-out ground of plots are drawn in chunks of this many tiles. */
@@ -123,9 +125,11 @@ export class Streets {
     const x1 = Math.min(size, cx + STREET_CHUNK);
     const z1 = Math.min(size, cz + STREET_CHUNK);
     const vc = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+    const wet = mapIndex(map).ground;
     for (let tz = cz; tz < z1; tz++) {
       for (let tx = cx; tx < x1; tx++) {
-        if (!road(tx, tz)) continue;
+        // A bridge carries its own deck.
+        if (!road(tx, tz) || wet[tz * size + tx] === Ground.Water) continue;
         const main = splitsMainDiagonal(map.corner(tx, tz), map.corner(tx + 1, tz), map.corner(tx, tz + 1), map.corner(tx + 1, tz + 1));
         // Paving stones vary a little from tile to tile.
         const jit = 0.95 + 0.08 * hash2(tx, tz, 311);
@@ -164,7 +168,8 @@ export class Streets {
     // Plots: an outline marked on the grass, then trodden earth once a tent is up.
     for (const b of s.buildings) {
       if (b.x < cx || b.x >= x1 || b.z < cz || b.z >= z1) continue;
-      this.plotGround(b, quad, c);
+      if (sideOf(b.kind) === 3) this.worksGround(s, b, quad);
+      else this.plotGround(b, quad, c);
     }
     if (pos.length === 0) return null;
     const g = new THREE.BufferGeometry();
@@ -206,6 +211,74 @@ export class Streets {
         const za = z + dz * a;
         const zb = z + dz * b;
         quad(x - w, Math.min(za, zb), x + w, Math.max(za, zb), dz > 0 ? ca : cb, dz > 0 ? ca : cb, dz > 0 ? cb : ca, dz > 0 ? cb : ca);
+      }
+    }
+  }
+
+  /**
+   * The ground of a farm, granary or agora: a farm's field ploughed in
+   * furrows behind a trodden yard, a granary's beaten earth yard, the agora's
+   * paving stones.
+   */
+  private worksGround(
+    s: SimState,
+    b: Building,
+    quad: (x0: number, z0: number, x1: number, z1: number, main: boolean, a: THREE.Color, b: THREE.Color, c: THREE.Color, d: THREE.Color) => void,
+  ): void {
+    const map = this.map;
+    const S = 3;
+    const steps = 24;
+    const inset = 0.04;
+    const cx = b.x + S / 2;
+    const cz = b.z + S / 2;
+    const yaw = facingOf(s, map.size, b);
+    const co = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    const main = (x: number, z: number): boolean => {
+      const tx = Math.floor(x);
+      const tz = Math.floor(z);
+      return splitsMainDiagonal(map.corner(tx, tz), map.corner(tx + 1, tz), map.corner(tx, tz + 1), map.corner(tx + 1, tz + 1));
+    };
+    const furrow = col(PAL.furrow);
+    const furrowDark = col(PAL.furrowDark);
+    const earth = col(PAL.earth);
+    const worn = col(PAL.earthWorn);
+    const pave = col(PAL.agoraPave);
+    const paveDark = col(PAL.agoraPaveDark);
+    const c = new THREE.Color();
+    const at = (k: number): number => inset + ((S - 2 * inset) * k) / steps;
+    for (let j = 0; j < steps; j++) {
+      for (let i = 0; i < steps; i++) {
+        const xa = b.x + at(i);
+        const xb = b.x + at(i + 1);
+        const za = b.z + at(j);
+        const zb = b.z + at(j + 1);
+        // The middle of this little quad in the building's own frame (front +x).
+        const dx = (xa + xb) / 2 - cx;
+        const dz = (za + zb) / 2 - cz;
+        const lx = dx * co - dz * sn;
+        const lz = dx * sn + dz * co;
+        const j2 = 0.95 + 0.08 * hash2(Math.round(xa * 8), Math.round(za * 8), 317);
+        if (b.kind === 'farm') {
+          if (lx < 0.45) {
+            // Ridges where the wheat rows stand, darker furrows between.
+            const row = (lz + 1.18) / (2.36 / 5);
+            const off = Math.abs(row - Math.round(row));
+            c.copy(off < 0.28 ? furrow : furrowDark).multiplyScalar(j2);
+          } else c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
+        } else if (b.kind === 'granary') {
+          c.copy(worn).lerp(earth, Math.min(1, Math.abs(lz) / 1.6)).multiplyScalar(j2);
+        } else {
+          // Paving stones, half a unit square, in courses.
+          const course = Math.floor((lx + 1.5) * 2);
+          const stone = Math.floor((lz + 1.5) * 2 + (course % 2) * 0.5);
+          const k = hash2(course, stone, b.id + 319);
+          c.copy(pave).lerp(paveDark, k * 0.8);
+          const fx = ((lx + 1.5) * 2) % 1;
+          const fz = (((lz + 1.5) * 2 + (course % 2) * 0.5) % 1 + 1) % 1;
+          if (fx < 0.12 || fz < 0.12) c.copy(paveDark).multiplyScalar(0.94);
+        }
+        quad(xa, za, xb, zb, main(xa, za), c, c, c, c);
       }
     }
   }

@@ -34,6 +34,10 @@ export class TopBar {
           <svg viewBox="0 0 20 16" aria-hidden="true"><circle cx="7" cy="4" r="2.6"/><path d="M2.4 15c0-3.6 2-6 4.6-6s4.6 2.4 4.6 6z"/><circle cx="14" cy="5.2" r="2.1"/><path d="M12.6 15c.1-2.4-.4-4.2-1.3-5.2.8-.5 1.6-.7 2.7-.7 2.2 0 3.8 2 3.8 5.9z"/></svg>
           <span class="num">0</span><span class="delta"></span>
         </div>
+        <div class="stat work" title="Jobs filled">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke-width="2.2" stroke-linecap="round" class="handle"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z"/></svg>
+          <span class="num">0</span><span class="of"></span>
+        </div>
         <div class="divider"></div>
         <div class="date" title="The date in your city">
           <div class="month"></div>
@@ -101,6 +105,36 @@ export class TopBar {
       st.delta.classList.remove('show');
       st.timer = 0;
     }
+  }
+
+  private workKey = '';
+
+  /** Jobs filled of jobs, and the tooltip saying who's short. */
+  showWork(w: { jobs: number; filled: number; able: number; short: Array<{ kind: string; workers: number }> }, names: Record<string, string>): void {
+    const el = this.bar.querySelector('.stat.work') as HTMLElement;
+    const key = `${w.jobs}:${w.filled}:${w.able}:${w.short.length}`;
+    if (key === this.workKey) return;
+    this.workKey = key;
+    el.hidden = w.jobs === 0;
+    (el.querySelector('.num') as HTMLElement).textContent = w.filled.toLocaleString('en-GB');
+    (el.querySelector('.of') as HTMLElement).textContent = `/${w.jobs.toLocaleString('en-GB')}`;
+    el.classList.toggle('short', w.filled < w.jobs);
+    let text = `Jobs filled: ${w.filled} of ${w.jobs} · ${w.able} people can work (half of everyone in a lived-in home).`;
+    if (w.short.length) {
+      const list = w.short.slice(0, 4).map((b) => `${names[b.kind] ?? b.kind} (${b.workers} of its jobs filled)`);
+      text += ` Short of workers: ${list.join(', ')}${w.short.length > 4 ? ` and ${w.short.length - 4} more` : ''}. A short-handed place works slower; more homes nearby by road would help.`;
+    } else if (w.jobs > 0) text += ' Every job is filled.';
+    el.title = text;
+  }
+
+  /** The treasury's tooltip: rent from last month. */
+  setMoneyTip(rent: { paid: number; homes: number }): void {
+    const el = this.bar.querySelector('.stat.money') as HTMLElement;
+    const text =
+      rent.homes > 0
+        ? `Drachmas in the treasury. Rent last month: ${rent.paid} dr from ${rent.homes} ${rent.homes === 1 ? 'home' : 'homes'} (a tent pays 1 dr a month, a hut 2, a cottage 4).`
+        : 'Drachmas in the treasury. Lived-in homes pay rent on the first of each month: a tent 1 dr, a hut 2, a cottage 4.';
+    if (el.title !== text) el.title = text;
   }
 
   /** The population's tooltip: how often newcomers are arriving, and why. */
