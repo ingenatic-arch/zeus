@@ -160,3 +160,28 @@ Built as designed, except where noted here. Commits: plan `d45e061`; sim `4e2b22
 | `#missing` (overlay on) | — | 552 k, 145 |
 | GPU objects | 40 geometries, 5 textures | 43–44 geometries, 4–5 textures (the signs add four) |
 | Main-thread update per frame, `#food` paused / running | 0.50–0.69 / 0.65–0.85 ms | 0.47–0.56 / 0.68–0.71 ms |
+
+## Review
+
+Reviewed after `7851ee5`. Commits: `2d2d7d7` (families leave together, warnings per need, sign rims, chatter), `61c5a23` (#warning paused and ringed, panel wording, tests and smoke), `3c17b38` (sign scale, short-handed farm why, undo tooltip), `3beba0e` (the "worry again" story line), and this note.
+
+**What changed**
+- *Leaving* (`folk.ts`): `leavingGroups(s, family, n)` is pure and shared by the sim and the panel. The groups it chooses from are whole joined units (a sibling or cousin, then their partner and children, kept as a contiguous block of `members`; a unit starts at a member whose role is head, brother, sister or cousin) and single grown children (16 or older) or elderly parents. It tries every combination of the newest 12 groups and picks the one with the least overshoot, then the fewest singles, then the newest. The head and the head's partner never leave, and a partner or a child under 16 never leaves without the rest of their unit. If no combination gives exactly `n`, a few more people leave: `stepHouses` takes `people -= moveOut(...).length`, so **the household now affects how many people leave in a decline**. Settler arrivals don't depend on it, and declines happen in none of the earlier demos, so they're unchanged. In `#missing` run for two years, 74 declines gave no overshoot (test `who moves away`). Each group gets its own `left` story entry: 3 or more people read "X and family went back to {origin}".
+- *Warnings per need*: `warningsOf(s, b)` lists every need missing for longer than `WARN_AFTER`, most urgent first; `warningOf` is its first entry. `Family.warned` is now `Service[]`, and the story logs `warn` and `relief` for each need. Signs show both icons on one face (`Signs.left/right` matrices). Hover lines use `missingSince(b, need)` per need.
+- *Sign rims*: a warning runs from `#e0632c` to `#b8261a`; "needs to grow" is `#e8c040`. The scale clamp is `max(0.6, d/27)`, so the size on screen is constant from about 16 units away.
+- *State*: `Family.came` (the founding tick; "here since" and the "new" mood and chatter no longer read it from the eight-entry story); the origin "a farm near Sparta" became "the hills of Laconia". `SIM_STATE_VERSION` stays 5 (there are no saves yet).
+- *Chatter*: `{kin}` is someone 4 or older; new token `{adult}` (16 or older) for grown-up lines; noWork lines no longer name a relative (it could have been a child).
+- *Demos*: `#warning` has `speed: 'paused'`, view `{ x: 21.5, z: 74, yaw: 0.6, dist: 16 }`, and `Demo.mark` rings the cut tile with a second `Selection` (side 1, cream) until it is a road. `#decline` rings it too.
+- *Why lines*: when the stall is low and any farm's `rateOf < 1`, `whyHungry` blames the short-handed farm, not the number of farms.
+
+**Checked by driving it** (headless Chromium, screenshots looked at): `#warning` mended at once clears all 7 warnings in 14.3 game days (15 s at normal speed) with no drop. If mended 5 days late at fastest speed, as in the first run, 2 homes dropped, which is why it now opens paused. `#decline`'s panel home drops, then 5 more within days, and leavers walk out. `#missing` with farms at (44,60) and (48,64): 12 homes drop at month 3 and all are back by month 6, with no warnings from month 7 (sim). With two farms, warnings come and go for over a year. Undo greys out after a month with its reason in the tooltip. Load by page clock: `#warning` is ready at 1.00 s and `#food` at 0.97 s; the "3.5 s" was headless wall time, so there was no slow load to fix. Earlier views draw the same triangles and calls as in the As built table.
+
+**Invariants**: typecheck clean; 90 tests in 9 files; build 777 KB raw, 217 KB gzipped; smoke ok (it now checks that `#warning` opens paused, the ring, warnings clearing after mending, and the `#decline` panel home); measure as above.
+
+**For slice 6 (and later)**
+- Leaving can now exceed what the lower level needs. If a later slice ties arrivals to free room, that is a coupling to remember. Slice 7 should save `Family.came` and `warned: Service[]` (state v5 as it stands).
+- `leavingGroups` tries every combination of up to 12 groups (at most 4,096) whenever the panel refreshes and at each decline. That's fine for 13-person homes, but if fine houses hold many more, switch to a greedy choice or a knapsack.
+- Townhouses and fine houses add needs (shrine, theatre): extend `needsOf`. The sign can show two icons today; three or more will need a layout, and the panel's warning box already lists any number.
+- The undo stack refuses everything below an action it can't undo (a plot a family moved into blocks older entries). That's as designed, but the tooltip only gives the top entry's reason.
+- Chatter situations still only know water and bread; slice 6 should add lines for the shrine and the theatre, and the cottage line "somewhere proper to thank the gods" could change once a shrine exists.
+- Signs at very close range (camera 3 to 5 units away) still get large; the clamp is a compromise for Oliver to judge.
