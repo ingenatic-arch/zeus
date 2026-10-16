@@ -47,6 +47,8 @@ export interface Demo {
   setup?: (sim: Sim) => void;
   /** The household whose panel is open from the start (a building id, 0 for none). */
   open?: (s: SimState) => number;
+  /** A tile to ring on the ground until a road is laid on it (where #warning's road was cut). */
+  mark?: { x: number; z: number };
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -147,8 +149,11 @@ function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: nu
  * goes back.
  */
 function cutTown(after: number): (sim: Sim) => void {
-  return foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: 25, z0: 74, x1: 25, z1: 74 }) });
+  return foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z }) });
 }
+
+/** The tile of road cut in #warning and #decline: where the west street met the lane. */
+const CUT = { x: 25, z: 74 };
 
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.family);
 
@@ -207,7 +212,7 @@ export const DEMOS: Record<string, Demo> = {
   workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0), overlay: 'food' },
   bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
   people: { view: 'people', setup: foodTown(FOOD_TICKS), overlay: 'missing', open: (s) => nearest(s, 30, 67) },
-  warning: { view: 'warning', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true) },
-  decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false) },
+  warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
+  decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
 };

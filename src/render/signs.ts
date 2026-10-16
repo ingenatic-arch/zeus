@@ -242,17 +242,22 @@ export class Signs {
 export class Selection {
   readonly mesh: THREE.Mesh;
   private id = 0;
-  private readonly mat = new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+  private readonly mat: THREE.MeshBasicMaterial;
 
-  constructor(private readonly map: CoastMap) {
+  constructor(
+    private readonly map: CoastMap,
+    color = '#ffe27a',
+    name = 'selection',
+  ) {
+    this.mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat);
-    this.mesh.name = 'selection';
+    this.mesh.name = name;
     this.mesh.visible = false;
     this.mesh.renderOrder = 1;
   }
 
-  /** Ring the footprint of this building (or none). */
-  set(b: Building | null, side = 2): void {
+  /** Ring the footprint of this building, or of a tile (side 1), or none. */
+  set(b: Pick<Building, 'id' | 'x' | 'z'> | null, side = 2): void {
     if (!b) {
       this.mesh.visible = false;
       this.id = 0;

@@ -20,7 +20,7 @@ import { warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { homeStatus, walkerStatus, type Status } from './sim/status';
-import type { Building, Walker } from './sim/state';
+import { TILE_ROAD, type Building, type Walker } from './sim/state';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
@@ -143,6 +143,12 @@ function start(): void {
   world.scene.add(signs.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
+  // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
+  const mark = demo?.mark ? new Selection(map, '#fff8e6', 'mark') : null;
+  if (mark && demo?.mark) {
+    mark.set({ id: -1, ...demo.mark }, 1);
+    world.scene.add(mark.mesh);
+  }
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   const rig = new CameraRig(camera, map, view);
 
@@ -523,6 +529,10 @@ function start(): void {
     const open = panel.update(s, map, time);
     selection.set(open);
     selection.update(time);
+    if (mark?.mesh.visible && demo?.mark) {
+      if (s.tiles[demo.mark.z * map.size + demo.mark.x] === TILE_ROAD) mark.set(null);
+      else mark.update(time);
+    }
     placement.update(time);
     tools.frame();
     topbar.showDate(sim.date);

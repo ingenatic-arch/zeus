@@ -380,9 +380,13 @@ if (!legend) fail('the what’s-missing legend is not showing');
 await page.keyboard.press('i');
 await frames(2);
 if ((await city()).overlay) fail('I did not hide the overlay');
-// #warning: the cut-off street's homes warn, with signs, a trouble count and a panel; mending the road.
-await open('#warning-paused');
+// #warning: opens paused; the cut-off street's homes warn, with signs, a trouble count, a panel and the cut ringed; mending the road clears the warnings.
+await open('#warning');
 c = await city();
+const c0warn = { tick: await page.evaluate(() => window.__zeus.tick()), cottages: c.cottages };
+await frames(3);
+if ((await page.evaluate(() => window.__zeus.tick())) !== c0warn.tick) fail('#warning did not open paused');
+if (!(await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'mark')))) fail('#warning: the cut road is not ringed');
 if (!(c.warned >= 5 && c.signs >= c.warned && c.tool === 'road' && c.panel > 0)) fail(`#warning: ${JSON.stringify(c)}`);
 pt = await panelText();
 if (!/No water for [\s\S]*they give up the cottage for a hut[\s\S]*no road joins it to a fountain/.test(pt ?? '')) fail(`#warning panel: ${pt}`);
@@ -397,14 +401,22 @@ await page.mouse.click(p.x, p.y);
 await frames(2);
 c = await city();
 if (c.roads !== cut0 + 1 || c.undo !== '') fail(`mending the cut road: ${cut0} -> ${c.roads} roads, undo "${c.undo}"`);
+if (await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'mark'))) fail('the ring on the cut road is still showing after mending it');
 await page.keyboard.press('Escape');
+await page.evaluate(() => window.__zeus.speed('fastest'));
+await page.waitForFunction(() => window.__zeus.city().warned === 0, null, { timeout: 120000 });
+c = await city();
+pt = await panelText();
+if (c.cottages !== c0warn.cottages || !/The water carrier came back/.test(pt ?? '')) fail(`after mending, ${c0warn.cottages} -> ${c.cottages} cottages; panel: ${pt}`);
 // #decline: running, the nearest home drops a level and people walk out.
 await open('#decline');
 c = await city();
 await page.evaluate(() => window.__zeus.speed('fastest'));
-await page.waitForFunction((n) => window.__zeus.city().cottages < n, c.cottages, { timeout: 60000 });
+// The panel's home (the nearest to dropping, perhaps tied with another) goes back to a hut.
+await page.waitForFunction(() => window.__zeus.homes().find((h) => h.id === window.__zeus.city().panel)?.level === 2, null, { timeout: 60000 });
+await frames(2);
 pt = await panelText();
-if (!/^A hut/.test(pt ?? '') || !/Gave up the cottage for a hut/.test(pt) || !/moved away/.test(pt)) fail(`#decline panel after the drop: ${pt}`);
+if (!/^A hut/.test(pt ?? '') || !/Gave up the cottage for a hut/.test(pt) || !/moved away|went back to/.test(pt)) fail(`#decline panel after the drop: ${pt}`);
 // #missing: the overlay is on; the trouble count flies to the most urgent home and opens its panel.
 await open('#missing-paused');
 c = await city();

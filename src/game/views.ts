@@ -41,8 +41,8 @@ export const VIEWS: Record<string, CameraView> = {
   bridge: { x: 33, z: 39.5, yaw: -0.35, dist: 17, tilt: -0.08 },
   // Close by the agora, among the cottages, a household's panel open.
   people: { x: 30, z: 67, yaw: 0.85, dist: 12, tilt: -0.04 },
-  // The west street, cut off from the lane where its road joined it, its homes warning.
-  warning: { x: 21, z: 74, yaw: 0.6, dist: 20, tilt: -0.12 },
+  // The west street, cut off from the lane where its road joined it (the ringed tile, centre right), its homes warning.
+  warning: { x: 21.5, z: 74, yaw: 0.6, dist: 16, tilt: -0.12 },
   // Low along the cut-off street as its first homes drop a level and people walk out.
   decline: { x: 19, z: 75, yaw: 0.9, dist: 11, tilt: -0.03 },
   // The town short of bread, from above, the missing overlay on.

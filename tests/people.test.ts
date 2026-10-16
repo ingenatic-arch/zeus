@@ -5,7 +5,7 @@ import { MAP_SIZE } from '../src/map/coast';
 import { COTTAGE, HOME_CAPACITY, HUT, TENT } from '../src/sim/buildings';
 import { chatterOf, LINES } from '../src/sim/chatter';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
-import { ageOf, COTTAGE_FOOD_MIN, DECLINE_AFTER, MEN, moodOf, ORIGINS, WARN_AFTER, warningOf, WOMEN } from '../src/sim/folk';
+import { ageOf, COTTAGE_FOOD_MIN, DECLINE_AFTER, MEN, moodOf, ORIGINS, WARN_AFTER, warningOf, warningsOf, WOMEN } from '../src/sim/folk';
 import { canWork } from '../src/sim/labour';
 import { serialize, Sim, UNDO_WINDOW, undoRefusal } from '../src/sim/sim';
 import { homeStatus } from '../src/sim/status';
@@ -165,6 +165,29 @@ describe('warn, then decline', () => {
     expect(c.level).toBe(COTTAGE);
     expect(c.family!.story.at(-1)?.what).toBe('relief');
     expect(c.family!.warned).toEqual([]);
+  });
+
+  it('a home cut off from water and bread warns about both, and mending the road in time brings both back, the story saying so (#warning)', () => {
+    const sim = new Sim();
+    DEMOS.warning.setup!(sim);
+    const s = sim.state;
+    const warned = homes(s).filter((b) => warningsOf(s, b).length > 0);
+    expect(warned.length).toBe(7);
+    const both = warned.find((b) => warningsOf(s, b).length === 2);
+    expect(both).toBeTruthy();
+    expect(both!.family!.warned).toEqual(warningsOf(s, both!).map((w) => w.need));
+    const cottages = homes(s).filter((b) => b.level === COTTAGE).length;
+    // As the check-in says: lay the road back at once, and within about two weeks every sign is gone, and nobody went down.
+    sim.enqueue({ type: 'road', tiles: [T(25, 74)] });
+    const mended = s.tick;
+    sim.run(15 * TICKS_PER_DAY);
+    expect(homes(s).filter((b) => warningsOf(s, b).length > 0).length).toBe(0);
+    expect(homes(s).filter((b) => b.level === COTTAGE).length).toBe(cottages);
+    for (const b of warned) {
+      const reliefs = b.family!.story.filter((e) => e.what === 'relief' && e.tick >= mended).map((e) => e.need);
+      expect(reliefs).toContain('water');
+    }
+    expect(both!.family!.story.filter((e) => e.what === 'relief' && e.tick >= mended).map((e) => e.need).sort()).toEqual(['food', 'water']);
   });
 
   it('a hut with water becomes a cottage only with a month’s bread in hand', () => {

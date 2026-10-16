@@ -145,13 +145,13 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   const groups = f ? leavingGroups(s, f, b.people - capacity({ ...b, level: b.level - 1 })) : [];
   const going = groups.reduce((n, g) => n + g.length, 0);
   const label = (g: number[]): string => (!f ? '' : g.length >= 3 ? `${f.members[g[0]].name} and family` : nameList(g.map((i) => f.members[i].name)));
-  const who = going > 0 ? `, and ${nameList(groups.map(label))} ${going === 1 ? 'moves' : 'move'} away${groups.length > 1 || groups[0].length >= 3 ? ` (${going} people)` : ''}` : '';
+  const who = going > 0 ? ` ${going === 1 ? `${label(groups[0])} would move away` : `${going} of them would move away (${groups.map(label).join('; ')})`}.` : '';
   const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${word(x.need)} for ${days(s.tick - x.since)}`).join(', ');
   const fix = (need: string): string => (need === 'water' ? 'the water carrier' : 'the food vendor');
-  const unless = `unless ${fix(w.need)} comes by.${ws.length > 1 ? ` Without ${word(ws[1].need)} they would go in ${days(ws[1].left)} all the same, unless ${fix(ws[1].need)} comes too.` : ''}`;
+  const also = ws.length > 1 ? ` Without ${word(ws[1].need)}, they go in ${days(ws[1].left)} all the same.` : '';
   const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${x.need === 'water' ? 'Water' : 'Bread'}: ` : 'Why: '}${esc(x.need === 'water' ? whyDry(s, map, b) : whyHungry(s, map, b, agoras))}</p>`).join('');
   const icons = ws.map((x) => ICON[x.need]).join('');
-  return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()} for ${to}${esc(who)}, ${unless}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
+  return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()} for ${to}, unless ${fix(w.need)} comes by.${esc(who)}${also}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
 }
 
 /** The whole panel's inner HTML for a home. */
