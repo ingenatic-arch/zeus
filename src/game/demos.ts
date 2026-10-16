@@ -312,12 +312,6 @@ function growTown(ticks: number): (sim: Sim) => void {
 }
 
 /**
- * #overhunt: the food town builds three hunting lodges up the lane at once,
- * all after the deer below the crags and the boar in the west woods. Two
- * months on the herds are down to their last few head and the lodges send
- * fewer hunters; the herds grow back if lodges are cleared.
- */
-/**
  * #table: the food town gets a shrine (its cottages are blessed but have only
  * bread, so they stay cottages), then a dairy by the lane two months later;
  * the scene opens as its first cheese reaches the stall, a few days before
@@ -339,6 +333,12 @@ function aboutToClimb(s: SimState): number {
   return nearest(s, 28, 69, ready.length ? ready : homes(s));
 }
 
+/**
+ * #overhunt: the food town builds three hunting lodges up the lane at once,
+ * all after the deer below the crags and the boar in the west woods. Three
+ * months on the herds are down to their last few head and the lodges send
+ * fewer hunters; the herds grow back if lodges are cleared.
+ */
 const OVERHUNT_AT = FOOD_TICKS - 300;
 const OVERHUNT_TICKS = FOOD_TICKS + 600;
 function overhuntTown(ticks: number): (sim: Sim) => void {

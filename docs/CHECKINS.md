@@ -21,12 +21,12 @@ What breaks, or moves: nothing is lost. A slice 8 save opens with herds on the h
 - Keys: every letter was taken, so M cycles the wheat farm, the hunting lodge and the dairy, and L cycles the food overlay, the variety overlay and off.
 
 ### What to try
-1. Open `#hunter`: `#town` following a hunter out from the lodge at the head of the north street. Follow him to the deer in the north hills, watch him stalk them, and follow him back with the deer over his shoulders. Hover him on the way, and hover the herd.
+1. Open `#hunter`: `#town` about two weeks on, as a hunter steps out of the lodge at the head of the north street, with the camera following him. Follow him to the deer in the north hills, watch him stalk them, and follow him back with the deer over his shoulders. Hover him on the way, and hover the herd.
 2. Open `#dairy`: `#town` close over its dairy, the goats in their pen and the cheeses on the bench. Hover the dairy.
 3. Open `#table`: the food town, its cottages blessed by a shrine but with only bread, two months after a dairy went in by the lane, as the first cheese reaches the stall. The variety overlay is on and the panel is open on the cottage nearest the agora. Unpause: in my run it became a townhouse two days later and three more followed within three days; the rest wait for more cheese.
-4. Open `#overhunt`: the food town three months after three hunting lodges went in up the lane, all after the same deer below the crags, now down to two or three head. Hover a lodge and the herd, and move the lodge tool beside the lane to see what a fourth would get. Clear all three lodges (the clear tool) and watch the deer grow back: in my run they were whole again within five months.
+4. Open `#overhunt`: the food town three months after three hunting lodges went in up the lane, all after the same deer below the crags, now down to two or three head. Hover a lodge and the herd, and move the lodge tool beside the lane to see what a fourth would get. Clear all three lodges (the clear tool) and watch the deer grow back: they were whole again about two months later.
 5. In `#town`, press L twice for the variety overlay and look along the core's streets: which homes have all three foods, which are short.
-6. Open one of your slice 8 saves (`#saved` or `#continue`): its fine houses say they have only bread and that the city has no hunting lodge or dairy yet, but nothing warns for six months. Build a lodge (M M) within reach of a herd and a dairy (M M M) on green land and watch the meat and cheese reach the homes.
+6. Open one of your slice 8 saves (`#saved` or `#continue`): the welcome back says what townhouses and fine houses now need and that they have six months; its fine houses say they have only bread and that the city has no hunting lodge or dairy yet, but nothing warns for six months. Build a lodge (M M) within reach of a herd and a dairy (M M M) on green land and watch the meat and cheese reach the homes.
 
 ### What I'd like your eye on
 - The hunter going out and back (`#hunter`): does it read as a hunt from street level, and does the carcass over his shoulders read as a deer?
@@ -39,7 +39,7 @@ What breaks, or moves: nothing is lost. A slice 8 save opens with herds on the h
 ### Known rough edges
 - `#town`'s dairy makes more cheese than the town eats: by opening its granary's cheese room is full, the dairy's store fills and it stands idle part of the time (its tip says so: "Every granary's cheese store is full").
 - In `#table`, after the first four cottages climb, the next wait about five weeks, because one dairy there (70% grass, about 350 measures of cheese a month) doesn't feed every cottage at once.
-- Goats graze only inside their pen, not on the open ground beside it; the hunter has a spear but no bow or fur cap; there's no smoke from the lodge's fire.
+- Goats graze only inside their pen, not on the open ground beside it; there's no smoke from the lodge's fire.
 - The phase 1 rough edges noted in the phase review are still there (left for slice 14), and money pressure is untouched (slice 14).
 
 ### Measurements
@@ -51,6 +51,23 @@ What breaks, or moves: nothing is lost. A slice 8 save opens with herds on the h
 - Main-thread time per frame before drawing, paused / running: `#food` 0.66 / 1.10 ms (was 0.61 / 1.15), `#fine` 0.76 / 1.46 (0.56 / 1.26), `#town` 0.92 / 7.04 (0.77 / 1.99). The `#town` running figure is noisy over its 13 frames; side by side with the slice 8 build over 60 frames it was 5.1 to 5.5 ms against 3.2 to 3.9, at about ten game ticks a frame (the headless browser draws one frame a second, so a real one does far fewer ticks a frame). The simulation's cost per tick is unchanged; the extra is drawing more walkers (47 against 38) and the stores changing.
 - A save of `#town`: 215 KB (was 205 KB).
 - Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
+### What the review changed
+I went through every step above in the browser, opened the earlier demos and compared them with pictures from before this slice, played each demo with townhouses or fine houses six months on, and loaded older saves. These are the changes; the first three matter most.
+
+- **Fewer things for the graphics card to draw.** This slice had added about 50 separate draws to `#town` and `#fine`. The farms, granaries, agoras, theatres, lodges and dairies, with the lodges' racks and the dairies' pens, are now drawn together in a few big pieces instead of one batch per kind, and the hams, cheeses and hunters in one batch each. `#town` from its opening view is down from 148 to 118 (it was 99 before this slice), its overview from 173 to 144, `#fine` from 132 to 106, `#food` from 75 to 71. Nothing looks different: I compared pictures before and after. Most of what's left over slice 8 is the new kinds of walker and the four kinds of animal.
+- **`#hunter` now goes out with a hunter.** It opened with the hunter it followed already on his way home, so he was back at the lodge within a quarter of a minute. It now opens about two weeks later in the town's life, as the next hunter steps out of the lodge, and the camera follows him to the deer in the north hills (a little over two weeks of game time out, two days stalking, and as long back).
+- **Homes say which food they're missing.** A townhouse with bread but no meat or cheese said "No bread for 12 days" in its warning, and its story said it went down "after two months without bread"; a fine house in an older save's six months' grace said "Still no bread, 21 months now". They now name what's actually missing ("No meat or cheese yet · they'll put up with it for 5 more months, then start to worry"), and the trouble list does too.
+- **An older save's welcome back says what changed:** townhouses now need two kinds of food and fine houses all three, build a hunting lodge (M M) near the game and a dairy (M M M) on green land, and they have six months. Long notes like this one now stay up long enough to read.
+- **A lodge's tip no longer leaves out the herd its hunters are after.** Near the edge of its reach a herd could be missing from "Game in reach" while the same tip said a hunter was after it.
+- **`#dairy` looks at the dairy from the meadow side.** From the road a tree hid most of the pen and the goats.
+- **The boar stand a little further apart,** since they bunched into one dark lump.
+- **Corrected in this note:** the hunter does have a bow and a fur cap (the rough edge said he didn't); in `#overhunt` the deer were whole again about two months after the lodges were cleared, not five; step 1 and step 6 say what you'll now see.
+
+Things to know when you try it, with numbers:
+- `#town` makes more food than it eats: all three of its granary's rooms are full at opening (bread, meat and cheese), so the lodge and the dairy fill their own stores and stand idle part of the time. Their tips say so. Nothing goes short.
+- A slice 8 `#fine` save opens with 420 drachmas: enough for a lodge (200) but not a dairy as well (250) until taxes come in. Six months is time enough for both, but you may have to wait for money for the second.
+- Built from a slice 8 `#fine` save with no lodge or dairy, the fine houses start going down about nine months after loading, as designed. With a lodge and a dairy built in the first weeks, three of the 38 went down for a while and came back.
 
 ## Slice 8 — Coin and the ledger (16 Oct)
 
