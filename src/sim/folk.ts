@@ -179,7 +179,8 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   if (b.level >= HUT) {
     if (wet) add(1, 'Water close at hand');
     else {
-      const dry = s.tick - Math.max(b.waterUntil, b.since);
+      // How long it has really been gone (a home that moved down without it has gone without for longer than its level).
+      const dry = s.tick - b.waterUntil;
       if (dry < WARN_AFTER) add(-1, `The water carrier is late (${span(dry)})`);
       else add(dry > TICKS_PER_MONTH ? -3 : -2, `No water for ${span(dry)}`);
     }
@@ -190,13 +191,13 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   if (b.level >= COTTAGE) {
     if (fed) add(1, 'Bread on the table');
     else {
-      const hungry = s.tick - Math.max(b.foodUntil, b.since);
+      const hungry = s.tick - b.foodUntil;
       if (hungry < WARN_AFTER) add(-1, `The food vendor is late (${span(hungry)})`);
       else add(hungry > TICKS_PER_MONTH ? -3 : -2, `No bread for ${span(hungry)}`);
     }
   } else if (b.level === HUT) {
     if (fed) add(1, 'Bread from the market');
-    else if (ctx.agora) add(-1, 'No bread: the food vendor hasn’t been by');
+    else if (ctx.agora) add(-1, 'No bread from the market');
     else add(-1, 'No bread to be had: there’s no market yet');
   }
   if (workable > 0 && ctx.jobs) {

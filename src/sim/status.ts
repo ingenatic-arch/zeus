@@ -54,7 +54,7 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), workLine(s, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), workLine(s, map.size, b)) };
 }
 
 /** What water reaches a lived-in home, and if none, why not. */
@@ -115,18 +115,27 @@ export function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Build
   if (d < 0) return 'no road joins it to the agora';
   if (d > VENDOR_RANGE) return `the agora is ${d} steps away by road; its food vendor goes ${VENDOR_RANGE} at most`;
   if (agoras.every((a) => a.stock <= 0)) return 'the agora’s food stall is empty';
+  // Little on the stall and little in the granaries: the town eats more than its farms grow.
+  const stored = s.buildings.reduce((n, g) => n + (g.kind === 'granary' ? g.stock : 0), 0);
+  if (agoras.every((a) => a.stock < STALL_CAP / 4) && stored < STALL_CAP / 2) return 'the agora’s stall runs low: the farms don’t grow enough for the town; another farm would help';
   if (b.foodUntil > 0) return 'within reach of the agora, but the food vendor has taken other turns lately';
   return 'within reach of the agora; the food vendor hasn’t come this way yet';
 }
 
+/** Whether any workplace is joined to a home by road. */
+export function reachesWork(s: SimState, size: number, b: Building): boolean {
+  const roads = roadsBeside(s, size, b);
+  return s.buildings.some((o) => JOBS[o.kind] > 0 && roads.some((t) => distFrom(s, size, o)[t] >= 0));
+}
+
 /** How many of a home's people work. */
-function workLine(s: SimState, b: Building): string {
+function workLine(s: SimState, size: number, b: Building): string {
   const able = canWork(b);
   if (able === 0) return '';
   const can = `${able} can work`;
   if (!s.buildings.some((o) => JOBS[o.kind] > 0)) return `${can} · nothing needs workers yet`;
   if (b.workers >= able) return `${can} · ${able === 1 ? 'has' : 'all have'} work`;
-  if (b.workers === 0) return `${can} · none has work: every job they can reach is taken`;
+  if (b.workers === 0) return `${can} · none has work: ${reachesWork(s, size, b) ? 'every job they can reach is taken' : 'no road joins it to a workplace'}`;
   return `${can} · ${b.workers} have work; every other job they can reach is taken`;
 }
 

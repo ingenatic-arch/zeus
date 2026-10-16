@@ -10,8 +10,7 @@ import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, COTTAGE_FOOD_MIN, kinship, moodOf, WARN_AFTER, WARNING, warningOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { distFrom, roadsBeside } from '../sim/rounds';
-import { whyDry, whyHungry } from '../sim/status';
+import { reachesWork, whyDry, whyHungry } from '../sim/status';
 import type { Building, Family, Person, SimState, Story } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -51,7 +50,7 @@ function face(level: number): string {
 }
 
 /** One line of a household's story. */
-function storyLine(f: Family, e: Story): string {
+function storyLine(f: Family, e: Story, i: number): string {
   const who = nameList(e.names);
   const need = e.need === 'water' ? 'water' : 'bread';
   switch (e.what) {
@@ -62,9 +61,14 @@ function storyLine(f: Family, e: Story): string {
     case 'up':
       return e.level >= COTTAGE ? 'Became a cottage: whitewash, a tiled roof and bread on the table' : 'Built a hut, now that water comes to the door';
     case 'warn':
-      return e.need === 'water' ? 'The water ran out' : 'The bread ran out';
-    case 'relief':
-      return e.need === 'water' ? 'The water carrier came back, just in time' : 'The food vendor came back, just in time';
+      return e.need === 'water' ? 'Ten days without water: they began to worry' : 'Ten days without bread: they began to worry';
+    case 'relief': {
+      // "Just in time" only when it was close (the warning more than half run).
+      let warned = -1;
+      for (let j = i - 1; j >= 0 && warned < 0; j--) if (f.story[j].what === 'warn') warned = f.story[j].tick;
+      const close = warned >= 0 && e.tick - warned > WARNING / 2;
+      return `${e.need === 'water' ? 'The water carrier' : 'The food vendor'} came back${close ? ', just in time' : ''}`;
+    }
     case 'down':
       return e.level === HUT ? `Gave up the cottage for a hut, after two months without ${need}` : `Went back to a tent, after two months without ${need}`;
     case 'left':
@@ -99,7 +103,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   if (able > 0 && s.buildings.some((o) => JOBS[o.kind] > 0)) {
     if (b.workers > 0) has.push(`${ICON.work}<span><b>Work</b> for ${b.workers} of the ${able} who can work</span>`);
     if (b.workers < able) {
-      const why = b.workers > 0 || reachesWork(s, map, b) ? 'but every job they can reach is taken' : 'but no road joins it to a workplace';
+      const why = b.workers > 0 || reachesWork(s, map.size, b) ? 'but every job they can reach is taken' : 'but no road joins it to a workplace';
       lack.push(`${ICON.work}<span><b>Work</b> · ${b.workers ? `${able - b.workers} more` : `the ${able} who could`} would work, ${why}</span>`);
     }
   }
@@ -113,12 +117,6 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   return `<section class="needs"><h3>What they have</h3>${list(has)}<h3>What they lack</h3>${list(lack)}<p class="next">${ICON.home}<span>${esc(next)}</span></p></section>`;
 }
 
-/** Whether any workplace is joined to the home by road. */
-function reachesWork(s: SimState, map: CoastMap, b: Building): boolean {
-  const roads = roadsBeside(s, map.size, b);
-  return s.buildings.some((o) => JOBS[o.kind] > 0 && roads.some((t) => distFrom(s, map.size, o)[t] >= 0));
-}
-
 /** The warning box: what ran out, how long ago, how long they will put up with it, and what would help. */
 function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   const w = warningOf(s, b);
@@ -127,7 +125,12 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
     const late = b.level >= HUT && (b.waterUntil <= s.tick || (b.level >= COTTAGE && b.foodUntil <= s.tick));
     if (!late) return '';
     const need = b.waterUntil <= s.tick ? 'water' : 'food';
-    const gone = s.tick - Math.max(need === 'water' ? b.waterUntil : b.foodUntil, b.since);
+    const until = need === 'water' ? b.waterUntil : b.foodUntil;
+    const gone = s.tick - Math.max(until, b.since);
+    // Gone longer than that: they have just moved down a level without it, and the count starts again.
+    if (s.tick - until >= WARN_AFTER) {
+      return `<div class="late">${ICON[need]}<span>Still no ${need === 'water' ? 'water' : 'bread'}, ${days(s.tick - until)} now · they’ve made do with the ${HOME_NAMES[b.level].replace(/^A /, '').toLowerCase()}, and will start to worry again in ${days(WARN_AFTER - gone)}</span></div>`;
+    }
     return `<div class="late">${ICON[need]}<span>${need === 'water' ? 'The water carrier' : 'The food vendor'} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
   }
   const what = w.need === 'water' ? 'water' : 'bread';
@@ -155,9 +158,9 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
     .map((l) => `<blockquote>“${esc(l.text)}”<cite>${esc(l.who.name)}, ${ageOf(s, l.who)}</cite></blockquote>`)
     .join('');
   const members = f.members.map((p) => memberRow(s, p)).join('');
-  const story = [...f.story]
+  const story = f.story
+    .map((e, i) => `<li><span class="when">${when(e.tick)}</span><span>${esc(storyLine(f, e, i))}</span></li>`)
     .reverse()
-    .map((e) => `<li><span class="when">${when(e.tick)}</span><span>${esc(storyLine(f, e))}</span></li>`)
     .join('');
   return `<header><div class="kicker">${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}</div><h2>The house of ${esc(f.name)}</h2><div class="from">From ${esc(f.origin)}${since}</div></header>
 ${warningBlock(s, map, b)}

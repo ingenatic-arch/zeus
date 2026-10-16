@@ -230,7 +230,7 @@ export class Signs {
 export class Selection {
   readonly mesh: THREE.Mesh;
   private id = 0;
-  private readonly mat = new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide });
+  private readonly mat = new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
 
   constructor(private readonly map: CoastMap) {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat);
@@ -250,11 +250,12 @@ export class Selection {
     if (b.id === this.id) return;
     this.id = b.id;
     const pos: number[] = [];
-    const x0 = b.x - 0.08;
-    const z0 = b.z - 0.08;
-    const x1 = b.x + side + 0.08;
-    const z1 = b.z + side + 0.08;
-    const w = 0.12;
+    // Just outside the footprint, so the walls never hide it.
+    const x0 = b.x - 0.24;
+    const z0 = b.z - 0.24;
+    const x1 = b.x + side + 0.24;
+    const z1 = b.z + side + 0.24;
+    const w = 0.2;
     const y = (x: number, z: number): number => this.map.heightAt(x, z) + 0.09;
     // Each edge in short steps, so the ring follows the ground.
     const edge = (ax: number, az: number, bx: number, bz: number, nx: number, nz: number): void => {
@@ -285,6 +286,6 @@ export class Selection {
   }
 
   update(time: number): void {
-    if (this.mesh.visible) this.mat.opacity = 0.55 + 0.3 * Math.sin(time * 3);
+    if (this.mesh.visible) this.mat.opacity = 0.7 + 0.25 * Math.sin(time * 3);
   }
 }
