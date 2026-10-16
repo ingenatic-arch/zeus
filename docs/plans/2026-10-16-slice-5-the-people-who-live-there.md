@@ -118,4 +118,45 @@ Measured at `61bcaa7` (the end of slice 4's review), headless Chromium with soft
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Built as designed, except where noted here. Commits: plan `d45e061`; sim `4e2b221`; render, UI and demos `abc1266`; looked at and tuned `6288884`; smoke and measure `e0b22a5`; this note and the check-in after.
+
+**Changes from the design**
+- *A ten-day grace before a warning.* Water arriving a few days late is routine (the carrier's round is long), so a home warned at once flashed signs for a day or two all over `#water`. A need now has to be missing `WARN_AFTER = 10 days` before the home warns; the warning then lasts the full two months (`WARNING`), so a home drops a level `DECLINE_AFTER = 70 days` after the need ran out (or after its last change of level). Until then the panel shows a softer note ("The water carrier is 4 days late · they'll start to worry after 10 days"). With this, `#water` never warns.
+- *Leaving* takes people from the end of the members list (the most recent arrivals first, so the head is always last), one by one rather than as whole units: a partner can leave while the other stays.
+- *Siblings and cousins* are within about 14 years of the head's age; children are born when their parent was about 17 to 44, so an older newcomer's children are grown; a brother or sister of the head never brings an elderly parent (the head's parents would have come with the head).
+- *Mood* counts how long a need has really been missing (not from the last change of level), so a home that has just moved down still says "No water for 2 months", and the late note says "Still no water, 2 months now · they've made do with the hut, and will start to worry again in 7 days". Reasons are ordered by what matters most for that mood; what is just so (a full house, no work) comes last.
+- *The story* says "Ten days without water: they began to worry" (when the warning starts) and "The water carrier came back" ("just in time" only when more than half the warning had run).
+- *The why lines* gained two cases: "no road joins it to a workplace" (the work line when no workplace is joined by road), and "the agora's stall runs low: the farms don't grow enough for the town; another farm would help" (little on the stall and under half a stall's worth in the granaries).
+- *Chatter*: about 130 lines across 14 situations (not 150). The two lines change every 12 days; speakers are 12 or older; a line about a relative is never said by someone who has none, and a line about the head never by the head.
+- *Signs for needs to grow* (amber, with a gold rim) show only while the what's-missing overlay is on; warned homes' signs always show.
+- *Undo refusals* read: "Undo only reaches back about a month", "A family has moved in: clear it instead", "There is grain in its barn now: clear it instead", "There is grain stored in it now: clear it instead".
+- *Churn at the edge-of-town agora*: the warning grace and the hysteresis alone took it from 13 declines in three years to none, so the lighter walk-time weight wasn't needed. Two vendor variants were tried along the way and reverted: weighting huts below cottages in the vendor's choice of street made no difference, and having huts not buy below a stock threshold cut churn in the one-farm town but caused declines at the edge agora.
+
+**Demos**: `#people` (the fed town, panel open on the house of Sosias by the agora), `#warning` (the food town 125 days after the tile of road at (25,74) where the west street met the lane was cleared; seven cottages warning about water with about a month left; road tool picked; panel on the house with the most time left), `#decline` (148 days after the cut; the panel on the house nearest to dropping, 3 days from it), `#missing` (the watered town with one farm, the overlay on: nine homes warned for bread, eight wanting). `-overlay` on any of them starts with the what's-missing overlay. `#warning` and `#decline` run 4,850 and 5,080 ticks at load (about 3.5 s headless).
+
+**Churn after** (the same scratch runs, 36 months after each setup):
+
+| Layout | Declines before | Declines after | Homes that declined, after |
+|---|---|---|---|
+| `#food` | 0 | 0 | 0 |
+| `#workers` | 2 | 0 | 0 |
+| `#chain` + three farms, edge agora | 13 | 0 | 0 |
+| `#chain` + one farm (food short) | 50 | 43 | 30 (172 people left, was 200) |
+
+**Earlier demos**: every earlier demo's state at load (buildings, levels, people, stock, supplies and walkers, hashed) is identical before and after this slice: `#streets`, `#water`, `#carrier`, `#fountain`, `#food`, `#workers`, `#harvest`, `#bridge`, `#chain`. Households draw names from their own generator, and the hysteresis, warning and undo changes don't touch how those scenes grow in the time they run.
+
+**Drawing only what changed**: over a game year of `#food`, the tiles changed on 0 ticks and buildings, levels or people on 28; stock and crops changed on 614 more. Before, each of those 638 ticks made `CityView` and `Bridges` compare all 25,600 tiles; now they compare only on a tile change (none), and `Works` re-reads its buildings on those 638 ticks instead of every frame. Headless, the main-thread time per frame before drawing is 0.5–0.9 ms before and after alike (the run-to-run noise is larger than the difference at this size of town).
+
+**After** (headless Chromium, software WebGL, 1920 × 1080):
+
+| | Before | After |
+|---|---|---|
+| Tests | 74 in 8 files | 88 in 9 files, all passing; typecheck clean |
+| Bundle | 711 KB raw, 195 KB gzipped | 774 KB raw, 216 KB gzipped |
+| Load (page clock) | ready 0.86 s, first frame 1.13 s | ready 0.89 s, first frame 1.11 s |
+| Opening / close views | 542 k, 125 / 376–403 k, 69–76 | unchanged |
+| `#streets`, `#water`, `#food` views | as in Before | unchanged, to the triangle |
+| `#warning` | — | 472 k, 121; with the overlay 473 k, 121; `decline` 459 k, 115; overview with the overlay 649 k, 178 |
+| `#missing` (overlay on) | — | 552 k, 145 |
+| GPU objects | 40 geometries, 5 textures | 43–44 geometries, 4–5 textures (the signs add four) |
+| Main-thread update per frame, `#food` paused / running | 0.50–0.69 / 0.65–0.85 ms | 0.47–0.56 / 0.68–0.71 ms |

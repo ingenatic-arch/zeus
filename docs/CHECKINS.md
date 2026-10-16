@@ -2,6 +2,58 @@
 
 Notes to Oliver, newest first.
 
+## Slice 5 — The people who live there (16 Oct)
+
+Every home is now a household you can click: a named family from somewhere in the Greek world, who they are, how they feel and why, what they have and lack, a line or two of their talk, and what has happened to them; when a home loses what it needs it warns you with a sign over its roof for two months before it goes down a level and some of the family walk out. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+Nothing to break: there are no saves until slice 7. What changes on purpose: a home now goes down a level about 70 days after a need runs out, not 30 (ten days' grace, then a two-month warning); a hut needs a month's bread in hand to become a cottage; undo only reaches back about a month, and not past someone moving in or grain being stored; the water and food overlays' posts now stand only over homes without, or with less than a month left. Every earlier demo still opens on exactly the same town.
+
+### What's new
+- The household panel: click any lived-in home (with no tool picked) and a parchment panel opens on the left. "The house of Sosias, from Megara, here since May 750 BC"; how they feel, from content to fed up, with a little face and every reason named ("+ Bread on the table", "− No water for 39 days"); two lines of talk from named members, which change every 12 days; what they have (and how long it lasts) and what they lack (and why, in the same words as the hover tip); what the next level needs; who lives there, with ages and how they are related ("Eurydike, 40, cousin of Sosias"; "Stephanos, 40, husband of Eurydike"); and their story, newest first ("Became a cottage: whitewash, a tiled roof and bread on the table"). A gold ring on the ground marks the house. Click another home to switch; Esc or open ground closes it.
+- Families: the first settlers to a plot found the household and give it their name; later arrivals are the head's brothers, sisters and cousins with their own families. About 60 men's and 60 women's names (Nikias, Lykon, Theano, Myrrhine…) and 20 places they came from (Megara, Argos, a hill village in Arcadia…). Names and ages come from their own seeded stream, so they never change how the town grows.
+- Warnings: when a hut loses its water, or a cottage its water or bread, for more than ten days, a round sign floats over its roof with a water drop or a loaf, its rim turning from amber to red as the two months run down and pulsing in the last ten days. The panel shows a warning box: "No water for 39 days. In 31 days they give up the cottage for a hut and 4 of them move away, unless the water carrier comes by", with a bar running down and the reason ("Why: no road joins it to a fountain").
+- Decline: if nothing changes, the home goes down one level ("Back to a hut", and "−4" in rust), the people it can no longer hold walk out of town along the road, and the panel names them ("Charis, Menon and 2 others moved away"). Another level down takes another full warning.
+- The trouble count: a red triangle in the top bar with the number of homes warning (hidden when none). Hover it for the list; click it to fly to the most urgent and open its panel.
+- The "what's missing" overlay (I, or the house-and-question-mark button): homes about to go down a level are tinted red, homes lacking what they need to grow amber (with gold-rimmed signs saying which need), homes with all they need green. A small legend at the top says what the colours mean.
+- Hover tips on homes say "The house of X" and "Click to see who lives here". The undo button greys out and says why it can't ("Undo only reaches back about a month", "A family has moved in: clear it instead").
+- Under the hood: the town's drawing only redoes what changed (the ground and bridges only when a road or plot changes; workplaces only when something about them changes, not every frame), and the stall's baskets look full from about two-thirds stocked.
+
+### What to try
+1. Open `#people` for the fed town by the agora at street level, with the panel open on the house of Sosias. Read it, then click other homes. Hover one first to see its tip.
+2. Open `#warning`. A year after the town grew, the one tile of road where its west street met the lane was cleared, so the water carrier and the food vendor can't get in: seven cottages along that street have signs over them and about a month left. The panel is open on one of them and the road tool is picked. Find the gap at the east end of the street, where it should meet the lane, lay the road back, press 3 and watch the signs go and the story say the water carrier came back.
+3. Open `#decline`, the same street a few weeks later with the panel on the house nearest to going down, 3 days from it. Time is running: watch it become a hut, the rest of the street follow within days, and the leavers walk out of town. Read the panel after.
+4. Open `#missing` for the watered town with one farm feeding it, the what's-missing overlay on: red homes are short of bread, amber ones need it to grow. Click the trouble count in the top bar to go to the most urgent home. Then build a second farm (M) on the green land by the river and watch the reds fade.
+5. In `#people`, press I to turn on the overlay (or open `#people-overlay`): the town is green, and the tents up the lane are amber with water signs, beyond the fountain's reach.
+6. In any town, build something, wait a month at speed 3, and hover the undo button.
+
+### What I'd like your eye on
+- The panel: is it the right size and place (left side, 344 px wide)? Is the order right (warning, mood, talk, have and lack, who lives there, story)? Is anything there you'd never read, or missing?
+- The talk. About 130 lines meant to be warm and gently funny and a little Greek ("The goat ate my sandal. I've forgiven the goat. I haven't forgiven the sandal-maker."). Do they land, and does the voice feel right?
+- The signs over roofs: big enough from the default height, too big up close? Can you tell the red warning rim from the gold "needs to grow" rim in the overlay?
+- The timing: ten days' grace, then two months' warning, then one level down. At normal speed a day passes each second, so a home goes down about 70 seconds after its water stops (a little over a minute of warning on screen; 15 seconds at the fastest speed). Enough time to notice and act, or too long to feel any pressure?
+- The what's-missing colours: red, amber and green on the ground under the houses. Readable from the overview?
+- Mood is only a reading for now: it explains, it doesn't make anyone leave. Does seeing "Fed up" with nothing following from it feel wrong?
+
+### Known rough edges
+- A home warns about one need at a time (the one missing longest), so a cottage cut off from both water and bread shows only the water sign; the panel lists both.
+- People leave one at a time from the newest arrivals, not as whole families, so a husband can stay while his wife and children leave.
+- The names come from lists of 60, so two households can share a head's name in a big town.
+- The story keeps the last eight things that happened; older ones drop off.
+- Talk repeats over time (about 130 lines), and the "situation" line only knows a few situations (no festivals, no gods yet).
+- The gap in `#warning`'s road is hard to see from the opening camera: it is one grass tile between the end of the street and the lane, just east of the house nearest the lane.
+- `#warning` and `#decline` take about 3.5 seconds to open (the town is run on for 16–17 months at load).
+- The main-thread saving from drawing only what changed doesn't show in my headless numbers at this size of town; it should matter more in a bigger one.
+
+### Measurements
+- Tests: 88 in 9 files, all passing (was 74 in 8).
+- Download: 216 KB compressed (was 195 KB): the names, the talk, the panel and the signs.
+- Load: ready at about 0.9 seconds and first frame at 1.1 seconds by the page's own clock, as before.
+- Every earlier view draws exactly what it did: the opening view 542,000 triangles in 125 batches, `#water` 511,000 in 112, `#food` 458,000 in 123.
+- `#warning`: 472,000 triangles in 121 batches (the signs add about 1,200 triangles and no extra batches); `#missing` with the overlay on, 552,000 in 145; the overview with the overlay, 649,000 in 178.
+- Homes going down a level over three in-game years: `#food` 0 (was 0); `#workers` 0 (was 2); the `#chain` town with three farms and the agora at the edge of town 0 (was 13, the back-and-forth found in review); with one farm, where bread is genuinely short, 43 (was 50).
+- In `#food`, over a game year, the drawing compares the town's 25,600 tiles 0 times (was 638), and the workplaces are re-read 638 times instead of every frame. Main-thread time per frame before drawing is about 0.5–0.7 ms both before and after (software graphics, and the noise is bigger than the difference).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 4 — Bread on the table (16 Oct)
 
 You can now build the city's first food chain: a wheat farm on the green land by the river, a granary and an agora, with ox carts, a porter and a food vendor at work, and huts that get water and food turning into whitewashed cottages. You weren't here while it was built: every choice below is mine, from the spec's defaults.
