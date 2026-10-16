@@ -9,6 +9,7 @@
  */
 import { capacity, COTTAGE, FINE, HUT, levelName, TENT, TOWNHOUSE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
+import { FOODS, foodList, foodUntil, kindsNeeded, onTable, tableUntil, type Food } from './foods';
 import { nextInt, seedRng, type RngState } from './rng';
 import type { Building, Family, Kin, Person, Service, SimState, Story } from './state';
 
@@ -312,7 +313,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   const add = (w: number, text: string): void => void reasons.push({ text, w });
   const f = b.family;
   const wet = b.waterUntil > s.tick;
-  const fed = b.foodUntil > s.tick;
+  const fed = tableUntil(b) > s.tick;
   if (b.level >= HUT) {
     if (wet) add(1, 'Water close at hand');
     else {
@@ -326,11 +327,24 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     else add(-1, 'No water nearby: fetching it from the river');
   }
   if (b.level >= COTTAGE) {
-    if (fed) add(1, 'Bread on the table');
-    else {
-      const hungry = s.tick - b.foodUntil;
-      if (hungry < WARN_AFTER) add(-1, `The food vendor is late (${span(hungry)})`);
-      else add(hungry > TICKS_PER_MONTH ? -3 : -2, `No bread for ${span(hungry)}`);
+    const table = FOODS.filter((f) => foodUntil(b, f) > s.tick);
+    const dish = table.length ? foodList(table) : '';
+    const Dish = dish.charAt(0).toUpperCase() + dish.slice(1);
+    if (fed) {
+      // A varied table lifts a mood a little more.
+      add(table.length >= 2 ? 2 : 1, `${Dish} on the table`);
+      // A cottage (or townhouse) that would like another kind the city makes.
+      if (wantsMoreFood(s, b) && table.length > 0 && table.length < kindsNeeded(b.level + 1)) add(-1, `Only ${dish} on the table: they’d like ${foodList(FOODS.filter((f) => !table.includes(f) && cityHas(s).makes[f]), 'or')} too`);
+    } else {
+      const hungry = Math.max(0, s.tick - Math.max(tableUntil(b), b.grace));
+      const lacking = foodList(foodsLacking(s, b), 'or');
+      // (A home from an older save, still in its grace: they'd like it, and aren't counting yet.)
+      if (s.tick < b.grace && table.length > 0) add(-1, `Only ${dish} on the table: they’d like ${lacking} too`);
+      else if (table.length === 0 || kindsNeeded(b.level) <= 1) {
+        if (hungry < WARN_AFTER) add(-1, `The food vendor is late (${span(hungry)})`);
+        else add(hungry > TICKS_PER_MONTH ? -3 : -2, table.length === 0 ? `No ${kindsNeeded(b.level) <= 1 ? 'bread' : 'food'} for ${span(hungry)}` : `No ${lacking} for ${span(hungry)}`);
+      } else if (hungry < WARN_AFTER) add(-1, `Only ${dish} on the table (${span(hungry)})`);
+      else add(hungry > TICKS_PER_MONTH ? -3 : -2, `No ${lacking} for ${span(hungry)}`);
     }
   } else if (b.level === HUT) {
     if (fed) add(1, 'Bread from the market');
@@ -442,18 +456,24 @@ export function needsOf(b: Building): Service[] {
 /** The need a home of this level must add to go up a level (a tent water, a hut bread, a cottage blessings, a townhouse plays), or '' at the top. */
 export const nextNeed = (level: number): '' | Service => (level >= TENT && level <= TOWNHOUSE ? NEEDS[level - 1] : '');
 
-/** The tick a home's supply of a need lasts until. */
-export function untilOf(b: Building, need: Service): number {
-  return need === 'water' ? b.waterUntil : need === 'food' ? b.foodUntil : need === 'religion' ? b.religionUntil : b.cultureUntil;
+/**
+ * The tick a home's supply of a need lasts until, for a level's needs (its
+ * own by default): for food, the k-th longest lasting of its foods, k the
+ * kinds that level needs (see foods.ts).
+ */
+export function untilOf(b: Building, need: Service, level: number = b.level): number {
+  return need === 'water' ? b.waterUntil : need === 'food' ? tableUntil(b, level) : need === 'religion' ? b.religionUntil : b.cultureUntil;
 }
 
 /**
  * Since when a need of a home's level has been missing: the tick it ran out
  * (in the future while it still has it), or the home's last change of level,
- * if later.
+ * if later. Food is never missing before the home's `grace` (a town saved
+ * before townhouses needed two kinds of food counts from when it was loaded).
  */
 export function missingSince(b: Building, need: Service): number {
-  return Math.max(untilOf(b, need), b.since);
+  const since = Math.max(untilOf(b, need), b.since);
+  return need === 'food' ? Math.max(since, b.grace) : since;
 }
 
 /**
@@ -464,10 +484,10 @@ export function missingSince(b: Building, need: Service): number {
 export function readyToRise(s: SimState, b: Building): boolean {
   if (b.kind !== 'home' || b.people === 0) return false;
   if (b.level === TENT) return b.waterUntil > s.tick;
-  if (b.level === HUT) return b.waterUntil > s.tick && b.foodUntil - s.tick >= COTTAGE_FOOD_MIN;
+  if (b.level === HUT) return b.waterUntil > s.tick && tableUntil(b, COTTAGE) - s.tick >= COTTAGE_FOOD_MIN;
   if (b.level === COTTAGE || b.level === TOWNHOUSE) {
     if (s.tick - b.since < SETTLE) return false;
-    return NEEDS.slice(0, b.level).every((need) => untilOf(b, need) - s.tick >= RISE_MIN);
+    return NEEDS.slice(0, b.level).every((need) => untilOf(b, need, b.level + 1) - s.tick >= RISE_MIN);
   }
   return false;
 }
@@ -523,10 +543,45 @@ export function warningOf(s: SimState, b: Building): Warning | null {
 export function wantOf(s: SimState, b: Building): '' | Service {
   if (b.kind !== 'home' || b.people === 0) return '';
   if (b.level === TENT) return b.waterUntil > s.tick ? '' : 'water';
-  if (b.level === HUT) return b.foodUntil - s.tick >= COTTAGE_FOOD_MIN ? '' : 'food';
-  if (b.level === COTTAGE) return b.religionUntil - s.tick < RISE_MIN && cityHas(s).shrine ? 'religion' : '';
-  if (b.level === TOWNHOUSE) return b.cultureUntil - s.tick < RISE_MIN && cityHas(s).theatre ? 'culture' : '';
+  if (b.level === HUT) return tableUntil(b, COTTAGE) - s.tick >= COTTAGE_FOOD_MIN ? '' : 'food';
+  if (b.level === COTTAGE) {
+    if (b.religionUntil - s.tick < RISE_MIN && cityHas(s).shrine) return 'religion';
+    return wantsMoreFood(s, b) ? 'food' : '';
+  }
+  if (b.level === TOWNHOUSE) {
+    if (b.cultureUntil - s.tick < RISE_MIN && cityHas(s).theatre) return 'culture';
+    return wantsMoreFood(s, b) ? 'food' : '';
+  }
   return '';
+}
+
+/**
+ * Does a cottage or townhouse want another kind of food to go up a level?
+ * Only once the city makes more kinds than it has on its table (as a cottage
+ * wants the priestess only once there is a shrine): until then it has all
+ * there is to be had.
+ */
+export function wantsMoreFood(s: SimState, b: Building): boolean {
+  if (b.level !== COTTAGE && b.level !== TOWNHOUSE) return false;
+  if (tableUntil(b, b.level + 1) - s.tick >= RISE_MIN) return false;
+  let had = 0;
+  for (const f of FOODS) if (foodUntil(b, f) - s.tick >= RISE_MIN) had++;
+  return cityHas(s).kinds > had;
+}
+
+/**
+ * The foods a home's table lacks for a level (its own by default), in order:
+ * those missing from its table that the city makes, or if it makes none of
+ * them, all those missing (a townhouse with only bread in a city with no
+ * lodge or dairy lacks meat and cheese; a cottage with nothing, in a city of
+ * wheat farms, lacks bread).
+ */
+export function foodsLacking(s: SimState, b: Building, level: number = b.level): Food[] {
+  const k = Math.max(1, kindsNeeded(level));
+  if (onTable(b, s.tick) >= k) return [];
+  const missing = FOODS.filter((f) => foodUntil(b, f) <= s.tick);
+  const made = missing.filter((f) => cityHas(s).makes[f]);
+  return made.length ? made : missing;
 }
 
 /**
@@ -534,11 +589,20 @@ export function wantOf(s: SimState, b: Building): '' | Service {
  * its buildings (`rev`, bumped whenever one is placed or cleared) and kept
  * outside the state, like the road-distance cache: a pure function of it.
  */
-const hasCache = new WeakMap<SimState, { rev: number; n: number; shrine: boolean; theatre: boolean }>();
-export function cityHas(s: SimState): { shrine: boolean; theatre: boolean } {
+const hasCache = new WeakMap<SimState, { rev: number; n: number; shrine: boolean; theatre: boolean; kinds: number; makes: boolean[] }>();
+export function cityHas(s: SimState): { shrine: boolean; theatre: boolean; kinds: number; makes: boolean[] } {
   const hit = hasCache.get(s);
   if (hit && hit.rev === s.rev && hit.n === s.buildings.length) return hit;
-  const fresh = { rev: s.rev, n: s.buildings.length, shrine: s.buildings.some((o) => o.kind === 'shrine'), theatre: s.buildings.some((o) => o.kind === 'theatre') };
+  // The kinds of food the city makes: wheat on a farm, meat at a lodge, cheese at a dairy.
+  const makes = [s.buildings.some((o) => o.kind === 'farm'), s.buildings.some((o) => o.kind === 'lodge'), s.buildings.some((o) => o.kind === 'dairy')];
+  const fresh = {
+    rev: s.rev,
+    n: s.buildings.length,
+    shrine: s.buildings.some((o) => o.kind === 'shrine'),
+    theatre: s.buildings.some((o) => o.kind === 'theatre'),
+    kinds: makes.filter(Boolean).length,
+    makes,
+  };
   hasCache.set(s, fresh);
   return fresh;
 }

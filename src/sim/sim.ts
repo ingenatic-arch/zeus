@@ -3,9 +3,11 @@ import { MAP_SIZE } from '../map/coast';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
-import type { Command, StampedCommand } from './commands';
+import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
-import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepFarms } from './food';
+import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepDairies, stepFarms, stepLodgeCarts } from './food';
+import { addComing, type Food } from './foods';
+import { moveHunter, stepLodges } from './hunt';
 import { folkRng } from './folk';
 import { migrate } from './migrate';
 import { stepHouses } from './houses';
@@ -16,6 +18,7 @@ import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingK
 import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
+import { freshHerds, stepWild, wildRng } from './wild';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -25,13 +28,15 @@ export const UNDO_WINDOW = TICKS_PER_MONTH;
 
 export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimState {
   const rng = seedRng(seed);
-  return {
+  const s: SimState = {
     version: SIM_STATE_VERSION,
     mapId,
     seed,
     tick: 0,
     rng,
     folk: folkRng(seed),
+    wild: wildRng(seed),
+    herds: [],
     commandsApplied: 0,
     wind: { angle: 3.6 + nextFloat(rng) * 0.4, strength: 0.5 + nextFloat(rng) * 0.2 },
     money: STARTING_MONEY,
@@ -52,6 +57,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     arrived: 0,
     left: 0,
   };
+  s.herds = freshHerds(mapFor(mapId), s);
+  return s;
 }
 
 export function freshRecord(): ServiceRecord {
@@ -127,9 +134,13 @@ export class Sim {
     stepWages(s);
     stepHarsh(s, map);
     stepLabour(s, map);
+    stepWild(s, map);
     stepWalkers(s, map);
     stepFountains(s, map);
     stepFarms(s, map);
+    stepLodges(s, map);
+    stepLodgeCarts(s, map);
+    stepDairies(s, map);
     stepAgoras(s, map);
     stepCulture(s, map);
     stepTaxOffices(s, map);
@@ -165,7 +176,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       record(s, placePlots(s, map, c.at, 'fountain'));
       break;
     case 'build':
-      if (c.kind === 'farm' || c.kind === 'granary' || c.kind === 'agora' || c.kind === 'shrine' || c.kind === 'theatre' || c.kind === 'taxoffice') record(s, placePlots(s, map, c.at, c.kind));
+      if (BUILD_KINDS.includes(c.kind)) record(s, placePlots(s, map, c.at, c.kind));
       break;
     case 'tax':
       if (Number.isInteger(c.rate) && c.rate >= 0 && c.rate <= HARSH && c.rate !== s.taxRate) {
@@ -182,7 +193,20 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   }
 }
 
-const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], removedStock: [], trees: [], cost: 0, tick: 0 });
+const emptyEntry = (): UndoEntry => ({
+  roads: [],
+  plots: [],
+  removedRoads: [],
+  removedPlots: [],
+  removedIds: [],
+  removedKinds: [],
+  removedStock: [],
+  removedMeat: [],
+  removedCheese: [],
+  trees: [],
+  cost: 0,
+  tick: 0,
+});
 
 function record(s: SimState, e: UndoEntry): void {
   const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
@@ -267,7 +291,7 @@ function spanOf(map: CoastMap, s: SimState, run: number[]): boolean {
   return false;
 }
 
-function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0): Building {
+function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0): Building {
   const b: Building = {
     id: s.nextId++,
     kind,
@@ -294,6 +318,13 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     taxPaid: 0,
     unpaid: 0,
     owed: 0,
+    meat,
+    cheese,
+    meatIn: 0,
+    cheeseIn: 0,
+    meatUntil: 0,
+    cheeseUntil: 0,
+    grace: 0,
   };
   s.buildings.push(b);
   for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
@@ -337,7 +368,7 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
       if (w.origin !== b.id) return true;
       if (w.kind === 'cart' && !w.back) {
         const g = findBuilding(s, w.target);
-        if (g) g.incoming -= w.load;
+        if (g) addComing(g, w.food as Food, -w.load);
       }
       // A tax collector hands in what he has collected.
       if (w.purse.length) handIn(s, w);
@@ -385,6 +416,8 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedIds.push(b.id);
     e.removedKinds.push(b.kind);
     e.removedStock.push(b.stock);
+    e.removedMeat?.push(b.meat);
+    e.removedCheese?.push(b.cheese);
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
@@ -405,6 +438,7 @@ export function undoRefusal(s: SimState): string {
     if (!b) continue;
     if (b.people > 0) return b.kind === 'home' ? 'A family has moved in: clear it instead' : 'Someone lives there now';
     if (b.stock > 0) return b.kind === 'farm' ? 'There is grain in its barn now: clear it instead' : 'There is grain stored in it now: clear it instead';
+    if (b.meat > 0 || b.cheese > 0) return `There is ${b.meat > 0 ? 'meat' : 'cheese'} stored in it now: clear it instead`;
   }
   return '';
 }
@@ -442,8 +476,10 @@ function undoLast(s: SimState, map: CoastMap): void {
     const x = t % n;
     const z = Math.floor(t / n);
     const kind = e.removedKinds[i] ?? 'home';
-    // A granary, farm or agora comes back with the grain it held.
-    if (buildingRefusal(map, s, kind, x, z) === '') renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, kind === 'home' ? 0 : (e.removedStock?.[i] ?? 0)).id);
+    // A granary, farm, lodge, dairy or agora comes back with the food it held.
+    const keep = kind !== 'home';
+    if (buildingRefusal(map, s, kind, x, z) === '')
+      renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0).id);
   }
   if (renamed.size) for (const older of s.undo) older.plots = older.plots.map((id) => renamed.get(id) ?? id);
   // Plants grow back where nothing stands.
@@ -472,7 +508,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               ? moveCollector(s, map, w)
             : w.kind === 'cart' || w.kind === 'porter'
               ? moveErrand(s, map, w)
-              : moveGroup(s, map, w);
+              : w.kind === 'hunter'
+                ? moveHunter(s, map, w)
+                : moveGroup(s, map, w);
     if (on) keep.push(w);
   }
   s.walkers = keep;

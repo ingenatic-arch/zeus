@@ -118,9 +118,11 @@ describe('going up, and staying up', () => {
     const s = sim.state;
     const c = homes(s).find((b) => b.level === COTTAGE && b.waterUntil > s.tick + RISE_MIN && b.foodUntil > s.tick + RISE_MIN)!;
     expect(c).toBeTruthy();
+    // Bread and cheese (#grow has a dairy): a townhouse needs two kinds of food.
     const keep = (blessed: number): void => {
       c.waterUntil = Math.max(c.waterUntil, s.tick + 3 * TICKS_PER_MONTH);
       c.foodUntil = Math.max(c.foodUntil, s.tick + 3 * TICKS_PER_MONTH);
+      c.cheeseUntil = Math.max(c.cheeseUntil, s.tick + 3 * TICKS_PER_MONTH);
       c.religionUntil = s.tick + blessed;
     };
     // Just moved up: blessed and well supplied, but still a cottage until it has been one a month.
@@ -148,15 +150,23 @@ describe('going up, and staying up', () => {
     expect(drops(demo('theatre'), 2 * TICKS_PER_YEAR).size).toBe(0);
   });
 
-  it('a street of fine houses on one agora: short of farms, the reason names the farms with numbers; with two more farms nobody goes down (#grow played through)', () => {
+  it('a street of fine houses on one agora: short of farms, the reason names the farms with numbers; with two more farms and a hunting lodge nobody goes down (#grow played through)', () => {
     const grow = (farms: boolean): Sim => {
       const sim = demo('grow');
       sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });
+      // #grow has bread and cheese; fine houses need meat too.
+      sim.enqueue({ type: 'build', kind: 'lodge', at: [27 + 52 * N] });
       if (farms) {
         sim.enqueue({ type: 'road', tiles: [51, 52, 53].map((x) => x + 63 * N) });
         sim.enqueue({ type: 'build', kind: 'farm', at: [41 + 60 * N, 51 + 64 * N] });
+      } else {
+        // Short of farms: since slice 9 its fine houses share their table with meat and cheese, so three farms are plenty; with one, the stall's wheat runs out after two years or so.
+        sim.enqueue({ type: 'clear', x0: 44, z0: 60, x1: 44, z1: 60 });
+        sim.enqueue({ type: 'clear', x0: 48, z0: 64, x1: 48, z1: 64 });
       }
       sim.run(90 * TICKS_PER_DAY);
+      // The lodge and the dairy's wages leave less to spare: wait for the money, as a player would.
+      for (let d = 0; d < 120 && sim.state.money < 450; d++) sim.run(TICKS_PER_DAY);
       sim.enqueue({ type: 'build', kind: 'theatre', at: [35 + 81 * N] });
       return sim;
     };
@@ -165,7 +175,7 @@ describe('going up, and staying up', () => {
     expect(homes(fed.state).filter((b) => b.level === FINE).length).toBeGreaterThanOrEqual(36);
     const short = grow(false);
     let named = false;
-    for (let d = 0; d < 600 && !named; d++) {
+    for (let d = 0; d < 1000 && !named; d++) {
       short.run(TICKS_PER_DAY);
       const hungry = homes(short.state).find((b) => b.level >= COTTAGE && b.foodUntil < short.state.tick);
       const why = hungry ? whyHungry(short.state, map, hungry, short.state.buildings.filter((o) => o.kind === 'agora')) : '';

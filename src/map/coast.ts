@@ -139,4 +139,28 @@ export const coast = {
   ] as Area[],
 };
 
+/**
+ * The wild herds: deer on the hills, boar in the woods. Each roams within `r`
+ * tiles of its centre; `head` is its size when whole; `place` is how people
+ * name where it lives ("the deer below the crags").
+ */
+export interface HerdHome {
+  kind: 'deer' | 'boar';
+  x: number;
+  z: number;
+  r: number;
+  head: number;
+  place: string;
+}
+
+export const HERDS: readonly HerdHome[] = [
+  { kind: 'deer', x: 13, z: 42, r: 8, head: 7, place: 'below the crags' },
+  { kind: 'deer', x: 58, z: 17, r: 10, head: 8, place: 'in the north hills' },
+  { kind: 'deer', x: 98, z: 25, r: 9, head: 7, place: 'on the east hills' },
+  { kind: 'deer', x: 118, z: 46, r: 7, head: 6, place: 'on the far east slopes' },
+  { kind: 'boar', x: 92, z: 63, r: 7, head: 6, place: 'in the pine wood by the bay' },
+  { kind: 'boar', x: 10, z: 86, r: 9, head: 6, place: 'in the west woods' },
+  { kind: 'boar', x: 106, z: 82, r: 6, head: 5, place: 'on the headland' },
+];
+
 export type CoastData = typeof coast;

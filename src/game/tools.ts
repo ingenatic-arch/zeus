@@ -37,11 +37,11 @@ import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/tre
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
-export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'clear';
-export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'];
+export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'lodge' | 'dairy' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'clear';
+export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'];
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear';
 
 export interface ToolTip {
@@ -420,6 +420,8 @@ export class Tools {
       shrine: ['shrine', 'shrines'],
       theatre: ['theatre', 'theatres'],
       taxoffice: ['tax office', 'tax offices'],
+      lodge: ['hunting lodge', 'hunting lodges'],
+      dairy: ['dairy', 'dairies'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     if (trees) bits.push(`trees on ${trees} ${trees === 1 ? 'tile' : 'tiles'}`);

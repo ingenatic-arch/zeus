@@ -155,9 +155,9 @@ describe('simulation determinism', () => {
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
     s.version = 5;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 5 and this game reads version 7/);
-    s.version = 8;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 8 and this game reads version 7/);
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 5 and this game reads version 8/);
+    s.version = 9;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 9 and this game reads version 8/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {

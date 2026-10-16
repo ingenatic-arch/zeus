@@ -1,5 +1,5 @@
 import type { ToolName, ToolTip } from '../game/tools';
-import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST, SHRINE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
+import { AGORA_COST, BRIDGE_COST, DAIRY_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, LODGE_COST, PLOT_COST, ROAD_COST, SHRINE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
@@ -14,6 +14,12 @@ const ICONS: Record<ButtonName, string> = {
     '<svg viewBox="0 0 24 24"><path d="M3.5 15.5h17l-1.6 4.5H5.1z" class="fill-soft"/><path d="M11 7.5h2v8h-2z" class="fill-ink"/><path d="M7.6 6.2h8.8c-.4 1.6-2.2 2.4-4.4 2.4S8 7.8 7.6 6.2z" class="fill-soft"/><path d="M8.2 8.2c-1.4 1.6-2 3.6-2.2 6M15.8 8.2c1.4 1.6 2 3.6 2.2 6" class="stroke-water"/></svg>',
   // A sheaf of wheat.
   farm: '<svg viewBox="0 0 24 24"><path d="M12 21V8M12 21l-4.5-9M12 21l4.5-9" class="stroke-ink"/><path d="M12 2.6c1.6 1.4 1.6 4.2 0 5.6-1.6-1.4-1.6-4.2 0-5.6zM7 6.4c2 .5 3 2.9 2.3 4.9-2-.5-3-2.9-2.3-4.9zM17 6.4c.7 2-.3 4.4-2.3 4.9-.7-2 .3-4.4 2.3-4.9z" class="fill-gold"/><path d="M8.6 16.4h6.8" class="stroke-ink"/></svg>',
+  // A stag's antlers over a spear.
+  lodge:
+    '<svg viewBox="0 0 24 24"><path d="M5 21 19 5" class="stroke-ink"/><path d="M19 5l-3.2.6 2.6 2.6z" class="fill-ink"/><path d="M12 13.4c-1-2.6-3.4-4-3.6-7.4M9.6 9.2 6.8 8.4M8.6 6.4 6.4 4.4M12 13.4c1-2.6 3.4-4 3.6-7.4M14.4 9.2l2.8-.8M15.4 6.4l2.2-2" class="stroke-meat"/><ellipse cx="12" cy="15.2" rx="2.4" ry="3" class="fill-meat"/></svg>',
+  // A wheel of cheese with a wedge cut out.
+  dairy:
+    '<svg viewBox="0 0 24 24"><path d="M3 11.5v4.6c0 2 4 3.6 9 3.6s9-1.6 9-3.6v-4.6" class="fill-cheese"/><ellipse cx="12" cy="11.5" rx="9" ry="3.6" class="fill-soft"/><path d="M12 11.5 20.4 10.2 21 15.4 12 16z" class="fill-ink"/><circle cx="7.4" cy="15.6" r=".9" class="fill-ink"/><circle cx="9.8" cy="17.4" r=".7" class="fill-ink"/></svg>',
   // A domed silo beside a storehouse.
   granary: '<svg viewBox="0 0 24 24"><path d="M2.8 21V11.5L8 8l5.2 3.5V21z" class="fill-soft"/><path d="M14 21v-8.2a3.6 3.6 0 0 1 7.2 0V21z" class="fill-gold"/><path d="M6.3 21v-4.6h3.4V21z" class="fill-ink"/><path d="M2 21.2h20" class="stroke-ink"/></svg>',
   // A stall under a striped awning, with loaves.
@@ -68,12 +74,24 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${FARM_COST} dr`,
     hint: 'Click on the green land by the river, beside a road. Its wheat grows for two months; ox carts take the harvest to a granary.',
   },
-  granary: { name: 'Granary', key: 'G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Farms’ carts bring their wheat here, and the agora’s porter fetches it.' },
+  lodge: {
+    name: 'Hunting lodge',
+    key: 'M M',
+    cost: `${LODGE_COST} dr`,
+    hint: 'Click within reach of the wild herds (deer on the hills, boar in the woods), beside a road. Its hunters bring back meat; ox carts take it to a granary. Hunters leave every herd its last two head.',
+  },
+  dairy: {
+    name: 'Dairy',
+    key: 'M M M',
+    cost: `${DAIRY_COST} dr`,
+    hint: 'Click on green pasture, beside a road. Its goats graze round it and give cheese, more on better grass; ox carts take it to a granary.',
+  },
+  granary: { name: 'Granary', key: 'G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Carts bring wheat, meat and cheese here, each in its own store, and the agora’s porter fetches them.' },
   agora: {
     name: 'Agora',
     key: 'K',
     cost: `${AGORA_COST} dr`,
-    hint: 'Click beside a road. Its food vendor walks the streets selling bread to huts; huts with water and food become cottages.',
+    hint: 'Click beside a road. Its food vendor walks the streets selling bread, meat and cheese to huts and better; huts with water and food become cottages. A townhouse needs two kinds of food, a fine house all three.',
   },
   shrine: {
     name: 'Shrine',
@@ -103,7 +121,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, fountain, farm, granary, agora, shrine, theatre, tax office, clear, undo, and the overlays. */
+/** The build bar along the bottom: road, housing, fountain, farm, hunting lodge, dairy, granary, agora, shrine, theatre, tax office, clear, undo, and the overlays. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
@@ -118,7 +136,7 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
+    for (const t of ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
       if (t === 'farm' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
         const d = document.createElement('div');
         d.className = 'divider';

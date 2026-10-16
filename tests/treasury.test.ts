@@ -322,7 +322,7 @@ describe('the demo towns and money', () => {
     sim.enqueue({ type: 'tax', rate: 0 });
     sim.flush();
     sim.run(2 * TICKS_PER_MONTH);
-    expect(moneyLine(sim.state)?.text).toMatch(/^Money: the tax collectors bring in about 0 dr a month and wages take about [\d,]+; at that rate the treasury runs dry in about \d months/);
+    expect(moneyLine(sim.state)?.text).toMatch(/^Money: the tax collectors bring in about 0 dr a month and wages take about [\d,]+; at that rate the treasury runs dry (in about \d months|within a month or so)/);
   });
 
   it('#dry has wages owed and says so; #taxes has a street no collector reaches', () => {

@@ -46,6 +46,8 @@ const MISSING_TICKS = 3600;
  * gone down and an earlier one fewer signs.)
  */
 const SHRINE_AT = FOOD_TICKS;
+/** When the culture towns build their hunting lodge and dairy: five months before the shrine (cheese and meat take a while to reach every home). */
+const MEAT_AT = SHRINE_AT - 1500;
 const THEATRE_AT = SHRINE_AT + 900;
 const SHRINE_TICKS = SHRINE_AT + 450;
 const THEATRE_TICKS = THEATRE_AT + 300;
@@ -60,7 +62,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: OverlayMode;
   /** Start with that overlay on, even without `-overlay`. */
@@ -240,20 +242,45 @@ function bridgeTown(ticks: number): (sim: Sim) => void {
 /** Where the shrine and the theatre go: at the east end of the main road, beside the fountain. */
 const SHRINE = { x: 35, z: 78 };
 const THEATRE = { x: 35, z: 81 };
+/**
+ * The water and food towns' hunting lodge and dairy: either side of the lane
+ * north of the tax office, the lodge within reach of the deer below the
+ * crags and the boar in the west woods, the dairy on the grass west of the
+ * lane. (Townhouses need two kinds of food and fine houses three.)
+ */
+const LANE_LODGE = { x: 27, z: 52 };
+const LANE_DAIRY = { x: 23, z: 52 };
+/** #overhunt's three lodges up the lane, after the same two herds. */
+const OVERHUNT_LODGES = [
+  { x: 27, z: 48 },
+  { x: 23, z: 48 },
+  { x: 23, z: 51 },
+];
 
 /**
  * The food town given the gods and the theatre (see SHRINE_AT): the farm road
  * runs a little further east, with a farm at its end and another north of it,
- * so the bigger households have bread; a fountain and an agora go in at the
+ * so the bigger households have bread, and five months earlier a hunting
+ * lodge and a dairy go in by the lane (MEAT_AT), with the lane's tax office
+ * and heavy taxes till the theatre is up, so they have meat and cheese
+ * (townhouses need two kinds of food, fine houses three); a fountain and an agora go in at the
  * lane's far end, so the hamlet there grows to cottages, beyond the shrine's
  * and the theatre's reach. `close` clears the theatre and the west street's
  * road then.
  */
 function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) => void {
   return foodTown(ticks, 400, 200, {
-    // The tax offices go in with the shrine: the theatre and the bigger households' wages need taxes.
-    officeAt: SHRINE_AT,
+    // The lane's tax office goes in with the lodge and the dairy, the west street's with the shrine: their wages, the theatre's and the bigger households' need taxes.
+    officeAt: MEAT_AT,
     then: (at) => {
+      // Meat and cheese a little before the shrine, so the cottages the priestess blesses have the second kind of food a townhouse needs (and fine houses the third).
+      at(MEAT_AT, { type: 'build', kind: 'dairy', at: [T(LANE_DAIRY.x, LANE_DAIRY.z)] });
+      at(MEAT_AT, { type: 'build', kind: 'lodge', at: [T(LANE_LODGE.x, LANE_LODGE.z)] });
+      // Heavy taxes while the shrine, the hamlet and the theatre are paid for, as a player short of money would; fair again before the scene opens (or once the theatre is up).
+      at(MEAT_AT, { type: 'tax', rate: HEAVY });
+      const fairAt = Math.min(ticks - FAIR_AGAIN, theatre ? THEATRE_AT : Infinity);
+      const fair = (): void => at(fairAt, { type: 'tax', rate: FAIR });
+      if (fairAt < SHRINE_AT) fair();
       at(SHRINE_AT, { type: 'road', tiles: row(51, 53, 63) });
       at(SHRINE_AT, { type: 'build', kind: 'farm', at: [T(41, 60), T(51, 64)] });
       // The hamlet at the lane's far end: its own fountain and a small agora across the lane.
@@ -262,6 +289,7 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
       at(SHRINE_AT, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
       // A second tax office on the west street, so the collectors between them reach most of the town.
       at(SHRINE_AT, { type: 'build', kind: 'taxoffice', at: [T(WEST_OFFICE.x, WEST_OFFICE.z)] });
+      if (fairAt >= SHRINE_AT) fair();
       if (theatre) at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       if (close) {
         at(CLOSE_AT, { type: 'clear', x0: THEATRE.x, z0: THEATRE.z, x1: THEATRE.x, z1: THEATRE.z });
@@ -269,6 +297,28 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
       }
     },
   });
+}
+
+/**
+ * #grow: the food town with a dairy beside the lane three months before it
+ * opens, so its cottages have bread and cheese, and placing the shrine lifts
+ * them to townhouses.
+ */
+const GROW_DAIRY = FOOD_TICKS - 1500;
+function growTown(ticks: number): (sim: Sim) => void {
+  return foodTown(ticks, 400, 200, { then: (at) => at(GROW_DAIRY, { type: 'build', kind: 'dairy', at: [T(LANE_DAIRY.x, LANE_DAIRY.z)] }) });
+}
+
+/**
+ * #overhunt: the food town builds three hunting lodges up the lane at once,
+ * all after the deer below the crags and the boar in the west woods. Two
+ * months on the herds are down to their last few head and the lodges send
+ * fewer hunters; the herds grow back if lodges are cleared.
+ */
+const OVERHUNT_AT = FOOD_TICKS - 300;
+const OVERHUNT_TICKS = FOOD_TICKS + 600;
+function overhuntTown(ticks: number): (sim: Sim) => void {
+  return foodTown(ticks, 400, 200, { then: (at) => at(OVERHUNT_AT, { type: 'build', kind: 'lodge', at: OVERHUNT_LODGES.map((l) => T(l.x, l.z)) }) });
 }
 
 /**
@@ -288,6 +338,8 @@ function cultureTown(ticks: number, theatre = true, close = false): (sim: Sim) =
 const TOWN_TICKS = 7200;
 /** How long before #town opens its taxes go back to fair (moods settle within a month). */
 const FAIR_AGAIN = 600;
+/** How long before #town opens the newest plots go down at the hamlet's end (so a few are still tents). */
+const NEWEST = 120;
 /** The longest #town's builder waits for the money for what goes in next. */
 const AFFORD_WAIT = 2400;
 /** #town's tax offices: one on the main street at the west end of the core… */
@@ -296,6 +348,9 @@ const TOWN_OFFICE = { x: 61, z: 42 };
 const NORTH_OFFICE = { x: 73, z: 31 };
 /** …and the east street's, beside its agora. */
 const EAST_OFFICE = { x: 100, z: 42 };
+/** #town's hunting lodge at the head of the north street (the deer in the north hills are close), and its dairy on the river meadow across the main street from the granary (a dairy at the far end of the core sent its carts too far: its cheese piled up). */
+const TOWN_LODGE = { x: 59, z: 32 };
+const TOWN_DAIRY = { x: 50, z: 38 };
 const CORE_W = [63, 65, 67, 69, 71];
 const CORE_E = [75, 77, 79, 81, 83];
 const along = (xs: number[], z: number): number[] => xs.map((x) => T(x, z));
@@ -332,6 +387,10 @@ function town(ticks: number): (sim: Sim) => void {
     at(500, { type: 'build', kind: 'farm', at: [T(38, 38), T(41, 38)] });
     at(2400, { type: 'build', kind: 'shrine', at: [T(68, 39)] });
     at(2400, { type: 'build', kind: 'farm', at: [T(50, 42)] });
+    // Meat and cheese for the townhouses the shrine will bring, once there is money for them.
+    afford(2400, 450);
+    at(sim.state.tick, { type: 'build', kind: 'lodge', at: [T(TOWN_LODGE.x, TOWN_LODGE.z)] });
+    at(sim.state.tick, { type: 'build', kind: 'dairy', at: [T(TOWN_DAIRY.x, TOWN_DAIRY.z)] });
     // The street east of the core, with its own fountain, agora and tax office.
     afford(3600, 820);
     at(3600, { type: 'road', tiles: row(96, 112, 41) });
@@ -353,7 +412,7 @@ function town(ticks: number): (sim: Sim) => void {
     });
     at(4500, { type: 'fountain', at: [T(27, 46)] });
     at(4500, { type: 'build', kind: 'farm', at: [T(44, 38)] });
-    at(ticks - 450, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
+    at(ticks - NEWEST, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
     at(ticks - FAIR_AGAIN, { type: 'tax', rate: FAIR });
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
   };
@@ -400,6 +459,12 @@ function taxesTown(sim: Sim): void {
   sim.run(TAXES_AFTER);
 }
 
+/** A cottage or townhouse with two kinds of food on its table, nearest the middle of the town (else the nearest home). */
+function varied(s: SimState): number {
+  const two = homes(s).filter((b) => (b.foodUntil > s.tick ? 1 : 0) + (b.meatUntil > s.tick ? 1 : 0) + (b.cheeseUntil > s.tick ? 1 : 0) >= 2);
+  return nearest(s, 28, 74, two.length ? two : homes(s));
+}
+
 /** The household that sent someone away for the taxes most recently, else the unhappiest. */
 function drivenOut(s: SimState): number {
   let best = 0;
@@ -431,7 +496,7 @@ export const DEMOS: Record<string, Demo> = {
   warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
   decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
-  grow: { view: 'grow', tool: 'shrine', setup: foodTown(FOOD_TICKS), overlay: 'religion' },
+  grow: { view: 'grow', tool: 'shrine', setup: growTown(FOOD_TICKS), overlay: 'religion' },
   shrine: { view: 'shrine', setup: cultureTown(SHRINE_TICKS, false), overlay: 'religion' },
   priestess: { view: 'priestess', setup: cultureTown(SHRINE_TICKS, false), follow: 'priestess', overlay: 'religion' },
   theatre: { view: 'theatre', setup: cultureTown(THEATRE_TICKS), overlay: 'culture' },
@@ -444,4 +509,8 @@ export const DEMOS: Record<string, Demo> = {
   taxes: { view: 'taxes', tool: 'taxoffice', setup: taxesTown, overlay: 'tax' },
   ledger: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', ledger: true },
   collector: { view: 'collector', setup: town(TOWN_TICKS), follow: 'tax', overlay: 'tax', overlayOn: true },
+  hunter: { view: 'hunter', setup: town(TOWN_TICKS), follow: 'hunter', overlay: 'food' },
+  dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
+  table: { view: 'table', setup: cultureTown(SHRINE_TICKS + 150, false), overlay: 'food', overlayOn: true, open: (s) => varied(s) },
+  overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
 };

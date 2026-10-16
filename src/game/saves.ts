@@ -212,15 +212,16 @@ const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len ===
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 const ROUNDS: readonly Round[] = ['water', 'food', 'religion', 'culture', 'tax'];
-const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice'];
-const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'priestess', 'actor', 'tax'];
+const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy'];
+const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'priestess', 'actor', 'tax', 'hunter'];
 const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
-  'taxedAt', 'taxPaid', 'unpaid', 'owed',
+  'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace',
 ];
-const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'wait'];
+const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
+const HERD_NUMBERS = ['hx', 'hz', 'r', 'x', 'z', 'tx', 'tz', 'head', 'full', 'clock', 'grow', 'fled'];
 
 /**
  * What is wrong with a saved state, in plain words, or '' if it has the shape
@@ -238,7 +239,11 @@ export function stateProblem(st: unknown): string {
   }
   if (st.mapId !== 'coast') return damaged('it is on a map this game doesn’t have');
   for (const k of STATE_NUMBERS) if (!fin(st[k])) return damaged(`its ${k} is missing`);
-  if (!nums(st.rng, 4) || !nums(st.folk, 4)) return damaged('its random numbers are missing');
+  if (!nums(st.rng, 4) || !nums(st.folk, 4) || !nums(st.wild, 4)) return damaged('its random numbers are missing');
+  if (!Array.isArray(st.herds)) return damaged('its wild herds are missing');
+  for (const h of st.herds as unknown[]) {
+    if (!isObj(h) || (h.kind !== 'deer' && h.kind !== 'boar') || typeof h.place !== 'string' || !HERD_NUMBERS.every((k) => fin(h[k]))) return damaged('a wild herd is wrong');
+  }
   if (!isObj(st.wind) || !fin(st.wind.angle) || !fin(st.wind.strength)) return damaged('its wind is missing');
   if (!ledgerOk(st.ledger)) return damaged('its ledger is missing');
   const n = MAP_SIZE * MAP_SIZE;
@@ -302,6 +307,8 @@ function undoOk(u: unknown): boolean {
       nums(e.removedIds) &&
       strs(e.removedKinds) &&
       nums(e.removedStock) &&
+      (e.removedMeat === undefined || nums(e.removedMeat)) &&
+      (e.removedCheese === undefined || nums(e.removedCheese)) &&
       nums(e.trees) &&
       fin(e.cost) &&
       fin(e.tick),

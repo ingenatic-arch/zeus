@@ -20,6 +20,9 @@ export const COLLECTOR_SPEED = CARRIER_SPEED * 1.5;
 
 export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : w.kind === 'tax' ? COLLECTOR_SPEED : isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED);
 
+/** A hunter walks at the settlers' pace, across country. */
+export const HUNTER_SPEED = WALK_SPEED;
+
 /** Walkers who walk a round: the water carrier, the food vendor, the priestess, the actor and the tax collector. */
 export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor' || k === 'tax';
 
@@ -51,6 +54,9 @@ export function newWalker(s: SimState, kind: Walker['kind'], people: number): Wa
     since: 0,
     target: 0,
     load: 0,
+    food: 0,
+    meat: 0,
+    cheese: 0,
     wait: 0,
     trail: [],
     purse: [],
@@ -139,7 +145,7 @@ export type NeedScore = (b: Building, s: SimState) => number;
  * level doesn't need it). A walker who would get there later than this can't
  * save it this round.
  */
-export type NeedDue = (b: Building) => number;
+export type NeedDue = (b: Building, s: SimState) => number;
 
 /** Added to a home's score when she would get there too late to save it: she goes where she can still save someone first. */
 export const TOO_LATE = 1e7;
@@ -202,7 +208,7 @@ export function wayNeeds(
     const arrive = s.tick + depth[t] * ticksATile;
     for (const b of besideRoad(s, size, t, near)) {
       let v = score(b, s);
-      if (v < Infinity && due && due(b) < arrive) v += TOO_LATE;
+      if (v < Infinity && due && due(b, s) < arrive) v += TOO_LATE;
       if (v < low) low = v;
     }
     if (low < Infinity) {

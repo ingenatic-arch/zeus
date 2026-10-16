@@ -323,7 +323,7 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter';
 
 /** Settler and leaver groups, water carriers, food vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {

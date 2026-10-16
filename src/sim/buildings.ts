@@ -30,10 +30,12 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   shrine: 'A shrine',
   theatre: 'A theatre',
   taxoffice: 'A tax office',
+  lodge: 'A hunting lodge',
+  dairy: 'A dairy',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8 };
 
 /** Buildings drawn on a two-by-two footprint (the rest take three by three). */
 export const isSmall = (kind: BuildingKind): boolean => kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice';

@@ -16,6 +16,8 @@ export const AGORA_COST = 250;
 export const SHRINE_COST = 200;
 export const THEATRE_COST = 400;
 export const TAX_OFFICE_COST = 150;
+export const LODGE_COST = 200;
+export const DAIRY_COST = 250;
 /** A bridge costs this much a tile. */
 export const BRIDGE_COST = 40;
 /** The most tiles of river and wet bank a bridge spans. */
@@ -32,10 +34,14 @@ export const COST: Record<BuildingKind, number> = {
   shrine: SHRINE_COST,
   theatre: THEATRE_COST,
   taxoffice: TAX_OFFICE_COST,
+  lodge: LODGE_COST,
+  dairy: DAIRY_COST,
 };
 
 /** A farm needs at least this mean fertility over its tiles (the green river land). */
 export const FARM_FERTILE_MIN = 0.5;
+/** A dairy needs at least this much grass over its footprint (see grassOf). */
+export const DAIRY_GRASS_MIN = 0.35;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
 
@@ -270,12 +276,34 @@ export function fertilityOf(map: CoastMap, x: number, z: number, side: number): 
   return f / (side * side);
 }
 
+/**
+ * How good a tile's grass is for goats (0..1): fertile ground grows it, rock
+ * doesn't. Most of the land between the hills and the sea is grassy enough;
+ * the hilltops, the crags and the sandy shore are not.
+ */
+export function tileGrass(map: CoastMap, t: number): number {
+  const n = map.size;
+  const tx = t % n;
+  const tz = (t - tx) / n;
+  const rock = map.sample(map.rock, tx + 0.5, tz + 0.5);
+  return Math.max(0, Math.min(1, map.tileFertility[t] / 0.4)) * Math.max(0, 1 - rock * 1.5);
+}
+
+/** The mean grass of a footprint's tiles (0..1). */
+export function grassOf(map: CoastMap, x: number, z: number, side: number): number {
+  const n = map.size;
+  let g = 0;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) g += tileGrass(map, Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx));
+  return g / (side * side);
+}
+
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side);
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
+  if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
   return '';
 }
 

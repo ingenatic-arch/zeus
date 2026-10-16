@@ -32,6 +32,8 @@ export interface ServiceSpec {
   score: NeedScore;
   /** When each home would go down for want of her (Infinity: its level doesn't need her). */
   due: NeedDue;
+  /** Scores and dues that depend on what her building has to give (the food vendor's stall); `score` and `due` if absent. */
+  scoreFor?(b: Building): { score: NeedScore; due: NeedDue };
   /** Serve the homes beside road tile `t`. */
   serve(s: SimState, size: number, t: number, w: Walker): void;
   /** Ticks her building waits after she is back (or lost) before sending the next. */
@@ -112,7 +114,8 @@ function chooseNext(s: SimState, size: number, spec: ServiceSpec, b: Building, c
   const on = all.filter((t) => t !== prev);
   if (on.length === 0) return all.length ? all[0] : -1;
   const behind = all.length > on.length;
-  const needs = (ways: number[], firstOnly = false): number[] => wayNeeds(s, size, dist, range, spec.score, tat, cur, ways, firstOnly, spec.due);
+  const sc = spec.scoreFor ? spec.scoreFor(b) : spec;
+  const needs = (ways: number[], firstOnly = false): number[] => wayNeeds(s, size, dist, range, sc.score, tat, cur, ways, firstOnly, sc.due);
   if (on.length === 1) {
     // A plain stretch of road: on, unless it leads only to empty road and there are homes behind.
     if (!behind || needs(on, true)[0] < Infinity) return on[0];

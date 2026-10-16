@@ -1,14 +1,14 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 7;
+export const SIM_STATE_VERSION = 8;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy';
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings and plays. */
 export type Service = 'water' | 'food' | 'religion' | 'culture';
@@ -68,6 +68,21 @@ export interface Building {
   unpaid: number;
   /** A workplace: wages it is owed this month and hasn't been paid (0: paid, or nothing due). */
   owed: number;
+  /** Measures of meat and of cheese: in a lodge's or a dairy's store, a granary, or the agora's stall (wheat is `stock`; see foods.ts). */
+  meat: number;
+  cheese: number;
+  /** A granary: room for meat and for cheese reserved by carts on their way (wheat's is `incoming`). */
+  meatIn: number;
+  cheeseIn: number;
+  /** A home: the tick its meat and its cheese last until (0: never had any; bread is `foodUntil`). */
+  meatUntil: number;
+  cheeseUntil: number;
+  /**
+   * A home: no need counts as missing before this tick. A town saved before
+   * a level needed what it needs now (a townhouse two kinds of food) gets the
+   * usual warning time from when it was loaded, not all at once.
+   */
+  grace: number;
 }
 
 /** Someone living in a home. */
@@ -123,8 +138,8 @@ export interface Family {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, a fountain's water carrier, a farm's ox cart, the agora's porter, its food vendor, a shrine's priestess, a theatre's actor or a tax office's collector. */
-  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor' | 'tax';
+  /** Settlers, leavers, a fountain's water carrier, an ox cart (from a farm, lodge or dairy), the agora's porter, its food vendor, a shrine's priestess, a theatre's actor, a tax office's collector or a lodge's hunter. */
+  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'priestess' | 'actor' | 'tax' | 'hunter';
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;
@@ -148,14 +163,48 @@ export interface Walker {
   since: number;
   /** A cart or porter: the building it is heading for (a granary). */
   target: number;
-  /** A cart or porter: measures of wheat it carries. */
+  /** A cart: measures of its food (`food`) it carries; the porter: measures of wheat; a hunter: meat. */
   load: number;
+  /** A cart: what it carries (0 wheat, 1 meat, 2 cheese; see foods.ts). A hunter: the herd he is after (its index), or -1. */
+  food: number;
+  /** The porter: measures of meat and of cheese he carries (0 for everyone else). */
+  meat: number;
+  cheese: number;
   /** A cart or porter: ticks left unloading or loading where it stands. */
   wait: number;
   /** A service walker: the road tiles she has walked this round (which no longer count towards it). */
   trail: number[];
   /** A tax collector: the coins in his satchel, by district, as [district, drachmas, …] pairs (empty for everyone else). */
   purse: number[];
+}
+
+/**
+ * A herd of wild animals roaming its home range off the roads: deer on the
+ * hills, boar in the woods. The renderer draws its animals around where it
+ * stands; the sim moves only the herd.
+ */
+export interface Herd {
+  kind: 'deer' | 'boar';
+  /** How people name where it lives: "below the crags". */
+  place: string;
+  /** Where it roams: within `r` tiles of (hx, hz). */
+  hx: number;
+  hz: number;
+  r: number;
+  /** Where it stands now and where it is heading (world units). */
+  x: number;
+  z: number;
+  tx: number;
+  tz: number;
+  /** Head of game now, and when it is whole. */
+  head: number;
+  full: number;
+  /** Ticks it grazes before moving on. */
+  clock: number;
+  /** Ticks until another head grows back (while it is below full). */
+  grow: number;
+  /** The tick it last bolted from a hunter (it runs while it flees). */
+  fled: number;
 }
 
 /** What a service's walkers have done on the streets, one entry per map tile. */
@@ -219,6 +268,9 @@ export interface UndoEntry {
   removedKinds: BuildingKind[];
   /** The stock each held (same order), which comes back with it. */
   removedStock: number[];
+  /** The meat and cheese each held (same order; missing in older saves: none). */
+  removedMeat?: number[];
+  removedCheese?: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -245,6 +297,10 @@ export interface SimState {
    * grow exactly as they did before households had names).
    */
   folk: RngState;
+  /** A third generator for the wild herds, so their wandering never shifts the other two. */
+  wild: RngState;
+  /** The wild herds on the hills and in the woods. */
+  herds: Herd[];
   /** Commands applied so far. */
   commandsApplied: number;
   /**
