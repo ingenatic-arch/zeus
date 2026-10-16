@@ -138,7 +138,7 @@ export class BuildBar {
     if (t) this.hint.textContent = `${INFO[t].hint}  Right-click or Esc to put it down.`;
   }
 
-  private undoWhy = '';
+  private undoWhy: string | null = null;
 
   /** Undo is greyed out when the last action can't be undone, and its tooltip says why. */
   setUndo(available: boolean, why = ''): void {

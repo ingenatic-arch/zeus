@@ -124,8 +124,8 @@ export class Signs {
   private readonly m = new THREE.Matrix4();
   private readonly icon = new THREE.Matrix4();
   /** Where the drop and the loaf go on a sign that shows both. */
-  private readonly left = new THREE.Matrix4().makeTranslation(-0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.62, 0.62, 1));
-  private readonly right = new THREE.Matrix4().makeTranslation(0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.62, 0.62, 1));
+  private readonly left = new THREE.Matrix4().makeTranslation(-0.4, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.68, 0.68, 1));
+  private readonly right = new THREE.Matrix4().makeTranslation(0.42, 0.02, 0).multiply(new THREE.Matrix4().makeScale(0.66, 0.66, 1));
   private readonly p = new THREE.Vector3();
   private readonly sc = new THREE.Vector3();
   private readonly c = new THREE.Color();
@@ -203,8 +203,9 @@ export class Signs {
       const cz = b.z + 1;
       const bob = Math.sin(time * 1.7 + b.id * 1.3) * 0.045;
       this.p.set(cx, this.map.heightAt(cx, cz) + HEIGHT + bob, cz);
-      // Bigger with distance (up to three times), so a sign reads from the default height and from afar.
-      const far = Math.min(3, Math.max(0.7, this.p.distanceTo(cam) / 27));
+      // The same size on screen from about 16 units away out to far off (up to three times its size), so a sign
+      // reads from the default height and from afar; closer than that it grows, but not to fill the view.
+      const far = Math.min(3, Math.max(0.6, this.p.distanceTo(cam) / 27));
       const pulse = urgency > 0.83 ? 1 + 0.1 * Math.sin(time * 6 + b.id) : 1;
       const k = SIZE * far * pulse * (urgency < 0 ? 0.85 : 1);
       // Lift the sign by its own tail so the tip stays above the roof as it grows.

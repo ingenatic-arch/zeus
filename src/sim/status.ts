@@ -116,7 +116,12 @@ export function whyHungry(s: SimState, map: CoastMap, b: Building, agoras: Build
   if (agoras.every((a) => a.stock <= 0)) return 'the agora’s food stall is empty';
   // Little on the stall and little in the granaries: the town eats more than its farms grow.
   const stored = s.buildings.reduce((n, g) => n + (g.kind === 'granary' ? g.stock : 0), 0);
-  if (agoras.every((a) => a.stock < STALL_CAP / 4) && stored < STALL_CAP / 2) return 'the agora’s stall runs low: the farms don’t grow enough for the town; another farm would help';
+  if (agoras.every((a) => a.stock < STALL_CAP / 4) && stored < STALL_CAP / 2) {
+    // A farm short of hands grows slowly: say so before asking for another farm.
+    const farms = s.buildings.filter((o) => o.kind === 'farm');
+    if (farms.some((f) => rateOf(f) < 1)) return 'the agora’s stall runs low: a farm is short of workers (hover it to see why)';
+    return 'the agora’s stall runs low: the farms don’t grow enough for the town; another farm would help';
+  }
   if (b.foodUntil > 0) return 'within reach of the agora, but the food vendor has taken other turns lately';
   return 'within reach of the agora; the food vendor hasn’t come this way yet';
 }
