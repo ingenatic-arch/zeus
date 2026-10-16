@@ -18,9 +18,9 @@ import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
-import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
+import { BUILDING_NAMES, centreOf, findBuilding, TOWNHOUSE } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
-import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
+import { lackWords, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { herdStatus, homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
@@ -389,7 +389,11 @@ function start(): void {
     : null;
   if (loaded) {
     // A town saved before taxes came in (phase 1) says what changed.
-    const changed = loaded.from === 6 ? ' · Rent is gone: taxes come in with a tax collector now. Build a tax office (Z) by the houses.' : '';
+    let changed = loaded.from === 6 ? ' · Rent is gone: taxes come in with a tax collector now. Build a tax office (Z) by the houses.' : '';
+    // …and one saved before meat and cheese (slice 8 or older), with townhouses or better, says what they need now and how long they have.
+    if (loaded.from !== undefined && loaded.from <= 7 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
+      changed += ' · Townhouses now need two kinds of food and fine houses all three: build a hunting lodge (M M) near the game and a dairy (M M M) on green land. They have six months before they start to worry.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
@@ -480,7 +484,9 @@ function start(): void {
     let at = city.walkers.serviceAt.get(follow.walker);
     if (!at) {
       // Her round is over: the next one out from the same place, if any.
-      const next = sim.state.walkers.find((o) => o.origin === f.id && o.kind === follow?.kind);
+      const mine = sim.state.walkers.filter((o) => o.origin === f.id && o.kind === follow?.kind);
+      // (A lodge has several hunters out: the one who set out last, if any is still on his way out.)
+      const next = follow.kind === 'hunter' ? (mine.filter((o) => !o.back).sort((a, b) => a.walked - b.walked)[0] ?? mine[0]) : mine[0];
       if (next) {
         follow.walker = next.id;
         at = city.walkers.serviceAt.get(next.id);
@@ -593,7 +599,9 @@ function start(): void {
       kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
-    const w = ripest ? undefined : sim.state.walkers.find((o) => o.kind === kind);
+    // Hunters: the one who set out last (not one already on his way home), so the camera goes out with him to the herd and back.
+    const outbound = kind === 'hunter' ? sim.state.walkers.filter((o) => o.kind === 'hunter' && !o.back && o.wait === 0).sort((a, b) => a.walked - b.walked)[0] : undefined;
+    const w = ripest ? undefined : (outbound ?? sim.state.walkers.find((o) => o.kind === kind));
     const f = ripest ?? (w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from));
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
@@ -610,7 +618,7 @@ function start(): void {
     const out: Array<{ b: Building; left: number; need: string }> = [];
     for (const b of sim.state.buildings) {
       const ws = warningsOf(sim.state, b);
-      if (ws.length) out.push({ b, left: ws[0].left, need: orList(ws.map((w) => NEED_WORDS[w.need])) });
+      if (ws.length) out.push({ b, left: ws[0].left, need: orList(ws.map((w) => lackWords(sim.state, b, w.need))) });
     }
     return out.sort((a, b) => a.left - b.left || a.b.id - b.b.id);
   };

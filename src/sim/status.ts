@@ -535,7 +535,9 @@ function porterLoad(p: Walker): string {
 export function lodgeStatus(s: SimState, map: CoastMap, l: Building): Status {
   const title = `${BUILDING_NAMES.lodge} · ${fmt(l.meat)} of ${fmt(LODGE_STORE)} measures of meat`;
   const out = huntersOut(s, l);
-  const game = herdsInReach(s, l);
+  const game: Array<{ h: Herd }> = herdsInReach(s, l);
+  // A herd its hunters are after counts as in reach, though it has drifted just past the edge since they set out.
+  for (const w of out) if (!w.back && s.herds[w.food] && !game.some((g) => g.h === s.herds[w.food])) game.push({ h: s.herds[w.food] });
   const spare = game.filter((g) => g.h.head > MIN_HEAD);
   let hunt: string;
   if (huntersFor(l) === 0) hunt = 'Nobody hunts with nobody working the lodge';

@@ -8,11 +8,14 @@ import type { CoastMap } from '../map/bake';
 import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from '../sim/buildings';
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
-import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
+import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
 import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
-import { foodList, foodsOnTable, kindsNeeded } from '../sim/foods';
+import { foodList, foodsOnTable, kindsNeeded, onTable } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
+
+/** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
+const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -66,7 +69,7 @@ const UP_LINES = [
 /** One line of a household's story. */
 function storyLine(f: Family, e: Story, i: number): string {
   const who = nameList(e.names);
-  const need = e.need && e.need !== 'tax' ? NEED_WORDS[e.need] : 'water';
+  const need = e.need === 'food' ? foodFor(e.what === 'down' ? e.level + 1 : e.level) : e.need && e.need !== 'tax' ? NEED_WORDS[e.need] : 'water';
   switch (e.what) {
     case 'came':
       return `${who} came from ${f.origin} and pitched a tent`;
@@ -85,7 +88,7 @@ function storyLine(f: Family, e: Story, i: number): string {
           break;
         }
       }
-      if (again) return `Still no ${need}, even in the ${levelName(e.level, '')}: they began to worry again`;
+      if (again) return `Still without ${need}, even in the ${levelName(e.level, '')}: they began to worry again`;
       return `Ten days without ${need}: they began to worry`;
     }
     case 'relief': {
@@ -196,11 +199,20 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
     const need = needsOf(b).find((n) => untilOf(b, n) <= s.tick);
     if (!need) return '';
     const until = untilOf(b, need);
-    const gone = s.tick - Math.max(until, b.since);
+    const since = missingSince(b, need);
+    const what = lackWords(s, b, need);
+    // A town saved before this level needed it: they put up with it for a while (see missingSince).
+    if (since > s.tick) return `<div class="late">${ICON[need]}<span>No ${what} yet · they’ll put up with it for ${days(since - s.tick)} more, then start to worry</span></div>`;
+    const gone = s.tick - since;
+    if (need === 'food' && since === b.grace && since > Math.max(until, b.since)) {
+      return `<div class="late">${ICON[need]}<span>No ${what} yet · they’ll start to worry in ${days(WARN_AFTER - gone)}</span></div>`;
+    }
     // Gone longer than that: they have just moved down a level without it, and the count starts again.
     if (s.tick - until >= WARN_AFTER) {
-      return `<div class="late">${ICON[need]}<span>Still no ${NEED_WORDS[need]}, ${days(s.tick - until)} now · they’ve made do with the ${levelName(b.level, '')}, and will start to worry again in ${days(WARN_AFTER - gone)}</span></div>`;
+      return `<div class="late">${ICON[need]}<span>Still no ${what}${until > 0 ? `, ${days(s.tick - until)} now` : ''} · they’ve made do with the ${levelName(b.level, '')}, and will start to worry again in ${days(WARN_AFTER - gone)}</span></div>`;
     }
+    // Bread on the table, but not the second (or third) kind its level needs.
+    if (need === 'food' && onTable(b, s.tick) > 0) return `<div class="late">${ICON[need]}<span>No ${what} for ${days(gone)} · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
     const by = BRINGER[need];
     return `<div class="late">${ICON[need]}<span>${by[0].toUpperCase()}${by.slice(1)} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
   }
@@ -213,13 +225,13 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   const going = groups.reduce((n, g) => n + g.length, 0);
   const label = (g: number[]): string => (!f ? '' : g.length >= 3 ? `${f.members[g[0]].name} and family` : nameList(g.map((i) => f.members[i].name)));
   const who = going > 0 ? ` ${going === 1 ? `${label(groups[0])} would move away` : `${going} of them would move away (${groups.map(label).join('; ')})`}.` : '';
-  const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${NEED_WORDS[x.need]} for ${days(s.tick - x.since)}`).join(', ');
+  const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${lackWords(s, b, x.need)} for ${days(s.tick - x.since)}`).join(', ');
   // The other needs they lack, each with when it alone would send them down (needs that would do so on the same day share a clause).
   const rest: Array<{ words: string[]; left: number }> = [];
   for (const x of ws.slice(1)) {
     const same = rest.find((r) => days(r.left) === days(x.left));
-    if (same) same.words.push(NEED_WORDS[x.need]);
-    else rest.push({ words: [NEED_WORDS[x.need]], left: x.left });
+    if (same) same.words.push(lackWords(s, b, x.need));
+    else rest.push({ words: [lackWords(s, b, x.need)], left: x.left });
   }
   const also = rest.map((r, i) => (i ? ` Without ${r.words.join(' or ')}, in ${days(r.left)}.` : ` Without ${r.words.join(' or ')}, they go in ${days(r.left)} all the same.`)).join('');
   const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${TITLE[x.need]}: ` : 'Why: '}${esc(whyLacks(s, map, b, x.need))}</p>`).join('');

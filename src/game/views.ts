@@ -73,8 +73,8 @@ export const VIEWS: Record<string, CameraView> = {
   closed: { x: 24, z: 75, yaw: 0.6, dist: 26, tilt: -0.14 },
   // Close over #town's hunting lodge on the north road (the camera then follows a hunter out to the deer in the north hills).
   hunter: { x: 60.5, z: 31, yaw: 2.4, dist: 12, tilt: 0.2 },
-  // Low by #town's dairy, its goats in the pen and the cheeses on the bench.
-  dairy: { x: 51.5, z: 39.5, yaw: 2.2, dist: 7, tilt: 0.12 },
+  // Over #town’s dairy from the meadow side (a tree hides the pen from the road), its goats in the pen and the cheeses on the bench.
+  dairy: { x: 51.5, z: 39.5, yaw: 5.3, dist: 7, tilt: 0.25 },
   // The townhouses round the shrine, the food variety overlay on: what is on each table.
   table: { x: 30, z: 73, yaw: 0.6, dist: 28, tilt: -0.14 },
   // The three lodges up the lane and the deer below the crags they hunt.

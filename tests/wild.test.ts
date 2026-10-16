@@ -299,3 +299,13 @@ describe('determinism with the wild', () => {
     expect(serialize(c.state)).toEqual(serialize(a.state));
   });
 });
+
+describe('#hunter (review of slice 9)', () => {
+  it('opens as a hunter steps out of the lodge for a herd, so the camera goes out with him', () => {
+    const s = demo('hunter').state;
+    const out = s.walkers.filter((w) => w.kind === 'hunter' && !w.back && w.wait === 0).sort((a, b) => a.walked - b.walked);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out[0].walked).toBeLessThan(1);
+    expect(s.herds[out[0].food].head).toBeGreaterThan(MIN_HEAD);
+  });
+});

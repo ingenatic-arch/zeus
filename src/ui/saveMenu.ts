@@ -83,7 +83,8 @@ export class SaveMenu {
     this.noteTimer = window.setTimeout(() => {
       this.note.classList.add('gone');
       this.noteTimer = window.setTimeout(() => (this.note.hidden = true), 900);
-    }, bad ? 6000 : 2600);
+      // (Long enough to read: a welcome back that says what changed since the town was saved runs to a few sentences.)
+    }, Math.max(bad ? 6000 : 2600, text.length * 55));
   }
 
   /** Save by hand (the button or Ctrl+S). */

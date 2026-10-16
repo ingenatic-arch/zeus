@@ -164,7 +164,8 @@ export class Animals {
     for (let k = 0; k < h.head; k++) {
       const seed = i * 31 + k;
       // A loose bunch: golden-angle spiral, a little jittered, a little wider when bolting.
-      const r = (0.26 + 0.3 * Math.sqrt(k)) * (bolting ? 1.3 : 1);
+      // (Boar are stocky: a little more room each, or their bunch runs together into one dark heap.)
+      const r = (0.26 + 0.3 * Math.sqrt(k)) * (bolting ? 1.3 : 1) * (h.kind === 'boar' ? 1.3 : 1);
       const a = k * 2.39996 + hash2(seed, 1, 641) * 0.8;
       let ox = Math.cos(a) * r;
       let oz = Math.sin(a) * r;

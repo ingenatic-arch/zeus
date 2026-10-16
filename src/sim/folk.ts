@@ -444,6 +444,15 @@ export const NEEDS: readonly Service[] = ['water', 'food', 'religion', 'culture'
 
 /** Each need in a word, as people say it: water, bread, blessings, plays. */
 export const NEED_WORDS: Record<Service, string> = { water: 'water', food: 'bread', religion: 'blessings', culture: 'plays' };
+/**
+ * What a home lacks of a need, in words: water, blessings, plays; for food,
+ * bread when its table is bare, else the kinds its level needs and lacks
+ * ("meat or cheese": a townhouse with only bread has bread).
+ */
+export function lackWords(s: SimState, b: Building, need: Service): string {
+  if (need !== 'food' || onTable(b, s.tick) === 0) return NEED_WORDS[need];
+  return foodList(foodsLacking(s, b), 'or') || NEED_WORDS.food;
+}
 /** Who brings each need. */
 export const BRINGER: Record<Service, string> = { water: 'the water carrier', food: 'the food vendor', religion: 'the priestess', culture: 'the actor' };
 

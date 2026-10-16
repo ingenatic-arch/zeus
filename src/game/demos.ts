@@ -6,6 +6,7 @@
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
 import { COTTAGE } from '../sim/buildings';
+import { TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf } from '../sim/folk';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
@@ -474,6 +475,21 @@ function dryTown(sim: Sim): void {
   sim.run(DRY_AFTER);
 }
 
+/**
+ * #hunter: #town played on until the next hunter steps out of the lodge (about
+ * two weeks: at #town's opening its three hunters are already out, one of
+ * them on his way home), so the camera goes out with him from the door.
+ */
+function hunterTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  const s = sim.state;
+  const out = new Set(s.walkers.filter((w) => w.kind === 'hunter').map((w) => w.id));
+  for (let t = 0; t < TICKS_PER_MONTH * 2; t++) {
+    sim.step();
+    if (s.walkers.some((w) => w.kind === 'hunter' && !out.has(w.id))) return;
+  }
+}
+
 function taxesTown(sim: Sim): void {
   town(TOWN_TICKS)(sim);
   sim.enqueue({ type: 'clear', x0: EAST_OFFICE.x, z0: EAST_OFFICE.z, x1: EAST_OFFICE.x, z1: EAST_OFFICE.z });
@@ -527,7 +543,7 @@ export const DEMOS: Record<string, Demo> = {
   taxes: { view: 'taxes', tool: 'taxoffice', setup: taxesTown, overlay: 'tax' },
   ledger: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', ledger: true },
   collector: { view: 'collector', setup: town(TOWN_TICKS), follow: 'tax', overlay: 'tax', overlayOn: true },
-  hunter: { view: 'hunter', setup: town(TOWN_TICKS), follow: 'hunter', overlay: 'food' },
+  hunter: { view: 'hunter', setup: hunterTown, follow: 'hunter', overlay: 'food' },
   dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
   table: { view: 'table', setup: tableTown(TABLE_TICKS), overlay: 'variety', overlayOn: true, open: aboutToClimb },
   overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
