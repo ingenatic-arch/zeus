@@ -32,14 +32,16 @@ import { TILE_ROAD, type BuildingKind } from '../sim/state';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
+import { COLLECTOR_RANGE, taxOf } from '../sim/taxes';
+import { hasTaxOffice, reserve, spendable } from '../sim/treasury';
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
-export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'clear';
-export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'clear'];
+export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'clear';
+export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'];
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre';
+type Placer = 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear';
 
 export interface ToolTip {
@@ -55,7 +57,11 @@ const WALKS = {
   agora: { service: 'food', walker: 'food vendor', range: VENDOR_RANGE, what: 'food', none: 'huts', note: ' (tents live off the land)' },
   shrine: { service: 'religion', walker: 'priestess', range: PRIESTESS_RANGE, what: 'blessings', none: 'cottages', note: ' (cottages and better want her blessing)' },
   theatre: { service: 'culture', walker: 'actor', range: ACTOR_RANGE, what: 'plays', none: 'townhouses', note: ' (townhouses and better want plays)' },
+  taxoffice: { service: 'tax', walker: 'tax collector', range: COLLECTOR_RANGE, what: 'taxes', none: 'lived-in homes', note: '' },
 } as const;
+
+/** Why a build that the drachmas would cover is refused: the treasury keeps back the price of a tax office while there is none. */
+const KEPT_BACK = (s: Parameters<typeof reserve>[0]): string => `Not enough drachmas · ${fmt(reserve(s))} dr is kept back for a tax office (Z): build that first`;
 
 export class Tools {
   tool: ToolName | null = null;
@@ -106,9 +112,9 @@ export class Tools {
         return false;
       });
     }
-    // Placing a fountain shows the water overlay, and what the new one would reach; an agora, the food overlay; a farm or granary, the food overlay too (where the chain runs); a shrine or theatre, its own.
+    // Placing a fountain shows the water overlay, and what the new one would reach; an agora, the food overlay; a farm or granary, the food overlay too (where the chain runs); a shrine, theatre or tax office, its own.
     if (this.overlay) {
-      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' ? 'food' : t === 'shrine' ? 'religion' : t === 'theatre' ? 'culture' : null;
+      this.overlay.forced = t === 'fountain' ? 'water' : t === 'agora' || t === 'farm' || t === 'granary' ? 'food' : t === 'shrine' ? 'religion' : t === 'theatre' ? 'culture' : t === 'taxoffice' ? 'tax' : null;
       this.overlay.setPreview(null);
     }
     this.preview();
@@ -267,7 +273,7 @@ export class Tools {
       // What it costs, tile by tile: a bridge is paid for whole, or not laid at all.
       const wet = mapIndex(map).ground;
       const lay: number[] = [];
-      let money = s.money;
+      let money = spendable(s);
       let total = 0;
       let bridge = 0;
       let short = false;
@@ -300,7 +306,8 @@ export class Tools {
         return;
       }
       const span = bridge ? ` · a bridge of ${bridge} ${bridge === 1 ? 'tile' : 'tiles'} (${BRIDGE_COST} dr a tile)` : '';
-      if (lay.length < fresh.length) this.tip.show(`Not enough drachmas: ${fmt(total)} dr for ${fresh.length} tiles${span}`, sx, sy, true);
+      const kept = reserve(s) && s.money >= total ? ` · ${fmt(reserve(s))} dr is kept back for a tax office (Z)` : '';
+      if (lay.length < fresh.length) this.tip.show(`Not enough drachmas: ${fmt(total)} dr for ${fresh.length} tiles${span}${kept}`, sx, sy, true);
       else this.tip.show(`Road · ${fresh.length} ${fresh.length === 1 ? 'tile' : 'tiles'}${span} · ${fmt(total)} dr`, sx, sy);
       if (lay.length) this.pending = () => this.send({ type: 'road', tiles: lay });
       return;
@@ -321,7 +328,7 @@ export class Tools {
       const ok: number[] = [];
       let reason = '';
       let roadless = 0;
-      let afford = Math.floor(s.money / PLOT_COST);
+      let afford = Math.floor(spendable(s, 'home') / PLOT_COST);
       for (let z = fz; stepZ > 0 ? z <= ez : z >= ez; z += stepZ) {
         for (let x = fx; stepX > 0 ? x <= ex : x >= ex; x += stepX) {
           const r = plotRefusal(map, s, x, z);
@@ -330,7 +337,7 @@ export class Tools {
             afford--;
             ok.push(z * n + x);
             if (!plotNeighbours(n, x, z).some((t) => s.tiles[t] === TILE_ROAD)) roadless++;
-          } else reason ||= r || 'Not enough drachmas';
+          } else reason ||= r || (s.money >= PLOT_COST && reserve(s) ? KEPT_BACK(s) : 'Not enough drachmas');
           for (let dz = 0; dz < PLOT_SIZE; dz++) {
             for (let dx = 0; dx < PLOT_SIZE; dx++) {
               const tx = x + dx;
@@ -424,7 +431,7 @@ export class Tools {
     this.pending = () => this.send({ type: 'clear', x0, z0, x1, z1 });
   }
 
-  /** Placing one fountain, farm, granary, agora, shrine or theatre: where it would go, what it costs, and what it would do there. */
+  /** Placing one fountain, farm, granary, agora, shrine, theatre or tax office: where it would go, what it costs, and what it would do there. */
   private placeOne(kind: Placer, sx: number, sy: number, marks: Map<number, number>): void {
     const s = this.sim.state;
     const map = this.sim.map;
@@ -435,7 +442,7 @@ export class Tools {
     const x = at % n;
     const z = Math.floor(at / n);
     const cost = COST[kind];
-    const r = buildingRefusal(map, s, kind, x, z) || (s.money < cost ? 'Not enough drachmas' : '');
+    const r = buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? KEPT_BACK(s) : 'Not enough drachmas');
     const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
     // Allowed, but no use without a road beside it: amber, not red.
     const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;
@@ -450,8 +457,13 @@ export class Tools {
     let text = `${name} · ${fmt(cost)} dr · ${JOBS[kind]} workers`;
     const lines: string[] = [];
     let warn = '';
-    if (kind === 'fountain' || kind === 'agora' || kind === 'shrine' || kind === 'theatre') {
+    if (kind === 'fountain' || kind === 'agora' || kind === 'shrine' || kind === 'theatre' || kind === 'taxoffice') {
       const { service, walker, range, what, none, note } = WALKS[kind];
+      if (kind === 'taxoffice') {
+        const per = taxOf(s.taxRate, 3);
+        lines.push(hasTaxOffice(s) ? 'Another collector, for the homes the others don’t reach' : 'Its tax collector brings in what each household he calls on owes: without one, no taxes come in');
+        lines.push(per > 0 ? `At this rate a cottage pays ${per} dr a month` : 'At this rate nobody pays: the collector still walks');
+      }
       if (kind === 'shrine') lines.push('Its priestess blesses the homes she passes: a cottage with a month’s blessing in hand becomes a townhouse');
       if (kind === 'theatre') lines.push('Its actor brings the plays to the homes he passes: a townhouse with a month’s plays in hand becomes a fine house');
       if (roads.length === 0) warn = `No road beside it: its ${walker} would have nowhere to walk. Lay a road along one side first.`;
@@ -464,6 +476,7 @@ export class Tools {
         }
         const { homes, dry } = this.reach;
         if (homes === 0) lines.push(`No ${none} within ${range} steps along the road yet${note}`);
+        else if (kind === 'taxoffice') lines.push(`Its ${walker} would reach ${homes} ${homes === 1 ? 'home' : 'homes'}${dry ? ` · ${dry} no collector has called on this month` : ''}`);
         else lines.push(`Its ${walker} would reach ${homes} ${homes === 1 ? 'home' : 'homes'}${dry ? ` · ${dry} without ${what} now` : ''}`);
       }
       if (kind === 'agora' && !s.buildings.some((b) => b.kind === 'granary')) lines.push('Its porter fetches grain from a granary: build one too');

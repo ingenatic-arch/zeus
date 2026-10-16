@@ -58,10 +58,56 @@ const SHOTS = {
   saves: '#town-paused',
   'farm-warn': '#food-paused',
   'four-needs': '#fine-paused',
+  // Slice 8.
+  ledger: '#ledger-paused',
+  rates: '#town-paused',
+  taxoffice: '#town-paused-shot',
+  collector: '#collector-shot',
+  'collector-ui': '#collector',
+  'collector-close': '#collector',
+  'tax-overlay': '#collector-paused',
+  taxes: '#taxes-paused',
+  harsh: '#harsh-paused',
+  dry: '#dry',
 };
 
 /** Things to do on the page before a shot. */
 const BEFORE = {
+  rates: async (page) => {
+    await page.click('.rate-chip');
+  },
+  taxoffice: async (page) => {
+    // Close over the tax office on #town's main street, and the north street's.
+    await page.evaluate(() => window.__zeus.jump({ x: 62, z: 43, yaw: 0.9, dist: 7, tilt: 0.12 }));
+  },
+  'tax-overlay': async (page) => {
+    await page.evaluate(() => window.__zeus.setView('town'));
+  },
+  collector: async (page) => {
+    // Let him get going.
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 120000 });
+  },
+  'collector-ui': async (page) => {
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 120000 });
+  },
+  'collector-close': async (page) => {
+    // Close by him at street level, paused mid-round.
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 60, t, { timeout: 120000 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.where('tax');
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
+    });
+  },
+  taxes: async (page) => {
+    // The tax office tool over the east street, beside its road.
+    const p = await page.evaluate(() => window.__zeus.screenOf(101, 43));
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+  },
   saves: async (page) => {
     await page.click('.saves-btn');
   },

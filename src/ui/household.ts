@@ -10,7 +10,7 @@ import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, leavingGroups, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { reachesWork, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
+import { reachesWork, taxLine, whyDry, whyHungry, whyNoPlays, whyUnblessed } from '../sim/status';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -40,6 +40,7 @@ const ICON = {
   religion: '<svg viewBox="0 0 24 24" class="ic"><path d="M2.6 8.6 12 3.4l9.4 5.2z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" stroke="#4a3a6a" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 18.4h18.4v2.6H2.8z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   culture: '<svg viewBox="0 0 24 24" class="ic"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" fill="#e3778f" stroke="#7a2a40" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" fill="#7a2a40"/><path d="M8.2 13.6q3.8 4.2 7.6 0" fill="none" stroke="#7a2a40" stroke-width="1.6" stroke-linecap="round"/></svg>',
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
+  tax: '<svg viewBox="0 0 16 16" class="ic"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#2f7f6a"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#4f9f88"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/></svg>',
   home: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 21v-8.5L12 6l8 6.5V21z" fill="#e9cf98" stroke="#4a3420" stroke-width="1.2" stroke-linejoin="round"/><path d="M10 21v-5h4v5z" fill="#4a3420"/></svg>',
 };
 
@@ -166,8 +167,11 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
     }
   }
   const next = nextLine(s, b);
+  // What they pay: a line of its own, neither had nor lacked.
+  const tax = taxLine(s, map, b).replace(/^Taxes: /, '');
+  const taxes = tax ? `<p class="next taxes">${ICON.tax}<span><b>Taxes</b> · ${esc(tax)}</span></p>` : '';
   const list = (items: string[]): string => (items.length ? `<ul class="chips">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '<p class="none">Nothing</p>');
-  return `<section class="needs"><h3>What they have</h3>${list(has)}<h3>What they lack</h3>${list(lack)}<p class="next">${ICON.home}<span>${esc(next)}</span></p></section>`;
+  return `<section class="needs"><h3>What they have</h3>${list(has)}<h3>What they lack</h3>${list(lack)}${taxes}<p class="next">${ICON.home}<span>${esc(next)}</span></p></section>`;
 }
 
 /** The warning box: what ran out, how long ago, how long they will put up with it, and what would help. */

@@ -4,6 +4,7 @@ import { TICKS_PER_SECOND } from '../sim/clock';
 import type { Outlook } from '../sim/settlers';
 import { JOBS } from '../sim/buildings';
 import type { BuildingKind } from '../sim/state';
+import { TAX_RATES, taxOf } from '../sim/taxes';
 
 const ICONS: Record<Speed, string> = {
   paused: '<svg viewBox="0 0 16 16"><rect x="3" y="2.5" width="3.6" height="11" rx="1"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1"/></svg>',
@@ -52,10 +53,11 @@ export class TopBar {
         <div class="divider"></div>
         <div class="speeds"></div>
         <div class="divider"></div>
-        <div class="stat money" title="Drachmas in the treasury">
+        <button class="stat money" title="Drachmas in the treasury · click for the ledger">
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="8" r="4.4" class="inner"/><path d="M8 5.2l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" class="mark"/></svg>
-          <span class="num">0</span><span class="delta"></span>
-        </div>
+          <span class="num">0</span><span class="trend" hidden></span><span class="delta"></span>
+        </button>
+        <button class="rate-chip" title="The tax rate: click to change it">Taxes · fair</button>
       </div>
       <div class="meander"></div>`;
     root.appendChild(bar);
@@ -156,6 +158,86 @@ export class TopBar {
   /** Clicking the trouble count. */
   onTrouble(f: () => void): void {
     (this.bar.querySelector('.stat.trouble') as HTMLElement).addEventListener('click', f);
+  }
+
+  /** Clicking the drachmas. */
+  onMoney(f: () => void): void {
+    (this.bar.querySelector('.stat.money') as HTMLElement).addEventListener('click', f);
+  }
+
+  private trendKey = '';
+
+  /**
+   * Which way money went last month (null: no full month yet), shown as a
+   * small arrow by the drachmas; and whether wages are owed (the drachmas turn rust).
+   */
+  showTrend(net: number | null, owed: boolean): void {
+    const key = `${net}:${owed}`;
+    if (key === this.trendKey) return;
+    this.trendKey = key;
+    const el = this.bar.querySelector('.stat.money') as HTMLElement;
+    el.classList.toggle('owed', owed);
+    const t = el.querySelector('.trend') as HTMLElement;
+    t.hidden = net === null || net === 0;
+    if (net === null || net === 0) return;
+    t.className = `trend ${net > 0 ? 'up' : 'down'}`;
+    t.innerHTML = net > 0 ? '<svg viewBox="0 0 10 10"><path d="M5 1.2 9 7.4H1z"/></svg>' : '<svg viewBox="0 0 10 10"><path d="M5 8.8 9 2.6H1z"/></svg>';
+  }
+
+  private rates: HTMLElement | null = null;
+  private rate = -1;
+
+  /** The tax rate chip, and the card of the five rates it opens (`set` changes the rate). */
+  setupRates(root: HTMLElement, set: (rate: number) => void): void {
+    const chip = this.bar.querySelector('.rate-chip') as HTMLButtonElement;
+    const card = document.createElement('div');
+    card.className = 'rates';
+    card.hidden = true;
+    const WHAT = [
+      'Households are glad of it',
+      'About half of fair. Nobody minds',
+      'What households expect to pay',
+      'Half as much again. Households grumble',
+      'About twice fair. Households are unhappy, and some leave',
+    ];
+    card.innerHTML = `<h3>Taxes</h3>${TAX_RATES.map(
+      (r, i) => `<button class="rate" data-rate="${i}"><b>${r[0].toUpperCase()}${r.slice(1)}</b><span class="per">${i ? `cottage ${taxOf(i, 3)} dr · fine house ${taxOf(i, 5)} dr a month` : 'Nobody pays'}</span><span class="what">${WHAT[i]}</span></button>`,
+    ).join('')}<p class="foot">Only the homes a tax collector calls on pay, once a month.</p>`;
+    root.appendChild(card);
+    this.rates = card;
+    chip.addEventListener('click', () => this.toggleRates());
+    card.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('.rate') as HTMLElement | null;
+      if (!b) return;
+      set(Number(b.dataset.rate));
+      this.toggleRates(false);
+    });
+  }
+
+  get ratesOpen(): boolean {
+    return !!this.rates && !this.rates.hidden;
+  }
+
+  toggleRates(show = this.rates?.hidden ?? false): void {
+    if (!this.rates) return;
+    this.rates.hidden = !show;
+    if (show) {
+      // Under the chip.
+      const chip = (this.bar.querySelector('.rate-chip') as HTMLElement).getBoundingClientRect();
+      const root = (this.rates.parentElement as HTMLElement).getBoundingClientRect();
+      this.rates.style.left = `${Math.round(Math.min(chip.left - root.left - 60, root.width - 340))}px`;
+      this.rates.style.top = `${Math.round(chip.bottom - root.top + 12)}px`;
+    }
+  }
+
+  /** Show the tax rate on the chip, and mark it in the card. */
+  showRate(rate: number): void {
+    if (rate === this.rate) return;
+    this.rate = rate;
+    const chip = this.bar.querySelector('.rate-chip') as HTMLElement;
+    chip.textContent = `Taxes · ${TAX_RATES[rate] ?? '?'}`;
+    chip.className = `rate-chip r${rate}`;
+    this.rates?.querySelectorAll('.rate').forEach((b) => b.classList.toggle('on', Number((b as HTMLElement).dataset.rate) === rate));
   }
 
   /** The treasury's tooltip (see moneyTip). */

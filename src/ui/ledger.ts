@@ -1,0 +1,187 @@
+/**
+ * The ledger: a parchment card saying where the treasury's drachmas came
+ * from and went, this month so far and last month side by side. Coming in:
+ * taxes by district (with the homes that paid), building undone. Going out:
+ * wages by kind of workplace (with the workers paid), building by what was
+ * built. Then each month's net and what it started with, and notes: how many
+ * homes the collectors reached, the rate, the wage, and any wages owed or
+ * money kept back for a tax office. Opened by clicking the drachmas, a money
+ * line under the top bar, or $. It only reads the sim state.
+ */
+import type { CoastMap } from '../map/bake';
+import { districtAt, DISTRICTS } from '../map/districts';
+import { centreOf } from '../sim/buildings';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
+import type { BuildingKind, LedgerKind, LedgerLine, SimState } from '../sim/state';
+import { TAX_RATES, taxedLately } from '../sim/taxes';
+import { hasTaxOffice, kindTotal, monthOf, owedWages, reserve, totals, WAGE, wageBill } from '../sim/treasury';
+
+const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const fmt = (n: number): string => Math.abs(n).toLocaleString('en-GB');
+const signed = (n: number): string => (n > 0 ? `+${fmt(n)}` : n < 0 ? `−${fmt(n)}` : '0');
+
+/** What the workplaces and buildings are called, many of them. */
+const PLURAL: Record<BuildingKind, string> = {
+  home: 'homes',
+  fountain: 'fountains',
+  farm: 'farms',
+  granary: 'granaries',
+  agora: 'agoras',
+  shrine: 'shrines',
+  theatre: 'theatres',
+  taxoffice: 'tax offices',
+};
+
+const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;
+
+/** A ledger line's label, and the count beside it. */
+function label(l: { kind: LedgerKind; what: string }, n: number): [string, string] {
+  if (l.kind === 'taxes') return [`Taxes ${l.what}`, n ? count(n, 'home', 'homes') : ''];
+  if (l.kind === 'sales') return [`Sales · ${l.what}`, ''];
+  if (l.kind === 'refund') return ['Building undone', ''];
+  if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
+  if (l.what === 'road') return ['Roads', count(n, 'tile', 'tiles')];
+  if (l.what === 'bridge') return ['Bridges', count(n, 'tile', 'tiles')];
+  if (l.what === 'plots') return ['Housing plots', count(n, 'plot', 'plots')];
+  const k = l.what as BuildingKind;
+  return [`${(PLURAL[k] ?? l.what).replace(/^./, (c) => c.toUpperCase())}`, n > 1 ? String(n) : ''];
+}
+
+/** The order the kinds come in, money in first. */
+const ORDER: LedgerKind[] = ['taxes', 'sales', 'refund', 'wages', 'building'];
+
+interface Row {
+  kind: LedgerKind;
+  what: string;
+  now: LedgerLine | undefined;
+  last: LedgerLine | undefined;
+}
+
+/** This month's and last month's lines, matched up by kind and what. */
+function rowsOf(now: readonly LedgerLine[], last: readonly LedgerLine[]): Row[] {
+  const rows = new Map<string, Row>();
+  for (const [lines, key] of [[now, 'now'], [last, 'last']] as const) {
+    for (const l of lines) {
+      const id = `${l.kind}:${l.what}`;
+      let r = rows.get(id);
+      if (!r) rows.set(id, (r = { kind: l.kind, what: l.what, now: undefined, last: undefined }));
+      r[key] = l;
+    }
+  }
+  const size = (r: Row): number => Math.abs(r.now?.amount ?? 0) + Math.abs(r.last?.amount ?? 0);
+  return [...rows.values()].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || size(b) - size(a) || a.what.localeCompare(b.what));
+}
+
+const cell = (l: LedgerLine | undefined): string => {
+  if (!l) return '<td class="amt nil">·</td>';
+  return `<td class="amt ${l.amount > 0 ? 'in' : l.amount < 0 ? 'out' : ''}">${signed(l.amount)}</td>`;
+};
+
+/** The card's inner HTML. */
+export function ledgerHtml(s: SimState, map: CoastMap): string {
+  const l = s.ledger;
+  const m = monthOf(s.tick);
+  // The ledger turns its month on the next payment: until then, this month is empty and last month is what it holds.
+  const current = l.month === m;
+  const now = current ? l.now : [];
+  const last = current ? l.last : l.month === m - 1 ? l.now : [];
+  const startNow = current ? l.start : s.money;
+  const startLast = current ? l.lastStart : l.month === m - 1 ? l.start : s.money;
+  const day = Math.floor((s.tick % TICKS_PER_MONTH) / TICKS_PER_DAY) + 1;
+  const rows = rowsOf(now, last);
+  const body: string[] = [];
+  let heading = '';
+  for (const r of rows) {
+    const head = r.kind === 'wages' || r.kind === 'building' ? 'Going out' : 'Coming in';
+    if (head !== heading) {
+      heading = head;
+      body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);
+    }
+    const [name, n] = label(r, r.now?.n ?? r.last?.n ?? 0);
+    // The count is this month's where there is one, else last month's.
+    body.push(`<tr><td class="what">${esc(name)}${n ? ` <small>${esc(n)}</small>` : ''}</td>${cell(r.now)}${cell(r.last)}</tr>`);
+  }
+  if (rows.length === 0) body.push('<tr><td class="what none" colspan="3">Nothing has come in or gone out yet</td></tr>');
+  const tn = totals(now);
+  const tl = totals(last);
+  const net = (n: number): string => `<td class="amt ${n > 0 ? 'in' : n < 0 ? 'out' : ''}">${signed(n)}</td>`;
+  body.push(`<tr class="total"><td class="what">Net</td>${net(tn.net)}${net(tl.net)}</tr>`);
+  body.push(`<tr class="start"><td class="what">At the start of the month</td><td class="amt">${fmt(startNow)}</td><td class="amt">${fmt(startLast)}</td></tr>`);
+
+  const notes: string[] = [];
+  const homes = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.level > 0);
+  const offices = s.buildings.filter((b) => b.kind === 'taxoffice').length;
+  if (!hasTaxOffice(s)) {
+    notes.push(`<li class="bad">No tax office, so no taxes come in. The treasury keeps back ${fmt(reserve(s))} dr so one can always be built (Z).</li>`);
+  } else if (homes.length) {
+    const missed = homes.filter((b) => !taxedLately(s, b));
+    const paid = homes.length - missed.length;
+    let text = `In the last month the ${offices === 1 ? 'tax collector' : `${offices} tax collectors`} called on ${count(paid, 'home', 'homes')} of ${homes.length.toLocaleString('en-GB')}.`;
+    if (missed.length) {
+      const by = new Map<number, number>();
+      for (const b of missed) {
+        const [cx, cz] = centreOf(b);
+        const d = districtAt(map, cx, cz);
+        by.set(d, (by.get(d) ?? 0) + 1);
+      }
+      const parts = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d, k]) => `${k} ${DISTRICTS[d]?.where ?? 'elsewhere'}`);
+      text += ` Not yet: ${parts.join(', ')}${by.size > 3 ? ' and elsewhere' : ''} (the tax overlay, J, shows where he walks).`;
+    }
+    notes.push(`<li>${esc(text)}</li>`);
+  }
+  notes.push(`<li>Taxes are <b>${TAX_RATES[s.taxRate]}</b>. Each worker is paid ${WAGE} dr on the first of the month: about ${fmt(wageBill(s))} dr a month as the workplaces are staffed now.</li>`);
+  const owed = owedWages(s);
+  if (owed.owed > 0) notes.push(`<li class="bad">The treasury owes ${fmt(owed.owed)} dr of this month’s wages at ${count(owed.places, 'workplace', 'workplaces')}, so they work at half pace. Money coming in pays them first.</li>`);
+  const taxesNow = kindTotal(now, 'taxes');
+  return `<button class="close" title="Close (Esc)" aria-label="Close">×</button>
+<h2>The treasury · ${fmt(s.money)} dr</h2>
+<table class="book"><thead><tr><th></th><th>This month<small>${day === 1 && taxesNow === 0 ? 'just begun' : `so far, ${count(day, 'day', 'days')}`}</small></th><th>Last month<small>&nbsp;</small></th></tr></thead><tbody>${body.join('')}</tbody></table>
+<ul class="notes">${notes.join('')}</ul>`;
+}
+
+/** How often (seconds) the open card is brought up to date. */
+const REFRESH = 0.4;
+
+export class LedgerCard {
+  private readonly el: HTMLElement;
+  private html = '';
+  private last = -Infinity;
+  /** Called when the card opens (so the other cards in the corner can close). */
+  onOpen: () => void = () => {};
+
+  constructor(root: HTMLElement) {
+    const el = document.createElement('div');
+    el.className = 'ledger';
+    el.hidden = true;
+    root.appendChild(el);
+    this.el = el;
+    el.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.close')) this.toggle(false);
+    });
+  }
+
+  get open(): boolean {
+    return !this.el.hidden;
+  }
+
+  toggle(show = this.el.hidden): void {
+    this.el.hidden = !show;
+    this.last = -Infinity;
+    if (show) this.onOpen();
+  }
+
+  update(s: SimState, map: CoastMap, time: number): void {
+    if (this.el.hidden || time - this.last < REFRESH) return;
+    this.last = time;
+    const html = ledgerHtml(s, map);
+    if (html !== this.html) {
+      this.html = html;
+      this.el.innerHTML = html;
+    }
+  }
+
+  /** The card's text (for the smoke test). */
+  get text(): string {
+    return this.el.hidden ? '' : (this.el.textContent ?? '');
+  }
+}

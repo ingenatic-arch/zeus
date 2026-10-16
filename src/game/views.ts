@@ -8,6 +8,10 @@ export const VIEWS: Record<string, CameraView> = {
   town: { x: 69, z: 39.5, yaw: 2.65, dist: 36, tilt: -0.08 },
   // Street level in #town's core, by the fountain among the fine houses.
   townstreet: { x: 72, z: 40.5, yaw: 0.6, dist: 9, tilt: 0.03 },
+  // Close over #town's tax office on the main street (the camera then follows the collector).
+  collector: { x: 62, z: 43, yaw: 0.9, dist: 11, tilt: 0.3 },
+  // #town's east street, which no tax collector reaches in #taxes, from above the core.
+  taxes: { x: 99, z: 42, yaw: 0.6, dist: 26, tilt: 0.1 },
   overview: { x: 64, z: 62, yaw: 0, dist: 170, tilt: 0.2 },
   // Street level on the fertile river bank, looking upstream to the hills.
   river: { x: 52, z: 59, yaw: 0.95, dist: 8, tilt: 0.02 },

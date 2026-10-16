@@ -1,5 +1,7 @@
 // Build first (npm run build). Drives the built page in headless Chromium:
 // drags, zooms, turns and changes speed, and fails on any page error.
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { resolve } from 'node:path';
 import { launch } from './browser.mjs';
 import { serveDist } from './serve-dist.mjs';
@@ -608,6 +610,85 @@ if (!bread.some((l) => /^Bread: the farms grow about [\d,]+ measures/.test(l))) 
 // #workers: the workers line.
 await open('#workers-paused');
 if (!(await zeus(() => window.__zeus.townLines())).some((l) => /^Workers: \d+ jobs? unfilled/.test(l))) fail('#workers has no workers line');
+// Slice 8: coin and the ledger.
+// #ledger: the ledger open on #town, adding up by kind; Esc closes it, $ and the drachmas open it.
+await open('#ledger-paused');
+c = await city();
+if (!(c.ledgerOpen && c.offices === 3 && c.taxRate === 2 && c.owed === 0)) fail(`#ledger: ${JSON.stringify(c)}`);
+let lt = await zeus(() => window.__zeus.ledgerText());
+if (!/The treasury[\s\S]*Coming in[\s\S]*Taxes (on|by|below|in|at) [\s\S]*Going out[\s\S]*Wages · farms[\s\S]*Net[\s\S]*Taxes are fair/.test(lt)) fail(`ledger text: ${lt}`);
+await page.keyboard.press('Escape');
+await frames(2);
+if ((await city()).ledgerOpen) fail('Esc did not close the ledger');
+await page.keyboard.press('$');
+await frames(2);
+if (!(await city()).ledgerOpen) fail('$ did not open the ledger');
+await page.click('.stat.money');
+await frames(2);
+if ((await city()).ledgerOpen) fail('clicking the drachmas did not close the ledger');
+// The tax rate: the chip opens the five rates, and picking one goes through the sim.
+await page.click('.rate-chip');
+await frames(1);
+if (!(await city()).ratesOpen) fail('the rate chip did not open the rates');
+await page.click('.rates .rate[data-rate="3"]');
+await frames(2);
+c = await city();
+const chipText = await zeus(() => document.querySelector('.rate-chip')?.textContent ?? '');
+if (!(c.taxRate === 3 && !c.ratesOpen && /heavy/.test(chipText))) fail(`picking heavy taxes: ${chipText} ${JSON.stringify(c)}`);
+// J: the tax overlay.
+await page.keyboard.press('j');
+await frames(2);
+if ((await city()).overlayMode !== 'tax') fail('J did not show the tax overlay');
+// #collector: following the tax collector with the tax overlay on; hovering him says what he carries.
+await open('#collector');
+c = await city();
+if (!(c.following && c.overlayMode === 'tax' && c.collectors > 0)) fail(`#collector: ${JSON.stringify(c)}`);
+if (!/tax collector/.test(await zeus(() => document.querySelector('.follow-chip')?.textContent ?? ''))) fail('#collector follow chip does not name the tax collector');
+await page.waitForFunction(() => window.__zeus.walker('tax') !== null, null, { timeout: 120000 });
+await zeus(() => window.__zeus.speed('paused'));
+await frames(2);
+const tc = await zeus(() => window.__zeus.walker('tax'));
+if (tc) {
+  await page.mouse.move(tc.x, tc.y);
+  await frames(2);
+  const tt = await tip();
+  if (!/^Tax collector/.test(tt ?? '')) fail(`hovering the tax collector: ${tt}`);
+}
+// #taxes: the tax office tool and its preview over the street no collector reaches; placing one.
+await open('#taxes-paused');
+c = await city();
+if (!(c.tool === 'taxoffice' && c.overlayMode === 'tax' && c.offices === 2)) fail(`#taxes: ${JSON.stringify(c)}`);
+p = await at(101, 43);
+await page.mouse.move(p.x, p.y);
+await page.mouse.move(p.x + 1, p.y + 1);
+await frames(2);
+const ot = await tip();
+if (!/^Tax office · 150 dr[\s\S]*would reach \d+ homes · \d+ no collector has called on this month/.test(ot ?? '')) fail(`tax office tip: ${ot}`);
+await page.mouse.down();
+await page.mouse.up();
+await frames(2);
+if ((await city()).offices !== 3) fail('clicking with the tax office tool did not build one');
+// #harsh: the taxes harsh, a household that sent someone away open, saying why.
+await open('#harsh-paused');
+c = await city();
+pt = await panelText();
+if (!(c.taxRate === 4 && c.panel > 0 && /Taxes are harsh/.test(pt ?? ''))) fail(`#harsh: ${pt} ${JSON.stringify(c)}`);
+// #dry: wages owed, the money line says so, and the ledger notes it.
+await open('#dry-paused');
+c = await city();
+const dryLines = await zeus(() => window.__zeus.townLines());
+if (!(c.owed > 0 && c.taxRate === 0 && dryLines.some((l) => /^Money: the treasury can’t pay this month’s wages/.test(l)))) fail(`#dry: ${JSON.stringify(dryLines)} ${JSON.stringify(c)}`);
+await zeus(() => window.__zeus.ledger(true));
+await frames(2);
+if (!/owes [\d,]+ dr of this month’s wages/.test(await zeus(() => window.__zeus.ledgerText()))) fail('#dry ledger does not note the owed wages');
+// A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
+await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
+await open('#saved-paused');
+c = await city();
+const back = await zeus(() => document.querySelector('.save-note')?.textContent ?? '');
+if (!(c.offices === 0 && c.taxRate === 2 && c.population > 400 && /Rent is gone[\s\S]*Build a tax office/.test(back))) fail(`phase 1 save: ${back} ${JSON.stringify(c)}`);
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /^Money: no taxes come in without a tax office/.test(l))) fail('the phase 1 town has no money line');
+await zeus(() => localStorage.clear());
 if (errors.length) fail('page errors:\n' + errors.join('\n'));
 // Storage that throws on every touch: saving says it isn't available, and the game plays on.
 {
@@ -640,6 +721,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

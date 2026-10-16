@@ -288,8 +288,8 @@ export class Streets {
     quad: (x0: number, z0: number, x1: number, z1: number, main: boolean, a: THREE.Color, b: THREE.Color, c: THREE.Color, d: THREE.Color) => void,
     c: THREE.Color,
   ): void {
-    // A fountain or a shrine stands on its own paving.
-    if (b.kind === 'fountain' || b.kind === 'shrine') return;
+    // A fountain, a shrine or a tax office stands on its own paving.
+    if (b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice') return;
     const map = this.map;
     const S = PLOT_SIZE;
     const inset = 0.12;

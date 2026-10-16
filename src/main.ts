@@ -23,13 +23,15 @@ import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
 import { homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
-import { kindTotal, owedWages } from './sim/treasury';
+import { kindTotal, monthOf, owedWages, totals } from './sim/treasury';
+import { purseTotal } from './sim/taxes';
 import { TILE_ROAD, type Building, type Walker } from './sim/state';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
+import { LedgerCard } from './ui/ledger';
 import { SaveMenu } from './ui/saveMenu';
 import { TownLines } from './ui/townlines';
 import { Welcome } from './ui/welcome';
@@ -81,6 +83,10 @@ interface Probe {
     taxesNow: number;
     owed: number;
     taxRate: number;
+    offices: number;
+    collectors: number;
+    ledgerOpen: boolean;
+    ratesOpen: boolean;
     walkers: number;
     people: number;
     roads: number;
@@ -121,6 +127,11 @@ interface Probe {
   townLines?: () => string[];
   sound?: () => { started: boolean; muted: boolean; played: number; state: string };
   welcome?: () => boolean;
+  /** The ledger card's text ('' when closed). */
+  ledgerText?: () => string;
+  /** Open or close the ledger card, or the tax rates card. */
+  ledger?: (open: boolean) => void;
+  rates?: (open: boolean) => void;
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
 }
@@ -234,6 +245,7 @@ function start(): void {
   legend.hidden = true;
   legend.innerHTML = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
   const lines = new TownLines(notices, (l) => {
+    if (l.need === 'money') return ledger.toggle(true);
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -301,9 +313,29 @@ function start(): void {
     unsaved: () => autosaving && sim.state.rev !== savedRev,
     autosave: () => ({ on: autosaving, problem: autoProblem, demo: !!demo }),
   });
-  // The saves card and the controls card share the top right corner: one at a time.
-  saveMenu.onOpen = () => corner.toggleHelp(false);
-  corner.onHelpOpen(() => saveMenu.toggle(false));
+  // The saves card, the controls card and the ledger share the top right corner: one at a time.
+  const ledger = new LedgerCard(ui);
+  saveMenu.onOpen = () => {
+    corner.toggleHelp(false);
+    ledger.toggle(false);
+  };
+  corner.onHelpOpen(() => {
+    saveMenu.toggle(false);
+    ledger.toggle(false);
+  });
+  ledger.onOpen = () => {
+    saveMenu.toggle(false);
+    corner.toggleHelp(false);
+  };
+  topbar.onMoney(() => ledger.toggle());
+  // The tax rate, through the command queue like any other action.
+  topbar.setupRates(ui, (rate) => {
+    if (rate === sim.state.taxRate) return;
+    sim.enqueue({ type: 'tax', rate });
+    sim.flush();
+    sound.play('build');
+    if (!demo) autosaving = true;
+  });
   const autosaveNow = (): void => {
     if (!autosaving || leaving || !saves.available || sim.state.rev === savedRev) return;
     writeSave('auto');
@@ -333,10 +365,12 @@ function start(): void {
     ? new Welcome(ui, { saved: newest ? saves.info(newest) : null, onContinue: () => go('#continue'), problem: problem ? `That saved town couldn’t be opened. ${problem}` : '', noStorage: !saves.available })
     : null;
   if (loaded) {
-    saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people`);
+    // A town saved before taxes came in (phase 1) says what changed.
+    const changed = loaded.from === 6 ? ' · Rent is gone: taxes come in with a tax collector now. Build a tax office (Z) by the houses.' : '';
+    saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -418,9 +452,9 @@ function start(): void {
     }
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
-  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', x: 'clear' };
+  const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -435,6 +469,8 @@ function start(): void {
     cancel: () => {
       // Esc puts away the welcome card, the saves card and the controls card first.
       if (welcomeCard?.open) welcomeCard.dismiss();
+      else if (topbar.ratesOpen) topbar.toggleRates(false);
+      else if (ledger.open) ledger.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (tools.tool) tools.cancel();
@@ -486,6 +522,14 @@ function start(): void {
         overlay.toggle('culture');
         return true;
       }
+      if (k === 'j') {
+        overlay.toggle('tax');
+        return true;
+      }
+      if (k === '$') {
+        ledger.toggle();
+        return true;
+      }
       const t = TOOL_KEYS[k];
       if (!t) return false;
       tools.select(t);
@@ -501,7 +545,7 @@ function start(): void {
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
     const kind = demo.follow;
-    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : 'farm';
+    const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
     const w = ripest ? undefined : sim.state.walkers.find((o) => o.kind === kind);
@@ -512,6 +556,7 @@ function start(): void {
   // A demo can open a household's panel from the start.
   const opened = demo?.open?.(sim.state) ?? 0;
   if (opened) panel.show(opened);
+  if (demo?.ledger) ledger.toggle(true);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -609,6 +654,10 @@ function start(): void {
       taxesNow: kindTotal(s.ledger.now, 'taxes'),
       owed: owedWages(s).owed,
       taxRate: s.taxRate,
+      offices: of('taxoffice').length,
+      collectors: s.walkers.filter((w) => w.kind === 'tax').length,
+      ledgerOpen: ledger.open,
+      ratesOpen: topbar.ratesOpen,
       walkers: s.walkers.length,
       people: city.walkers.count,
       roads: s.tiles.filter((t) => t === -1).length,
@@ -660,6 +709,9 @@ function start(): void {
   probe.townLines = () => lines.texts;
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
+  probe.ledgerText = () => ledger.text;
+  probe.ledger = (open) => ledger.toggle(open);
+  probe.rates = (open) => topbar.toggleRates(open);
   probe.warnAll = (id) => {
     const b = findBuilding(sim.state, id);
     if (!b) return;
@@ -684,11 +736,20 @@ function start(): void {
   };
   remember();
   let seenRev = sim.state.rev;
+  // Tax collectors' satchels as last seen, so "+84 dr" floats up from the office when one hands in.
+  const satchels = new Map<number, { dr: number; origin: number }>();
   // The population's tooltip says how often newcomers are coming, and why.
   let outlookAt = -Infinity;
   let workRev = -1;
   let troubleAt = -Infinity;
   let linesAt = -Infinity;
+  /** A collector handing in at his office: the coins float up from it. */
+  function handIn(office: number, dr: number): void {
+    const o = findBuilding(sim.state, office);
+    if (!o) return;
+    const [cx, cz] = centreOf(o);
+    floaters.add(`+${dr.toLocaleString('en-GB')} dr`, new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.2, cz), time, 'tax');
+  }
   /** The autosave comes round every three months of game time. */
   const AUTOSAVE_EVERY = 3 * TICKS_PER_MONTH;
 
@@ -733,11 +794,32 @@ function start(): void {
       }
       remember();
       if (cue) sound.play(cue);
+      const out = new Set<number>();
+      for (const w of s.walkers) {
+        if (w.kind !== 'tax') continue;
+        out.add(w.id);
+        const dr = purseTotal(w);
+        const was = satchels.get(w.id);
+        if (was && was.dr > 0 && dr < was.dr) handIn(was.origin, was.dr - dr);
+        satchels.set(w.id, { dr, origin: w.origin });
+      }
+      for (const [id, was] of satchels) {
+        if (out.has(id)) continue;
+        if (was.dr > 0) handIn(was.origin, was.dr);
+        satchels.delete(id);
+      }
     }
     if (time - outlookAt > 2) {
       outlookAt = time;
       topbar.setPeopleTip(arrivalOutlook(s, map));
       topbar.setMoneyTip(moneyTip(s));
+    }
+    {
+      const l = s.ledger;
+      const m = monthOf(s.tick);
+      const last = l.month === m ? l.last : l.month === m - 1 ? l.now : [];
+      topbar.showTrend(last.length ? totals(last).net : null, owedWages(s).owed > 0);
+      topbar.showRate(s.taxRate);
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;
@@ -776,6 +858,7 @@ function start(): void {
     bar.showOverlay(overlay.mode);
     legend.hidden = overlay.mode !== 'missing';
     signs.update(s, camera, time, overlay.mode === 'missing');
+    ledger.update(s, map, time);
     const open = panel.update(s, map, time);
     selection.set(open);
     selection.update(time);

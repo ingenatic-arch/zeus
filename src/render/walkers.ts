@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
 import { ChunkedInstances } from './chunks';
@@ -176,6 +177,37 @@ function actor(): THREE.BufferGeometry {
 }
 
 /**
+ * The tax collector: a man in a dark bronze-green tunic (the tinted part)
+ * under a wide straw hat, a leather satchel of coin at his hip on a strap
+ * across his chest, and a wax tablet held out before him to mark who has paid.
+ * `full`: the satchel swells, a second bag of coin beside it.
+ */
+function collector(full: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.22, 6).translate(0, 0.21, 0), color: '', tint: true },
+    // The strap across the chest and the satchel on the left hip.
+    { geo: new THREE.BoxGeometry(0.012, 0.2, 0.02).rotateX(0.75).translate(0.05, 0.25, 0), color: PAL.satchel },
+    full
+      ? { geo: new THREE.IcosahedronGeometry(0.055, 0).scale(1, 0.95, 0.8).translate(0.0, 0.15, -0.1), color: PAL.satchel }
+      : { geo: new THREE.BoxGeometry(0.07, 0.07, 0.035).translate(0.0, 0.16, -0.09), color: PAL.satchel },
+    { geo: new THREE.BoxGeometry(0.072, 0.02, full ? 0.06 : 0.037).translate(0.0, 0.19, full ? -0.1 : -0.09), color: PAL.strongboxBand },
+    // An arm holding the tablet out, the other at his side.
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateZ(-1.1).translate(0.06, 0.26, 0.06), color: PAL.skin },
+    { geo: new THREE.BoxGeometry(0.012, 0.08, 0.06).rotateZ(-0.5).translate(0.13, 0.3, 0.06), color: PAL.tablet },
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).translate(0.0, 0.22, 0.075), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.055, 0).translate(0.005, 0.37, 0), color: PAL.skin },
+    // The hat: a wide flat brim and a low crown, so he reads from above.
+    { geo: new THREE.CylinderGeometry(0.115, 0.12, 0.014, 9).translate(0, 0.415, 0), color: PAL.collectorHat },
+    { geo: new THREE.CylinderGeometry(0.04, 0.055, 0.05, 7).translate(0, 0.445, 0), color: PAL.collectorHat },
+  ];
+  // A full round: a second purse of coin tied on behind.
+  if (full) parts.push({ geo: new THREE.IcosahedronGeometry(0.04, 0).translate(-0.06, 0.15, -0.075), color: PAL.satchel }, { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.03, 5).translate(-0.06, 0.2, -0.075), color: PAL.coin });
+  return mergeTinted(parts);
+}
+
+/**
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
  * (tinted tunic) walking at the ox's head. `loaded` stacks sacks of wheat on
  * the cart's bed.
@@ -288,9 +320,12 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
 }
 
 /** The kinds of walker with a job (all but settlers and leavers). */
+/** Drachmas in a tax collector's satchel from which it shows full. */
+const SATCHEL_FULL = 20;
+
 export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax';
 
-/** Settler and leaver groups, water carriers, food vendors, priestesses, actors, ox carts and porters walking the roads, redrawn every frame. */
+/** Settler and leaver groups, water carriers, food vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame. */
 export class Walkers {
   readonly group = new THREE.Group();
   private readonly kinds: [ChunkedInstances, ChunkedInstances];
@@ -298,6 +333,8 @@ export class Walkers {
   private readonly vendors: ChunkedInstances;
   private readonly priestesses: ChunkedInstances;
   private readonly actors: ChunkedInstances;
+  /** Tax collectors: [a light satchel, a full one]. */
+  private readonly collectors: [ChunkedInstances, ChunkedInstances];
   /** Ox carts and porters: [empty, loaded]. */
   private readonly carts: [ChunkedInstances, ChunkedInstances];
   private readonly porters: [ChunkedInstances, ChunkedInstances];
@@ -324,9 +361,10 @@ export class Walkers {
     this.vendors = new ChunkedInstances('walkers-food', vendor(), mat, WALKER_CHUNK, opts);
     this.priestesses = new ChunkedInstances('walkers-priestess', priestess(), mat, WALKER_CHUNK, opts);
     this.actors = new ChunkedInstances('walkers-actor', actor(), mat, WALKER_CHUNK, opts);
+    this.collectors = [new ChunkedInstances('walkers-tax', collector(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-tax-full', collector(true), mat, WALKER_CHUNK, opts)];
     this.carts = [new ChunkedInstances('walkers-cart', oxCart(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-cart-loaded', oxCart(true), mat, WALKER_CHUNK, opts)];
     this.porters = [new ChunkedInstances('walkers-porter', porter(false), mat, WALKER_CHUNK, opts), new ChunkedInstances('walkers-porter-loaded', porter(true), mat, WALKER_CHUNK, opts)];
-    this.all = [...this.kinds, this.carriers, this.vendors, this.priestesses, this.actors, ...this.carts, ...this.porters];
+    this.all = [...this.kinds, this.carriers, this.vendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters];
     for (const k of this.all) this.group.add(k.group);
   }
 
@@ -369,6 +407,7 @@ export class Walkers {
     const saffron = col(PAL.vendorDress);
     const robe = col(PAL.priestessRobe);
     const rose = col(PAL.actorTunic);
+    const green = col(PAL.collectorTunic);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -394,6 +433,7 @@ export class Walkers {
         else if (w.kind === 'food') this.vendors.push(this.m, still(this.c.copy(saffron)));
         else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
+        else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
           (cart ? this.carts : this.porters)[w.load > 0 ? 1 : 0].push(this.m, still(this.c));

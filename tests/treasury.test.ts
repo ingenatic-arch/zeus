@@ -242,7 +242,8 @@ describe('the demo towns and money', () => {
       d.setup(sim);
       expect(owed, name).toBe(0);
     }
-  });
+    // Every demo's town is played forward from the founding: a few seconds in all.
+  }, 30000);
 
   it('#town neither runs dry nor piles up money: three years on, the treasury has moved by less than 1,500 drachmas a year', () => {
     const sim = demo('town');

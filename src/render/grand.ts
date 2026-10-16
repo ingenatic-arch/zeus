@@ -309,6 +309,66 @@ export function shrineModel(): THREE.BufferGeometry {
 }
 
 /**
+ * The tax office: a stone counting house under a tiled roof with its gable
+ * to the road, a bronze-green band under the eaves and in the pediment, and
+ * a porch of three columns where the collectors hand in. Under the porch,
+ * the clerk's table with a balance on it, an iron-bound strongbox and a
+ * stack of coin; by the road, a bronze-green banner on a pole so the office
+ * reads from above among the houses. Frame as for the shrine (-0.9..0.9, front +x).
+ */
+export function taxOfficeModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // The paved yard runs down into the ground, like the shrine's.
+  parts.push({ geo: slab(-0.9, -0.9, 0.9, 0.9, -0.5, 0.05), color: PAL.paving });
+  parts.push({ geo: slab(-0.74, -0.62, 0.66, 0.62, 0.05, 0.12), color: PAL.officeStoneShade });
+  // The hall: dressed stone, a door to the porch, small high windows down the sides.
+  const x0 = -0.68;
+  const x1 = 0.2;
+  const z0 = -0.56;
+  const z1 = 0.56;
+  const top = 0.86;
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.12, top), color: PAL.officeStone });
+  parts.push({ geo: slab(x1 - 0.01, -0.12, x1 + 0.012, 0.12, 0.12, 0.56), color: PAL.door });
+  for (const x of [-0.46, -0.12]) parts.push(...windowZ(x, 0.62, z1 + 0.004, 1), ...windowZ(x, 0.62, z0 - 0.004, -1));
+  // The bronze-green band under the eaves, with a gilt line beneath.
+  parts.push({ geo: slab(x0 - 0.006, z0 - 0.006, x1 + 0.006, z1 + 0.006, top - 0.08, top), color: PAL.bronzeGreen });
+  parts.push({ geo: slab(x0 - 0.008, z0 - 0.008, x1 + 0.008, z1 + 0.008, top - 0.11, top - 0.08), color: PAL.strongboxBand });
+  // The roof: ridge to the road, and a bronze-green pediment over the porch.
+  const roofLen = 1.4;
+  const roofMid = -0.1;
+  parts.push({ geo: prism(roofLen, z1 + 0.1, 0.32).translate(roofMid, top, 0), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.028, 0.028, roofLen + 0.02, 5).rotateZ(Math.PI / 2).translate(roofMid, top + 0.32, 0), color: PAL.roofTileDark });
+  parts.push({ geo: gable((z1 + 0.06) * 2, 0.29).rotateY(Math.PI / 2).translate(roofMid + roofLen / 2 + 0.006, top + 0.005, 0), color: PAL.bronzeGreen });
+  parts.push({ geo: gable((z1 + 0.06) * 2, 0.29).rotateY(-Math.PI / 2).translate(roofMid - roofLen / 2 - 0.006, top + 0.005, 0), color: PAL.officeStoneShade });
+  parts.push(...windowBack(x0 - 0.004, 0.6, -0.26), ...windowBack(x0 - 0.004, 0.6, 0.26));
+  // The porch: three columns and the architrave they carry.
+  const px = 0.54;
+  for (const z of [-0.44, 0, 0.44]) parts.push({ geo: cyl(0.045, 0.052, top - 0.12, 7).translate(px, 0.12 + (top - 0.12) / 2, z), color: PAL.column });
+  parts.push({ geo: slab(px - 0.06, z0, px + 0.06, z1, top - 0.11, top), color: PAL.officeStone });
+  // Under the porch: the clerk's table with a balance, a strongbox, a stack of coin.
+  parts.push({ geo: slab(0.28, 0.12, 0.44, 0.42, 0.24, 0.27), color: PAL.wood });
+  for (const [x, z] of [[0.3, 0.14], [0.42, 0.14], [0.3, 0.4], [0.42, 0.4]]) parts.push({ geo: slab(x - 0.012, z - 0.012, x + 0.012, z + 0.012, 0.12, 0.24), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.008, 0.008, 0.14, 4).translate(0.36, 0.34, 0.27), color: PAL.bronzeGreenDark });
+  parts.push({ geo: cyl(0.006, 0.006, 0.16, 4).rotateX(Math.PI / 2).translate(0.36, 0.41, 0.27), color: PAL.bronzeGreenDark });
+  for (const z of [0.2, 0.34]) parts.push({ geo: cyl(0.03, 0.02, 0.012, 7).translate(0.36, 0.33, z), color: PAL.strongboxBand });
+  parts.push({ geo: cyl(0.025, 0.025, 0.04, 7).translate(0.31, 0.29, 0.38), color: PAL.coin });
+  parts.push({ geo: slab(0.26, -0.42, 0.44, -0.18, 0.12, 0.3), color: PAL.strongbox });
+  parts.push({ geo: slab(0.255, -0.425, 0.445, -0.175, 0.3, 0.335), color: PAL.woodDark });
+  for (const z of [-0.36, -0.24]) parts.push({ geo: slab(0.25, z - 0.012, 0.45, z + 0.012, 0.12, 0.34), color: PAL.strongboxBand });
+  parts.push({ geo: slab(0.444, -0.315, 0.452, -0.285, 0.2, 0.26), color: PAL.strongboxBand });
+  // By the road: the banner pole, and a stone bench where people wait their turn.
+  parts.push({ geo: cyl(0.018, 0.022, 1.2, 5).translate(0.8, 0.6, -0.72), color: PAL.pole });
+  parts.push({ geo: slab(0.796, -0.7, 0.804, -0.4, 0.78, 1.14), color: PAL.bronzeGreen });
+  parts.push({ geo: slab(0.794, -0.7, 0.806, -0.4, 0.76, 0.79), color: PAL.strongboxBand });
+  parts.push({ geo: slab(0.7, 0.5, 0.86, 0.84, 0.1, 0.16), color: PAL.officeStoneShade });
+  parts.push({ geo: slab(0.72, 0.52, 0.84, 0.82, 0, 0.1), color: PAL.officeStoneShade });
+  // Behind: sealed jars of the town's coin, and a cypress.
+  parts.push(amphora(-0.8, 0.5, 0.2), amphora(-0.8, 0.3, 0.18));
+  parts.push(...cypress(-0.78, -0.7, 0.86));
+  return merge(parts);
+}
+
+/**
  * The theatre: a stepped bowl of stone seats rising round a round paved
  * orchestra, and the stage building (skene) along the road, with three doors
  * and painted panels to the audience, masks over the doors, a low stage

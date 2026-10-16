@@ -146,6 +146,18 @@ export const PAL = {
   mask: '#f6ead2',
   ivy: '#5f8a3e',
   scroll: '#efe2bf',
+  // The tax office and its collector (slice 8)
+  officeStone: '#e8dcc2',
+  officeStoneShade: '#d3c3a2',
+  bronzeGreen: '#3f8a76',
+  bronzeGreenDark: '#2f6b5c',
+  strongbox: '#6a4c33',
+  strongboxBand: '#c9a24e',
+  coin: '#e8c45a',
+  collectorTunic: '#2f6b5c',
+  collectorHat: '#e0c278',
+  satchel: '#8a6542',
+  tablet: '#c9a865',
   skin: '#d9a273',
   hair: '#4b3526',
   // Tunics (picked per person)

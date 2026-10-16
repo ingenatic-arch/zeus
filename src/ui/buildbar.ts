@@ -1,5 +1,5 @@
 import type { ToolName, ToolTip } from '../game/tools';
-import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST, SHRINE_COST, THEATRE_COST } from '../sim/build';
+import { AGORA_COST, BRIDGE_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, PLOT_COST, ROAD_COST, SHRINE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
@@ -21,6 +21,9 @@ const ICONS: Record<ButtonName, string> = {
   // A little temple: a pediment on four columns, an altar's flame before it.
   shrine:
     '<svg viewBox="0 0 24 24"><path d="M2.6 8.6 12 3.4l9.4 5.2z" class="fill-soft"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" class="stroke-ink"/><path d="M2.8 18.4h18.4v2.6H2.8z" class="fill-soft"/><path d="M3.6 8.8h16.8v1.6H3.6z" class="fill-ink"/></svg>',
+  // A counting house with a coin before it.
+  taxoffice:
+    '<svg viewBox="0 0 24 24"><path d="M3 9 12 4l9 5z" class="fill-tax"/><path d="M4.4 10.4h15.2V20H4.4z" class="fill-soft"/><path d="M10 20v-5h4v5z" class="fill-ink"/><path d="M2.6 20.6h18.8" class="stroke-ink"/><circle cx="18.2" cy="17.4" r="3.4" class="fill-gold"/><path d="M18.2 15.6v3.6" class="stroke-ink"/></svg>',
   // A smiling theatre mask.
   theatre:
     '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-soft"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
@@ -30,6 +33,8 @@ const ICONS: Record<ButtonName, string> = {
   // The mask in rose, for the culture overlay.
   culture:
     '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-plays"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
+  // A stack of coin, for the tax overlay.
+  tax: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="17.4" rx="7.4" ry="2.6" class="fill-tax"/><path d="M4.6 13.4v4c0 1.4 3.3 2.6 7.4 2.6s7.4-1.2 7.4-2.6v-4" class="fill-tax"/><ellipse cx="12" cy="13.4" rx="7.4" ry="2.6" class="fill-gold"/><path d="M6.2 9.6v3.4c0 1.2 2.6 2.2 5.8 2.2s5.8-1 5.8-2.2V9.6" class="fill-gold"/><ellipse cx="12" cy="9.6" rx="5.8" ry="2.2" class="fill-gold"/><path d="M10 9.6h4" class="stroke-ink"/></svg>',
   // A round loaf, for the food overlay.
   food: '<svg viewBox="0 0 24 24"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" class="fill-gold"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" class="stroke-ink"/></svg>',
   // A drop of water.
@@ -82,16 +87,23 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${THEATRE_COST} dr`,
     hint: 'Click beside a road (it takes three by three). Its actor walks the streets bringing the plays; a townhouse with plays becomes a fine house.',
   },
+  taxoffice: {
+    name: 'Tax office',
+    key: 'Z',
+    cost: `${TAX_OFFICE_COST} dr`,
+    hint: 'Click beside a road, near the houses. Its tax collector walks the streets nearby and brings back what each household owes.',
+  },
   clear: { name: 'Clear land', key: 'X', cost: 'free', hint: 'Drag over roads, bridges, buildings or trees to clear them. Families in cleared homes leave.' },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'O', cost: '', hint: '' },
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
   religion: { name: 'Religion overlay: where the priestess walks, and which homes are blessed', key: 'Y', cost: '', hint: '' },
   culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },
+  tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, fountain, farm, granary, agora, shrine, theatre, clear, undo, and the overlays. */
+/** The build bar along the bottom: road, housing, fountain, farm, granary, agora, shrine, theatre, tax office, clear, undo, and the overlays. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
@@ -106,8 +118,8 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'clear'] as ToolName[]) {
-      if (t === 'farm' || t === 'shrine' || t === 'clear') {
+    for (const t of ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
+      if (t === 'farm' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
         const d = document.createElement('div');
         d.className = 'divider';
         bar.appendChild(d);
@@ -126,7 +138,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'religion', 'culture', 'missing'] as OverlayMode[]) {
+    for (const o of ['water', 'food', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));

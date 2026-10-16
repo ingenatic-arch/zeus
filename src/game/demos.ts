@@ -60,7 +60,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: OverlayMode;
   /** Start with that overlay on, even without `-overlay`. */
@@ -68,6 +68,8 @@ export interface Demo {
   setup?: (sim: Sim) => void;
   /** The household whose panel is open from the start (a building id, 0 for none). */
   open?: (s: SimState) => number;
+  /** Open the ledger from the start. */
+  ledger?: boolean;
   /** A tile to ring on the ground until a road is laid on it (where #warning's road was cut). */
   mark?: { x: number; z: number };
 }
@@ -363,11 +365,12 @@ function town(ticks: number): (sim: Sim) => void {
  * unpaid at some workplaces (which work at half pace) and the money line says
  * so. #taxes: the east street's tax office cleared as the town opens, so the
  * tax overlay shows the street (and the hamlet on the west bank) that no
- * collector reaches.
+ * collector reaches, a month on so the street's last visits have lapsed.
  */
 const HARSH_FOR = 450;
 const DRY_AFTER = 50;
 const DRY_WAIT = 12000;
+const TAXES_AFTER = 310;
 
 function harshTown(sim: Sim): void {
   town(TOWN_TICKS)(sim);
@@ -390,6 +393,8 @@ function taxesTown(sim: Sim): void {
   town(TOWN_TICKS)(sim);
   sim.enqueue({ type: 'clear', x0: EAST_OFFICE.x, z0: EAST_OFFICE.z, x1: EAST_OFFICE.x, z1: EAST_OFFICE.z });
   sim.flush();
+  // A month on, so the street's last visit from its own collector has lapsed.
+  sim.run(TAXES_AFTER);
 }
 
 /** The household that sent someone away for the taxes most recently, else the unhappiest. */
@@ -432,5 +437,7 @@ export const DEMOS: Record<string, Demo> = {
   closed: { view: 'closed', speed: 'paused', setup: cultureTown(CLOSED_TICKS, true, true), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   harsh: { view: 'town', setup: harshTown, overlay: 'missing', open: drivenOut },
   dry: { view: 'town', speed: 'paused', setup: dryTown, overlay: 'missing', open: (s) => homes(s).find((b) => b.unpaid > 0)?.id ?? 0 },
-  taxes: { view: 'town', setup: taxesTown, overlay: 'missing' },
+  taxes: { view: 'taxes', tool: 'taxoffice', setup: taxesTown, overlay: 'tax' },
+  ledger: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', ledger: true },
+  collector: { view: 'collector', setup: town(TOWN_TICKS), follow: 'tax', overlay: 'tax', overlayOn: true },
 };

@@ -4,7 +4,8 @@ import { sideOf } from '../sim/buildings';
 import { eatsBread, FOOD_LASTS, VENDOR_RANGE } from '../sim/food';
 import { roadSearch, type Search } from '../sim/roads';
 import { roadsBeside } from '../sim/rounds';
-import { TILE_ROAD, type Building, type BuildingKind, type Service, type SimState } from '../sim/state';
+import { TILE_ROAD, type Building, type BuildingKind, type Round, type SimState } from '../sim/state';
+import { COLLECTOR_RANGE } from '../sim/taxes';
 import { CARRIER_RANGE, waterReach, WATER_LASTS } from '../sim/water';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, wantOf } from '../sim/folk';
@@ -23,18 +24,20 @@ interface Mode {
   wants: (b: Building) => boolean;
 }
 
-/** What an overlay shows: a service's reach and supply, or what each home is missing. */
-export type OverlayMode = Service | 'missing';
+/** What an overlay shows: a service's reach and supply (or where the tax collector reaches, and who has paid), or what each home is missing. */
+export type OverlayMode = Round | 'missing';
 
-const MODES: Record<Service, Mode> = {
+const MODES: Record<Round, Mode> = {
   water: { source: 'fountain', range: CARRIER_RANGE, lasts: WATER_LASTS, until: (b) => b.waterUntil, wants: (b) => b.kind === 'home' && b.level > 0 },
   food: { source: 'agora', range: VENDOR_RANGE, lasts: FOOD_LASTS, until: (b) => b.foodUntil, wants: eatsBread },
   religion: { source: 'shrine', range: PRIESTESS_RANGE, lasts: RELIGION_LASTS, until: (b) => b.religionUntil, wants: wantsBlessing },
   culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
+  // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month.
+  tax: { source: 'taxoffice', range: COLLECTOR_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.taxedAt > 0 ? b.taxedAt + TICKS_PER_MONTH : 0), wants: (b) => b.kind === 'home' && b.people > 0 },
 };
 
-/** Which of the placing overlay's four tones each service's overlay takes. */
-const TONE: Record<Service, number> = { water: 0, food: 1, religion: 2, culture: 3 };
+/** Which of the placing overlay's five tones each service's overlay takes. */
+const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4 };
 
 /** How high the top of each level of home stands (for the columns over them). */
 export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8];
@@ -62,7 +65,7 @@ export class ServiceOverlay {
   /** Which overlay the player asked for, if any. */
   wanted: OverlayMode | null = null;
   /** Which one a tool needs (placing a fountain or an agora), if any. */
-  forced: Service | null = null;
+  forced: Round | null = null;
   private columns: THREE.InstancedMesh;
   private readonly codes: Uint8Array;
   private last = -Infinity;
@@ -75,11 +78,12 @@ export class ServiceOverlay {
   private readonly p = new THREE.Vector3();
   private readonly s = new THREE.Vector3();
   private readonly c = new THREE.Color();
-  private readonly tones: Record<Service, { has: THREE.Color; fresh: THREE.Color; none: THREE.Color }> = {
+  private readonly tones: Record<Round, { has: THREE.Color; fresh: THREE.Color; none: THREE.Color }> = {
     water: { has: new THREE.Color('#3f8fe0'), fresh: new THREE.Color('#8fd8ff'), none: new THREE.Color('#d8643a') },
     food: { has: new THREE.Color('#e09a26'), fresh: new THREE.Color('#ffe08a'), none: new THREE.Color('#9a4a6a') },
     religion: { has: new THREE.Color('#8a62d0'), fresh: new THREE.Color('#d6c2ff'), none: new THREE.Color('#9a7a52') },
     culture: { has: new THREE.Color('#d8506e'), fresh: new THREE.Color('#ffc2cf'), none: new THREE.Color('#5a7290') },
+    tax: { has: new THREE.Color('#2f9a80'), fresh: new THREE.Color('#9fe6d2'), none: new THREE.Color('#e09a2a') },
   };
 
   constructor(
@@ -153,7 +157,7 @@ export class ServiceOverlay {
     this.placement.setOverlay(codes);
   }
 
-  private refresh(s: SimState, service: Service): void {
+  private refresh(s: SimState, service: Round): void {
     const size = this.map.size;
     const mode = MODES[service];
     const codes = this.codes;
@@ -184,7 +188,8 @@ export class ServiceOverlay {
         const k = left > 0 ? Math.min(1, left / mode.lasts) : 0;
         code = left > 0 ? WATER_HOME + Math.round(39 * k) : WATER_DRY;
         // A post only over homes without, or with less than a month left: the ground's tint shows the rest.
-        if (left >= TICKS_PER_MONTH) {
+        // (Taxes last a month at most, so the tax overlay posts only the homes the collector hasn't called on.)
+        if (left >= TICKS_PER_MONTH || (service === 'tax' && left > 0)) {
           const side = sideOf(b.kind);
           for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
           continue;
@@ -192,7 +197,8 @@ export class ServiceOverlay {
         const cx = b.x + 1;
         const cz = b.z + 1;
         const y = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.2;
-        const h = left > 0 ? 0.2 + 2.4 * k : 0.22;
+        // A home the tax collector hasn't called on gets a taller stub: unlike a missing service, it is the whole of what the overlay is for.
+        const h = left > 0 ? 0.2 + 2.4 * k : service === 'tax' ? 0.75 : 0.22;
         this.p.set(cx, y, cz);
         this.s.set(left > 0 ? 1 : 1.5, h, left > 0 ? 1 : 1.5);
         this.m.compose(this.p, this.q, this.s);
@@ -230,7 +236,7 @@ export class ServiceOverlay {
  * Homes a new fountain or agora with these roadside tiles would reach, and
  * how many of them have no water (or food) now.
  */
-export function previewReach(s: SimState, size: number, sources: number[], service: Service = 'water'): { homes: number; dry: number } {
+export function previewReach(s: SimState, size: number, sources: number[], service: Round = 'water'): { homes: number; dry: number } {
   if (sources.length === 0) return { homes: 0, dry: 0 };
   const mode = MODES[service];
   const dist = roadSearch(s, size, sources).dist;

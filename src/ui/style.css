@@ -120,6 +120,75 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .stat.trouble svg .dot { fill: #fff6e4; }
 .stat.money svg .inner { fill: none; stroke: #a8772a; stroke-width: 0.9; }
 .stat.money svg .mark { fill: #a8772a; }
+button.stat.money { appearance: none; border: 0; background: none; font: inherit; font-size: 18px; color: inherit; padding: 2px 6px; margin: -2px -6px; border-radius: 10px; cursor: pointer; }
+button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
+.stat.money.owed .num { color: var(--terracotta-deep); }
+.stat.money .trend { display: inline-flex; margin-left: -3px; }
+.stat.money .trend[hidden] { display: none; }
+.stat.money .trend svg { width: 10px; height: 10px; }
+.stat.money .trend.up svg { fill: #c99a2a; }
+.stat.money .trend.down svg { fill: var(--terracotta); }
+.rate-chip {
+  appearance: none; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  background: #fff8ea; border: 1.5px solid var(--edge); border-radius: 999px; padding: 3px 11px; margin-left: -6px;
+  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+}
+.rate-chip:hover { background: #fff2d6; }
+.rate-chip.r0, .rate-chip.r1 { border-color: #7fa65a; }
+.rate-chip.r3 { border-color: #d9a440; background: #fff1d6; }
+.rate-chip.r4 { border-color: var(--terracotta); background: #ffe6d6; color: var(--terracotta-deep); }
+.rates {
+  position: absolute; width: 330px; z-index: 6;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 14px; padding: 10px 12px 10px;
+  box-shadow: 0 8px 24px rgba(60, 40, 20, 0.22); font-size: 13.5px; line-height: 1.35;
+}
+.rates[hidden] { display: none; }
+.rates h3 { margin: 0 0 6px; font-size: 16px; font-variant: small-caps; letter-spacing: 0.05em; font-weight: normal; }
+.rates .rate {
+  appearance: none; display: grid; grid-template-columns: 64px 1fr; gap: 0 8px; width: 100%; text-align: left; font: inherit; color: var(--ink);
+  background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 4px 8px; cursor: pointer;
+}
+.rates .rate:hover { background: #fff2d6; }
+.rates .rate.on { background: #fff8ea; border-color: var(--edge); }
+.rates .rate b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; grid-row: span 2; align-self: center; }
+.rates .rate .per { font-size: 12.5px; white-space: nowrap; }
+.rates .rate .what { font-size: 12px; color: var(--ink-soft); }
+.rates .foot { margin: 6px 4px 0; font-size: 12px; color: var(--ink-soft); }
+
+/* The ledger card, under the corner buttons. */
+.ledger {
+  position: absolute; top: 64px; right: 14px; width: 400px; max-height: calc(100% - 150px); overflow-y: auto; scrollbar-width: thin;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 14px; padding: 12px 16px 12px;
+  box-shadow: 0 8px 24px rgba(60, 40, 20, 0.22); font-size: 14px; line-height: 1.4;
+}
+.ledger[hidden] { display: none; }
+.ledger h2 { margin: 0 0 6px; font-size: 18px; font-variant: small-caps; letter-spacing: 0.05em; font-weight: normal; }
+.ledger .close {
+  position: absolute; top: 6px; right: 8px; appearance: none; border: 0; background: transparent; font: inherit;
+  font-size: 20px; line-height: 1; color: var(--ink-soft); cursor: pointer; width: 26px; height: 26px; border-radius: 50%;
+}
+.ledger .close:hover { background: #fff2d6; }
+.ledger .book { width: 100%; border-collapse: collapse; font-variant-numeric: lining-nums tabular-nums; }
+.ledger .book thead th { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 13.5px; text-align: right; padding: 0 0 4px 8px; vertical-align: bottom; width: 84px; }
+.ledger .book thead th:first-child { width: auto; }
+.ledger .book thead small { display: block; font-variant: normal; letter-spacing: 0; font-size: 11.5px; color: var(--ink-soft); }
+.ledger .book tr.head th { text-align: left; font-weight: normal; font-variant: small-caps; letter-spacing: 0.05em; font-size: 13px; color: var(--ink-soft); padding: 7px 0 1px; border-bottom: 1px solid rgba(184, 138, 80, 0.45); }
+.ledger .book td { padding: 2px 0; font-size: 13.5px; }
+.ledger .book td.what small { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
+.ledger .book td.what.none { font-style: italic; color: var(--ink-soft); }
+.ledger .book td.amt { text-align: right; padding-left: 8px; white-space: nowrap; }
+.ledger .book td.amt.in { color: #5f7f2c; }
+.ledger .book td.amt.out { color: var(--terracotta-deep); }
+.ledger .book td.amt.nil { color: rgba(122, 92, 60, 0.4); }
+.ledger .book tr.total td { border-top: 1.5px solid var(--edge); padding-top: 4px; font-weight: bold; }
+.ledger .book tr.start td { font-size: 12.5px; color: var(--ink-soft); }
+.ledger .notes { margin: 8px 0 0; padding: 0 0 0 16px; font-size: 12.5px; color: var(--ink-soft); }
+.ledger .notes li { margin: 3px 0; }
+.ledger .notes li.bad { color: var(--terracotta-deep); }
+.ledger .notes b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; color: var(--ink); }
+
 .stat .delta {
   font-size: 12.5px; font-weight: bold; margin-left: -2px; align-self: flex-start; margin-top: 1px;
   opacity: 0; transition: opacity 0.3s ease; pointer-events: none; white-space: nowrap;
@@ -167,6 +236,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .btn.tool.on .fill-plays { fill: #ffd2dc; stroke: #fff6e4; }
 .btn.tool.overlay.religion.on { background: #7a5cb8; border-color: #5c4392; }
 .btn.tool.overlay.culture.on { background: #c4506c; border-color: #9a3a52; }
+.btn.tool .fill-tax { fill: #4f9f88; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool.on .fill-tax { fill: #c4efe2; stroke: #fff6e4; }
+.btn.tool.overlay.tax.on { background: #2f7f6a; border-color: #23604f; }
+.btn.tool.overlay.tax.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
 .btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
 .btn.tool.on .key { color: #fff6e4; }
 .btn.tool:disabled { opacity: 0.45; cursor: default; }
@@ -215,6 +288,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .floater.dry { color: #fff1e4; text-shadow: 0 1px 0 #8a3a1c, 0 0 6px rgba(140, 50, 20, 0.7); font-size: 14px; }
 .floater.food { color: #fff6dc; text-shadow: 0 1px 0 #8a5a14, 0 0 6px rgba(150, 100, 20, 0.75); font-size: 15px; }
 .floater.religion { color: #f6f0ff; text-shadow: 0 1px 0 #5a3a8f, 0 0 6px rgba(90, 50, 150, 0.75); font-size: 15px; }
+.floater.tax { color: #fff6dc; text-shadow: 0 1px 0 #23604f, 0 0 6px rgba(30, 100, 80, 0.8); font-size: 15px; }
 .floater.culture { color: #fff0f3; text-shadow: 0 1px 0 #8f2a44, 0 0 6px rgba(150, 40, 70, 0.75); font-size: 15px; }
 
 /* The household panel: who lives in a home and how they are doing. */
