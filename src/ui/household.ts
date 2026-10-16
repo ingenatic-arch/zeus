@@ -196,7 +196,14 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   const label = (g: number[]): string => (!f ? '' : g.length >= 3 ? `${f.members[g[0]].name} and family` : nameList(g.map((i) => f.members[i].name)));
   const who = going > 0 ? ` ${going === 1 ? `${label(groups[0])} would move away` : `${going} of them would move away (${groups.map(label).join('; ')})`}.` : '';
   const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${NEED_WORDS[x.need]} for ${days(s.tick - x.since)}`).join(', ');
-  const also = ws.length > 1 ? ` Without ${ws.slice(1).map((x) => NEED_WORDS[x.need]).join(' or ')}, they go in ${days(ws[1].left)} all the same.` : '';
+  // The other needs they lack, each with when it alone would send them down (needs that would do so on the same day share a clause).
+  const rest: Array<{ words: string[]; left: number }> = [];
+  for (const x of ws.slice(1)) {
+    const same = rest.find((r) => days(r.left) === days(x.left));
+    if (same) same.words.push(NEED_WORDS[x.need]);
+    else rest.push({ words: [NEED_WORDS[x.need]], left: x.left });
+  }
+  const also = rest.map((r, i) => (i ? ` Without ${r.words.join(' or ')}, in ${days(r.left)}.` : ` Without ${r.words.join(' or ')}, they go in ${days(r.left)} all the same.`)).join('');
   const why = ws.map((x) => `<p class="why">${ws.length > 1 ? `${TITLE[x.need]}: ` : 'Why: '}${esc(whyLacks(s, map, b, x.need))}</p>`).join('');
   // The icons in the order the signs show them.
   const icons = NEEDS.filter((n) => ws.some((x) => x.need === n)).map((n) => ICON[n]).join('');
