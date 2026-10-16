@@ -11,14 +11,26 @@ export const WALKER_CHUNK = 32;
 /** Space between people walking in a line. */
 const SPACING = 0.36;
 
-type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean };
+/**
+ * A part of a walker's model. `leg` makes it a leg that swings as she walks:
+ * [how far and which way it swings (+1, -1; less for an ox), the hip's x, the hip's height].
+ */
+type TPart = { geo: THREE.BufferGeometry; color: string; tint?: boolean; leg?: [number, number, number] };
 
-/** Merge parts into one geometry with colours, and a tint mask: 1 where the per-person colour applies (the tunic). */
+/**
+ * One full stride (two steps), in world units walked. Legs swing with the
+ * distance a walker has covered (worked out in the shader from where she
+ * stands), so her feet keep pace with the ground at any speed.
+ */
+export const STRIDE = 0.44;
+
+/** Merge parts into one geometry with colours, a tint mask (1 where the per-person colour applies: the tunic) and the legs that swing. */
 function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
   const pos: number[] = [];
   const colors: number[] = [];
   const tint: number[] = [];
-  for (const { geo, color, tint: t } of parts) {
+  const legs: number[] = [];
+  for (const { geo, color, tint: t, leg } of parts) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     const p = g.attributes.position as THREE.BufferAttribute;
     const c = t ? new THREE.Color(1, 1, 1) : col(color);
@@ -26,12 +38,14 @@ function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
       pos.push(p.getX(i), p.getY(i), p.getZ(i));
       colors.push(c.r, c.g, c.b);
       tint.push(t ? 1 : 0);
+      legs.push(...(leg ?? [0, 0, 0]));
     }
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   out.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   out.setAttribute('aTint', new THREE.Float32BufferAttribute(tint, 1));
+  out.setAttribute('aLeg', new THREE.Float32BufferAttribute(legs, 3));
   out.computeVertexNormals();
   out.computeBoundingSphere();
   return out;
@@ -40,11 +54,12 @@ function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
 /** A little person, about 0.42 tall, facing +x, carrying a bundle on the head or the back. */
 function person(load: 'head' | 'back'): THREE.BufferGeometry {
   const parts: TPart[] = [
-    { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, 0.03), color: PAL.skin },
-    { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, -0.03), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, 0.03), color: PAL.skin, leg: [1, 0, 0.12] },
+    { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, -0.03), color: PAL.skin, leg: [-1, 0, 0.12] },
     { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.21, 6).translate(0, 0.205, 0), color: '', tint: true },
-    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(0.18).translate(0, 0.23, 0.07), color: PAL.skin },
-    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(-0.18).translate(0, 0.23, -0.07), color: PAL.skin },
+    // Arms swing against the legs.
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(0.18).translate(0, 0.23, 0.07), color: PAL.skin, leg: [-0.55, 0, 0.3] },
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(-0.18).translate(0, 0.23, -0.07), color: PAL.skin, leg: [0.55, 0, 0.3] },
     { geo: new THREE.IcosahedronGeometry(0.058, 0).translate(0.005, 0.365, 0), color: PAL.skin },
     { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.7, 1).translate(-0.012, 0.39, 0), color: PAL.hair },
   ];
@@ -109,7 +124,7 @@ function vendor(): THREE.BufferGeometry {
 }
 
 /** Legs of a beast or a person: four (or two) thin posts. */
-const leg = (x: number, z: number, h: number, r: number, color: string): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color });
+const leg = (x: number, z: number, h: number, r: number, color: string, swing = 0): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color, leg: [swing, x, h] });
 
 /**
  * The priestess: a woman in a long white robe (the tinted part) with a lilac
@@ -142,8 +157,8 @@ function priestess(): THREE.BufferGeometry {
  */
 function actor(): THREE.BufferGeometry {
   const parts: TPart[] = [
-    leg(0, -0.03, 0.12, 0.02, PAL.skin),
-    leg(0, 0.03, 0.12, 0.02, PAL.skin),
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
     { geo: new THREE.CylinderGeometry(0.055, 0.088, 0.22, 6).translate(0, 0.21, 0), color: '', tint: true },
     { geo: new THREE.CylinderGeometry(0.07, 0.1, 0.16, 6, 1, true, Math.PI * 0.6, Math.PI * 0.8).translate(0, 0.24, 0), color: PAL.actorCloak },
     // An arm flung up, and one holding the scroll out.
@@ -175,7 +190,8 @@ function oxCart(loaded: boolean): THREE.BufferGeometry {
   parts.push({ geo: lumpy(new THREE.BoxGeometry(0.13, 0.11, 0.1), 0.08, 502).translate(ox + 0.26, 0.29, 0), color: PAL.ox });
   parts.push({ geo: new THREE.BoxGeometry(0.06, 0.06, 0.08).translate(ox + 0.33, 0.26, 0), color: PAL.oxDark });
   parts.push({ geo: new THREE.CylinderGeometry(0.009, 0.016, 0.2, 4).rotateX(Math.PI / 2).translate(ox + 0.25, 0.37, 0), color: PAL.horn });
-  for (const [x, z] of [[ox - 0.14, -0.055], [ox - 0.14, 0.055], [ox + 0.14, -0.055], [ox + 0.14, 0.055]]) parts.push(leg(x, z, 0.19, 0.026, PAL.oxDark));
+  // A slow, diagonal gait: the near fore and the far hind leg together.
+  for (const [x, z, w] of [[ox - 0.14, -0.055, 0.5], [ox - 0.14, 0.055, -0.5], [ox + 0.14, -0.055, -0.5], [ox + 0.14, 0.055, 0.5]]) parts.push(leg(x, z, 0.19, 0.026, PAL.oxDark, w));
   parts.push({ geo: new THREE.BoxGeometry(0.03, 0.03, 0.24).translate(ox + 0.18, 0.38, 0), color: PAL.woodDark });
   // The cart behind: a pole to the yoke, the bed, the wheels.
   parts.push({ geo: new THREE.BoxGeometry(0.4, 0.025, 0.025).translate(ox - 0.12, 0.26, 0), color: PAL.cart });
@@ -198,7 +214,7 @@ function oxCart(loaded: boolean): THREE.BufferGeometry {
   // The driver, walking beside the ox with a goad.
   const dz = 0.17;
   const dx = 0.3;
-  parts.push(leg(dx, dz - 0.025, 0.11, 0.018, PAL.skin), leg(dx, dz + 0.025, 0.11, 0.018, PAL.skin));
+  parts.push(leg(dx, dz - 0.025, 0.11, 0.018, PAL.skin, -1), leg(dx, dz + 0.025, 0.11, 0.018, PAL.skin, 1));
   parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.075, 0.19, 6).translate(dx, 0.19, dz), color: '', tint: true });
   parts.push({ geo: new THREE.IcosahedronGeometry(0.052, 0).translate(dx, 0.33, dz), color: PAL.skin });
   parts.push({ geo: new THREE.IcosahedronGeometry(0.054, 0).scale(1, 0.7, 1).translate(dx - 0.01, 0.355, dz), color: PAL.hair });
@@ -212,8 +228,8 @@ function oxCart(loaded: boolean): THREE.BufferGeometry {
  */
 function porter(loaded: boolean): THREE.BufferGeometry {
   const parts: TPart[] = [
-    leg(-0.02, -0.03, 0.12, 0.02, PAL.skin),
-    leg(-0.02, 0.03, 0.12, 0.02, PAL.skin),
+    leg(-0.02, -0.03, 0.12, 0.02, PAL.skin, -0.8),
+    leg(-0.02, 0.03, 0.12, 0.02, PAL.skin, 0.8),
     { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.21, 6).rotateZ(-0.15).translate(0, 0.205, 0), color: '', tint: true },
     { geo: new THREE.IcosahedronGeometry(0.058, 0).translate(0.03, 0.36, 0), color: PAL.skin },
     { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.7, 1).translate(0.018, 0.385, 0), color: PAL.hair },
@@ -242,7 +258,22 @@ function tintedMaterial(): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0 });
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aTint;')
+      .replace('#include <common>', `#include <common>\nattribute float aTint;\nattribute vec3 aLeg;\nconst float STRIDE = ${STRIDE.toFixed(3)};`)
+      // Legs swing about the hip with the distance walked: the phase comes from where she stands (roads run along x and z).
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        if (aLeg.x != 0.0) {
+          vec3 at = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          float a = sin((at.x + at.z) * 6.2831853 / STRIDE) * 0.5 * aLeg.x;
+          vec2 d = transformed.xy - aLeg.yz;
+          float c = cos(a);
+          float s = sin(a);
+          transformed.xy = aLeg.yz + vec2(d.x * c - d.y * s, d.x * s + d.y * c);
+        }
+        #endif`,
+      )
       // The chunk has to be expanded here: at this point the shader still holds only its #include line.
       .replace('#include <color_vertex>', THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aTint);'));
   };
@@ -325,7 +356,7 @@ export class Walkers {
     return [x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, (x1 - x0) / len, (z1 - z0) / len];
   }
 
-  update(state: SimState, alpha: number, time: number): void {
+  update(state: SimState, alpha: number, _time: number): void {
     for (const k of this.all) k.begin();
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
@@ -341,9 +372,10 @@ export class Walkers {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
         const cart = w.kind === 'cart';
-        const phase = time * (cart ? 5 : 8) + w.id * 1.3;
+        // In step with the legs (see STRIDE): highest as the legs pass, lowest at each footfall.
+        const phase = ((x + z) * Math.PI * 2) / STRIDE;
         // A steadier walk than the settlers': she carries a full jar or basket; the cart rocks gently.
-        const bob = Math.abs(Math.sin(phase)) * (cart ? 0.006 : 0.012) * moving;
+        const bob = Math.abs(Math.cos(phase)) * (cart ? 0.006 : 0.012) * moving;
         this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
@@ -371,9 +403,9 @@ export class Walkers {
         const x = x0 - dz * side;
         const z = z0 + dx * side;
         const seed = w.id * 7 + k;
-        const phase = time * 9 + seed * 1.7;
+        const phase = ((x + z) * Math.PI * 2) / STRIDE;
         const moving = d > 0 && d < total ? 1 : 0;
-        const bob = Math.abs(Math.sin(phase)) * 0.022 * moving;
+        const bob = Math.abs(Math.cos(phase)) * 0.018 * moving;
         const child = w.people >= 3 && k === w.people - 1;
         const sc = child ? 0.66 : 0.84 + 0.1 * hash2(seed, 1, 61);
         this.e.set(Math.sin(phase) * 0.06 * moving, Math.atan2(-dz, dx), 0, 'YXZ');

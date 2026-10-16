@@ -174,10 +174,42 @@ for (const cam of ['closed', 'overview']) {
   console.log(`#closed view ${cam.padEnd(14)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
 }
 
+// #town: the prepared town of a few hundred people, every house level and building.
+{
+  const t = Date.now();
+  await page.goto('about:blank');
+  await page.goto(url + '#town-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  console.log(`#town setup and load ${Date.now() - t} ms (start ${(await page.evaluate(() => window.__zeus.startMs)).toFixed(0)} ms)`);
+  for (const cam of ['town', 'townstreet', 'overview']) {
+    await page.evaluate((c) => window.__zeus.setView(c), cam);
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    console.log(`#town view ${cam.padEnd(16)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+  }
+  const c = await page.evaluate(() => window.__zeus.city());
+  console.log(`  town: ${c.population} people, ${c.homes} homes, ${c.walkers} walkers, buildings ${c.homes + c.fountains + c.farms + c.granaries + c.agoras + c.shrines + c.theatres}`);
+  await summarise();
+  // How big a save of it is.
+  const size = await page.evaluate(() => {
+    window.__zeus.saveNow();
+    let n = 0;
+    try {
+      n = (localStorage.getItem('zeus-remake.save.manual') ?? '').length;
+      localStorage.clear();
+    } catch {
+      /* no storage */
+    }
+    return n;
+  });
+  console.log(`  a save of #town: ${(size / 1024).toFixed(0)} KB`);
+}
+
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

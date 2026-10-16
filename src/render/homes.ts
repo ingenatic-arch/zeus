@@ -411,10 +411,97 @@ const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.ki
 const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine';
 
 /**
- * Stakes on empty plots, tents and huts on lived-in ones, and fountains,
- * instanced per chunk. Only the chunks whose buildings changed (added,
- * removed, or a new look or facing) are refilled. A home rises into place
- * when it is pitched or built.
+ * Every settled home, shrine, fountain and plot stake in a chunk merged into
+ * one mesh: one draw (and one shadow draw) per chunk, whatever mix of houses
+ * it holds. Rebuilt only when something in the chunk changes look.
+ */
+class MergedChunks {
+  private readonly meshes = new Map<number, THREE.Mesh>();
+  private readonly nm = new THREE.Matrix3();
+  /** Vertices written by the last rebuild (for measuring). */
+  lastVertices = 0;
+
+  constructor(
+    private readonly group: THREE.Group,
+    private readonly material: THREE.Material,
+  ) {}
+
+  set(key: number, items: ReadonlyArray<{ geo: THREE.BufferGeometry; m: THREE.Matrix4 }>): void {
+    let n = 0;
+    for (const it of items) n += it.geo.attributes.position.count;
+    let mesh = this.meshes.get(key);
+    if (n === 0) {
+      if (mesh) {
+        this.group.remove(mesh);
+        mesh.geometry.dispose();
+        this.meshes.delete(key);
+      }
+      return;
+    }
+    const pos = new Float32Array(n * 3);
+    const nor = new Float32Array(n * 3);
+    const colr = new Float32Array(n * 3);
+    let o = 0;
+    for (const { geo, m } of items) {
+      const sp = geo.attributes.position.array as Float32Array;
+      const sn = geo.attributes.normal.array as Float32Array;
+      const sc = geo.attributes.color.array as Float32Array;
+      const e = m.elements;
+      const ne = this.nm.getNormalMatrix(m).elements;
+      const count = geo.attributes.position.count;
+      for (let i = 0; i < count; i++) {
+        const j = i * 3;
+        const x = sp[j];
+        const y = sp[j + 1];
+        const z = sp[j + 2];
+        pos[o] = e[0] * x + e[4] * y + e[8] * z + e[12];
+        pos[o + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+        pos[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        const a = sn[j];
+        const b = sn[j + 1];
+        const c = sn[j + 2];
+        let nx = ne[0] * a + ne[3] * b + ne[6] * c;
+        let ny = ne[1] * a + ne[4] * b + ne[7] * c;
+        let nz = ne[2] * a + ne[5] * b + ne[8] * c;
+        const l = Math.hypot(nx, ny, nz) || 1;
+        nx /= l;
+        ny /= l;
+        nz /= l;
+        nor[o] = nx;
+        nor[o + 1] = ny;
+        nor[o + 2] = nz;
+        colr[o] = sc[j];
+        colr[o + 1] = sc[j + 1];
+        colr[o + 2] = sc[j + 2];
+        o += 3;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(colr, 3));
+    g.computeBoundingSphere();
+    if (mesh) {
+      mesh.geometry.dispose();
+      mesh.geometry = g;
+    } else {
+      mesh = new THREE.Mesh(g, this.material);
+      mesh.name = `homes-merged-${key}`;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.meshes.set(key, mesh);
+      this.group.add(mesh);
+    }
+    this.lastVertices = n;
+  }
+}
+
+/**
+ * Stakes on empty plots, tents and huts on lived-in ones, and fountains.
+ * Settled ones are merged into one mesh per chunk (MergedChunks); a home
+ * rising into place (when it is pitched or built) is drawn instanced until
+ * it has risen. Only the chunks whose buildings changed (added, removed, or
+ * a new look or facing) are rebuilt.
  */
 export class Homes {
   readonly group = new THREE.Group();
@@ -426,6 +513,12 @@ export class Homes {
   private readonly shrines: ChunkedInstances;
   private readonly fountains: ChunkedInstances[];
   private readonly stakes: ChunkedInstances;
+  private readonly merged: MergedChunks;
+  /** The models, by look and variant, for merging. */
+  private readonly models: Record<'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine', THREE.BufferGeometry[]>;
+  private readonly shrineGeo: THREE.BufferGeometry;
+  private readonly fountainGeo: THREE.BufferGeometry;
+  private readonly stakeGeo: THREE.BufferGeometry;
   /** Buildings by chunk, as last seen. */
   private byChunk = new Map<number, Building[]>();
   /** What each building looked like last time (look, variant and facing), and its chunk. */
@@ -447,19 +540,31 @@ export class Homes {
     this.group.name = 'homes';
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
     const opts = { castShadow: true, receiveShadow: true, colors: false };
-    this.tents = [new ChunkedInstances('tent-a', tentA(), mat, HOME_CHUNK, opts), new ChunkedInstances('tent-b', tentB(), mat, HOME_CHUNK, opts)];
-    this.huts = [new ChunkedInstances('hut-a', hutA(), mat, HOME_CHUNK, opts), new ChunkedInstances('hut-b', hutB(), mat, HOME_CHUNK, opts)];
-    this.cottages = [new ChunkedInstances('cottage-a', cottageA(), mat, HOME_CHUNK, opts), new ChunkedInstances('cottage-b', cottageB(), mat, HOME_CHUNK, opts)];
-    this.townhouses = [new ChunkedInstances('townhouse-a', townhouseA(), mat, HOME_CHUNK, opts), new ChunkedInstances('townhouse-b', townhouseB(), mat, HOME_CHUNK, opts)];
-    this.fines = [new ChunkedInstances('fine-a', fineA(), mat, HOME_CHUNK, opts), new ChunkedInstances('fine-b', fineB(), mat, HOME_CHUNK, opts)];
-    this.shrines = new ChunkedInstances('shrine', shrineModel(), mat, HOME_CHUNK, opts);
+    this.models = {
+      tent: [tentA(), tentB()],
+      hut: [hutA(), hutB()],
+      cottage: [cottageA(), cottageB()],
+      townhouse: [townhouseA(), townhouseB()],
+      fine: [fineA(), fineB()],
+    };
+    const md = this.models;
+    this.tents = [new ChunkedInstances('tent-a', md.tent[0], mat, HOME_CHUNK, opts), new ChunkedInstances('tent-b', md.tent[1], mat, HOME_CHUNK, opts)];
+    this.huts = [new ChunkedInstances('hut-a', md.hut[0], mat, HOME_CHUNK, opts), new ChunkedInstances('hut-b', md.hut[1], mat, HOME_CHUNK, opts)];
+    this.cottages = [new ChunkedInstances('cottage-a', md.cottage[0], mat, HOME_CHUNK, opts), new ChunkedInstances('cottage-b', md.cottage[1], mat, HOME_CHUNK, opts)];
+    this.townhouses = [new ChunkedInstances('townhouse-a', md.townhouse[0], mat, HOME_CHUNK, opts), new ChunkedInstances('townhouse-b', md.townhouse[1], mat, HOME_CHUNK, opts)];
+    this.fines = [new ChunkedInstances('fine-a', md.fine[0], mat, HOME_CHUNK, opts), new ChunkedInstances('fine-b', md.fine[1], mat, HOME_CHUNK, opts)];
+    this.shrineGeo = shrineModel();
+    this.shrines = new ChunkedInstances('shrine', this.shrineGeo, mat, HOME_CHUNK, opts);
     const f = fountainModel();
+    this.fountainGeo = f.stone;
     const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.2, metalness: 0, emissive: new THREE.Color('#1d6f86'), emissiveIntensity: 0.35 });
     this.fountains = [
       new ChunkedInstances('fountain', f.stone, mat, HOME_CHUNK, opts),
       new ChunkedInstances('fountain-water', f.water, waterMat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: false }),
     ];
-    this.stakes = new ChunkedInstances('stakes', stake(), mat, HOME_CHUNK, opts);
+    this.stakeGeo = stake();
+    this.stakes = new ChunkedInstances('stakes', this.stakeGeo, mat, HOME_CHUNK, opts);
+    this.merged = new MergedChunks(this.group, mat);
     for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, this.shrines, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     const puff = new THREE.IcosahedronGeometry(1, 0);
@@ -532,16 +637,19 @@ export class Homes {
     this.time = time;
     this.updateSmoke(time, windAngle);
     if (this.rising.size === 0 || !this.state) return;
-    const dirty = new Set<number>();
+    // Chunks with a home still rising refill only their instanced homes; one whose home has just risen merges it back in.
+    const dirty = new Map<number, boolean>();
     for (const [id, t0] of this.rising) {
-      if (time - t0 > RISE_SECONDS) this.rising.delete(id);
+      const done = time - t0 > RISE_SECONDS;
+      if (done) this.rising.delete(id);
       const at = this.seen.get(id);
-      if (at) dirty.add(at.key);
+      if (at) dirty.set(at.key, (dirty.get(at.key) ?? false) || done);
     }
-    for (const k of dirty) this.fill(k);
+    for (const [k, all] of dirty) this.fill(k, all);
   }
 
-  private fill(key: number): void {
+  /** Redraw a chunk: its rising homes, and (with `all`) its merged mesh of everything settled. */
+  private fill(key: number, all = true): void {
     const s = this.state;
     if (!s) return;
     const list = this.byChunk.get(key) ?? [];
@@ -594,42 +702,66 @@ export class Homes {
       m.compose(p, q, sc);
       return k;
     };
-    const homes = (sets: Building[][], meshes: ChunkedInstances[], fireAt: THREE.Vector3[] | null): void => {
+    // Settled buildings go into the chunk's merged mesh; rising ones are drawn instanced until they have risen.
+    const settled: Array<{ geo: THREE.BufferGeometry; m: THREE.Matrix4 }> = [];
+    const homes = (sets: Building[][], meshes: ChunkedInstances[], models: THREE.BufferGeometry[], fireAt: THREE.Vector3[] | null): void => {
       sets.forEach((bs, v) => {
-        meshes[v].set(kx, kz, bs.length, (i, m) => {
-          if (place(bs[i], m, true) === 1 && fireAt) {
+        const up = bs.filter((b) => this.rising.has(b.id));
+        meshes[v].set(kx, kz, up.length, (i, m) => void place(up[i], m, true));
+        for (const b of bs) {
+          if (this.rising.has(b.id)) continue;
+          const m = new THREE.Matrix4();
+          place(b, m, true);
+          if (all) settled.push({ geo: models[v], m });
+          if (fireAt) {
             fp.copy(fireAt[v]).applyMatrix4(m);
-            fires.push([fp.x, map.heightAt(fp.x, fp.z), fp.z, hash2(bs[i].id, 5, 42)]);
+            fires.push([fp.x, map.heightAt(fp.x, fp.z), fp.z, hash2(b.id, 5, 42)]);
           }
-        });
+        }
       });
     };
-    homes(tentsBy, this.tents, TENT_FIRES);
-    homes(hutsBy, this.huts, HUT_FIRES);
-    homes(cottagesBy, this.cottages, null);
-    homes(townhousesBy, this.townhouses, null);
-    homes(finesBy, this.fines, null);
+    const md = this.models;
+    homes(tentsBy, this.tents, md.tent, TENT_FIRES);
+    homes(hutsBy, this.huts, md.hut, HUT_FIRES);
+    homes(cottagesBy, this.cottages, md.cottage, null);
+    homes(townhousesBy, this.townhouses, md.townhouse, null);
+    homes(finesBy, this.fines, md.fine, null);
     // The shrine's altar fire smokes like a hearth.
-    this.shrines.set(kx, kz, shrines.length, (i, m) => {
-      if (place(shrines[i], m, false) === 1) {
-        fp.copy(SHRINE_FIRE).applyMatrix4(m);
-        fires.push([fp.x, fp.y - 0.12, fp.z, hash2(shrines[i].id, 5, 42)]);
+    homes([shrines], [this.shrines], [this.shrineGeo], null);
+    for (const b of shrines) {
+      if (this.rising.has(b.id)) continue;
+      const m = new THREE.Matrix4();
+      place(b, m, false);
+      fp.copy(SHRINE_FIRE).applyMatrix4(m);
+      fires.push([fp.x, fp.y - 0.12, fp.z, hash2(b.id, 5, 42)]);
+    }
+    // The fountain's stone merges with the rest; its water keeps its own shiny material.
+    const fountainUp = fountains.filter((b) => this.rising.has(b.id));
+    this.fountains[0].set(kx, kz, fountainUp.length, (i, m) => void place(fountainUp[i], m, false));
+    this.fountains[1].set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
+    if (all) {
+      for (const b of fountains) {
+        if (this.rising.has(b.id)) continue;
+        const m = new THREE.Matrix4();
+        place(b, m, false);
+        settled.push({ geo: this.fountainGeo, m });
       }
-    });
-    for (const mesh of this.fountains) mesh.set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
+    }
     this.fires.set(key, fires);
-    const corners: Array<[number, number]> = [];
+    if (!all) return;
     for (const b of plots) {
       const a = 0.14;
       const e = PLOT_SIZE - 0.14;
-      corners.push([b.x + a, b.z + a], [b.x + e, b.z + a], [b.x + a, b.z + e], [b.x + e, b.z + e]);
+      const corners: Array<[number, number]> = [[b.x + a, b.z + a], [b.x + e, b.z + a], [b.x + a, b.z + e], [b.x + e, b.z + e]];
+      corners.forEach(([x, z], i) => {
+        const m = new THREE.Matrix4();
+        p.set(x, map.heightAt(x, z) - 0.02, z);
+        q.setFromAxisAngle(UP, i * 0.9 + 0.4);
+        sc.set(0.72, 0.72, 0.72);
+        m.compose(p, q, sc);
+        settled.push({ geo: this.stakeGeo, m });
+      });
     }
-    this.stakes.set(kx, kz, corners.length, (i, m) => {
-      const [x, z] = corners[i];
-      p.set(x, map.heightAt(x, z) - 0.02, z);
-      q.setFromAxisAngle(UP, (i % 4) * 0.9 + 0.4);
-      sc.set(0.72, 0.72, 0.72);
-      m.compose(p, q, sc);
-    });
+    this.merged.set(key, settled);
   }
 }

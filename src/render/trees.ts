@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { TreeKind, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { ChunkedInstances } from './chunks';
 import { col, PAL } from './palette';
 
 /**
@@ -172,25 +171,25 @@ const TINT: Record<TreeKind, number> = {
   [TreeKind.Flowers]: 0.12,
 };
 
-/** Plants lean gently in the breeze: the higher up, the more they move. */
-function swaying(mat: THREE.MeshStandardMaterial, time: { value: number }, amount: number): THREE.MeshStandardMaterial {
+/**
+ * Plants lean gently in the breeze: the higher up, the more they move. Each
+ * vertex carries where its plant stands and how far it bends (aSway), since
+ * a chunk's plants are merged into one mesh.
+ */
+function swaying(mat: THREE.MeshStandardMaterial, time: { value: number }, key: string): THREE.MeshStandardMaterial {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = time;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nattribute vec3 aSway;')
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-          vec2 ip = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
-          float ph = uTime * 1.4 + ip.x * 0.31 + ip.y * 0.23;
-          float bend = max(transformed.y - 0.15, 0.0) * ${amount.toFixed(3)};
-          transformed.x += (sin(ph) + 0.4 * sin(ph * 2.3)) * bend;
-          transformed.z += cos(ph * 0.8) * bend * 0.5;
-        #endif`,
+          float ph = uTime * 1.4 + aSway.x * 0.31 + aSway.y * 0.23;
+          transformed.x += (sin(ph) + 0.4 * sin(ph * 2.3)) * aSway.z;
+          transformed.z += cos(ph * 0.8) * aSway.z * 0.5;`,
       );
   };
-  mat.customProgramCacheKey = () => `sway-${amount}`;
+  mat.customProgramCacheKey = () => `sway-${key}`;
   return mat;
 }
 
@@ -209,40 +208,40 @@ export interface Plants {
  */
 export const PLANT_CHUNK = 64;
 
+/** How each kind of plant is drawn: rocks stand still; trees and shrubs sway a little, grasses and flowers more, and cast no shadow. */
+type Group = 'rock' | 'tree' | 'grass';
+const groupOf = (k: TreeKind): Group => (k === TreeKind.Rock ? 'rock' : k === TreeKind.Reed || k === TreeKind.Flowers ? 'grass' : 'tree');
+const BEND: Record<Group, number> = { rock: 0, tree: 0.035, grass: 0.12 };
+
 export function buildTrees(map: CoastMap): Plants {
   const group = new THREE.Group();
   group.name = 'trees';
   const time = { value: 0 };
   const plain = (): THREE.MeshStandardMaterial =>
     new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0 });
-  const rockMat = plain();
-  const treeMat = swaying(plain(), time, 0.035);
-  const grassMat = swaying(plain(), time, 0.12);
-  const materialFor = (k: TreeKind): THREE.Material =>
-    k === TreeKind.Rock ? rockMat : k === TreeKind.Reed || k === TreeKind.Flowers ? grassMat : treeMat;
-
-  // One chunked set of meshes per kind; each chunk knows its trees.
-  const kinds = new Map<TreeKind, { inst: ChunkedInstances; byChunk: Map<number, number[]> }>();
-  map.trees.forEach((t, i) => {
-    let k = kinds.get(t.kind);
-    if (!k) {
-      const shadow = t.kind !== TreeKind.Reed && t.kind !== TreeKind.Flowers;
-      const inst = new ChunkedInstances(`trees-${TreeKind[t.kind]}`, MODELS[t.kind](), materialFor(t.kind), PLANT_CHUNK, {
-        castShadow: shadow,
-        receiveShadow: true,
-        colors: true,
-      });
-      k = { inst, byChunk: new Map() };
-      kinds.set(t.kind, k);
-      group.add(inst.group);
+  const materials: Record<Group, THREE.Material> = { rock: plain(), tree: swaying(plain(), time, 'tree'), grass: swaying(plain(), time, 'grass') };
+  const models = new Map<TreeKind, THREE.BufferGeometry>();
+  const model = (k: TreeKind): THREE.BufferGeometry => {
+    let g = models.get(k);
+    if (!g) {
+      g = MODELS[k]();
+      models.set(k, g);
     }
-    const key = k.inst.key(t.x, t.z);
-    const list = k.byChunk.get(key);
-    if (list) list.push(i);
-    else k.byChunk.set(key, [i]);
-  });
+    return g;
+  };
 
-  // Where each tree stands, worked out once.
+  // Every plant in a chunk of the map, of one group, is merged into one mesh: a few draws for the whole landscape.
+  const chunkKey = (x: number, z: number): number => (Math.floor(z / PLANT_CHUNK) + 512) * 1024 + (Math.floor(x / PLANT_CHUNK) + 512);
+  const byChunk = new Map<string, number[]>();
+  map.trees.forEach((t, i) => {
+    const k = `${groupOf(t.kind)}:${chunkKey(t.x, t.z)}`;
+    const list = byChunk.get(k);
+    if (list) list.push(i);
+    else byChunk.set(k, [i]);
+  });
+  const meshes = new Map<string, THREE.Mesh>();
+
+  // Where each plant stands, worked out once.
   const mats = map.trees.map((t) => {
     const m = new THREE.Matrix4();
     // Sit the base slightly into the ground so slopes never show a gap.
@@ -255,21 +254,86 @@ export function buildTrees(map: CoastMap): Plants {
     );
     return m;
   });
-  const fill = (kind: TreeKind, key: number, gone: ReadonlySet<number>): void => {
-    const k = kinds.get(kind);
-    if (!k) return;
-    const ids = (k.byChunk.get(key) ?? []).filter((i) => !gone.has(i));
-    if (ids.length === 0 && !(k.byChunk.get(key) ?? []).length) return;
-    const first = map.trees[(k.byChunk.get(key) as number[])[0]];
-    k.inst.set(first.x, first.z, ids.length, (n, m, c) => {
-      const t = map.trees[ids[n]];
-      m.copy(mats[ids[n]]);
-      const v = 1 + t.tint * TINT[kind];
-      c.setRGB(v, v * (1 + t.tint * 0.02), v * (1 - t.tint * 0.03));
-    });
+  const nm = new THREE.Matrix3();
+  const fill = (key: string, gone: ReadonlySet<number>): void => {
+    const ids = (byChunk.get(key) ?? []).filter((i) => !gone.has(i));
+    const grp = key.split(':')[0] as Group;
+    let n = 0;
+    for (const i of ids) n += model(map.trees[i].kind).attributes.position.count;
+    const pos = new Float32Array(n * 3);
+    const nor = new Float32Array(n * 3);
+    const colr = new Float32Array(n * 3);
+    const sway = new Float32Array(n * 3);
+    let o = 0;
+    for (const i of ids) {
+      const t = map.trees[i];
+      const g = model(t.kind);
+      const sp = g.attributes.position.array as Float32Array;
+      const sn = g.attributes.normal.array as Float32Array;
+      const sc = g.attributes.color.array as Float32Array;
+      const e = mats[i].elements;
+      const ne = nm.getNormalMatrix(mats[i]).elements;
+      const v = 1 + t.tint * TINT[t.kind];
+      const tr = v;
+      const tg = v * (1 + t.tint * 0.02);
+      const tb = v * (1 - t.tint * 0.03);
+      const bend = BEND[grp] * t.scale;
+      for (let j = 0; j < sp.length; j += 3) {
+        const x = sp[j];
+        const y = sp[j + 1];
+        const z = sp[j + 2];
+        pos[o] = e[0] * x + e[4] * y + e[8] * z + e[12];
+        pos[o + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+        pos[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        let nx = ne[0] * sn[j] + ne[3] * sn[j + 1] + ne[6] * sn[j + 2];
+        let ny = ne[1] * sn[j] + ne[4] * sn[j + 1] + ne[7] * sn[j + 2];
+        let nz = ne[2] * sn[j] + ne[5] * sn[j + 1] + ne[8] * sn[j + 2];
+        const l = Math.hypot(nx, ny, nz) || 1;
+        nx /= l;
+        ny /= l;
+        nz /= l;
+        nor[o] = nx;
+        nor[o + 1] = ny;
+        nor[o + 2] = nz;
+        colr[o] = sc[j] * tr;
+        colr[o + 1] = sc[j + 1] * tg;
+        colr[o + 2] = sc[j + 2] * tb;
+        sway[o] = t.x;
+        sway[o + 1] = t.z;
+        // The higher up the plant, the more it bends (as when each plant was instanced: from its own height, scaled with it).
+        sway[o + 2] = Math.max(y - 0.15, 0) * bend;
+        o += 3;
+      }
+    }
+    let mesh = meshes.get(key);
+    if (mesh) mesh.geometry.dispose();
+    if (n === 0) {
+      if (mesh) {
+        group.remove(mesh);
+        meshes.delete(key);
+      }
+      return;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colr, 3));
+    geo.setAttribute('aSway', new THREE.BufferAttribute(sway, 3));
+    geo.computeBoundingSphere();
+    // Room for the sway.
+    if (geo.boundingSphere) geo.boundingSphere.radius += 0.5;
+    if (mesh) mesh.geometry = geo;
+    else {
+      mesh = new THREE.Mesh(geo, materials[grp]);
+      mesh.name = `trees-${grp}-${key.split(':')[1]}`;
+      mesh.castShadow = grp !== 'grass';
+      mesh.receiveShadow = true;
+      meshes.set(key, mesh);
+      group.add(mesh);
+    }
   };
   let gone = new Set<number>();
-  for (const [kind, k] of kinds) for (const key of k.byChunk.keys()) fill(kind, key, gone);
+  for (const key of byChunk.keys()) fill(key, gone);
 
   return {
     group,
@@ -278,19 +342,15 @@ export function buildTrees(map: CoastMap): Plants {
     },
     sync(cleared: readonly number[]) {
       const next = new Set(cleared);
-      const dirty = new Map<TreeKind, Set<number>>();
+      const dirty = new Set<string>();
       const mark = (i: number): void => {
         const t = map.trees[i];
-        const k = kinds.get(t.kind);
-        if (!k) return;
-        const set = dirty.get(t.kind) ?? new Set<number>();
-        set.add(k.inst.key(t.x, t.z));
-        dirty.set(t.kind, set);
+        dirty.add(`${groupOf(t.kind)}:${chunkKey(t.x, t.z)}`);
       };
       for (const i of next) if (!gone.has(i)) mark(i);
       for (const i of gone) if (!next.has(i)) mark(i);
       gone = next;
-      for (const [kind, keys] of dirty) for (const key of keys) fill(kind, key, next);
+      for (const key of dirty) fill(key, next);
     },
   };
 }
