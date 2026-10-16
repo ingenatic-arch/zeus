@@ -270,6 +270,18 @@ describe('the demo towns and money', () => {
     expect(Math.abs(s.money - start) / 2).toBeLessThan(600);
   });
 
+  it('the money line warns from the steady rate of taxes and wages, not one month’s hand-ins', () => {
+    // #shrine's tax offices went in a month and a half ago; their collectors' first rounds ran past the month's end.
+    expect(moneyLine(demo('shrine').state)).toBeNull();
+    // #town with taxes at none: nothing comes in, so within a couple of months the line says when it runs dry.
+    const sim = demo('town');
+    expect(moneyLine(sim.state)).toBeNull();
+    sim.enqueue({ type: 'tax', rate: 0 });
+    sim.flush();
+    sim.run(2 * TICKS_PER_MONTH);
+    expect(moneyLine(sim.state)?.text).toMatch(/^Money: the tax collectors bring in about 0 dr a month and wages take about [\d,]+; at that rate the treasury runs dry in about \d months/);
+  });
+
   it('#dry has wages owed and says so; #taxes has a street no collector reaches', () => {
     const dry = demo('dry').state;
     expect(dry.taxRate).toBe(0);

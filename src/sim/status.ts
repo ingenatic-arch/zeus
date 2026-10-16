@@ -18,7 +18,7 @@ import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, SimState, Walker } from './state';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxOf } from './taxes';
-import { hasTaxOffice, kindTotal, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
+import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
 
 export interface Status {
   title: string;
@@ -537,7 +537,13 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
       }
     }
   }
-  const { jobs, filled, able, short } = workforce(s);
+  const wf = workforce(s);
+  const { able } = wf;
+  // A workplace built since workers were last shared out (once a day) hasn't had its chance yet.
+  const waiting = wf.short.filter((b) => b.workers === 0 && s.tick - b.placed <= TICKS_PER_DAY);
+  const short = wf.short.filter((b) => !waiting.includes(b));
+  const jobs = wf.jobs - waiting.reduce((n, b) => n + JOBS[b.kind], 0);
+  const filled = wf.filled;
   if (filled < jobs && short.length) {
     const open = jobs - filled;
     const first = short[0];
@@ -561,9 +567,13 @@ export const MONEY_LEAD_MONTHS = 6;
 
 /**
  * The money line: wages owed that the treasury can't pay; or wages going out
- * with no tax office to bring taxes in; or, with a tax office that stood all
- * last month, the treasury running dry within MONEY_LEAD_MONTHS at last
- * month's rate. Null when the money is fine.
+ * with no tax office to bring taxes in; or, with a tax office that has stood
+ * a month, the treasury running dry within MONEY_LEAD_MONTHS at the rate
+ * taxes and wages run now. Taxes come in by the round, so a month's ledger
+ * can hold one hand-in or three; the rate here is steadier: what the homes
+ * paid the collectors in the last month (some of it still in their satchels)
+ * against the wages the workplaces are owed each month as staffed now.
+ * Null when the money is fine.
  */
 export function moneyLine(s: SimState): TownLine | null {
   const owed = owedWages(s);
@@ -581,23 +591,26 @@ export function moneyLine(s: SimState): TownLine | null {
     if (bill <= 0) return null;
     return { need: 'money', text: `Money: no taxes come in without a tax office, and wages go out, about ${fmt(bill)} dr a month. A tax office beside the houses sends out a tax collector.`, at: 0 };
   }
-  const l = s.ledger;
-  if (l.month !== monthOf(s.tick) || l.last.length === 0) return null;
-  const lastMonth = (l.month - 1) * TICKS_PER_MONTH;
-  const office = s.buildings.find((b) => b.kind === 'taxoffice' && b.placed <= lastMonth);
+  const office = s.buildings.find((b) => b.kind === 'taxoffice' && s.tick - b.placed >= TICKS_PER_MONTH);
   if (!office) return null;
-  const t = totals(l.last);
-  if (t.net >= 0) return null;
-  const months = (s.money - reserve(s)) / -t.net;
+  const taxes = monthlyTaxes(s);
+  const net = taxes - bill;
+  if (net >= 0) return null;
+  const months = (s.money - reserve(s)) / -net;
   if (months >= MONEY_LEAD_MONTHS) return null;
-  const taxes = kindTotal(l.last, 'taxes');
-  const wages = -kindTotal(l.last, 'wages');
   const when = months < 1.5 ? 'within a month or so' : `in about ${Math.round(months)} months`;
   return {
     need: 'money',
-    text: `Money: last month taxes brought in ${fmt(taxes)} dr and wages took ${fmt(wages)}; at that rate the treasury runs dry ${when}. Higher taxes, or a tax collector reaching more homes, would help.`,
+    text: `Money: the tax collectors bring in about ${fmt(taxes)} dr a month and wages take about ${fmt(bill)}; at that rate the treasury runs dry ${when}. Higher taxes, or a tax collector reaching more homes, would help.`,
     at: office.id,
   };
+}
+
+/** What the homes paid the tax collectors over the last month (the coins still in satchels too). */
+export function monthlyTaxes(s: SimState): number {
+  let n = 0;
+  for (const b of s.buildings) if (b.kind === 'home' && b.people > 0 && taxedLately(s, b)) n += b.taxPaid;
+  return n;
 }
 
 /** The drachmas' tooltip: what the treasury holds, and last month in a line. */

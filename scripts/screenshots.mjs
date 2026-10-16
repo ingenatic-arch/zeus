@@ -69,6 +69,7 @@ const SHOTS = {
   taxes: '#taxes-paused',
   harsh: '#harsh-paused',
   dry: '#dry',
+  handin: '#town',
 };
 
 /** Things to do on the page before a shot. */
@@ -101,6 +102,11 @@ const BEFORE = {
       const w = window.__zeus.where('tax');
       if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
     });
+  },
+  handin: async (page) => {
+    // When a collector gets back, his takings float up from the office.
+    await page.waitForFunction(() => document.querySelector('.floater.tax') !== null, null, { timeout: 120000, polling: 50 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
   },
   taxes: async (page) => {
     // The tax office tool over the east street, beside its road.

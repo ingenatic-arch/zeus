@@ -13,6 +13,7 @@ import { districtAt, DISTRICTS } from '../map/districts';
 import { centreOf } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { BuildingKind, LedgerKind, LedgerLine, SimState } from '../sim/state';
+import { monthlyTaxes } from '../sim/status';
 import { TAX_RATES, taxedLately } from '../sim/taxes';
 import { hasTaxOffice, kindTotal, monthOf, owedWages, reserve, totals, WAGE, wageBill } from '../sim/treasury';
 
@@ -129,7 +130,8 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
     }
     notes.push(`<li>${esc(text)}</li>`);
   }
-  notes.push(`<li>Taxes are <b>${TAX_RATES[s.taxRate]}</b>. Each worker is paid ${WAGE} dr on the first of the month: about ${fmt(wageBill(s))} dr a month as the workplaces are staffed now.</li>`);
+  const paid = hasTaxOffice(s) ? `: over the last month the homes paid the collectors about ${fmt(monthlyTaxes(s))} dr` : '';
+  notes.push(`<li>Taxes are <b>${TAX_RATES[s.taxRate]}</b>${paid}. Each worker is paid ${WAGE} dr on the first of the month: about ${fmt(wageBill(s))} dr a month as the workplaces are staffed now.</li>`);
   const owed = owedWages(s);
   if (owed.owed > 0) notes.push(`<li class="bad">The treasury owes ${fmt(owed.owed)} dr of this month’s wages at ${count(owed.places, 'workplace', 'workplaces')}, so they work at half pace. Money coming in pays them first.</li>`);
   const taxesNow = kindTotal(now, 'taxes');
