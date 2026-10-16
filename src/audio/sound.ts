@@ -16,7 +16,7 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'arrive' | 'save' | 'click';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save';
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -297,15 +297,9 @@ export class Sound {
         this.tone(0.05, 392, 0.3, 'sine', 0);
         this.tone(0.045, 311, 0.45, 'sine', 0.18);
         break;
-      case 'arrive':
-        this.bell(0.025, 1175, 0);
-        break;
       case 'save':
         this.bell(0.04, 659, 0);
         this.bell(0.035, 880, 0.09);
-        break;
-      case 'click':
-        this.knock(0.06, 900, 0);
         break;
     }
   }

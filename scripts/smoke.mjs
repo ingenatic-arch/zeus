@@ -563,7 +563,7 @@ if (!/couldn’t be opened/.test(prob)) fail(`old save message: ${prob}`);
 await zeus(() => localStorage.setItem('zeus-remake.save.manual', '{"format":"zeus-remake-save","save":1,"state":'));
 await open('#saved');
 if (!/damaged/.test((await zeus(() => window.__zeus.saves())).problem)) fail('a damaged save did not say so');
-// Building something turns the autosave on; leaving the page then saves it.
+// Building in a demo leaves the autosave alone; on the bare link it turns it on, and leaving the page then saves it.
 await zeus(() => localStorage.clear());
 await open('#town-paused');
 if ((await zeus(() => window.__zeus.saves())).autosaving) fail('#town autosaves before anything is built');
@@ -575,7 +575,26 @@ p = await at(74.5, 47.5);
 await page.mouse.move(p.x, p.y, { steps: 4 });
 await page.mouse.up();
 await frames(2);
-if (!(await zeus(() => window.__zeus.saves())).autosaving) fail('building a road did not turn the autosave on');
+if ((await zeus(() => window.__zeus.saves())).autosaving) fail('building a road in #town turned the autosave on');
+await zeus(() => dispatchEvent(new Event('pagehide')));
+if ((await zeus(() => window.__zeus.saves())).auto) fail('leaving #town after building in it autosaved');
+await page.click('.saves-btn');
+await frames(1);
+if (!/prepared town/.test(await zeus(() => document.querySelector('.saves')?.textContent ?? ''))) fail('the saves card in #town does not say a prepared town waits for a save by hand');
+await page.click('.saves .close');
+await open('#');
+await page.keyboard.press('Escape');
+await zeus(() => window.__zeus.jump({ x: 10, z: 79, yaw: 0, dist: 24, tilt: 0 }));
+await frames(3);
+await zeus(() => window.__zeus.tool('road'));
+p = await at(0.5, 80.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+p = await at(8.5, 80.5);
+await page.mouse.move(p.x, p.y, { steps: 4 });
+await page.mouse.up();
+await frames(2);
+if (!(await zeus(() => window.__zeus.saves())).autosaving) fail('building a road on the bare link did not turn the autosave on');
 await zeus(() => dispatchEvent(new Event('pagehide')));
 if (!(await zeus(() => window.__zeus.saves())).auto?.label) fail('leaving the page did not autosave');
 // #continue opens the newest save.

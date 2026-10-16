@@ -17,8 +17,8 @@ export interface SaveHost {
   fresh(): void;
   /** Built anything since the last save? */
   unsaved(): boolean;
-  /** Whether the game is saving itself yet. */
-  autosave(): { on: boolean; problem: string };
+  /** Whether the game is saving itself yet (and whether this is a prepared town, which waits for a save by hand). */
+  autosave(): { on: boolean; problem: string; demo: boolean };
 }
 
 const SCROLL_ICON =
@@ -63,9 +63,13 @@ export class SaveMenu {
     return !this.card.hidden;
   }
 
+  /** Called when the card opens. */
+  onOpen: () => void = () => {};
+
   toggle(show = this.card.hidden): void {
     this.card.hidden = !show;
     this.confirm = null;
+    if (show) this.onOpen();
     if (show) this.render(this.problem ? `Not saved last time: ${this.problem}` : '');
   }
 
@@ -140,7 +144,9 @@ export class SaveMenu {
     };
     const autoText = auto.on
       ? 'The game saves itself every three months of game time, and when you leave the page.'
-      : 'The game will save itself every three months once you’ve built something.';
+      : auto.demo
+        ? 'This is a prepared town, so it doesn’t save itself and your autosave stays as it was. Save it now to keep it; after that it saves itself every three months too.'
+        : 'The game will save itself every three months once you’ve built something.';
     this.card.innerHTML = `
       <button class="close" data-act="close" aria-label="Close">×</button>
       <h2>Your town</h2>

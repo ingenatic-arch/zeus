@@ -214,7 +214,8 @@ function start(): void {
   tools.onAct = (c) => {
     if (!c) return sound.play('refuse');
     sound.play(CUES[c.type] ?? 'build');
-    if (c.type !== 'undo') autosaving = true;
+    // A prepared town (a demo) only starts saving itself once it has been saved by hand, so trying things in a demo never overwrites the autosave of your own town.
+    if (c.type !== 'undo' && !demo) autosaving = true;
   };
   const floaters = new Floaters(ui);
   const sound = new Sound();
@@ -244,7 +245,8 @@ function start(): void {
   let welcomeCard: Welcome | null = null;
   // Saving: by hand (the scroll button, Ctrl+S), and by itself every three
   // months and when the page is left, once the player has built something
-  // this session or opened a save (a demo nobody has touched isn't saved).
+  // this session or opened a save. A demo saves itself only once it has been
+  // saved by hand: building in one doesn't touch the autosave.
   let autosaving = loaded !== null;
   let lastAuto = sim.state.tick;
   let savedRev = loaded ? sim.state.rev : -1;
@@ -292,8 +294,11 @@ function start(): void {
       go('');
     },
     unsaved: () => autosaving && sim.state.rev !== savedRev,
-    autosave: () => ({ on: autosaving, problem: autoProblem }),
+    autosave: () => ({ on: autosaving, problem: autoProblem, demo: !!demo }),
   });
+  // The saves card and the controls card share the top right corner: one at a time.
+  saveMenu.onOpen = () => corner.toggleHelp(false);
+  corner.onHelpOpen(() => saveMenu.toggle(false));
   const autosaveNow = (): void => {
     if (!autosaving || leaving || !saves.available || sim.state.rev === savedRev) return;
     writeSave('auto');
@@ -423,9 +428,10 @@ function start(): void {
     down: () => tools.down(),
     up: () => tools.up(),
     cancel: () => {
-      // Esc puts away the welcome card and the saves card first.
+      // Esc puts away the welcome card, the saves card and the controls card first.
       if (welcomeCard?.open) welcomeCard.dismiss();
       else if (saveMenu.open) saveMenu.toggle(false);
+      else if (corner.helpOpen) corner.toggleHelp(false);
       else if (tools.tool) tools.cancel();
       else if (follow) stopFollow();
       else if (panel.open) panel.show(0);

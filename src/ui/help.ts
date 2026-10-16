@@ -2,7 +2,11 @@
 export interface Corner {
   /** The row of round buttons in the top right corner (more can go in, before the compass). */
   el: HTMLElement;
-  toggleHelp(): void;
+  /** Show or hide the controls card (toggles without an argument). */
+  toggleHelp(show?: boolean): void;
+  readonly helpOpen: boolean;
+  /** Called when the controls card opens. */
+  onHelpOpen(f: () => void): void;
   setHeading(yaw: number): void;
 }
 
@@ -38,7 +42,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road</dd>
       <dt>M</dt><dd>Wheat farm: on the green land by the river</dd>
-      <dt>G</dt><dd>Granary: where the farms' carts take the wheat</dd>
+      <dt>G</dt><dd>Granary: where the farms’ carts take the wheat</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread to huts</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; blessed cottages become townhouses</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; townhouses with plays become fine houses</dd>
@@ -52,7 +56,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms and granaries</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
-      <dt>I</dt><dd>What's missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
+      <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
       <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop)</dd>
     </dl>
@@ -67,10 +71,12 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     </dl>`;
   root.appendChild(help);
 
-  const toggleHelp = (): void => {
-    help.hidden = !help.hidden;
+  const opened: Array<() => void> = [];
+  const toggleHelp = (show = help.hidden): void => {
+    help.hidden = !show;
+    if (show) for (const f of opened) f();
   };
-  (corner.querySelector('.help-btn') as HTMLElement).addEventListener('click', toggleHelp);
+  (corner.querySelector('.help-btn') as HTMLElement).addEventListener('click', () => toggleHelp());
   (corner.querySelector('.compass') as HTMLElement).addEventListener('click', onNorth);
   const needle = corner.querySelector('.needle') as SVGGElement;
 
@@ -88,6 +94,10 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
   return {
     el: corner,
     toggleHelp,
+    get helpOpen() {
+      return !help.hidden;
+    },
+    onHelpOpen: (f) => void opened.push(f),
     setHeading(yaw: number) {
       const deg = Math.round((yaw * 180) / Math.PI);
       if (deg === lastDeg) return;
