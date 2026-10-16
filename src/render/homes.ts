@@ -232,6 +232,15 @@ export function windowX(x: number, y: number, z: number): Part[] {
   ];
 }
 
+/** The same window on a wall facing -x (a house's back, towards the next street). */
+export function windowBack(x: number, y: number, z: number): Part[] {
+  return [
+    { geo: new THREE.BoxGeometry(0.025, 0.13, 0.11).translate(x, y, z), color: PAL.door },
+    { geo: new THREE.BoxGeometry(0.02, 0.14, 0.055).translate(x - 0.012, y, z - 0.085), color: PAL.shutter },
+    { geo: new THREE.BoxGeometry(0.02, 0.14, 0.055).translate(x - 0.012, y, z + 0.085), color: PAL.shutter },
+  ];
+}
+
 /**
  * A cottage: whitewashed walls on a stone footing under a terracotta tiled
  * roof whose long side faces the road, a door between blue-shuttered windows,
@@ -407,6 +416,27 @@ const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0
 type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'fountain' | 'shrine';
 const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine'];
 const lookOf = (b: Building): Look => (b.kind === 'fountain' ? 'fountain' : b.kind === 'shrine' ? 'shrine' : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)]);
+/** Where a house's smoke comes out: near the top of its roof, a little back from the middle (cached per model). */
+const roofTops = new WeakMap<THREE.BufferGeometry, THREE.Vector3>();
+function roofTop(g: THREE.BufferGeometry): THREE.Vector3 {
+  let v = roofTops.get(g);
+  if (!v) {
+    const p = g.attributes.position;
+    let best = -Infinity;
+    v = new THREE.Vector3();
+    // The highest point in the back half of the plot.
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      if (p.getX(i) < 0.1 && y > best) {
+        best = y;
+        v.set(p.getX(i), y, p.getZ(i));
+      }
+    }
+    roofTops.set(g, v);
+  }
+  return v;
+}
+
 /** Homes, fountains and shrines (the two-by-two buildings) are drawn here; the farm, granary, agora and theatre by Works. */
 const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine';
 
@@ -726,6 +756,22 @@ export class Homes {
     homes(cottagesBy, this.cottages, md.cottage, null);
     homes(townhousesBy, this.townhouses, md.townhouse, null);
     homes(finesBy, this.fines, md.fine, null);
+    // Some of the bigger houses have their hearth lit: a wisp from the roof.
+    const hearths = (sets: Building[][], models: THREE.BufferGeometry[]): void => {
+      sets.forEach((bs, v) => {
+        const top = roofTop(models[v]);
+        for (const b of bs) {
+          if (this.rising.has(b.id) || hash2(b.id, 11, 43) > 0.45) continue;
+          const m = new THREE.Matrix4();
+          place(b, m, true);
+          fp.copy(top).applyMatrix4(m);
+          fires.push([fp.x, fp.y - 0.14, fp.z, hash2(b.id, 5, 42)]);
+        }
+      });
+    };
+    hearths(cottagesBy, md.cottage);
+    hearths(townhousesBy, md.townhouse);
+    hearths(finesBy, md.fine);
     // The shrine's altar fire smokes like a hearth.
     homes([shrines], [this.shrines], [this.shrineGeo], null);
     for (const b of shrines) {

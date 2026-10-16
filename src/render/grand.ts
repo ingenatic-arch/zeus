@@ -7,7 +7,7 @@
  * footprint's centre at the origin, the front facing +x.
  */
 import * as THREE from 'three';
-import { amphora, cyl, prism, windowX } from './homes';
+import { amphora, cyl, prism, windowBack, windowX } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -93,6 +93,8 @@ export function townhouseA(): THREE.BufferGeometry {
   band(parts, cx, cz, dx, dz, top);
   gableRoof(parts, cx, cz, dx, dz, top, 0.36);
   const fx = cx + dx / 2;
+  // Two windows upstairs at the back, so the house has a face towards the next street too.
+  parts.push(...windowBack(cx - dx / 2 - 0.004, 0.86, cz - 0.3), ...windowBack(cx - dx / 2 - 0.004, 0.86, cz + 0.3));
   // The door with an ochre lintel, windows either side, three above, the middle one a balcony door.
   parts.push({ geo: slab(fx - 0.01, cz - 0.11, fx + 0.02, cz + 0.11, 0.08, 0.48), color: PAL.door });
   parts.push({ geo: slab(fx - 0.01, cz - 0.15, fx + 0.04, cz + 0.15, 0.48, 0.53), color: PAL.bandOchre });
@@ -135,6 +137,8 @@ export function townhouseB(): THREE.BufferGeometry {
   band(parts, cx, cz, dx, dz, top);
   hippedRoof(parts, cx, cz, dx, dz, top, 0.4);
   const fx = cx + dx / 2;
+  // Two windows upstairs at the back, so the house has a face towards the next street too.
+  parts.push(...windowBack(cx - dx / 2 - 0.004, 0.86, cz - 0.3), ...windowBack(cx - dx / 2 - 0.004, 0.86, cz + 0.3));
   parts.push(...windowX(fx + 0.004, 0.86, cz + 0.36), ...windowX(fx + 0.004, 0.86, cz - 0.34));
   parts.push(...windowZ(cx, 0.86, cz + dz / 2 + 0.004, 1), ...windowZ(cx, 0.4, cz + dz / 2 + 0.004, 1));
   // The wing to the road: one storey, a flat roof with a parapet, its door facing the road.
@@ -187,6 +191,9 @@ export function fineA(): THREE.BufferGeometry {
   band(parts, hcx, 0, hx1 - hx0, 2 * hz, top);
   gableRoof(parts, hcx, 0, hx1 - hx0, 2 * hz, top, 0.34);
   parts.push(...windowX(hx1 + 0.004, 0.9, -0.5), ...windowX(hx1 + 0.004, 0.9, 0), ...windowX(hx1 + 0.004, 0.9, 0.5));
+  // The hall's back towards the next street: windows up and down.
+  for (const z of [-0.55, 0, 0.55]) parts.push(...windowBack(hx0 - 0.004, 0.9, z));
+  for (const z of [-0.55, 0.55]) parts.push(...windowBack(hx0 - 0.004, 0.4, z));
   parts.push({ geo: slab(hx1 - 0.01, -0.12, hx1 + 0.02, 0.12, 0.06, 0.5), color: PAL.door });
   // The colonnade before the hall: four columns under a lean-to roof.
   for (const z of [-0.42, -0.14, 0.14, 0.42]) parts.push({ geo: cyl(0.04, 0.048, 0.56, 7).translate(-0.06, 0.06 + 0.28, z), color: PAL.column });
@@ -235,6 +242,8 @@ export function fineB(): THREE.BufferGeometry {
   band(parts, cx, cz, dx, dz, top);
   hippedRoof(parts, cx, cz, dx, dz, top, 0.42);
   const fx = cx + dx / 2;
+  // Two windows upstairs at the back, so the house has a face towards the next street too.
+  parts.push(...windowBack(cx - dx / 2 - 0.004, 0.86, cz - 0.3), ...windowBack(cx - dx / 2 - 0.004, 0.86, cz + 0.3));
   parts.push({ geo: slab(fx - 0.01, cz - 0.12, fx + 0.02, cz + 0.12, 0.14, 0.58), color: PAL.door });
   parts.push(...windowX(fx + 0.004, 0.92, cz - 0.56), ...windowX(fx + 0.004, 0.92, cz + 0.56), ...windowX(fx + 0.004, 0.42, cz - 0.56), ...windowX(fx + 0.004, 0.42, cz + 0.56));
   parts.push(...windowZ(cx - 0.2, 0.92, cz + dz / 2 + 0.004, 1), ...windowZ(cx + 0.2, 0.92, cz + dz / 2 + 0.004, 1));
