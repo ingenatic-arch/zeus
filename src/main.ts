@@ -270,8 +270,10 @@ function start(): void {
   if (demo?.follow) {
     const kind = demo.follow;
     const from: Building['kind'] = kind === 'water' ? 'fountain' : kind === 'food' ? 'agora' : 'farm';
-    const w = sim.state.walkers.find((o) => o.kind === kind);
-    const f = w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from);
+    // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
+    const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
+    const w = ripest ? undefined : sim.state.walkers.find((o) => o.kind === kind);
+    const f = ripest ?? (w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from));
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
 

@@ -8,7 +8,7 @@ import type { CoastMap } from '../map/bake';
 import { fertilityOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from './buildings';
 import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
-import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, VENDOR_RANGE, VENDOR_WALK } from './food';
+import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
 import { DECLINE_AFTER, missing } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -204,7 +204,7 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
   let porter = '';
   if (p) porter = p.back ? `The porter is bringing ${fmt(p.load)} measures from the granary` : 'The porter is on his way to the granary for grain';
   else if (!s.buildings.some((g) => g.kind === 'granary')) porter = 'Build a granary: the porter fetches the stall’s grain from it';
-  else if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0) && a.stock < STALL_CAP / 2) porter = 'The porter waits: no granary has any grain';
+  else if (!s.buildings.some((g) => g.kind === 'granary' && g.stock > 0) && a.stock <= STALL_LOW) porter = 'The porter waits: no granary has any grain';
   return { title, detail: lines(workersLine(s, map, a), vendor, porter) };
 }
 

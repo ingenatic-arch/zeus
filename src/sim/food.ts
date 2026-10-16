@@ -35,11 +35,17 @@ export const MAX_CARTS = 3;
 export const CART_GAP = 30;
 /** What a granary holds. */
 export const GRANARY_CAP = 3200;
-/** What the agora's food stall holds, and how low it gets before the porter goes for more. */
-export const STALL_CAP = 800;
-export const STALL_LOW = 400;
 /** What the porter's handcart carries. */
-export const PORTER_LOAD = 400;
+export const PORTER_LOAD = 800;
+/**
+ * What the agora's food stall holds, and how low it gets before the porter
+ * goes for more: as soon as there is room for a full handcart, so the stall
+ * still has a load's worth while he is on the road. (With a smaller stall he
+ * set off only once it was nearly empty, and a town of 40 cottages ate the
+ * rest before he was back, so houses went back and forth with a full granary.)
+ */
+export const STALL_CAP = 1600;
+export const STALL_LOW = STALL_CAP - PORTER_LOAD;
 /** Ticks a fully staffed granary takes to unload a cart or load a porter. */
 export const HANDLE = 40;
 /** Ticks the porter waits after coming back with nothing before trying again. */
