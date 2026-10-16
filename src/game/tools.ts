@@ -33,7 +33,7 @@ import { TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { previewReach, type ServiceOverlay } from '../render/overlay';
-import { MARK_BAD, MARK_CLEAR, MARK_OK, type Placement } from '../render/placement';
+import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
 export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'clear';
 export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'clear'];
@@ -43,8 +43,8 @@ type Placer = 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear';
 
 export interface ToolTip {
-  /** Show text near the pointer (screen px), or hide with null. */
-  show(text: string | null, x?: number, y?: number, bad?: boolean): void;
+  /** Show text near the pointer (screen px), or hide with null; `warn` is a caution shown last, in amber. */
+  show(text: string | null, x?: number, y?: number, bad?: boolean, warn?: string): void;
 }
 
 const fmt = (n: number): string => n.toLocaleString('en-GB');
@@ -136,11 +136,15 @@ export class Tools {
     this.preview();
   }
 
+  /** Told each time the player builds, clears or undoes something (the command), or a press builds nothing (null). */
+  onAct: ((c: Parameters<Sim['enqueue']>[0] | null) => void) | null = null;
+
   up(): void {
     // Only a press that began here (not one let go of with Esc) builds.
     if (!this.tool || this.anchor < 0) return;
     this.preview();
-    this.pending?.();
+    if (this.pending) this.pending();
+    else this.onAct?.(null);
     this.anchor = -1;
     this.pending = null;
     this.preview();
@@ -167,9 +171,12 @@ export class Tools {
   routesFound = 0;
 
   private send(c: Parameters<Sim['enqueue']>[0]): void {
+    const s = this.sim.state;
+    const before = s.rev;
     this.sim.enqueue(c);
     // Build at once, even while paused (it is what the next tick would do first).
     this.sim.flush();
+    this.onAct?.(s.rev !== before ? c : null);
   }
 
   private setMarks(marks: Map<number, number>): void {
@@ -428,22 +435,25 @@ export class Tools {
     const z = Math.floor(at / n);
     const cost = COST[kind];
     const r = buildingRefusal(map, s, kind, x, z) || (s.money < cost ? 'Not enough drachmas' : '');
-    for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) if (x + dx < n && z + dz < n) marks.set((z + dz) * n + x + dx, r ? MARK_BAD : MARK_OK);
+    const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
+    // Allowed, but no use without a road beside it: amber, not red.
+    const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;
+    for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) if (x + dx < n && z + dz < n) marks.set((z + dz) * n + x + dx, mk);
     this.setMarks(marks);
     if (r) {
       const fert = kind === 'farm' ? ` (here ${Math.round(fertilityOf(map, x, z, side) * 100)}%, it needs ${Math.round(FARM_FERTILE_MIN * 100)}%)` : '';
       this.tip.show(r + (r.startsWith('Not fertile') ? fert : ''), sx, sy, true);
       return;
     }
-    const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(A|The) /, '').replace(/^./, (c) => c.toUpperCase());
     let text = `${name} · ${fmt(cost)} dr · ${JOBS[kind]} workers`;
     const lines: string[] = [];
+    let warn = '';
     if (kind === 'fountain' || kind === 'agora' || kind === 'shrine' || kind === 'theatre') {
       const { service, walker, range, what, none, note } = WALKS[kind];
       if (kind === 'shrine') lines.push('Its priestess blesses the homes she passes: a cottage with a month’s blessing in hand becomes a townhouse');
       if (kind === 'theatre') lines.push('Its actor brings the plays to the homes he passes: a townhouse with a month’s plays in hand becomes a fine house');
-      if (roads.length === 0) lines.push(`Needs a road beside it, for the ${walker} to walk`);
+      if (roads.length === 0) warn = `No road beside it: its ${walker} would have nowhere to walk. Lay a road along one side first.`;
       else {
         this.overlay?.setPreview(roads);
         const key = `${kind}:${at}:${s.tilesRev}:${s.rev}`;
@@ -461,13 +471,13 @@ export class Tools {
       const months = GROW / TICKS_PER_MONTH;
       text += ` · fertile ground ${Math.round(fert * 100)}%`;
       lines.push(`About ${fmt(Math.round(HARVEST * fert))} measures of wheat every ${months} months, fully worked`);
-      if (roads.length === 0) lines.push('Needs a road beside it, for its workers and its carts');
+      if (roads.length === 0) warn = 'No road beside it: its workers couldn’t get there and its carts couldn’t take the harvest away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary')) lines.push('Its ox carts take the harvest to a granary: build one too');
     } else {
       lines.push(`Stores ${fmt(GRANARY_CAP)} measures: farms’ carts bring their wheat, the agora’s porter fetches it`);
-      if (roads.length === 0) lines.push('Needs a road beside it, for carts and porters to reach it');
+      if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
     }
-    this.tip.show([text, ...lines].join('\n'), sx, sy);
+    this.tip.show([text, ...lines].join('\n'), sx, sy, false, warn);
     this.pending = () => this.send(kind === 'fountain' ? { type: 'fountain', at: [at] } : { type: 'build', kind, at: [at] });
   }
 }

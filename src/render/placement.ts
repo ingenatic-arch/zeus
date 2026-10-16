@@ -6,6 +6,8 @@ export const MARK_NONE = 0;
 export const MARK_OK = 1;
 export const MARK_BAD = 2;
 export const MARK_CLEAR = 3;
+/** It can go here, but it won't work as it is (a workplace with no road beside it). */
+export const MARK_WARN = 4;
 
 /**
  * The water overlay's codes, one per tile in the texture's alpha channel:
@@ -114,7 +116,8 @@ const fragment = /* glsl */ `
     float rim = smoothstep(0.32, 0.47, max(f.x, f.y));
     if (mark > 0.5 && mark < 1.5) col = vec4(1.0, 0.97, 0.85, 0.42 + 0.25 * rim);
     else if (mark > 1.5 && mark < 2.5) col = vec4(0.9, 0.22, 0.14, 0.5 + 0.25 * rim);
-    else if (mark > 2.5) col = vec4(1.0, 0.5, 0.15, 0.5 + 0.25 * rim);
+    else if (mark > 2.5 && mark < 3.5) col = vec4(1.0, 0.5, 0.15, 0.5 + 0.25 * rim);
+    else if (mark > 3.5) col = vec4(1.0, 0.78, 0.24, 0.5 + 0.25 * rim);
     if (mark < 0.5 && o < 0.5 && uGrid < 0.5) discard;
     if (col.a < 0.003) discard;
     gl_FragColor = col;

@@ -1,9 +1,12 @@
 import './ui/style.css';
 import * as THREE from 'three';
+import { earshot } from './audio/earshot';
+import { Sound, type Cue } from './audio/sound';
 import { ClockDriver, type Speed } from './game/clockDriver';
 import { DEMOS } from './game/demos';
 import { attachInput, type PointerTools } from './game/input';
 import { readLaunch } from './game/links';
+import { browserStorage, labelOf, Saves, type SaveFile, type Slot } from './game/saves';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
@@ -15,17 +18,20 @@ import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, findBuilding } from './sim/buildings';
-import { TICKS_PER_DAY } from './sim/clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { NEED_WORDS, warningOf, warningsOf } from './sim/folk';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
-import { homeStatus, walkerStatus, type Status } from './sim/status';
+import { homeStatus, townLines, walkerStatus, type Status } from './sim/status';
 import { TILE_ROAD, type Building, type Walker } from './sim/state';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
+import { SaveMenu } from './ui/saveMenu';
+import { TownLines } from './ui/townlines';
+import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
 
 interface Probe {
@@ -100,6 +106,16 @@ interface Probe {
   /** Screen position of a world point (for driving the mouse in tests). */
   screenOf?: (x: number, z: number) => { x: number; y: number };
   speed?: (s: Speed) => void;
+  /** The save slots as the menu sees them, and what the last save said. */
+  saves?: () => { available: boolean; manual: unknown; auto: unknown; autosaving: boolean; loaded: string; problem: string; lastSave: string };
+  /** Save by hand now ('' when saved). */
+  saveNow?: () => string;
+  /** The shortfall lines showing under the top bar. */
+  townLines?: () => string[];
+  sound?: () => { started: boolean; muted: boolean; played: number };
+  welcome?: () => boolean;
+  /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
+  warnAll?: (id: number) => void;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0 };
@@ -109,7 +125,7 @@ function start(): void {
   const t0 = performance.now();
   const launch = readLaunch(location.search, location.hash, DEMOS, VIEWS);
   const demo = launch.demo ? DEMOS[launch.demo] : undefined;
-  const view = VIEWS[launch.cam ?? demo?.view ?? 'coast'] ?? VIEWS.coast;
+  const view0 = VIEWS[launch.cam ?? demo?.view ?? 'coast'] ?? VIEWS.coast;
   const speed: Speed = launch.speed ?? demo?.speed ?? 'normal';
   const shot = launch.shot;
 
@@ -117,6 +133,30 @@ function start(): void {
   probe.bakeMs = performance.now() - t0;
   const sim = new Sim();
   demo?.setup?.(sim);
+
+  // A saved town asked for by the link (#continue, #autosave, #saved) is opened before anything draws it.
+  const saves = new Saves(browserStorage());
+  let loaded: SaveFile | null = null;
+  let problem = '';
+  if (launch.load && !demo) {
+    const slot: Slot | null = launch.load === 'newest' ? saves.newest() : launch.load;
+    if (!saves.available) problem = 'Saving isn’t available in this window, so there is no saved town here to open.';
+    else if (!slot) problem = 'There is no saved town in this browser yet.';
+    else {
+      const r = saves.load(slot);
+      if (r.ok) {
+        loaded = r.file;
+        sim.state = r.file.state;
+      } else problem = r.why;
+    }
+    // The link has done its work: reloading the page now starts afresh (with a way back to the save).
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch {
+      /* Not allowed here; reloading would open the save again, which is harmless. */
+    }
+  }
+  const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : view0;
   const driver = new ClockDriver(sim, speed);
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -155,22 +195,130 @@ function start(): void {
   const ui = document.getElementById('ui') as HTMLElement;
   const topbar = new TopBar(ui, driver);
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
-  const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool);
+  // The bare link opens on the coast with a welcome card (which carries the controls line itself).
+  const welcoming = !demo && !loaded && !shot;
+  const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool && !welcoming);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
   tools.onChange((t) => bar.showTool(t));
+  // Picking a tool puts the welcome card away.
+  tools.onChange((t) => {
+    if (t) welcomeCard?.dismiss();
+  });
+  const CUES: Record<string, Cue> = { road: 'road', plots: 'plots', fountain: 'build', build: 'build', clear: 'clear', undo: 'undo' };
+  tools.onAct = (c) => {
+    if (!c) return sound.play('refuse');
+    sound.play(CUES[c.type] ?? 'build');
+    if (c.type !== 'undo') autosaving = true;
+  };
   const floaters = new Floaters(ui);
+  const sound = new Sound();
+  // Under the top bar: the shortfall lines, the follow chip and the overlay legend, stacked.
+  const notices = document.createElement('div');
+  notices.className = 'notices';
+  ui.appendChild(notices);
   const panel = new HouseholdPanel(ui, () => panel.show(0));
   const legend = document.createElement('div');
   legend.className = 'legend';
   legend.hidden = true;
   legend.innerHTML = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
-  ui.appendChild(legend);
+  const lines = new TownLines(notices, (l) => {
+    const b = findBuilding(sim.state, l.at);
+    if (!b) return;
+    stopFollow();
+    const [cx, cz] = centreOf(b);
+    const v = rig.view;
+    rig.flyTo({ ...v, x: cx, z: cz, dist: Math.min(v.dist, 30) });
+    if (l.need === 'food' && overlay.mode !== 'food') overlay.toggle('food');
+  });
+  notices.appendChild(legend);
   const followChip = document.createElement('div');
   followChip.className = 'follow-chip';
   followChip.hidden = true;
-  ui.appendChild(followChip);
+  notices.appendChild(followChip);
+  let welcomeCard: Welcome | null = null;
+  // Saving: by hand (the scroll button, Ctrl+S), and by itself every three
+  // months and when the page is left, once the player has built something
+  // this session or opened a save (a demo nobody has touched isn't saved).
+  let autosaving = loaded !== null;
+  let lastAuto = sim.state.tick;
+  let savedRev = loaded ? sim.state.rev : -1;
+  let leaving = false;
+  let lastSave = '';
+  const writeSave = (slot: Slot): string => {
+    const why = saves.save(slot, sim.state, Date.now(), rig.view);
+    lastSave = why || `${slot}:${sim.state.tick}`;
+    if (!why) {
+      savedRev = sim.state.rev;
+      if (slot === 'auto') lastAuto = sim.state.tick;
+    }
+    return why;
+  };
+  const go = (hash: string): void => {
+    leaving = true;
+    try {
+      history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
+    } catch {
+      location.hash = hash;
+    }
+    location.reload();
+  };
+  const saveMenu = new SaveMenu(ui, corner.el, {
+    saves,
+    save: (slot) => {
+      const why = writeSave(slot);
+      if (!why) {
+        autosaving = true;
+        sound.play('save');
+        saveMenu.flash(`Saved · ${labelOf(sim.state).date}`);
+      }
+      return why;
+    },
+    load: (slot) => {
+      // Keep the town on screen in the autosave first, unless that is the save being opened.
+      if (slot === 'manual' && autosaving && sim.state.rev !== savedRev) writeSave('auto');
+      go(slot === 'auto' ? '#autosave' : '#saved');
+    },
+    fresh: () => {
+      if (autosaving && sim.state.rev !== savedRev) writeSave('auto');
+      go('');
+    },
+    unsaved: () => autosaving && sim.state.rev !== savedRev,
+    autosave: () => ({ on: autosaving }),
+  });
+  const autosaveNow = (): void => {
+    if (!autosaving || leaving || !saves.available || sim.state.rev === savedRev) return;
+    writeSave('auto');
+  };
+  addEventListener('pagehide', autosaveNow);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') autosaveNow();
+  });
+
+  // The mute switch, beside the saves.
+  const muteBtn = document.createElement('button');
+  muteBtn.className = 'btn mute-btn';
+  const showMute = (m: boolean): void => {
+    muteBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="#7a5c3c" stroke="#7a5c3c" stroke-width="1.2" stroke-linejoin="round"/>${m ? '<path d="M15.5 9.5l5 5M20.5 9.5l-5 5" stroke="#a24e2c" stroke-width="1.8" stroke-linecap="round"/>' : '<path d="M15.2 9a4.2 4.2 0 0 1 0 6M17.6 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="#7a5c3c" stroke-width="1.6" stroke-linecap="round"/>'}</svg>`;
+    muteBtn.title = m ? 'Sound is off: click to turn it on' : 'Sound is on (the sea, birds, the streets): click to turn it off';
+    muteBtn.setAttribute('aria-label', m ? 'Turn sound on' : 'Turn sound off');
+    muteBtn.classList.toggle('off', m);
+  };
+  showMute(sound.muted);
+  sound.onChange(showMute);
+  muteBtn.addEventListener('click', () => sound.toggle());
+  corner.el.insertBefore(muteBtn, corner.el.firstChild);
+
+  // The welcome card on the bare link.
+  const newest = saves.newest();
+  welcomeCard = welcoming || problem
+    ? new Welcome(ui, { saved: newest ? saves.info(newest) : null, onContinue: () => go('#continue'), problem: problem ? `That saved town couldn’t be opened. ${problem}` : '', noStorage: !saves.available })
+    : null;
+  if (loaded) {
+    saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people`);
+  }
+
   const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
@@ -289,6 +437,10 @@ function start(): void {
       if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
     },
     key(k) {
+      if (k === 'save') {
+        saveMenu.saveNow();
+        return true;
+      }
       if (k === 'undo' || k === 'u') {
         tools.undo();
         return true;
@@ -475,6 +627,23 @@ function start(): void {
         return { id: b.id, x: b.x, z: b.z, level: b.level, people: b.people, warned: !!w, left: w ? w.left : -1 };
       });
   probe.tool = (t) => tools.select(t as ToolName | null);
+  probe.saves = () => ({ available: saves.available, manual: saves.info('manual'), auto: saves.info('auto'), autosaving, loaded: loaded ? loaded.label.date : '', problem, lastSave });
+  probe.saveNow = () => {
+    saveMenu.saveNow();
+    return lastSave.includes(':') ? '' : lastSave;
+  };
+  probe.townLines = () => lines.texts;
+  probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played });
+  probe.welcome = () => !!welcomeCard?.open;
+  probe.warnAll = (id) => {
+    const b = findBuilding(sim.state, id);
+    if (!b) return;
+    const t = sim.state.tick;
+    // As if every need had run out at once, a month and a half ago (debug only).
+    b.since = Math.min(b.since, t - 2000);
+    b.waterUntil = b.foodUntil = b.religionUntil = b.cultureUntil = t - 450;
+    sim.state.rev++;
+  };
   probe.speed = (s) => driver.setSpeed(s);
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
@@ -494,6 +663,9 @@ function start(): void {
   let outlookAt = -Infinity;
   let workRev = -1;
   let troubleAt = -Infinity;
+  let linesAt = -Infinity;
+  /** The autosave comes round every three months of game time. */
+  const AUTOSAVE_EVERY = 3 * TICKS_PER_MONTH;
 
   let last = performance.now();
   let time = 0;
@@ -511,8 +683,11 @@ function start(): void {
     const s = sim.state;
     if (s.rev !== seenRev) {
       seenRev = s.rev;
+      let cue: Cue | null = null;
       for (const b of s.buildings) {
         const before = known.get(b.id) ?? { people: 0, level: 0 };
+        if (b.kind === 'home' && before.level > 0 && b.level > before.level) cue = 'rise';
+        else if (b.kind === 'home' && b.level < before.level && b.level > 0) cue ??= 'decline';
         const [cx, cz] = centreOf(b);
         const at = new THREE.Vector3(cx, map.heightAt(cx, cz), cz);
         if (b.people > before.people) floaters.add(`+${b.people - before.people}`, at, time);
@@ -528,6 +703,7 @@ function start(): void {
         if (b.kind === 'home' && b.people < before.people && b.level < before.level) floaters.add(`−${before.people - b.people}`, at.clone().setY(at.y - 0.2), time, 'dry');
       }
       remember();
+      if (cue) sound.play(cue);
     }
     if (time - outlookAt > 2) {
       outlookAt = time;
@@ -542,6 +718,16 @@ function start(): void {
       troubleAt = time;
       topbar.showTrouble(trouble().map((h) => ({ name: h.b.family?.name ?? '?', need: h.need, days: Math.max(1, Math.ceil(h.left / TICKS_PER_DAY)) })));
     }
+    if (time - linesAt > 0.5) {
+      linesAt = time;
+      lines.update(townLines(s, map), s.tick);
+      if (sound.started) sound.listen(earshot(map, rig.view, s));
+    }
+    if (autosaving && s.tick - lastAuto >= AUTOSAVE_EVERY) {
+      lastAuto = s.tick;
+      if (s.rev !== savedRev && saves.available && !writeSave('auto')) saveMenu.flash(`Saved by itself · ${labelOf(s).date}`);
+    }
+    sound.update(dt);
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
     updateFollow();

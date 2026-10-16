@@ -1,5 +1,7 @@
 /** The "?" card listing the controls, the compass, and the first-time hint. */
 export interface Corner {
+  /** The row of round buttons in the top right corner (more can go in, before the compass). */
+  el: HTMLElement;
   toggleHelp(): void;
   setHeading(yaw: number): void;
 }
@@ -58,6 +60,10 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     <dl>
       <dt>Space</dt><dd>Pause or carry on</dd>
       <dt>1 2 3</dt><dd>Normal, fast, fastest</dd>
+    </dl>
+    <h2 style="margin-top:12px">Keeping the town</h2>
+    <dl>
+      <dt>Ctrl+S</dt><dd>Save the town (the scroll button keeps your saves; the game also saves itself every three months once you’ve built something)</dd>
     </dl>`;
   root.appendChild(help);
 
@@ -80,6 +86,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
 
   let lastDeg = NaN;
   return {
+    el: corner,
     toggleHelp,
     setHeading(yaw: number) {
       const deg = Math.round((yaw * 180) / Math.PI);

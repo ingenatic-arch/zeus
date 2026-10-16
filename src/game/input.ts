@@ -127,6 +127,12 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
       e.preventDefault();
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && k === 's' && tools) {
+      // Save the town (not the page).
+      e.preventDefault();
+      if (!e.repeat) tools.key('save', e);
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (k === 'escape') {
       tools?.cancel();

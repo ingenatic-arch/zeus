@@ -49,6 +49,51 @@ const SHOTS = {
   'fine-overlay': '#fine-overlay-paused',
   compare: '#compare-paused-shot',
   closed: '#closed-paused',
+  // Slice 7.
+  welcome: '#',
+  town: '#town-paused-shot',
+  'town-ui': '#town-paused',
+  townstreet: '#townstreet-paused-shot',
+  'town-overview': '#town-overview-paused-shot',
+  saves: '#town-paused',
+  'farm-warn': '#food-paused',
+  'four-needs': '#fine-paused',
+};
+
+/** Things to do on the page before a shot. */
+const BEFORE = {
+  saves: async (page) => {
+    await page.click('.saves-btn');
+  },
+  'farm-warn': async (page) => {
+    // The farm tool over green land with no road beside it.
+    await page.evaluate(() => window.__zeus.tool('farm'));
+    // Look along the river bank for a spot where a farm may go but no road is beside it.
+    for (const [x, z] of [[38.5, 59.5], [37.5, 58.5], [36.5, 57.5], [39.5, 60.5]]) {
+      const p = await page.evaluate(([x, z]) => window.__zeus.screenOf(x, z), [x, z]);
+      await page.mouse.move(p.x, p.y);
+      await page.mouse.move(p.x + 1, p.y + 1);
+      const f = await page.evaluate(() => window.__zeus.frames);
+      await page.waitForFunction((f0) => window.__zeus.frames > f0 + 1, f, { timeout: 120000 });
+      const tip = await page.evaluate(() => window.__zeus.tipText());
+      if (tip && tip.includes('No road')) break;
+    }
+  },
+  'four-needs': async (page) => {
+    // Debug: one fine house warned about all four of its needs at once, to see the sign's layout.
+    const id = await page.evaluate(() => {
+      const hs = window.__zeus.homes().filter((h) => h.level === 5);
+      const v = window.__zeus.view();
+      hs.sort((a, b) => Math.hypot(a.x - v.x, a.z - v.z) - Math.hypot(b.x - v.x, b.z - v.z));
+      return hs[0].id;
+    });
+    await page.evaluate((i) => window.__zeus.warnAll(i), id);
+    await page.evaluate((i) => {
+      const h = window.__zeus.homes().find((o) => o.id === i);
+      const v = window.__zeus.view();
+      window.__zeus.jump({ ...v, x: h.x + 1, z: h.z + 1, dist: 13, tilt: 0.1 });
+    }, id);
+  },
 };
 
 const want = process.argv.slice(2);
@@ -72,6 +117,11 @@ for (const arg of names) {
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
   if (name === 'help') await page.keyboard.press('?');
+  if (BEFORE[name]) {
+    await BEFORE[name](page);
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  }
   if (cam) {
     const [x, z, yaw, dist, tilt] = cam.split(',').map(Number);
     await page.evaluate((v) => window.__zeus.jump(v), { x, z, yaw, dist, tilt });

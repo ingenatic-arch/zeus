@@ -184,14 +184,15 @@ export function pointerTip(root: HTMLElement): ToolTip {
   el.hidden = true;
   root.appendChild(el);
   return {
-    show(text, x = 0, y = 0, bad = false) {
+    show(text, x = 0, y = 0, bad = false, warn = '') {
       if (!text) {
         el.hidden = true;
         return;
       }
       el.hidden = false;
-      if (el.dataset.text !== text) {
-        el.dataset.text = text;
+      const all = warn ? `${text}\n${warn}` : text;
+      if (el.dataset.text !== all) {
+        el.dataset.text = all;
         const [head, ...rest] = text.split('\n');
         el.textContent = head;
         if (rest.length) {
@@ -200,8 +201,15 @@ export function pointerTip(root: HTMLElement): ToolTip {
           sub.textContent = rest.join('\n');
           el.appendChild(sub);
         }
+        if (warn) {
+          const w = document.createElement('span');
+          w.className = 'sub caution';
+          w.textContent = warn;
+          el.appendChild(w);
+        }
       }
       el.classList.toggle('bad', bad);
+      el.classList.toggle('warn', !bad && !!warn);
       // Beside the pointer, flipped to its other side near the window's edge so it stays readable.
       const w = el.offsetWidth;
       const h = el.offsetHeight;
