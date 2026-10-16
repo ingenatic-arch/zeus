@@ -2,6 +2,56 @@
 
 Notes to Oliver, newest first.
 
+## Slice 9 — Meat and cheese (16 Oct)
+
+The table gets varied: deer and boar roam the hills and woods, a hunting lodge sends hunters across country to bring them back, a dairy keeps goats and makes cheese, and both go through the granary and the stall to the homes. A townhouse now needs two kinds of food and a fine house all three. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing is lost. A slice 8 save opens with herds on the hills and six months' grace: its townhouses and fine houses (which have only bread) say at once what they lack, but nothing warns or goes down for six months, time to build a lodge and a dairy and for their food to reach the homes (it takes two to four months). After that the usual ten days' warning and two months apply. Phase 1 saves still open. The cottage demos (`#water`, `#food`, `#vendor`, `#people`, `#warning`, `#decline`, `#missing` and the rest) open exactly as before. The demos with townhouses and fine houses needed meat and cheese to stay as they were, so their towns build a hunting lodge and a dairy by the lane five months before the shrine, with the lane's tax office and heavy taxes from then to pay the wages: `#shrine` opens with 18 cottages and 20 townhouses (was 16 and 22), `#theatre` with the same houses but 17 drachmas (was 137), `#fine` with the same houses and 336 drachmas (420). `#grow` has a dairy already, so placing the shrine still lifts its cottages. `#town` builds a lodge at the head of its north street and a dairy across the main street from the granary once it can afford them: it opens with 616 people and 728 drachmas (was 622 and 1,520), the same townhouses and fine houses, 21 huts instead of 24. `#dry` runs out of money sooner, so it opens about four months earlier in the town's life.
+
+### What's new
+- Wild herds: seven of them, deer below the crags, in the north hills, on the east hills and the far east slopes; boar in the pine wood by the bay, the west woods and on the headland. Five to eight head each, tawny deer (the stags antlered) and dark, tusked boar, in loose bunches that graze, drift about their home ground, and bolt a little way when one of them is taken. They stay on firm open ground: never on water, the river banks, cliffs, roads or buildings.
+- Herds thin and grow back. A hunted herd loses a head per kill and grows back a head every ten days when nearly whole, slower the fewer are left (about every five weeks at two of seven). Hunters always leave the last two, so no herd dies out.
+- The hunting lodge (M twice, 200 dr, 6 workers): a log cabin with a bark roof and antlers over the door, a drying rack where the hams hang (as many as its store holds), a hide on a frame, a fire pit with a spit. It sends up to three hunters, a few days apart, across open country (off the roads, round buildings, never over water or cliffs) to the nearest herd within 40 tiles that has more than two head. A hunter stalks it for two days, takes one (160 measures of meat), and walks back with the deer or boar over his shoulders. When every herd in reach is down to its last two, the lodge sends nobody and says so. Placing one tells you which herds are in reach, how far, and about how much meat a month it would bring, shared with any lodges already hunting them.
+- The dairy (M three times, 250 dr, 8 workers): a whitewashed stone house under red tiles with a bench of cheese wheels beside it, and behind it a wattle pen with a goat shed, a hay rack and a trough, where six goats graze. It needs green pasture (35% grass at least, the placing tool tints poor ground) and makes cheese by the grass: about 500 measures a month on the best, fully worked.
+- Ox carts take meat and cheese to the granary, which keeps each food in its own room; the agora's porter brings a mix back to the stall; the food vendor carries whatever the stall has, a ham and a cheese in her basket beside the loaves. You can see the stores fill: hams and cheese wheels in the granary's yard, hams hung along the stall's awning, cheeses in its third basket.
+- Food variety: each person still eats about a measure a month in all, shared across the kinds on the table, so a town with only bread eats as before. A hut needs one kind to become a cottage, a cottage two kinds (and the blessing) to become a townhouse, a townhouse all three (and plays) to become a fine house. A cottage only wants a second kind once the city makes one.
+- The food variety overlay (L twice, or its button): a little stack over each home, one block per food on its table (bread gold, meat red-brown, cheese pale), a dark ring for each kind it needs and lacks; the ground red where it's short, amber where another kind would lift it, green where it has what it needs; farms, lodges, dairies, granaries and agoras marked. A legend under the top bar.
+- Homes say what's on the table: "Has food: bread and cheese · the cheese runs out first, in 40 days", "Only bread on the table; a townhouse needs two kinds · no meat or cheese for 12 days: the city has no hunting lodge yet". The household panel's mood says "Only bread on the table: they'd like cheese too" or counts a varied table in their favour, and they talk about it ("Bread, bread and more bread…").
+- Hovering a hunter says where he's going and what he carries; hovering a herd says how many head it has, how fast it grows back and how many hunters are after it.
+- Keys: every letter was taken, so M cycles the wheat farm, the hunting lodge and the dairy, and L cycles the food overlay, the variety overlay and off.
+
+### What to try
+1. Open `#hunter`: `#town` following a hunter out from the lodge at the head of the north street. Follow him to the deer in the north hills, watch him stalk them, and follow him back with the deer over his shoulders. Hover him on the way, and hover the herd.
+2. Open `#dairy`: `#town` close over its dairy, the goats in their pen and the cheeses on the bench. Hover the dairy.
+3. Open `#table`: the food town, its cottages blessed by a shrine but with only bread, two months after a dairy went in by the lane, as the first cheese reaches the stall. The variety overlay is on and the panel is open on the cottage nearest the agora. Unpause: in my run it became a townhouse two days later and three more followed within three days; the rest wait for more cheese.
+4. Open `#overhunt`: the food town three months after three hunting lodges went in up the lane, all after the same deer below the crags, now down to two or three head. Hover a lodge and the herd, and move the lodge tool beside the lane to see what a fourth would get. Clear all three lodges (the clear tool) and watch the deer grow back: in my run they were whole again within five months.
+5. In `#town`, press L twice for the variety overlay and look along the core's streets: which homes have all three foods, which are short.
+6. Open one of your slice 8 saves (`#saved` or `#continue`): its fine houses say they have only bread and that the city has no hunting lodge or dairy yet, but nothing warns for six months. Build a lodge (M M) within reach of a herd and a dairy (M M M) on green land and watch the meat and cheese reach the homes.
+
+### What I'd like your eye on
+- The hunter going out and back (`#hunter`): does it read as a hunt from street level, and does the carcass over his shoulders read as a deer?
+- The lodge and the dairy close up (`#dairy`, and the lodge in `#hunter` before he leaves): do they read as a hunting lodge and a dairy, and apart from the houses and the farms?
+- The deer and boar herds: the right size against the houses and people? The boar bunch up tightly.
+- The variety overlay (`#table`, `#town` with L twice): are three stacked blocks over each house readable from above, or too busy?
+- The pace: a new dairy's first cheese reaches the stall about two months after it goes in, and a new lodge's meat takes a while too, because it goes by cart to the granary and then by the porter to the stall. Is that too slow to feel the cause and effect?
+- The demos open poorer again: `#theatre` with 17 drachmas, `#town` with 728.
+
+### Known rough edges
+- `#town`'s dairy makes more cheese than the town eats: by opening its granary's cheese room is full, the dairy's store fills and it stands idle part of the time (its tip says so: "Every granary's cheese store is full").
+- In `#table`, after the first four cottages climb, the next wait about five weeks, because one dairy there (70% grass, about 350 measures of cheese a month) doesn't feed every cottage at once.
+- Goats graze only inside their pen, not on the open ground beside it; the hunter has a spear but no bow or fur cap; there's no smoke from the lodge's fire.
+- The phase 1 rough edges noted in the phase review are still there (left for slice 14), and money pressure is untouched (slice 14).
+
+### Measurements
+- Tests: 156 in 15 files, all passing (was 141 in 13): herds stay on firm open ground and never drop below two; regrowth; off-road paths; the hunter's trip; over-hunting and recovery; the dairy's rate by grass; the granary's and stall's rooms and the porter's mix; levels by kinds of food; a real slice 8 save loading with six months' grace and, with a lodge and a dairy built after loading, keeping its fine houses; determinism and a save mid-hunt. Every cottage demo fingerprints exactly as before.
+- Smoke: extended with following a hunter, the dairy's hover and goats, the variety overlay and its legend, L, `#table`'s panel, and `#overhunt` with the lodge tool's tip. Every demo token opens with no page errors.
+- Download: 272 KB compressed (was 254 KB).
+- Load: ready at 1.19 to 1.35 seconds and first frame at 1.44 to 1.59 seconds by the page's own clock (was 1.14 and 1.37). `#town` ready at 1.58 s, first frame at 2.04 s (was 1.94 and 2.39). Target: under 3 seconds.
+- Triangles and draw batches: the opening view 566,000 in 63 (was 534,000 in 57: the herds); `#food` 460,000 in 75 (428,000 in 69); `#fine` 549,000 in 132 (498,000 in 84: the lodge's and dairy's yard pieces and the stores); `#town` 705,000 in 148 (658,000 in 99), overview 821,000 in 173 (774,000 in 124).
+- Main-thread time per frame before drawing, paused / running: `#food` 0.66 / 1.10 ms (was 0.61 / 1.15), `#fine` 0.76 / 1.46 (0.56 / 1.26), `#town` 0.92 / 7.04 (0.77 / 1.99). The `#town` running figure is noisy over its 13 frames; side by side with the slice 8 build over 60 frames it was 5.1 to 5.5 ms against 3.2 to 3.9, at about ten game ticks a frame (the headless browser draws one frame a second, so a real one does far fewer ticks a frame). The simulation's cost per tick is unchanged; the extra is drawing more walkers (47 against 38) and the stores changing.
+- A save of `#town`: 215 KB (was 205 KB).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 8 — Coin and the ledger (16 Oct)
 
 Money now comes in and goes out: rent is gone, a tax collector walks from a tax office and only the homes beside his way pay, every workplace pays its workers on the first of the month, and a ledger says where each drachma came from and went. You weren't here while it was built: every choice below is mine, from the spec's defaults.
