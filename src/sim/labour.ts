@@ -37,12 +37,18 @@ export function shareWork(s: SimState, map: CoastMap): void {
   const size = map.size;
   const places: Building[] = [];
   const homes: Array<{ b: Building; roads: number[]; free: number }> = [];
+  const before = s.buildings.map((b) => b.workers);
   for (const b of s.buildings) {
     b.workers = 0;
     if (JOBS[b.kind] > 0) places.push(b);
     else if (canWork(b) > 0) homes.push({ b, roads: roadsBeside(s, size, b), free: canWork(b) });
   }
-  if (places.length === 0 || homes.length === 0) return;
+  if (places.length > 0 && homes.length > 0) fill(s, size, places, homes);
+  // A workplace that works at a new rate may look different (the farm's field).
+  if (s.buildings.some((b, i) => b.workers !== before[i])) s.looks++;
+}
+
+function fill(s: SimState, size: number, places: Building[], homes: Array<{ b: Building; roads: number[]; free: number }>): void {
   // Every (distance, workplace, home) pair joined by road.
   const pairs: number[][] = [];
   places.forEach((p, pi) => {

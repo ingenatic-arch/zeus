@@ -80,6 +80,7 @@ export const FOOD: ServiceSpec = {
     const stall = findBuilding(s, w.origin);
     if (!stall || stall.stock <= 0) return;
     const full = s.tick + FOOD_LASTS;
+    const had = stall.stock;
     for (const b of besideRoad(s, size, t, near)) {
       if (!eatsBread(b) || b.foodUntil >= full) continue;
       // One measure per person per month added.
@@ -92,8 +93,9 @@ export const FOOD: ServiceSpec = {
         b.foodUntil = from + Math.floor((stall.stock * TICKS_PER_MONTH) / b.people);
         stall.stock = 0;
       }
-      if (stall.stock <= 0) return;
+      if (stall.stock <= 0) break;
     }
+    if (stall.stock !== had) s.looks++;
   },
   rest: (b) => restFor(b, VENDOR_REST),
 };
@@ -154,7 +156,7 @@ export function stepFarms(s: SimState, map: CoastMap): void {
         f.growth = 0;
         f.stock = Math.min(BARN, f.stock + harvestOf(map, f));
       }
-      if (Math.floor((f.growth / GROW) * 8) !== before) s.rev++;
+      if (Math.floor((f.growth / GROW) * 8) !== before) s.looks++;
     }
     if (f.stock <= 0 || f.clock > 0 || errandsOut(s, f) >= MAX_CARTS) continue;
     const roads = roadsBeside(s, size, f);
@@ -171,6 +173,7 @@ export function stepFarms(s: SimState, map: CoastMap): void {
     w.load = load;
     w.since = s.tick;
     f.stock -= load;
+    s.looks++;
     g.incoming += load;
     setPath(w, wayPoints(size, door(size, f, way[0]), way, g));
     s.walkers.push(w);
@@ -255,7 +258,8 @@ function rethink(s: SimState, size: number, w: Walker, origin: Building): boolea
 }
 
 /** A cart or porter is gone for good: its load goes back where it came from. */
-function lost(w: Walker, origin: Building): false {
+function lost(s: SimState, w: Walker, origin: Building): false {
+  s.looks++;
   if (w.kind === 'cart') origin.stock = Math.min(BARN, origin.stock + w.load);
   else origin.stock = Math.min(STALL_CAP, origin.stock + w.load);
   return false;
@@ -269,7 +273,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
   // Loading or unloading at the granary's gate.
   if (w.wait > 0) {
     const g = findBuilding(s, w.target);
-    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(w, origin);
+    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(s, w, origin);
     w.wait -= rateOf(g);
     if (w.wait > 0) return true;
     w.wait = 0;
@@ -283,17 +287,17 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
       w.load = take;
       if (take === 0) origin.growth = PORTER_RETRY;
     }
-    s.rev++;
+    s.looks++;
     w.back = true;
     w.target = 0;
-    if (!goTo(s, size, w, origin, lastRoad(s, w))) return lost(w, origin);
+    if (!goTo(s, size, w, origin, lastRoad(s, w))) return lost(s, w, origin);
     return true;
   }
   const next = w.tiles[w.seg + 1];
   if (next !== undefined && next >= 0 && s.tiles[next] !== TILE_ROAD) {
-    if (!(w.back ? goTo(s, size, w, origin, lastRoad(s, w)) : rethink(s, size, w, origin))) return lost(w, origin);
+    if (!(w.back ? goTo(s, size, w, origin, lastRoad(s, w)) : rethink(s, size, w, origin))) return lost(s, w, origin);
   }
-  if (!w.back && !findBuilding(s, w.target) && !rethink(s, size, w, origin)) return lost(w, origin);
+  if (!w.back && !findBuilding(s, w.target) && !rethink(s, size, w, origin)) return lost(s, w, origin);
   let move = w.kind === 'cart' ? CART_SPEED : WALK_SPEED;
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
@@ -311,7 +315,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     w.along = 0;
     if (w.seg < last) {
       const t = w.tiles[w.seg + 1];
-      if (t >= 0 && s.tiles[t] !== TILE_ROAD && !(w.back ? goTo(s, size, w, origin, lastRoad(s, w)) : rethink(s, size, w, origin))) return lost(w, origin);
+      if (t >= 0 && s.tiles[t] !== TILE_ROAD && !(w.back ? goTo(s, size, w, origin, lastRoad(s, w)) : rethink(s, size, w, origin))) return lost(s, w, origin);
       continue;
     }
     // The end of the way.
@@ -319,12 +323,12 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
       // Home: the porter fills the stall; a cart that couldn't deliver puts its grain back in the barn.
       if (w.load > 0) {
         origin.stock = Math.min(w.kind === 'porter' ? STALL_CAP : BARN, origin.stock + w.load);
-        s.rev++;
+        s.looks++;
       }
       return false;
     }
     const g = findBuilding(s, w.target);
-    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(w, origin);
+    if (!g || g.kind !== 'granary') return rethink(s, size, w, origin) || lost(s, w, origin);
     w.wait = HANDLE;
     break;
   }

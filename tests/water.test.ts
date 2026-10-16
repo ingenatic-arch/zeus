@@ -89,7 +89,7 @@ describe('the water carrier', () => {
     expect(st.detail).toMatch(new RegExp(`\\b(3[3-9]|4\\d) steps away by road; its water carrier goes ${CARRIER_RANGE} at most`));
   });
 
-  it('a hut whose water runs out goes back to a tent a month later, and the people it can no longer hold walk out', () => {
+  it('a hut whose water runs out warns, goes back to a tent DECLINE_AFTER later, and the people it can no longer hold walk out', () => {
     const sim = lane();
     sim.run(4000);
     const near = at(sim.state, 24, 77);

@@ -247,7 +247,8 @@ describe('settlers', () => {
     expect(sim.state.buildings).toEqual([]);
     expect(sim.state.walkers.map((w) => w.kind)).toEqual(['leaver']);
     expect(sim.state.left).toBe(5);
-    watchWalkers(sim, 300);
+    // (Within undo's month.)
+    watchWalkers(sim, 200);
     expect(sim.state.walkers).toEqual([]);
     sim.enqueue({ type: 'undo' });
     sim.step();

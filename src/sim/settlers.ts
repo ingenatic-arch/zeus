@@ -1,5 +1,6 @@
 import type { CoastMap } from '../map/bake';
 import { around, capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
+import { moveIn } from './folk';
 import { nextInt } from './rng';
 import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
@@ -271,6 +272,7 @@ function arrive(s: SimState, w: Walker): void {
     b.level = 1;
     b.since = s.tick;
   }
+  moveIn(s, b, people);
   s.arrived += people;
   recountPopulation(s);
   s.rev++;

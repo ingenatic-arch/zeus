@@ -1,35 +1,37 @@
 /**
  * Homes change with what reaches them, each looked at once a day (staggered
- * by id): a tent with people and water becomes a hut; a hut with water and
- * food becomes a cottage. A home drops a level when what its level needs has
- * been missing for a month, counted from when it ran out or from the home's
- * last change of level, whichever is later (a hut needs water; a cottage
- * water and food), and the people it can no longer hold walk out. Each
- * household pays rent on the first day of the month.
+ * by id): a tent with people and water becomes a hut; a hut with water and a
+ * month's bread in hand becomes a cottage. When what a home's level needs
+ * runs out (a hut its water; a cottage its water or bread) it warns, and if
+ * the need is still missing two months later (counted from when it ran out,
+ * or from the home's last change of level, whichever is later) it drops one
+ * level, and the people it can no longer hold walk out. The household's
+ * story notes each of these. Each household pays rent on the first day of
+ * the month.
  */
 import type { CoastMap } from '../map/bake';
 import { around, capacity, centreOf, COTTAGE, HUT, recountPopulation, TENT } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
+import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, tell, warningOf } from './folk';
 import { sendLeavers } from './settlers';
 import type { Building, SimState } from './state';
 
-/** How long a level's need can be missing before the home drops a level (a month). */
-export const DECLINE_AFTER = TICKS_PER_MONTH;
+export { COTTAGE_FOOD_MIN, DECLINE_AFTER };
 
 /** Rent a household pays each month, by level (plot, tent, hut, cottage). */
 export const RENT = [0, 1, 2, 4];
 
-/**
- * The need a home's level is missing longest and since when, or null if it
- * has all it needs: 'water' or 'food' and the tick it ran out (or the home's
- * last change of level, if later).
- */
-export function missing(b: Building): { need: 'water' | 'food'; since: number } | null {
-  const now = (until: number): number => Math.max(until, b.since);
-  let worst: { need: 'water' | 'food'; since: number } | null = null;
-  if (b.level >= HUT) worst = { need: 'water', since: now(b.waterUntil) };
-  if (b.level >= COTTAGE && (!worst || now(b.foodUntil) < worst.since)) worst = { need: 'food', since: now(b.foodUntil) };
-  return worst;
+/** The need a home's level is missing longest and since when, or null if it has all it needs. */
+export const missing = missingNeed;
+
+/** A home goes up a level. */
+function rise(s: SimState, b: Building, level: number): void {
+  b.level = level;
+  b.since = s.tick;
+  if (b.family) {
+    b.family.warned = '';
+    tell(s, b.family, 'up', level);
+  }
 }
 
 export function stepHouses(s: SimState, map: CoastMap): void {
@@ -37,28 +39,41 @@ export function stepHouses(s: SimState, map: CoastMap): void {
   for (const b of s.buildings) {
     if (b.kind !== 'home' || b.level === 0 || (s.tick + b.id) % TICKS_PER_DAY !== 0) continue;
     const wet = b.waterUntil > s.tick;
-    const fed = b.foodUntil > s.tick;
     if (b.level === TENT && wet && b.people > 0) {
-      b.level = HUT;
-      b.since = s.tick;
+      rise(s, b, HUT);
       changed = true;
       continue;
     }
-    if (b.level === HUT && wet && fed && b.people > 0) {
-      b.level = COTTAGE;
-      b.since = s.tick;
+    if (b.level === HUT && wet && b.foodUntil - s.tick >= COTTAGE_FOOD_MIN && b.people > 0) {
+      rise(s, b, COTTAGE);
       changed = true;
       continue;
     }
-    const lack = missing(b);
+    const warn = warningOf(s, b);
+    const f = b.family;
+    if (f) {
+      // The story notes a warning when it starts, and the relief if what was missing comes back in time.
+      const now = warn ? warn.need : '';
+      if (now !== f.warned) {
+        if (now) tell(s, f, 'warn', b.level, [], now);
+        else if (f.warned) tell(s, f, 'relief', b.level, [], f.warned);
+        f.warned = now;
+      }
+    }
+    const lack = missingNeed(b);
     if (!lack || lack.since > s.tick || s.tick - lack.since < DECLINE_AFTER) continue;
     b.level--;
     b.since = s.tick;
     changed = true;
+    if (f) {
+      f.warned = '';
+      tell(s, f, 'down', b.level, [], lack.need);
+    }
     const extra = b.people - capacity(b);
     if (extra > 0) {
       b.people -= extra;
       s.left += extra;
+      moveOut(s, b, extra);
       sendLeavers(s, map, extra, centreOf(b), around(map.size, b));
     }
   }
@@ -81,3 +96,5 @@ export function stepRent(s: SimState): void {
   s.money += paid;
   s.rent = { paid, homes };
 }
+
+export { COTTAGE };

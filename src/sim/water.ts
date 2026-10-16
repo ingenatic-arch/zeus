@@ -22,8 +22,8 @@ export const CARRIER_RANGE = 32;
 export const CARRIER_WALK = 48;
 /** How long a home keeps its water after she passes (four months). */
 export const WATER_LASTS = 4 * TICKS_PER_MONTH;
-/** How long after its water runs out a hut goes back to a tent (a month). */
-export const HUT_DECLINE_AFTER = TICKS_PER_MONTH;
+/** How long after its water runs out a hut goes back to a tent (two months, warning all the while). */
+export { DECLINE_AFTER as HUT_DECLINE_AFTER } from './folk';
 /** Ticks before the first carrier sets off from a new fountain. */
 export const FIRST_CARRIER = 20;
 /** Ticks a carrier rests at home before the next round, with the fountain fully staffed. */

@@ -131,7 +131,7 @@ describe('the food chain', () => {
     expect(homeStatus(sim.state, map, f).detail).toMatch(/barn is full/);
   });
 
-  it('a cottage whose food runs out goes back to a hut a month later, and the people it can no longer hold walk out', () => {
+  it('a cottage whose food runs out warns, goes back to a hut DECLINE_AFTER later, and the people it can no longer hold walk out', () => {
     const sim = village();
     sim.run(4800);
     const s = sim.state;

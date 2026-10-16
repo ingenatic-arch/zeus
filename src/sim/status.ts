@@ -9,7 +9,7 @@ import { fertilityOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, TENT } from './buildings';
 import { DAYS_PER_MONTH, TICKS_PER_DAY } from './clock';
 import { BARN, eatsBread, errandsOut, GRANARY_CAP, GROW, harvestOf, roomIn, STALL_CAP, STALL_LOW, VENDOR_RANGE, VENDOR_WALK } from './food';
-import { DECLINE_AFTER, missing } from './houses';
+import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missing } from './houses';
 import { canWork, rateOf } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
@@ -93,7 +93,7 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
   if (b.level === TENT) return agoras.length ? 'Lives off the land for now: the food vendor sells to huts and better' : '';
   const left = b.foodUntil - s.tick;
   if (left > 0) {
-    const grow = b.level === HUT && b.waterUntil > s.tick ? ' · becoming a cottage' : '';
+    const grow = b.level === HUT && b.waterUntil > s.tick ? (left >= COTTAGE_FOOD_MIN ? ' · becoming a cottage' : ' · a cottage needs a month’s bread in hand') : '';
     return `Has food · lasts ${days(left)} more${grow}`;
   }
   const lack = missing(b);

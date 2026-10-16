@@ -1,7 +1,7 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 4;
+export const SIM_STATE_VERSION = 5;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -50,6 +50,51 @@ export interface Building {
   stock: number;
   /** A farm: how far the crop has grown (ticks at full strength; harvest at GROW). */
   growth: number;
+  /** A lived-in home: the household living there (null for workplaces and empty plots). */
+  family: Family | null;
+}
+
+/** Someone living in a home. */
+export interface Person {
+  name: string;
+  female: boolean;
+  /** The tick they were born (before the founding: negative), so their age grows with the years. */
+  born: number;
+  /** How they are related: 'head' for the head of the house, otherwise to `kin` ('son' of 'Lykos'). */
+  role: Kin;
+  /** The name of the person they are related to ('' for the head). */
+  kin: string;
+}
+
+export type Kin = 'head' | 'wife' | 'husband' | 'son' | 'daughter' | 'mother' | 'father' | 'brother' | 'sister' | 'cousin';
+
+/** Something that happened to a household, for its story. */
+export interface Story {
+  tick: number;
+  /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away. */
+  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left';
+  /** The need it was about ('water' or 'food'), or ''. */
+  need: '' | Service;
+  /** The home's level after it. */
+  level: number;
+  /** Who it was about. */
+  names: string[];
+}
+
+/** The household in a home: who they are, who lives there, and what has happened to them. */
+export interface Family {
+  /** The founder's name: "the house of Nikias". */
+  name: string;
+  /** Where they came from. */
+  origin: string;
+  /** For choosing what they say. */
+  seed: number;
+  /** Everyone living there, in the order they came (the head first). */
+  members: Person[];
+  /** The last few things that happened, oldest first. */
+  story: Story[];
+  /** The need the home is warning about now ('' none), so the story notes each warning once. */
+  warned: '' | Service;
 }
 
 /**
@@ -125,6 +170,8 @@ export interface UndoEntry {
   trees: number[];
   /** Drachmas it cost. */
   cost: number;
+  /** The tick it was done (undo only reaches back UNDO_WINDOW ticks). */
+  tick: number;
 }
 
 /**
@@ -139,6 +186,12 @@ export interface SimState {
   /** Ticks completed since the founding. */
   tick: number;
   rng: RngState;
+  /**
+   * A second generator for the people: names, ages, where they came from.
+   * Kept apart so drawing names never shifts the main one (settler groups
+   * grow exactly as they did before households had names).
+   */
+  folk: RngState;
   /** Commands applied so far. */
   commandsApplied: number;
   /**
@@ -166,8 +219,10 @@ export interface SimState {
   undo: UndoEntry[];
   /** Ticks until the next look for a home for settlers. */
   settlerClock: number;
-  /** Bumped whenever tiles, buildings or trees change. */
+  /** Bumped whenever tiles, buildings (placed, cleared, a new level, people moving in or out) or trees change. */
   rev: number;
+  /** Bumped when how a workplace looks changes: a farm's crop grows a stage, or a stock (barn, granary, stall) changes. */
+  looks: number;
   /** Bumped only when tiles change (what a road route depends on). */
   tilesRev: number;
   /** Running totals. */

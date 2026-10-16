@@ -2,9 +2,10 @@ import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
-import { dateOfTick, TICKS_PER_DAY, type SimDate } from './clock';
+import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import type { Command, StampedCommand } from './commands';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras, stepFarms } from './food';
+import { folkRng } from './folk';
 import { stepHouses, stepRent } from './houses';
 import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
@@ -15,6 +16,8 @@ import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
 export const UNDO_DEPTH = 10;
+/** How long after an action it can still be undone (a month; while paused, time stands still). */
+export const UNDO_WINDOW = TICKS_PER_MONTH;
 
 export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimState {
   const rng = seedRng(seed);
@@ -24,6 +27,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     seed,
     tick: 0,
     rng,
+    folk: folkRng(seed),
     commandsApplied: 0,
     wind: { angle: 3.6 + nextFloat(rng) * 0.4, strength: 0.5 + nextFloat(rng) * 0.2 },
     money: STARTING_MONEY,
@@ -38,6 +42,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     undo: [],
     settlerClock: SETTLER_INTERVAL,
     rev: 0,
+    looks: 0,
     tilesRev: 0,
     arrived: 0,
     left: 0,
@@ -162,11 +167,12 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   }
 }
 
-const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], removedStock: [], trees: [], cost: 0 });
+const emptyEntry = (): UndoEntry => ({ roads: [], plots: [], removedRoads: [], removedPlots: [], removedIds: [], removedKinds: [], removedStock: [], trees: [], cost: 0, tick: 0 });
 
 function record(s: SimState, e: UndoEntry): void {
   const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
   if (tiles + e.trees.length === 0) return;
+  e.tick = s.tick;
   s.undo.push(e);
   if (s.undo.length > UNDO_DEPTH) s.undo.shift();
   s.rev++;
@@ -265,6 +271,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     workers: 0,
     stock,
     growth: 0,
+    family: null,
   };
   s.buildings.push(b);
   for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
@@ -317,6 +324,7 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
     s.left += b.people;
     sendLeavers(s, map, b.people, centreOf(b), around(n, b));
   }
+  b.family = null;
   recountPopulation(s);
 }
 
@@ -359,7 +367,33 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
   return e;
 }
 
+/**
+ * Why the last action can't be undone now, or '' if it can: undo reaches back
+ * only UNDO_WINDOW ticks, and never unplaces a building someone has moved
+ * into or something is stored in.
+ */
+export function undoRefusal(s: SimState): string {
+  const e = s.undo[s.undo.length - 1];
+  if (!e) return 'Nothing to undo';
+  if (s.tick - e.tick > UNDO_WINDOW) return 'Undo only reaches back about a month';
+  for (const id of e.plots) {
+    const b = findBuilding(s, id);
+    if (!b) continue;
+    if (b.people > 0) return b.kind === 'home' ? 'A family has moved in: clear it instead' : 'Someone lives there now';
+    if (b.stock > 0) return b.kind === 'farm' ? 'There is grain in its barn now: clear it instead' : 'There is grain stored in it now: clear it instead';
+  }
+  return '';
+}
+
+/** Forget actions too old to undo. */
+function forgetOld(s: SimState): void {
+  const keep = s.undo.filter((e) => s.tick - e.tick <= UNDO_WINDOW);
+  if (keep.length !== s.undo.length) s.undo = keep;
+}
+
 function undoLast(s: SimState, map: CoastMap): void {
+  forgetOld(s);
+  if (undoRefusal(s) !== '') return;
   const e = s.undo.pop();
   if (!e) return;
   const n = map.size;

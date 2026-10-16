@@ -3,6 +3,7 @@ import { ClockDriver } from '../src/game/clockDriver';
 import { MAP_SIZE } from '../src/map/coast';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import type { Command } from '../src/sim/commands';
+import { warningOf } from '../src/sim/folk';
 import { deserialize, replay, serialize, Sim } from '../src/sim/sim';
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -17,11 +18,14 @@ const SCRIPT: Array<[number, Command]> = [
   [260, { type: 'plots', at: [T(22, 70), T(25, 70), T(22, 74), T(25, 74), T(16, 78)] }],
   [300, { type: 'fountain', at: [T(18, 81)] }],
   [900, { type: 'clear', x0: 8, z0: 81, x1: 9, z1: 82 }],
-  [1300, { type: 'undo' }],
+  // (Undo reaches back a month.)
+  [1150, { type: 'undo' }],
   [1600, { type: 'clear', x0: 24, z0: 70, x1: 24, z1: 71 }],
   // (That cut the town off from the food chain for a while.)
   [1900, { type: 'undo' }],
   [2400, { type: 'plots', at: [T(30, 76), T(30, 81)] }],
+  // The fountain goes: homes warn, then decline, and some of each family walk out.
+  [3000, { type: 'clear', x0: 18, z0: 81, x1: 18, z1: 81 }],
   // The food chain: a farm road east to the river land, a farm, a granary and the agora.
   [400, { type: 'road', tiles: row(25, 52, 66) }],
   [450, { type: 'build', kind: 'farm', at: [T(48, 63)] }],
@@ -122,12 +126,30 @@ describe('simulation determinism', () => {
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
 
+  it('save round-trip carries on identically with homes warning and leavers on the road', () => {
+    let t = 3010;
+    const a = scripted(9, t);
+    // Run on to a moment some home is warned (its sign up) and some family is walking out.
+    while (!(a.state.buildings.some((b) => warningOf(a.state, b)) && a.state.walkers.some((w) => w.kind === 'leaver'))) {
+      a.step();
+      t++;
+      expect(t).toBeLessThan(9000);
+    }
+    expect(a.state.buildings.some((b) => b.family?.story.some((e) => e.what === 'warn'))).toBe(true);
+    const b = new Sim(9);
+    b.state = deserialize(serialize(a.state));
+    a.run(1500);
+    b.run(1500);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+    expect(a.state.buildings.some((h) => h.family?.story.some((e) => e.what === 'down'))).toBe(true);
+  });
+
   it('refuses a save from another version with a plain message', () => {
     const s = JSON.parse(serialize(new Sim(1).state));
     s.version = 1;
     expect(() => deserialize(JSON.stringify(s))).toThrow(/version 1 /);
-    s.version = 3;
-    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 3 and this game reads version 4/);
+    s.version = 4;
+    expect(() => deserialize(JSON.stringify(s))).toThrow(/version 4 and this game reads version 5/);
   });
 
   it('speed changes how fast ticks come, never what happens', () => {
