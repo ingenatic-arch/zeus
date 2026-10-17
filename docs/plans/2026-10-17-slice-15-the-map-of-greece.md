@@ -103,4 +103,30 @@ Plus the existing suite unchanged, and the 60-demo probe outside the repo. The m
 
 ## As built
 
-*(filled in at the end of the slice)*
+Everything in the plan was built. Commits: plan `3bdd0b1`, sim `91d8a62`, map and panels `8e8a9f6`, the merge of the side panel `2a90ff8`, the button moved under the top bar `85acc38`, then the welcome back's wording, the corner note and the check-in.
+
+**Where it differs from the plan**
+- **The map's panel opens on the left**, where the city's household panel sits, not on the right: the side panel (merged into main while this slice was built) owns the right-hand column. While the map is open the side panel and its corner button step aside and the map takes the whole window; closing the map brings them back and the city view narrows again.
+- **State version.** Greece is version 14 (`from13` gives an older town a mild Greece from its seed); the side panel's stock book took 15, chained after it. A slice 14 save goes 13 to 14 to 15.
+- **Prices bend further than "about a quarter"**: up to about a third below the ship's price for what a city has plenty of (Sparta's wheat 14 dr against Tyre's 20) and a quarter above for what it lacks (Sparta's wine 126 against 100). Still steady.
+- **Snow** is only on the very highest peaks (Olympus): where ridges overlapped (the Pindus) the heights piled up into flat white tables, so the highest ridge now counts in full and the others only a little where they meet.
+- **The camera** is the city's rig with the table's ground and limits, as planned, but it stops further out than the city's (24 units) and looks down more steeply up close, because close to the toy cities the low-poly hills and the sky beyond the table looked bare.
+- **Home panel**: the stores list marks what is ticked for sale beside each good, rather than in a list of its own.
+- **The Greece button hangs under the top bar's right end**, as a small tab, instead of sitting in the bar's row: with the side panel open on a 1280-pixel window the bar, one button wider, ran off the left edge. With the map open the bar centres on the room left of the corner buttons.
+- **The corner note** (the welcome back, saves) now wraps at about 460 pixels instead of running in one line across the top bar; the welcome back for an older town is long enough to need it.
+- **Smoke test**: the household-panel check in `#people` now picks a home in plain view (the side panel narrows the view, so the home it used to pick was under a panel). That check failed on main before this slice too.
+
+**Checked**
+- `npm test` 234 passing, typecheck clean, `npm run build` clean. `npm run smoke` passed in full at `85acc38`; a last run after the welcome back's wording and the corner note missed hovering the moving tax collector in `#collector` once (it passed in the runs before; the map isn't involved there), everything else passing.
+- All 60 earlier demos open and play the same: a probe outside the repo hashed each one's whole city state (everything but Greece, and the side panel's new stock book) at opening and 900 ticks on, at the baseline and at this slice; none differ.
+- Old saves: the slice 14 fixture (version 13) and the slice 13 one (version 12) load with a mild Greece and play on; a damaged Greece is refused in plain words.
+- The map's code is its own file (`greece-*.js`, about 34 KB, 13 KB gzipped), fetched the first time the map opens; `publish-prep` copies the whole assets folder, so it is published with the page.
+- Screenshots at 1600 x 900: the whole table, close up over the Argolid, the hover card, a ruler's panel, Tyre's panel, the home panel and naming, `#greecesail` with the ship in the gulf, the city view after closing the map with the side panel back.
+
+**Measurements** (headless Chromium, software WebGL, 1920 x 1080; "before" is main just before the map's UI went in, `7f864df`, with the side panel; the two builds measured twice each, alternating):
+- Bundle: 4 files, 1,251 KB raw, 368 KB gzipped (was 3 files, 1,205 KB, 351 KB). Of that, the city's own script grew 6.9 KB raw (2.7 KB gzipped) and its stylesheet 5.9 KB (1.0 KB); the map's file is 34 KB (13 KB gzipped), fetched only when the map first opens.
+- Load, bare link, by the page's clock: first frame 2.28 and 2.29 s (was 2.81 and 2.36 s): no slower.
+- The map: built in 372 to 380 ms the first time (fetching its file and building the scene); 303,818 triangles in 20 draws (`#greecesail` 303,938); main-thread work before drawing 3.9 to 4.7 ms a frame (the town's own frames 1.6 to 17.8 ms). Under software rendering the first map frame comes 4.5 to 5.1 s after the key, most of it the first frame's shader compiling at about one frame a second; a real graphics card should take a fraction of that, which Oliver's machine will tell.
+- Every city view's triangles and draw calls, the towns' people and the save sizes are unchanged (`#town` 799,168 / 83, 693 people, 140 KB; `#richtown` 910,707 / 95, 928 people, 177 KB).
+
+**For the next slices**: `World.routes`, `deals`, `travellers` and `news` are typed and empty. A traveller's place on the map should stay a pure function of the tick (as `tyreShip` is), so the map can draw it without the sim stepping it. The map moves its labels every frame and refreshes their text, the hover card and the panel twice a second. Imports and exports should be noted in the side panel's stock book with `note(s, ware, 'bought' | 'sold', '<city>', n)`.

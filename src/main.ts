@@ -540,7 +540,7 @@ function start(): void {
     }
     // …and one saved before Greece (slice 14 or older): the map is there now.
     if (loaded.from !== undefined && loaded.from <= 13) {
-      changed += ' · Greece is there now: the Greece button at the end of the top bar (or Tab) opens a map of the Aegean, with Athens, Sparta, Corinth and Troy, their rulers and what they make and want.';
+      changed += ' · Greece is there now: the Greece tab under the top bar (or the Tab key) opens a map of the Aegean, with Athens, Sparta, Corinth and Troy, their rulers and what they make and want.';
     }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }

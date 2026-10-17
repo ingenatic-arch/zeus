@@ -2,6 +2,65 @@
 
 Notes to Oliver, newest first.
 
+## Slice 15 — The map of Greece (17 Oct)
+
+Phase 3's first slice: a map of the Aegean on a table, with Athens, Sparta, Corinth, Troy and Tyre around your city, the rulers of the four you will deal with, how they feel about you and why, and what each city makes and wants. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with a Greece of its own and a line in the welcome back saying where the map is; its rulers start between wary and cordial. The city plays exactly as before: all 60 earlier demos open and play the same as they did (checked by playing each one on 900 ticks from the old code and the new and comparing the whole city). A new town on the bare link now also shuffles Greece, so its rulers differ from game to game; the coast and the opening view are as before.
+
+### What's new
+- **The map of Greece.** The **Greece** tab hanging under the top bar's right end, or the **Tab** key, swaps the city for a relief map of the Aegean on a wooden table: the mainland and the Peloponnese, Asia Minor, Euboea, Crete and about forty islands, hills and mountains rising from the shore, snow on Olympus, turquoise shallows going to deep blue. Your city sits at the head of the Argolic Gulf. Roads run as dotted lines to Corinth and Sparta, sea lanes as dashes out of the gulf to Athens, Corinth, Troy and Tyre (at the table's far corner).
+- **Toy cities** made in code, each in its colour: Athens with its acropolis and temple, Sparta unwalled in its valley, Corinth under its citadel, Troy behind high walls, Tyre on its island, and yours, which grows a house at a time as your city grows.
+- **The Tyre ship on the map**, in step with the city: when her sail shows on your horizon she is coming up the gulf on the map; she ties up at your city, sails home and waits at Tyre. Click her for Tyre's page.
+- **Moving around** is the same as in the city: drag to pan, right-drag or Q and E to turn, the wheel to zoom.
+- **Labels and hover cards.** Each city's label shows its ruler's mood as a little face. Hover a city for a card with the ruler's portrait, name, title and mood; click it for the city's page.
+- **A city's page:** the ruler's portrait (drawn from their traits: a helmet for a warlike one, a diadem for a proud or greedy one, a laurel for a pious one, the mouth and brows by mood), name and title, two traits and what they mean, the mood as a word and a number with **every reason and what it is worth** (old history with your city, what their character makes of a newcomer, a first impression that fades over three years), what they sell and buy at what price against Tyre's, and how to get there.
+- **Four rulers, shuffled per game**, each city with a leaning: Sparta's rulers are often warlike, Athens' and Corinth's shrewd, Corinth's greedy, Troy's proud; about three in ten are women. Moods start between cold and warm.
+- **Tyre's page:** what her merchants buy at what price, and where the ship is.
+- **Your city's page,** and **a name for it**: click your city, then the pencil, and type a name (two to twenty letters). The map and the page take it.
+- **Closing the map** (Tab, Esc or the tab again) brings you back to the city exactly as you left it. While the map is open the city keeps running (pause works as ever), and the side panel steps aside so the map has the whole window.
+- **Not yet:** nothing on the map changes from what you do. Trade routes (slice 16), prices that move (17), moods that change and gifts (18), requests and tribute (19), raids (20) and wars, festivals and news (21) come next. The pages say what is so now.
+
+### What to try
+1. Open `#greece`: `#town` with the map open. Zoom in on the Argolid and turn the table. Hover each city, then click Athens and Sparta and read why they feel as they do.
+2. Press Tab to go back to the city, and Tab again to come back to the map.
+3. Open `#ruler`: Sparta's page from the start. Does a ruler read as a person you will have to deal with?
+4. Open `#greecesail`: the merchant ship is coming up the gulf on the map. Press Tab to see her sail on the city's horizon, and back. Click her on the map.
+5. Click your own city on the map, then the pencil, and give it a name.
+6. Open the bare link twice (start a new town each time) and open the map: the rulers shuffle.
+7. Open one of your saves from before (`#saved` or `#continue`) and read the welcome back.
+
+### What I'd like your eye on
+- **The table as a whole**, from the opening view and zoomed in over your city. Does it read as a model of the Aegean on a table? The mountains are kept low and the colours warm; the coasts are hand-traced and simplified.
+- **The toy cities**: do Athens, Sparta, Corinth and Troy read as different places? They are small at the opening view and only really show up close.
+- **The portraits**: simple busts drawn from each ruler's traits. Enough character, or too plain?
+- **The mood reasons**: is "since the founding, fading" clear enough, and do the starting moods feel fair?
+- **The Greece tab and Tab key.** Every letter was already taken, so it is Tab. The tab hangs under the top bar so the bar still fits beside the side panel on a smaller window.
+
+### Known rough edges
+- The first time the map opens there is a short wait while it is built (about 0.4 s in my measurements; the first picture takes longer under software rendering, so judge it on your machine).
+- Up close the hills are plainly low-poly and the road dots look like stepping stones; the camera stops at a middling distance for that reason.
+- Asia Minor and Crete end in a straight cliff at the table's edge.
+- Labels can overlap where cities are close (Corinth and your city) when the table is turned or zoomed far out.
+- The map's page opens on the left, where the city's house pages open; there is no side panel while the map is open.
+- The corner note (welcome back, saves) now wraps at about 460 pixels instead of running across the top bar.
+- On a 1280-pixel window with the side panel shut, the top bar still runs under the corner buttons a little; that was so before this slice.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is main just before the map went in (with the side panel), each build measured twice, alternating.
+
+| | Before | After |
+|---|---|---|
+| Tests | 234 | 234, all passing (the 20 for Greece came with this slice's first part) |
+| Bundle | 3 files, 1,205 KB raw, 351 KB gzipped | 4 files, 1,251 KB raw, 368 KB gzipped; the map's file (34 KB, 13 KB gzipped) loads only when the map first opens |
+| Load, bare link, first frame (page clock) | 2.81 s, 2.36 s | 2.28 s, 2.29 s |
+| The map, first open: built in | | 0.37 to 0.38 s |
+| The map: triangles, draw calls | | 303,818, 20 |
+| The map: work before drawing, a frame | | 3.9 to 4.7 ms |
+| `#town`: triangles and draws, people, save | 799,168, 83; 693; 140 KB | the same |
+| `#richtown`: triangles and draws, people, save | 910,707, 95; 928; 177 KB | the same |
+| The 60 earlier demos | | each opens and plays 900 ticks on exactly as before |
+
 ## Side slice — The side panel (17 Oct)
 
 You asked for this while phase 3 was being built in another thread, so it went in on its own branch and onto main with phase 3's first piece (the map of Greece, in the sim only so far). Phase 3 keeps its slice numbers. Every choice below is mine; tell me what to change.
