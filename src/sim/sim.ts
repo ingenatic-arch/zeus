@@ -1,6 +1,6 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
-import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
+import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 import { around, centreOf, findBuilding, footprint, footSide, recountPopulation, sideOf } from './buildings';
 import { BURNT, FALLEN, FIRST_INSPECTOR, FIRST_WATCHMAN, moveInspector, moveWatchman, stepArchitects, stepHazards, stepWatchPosts, type Fall } from './hazards';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
@@ -226,6 +226,7 @@ const emptyEntry = (): UndoEntry => ({
   removedWas: [],
   removedLevels: [],
   removedNames: [],
+  removedHazards: [],
   trees: [],
   cost: 0,
   tick: 0,
@@ -472,6 +473,8 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedWas?.push(b.was);
     e.removedLevels?.push(b.level);
     e.removedNames?.push(b.ruin);
+    // How near it was to burning or falling: undo brings it back as it was (clearing and undoing is no way to put a fire out).
+    e.removedHazards?.push(b.risk, b.wear, b.fire, b.fireAt, b.creakAt, b.placed);
     e.removedPlots.push(b.z * n + b.x);
     e.removedIds.push(b.id);
     e.removedKinds.push(b.kind);
@@ -497,7 +500,12 @@ function toRubble(s: SimState, map: CoastMap, b: Building, how: Fall): void {
   const name = b.kind === 'home' ? (b.family?.name ?? '') : '';
   const kind = b.kind;
   removeBuilding(s, map, b);
-  for (const e of s.undo) e.plots = e.plots.filter((id) => id !== b.id);
+  // Undoing the building of it no longer takes it away, so no longer refunds it either.
+  for (const e of s.undo) {
+    if (!e.plots.includes(b.id)) continue;
+    e.plots = e.plots.filter((id) => id !== b.id);
+    e.cost = Math.max(0, e.cost - COST[kind]);
+  }
   const r = addBuilding(s, n, b.x, b.z, 'rubble', 0, 0, 0, noGoods(), 0, kind);
   r.level = how === 'fire' ? BURNT : FALLEN;
   r.ruin = name;
@@ -568,6 +576,9 @@ function forgetOld(s: SimState): void {
   if (keep.length !== s.undo.length) s.undo = keep;
 }
 
+/** How many numbers an undo entry keeps for each building it cleared (see UndoEntry.removedHazards). */
+const HAZARD_FIELDS = 6;
+
 function undoLast(s: SimState, map: CoastMap): void {
   forgetOld(s);
   if (undoRefusal(s) !== '') return;
@@ -607,6 +618,9 @@ function undoLast(s: SimState, map: CoastMap): void {
         const r = addBuilding(s, n, x, z, 'rubble', 0, 0, 0, noGoods(), 0, was);
         r.level = e.removedLevels?.[i] ?? BURNT;
         r.ruin = e.removedNames?.[i] ?? '';
+        // When it fell (for the town lines' news), as before.
+        const placed = e.removedHazards?.[i * HAZARD_FIELDS + 5];
+        if (placed !== undefined) r.placed = placed;
         renamed.set(e.removedIds[i], r.id);
       }
       continue;
@@ -616,7 +630,18 @@ function undoLast(s: SimState, map: CoastMap): void {
     if (buildingRefusal(map, s, kind, x, z) === '') {
       const goods = keep ? (e.removedGoods?.[i] ?? noGoods()) : noGoods();
       const stalls = kind === 'agora' ? (e.removedStalls?.[i] ?? 0) : 0;
-      renamed.set(e.removedIds[i], addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls).id);
+      const b = addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls);
+      // Its fire risk and wear come back with it, smouldering, burning or creaking if it was.
+      const h = e.removedHazards;
+      if (h && h.length >= (i + 1) * HAZARD_FIELDS && kind !== 'home') {
+        const k = i * HAZARD_FIELDS;
+        b.risk = h[k];
+        b.wear = h[k + 1];
+        b.fire = h[k + 2];
+        b.fireAt = h[k + 3];
+        b.creakAt = h[k + 4];
+      }
+      renamed.set(e.removedIds[i], b.id);
     }
   }
   if (renamed.size) {

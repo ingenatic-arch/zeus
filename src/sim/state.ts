@@ -341,6 +341,8 @@ export interface UndoEntry {
   removedWas?: string[];
   removedLevels?: number[];
   removedNames?: string[];
+  /** Fire and wear of what it cleared, six numbers each in the same order: risk, wear, fire, fireAt, creakAt and the tick it was placed (missing in older saves: undo brings buildings back safe and sound). */
+  removedHazards?: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */

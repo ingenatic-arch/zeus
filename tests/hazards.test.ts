@@ -256,11 +256,48 @@ describe('rubble', () => {
     expect(back.level).toBe(FALLEN);
     expect(back.was).toBe('home');
     expect(back.ruin).toBe(heap.ruin);
+    // It fell when it fell: undo doesn't make it news again.
+    expect(back.placed).toBe(heap.placed);
     ledgerAddsUp(s);
     // Cleared again, a plot goes up where it stood.
     send(sim, { type: 'clear', x0: 20, z0: 78, x1: 20, z1: 78 });
     send(sim, { type: 'plots', at: [T(20, 78)] });
     expect(at(s, 20, 78).kind).toBe('home');
+  });
+});
+
+describe('undo', () => {
+  it('brings a cleared workplace back as near to burning or falling as it was, and no longer refunds a building that has since burnt down', () => {
+    const sim = demo('food');
+    const s = sim.state;
+    const g = s.buildings.find((b) => b.kind === 'granary')!;
+    g.risk = HAZARD_FULL - 0.001;
+    g.wear = HAZARD_FULL - 0.001;
+    sim.run(TICKS_PER_DAY);
+    expect(g.fire).toBe(FIRE_SMOULDER);
+    expect(g.creakAt).toBeGreaterThan(0);
+    const { fireAt, creakAt } = g;
+    send(sim, { type: 'clear', x0: g.x, z0: g.z, x1: g.x, z1: g.z });
+    expect(findBuilding(s, g.id)).toBeUndefined();
+    send(sim, { type: 'undo' });
+    const back = at(s, g.x, g.z);
+    expect(back.kind).toBe('granary');
+    expect([back.fire, back.fireAt, back.risk, back.creakAt]).toEqual([FIRE_SMOULDER, fireAt, HAZARD_FULL, creakAt]);
+    // A shrine put up beside the fire burns down within the month: undoing it takes nothing away and gives nothing back.
+    const money = s.money;
+    send(sim, { type: 'build', kind: 'shrine', at: [T(POST.x, POST.z)] });
+    const shrine = at(s, POST.x, POST.z);
+    expect(s.money).toBeLessThan(money);
+    shrine.risk = HAZARD_FULL;
+    shrine.fire = FIRE_BURNING;
+    shrine.fireAt = s.tick + 1;
+    sim.run(TICKS_PER_DAY + 1);
+    expect(at(s, POST.x, POST.z).kind).toBe('rubble');
+    const before = s.money;
+    send(sim, { type: 'undo' });
+    expect(s.money).toBe(before);
+    expect(at(s, POST.x, POST.z).kind).toBe('rubble');
+    ledgerAddsUp(s);
   });
 });
 

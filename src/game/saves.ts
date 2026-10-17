@@ -322,6 +322,7 @@ function undoOk(u: unknown): boolean {
       (e.removedWas === undefined || strs(e.removedWas)) &&
       (e.removedLevels === undefined || nums(e.removedLevels)) &&
       (e.removedNames === undefined || strs(e.removedNames)) &&
+      (e.removedHazards === undefined || nums(e.removedHazards)) &&
       nums(e.trees) &&
       fin(e.cost) &&
       fin(e.tick),
