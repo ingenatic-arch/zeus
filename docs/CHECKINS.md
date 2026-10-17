@@ -61,6 +61,20 @@ Headless Chromium with software rendering at 1920 × 1080, so frame rates mean n
 | `#richtown`: triangles and draws, people, save | 910,707, 95; 928; 177 KB | the same |
 | The 60 earlier demos | | each opens and plays 900 ticks on exactly as before |
 
+### What the review changed
+I went through every step of "What to try" at 1920 × 1080 (and the map at 1280 × 720), looking at screenshots of each. Most of it did what the notes above say; these I changed:
+- **Tab after a click.** Once you had clicked anything in the side panel (a tab, a good), Tab moved a highlight to the panel's next button instead of opening the map, so the key seemed dead. Now, after a click, Tab always opens and closes the map; it only moves between a panel's buttons when you got there with the keyboard.
+- **Clicking a city's name.** Zoomed in, the labels float well above the toy cities, and clicking a label did nothing (only the city under it counted). The label and its little stem now count as the city, for the hover card and the click.
+- **The hover card** no longer covers the city it is about at the table's edges (Tyre in the far corner): where there is no room below and to the right of the pointer, it opens above or to the left.
+- **The town lines on the map** (the ship sailing in, a shortfall) ran over the City tab under the top bar; they now centre with the top bar as they do in the city.
+- **A city's page on the map** now runs down to the foot of the window, since there is no build bar there (on a smaller window Sparta's page was cut off at its wine price, with room to spare below).
+- **Mood numbers** use the same minus sign as the reasons ("−10 in all", not "-10").
+- Small things out of sight: pressing Tab again while the map is loading for the first time now takes it back; the city's floating labels ("+3", "Fire!") no longer pile up hidden while the map is open.
+- **The smoke test's one failure** ("hovering the tax collector") wasn't the game: in `#collector` the followed collector is sometimes resting at his office while another walks off the screen, and the test picked that one. It now waits for a collector in plain view.
+- Checked afterwards: the 234 tests, the full smoke test (it now also checks Tab after a click in the side panel, and clicking a city's label) and the measurements, which are as in the table above. Nothing in the city's simulation changed.
+
+Still as they were, for you to judge: the Greece tab is small (it hangs under the right end of the top bar); on a 1280-pixel window the opening view puts Sparta under its own page when you open it.
+
 ## Side slice — The side panel (17 Oct)
 
 You asked for this while phase 3 was being built in another thread, so it went in on its own branch and onto main with phase 3's first piece (the map of Greece, in the sim only so far). Phase 3 keeps its slice numbers. Every choice below is mine; tell me what to change.
