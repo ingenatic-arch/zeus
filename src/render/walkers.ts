@@ -178,7 +178,7 @@ function oilVendor(): THREE.BufferGeometry {
 /**
  * An amphora of wine, standing, `h` tall, its pointed foot at the origin:
  * taller and slimmer than an oil jar, with two handles and a dark wine-red
- * seal. Few corners (about 190 vertices): carts carry six.
+ * seal. Few corners (about 230 vertices): carts carry four.
  */
 export function amphora(h: number): TPart[] {
   const k = h / 0.2;
@@ -406,9 +406,9 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil' | 
     parts.push({ geo: new THREE.CircleGeometry(0.04, 5).rotateX(-Math.PI / 2 + 0.3).translate(-0.12, 0.35, -0.05), color: PAL.vineLeaf });
     parts.push({ geo: new THREE.CircleGeometry(0.04, 5).rotateX(-Math.PI / 2 - 0.3).translate(-0.27, 0.35, 0.07), color: PAL.vineLeaf });
   } else if (load === 'wine') {
-    // Amphorae of wine bedded in straw, two rows of three.
+    // Amphorae of wine bedded in straw, two rows of two (four keep the cart under the oil cart's corners: every cart is drawn as if it were the biggest).
     parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.06, 0.22, 3, 1, 2), 0.2, 555).translate(cx, 0.25, 0), color: PAL.straw });
-    for (const x of [-0.1, -0.2, -0.3]) for (const z of [-0.055, 0.055]) parts.push(...moved(amphora(0.2), (g) => g.translate(x, 0.2, z)));
+    for (const x of [-0.13, -0.27]) for (const z of [-0.055, 0.055]) parts.push(...moved(amphora(0.22), (g) => g.translate(x, 0.2, z)));
   }
   // The driver, walking beside the ox with a goad.
   const dz = 0.17;
@@ -450,8 +450,8 @@ function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine'): T
   } else if (load === 'fleece') {
     for (const [x, z, y, k] of [[cx - 0.05, -0.04, 0, 0], [cx + 0.06, 0.04, 0, 1], [cx, 0, 0.07, 2]]) parts.push(...moved(bale(0.065, 560 + k), (g) => g.rotateY(k).translate(x, 0.21 + y, z)));
   } else if (load === 'wine') {
-    // Three amphorae lying side by side, necks forward.
-    for (const z of [-0.06, 0, 0.06]) parts.push(...moved(amphora(0.2), (g) => g.translate(0, -0.1, 0).rotateZ(-Math.PI / 2).translate(cx, 0.2 + (z === 0 ? 0.03 : 0), z)));
+    // Two amphorae lying side by side, necks forward (two keep the porter under the stag's corners).
+    for (const z of [-0.045, 0.045]) parts.push(...moved(amphora(0.22), (g) => g.translate(0, -0.11, 0).rotateZ(-Math.PI / 2).translate(cx, 0.21, z)));
   } else if (loaded) {
     const sacks: Array<[number, number, number]> = load === 'mixed' ? [[cx - 0.05, -0.05, 0]] : [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]];
     for (const [x, z, y] of sacks) {

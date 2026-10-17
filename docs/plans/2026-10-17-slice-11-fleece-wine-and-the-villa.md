@@ -128,3 +128,44 @@ Measured at `23a8832` (the end of slice 10's review), headless Chromium with sof
 
 ## As built
 
+Commits: plan `a2fc228`; sim `f61308d`; render and UI `3975a58`; look and tune, smoke, measurements and this section in the commits after it.
+
+Built as designed above, with these differences:
+
+- **Goods as data.** As planned (`GOOD_USE`, `SERVICE_GOOD`, `STALL_GOODS`, `CHAINS`, one fetch clock per stall good, the save's lists from the sim's own). Every cottage demo and `#shrine`, `#priestess` and `#grove` fingerprint exactly as at `23a8832`.
+- **`#pasture` and `#fleecevendor` open on the culture town** (the `#fine` town, which now has a sheep pasture by the lane and a fleece stall at the lane's agora), not on `#town`: that is where fine houses need fleece, and its pasture stands in open grass with its flock in view. `#town` has its own pasture and fleece stall too.
+- **Grace for version 9 saves** applies to homes at fine-house level and up (the ones that need fleece), at least eight months from loading; the welcome back says what to build for fleece, and mentions wine and villas.
+- **`#closed`.** The `serviceScore` change (a want-to-grow home counts from now) was tried and changed nothing in `#closed`, so it was left out. What tells the story again is the town itself: its fine houses now have fleece from the lane's stall, and the cut street goes without water and plays (two icons on its signs, not four or five). The scene opens at tick 11,560 with the most urgent home at least 14 days from going down; the test rebuilds the theatre across from the shrine and mends the ringed road at once and loses at most 8 homes a level; left alone, 26 go down.
+- **`#town`.** It gets a sheep pasture and a fleece stall after its oil and before its theatre. To keep its promises the theatre moved from (57, 42) to (63, 36), where it reaches the far east end of the main street (from (57, 42) the east end went without plays for up to 46 days at a time); `NEWEST` (how long the newest homes stay tents) went from 120 to 300 ticks so tents still show. It opens with 724 people and 513 drachmas (was 596 and 531): 5 tents, 21 huts, 10 cottages, 7 townhouses, 38 fine houses. Two years on it has no drops; 99 warned home-days in all, the longest run 12 days.
+- **`#harsh`** runs harsh taxes for 950 ticks before opening (was 450): the town is richer with fleece and nobody had left by 450.
+- **`#nooil`** rebuilds its storehouse a day after clearing the press and storehouse, so fleece keeps reaching the fine houses and only oil goes missing. Its test asks for at least 3 warned fine houses (the warnings come later than in slice 10, as the stall's oil runs down).
+- **The flock** is nine sheep (cream, two grey, one black): three in or by the stone fold, the rest grazing a ring 1.9 to 2.8 tiles out on open ground, falling back to the fold where there's none. No shepherd walks with them; his crook leans by the hut. The fold is a ring of terrace stones with a gap toward the road, beside a stone hut under thatch and an open shearing shelter.
+- **The vineyard**: four rows of four trellised vines, each length on its own ground, clumps of leaves along a wire between stakes (the first version, a solid hedge of leaves on stilts, read as tables, so it was broken into clumps); bunches of grapes under the leaves coloured green to purple as the crop ripens; a whitewashed hut with a pergola and baskets of grapes.
+- **The winery**: a stone press house under tiles with a wine-red band, a round treading vat of purple must with an upright stone, a lean-to, baskets of grapes waiting and amphorae as its store fills.
+- **The villas**: two variants as planned, in warm cream stucco with a Pompeian red band (not ochre or rose walls). The peristyle villa's wing roofs first stood as thin slabs above the walls; they now run on from the outer walls, which rise to meet them, over a beam on the columns and slope down into the court, and the portico of the garden villa likewise.
+- **The storehouse yard**: 16 jars of oil in a 4 × 4 grid on one side, bales stacked at the back, amphorae on the gate side.
+- **Signs** take up to seven icons (rims 6 and 7).
+- **Screenshot tooling**: the debug `jump` now stops following, so a shot can look at a building in a demo that follows a walker.
+- **Smoke**: `#closed` no longer checks wide signs (its street now lacks two needs); the seven-wide sign is checked instead by warning a villa on all seven needs.
+
+**The `#vineyard` timeline** (the culture town at `#vineyard`'s opening, two vineyards on the slope west of the town, a winery across the road and a wine stall at the lane's agora, all at once): the first amphorae reach a home 153 days after planting and the first villa follows a day later. The treasury goes from 968 to 397 drachmas on building and touches 33 at its lowest.
+
+**Demos at opening** (tick, people, drachmas, levels tent/hut/cottage/townhouse/fine/villa):
+
+| | Slice 10 | Slice 11 |
+|---|---|---|
+| `#shrine` | 4050, 502, 468, 0/6/21/17/0 | unchanged |
+| `#theatre` | 5340, 640, 290, 0/0/6/25/13 | 7440, 713, 395, 0/0/6/25/13/0 |
+| `#fine`, `#pasture`, `#fleecevendor`, `#vineyard` | 6840, 802, 561, 0/0/6/0/38 | 8940, 830, 968, 0/0/6/0/38/0 |
+| `#closed` | 9690, 876, 2,140 | 11560, 876, 2,231, 0/0/6/0/38/0 |
+| `#town` | 7200, 596, 531, 2/14/10/6/39 | 8400, 724, 513, 5/21/10/7/38/0 |
+| `#nooil` | 7850, 843, 714 | 10570, 873, 832 |
+| `#harsh` | 7650, 631, 953 | 9350, 809, 1,679 |
+| `#winery` | | 10040, 866, 647, 0/0/6/0/38/0 |
+| `#villas`, `#winevendor` | | 13840, 910, 1,558, 0/0/6/0/24/14 |
+
+**Padding.** The wine cart first came to 2,808 vertices and the wine porter to 1,458, over the oil cart's 2,412 and the stag's 1,356, which would have made every walker dearer to draw; the cart now carries four amphorae and the porter two, and the padding is back to 1,356 and 2,412.
+
+**`scripts/measure.mjs`** pressed L once to turn `#food`'s overlay off, which with five overlays left it on through the later views; it now presses until the overlay is off (`#food`'s vendor and harvest views measured with an overlay on before: 528 k and 556 k then, 494 k and 522 k now without).
+
+**Measurements after** (same machine and method as Before): 178 tests in 17 files, all passing; bundle 1,042 KB raw, 299 KB gzipped; ready at 1.04 s, first frame 1.25 s; the opening views and every cottage demo unchanged; `#fine` 634 k, 71 / overview 812 k, 103; `#closed` 617 k, 79 / 808 k, 112; `#town` 812 k, 83 / street 745 k, 71 / overview 929 k, 109, ready 1.57 s, first frame 2.08 s, 724 people, 58 walkers; `#villas` 712 k, 80 / winery 627 k, 59 / overview 888 k, 110; update per frame paused / running `#food` 0.76 / 0.89 ms, `#fine` 0.57 / 1.61, `#town` 0.74 / 5.25; 55 geometries, 6 textures; a save of `#town` 248 KB.

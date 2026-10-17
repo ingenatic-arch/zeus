@@ -489,17 +489,18 @@ p = best.q;
 await page.mouse.click(p.x, p.y);
 await frames(3);
 pt = await panelText();
-if (!/^A fine house[\s\S]*Plays · last[\s\S]*A fine house is as fine as homes get/.test(pt ?? '')) fail(`fine house panel: ${pt}`);
+if (!/^A fine house[\s\S]*Plays · last[\s\S]*To become a villa: wine/.test(pt ?? '')) fail(`fine house panel: ${pt}`);
 // #actor: following the actor.
 await open('#actor');
 if (!(await city()).following) fail('#actor is not following the actor');
-// #closed: the theatre gone and the west street cut; wide signs for three or more needs (since slice 10 the cut street goes without oil too), and the panel says what goes.
+// #closed: the theatre gone and the west street cut; a sign over every warned home, and the panel says what goes.
+// (Since slice 11 the culture town's homes are fine and fleeced, so the cut street goes without water and plays but not three needs at once:
+// the wide signs are checked on a villa in the slice 11 part below.)
 await open('#closed');
 c = await city();
-if (!(c.theatres === 0 && c.warned >= 15 && c.signs >= c.warned && c.signsWide >= 3 && c.panel > 0)) fail(`#closed: ${JSON.stringify(c)}`);
+if (!(c.theatres === 0 && c.warned >= 10 && c.signs >= c.warned && c.panel > 0)) fail(`#closed: ${JSON.stringify(c)}`);
 pt = await panelText();
 if (!/they give up the (townhouse for a cottage|fine house for a townhouse)/.test(pt ?? '')) fail(`#closed panel: ${pt}`);
-if (!(await page.evaluate(() => window.__zeus.meshes().filter((m) => /^sign-rim-[345]$/.test(m.name)).reduce((n, m) => n + m.count, 0) >= 3))) fail('#closed: no wide signs drawn');
 
 // Slice 7: a town worth keeping.
 const zeus = (f, arg) => page.evaluate(f, arg);
@@ -707,14 +708,14 @@ c = await city();
 const legendText = await zeus(() => (document.querySelector('.legend')?.hidden ? '' : document.querySelector('.legend')?.textContent ?? ''));
 pt = await panelText();
 if (!(c.overlayMode === 'variety' && c.dairies === 1 && c.panel > 0 && /On the table/.test(legendText) && /two kinds of food[\s\S]*cheese/.test(pt ?? ''))) fail(`#table: ${legendText} ${pt} ${JSON.stringify(c)}`);
-// L cycles the food overlay, then the variety overlay, then oil, then off.
+// L cycles the food overlay, then the variety overlay, then oil, fleece, wine, then off.
 const ls = [];
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 6; i++) {
   await page.keyboard.press('l');
   await frames(1);
   ls.push((await city()).overlay ? (await city()).overlayMode : 'off');
 }
-if (ls.join() !== 'oil,off,food,variety') fail(`L did not cycle oil, off, food, variety (${ls})`);
+if (ls.join() !== 'oil,fleece,wine,off,food,variety') fail(`L did not cycle oil, fleece, wine, off, food, variety (${ls})`);
 // #overhunt: three lodges after one valley's deer; the lodge tool beside the lane says the game is shared and thin.
 await open('#overhunt-paused');
 c = await city();
@@ -786,6 +787,60 @@ pt = await panelText();
 const oilLines = await zeus(() => window.__zeus.townLines());
 if (!(c.noOil > 0 && c.presses === 0 && c.panel > 0 && /Oil/.test(pt ?? '') && oilLines.some((l) => /^Oil: /.test(l)))) fail(`#nooil: ${JSON.stringify(oilLines)} ${pt} ${JSON.stringify(c)}`);
 if (errors.length) fail('page errors (slice 10):\n' + errors.join('\n'));
+// Slice 11: fleece, wine and the villa.
+// #pasture: a sheep pasture, a fleece stall, fine houses with fleece; the pasture and the storehouse say what they hold.
+await open('#pasture-paused');
+c = await city();
+if (!(c.pastures >= 1 && c.fleeceStalls >= 1 && c.fleeced > 5 && c.fine > 5)) fail(`#pasture: ${JSON.stringify(c)}`);
+for (const [kind, re] of [
+  ['pasture', /^A sheep pasture · [\d,]+ of [\d,]+ bales of fleece/],
+  ['storehouse', /^A storehouse · [\s\S]*bales of fleece/],
+]) {
+  const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
+  await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
+  await frames(4);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  if (!re.test(t ?? '')) fail(`hovering the ${kind} in #pasture: ${t}`);
+}
+// #fleecevendor and #winevendor: following the vendor, the overlay on.
+for (const [hash, mode, count, name] of [['#fleecevendor', 'fleece', 'fleeceVendors', 'fleece vendor'], ['#winevendor', 'wine', 'wineVendors', 'wine vendor']]) {
+  await open(hash);
+  c = await city();
+  if (!(c.following && c.overlay && c.overlayMode === mode && c[count] > 0)) fail(`${hash}: ${JSON.stringify(c)}`);
+  const chip = await zeus(() => document.querySelector('.follow-chip')?.textContent ?? '');
+  if (!chip.includes(name)) fail(`${hash} follow chip: ${chip}`);
+}
+// #vineyard: the vineyard tool in hand; its tip names the vine ground.
+await open('#vineyard-paused');
+c = await city();
+if (c.tool !== 'vineyard') fail(`#vineyard tool: ${c.tool}`);
+gt = await groveTipAt(7.5, 78.5);
+if (!/vine/i.test(gt ?? '')) fail(`#vineyard tip: ${gt}`);
+// #winery: following an ox cart from the winery; the winery and the vineyard say what they hold.
+await open('#winery-paused');
+c = await city();
+if (!(c.following && c.vineyards >= 1 && c.wineries >= 1)) fail(`#winery: ${JSON.stringify(c)}`);
+for (const [kind, re] of [
+  ['vineyard', /^A vineyard · vine ground \d+%/],
+  ['winery', /^A winery · [\d,]+ of [\d,]+ amphorae of wine/],
+]) {
+  const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
+  await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
+  await frames(4);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  if (!re.test(t ?? '')) fail(`hovering the ${kind} in #winery: ${t}`);
+}
+// #villas: ten or more villas, all three stalls, a villa's panel; seven needs at once draw the widest sign.
+await open('#villas-paused');
+c = await city();
+if (!(c.villas >= 10 && c.fleeceStalls >= 1 && c.wineStalls >= 1 && c.oilStalls >= 1 && c.wined >= 10 && c.panel > 0)) fail(`#villas: ${JSON.stringify(c)}`);
+pt = await panelText();
+if (!/^A villa[\s\S]*Fleece · lasts[\s\S]*Wine · lasts[\s\S]*A villa is as grand as homes get/.test(pt ?? '')) fail(`villa panel: ${pt}`);
+const villa = await zeus(() => window.__zeus.homes().find((h) => h.level === 6));
+await zeus((id) => window.__zeus.warnAll(id), villa.id);
+await frames(4);
+if (!(await zeus(() => window.__zeus.meshes().filter((m) => m.name === 'sign-rim-7').reduce((n, m) => n + m.count, 0) >= 1))) fail('#villas: no seven-wide sign drawn');
+if (errors.length) fail('page errors (slice 11):\n' + errors.join('\n'));
 // A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
 await open('#saved-paused');
@@ -826,6 +881,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

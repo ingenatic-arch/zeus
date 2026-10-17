@@ -2,6 +2,91 @@
 
 Notes to Oliver, newest first.
 
+## Slice 11 — Fleece, wine and the villa (17 Oct)
+
+The town gets its last two goods and its grandest homes: sheep pastures and fleece, vineyards, a winery and wine, a fleece stall and a wine stall at the agora, fine houses that now need fleece, and villas, a sixth level for fine houses that also have wine. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing is lost. A slice 10 save opens with eight months' grace for its fine houses: they say at once that they have no fleece and why, but nothing warns or goes down for eight months. The welcome back says what to build (a sheep pasture, a storehouse if there isn't one, a fleece stall), and that wine makes villas. Older saves go through every step. The cottage demos and `#shrine`, `#priestess` and `#grove` open exactly as before. The demos with fine houses now build a sheep pasture by the lane and a fleece stall at the lane's agora before their theatre, so they open later and richer: `#theatre` at 713 people and 395 drachmas (was 640 and 290), `#fine` at 830 and 968 (802 and 561), the same levels. `#closed` changed most, see What's new. `#town` gets a pasture and a fleece stall too, and to keep its fine houses' plays I moved its theatre a little north-east, to where it also reaches the far east end of the main street. It opens with 724 people and 513 drachmas (596 and 531), with 5 tents, 21 huts, 10 cottages, 7 townhouses and 38 fine houses. `#harsh` runs its harsh taxes for longer (950 ticks, was 450) before it opens, because with fleece nobody had left by then. `#nooil` rebuilds its storehouse a day after clearing it, so only oil goes missing.
+
+### What's new
+- **Goods as data.** Oil, fleece and wine are rows in the same tables. The household panel, warnings, going down, overlays, signs, tips and town lines all treat every good the same way, and each stall has its own porter, so no stall waits behind another.
+- **The sheep pasture** (M six times, 150 dr, 4 workers) goes on green grass and yields by how good the grass is: up to 200 bales of fleece a month. You see a ring-shaped stone fold, a stone hut under thatch with the shepherd's crook, an open shearing shelter with bales stacked under it as the store fills, and a trough. Nine sheep (cream, two grey, one black) graze in and round the fold, never on roads or buildings. Ox carts take the bales to the storehouse.
+- **The vineyard** (M seven times, 150 dr, 4 workers) goes on dry, sunny slopes, best facing the afternoon sun. The placing tool tints poor ground and says about how much wine a month a vineyard there would give. You see four rows of trellised vines, each length on its own ground down the slope, and bunches of grapes that go from green to purple as the crop ripens. There's a whitewashed hut with a pergola, and baskets of grapes. A full harvest is 400 measures every two months. Carts take the grapes to a winery.
+- **The winery** (M eight times, 200 dr, 4 workers): a stone press house under tiles with a wine-red band, a round treading vat of purple must, a lean-to and amphorae by the door. It makes up to 300 amphorae of wine a month while it has grapes. Carts take the wine to the storehouse.
+- **The storehouse** has rooms for 1,200 bales and 1,200 amphorae beside its 1,600 jars of oil. Its yard shows jars on one side, bales at the back and amphorae by the gate. Hovering it lists each.
+- **The fleece stall and the wine stall** (K three and four times, then click an agora; 100 dr and one more worker each) go beside the oil stall, each under its own awning. The fleece vendor wears slate blue and carries a bale of fleece on her head. The wine vendor wears wine red and carries an amphora. A home they reach has fleece or wine for six months.
+- **Fleece is a need for fine houses.** A townhouse with everything else climbs to a fine house only once fleece reaches it. A fine house that loses fleece warns, then goes down two months later.
+- **The villa.** A fine house that also has wine becomes a villa: 27 people (a fine house holds 21), and the most tax (12 dr a month at fair, a fine house pays 9). There are two kinds:
+  - a peristyle villa: a tall hall under a hipped roof with a little tower, wings round a garden court with a colonnade, a pool and an olive tree, and a gateway with a pediment;
+  - a garden villa: an L-shaped house with an upper loggia and a columned portico, and a walled garden with a basin, an olive, cypresses and a vine pergola.
+
+  Both are warm cream stucco with a Pompeian red band, so a villa street reads apart from the whitewashed fine houses. "Villa" floats up when one climbs. The panel says "A villa is as grand as homes get".
+- **`#closed` tells its story again.** Its fine houses now have fleece from the lane's stall. The cut street goes without water and plays, so its signs show two icons, not four or five. The scene opens with the most urgent home at least two weeks from going down. In the test, rebuilding the theatre across from the shrine and mending the ringed road at once loses at most 8 homes a level; left alone, 26 go down.
+- **Readable:** hovering a pasture, vineyard, winery or stall says what it holds, makes and waits for. Carts, porters and vendors say what they carry. The panel lists fleece and wine under what a home has and lacks, with the missing link in the chain. Signs take up to seven icons. The panel's mood names "warm cloaks of their own wool" and "wine with every meal".
+- **Overlays:** fleece (L four times) and wine (L five times).
+- **Keys:** M cycles farm, lodge, dairy, grove, press, pasture, vineyard and winery. K cycles agora and the oil, fleece and wine stalls. L cycles food, variety, oil, fleece, wine and off. Shift goes back through any of these.
+
+### What to try
+1. Open `#vineyard`: the fine-house town, with the vineyard tool in hand over the sunny slope west of the town. Plant a vineyard or two, build a winery beside the road (M ×8) and add a wine stall to the agora by the lane (K ×4, click the agora). Watch the fine houses nearest the agora become villas as the wine reaches them. In my run (two vineyards, the winery across the road, all at once) the first wine reached a home 153 days after planting, and the first villa came a day later. The treasury fell from 968 to 397 drachmas on building and touched 33 at its lowest.
+2. Open `#villas`: the same town nine months after its wine went in. It has 14 villas beside fine houses the wine vendor hasn't reached yet, with the panel open on a villa. Compare a villa street with a fine-house street, and their tax and chatter.
+3. Open `#winery`: over the vineyards and the winery, with carts of grapes coming in. Hover them.
+4. Open `#winevendor`: following the wine vendor, with the wine overlay on.
+5. Open `#pasture`: the fine-house town over its sheep pasture by the lane, the flock grazing. Hover the pasture, and the storehouse.
+6. Open `#fleecevendor`: following the fleece vendor, with the fleece overlay on.
+7. Open `#closed` and try the fix: rebuild the theatre and mend the cut road.
+8. Open one of your slice 10 saves (`#saved` or `#continue`). The welcome back says fine houses now need fleece and that they have eight months.
+
+### What I'd like your eye on
+- The villas close up and from the street (`#villas`). Do they read as the grandest homes, and apart from the fine houses? The peristyle's roofs slope into the court over the colonnade; I rebuilt them once after they looked like floating planks.
+- The vineyard (`#winery`, `#vineyard` once planted). The first version's rows looked like little tables. Now each row is clumps of leaves on a wire between stakes. From above, do they read as vines, and do the grapes show as they ripen?
+- The sheep and the fold (`#pasture`): do they read at the usual zoom?
+- The fleece bales: in the storehouse and on carts they are small white lumps, and they may read as stones.
+- The pace: about five months from planting to the first villa in `#vineyard`, with the money close to empty on the way.
+
+### Known rough edges
+- The treading vat and the presses don't move.
+- The porters' handcarts are small. The wine porter's amphorae, lying on the cart, read as brown logs from above.
+- The money in the culture demos is tight while they pay for a third chain. Money pressure is still untouched (slice 14).
+- Seasons for shearing and the vintage aren't in: fleece comes all year, and grapes come every two months.
+
+### Measurements
+- Tests: 178 in 17 files, all passing (was 167 in 16). New, in `tests/fleecewine.test.ts`:
+  - every good as a row of data;
+  - pastures need grass and vineyards need vine ground;
+  - fleece reaching `#fine`'s fine houses, and a fine house that loses it going down;
+  - `#villas`' villas, and that a villa pays the most tax;
+  - grape carts going to a winery and wine carts to a storehouse;
+  - a porter for each stall;
+  - a save in the middle of the chain carrying on identically;
+  - a real slice 10 save (`tests/fixtures/slice10-fine.save.json.gz`) loading with eight months' grace.
+
+  `#closed` has a new test that it can be saved. Every cottage demo, `#shrine`, `#priestess` and `#grove` fingerprint exactly as before.
+- Smoke: extended with these new checks:
+  - `#pasture`'s pasture and storehouse hovers;
+  - following the fleece and wine vendors, with their overlays;
+  - the vineyard tool and its tip;
+  - `#winery`'s follow and its vineyard and winery hovers;
+  - `#villas` and a villa's panel;
+  - the seven-wide sign;
+  - L cycling through fleece and wine.
+
+  Every demo token opens with no page errors.
+- Download: 299 KB compressed (was 286 KB).
+- Load, by the page's own clock: ready at 1.04 s and first frame at 1.25 s (was 1.39 and 1.66). `#town`: ready at 1.57 s and first frame at 2.08 s (was 1.66 and 2.23). Target: under 3 seconds.
+- Draw batches and triangles, before → after:
+  - The opening view and every cottage demo: unchanged.
+  - `#fine`: 625,000 → 634,000 triangles, 70 → 71 draws. Overview: 102 → 103 draws.
+  - `#closed`: 595,000 → 617,000 triangles, 84 → 79 draws. Overview: 117 → 112 draws.
+  - `#town`: 739,000 → 812,000 triangles, 79 → 83 draws; its town is bigger (724 people, 58 walkers, was 596 and 41). Overview: 857,000 → 929,000 triangles, 105 → 109 draws.
+  - New: `#villas` 712,000 triangles and 80 draws; its overview 888,000 and 110.
+- Walker padding: unchanged at 1,356 vertices a look for people and animals (the stag) and 2,412 for carts (the oil cart). The wine cart first came to 2,808 and the wine porter to 1,458, which would have made every walker dearer to draw. They now carry four and two amphorae.
+- Main-thread time per frame before drawing, paused / running:
+  - `#food`: 0.76 / 0.89 ms (was 0.55 / 0.93).
+  - `#fine`: 0.57 / 1.61 (was 1.02 / 1.87).
+  - `#town`: 0.74 / 5.25 (was 0.83 / 4.65; the running figure is noisy).
+- A save of `#town`: 248 KB (was 203 KB; a bigger town).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 10 — Olives and oil, and the storehouse (16 Oct)
 
 The city makes its first good: olive groves on the dry slopes, an olive press, a storehouse of jars and an oil stall at the agora, and townhouses now need oil. You weren't here while it was built: every choice below is mine, from the spec's defaults.

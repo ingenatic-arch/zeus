@@ -119,8 +119,8 @@ await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout:
 console.log(`load #food (local, headless): ready in ${Date.now() - t3} ms`);
 for (const [cam, overlay] of [['food', false], ['food', true], ['vendor', false], ['harvest', false], ['chain', false], ['overview', false]]) {
   await page.evaluate((c) => window.__zeus.setView(c), cam);
-  const on = await page.evaluate(() => window.__zeus.city().overlay);
-  if (on !== overlay) await page.keyboard.press('l');
+  // L cycles every overlay before off (food, variety, oil, fleece, wine): press it until the overlay is as wanted.
+  for (let i = 0; i < 8 && (await page.evaluate(() => window.__zeus.city().overlay)) !== overlay; i++) await page.keyboard.press('l');
   const f = await page.evaluate(() => window.__zeus.frames);
   await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
   const info = await page.evaluate(() => window.__zeus.info());
