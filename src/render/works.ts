@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM, stallRoom } from '../sim/food';
-import { FLEECE, GRAPES, held, OIL, OLIVES, WINE } from '../sim/foods';
+import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WHEAT, WINE } from '../sim/foods';
+import { berthOf, QUAY_ROOM } from '../sim/trade';
 import { hasStall } from '../sim/goods';
 import { MAKERS, stageOf } from '../sim/production';
 import { GROVE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
@@ -588,7 +589,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * hillsides, and their floors and yards stand on terraces whose foundations
  * run down the slope, so nothing is buried on the uphill side.
  */
-const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery']);
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading']);
 
 
 // ---------------------------------------------------------------------------
@@ -1098,12 +1099,118 @@ const WINERY_PIECES: Placed[] = [{ piece: 'vat', lx: 0.4, lz: -0.55, yaw: 0, len
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The ship comes in (slice 13).
+
+/**
+ * The trading post, its front (+x) to the sea: a paved stone quay on a
+ * foundation that runs down into the slope and the water, a whitewashed
+ * counting house with a tiled roof and a pennant at the back corner, a
+ * wooden crane by the jetty's mouth, stone bollards along the edge and a
+ * coil of rope. The goods waiting for the ship are drawn with its stock.
+ */
+const QUAY_CRANE: [number, number] = [1.18, 1.12];
+function tradingModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // The quay: its foundation runs down into the slope and the sea; a darker kerb along its edges.
+  parts.push({ geo: slab(-1.49, -1.49, 1.49, 1.49, -1.6, 0.05), color: PAL.quayStone });
+  for (const [x0, z0, x1, z1] of [[1.36, -1.49, 1.5, 1.49], [-1.49, -1.5, 1.5, -1.38], [-1.49, 1.38, 1.5, 1.5]]) parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.1), color: PAL.quayStoneDark });
+  // Courses in the seaward face.
+  for (let k = 0; k < 4; k++) parts.push({ geo: slab(1.49, -1.5, 1.52, 1.5, -0.32 - k * 0.32, -0.3 - k * 0.32), color: PAL.quayStoneDark });
+  // Paving joints across the quay.
+  for (let k = 0; k < 6; k++) parts.push({ geo: slab(-0.35 + k * 0.29, -1.38, -0.34 + k * 0.29, 1.38, 0.05, 0.056), color: PAL.pavingDark });
+  // The counting house along the landward side (local -z), its door and windows to the quay: whitewashed, a tiled ridge roof.
+  const hx0 = -1.42;
+  const hx1 = 0.22;
+  const hz0 = -1.42;
+  const hz1 = -0.64;
+  parts.push({ geo: slab(hx0 - 0.03, hz0 - 0.03, hx1 + 0.03, hz1 + 0.03, 0.05, 0.12), color: PAL.plinth });
+  parts.push({ geo: slab(hx0, hz0, hx1, hz1, 0.12, 0.84), color: PAL.whitewash });
+  parts.push({ geo: slab(hx0 - 0.01, hz0 - 0.01, hx1 + 0.01, hz1 + 0.01, 0.8, 0.84), color: PAL.whitewashShade });
+  parts.push({ geo: prism(hx1 - hx0 + 0.18, (hz1 - hz0) / 2 + 0.1, 0.32).translate((hx0 + hx1) / 2, 0.84, (hz0 + hz1) / 2), color: PAL.roofTile });
+  for (let k = 0; k < 8; k++) {
+    const x = hx0 - 0.04 + (k * (hx1 - hx0 + 0.08)) / 7;
+    for (const side of [-1, 1]) {
+      parts.push({ geo: cyl(0.016, 0.016, 0.52, 4).rotateX(Math.PI / 2).rotateX(side * 0.55).translate(x, 1.0, (hz0 + hz1) / 2 + side * 0.24), color: PAL.roofTileDark });
+    }
+  }
+  parts.push({ geo: cyl(0.03, 0.03, hx1 - hx0 + 0.2, 5).rotateZ(Math.PI / 2).translate((hx0 + hx1) / 2, 1.16, (hz0 + hz1) / 2), color: PAL.roofTileDark });
+  const toQuay = (ps: Part[], x: number, z: number): Part[] => ps.map((q) => ({ ...q, geo: q.geo.rotateY(-Math.PI / 2).translate(x, 0, z) }));
+  parts.push({ geo: slab(-0.72, hz1, -0.46, hz1 + 0.02, 0.12, 0.6), color: PAL.door });
+  parts.push(...toQuay(windowX(0, 0.5, 0), -1.1, hz1 + 0.005), ...toQuay(windowX(0, 0.5, 0), -0.1, hz1 + 0.005));
+  // Its pennant, on a pole at the seaward gable: the sail's red, so the post reads from afar.
+  parts.push({ geo: cyl(0.014, 0.016, 0.95, 4).translate(hx1 + 0.06, 1.0, (hz0 + hz1) / 2), color: PAL.pole });
+  parts.push({ geo: new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.18, 0), new THREE.Vector3(0.34, -0.08, 0)]).translate(hx1 + 0.07, 1.46, (hz0 + hz1) / 2), color: PAL.sailStripe });
+  // A bench and a pair of scales by the door, under a little awning.
+  parts.push({ geo: new THREE.BoxGeometry(0.62, 0.035, 0.34).rotateX(0.3).translate(-0.28, 0.66, hz1 + 0.15), color: PAL.thatch });
+  for (const x of [-0.56, 0.0]) parts.push({ geo: cyl(0.016, 0.018, 0.6, 4).translate(x, 0.33, hz1 + 0.3), color: PAL.wood });
+  parts.push({ geo: slab(-0.4, hz1 + 0.04, 0.0, hz1 + 0.22, 0.05, 0.25), color: PAL.wood });
+  parts.push({ geo: cyl(0.008, 0.008, 0.2, 3).translate(-0.2, 0.35, hz1 + 0.13), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.004, 0.004, 0.18, 3).rotateZ(Math.PI / 2).translate(-0.2, 0.45, hz1 + 0.13), color: PAL.woodDark });
+  for (const x of [-0.28, -0.12]) parts.push({ geo: cyl(0.035, 0.02, 0.012, 6).translate(x, 0.37, hz1 + 0.13), color: PAL.amphoraDark });
+  // The crane by the jetty's mouth: a post on a stone footing, a jib leaning out over the water, its rope and a hook.
+  const [cx, cz] = QUAY_CRANE;
+  parts.push({ geo: cyl(0.12, 0.14, 0.12, 6).translate(cx, 0.11, cz), color: PAL.quayStoneDark });
+  parts.push({ geo: cyl(0.045, 0.055, 1.25, 6).translate(cx, 0.72, cz), color: PAL.mast });
+  const jib = 1.15;
+  const tilt = 0.75;
+  parts.push({ geo: cyl(0.03, 0.04, jib, 5).translate(0, jib / 2, 0).rotateZ(-tilt).translate(cx, 1.05, cz), color: PAL.mast });
+  const tipX = cx + Math.sin(tilt) * jib;
+  const tipY = 1.05 + Math.cos(tilt) * jib;
+  parts.push({ geo: cyl(0.006, 0.006, 0.62, 3).translate(tipX, tipY - 0.31, cz), color: PAL.rope });
+  parts.push({ geo: new THREE.TorusGeometry(0.03, 0.008, 3, 6, Math.PI * 1.4).translate(tipX, tipY - 0.64, cz), color: PAL.woodDark });
+  // A back-stay from the jib's tip to the post's foot, and a winch drum.
+  const stay = Math.hypot(tipX - cx + 0.1, tipY - 0.3);
+  parts.push({ geo: cyl(0.005, 0.005, stay, 3).translate(0, stay / 2, 0).rotateZ(-Math.atan2(tipX - cx + 0.1, tipY - 0.3)).translate(cx - 0.1, 0.3, cz), color: PAL.rope });
+  parts.push({ geo: cyl(0.06, 0.06, 0.2, 7).rotateX(Math.PI / 2).translate(cx - 0.15, 0.3, cz), color: PAL.wood });
+  // Bollards along the seaward edge, either side of the jetty, and a coil of rope by one.
+  for (const z of [-0.62, 0.62]) {
+    parts.push({ geo: cyl(0.055, 0.065, 0.16, 6).translate(1.3, 0.13, z), color: PAL.stoneBlockShade });
+    parts.push({ geo: cyl(0.07, 0.07, 0.03, 6).translate(1.3, 0.22, z), color: PAL.stoneBlockShade });
+  }
+  parts.push({ geo: new THREE.TorusGeometry(0.075, 0.022, 4, 8).rotateX(Math.PI / 2).translate(1.12, 0.07, -0.85), color: PAL.rope });
+  parts.push({ geo: new THREE.TorusGeometry(0.05, 0.02, 4, 7).rotateX(Math.PI / 2).translate(1.12, 0.1, -0.85), color: PAL.rope });
+  return merge(parts);
+}
+
+/**
+ * The trading post's jetty, `len` long, from its quay's seaward edge (local
+ * x 1.5) out along +x at the quay's floor: a plank deck on pairs of piles
+ * running down into the sea, a bollard at each corner of its end where the
+ * ship's lines go.
+ */
+function jettyModel(len: number): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = 1.42;
+  const x1 = 1.5 + len;
+  const hw = 0.3;
+  // The deck: planks across it, a touch uneven in colour.
+  const planks = Math.max(4, Math.round((x1 - x0) / 0.12));
+  for (let k = 0; k < planks; k++) {
+    const a = x0 + (k * (x1 - x0)) / planks;
+    const b = x0 + ((k + 1) * (x1 - x0)) / planks - 0.012;
+    parts.push({ geo: slab(a, -hw, b, hw, -0.01, 0.045), color: k % 3 === 1 ? PAL.wood : PAL.jettyPlank });
+  }
+  // Two beams under the planks, the length of it.
+  for (const z of [-hw + 0.05, hw - 0.05]) parts.push({ geo: slab(x0, z - 0.035, x1, z + 0.035, -0.09, -0.01), color: PAL.jettyPile });
+  // Piles in pairs, about every 0.8, down into the water and the sea floor; a cross-brace on each pair.
+  const pairs = Math.max(2, Math.round((x1 - x0) / 0.8) + 1);
+  for (let k = 0; k < pairs; k++) {
+    const x = x0 + 0.15 + (k * (x1 - x0 - 0.25)) / (pairs - 1);
+    for (const z of [-hw + 0.02, hw - 0.02]) parts.push({ geo: cyl(0.04, 0.045, 3.2, 5).translate(x, -1.6, z), color: PAL.jettyPile });
+    parts.push({ geo: slab(x - 0.02, -hw, x + 0.02, hw, -0.24, -0.16), color: PAL.jettyPile });
+  }
+  // Bollards at the end, and a rail of rope posts along one side.
+  for (const z of [-hw + 0.06, hw - 0.06]) parts.push({ geo: cyl(0.035, 0.045, 0.16, 5).translate(x1 - 0.08, 0.12, z), color: PAL.jettyPile });
+  return merge(parts);
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1144,6 +1251,13 @@ const STORE_AMPHORAE = 12;
 const STALL_AMPHORAE = 3;
 const VINEYARD_BASKETS = 6;
 const WINERY_BASKETS = 5;
+/** What shows of each good waiting on the trading post's quay for the ship: sacks, hams, cheeses, jars, bales, amphorae. */
+const QUAY_SACKS = 12;
+const QUAY_HAMS = 6;
+const QUAY_CHEESES = 6;
+const QUAY_JARS = 8;
+const QUAY_BALES = 6;
+const QUAY_AMPHORAE = 8;
 /** The grapes' colour on the vine, from just set (green) to ripe (purple). */
 const GRAPE_GREEN = new THREE.Color(PAL.grapeGreen);
 const GRAPE_RIPE = new THREE.Color(PAL.grapeRipe);
@@ -1239,6 +1353,7 @@ export class Works {
       sheeptrough: sheepTrough(),
       vinerow: vineRow(),
       vat: treadingVat(),
+      trading: tradingModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1267,8 +1382,29 @@ export class Works {
   }
 
   /** What a building looks like now: its facing and the state of its crop or stock. */
+  /** Which way a building faces: its road (local +x towards it), or for the trading post, its jetty and the sea. */
+  private yawOf(s: SimState, b: Building): number {
+    if (b.kind === 'trading') {
+      const berth = berthOf(this.map, b);
+      if (berth) return Math.atan2(-berth.oz, berth.ox);
+    }
+    return facingOf(s, this.map.size, b);
+  }
+
+  /** The trading post's jetty for a length (a few posts in a game: kept by length). */
+  private jetties = new Map<string, THREE.BufferGeometry>();
+  private jetty(len: number): THREE.BufferGeometry {
+    const k = len.toFixed(2);
+    let g = this.jetties.get(k);
+    if (!g) this.jetties.set(k, (g = jettyModel(len)));
+    return g;
+  }
+
   private sig(s: SimState, b: Building): string {
-    const face = facingOf(s, this.map.size, b).toFixed(2);
+    const face = this.yawOf(s, b).toFixed(2);
+    if (b.kind === 'trading') {
+      return `trading:${face}:${shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), QUAY_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES)}:${shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE)}`;
+    }
     if (b.kind === 'farm') {
       const g = Math.floor((b.growth / GROW) * GROWTH_STEPS);
       return `farm:${face}:${g}:${rateOf(b) > 0 ? 1 : 0}:${shown(b.stock, BARN, STOOKS)}`;
@@ -1397,7 +1533,6 @@ export class Works {
     const s = this.state;
     if (!s) return;
     const map = this.map;
-    const size = map.size;
     const list = this.byChunk.get(key) ?? [];
     const kx = ((key % 1024) - 512 + 0.5) * HOME_CHUNK;
     const kz = (Math.floor(key / 1024) - 512 + 0.5) * HOME_CHUNK;
@@ -1412,6 +1547,7 @@ export class Works {
     const pastures = list.filter((b) => b.kind === 'pasture');
     const vineyards = list.filter((b) => b.kind === 'vineyard');
     const wineries = list.filter((b) => b.kind === 'winery');
+    const posts = list.filter((b) => b.kind === 'trading');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
@@ -1437,7 +1573,7 @@ export class Works {
       if (f) return f;
       const cx = b.x + 1.5;
       const cz = b.z + 1.5;
-      const yaw = facingOf(s, size, b);
+      const yaw = this.yawOf(s, b);
       let y: number;
       const foot = MAIN_FOOT[b.kind];
       const high = HIGH_FOOT.has(b.kind);
@@ -1494,6 +1630,12 @@ export class Works {
       if (hasStall(b, OIL)) add(b, 'oilstall', m, 'oilstall');
       if (hasStall(b, FLEECE)) add(b, 'fleecestall', m, 'fleecestall');
       if (hasStall(b, WINE)) add(b, 'winestall', m, 'winestall');
+      if (b.kind === 'trading') {
+        // Its jetty, out from the quay's seaward edge to where the ship lies.
+        const berth = berthOf(map, b);
+        const f = frame(b);
+        if (berth) items.push({ key: `${b.id}:jetty:${berth.len.toFixed(2)}:${f.yaw.toFixed(3)}:${f.k.toFixed(3)}`, geo: this.jetty(berth.len), m });
+      }
     }
     // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
     // (Kept from fill to fill while the building stands and faces the same way: the ground doesn't change.)
@@ -1570,8 +1712,16 @@ export class Works {
     for (let c = 0; c < 4; c++) sackAt.push([0.67, -0.3 + c * 0.2, 0.13]);
     const sacks: Array<{ b: Building; i: number }> = [];
     for (const b of granaries) for (let i = 0; i < shown(b.stock, GRANARY_CAP, SACKS); i++) sacks.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS); i++) sacks.push({ b, i });
     this.sacks.set(kx, kz, sacks.length, (n, m) => {
       const { b, i } = sacks[n];
+      if (b.kind === 'trading') {
+        // On the quay's landward corner: a layer of nine, then three on top.
+        const top = i >= 9;
+        const k = top ? i - 9 : i;
+        part(b, m, -1.28 + (k % 3) * 0.23 + (top ? 0.12 : 0), 0.62 + Math.floor(k / 3) * 0.24 + (top ? 0.12 : 0), 1.57 + (hash2(b.id, i, 1301) - 0.5) * 0.5, [1, 1, 1], false, 0.05 + (top ? 0.12 : 0));
+        return;
+      }
       const [lx, lz, y] = sackAt[i];
       part(b, m, lx, lz, 1.57 + (hash2(b.id, i, 198) - 0.5) * 0.5, [1, 1, 1], true, y + 0.01);
     });
@@ -1593,9 +1743,13 @@ export class Works {
     for (const b of lodges) for (let i = 0; i < shown(b.meat, LODGE_STORE, RACK); i++) hams.push({ b, i });
     for (const b of granaries) for (let i = 0; i < shown(b.meat, GRANARY_ROOM[1], STORE_HAMS); i++) hams.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.meat, STALL_FULL_MEAT, STALL_HAMS); i++) hams.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS); i++) hams.push({ b, i });
     this.collect(this.hamsBy, key, hams.length, (n, m) => {
       const { b, i } = hams[n];
-      if (b.kind === 'lodge') {
+      if (b.kind === 'trading') {
+        part(b, m, -0.52 + Math.floor(i / 2) * 0.16, -0.24 + (i % 2) * 0.24, Math.PI / 2 + (hash2(b.id, i, 1302) - 0.5) * 0.5, [1, 1, 1], false, 0.1);
+        m.multiply(LIE);
+      } else if (b.kind === 'lodge') {
         // Two to a side of each frame's middle, hanging from the pole (0.58 up), swaying a little each.
         const lz = -0.55 + i * 0.22;
         part(b, m, RACK_PIECE.lx, lz, hash2(b.id, i, 431) * 2, [1.3, 1.3, 1.3], pieceBase(b, RACK_PIECE), 0.58 - 0.15);
@@ -1616,9 +1770,14 @@ export class Works {
     for (const b of dairies) for (let i = 0; i < shown(b.cheese, DAIRY_STORE, BENCH); i++) cheeses.push({ b, i });
     for (const b of granaries) for (let i = 0; i < shown(b.cheese, GRANARY_ROOM[2], STORE_CHEESES); i++) cheeses.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES); i++) cheeses.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES); i++) cheeses.push({ b, i });
     this.collect(this.cheesesBy, key, cheeses.length, (n, m) => {
       const { b, i } = cheeses[n];
-      if (b.kind === 'dairy') {
+      if (b.kind === 'trading') {
+        const k = i % 3;
+        const layer = Math.floor(i / 3);
+        part(b, m, -0.48 + (k % 2) * 0.16, 0.66 + k * 0.15, hash2(b.id, i, 1303), [1, 1, 1], false, 0.05 + layer * 0.055);
+      } else if (b.kind === 'dairy') {
         const top = i >= 6;
         const k = top ? i - 6 : i;
         part(b, m, 0.42 + k * 0.155 + (top ? 0.3 : 0), BENCH_Z, hash2(b.id, i, 433), [1, 1, 1], false, 0.24 + (top ? 0.055 : 0));
@@ -1668,9 +1827,12 @@ export class Works {
     for (const b of presses) for (let i = 0; i < shown(held(b, OIL), PRESS_STORE, PRESS_JARS); i++) jars.push({ b, i });
     for (const b of storehouses) for (let i = 0; i < shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS); i++) jars.push({ b, i });
     for (const b of agoras) if (hasStall(b, OIL)) for (let i = 0; i < shown(held(b, OIL), STALL_FULL_OIL, STALL_JARS); i++) jars.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, OIL), QUAY_ROOM, QUAY_JARS); i++) jars.push({ b, i });
     this.collect(this.jarsBy, key, jars.length, (n, m) => {
       const { b, i } = jars[n];
-      if (b.kind === 'press') {
+      if (b.kind === 'trading') {
+        part(b, m, 0.22 + Math.floor(i / 4) * 0.18, -0.32 + (i % 4) * 0.16 + Math.floor(i / 4) * 0.05, hash2(b.id, i, 1304), [1, 1, 1], false, 0.05);
+      } else if (b.kind === 'press') {
         // By the door, two rows of four.
         part(b, m, 0.0 + Math.floor(i / 4) * 0.17, -1.3 + (i % 4) * 0.15, hash2(b.id, i, 783), [0.9, 0.9, 0.9], true, 0.0);
       } else if (b.kind === 'storehouse') {
@@ -1719,9 +1881,15 @@ export class Works {
     for (const b of pastures) for (let i = 0; i < shown(held(b, FLEECE), PASTURE_STORE, PASTURE_BALES); i++) bales.push({ b, i });
     for (const b of storehouses) for (let i = 0; i < shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES); i++) bales.push({ b, i });
     for (const b of agoras) if (hasStall(b, FLEECE)) for (let i = 0; i < shown(held(b, FLEECE), STALL_FULL_FLEECE, STALL_BALES); i++) bales.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES); i++) bales.push({ b, i });
     this.collect(this.balesBy, key, bales.length, (n, m) => {
       const { b, i } = bales[n];
-      if (b.kind === 'pasture') {
+      if (b.kind === 'trading') {
+        // Four on the quay, two on top.
+        const top = i >= 4;
+        const k = top ? i - 4 : i;
+        part(b, m, -1.24 + (k % 2) * 0.27 + (top ? 0.13 : 0), -0.26 + Math.floor(k / 2) * 0.3, hash2(b.id, i, 1305) * 0.6, [1.05, 1.05, 1.05], false, 0.05 + (top ? 0.13 : 0));
+      } else if (b.kind === 'pasture') {
         // Under the shelter, a layer of four, then two on top.
         const top = i >= 4;
         const k = top ? i - 4 : i;
@@ -1741,9 +1909,12 @@ export class Works {
     for (const b of wineries) for (let i = 0; i < shown(held(b, WINE), WINERY_STORE, WINERY_AMPHORAE); i++) amph.push({ b, i });
     for (const b of storehouses) for (let i = 0; i < shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE); i++) amph.push({ b, i });
     for (const b of agoras) if (hasStall(b, WINE)) for (let i = 0; i < shown(held(b, WINE), STALL_FULL_WINE, STALL_AMPHORAE); i++) amph.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE); i++) amph.push({ b, i });
     this.collect(this.amphoraeBy, key, amph.length, (n, m) => {
       const { b, i } = amph[n];
-      if (b.kind === 'winery') {
+      if (b.kind === 'trading') {
+        part(b, m, 0.16 + (i % 4) * 0.15, 0.74 + Math.floor(i / 4) * 0.2 + (i % 2) * 0.03, hash2(b.id, i, 1306), [1, 1, 1], false, 0.05);
+      } else if (b.kind === 'winery') {
         // Two rows of five under and before the lean-to.
         part(b, m, -1.2 + (i % 5) * 0.19, 0.8 + Math.floor(i / 5) * 0.24, hash2(b.id, i, 865), [1, 1, 1], true, 0.0);
       } else if (b.kind === 'storehouse') {

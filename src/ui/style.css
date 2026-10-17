@@ -137,6 +137,22 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .rate-chip.r0, .rate-chip.r1 { border-color: #7fa65a; }
 .rate-chip.r3 { border-color: #d9a440; background: #fff1d6; }
 .rate-chip.r4 { border-color: var(--terracotta); background: #ffe6d6; color: var(--terracotta-deep); }
+.ship-chip {
+  appearance: none; font: inherit; font-size: 13.5px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums;
+  background: #fff8ea; border: 1.5px solid var(--edge); border-radius: 999px; padding: 3px 9px 3px 7px; margin-left: -4px;
+  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+}
+.ship-chip[hidden] { display: none; }
+.topbar.with-ship .row { gap: 9px; }
+.ship-chip:hover { background: #fff2d6; }
+.ship-chip svg { width: 19px; height: 15px; }
+.ship-chip svg .mast { stroke: #6e4e30; stroke-width: 1.3; fill: none; }
+.ship-chip svg .sail { fill: #f7edd6; stroke: #c0462e; stroke-width: 1.1; stroke-linejoin: round; }
+.ship-chip svg .hull { fill: #7a4a2c; }
+/* Her sail sighted, or tied up loading: the chip calls attention. */
+.ship-chip.p1, .ship-chip.p2 { border-color: #2f6f8e; background: #e8f3f6; }
+.ship-chip.p3 { border-color: #c99a2a; background: #fff3d6; }
 .rates {
   position: absolute; width: 330px; z-index: 6;
   background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
@@ -345,6 +361,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .floater.fire { color: #fff3e0; text-shadow: 0 1px 0 #8a2a10, 0 0 7px rgba(200, 60, 20, 0.85); font-size: 16px; }
 .floater.safe { color: #eef8ff; text-shadow: 0 1px 0 #2c5f8f, 0 0 6px rgba(30, 80, 140, 0.75); font-size: 14px; }
 .floater.wine { color: #fff0fa; text-shadow: 0 1px 0 #5e1a50, 0 0 6px rgba(110, 30, 90, 0.8); font-size: 16px; }
+.floater.sale { color: #fff8e2; text-shadow: 0 1px 0 #6e4a10, 0 0 7px rgba(150, 110, 20, 0.85); font-size: 17px; }
 
 /* The household panel: who lives in a home and how they are doing. */
 .household {
@@ -453,6 +470,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .townline.rubble { border-left-color: #6a6460; }
 .townline:hover { background: #fff6e2; }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.townline.ship { border-left-color: #2f6f8e; background: #eef6f8; }
+.townline.ship svg { width: 19px; }
 @keyframes line-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 kbd {
@@ -551,3 +570,38 @@ kbd {
   .household { top: 92px; max-height: calc(100% - 212px); }
   #ui:has(> .household:not([hidden])) > .notices { width: min(640px, max(260px, calc(100% - 760px))); }
 }
+
+/* The trading post's panel (slice 13): the ship's schedule and the goods she buys. */
+.household.trade { width: 368px; }
+.household.trade .shipnews { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.5); border: 1.5px solid var(--edge); }
+.household.trade .shipnews.here { background: #e8f3f6; border-color: #2f6f8e; }
+.household.trade .shipnews b { font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
+.household.trade .shipnews p { margin: 2px 0 0; font-size: 13px; }
+.household.trade .shipnews .bar { height: 6px; border-radius: 3px; background: rgba(47, 111, 142, 0.16); margin-top: 6px; overflow: hidden; }
+.household.trade .shipnews .bar i { display: block; height: 100%; background: linear-gradient(90deg, #6aa7c0, #2f6f8e); border-radius: 3px; }
+.household.trade table.goods { width: 100%; border-collapse: collapse; font-size: 13px; }
+.household.trade table.goods th { font-weight: normal; font-size: 11.5px; color: var(--ink-soft); text-align: right; padding: 0 3px 2px; font-variant: small-caps; letter-spacing: 0.06em; }
+.household.trade table.goods th:first-child { text-align: left; }
+.household.trade table.goods td { padding: 2px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
+.household.trade table.goods tr.off td { color: var(--ink-soft); }
+.household.trade table.goods td.good { text-align: left; }
+.household.trade table.goods td.good label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.household.trade table.goods td.good input { margin: 0; accent-color: #2f6f8e; cursor: pointer; }
+.household.trade table.goods td.good i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.6); }
+.household.trade table.goods td.price { color: #8a6418; }
+.household.trade table.goods td.keep { white-space: nowrap; }
+.household.trade table.goods td.keep span { display: inline-block; min-width: 40px; text-align: center; }
+.household.trade table.goods td.keep button {
+  appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink);
+  font: inherit; font-size: 14px; line-height: 1; padding: 0 0 1px; cursor: pointer;
+}
+.household.trade table.goods td.keep button:hover { background: #fff2d6; }
+.household.trade table.goods td.keep button:disabled { opacity: 0.4; cursor: default; }
+.household.trade table.goods td.quay { color: #2f5f72; font-weight: bold; min-width: 40px; }
+.household.trade .quayline, .household.trade .dockers { margin: 6px 0 0; font-size: 13px; }
+.household.trade .dockers { color: var(--ink-soft); }
+.household.trade .last { margin: 0; font-size: 13px; }
+.household.trade ul.bought { list-style: none; margin: 3px 0 0; padding: 0; font-size: 12.5px; display: grid; grid-template-columns: 1fr auto; gap: 0 10px; }
+.household.trade ul.bought li { display: contents; }
+.household.trade ul.bought .dr { text-align: right; color: #8a6418; font-variant-numeric: tabular-nums; }
+.household.trade .foot { margin: 10px 0 0; font-size: 12px; color: var(--ink-soft); font-style: italic; }

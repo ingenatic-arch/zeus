@@ -57,6 +57,7 @@ export class TopBar {
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="8" r="4.4" class="inner"/><path d="M8 5.2l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" class="mark"/></svg>
           <span class="num">0</span><span class="trend" hidden></span><span class="delta"></span>
         </button>
+        <button class="ship-chip" hidden><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M9.6 1.2v9.4" class="mast"/><path d="M10.4 2.2c3 1.4 4.6 4 4.8 7.4h-4.8z" class="sail"/><path d="M1.4 10.8h17.2c-.8 2.6-2.8 4-5.4 4H6.4c-2.4 0-4.2-1.4-5-4z" class="hull"/></svg><span class="txt"></span></button>
         <button class="rate-chip" title="The tax rate: click to change it">Taxes · fair</button>
       </div>
       <div class="meander"></div>`;
@@ -158,6 +159,29 @@ export class TopBar {
   /** Clicking the trouble count. */
   onTrouble(f: () => void): void {
     (this.bar.querySelector('.stat.trouble') as HTMLElement).addEventListener('click', f);
+  }
+
+  private shipKey = '';
+
+  /** The ship chip: when the next ship is due, her sail sighted, loading, sold (hidden in a city without a trading post). */
+  showShip(news: { phase: number; chip: string; short: string; line: string } | null): void {
+    const key = news ? `${news.phase}:${news.chip}:${news.line}` : '';
+    if (key === this.shipKey) return;
+    this.shipKey = key;
+    const el = this.bar.querySelector('.ship-chip') as HTMLButtonElement;
+    el.hidden = !news;
+    // (A little tighter with the chip, so the bar still fits beside the corner buttons at 1280 wide.)
+    this.bar.classList.toggle('with-ship', !!news);
+    if (!news) return;
+    (el.querySelector('.txt') as HTMLElement).textContent = news.chip;
+    el.className = `ship-chip p${news.phase}`;
+    el.title = `${news.short} · ${news.line}.\nClick for the trading post.`;
+    el.setAttribute('aria-label', news.short);
+  }
+
+  /** Clicking the ship chip. */
+  onShip(f: () => void): void {
+    (this.bar.querySelector('.ship-chip') as HTMLElement).addEventListener('click', f);
   }
 
   /** Clicking the drachmas. */

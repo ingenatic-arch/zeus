@@ -22,7 +22,7 @@ export const VIEWS: Record<string, CameraView> = {
   // The trade demos: the bay's north-east shore below #town, where the road comes down to the trading post.
   quay: { x: 74, z: 72, yaw: 2.65, dist: 24, tilt: -0.05 },
   // Out over the bay from the shore above the post, to the horizon where her sail shows.
-  sail: { x: 66, z: 86, yaw: 2.9, dist: 40, tilt: 0.05 },
+  sail: { x: 70, z: 92, yaw: 3.1, dist: 30, tilt: -0.5 },
   // The ship tied up at the jetty.
   ship: { x: 74, z: 76, yaw: 2.3, dist: 16, tilt: -0.02 },
   // The rocky hills where the river rises.

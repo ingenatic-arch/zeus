@@ -220,6 +220,10 @@ for (const [hash, views] of [
   ['#rubble-paused-shot', ['east']],
   ['#creak-paused-shot', ['east']],
   ['#watchman-paused-shot', [null]],
+  // Slice 13: the trading post and its quay, the ship far out and tied up.
+  ['#quay-paused-shot', ['quay', 'overview']],
+  ['#sail-paused-shot', ['sail']],
+  ['#ship-paused-shot', ['ship', 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -234,8 +238,9 @@ for (const [hash, views] of [
     await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
     const info = await page.evaluate(() => window.__zeus.info());
     const c = await page.evaluate(() => window.__zeus.city());
+    const trade = c.tradingPosts ? ` · on the quay ${c.onQuay}, dockers ${c.dockers}, ship ${(await page.evaluate(() => window.__zeus.ship())).version}` : '';
     console.log(
-      `${hash.replace(/-.*$/, '')} view ${(cam ?? 'demo').padEnd(10)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}  · marks ${c.hazardMarks}, smoke puffs ${c.smokePuffs}, flames ${c.flames} · smoulders ${c.smoulders}, fires ${c.fires}, creaks ${c.creaks}, rubble ${c.rubble}`,
+      `${hash.replace(/-.*$/, '')} view ${(cam ?? 'demo').padEnd(10)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}  · marks ${c.hazardMarks}, smoke puffs ${c.smokePuffs}, flames ${c.flames} · smoulders ${c.smoulders}, fires ${c.fires}, creaks ${c.creaks}, rubble ${c.rubble}${trade}`,
     );
   }
 }
@@ -243,7 +248,7 @@ for (const [hash, views] of [
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

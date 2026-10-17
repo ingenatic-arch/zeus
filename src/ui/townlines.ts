@@ -12,6 +12,7 @@ import type { TownLine } from '../sim/status';
 const SETTLE_DAYS = 3;
 
 const ICONS: Record<TownLine['need'], string> = {
+  ship: '<svg viewBox="0 0 20 16" aria-hidden="true"><path d="M9.6 1.2v9.4" stroke="#6e4e30" stroke-width="1.3" fill="none"/><path d="M10.4 2.2c3 1.4 4.6 4 4.8 7.4h-4.8z" fill="#f7edd6" stroke="#c0462e" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.4 10.8h17.2c-.8 2.6-2.8 4-5.4 4H6.4c-2.4 0-4.2-1.4-5-4z" fill="#7a4a2c"/></svg>',
   fire: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15c-3 0-4.8-2-4.8-4.6 0-2.4 1.6-3.6 2.4-5.4.4 1.2 1 2 1.8 2.4C7.6 4.8 8.6 2.6 10.4 1c-.2 2.2.6 3.4 1.6 4.8.9 1.2 1.2 2.4 1.2 3.8C13.2 12.6 11.2 15 8 15z" fill="#e2531e" stroke="#8a2a10" stroke-width=".8" stroke-linejoin="round"/><path d="M8 14c-1.4 0-2.2-.9-2.2-2.1 0-1.3.9-2 1.4-3 .6.9 1.4 1.2 1.7 2.1.5-.3.8-.8.9-1.4.6.8.6 1.5.6 2.1C10.4 13 9.4 14 8 14z" fill="#f6c13a"/></svg>',
   wear: '<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="#c9b08a" stroke="#7a6446" stroke-width=".7"><rect x="1.5" y="2" width="6" height="3.6"/><rect x="8.5" y="2" width="6" height="3.6"/><rect x="1.5" y="10.4" width="6" height="3.6"/><rect x="8.5" y="10.4" width="6" height="3.6"/><rect x="5" y="6.2" width="6" height="3.6"/><rect x="1.5" y="6.2" width="3" height="3.6"/><rect x="11.5" y="6.2" width="3" height="3.6"/></g><path d="M8.6 1.5 7.4 5.6l1.6 2.2-1.8 2.8.8 3.9" fill="none" stroke="#3a2a22" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>',
   rubble: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 14.5h14" stroke="#7a6446" stroke-width="1.2" stroke-linecap="round"/><path d="M2 14.5l1.5-4 3 1 1.5-3.5 3 2 2.5-1.5 1 6z" fill="#8f8a84" stroke="#4a4440" stroke-width=".8" stroke-linejoin="round"/><path d="M4 9.5l6-5.5" stroke="#2e2622" stroke-width="1.4" stroke-linecap="round"/><path d="M9 12l4-6" stroke="#2e2622" stroke-width="1.2" stroke-linecap="round"/></svg>',
@@ -49,13 +50,14 @@ export class TownLines {
       if (s) {
         s.lastSeen = tick;
         s.line = l;
-      } else this.seen.set(l.need, { since: this.first ? tick - settle : tick, lastSeen: tick, line: l, el: null });
+      } else this.seen.set(l.need, { since: this.first || l.need === 'ship' ? tick - settle : tick, lastSeen: tick, line: l, el: null });
     }
     this.first = false;
     for (const [need, s] of this.seen) {
       // A tick that went backwards (a save opened) starts over.
       if (tick < s.since) s.since = s.lastSeen = tick;
-      const gone = tick - s.lastSeen > settle;
+      // (The ship's news comes and goes at once: it is news, not a shortfall.)
+      const gone = tick - s.lastSeen > (need === 'ship' ? 0 : settle);
       const shown = tick - s.since >= settle && !gone;
       if (shown && !s.el) {
         const b = document.createElement('button');

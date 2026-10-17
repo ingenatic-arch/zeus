@@ -22,7 +22,7 @@ import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, FINE, findBuilding, footSide, TOWNHOUSE, VILLA } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { lackWords, warningOf, warningsOf } from './sim/folk';
-import { FLEECE, held, OIL, WINE } from './sim/foods';
+import { FLEECE, held, OIL, WHEAT, WINE } from './sim/foods';
 import { goodUntil, hasStall } from './sim/goods';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
@@ -36,6 +36,8 @@ import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
 import { LedgerCard } from './ui/ledger';
+import { TradePanel } from './ui/trade';
+import { shipNews, SHIP_COMING, tradingPost } from './sim/trade';
 import { SaveMenu } from './ui/saveMenu';
 import { TownLines } from './ui/townlines';
 import { Welcome } from './ui/welcome';
@@ -157,6 +159,12 @@ interface Probe {
   welcome?: () => boolean;
   /** The ledger card's text ('' when closed). */
   ledgerText?: () => string;
+  /** The trading post's panel text ('' when closed), opening or closing it, and where the ship is. */
+  tradeText?: () => string;
+  /** A docker carrying a ware (any, -1) to the quay (back) or back to a store, where he is drawn. */
+  dockerOf?: (ware: number, back?: boolean) => { x: number; z: number } | null;
+  trade?: (open: boolean) => void;
+  ship?: () => { visible: boolean; x: number; z: number; heading: number; version: string; phase: number; due: number; since: number; visits: number; lastPaid: number; chip: string; short: string };
   /** Open or close the ledger card, or the tax rates card. */
   ledger?: (open: boolean) => void;
   rates?: (open: boolean) => void;
@@ -277,6 +285,24 @@ function start(): void {
   notices.className = 'notices';
   ui.appendChild(notices);
   const panel = new HouseholdPanel(ui, () => panel.show(0));
+  // The trading post's panel shares the household panel's place: one at a time.
+  const tradePanel = new TradePanel(ui, (c) => {
+    sim.enqueue(c);
+    sim.flush();
+    sound.play('build');
+    if (!demo) autosaving = true;
+  });
+  tradePanel.onOpen = () => panel.show(0);
+  /** Open the trading post's panel and go to the post. */
+  const goToPost = (): void => {
+    const p = tradingPost(sim.state);
+    if (!p) return;
+    stopFollow();
+    tradePanel.toggle(true);
+    const [cx, cz] = centreOf(p);
+    const v = rig.view;
+    rig.flyTo({ ...v, x: cx, z: cz, dist: Math.min(v.dist, 30) });
+  };
   const legend = document.createElement('div');
   legend.className = 'legend';
   legend.hidden = true;
@@ -287,6 +313,7 @@ function start(): void {
   let legendFor = 'missing';
   const lines = new TownLines(notices, (l) => {
     if (l.need === 'money') return ledger.toggle(true);
+    if (l.need === 'ship') return goToPost();
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -369,6 +396,7 @@ function start(): void {
     corner.toggleHelp(false);
   };
   topbar.onMoney(() => ledger.toggle());
+  topbar.onShip(goToPost);
   // The tax rate, through the command queue like any other action.
   topbar.setupRates(ui, (rate) => {
     if (rate === sim.state.taxRate) return;
@@ -424,10 +452,14 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 10 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · Buildings can now catch fire and wear out. Yours start safe and sound: a watch post (Z Z) keeps fire away and an architect’s office (Z ×3) keeps them standing. A mark over a building shows when it is past half way.';
     }
+    // …and one saved before the trading post (slice 12 or older): ships can call now.
+    if (loaded.from !== undefined && loaded.from <= 11 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · Merchant ships now call: build a trading post (G ×3) on the bay shore where deep water comes close, and sell your spare wheat, meat, cheese, oil, fleece and wine.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -472,6 +504,29 @@ function start(): void {
     if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return false;
     return isBridge(map, sim.state, Math.floor(world.z) * n + Math.floor(world.x));
   };
+  /** Is the pointer on the ship (near her hull or her mast, on screen)? */
+  const shipNear = (sx: number, sy: number): boolean => {
+    const at = city.ship.info;
+    if (!at.visible) return false;
+    const r = canvas.getBoundingClientRect();
+    const v = new THREE.Vector3();
+    for (const y of [0.4, 1.6]) {
+      v.set(at.x, y, at.z).project(camera);
+      if (v.z > 1) continue;
+      const dx = r.left + (v.x * 0.5 + 0.5) * r.width - sx;
+      const dy = r.top + (-v.y * 0.5 + 0.5) * r.height - sy;
+      // Her size on screen: about two units either way.
+      const near = new THREE.Vector3(at.x + 2, y, at.z).project(camera);
+      const px = Math.max(18, Math.abs((near.x - v.x) * 0.5 * r.width));
+      if (dx * dx + dy * dy < px * px) return true;
+    }
+    return false;
+  };
+  /** The ship's tip: where she is in her schedule, what she buys. */
+  const shipStatus = (): Status => {
+    const news = shipNews(sim.state);
+    return { title: 'The merchant ship from Tyre', detail: [news?.line ?? '', 'She buys wheat, meat and cheese from the granaries, oil, fleece and wine from the storehouses, at steady prices · click for the trading post'].filter((x) => x).join('\n') };
+  };
   const showStatus = (st: Status, sx: number, sy: number): void => tip.show(st.detail ? `${st.title}\n${st.detail}` : st.title, sx, sy);
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
@@ -480,6 +535,7 @@ function start(): void {
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
     const ws = w ? walkerStatus(sim.state, w) : null;
     if (ws) return showStatus(ws, sx, sy);
+    if (shipNear(sx, sy)) return showStatus(shipStatus(), sx, sy);
     const b = buildingAt(world);
     if (!b) {
       const h = herdAt(world);
@@ -562,6 +618,7 @@ function start(): void {
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (tools.tool) tools.cancel();
       else if (follow) stopFollow();
+      else if (tradePanel.open) tradePanel.toggle(false);
       else if (panel.open) panel.show(0);
       else tools.cancel();
     },
@@ -570,13 +627,23 @@ function start(): void {
       const c = walkerNear(sx, sy);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
+      if (shipNear(sx, sy)) return goToPost();
       const b = buildingAt(w);
       // A lived-in home: who lives there. Open ground: close the panel.
       if (b?.kind === 'home' && b.people > 0) {
+        tradePanel.toggle(false);
         panel.show(b.id);
         return hover(w, sx, sy);
       }
-      if (!b) panel.show(0);
+      // The trading post: its panel (what to sell, how much to keep, when the ship comes).
+      if (b?.kind === 'trading') {
+        tradePanel.toggle(true);
+        return hover(w, sx, sy);
+      }
+      if (!b) {
+        panel.show(0);
+        tradePanel.toggle(false);
+      }
       const kind = b ? FOLLOWS[b.kind] : undefined;
       if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
     },
@@ -665,6 +732,7 @@ function start(): void {
   const opened = demo?.open?.(sim.state) ?? 0;
   if (opened) panel.show(opened);
   if (demo?.ledger) ledger.toggle(true);
+  if (demo?.trade) tradePanel.toggle(true);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -825,6 +893,12 @@ function start(): void {
       fires: s.buildings.filter((b) => b.fire === 2).length,
       creaks: s.buildings.filter((b) => b.creakAt > 0).length,
       rubble: of('rubble').length,
+      tradingPosts: of('trading').length,
+      dockers: s.walkers.filter((w) => w.kind === 'docker').length,
+      onQuay: of('trading').reduce((a, b) => a + held(b, WHEAT) + b.meat + b.cheese + held(b, OIL) + held(b, FLEECE) + held(b, WINE), 0),
+      tradeOpen: tradePanel.open,
+      shipChip: (document.querySelector('.ship-chip') as HTMLElement | null)?.hidden === false ? (document.querySelector('.ship-chip .txt')?.textContent ?? '') : '',
+      sales: kindTotal(s.ledger.now, 'sales') + kindTotal(s.ledger.last, 'sales'),
       hazards: s.hazards,
     };
   };
@@ -862,6 +936,7 @@ function start(): void {
   probe.homeward = () => drawnAt((w) => w.kind === 'hunter' && w.back && w.load > 0);
   probe.cartOf = (food) => drawnAt((w) => w.kind === 'cart' && w.food === food && w.load > 0);
   probe.porterOf = (ware) => drawnAt((w) => w.kind === 'porter' && w.food === ware && w.load > 0);
+  probe.dockerOf = (ware, back = true) => drawnAt((w) => w.kind === 'docker' && (ware < 0 || w.food === ware) && w.load > 0 && w.back === back);
   probe.buildingsOf = (kind) => sim.state.buildings.filter((b) => b.kind === kind).map((b) => ({ id: b.id, x: b.x, z: b.z }));
   probe.hazardsOf = (from = 1001) =>
     sim.state.buildings
@@ -878,6 +953,12 @@ function start(): void {
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;
+  probe.tradeText = () => tradePanel.text;
+  probe.trade = (open) => tradePanel.toggle(open);
+  probe.ship = () => {
+    const sh = sim.state.trade.ship;
+    return { ...city.ship.info, phase: sh.phase, due: sh.due, since: sh.since, visits: sh.visits, lastPaid: sh.lastPaid, chip: shipNews(sim.state)?.chip ?? '', short: shipNews(sim.state)?.short ?? '' };
+  };
   probe.ledger = (open) => ledger.toggle(open);
   probe.rates = (open) => topbar.toggleRates(open);
   probe.warnAll = (id) => {
@@ -917,6 +998,8 @@ function start(): void {
   };
   seeHazards();
   let hazardTick = sim.state.tick;
+  // The ship as last seen: her sail sighted rings the harbour bell; her paying floats the drachmas up from the quay.
+  let shipSeen = { phase: sim.state.trade.ship.phase, visits: sim.state.trade.ship.visits };
   // Tax collectors' satchels as last seen, so "+84 dr" floats up from the office when one hands in.
   const satchels = new Map<number, { dr: number; origin: number }>();
   // The population's tooltip says how often newcomers are coming, and why.
@@ -984,6 +1067,17 @@ function start(): void {
         } else if (b.creakAt === 0 && was.creak) floaters.add('Made sound', at, time, 'safe');
       }
       seeHazards();
+      const ship = s.trade.ship;
+      if (ship.phase !== shipSeen.phase || ship.visits !== shipSeen.visits) {
+        const post = tradingPost(s);
+        if (ship.phase === SHIP_COMING && shipSeen.phase !== SHIP_COMING) cue ??= 'ship';
+        if (ship.visits > shipSeen.visits && post && ship.lastPaid > 0) {
+          const [cx, cz] = centreOf(post);
+          floaters.add(`+${ship.lastPaid.toLocaleString('en-GB')} dr`, new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.3, cz), time, 'sale');
+          cue = 'sale';
+        }
+        shipSeen = { phase: ship.phase, visits: ship.visits };
+      }
       if (cue) sound.play(cue);
     }
     if (s.rev !== seenRev) {
@@ -1044,6 +1138,7 @@ function start(): void {
       const last = l.month === m ? l.last : l.month === m - 1 ? l.now : [];
       topbar.showTrend(last.length ? totals(last).net : null, owedWages(s).owed > 0);
       topbar.showRate(s.taxRate);
+      topbar.showShip(shipNews(s));
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;
@@ -1088,8 +1183,9 @@ function start(): void {
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
+    tradePanel.update(s, map, time);
     const open = panel.update(s, map, time);
-    selection.set(open);
+    selection.set(open ?? (tradePanel.open ? (tradingPost(s) ?? null) : null));
     selection.update(time);
     if (mark?.mesh.visible && demo?.mark) {
       if (s.tiles[demo.mark.z * map.size + demo.mark.x] === TILE_ROAD) mark.set(null);

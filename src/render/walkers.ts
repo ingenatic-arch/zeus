@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { FLEECE, OIL, WINE } from '../sim/foods';
+import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
@@ -581,6 +581,8 @@ function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
 
 /** Which porter look carries each stall good. */
 const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
+/** Which porter look a docker's handcart takes for each trade good (wheat; meat and cheese as the mixed load). */
+const DOCKER_LOOK: Record<number, number> = { [WHEAT]: 1, [MEAT]: 2, [CHEESE]: 2, [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
 
 const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];
 
@@ -695,6 +697,7 @@ export class Walkers {
     const wineTunic = col(PAL.wineVendorTunic);
     const watchTunic = col(PAL.watchmanTunic);
     const blue = col(PAL.inspectorDress);
+    const dockerTunic = col(PAL.dockerTunic);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -733,7 +736,10 @@ export class Walkers {
         else if (w.kind === 'watchman') this.watchmen[w.target > 0 ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
         else if (w.kind === 'inspector') this.inspectors.push(this.m, still(this.c.copy(blue)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
-        else {
+        else if (w.kind === 'docker') {
+          // The trading post's docker: a sea-green tunic, his handcart showing what he carries (to the quay, or back to a store).
+          this.porters[w.load > 0 ? (DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(this.c.copy(dockerTunic)));
+        } else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
           // A cart shows its ware (wares past those with a look yet show as an empty cart).
           if (cart) (this.carts[w.load > 0 ? 1 + w.food : 0] ?? this.carts[0]).push(this.m, still(this.c));

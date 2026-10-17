@@ -952,6 +952,113 @@ const back12 = await zeus(() => document.querySelector('.save-note')?.textConten
 if (!(c.hazards && c.smoulders === 0 && c.creaks === 0 && c.rubble === 0 && c.hazardMarks === 0 && /Buildings can now catch fire and wear out/.test(back12))) fail(`slice 11 save: ${back12} ${JSON.stringify(c)}`);
 await zeus(() => localStorage.clear());
 if (errors.length) fail('page errors (slice 12):\n' + errors.join('\n'));
+// Slice 13: the ship comes in.
+// #trade: the trading post tool in hand on the bay shore; its tip over a good spot (jetty, prices), the refusal inland, the tint.
+await open('#trade-paused');
+c = await city();
+if (!(c.tool === 'trading' && c.tradingPosts === 0 && c.shipChip === '')) fail(`#trade: ${JSON.stringify(c)}`);
+await zeus((v) => window.__zeus.jump(v), { x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 });
+await frames(3);
+gt = await groveTipAt(74.5, 70.5, /^Trading post · \d+ dr/);
+if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 15[\s\S]*wine 80 dr/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
+gt = await groveTipAt(70.5, 62.5, /^A trading post goes on the bay shore/);
+if (!/^A trading post goes on the bay shore: no sea beside it here/.test(gt ?? '')) fail(`trading post refused inland: ${gt}`);
+// Building it: the countdown appears in the top bar and the post's panel.
+const money13 = (await city()).money;
+p = await at(74.5, 70.5);
+await page.mouse.move(p.x, p.y);
+await frames(2);
+await page.mouse.down();
+await page.mouse.up();
+await frames(3);
+c = await city();
+if (!(c.tradingPosts === 1 && money13 - c.money === 250 && c.shipChip === '90 d')) fail(`building the trading post: ${JSON.stringify(c)} (was ${money13} dr)`);
+// G cycles the granary, the storehouse and the trading post.
+await page.keyboard.press('Escape');
+for (const want of ['granary', 'storehouse', 'trading', 'granary']) {
+  await page.keyboard.press('g');
+  await frames(1);
+  c = await city();
+  if (c.tool !== want) fail(`G cycling: wanted ${want}, got ${c.tool}`);
+}
+await page.keyboard.press('Escape');
+// #quay: goods ticked, dockers on the road, goods stacked on the quay; the panel open with its rows, ticks and keeps.
+await open('#quay-paused');
+c = await city();
+if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
+let tt = await zeus(() => window.__zeus.tradeText());
+if (!/The trading post[\s\S]*Ship in \d+ d[\s\S]*Wheat\s*15[\s\S]*Meat\s*30[\s\S]*Cheese\s*30[\s\S]*Oil\s*60[\s\S]*Fleece\s*45[\s\S]*Wine\s*80[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
+// Unticking a good and raising a keep go through the command queue.
+const keep0 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
+await page.click('.trade button[data-keep="0"][data-by="1"]');
+await frames(3);
+const keep1 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
+if (!(keep0 === '1,600' && keep1 === '1,800')) fail(`keep + for wheat: ${keep0} -> ${keep1}`);
+await page.click('.trade input[data-sell="1"]');
+await frames(3);
+const meatTick = await zeus(() => document.querySelector('.trade input[data-sell="1"]').checked);
+if (meatTick) fail('unticking meat did not take');
+// Esc closes the panel; hovering the post says what is on the quay and when she is due; clicking it opens the panel again.
+await page.keyboard.press('Escape');
+await frames(1);
+if ((await city()).tradeOpen) fail('Esc did not close the trade panel');
+const post13 = await zeus(() => window.__zeus.buildingsOf('trading')[0]);
+await zeus((v) => window.__zeus.jump(v), { x: post13.x + 1.5, z: post13.z + 1.5, yaw: 2.65, dist: 14, tilt: 0.1 });
+await frames(4);
+gt = await groveTipAt(post13.x + 1.5, post13.z + 1.5, /^The trading post · /);
+if (!/^The trading post · on the quay: [\d,]+ wheat[\s\S]*Workers: 6 of 6[\s\S]*The next ship is due in \d+ days[\s\S]*Click for the trade panel/.test(gt ?? '')) fail(`hovering the trading post: ${gt}`);
+await page.mouse.down();
+await page.mouse.up();
+await frames(2);
+if (!(await city()).tradeOpen) fail('clicking the trading post did not open its panel');
+// A docker: following him, and his tip.
+const dk = await zeus(() => window.__zeus.walker('docker'));
+if (dk) {
+  await page.mouse.move(dk.x, dk.y);
+  await frames(2);
+  const t = await tip();
+  if (t && !/^Docker\n(Going to the (granary|storehouse) for|Loading|Bringing [\d,]+ .+ to the quay|Going back to the quay|Taking)/.test(t)) fail(`hovering a docker: ${t}`);
+}
+// #sail: her sail on the horizon, the ship drawn far out, the town line and the chip saying so.
+await open('#sail-paused');
+let sh = await zeus(() => window.__zeus.ship());
+lines12 = await zeus(() => window.__zeus.townLines());
+if (!(sh.phase === 1 && sh.visible && sh.version === 'set' && Math.hypot(sh.x - 74.5, sh.z - 77.5) > 40)) fail(`#sail ship: ${JSON.stringify(sh)}`);
+if (!lines12.some((l) => /^A sail on the horizon: the merchant ship ties up at the trading post in \d+ days?\. On the quay: /.test(l))) fail(`#sail town line: ${JSON.stringify(lines12)}`);
+if (!(await zeus(() => window.__zeus.meshes().some((m) => m.name === 'ship-mesh')))) fail('#sail: the ship mesh is not drawn');
+// #ship: tied up at the jetty, sail furled, loading; hovering her says so.
+await open('#ship-paused');
+sh = await zeus(() => window.__zeus.ship());
+c = await city();
+if (!(sh.phase === 2 && sh.visible && sh.version.startsWith('furled') && Math.hypot(sh.x - 74.5, sh.z - 77.5) < 0.5 && c.shipChip === 'In port')) fail(`#ship: ${JSON.stringify(sh)} chip ${c.shipChip}`);
+await zeus((v) => window.__zeus.jump(v), { x: sh.x, z: sh.z, yaw: 2.3, dist: 16, tilt: -0.02 });
+await frames(4);
+p = await at(sh.x, sh.z);
+await page.mouse.move(p.x, p.y - 20);
+await page.mouse.move(p.x + 1, p.y - 19);
+await frames(3);
+gt = await tip();
+if (!/^The merchant ship from Tyre\nThe ship is tied up at the jetty, loading/.test(gt ?? '')) fail(`hovering the ship: ${gt}`);
+// #black: wages unpaid, the sail on the horizon; running on, she pays and the wages are paid.
+await open('#black-paused');
+c = await city();
+if (!(c.owed > 0 && c.ledgerOpen && c.onQuay > 0)) fail(`#black: ${JSON.stringify(c)}`);
+await page.keyboard.press('3');
+await page.waitForFunction(() => window.__zeus.ship().visits > 0, null, { timeout: 600000, polling: 500 });
+await page.keyboard.press('Space');
+await frames(2);
+c = await city();
+if (!(c.owed === 0 && c.sales > 0 && c.money > 300)) fail(`#black after the visit: ${JSON.stringify(c)}`);
+const led13 = await zeus(() => window.__zeus.ledgerText());
+if (!/Sales · wheat/.test(led13 ?? '')) fail(`#black ledger: ${led13}`);
+// A slice 12 (version 11) save opens without a post, says ships can call now.
+await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice12-town.save.json.gz')).toString());
+await open('#saved-paused');
+c = await city();
+const back13 = await zeus(() => document.querySelector('.save-note')?.textContent ?? '');
+if (!(c.tradingPosts === 0 && c.shipChip === '' && /Merchant ships now call: build a trading post/.test(back13))) fail(`slice 12 save: ${back13} ${JSON.stringify(c)}`);
+await zeus(() => localStorage.clear());
+if (errors.length) fail('page errors (slice 13):\n' + errors.join('\n'));
 // A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
 await open('#saved-paused');
@@ -992,6 +1099,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

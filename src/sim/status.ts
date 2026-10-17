@@ -48,6 +48,7 @@ import { canWork, rateOf, workforce } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
+import { dockerDoing, dockerNews, goodsList, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxOf } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
@@ -111,6 +112,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'pasture') return pastureStatus(s, map, b);
   if (b.kind === 'vineyard') return vineyardStatus(s, map, b);
   if (b.kind === 'winery') return wineryStatus(s, map, b);
+  if (b.kind === 'trading') return tradingStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -702,6 +704,10 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     if (w.wait > 0) return { title: 'Porter', detail: 'Loading food at the granary' };
     return { title: 'Porter', detail: 'On his way to the granary for food for the stall' };
   }
+  if (w.kind === 'docker') {
+    const d = dockerDoing(s, w);
+    return { title: 'Docker', detail: `${d[0].toUpperCase()}${d.slice(1)}` };
+  }
   if (w.kind === 'hunter') {
     const h = s.herds[w.food];
     const name = h ? herdName(h) : 'the herd';
@@ -1012,7 +1018,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'ship';
   text: string;
   at: number;
 }
@@ -1041,6 +1047,8 @@ export const BREAD_SPARE = 1.1;
  */
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = hazardTownLines(s, map);
+  const ship = shipTownLine(s);
+  if (ship) out.unshift(ship);
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
@@ -1424,4 +1432,30 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     out.push({ need: 'rubble', text: `Rubble ${whereIs(map, r).toLowerCase()}: ${n}.${gone} Clear ${heaps.length === 1 ? 'it' : 'them'} with the clear tool (X), ${clearFee(2)}–${clearFee(3)} dr a heap, before building there again.`, at: r.id });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// The trading post (slice 13).
+
+/** The trading post: what waits on the quay and what it would fetch, the ship's schedule, the dockers. */
+export function tradingStatus(s: SimState, map: CoastMap, b: Building): Status {
+  const quay = TRADE_GOODS.map((w) => held(b, w));
+  const worth = quayWorth(s, b);
+  const title = `${BUILDING_NAMES.trading} · ${quay.some((n) => n > 0) ? `on the quay: ${goodsList(quay)}${worth > 0 ? ` (${fmt(worth)} dr at the ship’s prices)` : ''}` : 'the quay is empty'}`;
+  const ship = shipNews(s);
+  return { title, detail: lines(workersLine(s, map, b), ship?.line ?? '', dockerNews(s, map, b), 'Click for the trade panel: what to sell and how much the city keeps') };
+}
+
+/** The ship's news while she is in sight (sailing in, or tied up loading): the line under the top bar. */
+function shipTownLine(s: SimState): TownLine | null {
+  const ship = s.trade.ship;
+  const post = s.buildings.find((b) => b.kind === 'trading');
+  if (!post || (ship.phase !== SHIP_COMING && ship.phase !== SHIP_MOORED)) return null;
+  const news = shipNews(s);
+  if (!news) return null;
+  const quay = TRADE_GOODS.map((w) => held(post, w));
+  const worth = quayWorth(s, post);
+  const waiting = quay.some((n) => n > 0) ? ` On the quay: ${goodsList(quay)}${worth > 0 ? `, worth ${fmt(worth)} dr` : ''}.` : ' The quay is empty.';
+  const text = ship.phase === SHIP_COMING ? `A sail on the horizon: the merchant ship ties up at the trading post in ${news.days === 1 ? '1 day' : `${news.days} days`}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
+  return { need: 'ship', text, at: post.id };
 }

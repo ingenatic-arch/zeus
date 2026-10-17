@@ -167,6 +167,28 @@ const SHOTS = {
   'bar-open-1280': '#town-paused',
   'bar-open-1920': '#town-paused',
   'bar-offices': '#town-paused',
+  // Slice 13.
+  trade: '#trade-paused',
+  quay: '#quay-paused-shot',
+  'quay-close': '#quay-paused-shot',
+  sail: '#sail-paused-shot',
+  'sail-far': '#sail-paused-shot',
+  ship: '#ship-paused-shot',
+  'ship-close': '#ship-paused-shot',
+  'ship-high': '#ship-paused-shot',
+  'trade-tip': '#trade-paused',
+  'trade-refused': '#trade-paused',
+  'trade-tint': '#trade-paused',
+  'quay-panel': '#quay-paused',
+  'quay-tip': '#quay-paused',
+  'quay-1280': '#quay-paused',
+  'sail-ui': '#sail-paused',
+  'ship-tip': '#ship-paused',
+  'ship-ui': '#ship-paused',
+  docker: '#quay',
+  'docker-wine': '#quay',
+  black: '#black-paused',
+  'black-after': '#black',
 };
 
 /** Hover the pointer over a world point (after a few frames, so the camera has settled). */
@@ -197,6 +219,39 @@ const closeToWalker = async (page, find, ticks = 40, view = { yaw: 0.5, dist: 2.
 
 /** Things to do on the page before a shot. */
 const BEFORE = {
+  'trade-tip': async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 }));
+    await hover(page, 74.5, 70.5);
+  },
+  'trade-refused': async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 74, z: 66, yaw: 2.65, dist: 22, tilt: 0.1 }));
+    await hover(page, 70.5, 62.5);
+  },
+  'trade-tint': async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 72, z: 70, yaw: 2.65, dist: 26, tilt: 0.25 }));
+    await hover(page, 71.5, 69.5);
+  },
+  'quay-tip': async (page) => {
+    await page.evaluate(() => window.__zeus.trade(false));
+    const b = await closeTo(page, 'trading', 2.65, 14, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  'ship-tip': async (page) => {
+    const sh = await page.evaluate(() => window.__zeus.ship());
+    await page.evaluate((v) => window.__zeus.jump(v), { x: sh.x, z: sh.z, yaw: 2.3, dist: 16, tilt: -0.02 });
+    await hover(page, sh.x, sh.z);
+  },
+  docker: async (page) => {
+    await closeToWalker(page, () => window.__zeus.dockerOf?.(-1, true) ?? null, 40, { yaw: 0.5, dist: 3, tilt: 0.12 });
+  },
+  'docker-wine': async (page) => {
+    await closeToWalker(page, () => window.__zeus.dockerOf?.(0, false) ?? window.__zeus.dockerOf?.(-1, false) ?? null, 40, { yaw: 2.2, dist: 3, tilt: 0.12 });
+  },
+  'black-after': async (page) => {
+    // Let her load and pay: the ledger shows the sale.
+    await page.waitForFunction(() => window.__zeus.ship().visits > 0, null, { timeout: 600000, polling: 500 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
+  },
   hunter: async (page) => {
     // Follow a hunter out until he is across country, then pause.
     await page.waitForFunction(() => window.__zeus.where('hunter') !== null, null, { timeout: 240000 });
@@ -614,7 +669,9 @@ for (const arg of names) {
   const t0 = Date.now();
   // The build bar at a laptop's width, and with a group's row open (bar-open-<width>).
   const bar = /^bar-(open-)?(\d+)$/.exec(name);
-  await page.setViewportSize(bar ? { width: Number(bar[2]), height: Math.round((Number(bar[2]) * 9) / 16) } : { width: 1600, height: 900 });
+  const narrow = /-(1280|1366)$/.exec(name);
+  const width = bar ? Number(bar[2]) : narrow ? Number(narrow[1]) : 0;
+  await page.setViewportSize(width ? { width, height: Math.round((width * 9) / 16) } : { width: 1600, height: 900 });
   await page.goto('about:blank');
   await page.goto(url + q);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });

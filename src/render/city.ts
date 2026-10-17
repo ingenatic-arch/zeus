@@ -5,6 +5,7 @@ import { Animals } from './animals';
 import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
+import { ShipView } from './ship';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -23,6 +24,8 @@ export class CityView {
   readonly works: Works;
   readonly bridges: Bridges;
   readonly animals: Animals;
+  /** The merchant ship, when she is in sight. */
+  readonly ship = new ShipView();
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -44,7 +47,7 @@ export class CityView {
     this.bridges = new Bridges(map);
     this.animals = new Animals(map, this.folk);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group);
   }
 
   update(s: SimState, alpha: number, time: number): void {
@@ -55,6 +58,7 @@ export class CityView {
     this.walkers.update(s, alpha, time);
     this.animals.update(s, alpha, time);
     this.folk.end();
+    this.ship.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

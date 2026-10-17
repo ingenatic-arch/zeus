@@ -54,6 +54,7 @@ import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/tre
 import { hazardReach, previewReach, type ServiceOverlay } from '../render/overlay';
 import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
 import { placeName } from '../sim/status';
+import { berthAt, FIRST_SHIP, PRICES, quayTiles, TRADE_GOODS } from '../sim/trade';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
 export type ToolName =
@@ -190,6 +191,7 @@ export class Tools {
     const ix = mapIndex(map);
     this.placement.show(t !== null, t === 'road');
     if (t) {
+      const quay = t === 'trading' ? quayTiles(map) : new Uint8Array(0);
       this.placement.setBlocked((i) => {
         if (map.tileWater[i] !== WATER_NONE) return false;
         const g = ix.ground[i];
@@ -204,6 +206,8 @@ export class Tools {
         if (t === 'pasture') return g !== Ground.Ok || tileGrass(map, i) < PASTURE_GRASS_MIN;
         // A vineyard needs dry ground in the sun: the river land, rock, sand and slopes turned away from the sun are washed rust.
         if (t === 'vineyard') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileVine(map, i) < VINE_MIN;
+        // The trading post goes on the bay shore where the ship can come alongside: the rest is washed rust.
+        if (t === 'trading') return g !== Ground.Ok || quay[i] === 0;
         // A stall goes on an agora: nothing is washed.
         if (isStallTool(t)) return false;
         if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
@@ -744,6 +748,13 @@ export class Tools {
       if (roads.length === 0) warn = 'No road beside it: carts couldn’t bring the grapes or take the wine away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'vineyard')) lines.push('Its grapes come from the vineyards’ carts: plant a vineyard on a sunny slope');
       else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the wine to a storehouse: build one too (G twice)');
+    } else if (kind === 'trading') {
+      const berth = berthAt(map, x, z);
+      lines.push('Its dockers carry what the granaries and storehouses hold beyond what the city keeps to the quay; a merchant ship calls every three months and buys it');
+      if (berth) lines.push(`A jetty runs ${Math.round(berth.len)} ${Math.round(berth.len) === 1 ? 'tile' : 'tiles'} out to deep water, where she ties up`);
+      lines.push(`She pays for every 100: ${TRADE_GOODS.map((w, k) => `${WARE_NAMES[w]} ${PRICES[k]}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
+      if (roads.length === 0) warn = 'No road beside it: its dockers couldn’t reach the stores. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its dockers fetch from the granaries and storehouses: the city has none yet');
     } else if (kind === 'storehouse') {
       lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece and ${fmt(STOREHOUSE_WINE)} amphorae of wine: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');

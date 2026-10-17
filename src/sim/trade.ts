@@ -85,7 +85,7 @@ export const BERTH_OFF = 0.85;
 /** How far she comes in alongside: the last stretch of her way in runs this long, square to the jetty. */
 export const APPROACH = 6;
 /** How far beyond the map's edge the horizon is, where she first shows. */
-export const HORIZON = 110;
+export const HORIZON = 60;
 
 export function freshShip(): Ship {
   return { phase: SHIP_AWAY, due: 0, since: 0, turned: 1, path: [], post: 0, hold: TRADE_GOODS.map(() => 0), visits: 0, lastAt: 0, lastBought: TRADE_GOODS.map(() => 0), lastPaid: 0 };
@@ -391,7 +391,7 @@ function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx
 }
 
 /** How far in she has come (0 at the horizon, 1 at the quay) a share u of the way through sailing in: fast far out, slowing as she comes alongside. */
-export const easeIn = (u: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 2.6);
+export const easeIn = (u: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 1.8);
 /** Sailing off: how far back out she has gone, a share u of the way through (slow away from the quay, then faster). */
 export const easeOut = (u: number): number => Math.pow(Math.max(0, Math.min(1, u)), 2);
 
@@ -755,3 +755,78 @@ export function dockerDoing(s: SimState, d: Walker): string {
   return d.wait > 0 ? `loading ${name} at ${where}` : `going to ${where} for ${name} to sell`;
 }
 
+
+// ---------------------------------------------------------------------------
+// What the panel, the top bar and the tips say.
+
+const dayWords = (n: number): string => (n === 1 ? '1 day' : `${n} days`);
+const daysTo = (s: SimState, t: number): number => Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
+const amountWords = (k: number, n: number): string => `${n.toLocaleString('en-GB')} ${WARE_NAMES[TRADE_GOODS[k]]}`;
+
+/** "1,200 wheat, 600 cheese and 400 oil". */
+export function goodsList(ns: readonly number[]): string {
+  const xs = ns.map((n, k) => (n > 0 ? amountWords(k, n) : '')).filter((x) => x);
+  if (xs.length <= 1) return xs[0] ?? 'nothing';
+  return `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+}
+
+/**
+ * Where the ship is in her schedule, for the top bar's chip (`short`), the
+ * post's panel and tips (`line`): due in so many days, her sail sighted,
+ * tied up and loading, or sailed. Null in a city that has never had a post.
+ */
+export function shipNews(s: SimState): { phase: number; days: number; chip: string; short: string; line: string } | null {
+  const ship = s.trade.ship;
+  const post = tradingPost(s);
+  if (ship.phase === SHIP_COMING) {
+    const days = daysTo(s, ship.since + SAIL_IN);
+    return { phase: ship.phase, days, chip: `${days} d`, short: `Sail sighted · ${days} d`, line: `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}` };
+  }
+  if (ship.phase === SHIP_MOORED) {
+    const days = daysTo(s, ship.since + LOADING);
+    const so = ship.hold.some((n) => n > 0) ? ` · loaded so far: ${goodsList(ship.hold)}` : '';
+    return { phase: ship.phase, days, chip: 'In port', short: 'Ship loading', line: `The ship is tied up at the jetty, loading what is on the quay for sale: she pays and sails in ${dayWords(days)}${so}` };
+  }
+  if (ship.phase === SHIP_LEAVING) {
+    const sold = ship.lastAt === ship.since && ship.lastPaid > 0;
+    const next = post && ship.due > 0 ? ` · the next is due in ${dayWords(daysTo(s, ship.due))}` : '';
+    if (sold) return { phase: ship.phase, days: 0, chip: `+${ship.lastPaid.toLocaleString('en-GB')}`, short: `Sold · ${ship.lastPaid.toLocaleString('en-GB')} dr`, line: `The ship has sailed with ${goodsList(ship.lastBought)}: she paid ${ship.lastPaid.toLocaleString('en-GB')} dr${next}` };
+    if (ship.lastAt === ship.since) return { phase: ship.phase, days: 0, chip: 'Sailed', short: 'Ship sailed', line: `The ship has sailed with nothing: there was nothing on the quay for sale${next}` };
+    return { phase: ship.phase, days: 0, chip: 'Gone', short: 'Ship turned back', line: post ? `The ship turned back${next}` : 'The ship turned back: the trading post is gone' };
+  }
+  if (!post) return null;
+  // (A post built while the game is paused: her schedule starts with the next tick.)
+  const days = daysTo(s, ship.due > 0 ? ship.due : s.tick + FIRST_SHIP);
+  return { phase: ship.phase, days, chip: `${days} d`, short: `Ship in ${days} d`, line: `The next ship is due in ${dayWords(days)}: she buys what is on the quay of the goods ticked for sale` };
+}
+
+/** What the post's dockers are doing, or why none is going ('' while there is nothing to say). */
+export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
+  const out = dockersOut(s, post);
+  if (rateOf(post) === 0) return '';
+  if (out > 0) return `${out} of ${MAX_DOCKERS} dockers out, carrying goods between the stores and the quay`;
+  if (!s.trade.sell.some((x) => x)) return 'No dockers out: nothing is ticked for sale';
+  const job = dockerWork(s, post);
+  if (job) {
+    const kind = storeKind(job.w);
+    const roads = roadsBeside(s, map.size, post);
+    const found = job.back
+      ? nearestBy(s, map.size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
+      : nearestBy(s, map.size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+    if (found) return 'A docker sets off soon';
+    if (job.back) return `No dockers out: no ${kind} reached by road from the post has room for the ${WARE_NAMES[job.w]} going back`;
+    return `No dockers out: no ${kind} holding ${WARE_NAMES[job.w]} is reached by road from the post`;
+  }
+  // Why not: nothing spare in the stores, or the quay full of what is spare.
+  let spare = false;
+  let room = false;
+  TRADE_GOODS.forEach((w, k) => {
+    if (!s.trade.sell[k]) return;
+    if (surplusOf(s, post, k) >= MIN_LOT) {
+      spare = true;
+      if (quayRoom(post, w) >= MIN_LOT) room = true;
+    }
+  });
+  if (!spare) return 'No dockers out: the stores hold no more of the goods for sale than the city keeps';
+  return room ? 'No dockers out' : 'No dockers out: the quay is full until the ship comes';
+}
