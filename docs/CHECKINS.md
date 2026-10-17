@@ -2,6 +2,72 @@
 
 Notes to Oliver, newest first.
 
+## Slice 13 — The ship comes in (17 Oct)
+
+The city can now sell what it has spare: a trading post on the bay shore sends dockers to carry surplus food and goods from the stores to its quay, and every three months a merchant ship sails in across the bay, ties up at its jetty, loads what waits there and pays for it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing. A slice 12 save opens with nothing for sale and no ship due (the schedule starts when a post is built), and the welcome back says merchant ships now call and where to build the post (G three times, on the bay shore where deep water comes close). Older saves go through every step. Every earlier demo opens exactly as before. The trading post joins the granary and the storehouse under the G button, so the build bar keeps its 17 buttons and its width.
+
+### What's new
+- **The trading post** (G three times, 250 dr, 6 workers): a stone quay on the shore with a counting house along its landward side, a pennant, a bench with scales under an awning, a crane and bollards, and a timber jetty on piles out to deep water. It goes only where the ship can come alongside: on the bay shore with deep water within 7 tiles, and only one in the city. While you place it, the tool tints the shore where it can go, and a refusal says why ("no sea beside it here", "the water off this shore is too shallow for the ship", "only one trading post"). It needs a road beside it, like any workplace.
+- **What it sells.** The ship buys six goods at steady prices per hundred: wheat 15 dr, meat 30, cheese 30, oil 60, fleece 45, wine 80. For each you choose whether to sell it (all off to begin with) and how much the city keeps in its stores (to begin with wheat 1,600; meat, cheese, fleece and wine 600; oil 800). Only what is beyond the keep goes.
+- **Dockers** in sea-green tunics, with the porters' handcarts: up to four go out from the post, one every two days, to the nearest granary or storehouse holding a good for sale, and bring a cartload of what is spare back to the quay (wheat 1,200; meat, cheese and oil 800; fleece and wine 600). The quay holds 2,400 of each, stacked where you can see them: sacks, hams, cheeses, oil jars, bales and amphorae. Take a good off sale and the next docker carries it back to the stores.
+- **The merchant ship** from Tyre: a round-bellied hull with a dark wale and painted eyes, a swan-neck stern post, steering oars, a single mast and a square sail in cream and russet stripes. The first is due three months after the post is built, then one every three months. Six days before she is due her sail shows on the horizon (with a bell, three strokes) and she sails in, slowing as she enters the bay; she furls her sail and ties up at the jetty for four days, loading what is on the quay; then she pays, the sale floats up over the post with the sound of coins, and she sails out the way she came, low in the water. If the post is cleared while she is coming in, she turns back.
+- **Sales on the ledger**, one line a good ("Sales · wheat"), paid as income, so wages owed are paid at once.
+- **Readable.** Once a post stands, the top bar has a ship chip: the days until she is due, "In port" while she loads, what she paid as she leaves. Click it (or the post) for the **trade panel**: what the ship is doing and how long until her next call, a row per good with its price, what the stores hold, the keep (− / +), what waits on the quay and a sell tick; what the dockers are doing; what the last ship bought and paid; and a warning when the post has no road or workers or nothing is ticked. Hovering the post, a docker or the ship says what they are doing, and a town line tells you when her sail is on the horizon and while she loads.
+- **Sound:** the bell when her sail is sighted, coins when she pays.
+
+### What to try
+1. Open `#trade`: `#town` four months on, with a road laid from the main street down to the bay's north-east shore and the trading post tool in hand. Move it along the shore to see the tint and the refusals, then build it at the road's end. The ship chip appears in the top bar: 90 days.
+2. Open `#quay`: the post built there, with wheat, meat, cheese and oil for sale, a few cartloads already on the quay and the trade panel open. Tick fleece or wine, change a keep, untick something and watch the next docker carry it back. Hover a docker.
+3. Open `#sail`: the ship's sail on the horizon, seen low across the bay. Press play and watch her come in to the jetty. Hover her.
+4. Open `#ship`: tied up at the jetty with her sail furled, loading. Press play until she pays and sails off, and watch the chip and the floater.
+5. Open `#black`: the treasury has run dry (2 dr, with 240 dr of wages owed: taxes were turned off) and the ledger is open, with all six goods for sale and her sail on the horizon. Press play: when she sails, her 840 dr pays the wages and leaves 602 dr.
+6. Open one of your slice 12 saves (`#saved` or `#continue`) and read the welcome back.
+
+### What I'd like your eye on
+- **The ship** (`#ship` close up, `#sail` from the shore). Does she read as a storybook merchant ship? She is drawn big against the post, toy-town scale, so she shows from the usual zoom.
+- **Her way in** (`#sail`, played on). She is far out for the first few days and in the bay for the last two. Is that a sight worth looking up for, and does it give you time to get goods on the quay?
+- **The quay** (`#quay`). Do the stacks read as goods waiting for the ship, and the dockers as people carrying them?
+- **The trade panel.** Is it clear what the keep does, and is "nothing for sale to begin with" the right start, or should the city sell its spare food by default?
+- **Prices.** A visit to `#black` paid 840 dr for food and oil. Is that worth building a post for? Money is tuned in slice 14.
+
+### Known rough edges
+- The quay is levelled to the highest ground under it, so on the sloping shore it stands on a tall stone plinth on its landward side.
+- She turns on the spot at the jetty to sail out.
+- On the far stretch of her route, beyond the islet, she moves quickly (the last two days of her approach are the slow, close part).
+- Goods in the trade panel are marked with a colour swatch from their quay stack, not an icon.
+- How fast the quay fills depends on how far the post is from the stores. The panel's docker line shows it, but the placing tip doesn't say.
+- The smoke check for `#winevendor` failed once in this slice's runs, waiting on a vendor who was between rounds (that demo has no trading post and fingerprints exactly as before), and passed when run again.
+- Money pressure is still untouched (slice 14).
+
+### Measurements
+Before is `a07429f` (the end of slice 12's review); after is this slice, in the same headless Chromium with software graphics at 1920 × 1080.
+- Tests: 198 in 19 files, all passing (was 188 in 18). New, in `tests/trade.test.ts`:
+  - where the post can go, and the tool's tint agreeing with the refusals;
+  - the ship's schedule (due three months after the post, on the horizon six days before, loading, sailing off, every three months), and her staying on deep water;
+  - turning back when the post is cleared, and none due until another is built;
+  - dockers carrying only the surplus beyond the keep, never overfilling the quay, and the ship paying the shown prices;
+  - goods carried back when taken off sale;
+  - `#black` paid back into the black;
+  - a real slice 12 save (`tests/fixtures/slice12-town.save.json.gz`) loading and saving again identically;
+  - a save with the ship sailing in and dockers on the road carrying on identically, and a replay of the log;
+  - a damaged trade record refused in plain words;
+  - a town with no post never touching its trade record.
+
+  All 51 earlier demos fingerprint exactly as before (checked by a probe outside the repo).
+- Smoke: passes, extended with `#trade` (the tool, its tip and refusal, building the post and the 90-day countdown, G cycling), `#quay` (the trade panel, keep and sell, closing and reopening it, the post's and a docker's hovers), `#sail` (her sail far out, set, the town line, drawn), `#ship` (tied up at the berth, furled, "In port", her tip), `#black` (wages owed, then paid by her visit, with "Sales · wheat" on the ledger) and a slice 12 save's welcome back. Every demo token opens with no page errors.
+- Download: 328 KB compressed, 1,138 KB raw (was 315 and 1,097).
+- Load, by the page's own clock: ready at 1.15 s and first frame at 1.37 s (was 1.26 and 1.50). `#town`: ready at 1.71 s, first frame 2.18 s (was 1.85 and 2.36). The new demos are ready at 2.0 to 2.3 s, because each plays the town on for months first. Target: under 3 seconds. These load times move by a tenth of a second or so from run to run.
+- Draw batches and triangles, before → after:
+  - The opening view, `#streets`, `#water`, `#food`, `#fine`, `#closed`, `#town`, `#villas`, `#fire` and `#blaze`: unchanged (for example `#town` 816,898 triangles and 83 draws, its overview 934,314 and 109).
+  - New: `#quay` 643,000 triangles and 55 draws (its overview 962,000 and 116); `#sail` 546,000 and 42; `#ship` 598,000 and 54, and from the town view 841,000 and 91. The post and jetty join the merged buildings, the quay's goods use the existing batches, and the ship is one more draw while she is out.
+- Main-thread time per frame before drawing, paused / running:
+  - `#food`: 0.74 / 1.24 ms (was 0.58 / 1.21). `#fine`: 0.87 / 2.39 (was 0.72 / 2.79). `#town`: 1.15 / 8.51 (was 0.87–1.01 / 5.75–8.94; it has no trading post, and this figure is noisy).
+  - New: `#quay` running 2.56 ms, `#ship` running 3.05.
+- A save of `#town`: 258 KB (unchanged).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 12 — Fire and collapse (17 Oct)
 
 Neglect now shows in the town: every building slowly gathers fire risk and wear, a watch post's watchman and an architect's office's inspector keep them down, and a building left alone smoulders and burns, or creaks and falls, leaving rubble to clear. You weren't here while it was built: every choice below is mine, from the spec's defaults.

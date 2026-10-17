@@ -114,4 +114,20 @@ Measured at `a07429f` (the end of slice 12's review), headless Chromium with sof
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits: plan `81c2e42`, sim `c1357ae`, what Oliver sees `8eb5f69`, look and tune `89cd345`, then the check-in.
+
+**Where it differs from the design above, and why.**
+- *Deep water and the jetty.* Deep water is sea at least 0.5 deep (not 0.8) and the jetty reaches up to 7 tiles (not 6), so that both shores the design names have a berth; the tint shows the usable shore as before.
+- *The schedule.* The first ship is due three months after the post is built (not two), so the dockers have time to stack a few loads before she comes; then every three months as planned.
+- *Dockers.* Four out at most (not three), one every two days (not three), with handcarts of wheat 1,200; meat, cheese and oil 800; fleece and wine 600 (not 1,200 / 600 / 400). At the planned figures a post far from the stores could not fill the quay in three months.
+- *Her way in.* The route runs out 60 tiles beyond the map's edge (not 110) and she slows into the bay on a gentler curve (exponent 1.8, not 2.6). With the longer horizon she covered most of her six days far out to sea and raced past the islet; now the sail is on the horizon for the first few days and she is visibly sailing in for the last two.
+- *The post's model.* The counting house stands along the landward side of the quay, not at its back, so the stacked goods face the land and show from the usual views; the crane and bollards are on the seaward corner, by the jetty.
+- *Readable.* The ship chip is compact ("29 d", "In port", "+504" as she leaves, "Gone" if she turned back) so the top bar still fits at 1280 px wide; its tooltip and the panel carry the full sentence. The bell (three strokes) rings when her sail is sighted, not when she ties up, since that is the moment to act; a coin cue and a "+N dr" floater over the post mark the sale. The town line says "A sail on the horizon" while she is far out and "The merchant ship is sailing into the bay" once she is well in. Goods in the panel are marked with a colour swatch from their quay stack rather than an icon.
+- *Demos.* All five open on `#town` with a road laid down column 74 from the main street to the shore and the post at (73, 69). `#trade` plays on four months and opens with the tool in hand; `#quay`, `#sail` and `#ship` build the post and put wheat, meat, cheese and oil up for sale; `#black` builds as soon as the treasury can pay, sells all six goods keeping less (wheat 800; meat, cheese and oil 200) and turns taxes off 450 ticks (a month and a half) before the ship is due, so it opens with 2 dr and 240 dr of wages owed; her visit pays 840 dr and leaves 602 dr with nothing owed. Their own overlay (for `-overlay`) is food and goods.
+- *Views.* Three new camera views: `quay` (over the post from the land), `sail` (a low view out across the bay to the horizon) and `ship` (close on the berth).
+
+**Effects on the earlier demos.** None: all 51 earlier demos fingerprint exactly as at `a07429f` (checked by a probe outside the repo). A town that never builds a post never touches its trade record.
+
+**Tests.** 10 new in `tests/trade.test.ts` (placement and the tint, the schedule and her staying on deep water, turning back when the post is cleared, dockers carrying only the surplus and the sale at the shown prices, carrying back what is taken off sale, `#black`, a real slice 12 save `tests/fixtures/slice12-town.save.json.gz` at state version 11, a save mid-approach and replay, a damaged trade record refused, a town without a post unchanged); `tests/treasury.test.ts` and `tests/hazards.test.ts` adjusted for the new ledger and building kinds. 198 tests in 19 files.
+
+**For slice 14.** Prices are untuned (money is slice 14's): the figures are the design's, chosen by feel, not balanced against taxes or wages. How fast the quay fills depends on how far the post is from the stores (the dockers walk), which the panel's docker line shows but the placing tip does not. Measurements are in the check-in.
