@@ -1,7 +1,8 @@
 /**
- * The "Greece" button at the end of the top bar's row, with its key: it opens
- * and closes the map of Greece. Kept apart from the top bar so the bar's own
- * layout is untouched.
+ * The "Greece" button, a tab hanging under the top bar's right end, with its
+ * key: it opens and closes the map of Greece. It hangs below the bar rather
+ * than sitting in its row so the bar is no wider (it has to fit beside the
+ * side panel on a 1280-pixel window).
  */
 export class GreeceButton {
   readonly el: HTMLButtonElement;
@@ -18,8 +19,8 @@ export class GreeceButton {
       // Let go of the focus, so Tab and the game's keys work at once.
       b.blur();
     });
-    const row = document.querySelector('.topbar .row');
-    (row ?? document.body).appendChild(b);
+    const bar = document.querySelector('.topbar');
+    (bar ?? document.body).appendChild(b);
     this.el = b;
   }
 

@@ -363,7 +363,13 @@ if (!/The house of [\s\S]*Who lives here[\s\S]*head of the house[\s\S]*Their sto
 const firstPanel = c.panel;
 // Hovering another home invites a click; clicking it opens its own panel.
 const others = (await page.evaluate(() => window.__zeus.homes())).filter((h) => h.id !== firstPanel && h.level === 3);
-const other = others.find((h) => Math.abs(h.x - 30) + Math.abs(h.z - 67) < 8) ?? others[0];
+// One in plain view: not under the household panel or the side panel (which narrows the view on a 1280-wide window).
+const onCanvas = async (h) => {
+  const q = await at(h.x + 1, h.z + 1);
+  return page.evaluate(([x, y]) => document.elementFromPoint(x, y - 4)?.tagName === 'CANVAS', [q.x, q.y]);
+};
+let other = others.find((h) => Math.abs(h.x - 30) + Math.abs(h.z - 67) < 8) ?? others[0];
+if (!(await onCanvas(other))) for (const h of others) if (await onCanvas(h)) { other = h; break; }
 p = await at(other.x + 1, other.z + 1);
 await page.mouse.move(p.x, p.y - 4);
 await frames(2);

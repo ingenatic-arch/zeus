@@ -618,8 +618,10 @@ kbd {
 .greece-btn {
   appearance: none; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; white-space: nowrap;
   display: inline-flex; align-items: center; gap: 5px;
-  background: #fff8ea; border: 1.5px solid var(--edge); border-radius: 999px; padding: 3px 7px 3px 7px;
-  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+  position: absolute; top: calc(100% - 1px); right: 14px;
+  background: linear-gradient(180deg, var(--parchment-deep), var(--parchment)); border: 1.5px solid var(--edge); border-top: none;
+  border-radius: 0 0 10px 10px; padding: 3px 9px 4px;
+  box-shadow: 0 3px 0 rgba(120, 80, 40, 0.22), 0 6px 14px rgba(60, 40, 20, 0.14);
 }
 .greece-btn:hover { background: #fff2d6; }
 .greece-btn svg { width: 19px; height: 15px; }
@@ -860,3 +862,5 @@ svg.ware { width: 24px; height: 24px; display: block; }
 /* The map of Greece takes the whole window: the side panel steps aside while it is open. */
 body.greece-open #app.side-open { --side: 0px; }
 body.greece-open .side, body.greece-open .side-btn { display: none !important; }
+/* With the side panel stepped aside, the top bar centres on the room left of the corner buttons. */
+body.greece-open .topbar { left: calc((100% - 200px) / 2); }
