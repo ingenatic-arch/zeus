@@ -55,20 +55,24 @@ export function shareWork(s: SimState, map: CoastMap): void {
 }
 
 function fill(s: SimState, size: number, places: Building[], homes: Array<{ b: Building; roads: number[]; free: number }>): void {
-  // Every (distance, workplace, home) pair joined by road.
-  const pairs: number[][] = [];
+  // Every (distance, workplace, home) pair joined by road, packed into one number
+  // (distance, then workplace, then home) so that a plain numeric sort puts them in order.
+  const H = homes.length;
+  const span = places.length * H;
+  const pairs: number[] = [];
   places.forEach((p, pi) => {
     const dist = distFrom(s, size, p);
     homes.forEach((h, hi) => {
       let d = -1;
       for (const t of h.roads) if (dist[t] >= 0 && (d < 0 || dist[t] < d)) d = dist[t];
-      if (d >= 0) pairs.push([d, pi, hi]);
+      if (d >= 0) pairs.push(d * span + pi * H + hi);
     });
   });
-  pairs.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
-  for (const [, pi, hi] of pairs) {
-    const p = places[pi];
-    const h = homes[hi];
+  const order = Float64Array.from(pairs).sort();
+  for (const key of order) {
+    const rest = key % span;
+    const p = places[Math.floor(rest / H)];
+    const h = homes[rest % H];
     const want = jobsAt(p) - p.workers;
     if (want <= 0 || h.free <= 0) continue;
     const take = Math.min(want, h.free);
