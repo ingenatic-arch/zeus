@@ -780,7 +780,8 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   const post = tradingPost(s);
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + SAIL_IN);
-    return { phase: ship.phase, days, chip: `${days} d`, short: `Sail sighted · ${days} d`, line: `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}` };
+    const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
+    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}` };
   }
   if (ship.phase === SHIP_MOORED) {
     const days = daysTo(s, ship.since + LOADING);

@@ -188,6 +188,8 @@ const SHOTS = {
   docker: '#quay',
   'docker-wine': '#quay',
   black: '#black-paused',
+  'sail-bay': '#sail',
+  'ship-leaving': '#ship',
   'black-after': '#black',
 };
 
@@ -219,6 +221,36 @@ const closeToWalker = async (page, find, ticks = 40, view = { yaw: 0.5, dist: 2.
 
 /** Things to do on the page before a shot. */
 const BEFORE = {
+  'quay-close': async (page) => {
+    await closeTo(page, 'trading', 2.2, 7, 0.15);
+  },
+  'ship-close': async (page) => {
+    const sh = await page.evaluate(() => window.__zeus.ship());
+    await page.evaluate((v) => window.__zeus.jump(v), { x: sh.x, z: sh.z, yaw: 0.9, dist: 8, tilt: 0.05 });
+  },
+  'ship-high': async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 74, z: 74, yaw: 2.65, dist: 30, tilt: 0.3 }));
+  },
+  'sail-bay': async (page) => {
+    // Coming into the bay: within thirty-five tiles of the berth (headless frames are slow: each moves her a fair way).
+    await page.waitForFunction(() => {
+      const sh = window.__zeus.ship();
+      return sh.visible && sh.phase === 1 && Math.hypot(sh.x - 74.5, sh.z - 77.5) < 35;
+    }, null, { timeout: 600000, polling: 50 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
+    const sh = await page.evaluate(() => window.__zeus.ship());
+    await page.evaluate((v) => window.__zeus.jump(v), { x: sh.x, z: sh.z - 4, yaw: 2.9, dist: 20, tilt: -0.1 });
+  },
+  'ship-leaving': async (page) => {
+    // Sailing off laden, a little way out.
+    await page.waitForFunction(() => {
+      const sh = window.__zeus.ship();
+      return sh.phase === 3 && sh.visible && Math.hypot(sh.x - 74.5, sh.z - 77.5) > 4;
+    }, null, { timeout: 600000, polling: 100 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
+    const sh = await page.evaluate(() => window.__zeus.ship());
+    await page.evaluate((v) => window.__zeus.jump(v), { x: sh.x, z: sh.z, yaw: 2.3, dist: 16, tilt: -0.02 });
+  },
   'trade-tip': async (page) => {
     await page.evaluate(() => window.__zeus.jump({ x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 }));
     await hover(page, 74.5, 70.5);
