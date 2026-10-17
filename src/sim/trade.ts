@@ -35,6 +35,9 @@ import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
 import { roomFor, roomOf } from './stores';
 import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
+
+/** What placing a ship needs of her record: the Tyre ship's, or a foreign ship's (a Visitor, see routes.ts). */
+export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned'>;
 import { note } from './stockbook';
 import { income } from './treasury';
 import { DOCKER_SPEED, newWalker, position, setPath } from './walk';
@@ -71,6 +74,9 @@ export const SHIP_AWAY = 0;
 export const SHIP_COMING = 1;
 export const SHIP_MOORED = 2;
 export const SHIP_LEAVING = 3;
+/** A foreign ship's two more (routes.ts): anchored in the bay, waiting for the jetty; and coming alongside from her anchorage. */
+export const SHIP_ANCHORED = 4;
+export const SHIP_BERTHING = 5;
 /** The first ship is due three months after the post is built (time for the dockers' first loads), then one every three months. */
 export const FIRST_SHIP = 3 * TICKS_PER_MONTH;
 export const SHIP_EVERY = 3 * TICKS_PER_MONTH;
@@ -386,12 +392,12 @@ function clearWay(map: CoastMap, a: [number, number], b: [number, number]): bool
 }
 
 /** A path's length, and the point and heading a distance along it. */
-function pathLength(p: readonly number[]): number {
+export function pathLength(p: readonly number[]): number {
   let l = 0;
   for (let i = 0; i + 3 < p.length; i += 2) l += Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
   return l;
 }
-function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
+export function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
   let left = Math.max(0, d);
   for (let i = 0; i + 3 < p.length; i += 2) {
     const sx = p[i + 2] - p[i];
@@ -472,7 +478,7 @@ function outerLength(p: readonly number[]): number {
 
 
 /** How long she takes to sail off from where she turned. */
-export const leaveTicks = (ship: Ship): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
+export const leaveTicks = (ship: Sailing): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
 
 /**
  * Leaving the jetty: she backs off astern, bow still to the quay, this far
@@ -483,10 +489,10 @@ export const BACK_OFF = 3;
 export const BACK_TICKS = 8;
 export const TURN_TICKS = 8;
 /** Does she leave the quay that way (she sailed off from the jetty, not turned back at sea)? */
-const backsOff = (ship: Ship, L: number): boolean => ship.turned >= 1 && L > 2 * BACK_OFF && leaveTicks(ship) > BACK_TICKS + TURN_TICKS + 10;
+const backsOff = (ship: Sailing, L: number): boolean => ship.turned >= 1 && L > 2 * BACK_OFF && leaveTicks(ship) > BACK_TICKS + TURN_TICKS + 10;
 /** Has she finished backing off and swinging round (for the renderer: her sail stays furled till then)? */
-export const underWay = (ship: Ship, tick: number): boolean => ship.phase === SHIP_LEAVING && (!backsOff(ship, pathLength(ship.path)) || tick - ship.since >= BACK_TICKS + TURN_TICKS);
-const smooth = (u: number): number => {
+export const underWay = (ship: Sailing, tick: number): boolean => ship.phase === SHIP_LEAVING && (!backsOff(ship, pathLength(ship.path)) || tick - ship.since >= BACK_TICKS + TURN_TICKS);
+export const smooth = (u: number): number => {
   const v = Math.max(0, Math.min(1, u));
   return v * v * (3 - 2 * v);
 };
@@ -496,7 +502,7 @@ const smooth = (u: number): number => {
  * between them), which way her bow points (a unit vector), and how far in she
  * has come (0 at the horizon, 1 at the quay); null while she is away.
  */
-export function shipAt(ship: Ship, tick: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
+export function shipAt(ship: Sailing, tick: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
   if (ship.phase === SHIP_AWAY || ship.path.length < 4) return null;
   const L = pathLength(ship.path);
   let f: number;
@@ -543,7 +549,7 @@ export function cityHolds(s: SimState, w: Ware): number {
 }
 
 /** What dockers on their way to fetch a good have reserved, and what dockers taking it back are carrying. */
-function inHand(s: SimState, post: Building, w: Ware): { fetching: number; returning: number } {
+export function inHand(s: SimState, post: Building, w: Ware): { fetching: number; returning: number } {
   let fetching = 0;
   let returning = 0;
   for (const d of s.walkers) {
@@ -552,6 +558,30 @@ function inHand(s: SimState, post: Building, w: Ware): { fetching: number; retur
     else fetching += d.meat;
   }
   return { fetching, returning };
+}
+
+/**
+ * Is a trade good for sale at a depot (the trading post's quay, or the
+ * caravan yard): ticked for the Tyre ship or for some open sea route, at the
+ * quay; for some open land route, at the yard. With no routes open it is
+ * exactly the ship's tick, as it always was.
+ */
+export function forSale(s: SimState, depot: Building, k: number): boolean {
+  if (depot.kind === 'trading' && s.trade.sell[k]) return true;
+  const kind = depot.kind === 'trading' ? 'sea' : 'land';
+  for (const r of s.world.routes) if (r.kind === kind && r.sell[k]) return true;
+  return false;
+}
+
+/** Is a trader loading at a depot now: the Tyre ship or a foreign ship tied up at the quay, or a caravan trading at the yard? */
+export function loadingAt(s: SimState, depot: Building): boolean {
+  if (depot.kind === 'trading') {
+    if (s.trade.ship.phase === SHIP_MOORED) return true;
+    for (const r of s.world.routes) if (r.ship && r.ship.phase === SHIP_MOORED && r.ship.post === depot.id) return true;
+    return false;
+  }
+  for (const w of s.walkers) if (w.kind === 'caravan' && w.origin === depot.id && w.wait > 0) return true;
+  return false;
 }
 
 /** The surplus of a trade good: what the stores hold beyond what the city keeps, less what dockers are already on their way to fetch. */
@@ -563,6 +593,10 @@ export function surplusOf(s: SimState, post: Building | undefined, k: number): n
 
 /** Room left on the quay for a good (less what dockers on their way have reserved). */
 export const quayRoom = (post: Building, w: Ware): number => QUAY_ROOM - held(post, w) - coming(post, w);
+/** What the caravan yard holds of each good. */
+export const YARD_ROOM = 1600;
+/** Room left at a depot (the quay or the caravan yard) for a good. */
+export const depotRoom = (depot: Building, w: Ware): number => (depot.kind === 'yard' ? YARD_ROOM - held(depot, w) - coming(depot, w) : quayRoom(depot, w));
 
 /** Dockers out from the post. */
 export const dockersOut = (s: SimState, post: Building): number => {
@@ -704,23 +738,24 @@ interface DockerJob {
  * the goods for sale, the most valuable load first.
  */
 function dockerJobs(s: SimState, post: Building): DockerJob[] {
-  const ship = s.trade.ship;
+  const loading = loadingAt(s, post);
   const jobs: DockerJob[] = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     const w = TRADE_GOODS[k];
     const q = held(post, w);
     if (q <= 0) continue;
-    if (s.trade.sell[k] && ship.phase === SHIP_MOORED) continue;
+    const sale = forSale(s, post, k);
+    if (sale && loading) continue;
     const { returning } = inHand(s, post, w);
-    const want = s.trade.sell[k] ? s.trade.keep[k] - cityHolds(s, w) - returning : q;
+    const want = sale ? s.trade.keep[k] - cityHolds(s, w) - returning : q;
     const lot = Math.min(DOCKER_TAKE[k], q, want);
     if (lot >= Math.min(MIN_LOT, q)) jobs.push({ w, k, lot, back: true });
   }
   const fetch: Array<DockerJob & { v: number }> = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
-    if (!s.trade.sell[k]) continue;
+    if (!forSale(s, post, k)) continue;
     const w = TRADE_GOODS[k];
-    const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), quayRoom(post, w));
+    const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), depotRoom(post, w));
     if (lot < MIN_LOT) continue;
     fetch.push({ w, k, lot, back: false, v: priceFor(k, lot) });
   }
@@ -743,7 +778,7 @@ function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): {
  * DOCKER_GAP): the first job a store can be reached for (so a good with
  * nowhere to go doesn't hold up the others).
  */
-function stepDockers(s: SimState, map: CoastMap, post: Building): void {
+export function stepDockers(s: SimState, map: CoastMap, post: Building): void {
   if (post.clock > 0) post.clock--;
   if (post.clock > 0 || rateOf(post) === 0 || dockersOut(s, post) >= MAX_DOCKERS) return;
   post.clock = DOCKER_GAP;
@@ -840,7 +875,7 @@ export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
     } else {
       // Fetching: what the city has beyond what it keeps, as much as he reserved room for.
       const k = tradeIndex(d.food);
-      const spare = k >= 0 && s.trade.sell[k] ? Math.max(0, cityHolds(s, d.food) - s.trade.keep[k]) : 0;
+      const spare = k >= 0 && forSale(s, post, k) ? Math.max(0, cityHolds(s, d.food) - s.trade.keep[k]) : 0;
       const take = Math.min(d.meat, held(g, d.food), spare);
       setHeld(g, d.food, held(g, d.food) - take);
       addComing(post, d.food, take - d.meat);
@@ -891,9 +926,16 @@ export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
 export function dockerDoing(s: SimState, d: Walker): string {
   const name = WARE_NAMES[d.food];
   const g = findBuilding(s, d.target);
-  const where = g ? (g.kind === 'granary' ? 'the granary' : 'the storehouse') : 'the quay';
-  if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to the quay for the ship` : 'going back to the quay';
-  if (d.load > 0) return `taking ${d.load.toLocaleString('en-GB')} ${name} back to ${where}: it isn’t for sale now`;
+  const yard = findBuilding(s, d.origin)?.kind === 'yard';
+  const depot = yard ? 'the caravan yard' : 'the quay';
+  const where = g ? (g.kind === 'granary' ? 'the granary' : 'the storehouse') : depot;
+  if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to ${depot} ${yard ? 'for the caravans' : 'for the ships'}` : `going back to ${depot}`;
+  if (d.load > 0) {
+    const k = tradeIndex(d.food);
+    const post = findBuilding(s, d.origin);
+    const sale = post && k >= 0 ? forSale(s, post, k) : false;
+    return `taking ${d.load.toLocaleString('en-GB')} ${name} to ${where}${sale ? '' : yard ? ': it came with a caravan, or isn’t for sale now' : ': it came in by ship, or isn’t for sale now'}`;
+  }
   return d.wait > 0 ? `loading ${name} at ${where}` : `going to ${where} for ${name} to sell`;
 }
 
@@ -949,27 +991,30 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
 export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
   const out = dockersOut(s, post);
   if (rateOf(post) === 0) return '';
+  if (post.kind === 'yard' && out > 0) return `${out} of ${MAX_DOCKERS} porters out, carrying goods between the stores and the yard`;
   if (out > 0) return `${out} of ${MAX_DOCKERS} dockers out, carrying goods between the stores and the quay`;
-  if (!s.trade.sell.some((x) => x)) return 'No dockers out: nothing is ticked for sale';
+  if (!TRADE_GOODS.some((_, k) => forSale(s, post, k)) && !TRADE_GOODS.some((w) => held(post, w) > 0)) return 'No dockers out: nothing is ticked for sale';
   const jobs = dockerJobs(s, post);
   if (jobs.length > 0) {
     const roads = roadsBeside(s, map.size, post);
     if (jobs.some((j) => storeFor(s, map.size, roads, j))) return 'A docker sets off soon';
     const job = jobs[0];
     const kind = storeKind(job.w);
-    if (job.back) return `No dockers out: no ${kind} reached by road from the post has room for the ${WARE_NAMES[job.w]} going back`;
-    return `No dockers out: no ${kind} holding ${WARE_NAMES[job.w]} is reached by road from the post`;
+    const who = post.kind === 'yard' ? 'porters' : 'dockers';
+    const from = post.kind === 'yard' ? 'the yard' : 'the post';
+    if (job.back) return `No ${who} out: no ${kind} reached by road from ${from} has room for the ${WARE_NAMES[job.w]} ${forSale(s, post, job.k) ? 'going back' : 'brought in'}`;
+    return `No ${who} out: no ${kind} holding ${WARE_NAMES[job.w]} is reached by road from ${from}`;
   }
   // Why not: nothing spare in the stores, or the quay full of what is spare.
   let spare = false;
   let room = false;
   TRADE_GOODS.forEach((w, k) => {
-    if (!s.trade.sell[k]) return;
+    if (!forSale(s, post, k)) return;
     if (surplusOf(s, post, k) >= MIN_LOT) {
       spare = true;
-      if (quayRoom(post, w) >= MIN_LOT) room = true;
+      if (depotRoom(post, w) >= MIN_LOT) room = true;
     }
   });
   if (!spare) return 'No dockers out: the stores hold no more of the goods for sale than the city keeps';
-  return room ? 'No dockers out' : 'No dockers out: the quay is full until the ship comes';
+  return room ? 'No dockers out' : post.kind === 'yard' ? 'No porters out: the yard is full until the next caravan' : 'No dockers out: the quay is full until the ship comes';
 }

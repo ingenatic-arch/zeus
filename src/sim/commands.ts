@@ -29,11 +29,15 @@ export type Command =
   /** The trading post: sell a good to the ship or not (`sell`), and how much of it the city keeps (`keep`, measures); the good by its ware number (wheat 0, meat 1, cheese 2, oil 4, fleece 5, wine 7). */
   | { type: 'trade'; good: number; sell?: boolean; keep?: number }
   /** Rename your city (see nameRefusal in world.ts: a name it refuses changes nothing). */
-  | { type: 'name'; name: string };
+  | { type: 'name'; name: string }
+  /** Open a trade route to a city, by land or by sea, for its fee (see routeRefusal in routes.ts: a route it refuses opens nothing). */
+  | { type: 'route'; city: string; kind: 'land' | 'sea' }
+  /** A route's trade in a good (by its ware number): sell it to them, buy it from them, and buying, how much to stock the stores up to. */
+  | { type: 'deal'; city: string; kind: 'land' | 'sea'; good: number; sell?: boolean; buy?: boolean; upto?: number };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

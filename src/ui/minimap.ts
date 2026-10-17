@@ -41,6 +41,7 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   architect: '#b8a07a',
   rubble: '#5a4a3e',
   trading: '#7a4a2c',
+  yard: '#b07a3e',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */

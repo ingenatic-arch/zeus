@@ -81,9 +81,13 @@ const GULF: ReadonlyArray<readonly [number, number]> = [
   [23.12, 37.2],
 ];
 
+/** The road to Corinth, over the hills by Mycenae and the Nemea pass. */
+const TO_CORINTH: ReadonlyArray<readonly [number, number]> = [[22.76, 37.605], [22.75, 37.72], [22.72, 37.8], [22.8, 37.87], [22.88, 37.91]];
+/** Corinth to Athens, over the isthmus by Megara and Eleusis. */
+const CORINTH_ATHENS: ReadonlyArray<readonly [number, number]> = [[22.88, 37.91], [23.0, 37.95], [23.2, 37.98], [23.35, 38.0], [23.55, 38.04], [23.73, 37.99]];
+
 export const WAYS: readonly Way[] = [
-  // Over the hills by Mycenae and the Nemea pass.
-  { id: 'corinth-land', to: 'corinth', kind: 'land', pts: [[22.76, 37.605], [22.75, 37.72], [22.72, 37.8], [22.8, 37.87], [22.88, 37.91]] },
+  { id: 'corinth-land', to: 'corinth', kind: 'land', pts: TO_CORINTH },
   // Up onto the Arcadian plateau by Tegea, then down the Eurotas valley.
   { id: 'sparta-land', to: 'sparta', kind: 'land', pts: [[22.76, 37.605], [22.62, 37.58], [22.48, 37.5], [22.42, 37.4], [22.42, 37.25], [22.43, 37.08]] },
   // Out of the gulf, round the Argolid's tip and up the Saronic Gulf to the Piraeus.
@@ -94,12 +98,13 @@ export const WAYS: readonly Way[] = [
   { id: 'troy-sea', to: 'troy', kind: 'sea', pts: [...GULF, [23.4, 37.22], [23.95, 37.42], [24.3, 37.78], [24.65, 37.94], [25.05, 38.4], [25.5, 38.95], [25.75, 39.45], [25.95, 39.86], [26.12, 39.94], [26.24, 39.96]] },
   // South-east between the islands and Crete, past Karpathos, and off the table's edge towards Tyre.
   { id: 'tyre-sea', to: 'tyre', kind: 'sea', pts: [...GULF, [23.4, 37.05], [24.05, 36.45], [25.0, 36.1], [26.0, 35.75], [26.7, 35.3], [27.6, 35.2], [28.72, 34.95]] },
+  // By road to Athens: to Corinth, then over the isthmus (the road drawn between them).
+  { id: 'athens-land', to: 'athens', kind: 'land', pts: [...TO_CORINTH, ...CORINTH_ATHENS.slice(1)] },
 ];
 
-/** Roads between the other cities (drawn on the table; nobody travels them yet). */
+/** Roads between the other cities (drawn on the table; Athens' caravans come by the first). */
 export const OTHER_ROADS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
-  // Corinth to Athens, over the isthmus by Megara and Eleusis.
-  [[22.88, 37.91], [23.0, 37.95], [23.2, 37.98], [23.35, 38.0], [23.55, 38.04], [23.73, 37.99]],
+  CORINTH_ATHENS,
   // Corinth to Sparta, through Arcadia.
   [[22.88, 37.91], [22.62, 37.78], [22.42, 37.4]],
 ];
@@ -138,3 +143,6 @@ export const wayOf = (id: string): Way => byId.get(id) as Way;
 
 /** How far out along the Tyre lane the city's horizon is: the gulf's mouth, where her sail first shows from your quay. */
 export const HORIZON_ALONG = lineLength(GULF.flatMap(([lon, lat]) => project(lon, lat))) + 0.6;
+
+/** How far out along a road your map's edge is: where a caravan steps off the table's road into your city. */
+export const EDGE_ALONG = 0.9;

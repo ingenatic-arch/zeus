@@ -23,7 +23,8 @@ import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
 import { freshHerds, stepWild, wildRng } from './wild';
-import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
+import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepDockers, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
+import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
@@ -163,6 +164,8 @@ export class Sim {
     stepMakers(s, map);
     stepAgoras(s, map, stepStalls);
     stepTrade(s, map);
+    // Trade routes, their caravans and ships, and the caravan yard's porters (nothing in a town with neither).
+    stepRoutes(s, map, stepDockers);
     stepCulture(s, map);
     stepTaxOffices(s, map);
     stepWatchPosts(s, map);
@@ -235,6 +238,12 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       }
       break;
     }
+    case 'route':
+      if (c.kind === 'land' || c.kind === 'sea') openRoute(s, String(c.city), c.kind);
+      break;
+    case 'deal':
+      if (c.kind === 'land' || c.kind === 'sea') setDeal(s, String(c.city), c.kind, c.good, c.sell, c.buy, c.upto);
+      break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
         s.world.name = c.name.trim().replace(/\s+/g, ' ');
@@ -377,7 +386,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
                   ? FIRST_WATCHMAN
                   : kind === 'architect'
                     ? FIRST_INSPECTOR
-                    : kind === 'trading'
+                    : kind === 'trading' || kind === 'yard'
                       ? FIRST_DOCKER
                       : 0,
     turn: 0,
@@ -460,7 +469,8 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   }
   if (b.kind !== 'home') {
     s.walkers = s.walkers.filter((w) => {
-      if (w.origin !== b.id) return true;
+      // (A caravan bound for the yard turns back instead: see routes.ts.)
+      if (w.origin !== b.id || w.kind === 'caravan') return true;
       if ((w.kind === 'cart' || (w.kind === 'docker' && w.load > 0)) && !w.back) {
         const g = findBuilding(s, w.target);
         if (g) addComing(g, w.food, -w.load);
@@ -738,6 +748,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               ? moveErrand(s, map, w)
             : w.kind === 'docker'
               ? moveDocker(s, map, w)
+            : w.kind === 'caravan'
+              ? moveCaravan(s, map, w)
               : w.kind === 'hunter'
                 ? moveHunter(s, map, w)
                 : moveGroup(s, map, w);

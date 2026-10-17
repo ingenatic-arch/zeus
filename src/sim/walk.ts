@@ -27,8 +27,11 @@ export const DOCKER_SPEED = COLLECTOR_SPEED;
 /** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
 export const RUN_SPEED = PATROL_SPEED * 1.6;
 
+/** A caravan's donkeys keep an ox cart's pace (see routes.ts). */
+export const CARAVAN_SPEED = CART_SPEED;
+
 export const speedOf = (w: Walker): number =>
-  w.kind === 'cart'
+  w.kind === 'cart' || w.kind === 'caravan'
     ? CART_SPEED
     : w.kind === 'watchman' && w.target > 0
       ? RUN_SPEED

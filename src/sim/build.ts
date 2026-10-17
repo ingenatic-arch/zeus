@@ -29,6 +29,8 @@ export const WATCHPOST_COST = 60;
 export const ARCHITECT_COST = 80;
 /** The trading post: a stone quay with a crane, a counting house and a jetty out to deep water. */
 export const TRADING_COST = 250;
+/** The caravan yard: a walled yard with a donkey pen, a well and an awning over trestles, where caravans from Greece trade. */
+export const YARD_COST = 300;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -62,6 +64,7 @@ export const COST: Record<BuildingKind, number> = {
   architect: ARCHITECT_COST,
   rubble: 0,
   trading: TRADING_COST,
+  yard: YARD_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -433,6 +436,7 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
     const shore = shoreRefusal(map, tx, tz);
     if (shore) return shore;
   }
+  if (kind === 'yard' && s.buildings.some((b) => b.kind === 'yard')) return 'Only one caravan yard: every caravan comes to it';
   if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';
   return '';
 }

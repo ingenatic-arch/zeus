@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 15;
+export const SIM_STATE_VERSION = 16;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -29,9 +29,10 @@ export type BuildingKind =
   | 'watchpost'
   | 'architect'
   | 'rubble'
-  | 'trading';
+  | 'trading'
+  | 'yard';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -140,9 +141,9 @@ export interface Building {
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -283,7 +284,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -491,16 +492,58 @@ export interface WorldCity {
   war: CityId | '';
 }
 
-/** A trade route from your city to another (slice 16 opens them). */
+/**
+ * A trade route from your city to another, by land or by sea (see routes.ts).
+ * By trade good (TRADE_GOODS order) throughout.
+ */
 export interface TradeRoute {
   city: CityId;
   kind: 'land' | 'sea';
-  /** The tick it was opened, and when its next trader sets off. */
+  /** The tick it was opened, and when its next trader is due (a caravan at your map's edge, a ship at the jetty). */
   opened: number;
   next: number;
-  /** What you have sold them and bought from them this year, by trade good. */
+  /** What you have sold them and bought from them this year (January to December). */
   sold: number[];
   bought: number[];
+  /** What you sell them (of the goods they buy), what you buy from them (of the goods they sell), and buying, how much to stock the stores up to. */
+  sell: boolean[];
+  buy: boolean[];
+  upto: number[];
+  /** A sea route's ship (null for a land route). */
+  ship: Visitor | null;
+  /** This visit: what the trader has taken so far, what it unloaded, and what that cost. */
+  hold: number[];
+  unloaded: number[];
+  cost: number;
+  /** Visits so far; the last one's end, what it bought from you and paid, and what it sold you and cost. */
+  visits: number;
+  lastAt: number;
+  lastSold: number[];
+  lastPaid: number;
+  lastBought: number[];
+  lastCost: number;
+  /** The tick a trader last turned back without trading (0: never), and why ('road', 'yard', 'post'). */
+  missedAt: number;
+  missed: string;
+}
+
+/**
+ * A foreign ship on a sea route: the Tyre ship's phases (SHIP_* in trade.ts,
+ * with two more: anchored, waiting for the jetty, and coming alongside from
+ * her anchorage), her way in from the horizon to the jetty, and where along
+ * it she anchors. Where she is follows from these and the tick (visitorAt).
+ */
+export interface Visitor {
+  phase: number;
+  since: number;
+  /** Sailing off: how far along her way in she was when she turned (1 from the quay). */
+  turned: number;
+  path: number[];
+  /** The trading post she is calling at (0 while away). */
+  post: number;
+  /** How far along her way in she stops (1: the jetty; less: her anchorage), and how far to one side of her way she anchors (tiles, signed). */
+  stop: number;
+  aside: number;
 }
 
 /** A ruler's request, offer, demand for tribute or threat, with its deadline (slices 19 and 20). */
@@ -519,8 +562,9 @@ export interface Deal {
 /**
  * Someone on the move on the map (a trader, goods sent as a gift, an army, a
  * war band), along one of the ways (WAYS in map/greece.ts). Where they are is a
- * pure function of the tick: `start` and `dur` along the way, outward from your
- * city or homeward to theirs.
+ * pure function of the tick: `start` and `dur` along the way, coming to your
+ * city (`homeward` false) or going home to theirs (true). A ship is drawn
+ * from her route's record instead (see routes.ts).
  */
 export interface Traveller {
   kind: 'trader' | 'gift' | 'army' | 'raiders';

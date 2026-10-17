@@ -88,7 +88,7 @@ export function stockOf(s: SimState, w: Ware): WareStock {
     out.total += n;
     if (b.kind === 'granary' || b.kind === 'storehouse') out.stores += n;
     else if (b.kind === 'agora') out.stalls += n;
-    else if (b.kind === 'trading') out.quay += n;
+    else if (b.kind === 'trading' || b.kind === 'yard') out.quay += n;
     else out.makers += n;
     out.places.push({ b, n, room: roomIn(b, w) });
   }
@@ -163,6 +163,9 @@ const MAKER_NAMES: Partial<Record<BuildingKind, string>> = {
   winery: 'Wineries',
 };
 
+/** Who a ware was sold to or bought from (the stock book's lines by city: see routes.ts). */
+const TRADER_NAMES: Record<string, string> = { athens: 'Athens', sparta: 'Sparta', corinth: 'Corinth', troy: 'Troy' };
+
 /** What a line is called in the breakdown. */
 export function flowLabel(kind: StockKind, what: string, w: Ware): string {
   const d = districtOfLine(what);
@@ -171,7 +174,7 @@ export function flowLabel(kind: StockKind, what: string, w: Ware): string {
     if (what === 'press') return 'Pressed into oil';
     if (what === 'winery') return 'Trodden into wine';
   }
-  if (kind === 'sold' || kind === 'bought') return what === 'tyre' ? 'The ship from Tyre' : what.replace(/^./, (c) => c.toUpperCase());
+  if (kind === 'sold' || kind === 'bought') return what === 'tyre' ? 'The ship from Tyre' : (TRADER_NAMES[what] ?? what.replace(/^./, (c) => c.toUpperCase()));
   if (kind === 'lost') return what === 'fire' ? 'Burnt' : what === 'collapse' ? 'Fell in' : what === 'cleared' ? 'Cleared away' : what;
   const kindName = MAKER_NAMES[what as BuildingKind];
   if (kindName) return kindName;

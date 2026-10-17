@@ -108,6 +108,7 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   architect: 420,
   rubble: Infinity,
   trading: 330,
+  yard: 420,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -134,6 +135,7 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   architect: 450,
   rubble: Infinity,
   trading: 330,
+  yard: 400,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 

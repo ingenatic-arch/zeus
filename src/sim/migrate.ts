@@ -63,6 +63,10 @@
  * month, so a loaded town's goods show what it makes and uses from its
  * first month on (the year's chart fills in as it plays).
  *
+ * Version 15 to 16 (slice 16, routes and traders): the route records take
+ * their full shape, and no route could be opened before, so a loaded town has
+ * none, and no caravans on the map. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -112,6 +116,7 @@ export function migrate(st: unknown): number {
   if (st.version === 12) from12(st);
   if (st.version === 13) from13(st);
   if (st.version === 14) from14(st);
+  if (st.version === 15) from15(st);
   return from;
 }
 
@@ -253,4 +258,13 @@ function from13(st: Record<string, unknown>): void {
 function from14(st: Record<string, unknown>): void {
   st.stocks = freshBook(typeof st.tick === 'number' ? st.tick : 0);
   st.version = 15;
+}
+
+function from15(st: Record<string, unknown>): void {
+  // (No route could be opened before: whatever the list held, it starts empty, and so do the travellers on the map.)
+  if (isObj(st.world)) {
+    st.world.routes = [];
+    st.world.travellers = [];
+  }
+  st.version = 16;
 }

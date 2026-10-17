@@ -296,7 +296,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -374,6 +374,8 @@ function worldOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
   if (![w.routes, w.deals, w.travellers, w.news].every(Array.isArray)) return false;
   const g = TRADE_GOODS.length;
+  if (!(w.routes as unknown[]).every(routeOk)) return false;
+  if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
   return (w.cities as unknown[]).every((c, i) => {
     if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.festival) || typeof c.war !== 'string') return false;
     if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'price'].every((k) => nums(c[k], g))) return false;
@@ -385,6 +387,20 @@ function worldOk(w: unknown): boolean {
 }
 
 const SHIP_NUMBERS = ['phase', 'due', 'since', 'turned', 'post', 'visits', 'lastAt', 'lastPaid'];
+const ROUTE_NUMBERS = ['opened', 'next', 'cost', 'visits', 'lastAt', 'lastPaid', 'lastCost', 'missedAt'];
+const ROUTE_GOODS = ['sold', 'bought', 'upto', 'hold', 'unloaded', 'lastSold', 'lastBought'];
+const VISITOR_NUMBERS = ['phase', 'since', 'turned', 'post', 'stop', 'aside'];
+
+/** A trade route: its city and kind, its numbers, its goods by trade good, its ticks, and a sea route's ship. */
+function routeOk(r: unknown): boolean {
+  const g = TRADE_GOODS.length;
+  if (!isObj(r) || !CITY_IDS.includes(r.city as never) || (r.kind !== 'land' && r.kind !== 'sea') || typeof r.missed !== 'string') return false;
+  if (!ROUTE_NUMBERS.every((k) => fin(r[k])) || !ROUTE_GOODS.every((k) => nums(r[k], g))) return false;
+  if (![r.sell, r.buy].every((x) => Array.isArray(x) && x.length === g && x.every((v: unknown) => typeof v === 'boolean'))) return false;
+  if (r.kind === 'land') return r.ship === null;
+  const v = r.ship;
+  return isObj(v) && VISITOR_NUMBERS.every((k) => fin(v[k])) && nums(v.path) && (v.path as number[]).length % 2 === 0 && [0, 1, 2, 3, 4, 5].includes(v.phase as number);
+}
 
 function tradeOk(t: unknown): boolean {
   if (!isObj(t) || !Array.isArray(t.sell) || t.sell.length !== TRADE_GOODS.length || !t.sell.every((v: unknown) => typeof v === 'boolean')) return false;

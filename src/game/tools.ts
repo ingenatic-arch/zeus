@@ -590,6 +590,7 @@ export class Tools {
       architect: ['architect’s office', 'architects’ offices'],
       rubble: ['heap of rubble', 'heaps of rubble'],
       trading: ['trading post', 'trading posts'],
+      yard: ['caravan yard', 'caravan yards'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
