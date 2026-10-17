@@ -302,9 +302,14 @@ export class SidePanel {
     this.render(s);
   }
 
-  private render(s: SimState): void {
+  /** The current tab's HTML. */
+  html(s: SimState): string {
     if (this.tab === 'people' && !this.outlook) this.outlook = arrivalOutlook(s, this.map);
-    const html = this.tab === 'goods' ? (this.ware >= 0 ? this.warePage(s, this.ware) : this.goodsList(s)) : this.tab === 'people' ? this.people(s) : this.tab === 'services' ? this.services(s) : this.money(s);
+    return this.tab === 'goods' ? (this.ware >= 0 ? this.warePage(s, this.ware) : this.goodsList(s)) : this.tab === 'people' ? this.people(s) : this.tab === 'services' ? this.services(s) : this.money(s);
+  }
+
+  private render(s: SimState): void {
+    const html = this.html(s);
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     morph(this.body, html);

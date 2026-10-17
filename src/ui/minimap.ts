@@ -117,8 +117,11 @@ export class Minimap {
   private readonly n: number;
   private dragging = false;
   private readonly dpr: number;
-  /** Where the town was painted from, to test (painted count, for the probe). */
+  /** How many times the town has been painted and the plate drawn (for the probe). */
   paints = 0;
+  draws = 0;
+  /** What the plate last showed (the turn, the view's outline, the town, the marks), so an unchanged plate isn't drawn again. */
+  private drawnKey = '';
 
   constructor(
     private readonly map: CoastMap,
@@ -250,6 +253,12 @@ export class Minimap {
       this.paint(s);
     }
     this.yaw = yaw;
+    // Drawn again only when something on it moved: the turn, the view, the town, the ship; fires pulse, so a plate with fires on it is drawn every frame.
+    let key = `${yaw.toFixed(3)}|${this.paints}|${view.map((p) => `${p.x.toFixed(1)},${p.z.toFixed(1)}`).join(';')}|${ship?.visible ? `${ship.x.toFixed(1)},${ship.z.toFixed(1)}` : ''}`;
+    if (s.buildings.some((b) => b.fire !== 0)) key += `|${time}`;
+    if (key === this.drawnKey) return;
+    this.drawnKey = key;
+    this.draws++;
     const ctx = this.ctx;
     const d = this.dpr;
     const R = PLATE / 2;

@@ -51,6 +51,8 @@ interface Probe {
   startMs: number;
   /** Main-thread time spent before drawing, summed over all frames (sim steps and view updates), in ms. */
   updateMs: number;
+  /** Of that, the side panel's and the minimap's, in ms. */
+  sideMs: number;
   /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
   readyAt?: number;
   firstFrameAt?: number;
@@ -174,12 +176,14 @@ interface Probe {
   side?: (open: boolean) => void;
   sideTab?: (tab: string) => void;
   sideWare?: (ware: number) => void;
-  sideState?: () => { open: boolean; tab: string; ware: number; paints: number };
+  /** Debug: how long building each tab's HTML takes (ms, the mean of n). */
+  sideBench?: (n: number) => Record<string, number>;
+  sideState?: () => { open: boolean; tab: string; ware: number; paints: number; draws: number };
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
 }
 
-const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0 };
+const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0 };
 (window as unknown as { __zeus: Probe }).__zeus = probe;
 
 function start(): void {
@@ -1034,7 +1038,21 @@ function start(): void {
   probe.side = (open) => side.toggle(open);
   probe.sideTab = (t) => side.showTab(t as Parameters<typeof side.showTab>[0]);
   probe.sideWare = (w) => side.showWare(w);
-  probe.sideState = () => ({ open: side.open, tab: side.tabNow, ware: side.wareNow, paints: side.minimap.paints });
+  probe.sideBench = (n) => {
+    const out: Record<string, number> = {};
+    for (const [t, w] of [['goods', -1], ['goods', 0], ['goods', 7], ['people', -1], ['services', -1], ['money', -1]] as const) {
+      if (w >= 0) side.showWare(w);
+      else side.showTab(t);
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) side.html(sim.state);
+      out[`${t}${w >= 0 ? w : ''}`] = (performance.now() - t0) / n;
+    }
+    const t0 = performance.now();
+    for (let i = 0; i < n; i++) arrivalOutlook(sim.state, map);
+    out.outlook = (performance.now() - t0) / n;
+    return out;
+  };
+  probe.sideState = () => ({ open: side.open, tab: side.tabNow, ware: side.wareNow, paints: side.minimap.paints, draws: side.minimap.draws });
   probe.rates = (open) => topbar.toggleRates(open);
   probe.warnAll = (id) => {
     const b = findBuilding(sim.state, id);
@@ -1293,8 +1311,12 @@ function start(): void {
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
     tradePanel.update(s, map, time);
-    side.update(s, time);
-    if (side.open) side.minimap.update(s, rig.view.yaw, viewOutline(), time, city.ship.info);
+    {
+      const t = performance.now();
+      side.update(s, time);
+      if (side.open) side.minimap.update(s, rig.view.yaw, viewOutline(), time, city.ship.info);
+      probe.sideMs += performance.now() - t;
+    }
     const open = panel.update(s, map, time);
     selection.set(open ?? (tradePanel.open ? (tradingPost(s) ?? null) : null));
     selection.update(time);
