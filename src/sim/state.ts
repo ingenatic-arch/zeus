@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 14;
+export const SIM_STATE_VERSION = 15;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -426,6 +426,8 @@ export interface SimState {
   taxGone: number[];
   /** Greece beyond the walls: the other cities, their rulers and goods (see world.ts). */
   world: World;
+  /** What the city made, used, sold, bought and lost of each ware, this month, last month and the last year (see stockbook.ts). */
+  stocks: StockBook;
 }
 
 // ---------------------------------------------------------------------------
@@ -550,6 +552,50 @@ export interface World {
   deals: Deal[];
   travellers: Traveller[];
   news: NewsItem[];
+}
+
+/**
+ * What a line of the stock book is about: a ware made (by a kind of
+ * workplace), used (by homes in a district, or a workshop as its input),
+ * sold or bought (to or from whom), or lost (to fire, collapse or clearing).
+ */
+export type StockKind = 'made' | 'used' | 'sold' | 'bought' | 'lost';
+
+/**
+ * A line of the stock book: every measure of one ware of one kind about one
+ * thing in a month, added up. `what`: the building kind that made or used it,
+ * `homes:<district>` for what homes in a district used, who it was sold to or
+ * bought from, or how it was lost ('fire', 'collapse', 'cleared').
+ */
+export interface StockLine {
+  ware: number;
+  kind: StockKind;
+  what: string;
+  n: number;
+}
+
+/** A month of the stock book in short: each kind's total of each ware (by ware index; missing is none). */
+export interface StockMonth {
+  month: number;
+  made: number[];
+  used: number[];
+  sold: number[];
+  bought: number[];
+  lost: number[];
+}
+
+/**
+ * The city's stock book, kept like the ledger: this month's lines and last
+ * month's, and the last twelve months in short (oldest first), so the side
+ * panel can say what each ware's net is, where it goes, and how it has moved.
+ * Only read by the UI: nothing in the sim depends on it.
+ */
+export interface StockBook {
+  /** The month (months since the founding) the `now` lines are for. */
+  month: number;
+  now: StockLine[];
+  last: StockLine[];
+  months: StockMonth[];
 }
 
 /**

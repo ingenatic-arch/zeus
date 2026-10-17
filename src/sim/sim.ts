@@ -7,7 +7,7 @@ import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './cloc
 import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras } from './food';
-import { addComing, FIRST_GOOD, gi, GRAPES, held, isGood, noGoods, OLIVES, setHeld, WARE_NAMES, type Ware } from './foods';
+import { addComing, FIRST_GOOD, gi, GRAPES, held, isGood, noGoods, OLIVES, setHeld, WARE_NAMES, WARES, type Ware } from './foods';
 import { FIRST_STALL_VENDOR, hasStall, moveStallVendor, stallBit, stallPrice, stallRefusal, STALL_GOODS, STALL_NAMES, stallWalker, stepStalls, vendorGood } from './goods';
 import { moveHunter } from './hunt';
 import { stepMakers } from './production';
@@ -18,6 +18,7 @@ import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
 import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
 import { ROUND_KINDS, SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type Round, type ServiceRecord, type SimState, type UndoEntry } from './state';
+import { freshBook, note, stepBook } from './stockbook';
 import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
@@ -69,6 +70,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     trade: freshTrade(),
     taxGone: [],
     world: freshWorld(worldSeed),
+    stocks: freshBook(0),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -152,6 +154,7 @@ export class Sim {
     const map = this.map;
     // The first of the month: wages (for the workers each place had yesterday), and what harsh taxes do.
     stepWages(s);
+    stepBook(s);
     stepHarsh(s, map);
     stepLabour(s, map);
     stepWild(s, map);
@@ -524,10 +527,17 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedCheese?.push(b.cheese);
     e.removedGoods?.push(b.goods.slice());
     e.removedStalls?.push(b.stalls);
+    noteLost(s, b, 'cleared');
     removeBuilding(s, map, b);
   }
   e.trees = clearTrees(s, map, empty);
   return e;
+}
+
+/** What a building held goes into the stock book as lost (a home holds nothing: what it has is its table, already counted as used). */
+function noteLost(s: SimState, b: Building, how: string, sign = 1): void {
+  if (b.kind === 'home') return;
+  for (const w of WARES) note(s, w, 'lost', how, sign * held(b, w));
 }
 
 /**
@@ -540,6 +550,7 @@ function toRubble(s: SimState, map: CoastMap, b: Building, how: Fall): void {
   const n = map.size;
   const name = b.kind === 'home' ? (b.family?.name ?? '') : '';
   const kind = b.kind;
+  noteLost(s, b, how);
   removeBuilding(s, map, b);
   // Undoing the building of it no longer takes it away, so no longer refunds it either.
   for (const e of s.undo) {
@@ -672,6 +683,8 @@ function undoLast(s: SimState, map: CoastMap): void {
       const goods = keep ? (e.removedGoods?.[i] ?? noGoods()) : noGoods();
       const stalls = kind === 'agora' ? (e.removedStalls?.[i] ?? 0) : 0;
       const b = addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls);
+      // What it held is no longer lost.
+      if (keep) noteLost(s, b, 'cleared', -1);
       // Its fire risk and wear come back with it, smouldering, burning or creaking if it was.
       const h = e.removedHazards;
       if (h && h.length >= (i + 1) * HAZARD_FIELDS && kind !== 'home') {

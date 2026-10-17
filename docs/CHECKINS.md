@@ -2,6 +2,38 @@
 
 Notes to Oliver, newest first.
 
+## Side slice — The side panel (17 Oct)
+
+You asked for this while phase 3 was being built in another thread, so it went in on its own branch and onto main with phase 3's first piece (the map of Greece, in the sim only so far). Phase 3 keeps its slice numbers. Every choice below is mine; tell me what to change.
+
+What breaks, or moves: no save is lost. State version 15 adds a stock book (version 14 is phase 3's Greece); a loaded town's book starts empty in the month you load it, so its goods show this month's figures at once and the year's chart fills in as it plays. Nothing about how a town plays changes: every demo opens and plays exactly as before.
+
+### What's new
+- **A side panel down the right**, about 300 pixels wide, as in the original. The view narrows to make room rather than hiding anything under it, and the top bar, the build bar and the town lines centre on what is left. The new corner button (beside the others) shows or hides it, and that is remembered. It starts open on a window 1,200 pixels wide or more.
+- **A round minimap at its head** showing land, sea and river, trees, roads, and buildings in their colours (homes by level), fires as pulsing marks, the ship as a dot, and the ground in view outlined. It turns with the camera, so what is up on the screen is up on the plate; north is marked on the bronze rim. Click it to fly there, drag on it to jump.
+- **Four tabs: Goods, People, Services, Money.**
+  - **Goods** lists every ware by group (food, goods, from the land) with what the city holds and this month's net, up or down. Click one for its page: the net, what was made, used, sold, bought and lost this month and last, a year's chart by month (in above the line, out below), a line saying what is wrong if anything is (nothing makes it, its makers are short of workers, the presses have run out of olives, no stall sells it, how many months it will last, the stores are full), where it goes and comes from (homes by district, the presses and wineries, the ship), and where it is kept, with how full each store is. Click a district or a store to fly there.
+  - **People:** population and the outlook for newcomers, homes by level, work (filled, can work, without work), the workplaces short of hands, the homes in trouble (click one to open it), and who arrived and left.
+  - **Services:** how well each need is covered (click a row for its overlay), fire and wear, watch posts, architects, rubble, and the need most missed.
+  - **Money:** the treasury, owed wages, this month and last (taxes, sales, wages, building, net), the tax rate (click to change it), collector coverage, and a button for the ledger.
+- **The stock book.** Nothing kept a record of where each ware went, so the sim now notes every measure made, used, sold, bought or lost, by who or where, for this month, last month and a year of months in short. A test checks that over a month each ware's stock moves by exactly the book's net, so nothing comes or goes unnoticed. Phase 3's new goods and its trade with other cities show up by themselves.
+
+### What I checked
+- Screenshots at 1600 × 900 and 1280 × 720: the panel, the tabs and a ware's page lay out without overlap, and the top bar and build bar still fit beside the panel.
+- Turning the camera turns the minimap the same way, and clicking a spot on it brings the view there. Clicking a ware, a district, a store, a service row and a troubled home each does what it says. Hiding the panel gives the view its full width back.
+- The panel costs well under a millisecond each time it refreshes (three times a second while open), and the minimap repaints only when the town changes. No errors in the console.
+- All 234 tests pass, including the stock book's and old saves loading.
+
+### What to try
+1. Open `#goods`: the richer town with the panel open on wine. Read the page, then click Back and go through the other goods. Does it tell you what you would want to know?
+2. Click a district in a ware's "where it goes" list, or a store under "where it is kept", and see where it takes you.
+3. Turn the camera with Q and E and watch the minimap. Is a turning plate right, or would you rather north stayed up?
+4. Click and drag on the minimap to get around the bay.
+5. Look through People, Services and Money. Is anything missing that the original's overseers told you?
+6. Press the panel's corner button to hide it, and again to bring it back.
+
+Not done yet: the minimap shows the whole 128-tile map, so it doesn't zoom for larger maps until there are some; the panel has no keys (every letter is taken); the trade panel's goods don't link to their pages yet.
+
 ## Slice 14 — A richer town (17 Oct)
 
 Phase 2's last slice: a prepared richer town to look at and measure, the money retuned across the whole game by playing every demo on, and a pass over the rough edges you would notice. You weren't here while it was built: every choice below is mine, from the spec's defaults.

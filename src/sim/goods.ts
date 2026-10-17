@@ -27,6 +27,7 @@ import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './roun
 import type { Building, Service, SimState, Walker } from './state';
 import { isStore, roomOf } from './stores';
 import { besideRoad, CARRIER_SPEED, newWalker, setPath } from './walk';
+import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
 
 /** Each good by name, in order (from olives). */
@@ -115,8 +116,10 @@ function goodRound(good: Ware, use: GoodUse): ServiceSpec {
         if (cost <= have) {
           b.goodsUntil[k] = full;
           have -= cost;
+          noteHomeUse(s, good, b, cost);
         } else {
           b.goodsUntil[k] = from + Math.floor((have * TICKS_PER_MONTH * use.people) / b.people);
+          noteHomeUse(s, good, b, have);
           have = 0;
         }
         changed = true;

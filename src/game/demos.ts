@@ -105,6 +105,8 @@ export interface Demo {
   trade?: boolean;
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
+  /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
+  side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1042,6 +1044,8 @@ const SCENES: Record<string, Demo> = {
   greece: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: true },
   greecesail: { view: 'sail', setup: tradeTown('sail'), overlay: 'food', greece: true },
   ruler: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: 'sparta' },
+  // The side panel: #richtown with the panel open on wine's page (every chain is at work there, and the ship buys).
+  goods: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { ware: WINE } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

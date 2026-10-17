@@ -202,10 +202,14 @@ describe('saves from before', () => {
     const st = got.file.state;
     expect(st.version).toBe(SIM_STATE_VERSION);
     expect(st.taxGone).toEqual([]);
+    // The stock book (version 14) starts empty in the month it was loaded, and fills in as it plays.
+    expect(st.stocks).toEqual({ month: Math.floor(st.tick / TICKS_PER_MONTH), now: [], last: [], months: [] });
     const sim = new Sim();
     sim.state = st;
     sim.run(3 * TICKS_PER_MONTH);
     expect(st.taxGone.length).toBeGreaterThan(0);
+    expect(st.stocks.months.length).toBe(3);
+    expect(st.stocks.now.length).toBeGreaterThan(0);
     const r = decodeSave(encodeSave(st, 2));
     if (!r.ok) throw new Error(r.why);
     expect(r.file.from).toBeUndefined();

@@ -39,6 +39,7 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 import { shipNews, SHIP_COMING, tradingPost } from './sim/trade';
 import { SaveMenu } from './ui/saveMenu';
+import { SidePanel } from './ui/sidepanel';
 import { TownLines } from './ui/townlines';
 import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
@@ -54,6 +55,8 @@ interface Probe {
   startMs: number;
   /** Main-thread time spent before drawing, summed over all frames (sim steps and view updates), in ms. */
   updateMs: number;
+  /** Of that, the side panel's and the minimap's, in ms. */
+  sideMs: number;
   /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
   readyAt?: number;
   firstFrameAt?: number;
@@ -172,6 +175,14 @@ interface Probe {
   /** Open or close the ledger card, or the tax rates card. */
   ledger?: (open: boolean) => void;
   rates?: (open: boolean) => void;
+  /** The side panel's text ('' when hidden), showing or hiding it, opening a tab or a ware's page, and what it shows. */
+  sideText?: () => string;
+  side?: (open: boolean) => void;
+  sideTab?: (tab: string) => void;
+  sideWare?: (ware: number) => void;
+  /** Debug: how long building each tab's HTML takes (ms, the mean of n). */
+  sideBench?: (n: number) => Record<string, number>;
+  sideState?: () => { open: boolean; tab: string; ware: number; paints: number; draws: number };
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
   /** Open or close the map of Greece (loading it the first time), optionally with a city's panel; and what it shows. */
@@ -182,7 +193,7 @@ interface Probe {
   greeceBuildMs?: number;
 }
 
-const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0 };
+const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0 };
 (window as unknown as { __zeus: Probe }).__zeus = probe;
 
 function start(): void {
@@ -463,6 +474,37 @@ function start(): void {
   sound.onChange(showMute);
   muteBtn.addEventListener('click', () => sound.toggle());
   corner.el.insertBefore(muteBtn, corner.el.firstChild);
+
+  // The side panel down the right: the minimap and the city's information in tabs, open to begin with on a wide
+  // window; its switch goes beside the mute and saves buttons (they sit over the panel's head while it shows).
+  const sideBtn = document.createElement('button');
+  sideBtn.className = 'btn side-btn';
+  sideBtn.setAttribute('aria-label', 'Side panel');
+  sideBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.2" fill="none" stroke="#7a5c3c" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="#7a5c3c" stroke-width="1.6"/><path d="M16.6 8.4h2.4M16.6 11h2.4M16.6 13.6h2.4" stroke="#c8643b" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  sideBtn.addEventListener('click', () => side.toggle());
+  corner.el.insertBefore(sideBtn, corner.el.firstChild);
+  const side = new SidePanel(ui, map, {
+    goTo: (x, z, jump) => {
+      stopFollow();
+      const v = rig.view;
+      if (jump) rig.jumpTo({ ...v, x, z });
+      else rig.flyTo({ ...v, x, z });
+    },
+    overlay: (m) => overlay.toggle(m),
+    overlayMode: () => overlay.mode,
+    ledger: () => ledger.toggle(true),
+    rates: () => topbar.toggleRates(true),
+    openHome: (id) => {
+      tradePanel.toggle(false);
+      panel.show(id);
+    },
+    toggled: (open) => {
+      sideBtn.classList.toggle('on', open);
+      sideBtn.setAttribute('aria-pressed', String(open));
+      sideBtn.title = open ? 'Hide the side panel (the map and the city’s goods, people, services and money)' : 'Show the side panel: the map and the city’s goods, people, services and money';
+      resize();
+    },
+  }, innerWidth >= 1200);
 
   // The welcome card on the bare link.
   const newest = saves.newest();
@@ -819,6 +861,8 @@ function start(): void {
       if (!greece?.open) return;
       greece.toggle(false);
       greeceButton.set(false);
+      // The side panel's column comes back, so the city's canvas narrows again.
+      resize();
       sound.play('map');
       return;
     }
@@ -834,6 +878,7 @@ function start(): void {
     void loadGreece().then((g) => {
       if (!greeceButton.el.classList.contains('on')) return;
       g.toggle(true);
+      resize();
       if (city) g.show(city);
       sound.play('map');
     });
@@ -844,6 +889,8 @@ function start(): void {
   if (opened) panel.show(opened);
   if (demo?.ledger) ledger.toggle(true);
   if (demo?.trade) tradePanel.toggle(true);
+  if (demo?.side?.ware !== undefined) side.showWare(demo.side.ware);
+  else if (demo?.side?.tab) side.showTab(demo.side.tab);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece);
 
   /** "water", "water or bread", "water, bread or blessings". */
@@ -867,13 +914,13 @@ function start(): void {
     rig.flyTo({ ...v, x: cx, z: cz, dist: Math.min(v.dist, 24) });
   });
 
-  const resize = (): void => {
+  function resize(): void {
     const w = canvas.clientWidth || innerWidth;
     const h = canvas.clientHeight || innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-  };
+  }
   addEventListener('resize', resize);
   addEventListener('hashchange', () => location.reload());
   resize();
@@ -1073,6 +1120,25 @@ function start(): void {
     return { ...city.ship.info, phase: sh.phase, due: sh.due, since: sh.since, visits: sh.visits, lastPaid: sh.lastPaid, chip: shipNews(sim.state)?.chip ?? '', short: shipNews(sim.state)?.short ?? '' };
   };
   probe.ledger = (open) => ledger.toggle(open);
+  probe.sideText = () => side.text;
+  probe.side = (open) => side.toggle(open);
+  probe.sideTab = (t) => side.showTab(t as Parameters<typeof side.showTab>[0]);
+  probe.sideWare = (w) => side.showWare(w);
+  probe.sideBench = (n) => {
+    const out: Record<string, number> = {};
+    for (const [t, w] of [['goods', -1], ['goods', 0], ['goods', 7], ['people', -1], ['services', -1], ['money', -1]] as const) {
+      if (w >= 0) side.showWare(w);
+      else side.showTab(t);
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) side.html(sim.state);
+      out[`${t}${w >= 0 ? w : ''}`] = (performance.now() - t0) / n;
+    }
+    const t0 = performance.now();
+    for (let i = 0; i < n; i++) arrivalOutlook(sim.state, map);
+    out.outlook = (performance.now() - t0) / n;
+    return out;
+  };
+  probe.sideState = () => ({ open: side.open, tab: side.tabNow, ware: side.wareNow, paints: side.minimap.paints, draws: side.minimap.draws });
   probe.rates = (open) => topbar.toggleRates(open);
   probe.warnAll = (id) => {
     const b = findBuilding(sim.state, id);
@@ -1129,6 +1195,38 @@ function start(): void {
     const [cx, cz] = centreOf(o);
     floaters.add(`+${dr.toLocaleString('en-GB')} dr`, new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.2, cz), time, 'tax');
   }
+  /** The ground the camera sees, as four world points (the screen's corners on the ground; toward the horizon, a long way out). */
+  const outlineRay = new THREE.Raycaster();
+  const outlineNdc = new THREE.Vector2();
+  const outlinePts = [
+    { x: 0, z: 0 },
+    { x: 0, z: 0 },
+    { x: 0, z: 0 },
+    { x: 0, z: 0 },
+  ];
+  const CORNERS: ReadonlyArray<[number, number]> = [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ];
+  const viewOutline = (): typeof outlinePts => {
+    const v = rig.view;
+    const ground = map.heightAt(v.x, v.z);
+    CORNERS.forEach(([nx, ny], i) => {
+      outlineNdc.set(nx, ny);
+      outlineRay.setFromCamera(outlineNdc, camera);
+      const o = outlineRay.ray.origin;
+      const d = outlineRay.ray.direction;
+      // Where the ray meets the ground's level, no further than 160 tiles out across it.
+      let t = d.y < -1e-4 ? (ground - o.y) / d.y : Infinity;
+      const flat = Math.hypot(d.x, d.z) || 1;
+      t = Math.min(t, 160 / flat);
+      outlinePts[i].x = o.x + d.x * t;
+      outlinePts[i].z = o.z + d.z * t;
+    });
+    return outlinePts;
+  };
   /** The autosave comes round every three months of game time. */
   const AUTOSAVE_EVERY = 3 * TICKS_PER_MONTH;
 
@@ -1317,6 +1415,12 @@ function start(): void {
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
     tradePanel.update(s, map, time);
+    {
+      const t = performance.now();
+      side.update(s, time);
+      if (side.open) side.minimap.update(s, rig.view.yaw, viewOutline(), time, city.ship.info);
+      probe.sideMs += performance.now() - t;
+    }
     const open = panel.update(s, map, time);
     selection.set(open ?? (tradePanel.open ? (tradingPost(s) ?? null) : null));
     selection.update(time);
