@@ -192,6 +192,8 @@ const wet = (map: CoastMap, t: number): boolean => mapIndex(map).ground[t] === G
  */
 export function berthAt(map: CoastMap, x: number, z: number): Berth | null {
   const n = map.size;
+  // (Off the map there is no berth; checked before the cache, whose key is only good for tiles on it.)
+  if (x < 0 || z < 0 || x + 3 > n || z + 3 > n) return null;
   let cache = berths.get(map);
   if (!cache) berths.set(map, (cache = new Map()));
   const key = z * n + x;
@@ -576,10 +578,22 @@ function stepLoading(s: SimState, post: Building, ship: Ship): void {
 // ---------------------------------------------------------------------------
 // Dockers.
 
-/** Why the post can't send a docker for a good now ('' if it can), for the panel. */
-function dockerWork(s: SimState, post: Building): { w: Ware; k: number; lot: number; back: boolean } | null {
+interface DockerJob {
+  w: Ware;
+  k: number;
+  lot: number;
+  back: boolean;
+}
+
+/**
+ * The work the post's dockers could do now, in the order they take it on:
+ * first anything on the quay the city wants back (no longer for sale, or the
+ * stores below what is kept; not what she is loading), then the surplus of
+ * the goods for sale, the most valuable load first.
+ */
+function dockerJobs(s: SimState, post: Building): DockerJob[] {
   const ship = s.trade.ship;
-  // First, anything on the quay the city wants back: no longer for sale, or the stores below what is kept (not while she is loading it).
+  const jobs: DockerJob[] = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     const w = TRADE_GOODS[k];
     const q = held(post, w);
@@ -588,37 +602,53 @@ function dockerWork(s: SimState, post: Building): { w: Ware; k: number; lot: num
     const { returning } = inHand(s, post, w);
     const want = s.trade.sell[k] ? s.trade.keep[k] - cityHolds(s, w) - returning : q;
     const lot = Math.min(DOCKER_TAKE[k], q, want);
-    if (lot >= Math.min(MIN_LOT, q)) return { w, k, lot, back: true };
+    if (lot >= Math.min(MIN_LOT, q)) jobs.push({ w, k, lot, back: true });
   }
-  // Then the surplus of the goods for sale, the most valuable first.
-  let best: { w: Ware; k: number; lot: number; back: boolean } | null = null;
-  let worth = 0;
+  const fetch: Array<DockerJob & { v: number }> = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     if (!s.trade.sell[k]) continue;
     const w = TRADE_GOODS[k];
     const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), quayRoom(post, w));
     if (lot < MIN_LOT) continue;
-    const v = priceFor(k, lot);
-    if (v > worth) [best, worth] = [{ w, k, lot, back: false }, v];
+    fetch.push({ w, k, lot, back: false, v: priceFor(k, lot) });
   }
-  return best;
+  // (Stable: of two loads worth the same, the good earlier in the list.)
+  fetch.sort((a, b) => b.v - a.v);
+  for (const { w, k, lot, back } of fetch) jobs.push({ w, k, lot, back });
+  return jobs;
 }
 
-/** The post sends a docker when there is work and a docker free (one every DOCKER_GAP). */
+/** The store a docker would go to for a job, by road from the post: carrying back, the nearest with room for some of it; fetching, the nearest holding the good. */
+function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): { g: Building; way: number[] } | null {
+  const kind = storeKind(job.w);
+  return job.back
+    ? nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
+    : nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+}
+
+/**
+ * The post sends a docker when there is work and a docker free (one every
+ * DOCKER_GAP): the first job a store can be reached for (so a good with
+ * nowhere to go doesn't hold up the others).
+ */
 function stepDockers(s: SimState, map: CoastMap, post: Building): void {
   if (post.clock > 0) post.clock--;
   if (post.clock > 0 || rateOf(post) === 0 || dockersOut(s, post) >= MAX_DOCKERS) return;
   post.clock = DOCKER_GAP;
-  const job = dockerWork(s, post);
-  if (!job) return;
+  const jobs = dockerJobs(s, post);
+  if (jobs.length === 0) return;
   const size = map.size;
   const roads = roadsBeside(s, size, post);
-  const kind = storeKind(job.w);
-  // Carrying back: to the nearest store with room for some of it (as much as it has room for).
-  const found = job.back
-    ? nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
-    : nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
-  if (!found) return;
+  let job: DockerJob | null = null;
+  let found: { g: Building; way: number[] } | null = null;
+  for (const j of jobs) {
+    found = storeFor(s, size, roads, j);
+    if (found) {
+      job = j;
+      break;
+    }
+  }
+  if (!job || !found) return;
   if (job.back) job.lot = Math.min(job.lot, roomFor(found.g, job.w));
   const d = newWalker(s, 'docker', 1);
   d.origin = post.id;
@@ -807,14 +837,12 @@ export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
   if (rateOf(post) === 0) return '';
   if (out > 0) return `${out} of ${MAX_DOCKERS} dockers out, carrying goods between the stores and the quay`;
   if (!s.trade.sell.some((x) => x)) return 'No dockers out: nothing is ticked for sale';
-  const job = dockerWork(s, post);
-  if (job) {
-    const kind = storeKind(job.w);
+  const jobs = dockerJobs(s, post);
+  if (jobs.length > 0) {
     const roads = roadsBeside(s, map.size, post);
-    const found = job.back
-      ? nearestBy(s, map.size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
-      : nearestBy(s, map.size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
-    if (found) return 'A docker sets off soon';
+    if (jobs.some((j) => storeFor(s, map.size, roads, j))) return 'A docker sets off soon';
+    const job = jobs[0];
+    const kind = storeKind(job.w);
     if (job.back) return `No dockers out: no ${kind} reached by road from the post has room for the ${WARE_NAMES[job.w]} going back`;
     return `No dockers out: no ${kind} holding ${WARE_NAMES[job.w]} is reached by road from the post`;
   }

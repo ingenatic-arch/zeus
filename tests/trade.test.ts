@@ -11,7 +11,8 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
 import { TICKS_PER_DAY } from '../src/sim/clock';
-import { coming, held, MEAT, WARE_NAMES, WHEAT } from '../src/sim/foods';
+import { coming, held, MEAT, OIL, setHeld, WARE_NAMES, WHEAT } from '../src/sim/foods';
+import { roomOf } from '../src/sim/stores';
 import { replay, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import {
@@ -231,6 +232,34 @@ describe('dockers and sales', () => {
       sim.step();
       expect(fetching(WHEAT).filter((id) => !before.has(id))).toEqual([]);
     }
+  });
+
+  it('a good with nowhere to go back doesn’t hold up the others', () => {
+    // #quay with its wheat taken off sale while every granary is full: the quay's wheat waits, and the dockers fetch oil meanwhile.
+    const sim = demo('quay');
+    const s = sim.state;
+    const post = tradingPost(s)!;
+    expect(held(post, WHEAT)).toBeGreaterThan(0);
+    const fill = (): void => {
+      for (const g of s.buildings) if (g.kind === 'granary') setHeld(g, WHEAT, Math.max(0, roomOf('granary', WHEAT) - coming(g, WHEAT)));
+    };
+    fill();
+    send(sim, { type: 'trade', good: WHEAT, sell: false });
+    send(sim, { type: 'trade', good: OIL, keep: 0 });
+    const out = new Set(s.walkers.filter((d) => d.kind === 'docker').map((d) => d.id));
+    let oil = false;
+    for (let i = 0; i < 60 * TICKS_PER_DAY && !oil; i++) {
+      sim.step();
+      fill();
+      for (const d of s.walkers) {
+        if (d.kind !== 'docker' || out.has(d.id)) continue;
+        out.add(d.id);
+        expect(d.food).not.toBe(WHEAT);
+        if (d.food === OIL) oil = true;
+      }
+    }
+    expect(oil).toBe(true);
+    expect(held(post, WHEAT)).toBeGreaterThan(0);
   });
 
   it('#black: the treasury has run dry with wages owed, and the ship’s visit pays them and puts it back in the black', () => {

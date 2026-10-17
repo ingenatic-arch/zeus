@@ -48,7 +48,7 @@
  * Version 11 to 12 (slice 13, the ship comes in): the trade record starts
  * fresh: nothing for sale yet, the usual amounts kept, and no ship due (a
  * town from before had no trading post; the schedule starts when one is
- * built, the first ship two months after).
+ * built, the first ship three months after).
  *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
