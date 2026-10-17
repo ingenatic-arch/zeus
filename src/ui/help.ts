@@ -41,14 +41,13 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road</dd>
-      <dt>M</dt><dd>Wheat farm: on the green land by the river</dd>
-      <dt>M M</dt><dd>Hunting lodge: within reach of the deer on the hills or the boar in the woods</dd>
-      <dt>M M M</dt><dd>Dairy: its goats need green pasture</dd>
-      <dt>G</dt><dd>Granary: where the carts take the wheat, meat and cheese</dd>
-      <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; townhouses need two kinds, fine houses all three</dd>
-      <dt>V</dt><dd>Shrine: its priestess blesses homes; blessed cottages become townhouses</dd>
-      <dt>P</dt><dd>Theatre: its actor brings the plays; townhouses with plays become fine houses</dd>
+      <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery</dd>
+      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece and wine), and again for the trading post (on the bay shore)</dd>
+      <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
+      <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
+      <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
       <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away), and again for an architect’s office (its inspector keeps buildings from falling)</dd>
+      <dt>Shift</dt><dd>With M, G, K or Z: back to the one before</dd>
       <dt>X</dt><dd>Clear land: drag over it (rubble costs a little to clear)</dd>
       <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared (within about a month)</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
@@ -57,14 +56,14 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     <dl>
       <dt>O</dt><dd>The water overlay: where water reaches</dd>
       <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms, lodges, dairies and granaries</dd>
-      <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of</dd>
+      <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of; again for oil, fleece and wine</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
       <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, and again for wear</dd>
-      <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas)</dd>
+      <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas); the chip beside them sets the taxes</dd>
       <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
-      <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop)</dd>
+      <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop). The trading post, or the ship beside the drachmas: choose what to sell</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

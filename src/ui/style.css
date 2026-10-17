@@ -154,7 +154,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .ship-chip.p1, .ship-chip.p2 { border-color: #2f6f8e; background: #e8f3f6; }
 .ship-chip.p3 { border-color: #c99a2a; background: #fff3d6; }
 .rates {
-  position: absolute; width: 330px; z-index: 6;
+  position: absolute; width: 360px; max-width: calc(100vw - 24px); z-index: 6;
   background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
   border: 1.5px solid var(--edge); border-radius: 14px; padding: 10px 12px 10px;
   box-shadow: 0 8px 24px rgba(60, 40, 20, 0.22); font-size: 13.5px; line-height: 1.35;
@@ -168,7 +168,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .rates .rate:hover { background: #fff2d6; }
 .rates .rate.on { background: #fff8ea; border-color: var(--edge); }
 .rates .rate b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; grid-row: span 2; align-self: center; }
-.rates .rate .per { font-size: 12.5px; white-space: nowrap; }
+.rates .rate .per { font-size: 12.5px; }
 .rates .rate .what { font-size: 12px; color: var(--ink-soft); }
 .rates .foot { margin: 6px 4px 0; font-size: 12px; color: var(--ink-soft); }
 

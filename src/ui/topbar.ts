@@ -225,7 +225,7 @@ export class TopBar {
       'About twice fair. Households are unhappy: whole households leave, and newcomers stay away',
     ];
     card.innerHTML = `<h3>Taxes</h3>${TAX_RATES.map(
-      (r, i) => `<button class="rate" data-rate="${i}"><b>${r[0].toUpperCase()}${r.slice(1)}</b><span class="per">${i ? `cottage ${taxOf(i, 3)} dr · fine house ${taxOf(i, 5)} · villa ${taxOf(i, 6)} dr a month` : 'Nobody pays'}</span><span class="what">${WHAT[i]}</span></button>`,
+      (r, i) => `<button class="rate" data-rate="${i}"><b>${r[0].toUpperCase()}${r.slice(1)}</b><span class="per">${i ? `cottage ${taxOf(i, 3)} · fine house ${taxOf(i, 5)} · villa ${taxOf(i, 6)} dr a month` : 'Nobody pays'}</span><span class="what">${WHAT[i]}</span></button>`,
     ).join('')}<p class="foot">Only the homes a tax collector calls on pay, once a month.</p>`;
     root.appendChild(card);
     this.rates = card;
@@ -249,7 +249,7 @@ export class TopBar {
       // Under the chip.
       const chip = (this.bar.querySelector('.rate-chip') as HTMLElement).getBoundingClientRect();
       const root = (this.rates.parentElement as HTMLElement).getBoundingClientRect();
-      this.rates.style.left = `${Math.round(Math.min(chip.left - root.left - 60, root.width - 340))}px`;
+      this.rates.style.left = `${Math.round(Math.max(12, Math.min(chip.left - root.left - 60, root.width - this.rates.offsetWidth - 12)))}px`;
       this.rates.style.top = `${Math.round(chip.bottom - root.top + 12)}px`;
     }
   }

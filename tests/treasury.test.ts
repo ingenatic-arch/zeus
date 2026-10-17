@@ -20,7 +20,7 @@ import { Sim } from '../src/sim/sim';
 import { moneyLine } from '../src/sim/status';
 import type { Building, SimState } from '../src/sim/state';
 import { COLLECTOR_RANGE, FAIR, HARSH, HEAVY, purseTotal, TAX, taxOf } from '../src/sim/taxes';
-import { kindTotal, spendable, totals, WAGE } from '../src/sim/treasury';
+import { kindTotal, owedWages, priceOf, spendable, totals, WAGE } from '../src/sim/treasury';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -264,10 +264,18 @@ describe('wages', () => {
     expect(kindTotal(s.ledger.now, 'building')).toBeLessThanOrEqual(0);
     expect(before).toBeLessThan(TAX_OFFICE_COST);
     ledgerAddsUp(s);
-    // With an office standing again, the next one costs the full price.
+    // While wages are owed, another office for the homes the first doesn't reach still costs no more than the treasury holds
+    // (every drachma that comes in goes to the wages, so the town could never save up for one: the phase 2 review).
+    expect(owedWages(s).owed).toBeGreaterThan(0);
+    expect(priceOf(s, 'taxoffice')).toBe(s.money);
     sim.enqueue({ type: 'build', kind: 'taxoffice', at: [T(offices[1].x, offices[1].z)] });
     sim.flush();
-    expect(s.buildings.filter((b) => b.kind === 'taxoffice').length).toBe(1);
+    expect(s.buildings.filter((b) => b.kind === 'taxoffice').length).toBe(2);
+    ledgerAddsUp(s);
+    // Once the wages are paid, an office costs its full price again.
+    for (const b of s.buildings) b.owed = 0;
+    s.money = 40;
+    expect(priceOf(s, 'taxoffice')).toBe(TAX_OFFICE_COST);
   });
 });
 

@@ -1038,6 +1038,9 @@ export const BREAD_LEAD_MONTHS = 6;
  */
 export const BREAD_SPARE = 1.1;
 
+/** Workers with no road to the jobs left, before the workers line names them rather than asking for more homes. */
+const IDLE_WORDS = 4;
+
 /**
  * What the town is short of, in a line each, readable without hovering: bread
  * (the farms growing less than the town eats, once there is a farm or an
@@ -1143,10 +1146,14 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
     const first = short[0];
     const name = (BUILDING_NAMES[first.kind as Exclude<BuildingKind, 'home'>] ?? 'A workplace').replace(/^A /, 'the ').replace(/^The /, 'the ');
     const others = short.length > 1 ? ` (and ${short.length - 1} more ${short.length === 2 ? 'place' : 'places'})` : '';
+    // Workers left over once every workplace a road joins them to is full: their streets don't reach the jobs.
+    const idle = able - filled;
     const fix =
       roadsBeside(s, map.size, first).length === 0
         ? 'It has no road beside it, so nobody can get there: lay one along a side.'
-        : able < jobs
+        : idle >= IDLE_WORDS
+          ? `${idle} people who could work have no road to the jobs left: join their streets to them.`
+          : able < jobs
           ? `${able} people can work for ${jobs} jobs: more homes would help.`
           : 'More homes near it by road would help.';
     out.push({ need: 'workers', text: `Workers: ${open} ${open === 1 ? 'job' : 'jobs'} unfilled. ${name[0].toUpperCase()}${name.slice(1)} has ${first.workers} of ${jobsAt(first)}${others}. ${fix}`, at: first.id });
@@ -1212,7 +1219,7 @@ export function moneyLine(s: SimState): TownLine | null {
     const where = owed.places === 1 ? 'one workplace' : `${owed.places} workplaces`;
     return {
       need: 'money',
-      text: `Money: the treasury can’t pay this month’s wages at ${where} (${fmt(owed.owed)} dr for ${fmt(owed.workers)} workers), so they work at half pace. Money coming in pays them first${!hasTaxOffice(s) ? '; build a tax office, which the treasury has kept back the cost of' : s.taxRate === 0 ? '; taxes are set to none, so the collectors bring nothing in' : '; higher taxes, or a tax collector reaching more homes, would help'}.`,
+      text: `Money: the treasury can’t pay this month’s wages at ${where} (${fmt(owed.owed)} dr for ${fmt(owed.workers)} workers), so they work at half pace. Money coming in pays them first${!hasTaxOffice(s) ? '; build a tax office, which the treasury has kept back the cost of' : s.taxRate === 0 ? '; taxes are set to none, so the collectors bring nothing in' : unreached(s) > 0 ? `; ${fmt(unreached(s))} ${unreached(s) === 1 ? 'home' : 'homes'} no tax collector calls on: while wages are owed, another tax office beside them (Z) costs no more than the treasury holds` : '; higher taxes would help'}.`,
       at: first?.id ?? 0,
     };
   }
@@ -1234,6 +1241,13 @@ export function moneyLine(s: SimState): TownLine | null {
     text: `Money: the tax collectors bring in about ${fmt(taxes)} dr a month and wages take about ${fmt(bill)}; at that rate the treasury runs dry ${when}. Higher taxes, or a tax collector reaching more homes, would help.`,
     at: office.id,
   };
+}
+
+/** Lived-in homes no tax collector has called on in two months (the tax overlay's posts). */
+function unreached(s: SimState): number {
+  let n = 0;
+  for (const b of s.buildings) if (b.kind === 'home' && b.people > 0 && s.tick - b.since >= 2 * TICKS_PER_MONTH && !(b.taxedAt > 0 && s.tick - b.taxedAt < 2 * TICKS_PER_MONTH)) n++;
+  return n;
 }
 
 /** What the homes paid the tax collectors over the last month (the coins still in satchels too). */
@@ -1266,8 +1280,8 @@ export function placeName(b: Building): string {
 
 /** What each guarding service is called. */
 const GUARD = {
-  watchpost: { walker: 'watchman', he: 'he', range: WATCH_RANGE, key: 'Z twice', what: 'watch post' },
-  architect: { walker: 'inspector', he: 'she', range: INSPECT_RANGE, key: 'Z three times', what: 'architect’s office' },
+  watchpost: { walker: 'watchman', he: 'he', range: WATCH_RANGE, key: 'Z twice', what: 'watch post', a: 'a watch post' },
+  architect: { walker: 'inspector', he: 'she', range: INSPECT_RANGE, key: 'Z three times', what: 'architect’s office', a: 'an architect’s office' },
 } as const;
 
 /** Why no watchman (or inspector) comes by a building. */
@@ -1279,11 +1293,11 @@ export function whyUnguarded(s: SimState, map: CoastMap, b: Building, kind: 'wat
   const beside = roadsBeside(s, size, b);
   if (beside.length === 0) return `the ${g.walker} only looks after buildings beside the road ${g.he} walks`;
   const d = stepsToFountain(roadSearch(s, size, places.flatMap((o) => roadsBeside(s, size, o))), s, size, b);
-  if (d < 0) return `no road joins it to a ${g.what}: build one nearby (${g.key})`;
+  if (d < 0) return `no road joins it to ${g.a}: build one nearby (${g.key})`;
   if (d > g.range) return `the nearest ${g.what} is ${d} steps away by road; its ${g.walker} goes ${g.range} at most: build one nearer (${g.key})`;
   const reaching = places.filter((o) => beside.some((t) => distFrom(s, size, o)[t] >= 0 && distFrom(s, size, o)[t] <= g.range));
   if (reaching.length && reaching.every((o) => o.workers === 0)) return `nobody works at the ${g.what}, so its ${g.walker} can’t go out`;
-  return `within reach of a ${g.what}; its ${g.walker} comes by now and then`;
+  return `within reach of ${g.a}; its ${g.walker} comes by now and then`;
 }
 
 /** Whether a watch post's watchman (an architect's inspector) can reach this building and goes out. */
@@ -1415,7 +1429,7 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
     if (risky.length) {
       const f = risky[0];
-      const n = risky.length === 1 ? `${cap(named(f))} is` : `${risky.length} buildings are`;
+      const n = risky.length === 1 ? `${named(f)} is` : `${risky.length} buildings are`;
       out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${n} three-quarters of the way to smouldering, and no watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`, at: f.id });
     }
   }
@@ -1429,7 +1443,7 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     const worn = s.buildings.filter((b) => wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
     if (worn.length) {
       const c = worn[0];
-      const n = worn.length === 1 ? `${cap(named(c))} is` : `${worn.length} buildings are`;
+      const n = worn.length === 1 ? `${named(c)} is` : `${worn.length} buildings are`;
       out.push({ need: 'wear', text: `Wear ${whereIs(map, c).toLowerCase()}: ${n} three-quarters worn, and no inspector walks by: ${whyUnguarded(s, map, c, 'architect')}.`, at: c.id });
     }
   }

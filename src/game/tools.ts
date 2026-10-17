@@ -680,7 +680,7 @@ export class Tools {
       if (kind === 'taxoffice') {
         const per = taxOf(s.taxRate, 3);
         lines.push(hasTaxOffice(s) ? 'Another collector, for the homes the others don’t reach' : 'Its tax collector brings in what each household he calls on owes: without one, no taxes come in');
-        if (cost < COST[kind]) lines.push(`With no tax office, one costs no more than the treasury holds: ${fmt(cost)} dr, not ${fmt(COST[kind])}`);
+        if (cost < COST[kind]) lines.push(`${hasTaxOffice(s) ? 'While wages are owed' : 'With no tax office'}, one costs no more than the treasury holds: ${fmt(cost)} dr, not ${fmt(COST[kind])}`);
         lines.push(per > 0 ? `At this rate a cottage pays ${per} dr a month` : 'At this rate nobody pays: the collector still walks');
       }
       if (kind === 'shrine') lines.push('Its priestess blesses the homes she passes: a cottage with a month’s blessing in hand becomes a townhouse');

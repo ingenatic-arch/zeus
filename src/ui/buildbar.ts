@@ -232,13 +232,13 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     name: 'Shrine',
     key: 'V',
     cost: `${SHRINE_COST} dr`,
-    hint: 'Click beside a road. Its priestess walks the streets nearby blessing homes; a cottage with water, bread and her blessing becomes a townhouse.',
+    hint: 'Click beside a road. Its priestess walks the streets nearby blessing homes; a cottage with her blessing, two kinds of food and oil becomes a townhouse.',
   },
   theatre: {
     name: 'Theatre',
     key: 'P',
     cost: `${THEATRE_COST} dr`,
-    hint: 'Click beside a road (it takes three by three). Its actor walks the streets bringing the plays; a townhouse with plays becomes a fine house.',
+    hint: 'Click beside a road (it takes three by three). Its actor walks the streets bringing the plays; a townhouse with plays, all three foods and fleece becomes a fine house.',
   },
   taxoffice: {
     name: 'Tax office',

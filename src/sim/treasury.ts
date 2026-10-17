@@ -95,13 +95,15 @@ export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): nu
 
 /**
  * What building one of this kind costs now: its price, except that while the
- * city has no tax office, one costs at most what the treasury holds, so a
- * town that has run dry, or cleared its only office, can always get taxes
- * coming in again.
+ * city has no tax office, or can't pay this month's wages, one costs at most
+ * what the treasury holds, so a town that has run dry, or cleared its only
+ * office, can always get taxes coming in again (every drachma that comes in
+ * goes to the wages owed, so it could otherwise never save up for an office
+ * to reach the homes no collector calls on).
  */
 export function priceOf(s: SimState, kind: BuildingKind): number {
   const c = COST[kind];
-  return kind === 'taxoffice' && !hasTaxOffice(s) ? Math.min(c, Math.max(0, s.money)) : c;
+  return kind === 'taxoffice' && (!hasTaxOffice(s) || owedWages(s).owed > 0) ? Math.min(c, Math.max(0, s.money)) : c;
 }
 
 /** Is a building a workplace (one that has jobs, so pays wages)? */
