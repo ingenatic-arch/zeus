@@ -138,6 +138,53 @@ Still for you to judge: whether fire should be gentler early on, or warned about
 
 Checks after the phase review: 211 tests in 20 files pass; typecheck, build, smoke and the published page (bare link, `#town`, `#richtown`) pass. Download 332 KB compressed (1,149 KB raw). By the page's clock: the bare link ready at 1.41 s, first frame 1.69 s; `#town` first frame 2.57 s; `#richtown` first frame 3.02 s, still about the 3-second target. `#town` 811,660 triangles and 86 draw batches; `#richtown`'s overview 1,021,806 and 119. Time per frame before drawing, running (one run each, noisy): `#town` 5.46 ms, `#richtown` 10.84, `#richstreet` 9.67. A save of `#town` is 135 KB. Against the end of phase 1: download 243 → 332 KB compressed, the bare link's first frame 1.24 → about 1.7 s, `#town` 650,414 → 811,660 triangles (103 → 86 draw batches) and 2.7 → about 5.5 ms a frame running, and its save 452 → 135 KB.
 
+### The phase, all told
+
+Phase 2, "A richer city", in seven slices. What you can do now that you couldn't at the end of phase 1:
+- **Slice 8, coin and the ledger.** Build a tax office and follow its collector, who only taxes the homes he walks past. Set the tax rate from none to harsh and hear the households grumble. Every workplace pays wages each month, and the ledger ($) says where each drachma came from and went. A town can run dry and recover.
+- **Slice 9, meat and cheese.** Send hunters out from a lodge to the deer and boar on the hills, keep goats at a dairy, and watch cottages become townhouses once a second food reaches them. Over-hunt a valley and the lodge goes short until the herd grows back.
+- **Slice 10, olives, oil and the storehouse.** Plant groves on the dry slopes, press the olives, fill a storehouse yard with jars, and send an oil vendor out from the agora. Townhouses now need oil.
+- **Slice 11, fleece, wine and the villa.** Graze sheep, plant vineyards and build a winery, and raise a street to villas, the new sixth and grandest level. Fine houses now need fleece, and villas need wine.
+- **Slice 12, fire and collapse.** Watch fire risk and wear build up on neglected streets and see the smoke or the creaking a month before anything happens. Put it out with a watch post and an architect's office, or let it burn and clear the rubble.
+- **Slice 13, the ship comes in.** Build a trading post on the quay, choose what to sell and how much to keep, and watch the dockers stack the quay. Then see the sail on the horizon and the ship come in and pay.
+- **Slice 14, a richer town.** Open `#richtown`, a prepared town of 928 people with every chain, 24 villas and the ship sailing in. The money is retuned across the game, harsh taxes now drive families away, your autosave is kept when you start a new town, and saves are half the size.
+
+**Recorded for later**
+- From the spec: prices that move, buying from ships, rival cities and sea lanes; crime; seasons that affect farming and herds; elite estates; a wage slider; which god the shrine belongs to; more goods (fish, bronze, marble, timber).
+- **Fire is the big danger for a new player,** and no prepared town has met an early fire, because their histories are played with fire and wear off. A town with no watch post or architect's office burns down completely in under three years.
+- **Taxes come in lumps,** about every forty days per collector, so the drachmas jump and the arrow can point the other way from the figure beside it.
+- **Harsh taxes still pay well** (about +320 dr a month for a year) even while the town shrinks.
+- **The per-frame cost of a big town has roughly doubled.** Refilling the houses that are rising a level is now the biggest piece; batching them is the fix.
+- **`#richtown` keeps growing** past 1,200 people in a year. In its second year one pasture can't keep up, so a few villas fall back for lack of fleece.
+- **Small things:**
+  - `#town` opens with homes warned about blessings for a fortnight;
+  - up to five town lines can stack a third of the screen deep;
+  - the dairy's goats stay in their pen;
+  - there's no shepherd walking the flock;
+  - the presses and the treading vat don't move;
+  - porters are hard to pick out, and fleece bales look like stones;
+  - dockers take about two months over a round trip from the far stores;
+  - the town grows a large food surplus;
+  - some figures in older check-ins have drifted since the money was retuned.
+
+**Budgets that moved** (end of phase 1 against now)
+- **Download:** 243 KB compressed, now 332 KB, from seven new chains, the hazards, the ship and their models and sounds.
+- **Load** stays under the 3-second target. The bare link's first frame went from 1.24 s to about 1.7 s, and `#town`'s from 2.0 s to about 2.6 s. `#richtown` sits right at the target, about 3.0 s, because it plays three years of history before it opens.
+- **Draw batches went down** (`#town` 103 to 86) once all the walkers and animals were merged into a few batches. Triangles went up (650k to 812k), and `#richtown`'s overview is the most yet at about a million.
+- **Time per frame** in `#town` while running roughly doubled, about 2.7 to 5.5 ms headless. The game itself (the sim) is a small part of that.
+- **Saves are smaller:** `#town` went from 452 KB to 135 KB.
+- **Frame rate on a real laptop is still unmeasured.** Only your machine can tell us whether `#town` and `#richtown` hold 60 frames a second.
+
+**Questions for you**
+- Does `#richtown` hold a smooth frame rate on your laptop, and does it read as richer than `#town`?
+- Is the money tight in a good way, or too easy once you have villas?
+- Should fire be gentler early on, or warned about sooner? Should the prepared towns be played with fire on?
+- Harsh taxes bring in more money even while the town shrinks. Is that the right size of bite?
+- Should tax money come in smoothly instead of in lumps?
+- Is the ship's way in (about 14 seconds in sight) worth looking up for, or too slow?
+- Are five town lines at once too many?
+- What should the next phase be?
+
 ## Slice 13 — The ship comes in (17 Oct)
 
 The city can now sell what it has spare: a trading post on the bay shore sends dockers to carry surplus food and goods from the stores to its quay, and every three months a merchant ship sails in across the bay, ties up at its jetty, loads what waits there and pays for it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
