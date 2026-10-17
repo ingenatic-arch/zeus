@@ -401,6 +401,23 @@ export const easeOut = (u: number): number => Math.pow(Math.max(0, Math.min(1, u
 export const leaveTicks = (ship: Ship): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
 
 /**
+ * Leaving the jetty: she backs off astern, bow still to the quay, this far
+ * (tiles) over BACK_TICKS, swings round where she lies over TURN_TICKS (clear
+ * of the jetty: half her length is less than this), then sails out bow first.
+ */
+export const BACK_OFF = 3;
+export const BACK_TICKS = 8;
+export const TURN_TICKS = 8;
+/** Does she leave the quay that way (she sailed off from the jetty, not turned back at sea)? */
+const backsOff = (ship: Ship, L: number): boolean => ship.turned >= 1 && L > 2 * BACK_OFF && leaveTicks(ship) > BACK_TICKS + TURN_TICKS + 10;
+/** Has she finished backing off and swinging round (for the renderer: her sail stays furled till then)? */
+export const underWay = (ship: Ship, tick: number): boolean => ship.phase === SHIP_LEAVING && (!backsOff(ship, pathLength(ship.path)) || tick - ship.since >= BACK_TICKS + TURN_TICKS);
+const smooth = (u: number): number => {
+  const v = Math.max(0, Math.min(1, u));
+  return v * v * (3 - 2 * v);
+};
+
+/**
  * Where the ship is at a tick (fractional ticks too: the renderer draws her
  * between them), which way her bow points (a unit vector), and how far in she
  * has come (0 at the horizon, 1 at the quay); null while she is away.
@@ -410,13 +427,33 @@ export function shipAt(ship: Ship, tick: number): { x: number; z: number; dx: nu
   const L = pathLength(ship.path);
   let f: number;
   let back = false;
+  // While she swings round: how far through it (0 bow in, 1 bow out).
+  let swing = -1;
   if (ship.phase === SHIP_COMING) f = easeIn((tick - ship.since) / SAIL_IN);
   else if (ship.phase === SHIP_MOORED) f = 1;
-  else {
+  else if (backsOff(ship, L)) {
+    const e = tick - ship.since;
+    const off = 1 - BACK_OFF / L;
+    if (e < BACK_TICKS) f = 1 - (BACK_OFF / L) * smooth(e / BACK_TICKS);
+    else if (e < BACK_TICKS + TURN_TICKS) {
+      f = off;
+      swing = smooth((e - BACK_TICKS) / TURN_TICKS);
+    } else {
+      f = off * (1 - easeOut((e - BACK_TICKS - TURN_TICKS) / (leaveTicks(ship) - BACK_TICKS - TURN_TICKS)));
+      back = true;
+    }
+  } else {
     f = ship.turned * (1 - easeOut((tick - ship.since) / leaveTicks(ship)));
     back = true;
   }
   const p = pointAlong(ship.path, L * f);
+  if (swing >= 0) {
+    // Round from bow in to bow out, the same way every time.
+    const a = Math.PI * swing;
+    const c = Math.cos(a);
+    const sn = Math.sin(a);
+    return { x: p.x, z: p.z, dx: p.dx * c - p.dz * sn, dz: p.dx * sn + p.dz * c, inward: f };
+  }
   return { x: p.x, z: p.z, dx: back ? -p.dx : p.dx, dz: back ? -p.dz : p.dz, inward: f };
 }
 

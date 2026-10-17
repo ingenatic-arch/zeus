@@ -37,6 +37,9 @@ import {
   TRADE_GOODS,
   tradingPost,
   leaveTicks,
+  BACK_OFF,
+  BACK_TICKS,
+  TURN_TICKS,
 } from '../src/sim/trade';
 import { owedWages, totals } from '../src/sim/treasury';
 
@@ -132,6 +135,23 @@ describe('the ship', () => {
     sim.run(LOADING);
     expect(ship.phase).toBe(SHIP_LEAVING);
     expect(ship.visits).toBe(1);
+    // Leaving: she backs off astern, bow still to the quay, swings round clear of the jetty, then sails out bow first; never jumping, always on deep water.
+    const from = s.tick;
+    let prev = shipAt(ship, from)!;
+    expect([prev.x, prev.z, prev.dx, prev.dz]).toEqual([moored.x, moored.z, moored.dx, moored.dz]);
+    for (let t = from; t <= from + leaveTicks(ship); t += 0.25) {
+      const at = shipAt(ship, t)!;
+      expect(sailable(map, at.x, at.z)).toBe(true);
+      expect(Math.hypot(at.x - prev.x, at.z - prev.z)).toBeLessThan(4);
+      // (Backing off and swinging round, her heading turns smoothly; further out it turns at the corners of her route, eased by the renderer.)
+      if (t < from + BACK_TICKS + TURN_TICKS + 1) expect(at.dx * prev.dx + at.dz * prev.dz).toBeGreaterThan(0.8);
+      prev = at;
+    }
+    const backed = shipAt(ship, from + BACK_TICKS)!;
+    expect(Math.hypot(backed.x - berth.x, backed.z - berth.z)).toBeCloseTo(BACK_OFF, 5);
+    expect(backed.dx * moored.dx + backed.dz * moored.dz).toBeCloseTo(1, 5);
+    const round = shipAt(ship, from + BACK_TICKS + TURN_TICKS)!;
+    expect(round.dx * moored.dx + round.dz * moored.dz).toBeCloseTo(-1, 5);
     // Nothing was for sale: she paid nothing.
     expect(ship.lastPaid).toBe(0);
     expect(ship.due).toBe(due + SHIP_EVERY);

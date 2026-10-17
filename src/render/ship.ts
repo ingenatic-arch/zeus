@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { hash2 } from '../map/noise';
 import type { SimState } from '../sim/state';
-import { leaveTicks, shipAt, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED } from '../sim/trade';
+import { shipAt, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, underWay } from '../sim/trade';
 import { cyl } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
@@ -264,7 +264,8 @@ export class ShipView {
       furled = true;
       laden = ship.hold.some((n) => n > 0);
     } else if (ship.phase === SHIP_LEAVING) {
-      furled = t - ship.since < leaveTicks(ship) * 0.05;
+      // (Furled while she backs off the jetty and swings round.)
+      furled = !underWay(ship, t);
       laden = ship.lastAt === ship.since && ship.lastBought.some((n) => n > 0);
     }
     const version: Version = furled ? (laden ? 'furledLaden' : 'furled') : laden ? 'setLaden' : 'set';
