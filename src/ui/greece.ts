@@ -10,6 +10,7 @@ import { dateOfTick, formatDate, TICKS_PER_DAY } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
 import type { Ruler, SimState, WorldCity } from '../sim/state';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
+import { waysHtml } from './routes';
 import { cityOf, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, sellsAndBuys, TRAIT_WORDS, tyreShip, type MoodWord } from '../sim/world';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -149,7 +150,7 @@ function goodsBlock(c: WorldCity, name: string): string {
 
 /** How a city is reached from yours. */
 const REACH: Partial<Record<CityId, string>> = {
-  athens: 'By sea, out of the gulf and up the Saronic Gulf to the Piraeus.',
+  athens: 'By sea, out of the gulf and up the Saronic Gulf to the Piraeus, or the long road north through Corinth and over the isthmus.',
   sparta: 'By road only, over the hills by Tegea and down the Eurotas valley.',
   corinth: 'By road through Nemea, or by sea to its eastern harbour.',
   troy: 'By sea only, the long way through the islands and up the Aegean.',
@@ -192,7 +193,8 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div></header>
 <section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)}</div><div class="num">${signed(m)} in all</div></div></div><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${goodsBlock(c, place.name)}
-<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')} No trade routes are open to Greece yet.</p></section>`;
+<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>
+${waysHtml(s, id)}`;
 }
 
 /** Every ruled city's mood in a word, for the probe and the smoke test. */

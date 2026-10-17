@@ -5,7 +5,8 @@ import { Animals } from './animals';
 import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
-import { ShipView } from './ship';
+import { routeOf } from '../sim/routes';
+import { cityShipColours, ShipView, visitorLook } from './ship';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -26,6 +27,8 @@ export class CityView {
   readonly animals: Animals;
   /** The merchant ship, when she is in sight. */
   readonly ship = new ShipView();
+  /** The sea routes' ships, by city, made as each route opens. */
+  readonly visitors = new Map<string, ShipView>();
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -59,6 +62,20 @@ export class CityView {
     this.animals.update(s, alpha, time);
     this.folk.end();
     this.ship.update(s, alpha, time);
+    for (const r of s.world.routes) {
+      if (r.kind !== 'sea') continue;
+      let view = this.visitors.get(r.city);
+      if (!view) {
+        const city = r.city;
+        view = new ShipView((st, t) => {
+          const route = routeOf(st, city, 'sea');
+          return route ? visitorLook(route, t) : null;
+        }, cityShipColours(city), `ship-${city}`, 1.3 + this.visitors.size * 2.1);
+        this.visitors.set(r.city, view);
+        this.group.add(view.group);
+      }
+    }
+    for (const view of this.visitors.values()) view.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

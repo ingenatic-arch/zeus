@@ -864,8 +864,8 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   return { phase: 0, days, chip: `${days} d`, short: `${name}’s ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}`, who, kind: 'sea' };
 }
 
-/** How the chip ranks news: here now first, then coming, then gone, then due soonest. */
-const RANK = [2, 0, 3, 1];
+/** How the chip ranks news, by phase (due, coming, here, gone): here now first, then coming, then gone, then due soonest. */
+const RANK = [3, 1, 0, 2];
 
 /** Every trader's news, the most pressing first (the routes' and, given, the Tyre ship's). */
 export function tradersNews(s: SimState, tyre: Omit<TraderNews, 'who' | 'kind'> | null): TraderNews[] {

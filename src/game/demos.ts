@@ -16,7 +16,7 @@ import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
-import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay } from '../sim/routes';
+import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } from '../sim/routes';
 import { rateOf } from '../sim/labour';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -103,12 +103,10 @@ export interface Demo {
   ledger?: boolean;
   /** A tile to ring on the ground until a road is laid on it (where #warning's road was cut). */
   mark?: { x: number; z: number };
-  /** Open the trading post's panel from the start. */
-  trade?: boolean;
+  /** Open the trade panel from the start (on a tab: a route's key, such as 'athens-sea', if one is named). */
+  trade?: true | string;
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
-  /** For `follow: 'docker'`: follow one from the caravan yard (the trading post's if not given). */
-  dockerFrom?: 'yard';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
 }
@@ -971,19 +969,22 @@ function tradeTown(stage: TradeStage): (sim: Sim) => void {
  * caravan has come in at the north edge and walked a little way down the road.
  * #buywine: the same town buying wine from Corinth (it has no vineyards), up to
  * 1,200 in its storehouses, with a wine stall added to the main agora; it opens
- * as the caravan's wine has been unloaded at the yard and the yard's porters
- * carry it up to the storehouse.
+ * with the caravan a few days short of the yard, to be seen coming in, unloading
+ * the wine and the yard's porters carrying it up to the storehouse.
  */
 /** The road north to the map's edge, from the top of the street above #town's core. */
 export const NORTH_ROAD = col(86, 0, 22).reverse();
-/** The caravan yard at the main street's east end (the street run on a tile to reach it). */
-export const YARD_AT = { x: 113, z: 38 };
+/** The caravan yard at the main street's east end, below it, facing up the street (the street run on a tile to reach its gate). */
+export const YARD_AT = { x: 113, z: 42 };
 export const YARD_ROAD = [T(113, 41)];
 /** The main agora (its wine stall for #buywine). */
 const MAIN_AGORA = T(97, 42);
 /** The longest a route demo waits for its trader (a year). */
 const ROUTE_WAIT = 12 * TICKS_PER_MONTH;
 type RouteStage = 'routes' | 'caravan' | 'buywine';
+/** How far short of the yard's gate #buywine's caravan is when it opens (tiles: about a week's walk). */
+const BUYWINE_LEFT = 6;
+
 function routesTown(stage: RouteStage): (sim: Sim) => void {
   return (sim) => {
     town(TOWN_TICKS)(sim);
@@ -997,8 +998,8 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
     send({ type: 'road', tiles: [...NORTH_ROAD, ...YARD_ROAD] });
     send({ type: 'build', kind: 'yard', at: [T(YARD_AT.x, YARD_AT.z)] });
     const fee = routeWay('corinth', 'land')!.fee;
-    // Staffed, and the fee in hand (with a little over: to pay wages until the caravan comes, and for the stall and the first wine).
-    const extra = stage === 'buywine' ? STALL_COST + 300 : stage === 'caravan' ? 300 : 0;
+    // Staffed, and the fee in hand (with a little over: to pay the wages until the caravan comes, or while #routes waits for a click; and for the stall and the wine, about 850 dr).
+    const extra = stage === 'buywine' ? STALL_COST + 1000 : 300;
     const end = s.tick + ROUTE_WAIT;
     while (s.tick < end && !(rateOf(caravanYard(s)!) > 0 && s.money >= fee + extra + wageBill(s))) sim.run(10);
     if (stage === 'routes') return;
@@ -1011,8 +1012,11 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
     const ready = (): boolean => {
       const w = caravanOf(s, 'corinth');
       if (stage === 'caravan') return !!w && !w.back && w.walked > 10;
-      const yard = caravanYard(s)!;
-      return !!w && w.wait > 0 && s.walkers.some((d) => d.kind === 'docker' && d.origin === yard.id && d.load > 0 && d.food === WINE && d.walked > 2);
+      // #buywine: a few days short of the yard's gate, to be seen coming in, unloading the wine and its porters carrying it off.
+      if (!w || w.back) return false;
+      let left = -w.along;
+      for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+      return left < BUYWINE_LEFT;
     };
     const stop = s.tick + ROUTE_WAIT;
     while (s.tick < stop && !ready()) sim.step();
@@ -1022,14 +1026,17 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
 /**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
- * and meat ticked for sale to it and wine bought, up to 1,000. #athensship
+ * and meat ticked for sale to it and wine bought, up to 600. #athensship
  * opens the route so that her first call comes half-way between the Tyre
  * ship's (the surplus waiting on the quay) and plays on until the Athenian
- * ship has tied up and begun trading. #anchor opens it so that her first call
+ * ship is most of the way in up the bay. #anchor opens it so that her first call
  * comes two days after the Tyre ship has tied up, and opens as she rides at
  * anchor, waiting her turn. Each opens it on a visit the treasury can pay for.
  */
 type SeaStage = 'athensship' | 'anchor';
+/** How far in from the horizon #athensship's ship is when it opens (0..1 of her way in). */
+const ATHENS_INWARD = 0.7;
+
 function seaTown(stage: SeaStage): (sim: Sim) => void {
   return (sim) => {
     tradeTown('trade')(sim);
@@ -1052,13 +1059,15 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
     }
     send({ type: 'route', city: 'athens', kind: 'sea' });
     for (const good of [WHEAT, MEAT]) send({ type: 'deal', city: 'athens', kind: 'sea', good, sell: true });
-    send({ type: 'deal', city: 'athens', kind: 'sea', good: WINE, buy: true, upto: 1000 });
+    // (Up to 600, about 430 dr: what this town can spare as she comes.)
+    send({ type: 'deal', city: 'athens', kind: 'sea', good: WINE, buy: true, upto: 600 });
     const r = routeOf(s, 'athens', 'sea');
     const ready = (): boolean => {
       const v = r?.ship;
       if (!v) return true;
-      if (stage === 'athensship') return v.phase === SHIP_MOORED && s.tick - v.since >= 15;
-      return v.phase === SHIP_ANCHORED && s.tick - v.since >= 10;
+      // #athensship: coming in up the bay, a few seconds from the jetty (she is only there a few days); #anchor: just anchored.
+      if (stage === 'athensship') return v.phase === SHIP_MOORED || (v.phase === SHIP_COMING && (visitorAt(v, s.tick)?.inward ?? 0) >= ATHENS_INWARD);
+      return v.phase === SHIP_ANCHORED && s.tick - v.since >= 2;
     };
     const stop = s.tick + 2 * SHIP_EVERY;
     while (s.tick < stop && !ready()) sim.step();
@@ -1157,8 +1166,8 @@ const SCENES: Record<string, Demo> = {
   // Slice 16: routes and traders.
   routes: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth' },
   caravan: { view: 'caravan', setup: routesTown('caravan'), overlay: 'missing', follow: 'caravan' },
-  buywine: { view: 'yard', setup: routesTown('buywine'), overlay: 'wine', follow: 'docker', dockerFrom: 'yard' },
-  athensship: { view: 'ship', setup: seaTown('athensship'), overlay: 'food', trade: true },
+  buywine: { view: 'yard', setup: routesTown('buywine'), overlay: 'wine' },
+  athensship: { view: 'ship', setup: seaTown('athensship'), overlay: 'food', trade: 'athens-sea' },
   anchor: { view: 'anchor', setup: seaTown('anchor'), overlay: 'food' },
 };
 

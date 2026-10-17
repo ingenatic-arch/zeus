@@ -129,6 +129,9 @@ export const PAL = {
   courtyard: '#e4d5b4',
   // The ox cart, the porter and the food vendor
   ox: '#a88866',
+  donkey: '#8e8478',
+  donkeyDark: '#5a5249',
+  donkeyMuzzle: '#d9d1c4',
   oxDark: '#6e5440',
   horn: '#eee4cc',
   cart: '#94683f',

@@ -153,6 +153,10 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .ship-chip svg .mast { stroke: #6e4e30; stroke-width: 1.3; fill: none; }
 .ship-chip svg .sail { fill: #f7edd6; stroke: #c0462e; stroke-width: 1.1; stroke-linejoin: round; }
 .ship-chip svg .hull { fill: #7a4a2c; }
+.ship-chip svg.donkey, .ship-chip.land svg:not(.donkey) { display: none; }
+.ship-chip.land svg.donkey { display: inline; }
+.ship-chip svg .hide { fill: #8e8478; stroke: #5a5249; stroke-width: 0.6; }
+.ship-chip svg .pack { fill: #f7edd6; stroke: #c0462e; stroke-width: 1.1; stroke-linejoin: round; }
 /* Her sail sighted, or tied up loading: the chip calls attention. */
 .ship-chip.p1, .ship-chip.p2 { border-color: #2f6f8e; background: #e8f3f6; }
 .ship-chip.p3 { border-color: #c99a2a; background: #fff3d6; }
@@ -582,38 +586,63 @@ kbd {
 
 /* The trading post's panel (slice 13): the ship's schedule and the goods she buys. */
 .household.trade { width: 368px; }
-.household.trade .shipnews { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.5); border: 1.5px solid var(--edge); }
-.household.trade .shipnews.here { background: #e8f3f6; border-color: #2f6f8e; }
-.household.trade .shipnews b { font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
-.household.trade .shipnews p { margin: 2px 0 0; font-size: 13px; }
-.household.trade .shipnews .bar { height: 6px; border-radius: 3px; background: rgba(47, 111, 142, 0.16); margin-top: 6px; overflow: hidden; }
-.household.trade .shipnews .bar i { display: block; height: 100%; background: linear-gradient(90deg, #6aa7c0, #2f6f8e); border-radius: 3px; }
-.household.trade table.goods { width: 100%; border-collapse: collapse; font-size: 13px; }
-.household.trade table.goods th { font-weight: normal; font-size: 11.5px; color: var(--ink-soft); text-align: right; padding: 0 3px 2px; font-variant: small-caps; letter-spacing: 0.06em; }
-.household.trade table.goods th:first-child { text-align: left; }
-.household.trade table.goods td { padding: 2px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
-.household.trade table.goods tr.off td { color: var(--ink-soft); }
-.household.trade table.goods td.good { text-align: left; }
-.household.trade table.goods td.good label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
-.household.trade table.goods td.good input { margin: 0; accent-color: #2f6f8e; cursor: pointer; }
-.household.trade table.goods td.good i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.6); }
-.household.trade table.goods td.price { color: #8a6418; }
-.household.trade table.goods td.keep { white-space: nowrap; }
-.household.trade table.goods td.keep span { display: inline-block; min-width: 40px; text-align: center; }
-.household.trade table.goods td.keep button {
+:is(.household.trade, .greece-panel) .shipnews { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.5); border: 1.5px solid var(--edge); }
+:is(.household.trade, .greece-panel) .shipnews.here { background: #e8f3f6; border-color: #2f6f8e; }
+:is(.household.trade, .greece-panel) .shipnews b { font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
+:is(.household.trade, .greece-panel) .shipnews p { margin: 2px 0 0; font-size: 13px; }
+:is(.household.trade, .greece-panel) .shipnews .bar { height: 6px; border-radius: 3px; background: rgba(47, 111, 142, 0.16); margin-top: 6px; overflow: hidden; }
+:is(.household.trade, .greece-panel) .shipnews .bar i { display: block; height: 100%; background: linear-gradient(90deg, #6aa7c0, #2f6f8e); border-radius: 3px; }
+:is(.household.trade, .greece-panel) table.goods { width: 100%; border-collapse: collapse; font-size: 13px; }
+:is(.household.trade, .greece-panel) table.goods th { font-weight: normal; font-size: 11.5px; color: var(--ink-soft); text-align: right; padding: 0 3px 2px; font-variant: small-caps; letter-spacing: 0.06em; }
+:is(.household.trade, .greece-panel) table.goods th:first-child { text-align: left; }
+:is(.household.trade, .greece-panel) table.goods td { padding: 2px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
+:is(.household.trade, .greece-panel) table.goods tr.off td { color: var(--ink-soft); }
+:is(.household.trade, .greece-panel) table.goods td.good { text-align: left; }
+:is(.household.trade, .greece-panel) table.goods td.good label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+:is(.household.trade, .greece-panel) table.goods td.good input { margin: 0; accent-color: #2f6f8e; cursor: pointer; }
+:is(.household.trade, .greece-panel) table.goods td.good i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.6); }
+:is(.household.trade, .greece-panel) table.goods td.price { color: #8a6418; }
+:is(.household.trade, .greece-panel) table.goods td.keep { white-space: nowrap; }
+:is(.household.trade, .greece-panel) table.goods td.keep span { display: inline-block; min-width: 40px; text-align: center; }
+:is(.household.trade, .greece-panel) table.goods td.keep button {
   appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink);
   font: inherit; font-size: 14px; line-height: 1; padding: 0 0 1px; cursor: pointer;
 }
-.household.trade table.goods td.keep button:hover { background: #fff2d6; }
-.household.trade table.goods td.keep button:disabled { opacity: 0.4; cursor: default; }
-.household.trade table.goods td.quay { color: #2f5f72; font-weight: bold; min-width: 40px; }
-.household.trade .quayline, .household.trade .dockers { margin: 6px 0 0; font-size: 13px; }
-.household.trade .dockers { color: var(--ink-soft); }
-.household.trade .last { margin: 0; font-size: 13px; }
-.household.trade ul.bought { list-style: none; margin: 3px 0 0; padding: 0; font-size: 12.5px; display: grid; grid-template-columns: 1fr auto; gap: 0 10px; }
-.household.trade ul.bought li { display: contents; }
-.household.trade ul.bought .dr { text-align: right; color: #8a6418; font-variant-numeric: tabular-nums; }
+:is(.household.trade, .greece-panel) table.goods td.keep button:hover { background: #fff2d6; }
+:is(.household.trade, .greece-panel) table.goods td.keep button:disabled { opacity: 0.4; cursor: default; }
+:is(.household.trade, .greece-panel) table.goods td.quay { color: #2f5f72; font-weight: bold; min-width: 40px; }
+:is(.household.trade, .greece-panel) .quayline, :is(.household.trade, .greece-panel) .dockers { margin: 6px 0 0; font-size: 13px; }
+:is(.household.trade, .greece-panel) .dockers { color: var(--ink-soft); }
+:is(.household.trade, .greece-panel) .last { margin: 0; font-size: 13px; }
+:is(.household.trade, .greece-panel) ul.bought { list-style: none; margin: 3px 0 0; padding: 0; font-size: 12.5px; display: grid; grid-template-columns: 1fr auto; gap: 0 10px; }
+:is(.household.trade, .greece-panel) ul.bought li { display: contents; }
+:is(.household.trade, .greece-panel) ul.bought .dr { text-align: right; color: #8a6418; font-variant-numeric: tabular-nums; }
 .household.trade .foot { margin: 10px 0 0; font-size: 12px; color: var(--ink-soft); font-style: italic; }
+/* The trade panel's tabs: the Tyre ship, each open route, the yard. */
+.household.trade .tradetabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 26px 8px 0; }
+.household.trade .tradetabs button {
+  appearance: none; font: inherit; font-size: 12.5px; padding: 2px 9px; border-radius: 11px; border: 1.2px solid var(--edge);
+  background: rgba(255, 255, 255, 0.45); color: var(--ink-soft); cursor: pointer; font-variant: small-caps; letter-spacing: 0.04em;
+}
+.household.trade .tradetabs button:hover { background: #fff2d6; color: var(--ink); }
+.household.trade .tradetabs button.on { background: #2f6f8e; border-color: #2f6f8e; color: #fff6e4; }
+:is(.household.trade, .greece-panel) h4 { margin: 10px 0 2px; font-size: 13px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.06em; color: var(--ink-soft); }
+:is(.household.trade, .greece-panel) table.goods td.left { color: var(--ink-soft); }
+:is(.household.trade, .greece-panel) p.none { margin: 2px 0; font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
+/* A route's place on a city's page on the map of Greece: open, or a button to open it. */
+.greece-panel .routes .route { margin-top: 8px; padding: 7px 9px; border-radius: 10px; border: 1.2px dashed var(--edge); background: rgba(255, 255, 255, 0.3); }
+.greece-panel .routes .route.open { border-style: solid; background: rgba(255, 255, 255, 0.45); }
+.greece-panel .routes .route.open > h4:first-child { margin-top: 0; color: var(--ink); }
+.greece-panel .routes .route .shipnews { margin-top: 4px; }
+.greece-panel .routes .last { margin-top: 6px; font-size: 12.5px; }
+.greece-panel .openroute {
+  appearance: none; font: inherit; font-size: 14px; padding: 4px 12px; border-radius: 14px; border: 1.5px solid #2f6f8e; background: #2f6f8e; color: #fff6e4;
+  cursor: pointer; font-variant: small-caps; letter-spacing: 0.04em;
+}
+.greece-panel .openroute:hover { background: #3d86a8; }
+.greece-panel .openroute:disabled { background: transparent; color: var(--ink-soft); border-color: var(--edge); cursor: default; }
+.greece-panel .routes .route .line { margin-top: 4px; }
+.greece-panel .routes .why { color: var(--terracotta-deep); }
 
 /* ---------------------------------------------------------------------------
    The map of Greece (slice 15). */

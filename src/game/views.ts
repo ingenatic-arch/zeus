@@ -30,9 +30,9 @@ export const VIEWS: Record<string, CameraView> = {
   // The ship tied up at the jetty.
   ship: { x: 74, z: 76, yaw: 2.3, dist: 16, tilt: -0.02 },
   // #caravan: the road in from the north edge, where Corinth's caravans come down to the main street (the camera then follows the caravan).
-  caravan: { x: 86, z: 16, yaw: 2.65, dist: 16, tilt: 0 },
+  caravan: { x: 86.5, z: 9, yaw: 0.4, dist: 9, tilt: 0.12 },
   // #buywine: the caravan yard at the east end of #town's main street.
-  yard: { x: 113, z: 40, yaw: 2.65, dist: 16, tilt: -0.02 },
+  yard: { x: 113.5, z: 42.5, yaw: 2.65, dist: 11, tilt: -0.02 },
   // #anchor: the bay off the jetty, a foreign ship at anchor waiting while the Tyre ship loads.
   anchor: { x: 72, z: 80, yaw: 2.6, dist: 30, tilt: -0.1 },
   // The rocky hills where the river rises.

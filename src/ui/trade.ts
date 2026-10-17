@@ -1,13 +1,16 @@
 /**
- * The trading post's panel: the ship's schedule (when she is due, sighted,
- * loading or gone, and what she paid last time), and for each of the six
- * goods she buys its price, what the city's stores hold, how much the city
- * keeps (− / +), what waits on the quay, and whether it is for sale. Opened
- * by clicking the post (or the ship chip in the top bar); its buttons send
+ * The trade panel: a tab for the Tyre ship and one for each open route.
+ * The Tyre ship's tab is the trading post's panel as it has always been: the
+ * ship's schedule (when she is due, sighted, loading or gone, and what she
+ * paid last time), and for each of the six goods she buys its price, what the
+ * city's stores hold, how much the city keeps (− / +), what waits on the
+ * quay, and whether it is for sale. A route's tab has its trader's news, its
+ * goods (routes.ts) and its last visit. Opened by clicking the post or the
+ * caravan yard (or the traders chip in the top bar); its buttons send
  * commands, so they replay and save like any other action.
  */
 import type { CoastMap } from '../map/bake';
-import { findBuilding, jobsAt } from '../sim/buildings';
+import { jobsAt } from '../sim/buildings';
 import { dateOfTick, formatYear } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { held, WARE_NAMES } from '../sim/foods';
@@ -15,6 +18,10 @@ import { rateOf } from '../sim/labour';
 import { roadsBeside } from '../sim/rounds';
 import { workersLine } from '../sim/status';
 import { morph } from './morph';
+import { depotOf, routeEvent, routeGoods, routeKey, routeLast, routeName, routeNewsBlock, routeWarnings } from './routes';
+import { caravanYard, routeOf, type RouteKind } from '../sim/routes';
+import type { TradeRoute } from '../sim/state';
+import { PLACES } from '../map/greece';
 import type { Building, SimState } from '../sim/state';
 import {
   cityHolds,
@@ -118,6 +125,46 @@ ${warn.map((w) => `<div class="late">${esc(w)}</div>`).join('')}
 <p class="foot">Prices are per 100. The dockers carry what the stores hold beyond what the city keeps to the quay, the most valuable first, and carry back anything taken off sale.</p>`;
 }
 
+/** A route's tab. */
+export function routeHtml(s: SimState, map: CoastMap, r: TradeRoute): string {
+  const name = PLACES[r.city].name;
+  const depot = depotOf(s, r);
+  const people = depot ? dockerNews(s, map, depot) : '';
+  return `<header><div class="kicker">Trade route · ${r.kind === 'land' ? 'by road' : 'by sea'} · open since ${when(r.opened)}</div><h2>${esc(name)}</h2><div class="from">${r.kind === 'land' ? `A caravan comes every two months to the caravan yard` : `A ship of ${esc(name)} calls every three months at the trading post`}</div></header>
+${routeNewsBlock(s, r)}
+${routeWarnings(s, r).map((w) => `<div class="late">${esc(w)}</div>`).join('')}
+<section class="routegoods">${routeGoods(s, r)}${people ? `<p class="dockers">${esc(people)}</p>` : ''}</section>
+<section><h3>The last ${r.kind === 'land' ? 'caravan' : 'ship'}</h3>${routeLast(r)}</section>
+<p class="foot">Prices are per 100; each city buys and sells only so much a year. What you sell goes beyond what the city keeps; what you buy is unloaded and paid for as the trader arrives, as much as the treasury can pay for then.</p>`;
+}
+
+/** The caravan yard's tab, while no road is open. */
+export function yardHtml(s: SimState, map: CoastMap, yard: Building): string {
+  const staff = workersLine(s, map, yard);
+  const goods = TRADE_GOODS.map((w) => held(yard, w));
+  const warn: string[] = [];
+  if (roadsBeside(s, map.size, yard).length === 0) warn.push('No road beside the yard: caravans can’t reach it, nor its porters the stores. Lay a road along one side.');
+  return `<header><div class="kicker">${esc(staff.split('\n')[0] || 'The caravan yard')}</div><h2>The caravan yard</h2><div class="from">Where the caravans of Greece trade</div></header>
+${warn.map((w) => `<div class="late">${esc(w)}</div>`).join('')}
+<section><p class="line">No road is open to Greece yet. Open one on the map of Greece (Tab): Corinth, Sparta and Athens trade by road, a caravan every two months.</p>${goods.some((n) => n > 0) ? `<p class="quayline">In the yard: ${goodsList(goods)}</p>` : ''}</section>`;
+}
+
+/** The tabs: the Tyre ship's (with a trading post) and each open route's; the yard's own while no road is open. */
+export function tradeTabs(s: SimState): string[] {
+  const out: string[] = [];
+  if (tradingPost(s)) out.push('tyre');
+  for (const r of s.world.routes) out.push(routeKey(r));
+  if (caravanYard(s) && !s.world.routes.some((r) => r.kind === 'land')) out.push('yard');
+  return out;
+}
+
+const tabName = (tab: string): string => {
+  if (tab === 'tyre') return 'Tyre';
+  if (tab === 'yard') return 'Yard';
+  const [city, kind] = tab.split('-');
+  return `${PLACES[city as keyof typeof PLACES]?.name ?? city} <em>by ${kind === 'land' ? 'road' : 'sea'}</em>`;
+};
+
 /** How often (seconds) the open panel is brought up to date. */
 const REFRESH = 0.3;
 
@@ -128,6 +175,8 @@ export class TradePanel {
   private html = '';
   private last = -Infinity;
   private state: SimState | null = null;
+  /** Which tab is open: 'tyre', a route ('corinth-land'), or 'yard'. */
+  tab = 'tyre';
   /** A pointer is pressed in the panel: hold the redraw, so the press and release land on the same button (a click is lost if it is redrawn in between). */
   private pressed = false;
   onOpen: () => void = () => {};
@@ -150,12 +199,27 @@ export class TradePanel {
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
     this.body.addEventListener('change', (e) => {
+      if (this.state && routeEvent(e, this.state, send)) {
+        this.last = -Infinity;
+        return;
+      }
       const t = e.target as HTMLInputElement;
       if (t.dataset.sell === undefined) return;
       send({ type: 'trade', good: TRADE_GOODS[Number(t.dataset.sell)], sell: t.checked });
       this.last = -Infinity;
     });
     this.body.addEventListener('click', (e) => {
+      const tab = (e.target as HTMLElement).closest('button[data-tab]') as HTMLButtonElement | null;
+      if (tab) {
+        this.tab = tab.dataset.tab ?? 'tyre';
+        this.body.scrollTop = 0;
+        this.last = -Infinity;
+        return;
+      }
+      if (this.state && routeEvent(e, this.state, send)) {
+        this.last = -Infinity;
+        return;
+      }
       const b = (e.target as HTMLElement).closest('button[data-keep]') as HTMLButtonElement | null;
       if (!b || !this.state) return;
       const k = Number(b.dataset.keep);
@@ -173,6 +237,20 @@ export class TradePanel {
     return this.shown;
   }
 
+  /** Open on a tab: the Tyre ship's, a route's ('corinth-land'), or the first for the caravan yard ('yard': its first road, or its own). */
+  showTab(tab: string): void {
+    this.tab = tab;
+    if (tab === 'yard' && this.state) {
+      const land = this.state.world.routes.find((r) => r.kind === 'land');
+      if (land) this.tab = routeKey(land);
+    }
+    if (this.shown) {
+      this.body.scrollTop = 0;
+      this.last = -Infinity;
+    }
+    this.toggle(true);
+  }
+
   toggle(show = !this.shown): void {
     if (show && !this.shown) this.body.scrollTop = 0;
     this.shown = show;
@@ -186,14 +264,21 @@ export class TradePanel {
   update(s: SimState, map: CoastMap, time: number): void {
     this.state = s;
     if (!this.shown) return;
-    const post = tradingPost(s);
-    if (!post || !findBuilding(s, post.id)) {
+    const tabs = tradeTabs(s);
+    if (tabs.length === 0) {
       this.toggle(false);
       return;
     }
+    if (!tabs.includes(this.tab)) this.tab = tabs[0];
     if (this.pressed || time - this.last < REFRESH) return;
     this.last = time;
-    const html = tradeHtml(s, map, post);
+    const post = tradingPost(s);
+    const yard = caravanYard(s);
+    const [city, kind] = this.tab.split('-');
+    const route = this.tab === 'tyre' || this.tab === 'yard' ? undefined : routeOf(s, city, kind as RouteKind);
+    const page = route ? routeHtml(s, map, route) : this.tab === 'yard' && yard ? yardHtml(s, map, yard) : post ? tradeHtml(s, map, post) : '';
+    const nav = tabs.length > 1 ? `<nav class="tradetabs">${tabs.map((t) => `<button data-tab="${t}" class="${t === this.tab ? 'on' : ''}" title="${t === 'tyre' ? 'The merchant ship from Tyre' : t === 'yard' ? 'The caravan yard' : esc(routeName(t.split('-')[0] as never, t.split('-')[1] as RouteKind))}">${tabName(t)}</button>`).join('')}</nav>` : '';
+    const html = nav + page;
     if (html !== this.html) {
       // In place: only what changed, so a hover tip stays up and a click lands.
       if (this.html) morph(this.body, html);

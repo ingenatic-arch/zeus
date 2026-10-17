@@ -57,7 +57,7 @@ export class TopBar {
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="8" r="4.4" class="inner"/><path d="M8 5.2l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" class="mark"/></svg>
           <span class="num">0</span><span class="trend" hidden></span><span class="delta"></span>
         </button>
-        <button class="ship-chip" hidden><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M9.6 1.2v9.4" class="mast"/><path d="M10.4 2.2c3 1.4 4.6 4 4.8 7.4h-4.8z" class="sail"/><path d="M1.4 10.8h17.2c-.8 2.6-2.8 4-5.4 4H6.4c-2.4 0-4.2-1.4-5-4z" class="hull"/></svg><span class="txt"></span></button>
+        <button class="ship-chip" hidden><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M9.6 1.2v9.4" class="mast"/><path d="M10.4 2.2c3 1.4 4.6 4 4.8 7.4h-4.8z" class="sail"/><path d="M1.4 10.8h17.2c-.8 2.6-2.8 4-5.4 4H6.4c-2.4 0-4.2-1.4-5-4z" class="hull"/></svg><svg viewBox="0 0 20 16" aria-hidden="true" class="donkey"><path d="M3.4 7.6c0-1.2 1-2 2.4-2h7.2c.8 0 1.2-.4 1.6-1.2l.6-1.8 1.2.2.4 1.2 1 1.4-.6 1-1.4-.3-.6 1.2c-.3.8-.6 1.4-1.4 1.8V15h-1.4v-3.6H6.6V15H5.2v-4.2c-1.1-.5-1.8-1.6-1.8-3.2z" class="hide"/><path d="M5.8 2.2h5.4l.5 5.8H5.3z" class="pack"/></svg><span class="txt"></span></button>
         <button class="rate-chip" title="The tax rate: click to change it">Taxes · fair</button>
       </div>
       <div class="meander"></div>`;
@@ -163,9 +163,9 @@ export class TopBar {
 
   private shipKey = '';
 
-  /** The ship chip: when the next ship is due, her sail sighted, loading, sold (hidden in a city without a trading post). */
-  showShip(news: { phase: number; chip: string; short: string; line: string } | null): void {
-    const key = news ? `${news.phase}:${news.chip}:${news.line}` : '';
+  /** The traders chip: when the next ship (or, with routes open, the nearest trader) is due, sighted, here, gone (hidden in a city with no post and no route). */
+  showShip(news: { phase: number; chip: string; short: string; line: string; kind?: 'land' | 'sea' } | null): void {
+    const key = news ? `${news.phase}:${news.chip}:${news.line}:${news.kind ?? ''}` : '';
     if (key === this.shipKey) return;
     this.shipKey = key;
     const el = this.bar.querySelector('.ship-chip') as HTMLButtonElement;
@@ -174,8 +174,8 @@ export class TopBar {
     this.bar.classList.toggle('with-ship', !!news);
     if (!news) return;
     (el.querySelector('.txt') as HTMLElement).textContent = news.chip;
-    el.className = `ship-chip p${news.phase}`;
-    el.title = `${news.short} · ${news.line}.\nClick for the trading post.`;
+    el.className = `ship-chip p${news.phase}${news.kind === 'land' ? ' land' : ''}`;
+    el.title = `${news.short} · ${news.line}.\nClick for the trade panel.`;
     el.setAttribute('aria-label', news.short);
   }
 

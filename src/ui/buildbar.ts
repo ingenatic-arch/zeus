@@ -22,6 +22,7 @@ import {
   CLEAR_BIG,
   THEATRE_COST,
   TRADING_COST,
+  YARD_COST,
   VINEYARD_COST,
   WINERY_COST,
 } from '../sim/build';
@@ -57,6 +58,9 @@ const ICONS: Record<ButtonName, string> = {
   // A merchant ship under a square sail, on the water.
   trading:
     '<svg viewBox="0 0 24 24"><path d="M12 2.6v13" class="stroke-ink"/><path d="M6.4 4.6h11.2l-1 8.2H7.4z" class="fill-soft"/><path d="M9.8 4.6l-.4 8.2M14.2 4.6l.4 8.2" class="stroke-gold"/><path d="M2.6 15.2h18.8c-.8 2.8-3.2 4.4-6 4.4H7.8c-2.6 0-4.6-1.6-5.2-4.4z" class="fill-ink"/><path d="M2 21.6c1.6-.9 3.2-.9 4.8 0s3.2.9 4.8 0 3.2-.9 4.8 0 3.2.9 4.8 0" class="stroke-water"/></svg>',
+  // A pack donkey with its two panniers.
+  yard:
+    '<svg viewBox="0 0 24 24"><path d="M5.4 12.2c0-1.6 1.4-2.6 3.2-2.6h7.6c1 0 1.6-.6 2-1.6l.8-2.4 1.6.2.4 1.6 1.4 1.8-.8 1.4-1.8-.4-.8 1.6c-.4 1-.8 1.8-1.8 2.4V21h-1.8v-4.6H9.4V21H7.6v-5.4c-1.4-.6-2.2-1.8-2.2-3.4z" class="fill-ink"/><path d="M4.4 12.4l-1.8 3" class="stroke-ink"/><path d="M8 6.4h6.4l.6 7.4H7.4z" class="fill-soft"/><path d="M8.2 9.6h6.4" class="stroke-gold"/><path d="M1.6 21.2h20.8" class="stroke-ink"/></svg>',
   // A stall under a striped awning, with a jar of oil.
   stall:
     '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M10.6 17.2c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2.8v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/></svg>',
@@ -185,6 +189,12 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${TRADING_COST} dr`,
     hint: 'Click on the bay shore where deep water comes close (the tint shows where), beside a road; only one. Its dockers carry what you choose to sell to the quay, and a ship calls every three months to buy it.',
   },
+  yard: {
+    name: 'Caravan yard',
+    key: 'G ×4',
+    cost: `${YARD_COST} dr`,
+    hint: 'Click beside a road, between the road in from the map’s edge and the granaries and storehouses; only one. Its porters carry what you choose to sell here, and caravans from the cities you open land routes to come down the road to buy it and bring what you order.',
+  },
   pasture: {
     name: 'Sheep pasture',
     key: 'M ×6',
@@ -300,7 +310,7 @@ const SLOTS: Slot[] = [
   'fountain',
   '|',
   { id: 'makers', name: 'Farms and workshops', key: 'M', members: ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'] },
-  { id: 'stores', name: 'Granary, storehouse and trading post', key: 'G', members: ['granary', 'storehouse', 'trading'] },
+  { id: 'stores', name: 'Granary, storehouse, trading post and caravan yard', key: 'G', members: ['granary', 'storehouse', 'trading', 'yard'] },
   { id: 'market', name: 'The agora and its stalls', key: 'K', members: ['agora', 'stall', 'fleecestall', 'winestall'] },
   '|',
   'shrine',

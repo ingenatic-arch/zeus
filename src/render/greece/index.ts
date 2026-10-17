@@ -12,10 +12,12 @@ import { alongLine, CITY_IDS, lineLength, OTHER_ROADS, PLACES, project, TABLE_D,
 import type { Command } from '../../sim/commands';
 import type { SimState } from '../../sim/state';
 import { tyreShip } from '../../sim/world';
+import { caravansOnMap, routeWay, visitorOnMap } from '../../sim/routes';
 import { morph } from '../../ui/morph';
 import { hoverHtml, labelHtml, moods, panelHtml } from '../../ui/greece';
+import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
-import { cityModel, shipModel, tableModel, wayMarks } from './models';
+import { caravanModel, cityModel, shipModel, tableModel, wayMarks } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
 
 /** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left. */
@@ -50,6 +52,9 @@ export class GreeceMap {
   private readonly body: HTMLElement;
   private readonly ship: THREE.Mesh;
   private readonly tyreLane: number[];
+  /** The trade routes' ships and caravans, made as they are first needed (by route key; a caravan's by key and number). */
+  private readonly travellers = new Map<string, THREE.Mesh>();
+  private readonly mat: THREE.Material;
   private readonly home: THREE.Mesh;
   private homeSize = -1;
   private renaming = false;
@@ -77,9 +82,11 @@ export class GreeceMap {
     scene.add(water);
     scene.add(tableModel());
     const lanes = WAYS.filter((w) => w.kind === 'sea').map(wayPoints);
-    const roads = [...WAYS.filter((w) => w.kind === 'land').map(wayPoints), ...OTHER_ROADS.map((r) => r.flatMap(([lon, lat]) => project(lon, lat)))];
+    // (The road to Athens runs through Corinth: it is the two roads already drawn.)
+    const roads = [...WAYS.filter((w) => w.kind === 'land' && w.id !== 'athens-land').map(wayPoints), ...OTHER_ROADS.map((r) => r.flatMap(([lon, lat]) => project(lon, lat)))];
     scene.add(wayMarks(roads, lanes, this.relief.heightAt));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, flatShading: true });
+    this.mat = mat;
     let home: THREE.Mesh | null = null;
     for (const id of CITY_IDS) {
       const m = new THREE.Mesh(cityModel(id), mat);
@@ -142,7 +149,13 @@ export class GreeceMap {
     this.panel = panel;
     this.body = panel.querySelector('.body') as HTMLElement;
     (panel.querySelector('.close') as HTMLElement).addEventListener('click', () => this.show(null));
+    // A trade route's buttons: open it, tick a good, stock up to more or less (the panel redraws at once to show it).
+    const routes = (e: Event): void => {
+      if (this.state && routeEvent(e, this.state, host.send)) setTimeout(() => this.redraw(), 0);
+    };
+    this.body.addEventListener('change', routes);
     this.body.addEventListener('click', (e) => {
+      routes(e);
       const t = e.target as HTMLElement;
       if (t.closest('.renamebtn') && this.state) {
         this.renaming = true;
@@ -313,6 +326,7 @@ export class GreeceMap {
     this.ship.position.set(p.x, 0.02 + Math.sin(time * 1.7) * 0.03, p.z);
     const dir = t.homeward || t.where === 'tyre' ? 1 : -1;
     this.ship.rotation.set(Math.sin(time * 1.3) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+    this.drawTravellers(s, s.tick + alpha, time);
     // Labels over the cities.
     const r = canvas.getBoundingClientRect();
     const refresh = time - this.labelAt > 0.5;
@@ -332,6 +346,52 @@ export class GreeceMap {
       this.redraw();
       if (this.hovered) this.drawCard();
     }
+  }
+
+  /** The trade routes' ships on their lanes and caravans on their roads (hidden when at home, or in your city). */
+  private drawTravellers(s: SimState, tick: number, time: number): void {
+    const seen = new Set<string>();
+    const piece = (key: string, make: () => THREE.BufferGeometry): THREE.Mesh => {
+      let m = this.travellers.get(key);
+      if (!m) {
+        m = new THREE.Mesh(make(), this.mat);
+        m.castShadow = true;
+        m.name = `greece-${key}`;
+        this.travellers.set(key, m);
+        this.scene.add(m);
+      }
+      seen.add(key);
+      m.visible = true;
+      return m;
+    };
+    for (const r of s.world.routes) {
+      const way = routeWay(r.city, r.kind);
+      if (!way) continue;
+      const line = wayPoints(wayOf(way.way));
+      const L = lineLength(line);
+      const city = r.city as CityId;
+      if (r.kind === 'sea') {
+        const v = visitorOnMap(r, tick);
+        if (v.where === 'home') continue;
+        const m = piece(`${r.city}-sea`, () => shipModel(PLACES[city].colour, PLACES[city].trim));
+        const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, v.along)));
+        const dir = v.homeward ? 1 : -1;
+        m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 1.3) * 0.03, p.z);
+        m.rotation.set(Math.sin(time * 1.3 + 0.7) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      } else {
+        const all = caravansOnMap(s, r, tick);
+        all.forEach((c, i) => {
+          const m = piece(`${r.city}-land-${i}`, () => caravanModel(PLACES[city].colour));
+          const p = alongLine(line, Math.max(0.6, Math.min(L - 0.9, c.along)));
+          const dir = c.homeward ? 1 : -1;
+          m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+          // (A little larger than life, as the towns are, to be seen from across the table.)
+          m.scale.setScalar(1.6);
+          m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+        });
+      }
+    }
+    for (const [key, m] of this.travellers) if (!seen.has(key)) m.visible = false;
   }
 
   render(): void {

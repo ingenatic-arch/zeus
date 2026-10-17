@@ -25,6 +25,7 @@ import {
   routeOf,
   routeRefusal,
   TRADE_TICKS,
+  tradersNews,
   visitorAt,
   visitorOnMap,
   voyageTicks,
@@ -33,7 +34,7 @@ import {
 import { deserialize, replay, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { bookNow, stockOf, totalsOf } from '../src/sim/stocks';
-import { cityHolds, SHIP_ANCHORED, SHIP_AWAY, SHIP_BERTHING, SHIP_LEAVING, SHIP_MOORED, tradeIndex, tradingPost } from '../src/sim/trade';
+import { cityHolds, SHIP_ANCHORED, SHIP_AWAY, SHIP_BERTHING, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, shipNews, tradeIndex, tradingPost } from '../src/sim/trade';
 import { income, pay, spendable, totals } from '../src/sim/treasury';
 import { position } from '../src/sim/walk';
 import { cityOf } from '../src/sim/world';
@@ -311,8 +312,12 @@ describe('foreign ships', () => {
     const s = sim.state;
     const r = routeOf(s, 'athens', 'sea')!;
     const post = tradingPost(s)!;
+    // The demo opens as she comes in up the bay; the traders chip names her first once she is here (the Tyre ship is due).
+    expect(r.ship!.phase).toBe(SHIP_COMING);
+    for (let i = 0; i < TICKS_PER_MONTH && r.ship!.phase !== SHIP_MOORED; i++) sim.step();
     expect(r.ship!.phase).toBe(SHIP_MOORED);
-    expect(r.unloaded[WINE_K]).toBe(1000);
+    expect(tradersNews(s, shipNews(s)).map((n) => n.who)).toEqual(['athens-sea', 'tyre']);
+    expect(r.unloaded[WINE_K]).toBe(600);
     expect(s.ledger.now.some((l) => l.kind === 'imports' && l.what === 'wine from Athens')).toBe(true);
     let sales = false;
     const steps = watch(sim, 'athens', 2 * TICKS_PER_MONTH, () => {

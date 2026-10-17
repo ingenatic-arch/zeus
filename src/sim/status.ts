@@ -49,6 +49,8 @@ import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
+import { caravanDoing, caravanOf, routeNews } from './routes';
+import { PLACES } from '../map/greece';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, goneForTaxes, HARSH, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
@@ -113,6 +115,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'vineyard') return vineyardStatus(s, map, b);
   if (b.kind === 'winery') return wineryStatus(s, map, b);
   if (b.kind === 'trading') return tradingStatus(s, map, b);
+  if (b.kind === 'yard') return yardStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -708,8 +711,9 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   }
   if (w.kind === 'docker') {
     const d = dockerDoing(s, w);
-    return { title: 'Docker', detail: `${d[0].toUpperCase()}${d.slice(1)}` };
+    return { title: findBuilding(s, w.origin)?.kind === 'yard' ? 'Porter of the caravan yard' : 'Docker', detail: `${d[0].toUpperCase()}${d.slice(1)}` };
   }
+  if (w.kind === 'caravan') return caravanDoing(s, w);
   if (w.kind === 'hunter') {
     const h = s.herds[w.food];
     const name = h ? herdName(h) : 'the herd';
@@ -1020,9 +1024,11 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader';
   text: string;
   at: number;
+  /** A trader's line: which route (its tab in the trade panel). */
+  route?: string;
 }
 
 /**
@@ -1054,6 +1060,8 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = hazardTownLines(s, map);
   const ship = shipTownLine(s);
   if (ship) out.unshift(ship);
+  const trader = traderTownLine(s);
+  if (trader) out.unshift(trader);
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
@@ -1470,7 +1478,55 @@ export function tradingStatus(s: SimState, map: CoastMap, b: Building): Status {
   const worth = quayWorth(s, b);
   const title = `${BUILDING_NAMES.trading} · ${quay.some((n) => n > 0) ? `on the quay: ${goodsList(quay)}${worth > 0 ? ` (${fmt(worth)} dr at the ship’s prices)` : ''}` : 'the quay is empty'}`;
   const ship = shipNews(s);
-  return { title, detail: lines(workersLine(s, map, b), ship?.line ?? '', dockerNews(s, map, b), 'Click for the trade panel: what to sell and how much the city keeps') };
+  const routes = s.world.routes.filter((r) => r.kind === 'sea').map((r) => routeNews(s, r).line);
+  return { title, detail: lines(workersLine(s, map, b), ship?.line ?? '', ...routes, dockerNews(s, map, b), 'Click for the trade panel: what to sell and how much the city keeps') };
+}
+
+/** The caravan yard's tip: what it holds, each road's caravan, its porters. */
+export function yardStatus(s: SimState, map: CoastMap, b: Building): Status {
+  const goods = TRADE_GOODS.map((w) => held(b, w));
+  const title = `${BUILDING_NAMES.yard} · ${goods.some((n) => n > 0) ? `in the yard: ${goodsList(goods)}` : 'the yard is empty'}`;
+  const land = s.world.routes.filter((r) => r.kind === 'land');
+  const roads = land.length ? land.map((r) => routeNews(s, r).line) : ['No road is open to Greece yet: open one on the map of Greece (Tab), to Corinth, Sparta or Athens'];
+  const road = roadsBeside(s, map.size, b).length === 0 ? 'Needs a road beside it: the caravans can’t reach it' : '';
+  return { title, detail: lines(workersLine(s, map, b), road, ...roads, dockerNews(s, map, b), 'Click for the trade panel: what each road’s caravans buy and sell') };
+}
+
+/**
+ * The traders' news while one is coming in or here (a caravan in the city on
+ * its way to the yard, a foreign ship sighted, at anchor or tied up), or for
+ * a month after one turned back for want of a road, a yard or a post: the
+ * line under the top bar. `route` names which (its tab in the trade panel).
+ */
+function traderTownLine(s: SimState): (TownLine & { route: string }) | null {
+  let best: (TownLine & { route: string }) | null = null;
+  let rank = Infinity;
+  for (const r of s.world.routes) {
+    const n = routeNews(s, r);
+    const name = PLACES[r.city].name;
+    const route = `${r.city}-${r.kind}`;
+    const at = (r.kind === 'land' ? s.buildings.find((b) => b.kind === 'yard') : s.buildings.find((b) => b.kind === 'trading'))?.id ?? 0;
+    let text = '';
+    let k = Infinity;
+    if (r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH && r.missed) {
+      text = r.missed === 'road' ? `The caravan from ${name} turned back at the edge of the map: no road leads from there to the caravan yard. Lay a road from the edge to the yard.` : r.missed === 'yard' ? `The caravan from ${name} turned back: the city has no caravan yard.` : `The ship from ${name} turned back: the city has no trading post.`;
+      k = 0;
+    } else if (r.kind === 'land') {
+      const w = caravanOf(s, r.city);
+      if (w && !w.back) {
+        text = w.wait > 0 ? `${n.line}.` : `A caravan from ${name} is in the city, its donkeys on their way to the caravan yard.`;
+        k = 1;
+      }
+    } else if (n.phase === 1 || n.phase === 2) {
+      text = `${n.line}.`;
+      k = 2;
+    }
+    if (text && k < rank) {
+      rank = k;
+      best = { need: 'trader', text, at, route };
+    }
+  }
+  return best;
 }
 
 /** The ship's news while she is in sight (sailing in, or tied up loading): the line under the top bar. */

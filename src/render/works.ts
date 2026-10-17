@@ -3,7 +3,7 @@ import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM, stallRoom } from '../sim/food';
 import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WHEAT, WINE } from '../sim/foods';
-import { berthOf, QUAY_ROOM } from '../sim/trade';
+import { berthOf, QUAY_ROOM, YARD_ROOM } from '../sim/trade';
 import { hasStall } from '../sim/goods';
 import { MAKERS, stageOf } from '../sim/production';
 import { GROVE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
@@ -590,6 +590,8 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * run down the slope, so nothing is buried on the uphill side.
  */
 const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading']);
+/** Kinds levelled half-way between the lowest and the highest ground under them: the caravan yard, whose walls run round the whole of it (part sunk into the slope uphill, on a low footing downhill). */
+const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard']);
 
 
 // ---------------------------------------------------------------------------
@@ -1205,12 +1207,106 @@ function jettyModel(len: number): THREE.BufferGeometry {
   return merge(parts);
 }
 
+// ---------------------------------------------------------------------------
+// Routes and traders (slice 16).
+
+/**
+ * The caravan yard, its gateway (+x) to the road: a yard of beaten earth
+ * inside low rubble walls on a footing that runs down into the slope; a
+ * donkey pen with a thatched lean-to, a hay rack and a trough in the back
+ * corner; a well with its winding post; an ochre-and-cream awning on poles
+ * over two trestle tables along the far side; a tall pole by the gate flying
+ * a long banner, so the yard reads from up the road. The goods waiting for
+ * the caravans are drawn with its stock (round the front of the yard).
+ */
+function caravanYardModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  // The yard: beaten earth on a footing down into the slope, a worn track in from the gate.
+  parts.push({ geo: slab(-1.49, -1.49, 1.49, 1.49, -1.2, 0.0), color: PAL.stone });
+  parts.push({ geo: slab(-1.48, -1.48, 1.48, 1.48, 0.0, 0.04), color: PAL.earth });
+  parts.push({ geo: slab(-0.4, -0.38, 1.49, 0.38, 0.04, 0.046), color: PAL.earthWorn });
+  // Low rubble walls: the back, the two sides, and the front either side of the gateway.
+  const H = 0.46;
+  const wall = (x0: number, z0: number, x1: number, z1: number, seed: number): void => {
+    parts.push({ geo: slab(x0, z0, x1, z1, -0.3, H), color: PAL.stone });
+    parts.push({ geo: slab(x0 - 0.015, z0 - 0.015, x1 + 0.015, z1 + 0.015, H, H + 0.05), color: PAL.pressStone });
+    const long = Math.max(x1 - x0, z1 - z0);
+    const n = Math.round(long / 0.22);
+    for (let i = 0; i < n; i++) {
+      const f = (i + 0.5) / n;
+      const along = x1 - x0 > z1 - z0;
+      const r = 0.05 + 0.02 * hash2(i, seed, 1601);
+      const x = along ? x0 + (x1 - x0) * f : (x0 + x1) / 2 + (hash2(i, seed, 1602) > 0.5 ? 1 : -1) * ((x1 - x0) / 2);
+      const z = along ? (z0 + z1) / 2 + (hash2(i, seed, 1602) > 0.5 ? 1 : -1) * ((z1 - z0) / 2) : z0 + (z1 - z0) * f;
+      parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, 1603 + i + seed * 50).scale(1.2, 0.8, 1.2).translate(x, 0.08 + 0.26 * hash2(i, seed, 1604), z), color: i % 2 ? PAL.rockDark : PAL.rockWarm });
+    }
+  };
+  wall(-1.48, -1.48, -1.36, 1.48, 1);
+  wall(-1.48, -1.48, 1.48, -1.36, 2);
+  wall(-1.48, 1.36, 1.48, 1.48, 3);
+  wall(1.36, -1.48, 1.48, -0.58, 4);
+  wall(1.36, 0.58, 1.48, 1.48, 5);
+  // The gateway: two stone piers, the gates standing open into the yard.
+  for (const z of [-0.5, 0.5]) parts.push({ geo: slab(1.33, z - 0.09, 1.51, z + 0.09, -0.3, 0.66), color: PAL.pressStone });
+  for (const z of [-0.5, 0.5]) parts.push({ geo: slab(1.31, z - 0.11, 1.53, z + 0.11, 0.66, 0.72), color: PAL.pressStoneDark });
+  for (const side of [-1, 1]) parts.push({ geo: slab(0.96, side * 0.43 - 0.02, 1.32, side * 0.43 + 0.02, 0.04, 0.56), color: PAL.door });
+  // The banner pole by the gate: a long ochre banner with a red tail.
+  parts.push({ geo: cyl(0.022, 0.03, 1.9, 5).translate(1.25, 0.95, -0.72), color: PAL.pole });
+  parts.push({ geo: cyl(0.01, 0.01, 0.5, 3).rotateX(Math.PI / 2).translate(1.25, 1.84, -0.72 + 0.25), color: PAL.woodDark });
+  parts.push({ geo: slab(1.245, -0.72 + 0.04, 1.255, -0.72 + 0.46, 1.2, 1.82), color: PAL.canvasOchre });
+  parts.push({ geo: slab(1.244, -0.72 + 0.04, 1.256, -0.72 + 0.46, 1.1, 1.2), color: PAL.canvasStripe });
+  // The donkey pen in the back corner (x -1.36..-0.5, z -1.36..-0.3): wattle on its two open sides, a gap to the yard.
+  const PX = -0.5;
+  const PZ = -0.3;
+  for (let k = 0; k < 3; k++) {
+    const z = -1.32 + k * 0.28;
+    parts.push({ geo: cyl(0.014, 0.016, 0.42, 4).translate(PX, 0.21, z), color: PAL.woodDark });
+    parts.push({ geo: lumpy(slab(PX - 0.02, z, PX + 0.02, z + 0.28, 0.1, 0.3), 0.04, 1620 + k), color: PAL.wattle });
+  }
+  for (let k = 0; k < 2; k++) {
+    const x = -1.32 + k * 0.28;
+    parts.push({ geo: cyl(0.014, 0.016, 0.42, 4).translate(x, 0.21, PZ), color: PAL.woodDark });
+    parts.push({ geo: lumpy(slab(x, PZ - 0.02, x + 0.28, PZ + 0.02, 0.1, 0.3), 0.04, 1625 + k), color: PAL.wattle });
+  }
+  parts.push({ geo: cyl(0.014, 0.016, 0.42, 4).translate(PX, 0.21, PZ), color: PAL.woodDark });
+  // Its lean-to against the back wall, thatched, and hay under it; a hay rack and a trough.
+  for (const z of [-1.3, -0.4]) parts.push({ geo: cyl(0.02, 0.024, 0.6, 4).translate(-1.0, 0.3, z), color: PAL.wood });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.56, 0.05, 1.08).rotateZ(-0.38).translate(-1.18, 0.66, -0.85), 0.02, 1630), color: PAL.thatch });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.2, 0), 0.25, 1631).scale(1.1, 0.5, 1.6).translate(-1.2, 0.08, -0.85), color: PAL.hay });
+  parts.push({ geo: slab(-0.78, -1.32, -0.62, -1.0, 0.18, 0.3), color: PAL.woodDark });
+  parts.push({ geo: lumpy(slab(-0.77, -1.31, -0.63, -1.01, 0.24, 0.38), 0.06, 1632), color: PAL.hay });
+  parts.push({ geo: slab(-0.9, -0.62, -0.62, -0.5, 0.04, 0.14), color: PAL.wood });
+  parts.push({ geo: slab(-0.89, -0.61, -0.63, -0.51, 0.14, 0.141), color: PAL.shallow });
+  // The well: a stone ring, a winding post with its beam and bucket.
+  const [wx, wz] = [-0.12, -0.95];
+  parts.push({ geo: cyl(0.2, 0.22, 0.26, 9).translate(wx, 0.13, wz), color: PAL.fountainStone });
+  parts.push({ geo: cyl(0.15, 0.15, 0.01, 9).translate(wx, 0.24, wz), color: PAL.deep });
+  for (const dz of [-0.2, 0.2]) parts.push({ geo: cyl(0.018, 0.02, 0.62, 4).translate(wx, 0.31, wz + dz), color: PAL.wood });
+  parts.push({ geo: cyl(0.025, 0.025, 0.46, 5).rotateX(Math.PI / 2).translate(wx, 0.6, wz), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.004, 0.004, 0.2, 3).translate(wx, 0.5, wz), color: PAL.rope });
+  parts.push({ geo: cyl(0.045, 0.035, 0.07, 6).translate(wx, 0.38, wz), color: PAL.bucket });
+  // The awning along the far side (x -1.3..0.2, z 0.3..1.32): four poles, striped cloth sloping to the yard.
+  const ax0 = -1.3;
+  const ax1 = 0.2;
+  for (const [x, z] of [[ax0, 1.3], [ax1, 1.3], [ax0, 0.34], [ax1, 0.34]]) parts.push({ geo: cyl(0.018, 0.02, z > 1 ? 0.95 : 0.78, 4).translate(x, z > 1 ? 0.475 : 0.39, z), color: PAL.pole });
+  for (let k = 0; k < 6; k++) {
+    const x0 = ax0 - 0.06 + (k * (ax1 - ax0 + 0.12)) / 6;
+    parts.push({ geo: slab(x0, -0.52, x0 + (ax1 - ax0 + 0.12) / 6, 0.52, 0, 0.02).rotateX(-0.17).translate(0, 0.87, 0.82), color: k % 2 ? PAL.canvasOchre : PAL.canvas });
+  }
+  // Two trestle tables under it.
+  for (const z of [0.6, 1.06]) {
+    parts.push({ geo: slab(-1.12, z - 0.12, -0.08, z + 0.12, 0.28, 0.31), color: PAL.wood });
+    for (const x of [-1.02, -0.18]) parts.push({ geo: slab(x - 0.02, z - 0.1, x + 0.02, z + 0.1, 0.04, 0.28), color: PAL.woodDark });
+  }
+  return merge(parts);
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1354,6 +1450,7 @@ export class Works {
       vinerow: vineRow(),
       vat: treadingVat(),
       trading: tradingModel(),
+      yard: caravanYardModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1404,6 +1501,9 @@ export class Works {
     const face = this.yawOf(s, b).toFixed(2);
     if (b.kind === 'trading') {
       return `trading:${face}:${shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), QUAY_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES)}:${shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE)}`;
+    }
+    if (b.kind === 'yard') {
+      return `yard:${face}:${shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), YARD_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES)}:${shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE)}`;
     }
     if (b.kind === 'farm') {
       const g = Math.floor((b.growth / GROW) * GROWTH_STEPS);
@@ -1548,6 +1648,7 @@ export class Works {
     const vineyards = list.filter((b) => b.kind === 'vineyard');
     const wineries = list.filter((b) => b.kind === 'winery');
     const posts = list.filter((b) => b.kind === 'trading');
+    const yards = list.filter((b) => b.kind === 'yard');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
@@ -1580,6 +1681,8 @@ export class Works {
       if (foot) {
         // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
         y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
+      } else if (MID_FOOT.has(b.kind)) {
+        y = (lowest(cx, cz, yaw, 0, 0, 1.45, 1.45) + lowest(cx, cz, yaw, 0, 0, 1.45, 1.45, true)) / 2;
       } else if (high) {
         y = lowest(cx, cz, yaw, 0, 0, 1.45, 1.45, true);
       } else {
@@ -1713,8 +1816,16 @@ export class Works {
     const sacks: Array<{ b: Building; i: number }> = [];
     for (const b of granaries) for (let i = 0; i < shown(b.stock, GRANARY_CAP, SACKS); i++) sacks.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS); i++) sacks.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS); i++) sacks.push({ b, i });
     this.sacks.set(kx, kz, sacks.length, (n, m) => {
       const { b, i } = sacks[n];
+      if (b.kind === 'yard') {
+        // In the yard's front corner by the gate: a layer of nine, then three on top.
+        const top = i >= 9;
+        const k = top ? i - 9 : i;
+        part(b, m, 0.48 + (k % 3) * 0.23 + (top ? 0.12 : 0), 0.62 + Math.floor(k / 3) * 0.23 + (top ? 0.12 : 0), 1.57 + (hash2(b.id, i, 1641) - 0.5) * 0.5, [1, 1, 1], false, 0.04 + (top ? 0.12 : 0));
+        return;
+      }
       if (b.kind === 'trading') {
         // On the quay's landward corner: a layer of nine, then three on top.
         const top = i >= 9;
@@ -1744,9 +1855,14 @@ export class Works {
     for (const b of granaries) for (let i = 0; i < shown(b.meat, GRANARY_ROOM[1], STORE_HAMS); i++) hams.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.meat, STALL_FULL_MEAT, STALL_HAMS); i++) hams.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS); i++) hams.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS); i++) hams.push({ b, i });
     this.collect(this.hamsBy, key, hams.length, (n, m) => {
       const { b, i } = hams[n];
-      if (b.kind === 'trading') {
+      if (b.kind === 'yard') {
+        // Laid along the near trestle under the awning.
+        part(b, m, -1.0 + i * 0.16, 0.6 + (i % 2) * 0.05, Math.PI / 2 + (hash2(b.id, i, 1642) - 0.5) * 0.4, [1, 1, 1], false, 0.33);
+        m.multiply(LIE);
+      } else if (b.kind === 'trading') {
         part(b, m, -0.52 + Math.floor(i / 2) * 0.16, -0.24 + (i % 2) * 0.24, Math.PI / 2 + (hash2(b.id, i, 1302) - 0.5) * 0.5, [1, 1, 1], false, 0.1);
         m.multiply(LIE);
       } else if (b.kind === 'lodge') {
@@ -1771,9 +1887,13 @@ export class Works {
     for (const b of granaries) for (let i = 0; i < shown(b.cheese, GRANARY_ROOM[2], STORE_CHEESES); i++) cheeses.push({ b, i });
     for (const b of agoras) for (let i = 0; i < shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES); i++) cheeses.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES); i++) cheeses.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES); i++) cheeses.push({ b, i });
     this.collect(this.cheesesBy, key, cheeses.length, (n, m) => {
       const { b, i } = cheeses[n];
-      if (b.kind === 'trading') {
+      if (b.kind === 'yard') {
+        // Stacked on the far trestle, three to a stack.
+        part(b, m, -0.95 + Math.floor(i / 3) * 0.3, 1.06, hash2(b.id, i, 1643), [1, 1, 1], false, 0.31 + (i % 3) * 0.055);
+      } else if (b.kind === 'trading') {
         const k = i % 3;
         const layer = Math.floor(i / 3);
         part(b, m, -0.48 + (k % 2) * 0.16, 0.66 + k * 0.15, hash2(b.id, i, 1303), [1, 1, 1], false, 0.05 + layer * 0.055);
@@ -1828,9 +1948,13 @@ export class Works {
     for (const b of storehouses) for (let i = 0; i < shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS); i++) jars.push({ b, i });
     for (const b of agoras) if (hasStall(b, OIL)) for (let i = 0; i < shown(held(b, OIL), STALL_FULL_OIL, STALL_JARS); i++) jars.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, OIL), QUAY_ROOM, QUAY_JARS); i++) jars.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, OIL), YARD_ROOM, QUAY_JARS); i++) jars.push({ b, i });
     this.collect(this.jarsBy, key, jars.length, (n, m) => {
       const { b, i } = jars[n];
-      if (b.kind === 'trading') {
+      if (b.kind === 'yard') {
+        // Two rows of four along the near wall, inside the gate.
+        part(b, m, 0.5 + (i % 4) * 0.18, -1.2 + Math.floor(i / 4) * 0.19, hash2(b.id, i, 1644), [1, 1, 1], false, 0.04);
+      } else if (b.kind === 'trading') {
         part(b, m, 0.22 + Math.floor(i / 4) * 0.18, -0.32 + (i % 4) * 0.16 + Math.floor(i / 4) * 0.05, hash2(b.id, i, 1304), [1, 1, 1], false, 0.05);
       } else if (b.kind === 'press') {
         // By the door, two rows of four.
@@ -1882,9 +2006,15 @@ export class Works {
     for (const b of storehouses) for (let i = 0; i < shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES); i++) bales.push({ b, i });
     for (const b of agoras) if (hasStall(b, FLEECE)) for (let i = 0; i < shown(held(b, FLEECE), STALL_FULL_FLEECE, STALL_BALES); i++) bales.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES); i++) bales.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES); i++) bales.push({ b, i });
     this.collect(this.balesBy, key, bales.length, (n, m) => {
       const { b, i } = bales[n];
-      if (b.kind === 'trading') {
+      if (b.kind === 'yard') {
+        // Four by the well, two on top.
+        const top = i >= 4;
+        const k = top ? i - 4 : i;
+        part(b, m, 0.5 + (k % 2) * 0.27 + (top ? 0.13 : 0), -0.72 + Math.floor(k / 2) * 0.28, hash2(b.id, i, 1645) * 0.6, [1.05, 1.05, 1.05], false, 0.04 + (top ? 0.13 : 0));
+      } else if (b.kind === 'trading') {
         // Four on the quay, two on top.
         const top = i >= 4;
         const k = top ? i - 4 : i;
@@ -1910,9 +2040,13 @@ export class Works {
     for (const b of storehouses) for (let i = 0; i < shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE); i++) amph.push({ b, i });
     for (const b of agoras) if (hasStall(b, WINE)) for (let i = 0; i < shown(held(b, WINE), STALL_FULL_WINE, STALL_AMPHORAE); i++) amph.push({ b, i });
     for (const b of posts) for (let i = 0; i < shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE); i++) amph.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE); i++) amph.push({ b, i });
     this.collect(this.amphoraeBy, key, amph.length, (n, m) => {
       const { b, i } = amph[n];
-      if (b.kind === 'trading') {
+      if (b.kind === 'yard') {
+        // Two rows of four under the awning, against the back wall.
+        part(b, m, -1.24 + Math.floor(i / 4) * 0.17, 0.42 + (i % 4) * 0.24 + Math.floor(i / 4) * 0.08, hash2(b.id, i, 1646), [1, 1, 1], false, 0.04);
+      } else if (b.kind === 'trading') {
         part(b, m, 0.16 + (i % 4) * 0.15, 0.74 + Math.floor(i / 4) * 0.2 + (i % 2) * 0.03, hash2(b.id, i, 1306), [1, 1, 1], false, 0.05);
       } else if (b.kind === 'winery') {
         // Two rows of five under and before the lean-to.

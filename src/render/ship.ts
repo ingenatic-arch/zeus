@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { hash2 } from '../map/noise';
-import type { SimState } from '../sim/state';
-import { shipAt, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, underWay } from '../sim/trade';
+import { PLACES, type CityId } from '../map/greece';
+import { visitorAt } from '../sim/routes';
+import type { SimState, TradeRoute } from '../sim/state';
+import { shipAt, SHIP_ANCHORED, SHIP_BERTHING, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, underWay } from '../sim/trade';
 import { cyl } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
@@ -15,7 +17,24 @@ import { lumpy, merge, type Part } from './trees';
  * route, and she rides the swell a little.
  *
  * Local frame: her bow towards +x, the waterline at y = 0.
+ *
+ * Every ship is this one: the Tyre ship in her own colours (cream and red
+ * sail, blue band), a foreign ship in her city's (its colour in her sail's
+ * stripes, the wale under her gunwale, her hull band and her pennant).
  */
+
+/** A ship's colours: her sail's stripes and cloth, her hull's band at the waterline, her pennant. */
+export interface ShipColours {
+  stripe: string;
+  cloth: string;
+  band: string;
+  /** The wale under her gunwale. */
+  wale: string;
+  pennant: string;
+}
+const TYRE_COLOURS: ShipColours = { stripe: PAL.sailStripe, cloth: PAL.sailCream, band: PAL.hullBand, wale: PAL.wale, pennant: PAL.sailStripe };
+/** A city's ship's colours. */
+export const cityShipColours = (city: CityId): ShipColours => ({ stripe: PLACES[city].colour, cloth: PAL.sailCream, band: PLACES[city].colour, wale: PLACES[city].colour, pennant: PLACES[city].colour });
 
 const L = 3.8;
 const HALF = L / 2;
@@ -25,7 +44,7 @@ const sheer = (u: number): number => 0.42 + 0.2 * u * u + (u < 0 ? 0.08 * u * u 
 const keel = (u: number): number => -0.3 * Math.sqrt(Math.max(0, 1 - u * u)) - 0.02;
 
 /** The hull in bands, each its own colour: the pale wale under the gunwale, the hull, a blue band at the waterline, the dark bottom. */
-function hullParts(): Part[] {
+function hullParts(c: ShipColours): Part[] {
   const N = 16;
   // A section's points from the gunwale down to the keel (half of it: z >= 0), and the band each stretch belongs to.
   const section = (u: number): Array<[number, number]> => {
@@ -41,7 +60,7 @@ function hullParts(): Part[] {
       [0, k],
     ];
   };
-  const colours = [PAL.wale, PAL.hull, PAL.hullBand, PAL.hullDark, PAL.hullDark];
+  const colours = [c.wale, PAL.hull, c.band, PAL.hullDark, PAL.hullDark];
   const bands: number[][] = colours.map(() => []);
   for (let i = 0; i < N; i++) {
     const u0 = -1 + (2 * i) / N;
@@ -100,7 +119,7 @@ const YARD_HALF = 1.2;
 const SAIL_FOOT = 0.95;
 
 /** The square sail, set: hanging from the yard and bellied forward by the wind, in stripes. */
-function sailParts(): Part[] {
+function sailParts(col: ShipColours): Part[] {
   const cols = 7;
   const rows = 5;
   const parts: Part[] = [];
@@ -123,7 +142,7 @@ function sailParts(): Part[] {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    parts.push({ geo: g, color: c % 2 === 1 ? PAL.sailStripe : PAL.sailCream });
+    parts.push({ geo: g, color: c % 2 === 1 ? col.stripe : col.cloth });
   }
   // The sheets from the sail's lower corners back to the gunwale.
   for (const side of [-1, 1]) parts.push(spar(v(...(at(side < 0 ? 0 : cols, rows) as [number, number, number])), v(-0.9, sheer(-0.47) - 0.02, side * beam(-0.47) * 0.9), 0.008, PAL.rope, 3));
@@ -131,12 +150,12 @@ function sailParts(): Part[] {
 }
 
 /** The sail furled: bundled up under the yard, lashed. */
-function furledParts(): Part[] {
+function furledParts(col: ShipColours): Part[] {
   const parts: Part[] = [];
-  parts.push(spar(v(MAST_X + 0.05, YARD_Y - 0.12, -YARD_HALF + 0.12), v(MAST_X + 0.05, YARD_Y - 0.12, YARD_HALF - 0.12), 0.085, PAL.sailCream, 7));
+  parts.push(spar(v(MAST_X + 0.05, YARD_Y - 0.12, -YARD_HALF + 0.12), v(MAST_X + 0.05, YARD_Y - 0.12, YARD_HALF - 0.12), 0.085, col.cloth, 7));
   for (let k = 0; k < 5; k++) {
     const z = -YARD_HALF + 0.3 + (k * (2 * YARD_HALF - 0.6)) / 4;
-    parts.push({ geo: cyl(0.092, 0.092, 0.04, 7).rotateX(Math.PI / 2).translate(MAST_X + 0.05, YARD_Y - 0.12, z), color: k % 2 ? PAL.sailStripe : PAL.rope });
+    parts.push({ geo: cyl(0.092, 0.092, 0.04, 7).rotateX(Math.PI / 2).translate(MAST_X + 0.05, YARD_Y - 0.12, z), color: k % 2 ? col.stripe : PAL.rope });
   }
   return parts;
 }
@@ -161,8 +180,8 @@ function cargoParts(): Part[] {
 }
 
 /** The fixed parts: hull, stern post and stem, eyes, steering oars, the little deckhouse, mast, yard and rigging, and her pennant. */
-function shipBody(): Part[] {
-  const parts = hullParts();
+function shipBody(c: ShipColours): Part[] {
+  const parts = hullParts(c);
   // The stern post, curling up and forward like a swan's neck.
   const neck = [v(-HALF + 0.02, sheer(-1) - 0.05, 0), v(-HALF - 0.12, sheer(-1) + 0.2, 0), v(-HALF - 0.16, sheer(-1) + 0.48, 0), v(-HALF - 0.06, sheer(-1) + 0.7, 0), v(-HALF + 0.1, sheer(-1) + 0.76, 0), v(-HALF + 0.2, sheer(-1) + 0.68, 0)];
   for (let i = 0; i + 1 < neck.length; i++) parts.push(spar(neck[i], neck[i + 1], 0.055 - i * 0.006, PAL.hullDark, 5));
@@ -198,11 +217,64 @@ function shipBody(): Part[] {
   for (const side of [1, -1]) parts.push(spar(v(MAST_X, MAST_TOP - 0.25, 0), v(MAST_X - 0.15, sheer(0.07) - 0.02, side * beam(0.07) * 0.95), 0.008, PAL.rope, 3));
   // Her pennant at the masthead.
   const flag = new THREE.BufferGeometry().setFromPoints([v(0, 0, 0), v(-0.55, -0.06, 0), v(0, -0.16, 0)]);
-  parts.push({ geo: flag.translate(MAST_X, MAST_TOP + 0.02, 0), color: PAL.sailStripe });
+  parts.push({ geo: flag.translate(MAST_X, MAST_TOP + 0.02, 0), color: c.pennant });
   return parts;
 }
 
 type Version = 'set' | 'setLaden' | 'furled' | 'furledLaden';
+
+/** Where a ship is at a moment (fractions of a tick too) and how she looks: null while she is out of sight. */
+export interface ShipLook {
+  at: { x: number; z: number; dx: number; dz: number; inward: number };
+  furled: boolean;
+  laden: boolean;
+  /** Riding at rest (tied up or at anchor): she rocks less. */
+  calm: boolean;
+}
+
+/** The Tyre ship: sail set at sea, furled for the last of her way in, tied up and the first of her way out. */
+export function tyreLook(s: SimState, t: number): ShipLook | null {
+  const ship = s.trade.ship;
+  const at = shipAt(ship, t);
+  if (!at) return null;
+  let furled = false;
+  let laden = false;
+  if (ship.phase === SHIP_COMING) furled = at.inward > 0.985;
+  else if (ship.phase === SHIP_MOORED) {
+    furled = true;
+    laden = ship.hold.some((n) => n > 0);
+  } else if (ship.phase === SHIP_LEAVING) {
+    // (Furled while she backs off the jetty and swings round.)
+    furled = !underWay(ship, t);
+    laden = ship.lastAt === ship.since && ship.lastBought.some((n) => n > 0);
+  }
+  return { at, furled, laden, calm: ship.phase === SHIP_MOORED };
+}
+
+/** A foreign ship: laden coming in with what you buy, her sail furled as she comes to anchor or alongside, laden going with what she bought. */
+export function visitorLook(r: TradeRoute, t: number): ShipLook | null {
+  const v = r.ship;
+  if (!v) return null;
+  const at = visitorAt(v, t);
+  if (!at) return null;
+  const bringing = r.buy.some((x) => x);
+  let furled = false;
+  let laden = false;
+  if (v.phase === SHIP_COMING) {
+    furled = at.inward > v.stop - 0.015;
+    laden = bringing;
+  } else if (v.phase === SHIP_ANCHORED || v.phase === SHIP_BERTHING) {
+    furled = true;
+    laden = bringing;
+  } else if (v.phase === SHIP_MOORED) {
+    furled = true;
+    laden = r.hold.some((n) => n > 0);
+  } else if (v.phase === SHIP_LEAVING) {
+    furled = !underWay(v, t);
+    laden = r.lastAt === v.since && r.lastSold.some((n) => n > 0);
+  }
+  return { at, furled, laden, calm: v.phase === SHIP_MOORED || v.phase === SHIP_ANCHORED };
+}
 
 export class ShipView {
   readonly group = new THREE.Group();
@@ -214,11 +286,17 @@ export class ShipView {
   /** For the probes: what is drawn now. */
   info: { visible: boolean; x: number; z: number; heading: number; version: Version } = { visible: false, x: 0, z: 0, heading: 0, version: 'set' };
 
-  constructor() {
-    this.group.name = 'ship';
-    const body = shipBody();
-    const sail = sailParts();
-    const furled = furledParts();
+  /** `look` says where she is and how she looks at a moment (the Tyre ship's, unless given); `name` names her group; each ship rocks a little out of step with the others. */
+  constructor(
+    private readonly look: (s: SimState, t: number) => ShipLook | null = tyreLook,
+    colours: ShipColours = TYRE_COLOURS,
+    name = 'ship',
+    private readonly phase = 0,
+  ) {
+    this.group.name = name;
+    const body = shipBody(colours);
+    const sail = sailParts(colours);
+    const furled = furledParts(colours);
     const cargo = cargoParts();
     this.versions = {
       set: merge([...body, ...sail]),
@@ -228,7 +306,7 @@ export class ShipView {
     };
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.8, metalness: 0, side: THREE.DoubleSide });
     this.mesh = new THREE.Mesh(this.versions.set, mat);
-    this.mesh.name = 'ship-mesh';
+    this.mesh.name = `${name}-mesh`;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.visible = false;
@@ -236,17 +314,17 @@ export class ShipView {
   }
 
   update(s: SimState, alpha: number, time: number): void {
-    const ship = s.trade.ship;
     const t = s.tick + alpha;
-    const at = shipAt(ship, t);
+    const look = this.look(s, t);
     const dt = Math.max(0, Math.min(0.25, time - this.lastTime));
     this.lastTime = time;
-    if (!at) {
+    if (!look) {
       this.mesh.visible = false;
       this.shown = false;
       this.info.visible = false;
       return;
     }
+    const { at, furled, laden } = look;
     // Her heading eases round the corners of her route (and swings her round at the quay to leave).
     const want = Math.atan2(-at.dz, at.dx);
     if (!this.shown) this.heading = want;
@@ -256,25 +334,14 @@ export class ShipView {
       this.heading += d * (1 - Math.exp(-dt * 2.2));
     }
     this.shown = true;
-    // Sail set at sea, furled for the last of her way in, tied up and the first of her way out.
-    let furled = false;
-    let laden = false;
-    if (ship.phase === SHIP_COMING) furled = at.inward > 0.985;
-    else if (ship.phase === SHIP_MOORED) {
-      furled = true;
-      laden = ship.hold.some((n) => n > 0);
-    } else if (ship.phase === SHIP_LEAVING) {
-      // (Furled while she backs off the jetty and swings round.)
-      furled = !underWay(ship, t);
-      laden = ship.lastAt === ship.since && ship.lastBought.some((n) => n > 0);
-    }
     const version: Version = furled ? (laden ? 'furledLaden' : 'furled') : laden ? 'setLaden' : 'set';
     this.mesh.geometry = this.versions[version];
-    // Riding the swell: a slow bob, roll and pitch (less tied up).
-    const calm = ship.phase === SHIP_MOORED ? 0.5 : 1;
-    const bob = Math.sin(time * 1.3) * 0.035 * calm;
-    const roll = Math.sin(time * 0.9 + 0.7) * 0.035 * calm;
-    const pitch = Math.sin(time * 1.1 + 1.9) * 0.02 * calm;
+    // Riding the swell: a slow bob, roll and pitch (less at rest).
+    const calm = look.calm ? 0.5 : 1;
+    const p = this.phase;
+    const bob = Math.sin(time * 1.3 + p) * 0.035 * calm;
+    const roll = Math.sin(time * 0.9 + 0.7 + p * 1.7) * 0.035 * calm;
+    const pitch = Math.sin(time * 1.1 + 1.9 + p * 0.6) * 0.02 * calm;
     this.mesh.position.set(at.x, bob - 0.02, at.z);
     this.mesh.rotation.set(roll, this.heading, pitch, 'YXZ');
     this.mesh.visible = true;

@@ -84,6 +84,7 @@ export type ToolName =
   | 'watchpost'
   | 'architect'
   | 'trading'
+  | 'yard'
   | 'clear';
 export const TOOLS: readonly ToolName[] = [
   'road',
@@ -109,6 +110,7 @@ export const TOOLS: readonly ToolName[] = [
   'watchpost',
   'architect',
   'trading',
+  'yard',
   'clear',
 ];
 
@@ -119,7 +121,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && !isStallTool(t);
 
 export interface ToolTip {
@@ -791,6 +793,12 @@ export class Tools {
       if (roads.length === 0) warn = 'No road beside it: its dockers couldn’t reach the stores. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its dockers fetch from the granaries and storehouses: the city has none yet');
       else lines.push(this.dockerTrips(at, roads));
+    } else if (kind === 'yard') {
+      lines.push('Its porters carry what the granaries and storehouses hold beyond what the city keeps to the yard, where caravans from Greece buy it and unload what you ordered');
+      lines.push('Open a land route on the map of Greece (the Greece tab, or the Tab key) and a caravan comes every two months, walking in by road from the edge of the map: the nearer the edge road, the sooner it is here and gone');
+      if (roads.length === 0) warn = 'No road beside it: caravans couldn’t reach it and its porters couldn’t reach the stores. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its porters fetch from the granaries and storehouses: the city has none yet');
+      else lines.push(this.dockerTrips(at, roads).replace('For its dockers', 'For its porters').replace('the quay fills', 'the yard fills'));
     } else if (kind === 'storehouse') {
       lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece and ${fmt(STOREHOUSE_WINE)} amphorae of wine: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');

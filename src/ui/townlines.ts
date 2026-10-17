@@ -12,6 +12,7 @@ import type { TownLine } from '../sim/status';
 const SETTLE_DAYS = 3;
 
 const ICONS: Record<TownLine['need'], string> = {
+  trader: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 9.4c0-1.6 1.2-2.6 2.8-2.6h4.6c1.6 0 2.6.8 3 2l1.4-1.2.6.8-1.6 1.6v2.4h-1.2l-.4-1.6H5.2l-.4 1.6H3.6V10.6c-.8-.2-1.4-.6-1.4-1.2z" fill="#8e8478" stroke="#4a4038" stroke-width=".7" stroke-linejoin="round"/><path d="M14 8.2l.6-2.4.7 2.2" fill="#8e8478" stroke="#4a4038" stroke-width=".6"/><rect x="5" y="4.4" width="4.6" height="3" rx=".8" fill="#d2902c" stroke="#6a4416" stroke-width=".6"/></svg>',
   ship: '<svg viewBox="0 0 20 16" aria-hidden="true"><path d="M9.6 1.2v9.4" stroke="#6e4e30" stroke-width="1.3" fill="none"/><path d="M10.4 2.2c3 1.4 4.6 4 4.8 7.4h-4.8z" fill="#f7edd6" stroke="#c0462e" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.4 10.8h17.2c-.8 2.6-2.8 4-5.4 4H6.4c-2.4 0-4.2-1.4-5-4z" fill="#7a4a2c"/></svg>',
   fire: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15c-3 0-4.8-2-4.8-4.6 0-2.4 1.6-3.6 2.4-5.4.4 1.2 1 2 1.8 2.4C7.6 4.8 8.6 2.6 10.4 1c-.2 2.2.6 3.4 1.6 4.8.9 1.2 1.2 2.4 1.2 3.8C13.2 12.6 11.2 15 8 15z" fill="#e2531e" stroke="#8a2a10" stroke-width=".8" stroke-linejoin="round"/><path d="M8 14c-1.4 0-2.2-.9-2.2-2.1 0-1.3.9-2 1.4-3 .6.9 1.4 1.2 1.7 2.1.5-.3.8-.8.9-1.4.6.8.6 1.5.6 2.1C10.4 13 9.4 14 8 14z" fill="#f6c13a"/></svg>',
   wear: '<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="#c9b08a" stroke="#7a6446" stroke-width=".7"><rect x="1.5" y="2" width="6" height="3.6"/><rect x="8.5" y="2" width="6" height="3.6"/><rect x="1.5" y="10.4" width="6" height="3.6"/><rect x="8.5" y="10.4" width="6" height="3.6"/><rect x="5" y="6.2" width="6" height="3.6"/><rect x="1.5" y="6.2" width="3" height="3.6"/><rect x="11.5" y="6.2" width="3" height="3.6"/></g><path d="M8.6 1.5 7.4 5.6l1.6 2.2-1.8 2.8.8 3.9" fill="none" stroke="#3a2a22" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>',
@@ -28,7 +29,7 @@ const ICONS: Record<TownLine['need'], string> = {
 };
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['ship', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
+const ORDER: readonly TownLine['need'][] = ['ship', 'trader', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -58,14 +59,14 @@ export class TownLines {
       if (s) {
         s.lastSeen = tick;
         s.line = l;
-      } else this.seen.set(l.need, { since: this.first || l.need === 'ship' ? tick - settle : tick, lastSeen: tick, line: l, el: null });
+      } else this.seen.set(l.need, { since: this.first || l.need === 'ship' || l.need === 'trader' ? tick - settle : tick, lastSeen: tick, line: l, el: null });
     }
     this.first = false;
     for (const [need, s] of this.seen) {
       // A tick that went backwards (a save opened) starts over.
       if (tick < s.since) s.since = s.lastSeen = tick;
-      // (The ship's news comes and goes at once: it is news, not a shortfall.)
-      const gone = tick - s.lastSeen > (need === 'ship' ? 0 : settle);
+      // (The ships' and caravans' news comes and goes at once: it is news, not a shortfall.)
+      const gone = tick - s.lastSeen > (need === 'ship' || need === 'trader' ? 0 : settle);
       const shown = tick - s.since >= settle && !gone;
       if (shown && !s.el) {
         const b = document.createElement('button');

@@ -169,6 +169,22 @@ export function shipModel(sail: string, stripe: string): THREE.BufferGeometry {
   return merge(p);
 }
 
+/** A caravan on the road: a drover and three pack donkeys in a line, their loads in the city's colour (along +x, the lead at +x). */
+export function caravanModel(colour: string): THREE.BufferGeometry {
+  const p: Part[] = [];
+  for (let i = 0; i < 3; i++) {
+    const x = 0.55 - i * 0.62;
+    p.push({ geo: box(0.42, 0.2, 0.16, x, 0.16, 0), color: '#8e8478' });
+    p.push({ geo: box(0.14, 0.22, 0.12, x + 0.26, 0.24, 0), color: '#7a7064' });
+    p.push({ geo: box(0.3, 0.14, 0.3, x - 0.02, 0.3, 0), color: colour });
+    for (const dx of [-0.15, 0.15]) for (const dz of [-0.05, 0.05]) p.push({ geo: box(0.05, 0.16, 0.05, x + dx, 0, dz), color: '#5a5249' });
+  }
+  // The drover at the head, in a pale tunic.
+  p.push({ geo: new THREE.CylinderGeometry(0.07, 0.11, 0.42, 6).translate(1.0, 0.21, 0), color: '#efe2c4' });
+  p.push({ geo: new THREE.SphereGeometry(0.08, 6, 4).translate(1.0, 0.5, 0), color: '#b07a52' });
+  return merge(p);
+}
+
 /** The wooden table under the map, and the raised frame round it. */
 export function tableModel(): THREE.Group {
   const g = new THREE.Group();

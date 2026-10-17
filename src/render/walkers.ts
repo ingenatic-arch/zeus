@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { CITY_IDS, PLACES } from '../map/greece';
 import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
@@ -11,6 +12,9 @@ import { lumpy } from './trees';
 
 /** Space between people walking in a line. */
 const SPACING = 0.36;
+/** A caravan's string: its drover ahead, his donkeys behind him. */
+const DROVER_GAP = 0.32;
+const DONKEY_SPACING = 0.34;
 
 /**
  * A part of a walker's model. `leg` makes it a leg that swings as she walks:
@@ -581,6 +585,54 @@ function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
 
 /** Which porter look carries each stall good. */
 const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
+/**
+ * A caravan's donkey, facing +x, about 0.26 tall at the ears: grey-brown,
+ * pale-muzzled, long-eared, a short brush of a tail, a saddle blanket (the
+ * tinted part: its city's colour) under a pair of panniers, one a basket and
+ * one a sack, and a bundle roped on top.
+ */
+function donkey(): THREE.BufferGeometry {
+  const parts: TPart[] = [];
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.24, 0.1, 0.1, 2, 1, 1), 0.1, 1701).translate(0, 0.17, 0), color: PAL.donkey });
+  // Neck and head, held low and forward; a pale muzzle; the long ears.
+  parts.push({ geo: new THREE.BoxGeometry(0.08, 0.06, 0.055).rotateZ(0.7).translate(0.13, 0.22, 0), color: PAL.donkey });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.09, 0.05, 0.05), 0.08, 1702).rotateZ(-0.35).translate(0.19, 0.24, 0), color: PAL.donkey });
+  parts.push({ geo: new THREE.BoxGeometry(0.035, 0.04, 0.045).translate(0.235, 0.22, 0), color: PAL.donkeyMuzzle });
+  for (const z of [-0.018, 0.018]) parts.push({ geo: new THREE.CylinderGeometry(0.004, 0.012, 0.075, 3).rotateZ(-0.35).rotateX(z > 0 ? 0.3 : -0.3).translate(0.165, 0.3, z), color: PAL.donkeyDark });
+  // A dark stripe along the mane, the tail.
+  parts.push({ geo: new THREE.BoxGeometry(0.07, 0.015, 0.02).rotateZ(0.7).translate(0.115, 0.255, 0), color: PAL.donkeyDark });
+  parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.012, 0.09, 3).rotateZ(-0.35).translate(-0.135, 0.15, 0), color: PAL.donkeyDark });
+  for (const [x, z, w] of [[-0.085, -0.035, 0.7], [-0.085, 0.035, -0.7], [0.085, -0.035, -0.7], [0.085, 0.035, 0.7]]) parts.push(leg(x, z, 0.13, 0.013, PAL.donkeyDark, w));
+  // The blanket, and the panniers either side over it.
+  parts.push({ geo: new THREE.BoxGeometry(0.12, 0.012, 0.13).translate(-0.01, 0.225, 0), color: '', tint: true });
+  parts.push({ geo: new THREE.BoxGeometry(0.12, 0.05, 0.012).translate(-0.01, 0.2, 0.062), color: '', tint: true });
+  parts.push({ geo: new THREE.BoxGeometry(0.12, 0.05, 0.012).translate(-0.01, 0.2, -0.062), color: '', tint: true });
+  parts.push({ geo: new THREE.CylinderGeometry(0.045, 0.04, 0.09, 6).translate(-0.01, 0.18, 0.1), color: PAL.basket });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.05, 0), 0.25, 1703).scale(1.1, 1, 0.8).translate(-0.01, 0.18, -0.1), color: PAL.sack });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.045, 0), 0.3, 1704).scale(1.3, 0.7, 1).translate(-0.02, 0.26, 0), color: PAL.bundleCream });
+  parts.push({ geo: new THREE.BoxGeometry(0.012, 0.012, 0.15).translate(-0.02, 0.27, 0), color: PAL.rope });
+  return mergeTinted(parts);
+}
+
+/** The caravan's drover, at its head: a traveller in a tunic of his city's colour (tinted), a wide hat and a cloak over one shoulder, a staff, a lead rope back to the first donkey. */
+function drover(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.21, 6).translate(0, 0.205, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.068, 0.092, 0.15, 6, 1, true, Math.PI * 0.9, Math.PI * 0.9).translate(0, 0.25, 0), color: PAL.canvasShade },
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(0.18).translate(0, 0.23, 0.07), color: PAL.skin, leg: [-0.55, 0, 0.3] },
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(-0.18).translate(-0.02, 0.23, -0.07), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.058, 0).translate(0.005, 0.365, 0), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.1, 0.1, 0.012, 8).translate(0, 0.405, 0), color: PAL.straw },
+    { geo: new THREE.CylinderGeometry(0.035, 0.05, 0.05, 7).translate(0, 0.43, 0), color: PAL.straw },
+    // The staff, planted ahead; the lead rope back from his hand.
+    { geo: new THREE.CylinderGeometry(0.007, 0.007, 0.5, 3).rotateX(0.12).translate(0.04, 0.25, 0.1), color: PAL.wood },
+    { geo: new THREE.BoxGeometry(0.2, 0.006, 0.006).rotateZ(0.35).translate(-0.12, 0.13, -0.07), color: PAL.rope },
+  ];
+  return mergeTinted(parts);
+}
+
 /** Which porter look a docker's handcart takes for each trade good (wheat; meat and cheese as the mixed load). */
 const DOCKER_LOOK: Record<number, number> = { [WHEAT]: 1, [MEAT]: 2, [CHEESE]: 2, [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
 
@@ -615,6 +667,9 @@ export class Walkers {
   /** Watchmen: [walking the round, running to a fire or fighting it]. */
   private readonly watchmen: [Look, Look];
   private readonly inspectors: Look;
+  /** Caravans: their drover and their donkeys. */
+  private readonly drovers: Look;
+  private readonly donkeys: Look;
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -649,7 +704,9 @@ export class Walkers {
     this.hunters = [small(hunter('none')), big(hunter('deer')), big(hunter('boar'))];
     this.watchmen = [small(watchman(false)), small(watchman(true))];
     this.inspectors = small(inspector());
-    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors];
+    this.drovers = small(drover());
+    this.donkeys = big(donkey());
+    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
   }
 
   get count(): number {
@@ -704,6 +761,10 @@ export class Walkers {
       const total = cum[cum.length - 1];
       // (Waiting, as a hunter stalking: no creeping on between ticks.)
       const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * speedOf(w)));
+      if (w.kind === 'caravan') {
+        this.caravan(w, cum, lead, total);
+        continue;
+      }
       if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
@@ -778,5 +839,39 @@ export class Walkers {
     }
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
+  }
+
+  /** A caravan: its drover ahead in his city's colour, his donkeys strung out behind him along the road, each in a blanket of the same colour. */
+  private caravan(w: Walker, cum: Float32Array, lead: number, total: number): void {
+    const city = CITY_IDS[w.food];
+    const colour = col(city ? PLACES[city].colour : PAL.tunicOchre);
+    const resting = w.wait > 0;
+    for (let k = 0; k <= w.people; k++) {
+      const d = Math.max(0, lead - (k === 0 ? 0 : DROVER_GAP + (k - 1) * DONKEY_SPACING));
+      const [x0, z0, dx, dz] = this.at(w, cum, d);
+      // The donkeys a little out of line, as they follow.
+      const side = k === 0 ? 0 : (hash2(w.id, k, 1710) - 0.5) * 0.08;
+      const x = x0 - dz * side;
+      const z = z0 + dx * side;
+      const moving = !resting && d > 0 && d < total ? 1 : 0;
+      const phase = ((x + z) * Math.PI * 2) / STRIDE + k;
+      const bob = Math.abs(Math.cos(phase)) * (k === 0 ? 0.012 : 0.008) * moving;
+      // Waiting at the yard, they stand about, heads every which way.
+      const turn = resting && k > 0 ? (hash2(w.id, k, 1711) - 0.5) * 1.6 : 0;
+      this.e.set(Math.sin(phase) * 0.02 * moving, Math.atan2(-dz, dx) + turn, 0, 'YXZ');
+      this.q.setFromEuler(this.e);
+      this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
+      const sc = k === 0 ? 0.95 : 1.15 + 0.1 * hash2(w.id, k, 1712);
+      this.s.set(sc, sc, sc);
+      this.m.compose(this.p, this.q, this.s);
+      this.c.copy(colour);
+      if (!moving) this.c.multiplyScalar(-1);
+      (k === 0 ? this.drovers : this.donkeys).push(this.m, this.c);
+      if (k === 0) {
+        const v = this.serviceAt.get(w.id);
+        if (v) v.pos.copy(this.p);
+        else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'caravan' });
+      }
+    }
   }
 }
