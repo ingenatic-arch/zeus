@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { puffTexture } from './puff';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { PLOT_SIZE } from '../sim/build';
@@ -8,6 +9,9 @@ import { ChunkedInstances } from './chunks';
 import { architectModel, fineA, fineB, rubbleModel, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB, watchPostModel } from './grand';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
+
+/** No turn (a puff faces +z when no camera is given). */
+const NO_TURN = new THREE.Quaternion();
 
 /** Homes are drawn in chunks of this many units. */
 export const HOME_CHUNK = 32;
@@ -680,14 +684,15 @@ export class Homes {
     this.merged = new MergedChunks(this.group, mat);
     for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, this.posts, this.architects, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
-    const puff = new THREE.IcosahedronGeometry(1, 0);
-    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
+    // Soft blots turned to the camera (slice 14: they were faceted balls).
+    const puff = new THREE.PlaneGeometry(2, 2);
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, map: puffTexture(), transparent: true, opacity: 0.42, depthWrite: false });
     this.smoke = new ChunkedInstances('smoke', puff, smokeMat, HOME_CHUNK, { castShadow: false, receiveShadow: false, colors: false });
     this.group.add(this.smoke.group);
   }
 
   /** A wisp of smoke from every fire, drifting with the breeze. */
-  private updateSmoke(time: number, windAngle: number): void {
+  private updateSmoke(time: number, windAngle: number, face: THREE.Quaternion): void {
     const wx = Math.cos(windAngle);
     const wz = Math.sin(windAngle);
     this.smoke.begin();
@@ -699,8 +704,8 @@ export class Homes {
           const r = (0.025 + 0.075 * f) * Math.min(1, (1 - f) * 4);
           const drift = f * f * 0.3;
           this.sp.set(x + wx * drift, y + 0.14 + f * 0.6, z + wz * drift);
-          this.sq.setFromAxisAngle(UP, seed * 10 + f * 2);
-          this.ss.set(r, r * 0.85, r);
+          this.sq.copy(face);
+          this.ss.set(r * 1.3, r * 1.2, 1);
           this.sm.compose(this.sp, this.sq, this.ss);
           this.smoke.push(this.sm);
         }
@@ -746,9 +751,9 @@ export class Homes {
     this.lastRefilled = dirty.size;
   }
 
-  update(time: number, windAngle = 0): void {
+  update(time: number, windAngle = 0, face: THREE.Quaternion = NO_TURN): void {
     this.time = time;
-    this.updateSmoke(time, windAngle);
+    this.updateSmoke(time, windAngle, face);
     if (this.rising.size === 0 || !this.state) return;
     // Chunks with a home still rising refill only their instanced homes; one whose home has just risen merges it back in.
     const dirty = new Map<number, boolean>();

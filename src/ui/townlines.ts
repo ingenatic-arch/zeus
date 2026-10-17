@@ -22,8 +22,16 @@ const ICONS: Record<TownLine['need'], string> = {
   wine: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8.4 3.4c1.2-1.6 3.2-1.9 4.6-.9-1.1 1.5-2.7 1.9-4.6.9z" fill="#6a9a34"/><g fill="#7a2e80" stroke="#3e1240" stroke-width=".7"><circle cx="5" cy="6" r="1.6"/><circle cx="8" cy="6" r="1.6"/><circle cx="11" cy="6" r="1.6"/><circle cx="6.5" cy="8.6" r="1.6"/><circle cx="9.5" cy="8.6" r="1.6"/><circle cx="8" cy="11.2" r="1.6"/></g></svg>',
   workers:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
+  tax: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="6.4" cy="11.6" rx="4.6" ry="1.8" fill="#a07a1e"/><ellipse cx="6.4" cy="10.4" rx="4.6" ry="1.8" fill="#d9b04a"/><path d="M12.4 2.4v8.2m-2.4-2.4 2.4 2.6 2.4-2.6" fill="none" stroke="#b23a22" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   money:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#d9b04a"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/><path d="M5.4 6.4h5.2" stroke="#8a6414" stroke-width=".9" stroke-linecap="round"/></svg>',
+};
+
+/** The order the lines always stand in, whichever showed first (so two lines never swap places). */
+const ORDER: readonly TownLine['need'][] = ['ship', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
+const rank = (need: TownLine['need']): number => {
+  const i = ORDER.indexOf(need);
+  return i < 0 ? ORDER.length : i;
 };
 
 export class TownLines {
@@ -67,7 +75,9 @@ export class TownLines {
           const cur = this.seen.get(need);
           if (cur) this.go(cur.line);
         });
-        this.el.appendChild(b);
+        b.dataset.rank = String(rank(need));
+        const after = [...this.el.children].find((c) => Number((c as HTMLElement).dataset.rank) > rank(need)) ?? null;
+        this.el.insertBefore(b, after);
         s.el = b;
       }
       if (s.el) {

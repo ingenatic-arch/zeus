@@ -13,6 +13,7 @@ import { canWork } from '../sim/labour';
 import { foodLine, hazardLines, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
 import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
+import { morph } from './morph';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -351,7 +352,8 @@ export class HouseholdPanel {
     const html = householdHtml(s, map, b);
     if (html !== this.html) {
       this.html = html;
-      this.body.innerHTML = html;
+      // In place (see morph): a hover tip stays up while the figures move.
+      morph(this.body, html);
     }
     return b;
   }

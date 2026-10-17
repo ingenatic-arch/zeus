@@ -68,7 +68,7 @@ import { SIM_STATE_VERSION, type SimState } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
-import { freshTrade } from './trade';
+import { freshTrade, TRADE_GOODS } from './trade';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -224,5 +224,9 @@ function from11(st: Record<string, unknown>): void {
 
 function from12(st: Record<string, unknown>): void {
   st.taxGone = [];
+  if (isObj(st.trade)) {
+    st.trade.lost = TRADE_GOODS.map(() => 0);
+    st.trade.lostAt = 0;
+  }
   st.version = 13;
 }

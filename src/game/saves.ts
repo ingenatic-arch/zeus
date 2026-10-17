@@ -369,7 +369,7 @@ const SHIP_NUMBERS = ['phase', 'due', 'since', 'turned', 'post', 'visits', 'last
 
 function tradeOk(t: unknown): boolean {
   if (!isObj(t) || !Array.isArray(t.sell) || t.sell.length !== TRADE_GOODS.length || !t.sell.every((v: unknown) => typeof v === 'boolean')) return false;
-  if (!nums(t.keep, TRADE_GOODS.length) || !isObj(t.ship)) return false;
+  if (!nums(t.keep, TRADE_GOODS.length) || !isObj(t.ship) || !nums(t.lost, TRADE_GOODS.length) || !fin(t.lostAt)) return false;
   const sh = t.ship;
   if (!SHIP_NUMBERS.every((k) => fin(sh[k])) || !nums(sh.hold, TRADE_GOODS.length) || !nums(sh.lastBought, TRADE_GOODS.length) || !nums(sh.path)) return false;
   return (sh.path as number[]).length % 2 === 0 && [0, 1, 2, 3].includes(sh.phase as number);

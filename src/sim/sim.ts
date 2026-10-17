@@ -22,7 +22,7 @@ import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
 import { freshHerds, stepWild, wildRng } from './wild';
-import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepTrade, tradeIndex } from './trade';
+import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -433,6 +433,14 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   const n = map.size;
   for (const t of footprint(n, b.x, b.z, footSide(b))) s.tiles[t] = TILE_EMPTY;
   s.buildings = s.buildings.filter((o) => o !== b);
+  // The goods on a trading post's quay go with it: remembered, so the town line can say what was lost.
+  if (b.kind === 'trading') {
+    const quay = TRADE_GOODS.map((w) => held(b, w));
+    if (quay.some((q) => q > 0)) {
+      s.trade.lost = quay;
+      s.trade.lostAt = s.tick;
+    }
+  }
   if (b.kind !== 'home') {
     s.walkers = s.walkers.filter((w) => {
       if (w.origin !== b.id) return true;

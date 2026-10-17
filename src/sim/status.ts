@@ -48,9 +48,9 @@ import { canWork, rateOf, workforce } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
-import { dockerDoing, dockerNews, goodsList, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
+import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
-import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
+import { COLLECTOR_RANGE, COLLECTOR_WALK, goneForTaxes, HARSH, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
 import { clearFee } from './build';
 import { districtAt, districtTitle } from '../map/districts';
@@ -1018,7 +1018,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'ship';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship';
   text: string;
   at: number;
 }
@@ -1153,7 +1153,18 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   }
   const money = moneyLine(s);
   if (money) out.push(money);
+  const harsh = harshLine(s);
+  if (harsh) out.push(harsh);
   return out;
+}
+
+/** While taxes are harsh: households leaving and newcomers staying away (null otherwise). */
+export function harshLine(s: SimState): TownLine | null {
+  if (s.taxRate !== HARSH) return null;
+  const gone = goneForTaxes(s);
+  const office = s.buildings.find((b) => b.kind === 'taxoffice');
+  const went = gone === 0 ? 'households the collectors call on are starting to think of leaving' : `${gone === 1 ? 'a household has' : `${fmt(gone)} households have`} left the city for them this past month`;
+  return { need: 'tax', text: `Taxes are harsh: ${went}, and newcomers stay away. Lower taxes (the rate by the drachmas) would bring people back.`, at: office?.id ?? 0 };
 }
 
 /**
@@ -1450,6 +1461,12 @@ export function tradingStatus(s: SimState, map: CoastMap, b: Building): Status {
 function shipTownLine(s: SimState): TownLine | null {
   const ship = s.trade.ship;
   const post = s.buildings.find((b) => b.kind === 'trading');
+  // For a month after the post went with goods on its quay (and until another is built): what was lost.
+  const t = s.trade;
+  if (!post && t.lostAt > 0 && s.tick - t.lostAt < TICKS_PER_MONTH && t.lost.some((n) => n > 0)) {
+    const worth = t.lost.reduce((dr, n, k) => dr + priceFor(k, n), 0);
+    return { need: 'ship', text: `The trading post is gone, and the goods waiting on its quay with it: ${goodsList(t.lost)}, worth about ${fmt(worth)} dr at the ship’s prices. A new post on the bay shore starts with an empty quay.`, at: 0 };
+  }
   if (!post || (ship.phase !== SHIP_COMING && ship.phase !== SHIP_MOORED)) return null;
   const news = shipNews(s);
   if (!news) return null;

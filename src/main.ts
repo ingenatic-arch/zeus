@@ -276,7 +276,7 @@ function start(): void {
     if (!c) return sound.play('refuse');
     sound.play(CUES[c.type] ?? 'build');
     // A prepared town (a demo) only starts saving itself once it has been saved by hand, so trying things in a demo never overwrites the autosave of your own town.
-    if (c.type !== 'undo' && !demo) autosaving = true;
+    if (c.type !== 'undo') startAutosaving();
   };
   const floaters = new Floaters(ui);
   const sound = new Sound();
@@ -290,7 +290,7 @@ function start(): void {
     sim.enqueue(c);
     sim.flush();
     sound.play('build');
-    if (!demo) autosaving = true;
+    startAutosaving();
   });
   tradePanel.onOpen = () => panel.show(0);
   /** Open the trading post's panel and go to the post. */
@@ -333,6 +333,22 @@ function start(): void {
   // this session or opened a save. A demo saves itself only once it has been
   // saved by hand: building in one doesn't touch the autosave.
   let autosaving = loaded !== null;
+  // A new town begun on the bare link while the autosave holds another town: like a demo, it saves itself only once it
+  // has been saved by hand, so starting afresh never loses the town you had (the saves card and a note say so).
+  const keptAuto = !demo && loaded === null && saves.available && !!saves.info('auto')?.label;
+  let keptNoted = false;
+  /** The player has done something in this town: it saves itself from now on (but a demo, or a new town over another's autosave). */
+  const startAutosaving = (): void => {
+    if (autosaving || demo) return;
+    if (!keptAuto) {
+      autosaving = true;
+      return;
+    }
+    if (keptNoted) return;
+    keptNoted = true;
+    const l = saves.info('auto')?.label;
+    saveMenu.flash(`Your autosaved town${l ? ` (${l.date}, ${l.people.toLocaleString('en-GB')} people)` : ''} is kept: this new one saves itself once you save it by hand (Ctrl+S).`);
+  };
   let lastAuto = sim.state.tick;
   let savedRev = loaded ? sim.state.rev : -1;
   let leaving = false;
@@ -379,7 +395,7 @@ function start(): void {
       go('');
     },
     unsaved: () => autosaving && sim.state.rev !== savedRev,
-    autosave: () => ({ on: autosaving, problem: autoProblem, demo: !!demo }),
+    autosave: () => ({ on: autosaving, problem: autoProblem, demo: !!demo, kept: keptAuto && !autosaving }),
   });
   // The saves card, the controls card and the ledger share the top right corner: one at a time.
   const ledger = new LedgerCard(ui);
@@ -403,7 +419,7 @@ function start(): void {
     sim.enqueue({ type: 'tax', rate });
     sim.flush();
     sound.play('build');
-    if (!demo) autosaving = true;
+    startAutosaving();
   });
   const autosaveNow = (): void => {
     if (!autosaving || leaving || !saves.available || sim.state.rev === savedRev) return;
@@ -810,6 +826,7 @@ function start(): void {
       cottages: homes.filter((b) => b.level === 3).length,
       townhouses: homes.filter((b) => b.level === 4).length,
       fine: homes.filter((b) => b.level === 5).length,
+      buildings: s.buildings.length,
       fountains: of('fountain').length,
       farms: of('farm').length,
       granaries: of('granary').length,
@@ -948,7 +965,7 @@ function start(): void {
       .map((b) => ({ id: b.id, kind: b.kind, x: b.x, z: b.z, side: footSide(b), fire: b.fire, creak: b.creakAt > 0, risk: b.risk, wear: b.wear }));
   probe.herds = () => sim.state.herds.map((h) => ({ kind: h.kind, x: h.x, z: h.z, head: h.head }));
   probe.tool = (t) => tools.select(t as ToolName | null);
-  probe.saves = () => ({ available: saves.available, manual: saves.info('manual'), auto: saves.info('auto'), autosaving, loaded: loaded ? loaded.label.date : '', problem, lastSave });
+  probe.saves = () => ({ available: saves.available, manual: saves.info('manual'), auto: saves.info('auto'), autosaving, kept: keptAuto && !autosaving, loaded: loaded ? loaded.label.date : '', problem, lastSave });
   probe.saveNow = () => {
     saveMenu.saveNow();
     return lastSave.includes(':') ? '' : lastSave;
@@ -1108,6 +1125,8 @@ function start(): void {
         if (b.kind === 'home' && b.level === 4 && before.level === 5) floaters.add('Back to a townhouse', at.clone().setY(at.y + 1.0), time, 'dry');
         if (b.kind === 'home' && b.level === VILLA && before.level === FINE) floaters.add('Villa', at.setY(at.y + 1.2), time, 'wine');
         if (b.kind === 'home' && b.level === FINE && before.level === VILLA) floaters.add('Back to a fine house', at.clone().setY(at.y + 1.2), time, 'dry');
+        // A whole household gone (harsh taxes): the house left an empty plot.
+        if (b.kind === 'home' && b.level === 0 && before.level > 0 && b.people === 0) floaters.add('Moved away', at.clone().setY(at.y + 0.6), time, 'dry');
         // People moving away from a home that stays (it went down a level).
         if (b.kind === 'home' && b.people < before.people && b.level < before.level) floaters.add(`−${before.people - b.people}`, at.clone().setY(at.y - 0.2), time, 'dry');
       }
@@ -1175,7 +1194,7 @@ function start(): void {
     sound.update(dt);
     world.setSeason(sim.date.month / 12 + (sim.date.day - 1) / (12 * 30));
     world.update(time, rig, s.wind.angle, s.wind.strength);
-    city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
+    city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     updateFollow();
     overlay.update(s, time);
     bar.showOverlay(overlay.mode);

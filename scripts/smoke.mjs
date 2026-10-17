@@ -1099,6 +1099,57 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// Slice 14: a richer town.
+// #richtown: several hundred people, villas, every chain, the ship sailing in to the post, its line; the street view among the villas.
+await open('#richtown-paused');
+c = await city();
+sh = await zeus(() => window.__zeus.ship());
+if (!(c.population > 700 && c.population < 1000 && c.villas >= 15 && c.tradingPosts === 1 && c.watchmen > 0 && sh.phase === 1 && sh.visible)) fail(`#richtown: ${JSON.stringify(c)} ship ${JSON.stringify(sh)}`);
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /^The merchant ship is sailing into the bay/.test(l))) fail('#richtown has no ship line');
+await open('#richstreet-paused');
+if ((await city()).villas < 15) fail('#richstreet has too few villas');
+// #harsh: the harsh-taxes line, and the rate card's harsh row says whole households leave.
+await open('#harsh-paused');
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /^Taxes are harsh: .*newcomers stay away/.test(l))) fail(`#harsh has no harsh line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
+if (!/whole households leave/.test(await zeus(() => document.querySelector('.rates')?.textContent ?? ''))) fail('the rate card does not say harsh drives households out');
+// #quay: the trade panel is brought up to date in place (the same table, not a new one), so hover tips don't flicker.
+await open('#quay');
+await frames(2);
+await zeus(() => {
+  const t = document.querySelector('.trade table.goods');
+  if (t) t.kept14 = 'kept';
+});
+await page.waitForFunction(() => window.__zeus.tick() > 0 && window.__zeus.frames > 0, null, { timeout: 60000 });
+const t0q = await zeus(() => window.__zeus.tick());
+await page.waitForFunction((t) => window.__zeus.tick() > t + 30, t0q, { timeout: 300000, polling: 200 });
+if ((await zeus(() => document.querySelector('.trade table.goods')?.kept14)) !== 'kept') fail('the trade panel table was rebuilt rather than updated in place');
+// A slice 13 (version 12) save at harsh opens with a note that taxes were retuned.
+await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice13-harsh.save.json.gz')).toString());
+await open('#saved-paused');
+const back14 = await zeus(() => document.querySelector('.save-note')?.textContent ?? '');
+if (!/Taxes are retuned/.test(back14)) fail(`slice 13 save: ${back14}`);
+// A new town begun while the autosave holds another keeps that autosave until it is saved by hand, and says so.
+const autoText = gunzipSync(readFileSync('tests/fixtures/slice13-harsh.save.json.gz')).toString();
+await zeus(() => localStorage.clear());
+await zeus((text) => localStorage.setItem('zeus-remake.save.auto', text), autoText);
+await open('#');
+await page.keyboard.press('Escape');
+await zeus(() => window.__zeus.jump({ x: 10, z: 79, yaw: 0, dist: 24, tilt: 0 }));
+await frames(3);
+await zeus(() => window.__zeus.tool('road'));
+p = await at(0.5, 80.5);
+await page.mouse.move(p.x, p.y);
+await page.mouse.down();
+p = await at(8.5, 80.5);
+await page.mouse.move(p.x, p.y, { steps: 4 });
+await page.mouse.up();
+await frames(2);
+let sv14 = await zeus(() => window.__zeus.saves());
+if (sv14.autosaving || !sv14.kept) fail(`a new town over another's autosave turned the autosave on: ${JSON.stringify(sv14)}`);
+await zeus(() => dispatchEvent(new Event('pagehide')));
+if ((await zeus(() => localStorage.getItem('zeus-remake.save.auto'))) !== autoText) fail('leaving a new town replaced the autosave of the town before it');
+if (!/is kept/.test(await zeus(() => document.querySelector('.save-note')?.textContent ?? ''))) fail('no note that the autosaved town is kept');
+await zeus(() => localStorage.clear());
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

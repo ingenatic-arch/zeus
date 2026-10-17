@@ -105,7 +105,7 @@ export function freshShip(): Ship {
 }
 
 export function freshTrade(): Trade {
-  return { sell: TRADE_GOODS.map(() => false), keep: DEFAULT_KEEP.slice(), ship: freshShip() };
+  return { sell: TRADE_GOODS.map(() => false), keep: DEFAULT_KEEP.slice(), ship: freshShip(), lost: TRADE_GOODS.map(() => 0), lostAt: 0 };
 }
 
 // ---------------------------------------------------------------------------

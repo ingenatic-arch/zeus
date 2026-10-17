@@ -42,6 +42,7 @@ import {
   TURN_TICKS,
 } from '../src/sim/trade';
 import { owedWages, totals } from '../src/sim/treasury';
+import { townLines } from '../src/sim/status';
 
 const map = coastMap();
 const N = map.size;
@@ -188,6 +189,26 @@ describe('the ship', () => {
     // In the map, in sight from the town, for more than ten days; the last tick before she ties up, nearly stopped.
     expect(inside).toBeGreaterThan(10 * TICKS_PER_DAY);
     expect(pace).toBeLessThan(0.1);
+  });
+
+  it('clearing the post with goods on its quay says what was lost, in a town line, for a month; undoing it brings them back and the line goes (slice 14)', () => {
+    const sim = demo('quay');
+    const s = sim.state;
+    const post = tradingPost(s)!;
+    const quay = TRADE_GOODS.map((w) => held(post, w));
+    expect(quay.some((n) => n > 0)).toBe(true);
+    send(sim, { type: 'clear', x0: POST.x, z0: POST.z, x1: POST.x, z1: POST.z });
+    expect(tradingPost(s)).toBeUndefined();
+    expect(s.trade.lost).toEqual(quay);
+    const line = (): string => townLines(s, map).find((l) => l.need === 'ship')?.text ?? '';
+    expect(line()).toMatch(/^The trading post is gone, and the goods waiting on its quay with it: .*worth about [\d,]+ dr/);
+    send(sim, { type: 'undo' });
+    expect(TRADE_GOODS.map((w) => held(tradingPost(s)!, w))).toEqual(quay);
+    expect(line()).not.toMatch(/is gone/);
+    // Cleared again and left: the line goes after a month.
+    send(sim, { type: 'clear', x0: POST.x, z0: POST.z, x1: POST.x, z1: POST.z });
+    sim.run(TICKS_PER_DAY * 31);
+    expect(line()).toBe('');
   });
 
   it('turns back when the post is cleared, and none is due until another is built', () => {

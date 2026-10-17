@@ -471,6 +471,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .townline.fire { border-left-color: #d2401e; }
 .townline.wear { border-left-color: #8a7458; }
 .townline.rubble { border-left-color: #6a6460; }
+.townline.tax { border-left-color: #b23a22; }
 .townline:hover { background: #fff6e2; }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 .townline.ship { border-left-color: #2f6f8e; background: #eef6f8; }

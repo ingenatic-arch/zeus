@@ -3,6 +3,7 @@ import type { CoastMap } from '../map/bake';
 import { findBuilding, footSide } from '../sim/buildings';
 import { FIRE_BURNING, FIRE_SMOULDER, HAZARD_FULL, HAZARD_MARK, wears, burnable } from '../sim/hazards';
 import type { Building, BuildingKind, SimState } from '../sim/state';
+import { puffTexture } from './puff';
 import { circle, flat, mergeFlat } from './signs';
 
 /** How often (seconds) which buildings are marked, smouldering or burning is worked out again. */
@@ -122,6 +123,11 @@ const rnd = (a: number, b: number): number => fract(Math.sin(a * 127.1 + b * 311
  * puffs worked out from the clock each frame (no state of their own), in two
  * capped instanced meshes; nothing draws while nothing is wrong.
  */
+/** Past this distance (tiles) from the camera, only the worst mark of each kind in each block shows (smouldering and creaking ones always). */
+const THIN_FROM = 34;
+/** A block, for thinning the marks: squares of this many tiles. */
+const BLOCK = 8;
+
 export class HazardView {
   readonly group = new THREE.Group();
   private readonly plaques: THREE.InstancedMesh;
@@ -132,6 +138,7 @@ export class HazardView {
   private readonly flames: THREE.InstancedMesh;
   private hot: Hot[] = [];
   private marks: Mark[] = [];
+  private readonly worst = new Map<number, Mark>();
   private last = -Infinity;
   private lastTick = -1;
   private readonly m = new THREE.Matrix4();
@@ -172,9 +179,10 @@ export class HazardView {
     this.faces = mark('hazard-face', faceGeometry(), false);
     this.flamesIcon = mark('hazard-flame', flameIcon(), false);
     this.cracksIcon = mark('hazard-crack', crackIcon(), false);
-    // Round, softly lit puffs (smooth shading on a once-divided icosahedron, a little light of their own so their undersides aren't dark stones).
-    const puff = new THREE.IcosahedronGeometry(1, 1);
-    this.smoke = new THREE.InstancedMesh(puff, new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.7, depthWrite: false, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.12 }), SMOKE_CAP);
+    // Soft puffs (slice 14; they were lit balls, which read as stones): squares turned to the camera, each a soft round
+    // blot fading out to its edge, from a texture drawn here.
+    const puff = new THREE.PlaneGeometry(2, 2);
+    this.smoke = new THREE.InstancedMesh(puff, new THREE.MeshBasicMaterial({ map: puffTexture(), transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false }), SMOKE_CAP);
     this.smoke.name = 'hazard-smoke';
     this.smoke.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(SMOKE_CAP * 3), 3);
     // A tongue of flame: a four-sided spike, unlit so it glows.
@@ -238,11 +246,13 @@ export class HazardView {
     let flames = 0;
     const wx = Math.cos(s.wind.angle);
     const wz = Math.sin(s.wind.angle);
+    const face = camera.quaternion;
     const puff = (x: number, y: number, z: number, r: number, c: THREE.Color): void => {
       if (smoke >= SMOKE_CAP) return;
       this.p.set(x, y, z);
-      this.sc.set(r, r * 0.85, r);
-      this.m.compose(this.p, this.q.identity(), this.sc);
+      // (A soft blot is a little wider than the ball it stands for.)
+      this.sc.set(r * 1.25, r * 1.15, 1);
+      this.m.compose(this.p, face, this.sc);
       this.smoke.setMatrixAt(smoke, this.m);
       this.smoke.setColorAt(smoke++, c);
     };
@@ -377,12 +387,29 @@ export class HazardView {
     this.fit('cracksIcon', need);
     const q = camera.quaternion;
     this.right.set(1, 0, 0).applyQuaternion(q);
+    // From the usual zoom and further a neglected street would be a crowd of marks: only the worst of each kind in each
+    // block shows (any smouldering or creaking one always does).
+    const worst = this.worst;
+    worst.clear();
     for (const k of this.marks) {
       this.p.set(k.cx, k.y, k.cz);
-      const far = Math.min(3, Math.max(0.6, this.p.distanceTo(camera.position) / 27));
-      const both = k.risk >= 0 && k.wear >= 0;
+      if (this.p.distanceTo(camera.position) < THIN_FROM) continue;
+      const key = Math.floor(k.cz / BLOCK) * 64 + Math.floor(k.cx / BLOCK);
+      for (const [v, i] of [[k.risk, 0], [k.wear, 1]] as const) {
+        if (v < 0 || v >= 2) continue;
+        const was = worst.get(key * 2 + i);
+        if (!was || v > (i === 0 ? was.risk : was.wear) || (v === (i === 0 ? was.risk : was.wear) && k.b.id < was.b.id)) worst.set(key * 2 + i, k);
+      }
+    }
+    for (const k of this.marks) {
+      this.p.set(k.cx, k.y, k.cz);
+      const dist = this.p.distanceTo(camera.position);
+      const far = Math.min(3, Math.max(0.6, dist / 27));
+      const key = Math.floor(k.cz / BLOCK) * 64 + Math.floor(k.cx / BLOCK);
+      const shows = (v: number, i: number): boolean => v >= 0 && (dist < THIN_FROM || v >= 2 || worst.get(key * 2 + i) === k);
+      const both = shows(k.risk, 0) && shows(k.wear, 1);
       for (const [v, icon] of [[k.risk, 'fire'], [k.wear, 'wear']] as const) {
-        if (v < 0) continue;
+        if (!shows(v, icon === 'fire' ? 0 : 1)) continue;
         const pulse = v >= 2 ? 1 + 0.14 * Math.sin(time * 6 + k.b.id) : 1;
         const r = SIZE * far * pulse;
         const shift = both ? (icon === 'fire' ? -1.25 : 1.25) * SIZE * far : 0;

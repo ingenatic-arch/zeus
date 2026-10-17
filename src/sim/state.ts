@@ -434,6 +434,9 @@ export interface Trade {
   sell: boolean[];
   keep: number[];
   ship: Ship;
+  /** What was on the quay when the post last went (cleared, burnt or fallen in), of each good, and when (0: never). */
+  lost: number[];
+  lostAt: number;
 }
 
 /**

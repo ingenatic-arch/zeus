@@ -222,10 +222,10 @@ export class TopBar {
       'About half of fair. Nobody minds',
       'What households expect to pay',
       'Half as much again. Households grumble',
-      'About twice fair. Households are unhappy, and some leave',
+      'About twice fair. Households are unhappy: whole households leave, and newcomers stay away',
     ];
     card.innerHTML = `<h3>Taxes</h3>${TAX_RATES.map(
-      (r, i) => `<button class="rate" data-rate="${i}"><b>${r[0].toUpperCase()}${r.slice(1)}</b><span class="per">${i ? `cottage ${taxOf(i, 3)} dr · fine house ${taxOf(i, 5)} dr a month` : 'Nobody pays'}</span><span class="what">${WHAT[i]}</span></button>`,
+      (r, i) => `<button class="rate" data-rate="${i}"><b>${r[0].toUpperCase()}${r.slice(1)}</b><span class="per">${i ? `cottage ${taxOf(i, 3)} dr · fine house ${taxOf(i, 5)} · villa ${taxOf(i, 6)} dr a month` : 'Nobody pays'}</span><span class="what">${WHAT[i]}</span></button>`,
     ).join('')}<p class="foot">Only the homes a tax collector calls on pay, once a month.</p>`;
     root.appendChild(card);
     this.rates = card;
@@ -280,6 +280,7 @@ export class TopBar {
       const secs = o.interval / TICKS_PER_SECOND;
       const every = secs < 1.95 ? `${secs.toFixed(1)} seconds` : `${Math.round(secs)} seconds`;
       why = `Room for ${o.room} more · water reaches ${Math.round(o.water * 100)}% of homes · newcomers about every ${every} at normal speed (more room and more water bring them sooner).`;
+      if (o.harsh) why += ' Taxes are harsh: word has got about, and newcomers come a third as often.';
     }
     const text = `People living in your city. ${why}`;
     if (el.title !== text) el.title = text;

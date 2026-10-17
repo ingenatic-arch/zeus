@@ -14,6 +14,7 @@ import { held, WARE_NAMES } from '../sim/foods';
 import { rateOf } from '../sim/labour';
 import { roadsBeside } from '../sim/rounds';
 import { workersLine } from '../sim/status';
+import { morph } from './morph';
 import type { Building, SimState } from '../sim/state';
 import {
   cityHolds,
@@ -42,8 +43,8 @@ const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 
-/** A small mark for each good, in the colours of its stack on the quay. */
-const SWATCH = ['#e0b45a', '#b5524a', '#f0cf6a', '#8aa83a', '#eee2c0', '#7a2e80'];
+/** A small mark for each good, in the colours of its stack on the quay (wheat its sacks', cheese its wheels'). */
+const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80'];
 
 const when = (tick: number): string => {
   const d = dateOfTick(tick);
@@ -176,6 +177,7 @@ export class TradePanel {
     if (show && !this.shown) this.body.scrollTop = 0;
     this.shown = show;
     this.last = -Infinity;
+    if (!show) this.html = '';
     this.el.hidden = !show;
     if (show) this.onOpen();
   }
@@ -193,8 +195,10 @@ export class TradePanel {
     this.last = time;
     const html = tradeHtml(s, map, post);
     if (html !== this.html) {
+      // In place: only what changed, so a hover tip stays up and a click lands.
+      if (this.html) morph(this.body, html);
+      else this.body.innerHTML = html;
       this.html = html;
-      this.body.innerHTML = html;
     }
   }
 

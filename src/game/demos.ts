@@ -630,7 +630,7 @@ const RICH_ARCHITECT = { x: 72, z: 57 };
 const RICH_VILLAS = 1900;
 /** #richtown's watch posts and architects' offices go in a month before it opens, so their walkers are out on their rounds. */
 const RICH_LEAD = TICKS_PER_MONTH;
-const RICH_IN = 120;
+const RICH_IN = 165;
 
 function town(opening: number, safety: Safety = SAFE, rich = false): (sim: Sim) => void {
   return (sim) => {

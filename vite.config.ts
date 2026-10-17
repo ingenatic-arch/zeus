@@ -11,5 +11,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // Many tests play a prepared town on for months or years: a few seconds each, more on a busy machine.
+    testTimeout: 30000,
   },
 });

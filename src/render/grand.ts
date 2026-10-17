@@ -626,7 +626,9 @@ export function architectModel(): THREE.BufferGeometry {
   const z0 = -0.2;
   const z1 = 0.74;
   const top = 0.8;
-  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, top), color: PAL.whitewash });
+  // Walls of dressed stone, not whitewash (slice 14: it read as a white box from the usual zoom), their courses picked out.
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, top), color: PAL.stoneBlock });
+  for (const y of [0.26, 0.46, 0.64]) parts.push({ geo: slab(x0 - 0.008, z0 - 0.008, x1 + 0.008, z1 + 0.008, y, y + 0.022), color: PAL.stoneBlockShade });
   parts.push({ geo: slab(x0 - 0.006, z0 - 0.006, x1 + 0.006, z1 + 0.006, top - 0.08, top), color: PAL.inspectorDress });
   parts.push({ geo: slab(x1 - 0.01, 0.16, x1 + 0.012, 0.38, 0.05, 0.5), color: PAL.door });
   parts.push(...windowZ(-0.5, 0.56, z0 - 0.004, -1), ...windowZ(-0.2, 0.56, z0 - 0.004, -1));
@@ -654,13 +656,14 @@ export function architectModel(): THREE.BufferGeometry {
     [0.5, -0.5, 0.05, 0],
   ];
   for (const [x, z, y, k] of blocks) parts.push({ geo: slab(x - 0.1, z - 0.08, x + 0.1, z + 0.08, y, y + 0.12), color: k ? PAL.stoneBlockShade : PAL.stoneBlock });
+  // The hoist: a tall timber A-frame over the yard (taller and stouter since slice 14, so the office reads as the builders' from afar), a block hanging from it.
   for (const dz of [-0.26, 0.26]) {
-    parts.push({ geo: cyl(0.016, 0.02, 1.0, 4).rotateZ(0.26).translate(-0.34, 0.5, -0.5 + dz * 0.6), color: PAL.wood });
-    parts.push({ geo: cyl(0.016, 0.02, 1.0, 4).rotateZ(-0.26).translate(0.12, 0.5, -0.5 + dz * 0.6), color: PAL.wood });
+    parts.push({ geo: cyl(0.028, 0.034, 1.5, 5).rotateZ(0.24).translate(-0.3, 0.74, -0.5 + dz * 0.6), color: PAL.wood });
+    parts.push({ geo: cyl(0.028, 0.034, 1.5, 5).rotateZ(-0.24).translate(0.06, 0.74, -0.5 + dz * 0.6), color: PAL.wood });
   }
-  parts.push({ geo: cyl(0.016, 0.016, 0.4, 4).rotateX(Math.PI / 2).translate(-0.11, 0.98, -0.5), color: PAL.woodDark });
-  parts.push({ geo: cyl(0.006, 0.006, 0.5, 3).translate(-0.11, 0.72, -0.5), color: PAL.rope });
-  parts.push({ geo: slab(-0.2, -0.58, -0.02, -0.42, 0.36, 0.47), color: PAL.stoneBlock });
+  parts.push({ geo: cyl(0.026, 0.026, 0.42, 5).rotateX(Math.PI / 2).translate(-0.12, 1.45, -0.5), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.008, 0.008, 0.7, 3).translate(-0.12, 1.08, -0.5), color: PAL.rope });
+  parts.push({ geo: slab(-0.24, -0.6, 0, -0.4, 0.62, 0.76), color: PAL.stoneBlock });
   // A column being made in the front yard: two drums standing, the next one lying ready (the architect's trade at a glance).
   parts.push({ geo: cyl(0.1, 0.11, 0.05, 8).translate(0.7, 0.075, 0.42), color: PAL.stoneBlockShade });
   for (const [y, k] of [[0.1, 0], [0.26, 1]] as const) parts.push({ geo: cyl(0.075, 0.08, 0.16, 8).translate(0.7, y + 0.08, 0.42), color: k ? PAL.column : PAL.stoneBlock });

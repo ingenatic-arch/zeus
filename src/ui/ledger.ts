@@ -17,6 +17,7 @@ import type { BuildingKind, LedgerKind, LedgerLine, SimState } from '../sim/stat
 import { monthlyTaxes } from '../sim/status';
 import { TAX_RATES, taxedLately } from '../sim/taxes';
 import { hasTaxOffice, kindTotal, monthOf, owedWages, reserve, totals, WAGE, wageBill } from '../sim/treasury';
+import { morph } from './morph';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.abs(n).toLocaleString('en-GB');
@@ -207,7 +208,7 @@ export class LedgerCard {
     const html = ledgerHtml(s, map);
     if (html !== this.html) {
       this.html = html;
-      this.el.innerHTML = html;
+      morph(this.el, html);
     }
   }
 

@@ -50,9 +50,9 @@ export class CityView {
     this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group);
   }
 
-  update(s: SimState, alpha: number, time: number): void {
+  update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
     if (s.rev !== this.rev) this.sync(s);
-    this.homes.update(time, s.wind.angle);
+    this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
     this.folk.begin();
     this.walkers.update(s, alpha, time);
