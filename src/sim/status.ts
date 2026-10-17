@@ -725,7 +725,7 @@ const CHAINS: Partial<Record<Ware, Chain>> = {
   },
   [FLEECE]: {
     links: [
-      { kind: 'pasture', missing: 'the city has no sheep pasture yet: fence one on green grass (M, six times)' },
+      { kind: 'pasture', missing: 'the city has no sheep pasture yet: build one on green grass (M, six times)' },
       { kind: 'storehouse', missing: 'the city has no storehouse yet for the pasture’s carts to take its bales to (G twice)' },
     ],
     key: 'K three times',

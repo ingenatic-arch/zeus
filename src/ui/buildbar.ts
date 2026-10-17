@@ -165,7 +165,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     name: 'Sheep pasture',
     key: 'M ×6',
     cost: `${PASTURE_COST} dr`,
-    hint: 'Click on green grass, beside a road. Its flock grazes inside the fence and is sheared for fleece, more on better grass; ox carts take the bales to a storehouse.',
+    hint: 'Click on green grass, beside a road. Its flock grazes round the stone fold and is sheared for fleece, more on better grass; ox carts take the bales to a storehouse.',
   },
   vineyard: {
     name: 'Vineyard',

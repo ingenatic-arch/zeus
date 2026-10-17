@@ -87,6 +87,29 @@ What breaks, or moves: nothing is lost. A slice 10 save opens with eight months'
 - A save of `#town`: 248 KB (was 203 KB; a bigger town).
 - Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
 
+### What the review changed
+I went through every step above in the browser. In `#vineyard` I built the wine chain by clicking the tools, as you would. I looked at the pasture, vineyards, winery, stalls and villas close up and from the street, played `#closed` and a slice 10 save forward, compared the cottage demos with pictures from before this slice, and measured again. These are the changes:
+
+- **`#winery` now opens over the vineyards and the winery.** It used to follow a cart from one of the wheat farms, so it opened somewhere else entirely. Now it follows a grape cart from a vineyard, with the vineyards, the winery and the wine overlay in view.
+- **The build bar fits on a laptop screen.** With the new buttons it was wider than a 1366- or 1280-pixel window, so the last buttons fell off the edge. The buttons now shrink a little on narrower windows, and the bar scrolls sideways rather than overflowing if a window is narrower still. At 1920 pixels wide it's a little narrower than before.
+- **The wine vendor is "he".** He's drawn as a man, but his tips and the stall's tips called him "she".
+- **Homes say when goods are on the way.** While the first wine is still travelling, a fine house used to say only "no wine has reached a storehouse yet". It now says the first amphorae are on their way by ox cart, which is slow (about a tile of road a day), or that the stall's porter is bringing them back from the storehouse.
+- **The pasture's words match what you see.** Its button said the flock grazes "inside the fence" and a fine house said to "fence" a pasture. There's no fence: the flock grazes round a stone fold. They now say so.
+
+Things to know when you try it, with numbers:
+- **The pace in real time.** `#vineyard`'s 153 days from planting to the first villa is about two and a half minutes at normal speed, and about 40 seconds at the fastest. When I built it by clicking, the first villa came at about the same point, with no errors. With only one vineyard it took 156 days, and the money never fell below 207 drachmas (with two vineyards it touched 33).
+- **Where those days go:** the first grapes are picked about 60 days in and reach the winery about 10 days later. The wine carts then spend about 40 days on the road from the winery to the storehouse by the main street. Wine is in the storehouse at about day 120, and the stall's porter and the wine vendor take the rest. A storehouse nearer the winery would cut that wait a lot.
+- **`#closed`:** it opens with 14 homes warned, the most urgent about 27 days from going down. When I rebuilt the theatre and mended the road at once, 2 homes went down a level. Left alone, 26 did, as the notes above say.
+- **A slice 10 save:** the welcome back says what to build. Fine houses say "No fleece yet · they'll put up with it for 8 months more" and what's missing, and nothing warns at first.
+- **`#winery`** is the only demo whose opening view changed in the review. Every other demo opens as described above.
+- **Corrected in this note:** nothing above was wrong about what you'll see. The technical notes said one change to how services count new homes had been left out. It is in fact in, for the fleece and wine vendors' rounds; the plan says so now.
+
+What I'd still like your eye on, beyond the list above:
+- **The porters** are hard to pick out among the carts round the storehouse and the winery.
+- **One bale** already shows under the pasture's shelter when its store is only a tenth full.
+
+Measured after the review: the triangles, draws, load times, download and save size are as in the notes above, to within a few hundred triangles. All 178 tests pass, and the smoke test passes.
+
 ## Slice 10 — Olives and oil, and the storehouse (16 Oct)
 
 The city makes its first good: olive groves on the dry slopes, an olive press, a storehouse of jars and an oil stall at the agora, and townhouses now need oil. You weren't here while it was built: every choice below is mine, from the spec's defaults.
