@@ -5,7 +5,7 @@ import { PLOT_SIZE } from '../sim/build';
 import { sideOf } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
-import { fineA, fineB, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB } from './grand';
+import { fineA, fineB, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB } from './grand';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -413,8 +413,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TENT_FIRES = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
 const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0.62)];
 
-type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'fountain' | 'shrine' | 'taxoffice';
-const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine'];
+type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa' | 'fountain' | 'shrine' | 'taxoffice';
+const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine', 'villa'];
 const lookOf = (b: Building): Look =>
   b.kind === 'fountain' ? 'fountain' : b.kind === 'shrine' ? 'shrine' : b.kind === 'taxoffice' ? 'taxoffice' : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)];
 /** Where a house's smoke comes out: near the top of its roof, a little back from the middle (cached per model). */
@@ -601,13 +601,14 @@ export class Homes {
   private readonly cottages: ChunkedInstances[];
   private readonly townhouses: ChunkedInstances[];
   private readonly fines: ChunkedInstances[];
+  private readonly villas: ChunkedInstances[];
   private readonly shrines: ChunkedInstances;
   private readonly offices: ChunkedInstances;
   private readonly fountains: ChunkedInstances[];
   private readonly stakes: ChunkedInstances;
   private readonly merged: MergedChunks;
   /** The models, by look and variant, for merging. */
-  private readonly models: Record<'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine', THREE.BufferGeometry[]>;
+  private readonly models: Record<'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa', THREE.BufferGeometry[]>;
   private readonly shrineGeo: THREE.BufferGeometry;
   private readonly officeGeo: THREE.BufferGeometry;
   private readonly fountainGeo: THREE.BufferGeometry;
@@ -639,6 +640,7 @@ export class Homes {
       cottage: [cottageA(), cottageB()],
       townhouse: [townhouseA(), townhouseB()],
       fine: [fineA(), fineB()],
+      villa: [villaA(), villaB()],
     };
     const md = this.models;
     this.tents = [new ChunkedInstances('tent-a', md.tent[0], mat, HOME_CHUNK, opts), new ChunkedInstances('tent-b', md.tent[1], mat, HOME_CHUNK, opts)];
@@ -646,6 +648,7 @@ export class Homes {
     this.cottages = [new ChunkedInstances('cottage-a', md.cottage[0], mat, HOME_CHUNK, opts), new ChunkedInstances('cottage-b', md.cottage[1], mat, HOME_CHUNK, opts)];
     this.townhouses = [new ChunkedInstances('townhouse-a', md.townhouse[0], mat, HOME_CHUNK, opts), new ChunkedInstances('townhouse-b', md.townhouse[1], mat, HOME_CHUNK, opts)];
     this.fines = [new ChunkedInstances('fine-a', md.fine[0], mat, HOME_CHUNK, opts), new ChunkedInstances('fine-b', md.fine[1], mat, HOME_CHUNK, opts)];
+    this.villas = [new ChunkedInstances('villa-a', md.villa[0], mat, HOME_CHUNK, opts), new ChunkedInstances('villa-b', md.villa[1], mat, HOME_CHUNK, opts)];
     this.shrineGeo = shrineModel();
     this.shrines = new ChunkedInstances('shrine', this.shrineGeo, mat, HOME_CHUNK, opts);
     this.officeGeo = taxOfficeModel();
@@ -660,7 +663,7 @@ export class Homes {
     this.stakeGeo = stake();
     this.stakes = new ChunkedInstances('stakes', this.stakeGeo, mat, HOME_CHUNK, opts);
     this.merged = new MergedChunks(this.group, mat);
-    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, this.shrines, this.offices, ...this.fountains]) this.group.add(t.group);
+    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     const puff = new THREE.IcosahedronGeometry(1, 0);
     const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
@@ -758,6 +761,7 @@ export class Homes {
     const cottagesBy: Building[][] = [[], []];
     const townhousesBy: Building[][] = [[], []];
     const finesBy: Building[][] = [[], []];
+    const villasBy: Building[][] = [[], []];
     const fountains: Building[] = [];
     const shrines: Building[] = [];
     const offices: Building[] = [];
@@ -769,6 +773,7 @@ export class Homes {
       else if (look === 'cottage') cottagesBy[Math.floor(hash2(b.id, 7, 40) * 2)].push(b);
       else if (look === 'townhouse') townhousesBy[Math.floor(hash2(b.id, 8, 40) * 2)].push(b);
       else if (look === 'fine') finesBy[Math.floor(hash2(b.id, 9, 40) * 2)].push(b);
+      else if (look === 'villa') villasBy[Math.floor(hash2(b.id, 10, 40) * 2)].push(b);
       else if (look === 'fountain') fountains.push(b);
       else if (look === 'shrine') shrines.push(b);
       else if (look === 'taxoffice') offices.push(b);
@@ -823,6 +828,7 @@ export class Homes {
     homes(cottagesBy, this.cottages, md.cottage, null);
     homes(townhousesBy, this.townhouses, md.townhouse, null);
     homes(finesBy, this.fines, md.fine, null);
+    homes(villasBy, this.villas, md.villa, null);
     // Some of the bigger houses have their hearth lit: a wisp from the roof.
     const hearths = (sets: Building[][], models: THREE.BufferGeometry[]): void => {
       sets.forEach((bs, v) => {
@@ -839,6 +845,7 @@ export class Homes {
     hearths(cottagesBy, md.cottage);
     hearths(townhousesBy, md.townhouse);
     hearths(finesBy, md.fine);
+    hearths(villasBy, md.villa);
     // The shrine's altar fire smokes like a hearth.
     homes([shrines], [this.shrines], [this.shrineGeo], null);
     for (const b of shrines) {

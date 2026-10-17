@@ -12,7 +12,7 @@ import { lumpy } from './trees';
 import { leg, mergeTinted, type TPart } from './walkers';
 
 /**
- * The wild herds and the dairies' goats, redrawn every frame from the sim
+ * The wild herds, the dairies' goats and the pastures' sheep, redrawn every frame from the sim
  * (a herd is one point in the state; its animals are laid out round it here,
  * each its own way, never off firm open ground). Built on the walkers'
  * instanced, leg-swinging material: the coat is the tinted part.
@@ -77,11 +77,29 @@ function goat(): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/** A sheep, about 0.26 long: a round woolly body (the tinted part), a dark face and dark legs. */
+function sheep(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: lumpy(new THREE.IcosahedronGeometry(0.09, 1), 0.14, 631).scale(1.35, 0.85, 0.85).translate(0, 0.17, 0), color: '', tint: true },
+    { geo: lumpy(new THREE.IcosahedronGeometry(0.05, 0), 0.15, 632).scale(1, 0.8, 1).translate(0.08, 0.22, 0), color: '', tint: true },
+    // The face and ears.
+    { geo: new THREE.IcosahedronGeometry(0.036, 1).scale(1.45, 0.9, 0.8).rotateZ(-0.45).translate(0.15, 0.21, 0), color: PAL.sheepFace },
+    { geo: new THREE.ConeGeometry(0.012, 0.045, 3).rotateX(1.3).translate(0.13, 0.235, 0.035), color: PAL.sheepFace },
+    { geo: new THREE.ConeGeometry(0.012, 0.045, 3).rotateX(-1.3).translate(0.13, 0.235, -0.035), color: PAL.sheepFace },
+  ];
+  for (const [x, z, w] of [[-0.07, -0.035, 0.6], [-0.07, 0.035, -0.6], [0.07, -0.035, -0.6], [0.07, 0.035, 0.6]]) parts.push(leg(x, z, 0.1, 0.011, PAL.sheepFace, w));
+  return mergeTinted(parts);
+}
+
 const DEER_COATS = [PAL.deer, '#a06a3e', '#bb8652'];
 const BOAR_COATS = [PAL.boar, '#5a4638', '#46362e'];
 const GOAT_COATS = [PAL.goat, PAL.goat, '#d8c8b0', '#8a6a4e', '#f4f0e6', '#5a4a40'];
 /** Goats at each dairy. */
 const GOATS = 6;
+const SHEEP_COATS = [PAL.wool, PAL.wool, PAL.wool, '#f6f0e0', '#ddd0b0', '#4a4038'];
+/** Sheep at each pasture, and how far round it they graze (tiles from its middle). */
+const SHEEP = 9;
+const GRAZE = 2.8;
 
 const firm = (g: number): boolean => g === Ground.Ok || g === Ground.SteepForHome;
 
@@ -91,6 +109,7 @@ export class Animals {
   private readonly hinds: Look;
   private readonly boars: Look;
   private readonly goats: Look;
+  private readonly sheep: Look;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly p = new THREE.Vector3();
@@ -111,6 +130,7 @@ export class Animals {
     this.hinds = folk.people.look(deer(false));
     this.boars = folk.people.look(boar());
     this.goats = folk.people.look(goat());
+    this.sheep = folk.people.look(sheep());
     this.ground = mapIndex(map).ground;
   }
 
@@ -140,6 +160,43 @@ export class Animals {
     this.count = 0;
     for (let i = 0; i < s.herds.length; i++) this.herd(s, s.herds[i], i, alpha, time);
     for (const d of s.buildings) if (d.kind === 'dairy') this.dairy(s, d, time);
+    for (const p of s.buildings) if (p.kind === 'pasture') this.flock(s, p, time);
+  }
+
+  /**
+   * A pasture's flock: grazing the open grass round the fold, each sheep on
+   * its own slow loop, heads down now and then; a few always in or by the
+   * fold. Never on a road or a building (in to the fold if the grass round
+   * it is all built over); still if nobody works the pasture.
+   */
+  private flock(s: SimState, p: SimState['buildings'][number], time: number): void {
+    const yaw = facingOf(s, this.map.size, p);
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    const fx = p.x + 1.5;
+    const fz = p.z + 1.5;
+    const tended = rateOf(p) > 0;
+    const world = (lx: number, lz: number): [number, number] => [fx + lx * c + lz * sn, fz - lx * sn + lz * c];
+    for (let k = 0; k < SHEEP; k++) {
+      const seed = p.id * 17 + k;
+      const t = time * (tended ? 0.03 : 0.01) + hash2(seed, 1, 661) * 40;
+      // Where it grazes: the first three in and by the fold, the rest out round the pasture on the open grass.
+      const home = k < 3;
+      const a = hash2(seed, 2, 662) * Math.PI * 2 + Math.sin(t * 0.6) * 0.5;
+      const r = home ? 0.25 + 0.3 * hash2(seed, 4, 664) : 1.9 + (GRAZE - 1.9) * hash2(seed, 3, 663);
+      let lx = (home ? -0.5 : 0) + Math.cos(a) * r + Math.sin(t * 1.3) * 0.12;
+      let lz = Math.sin(a) * r + Math.cos(t) * 0.12;
+      let [x, z] = world(lx, lz);
+      if (!home && !this.open(s, x, z)) {
+        // Built over: back in the fold.
+        lx = -0.5 + Math.cos(a) * 0.5;
+        lz = Math.sin(a) * 0.5;
+        [x, z] = world(lx, lz);
+      }
+      const heading = yaw + a + Math.PI / 2 + Math.sin(t * 2) * 0.8;
+      const grazing = Math.sin(time * 0.8 + seed * 1.7) > -0.3;
+      this.place(x, z, heading, grazing ? -0.16 : 0, 0.9 + 0.12 * hash2(seed, 5, 665), !grazing && tended, SHEEP_COATS[Math.floor(hash2(seed, 6, 666) * SHEEP_COATS.length)], this.sheep);
+    }
   }
 
   /** A herd's animals round its point: loosely bunched while grazing, strung out behind the leader on the move, scattered while bolting. */

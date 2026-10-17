@@ -675,7 +675,10 @@ function start(): void {
     textures: renderer.info.memory.textures,
   });
   probe.setView = (name: string) => rig.jumpTo(VIEWS[name] ?? VIEWS.coast);
-  probe.jump = (v: CameraView) => rig.jumpTo(v);
+  probe.jump = (v: CameraView) => {
+    stopFollow();
+    rig.jumpTo(v);
+  };
   probe.view = () => rig.view;
   probe.tick = () => sim.state.tick;
   probe.meshes = () => {
@@ -835,6 +838,9 @@ function start(): void {
     // As if every need had run out at once, a month and a half ago (debug only).
     b.since = Math.min(b.since, t - 2000);
     b.waterUntil = b.foodUntil = b.religionUntil = b.cultureUntil = t - 450;
+    b.meatUntil = b.cheeseUntil = t - 450;
+    b.goodsUntil = b.goodsUntil.map(() => t - 450);
+    b.grace = 0;
     sim.state.rev++;
   };
   probe.speed = (s) => driver.setSpeed(s);

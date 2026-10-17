@@ -266,6 +266,202 @@ export function fineB(): THREE.BufferGeometry {
 }
 
 // ---------------------------------------------------------------------------
+// Villas (slice 11): the grandest homes, a colonnade round a garden.
+
+/** The villa's band under the eaves: Pompeian red with a cream line beneath, round a box of (dx, dz). */
+function redBand(parts: Part[], cx: number, cz: number, dx: number, dz: number, y: number): void {
+  parts.push({ geo: slab(cx - dx / 2 - 0.006, cz - dz / 2 - 0.006, cx + dx / 2 + 0.006, cz + dz / 2 + 0.006, y - 0.08, y), color: PAL.villaBand });
+  parts.push({ geo: slab(cx - dx / 2 - 0.008, cz - dz / 2 - 0.008, cx + dx / 2 + 0.008, cz + dz / 2 + 0.008, y - 0.105, y - 0.08), color: PAL.marble });
+}
+
+/** A column with a square capital, standing on y0, `h` tall. */
+function column(x: number, z: number, y0: number, h: number): Part[] {
+  return [
+    { geo: cyl(0.036, 0.044, h, 6).translate(x, y0 + h / 2, z), color: PAL.column },
+    { geo: slab(x - 0.055, z - 0.055, x + 0.055, z + 0.055, y0 + h, y0 + h + 0.035), color: PAL.marble },
+  ];
+}
+
+/**
+ * A box over (x0, z0)-(x1, z1) whose top slopes from yLo on one side to yHi on
+ * the side `high` names. With `thick` it is a plank of tiles following the
+ * slope; without, it is solid down to y0 (a wall whose top follows a roof).
+ */
+function sloped(x0: number, z0: number, x1: number, z1: number, yLo: number, yHi: number, high: '+x' | '-x' | '+z' | '-z', y0: number, thick?: number): THREE.BufferGeometry {
+  const g = new THREE.BoxGeometry(x1 - x0, 1, z1 - z0).translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const t = high === '+x' ? (x - x0) / (x1 - x0) : high === '-x' ? (x1 - x) / (x1 - x0) : high === '+z' ? (z - z0) / (z1 - z0) : (z1 - z) / (z1 - z0);
+    const top = yLo + (yHi - yLo) * t;
+    pos.setY(i, pos.getY(i) > 0 ? top : thick !== undefined ? top - thick : y0);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * The peristyle villa: a tall hall across the back under a hipped roof, a
+ * little tower at one corner, wings down both sides, and a grand gateway to
+ * the road; inside, a colonnade on all four sides round a garden with a pool
+ * and an olive tree. Warm stucco with a Pompeian red band.
+ */
+export function villaA(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.99, -0.99, 0.86, 0.99, -0.14, 0.06), color: PAL.plinth });
+  // The hall at the back, two storeys.
+  const hx0 = -0.97;
+  const hx1 = -0.4;
+  const hz = 0.97;
+  const top = 0.06 + 1.18;
+  const hcx = (hx0 + hx1) / 2;
+  parts.push({ geo: slab(hx0, -hz, hx1, hz, 0.06, top), color: PAL.villaWall });
+  parts.push({ geo: slab(hx0 - 0.005, -hz - 0.005, hx1 + 0.005, hz + 0.005, 0.06, 0.16), color: PAL.villaShade });
+  redBand(parts, hcx, 0, hx1 - hx0, 2 * hz, top);
+  hippedRoof(parts, hcx, 0, hx1 - hx0, 2 * hz, top, 0.38);
+  for (const z of [-0.55, 0, 0.55]) parts.push(...windowBack(hx0 - 0.004, 0.92, z), ...windowBack(hx0 - 0.004, 0.42, z));
+  for (const z of [-0.45, 0.45]) parts.push(...windowX(hx1 + 0.004, 0.94, z));
+  // The tower at the back corner, a storey above the hall, with a little loggia of columns.
+  const tx0 = hx0;
+  const tx1 = hx0 + 0.42;
+  const tz0 = -hz;
+  const tz1 = -hz + 0.42;
+  const ttop = top + 0.46;
+  parts.push({ geo: slab(tx0, tz0, tx1, tz1, top, ttop - 0.2), color: PAL.villaWall });
+  for (const [x, z] of [[tx0 + 0.05, tz0 + 0.05], [tx1 - 0.05, tz0 + 0.05], [tx0 + 0.05, tz1 - 0.05], [tx1 - 0.05, tz1 - 0.05]]) parts.push({ geo: cyl(0.025, 0.03, 0.2, 5).translate(x, ttop - 0.1, z), color: PAL.column });
+  redBand(parts, (tx0 + tx1) / 2, (tz0 + tz1) / 2, tx1 - tx0, tz1 - tz0, ttop + 0.04);
+  hippedRoof(parts, (tx0 + tx1) / 2, (tz0 + tz1) / 2, tx1 - tx0, tz1 - tz0, ttop + 0.04, 0.26);
+  // The wings down each side, one storey, their roofs sloping into the court.
+  // A roof plank's underside is at ROOF_LO - 0.045 over the colonnade beam (|z| = 0.47) and rises outwards.
+  const ROOF_LO = 0.695;
+  const ROOF_RISE = 0.5;
+  const roofAt = (z: number): number => ROOF_LO - 0.045 + ROOF_RISE * (z - 0.47);
+  const wx0 = hx1;
+  const wx1 = 0.8;
+  const wz = 0.66;
+  for (const side of [-1, 1]) {
+    const z0 = side < 0 ? -hz : wz;
+    const z1 = side < 0 ? -wz : hz;
+    // The wing's walls rise to meet its roof, which runs on over the colonnade and slopes down into the court.
+    const out = side < 0 ? '-z' : '+z';
+    parts.push({ geo: sloped(wx0, z0, wx1, z1, side < 0 ? roofAt(-z1) : roofAt(z0), side < 0 ? roofAt(-z0) : roofAt(z1), out, 0.06), color: PAL.villaWall });
+    parts.push({ geo: slab(wx0, z0 - 0.004, wx1 + 0.004, z1 + 0.004, 0.58, 0.64), color: PAL.villaBand });
+    const r0 = side < 0 ? -0.99 : 0.47;
+    const r1 = side < 0 ? -0.47 : 0.99;
+    parts.push({ geo: sloped(wx0, r0, wx1 + 0.06, r1, ROOF_LO, ROOF_LO + ROOF_RISE * (0.99 - 0.47), out, 0, 0.045), color: PAL.roofTile });
+    for (const x of [-0.1, 0.4]) parts.push(...windowZ(x, 0.38, side < 0 ? -hz - 0.004 : hz + 0.004, side));
+  }
+  // The front: a wall to the road either side of the gateway, and the gateway itself: steps, two columns, a pediment, red doors.
+  const fx = wx1;
+  parts.push({ geo: slab(fx - 0.08, -wz, fx, -0.22, 0.06, 0.72), color: PAL.villaWall });
+  parts.push({ geo: slab(fx - 0.08, 0.22, fx, wz, 0.06, 0.72), color: PAL.villaWall });
+  parts.push({ geo: slab(fx - 0.085, -wz, fx + 0.005, wz, 0.62, 0.68), color: PAL.villaBand });
+  parts.push({ geo: slab(fx, -0.3, fx + 0.16, 0.3, 0, 0.06), color: PAL.marbleShade });
+  for (const z of [-0.2, 0.2]) parts.push(...column(fx + 0.08, z, 0.06, 0.62));
+  parts.push({ geo: slab(fx - 0.04, -0.28, fx + 0.14, 0.28, 0.71, 0.78), color: PAL.marble });
+  parts.push({ geo: prism(0.2, 0.31, 0.16).translate(fx + 0.05, 0.78, 0), color: PAL.roofTile });
+  parts.push({ geo: gable(0.56, 0.15).rotateY(Math.PI / 2).translate(fx + 0.152, 0.78, 0), color: PAL.marble });
+  parts.push({ geo: slab(fx - 0.09, -0.13, fx - 0.07, 0.13, 0.06, 0.5), color: PAL.villaBand });
+  // The garden court inside, its colonnade on four sides under a lean-to of tiles.
+  const gx0 = hx1 + 0.06;
+  const gx1 = fx - 0.12;
+  const gz = wz - 0.04;
+  parts.push({ geo: slab(gx0, -gz, gx1, gz, 0.06, 0.075), color: PAL.courtyard });
+  parts.push({ geo: slab(gx0 + 0.14, -gz + 0.14, gx1 - 0.14, gz - 0.14, 0.075, 0.09), color: PAL.garden });
+  parts.push({ geo: slab(gx0 + 0.32, -0.16, gx1 - 0.32, 0.16, 0.08, 0.095), color: PAL.marbleShade });
+  parts.push({ geo: slab(gx0 + 0.35, -0.13, gx1 - 0.35, 0.13, 0.08, 0.098), color: PAL.pool });
+  const cx0 = gx0 + 0.07;
+  const cx1 = gx1 - 0.07;
+  const cz = gz - 0.07;
+  for (let i = 0; i < 4; i++) {
+    const x = cx0 + ((cx1 - cx0) * i) / 3;
+    parts.push(...column(x, -cz, 0.075, 0.5), ...column(x, cz, 0.075, 0.5));
+  }
+  for (const z of [-cz / 3, cz / 3]) parts.push(...column(cx0, z, 0.075, 0.5), ...column(cx1, z, 0.075, 0.5));
+  // A beam along the top of every row of columns, and the roofs over the two ends of the walk.
+  const beam = 0.075 + 0.5 + 0.035;
+  for (const z of [-cz, cz]) parts.push({ geo: slab(cx0 - 0.05, z - 0.04, cx1 + 0.05, z + 0.04, beam, beam + 0.04), color: PAL.marble });
+  for (const x of [cx0, cx1]) parts.push({ geo: slab(x - 0.04, -cz, x + 0.04, cz, beam, beam + 0.04), color: PAL.marble });
+  parts.push({ geo: sloped(hx1, -0.5, cx0 + 0.07, 0.5, ROOF_LO, ROOF_LO + ROOF_RISE * (cx0 + 0.07 - hx1), '-x', 0, 0.045), color: PAL.roofTile });
+  parts.push({ geo: sloped(cx1 - 0.07, -0.5, fx + 0.04, 0.5, ROOF_LO, ROOF_LO + ROOF_RISE * (fx + 0.04 - cx1 + 0.07) * 0.5, '+x', 0, 0.045), color: PAL.roofTile });
+  // The garden: an olive tree, low clipped hedges, pots.
+  parts.push(...olive(gx0 + 0.3, gz - 0.3, 1.0, 221));
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.08, 0.1, 0.36, 1, 1, 2), 0.15, 222).translate(gx1 - 0.2, 0.13, -0.24), color: PAL.gardenDark });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.1, 0.08, 2, 1, 1), 0.15, 223).translate(gx0 + 0.32, 0.13, -gz + 0.22), color: PAL.gardenDark });
+  parts.push(pithos(gx1 - 0.2, gz - 0.22));
+  // Two cypresses in pots before the gateway.
+  for (const z of [-0.5, 0.5]) {
+    parts.push({ geo: cyl(0.06, 0.05, 0.08, 6).translate(fx + 0.1, 0.04, z), color: PAL.pot });
+    parts.push({ geo: new THREE.ConeGeometry(0.075, 0.5, 6).translate(fx + 0.1, 0.33, z), color: PAL.cypress });
+  }
+  return merge(parts);
+}
+
+/**
+ * The garden villa: an L of a tall house under a hipped roof with an open
+ * loggia of columns along its upper floor, and a columned portico along the
+ * front; the rest of the plot a walled garden with an olive tree, two
+ * cypresses, a round basin and a vine pergola along its wall.
+ */
+export function villaB(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.99, -0.99, 0.92, 0.99, -0.14, 0.06), color: PAL.plinth });
+  // The house along the back and down one side.
+  const bx0 = -0.97;
+  const bx1 = -0.3;
+  const bz0 = -0.97;
+  const bz1 = 0.5;
+  const top = 0.06 + 1.2;
+  parts.push({ geo: slab(bx0, bz0, bx1, bz1, 0.06, top), color: PAL.villaWall });
+  parts.push({ geo: slab(bx0 - 0.005, bz0 - 0.005, bx1 + 0.005, bz1 + 0.005, 0.06, 0.16), color: PAL.villaShade });
+  redBand(parts, (bx0 + bx1) / 2, (bz0 + bz1) / 2, bx1 - bx0, bz1 - bz0, top);
+  hippedRoof(parts, (bx0 + bx1) / 2, (bz0 + bz1) / 2, bx1 - bx0, bz1 - bz0, top, 0.42);
+  for (const z of [-0.6, -0.15, 0.3]) parts.push(...windowBack(bx0 - 0.004, 0.92, z));
+  parts.push(...windowZ((bx0 + bx1) / 2, 0.92, bz1 + 0.004, 1), ...windowZ((bx0 + bx1) / 2, 0.42, bz1 + 0.004, 1));
+  // The upper loggia along its front: a balcony floor, five columns, the dark of the room behind.
+  const lx = bx1;
+  parts.push({ geo: slab(lx - 0.02, bz0 + 0.08, lx + 0.003, bz1 - 0.08, 0.7, top - 0.12), color: PAL.door });
+  parts.push({ geo: slab(lx, bz0 + 0.04, lx + 0.16, bz1 - 0.04, 0.66, 0.71), color: PAL.marble });
+  for (let i = 0; i < 5; i++) parts.push(...column(lx + 0.12, bz0 + 0.1 + ((bz1 - bz0 - 0.2) * i) / 4, 0.71, 0.34));
+  parts.push({ geo: slab(lx, bz0 + 0.04, lx + 0.17, bz1 - 0.04, 1.08, top - 0.04), color: PAL.villaBand });
+  // The portico below it along the front of the house to the road: a floor, six columns, a lean-to roof.
+  const px0 = bx1;
+  const px1 = 0.86;
+  const pz0 = -0.97;
+  const pz1 = -0.55;
+  parts.push({ geo: slab(px0, pz0, px1, pz1, 0.06, 0.1), color: PAL.marbleShade });
+  parts.push({ geo: sloped(px0, pz0, px1, pz0 + 0.08, 0.79, 0.81, '-z', 0.06), color: PAL.villaWall });
+  for (let i = 0; i < 6; i++) parts.push(...column(px0 + 0.1 + ((px1 - px0 - 0.16) * i) / 5, pz1 - 0.04, 0.1, 0.5));
+  const pb = 0.1 + 0.5 + 0.035;
+  parts.push({ geo: slab(px0, pz1 - 0.08, px1 + 0.02, pz1, pb, pb + 0.04), color: PAL.marble });
+  parts.push({ geo: sloped(px0, pz0 - 0.03, px1 + 0.05, pz1 + 0.04, pb + 0.04 + 0.045, pb + 0.04 + 0.045 + 0.18, '-z', 0, 0.045), color: PAL.roofTile });
+  parts.push({ geo: sloped(px1 - 0.02, pz0, px1 + 0.02, pz1, pb + 0.04, pb + 0.2, '-z', 0.06), color: PAL.villaWall });
+  parts.push({ geo: slab(px1 - 0.025, pz0 + 0.12, px1 + 0.025, pz1 - 0.1, 0.06, 0.5), color: PAL.villaBand });
+  // The garden: grass, a gravel walk to the house, the round basin, an olive tree and two cypresses.
+  const gx0 = bx1;
+  const gx1 = 0.9;
+  const gz0 = pz1;
+  const gz1 = 0.97;
+  parts.push({ geo: slab(gx0 + 0.02, gz0 + 0.02, gx1 - 0.04, gz1 - 0.04, 0.06, 0.075), color: PAL.garden });
+  parts.push({ geo: slab(gx0 + 0.02, -0.1, gx1 - 0.04, 0.06, 0.06, 0.08), color: PAL.courtyard });
+  parts.push({ geo: cyl(0.17, 0.18, 0.08, 10).translate(0.34, 0.1, 0.42), color: PAL.marbleShade });
+  parts.push({ geo: cyl(0.14, 0.14, 0.02, 10).translate(0.34, 0.14, 0.42), color: PAL.pool });
+  parts.push({ geo: cyl(0.025, 0.03, 0.14, 5).translate(0.34, 0.2, 0.42), color: PAL.marble });
+  parts.push(...olive(-0.02, 0.62, 1.1, 231));
+  parts.push(...cypress(0.74, 0.22, 0.86), ...cypress(0.74, 0.76, 0.86));
+  // The garden wall to the road and the far side, a gate, and a vine pergola along the far wall.
+  parts.push({ geo: slab(gx1 - 0.06, gz0, gx1, -0.16, 0.06, 0.32), color: PAL.villaWall });
+  parts.push({ geo: slab(gx1 - 0.06, 0.12, gx1, gz1, 0.06, 0.32), color: PAL.villaWall });
+  parts.push({ geo: slab(gx0, gz1 - 0.06, gx1, gz1, 0.06, 0.32), color: PAL.villaWall });
+  parts.push({ geo: slab(gx0, gz1 - 0.065, gx1 + 0.005, gz1 + 0.005, 0.28, 0.32), color: PAL.villaBand });
+  for (const x of [-0.18, 0.18, 0.54]) parts.push({ geo: cyl(0.016, 0.016, 0.5, 4).translate(x, 0.31, gz1 - 0.24), color: PAL.wood });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.86, 0.06, 0.24, 3, 1, 1), 0.25, 232).translate(0.18, 0.58, gz1 - 0.15), color: PAL.vineLeaf });
+  parts.push(pithos(gx0 + 0.12, -0.36), amphora(gx0 + 0.3, -0.38, 0.2));
+  return merge(parts);
+}
+
+// ---------------------------------------------------------------------------
 
 /** Where the shrine's altar fire is, in its frame (for the smoke). */
 export const SHRINE_FIRE = new THREE.Vector3(0.77, 0.3, 0);

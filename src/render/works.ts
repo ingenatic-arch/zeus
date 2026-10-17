@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM } from '../sim/food';
-import { held, OIL, OLIVES } from '../sim/foods';
+import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM, stallRoom } from '../sim/food';
+import { FLEECE, GRAPES, held, OIL, OLIVES, WINE } from '../sim/foods';
 import { hasStall } from '../sim/goods';
 import { MAKERS, stageOf } from '../sim/production';
-import { GROVE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_OIL } from '../sim/stores';
+import { GROVE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
@@ -479,7 +479,7 @@ function trough(): THREE.BufferGeometry {
 }
 
 /** Where a piece of a lodge or dairy stands in the building's frame: at (lx, lz), turned by yaw, sampled for its ground over r. */
-type Piece = 'panel' | 'shed' | 'hayrack' | 'trough' | 'rack' | 'hide' | 'firepit' | 'olivetree' | 'oliveladder' | 'terrace' | 'basin' | 'beampress' | 'yardwall' | 'gate';
+type Piece = 'panel' | 'shed' | 'hayrack' | 'trough' | 'rack' | 'hide' | 'firepit' | 'olivetree' | 'oliveladder' | 'terrace' | 'basin' | 'beampress' | 'yardwall' | 'gate' | 'sheeptrough' | 'vinerow' | 'vat';
 /** (r: the half-size of the ground sampled under it; rz across, when it differs.) */
 type Placed = { piece: Piece; lx: number; lz: number; yaw: number; len: number; r: number; rz?: number };
 
@@ -578,6 +578,9 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
   grove: [0.55, -1.4, 1.45, -0.5],
   press: [-1.45, -1.43, -0.15, 0.3],
   storehouse: [-1.48, -1.48, -0.7, 1.48],
+  pasture: [0.55, -1.4, 1.36, -0.74],
+  vineyard: [0.68, -1.42, 1.38, -0.82],
+  winery: [-1.47, -1.45, -0.25, 0.47],
 };
 /**
  * Kinds levelled to the highest ground under their main building (or, with
@@ -585,7 +588,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * hillsides, and their floors and yards stand on terraces whose foundations
  * run down the slope, so nothing is buried on the uphill side.
  */
-const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse']);
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery']);
 
 
 // ---------------------------------------------------------------------------
@@ -828,13 +831,279 @@ function oilStallModel(): THREE.BufferGeometry {
 }
 
 // ---------------------------------------------------------------------------
+// Fleece and wine (slice 11).
+
+/**
+ * A stall at the side of the agora's square, centred at the origin, its
+ * front (where the vendor stands and the awning slopes down) facing +z: a
+ * narrow counter under a striped awning on four poles, a big jar on the
+ * ground at its end. Its goods are drawn with its stock.
+ */
+function stallParts(dark: string, light: string): Part[] {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.36, -0.12, 0.36, 0.12, 0, 0.26), color: PAL.wood });
+  parts.push({ geo: slab(-0.38, -0.14, 0.38, 0.14, 0.26, 0.29), color: PAL.woodDark });
+  for (const [x, z] of [[-0.42, -0.2], [0.42, -0.2], [-0.42, 0.24], [0.42, 0.24]]) parts.push({ geo: cyl(0.016, 0.016, 0.72, 4).translate(x, 0.36, z), color: PAL.pole });
+  for (let k = 0; k < 5; k++) {
+    const x0 = -0.48 + (k * 0.96) / 5;
+    parts.push({ geo: slab(x0, -0.28, x0 + 0.96 / 5, 0.28, 0, 0.02).rotateX(0.18).translate(0, 0.73, 0.02), color: k % 2 ? light : dark });
+  }
+  return parts;
+}
+const moveParts = (parts: Part[], f: (g: THREE.BufferGeometry) => THREE.BufferGeometry): Part[] => parts.map((p) => ({ ...p, geo: f(p.geo) }));
+
+/** Where the fleece stall stands (across the square from the oil stall, its front to the square) and the wine stall (at the front of the square, its front to the road). */
+const FLEECE_STALL_X = 0.42;
+const FLEECE_STALL_Z = 1.08;
+const WINE_STALL_X = 1.12;
+const WINE_STALL_Z = 0;
+
+/** The fleece stall: slate-blue and cream stripes, a bale or two on the ground beside it and a distaff leaning on the counter. */
+function fleeceStallModel(): THREE.BufferGeometry {
+  const parts = moveParts(stallParts(PAL.fleeceVendorDress, PAL.fleeceVendorScarf), (g) => g.rotateY(Math.PI).translate(FLEECE_STALL_X, 0, FLEECE_STALL_Z));
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.1, 0), 0.2, 791).scale(1.2, 0.75, 1).translate(FLEECE_STALL_X + 0.52, 0.07, FLEECE_STALL_Z), color: PAL.wool });
+  parts.push({ geo: cyl(0.092, 0.092, 0.018, 6).scale(1.15, 1, 0.98).translate(FLEECE_STALL_X + 0.52, 0.07, FLEECE_STALL_Z), color: PAL.rope });
+  parts.push({ geo: cyl(0.008, 0.008, 0.36, 3).rotateX(0.3).translate(FLEECE_STALL_X - 0.3, 0.42, FLEECE_STALL_Z - 0.05), color: PAL.wood });
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.035, 0), 0.2, 792).scale(1, 1.4, 1).translate(FLEECE_STALL_X - 0.3, 0.6, FLEECE_STALL_Z - 0.0), color: PAL.wool });
+  return merge(parts);
+}
+
+/** The wine stall: wine-red and cream stripes, a rack of amphorae lying on their sides behind the counter, a big jar on the ground. */
+function wineStallModel(): THREE.BufferGeometry {
+  const parts = moveParts(stallParts(PAL.wineVendorTunic, PAL.fleeceVendorScarf), (g) => g.rotateY(Math.PI / 2).translate(WINE_STALL_X, 0, WINE_STALL_Z));
+  parts.push(amphora(WINE_STALL_X, WINE_STALL_Z - 0.5, 0.26));
+  // The rack behind the counter: two trestles and amphorae lying on them.
+  for (const z of [-0.3, 0.3]) parts.push({ geo: slab(WINE_STALL_X - 0.34, WINE_STALL_Z + z - 0.02, WINE_STALL_X - 0.22, WINE_STALL_Z + z + 0.02, 0, 0.16), color: PAL.woodDark });
+  for (const z of [-0.18, 0, 0.18]) {
+    parts.push({ geo: new THREE.LatheGeometry([new THREE.Vector2(0, -0.1), new THREE.Vector2(0.045, -0.06), new THREE.Vector2(0.05, 0.02), new THREE.Vector2(0.02, 0.08), new THREE.Vector2(0.02, 0.1)], 5).rotateX(Math.PI / 2).rotateY(Math.PI / 2).translate(WINE_STALL_X - 0.28, 0.2, WINE_STALL_Z + z), color: PAL.amphora });
+  }
+  return merge(parts);
+}
+
+/**
+ * The sheep pasture's shepherd's hut at the front corner, by the road: a
+ * rubble-stone hut under thatch, a crook by the door; and the shearing
+ * shelter at the other front corner, a thatched roof on four posts over a
+ * bench, where the bales are stacked (drawn with its store). The fold's
+ * dry-stone wall and the trough stand on their own ground (PASTURE_PIECES).
+ */
+function pastureModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = 0.6;
+  const x1 = 1.32;
+  const z0 = -1.36;
+  const z1 = -0.78;
+  parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, -0.5, 0.05), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.42), color: PAL.stone });
+  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) parts.push({ geo: slab(x - 0.04, z - 0.04, x + 0.04, z + 0.04, 0.05, 0.42), color: PAL.rockWarm });
+  parts.push({ geo: lumpy(prism(x1 - x0 + 0.16, (z1 - z0) / 2 + 0.1, 0.34), 0.03, 801).translate((x0 + x1) / 2, 0.42, (z0 + z1) / 2), color: PAL.thatch });
+  parts.push({ geo: slab(x1, -1.14, x1 + 0.02, -0.98, 0.05, 0.34), color: PAL.door });
+  // The crook, leaning by the door.
+  parts.push({ geo: cyl(0.008, 0.008, 0.5, 3).rotateZ(-0.18).translate(x1 + 0.06, 0.25, -0.86), color: PAL.wood });
+  parts.push({ geo: new THREE.TorusGeometry(0.035, 0.008, 3, 6, Math.PI * 1.3).translate(x1 + 0.1, 0.5, -0.86), color: PAL.wood });
+  // The shearing shelter.
+  const sx0 = 0.62;
+  const sx1 = 1.3;
+  const sz0 = 0.6;
+  const sz1 = 1.32;
+  for (const [x, z] of [[sx0, sz0], [sx1, sz0], [sx0, sz1], [sx1, sz1]]) parts.push({ geo: cyl(0.022, 0.026, 0.62, 4).translate(x, 0.21, z), color: PAL.wood });
+  parts.push({ geo: lumpy(prism(sx1 - sx0 + 0.18, (sz1 - sz0) / 2 + 0.12, 0.24), 0.03, 802).translate((sx0 + sx1) / 2, 0.52, (sz0 + sz1) / 2), color: PAL.thatch });
+  parts.push({ geo: slab(sx0 + 0.06, sz1 - 0.18, sx1 - 0.06, sz1 - 0.06, 0.12, 0.17), color: PAL.wood });
+  // A heap of fresh fleece on the floor, shears on the bench.
+  parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.12, 0), 0.25, 803).scale(1.3, 0.45, 1.1).translate(sx0 + 0.18, 0.04, sz0 + 0.2), color: PAL.wool });
+  parts.push({ geo: slab(sx1 - 0.3, sz1 - 0.14, sx1 - 0.16, sz1 - 0.1, 0.17, 0.18), color: PAL.rockGrey });
+  return merge(parts);
+}
+
+/** A sheep's water trough: a hollowed log on two stones. */
+function sheepTrough(): THREE.BufferGeometry {
+  return merge([
+    { geo: cyl(0.07, 0.07, 0.5, 6).rotateZ(Math.PI / 2).scale(1, 0.7, 1).translate(0, 0.06, 0), color: PAL.log },
+    { geo: slab(-0.23, -0.045, 0.23, 0.045, 0.06, 0.1), color: PAL.shallow },
+    { geo: slab(-0.2, -0.08, -0.12, 0.08, -0.25, 0.02), color: PAL.stone },
+    { geo: slab(0.12, -0.08, 0.2, 0.08, -0.25, 0.02), color: PAL.stone },
+  ]);
+}
+
+/** The vineyard's rows: four rows of trellised vines down the field (behind the hut), each a run of lengths on its own ground. */
+const VINE_LEN = 0.48;
+const VINE_ROWS = [-1.05, -0.35, 0.35, 1.05];
+const VINE_XS = [-1.18, -0.7, -0.22, 0.26];
+
+/** A length of trellised vine along x, VINE_LEN long: a stake at each end (run into the slope), a cross-bar wire, and the leafy cane along it. */
+function vineRow(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (const x of [-VINE_LEN / 2, VINE_LEN / 2]) {
+    parts.push({ geo: cyl(0.012, 0.015, 0.75, 4).translate(x, 0.1, 0), color: PAL.vineWood });
+    parts.push({ geo: slab(x - 0.008, -0.08, x + 0.008, 0.08, 0.4, 0.415), color: PAL.vineWood });
+  }
+  parts.push({ geo: cyl(0.004, 0.004, VINE_LEN, 3).rotateZ(Math.PI / 2).translate(0, 0.41, 0), color: PAL.woodDark });
+  // The twisted trunk up the middle and the leaves along the wire.
+  parts.push({ geo: cyl(0.016, 0.022, 0.4, 4).rotateZ(0.12).translate(0.02, 0.2, 0), color: PAL.vineWood });
+  // Clumps of leaves along the wire with daylight between them, so it reads as a row of vines and not a hedge.
+  const clumps: [number, number, number, number][] = [[-0.19, 0.46, 0.085, 811], [-0.06, 0.49, 0.075, 812], [0.07, 0.46, 0.085, 813], [0.2, 0.48, 0.07, 814]];
+  clumps.forEach(([x, y, r, seed], i) => {
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(r, 1), 0.3, seed).scale(1.2, 0.75, 1.1).translate(x, y, (i % 2) * 0.02 - 0.01), color: i % 2 ? PAL.vineLeafDark : PAL.vineLeaf });
+  });
+  return merge(parts);
+}
+
+/** The grapes hanging under one length of vine, white (they take their colour as they ripen, green to purple). */
+function vineGrapes(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  for (const [x, z] of [[-0.15, 0.1], [0.02, -0.11], [0.17, 0.1]]) {
+    for (const [dx, dy, dz, r] of [[0, 0, 0, 0.032], [0.02, -0.035, 0.008, 0.026], [-0.016, -0.03, -0.006, 0.026], [0.004, -0.065, 0, 0.02]]) {
+      parts.push({ geo: new THREE.IcosahedronGeometry(r, 0).translate(x + dx, 0.37 + dy, z + dz), color: '#ffffff' });
+    }
+  }
+  return merge(parts);
+}
+
+/** A round basket heaped with purple grapes, a vine leaf on top. */
+function grapeBasket(): THREE.BufferGeometry {
+  return merge([
+    { geo: cyl(0.075, 0.06, 0.09, 7).translate(0, 0.045, 0), color: PAL.basket },
+    { geo: lumpy(new THREE.SphereGeometry(0.072, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0.35, 821).scale(1, 0.75, 1).translate(0, 0.085, 0), color: PAL.grapeRipe },
+    { geo: new THREE.CircleGeometry(0.035, 5).rotateX(-Math.PI / 2 + 0.3).translate(0.02, 0.14, 0.02), color: PAL.vineLeaf },
+  ]);
+}
+
+/**
+ * The vineyard's vinedresser's hut at its front corner, by the road: a
+ * little whitewashed hut under tiles with a vine pergola over its door, a
+ * bench, and empty baskets (the full ones are drawn with its store).
+ */
+function vineyardModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = 0.72;
+  const x1 = 1.34;
+  const z0 = -1.38;
+  const z1 = -0.86;
+  parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, -1.2, 0.05), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, 0.42), color: PAL.whitewash });
+  parts.push({ geo: prism(x1 - x0 + 0.14, (z1 - z0) / 2 + 0.1, 0.26).translate((x0 + x1) / 2, 0.42, (z0 + z1) / 2), color: PAL.roofTile });
+  parts.push({ geo: slab(x1, -1.2, x1 + 0.02, -1.04, 0.05, 0.34), color: PAL.door });
+  // The pergola before the door: two posts and a leafy roof.
+  for (const z of [-1.36, -0.88]) parts.push({ geo: cyl(0.014, 0.014, 0.42, 4).translate(x1 + 0.24, 0.21, z), color: PAL.vineWood });
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.05, 0.56, 1, 1, 2), 0.3, 831).translate(x1 + 0.12, 0.43, -1.12), color: PAL.vineLeaf });
+  parts.push({ geo: slab(0.78, -0.72, 1.24, -0.64, 0.12, 0.16), color: PAL.wood });
+  for (let i = 0; i < 3; i++) parts.push({ geo: cyl(0.08, 0.065, 0.07, 7).translate(1.38, 0.035 + i * 0.05, -0.62), color: PAL.basket });
+  return merge(parts);
+}
+
+/**
+ * The winery: a long stone press house under tiles at the back, its wide
+ * door to the yard, and a little lean-to on its side where the amphorae are
+ * sealed. The treading vat stands on its own ground in the yard
+ * (WINERY_PIECES); baskets of grapes and the amphorae of wine are drawn
+ * with its store.
+ */
+function wineryModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x0 = -1.42;
+  const x1 = -0.3;
+  const z0 = -1.4;
+  const z1 = 0.42;
+  parts.push({ geo: slab(x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05, -1.2, 0.08), color: PAL.plinth });
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.08, 0.78), color: PAL.vatStone });
+  parts.push({ geo: slab(x0 - 0.01, z0 - 0.01, x1 + 0.01, z1 + 0.01, 0.08, 0.18), color: PAL.pressStoneDark });
+  // A band of wine-red under the eaves, the winery's mark.
+  parts.push({ geo: slab(x0 - 0.008, z0 - 0.008, x1 + 0.008, z1 + 0.008, 0.7, 0.76), color: PAL.wineSeal });
+  const cx = (x0 + x1) / 2;
+  const cz = (z0 + z1) / 2;
+  parts.push({ geo: prism(z1 - z0 + 0.2, (x1 - x0) / 2 + 0.12, 0.38).rotateY(Math.PI / 2).translate(cx, 0.78, cz), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.03, 0.03, z1 - z0 + 0.22, 5).rotateX(Math.PI / 2).translate(cx, 1.16, cz), color: PAL.roofTileDark });
+  for (const side of [-1, 1]) {
+    const y = 0.78 + 0.38 * 0.5;
+    const x = cx + side * ((x1 - x0) / 2 + 0.12) * 0.5;
+    parts.push({ geo: new THREE.BoxGeometry(0.03, 0.02, z1 - z0 + 0.2).rotateZ(side * 0.55).translate(x, y + 0.012, cz), color: PAL.roofTileDark });
+  }
+  // The wide double door to the yard, a step, two high windows.
+  parts.push({ geo: slab(x1, -0.92, x1 + 0.02, -0.5, 0.08, 0.6), color: PAL.door });
+  parts.push({ geo: slab(x1 + 0.02, -0.96, x1 + 0.18, -0.46, -1.2, 0.04), color: PAL.pressStoneDark });
+  parts.push(...windowX(x1 + 0.005, 0.56, -0.05), ...windowX(x1 + 0.005, 0.56, -1.22));
+  // The lean-to on the far side: posts and a tiled slope over a bench of empty amphorae.
+  for (const x of [-1.3, -0.42]) parts.push({ geo: cyl(0.025, 0.03, 0.56, 5).translate(x, 0.28, 1.32), color: PAL.wood });
+  parts.push({ geo: new THREE.BoxGeometry(1.08, 0.04, 0.96).rotateX(-0.32).translate(-0.86, 0.66, 0.94), color: PAL.roofTile });
+  parts.push({ geo: slab(-1.3, 0.62, -0.42, 1.22, -1.2, 0.08), color: PAL.paving });
+  return merge(parts);
+}
+
+/** The winery's treading vat, centred: a raised stone vat full of purple must, a step up to it, its spout into a sunken collecting basin before it. Its foot runs down into the slope. */
+function treadingVat(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.42, -0.42, 0.42, 0.42, -0.6, 0.22), color: PAL.vatStone });
+  parts.push({ geo: slab(-0.44, -0.44, 0.44, 0.44, 0.22, 0.27), color: PAL.pressStoneDark });
+  parts.push({ geo: slab(-0.36, -0.36, 0.36, 0.36, 0.22, 0.275), color: PAL.wineDark });
+  // Trodden grapes heaped in the must.
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.5, 0.05, 0.5, 2, 1, 2), 0.35, 841).translate(-0.04, 0.29, 0.02), color: PAL.grapeRipe });
+  // The step at the back and the spout and basin at the front.
+  parts.push({ geo: slab(-0.56, -0.2, -0.42, 0.2, -0.6, 0.11), color: PAL.pressStoneDark });
+  parts.push({ geo: slab(0.42, -0.04, 0.54, 0.04, 0.13, 0.17), color: PAL.pressStoneDark });
+  parts.push({ geo: cyl(0.16, 0.16, 0.3, 9).translate(0.66, -0.12, 0), color: PAL.pressStoneDark });
+  parts.push({ geo: cyl(0.13, 0.13, 0.04, 9).translate(0.66, 0.02, 0), color: PAL.wineDark });
+  // A pole on the post at the back corner, for the treaders to hold.
+  parts.push({ geo: cyl(0.014, 0.014, 0.7, 4).translate(-0.38, 0.6, -0.38), color: PAL.wood });
+  parts.push({ geo: cyl(0.01, 0.01, 0.76, 4).rotateX(Math.PI / 2).translate(-0.38, 0.92, 0), color: PAL.wood });
+  parts.push({ geo: cyl(0.014, 0.014, 0.7, 4).translate(-0.38, 0.6, 0.38), color: PAL.wood });
+  return merge(parts);
+}
+
+/** An amphora of wine standing in the yard (pointed foot sunk in the ground), two handles, a dark wine-red seal. */
+function wineAmphoraModel(): THREE.BufferGeometry {
+  const body = [
+    new THREE.Vector2(0.0, -0.02),
+    new THREE.Vector2(0.025, 0.02),
+    new THREE.Vector2(0.065, 0.1),
+    new THREE.Vector2(0.06, 0.17),
+    new THREE.Vector2(0.025, 0.21),
+    new THREE.Vector2(0.022, 0.25),
+    new THREE.Vector2(0.03, 0.26),
+  ];
+  const parts: Part[] = [{ geo: new THREE.LatheGeometry(body, 7), color: PAL.amphora }];
+  parts.push({ geo: cyl(0.028, 0.025, 0.02, 6).translate(0, 0.265, 0), color: PAL.wineSeal });
+  for (const z of [-1, 1]) parts.push({ geo: new THREE.TorusGeometry(0.035, 0.008, 3, 6, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2 - 0.3).translate(0, 0.205, z * 0.035), color: PAL.amphoraDark });
+  return merge(parts);
+}
+
+/** A bale of fleece on the ground: a lumpy cream bundle with a rope band. */
+function baleModel(): THREE.BufferGeometry {
+  return merge([
+    { geo: lumpy(new THREE.IcosahedronGeometry(0.1, 0), 0.2, 851).scale(1.25, 0.72, 1).translate(0, 0.07, 0), color: PAL.wool },
+    { geo: lumpy(new THREE.IcosahedronGeometry(0.06, 0), 0.25, 852).scale(1.2, 0.6, 1).translate(0.03, 0.12, 0.02), color: PAL.woolShade },
+    { geo: cyl(0.094, 0.094, 0.022, 6).scale(1.2, 1, 0.98).translate(0, 0.07, 0), color: PAL.rope },
+  ]);
+}
+
+/** The fold: a round dry-stone wall behind the hut and the shelter (centre and radius in the pasture's frame), open at the front for the flock. */
+const FOLD_X = -0.5;
+const FOLD_Z = 0.0;
+const FOLD_R = 0.82;
+const PASTURE_PIECES: Placed[] = (() => {
+  const out: Placed[] = [];
+  const n = 11;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    // The gap faces the front (+x), towards the road and the open grass.
+    if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.4) continue;
+    out.push({ piece: 'terrace', lx: FOLD_X + Math.cos(a) * FOLD_R, lz: FOLD_Z + Math.sin(a) * FOLD_R, yaw: -(a + Math.PI / 2), len: ((2 * Math.PI * FOLD_R) / n / TERRACE) * 1.05, r: 0.25 });
+  }
+  out.push({ piece: 'sheeptrough', lx: 0.55, lz: 0.05, yaw: Math.PI / 2, len: 1, r: 0.25 });
+  return out;
+})();
+/** The vineyard's lengths of vine, row by row. */
+const VINEYARD_PIECES: Placed[] = VINE_ROWS.flatMap((lz) => VINE_XS.map((lx): Placed => ({ piece: 'vinerow', lx, lz, yaw: 0, len: 1, r: VINE_LEN / 2, rz: 0.1 })));
+/** The winery's treading vat in the yard. */
+const WINERY_PIECES: Placed[] = [{ piece: 'vat', lx: 0.4, lz: -0.55, yaw: 0, len: 1, r: 0.45 }];
+
+// ---------------------------------------------------------------------------
 
 const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -858,12 +1127,26 @@ const STALL_FULL = STALL_CAP * 0.65;
 const STALL_FULL_MEAT = STALL_ROOM[1] * 0.65;
 const STALL_FULL_CHEESE = STALL_ROOM[2] * 0.65;
 const STALL_FULL_OIL = GOOD_STALL_ROOM * 0.65;
+const STALL_FULL_FLEECE = stallRoom(FLEECE) * 0.65;
+const STALL_FULL_WINE = stallRoom(WINE) * 0.65;
 /** Baskets of olives by a grove's hut and at a press; jars by a press's door, in a storehouse's yard, on the oil stall. */
 const GROVE_BASKETS = 6;
 const PRESS_BASKETS = 5;
 const PRESS_JARS = 8;
-const STORE_JARS = 24;
+const STORE_JARS = 16;
 const STALL_JARS = 4;
+/** Bales by a pasture's shelter, in a storehouse's yard, on the fleece stall; amphorae at a winery, in a storehouse's yard, on the wine stall; baskets of grapes by a vineyard's hut and at a winery. */
+const PASTURE_BALES = 6;
+const STORE_BALES = 12;
+const STALL_BALES = 3;
+const WINERY_AMPHORAE = 10;
+const STORE_AMPHORAE = 12;
+const STALL_AMPHORAE = 3;
+const VINEYARD_BASKETS = 6;
+const WINERY_BASKETS = 5;
+/** The grapes' colour on the vine, from just set (green) to ripe (purple). */
+const GRAPE_GREEN = new THREE.Color(PAL.grapeGreen);
+const GRAPE_RIPE = new THREE.Color(PAL.grapeRipe);
 /** The olives' colour on the tree, from just set (green) to ripe (near black). */
 const FRUIT_GREEN = new THREE.Color(PAL.oliveGreen);
 const FRUIT_RIPE = new THREE.Color(PAL.oliveRipe);
@@ -886,7 +1169,7 @@ export class Works {
    * holds. Rebuilt only when one of them is placed, cleared, turned or rising.
    */
   private readonly merged: MergedChunks;
-  private readonly models: Record<WorkKind | 'awning' | 'oilstall' | Piece, THREE.BufferGeometry>;
+  private readonly models: Record<WorkKind | 'awning' | 'oilstall' | 'fleecestall' | 'winestall' | Piece, THREE.BufferGeometry>;
   private readonly wheat: ChunkedInstances;
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
@@ -896,6 +1179,10 @@ export class Works {
   private readonly fruit: ChunkedInstances;
   private readonly baskets: ChunkedInstances;
   private readonly jars: ChunkedInstances;
+  private readonly bales: ChunkedInstances;
+  private readonly amphorae: ChunkedInstances;
+  private readonly grapes: ChunkedInstances;
+  private readonly grapeBaskets: ChunkedInstances;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -944,6 +1231,14 @@ export class Works {
       beampress: beamPress(),
       yardwall: yardWall(),
       gate: storeGate(),
+      pasture: pastureModel(),
+      vineyard: vineyardModel(),
+      winery: wineryModel(),
+      fleecestall: fleeceStallModel(),
+      winestall: wineStallModel(),
+      sheeptrough: sheepTrough(),
+      vinerow: vineRow(),
+      vat: treadingVat(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -958,7 +1253,12 @@ export class Works {
     this.fruit = new ChunkedInstances('olives', groveFruit(), mat, ALL, { castShadow: false, receiveShadow: true, colors: true });
     this.baskets = new ChunkedInstances('olive-baskets', oliveBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
     this.jars = new ChunkedInstances('oil-jars', oilJarModel(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
-    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars];
+    // Bales of fleece, amphorae of wine, grapes on the vines (coloured as they ripen) and baskets of grapes: few, one batch each too.
+    this.bales = new ChunkedInstances('fleece-bales', baleModel(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.amphorae = new ChunkedInstances('wine-amphorae', wineAmphoraModel(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.grapes = new ChunkedInstances('grapes', vineGrapes(), mat, ALL, { castShadow: false, receiveShadow: true, colors: true });
+    this.grapeBaskets = new ChunkedInstances('grape-baskets', grapeBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
+    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars, this.bales, this.amphorae, this.grapes, this.grapeBaskets];
     for (const c of this.all) this.group.add(c.group);
   }
 
@@ -979,9 +1279,14 @@ export class Works {
     if (b.kind === 'dairy') return `dairy:${face}:${shown(b.cheese, DAIRY_STORE, BENCH)}`;
     if (b.kind === 'grove') return `grove:${face}:${stageOf(b, MAKERS.grove!)}:${shown(held(b, OLIVES), GROVE_STORE, GROVE_BASKETS)}`;
     if (b.kind === 'press') return `press:${face}:${shown(held(b, OLIVES), PRESS_OLIVES, PRESS_BASKETS)}:${shown(held(b, OIL), PRESS_STORE, PRESS_JARS)}`;
-    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}`;
+    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}:${shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES)}:${shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE)}`;
+    if (b.kind === 'pasture') return `pasture:${face}:${shown(held(b, FLEECE), PASTURE_STORE, PASTURE_BALES)}`;
+    if (b.kind === 'vineyard') return `vineyard:${face}:${stageOf(b, MAKERS.vineyard!)}:${shown(held(b, GRAPES), VINEYARD_STORE, VINEYARD_BASKETS)}`;
+    if (b.kind === 'winery') return `winery:${face}:${shown(held(b, GRAPES), WINERY_GRAPES, WINERY_BASKETS)}:${shown(held(b, WINE), WINERY_STORE, WINERY_AMPHORAE)}`;
     const oil = hasStall(b, OIL) ? `:oil${shown(held(b, OIL), STALL_FULL_OIL, STALL_JARS)}` : '';
-    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}:${shown(b.meat, STALL_FULL_MEAT, STALL_HAMS)}:${shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES)}${oil}`;
+    const fleece = hasStall(b, FLEECE) ? `:fleece${shown(held(b, FLEECE), STALL_FULL_FLEECE, STALL_BALES)}` : '';
+    const wine = hasStall(b, WINE) ? `:wine${shown(held(b, WINE), STALL_FULL_WINE, STALL_AMPHORAE)}` : '';
+    return `agora:${face}:${shown(b.stock, STALL_FULL, LOAVES)}:${shown(b.meat, STALL_FULL_MEAT, STALL_HAMS)}:${shown(b.cheese, STALL_FULL_CHEESE, STALL_CHEESES)}${oil}${fleece}${wine}`;
   }
 
   private seenRev = -1;
@@ -1038,7 +1343,11 @@ export class Works {
       this.flush(this.cheeses, this.cheesesBy);
       this.flush(this.baskets, this.basketsBy);
       this.flush(this.jars, this.jarsBy);
+      this.flush(this.bales, this.balesBy);
+      this.flush(this.amphorae, this.amphoraeBy);
+      this.flush(this.grapeBaskets, this.grapeBasketsBy);
       this.flushColoured(this.fruit, this.fruitBy);
+      this.flushColoured(this.grapes, this.grapesBy);
     }
     this.lastRefilled = dirty.size;
   }
@@ -1048,8 +1357,12 @@ export class Works {
   private cheesesBy = new Map<number, THREE.Matrix4[]>();
   private basketsBy = new Map<number, THREE.Matrix4[]>();
   private jarsBy = new Map<number, THREE.Matrix4[]>();
-  /** Each grove tree's olives and their colour, by chunk. */
+  private balesBy = new Map<number, THREE.Matrix4[]>();
+  private amphoraeBy = new Map<number, THREE.Matrix4[]>();
+  private grapeBasketsBy = new Map<number, THREE.Matrix4[]>();
+  /** Each grove tree's olives and each length of vine's grapes, and their colour, by chunk. */
   private fruitBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
+  private grapesBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
 
   private collect(into: Map<number, THREE.Matrix4[]>, key: number, n: number, write: (i: number, m: THREE.Matrix4) => void): void {
     if (n === 0) {
@@ -1096,6 +1409,9 @@ export class Works {
     const groves = list.filter((b) => b.kind === 'grove');
     const presses = list.filter((b) => b.kind === 'press');
     const storehouses = list.filter((b) => b.kind === 'storehouse');
+    const pastures = list.filter((b) => b.kind === 'pasture');
+    const vineyards = list.filter((b) => b.kind === 'vineyard');
+    const wineries = list.filter((b) => b.kind === 'winery');
     const q = new THREE.Quaternion();
     const p = new THREE.Vector3();
     const sc = new THREE.Vector3();
@@ -1176,6 +1492,8 @@ export class Works {
       add(b, b.kind as WorkKind, m, b.kind);
       if (b.kind === 'agora') add(b, 'awning', m, 'awning');
       if (hasStall(b, OIL)) add(b, 'oilstall', m, 'oilstall');
+      if (hasStall(b, FLEECE)) add(b, 'fleecestall', m, 'fleecestall');
+      if (hasStall(b, WINE)) add(b, 'winestall', m, 'winestall');
     }
     // The yard pieces, each at the lowest ground under it (their posts and walls run down into the slope).
     // (Kept from fill to fill while the building stands and faces the same way: the ground doesn't change.)
@@ -1194,7 +1512,7 @@ export class Works {
       return y;
     };
     const placed = new Map<Piece, Array<{ b: Building; pl: Placed }>>();
-    for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES], [groves, GROVE_PIECES], [presses, PRESS_PIECES], [storehouses, STORE_PIECES]] as Array<[Building[], Placed[]]>) {
+    for (const [list, layout] of [[lodges, LODGE_PIECES], [dairies, DAIRY_PIECES], [groves, GROVE_PIECES], [presses, PRESS_PIECES], [storehouses, STORE_PIECES], [pastures, PASTURE_PIECES], [vineyards, VINEYARD_PIECES], [wineries, WINERY_PIECES]] as Array<[Building[], Placed[]]>) {
       for (const b of list) {
         for (const pl of layout) {
           const at = placed.get(pl.piece);
@@ -1356,12 +1674,83 @@ export class Works {
         // By the door, two rows of four.
         part(b, m, 0.0 + Math.floor(i / 4) * 0.17, -1.3 + (i % 4) * 0.15, hash2(b.id, i, 783), [0.9, 0.9, 0.9], true, 0.0);
       } else if (b.kind === 'storehouse') {
-        // Six rows of four across the yard, filling from the shed forward.
+        // Four rows of four in the yard's oil side (local -z of the gate), filling from the shed forward.
         const row = Math.floor(i / 4);
         const k = i % 4;
-        part(b, m, -0.5 + row * 0.25, -0.67 + k * 0.42 + (row % 2) * 0.08, hash2(b.id, i, 784), [1.05, 1.05, 1.05], true, 0.0);
+        part(b, m, -0.5 + row * 0.27, -1.22 + k * 0.29 + (row % 2) * 0.06, hash2(b.id, i, 784), [1.05, 1.05, 1.05], true, 0.0);
       } else {
         part(b, m, OIL_STALL_X - 0.15 + i * 0.12, OIL_STALL_Z + (i % 2) * 0.04, i, [0.6, 0.6, 0.6], false, 0.29);
+      }
+    });
+
+    // Grapes on a vineyard's vines: none just after the vintage, then more and darker as they grow (eighths), purple near the harvest.
+    const grapes: Array<{ m: THREE.Matrix4; c: THREE.Color }> = [];
+    for (const b of vineyards) {
+      const stage = stageOf(b, MAKERS.vineyard!);
+      if (stage < 2) continue;
+      const ripe = Math.max(0, Math.min(1, (stage - 3) / 4));
+      for (const pl of VINEYARD_PIECES) {
+        const m = new THREE.Matrix4();
+        part(b, m, pl.lx, pl.lz, pl.yaw, [1, 0.6 + 0.4 * Math.min(1, stage / 6), 1], pieceBase(b, pl));
+        grapes.push({ m, c: GRAPE_GREEN.clone().lerp(GRAPE_RIPE, ripe) });
+      }
+    }
+    if (grapes.length) this.grapesBy.set(key, grapes);
+    else this.grapesBy.delete(key);
+
+    // Baskets of grapes: picked ones by the vineyard's hut, and waiting by the winery's vat.
+    const gbaskets: Array<{ b: Building; i: number }> = [];
+    for (const b of vineyards) for (let i = 0; i < shown(held(b, GRAPES), VINEYARD_STORE, VINEYARD_BASKETS); i++) gbaskets.push({ b, i });
+    for (const b of wineries) for (let i = 0; i < shown(held(b, GRAPES), WINERY_GRAPES, WINERY_BASKETS); i++) gbaskets.push({ b, i });
+    this.collect(this.grapeBasketsBy, key, gbaskets.length, (n, m) => {
+      const { b, i } = gbaskets[n];
+      if (b.kind === 'vineyard') {
+        const top = i >= 4;
+        const k = top ? i - 4 : i;
+        part(b, m, 0.8 + (k % 2) * 0.17 + (top ? 0.08 : 0), -0.5 + Math.floor(k / 2) * 0.17, hash2(b.id, i, 861), [1, 1, 1], true, top ? 0.09 : 0.01);
+      } else {
+        // In a row beside the treading vat, by its step.
+        part(b, m, -0.08 + (i % 3) * 0.17, -1.2 + Math.floor(i / 3) * 0.17, hash2(b.id, i, 862), [1, 1, 1], true, 0.01);
+      }
+    });
+
+    // Bales of fleece: under the pasture's shelter, in the storehouse's yard (the far side from the oil), on the fleece stall's counter.
+    const bales: Array<{ b: Building; i: number }> = [];
+    for (const b of pastures) for (let i = 0; i < shown(held(b, FLEECE), PASTURE_STORE, PASTURE_BALES); i++) bales.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES); i++) bales.push({ b, i });
+    for (const b of agoras) if (hasStall(b, FLEECE)) for (let i = 0; i < shown(held(b, FLEECE), STALL_FULL_FLEECE, STALL_BALES); i++) bales.push({ b, i });
+    this.collect(this.balesBy, key, bales.length, (n, m) => {
+      const { b, i } = bales[n];
+      if (b.kind === 'pasture') {
+        // Under the shelter, a layer of four, then two on top.
+        const top = i >= 4;
+        const k = top ? i - 4 : i;
+        part(b, m, 0.8 + (k % 2) * 0.26 + (top ? 0.13 : 0), 0.78 + Math.floor(k / 2) * 0.24, hash2(b.id, i, 863) * 0.6, [1, 1, 1], false, top ? 0.13 : 0.0);
+      } else if (b.kind === 'storehouse') {
+        // Two layers of six against the shed, on the yard's far side.
+        const top = i >= 6;
+        const k = top ? i - 6 : i;
+        part(b, m, -0.5 + (k % 3) * 0.26 + (top ? 0.13 : 0), 0.5 + Math.floor(k / 3) * 0.3 + (top ? 0.15 : 0), hash2(b.id, i, 864) * 0.6, [1.05, 1.05, 1.05], true, top ? 0.13 : 0.0);
+      } else {
+        part(b, m, FLEECE_STALL_X - 0.2 + i * 0.2, FLEECE_STALL_Z, i * 0.7, [0.55, 0.55, 0.55], false, 0.29);
+      }
+    });
+
+    // Amphorae of wine: in rows in the winery's yard, in the storehouse's yard by the gate, on the wine stall's counter.
+    const amph: Array<{ b: Building; i: number }> = [];
+    for (const b of wineries) for (let i = 0; i < shown(held(b, WINE), WINERY_STORE, WINERY_AMPHORAE); i++) amph.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE); i++) amph.push({ b, i });
+    for (const b of agoras) if (hasStall(b, WINE)) for (let i = 0; i < shown(held(b, WINE), STALL_FULL_WINE, STALL_AMPHORAE); i++) amph.push({ b, i });
+    this.collect(this.amphoraeBy, key, amph.length, (n, m) => {
+      const { b, i } = amph[n];
+      if (b.kind === 'winery') {
+        // Two rows of five under and before the lean-to.
+        part(b, m, -1.2 + (i % 5) * 0.19, 0.8 + Math.floor(i / 5) * 0.24, hash2(b.id, i, 865), [1, 1, 1], true, 0.0);
+      } else if (b.kind === 'storehouse') {
+        // Three rows of four on the gate side of the yard.
+        part(b, m, 0.45 + (i % 4) * 0.21, 0.5 + Math.floor(i / 4) * 0.3 + (i % 2) * 0.05, hash2(b.id, i, 866), [1, 1, 1], true, 0.0);
+      } else {
+        part(b, m, WINE_STALL_X, WINE_STALL_Z - 0.2 + i * 0.2, i, [0.6, 0.6, 0.6], false, 0.29);
       }
     });
   }

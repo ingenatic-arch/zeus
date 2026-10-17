@@ -216,11 +216,12 @@ export class Streets {
   }
 
   /**
-   * The ground of a farm, granary, agora, lodge, dairy, grove, press or
-   * storehouse: a farm's field ploughed in furrows behind a trodden yard, a
-   * granary's beaten earth yard, the agora's paving stones, a lodge's trodden
-   * yard, a dairy's cropped pen, a grove's dry grass, a press's and a
-   * storehouse's beaten earth.
+   * The ground of a farm, granary, agora, lodge, dairy, grove, press,
+   * storehouse, pasture, vineyard or winery: a farm's field ploughed in
+   * furrows behind a trodden yard, a granary's beaten earth yard, the agora's
+   * paving stones, a lodge's trodden yard, a dairy's cropped pen, a grove's
+   * dry grass, a pasture's cropped grass, a vineyard's hoed rows, a press's,
+   * a winery's and a storehouse's beaten earth.
    */
   private worksGround(
     s: SimState,
@@ -230,7 +231,7 @@ export class Streets {
     const map = this.map;
     const S = 3;
     // The lodge's and the dairy's grounds are plain (a worn patch, a pen and a yard): a coarser grid will do.
-    const steps = b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' ? 12 : 24;
+    const steps = b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' || b.kind === 'pasture' || b.kind === 'vineyard' || b.kind === 'winery' ? 12 : 24;
     const inset = 0.04;
     const cx = b.x + S / 2;
     const cz = b.z + S / 2;
@@ -280,7 +281,18 @@ export class Streets {
           const dry = col(PAL.dryGrass);
           if (lx > 0.5) c.copy(worn).lerp(earth, 0.6).multiplyScalar(j2);
           else c.copy(dry).lerp(earth, 0.35 + 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 320)).multiplyScalar(j2);
-        } else if (b.kind === 'press' || b.kind === 'storehouse') {
+        } else if (b.kind === 'pasture') {
+          // Cropped grass, trampled to earth round the fold's gate and along the front by the hut.
+          const trod = Math.max(0, 1 - Math.hypot(lx - 0.3, lz - 0.3) / 0.9) * 0.6 + (lx > 0.9 ? 0.4 : 0);
+          c.copy(grass).lerp(worn, Math.min(0.8, trod + 0.25 * hash2(Math.round(xa * 3), Math.round(za * 3), 321))).multiplyScalar(j2);
+        } else if (b.kind === 'vineyard') {
+          // Dry, hoed earth along the rows of vines, dry grass between them, trodden at the front by the hut.
+          const dry = col(PAL.dryGrass);
+          const row = (lz + 1.05) / 0.7;
+          const off = Math.abs(row - Math.round(row));
+          if (lx > 0.75) c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
+          else c.copy(off < 0.22 ? earth : dry).lerp(worn, off < 0.22 ? 0.15 : 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 322)).multiplyScalar(j2);
+        } else if (b.kind === 'press' || b.kind === 'storehouse' || b.kind === 'winery') {
           // Beaten earth, worn most at the front where the carts turn.
           c.copy(earth).lerp(worn, Math.max(0, Math.min(1, (lx + 0.6) / 2))).multiplyScalar(j2);
         } else if (b.kind === 'dairy') {

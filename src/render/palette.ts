@@ -221,6 +221,13 @@ export const PAL = {
   wineDark: '#4e1638',
   wineVendorTunic: '#8e2c3e',
   vatStone: '#d2c3a6',
+  // The villa (slice 11): warm stucco, a Pompeian red band, a green garden round a pool
+  villaWall: '#f3e1c2',
+  villaShade: '#e2caa4',
+  villaBand: '#a9473a',
+  garden: '#7fa64c',
+  gardenDark: '#5f8c3a',
+  pool: '#62b2c9',
   // Sky and light
   skyZenith: '#4f9fe0',
   skyReflect: '#a9d6ec',

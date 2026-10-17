@@ -106,6 +106,34 @@ const SHOTS = {
   'cart-olives': '#town',
   'cart-oil': '#town',
   'porter-oil': '#town',
+  // Slice 11.
+  pasture: '#pasture-paused-shot',
+  'pasture-close': '#pasture-paused-shot',
+  'pasture-tip': '#pasture-paused',
+  vineyard: '#vineyard-paused',
+  villas: '#villas-paused',
+  'villas-shot': '#villas-paused-shot',
+  'villa-close': '#villas-paused-shot',
+  'villa-street': '#villas-paused-shot',
+  'villas-overview': '#villas-paused-shot',
+  'villa-tip': '#villas-paused',
+  winery: '#winery-paused-shot',
+  'winery-close': '#winery-paused-shot',
+  'vineyard-close': '#winery-paused-shot',
+  'winery-tip': '#winery-paused',
+  'storehouse-goods': '#villas-paused-shot',
+  'stalls-three': '#villas-paused-shot',
+  winevendor: '#winevendor',
+  'winevendor-close': '#winevendor',
+  'fleecevendor-close': '#fleecevendor',
+  'fleece-overlay': '#pasture-overlay-paused',
+  'wine-overlay': '#winevendor-paused',
+  'cart-fleece': '#villas',
+  'cart-grapes': '#winery',
+  'cart-wine': '#winery',
+  'porter-fleece': '#villas',
+  'porter-wine': '#villas',
+  'seven-needs': '#villas-paused',
 };
 
 /** Hover the pointer over a world point (after a few frames, so the camera has settled). */
@@ -123,15 +151,15 @@ const closeTo = async (page, kind, yaw, dist, tilt, dx = 1.5, dz = 1.5) => {
   return b;
 };
 /** Follow a walker until it is under way, then pause and jump close to it. */
-const closeToWalker = async (page, find, ticks = 40) => {
+const closeToWalker = async (page, find, ticks = 40, view = { yaw: 0.5, dist: 2.6, tilt: 0.12 }) => {
   await page.waitForFunction(find, null, { timeout: 400000, polling: 200 });
   const t = await page.evaluate(() => window.__zeus.tick());
   await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 5, t, { timeout: 240000 });
-  await page.evaluate((src) => {
+  await page.evaluate(([src, v]) => {
     window.__zeus.speed('paused');
     const w = new Function(`return (${src})()`)();
-    if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 2.6, tilt: 0.12 });
-  }, find.toString());
+    if (w) window.__zeus.jump({ ...v, x: w.x, z: w.z });
+  }, [find.toString(), view]);
 };
 
 /** Things to do on the page before a shot. */
@@ -284,6 +312,86 @@ const BEFORE = {
   },
   'porter-oil': async (page) => {
     await closeToWalker(page, () => window.__zeus.porterOf?.(4) ?? null);
+  },
+  'pasture-close': async (page) => {
+    await closeTo(page, 'pasture', 2.4, 6, 0.3);
+  },
+  'pasture-tip': async (page) => {
+    const b = await closeTo(page, 'pasture', 2.4, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  vineyard: async (page) => {
+    // The vineyard tool over the sunny slope west of the town.
+    await hover(page, 7.5, 78.5);
+  },
+  'villa-close': async (page) => {
+    const v = await page.evaluate(() => window.__zeus.homes().find((h) => h.level === 6));
+    await page.evaluate((h) => window.__zeus.jump({ x: h.x + 1, z: h.z + 1, yaw: 0.7, dist: 4, tilt: 0.35 }), v);
+  },
+  'villa-street': async (page) => {
+    const v = await page.evaluate(() => window.__zeus.homes().find((h) => h.level === 6));
+    await page.evaluate((h) => window.__zeus.jump({ x: h.x + 1, z: h.z + 1, yaw: 1.2, dist: 7, tilt: 0.02 }), v);
+  },
+  'villas-overview': async (page) => {
+    await page.evaluate(() => window.__zeus.jump({ x: 27, z: 72, yaw: 0.6, dist: 32, tilt: -0.2 }));
+  },
+  'villa-tip': async (page) => {
+    const v = await page.evaluate(() => window.__zeus.homes().find((h) => h.level === 6));
+    await hover(page, v.x + 1, v.z + 1);
+  },
+  'winery-close': async (page) => {
+    await closeTo(page, 'winery', 2.4, 5, 0.3);
+  },
+  'vineyard-close': async (page) => {
+    await closeTo(page, 'vineyard', 2.0, 6, 0.25);
+  },
+  'winery-tip': async (page) => {
+    const b = await closeTo(page, 'winery', 2.4, 9, 0.1);
+    await hover(page, b.x + 1.5, b.z + 1.5);
+  },
+  'storehouse-goods': async (page) => {
+    await closeTo(page, 'storehouse', 5.5, 5, 0.35);
+  },
+  'stalls-three': async (page) => {
+    await closeTo(page, 'agora', 3.7, 7, 0.6);
+  },
+  winevendor: async (page) => {
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 240000 });
+  },
+  'winevendor-close': async (page) => {
+    await closeToWalker(page, () => window.__zeus.where('wine'), 40, { yaw: 0.5, dist: 3.4, tilt: 0.45 });
+  },
+  'fleecevendor-close': async (page) => {
+    await closeToWalker(page, () => window.__zeus.where('fleece'), 40, { yaw: 0.5, dist: 3.4, tilt: 0.45 });
+  },
+  'cart-fleece': async (page) => {
+    await closeToWalker(page, () => window.__zeus.cartOf(5), 40, { yaw: 0.5, dist: 3.4, tilt: 0.45 });
+  },
+  'cart-grapes': async (page) => {
+    await closeToWalker(page, () => window.__zeus.cartOf(6), 40, { yaw: 0.5, dist: 3.4, tilt: 0.45 });
+  },
+  'cart-wine': async (page) => {
+    await closeToWalker(page, () => window.__zeus.cartOf(7), 40, { yaw: 0.5, dist: 3.4, tilt: 0.45 });
+  },
+  'porter-fleece': async (page) => {
+    await closeToWalker(page, () => window.__zeus.porterOf?.(5) ?? null, 40, { yaw: 0.5, dist: 2.6, tilt: 0.75 });
+  },
+  'porter-wine': async (page) => {
+    await closeToWalker(page, () => window.__zeus.porterOf?.(7) ?? null, 40, { yaw: 0.5, dist: 2.6, tilt: 0.75 });
+  },
+  'seven-needs': async (page) => {
+    // Debug: one villa warned about all seven of its needs at once, to see the sign's layout.
+    const id = await page.evaluate(() => {
+      const hs = window.__zeus.homes().filter((h) => h.level === 6);
+      return hs[0].id;
+    });
+    await page.evaluate((i) => window.__zeus.warnAll(i), id);
+    await page.evaluate((i) => {
+      const h = window.__zeus.homes().find((o) => o.id === i);
+      const v = window.__zeus.view();
+      window.__zeus.jump({ ...v, x: h.x + 1, z: h.z + 1, dist: 13, tilt: 0.1 });
+    }, id);
   },
   taxoffice: async (page) => {
     // Close over the tax office on #town's main street, and the north street's.
