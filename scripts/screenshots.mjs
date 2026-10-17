@@ -280,7 +280,8 @@ const BEFORE = {
     await closeToWalker(page, () => window.__zeus.dockerOf?.(0, false) ?? window.__zeus.dockerOf?.(-1, false) ?? null, 40, { yaw: 2.2, dist: 3, tilt: 0.12 });
   },
   'black-after': async (page) => {
-    // Let her load and pay: the ledger shows the sale.
+    // Let her load and pay: the ledger shows the sale. (#black opens paused: press play.)
+    await page.evaluate(() => window.__zeus.speed('normal'));
     await page.waitForFunction(() => window.__zeus.ship().visits > 0, null, { timeout: 600000, polling: 500 });
     await page.evaluate(() => window.__zeus.speed('paused'));
   },

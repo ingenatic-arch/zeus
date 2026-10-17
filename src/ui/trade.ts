@@ -127,6 +127,8 @@ export class TradePanel {
   private html = '';
   private last = -Infinity;
   private state: SimState | null = null;
+  /** A pointer is pressed in the panel: hold the redraw, so the press and release land on the same button (a click is lost if it is redrawn in between). */
+  private pressed = false;
   onOpen: () => void = () => {};
 
   constructor(root: HTMLElement, send: (c: Command) => void) {
@@ -138,6 +140,14 @@ export class TradePanel {
     this.el = el;
     this.body = el.querySelector('.body') as HTMLElement;
     (el.querySelector('.close') as HTMLElement).addEventListener('click', () => this.toggle(false));
+    this.body.addEventListener('pointerdown', () => {
+      this.pressed = true;
+    });
+    const release = (): void => {
+      this.pressed = false;
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
     this.body.addEventListener('change', (e) => {
       const t = e.target as HTMLInputElement;
       if (t.dataset.sell === undefined) return;
@@ -179,7 +189,7 @@ export class TradePanel {
       this.toggle(false);
       return;
     }
-    if (time - this.last < REFRESH) return;
+    if (this.pressed || time - this.last < REFRESH) return;
     this.last = time;
     const html = tradeHtml(s, map, post);
     if (html !== this.html) {
