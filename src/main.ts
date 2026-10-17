@@ -622,11 +622,14 @@ function start(): void {
     const kind = demo.follow;
     const from: Building['kind'] =
       kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' || kind === 'fleece' || kind === 'wine' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
-    // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
-    const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
+    // Carts: follow a loaded cart from the demo's kind of maker (a farm's by default) that is on the road now, else wait at
+    // the one whose crop is nearest to ripe and follow its first cart, so the harvest itself is in view.
+    const maker = demo.followFrom ?? 'farm';
+    const rolling = kind === 'cart' ? sim.state.walkers.find((o) => o.kind === 'cart' && o.load > 0 && !o.back && findBuilding(sim.state, o.origin)?.kind === maker && maker !== 'farm') : undefined;
+    const ripest = kind === 'cart' && !rolling ? sim.state.buildings.filter((b) => b.kind === maker).sort((a, b) => b.growth - a.growth)[0] : undefined;
     // Hunters: the one who set out last (not one already on his way home), so the camera goes out with him to the herd and back.
     const outbound = kind === 'hunter' ? sim.state.walkers.filter((o) => o.kind === 'hunter' && !o.back && o.wait === 0).sort((a, b) => a.walked - b.walked)[0] : undefined;
-    const w = ripest ? undefined : (outbound ?? sim.state.walkers.find((o) => o.kind === kind));
+    const w = ripest ? undefined : (rolling ?? outbound ?? sim.state.walkers.find((o) => o.kind === kind));
     const f = ripest ?? (w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from));
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }

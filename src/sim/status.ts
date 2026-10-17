@@ -639,7 +639,8 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     const stall = a ? ` · the ${what} stall has ${fmt(held(a, sells))} ${unitOf(sells, held(a, sells))}` : '';
     const title = `${cap(what)} vendor`;
     if (w.back) return { title, detail: `Heading back to the agora, selling ${what} on the way${stall}` };
-    return { title, detail: `Out on her round, ${w.steps} of ${VENDOR_WALK} new road tiles walked · she heads for the ${CHAINS[sells]?.buyers ?? 'homes'} whose ${what} is running lowest${stall}` };
+    const p = sheHe(sells);
+    return { title, detail: `Out on ${p.her} round, ${w.steps} of ${VENDOR_WALK} new road tiles walked · ${p.she} heads for the ${CHAINS[sells]?.buyers ?? 'homes'} whose ${what} is running lowest${stall}` };
   }
   if (w.kind === 'cart') {
     const g = findBuilding(s, w.target);
@@ -687,6 +688,10 @@ const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRA
 
 /** "12 jars of oil", "300 measures of olives". */
 const amount = (w: Ware, n: number): string => `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`;
+
+/** The wine vendor is a man; the oil and fleece vendors are women (see the walkers' looks). */
+const VENDOR_MEN: ReadonlySet<Ware> = new Set([WINE]);
+const sheHe = (good: Ware): { she: string; her: string } => (VENDOR_MEN.has(good) ? { she: 'he', her: 'his' } : { she: 'she', her: 'her' });
 
 /**
  * Each stall good's chain, from what makes it to the stall: the buildings
@@ -878,10 +883,11 @@ function stallLines(s: SimState, a: Building, good: Ware): string {
   const units = unitOf(good, 2);
   const w = s.walkers.find((o) => o.kind === STALL_VENDOR[good] && o.origin === a.id);
   let vendor: string;
-  if (w) vendor = w.back ? `the ${what} vendor is heading back` : `the ${what} vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into her round`;
+  const pro = sheHe(good);
+  if (w) vendor = w.back ? `the ${what} vendor is heading back` : `the ${what} vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into ${pro.her} round`;
   else if (a.workers === 0) vendor = `nobody works the agora, so the ${what} vendor can’t go out`;
   else if (n <= 0) vendor = `the ${what} vendor waits for ${what}`;
-  else vendor = `the ${what} vendor is resting · she sets off again soon`;
+  else vendor = `the ${what} vendor is resting · ${pro.she} sets off again soon`;
   const p = s.walkers.find((o) => o.kind === 'porter' && o.origin === a.id && o.food === good);
   let porter = '';
   if (p) porter = p.back ? `Its porter is bringing ${fmt(p.load)} ${unitOf(good, p.load)} from the storehouse` : `Its porter is on his way to the storehouse for ${what}`;
@@ -900,7 +906,7 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
   const stallName = STALL_NAMES[good] ?? `${what} stall`;
   const stalls = s.buildings.filter((a) => hasStall(a, good));
   if (stalls.length === 0) return `no agora has a ${stallName} yet: press ${chain.key} and click an agora to add one`;
-  if (roadsBeside(s, size, b).length === 0) return `the ${what} vendor only sells to homes beside the road she walks`;
+  if (roadsBeside(s, size, b).length === 0) return `the ${what} vendor only sells to homes beside the road ${sheHe(good).she} walks`;
   const d = stepsToFountain(roadSearch(s, size, stalls.flatMap((a) => roadsBeside(s, size, a))), s, size, b);
   if (d < 0) return `no road joins it to an agora with a ${stallName}`;
   if (d > VENDOR_RANGE) return `the nearest ${stallName} is ${d} steps away by road; its ${what} vendor goes ${VENDOR_RANGE} at most`;
@@ -908,6 +914,9 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
   if (reaching.length && reaching.every((a) => a.workers === 0)) return `nobody works at the agora, so its ${what} vendor can’t go out`;
   if (reaching.every((a) => held(a, good) <= 0)) {
     if (s.buildings.some((g) => g.kind === 'storehouse' && held(g, good) > 0)) return `the ${stallName} is empty for now; its porter fetches ${unitOf(good, 2)} from the storehouse`;
+    // The goods are on the way: the stall's porter bringing them, or the makers' carts taking them to a storehouse (an ox cart covers about a tile a day).
+    if (s.walkers.some((w) => w.kind === 'porter' && w.food === good && w.load > 0 && reaching.some((a) => a.id === w.origin))) return `the ${stallName}’s porter is on his way back from the storehouse with ${unitOf(good, 2)} of ${what}`;
+    if (s.walkers.some((w) => w.kind === 'cart' && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
     return chain.stuck(s);
   }
   if (goodUntil(b, good) > 0) return `within reach of a ${stallName}, but the ${what} vendor has taken other turns lately`;

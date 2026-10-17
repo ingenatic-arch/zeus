@@ -85,6 +85,8 @@ export interface Demo {
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
   follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine';
+  /** For `follow: 'cart'`: the kind of maker whose carts to follow (a farm if not given). */
+  followFrom?: 'farm' | 'vineyard' | 'winery' | 'pasture' | 'grove' | 'press';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: OverlayMode;
   /** Start with that overlay on, even without `-overlay`. */
@@ -774,6 +776,6 @@ export const DEMOS: Record<string, Demo> = {
   fleecevendor: { view: 'fleecevendor', setup: cultureTown(FINE_TICKS), follow: 'fleece', overlay: 'fleece', overlayOn: true },
   vineyard: { view: 'vineyard', tool: 'vineyard', setup: cultureTown(FINE_TICKS), overlay: 'wine' },
   villas: { view: 'villas', setup: villaTown(VILLAS_AFTER), overlay: 'missing', open: firstVilla },
-  winery: { view: 'winery', setup: villaTown(WINERY_AFTER), follow: 'cart', overlay: 'wine' },
+  winery: { view: 'winery', setup: villaTown(WINERY_AFTER), follow: 'cart', followFrom: 'vineyard', overlay: 'wine' },
   winevendor: { view: 'winevendor', setup: villaTown(VILLAS_AFTER), follow: 'wine', overlay: 'wine', overlayOn: true },
 };

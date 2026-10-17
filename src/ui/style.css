@@ -198,17 +198,19 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .stat .delta.down { color: var(--terracotta-deep); }
 
 /* The build bar along the bottom. */
+/* The build bar's 32 buttons shrink with the window (46 px at 1920 wide, 30 px at about 1280) so it fits a laptop screen; narrower still, it scrolls. */
 .buildbar {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  display: flex; align-items: center; gap: clamp(3px, 0.4vw, 8px); padding: 7px clamp(6px, 0.5vw, 10px);
+  max-width: calc(100vw - 16px); box-sizing: border-box; overflow-x: auto; scrollbar-width: thin;
   background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
   border: 1.5px solid var(--edge); border-radius: 16px;
   box-shadow: 0 3px 0 rgba(120, 80, 40, 0.25), 0 8px 24px rgba(60, 40, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   user-select: none;
 }
 .buildbar .divider { height: 30px; align-self: center; }
-.btn.tool { width: 46px; height: 46px; border-radius: 12px; position: relative; }
-.btn.tool svg { width: 28px; height: 28px; }
+.btn.tool { width: clamp(30px, 2.35vw, 46px); height: clamp(30px, 2.35vw, 46px); border-radius: clamp(8px, 0.62vw, 12px); position: relative; flex: none; }
+.btn.tool svg { width: 61%; height: 61%; }
 .btn.tool .fill-soft { fill: #e9cf98; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
 .btn.tool .fill-ink { fill: var(--ink); }
 .btn.tool .stroke-ink { fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -261,7 +263,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool.overlay.wine.on { background: #7a2a5a; border-color: #5c1e44; }
 .btn.tool.overlay.variety.on { background: #b0663c; border-color: #8a4c2a; }
 .btn.tool.overlay.variety.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
-.btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
+.btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: clamp(8.5px, 0.55vw, 10.5px); color: var(--ink-soft); }
 .btn.tool.on .key { color: #fff6e4; }
 .btn.tool:disabled { opacity: 0.45; cursor: default; }
 
