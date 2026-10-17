@@ -15,6 +15,8 @@ import { cityOf, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusa
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
+/** A mood's number with its sign, the minus a true one as in the reasons: "+5", "−10", "0". */
+const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 /** The trade goods' colours, as in the trade panel. */
 const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80'];
 
@@ -123,7 +125,7 @@ export function hoverHtml(s: SimState, id: CityId | 'ship'): string {
   if (!c.ruler) return `<b>${PLACES[id].name}</b><span>${esc(cap(PLACES[id].blurb))}</span><span class="sub">Click for what its merchants buy</span>`;
   const m = moodOf(c, s.tick);
   const w = moodWord(m);
-  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${m > 0 ? '+' : ''}${m})</span><span class="sub">Click to meet them</span></div>`;
+  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span><span class="sub">Click to meet them</span></div>`;
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
@@ -188,7 +190,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   const traits = r.traits.map((t) => `<li><b>${cap(t)}</b>: ${TRAIT_WORDS[t]}</li>`).join('');
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div></header>
-<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)}</div><div class="num">${m > 0 ? '+' : ''}${m} in all</div></div></div><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
+<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)}</div><div class="num">${signed(m)} in all</div></div></div><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${goodsBlock(c, place.name)}
 <section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')} No trade routes are open to Greece yet.</p></section>`;
 }

@@ -218,8 +218,15 @@ export class GreeceMap {
     this.redraw(true);
   }
 
-  /** The city (or the ship) nearest a screen point, within a finger's width. */
+  /** The city whose label is under a screen point (labels let the pointer through to the canvas), or the city (or the ship) nearest it, within a finger's width. */
   pick(sx: number, sy: number): CityId | 'ship' | null {
+    for (const id of CITY_IDS) {
+      const el = this.labels.get(id) as HTMLElement;
+      if (el.style.display === 'none') continue;
+      const b = el.getBoundingClientRect();
+      // (A little round the label, and its stem down to the city.)
+      if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return id;
+    }
     const r = this.host.canvas.getBoundingClientRect();
     let best: CityId | 'ship' | null = null;
     let bd = 34 * 34;
@@ -263,10 +270,13 @@ export class GreeceMap {
     morph(this.card, hoverHtml(s, this.hovered));
     this.card.className = `greece-card${this.hovered !== 'ship' && this.hovered !== 'home' && this.hovered !== 'tyre' ? ' ruled' : ''}`;
     this.card.hidden = false;
+    // Below and to the right of the pointer, or where there is no room for it there, above or to the left (never over the city it is about).
     const w = this.card.offsetWidth;
-    const x = Math.min(innerWidth - w - 12, this.pointer.x + 18);
+    const h = this.card.offsetHeight;
+    const x = this.pointer.x + 18 + w <= innerWidth - 12 ? this.pointer.x + 18 : Math.max(12, this.pointer.x - 18 - w);
+    const y = this.pointer.y + 18 + h <= innerHeight - 12 ? this.pointer.y + 18 : Math.max(12, this.pointer.y - 18 - h);
     this.card.style.left = `${x}px`;
-    this.card.style.top = `${Math.min(innerHeight - this.card.offsetHeight - 12, this.pointer.y + 18)}px`;
+    this.card.style.top = `${y}px`;
   }
 
   private redraw(now = false): void {

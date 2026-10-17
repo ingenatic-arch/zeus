@@ -856,9 +856,11 @@ function start(): void {
     }));
   /** Open or close the map (opening it the first time loads it). */
   function toggleGreece(on?: boolean, city?: CityId): void {
-    const want = on ?? !greeceOpen();
+    // (The button shows what was asked for, so Tab pressed again while the map first loads takes it back.)
+    const want = on ?? !greeceButton.el.classList.contains('on');
     if (!want) {
-      if (!greece?.open) return;
+      // (Asked to close while it is still loading the first time: it stays shut when it arrives.)
+      if (!greece?.open) return greeceButton.set(false);
       greece.toggle(false);
       greeceButton.set(false);
       // The side panel's column comes back, so the city's canvas narrows again.
@@ -1063,11 +1065,20 @@ function start(): void {
     };
   };
   probe.walker = (kind: string) => {
-    const first = [...city.walkers.serviceAt.values()].find((o) => o.kind === kind)?.pos;
-    if (!first) return null;
-    const v = first.clone().setY(first.y + 0.3).project(camera);
+    // The one of that kind nearest the middle of the view (others may be anywhere, even off the screen).
     const r = canvas.getBoundingClientRect();
-    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+    let best: { x: number; y: number } | null = null;
+    let bd = Infinity;
+    for (const o of city.walkers.serviceAt.values()) {
+      if (o.kind !== kind) continue;
+      const v = o.pos.clone().setY(o.pos.y + 0.3).project(camera);
+      const d = v.z > 1 ? 1e9 + v.x * v.x + v.y * v.y : v.x * v.x + v.y * v.y;
+      if (d < bd) {
+        bd = d;
+        best = { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+      }
+    }
+    return best;
   };
   probe.carrier = () => probe.walker?.('water') ?? null;
   probe.where = (kind: string) => {
@@ -1393,6 +1404,8 @@ function start(): void {
       topbar.showCity(s.population, s.money, time);
       probe.updateMs += performance.now() - jsStart;
       greece.render();
+      // (The city's floating labels are hidden here, but go on ageing, so they don't pile up while the map is open.)
+      floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);
       if (!greeceFirst) {
         greeceFirst = true;
         probe.greeceOpenMs = performance.now() - greeceAsked;

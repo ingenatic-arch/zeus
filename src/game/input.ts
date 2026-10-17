@@ -121,15 +121,25 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
   // Held keys are tracked by physical key (e.code), with the action chosen
   // when the key went down, so releasing Shift before "=" (or any layout
   // quirk) can never leave a key stuck down.
+  // Which control was last focused by a click or a tap (rather than by the keyboard), for Tab below.
+  let pointing = false;
+  let clicked: EventTarget | null = null;
+  addEventListener('pointerdown', () => (pointing = true), true);
+  addEventListener('focusin', (e) => {
+    clicked = pointing ? e.target : null;
+    pointing = false;
+  }, true);
   addEventListener('keydown', (e) => {
+    pointing = false;
     const target = e.target;
     // Typing in a text box is not for the game.
     if (target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !/^(checkbox|radio|range|button)$/.test(target.type))) return;
     // A panel's button or tick keeps the focus once clicked (panels are brought up to date in place): let go of it,
     // so the keys still drive the game and Space doesn't press it again.
-    // Tab and Enter stay with the page (moving between a panel's controls and pressing one), as before.
+    // Enter stays with the page (pressing the control), and so does Tab while the keyboard is moving between a panel's
+    // controls; after a click on one, Tab is the game's key (the map of Greece) like any other.
     if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) {
-      if (e.key === 'Tab' || e.key === 'Enter') return;
+      if (e.key === 'Enter' || (e.key === 'Tab' && target !== clicked)) return;
       target.blur();
     }
     const k = e.key.toLowerCase();

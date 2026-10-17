@@ -659,7 +659,11 @@ await open('#collector');
 c = await city();
 if (!(c.following && c.overlayMode === 'tax' && c.collectors > 0)) fail(`#collector: ${JSON.stringify(c)}`);
 if (!/tax collector/.test(await zeus(() => document.querySelector('.follow-chip')?.textContent ?? ''))) fail('#collector follow chip does not name the tax collector');
-await page.waitForFunction(() => window.__zeus.walker('tax') !== null, null, { timeout: 120000 });
+// (Wait until a collector is out in plain view: the one followed may be resting at his office while another walks off the screen.)
+await page.waitForFunction(() => {
+  const p = window.__zeus.walker('tax');
+  return p !== null && document.elementFromPoint(p.x, p.y)?.tagName === 'CANVAS';
+}, null, { timeout: 120000 });
 await zeus(() => window.__zeus.speed('paused'));
 await frames(2);
 const tc = await zeus(() => window.__zeus.walker('tax'));
@@ -1181,6 +1185,22 @@ await page.mouse.click(g.cities.athens.x, g.cities.athens.y);
 await frames(3);
 g = await gi();
 if (!(g.shown === 'athens' && /How (he|she) feels about you/.test(g.panel) && /Athens sells/.test(g.panel))) fail(`Athens panel: ${g.panel.slice(0, 300)}`);
+// Clicking a city's label (not only the toy city under it) opens its page.
+// (Another city's label in plain view, not under the page just opened.)
+const lab = await zeus(() => {
+  for (const el of document.querySelectorAll('.glabel')) {
+    const r = el.getBoundingClientRect();
+    const x = r.x + r.width / 2;
+    const y = r.y + r.height / 2;
+    if (r.width > 0 && !el.classList.contains('athens') && document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { id: el.classList[1], x, y };
+  }
+  return null;
+});
+if (lab) {
+  await page.mouse.click(lab.x, lab.y);
+  await frames(3);
+  if ((await gi()).shown !== lab.id) fail(`clicking ${lab.id}'s label: ${(await gi()).shown}`);
+} else fail('no city label in view');
 // Dragging and zooming move the map's camera, not the city's.
 const cv0 = await zeus(() => window.__zeus.view());
 const gv0 = g.view;
@@ -1207,6 +1227,14 @@ if (!(await gi()).open) fail('Tab did not open the map');
 await page.click('.greece-btn');
 await frames(2);
 if ((await gi()).open) fail('the Greece button did not close the map');
+// After a click on one of the side panel's tabs, Tab still opens the map (rather than moving to the next tab).
+if (await page.isVisible('.side-tabs button:nth-child(2)')) {
+  await page.click('.side-tabs button:nth-child(2)');
+  await frames(1);
+  await page.keyboard.press('Tab');
+  await frames(3);
+  if (!(await gi()).open) fail('Tab after clicking a side panel tab did not open the map');
+} else fail('no side panel tabs to click at 1280 pixels');
 // Naming the city: the panel's form, a refusal, then a good name that the label shows.
 await zeus(() => window.__zeus.greece(true, 'home'));
 await frames(3);
@@ -1236,6 +1264,6 @@ await page.mouse.click(g.cities.ship.x, g.cities.ship.y);
 await frames(3);
 g = await gi();
 if (!(g.shown === 'tyre' && /The ship/.test(g.panel))) fail(`clicking the ship: ${g.shown} ${g.panel.slice(0, 200)}`);
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

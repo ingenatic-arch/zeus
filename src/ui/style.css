@@ -866,3 +866,7 @@ body.greece-open #app.side-open { --side: 0px; }
 body.greece-open .side, body.greece-open .side-btn { display: none !important; }
 /* With the side panel stepped aside, the top bar centres on the room left of the corner buttons. */
 body.greece-open .topbar { left: calc((100% - 200px) / 2); }
+/* The lines under it centre with it, so they never run over the Greece tab hanging at its right end. */
+body.greece-open .notices { left: calc((100% - 200px) / 2); }
+/* There is no build bar on the map: a city's page may run down to the window's foot. */
+body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
