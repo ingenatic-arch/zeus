@@ -27,7 +27,9 @@ export type Command =
   /** Let fire risk and wear build up (on in every game: see SimState.hazards), or not. */
   | { type: 'hazards'; on: boolean }
   /** The trading post: sell a good to the ship or not (`sell`), and how much of it the city keeps (`keep`, measures); the good by its ware number (wheat 0, meat 1, cheese 2, oil 4, fleece 5, wine 7). */
-  | { type: 'trade'; good: number; sell?: boolean; keep?: number };
+  | { type: 'trade'; good: number; sell?: boolean; keep?: number }
+  /** Rename your city (see nameRefusal in world.ts: a name it refuses changes nothing). */
+  | { type: 'name'; name: string };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading';

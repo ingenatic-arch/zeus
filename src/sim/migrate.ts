@@ -55,6 +55,10 @@
  * is retuned (the upper levels pay more tax), which a loaded town simply
  * plays on with.
  *
+ * Version 13 to 14 (slice 15, the map of Greece): Greece is there now, fresh
+ * from the town's seed and made as it is loaded, with every ruler between
+ * wary and cordial and nothing open between you. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -69,6 +73,7 @@ import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
 import { freshTrade, TRADE_GOODS } from './trade';
+import { freshWorld } from './world';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -100,6 +105,7 @@ export function migrate(st: unknown): number {
   if (st.version === 10) from10(st);
   if (st.version === 11) from11(st);
   if (st.version === 12) from12(st);
+  if (st.version === 13) from13(st);
   return from;
 }
 
@@ -229,4 +235,11 @@ function from12(st: Record<string, unknown>): void {
     st.trade.lostAt = 0;
   }
   st.version = 13;
+}
+
+function from13(st: Record<string, unknown>): void {
+  const seed = typeof st.seed === 'number' ? st.seed : 0;
+  const tick = typeof st.tick === 'number' ? st.tick : 0;
+  st.world = freshWorld(seed, tick, true);
+  st.version = 14;
 }

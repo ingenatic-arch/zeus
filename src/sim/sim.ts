@@ -23,6 +23,7 @@ import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTax
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
 import { freshHerds, stepWild, wildRng } from './wild';
 import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
+import { freshWorld, nameRefusal, stepWorld } from './world';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -30,7 +31,11 @@ export const UNDO_DEPTH = 10;
 /** How long after an action it can still be undone (a month; while paused, time stands still). */
 export const UNDO_WINDOW = TICKS_PER_MONTH;
 
-export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimState {
+/**
+ * A new game. Greece is shuffled from `worldSeed` (a new game on the bare link
+ * gets its own; by default the city's seed), on its own random numbers.
+ */
+export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldSeed: number = seed): SimState {
   const rng = seedRng(seed);
   const s: SimState = {
     version: SIM_STATE_VERSION,
@@ -63,6 +68,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     left: 0,
     trade: freshTrade(),
     taxGone: [],
+    world: freshWorld(worldSeed),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -97,8 +103,8 @@ export class Sim {
   /** Every command applied so far, in order, for replay. */
   readonly log: StampedCommand[] = [];
 
-  constructor(seed: number = DEFAULT_SEED) {
-    this.state = createState(seed);
+  constructor(seed: number = DEFAULT_SEED, worldSeed: number = seed) {
+    this.state = createState(seed, 'coast', worldSeed);
   }
 
   /** The baked map (not part of the state: it is the same for every game on this map). */
@@ -162,6 +168,8 @@ export class Sim {
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
+    // Greece, once a month (it draws only on its own random numbers).
+    stepWorld(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -224,6 +232,12 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       }
       break;
     }
+    case 'name':
+      if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
+        s.world.name = c.name.trim().replace(/\s+/g, ' ');
+        s.rev++;
+      }
+      break;
   }
 }
 

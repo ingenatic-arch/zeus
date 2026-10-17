@@ -15,6 +15,7 @@ import { migrate } from '../sim/migrate';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState } from '../sim/state';
 import { GOOD_COUNT } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
+import { CITY_IDS } from '../map/greece';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -362,7 +363,23 @@ export function stateProblem(st: unknown): string {
   if (!Array.isArray(st.undo)) return damaged('its undo list is missing');
   if (!tradeOk(st.trade)) return damaged('its trading post’s record is wrong');
   if (!nums(st.taxGone)) return damaged('its record of households driven out by taxes is wrong');
+  if (!worldOk(st.world)) return damaged('its map of Greece is wrong');
   return '';
+}
+
+/** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */
+function worldOk(w: unknown): boolean {
+  if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
+  if (![w.routes, w.deals, w.travellers, w.news].every(Array.isArray)) return false;
+  const g = TRADE_GOODS.length;
+  return (w.cities as unknown[]).every((c, i) => {
+    if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.festival) || typeof c.war !== 'string') return false;
+    if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'price'].every((k) => nums(c[k], g))) return false;
+    if (!Array.isArray(c.history) || c.history.length !== g || !c.history.every((h: unknown) => nums(h))) return false;
+    if (!Array.isArray(c.memories) || !c.memories.every((m: unknown) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade))) return false;
+    const r = c.ruler;
+    return r === null || (isObj(r) && typeof r.name === 'string' && typeof r.female === 'boolean' && typeof r.title === 'string' && strs(r.traits) && fin(r.face));
+  });
 }
 
 const SHIP_NUMBERS = ['phase', 'due', 'since', 'turned', 'post', 'visits', 'lastAt', 'lastPaid'];

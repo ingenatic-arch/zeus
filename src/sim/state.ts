@@ -1,7 +1,8 @@
+import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 13;
+export const SIM_STATE_VERSION = 14;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -423,6 +424,132 @@ export interface SimState {
   trade: Trade;
   /** When households left the city whole for harsh taxes (ticks, the last year's; see stepHarsh in taxes.ts). */
   taxGone: number[];
+  /** Greece beyond the walls: the other cities, their rulers and goods (see world.ts). */
+  world: World;
+}
+
+// ---------------------------------------------------------------------------
+// Greece (see world.ts). Nothing here draws on the city's random numbers, and
+// nothing in the city reads it yet but the map: a town that keeps to itself
+// plays exactly as it did before Greece was there.
+
+/** What a ruler is like: two of these, shuffled each game. */
+export type Trait = 'proud' | 'greedy' | 'generous' | 'warlike' | 'pious' | 'shrewd' | 'fickle' | 'steadfast';
+
+/** The ruler of one of the four cities you can deal with. */
+export interface Ruler {
+  name: string;
+  female: boolean;
+  /** "King of Sparta". */
+  title: string;
+  traits: Trait[];
+  /** Picks the portrait's features (hair, beard, skin, the shape of the face). */
+  face: number;
+}
+
+/**
+ * Something a ruler remembers about you. Their mood is the sum of what each
+ * memory is worth now: `amount` when it happened (`tick`), fading evenly to
+ * nothing over `fade` ticks (0: it never fades).
+ */
+export interface Memory {
+  /** What kind of thing it was ('history', 'trait', 'first'; later gifts, refusals, promises…). */
+  kind: string;
+  /** What it was, in words: "old Argos and Sparta were rivals for the Peloponnese". */
+  why: string;
+  amount: number;
+  tick: number;
+  fade: number;
+}
+
+/**
+ * A city of Greece. Its goods are kept by trade good (TRADE_GOODS in
+ * trade.ts: wheat, meat, cheese, oil, fleece, wine): what its people make and
+ * use in a year, what it has in hand, and what it pays or asks for a hundred
+ * measures now, with a year of monthly prices behind it, oldest first.
+ */
+export interface WorldCity {
+  id: CityId;
+  /** Null for your city and Tyre (no ruler to deal with). */
+  ruler: Ruler | null;
+  /** The ruler's memories of you, oldest first (their mood is what these add up to now). */
+  memories: Memory[];
+  /** How the ruler feels about each other city (by CITY_IDS order; 0 for itself and for cities without a ruler). */
+  ties: number[];
+  make: number[];
+  need: number[];
+  stock: number[];
+  price: number[];
+  history: number[][];
+  /** The last harvest: 0 failed, 1 poor, 2 fair, 3 good, 4 rich. */
+  harvest: number;
+  /** The tick its festival ends (0: none on). */
+  festival: number;
+  /** The city it is at war with ('' at peace). */
+  war: CityId | '';
+}
+
+/** A trade route from your city to another (slice 16 opens them). */
+export interface TradeRoute {
+  city: CityId;
+  kind: 'land' | 'sea';
+  /** The tick it was opened, and when its next trader sets off. */
+  opened: number;
+  next: number;
+  /** What you have sold them and bought from them this year, by trade good. */
+  sold: number[];
+  bought: number[];
+}
+
+/** A ruler's request, offer, demand for tribute or threat, with its deadline (slices 19 and 20). */
+export interface Deal {
+  kind: 'request' | 'offer' | 'tribute' | 'threat';
+  city: CityId;
+  /** The trade good (by TRADE_GOODS order), or -1 for drachmas. */
+  good: number;
+  amount: number;
+  /** When it was made, and by when it must be met. */
+  at: number;
+  due: number;
+  state: 'open' | 'promised' | 'met' | 'refused' | 'broken' | 'lapsed';
+}
+
+/**
+ * Someone on the move on the map (a trader, goods sent as a gift, an army, a
+ * war band), along one of the ways (WAYS in map/greece.ts). Where they are is a
+ * pure function of the tick: `start` and `dur` along the way, outward from your
+ * city or homeward to theirs.
+ */
+export interface Traveller {
+  kind: 'trader' | 'gift' | 'army' | 'raiders';
+  city: CityId;
+  way: string;
+  start: number;
+  dur: number;
+  homeward: boolean;
+}
+
+/** A line of news from Greece. */
+export interface NewsItem {
+  tick: number;
+  city: CityId;
+  line: string;
+}
+
+/** Greece: your city's name, the cities and their rulers, and what goes on between them. */
+export interface World {
+  /** The seed Greece was shuffled from (a new game's own, apart from the city's). */
+  seed: number;
+  /** Greece's own random numbers, apart from the city's three. */
+  rng: RngState;
+  /** Your city's name. */
+  name: string;
+  /** The cities, in CITY_IDS order (yours first). */
+  cities: WorldCity[];
+  routes: TradeRoute[];
+  deals: Deal[];
+  travellers: Traveller[];
+  news: NewsItem[];
 }
 
 /**
