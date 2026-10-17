@@ -16,7 +16,7 @@ const FLAME_CAP = 600;
 /** Roughly how high each kind of building stands (homes by level), for where smoke leaves it and marks float. */
 const HOME_TOP = [0.4, 0.75, 0.85, 0.95, 1.35, 1.5, 1.7];
 const TOP: Partial<Record<BuildingKind, number>> = {
-  farm: 0.35, grove: 0.6, vineyard: 0.45, pasture: 0.3, lodge: 0.8, dairy: 0.9,
+  farm: 0.35, grove: 1.2, vineyard: 0.55, pasture: 0.3, lodge: 0.8, dairy: 0.9,
   shrine: 1.0, theatre: 1.3, agora: 0.9, granary: 1.2, storehouse: 1.1, press: 1.0, winery: 1.0,
   taxoffice: 0.95, watchpost: 1.5, architect: 1.0, fountain: 0.4, rubble: 0.25,
 };
@@ -259,16 +259,20 @@ export class HazardView {
       const id = h.b.id;
       const roof = h.y + h.top;
       if (h.how === 'smoulder') {
-        // A thin grey wisp curling up from the roof, thickening and paling as it climbs, then thinning out.
-        const n = 14;
+        // A thin grey wisp curling up from the roof, thickening and paling as it climbs, drifting with the wind, then thinning out.
+        // Each puff keeps a little size and drift of its own, so the wisp is ragged rather than a neat stack of balls.
+        const n = 16;
         const ox = (rnd(id, 2) - 0.5) * h.side * 0.35;
         const oz = (rnd(id, 3) - 0.5) * h.side * 0.35;
         for (let i = 0; i < n; i++) {
           const t = fract(time * 0.16 + i / n + rnd(id, 1));
           const sway = Math.sin(time * 0.8 + t * 6 + id) * 0.16 * t;
-          const r = (0.09 + t * 0.3) * (t > 0.7 ? (1 - t) / 0.3 : 1) * (t < 0.08 ? t / 0.08 : 1);
+          const jx = (rnd(id, 20 + i) - 0.5) * 0.5 * t;
+          const jz = (rnd(id, 40 + i) - 0.5) * 0.5 * t;
+          const r = (0.08 + t * 0.3) * (0.7 + 0.6 * rnd(id, 60 + i)) * (t > 0.7 ? (1 - t) / 0.3 : 1) * (t < 0.08 ? t / 0.08 : 1);
+          const drift = t * (0.9 + t * 0.9);
           this.c.copy(this.grey).lerp(this.pale, Math.min(1, t * 1.4));
-          puff(h.cx + ox + wx * t * 0.9 + sway, roof + t * 2.4, h.cz + oz + wz * t * 0.9 - sway * 0.5, r, this.c);
+          puff(h.cx + ox + wx * drift + sway + jx, roof + t * 2.4, h.cz + oz + wz * drift - sway * 0.5 + jz, r, this.c);
         }
       } else if (h.how === 'fire') {
         // Tongues of flame over the whole footprint, licking up through the roof: deep red, orange and yellow, each flickering.

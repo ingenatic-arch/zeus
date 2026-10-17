@@ -661,6 +661,10 @@ export function architectModel(): THREE.BufferGeometry {
   parts.push({ geo: cyl(0.016, 0.016, 0.4, 4).rotateX(Math.PI / 2).translate(-0.11, 0.98, -0.5), color: PAL.woodDark });
   parts.push({ geo: cyl(0.006, 0.006, 0.5, 3).translate(-0.11, 0.72, -0.5), color: PAL.rope });
   parts.push({ geo: slab(-0.2, -0.58, -0.02, -0.42, 0.36, 0.47), color: PAL.stoneBlock });
+  // A column being made in the front yard: two drums standing, the next one lying ready (the architect's trade at a glance).
+  parts.push({ geo: cyl(0.1, 0.11, 0.05, 8).translate(0.7, 0.075, 0.42), color: PAL.stoneBlockShade });
+  for (const [y, k] of [[0.1, 0], [0.26, 1]] as const) parts.push({ geo: cyl(0.075, 0.08, 0.16, 8).translate(0.7, y + 0.08, 0.42), color: k ? PAL.column : PAL.stoneBlock });
+  parts.push({ geo: cyl(0.075, 0.075, 0.16, 8).rotateX(Math.PI / 2).rotateY(0.5).translate(0.68, 0.125, 0.1), color: PAL.column });
   parts.push(...cypress(-0.8, -0.78, 0.8));
   return merge(parts);
 }
