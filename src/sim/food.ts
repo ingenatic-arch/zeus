@@ -26,6 +26,7 @@ import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './roun
 import type { NeedDue, NeedScore } from './walk';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 import { besideRoad, CARRIER_SPEED, CART_SPEED, centre, newWalker, position, setPath, WALK_SPEED } from './walk';
+import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
 
 /** Ticks a crop takes to grow at full strength (two months). */
@@ -173,9 +174,11 @@ export const FOOD: ServiceSpec = {
         if (cost <= have) {
           setFoodUntil(b, f, full);
           setHeld(stall, f, have - cost);
+          noteHomeUse(s, f, b, cost);
         } else {
           setFoodUntil(b, f, from + Math.floor((have * TICKS_PER_MONTH * kinds) / b.people));
           setHeld(stall, f, 0);
+          noteHomeUse(s, f, b, have);
         }
         changed = true;
       }

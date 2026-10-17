@@ -23,6 +23,7 @@ import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, setHeld, WHEAT, WINE, 
 import { stepLodges } from './hunt';
 import { rateOf } from './labour';
 import { storeOf } from './stores';
+import { note } from './stockbook';
 import type { Building, BuildingKind, SimState } from './state';
 
 /** An olive grove's harvest on the best olive ground, fully worked, every OLIVE_GROW ticks (two months). */
@@ -87,7 +88,9 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
       b.growth += rate;
       if (b.growth >= grow) {
         b.growth = 0;
-        setHeld(b, m.ware, Math.min(store, held(b, m.ware) + (m.yieldOf ? m.yieldOf(map, b) : 0)));
+        const had = held(b, m.ware);
+        setHeld(b, m.ware, Math.min(store, had + (m.yieldOf ? m.yieldOf(map, b) : 0)));
+        note(s, m.ware, 'made', b.kind, held(b, m.ware) - had);
       }
       if (Math.floor((b.growth / grow) * 8) !== before) s.looks++;
     }
@@ -104,8 +107,11 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
         if (input !== undefined) {
           made = Math.min(batch, held(b, input));
           setHeld(b, input, held(b, input) - made);
+          note(s, input, 'used', b.kind, made);
         }
-        setHeld(b, m.ware, Math.min(store, held(b, m.ware) + made));
+        const had = held(b, m.ware);
+        setHeld(b, m.ware, Math.min(store, had + made));
+        note(s, m.ware, 'made', b.kind, held(b, m.ware) - had);
         s.looks++;
       }
     }

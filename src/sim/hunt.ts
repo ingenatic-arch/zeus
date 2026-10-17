@@ -12,9 +12,11 @@ import type { CoastMap } from '../map/bake';
 import { around, centreOf, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { LODGE_STORE } from './food';
+import { MEAT } from './foods';
 import { rateOf } from './labour';
 import { door } from './rounds';
 import type { Building, Herd, SimState, Walker } from './state';
+import { note } from './stockbook';
 import { HUNTER_SPEED, newWalker, position, setPath } from './walk';
 import { bolt, lineClear, MIN_HEAD, offRoadPath, prunePath, regrowIn, walkable } from './wild';
 import { restFor } from './water';
@@ -205,7 +207,9 @@ function strike(s: SimState, map: CoastMap, w: Walker, l: Building): boolean {
 /** He is home (or can't get there): what he brought goes into the lodge's store. */
 function home(s: SimState, w: Walker, l: Building): false {
   if (w.load > 0) {
+    const had = l.meat;
     l.meat = Math.min(LODGE_STORE, l.meat + w.load);
+    note(s, MEAT, 'made', 'lodge', l.meat - had);
     s.looks++;
   }
   return false;

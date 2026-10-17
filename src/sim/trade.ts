@@ -35,6 +35,7 @@ import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
 import { roomFor, roomOf } from './stores';
 import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
+import { note } from './stockbook';
 import { income } from './treasury';
 import { DOCKER_SPEED, newWalker, position, setPath } from './walk';
 
@@ -659,6 +660,7 @@ function stepLoading(s: SimState, post: Building, ship: Ship): void {
     const take = day >= days ? q : Math.ceil(q / (days - day + 1));
     setHeld(post, w, q - take);
     ship.hold[k] += take;
+    note(s, w, 'sold', 'tyre', take);
     changed = true;
   });
   if (changed) s.looks++;
