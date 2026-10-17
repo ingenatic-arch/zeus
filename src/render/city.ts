@@ -81,11 +81,13 @@ export class CityView {
         if (x >= 0 && z >= 0 && x < size && z < size) dirty.add(this.streets.chunkKey(x, z));
       }
     }
-    // Homes changing level re-draw their patch of ground; so does a farm, granary or agora turning to face a new road.
-    // Only the chunks of buildings that came, went or changed (not every building's, as before).
+    // A plot becoming a home (or a home a plot again) re-draws its patch of ground; so does a farm, granary or agora
+    // turning to face a new road. The ground under a home is the same at every level above a plot (see plotGround), so
+    // a home rising or falling back a level (a street of villas rising) doesn't rebuild its chunk (slice 14's review:
+    // that was most of a big town's cost per frame). Only the chunks of buildings that came, went or changed.
     const keys = new Map<number, { key: string; chunk: number }>();
     for (const b of s.buildings) {
-      const key = `${b.kind}:${b.level}${b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' ? '' : ':' + facingOf(s, size, b).toFixed(1)}`;
+      const key = `${b.kind}:${b.level > 0 ? 1 : 0}${b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' ? '' : ':' + facingOf(s, size, b).toFixed(1)}`;
       const chunk = this.streets.chunkKey(b.x, b.z);
       keys.set(b.id, { key, chunk });
       if (this.buildingKeys.get(b.id)?.key !== key) dirty.add(chunk);

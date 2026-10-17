@@ -125,7 +125,11 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     if (target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !/^(checkbox|radio|range|button)$/.test(target.type))) return;
     // A panel's button or tick keeps the focus once clicked (panels are brought up to date in place): let go of it,
     // so the keys still drive the game and Space doesn't press it again.
-    if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) target.blur();
+    // Tab and Enter stay with the page (moving between a panel's controls and pressing one), as before.
+    if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) {
+      if (e.key === 'Tab' || e.key === 'Enter') return;
+      target.blur();
+    }
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z' && !e.repeat && tools) {
       tools.key('undo', e);

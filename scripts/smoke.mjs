@@ -1052,7 +1052,12 @@ await page.keyboard.press('Space');
 await frames(2);
 c = await city();
 if (!(c.owed === 0 && c.sales > 0 && c.money > 300)) fail(`#black after the visit: ${JSON.stringify(c)}`);
-const led13 = await zeus(() => window.__zeus.ledgerText());
+// The ledger card redraws every 0.4 s of game-clock time, and a slow headless frame counts as only a tenth of a second
+// of it, so it can take several frames after the visit to show the sale (this check once failed on that race).
+const led13 = await page
+  .waitForFunction(() => /Sales · wheat/.test(window.__zeus.ledgerText() ?? '') && window.__zeus.ledgerText(), null, { timeout: 60000, polling: 250 })
+  .then((h) => h.jsonValue())
+  .catch(() => zeus(() => window.__zeus.ledgerText()));
 if (!/Sales · wheat/.test(led13 ?? '')) fail(`#black ledger: ${led13}`);
 // A slice 12 (version 11) save opens without a post, says ships can call now.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice12-town.save.json.gz')).toString());
