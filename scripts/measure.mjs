@@ -211,10 +211,39 @@ for (const cam of ['closed', 'overview']) {
   console.log(`  a save of #town: ${(size / 1024).toFixed(0)} KB`);
 }
 
+// Slices 11 and 12: the villas and the winery; fire, smoke and rubble on #town's east street (marks, puffs and flames are capped instanced meshes).
+for (const [hash, views] of [
+  ['#villas-paused-shot', ['villas', 'overview']],
+  ['#winery-paused-shot', [null]],
+  ['#fire-paused-shot', ['east', 'town']],
+  ['#blaze-paused-shot', ['east', 'town']],
+  ['#rubble-paused-shot', ['east']],
+  ['#creak-paused-shot', ['east']],
+  ['#watchman-paused-shot', [null]],
+]) {
+  const t = Date.now();
+  await page.goto('about:blank');
+  await page.goto(url + hash);
+  await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  await page.waitForFunction(() => window.__zeus.frames > 0, null, { timeout: 120000 });
+  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, ready: window.__zeus.readyAt }));
+  console.log(`load ${hash}: setup ${tp.setup.toFixed(0)} ms, ready at ${tp.ready.toFixed(0)} ms by the page's clock (Playwright saw ready after ${Date.now() - t} ms)`);
+  for (const cam of views) {
+    if (cam) await page.evaluate((c) => window.__zeus.setView(c), cam);
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    const c = await page.evaluate(() => window.__zeus.city());
+    console.log(
+      `${hash.replace(/-.*$/, '')} view ${(cam ?? 'demo').padEnd(10)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}  · marks ${c.hazardMarks}, smoke puffs ${c.smokePuffs}, flames ${c.flames} · smoulders ${c.smoulders}, fires ${c.fires}, creaks ${c.creaks}, rubble ${c.rubble}`,
+    );
+  }
+}
+
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

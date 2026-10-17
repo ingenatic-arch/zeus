@@ -6,6 +6,8 @@ export const VIEWS: Record<string, CameraView> = {
   coast: { x: 62, z: 62, yaw: 0.12, dist: 100, tilt: -0.66 },
   // #town: the town on the east bank from the hills behind it, looking down over the fine-house core to the sea, the river, the bridge and the farms.
   town: { x: 69, z: 39.5, yaw: 2.65, dist: 36, tilt: -0.08 },
+  // #town's east street, where the fire and creak demos open: the fine houses, the agora and the tax office at the end of the street.
+  east: { x: 93, z: 40.5, yaw: 2.65, dist: 26, tilt: -0.06 },
   // Street level in #town's core, by the fountain among the fine houses.
   townstreet: { x: 72, z: 40.5, yaw: 0.6, dist: 9, tilt: 0.03 },
   // Close over #town's tax office on the main street (the camera then follows the collector).

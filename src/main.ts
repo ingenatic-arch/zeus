@@ -135,6 +135,8 @@ interface Probe {
   buildingsOf?: (kind: string) => Array<{ id: number; x: number; z: number }>;
   /** A watchman running to (or fighting) a fire, where he is drawn. */
   dasher?: () => { x: number; z: number } | null;
+  /** A watchman at a fire, throwing water on it. */
+  fighter?: () => { x: number; z: number } | null;
   /** Buildings smouldering, burning or creaking (or with risk or wear past `from`): where and how far gone. */
   hazardsOf?: (from?: number) => Array<{ id: number; kind: string; x: number; z: number; side: number; fire: number; creak: boolean; risk: number; wear: number }>;
   /** The wild herds: where each stands and how many head it has. */
@@ -856,6 +858,7 @@ function start(): void {
     return at ? { x: at.pos.x, z: at.pos.z } : null;
   };
   probe.dasher = () => drawnAt((w) => w.kind === 'watchman' && w.target > 0);
+  probe.fighter = () => drawnAt((w) => w.kind === 'watchman' && w.target > 0 && w.wait > 0);
   probe.homeward = () => drawnAt((w) => w.kind === 'hunter' && w.back && w.load > 0);
   probe.cartOf = (food) => drawnAt((w) => w.kind === 'cart' && w.food === food && w.load > 0);
   probe.porterOf = (ware) => drawnAt((w) => w.kind === 'porter' && w.food === ware && w.load > 0);

@@ -299,21 +299,21 @@ export class HazardView {
           puff(h.cx + ox * (1 - t * 0.5) + wx * lean, roof + 0.5 + t * 4.4, h.cz + oz * (1 - t * 0.5) + wz * lean, r, this.c);
         }
       } else {
-        // Creaking: a puff of dust at the foot of a wall now and then, and grit falling from the eaves.
-        for (let i = 0; i < 6; i++) {
-          const t = fract(time * 0.3 + i / 6 + rnd(id, 300 + i));
-          if (t > 0.55) continue;
+        // Creaking: puffs of dust bursting from the foot of its walls now and then, and grit falling from the eaves.
+        for (let i = 0; i < 8; i++) {
+          const t = fract(time * 0.28 + i / 8 + rnd(id, 300 + i));
+          if (t > 0.6) continue;
           const a = rnd(id, 310 + i) * Math.PI * 2;
-          const d = h.side * 0.42;
-          const k = t / 0.55;
+          const d = h.side * 0.5 + 0.05;
+          const k = t / 0.6;
           this.c.copy(this.dust).lerp(this.pale, k);
-          puff(h.cx + Math.cos(a) * (d + k * 0.35), h.y + 0.1 + k * 0.35, h.cz + Math.sin(a) * (d + k * 0.35), (0.1 + k * 0.22) * (1 - k * 0.4), this.c);
+          puff(h.cx + Math.cos(a) * (d + k * 0.5), h.y + 0.12 + k * 0.45, h.cz + Math.sin(a) * (d + k * 0.5), (0.14 + k * 0.3) * (1 - k * 0.5), this.c);
         }
-        for (let i = 0; i < 4; i++) {
-          const t = fract(time * 0.6 + i / 4 + rnd(id, 330 + i));
+        for (let i = 0; i < 5; i++) {
+          const t = fract(time * 0.6 + i / 5 + rnd(id, 330 + i));
           const a = rnd(id, 340 + i) * Math.PI * 2;
-          const d = h.side * 0.45;
-          puff(h.cx + Math.cos(a) * d, roof - t * t * h.top, h.cz + Math.sin(a) * d, 0.035, this.dust);
+          const d = h.side * 0.5;
+          puff(h.cx + Math.cos(a) * d, roof - t * t * h.top, h.cz + Math.sin(a) * d, 0.05, this.dust);
         }
       }
     }

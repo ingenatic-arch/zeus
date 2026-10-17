@@ -733,12 +733,18 @@ if (!/^Hunting lodge · 200 dr[\s\S]*Game in reach: the deer[\s\S]*shared with t
 await open('#grove-paused');
 c = await city();
 if (!(c.tool === 'grove' && c.groves === 0 && c.oilStalls === 0 && c.overlayMode === 'oil')) fail(`#grove: ${JSON.stringify(c)}`);
-const groveTipAt = async (x, z) => {
-  p = await at(x, z);
-  await page.mouse.move(p.x, p.y);
-  await page.mouse.move(p.x + 1, p.y + 1);
-  await frames(2);
-  return tip();
+// Hovering: with a pattern, tried up to three times (a slow software renderer can draw the tip a frame or two late).
+const groveTipAt = async (x, z, re = null) => {
+  let t = null;
+  for (let i = 0; i < 3; i++) {
+    p = await at(x, z);
+    await page.mouse.move(p.x + (i % 2 ? -1 : 0), p.y);
+    await page.mouse.move(p.x + 1, p.y + 1);
+    await frames(2 + i * 2);
+    t = await tip();
+    if (!re || re.test(t ?? '')) return t;
+  }
+  return t;
 };
 let gt = await groveTipAt(28.5, 61.5);
 if (!/^Olive grove · [\d,]+ dr[\s\S]*olive/.test(gt ?? '')) fail(`grove tool tip: ${gt}`);
@@ -772,7 +778,7 @@ for (const [kind, re] of [
   const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
   await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
   await frames(4);
-  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5, re);
   if (!re.test(t ?? '')) fail(`hovering the ${kind}: ${t}`);
 }
 // #oilvendor: following the oil vendor, the oil overlay on.
@@ -799,7 +805,7 @@ for (const [kind, re] of [
   const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
   await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
   await frames(4);
-  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5, re);
   if (!re.test(t ?? '')) fail(`hovering the ${kind} in #pasture: ${t}`);
 }
 // #fleecevendor and #winevendor: following the vendor, the overlay on.
@@ -827,7 +833,7 @@ for (const [kind, re] of [
   const b = await zeus((k) => window.__zeus.buildingsOf(k)[0], kind);
   await zeus((v) => window.__zeus.jump(v), { x: b.x + 1.5, z: b.z + 1.5, yaw: 2.4, dist: 9, tilt: 0.1 });
   await frames(4);
-  const t = await groveTipAt(b.x + 1.5, b.z + 1.5);
+  const t = await groveTipAt(b.x + 1.5, b.z + 1.5, re);
   if (!re.test(t ?? '')) fail(`hovering the ${kind} in #winery: ${t}`);
 }
 // #villas: ten or more villas, all three stalls, a villa's panel; seven needs at once draw the widest sign.
@@ -841,6 +847,111 @@ await zeus((id) => window.__zeus.warnAll(id), villa.id);
 await frames(4);
 if (!(await zeus(() => window.__zeus.meshes().filter((m) => m.name === 'sign-rim-7').reduce((n, m) => n + m.count, 0) >= 1))) fail('#villas: no seven-wide sign drawn');
 if (errors.length) fail('page errors (slice 11):\n' + errors.join('\n'));
+// Slice 12: fire and collapse.
+// #fire: a home smouldering on the east street, marks over the buildings past half, the watch post tool and the fire overlay; a town line names the place.
+await open('#fire-paused');
+c = await city();
+let lines12 = await zeus(() => window.__zeus.townLines());
+if (!(c.hazards && c.smoulders >= 1 && c.fires === 0 && c.watchposts >= 2 && c.tool === 'watchpost' && c.overlayMode === 'fire' && c.hazardMarks > 0 && c.smokePuffs > 0)) fail(`#fire: ${JSON.stringify(c)}`);
+if (!lines12.some((l) => /^Smoke (by|on|in|at|below) [^:]+: the .+ is smouldering and bursts into flame in \d+ days? unless a watchman walks by/.test(l))) fail(`#fire town line: ${JSON.stringify(lines12)}`);
+gt = await groveTipAt(87, 43, /^Watch post · \d+ dr[\s\S]*watchman would reach \d+ buildings?/);
+if (!/^Watch post · \d+ dr[\s\S]*watchman would reach \d+ buildings?/.test(gt ?? '')) fail(`watch post tool tip: ${gt}`);
+await page.keyboard.press('Escape');
+const smoulder = await zeus(() => window.__zeus.hazardsOf().find((o) => o.fire === 1));
+await zeus((v) => window.__zeus.jump(v), { x: smoulder.x + 1, z: smoulder.z + 1, yaw: 2.4, dist: 9, tilt: 0.1 });
+await frames(4);
+gt = await groveTipAt(smoulder.x + 1, smoulder.z + 1, /Smouldering · it bursts into flame in \d+ days?/);
+if (!/Smouldering · it bursts into flame in \d+ days?/.test(gt ?? '')) fail(`hovering the smouldering home: ${gt}`);
+// #blaze: two fires, flames and smoke drawn, the fire line.
+await open('#blaze-paused');
+c = await city();
+lines12 = await zeus(() => window.__zeus.townLines());
+if (!(c.fires >= 2 && c.flames > 0 && c.smokePuffs > 0)) fail(`#blaze: ${JSON.stringify(c)}`);
+if (!lines12.some((l) => /^Fire [^:]+: the .+ is burning and falls in \d+ days?/.test(l))) fail(`#blaze town line: ${JSON.stringify(lines12)}`);
+// #rubble: heaps where buildings burnt down; hovering one says what stood there; clearing one costs its fee.
+await open('#rubble-paused');
+c = await city();
+if (!(c.rubble >= 3 && c.tool === 'clear')) fail(`#rubble: ${JSON.stringify(c)}`);
+lines12 = await zeus(() => window.__zeus.townLines());
+if (!lines12.some((l) => /^Rubble [^:]+: .*Clear (it|them) with the clear tool \(X\)/.test(l))) fail(`#rubble town line: ${JSON.stringify(lines12)}`);
+const heap = await zeus(() => window.__zeus.buildingsOf('rubble')[0]);
+await zeus((v) => window.__zeus.jump(v), { x: heap.x + 1, z: heap.z + 1, yaw: 0.7, dist: 9, tilt: 0.1 });
+await frames(4);
+gt = await groveTipAt(heap.x + 1, heap.z + 1, /\d+ dr/);
+if (!/rubble[\s\S]*\d+ dr/i.test(gt ?? '')) fail(`the clear tool over rubble: ${gt}`);
+const before12 = c;
+await page.mouse.down();
+await page.mouse.up();
+await frames(3);
+c = await city();
+if (!(c.rubble === before12.rubble - 1 && before12.money - c.money >= 10 && before12.money - c.money <= 20)) fail(`clearing rubble: ${before12.rubble} -> ${c.rubble}, ${before12.money} -> ${c.money} dr`);
+await page.keyboard.press('Escape');
+const heap2 = await zeus(() => window.__zeus.buildingsOf('rubble')[0]);
+await zeus((v) => window.__zeus.jump(v), { x: heap2.x + 1, z: heap2.z + 1, yaw: 0.7, dist: 9, tilt: 0.1 });
+await frames(4);
+gt = await groveTipAt(heap2.x + 1, heap2.z + 1, /^Rubble · (burnt|fallen) down/);
+if (!/^Rubble · (burnt|fallen) down[\s\S]*stood here[\s\S]*Clear it with the clear tool \(X\) for \d+ dr/.test(gt ?? '')) fail(`hovering rubble: ${gt}`);
+// #creak: the agora creaking, the wear overlay and the architect's office tool; a creaking line.
+await open('#creak-paused');
+c = await city();
+lines12 = await zeus(() => window.__zeus.townLines());
+if (!(c.creaks >= 1 && c.tool === 'architect' && c.overlayMode === 'wear' && c.architects >= 1)) fail(`#creak: ${JSON.stringify(c)}`);
+if (!lines12.some((l) => /^Creaking [^:]+: the .+ falls down in \d+ days? unless an inspector walks by/.test(l))) fail(`#creak town line: ${JSON.stringify(lines12)}`);
+// #watchman and #inspector: following them, the overlay on.
+for (const [hash, mode, count, name] of [['#watchman', 'fire', 'watchmen', 'watchman'], ['#inspector', 'wear', 'inspectors', 'inspector']]) {
+  await open(hash);
+  c = await city();
+  if (!(c.following && c.overlay && c.overlayMode === mode && c[count] > 0)) fail(`${hash}: ${JSON.stringify(c)}`);
+  const chip = await zeus(() => document.querySelector('.follow-chip')?.textContent ?? '');
+  if (!chip.includes(name)) fail(`${hash} follow chip: ${chip}`);
+  const w = await zeus((k) => window.__zeus.walker(k), name);
+  if (w) {
+    await page.mouse.move(w.x, w.y);
+    await frames(2);
+    const t = await tip();
+    if (t && !new RegExp(`^${name[0].toUpperCase()}${name.slice(1)}`).test(t)) fail(`hovering the ${name}: ${t}`);
+  }
+}
+// Z cycles the offices and J the overlays: tax, fire risk, wear, off. The build bar groups them: a click opens a row, a click in it picks.
+await open('#town-paused');
+for (const want of ['taxoffice', 'watchpost', 'architect', 'taxoffice']) {
+  await page.keyboard.press('z');
+  await frames(1);
+  c = await city();
+  if (c.tool !== want) fail(`Z cycling: wanted ${want}, got ${c.tool}`);
+}
+await page.keyboard.press('Escape');
+for (const want of ['tax', 'fire', 'wear', null]) {
+  await page.keyboard.press('j');
+  await frames(2);
+  c = await city();
+  if ((c.overlay ? c.overlayMode : null) !== want) fail(`J cycling: wanted ${want}, got ${c.overlayMode} (${c.overlay})`);
+}
+const barButtons = await zeus(() => document.querySelectorAll('.buildbar > button').length);
+if (barButtons > 24) fail(`the build bar has ${barButtons} buttons`);
+await page.click('.btn.tool.group[data-group="makers"]');
+await frames(1);
+const rowOpen = await zeus(() => ({ open: !document.querySelector('.group-row[data-group="makers"]').hidden, n: document.querySelectorAll('.group-row[data-group="makers"] button').length }));
+if (!(rowOpen.open && rowOpen.n === 8)) fail(`the farms row: ${JSON.stringify(rowOpen)}`);
+await page.click('.group-row[data-group="makers"] button[data-tool="lodge"]');
+await frames(1);
+c = await city();
+const rowAfter = await zeus(() => !document.querySelector('.group-row[data-group="makers"]').hidden);
+if (c.tool !== 'lodge' || rowAfter) fail(`picking the lodge from its row: ${c.tool}, row open ${rowAfter}`);
+const fits = await zeus(() => {
+  const r = document.querySelector('.buildbar').getBoundingClientRect();
+  return r.left >= 0 && r.right <= innerWidth && document.querySelector('.buildbar').scrollWidth <= document.querySelector('.buildbar').clientWidth + 1;
+});
+if (!fits) fail('the build bar does not fit at 1280 wide');
+await page.keyboard.press('Escape');
+// A slice 11 (version 10) save opens safe and sound, says what changed, and its risk builds from here.
+await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice11-town.save.json.gz')).toString());
+await open('#saved-paused');
+c = await city();
+const back12 = await zeus(() => document.querySelector('.save-note')?.textContent ?? '');
+if (!(c.hazards && c.smoulders === 0 && c.creaks === 0 && c.rubble === 0 && c.hazardMarks === 0 && /Buildings can now catch fire and wear out/.test(back12))) fail(`slice 11 save: ${back12} ${JSON.stringify(c)}`);
+await zeus(() => localStorage.clear());
+if (errors.length) fail('page errors (slice 12):\n' + errors.join('\n'));
 // A phase 1 save opens: rent turned into taxes, and the welcome back says to build a tax office.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/phase1-food.save.json.gz')).toString());
 await open('#saved-paused');
@@ -881,6 +992,6 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'));
   await ctx.close();
 }
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

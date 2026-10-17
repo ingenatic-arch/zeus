@@ -154,6 +154,7 @@ const SHOTS = {
   watchman: '#watchman',
   'watchman-close': '#watchman',
   'watchman-dash': '#blaze',
+  'watchman-fight': '#blaze',
   inspector: '#inspector',
   'inspector-close': '#inspector',
   'marks-close': '#fire-paused-shot',
@@ -474,10 +475,10 @@ const BEFORE = {
     await closeTo(page, 'architect', 0.7, 4, 0.3, 1, 1);
   },
   'watchpost-tip': async (page) => {
-    await hover(page, 92.5, 45.5);
+    await hover(page, 87, 43);
   },
   'architect-tip': async (page) => {
-    await hover(page, 92.5, 45.5);
+    await hover(page, 87, 43);
   },
   watchman: async (page) => {
     const t = await page.evaluate(() => window.__zeus.tick());
@@ -487,7 +488,22 @@ const BEFORE = {
     await closeToWalker(page, () => window.__zeus.where('watchman'), 40, { yaw: 0.5, dist: 2.6, tilt: 0.3 });
   },
   'watchman-dash': async (page) => {
-    await closeToWalker(page, () => window.__zeus.dasher(), 10, { yaw: 0.5, dist: 4, tilt: 0.3 });
+    // A watchman running to the fire, close by.
+    await page.waitForFunction(() => window.__zeus.dasher() !== null, null, { timeout: 400000, polling: 100 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.dasher();
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 4, tilt: 0.3 });
+    });
+  },
+  'watchman-fight': async (page) => {
+    // A watchman at the fire, throwing water on it.
+    await page.waitForFunction(() => window.__zeus.fighter() !== null, null, { timeout: 400000, polling: 100 });
+    await page.evaluate(() => {
+      window.__zeus.speed('paused');
+      const w = window.__zeus.fighter();
+      if (w) window.__zeus.jump({ x: w.x, z: w.z, yaw: 0.5, dist: 6, tilt: 0.25 });
+    });
   },
   inspector: async (page) => {
     const t = await page.evaluate(() => window.__zeus.tick());
