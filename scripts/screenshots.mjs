@@ -134,6 +134,38 @@ const SHOTS = {
   'porter-fleece': '#villas',
   'porter-wine': '#villas',
   'seven-needs': '#villas-paused',
+  // Slice 12.
+  fire: '#fire-paused',
+  'fire-close': '#fire-paused-shot',
+  'fire-overlay': '#fire-paused',
+  blaze: '#blaze-paused-shot',
+  'blaze-close': '#blaze-paused-shot',
+  'blaze-ui': '#blaze-paused',
+  rubble: '#rubble-paused',
+  'rubble-close': '#rubble-paused-shot',
+  'rubble-tip': '#rubble-paused',
+  creak: '#creak-paused',
+  'creak-close': '#creak-paused-shot',
+  'wear-overlay': '#creak-paused',
+  watchpost: '#town-paused-shot',
+  architect: '#town-paused-shot',
+  'watchpost-tip': '#fire-paused',
+  'architect-tip': '#creak-paused',
+  watchman: '#watchman',
+  'watchman-close': '#watchman',
+  'watchman-dash': '#blaze',
+  inspector: '#inspector',
+  'inspector-close': '#inspector',
+  'marks-close': '#fire-paused-shot',
+  'fire-panel': '#fire-paused',
+  'fire-tip': '#fire-paused',
+  'rubble-hover': '#rubble-paused',
+  'bar-1280': '#town-paused',
+  'bar-1366': '#town-paused',
+  'bar-1920': '#town-paused',
+  'bar-open-1280': '#town-paused',
+  'bar-open-1920': '#town-paused',
+  'bar-offices': '#town-paused',
 };
 
 /** Hover the pointer over a world point (after a few frames, so the camera has settled). */
@@ -380,6 +412,90 @@ const BEFORE = {
   'porter-wine': async (page) => {
     await closeToWalker(page, () => window.__zeus.porterOf?.(7) ?? null, 40, { yaw: 0.5, dist: 2.6, tilt: 0.75 });
   },
+  // Slice 12: the first hazard building of a kind of trouble, close by.
+  'fire-close': async (page) => {
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.fire === 1));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + b.side / 2, z: b.z + b.side / 2, yaw: 0.7, dist: 7, tilt: 0.2 }), b);
+  },
+  'marks-close': async (page) => {
+    const b = await page.evaluate(() => window.__zeus.hazardsOf(500).find((o) => o.fire === 0 && !o.creak));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + b.side / 2, z: b.z + b.side / 2, yaw: 0.7, dist: 12, tilt: 0.1 }), b);
+  },
+  'fire-overlay': async (page) => {
+    await page.keyboard.press('Escape');
+  },
+  blaze: async (page) => {
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.fire === 2));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + b.side / 2, z: b.z + b.side / 2, yaw: 0.7, dist: 16, tilt: 0.05 }), b);
+  },
+  'blaze-close': async (page) => {
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.fire === 2));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + b.side / 2, z: b.z + b.side / 2, yaw: 0.7, dist: 6, tilt: 0.2 }), b);
+  },
+  'rubble-close': async (page) => {
+    await closeTo(page, 'rubble', 0.7, 6, 0.25, 1, 1);
+  },
+  'rubble-tip': async (page) => {
+    const b = await closeTo(page, 'rubble', 0.7, 10, 0.1, 1, 1);
+    await hover(page, b.x + 1, b.z + 1);
+  },
+  'creak-close': async (page) => {
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.creak));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + b.side / 2, z: b.z + b.side / 2, yaw: 0.7, dist: 7, tilt: 0.2 }), b);
+  },
+  'fire-panel': async (page) => {
+    // The panel of the smouldering home, opened by a click.
+    await page.keyboard.press('Escape');
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.fire === 1 && o.kind === 'home'));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + 1, z: b.z + 1, yaw: 0.7, dist: 12, tilt: 0.1 }), b);
+    await hover(page, b.x + 1, b.z + 1);
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForFunction(() => window.__zeus.panelText().length > 0, null, { timeout: 120000 });
+  },
+  'fire-tip': async (page) => {
+    await page.keyboard.press('Escape');
+    const b = await page.evaluate(() => window.__zeus.hazardsOf().find((o) => o.fire === 1));
+    await page.evaluate((b) => window.__zeus.jump({ x: b.x + 1, z: b.z + 1, yaw: 0.7, dist: 12, tilt: 0.1 }), b);
+    await hover(page, b.x + 1, b.z + 1);
+  },
+  'rubble-hover': async (page) => {
+    await page.keyboard.press('Escape');
+    const b = await closeTo(page, 'rubble', 0.7, 10, 0.1, 1, 1);
+    await hover(page, b.x + 1, b.z + 1);
+  },
+  'wear-overlay': async (page) => {
+    await page.keyboard.press('Escape');
+  },
+  watchpost: async (page) => {
+    await closeTo(page, 'watchpost', 0.7, 4, 0.3, 1, 1);
+  },
+  architect: async (page) => {
+    await closeTo(page, 'architect', 0.7, 4, 0.3, 1, 1);
+  },
+  'watchpost-tip': async (page) => {
+    await hover(page, 92.5, 45.5);
+  },
+  'architect-tip': async (page) => {
+    await hover(page, 92.5, 45.5);
+  },
+  watchman: async (page) => {
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 240000 });
+  },
+  'watchman-close': async (page) => {
+    await closeToWalker(page, () => window.__zeus.where('watchman'), 40, { yaw: 0.5, dist: 2.6, tilt: 0.3 });
+  },
+  'watchman-dash': async (page) => {
+    await closeToWalker(page, () => window.__zeus.dasher(), 10, { yaw: 0.5, dist: 4, tilt: 0.3 });
+  },
+  inspector: async (page) => {
+    const t = await page.evaluate(() => window.__zeus.tick());
+    await page.waitForFunction((t0) => window.__zeus.tick() > t0 + 40, t, { timeout: 240000 });
+  },
+  'inspector-close': async (page) => {
+    await closeToWalker(page, () => window.__zeus.where('inspector'), 40, { yaw: 0.5, dist: 2.6, tilt: 0.3 });
+  },
   'seven-needs': async (page) => {
     // Debug: one villa warned about all seven of its needs at once, to see the sign's layout.
     const id = await page.evaluate(() => {
@@ -480,11 +596,20 @@ for (const arg of names) {
   const [name, cam] = arg.split('@');
   const q = SHOTS[name] ?? (name.startsWith('?') || name.startsWith('#') ? name : `?cam=${name}&speed=paused&shot=1`);
   const t0 = Date.now();
+  // The build bar at a laptop's width, and with a group's row open (bar-open-<width>).
+  const bar = /^bar-(open-)?(\d+)$/.exec(name);
+  await page.setViewportSize(bar ? { width: Number(bar[2]), height: Math.round((Number(bar[2]) * 9) / 16) } : { width: 1600, height: 900 });
   await page.goto('about:blank');
   await page.goto(url + q);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
   if (name === 'help') await page.keyboard.press('?');
+  if (bar?.[1]) await page.click('.btn.tool.group[data-group="makers"]');
+  if (name === 'bar-offices') {
+    await page.keyboard.press('z');
+    await page.keyboard.press('z');
+    await page.click('.btn.tool.group[data-group="offices"]');
+  }
   if (BEFORE[name]) {
     await BEFORE[name](page);
     const f = await page.evaluate(() => window.__zeus.frames);

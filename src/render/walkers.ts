@@ -330,6 +330,70 @@ function collector(full: boolean): THREE.BufferGeometry {
 }
 
 /**
+ * The watchman: a man in a red-brown tunic (the tinted part) under a round
+ * leather cap, a wooden bucket in one hand and a long fire hook on his
+ * shoulder. `run`: running to a fire, the bucket full and held out before
+ * him in both hands, the hook slung across his back.
+ */
+function watchman(run: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, run ? -1.3 : -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, run ? 1.3 : 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.085, 0.21, 6).rotateZ(run ? -0.18 : 0).translate(0, 0.205, 0), color: '', tint: true },
+    // A leather belt, and the cap: a low dome with a short brim.
+    { geo: new THREE.CylinderGeometry(0.07, 0.07, 0.022, 6).translate(0, 0.17, 0), color: PAL.leather },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(run ? 0.03 : 0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.064, 0).scale(1, 0.62, 1).translate(run ? 0.02 : -0.005, 0.395, 0), color: PAL.leather },
+    { geo: new THREE.CylinderGeometry(0.075, 0.075, 0.01, 8).translate(run ? 0.02 : -0.005, 0.38, 0), color: PAL.leather },
+  ];
+  // The hook: a long pole over the shoulder (slung across his back as he runs), the iron crook at its top end.
+  const a = run ? 1.25 : 0.85;
+  const [hx, hy, hz] = run ? [-0.07, 0.27, 0] : [-0.01, 0.33, -0.07];
+  parts.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, 0.56, 3).rotateZ(a).translate(hx, hy, hz), color: PAL.wood });
+  parts.push({ geo: new THREE.TorusGeometry(0.03, 0.006, 3, 6, Math.PI * 1.2).rotateZ(a).translate(hx - Math.sin(a) * 0.29, hy + Math.cos(a) * 0.29, hz), color: PAL.rockGrey });
+  if (run) {
+    // Both arms forward, the bucket held out before him, brimming.
+    for (const z of [-0.05, 0.05]) parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateZ(-1.25).translate(0.08, 0.26, z), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.04, 0.07, 7).translate(0.16, 0.24, 0), color: PAL.bucket });
+    parts.push({ geo: new THREE.CylinderGeometry(0.046, 0.046, 0.01, 7).translate(0.16, 0.272, 0), color: PAL.bucketWater });
+  } else {
+    // One arm up to the hook on his shoulder, the other carrying the bucket at his side.
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateX(0.9).translate(0.0, 0.3, -0.06), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).translate(0.0, 0.22, 0.075), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.045, 0.036, 0.065, 7).translate(0.0, 0.12, 0.09), color: PAL.bucket });
+    parts.push({ geo: new THREE.TorusGeometry(0.035, 0.004, 3, 6, Math.PI).translate(0.0, 0.155, 0.09), color: PAL.woodDark });
+  }
+  return mergeTinted(parts);
+}
+
+/**
+ * The inspector from the architect's office: a woman in a long deep-blue
+ * dress (the tinted part) with a pale scarf over her hair, a measuring rod
+ * as tall as she is in one hand and a wax tablet held to her chest.
+ */
+function inspector(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.025, 0.08, 0.018, PAL.skin, -1),
+    leg(0, 0.025, 0.08, 0.018, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.28, 7).translate(0, 0.19, 0), color: '', tint: true },
+    // A sash at the waist.
+    { geo: new THREE.CylinderGeometry(0.062, 0.064, 0.02, 7).translate(0, 0.26, 0), color: PAL.inspectorScarf },
+    { geo: new THREE.IcosahedronGeometry(0.054, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    // The scarf over her hair, falling to the shoulders.
+    { geo: new THREE.IcosahedronGeometry(0.062, 0).scale(1, 0.85, 1).translate(-0.016, 0.38, 0), color: PAL.inspectorScarf },
+    { geo: new THREE.CylinderGeometry(0.045, 0.062, 0.07, 6).translate(-0.02, 0.32, 0), color: PAL.inspectorScarf },
+    // The rod, upright in her right hand, banded for measuring.
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).rotateX(-0.5).translate(0.02, 0.25, 0.08), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.007, 0.007, 0.5, 4).translate(0.04, 0.27, 0.12), color: PAL.wood },
+  ];
+  for (const y of [0.12, 0.27, 0.42]) parts.push({ geo: new THREE.CylinderGeometry(0.009, 0.009, 0.025, 4).translate(0.04, y, 0.12), color: PAL.watchRed });
+  // The other arm bent, the tablet held flat against her chest.
+  parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-1.2).translate(0.05, 0.25, -0.05), color: PAL.skin });
+  parts.push({ geo: new THREE.BoxGeometry(0.014, 0.09, 0.07).rotateZ(-0.25).translate(0.075, 0.28, -0.03), color: PAL.tablet });
+  return mergeTinted(parts);
+}
+
+/**
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
  * (tinted tunic) walking at the ox's head. Its load: golden sheaves of
  * wheat, carcasses under a hide for meat, wheels of cheese stacked on the bed,
@@ -546,6 +610,9 @@ export class Walkers {
   private readonly wineVendors: Look;
   /** Hunters: [setting out, with a deer, with a boar]. */
   private readonly hunters: [Look, Look, Look];
+  /** Watchmen: [walking the round, running to a fire or fighting it]. */
+  private readonly watchmen: [Look, Look];
+  private readonly inspectors: Look;
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -578,7 +645,9 @@ export class Walkers {
     this.carts = (['none', 'wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine'] as const).map((l) => big(oxCart(l)));
     this.porters = (['none', 'wheat', 'mixed', 'oil', 'fleece', 'wine'] as const).map((l) => small(porter(l)));
     this.hunters = [small(hunter('none')), big(hunter('deer')), big(hunter('boar'))];
-    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
+    this.watchmen = [small(watchman(false)), small(watchman(true))];
+    this.inspectors = small(inspector());
+    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors];
   }
 
   get count(): number {
@@ -624,6 +693,8 @@ export class Walkers {
     const oilDress = col(PAL.oilVendorDress);
     const fleeceDress = col(PAL.fleeceVendorDress);
     const wineTunic = col(PAL.wineVendorTunic);
+    const watchTunic = col(PAL.watchmanTunic);
+    const blue = col(PAL.inspectorDress);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -641,7 +712,7 @@ export class Walkers {
         this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
-        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'oil' || w.kind === 'fleece' || w.kind === 'priestess' ? 0.9 : 0.95;
+        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'oil' || w.kind === 'fleece' || w.kind === 'priestess' || w.kind === 'inspector' ? 0.9 : 0.95;
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         // The colour's sign tells the shader whether the legs swing (negated: standing still).
@@ -659,6 +730,8 @@ export class Walkers {
         }
         else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
+        else if (w.kind === 'watchman') this.watchmen[w.target > 0 ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
+        else if (w.kind === 'inspector') this.inspectors.push(this.m, still(this.c.copy(blue)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));

@@ -16,7 +16,7 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse';
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -30,6 +30,8 @@ export interface Listener {
   /** Walkers (people) and carts within earshot of the camera, when it is low. */
   walkers: number;
   carts: number;
+  /** Buildings burning within earshot, when the camera is low enough to hear them crackle. */
+  fires: number;
 }
 
 function readMuted(): boolean {
@@ -57,10 +59,11 @@ export class Sound {
   private seaFilter: BiquadFilterNode | null = null;
   private windGain: GainNode | null = null;
   private noise: AudioBuffer | null = null;
-  private listener: Listener = { x: 0, z: 0, dist: 100, sea: 0.5, trees: 0, walkers: 0, carts: 0 };
+  private listener: Listener = { x: 0, z: 0, dist: 100, sea: 0.5, trees: 0, walkers: 0, carts: 0, fires: 0 };
   private nextBird = 0;
   private nextGull = 0;
   private nextStep = 0;
+  private nextCrackle = 0;
   private nextCreak = 0;
   private wave = 0;
   private changeFns: Array<(m: boolean) => void> = [];
@@ -247,6 +250,11 @@ export class Sound {
       this.step(0.05 * low * Math.min(1, 0.4 + l.walkers / 6));
       this.nextStep = now + rand(0.22, 0.4) / Math.min(3, 0.6 + l.walkers / 4);
     }
+    // Flames near the camera crackle.
+    if (l.fires > 0 && low > 0.1 && now > this.nextCrackle) {
+      this.burst(0.04 * Math.min(1, 0.3 + low) * Math.min(1.5, 0.6 + l.fires * 0.3), rand(1500, 4500), 2.5, 0.02, 0, 'highpass');
+      this.nextCrackle = now + rand(0.04, 0.22);
+    }
     if (low > 0.3 && l.carts > 0 && now > this.nextCreak) {
       this.creak(0.03 * low);
       this.nextCreak = now + rand(1.2, 3);
@@ -258,7 +266,7 @@ export class Sound {
     const ctx = this.ctx;
     if (!ctx || !this.master || this.muted) return;
     // A home going up or down: at most one chime a second, however fast the town grows.
-    if (cue === 'rise' || cue === 'decline') {
+    if (cue === 'rise' || cue === 'decline' || cue === 'groan' || cue === 'douse') {
       const last = this.lastCue.get(cue) ?? -Infinity;
       if (ctx.currentTime - last < 1) return;
       this.lastCue.set(cue, ctx.currentTime);
@@ -300,6 +308,26 @@ export class Sound {
       case 'save':
         this.bell(0.04, 659, 0);
         this.bell(0.035, 880, 0.09);
+        break;
+      case 'ignite':
+        // A whoomph as it catches, and the first crackles.
+        this.swish(0.14, 180, 1100, 0.5);
+        this.thump(0.12, 70, 0.3);
+        for (let i = 0; i < 6; i++) this.burst(0.05, rand(1800, 4200), 3, 0.02, 0.15 + rand(0, 0.6), 'highpass');
+        break;
+      case 'collapse':
+        // A deep thud, a rumble of falling stone and timber, and a last clatter.
+        this.thump(0.3, 55, 0.6);
+        this.burst(0.12, 220, 0.7, 0.7, 0.02, 'lowpass');
+        for (let i = 0; i < 5; i++) this.knock(0.08, rand(180, 320), 0.1 + i * rand(0.07, 0.14));
+        break;
+      case 'groan':
+        // Old timbers taking the strain.
+        this.groan(0.05);
+        break;
+      case 'douse':
+        // Water on the flames: a hiss.
+        this.swish(0.09, 4200, 1400, 0.7);
         break;
     }
   }
@@ -463,6 +491,24 @@ export class Sound {
   private step(gain: number): void {
     if (this.muted) return;
     this.burst(gain, rand(500, 900), 1.5, 0.045, 0, 'bandpass');
+  }
+
+  /** A building's timbers groaning: a slow low creak, falling. */
+  private groan(gain: number): void {
+    const ctx = this.ctx as AudioContext;
+    const at = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    const f0 = rand(95, 125);
+    o.frequency.setValueAtTime(f0, at);
+    o.frequency.linearRampToValueAtTime(f0 * 0.72, at + 0.7);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 520;
+    f.Q.value = 5;
+    o.connect(f).connect(this.env(gain, at, 0.12, 0.6));
+    o.start(at);
+    o.stop(at + 0.85);
   }
 
   /** A cart's wheel creaking. */

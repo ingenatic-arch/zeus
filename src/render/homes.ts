@@ -5,7 +5,7 @@ import { PLOT_SIZE } from '../sim/build';
 import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
-import { fineA, fineB, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB } from './grand';
+import { architectModel, fineA, fineB, rubbleModel, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB, watchPostModel } from './grand';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -413,10 +413,14 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TENT_FIRES = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
 const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0.62)];
 
-type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa' | 'fountain' | 'shrine' | 'taxoffice';
+type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa' | 'fountain' | 'shrine' | 'taxoffice' | 'watchpost' | 'architect' | 'rubble';
 const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine', 'villa'];
 const lookOf = (b: Building): Look =>
-  b.kind === 'fountain' ? 'fountain' : b.kind === 'shrine' ? 'shrine' : b.kind === 'taxoffice' ? 'taxoffice' : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)];
+  b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'watchpost' || b.kind === 'architect' || b.kind === 'rubble'
+    ? b.kind
+    : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)];
+/** Kinds whose paved yard reaches down into the ground, so they stand at the middle of their footprint. */
+const paved = (b: Building): boolean => b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'watchpost' || b.kind === 'architect';
 /** Where a house's smoke comes out: near the top of its roof, a little back from the middle (cached per model). */
 const roofTops = new WeakMap<THREE.BufferGeometry, THREE.Vector3>();
 function roofTop(g: THREE.BufferGeometry): THREE.Vector3 {
@@ -438,8 +442,9 @@ function roofTop(g: THREE.BufferGeometry): THREE.Vector3 {
   return v;
 }
 
-/** Homes, fountains, shrines and tax offices (the two-by-two buildings) are drawn here; the farm, granary, agora and theatre by Works. */
-const drawnHere = (b: Building): boolean => b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice';
+/** Homes, fountains, shrines, tax offices, watch posts and architects' offices (the two-by-two buildings) and every heap of rubble are drawn here; the farm, granary, agora and theatre by Works. */
+const drawnHere = (b: Building): boolean =>
+  b.kind === 'home' || b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'watchpost' || b.kind === 'architect' || b.kind === 'rubble';
 
 /** One settled thing's vertices, already placed in the world, and its bounds. */
 interface MergedPart {
@@ -604,6 +609,10 @@ export class Homes {
   private readonly villas: ChunkedInstances[];
   private readonly shrines: ChunkedInstances;
   private readonly offices: ChunkedInstances;
+  private readonly posts: ChunkedInstances;
+  private readonly architects: ChunkedInstances;
+  /** Rubble, by footprint side, burnt or fallen, and one of two heaps (made when first needed). */
+  private readonly rubbles = new Map<string, THREE.BufferGeometry>();
   private readonly fountains: ChunkedInstances[];
   private readonly stakes: ChunkedInstances;
   private readonly merged: MergedChunks;
@@ -611,6 +620,8 @@ export class Homes {
   private readonly models: Record<'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa', THREE.BufferGeometry[]>;
   private readonly shrineGeo: THREE.BufferGeometry;
   private readonly officeGeo: THREE.BufferGeometry;
+  private readonly postGeo: THREE.BufferGeometry;
+  private readonly architectGeo: THREE.BufferGeometry;
   private readonly fountainGeo: THREE.BufferGeometry;
   private readonly stakeGeo: THREE.BufferGeometry;
   /** Buildings by chunk, as last seen. */
@@ -653,6 +664,10 @@ export class Homes {
     this.shrines = new ChunkedInstances('shrine', this.shrineGeo, mat, HOME_CHUNK, opts);
     this.officeGeo = taxOfficeModel();
     this.offices = new ChunkedInstances('taxoffice', this.officeGeo, mat, HOME_CHUNK, opts);
+    this.postGeo = watchPostModel();
+    this.posts = new ChunkedInstances('watchpost', this.postGeo, mat, HOME_CHUNK, opts);
+    this.architectGeo = architectModel();
+    this.architects = new ChunkedInstances('architect', this.architectGeo, mat, HOME_CHUNK, opts);
     const f = fountainModel();
     this.fountainGeo = f.stone;
     const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.2, metalness: 0, emissive: new THREE.Color('#1d6f86'), emissiveIntensity: 0.35 });
@@ -663,7 +678,7 @@ export class Homes {
     this.stakeGeo = stake();
     this.stakes = new ChunkedInstances('stakes', this.stakeGeo, mat, HOME_CHUNK, opts);
     this.merged = new MergedChunks(this.group, mat);
-    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, ...this.fountains]) this.group.add(t.group);
+    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, this.posts, this.architects, ...this.fountains]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     const puff = new THREE.IcosahedronGeometry(1, 0);
     const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, transparent: true, opacity: 0.3, depthWrite: false });
@@ -715,13 +730,13 @@ export class Homes {
       if (list) list.push(b);
       else next.set(k, [b]);
       const look = lookOf(b);
-      const sig = `${look}:${facing(s, size, b).toFixed(2)}`;
+      const sig = look === 'rubble' ? `rubble:${footSide(b)}:${b.level}` : `${look}:${facing(s, size, b).toFixed(2)}`;
       now.set(b.id, { sig, key: k });
       const was = this.seen.get(b.id);
       if (!was || was.sig !== sig) {
         dirty.add(k);
         // Rises into place when it first takes this look (not when it merely turns to face a new road).
-        if (animate && look !== 'stakes' && (!was || was.sig.split(':')[0] !== look)) this.rising.set(b.id, this.time);
+        if (animate && look !== 'stakes' && look !== 'rubble' && (!was || was.sig.split(':')[0] !== look)) this.rising.set(b.id, this.time);
       }
     }
     for (const [id, was] of this.seen) if (!now.has(id)) dirty.add(was.key);
@@ -765,6 +780,9 @@ export class Homes {
     const fountains: Building[] = [];
     const shrines: Building[] = [];
     const offices: Building[] = [];
+    const posts: Building[] = [];
+    const architects: Building[] = [];
+    const rubble: Building[] = [];
     const plots: Building[] = [];
     for (const b of list) {
       const look = lookOf(b);
@@ -777,6 +795,9 @@ export class Homes {
       else if (look === 'fountain') fountains.push(b);
       else if (look === 'shrine') shrines.push(b);
       else if (look === 'taxoffice') offices.push(b);
+      else if (look === 'watchpost') posts.push(b);
+      else if (look === 'architect') architects.push(b);
+      else if (look === 'rubble') rubble.push(b);
       else plots.push(b);
     }
     const q = new THREE.Quaternion();
@@ -788,8 +809,8 @@ export class Homes {
     const ground = (cx: number, cz: number): number =>
       Math.min(map.heightAt(cx, cz), map.heightAt(cx - 0.5, cz - 0.5), map.heightAt(cx + 0.5, cz - 0.5), map.heightAt(cx - 0.5, cz + 0.5), map.heightAt(cx + 0.5, cz + 0.5));
     const place = (b: Building, m: THREE.Matrix4, mirror: boolean): number => {
-      const cx = b.x + PLOT_SIZE / 2;
-      const cz = b.z + PLOT_SIZE / 2;
+      const cx = b.x + footSide(b) / 2;
+      const cz = b.z + footSide(b) / 2;
       const t0 = this.rising.get(b.id);
       let k = 1;
       if (t0 !== undefined) {
@@ -798,7 +819,7 @@ export class Homes {
         k = f < 1 ? Math.max(0.02, 1 - Math.pow(1 - f, 3) + Math.sin(f * Math.PI) * 0.12) : 1;
       }
       // A fountain's platform reaches down into the ground, so it stands at the middle of its footprint.
-      p.set(cx, (b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
+      p.set(cx, (paved(b) ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
       q.setFromAxisAngle(UP, facing(s, size, b));
       sc.set(1, k, mirror && hash2(b.id, 2, 40) < 0.5 ? -1 : 1);
       m.compose(p, q, sc);
@@ -857,6 +878,21 @@ export class Homes {
     }
     // Tax offices, mirrored at random like the houses so a row of them doesn't repeat.
     homes([offices], [this.offices], [this.officeGeo], null);
+    homes([posts], [this.posts], [this.postGeo], null);
+    homes([architects], [this.architects], [this.architectGeo], null);
+    // Rubble just appears (it doesn't rise), on the footprint of what stood there.
+    if (all) {
+      for (const b of rubble) {
+        const side = footSide(b);
+        const v = Math.floor(hash2(b.id, 12, 44) * 2);
+        const k = `${side}:${b.level}:${v}`;
+        let geo = this.rubbles.get(k);
+        if (!geo) this.rubbles.set(k, (geo = rubbleModel(side, b.level === 1, 3 + v * 7 + side)));
+        const m = new THREE.Matrix4();
+        place(b, m, false);
+        settled.push({ key: `${b.id}:${this.seen.get(b.id)?.sig}`, geo, m });
+      }
+    }
     // The fountain's stone merges with the rest; its water keeps its own shiny material.
     const fountainUp = fountains.filter((b) => this.rising.has(b.id));
     this.fountains[0].set(kx, kz, fountainUp.length, (i, m) => void place(fountainUp[i], m, false));

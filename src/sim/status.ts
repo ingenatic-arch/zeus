@@ -6,7 +6,7 @@
  */
 import type { CoastMap } from '../map/bake';
 import { fertilityOf, grassOf, oliveOf, vineOf } from './build';
-import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
+import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, footSide, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import {
@@ -51,6 +51,23 @@ import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxOf } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
+import { clearFee } from './build';
+import { districtAt, districtTitle } from '../map/districts';
+import {
+  BURNT,
+  burnable,
+  daysToFull,
+  FIRE_BURNING,
+  FIRE_SMOULDER,
+  HAZARD_FULL,
+  INSPECT_RANGE,
+  INSPECT_WALK,
+  riskRate,
+  WATCH_RANGE,
+  WATCH_WALK,
+  wearRate,
+  wears,
+} from './hazards';
 
 export interface Status {
   title: string;
@@ -70,6 +87,16 @@ const lines = (...ls: string[]): string => ls.filter((l) => l).join('\n');
 
 /** What a building is waiting for, or who lives there, and what reaches it. */
 export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Search): Status {
+  if (b.kind === 'rubble') return rubbleStatus(s, b);
+  if (b.kind === 'watchpost' || b.kind === 'architect') return { ...postStatus(s, map, b), detail: lines(postStatus(s, map, b).detail, ...hazardLines(s, map, b)) };
+  const st = buildingStatus(s, map, b, reach);
+  const more = hazardLines(s, map, b);
+  // Smouldering, burning or creaking goes first: it is the news.
+  if (b.fire > 0 || b.creakAt > 0) return { title: st.title, detail: lines(...more, st.detail) };
+  return { title: st.title, detail: lines(st.detail, ...more) };
+}
+
+function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search): Status {
   if (b.kind === 'fountain') return fountainStatus(s, map, b);
   if (b.kind === 'farm') return farmStatus(s, map, b);
   if (b.kind === 'lodge') return lodgeStatus(s, map, b);
@@ -627,6 +654,17 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     if (w.back) return { title: 'Actor', detail: 'Heading back to the theatre, still in costume' };
     return { title: 'Actor', detail: `Out on his round, ${w.steps} of ${ACTOR_WALK} new road tiles walked · he heads for the townhouses and better that have gone longest without a play` };
   }
+  if (w.kind === 'watchman') {
+    const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
+    if (f && w.wait > 0) return { title: 'Watchman', detail: `Fighting the fire at ${placeName(f)} with his bucket and hook · it is out in ${days(w.wait)} if it doesn’t fall first` };
+    if (f) return { title: 'Watchman', detail: `Running to the fire at ${placeName(f)}` };
+    if (w.back) return { title: 'Watchman', detail: 'Heading back to his watch post, looking out for smoke on the way' };
+    return { title: 'Watchman', detail: `Out on his round, ${w.steps} of ${WATCH_WALK} new road tiles walked · he heads for the buildings nearest to smouldering · every building beside his way is made safe from fire, and he runs to any flames he sees` };
+  }
+  if (w.kind === 'inspector') {
+    if (w.back) return { title: 'Inspector', detail: 'Heading back to the architect’s office, looking over the walls on the way' };
+    return { title: 'Inspector', detail: `Out on her round, ${w.steps} of ${INSPECT_WALK} new road tiles walked · she heads for the most worn buildings · every building beside her way is made sound before it falls` };
+  }
   if (w.kind === 'tax') {
     const bag = purseTotal(w);
     if (w.back) return { title: 'Tax collector', detail: `Heading back to the tax office with ${bag} dr, collecting on the way` };
@@ -974,7 +1012,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money';
   text: string;
   at: number;
 }
@@ -1002,7 +1040,7 @@ export const BREAD_SPARE = 1.1;
  * than the town eats) and workers (jobs unfilled). Empty when all is well.
  */
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
-  const out: TownLine[] = [];
+  const out: TownLine[] = hazardTownLines(s, map);
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
@@ -1195,4 +1233,195 @@ export function moneyTip(s: SimState): string {
   if (last.length === 0) return `${head}. Taxes come in with the tax collector; wages go out on the first of each month (${WAGE} dr a worker).`;
   const t = totals(last);
   return `${head}. Last month: ${fmt(t.in)} dr in, ${fmt(t.out)} out (${t.net >= 0 ? '+' : '−'}${fmt(Math.abs(t.net))}).`;
+}
+
+// ---------------------------------------------------------------------------
+// Fire and collapse: the risk and wear lines on every building's tip, the
+// watch post and the architect's office, and rubble.
+
+/** "the fine house", "the granary": a building in a few words, for a walker's tip. */
+function placeName(b: Building): string {
+  if (b.kind === 'home') return `the ${levelName(b.level, '').toLowerCase()}${b.family ? ` of ${b.family.name}` : ''}`;
+  return BUILDING_NAMES[b.kind].replace(/^An? /, 'the ').replace(/^The /, 'the ');
+}
+
+/** What each guarding service is called. */
+const GUARD = {
+  watchpost: { walker: 'watchman', he: 'he', range: WATCH_RANGE, key: 'Z twice', what: 'watch post' },
+  architect: { walker: 'inspector', he: 'she', range: INSPECT_RANGE, key: 'Z three times', what: 'architect’s office' },
+} as const;
+
+/** Why no watchman (or inspector) comes by a building. */
+export function whyUnguarded(s: SimState, map: CoastMap, b: Building, kind: 'watchpost' | 'architect'): string {
+  const g = GUARD[kind];
+  const size = map.size;
+  const places = s.buildings.filter((o) => o.kind === kind);
+  if (places.length === 0) return `no ${g.what} in the city: build one beside a road nearby (${g.key})`;
+  const beside = roadsBeside(s, size, b);
+  if (beside.length === 0) return `the ${g.walker} only looks after buildings beside the road ${g.he} walks`;
+  const d = stepsToFountain(roadSearch(s, size, places.flatMap((o) => roadsBeside(s, size, o))), s, size, b);
+  if (d < 0) return `no road joins it to a ${g.what}: build one nearby (${g.key})`;
+  if (d > g.range) return `the nearest ${g.what} is ${d} steps away by road; its ${g.walker} goes ${g.range} at most: build one nearer (${g.key})`;
+  const reaching = places.filter((o) => beside.some((t) => distFrom(s, size, o)[t] >= 0 && distFrom(s, size, o)[t] <= g.range));
+  if (reaching.length && reaching.every((o) => o.workers === 0)) return `nobody works at the ${g.what}, so its ${g.walker} can’t go out`;
+  return `within reach of a ${g.what}; its ${g.walker} comes by now and then`;
+}
+
+/** Whether a watch post's watchman (an architect's inspector) can reach this building and goes out. */
+function guarded(s: SimState, map: CoastMap, b: Building, kind: 'watchpost' | 'architect'): boolean {
+  return whyUnguarded(s, map, b, kind).startsWith('within reach');
+}
+
+/** "about 4 months", "12 days". */
+const inDays = (n: number): string => (n > 60 ? `about ${Math.round(n / DAYS_PER_MONTH)} months` : n <= 1 ? '1 day' : `${n} days`);
+
+/**
+ * A building's fire and wear, for its tip: smouldering, burning or creaking
+ * with the days left and who can stop it; or how far its risk and wear have
+ * filled (from a quarter up), when it would smoulder or creak, and whether a
+ * watchman or an inspector comes by to reset them.
+ */
+export function hazardLines(s: SimState, map: CoastMap, b: Building): string[] {
+  const out: string[] = [];
+  if (!s.hazards && b.risk === 0 && b.wear === 0) return out;
+  const left = (t: number): string => days(Math.max(1, t - s.tick));
+  if (b.fire === FIRE_BURNING) {
+    const fighting = s.walkers.some((w) => w.kind === 'watchman' && w.target === b.id);
+    out.push(`On fire · it burns down in ${left(b.fireAt)} · ${fighting ? 'a watchman is on his way or at it with his bucket' : 'no watchman has seen it: one within sight of it runs to put it out'} · it can spread to the buildings beside it`);
+  } else if (b.fire === FIRE_SMOULDER) {
+    out.push(`Smouldering · it bursts into flame in ${left(b.fireAt)} unless a watchman walks by · ${whyUnguarded(s, map, b, 'watchpost')}`);
+  } else if (burnable(b) && b.risk >= HAZARD_FULL / 4) {
+    const pct = Math.round((b.risk / HAZARD_FULL) * 100);
+    const when = inDays(daysToFull(b.risk, riskRate(s, b)));
+    const why = guarded(s, map, b, 'watchpost') ? 'its watchman resets it when he passes' : whyUnguarded(s, map, b, 'watchpost');
+    out.push(`Fire risk ${pct}% · smoulders in ${when} · ${why}`);
+  }
+  if (b.creakAt > 0) {
+    out.push(`Creaking · it falls down in ${left(b.creakAt)} unless an inspector walks by · ${whyUnguarded(s, map, b, 'architect')}`);
+  } else if (wears(b) && b.wear >= HAZARD_FULL / 4) {
+    const pct = Math.round((b.wear / HAZARD_FULL) * 100);
+    const when = inDays(daysToFull(b.wear, wearRate(s, b)));
+    const why = guarded(s, map, b, 'architect') ? 'its inspector makes it sound when she passes' : whyUnguarded(s, map, b, 'architect');
+    out.push(`Wear ${pct}% · starts to creak in ${when} · ${why}`);
+  }
+  return out;
+}
+
+/** A watch post or an architect's office: its walker and what it guards against. */
+export function postStatus(s: SimState, map: CoastMap, b: Building): Status {
+  const kind = b.kind as 'watchpost' | 'architect';
+  const g = GUARD[kind];
+  const title = BUILDING_NAMES[kind];
+  const The = `The ${g.walker}`;
+  if (roadsBeside(s, map.size, b).length === 0) return { title, detail: `Needs a road beside it, for the ${g.walker} to walk` };
+  const w = s.walkers.find((o) => o.id === b.walker);
+  const walk = kind === 'watchpost' ? WATCH_WALK : INSPECT_WALK;
+  let line: string;
+  if (w && kind === 'watchpost' && w.target > 0) {
+    const f = findBuilding(s, w.target);
+    line = f ? `${The} is ${w.wait > 0 ? 'fighting' : 'running to'} the fire at ${placeName(f)}` : `${The} is out`;
+  } else if (w) line = w.back ? `${The} is heading back` : `${The} is out, ${w.steps} of ${walk} new road tiles into ${g.he === 'he' ? 'his' : 'her'} round`;
+  else if (b.workers === 0) line = `${The} can’t go out with nobody working the ${g.what}`;
+  else line = `${The} is resting · ${g.he} sets off again soon`;
+  const what =
+    kind === 'watchpost'
+      ? `Every building beside the watchman’s way is made safe from fire, a smoulder put out; he goes ${WATCH_RANGE} steps by road at most, and runs to any flames he sees`
+      : `Every building beside the inspector’s way is made sound, a creak stopped before it falls; she goes ${INSPECT_RANGE} steps by road at most`;
+  const kinds = s.buildings.filter((o) => (kind === 'watchpost' ? o.fire > 0 : o.creakAt > 0));
+  const news = kinds.length ? (kind === 'watchpost' ? `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} smouldering or burning in the city` : `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} creaking in the city`) : '';
+  return { title, detail: lines(workersLine(s, map, b), line, what, news) };
+}
+
+/** Rubble: what stood there, how it ended, and what clearing it costs. */
+export function rubbleStatus(_s: SimState, b: Building): Status {
+  const was = b.was && b.was !== 'home' ? BUILDING_NAMES[b.was].replace(/^An? /, 'a ').replace(/^The /, 'the ') : 'a building';
+  const was_ = b.was === 'home' ? (b.ruin ? `the house of ${b.ruin}` : 'a home') : was;
+  const how = b.level === BURNT ? 'Burnt down' : 'Fallen down';
+  const fee = clearFee(footSide(b));
+  return { title: `Rubble · ${how.toLowerCase()}`, detail: lines(`${how}: ${was_} stood here`, `Clear it with the clear tool (X) for ${fee} dr before anything can be built here again`) };
+}
+
+/** Fire or wear past this share shows on the town lines (where no watchman or inspector reaches). */
+const EARLY_WARN = 0.75;
+/** Rubble shows on the town lines for this long after the fall. */
+const RUBBLE_NEWS = 2 * TICKS_PER_MONTH;
+
+/** "By the olive grove": where a building stands, for the start of a town line. */
+const whereIs = (map: CoastMap, b: Building): string => {
+  const h = footSide(b) / 2;
+  return districtTitle(districtAt(map, b.x + h, b.z + h));
+};
+
+/** The road search out from every staffed watch post (architect's office), for whether a building is in reach; null if none. */
+function guardSearch(s: SimState, size: number, kind: 'watchpost' | 'architect'): Search | null {
+  const roads = s.buildings.filter((o) => o.kind === kind && o.workers > 0).flatMap((o) => roadsBeside(s, size, o));
+  return roads.length ? roadSearch(s, size, roads) : null;
+}
+
+const inReach = (search: Search | null, s: SimState, size: number, b: Building, range: number): boolean => {
+  if (!search) return false;
+  const d = stepsToFountain(search, s, size, b);
+  return d >= 0 && d <= range;
+};
+
+/** "the fine house of the Kallias family", "the granary". */
+const named = (b: Building): string => placeName(b);
+
+/**
+ * The fire, wear and rubble lines: a building burning (the most urgent:
+ * it falls within days and can spread), else one smouldering, else
+ * buildings past three-quarters of their fire risk that no watchman
+ * reaches; the same for creaking and wear; and rubble lately fallen,
+ * waiting to be cleared. Each names the place.
+ */
+export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
+  const out: TownLine[] = [];
+  const size = map.size;
+  const left = (t: number): string => days(Math.max(1, t - s.tick));
+  const more = (n: number, what: string): string => (n > 1 ? ` (and ${n - 1} more ${what})` : '');
+  const byTime = (a: Building, b: Building, t: (x: Building) => number): number => t(a) - t(b) || a.id - b.id;
+  // Fire.
+  const fires = s.buildings.filter((b) => b.fire === FIRE_BURNING).sort((a, b) => byTime(a, b, (x) => x.fireAt));
+  const smoulders = s.buildings.filter((b) => b.fire === FIRE_SMOULDER).sort((a, b) => byTime(a, b, (x) => x.fireAt));
+  if (fires.length) {
+    const f = fires[0];
+    const coming = s.walkers.some((w) => w.kind === 'watchman' && w.target === f.id);
+    const help = coming ? 'A watchman is on his way with his bucket.' : 'No watchman has seen it: a watch post (Z twice) within sight of it sends one running.';
+    out.push({ need: 'fire', text: `Fire ${whereIs(map, f).toLowerCase()}: ${named(f)} is burning and falls in ${left(f.fireAt)}; it can spread to the buildings beside it${more(fires.length, fires.length === 2 ? 'fire' : 'fires')}. ${help}`, at: f.id });
+  } else if (smoulders.length) {
+    const f = smoulders[0];
+    out.push({ need: 'fire', text: `Smoke ${whereIs(map, f).toLowerCase()}: ${named(f)} is smouldering and bursts into flame in ${left(f.fireAt)} unless a watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}${more(smoulders.length, smoulders.length === 2 ? 'smoulder' : 'smoulders')}.`, at: f.id });
+  } else if (s.hazards) {
+    const posts = guardSearch(s, size, 'watchpost');
+    const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+    if (risky.length) {
+      const f = risky[0];
+      const n = risky.length === 1 ? `${cap(named(f))} is` : `${risky.length} buildings are`;
+      out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${n} three-quarters of the way to smouldering, and no watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`, at: f.id });
+    }
+  }
+  // Wear.
+  const creaks = s.buildings.filter((b) => b.creakAt > 0).sort((a, b) => byTime(a, b, (x) => x.creakAt));
+  if (creaks.length) {
+    const c = creaks[0];
+    out.push({ need: 'wear', text: `Creaking ${whereIs(map, c).toLowerCase()}: ${named(c)} falls down in ${left(c.creakAt)} unless an inspector walks by: ${whyUnguarded(s, map, c, 'architect')}${more(creaks.length, 'creaking')}.`, at: c.id });
+  } else if (s.hazards) {
+    const offices = guardSearch(s, size, 'architect');
+    const worn = s.buildings.filter((b) => wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
+    if (worn.length) {
+      const c = worn[0];
+      const n = worn.length === 1 ? `${cap(named(c))} is` : `${worn.length} buildings are`;
+      out.push({ need: 'wear', text: `Wear ${whereIs(map, c).toLowerCase()}: ${n} three-quarters worn, and no inspector walks by: ${whyUnguarded(s, map, c, 'architect')}.`, at: c.id });
+    }
+  }
+  // Rubble lately fallen.
+  const heaps = s.buildings.filter((b) => b.kind === 'rubble' && s.tick - b.placed < RUBBLE_NEWS).sort((a, b) => b.placed - a.placed || a.id - b.id);
+  if (heaps.length) {
+    const r = heaps[0];
+    const what = r.was === 'home' ? (r.ruin ? `the house of ${r.ruin}` : 'a home') : r.was ? BUILDING_NAMES[r.was].replace(/^An? /, 'a ').replace(/^The /, 'the ') : 'a building';
+    const gone = r.was === 'home' && r.ruin ? ` ${r.ruin}’s household has left the city.` : '';
+    const n = heaps.length === 1 ? `${what} ${r.level === BURNT ? 'burnt down' : 'fell down'}` : `${heaps.length} buildings have ${heaps.every((h) => h.level === BURNT) ? 'burnt down' : 'burnt or fallen down'} lately, ${what} last`;
+    out.push({ need: 'rubble', text: `Rubble ${whereIs(map, r).toLowerCase()}: ${n}.${gone} Clear ${heaps.length === 1 ? 'it' : 'them'} with the clear tool (X), ${clearFee(2)}–${clearFee(3)} dr a heap, before building there again.`, at: r.id });
+  }
+  return out;
 }

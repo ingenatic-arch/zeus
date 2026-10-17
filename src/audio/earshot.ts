@@ -61,5 +61,12 @@ export function earshot(map: CoastMap, v: Required<CameraView>, s: SimState): Li
       else walkers++;
     }
   }
-  return { x: v.x, z: v.z, dist: v.dist, sea: sea / all, trees: Math.min(1, trees * 1.6), walkers, carts };
+  // Buildings burning within earshot.
+  let fires = 0;
+  const near = 6 + v.dist * 0.4;
+  for (const b of s.buildings) {
+    if (b.fire !== 2) continue;
+    if ((b.x + 1 - v.x) ** 2 + (b.z + 1 - v.z) ** 2 <= near * near) fires++;
+  }
+  return { x: v.x, z: v.z, dist: v.dist, sea: sea / all, trees: Math.min(1, trees * 1.6), walkers, carts, fires };
 }

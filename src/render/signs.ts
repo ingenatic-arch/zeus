@@ -11,7 +11,7 @@ const HEIGHT = 1.72;
 const SIZE = 0.27;
 
 /** A flat shape (x, y) in the plane facing +z, with one colour, as a geometry with vertex colours. */
-function flat(shape: THREE.Shape, color: string, z: number, segments = 12): THREE.BufferGeometry {
+export function flat(shape: THREE.Shape, color: string, z: number, segments = 12): THREE.BufferGeometry {
   const g = new THREE.ShapeGeometry(shape, segments).translate(0, 0, z);
   const c = new THREE.Color(color);
   const n = g.attributes.position.count;
@@ -22,7 +22,7 @@ function flat(shape: THREE.Shape, color: string, z: number, segments = 12): THRE
 }
 
 /** Several flat pieces in one geometry. */
-function mergeFlat(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+export function mergeFlat(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
   for (const p of parts) {
@@ -36,7 +36,7 @@ function mergeFlat(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return out;
 }
 
-const circle = (r: number, cx = 0, cy = 0): THREE.Shape => new THREE.Shape().absarc(cx, cy, r, 0, Math.PI * 2, false);
+export const circle = (r: number, cx = 0, cy = 0): THREE.Shape => new THREE.Shape().absarc(cx, cy, r, 0, Math.PI * 2, false);
 
 /** The sign's cream face, with a little tail pointing down at the house. */
 function faceGeometry(): THREE.BufferGeometry {

@@ -1,4 +1,4 @@
-import { TOOLS, type ToolName, type ToolTip } from '../game/tools';
+import type { ToolName, ToolTip } from '../game/tools';
 import {
   AGORA_COST,
   BRIDGE_COST,
@@ -263,20 +263,68 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   fleece: { name: 'Fleece overlay: where the fleece vendor walks, which homes have fleece, and the pastures and storehouses', key: 'L ×4', cost: '', hint: '' },
   wine: { name: 'Wine overlay: where the wine vendor walks, which homes have wine, and the vineyards, wineries and storehouses', key: 'L ×5', cost: '', hint: '' },
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
-  fire: { name: 'Fire risk overlay: where the watchman walks, and which buildings are close to catching fire', key: 'J', cost: '', hint: '' },
-  wear: { name: 'Wear overlay: where the inspector walks, and which buildings are close to falling in', key: 'J', cost: '', hint: '' },
+  fire: { name: 'Fire risk overlay: where the watchman walks, and which buildings are close to catching fire', key: 'J J', cost: '', hint: '' },
+  wear: { name: 'Wear overlay: where the inspector walks, and which buildings are close to falling in', key: 'J ×3', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };
 
 /** The build bar along the bottom: road, housing, fountain, the makers (farm to winery), granary, storehouse, agora and its stalls, shrine, theatre, tax office, clear, undo, and the overlays. */
+/** A button of the bar that opens a row of its members above it (the keys pick them as before). */
+interface Group {
+  id: string;
+  name: string;
+  key: string;
+  members: ButtonName[];
+}
+type Slot = ButtonName | Group | '|';
+
+/**
+ * The bar's layout: the tools, undo, then the overlays. Kinds of building
+ * picked by the same key (M, G, K, Z) share a button, as the overlays on L and
+ * J do; it shows the one last picked, and a click opens the row of them.
+ */
+const SLOTS: Slot[] = [
+  'road',
+  'housing',
+  'fountain',
+  '|',
+  { id: 'makers', name: 'Farms and workshops', key: 'M', members: ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'] },
+  { id: 'stores', name: 'Granary and storehouse', key: 'G', members: ['granary', 'storehouse'] },
+  { id: 'market', name: 'The agora and its stalls', key: 'K', members: ['agora', 'stall', 'fleecestall', 'winestall'] },
+  '|',
+  'shrine',
+  'theatre',
+  '|',
+  { id: 'offices', name: 'Offices: the tax office, the watch post and the architect’s office', key: 'Z', members: ['taxoffice', 'watchpost', 'architect'] },
+  '|',
+  'clear',
+  '|',
+  'undo',
+  '|',
+  'water',
+  { id: 'goods', name: 'Food and goods overlays', key: 'L', members: ['food', 'variety', 'oil', 'fleece', 'wine'] },
+  'religion',
+  'culture',
+  { id: 'safety', name: 'Taxes, fire risk and wear overlays', key: 'J', members: ['tax', 'fire', 'wear'] },
+  'missing',
+];
+
+const OVERLAYS: ReadonlySet<ButtonName> = new Set(['water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear', 'missing']);
+
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
   private readonly undoBtn: HTMLButtonElement;
   private readonly overlayBtns = new Map<OverlayMode, HTMLButtonElement>();
+  /** Each group's button, its row of members, and the member it shows. */
+  private readonly groups: Array<{ g: Group; btn: HTMLButtonElement; row: HTMLElement; shown: ButtonName }> = [];
+  private tool: ToolName | null = null;
+  private overlay: OverlayMode | null = null;
 
   constructor(root: HTMLElement, onTool: (t: ToolName) => void, onUndo: () => void, onOverlay: (o: OverlayMode) => void) {
+    const wrap = document.createElement('div');
+    wrap.className = 'buildbar-wrap';
     const bar = document.createElement('div');
     bar.className = 'buildbar';
     const hint = document.createElement('div');
@@ -284,48 +332,152 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of TOOLS) {
-      if (t === 'farm' || t === 'granary' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
+    const pick = (t: ButtonName): void => {
+      if (t === 'undo') onUndo();
+      else if (OVERLAYS.has(t)) onOverlay(t as OverlayMode);
+      else onTool(t as ToolName);
+    };
+    const member = (t: ButtonName, into: HTMLElement): HTMLButtonElement => {
+      const b = this.button(t);
+      if (OVERLAYS.has(t)) {
+        b.classList.add('overlay', t);
+        this.overlayBtns.set(t as OverlayMode, b);
+      } else if (t !== 'undo') this.buttons.set(t as ToolName, b);
+      b.addEventListener('click', () => {
+        pick(t);
+        this.closeGroups();
+      });
+      into.appendChild(b);
+      return b;
+    };
+    let undo: HTMLButtonElement | null = null;
+    for (const slot of SLOTS) {
+      if (slot === '|') {
         const d = document.createElement('div');
         d.className = 'divider';
         bar.appendChild(d);
+      } else if (typeof slot === 'string') {
+        const b = member(slot, bar);
+        if (slot === 'undo') undo = b;
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'btn tool group';
+        btn.dataset.group = slot.id;
+        if (OVERLAYS.has(slot.members[0])) btn.classList.add('overlay');
+        const label = `${slot.name} (${slot.key}, again for the next)`;
+        btn.title = label;
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('aria-haspopup', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+        const row = document.createElement('div');
+        row.className = 'group-row';
+        row.dataset.group = slot.id;
+        row.hidden = true;
+        const head = document.createElement('div');
+        head.className = 'group-name';
+        head.textContent = slot.name;
+        row.appendChild(head);
+        const items = document.createElement('div');
+        items.className = 'group-items';
+        row.appendChild(items);
+        for (const t of slot.members) member(t, items);
+        const entry = { g: slot, btn, row, shown: slot.members[0] };
+        this.groups.push(entry);
+        this.face(entry);
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = row.hidden;
+          this.closeGroups();
+          if (open) this.openGroup(entry);
+        });
+        bar.appendChild(btn);
+        wrap.appendChild(row);
       }
-      const b = this.button(t);
-      b.addEventListener('click', () => onTool(t));
-      bar.appendChild(b);
-      this.buttons.set(t, b);
     }
-    const sep = document.createElement('div');
-    sep.className = 'divider';
-    bar.appendChild(sep);
-    this.undoBtn = this.button('undo');
-    this.undoBtn.addEventListener('click', onUndo);
-    bar.appendChild(this.undoBtn);
-    const sep2 = document.createElement('div');
-    sep2.className = 'divider';
-    bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
-      const b = this.button(o);
-      b.classList.add('overlay', o);
-      b.addEventListener('click', () => onOverlay(o));
-      bar.appendChild(b);
-      this.overlayBtns.set(o, b);
+    this.undoBtn = undo as HTMLButtonElement;
+    wrap.appendChild(bar);
+    root.appendChild(wrap);
+    // A click anywhere else, or Esc, closes an open row.
+    document.addEventListener('pointerdown', (e) => {
+      if (!(e.target instanceof Node) || !wrap.contains(e.target)) this.closeGroups();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.closeGroups();
+    });
+    addEventListener('resize', () => {
+      for (const g of this.groups) if (!g.row.hidden) this.place(g);
+    });
+  }
+
+  /** Whether a group's row is open (for the smoke test). */
+  get openGroup_(): string {
+    return this.groups.find((g) => !g.row.hidden)?.g.id ?? '';
+  }
+
+  private openGroup(entry: (typeof this.groups)[number]): void {
+    entry.row.hidden = false;
+    entry.btn.setAttribute('aria-expanded', 'true');
+    entry.btn.classList.add('open');
+    this.hint.classList.add('lifted');
+    this.place(entry);
+  }
+
+  /** Put an open row above its button, kept inside the window. */
+  private place(entry: (typeof this.groups)[number]): void {
+    const wrap = entry.row.parentElement as HTMLElement;
+    const wr = wrap.getBoundingClientRect();
+    const br = entry.btn.getBoundingClientRect();
+    const w = entry.row.offsetWidth;
+    const centre = br.left + br.width / 2 - wr.left;
+    const min = 8 - wr.left;
+    const max = innerWidth - 8 - wr.left - w;
+    entry.row.style.left = `${Math.round(Math.max(min, Math.min(max, centre - w / 2)))}px`;
+    entry.row.style.setProperty('--arrow', `${Math.round(centre - Math.max(min, Math.min(max, centre - w / 2)))}px`);
+  }
+
+  closeGroups(): void {
+    this.hint.classList.remove('lifted');
+    for (const g of this.groups) {
+      g.row.hidden = true;
+      g.btn.setAttribute('aria-expanded', 'false');
+      g.btn.classList.remove('open');
     }
-    root.appendChild(bar);
+  }
+
+  /** A group's button shows the member last picked (its icon and key), lit while it is in hand or showing. */
+  private face(entry: (typeof this.groups)[number]): void {
+    const t = entry.shown;
+    const on = t === this.tool || t === this.overlay;
+    entry.btn.innerHTML = `${ICONS[t]}<span class="key">${entry.g.key}</span><span class="more" aria-hidden="true"></span>`;
+    entry.btn.classList.toggle('on', on);
+    entry.btn.setAttribute('aria-pressed', String(on));
+    for (const m of entry.g.members) entry.btn.classList.toggle(m, OVERLAYS.has(m) && m === t);
+  }
+
+  private refreshGroups(): void {
+    for (const e of this.groups) {
+      const held = e.g.members.find((m) => m === this.tool || m === this.overlay);
+      if (held) e.shown = held;
+      this.face(e);
+    }
   }
 
   /** Light the overlay button of the overlay showing, if any. */
   showOverlay(mode: OverlayMode | null): void {
+    if (mode === this.overlay) return;
+    this.overlay = mode;
     for (const [o, b] of this.overlayBtns) {
       b.classList.toggle('on', o === mode);
       b.setAttribute('aria-pressed', String(o === mode));
     }
+    this.refreshGroups();
   }
 
   private button(t: ButtonName): HTMLButtonElement {
     const i = INFO[t];
     const b = document.createElement('button');
     b.className = 'btn tool';
+    b.dataset.tool = t;
     b.innerHTML = `${ICONS[t]}<span class="key">${i.key}</span>`;
     const label = `${i.name} (${i.key})${i.cost ? ` · ${i.cost}` : ''}`;
     b.title = label;
@@ -334,10 +486,12 @@ export class BuildBar {
   }
 
   showTool(t: ToolName | null): void {
+    this.tool = t;
     for (const [k, b] of this.buttons) {
       b.classList.toggle('on', k === t);
       b.setAttribute('aria-pressed', String(k === t));
     }
+    this.refreshGroups();
     this.hint.hidden = !t;
     if (t) this.hint.textContent = `${INFO[t].hint}  Right-click or Esc to put it down.`;
   }

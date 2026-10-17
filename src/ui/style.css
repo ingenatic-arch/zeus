@@ -199,18 +199,38 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .stat .delta.down { color: var(--terracotta-deep); }
 
 /* The build bar along the bottom. */
-/* The build bar's 32 buttons shrink with the window (46 px at 1920 wide, 30 px at about 1280) so it fits a laptop screen; narrower still, it scrolls. */
+/* Kinds picked by the same key share a button that opens a row of them above the bar, so the bar keeps to 22 buttons (46 px at 1920 wide, 34 px at 1280); narrower still, it scrolls. */
+.buildbar-wrap { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 16px); }
 .buildbar {
-  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: clamp(3px, 0.4vw, 8px); padding: 7px clamp(6px, 0.5vw, 10px);
+  display: flex; align-items: center; gap: clamp(4px, 0.45vw, 8px); padding: 7px clamp(7px, 0.6vw, 11px);
   max-width: calc(100vw - 16px); box-sizing: border-box; overflow-x: auto; scrollbar-width: thin;
   background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
   border: 1.5px solid var(--edge); border-radius: 16px;
   box-shadow: 0 3px 0 rgba(120, 80, 40, 0.25), 0 8px 24px rgba(60, 40, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   user-select: none;
 }
+/* A group's button: a little corner notch says it opens a row. */
+.btn.tool.group .more { position: absolute; left: 3px; top: 3px; width: 0; height: 0; border-left: 5px solid var(--ink-soft); border-bottom: 5px solid transparent; opacity: 0.75; }
+.btn.tool.group.on .more { border-left-color: #fff6e4; }
+.btn.tool.group.open { box-shadow: 0 0 0 2px var(--olive); }
+.group-row {
+  position: absolute; bottom: calc(100% + 10px); left: 0; display: flex; flex-direction: column; gap: 5px;
+  padding: 7px 9px 8px; box-sizing: border-box; white-space: nowrap;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 14px;
+  box-shadow: 0 3px 0 rgba(120, 80, 40, 0.22), 0 8px 22px rgba(60, 40, 20, 0.2);
+  animation: line-in 0.15s ease;
+}
+.group-row[hidden] { display: none; }
+.group-row::after {
+  content: ''; position: absolute; top: 100%; left: calc(var(--arrow, 50%) - 7px); width: 0; height: 0;
+  border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 8px solid var(--edge);
+}
+.group-row .group-name { font-size: 12.5px; color: var(--ink-soft); padding: 0 2px; }
+.group-row .group-items { display: flex; gap: clamp(4px, 0.45vw, 8px); }
+.group-row .btn.tool { width: clamp(36px, 2.5vw, 46px); height: clamp(36px, 2.5vw, 46px); }
 .buildbar .divider { height: 30px; align-self: center; }
-.btn.tool { width: clamp(30px, 2.35vw, 46px); height: clamp(30px, 2.35vw, 46px); border-radius: clamp(8px, 0.62vw, 12px); position: relative; flex: none; }
+.btn.tool { width: clamp(34px, 2.4vw, 46px); height: clamp(34px, 2.4vw, 46px); border-radius: clamp(8px, 0.62vw, 12px); position: relative; flex: none; }
 .btn.tool svg { width: 61%; height: 61%; }
 .btn.tool .fill-soft { fill: #e9cf98; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
 .btn.tool .fill-ink { fill: var(--ink); }
@@ -258,6 +278,11 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool .fill-grape { fill: #7a3a78; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
 .btn.tool .fill-wine { fill: #8e2f4e; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
 .btn.tool .fill-fire { fill: #d8542a; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool.on .fill-fire { fill: #ffc4a8; stroke: #fff6e4; }
+.btn.tool.overlay.fire.on { background: #c0441e; border-color: #962f12; }
+.btn.tool.overlay.fire.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
+.btn.tool.overlay.wear.on { background: #8a7458; border-color: #6a5840; }
+.btn.tool.overlay.wear.on .stroke-warn { stroke: #ffd8c0; }
 .btn.tool.on .fill-wool { fill: #fffaf0; stroke: #fff6e4; }
 .btn.tool.on .fill-grape { fill: #e0b8e0; stroke: #fff6e4; }
 .btn.tool.on .fill-wine { fill: #f0b8c8; stroke: #fff6e4; }
@@ -276,6 +301,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
   box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
 }
 .tool-hint[hidden] { display: none; }
+/* Above a group's open row. */
+.tool-hint.lifted { bottom: 168px; }
 
 .pointer-tip {
   position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5;
@@ -315,6 +342,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .floater.religion { color: #f6f0ff; text-shadow: 0 1px 0 #5a3a8f, 0 0 6px rgba(90, 50, 150, 0.75); font-size: 15px; }
 .floater.tax { color: #fff6dc; text-shadow: 0 1px 0 #23604f, 0 0 6px rgba(30, 100, 80, 0.8); font-size: 15px; }
 .floater.culture { color: #fff0f3; text-shadow: 0 1px 0 #8f2a44, 0 0 6px rgba(150, 40, 70, 0.75); font-size: 15px; }
+.floater.fire { color: #fff3e0; text-shadow: 0 1px 0 #8a2a10, 0 0 7px rgba(200, 60, 20, 0.85); font-size: 16px; }
+.floater.safe { color: #eef8ff; text-shadow: 0 1px 0 #2c5f8f, 0 0 6px rgba(30, 80, 140, 0.75); font-size: 14px; }
 .floater.wine { color: #fff0fa; text-shadow: 0 1px 0 #5e1a50, 0 0 6px rgba(110, 30, 90, 0.8); font-size: 16px; }
 
 /* The household panel: who lives in a home and how they are doing. */
@@ -419,6 +448,9 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .townline.oil { border-left-color: #7d9636; }
 .townline.fleece { border-left-color: #b8a678; }
 .townline.wine { border-left-color: #8e2f4e; }
+.townline.fire { border-left-color: #d2401e; }
+.townline.wear { border-left-color: #8a7458; }
+.townline.rubble { border-left-color: #6a6460; }
 .townline:hover { background: #fff6e2; }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 @keyframes line-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

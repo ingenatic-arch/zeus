@@ -565,6 +565,149 @@ export function taxOfficeModel(): THREE.BufferGeometry {
 }
 
 /**
+ * The watch post: a small stone guard house under tiles with a red band, and
+ * beside it a lookout on four posts, its platform roofed, a red pennant over
+ * it and a ladder up; a rack of leather buckets and a trough of water by the
+ * road, a fire hook leaning on the wall. Its front faces +x.
+ */
+export function watchPostModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.9, -0.9, 0.9, 0.9, -0.5, 0.05), color: PAL.pavingDark });
+  // The guard house, at the back.
+  const x0 = -0.72;
+  const x1 = -0.02;
+  const z0 = -0.7;
+  const z1 = 0.1;
+  const top = 0.66;
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, top), color: PAL.officeStone });
+  parts.push({ geo: slab(x0 - 0.006, z0 - 0.006, x1 + 0.006, z1 + 0.006, top - 0.08, top), color: PAL.watchRed });
+  parts.push({ geo: slab(x1 - 0.01, -0.42, x1 + 0.012, -0.2, 0.05, 0.42), color: PAL.door });
+  parts.push(...windowZ(-0.36, 0.48, z1 + 0.004, 1));
+  parts.push({ geo: prism(x1 - x0 + 0.16, (z1 - z0) / 2 + 0.08, 0.26).translate((x0 + x1) / 2, top, (z0 + z1) / 2), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.025, 0.025, x1 - x0 + 0.18, 5).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, top + 0.26, (z0 + z1) / 2), color: PAL.roofTileDark });
+  // The lookout: four posts, a planked platform with a rail, a little tiled roof, the pennant.
+  const lx = -0.3;
+  const lz = 0.5;
+  const h = 1.15;
+  for (const [dx, dz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) parts.push({ geo: cyl(0.03, 0.035, h + 0.42, 5).translate(lx + dx, (h + 0.42) / 2, lz + dz), color: PAL.woodDark });
+  parts.push({ geo: slab(lx - 0.26, lz - 0.26, lx + 0.26, lz + 0.26, h - 0.05, h), color: PAL.wood });
+  for (const [ax, az, bx, bz] of [[-0.24, -0.24, 0.24, -0.22], [-0.24, 0.22, 0.24, 0.24], [-0.24, -0.24, -0.22, 0.24], [0.22, -0.24, 0.24, 0.24]]) parts.push({ geo: slab(lx + ax, lz + az, lx + bx, lz + bz, h + 0.16, h + 0.2), color: PAL.woodDark });
+  parts.push({ geo: new THREE.ConeGeometry(0.4, 0.22, 4).rotateY(Math.PI / 4).translate(lx, h + 0.53, lz), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.012, 0.012, 0.36, 4).translate(lx, h + 0.8, lz), color: PAL.pole });
+  parts.push({ geo: slab(lx + 0.006, lz - 0.004, lx + 0.26, lz + 0.004, h + 0.82, h + 0.96), color: PAL.pennant });
+  // A ladder up its side.
+  for (const dz of [-0.08, 0.08]) parts.push({ geo: cyl(0.012, 0.012, h + 0.1, 4).rotateZ(-0.22).translate(lx + 0.38, (h + 0.1) / 2, lz + dz), color: PAL.wood });
+  for (let i = 1; i < 6; i++) parts.push({ geo: cyl(0.008, 0.008, 0.16, 4).rotateX(Math.PI / 2).translate(lx + 0.38 + 0.12 - (i / 6) * 0.25, (i / 6) * (h + 0.05), lz), color: PAL.wood });
+  // By the road: the rack of buckets, a trough of water, the hook against the wall.
+  parts.push({ geo: slab(0.42, -0.62, 0.48, 0.02, 0.05, 0.44), color: PAL.woodDark });
+  parts.push({ geo: slab(0.36, -0.62, 0.54, 0.02, 0.36, 0.39), color: PAL.wood });
+  for (const z of [-0.5, -0.32, -0.14]) {
+    parts.push({ geo: cyl(0.055, 0.045, 0.12, 6).translate(0.45, 0.25, z), color: PAL.bucket });
+    parts.push({ geo: cyl(0.054, 0.054, 0.01, 6).translate(0.45, 0.305, z), color: PAL.leather });
+  }
+  parts.push({ geo: slab(0.5, 0.28, 0.82, 0.62, 0.05, 0.22), color: PAL.officeStoneShade });
+  parts.push({ geo: slab(0.53, 0.31, 0.79, 0.59, 0.05, 0.205), color: PAL.bucketWater });
+  parts.push({ geo: cyl(0.014, 0.014, 1.1, 4).rotateX(0.32).translate(0.0, 0.55, -0.82), color: PAL.wood });
+  parts.push({ geo: cyl(0.01, 0.01, 0.16, 4).rotateZ(Math.PI / 2).translate(0.06, 1.06, -0.66), color: PAL.woodDark });
+  return merge(parts);
+}
+
+/**
+ * The architect's office: a whitewashed office with a porch on two columns
+ * under a pediment, a slate-blue band; in the yard, dressed building stone
+ * stacked ready and a wooden hoist (an A-frame with its rope and block), and
+ * a drawing board under the porch. Its front faces +x.
+ */
+export function architectModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-0.9, -0.9, 0.9, 0.9, -0.5, 0.05), color: PAL.paving });
+  const x0 = -0.74;
+  const x1 = 0.1;
+  const z0 = -0.2;
+  const z1 = 0.74;
+  const top = 0.8;
+  parts.push({ geo: slab(x0, z0, x1, z1, 0.05, top), color: PAL.whitewash });
+  parts.push({ geo: slab(x0 - 0.006, z0 - 0.006, x1 + 0.006, z1 + 0.006, top - 0.08, top), color: PAL.inspectorDress });
+  parts.push({ geo: slab(x1 - 0.01, 0.16, x1 + 0.012, 0.38, 0.05, 0.5), color: PAL.door });
+  parts.push(...windowZ(-0.5, 0.56, z0 - 0.004, -1), ...windowZ(-0.2, 0.56, z0 - 0.004, -1));
+  parts.push(...windowBack(x0 - 0.004, 0.56, 0.27));
+  // The roof, ridge to the road, with a pediment over a porch on two columns.
+  const len = x1 - x0 + 0.46;
+  const mid = (x0 + x1 + 0.36) / 2;
+  parts.push({ geo: prism(len, (z1 - z0) / 2 + 0.08, 0.3).translate(mid, top, (z0 + z1) / 2), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.026, 0.026, len + 0.02, 5).rotateZ(Math.PI / 2).translate(mid, top + 0.3, (z0 + z1) / 2), color: PAL.roofTileDark });
+  parts.push({ geo: gable(z1 - z0 + 0.1, 0.27).rotateY(Math.PI / 2).translate(mid + len / 2 + 0.006, top + 0.005, (z0 + z1) / 2), color: PAL.whitewashShade });
+  for (const z of [-0.08, 0.62]) parts.push({ geo: cyl(0.04, 0.046, top - 0.05, 7).translate(0.42, 0.05 + (top - 0.05) / 2, z), color: PAL.column });
+  parts.push({ geo: slab(0.36, z0, 0.48, z1, top - 0.1, top), color: PAL.whitewashShade });
+  // The drawing board on its trestle, a plan pinned to it.
+  parts.push({ geo: slab(0.2, 0.42, 0.36, 0.64, 0.3, 0.32).rotateZ(-0.35), color: PAL.wood });
+  parts.push({ geo: slab(0.22, 0.45, 0.34, 0.61, 0.32, 0.326).rotateZ(-0.35), color: PAL.bone });
+  for (const z of [0.44, 0.62]) parts.push({ geo: cyl(0.01, 0.01, 0.3, 4).translate(0.28, 0.2, z), color: PAL.woodDark });
+  // Dressed stone stacked in the yard, and the hoist over it.
+  const blocks: Array<[number, number, number, number]> = [
+    [0.28, -0.72, 0.05, 0],
+    [0.5, -0.72, 0.05, 0],
+    [0.72, -0.72, 0.05, 0],
+    [0.39, -0.72, 0.17, 1],
+    [0.61, -0.72, 0.17, 1],
+    [0.28, -0.5, 0.05, 1],
+    [0.5, -0.5, 0.05, 0],
+  ];
+  for (const [x, z, y, k] of blocks) parts.push({ geo: slab(x - 0.1, z - 0.08, x + 0.1, z + 0.08, y, y + 0.12), color: k ? PAL.stoneBlockShade : PAL.stoneBlock });
+  for (const dz of [-0.26, 0.26]) {
+    parts.push({ geo: cyl(0.016, 0.02, 1.0, 4).rotateZ(0.26).translate(-0.34, 0.5, -0.5 + dz * 0.6), color: PAL.wood });
+    parts.push({ geo: cyl(0.016, 0.02, 1.0, 4).rotateZ(-0.26).translate(0.12, 0.5, -0.5 + dz * 0.6), color: PAL.wood });
+  }
+  parts.push({ geo: cyl(0.016, 0.016, 0.4, 4).rotateX(Math.PI / 2).translate(-0.11, 0.98, -0.5), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.006, 0.006, 0.5, 3).translate(-0.11, 0.72, -0.5), color: PAL.rope });
+  parts.push({ geo: slab(-0.2, -0.58, -0.02, -0.42, 0.36, 0.47), color: PAL.stoneBlock });
+  parts.push(...cypress(-0.8, -0.78, 0.8));
+  return merge(parts);
+}
+
+/**
+ * Rubble on a footprint of `side` tiles (frame -side/2..side/2): a burnt
+ * building's black timbers lying across a bed of ash, a scorched stub of wall
+ * and a few cracked tiles; or a fallen one's heap of stone and broken roof
+ * tiles round a standing corner of wall. Lumpy, so no two heaps look laid out.
+ */
+export function rubbleModel(side: number, burnt: boolean, seed: number): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const h = side / 2;
+  const r = h - 0.16;
+  const rnd = (k: number): number => {
+    const v = Math.sin(seed * 12.9898 + k * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  parts.push({ geo: slab(-h + 0.08, -h + 0.08, h - 0.08, h - 0.08, -0.5, 0.03), color: burnt ? PAL.ash : PAL.pavingDark });
+  parts.push({ geo: lumpy(new THREE.CylinderGeometry(r * 0.8, r * 0.95, 0.08, 7), 0.25, seed).scale(1, 1, 0.9).translate(0, 0.05, 0), color: burnt ? PAL.char : PAL.stoneBlockShade });
+  // A stub of wall standing in one corner, and another fallen along a side.
+  parts.push({ geo: slab(-r, -r, -r + 0.12, -r + side * 0.32, 0.03, burnt ? 0.42 : 0.6), color: burnt ? PAL.scorched : PAL.whitewashShade });
+  parts.push({ geo: slab(-r, -r, -r + side * 0.26, -r + 0.12, 0.03, burnt ? 0.3 : 0.48), color: burnt ? PAL.scorched : PAL.whitewash });
+  const n = side * side * 2 + 2;
+  for (let i = 0; i < n; i++) {
+    const x = (rnd(i) * 2 - 1) * r * 0.85;
+    const z = (rnd(i + 50) * 2 - 1) * r * 0.85;
+    if (burnt) {
+      // Charred beams lying every which way.
+      const len = 0.35 + rnd(i + 100) * 0.5;
+      parts.push({ geo: new THREE.BoxGeometry(len, 0.07, 0.07).rotateZ((rnd(i + 150) - 0.5) * 0.5).rotateY(rnd(i + 200) * Math.PI).translate(x, 0.1 + rnd(i + 250) * 0.12, z), color: i % 3 ? PAL.char : PAL.charDark });
+    } else {
+      parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.1 + rnd(i + 100) * 0.08, 0), 0.3, seed + i).translate(x, 0.1 + rnd(i + 250) * 0.1, z), color: i % 3 ? PAL.stoneBlock : PAL.stoneBlockShade });
+    }
+  }
+  // Broken roof tiles, and on the fallen heap a beam sticking up out of it.
+  for (let i = 0; i < side * 3; i++) {
+    const x = (rnd(i + 300) * 2 - 1) * r * 0.8;
+    const z = (rnd(i + 350) * 2 - 1) * r * 0.8;
+    parts.push({ geo: new THREE.BoxGeometry(0.14, 0.025, 0.1).rotateY(rnd(i + 400) * Math.PI).rotateX((rnd(i + 450) - 0.5) * 0.6).translate(x, 0.12 + rnd(i + 500) * 0.08, z), color: burnt ? PAL.scorched : PAL.rubbleTile });
+  }
+  if (!burnt) parts.push({ geo: new THREE.BoxGeometry(0.07, 0.07, 0.8).rotateX(0.7).translate(r * 0.2, 0.32, r * 0.1), color: PAL.wood });
+  else parts.push({ geo: new THREE.BoxGeometry(0.08, 0.08, 0.7).rotateX(0.9).rotateY(0.6).translate(r * 0.3, 0.28, -r * 0.1), color: PAL.charDark });
+  return merge(parts);
+}
+
+/**
  * The theatre: a stepped bowl of stone seats rising round a round paved
  * orchestra, and the stage building (skene) along the road, with three doors
  * and painted panels to the audience, masks over the doors, a low stage

@@ -10,7 +10,7 @@ import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, BRINGER, cityHas, cityOffers, citySells, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, newNeeds, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
+import { foodLine, hazardLines, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
 import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
@@ -47,6 +47,8 @@ const ICON = {
   fleece: '<svg viewBox="0 0 24 24" class="ic"><path d="M5.2 14.6c-2.6-.4-3-4 -.4-4.8-.6-2.8 2.4-4.4 4.4-3 1-2.4 4.6-2.4 5.6 0 2-1.4 5 .2 4.4 3 2.6.8 2.2 4.4-.4 4.8.2 2.6-2.6 4.2-4.8 3-1.2 1.8-3.8 1.8-5 0-2.2 1.2-5-.4-4.8-3z" fill="#eee2c0" stroke="#8a744a" stroke-width="1.2" stroke-linejoin="round"/><path d="M11.4 4.6l.6 15" stroke="#4c5a8c" stroke-width="1.8" stroke-linecap="round"/></svg>',
   wine: '<svg viewBox="0 0 24 24" class="ic"><path d="M12.6 5.2c1.8-2.4 4.8-2.8 6.8-1.4-1.6 2.2-4 2.8-6.8 1.4z" fill="#6a9a34" stroke="#3a5a1a" stroke-width="1"/><path d="M11.6 6.6V3.4" stroke="#6a4a22" stroke-width="1.4" stroke-linecap="round"/><g fill="#7a2e80" stroke="#3e1240" stroke-width="1"><circle cx="7.6" cy="9" r="2.3"/><circle cx="12" cy="9" r="2.3"/><circle cx="16.4" cy="9" r="2.3"/><circle cx="9.8" cy="12.8" r="2.3"/><circle cx="14.2" cy="12.8" r="2.3"/><circle cx="12" cy="16.6" r="2.3"/></g></svg>',
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
+  fire: '<svg viewBox="0 0 16 16" class="ic"><path d="M8 15c-3 0-4.8-2-4.8-4.6 0-2.4 1.6-3.6 2.4-5.4.4 1.2 1 2 1.8 2.4C7.6 4.8 8.6 2.6 10.4 1c-.2 2.2.6 3.4 1.6 4.8.9 1.2 1.2 2.4 1.2 3.8C13.2 12.6 11.2 15 8 15z" fill="#e2531e" stroke="#8a2a10" stroke-width=".8" stroke-linejoin="round"/><path d="M8 14c-1.4 0-2.2-.9-2.2-2.1 0-1.3.9-2 1.4-3 .6.9 1.4 1.2 1.7 2.1.5-.3.8-.8.9-1.4.6.8.6 1.5.6 2.1C10.4 13 9.4 14 8 14z" fill="#f6c13a"/></svg>',
+  wear: '<svg viewBox="0 0 16 16" class="ic"><g fill="#c9b08a" stroke="#7a6446" stroke-width=".7"><rect x="1.5" y="2" width="6" height="3.6"/><rect x="8.5" y="2" width="6" height="3.6"/><rect x="1.5" y="10.4" width="6" height="3.6"/><rect x="8.5" y="10.4" width="6" height="3.6"/><rect x="5" y="6.2" width="6" height="3.6"/><rect x="1.5" y="6.2" width="3" height="3.6"/><rect x="11.5" y="6.2" width="3" height="3.6"/></g><path d="M8.6 1.5 7.4 5.6l1.6 2.2-1.8 2.8.8 3.9" fill="none" stroke="#3a2a22" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>',
   tax: '<svg viewBox="0 0 16 16" class="ic"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#2f7f6a"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#4f9f88"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/></svg>',
   home: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 21v-8.5L12 6l8 6.5V21z" fill="#e9cf98" stroke="#4a3420" stroke-width="1.2" stroke-linejoin="round"/><path d="M10 21v-5h4v5z" fill="#4a3420"/></svg>',
 };
@@ -251,6 +253,25 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
   return `<div class="warning${urgent ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the ${levelName(b.level, '')} for ${to}, unless ${BRINGER[w.need]} comes by.${esc(who)}${also}</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div>${why}</div></div>`;
 }
 
+/**
+ * Fire and wear for the household: smouldering or creaking as a warning box
+ * (the days left and who can stop it), else risk or wear past a quarter as a
+ * quieter note; nothing while the house is safe and sound.
+ */
+function hazardBlock(s: SimState, map: CoastMap, b: Building): string {
+  const ls = hazardLines(s, map, b);
+  if (!ls.length) return '';
+  return ls
+    .map((l) => {
+      const fire = /^(On fire|Smouldering|Fire risk)/.test(l);
+      const [head, ...rest] = l.split(' · ');
+      const urgent = /^(On fire|Smouldering|Creaking)/.test(l);
+      if (urgent) return `<div class="warning urgent hazard"><span class="icons">${fire ? ICON.fire : ICON.wear}</span><div><b>${esc(head)}</b><p>${esc(rest.join(' · '))}</p></div></div>`;
+      return `<div class="late hazard">${fire ? ICON.fire : ICON.wear}<span>${esc(l)}</span></div>`;
+    })
+    .join('');
+}
+
 /** The whole panel's inner HTML for a home. */
 export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const f = b.family;
@@ -272,6 +293,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
     .join('');
   return `<header><div class="kicker">${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}</div><h2>The house of ${esc(f.name)}</h2><div class="from">From ${esc(f.origin)}${since}</div></header>
 ${warningBlock(s, map, b)}
+${hazardBlock(s, map, b)}
 ${moodBlock(mood)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}

@@ -14,11 +14,12 @@ import { districtGrid } from './map/districts';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
+import { HazardView } from './render/hazards';
 import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
-import { BUILDING_NAMES, centreOf, FINE, findBuilding, TOWNHOUSE, VILLA } from './sim/buildings';
+import { BUILDING_NAMES, centreOf, FINE, findBuilding, footSide, TOWNHOUSE, VILLA } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { lackWords, warningOf, warningsOf } from './sim/folk';
 import { FLEECE, held, OIL, WINE } from './sim/foods';
@@ -132,6 +133,10 @@ interface Probe {
   porterOf?: (ware: number) => { x: number; z: number } | null;
   /** Buildings of a kind: top-left tile and id. */
   buildingsOf?: (kind: string) => Array<{ id: number; x: number; z: number }>;
+  /** A watchman running to (or fighting) a fire, where he is drawn. */
+  dasher?: () => { x: number; z: number } | null;
+  /** Buildings smouldering, burning or creaking (or with risk or wear past `from`): where and how far gone. */
+  hazardsOf?: (from?: number) => Array<{ id: number; kind: string; x: number; z: number; side: number; fire: number; creak: boolean; risk: number; wear: number }>;
   /** The wild herds: where each stands and how many head it has. */
   herds?: () => Array<{ kind: string; x: number; z: number; head: number }>;
   /** Lived-in homes: where they are (top-left tile), their level, and whether they are warned. */
@@ -229,6 +234,8 @@ function start(): void {
   world.scene.add(overlay.group);
   const signs = new Signs(map);
   world.scene.add(signs.group);
+  const hazardView = new HazardView(map);
+  world.scene.add(hazardView.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
   // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
@@ -411,10 +418,14 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 9 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= FINE)) {
       changed += ' · Fine houses now need fleece: put a sheep pasture on the grass (M ×6), a storehouse (G G) and a fleece stall on an agora (K ×3). They have eight months before they start to worry. With wine as well (a vineyard M ×7, a winery M ×8, a wine stall K ×4) they become villas.';
     }
+    // …and one saved before fire and collapse (slice 11 or older): everything starts safe and sound, and the risk builds from here.
+    if (loaded.from !== undefined && loaded.from <= 10 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · Buildings can now catch fire and wear out. Yours start safe and sound: a watch post (Z Z) keeps fire away and an architect’s office (Z ×3) keeps them standing. A mark over a building shows when it is past half way.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -519,6 +530,8 @@ function start(): void {
   /** What M and K cycle through (Shift goes back a step). */
   const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'];
   const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
+  /** What Z cycles through: the offices. */
+  const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect'];
   const next = (list: ToolName[], now: ToolName | null, back = false): ToolName => {
     const i = now ? list.indexOf(now) : -1;
     if (i < 0) return list[0];
@@ -526,7 +539,7 @@ function start(): void {
   };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -598,7 +611,10 @@ function start(): void {
         return true;
       }
       if (k === 'j') {
-        overlay.toggle('tax');
+        // J: the taxes overlay, then fire risk, then wear, then off.
+        const cycle = ['tax', 'fire', 'wear'] as const;
+        const at = cycle.indexOf(overlay.wanted as (typeof cycle)[number]);
+        overlay.wanted = at < 0 ? 'tax' : at === cycle.length - 1 ? null : cycle[at + 1];
         return true;
       }
       if (k === '$') {
@@ -612,6 +628,8 @@ function start(): void {
       // G again: the granary, then the storehouse; K again: the agora, then its oil, fleece and wine stalls.
       if (k === 'g') t = tools.tool === 'granary' ? 'storehouse' : 'granary';
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
+      // Z again: the tax office, then the watch post, then the architect's office.
+      if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -626,7 +644,7 @@ function start(): void {
   if (demo?.follow) {
     const kind = demo.follow;
     const from: Building['kind'] =
-      kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' || kind === 'fleece' || kind === 'wine' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
+      kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' || kind === 'fleece' || kind === 'wine' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : kind === 'watchman' ? 'watchpost' : kind === 'inspector' ? 'architect' : 'farm';
     // Carts: follow a loaded cart from the demo's kind of maker (a farm's by default) that is on the road now, else wait at
     // the one whose crop is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const maker = demo.followFrom ?? 'farm';
@@ -634,7 +652,9 @@ function start(): void {
     const ripest = kind === 'cart' && !rolling ? sim.state.buildings.filter((b) => b.kind === maker).sort((a, b) => b.growth - a.growth)[0] : undefined;
     // Hunters: the one who set out last (not one already on his way home), so the camera goes out with him to the herd and back.
     const outbound = kind === 'hunter' ? sim.state.walkers.filter((o) => o.kind === 'hunter' && !o.back && o.wait === 0).sort((a, b) => a.walked - b.walked)[0] : undefined;
-    const w = ripest ? undefined : (rolling ?? outbound ?? sim.state.walkers.find((o) => o.kind === kind));
+    // A watchman or an inspector: the one from the first post (or office) built, the core town's.
+    const first = kind === 'watchman' || kind === 'inspector' ? sim.state.buildings.find((b) => b.kind === from) : undefined;
+    const w = ripest ? undefined : (rolling ?? outbound ?? (first ? sim.state.walkers.find((o) => o.origin === first.id) : undefined) ?? sim.state.walkers.find((o) => o.kind === kind));
     const f = ripest ?? (w ? findBuilding(sim.state, w.origin) : sim.state.buildings.find((b) => b.kind === from));
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
@@ -758,6 +778,9 @@ function start(): void {
       warned: s.buildings.filter((b) => warningOf(s, b)).length,
       signs: signs.count,
       signsWide: signs.wide,
+      hazardMarks: hazardView.count.marks,
+      smokePuffs: hazardView.count.smoke,
+      flames: hazardView.count.flames,
       panel: panel.id,
       undo: undoRefusal(s),
       routes: tools.routesFound,
@@ -791,6 +814,16 @@ function start(): void {
       fleeced: homes.filter((b) => goodUntil(b, FLEECE) > s.tick).length,
       wined: homes.filter((b) => goodUntil(b, WINE) > s.tick).length,
       villas: homes.filter((b) => b.level === VILLA).length,
+      watchposts: of('watchpost').length,
+      architects: of('architect').length,
+      watchmen: s.walkers.filter((w) => w.kind === 'watchman').length,
+      dashing: s.walkers.filter((w) => w.kind === 'watchman' && w.target > 0).length,
+      inspectors: s.walkers.filter((w) => w.kind === 'inspector').length,
+      smoulders: s.buildings.filter((b) => b.fire === 1).length,
+      fires: s.buildings.filter((b) => b.fire === 2).length,
+      creaks: s.buildings.filter((b) => b.creakAt > 0).length,
+      rubble: of('rubble').length,
+      hazards: s.hazards,
     };
   };
   probe.walker = (kind: string) => {
@@ -822,10 +855,15 @@ function start(): void {
     const at = w ? city.walkers.serviceAt.get(w.id) : undefined;
     return at ? { x: at.pos.x, z: at.pos.z } : null;
   };
+  probe.dasher = () => drawnAt((w) => w.kind === 'watchman' && w.target > 0);
   probe.homeward = () => drawnAt((w) => w.kind === 'hunter' && w.back && w.load > 0);
   probe.cartOf = (food) => drawnAt((w) => w.kind === 'cart' && w.food === food && w.load > 0);
   probe.porterOf = (ware) => drawnAt((w) => w.kind === 'porter' && w.food === ware && w.load > 0);
   probe.buildingsOf = (kind) => sim.state.buildings.filter((b) => b.kind === kind).map((b) => ({ id: b.id, x: b.x, z: b.z }));
+  probe.hazardsOf = (from = 1001) =>
+    sim.state.buildings
+      .filter((b) => b.fire > 0 || b.creakAt > 0 || b.risk >= from || b.wear >= from)
+      .map((b) => ({ id: b.id, kind: b.kind, x: b.x, z: b.z, side: footSide(b), fire: b.fire, creak: b.creakAt > 0, risk: b.risk, wear: b.wear }));
   probe.herds = () => sim.state.herds.map((h) => ({ kind: h.kind, x: h.x, z: h.z, head: h.head }));
   probe.tool = (t) => tools.select(t as ToolName | null);
   probe.saves = () => ({ available: saves.available, manual: saves.info('manual'), auto: saves.info('auto'), autosaving, loaded: loaded ? loaded.label.date : '', problem, lastSave });
@@ -866,6 +904,14 @@ function start(): void {
   };
   remember();
   let seenRev = sim.state.rev;
+  // Fire and collapse as last seen (each tick): a fire catching, put out, a building starting to creak or falling.
+  const hazardSeen = new Map<number, { fire: number; creak: boolean }>();
+  const seeHazards = (): void => {
+    hazardSeen.clear();
+    for (const b of sim.state.buildings) hazardSeen.set(b.id, { fire: b.fire, creak: b.creakAt > 0 });
+  };
+  seeHazards();
+  let hazardTick = sim.state.tick;
   // Tax collectors' satchels as last seen, so "+84 dr" floats up from the office when one hands in.
   const satchels = new Map<number, { dr: number; origin: number }>();
   // The population's tooltip says how often newcomers are coming, and why.
@@ -897,6 +943,40 @@ function start(): void {
     pollKeys(dt);
     rig.update(dt);
     const s = sim.state;
+    if (s.tick !== hazardTick) {
+      hazardTick = s.tick;
+      let cue: Cue | null = null;
+      const ear = rig.view;
+      const hearing = 10 + ear.dist * 0.8;
+      for (const b of s.buildings) {
+        const was = hazardSeen.get(b.id);
+        const [cx, cz] = centreOf(b);
+        const at = new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.1, cz);
+        const near = Math.hypot(cx - ear.x, cz - ear.z) < hearing;
+        if (!was) {
+          // Rubble where a building stood: it fell or burnt down (heard across the town).
+          if (b.kind === 'rubble' && s.tick - b.placed <= 20) {
+            floaters.add(b.level === 1 ? 'Burnt down' : 'Fell down', at, time, 'fire');
+            cue = 'collapse';
+          }
+          continue;
+        }
+        if (b.fire === 2 && was.fire !== 2) {
+          floaters.add('Fire!', at, time, 'fire');
+          cue ??= 'ignite';
+        } else if (b.fire === 1 && was.fire === 0 && near) floaters.add('Smoke', at, time, 'fire');
+        else if (b.fire === 0 && was.fire > 0) {
+          floaters.add(was.fire === 2 ? 'Put out' : 'Smoke put out', at, time, 'safe');
+          if (was.fire === 2) cue ??= 'douse';
+        }
+        if (b.creakAt > 0 && !was.creak) {
+          floaters.add('Creaking', at, time, 'dry');
+          if (near) cue ??= 'groan';
+        } else if (b.creakAt === 0 && was.creak) floaters.add('Made sound', at, time, 'safe');
+      }
+      seeHazards();
+      if (cue) sound.play(cue);
+    }
     if (s.rev !== seenRev) {
       seenRev = s.rev;
       let cue: Cue | null = null;
@@ -997,6 +1077,7 @@ function start(): void {
       legend.innerHTML = legendFor === 'variety' ? VARIETY_LEGEND : MISSING_LEGEND;
     }
     signs.update(s, camera, time, overlay.mode === 'missing');
+    hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
     const open = panel.update(s, map, time);
     selection.set(open);

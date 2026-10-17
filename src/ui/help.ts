@@ -48,8 +48,8 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; townhouses need two kinds, fine houses all three</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; blessed cottages become townhouses</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; townhouses with plays become fine houses</dd>
-      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes</dd>
-      <dt>X</dt><dd>Clear land: drag over it</dd>
+      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away), and again for an architect’s office (its inspector keeps buildings from falling)</dd>
+      <dt>X</dt><dd>Clear land: drag over it (rubble costs a little to clear)</dd>
       <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared (within about a month)</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>
     </dl>
@@ -60,7 +60,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
-      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month</dd>
+      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, and again for wear</dd>
       <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas)</dd>
       <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
