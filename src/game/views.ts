@@ -19,6 +19,12 @@ export const VIEWS: Record<string, CameraView> = {
   river: { x: 52, z: 59, yaw: 0.95, dist: 8, tilt: 0.02 },
   // Over the bay and its islet from the east shore, looking out towards the afternoon sun.
   bay: { x: 74, z: 86, yaw: 2.6, dist: 42, tilt: -0.02 },
+  // The trade demos: the bay's north-east shore below #town, where the road comes down to the trading post.
+  quay: { x: 74, z: 72, yaw: 2.65, dist: 24, tilt: -0.05 },
+  // Out over the bay from the shore above the post, to the horizon where her sail shows.
+  sail: { x: 66, z: 86, yaw: 2.9, dist: 40, tilt: 0.05 },
+  // The ship tied up at the jetty.
+  ship: { x: 74, z: 76, yaw: 2.3, dist: 16, tilt: -0.02 },
   // The rocky hills where the river rises.
   hills: { x: 26, z: 24, yaw: 0.7, dist: 34, tilt: 0 },
   // Down among the olive trees west of the bay.

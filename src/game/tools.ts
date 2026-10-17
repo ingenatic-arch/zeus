@@ -79,6 +79,7 @@ export type ToolName =
   | 'taxoffice'
   | 'watchpost'
   | 'architect'
+  | 'trading'
   | 'clear';
 export const TOOLS: readonly ToolName[] = [
   'road',
@@ -103,6 +104,7 @@ export const TOOLS: readonly ToolName[] = [
   'taxoffice',
   'watchpost',
   'architect',
+  'trading',
   'clear',
 ];
 
@@ -113,7 +115,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && !isStallTool(t);
 
 export interface ToolTip {
@@ -549,6 +551,7 @@ export class Tools {
       watchpost: ['watch post', 'watch posts'],
       architect: ['architect’s office', 'architects’ offices'],
       rubble: ['heap of rubble', 'heaps of rubble'],
+      trading: ['trading post', 'trading posts'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.

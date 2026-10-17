@@ -22,6 +22,7 @@ import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
 import { freshHerds, stepWild, wildRng } from './wild';
+import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepTrade, tradeIndex } from './trade';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -60,6 +61,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     tilesRev: 0,
     arrived: 0,
     left: 0,
+    trade: freshTrade(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -150,6 +152,7 @@ export class Sim {
     stepFountains(s, map);
     stepMakers(s, map);
     stepAgoras(s, map, stepStalls);
+    stepTrade(s, map);
     stepCulture(s, map);
     stepTaxOffices(s, map);
     stepWatchPosts(s, map);
@@ -207,6 +210,19 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     case 'hazards':
       s.hazards = c.on === true;
       break;
+    case 'trade': {
+      const k = Number.isInteger(c.good) ? tradeIndex(c.good) : -1;
+      if (k < 0) break;
+      if (typeof c.sell === 'boolean' && c.sell !== s.trade.sell[k]) {
+        s.trade.sell[k] = c.sell;
+        s.rev++;
+      }
+      if (typeof c.keep === 'number' && Number.isInteger(c.keep) && c.keep >= 0 && c.keep <= KEEP_MAX && c.keep !== s.trade.keep[k]) {
+        s.trade.keep[k] = c.keep;
+        s.rev++;
+      }
+      break;
+    }
   }
 }
 
@@ -343,7 +359,9 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
                   ? FIRST_WATCHMAN
                   : kind === 'architect'
                     ? FIRST_INSPECTOR
-                    : 0,
+                    : kind === 'trading'
+                      ? FIRST_DOCKER
+                      : 0,
     turn: 0,
     foodUntil: 0,
     religionUntil: 0,
@@ -417,7 +435,7 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   if (b.kind !== 'home') {
     s.walkers = s.walkers.filter((w) => {
       if (w.origin !== b.id) return true;
-      if (w.kind === 'cart' && !w.back) {
+      if ((w.kind === 'cart' || (w.kind === 'docker' && w.load > 0)) && !w.back) {
         const g = findBuilding(s, w.target);
         if (g) addComing(g, w.food, -w.load);
       }
@@ -682,6 +700,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               ? moveInspector(s, map, w)
             : w.kind === 'cart' || w.kind === 'porter'
               ? moveErrand(s, map, w)
+            : w.kind === 'docker'
+              ? moveDocker(s, map, w)
               : w.kind === 'hunter'
                 ? moveHunter(s, map, w)
                 : moveGroup(s, map, w);

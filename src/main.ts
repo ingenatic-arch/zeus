@@ -627,8 +627,8 @@ function start(): void {
       if (!t) return false;
       // M again: the farm, then the hunting lodge, the dairy, the olive grove, the olive press, the sheep pasture, the vineyard and the winery.
       if (k === 'm') t = next(MAKERS, tools.tool, e?.shiftKey);
-      // G again: the granary, then the storehouse; K again: the agora, then its oil, fleece and wine stalls.
-      if (k === 'g') t = tools.tool === 'granary' ? 'storehouse' : 'granary';
+      // G again: the granary, then the storehouse, then the trading post; K again: the agora, then its oil, fleece and wine stalls.
+      if (k === 'g') t = next(['granary', 'storehouse', 'trading'], tools.tool, e?.shiftKey);
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);

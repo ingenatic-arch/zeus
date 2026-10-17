@@ -1,0 +1,757 @@
+/**
+ * The trading post and the merchant ship.
+ *
+ * The post (3 x 3) stands on the bay shore, on land touching deep water: a
+ * straight jetty runs from the middle of one of its sides out to a *berth*,
+ * deep water the ship can come alongside. Only one is allowed. Deep water is
+ * sea at least DEEP deep joined to the open sea at the map's edge through
+ * deep water; the ship sails only on it (and beyond the edge, out to the
+ * horizon).
+ *
+ * The ship buys six goods (TRADE_GOODS) at steady prices. For each the
+ * player chooses whether to sell it and how much the city keeps in its
+ * stores (`s.trade`). The post's dockers carry the surplus (what the city's
+ * granaries or storehouses hold beyond what is kept) from the nearest store
+ * to the quay, where it stacks up, and carry back what is no longer for sale.
+ *
+ * The first ship is due FIRST_SHIP after the post is built, then one every
+ * SHIP_EVERY. SAIL_IN before she is due she shows on the horizon and sails in;
+ * tied up, she loads what is on the quay of the goods for sale over LOADING
+ * ticks, pays (on the ledger as sales, by good) and sails off the way she
+ * came. Where she is is a pure function of her route, her phase, when it
+ * began and the tick (shipAt), so she is drawn smoothly and saves carry her.
+ *
+ * Pure: the map facts are worked out once per baked map and cached; nothing
+ * here draws a random number, so a town without a post runs exactly as before.
+ */
+import { WATER_SEA, type CoastMap } from '../map/bake';
+import { Ground, mapIndex } from './build';
+import { findBuilding } from './buildings';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
+import { goTo, HANDLE, lastRoad, nearestBy, wayPoints } from './food';
+import { addComing, CHEESE, coming, FLEECE, held, MEAT, OIL, setHeld, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
+import { rateOf } from './labour';
+import { door, roadsBeside } from './rounds';
+import { roomFor, roomOf } from './stores';
+import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
+import { income } from './treasury';
+import { DOCKER_SPEED, newWalker, position, setPath } from './walk';
+
+/** The goods the ship buys, in the order the trade record keeps them. */
+export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE];
+/** A good's place in the trade record (-1: the ship doesn't buy it). */
+export const tradeIndex = (w: Ware): number => TRADE_GOODS.indexOf(w);
+/** What the ship pays for a hundred measures of each (by trade good): fine goods most, wheat least. Steady this phase. */
+export const PRICES: readonly number[] = [15, 30, 30, 60, 45, 80];
+/** What she pays for so many measures of a trade good. */
+export const priceFor = (k: number, n: number): number => Math.round((n * PRICES[k]) / 100);
+/** What the city keeps of each to begin with: half a granary's or storehouse's room. */
+export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600];
+/** The panel's step for what is kept, and the most that can be kept. */
+export const KEEP_STEP = 200;
+export const KEEP_MAX = 20000;
+/** Where each good is kept: foods in the granaries, goods in the storehouses. */
+export const storeKind = (w: Ware): BuildingKind => (w === WHEAT || w === MEAT || w === CHEESE ? 'granary' : 'storehouse');
+
+/** What the quay holds of each good. */
+export const QUAY_ROOM = 2400;
+/** What a docker's handcart takes of each trade good. */
+export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600];
+/** Most dockers out at once; ticks between one setting off and the next; the smallest load worth a trip. */
+export const MAX_DOCKERS = 4;
+export const DOCKER_GAP = 2 * TICKS_PER_DAY;
+export const MIN_LOT = 100;
+/** Ticks before the post's first docker can go (once it has workers). */
+export const FIRST_DOCKER = 20;
+
+/** The ship's phases. */
+export const SHIP_AWAY = 0;
+export const SHIP_COMING = 1;
+export const SHIP_MOORED = 2;
+export const SHIP_LEAVING = 3;
+/** The first ship is due three months after the post is built (time for the dockers' first loads), then one every three months. */
+export const FIRST_SHIP = 3 * TICKS_PER_MONTH;
+export const SHIP_EVERY = 3 * TICKS_PER_MONTH;
+/** She shows on the horizon this long before she ties up; loads this long; takes this long to sail off from the quay. */
+export const SAIL_IN = 6 * TICKS_PER_DAY;
+export const LOADING = 4 * TICKS_PER_DAY;
+export const SAIL_OUT = 5 * TICKS_PER_DAY;
+/** Sea at least this deep is deep water. */
+export const DEEP = 0.5;
+/** The longest jetty: the berth is at most this far from the post's footprint. */
+export const JETTY_MAX = 7;
+/** How far she sits off the jetty's end (half her beam and a fender). */
+export const BERTH_OFF = 0.85;
+/** How far she comes in alongside: the last stretch of her way in runs this long, square to the jetty. */
+export const APPROACH = 6;
+/** How far beyond the map's edge the horizon is, where she first shows. */
+export const HORIZON = 110;
+
+export function freshShip(): Ship {
+  return { phase: SHIP_AWAY, due: 0, since: 0, turned: 1, path: [], post: 0, hold: TRADE_GOODS.map(() => 0), visits: 0, lastAt: 0, lastBought: TRADE_GOODS.map(() => 0), lastPaid: 0 };
+}
+
+export function freshTrade(): Trade {
+  return { sell: TRADE_GOODS.map(() => false), keep: DEFAULT_KEEP.slice(), ship: freshShip() };
+}
+
+// ---------------------------------------------------------------------------
+// The map: deep water, berths, where a post can go.
+
+interface SeaFacts {
+  /** Depth of each sea tile (0 for land). */
+  depth: Float32Array;
+  /** Steps over deep water to the map's edge (-1: not deep, or cut off from the open sea). */
+  toEdge: Int32Array;
+}
+const seas = new WeakMap<CoastMap, SeaFacts>();
+
+/** Deep water and how far each deep tile is from the open sea (worked out once per map). */
+export function seaFacts(map: CoastMap): SeaFacts {
+  let f = seas.get(map);
+  if (f) return f;
+  const n = map.size;
+  const depth = new Float32Array(n * n);
+  for (let z = 0; z < n; z++) {
+    for (let x = 0; x < n; x++) {
+      const t = z * n + x;
+      if (map.tileWater[t] !== WATER_SEA) continue;
+      depth[t] = -Math.max(map.corner(x, z), map.corner(x + 1, z), map.corner(x, z + 1), map.corner(x + 1, z + 1));
+    }
+  }
+  const toEdge = new Int32Array(n * n).fill(-1);
+  const queue: number[] = [];
+  for (let t = 0; t < n * n; t++) {
+    const x = t % n;
+    const z = (t - x) / n;
+    if ((x === 0 || z === 0 || x === n - 1 || z === n - 1) && depth[t] >= DEEP) {
+      toEdge[t] = 0;
+      queue.push(t);
+    }
+  }
+  for (let i = 0; i < queue.length; i++) {
+    const t = queue[i];
+    for (const u of steps(n, depth, t)) {
+      if (toEdge[u] >= 0 || depth[u] < DEEP) continue;
+      toEdge[u] = toEdge[t] + 1;
+      queue.push(u);
+    }
+  }
+  f = { depth, toEdge };
+  seas.set(map, f);
+  return f;
+}
+
+/** The tiles a ship can move to from t: the four sides, and the corners when both tiles beside the corner are deep too. */
+function steps(n: number, depth: Float32Array, t: number): number[] {
+  const x = t % n;
+  const z = (t - x) / n;
+  const out: number[] = [];
+  const on = (a: number, b: number): boolean => a >= 0 && b >= 0 && a < n && b < n;
+  for (const [dx, dz] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) if (on(x + dx, z + dz)) out.push((z + dz) * n + x + dx);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    if (on(x + dx, z + dz) && depth[z * n + x + dx] >= DEEP && depth[(z + dz) * n + x] >= DEEP) out.push((z + dz) * n + x + dx);
+  }
+  return out;
+}
+
+/** Is a point (world units) on deep water joined to the open sea, or beyond the map's edge? */
+export function sailable(map: CoastMap, x: number, z: number): boolean {
+  const n = map.size;
+  if (x < 0 || z < 0 || x >= n || z >= n) return true;
+  return seaFacts(map).toEdge[Math.floor(z) * n + Math.floor(x)] >= 0;
+}
+
+/** Where the ship ties up at a post with its footprint's top-left tile at (x, z). */
+export interface Berth {
+  /** Where she lies (world units), and which way she lies (a unit vector along her keel, bow first as she comes in). */
+  x: number;
+  z: number;
+  hx: number;
+  hz: number;
+  /** The jetty: from (jx, jz) on the footprint's side, out (ox, oz: a unit vector along it; one of the four sides) for `len` to its end. */
+  jx: number;
+  jz: number;
+  ox: number;
+  oz: number;
+  len: number;
+  /** The deep tile she lies on. */
+  tile: number;
+}
+
+const berths = new WeakMap<CoastMap, Map<number, Berth | null>>();
+
+/** Is a tile water a jetty can stand over (sea, or the wet margin of the beach)? */
+const wet = (map: CoastMap, t: number): boolean => mapIndex(map).ground[t] === Ground.Water;
+
+/**
+ * The berth for a 3 x 3 trading post with its top-left tile at (x, z), or
+ * null if the ship can't come alongside one there: no sea beside it, or no
+ * deep water within JETTY_MAX reached by a straight jetty over water. Only
+ * the ground is looked at (not what is built), so it is worked out once.
+ */
+export function berthAt(map: CoastMap, x: number, z: number): Berth | null {
+  const n = map.size;
+  let cache = berths.get(map);
+  if (!cache) berths.set(map, (cache = new Map()));
+  const key = z * n + x;
+  const got = cache.get(key);
+  if (got !== undefined) return got;
+  const b = findBerth(map, x, z);
+  cache.set(key, b);
+  return b;
+}
+
+/** Why a trading post can't go on the shore here ('' if the ship could come alongside it). */
+export function shoreRefusal(map: CoastMap, x: number, z: number): string {
+  if (!nearSea(map, x, z)) return 'A trading post goes on the bay shore: no sea beside it here';
+  if (!berthAt(map, x, z)) return 'The water off this shore is too shallow for the ship: try where the deep water comes closer (the tint shows where)';
+  return '';
+}
+
+/** Is there sea within two tiles of a 3 x 3 footprint? */
+function nearSea(map: CoastMap, x: number, z: number): boolean {
+  const n = map.size;
+  for (let dz = -2; dz <= 4; dz++) {
+    for (let dx = -2; dx <= 4; dx++) {
+      const tx = x + dx;
+      const tz = z + dz;
+      if (tx < 0 || tz < 0 || tx >= n || tz >= n) continue;
+      if (map.tileWater[tz * n + tx] === WATER_SEA) return true;
+    }
+  }
+  return false;
+}
+
+function findBerth(map: CoastMap, x: number, z: number): Berth | null {
+  const n = map.size;
+  if (x < 0 || z < 0 || x + 3 > n || z + 3 > n || !nearSea(map, x, z)) return null;
+  const sea = seaFacts(map);
+  const cx = x + 1.5;
+  const cz = z + 1.5;
+  // Deep tiles near enough, nearest the footprint first.
+  const reach = JETTY_MAX + 2;
+  const near: Array<{ t: number; d: number }> = [];
+  for (let tz = Math.max(0, z - reach); tz < Math.min(n, z + 3 + reach); tz++) {
+    for (let tx = Math.max(0, x - reach); tx < Math.min(n, x + 3 + reach); tx++) {
+      const t = tz * n + tx;
+      if (sea.toEdge[t] < 0) continue;
+      const px = tx + 0.5;
+      const pz = tz + 0.5;
+      const ex = Math.max(x - px, 0, px - (x + 3));
+      const ez = Math.max(z - pz, 0, pz - (z + 3));
+      const d = Math.hypot(ex, ez);
+      if (d <= JETTY_MAX) near.push({ t, d });
+    }
+  }
+  near.sort((a, b) => a.d - b.d || a.t - b.t);
+  for (const { t } of near.slice(0, 40)) {
+    const px = (t % n) + 0.5;
+    const pz = Math.floor(t / n) + 0.5;
+    // The jetty leaves from the middle of the side facing the berth.
+    const vx = px - cx;
+    const vz = pz - cz;
+    const [ox, oz] = Math.abs(vx) >= Math.abs(vz) ? [Math.sign(vx), 0] : [0, Math.sign(vz)];
+    const jx = cx + ox * 1.5;
+    const jz = cz + oz * 1.5;
+    // She lies square to the jetty, her side against its end.
+    const along = (px - jx) * ox + (pz - jz) * oz;
+    const len = along - BERTH_OFF;
+    if (len < 1 || len > JETTY_MAX) continue;
+    const ex = jx + ox * len;
+    const ez = jz + oz * len;
+    // The jetty runs over water only (past the first half tile, where it leaves the quay).
+    let ok = true;
+    for (let d = 0.5; d <= len + 0.01 && ok; d += 0.25) {
+      const sx = jx + ox * d;
+      const sz = jz + oz * d;
+      ok = wet(map, Math.floor(sz) * n + Math.floor(sx));
+    }
+    if (!ok) continue;
+    // Where she lies: off the jetty's end, along it. Her keel runs square to it, one way or the other, with room to come in.
+    const bx = ex + ox * BERTH_OFF;
+    const bz = ez + oz * BERTH_OFF;
+    for (const s of [1, -1]) {
+      const hx = -oz * s;
+      const hz = ox * s;
+      let room = true;
+      for (let d = -1.5; d <= APPROACH && room; d += 0.5) room = sailable(map, bx - hx * d, bz - hz * d);
+      if (!room) continue;
+      return { x: bx, z: bz, hx, hz, jx, jz, ox, oz, len, tile: Math.floor(bz) * n + Math.floor(bx) };
+    }
+  }
+  return null;
+}
+
+const quays = new WeakMap<CoastMap, Uint8Array>();
+
+/** Every tile that is part of some footprint where a trading post could go, the ground and the berth allowing (for the placing tool's tint). */
+export function quayTiles(map: CoastMap): Uint8Array {
+  let q = quays.get(map);
+  if (q) return q;
+  const n = map.size;
+  const ground = mapIndex(map).ground;
+  q = new Uint8Array(n * n);
+  for (let z = 0; z + 3 <= n; z++) {
+    for (let x = 0; x + 3 <= n; x++) {
+      let dry = true;
+      for (let dz = 0; dz < 3 && dry; dz++) for (let dx = 0; dx < 3 && dry; dx++) dry = ground[(z + dz) * n + x + dx] === Ground.Ok;
+      if (!dry || !berthAt(map, x, z)) continue;
+      for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) q[(z + dz) * n + x + dx] = 1;
+    }
+  }
+  quays.set(map, q);
+  return q;
+}
+
+/** The trading post's berth (null if it has none, as can't happen for one that was allowed). */
+export const berthOf = (map: CoastMap, b: Building): Berth | null => berthAt(map, b.x, b.z);
+
+/** The city's trading post (there is only ever one), or undefined. */
+export const tradingPost = (s: SimState): Building | undefined => s.buildings.find((b) => b.kind === 'trading');
+
+// ---------------------------------------------------------------------------
+// The ship's way in.
+
+/**
+ * Her way in to a berth, as x, z pairs: from the horizon beyond the nearest
+ * edge of the map, over deep water by the fewest steps (pulled straight
+ * where she can sail straight), the last stretch square to the jetty.
+ */
+export function shipRoute(map: CoastMap, berth: Berth): number[] {
+  const n = map.size;
+  const sea = seaFacts(map);
+  const ax = berth.x - berth.hx * APPROACH;
+  const az = berth.z - berth.hz * APPROACH;
+  // From the approach, down the steps to the edge.
+  const pts: Array<[number, number]> = [
+    [berth.x, berth.z],
+    [ax, az],
+  ];
+  let t = Math.floor(az) * n + Math.floor(ax);
+  if (sea.toEdge[t] < 0) t = berth.tile;
+  for (let guard = 0; guard < n * 4 && sea.toEdge[t] > 0; guard++) {
+    let best = -1;
+    for (const u of steps(n, sea.depth, t)) if (sea.toEdge[u] >= 0 && sea.toEdge[u] < sea.toEdge[t] && (best < 0 || sea.toEdge[u] < sea.toEdge[best])) best = u;
+    if (best < 0) break;
+    t = best;
+    pts.push([(t % n) + 0.5, Math.floor(t / n) + 0.5]);
+  }
+  // Out over the edge, straight on to the horizon.
+  const ex = t % n;
+  const ez = Math.floor(t / n);
+  const [nx, nz] = ex === 0 ? [-1, 0] : ex === n - 1 ? [1, 0] : ez === 0 ? [0, -1] : [0, 1];
+  const [lx, lz] = pts[pts.length - 1];
+  pts.push([lx + nx * 12, lz + nz * 12]);
+  // A little to one side, so she doesn't come in along a ruled line.
+  pts.push([lx + nx * HORIZON - nz * HORIZON * 0.25, lz + nz * HORIZON + nx * HORIZON * 0.25]);
+  // Pulled straight: from the approach outwards, on to the farthest point she can see over deep water.
+  const out: Array<[number, number]> = [pts[0], pts[1]];
+  let i = 1;
+  while (i < pts.length - 1) {
+    let j = pts.length - 1;
+    while (j > i + 1 && !clearWay(map, pts[i], pts[j])) j--;
+    out.push(pts[j]);
+    i = j;
+  }
+  out.reverse();
+  return out.flat();
+}
+
+/** Can she sail straight from a to b (over deep water or beyond the edge all the way)? */
+function clearWay(map: CoastMap, a: [number, number], b: [number, number]): boolean {
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const k = Math.max(1, Math.ceil(d / 0.4));
+  for (let i = 1; i < k; i++) {
+    const f = i / k;
+    if (!sailable(map, a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)) return false;
+  }
+  return true;
+}
+
+/** A path's length, and the point and heading a distance along it. */
+function pathLength(p: readonly number[]): number {
+  let l = 0;
+  for (let i = 0; i + 3 < p.length; i += 2) l += Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
+  return l;
+}
+function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
+  let left = Math.max(0, d);
+  for (let i = 0; i + 3 < p.length; i += 2) {
+    const sx = p[i + 2] - p[i];
+    const sz = p[i + 3] - p[i + 1];
+    const l = Math.hypot(sx, sz);
+    if (left <= l || i + 4 >= p.length - 1) {
+      const f = l > 0 ? Math.min(1, left / l) : 0;
+      return { x: p[i] + sx * f, z: p[i + 1] + sz * f, dx: l > 0 ? sx / l : 1, dz: l > 0 ? sz / l : 0 };
+    }
+    left -= l;
+  }
+  return { x: p[0] ?? 0, z: p[1] ?? 0, dx: 1, dz: 0 };
+}
+
+/** How far in she has come (0 at the horizon, 1 at the quay) a share u of the way through sailing in: fast far out, slowing as she comes alongside. */
+export const easeIn = (u: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 2.6);
+/** Sailing off: how far back out she has gone, a share u of the way through (slow away from the quay, then faster). */
+export const easeOut = (u: number): number => Math.pow(Math.max(0, Math.min(1, u)), 2);
+
+/** How long she takes to sail off from where she turned. */
+export const leaveTicks = (ship: Ship): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
+
+/**
+ * Where the ship is at a tick (fractional ticks too: the renderer draws her
+ * between them), which way her bow points (a unit vector), and how far in she
+ * has come (0 at the horizon, 1 at the quay); null while she is away.
+ */
+export function shipAt(ship: Ship, tick: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
+  if (ship.phase === SHIP_AWAY || ship.path.length < 4) return null;
+  const L = pathLength(ship.path);
+  let f: number;
+  let back = false;
+  if (ship.phase === SHIP_COMING) f = easeIn((tick - ship.since) / SAIL_IN);
+  else if (ship.phase === SHIP_MOORED) f = 1;
+  else {
+    f = ship.turned * (1 - easeOut((tick - ship.since) / leaveTicks(ship)));
+    back = true;
+  }
+  const p = pointAlong(ship.path, L * f);
+  return { x: p.x, z: p.z, dx: back ? -p.dx : p.dx, dz: back ? -p.dz : p.dz, inward: f };
+}
+
+// ---------------------------------------------------------------------------
+// The city's stores and the quay.
+
+/** What the city's stores (granaries or storehouses) hold of a good. */
+export function cityHolds(s: SimState, w: Ware): number {
+  const kind = storeKind(w);
+  let n = 0;
+  for (const b of s.buildings) if (b.kind === kind) n += held(b, w);
+  return n;
+}
+
+/** What dockers on their way to fetch a good have reserved, and what dockers taking it back are carrying. */
+function inHand(s: SimState, post: Building, w: Ware): { fetching: number; returning: number } {
+  let fetching = 0;
+  let returning = 0;
+  for (const d of s.walkers) {
+    if (d.kind !== 'docker' || d.origin !== post.id || d.food !== w || d.back) continue;
+    if (d.load > 0) returning += d.load;
+    else fetching += d.meat;
+  }
+  return { fetching, returning };
+}
+
+/** The surplus of a trade good: what the stores hold beyond what the city keeps, less what dockers are already on their way to fetch. */
+export function surplusOf(s: SimState, post: Building | undefined, k: number): number {
+  const w = TRADE_GOODS[k];
+  const fetching = post ? inHand(s, post, w).fetching : 0;
+  return Math.max(0, cityHolds(s, w) - s.trade.keep[k] - fetching);
+}
+
+/** Room left on the quay for a good (less what dockers on their way have reserved). */
+export const quayRoom = (post: Building, w: Ware): number => QUAY_ROOM - held(post, w) - coming(post, w);
+
+/** Dockers out from the post. */
+export const dockersOut = (s: SimState, post: Building): number => {
+  let n = 0;
+  for (const w of s.walkers) if (w.kind === 'docker' && w.origin === post.id) n++;
+  return n;
+};
+
+/** What is on the quay of each trade good, and what it would fetch at the ship's prices (the goods for sale only). */
+export function quayWorth(s: SimState, post: Building): number {
+  let dr = 0;
+  TRADE_GOODS.forEach((w, k) => {
+    if (s.trade.sell[k]) dr += priceFor(k, held(post, w));
+  });
+  return dr;
+}
+
+// ---------------------------------------------------------------------------
+// Each tick.
+
+/** The trading post's dockers and the ship's schedule and visit, once a tick. Nothing happens in a city that has never had a post. */
+export function stepTrade(s: SimState, map: CoastMap): void {
+  const ship = s.trade.ship;
+  const post = tradingPost(s);
+  if (!post) {
+    if (ship.due !== 0) ship.due = 0;
+    if (ship.phase === SHIP_COMING || ship.phase === SHIP_MOORED) turnBack(s, ship);
+    if (ship.phase === SHIP_LEAVING) stepLeaving(s, ship);
+    return;
+  }
+  // The schedule starts when a post stands.
+  if (ship.due === 0) ship.due = s.tick + FIRST_SHIP;
+  stepDockers(s, map, post);
+  if (ship.phase === SHIP_AWAY) {
+    if (s.tick >= ship.due - SAIL_IN) setSail(s, map, post, ship);
+  } else if (ship.phase === SHIP_COMING) {
+    if (ship.post !== post.id) turnBack(s, ship);
+    else if (s.tick >= ship.since + SAIL_IN) {
+      ship.phase = SHIP_MOORED;
+      ship.since = s.tick;
+      ship.hold = TRADE_GOODS.map(() => 0);
+    }
+  } else if (ship.phase === SHIP_MOORED) {
+    if (ship.post !== post.id) turnBack(s, ship);
+    else stepLoading(s, post, ship);
+  } else stepLeaving(s, ship);
+}
+
+/** She sets sail for the post from over the horizon (or, if it has no berth, the visit is missed). */
+function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
+  const berth = berthOf(map, post);
+  if (!berth) {
+    ship.due += SHIP_EVERY;
+    return;
+  }
+  ship.path = shipRoute(map, berth);
+  ship.phase = SHIP_COMING;
+  ship.post = post.id;
+  ship.turned = 1;
+  // She ties up when due (or SAIL_IN from now, if the town was loaded late in her schedule).
+  ship.since = Math.min(s.tick, ship.due - SAIL_IN);
+  if (ship.since < s.tick - SAIL_IN) ship.since = s.tick;
+  ship.due = ship.since + SAIL_IN;
+}
+
+/** The post is gone: she turns back from where she is. */
+function turnBack(s: SimState, ship: Ship): void {
+  const at = shipAt(ship, s.tick);
+  ship.turned = at ? at.inward : 1;
+  ship.phase = SHIP_LEAVING;
+  ship.since = s.tick;
+  ship.hold = TRADE_GOODS.map(() => 0);
+}
+
+function stepLeaving(s: SimState, ship: Ship): void {
+  if (s.tick < ship.since + leaveTicks(ship)) return;
+  ship.phase = SHIP_AWAY;
+  ship.since = s.tick;
+  ship.path = [];
+  ship.post = 0;
+  ship.turned = 1;
+}
+
+/** Tied up: each day she takes a share of what is on the quay of the goods for sale; at the end she takes the rest, pays and sails off. */
+function stepLoading(s: SimState, post: Building, ship: Ship): void {
+  const t = s.tick - ship.since;
+  if (t <= 0 || t % TICKS_PER_DAY !== 0) return;
+  const days = LOADING / TICKS_PER_DAY;
+  const day = t / TICKS_PER_DAY;
+  let changed = false;
+  TRADE_GOODS.forEach((w, k) => {
+    if (!s.trade.sell[k]) return;
+    const q = held(post, w);
+    if (q <= 0) return;
+    const take = day >= days ? q : Math.ceil(q / (days - day + 1));
+    setHeld(post, w, q - take);
+    ship.hold[k] += take;
+    changed = true;
+  });
+  if (changed) s.looks++;
+  if (day < days) return;
+  // She pays for what she has loaded, a line of the ledger for each good, and sails off.
+  let paid = 0;
+  TRADE_GOODS.forEach((w, k) => {
+    const n = ship.hold[k];
+    if (n <= 0) return;
+    const dr = priceFor(k, n);
+    paid += dr;
+    income(s, dr, 'sales', WARE_NAMES[w], n);
+  });
+  ship.lastAt = s.tick;
+  ship.lastBought = ship.hold.slice();
+  ship.lastPaid = paid;
+  ship.visits++;
+  ship.hold = TRADE_GOODS.map(() => 0);
+  ship.phase = SHIP_LEAVING;
+  ship.since = s.tick;
+  ship.turned = 1;
+  // The next is due three months after this one was.
+  ship.due += SHIP_EVERY;
+  while (ship.due - SAIL_IN <= s.tick) ship.due += SHIP_EVERY;
+}
+
+// ---------------------------------------------------------------------------
+// Dockers.
+
+/** Why the post can't send a docker for a good now ('' if it can), for the panel. */
+function dockerWork(s: SimState, post: Building): { w: Ware; k: number; lot: number; back: boolean } | null {
+  const ship = s.trade.ship;
+  // First, anything on the quay the city wants back: no longer for sale, or the stores below what is kept (not while she is loading it).
+  for (let k = 0; k < TRADE_GOODS.length; k++) {
+    const w = TRADE_GOODS[k];
+    const q = held(post, w);
+    if (q <= 0) continue;
+    if (s.trade.sell[k] && ship.phase === SHIP_MOORED) continue;
+    const { returning } = inHand(s, post, w);
+    const want = s.trade.sell[k] ? s.trade.keep[k] - cityHolds(s, w) - returning : q;
+    const lot = Math.min(DOCKER_TAKE[k], q, want);
+    if (lot >= Math.min(MIN_LOT, q)) return { w, k, lot, back: true };
+  }
+  // Then the surplus of the goods for sale, the most valuable first.
+  let best: { w: Ware; k: number; lot: number; back: boolean } | null = null;
+  let worth = 0;
+  for (let k = 0; k < TRADE_GOODS.length; k++) {
+    if (!s.trade.sell[k]) continue;
+    const w = TRADE_GOODS[k];
+    const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), quayRoom(post, w));
+    if (lot < MIN_LOT) continue;
+    const v = priceFor(k, lot);
+    if (v > worth) [best, worth] = [{ w, k, lot, back: false }, v];
+  }
+  return best;
+}
+
+/** The post sends a docker when there is work and a docker free (one every DOCKER_GAP). */
+function stepDockers(s: SimState, map: CoastMap, post: Building): void {
+  if (post.clock > 0) post.clock--;
+  if (post.clock > 0 || rateOf(post) === 0 || dockersOut(s, post) >= MAX_DOCKERS) return;
+  post.clock = DOCKER_GAP;
+  const job = dockerWork(s, post);
+  if (!job) return;
+  const size = map.size;
+  const roads = roadsBeside(s, size, post);
+  const kind = storeKind(job.w);
+  // Carrying back: to the nearest store with room for some of it (as much as it has room for).
+  const found = job.back
+    ? nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
+    : nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+  if (!found) return;
+  if (job.back) job.lot = Math.min(job.lot, roomFor(found.g, job.w));
+  const d = newWalker(s, 'docker', 1);
+  d.origin = post.id;
+  d.target = found.g.id;
+  d.food = job.w;
+  d.since = s.tick;
+  if (job.back) {
+    // Carrying it back to a store: off the quay, room reserved there.
+    setHeld(post, job.w, held(post, job.w) - job.lot);
+    d.load = job.lot;
+    addComing(found.g, job.w, job.lot);
+    s.looks++;
+  } else {
+    // Fetching: room on the quay reserved for what he brings.
+    d.meat = job.lot;
+    addComing(post, job.w, job.lot);
+  }
+  setPath(d, wayPoints(size, door(size, post, found.way[0]), found.way, found.g));
+  s.walkers.push(d);
+}
+
+/** Does a store suit what a docker is doing: holds his good to fetch, or has room for what he carries back? */
+function suits(g: Building, d: Walker): boolean {
+  if (g.kind !== storeKind(d.food)) return false;
+  return d.load > 0 ? roomOf(g.kind, d.food) > 0 : true;
+}
+
+/** A docker's store has gone, or his way was cut: another store from where he stands, else home. False if he can get nowhere at all. */
+function redirect(s: SimState, size: number, d: Walker, post: Building): boolean {
+  const old = findBuilding(s, d.target);
+  if (old && d.load > 0 && !d.back) addComing(old, d.food, -d.load);
+  d.wait = 0;
+  const from = lastRoad(s, d);
+  if (!d.back && from >= 0) {
+    const ok = d.load > 0 ? (g: Building) => g.kind === storeKind(d.food) && roomFor(g, d.food) >= d.load : (g: Building) => g.kind === storeKind(d.food) && held(g, d.food) > 0;
+    const found = nearestBy(s, size, [from], ok);
+    if (found) {
+      d.target = found.g.id;
+      if (d.load > 0) addComing(found.g, d.food, d.load);
+      setPath(d, wayPoints(size, position(d), found.way, found.g));
+      return true;
+    }
+  }
+  d.back = true;
+  d.target = 0;
+  return goTo(s, size, d, post, from);
+}
+
+/** A docker is home (or can get nowhere): what he carries goes on the quay, and his reserved room is given back. */
+function home(s: SimState, d: Walker, post: Building): false {
+  if (d.meat > 0) addComing(post, d.food, -d.meat);
+  if (d.load > 0) {
+    setHeld(post, d.food, held(post, d.food) + d.load);
+    s.looks++;
+  }
+  d.meat = 0;
+  d.load = 0;
+  return false;
+}
+
+/** Move a docker one tick along. False when he is done (home, or gone). */
+export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
+  const size = map.size;
+  const post = findBuilding(s, d.origin);
+  if (!post) return false;
+  if (d.wait > 0) {
+    const g = findBuilding(s, d.target);
+    if (!g || !suits(g, d)) return redirect(s, size, d, post) || home(s, d, post);
+    d.wait -= rateOf(g);
+    if (d.wait > 0) return true;
+    d.wait = 0;
+    if (d.load > 0) {
+      // Carried back: into the store.
+      addComing(g, d.food, -d.load);
+      setHeld(g, d.food, Math.min(roomOf(g.kind, d.food), held(g, d.food) + d.load));
+      d.load = 0;
+    } else {
+      // Fetching: what the city has beyond what it keeps, as much as he reserved room for.
+      const k = tradeIndex(d.food);
+      const spare = k >= 0 && s.trade.sell[k] ? Math.max(0, cityHolds(s, d.food) - s.trade.keep[k]) : 0;
+      const take = Math.min(d.meat, held(g, d.food), spare);
+      setHeld(g, d.food, held(g, d.food) - take);
+      addComing(post, d.food, take - d.meat);
+      d.meat = take;
+      d.load = take;
+    }
+    s.looks++;
+    d.back = true;
+    d.target = 0;
+    if (!goTo(s, size, d, post, lastRoad(s, d))) return home(s, d, post);
+    return true;
+  }
+  const next = d.tiles[d.seg + 1];
+  if (next !== undefined && next >= 0 && s.tiles[next] !== TILE_ROAD) {
+    if (!(d.back ? goTo(s, size, d, post, lastRoad(s, d)) : redirect(s, size, d, post))) return home(s, d, post);
+  }
+  if (!d.back && !findBuilding(s, d.target) && !redirect(s, size, d, post)) return home(s, d, post);
+  let move = DOCKER_SPEED;
+  for (let guard = 0; guard < 8 && move > 0; guard++) {
+    const last = d.path.length / 2 - 1;
+    if (d.seg >= last) break;
+    const i = d.seg * 2;
+    const len = Math.hypot(d.path[i + 2] - d.path[i], d.path[i + 3] - d.path[i + 1]);
+    if (d.along + move < len) {
+      d.along += move;
+      d.walked += move;
+      break;
+    }
+    move -= len - d.along;
+    d.walked += len - d.along;
+    d.seg++;
+    d.along = 0;
+    if (d.seg < last) {
+      const t = d.tiles[d.seg + 1];
+      if (t >= 0 && s.tiles[t] !== TILE_ROAD && !(d.back ? goTo(s, size, d, post, lastRoad(s, d)) : redirect(s, size, d, post))) return home(s, d, post);
+      continue;
+    }
+    if (d.back) return home(s, d, post);
+    const g = findBuilding(s, d.target);
+    if (!g || !suits(g, d)) return redirect(s, size, d, post) || home(s, d, post);
+    d.wait = HANDLE;
+    break;
+  }
+  return true;
+}
+
+/** What the docker is doing, for his hover tip. */
+export function dockerDoing(s: SimState, d: Walker): string {
+  const name = WARE_NAMES[d.food];
+  const g = findBuilding(s, d.target);
+  const where = g ? (g.kind === 'granary' ? 'the granary' : 'the storehouse') : 'the quay';
+  if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to the quay for the ship` : 'going back to the quay';
+  if (d.load > 0) return `taking ${d.load.toLocaleString('en-GB')} ${name} back to ${where}: it isn’t for sale now`;
+  return d.wait > 0 ? `loading ${name} at ${where}` : `going to ${where} for ${name} to sell`;
+}
+

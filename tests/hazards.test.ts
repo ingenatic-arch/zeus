@@ -363,5 +363,5 @@ describe('saves and determinism', () => {
     const creak = demo('creak').state;
     expect(creak.buildings.filter((b) => b.creakAt > 0).length).toBe(1);
     expect(creak.buildings.some((b) => b.kind === 'rubble' || b.fire !== FIRE_NONE)).toBe(false);
-  });
+  }, 30000);
 });

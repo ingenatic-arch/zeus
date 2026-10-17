@@ -14,6 +14,7 @@ import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState } from '../sim/state';
 import { GOOD_COUNT } from '../sim/foods';
+import { TRADE_GOODS } from '../sim/trade';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -281,7 +282,18 @@ export function stateProblem(st: unknown): string {
     if (pts < 1 || (w.tiles as number[]).length !== pts || (w.seg as number) < 0 || (w.seg as number) >= pts) return damaged('a walker is off her way');
   }
   if (!Array.isArray(st.undo)) return damaged('its undo list is missing');
+  if (!tradeOk(st.trade)) return damaged('its trading post’s record is wrong');
   return '';
+}
+
+const SHIP_NUMBERS = ['phase', 'due', 'since', 'turned', 'post', 'visits', 'lastAt', 'lastPaid'];
+
+function tradeOk(t: unknown): boolean {
+  if (!isObj(t) || !Array.isArray(t.sell) || t.sell.length !== TRADE_GOODS.length || !t.sell.every((v: unknown) => typeof v === 'boolean')) return false;
+  if (!nums(t.keep, TRADE_GOODS.length) || !isObj(t.ship)) return false;
+  const sh = t.ship;
+  if (!SHIP_NUMBERS.every((k) => fin(sh[k])) || !nums(sh.hold, TRADE_GOODS.length) || !nums(sh.lastBought, TRADE_GOODS.length) || !nums(sh.path)) return false;
+  return (sh.path as number[]).length % 2 === 0 && [0, 1, 2, 3].includes(sh.phase as number);
 }
 
 function ledgerOk(l: unknown): boolean {

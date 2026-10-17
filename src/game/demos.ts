@@ -5,16 +5,17 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
-import { FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, VINEYARD_COST, WINERY_COST } from '../sim/build';
+import { FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WINERY_COST } from '../sim/build';
 import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
-import { FLEECE, OIL, WINE } from '../sim/foods';
+import { CHEESE, FLEECE, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
+import { dockersOut, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
 
@@ -99,6 +100,8 @@ export interface Demo {
   ledger?: boolean;
   /** A tile to ring on the ground until a road is laid on it (where #warning's road was cut). */
   mark?: { x: number; z: number };
+  /** Open the trading post's panel from the start. */
+  trade?: boolean;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -808,6 +811,65 @@ function drivenOut(s: SimState): number {
 }
 
 /**
+ * The trade demos (slice 13): #town as it opens, with a road laid from its
+ * main street down to the bay's north-east shore, where the deep water comes
+ * within five tiles; played on four months, so the treasury can pay for a
+ * trading post at the road's end. #trade opens there, the tool in hand. The
+ * others build the post and put wheat, meat, cheese and oil up for sale (the
+ * town keeps the usual amounts), then play on: #quay until the dockers have
+ * stacked a few loads on the quay, #sail until the ship's sail shows on the
+ * horizon, #ship until she has tied up and begun loading. #black builds the
+ * post as soon as the treasury can pay for it (about a month and a half),
+ * puts all six goods up for sale keeping less for the town, and a month and
+ * a half before the ship is due turns taxes off, as #dry does, so the
+ * treasury runs dry and wages go unpaid; it opens as her sail shows, the
+ * quay stacked.
+ */
+const QUAY_ROAD = col(74, 42, 68);
+const QUAY_POST = { x: 73, z: 69 };
+const TRADE_AFTER = 4 * TICKS_PER_MONTH;
+const TRADE_SELL = [WHEAT, MEAT, CHEESE, OIL];
+/** #black sells everything, keeping less: wheat 800, meat, cheese and oil 200 (fleece and wine as usual). */
+const BLACK_KEEP: Array<[number, number]> = [[WHEAT, 800], [MEAT, 200], [CHEESE, 200], [OIL, 200], [FLEECE, 600], [WINE, 600]];
+/** How long before the ship is due #black turns its taxes off. */
+const BLACK_DRY = 450;
+type TradeStage = 'trade' | 'quay' | 'sail' | 'ship' | 'black';
+/** What is on the quay, in all. */
+const onQuay = (s: SimState): number => {
+  const p = tradingPost(s);
+  return p ? TRADE_GOODS.reduce((n, w) => n + held(p, w), 0) : 0;
+};
+function tradeTown(stage: TradeStage): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    send({ type: 'road', tiles: QUAY_ROAD });
+    if (stage === 'black') waitFor(sim, s.tick, TRADING_COST);
+    else sim.run(TRADE_AFTER);
+    if (stage === 'trade') return;
+    send({ type: 'build', kind: 'trading', at: [T(QUAY_POST.x, QUAY_POST.z)] });
+    if (stage === 'black') for (const [good, keep] of BLACK_KEEP) send({ type: 'trade', good, sell: true, keep });
+    else for (const good of TRADE_SELL) send({ type: 'trade', good, sell: true });
+    const ship = s.trade.ship;
+    if (stage === 'black') {
+      sim.run(Math.max(0, ship.due - BLACK_DRY - s.tick));
+      send({ type: 'tax', rate: 0 });
+    }
+    const ready = (): boolean => {
+      if (stage === 'quay') return onQuay(s) >= 1800 && dockersOut(s, tradingPost(s)!) > 0;
+      if (stage === 'ship') return ship.phase === SHIP_MOORED && s.tick - ship.since >= 15;
+      return ship.phase === SHIP_COMING && s.tick - ship.since >= 8;
+    };
+    const end = s.tick + 2 * SHIP_EVERY;
+    while (s.tick < end && !ready()) sim.step();
+  };
+}
+
+/**
  * Every demo's history is built with fire risk and wear switched off (so a
  * town from before slice 12 grows exactly as it did, and every demo opens
  * with no risk or wear anywhere), and switched on as it opens. A demo about
@@ -883,6 +945,11 @@ const SCENES: Record<string, Demo> = {
   creak: { view: 'east', speed: 'paused', tool: 'architect', setup: creakTown, overlay: 'wear', overlayOn: true },
   watchman: { view: 'town', setup: town(TOWN_TICKS), follow: 'watchman', overlay: 'fire', overlayOn: true },
   inspector: { view: 'town', setup: town(TOWN_TICKS), follow: 'inspector', overlay: 'wear', overlayOn: true },
+  trade: { view: 'quay', tool: 'trading', setup: tradeTown('trade'), overlay: 'food' },
+  quay: { view: 'quay', setup: tradeTown('quay'), overlay: 'food', trade: true },
+  sail: { view: 'sail', setup: tradeTown('sail'), overlay: 'food' },
+  ship: { view: 'ship', setup: tradeTown('ship'), overlay: 'food' },
+  black: { view: 'quay', speed: 'paused', setup: tradeTown('black'), overlay: 'food', ledger: true },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

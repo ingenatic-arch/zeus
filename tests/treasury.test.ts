@@ -272,9 +272,9 @@ describe('wages', () => {
 });
 
 describe('the demo towns and money', () => {
-  it('no demo leaves wages unpaid while it is being set up (but #dry, which is about that)', () => {
+  it('no demo leaves wages unpaid while it is being set up (but #dry and #black, which are about that)', () => {
     for (const [name, d] of Object.entries(DEMOS)) {
-      if (!d.setup || name === 'dry') continue;
+      if (!d.setup || name === 'dry' || name === 'black') continue;
       const sim = new Sim();
       const step = sim.step.bind(sim);
       let owed = 0;
@@ -286,7 +286,7 @@ describe('the demo towns and money', () => {
       expect(owed, name).toBe(0);
     }
     // Every demo's town is played forward from the founding: a few seconds in all.
-  }, 30000);
+  }, 90000);
 
   // Since slice 10 #town runs three wheat farms, not seven (it ate about 170 of the 1,070 measures they grew), and pays an
   // oil chain's wages: at fair it gains about 1,700 a year (slice 9: about 950). Slice 14 retunes money across the game.

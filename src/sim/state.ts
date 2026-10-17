@@ -1,7 +1,7 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 11;
+export const SIM_STATE_VERSION = 12;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -27,9 +27,10 @@ export type BuildingKind =
   | 'winery'
   | 'watchpost'
   | 'architect'
-  | 'rubble';
+  | 'rubble'
+  | 'trading';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -138,9 +139,9 @@ export interface Building {
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -218,7 +219,7 @@ export interface Walker {
   steps: number;
   /** A service walker: the tick she set off on this round. */
   since: number;
-  /** A cart or porter: the building it is heading for (a granary, press or storehouse). A watchman: the fire he is running to or fighting (0: on his round). */
+  /** A cart, porter or docker: the building it is heading for (a granary, press or storehouse). A watchman: the fire he is running to or fighting (0: on his round). */
   target: number;
   /** A cart: measures of its ware (`food`) it carries; the food porter: measures of wheat; a goods porter: of his good; a hunter: meat. */
   load: number;
@@ -228,7 +229,7 @@ export interface Walker {
    * hunter: the herd he is after (its index), or -1.
    */
   food: number;
-  /** The porter: measures of meat and of cheese he carries (0 for everyone else). */
+  /** The porter: measures of meat and of cheese he carries (0 for everyone else). A docker: `meat` is the room on the quay he has reserved for what he fetches (see trade.ts). */
   meat: number;
   cheese: number;
   /** A cart or porter: ticks left unloading or loading where it stands. A watchman: ticks left fighting a fire. */
@@ -418,4 +419,45 @@ export interface SimState {
   /** Running totals. */
   arrived: number;
   left: number;
+  /** What the trading post sells and keeps, and the merchant ship (see trade.ts). */
+  trade: Trade;
+}
+
+/**
+ * Selling to the merchant ship: for each good she buys (TRADE_GOODS in
+ * trade.ts: wheat, meat, cheese, oil, fleece, wine, in that order) whether
+ * it is for sale and how much the city keeps in its stores; and the ship.
+ */
+export interface Trade {
+  sell: boolean[];
+  keep: number[];
+  ship: Ship;
+}
+
+/**
+ * The merchant ship. Where she is at any moment follows from her route, her
+ * phase, when it began and the tick (shipAt in trade.ts), so she is drawn
+ * smoothly between ticks and nothing about her lives outside the state.
+ */
+export interface Ship {
+  /** 0 away, 1 sailing in, 2 tied up and loading, 3 sailing off (SHIP_* in trade.ts). */
+  phase: number;
+  /** The tick she is due to tie up at the trading post (0: none due, there is no post). */
+  due: number;
+  /** The tick this phase began. */
+  since: number;
+  /** Sailing off: how far along her way in she was when she turned (1 from the quay). */
+  turned: number;
+  /** Her way in, from the horizon to the jetty, as x, z pairs (world units; empty while she is away). */
+  path: number[];
+  /** The trading post she is calling at (its id; 0 while away). */
+  post: number;
+  /** What she has loaded this visit, by trade good (measures). */
+  hold: number[];
+  /** Visits so far. */
+  visits: number;
+  /** Her last visit: the tick she sailed off (0: none yet), what she bought by trade good, and what she paid. */
+  lastAt: number;
+  lastBought: number[];
+  lastPaid: number;
 }

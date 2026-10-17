@@ -5,6 +5,7 @@
  */
 import { WATER_NONE, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
 import { beside, findBuilding, sideOf } from './buildings';
+import { shoreRefusal } from './trade';
 import { TILE_EMPTY, TILE_ROAD, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
@@ -26,6 +27,8 @@ export const VINEYARD_COST = 150;
 export const WINERY_COST = 200;
 export const WATCHPOST_COST = 60;
 export const ARCHITECT_COST = 80;
+/** The trading post: a stone quay with a crane, a counting house and a jetty out to deep water. */
+export const TRADING_COST = 250;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -58,6 +61,7 @@ export const COST: Record<BuildingKind, number> = {
   watchpost: WATCHPOST_COST,
   architect: ARCHITECT_COST,
   rubble: 0,
+  trading: TRADING_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -424,6 +428,11 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
   if (kind === 'pasture' && grassOf(map, tx, tz, side) < PASTURE_GRASS_MIN) return 'Too little grass for sheep: a pasture needs green grass, not rock or sand';
   if (kind === 'grove' && oliveOf(map, tx, tz, side) < GROVE_OLIVE_MIN) return 'Poor ground for olives: groves need the dry slopes, not the river land, rock or sand';
+  if (kind === 'trading') {
+    if (s.buildings.some((b) => b.kind === 'trading')) return 'Only one trading post: the ship calls at one quay';
+    const shore = shoreRefusal(map, tx, tz);
+    if (shore) return shore;
+  }
   if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';
   return '';
 }

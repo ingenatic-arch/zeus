@@ -21,6 +21,7 @@ import {
   CLEAR_SMALL,
   CLEAR_BIG,
   THEATRE_COST,
+  TRADING_COST,
   VINEYARD_COST,
   WINERY_COST,
 } from '../sim/build';
@@ -53,6 +54,9 @@ const ICONS: Record<ButtonName, string> = {
   // A walled yard with jars standing in it.
   storehouse:
     '<svg viewBox="0 0 24 24"><path d="M2.6 21V10.4h18.8V21z" class="fill-soft"/><path d="M2 10.6 5 6.4h14l3 4.2z" class="fill-ink"/><path d="M6.6 20.6c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6zM13.8 20.6c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/><path d="M19.4 21v-6" class="stroke-ink"/></svg>',
+  // A merchant ship under a square sail, on the water.
+  trading:
+    '<svg viewBox="0 0 24 24"><path d="M12 2.6v13" class="stroke-ink"/><path d="M6.4 4.6h11.2l-1 8.2H7.4z" class="fill-soft"/><path d="M9.8 4.6l-.4 8.2M14.2 4.6l.4 8.2" class="stroke-gold"/><path d="M2.6 15.2h18.8c-.8 2.8-3.2 4.4-6 4.4H7.8c-2.6 0-4.6-1.6-5.2-4.4z" class="fill-ink"/><path d="M2 21.6c1.6-.9 3.2-.9 4.8 0s3.2.9 4.8 0 3.2-.9 4.8 0 3.2.9 4.8 0" class="stroke-water"/></svg>',
   // A stall under a striped awning, with a jar of oil.
   stall:
     '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M10.6 17.2c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2.8v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/></svg>',
@@ -175,6 +179,12 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${STOREHOUSE_COST} dr`,
     hint: 'Click beside a road, near the agora if you can. Carts bring oil, fleece and wine here, and the agoras’ stall porters walk here to fetch them.',
   },
+  trading: {
+    name: 'Trading post',
+    key: 'G ×3',
+    cost: `${TRADING_COST} dr`,
+    hint: 'Click on the bay shore where deep water comes close (the tint shows where), beside a road; only one. A merchant ship calls every three months and buys what you choose to sell; its dockers carry the surplus from the granaries and storehouses to the quay.',
+  },
   pasture: {
     name: 'Sheep pasture',
     key: 'M ×6',
@@ -290,7 +300,7 @@ const SLOTS: Slot[] = [
   'fountain',
   '|',
   { id: 'makers', name: 'Farms and workshops', key: 'M', members: ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'] },
-  { id: 'stores', name: 'Granary and storehouse', key: 'G', members: ['granary', 'storehouse'] },
+  { id: 'stores', name: 'Granary, storehouse and trading post', key: 'G', members: ['granary', 'storehouse', 'trading'] },
   { id: 'market', name: 'The agora and its stalls', key: 'K', members: ['agora', 'stall', 'fleecestall', 'winestall'] },
   '|',
   'shrine',

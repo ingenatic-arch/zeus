@@ -45,6 +45,11 @@
  * a year before the first smoulder: time to build watch posts and
  * architects' offices. Older undo entries have nothing to say about rubble.
  *
+ * Version 11 to 12 (slice 13, the ship comes in): the trade record starts
+ * fresh: nothing for sale yet, the usual amounts kept, and no ship due (a
+ * town from before had no trading post; the schedule starts when one is
+ * built, the first ship two months after).
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -58,6 +63,7 @@ import { SIM_STATE_VERSION, type SimState } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
+import { freshTrade } from './trade';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -87,6 +93,7 @@ export function migrate(st: unknown): number {
   if (st.version === 8) from8(st);
   if (st.version === 9) from9(st);
   if (st.version === 10) from10(st);
+  if (st.version === 11) from11(st);
   return from;
 }
 
@@ -202,4 +209,9 @@ function from10(st: Record<string, unknown>): void {
   }
   st.hazards = true;
   st.version = 11;
+}
+
+function from11(st: Record<string, unknown>): void {
+  st.trade = freshTrade();
+  st.version = 12;
 }

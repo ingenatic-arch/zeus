@@ -319,7 +319,7 @@ export function moveVendor(s: SimState, map: CoastMap, w: Walker): boolean {
 }
 
 /** The last road tile a walker stood on (or -1). */
-function lastRoad(s: SimState, w: Walker): number {
+export function lastRoad(s: SimState, w: Walker): number {
   for (let k = Math.min(w.seg, w.tiles.length - 1); k >= 0; k--) {
     const t = w.tiles[k];
     if (t >= 0) return s.tiles[t] === TILE_ROAD ? t : -1;

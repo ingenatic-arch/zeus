@@ -18,6 +18,9 @@ export const OFF_MAP = 5;
 /** The tax collector walks half as fast again (see taxes.ts, which says why). */
 export const COLLECTOR_SPEED = CARRIER_SPEED * 1.5;
 
+/** The trading post's dockers walk at the collector's pace with their handcarts (the stores can be far from the shore: see trade.ts). */
+export const DOCKER_SPEED = COLLECTOR_SPEED;
+
 /** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
 export const RUN_SPEED = COLLECTOR_SPEED * 1.6;
 
@@ -26,7 +29,7 @@ export const speedOf = (w: Walker): number =>
     ? CART_SPEED
     : w.kind === 'watchman' && w.target > 0
       ? RUN_SPEED
-      : w.kind === 'tax' || w.kind === 'watchman' || w.kind === 'inspector'
+      : w.kind === 'tax' || w.kind === 'watchman' || w.kind === 'inspector' || w.kind === 'docker'
         ? COLLECTOR_SPEED
         : isRoundsWalker(w.kind)
           ? CARRIER_SPEED
