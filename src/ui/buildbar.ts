@@ -183,7 +183,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     name: 'Trading post',
     key: 'G ×3',
     cost: `${TRADING_COST} dr`,
-    hint: 'Click on the bay shore where deep water comes close (the tint shows where), beside a road; only one. A merchant ship calls every three months and buys what you choose to sell; its dockers carry the surplus from the granaries and storehouses to the quay.',
+    hint: 'Click on the bay shore where deep water comes close (the tint shows where), beside a road; only one. Its dockers carry what you choose to sell to the quay, and a ship calls every three months to buy it.',
   },
   pasture: {
     name: 'Sheep pasture',

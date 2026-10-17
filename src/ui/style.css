@@ -313,9 +313,12 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .tool-hint {
   position: absolute; bottom: 82px; left: 50%; transform: translateX(-50%);
   background: rgba(251, 242, 221, 0.94); border: 1px solid var(--edge); border-radius: 999px;
-  padding: 6px 16px; font-size: 14px; color: var(--ink); white-space: nowrap; pointer-events: none;
+  padding: 6px 16px; font-size: 14px; color: var(--ink); white-space: normal; text-align: center; pointer-events: none;
   box-shadow: 0 4px 14px rgba(60, 40, 20, 0.15);
+  /* A long hint wraps rather than running off the screen's edges. */
+  max-width: calc(100% - 32px); width: max-content; box-sizing: border-box;
 }
+@supports (text-wrap: balance) { .tool-hint { text-wrap: balance; } }
 .tool-hint[hidden] { display: none; }
 /* Above a group's open row. */
 .tool-hint.lifted { bottom: 168px; }

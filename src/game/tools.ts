@@ -43,7 +43,10 @@ import { PRESS_OLIVES, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, WINER
 import { CHEESE_BATCH, CHEESE_EVERY, GRANARY_CAP, GRANARY_ROOM, GROW, HARVEST, VENDOR_RANGE } from '../sim/food';
 import { HUNT_RANGE, lodgeOutlook } from '../sim/hunt';
 import { herdName, MIN_HEAD } from '../sim/wild';
-import { roadRoute } from '../sim/roads';
+import { nearestReached, roadRoute, roadSearch } from '../sim/roads';
+import { roadsBeside } from '../sim/rounds';
+import { DOCKER_SPEED } from '../sim/walk';
+import { HANDLE } from '../sim/food';
 import type { Sim } from '../sim/sim';
 import { TILE_ROAD, type Building, type BuildingKind } from '../sim/state';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
@@ -161,6 +164,37 @@ export class Tools {
   private routeKey = '';
   private route: number[] | null = null;
   private reachKey = '';
+  private tripsKey = '';
+  private trips = '';
+
+  /**
+   * How far the trading post's dockers would walk from here to the nearest
+   * granary and storehouse, as a round trip in days: the nearer the stores,
+   * the faster the quay fills (worked out once per spot and town).
+   */
+  private dockerTrips(at: number, roads: number[]): string {
+    const s = this.sim.state;
+    const n = this.sim.map.size;
+    const key = `${at}:${s.tilesRev}:${s.rev}`;
+    if (key === this.tripsKey) return this.trips;
+    this.tripsKey = key;
+    const search = roadSearch(s, n, roads);
+    const days = (kind: BuildingKind): number => {
+      let best = Infinity;
+      for (const g of s.buildings) {
+        if (g.kind !== kind) continue;
+        const t = nearestReached(search, roadsBeside(s, n, g));
+        if (t >= 0) best = Math.min(best, search.dist[t]);
+      }
+      // There and back at a docker's pace, and loading at the store.
+      return best === Infinity ? -1 : Math.max(1, Math.round((2 * best) / DOCKER_SPEED / TICKS_PER_DAY + HANDLE / TICKS_PER_DAY));
+    };
+    const words = (kind: BuildingKind, d: number): string => (d < 0 ? `no ${kind} is reached by road` : `the nearest ${kind} is a ${d}-day round trip`);
+    const kinds = (['granary', 'storehouse'] as const).filter((k) => s.buildings.some((b) => b.kind === k));
+    const parts = kinds.map((k) => words(k, days(k)));
+    this.trips = `For its dockers ${parts.join(', ')}: the nearer the stores, the faster the quay fills`;
+    return this.trips;
+  }
   private reach = { homes: 0, dry: 0 };
   /** The same for a watch post or an architect's office, with the smoulders (creaks) it would reach. */
   private hazardKey = '';
@@ -755,6 +789,7 @@ export class Tools {
       lines.push(`She pays for every 100: ${TRADE_GOODS.map((w, k) => `${WARE_NAMES[w]} ${PRICES[k]}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
       if (roads.length === 0) warn = 'No road beside it: its dockers couldn’t reach the stores. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its dockers fetch from the granaries and storehouses: the city has none yet');
+      else lines.push(this.dockerTrips(at, roads));
     } else if (kind === 'storehouse') {
       lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece and ${fmt(STOREHOUSE_WINE)} amphorae of wine: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');
