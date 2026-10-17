@@ -918,6 +918,8 @@ export function goodsList(ns: readonly number[]): string {
 export function shipNews(s: SimState): { phase: number; days: number; chip: string; short: string; line: string } | null {
   const ship = s.trade.ship;
   const post = tradingPost(s);
+  // The post cleared while she is on her way or in port (the sim turns her back on its next step, which may wait while paused).
+  if (!post && (ship.phase === SHIP_COMING || ship.phase === SHIP_MOORED)) return { phase: SHIP_LEAVING, days: 0, chip: 'Gone', short: 'Ship turned back', line: 'The ship turned back: the trading post is gone' };
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + SAIL_IN);
     const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
