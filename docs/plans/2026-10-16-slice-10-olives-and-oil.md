@@ -171,3 +171,57 @@ Measured at `3d1df90` (the end of slice 9's review), headless Chromium with soft
 **Checks**
 - 167 tests in 16 files, all passing (was 157 in 15); typecheck clean; build; smoke (extended: the grove tool and its tip, the oil stall tool on an agora, hovering a grove, press and storehouse, following the oil vendor, the oil overlay, `#nooil`'s town line and panel; the speed check now waits on ticks and frames). New: `tests/oil.test.ts` (olive ground and slopes; harvest by ground and staff; the press only from olives in hand; carts to the right store, and home when it's cleared; the stall command, undo and clearing; a vendor's visit; blessed cottages that climb once oil comes; `#nooil`'s fine houses going down and saying why; a real slice 9 `#fine` save (version 8) loading with oil missing, warning only after the grace, saving again identically; a save mid-chain carrying on identically, and determinism).
 - Measured after (before in brackets), headless software WebGL at 1920 × 1080: bundle 994 KB raw, 285 KB gzipped (951, 272); ready at 1.30 s, first frame 1.55 s (1.39, 1.67); `#town` ready at 1.84 s, first frame 2.34 s (1.69, 2.18). Triangles and draw calls: the opening view 581 k, 59 (566 k, 63); `#water` 573 k, 46 (523 k, 60); `#food` 498 k, 55 (460 k, 71); `#fine` 643 k, 70 (549 k, 106), overview 822 k, 102 (728 k, 138); `#closed` 609 k, 84 (528 k, 119); `#town` 760 k, 79 (704 k, 118), street 702 k, 67 (641 k, 103), overview 878 k, 105 (822 k, 144). The walkers and animals draw in 2 calls and 2 shadow calls in place of 30 to 40; the triangles rise with the padded vertices and the oil buildings. Update per frame paused / running: `#food` 0.57 / 1.12 ms (0.83 / 1.21), `#fine` 0.55 / 1.81 (1.04 / 1.87), `#town` 0.72 / 4.84 (1.32 / 6.32; noisy). 55 geometries, 6 textures (66, 4); a save of `#town` 203 KB (215).
+
+## Review
+
+Reviewed on 17 Oct against `3d1df90..3fbeb70`. Fixes in `98e4a7f`; these notes and the check-in corrections in the commit after it.
+
+**How it was checked.** Every "What to try" step in the browser (Playwright, SwiftShader). `#grove` was built by clicking the tools (two groves, a press, a storehouse, the oil stall), not through hooks. The press and storehouse were looked at on the slope from several sides. The cottage demos were compared pixel by pixel with `3d1df90`: only the build bar and the herd positions differ, and the herds come from the `lineClear` fix. `#closed` and a slice 9 `#fine` save (version 8) were played forward, and the town was measured again. Vite dev mode (unbundled ESM, where a const read before its declaration throws) opened `#coast`, `#grove` and `#oil` with no errors. The module-level IIFEs in `works.ts` (`DAIRY_PIECES`, `GROVE_PIECES`, `STORE_PIECES`, `FRUIT_AT`) only read consts declared above them, so rolldown's ordering hazard doesn't apply.
+
+**Fixed (`98e4a7f`).**
+- *Padding.* `oilJar` (walkers.ts) is now a 5-sided lathe with 5 profile points and a 4-sided seal, down from the old denser lathe. The biggest look sets every instance's vertex count: the big mesh went from 3,060 (the oil cart) to 2,412 (still the oil cart). The people mesh went from 1,584 (the oil porter's handcart) to 1,356, and the stag is now the biggest look there. Triangles fell 7 k to 21 k per view, with draw calls unchanged.
+- *A table for the stall goods.* `OIL_ROUND` was a hand-written `ServiceSpec`. It is now `goodRound(good, GOOD_USE[good])`, built for every `STALL_GOODS` entry into `STALL_ROUNDS`, and `OIL_ROUND` is kept as an alias. `GoodUse` is `{uses, lasts, people, service}`. `vendorGood(kind)` maps a walker kind to its good, and `moveStallVendor` replaces the oil-only branch in `stepWalkers`. Fingerprints (tick, people, money, every home and walker) for `#town`, `#fine`, `#nooil`, `#closed` and `#harsh` after 600 more ticks are identical before and after.
+- *Explaining the wait.* `whyNoOil`'s "the press waits for olives" now adds `nextPicking(s)`. That gives " (a cart of olives is on its way to the press)" when one is out, or " (the next picking is in about N days)", from the soonest worked grove's `(OLIVE_GROW − growth) / rate`.
+- *Mood text.* While the city has an oil stall, a cottage the vendor hasn't topped up now says "They'd like oil for the lamps" (weight 0, unchanged). Before, it said "The oil vendor doesn't come this way", which was wrong while the stall was empty and she hadn't set out. The `#harsh` history is unchanged, since the weight is the same.
+- *Tips.* The stall tool now says "one more worker" (was "1 more workers"), through `STALL_JOBS`. The storehouse tool and the build-bar hint say to build it near the agora, because the stall's goods porter walks to it on foot.
+
+**Invariants after the review.** Typecheck clean. 167 / 167 tests. `npm run build` gives 990 KB raw, 288 KB gzipped (vite's figure; measure.mjs says 285 KB). Smoke passes. Sim purity: no `Math.random`, `Date` or `performance` in `src/sim` or `src/map`. The stall command goes through the queue. No network calls, and `base: './'` is kept.
+
+**Measured after the review** (headless, 1920 × 1080; as-built figures in brackets):
+
+| View | Triangles | Draw calls |
+| --- | --- | --- |
+| Opening | 574 k (581 k) | 59 |
+| `#water` | 559 k (573 k) | 46 |
+| `#food` | 486 k (498 k) | 55 |
+| `#fine` | 625 k (643 k) | 70 |
+| `#fine` overview | 804 k (822 k) | 102 |
+| `#closed` | 595 k (609 k) | 84 |
+| `#closed` overview | 786 k | 117 |
+| `#town` | 739 k (760 k) | 79 |
+| `#town` street | 681 k (702 k) | 67 |
+| `#town` overview | 857 k (878 k) | 105 |
+
+- Ready at 1.17 s and first frame at 1.41 s. `#town` is ready at 2.16 s, first frame 2.69 s (noisy under SwiftShader).
+- Update per frame, paused / running: `#food` 0.53 / 0.94 ms, `#fine` 0.74 / 1.83, `#town` 0.75 / 5.36.
+- 55 geometries, 6 textures; a save of `#town` is 203 KB.
+
+**Found and left as is (with numbers).**
+- *`#closed` regressed.* The culture town's history changed (the oil chain, three tax offices, heavy taxes), and the scene now opens at tick 9,690 with 23 homes warned (was 16), the most urgent 4 days from going down (was 12). Slice 7's fix (rebuild the theatre across from the shrine and mend the ringed tile) now still loses 25 homes a level (was 7). Every home is a fine house again about 3 months later; left alone, 38 go down.
+  - Cause: the new actor and the oil vendor each need about 50 days for a first full round of the reopened street (about 64 new tiles at roughly 1.2 tiles a day of round), and townhouses already down are scored first by `untilOf`. The cut street's homes go down for oil as well as plays.
+  - Moving the opening earlier (`CLOSED` offset from the cut, in ticks): 850 (now) gives 25 down; 750 → 25; 700 → 17; 650 → 15; 625 → 11; 600 → 0, but then only 2 homes lack more than one thing, so the scene loses its point.
+  - Not bent to fit here. Slice 12 (rulers) or 14 (balance) should retune service round lengths, or give a reopened street a head start.
+- *Small press cart loads.* The press sends a cart as soon as it has a batch, so loads are often 10 to 30 jars while the cart always shows six. Harmless, but it costs cart trips. A minimum load (or a wait for half a cart unless the press is full) would be a one-line change in the press's cart rule if Oliver notices.
+- *The `#grove` timeline* (probe, days after planting): first harvest 61; olives at the press 69; oil in the storehouse 80; the porter out at 79 and back at 112 (an 18-tile walk each way at porter speed, with loading); oil at the stall 113, in a home 115; first townhouse 116 to 118. The treasury touches 0 about day 110 at fair taxes and wages go owed for a while. The check-in now says so.
+- *Slice 9 `#fine` save* (version 8): opens with 336 dr, against 650 to 800 for the chain. Building as soon as money allowed, the treasury was dry for months, the chain worked at half pace and the first oil reached homes about day 150 to 160. After the 8-month grace, 22 homes warned until the vendor reached them, and none went down. Eight months is enough, just.
+- *HIGH_FOOT on slopes.* The plinth reads as stone on the downhill side from every angle tried. No buried eaves and no floating corners at the steepest press and storehouse sites tried in `#town` and `#grove`.
+- *The merge's visuals.* Walkers and animals look identical to slice 9 in close-ups. Padding still costs triangles (the people mesh draws every person at the stag's 1,356 vertices), but it is a few percent of the frame, and draw calls fell from 30 to 40 down to 2. If slice 11's fleece or wine carts are heavier than the oil cart, check `maxVerts` per mesh again.
+
+**For the slice 11 builder (fleece and wine): what is still not just data.** `GOOD_USE`, `STALL_GOODS`, `STALL_VENDOR`, `STALL_NAMES`, `ROOMS` and `MAKERS` take rows, but these places are still written for oil and will need touching:
+- `Service` (state.ts) is a closed union, and `s.rounds` is a record keyed by it. Add `'fleece'` and `'wine'`, and add them to the save's `ROUNDS` list and `WALKER_KINDS` (saves.ts), with a migration that fills the new round records.
+- `LEVEL_NEEDS` (folk.ts) and the needs' grace: `missingSince` treats `need === 'food' || need === 'oil'` specially, and `untilOf` has an oil branch.
+- `cityHas(s).oil` is a hard-coded field, and so is `wantsOil`. The cottage mood line and the household panel's oil line (`whyNoOil`, `oilTownLine`) are oil-only, so a general `whyNo(good)` would help.
+- The overlay's `MODES` and `TONE` (L cycles food, variety, oil), and the signs' icons.
+- `STALL_GOOD_LOW` is a single number for every good. The goods porter is one per agora (`a.fetch` is shared), so with three stalls one porter serves them in `STALL_GOODS` order, and the last good can starve while the first is topped up. Consider a porter per stall or a lowest-first choice.
+- `CART_TAKE` and the cart looks: a fleece bale and a wine amphora cart are new looks, and the biggest one sets the big mesh's padding.
+- Walker kinds for the two vendors. `vendorGood` and `moveStallVendor` already dispatch by `STALL_VENDOR`.
