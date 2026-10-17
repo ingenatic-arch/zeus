@@ -102,6 +102,8 @@ export interface Demo {
   mark?: { x: number; z: number };
   /** Open the trading post's panel from the start. */
   trade?: boolean;
+  /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
+  side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1035,6 +1037,8 @@ const SCENES: Record<string, Demo> = {
   black: { view: 'quay', speed: 'paused', setup: tradeTown('black'), overlay: 'food', ledger: true },
   richtown: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
   richstreet: { view: 'richstreet', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
+  // The side panel: #richtown with the panel open on wine's page (every chain is at work there, and the ship buys).
+  goods: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { ware: WINE } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
