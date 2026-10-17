@@ -215,11 +215,12 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
   'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls',
+  'risk', 'wear', 'fire', 'fireAt', 'creakAt',
 ];
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
@@ -242,6 +243,7 @@ export function stateProblem(st: unknown): string {
   }
   if (st.mapId !== 'coast') return damaged('it is on a map this game doesn’t have');
   for (const k of STATE_NUMBERS) if (!fin(st[k])) return damaged(`its ${k} is missing`);
+  if (typeof st.hazards !== 'boolean') return damaged('whether fire and wear build up is missing');
   if (!nums(st.rng, 4) || !nums(st.folk, 4) || !nums(st.wild, 4)) return damaged('its random numbers are missing');
   if (!Array.isArray(st.herds)) return damaged('its wild herds are missing');
   for (const h of st.herds as unknown[]) {
@@ -267,6 +269,7 @@ export function stateProblem(st: unknown): string {
     if ((b.id as number) <= lastId) return damaged('its buildings are out of order');
     lastId = b.id as number;
     if (b.family !== null && !familyOk(b.family)) return damaged('a household is incomplete');
+    if (typeof b.ruin !== 'string' || typeof b.was !== 'string' || (b.was !== '' && !KINDS.includes(b.was))) return damaged('a heap of rubble is wrong');
   }
   if (!Array.isArray(st.walkers)) return damaged('its walkers are missing');
   for (const w of st.walkers as unknown[]) {
@@ -316,6 +319,9 @@ function undoOk(u: unknown): boolean {
       (e.removedGoods === undefined || (Array.isArray(e.removedGoods) && e.removedGoods.every((g: unknown) => nums(g, GOOD_COUNT)))) &&
       (e.removedStalls === undefined || nums(e.removedStalls)) &&
       (e.stalls === undefined || (nums(e.stalls) && (e.stalls as number[]).length % 2 === 0)) &&
+      (e.removedWas === undefined || strs(e.removedWas)) &&
+      (e.removedLevels === undefined || nums(e.removedLevels)) &&
+      (e.removedNames === undefined || strs(e.removedNames)) &&
       nums(e.trees) &&
       fin(e.cost) &&
       fin(e.tick),

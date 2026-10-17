@@ -127,7 +127,8 @@ type RGB = readonly [number, number, number];
  * them: a road in reach (faint), a road walked lately, a preview of a new
  * building's reach, a home that has it, a home without, and the building it
  * comes from. Water blue, food gold, blessings lilac, plays rose, taxes
- * bronze-green, oil olive, fleece the cream of new wool, wine a deep purple.
+ * bronze-green, oil olive, fleece the cream of new wool, wine a deep purple,
+ * fire risk brick red, wear slate blue.
  */
 export const OVERLAY_TONES: ReadonlyArray<readonly [RGB, RGB, RGB, RGB, RGB, RGB]> = [
   [[0.36, 0.64, 0.95], [0.22, 0.72, 1.0], [0.2, 0.62, 1.0], [0.2, 0.5, 0.95], [0.86, 0.36, 0.2], [0.3, 0.82, 1.0]],
@@ -138,6 +139,10 @@ export const OVERLAY_TONES: ReadonlyArray<readonly [RGB, RGB, RGB, RGB, RGB, RGB
   [[0.62, 0.74, 0.3], [0.6, 0.78, 0.16], [0.62, 0.76, 0.2], [0.46, 0.6, 0.12], [0.66, 0.42, 0.24], [0.78, 0.9, 0.4]],
   [[0.96, 0.9, 0.74], [1.0, 0.93, 0.7], [1.0, 0.92, 0.72], [0.9, 0.82, 0.6], [0.4, 0.42, 0.6], [1.0, 0.96, 0.84]],
   [[0.66, 0.3, 0.6], [0.62, 0.16, 0.5], [0.66, 0.22, 0.56], [0.5, 0.12, 0.4], [0.7, 0.6, 0.3], [0.8, 0.44, 0.72]],
+  // Fire risk: the watchman's roads in a smoky brick red; his post bright.
+  [[0.9, 0.46, 0.3], [0.96, 0.38, 0.2], [0.98, 0.46, 0.26], [0.86, 0.36, 0.2], [0.86, 0.3, 0.2], [1.0, 0.56, 0.3]],
+  // Wear: the inspector's roads in the slate blue of her dress; her office bright.
+  [[0.46, 0.56, 0.78], [0.36, 0.5, 0.86], [0.42, 0.54, 0.9], [0.32, 0.44, 0.74], [0.86, 0.3, 0.2], [0.56, 0.68, 0.96]],
 ];
 
 /**

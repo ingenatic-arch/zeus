@@ -1,30 +1,50 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 10;
+export const SIM_STATE_VERSION = 11;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery';
+export type BuildingKind =
+  | 'home'
+  | 'fountain'
+  | 'farm'
+  | 'granary'
+  | 'agora'
+  | 'shrine'
+  | 'theatre'
+  | 'taxoffice'
+  | 'lodge'
+  | 'dairy'
+  | 'grove'
+  | 'press'
+  | 'storehouse'
+  | 'pasture'
+  | 'vineyard'
+  | 'winery'
+  | 'watchpost'
+  | 'architect'
+  | 'rubble';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
 
-/** Every walker's round with a record of the streets: the services, and the tax collector's. */
-export type Round = Service | 'tax';
+/** Every walker's round with a record of the streets: the services, the tax collector's, the watchman's (`fire`) and the inspector's (`wear`). */
+export type Round = Service | 'tax' | 'fire' | 'wear';
 /** Every round, in a fixed order (what a save holds a record for). */
-export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax'];
+export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax', 'fire', 'wear'];
 
 /**
- * A building on a square footprint (2 x 2 for homes, fountains, shrines and tax offices,
- * 3 x 3 for the rest; see sideOf) whose top-left tile is (x, z).
+ * A building on a square footprint (2 x 2 for homes, fountains, shrines, tax offices,
+ * watch posts and architects' offices, 3 x 3 for the rest; rubble on the
+ * footprint of what stood there; see sideOf and footSide) whose top-left tile is (x, z).
  * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut,
- * 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa.
+ * 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa. Rubble: 1 burnt, 2 fallen in.
  * Every building carries every field (zero where it doesn't apply), so the
  * state stays uniform plain data.
  */
@@ -102,12 +122,25 @@ export interface Building {
   vclock: number[];
   /** An agora: each good's stall porter's clock (ticks until he next looks for a load). */
   fetch: number[];
+  /** Fire risk and wear, 0 to 1,000 (HAZARD_FULL; see hazards.ts): a watchman resets the one, an inspector the other. */
+  risk: number;
+  wear: number;
+  /** 0 none, 1 smouldering, 2 burning (FIRE_* in hazards.ts). */
+  fire: number;
+  /** Smouldering: the tick it catches fire. Burning: the tick it falls to rubble. 0 otherwise. */
+  fireAt: number;
+  /** Creaking: the tick it falls in (0: not creaking). */
+  creakAt: number;
+  /** Rubble: what stood there ('' for everything else). */
+  was: BuildingKind | '';
+  /** Rubble where a home stood: the household's name ('' otherwise). */
+  ruin: string;
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -185,7 +218,7 @@ export interface Walker {
   steps: number;
   /** A service walker: the tick she set off on this round. */
   since: number;
-  /** A cart or porter: the building it is heading for (a granary, press or storehouse). */
+  /** A cart or porter: the building it is heading for (a granary, press or storehouse). A watchman: the fire he is running to or fighting (0: on his round). */
   target: number;
   /** A cart: measures of its ware (`food`) it carries; the food porter: measures of wheat; a goods porter: of his good; a hunter: meat. */
   load: number;
@@ -198,7 +231,7 @@ export interface Walker {
   /** The porter: measures of meat and of cheese he carries (0 for everyone else). */
   meat: number;
   cheese: number;
-  /** A cart or porter: ticks left unloading or loading where it stands. */
+  /** A cart or porter: ticks left unloading or loading where it stands. A watchman: ticks left fighting a fire. */
   wait: number;
   /** A service walker: the road tiles she has walked this round (which no longer count towards it). */
   trail: number[];
@@ -248,7 +281,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -257,10 +290,10 @@ export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building';
  */
 export interface LedgerLine {
   kind: LedgerKind;
-  /** The district (taxes), the building kind (wages, building) or what was built or undone. */
+  /** The district (taxes), the building kind (wages, building, fire, collapse, clearing) or what was built or undone. */
   what: string;
   amount: number;
-  /** How many: homes that paid, workers paid, tiles laid, buildings built. */
+  /** How many: homes that paid, workers paid, tiles laid, buildings built, burnt down, fallen in or cleared away. */
   n: number;
 }
 
@@ -304,6 +337,10 @@ export interface UndoEntry {
   removedStalls?: number[];
   /** Stalls it added, as [agora id, good] pairs (missing in older saves: none). */
   stalls?: number[];
+  /** Rubble it cleared: what had stood there, burnt (1) or fallen (2), and the household's name (same order as removedPlots; missing in older saves). */
+  removedWas?: string[];
+  removedLevels?: number[];
+  removedNames?: string[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -344,6 +381,13 @@ export interface SimState {
   wind: { angle: number; strength: number };
   /** Drachmas in the treasury. */
   money: number;
+  /**
+   * Whether fire risk and wear build up (see hazards.ts). Off in a bare
+   * state; a command turns it on in every game (as a new game starts, or as a
+   * demo opens: a demo's history is built with it off, so each demo opens
+   * with no risk or wear anywhere, and histories from before fire are unchanged).
+   */
+  hazards: boolean;
   /** People living in the city. */
   population: number;
   /** One entry per map tile (tz * size + tx): TILE_EMPTY, TILE_ROAD or a building id. */

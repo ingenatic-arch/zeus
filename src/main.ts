@@ -174,7 +174,12 @@ function start(): void {
   probe.bakeMs = performance.now() - t0;
   const sim = new Sim();
   const tSetup = performance.now();
-  demo?.setup?.(sim);
+  // Fire risk and wear build up in every game (a demo turns them on as it opens).
+  if (demo?.setup) demo.setup(sim);
+  else {
+    sim.enqueue({ type: 'hazards', on: true });
+    sim.flush();
+  }
   probe.setupMs = performance.now() - tSetup;
 
   // A saved town asked for by the link (#continue, #autosave, #saved) is opened before anything draws it.

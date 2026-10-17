@@ -38,6 +38,13 @@
  * level needs anything new, and a townhouse can't become a fine house
  * without fleece in hand. The grace covers their food too, as it always has.)
  *
+ * Version 10 to 11 (slice 12, fire and collapse): every building gets no
+ * fire risk and no wear yet (nothing smouldering or creaking, no rubble),
+ * the watchman's and the inspector's round records start empty, and fire
+ * and wear build up from loading (`hazards` on), so a loaded town has most of
+ * a year before the first smoulder: time to build watch posts and
+ * architects' offices. Older undo entries have nothing to say about rubble.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -79,6 +86,7 @@ export function migrate(st: unknown): number {
   if (st.version === 7) from7(st);
   if (st.version === 8) from8(st);
   if (st.version === 9) from9(st);
+  if (st.version === 10) from10(st);
   return from;
 }
 
@@ -172,4 +180,26 @@ function from9(st: Record<string, unknown>): void {
     st.rounds.wine = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
   st.version = 10;
+}
+
+function from10(st: Record<string, unknown>): void {
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings) {
+      if (!isObj(b)) continue;
+      b.risk = 0;
+      b.wear = 0;
+      b.fire = 0;
+      b.fireAt = 0;
+      b.creakAt = 0;
+      b.was = '';
+      b.ruin = '';
+    }
+  }
+  if (isObj(st.rounds)) {
+    const n = MAP_SIZE * MAP_SIZE;
+    st.rounds.fire = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+    st.rounds.wear = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+  }
+  st.hazards = true;
+  st.version = 11;
 }

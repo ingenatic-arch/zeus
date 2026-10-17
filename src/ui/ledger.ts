@@ -10,7 +10,8 @@
  */
 import type { CoastMap } from '../map/bake';
 import { districtAt, DISTRICTS } from '../map/districts';
-import { centreOf } from '../sim/buildings';
+import { centreOf, sideOf } from '../sim/buildings';
+import { clearFee, COST } from '../sim/build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { BuildingKind, LedgerKind, LedgerLine, SimState } from '../sim/state';
 import { monthlyTaxes } from '../sim/status';
@@ -39,6 +40,9 @@ const PLURAL: Record<BuildingKind, string> = {
   pasture: 'sheep pastures',
   vineyard: 'vineyards',
   winery: 'wineries',
+  watchpost: 'watch posts',
+  architect: 'architects’ offices',
+  rubble: 'heaps of rubble',
 };
 
 const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;
@@ -49,6 +53,9 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'sales') return [`Sales · ${l.what}`, ''];
   if (l.kind === 'refund') return ['Building undone', ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
+  if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
+  if (l.kind === 'fire') return [`Burnt down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
+  if (l.kind === 'collapse') return [`Fell down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
   if (l.what === 'road') return ['Roads', count(n, 'tile', 'tiles')];
   if (l.what === 'bridge') return ['Bridges', count(n, 'tile', 'tiles')];
   if (l.what === 'plots') return ['Housing plots', count(n, 'plot', 'plots')];
@@ -57,7 +64,7 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
 }
 
 /** The order the kinds come in, money in first. */
-const ORDER: LedgerKind[] = ['taxes', 'sales', 'refund', 'wages', 'building'];
+const ORDER: LedgerKind[] = ['taxes', 'sales', 'refund', 'wages', 'building', 'clearing', 'fire', 'collapse'];
 
 interface Row {
   kind: LedgerKind;
@@ -83,6 +90,8 @@ function rowsOf(now: readonly LedgerLine[], last: readonly LedgerLine[]): Row[] 
 
 const cell = (l: LedgerLine | undefined): string => {
   if (!l) return '<td class="amt nil">·</td>';
+  // What fire and collapse took: how many buildings (they cost no coin until they are cleared and built again).
+  if (l.kind === 'fire' || l.kind === 'collapse') return `<td class="amt lost">${l.n}</td>`;
   return `<td class="amt ${l.amount > 0 ? 'in' : l.amount < 0 ? 'out' : ''}">${signed(l.amount)}</td>`;
 };
 
@@ -101,7 +110,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const body: string[] = [];
   let heading = '';
   for (const r of rows) {
-    const head = r.kind === 'wages' || r.kind === 'building' ? 'Going out' : 'Coming in';
+    const head = r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'building' || r.kind === 'clearing' ? 'Going out' : 'Coming in';
     if (head !== heading) {
       heading = head;
       body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);
@@ -142,6 +151,16 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   notes.push(`<li>Taxes are <b>${TAX_RATES[s.taxRate]}</b>${paid}. Each worker is paid ${WAGE} dr on the first of the month: about ${fmt(wageBill(s))} dr a month as the workplaces are staffed now.</li>`);
   const owed = owedWages(s);
   if (owed.owed > 0) notes.push(`<li class="bad">The treasury owes ${fmt(owed.owed)} dr of this month’s wages at ${count(owed.places, 'workplace', 'workplaces')}, so they work at half pace. Money coming in pays them first.</li>`);
+  const lost = (lines: readonly LedgerLine[]): LedgerLine[] => lines.filter((x) => x.kind === 'fire' || x.kind === 'collapse');
+  const gone = lost(now).length ? lost(now) : lost(last);
+  if (gone.length) {
+    const n = gone.reduce((a, x) => a + x.n, 0);
+    const worth = gone.reduce((a, x) => a + x.n * (COST[x.what as BuildingKind] ?? 0), 0);
+    const clearing = gone.reduce((a, x) => a + x.n * clearFee(sideOf(x.what as BuildingKind)), 0);
+    notes.push(
+      `<li class="bad">${esc(`${gone === lost(now) ? 'This month' : 'Last month'} fire and collapse took ${count(n, 'building', 'buildings')}: about ${fmt(clearing)} dr to clear the rubble, and ${fmt(worth)} dr to build ${n === 1 ? 'it' : 'them'} again.`)}</li>`,
+    );
+  }
   const taxesNow = kindTotal(now, 'taxes');
   return `<button class="close" title="Close (Esc)" aria-label="Close">×</button>
 <h2>The treasury · ${fmt(s.money)} dr</h2>

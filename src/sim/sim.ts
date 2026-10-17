@@ -1,7 +1,8 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
-import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
-import { around, centreOf, findBuilding, footprint, recountPopulation, sideOf } from './buildings';
+import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
+import { around, centreOf, findBuilding, footprint, footSide, recountPopulation, sideOf } from './buildings';
+import { BURNT, FALLEN, FIRST_INSPECTOR, FIRST_WATCHMAN, moveInspector, moveWatchman, stepArchitects, stepHazards, stepWatchPosts, type Fall } from './hazards';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
@@ -42,6 +43,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     commandsApplied: 0,
     wind: { angle: 3.6 + nextFloat(rng) * 0.4, strength: 0.5 + nextFloat(rng) * 0.2 },
     money: STARTING_MONEY,
+    hazards: false,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
     rounds: freshRounds(),
@@ -150,9 +152,12 @@ export class Sim {
     stepAgoras(s, map, stepStalls);
     stepCulture(s, map);
     stepTaxOffices(s, map);
+    stepWatchPosts(s, map);
+    stepArchitects(s, map);
     // Each look for a home sets how long until the next.
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
+    stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -199,6 +204,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     case 'undo':
       undoLast(s, map);
       break;
+    case 'hazards':
+      s.hazards = c.on === true;
+      break;
   }
 }
 
@@ -215,6 +223,9 @@ const emptyEntry = (): UndoEntry => ({
   removedGoods: [],
   removedStalls: [],
   stalls: [],
+  removedWas: [],
+  removedLevels: [],
+  removedNames: [],
   trees: [],
   cost: 0,
   tick: 0,
@@ -303,7 +314,7 @@ function spanOf(map: CoastMap, s: SimState, run: number[]): boolean {
   return false;
 }
 
-function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0, goods: number[] = noGoods(), stalls = 0): Building {
+function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0, goods: number[] = noGoods(), stalls = 0, was: BuildingKind | '' = ''): Building {
   const b: Building = {
     id: s.nextId++,
     kind,
@@ -317,7 +328,21 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     waterUntil: 0,
     walker: 0,
     clock:
-      kind === 'fountain' ? FIRST_CARRIER : kind === 'agora' ? FIRST_VENDOR : kind === 'shrine' ? FIRST_PRIESTESS : kind === 'theatre' ? FIRST_ACTOR : kind === 'taxoffice' ? FIRST_COLLECTOR : 0,
+      kind === 'fountain'
+        ? FIRST_CARRIER
+        : kind === 'agora'
+          ? FIRST_VENDOR
+          : kind === 'shrine'
+            ? FIRST_PRIESTESS
+            : kind === 'theatre'
+              ? FIRST_ACTOR
+              : kind === 'taxoffice'
+                ? FIRST_COLLECTOR
+                : kind === 'watchpost'
+                  ? FIRST_WATCHMAN
+                  : kind === 'architect'
+                    ? FIRST_INSPECTOR
+                    : 0,
     turn: 0,
     foodUntil: 0,
     religionUntil: 0,
@@ -343,9 +368,16 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     stalls,
     vclock: noGoods().map((_, k) => (stalls & (1 << k) ? FIRST_STALL_VENDOR : 0)),
     fetch: noGoods(),
+    risk: 0,
+    wear: 0,
+    fire: 0,
+    fireAt: 0,
+    creakAt: 0,
+    was,
+    ruin: '',
   };
   s.buildings.push(b);
-  for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
+  for (const t of footprint(n, x, z, footSide(b))) s.tiles[t] = b.id;
   return b;
 }
 
@@ -379,7 +411,7 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
  */
 function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   const n = map.size;
-  for (const t of footprint(n, b.x, b.z, sideOf(b.kind))) s.tiles[t] = TILE_EMPTY;
+  for (const t of footprint(n, b.x, b.z, footSide(b))) s.tiles[t] = TILE_EMPTY;
   s.buildings = s.buildings.filter((o) => o !== b);
   if (b.kind !== 'home') {
     s.walkers = s.walkers.filter((w) => {
@@ -430,6 +462,16 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedRoads.push(t);
   }
   for (const b of homes) {
+    // Rubble is carted away for a small fee (left where it is if the treasury can't pay it).
+    if (b.kind === 'rubble') {
+      const fee = clearFee(footSide(b));
+      if (spendable(s) < fee) continue;
+      pay(s, -fee, 'clearing', b.was || 'home');
+      e.cost += fee;
+    }
+    e.removedWas?.push(b.was);
+    e.removedLevels?.push(b.level);
+    e.removedNames?.push(b.ruin);
     e.removedPlots.push(b.z * n + b.x);
     e.removedIds.push(b.id);
     e.removedKinds.push(b.kind);
@@ -442,6 +484,26 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
   }
   e.trees = clearTrees(s, map, empty);
   return e;
+}
+
+/**
+ * A building burnt down or fallen in: it goes as if cleared (a home's family
+ * packs up and leaves, a workplace's walkers go home), and a heap of rubble
+ * takes its footprint, remembering what stood there and whose house it was.
+ * Undo can no longer take it away (it is gone), and the ledger counts it.
+ */
+function toRubble(s: SimState, map: CoastMap, b: Building, how: Fall): void {
+  const n = map.size;
+  const name = b.kind === 'home' ? (b.family?.name ?? '') : '';
+  const kind = b.kind;
+  removeBuilding(s, map, b);
+  for (const e of s.undo) e.plots = e.plots.filter((id) => id !== b.id);
+  const r = addBuilding(s, n, b.x, b.z, 'rubble', 0, 0, 0, noGoods(), 0, kind);
+  r.level = how === 'fire' ? BURNT : FALLEN;
+  r.ruin = name;
+  pay(s, 0, how, kind === 'home' ? (b.level > 0 ? 'home' : 'plots') : kind, 1);
+  s.rev++;
+  s.tilesRev++;
 }
 
 /** Add a stall for a good to the agora covering a tile, for its price (see stallRefusal). */
@@ -538,6 +600,17 @@ function undoLast(s: SimState, map: CoastMap): void {
     const x = t % n;
     const z = Math.floor(t / n);
     const kind = e.removedKinds[i] ?? 'home';
+    // Rubble comes back as it was, where nothing has gone up since.
+    if (kind === 'rubble') {
+      const was = (e.removedWas?.[i] ?? 'home') as BuildingKind;
+      if (footprint(n, x, z, sideOf(was)).every((t) => s.tiles[t] === TILE_EMPTY)) {
+        const r = addBuilding(s, n, x, z, 'rubble', 0, 0, 0, noGoods(), 0, was);
+        r.level = e.removedLevels?.[i] ?? BURNT;
+        r.ruin = e.removedNames?.[i] ?? '';
+        renamed.set(e.removedIds[i], r.id);
+      }
+      continue;
+    }
     // A granary, farm, lodge, dairy or agora comes back with the food it held.
     const keep = kind !== 'home';
     if (buildingRefusal(map, s, kind, x, z) === '') {
@@ -578,6 +651,10 @@ function stepWalkers(s: SimState, map: CoastMap): void {
             ? moveCulture(s, map, w)
             : w.kind === 'tax'
               ? moveCollector(s, map, w)
+            : w.kind === 'watchman'
+              ? moveWatchman(s, map, w)
+            : w.kind === 'inspector'
+              ? moveInspector(s, map, w)
             : w.kind === 'cart' || w.kind === 'porter'
               ? moveErrand(s, map, w)
               : w.kind === 'hunter'

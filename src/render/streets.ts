@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { Ground, mapIndex, PLOT_SIZE } from '../sim/build';
-import { sideOf } from '../sim/buildings';
+import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { facingOf } from './homes';
 import { col, PAL } from './palette';
@@ -168,7 +168,7 @@ export class Streets {
     // Plots: an outline marked on the grass, then trodden earth once a tent is up.
     for (const b of s.buildings) {
       if (b.x < cx || b.x >= x1 || b.z < cz || b.z >= z1) continue;
-      if (sideOf(b.kind) === 3) this.worksGround(s, b, quad);
+      if (footSide(b) === 3) this.worksGround(s, b, quad);
       else this.plotGround(b, quad, c);
     }
     if (pos.length === 0) return null;

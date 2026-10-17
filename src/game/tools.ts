@@ -11,6 +11,7 @@ import {
   bridgeAt,
   bridgeSpan,
   buildingRefusal,
+  clearFee,
   COST,
   DAIRY_GRASS_MIN,
   FARM_FERTILE_MIN,
@@ -34,7 +35,7 @@ import {
   roadRefusal,
   tileGrass,
 } from '../sim/build';
-import { beside, BUILDING_NAMES, findBuilding, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
+import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
 import { FLEECE_MONTH, GRAPE_HARVEST, OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST, VINE_GROW, WINE_MONTH } from '../sim/production';
@@ -50,7 +51,8 @@ import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { COLLECTOR_RANGE, taxOf } from '../sim/taxes';
 import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/treasury';
-import { previewReach, type ServiceOverlay } from '../render/overlay';
+import { hazardReach, previewReach, type ServiceOverlay } from '../render/overlay';
+import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
 export type ToolName =
@@ -74,6 +76,8 @@ export type ToolName =
   | 'shrine'
   | 'theatre'
   | 'taxoffice'
+  | 'watchpost'
+  | 'architect'
   | 'clear';
 export const TOOLS: readonly ToolName[] = [
   'road',
@@ -96,6 +100,8 @@ export const TOOLS: readonly ToolName[] = [
   'shrine',
   'theatre',
   'taxoffice',
+  'watchpost',
+  'architect',
   'clear',
 ];
 
@@ -106,7 +112,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && !isStallTool(t);
 
 export interface ToolTip {
@@ -217,7 +223,11 @@ export class Tools {
                   ? 'culture'
                   : t === 'taxoffice'
                     ? 'tax'
-                    : null;
+                    : t === 'watchpost'
+                      ? 'fire'
+                      : t === 'architect'
+                        ? 'wear'
+                        : null;
       this.overlay.setPreview(null);
     }
     this.preview();
@@ -508,7 +518,7 @@ export class Tools {
       if (!b) continue;
       people += b.people;
       kinds.set(b.kind, (kinds.get(b.kind) ?? 0) + 1);
-      const side = sideOf(b.kind);
+      const side = footSide(b);
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) marks.set((b.z + dz) * n + b.x + dx, MARK_CLEAR);
     }
     this.setMarks(marks);
@@ -532,14 +542,28 @@ export class Tools {
       pasture: ['sheep pasture', 'sheep pastures'],
       vineyard: ['vineyard', 'vineyards'],
       winery: ['winery', 'wineries'],
+      watchpost: ['watch post', 'watch posts'],
+      architect: ['architect’s office', 'architects’ offices'],
+      rubble: ['heap of rubble', 'heaps of rubble'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
+    // Rubble is carted away for a small fee.
+    let fee = 0;
+    for (const id of homes) {
+      const b = findBuilding(s, id);
+      if (b?.kind === 'rubble') fee += clearFee(footSide(b));
+    }
     if (trees) bits.push(`trees on ${trees} ${trees === 1 ? 'tile' : 'tiles'}`);
     if (bits.length === 0) {
       this.tip.show('Nothing to clear', sx, sy);
       return;
     }
     let text = `Clear ${bits.join(', ')}`;
+    if (fee > 0) text += ` · ${fmt(fee)} dr to cart the rubble away`;
+    if (fee > 0 && spendable(s) < fee) {
+      this.tip.show(`${text}\nNot enough drachmas to clear the rubble`, sx, sy, true);
+      return;
+    }
     if (people) text += ` · ${people === 1 ? '1 person leaves' : `${people} people leave`}`;
     // What the cleared workplaces and stores hold is lost with them: say what.
     const works = [...homes].map((id) => findBuilding(s, id)).filter((b): b is Building => !!b && b.kind !== 'home');
@@ -560,7 +584,7 @@ export class Tools {
     const why = r === 'Not enough money' ? (s.money >= cost ? keptBack(s) : 'Not enough drachmas') : r;
     const words = STALL_WORDS[good]!;
     if (a) {
-      const side = sideOf(a.kind);
+      const side = footSide(a);
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) marks.set((a.z + dz) * n + a.x + dx, why ? MARK_BAD : MARK_OK);
     }
     this.setMarks(marks);
@@ -630,6 +654,25 @@ export class Tools {
         else lines.push(`Its ${walker} would reach ${homes} ${homes === 1 ? 'home' : 'homes'}${dry ? ` · ${dry} without ${what} now` : ''}`);
       }
       if (kind === 'agora' && !s.buildings.some((b) => b.kind === 'granary')) lines.push('Its porter fetches grain from a granary: build one too');
+    } else if (kind === 'watchpost' || kind === 'architect') {
+      const fire = kind === 'watchpost';
+      lines.push(
+        fire
+          ? 'Its watchman walks the streets nearby: every building beside his way is made safe from fire, a smouldering one put out, and he runs to flames he can see'
+          : 'Its inspector walks the streets nearby: every building beside her way is made sound, a creaking one saved from falling in',
+      );
+      if (roads.length === 0) warn = `No road beside it: its ${fire ? 'watchman' : 'inspector'} would have nowhere to walk. Lay a road along one side first.`;
+      else {
+        this.overlay?.setPreview(roads);
+        const key = `${kind}:${at}:${s.tilesRev}:${s.rev}`;
+        if (key !== this.reachKey) {
+          this.reachKey = key;
+          this.reach = hazardReach(s, n, roads, fire ? 'fire' : 'wear');
+        }
+        const { homes, dry } = this.reach;
+        if (homes === 0) lines.push(`No buildings within ${fire ? WATCH_RANGE : INSPECT_RANGE} steps along the road yet`);
+        else lines.push(`Its ${fire ? 'watchman' : 'inspector'} would reach ${homes} ${homes === 1 ? 'building' : 'buildings'}${dry ? ` · ${dry} ${fire ? 'at risk of fire' : 'worn'} past half now` : ''}`);
+      }
     } else if (kind === 'farm') {
       const fert = fertilityOf(map, x, z, side);
       const months = GROW / TICKS_PER_MONTH;

@@ -153,7 +153,7 @@ function chooseNext(s: SimState, size: number, spec: ServiceSpec, b: Building, c
 }
 
 /** Turn for home from road tile `cur` (standing at `here`): the shortest road back to her building. False if there is none. */
-function headHome(s: SimState, size: number, w: Walker, b: Building, cur: number, here: [number, number]): boolean {
+export function headHome(s: SimState, size: number, w: Walker, b: Building, cur: number, here: [number, number]): boolean {
   const roads = roadsBeside(s, size, b);
   if (roads.length === 0 || s.tiles[cur] !== TILE_ROAD) return false;
   const search = roadSearch(s, size, roads);
@@ -173,6 +173,10 @@ function headHome(s: SimState, size: number, w: Walker, b: Building, cur: number
 }
 
 /** She is gone (home, or lost): her building rests, then sends another. */
+export function endRound(spec: ServiceSpec, b: Building | undefined): false {
+  return done(spec, b);
+}
+
 function done(spec: ServiceSpec, b: Building | undefined): false {
   if (b && spec.rested) spec.rested(b);
   else if (b) {

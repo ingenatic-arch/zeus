@@ -39,10 +39,13 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   pasture: 'A sheep pasture',
   vineyard: 'A vineyard',
   winery: 'A winery',
+  watchpost: 'A watch post',
+  architect: 'An architect’s office',
+  rubble: 'Rubble',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;
@@ -57,13 +60,17 @@ export const stallCount = (b: Building): number => {
 /** Jobs a building offers: its kind's, and an agora's stalls'. */
 export const jobsAt = (b: Building): number => JOBS[b.kind] + (b.stalls ? stallCount(b) * STALL_JOBS : 0);
 
-/** Buildings drawn on a two-by-two footprint (the rest take three by three). */
-export const isSmall = (kind: BuildingKind): boolean => kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice';
+/** Buildings drawn on a two-by-two footprint (the rest take three by three; rubble takes what stood there). */
+export const isSmall = (kind: BuildingKind): boolean =>
+  kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice' || kind === 'watchpost' || kind === 'architect';
 
-/** The side of a building's square footprint, in tiles. */
+/** The side of a kind of building's square footprint, in tiles (for rubble, see footSide). */
 export function sideOf(kind: BuildingKind): number {
   return isSmall(kind) ? 2 : 3;
 }
+
+/** The side of this building's footprint: its kind's, or for rubble, that of what stood there. */
+export const footSide = (b: Building): number => (b.kind === 'rubble' ? sideOf(b.was || 'home') : sideOf(b.kind));
 
 export function capacity(b: Building): number {
   if (b.kind !== 'home') return 0;
@@ -91,11 +98,11 @@ export function beside(size: number, x: number, z: number, side: number): number
 }
 
 /** The tiles beside a building. */
-export const around = (size: number, b: Building): number[] => beside(size, b.x, b.z, sideOf(b.kind));
+export const around = (size: number, b: Building): number[] => beside(size, b.x, b.z, footSide(b));
 
 /** The middle of a building's footprint, world units. */
 export const centreOf = (b: Building): [number, number] => {
-  const h = sideOf(b.kind) / 2;
+  const h = footSide(b) / 2;
   return [b.x + h, b.z + h];
 };
 

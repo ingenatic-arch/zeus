@@ -18,13 +18,25 @@ export const OFF_MAP = 5;
 /** The tax collector walks half as fast again (see taxes.ts, which says why). */
 export const COLLECTOR_SPEED = CARRIER_SPEED * 1.5;
 
-export const speedOf = (w: Walker): number => (w.kind === 'cart' ? CART_SPEED : w.kind === 'tax' ? COLLECTOR_SPEED : isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED);
+/** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
+export const RUN_SPEED = COLLECTOR_SPEED * 1.6;
+
+export const speedOf = (w: Walker): number =>
+  w.kind === 'cart'
+    ? CART_SPEED
+    : w.kind === 'watchman' && w.target > 0
+      ? RUN_SPEED
+      : w.kind === 'tax' || w.kind === 'watchman' || w.kind === 'inspector'
+        ? COLLECTOR_SPEED
+        : isRoundsWalker(w.kind)
+          ? CARRIER_SPEED
+          : WALK_SPEED;
 
 /** A hunter walks at the settlers' pace, across country. */
 export const HUNTER_SPEED = WALK_SPEED;
 
-/** Walkers who walk a round: the water carrier, the food vendor, the priestess, the actor and the tax collector. */
-export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor' || k === 'tax';
+/** Walkers who walk a round: the water carrier, the food vendor, the priestess, the actor, the tax collector, the watchman and the inspector. */
+export const isRoundsWalker = (k: Walker['kind']): boolean => k === 'water' || k === 'food' || k === 'priestess' || k === 'actor' || k === 'tax' || k === 'watchman' || k === 'inspector';
 
 /** The centre of a tile, world units. */
 export const centre = (size: number, t: number): [number, number] => {

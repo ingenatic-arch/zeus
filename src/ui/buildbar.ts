@@ -16,6 +16,10 @@ import {
   STALL_COST,
   STOREHOUSE_COST,
   TAX_OFFICE_COST,
+  WATCHPOST_COST,
+  ARCHITECT_COST,
+  CLEAR_SMALL,
+  CLEAR_BIG,
   THEATRE_COST,
   VINEYARD_COST,
   WINERY_COST,
@@ -95,6 +99,10 @@ const ICONS: Record<ButtonName, string> = {
     '<svg viewBox="0 0 24 24"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" class="fill-plays"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" class="fill-ink"/><path d="M8.2 13.6q3.8 4.2 7.6 0" class="stroke-ink"/></svg>',
   // A stack of coin, for the tax overlay.
   tax: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="17.4" rx="7.4" ry="2.6" class="fill-tax"/><path d="M4.6 13.4v4c0 1.4 3.3 2.6 7.4 2.6s7.4-1.2 7.4-2.6v-4" class="fill-tax"/><ellipse cx="12" cy="13.4" rx="7.4" ry="2.6" class="fill-gold"/><path d="M6.2 9.6v3.4c0 1.2 2.6 2.2 5.8 2.2s5.8-1 5.8-2.2V9.6" class="fill-gold"/><ellipse cx="12" cy="9.6" rx="5.8" ry="2.2" class="fill-gold"/><path d="M10 9.6h4" class="stroke-ink"/></svg>',
+  // A flame, for the fire risk overlay.
+  fire: '<svg viewBox="0 0 24 24"><path d="M12 2.6c.6 3.2 3.4 4.8 4.8 7.6 1.8 3.4.4 8.4-4.8 9.4-5.2-1-6.6-5.6-4.8-9 .6 1.4 1.6 2 2.6 2-.8-3.4.4-7 2.2-10z" class="fill-fire"/><path d="M12 12.4c.8 1.6 2.4 2.4 2.4 4.2 0 1.6-1 2.6-2.4 3-1.4-.4-2.4-1.4-2.4-3 0-1.4 1.4-2.4 2.4-4.2z" class="fill-gold"/></svg>',
+  // A wall of blocks with a crack down it, for the wear overlay.
+  wear: '<svg viewBox="0 0 24 24"><path d="M3 5h18v15H3z" class="fill-soft"/><path d="M3 10h18M3 15h18M9 5v5M15 10v5M9 15v5" class="stroke-ink"/><path d="M13.4 4.4 11.6 8.6l2.2 2.4-2.8 3.6 1.6 2.6-1.8 3.4" class="stroke-warn"/></svg>',
   // A loaf, a ham and a wedge of cheese, for the food variety overlay.
   variety:
     '<svg viewBox="0 0 24 24"><path d="M2.4 13.4c0-3 2.4-5.2 5.6-5.2s5.6 2.2 5.6 5.2c0 .9-.7 1.6-1.6 1.6H4c-.9 0-1.6-.7-1.6-1.6z" class="fill-gold"/><path d="M13.6 9.8c2.6-2.4 6.6-1.6 7.6 1.4.8 2.6-1.2 4.8-4 4.4l-2.2 2.6-1.6-1.4 1.6-2.4c-2-1-2.6-3-1.4-4.6z" class="fill-meat"/><path d="M5 21l7.6-4.8L20 21z" class="fill-cheese"/><circle cx="12.4" cy="19.4" r=".8" class="fill-ink"/></svg>',
@@ -105,6 +113,12 @@ const ICONS: Record<ButtonName, string> = {
   // A little house with a question over it, for the "what's missing" overlay.
   missing:
     '<svg viewBox="0 0 24 24"><path d="M4 21v-8.5L12 6l8 6.5V21z" class="fill-soft"/><path d="M10 21v-5h4v5z" class="fill-ink"/><path d="M9.6 3.9a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.7" class="stroke-warn"/><circle cx="12" cy="10.4" r="1" class="fill-warn"/></svg>',
+  // A watch post: a little tower with a lookout and a red pennant, a bucket at its foot.
+  watchpost:
+    '<svg viewBox="0 0 24 24"><path d="M7 21V10h8v11z" class="fill-soft"/><path d="M5.6 10.4 11 6.4l5.4 4z" class="fill-ink"/><path d="M11 6.4V2.4" class="stroke-ink"/><path d="M11 2.6l5 1.6-5 1.6z" class="fill-fire"/><path d="M10 21v-4h2v4z" class="fill-ink"/><path d="M16.6 21l.6-4h3.6l.6 4z" class="fill-water"/><path d="M16.8 17c.6-1.6 3.6-1.6 4.2 0" class="stroke-ink"/></svg>',
+  // An architect's office: a porch on columns, a set square leaning by it.
+  architect:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 9 11 4l8.4 5z" class="fill-soft"/><path d="M4.6 10.4v8.6M8.2 10.4v8.6M11.8 10.4v8.6M15.4 10.4v8.6" class="stroke-ink"/><path d="M2.8 19.2h16.4v2H2.8z" class="fill-soft"/><path d="M15.6 21.6 21.4 9.4l1.4.6-4.4 11.6z" class="fill-bless"/><path d="M17.4 18.6h3.4" class="stroke-ink"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
@@ -222,7 +236,24 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${TAX_OFFICE_COST} dr`,
     hint: 'Click beside a road, near the houses. Its tax collector walks the streets nearby and brings back what each household owes.',
   },
-  clear: { name: 'Clear land', key: 'X', cost: 'free', hint: 'Drag over roads, bridges, buildings or trees to clear them. Families in cleared homes leave.' },
+  watchpost: {
+    name: 'Watch post',
+    key: 'Z ×2',
+    cost: `${WATCHPOST_COST} dr`,
+    hint: 'Click beside a road, near crowded streets and busy workshops. Its watchman walks the streets nearby: the buildings beside his way are made safe from fire, and he runs to any flames he can see.',
+  },
+  architect: {
+    name: 'Architect’s office',
+    key: 'Z ×3',
+    cost: `${ARCHITECT_COST} dr`,
+    hint: 'Click beside a road. Its inspector walks the streets nearby: the buildings beside her way are made sound before they wear out and fall in (big buildings wear fastest).',
+  },
+  clear: {
+    name: 'Clear land',
+    key: 'X',
+    cost: `free; rubble ${CLEAR_SMALL}–${CLEAR_BIG} dr a heap`,
+    hint: 'Drag over roads, bridges, buildings, rubble or trees to clear them. Families in cleared homes leave. Rubble has to be cleared before anything can be built there again.',
+  },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'O', cost: '', hint: '' },
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
@@ -232,6 +263,8 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   fleece: { name: 'Fleece overlay: where the fleece vendor walks, which homes have fleece, and the pastures and storehouses', key: 'L ×4', cost: '', hint: '' },
   wine: { name: 'Wine overlay: where the wine vendor walks, which homes have wine, and the vineyards, wineries and storehouses', key: 'L ×5', cost: '', hint: '' },
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
+  fire: { name: 'Fire risk overlay: where the watchman walks, and which buildings are close to catching fire', key: 'J', cost: '', hint: '' },
+  wear: { name: 'Wear overlay: where the inspector walks, and which buildings are close to falling in', key: 'J', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };

@@ -329,6 +329,9 @@ describe('a town that has enough', () => {
   function declines(setup: (sim: Sim) => void): number {
     const sim = new Sim();
     setup(sim);
+    // About supply, not fire: a cottage demo has no watch posts or architects, so fire and wear are left off here (see tests/hazards.test.ts).
+    sim.enqueue({ type: 'hazards', on: false });
+    sim.flush();
     const level = new Map(homes(sim.state).map((b) => [b.id, b.level]));
     let n = 0;
     for (let t = 0; t < 3 * TICKS_PER_YEAR; t++) {

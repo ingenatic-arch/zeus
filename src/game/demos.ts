@@ -10,6 +10,7 @@ import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
 import { FLEECE, OIL, WINE } from '../sim/foods';
+import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
@@ -84,7 +85,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector';
   /** For `follow: 'cart'`: the kind of maker whose carts to follow (a farm if not given). */
   followFrom?: 'farm' | 'vineyard' | 'winery' | 'pasture' | 'grove' | 'press';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
@@ -197,6 +198,9 @@ const LANE_OFFICE = { x: 24, z: 60 };
 const WEST_OFFICE = { x: 22, z: 75 };
 /** The culture towns' third: at the end of the east street (the agora's), so the homes there and on the main road's east end are reached too. */
 const STREET_OFFICE = { x: 35, z: 71 };
+/** The culture towns' watch post and architect's office (slice 12): by the lane between the town and the hamlet, where one of each reaches every building. */
+const LANE_WATCH = { x: 24, z: 68 };
+const LANE_ARCHITECT = { x: 24, z: 62 };
 
 /**
  * The water town given bread: once its huts are going up, a farm road runs
@@ -347,7 +351,7 @@ function laneFleece(at: At, t: number): void {
  * for; taxes go back to fair before the scene opens. `close` clears the
  * theatre and the west street's road later.
  */
-function cultureTown(ticks: number, theatre = true, close = false, oil = true, more?: (at: At, late: number) => void): (sim: Sim) => void {
+function cultureTown(ticks: number, theatre = true, close = false, oil = true, more?: (at: At, late: number) => number | void): (sim: Sim) => void {
   return foodTown(ticks, 400, 200, {
     officeAt: CULTURE_TAXES_AT,
     then: (at) => {
@@ -392,8 +396,13 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
         at(CLOSE_AT + late, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z });
         if (fairAt > CLOSE_AT + late) fair(fairAt);
       }
-      more?.(at, late);
-      if (at.sim && at.sim.state.tick < ticks + late) at.sim.run(ticks + late - at.sim.state.tick);
+      const end = Math.max(ticks + late, more?.(at, late) ?? 0);
+      // A watch post and an architect's office by the lane, a day before the scene opens (slice 12), for the towns with a theatre.
+      if (theatre) {
+        at(end - OFFICE_LEAD, { type: 'build', kind: 'watchpost', at: [T(LANE_WATCH.x, LANE_WATCH.z)] });
+        at(end - OFFICE_LEAD, { type: 'build', kind: 'architect', at: [T(LANE_ARCHITECT.x, LANE_ARCHITECT.z)] });
+      }
+      if (at.sim && at.sim.state.tick < end) at.sim.run(end - at.sim.state.tick);
     },
   });
 }
@@ -420,13 +429,15 @@ const WINERY_AFTER = 700;
 /** The wine chain, and the scene opening `after` ticks after it went in (however long it waited for the money). */
 const wineChain =
   (after: number) =>
-  (at: At, late: number): void => {
+  (at: At, late: number): number => {
     if (at.sim) waitFor(at.sim, WINE_AT + late, WINE_COST, WINE_AT + late + 2 * AFFORD_WAIT);
     const t = Math.max(WINE_AT + late, at.sim?.state.tick ?? 0);
     at(t, { type: 'build', kind: 'vineyard', at: WINE_VINEYARDS.map((v) => T(v.x, v.z)) });
     at(t, { type: 'build', kind: 'winery', at: [T(WINE_WINERY.x, WINE_WINERY.z)] });
     at(t, { type: 'stall', at: T(LANE_AGORA.x, LANE_AGORA.z), good: WINE });
-    if (at.sim && at.sim.state.tick < t + after) at.sim.run(t + after - at.sim.state.tick);
+    // The scene opens `after` ticks on (the town's builder stops a day short of it, for the watch post: see cultureTown).
+    if (at.sim && at.sim.state.tick < t + after - OFFICE_LEAD) at.sim.run(t + after - OFFICE_LEAD - at.sim.state.tick);
+    return t + after;
   };
 const villaTown = (after: number): ((sim: Sim) => void) => cultureTown(WINE_AT + after, true, false, true, wineChain(after));
 
@@ -539,7 +550,33 @@ const CORE_W = [63, 65, 67, 69, 71];
 const CORE_E = [75, 77, 79, 81, 83];
 const along = (xs: number[], z: number): number[] => xs.map((x) => T(x, z));
 
-function town(ticks: number): (sim: Sim) => void {
+/**
+ * #town's watch posts and architects' offices (slice 12): one of each at the
+ * foot of the slope road up to the oil, at the head of the core's east cross
+ * street, and one of each by the lane on the west bank, so every building in
+ * town is in a watchman's and an inspector's reach. They go in a day before it opens, as
+ * the tax offices of the smaller towns do, so they are staffed when it opens.
+ */
+interface Spot {
+  x: number;
+  z: number;
+}
+const TOWN_WATCH: Spot[] = [
+  { x: 87, z: 32 },
+  { x: 25, z: 39 },
+];
+const TOWN_ARCHITECTS: Spot[] = [
+  { x: 87, z: 34 },
+  { x: 27, z: 39 },
+];
+/** Which of them a history leaves out: #fire's town has no watchman on the east street, #creak's no inspector there. */
+interface Safety {
+  watch: Spot[];
+  architects: Spot[];
+}
+const SAFE: Safety = { watch: TOWN_WATCH, architects: TOWN_ARCHITECTS };
+
+function town(ticks: number, safety: Safety = SAFE): (sim: Sim) => void {
   return (sim) => {
     const at: At = (t, c) => {
       if (sim.state.tick < t) sim.run(t - sim.state.tick);
@@ -612,8 +649,49 @@ function town(ticks: number): (sim: Sim) => void {
     at(4500, { type: 'fountain', at: [T(27, 46)] });
     at(ticks - NEWEST, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
     at(ticks - FAIR_AGAIN, { type: 'tax', rate: FAIR });
+    if (safety.watch.length) at(ticks - OFFICE_LEAD, { type: 'build', kind: 'watchpost', at: safety.watch.map((p) => T(p.x, p.z)) });
+    if (safety.architects.length) at(ticks - OFFICE_LEAD, { type: 'build', kind: 'architect', at: safety.architects.map((p) => T(p.x, p.z)) });
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
   };
+}
+
+/**
+ * The fire demos: #town as its builder would have had it with only two watch
+ * posts, one by the lane on the west bank and one at the west end of the
+ * core, so the east of the core, the slope up to the oil and the street east
+ * of the core are left without a watchman; fire risk and wear switched on as
+ * it opens (as in every demo) and played on. #fire opens on the first thread
+ * of smoke; #blaze once a fire has spread to a second building; #rubble once
+ * the fires there have burnt out, leaving rubble. #creak: #town with its
+ * watch posts but only the architect's office by the lane, played on until
+ * the first building creaks.
+ */
+const FIRE_SAFETY: Safety = { watch: [TOWN_WATCH[1], { x: 60, z: 35 }], architects: TOWN_ARCHITECTS };
+const CREAK_SAFETY: Safety = { watch: TOWN_WATCH, architects: [TOWN_ARCHITECTS[1]] };
+/** The longest a fire demo waits for what it opens on (two years). */
+const HAZARD_WAIT = 2 * 12 * TICKS_PER_MONTH;
+type FireStage = 'smoke' | 'blaze' | 'rubble';
+const fireStage = (s: SimState, stage: FireStage): boolean => {
+  if (stage === 'smoke') return s.buildings.some((b) => b.fire === FIRE_SMOULDER);
+  const burning = s.buildings.filter((b) => b.fire === FIRE_BURNING).length;
+  if (stage === 'blaze') return burning >= 2;
+  return burning === 0 && s.buildings.filter((b) => b.kind === 'rubble' && b.level === BURNT).length >= 2;
+};
+function fireTown(stage: FireStage): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, FIRE_SAFETY)(sim);
+    hazards(sim, true);
+    const s = sim.state;
+    const end = s.tick + HAZARD_WAIT;
+    while (s.tick < end && !fireStage(s, stage)) sim.step();
+  };
+}
+function creakTown(sim: Sim): void {
+  town(TOWN_TICKS, CREAK_SAFETY)(sim);
+  hazards(sim, true);
+  const s = sim.state;
+  const end = s.tick + HAZARD_WAIT;
+  while (s.tick < end && !s.buildings.some((b) => b.creakAt > 0)) sim.step();
 }
 
 /**
@@ -729,7 +807,28 @@ function drivenOut(s: SimState): number {
   return best;
 }
 
-export const DEMOS: Record<string, Demo> = {
+/**
+ * Every demo's history is built with fire risk and wear switched off (so a
+ * town from before slice 12 grows exactly as it did, and every demo opens
+ * with no risk or wear anywhere), and switched on as it opens. A demo about
+ * fire switches them on itself, part-way through its history.
+ */
+function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
+  return (sim) => {
+    hazards(sim, false);
+    setup(sim);
+    hazards(sim, true);
+  };
+}
+
+/** Switch fire risk and wear on or off now (a command, so a replay of the log does the same). */
+function hazards(sim: Sim, on: boolean): void {
+  if (sim.state.hazards === on) return;
+  sim.enqueue({ type: 'hazards', on });
+  sim.flush();
+}
+
+const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
   townstreet: { view: 'townstreet', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -778,4 +877,12 @@ export const DEMOS: Record<string, Demo> = {
   villas: { view: 'villas', setup: villaTown(VILLAS_AFTER), overlay: 'missing', open: firstVilla },
   winery: { view: 'winery', setup: villaTown(WINERY_AFTER), follow: 'cart', followFrom: 'vineyard', overlay: 'wine' },
   winevendor: { view: 'winevendor', setup: villaTown(VILLAS_AFTER), follow: 'wine', overlay: 'wine', overlayOn: true },
+  fire: { view: 'town', speed: 'paused', tool: 'watchpost', setup: fireTown('smoke'), overlay: 'fire', overlayOn: true },
+  blaze: { view: 'town', setup: fireTown('blaze'), overlay: 'fire' },
+  rubble: { view: 'town', tool: 'clear', setup: fireTown('rubble'), overlay: 'fire' },
+  creak: { view: 'town', speed: 'paused', tool: 'architect', setup: creakTown, overlay: 'wear', overlayOn: true },
+  watchman: { view: 'town', setup: town(TOWN_TICKS), follow: 'watchman', overlay: 'fire', overlayOn: true },
+  inspector: { view: 'town', setup: town(TOWN_TICKS), follow: 'inspector', overlay: 'wear', overlayOn: true },
 };
+
+export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

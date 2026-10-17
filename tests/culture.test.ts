@@ -155,6 +155,9 @@ describe('going up, and staying up', () => {
   it('a street of fine houses on one agora: short of farms, the reason names the farms with numbers; with two more farms and a hunting lodge nobody goes down (#grow played through)', () => {
     const grow = (farms: boolean): Sim => {
       const sim = demo('grow');
+      // About supply, not fire: a cottage demo has no watch posts or architects, so fire and wear are left off here (see tests/hazards.test.ts).
+      sim.enqueue({ type: 'hazards', on: false });
+      sim.flush();
       // Since slice 10 #grow has spent its savings on oil (townhouses need it): this is about farms, not money.
       sim.state.money = 5000;
       sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });

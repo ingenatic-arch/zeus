@@ -13,7 +13,7 @@ import { DISTRICTS, districtAt, districtGrid } from '../src/map/districts';
 import { PLOT_COST, TAX_OFFICE_COST } from '../src/sim/build';
 import { JOBS } from '../src/sim/buildings';
 import { chatterOf, LINES } from '../src/sim/chatter';
-import { TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { moodOf } from '../src/sim/folk';
 import { canWork, rateOf, UNPAID_RATE } from '../src/sim/labour';
 import { Sim } from '../src/sim/sim';
@@ -307,6 +307,9 @@ describe('the demo towns and money', () => {
   it('a town of a few hundred people with one tax office, no goods, roughly breaks even at fair (#food played on two years)', () => {
     const sim = demo('food');
     const s = sim.state;
+    // About supply, not fire: a cottage demo has no watch posts or architects, so fire and wear are left off here (see tests/hazards.test.ts).
+    sim.enqueue({ type: 'hazards', on: false });
+    sim.flush();
     // A month in, so the new tax office's collector is on his rounds.
     sim.run(TICKS_PER_MONTH);
     const start = s.money;
@@ -318,12 +321,13 @@ describe('the demo towns and money', () => {
   it('the money line warns from the steady rate of taxes and wages, not one month’s hand-ins', () => {
     // #shrine's tax offices went in a month and a half ago; their collectors' first rounds ran past the month's end.
     expect(moneyLine(demo('shrine').state)).toBeNull();
-    // #town with taxes at none: nothing comes in, so within a couple of months the line says when it runs dry.
+    // #town with taxes at none: nothing comes in, so within a month and a half the line says when it runs dry.
+    // (Since slice 12 #town opens with less in hand, its watch posts and architects' offices just built: two months on it can't pay its wages.)
     const sim = demo('town');
     expect(moneyLine(sim.state)).toBeNull();
     sim.enqueue({ type: 'tax', rate: 0 });
     sim.flush();
-    sim.run(2 * TICKS_PER_MONTH);
+    sim.run(TICKS_PER_MONTH + 15 * TICKS_PER_DAY);
     expect(moneyLine(sim.state)?.text).toMatch(/^Money: the tax collectors bring in about 0 dr a month and wages take about [\d,]+; at that rate the treasury runs dry (in about \d months|within a month or so)/);
   });
 

@@ -4,7 +4,7 @@
  * sim state.
  */
 import { WATER_NONE, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
-import { beside, sideOf } from './buildings';
+import { beside, findBuilding, sideOf } from './buildings';
 import { TILE_EMPTY, TILE_ROAD, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
@@ -24,6 +24,11 @@ export const STOREHOUSE_COST = 200;
 export const PASTURE_COST = 150;
 export const VINEYARD_COST = 150;
 export const WINERY_COST = 200;
+export const WATCHPOST_COST = 60;
+export const ARCHITECT_COST = 80;
+/** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
+export const CLEAR_SMALL = 10;
+export const CLEAR_BIG = 20;
 /** What adding a stall for a good (oil, fleece or wine) to an agora costs. */
 export const STALL_COST = 100;
 /** A bridge costs this much a tile. */
@@ -50,7 +55,22 @@ export const COST: Record<BuildingKind, number> = {
   pasture: PASTURE_COST,
   vineyard: VINEYARD_COST,
   winery: WINERY_COST,
+  watchpost: WATCHPOST_COST,
+  architect: ARCHITECT_COST,
+  rubble: 0,
 };
+
+/** What clearing a heap of rubble with this footprint side costs. */
+export const clearFee = (side: number): number => (side <= 2 ? CLEAR_SMALL : CLEAR_BIG);
+
+/** What the refusals say about building on rubble. */
+export const RUBBLE_REFUSAL = 'Rubble: clear it first, with the clear tool';
+
+/** Why something can't go on a tile that isn't empty. */
+function builtHere(s: SimState, t: number): string {
+  const b = s.tiles[t] > 0 ? findBuilding(s, s.tiles[t]) : undefined;
+  return b?.kind === 'rubble' ? RUBBLE_REFUSAL : 'Something is built here';
+}
 
 /** A farm needs at least this mean fertility over its tiles (the green river land). */
 export const FARM_FERTILE_MIN = 0.5;
@@ -194,7 +214,7 @@ export function roadRefusal(map: CoastMap, s: SimState, tx: number, tz: number):
   if (g !== Ground.Ok && g !== Ground.SteepForHome) return GROUND_REASON[g];
   const on = s.tiles[t];
   if (on === TILE_ROAD) return 'Already a road';
-  if (on !== TILE_EMPTY) return 'Something is built here';
+  if (on !== TILE_EMPTY) return builtHere(s, t);
   if (besideBridge(map, s, t)) return 'Too close to the side of a bridge';
   return '';
 }
@@ -396,6 +416,7 @@ export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kin
 
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
+  if (kind === 'rubble') return 'Rubble isn’t built';
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
   if (r) return r;
@@ -426,7 +447,7 @@ export function footprintRefusal(map: CoastMap, s: SimState, tx: number, tz: num
       const t = z * n + x;
       const g = ix.ground[t] as Ground;
       if (g !== Ground.Ok && !(slope && g === Ground.SteepForHome)) return GROUND_REASON[g];
-      if (s.tiles[t] !== TILE_EMPTY) return 'Something is built here';
+      if (s.tiles[t] !== TILE_EMPTY) return s.tiles[t] === TILE_ROAD ? 'Something is built here' : builtHere(s, t);
     }
   }
   // Uneven ground across the whole footprint (each tile may be fine on its own).

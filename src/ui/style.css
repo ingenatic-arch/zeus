@@ -182,6 +182,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .ledger .book td.amt.in { color: #5f7f2c; }
 .ledger .book td.amt.out { color: var(--terracotta-deep); }
 .ledger .book td.amt.nil { color: rgba(122, 92, 60, 0.4); }
+.ledger .book td.amt.lost { color: #8a3a24; font-style: italic; }
 .ledger .book tr.total td { border-top: 1.5px solid var(--edge); padding-top: 4px; font-weight: bold; }
 .ledger .book tr.start td { font-size: 12.5px; color: var(--ink-soft); }
 .ledger .notes { margin: 8px 0 0; padding: 0 0 0 16px; font-size: 12.5px; color: var(--ink-soft); }
@@ -256,6 +257,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool .fill-wool { fill: #f3ead2; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
 .btn.tool .fill-grape { fill: #7a3a78; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
 .btn.tool .fill-wine { fill: #8e2f4e; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .fill-fire { fill: #d8542a; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
 .btn.tool.on .fill-wool { fill: #fffaf0; stroke: #fff6e4; }
 .btn.tool.on .fill-grape { fill: #e0b8e0; stroke: #fff6e4; }
 .btn.tool.on .fill-wine { fill: #f0b8c8; stroke: #fff6e4; }

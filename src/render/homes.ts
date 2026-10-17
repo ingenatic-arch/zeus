@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { PLOT_SIZE } from '../sim/build';
-import { sideOf } from '../sim/buildings';
+import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { fineA, fineB, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB } from './grand';
@@ -392,7 +392,7 @@ function stake(): THREE.BufferGeometry {
  * model's front is +x; the yaw turns +x to (cos, -sin).
  */
 export function facingOf(s: SimState, size: number, b: Building): number {
-  const n = sideOf(b.kind);
+  const n = footSide(b);
   const road = (tx: number, tz: number): boolean => tx >= 0 && tz >= 0 && tx < size && tz < size && s.tiles[tz * size + tx] === TILE_ROAD;
   const any = (f: (d: number) => boolean): boolean => {
     for (let d = 0; d < n; d++) if (f(d)) return true;

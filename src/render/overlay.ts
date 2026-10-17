@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { sideOf } from '../sim/buildings';
+import { footSide } from '../sim/buildings';
+import { burnable, FIRE_NONE, HAZARD_HIGH, HAZARD_MARK, INSPECT_RANGE, WATCH_RANGE, wears } from '../sim/hazards';
 import { eatsBread, FOOD_LASTS, VENDOR_RANGE } from '../sim/food';
 import { roadSearch, type Search } from '../sim/roads';
 import { roadsBeside } from '../sim/rounds';
@@ -56,10 +57,13 @@ const MODES: Record<Round, Mode> = {
   culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
   // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month.
   tax: { source: 'taxoffice', range: COLLECTOR_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.taxedAt > 0 ? b.taxedAt + TICKS_PER_MONTH : 0), wants: (b) => b.kind === 'home' && b.people > 0 },
+  // Fire risk and wear have overlays of their own (see refreshHazard); these say where the walkers come from and how far they go.
+  fire: { source: 'watchpost', range: WATCH_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },
+  wear: { source: 'architect', range: INSPECT_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },
 };
 
 /** Which of the placing overlay's tones (OVERLAY_TONES) each service's overlay takes. */
-const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5, fleece: 6, wine: 7 };
+const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5, fleece: 6, wine: 7, fire: 8, wear: 9 };
 
 /** How high the top of each level of home stands (for the columns over them). */
 export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8, 2.0];
@@ -112,6 +116,9 @@ export class ServiceOverlay {
     tax: { has: new THREE.Color('#2f9a80'), fresh: new THREE.Color('#9fe6d2'), none: new THREE.Color('#e09a2a') },
     fleece: { has: new THREE.Color('#d8c8a0'), fresh: new THREE.Color('#fff6e0'), none: new THREE.Color('#5a6290') },
     wine: { has: new THREE.Color('#7a2a68'), fresh: new THREE.Color('#d890c8'), none: new THREE.Color('#a08a48') },
+    // Fire risk and wear: their columns go amber past half and red past three-quarters.
+    fire: { has: new THREE.Color('#e0a02a'), fresh: new THREE.Color('#ffd27a'), none: new THREE.Color('#e0442a') },
+    wear: { has: new THREE.Color('#d8a040'), fresh: new THREE.Color('#ffe0a0'), none: new THREE.Color('#d04a3a') },
   };
 
   constructor(
@@ -165,6 +172,7 @@ export class ServiceOverlay {
     this.lastMode = mode;
     if (mode === 'missing') this.refreshMissing(s);
     else if (mode === 'variety') this.refreshVariety(s);
+    else if (mode === 'fire' || mode === 'wear') this.refreshHazard(s, mode);
     else this.refresh(s, mode);
   }
 
@@ -241,7 +249,65 @@ export class ServiceOverlay {
         continue;
       }
       if (!code) continue;
-      const side = sideOf(b.kind);
+      const side = footSide(b);
+      for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+    }
+    this.columns.count = n;
+    this.columns.instanceMatrix.needsUpdate = true;
+    if (this.columns.instanceColor) this.columns.instanceColor.needsUpdate = true;
+    this.placement.setOverlay(codes);
+  }
+
+  /**
+   * Fire risk or wear: the roads a watchman (or an inspector) reaches, brighter
+   * where one has walked lately; every building that can burn (or wear)
+   * tinted green below half, amber past half, red past three-quarters (and
+   * pulsing while it smoulders, burns or creaks), with a column over each one
+   * past half, as tall as how near it is to the top. The watch posts (or
+   * architects' offices) are marked as the sources.
+   */
+  private refreshHazard(s: SimState, which: 'fire' | 'wear'): void {
+    const size = this.map.size;
+    const mode = MODES[which];
+    const codes = this.codes;
+    codes.fill(0);
+    const reach = reachOf(s, size, mode.source);
+    const walkedAt = s.rounds[which].walked;
+    const pre = this.preview ? roadSearch(s, size, this.preview).dist : null;
+    for (let t = 0; t < codes.length; t++) {
+      if (s.tiles[t] !== TILE_ROAD) continue;
+      const d = reach.dist[t];
+      if (d >= 0 && d <= mode.range) {
+        const k = Math.round(99 * (1 - d / (mode.range + 1)));
+        const walked = walkedAt[t] > 0 && s.tick - walkedAt[t] < mode.lasts;
+        codes[t] = (walked ? WATER_WALKED : WATER_REACH) + k;
+      } else if (pre && pre[t] >= 0 && pre[t] <= mode.range) codes[t] = WATER_PREVIEW;
+    }
+    let n = 0;
+    if (s.buildings.length > this.columns.instanceMatrix.count) this.grow(s.buildings.length);
+    const tone = this.tones[which];
+    for (const b of s.buildings) {
+      let code = 0;
+      const side = footSide(b);
+      if (b.kind === mode.source) code = WATER_FOUNTAIN;
+      else if (which === 'fire' ? burnable(b) : wears(b)) {
+        const v = which === 'fire' ? b.risk : b.wear;
+        const alarm = which === 'fire' ? b.fire !== FIRE_NONE : b.creakAt > 0;
+        code = alarm || v >= HAZARD_HIGH ? MISSING_WARN : v >= HAZARD_MARK ? MISSING_WANT : MISSING_FINE;
+        if (alarm || v >= HAZARD_MARK) {
+          const k = alarm ? 1 : (v - HAZARD_MARK) / (1000 - HAZARD_MARK);
+          const top = b.kind === 'home' ? ROOF[b.level] : side === 3 ? 1.6 : 1.3;
+          this.p.set(b.x + side / 2, this.map.heightAt(b.x + side / 2, b.z + side / 2) + top + 0.2, b.z + side / 2);
+          this.s.set(1.3, 0.3 + 2.2 * k, 1.3);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          if (alarm || v >= HAZARD_HIGH) this.c.copy(tone.none);
+          else this.c.copy(tone.has).lerp(tone.fresh, 0.3);
+          this.columns.setColorAt(n, this.c);
+          n++;
+        }
+      }
+      if (!code) continue;
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }
     this.columns.count = n;
@@ -285,14 +351,14 @@ export class ServiceOverlay {
         // A home a collector called on a month or two ago is only due again (his round takes about forty days):
         // untinted, and no post, so the posts mark the homes no collector's round reaches.
         if (service === 'tax' && left <= 0 && b.taxedAt > 0 && s.tick - b.taxedAt < 2 * TICKS_PER_MONTH) {
-          const side = sideOf(b.kind);
+          const side = footSide(b);
           for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
           continue;
         }
         // A post only over homes without, or with less than a month left: the ground's tint shows the rest.
         // (Taxes last a month at most, so the tax overlay posts only the homes no collector has called on in two months.)
         if (left >= TICKS_PER_MONTH || (service === 'tax' && left > 0)) {
-          const side = sideOf(b.kind);
+          const side = footSide(b);
           for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
           continue;
         }
@@ -311,7 +377,7 @@ export class ServiceOverlay {
         n++;
       }
       if (!code) continue;
-      const side = sideOf(b.kind);
+      const side = footSide(b);
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }
     this.columns.count = n;
@@ -349,6 +415,22 @@ export function previewReach(s: SimState, size: number, sources: number[], servi
     if (!roadsBeside(s, size, b).some((t) => dist[t] >= 0 && dist[t] <= mode.range)) continue;
     homes++;
     if (mode.until(b) <= s.tick) dry++;
+  }
+  return { homes, dry };
+}
+
+/** Buildings a new watch post (or architect's office) with these roadside tiles would reach, and how many of them are past half now. */
+export function hazardReach(s: SimState, size: number, sources: number[], which: 'fire' | 'wear'): { homes: number; dry: number } {
+  if (sources.length === 0) return { homes: 0, dry: 0 };
+  const mode = MODES[which];
+  const dist = roadSearch(s, size, sources).dist;
+  let homes = 0;
+  let dry = 0;
+  for (const b of s.buildings) {
+    if (which === 'fire' ? !burnable(b) : !wears(b)) continue;
+    if (!roadsBeside(s, size, b).some((t) => dist[t] >= 0 && dist[t] <= mode.range)) continue;
+    homes++;
+    if ((which === 'fire' ? b.risk : b.wear) >= HAZARD_MARK) dry++;
   }
   return { homes, dry };
 }
