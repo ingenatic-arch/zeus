@@ -134,3 +134,30 @@ Commits: plan `08d2865`, sim `a01550b`, what Oliver sees `742ee5b`, look and tun
 **Tests.** 9 new in `tests/hazards.test.ts` (rates and the switch, every demo opening clean, fire and spread without a watchman, the watchman's put-out and dash, creak and collapse, rubble and clearing with undo, a real slice 11 save `tests/fixtures/slice11-town.save.json.gz`, a save mid-fire and replay, the fire demos opening on what they promise); `tests/treasury.test.ts` and `tests/people.test.ts` adjusted for the new ledger kinds and building kinds. 187 tests in 18 files.
 
 **Rough edges left.** The architect's office reads less clearly close up than the watch post. Creak dust is hard to see from the town view (the mark, the overlay column and the town line carry it). `#rubble` opens with five smoulders on the unguarded street round the heaps, so more fire is on its way there. Measurements are in the check-in.
+
+## Review
+
+Reviewed against `f4d1b49..5ef2328`. Every "What to try" step was followed in headless Chromium, the fire demos and the regrouped bar were looked at close up and from the street, and the sim was probed in Node (pace, the watchman's dash, round coverage, cost per tick).
+
+**Fixed** (commits `93c3b98`, `16d732d`, `e81c169`, `0f47ac1`):
+- *Undo after clearing reset hazards.* `clearArea` recorded kinds, positions and names but not `risk`, `wear`, `fire`, `fireAt`, `creakAt` or `placed`, so undo brought a smouldering or creaking building back safe and sound with no risk or wear (a free reset of a building's year of neglect), and brought rubble back with `placed = now`, which made the frame loop replay "Burnt down"/"Fell down" and the thud. `UndoEntry.removedHazards` (six numbers a removed building, optional, checked by `undoOk` in saves) now carries them; homes keep the old behaviour (they come back as fresh plots). Old saves without the field undo as before.
+- *Undo refunded a building that had burnt down.* `toRubble` dropped the building from its build's undo entry but left the entry's cost, so undoing that build paid back the full price for a building that was rubble. It now takes `COST[kind]` off the entry too. Test in `tests/hazards.test.ts` ("undo"), with `ledgerAddsUp`.
+- *Frame loop allocation.* The per-tick hazard diff in `main.ts` cleared and refilled a `Map` of fresh objects for every building every tick (and built a `Vector3` and centre for every building). It now keeps one number a building (`fire * 2 + creak`) in place and does the position work only for a building that changed.
+- *Ledger note.* `gone === lost(now)` compared two fresh arrays, so the fire/collapse note always said "Last month".
+- *Placing tips.* `hazardReach` now also counts the reached buildings that are smouldering, burning or creaking; the watch post and architect's office placing tips name the one reached ("It reaches the fine house of Kleon, which is smouldering") or count them, and warn in amber when none of the current trouble is reached. The tip cache key now includes the day so it follows the fire. (`placeName` exported from `status.ts`.)
+- *Looks.* Grove and vineyard marks were inside the canopy (`TOP` 0.6 → 1.2, 0.45 → 0.55). The smoulder thread: 16 puffs with per-puff jitter and size and a wind drift that grows with height, so it reads less like a string of beads. Architect's office: a column being made in the yard (stacked drums and one lying) and warmer `stoneBlock`/`stoneBlockShade` (used only by the office and rubble).
+- A stale "22 buttons" comment in `style.css`.
+
+**Checked and left.**
+- *The switch.* Every way into a game turns hazards on: demos through `calm()`, a plain new game and the coast through the else branch in `main.ts`, version 10 saves by migration. A bare `createState` is off; the earlier tests rely on that.
+- *Off-road watch post.* It behaves like every other workplace: amber warning on placing, built anyway, hover says it needs a road beside it. No change.
+- *Pace.* In Node, `#town` with the east post moved: the first smoke on the east street gives about 30 days before it catches, the three-quarters town line comes well before that, and the street lost 15 buildings in five months as the check-in says. Population dipped about 3% and recovered; money kept rising. Not retuned; it is the question put to Oliver.
+- *Performance.* Hazard stepping itself is negligible in a profile. The rise in sim cost per tick in `#town` (about 100 → 150 µs in Node here, the builder's 118 → 147) is the four new round walkers (`moveRounds` 13% → 22% of a tick; inspector 6.4%, watchman 5.2%) and their labour. The headless "running" frame figures include up to 10 sim ticks a frame at about 1 fps, so they overstate what a real 60 fps frame pays (about one tick a frame at normal speed).
+- *Invariants.* No `Math.random`, `Date`, `performance.now` or timers in `src/sim` or `src/map`; all new actions go through `enqueue`; no network requests; `base: './'`.
+
+**For the next slice.**
+- Marks and overlay columns get busy on a neglected street (`#creak` opens with 57). A cap or fading by distance, or showing only the worst on a block, would help if Oliver finds it noisy.
+- Smoke puffs are still visibly round balls close up; a soft sprite or noise texture would read better than more spheres.
+- After putting out a fire the watchman goes back to his round (home first) rather than to a smoulder he passed; in `#blaze` the smoulders beyond his round catch about 15 days in.
+- Round walkers now cost about a third of a tick in a big town; with more services coming, `moveRounds` is the place to look (route caching per post, or stepping round walkers every other tick).
+- The architect's office is better but is still mostly a white box from the usual zoom; it is the drawing board and drums that carry it.

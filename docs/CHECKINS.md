@@ -23,7 +23,7 @@ What breaks, or moves: nothing is lost. A slice 11 save opens with no fire risk 
 - **Sound:** a crackle while a fire or smoulder is within earshot, a groan from a creaking building, a thud when one falls, and a hiss when a fire is put out.
 
 ### What to try
-1. Open `#fire`: `#town` 11 months later, paused on the first thread of smoke, on the east street that no watchman reaches. The fire-risk overlay is on and the watch post tool is in hand. Build a post beside a road near the smoke (the empty corner across the main street from the smoking house, by the crossroads, works; the tip says whether a watchman would reach it), then press play. When I ran the simulation with a post there, it put the smoulder out 5 days later, and nothing else on the street smouldered for the next five months. Without one, the house caught 33 days later. By five months, 15 buildings on that street had burnt down.
+1. Open `#fire`: `#town` 11 months later, paused on the first thread of smoke, on the east street that no watchman reaches. The fire-risk overlay is on and the watch post tool is in hand. Build a post beside a road near the smoke (the empty corner across the main street from the smoking house, by the crossroads, works; the tip says whether a watchman would reach it), then press play. When I ran the simulation with a post there, it put the smoulder out 5 days later (8 days when the review built one by hand a tile along), and nothing else on the street smouldered for the next five months. Without one, the house caught 33 days later. By five months, 15 buildings on that street had burnt down.
 2. Open `#blaze`: the same street a month later, with no post built. Two houses are burning and two more are smouldering, and a watchman from a post across town is running to the nearest fire. Watch whether he gets there in time.
 3. Open `#rubble`: later still, with seven heaps of rubble and the clear tool in hand. Hover a heap, then clear it. Five more houses on the street are smouldering, so a watch post is still needed.
 4. Open `#creak`: `#town` 10 months on, paused on its first creaking building (the agora by the olive grove), with the wear overlay on and the architect's office tool in hand. Build an office near it before the month is out.
@@ -81,6 +81,31 @@ What breaks, or moves: nothing is lost. A slice 11 save opens with no fire risk 
   - The running figures rose by about 1 to 2 ms. The simulation's own time per tick in `#town` went from 118 to 147 µs, for its four new walkers and the daily risk and wear. In a 10-second profile of `#town`, most of the frame time went to occasional street rebuilds as homes change, and I found no new hot spot.
 - A save of `#town`: 257 KB (was 248 KB).
 - Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
+### What the review changed
+I went through every step above in the browser: I built a watch post by hand beside the smoke in `#fire`, watched `#blaze` play out, cleared a heap in `#rubble`, built an architect's office in `#creak`, and opened every row of the build bar at 1280, 1366 and 1920 pixels wide. I also played the east street on in the simulation to check the pace, and measured again. These are the changes:
+
+- **Undo no longer wipes a building's fire risk and wear.** If you cleared buildings and then pressed undo, they came back as good as new: no fire risk, no wear, and a smouldering or creaking one came back safe. Undo now brings them back exactly as they were, smoke and all. A heap of rubble brought back by undo also no longer shows "Burnt down" and thuds again.
+- **Undo no longer pays you back for a building that burnt down.** If a building you had just put up burnt or fell down, pressing undo on it refunded its full price, though it was already rubble. Now it doesn't.
+- **The ledger says "This month" when it should.** Its note on buildings lost to fire and collapse always said "Last month", even for this month's losses.
+- **The watch post and architect's office tools say whether they'd reach the trouble.** While you place one, the tip now names the building that is smouldering, burning or creaking if this spot would reach it ("It reaches the fine house of Kleon, which is smouldering"), or warns in amber that it wouldn't and to try nearer.
+- **The olive grove's mark sits above its trees.** It was half hidden inside them. The vineyard's is a little higher too.
+- **The smoulder's thread of smoke is more ragged**: more puffs, of uneven size, drifting and leaning with the wind as they rise, rather than a neat string of beads.
+- **The architect's office has a column being made in its yard** (stone drums stacked and one lying on the ground), and its stone is a warmer, darker colour, so it stands apart from the whitewashed walls.
+- **Less work for the computer each moment the town runs**: the check for fires catching and buildings creaking no longer redoes its sums for every building every moment.
+
+Things to know when you try it, with numbers:
+- **Step 1, the watch post.** I built mine a tile along from the corner the step describes, and it put the smoke out 8 days later (I've added that to step 1). Placed off the road, a watch post is built anyway but no one works there, the same as every other workplace; the tool warns you in amber and hovering it says it needs a road.
+- **Step 2, `#blaze`.** The watchman reached the first fire in about a day and put out both fires within about a week. The two smouldering houses beyond his round caught about two weeks later, and over the next two months the street lost more, the agora and the tax office among them.
+- **The pace.** Playing the east street on with no post, the first smoke gave about a month before it caught, and the warning in the town lines came well before that. The town lost about 3% of its people and won them back, and the money kept rising. I haven't changed it: whether it's too fast is your call.
+- **The build bar.** Every key (M, Z, G, K, J and L) still cycles through its tools, every row opens and closes, and the bar fits at 1280, 1366 and 1920 pixels wide.
+
+What I'd still like your eye on, beyond the list above:
+- **The architect's office** close up, now that it has the column drums.
+- **The smoke puffs** close up. They still look like round balls when you zoom right in.
+- **The watchman after a fire.** Once the fires are out he goes back to his round, home first, rather than to the smoke he passed on the way.
+
+Measured after the review: the download (315 KB compressed), draws, triangles, load times and save size are as in the notes above, to within a few thousand triangles. All 188 tests pass (one new, for undo), and the smoke test passes.
 
 ## Slice 11 — Fleece, wine and the villa (17 Oct)
 
