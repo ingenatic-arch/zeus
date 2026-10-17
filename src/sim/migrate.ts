@@ -50,6 +50,11 @@
  * town from before had no trading post; the schedule starts when one is
  * built, the first ship three months after).
  *
+ * Version 12 to 13 (slice 14, a richer town): no household has left whole
+ * for harsh taxes yet (`taxGone`). Everything else is as it was; the money
+ * is retuned (the upper levels pay more tax), which a loaded town simply
+ * plays on with.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -94,6 +99,7 @@ export function migrate(st: unknown): number {
   if (st.version === 9) from9(st);
   if (st.version === 10) from10(st);
   if (st.version === 11) from11(st);
+  if (st.version === 12) from12(st);
   return from;
 }
 
@@ -214,4 +220,9 @@ function from10(st: Record<string, unknown>): void {
 function from11(st: Record<string, unknown>): void {
   st.trade = freshTrade();
   st.version = 12;
+}
+
+function from12(st: Record<string, unknown>): void {
+  st.taxGone = [];
+  st.version = 13;
 }

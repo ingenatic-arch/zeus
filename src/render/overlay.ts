@@ -55,8 +55,9 @@ const MODES: Record<Round, Mode> = {
   fleece: goodMode(FLEECE),
   wine: goodMode(WINE),
   culture: { source: 'theatre', range: ACTOR_RANGE, lasts: CULTURE_LASTS, until: (b) => b.cultureUntil, wants: wantsPlays },
-  // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month.
-  tax: { source: 'taxoffice', range: COLLECTOR_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.taxedAt > 0 ? b.taxedAt + TICKS_PER_MONTH : 0), wants: (b) => b.kind === 'home' && b.people > 0 },
+  // Taxed within the month (see taxedLately): the collector's visit 'lasts' a month. A visit that paid nothing (the rate
+  // was none) isn't tinted as paid: it shows as a home only due again (see below).
+  tax: { source: 'taxoffice', range: COLLECTOR_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.taxedAt > 0 && b.taxPaid > 0 ? b.taxedAt + TICKS_PER_MONTH : 0), wants: (b) => b.kind === 'home' && b.people > 0 },
   // Fire risk and wear have overlays of their own (see refreshHazard); these say where the walkers come from and how far they go.
   fire: { source: 'watchpost', range: WATCH_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },
   wear: { source: 'architect', range: INSPECT_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },

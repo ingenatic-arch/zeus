@@ -17,7 +17,7 @@
  * harsh, once a month, such a household that is worried or worse may send
  * someone away.
  */
-import { coastMap, type CoastMap } from '../map/bake';
+import type { CoastMap } from '../map/bake';
 import { districtAt, DISTRICTS } from '../map/districts';
 import { around, centreOf, livedIn, recountPopulation, VILLA } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
@@ -43,14 +43,17 @@ export const HARSH = 4;
  */
 export const TAX: readonly (readonly number[])[] = [
   [0, 0, 0, 0, 0, 0, 0],
-  [0, 1, 2, 3, 5, 6, 8],
-  [0, 2, 3, 5, 7, 9, 12],
-  [0, 3, 4, 7, 10, 13, 16],
-  [0, 4, 6, 9, 13, 17, 22],
+  [0, 1, 2, 3, 5, 7, 12],
+  [0, 2, 3, 5, 7, 10, 18],
+  [0, 3, 4, 7, 10, 14, 25],
+  [0, 4, 6, 9, 13, 18, 32],
 ];
 
-/** What a home of this level pays at this rate. */
+/** What a full home of this level pays at this rate. */
 export const taxOf = (rate: number, level: number): number => TAX[Math.max(0, Math.min(HARSH, rate))][Math.max(0, Math.min(VILLA, level))];
+
+/** What this household owes the collector at the city's rate (its level's tax). */
+export const taxFor = (s: SimState, b: Building): number => (b.people > 0 ? taxOf(s.taxRate, b.level) : 0);
 
 /** How far by road from his office the collector ever goes, and how much fresh road a round is. */
 export const COLLECTOR_RANGE = 32;
@@ -81,16 +84,15 @@ export const TAXES: ServiceSpec = {
   // The nearest home that owes (every one counts the same, so the walk there decides): a full satchel, not one straggler.
   score: (b, s) => (owesTax(s, b) ? 0 : Infinity),
   due: () => Infinity,
-  serve(s: SimState, size: number, t: number, w: Walker) {
+  serve(s: SimState, size: number, t: number, w: Walker, map: CoastMap) {
     for (const b of besideRoad(s, size, t, near)) {
       if (!owesTax(s, b)) continue;
-      const amount = taxOf(s.taxRate, b.level);
+      const amount = taxFor(s, b);
       b.taxedAt = s.tick;
       b.taxPaid = amount;
       if (amount <= 0) continue;
       const [cx, cz] = centreOf(b);
-      // The coast is the only map (sim.ts's mapFor says the same).
-      addToPurse(w, districtAt(coastMap(), cx, cz), amount);
+      addToPurse(w, districtAt(map, cx, cz), amount);
     }
   },
   rest: (b) => restFor(b, COLLECTOR_REST),
@@ -138,12 +140,19 @@ export function moveCollector(s: SimState, map: CoastMap, w: Walker): boolean {
   return moveRounds(s, map, w, TAXES, 'taxoffice');
 }
 
-/** At harsh, each month, about one in this many unhappy households sends someone away. */
-const HARSH_LEAVE_ONE_IN = 3;
-/** Households this glum or worse (worried, unhappy, fed up) may send someone away. */
-const HARSH_LEAVE_MOOD = 2;
-/** Households smaller than this stay put (nobody can go without breaking up the family). */
+/**
+ * At harsh, each month, what each household a collector has called on lately
+ * does, by its mood (MOODS: 0 fed up … 4 content): out of HARSH_DIE chances,
+ * how many see it pack up and leave whole, and how many more see it send
+ * someone away. Content households stay put.
+ */
+const HARSH_DIE = 12;
+const HARSH_GO: readonly number[] = [6, 6, 3, 1, 0];
+const HARSH_SEND: readonly number[] = [0, 0, 6, 5, 0];
+/** Households smaller than this send nobody away on their own (nobody can go without breaking up the family). */
 const HARSH_LEAVE_MIN = 3;
+/** How long the city remembers households driven out by the taxes (taxGone): a year. */
+export const TAX_GONE_KEPT = 12 * TICKS_PER_MONTH;
 
 /** A small hash for choosing who goes (not state: the same household and month always give the same answer). */
 function mix(a: number, b: number): number {
@@ -154,23 +163,43 @@ function mix(a: number, b: number): number {
   return h >>> 0;
 }
 
+/** Households that left whole for the taxes in the last `within` ticks. */
+export const goneForTaxes = (s: SimState, within = TICKS_PER_MONTH): number => s.taxGone.filter((t) => s.tick - t < within).length;
+
 /**
- * The first of the month, at harsh taxes: some households a collector calls
- * on that are worried or worse send someone away (the smallest group that can go: a grown child,
- * or a family who joined them), their story saying the taxes drove them out.
+ * The first of the month, at harsh taxes, among the households a collector
+ * has called on lately: some that are unhappy or fed up pack up and leave the
+ * city whole, their home left an empty plot for newcomers (who, while taxes
+ * are harsh, come a third as often: see settlers.ts); some that are worried
+ * send someone away (the smallest group that can go: a grown child, or a
+ * family who joined them), their story saying the taxes drove them out.
  */
 export function stepHarsh(s: SimState, map: CoastMap): void {
-  if (s.taxRate < HARSH || s.tick % TICKS_PER_MONTH !== 0) return;
+  if (s.tick % TICKS_PER_MONTH !== 0) return;
+  // The city's memory of households driven out keeps a year.
+  if (s.taxGone.length && s.tick - s.taxGone[0] >= TAX_GONE_KEPT) s.taxGone = s.taxGone.filter((t) => s.tick - t < TAX_GONE_KEPT);
+  if (s.taxRate < HARSH) return;
   const has = (k: Building['kind']): boolean => s.buildings.some((o) => o.kind === k);
   const ctx = { agora: has('agora'), jobs: s.buildings.some((o) => o.kind !== 'home'), shrine: has('shrine'), theatre: has('theatre') };
   const month = monthOf(s.tick);
   let changed = false;
   for (const b of s.buildings) {
     const f = b.family;
-    if (!f || !livedIn(b) || b.people < HARSH_LEAVE_MIN || b.taxedAt === 0 || s.tick - b.taxedAt >= 2 * TICKS_PER_MONTH) continue;
-    if (mix(f.seed, month) % HARSH_LEAVE_ONE_IN !== 0) continue;
-    if (moodOf(s, b, ctx, canWork(b)).level > HARSH_LEAVE_MOOD) continue;
-    if (leavingGroups(s, f, 1).length === 0) continue;
+    if (!f || !livedIn(b) || b.taxedAt === 0 || s.tick - b.taxedAt >= 2 * TICKS_PER_MONTH) continue;
+    const mood = moodOf(s, b, ctx, canWork(b)).level;
+    const roll = mix(f.seed, month) % HARSH_DIE;
+    if (roll >= HARSH_GO[mood] + HARSH_SEND[mood]) continue;
+    if (roll < HARSH_GO[mood]) {
+      // The whole household packs up and goes.
+      const going = b.people;
+      leaveWhole(s, b);
+      s.left += going;
+      sendLeavers(s, map, going, centreOf(b), around(map.size, b));
+      s.taxGone.push(s.tick);
+      changed = true;
+      continue;
+    }
+    if (b.people < HARSH_LEAVE_MIN || leavingGroups(s, f, 1).length === 0) continue;
     const going = moveOut(s, b, 1, 'tax').length;
     if (going === 0) continue;
     b.people -= going;
@@ -182,4 +211,14 @@ export function stepHarsh(s: SimState, map: CoastMap): void {
     recountPopulation(s);
     s.rev++;
   }
+}
+
+/** A household leaves its home whole: the house stands empty, a plot again, until newcomers come. */
+function leaveWhole(s: SimState, b: Building): void {
+  b.people = 0;
+  b.family = null;
+  b.level = 0;
+  b.since = s.tick;
+  b.workers = 0;
+  b.unpaid = 0;
 }

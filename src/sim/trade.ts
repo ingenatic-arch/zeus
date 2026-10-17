@@ -25,6 +25,7 @@
  * here draws a random number, so a town without a post runs exactly as before.
  */
 import { WATER_SEA, type CoastMap } from '../map/bake';
+import { MAP_SIZE } from '../map/coast';
 import { Ground, mapIndex } from './build';
 import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
@@ -42,7 +43,7 @@ export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, W
 /** A good's place in the trade record (-1: the ship doesn't buy it). */
 export const tradeIndex = (w: Ware): number => TRADE_GOODS.indexOf(w);
 /** What the ship pays for a hundred measures of each (by trade good): fine goods most, wheat least. Steady this phase. */
-export const PRICES: readonly number[] = [15, 30, 30, 60, 45, 80];
+export const PRICES: readonly number[] = [20, 35, 35, 70, 55, 100];
 /** What she pays for so many measures of a trade good. */
 export const priceFor = (k: number, n: number): number => Math.round((n * PRICES[k]) / 100);
 /** What the city keeps of each to begin with: half a granary's or storehouse's room. */
@@ -72,10 +73,22 @@ export const SHIP_LEAVING = 3;
 /** The first ship is due three months after the post is built (time for the dockers' first loads), then one every three months. */
 export const FIRST_SHIP = 3 * TICKS_PER_MONTH;
 export const SHIP_EVERY = 3 * TICKS_PER_MONTH;
-/** She shows on the horizon this long before she ties up; loads this long; takes this long to sail off from the quay. */
-export const SAIL_IN = 6 * TICKS_PER_DAY;
+/**
+ * She shows on the horizon this long before she ties up (time enough to see
+ * her coming and get the last goods on the quay); loads this long; takes this
+ * long to sail off from the quay.
+ */
+export const SAIL_IN = 20 * TICKS_PER_DAY;
 export const LOADING = 4 * TICKS_PER_DAY;
-export const SAIL_OUT = 5 * TICKS_PER_DAY;
+export const SAIL_OUT = 16 * TICKS_PER_DAY;
+/**
+ * Her pace sailing in, in tiles a tick before her way is fitted to SAIL_IN:
+ * beyond the map's edge (far out, where she is a sail on the horizon), across
+ * the bay, and slowing to a stop over the last stretch to the jetty.
+ */
+const FAR_PACE = 1.0;
+const BAY_PACE = 0.5;
+const SLOW_LAST = 12;
 /** Sea at least this deep is deep water. */
 export const DEEP = 0.5;
 /** The longest jetty: the berth is at most this far from the post's footprint. */
@@ -392,10 +405,70 @@ function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx
   return { x: p[0] ?? 0, z: p[1] ?? 0, dx: 1, dz: 0 };
 }
 
-/** How far in she has come (0 at the horizon, 1 at the quay) a share u of the way through sailing in: fast far out, slowing as she comes alongside. */
-export const easeIn = (u: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 1.8);
-/** Sailing off: how far back out she has gone, a share u of the way through (slow away from the quay, then faster). */
-export const easeOut = (u: number): number => Math.pow(Math.max(0, Math.min(1, u)), 2);
+/** Over how many tiles before the map's edge she eases from FAR_PACE to BAY_PACE. */
+const EASE_EDGE = 12;
+
+/**
+ * How far in she has come (0 at the horizon, 1 at the quay) a share u of the
+ * way through sailing in: far out at FAR_PACE, easing down to BAY_PACE over
+ * the last EASE_EDGE tiles before she crosses the map's edge, across the bay
+ * at BAY_PACE, slowing evenly to the jetty over the last
+ * SLOW_LAST tiles, the whole fitted to SAIL_IN. A pure function of her route.
+ */
+export function inwardAt(path: readonly number[], u: number): number {
+  const L = pathLength(path);
+  if (L <= 0) return 1;
+  const outer = Math.min(L, outerLength(path));
+  const slow = Math.max(0, Math.min(SLOW_LAST, L - outer));
+  // Easing from her pace at sea to her pace in the bay over the last EASE_EDGE tiles before the edge.
+  const ease = Math.min(EASE_EDGE, outer);
+  const t0 = (outer - ease) / FAR_PACE;
+  const te = (2 * ease) / (FAR_PACE + BAY_PACE);
+  const t1 = t0 + te;
+  const t2 = t1 + (L - slow - outer) / BAY_PACE;
+  const td = (2 * slow) / BAY_PACE;
+  const tau = Math.max(0, Math.min(1, u)) * (t2 + td);
+  let d: number;
+  if (tau < t0) d = FAR_PACE * tau;
+  else if (tau < t1) {
+    const e = tau - t0;
+    d = outer - ease + FAR_PACE * e - (te > 0 ? (0.5 * (FAR_PACE - BAY_PACE) * e * e) / te : 0);
+  } else if (tau < t2) d = outer + BAY_PACE * (tau - t1);
+  else {
+    const e = Math.min(td, tau - t2);
+    d = L - slow + BAY_PACE * e - (td > 0 ? (0.5 * BAY_PACE * e * e) / td : 0);
+  }
+  return Math.max(0, Math.min(1, d / L));
+}
+
+/** How far along her way in she is still beyond the map's edge (cached per route). */
+const outers = new WeakMap<readonly number[], number>();
+function outerLength(p: readonly number[]): number {
+  const hit = outers.get(p);
+  if (hit !== undefined) return hit;
+  const n = MAP_SIZE;
+  const inside = (x: number, z: number): boolean => x >= 0 && z >= 0 && x <= n && z <= n;
+  let d = 0;
+  let found = 0;
+  outer: for (let i = 0; i + 3 < p.length; i += 2) {
+    const sx = p[i + 2] - p[i];
+    const sz = p[i + 3] - p[i + 1];
+    const l = Math.hypot(sx, sz);
+    const k = Math.max(1, Math.ceil(l / 0.25));
+    for (let j = 0; j < k; j++) {
+      const f = j / k;
+      if (inside(p[i] + sx * f, p[i + 1] + sz * f)) {
+        found = d + l * f;
+        break outer;
+      }
+    }
+    d += l;
+    found = d;
+  }
+  outers.set(p, found);
+  return found;
+}
+
 
 /** How long she takes to sail off from where she turned. */
 export const leaveTicks = (ship: Ship): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
@@ -429,7 +502,7 @@ export function shipAt(ship: Ship, tick: number): { x: number; z: number; dx: nu
   let back = false;
   // While she swings round: how far through it (0 bow in, 1 bow out).
   let swing = -1;
-  if (ship.phase === SHIP_COMING) f = easeIn((tick - ship.since) / SAIL_IN);
+  if (ship.phase === SHIP_COMING) f = inwardAt(ship.path, (tick - ship.since) / SAIL_IN);
   else if (ship.phase === SHIP_MOORED) f = 1;
   else if (backsOff(ship, L)) {
     const e = tick - ship.since;
@@ -439,11 +512,11 @@ export function shipAt(ship: Ship, tick: number): { x: number; z: number; dx: nu
       f = off;
       swing = smooth((e - BACK_TICKS) / TURN_TICKS);
     } else {
-      f = off * (1 - easeOut((e - BACK_TICKS - TURN_TICKS) / (leaveTicks(ship) - BACK_TICKS - TURN_TICKS)));
+      f = off * inwardAt(ship.path, 1 - (e - BACK_TICKS - TURN_TICKS) / (leaveTicks(ship) - BACK_TICKS - TURN_TICKS));
       back = true;
     }
   } else {
-    f = ship.turned * (1 - easeOut((tick - ship.since) / leaveTicks(ship)));
+    f = ship.turned * inwardAt(ship.path, 1 - (tick - ship.since) / leaveTicks(ship));
     back = true;
   }
   const p = pointAlong(ship.path, L * f);

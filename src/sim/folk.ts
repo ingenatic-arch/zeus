@@ -394,7 +394,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     if (r <= 0) add(1, 'No taxes to pay');
     else if (r === 1) add(0, 'Taxes are light');
     else if (r === 3) add(-1, 'Taxes are heavy');
-    else if (r >= 4) add(-4, 'Taxes are harsh: hardly worth staying');
+    else if (r >= 4) add(-6, 'Taxes are harsh: hardly worth staying');
   }
   if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);
   if (workable > 0 && ctx.jobs) {

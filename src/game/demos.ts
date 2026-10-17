@@ -15,7 +15,7 @@ import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
-import { dockersOut, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
+import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
 
@@ -392,7 +392,8 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
         late = Math.max(0, (at.sim?.state.tick ?? 0) - THEATRE_AT);
         at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       }
-      const fairAt = Math.max(THEATRE_AT + late, ticks + late - FAIR_AGAIN);
+      // (Since slice 14, taxes stay heavy for a month after the theatre opens, or till the day before the scene does, so the treasury has a cushion.)
+      const fairAt = Math.max(Math.min(THEATRE_AT + late + TICKS_PER_MONTH, ticks + late - OFFICE_LEAD), ticks + late - FAIR_AGAIN);
       if (theatre && !(close && fairAt > CLOSE_AT + late)) fair(fairAt);
       if (close) {
         at(CLOSE_AT + late, { type: 'clear', x0: THEATRE.x, z0: THEATRE.z, x1: THEATRE.x, z1: THEATRE.z });
@@ -456,8 +457,21 @@ function growTown(ticks: number): (sim: Sim) => void {
       at(GROW_DAIRY, { type: 'build', kind: 'dairy', at: [T(LANE_DAIRY.x, LANE_DAIRY.z)] });
       // And oil, which a townhouse needs too.
       laneOil(at, GROW_DAIRY);
+      moreOffices(at, GROW_DAIRY);
     },
   });
+}
+
+/**
+ * The culture towns' second and third tax offices (on the west street and at
+ * the east street's end), for the food towns that pay for a dairy, an oil
+ * chain or hunting lodges as well (since slice 14: one collector reaches only
+ * about half the town's homes, and its taxes don't cover the extra wages).
+ */
+function moreOffices(at: At, t: number): void {
+  at(t, { type: 'build', kind: 'taxoffice', at: [T(WEST_OFFICE.x, WEST_OFFICE.z)] });
+  at(t, { type: 'road', tiles: [T(STREET_OFFICE.x, STREET_OFFICE.z - 1)] });
+  at(t, { type: 'build', kind: 'taxoffice', at: [T(STREET_OFFICE.x, STREET_OFFICE.z)] });
 }
 
 /**
@@ -477,6 +491,7 @@ function tableTown(ticks: number): (sim: Sim) => void {
       laneOil(at, TABLE_OIL);
       at(FOOD_TICKS, { type: 'build', kind: 'shrine', at: [T(SHRINE.x, SHRINE.z)] });
       at(TABLE_DAIRY, { type: 'build', kind: 'dairy', at: [T(LANE_DAIRY.x, LANE_DAIRY.z)] });
+      moreOffices(at, TABLE_OIL);
     },
   });
 }
@@ -495,7 +510,12 @@ function aboutToClimb(s: SimState): number {
 const OVERHUNT_AT = FOOD_TICKS - 300;
 const OVERHUNT_TICKS = FOOD_TICKS + 600;
 function overhuntTown(ticks: number): (sim: Sim) => void {
-  return foodTown(ticks, 400, 200, { then: (at) => at(OVERHUNT_AT, { type: 'build', kind: 'lodge', at: OVERHUNT_LODGES.map((l) => T(l.x, l.z)) }) });
+  return foodTown(ticks, 400, 200, {
+    then: (at) => {
+      at(OVERHUNT_AT, { type: 'build', kind: 'lodge', at: OVERHUNT_LODGES.map((l) => T(l.x, l.z)) });
+      moreOffices(at, OVERHUNT_AT);
+    },
+  });
 }
 
 /**
@@ -518,7 +538,7 @@ const TOWN_TICKS = 8400;
 /** How long before #town opens its taxes go back to fair (moods settle within a month). */
 const FAIR_AGAIN = 600;
 /** How long before #town opens the newest plots go down at the hamlet's end (so a few are still tents). */
-const NEWEST = 300;
+const NEWEST = 330;
 /** The longest #town's builder waits for the money for what goes in next. */
 const AFFORD_WAIT = 2400;
 /** #town's tax offices: one on the main street at the west end of the core… */
@@ -579,8 +599,42 @@ interface Safety {
 }
 const SAFE: Safety = { watch: TOWN_WATCH, architects: TOWN_ARCHITECTS };
 
-function town(ticks: number, safety: Safety = SAFE): (sim: Sim) => void {
+/**
+ * #richtown (slice 14): #town's history carried on, as its builder would
+ * carry it on once the hamlet is in. A road down to the bay (the one #quay
+ * lays) and a lane along the sunny slope above the quay, with three vineyards
+ * on it, a winery and a storehouse across it by the quay, and wine stalls at
+ * both agoras (the fine houses become villas); then the trading post at the
+ * foot of the road, with every good ticked for sale (the town keeping what it
+ * needs), and a watch post and an architect's office by the road. It opens at
+ * the first of the ship's visits after RICH_MIN, RICH_IN ticks into her way
+ * in, so her sail is crossing the bay; its taxes stay heavy until FAIR_AGAIN
+ * before that.
+ */
+const QUAY_ROAD = col(74, 42, 68);
+const QUAY_ROAD_LEN = QUAY_ROAD.length;
+const QUAY_POST = { x: 73, z: 69 };
+const RICH_WINE_AT = 4800;
+const RICH_LANE = row(75, 89, 68);
+const RICH_VINEYARDS = [
+  { x: 80, z: 69 },
+  { x: 83, z: 69 },
+  { x: 86, z: 69 },
+];
+const RICH_WINERY = { x: 80, z: 65 };
+const RICH_STORE = { x: 76, z: 65 };
+const RICH_WINE_COST = QUAY_ROAD_LEN * ROAD_COST + RICH_LANE.length * ROAD_COST + 3 * VINEYARD_COST + WINERY_COST + STOREHOUSE_COST + 2 * STALL_COST + (3 * JOBS.vineyard + JOBS.winery + JOBS.storehouse + 2) * WAGE;
+const RICH_WATCH = { x: 72, z: 61 };
+const RICH_ARCHITECT = { x: 72, z: 57 };
+/** How long after its wine chain goes in #richtown opens (time for the first vintage to reach the fine houses and most of them to become villas), and how far into the ship's way in (of SAIL_IN). */
+const RICH_VILLAS = 1900;
+/** #richtown's watch posts and architects' offices go in a month before it opens, so their walkers are out on their rounds. */
+const RICH_LEAD = TICKS_PER_MONTH;
+const RICH_IN = 120;
+
+function town(opening: number, safety: Safety = SAFE, rich = false): (sim: Sim) => void {
   return (sim) => {
+    let ticks = opening;
     const at: At = (t, c) => {
       if (sim.state.tick < t) sim.run(t - sim.state.tick);
       sim.enqueue(c);
@@ -647,15 +701,46 @@ function town(ticks: number, safety: Safety = SAFE): (sim: Sim) => void {
     afford(4500, 410 + JOBS.fountain * WAGE);
     at(4500, {
       type: 'plots',
-      at: [...along([8, 10, 12, 14, 16, 18, 20, 22], 48), ...along([10, 12, 14, 16, 18, 20, 22], 51), ...col(24, 42, 42), T(24, 44), T(24, 46), T(27, 42), T(27, 44), T(27, 48)],
+      // (#richtown's builder leaves out its back row: its people are to go into villas.)
+      at: [...along([8, 10, 12, 14, 16, 18, 20, 22], 48), ...(rich ? [] : along([10, 12, 14, 16, 18, 20, 22], 51)), ...col(24, 42, 42), T(24, 44), T(24, 46), T(27, 42), T(27, 44), T(27, 48)],
     });
     at(4500, { type: 'fountain', at: [T(27, 46)] });
-    at(ticks - NEWEST, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
+    if (rich) ticks = bayQuarter(sim, at, afford);
+    // (#richtown has no room for them: its people go into its villas.)
+    if (!rich) at(ticks - NEWEST, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
     at(ticks - FAIR_AGAIN, { type: 'tax', rate: FAIR });
-    if (safety.watch.length) at(ticks - OFFICE_LEAD, { type: 'build', kind: 'watchpost', at: safety.watch.map((p) => T(p.x, p.z)) });
-    if (safety.architects.length) at(ticks - OFFICE_LEAD, { type: 'build', kind: 'architect', at: safety.architects.map((p) => T(p.x, p.z)) });
+    const lead = rich ? RICH_LEAD : OFFICE_LEAD;
+    const watch = [...safety.watch, ...(rich ? [RICH_WATCH] : [])];
+    const architects = [...safety.architects, ...(rich ? [RICH_ARCHITECT] : [])];
+    if (watch.length) at(ticks - lead, { type: 'build', kind: 'watchpost', at: watch.map((p) => T(p.x, p.z)) });
+    if (architects.length) at(ticks - lead, { type: 'build', kind: 'architect', at: architects.map((p) => T(p.x, p.z)) });
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
+    if (rich) {
+      // In case her schedule moved: on to the moment she is RICH_IN into her way in.
+      const ship = sim.state.trade.ship;
+      const end = sim.state.tick + 2 * SHIP_EVERY;
+      while (sim.state.tick < end && !(ship.phase === SHIP_COMING && sim.state.tick - ship.since >= RICH_IN)) sim.step();
+    }
   };
+}
+
+/** #richtown's bay quarter and trading post (see RICH_WINE_AT); returns when the town opens. */
+function bayQuarter(sim: Sim, at: At, afford: (t: number, cost: number) => void): number {
+  const s = sim.state;
+  afford(RICH_WINE_AT, RICH_WINE_COST);
+  const wine = s.tick;
+  at(s.tick, { type: 'road', tiles: [...QUAY_ROAD, ...RICH_LANE] });
+  at(s.tick, { type: 'build', kind: 'vineyard', at: RICH_VINEYARDS.map((v) => T(v.x, v.z)) });
+  at(s.tick, { type: 'build', kind: 'winery', at: [T(RICH_WINERY.x, RICH_WINERY.z)] });
+  at(s.tick, { type: 'build', kind: 'storehouse', at: [T(RICH_STORE.x, RICH_STORE.z)] });
+  at(s.tick, { type: 'stall', at: T(65, 42), good: WINE });
+  at(s.tick, { type: 'stall', at: T(97, 42), good: WINE });
+  // The post, timed so the ship's first visit comes as the villas rise (later if the money is late).
+  afford(wine + RICH_VILLAS - (FIRST_SHIP - SAIL_IN + RICH_IN), TRADING_COST + JOBS.trading * WAGE);
+  at(s.tick, { type: 'build', kind: 'trading', at: [T(QUAY_POST.x, QUAY_POST.z)] });
+  for (const good of TRADE_GOODS) at(s.tick, { type: 'trade', good, sell: true });
+  // Her first visit is due FIRST_SHIP from now (the post is built on the next tick): the town opens RICH_IN into her way in.
+  return s.tick + 1 + FIRST_SHIP - SAIL_IN + RICH_IN;
 }
 
 /**
@@ -825,8 +910,6 @@ function drivenOut(s: SimState): number {
  * treasury runs dry and wages go unpaid; it opens as her sail shows, the
  * quay stacked.
  */
-const QUAY_ROAD = col(74, 42, 68);
-const QUAY_POST = { x: 73, z: 69 };
 const TRADE_AFTER = 4 * TICKS_PER_MONTH;
 const TRADE_SELL = [WHEAT, MEAT, CHEESE, OIL];
 /** #black sells everything, keeping less: wheat 800, meat, cheese and oil 200 (fleece and wine as usual). */
@@ -950,6 +1033,8 @@ const SCENES: Record<string, Demo> = {
   sail: { view: 'sail', setup: tradeTown('sail'), overlay: 'food' },
   ship: { view: 'ship', setup: tradeTown('ship'), overlay: 'food' },
   black: { view: 'quay', speed: 'paused', setup: tradeTown('black'), overlay: 'food', ledger: true },
+  richtown: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
+  richstreet: { view: 'richstreet', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -34,7 +34,7 @@ import { rateOf } from './labour';
 import { roadSearch, tracePath, type Search } from './roads';
 import { door, endRound, headHome, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import { TILE_ROAD, type Building, type BuildingKind, type SimState, type Walker } from './state';
-import { besideRoad, centre, COLLECTOR_SPEED, position, RUN_SPEED, setPath } from './walk';
+import { besideRoad, centre, PATROL_SPEED, position, RUN_SPEED, setPath } from './walk';
 import { restFor } from './water';
 
 /** Fire risk and wear run from 0 to this. */
@@ -266,7 +266,7 @@ export const WATCH: ServiceSpec = {
   record: (s) => s.rounds.fire,
   range: WATCH_RANGE,
   walk: WATCH_WALK,
-  speed: COLLECTOR_SPEED,
+  speed: PATROL_SPEED,
   score: smoulderScore,
   due: (b) => (b.fire === FIRE_SMOULDER ? b.fireAt : Infinity),
   serve(s: SimState, size: number, t: number) {
@@ -287,12 +287,12 @@ export const burning = (s: SimState): Building[] => s.buildings.filter((b) => b.
  * reach from road tile `from` within DASH_MAX, with the road search out from
  * it; null if none.
  */
-export function fireInSight(s: SimState, size: number, here: [number, number], from: number): { fire: Building; search: Search } | null {
+export function fireInSight(s: SimState, size: number, here: [number, number], from: number, which = FIRE_BURNING): { fire: Building; search: Search } | null {
   if (from < 0 || s.tiles[from] !== TILE_ROAD) return null;
   let best: { fire: Building; search: Search } | null = null;
   let bd = Infinity;
   for (const f of s.buildings) {
-    if (f.fire !== FIRE_BURNING) continue;
+    if (f.fire !== which) continue;
     const [cx, cz] = centreOf(f);
     if (Math.hypot(cx - here[0], cz - here[1]) > WATCH_SIGHT) continue;
     const roads = roadsBeside(s, size, f);
@@ -330,10 +330,10 @@ function dashTo(size: number, w: Walker, fire: Building, search: Search, from: n
   w.back = false;
 }
 
-/** Look round for flames from where he is; run to the nearest he can see. */
-function lookForFire(s: SimState, size: number, w: Walker): boolean {
+/** Look round for flames (or, with `which`, smoke) from where he is; run to the nearest he can see. */
+function lookForFire(s: SimState, size: number, w: Walker, which = FIRE_BURNING): boolean {
   const from = roadUnder(s, w);
-  const got = fireInSight(s, size, position(w), from);
+  const got = fireInSight(s, size, position(w), from, which);
   if (!got) return false;
   dashTo(size, w, got.fire, got.search, from);
   return true;
@@ -366,15 +366,27 @@ export function moveWatchman(s: SimState, map: CoastMap, w: Walker): boolean {
   const post = findBuilding(s, w.origin);
   if (!post || post.kind !== 'watchpost') return false;
   const fire = findBuilding(s, w.target);
+  // Once a fire is out: on to the next he can see, else to a smoulder he can see (where there was one fire there is
+  // often another about to start), else home.
   const after = (): boolean => {
     w.target = 0;
     w.wait = 0;
-    if (lookForFire(s, size, w)) return true;
+    if (lookForFire(s, size, w) || lookForFire(s, size, w, FIRE_SMOULDER)) return true;
     const from = roadUnder(s, w);
     if (from >= 0 && headHome(s, size, w, post, from, position(w))) return true;
     return endRound(WATCH, post);
   };
-  if (!fire || fire.fire !== FIRE_BURNING) return after();
+  if (!fire || (fire.fire !== FIRE_BURNING && fire.fire !== FIRE_SMOULDER)) return after();
+  // At a smoulder's door: put out at once.
+  const arrive = (): boolean => {
+    if (fire.fire === FIRE_SMOULDER) {
+      putOut(fire);
+      s.rev++;
+      return after();
+    }
+    w.wait = FIGHT_TICKS;
+    return true;
+  };
   if (w.wait > 0) {
     if (--w.wait > 0) return true;
     putOut(fire);
@@ -386,10 +398,7 @@ export function moveWatchman(s: SimState, map: CoastMap, w: Walker): boolean {
   let move = DASH_SPEED;
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
-    if (w.seg >= last) {
-      w.wait = FIGHT_TICKS;
-      return true;
-    }
+    if (w.seg >= last) return arrive();
     const next = w.tiles[w.seg + 1];
     if (next >= 0 && s.tiles[next] !== TILE_ROAD) return after();
     const i = w.seg * 2;
@@ -405,11 +414,11 @@ export function moveWatchman(s: SimState, map: CoastMap, w: Walker): boolean {
     w.along = 0;
     const t = w.tiles[w.seg];
     if (t >= 0) {
-      WATCH.serve(s, size, t, w);
+      WATCH.serve(s, size, t, w, map);
       walked[t] = s.tick;
     }
   }
-  if (w.seg >= w.path.length / 2 - 1) w.wait = FIGHT_TICKS;
+  if (w.seg >= w.path.length / 2 - 1) return arrive();
   return true;
 }
 
@@ -429,7 +438,7 @@ export const INSPECT: ServiceSpec = {
   record: (s) => s.rounds.wear,
   range: INSPECT_RANGE,
   walk: INSPECT_WALK,
-  speed: COLLECTOR_SPEED,
+  speed: PATROL_SPEED,
   score: creakScore,
   due: (b) => (b.creakAt > 0 ? b.creakAt : Infinity),
   serve(s: SimState, size: number, t: number) {

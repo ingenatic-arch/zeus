@@ -50,7 +50,7 @@ import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
-import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxOf } from './taxes';
+import { COLLECTOR_RANGE, COLLECTOR_WALK, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
 import { clearFee } from './build';
 import { districtAt, districtTitle } from '../map/districts';
@@ -135,7 +135,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
 /** What a home pays the tax collector, or why he doesn't call. */
 export function taxLine(s: SimState, map: CoastMap, b: Building): string {
   if (b.kind !== 'home' || b.level === 0 || b.people === 0) return '';
-  const would = taxOf(s.taxRate, b.level);
+  const would = taxFor(s, b);
   const rate = TAX_RATES[s.taxRate];
   if (taxedLately(s, b) && b.taxPaid > 0) return `Taxes: paid the tax collector ${b.taxPaid} dr ${days(s.tick - b.taxedAt)} ago (${rate})`;
   if (would === 0) return 'Taxes: none to pay, the rate is none';

@@ -20,10 +20,17 @@ export const MAX_SETTLER_GROUPS = 30;
  * homes the road reaches and the share of lived-in homes with water: more room
  * and more water bring people sooner.
  */
-export function arrivalInterval(room: number, water: number): number {
+export function arrivalInterval(room: number, water: number, harsh = false): number {
   const t = Math.round(SETTLER_INTERVAL / (1 + room / 30 + 1.2 * water));
-  return Math.max(SETTLER_INTERVAL_MIN, Math.min(SETTLER_INTERVAL, t));
+  return Math.max(SETTLER_INTERVAL_MIN, Math.min(SETTLER_INTERVAL, t)) * (harsh ? HARSH_SLOWER : 1);
 }
+
+/** While taxes are harsh, word gets about: newcomers come this many times more slowly. */
+export const HARSH_SLOWER = 3;
+/** Are taxes harsh (newcomers stay away)? */
+const harshNow = (s: SimState): boolean => s.taxRate >= HARSH_RATE;
+/** The harsh rate (taxes.ts's HARSH; not imported from there, which imports this module). */
+const HARSH_RATE = 4;
 
 /** How many groups may be on the road at once, given the free room they could fill. */
 export function maxGroups(room: number): number {
@@ -92,7 +99,7 @@ export function spawnSettlers(s: SimState, map: CoastMap): void {
   const search = roadSearch(s, size, edges);
   const room = reachableRoom(s, size, search);
   if (room === 0) return;
-  s.settlerClock = arrivalInterval(room, waterShare(s));
+  s.settlerClock = arrivalInterval(room, waterShare(s), harshNow(s));
   let groups = 0;
   for (const w of s.walkers) if (w.kind === 'settler') groups++;
   if (groups >= maxGroups(room)) return;
@@ -120,15 +127,18 @@ export interface Outlook {
   water: number;
   /** Ticks between groups of newcomers. */
   interval: number;
+  /** Harsh taxes keep newcomers away. */
+  harsh: boolean;
 }
 
 export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
   const size = map.size;
   const edges = edgeRoads(s, size);
   const water = waterShare(s);
-  if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL };
+  const harsh = harshNow(s);
+  if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL, harsh };
   const room = reachableRoom(s, size, roadSearch(s, size, edges));
-  return { road: true, room, water, interval: arrivalInterval(room, water) };
+  return { road: true, room, water, interval: arrivalInterval(room, water, harsh), harsh };
 }
 
 /**

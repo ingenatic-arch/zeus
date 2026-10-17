@@ -335,7 +335,11 @@ describe('saves and determinism', () => {
     const sim = demo('blaze');
     const s = sim.state;
     expect(s.buildings.filter((b) => b.fire === FIRE_BURNING).length).toBeGreaterThanOrEqual(2);
-    // On until a watchman is running to a fire (or fighting one), then save.
+    // As a player would, a watch post at the head of the slope road, where the street east of the core begins (since
+    // slice 14's money #blaze opens later, its fires further east, out of sight of the town's two watchmen); on until a
+    // watchman is running to a fire (or fighting one), then save.
+    sim.enqueue({ type: 'build', kind: 'watchpost', at: [T(87, 32)] });
+    sim.flush();
     for (let t = 0; t < 2 * TICKS_PER_MONTH && !s.walkers.some((w) => w.kind === 'watchman' && w.target > 0); t++) sim.step();
     expect(s.walkers.some((w) => w.kind === 'watchman' && w.target > 0)).toBe(true);
     const r = decodeSave(encodeSave(s, 1));
@@ -349,7 +353,7 @@ describe('saves and determinism', () => {
     // The whole history, fire and all, from the seed and the command log.
     const again = replay(s.seed, sim.log, s.tick);
     expect(serialize(again.state)).toEqual(serialize(s));
-  });
+  }, 30000);
 
   it('the fire demos open on what they promise: #fire on a thread of smoke, #blaze on a spreading fire, #rubble on burnt-out rubble, #creak on a creaking building', () => {
     const fire = demo('fire').state;

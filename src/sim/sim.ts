@@ -62,6 +62,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     arrived: 0,
     left: 0,
     trade: freshTrade(),
+    taxGone: [],
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;

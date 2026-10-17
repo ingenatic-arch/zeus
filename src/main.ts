@@ -456,6 +456,10 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 11 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · Merchant ships now call: build a trading post (G ×3) on the bay shore where deep water comes close, and sell your spare wheat, meat, cheese, oil, fleece and wine.';
     }
+    // …and one saved before slice 14's money: the taxes and harsh rates changed.
+    if (loaded.from !== undefined && loaded.from <= 12 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0)) {
+      changed += ' · Taxes are retuned: the finer houses pay more, and harsh taxes now drive whole households out and keep newcomers away. Collectors are paid first when money runs short.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 

@@ -20,9 +20,12 @@ export const SAVE_FORMAT = 'zeus-remake-save';
 /**
  * Bump when the envelope changes. The state inside has its own version
  * (SIM_STATE_VERSION). 2: the round records (where each kind of walker has
- * been, a number per tile, mostly nothing) are packed as runs. 1 is still read.
+ * been, a number per tile, mostly nothing) are packed as runs. 3: every list
+ * of records (buildings, walkers, family members and their stories, herds…)
+ * is packed as rows of values against a shared table of key lists (see
+ * packTables), and the tiles as runs. 1 and 2 are still read.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** The autosave, and the save made by hand. */
 export type Slot = 'auto' | 'manual';
@@ -133,8 +136,67 @@ export function labelOf(s: SimState): SaveLabel {
 export function encodeSave(s: SimState, savedAt: number, view?: SavedView): string {
   const rounds: Record<string, { walked: number[]; exits: number[] }> = {};
   for (const k of Object.keys(s.rounds) as Round[]) rounds[k] = { walked: packRuns(s.rounds[k].walked), exits: packRuns(s.rounds[k].exits) };
-  const file = { format: SAVE_FORMAT, save: SAVE_VERSION, label: labelOf(s), savedAt, view, state: { ...s, rounds } };
+  const shapes: string[][] = [];
+  const state = packTables({ ...s, rounds, tiles: packRuns(s.tiles) }, shapes, new Map());
+  const file = { format: SAVE_FORMAT, save: SAVE_VERSION, label: labelOf(s), savedAt, view, shapes, state };
   return JSON.stringify(file);
+}
+
+/** The key that marks a packed list of records (no record in the state has it). */
+const ROWS = '$rows';
+
+/**
+ * A value as it goes into a save, losslessly smaller: every list of records
+ * (plain objects) becomes { $rows: [[shape, value, value, …], …] }, each row
+ * the record's values in the order of its keys, its key list kept once in
+ * `shapes` (shared by every record with the same keys in the same order).
+ * Values are packed in turn. Keys whose value is undefined are dropped, as
+ * JSON drops them. unpackTables undoes it.
+ */
+export function packTables(v: unknown, shapes: string[][], ids: Map<string, number>): unknown {
+  if (Array.isArray(v)) {
+    if (v.length > 0 && v.every(isObj)) {
+      return {
+        [ROWS]: v.map((o) => {
+          const keys = Object.keys(o).filter((k) => o[k] !== undefined);
+          const sig = keys.join('\u0000');
+          let id = ids.get(sig);
+          if (id === undefined) {
+            id = shapes.length;
+            shapes.push(keys);
+            ids.set(sig, id);
+          }
+          return [id, ...keys.map((k) => packTables(o[k], shapes, ids))];
+        }),
+      };
+    }
+    return v.map((x) => packTables(x, shapes, ids));
+  }
+  if (isObj(v)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) if (x !== undefined) out[k] = packTables(x, shapes, ids);
+    return out;
+  }
+  return v;
+}
+
+/** A packed value back (see packTables), or throws if its rows don't fit the shapes. */
+export function unpackTables(v: unknown, shapes: readonly (readonly string[])[]): unknown {
+  if (Array.isArray(v)) return v.map((x) => unpackTables(x, shapes));
+  if (!isObj(v)) return v;
+  const rows = v[ROWS];
+  if (Array.isArray(rows) && Object.keys(v).length === 1) {
+    return rows.map((r) => {
+      if (!Array.isArray(r) || !Number.isInteger(r[0]) || !shapes[r[0]] || shapes[r[0]].length !== r.length - 1) throw new Error('bad row');
+      const keys = shapes[r[0]];
+      const o: Record<string, unknown> = {};
+      for (let i = 0; i < keys.length; i++) o[keys[i]] = unpackTables(r[i + 1], shapes);
+      return o;
+    });
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v)) out[k] = unpackTables(x, shapes);
+  return out;
 }
 
 /** A long list of numbers, mostly runs of the same one, as [value, count, value, count, …]. */
@@ -190,6 +252,22 @@ export function decodeSave(text: string | null): Decoded {
   }
   if (!isObj(data) || data.format !== SAVE_FORMAT) return { ok: false, why: 'This isn’t a saved town from this game.' };
   if (typeof data.save !== 'number' || data.save > SAVE_VERSION) return { ok: false, why: `This save was made by a newer version of the game (save format ${String(data.save)}), so this one can’t open it.` };
+  if (data.save >= 3) {
+    const shapes = data.shapes;
+    const bad = { ok: false as const, why: 'This save is damaged (its lists of buildings, walkers and families are wrong), so it can’t be opened.' };
+    if (!Array.isArray(shapes) || !shapes.every(strs)) return bad;
+    try {
+      data.state = unpackTables(data.state, shapes as string[][]);
+    } catch {
+      return bad;
+    }
+    // The tiles are packed as runs too.
+    if (isObj(data.state)) {
+      const tiles = unpackRuns(data.state.tiles, MAP_SIZE * MAP_SIZE);
+      if (!tiles) return { ok: false, why: 'This save is damaged (its map of roads and buildings is wrong), so it can’t be opened.' };
+      data.state.tiles = tiles;
+    }
+  }
   if (data.save >= 2) {
     const bad = unpackRounds(data.state);
     if (bad) return { ok: false, why: bad };
@@ -283,6 +361,7 @@ export function stateProblem(st: unknown): string {
   }
   if (!Array.isArray(st.undo)) return damaged('its undo list is missing');
   if (!tradeOk(st.trade)) return damaged('its trading post’s record is wrong');
+  if (!nums(st.taxGone)) return damaged('its record of households driven out by taxes is wrong');
   return '';
 }
 

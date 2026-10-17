@@ -60,7 +60,9 @@ describe('#town', () => {
     // It is not the walkers' routing (unchanged); slice 7's history had 12. Since slice 10's history (three
     // wheat farms, an oil chain up the slope from the north street's east end), the two homes at the core's far
     // east end also run a few days past their water a few times (59 home-days): 141 in all, none down a level.
-    expect(warnedDays).toBeLessThan(160);
+    // Since slice 14's money (two more tax offices go in earlier, so the town is bigger sooner and its newest
+    // plots go down a month earlier), the same far ends run a few days more: 261, still none down a level.
+    expect(warnedDays).toBeLessThan(300);
   });
 });
 

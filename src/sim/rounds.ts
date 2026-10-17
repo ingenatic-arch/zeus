@@ -34,8 +34,8 @@ export interface ServiceSpec {
   due: NeedDue;
   /** Scores and dues that depend on what her building has to give (the food vendor's stall); `score` and `due` if absent. */
   scoreFor?(b: Building): { score: NeedScore; due: NeedDue };
-  /** Serve the homes beside road tile `t`. */
-  serve(s: SimState, size: number, t: number, w: Walker): void;
+  /** Serve the homes beside road tile `t` (of `map`). */
+  serve(s: SimState, size: number, t: number, w: Walker, map: CoastMap): void;
   /** Ticks her building waits after she is back (or lost) before sending the next. */
   rest(b: Building): number;
   /** Whatever she does when her round is over (back, or lost): the tax collector hands in his satchel. */
@@ -237,7 +237,7 @@ export function moveRounds(s: SimState, map: CoastMap, w: Walker, spec: ServiceS
     // Road she hasn't walked yet this round counts towards her round; going back over it hardly does.
     const fresh = t >= 0 && !w.trail.includes(t);
     if (t >= 0) {
-      spec.serve(s, size, t, w);
+      spec.serve(s, size, t, w, map);
       walked[t] = s.tick;
       if (fresh) w.trail.push(t);
     }

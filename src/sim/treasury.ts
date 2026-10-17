@@ -115,13 +115,19 @@ export function stepWages(s: SimState): void {
   settle(s);
 }
 
-/** Pay the wages still owed, in building order, each workplace in full or not at all. */
+/**
+ * Pay the wages still owed, each workplace in full or not at all: the tax
+ * offices first (so their collectors keep their pace while money is short,
+ * and the town gets back on its feet sooner), then the rest in building order.
+ */
 export function settle(s: SimState): void {
-  for (const b of s.buildings) {
-    if (b.owed <= 0) continue;
-    if (payable(s) < b.owed) continue;
-    pay(s, -b.owed, 'wages', b.kind, b.owed / WAGE);
-    b.owed = 0;
+  for (let pass = 0; pass < 2; pass++) {
+    for (const b of s.buildings) {
+      if (b.owed <= 0 || (b.kind === 'taxoffice') !== (pass === 0)) continue;
+      if (payable(s) < b.owed) continue;
+      pay(s, -b.owed, 'wages', b.kind, b.owed / WAGE);
+      b.owed = 0;
+    }
   }
 }
 

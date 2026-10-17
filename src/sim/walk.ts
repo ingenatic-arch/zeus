@@ -15,25 +15,30 @@ export const CART_SPEED = 0.09;
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
-/** The tax collector walks half as fast again (see taxes.ts, which says why). */
-export const COLLECTOR_SPEED = CARRIER_SPEED * 1.5;
+/** The watchman and the inspector walk half as fast again as the others (see hazards.ts). */
+export const PATROL_SPEED = CARRIER_SPEED * 1.5;
+
+/** The tax collector walks at the same pace (see taxes.ts, which says why). */
+export const COLLECTOR_SPEED = PATROL_SPEED;
 
 /** The trading post's dockers walk at the collector's pace with their handcarts (the stores can be far from the shore: see trade.ts). */
 export const DOCKER_SPEED = COLLECTOR_SPEED;
 
 /** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
-export const RUN_SPEED = COLLECTOR_SPEED * 1.6;
+export const RUN_SPEED = PATROL_SPEED * 1.6;
 
 export const speedOf = (w: Walker): number =>
   w.kind === 'cart'
     ? CART_SPEED
     : w.kind === 'watchman' && w.target > 0
       ? RUN_SPEED
-      : w.kind === 'tax' || w.kind === 'watchman' || w.kind === 'inspector' || w.kind === 'docker'
+      : w.kind === 'tax' || w.kind === 'docker'
         ? COLLECTOR_SPEED
-        : isRoundsWalker(w.kind)
-          ? CARRIER_SPEED
-          : WALK_SPEED;
+        : w.kind === 'watchman' || w.kind === 'inspector'
+          ? PATROL_SPEED
+          : isRoundsWalker(w.kind)
+            ? CARRIER_SPEED
+            : WALK_SPEED;
 
 /** A hunter walks at the settlers' pace, across country. */
 export const HUNTER_SPEED = WALK_SPEED;

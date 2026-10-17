@@ -1,7 +1,7 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 12;
+export const SIM_STATE_VERSION = 13;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -421,6 +421,8 @@ export interface SimState {
   left: number;
   /** What the trading post sells and keeps, and the merchant ship (see trade.ts). */
   trade: Trade;
+  /** When households left the city whole for harsh taxes (ticks, the last year's; see stepHarsh in taxes.ts). */
+  taxGone: number[];
 }
 
 /**

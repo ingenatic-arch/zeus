@@ -185,7 +185,7 @@ describe('carts, the storehouse, the stall and its vendor', () => {
     const w = { origin: a.id } as Parameters<typeof OIL_ROUND.serve>[3];
     // Every other home beside that road is full already.
     for (const h of homes(s)) if (h !== b) h.goodsUntil[gi(OIL)] = s.tick + OIL_LASTS;
-    OIL_ROUND.serve(s, N, roadsBeside(s, N, b)[0], w);
+    OIL_ROUND.serve(s, N, roadsBeside(s, N, b)[0], w, coastMap());
     expect(b.goodsUntil[gi(OIL)]).toBe(s.tick + OIL_LASTS);
     expect(500 - held(a, OIL)).toBe(Math.ceil((b.people * OIL_LASTS) / (TICKS_PER_MONTH * OIL_PEOPLE)));
   });

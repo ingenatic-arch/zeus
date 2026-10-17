@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-import { decodeSave, encodeSave, packRuns, SafeStorage, Saves, unpackRuns, type KeyValueStore } from '../src/game/saves';
+import { decodeSave, encodeSave, packRuns, packTables, SAVE_FORMAT, SafeStorage, Saves, unpackRuns, unpackTables, type KeyValueStore } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import { townLines } from '../src/sim/status';
@@ -16,7 +16,7 @@ import { FAIR } from '../src/sim/taxes';
 import { MAP_SIZE } from '../src/map/coast';
 import { serialize, Sim } from '../src/sim/sim';
 import { OLDEST_READABLE } from '../src/sim/migrate';
-import { SIM_STATE_VERSION } from '../src/sim/state';
+import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
 
@@ -45,6 +45,10 @@ class Memory implements KeyValueStore {
     this.data.delete(k);
   }
 }
+
+/** A save as envelope 1 wrote it: the state as it is, nothing packed. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const plainFile = (s: SimState): { format: string; save: number; savedAt: number; state: Record<string, any> } => ({ format: SAVE_FORMAT, save: 1, savedAt: 3, state: JSON.parse(JSON.stringify(s)) });
 
 /** Save through the whole envelope and load back into a fresh Sim. */
 function reload(a: Sim): Sim {
@@ -147,19 +151,73 @@ describe('saves from before', () => {
     expect(saves.newest()).toBe('manual');
   });
 
-  it('a save written before round records were packed (envelope 1) still opens', () => {
+  it('a save written before round records were packed (envelope 1), or before lists of records were (envelope 2), still opens', () => {
     const s = demo('food').state;
-    const f = JSON.parse(encodeSave(s, 3));
-    f.save = 1;
-    f.state.rounds = JSON.parse(JSON.stringify(s.rounds));
-    const r = decodeSave(JSON.stringify(f));
+    const r = decodeSave(JSON.stringify(plainFile(s)));
     if (!r.ok) throw new Error(r.why);
     expect(serialize(r.file.state)).toEqual(serialize(s));
+    const two = plainFile(s);
+    two.save = 2;
+    const rounds: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(s.rounds)) rounds[k] = { walked: packRuns(v.walked), exits: packRuns(v.exits) };
+    two.state.rounds = rounds;
+    const r2 = decodeSave(JSON.stringify(two));
+    if (!r2.ok) throw new Error(r2.why);
+    expect(serialize(r2.file.state)).toEqual(serialize(s));
   });
 
-  it('#town saves at under half its phase 1 size, the round records packed as runs', () => {
+  it('envelope 3 packs every list of records as rows against a table of key lists, losslessly, and the tiles as runs: #town saves in about half the space of slice 13 (258 KB)', () => {
+    const s = demo('town').state;
+    const text = encodeSave(s, 4);
+    expect(text.length).toBeLessThan(160_000);
+    const f = JSON.parse(text);
+    expect(f.save).toBe(3);
+    expect(Object.keys(f.state.buildings)).toEqual(['$rows']);
+    const r = decodeSave(text);
+    if (!r.ok) throw new Error(r.why);
+    // The same keys in the same order come back.
+    expect(JSON.stringify(r.file.state)).toEqual(JSON.stringify(s));
+    expect(packTables([], [], new Map())).toEqual([]);
+    const shapes: string[][] = [];
+    const v = [{ a: 1, b: [{ c: 'x' }, { d: null }] }, { b: [], a: 2 }];
+    expect(unpackTables(packTables(v, shapes, new Map()), shapes)).toEqual(v);
+    expect(shapes.length).toBe(4);
+    // A row that doesn't fit its key list, or a missing table, is refused as damaged.
+    for (const brk of [(g: any) => g.state.buildings.$rows[0].pop(), (g: any) => delete g.shapes, (g: any) => (g.state.tiles = [0, 5])]) {
+      const g = JSON.parse(text);
+      brk(g);
+      const bad = decodeSave(JSON.stringify(g));
+      expect(bad.ok).toBe(false);
+      if (!bad.ok) expect(bad.why).toMatch(/damaged/);
+    }
+  });
+
+  it('a #harsh save from slice 13 (state version 12, envelope 2) loads, plays on under the new harsh rules, and saves again identically', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/slice13-harsh.save.json.gz')).toString();
+    const raw = JSON.parse(text);
+    expect([raw.save, raw.state.version, raw.state.taxRate]).toEqual([2, 12, 4]);
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    expect(got.file.from).toBe(12);
+    const st = got.file.state;
+    expect(st.version).toBe(SIM_STATE_VERSION);
+    expect(st.taxGone).toEqual([]);
+    const sim = new Sim();
+    sim.state = st;
+    sim.run(3 * TICKS_PER_MONTH);
+    expect(st.taxGone.length).toBeGreaterThan(0);
+    const r = decodeSave(encodeSave(st, 2));
+    if (!r.ok) throw new Error(r.why);
+    expect(r.file.from).toBeUndefined();
+    const again = new Sim();
+    again.state = r.file.state;
+    sim.run(600);
+    again.run(600);
+    expect(serialize(again.state)).toEqual(serialize(sim.state));
+  });
+
+  it('the round records are packed as runs', () => {
     const text = encodeSave(demo('town').state, 4);
-    expect(text.length).toBeLessThan(300_000);
     const a = [0, 0, 0, 5, 5, 7, 0, 0];
     expect(packRuns(a)).toEqual([0, 3, 5, 2, 7, 1, 0, 2]);
     expect(unpackRuns(packRuns(a), a.length)).toEqual(a);
@@ -175,7 +233,8 @@ describe('saves from before', () => {
 });
 
 describe('a save that can’t be read says why', () => {
-  const good = encodeSave(demo('streets').state, 5);
+  const streets = demo('streets').state;
+  const good = encodeSave(streets, 5);
 
   it('a save from another version of the state', () => {
     const f = JSON.parse(good);
@@ -226,7 +285,8 @@ describe('a save that can’t be read says why', () => {
       (st) => delete st.taxRate,
     ];
     for (const brk of breaks) {
-      const f = JSON.parse(good);
+      // (On a save's state as the game reads it: an envelope 1 file, nothing packed.)
+      const f = plainFile(streets);
       brk(f.state);
       const r = decodeSave(JSON.stringify(f));
       expect(r.ok, brk.toString()).toBe(false);

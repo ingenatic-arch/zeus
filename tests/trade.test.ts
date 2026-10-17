@@ -161,6 +161,35 @@ describe('the ship', () => {
     expect(ship.phase).toBe(SHIP_COMING);
   });
 
+  it('sails in at a pace you can watch (slice 14): on the horizon a while, crossing the bay at about half a tile a tick, slowing evenly to the jetty, never lurching', () => {
+    const sim = new Sim();
+    const s = sim.state;
+    const ship = s.trade.ship;
+    send(sim, { type: 'build', kind: 'trading', at: [T(POST.x, POST.z)] });
+    sim.step();
+    sim.run(ship.due - SAIL_IN - s.tick);
+    expect(ship.phase).toBe(SHIP_COMING);
+    const inMap = (p: { x: number; z: number }): boolean => p.x >= 0 && p.z >= 0 && p.x < N && p.z < N;
+    let prev = shipAt(ship, ship.since)!;
+    let pace = 0;
+    let inside = 0;
+    for (let t = ship.since + 1; t <= ship.due; t++) {
+      const at = shipAt(ship, t)!;
+      const v = Math.hypot(at.x - prev.x, at.z - prev.z);
+      if (inMap(at)) {
+        inside++;
+        expect(v).toBeLessThanOrEqual(0.55);
+      }
+      // Her pace changes by little from one tick to the next: she eases down from her pace at sea before the map's edge.
+      if (t > ship.since + 1) expect(Math.abs(v - pace)).toBeLessThan(0.1);
+      pace = v;
+      prev = at;
+    }
+    // In the map, in sight from the town, for more than ten days; the last tick before she ties up, nearly stopped.
+    expect(inside).toBeGreaterThan(10 * TICKS_PER_DAY);
+    expect(pace).toBeLessThan(0.1);
+  });
+
   it('turns back when the post is cleared, and none is due until another is built', () => {
     const sim = new Sim();
     const s = sim.state;
