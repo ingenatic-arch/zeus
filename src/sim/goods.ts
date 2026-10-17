@@ -3,7 +3,7 @@
  * they are saved in), and the agora's stalls that sell them.
  *
  * An agora can have a stall for a good beside its food stall (`stalls`, a bit
- * each), added from the build bar for a price and two more workers. The
+ * each), added from the build bar for a price and one more worker (STALL_JOBS). The
  * stall's porter fetches the good from the nearest store that has it (a
  * storehouse) when the stall is down to half, and its vendor walks the shared
  * round (rounds.ts) like the food vendor, from her own clock (`vclock`),
@@ -11,7 +11,7 @@
  * stall and a vendor so far; fleece and wine follow in slice 11.
  *
  * Oil: a home the oil vendor tops up has oil for six months; it costs a jar
- * a month for every five people. Cottages and better buy it; a townhouse
+ * a month for every six people. Cottages and better buy it; a townhouse
  * needs it (folk.ts).
  */
 import type { CoastMap } from '../map/bake';
@@ -22,7 +22,7 @@ import { FIRST_VENDOR, GOOD_PORTER_TAKE, GOOD_STALL_ROOM, nearestBy, portersOut,
 import { gi, held, OIL, setHeld, type Ware } from './foods';
 import { serviceDue, serviceScore } from './folk';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
-import type { Building, SimState, Walker } from './state';
+import type { Building, Service, SimState, Walker } from './state';
 import { isStore, roomOf } from './stores';
 import { besideRoad, CARRIER_SPEED, newWalker, setPath } from './walk';
 import { restFor } from './water';
@@ -56,52 +56,85 @@ export const goodUntil = (b: Building, w: Ware): number => b.goodsUntil[gi(w)];
 
 const near: Building[] = [];
 
-/** The oil vendor's round. */
-export const OIL_ROUND: ServiceSpec = {
-  record: (s) => s.rounds.oil,
-  range: VENDOR_RANGE,
-  walk: VENDOR_WALK,
-  speed: CARRIER_SPEED,
-  score: (b) => serviceScore(b, 'oil', usesOil(b)),
-  due: (b) => serviceDue(b, 'oil'),
-  serve(s: SimState, size: number, t: number, w: Walker) {
-    const a = findBuilding(s, w.origin);
-    if (!a || !hasStall(a, OIL)) return;
-    let have = held(a, OIL);
-    if (have <= 0) return;
-    const k = gi(OIL);
-    const full = s.tick + OIL_LASTS;
-    let changed = false;
-    for (const b of besideRoad(s, size, t, near)) {
-      if (!usesOil(b)) continue;
-      const until = b.goodsUntil[k];
-      if (until >= full) continue;
-      const from = Math.max(until, s.tick);
-      const cost = Math.ceil((b.people * (full - from)) / (TICKS_PER_MONTH * OIL_PEOPLE));
-      if (cost <= have) {
-        b.goodsUntil[k] = full;
-        have -= cost;
-      } else {
-        b.goodsUntil[k] = from + Math.floor((have * TICKS_PER_MONTH * OIL_PEOPLE) / b.people);
-        have = 0;
-      }
-      changed = true;
-      if (have <= 0) break;
-    }
-    if (changed) {
-      setHeld(a, OIL, have);
-      s.looks++;
-    }
-  },
-  rest: (b) => restFor(b, VENDOR_REST),
-  rested: (b) => {
-    b.vclock[gi(OIL)] = restFor(b, VENDOR_REST);
-  },
+/**
+ * How the homes use each good that has a stall: who buys it, how long a
+ * vendor's top-up lasts, how many people a unit serves a month, and the
+ * service (round record and need) it is. Fleece and wine (slice 11) add a row
+ * each, with their vendor in STALL_VENDOR and their name in STALL_NAMES.
+ */
+export interface GoodUse {
+  uses(b: Building): boolean;
+  lasts: number;
+  people: number;
+  service: Service;
+}
+export const GOOD_USE: Partial<Record<Ware, GoodUse>> = {
+  [OIL]: { uses: usesOil, lasts: OIL_LASTS, people: OIL_PEOPLE, service: 'oil' },
 };
 
-/** Move the oil vendor one tick along. */
-export function moveOilVendor(s: SimState, map: CoastMap, w: Walker): boolean {
-  return moveRounds(s, map, w, OIL_ROUND, 'agora');
+/** A stall vendor's round for a good: she tops up every home that uses it beside her way, from her stall's stock. */
+function goodRound(good: Ware, use: GoodUse): ServiceSpec {
+  const k = gi(good);
+  return {
+    record: (s) => s.rounds[use.service],
+    range: VENDOR_RANGE,
+    walk: VENDOR_WALK,
+    speed: CARRIER_SPEED,
+    score: (b) => serviceScore(b, use.service, use.uses(b)),
+    due: (b) => serviceDue(b, use.service),
+    serve(s: SimState, size: number, t: number, w: Walker) {
+      const a = findBuilding(s, w.origin);
+      if (!a || !hasStall(a, good)) return;
+      let have = held(a, good);
+      if (have <= 0) return;
+      const full = s.tick + use.lasts;
+      let changed = false;
+      for (const b of besideRoad(s, size, t, near)) {
+        if (!use.uses(b)) continue;
+        const until = b.goodsUntil[k];
+        if (until >= full) continue;
+        const from = Math.max(until, s.tick);
+        const cost = Math.ceil((b.people * (full - from)) / (TICKS_PER_MONTH * use.people));
+        if (cost <= have) {
+          b.goodsUntil[k] = full;
+          have -= cost;
+        } else {
+          b.goodsUntil[k] = from + Math.floor((have * TICKS_PER_MONTH * use.people) / b.people);
+          have = 0;
+        }
+        changed = true;
+        if (have <= 0) break;
+      }
+      if (changed) {
+        setHeld(a, good, have);
+        s.looks++;
+      }
+    },
+    rest: (b) => restFor(b, VENDOR_REST),
+    rested: (b) => {
+      b.vclock[k] = restFor(b, VENDOR_REST);
+    },
+  };
+}
+
+/** Each stall good's vendor round. */
+export const STALL_ROUNDS: Partial<Record<Ware, ServiceSpec>> = {};
+for (const g of STALL_GOODS) {
+  const use = GOOD_USE[g];
+  if (use) STALL_ROUNDS[g] = goodRound(g, use);
+}
+/** The oil vendor's round. */
+export const OIL_ROUND: ServiceSpec = STALL_ROUNDS[OIL]!;
+
+/** The good a stall vendor (by walker kind) sells, or -1 if the kind is no stall vendor. */
+export const vendorGood = (kind: Walker['kind']): Ware => {
+  for (const g of STALL_GOODS) if (STALL_VENDOR[g] === kind) return g;
+  return -1;
+};
+
+/** Move a stall's vendor (the oil vendor; later the fleece and wine vendors) one tick along. */
+export function moveStallVendor(s: SimState, map: CoastMap, w: Walker): boolean {
+  return moveRounds(s, map, w, STALL_ROUNDS[vendorGood(w.kind)]!, 'agora');
 }
 
 /** Does any store in the city hold some of this good? */

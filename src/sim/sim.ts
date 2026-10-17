@@ -7,7 +7,7 @@ import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras } from './food';
 import { addComing, FIRST_GOOD, gi, held, isGood, noGoods, setHeld, WARE_NAMES, type Ware } from './foods';
-import { FIRST_STALL_VENDOR, hasStall, moveOilVendor, stallBit, stallPrice, stallRefusal, STALL_GOODS, STALL_NAMES, stallWalker, stepStalls } from './goods';
+import { FIRST_STALL_VENDOR, hasStall, moveStallVendor, stallBit, stallPrice, stallRefusal, STALL_GOODS, STALL_NAMES, stallWalker, stepStalls, vendorGood } from './goods';
 import { moveHunter } from './hunt';
 import { stepMakers } from './production';
 import { folkRng } from './folk';
@@ -564,8 +564,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
         ? moveCarrier(s, map, w)
         : w.kind === 'food'
           ? moveVendor(s, map, w)
-          : w.kind === 'oil'
-            ? moveOilVendor(s, map, w)
+          : vendorGood(w.kind) >= 0
+            ? moveStallVendor(s, map, w)
           : w.kind === 'priestess' || w.kind === 'actor'
             ? moveCulture(s, map, w)
             : w.kind === 'tax'

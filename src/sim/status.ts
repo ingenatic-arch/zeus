@@ -789,11 +789,23 @@ export function whyNoOil(s: SimState, map: CoastMap, b: Building): string {
   if (reaching.every((a) => held(a, OIL) <= 0)) {
     if (s.buildings.some((g) => g.kind === 'storehouse' && held(g, OIL) > 0)) return 'the oil stall is empty for now; its porter fetches jars from the storehouse';
     const press = s.buildings.find((p) => p.kind === 'press');
-    if (press && held(press, OLIVES) <= 0 && held(press, OIL) <= 0) return 'no oil has reached a storehouse yet: the press waits for olives from the groves';
+    if (press && held(press, OLIVES) <= 0 && held(press, OIL) <= 0) return `no oil has reached a storehouse yet: the press waits for olives from the groves${nextPicking(s)}`;
     return 'no oil has reached a storehouse yet';
   }
   if (goodUntil(b, OIL) > 0) return 'within reach of an oil stall, but the oil vendor has taken other turns lately';
   return 'within reach of an oil stall; the oil vendor hasn’t come this way yet';
+}
+
+/** When the groves' next olives are picked (" (the next picking is in about 20 days)"), or '' if no grove is being worked. */
+function nextPicking(s: SimState): string {
+  let soonest = Infinity;
+  for (const g of s.buildings) {
+    if (g.kind !== 'grove' || held(g, OLIVES) >= GROVE_STORE) continue;
+    const rate = rateOf(g);
+    if (rate > 0) soonest = Math.min(soonest, (OLIVE_GROW - g.growth) / rate);
+  }
+  if (s.walkers.some((w) => w.kind === 'cart' && w.food === OLIVES && !w.back)) return ' (a cart of olives is on its way to the press)';
+  return soonest < Infinity ? ` (the next picking is in about ${days(soonest)})` : '';
 }
 
 /** A home's oil, for cottages and better ('' for a cottage while the city has no oil stall and it has none). */

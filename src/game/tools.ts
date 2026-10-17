@@ -498,7 +498,7 @@ export class Tools {
     const lines = ['Its porter fetches jars of oil from a storehouse; its oil vendor sells to cottages and better nearby: a townhouse needs oil'];
     let warn = '';
     if (!s.buildings.some((b) => b.kind === 'storehouse')) warn = 'No storehouse yet: its porter would have nowhere to fetch oil from. Groves, an olive press and a storehouse (M, G) make it.';
-    this.tip.show([`Oil stall · ${fmt(cost)} dr · ${STALL_JOBS} more workers at the agora`, ...lines].join('\n'), sx, sy, false, warn);
+    this.tip.show([`Oil stall · ${fmt(cost)} dr · ${STALL_JOBS === 1 ? 'one more worker' : `${STALL_JOBS} more workers`} at the agora`, ...lines].join('\n'), sx, sy, false, warn);
     const at = this.hover;
     this.pending = () => this.send({ type: 'stall', at, good: OIL });
   }
@@ -594,6 +594,7 @@ export class Tools {
       else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the oil to a storehouse: build one too (G twice)');
     } else if (kind === 'storehouse') {
       lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil: the press’s carts bring them, and an agora’s oil porter fetches them`);
+      lines.push('Near the agora is best: the oil stall’s porter walks there and back for every load of jars');
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'agora' && b.stalls)) lines.push('An agora needs an oil stall to sell it: K twice, then click an agora');
     } else {

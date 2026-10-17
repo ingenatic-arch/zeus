@@ -119,7 +119,7 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     name: 'Storehouse',
     key: 'G G',
     cost: `${STOREHOUSE_COST} dr`,
-    hint: 'Click beside a road. Carts bring jars of oil here, and an agora’s oil porter fetches them for its stall.',
+    hint: 'Click beside a road, near the agora if you can. Carts bring jars of oil here, and the agora’s oil porter walks here to fetch them for its stall.',
   },
   stall: {
     name: 'Oil stall',

@@ -128,20 +128,23 @@ function vendor(mixed: boolean): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
-/** A jar of oil, standing, `h` tall, its foot at the origin: a round terracotta body, a narrow neck and a pale-green seal. */
+/**
+ * A jar of oil, standing, `h` tall, its foot at the origin: a round terracotta
+ * body, a narrow neck and a pale-green seal. Kept to few corners (about 170
+ * vertices): the oil cart carries six and the porter three, and every look in
+ * a merged mesh is padded to its biggest one (see looks.ts).
+ */
 export function oilJar(h: number, seal = true): TPart[] {
   const k = h / 0.15;
   const body = [
     new THREE.Vector2(0.0, 0),
-    new THREE.Vector2(0.025, 0.004),
-    new THREE.Vector2(0.055, 0.045),
-    new THREE.Vector2(0.05, 0.095),
-    new THREE.Vector2(0.022, 0.12),
-    new THREE.Vector2(0.02, 0.14),
+    new THREE.Vector2(0.045, 0.012),
+    new THREE.Vector2(0.055, 0.07),
+    new THREE.Vector2(0.022, 0.122),
     new THREE.Vector2(0.026, 0.15),
   ];
-  const parts: TPart[] = [{ geo: new THREE.LatheGeometry(body, 6).scale(k, k, k), color: PAL.oilJar }];
-  if (seal) parts.push({ geo: new THREE.CylinderGeometry(0.024 * k, 0.02 * k, 0.018 * k, 5).translate(0, 0.152 * k, 0), color: PAL.oilSeal });
+  const parts: TPart[] = [{ geo: new THREE.LatheGeometry(body, 5).scale(k, k, k), color: PAL.oilJar }];
+  if (seal) parts.push({ geo: new THREE.CylinderGeometry(0.024 * k, 0.02 * k, 0.018 * k, 4).translate(0, 0.152 * k, 0), color: PAL.oilSeal });
   return parts;
 }
 

@@ -380,7 +380,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     }
   } else if (b.level === COTTAGE) {
     if (oilUntil > s.tick) add(1, 'Oil for the lamps');
-    else if (cityHas(s).oil) add(0, 'The oil vendor doesn’t come this way');
+    else if (cityHas(s).oil) add(0, 'They’d like oil for the lamps');
   }
   // Plays: a fine house's need; a townhouse would like them, if there is a theatre.
   const plays = b.cultureUntil > s.tick;
