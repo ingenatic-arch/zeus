@@ -42,6 +42,10 @@ import { SaveMenu } from './ui/saveMenu';
 import { TownLines } from './ui/townlines';
 import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
+import { GreeceButton } from './ui/greeceButton';
+import type { GreeceMap } from './render/greece/index';
+import type { CityId } from './map/greece';
+import { DEFAULT_SEED } from './sim/sim';
 
 interface Probe {
   ready: boolean;
@@ -170,6 +174,12 @@ interface Probe {
   rates?: (open: boolean) => void;
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
+  /** Open or close the map of Greece (loading it the first time), optionally with a city's panel; and what it shows. */
+  greece?: (open: boolean, city?: string) => void;
+  greeceInfo?: () => Record<string, unknown>;
+  /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
+  greeceOpenMs?: number;
+  greeceBuildMs?: number;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0 };
@@ -187,7 +197,8 @@ function start(): void {
   // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
   districtGrid(map);
   probe.bakeMs = performance.now() - t0;
-  const sim = new Sim();
+  // A new game shuffles Greece from a seed of its own (the city keeps its seed, so the coast opens as ever); a demo's Greece comes from its city's seed.
+  const sim = demo || launch.load ? new Sim() : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
   // Fire risk and wear build up in every game (a demo turns them on as it opens).
   if (demo?.setup) demo.setup(sim);
@@ -485,6 +496,10 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 12 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0)) {
       changed += ' · Taxes are retuned: the finer houses pay more, and harsh taxes now drive whole households out and keep newcomers away. Collectors are paid first when money runs short.';
     }
+    // …and one saved before Greece (slice 14 or older): the map is there now.
+    if (loaded.from !== undefined && loaded.from <= 13) {
+      changed += ' · Greece is there now: the Greece button at the end of the top bar (or Tab) opens a map of the Aegean, with Athens, Sparta, Corinth and Troy, their rulers and what they make and want.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
@@ -629,9 +644,10 @@ function start(): void {
   const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector' };
   const pointerTools: PointerTools = {
     get active() {
-      return tools.tool !== null;
+      return tools.tool !== null && !greeceOpen();
     },
     pointer(w, sx, sy) {
+      if (greeceOpen()) return greece?.hover(sx, sy);
       lastPointer = { world: w, sx, sy };
       if (tools.tool) tools.pointer(w, sx, sy);
       else hover(w, sx, sy);
@@ -645,13 +661,18 @@ function start(): void {
       else if (ledger.open) ledger.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
-      else if (tools.tool) tools.cancel();
+      else if (greece && greeceOpen()) {
+        // The map of Greece: its panel first, then the map itself.
+        if (greece.shown) greece.show(null);
+        else toggleGreece(false);
+      } else if (tools.tool) tools.cancel();
       else if (follow) stopFollow();
       else if (tradePanel.open) tradePanel.toggle(false);
       else if (panel.open) panel.show(0);
       else tools.cancel();
     },
     click(w, sx, sy) {
+      if (greeceOpen()) return greece?.click(sx, sy);
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
       const c = walkerNear(sx, sy);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
@@ -681,6 +702,18 @@ function start(): void {
         saveMenu.saveNow();
         return true;
       }
+      if (k === 'tab') {
+        // Tab: the map of Greece and back (every letter is already taken).
+        e?.preventDefault();
+        toggleGreece();
+        return true;
+      }
+      if (k === '$') {
+        ledger.toggle();
+        return true;
+      }
+      // On the map, the city's tools and overlays are put away.
+      if (greeceOpen()) return false;
       if (k === 'undo' || k === 'u') {
         tools.undo();
         return true;
@@ -715,10 +748,6 @@ function start(): void {
         overlay.wanted = at < 0 ? 'tax' : at === cycle.length - 1 ? null : cycle[at + 1];
         return true;
       }
-      if (k === '$') {
-        ledger.toggle();
-        return true;
-      }
       let t = TOOL_KEYS[k];
       if (!t) return false;
       // M again: the farm, then the hunting lodge, the dairy, the olive grove, the olive press, the sheep pasture, the vineyard and the winery.
@@ -737,7 +766,7 @@ function start(): void {
   tools.onChange((t) => {
     if (!t) hover(lastPointer.world, lastPointer.sx, lastPointer.sy);
   });
-  const pollKeys = attachInput(canvas, rig, driver, () => corner.toggleHelp(), pointerTools);
+  const pollKeys = attachInput(canvas, () => (greece?.open ? greece.rig : rig), driver, () => corner.toggleHelp(), pointerTools);
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
     const kind = demo.follow;
@@ -757,11 +786,65 @@ function start(): void {
     if (f) startFollow(f.id, kind, w?.id ?? 0);
   }
 
+  // The map of Greece: loaded and built the first time it opens (a separate file, so the city's first load never waits for it).
+  let greece: GreeceMap | null = null;
+  let greeceLoading: Promise<GreeceMap> | null = null;
+  let greeceAsked = 0;
+  let greeceFirst = false;
+  const greeceOpen = (): boolean => greece?.open === true;
+  const greeceButton = new GreeceButton(() => toggleGreece());
+  const loadGreece = (): Promise<GreeceMap> =>
+    (greeceLoading ??= import('./render/greece/index').then((m) => {
+      greece = m.createGreece(
+        {
+          renderer,
+          canvas,
+          ui,
+          send: (c) => {
+            sim.enqueue(c);
+            sim.flush();
+            sound.play('build');
+            startAutosaving();
+          },
+        },
+        () => performance.now(),
+      );
+      probe.greeceBuildMs = greece.buildMs;
+      return greece;
+    }));
+  /** Open or close the map (opening it the first time loads it). */
+  function toggleGreece(on?: boolean, city?: CityId): void {
+    const want = on ?? !greeceOpen();
+    if (!want) {
+      if (!greece?.open) return;
+      greece.toggle(false);
+      greeceButton.set(false);
+      sound.play('map');
+      return;
+    }
+    // The city's tools, follow, panels and tips are put away while Greece is open.
+    tools.select(null);
+    stopFollow();
+    panel.show(0);
+    tradePanel.toggle(false);
+    tip.show(null, 0, 0);
+    welcomeCard?.dismiss();
+    greeceButton.set(true);
+    if (!greeceAsked) greeceAsked = performance.now();
+    void loadGreece().then((g) => {
+      if (!greeceButton.el.classList.contains('on')) return;
+      g.toggle(true);
+      if (city) g.show(city);
+      sound.play('map');
+    });
+  }
+
   // A demo can open a household's panel from the start.
   const opened = demo?.open?.(sim.state) ?? 0;
   if (opened) panel.show(opened);
   if (demo?.ledger) ledger.toggle(true);
   if (demo?.trade) tradePanel.toggle(true);
+  if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -1004,6 +1087,8 @@ function start(): void {
     sim.state.rev++;
   };
   probe.speed = (s) => driver.setSpeed(s);
+  probe.greece = (open, city) => toggleGreece(open, city as CityId | undefined);
+  probe.greeceInfo = () => (greece ? greece.info() : { open: false, built: false });
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();
@@ -1059,7 +1144,9 @@ function start(): void {
     const dt = Math.min(0.1, raw);
     time += dt;
     pollKeys(dt);
-    rig.update(dt);
+    const onMap = greeceOpen();
+    // (The city's camera is left where it was while the map is open, so closing it comes back to the same view.)
+    if (!onMap) rig.update(dt);
     const s = sim.state;
     if (s.tick !== hazardTick) {
       hazardTick = s.tick;
@@ -1201,6 +1288,20 @@ function start(): void {
       }
     }
     sound.update(dt);
+    if (onMap && greece) {
+      // The map of Greece instead of the city (which runs on, undrawn).
+      greece.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, dt);
+      topbar.showDate(sim.date);
+      topbar.showCity(s.population, s.money, time);
+      probe.updateMs += performance.now() - jsStart;
+      greece.render();
+      if (!greeceFirst) {
+        greeceFirst = true;
+        probe.greeceOpenMs = performance.now() - greeceAsked;
+      }
+      probe.frames++;
+      return;
+    }
     world.setSeason(sim.date.month / 12 + (sim.date.day - 1) / (12 * 30));
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);

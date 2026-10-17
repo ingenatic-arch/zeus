@@ -45,7 +45,9 @@ export interface PointerTools {
  * Q/E turn 90°, R/F tilt, +/- zoom, Space pauses, 1-3 pick a speed, N faces
  * north.
  */
-export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: ClockDriver, onHelp: () => void, tools?: PointerTools): (dt: number) => void {
+export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() => CameraRig), driver: ClockDriver, onHelp: () => void, tools?: PointerTools): (dt: number) => void {
+  // The camera the keys and mouse drive: the city's, or the map of Greece's while it is open.
+  const rig = (): CameraRig => (typeof rigOf === 'function' ? rigOf() : rigOf);
   const held = new Map<string, HoldAction>();
   let drag: { mode: 'pan' | 'orbit' | 'tool'; x: number; y: number; id: number; button: number; moved: number } | null = null;
 
@@ -53,7 +55,7 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     const r = canvas.getBoundingClientRect();
     const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
     const ny = -((e.clientY - r.top) / r.height) * 2 + 1;
-    const p = rig.groundUnder(nx, ny);
+    const p = rig().groundUnder(nx, ny);
     return p ? { x: p.x, z: p.z } : null;
   };
 
@@ -82,8 +84,8 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     drag.y = e.clientY;
     drag.moved += Math.abs(dx) + Math.abs(dy);
     if (drag.mode === 'tool') tools?.pointer(ground(e), e.clientX, e.clientY);
-    else if (drag.mode === 'pan') rig.dragPan(dx, dy, canvas.clientHeight);
-    else rig.orbit(-dx * 0.006, dy * 0.004);
+    else if (drag.mode === 'pan') rig().dragPan(dx, dy, canvas.clientHeight);
+    else rig().orbit(-dx * 0.006, dy * 0.004);
   });
   const end = (e: PointerEvent): void => {
     if (drag && e.pointerId === drag.id) {
@@ -109,9 +111,9 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
       const r = canvas.getBoundingClientRect();
       const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
       const ny = -((e.clientY - r.top) / r.height) * 2 + 1;
-      const anchor = rig.groundUnder(nx, ny) ?? undefined;
+      const anchor = rig().groundUnder(nx, ny) ?? undefined;
       const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
-      rig.zoom(Math.exp(e.deltaY * unit * 0.0015), anchor);
+      rig().zoom(Math.exp(e.deltaY * unit * 0.0015), anchor);
     },
     { passive: false },
   );
@@ -161,7 +163,7 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     }
     if (k === 'q' || k === 'e') {
       // Holding the key keeps turning, a quarter at a time, without queueing up spins.
-      if (!e.repeat || rig.turnRemaining < 0.3) rig.turnQuarter(k === 'q' ? -1 : 1);
+      if (!e.repeat || rig().turnRemaining < 0.3) rig().turnQuarter(k === 'q' ? -1 : 1);
       return;
     }
     if (e.repeat) return;
@@ -170,7 +172,7 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
     if (digit === '1') driver.setSpeed('normal');
     else if (digit === '2') driver.setSpeed('fast');
     else if (digit === '3') driver.setSpeed('fastest');
-    else if (k === 'n') rig.faceNorth();
+    else if (k === 'n') rig().faceNorth();
     else if (k === '?') onHelp();
     else tools?.key(k, e);
   });
@@ -182,17 +184,17 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
   return (dt: number) => {
     if (held.size === 0) return;
     const on = new Set(held.values());
-    const speed = rig.distance * 0.9 * dt;
+    const speed = rig().distance * 0.9 * dt;
     let r = 0;
     let f = 0;
     if (on.has('forward')) f += 1;
     if (on.has('back')) f -= 1;
     if (on.has('right')) r += 1;
     if (on.has('left')) r -= 1;
-    if (r || f) rig.pan(r * speed, f * speed);
-    if (on.has('tiltUp')) rig.tilt(dt * 0.8);
-    if (on.has('tiltDown')) rig.tilt(-dt * 0.8);
-    if (on.has('zoomIn')) rig.zoom(Math.exp(-dt * 1.6));
-    if (on.has('zoomOut')) rig.zoom(Math.exp(dt * 1.6));
+    if (r || f) rig().pan(r * speed, f * speed);
+    if (on.has('tiltUp')) rig().tilt(dt * 0.8);
+    if (on.has('tiltDown')) rig().tilt(-dt * 0.8);
+    if (on.has('zoomIn')) rig().zoom(Math.exp(-dt * 1.6));
+    if (on.has('zoomOut')) rig().zoom(Math.exp(dt * 1.6));
   };
 }

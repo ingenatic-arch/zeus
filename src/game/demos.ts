@@ -16,6 +16,7 @@ import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
+import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
 
@@ -102,6 +103,8 @@ export interface Demo {
   mark?: { x: number; z: number };
   /** Open the trading post's panel from the start. */
   trade?: boolean;
+  /** Open the map of Greece from the start, with a city's panel if one is named. */
+  greece?: true | CityId;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1035,6 +1038,10 @@ const SCENES: Record<string, Demo> = {
   black: { view: 'quay', speed: 'paused', setup: tradeTown('black'), overlay: 'food', ledger: true },
   richtown: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
   richstreet: { view: 'richstreet', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing' },
+  // Slice 15: the map of Greece over #town; over #sail's town, with the Tyre ship sailing up the gulf; and Sparta's ruler met.
+  greece: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: true },
+  greecesail: { view: 'sail', setup: tradeTown('sail'), overlay: 'food', greece: true },
+  ruler: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: 'sparta' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

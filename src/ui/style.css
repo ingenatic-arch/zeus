@@ -609,3 +609,88 @@ kbd {
 .household.trade ul.bought li { display: contents; }
 .household.trade ul.bought .dr { text-align: right; color: #8a6418; font-variant-numeric: tabular-nums; }
 .household.trade .foot { margin: 10px 0 0; font-size: 12px; color: var(--ink-soft); font-style: italic; }
+
+/* ---------------------------------------------------------------------------
+   The map of Greece (slice 15). */
+.greece-btn {
+  appearance: none; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #fff8ea; border: 1.5px solid var(--edge); border-radius: 999px; padding: 3px 7px 3px 7px;
+  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+}
+.greece-btn:hover { background: #fff2d6; }
+.greece-btn svg { width: 19px; height: 15px; }
+.greece-btn svg .sheet { fill: #f4e4bf; stroke: #8a6440; stroke-width: 1.1; stroke-linejoin: round; }
+.greece-btn svg .fold { stroke: rgba(138, 100, 64, 0.55); stroke-width: 0.9; fill: none; }
+.greece-btn svg .coast { stroke: #2f7f9e; stroke-width: 1.3; fill: none; stroke-linecap: round; }
+.greece-btn kbd { font: inherit; font-size: 10.5px; color: var(--ink-soft); border: 1px solid rgba(184, 138, 80, 0.7); border-radius: 4px; padding: 0 3px; line-height: 1.35; background: rgba(255, 255, 255, 0.5); }
+.greece-btn.on { background: var(--terracotta); border-color: var(--terracotta-deep); color: #fff6e4; }
+.greece-btn.on kbd { color: #fff0dc; border-color: rgba(255, 240, 220, 0.6); background: transparent; }
+
+/* While the map is open, the city's own tools, panels and labels are put away (the top bar, the town lines and the corner stay). */
+body.greece-open .buildbar-wrap, body.greece-open .household:not(.greece-panel), body.greece-open .legend, body.greece-open .follow-chip,
+body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, body.greece-open .pointer-tip { display: none !important; }
+
+.greece-labels { position: absolute; inset: 0; pointer-events: none !important; overflow: hidden; }
+.greece-labels[hidden] { display: none; }
+.glabel {
+  position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  padding: 2px 8px 2px 8px; border-radius: 999px; font-size: 14px; letter-spacing: 0.03em;
+  background: rgba(251, 242, 221, 0.92); border: 1.5px solid var(--c, var(--edge)); color: var(--ink);
+  box-shadow: 0 2px 6px rgba(40, 25, 10, 0.3); font-variant: small-caps;
+}
+.glabel b { font-weight: normal; }
+.glabel .mface { flex: none; }
+.glabel .you { font-size: 11px; font-variant: normal; font-style: italic; color: var(--ink-soft); }
+.glabel.home { border-width: 2px; }
+.glabel.tyre { opacity: 0.92; }
+.glabel.hot { background: #fffaf0; box-shadow: 0 0 0 2px var(--c, var(--edge)), 0 3px 10px rgba(40, 25, 10, 0.35); }
+.glabel::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 2px; height: 5px; margin-left: -1px; background: var(--c, var(--edge)); }
+
+.greece-card {
+  position: absolute; z-index: 7; pointer-events: none !important; max-width: 340px;
+  display: flex; flex-direction: column; gap: 1px;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep)); border: 1.5px solid var(--edge); border-radius: 12px;
+  padding: 7px 11px 8px; box-shadow: 0 6px 18px rgba(40, 25, 10, 0.3); font-size: 13.5px; line-height: 1.35;
+}
+.greece-card[hidden] { display: none; }
+.greece-card.ruled { flex-direction: row; gap: 10px; align-items: center; }
+.greece-card.ruled > div { display: flex; flex-direction: column; gap: 1px; }
+.greece-card b { font-size: 16px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; }
+.greece-card .sub { font-size: 12px; color: var(--ink-soft); font-style: italic; }
+.greece-card .mood { display: inline-flex; align-items: center; gap: 4px; }
+.greece-card .portrait { flex: none; }
+
+.household.greece-panel { width: 376px; }
+.greece-panel header.ruler .who { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
+.greece-panel header.ruler .portrait { flex: none; filter: drop-shadow(0 2px 3px rgba(60, 40, 20, 0.3)); }
+.greece-panel .traits { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12.5px; }
+.greece-panel .traits li { margin: 1px 0; }
+.greece-panel .traits b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 14px; }
+.greece-panel .moodline { display: flex; gap: 9px; align-items: center; }
+.greece-panel .moodline .word { font-size: 17px; font-variant: small-caps; letter-spacing: 0.05em; line-height: 1.1; }
+.greece-panel .moodline .num { font-size: 12px; color: var(--ink-soft); }
+.greece-panel .whys { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; }
+.greece-panel .whys li { display: flex; gap: 8px; margin: 3px 0; }
+.greece-panel .whys .v { flex: none; width: 30px; text-align: right; font-variant-numeric: tabular-nums; font-weight: bold; }
+.greece-panel .whys li.good .v { color: #5f7f2c; }
+.greece-panel .whys li.bad .v { color: var(--terracotta-deep); }
+.greece-panel .whys em { display: block; font-size: 11.5px; color: var(--ink-soft); }
+.greece-panel .trade2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.greece-panel .goodlist { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.greece-panel .goodlist li { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.greece-panel .goodlist li i { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(74, 52, 32, 0.45); flex: none; }
+.greece-panel .goodlist .g { flex: 1; }
+.greece-panel .goodlist .p { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.greece-panel .goodlist .p em { font-style: normal; font-size: 11px; color: var(--ink-soft); }
+.greece-panel .goodlist li.none { color: var(--ink-soft); font-style: italic; }
+.greece-panel .line { margin: 0; font-size: 13px; }
+.greece-panel .foot { margin: 8px 0 0; font-size: 11.5px; color: var(--ink-soft); font-style: italic; }
+.greece-panel h2 .renamebtn { font: inherit; font-size: 14px; border: 1.5px solid var(--edge); background: #fff8ea; border-radius: 50%; width: 24px; height: 24px; padding: 0; cursor: pointer; vertical-align: 3px; color: var(--ink-soft); font-variant: normal; }
+.greece-panel h2 .renamebtn:hover { background: #fff2d6; }
+.greece-panel .rename { display: flex; gap: 6px; margin-top: 4px; }
+.greece-panel .rename input { flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 3px 8px; border: 1.5px solid var(--edge); border-radius: 8px; background: #fffdf6; color: var(--ink); }
+.greece-panel .rename button { font: inherit; font-size: 13px; border: 1.5px solid var(--edge); background: #fff8ea; border-radius: 8px; padding: 2px 9px; cursor: pointer; color: var(--ink); }
+.greece-panel .rename button.ok { background: var(--olive); border-color: #55612c; color: #fbf6e6; }
+.greece-panel .rename button:disabled { opacity: 0.45; cursor: default; }
+.greece-panel .why { font-size: 12px; color: var(--terracotta-deep); margin-top: 3px; }

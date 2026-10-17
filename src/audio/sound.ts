@@ -16,7 +16,7 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map';
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -332,6 +332,11 @@ export class Sound {
       case 'ship':
         // A sail sighted: the harbour bell, three slow strokes.
         for (let i = 0; i < 3; i++) this.bell(0.05, 523, i * 0.55);
+        break;
+      case 'map':
+        // The map unrolled or put away: a soft rustle of parchment.
+        this.swish(0.05, 2400, 900, 0.28);
+        this.swish(0.035, 1500, 3200, 0.2);
         break;
       case 'sale':
         // Paid: coins counted out onto the counter.

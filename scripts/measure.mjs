@@ -279,10 +279,31 @@ for (const [hash, views] of [
   }
 }
 
+// Slice 15: the map of Greece, built the first time it is opened (its code is a separate file, fetched then).
+{
+  await page.goto('about:blank');
+  await page.goto(url + '#town-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 2, null, { timeout: 120000 });
+  const t = Date.now();
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__zeus.greeceOpenMs !== undefined, null, { timeout: 120000 });
+  const g = await page.evaluate(() => ({ build: window.__zeus.greeceBuildMs, open: window.__zeus.greeceOpenMs }));
+  console.log(`map of Greece, first opened from #town: built in ${g.build.toFixed(0)} ms (code fetch and scene), first map frame ${g.open.toFixed(0)} ms after the key by the page's clock (Playwright saw it after ${Date.now() - t} ms)`);
+  for (const hash of ['#greece-paused-shot', '#greecesail-paused-shot']) {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    console.log(`${hash.padEnd(24)} map triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+  }
+}
+
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

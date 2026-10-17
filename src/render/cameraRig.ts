@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import type { CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { clamp, lerp, smoothstep } from '../map/noise';
 
@@ -21,6 +20,26 @@ const MIN_TILT = -0.7;
 const MAX_TILT = 0.5;
 const QUARTER = Math.PI / 2;
 
+/** What the camera looks at: the ground's height anywhere (the city's coast, or the table of Greece). */
+export interface Ground {
+  heightAt(x: number, z: number): number;
+}
+
+/** How far the camera may go: its distances, how far it may wander, and its view angle from closest to farthest. */
+export interface RigLimits {
+  minDist: number;
+  maxDist: number;
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  pitchNear: number;
+  pitchFar: number;
+}
+
+/** The city's: within a few tiles of the map, down to street level. */
+export const CITY_LIMITS: RigLimits = { minDist: MIN_DIST, maxDist: MAX_DIST, x0: -6, z0: -6, x1: MAP_SIZE + 6, z1: MAP_SIZE + 6, pitchNear: 0.2, pitchFar: 1.0 };
+
 /**
  * A city-builder camera that always looks at a point on the ground. Zooming
  * in lowers the view angle towards street level; turning snaps in 90° steps
@@ -31,11 +50,13 @@ export class CameraRig {
   private cur: Required<CameraView>;
   private goal: Required<CameraView>;
   private groundY = 0;
-  private readonly map: CoastMap;
+  private readonly map: Ground;
+  private readonly lim: RigLimits;
 
-  constructor(camera: THREE.PerspectiveCamera, map: CoastMap, view: CameraView) {
+  constructor(camera: THREE.PerspectiveCamera, map: Ground, view: CameraView, limits: RigLimits = CITY_LIMITS) {
     this.camera = camera;
     this.map = map;
+    this.lim = limits;
     this.cur = { tilt: 0, ...view };
     this.goal = { ...this.cur };
     this.groundY = this.groundAt(view.x, view.z);
@@ -131,7 +152,7 @@ export class CameraRig {
   /** Zoom by a factor (<1 is closer), keeping the given ground point under the pointer. */
   zoom(factor: number, anchor?: THREE.Vector3): void {
     const before = this.goal.dist;
-    this.goal.dist = clamp(before * factor, MIN_DIST, MAX_DIST);
+    this.goal.dist = clamp(before * factor, this.lim.minDist, this.lim.maxDist);
     const k = 1 - this.goal.dist / before;
     if (anchor) {
       // Near the ground the point under the pointer can be far off towards
@@ -152,15 +173,15 @@ export class CameraRig {
   }
 
   private clampGoal(): void {
-    const m = 6;
-    this.goal.x = clamp(this.goal.x, -m, MAP_SIZE + m);
-    this.goal.z = clamp(this.goal.z, -m, MAP_SIZE + m);
+    this.goal.x = clamp(this.goal.x, this.lim.x0, this.lim.x1);
+    this.goal.z = clamp(this.goal.z, this.lim.z0, this.lim.z1);
   }
 
   /** The automatic view angle: steep from high up, low and level near the ground. */
   pitch(dist: number, tilt: number): number {
-    const t = (Math.log(dist) - Math.log(MIN_DIST)) / (Math.log(MAX_DIST) - Math.log(MIN_DIST));
-    return clamp(lerp(0.2, 1.0, smoothstep(0, 0.9, t)) + tilt, 0.08, 1.45);
+    const { minDist, maxDist, pitchNear, pitchFar } = this.lim;
+    const t = (Math.log(dist) - Math.log(minDist)) / (Math.log(maxDist) - Math.log(minDist));
+    return clamp(lerp(pitchNear, pitchFar, smoothstep(0, 0.9, t)) + tilt, 0.08, 1.45);
   }
 
   private groundAt(x: number, z: number): number {
@@ -191,7 +212,7 @@ export class CameraRig {
     const floor = this.groundAt(cam.position.x, cam.position.z) + 0.9;
     if (cam.position.y < floor) cam.position.y = floor;
     // Close up, aim a little above the ground so the horizon stays in view.
-    const lift = lerp(0.9, 0, smoothstep(MIN_DIST, 30, dist));
+    const lift = lerp(0.9, 0, smoothstep(this.lim.minDist, 30, dist));
     cam.lookAt(x, this.groundY + lift, z);
     cam.near = clamp(dist * 0.02, 0.1, 2);
     cam.far = 9000;
