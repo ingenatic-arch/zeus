@@ -21,7 +21,10 @@ export const DAIRY_COST = 250;
 export const GROVE_COST = 150;
 export const PRESS_COST = 200;
 export const STOREHOUSE_COST = 200;
-/** What adding the oil stall to an agora costs. */
+export const PASTURE_COST = 150;
+export const VINEYARD_COST = 150;
+export const WINERY_COST = 200;
+/** What adding a stall for a good (oil, fleece or wine) to an agora costs. */
 export const STALL_COST = 100;
 /** A bridge costs this much a tile. */
 export const BRIDGE_COST = 40;
@@ -44,6 +47,9 @@ export const COST: Record<BuildingKind, number> = {
   grove: GROVE_COST,
   press: PRESS_COST,
   storehouse: STOREHOUSE_COST,
+  pasture: PASTURE_COST,
+  vineyard: VINEYARD_COST,
+  winery: WINERY_COST,
 };
 
 /** A farm needs at least this mean fertility over its tiles (the green river land). */
@@ -52,6 +58,10 @@ export const FARM_FERTILE_MIN = 0.5;
 export const DAIRY_GRASS_MIN = 0.35;
 /** The olive ground an olive grove needs at least (0..1; see tileOlive). */
 export const GROVE_OLIVE_MIN = 0.35;
+/** A sheep pasture needs at least this much grass, like a dairy (see grassOf). */
+export const PASTURE_GRASS_MIN = 0.35;
+/** The vine ground a vineyard needs at least (0..1; see tileVine). */
+export const VINE_MIN = 0.35;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
 
@@ -337,14 +347,63 @@ export function oliveOf(map: CoastMap, x: number, z: number, side: number): numb
   return g / (side * side);
 }
 
+/**
+ * How much of the afternoon sun a tile's slope catches (0..1): 1 where the
+ * ground falls away towards the south-west (where the light comes from), a
+ * half on the flat, little on a slope turned away from it.
+ */
+export function tileSun(map: CoastMap, t: number): number {
+  const n = map.size;
+  const tx = t % n;
+  const tz = (t - tx) / n;
+  // The rise across the tile, east (+x) and south (+z).
+  const dx = (map.corner(tx + 1, tz) + map.corner(tx + 1, tz + 1) - map.corner(tx, tz) - map.corner(tx, tz + 1)) / 2;
+  const dz = (map.corner(tx, tz + 1) + map.corner(tx + 1, tz + 1) - map.corner(tx, tz) - map.corner(tx + 1, tz)) / 2;
+  // Facing the sun (from the south-west: -x, +z) is ground that rises to the east and falls to the south.
+  const facing = 0.79 * dx - 0.61 * dz;
+  return 0.5 + 0.5 * Math.max(-1, Math.min(1, facing / 0.35));
+}
+
+/**
+ * How good a tile is for vines (0..1): dry ground like the olives' (not the
+ * flood plain, not rock, above the shore), best on a slope that catches the
+ * afternoon sun. The sunny hillsides suit; the river land, the crags, the sand
+ * and the slopes turned away from the sun do not.
+ */
+export function tileVine(map: CoastMap, t: number): number {
+  const n = map.size;
+  const tx = t % n;
+  const tz = (t - tx) / n;
+  const dry = 1 - smooth(0.25, 0.6, map.tileFertility[t]);
+  const rock = map.sample(map.rock, tx + 0.5, tz + 0.5);
+  const up = smooth(0.3, 1.0, map.heightAt(tx + 0.5, tz + 0.5));
+  const slope = smooth(0.05, 0.4, mapIndex(map).rise[t]);
+  const sun = tileSun(map, t);
+  // Flat ground does for vines at about half the yield; a slope in the sun does best, a slope turned away from it hardly at all.
+  return dry * Math.max(0, 1 - rock * 1.5) * up * (0.25 + 0.75 * (slope * sun + (1 - slope) * 0.35));
+}
+
+/** The mean vine ground of a footprint's tiles (0..1). */
+export function vineOf(map: CoastMap, x: number, z: number, side: number): number {
+  const n = map.size;
+  let g = 0;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) g += tileVine(map, Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx));
+  return g / (side * side);
+}
+
+/** Kinds planted on the slopes, each tree or vine on its own ground: they take ground too steep and uneven for a house. */
+export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard';
+
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
   const side = sideOf(kind);
-  const r = footprintRefusal(map, s, tx, tz, side, kind === 'grove');
+  const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
+  if (kind === 'pasture' && grassOf(map, tx, tz, side) < PASTURE_GRASS_MIN) return 'Too little grass for sheep: a pasture needs green grass, not rock or sand';
   if (kind === 'grove' && oliveOf(map, tx, tz, side) < GROVE_OLIVE_MIN) return 'Poor ground for olives: groves need the dry slopes, not the river land, rock or sand';
+  if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';
   return '';
 }
 

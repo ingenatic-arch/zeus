@@ -1,26 +1,30 @@
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 9;
+export const SIM_STATE_VERSION = 10;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
 
 /** What a building is. */
-export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse';
+export type BuildingKind = 'home' | 'fountain' | 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery';
+/** Every kind of building, in the order saves have always listed them. */
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery'];
 
-/** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil and plays. */
-export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture';
+/** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
+export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
 
-/** Every walker's round with a record of the streets: the five services, and the tax collector's. */
+/** Every walker's round with a record of the streets: the services, and the tax collector's. */
 export type Round = Service | 'tax';
+/** Every round, in a fixed order (what a save holds a record for). */
+export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax'];
 
 /**
  * A building on a square footprint (2 x 2 for homes, fountains, shrines and tax offices,
  * 3 x 3 for the rest; see sideOf) whose top-left tile is (x, z).
  * A home's level: 0 an empty plot marked out for settlers, 1 a tent, 2 a hut,
- * 3 a cottage, 4 a townhouse, 5 a fine house.
+ * 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa.
  * Every building carries every field (zero where it doesn't apply), so the
  * state stays uniform plain data.
  */
@@ -85,20 +89,25 @@ export interface Building {
   grace: number;
   /**
    * Goods (see foods.ts: olives, oil, fleece, grapes, wine, one number each):
-   * what a grove, press, storehouse or agora stall holds (`goods`), the room
+   * what a grove, press, pasture, vineyard, winery, storehouse or agora stall holds (`goods`), the room
    * carts on their way have reserved (`goodsIn`), and for a home the tick its
    * supply of each lasts until (`goodsUntil`, 0: never had any).
    */
   goods: number[];
   goodsIn: number[];
   goodsUntil: number[];
-  /** An agora: the stalls it has for goods beside its food stall, a bit each (1 << (good - OLIVES); the oil stall is 2). */
+  /** An agora: the stalls it has for goods beside its food stall, a bit each (1 << (good - OLIVES); the oil stall is 2, fleece 4, wine 16). */
   stalls: number;
   /** An agora: each good's stall vendor's clock (ticks until she next sets off; -1 while she is out). */
   vclock: number[];
-  /** An agora: ticks until its goods porter next looks for a load. */
-  fetch: number;
+  /** An agora: each good's stall porter's clock (ticks until he next looks for a load). */
+  fetch: number[];
 }
+
+/** What a walker is (see Walker.kind). */
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine';
+/** Every kind of walker, in the order saves have always listed them. */
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -153,8 +162,8 @@ export interface Family {
  */
 export interface Walker {
   id: number;
-  /** Settlers, leavers, a fountain's water carrier, an ox cart (from a farm, lodge, dairy, grove or press), the agora's porters, its food vendor and oil vendor, a shrine's priestess, a theatre's actor, a tax office's collector or a lodge's hunter. */
-  kind: 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter';
+  /** Settlers, leavers, a fountain's water carrier, an ox cart (from any maker), the agora's porters, its food vendor and its oil, fleece and wine vendors, a shrine's priestess, a theatre's actor, a tax office's collector or a lodge's hunter. */
+  kind: WalkerKind;
   people: number;
   /** The building settlers are heading for (0 for leavers). */
   home: number;

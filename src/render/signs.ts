@@ -139,6 +139,48 @@ function jarGeometry(): THREE.BufferGeometry {
   return mergeFlat(parts);
 }
 
+/** A bale of fleece: a puffy wool cloud with a darker edge and a slate-blue tie round its middle. */
+function fleeceGeometry(): THREE.BufferGeometry {
+  const puffs: [number, number, number][] = [
+    [-0.36, 0.16, 0.26],
+    [-0.08, 0.3, 0.3],
+    [0.26, 0.22, 0.28],
+    [0.42, -0.08, 0.24],
+    [0.14, -0.26, 0.28],
+    [-0.22, -0.24, 0.28],
+    [-0.46, -0.1, 0.22],
+    [0, 0, 0.34],
+  ];
+  const parts: THREE.BufferGeometry[] = [];
+  for (const [x, y, r] of puffs) parts.push(flat(circle(r + 0.06, x, y), '#9c8458', 0.035, 10));
+  for (const [x, y, r] of puffs) parts.push(flat(circle(r, x, y), '#e8d8ac', 0.04, 10));
+  const tie = new THREE.Shape().moveTo(-0.06, 0.56).lineTo(0.08, 0.56).lineTo(0.1, -0.52).lineTo(-0.04, -0.52).closePath();
+  parts.push(flat(tie, '#4c5a8c', 0.05));
+  parts.push(flat(circle(0.07, -0.26, 0.24), '#fff8e6', 0.05, 6), flat(circle(0.06, 0.24, -0.16), '#fff8e6', 0.05, 6));
+  return mergeFlat(parts);
+}
+
+/** A bunch of grapes, deep purple, with a green leaf and a stalk. */
+function grapesGeometry(): THREE.BufferGeometry {
+  const rows: [number, number][] = [
+    [-0.33, 0.24], [-0.11, 0.24], [0.11, 0.24], [0.33, 0.24],
+    [-0.22, 0.02], [0, 0.02], [0.22, 0.02],
+    [-0.11, -0.2], [0.11, -0.2],
+    [0, -0.42],
+  ];
+  const parts: THREE.BufferGeometry[] = [];
+  const leaf = new THREE.Shape();
+  leaf.moveTo(0.04, 0.4);
+  leaf.bezierCurveTo(0.2, 0.7, 0.5, 0.72, 0.62, 0.56);
+  leaf.bezierCurveTo(0.46, 0.4, 0.22, 0.36, 0.04, 0.4);
+  parts.push(flat(leaf, '#5a8a2a', 0.035, 6));
+  const stalk = new THREE.Shape().moveTo(-0.04, 0.34).lineTo(0.04, 0.34).lineTo(0.0, 0.62).lineTo(-0.08, 0.62).closePath();
+  parts.push(flat(stalk, '#6a4a22', 0.035));
+  for (const [x, y] of rows) parts.push(flat(circle(0.13, x, y), '#6a2470', 0.04, 8));
+  for (const [x, y] of rows) parts.push(flat(circle(0.04, x - 0.04, y + 0.04), '#c890d0', 0.05, 4));
+  return mergeFlat(parts);
+}
+
 /** A smiling theatre mask, rose, its eyes and mouth cut through to the sign's face. */
 function maskGeometry(): THREE.BufferGeometry {
   const m = new THREE.Shape();
@@ -192,25 +234,28 @@ function wideRim(l: number): THREE.BufferGeometry {
 const WIDE3 = 0.95;
 const WIDE4 = 1.42;
 const WIDE5 = 1.9;
+const WIDE6 = 2.38;
+const WIDE7 = 2.86;
 /** How high over the ground a sign floats, by the home's level (over its roof). */
-const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4];
+const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4, 2.75];
 
 interface Sign {
   b: Building;
-  /** What it lacks, in the fixed order: water, bread, blessings, oil, plays. */
+  /** What it lacks, in the fixed order: water, bread, blessings, oil, plays, fleece, wine. */
   needs: Service[];
   /** 0 just warned … 1 about to drop a level; -1 for a need to grow (shown with the "what's missing" overlay). */
   urgency: number;
 }
 
-type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | 'rim5' | 'face5' | Service;
-const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', oil: 'oil', culture: 'culture' };
+type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | 'rim5' | 'face5' | 'rim6' | 'face6' | 'rim7' | 'face7' | Service;
+const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', oil: 'oil', culture: 'culture', fleece: 'fleece', wine: 'wine' };
 
 /**
  * Signs over homes that lack what they need: a round cream sign with a water
- * drop, a loaf, a little temple (blessings), a jar (oil) or a mask (plays), or
- * two side by side; three to five needs take a wider sign with the icons in a
- * row, always in the same order (water, bread, blessings, oil, plays) so a glance reads the
+ * drop, a loaf, a little temple (blessings), a jar (oil), a mask (plays), a
+ * bale of wool (fleece) or a bunch of grapes (wine), or two side by side; three
+ * to seven needs take a wider sign with the icons in a row, always in the same
+ * order (water, bread, blessings, oil, plays, fleece, wine) so a glance reads the
  * same way every time. The rim is orange-red when the warning starts and
  * deep red as the two months run out, pulsing in the last days. Warned homes
  * always show theirs; with the "what's missing" overlay on, homes that only
@@ -262,15 +307,21 @@ export class Signs {
       face4: make('sign-face-4', wideFace(WIDE4), false),
       rim5: make('sign-rim-5', wideRim(WIDE5), true),
       face5: make('sign-face-5', wideFace(WIDE5), false),
+      rim6: make('sign-rim-6', wideRim(WIDE6), true),
+      face6: make('sign-face-6', wideFace(WIDE6), false),
+      rim7: make('sign-rim-7', wideRim(WIDE7), true),
+      face7: make('sign-face-7', wideFace(WIDE7), false),
       water: make('sign-drop', dropGeometry(), false),
       food: make('sign-loaf', loafGeometry(), false),
       religion: make('sign-temple', templeGeometry(), false),
       oil: make('sign-jar', jarGeometry(), false),
       culture: make('sign-mask', maskGeometry(), false),
+      fleece: make('sign-fleece', fleeceGeometry(), false),
+      wine: make('sign-grapes', grapesGeometry(), false),
     };
     const at = (x: number, k: number): THREE.Matrix4 => new THREE.Matrix4().makeTranslation(x, 0.02, 0).multiply(new THREE.Matrix4().makeScale(k, k, 1));
     const row = (l: number, n: number, k: number): THREE.Matrix4[] => Array.from({ length: n }, (_, i) => at(-l + (2 * l * i) / (n - 1), k));
-    this.slots = [[], [new THREE.Matrix4()], [at(-0.4, 0.67), at(0.42, 0.67)], row(WIDE3, 3, 0.7), row(WIDE4, 4, 0.7), row(WIDE5, 5, 0.7)];
+    this.slots = [[], [new THREE.Matrix4()], [at(-0.4, 0.67), at(0.42, 0.67)], row(WIDE3, 3, 0.7), row(WIDE4, 4, 0.7), row(WIDE5, 5, 0.7), row(WIDE6, 6, 0.7), row(WIDE7, 7, 0.7)];
   }
 
   /** Which homes have signs, worked out again a few times a second (or when the day changes). */
@@ -333,7 +384,7 @@ export class Signs {
       this.p.y += (k - SIZE) * 1.4;
       this.sc.set(k, k, k);
       this.m.compose(this.p, q, this.sc);
-      const shape = needs.length >= 5 ? '5' : needs.length === 4 ? '4' : needs.length === 3 ? '3' : '';
+      const shape = needs.length >= 3 ? String(Math.min(7, needs.length)) : '';
       if (shape) wide++;
       const rim = this.meshes[`rim${shape}` as MeshName];
       const face = this.meshes[`face${shape}` as MeshName];
@@ -341,7 +392,7 @@ export class Signs {
       counts[`face${shape}` as MeshName]++;
       rim.setMatrixAt(ri, this.m);
       face.setMatrixAt(ri, this.m);
-      const slots = this.slots[Math.min(5, needs.length)];
+      const slots = this.slots[Math.min(7, needs.length)];
       needs.forEach((need, j) => {
         const key = ICON_OF[need];
         this.meshes[key].setMatrixAt(counts[key]++, this.icon.copy(this.m).multiply(slots[j]));

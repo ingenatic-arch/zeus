@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { OIL } from '../sim/foods';
+import { FLEECE, OIL, WINE } from '../sim/foods';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
@@ -175,6 +175,77 @@ function oilVendor(): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/**
+ * An amphora of wine, standing, `h` tall, its pointed foot at the origin:
+ * taller and slimmer than an oil jar, with two handles and a dark wine-red
+ * seal. Few corners (about 190 vertices): carts carry six.
+ */
+export function amphora(h: number): TPart[] {
+  const k = h / 0.2;
+  const body = [
+    new THREE.Vector2(0.0, 0),
+    new THREE.Vector2(0.018, 0.02),
+    new THREE.Vector2(0.05, 0.09),
+    new THREE.Vector2(0.044, 0.145),
+    new THREE.Vector2(0.018, 0.175),
+    new THREE.Vector2(0.02, 0.2),
+  ];
+  return [
+    { geo: new THREE.LatheGeometry(body, 5).scale(k, k, k), color: PAL.amphora },
+    { geo: new THREE.BoxGeometry(0.012 * k, 0.05 * k, 0.07 * k).translate(0, 0.165 * k, 0), color: PAL.amphoraDark },
+    { geo: new THREE.CylinderGeometry(0.02 * k, 0.018 * k, 0.014 * k, 4).translate(0, 0.205 * k, 0), color: PAL.wineSeal },
+  ];
+}
+
+/** A bale of fleece, `r` across, at the origin: a lumpy cream bundle with a rope band round it. */
+export function bale(r: number, seed: number): TPart[] {
+  return [
+    { geo: lumpy(new THREE.IcosahedronGeometry(r, 0), 0.2, seed).scale(1.2, 0.75, 1), color: PAL.wool },
+    { geo: new THREE.CylinderGeometry(r * 0.92, r * 0.92, r * 0.18, 6).scale(1.15, 1, 0.98).translate(0, 0, 0), color: PAL.rope },
+  ];
+}
+
+/**
+ * The fleece vendor: a woman in a slate-blue dress (the tinted part) and a
+ * pale headscarf, a bale of fleece on her head and an arm up to steady it,
+ * a hank of spun wool over her other arm.
+ */
+function fleeceVendor(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.3, 7).translate(0, 0.16, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.03, 0.04, 0.1, 7, 1, true).translate(0, 0.3, 0), color: PAL.fleeceVendorScarf },
+    { geo: new THREE.CylinderGeometry(0.016, 0.014, 0.15, 4).rotateX(-0.2).translate(0.01, 0.23, -0.07), color: PAL.skin },
+    { geo: new THREE.TorusGeometry(0.03, 0.012, 3, 6).rotateY(Math.PI / 2).translate(0.02, 0.17, -0.085), color: PAL.wool },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.17, 4).rotateX(0.25).translate(0.0, 0.37, 0.07), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.72, 1).translate(-0.014, 0.385, 0), color: PAL.fleeceVendorScarf },
+    ...moved(bale(0.085, 541), (g) => g.translate(0, 0.475, 0)),
+  ];
+  return mergeTinted(parts);
+}
+
+/**
+ * The wine vendor: a man in a wine-red tunic (the tinted part), an amphora
+ * on his shoulder held by its handle, and a jug in his other hand to pour.
+ */
+function wineVendor(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.088, 0.22, 6).translate(0, 0.21, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.066, 0.07, 0.03, 6).translate(0, 0.2, 0), color: PAL.rope },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.62, 1).translate(-0.012, 0.39, 0), color: PAL.hair },
+    // The arm up to the amphora on his left shoulder, lying back along it.
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateX(0.5).translate(0.02, 0.31, 0.08), color: PAL.skin },
+    ...moved(amphora(0.26), (g) => g.translate(0, -0.13, 0).rotateZ(1.25).translate(-0.02, 0.37, 0.07)),
+    // The other arm down with the jug.
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateZ(-0.4).translate(0.03, 0.23, -0.075), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.022, 0.03, 0.06, 6).translate(0.07, 0.15, -0.08), color: PAL.amphoraDark },
+  ];
+  return mergeTinted(parts);
+}
+
 /** Legs of a beast or a person: four (or two) thin posts. */
 export const leg = (x: number, z: number, h: number, r: number, color: string, swing = 0): TPart => ({ geo: new THREE.CylinderGeometry(r, r * 0.85, h, 4).translate(x, h / 2, z), color, leg: [swing, x, h] });
 
@@ -262,9 +333,10 @@ function collector(full: boolean): THREE.BufferGeometry {
  * The ox cart: a pale ox under a yoke drawing a two-wheeled cart, its driver
  * (tinted tunic) walking at the ox's head. Its load: golden sheaves of
  * wheat, carcasses under a hide for meat, wheels of cheese stacked on the bed,
- * baskets heaped with dark olives, or jars of oil bedded in straw.
+ * baskets heaped with dark olives, jars of oil bedded in straw, bales of
+ * fleece roped on the bed, baskets of purple grapes, or amphorae of wine.
  */
-function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil'): THREE.BufferGeometry {
+function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil' | 'fleece' | 'grapes' | 'wine'): THREE.BufferGeometry {
   const loaded = load === 'wheat';
   const parts: TPart[] = [];
   // The ox, facing +x.
@@ -319,6 +391,24 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil'): 
     // Jars of oil standing in a bed of straw, two rows of three.
     parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.05, 0.22, 3, 1, 2), 0.2, 535).translate(cx, 0.245, 0), color: PAL.straw });
     for (const x of [-0.1, -0.2, -0.3]) for (const z of [-0.055, 0.055]) parts.push(...moved(oilJar(0.15), (g) => g.translate(x, 0.22, z)));
+  } else if (load === 'fleece') {
+    // Bales of fleece, three on the bed and two on top, and a rope over them all.
+    for (const [x, z, y, k] of [[-0.11, -0.06, 0, 0], [-0.11, 0.06, 0, 1], [-0.27, 0, 0, 2], [-0.16, 0, 0.08, 3], [-0.27, 0.0, 0.085, 4]]) {
+      parts.push(...moved(bale(0.075, 545 + k), (g) => g.rotateY(k * 0.7).translate(x, 0.27 + y, z)));
+    }
+    parts.push({ geo: new THREE.BoxGeometry(0.012, 0.015, 0.28).translate(-0.2, 0.39, 0), color: PAL.rope });
+  } else if (load === 'grapes') {
+    // Four round baskets heaped with purple grapes, a vine leaf or two on top.
+    for (const [x, z, k] of [[-0.12, -0.065, 0], [-0.12, 0.065, 1], [-0.27, -0.065, 2], [-0.27, 0.065, 3]]) {
+      parts.push({ geo: new THREE.CylinderGeometry(0.068, 0.055, 0.08, 7).translate(x, 0.26, z), color: PAL.basket });
+      parts.push({ geo: lumpy(new THREE.SphereGeometry(0.064, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0.35, 550 + k).scale(1, 0.85, 1).translate(x, 0.295, z), color: k === 1 ? PAL.grapeBloom : PAL.grapeRipe });
+    }
+    parts.push({ geo: new THREE.CircleGeometry(0.04, 5).rotateX(-Math.PI / 2 + 0.3).translate(-0.12, 0.35, -0.05), color: PAL.vineLeaf });
+    parts.push({ geo: new THREE.CircleGeometry(0.04, 5).rotateX(-Math.PI / 2 - 0.3).translate(-0.27, 0.35, 0.07), color: PAL.vineLeaf });
+  } else if (load === 'wine') {
+    // Amphorae of wine bedded in straw, two rows of three.
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.3, 0.06, 0.22, 3, 1, 2), 0.2, 555).translate(cx, 0.25, 0), color: PAL.straw });
+    for (const x of [-0.1, -0.2, -0.3]) for (const z of [-0.055, 0.055]) parts.push(...moved(amphora(0.2), (g) => g.translate(x, 0.2, z)));
   }
   // The driver, walking beside the ox with a goad.
   const dz = 0.17;
@@ -334,9 +424,9 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil'): 
 /**
  * The porter: a man (tinted tunic) pushing a little two-wheeled handcart,
  * with sacks of grain on it (and a ham and a cheese with them, `mixed`), or
- * jars of oil for the oil stall.
+ * jars of oil, bales of fleece or amphorae of wine for those stalls.
  */
-function porter(load: 'none' | 'wheat' | 'mixed' | 'oil'): THREE.BufferGeometry {
+function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine'): THREE.BufferGeometry {
   const loaded = load !== 'none';
   const parts: TPart[] = [
     leg(-0.02, -0.03, 0.12, 0.02, PAL.skin, -0.8),
@@ -357,6 +447,11 @@ function porter(load: 'none' | 'wheat' | 'mixed' | 'oil'): THREE.BufferGeometry 
   for (const z of [-0.12, 0.12]) parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.025, 8).rotateX(Math.PI / 2).translate(cx + 0.02, 0.08, z), color: PAL.woodDark });
   if (load === 'oil') {
     for (const [x, z] of [[cx - 0.06, -0.05], [cx - 0.06, 0.05], [cx + 0.06, 0]]) parts.push(...moved(oilJar(0.14), (g) => g.translate(x, 0.165, z)));
+  } else if (load === 'fleece') {
+    for (const [x, z, y, k] of [[cx - 0.05, -0.04, 0, 0], [cx + 0.06, 0.04, 0, 1], [cx, 0, 0.07, 2]]) parts.push(...moved(bale(0.065, 560 + k), (g) => g.rotateY(k).translate(x, 0.21 + y, z)));
+  } else if (load === 'wine') {
+    // Three amphorae lying side by side, necks forward.
+    for (const z of [-0.06, 0, 0.06]) parts.push(...moved(amphora(0.2), (g) => g.translate(0, -0.1, 0).rotateZ(-Math.PI / 2).translate(cx, 0.2 + (z === 0 ? 0.03 : 0), z)));
   } else if (loaded) {
     const sacks: Array<[number, number, number]> = load === 'mixed' ? [[cx - 0.05, -0.05, 0]] : [[cx - 0.05, -0.05, 0], [cx + 0.06, 0.04, 0], [cx, 0, 0.07]];
     for (const [x, z, y] of sacks) {
@@ -420,13 +515,16 @@ function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/** Which porter look carries each stall good. */
+const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
+
 const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCream, PAL.tunicGreen, PAL.tunicPlum];
 
 /** The kinds of walker with a job (all but settlers and leavers). */
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -440,10 +538,12 @@ export class Walkers {
   private readonly collectors: [Look, Look];
   /** Food vendors: [bread only, a mix]. */
   private readonly vendorsMixed: Look;
-  /** Ox carts: [empty, then by ware: wheat, meat, cheese, olives, oil]; porters: [empty, wheat, a mix, oil]. */
+  /** Ox carts: [empty, then by ware: wheat, meat, cheese, olives, oil, fleece, grapes, wine]; porters: [empty, wheat, a mix, oil, fleece, wine]. */
   private readonly carts: Look[];
-  private readonly porters: [Look, Look, Look, Look];
+  private readonly porters: Look[];
   private readonly oilVendors: Look;
+  private readonly fleeceVendors: Look;
+  private readonly wineVendors: Look;
   /** Hunters: [setting out, with a deer, with a boar]. */
   private readonly hunters: [Look, Look, Look];
   private readonly all: Look[];
@@ -473,10 +573,12 @@ export class Walkers {
     this.actors = small(actor());
     this.collectors = [small(collector(false)), small(collector(true))];
     this.oilVendors = small(oilVendor());
-    this.carts = [big(oxCart('none')), big(oxCart('wheat')), big(oxCart('meat')), big(oxCart('cheese')), big(oxCart('olives')), big(oxCart('oil'))];
-    this.porters = [small(porter('none')), small(porter('wheat')), small(porter('mixed')), small(porter('oil'))];
+    this.fleeceVendors = small(fleeceVendor());
+    this.wineVendors = small(wineVendor());
+    this.carts = (['none', 'wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine'] as const).map((l) => big(oxCart(l)));
+    this.porters = (['none', 'wheat', 'mixed', 'oil', 'fleece', 'wine'] as const).map((l) => small(porter(l)));
     this.hunters = [small(hunter('none')), big(hunter('deer')), big(hunter('boar'))];
-    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
+    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters];
   }
 
   get count(): number {
@@ -520,6 +622,8 @@ export class Walkers {
     const green = col(PAL.collectorTunic);
     const olive = col(PAL.hunterTunic);
     const oilDress = col(PAL.oilVendorDress);
+    const fleeceDress = col(PAL.fleeceVendorDress);
+    const wineTunic = col(PAL.wineVendorTunic);
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -537,7 +641,7 @@ export class Walkers {
         this.e.set(Math.sin(phase) * (cart ? 0.015 : 0.03) * moving, Math.atan2(-dz, dx), 0, 'YXZ');
         this.q.setFromEuler(this.e);
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
-        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'oil' || w.kind === 'priestess' ? 0.9 : 0.95;
+        const sc = w.kind === 'water' || w.kind === 'food' || w.kind === 'oil' || w.kind === 'fleece' || w.kind === 'priestess' ? 0.9 : 0.95;
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
         // The colour's sign tells the shader whether the legs swing (negated: standing still).
@@ -547,6 +651,8 @@ export class Walkers {
           const stall = state.buildings.find((b) => b.id === w.origin);
           (stall && (stall.meat > 0 || stall.cheese > 0) ? this.vendorsMixed : this.vendors).push(this.m, still(this.c.copy(saffron)));
         } else if (w.kind === 'oil') this.oilVendors.push(this.m, still(this.c.copy(oilDress)));
+        else if (w.kind === 'fleece') this.fleeceVendors.push(this.m, still(this.c.copy(fleeceDress)));
+        else if (w.kind === 'wine') this.wineVendors.push(this.m, still(this.c.copy(wineTunic)));
         else if (w.kind === 'hunter') {
           const kill = w.back && w.load > 0 ? (state.herds[w.food]?.kind === 'boar' ? 2 : 1) : 0;
           this.hunters[kill].push(this.m, still(this.c.copy(olive)));
@@ -558,7 +664,10 @@ export class Walkers {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
           // A cart shows its ware (wares past those with a look yet show as an empty cart).
           if (cart) (this.carts[w.load > 0 ? 1 + w.food : 0] ?? this.carts[0]).push(this.m, still(this.c));
-          else this.porters[w.food === OIL ? (w.load > 0 ? 3 : 0) : w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
+          else {
+            const ware = PORTER_LOOK[w.food];
+            this.porters[ware !== undefined ? (w.load > 0 ? ware : 0) : w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));
+          }
         }
         const v = this.serviceAt.get(w.id);
         if (v) v.pos.copy(this.p);

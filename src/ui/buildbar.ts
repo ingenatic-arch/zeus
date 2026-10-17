@@ -1,5 +1,25 @@
-import type { ToolName, ToolTip } from '../game/tools';
-import { AGORA_COST, BRIDGE_COST, DAIRY_COST, FARM_COST, FOUNTAIN_COST, GRANARY_COST, GROVE_COST, LODGE_COST, PLOT_COST, PRESS_COST, ROAD_COST, SHRINE_COST, STALL_COST, STOREHOUSE_COST, TAX_OFFICE_COST, THEATRE_COST } from '../sim/build';
+import { TOOLS, type ToolName, type ToolTip } from '../game/tools';
+import {
+  AGORA_COST,
+  BRIDGE_COST,
+  DAIRY_COST,
+  FARM_COST,
+  FOUNTAIN_COST,
+  GRANARY_COST,
+  GROVE_COST,
+  LODGE_COST,
+  PASTURE_COST,
+  PLOT_COST,
+  PRESS_COST,
+  ROAD_COST,
+  SHRINE_COST,
+  STALL_COST,
+  STOREHOUSE_COST,
+  TAX_OFFICE_COST,
+  THEATRE_COST,
+  VINEYARD_COST,
+  WINERY_COST,
+} from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
@@ -32,6 +52,26 @@ const ICONS: Record<ButtonName, string> = {
   // A stall under a striped awning, with a jar of oil.
   stall:
     '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M10.6 17.2c-1.6-.6-2-2.2-1.6-3.6.3-1 1-1.6 1.6-1.8v-1h2.8v1c.6.2 1.3.8 1.6 1.8.4 1.4 0 3-1.6 3.6z" class="fill-oil"/></svg>',
+  // A sheep: a woolly cloud on four legs.
+  pasture:
+    '<svg viewBox="0 0 24 24"><path d="M7.6 16.4v4M10.4 16.6v4M14.6 16.6v4M17.2 16.4v4" class="stroke-ink"/><path d="M5.4 12.6c-.6-2.6 1.6-4.6 3.8-4 1-1.8 4-2 5.4-.4 2.2-.6 4.4 1.2 4 3.6 1.4 1.4.6 4-1.6 4.4-1 1.4-3.2 1.6-4.6.8-1.4 1-3.8.8-4.8-.4-2 .2-3.4-2.2-2.2-4z" class="fill-wool"/><path d="M3 10.4c-.6-1.8.6-3.4 2.4-3.4 1.4 0 2.4 1 2.4 2.4 0 1.8-1.4 3.2-2.8 3.2-1 0-1.6-.8-2-2.2z" class="fill-ink"/><path d="M2.6 21.2h18.8" class="stroke-ink"/></svg>',
+  // A bunch of grapes under a vine leaf.
+  vineyard:
+    '<svg viewBox="0 0 24 24"><path d="M12 3.4v3.4" class="stroke-ink"/><path d="M12 6.6c1.2-2.6 4.8-3.6 7-2-.4 2.8-3.4 4.6-7 2z" class="fill-olive"/><circle cx="9" cy="9.6" r="2.1" class="fill-grape"/><circle cx="13.2" cy="9.6" r="2.1" class="fill-grape"/><circle cx="7" cy="13.2" r="2.1" class="fill-grape"/><circle cx="11.1" cy="13.2" r="2.1" class="fill-grape"/><circle cx="15.2" cy="13.2" r="2.1" class="fill-grape"/><circle cx="9" cy="16.8" r="2.1" class="fill-grape"/><circle cx="13.2" cy="16.8" r="2.1" class="fill-grape"/><circle cx="11.1" cy="20.2" r="2" class="fill-grape"/></svg>',
+  // A winery: a treading vat under a roof, an amphora beside it.
+  winery:
+    '<svg viewBox="0 0 24 24"><path d="M2 9.4 12 4l10 5.4z" class="fill-ink"/><path d="M3.6 9.4v11.2M14.6 9.4v11.2" class="stroke-ink"/><path d="M4.4 14.4h9.4v5.8H4.4z" class="fill-soft"/><path d="M5.4 14.4c1.2-1.4 2.6-1.4 3.8 0 1.2-1.4 2.6-1.4 3.6 0z" class="fill-grape"/><path d="M18.6 21c-1.6-.6-2.2-2.4-1.8-4.2.3-1.2 1-2 1.8-2.4v-1.2h1.8v1.2c.8.4 1.5 1.2 1.8 2.4.4 1.8-.2 3.6-1.8 4.2z" class="fill-wine"/></svg>',
+  // A stall under its awning, with a bale of fleece.
+  fleecestall:
+    '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M8.2 17.2c-.8-1.8.4-3.6 2-3.4.6-1.2 2.6-1.4 3.6-.2 1.6-.4 3 1.2 2.2 3.6z" class="fill-wool"/></svg>',
+  // A stall under its awning, with an amphora of wine.
+  winestall:
+    '<svg viewBox="0 0 24 24"><path d="M3 9.5 5 4h14l2 5.5z" class="fill-soft"/><path d="M8.6 4 7.8 9.5M12 4v5.5M15.4 4l.8 5.5" class="stroke-ink"/><path d="M5 9.5V20M19 9.5V20" class="stroke-ink"/><path d="M6.5 17.2h11V20h-11z" class="fill-soft"/><path d="M11 17.2c-1.4-.8-1.8-2.4-1.4-3.8.3-.9.8-1.5 1.4-1.8v-1.2h2v1.2c.6.3 1.1.9 1.4 1.8.4 1.4 0 3-1.4 3.8z" class="fill-wine"/></svg>',
+  // A bale of fleece, for the fleece overlay.
+  fleece:
+    '<svg viewBox="0 0 24 24"><path d="M4 16.6c-1.6-2.4-.4-5.6 2.4-5.8.4-2.8 3.6-4.2 6-2.8 2.2-1.6 5.6-.4 6.2 2.4 2.4.6 3.2 3.6 1.6 5.4.2 2.2-2 3.8-4.2 3.2-1.4 1.4-4 1.4-5.4.2-2.2 1-5 0-5.6-2.2z" class="fill-wool"/><path d="M8 13.6q2-1.6 4 0M12.6 12.4q2-1.6 4 0M9.6 16.6q2-1.6 4 0" class="stroke-ink"/></svg>',
+  // An amphora, for the wine overlay.
+  wine: '<svg viewBox="0 0 24 24"><path d="M10.6 2.8h2.8l-.2 2.6c1 .4 1.8 1.2 2.2 2.4.6 2 .4 5-.6 8-.6 1.8-1.4 3.4-2.8 5.2-1.4-1.8-2.2-3.4-2.8-5.2-1-3-1.2-6-.6-8 .4-1.2 1.2-2 2.2-2.4z" class="fill-wine"/><path d="M10.4 6.4C8.4 6 7.6 7.8 8.8 9M13.6 6.4c2-.4 2.8 1.4 1.6 2.6" class="stroke-ink"/><path d="M11 9.6q-.2 2.4.6 4.4" class="stroke-shine"/></svg>',
   // A jar of oil, for the oil overlay.
   oil: '<svg viewBox="0 0 24 24"><path d="M10.4 3h3.2l-.3 3.2c3.6.9 5.4 3.9 5.4 7.3 0 3.6-2.2 6.4-4.6 7.5H9.9C7.5 19.9 5.3 17.1 5.3 13.5c0-3.4 1.8-6.4 5.4-7.3z" class="fill-oil"/><path d="M7.8 6.8C6 6.6 5.4 8.4 6.6 9.6M16.2 6.8c1.8-.2 2.4 1.6 1.2 2.8" class="stroke-ink"/><path d="M9 12.6q.4-2.4 2.2-3.2" class="stroke-shine"/></svg>',
   // A domed silo beside a storehouse.
@@ -119,7 +159,25 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     name: 'Storehouse',
     key: 'G G',
     cost: `${STOREHOUSE_COST} dr`,
-    hint: 'Click beside a road, near the agora if you can. Carts bring jars of oil here, and the agora’s oil porter walks here to fetch them for its stall.',
+    hint: 'Click beside a road, near the agora if you can. Carts bring oil, fleece and wine here, and the agoras’ stall porters walk here to fetch them.',
+  },
+  pasture: {
+    name: 'Sheep pasture',
+    key: 'M ×6',
+    cost: `${PASTURE_COST} dr`,
+    hint: 'Click on green grass, beside a road. Its flock grazes inside the fence and is sheared for fleece, more on better grass; ox carts take the bales to a storehouse.',
+  },
+  vineyard: {
+    name: 'Vineyard',
+    key: 'M ×7',
+    cost: `${VINEYARD_COST} dr`,
+    hint: 'Click on a dry slope that catches the afternoon sun, beside a road (flat ground gives about half). Its grapes ripen for two months; ox carts take them to a winery.',
+  },
+  winery: {
+    name: 'Winery',
+    key: 'M ×8',
+    cost: `${WINERY_COST} dr`,
+    hint: 'Click beside a road. Carts bring it the vineyards’ grapes; it treads them into amphorae of wine, which its carts take to a storehouse.',
   },
   stall: {
     name: 'Oil stall',
@@ -127,12 +185,24 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${STALL_COST} dr`,
     hint: 'Click an agora to add an oil stall. Its porter fetches oil from a storehouse and its oil vendor sells it; a townhouse needs oil.',
   },
+  fleecestall: {
+    name: 'Fleece stall',
+    key: 'K ×3',
+    cost: `${STALL_COST} dr`,
+    hint: 'Click an agora to add a fleece stall. Its porter fetches fleece from a storehouse and its fleece vendor sells it; a fine house needs fleece.',
+  },
+  winestall: {
+    name: 'Wine stall',
+    key: 'K ×4',
+    cost: `${STALL_COST} dr`,
+    hint: 'Click an agora to add a wine stall. Its porter fetches wine from a storehouse and its wine vendor sells it; a villa needs wine.',
+  },
   granary: { name: 'Granary', key: 'G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Carts bring wheat, meat and cheese here, each in its own store, and the agora’s porter fetches them.' },
   agora: {
     name: 'Agora',
     key: 'K',
     cost: `${AGORA_COST} dr`,
-    hint: 'Click beside a road. Its food vendor walks the streets selling bread, meat and cheese to huts and better; huts with water and food become cottages. A townhouse needs two kinds of food, a fine house all three.',
+    hint: 'Click beside a road. Its food vendor walks the streets selling bread, meat and cheese to huts and better; huts with water and food become cottages. A townhouse needs two kinds of food, a fine house and a villa all three.',
   },
   shrine: {
     name: 'Shrine',
@@ -158,13 +228,15 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
   religion: { name: 'Religion overlay: where the priestess walks, and which homes are blessed', key: 'Y', cost: '', hint: '' },
   culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },
-  oil: { name: 'Oil overlay: where the oil vendor walks, which homes have oil, and the groves, presses and storehouses', key: 'L L L', cost: '', hint: '' },
+  oil: { name: 'Oil overlay: where the oil vendor walks, which homes have oil, and the groves, presses and storehouses', key: 'L ×3', cost: '', hint: '' },
+  fleece: { name: 'Fleece overlay: where the fleece vendor walks, which homes have fleece, and the pastures and storehouses', key: 'L ×4', cost: '', hint: '' },
+  wine: { name: 'Wine overlay: where the wine vendor walks, which homes have wine, and the vineyards, wineries and storehouses', key: 'L ×5', cost: '', hint: '' },
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };
 
-/** The build bar along the bottom: road, housing, fountain, farm, hunting lodge, dairy, olive grove, olive press, granary, storehouse, agora, oil stall, shrine, theatre, tax office, clear, undo, and the overlays. */
+/** The build bar along the bottom: road, housing, fountain, the makers (farm to winery), granary, storehouse, agora and its stalls, shrine, theatre, tax office, clear, undo, and the overlays. */
 export class BuildBar {
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly hint: HTMLElement;
@@ -179,8 +251,8 @@ export class BuildBar {
     hint.hidden = true;
     root.appendChild(hint);
     this.hint = hint;
-    for (const t of ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'grove', 'press', 'granary', 'storehouse', 'agora', 'stall', 'shrine', 'theatre', 'taxoffice', 'clear'] as ToolName[]) {
-      if (t === 'farm' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
+    for (const t of TOOLS) {
+      if (t === 'farm' || t === 'granary' || t === 'shrine' || t === 'taxoffice' || t === 'clear') {
         const d = document.createElement('div');
         d.className = 'divider';
         bar.appendChild(d);
@@ -199,7 +271,7 @@ export class BuildBar {
     const sep2 = document.createElement('div');
     sep2.className = 'divider';
     bar.appendChild(sep2);
-    for (const o of ['water', 'food', 'variety', 'oil', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
+    for (const o of ['water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'missing'] as OverlayMode[]) {
       const b = this.button(o);
       b.classList.add('overlay', o);
       b.addEventListener('click', () => onOverlay(o));

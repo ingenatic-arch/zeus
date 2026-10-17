@@ -18,10 +18,10 @@ import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
 import { World } from './render/world';
 import { isBridge } from './sim/build';
-import { BUILDING_NAMES, centreOf, findBuilding, TOWNHOUSE } from './sim/buildings';
+import { BUILDING_NAMES, centreOf, FINE, findBuilding, TOWNHOUSE, VILLA } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { lackWords, warningOf, warningsOf } from './sim/folk';
-import { held, OIL } from './sim/foods';
+import { FLEECE, held, OIL, WINE } from './sim/foods';
 import { goodUntil, hasStall } from './sim/goods';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
@@ -402,10 +402,14 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 8 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
       changed += ' · Townhouses now need oil: plant olive groves on the dry slopes (M ×4), build an olive press (M ×5), a storehouse (G G) and an oil stall on an agora (K K). They have eight months before they start to worry.';
     }
+    // …and one saved before fleece (slice 10 or older), with fine houses; they have eight months from loading.
+    if (loaded.from !== undefined && loaded.from <= 9 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= FINE)) {
+      changed += ' · Fine houses now need fleece: put a sheep pasture on the grass (M ×6), a storehouse (G G) and a fleece stall on an agora (K ×3). They have eight months before they start to worry. With wine as well (a vineyard M ×7, a winery M ×8, a wine stall K ×4) they become villas.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -507,9 +511,17 @@ function start(): void {
     }
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
+  /** What M and K cycle through (Shift goes back a step). */
+  const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'];
+  const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
+  const next = (list: ToolName[], now: ToolName | null, back = false): ToolName => {
+    const i = now ? list.indexOf(now) : -1;
+    if (i < 0) return list[0];
+    return list[(i + (back ? list.length - 1 : 1)) % list.length];
+  };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart' };
   const pointerTools: PointerTools = {
     get active() {
       return tools.tool !== null;
@@ -548,7 +560,7 @@ function start(): void {
       const kind = b ? FOLLOWS[b.kind] : undefined;
       if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
     },
-    key(k) {
+    key(k, e) {
       if (k === 'save') {
         saveMenu.saveNow();
         return true;
@@ -562,8 +574,10 @@ function start(): void {
         return true;
       }
       if (k === 'l') {
-        // L: the food overlay, then what is on the tables, then oil, then off.
-        overlay.wanted = overlay.wanted === 'food' ? 'variety' : overlay.wanted === 'variety' ? 'oil' : overlay.wanted === 'oil' ? null : 'food';
+        // L: the food overlay, then what is on the tables, then oil, fleece and wine, then off.
+        const cycle = ['food', 'variety', 'oil', 'fleece', 'wine'] as const;
+        const at = cycle.indexOf(overlay.wanted as (typeof cycle)[number]);
+        overlay.wanted = at < 0 ? 'food' : at === cycle.length - 1 ? null : cycle[at + 1];
         return true;
       }
       if (k === 'i') {
@@ -588,11 +602,11 @@ function start(): void {
       }
       let t = TOOL_KEYS[k];
       if (!t) return false;
-      // M again: the farm, then the hunting lodge, the dairy, the olive grove and the olive press.
-      if (k === 'm') t = tools.tool === 'farm' ? 'lodge' : tools.tool === 'lodge' ? 'dairy' : tools.tool === 'dairy' ? 'grove' : tools.tool === 'grove' ? 'press' : 'farm';
-      // G again: the granary, then the storehouse; K again: the agora, then its oil stall.
+      // M again: the farm, then the hunting lodge, the dairy, the olive grove, the olive press, the sheep pasture, the vineyard and the winery.
+      if (k === 'm') t = next(MAKERS, tools.tool, e?.shiftKey);
+      // G again: the granary, then the storehouse; K again: the agora, then its oil, fleece and wine stalls.
       if (k === 'g') t = tools.tool === 'granary' ? 'storehouse' : 'granary';
-      if (k === 'k') t = tools.tool === 'agora' ? 'stall' : 'agora';
+      if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -607,7 +621,7 @@ function start(): void {
   if (demo?.follow) {
     const kind = demo.follow;
     const from: Building['kind'] =
-      kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
+      kind === 'water' ? 'fountain' : kind === 'food' || kind === 'oil' || kind === 'fleece' || kind === 'wine' ? 'agora' : kind === 'priestess' ? 'shrine' : kind === 'actor' ? 'theatre' : kind === 'tax' ? 'taxoffice' : kind === 'hunter' ? 'lodge' : 'farm';
     // Carts: wait at the farm whose field is nearest to ripe and follow its first cart, so the harvest itself is in view.
     const ripest = kind === 'cart' ? sim.state.buildings.filter((b) => b.kind === 'farm').sort((a, b) => b.growth - a.growth)[0] : undefined;
     // Hunters: the one who set out last (not one already on his way home), so the camera goes out with him to the herd and back.
@@ -754,6 +768,18 @@ function start(): void {
       oil: s.buildings.reduce((a, b) => a + (b.kind === 'home' ? 0 : held(b, OIL)), 0),
       oiled: homes.filter((b) => goodUntil(b, OIL) > s.tick).length,
       noOil: homes.filter((b) => warningsOf(s, b).some((w) => w.need === 'oil')).length,
+      pastures: of('pasture').length,
+      vineyards: of('vineyard').length,
+      wineries: of('winery').length,
+      fleeceStalls: of('agora').filter((a) => hasStall(a, FLEECE)).length,
+      wineStalls: of('agora').filter((a) => hasStall(a, WINE)).length,
+      fleeceVendors: s.walkers.filter((w) => w.kind === 'fleece').length,
+      wineVendors: s.walkers.filter((w) => w.kind === 'wine').length,
+      fleece: s.buildings.reduce((a, b) => a + (b.kind === 'home' ? 0 : held(b, FLEECE)), 0),
+      wine: s.buildings.reduce((a, b) => a + (b.kind === 'home' ? 0 : held(b, WINE)), 0),
+      fleeced: homes.filter((b) => goodUntil(b, FLEECE) > s.tick).length,
+      wined: homes.filter((b) => goodUntil(b, WINE) > s.tick).length,
+      villas: homes.filter((b) => b.level === VILLA).length,
     };
   };
   probe.walker = (kind: string) => {
@@ -879,6 +905,8 @@ function start(): void {
         if (b.kind === 'home' && b.level === 3 && before.level === 4) floaters.add('Back to a cottage', at.clone().setY(at.y + 0.9), time, 'dry');
         if (b.kind === 'home' && b.level === 5 && before.level === 4) floaters.add('Fine house', at.setY(at.y + 1.0), time, 'culture');
         if (b.kind === 'home' && b.level === 4 && before.level === 5) floaters.add('Back to a townhouse', at.clone().setY(at.y + 1.0), time, 'dry');
+        if (b.kind === 'home' && b.level === VILLA && before.level === FINE) floaters.add('Villa', at.setY(at.y + 1.2), time, 'wine');
+        if (b.kind === 'home' && b.level === FINE && before.level === VILLA) floaters.add('Back to a fine house', at.clone().setY(at.y + 1.2), time, 'dry');
         // People moving away from a home that stays (it went down a level).
         if (b.kind === 'home' && b.people < before.people && b.level < before.level) floaters.add(`−${before.people - b.people}`, at.clone().setY(at.y - 0.2), time, 'dry');
       }

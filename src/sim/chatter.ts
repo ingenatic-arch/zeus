@@ -6,7 +6,7 @@
  * order so a household goes through every line before it repeats one. Pure:
  * the same state always gives the same lines.
  */
-import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE } from './buildings';
+import { COTTAGE, FINE, HUT, TENT, TOWNHOUSE, VILLA } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { ageOf, cityHas, URGENT, wantsMoreFood, warningOf } from './folk';
 import { kindsNeeded, onTable } from './foods';
@@ -120,6 +120,16 @@ export const LINES = {
     '{adult} says the goat’s cheese from up the lane is better than anything in {origin}. Don’t tell {origin}.',
     'Lamps burning in every room till late. {head} says a fine house should glow. It glows.',
   ],
+  villa: [
+    'Wine with dinner, a play after, and the sea from the colonnade. {head} says this is why we left {origin}.',
+    '{kin} counted the roof tiles. There are a great many. {kin} is very proud of every one.',
+    'The garden is in bloom and the fountain is singing. Someone pinch me. Not you, {kin}.',
+    'We had twelve to dinner under the colonnade. {adult} poured the wine like a priestess at a sacrifice.',
+    'Warm cloaks, good wine, our own olive tree. Even {head} has run out of things to complain about.',
+    'The cypress by the gate is taller than the house now. {kin} says it is showing off.',
+    'Guests from {origin} came to stay and asked if we were related to a king. {head} said only distantly.',
+    'Fleece on the beds, wine in the jars, oil in the lamps. The vendors know our door by heart.',
+  ],
   plainTable: [
     'Bread, bread and more bread. {kin} asked if we could have it with something. I said, with more bread.',
     'The neighbours up the hill eat cheese. Cheese! {head} says we could live like that too.',
@@ -160,6 +170,22 @@ export const LINES = {
     'A townhouse with dark windows. The neighbours will think we’ve gone back to {origin}.',
     'Where is the oil vendor? The lamps are dry and so is {kin}’s hair.',
     'No oil for the lamps, none for the bread, none for the skin. We’re drying out like figs.',
+  ],
+  noFleece: [
+    'No fleece to be had. {adult} is unpicking an old cloak to weave a new one. It’s getting smaller.',
+    'A fine house and threadbare blankets. {head} says we look like we came from {origin} last week.',
+    'The loom stands idle in the courtyard. {kin} uses it to dry the figs.',
+    'Where is the fleece vendor? The wind off the sea has teeth this month.',
+    'We had the neighbours over and they kept their cloaks on. Very pointed.',
+    'No wool for the loom. {adult} weaves rushes instead. Nobody wants to sit on them.',
+  ],
+  noWine: [
+    'A villa without wine. {head} raises a cup of water to the guests and nobody believes it.',
+    'No wine at the table again. The guests from {origin} pretended not to notice. They noticed.',
+    'Where has the wine vendor got to? The empty amphorae stand in the courtyard like reproaches.',
+    '{adult} watered the last of the wine until it was mostly the idea of wine.',
+    'You can’t have a symposium with water. You can, but nobody comes back.',
+    'All this marble and nothing to pour. {kin} says the gods are laughing at us.',
   ],
   noWater: [
     'No water carrier for days. We’re washing in olive oil, which is not the same.',
@@ -212,6 +238,11 @@ export const LINES = {
     'A fine house! {head} keeps saying “our courtyard” to anyone who stands still.',
     'Columns. Actual columns. {kin} has hugged every one of them.',
     'From a tent to this. If my mother in {origin} could see us now, she’d ask what it all cost.',
+  ],
+  upVilla: [
+    'A villa! {head} walked the colonnade three times and then lay down in the garden.',
+    'Our own olive tree in our own courtyard. {kin} has already named it.',
+    'From a tent to a villa. {adult} keeps touching the roof tiles to see if they’re real.',
   ],
   noTax: [
     'No taxes this year, they say. {head} has bought a second goat to celebrate.',
@@ -304,14 +335,14 @@ export function situationOf(s: SimState, b: Building): Situation {
   const warn = warningOf(s, b);
   if (warn && warn.left <= URGENT) return 'urgent';
   // Short of food: no food at all, or bread but not the other kinds a townhouse or a fine house keeps.
-  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? (onTable(b, s.tick) > 0 ? 'noVariety' : 'noFood') : warn.need === 'religion' ? 'noShrine' : warn.need === 'oil' ? 'noOil' : 'noPlays';
+  if (warn) return warn.need === 'water' ? 'noWater' : warn.need === 'food' ? (onTable(b, s.tick) > 0 ? 'noVariety' : 'noFood') : warn.need === 'religion' ? 'noShrine' : warn.need === 'oil' ? 'noOil' : warn.need === 'fleece' ? 'noFleece' : warn.need === 'wine' ? 'noWine' : 'noPlays';
   const lastOf = (what: string): number => {
     if (f) for (let i = f.story.length - 1; i >= 0; i--) if (f.story[i].what === what) return f.story[i].tick;
     return -1;
   };
   // Just moved down a level, or up one (the change the home's level dates from).
   if (lastOf('down') === b.since && s.tick - b.since < 2 * TICKS_PER_MONTH) return 'down';
-  if (b.level >= HUT && lastOf('up') === b.since && s.tick - b.since < TICKS_PER_MONTH) return b.level >= FINE ? 'upFine' : b.level >= TOWNHOUSE ? 'upTownhouse' : b.level >= COTTAGE ? 'upCottage' : 'upHut';
+  if (b.level >= HUT && lastOf('up') === b.since && s.tick - b.since < TICKS_PER_MONTH) return b.level >= VILLA ? 'upVilla' : b.level >= FINE ? 'upFine' : b.level >= TOWNHOUSE ? 'upTownhouse' : b.level >= COTTAGE ? 'upCottage' : 'upHut';
   if (f && s.tick - f.came < TICKS_PER_MONTH) return 'new';
   if (b.level === TENT) return b.waterUntil > s.tick ? 'tentWet' : 'tentDry';
   if (b.level === HUT) return b.foodUntil > s.tick ? 'hutBread' : 'hutNoBread';
@@ -321,7 +352,7 @@ export function situationOf(s: SimState, b: Building): Situation {
   }
   if (b.level === COTTAGE) return b.religionUntil > s.tick ? 'cottageBlessed' : 'cottage';
   if (b.level === TOWNHOUSE) return b.cultureUntil > s.tick ? 'townhousePlays' : 'townhouse';
-  return 'fine';
+  return b.level >= VILLA ? 'villa' : 'fine';
 }
 
 /**
@@ -333,7 +364,8 @@ export function situationOf(s: SimState, b: Building): Situation {
 function suits(s: SimState, b: Building, sit: Situation, template: string): boolean {
   const anyLevel = sit === 'noWater' || sit === 'noFood' || sit === 'noVariety' || sit === 'urgent' || sit === 'down';
   if (anyLevel && /cottage/i.test(template) && b.level !== COTTAGE) return false;
-  if (sit === 'noShrine' && /townhouse/.test(template) && b.level !== TOWNHOUSE) return false;
+  if ((sit === 'noShrine' || sit === 'noOil') && /townhouse/.test(template) && b.level !== TOWNHOUSE) return false;
+  if (sit === 'noFleece' && /fine house/.test(template) && b.level !== FINE) return false;
   if (/talk of a theatre|had a theatre|need a proper theatre/.test(template) && cityHas(s).theatre) return false;
   if (/somewhere proper to thank the gods/.test(template) && cityHas(s).shrine) return false;
   return true;

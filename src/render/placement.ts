@@ -50,13 +50,10 @@ const fragment = /* glsl */ `
   uniform float uTime;
   uniform float uGrid;
   uniform float uOverlay;
-  uniform float uTone;
   varying vec3 vWorld;
 
-  // The water overlay's blues, the food overlay's golds, the religion overlay's lilacs, the culture overlay's roses or the tax overlay's bronze-greens.
-  vec3 tone(vec3 water, vec3 food, vec3 bless, vec3 plays, vec3 tax, vec3 oil) {
-    return uTone < 0.5 ? water : uTone < 1.5 ? food : uTone < 2.5 ? bless : uTone < 3.5 ? plays : uTone < 4.5 ? tax : oil;
-  }
+  // The overlay's tone (see OVERLAY_TONES): reach on the roads, road walked lately, a preview, a home that has it, a home without, the source.
+  uniform vec3 uCol[6];
 
   void main() {
     vec2 p = vWorld.xz;
@@ -79,19 +76,19 @@ const fragment = /* glsl */ `
     float edge = smoothstep(0.30, 0.48, max(f.x, f.y));
     if (o > 0.5 && o < 100.5) {
       float k = (o - 1.0) / 99.0;
-      col = vec4(tone(vec3(0.36, 0.64, 0.95), vec3(0.95, 0.74, 0.3), vec3(0.66, 0.54, 0.92), vec3(0.95, 0.52, 0.62), vec3(0.3, 0.78, 0.66), vec3(0.62, 0.74, 0.3)), 0.16 + 0.26 * k);
+      col = vec4(uCol[0], 0.16 + 0.26 * k);
     } else if (o > 100.5 && o < 200.5) {
       float k = (o - 101.0) / 99.0;
-      col = vec4(tone(vec3(0.22, 0.72, 1.0), vec3(1.0, 0.66, 0.12), vec3(0.7, 0.46, 1.0), vec3(1.0, 0.4, 0.58), vec3(0.12, 0.76, 0.6), vec3(0.6, 0.78, 0.16)), 0.34 + 0.34 * k);
+      col = vec4(uCol[1], 0.34 + 0.34 * k);
     } else if (o > 200.5 && o < 201.5) {
-      col = vec4(tone(vec3(0.2, 0.62, 1.0), vec3(1.0, 0.7, 0.2), vec3(0.68, 0.5, 1.0), vec3(1.0, 0.46, 0.62), vec3(0.2, 0.74, 0.6), vec3(0.62, 0.76, 0.2)), 0.5 + 0.15 * sin(uTime * 4.0));
+      col = vec4(uCol[2], 0.5 + 0.15 * sin(uTime * 4.0));
     } else if (o > 209.5 && o < 249.5) {
       float k = (o - 210.0) / 39.0;
-      col = vec4(tone(vec3(0.2, 0.5, 0.95), vec3(0.92, 0.62, 0.14), vec3(0.56, 0.38, 0.9), vec3(0.9, 0.32, 0.5), vec3(0.12, 0.56, 0.46), vec3(0.46, 0.6, 0.12)), (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
+      col = vec4(uCol[3], (0.3 + 0.35 * k) * (0.75 + 0.25 * edge));
     } else if (o > 249.5 && o < 250.5) {
-      col = vec4(tone(vec3(0.86, 0.36, 0.2), vec3(0.62, 0.3, 0.42), vec3(0.62, 0.48, 0.3), vec3(0.36, 0.46, 0.6), vec3(0.8, 0.56, 0.24), vec3(0.66, 0.42, 0.24)), 0.42 * (0.7 + 0.3 * edge));
+      col = vec4(uCol[4], 0.42 * (0.7 + 0.3 * edge));
     } else if (o > 251.5 && o < 252.5) {
-      col = vec4(tone(vec3(0.3, 0.82, 1.0), vec3(1.0, 0.82, 0.3), vec3(0.8, 0.66, 1.0), vec3(1.0, 0.62, 0.72), vec3(0.36, 0.9, 0.76), vec3(0.78, 0.9, 0.4)), 0.6);
+      col = vec4(uCol[5], 0.6);
     } else if (o > 204.5 && o < 205.5) {
       col = vec4(0.86, 0.28, 0.18, (0.5 + 0.1 * sin(uTime * 3.0)) * (0.7 + 0.3 * edge));
     } else if (o > 205.5 && o < 206.5) {
@@ -123,6 +120,25 @@ const fragment = /* glsl */ `
     gl_FragColor = col;
   }
 `;
+
+type RGB = readonly [number, number, number];
+/**
+ * Each service overlay's colours (by tone), in the order the shader reads
+ * them: a road in reach (faint), a road walked lately, a preview of a new
+ * building's reach, a home that has it, a home without, and the building it
+ * comes from. Water blue, food gold, blessings lilac, plays rose, taxes
+ * bronze-green, oil olive, fleece the cream of new wool, wine a deep purple.
+ */
+export const OVERLAY_TONES: ReadonlyArray<readonly [RGB, RGB, RGB, RGB, RGB, RGB]> = [
+  [[0.36, 0.64, 0.95], [0.22, 0.72, 1.0], [0.2, 0.62, 1.0], [0.2, 0.5, 0.95], [0.86, 0.36, 0.2], [0.3, 0.82, 1.0]],
+  [[0.95, 0.74, 0.3], [1.0, 0.66, 0.12], [1.0, 0.7, 0.2], [0.92, 0.62, 0.14], [0.62, 0.3, 0.42], [1.0, 0.82, 0.3]],
+  [[0.66, 0.54, 0.92], [0.7, 0.46, 1.0], [0.68, 0.5, 1.0], [0.56, 0.38, 0.9], [0.62, 0.48, 0.3], [0.8, 0.66, 1.0]],
+  [[0.95, 0.52, 0.62], [1.0, 0.4, 0.58], [1.0, 0.46, 0.62], [0.9, 0.32, 0.5], [0.36, 0.46, 0.6], [1.0, 0.62, 0.72]],
+  [[0.3, 0.78, 0.66], [0.12, 0.76, 0.6], [0.2, 0.74, 0.6], [0.12, 0.56, 0.46], [0.8, 0.56, 0.24], [0.36, 0.9, 0.76]],
+  [[0.62, 0.74, 0.3], [0.6, 0.78, 0.16], [0.62, 0.76, 0.2], [0.46, 0.6, 0.12], [0.66, 0.42, 0.24], [0.78, 0.9, 0.4]],
+  [[0.96, 0.9, 0.74], [1.0, 0.93, 0.7], [1.0, 0.92, 0.72], [0.9, 0.82, 0.6], [0.4, 0.42, 0.6], [1.0, 0.96, 0.84]],
+  [[0.66, 0.3, 0.6], [0.62, 0.16, 0.5], [0.66, 0.22, 0.56], [0.5, 0.12, 0.4], [0.7, 0.6, 0.3], [0.8, 0.44, 0.72]],
+];
 
 /**
  * The placing overlay: a faint grid on the ground around the pointer, the
@@ -159,7 +175,7 @@ export class Placement {
       uTime: { value: 0 },
       uGrid: { value: 0 },
       uOverlay: { value: 0 },
-      uTone: { value: 0 },
+      uCol: { value: OVERLAY_TONES[0].map((c) => new THREE.Vector3(c[0], c[1], c[2])) },
     };
     const mat = new THREE.ShaderMaterial({
       vertexShader: vertex,
@@ -218,9 +234,11 @@ export class Placement {
     this.mesh.visible = this.tool || this.overlay;
   }
 
-  /** A service overlay on or off, in its tone (0 water, 1 food, 2 religion, 3 culture, 4 taxes, 5 oil). */
+  /** A service overlay on or off, in its tone (an OVERLAY_TONES row: 0 water, 1 food, 2 religion, 3 culture, 4 taxes, 5 oil, 6 fleece, 7 wine). */
   showOverlay(on: boolean, tone = 0): void {
-    this.uniforms.uTone.value = tone;
+    const row = OVERLAY_TONES[tone] ?? OVERLAY_TONES[0];
+    const cols = this.uniforms.uCol.value as THREE.Vector3[];
+    for (let i = 0; i < 6; i++) cols[i].set(row[i][0], row[i][1], row[i][2]);
     this.overlay = on;
     this.uniforms.uOverlay.value = on ? 1 : 0;
     this.mesh.visible = this.tool || this.overlay;

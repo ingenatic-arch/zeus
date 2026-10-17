@@ -11,13 +11,15 @@
  *   press's olives) only while it has some in hand, using it up.
  * - *Hunted* (the lodge): its hunters fill its store (hunt.ts).
  *
- * Later makers (the sheep farm, the vineyard and winery) only add rows.
+ * The sheep pasture is a batch by its grass (its flock is sheared), the
+ * vineyard a crop like the grove, the winery a batch with an input (grapes)
+ * like the press.
  */
 import type { CoastMap } from '../map/bake';
-import { grassOf, oliveOf } from './build';
+import { grassOf, oliveOf, vineOf } from './build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { CHEESE_BATCH, CHEESE_EVERY, GROW, harvestOf, sendCart } from './food';
-import { CHEESE, held, MEAT, OIL, OLIVES, setHeld, WHEAT, type Ware } from './foods';
+import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, setHeld, WHEAT, WINE, type Ware } from './foods';
 import { stepLodges } from './hunt';
 import { rateOf } from './labour';
 import { storeOf } from './stores';
@@ -29,6 +31,15 @@ export const OLIVE_GROW = 2 * TICKS_PER_MONTH;
 /** An olive press makes PRESS_BATCH jars of oil from as many measures of olives every PRESS_EVERY ticks fully worked (300 a month). */
 export const PRESS_EVERY = 3 * TICKS_PER_DAY;
 export const PRESS_BATCH = 30;
+/** A sheep pasture shears FLEECE_BATCH bales of fleece every FLEECE_EVERY ticks fully worked on the best grass (200 a month). */
+export const FLEECE_EVERY = 3 * TICKS_PER_DAY;
+export const FLEECE_BATCH = 20;
+/** A vineyard's harvest of grapes on the best vine ground, fully worked, every VINE_GROW ticks (two months). */
+export const GRAPE_HARVEST = 400;
+export const VINE_GROW = 2 * TICKS_PER_MONTH;
+/** A winery makes WINE_BATCH amphorae of wine from as many measures of grapes every WINE_EVERY ticks fully worked (300 a month). */
+export const WINE_EVERY = 3 * TICKS_PER_DAY;
+export const WINE_BATCH = 30;
 
 export interface Maker {
   /** What it makes. */
@@ -47,6 +58,8 @@ export interface Maker {
 
 /** The harvest an olive grove brings in on its ground. */
 export const olivesOf = (map: CoastMap, g: Building): number => Math.round(OLIVE_HARVEST * oliveOf(map, g.x, g.z, 3));
+/** The harvest a vineyard brings in on its ground. */
+export const grapesOf = (map: CoastMap, v: Building): number => Math.round(GRAPE_HARVEST * vineOf(map, v.x, v.z, 3));
 
 export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
   farm: { ware: WHEAT, how: 'crop', grow: GROW, yieldOf: harvestOf },
@@ -54,6 +67,9 @@ export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
   dairy: { ware: CHEESE, how: 'batch', every: CHEESE_EVERY, batch: CHEESE_BATCH, ground: (map, d) => grassOf(map, d.x, d.z, 3) },
   grove: { ware: OLIVES, how: 'crop', grow: OLIVE_GROW, yieldOf: olivesOf },
   press: { ware: OIL, how: 'batch', every: PRESS_EVERY, batch: PRESS_BATCH, input: OLIVES },
+  pasture: { ware: FLEECE, how: 'batch', every: FLEECE_EVERY, batch: FLEECE_BATCH, ground: (map, p) => grassOf(map, p.x, p.z, 3) },
+  vineyard: { ware: GRAPES, how: 'crop', grow: VINE_GROW, yieldOf: grapesOf },
+  winery: { ware: WINE, how: 'batch', every: WINE_EVERY, batch: WINE_BATCH, input: GRAPES },
 };
 
 /** How far a crop has grown, in eighths (what the renderer shows). */
@@ -106,8 +122,9 @@ function stepKind(s: SimState, map: CoastMap, kind: BuildingKind): void {
 
 /**
  * Every maker's tick, in a fixed order: farms, lodges (their hunters, then
- * their carts), dairies, then groves and presses (after everything that was
- * there before them, so towns without them run exactly as they did).
+ * their carts), dairies, groves and presses, then pastures, vineyards and
+ * wineries (each after everything that was there before it, so towns without
+ * them run exactly as they did).
  */
 export function stepMakers(s: SimState, map: CoastMap): void {
   stepKind(s, map, 'farm');
@@ -116,7 +133,14 @@ export function stepMakers(s: SimState, map: CoastMap): void {
   stepKind(s, map, 'dairy');
   stepKind(s, map, 'grove');
   stepKind(s, map, 'press');
+  stepKind(s, map, 'pasture');
+  stepKind(s, map, 'vineyard');
+  stepKind(s, map, 'winery');
 }
 
 /** The oil a press makes a month, fully worked (with olives always in hand). */
 export const OIL_MONTH = Math.round((PRESS_BATCH * TICKS_PER_MONTH) / PRESS_EVERY);
+/** The fleece a pasture shears a month on the best grass, fully worked. */
+export const FLEECE_MONTH = Math.round((FLEECE_BATCH * TICKS_PER_MONTH) / FLEECE_EVERY);
+/** The wine a winery makes a month, fully worked (with grapes always in hand). */
+export const WINE_MONTH = Math.round((WINE_BATCH * TICKS_PER_MONTH) / WINE_EVERY);

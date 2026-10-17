@@ -6,7 +6,7 @@ import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './cloc
 import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
 import { FIRST_VENDOR, moveErrand, moveVendor, stepAgoras } from './food';
-import { addComing, FIRST_GOOD, gi, held, isGood, noGoods, setHeld, WARE_NAMES, type Ware } from './foods';
+import { addComing, FIRST_GOOD, gi, GRAPES, held, isGood, noGoods, OLIVES, setHeld, WARE_NAMES, type Ware } from './foods';
 import { FIRST_STALL_VENDOR, hasStall, moveStallVendor, stallBit, stallPrice, stallRefusal, STALL_GOODS, STALL_NAMES, stallWalker, stepStalls, vendorGood } from './goods';
 import { moveHunter } from './hunt';
 import { stepMakers } from './production';
@@ -16,7 +16,7 @@ import { stepHouses } from './houses';
 import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
 import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
-import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type ServiceRecord, type SimState, type UndoEntry } from './state';
+import { ROUND_KINDS, SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, type Building, type BuildingKind, type Round, type ServiceRecord, type SimState, type UndoEntry } from './state';
 import { FIRST_CARRIER, moveCarrier, stepFountains } from './water';
 import { FAIR, FIRST_COLLECTOR, handIn, HARSH, moveCollector, stepHarsh, stepTaxOffices } from './taxes';
 import { freshLedger, income, pay, priceOf, spendable, stepWages } from './treasury';
@@ -44,7 +44,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
     money: STARTING_MONEY,
     population: 0,
     tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    rounds: { water: freshRecord(), food: freshRecord(), religion: freshRecord(), oil: freshRecord(), culture: freshRecord(), tax: freshRecord() },
+    rounds: freshRounds(),
     taxRate: FAIR,
     ledger: freshLedger(STARTING_MONEY, 0),
     buildings: [],
@@ -65,6 +65,13 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast'): SimSt
 
 export function freshRecord(): ServiceRecord {
   return { walked: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0), exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0) };
+}
+
+/** A fresh record for every round (see ROUND_KINDS). */
+export function freshRounds(): Record<Round, ServiceRecord> {
+  const out = {} as Record<Round, ServiceRecord>;
+  for (const r of ROUND_KINDS) out[r] = freshRecord();
+  return out;
 }
 
 /** The baked map a state's city sits on. */
@@ -335,7 +342,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     goodsUntil: noGoods(),
     stalls,
     vclock: noGoods().map((_, k) => (stalls & (1 << k) ? FIRST_STALL_VENDOR : 0)),
-    fetch: 0,
+    fetch: noGoods(),
   };
   s.buildings.push(b);
   for (const t of footprint(n, x, z, sideOf(kind))) s.tiles[t] = b.id;
@@ -460,6 +467,7 @@ function removeStall(s: SimState, a: Building, good: Ware): void {
   a.stalls &= ~stallBit(good);
   setHeld(a, good, 0);
   a.vclock[gi(good)] = 0;
+  a.fetch[gi(good)] = 0;
   s.walkers = s.walkers.filter((w) => !stallWalker(w, a, good));
   s.looks++;
 }
@@ -480,7 +488,7 @@ export function undoRefusal(s: SimState): string {
     if (b.stock > 0) return b.kind === 'farm' ? 'There is grain in its barn now: clear it instead' : 'There is grain stored in it now: clear it instead';
     if (b.meat > 0 || b.cheese > 0) return `There is ${b.meat > 0 ? 'meat' : 'cheese'} stored in it now: clear it instead`;
     const k = b.goods.findIndex((n) => n > 0);
-    if (k >= 0) return `There ${k === 0 ? 'are' : 'is'} ${WARE_NAMES[k + FIRST_GOOD]} stored in it now: clear it instead`;
+    if (k >= 0) return `There ${k + FIRST_GOOD === OLIVES || k + FIRST_GOOD === GRAPES ? 'are' : 'is'} ${WARE_NAMES[k + FIRST_GOOD]} stored in it now: clear it instead`;
   }
   const st = e.stalls ?? [];
   for (let i = 0; i + 1 < st.length; i += 2) {

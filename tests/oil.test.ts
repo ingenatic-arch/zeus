@@ -225,7 +225,8 @@ describe('townhouses need oil', () => {
     const sim = demo('nooil');
     const s = sim.state;
     const warned = homes(s).filter((b) => warningsOf(s, b).some((w) => w.need === 'oil'));
-    expect(warned.length).toBeGreaterThan(3);
+    // (Since slice 11 the stall's last jars go to the homes that need them first, so they run dry a few at a time: three when the first is a month from going down.)
+    expect(warned.length).toBeGreaterThanOrEqual(3);
     const first = s.buildings.find((b) => b.id === DEMOS.nooil.open!(s))!;
     expect(homeStatus(s, map, first).detail).toMatch(/No oil for \d+ days? · goes back to a townhouse in/);
     expect(homeStatus(s, map, first).detail).toMatch(/no olive press yet/);

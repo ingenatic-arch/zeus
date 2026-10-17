@@ -8,7 +8,7 @@ import { chatterOf, LINES } from '../src/sim/chatter';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS } from '../src/sim/culture';
 import { ageOf, DECLINE_AFTER, leavingGroups, moodOf, needsOf, RISE_MIN, SETTLE, warningsOf, wantOf } from '../src/sim/folk';
-import { gi, OIL } from '../src/sim/foods';
+import { FLEECE, gi, OIL } from '../src/sim/foods';
 import { canWork } from '../src/sim/labour';
 import { distFrom } from '../src/sim/rounds';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
@@ -158,8 +158,10 @@ describe('going up, and staying up', () => {
       // Since slice 10 #grow has spent its savings on oil (townhouses need it): this is about farms, not money.
       sim.state.money = 5000;
       sim.enqueue({ type: 'build', kind: 'shrine', at: [35 + 78 * N] });
-      // #grow has bread and cheese; fine houses need meat too.
+      // #grow has bread and cheese; fine houses need meat too, and (since slice 11) fleece: a pasture by the lane and a fleece stall.
       sim.enqueue({ type: 'build', kind: 'lodge', at: [27 + 52 * N] });
+      sim.enqueue({ type: 'build', kind: 'pasture', at: [27 + 56 * N] });
+      sim.enqueue({ type: 'stall', at: 27 + 71 * N, good: FLEECE });
       if (farms) {
         sim.enqueue({ type: 'road', tiles: [51, 52, 53].map((x) => x + 63 * N) });
         sim.enqueue({ type: 'build', kind: 'farm', at: [41 + 60 * N, 51 + 64 * N] });
@@ -195,12 +197,12 @@ describe('warn, then decline, for blessings and plays', () => {
     const s = sim.state;
     const fine = homes(s).filter((b) => b.level === FINE);
     expect(fine.length).toBeGreaterThan(20);
-    // The fine houses warned about plays alone (the cut-off street's lack oil, blessings and water too, and its oil runs out first).
+    // The fine houses warned about plays alone (since slice 11 the scene opens sooner after the cut, so the cut-off street's homes warn about water and plays, the rest not yet).
     const warned = fine.filter((b) => warningsOf(s, b).length === 1 && warningsOf(s, b)[0].need === 'culture');
-    expect(warned.length).toBeGreaterThan(12);
+    expect(warned.length).toBeGreaterThanOrEqual(10);
     expect(homeStatus(s, map, warned[0]).detail).toMatch(/No plays for .* goes back to a townhouse in/);
-    // Some homes in the cut-off street warn about three needs at once.
-    expect(homes(s).some((b) => warningsOf(s, b).length >= 3)).toBe(true);
+    // Some homes in the cut-off street warn about two needs at once.
+    expect(homes(s).some((b) => warningsOf(s, b).length >= 2)).toBe(true);
     const people = new Map(warned.map((b) => [b.id, b.people]));
     const down = drops(sim, 2 * TICKS_PER_MONTH + 3 * TICKS_PER_DAY);
     for (const b of warned) {
@@ -219,6 +221,21 @@ describe('warn, then decline, for blessings and plays', () => {
     // With the shrine still there, they stay townhouses.
     const again = drops(sim, 6 * TICKS_PER_MONTH);
     for (const b of warned) if (b.religionUntil > sim.state.tick) expect(again.has(b.id)).toBe(false);
+  });
+});
+
+describe('#closed can be saved', () => {
+  it('rebuilding the theatre across from the shrine and mending the cut road at once loses at most a few homes a level; left alone, the cut street goes down', () => {
+    const fixed = demo('closed');
+    const most = Math.min(...homes(fixed.state).flatMap((b) => warningsOf(fixed.state, b).map((w) => w.left)));
+    // The most urgent home has about two weeks or more: time to read the scene and act.
+    expect(most).toBeGreaterThanOrEqual(14 * TICKS_PER_DAY);
+    fixed.enqueue({ type: 'build', kind: 'theatre', at: [35 + 81 * N] });
+    fixed.enqueue({ type: 'road', tiles: [25 + 74 * N] });
+    const lost = drops(fixed, DECLINE_AFTER + TICKS_PER_MONTH);
+    expect(lost.size).toBeLessThanOrEqual(8);
+    const alone = drops(demo('closed'), DECLINE_AFTER + TICKS_PER_MONTH);
+    expect(alone.size).toBeGreaterThanOrEqual(20);
   });
 });
 

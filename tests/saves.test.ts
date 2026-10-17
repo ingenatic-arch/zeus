@@ -56,7 +56,7 @@ function reload(a: Sim): Sim {
 }
 
 describe('a save carries on identically', () => {
-  it('in #closed: homes warned about three needs at once, every walker out, an undo waiting', () => {
+  it('in #closed: homes warned about two needs at once, every walker out, an undo waiting', () => {
     const a = demo('closed');
     // An action to undo, made just before saving.
     a.enqueue({ type: 'road', tiles: [T(25, 74)] });

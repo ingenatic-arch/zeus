@@ -19,7 +19,11 @@ import {
   Ground,
   GROVE_OLIVE_MIN,
   oliveOf,
+  PASTURE_GRASS_MIN,
   tileOlive,
+  tileVine,
+  VINE_MIN,
+  vineOf,
   isBridge,
   mapIndex,
   PLOT_COST,
@@ -31,10 +35,10 @@ import {
   tileGrass,
 } from '../sim/build';
 import { beside, BUILDING_NAMES, findBuilding, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
-import { held, OIL, WARE_NAMES, WARES, WHEAT } from '../sim/foods';
+import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
-import { OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST } from '../sim/production';
-import { PRESS_OLIVES, STOREHOUSE_OIL } from '../sim/stores';
+import { FLEECE_MONTH, GRAPE_HARVEST, OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST, VINE_GROW, WINE_MONTH } from '../sim/production';
+import { PRESS_OLIVES, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, WINERY_GRAPES } from '../sim/stores';
 import { CHEESE_BATCH, CHEESE_EVERY, GRANARY_CAP, GRANARY_ROOM, GROW, HARVEST, VENDOR_RANGE } from '../sim/food';
 import { HUNT_RANGE, lodgeOutlook } from '../sim/hunt';
 import { herdName, MIN_HEAD } from '../sim/wild';
@@ -49,12 +53,61 @@ import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/tre
 import { previewReach, type ServiceOverlay } from '../render/overlay';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
-export type ToolName = 'road' | 'housing' | 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'granary' | 'storehouse' | 'agora' | 'stall' | 'shrine' | 'theatre' | 'taxoffice' | 'clear';
-export const TOOLS: readonly ToolName[] = ['road', 'housing', 'fountain', 'farm', 'lodge', 'dairy', 'grove', 'press', 'granary', 'storehouse', 'agora', 'stall', 'shrine', 'theatre', 'taxoffice', 'clear'];
+export type ToolName =
+  | 'road'
+  | 'housing'
+  | 'fountain'
+  | 'farm'
+  | 'lodge'
+  | 'dairy'
+  | 'grove'
+  | 'press'
+  | 'pasture'
+  | 'vineyard'
+  | 'winery'
+  | 'granary'
+  | 'storehouse'
+  | 'agora'
+  | 'stall'
+  | 'fleecestall'
+  | 'winestall'
+  | 'shrine'
+  | 'theatre'
+  | 'taxoffice'
+  | 'clear';
+export const TOOLS: readonly ToolName[] = [
+  'road',
+  'housing',
+  'fountain',
+  'farm',
+  'lodge',
+  'dairy',
+  'grove',
+  'press',
+  'pasture',
+  'vineyard',
+  'winery',
+  'granary',
+  'storehouse',
+  'agora',
+  'stall',
+  'fleecestall',
+  'winestall',
+  'shrine',
+  'theatre',
+  'taxoffice',
+  'clear',
+];
+
+/** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
+export const STALL_TOOLS: Partial<Record<ToolName, Ware>> = { stall: OIL, fleecestall: FLEECE, winestall: WINE };
+/** The stall tool for a good. */
+export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : w === WINE ? 'winestall' : 'stall');
+const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
-const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'stall';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice';
+const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && !isStallTool(t);
 
 export interface ToolTip {
   /** Show text near the pointer (screen px), or hide with null; `warn` is a caution shown last, in amber. */
@@ -71,6 +124,13 @@ const WALKS = {
   theatre: { service: 'culture', walker: 'actor', range: ACTOR_RANGE, what: 'plays', none: 'townhouses', note: ' (townhouses and better want plays)' },
   taxoffice: { service: 'tax', walker: 'tax collector', range: COLLECTOR_RANGE, what: 'taxes', none: 'lived-in homes', note: '' },
 } as const;
+
+/** What each stall does, and the chain that fills it, in the tool's tip. */
+const STALL_WORDS: Partial<Record<Ware, { name: string; does: string; chain: string }>> = {
+  [OIL]: { name: 'oil stall', does: 'Its porter fetches jars of oil from a storehouse; its oil vendor sells to cottages and better nearby: a townhouse needs oil', chain: 'Groves, an olive press and a storehouse (M, G) make it.' },
+  [FLEECE]: { name: 'fleece stall', does: 'Its porter fetches bales of fleece from a storehouse; its fleece vendor sells to townhouses and better nearby: a fine house needs fleece', chain: 'A sheep pasture and a storehouse (M, G) make it.' },
+  [WINE]: { name: 'wine stall', does: 'Its porter fetches amphorae of wine from a storehouse; its wine vendor sells to fine houses and better nearby: a villa needs wine', chain: 'Vineyards, a winery and a storehouse (M, G) make it.' },
+};
 
 /** Why a build that the drachmas would cover is refused: wages owed are paid first, and the treasury keeps back the price of a tax office while there is none. */
 function keptBack(s: Parameters<typeof reserve>[0]): string {
@@ -126,10 +186,14 @@ export class Tools {
         if (t === 'farm') return g !== Ground.Ok || map.tileFertility[i] < FARM_FERTILE_MIN;
         // A dairy needs grass for its goats: rock and sand are washed rust.
         if (t === 'dairy') return g !== Ground.Ok || tileGrass(map, i) < DAIRY_GRASS_MIN;
-        // A grove needs dry slopes: the river land, rock and sand are washed rust.
-        if (t === 'grove') return g !== Ground.Ok || tileOlive(map, i) < GROVE_OLIVE_MIN;
-        // The oil stall goes on an agora: nothing is washed.
-        if (t === 'stall') return false;
+        // A grove needs dry slopes: the river land, rock and sand are washed rust (slopes too steep for a house will do).
+        if (t === 'grove') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileOlive(map, i) < GROVE_OLIVE_MIN;
+        // A pasture needs grass for its sheep.
+        if (t === 'pasture') return g !== Ground.Ok || tileGrass(map, i) < PASTURE_GRASS_MIN;
+        // A vineyard needs dry ground in the sun: the river land, rock, sand and slopes turned away from the sun are washed rust.
+        if (t === 'vineyard') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileVine(map, i) < VINE_MIN;
+        // A stall goes on an agora: nothing is washed.
+        if (isStallTool(t)) return false;
         if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
         return false;
       });
@@ -143,7 +207,11 @@ export class Tools {
             ? 'food'
             : t === 'grove' || t === 'press' || t === 'storehouse' || t === 'stall'
               ? 'oil'
-              : t === 'shrine'
+              : t === 'pasture' || t === 'fleecestall'
+                ? 'fleece'
+                : t === 'vineyard' || t === 'winery' || t === 'winestall'
+                  ? 'wine'
+                  : t === 'shrine'
                 ? 'religion'
                 : t === 'theatre'
                   ? 'culture'
@@ -351,8 +419,9 @@ export class Tools {
       this.placeOne(this.tool, sx, sy, marks);
       return;
     }
-    if (this.tool === 'stall') {
-      this.placeStall(sx, sy, marks);
+    const good = this.tool ? STALL_TOOLS[this.tool] : undefined;
+    if (good !== undefined) {
+      this.placeStall(good, sx, sy, marks);
       return;
     }
     if (this.tool === 'housing') {
@@ -460,6 +529,9 @@ export class Tools {
       grove: ['olive grove', 'olive groves'],
       press: ['olive press', 'olive presses'],
       storehouse: ['storehouse', 'storehouses'],
+      pasture: ['sheep pasture', 'sheep pastures'],
+      vineyard: ['vineyard', 'vineyards'],
+      winery: ['winery', 'wineries'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     if (trees) bits.push(`trees on ${trees} ${trees === 1 ? 'tile' : 'tiles'}`);
@@ -477,30 +549,32 @@ export class Tools {
     this.pending = () => this.send({ type: 'clear', x0, z0, x1, z1 });
   }
 
-  /** Adding the oil stall to the agora under the pointer: which agora, what it costs, and what it would do. */
-  private placeStall(sx: number, sy: number, marks: Map<number, number>): void {
+  /** Adding a stall for a good to the agora under the pointer: which agora, what it costs, and what it would do. */
+  private placeStall(good: Ware, sx: number, sy: number, marks: Map<number, number>): void {
     const s = this.sim.state;
     const n = this.sim.map.size;
     const on = s.tiles[this.hover];
     const a = on > 0 ? findBuilding(s, on) : undefined;
-    const cost = stallPrice(OIL);
-    const r = stallRefusal(s, n, this.hover, OIL, spendable(s, 'agora'));
+    const cost = stallPrice(good);
+    const r = stallRefusal(s, n, this.hover, good, spendable(s, 'agora'));
     const why = r === 'Not enough money' ? (s.money >= cost ? keptBack(s) : 'Not enough drachmas') : r;
+    const words = STALL_WORDS[good]!;
     if (a) {
       const side = sideOf(a.kind);
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) marks.set((a.z + dz) * n + a.x + dx, why ? MARK_BAD : MARK_OK);
     }
     this.setMarks(marks);
+    const Name = words.name.replace(/^./, (c) => c.toUpperCase());
     if (why) {
-      this.tip.show(a ? why : 'Oil stall · click an agora to add one', sx, sy, !!a);
+      this.tip.show(a ? why : `${Name} · click an agora to add one`, sx, sy, !!a);
       return;
     }
-    const lines = ['Its porter fetches jars of oil from a storehouse; its oil vendor sells to cottages and better nearby: a townhouse needs oil'];
+    const lines = [words.does];
     let warn = '';
-    if (!s.buildings.some((b) => b.kind === 'storehouse')) warn = 'No storehouse yet: its porter would have nowhere to fetch oil from. Groves, an olive press and a storehouse (M, G) make it.';
-    this.tip.show([`Oil stall · ${fmt(cost)} dr · ${STALL_JOBS === 1 ? 'one more worker' : `${STALL_JOBS} more workers`} at the agora`, ...lines].join('\n'), sx, sy, false, warn);
+    if (!s.buildings.some((b) => b.kind === 'storehouse')) warn = `No storehouse yet: its porter would have nowhere to fetch ${WARE_NAMES[good]} from. ${words.chain}`;
+    this.tip.show([`${Name} · ${fmt(cost)} dr · ${STALL_JOBS === 1 ? 'one more worker' : `${STALL_JOBS} more workers`} at the agora`, ...lines].join('\n'), sx, sy, false, warn);
     const at = this.hover;
-    this.pending = () => this.send({ type: 'stall', at, good: OIL });
+    this.pending = () => this.send({ type: 'stall', at, good });
   }
 
   /** Placing one fountain, farm, granary, agora, shrine, theatre or tax office: where it would go, what it costs, and what it would do there. */
@@ -522,9 +596,10 @@ export class Tools {
     this.setMarks(marks);
     if (r) {
       const fert = kind === 'farm' ? ` (here ${Math.round(fertilityOf(map, x, z, side) * 100)}%, it needs ${Math.round(FARM_FERTILE_MIN * 100)}%)` : '';
-      const grass = kind === 'dairy' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round(DAIRY_GRASS_MIN * 100)}%)` : '';
+      const grass = kind === 'dairy' || kind === 'pasture' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round((kind === 'dairy' ? DAIRY_GRASS_MIN : PASTURE_GRASS_MIN) * 100)}%)` : '';
       const olive = kind === 'grove' ? ` (olive ground here ${Math.round(oliveOf(map, x, z, side) * 100)}%, it needs ${Math.round(GROVE_OLIVE_MIN * 100)}%)` : '';
-      this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : r.startsWith('Poor ground for olives') ? olive : ''), sx, sy, true);
+      const vine = kind === 'vineyard' ? ` (vine ground here ${Math.round(vineOf(map, x, z, side) * 100)}%, it needs ${Math.round(VINE_MIN * 100)}%)` : '';
+      this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : r.startsWith('Poor ground for olives') ? olive : r.startsWith('Poor ground for vines') ? vine : ''), sx, sy, true);
       return;
     }
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(An?|The) /, '').replace(/^./, (c) => c.toUpperCase());
@@ -592,11 +667,30 @@ export class Tools {
       if (roads.length === 0) warn = 'No road beside it: carts couldn’t bring the olives or take the oil away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'grove')) lines.push('Its olives come from the olive groves’ carts: build a grove on the dry slopes');
       else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the oil to a storehouse: build one too (G twice)');
+    } else if (kind === 'pasture') {
+      const grass = grassOf(map, x, z, side);
+      text += ` · grass ${Math.round(grass * 100)}%`;
+      lines.push(`About ${fmt(Math.round((FLEECE_MONTH * grass) / 10) * 10)} bales of fleece a month, fully worked: the greener the grass, the more`);
+      if (roads.length === 0) warn = 'No road beside it: its shepherds couldn’t get there and its carts couldn’t take the fleece away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the fleece to a storehouse: build one too (G twice)');
+    } else if (kind === 'vineyard') {
+      const ground = vineOf(map, x, z, side);
+      const grapes = Math.round(GRAPE_HARVEST * ground);
+      text += ` · vine ground ${Math.round(ground * 100)}%`;
+      lines.push(`About ${fmt(grapes)} measures of grapes every ${VINE_GROW / TICKS_PER_MONTH} months, fully worked: about ${fmt(Math.round(grapes / (VINE_GROW / TICKS_PER_MONTH) / 10) * 10)} amphorae of wine a month once trodden`);
+      lines.push('Best on a slope facing the afternoon sun; flat ground gives about half');
+      if (roads.length === 0) warn = 'No road beside it: its workers couldn’t get there and its carts couldn’t take the grapes away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'winery')) lines.push('Its ox carts take the grapes to a winery: build one too (M again)');
+    } else if (kind === 'winery') {
+      lines.push(`Makes up to ${fmt(WINE_MONTH)} amphorae of wine a month, fully worked, from as many measures of grapes (it holds ${fmt(WINERY_GRAPES)} waiting)`);
+      if (roads.length === 0) warn = 'No road beside it: carts couldn’t bring the grapes or take the wine away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'vineyard')) lines.push('Its grapes come from the vineyards’ carts: plant a vineyard on a sunny slope');
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the wine to a storehouse: build one too (G twice)');
     } else if (kind === 'storehouse') {
-      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil: the press’s carts bring them, and an agora’s oil porter fetches them`);
-      lines.push('Near the agora is best: the oil stall’s porter walks there and back for every load of jars');
+      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece and ${fmt(STOREHOUSE_WINE)} amphorae of wine: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
+      lines.push('Near the agora is best: each stall’s porter walks there and back for every load');
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
-      else if (!s.buildings.some((b) => b.kind === 'agora' && b.stalls)) lines.push('An agora needs an oil stall to sell it: K twice, then click an agora');
+      else if (!s.buildings.some((b) => b.kind === 'agora' && b.stalls)) lines.push('An agora needs a stall to sell what it holds: K twice (oil), three times (fleece) or four (wine), then click an agora');
     } else {
       lines.push(`Stores ${fmt(GRANARY_CAP)} measures of wheat and ${fmt(GRANARY_ROOM[1])} each of meat and cheese: carts bring them, the agora’s porter fetches them`);
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';

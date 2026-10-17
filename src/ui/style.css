@@ -251,6 +251,14 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool.on .fill-olive { fill: #dfeab8; stroke: #fff6e4; }
 .btn.tool.on .fill-oil { fill: #d6e690; stroke: #fff6e4; }
 .btn.tool.overlay.oil.on { background: #6f8a22; border-color: #56701a; }
+.btn.tool .fill-wool { fill: #f3ead2; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .fill-grape { fill: #7a3a78; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.btn.tool .fill-wine { fill: #8e2f4e; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool.on .fill-wool { fill: #fffaf0; stroke: #fff6e4; }
+.btn.tool.on .fill-grape { fill: #e0b8e0; stroke: #fff6e4; }
+.btn.tool.on .fill-wine { fill: #f0b8c8; stroke: #fff6e4; }
+.btn.tool.overlay.fleece.on { background: #8a7a52; border-color: #6c5e3c; }
+.btn.tool.overlay.wine.on { background: #7a2a5a; border-color: #5c1e44; }
 .btn.tool.overlay.variety.on { background: #b0663c; border-color: #8a4c2a; }
 .btn.tool.overlay.variety.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
 .btn.tool .key { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; color: var(--ink-soft); }
@@ -303,6 +311,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .floater.religion { color: #f6f0ff; text-shadow: 0 1px 0 #5a3a8f, 0 0 6px rgba(90, 50, 150, 0.75); font-size: 15px; }
 .floater.tax { color: #fff6dc; text-shadow: 0 1px 0 #23604f, 0 0 6px rgba(30, 100, 80, 0.8); font-size: 15px; }
 .floater.culture { color: #fff0f3; text-shadow: 0 1px 0 #8f2a44, 0 0 6px rgba(150, 40, 70, 0.75); font-size: 15px; }
+.floater.wine { color: #fff0fa; text-shadow: 0 1px 0 #5e1a50, 0 0 6px rgba(110, 30, 90, 0.8); font-size: 16px; }
 
 /* The household panel: who lives in a home and how they are doing. */
 .household {
@@ -404,6 +413,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 }
 .townline.workers { border-left-color: #a9773f; }
 .townline.oil { border-left-color: #7d9636; }
+.townline.fleece { border-left-color: #b8a678; }
+.townline.wine { border-left-color: #8e2f4e; }
 .townline:hover { background: #fff6e2; }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 @keyframes line-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

@@ -5,13 +5,13 @@
  * a second while open.
  */
 import type { CoastMap } from '../map/bake';
-import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE } from '../sim/buildings';
+import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName, TENT, TOWNHOUSE, VILLA } from '../sim/buildings';
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
-import { ageOf, BRINGER, cityHas, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
+import { ageOf, BRINGER, cityHas, cityOffers, citySells, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, newNeeds, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
 import { canWork } from '../sim/labour';
-import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoOil, whyNoPlays, whyUnblessed } from '../sim/status';
-import { foodList, foodsOnTable, kindsNeeded, onTable } from '../sim/foods';
+import { foodLine, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
+import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
@@ -44,6 +44,8 @@ const ICON = {
   religion: '<svg viewBox="0 0 24 24" class="ic"><path d="M2.6 8.6 12 3.4l9.4 5.2z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" stroke="#4a3a6a" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 18.4h18.4v2.6H2.8z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   culture: '<svg viewBox="0 0 24 24" class="ic"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" fill="#e3778f" stroke="#7a2a40" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" fill="#7a2a40"/><path d="M8.2 13.6q3.8 4.2 7.6 0" fill="none" stroke="#7a2a40" stroke-width="1.6" stroke-linecap="round"/></svg>',
   oil: '<svg viewBox="0 0 24 24" class="ic"><path d="M10.4 3h3.2l-.3 3.2c3.6.9 5.4 3.9 5.4 7.3 0 3.6-2.2 6.4-4.6 7.5H9.9C7.5 19.9 5.3 17.1 5.3 13.5c0-3.4 1.8-6.4 5.4-7.3z" fill="#8aa83a" stroke="#3e4f12" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.8 6.8C6 6.6 5.4 8.4 6.6 9.6M16.2 6.8c1.8-.2 2.4 1.6 1.2 2.8" fill="none" stroke="#3e4f12" stroke-width="1.2" stroke-linecap="round"/><path d="M9 12.6q.4-2.4 2.2-3.2" fill="none" stroke="#d6e690" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  fleece: '<svg viewBox="0 0 24 24" class="ic"><path d="M5.2 14.6c-2.6-.4-3-4 -.4-4.8-.6-2.8 2.4-4.4 4.4-3 1-2.4 4.6-2.4 5.6 0 2-1.4 5 .2 4.4 3 2.6.8 2.2 4.4-.4 4.8.2 2.6-2.6 4.2-4.8 3-1.2 1.8-3.8 1.8-5 0-2.2 1.2-5-.4-4.8-3z" fill="#eee2c0" stroke="#8a744a" stroke-width="1.2" stroke-linejoin="round"/><path d="M11.4 4.6l.6 15" stroke="#4c5a8c" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  wine: '<svg viewBox="0 0 24 24" class="ic"><path d="M12.6 5.2c1.8-2.4 4.8-2.8 6.8-1.4-1.6 2.2-4 2.8-6.8 1.4z" fill="#6a9a34" stroke="#3a5a1a" stroke-width="1"/><path d="M11.6 6.6V3.4" stroke="#6a4a22" stroke-width="1.4" stroke-linecap="round"/><g fill="#7a2e80" stroke="#3e1240" stroke-width="1"><circle cx="7.6" cy="9" r="2.3"/><circle cx="12" cy="9" r="2.3"/><circle cx="16.4" cy="9" r="2.3"/><circle cx="9.8" cy="12.8" r="2.3"/><circle cx="14.2" cy="12.8" r="2.3"/><circle cx="12" cy="16.6" r="2.3"/></g></svg>',
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   tax: '<svg viewBox="0 0 16 16" class="ic"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#2f7f6a"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#4f9f88"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/></svg>',
   home: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 21v-8.5L12 6l8 6.5V21z" fill="#e9cf98" stroke="#4a3420" stroke-width="1.2" stroke-linejoin="round"/><path d="M10 21v-5h4v5z" fill="#4a3420"/></svg>',
@@ -65,6 +67,7 @@ const UP_LINES = [
   'Became a cottage: whitewash, a tiled roof and bread on the table',
   'Became a townhouse: a second storey, a painted band under the eaves, and the priestess’s blessing',
   'Became a fine house: a courtyard, columns at the door, and evenings at the theatre',
+  'Became a villa: a colonnade round a garden, an olive tree, and wine at every meal',
 ];
 
 /** One line of a household's story. */
@@ -77,7 +80,7 @@ function storyLine(f: Family, e: Story, i: number): string {
     case 'joined':
       return `${who} moved in`;
     case 'up':
-      return UP_LINES[Math.min(e.level, FINE)] || 'Moved up a level';
+      return UP_LINES[Math.min(e.level, VILLA)] || 'Moved up a level';
     case 'warn': {
       // After going down a level for want of it, still without: they worry again.
       let again = false;
@@ -127,10 +130,12 @@ function whyLacks(s: SimState, map: CoastMap, b: Building, need: Service): strin
     if (foodsOnTable(b, s.tick).length > 0) return foodLine(s, map, b).replace(/^Only /, 'only ');
     return whyHungry(s, map, b, s.buildings.filter((o) => o.kind === 'agora'));
   }
-  return need === 'religion' ? whyUnblessed(s, map, b) : need === 'oil' ? whyNoOil(s, map, b) : whyNoPlays(s, map, b);
+  const good = SERVICE_GOOD[need];
+  if (good !== undefined) return whyNoGood(s, map, b, good);
+  return need === 'religion' ? whyUnblessed(s, map, b) : whyNoPlays(s, map, b);
 }
 
-const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion: 'Blessings', oil: 'Oil', culture: 'Plays' };
+const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion: 'Blessings', oil: 'Oil', culture: 'Plays', fleece: 'Fleece', wine: 'Wine' };
 
 /** What the next level needs, in a sentence. */
 function nextLine(s: SimState, b: Building): string {
@@ -150,15 +155,20 @@ function nextLine(s: SimState, b: Building): string {
   const onTable = foodsOnTable(b, s.tick).length;
   const plate = onTable < kinds ? ` (they have ${onTable === 0 ? 'none' : foodList(foodsOnTable(b, s.tick))})` : '';
   if (b.level === COTTAGE) {
-    const oil = has.oil ? `, and a month’s oil from an oil vendor${short('oil')}` : ', and oil: the city has no oil stall yet (an olive grove, a press, a storehouse, then K twice on an agora)';
+    const oil = citySells(s, OIL) ? `, and a month’s oil from an oil vendor${short('oil')}` : ', and oil: the city has no oil stall yet (an olive grove, a press, a storehouse, then K twice on an agora)';
     if (!has.shrine) return `To become a townhouse: the blessing of a shrine’s priestess, ${food}${oil}. The city has no shrine yet`;
     return `To become a townhouse: a month’s blessing in hand from a shrine’s priestess${short('religion')}, with a month of water and of ${food}${plate}${makers}${oil}${settled}`;
   }
   if (b.level === TOWNHOUSE) {
-    if (!has.theatre) return `To become a fine house: plays, brought by a theatre’s actor, and ${food}. The city has no theatre yet`;
-    return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of ${food}${plate}${makers} and of everything else${settled}`;
+    const fleece = citySells(s, FLEECE) ? `, and a month’s fleece from a fleece vendor${short('fleece')}` : ', and fleece: the city has no fleece stall yet (a sheep pasture, a storehouse, then K three times on an agora)';
+    if (!has.theatre) return `To become a fine house: plays, brought by a theatre’s actor, and ${food}${fleece}. The city has no theatre yet`;
+    return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of ${food}${plate}${makers}${fleece} and of everything else${settled}`;
   }
-  return 'A fine house is as fine as homes get, for now';
+  if (b.level === FINE) {
+    if (!citySells(s, WINE)) return 'To become a villa: wine, brought by a wine vendor. The city has no wine stall yet (a vineyard, a winery, a storehouse, then K four times on an agora)';
+    return `To become a villa: a month’s wine in hand from a wine vendor${short('wine')}, with a month of everything else${settled}`;
+  }
+  return 'A villa is as grand as homes get';
 }
 
 /** What they have and lack, and what the next level needs. */
@@ -167,9 +177,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   const lack: string[] = [];
   // The needs of their level, and the next level's if it is to be had in the city.
   const shown = new Set<Service>(['water', ...needsOf(b)]);
-  if (b.level === COTTAGE && cityHas(s).shrine) shown.add('religion');
-  if (b.level === COTTAGE && cityHas(s).oil) shown.add('oil');
-  if (b.level === TOWNHOUSE && cityHas(s).theatre) shown.add('culture');
+  if (b.level >= COTTAGE) for (const n of newNeeds(b.level)) if (cityOffers(s, n)) shown.add(n);
   for (const need of NEEDS) {
     if (!shown.has(need)) continue;
     const left = untilOf(b, need) - s.tick;

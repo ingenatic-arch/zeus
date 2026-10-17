@@ -3,23 +3,25 @@
  * they are saved in), and the agora's stalls that sell them.
  *
  * An agora can have a stall for a good beside its food stall (`stalls`, a bit
- * each), added from the build bar for a price and one more worker (STALL_JOBS). The
- * stall's porter fetches the good from the nearest store that has it (a
- * storehouse) when the stall is down to half, and its vendor walks the shared
- * round (rounds.ts) like the food vendor, from her own clock (`vclock`),
- * topping up every home that wants the good beside her way. Only oil has a
- * stall and a vendor so far; fleece and wine follow in slice 11.
+ * each), added from the build bar for a price and one more worker
+ * (STALL_JOBS). Each stall has its own porter, who fetches its good from the
+ * nearest store that has it (a storehouse) when the stall is down to half,
+ * on his own clock (`fetch`), and its own vendor, who walks the shared round
+ * (rounds.ts) like the food vendor, from her own clock (`vclock`), topping up
+ * every home that wants the good beside her way.
  *
- * Oil: a home the oil vendor tops up has oil for six months; it costs a jar
- * a month for every six people. Cottages and better buy it; a townhouse
- * needs it (folk.ts).
+ * Every good with a stall is a row of GOOD_USE: the need it is, which homes
+ * buy it, how long a top-up lasts and how many people a unit serves a month.
+ * Oil: cottages and better buy it, a townhouse needs it. Fleece: townhouses
+ * and better buy it, a fine house needs it. Wine: fine houses and better buy
+ * it, a villa needs it (folk.ts).
  */
 import type { CoastMap } from '../map/bake';
 import { STALL_COST } from './build';
-import { COTTAGE, findBuilding } from './buildings';
+import { COTTAGE, FINE, findBuilding, TOWNHOUSE } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
-import { FIRST_VENDOR, GOOD_PORTER_TAKE, GOOD_STALL_ROOM, nearestBy, portersOut, PORTER_RETRY, VENDOR_RANGE, VENDOR_REST, VENDOR_WALK, wayPoints } from './food';
-import { gi, held, OIL, setHeld, type Ware } from './foods';
+import { FIRST_VENDOR, nearestBy, porterTake, PORTER_RETRY, stallPorterOut, stallRoom, VENDOR_RANGE, VENDOR_REST, VENDOR_WALK, wayPoints } from './food';
+import { FLEECE, gi, held, OIL, setHeld, WINE, type Ware } from './foods';
 import { serviceDue, serviceScore } from './folk';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { Building, Service, SimState, Walker } from './state';
@@ -29,27 +31,41 @@ import { restFor } from './water';
 
 /** Each good by name, in order (from olives). */
 export const GOOD_NAMES = ['olives', 'oil', 'fleece', 'grapes', 'wine'] as const;
+/** What each ware is counted in, one and many (foods and the picked crops in measures). */
+export const UNITS: Partial<Record<Ware, readonly [string, string]>> = { [OIL]: ['jar', 'jars'], [FLEECE]: ['bale', 'bales'], [WINE]: ['amphora', 'amphorae'] };
+/** "a jar", "12 jars", "1 measure", "300 measures". */
+export const unitOf = (w: Ware, n: number): string => (UNITS[w] ?? ['measure', 'measures'])[n === 1 ? 0 : 1];
 
-/** The goods an agora can have a stall for (fleece and wine in slice 11). */
-export const STALL_GOODS: readonly Ware[] = [OIL];
+/** The goods an agora can have a stall for, in the order they are added and shown. */
+export const STALL_GOODS: readonly Ware[] = [OIL, FLEECE, WINE];
 /** A good's bit in an agora's `stalls`. */
 export const stallBit = (w: Ware): number => 1 << gi(w);
 export const hasStall = (a: Building, w: Ware): boolean => a.kind === 'agora' && (a.stalls & stallBit(w)) !== 0;
 /** What a stall costs to add. */
 export const stallPrice = (_w: Ware): number => STALL_COST;
 /** Each stall's vendor (a walker kind) and its name. */
-export const STALL_VENDOR: Partial<Record<Ware, Walker['kind']>> = { [OIL]: 'oil' };
-export const STALL_NAMES: Partial<Record<Ware, string>> = { [OIL]: 'oil stall' };
-/** How low a stall's good gets before its porter goes for more. */
-export const STALL_GOOD_LOW = GOOD_STALL_ROOM - GOOD_PORTER_TAKE;
+export const STALL_VENDOR: Partial<Record<Ware, Walker['kind']>> = { [OIL]: 'oil', [FLEECE]: 'fleece', [WINE]: 'wine' };
+export const STALL_NAMES: Partial<Record<Ware, string>> = { [OIL]: 'oil stall', [FLEECE]: 'fleece stall', [WINE]: 'wine stall' };
+/** How low a stall's good gets before its porter goes for more (half its room). */
+export const stallLow = (w: Ware): number => stallRoom(w) - porterTake(w);
+/** The oil stall's (kept for the oil-era code and tests). */
+export const STALL_GOOD_LOW = stallLow(OIL);
 
 /** How long a home's oil lasts once the vendor has topped it up (six months: her round can take three)… */
 export const OIL_LASTS = 6 * TICKS_PER_MONTH;
 /** …and how many people a jar of oil lasts a month. */
 export const OIL_PEOPLE = 6;
+/** Fleece and wine: six months a top-up too, a bale or an amphora a month for every eight people. */
+export const FLEECE_LASTS = 6 * TICKS_PER_MONTH;
+export const FLEECE_PEOPLE = 8;
+export const WINE_LASTS = 6 * TICKS_PER_MONTH;
+export const WINE_PEOPLE = 8;
 
 /** Does this home buy oil? Cottages and better with people in them. */
 export const usesOil = (b: Building): boolean => b.kind === 'home' && b.level >= COTTAGE && b.people > 0;
+/** Fleece: townhouses and better; wine: fine houses and better. */
+export const usesFleece = (b: Building): boolean => b.kind === 'home' && b.level >= TOWNHOUSE && b.people > 0;
+export const usesWine = (b: Building): boolean => b.kind === 'home' && b.level >= FINE && b.people > 0;
 
 /** The tick a home's supply of a good lasts until (0: never had any). */
 export const goodUntil = (b: Building, w: Ware): number => b.goodsUntil[gi(w)];
@@ -59,8 +75,7 @@ const near: Building[] = [];
 /**
  * How the homes use each good that has a stall: who buys it, how long a
  * vendor's top-up lasts, how many people a unit serves a month, and the
- * service (round record and need) it is. Fleece and wine (slice 11) add a row
- * each, with their vendor in STALL_VENDOR and their name in STALL_NAMES.
+ * service (round record and need) it is.
  */
 export interface GoodUse {
   uses(b: Building): boolean;
@@ -70,6 +85,8 @@ export interface GoodUse {
 }
 export const GOOD_USE: Partial<Record<Ware, GoodUse>> = {
   [OIL]: { uses: usesOil, lasts: OIL_LASTS, people: OIL_PEOPLE, service: 'oil' },
+  [FLEECE]: { uses: usesFleece, lasts: FLEECE_LASTS, people: FLEECE_PEOPLE, service: 'fleece' },
+  [WINE]: { uses: usesWine, lasts: WINE_LASTS, people: WINE_PEOPLE, service: 'wine' },
 };
 
 /** A stall vendor's round for a good: she tops up every home that uses it beside her way, from her stall's stock. */
@@ -80,7 +97,7 @@ function goodRound(good: Ware, use: GoodUse): ServiceSpec {
     range: VENDOR_RANGE,
     walk: VENDOR_WALK,
     speed: CARRIER_SPEED,
-    score: (b) => serviceScore(b, use.service, use.uses(b)),
+    score: (b, s) => serviceScore(b, use.service, use.uses(b), s.tick),
     due: (b) => serviceDue(b, use.service),
     serve(s: SimState, size: number, t: number, w: Walker) {
       const a = findBuilding(s, w.origin);
@@ -125,6 +142,8 @@ for (const g of STALL_GOODS) {
 }
 /** The oil vendor's round. */
 export const OIL_ROUND: ServiceSpec = STALL_ROUNDS[OIL]!;
+/** Does a good have a stall (and a vendor) at all? */
+export const isStallGood = (w: Ware): boolean => STALL_GOODS.includes(w);
 
 /** The good a stall vendor (by walker kind) sells, or -1 if the kind is no stall vendor. */
 export const vendorGood = (kind: Walker['kind']): Ware => {
@@ -132,7 +151,7 @@ export const vendorGood = (kind: Walker['kind']): Ware => {
   return -1;
 };
 
-/** Move a stall's vendor (the oil vendor; later the fleece and wine vendors) one tick along. */
+/** Move a stall's vendor (the oil, fleece or wine vendor) one tick along. */
 export function moveStallVendor(s: SimState, map: CoastMap, w: Walker): boolean {
   return moveRounds(s, map, w, STALL_ROUNDS[vendorGood(w.kind)]!, 'agora');
 }
@@ -142,9 +161,9 @@ const anyStoreHas = (s: SimState, w: Ware): boolean => s.buildings.some((g) => i
 
 /**
  * An agora's stalls, each tick: each stall's vendor sets off from her own
- * clock while the stall has its good, and the goods porter (one for all the
- * agora's stalls, his clock `fetch`) goes for the first good that is down to
- * half and that some store has.
+ * clock while the stall has its good, and each stall's porter (his clock
+ * `fetch`) goes for its good when it is down to half and some store has it.
+ * (With only an oil stall this is exactly the one goods porter of before.)
  */
 export function stepStalls(s: SimState, size: number, a: Building, rate: number): void {
   for (const good of STALL_GOODS) {
@@ -156,26 +175,29 @@ export function stepStalls(s: SimState, size: number, a: Building, rate: number)
       else a.vclock[k] = -1;
     }
   }
-  if (a.fetch > 0) a.fetch--;
-  if (rate === 0 || a.fetch > 0 || portersOut(s, a, true) > 0) return;
-  const good = STALL_GOODS.find((g) => hasStall(a, g) && held(a, g) <= STALL_GOOD_LOW && anyStoreHas(s, g));
-  if (good === undefined) return;
-  const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => isStore(g.kind) && roomOf(g.kind, good) > 0 && held(g, good) > 0);
-  if (!found) {
-    a.fetch = PORTER_RETRY;
-    return;
+  for (const good of STALL_GOODS) {
+    if (!hasStall(a, good)) continue;
+    const k = gi(good);
+    if (a.fetch[k] > 0) a.fetch[k]--;
+    if (rate === 0 || a.fetch[k] > 0 || stallPorterOut(s, a, good)) continue;
+    if (held(a, good) > stallLow(good) || !anyStoreHas(s, good)) continue;
+    const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => isStore(g.kind) && roomOf(g.kind, good) > 0 && held(g, good) > 0);
+    if (!found) {
+      a.fetch[k] = PORTER_RETRY;
+      continue;
+    }
+    const w = newWalker(s, 'porter', 1);
+    w.origin = a.id;
+    w.target = found.g.id;
+    w.food = good;
+    w.since = s.tick;
+    setPath(w, wayPoints(size, door(size, a, found.way[0]), found.way, found.g));
+    s.walkers.push(w);
+    a.fetch[k] = restFor(a, VENDOR_REST);
   }
-  const w = newWalker(s, 'porter', 1);
-  w.origin = a.id;
-  w.target = found.g.id;
-  w.food = good;
-  w.since = s.tick;
-  setPath(w, wayPoints(size, door(size, a, found.way[0]), found.way, found.g));
-  s.walkers.push(w);
-  a.fetch = restFor(a, VENDOR_REST);
 }
 
-/** A stall's walkers: its vendor, and the goods porter while he is after its good. */
+/** A stall's walkers: its vendor, and its porter. */
 export const stallWalker = (w: Walker, a: Building, good: Ware): boolean => w.origin === a.id && (w.kind === STALL_VENDOR[good] || (w.kind === 'porter' && w.food === good));
 
 /** A new stall's vendor sets off this soon. */

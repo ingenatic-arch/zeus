@@ -14,11 +14,11 @@ export type Command =
   | { type: 'plots'; at: number[] }
   /** Build 2 x 2 fountains with these top-left tiles, in order. */
   | { type: 'fountain'; at: number[] }
-  /** Build farms, granaries, the agora, theatres, hunting lodges, dairies, olive groves, olive presses or storehouses (3 x 3), or shrines and tax offices (2 x 2), with these top-left tiles, in order. */
+  /** Build farms, granaries, the agora, theatres, hunting lodges, dairies, olive groves, olive presses, storehouses, sheep pastures, vineyards or wineries (3 x 3), or shrines and tax offices (2 x 2), with these top-left tiles, in order. */
   | { type: 'build'; kind: BuildKind; at: number[] }
   /** Set the tax rate: 0 (none) to 4 (harsh). */
   | { type: 'tax'; rate: number }
-  /** Add a stall for a good (by its ware number: oil is 4) to the agora covering tile `at`. */
+  /** Add a stall for a good (by its ware number: oil is 4, fleece 5, wine 7) to the agora covering tile `at`. */
   | { type: 'stall'; at: number; good: number }
   /** Clear a rectangle of tiles (inclusive): roads, homes, and trees on empty ground. */
   | { type: 'clear'; x0: number; z0: number; x1: number; z1: number }
@@ -26,8 +26,8 @@ export type Command =
   | { type: 'undo' };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

@@ -13,7 +13,7 @@
  * lasting of its foods runs out. A person eats a measure a month in all,
  * shared across the kinds on the table.
  */
-import type { Building, Walker } from './state';
+import type { Building, Service, Walker } from './state';
 
 export const WHEAT = 0;
 export const MEAT = 1;
@@ -39,6 +39,9 @@ export const GOOD_COUNT = 5;
 export const WARES: readonly Ware[] = [WHEAT, MEAT, CHEESE, OLIVES, OIL, FLEECE, GRAPES, WINE];
 /** Each ware by name, as it is stored and carried. */
 export const WARE_NAMES = ['wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine'] as const;
+/** The goods homes buy from a stall, by the need each is (see goods.ts), and back. */
+export const SERVICE_GOOD: Partial<Record<Service, Ware>> = { oil: OIL, fleece: FLEECE, wine: WINE };
+export const GOOD_SERVICE: Partial<Record<Ware, Service>> = { [OIL]: 'oil', [FLEECE]: 'fleece', [WINE]: 'wine' };
 /** Is a ware a good (rather than a food)? */
 export const isGood = (w: Ware): boolean => w >= FIRST_GOOD;
 /** A good's place in a building's `goods` arrays. */
@@ -51,8 +54,8 @@ export const FOOD_NAMES = ['wheat', 'meat', 'cheese'] as const;
 /** Each food as it is eaten: bread, meat, cheese. */
 export const TABLE_NAMES = ['bread', 'meat', 'cheese'] as const;
 
-/** Kinds of food each level of home needs on its table (plot, tent, hut, cottage, townhouse, fine house). */
-export const KINDS_NEEDED = [0, 0, 0, 1, 2, 3];
+/** Kinds of food each level of home needs on its table (plot, tent, hut, cottage, townhouse, fine house, villa). */
+export const KINDS_NEEDED = [0, 0, 0, 1, 2, 3, 3];
 export const kindsNeeded = (level: number): number => KINDS_NEEDED[Math.max(0, Math.min(level, KINDS_NEEDED.length - 1))];
 
 /** A building's store of a ware. */

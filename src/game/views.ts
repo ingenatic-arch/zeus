@@ -89,6 +89,18 @@ export const VIEWS: Record<string, CameraView> = {
   oilvendor: { x: 66.5, z: 41, yaw: 0.9, dist: 11, tilt: 0.3 },
   // The fine-house district after its press and storehouse were cleared, the oil overlay on.
   nooil: { x: 27, z: 70, yaw: 0.6, dist: 30, tilt: -0.14 },
+  // Over the culture town's sheep pasture by the lane, the flock grazing round the fold.
+  pasture: { x: 28.5, z: 57.5, yaw: 0.9, dist: 12, tilt: 0.15 },
+  // Street level by the culture town's agora (the camera then follows the fleece vendor).
+  fleecevendor: { x: 28.5, z: 72.5, yaw: 0.9, dist: 11, tilt: 0.3 },
+  // The sunny slope by the main road west of the fine-house town, ready for a vineyard.
+  vineyard: { x: 9, z: 78, yaw: 0.6, dist: 22, tilt: -0.05 },
+  // Street level among the villas by the agora, the fine houses the wine vendor hasn't reached beyond.
+  villas: { x: 27, z: 74, yaw: 0.6, dist: 14, tilt: -0.04 },
+  // Over the vineyards and the winery west of the town (the camera then follows a cart).
+  winery: { x: 10, z: 79.5, yaw: 0.9, dist: 14, tilt: 0.1 },
+  // Street level by the agora (the camera then follows the wine vendor).
+  winevendor: { x: 28.5, z: 72.5, yaw: 0.9, dist: 11, tilt: 0.3 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
 };

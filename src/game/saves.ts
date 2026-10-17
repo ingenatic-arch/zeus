@@ -12,7 +12,7 @@
 import { MAP_SIZE } from '../map/coast';
 import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
-import { SIM_STATE_VERSION, type Round, type SimState } from '../sim/state';
+import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState } from '../sim/state';
 import { GOOD_COUNT } from '../sim/foods';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
@@ -212,17 +212,17 @@ const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
 const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len === undefined || v.length === len) && v.every(fin);
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
-const ROUNDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'tax'];
-const KINDS = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse'];
-const WALKER_KINDS = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter'];
+const ROUNDS: readonly Round[] = ROUND_KINDS;
+const KINDS: readonly string[] = BUILDING_KINDS;
+const WALKERS: readonly string[] = WALKER_KINDS;
 const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
-  'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls', 'fetch',
+  'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls',
 ];
 /** A building's goods: one number per good. */
-const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock'];
+const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
 const HERD_NUMBERS = ['hx', 'hz', 'r', 'x', 'z', 'tx', 'tz', 'head', 'full', 'clock', 'grow', 'fled'];
 
@@ -270,7 +270,7 @@ export function stateProblem(st: unknown): string {
   }
   if (!Array.isArray(st.walkers)) return damaged('its walkers are missing');
   for (const w of st.walkers as unknown[]) {
-    if (!isObj(w) || typeof w.kind !== 'string' || !WALKER_KINDS.includes(w.kind)) return damaged('a walker is of no known kind');
+    if (!isObj(w) || typeof w.kind !== 'string' || !WALKERS.includes(w.kind)) return damaged('a walker is of no known kind');
     for (const k of WALKER_NUMBERS) if (!fin(w[k])) return damaged(`a walker’s ${k} is missing`);
     if (typeof w.back !== 'boolean' || !nums(w.path) || !nums(w.tiles) || !nums(w.trail)) return damaged('a walker’s way is missing');
     if (!nums(w.purse) || (w.purse as number[]).length % 3 !== 0) return damaged('a tax collector’s satchel is wrong');

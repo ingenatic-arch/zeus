@@ -5,11 +5,11 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
-import { FARM_COST, GROVE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST } from '../sim/build';
-import { COTTAGE, JOBS } from '../sim/buildings';
+import { FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, VINEYARD_COST, WINERY_COST } from '../sim/build';
+import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
-import { OIL } from '../sim/foods';
+import { FLEECE, OIL, WINE } from '../sim/foods';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
@@ -42,14 +42,13 @@ const MISSING_TICKS = 3600;
  * (FOOD_TICKS), gets a shrine, a fountain and an agora for the hamlet at the
  * lane's far end, and two more farms once it can pay for them; three months
  * later (or once it can pay for it) a theatre. The scenes open at moments
- * along it, those after the theatre as long after it as planned. #closed
- * clears the theatre and cuts the west street off twenty months after
- * the theatre opened, and opens about three months later, before any home
- * has gone down: the fine houses
- * the actor reached longest ago warn about plays, and the cut-off street
- * about plays, blessings and water at once. (The plays at the two ends of
- * the actor's round run out months apart, so a later moment has some homes
- * gone down and an earlier one fewer signs.)
+ * along it, those after the theatre as long after it as planned. The towns
+ * with a theatre get a sheep pasture and a fleece stall a month before it
+ * (FLEECE_AT): fine houses need fleece. #closed clears the theatre and cuts
+ * the west street off twenty months after the theatre opened, and opens about
+ * two months later, before any home has gone down (see CLOSED_TICKS). (The
+ * plays at the two ends of the actor's round run out months apart, so a later
+ * moment has more homes past saving and an earlier one fewer signs.)
  */
 const SHRINE_AT = FOOD_TICKS;
 /** When the culture towns build their hunting lodge and dairy: five months before the shrine (cheese and meat take a while to reach every home). */
@@ -67,7 +66,16 @@ const SHRINE_TICKS = SHRINE_AT + 450;
 const THEATRE_TICKS = THEATRE_AT + 300;
 const FINE_TICKS = THEATRE_AT + 1800;
 const CLOSE_AT = FINE_TICKS + 2000;
-const CLOSED_TICKS = CLOSE_AT + 850;
+/**
+ * #closed opens 62 days after the theatre is cleared and the street cut: the
+ * plays the actor brought longest ago have run out, 14 fine houses warn
+ * about them (the cut-off street about water too), the most urgent 27 days
+ * from going down. Rebuilding the theatre and mending the road then loses
+ * only the few homes at the main road's far west end that the new actor's
+ * first round reaches last; a few days later it loses twice as many (her
+ * round takes about two months), and left alone the town loses most of them.
+ */
+const CLOSED_TICKS = CLOSE_AT + 620;
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -76,7 +84,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
   overlay?: OverlayMode;
   /** Start with that overlay on, even without `-overlay`. */
@@ -304,6 +312,22 @@ function laneOil(at: At, t: number): void {
 }
 
 /**
+ * The culture towns' fleece (fine houses need it), in the towns that get a
+ * theatre: a sheep pasture on the grass beside the lane north of the groves,
+ * its bales going to the storehouse, and a fleece stall at the agora by the
+ * junction. It goes in a month before the theatre (FLEECE_AT), once the
+ * treasury can pay for it and a month's wages, so the fleece vendor has been
+ * round by the time the actor has.
+ */
+const LANE_PASTURE = { x: 27, z: 56 };
+const FLEECE_AT = THEATRE_AT - 300;
+const FLEECE_COST = PASTURE_COST + STALL_COST + (JOBS.pasture + 1) * WAGE;
+function laneFleece(at: At, t: number): void {
+  at(t, { type: 'build', kind: 'pasture', at: [T(LANE_PASTURE.x, LANE_PASTURE.z)] });
+  at(t, { type: 'stall', at: T(LANE_AGORA.x, LANE_AGORA.z), good: FLEECE });
+}
+
+/**
  * The food town given the gods and the theatre (see SHRINE_AT). Ten months
  * before the shrine the town's three tax offices go in (by the lane, on the
  * west street and at the east street's end) with heavy taxes, as a player
@@ -321,7 +345,7 @@ function laneOil(at: At, t: number): void {
  * for; taxes go back to fair before the scene opens. `close` clears the
  * theatre and the west street's road later.
  */
-function cultureTown(ticks: number, theatre = true, close = false, oil = true, more?: (at: At) => void): (sim: Sim) => void {
+function cultureTown(ticks: number, theatre = true, close = false, oil = true, more?: (at: At, late: number) => void): (sim: Sim) => void {
   return foodTown(ticks, 400, 200, {
     officeAt: CULTURE_TAXES_AT,
     then: (at) => {
@@ -351,7 +375,11 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
       }
       let late = 0;
       if (theatre) {
-        if (at.sim) waitFor(at.sim, THEATRE_AT, THEATRE_COST + JOBS.theatre * WAGE);
+        // Fleece for the fine houses to come, a month before the theatre (see FLEECE_AT).
+        if (at.sim) waitFor(at.sim, FLEECE_AT, FLEECE_COST);
+        laneFleece(at, FLEECE_AT);
+        // (The fleece set the treasury back: the theatre can wait longer for its money than other things.)
+        if (at.sim) waitFor(at.sim, THEATRE_AT, THEATRE_COST + JOBS.theatre * WAGE, THEATRE_AT + 2 * AFFORD_WAIT);
         late = Math.max(0, (at.sim?.state.tick ?? 0) - THEATRE_AT);
         at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       }
@@ -362,11 +390,43 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
         at(CLOSE_AT + late, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z });
         if (fairAt > CLOSE_AT + late) fair(fairAt);
       }
-      more?.(at);
+      more?.(at, late);
       if (at.sim && at.sim.state.tick < ticks + late) at.sim.run(ticks + late - at.sim.state.tick);
     },
   });
 }
+
+/**
+ * The villa town: the culture town, seven months after its theatre opened (its
+ * townhouses all fine houses by then), plants two vineyards on the sunny
+ * slope by the main road west of the town, with a winery across the road; the
+ * wine goes to the storehouse by the lane and is sold from a wine stall at the
+ * agora by the junction (villas need wine). Once the treasury can pay for it
+ * and a month's wages.
+ */
+const WINE_VINEYARDS = [
+  { x: 6, z: 77 },
+  { x: 9, z: 77 },
+];
+const WINE_WINERY = { x: 12, z: 81 };
+const WINE_AT = THEATRE_AT + 2100;
+const WINE_COST = 2 * VINEYARD_COST + WINERY_COST + STALL_COST + (2 * JOBS.vineyard + JOBS.winery + 1) * WAGE;
+/** #villas: nine months after the vines went in, as the first dozen or so villas fill and more fine houses climb. */
+const VILLAS_AFTER = 2600;
+/** #winery: the first vintage being trodden, its carts on the road to the storehouse. */
+const WINERY_AFTER = 700;
+/** The wine chain, and the scene opening `after` ticks after it went in (however long it waited for the money). */
+const wineChain =
+  (after: number) =>
+  (at: At, late: number): void => {
+    if (at.sim) waitFor(at.sim, WINE_AT + late, WINE_COST, WINE_AT + late + 2 * AFFORD_WAIT);
+    const t = Math.max(WINE_AT + late, at.sim?.state.tick ?? 0);
+    at(t, { type: 'build', kind: 'vineyard', at: WINE_VINEYARDS.map((v) => T(v.x, v.z)) });
+    at(t, { type: 'build', kind: 'winery', at: [T(WINE_WINERY.x, WINE_WINERY.z)] });
+    at(t, { type: 'stall', at: T(LANE_AGORA.x, LANE_AGORA.z), good: WINE });
+    if (at.sim && at.sim.state.tick < t + after) at.sim.run(t + after - at.sim.state.tick);
+  };
+const villaTown = (after: number): ((sim: Sim) => void) => cultureTown(WINE_AT + after, true, false, true, wineChain(after));
 
 /**
  * #grow: the food town with a dairy beside the lane three months before it
@@ -431,16 +491,18 @@ function overhuntTown(ticks: number): (sim: Sim) => void {
  * cottages along the street east of it, round a second fountain and agora;
  * huts in a hamlet by the lane on the west bank; tents on the newest plots
  * at the hamlet's end. It grows outward the way a player would build it, so
- * every house has earned its level. It opens half a year after the last
- * plots went down, once every walker's round has settled (earlier, the
- * actor's first rounds leave the far corner of the core warned about plays
- * for a while), and its bread holds for well over a year as it fills up.
+ * every house has earned its level. Since slice 11 the core gets its sheep
+ * pasture, fleece stall and theatre before the east street goes in (fine
+ * houses need fleece, and pay the most tax: the treasury couldn't pay for
+ * the street first and still have them in time), and it opens later in its
+ * life (tick 8,400, was 7,200), once every walker's round has settled; its
+ * bread holds for well over a year as it fills up.
  */
-const TOWN_TICKS = 7200;
+const TOWN_TICKS = 8400;
 /** How long before #town opens its taxes go back to fair (moods settle within a month). */
 const FAIR_AGAIN = 600;
 /** How long before #town opens the newest plots go down at the hamlet's end (so a few are still tents). */
-const NEWEST = 120;
+const NEWEST = 300;
 /** The longest #town's builder waits for the money for what goes in next. */
 const AFFORD_WAIT = 2400;
 /** #town's tax offices: one on the main street at the west end of the core… */
@@ -465,6 +527,12 @@ const TOWN_GROVES = [{ x: 83, z: 23 }];
 const TOWN_PRESS = { x: 83, z: 27 };
 const TOWN_STORE = { x: 87, z: 27 };
 const TOWN_OIL_COST = (33 - TOWN_OIL_ROAD) * ROAD_COST + GROVE_COST + PRESS_COST + STOREHOUSE_COST + STALL_COST;
+/**
+ * #town's fleece (fine houses need it): a sheep pasture on the river meadow
+ * between the farms and the granary, its bales going up to the storehouse,
+ * and a fleece stall at each agora.
+ */
+const TOWN_PASTURE = { x: 50, z: 42 };
 const CORE_W = [63, 65, 67, 69, 71];
 const CORE_E = [75, 77, 79, 81, 83];
 const along = (xs: number[], z: number): number[] => xs.map((x) => T(x, z));
@@ -478,7 +546,7 @@ function town(ticks: number): (sim: Sim) => void {
     };
     // As a player would: wait (from tick t) until the treasury can pay for what goes in next, and still pay a month's wages.
     const afford = (t: number, cost: number): void => {
-      waitFor(sim, t, cost);
+      waitFor(sim, t, cost, t + 2 * AFFORD_WAIT);
     };
     // The way in, and the core's cross streets.
     at(0, { type: 'road', tiles: [...row(0, 26, 50), ...col(26, 41, 49).reverse(), ...row(27, 95, 41)] });
@@ -511,22 +579,28 @@ function town(ticks: number): (sim: Sim) => void {
     at(sim.state.tick, { type: 'build', kind: 'press', at: [T(TOWN_PRESS.x, TOWN_PRESS.z)] });
     at(sim.state.tick, { type: 'build', kind: 'storehouse', at: [T(TOWN_STORE.x, TOWN_STORE.z)] });
     at(sim.state.tick, { type: 'stall', at: T(65, 42), good: OIL });
+    // Fleece for the fine houses the theatre will bring: the pasture and the core agora's fleece stall.
+    afford(sim.state.tick, PASTURE_COST + STALL_COST + (JOBS.pasture + 1) * WAGE);
+    at(sim.state.tick, { type: 'build', kind: 'pasture', at: [T(TOWN_PASTURE.x, TOWN_PASTURE.z)] });
+    at(sim.state.tick, { type: 'stall', at: T(65, 42), good: FLEECE });
+    // The theatre, once the treasury has recovered: in the core's north-west block (since slice 11; it stood west of
+    // the core by the granary, where the north street's far east end was at the edge of the actor's reach and,
+    // once fine houses needed fleece and the history changed, went five or six weeks at a time without plays).
+    afford(3900, THEATRE_COST + JOBS.theatre * WAGE);
+    at(3900, { type: 'build', kind: 'theatre', at: [T(63, 36)] });
     // The street east of the core, with its own fountain, agora and tax office.
-    afford(3600, 820);
-    at(3600, { type: 'road', tiles: row(96, 112, 41) });
-    at(3600, { type: 'build', kind: 'taxoffice', at: [T(EAST_OFFICE.x, EAST_OFFICE.z)] });
-    at(3600, {
+    afford(3900, 820);
+    at(sim.state.tick, { type: 'road', tiles: row(96, 112, 41) });
+    at(sim.state.tick, { type: 'build', kind: 'taxoffice', at: [T(EAST_OFFICE.x, EAST_OFFICE.z)] });
+    at(sim.state.tick, {
       type: 'plots',
       at: [...along([88, 90, 92, 94, 96, 98, 102, 104, 106, 108, 110], 39), ...along([88, 90, 92, 94, 102, 104, 106, 108, 110], 42)],
     });
-    at(3600, { type: 'build', kind: 'agora', at: [T(97, 42)] });
-    at(3600, { type: 'fountain', at: [T(100, 39)] });
+    at(sim.state.tick, { type: 'build', kind: 'agora', at: [T(97, 42)] });
+    at(sim.state.tick, { type: 'fountain', at: [T(100, 39)] });
     // Its agora's oil stall, once there is money for it.
-    afford(3600, STALL_COST);
+    afford(sim.state.tick, STALL_COST);
     at(sim.state.tick, { type: 'stall', at: T(97, 42), good: OIL });
-    // The theatre, once the treasury has recovered from the new street.
-    afford(3900, THEATRE_COST + JOBS.theatre * WAGE);
-    at(3900, { type: 'build', kind: 'theatre', at: [T(57, 42)] });
     // The hamlet by the lane on the west bank, then the newest plots at its end.
     afford(4500, 410 + JOBS.fountain * WAGE);
     at(4500, {
@@ -542,8 +616,9 @@ function town(ticks: number): (sim: Sim) => void {
 
 /**
  * The money demos all start from #town as it opens. #harsh: taxes turned up
- * to harsh, a month and a half on, so moods have soured and a few households
- * have sent someone away (the panel opens on the first that did). #dry: taxes
+ * to harsh, three months on (a month and a half before slice 11: its fine
+ * houses are better off now, so it takes longer), so moods have soured and a
+ * few households have sent someone away (the panel opens on the first that did). #dry: taxes
  * set to none until the treasury runs out, then a few days more, so wages go
  * unpaid at some workplaces (which work at half pace) and the money line says
  * so. #taxes: the east street's tax office cleared as the town opens, so the
@@ -551,7 +626,7 @@ function town(ticks: number): (sim: Sim) => void {
  * collector reaches, two months on so the street's last visits have lapsed
  * (the overlay posts homes no collector has called on in two months).
  */
-const HARSH_FOR = 450;
+const HARSH_FOR = 950;
 const DRY_AFTER = 50;
 const DRY_WAIT = 12000;
 const TAXES_AFTER = 620;
@@ -601,13 +676,18 @@ function taxesTown(sim: Sim): void {
  * #nooil: #fine with its olive press and storehouse cleared as it opens,
  * played on until the first fine houses have gone without oil long enough to
  * be a month from going down (the stall's jars and the homes' own last months
- * first). The panel opens on the house closest to going down.
+ * first). The panel opens on the house closest to going down. Since slice 11
+ * the storehouse also keeps the fleece fine houses need, so an empty one goes
+ * up where it stood the next day: fleece keeps coming, the oil doesn't.
  */
 const NOOIL_LEFT = TICKS_PER_MONTH;
 const NOOIL_WAIT = 18 * TICKS_PER_MONTH;
 function noOilTown(sim: Sim): void {
   cultureTown(FINE_TICKS)(sim);
   for (const p of [LANE_PRESS, LANE_STORE]) sim.enqueue({ type: 'clear', x0: p.x, z0: p.z, x1: p.x, z1: p.z });
+  sim.flush();
+  sim.run(TICKS_PER_DAY);
+  sim.enqueue({ type: 'build', kind: 'storehouse', at: [T(LANE_STORE.x, LANE_STORE.z)] });
   sim.flush();
   const s = sim.state;
   const end = s.tick + NOOIL_WAIT;
@@ -627,6 +707,14 @@ function nearestOilDrop(s: SimState): number {
   let left = Infinity;
   for (const b of homes(s)) for (const w of warningsOf(s, b)) if (w.need === 'oil' && w.left < left) [best, left] = [b.id, w.left];
   return best;
+}
+
+/** The first villa (the one that went up first), else the fine house nearest the agora. */
+function firstVilla(s: SimState): number {
+  let best = 0;
+  let at = Infinity;
+  for (const b of homes(s)) if (b.level === VILLA && b.since < at) [best, at] = [b.id, b.since];
+  return best || nearest(s, 28, 69);
 }
 
 /** The household that sent someone away for the taxes most recently, else the unhappiest. */
@@ -682,4 +770,10 @@ export const DEMOS: Record<string, Demo> = {
   storehouse: { view: 'storehouse', setup: town(TOWN_TICKS), overlay: 'oil' },
   oilvendor: { view: 'oilvendor', setup: town(TOWN_TICKS), follow: 'oil', overlay: 'oil', overlayOn: true },
   nooil: { view: 'nooil', speed: 'paused', setup: noOilTown, overlay: 'oil', overlayOn: true, open: nearestOilDrop },
+  pasture: { view: 'pasture', setup: cultureTown(FINE_TICKS), overlay: 'fleece' },
+  fleecevendor: { view: 'fleecevendor', setup: cultureTown(FINE_TICKS), follow: 'fleece', overlay: 'fleece', overlayOn: true },
+  vineyard: { view: 'vineyard', tool: 'vineyard', setup: cultureTown(FINE_TICKS), overlay: 'wine' },
+  villas: { view: 'villas', setup: villaTown(VILLAS_AFTER), overlay: 'missing', open: firstVilla },
+  winery: { view: 'winery', setup: villaTown(WINERY_AFTER), follow: 'cart', overlay: 'wine' },
+  winevendor: { view: 'winevendor', setup: villaTown(VILLAS_AFTER), follow: 'wine', overlay: 'wine', overlayOn: true },
 };

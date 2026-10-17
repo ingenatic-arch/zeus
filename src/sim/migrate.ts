@@ -28,6 +28,16 @@
  * (a grove's first olives take two months to ripen). Food keeps the grace it
  * had, if longer.
  *
+ * Version 9 to 10 (slice 11, fleece, wine and the villa): each of an
+ * agora's stalls gets its own porter, so the one porter clock (`fetch`)
+ * becomes one per good (the oil stall's keeps the old one), and the fleece
+ * and wine vendors' round records start empty. Fine houses now need fleece,
+ * so every fine house's grace is at least eight months after loading
+ * (GRACE_GOODS): time to fence a pasture, build a storehouse and a fleece
+ * stall, and for the first fleece to go round. (Only fine houses: no other
+ * level needs anything new, and a townhouse can't become a fine house
+ * without fleece in hand. The grace covers their food too, as it always has.)
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -35,7 +45,8 @@
 import { coastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { TICKS_PER_MONTH } from './clock';
-import { GOOD_COUNT } from './foods';
+import { FINE } from './buildings';
+import { gi, GOOD_COUNT, OIL } from './foods';
 import { SIM_STATE_VERSION, type SimState } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
@@ -46,6 +57,9 @@ export const GRACE = 6 * TICKS_PER_MONTH;
 
 /** How long after loading a slice-9 save its homes' oil (and food) can first count as missing (see the version 8 to 9 notes). */
 export const GRACE_OIL = 8 * TICKS_PER_MONTH;
+
+/** How long after loading a slice-10 save its fine houses' fleece (and food and oil) can first count as missing (see the version 9 to 10 notes). */
+export const GRACE_GOODS = 8 * TICKS_PER_MONTH;
 
 /** The oldest state version this game can bring up to date. */
 export const OLDEST_READABLE = 6;
@@ -64,6 +78,7 @@ export function migrate(st: unknown): number {
   if (from === 6) from6(st);
   if (st.version === 7) from7(st);
   if (st.version === 8) from8(st);
+  if (st.version === 9) from9(st);
   return from;
 }
 
@@ -138,4 +153,23 @@ function from8(st: Record<string, unknown>): void {
     st.rounds.oil = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
   st.version = 9;
+}
+
+function from9(st: Record<string, unknown>): void {
+  const tick = typeof st.tick === 'number' ? st.tick : 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings) {
+      if (!isObj(b)) continue;
+      const fetch = typeof b.fetch === 'number' ? b.fetch : 0;
+      b.fetch = new Array<number>(GOOD_COUNT).fill(0);
+      (b.fetch as number[])[gi(OIL)] = fetch;
+      if (b.kind === 'home' && typeof b.level === 'number' && b.level >= FINE) b.grace = Math.max(typeof b.grace === 'number' ? b.grace : 0, tick + GRACE_GOODS);
+    }
+  }
+  if (isObj(st.rounds)) {
+    const n = MAP_SIZE * MAP_SIZE;
+    st.rounds.fleece = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+    st.rounds.wine = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+  }
+  st.version = 10;
 }

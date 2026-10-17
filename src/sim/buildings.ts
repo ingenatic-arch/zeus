@@ -1,19 +1,20 @@
 /** Looking up buildings: their footprints, how many people a home holds, how many a workplace needs. */
 import type { Building, BuildingKind, SimState } from './state';
 
-/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage, 4 a townhouse, 5 a fine house. */
-export const HOME_CAPACITY = [5, 5, 9, 13, 17, 21];
+/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa. */
+export const HOME_CAPACITY = [5, 5, 9, 13, 17, 21, 27];
 
 /** House levels by name, for the hover tips. */
-export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage', 'A townhouse', 'A fine house'];
+export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage', 'A townhouse', 'A fine house', 'A villa'];
 
 export const TENT = 1;
 export const HUT = 2;
 export const COTTAGE = 3;
 export const TOWNHOUSE = 4;
 export const FINE = 5;
+export const VILLA = 6;
 /** The highest level a home can reach. */
-export const TOP_LEVEL = FINE;
+export const TOP_LEVEL = VILLA;
 
 /** A level's name in a sentence: "a cottage", "the fine house" with `the`. */
 export const levelName = (level: number, article: 'a' | 'the' | '' = 'a'): string => {
@@ -35,10 +36,13 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   grove: 'An olive grove',
   press: 'An olive press',
   storehouse: 'A storehouse',
+  pasture: 'A sheep pasture',
+  vineyard: 'A vineyard',
+  winery: 'A winery',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;

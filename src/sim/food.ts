@@ -73,11 +73,21 @@ export const HANDLE = 40;
 /** Ticks the porter waits after coming back with nothing before trying again. */
 export const PORTER_RETRY = 60;
 /**
- * What an agora's stall holds of each good, and what its porter brings at
- * most: he goes when it is down to half (GOOD_STALL_ROOM - GOOD_PORTER_TAKE).
+ * What an agora's oil stall holds, and what its porter brings at most: he
+ * goes when it is down to half (GOOD_STALL_ROOM - GOOD_PORTER_TAKE).
  */
 export const GOOD_STALL_ROOM = 800;
 export const GOOD_PORTER_TAKE = 400;
+/**
+ * The same for every good's stall, by its place in `goods` (olives, oil,
+ * fleece, grapes, wine; only oil, fleece and wine have stalls): the fleece
+ * and wine stalls hold less, as homes use less of them.
+ */
+export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600];
+export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300];
+/** What a stall holds of its good, and what its porter brings at most. */
+export const stallRoom = (w: Ware): number => GOOD_STALL_ROOMS[w - FIRST_GOOD] ?? 0;
+export const porterTake = (w: Ware): number => GOOD_PORTER_TAKES[w - FIRST_GOOD] ?? 0;
 /**
  * How far by road from the agora the food vendor ever goes, and how much
  * fresh road a round is (as for the priestess and the actor: with 48, one
@@ -183,13 +193,15 @@ export function errandsOut(s: SimState, b: Building): number {
   return n;
 }
 
-/** The agora's food porter (who carries foods) or its goods porter (who carries one good, `w.food`) is out. */
+/** The agora's food porter (who carries foods) or a stall's porter (who carries its good, `w.food`) is out. */
 export const isGoodsPorter = (w: Walker): boolean => w.kind === 'porter' && w.food >= FIRST_GOOD;
 export function portersOut(s: SimState, a: Building, goods: boolean): number {
   let n = 0;
   for (const w of s.walkers) if (w.origin === a.id && w.kind === 'porter' && (w.food >= FIRST_GOOD) === goods) n++;
   return n;
 }
+/** Is the porter of an agora's stall for this good out? */
+export const stallPorterOut = (s: SimState, a: Building, good: Ware): boolean => s.walkers.some((w) => w.origin === a.id && w.kind === 'porter' && w.food === good);
 
 /** Room left in a granary for wheat (its stock and what carts are bringing). */
 export const roomIn = (g: Building): number => GRANARY_CAP - g.stock - g.incoming;
@@ -375,7 +387,7 @@ function bringBack(w: Walker, origin: Building): void {
     return;
   }
   if (w.food >= FIRST_GOOD) {
-    setHeld(origin, w.food, Math.min(GOOD_STALL_ROOM, held(origin, w.food) + w.load));
+    setHeld(origin, w.food, Math.min(stallRoom(w.food), held(origin, w.food) + w.load));
     return;
   }
   origin.stock = Math.min(STALL_CAP, origin.stock + w.load);
@@ -403,10 +415,10 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     } else if (w.food >= FIRST_GOOD) {
       // A goods porter: up to a handcart of his good, as much as the stall has room for.
       const f = w.food;
-      const take = Math.min(GOOD_PORTER_TAKE, held(g, f), Math.max(0, GOOD_STALL_ROOM - held(origin, f)));
+      const take = Math.min(porterTake(f), held(g, f), Math.max(0, stallRoom(f) - held(origin, f)));
       setHeld(g, f, held(g, f) - take);
       w.load = take;
-      if (take === 0) origin.fetch = PORTER_RETRY;
+      if (take === 0) origin.fetch[f - FIRST_GOOD] = PORTER_RETRY;
     } else {
       const take = Math.min(PORTER_LOAD, g.stock, Math.max(0, STALL_CAP - origin.stock));
       g.stock -= take;
