@@ -50,12 +50,11 @@ What breaks, or moves: no save is lost. A slice 13 save opens as it was, and the
 ### Known rough edges
 - **The collector's round is still about forty days**, so taxes come in lumps. Shortening it made the collectors reach fewer houses and brought in less; paying them first did what it was meant for.
 - `#town` opens just before the priestess comes by: for its first fortnight up to nine fine houses show a warning about religion, with months to spare, and it clears when she passes.
-- `#richtown`'s quay holds only wheat, meat and cheese: the town uses all its oil, fleece and wine itself.
+- `#richtown`'s quay holds only wheat, meat and cheese at first: the town uses its oil and fleece itself, and its wine reaches the quay only from about the fourth visit, nine months on (the review corrected "all its wine" here).
 - The town grows a large food surplus in `#town` and the towns built on it.
 - `#grove` loses 24 dr a month at its opening rate (unchanged).
 - The variety overlay's blocks, the olive press carts' part loads and how fast carts travel are unchanged.
 - Porters, bales and amphorae on carts were looked at and left as they are.
-- The cost of round walkers in a big town (moveRounds) was measured, not cut: `#richtown` running is the most expensive frame below.
 - Fires spread at the same pace as before, and dockers still take about two months over a round trip from the far stores.
 
 ### Measurements
@@ -101,10 +100,20 @@ What breaks, or moves: no save is lost. A slice 13 save opens as it was, and the
   - New: `#richtown` 911,243 and 97; `#richstreet` 819,931 and 80; its overview 1,021,806 and 119, the most yet.
 - Main-thread time per frame before drawing, paused / running (each over 8 seconds; noisy):
   - `#food` 0.75 / 1.40 ms (was 0.60 / 1.19); `#fine` 0.93 / 3.79 (0.83 / 2.91); `#town` 1.52 / 8.58 (1.06 / 8.32); `#villas` running 5.93 (7.51); `#blaze` 1.17 / 4.20 (1.16 / 2.62); `#quay` 3.69 (3.96); `#ship` 3.07 (3.41).
-  - New: `#richtown` 1.41 / 10.78; `#richstreet` running 15.51. That last is close to a whole frame at 60 a second on this machine's software graphics. It is the round walkers and the big town's upkeep, and it is the first thing to check on your laptop.
+  - New: `#richtown` 1.41 / 10.78; `#richstreet` running 15.51. (The review found most of that was redrawing the ground under each house that rose a level, not the round walkers, and cut it: see below.)
 - GPU objects on `#ship`: 38 geometries, 7 textures (was 38 and 6: one more for the soft smoke). `#richtown` reaches 73 geometries as it plays and stays there.
 - A save of `#town`: 135 KB (was 258). `#richtown`: 171 KB.
 - Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
+### What the review changed
+A second pair of eyes went through the slice, played each step above in a headless browser (and `#richtown` on for two years) and fixed what it found. What changed for you:
+- **A big town costs less per frame.** Every time a house rose or fell a level (in `#richtown`, a street of fine houses turning into villas), the game redrew the paving and ground of that whole corner of the map, though nothing on the ground had changed. It now redraws it only when a plot gets its first family or a house is left empty. Measured the same way as above, alternating with the slice as it was handed over: `#richstreet` running 17.5 → 9.4 ms a frame, `#richtown` about 11.9 → 9.3, `#town` about 10.3 → 6.3. The round walkers turned out to be a small part (under half a millisecond a frame), so they were left as they are.
+- **Tab and Enter work on the panels' buttons again.** After a click, the slice made the game's keys take the focus back from a panel's button (so Space pauses rather than pressing it again); that also swallowed Tab and Enter. They now move between and press a panel's buttons, as before; Space, Esc and the speeds still go to the game.
+- **This note was corrected:** the measurement that blamed the round walkers for `#richstreet`'s cost (it was the ground being redrawn); `#richtown`'s quay does get wine, from about nine months on; the moveRounds rough edge is gone from the list.
+- Checked and unchanged: every step above works as written (`#richtown`'s ship ties up and pays 614 dr; `#dry` pays its wages 14 days after taxes go back to fair; `#black` pays 898; `#harsh` falls from about 680 to 500 people over six months and grows back past 800 in a year at fair, with the town line counting the leavers; the slice 13 save's welcome back; the new town keeping the old autosave). Every older save in the tests (phase 1 to slice 13, both older file formats) opens, and saves and opens again identically. Earlier demos open and look as before (screenshots of the opening view, `#streets`, `#food`, `#fine`, `#town`, `#villas`, `#quay`, `#sail` and `#ship`); only their money differs, as listed above.
+- Worth knowing before you play `#richtown` on: it opens at 928 people and keeps growing (about 1,230 after a year, 1,390 after twenty months, all at fair); it gains about 500 dr a month; and in its second year its one sheep pasture can't keep up, so fleece runs short and a few villas fall back to fine houses (the town line says where the fleece is short and why). It opens 19 ticks before the first of the month, so about 300 dr of wages go out two seconds in, before the ship pays.
+- Still for you to judge: `#town` opening with a religion warning (one fine house as it opens; the priestess is a fortnight away; fixing it would move the history of a dozen demos, so it was left); harsh taxes paying well while the town shrinks (in `#harsh`, about +320 dr a month for six months); the size of `#richtown`'s overview (about a million triangles and 119 draw batches, the most yet: worth a look at the frame rate on your laptop).
+- Checks after the review: 211 tests in 20 files pass; typecheck, build and smoke pass. Download 332 KB compressed (1,148 KB raw); load ready at 1.24 s, first frame 1.51 s; `#richtown` ready at 2.51 s, first frame 3.11 s by the page's clock in this run (it plays about three years of history first; these move by a few tenths from run to run). Draw batches and triangles unchanged. Time per frame before drawing, running (one run each, noisy): `#town` 5.42 ms, `#villas` 5.77, `#quay` 5.01, `#richtown` 9.53, `#richstreet` 11.59.
 
 ## Slice 13 — The ship comes in (17 Oct)
 
