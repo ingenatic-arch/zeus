@@ -26,11 +26,11 @@ A minimap that zooms for larger maps (it shows the whole 128-tile map today); ke
 
 - The vision wins; `CLAUDE.md` sets conventions and budgets.
 - The sim stays pure and deterministic; the stock book changes nothing about how a town plays (every demo opens and plays exactly as before).
-- Old saves load: state version 14 adds the stock book, starting empty in the month a save is loaded.
+- Old saves load: state version 15 adds the stock book (phase 3 took 14 for Greece), starting empty in the month a save is loaded.
 
 ## Tasks
 
-1. The stock book in the sim (`src/sim/stockbook.ts`), noted wherever a ware comes in or goes out; state version 14 and its migration; the save checks; tests.
+1. The stock book in the sim (`src/sim/stockbook.ts`), noted wherever a ware comes in or goes out; state version 15 and its migration; the save checks; tests.
 2. The panel's reads (`src/sim/stocks.ts`): wares' names and groups, stock and where it is kept, a month's totals, the breakdown, makers and users.
 3. The minimap (`src/ui/minimap.ts`), the panel and its tabs (`src/ui/sidepanel.ts`), the view making room for it (`style.css`, `main.ts`), `#goods`.
 4. Look and tune by screenshots at 1600 × 900 and 1280 × 720; check the main-thread cost of the panel and the minimap.
