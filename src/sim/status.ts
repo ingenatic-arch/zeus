@@ -1161,9 +1161,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
 /** While taxes are harsh: households leaving and newcomers staying away (null otherwise). */
 export function harshLine(s: SimState): TownLine | null {
   if (s.taxRate !== HARSH) return null;
-  const gone = goneForTaxes(s);
+  const gone = goneForTaxes(s, 3 * TICKS_PER_MONTH);
   const office = s.buildings.find((b) => b.kind === 'taxoffice');
-  const went = gone === 0 ? 'households the collectors call on are starting to think of leaving' : `${gone === 1 ? 'a household has' : `${fmt(gone)} households have`} left the city for them this past month`;
+  const went = gone === 0 ? 'households the collectors call on are starting to think of leaving' : `${gone === 1 ? 'a household has' : `${fmt(gone)} households have`} left the city for them in the last three months`;
   return { need: 'tax', text: `Taxes are harsh: ${went}, and newcomers stay away. Lower taxes (the rate by the drachmas) would bring people back.`, at: office?.id ?? 0 };
 }
 

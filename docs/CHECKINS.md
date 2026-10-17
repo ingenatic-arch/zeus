@@ -2,6 +2,110 @@
 
 Notes to Oliver, newest first.
 
+## Slice 14 — A richer town (17 Oct)
+
+Phase 2's last slice: a prepared richer town to look at and measure, the money retuned across the whole game by playing every demo on, and a pass over the rough edges you would notice. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A slice 13 save opens as it was, and the welcome back says taxes are retuned (the finer houses pay more, harsh taxes now drive whole households out and keep newcomers away, collectors are paid first when money runs short). Older saves go through every step. The phase 1 demos (`#streets` to `#people`, and the cottage towns) open and play exactly as before. **The prepared towns from slice 7 onwards open on the same story but with different money and some different figures**, because their histories are played with the new taxes (demo by demo under "The money" below). Saves are about half the size, in a new format; older formats still load.
+
+### What's new
+- **`#richtown`, the prepared richer town.** `#town`'s history played on: a road down to the bay with the trading post on the quay, a lane above it with three vineyards on the sunny slope, a winery and a storehouse, wine at both agoras, a third watch post and architect's office, and every good ticked for sale. It opens at normal speed from over the bay, the merchant ship four days out and sailing in toward you, the town behind her: 928 people, 899 dr, 24 villas, 15 fine houses, 6 townhouses, 10 cottages and 14 huts, with watchmen, inspectors and three tax collectors on their rounds. `#richstreet` is the same town at street level among the villas.
+- **The money, retuned** (before and after figures below):
+  - Fine houses pay a drachma more a month at each rate (fair 10, was 9), villas half as much again (fair 18, was 12). Huts, cottages and townhouses pay as before, so a town of cottages still roughly breaks even at fair.
+  - **Harsh taxes have teeth.** On the first of each month every household a collector has called on rolls by its mood: a fed-up or unhappy one leaves whole half the time (the house becomes an empty plot, with "Moved away" floating up), a worried one a quarter of the time (and sends someone away half the time), one getting by now and then; content ones stay. Newcomers come a third as often, and harsh weighs more on a household's mood. A town line says how many households have left for the taxes in the last three months; the tax chip's harsh row and the population tip say so too. Set taxes back down and the town grows back.
+  - **Collectors are paid first.** When the treasury runs short, the tax offices' wages are paid before anyone else's, so the collectors keep their pace: `#dry`, set back to fair, pays its wages after 14 days (was 42).
+  - **The ship pays about a fifth more:** per hundred, wheat 20 dr, meat and cheese 35, oil 70, fleece 55, wine 100 (were 15, 30, 30, 60, 45, 80).
+- **The ship's way in, slower.** Her sail shows 20 days before she ties up (was 6) and she sails out over 16 (was 5). She is in sight for her last 14 days (about 14 seconds at normal speed), crossing the open water at a steady half a tile a tick and slowing evenly to the jetty, with no jump in pace at the map's edge.
+- **Polish:**
+  - "Back to a hut" and other notes rising at the same time near each other are one note with a count ("Back to a hut ×5"), and notes that would cover each other are nudged apart.
+  - The town lines keep a fixed order (ship, fire, wear, rubble, food, oil, fleece, wine, workers, money, taxes), so two shortfalls no longer swap places.
+  - **Your autosave is kept.** Starting a new town on the bare link while the autosave holds another town no longer overwrites it: the new town saves itself only once you have saved it by hand (Ctrl+S), and a corner note and the saves card say so.
+  - The trade panel, the household panel and the ledger update in place, so hover tips don't flicker and a click always lands; after a click, the keys (Esc, Space, the speeds) still work.
+  - Clearing the trading post (or losing it) with goods on the quay says what was lost, and what it was worth, in a town line for a month.
+  - The trade panel's wheat and cheese swatches are told apart (wheat tan, cheese yellow).
+  - Smoke, from a smouldering building or a hearth, is soft camera-facing puffs instead of round balls.
+  - On a neglected street seen from the usual zoom or further, only the worst mark of each kind in each block shows; smouldering and creaking ones always show.
+  - A watchman, after a fire, goes on to another fire or a smoulder he can see before going home, and puts out a smoulder as he reaches it.
+  - The tax overlay doesn't tint a home a collector visited at "none" as paid.
+  - The architect's office is in dressed stone with course lines and a taller hoist, so it reads less like a white box.
+- **Saves are about half the size:** `#town` 135 KB (was 258).
+
+### What to try
+1. Open `#richtown`. The ship is coming in over the bay toward you; watch her tie up, load and pay (the coins float up over the post), then pan up into the town. Press 2 or 3 and play a year or two: does the money feel tight in a good way?
+2. Open `#richstreet`: street level among the villas. Turn with Q and E.
+3. Open `#harsh` and play on a few months: households leave, the town line counts them. Set taxes back to fair (the rate by the drachmas) and watch the town grow back.
+4. Open `#dry`, set taxes back to fair and press play: the wages are paid within a fortnight.
+5. Open `#black` and press play: her visit now pays 898 dr (was 840).
+6. Open `#quay`, tick a few goods and press − / + in the trade panel while hovering a figure: the tip stays put. Then clear the trading post (Clear land) with goods on the quay and read the town line.
+7. Open `#blaze` or `#creak` and look at the smoke and the marks from the usual zoom.
+8. Open one of your slice 13 saves (`#saved` or `#continue`) and read the welcome back. Then open the bare link and start building: the corner note says your old autosave is kept.
+
+### What I'd like your eye on
+- **`#richtown` as a whole.** Does it read as a richer town than `#town`: villas, vineyards, the quay and the ship? It opens a little over the 600 to 900 people the spec asked for (928).
+- **The money.** Played on at fair, `#richtown` gains about 435 dr a month (sales included); `#town` 138; a cottage town loses 11. Is that tight in a good way, or too easy once you have villas?
+- **Harsh taxes.** A year of harsh in `#town` brings in 320 dr a month but loses 510 people (693 → 436). Is that the right size of bite?
+- **The ship's way in** (`#sail`, or `#richtown` as it opens). About 14 seconds from the map's edge to the jetty at normal speed. Worth looking up for, or too slow?
+- **The soft smoke**, in `#blaze` and over the hearths.
+
+### Known rough edges
+- **The collector's round is still about forty days**, so taxes come in lumps. Shortening it made the collectors reach fewer houses and brought in less; paying them first did what it was meant for.
+- `#town` opens just before the priestess comes by: for its first fortnight up to nine fine houses show a warning about religion, with months to spare, and it clears when she passes.
+- `#richtown`'s quay holds only wheat, meat and cheese: the town uses all its oil, fleece and wine itself.
+- The town grows a large food surplus in `#town` and the towns built on it.
+- `#grove` loses 24 dr a month at its opening rate (unchanged).
+- The variety overlay's blocks, the olive press carts' part loads and how fast carts travel are unchanged.
+- Porters, bales and amphorae on carts were looked at and left as they are.
+- The cost of round walkers in a big town (moveRounds) was measured, not cut: `#richtown` running is the most expensive frame below.
+- Fires spread at the same pace as before, and dockers still take about two months over a round trip from the far stores.
+
+### Measurements
+**The money**, by a probe outside the repo that plays each demo on from its opening (fire risk and wear off unless noted), before (`3f4037e`) → after:
+- Targets:
+  - A cottage town at fair (`#food`, `#bridge`): −11 dr a month → −11 (unchanged, as intended).
+  - `#town` played on a year at fair: +115 a month → +138; at heavy +259 → +275.
+  - `#town` a year at harsh: +404 a month with the town growing 724 → 1,060 people and 11 leaving → +320 a month with the town shrinking 693 → 436, 510 people leaving.
+  - Six months harsh, then six at fair: 2,339 → 3,455 dr before; after, 2,332 → 3,193, the town falling to 626 people and growing back to 785.
+  - A fine-house town (`#fine`, a year): +13 a month → +41. A villa town (`#villas`): +67 → +219.
+  - `#dry` set back to fair: first wages paid after 42 days → 14.
+  - `#black`'s visit: 840 dr → 898. `#town` with a post selling four goods for a year: sales 907 dr → 1,278.
+  - `#richtown` (new): +435 dr a month over six months (sales 830), about +468 over a year.
+- What changed in each demo (its opening money, then six months on at its opening rate):
+  - Phase 1 (`#streets` to `#people`, `#warning`, `#decline`, `#missing`): unchanged.
+  - `#grow`: opens with 670 dr (was 424); −67 a month → +9.
+  - `#shrine`, `#priestess`, `#grove`: unchanged (`#grove` still −24 a month).
+  - `#table`: opens with 168 (422); −59 a month → +21. `#overhunt`: 899 (830); −55 → −2.
+  - `#theatre`, `#actor`: open with 291 (255); −9 a month, running down to 3 dr with 9 days of wages owed → +24, never below 33.
+  - `#fine`, `#compare`, `#pasture`, `#fleecevendor`, `#vineyard`: 945 (828); +31 → +62.
+  - `#closed`: 2,459 (2,091); −15 → 0. `#nooil`: 895 (620); +12 → +32.
+  - `#villas`, `#winevendor`: 2,067 (1,418); +66 → +203. `#winery`: 717 (507); +11 → +52.
+  - `#town` and the demos that open on it (`#townstreet`, `#ledger`, `#collector`, `#dairy`, `#oil`, `#storehouse`, `#oilvendor`, `#watchman`, `#inspector`): 322 dr and 693 people (233 and 724); +94 → +138. `#hunter`: 682 (368); +136 → +110.
+  - `#harsh`: 1,586 (1,327), 674 people (809); before it grew to 978 with 4 people leaving, now it shrinks to 494 with 283 leaving, at +323 a month (was +462).
+  - `#taxes`: 618 (376); +102 → +32. `#dry`: 2 dr, 799 people (1 and 806).
+  - `#fire`, `#blaze`, `#rubble`, `#creak` open later in the year and richer (1,940, 2,682, 2,454 and 2,116 dr; were 1,557, 1,835, 2,026 and 1,698), the same buildings burning or creaking. `#blaze`'s fire is now by the olive grove.
+  - `#trade`: 806 (450); +105 → +100. `#quay`, `#sail`, `#ship`: open with 682, 882, 892 (451, 831, 591); about +240 → +260 a month.
+  - `#black`: 2 dr, wages owed, as before; she pays 898 (840) and it ends six months on at 170 with taxes still off (was 1).
+
+**Checks**, before (`3f4037e`, the end of slice 13's review) → after, in the same headless Chromium with software graphics at 1920 × 1080:
+- Tests: 211 in 20 files, all passing (was 199 in 19); typecheck clean. New:
+  - `tests/money.test.ts`: a villa pays clearly more than a fine house; harsh taxes pay more for three months but shrink `#town` over a year where fair grows it, and it grows back at fair; a household leaving for harsh taxes leaves an empty plot and replays identically; harsh slows newcomers; `#dry` back at fair pays its wages within a fortnight; `#richtown` opens on what it promises, saves and loads identically, and gains over 2,000 dr a year with sales over 600.
+  - `tests/saves.test.ts`: save format 3 round-trips and is smaller; formats 1 and 2 still read; a real slice 13 save at harsh (`tests/fixtures/slice13-harsh.save.json.gz`) loads.
+  - `tests/trade.test.ts`: the ship's pace in the map stays under 0.55 tiles a tick with no jump, slowing to the jetty; clearing the post with goods on the quay says what was lost for a month, and undoing it brings them back.
+  - Adjusted on purpose: `#town`'s days with a warning (now under 300), the blaze save test (builds a watch post first: fires now start further east), and tests may take 30 s (demos play on longer before they open).
+- Smoke: passes, extended with `#richtown` and `#richstreet`, `#harsh`'s town line and rate card, the trade panel updated in place (a row kept, Esc still closing it after a click), the slice 13 save's welcome back, and a new town keeping the old autosave. Its prices are updated, and its `#town` check now asks that no house is about to fall back rather than none warned (see Known rough edges).
+- Download: 332 KB compressed, 1,148 KB raw (was 328 and 1,140).
+- Load, by the page's own clock: ready at 1.55 s and first frame at 1.85 s (was 1.35 and 1.57; these move by a tenth or two from run to run). `#town`: ready at 1.83 s, first frame 2.37 (was 1.67 and 2.18). `#richtown`: ready at 2.18 s, first frame 2.69 (it plays the town on for about three years first). Target: under 3 seconds.
+- Draw batches and triangles:
+  - Unchanged: the opening view (574,460 triangles, 59 draws), `#streets`, `#water`, `#food`, `#fine`.
+  - `#town` 811,660 and 86 (was 816,898 and 83), its overview 929,244 and 112 (934,314 and 109). `#villas` 712,432 and 80 (713,904 and 80). `#quay` 637,504 and 55 (643,258 and 55); `#ship` 584,483 and 54 (598,095 and 54); `#sail` 548,594 and 41 (545,932 and 42).
+  - Marks shown, from the usual zoom: `#blaze` 8 (was 19), `#creak` 22 (57).
+  - New: `#richtown` 911,243 and 97; `#richstreet` 819,931 and 80; its overview 1,021,806 and 119, the most yet.
+- Main-thread time per frame before drawing, paused / running (each over 8 seconds; noisy):
+  - `#food` 0.75 / 1.40 ms (was 0.60 / 1.19); `#fine` 0.93 / 3.79 (0.83 / 2.91); `#town` 1.52 / 8.58 (1.06 / 8.32); `#villas` running 5.93 (7.51); `#blaze` 1.17 / 4.20 (1.16 / 2.62); `#quay` 3.69 (3.96); `#ship` 3.07 (3.41).
+  - New: `#richtown` 1.41 / 10.78; `#richstreet` running 15.51. That last is close to a whole frame at 60 a second on this machine's software graphics. It is the round walkers and the big town's upkeep, and it is the first thing to check on your laptop.
+- GPU objects on `#ship`: 38 geometries, 7 textures (was 38 and 6: one more for the soft smoke). `#richtown` reaches 73 geometries as it plays and stays there.
+- A save of `#town`: 135 KB (was 258). `#richtown`: 171 KB.
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 13 — The ship comes in (17 Oct)
 
 The city can now sell what it has spare: a trading post on the bay shore sends dockers to carry surplus food and goods from the stores to its quay, and every three months a merchant ship sails in across the bay, ties up at its jetty, loads what waits there and pays for it. You weren't here while it was built: every choice below is mine, from the spec's defaults.

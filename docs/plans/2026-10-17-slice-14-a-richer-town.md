@@ -103,4 +103,32 @@ The levers: the tax table (the upper levels pay more; the lower levels as now, s
 
 ## As built
 
-*(Filled in when the slice is done.)*
+Built in four commits: the plan (`a35f06a`), the sim (`9379001`), what Oliver sees (`1e0f0e9`) and the look-and-tune pass with the check-in (the last commit of the slice). The figures are in the check-in.
+
+**The money** (`src/sim/taxes.ts`, `treasury.ts`, `settlers.ts`, `folk.ts`, `trade.ts`).
+- The tax table: the plots, tents, huts, cottages and townhouses pay as before; fine houses pay one more (light 7, fair 10, heavy 14, harsh 18; were 6, 9, 13, 17); villas pay half as much again (12, 18, 25, 32; were 8, 12, 16, 22). Target 1 holds: `#food` and `#bridge` lose 11 drachmas a month at fair, exactly as before.
+- The treasury settles in two passes: the tax offices' wages first, then everyone else's. `#dry` set back to fair pays its first wages after 14 days (was 42).
+- Harsh: newcomers come a third as often; on the first of each month, each household a collector has called on rolls by its mood: of twelve chances, a fed-up or unhappy household leaves whole on six, a worried one on three (and sends someone away on six more), one getting by on one (and sends someone away on five); a content one stays. Harsh taxes weigh more on a household's mood (−6, was −4). Each leaving is recorded in `s.taxGone` (state version 13), kept a year, read by the town line, the population tip and the tests.
+- The ship's prices are up by about a fifth: wheat 20, meat and cheese 35, oil 70, fleece 55, wine 100 (were 15, 30, 30, 60, 45, 80).
+- Wages stay 2 drachmas a worker.
+
+**Deviations from the plan.**
+- *The collector's round is not shortened.* Shortening it (tried at two lengths) made the collectors reach fewer houses and cut what came in, more than it smoothed it out; paying the tax offices first did the job the shorter round was for (`#dry` recovers in a fortnight). A collector still takes about forty days over a round, so coins still come in lumps. Listed under Known rough edges.
+- *The ship's way in* is longer than planned: `SAIL_IN` 20 days (was 6) and `SAIL_OUT` 16 (was 5). Her position stays a pure function (`inwardAt`): full pace beyond the map, an easing over the last 12 tiles to the map's edge down to half a tile a tick across the bay, then an even slowing over her last 12 tiles to the jetty. A test checks her pace in the map stays under 0.55 tiles a tick and never jumps.
+- *`#richtown`* is `#town`'s history carried on, with a bay quarter (a road down to the bay, a lane along the vineyards, three vineyards, a winery, a storehouse, wine stalls at both agoras), one more watch post and architect's office, and the trading post with every good ticked. To open with villas *and* the ship in the bay, the post goes up only once the treasury holds the wine chain's cost plus what the villas need, timed so that her first visit comes as they rise, and the town leaves out `#town`'s hamlet back row and the newest plots (or it grew past 1,000 people). It opens at 928 people, a little over the 900 aimed for, with 899 drachmas, 24 villas, 15 fine houses, and the ship 4 days out.
+- *Smaller saves* also pack the tiles as runs, which gave most of the saving: `#town` 258 KB → 135 KB.
+- *Lost goods* are recorded in the state (`trade.lost`, `trade.lostAt`) when the post goes with goods on the quay, so the town line survives a save.
+- *The watchman after a fire* looks for another fire in sight, then a smoulder, and a smoulder he reaches is put out at once.
+- *Marks* thin from 24 tiles out in blocks of 10 tiles (tuned by eye from 34 and 8).
+- *The harsh town line* counts the households gone in the last three months, not the past month (a month's count dropped to nothing between the first-of-the-month rolls).
+- *Panels in place:* a small DOM diff (`src/ui/morph.ts`) for the trade panel, the household panel and the ledger. Because a clicked tick or button now keeps the focus, the game's keys let go of it (`src/game/input.ts`), so Esc, Space and the speeds still work after a click (the smoke caught Esc not closing the trade panel).
+- *`#town` opens with a few warned houses:* with the new history it opens just before the priestess comes by, so for a fortnight up to nine fine houses are warned about religion (with months to spare). The smoke's `#town` check now asks that no house is about to fall back, rather than none warned.
+
+**Tests adjusted on purpose** (the money moved them):
+- `tests/town.test.ts`: `#town`'s warned days are now under 300 (the town is richer, so the treasury's warnings changed).
+- `tests/hazards.test.ts`: the blaze save test builds a watch post first (fires now start further east, out of the old watchmen's sight), with a 30 s time limit.
+- `tests/oil.test.ts`: `serve` takes the map.
+- `tests/saves.test.ts`: the damage tests and envelope 1 test write plain (envelope 2) files through a helper, since envelope 3 packs the records.
+- `vite.config.ts`: tests time out at 30 s (several demos now play on longer before they open).
+
+**Not done** (in the check-in's Known rough edges): the collector's round; `#town`'s food surplus; the variety overlay's blocks; the press carts' part loads; `#grove` slowly losing money; carts' travel speed; porters', bales' and amphorae's look (looked at, unchanged); moveRounds' cost (measured, not cut); the pace of fire; dockers' round trips.

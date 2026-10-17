@@ -533,7 +533,10 @@ if ((await zeus(() => window.__zeus.sound())).started) fail('sound started while
 // #town: every house level and kind of building, the bridge, a few hundred people, at normal speed.
 await open('#town');
 c = await city();
-if (!(c.tents > 0 && c.huts > 0 && c.cottages > 0 && c.townhouses > 0 && c.fine > 0 && c.fountains > 0 && c.farms > 0 && c.granaries > 0 && c.agoras > 0 && c.shrines > 0 && c.theatres > 0 && c.bridges > 0 && c.population > 300 && c.population < 900 && c.warned === 0)) fail(`#town: ${JSON.stringify(c)}`);
+if (!(c.tents > 0 && c.huts > 0 && c.cottages > 0 && c.townhouses > 0 && c.fine > 0 && c.fountains > 0 && c.farms > 0 && c.granaries > 0 && c.agoras > 0 && c.shrines > 0 && c.theatres > 0 && c.bridges > 0 && c.population > 300 && c.population < 900)) fail(`#town: ${JSON.stringify(c)}`);
+// No house is about to fall back (since slice 14's retuning #town opens just before the priestess comes by, so a few fine houses are warned about religion for a fortnight, with months to spare).
+const townWarned = (await zeus(() => window.__zeus.homes())).filter((h) => h.warned && h.left < 300);
+if (townWarned.length) fail(`#town opens with houses about to fall back: ${JSON.stringify(townWarned)}`);
 const townSpeed = await zeus(() => document.querySelector('.speeds .on')?.getAttribute('aria-label'));
 if (!townSpeed?.startsWith('Normal')) fail(`#town is not at normal speed (${townSpeed})`);
 if (!(await zeus(() => window.__zeus.sound())).muted) fail('the mute switch was not remembered');
@@ -960,7 +963,7 @@ if (!(c.tool === 'trading' && c.tradingPosts === 0 && c.shipChip === '')) fail(`
 await zeus((v) => window.__zeus.jump(v), { x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 });
 await frames(3);
 gt = await groveTipAt(74.5, 70.5, /^Trading post · \d+ dr/);
-if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 15[\s\S]*wine 80 dr[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
+if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 20[\s\S]*wine 100 dr[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
 gt = await groveTipAt(70.5, 62.5, /^A trading post goes on the bay shore/);
 if (!/^A trading post goes on the bay shore: no sea beside it here/.test(gt ?? '')) fail(`trading post refused inland: ${gt}`);
 // Building it: the countdown appears in the top bar and the post's panel.
@@ -987,7 +990,7 @@ await open('#quay-paused');
 c = await city();
 if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
 let tt = await zeus(() => window.__zeus.tradeText());
-if (!/The trading post[\s\S]*Ship in \d+ d[\s\S]*Wheat\s*15[\s\S]*Meat\s*30[\s\S]*Cheese\s*30[\s\S]*Oil\s*60[\s\S]*Fleece\s*45[\s\S]*Wine\s*80[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
+if (!/The trading post[\s\S]*Ship in \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
 // Unticking a good and raising a keep go through the command queue.
 const keep0 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
 await page.click('.trade button[data-keep="0"][data-by="1"]');

@@ -120,7 +120,12 @@ export function attachInput(canvas: HTMLCanvasElement, rig: CameraRig, driver: C
   // when the key went down, so releasing Shift before "=" (or any layout
   // quirk) can never leave a key stuck down.
   addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement) return;
+    const target = e.target;
+    // Typing in a text box is not for the game.
+    if (target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !/^(checkbox|radio|range|button)$/.test(target.type))) return;
+    // A panel's button or tick keeps the focus once clicked (panels are brought up to date in place): let go of it,
+    // so the keys still drive the game and Space doesn't press it again.
+    if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) target.blur();
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z' && !e.repeat && tools) {
       tools.key('undo', e);

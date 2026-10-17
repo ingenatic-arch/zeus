@@ -124,9 +124,9 @@ const rnd = (a: number, b: number): number => fract(Math.sin(a * 127.1 + b * 311
  * capped instanced meshes; nothing draws while nothing is wrong.
  */
 /** Past this distance (tiles) from the camera, only the worst mark of each kind in each block shows (smouldering and creaking ones always). */
-const THIN_FROM = 34;
+const THIN_FROM = 24;
 /** A block, for thinning the marks: squares of this many tiles. */
-const BLOCK = 8;
+const BLOCK = 10;
 
 export class HazardView {
   readonly group = new THREE.Group();
