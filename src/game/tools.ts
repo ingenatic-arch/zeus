@@ -46,13 +46,14 @@ import { herdName, MIN_HEAD } from '../sim/wild';
 import { roadRoute } from '../sim/roads';
 import type { Sim } from '../sim/sim';
 import { TILE_ROAD, type Building, type BuildingKind } from '../sim/state';
-import { TICKS_PER_MONTH } from '../sim/clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import { CARRIER_RANGE } from '../sim/water';
 import { ACTOR_RANGE, PRIESTESS_RANGE } from '../sim/culture';
 import { COLLECTOR_RANGE, taxOf } from '../sim/taxes';
 import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/treasury';
 import { hazardReach, previewReach, type ServiceOverlay } from '../render/overlay';
 import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
+import { placeName } from '../sim/status';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
 export type ToolName =
@@ -158,6 +159,9 @@ export class Tools {
   private route: number[] | null = null;
   private reachKey = '';
   private reach = { homes: 0, dry: 0 };
+  /** The same for a watch post or an architect's office, with the smoulders (creaks) it would reach. */
+  private hazardKey = '';
+  private hazard: ReturnType<typeof hazardReach> = { homes: 0, dry: 0, alarms: 0, first: null };
   /** What a release would send. */
   private pending: (() => void) | null = null;
 
@@ -664,14 +668,22 @@ export class Tools {
       if (roads.length === 0) warn = `No road beside it: its ${fire ? 'watchman' : 'inspector'} would have nowhere to walk. Lay a road along one side first.`;
       else {
         this.overlay?.setPreview(roads);
-        const key = `${kind}:${at}:${s.tilesRev}:${s.rev}`;
-        if (key !== this.reachKey) {
-          this.reachKey = key;
-          this.reach = hazardReach(s, n, roads, fire ? 'fire' : 'wear');
+        // (Again each day: smoulders and creaks come and go without the town changing.)
+        const key = `${kind}:${at}:${s.tilesRev}:${s.rev}:${Math.floor(s.tick / TICKS_PER_DAY)}`;
+        if (key !== this.hazardKey) {
+          this.hazardKey = key;
+          this.hazard = hazardReach(s, n, roads, fire ? 'fire' : 'wear');
         }
-        const { homes, dry } = this.reach;
+        const { homes, dry, alarms, first } = this.hazard;
         if (homes === 0) lines.push(`No buildings within ${fire ? WATCH_RANGE : INSPECT_RANGE} steps along the road yet`);
         else lines.push(`Its ${fire ? 'watchman' : 'inspector'} would reach ${homes} ${homes === 1 ? 'building' : 'buildings'}${dry ? ` · ${dry} ${fire ? 'at risk of fire' : 'worn'} past half now` : ''}`);
+        // Whether it would reach the trouble there is now.
+        const now = fire ? s.buildings.filter((b) => b.fire !== 0) : s.buildings.filter((b) => b.creakAt > 0);
+        const doing = fire ? 'smouldering or burning' : 'creaking';
+        if (alarms === 1 && first) lines.push(`It reaches ${placeName(first)}, which is ${fire ? (first.fire === 2 ? 'burning' : 'smouldering') : 'creaking'}`);
+        else if (alarms > 1) lines.push(`It reaches ${alarms} of the ${now.length} buildings ${doing} now`);
+        else if (now.length === 1) warn = `It doesn’t reach ${placeName(now[0])}, which is ${fire ? (now[0].fire === 2 ? 'burning' : 'smouldering') : 'creaking'}: try nearer to it`;
+        else if (now.length > 1) warn = `It doesn’t reach any of the ${now.length} buildings ${doing} now: try nearer to them`;
       }
     } else if (kind === 'farm') {
       const fert = fertilityOf(map, x, z, side);

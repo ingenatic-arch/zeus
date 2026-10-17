@@ -152,13 +152,14 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const owed = owedWages(s);
   if (owed.owed > 0) notes.push(`<li class="bad">The treasury owes ${fmt(owed.owed)} dr of this month’s wages at ${count(owed.places, 'workplace', 'workplaces')}, so they work at half pace. Money coming in pays them first.</li>`);
   const lost = (lines: readonly LedgerLine[]): LedgerLine[] => lines.filter((x) => x.kind === 'fire' || x.kind === 'collapse');
-  const gone = lost(now).length ? lost(now) : lost(last);
+  const thisMonth = lost(now).length > 0;
+  const gone = thisMonth ? lost(now) : lost(last);
   if (gone.length) {
     const n = gone.reduce((a, x) => a + x.n, 0);
     const worth = gone.reduce((a, x) => a + x.n * (COST[x.what as BuildingKind] ?? 0), 0);
     const clearing = gone.reduce((a, x) => a + x.n * clearFee(sideOf(x.what as BuildingKind)), 0);
     notes.push(
-      `<li class="bad">${esc(`${gone === lost(now) ? 'This month' : 'Last month'} fire and collapse took ${count(n, 'building', 'buildings')}: about ${fmt(clearing)} dr to clear the rubble, and ${fmt(worth)} dr to build ${n === 1 ? 'it' : 'them'} again.`)}</li>`,
+      `<li class="bad">${esc(`${thisMonth ? 'This month' : 'Last month'} fire and collapse took ${count(n, 'building', 'buildings')}: about ${fmt(clearing)} dr to clear the rubble, and ${fmt(worth)} dr to build ${n === 1 ? 'it' : 'them'} again.`)}</li>`,
     );
   }
   const taxesNow = kindTotal(now, 'taxes');

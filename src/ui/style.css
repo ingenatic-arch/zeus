@@ -199,7 +199,7 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .stat .delta.down { color: var(--terracotta-deep); }
 
 /* The build bar along the bottom. */
-/* Kinds picked by the same key share a button that opens a row of them above the bar, so the bar keeps to 22 buttons (46 px at 1920 wide, 34 px at 1280); narrower still, it scrolls. */
+/* Kinds picked by the same key share a button that opens a row of them above the bar, so the bar keeps to 17 buttons (46 px at 1920 wide, 34 px at 1280); narrower still, it scrolls. */
 .buildbar-wrap { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 16px); }
 .buildbar {
   display: flex; align-items: center; gap: clamp(4px, 0.45vw, 8px); padding: 7px clamp(7px, 0.6vw, 11px);

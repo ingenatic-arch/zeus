@@ -1240,7 +1240,7 @@ export function moneyTip(s: SimState): string {
 // watch post and the architect's office, and rubble.
 
 /** "the fine house", "the granary": a building in a few words, for a walker's tip. */
-function placeName(b: Building): string {
+export function placeName(b: Building): string {
   if (b.kind === 'home') return `the ${levelName(b.level, '').toLowerCase()}${b.family ? ` of ${b.family.name}` : ''}`;
   return BUILDING_NAMES[b.kind].replace(/^An? /, 'the ').replace(/^The /, 'the ');
 }

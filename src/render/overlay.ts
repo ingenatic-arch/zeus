@@ -419,18 +419,28 @@ export function previewReach(s: SimState, size: number, sources: number[], servi
   return { homes, dry };
 }
 
-/** Buildings a new watch post (or architect's office) with these roadside tiles would reach, and how many of them are past half now. */
-export function hazardReach(s: SimState, size: number, sources: number[], which: 'fire' | 'wear'): { homes: number; dry: number } {
-  if (sources.length === 0) return { homes: 0, dry: 0 };
+/**
+ * Buildings a new watch post (or architect's office) with these roadside
+ * tiles would reach, how many of them are past half now, and how many of
+ * those it reaches are smouldering or burning (creaking), with the first of them.
+ */
+export function hazardReach(s: SimState, size: number, sources: number[], which: 'fire' | 'wear'): { homes: number; dry: number; alarms: number; first: Building | null } {
+  if (sources.length === 0) return { homes: 0, dry: 0, alarms: 0, first: null };
   const mode = MODES[which];
   const dist = roadSearch(s, size, sources).dist;
   let homes = 0;
   let dry = 0;
+  let alarms = 0;
+  let first: Building | null = null;
   for (const b of s.buildings) {
     if (which === 'fire' ? !burnable(b) : !wears(b)) continue;
     if (!roadsBeside(s, size, b).some((t) => dist[t] >= 0 && dist[t] <= mode.range)) continue;
     homes++;
     if ((which === 'fire' ? b.risk : b.wear) >= HAZARD_MARK) dry++;
+    if (which === 'fire' ? b.fire !== FIRE_NONE : b.creakAt > 0) {
+      alarms++;
+      first ??= b;
+    }
   }
-  return { homes, dry };
+  return { homes, dry, alarms, first };
 }
