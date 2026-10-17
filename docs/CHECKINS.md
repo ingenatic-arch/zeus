@@ -33,7 +33,7 @@ What breaks, or moves: nothing. A slice 12 save opens with nothing for sale and 
 - **Prices.** A visit to `#black` paid 840 dr for food and oil. Is that worth building a post for? Money is tuned in slice 14.
 
 ### Known rough edges
-- The quay is levelled to the highest ground under it, so on the sloping shore it stands on a tall stone plinth on its landward side.
+- The quay is levelled to the highest ground under it, so on the sloping shore it stands on a tall stone plinth on its low, beach side (the review corrected "landward" here).
 - On the far stretch of her route, beyond the islet, she moves quickly (the last two days of her approach are the slow, close part).
 - Goods in the trade panel are marked with a colour swatch from their quay stack, not an icon.
 - How fast the quay fills depends on how far the post is from the stores: in the demos a docker's round trip to the granary takes about 55 days. The placing tip now says so.
@@ -65,6 +65,18 @@ Before is `a07429f` (the end of slice 12's review); after is this slice, in the 
   - New: `#quay` running 2.56 ms, `#ship` running 3.05.
 - A save of `#town`: 258 KB (unchanged).
 - Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
+### What the review changed
+A second pair of eyes went through the slice, played each step above and fixed what it found. What changed for you:
+- **Dockers no longer stall.** If one good on the quay had nowhere to go (say you took wheat off sale while every granary was full), the dockers stopped for every good until it cleared. Now they get on with the other goods and come back for it when there is room.
+- **The ship leaves the jetty properly.** She used to spin round on the spot at the berth, her bow and stern swinging through the jetty. Now she backs off a few lengths with her sail still furled, swings round in open water, sets her sail and sails out bow first.
+- **The placing tip says how far the stores are.** Placing the trading post now tells you how long a docker's round trip to the nearest granary and storehouse would be (about two months from the spot in the demos), since that sets how fast the quay fills.
+- **Long tool hints fit the screen.** The trading post's hint under the build bar ran off both edges of the screen; long hints now wrap onto a second line, and the trading post's is shorter.
+- **The trade panel's buttons don't miss.** The panel redraws itself several times a second while the game runs, and a click on − / + or a sell tick could fall between two redraws and do nothing. It now waits while you press.
+- **This note was corrected:** `#sail` and `#ship` open running, not paused (steps 3 and 4 said "press play"); `#black` leaves taxes off after the sale; she isn't drawn lower in the water when laden; and the rough edges that are fixed are gone from the list.
+- Checked and unchanged: every earlier demo still opens exactly as before; the ship never sails over land on her way in or out; selling at the starting keep amounts for a year left `#town`'s houses exactly where they were without a post (its meat stores did run down to nothing).
+- Still for you to judge: she crosses the open water quickly (her whole way in is about six seconds at normal speed), and in the demos a docker's round trip is about two months, so a far-off post fills slowly. Both are noted for slice 14's tuning.
+- Checks after the review: 199 tests in 19 files pass (one new: a good with nowhere to go doesn't hold up the others; and the ship's whole way out is checked); typecheck, build and smoke pass. Download 328 KB compressed (1,140 KB raw); load ready at 1.11 s, first frame 1.34 s; `#town` ready at 1.77 s, first frame 2.26 s; draw batches and triangles unchanged (`#quay` 643,258 and 55; `#sail` 545,932 and 42; `#ship` 598,095 and 54); time per frame before drawing, running: `#quay` 3.04 ms, `#ship` 3.13 ms, `#town` 7.96 ms.
 
 ## Slice 12 — Fire and collapse (17 Oct)
 
