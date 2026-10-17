@@ -2,6 +2,86 @@
 
 Notes to Oliver, newest first.
 
+## Slice 12 — Fire and collapse (17 Oct)
+
+Neglect now shows in the town: every building slowly gathers fire risk and wear, a watch post's watchman and an architect's office's inspector keep them down, and a building left alone smoulders and burns, or creaks and falls, leaving rubble to clear. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing is lost. A slice 11 save opens with no fire risk or wear anywhere, and the welcome back says buildings can now catch fire and wear out, and what to build (a watch post, Z twice, and an architect's office, Z three times). Older saves go through every step. The cottage demos and `#shrine`, `#priestess` and `#grove` open exactly as before, and no demo opens with any risk or wear. `#town` (and the demos built on it) now has two watch posts and two architects' offices, and the fine-house towns by the lane have one of each. They open at the same moment with the same people and levels but less money: `#town` with 233 drachmas (was 513), `#theatre` 255 (395), `#fine` 828 (968), `#villas` 1,418 (1,558), `#taxes` 376 (704). `#dry`, which waits for the treasury to run out, gets there two months sooner (806 people, was 854). The build bar is regrouped, so some tools have moved into rows (see below); every key still does what it did.
+
+### What's new
+- **Fire risk and wear** on every building, filling over a year or so. Fire risk fills faster in crowded houses and busy workshops (the olive press, the winery and the theatre fastest); wear fills faster in big buildings. Fountains never burn. Neighbours fill at slightly different paces, so a street doesn't all go at once.
+- **Marks.** Past half way, a small round plaque floats over the building: a flame for fire risk, a cracked brick for wear. It turns from amber to red as it fills, and pulses once the building smoulders or creaks.
+- **The watch post** (Z twice, 60 dr, 3 workers): a small stone guard house with a lookout platform on posts, buckets and a red pennant. Its **watchman** wears red-brown with a leather cap and carries a bucket and a hook on a pole. Every building beside his way is made safe. His round goes first to the buildings nearest to smouldering.
+- **The architect's office** (Z three times, 80 dr, 3 workers): a whitewashed office with a columned porch, a drawing board and stacked stone. Its **inspector** wears deep blue and carries a measuring rod and a wax tablet. Every building beside her way is made sound.
+- **Smoulder.** A building whose fire risk tops out smoulders for about a month: a thin thread of smoke, a crackle, "Smoke" floating up, and a town line naming the house, the family and the place, how long is left, and why no watchman comes ("the nearest watch post is 33 steps away by road; its watchman goes 32 at most: build one nearer"). A watchman passing puts it out.
+- **Fire.** If no watchman comes, it catches: flames, a column of smoke leaning with the wind, "Fire!", and a louder crackle. It burns for 10 days, then falls to rubble. While it burns, each day it may spread to one building touching it (never across a road, never to a fountain). A watchman who sees flames within 10 tiles leaves his round and runs to them, then throws water on them for two days, with steam rising, which puts the fire out and saves the building.
+- **Creak and collapse.** A building whose wear tops out creaks for about a month, shedding dust, with a groan now and then. An inspector passing makes it sound; otherwise it falls in. A collapse never spreads.
+- **Rubble.** A burnt building leaves black timbers and ash; a fallen one leaves a heap of stone and tiles. The family leaves. Nothing can be built on rubble until it is cleared with the clear tool (X), for 10 drachmas a small heap and 20 a large one. Undo brings the heap back and refunds the fee. Hovering rubble says what stood there and whose it was.
+- **Readable.** Hovering a building names its fire risk and wear and whether a watchman or inspector reaches it. The household panel has a box for a smoulder or a creak, with the days left. Hovering a watch post or architect's office says what it guards and how far its walker goes, and the placing tool says whether one there would reach the trouble. The town lines warn once buildings are three-quarters full with no one coming, and report rubble. The ledger has lines for buildings that burnt or fell down and for clearing rubble.
+- **Overlays:** fire risk (J twice) and wear (J three times) tint buildings green, amber and red, and stand a column over each one past half way.
+- **The build bar, regrouped** (17 buttons, 988 pixels wide at 1920 and 728 at 1280; was 32 buttons, 1,763 and 1,178 pixels). Farms and workshops (M), granary and storehouse (G), the agora and its stalls (K) and the offices (Z: the tax office, watch post and architect's office) are each one button that opens a row of their tools above the bar. The food and goods overlays (L) and the tax, fire-risk and wear overlays (J) work the same way. A row closes when you pick a tool, click elsewhere or press Escape. Each group button shows the tool last picked from it. The keys cycle as before.
+- **Sound:** a crackle while a fire or smoulder is within earshot, a groan from a creaking building, a thud when one falls, and a hiss when a fire is put out.
+
+### What to try
+1. Open `#fire`: `#town` 11 months later, paused on the first thread of smoke, on the east street that no watchman reaches. The fire-risk overlay is on and the watch post tool is in hand. Build a post beside a road near the smoke (the empty corner across the main street from the smoking house, by the crossroads, works; the tip says whether a watchman would reach it), then press play. When I ran the simulation with a post there, it put the smoulder out 5 days later, and nothing else on the street smouldered for the next five months. Without one, the house caught 33 days later. By five months, 15 buildings on that street had burnt down.
+2. Open `#blaze`: the same street a month later, with no post built. Two houses are burning and two more are smouldering, and a watchman from a post across town is running to the nearest fire. Watch whether he gets there in time.
+3. Open `#rubble`: later still, with seven heaps of rubble and the clear tool in hand. Hover a heap, then clear it. Five more houses on the street are smouldering, so a watch post is still needed.
+4. Open `#creak`: `#town` 10 months on, paused on its first creaking building (the agora by the olive grove), with the wear overlay on and the architect's office tool in hand. Build an office near it before the month is out.
+5. Open `#watchman`: following a watchman on his round, with the fire-risk overlay on.
+6. Open `#inspector`: following an inspector on her round, with the wear overlay on.
+7. Click the Z and J buttons, and the M button, to try the regrouped bar.
+8. Open one of your slice 11 saves (`#saved` or `#continue`) and read the welcome back.
+
+### What I'd like your eye on
+- **Fire and smoke** (`#blaze`, close up and from the street). The smoke started as a stack of grey stones. It's now soft, rounded puffs that drift and spread with the wind. The flames started as spikes and are now short tongues in yellow, orange and red. Do they read as a house on fire?
+- **The smoulder's thread of smoke** in `#fire`. Is it enough to catch your eye before the town line does?
+- **The marks.** Are the round flame and cracked-brick plaques readable at the usual zoom? Are there too many on a neglected street? `#creak` opens with 57 of them.
+- **The pace.** The first smoulder in a town with no watch post came about nine and a half months in (`#food` left running). Unguarded, the east street of `#town` lost 15 buildings in five months. Is that too fast, too slow, or about right for something you can see coming?
+- **The regrouped build bar.** Does finding the farms and workshops in a row cost too much?
+
+### Known rough edges
+- The architect's office is less distinctive close up than the watch post.
+- Creak dust is hard to see from the town view. The mark, the overlay column and the town line say it instead.
+- The watchman's water and the steam show only while he is at the fire. That is two days of game time, two seconds at normal speed, so it is easy to miss.
+- Money pressure is still untouched (slice 14). The posts and offices make the prepared towns open poorer.
+- No `-fire` or `-wear` link tokens: the fire demos open with their overlay, and J cycles to them in the game.
+
+### Measurements
+- Tests: 187 in 18 files, all passing (was 178 in 17). New, in `tests/hazards.test.ts`:
+  - how fast risk and wear fill, and that nothing moves while they are switched off;
+  - every demo opening with no risk or wear;
+  - fire with no watchman: smoulder, catching, spreading one touching building at a time, rubble, the family gone, the same every time for the same seed;
+  - the watchman putting out a smoulder, and running to flames and putting them out;
+  - creak and collapse, with and without an inspector;
+  - rubble refusing buildings, clearing for its fee, and undo;
+  - a real slice 11 save (`tests/fixtures/slice11-town.save.json.gz`) loading and saving again identically;
+  - a save in the middle of a fire carrying on identically, and a replay of the log;
+  - the fire demos opening on what they promise.
+
+  Every cottage demo, `#shrine`, `#priestess` and `#grove` fingerprint exactly as before.
+- Smoke: extended with these new checks:
+  - `#fire` (the watch post tip, the smouldering home's tip), `#blaze`, `#rubble` (its town line, the clear tool's tip, clearing a heap for its fee, a heap's tip) and `#creak`;
+  - following the watchman and the inspector;
+  - Z and J cycling;
+  - the bar's size, its makers row and closing it;
+  - a slice 11 save opening clean, with the welcome back.
+
+  Every demo token opens with no page errors.
+- Download: 314 KB compressed (was 299 KB).
+- Load, by the page's own clock: ready at 1.12 s and first frame at 1.35 s (was 1.06 and 1.29). `#town`: ready at 1.73 s and first frame at 2.27 s (was 1.62 and 2.08). The new demos are ready at 2.2 to 2.8 s, because each plays the town on for most of a year first. Target: under 3 seconds.
+- Draw batches and triangles, before → after:
+  - The opening view and every cottage demo: unchanged.
+  - `#fine`: 634,000 → 636,000 triangles, 71 draws (unchanged). `#closed`: 617,000 → 619,000, 79 draws (unchanged). `#town`: 812,000 → 816,000 triangles, 83 draws (unchanged); its overview 929,000 → 934,000, 109 draws.
+  - New: `#fire` 735,000 triangles, 79 draws. `#blaze` 702,000 and 78 (64 smoke puffs and 24 flames on screen). `#rubble` 773,000 and 74. `#creak` 743,000 and 77. `#watchman` 853,000 and 87. Marks, smoke and flames add a few draws while any are showing, and none while nothing is marked.
+- Walker padding: unchanged at 1,356 vertices a look for people (the stag) and 2,412 for carts. The watchman is 888 and the inspector 768.
+- Main-thread time per frame before drawing, paused / running. These were measured alternately against a slice 11 build in the same session, because the numbers drift from run to run:
+  - `#food`: about 0.6 / 1.1 ms (was 0.7–0.9 / 1.2).
+  - `#fine`: 0.7–0.8 / 2.4–3.3 (was 0.7–0.8 / 1.6–1.7).
+  - `#town`: 1.0–1.5 / 6.7–6.9 (was 0.8–1.1 / 4.9–5.2).
+  - The running figures rose by about 1 to 2 ms. The simulation's own time per tick in `#town` went from 118 to 147 µs, for its four new walkers and the daily risk and wear. In a 10-second profile of `#town`, most of the frame time went to occasional street rebuilds as homes change, and I found no new hot spot.
+- A save of `#town`: 257 KB (was 248 KB).
+- Frame rate: not measured (software graphics only here). Target: 60 frames a second on a mid-range laptop at 1080p.
+
 ## Slice 11 — Fleece, wine and the villa (17 Oct)
 
 The town gets its last two goods and its grandest homes: sheep pastures and fleece, vineyards, a winery and wine, a fleece stall and a wine stall at the agora, fine houses that now need fleece, and villas, a sixth level for fine houses that also have wine. You weren't here while it was built: every choice below is mine, from the spec's defaults.
