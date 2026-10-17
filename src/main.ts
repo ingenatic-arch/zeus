@@ -908,10 +908,12 @@ function start(): void {
   remember();
   let seenRev = sim.state.rev;
   // Fire and collapse as last seen (each tick): a fire catching, put out, a building starting to creak or falling.
-  const hazardSeen = new Map<number, { fire: number; creak: boolean }>();
+  // (One number a building: its fire state times two, plus one if it creaks; kept in place, so nothing is made each tick.)
+  const hazardSeen = new Map<number, number>();
+  const hazardOf = (b: Building): number => b.fire * 2 + (b.creakAt > 0 ? 1 : 0);
   const seeHazards = (): void => {
-    hazardSeen.clear();
-    for (const b of sim.state.buildings) hazardSeen.set(b.id, { fire: b.fire, creak: b.creakAt > 0 });
+    if (hazardSeen.size > sim.state.buildings.length * 2) hazardSeen.clear();
+    for (const b of sim.state.buildings) hazardSeen.set(b.id, hazardOf(b));
   };
   seeHazards();
   let hazardTick = sim.state.tick;
@@ -952,11 +954,14 @@ function start(): void {
       const ear = rig.view;
       const hearing = 10 + ear.dist * 0.8;
       for (const b of s.buildings) {
-        const was = hazardSeen.get(b.id);
+        const seen = hazardSeen.get(b.id);
+        const now = hazardOf(b);
+        if (seen === now) continue;
+        // Something changed (or the building is new): only now work out where it is.
         const [cx, cz] = centreOf(b);
         const at = new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.1, cz);
         const near = Math.hypot(cx - ear.x, cz - ear.z) < hearing;
-        if (!was) {
+        if (seen === undefined) {
           // Rubble where a building stood: it fell or burnt down (heard across the town).
           if (b.kind === 'rubble' && s.tick - b.placed <= 20) {
             floaters.add(b.level === 1 ? 'Burnt down' : 'Fell down', at, time, 'fire');
@@ -964,6 +969,7 @@ function start(): void {
           }
           continue;
         }
+        const was = { fire: seen >> 1, creak: (seen & 1) === 1 };
         if (b.fire === 2 && was.fire !== 2) {
           floaters.add('Fire!', at, time, 'fire');
           cue ??= 'ignite';
