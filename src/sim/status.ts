@@ -471,6 +471,8 @@ function staffLine(s: SimState, map: CoastMap, b: Building, jobs: number): strin
   if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}`;
   if (b.workers === 0) {
     if (roadsBeside(s, map.size, b).length === 0) return `No workers · it needs ${jobs}, and a road beside it`;
+    // Workers are shared out once a day: a workplace built since then hasn't had its turn.
+    if (s.tick - b.placed < TICKS_PER_DAY) return `No workers yet · it needs ${jobs}; they are found among the homes at the start of each day`;
     // Homes joined to it by road, whose workers all work somewhere nearer their homes.
     const dist = distFrom(s, map.size, b);
     const joined = s.buildings.some((h) => canWork(h) > 0 && roadsBeside(s, map.size, h).some((t) => dist[t] >= 0));

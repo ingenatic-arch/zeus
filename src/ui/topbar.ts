@@ -242,10 +242,14 @@ export class TopBar {
     return !!this.rates && !this.rates.hidden;
   }
 
+  /** Called when the rates card opens (the cards in the top right corner make way for it). */
+  onRatesOpen: (() => void) | null = null;
+
   toggleRates(show = this.rates?.hidden ?? false): void {
     if (!this.rates) return;
     this.rates.hidden = !show;
     if (show) {
+      this.onRatesOpen?.();
       // Under the chip.
       const chip = (this.bar.querySelector('.rate-chip') as HTMLElement).getBoundingClientRect();
       const root = (this.rates.parentElement as HTMLElement).getBoundingClientRect();

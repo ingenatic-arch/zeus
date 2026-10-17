@@ -402,14 +402,23 @@ function start(): void {
   saveMenu.onOpen = () => {
     corner.toggleHelp(false);
     ledger.toggle(false);
+    topbar.toggleRates(false);
   };
   corner.onHelpOpen(() => {
     saveMenu.toggle(false);
     ledger.toggle(false);
+    topbar.toggleRates(false);
   });
   ledger.onOpen = () => {
     saveMenu.toggle(false);
     corner.toggleHelp(false);
+    topbar.toggleRates(false);
+  };
+  // The tax rates card opens under its chip, over the corner: it puts the corner's cards away too.
+  topbar.onRatesOpen = () => {
+    saveMenu.toggle(false);
+    corner.toggleHelp(false);
+    ledger.toggle(false);
   };
   topbar.onMoney(() => ledger.toggle());
   topbar.onShip(goToPost);

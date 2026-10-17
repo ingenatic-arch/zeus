@@ -145,7 +145,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
         by.set(d, (by.get(d) ?? 0) + 1);
       }
       const parts = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d, k]) => `${k} ${DISTRICTS[d]?.where ?? 'elsewhere'}`);
-      text += ` Not yet: ${parts.join(', ')}${by.size > 3 ? ' and elsewhere' : ''} (the tax overlay, J, shows where he walks).`;
+      text += ` Not yet: ${parts.join(', ')}${by.size > 3 ? ' and elsewhere' : ''} (the tax overlay, J, shows where ${offices === 1 ? 'he walks' : 'they walk'}).`;
     }
     notes.push(`<li>${esc(text)}</li>`);
   }

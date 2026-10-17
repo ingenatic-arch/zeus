@@ -38,6 +38,7 @@ export class Welcome {
         <li><b>Mark out housing</b> beside it <kbd>H</kbd>, and settlers walk in and pitch their tents</li>
         <li><b>Bring water</b> with a fountain by the road <kbd>B</kbd>, and the tents become huts</li>
       </ol>
+      <p class="more">Then keep it going: workers are paid each month, so a <b>tax office</b> <kbd>Z</kbd> by the houses brings the taxes in; and buildings slowly gather fire risk and wear, so a <b>watch post</b> and an <b>architect’s office</b> (<kbd>Z</kbd> again) keep them safe.</p>
       <p class="more">Everything you can build is on the bar along the bottom; hover a button to see what it does, and <kbd>?</kbd> lists the controls.</p>
       ${carry}
       <div class="actions">

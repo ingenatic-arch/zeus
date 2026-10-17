@@ -7,7 +7,7 @@
  * commands, so they replay and save like any other action.
  */
 import type { CoastMap } from '../map/bake';
-import { findBuilding } from '../sim/buildings';
+import { findBuilding, jobsAt } from '../sim/buildings';
 import { dateOfTick, formatYear } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { held, WARE_NAMES } from '../sim/foods';
@@ -110,7 +110,7 @@ export function tradeHtml(s: SimState, map: CoastMap, post: Building): string {
   if (!s.trade.sell.some((x) => x)) warn.push('Nothing is ticked for sale: tick the goods below, or the ship sails away with nothing.');
   const dockers = dockerNews(s, map, post);
   const onQuay = quay.some((n) => n > 0) ? `On the quay: ${goodsList(quay)}${worth > 0 ? ` · worth <b>${fmt(worth)} dr</b> at her prices` : ''}` : 'The quay is empty.';
-  return `<header><div class="kicker">${esc(staff.split('\n')[0] || 'The trading post')}</div><h2>The trading post</h2><div class="from">A merchant ship calls every three months and buys what waits on the quay</div></header>
+  return `<header><div class="kicker">${esc(post.workers === 0 ? `No workers · it needs ${jobsAt(post)}` : staff.split('\n')[0] || 'The trading post')}</div><h2>The trading post</h2><div class="from">A merchant ship calls every three months and buys what waits on the quay</div></header>
 ${shipBlock(s)}
 ${warn.map((w) => `<div class="late">${esc(w)}</div>`).join('')}
 <section><h3>Goods</h3>${goodsTable(s, post)}<p class="quayline">${onQuay}</p>${dockers ? `<p class="dockers">${esc(dockers)}</p>` : ''}</section>
