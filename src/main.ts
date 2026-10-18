@@ -39,6 +39,7 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
+import { giftOf } from './sim/walk';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
 import { SidePanel } from './ui/sidepanel';
@@ -661,8 +662,9 @@ function start(): void {
     if (shipNear(sx, sy)) return showStatus(shipStatus(), sx, sy);
     const visitor = visitorNear(sx, sy);
     if (visitor) return showStatus(visitorStatus(visitor), sx, sy);
-    if (shipNear(sx, sy, city.giftShip.info)) {
-      const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.phase === 1 && x.by === 'sea');
+    for (const [to, view] of city.giftShips) {
+      if (!shipNear(sx, sy, view.info)) continue;
+      const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.to === to && x.phase === 1 && x.by === 'sea');
       if (g) return showStatus({ title: `Your gift ship · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
     }
     const b = buildingAt(world);
@@ -1173,11 +1175,12 @@ function start(): void {
   };
   probe.townLines = () => lines.texts;
   // Slice 18: the gifts on their way, and where your gift's caravan or ship is drawn in the city.
+  const shipInfo = (i?: { visible: boolean; x: number; z: number }): { visible: boolean; x: number; z: number } => (i ? { visible: i.visible, x: i.x, z: i.z } : { visible: false, x: 0, z: 0 });
   probe.gifts = () =>
     sim.state.world.gifts.map((g) => {
-      const w = g.from === 'home' ? sim.state.walkers.find((x) => x.kind === 'caravan' && x.cheese === g.id) : undefined;
+      const w = g.from === 'home' ? sim.state.walkers.find((x) => x.kind === 'caravan' && giftOf(x) === g.id) : undefined;
       const at = w ? drawnAt((x) => x === w) : null;
-      return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, caravan: at ? { x: at.x, z: at.z } : null, ship: g.ship ? { visible: city.giftShip.info.visible, x: city.giftShip.info.x, z: city.giftShip.info.z } : null };
+      return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, caravan: at ? { x: at.x, z: at.z } : null, ship: g.ship ? shipInfo(city.giftShips.get(g.to)?.info) : null };
     });
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;

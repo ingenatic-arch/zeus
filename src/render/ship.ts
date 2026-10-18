@@ -251,14 +251,14 @@ export function tyreLook(s: SimState, t: number): ShipLook | null {
   return { at, furled, laden, calm: ship.phase === SHIP_MOORED };
 }
 
-/** Your gift ship, sailing out of the bay with a gift of goods (in your colours, laden). */
-export function giftLook(s: SimState, t: number): ShipLook | null {
-  const g = s.world.gifts.find((x) => x.from === 'home' && x.phase === 1 && x.ship);
+/** Your gift ship for a city, sailing out of the bay with a gift of goods (in your colours, laden). */
+export const giftLook = (city: string) => (s: SimState, t: number): ShipLook | null => {
+  const g = s.world.gifts.find((x) => x.from === 'home' && x.to === city && x.phase === 1 && x.ship);
   if (!g?.ship) return null;
   const at = shipAt(g.ship, t);
   if (!at) return null;
   return { at, furled: !underWay(g.ship, t), laden: true, calm: false };
-}
+};
 
 /** A foreign ship: laden coming in with what you buy, her sail furled as she comes to anchor or alongside, laden going with what she bought. */
 export function visitorLook(r: TradeRoute, t: number): ShipLook | null {

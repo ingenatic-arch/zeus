@@ -15,11 +15,11 @@ import { EDGE_ALONG, HORIZON_ALONG, RULED } from '../src/map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { fairGift, giftCaravan, giftFrom, giftMemory, giftOnMap, giftRefusal, giftTo, giftValue, GIFT_MAX, settleMood, stepDiplomacy } from '../src/sim/diplomacy';
 import { OIL, WHEAT, WINE } from '../src/sim/foods';
-import { caravanOf, caravanTraveller, FIRST_TRADER, LAND_EVERY, landTicks, routeNews, routeOf, routeRefusal } from '../src/sim/routes';
+import { caravanOf, caravanTraveller, FIRST_TRADER, LAND_EVERY, landTicks, routeNews, routeOf, routeRefusal, visitorOnMap, voyageTicks } from '../src/sim/routes';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Memory, type SimState, type Trait, type WorldCity } from '../src/sim/state';
 import { bookNow } from '../src/sim/stocks';
-import { cityHolds, tradingPost } from '../src/sim/trade';
+import { cityHolds, SHIP_AWAY, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { cityOf, fadeFor, freshWorld, HOSTILE, memoryWorth, moodOf, moodReasons, moodWord, stepWorld, WARM } from '../src/sim/world';
 
@@ -255,6 +255,27 @@ describe('what the mood does to a route', () => {
     ledgerAddsUp(s);
   }, 120000);
 
+  it('a hostile ruler closing a sea route turns their ship at sea round where she is, and sends none while it is closed', () => {
+    const sim = fresh('athensship');
+    const s = sim.state;
+    const r = routeOf(s, 'athens', 'sea')!;
+    const lane = (): ReturnType<typeof visitorOnMap> => visitorOnMap(r, s.tick);
+    // Out at sea on her way in, past the middle of her voyage.
+    expect(until(sim, () => lane().where === 'sea' && !lane().homeward && lane().along < 22, TICKS_PER_YEAR)).toBe(true);
+    const was = lane().along;
+    cityOf(s.world, 'athens').memories.push({ kind: 'staged', why: 'furious with your city', amount: -90, tick: s.tick, fade: 0 });
+    expect(until(sim, () => r.closed > 0, TICKS_PER_DAY + 1)).toBe(true);
+    const now = lane();
+    expect(now.where).toBe('sea');
+    expect(now.homeward).toBe(true);
+    // (Where she was, give or take a day's sail.)
+    expect(Math.abs(now.along - was)).toBeLessThan(6);
+    expect(until(sim, () => lane().where === 'home', voyageTicks('athens') + 2)).toBe(true);
+    sim.run(3 * TICKS_PER_MONTH);
+    expect(lane().where).toBe('home');
+    expect(r.ship!.phase).toBe(SHIP_AWAY);
+  }, 120000);
+
   it('a cold ruler’s caravans come half as often again', () => {
     const sim = fresh('buywine');
     const s = sim.state;
@@ -401,6 +422,17 @@ describe('the news when a mood turns', () => {
     c.memories.push({ kind: 'gift', why: 'your gift of 250 dr', amount: 35, tick: s.tick, fade: 100 * TICKS_PER_DAY });
     expect(settleMood(s, c)).toMatch(/has warmed to you, warm now: your gift of 250 dr$/);
     expect(c.feel).toBe(4);
+    // A turn that comes of a memory fading says which, in words.
+    const t = { tick: 0, world: freshWorld(9), population: 600 } as SimState;
+    const d = cityOf(t.world, 'sparta');
+    d.memories = [{ kind: 'first', why: 'first word of your city pleased them', amount: 5, tick: 0, fade: 10 * TICKS_PER_DAY } as Memory, { kind: 'staged', why: 'cross with your city', amount: -1, tick: 0, fade: 0 } as Memory];
+    d.feel = 3;
+    t.world.contact = 1;
+    for (let i = 0; i < 12 * TICKS_PER_DAY; i++) {
+      t.tick++;
+      stepDiplomacy(t);
+    }
+    expect(t.world.news[t.world.news.length - 1].line).toBe('King ' + d.ruler!.name + ' of Sparta has turned wary towards you: the good first word of your city is wearing off');
   });
 });
 

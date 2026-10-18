@@ -60,6 +60,19 @@ export const centre = (size: number, t: number): [number, number] => {
 /** The middle of a building's footprint. */
 export const plotCentre = (b: Building): [number, number] => centreOf(b);
 
+/**
+ * The gift (its number in world.gifts, diplomacy.ts) a walker is about: a
+ * docker or yard porter fetching one from the stores, or the little caravan
+ * taking one out of the city; 0 for none. It is kept in the walker's spare
+ * `cheese` field, which no docker or caravan uses otherwise (only the food
+ * porters and vendors carry cheese in it), so it never changes the shape of
+ * a save; read and set it only through these two.
+ */
+export const giftOf = (w: Walker): number => (w.kind === 'docker' || w.kind === 'caravan' ? w.cheese : 0);
+export function setGiftOf(w: Walker, id: number): void {
+  if (w.kind === 'docker' || w.kind === 'caravan') w.cheese = id;
+}
+
 /** A new walker with every field set. */
 export function newWalker(s: SimState, kind: Walker['kind'], people: number): Walker {
   return {

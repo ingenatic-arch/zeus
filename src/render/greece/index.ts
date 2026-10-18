@@ -51,6 +51,8 @@ export class GreeceMap {
   hovered: CityId | 'ship' | `trav:${string}` | null = null;
   private readonly host: GreeceHost;
   private readonly labels = new Map<CityId, HTMLElement>();
+  /** Each label's size on screen (measured when its words are refreshed), to see what passes under it. */
+  private readonly labelSize = new Map<CityId, [number, number]>();
   private readonly layer: HTMLElement;
   private readonly card: HTMLElement;
   private readonly panel: HTMLElement;
@@ -367,14 +369,30 @@ export class GreeceMap {
     const r = canvas.getBoundingClientRect();
     const refresh = time - this.labelAt > 0.5;
     if (refresh) this.labelAt = time;
+    // Where the travellers and gifts on the roads and lanes are on the screen: a label they pass under fades, so they can be seen (the road from Corinth runs right under the labels).
+    const under: Array<[number, number]> = [];
+    for (const m of this.travellers.values()) {
+      if (!m.visible) continue;
+      this.v.copy(m.position).project(this.camera);
+      under.push([r.left + (this.v.x * 0.5 + 0.5) * r.width, r.top + (-this.v.y * 0.5 + 0.5) * r.height]);
+    }
     for (const id of CITY_IDS) {
       const el = this.labels.get(id) as HTMLElement;
       const [x, z] = this.at(id);
       this.v.set(x, this.relief.heightAt(x, z) + 1.5 * SCALE[id], z).project(this.camera);
       const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
       el.style.display = off ? 'none' : '';
-      el.style.transform = `translate(${(r.left + (this.v.x * 0.5 + 0.5) * r.width).toFixed(1)}px, ${(r.top + (-this.v.y * 0.5 + 0.5) * r.height).toFixed(1)}px) translate(-50%, -100%)`;
+      const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+      const ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+      el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
       el.classList.toggle('hot', this.hovered === id || this.shown === id);
+      let size = this.labelSize.get(id);
+      if (refresh || !size) {
+        size = [el.offsetWidth, el.offsetHeight];
+        this.labelSize.set(id, size);
+      }
+      const [lw, lh] = size;
+      el.classList.toggle('veil', !off && under.some(([px, py]) => Math.abs(px - lx) < lw / 2 + 6 && py > ly - lh - 6 && py < ly + 10));
       if (refresh) morph(el, labelHtml(s, id));
     }
     if (time - this.panelAt > 0.5) {

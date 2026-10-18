@@ -142,7 +142,8 @@ function travellerHtml(s: SimState, key: string): string {
     const d = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
     return d === 1 ? '1 day' : `${d} days`;
   };
-  const paid = r.visits > 0 && r.lastPaid > 0 ? ` · paid ${fmt(r.lastPaid)} dr for ${wareList(r.lastSold)}` : '';
+  // (Heading home with the route closed: called home, or home from its last visit before it closed.)
+  const paid = r.closed > 0 ? `: ${PLACES[city]?.name ?? city}’s ruler has closed the ${kind === 'land' ? 'road' : 'sea route'}` : r.visits > 0 && r.lastPaid > 0 ? ` · paid ${fmt(r.lastPaid)} dr for ${wareList(r.lastSold)}` : '';
   if (kind === 'sea') {
     const v = visitorOnMap(r, s.tick);
     const line = v.homeward ? `Sailing home to ${name}${paid}` : `Sailing to your city: due at your jetty in ${days(r.next)}${tradesWords(r)}`;
@@ -219,13 +220,14 @@ function meansHtml(s: SimState, id: CityId): string {
   for (const r of routes) {
     const who = r.kind === 'land' ? 'caravan' : 'ship';
     const way = r.kind === 'land' ? 'road' : 'sea route';
-    if (r.closed > 0) out.push(`<li class="bad"><b>The ${way} is closed</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off until the mood mends past hostile (${signed(HOSTILE + 1)} or better). A gift can mend it.</li>`);
+    if (r.closed > 0) out.push(`<li class="bad"><b>The ${way} is closed</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off until the mood mends past hostile (${signed(HOSTILE + 1)} or better, ${HOSTILE + 1 - m} more than now). A gift can mend it.</li>`);
     else if (m <= COLD) out.push(`<li class="bad"><b>Cold:</b> a ${who} every ${months(everyOf(s, r))} instead of ${months(r.kind === 'land' ? 2 * TICKS_PER_MONTH : 3 * TICKS_PER_MONTH)}. At ${signed(HOSTILE)} ${they} closes the ${way}.</li>`);
     else out.push(`<li>A ${who} every ${months(everyOf(s, r))} by the ${way}. Cold (${signed(COLD)} or worse), ${they} sends them half as often again; hostile (${signed(HOSTILE)}), ${they} closes it.</li>`);
   }
   if (!routes.length) out.push(m <= COLD ? `<li class="bad">No route open, and while ${they} is cold or worse ${they} won’t open one.</li>` : `<li>No route open yet: the Trade tab opens one.</li>`);
   if (m >= WARM) out.push(`<li class="good"><b>Warm:</b> now and then ${they} sends your city a gift${s.world.contact ? '' : ', once you have dealt with Greece'}.</li>`);
-  else out.push(`<li>Warm (${WARM} or better), ${they} would send you a gift now and then.</li>`);
+  // (Not while cold or worse: gifts back are beside the point then.)
+  else if (m > COLD) out.push(`<li>Warm (${WARM} or better), ${they} would send you a gift now and then.</li>`);
   // Where the mood is heading as its memories fade: a year on, as things stand.
   const later = moodOf(c, s.tick + TICKS_PER_YEAR);
   if (later !== m) {

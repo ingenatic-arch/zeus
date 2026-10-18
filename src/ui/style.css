@@ -682,6 +682,8 @@ body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, 
 .glabel .you { font-size: 11px; font-variant: normal; font-style: italic; color: var(--ink-soft); }
 .glabel.home { border-width: 2px; }
 .glabel.tyre { opacity: 0.92; }
+.glabel { transition: opacity 0.25s; }
+.glabel.veil { opacity: 0.3; }
 .glabel.hot { background: #fffaf0; box-shadow: 0 0 0 2px var(--c, var(--edge)), 0 3px 10px rgba(40, 25, 10, 0.35); }
 .glabel::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 2px; height: 5px; margin-left: -1px; background: var(--c, var(--edge)); }
 

@@ -41,11 +41,11 @@ import { rateOf } from './labour';
 import { caravanEntry, caravanYard, landTicks, routeWay, voyageTicks, type RouteKind } from './routes';
 import { door } from './rounds';
 import { roomFor } from './stores';
-import type { Building, Gift, Memory, SimState, World, WorldCity } from './state';
+import type { Building, Gift, Memory, SimState, TradeRoute, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { berthOf, cityHolds, leaveTicks, shipAt, shipRoute, SHIP_LEAVING, storeKind, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
+import { berthOf, cityHolds, depotRoom, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
 import { income, pay, spendable } from './treasury';
-import { newWalker, offMapPoint, roadPoints, setPath } from './walk';
+import { giftOf, newWalker, offMapPoint, roadPoints, setGiftOf, setPath } from './walk';
 import { cityOf, fadeFor, HOSTILE, MOOD_WORDS, moodLevel, moodOf, memoryWorth, rulerName, rulerShort, WARM } from './world';
 
 /** What you can give: drachmas, or so many of a trade good. */
@@ -238,15 +238,8 @@ function onTheWay(g: Gift, tick: number, a0: number, a1: number, dur: number): v
   g.ship = null;
 }
 
-/** What your porters or dockers have in hand for a gift: on their way to fetch it, and carrying it back. */
-export function giftInHand(s: SimState, g: Gift): number {
-  let n = 0;
-  for (const d of s.walkers) if (d.kind === 'docker' && d.cheese === g.id) n += d.back ? d.load : d.meat;
-  return n;
-}
-
 /** The little caravan taking a gift out of the city, if it is walking. */
-export const giftCaravan = (s: SimState, g: Gift): SimState['walkers'][number] | undefined => s.walkers.find((x) => x.kind === 'caravan' && x.cheese === g.id);
+export const giftCaravan = (s: SimState, g: Gift): SimState['walkers'][number] | undefined => s.walkers.find((x) => x.kind === 'caravan' && giftOf(x) === g.id);
 
 /** How many donkeys carry a gift of goods. */
 const donkeysFor = (amount: number): number => (amount >= 800 ? 4 : amount >= 400 ? 3 : 2);
@@ -260,8 +253,8 @@ function leave(s: SimState, map: CoastMap, g: Gift): void {
     news(w, s.tick, g.to, `Your gift for ${cityName(g.to)} was given up: there was no ${WARE_NAMES[TRADE_GOODS[g.good]]} in the stores to send`);
     return;
   }
+  // (The stock book noted each load as it was handed over, trade.ts.)
   g.amount = g.got;
-  note(s, TRADE_GOODS[g.good], 'sold', `gift:${g.to}`, g.got);
   const depot = findBuilding(s, g.depot);
   const { L } = wayFor(g.to, g.by);
   g.phase = 1;
@@ -279,7 +272,7 @@ function leave(s: SimState, map: CoastMap, g: Gift): void {
     c.food = CITY_IDS.indexOf('home');
     c.home = entry.edge;
     c.back = true;
-    c.cheese = g.id;
+    setGiftOf(c, g.id);
     c.since = s.tick;
     const [dx, dz] = door(map.size, depot, tiles[0]);
     const [ox, oz] = offMapPoint(map.size, entry.edge);
@@ -323,8 +316,7 @@ function arrive(s: SimState, g: Gift): void {
     // Onto the caravan yard or the quay, for the porters or dockers to carry to the stores; or straight into the stores.
     const depot = g.by === 'land' ? caravanYard(s) : tradingPost(s);
     if (depot) {
-      const room = depot.kind === 'yard' ? 1600 - held(depot, ware) : 2400 - held(depot, ware);
-      const n = Math.max(0, Math.min(left, room));
+      const n = Math.max(0, Math.min(left, depotRoom(depot, ware)));
       setHeld(depot, ware, held(depot, ware) + n);
       left -= n;
     }
@@ -339,7 +331,12 @@ function arrive(s: SimState, g: Gift): void {
     const got = g.amount - left;
     if (got > 0) note(s, ware, 'bought', `gift:${g.from}`, got);
     s.looks++;
-    g.amount = got;
+    if (left > 0) {
+      // (No room for all of it, on the yard or the quay or in the stores: what there was no room for is left at the edge of your land.)
+      news(w, s.tick, g.from, `A gift from ${name}: ${rulerShort(c)} sends you ${giftWords(g.good, g.amount)}, ${g.note}, but ${got > 0 ? `there was room for only ${fmt(got)}` : 'there was no room for it'} in your stores`);
+      s.rev++;
+      return;
+    }
   }
   news(w, s.tick, g.from, `A gift from ${name}: ${rulerShort(c)} sends you ${giftWords(g.good, g.amount)}, ${g.note}`);
   s.rev++;
@@ -352,7 +349,7 @@ export function stepGifts(s: SimState, map: CoastMap): void {
   for (const g of w.gifts.slice()) {
     if (g.phase === 0) {
       const depot = findBuilding(s, g.depot);
-      const inHand = giftInHand(s, g);
+      const inHand = giftInHand(s, g.id);
       // All fetched; or nothing more to fetch (none in the stores, none in hand), or the depot gone, or it has taken too long: it goes with what there is.
       const done = g.got >= g.amount || (inHand === 0 && (cityHolds(s, TRADE_GOODS[g.good]) <= 0 || !depot || s.tick - g.at >= GATHER_MOST));
       if (done) leave(s, map, g);
@@ -397,29 +394,59 @@ function waysWords(kinds: RouteKind[]): string {
 function causeOf(c: WorldCity, tick: number, up: boolean): string {
   const today = c.memories.filter((m) => tick - m.tick <= TICKS_PER_DAY && m.tick <= tick && m.amount !== 0 && m.amount > 0 === up);
   if (today.length) return today[today.length - 1].why;
+  // Moving up: a bad memory fading; moving down: a good one. The one that moved most over the last day (it may have faded to nothing just now), then the biggest.
   let best: Memory | null = null;
+  let bd = -1;
   let bw = 0;
   for (const m of c.memories) {
-    if (m.fade <= 0) continue;
-    const v = memoryWorth(m, tick);
-    // Moving up: a bad memory fading; moving down: a good one.
-    if ((up ? v < 0 : v > 0) && Math.abs(v) >= bw) {
-      bw = Math.abs(v);
+    if (m.fade <= 0 || m.tick > tick || (up ? m.amount >= 0 : m.amount <= 0)) continue;
+    const before = memoryWorth(m, Math.max(m.tick, tick - TICKS_PER_DAY));
+    if (before === 0) continue;
+    const d = Math.abs(before - memoryWorth(m, tick));
+    if (d > bd || (d === bd && Math.abs(before) > bw)) {
+      bd = d;
+      bw = Math.abs(before);
       best = m;
     }
   }
-  return best ? `${best.why}, and that is fading` : '';
+  return best ? fadingWords(best) : '';
 }
 
-/** A ruler closing the road calls home a caravan still on it, not yet at your map's edge: it turns round where it is. (One already in your city still comes to the yard.) */
-function recall(s: SimState, city: CityId): void {
-  for (const t of s.world.travellers) {
-    if (t.kind !== 'trader' || t.city !== city || t.homeward || s.tick < t.start || s.tick >= t.start + t.dur) continue;
-    // From where it is now (u of its way in), the same pace back.
-    const u = (s.tick - t.start) / t.dur;
-    t.homeward = true;
-    t.start = s.tick - Math.round((1 - u) * t.dur);
+/** A memory fading, in words, as the reason a mood moved: "the good first word of your city is wearing off". */
+function fadingWords(m: Memory): string {
+  const good = m.amount > 0;
+  if (m.kind === 'first') return good ? 'the good first word of your city is wearing off' : 'the poor first word of your city is wearing off';
+  // (A gift's reason without its bends: "your gift of 250 dr".)
+  if (m.kind === 'gift') return `${m.why.replace(/ \(.*\)$/, '')} is wearing off`;
+  if (m.kind === 'whim') return good ? 'the good humour is passing' : 'the black temper is passing';
+  if (m.kind === 'snub') return `the snub is fading from memory (${m.why})`;
+  return `${m.why}, and that is fading`;
+}
+
+/**
+ * A ruler closing a route calls home their trader still on the way to you,
+ * not yet at your map's edge or your gulf: it turns round where it is. (One
+ * already in your city, or sailing into your bay, still comes.)
+ */
+function recall(s: SimState, r: TradeRoute): void {
+  if (r.kind === 'land') {
+    for (const t of s.world.travellers) {
+      if (t.kind !== 'trader' || t.city !== r.city || t.homeward || s.tick < t.start || s.tick >= t.start + t.dur) continue;
+      // From where it is now (u of its way in), the same pace back.
+      const u = (s.tick - t.start) / t.dur;
+      t.homeward = true;
+      t.start = s.tick - Math.round((1 - u) * t.dur);
+    }
+    return;
   }
+  // A ship at sea on her way to you (routes.ts: visitorOnMap has her inbound over the voyage before she shows on your horizon).
+  const v = r.ship;
+  if (!v || v.phase !== SHIP_AWAY) return;
+  const voyage = voyageTicks(r.city);
+  const inb = (s.tick - (r.next - SAIL_IN - voyage)) / voyage;
+  if (inb <= 0 || inb >= 1) return;
+  // She turns round where she is and sails home at the same pace: outbound from here (her `since` as if she had left your gulf that long ago); the route, closed, puts her next voyage off.
+  v.since = s.tick - Math.round((1 - inb) * voyage);
 }
 
 /**
@@ -439,7 +466,7 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
     if (hostile && r.closed === 0) {
       r.closed = s.tick;
       closed.push(r.kind);
-      if (r.kind === 'land') recall(s, r.city);
+      recall(s, r);
     } else if (!hostile && r.closed > 0) {
       r.closed = 0;
       opened.push(r.kind);

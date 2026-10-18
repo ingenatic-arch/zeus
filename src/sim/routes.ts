@@ -78,7 +78,7 @@ import {
   DEFAULT_KEEP,
 } from './trade';
 import { income, pay, spendable, wageBill } from './treasury';
-import { CARAVAN_SPEED, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
+import { CARAVAN_SPEED, giftOf, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
 import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
 
 export type RouteKind = 'land' | 'sea';
@@ -528,7 +528,7 @@ function rerouteCaravan(s: SimState, map: CoastMap, w: Walker, r: TradeRoute | u
 /** It has left your map: home along the road on the map. */
 function caravanGone(s: SimState, w: Walker): false {
   // (Your own gift caravan, walking out: off on the road on the map from here, diplomacy.ts.)
-  if (w.cheese > 0) return false;
+  if (giftOf(w) > 0) return false;
   const r = caravanRoute(s, w);
   if (r) homeward(s, r);
   return false;
@@ -954,8 +954,8 @@ export function tradersNews(s: SimState, tyre: Omit<TraderNews, 'who' | 'kind'> 
 
 /** What a caravan is doing, for its hover tip. */
 export function caravanDoing(s: SimState, w: Walker): { title: string; detail: string } {
-  if (w.cheese > 0) {
-    const g = s.world.gifts.find((x) => x.id === w.cheese);
+  if (giftOf(w) > 0) {
+    const g = s.world.gifts.find((x) => x.id === giftOf(w));
     const to = g ? cityName(g.to) : 'Greece';
     return { title: `Your gift to ${to}`, detail: `${w.people} donkeys in your city’s colours${g && g.good >= 0 ? ` with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}` : ''}, on their way out of the city to the road to ${to}` };
   }

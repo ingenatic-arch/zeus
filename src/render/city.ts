@@ -29,8 +29,8 @@ export class CityView {
   readonly ship = new ShipView();
   /** The sea routes' ships, by city, made as each route opens. */
   readonly visitors = new Map<string, ShipView>();
-  /** Your gift ship, sailing out of the bay with a gift of goods for a ruler. */
-  readonly giftShip = new ShipView(giftLook, cityShipColours('home'), 'ship-gift', 0.7);
+  /** Your gift ships, sailing out of the bay with a gift of goods for a ruler, by the city they sail for (made as the first sails; gifts to two cities can leave together). */
+  readonly giftShips = new Map<string, ShipView>();
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -52,7 +52,7 @@ export class CityView {
     this.bridges = new Bridges(map);
     this.animals = new Animals(map, this.folk);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group, this.giftShip.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -64,7 +64,13 @@ export class CityView {
     this.animals.update(s, alpha, time);
     this.folk.end();
     this.ship.update(s, alpha, time);
-    this.giftShip.update(s, alpha, time);
+    for (const g of s.world.gifts) {
+      if (g.from !== 'home' || g.phase !== 1 || !g.ship || this.giftShips.has(g.to)) continue;
+      const view = new ShipView(giftLook(g.to), cityShipColours('home'), `ship-gift-${g.to}`, 0.7 + this.giftShips.size * 1.3);
+      this.giftShips.set(g.to, view);
+      this.group.add(view.group);
+    }
+    for (const view of this.giftShips.values()) view.update(s, alpha, time);
     for (const r of s.world.routes) {
       if (r.kind !== 'sea') continue;
       let view = this.visitors.get(r.city);
