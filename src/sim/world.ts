@@ -215,6 +215,8 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     outlook: 2,
     festival: 0,
     war: '',
+    feel: 3,
+    gave: 0,
   }));
   for (const c of cities) {
     const ruled = RULED.includes(c.id) ? (c.id as keyof typeof CHARACTERS) : null;
@@ -261,8 +263,9 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     reprice(c);
     c.trail = trailOf(c);
     c.history = c.price.map((p) => new Array<number>(12).fill(p));
+    c.feel = moodLevel(moodOf(c, tick));
   }
-  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [] };
+  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0 };
 }
 
 /** A city's record. */
@@ -289,6 +292,49 @@ export function moodWord(n: number): MoodWord {
   if (n < 60) return 'warm';
   return 'devoted';
 }
+
+/** Where a mood stands from hostile (0) to devoted (5). */
+export const moodLevel = (n: number): number => MOOD_WORDS.indexOf(moodWord(n));
+/** The mood at or below which a ruler is cold (sends traders less often, won't open a route), and hostile (closes their routes). */
+export const COLD = -30;
+export const HOSTILE = -60;
+/** The mood at or above which a ruler is warm (and may send gifts). */
+export const WARM = 30;
+
+/**
+ * How long a ruler remembers something (ticks): a fickle one half as long,
+ * a steadfast one half as long again, and a generous one a kindness (`good`)
+ * half as long again.
+ */
+export function fadeFor(c: WorldCity, base: number, good: boolean): number {
+  const t = c.ruler?.traits ?? [];
+  let f = base;
+  if (t.includes('fickle')) f *= 0.5;
+  if (t.includes('steadfast')) f *= 1.5;
+  if (good && t.includes('generous')) f *= 1.5;
+  return Math.round(f);
+}
+
+/** A snub is remembered this long. */
+export const SNUB_FADE = 6 * TICKS_PER_MONTH;
+
+/** Their trader turned back at your city without trading (no yard, road or post): a ruler takes it as a snub, a proud one more, a steadfast one less. */
+export function snubbed(s: SimState, city: CityId, why: string): void {
+  const c = cityOf(s.world, city);
+  if (!c.ruler) return;
+  const t = c.ruler.traits;
+  const amount = t.includes('proud') ? -6 : t.includes('steadfast') ? -3 : -4;
+  c.memories.push({ kind: 'snub', why, amount, tick: s.tick, fade: fadeFor(c, SNUB_FADE, false) });
+}
+
+/** A ruler's name with their title and city: "Lord Periandros of Corinth". */
+export function rulerName(c: WorldCity): string {
+  if (!c.ruler) return PLACES[c.id].name;
+  return `${c.ruler.title.replace(/ of .*/, '')} ${c.ruler.name} of ${PLACES[c.id].name}`;
+}
+
+/** A ruler's name with their title: "Lord Periandros". */
+export const rulerShort = (c: WorldCity): string => (c.ruler ? `${c.ruler.title.replace(/ of .*/, '')} ${c.ruler.name}` : PLACES[c.id].name);
 
 /** The reasons for a ruler's mood, biggest first: what each is worth now and whether it is fading. */
 export function moodReasons(c: WorldCity, tick: number): Array<{ worth: number; why: string; fading: boolean; tick: number }> {

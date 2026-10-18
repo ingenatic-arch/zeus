@@ -33,7 +33,9 @@ export type Command =
   /** Open a trade route to a city, by land or by sea, for its fee (see routeRefusal in routes.ts: a route it refuses opens nothing). */
   | { type: 'route'; city: string; kind: 'land' | 'sea' }
   /** A route's trade in a good (by its ware number): sell it to them, buy it from them, and buying, how much to stock the stores up to. */
-  | { type: 'deal'; city: string; kind: 'land' | 'sea'; good: number; sell?: boolean; buy?: boolean; upto?: number };
+  | { type: 'deal'; city: string; kind: 'land' | 'sea'; good: number; sell?: boolean; buy?: boolean; upto?: number }
+  /** Send a ruler a gift: drachmas (`good` -1: 100, 250 or 500) or goods from the stores (a ware number: 200, 400 or 800); see giftRefusal in diplomacy.ts (a gift it refuses sends nothing). */
+  | { type: 'gift'; city: string; good: number; amount: number };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard';

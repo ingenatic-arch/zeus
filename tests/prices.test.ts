@@ -34,11 +34,12 @@ import {
   usualPrice,
   yourPrice,
 } from '../src/sim/world';
+import { stepDiplomacy } from '../src/sim/diplomacy';
 
 const WHEAT_K = 0;
 const OIL_K = 3;
 
-/** Greece on its own, from a seed at a tick: stepped as the sim steps it (it reads nothing of the city). */
+/** Greece on its own, from a seed at a tick: stepped as the sim steps it (its prices and its rulers' moods; it reads nothing of the city). */
 interface Greece {
   s: SimState;
   run(ticks: number, each?: (s: SimState) => void): void;
@@ -51,6 +52,7 @@ function greece(seed: number, tick = 0): Greece {
       for (let i = 0; i < ticks; i++) {
         s.tick++;
         stepWorld(s);
+        stepDiplomacy(s);
         each?.(s);
       }
     },

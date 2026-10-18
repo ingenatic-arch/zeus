@@ -72,6 +72,12 @@
  * nothing traded is on record, and its next harvest is fair. Nothing in the
  * city changes.
  *
+ * Version 17 to 18 (slice 18, rulers who remember): no gift is on its way
+ * either way, every ruler's mood is where it was (the word it is now is the
+ * one last said), none has sent you a gift yet, and every route is open (no
+ * ruler could close one before). Your city dealt with Greece first when it
+ * opened its first route, if it has. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -81,12 +87,12 @@ import { MAP_SIZE } from '../map/coast';
 import { TICKS_PER_MONTH } from './clock';
 import { FINE } from './buildings';
 import { gi, GOOD_COUNT, OIL } from './foods';
-import { SIM_STATE_VERSION, type SimState } from './state';
+import { SIM_STATE_VERSION, type SimState, type WorldCity } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
 import { freshTrade, TRADE_GOODS } from './trade';
-import { freshWorld, usualTrail } from './world';
+import { freshWorld, moodLevel, moodOf, usualTrail } from './world';
 import { freshBook } from './stockbook';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
@@ -123,6 +129,7 @@ export function migrate(st: unknown): number {
   if (st.version === 14) from14(st);
   if (st.version === 15) from15(st);
   if (st.version === 16) from16(st);
+  if (st.version === 17) from17(st);
   return from;
 }
 
@@ -295,4 +302,23 @@ function from16(st: Record<string, unknown>): void {
     }
   }
   st.version = 17;
+}
+
+function from18Fields(w: Record<string, unknown>, tick: number): void {
+  if (!Array.isArray(w.gifts)) w.gifts = [];
+  if (typeof w.nextGift !== 'number') w.nextGift = 1;
+  const routes = Array.isArray(w.routes) ? (w.routes as Array<Record<string, unknown>>) : [];
+  if (typeof w.contact !== 'number') w.contact = routes.reduce((a, r) => (isObj(r) && typeof r.opened === 'number' && (a === 0 || r.opened < a) ? Math.max(1, r.opened) : a), 0);
+  for (const r of routes) if (isObj(r) && typeof r.closed !== 'number') r.closed = 0;
+  if (!Array.isArray(w.cities)) return;
+  for (const c of w.cities as Array<Record<string, unknown>>) {
+    if (!isObj(c)) continue;
+    if (typeof c.feel !== 'number') c.feel = c.ruler && Array.isArray(c.memories) ? moodLevel(moodOf(c as unknown as WorldCity, tick)) : 3;
+    if (typeof c.gave !== 'number') c.gave = 0;
+  }
+}
+
+function from17(st: Record<string, unknown>): void {
+  if (isObj(st.world)) from18Fields(st.world, typeof st.tick === 'number' ? st.tick : 0);
+  st.version = 18;
 }

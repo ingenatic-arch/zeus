@@ -79,7 +79,7 @@ import {
 } from './trade';
 import { income, pay, spendable, wageBill } from './treasury';
 import { CARAVAN_SPEED, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
-import { cityOf, moodOf, moodWord, sellsAndBuys, traded, VOYAGE, yourPrice } from './world';
+import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -215,9 +215,22 @@ export function openRoute(s: SimState, city: CityId | string, kind: RouteKind): 
     lastCost: 0,
     missedAt: 0,
     missed: '',
+    closed: 0,
   });
+  if (!s.world.contact) s.world.contact = Math.max(1, s.tick);
   s.rev++;
 }
+
+/**
+ * How much longer than usual between a route's traders: half as long again
+ * when its ruler is cold (or worse), as usual otherwise.
+ */
+export function paceOf(s: SimState, city: CityId): number {
+  const c = cityOf(s.world, city);
+  return c.ruler && moodOf(c, s.tick) <= COLD ? 1.5 : 1;
+}
+/** The time between a route's traders now. */
+export const everyOf = (s: SimState, r: TradeRoute): number => Math.round((r.kind === 'land' ? LAND_EVERY : SEA_EVERY) * paceOf(s, r.city));
 
 /** A route's trade in a good (a command): sell it to them (if they buy it), buy it from them (if they sell it), how much to stock up to. */
 export function setDeal(s: SimState, city: string, kind: RouteKind, good: number, sell?: boolean, buy?: boolean, upto?: number): void {
@@ -411,6 +424,11 @@ export function caravanEntry(s: SimState, size: number, yard: Building, city: Ci
 function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
   const way = (routeWay(r.city, 'land') as RouteWay).way;
   const coming = caravanTraveller(s, r.city, false);
+  if (!coming && r.closed > 0) {
+    // Closed by a hostile ruler: none sets off; the next comes a month after it opens again.
+    r.next = Math.max(r.next, s.tick + FIRST_TRADER);
+    return;
+  }
   if (!coming) {
     // It sets off from home to arrive when due.
     if (s.tick >= r.next - landTicks(r.city)) s.world.travellers.push({ kind: 'trader', city: r.city, way, start: s.tick, dur: Math.max(1, r.next - s.tick), homeward: false });
@@ -438,7 +456,7 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
 
 /** A caravan has come to your map's edge: the next is due LAND_EVERY after this one was, and not before tomorrow. */
 function nextCaravan(s: SimState, r: TradeRoute): void {
-  if (r.next <= s.tick) r.next = Math.max(r.next + LAND_EVERY, s.tick + TICKS_PER_DAY);
+  if (r.next <= s.tick) r.next = Math.max(r.next + everyOf(s, r), s.tick + TICKS_PER_DAY);
 }
 
 /** A caravan heads home along the road on the map. */
@@ -450,7 +468,13 @@ function homeward(s: SimState, r: TradeRoute): void {
 function turnedBack(s: SimState, r: TradeRoute, why: string): void {
   r.missedAt = s.tick;
   r.missed = why;
+  snub(s, r, why);
   if (r.kind === 'land') homeward(s, r);
+}
+
+/** The ruler takes a trader turned back as a snub. */
+function snub(s: SimState, r: TradeRoute, why: string): void {
+  snubbed(s, r.city, r.kind === 'land' ? (why === 'yard' ? 'their caravan found no caravan yard in your city' : 'their caravan found no road to your caravan yard') : 'their ship found no trading post in your city');
 }
 
 /** Point a caravan out of the city: along the road to where it came in (or the nearest edge road), or across country. False if it can get nowhere. */
@@ -496,12 +520,15 @@ function rerouteCaravan(s: SimState, map: CoastMap, w: Walker, r: TradeRoute | u
   if (!w.back && r) {
     r.missedAt = s.tick;
     r.missed = yard ? 'road' : 'yard';
+    snub(s, r, r.missed);
   }
   return headOut(s, map, w);
 }
 
 /** It has left your map: home along the road on the map. */
 function caravanGone(s: SimState, w: Walker): false {
+  // (Your own gift caravan, walking out: off on the road on the map from here, diplomacy.ts.)
+  if (w.cheese > 0) return false;
   const r = caravanRoute(s, w);
   if (r) homeward(s, r);
   return false;
@@ -668,6 +695,7 @@ function turnBackVisitor(s: SimState, r: TradeRoute, v: Visitor): void {
   v.aside = 0;
   r.missedAt = s.tick;
   r.missed = 'post';
+  snub(s, r, 'post');
 }
 
 /** Tied up: she unloads what you ordered, then loads a share of what waits on the quay of what she buys each day; at the end she pays and sails off. */
@@ -682,9 +710,10 @@ function stepLoadingVisitor(s: SimState, r: TradeRoute, v: Visitor, post: Buildi
   v.phase = SHIP_LEAVING;
   v.since = s.tick;
   v.turned = 1;
-  // The next is due SEA_EVERY after this one was, and not before she can sail home and back.
-  r.next += SEA_EVERY;
-  while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + leaveTicks(v) + voyageTicks(r.city)) r.next += SEA_EVERY;
+  // The next is due SEA_EVERY after this one was (half as long again from a cold ruler), and not before she can sail home and back.
+  const every = everyOf(s, r);
+  r.next += every;
+  while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + leaveTicks(v) + voyageTicks(r.city)) r.next += every;
 }
 
 /** She ties up: the hold empty, what you ordered unloaded onto the quay. */
@@ -715,13 +744,20 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     return;
   }
   if (v.phase === SHIP_AWAY) {
+    // Closed by a hostile ruler: she stays at home; the next sails as soon as she can once it opens again.
+    if (r.closed > 0) {
+      r.next = Math.max(r.next, s.tick + firstShipAfter(r.city));
+      return;
+    }
     if (s.tick < r.next - SAIL_IN) return;
     if (post && setSailVisitor(s, map, r, v, post)) return;
     // No post to call at: she turns back at your horizon, and comes again next time.
     r.missedAt = s.tick;
     r.missed = 'post';
+    snub(s, r, 'post');
     v.since = s.tick;
-    while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + voyageTicks(r.city)) r.next += SEA_EVERY;
+    const every = everyOf(s, r);
+    while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + voyageTicks(r.city)) r.next += every;
     return;
   }
   if (!post || v.post !== post.id) {
@@ -859,6 +895,7 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
   const who = `${r.city}-${r.kind}`;
   const missed = r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH ? MISSED[r.missed] : '';
+  const shut = r.closed > 0 ? closedLine(s, r) : '';
   if (r.kind === 'land') {
     const w = caravanOf(s, r.city);
     if (w && w.wait > 0) {
@@ -872,6 +909,7 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
     const coming = caravanTraveller(s, r.city, false);
     const days = daysTo(s, r.next);
     if (coming) return { phase: 1, days, chip: `${days} d`, short: `Caravan on the road · ${days} d`, line: `A caravan from ${name} is on the road: it reaches the edge of your map in ${dayWords(days)}`, who, kind: 'land' };
+    if (shut) return { phase: 0, days, chip: 'Closed', short: `Road to ${name} closed`, line: shut, who, kind: 'land' };
     const back = missed ? `The last caravan turned back: ${missed}. ` : '';
     return { phase: 0, days, chip: `${days} d`, short: `Caravan in ${days} d`, line: `${back}The next caravan from ${name} is due in ${dayWords(days)}`, who, kind: 'land' };
   }
@@ -891,8 +929,17 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   }
   if (v.phase === SHIP_LEAVING) return { phase: 3, days: 0, chip: 'Sailed', short: `${whose} ship sailed`, line: missed ? `The ship from ${name} turned back: ${missed}` : `The ship from ${name} has sailed${r.lastPaid > 0 ? `: she paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'sea' };
   const days = daysTo(s, r.next);
+  if (shut) return { phase: 0, days, chip: 'Closed', short: `${whose} sea route closed`, line: shut, who, kind: 'sea' };
   const back = missed ? `The last ship turned back: ${missed}. ` : '';
   return { phase: 0, days, chip: `${days} d`, short: `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}`, who, kind: 'sea' };
+}
+
+/** A closed route, in words: who closed it, since when, and what opens it. */
+function closedLine(s: SimState, r: TradeRoute): string {
+  const c = cityOf(s.world, r.city);
+  const way = r.kind === 'land' ? 'road' : 'sea route';
+  const days = Math.max(1, Math.floor((s.tick - r.closed) / TICKS_PER_DAY));
+  return `${rulerName(c)} is hostile and has closed the ${way} (${days === 1 ? 'a day' : `${days} days`} ago): no ${r.kind === 'land' ? 'caravan' : 'ship'} comes until the mood mends past hostile. A gift can mend it`;
 }
 
 /** How the chip ranks news, by phase (due, coming, here, gone): here now first, then coming, then gone, then due soonest. */
@@ -907,6 +954,11 @@ export function tradersNews(s: SimState, tyre: Omit<TraderNews, 'who' | 'kind'> 
 
 /** What a caravan is doing, for its hover tip. */
 export function caravanDoing(s: SimState, w: Walker): { title: string; detail: string } {
+  if (w.cheese > 0) {
+    const g = s.world.gifts.find((x) => x.id === w.cheese);
+    const to = g ? cityName(g.to) : 'Greece';
+    return { title: `Your gift to ${to}`, detail: `${w.people} donkeys in your city’s colours${g && g.good >= 0 ? ` with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}` : ''}, on their way out of the city to the road to ${to}` };
+  }
   const city = CITY_IDS[w.food] ?? 'corinth';
   const name = cityName(city);
   const r = caravanRoute(s, w);

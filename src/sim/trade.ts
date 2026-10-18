@@ -553,7 +553,8 @@ export function inHand(s: SimState, post: Building, w: Ware): { fetching: number
   let fetching = 0;
   let returning = 0;
   for (const d of s.walkers) {
-    if (d.kind !== 'docker' || d.origin !== post.id || d.food !== w || d.back) continue;
+    // (A docker fetching a gift, `cheese` its number, carries nothing for trade.)
+    if (d.kind !== 'docker' || d.origin !== post.id || d.food !== w || d.back || d.cheese > 0) continue;
     if (d.load > 0) returning += d.load;
     else fetching += d.meat;
   }
@@ -729,6 +730,15 @@ interface DockerJob {
   k: number;
   lot: number;
   back: boolean;
+  /** Fetching for a gift (its number), not for trade. */
+  gift?: number;
+}
+
+/** What dockers or porters have in hand for a gift (on their way to fetch it, or carrying it). */
+function giftHand(s: SimState, id: number): number {
+  let n = 0;
+  for (const d of s.walkers) if (d.kind === 'docker' && d.cheese === id) n += d.back ? d.load : d.meat;
+  return n;
 }
 
 /**
@@ -740,6 +750,13 @@ interface DockerJob {
 function dockerJobs(s: SimState, post: Building): DockerJob[] {
   const loading = loadingAt(s, post);
   const jobs: DockerJob[] = [];
+  // First, a gift to fetch from the stores (diplomacy.ts), whatever is kept back.
+  for (const g of s.world.gifts) {
+    if (g.phase !== 0 || g.depot !== post.id || g.good < 0) continue;
+    const w = TRADE_GOODS[g.good];
+    const lot = Math.min(DOCKER_TAKE[g.good], g.amount - g.got - giftHand(s, g.id), cityHolds(s, w));
+    if (lot > 0) jobs.push({ w, k: g.good, lot, back: false, gift: g.id });
+  }
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     const w = TRADE_GOODS[k];
     const q = held(post, w);
@@ -802,7 +819,11 @@ export function stepDockers(s: SimState, map: CoastMap, post: Building): void {
   d.target = found.g.id;
   d.food = job.w;
   d.since = s.tick;
-  if (job.back) {
+  if (job.gift) {
+    // Fetching a gift: it goes with the gift, not onto the quay.
+    d.meat = job.lot;
+    d.cheese = job.gift;
+  } else if (job.back) {
     // Carrying it back to a store: off the quay, room reserved there.
     setHeld(post, job.w, held(post, job.w) - job.lot);
     d.load = job.lot;
@@ -846,6 +867,16 @@ function redirect(s: SimState, size: number, d: Walker, post: Building): boolean
 
 /** A docker is home (or can get nowhere): what he carries goes on the quay, and his reserved room is given back. */
 function home(s: SimState, d: Walker, post: Building): false {
+  if (d.cheese > 0) {
+    // A gift's docker: what he fetched goes with the gift (or onto the quay, if it has gone without it).
+    const g = s.world.gifts.find((x) => x.id === d.cheese && x.phase === 0);
+    if (g && d.load > 0) g.got += d.load;
+    else if (d.load > 0) setHeld(post, d.food, held(post, d.food) + d.load);
+    if (d.load > 0) s.looks++;
+    d.meat = 0;
+    d.load = 0;
+    return false;
+  }
   if (d.meat > 0) addComing(post, d.food, -d.meat);
   if (d.load > 0) {
     setHeld(post, d.food, held(post, d.food) + d.load);
@@ -872,6 +903,12 @@ export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
       addComing(g, d.food, -d.load);
       setHeld(g, d.food, Math.min(roomOf(g.kind, d.food), held(g, d.food) + d.load));
       d.load = 0;
+    } else if (d.cheese > 0) {
+      // Fetching a gift: as much as he came for, whatever the city keeps.
+      const take = Math.min(d.meat, held(g, d.food));
+      setHeld(g, d.food, held(g, d.food) - take);
+      d.meat = take;
+      d.load = take;
     } else {
       // Fetching: what the city has beyond what it keeps, as much as he reserved room for.
       const k = tradeIndex(d.food);
@@ -929,6 +966,12 @@ export function dockerDoing(s: SimState, d: Walker): string {
   const yard = findBuilding(s, d.origin)?.kind === 'yard';
   const depot = yard ? 'the caravan yard' : 'the quay';
   const where = g ? (g.kind === 'granary' ? 'the granary' : 'the storehouse') : depot;
+  if (d.cheese > 0) {
+    const gift = s.world.gifts.find((x) => x.id === d.cheese);
+    const to = gift ? ` for your gift to ${gift.to.replace(/^./, (c) => c.toUpperCase())}` : ' for your gift';
+    if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to ${depot}${to}` : `going back to ${depot}`;
+    return d.wait > 0 ? `loading ${name} at ${where}${to}` : `going to ${where} for ${name}${to}`;
+  }
   if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to ${depot} ${yard ? 'for the caravans' : 'for the ships'}` : `going back to ${depot}`;
   if (d.load > 0) {
     const k = tradeIndex(d.food);

@@ -26,6 +26,7 @@ import { freshHerds, stepWild, wildRng } from './wild';
 import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepDockers, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
 import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
+import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -176,6 +177,9 @@ export class Sim {
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
     stepWorld(s);
+    // The gifts on their way, and the rulers' moods: their turns and what follows (once a day; whims and gifts back once a month, once your city deals with Greece).
+    stepGifts(s, map);
+    stepDiplomacy(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -243,6 +247,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'deal':
       if (c.kind === 'land' || c.kind === 'sea') setDeal(s, String(c.city), c.kind, c.good, c.sell, c.buy, c.upto);
+      break;
+    case 'gift':
+      if (typeof c.good === 'number' && typeof c.amount === 'number') sendGift(s, map, String(c.city), c.good, c.amount);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {

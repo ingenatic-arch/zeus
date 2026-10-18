@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 17;
+export const SIM_STATE_VERSION = 18;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -284,7 +284,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -456,7 +456,7 @@ export interface Ruler {
  * nothing over `fade` ticks (0: it never fades).
  */
 export interface Memory {
-  /** What kind of thing it was ('history', 'trait', 'first'; later gifts, refusals, promises…). */
+  /** What kind of thing it was: 'history', 'trait', 'first' (the starting mood), 'gift' (your gift), 'snub' (their trader turned back), 'whim' (a fickle ruler's passing mood), 'staged' (set up by a demo); later refusals, promises… */
   kind: string;
   /** What it was, in words: "old Argos and Sparta were rivals for the Peloponnese". */
   why: string;
@@ -499,6 +499,10 @@ export interface WorldCity {
   festival: number;
   /** The city it is at war with ('' at peace). */
   war: CityId | '';
+  /** The ruler's mood, as the word last said of it (0 hostile … 5 devoted, MOOD_WORDS in world.ts): a line of news when it turns. */
+  feel: number;
+  /** The tick the ruler last sent you a gift (0: never). */
+  gave: number;
 }
 
 /**
@@ -534,6 +538,8 @@ export interface TradeRoute {
   /** The tick a trader last turned back without trading (0: never), and why ('road', 'yard', 'post'). */
   missedAt: number;
   missed: string;
+  /** The tick its ruler closed it, hostile (0: open): no trader sets off until the mood mends. */
+  closed: number;
 }
 
 /**
@@ -584,6 +590,40 @@ export interface Traveller {
   homeward: boolean;
 }
 
+/**
+ * A gift on its way, yours to a ruler (`from` 'home') or a ruler's to you
+ * (see diplomacy.ts): drachmas (`good` -1) or a trade good (by TRADE_GOODS
+ * index). Yours in goods is first fetched from the stores to the caravan yard
+ * or the trading post (`depot`) by its porters or dockers (`got` so far:
+ * phase 0), then leaves the city (phase 1: a little caravan walking out to
+ * the edge of the map, or a ship sailing out of the bay, `ship`), then travels
+ * the way on the map of Greece (phase 2: from `a0` to `a1` along it, from
+ * `start` over `dur` ticks, so where it is is a pure function of the tick).
+ */
+export interface Gift {
+  id: number;
+  from: CityId;
+  to: CityId;
+  good: number;
+  amount: number;
+  got: number;
+  /** By road or by sea, and the way on the map (WAYS in map/greece.ts). */
+  by: 'land' | 'sea';
+  way: string;
+  phase: number;
+  /** When it was sent, and where its goods are fetched to (a building id; 0 for coin, or a ruler's gift). */
+  at: number;
+  depot: number;
+  start: number;
+  dur: number;
+  a0: number;
+  a1: number;
+  /** A gift by sea sailing out of your bay (phase 1): the ship's phase, when she cast off, how far in she was, her way. */
+  ship: { phase: number; since: number; turned: number; path: number[] } | null;
+  /** A ruler's gift: why they sent it, in words ("in thanks for your friendship"). */
+  note: string;
+}
+
 /** A line of news from Greece. */
 export interface NewsItem {
   tick: number;
@@ -605,6 +645,11 @@ export interface World {
   deals: Deal[];
   travellers: Traveller[];
   news: NewsItem[];
+  /** Gifts on their way, yours and the rulers', and the next one's number. */
+  gifts: Gift[];
+  nextGift: number;
+  /** The tick your city first dealt with Greece (opened a route or sent a gift; 0: not yet): only then do rulers act on you. */
+  contact: number;
 }
 
 /**
