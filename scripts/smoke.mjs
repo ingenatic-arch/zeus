@@ -428,7 +428,8 @@ c = await city();
 await page.evaluate(() => window.__zeus.speed('fastest'));
 // The panel's home (the nearest to dropping, perhaps tied with another) goes back to a hut.
 await page.waitForFunction(() => window.__zeus.homes().find((h) => h.id === window.__zeus.city().panel)?.level === 2, null, { timeout: 60000 });
-await frames(2);
+// (The panel catches up within a few frames: slow headless frames can leave it a beat behind.)
+await page.waitForFunction(() => /^A hut/.test(window.__zeus.panelText() ?? ''), null, { timeout: 20000 }).catch(() => {});
 pt = await panelText();
 if (!/^A hut/.test(pt ?? '') || !/Gave up the cottage for a hut/.test(pt) || !/moved away|went back to/.test(pt)) fail(`#decline panel after the drop: ${pt}`);
 // #missing: the overlay is on; the trouble count flies to the most urgent home and opens its panel.

@@ -1074,6 +1074,9 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
   return { item, waiting };
 }
 
+/** Is a line of news the one that brought a deal (the ruler asking, offering or demanding, that day), not other news from that city? */
+const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick === d.at && / (asks for|demands|offers) |yearly tribute comes round/.test(n.line);
+
 /** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
 function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal } | null {
   const open = openDeals(s.world);
@@ -1120,7 +1123,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (deal) out.push(deal.line);
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
-  if (news && !(deal && news.item.city === deal.deal.city && news.item.tick === deal.deal.at)) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  if (news && !(deal && askedFor(news.item, deal.deal))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
