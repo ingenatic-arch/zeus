@@ -166,8 +166,8 @@ export const giftTo = (w: World, city: CityId): Gift | undefined => w.gifts.find
 /** A ruler's gift on its way to you, if there is one. */
 export const giftFrom = (w: World, city: CityId): Gift | undefined => w.gifts.find((g) => g.from === city);
 
-/** Why a gift can't be sent now, or '' if it can: `ware` a ware number, or -1 for drachmas. */
-export function giftRefusal(s: SimState, map: CoastMap, city: CityId | string, ware: number, amount: number): string {
+/** Why a gift can't be sent now, or '' if it can: `ware` a ware number, or -1 for drachmas. (`way`: why goods can't go that way, if already known: finding the road out of the city is a search.) */
+export function giftRefusal(s: SimState, map: CoastMap, city: CityId | string, ware: number, amount: number, way?: string): string {
   if (!RULED.includes(city as CityId)) return 'There is no ruler there to give to';
   const id = city as CityId;
   if (giftTo(s.world, id)) return `Your gift to ${cityName(id)} is still on its way`;
@@ -179,8 +179,9 @@ export function giftRefusal(s: SimState, map: CoastMap, city: CityId | string, w
   const k = Number.isInteger(ware) ? tradeIndex(ware as Ware) : -1;
   if (k < 0 || !GIFT_LOTS.includes(amount)) return 'Not a gift you can send';
   if (cityHolds(s, ware as Ware) < amount) return `Your ${storeKind(ware as Ware) === 'granary' ? 'granaries hold' : 'storehouses hold'} less than ${fmt(amount)} ${WARE_NAMES[ware as Ware]}`;
-  const way = giftWay(s, map, id, false);
-  return 'why' in way ? way.why : '';
+  if (way !== undefined) return way;
+  const w = giftWay(s, map, id, false);
+  return 'why' in w ? w.why : '';
 }
 
 /** Where a way's far end is along it, and the way's id. */

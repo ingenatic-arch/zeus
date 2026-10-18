@@ -13,7 +13,7 @@ import { WARE_NAMES } from '../sim/foods';
 import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
-import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWords } from '../sim/diplomacy';
+import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, termsOf, TRAIT_WORDS, tyreShip, WARM, type MoodWord } from '../sim/world';
@@ -246,8 +246,11 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   const back = giftFrom(s.world, id);
   const coming = back ? `<p class="giftnews theirs">${esc(giftNews(s, back))}.</p>` : '';
   if (out) return `<section class="gifts"><h3>Gifts</h3><p class="giftnews">${esc(giftNews(s, out))}.</p>${coming}<p class="foot">One gift on its way to ${esc(name)} at a time. It counts when it arrives.</p></section>`;
+  // (Whether goods can go that way at all, found once for every row.)
+  const goodsWay = map ? giftWay(s, map, id, false) : null;
+  const wayWhy = goodsWay && 'why' in goodsWay ? goodsWay.why : '';
   const button = (ware: number, k: number, amount: number): string => {
-    const why = map ? giftRefusal(s, map, id, ware, amount) : '';
+    const why = map ? giftRefusal(s, map, id, ware, amount, ware < 0 ? undefined : wayWhy) : '';
     const mem = giftMemory(s, c, k, amount, s.tick);
     const label = k < 0 ? `${fmt(amount)} dr` : fmt(amount);
     const value = k >= 0 ? ` (worth ${fmt(giftValue(s, id, k, amount))} dr in ${name})` : '';
@@ -265,7 +268,7 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   });
   // (Why goods can't go, if it is the way rather than the stores: no yard or post.)
   const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
-  const way = map && first !== undefined ? giftRefusal(s, map, id, first, GIFT_LOTS[0]) : '';
+  const way = map && first !== undefined ? giftRefusal(s, map, id, first, GIFT_LOTS[0], wayWhy) : '';
   const goodsNote = !goods ? `<p class="none">Goods: your stores hold none of the trade goods to spare (${GIFT_LOTS[0]} at the least).</p>` : /caravan yard|trading post|edge of the map/.test(way) ? `<p class="none">${esc(way)}.</p>` : '';
   return `<section class="gifts"><h3>Send a gift</h3><ul class="giftrows">${rows.join('')}</ul>${goodsNote}${coming}
 <p class="foot">Each shows what it would add to the mood when it arrives. A fair gift for a city your size is about ${fmt(fairGift(s))} dr: more counts for more, but less than you’d think, and gifts within six months of each other count for less. Goods are fetched from your stores to the caravan yard or the trading post, and leave from there.</p></section>`;
