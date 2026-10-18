@@ -5,9 +5,9 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
-import { FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WINERY_COST, YARD_COST } from '../sim/build';
+import { ARCHITECT_COST, FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
-import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
 import { CHEESE, FLEECE, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
@@ -17,6 +17,7 @@ import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } from '../sim/routes';
+import { cityOf, lastHarvest } from '../sim/world';
 import { rateOf } from '../sim/labour';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -977,11 +978,25 @@ export const NORTH_ROAD = col(86, 0, 22).reverse();
 /** The caravan yard at the main street's east end, below it, facing up the street (the street run on a tile to reach its gate). */
 export const YARD_AT = { x: 113, z: 42 };
 export const YARD_ROAD = [T(113, 41)];
+/** A watch post and an architect's office by the yard (since slice 17: it was outside the watchmen's rounds, and burned down after a year and a half). */
+const YARD_WATCH = { x: 112, z: 39 };
+const YARD_ARCHITECT = { x: 114, z: 40 };
 /** The main agora (its wine stall for #buywine). */
 const MAIN_AGORA = T(97, 42);
 /** The longest a route demo waits for its trader (a year). */
 const ROUTE_WAIT = 12 * TICKS_PER_MONTH;
-type RouteStage = 'routes' | 'caravan' | 'buywine';
+type RouteStage = 'routes' | 'caravan' | 'buywine' | 'prices';
+/**
+ * #prices (slice 17): more oil for Corinth. Two more olive groves by the road
+ * north, above the first, and a second press below, at the head of the core; the city keeps 400
+ * oil and sells the rest to Corinth's caravans, which pay less visit by visit
+ * as the oil piles up there.
+ */
+const PRICES_GROVES = [T(83, 19), T(87, 20)];
+const PRICES_PRESS = T(87, 36);
+const PRICES_KEEP = 300;
+/** How many caravans have paid for oil when #prices opens (the next a few days short of the yard). */
+const PRICES_VISITS = 2;
 /** How far short of the yard's gate #buywine's caravan is when it opens (tiles: about a week's walk). */
 const BUYWINE_LEFT = 6;
 
@@ -994,9 +1009,16 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
       sim.flush();
     };
     const roads = (NORTH_ROAD.length + YARD_ROAD.length) * ROAD_COST;
-    waitFor(sim, s.tick, roads + YARD_COST + JOBS.yard * WAGE);
+    waitFor(sim, s.tick, roads + YARD_COST + WATCHPOST_COST + ARCHITECT_COST + (JOBS.yard + JOBS.watchpost + JOBS.architect) * WAGE);
     send({ type: 'road', tiles: [...NORTH_ROAD, ...YARD_ROAD] });
     send({ type: 'build', kind: 'yard', at: [T(YARD_AT.x, YARD_AT.z)] });
+    send({ type: 'build', kind: 'watchpost', at: [T(YARD_WATCH.x, YARD_WATCH.z)] });
+    send({ type: 'build', kind: 'architect', at: [T(YARD_ARCHITECT.x, YARD_ARCHITECT.z)] });
+    if (stage === 'prices') {
+      waitFor(sim, s.tick, 2 * GROVE_COST + PRESS_COST + (2 * JOBS.grove + JOBS.press) * WAGE);
+      send({ type: 'build', kind: 'grove', at: PRICES_GROVES });
+      send({ type: 'build', kind: 'press', at: [PRICES_PRESS] });
+    }
     const fee = routeWay('corinth', 'land')!.fee;
     // Staffed, and the fee in hand (with a little over: to pay the wages until the caravan comes, or while #routes waits for a click; and for the stall and the wine, about 850 dr).
     const extra = stage === 'buywine' ? STALL_COST + 1000 : 300;
@@ -1005,20 +1027,32 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
     if (stage === 'routes') return;
     send({ type: 'route', city: 'corinth', kind: 'land' });
     if (stage === 'caravan') for (const good of [OIL, MEAT]) send({ type: 'deal', city: 'corinth', kind: 'land', good, sell: true });
-    else {
+    else if (stage === 'prices') {
+      send({ type: 'deal', city: 'corinth', kind: 'land', good: OIL, sell: true });
+      send({ type: 'trade', good: OIL, keep: PRICES_KEEP });
+    } else {
       send({ type: 'deal', city: 'corinth', kind: 'land', good: WINE, buy: true, upto: 1200 });
       send({ type: 'stall', at: MAIN_AGORA, good: WINE });
     }
+    const r = routeOf(s, 'corinth', 'land')!;
+    let paid = 0;
+    let visits = 0;
     const ready = (): boolean => {
       const w = caravanOf(s, 'corinth');
       if (stage === 'caravan') return !!w && !w.back && w.walked > 10;
+      // #prices: two caravans have paid for oil, and the third is as close as #buywine's.
+      if (r.visits !== visits) {
+        visits = r.visits;
+        if (r.lastSold[TRADE_GOODS.indexOf(OIL)] > 0) paid++;
+      }
+      if (stage === 'prices' && paid < PRICES_VISITS) return false;
       // #buywine: a few days short of the yard's gate, to be seen coming in, unloading the wine and its porters carrying it off.
       if (!w || w.back) return false;
       let left = -w.along;
       for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
       return left < BUYWINE_LEFT;
     };
-    const stop = s.tick + ROUTE_WAIT;
+    const stop = s.tick + (stage === 'prices' ? 2 : 1) * ROUTE_WAIT;
     while (s.tick < stop && !ready()) sim.step();
   };
 }
@@ -1033,7 +1067,9 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
  * comes two days after the Tyre ship has tied up, and opens as she rides at
  * anchor, waiting her turn. Each opens it on a visit the treasury can pay for.
  */
-type SeaStage = 'athensship' | 'anchor';
+type SeaStage = 'athensship' | 'anchor' | 'famine';
+/** How many days before the harvests come in #famine opens. */
+const FAMINE_DAYS = 5;
 /** How far in from the horizon #athensship's ship is when it opens (0..1 of her way in). */
 const ATHENS_INWARD = 0.7;
 
@@ -1062,6 +1098,14 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
     // (Up to 600, about 430 dr: what this town can spare as she comes.)
     send({ type: 'deal', city: 'athens', kind: 'sea', good: WINE, buy: true, upto: 600 });
     const r = routeOf(s, 'athens', 'sea');
+    if (stage === 'famine') {
+      // #famine: Athens' fields look parched this summer (Greece's dice, set so for the demo: its harvest is drawn a year
+      // ahead, and this one is set to fail), played on to a few days before the harvests come in.
+      cityOf(s.world, 'athens').outlook = 0;
+      const harvest = lastHarvest(s.tick) + TICKS_PER_YEAR;
+      sim.run(Math.max(0, harvest - FAMINE_DAYS * TICKS_PER_DAY - s.tick));
+      return;
+    }
     const ready = (): boolean => {
       const v = r?.ship;
       if (!v) return true;
@@ -1169,6 +1213,9 @@ const SCENES: Record<string, Demo> = {
   buywine: { view: 'yard', setup: routesTown('buywine'), overlay: 'wine' },
   athensship: { view: 'ship', setup: seaTown('athensship'), overlay: 'food', trade: 'athens-sea' },
   anchor: { view: 'anchor', setup: seaTown('anchor'), overlay: 'food' },
+  // Slice 17: prices that move. Oil sold to Corinth caravan after caravan, its price sliding; and a failed harvest in Athens, days away.
+  prices: { view: 'town', setup: routesTown('prices'), overlay: 'oil', greece: 'corinth' },
+  famine: { view: 'ship', setup: seaTown('famine'), overlay: 'food', greece: 'athens' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

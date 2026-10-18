@@ -174,7 +174,7 @@ export class Sim {
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
-    // Greece, once a month (it draws only on its own random numbers).
+    // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
     stepWorld(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);

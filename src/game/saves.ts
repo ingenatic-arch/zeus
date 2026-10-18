@@ -377,9 +377,9 @@ function worldOk(w: unknown): boolean {
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
   return (w.cities as unknown[]).every((c, i) => {
-    if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.festival) || typeof c.war !== 'string') return false;
-    if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'price'].every((k) => nums(c[k], g))) return false;
-    if (!Array.isArray(c.history) || c.history.length !== g || !c.history.every((h: unknown) => nums(h))) return false;
+    if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.outlook) || !fin(c.festival) || typeof c.war !== 'string') return false;
+    if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'yours', 'crop', 'price', 'trail'].every((k) => nums(c[k], g))) return false;
+    if (![c.history, c.dealt].every((x) => Array.isArray(x) && x.length === g && x.every((h: unknown) => nums(h)))) return false;
     if (!Array.isArray(c.memories) || !c.memories.every((m: unknown) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade))) return false;
     const r = c.ruler;
     return r === null || (isObj(r) && typeof r.name === 'string' && typeof r.female === 'boolean' && typeof r.title === 'string' && strs(r.traits) && fin(r.face));

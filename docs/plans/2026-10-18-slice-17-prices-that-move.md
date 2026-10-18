@@ -58,7 +58,7 @@ Measured at `b8de6cd` (the end of slice 16's review), headless Chromium with sof
 - **Tyre and your city** are not stepped: Tyre's prices are the ship's steady ones.
 
 **Readable.**
-- **The arrow:** up, down or steady, comparing the price now with where it was over the last fortnight or so (a smoothed trail, `trail`): up or down when they differ by more than 2%.
+- **The arrow:** up, down or steady, comparing the price now with where it was over the last fortnight or so (a smoothed trail, `trail`): up or down when they differ by more than 1%, so a price easing back after a push shows its way.
 - **The reason line** names the biggest push on the price now, by how much each moves it: "Oil cheap in Corinth: you sold them 1,400 in the last year", "Wheat dear in Athens: their harvest failed in September", "Wine cheap in Troy: a rich harvest in September", easing as it wears off. When nothing moves it by more than about 3%: "at its usual price: they make plenty" (or "they are short of it"). What you sold and bought in the last year is kept per city and good by month (`dealt`, 12 months).
 - **The chart:** each good's last twelve months (the monthly history slice 15 kept) and today's price, a small line drawn in code, with the usual price as a faint rule.
 - **The ruler's terms:** the mood moves what the ruler pays you and asks of you, a third of a percent per point of mood, at most a fifth either way, in whole percents: "Sparta's terms: cold, prices 12% against you". For a good they buy from you, they pay the market price plus the terms; for one they sell you, they ask the market price less the terms. The route's rows and the ledger use your price; the city's page shows the market price and the terms line on top.

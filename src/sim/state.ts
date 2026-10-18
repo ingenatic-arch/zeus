@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 16;
+export const SIM_STATE_VERSION = 17;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -479,13 +479,22 @@ export interface WorldCity {
   memories: Memory[];
   /** How the ruler feels about each other city (by CITY_IDS order; 0 for itself and for cities without a ruler). */
   ties: number[];
+  /** By trade good (TRADE_GOODS order): what it makes and uses in a year (measures). */
   make: number[];
   need: number[];
+  /** What it has in store now, and the two things pushing that from normal (see world.ts): your trade (`yours`: sold to them +, bought from them −) and its harvest (`crop`), each wearing off. */
   stock: number[];
+  yours: number[];
+  crop: number[];
+  /** Its market price per 100 now, the last twelve months' (oldest first), and a trail a fortnight or so behind (for the arrow). */
   price: number[];
   history: number[][];
-  /** The last harvest: 0 failed, 1 poor, 2 fair, 3 good, 4 rich. */
+  trail: number[];
+  /** What you sold them (+) or bought from them (−) by good, month by month for the last twelve (oldest first; the last is this month). */
+  dealt: number[][];
+  /** The last harvest: 0 failed, 1 poor, 2 fair, 3 good, 4 rich. And the next one, foreseen (the fields' look from June). */
   harvest: number;
+  outlook: number;
   /** The tick its festival ends (0: none on). */
   festival: number;
   /** The city it is at war with ('' at peace). */

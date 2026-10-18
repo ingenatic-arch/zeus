@@ -241,10 +241,17 @@ describe('caravans', () => {
     expect(until(sim, () => held(yard, MEAT) >= 100 && (caravanOf(s, 'corinth')?.wait ?? 0) > 0, 4 * TICKS_PER_MONTH)).toBe(true);
     r.sold[MEAT_K] = limit - 100;
     const w = caravanOf(s, 'corinth')!;
-    expect(until(sim, () => w.back, 3000)).toBe(true);
+    // It pays at your price as it settles (which then slides, as the meat piles up in Corinth).
+    let price = 0;
+    for (let i = 0; i < 3000 && !w.back; i++) {
+      price = priceAt(s, 'corinth', MEAT_K, 100);
+      sim.step();
+    }
+    expect(w.back).toBe(true);
     expect(r.lastSold[MEAT_K]).toBe(100);
     expect(r.sold[MEAT_K]).toBe(limit);
-    expect(r.lastPaid).toBe(priceAt(s, 'corinth', MEAT_K, 100));
+    expect(r.lastPaid).toBe(price);
+    expect(priceAt(s, 'corinth', MEAT_K, 100)).toBeLessThan(price);
     expect(s.ledger.now.some((l) => l.kind === 'sales' && l.what === 'meat to Corinth' && l.amount === r.lastPaid)).toBe(true);
     // What it didn't take stays at the yard.
     expect(held(yard, MEAT)).toBeGreaterThan(0);
@@ -257,12 +264,20 @@ describe('caravans', () => {
     const r = routeOf(s, 'corinth', 'land')!;
     const yard = caravanYard(s)!;
     expect(cityHolds(s, WINE)).toBe(0);
-    expect(until(sim, () => (caravanOf(s, 'corinth')?.wait ?? 0) > 0, 3000)).toBe(true);
+    let price = 0;
+    for (let i = 0; i < 3000 && !((caravanOf(s, 'corinth')?.wait ?? 0) > 0); i++) {
+      price = priceAt(s, 'corinth', WINE_K, 100);
+      sim.step();
+    }
+    expect((caravanOf(s, 'corinth')?.wait ?? 0) > 0).toBe(true);
     const n = r.unloaded[WINE_K];
     expect(n).toBeGreaterThanOrEqual(500);
     expect(n).toBeLessThanOrEqual(1200);
     expect(held(yard, WINE)).toBe(n);
-    expect(s.ledger.now.some((l) => l.kind === 'imports' && l.what === 'wine from Corinth' && l.amount === -priceAt(s, 'corinth', WINE_K, n))).toBe(true);
+    // Paid at your price as it unloads (and dearer afterwards: the wine is gone from Corinth).
+    expect(r.cost).toBe(Math.round((n * price) / 100));
+    expect(s.ledger.now.some((l) => l.kind === 'imports' && l.what === 'wine from Corinth' && l.amount === -r.cost)).toBe(true);
+    expect(priceAt(s, 'corinth', WINE_K, 100)).toBeGreaterThan(price);
     expect(s.stocks.now.some((l) => l.ware === WINE && l.kind === 'bought' && l.what === 'corinth' && l.n === n)).toBe(true);
     expect(until(sim, () => cityHolds(s, WINE) > 0, 600)).toBe(true);
     ledgerAddsUp(s);

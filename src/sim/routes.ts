@@ -6,7 +6,8 @@
  * Troy, which needs the trading post). A ruler who is cold or worse won't
  * open one. Each city buys what it is short of and sells what it has plenty
  * of (sellsAndBuys in world.ts), each up to a yearly limit, at its own price
- * per hundred; for each you choose whether to trade it, and buying, how much
+ * per hundred, which moves (world.ts: what you sell them makes it cheaper next
+ * time, what you buy dearer), with its ruler's terms on top (yourPrice); for each you choose whether to trade it, and buying, how much
  * to stock the stores up to. How much the city keeps of a good it sells is the
  * one figure the trading post has always had (`trade.keep`), shared by every
  * route: there is only one surplus in the stores.
@@ -78,7 +79,7 @@ import {
 } from './trade';
 import { income, pay, spendable, wageBill } from './treasury';
 import { CARAVAN_SPEED, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
-import { cityOf, moodOf, moodWord, sellsAndBuys, VOYAGE } from './world';
+import { cityOf, moodOf, moodWord, sellsAndBuys, traded, VOYAGE, yourPrice } from './world';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -139,8 +140,8 @@ export function yearlyLimit(s: SimState, city: CityId, k: number): number {
   return Math.max(400, Math.min(6000, Math.round(Math.abs(c.make[k] - c.need[k]) / 100) * 100));
 }
 
-/** What a city pays or asks for so many measures of a trade good, at its price now. */
-export const priceAt = (s: SimState, city: CityId, k: number, n: number): number => Math.round((n * cityOf(s.world, city).price[k]) / 100);
+/** What a city pays you or asks of you for so many measures of a trade good, at your price with it now (its market price and its ruler's terms). */
+export const priceAt = (s: SimState, city: CityId, k: number, n: number): number => Math.round((n * yourPrice(s.world, city, k, s.tick)) / 100);
 
 /** What you can sell a city (the goods it buys) and buy from it (the goods it sells), by trade good index. */
 export function tradesOf(s: SimState, city: CityId): { theyBuy: number[]; theySell: number[] } {
@@ -295,14 +296,13 @@ export const importPurse = (s: SimState): number => Math.max(0, spendable(s) - w
  * (importPurse). Paid at once.
  */
 function unload(s: SimState, r: TradeRoute, depot: Building): void {
-  const c = cityOf(s.world, r.city);
   let changed = false;
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     if (!r.buy[k]) continue;
     const w = TRADE_GOODS[k];
     const want = r.upto[k] - cityHolds(s, w) - held(depot, w) - inHand(s, depot, w).returning;
     const left = yearlyLimit(s, r.city, k) - r.bought[k];
-    const price = Math.max(1, c.price[k]);
+    const price = Math.max(1, yourPrice(s.world, r.city, k, s.tick));
     const purse = importPurse(s);
     let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
     n = Math.floor(n / 10) * 10;
@@ -315,6 +315,8 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     r.bought[k] += n;
     r.unloaded[k] += n;
     r.cost += dr;
+    // What you bought is gone from their stores: dearer next time.
+    traded(s.world, r.city, k, -n);
     changed = true;
   }
   if (changed) s.looks++;
@@ -330,6 +332,8 @@ function settle(s: SimState, r: TradeRoute): void {
     paid += dr;
     r.sold[k] += n;
     income(s, dr, 'sales', `${WARE_NAMES[w]} to ${cityName(r.city)}`, n);
+    // What you sold piles up in their stores: cheaper next time.
+    traded(s.world, r.city, k, n);
   });
   r.visits++;
   r.lastAt = s.tick;
@@ -923,7 +927,7 @@ export function bestBuyer(s: SimState, k: number, kind: RouteKind): { city: City
   let best: { city: CityId; price: number } | null = null;
   for (const r of s.world.routes) {
     if (r.kind !== kind || !r.sell[k]) continue;
-    const p = cityOf(s.world, r.city).price[k];
+    const p = yourPrice(s.world, r.city, k, s.tick);
     if (!best || p > best.price) best = { city: r.city, price: p };
   }
   return best;

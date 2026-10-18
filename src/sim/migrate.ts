@@ -67,6 +67,11 @@
  * their full shape, and no route could be opened before, so a loaded town has
  * none, and no caravans on the map. Nothing in the city changes.
  *
+ * Version 16 to 17 (slice 17, prices that move): each city's prices stay
+ * where they were and move from here on; nothing is pushing its stocks yet,
+ * nothing traded is on record, and its next harvest is fair. Nothing in the
+ * city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -117,6 +122,7 @@ export function migrate(st: unknown): number {
   if (st.version === 13) from13(st);
   if (st.version === 14) from14(st);
   if (st.version === 15) from15(st);
+  if (st.version === 16) from16(st);
   return from;
 }
 
@@ -267,4 +273,23 @@ function from15(st: Record<string, unknown>): void {
     st.world.travellers = [];
   }
   st.version = 16;
+}
+
+function from16(st: Record<string, unknown>): void {
+  // Prices start to move: nothing is pushing any city's stock yet (its prices stay where they were and move from
+  // here on), you have traded nothing with anyone in its record, the arrows are steady, and every harvest was and
+  // will be fair. (A town brought up from before Greece already has all this from its fresh world.)
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.cities)) {
+    for (const c of w.cities as Array<Record<string, unknown>>) {
+      if (!isObj(c) || Array.isArray(c.yours)) continue;
+      const price = Array.isArray(c.price) ? (c.price as number[]) : [];
+      c.yours = TRADE_GOODS.map(() => 0);
+      c.crop = TRADE_GOODS.map(() => 0);
+      c.trail = price.slice();
+      c.dealt = TRADE_GOODS.map(() => new Array<number>(12).fill(0));
+      c.outlook = 2;
+    }
+  }
+  st.version = 17;
 }

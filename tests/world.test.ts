@@ -14,7 +14,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock
 import { Sim } from '../src/sim/sim';
 import type { SimState } from '../src/sim/state';
 import { PRICES, SHIP_AWAY, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, TRADE_GOODS } from '../src/sim/trade';
-import { cityOf, DEFAULT_NAME, freshWorld, memoryWorth, moodOf, moodReasons, moodWord, nameRefusal, sellsAndBuys, TRAITS, tyreShip, VOYAGE } from '../src/sim/world';
+import { cityOf, DEFAULT_NAME, freshWorld, memoryWorth, moodOf, moodReasons, moodWord, nameRefusal, sellsAndBuys, TRAITS, tyreShip, usualPrice, VOYAGE } from '../src/sim/world';
 import { project } from '../src/map/greece';
 import { OUTLINES, ISLES } from '../src/map/aegean';
 
@@ -116,9 +116,10 @@ describe('goods and prices', () => {
         const { sells, buys } = sellsAndBuys(c);
         expect(sells.length).toBeGreaterThanOrEqual(1);
         expect(buys.length).toBeGreaterThanOrEqual(1);
-        for (const k of sells) expect(c.price[k]).toBeLessThan(PRICES[k]);
-        for (const k of buys) expect(c.price[k]).toBeGreaterThan(PRICES[k]);
-        for (const k of TRADE_GOODS.keys()) expect(c.price[k]).toBeGreaterThan(PRICES[k] * 0.6);
+        // (Its usual prices: last autumn's harvest moves some of them a little at the start.)
+        for (const k of sells) expect(usualPrice(c, k)).toBeLessThan(PRICES[k]);
+        for (const k of buys) expect(usualPrice(c, k)).toBeGreaterThan(PRICES[k]);
+        for (const k of TRADE_GOODS.keys()) expect(usualPrice(c, k)).toBeGreaterThan(PRICES[k] * 0.6);
       }
       // Athens is hungry for wheat, Sparta short of wine, Troy rich in fleece.
       expect(sellsAndBuys(cityOf(w, 'athens')).buys).toContain(0);
@@ -129,13 +130,14 @@ describe('goods and prices', () => {
     }
   });
 
-  it('prices are steady and a year of them is kept', () => {
+  it('a year of prices is kept, month by month', () => {
     const sim = new Sim(5);
-    const before = cityOf(sim.state.world, 'corinth').price.slice();
     sim.run(TICKS_PER_YEAR + 5);
     const c = cityOf(sim.state.world, 'corinth');
-    expect(c.price).toEqual(before);
-    expect(c.history.every((h, k) => h.length === 12 && h.every((p) => p === before[k]))).toBe(true);
+    expect(c.history.every((h) => h.length === 12)).toBe(true);
+    // (The last is the first of this month's.)
+    sim.run(TICKS_PER_MONTH - 5);
+    expect(c.history.map((h) => h[11])).toEqual(c.price);
   });
 });
 
