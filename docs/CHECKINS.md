@@ -2,6 +2,62 @@
 
 Notes to Oliver, newest first.
 
+## Slice 19 — Favours, offers and tribute (18 Oct)
+
+The rulers now ask things of you. A ruler may ask for goods or coin by a deadline, and you can send it, promise it, refuse it or let it run out; each answer stays in their memory, and a broken promise stays longest. A ruler who is pleased with you may offer a better deal for a year. A proud or warlike ruler who is wary of you, and whose city is far bigger than yours, may demand tribute. You can pay it or refuse it. What you send leaves the city the way slice 18's gifts do: the porters fetch it from the stores, then a caravan or a ship in your colours carries it out. It is faster now, and the page says when it will arrive. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with no requests and nothing on its way. Rulers only ask once your city has had a trade route open for six months (a gift alone doesn't count), so a town that keeps to itself is left alone. 72 of the 74 earlier demos open and play 900 ticks on exactly as before, `#thanks` included (checked by playing each one in the old code and the new and comparing the whole city). In `#prices` and `#famine` the dice now make requests or demands (in `#prices`' history, Sparta demands tribute), but the towns themselves are the same: same money, same people, same everything apart from two redraw counters. The line under the top bar now shows one piece of Greece's news at a time (it showed the newest two).
+
+### What's new
+- **Requests.** About one month in ten, a ruler who is wary of you or better asks for something: a good they are short of that your stores hold (wheat, often, after a poor harvest), or now and then coin. A request for goods is about three fifths of a fair gift for your size: 1,000 wheat for `#caravan`'s town. The ruler says why ("their granaries run low", "to mend the walls of their city") and by when. You can answer in four ways:
+  - **Send it:** +25 when it arrives in time, half that if late; a generous ruler counts it higher.
+  - **Promise it:** +4 for now. If nothing has been sent by the day, that is a broken promise: −35, fading over four years, the slowest of all.
+  - **Refuse:** −15.
+  - **Let it run out:** −10.
+- **Offers.** A pleased ruler (+15 or better, with a route open) may offer, for a year, to buy all of a good you make at today's price, however much you sell, up to a quarter more than they usually take. Or they may offer to sell you a good at a fifth off. Taking it is a promise: trade at least a quarter of it in the year (+8 when the year ends), or it counts against you (−20). Taking it ticks the good on the route, and the trade rows show the offer's price and what is left of it.
+- **Tribute.** A proud or warlike ruler who is wary of you or worse, and whose city is at least half as big again as yours, may demand tribute: coin or goods worth a fair gift, within three months. Now and then it is yearly, for three years. Paying adds +8. Refusing, or letting it run out, costs −30, fading over three years. If the ruler is already cold when you refuse, the page says threats will follow. Threats and raiders come in the next slice; for now the refusal is only marked for them.
+- **Sending is faster.** Slice 18's review found a gift of goods took four months. Now porters fetching a gift or a sending walk half as fast again and share the loads between the nearest stores. The yard or the post gets two extra hands while they do it. Your own caravans travel at twice a trader's pace. A ruler also allows for the distance: if sending would take most of the usual four months, the deadline is longer.
+- **When it arrives.** The request says when it would arrive if sent now, against its deadline. Once sent, the page and the line under the top bar say where it is and when it will arrive. While the porters are fetching it, that date stays steady.
+- **Where you see them.** A deal sits at the top of the city's Ruler tab, with its buttons; each button shows what it would do to the mood now. On the map, the city's label shows a scroll (a red seal for tribute), and its hover card says what they want. Under the top bar, a standing line shows the most pressing deal; click it for that city's Ruler tab. The ledger has "Sent · Sparta" and "Tribute · Sparta" lines, the goods pages "Sent to Sparta", and the porters and the caravan say whom they carry it for.
+- **One piece of news at a time** under the top bar (slice 18's review). Each stays a fortnight, or at least five days before the next takes its place, and the line says how many more are waiting.
+- **A ruler's gift of goods** that lands at the yard or the quay now goes straight to your stores if you sell that good there. It used to wait to be sold.
+
+### What to try
+1. Open `#request`. It is `#caravan`'s town, and King Eurykrates of Sparta has asked for 1,000 wheat within six months. The map opens on his Ruler tab with the request at the top: Send it +31 (he is generous), Promise +4, Refuse −15, and the day it would arrive. Click Send it, then press Tab to close the map and let it run. The yard's porters carry the wheat from the granary (hover one: "for Sparta, as they asked"). In about seven weeks, four donkeys in your colours walk out of the city by the west road (hover them). It arrives about 112 days after you sent it, two months before the deadline, and +31 goes on his page with its reason.
+2. Open `#promise`. It is `#athensship`'s town, which promised Athens 1,000 wheat four months ago and has sent nothing. Five days are left. Let it run: the promise breaks, −35, the top line of Archon Metaneira's page, and she turns wary. She is fickle, so it fades over two years instead of four. Or click "Send it, late" first: it arrives about two months late, for half the thanks, and your word is kept.
+3. Open `#offer`. It is `#prices`' town, where oil sold to Corinth has slid to 59 a hundred. Corinth's lord offers to buy all the oil you can send for a year at 59, up to 2,900. **His goodwill is staged for the demo**: +12, "pleased with how your city trades (set up for this demo)". Without it he would be at +5, short of making offers. Take it, then open the Trade tab: oil shows "59 offer" and 2,900 left. Let it run, and the bar on the Ruler tab fills as the caravans buy. Sparta's demand for tribute in this town comes from the town's own history.
+4. Open `#tribute`. It is `#caravan`'s town again, saved up to 1,100 dr. King Eurykrates (warlike, wary, Sparta about 6,000 people to your 1,250) demands 650 dr within three months. Pay it (+8), or refuse it (−30): he turns cold, and the next refusal would be marked for the threats to come.
+
+Each link also opens paused if you add `-paused` (for example `#request-paused`).
+
+### What I'd like your eye on
+- **How often rulers ask.** Left alone for three years, `#caravan`'s town got a request about every five months and a demand for tribute from Sparta most years (until a gift mends him or the town grows). Too much, too little?
+- **The offer's worth.** At today's price held for the year, `#offer` is worth having only because the price would otherwise slide as you sell. Is that enough of a carrot?
+- **What answers are worth.** Is +25 (−35 broken) the right weight next to gifts (a fair gift +20)?
+- **The Ruler tab** with a deal at the top: is it clear what each button does?
+
+### Known rough edges
+- On the map of Greece, the Troy label can sit over the end of a long line under the top bar.
+- A sending's arrival date can move by a few days as the porters work: in `#request` the estimate is 112 days and it takes about 115.
+- The line under the top bar refreshes twice a second, so just after you answer, the old line can stay for a moment.
+- A ruler's request comes at most one a month and the dice don't avoid the moment you're busy: two can be open at once from different cities.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `ddfd4ce` (the end of slice 18's review).
+
+| | Before | After |
+|---|---|---|
+| Tests | 285 in 25 files | 305 in 26 files, all passing (20 new for favours, offers and tribute) |
+| Bundle | 4 files, 1,343 KB raw, 396 KB gzipped | 4 files, 1,375 KB raw, 407 KB gzipped |
+| Load, bare link, ready (page clock) | 2.28 s; then 1.89, 2.15, 2.03, 1.88, 2.09, 2.42 s | 3.17 s in the full run (everything in that run was slower, the map bake included, which hasn't changed); then 1.89, 2.04, 2.35, 2.04, 1.94, 1.79 s, alternating with the old build |
+| `#town`: triangles and draws, save | 799,168, 83; 142 KB | the same |
+| `#richtown`: triangles and draws, save | 910,707, 95; 179 KB | the same |
+| Work before drawing a frame, running: `#town`, `#quay`, `#richtown`, `#caravan` | 18.8, 12.9, 22.4, 7.8 ms | 15.9, 8.8, 17.2, 3.8 ms (one run each; these swing by several ms run to run) |
+| `#caravan`: triangles and draws following the caravan | 516,365, 39 | the same |
+| The map of Greece, first open: built in | 0.41 s | 0.36 s |
+| Map pages: triangles and draws | `#prices` 304,642, 22; `#gift` 304,018, 20 | the same; `#request` and `#tribute` 304,018, 20, ready at 4.3 and 4.8 s, 6.7 and 6.3 ms a frame running |
+| The 74 earlier demos | | 72 open and play 900 ticks on exactly as before; `#prices` and `#famine` differ only in two redraw counters (the dice make deals there) |
+
 ## Slice 18 — Rulers who remember (18 Oct)
 
 The rulers of Greece now answer what you do. Send a ruler a gift of coin or goods and you can watch it go: down the road or out of the bay, then across the map. When it arrives their mood lifts, and the reason goes on their page. A ruler who turns hostile closes their road until you mend things, and a warm one sends you gifts of their own. When a mood turns, a line comes up under the top bar saying so and why. You weren't here while it was built: every choice below is mine, from the spec's defaults.
