@@ -64,7 +64,7 @@ Headless Chromium with software rendering at 1920 × 1080, so frame rates mean n
 - **A raid can't get stuck.** If a band ever vanished from your map without going home, the raid would have stayed live for good, and no ruler would ask for anything again. It now ends the next day.
 - **This check-in.** Step 3 now uses `#raiders-paused` and the red chip, because Tab opens the map but not Sparta's page. Steps 1 and 4 and the question about how hard a raid hits are rewritten. I corrected why Sparta asks `#caravan`'s town only for coin: the road was never the problem, the stores hold too little of what he wants. I loaded Troy's sea raid from a save to see it on screen.
 
-What I checked: the four demos played in the browser at 1920 × 1080 with screenshots, paying the band off on the road and at the farm; Troy's band from a save; a hostile Sparta left alone for eight years (a raid about every eighteen months, each costing a field if you don't rebuild); all 78 earlier demos open and play 900 ticks on exactly as before; 328 tests pass.
+What I checked: the four demos played in the browser at 1920 × 1080 with screenshots, paying the band off on the road and at the farm; Troy's band from a save; a hostile Sparta left alone for eight years (a raid about every eighteen months, each costing a field if you don't rebuild); all 78 earlier demos open and play 900 ticks on exactly as before; 328 tests pass, and the full browser smoke check and the measurements run clean (the bundle, load times, triangles and draw calls are as the builder measured them).
 
 ## Slice 19 — Favours, offers and tribute (18 Oct)
 
