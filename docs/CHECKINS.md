@@ -2,6 +2,59 @@
 
 Notes to Oliver, newest first.
 
+## Slice 17 — Prices that move (18 Oct)
+
+Prices in Greece now move: sell a city the same good visit after visit and its price slides, a failed harvest sends wheat soaring in one city, and every price says what moved it, with an arrow and a year's chart. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with its prices where they were, and they move from then on. A town with no trade routes plays exactly as before: all 64 demos from before slice 16 open and play 900 ticks on exactly as they did (checked by playing each one from the old code and the new and comparing the whole city). The five route demos of slice 16 have changed on purpose: each now has a watch post and an architect's office by the caravan yard (it used to burn down after a year and a half), and they trade at moving prices with the ruler's terms, so `#buywine`'s wine costs 840 dr instead of 852. The Tyre ship's prices don't move.
+
+### What's new
+- **Prices that move, city by city.** Underneath, each city has a stock of each good. What you sell it adds to the stock and lowers the price; what you buy from it raises the price. The push wears off over the months (about a third gone after two months, two thirds after six). A price can fall to half its usual level or rise to twice it, never further.
+- **Harvests every September.** Each city's harvest comes in failed, poor, fair, good or rich (fair about half the time, failed about one year in fourteen). A failed one makes wheat much dearer there, and oil, wine, meat and cheese a little dearer; a rich one makes them cheaper. From June a city's page says how its fields look ("the fields look parched: the harvest may fail"), so a failed harvest never comes out of the blue.
+- **Every price says where it stands and why.** On a city's page on the map of Greece, each good has its price, an arrow (rising, falling or steady), a small chart of the last year against its usual price (the dashed line), and a line saying what is moving it ("Cheap, easing (usually 90): you sold them 2,500 in the last year", "Dear (usually 26): their harvest failed this autumn"). The goods are grouped as the city sells them, buys them or has about enough of them.
+- **The ruler's terms.** A ruler who likes you pays a little more for what you sell and asks a little less for what you buy, and one who doesn't does the opposite (up to a fifth either way). For now the terms come from the starting moods: in a new game anything from a tenth or more against you (a cold ruler) to a tenth or more in your favour (a warm one); in the demos, which grew from older towns, they are small ("Corinth’s terms: cordial, prices 2% in your favour"). The line is at the top of each city's prices and each route tab, and the routes and the ledger trade at your price.
+- **The trade panel.** A route's tab shows your price with its arrow, the terms above the tables, and a "Prices in …" list below with the harvest, each good's chart and its reason. On the Tyre tab, hovering a price says what the open routes pay for that good now, so you can see from the quay where to sell.
+- **News of harvests.** When a city's harvest fails or is rich, a line comes up under the top bar in your town ("From Greece: Athens’ harvest has failed, and wheat there is 46 a hundred (it was 25)"). Click it to open that city's page.
+- **Travellers on the map can be hovered** (caravans and foreign ships): who they are, where they are going and when, and what they come for. Clicking one opens its city's page.
+
+### What to try
+1. Open `#prices`: the town from `#caravan` a year and a half on (April 746 BC), selling oil to Corinth caravan after caravan, with the map open on Corinth's page. Oil there is 56 against its usual 90, and the chart shows it stepping down visit by visit. Hover a chart for its year in figures. Close the map (Tab) and open the trade panel's Corinth tab: the same prices, at your price on Corinth's terms.
+2. In `#prices`, run at speed and watch Corinth's oil ease back up between caravans, then drop again as the next one pays. Untick oil in the route tab and watch the price recover over the following months.
+3. Open `#famine`: the town from `#athensship` in late August, with the map on Athens' page saying "the fields look parched". Close the map and let it run: five days later the harvests come in, Athens' fails, and a line comes up under the top bar. Click it: wheat in Athens has nearly doubled, and the reason says why. Athens' ship comes about three weeks later to buy your wheat at the higher price.
+4. Open `#ruler` and read Sparta's terms, or open any city's page (Tab, then click a city) to compare prices across Greece. On the map, hover a caravan on the road or a foreign ship at sea.
+5. Open `#buywine`, `#routes` or `#caravan`: the watch post and the architect's office now stand by the caravan yard.
+
+Each link also opens paused if you add `-paused` (for example `#famine-paused`).
+
+### What I'd like your eye on
+- **The prices block on a city's page.** Each good has a price, an arrow, a chart and, if something is moving it, a reason line. Is that readable at a glance, or is it too much on one page, with the ruler and the trade routes too?
+- **The little charts.** They are 84 by 24 pixels, with the usual price as a faint dashed line and a dot at today. Can you read the slide in `#prices`, and the jump in `#famine`?
+- **How fast prices move and recover.** In `#prices` the oil you sold in a year took Corinth's price from 90 down to 50 at its lowest, and the push behind a sale wears off by about a third in two months. Does that make selling the same thing to the same city a choice worth thinking about, without punishing it too much?
+- **How often harvests fail.** About one year in fourteen per city, with four cities, so somewhere in Greece most years has a poor or failed harvest. Is that the right rhythm of news?
+
+### Known rough edges
+- The terms don't change yet, since the moods don't (that is slice 18), and in the demos they are only 2%, so they barely show there.
+- `#prices` takes about a second longer to open than the other trade demos (about 4 seconds), since it plays the town on from its founding for four years first.
+- Wheat's arrow can point down while the reason still says "dear": that is the price easing back after a failed harvest. The reason line says "easing" then, but the arrow on its own can look contradictory.
+- A city's page now runs long (the ruler, the prices, the routes). On a laptop screen it scrolls.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `b8de6cd` (the end of slice 16's review), each build measured twice, alternating.
+
+| | Before | After |
+|---|---|---|
+| Tests | 252 in 23 files | 266 in 24 files, all passing (14 new for moving prices) |
+| Bundle | 4 files, 1,303 KB raw, 383 KB gzipped | 4 files, 1,316 KB raw, 387 KB gzipped |
+| Load, bare link, first frame (page clock) | 2.96 s, 2.34 s | 3.48 s, 2.35 s (as noisy as before: the second runs of each were alike) |
+| `#town`: triangles and draws, save | 799,168, 83; 140 KB | the same; 141 KB |
+| `#richtown`: triangles and draws, save | 910,707, 95; 177 KB | the same; 178 KB |
+| Work before drawing a frame, running: `#town`, `#quay`, `#richtown` | 10.2 and 11.3 ms; 7.6 and 6.5 ms; 12.4 and 17.0 ms | 11.5 and 12.9 ms; 6.6 and 7.0 ms; 15.5 and 13.0 ms |
+| `#caravan`: triangles and draws following the caravan; ready (page clock) | 529,303, 40; 3.29 s and 3.44 s | 516,365, 39 (the watch post and the architect's office by the yard); 3.53 s and 3.60 s |
+| `#prices`: map triangles and draws; ready (page clock); work a frame | | 304,642, 22; 4.43 s and 4.03 s; 4.9 and 6.4 ms |
+| `#famine`: map triangles and draws; ready; work a frame | | 304,206, 22; 3.49 s and 3.71 s; 6.1 and 5.5 ms |
+| The map of Greece, first open: built in | 0.29 s, 0.35 s | 0.30 s, 0.35 s |
+| The 64 demos before slice 16 | | each opens and plays 900 ticks on exactly as before |
+
 ## Slice 16 — Routes and traders (17 Oct)
 
 Greece reaches into the city: you can open trade routes from the map, build a caravan yard, and watch donkeys from Corinth walk down your main street and an Athenian ship tie up at your jetty, buying your surplus and bringing what you ordered. You weren't here while it was built: every choice below is mine, from the spec's defaults.
