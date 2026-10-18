@@ -54,9 +54,11 @@ export const ASK_AFTER = 6 * TICKS_PER_MONTH;
 export const MOST_OPEN = 2;
 /** A ruler waits this long after their last deal was settled before the next. */
 const ASK_GAP = 3 * TICKS_PER_MONTH;
+/** Greece waits this long after any ruler's last new deal before the next (so they come now and then, not one on another's heels). */
+export const GREECE_GAP = 2 * TICKS_PER_MONTH;
 
 /** Requests: how often (a month in so many), three times as often after a poor or failed harvest (for four months); how big (a share of a fair gift, in measures and in coin); within how long. */
-const REQUEST_ODDS = 1 / 10;
+const REQUEST_ODDS = 1 / 14;
 const HUNGRY_ODDS = 3;
 const HUNGRY_FOR = 4 * TICKS_PER_MONTH;
 const REQUEST_VALUE = 0.6;
@@ -80,10 +82,12 @@ export const OFFER_KEPT = 0.25;
 const OFFER_OFF = 0.8;
 /** How much more than their usual yearly limit a ruler offers to buy. */
 const OFFER_MORE = 1.25;
+/** An offer to buy a good of yours needs this much of it in store beyond what the city keeps (or some sold this year). */
+const OFFER_SPARE = 300;
 
-/** Tribute: how often, never within a year of their last, how big (a fair gift's worth), yearly one time in three at three fifths of it, for three years; within how long. */
-const TRIBUTE_ODDS = 1 / 8;
-const TRIBUTE_GAP = TICKS_PER_YEAR;
+/** Tribute: how often, never within two years of their last, how big (a fair gift's worth), yearly one time in three at three fifths of it, for three years; within how long. */
+const TRIBUTE_ODDS = 1 / 10;
+const TRIBUTE_GAP = 2 * TICKS_PER_YEAR;
 const TRIBUTE_VALUE = 1;
 const TRIBUTE_YEARLY = 1 / 3;
 const TRIBUTE_YEARLY_SHARE = 0.6;
@@ -209,8 +213,8 @@ export function answerMemory(c: WorldCity, a: Answer, why: string, tick: number,
 /** Remember an answer, and say so: the line of news, with the mood's turn if it turned. */
 function remember(s: SimState, d: Deal, m: Memory, line: string): void {
   const c = cityOf(s.world, d.city);
-  // (A promise stands only until what follows it.)
-  if (m.kind !== 'promise') c.memories = c.memories.filter((x) => x.kind !== 'promise');
+  // (A promise stands only until what follows it: this deal's own, not an offer's year ending meanwhile.)
+  if (m.kind !== 'promise' && d.promised) c.memories = c.memories.filter((x) => x.kind !== 'promise');
   if (m.amount !== 0) c.memories.push(m);
   const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
   if (line) news(s.world, s.tick, d.city, `${line}${m.amount !== 0 ? ` (${signed(m.amount)})` : ''}${turn ? `. ${turn}` : ''}`);
@@ -229,6 +233,9 @@ function close(s: SimState, d: Deal, state: Deal['state']): void {
 
 /** Greece's dice for a month, a city and a purpose (a hash: Greece's own generator, and the harvests it draws, are never touched). */
 const dice = (w: World, month: number, i: number, salt: number): number => hash2(month, i * 37 + salt, (w.seed ^ 0x66617673) | 0);
+
+/** Could your city send goods to a ruler at all (a caravan yard with a road out to theirs, or a trading post on a lane to them)? */
+const canSendGoods = (s: SimState, map: CoastMap, city: CityId): boolean => !('why' in giftWay(s, map, city, false));
 
 /** Does your city make a trade good (has the workplace that makes it)? */
 const makes = (s: SimState, k: number): boolean => s.buildings.some((b) => b.kind === MAKERS[k]);
@@ -353,16 +360,21 @@ function free(s: SimState, c: WorldCity): boolean {
   return !s.world.deals.some((d) => d.city === c.id && (d.state === 'open' || (d.ended > 0 && s.tick - d.ended < ASK_GAP)));
 }
 
+/** A year's offer of a ruler's that you took, still running (they make no other until it ends). */
+const offerRunning = (w: World, city: CityId): boolean => w.deals.some((d) => d.city === city && d.kind === 'offer' && d.state === 'taken');
+
 /**
- * On the first of each month, once your first route is six months old and
- * fewer than two deals are open: each ruler in turn, if free, may demand
- * tribute (if they can), else ask a favour (wary or better), else make an
- * offer (pleased, with a route open). One new deal a month at most.
+ * On the first of each month, once your first route is six months old,
+ * fewer than two deals are open and none was made in the last two months:
+ * each ruler in turn, if free, may demand tribute (if they can), else ask a
+ * favour (wary or better), else make an offer (pleased, with a route open,
+ * and none of theirs running). One new deal at a time.
  */
 function asks(s: SimState, map: CoastMap): void {
   const w = s.world;
   const first = firstRoute(w);
   if (!first || s.tick - first < ASK_AFTER || openDeals(w).length >= MOST_OPEN) return;
+  if (w.deals.some((d) => s.tick - d.at < GREECE_GAP)) return;
   const month = Math.floor(s.tick / TICKS_PER_MONTH);
   for (let i = 0; i < w.cities.length; i++) {
     const c = w.cities[i];
@@ -377,7 +389,7 @@ function tribute(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   if (w.deals.some((d) => d.kind === 'tribute' && d.city === c.id && s.tick - Math.max(d.at, d.ended) < TRIBUTE_GAP)) return false;
   if (dice(w, month, i, 1) >= TRIBUTE_ODDS) return false;
   const { buys } = sellsAndBuys(c);
-  const goods = buys.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 400);
+  const goods = canSendGoods(s, map, c.id) ? buys.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 400) : [];
   const good = goods.length && dice(w, month, i, 2) < 0.4 ? goods[Math.floor(dice(w, month, i, 3) * goods.length)] : -1;
   const yearly = dice(w, month, i, 4) < TRIBUTE_YEARLY;
   makeTribute(s, map, c, good, tributeSize(s, c, good, yearly), yearly);
@@ -391,7 +403,8 @@ function request(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   if (dice(w, month, i, 11) >= REQUEST_ODDS * (hungry ? HUNGRY_ODDS : 1)) return false;
   const { buys } = sellsAndBuys(c);
   const wants = hungry && !buys.includes(0) ? [0, ...buys] : buys;
-  const goods = wants.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 300);
+  // (Goods only if your city could send them to them at all: a yard with a road out, or a post on a lane to them; else coin.)
+  const goods = canSendGoods(s, map, c.id) ? wants.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 300) : [];
   // (After a poor or failed harvest they ask for wheat if you have it.)
   const good = hungry && goods.includes(0) ? 0 : goods.length && dice(w, month, i, 12) >= COIN_ODDS ? goods[Math.floor(dice(w, month, i, 13) * goods.length)] : -1;
   if (good < 0) makeRequest(s, map, c, -1, requestCoin(s), COIN_WHYS[Math.floor(dice(w, month, i, 14) * COIN_WHYS.length)]);
@@ -399,14 +412,22 @@ function request(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   return true;
 }
 
+/** Can this ruler make you an offer now: pleased, with a route of theirs open, and no year's deal of theirs already running? */
+export function mayOffer(s: SimState, c: WorldCity): boolean {
+  return moodOf(c, s.tick) >= OFFER_PLEASED && !offerRunning(s.world, c.id) && s.world.routes.some((r) => r.city === c.id && r.closed === 0);
+}
+
+/** The goods of yours a ruler would offer to buy: ones they are short of that your city makes and has to spare (some sold to a trader this year, or enough beyond the keep figure in store now), so the year's deal can be kept. */
+export function offerGoods(s: SimState, c: WorldCity): number[] {
+  return sellsAndBuys(c).buys.filter((k) => makes(s, k) && (s.world.routes.some((r) => r.sold[k] > 0) || cityHolds(s, TRADE_GOODS[k]) - s.trade.keep[k] >= OFFER_SPARE));
+}
+
 function offer(s: SimState, c: WorldCity, month: number, i: number): boolean {
   const w = s.world;
-  const mood = moodOf(c, s.tick);
-  if (mood < OFFER_PLEASED) return false;
-  if (!w.routes.some((r) => r.city === c.id && r.closed === 0)) return false;
-  if (dice(w, month, i, 21) >= OFFER_ODDS * (mood >= 30 ? 2 : 1)) return false;
-  const { sells, buys } = sellsAndBuys(c);
-  const yours = buys.filter((k) => makes(s, k));
+  if (!mayOffer(s, c)) return false;
+  if (dice(w, month, i, 21) >= OFFER_ODDS * (moodOf(c, s.tick) >= 30 ? 2 : 1)) return false;
+  const { sells } = sellsAndBuys(c);
+  const yours = offerGoods(s, c);
   if (yours.length) makeOffer(s, c, yours[Math.floor(dice(w, month, i, 22) * yours.length)], 'buy');
   else if (sells.length) makeOffer(s, c, sells[Math.floor(dice(w, month, i, 23) * sells.length)], 'sell');
   else return false;

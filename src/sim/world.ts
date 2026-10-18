@@ -595,13 +595,24 @@ export function termsOf(c: WorldCity, tick: number): number {
  * sell (less their terms). The market price for one they neither buy nor sell.
  */
 export function yourPrice(w: World, city: CityId, k: number, tick: number): number {
-  const c = cityOf(w, city);
+  return withTerms(cityOf(w, city), k, cityOf(w, city).price[k], tick);
+}
+
+/** A market price for a hundred of a good with a city's terms on it (yourPrice's). */
+function withTerms(c: WorldCity, k: number, price: number, tick: number): number {
   const t = termsOf(c, tick);
-  if (t === 0) return c.price[k];
+  if (t === 0) return price;
   const { sells, buys } = sellsAndBuys(c);
-  if (buys.includes(k)) return Math.max(1, Math.round((c.price[k] * (100 + t)) / 100));
-  if (sells.includes(k)) return Math.max(1, Math.round((c.price[k] * (100 - t)) / 100));
-  return c.price[k];
+  if (buys.includes(k)) return Math.max(1, Math.round((price * (100 + t)) / 100));
+  if (sells.includes(k)) return Math.max(1, Math.round((price * (100 - t)) / 100));
+  return price;
+}
+
+/** Your price with a city for a good if you sold it `n` more now (bought, if negative), before any of it wore off: where selling pushes it (for an offer's page). */
+export function priceAfter(w: World, city: CityId, k: number, n: number, tick: number): number {
+  const c = cityOf(w, city);
+  if (!c.ruler) return yourPrice(w, city, k, tick);
+  return withTerms(c, k, Math.max(1, Math.round(rawPrice(c, k, c.yours[k] + n))), tick);
 }
 
 // ---------------------------------------------------------------------------

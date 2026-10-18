@@ -136,7 +136,8 @@ export class GreeceMap {
     const layer = document.createElement('div');
     layer.className = 'greece-labels';
     layer.hidden = true;
-    host.ui.appendChild(layer);
+    // (First in the page's overlay, so the lines under the top bar and the panels stand over the cities' labels.)
+    host.ui.prepend(layer);
     this.layer = layer;
     for (const id of CITY_IDS) {
       const el = document.createElement('div');

@@ -1075,7 +1075,7 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
 }
 
 /** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
-function dealTownLine(s: SimState, map: CoastMap): TownLine | null {
+function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal } | null {
   const open = openDeals(s.world);
   if (!open.length) return null;
   const rank = (d: Deal): number => (d.kind === 'offer' ? 2 : d.gift ? 1 : 0);
@@ -1096,7 +1096,7 @@ function dealTownLine(s: SimState, map: CoastMap): TownLine | null {
     text = `You promised ${name} ${words} and nothing has gone: send it ${dueWords(s, d)}, from ${whose} page, or your word is broken${late ? ` (it would arrive late now, for half the thanks, but sending it keeps your word)` : ''}`;
   }
   else text = `${name} asks for ${words} ${dueWords(s, d)}: ${d.why}. Answer on ${whose} page`;
-  return { need: 'favour', text: `${text}${more}.`, at: 0, route: d.city };
+  return { line: { need: 'favour', text: `${text}${more}.`, at: 0, route: d.city }, deal: d };
 }
 
 /** Workers with no road to the jobs left, before the workers line names them rather than asking for more homes. */
@@ -1117,10 +1117,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (trader) out.unshift(trader);
   // What a ruler waits on you for (a request, an offer, tribute), while it is open.
   const deal = dealTownLine(s, map);
-  if (deal) out.push(deal);
-  // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time.
+  if (deal) out.push(deal.line);
+  // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
-  if (news) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  if (news && !(deal && news.item.city === deal.deal.city && news.item.tick === deal.deal.at)) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);

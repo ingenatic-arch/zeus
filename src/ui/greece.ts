@@ -11,14 +11,14 @@ import { hash2 } from '../map/noise';
 import { dateOfTick, formatDate, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
 import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
-import { caravansOnMap, everyOf, routeOf, visitorOnMap, wareList } from '../sim/routes';
+import { caravansOnMap, everyOf, keptIn, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
 import { againstDue, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { waysHtml } from './routes';
-import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
+import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
 export type CityTab = 'ruler' | 'prices' | 'trade';
@@ -341,10 +341,10 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
       const done = d.done >= bound;
       return `<div class="deal offer taken">${dealIcon(d)}<div><b>Your year’s deal</b>: ${esc(name)} ${d.side === 'buy' ? `buys your ${ware} at ${d.price} a hundred, however much you sell` : `sells you ${ware} at ${d.price} a hundred`}, up to ${fmt(d.amount)}, until ${esc(dayWords(d.until))}.
 <div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i><s style="left:${(OFFER_KEPT * 100).toFixed(0)}%"></s></div>
-<p class="if">${fmt(d.done)} ${d.side === 'buy' ? 'sold' : 'bought'} so far${done ? `: enough to keep your word (${fmt(bound)})` : `: at least ${fmt(bound)} by then to keep your word, or it counts as a promise broken (${signed(w.reneged?.amount ?? 0)})`}. The market pays ${today} today.</p></div></div>`;
+<p class="if">${fmt(d.done)} ${d.side === 'buy' ? 'sold' : 'bought'} so far${done ? `: enough to keep your word (${fmt(bound)})` : `: at least ${fmt(bound)} by then to keep your word, or it counts as a promise broken (${signed(w.reneged?.amount ?? 0)})`}. The market ${d.side === 'buy' ? 'pays' : 'asks'} ${today} today.${d.side === 'buy' && !done ? esc(spareWords(s, d)) : ''}</p></div></div>`;
     }
     return `<div class="deal offer">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} offers</b> ${esc(offerWords(d))}. <span class="why">${esc(cap(d.why))}.</span>
-<p class="if">${d.side === 'buy' ? `Without it, the price ${esc(name)} pays falls as you sell (${today} today).` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
+<p class="if">${d.side === 'buy' ? `Without it, what ${esc(name)} pays falls as you sell: ${today} today, about ${priceAfter(s.world, d.city, d.good, d.amount, s.tick)} after another ${fmt(d.amount)} (and it comes back only slowly).${esc(spareWords(s, d))}` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
 <div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
   }
   if (d.kind === 'tribute') {
@@ -370,6 +370,16 @@ ${acts}${etaLine(s, map, d)}<p class="if">${d.gift ? '' : `Refused, or let run o
       : `Let run out: ${signed(w.lapsed?.amount ?? 0)}. Promised and not sent by the day: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}.`;
   return `<div class="deal request${d.promised ? ' promised' : ''}${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} asks for ${esc(words)}</b>, ${esc(dueWords(s, d))}${d.promised && !d.gift ? ' · <i>you promised it</i>' : ''}. <span class="why">${esc(cap(d.why))}.</span>
 ${acts}${etaLine(s, map, d)}${stakes ? `<p class="if">${esc(stakes)}</p>` : ''}</div></div>`;
+}
+
+/** For an offer to buy your goods: what your stores hold beyond the keep figure, and whether that is too little for the deal (" Your storehouses hold 650 oil and keep 800: none goes until you keep less, on the Trade tab."). */
+function spareWords(s: SimState, d: Deal): string {
+  const ware = WARE_NAMES[TRADE_GOODS[d.good]];
+  const holds = cityHolds(s, TRADE_GOODS[d.good]);
+  const keep = s.trade.keep[d.good];
+  const where = keptIn(d.good);
+  if (holds <= keep) return ` Your ${where} hold ${fmt(holds)} ${ware} and keep ${fmt(keep)}: none goes until you make more or keep less (the Trade tab).`;
+  return ` Your ${where} hold ${fmt(holds)} ${ware}, and keep ${fmt(keep)}.`;
 }
 
 /** "the king", "the archon", "the lady". */

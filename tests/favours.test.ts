@@ -25,6 +25,8 @@ import {
   makeRequest,
   makeTribute,
   mayDemand,
+  mayOffer,
+  offerGoods,
   MOST_OPEN,
   OFFER_KEPT,
   offerLeft,
@@ -45,7 +47,7 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Deal, type SimState, type Trait, type WorldCity } from '../src/sim/state';
 import { newsNow, townLines } from '../src/sim/status';
 import { bookNow } from '../src/sim/stocks';
-import { cityHolds } from '../src/sim/trade';
+import { cityHolds, TRADE_GOODS } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { cityOf, COLD, freshWorld, moodOf, yourPrice } from '../src/sim/world';
 
@@ -306,6 +308,57 @@ describe('an offer', () => {
     sim.run(2 * TICKS_PER_DAY);
     expect(d.state).toBe('lapsed');
     expect(c.memories.length).toBe(n);
+  });
+});
+
+describe('an offer, and what else is going on', () => {
+  it('to sell you a good: a fifth off today’s price, the trader’s imports paid at it and counted under it', () => {
+    const sim = fresh('buywine');
+    const s = sim.state;
+    const c = cityOf(s.world, 'corinth');
+    const WINE_K = 5;
+    const today = yourPrice(s.world, 'corinth', WINE_K, s.tick);
+    const d = makeOffer(s, c, WINE_K, 'sell');
+    expect(d.price).toBe(Math.round(today * 0.8));
+    send(sim, { type: 'answer', deal: d.id, act: 'take' });
+    expect(routeOf(s, 'corinth', 'land')!.buy[WINE_K]).toBe(true);
+    expect(until(sim, () => d.done > 0, 6 * TICKS_PER_MONTH)).toBe(true);
+    const line = s.ledger.now.concat(s.ledger.last).find((l) => l.kind === 'imports' && /wine/.test(l.what))!;
+    expect(line).toBeDefined();
+    expect((-line.amount * 100) / line.n).toBeLessThanOrEqual(d.price + 1);
+    ledgerAddsUp(s);
+  }, 120000);
+
+  it('none to buy a good your city has none to spare of, and no second offer while one of theirs runs', () => {
+    const sim = fresh('caravan');
+    const s = sim.state;
+    const c = cityOf(s.world, 'corinth');
+    c.memories.push({ kind: 'staged', why: 'x', amount: 40, tick: s.tick, fade: 10 * TICKS_PER_YEAR });
+    expect(mayOffer(s, c)).toBe(true);
+    // (Oil: the town makes it, sells none, and keeps more than it holds.)
+    for (const r of s.world.routes) r.sold[OIL_K] = 0;
+    s.trade.keep[OIL_K] = cityHolds(s, TRADE_GOODS[OIL_K]) + 100;
+    expect(offerGoods(s, c)).not.toContain(OIL_K);
+    s.trade.keep[OIL_K] = 0;
+    if (cityHolds(s, TRADE_GOODS[OIL_K]) >= 300) expect(offerGoods(s, c)).toContain(OIL_K);
+    const d = makeOffer(s, c, OIL_K, 'buy');
+    send(sim, { type: 'answer', deal: d.id, act: 'take' });
+    expect(mayOffer(s, c)).toBe(false);
+  });
+
+  it('a promise to a ruler stands until its own request is settled, not when their year’s deal ends meanwhile', () => {
+    const sim = fresh('prices');
+    const s = sim.state;
+    const c = cityOf(s.world, 'corinth');
+    const o = makeOffer(s, c, OIL_K, 'buy');
+    send(sim, { type: 'answer', deal: o.id, act: 'take' });
+    const r = ask(s, 'corinth', -1);
+    send(sim, { type: 'answer', deal: r.id, act: 'promise' });
+    o.done = o.amount;
+    o.until = s.tick + TICKS_PER_DAY;
+    sim.run(2 * TICKS_PER_DAY);
+    expect(o.state).toBe('kept');
+    expect(c.memories.some((m) => m.kind === 'promise')).toBe(true);
   });
 });
 
