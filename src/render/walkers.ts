@@ -867,7 +867,8 @@ export class Walkers {
       this.c.copy(colour);
       if (!moving) this.c.multiplyScalar(-1);
       (k === 0 ? this.drovers : this.donkeys).push(this.m, this.c);
-      if (k === 0) {
+      // Hovered, clicked and followed by the middle of the string, so pointing at any of it finds it.
+      if (k === Math.ceil(w.people / 2)) {
         const v = this.serviceAt.get(w.id);
         if (v) v.pos.copy(this.p);
         else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'caravan' });

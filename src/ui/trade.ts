@@ -135,7 +135,7 @@ ${routeNewsBlock(s, r)}
 ${routeWarnings(s, r).map((w) => `<div class="late">${esc(w)}</div>`).join('')}
 <section class="routegoods">${routeGoods(s, r)}${people ? `<p class="dockers">${esc(people)}</p>` : ''}</section>
 <section><h3>The last ${r.kind === 'land' ? 'caravan' : 'ship'}</h3>${routeLast(r)}</section>
-<p class="foot">Prices are per 100; each city buys and sells only so much a year. What you sell goes beyond what the city keeps; what you buy is unloaded and paid for as the trader arrives, as much as the treasury can pay for then.</p>`;
+<p class="foot">Prices are per 100; each city buys and sells only so much a year. What you sell goes beyond what the city keeps; what you buy is unloaded and paid for as the trader arrives, as much as the treasury can spare then (it keeps back a month’s wages).</p>`;
 }
 
 /** The caravan yard's tab, while no road is open. */

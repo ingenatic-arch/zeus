@@ -11,12 +11,16 @@
  * one figure the trading post has always had (`trade.keep`), shared by every
  * route: there is only one surplus in the stores.
  *
- * Caravans: one every LAND_EVERY. It travels the road on the map of Greece (a
- * `trader` traveller, at a pure function of the tick), steps onto your map at
- * the edge road nearest its city, walks the roads to the yard, trades for
- * TRADE_TICKS (unloading what you ordered on arrival, taking what is at the
- * yard of what it buys over the days, paying as it leaves) and walks out the
- * way it came, then home along the road on the map.
+ * Caravans: one every LAND_EVERY, counted from when the last stepped onto
+ * your map. It travels the road on the map of Greece (a `trader` traveller,
+ * at a pure function of the tick), steps onto your map at the edge road
+ * nearest its city, walks the roads to the yard, trades for TRADE_TICKS
+ * (unloading what you ordered on arrival, taking what is at the yard of what
+ * it buys over the days, paying as it leaves) and walks out the way it came,
+ * then home along the road on the map. The next sets off from home while the
+ * last is still in the city, so with a yard far from the edge one can be
+ * walking in as another walks out; only one trades at a time (one that
+ * reaches the gate while another trades waits its turn there).
  *
  * Ships: one every SEA_EVERY, sailing her lane between her city and your
  * gulf as the Tyre ship does (visitorOnMap), then into the bay along the Tyre
@@ -72,7 +76,7 @@ import {
   underWay,
   DEFAULT_KEEP,
 } from './trade';
-import { income, pay, spendable } from './treasury';
+import { income, pay, spendable, wageBill } from './treasury';
 import { CARAVAN_SPEED, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
 import { cityOf, moodOf, moodWord, sellsAndBuys, VOYAGE } from './world';
 
@@ -277,11 +281,18 @@ function takeShare(s: SimState, r: TradeRoute, depot: Building, share: number, l
 }
 
 /**
+ * What the treasury can spend on imports now: what building could spend
+ * (spendable), less a month's wages, so a big order never leaves the
+ * workplaces unpaid on the first of the month.
+ */
+export const importPurse = (s: SimState): number => Math.max(0, spendable(s) - wageBill(s));
+
+/**
  * What the trader unloads for you on arrival: for each good you buy from it,
  * enough to bring the stores up to what you stock up to (counting what is
  * already at the depot or on its way back to the stores), up to the year's
- * limit, what fits at the depot, and what the treasury can pay for now. Paid
- * at once.
+ * limit, what fits at the depot, and what the treasury can spare for it now
+ * (importPurse). Paid at once.
  */
 function unload(s: SimState, r: TradeRoute, depot: Building): void {
   const c = cityOf(s.world, r.city);
@@ -292,9 +303,10 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     const want = r.upto[k] - cityHolds(s, w) - held(depot, w) - inHand(s, depot, w).returning;
     const left = yearlyLimit(s, r.city, k) - r.bought[k];
     const price = Math.max(1, c.price[k]);
-    let n = Math.min(want, left, depotRoom(depot, w), Math.floor((spendable(s) * 100) / price));
+    const purse = importPurse(s);
+    let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
     n = Math.floor(n / 10) * 10;
-    while (n > 0 && priceAt(s, r.city, k, n) > spendable(s)) n -= 10;
+    while (n > 0 && priceAt(s, r.city, k, n) > purse) n -= 10;
     if (n < MIN_IMPORT) continue;
     const dr = priceAt(s, r.city, k, n);
     pay(s, -dr, 'imports', `${WARE_NAMES[w]} from ${cityName(r.city)}`, n);
@@ -339,7 +351,8 @@ export const donkeysOf = (city: CityId): number => (city === 'corinth' ? 5 : 4);
 /** The caravan of a land route in the city now, if there is one. */
 export const caravanOf = (s: SimState, city: CityId): Walker | undefined => {
   const ci = CITY_IDS.indexOf(city);
-  return s.walkers.find((w) => w.kind === 'caravan' && w.food === ci && !w.back) ?? s.walkers.find((w) => w.kind === 'caravan' && w.food === ci);
+  const mine = (w: Walker): boolean => w.kind === 'caravan' && w.food === ci;
+  return s.walkers.find((w) => mine(w) && w.wait > 0) ?? s.walkers.find((w) => mine(w) && !w.back) ?? s.walkers.find(mine);
 };
 
 /** The caravan's route (by its city). */
@@ -392,9 +405,6 @@ export function caravanEntry(s: SimState, size: number, yard: Building, city: Ci
 
 /** A land route's schedule and its caravan on the map; the caravan in the city moves itself (moveCaravan). */
 function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
-  // One caravan at a time comes in and trades; the next can be on its way while the last walks out.
-  const here = caravanOf(s, r.city);
-  if (here && !here.back) return;
   const way = (routeWay(r.city, 'land') as RouteWay).way;
   const coming = caravanTraveller(s, r.city, false);
   if (!coming) {
@@ -403,8 +413,9 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     return;
   }
   if (s.tick < coming.start + coming.dur) return;
-  // At your map's edge: in by the road to the yard, or back home if there is none.
+  // At your map's edge: in by the road to the yard, or back home if there is none. Either way the next is due LAND_EVERY after this one was.
   s.world.travellers = s.world.travellers.filter((t) => t !== coming);
+  nextCaravan(s, r);
   const yard = caravanYard(s);
   const entry = yard ? caravanEntry(s, map.size, yard, r.city) : null;
   if (!yard || !entry) {
@@ -421,7 +432,7 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
   s.walkers.push(w);
 }
 
-/** The caravan in the city is done (heading out, or turned back): the next is due LAND_EVERY after this one was, and not before tomorrow. */
+/** A caravan has come to your map's edge: the next is due LAND_EVERY after this one was, and not before tomorrow. */
 function nextCaravan(s: SimState, r: TradeRoute): void {
   if (r.next <= s.tick) r.next = Math.max(r.next + LAND_EVERY, s.tick + TICKS_PER_DAY);
 }
@@ -429,7 +440,6 @@ function nextCaravan(s: SimState, r: TradeRoute): void {
 /** A caravan heads home along the road on the map. */
 function homeward(s: SimState, r: TradeRoute): void {
   s.world.travellers.push({ kind: 'trader', city: r.city, way: (routeWay(r.city, 'land') as RouteWay).way, start: s.tick, dur: landTicks(r.city), homeward: true });
-  nextCaravan(s, r);
 }
 
 /** A trader turned back without trading: why, for the panels and the town line. */
@@ -482,7 +492,6 @@ function rerouteCaravan(s: SimState, map: CoastMap, w: Walker, r: TradeRoute | u
   if (!w.back && r) {
     r.missedAt = s.tick;
     r.missed = yard ? 'road' : 'yard';
-    nextCaravan(s, r);
   }
   return headOut(s, map, w);
 }
@@ -490,11 +499,27 @@ function rerouteCaravan(s: SimState, map: CoastMap, w: Walker, r: TradeRoute | u
 /** It has left your map: home along the road on the map. */
 function caravanGone(s: SimState, w: Walker): false {
   const r = caravanRoute(s, w);
-  if (r) {
-    if (r.hold.some((n) => n > 0) || r.unloaded.some((n) => n > 0)) settle(s, r);
-    homeward(s, r);
-  }
+  if (r) homeward(s, r);
   return false;
+}
+
+/** Another caravan of the same city trading at the yard now (one that reaches the gate meanwhile waits its turn). */
+const tradingNow = (s: SimState, w: Walker): boolean => s.walkers.some((o) => o !== w && o.kind === 'caravan' && o.food === w.food && o.wait > 0 && !o.back);
+
+/** The trader is done: it pays (settle), and the caravan remembers what it paid, for its tip on the way out. */
+function settleCaravan(s: SimState, r: TradeRoute, w: Walker): void {
+  settle(s, r);
+  w.load = r.lastPaid;
+}
+
+/** At the yard's gate: it unloads what you ordered, then trades for TRADE_TICKS. */
+function arrive(s: SimState, r: TradeRoute, yard: Building, w: Walker): void {
+  r.hold = zeros();
+  r.unloaded = zeros();
+  r.cost = 0;
+  unload(s, r, yard);
+  w.wait = TRADE_TICKS;
+  w.since = s.tick;
 }
 
 /** Move a caravan one tick along: in to the yard, trading there, and out again. False when it has left the map. */
@@ -505,8 +530,7 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
     // Trading at the yard: a share of what is there each day, all of it on the last; then it pays and heads out.
     if (!yard || !r) {
       w.wait = 0;
-      if (r && r.hold.some((n) => n > 0)) settle(s, r);
-      if (r) nextCaravan(s, r);
+      if (r) settleCaravan(s, r, w);
       return headOut(s, map, w) || caravanGone(s, w);
     }
     w.wait--;
@@ -517,9 +541,13 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
       takeShare(s, r, yard, 1 / (days - day + 1), day >= days);
     }
     if (w.wait > 0) return true;
-    settle(s, r);
-    nextCaravan(s, r);
+    settleCaravan(s, r, w);
     return headOut(s, map, w) || caravanGone(s, w);
+  }
+  // Waiting its turn at the gate while another caravan of its city trades.
+  if (!w.back && yard && r && w.seg >= w.path.length / 2 - 1) {
+    if (!tradingNow(s, w)) arrive(s, r, yard, w);
+    return true;
   }
   // The way ahead cut, or the yard gone, on the way in: find another, or head out.
   const next = w.tiles[w.seg + 1];
@@ -547,15 +575,12 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
       continue;
     }
     if (w.back) return caravanGone(s, w);
-    // At the yard's gate: it unloads what you ordered, then trades.
+    // At the yard's gate: it unloads what you ordered, then trades (or waits its turn, if another caravan of its city is trading).
     if (!yard || !r) {
       if (!headOut(s, map, w)) return caravanGone(s, w);
       break;
     }
-    r.hold = zeros();
-    unload(s, r, yard);
-    w.wait = TRADE_TICKS;
-    w.since = s.tick;
+    if (!tradingNow(s, w)) arrive(s, r, yard, w);
     break;
   }
   return true;
@@ -826,6 +851,8 @@ export interface TraderNews {
 /** A route's trader's news. */
 export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   const name = cityName(r.city);
+  // "Corinth’s", "Athens’".
+  const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
   const who = `${r.city}-${r.kind}`;
   const missed = r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH ? MISSED[r.missed] : '';
   if (r.kind === 'land') {
@@ -834,10 +861,10 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
       const days = daysTo(s, s.tick + w.wait);
       const so = r.hold.some((n) => n > 0) ? ` · bought so far: ${wareList(r.hold)}` : '';
       const brought = r.unloaded.some((n) => n > 0) ? ` · it brought ${wareList(r.unloaded)}` : '';
-      return { phase: 2, days, chip: 'At yard', short: `${name}’s caravan trading`, line: `The caravan from ${name} is trading at the yard: it pays and heads home in ${dayWords(days)}${brought}${so}`, who, kind: 'land' };
+      return { phase: 2, days, chip: 'At yard', short: `${whose} caravan trading`, line: `The caravan from ${name} is trading at the yard: it pays and heads home in ${dayWords(days)}${brought}${so}`, who, kind: 'land' };
     }
-    if (w && !w.back) return { phase: 1, days: 0, chip: 'In town', short: `${name}’s caravan coming in`, line: `The caravan from ${name} is in the city, on its way to the caravan yard`, who, kind: 'land' };
-    if (w) return { phase: 3, days: 0, chip: 'Leaving', short: `${name}’s caravan leaving`, line: `The caravan from ${name} is heading home${r.lastPaid > 0 ? `: it paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'land' };
+    if (w && !w.back) return { phase: 1, days: 0, chip: 'In town', short: `${whose} caravan coming in`, line: `The caravan from ${name} is in the city, on its way to the caravan yard`, who, kind: 'land' };
+    if (w) return { phase: 3, days: 0, chip: 'Leaving', short: `${whose} caravan leaving`, line: `The caravan from ${name} is heading home${r.lastPaid > 0 ? `: it paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'land' };
     const coming = caravanTraveller(s, r.city, false);
     const days = daysTo(s, r.next);
     if (coming) return { phase: 1, days, chip: `${days} d`, short: `Caravan on the road · ${days} d`, line: `A caravan from ${name} is on the road: it reaches the edge of your map in ${dayWords(days)}`, who, kind: 'land' };
@@ -848,20 +875,20 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   if (v.phase === SHIP_COMING) {
     const days = daysTo(s, v.since + SAIL_IN);
     return v.stop < 1
-      ? { phase: 1, days, chip: `${days} d`, short: `${name}’s ship sighted`, line: `The ship from ${name} is sailing in: the jetty will be taken, so she anchors in the bay in ${dayWords(days)} and waits her turn`, who, kind: 'sea' }
-      : { phase: 1, days, chip: `${days} d`, short: `${name}’s ship sighted · ${days} d`, line: `The ship from ${name} is sailing in: she ties up at the jetty in ${dayWords(days)}`, who, kind: 'sea' };
+      ? { phase: 1, days, chip: `${days} d`, short: `${whose} ship sighted`, line: `The ship from ${name} is sailing in: the jetty will be taken, so she anchors in the bay in ${dayWords(days)} and waits her turn`, who, kind: 'sea' }
+      : { phase: 1, days, chip: `${days} d`, short: `${whose} ship sighted · ${days} d`, line: `The ship from ${name} is sailing in: she ties up at the jetty in ${dayWords(days)}`, who, kind: 'sea' };
   }
-  if (v.phase === SHIP_ANCHORED || v.phase === SHIP_BERTHING) return { phase: 1, days: 0, chip: 'Anchored', short: `${name}’s ship at anchor`, line: v.phase === SHIP_ANCHORED ? `The ship from ${name} is at anchor in the bay, waiting for the jetty` : `The ship from ${name} is coming alongside the jetty`, who, kind: 'sea' };
+  if (v.phase === SHIP_ANCHORED || v.phase === SHIP_BERTHING) return { phase: 1, days: 0, chip: 'Anchored', short: `${whose} ship at anchor`, line: v.phase === SHIP_ANCHORED ? `The ship from ${name} is at anchor in the bay, waiting for the jetty` : `The ship from ${name} is coming alongside the jetty`, who, kind: 'sea' };
   if (v.phase === SHIP_MOORED) {
     const days = daysTo(s, v.since + LOADING);
     const brought = r.unloaded.some((n) => n > 0) ? ` · she brought ${wareList(r.unloaded)}` : '';
     const so = r.hold.some((n) => n > 0) ? ` · loaded so far: ${wareList(r.hold)}` : '';
-    return { phase: 2, days, chip: 'In port', short: `${name}’s ship loading`, line: `The ship from ${name} is tied up at the jetty: she pays and sails in ${dayWords(days)}${brought}${so}`, who, kind: 'sea' };
+    return { phase: 2, days, chip: 'In port', short: `${whose} ship loading`, line: `The ship from ${name} is tied up at the jetty: she pays and sails in ${dayWords(days)}${brought}${so}`, who, kind: 'sea' };
   }
-  if (v.phase === SHIP_LEAVING) return { phase: 3, days: 0, chip: 'Sailed', short: `${name}’s ship sailed`, line: missed ? `The ship from ${name} turned back: ${missed}` : `The ship from ${name} has sailed${r.lastPaid > 0 ? `: she paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'sea' };
+  if (v.phase === SHIP_LEAVING) return { phase: 3, days: 0, chip: 'Sailed', short: `${whose} ship sailed`, line: missed ? `The ship from ${name} turned back: ${missed}` : `The ship from ${name} has sailed${r.lastPaid > 0 ? `: she paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'sea' };
   const days = daysTo(s, r.next);
   const back = missed ? `The last ship turned back: ${missed}. ` : '';
-  return { phase: 0, days, chip: `${days} d`, short: `${name}’s ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}`, who, kind: 'sea' };
+  return { phase: 0, days, chip: `${days} d`, short: `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}`, who, kind: 'sea' };
 }
 
 /** How the chip ranks news, by phase (due, coming, here, gone): here now first, then coming, then gone, then due soonest. */
@@ -886,7 +913,7 @@ export function caravanDoing(s: SimState, w: Walker): { title: string; detail: s
     const took = r.hold.some((x) => x > 0) ? `bought so far ${wareList(r.hold)}` : 'nothing bought yet';
     return { title, detail: `${n}, trading at the caravan yard for ${dayWords(daysTo(s, s.tick + w.wait))} more · ${brought}; ${took}` };
   }
-  if (w.back) return { title, detail: `${n}, heading home along the road${r && r.lastPaid > 0 && r.lastAt >= w.since ? ` · it paid ${fmt(r.lastPaid)} dr for ${wareList(r.lastSold)}` : ''}` };
+  if (w.back) return { title, detail: `${n}, heading home along the road${w.load > 0 ? ` · it paid ${fmt(w.load)} dr${r && r.lastPaid === w.load && r.lastAt >= w.since ? ` for ${wareList(r.lastSold)}` : ''}` : ''}` };
   const wants = r && r.buy.some((x) => x) ? ` · bringing what you buy from ${name}` : '';
   return { title, detail: `${n} and their drover, on their way to the caravan yard${wants}` };
 }

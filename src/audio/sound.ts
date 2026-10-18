@@ -16,7 +16,7 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan';
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -333,6 +333,11 @@ export class Sound {
         // A sail sighted: the harbour bell, three slow strokes.
         for (let i = 0; i < 3; i++) this.bell(0.05, 523, i * 0.55);
         break;
+      case 'caravan':
+        // A caravan in at the edge of the map: a donkey's bray, and the little bells on its harness.
+        this.bray(0.06, 0);
+        for (let i = 0; i < 5; i++) this.bell(0.014, 2093 + rand(-90, 90), 0.75 + i * 0.13 + rand(0, 0.04));
+        break;
       case 'map':
         // The map unrolled or put away: a soft rustle of parchment.
         this.swish(0.05, 2400, 900, 0.28);
@@ -523,6 +528,30 @@ export class Sound {
     o.connect(f).connect(this.env(gain, at, 0.12, 0.6));
     o.start(at);
     o.stop(at + 0.85);
+  }
+
+  /** A donkey's bray: a rough high "hee" breathed in, a low "haw" breathed out, twice. */
+  private bray(gain: number, delay: number): void {
+    const ctx = this.ctx as AudioContext;
+    for (let i = 0; i < 2; i++) {
+      for (const [f0, f1, start, len] of [
+        [620, 760, 0, 0.16],
+        [300, 240, 0.17, 0.22],
+      ] as const) {
+        const at = ctx.currentTime + delay + i * 0.42 + start;
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f0, at);
+        o.frequency.linearRampToValueAtTime(f1, at + len);
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = f0 * 1.6;
+        f.Q.value = 3;
+        o.connect(f).connect(this.env(gain * (i === 0 ? 1 : 0.8), at, 0.03, len));
+        o.start(at);
+        o.stop(at + len + 0.08);
+      }
+    }
   }
 
   /** A cart's wheel creaking. */

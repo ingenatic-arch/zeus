@@ -93,7 +93,7 @@ ${keepCell(s, k)}
 <td class="price" title="${esc(`${name} asks ${c.price[k]} dr for every 100 ${ware}: ${fmt(priceAt(s, r.city, k, 1000))} dr for 1,000`)}">${c.price[k]}</td>
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
-${uptoCell(r, k)}<td></td></tr>`;
+${uptoCell(r, k)}<td class="quay" title="${esc(`${fmt(depot ? held(depot, w) : 0)} ${ware} at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}${depot && held(depot, w) > 0 ? `, for the ${r.kind === 'land' ? 'porters' : 'dockers'} to carry to the ${keptIn(k)}` : ''}`)}">${depot && held(depot, w) > 0 ? fmt(held(depot, w)) : '·'}</td></tr>`;
     })
     .join('');
   const head = (what: string, fig: string, figTitle: string): string =>

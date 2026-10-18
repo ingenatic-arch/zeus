@@ -795,7 +795,7 @@ export class Tools {
       else lines.push(this.dockerTrips(at, roads));
     } else if (kind === 'yard') {
       lines.push('Its porters carry what the granaries and storehouses hold beyond what the city keeps to the yard, where caravans from Greece buy it and unload what you ordered');
-      lines.push('Open a land route on the map of Greece (the Greece tab, or the Tab key) and a caravan comes every two months, walking in by road from the edge of the map: the nearer the edge road, the sooner it is here and gone');
+      lines.push('Open a land route on the map of Greece (the Greece tab, or the Tab key) and a caravan comes every two months, walking in by road from the edge of the map: the nearer the edge road, the sooner it reaches the yard');
       if (roads.length === 0) warn = 'No road beside it: caravans couldn’t reach it and its porters couldn’t reach the stores. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its porters fetch from the granaries and storehouses: the city has none yet');
       else lines.push(this.dockerTrips(at, roads).replace('For its dockers', 'For its porters').replace('the quay fills', 'the yard fills'));

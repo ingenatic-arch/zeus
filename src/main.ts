@@ -37,7 +37,7 @@ import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
 import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
-import { shipNews, SHIP_COMING, tradingPost } from './sim/trade';
+import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
 import { SidePanel } from './ui/sidepanel';
@@ -338,6 +338,9 @@ function start(): void {
     if (!r) return;
     stopFollow();
     tradePanel.showTab(who);
+    // A caravan walking in: follow it down the street to the yard.
+    const walking = r.kind === 'land' ? caravanOf(sim.state, r.city) : undefined;
+    if (walking && !walking.back && walking.wait === 0) return startFollow(walking.origin, 'caravan', walking.id);
     const depot = r.kind === 'land' ? caravanYard(sim.state) : tradingPost(sim.state);
     if (!depot) return;
     const [cx, cz] = centreOf(depot);
@@ -1250,6 +1253,10 @@ function start(): void {
   let hazardTick = sim.state.tick;
   // The ship as last seen: her sail sighted rings the harbour bell; her paying floats the drachmas up from the quay.
   let shipSeen = { phase: sim.state.trade.ship.phase, visits: sim.state.trade.ship.visits };
+  // The routes' traders as last seen: a caravan coming in brays, a foreign ship sighted rings the bell, a trader paying floats its drachmas up from the yard or the quay.
+  const routesSeen = new Map<string, { phase: number; visits: number }>();
+  for (const r of sim.state.world.routes) routesSeen.set(`${r.city}-${r.kind}`, { phase: r.ship?.phase ?? 0, visits: r.visits });
+  const caravansSeen = new Set(sim.state.walkers.filter((w) => w.kind === 'caravan').map((w) => w.id));
   // Tax collectors' satchels as last seen, so "+84 dr" floats up from the office when one hands in.
   const satchels = new Map<number, { dr: number; origin: number }>();
   // The population's tooltip says how often newcomers are coming, and why.
@@ -1361,6 +1368,28 @@ function start(): void {
           cue = 'sale';
         }
         shipSeen = { phase: ship.phase, visits: ship.visits };
+      }
+      if (s.world.routes.length) {
+        for (const r of s.world.routes) {
+          const key = `${r.city}-${r.kind}`;
+          const was = routesSeen.get(key) ?? { phase: SHIP_AWAY, visits: 0 };
+          const phase = r.ship?.phase ?? 0;
+          if (phase === was.phase && r.visits === was.visits) continue;
+          if (r.ship && phase === SHIP_COMING && was.phase !== SHIP_COMING) cue ??= 'ship';
+          const depot = r.kind === 'land' ? caravanYard(s) : tradingPost(s);
+          if (r.visits > was.visits && depot && r.lastPaid > 0) {
+            const [cx, cz] = centreOf(depot);
+            floaters.add(`+${r.lastPaid.toLocaleString('en-GB')} dr`, new THREE.Vector3(cx, map.heightAt(cx, cz) + 1.3, cz), time, 'sale');
+            cue = 'sale';
+          }
+          routesSeen.set(key, { phase, visits: r.visits });
+        }
+        for (const w of s.walkers) {
+          if (w.kind !== 'caravan' || caravansSeen.has(w.id)) continue;
+          caravansSeen.add(w.id);
+          if (!w.back) cue ??= 'caravan';
+        }
+        if (caravansSeen.size > 8) for (const id of caravansSeen) if (!s.walkers.some((w) => w.id === id)) caravansSeen.delete(id);
       }
       if (cue) sound.play(cue);
     }

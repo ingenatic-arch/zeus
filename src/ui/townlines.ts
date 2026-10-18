@@ -28,6 +28,9 @@ const ICONS: Record<TownLine['need'], string> = {
     '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#d9b04a"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/><path d="M5.4 6.4h5.2" stroke="#8a6414" stroke-width=".9" stroke-linecap="round"/></svg>',
 };
 
+/** A line's icon: a trader's is a donkey for a caravan, a ship for a ship. */
+const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
+
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
 const ORDER: readonly TownLine['need'][] = ['ship', 'trader', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
 const rank = (need: TownLine['need']): number => {
@@ -71,7 +74,8 @@ export class TownLines {
       if (shown && !s.el) {
         const b = document.createElement('button');
         b.className = `townline ${need}`;
-        b.innerHTML = `${ICONS[need]}<span></span>`;
+        b.innerHTML = `${iconOf(s.line)}<span></span>`;
+        b.dataset.icon = s.line.route ?? need;
         b.addEventListener('click', () => {
           const cur = this.seen.get(need);
           if (cur) this.go(cur.line);
@@ -82,6 +86,12 @@ export class TownLines {
         s.el = b;
       }
       if (s.el) {
+        // (A trader's line can pass from a caravan to a ship: its icon follows.)
+        if (s.el.dataset.icon !== (s.line.route ?? need)) {
+          s.el.dataset.icon = s.line.route ?? need;
+          s.el.querySelector('svg')?.remove();
+          s.el.insertAdjacentHTML('afterbegin', iconOf(s.line));
+        }
         const span = s.el.querySelector('span') as HTMLElement;
         if (span.textContent !== s.line.text) span.textContent = s.line.text;
         s.el.title = 'Click to go there';
