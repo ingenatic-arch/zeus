@@ -1585,6 +1585,14 @@ await page.waitForFunction(() => /^Raiders of Sparta/.test(window.__zeus.tipText
 const tip20 = await zeus(() => window.__zeus.tipText());
 if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
 await page.mouse.move(5, 5);
+// The chip opens Sparta's page, with the band at the farm and the coin to turn them back (not paid here: they go on to take the wheat).
+await page.click('.raid-chip');
+await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
+await frames(3);
+g = await gi();
+if (!(g.shown === 'sparta' && /Sparta’s raiders are in your city[\s\S]*at the farm\. Pay [\d,]+ dr now and they turn back at once/.test(g.panel))) fail(`#raiders: the chip's page: ${g.shown} ${g.panel.slice(0, 1200)}`);
+await zeus(() => window.__zeus.greece(false));
+await frames(2);
 await zeus(() => window.__zeus.speed('fast'));
 await page.waitForFunction(() => window.__zeus.raids().band === null, null, { timeout: 600000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));

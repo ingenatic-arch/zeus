@@ -14,7 +14,8 @@
  * a watchman passing puts it out. If none does, it catches fire and burns
  * for BURN_DAYS, then falls to rubble. While it burns, once a day, there is a
  * seeded chance (SPREAD_CHANCE) that one of the buildings touching it (on any
- * of its four sides; never across a road, never a fountain) catches too. A
+ * of its four sides; never across a road, never a fountain) catches too (a
+ * fire raiders set waits RAID_FIRE_HELD before it can spread, and is slower). A
  * watchman who can see flames (within WATCH_SIGHT of him, and reachable by a
  * short road) leaves his round and runs to them by the shortest road, and
  * fights them for FIGHT_TICKS, which puts the fire out.
@@ -207,6 +208,35 @@ export function catchable(s: SimState, size: number, b: Building): Building[] {
   return out.sort((a, c) => a.id - c.id);
 }
 
+/**
+ * A fire raiders set (raids.ts) burns only what they came for until it has
+ * burnt this long unfought (half its burning); after that it can spread, at
+ * a quarter of an ordinary fire's chance. One raid costs its target, not a
+ * district; a fire nobody fights for days can still take a neighbour.
+ */
+export const RAID_FIRE_HELD = 5 * TICKS_PER_DAY;
+const RAID_SPREAD = SPREAD_CHANCE / 4;
+
+/** For the fire raiders set: how long until it can spread (ticks, 0 once it can); -1 for any other fire. */
+export function raidFireHeld(s: SimState, b: Building): number {
+  if (!s.world.raids.some((r) => r.fired && r.target === b.id)) return -1;
+  return Math.max(0, b.fireAt - BURN_DAYS * TICKS_PER_DAY + RAID_FIRE_HELD - s.tick);
+}
+
+/** The chance each day that this fire spreads (lower for the fire raiders set, and none while it is young). */
+function spreadChance(s: SimState, b: Building): number {
+  const held = raidFireHeld(s, b);
+  return held < 0 ? SPREAD_CHANCE : held > 0 ? 0 : RAID_SPREAD;
+}
+
+/** Whether a fire can spread, in words: "it can spread to the buildings beside it", or for the raiders' fire, when it could. */
+export function spreadWords(s: SimState, b: Building): string {
+  const held = raidFireHeld(s, b);
+  if (held <= 0) return 'it can spread to the buildings beside it';
+  const d = Math.max(1, Math.ceil(held / TICKS_PER_DAY));
+  return `the raiders set it, and it can spread to the buildings beside it only if it still burns in ${d === 1 ? '1 day' : `${d} days`}`;
+}
+
 /** How a building ends: burnt down, or fallen in. */
 export type Fall = 'fire' | 'collapse';
 
@@ -227,7 +257,7 @@ export function stepHazards(s: SimState, map: CoastMap, fall: (b: Building, how:
         (falls ??= []).push([b, 'fire']);
         continue;
       }
-      if (unit(s.seed, b.id, day, 3) < SPREAD_CHANCE) {
+      if (unit(s.seed, b.id, day, 3) < spreadChance(s, b)) {
         const next = catchable(s, size, b);
         if (next.length) ignite(s, next[Math.floor(unit(s.seed, b.id, day, 4) * next.length)]);
       }

@@ -68,6 +68,7 @@ import {
   INSPECT_RANGE,
   INSPECT_WALK,
   riskRate,
+  spreadWords,
   WATCH_RANGE,
   WATCH_WALK,
   wearRate,
@@ -1066,8 +1067,8 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
   let start = 0;
   let waiting = 0;
   for (const n of s.world.news) {
-    // (News that can't wait shows on its own line: newsUrgent.)
-    if (n.urgent) continue;
+    // (News that can't wait shows on its own line: newsUrgent. A ruler asking, offering or demanding that you have already answered is old news.)
+    if (n.urgent || answeredAsk(s, n)) continue;
     at = Math.max(n.tick, at + least);
     if (at <= s.tick) {
       item = n;
@@ -1117,6 +1118,9 @@ export function raidChipNow(s: SimState): { chip: string; city: string } | null 
 
 /** Is a line of news the one that brought a deal (the ruler asking, offering or demanding, that day), not other news from that city? */
 const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick === d.at && / (asks for|demands|offers) |yearly tribute comes round/.test(n.line);
+
+/** Is a line of news the ask of a deal you have already answered (or that has ended)? */
+const answeredAsk = (s: SimState, n: NewsItem): boolean => s.world.deals.some((d) => d.state !== 'open' && askedFor(n, d));
 
 /** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
 function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal } | null {
@@ -1438,7 +1442,7 @@ export function hazardLines(s: SimState, map: CoastMap, b: Building): string[] {
   const left = (t: number): string => days(Math.max(1, t - s.tick));
   if (b.fire === FIRE_BURNING) {
     const fighting = s.walkers.some((w) => w.kind === 'watchman' && w.target === b.id);
-    out.push(`On fire · it burns down in ${left(b.fireAt)} · ${fighting ? 'a watchman is on his way or at it with his bucket' : 'no watchman has seen it: one within sight of it runs to put it out'} · it can spread to the buildings beside it`);
+    out.push(`On fire · it burns down in ${left(b.fireAt)} · ${fighting ? 'a watchman is on his way or at it with his bucket' : 'no watchman has seen it: one within sight of it runs to put it out'} · ${spreadWords(s, b)}`);
   } else if (b.fire === FIRE_SMOULDER) {
     out.push(`Smouldering · it bursts into flame in ${left(b.fireAt)} unless a watchman walks by · ${whyUnguarded(s, map, b, 'watchpost')}`);
   } else if (burnable(b) && b.risk >= HAZARD_FULL / 4) {
@@ -1538,7 +1542,7 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     const f = fires[0];
     const coming = s.walkers.some((w) => w.kind === 'watchman' && w.target === f.id);
     const help = coming ? 'A watchman is on his way with his bucket.' : 'No watchman has seen it: a watch post (Z twice) within sight of it sends one running.';
-    out.push({ need: 'fire', text: `Fire ${whereIs(map, f).toLowerCase()}: ${named(f)} is burning and falls in ${left(f.fireAt)}; it can spread to the buildings beside it${more(fires.length, fires.length === 2 ? 'fire' : 'fires')}. ${help}`, at: f.id });
+    out.push({ need: 'fire', text: `Fire ${whereIs(map, f).toLowerCase()}: ${named(f)} is burning and falls in ${left(f.fireAt)}; ${spreadWords(s, f)}${more(fires.length, fires.length === 2 ? 'fire' : 'fires')}. ${help}`, at: f.id });
   } else if (smoulders.length) {
     const f = smoulders[0];
     out.push({ need: 'fire', text: `Smoke ${whereIs(map, f).toLowerCase()}: ${named(f)} is smouldering and bursts into flame in ${left(f.fireAt)} unless a watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}${more(smoulders.length, smoulders.length === 2 ? 'smoulder' : 'smoulders')}.`, at: f.id });

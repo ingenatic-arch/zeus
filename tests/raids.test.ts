@@ -16,12 +16,13 @@ import { coastMap } from '../src/map/bake';
 import { findBuilding } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { firstRoute, makeTribute, openDeals, stepFavours, tributeSize, WORTH } from '../src/sim/favours';
-import { held, WARES, type Ware } from '../src/sim/foods';
-import { FIRE_BURNING } from '../src/sim/hazards';
+import { held, OIL, setHeld, WARES, type Ware } from '../src/sim/foods';
+import { catchable, FIRE_BURNING, RAID_FIRE_HELD } from '../src/sim/hazards';
 import {
   bandsAt,
   daysToEdge,
   GATHER,
+  goodsArrive,
   landing,
   LULL,
   marchTicks,
@@ -247,7 +248,7 @@ describe('on your map', () => {
     expect(band.people).toBe(r.men);
     const farm = findBuilding(s, r.target)!;
     expect(farm.kind).toBe('farm');
-    until(sim, () => r.took > 0, TICKS_PER_MONTH);
+    until(sim, () => r.took > 0, 2 * TICKS_PER_MONTH);
     expect(r.fired).toBe(true);
     expect(findBuilding(s, r.target)?.fire ?? FIRE_BURNING).toBe(FIRE_BURNING);
     expect(band.back).toBe(true);
@@ -262,6 +263,20 @@ describe('on your map', () => {
     expect(r.end).toBe('raided');
     expect(r.phase).toBe('homeward');
     expect(s.world.deals.find((d) => d.id === r.deal)?.state).toBe('raided');
+  }, 120000);
+
+  it('the fire they set burns only their target while it is young (it can spread once it has burnt five days unfought)', () => {
+    const sim = settled();
+    const s = sim.state;
+    const r = inTheCity(sim);
+    until(sim, () => r.fired, 2 * TICKS_PER_MONTH);
+    const farm = findBuilding(s, r.target)!;
+    const near = catchable(s, map.size, farm).map((b) => b.id);
+    expect(near.length).toBeGreaterThan(0);
+    for (let i = 0; i < RAID_FIRE_HELD - TICKS_PER_DAY; i++) {
+      sim.step();
+      for (const id of near) expect(findBuilding(s, id)?.fire).not.toBe(FIRE_BURNING);
+    }
   }, 120000);
 
   it('a store plundered: never more than half of it', () => {
@@ -337,8 +352,12 @@ describe('stopping them', () => {
   it('the goods sent: they count on arrival and the threat is lifted (the ruler waits for them)', () => {
     const sim = settled();
     const s = sim.state;
+    // (Goods are asked for only when your stores hold twice the price of peace: oil to spare.)
+    for (const b of s.buildings) if (b.kind === 'storehouse') setHeld(b, OIL, held(b, OIL) + 1000);
     const r = threatened(sim);
     expect(r.alt).toBeGreaterThanOrEqual(0);
+    // (When the page says it would arrive, it does.)
+    const said = goodsArrive(s, map, r);
     send(sim, { type: 'answer', deal: r.deal, act: 'goods' });
     const d = s.world.deals.find((x) => x.id === r.deal)!;
     expect(d.gift).toBeGreaterThan(0);
@@ -346,6 +365,22 @@ describe('stopping them', () => {
     until(sim, () => r.ended > 0, d.due - s.tick + 3 * TICKS_PER_MONTH);
     expect(r.end).toBe('paid');
     expect(r.phase).toBe('done');
+    expect(Math.abs(s.tick - said)).toBeLessThanOrEqual(5 * TICKS_PER_DAY);
+  }, 120000);
+
+  it('paid while they stand at their target: they go at once, with nothing', () => {
+    const sim = settled();
+    const s = sim.state;
+    const r = inTheCity(sim);
+    until(sim, () => (raidersOf(s, r)?.wait ?? 0) > 0, 2 * TICKS_PER_MONTH);
+    sim.run(TICKS_PER_DAY);
+    send(sim, { type: 'answer', deal: r.deal, act: 'send' });
+    sim.step();
+    expect(raidersOf(s, r)?.back).toBe(true);
+    expect(raidersOf(s, r)?.wait).toBe(0);
+    until(sim, () => !raidersOf(s, r), 2 * TICKS_PER_MONTH);
+    expect(r.took).toBe(0);
+    ledgerAddsUp(s);
   }, 120000);
 
   it('a gift that lifts the mood past cold calls the band off', () => {

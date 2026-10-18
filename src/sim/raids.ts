@@ -76,8 +76,8 @@ const MEN_LEAST = 8;
 const MEN_MOST = 12;
 /** They cross your land at a run. */
 export const RAID_SPEED = WALK_SPEED * 1.6;
-/** How long they spend at their target (firing it, or loading up). */
-export const AT_TARGET = 2 * TICKS_PER_DAY;
+/** How long they spend at their target (firing it, and loading up): long enough to see them there, and to pay them off before they take anything. */
+export const AT_TARGET = 6 * TICKS_PER_DAY;
 /** What each man carries off, at most; never more than half of what a store holds. */
 const CARRY = 80;
 /** A store is worth raiding with this much in it. */
@@ -151,7 +151,8 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
   const n = w.nextRaid;
   const canGoods = !('why' in giftWay(s, map, c.id, false));
   const worth = (k: number): number => clamp(Math.round((coin * 100) / Math.max(1, c.price[k]) / 100) * 100, 200, 2000);
-  const goods = canGoods ? sellsAndBuys(c).buys.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= worth(k)) : [];
+  // (Only a good your stores hold twice over, as a request asks no more than about half: fetching it is then quick, and the day it would arrive can be trusted.)
+  const goods = canGoods ? sellsAndBuys(c).buys.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= 2 * worth(k)) : [];
   const alt = goods.length ? goods[Math.floor(dice(w, n, 0, 1) * goods.length)] : -1;
   const altAmount = alt >= 0 ? worth(alt) : 0;
   const first = firstRoute(w);
@@ -252,6 +253,11 @@ export function stepRaids(s: SimState, map: CoastMap): void {
       continue;
     }
     if (r.phase === 'threat' && d && s.tick >= d.due && d.gift === 0) gather(s, r, false);
+    // (The band no longer on your map, however that came about: the raid is over, not stuck live for ever.)
+    else if (r.phase === 'raiding' && !raidersOf(s, r)) {
+      home(s, r);
+      settle(s, r, 'raided');
+    }
   }
   if (s.tick % TICKS_PER_MONTH === 0) {
     if (w.raids.some((r) => r.phase === 'done' && s.tick - r.ended > LULL)) w.raids = w.raids.filter((r) => !(r.phase === 'done' && s.tick - r.ended > LULL));
@@ -485,6 +491,11 @@ function reaim(s: SimState, map: CoastMap, w: Walker): boolean {
 export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
   const r = raidOfBand(s, w);
   if (w.wait > 0) {
+    // (Paid off or called off while they stand at their target: they go at once, with nothing from it.)
+    if (r && r.end !== '') {
+      w.wait = 0;
+      return headOff(s, map, w, r) || gone(s, w, r);
+    }
     if (--w.wait > 0) return true;
     strike(s, w, r);
     return headOff(s, map, w, r) || gone(s, w, r);
@@ -637,7 +648,8 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
   const c = cityOf(w, r.city);
   const was = r.phase;
   settle(s, r, how);
-  if (how === 'paid') c.memories.push(answerMemory(c, 'peace', `you paid them to call off their raiders (${r.alt >= 0 && dealOf(w, r.deal)?.good === r.alt ? giftWords(r.alt, r.altAmount) : `${fmt(r.coin)} dr`})`, s.tick));
+  const d = dealOf(w, r.deal);
+  if (how === 'paid') c.memories.push(answerMemory(c, 'peace', `you paid them to call off their raiders (${r.alt >= 0 && d?.good === r.alt ? giftWords(r.alt, d.got || r.altAmount) : `${fmt(r.coin)} dr`})`, s.tick));
   const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
   const { L } = wayFor(r.city, r.by);
   if (was === 'threat') r.phase = 'done';
@@ -712,7 +724,7 @@ export function answerThreat(s: SimState, map: CoastMap, d: Deal, act: string): 
     d.amount = r.coin;
     // The band out: the coin goes to it at once, and it turns back. Before: a herald takes it to them.
     if (bandOut(r)) {
-      pay(s, -r.coin, 'peace', cityName(d.city));
+      pay(s, -r.coin, 'peace', `to ${cityName(d.city)}`);
       callOff(s, r, 'paid');
       return;
     }
@@ -735,7 +747,8 @@ export function peaceArrived(s: SimState, g: Gift, d: Deal): void {
   d.gift = 0;
   d.got = g.amount;
   const r = raidOf(s.world, d.id);
-  if (r && live(r) && d.state === 'open') {
+  // (Arriving while the band is already leaving your land with what it took: too late for peace, as paying then is.)
+  if (r && live(r) && d.state === 'open' && !(r.phase === 'raiding' && raidersOf(s, r)?.back)) {
     callOff(s, r, 'paid');
     return;
   }
@@ -801,7 +814,7 @@ export function raidChip(s: SimState, r: Raid): { chip: string; line: string } |
   if (r.phase === 'threat') return null;
   if (r.phase === 'raiding') {
     const band = raidersOf(s, r);
-    const doing = !band ? '' : band.back ? (band.load ? `making off with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : 'leaving your land') : band.wait > 0 ? (FIELDS[r.aim as BuildingKind] !== undefined ? `firing ${aimWords({ kind: r.aim as BuildingKind })}` : `plundering ${aimWords({ kind: r.aim as BuildingKind })}`) : `making for ${aimWords({ kind: r.aim as BuildingKind })}`;
+    const doing = !band ? '' : band.back || r.end !== '' ? (band.load ? `making off with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : band.wait > 0 ? (FIELDS[r.aim as BuildingKind] !== undefined ? `firing ${aimWords({ kind: r.aim as BuildingKind })}` : `plundering ${aimWords({ kind: r.aim as BuildingKind })}`) : `making for ${aimWords({ kind: r.aim as BuildingKind })}`;
     return { chip: 'Raiders in the city', line: `${r.men} of ${whose(r.city)} raiders are in your city, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
   }
   const days = daysToEdge(r, s.tick);
