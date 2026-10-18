@@ -94,13 +94,14 @@ describe('what a gift is worth', () => {
     const c = withTraits(plain, ['pious', 'warlike']);
     const first = giftMemory(s, c, -1, 400, 0);
     c.memories.push(first);
-    const second = giftMemory(s, c, -1, 400, TICKS_PER_MONTH);
+    // (In May, clear of Corinth's Isthmian Games in April, when a gift counts for more.)
+    const second = giftMemory(s, c, -1, 400, 2 * TICKS_PER_MONTH);
     expect(second.amount).toBe(Math.round(20 / 1.7));
     expect(second.why).toMatch(/another so soon: kind, but…/);
     c.memories.push(second);
     // Six months on, the first no longer counts against the next.
-    expect(giftMemory(s, c, -1, 400, 6 * TICKS_PER_MONTH).amount).toBe(Math.round(20 / 1.7));
-    expect(giftMemory(s, c, -1, 400, 13 * TICKS_PER_MONTH).amount).toBe(20);
+    expect(giftMemory(s, c, -1, 400, 7 * TICKS_PER_MONTH).amount).toBe(Math.round(20 / 1.7));
+    expect(giftMemory(s, c, -1, 400, 14 * TICKS_PER_MONTH).amount).toBe(20);
     // Fading: worth less over time, nothing after its fade; the reasons always sum to the mood.
     for (const t of [0, 3 * TICKS_PER_MONTH, 9 * TICKS_PER_MONTH, 20 * TICKS_PER_MONTH]) {
       expect(moodReasons(c, t).reduce((a, r) => a + r.worth, 0)).toBe(moodOf(c, t));

@@ -1068,7 +1068,8 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
   let waiting = 0;
   for (const n of s.world.news) {
     // (News that can't wait shows on its own line: newsUrgent. A ruler asking, offering or demanding that you have already answered is old news.)
-    if (n.urgent || answeredAsk(s, n)) continue;
+    // (Greece's own doings: not for a town that keeps to itself, whose lines stay as they were.)
+    if (n.urgent || answeredAsk(s, n) || (n.greece && !s.world.contact)) continue;
     at = Math.max(n.tick, at + least);
     if (at <= s.tick) {
       item = n;

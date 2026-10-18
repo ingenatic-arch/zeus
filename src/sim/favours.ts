@@ -67,6 +67,9 @@ const REQUEST_LEAST = 200;
 const REQUEST_MOST = 1000;
 const COIN_LEAST = 150;
 const COIN_MOST = 1000;
+/** A ruler at war asks this many times as often, for these goods (wheat, meat, cheese, fleece). */
+const WAR_ASKS = 6;
+const WAR_GOODS: readonly number[] = [0, 1, 2, 4];
 /** Requests for coin now and then, even when they could ask for goods. */
 const COIN_ODDS = 0.25;
 export const REQUEST_GOODS_DAYS = 4 * TICKS_PER_MONTH;
@@ -379,11 +382,16 @@ function asks(s: SimState, map: CoastMap): void {
   const w = s.world;
   const first = firstRoute(w);
   if (!first || s.tick - first < ASK_AFTER || openDeals(w).length >= MOST_OPEN || threatLive(w)) return;
-  if (w.deals.some((d) => s.tick - d.at < GREECE_GAP)) return;
+  // (A ruler at war asks for help even soon after another's ask, so both sides of a war can ask together.)
+  const soon = w.deals.some((d) => s.tick - d.at < GREECE_GAP);
   const month = Math.floor(s.tick / TICKS_PER_MONTH);
   for (let i = 0; i < w.cities.length; i++) {
     const c = w.cities[i];
     if (!c.ruler || !RULED.includes(c.id) || !free(s, c)) continue;
+    if (soon) {
+      if (c.war && request(s, map, c, month, i)) return;
+      continue;
+    }
     if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i)) return;
   }
 }
@@ -404,6 +412,7 @@ function tribute(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
 function request(s: SimState, map: CoastMap, c: WorldCity, month: number, i: number): boolean {
   const w = s.world;
   if (moodOf(c, s.tick) <= COLD) return false;
+  if (c.war) return warRequest(s, map, c, month, i);
   const hungry = c.harvest <= 1 && s.tick - lastHarvestOf(s.tick) < HUNGRY_FOR;
   if (dice(w, month, i, 11) >= REQUEST_ODDS * (hungry ? HUNGRY_ODDS : 1)) return false;
   const { buys } = sellsAndBuys(c);
@@ -416,6 +425,23 @@ function request(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   else makeRequest(s, map, c, good, requestSize(s, c, good), askWhy(c, good, s.tick));
   return true;
 }
+
+/** A ruler at war asks for help six times as often: food or fleece your stores hold (and your city could send them), else coin to pay their soldiers. */
+function warRequest(s: SimState, map: CoastMap, c: WorldCity, month: number, i: number): boolean {
+  const w = s.world;
+  if (dice(w, month, i, 11) >= REQUEST_ODDS * WAR_ASKS) return false;
+  const foe = cityName(c.war as CityId);
+  const goods = canSendGoods(s, map, c.id) ? WAR_GOODS.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= 300) : [];
+  if (goods.length) {
+    // (Wheat first, if you have it: an army marches on bread.)
+    const good = goods.includes(0) && dice(w, month, i, 15) < 0.6 ? 0 : goods[Math.floor(dice(w, month, i, 16) * goods.length)];
+    makeRequest(s, map, c, good, requestSize(s, c, good), warWhy(good, foe));
+  } else makeRequest(s, map, c, -1, requestCoin(s), `to pay their soldiers: they are at war with ${foe}`);
+  return true;
+}
+
+/** Why a ruler at war asks for a good, in words. */
+export const warWhy = (k: number, foe: string): string => `${k === 4 ? 'cloaks for their soldiers' : 'for their army'}: they are at war with ${foe}`;
 
 /** Can this ruler make you an offer now: pleased, with a route of theirs open, and no year's deal of theirs already running? */
 export function mayOffer(s: SimState, c: WorldCity): boolean {

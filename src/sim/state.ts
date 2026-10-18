@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 20;
+export const SIM_STATE_VERSION = 21;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -477,8 +477,10 @@ export interface WorldCity {
   ruler: Ruler | null;
   /** The ruler's memories of you, oldest first (their mood is what these add up to now). */
   memories: Memory[];
-  /** How the ruler feels about each other city (by CITY_IDS order; 0 for itself and for cities without a ruler). */
+  /** How the ruler feels about each other city to begin with: the old rivalries of the cities and their own leaning (by CITY_IDS order; 0 for itself and for cities without a ruler). What has passed between them since is in `bonds` (rivals.ts). */
   ties: number[];
+  /** What the ruler remembers of the other rulers (quarrels, friendships, wars), oldest first. */
+  bonds: Bond[];
   /** By trade good (TRADE_GOODS order): what it makes and uses in a year (measures). */
   make: number[];
   need: number[];
@@ -486,6 +488,9 @@ export interface WorldCity {
   stock: number[];
   yours: number[];
   crop: number[];
+  /** Two more pushes on its stock (rivals.ts, festivals.ts): its wars (`strife`: drawn down while at war, and after a defeat) and its festival (`feast`). */
+  strife: number[];
+  feast: number[];
   /** Its market price per 100 now, the last twelve months' (oldest first), and a trail a fortnight or so behind (for the arrow). */
   price: number[];
   history: number[][];
@@ -503,6 +508,42 @@ export interface WorldCity {
   feel: number;
   /** The tick the ruler last sent you a gift (0: never). */
   gave: number;
+}
+
+/** Something a ruler remembers of another ruler (rivals.ts): what it was, what it is worth and when, fading as a memory does. */
+export interface Bond extends Memory {
+  /** The city it is about. */
+  city: CityId;
+}
+
+/**
+ * A war between two rival cities (rivals.ts). Where each side's army (or
+ * fleet) is on the map is a pure function of the tick: marching out from
+ * its city along the way to the meeting place, standing there while the war
+ * lasts, and marching home once it is over.
+ */
+export interface War {
+  id: number;
+  /** Who declared it, and on whom. */
+  a: CityId;
+  b: CityId;
+  /** Why, in words: "over the border lands". */
+  why: string;
+  /** The way between them (RIVAL_WAYS in map/greece.ts), by land or by sea. */
+  way: string;
+  by: 'land' | 'sea';
+  start: number;
+  /** When it ends, as the dice set it at the start (a season or two). */
+  until: number;
+  /** How it ends, as the dice set it at the start: 'peace', or the winner. */
+  fate: 'peace' | CityId;
+  /** How many men each side has out (a's, b's), for the figures on the map. */
+  menA: number;
+  menB: number;
+  /** The battle half-way through has been told. */
+  told: boolean;
+  /** When it ended (0 while it is on). */
+  ended: number;
 }
 
 /**
@@ -663,6 +704,8 @@ export interface NewsItem {
   line: string;
   /** News that can't wait its turn (a threat, raiders): shown at once (missing: no). */
   urgent?: boolean;
+  /** News of Greece's own doings (festivals, feuds, wars between rivals; missing: no): under the top bar only once your city has dealt with Greece. */
+  greece?: boolean;
 }
 
 /**
@@ -727,6 +770,11 @@ export interface World {
   /** Threats and their war bands, live or lately over (raids.ts), and the next one's number. */
   raids: Raid[];
   nextRaid: number;
+  /** Wars between the rival cities, on or lately over (rivals.ts), and the next one's number. */
+  wars: War[];
+  nextWar: number;
+  /** The pairs of rulers feuding now ('athens-sparta', in RULED order), so a feud's start and end are news once. */
+  feuds: string[];
 }
 
 /**

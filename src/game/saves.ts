@@ -16,7 +16,7 @@ import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Roun
 import { STOCK_KINDS } from '../sim/stockbook';
 import { GOOD_COUNT } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
-import { CITY_IDS } from '../map/greece';
+import { CITY_IDS, RULED } from '../map/greece';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -372,14 +372,15 @@ export function stateProblem(st: unknown): string {
 /** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */
 function worldOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
-  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid)) return false;
-  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk)) return false;
+  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids, w.wars].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid) || !fin(w.nextWar) || !strs(w.feuds)) return false;
+  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk) || !(w.wars as unknown[]).every(warOk)) return false;
   const g = TRADE_GOODS.length;
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
   return (w.cities as unknown[]).every((c, i) => {
     if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.outlook) || !fin(c.festival) || typeof c.war !== 'string' || !fin(c.feel) || !fin(c.gave)) return false;
-    if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'yours', 'crop', 'price', 'trail'].every((k) => nums(c[k], g))) return false;
+    if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'yours', 'crop', 'strife', 'feast', 'price', 'trail'].every((k) => nums(c[k], g))) return false;
+    if (!Array.isArray(c.bonds) || !c.bonds.every((m: unknown) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && CITY_IDS.includes(m.city as never) && fin(m.amount) && fin(m.tick) && fin(m.fade))) return false;
     if (![c.history, c.dealt].every((x) => Array.isArray(x) && x.length === g && x.every((h: unknown) => nums(h)))) return false;
     if (!Array.isArray(c.memories) || !c.memories.every((m: unknown) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade))) return false;
     const r = c.ruler;
@@ -390,6 +391,15 @@ function worldOk(w: unknown): boolean {
 const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'start', 'dur', 'a0', 'a1', 'deal'];
 const DEAL_NUMBERS = ['id', 'good', 'amount', 'at', 'due', 'gift', 'got', 'ended', 'price', 'done', 'until', 'paid'];
 const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided'];
+
+const WAR_NUMBERS = ['id', 'start', 'until', 'menA', 'menB', 'ended'];
+
+/** A war between two rivals: its sides, its way, how it ends, and its numbers. */
+function warOk(x: unknown): boolean {
+  if (!isObj(x) || !RULED.includes(x.a as never) || !RULED.includes(x.b as never) || !['land', 'sea'].includes(x.by as string)) return false;
+  if (typeof x.why !== 'string' || typeof x.way !== 'string' || typeof x.told !== 'boolean' || !(x.fate === 'peace' || RULED.includes(x.fate as never))) return false;
+  return WAR_NUMBERS.every((k) => fin(x[k]));
+}
 
 const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended'];
 const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];

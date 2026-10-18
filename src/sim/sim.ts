@@ -26,6 +26,7 @@ import { freshHerds, stepWild, wildRng } from './wild';
 import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepDockers, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
 import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
+import { stepRivals } from './rivals';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
@@ -179,6 +180,8 @@ export class Sim {
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
     stepWorld(s);
+    // Greece goes on: its festivals, its rulers' quarrels and friendships with each other, their feuds and wars (never touching your city).
+    stepRivals(s);
     // The gifts on their way, and the rulers' moods: their turns and what follows (once a day; whims and gifts back once a month, once your city deals with Greece).
     stepGifts(s, map);
     // The rulers' requests, offers and tribute: deadlines, and now and then a new one (once your first route is six months old).

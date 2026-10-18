@@ -137,6 +137,7 @@ export function migrate(st: unknown): number {
   if (st.version === 17) from17(st);
   if (st.version === 18) from18(st);
   if (st.version === 19) from19(st);
+  if (st.version === 20) from20(st);
   return from;
 }
 
@@ -348,4 +349,25 @@ function from19(st: Record<string, unknown>): void {
     if (typeof w.nextRaid !== 'number') w.nextRaid = 1;
   }
   st.version = 20;
+}
+
+function from20(st: Record<string, unknown>): void {
+  // No wars and no feuds before; every ruler's feelings for the others as they were (their old ties), nothing passed between them yet; no war or festival pushing any price.
+  const w = st.world;
+  if (isObj(w)) {
+    w.wars = [];
+    if (typeof w.nextWar !== 'number') w.nextWar = 1;
+    w.feuds = [];
+    if (Array.isArray(w.cities)) {
+      for (const c of w.cities as Array<Record<string, unknown>>) {
+        if (!isObj(c)) continue;
+        c.bonds = [];
+        c.strife = TRADE_GOODS.map(() => 0);
+        c.feast = TRADE_GOODS.map(() => 0);
+        c.war = '';
+        c.festival = 0;
+      }
+    }
+  }
+  st.version = 21;
 }

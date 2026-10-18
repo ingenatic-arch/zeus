@@ -81,6 +81,7 @@ import { income, pay, spendable, wageBill } from './treasury';
 import { giftOf, newWalker, offMapPoint, position, roadPoints, setPath, speedOf } from './walk';
 import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
 import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
+import { tradedWithFoe } from './rivals';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -364,6 +365,8 @@ function settle(s: SimState, r: TradeRoute): void {
   r.lastPaid = paid;
   r.lastBought = r.unloaded;
   r.lastCost = r.cost;
+  // Trading with one side of a war cools the other (rivals.ts).
+  if (r.lastSold.some((n) => n > 0) || r.lastBought.some((n) => n > 0)) tradedWithFoe(s, r.city);
   r.hold = zeros();
   r.unloaded = zeros();
   r.cost = 0;

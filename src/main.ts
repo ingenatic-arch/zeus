@@ -577,6 +577,10 @@ function start(): void {
     if (loaded.from !== undefined && loaded.from <= 13) {
       changed += ' · Greece is there now: the Greece tab under the top bar (or the Tab key) opens a map of the Aegean, with Athens, Sparta, Corinth and Troy, their rulers and what they make and want.';
     }
+    // …and one saved before Greece went on by itself (slice 20 or older, with Greece).
+    if (loaded.from !== undefined && loaded.from >= 14 && loaded.from <= 20) {
+      changed += ' · Greece goes on by itself now: its rulers quarrel, feud and go to war with each other, and keep their festivals. The map of Greece (Tab) has the news.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 

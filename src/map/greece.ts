@@ -109,6 +109,55 @@ export const OTHER_ROADS: ReadonlyArray<ReadonlyArray<readonly [number, number]>
   [[22.88, 37.91], [22.62, 37.78], [22.42, 37.4]],
 ];
 
+/**
+ * A road or a lane between two rival cities, from `a` to `b` (as lon, lat
+ * points), that their armies or fleets take when they go to war, and the
+ * place on it where the two sides meet (a point of `pts`, by its index).
+ */
+export interface RivalWay {
+  id: string;
+  a: CityId;
+  b: CityId;
+  kind: 'land' | 'sea';
+  pts: ReadonlyArray<readonly [number, number]>;
+  /** Where the armies meet: the index of a point of `pts`, and its name ("Megara", "off Aegina"). */
+  meet: number;
+  place: string;
+}
+
+/** Sparta to Corinth through Arcadia, by Tegea and Mantinea (the road drawn between them, with Sparta's end down the Eurotas). */
+const SPARTA_CORINTH: ReadonlyArray<readonly [number, number]> = [[22.43, 37.08], [22.42, 37.25], [22.42, 37.4], [22.52, 37.59], [22.62, 37.78], [22.88, 37.91]];
+/** From Troy's beach down the Aegean and through the Cyclades past Andros and Kea, to the mouth of the Saronic Gulf (the Troy lane's way, the other way round). */
+const TROY_SOUTH: ReadonlyArray<readonly [number, number]> = [[26.24, 39.96], [26.12, 39.94], [25.95, 39.86], [25.75, 39.45], [25.5, 38.95], [25.05, 38.4], [24.65, 37.94], [24.3, 37.78], [23.95, 37.42]];
+
+/** The ways between the rival cities, by pair (RULED order: Athens, Sparta, Corinth, Troy). Troy's are by sea. */
+export const RIVAL_WAYS: readonly RivalWay[] = [
+  // Athens to Sparta: over the isthmus, past Corinth, and down through Arcadia. Sparta's army marches all the way into Attica; they meet at Megara.
+  { id: 'athens-sparta', a: 'athens', b: 'sparta', kind: 'land', pts: [...CORINTH_ATHENS.slice().reverse(), ...SPARTA_CORINTH.slice(0, -1).reverse()], meet: 2, place: 'Megara' },
+  // Athens to Corinth over the isthmus: they meet at Megara, between them.
+  { id: 'athens-corinth', a: 'athens', b: 'corinth', kind: 'land', pts: CORINTH_ATHENS.slice().reverse(), meet: 2, place: 'Megara' },
+  // Troy's fleet comes down the Aegean; Athens' sails out round Sounion. They meet off Andros.
+  { id: 'athens-troy', a: 'athens', b: 'troy', kind: 'sea', pts: [[23.73, 37.99], [23.63, 37.92], [23.6, 37.8], [23.6, 37.6], [23.62, 37.36], ...TROY_SOUTH.slice().reverse()], meet: 7, place: 'off Andros' },
+  // Sparta to Corinth through Arcadia: they meet at Mantinea.
+  { id: 'sparta-corinth', a: 'sparta', b: 'corinth', kind: 'land', pts: SPARTA_CORINTH, meet: 3, place: 'Mantinea' },
+  // Sparta's ships sail from Gytheion round Cape Maleas and up through the islands; they meet Troy's off Maleas.
+  { id: 'sparta-troy', a: 'sparta', b: 'troy', kind: 'sea', pts: [[22.6, 36.7], [22.66, 36.6], [22.88, 36.44], [23.12, 36.31], [23.5, 36.45], [23.95, 37.0], ...TROY_SOUTH.slice().reverse()], meet: 3, place: 'off Cape Maleas' },
+  // Corinth's ships sail out of the Saronic Gulf past Aegina, where they meet Troy's.
+  { id: 'corinth-troy', a: 'corinth', b: 'troy', kind: 'sea', pts: [[22.88, 37.91], [23.045, 37.872], [23.1, 37.86], [23.45, 37.68], [23.62, 37.36], ...TROY_SOUTH.slice().reverse()], meet: 3, place: 'off Aegina' },
+];
+
+/** The way between two rival cities (either way round), if there is one. */
+export const rivalWay = (x: CityId, y: CityId): RivalWay | undefined => RIVAL_WAYS.find((w) => (w.a === x && w.b === y) || (w.a === y && w.b === x));
+
+/** A rival way's points on the table (x, z pairs), from `a` to `b`. */
+export const rivalPoints = (w: RivalWay): number[] => w.pts.flatMap(([lon, lat]) => project(lon, lat));
+
+/** How far along a rival way (from `a`) its meeting place is. */
+export function meetAlong(w: RivalWay): number {
+  const p = rivalPoints(w);
+  return lineLength(p.slice(0, (w.meet + 1) * 2));
+}
+
 /** A way's points on the table (x, z pairs), from your city out. */
 export function wayPoints(w: Way): number[] {
   return w.pts.flatMap(([lon, lat]) => project(lon, lat));

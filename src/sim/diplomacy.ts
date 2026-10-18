@@ -48,6 +48,8 @@ import { dealOf, delivered, sentWords, undelivered } from './favours';
 import { income, pay, spendable } from './treasury';
 import { giftOf, newWalker, offMapPoint, roadPoints, setGiftOf, setPath } from './walk';
 import { cityOf, fadeFor, HOSTILE, MOOD_WORDS, moodLevel, moodOf, memoryWorth, rulerName, rulerShort, WARM } from './world';
+import { festivalOf, festivalOn } from './festivals';
+import { helpedFoe } from './rivals';
 
 /** What you can give: drachmas, or so many of a trade good. */
 export const GIFT_COINS: readonly number[] = [100, 250, 500];
@@ -128,6 +130,13 @@ export function giftMemory(s: SimState, c: WorldCity, good: number, amount: numb
   if (traits.includes('proud') && value < fair / 2) {
     worth *= 0.5;
     bends.push('meagre, for a city your size');
+  }
+  // Arriving while their festival is on: half as much again (twice as much to a pious ruler).
+  const fest = festivalOn(c.id, tick) ? festivalOf(c.id) : undefined;
+  if (fest) {
+    const pious = traits.includes('pious');
+    worth *= pious ? 2 : 1.5;
+    bends.push(`for ${fest.name}${pious ? ', and pious' : ''}`);
   }
   const n = recentGifts(c, tick);
   if (n > 0) {
@@ -312,6 +321,8 @@ function leave(s: SimState, map: CoastMap, g: Gift): void {
 function arrive(s: SimState, g: Gift): void {
   const w = s.world;
   w.gifts = w.gifts.filter((x) => x !== g);
+  // Anything of yours reaching a city at war cools its enemy (rivals.ts).
+  if (g.from === 'home') helpedFoe(s, g.to, giftWords(g.good, g.amount));
   // Sent for a request or tribute: it meets it (favours.ts).
   if (g.deal) {
     delivered(s, g);

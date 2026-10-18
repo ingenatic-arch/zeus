@@ -26,6 +26,7 @@ import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RULED, wayOf, wayPoints, t
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
 import type { Memory, Ruler, SimState, Trait, World, WorldCity } from './state';
+import { FEAST_RAMP_DAYS, FEAST_SHARE, FEAST_WEAR_DAYS, feasting, feastWords } from './festivals';
 import { PRICES, SAIL_IN, SHIP_AWAY, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, shipAt, TRADE_GOODS } from './trade';
 
 /** What your city is called to begin with. */
@@ -125,7 +126,7 @@ const TRAIT_FIRST: Partial<Record<Trait, { amount: number; why: string }>> = {
 const FIRST_FADE = 3 * TICKS_PER_YEAR;
 
 /** How rulers feel about each other at the start, before the shuffle (CITY_IDS order: home, athens, sparta, corinth, troy, tyre). */
-const OLD_TIES: Partial<Record<CityId, readonly number[]>> = {
+export const OLD_TIES: Partial<Record<CityId, readonly number[]>> = {
   athens: [0, 0, -20, -5, -10, 0],
   sparta: [0, -20, 0, 10, -10, 0],
   corinth: [0, -5, 10, 0, -10, 0],
@@ -173,6 +174,8 @@ function shuffleGoods(rng: RngState, c: WorldCity, ch: Character | null): void {
   c.need = BASE_USE.map((u, k) => Math.round((u * size * (1 - leans[k] * 0.6) * (0.85 + nextFloat(rng) * 0.3)) / 50) * 50);
   c.yours = zeros();
   c.crop = zeros();
+  c.strife = zeros();
+  c.feast = zeros();
   c.stock = TRADE_GOODS.map((_, k) => Math.round(normalStock(c, k)));
   c.price = ch ? c.make.map((m, k) => marketPrice(k, m, c.need[k])) : PRICES.slice();
   c.history = c.price.map((p) => new Array<number>(12).fill(p));
@@ -202,11 +205,14 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     ruler: null,
     memories: [],
     ties: CITY_IDS.map(() => 0),
+    bonds: [],
     make: [],
     need: [],
     stock: [],
     yours: [],
     crop: [],
+    strife: [],
+    feast: [],
     price: [],
     history: [],
     trail: [],
@@ -265,7 +271,7 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     c.history = c.price.map((p) => new Array<number>(12).fill(p));
     c.feel = moodLevel(moodOf(c, tick));
   }
-  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1, raids: [], nextRaid: 1 };
+  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1, raids: [], nextRaid: 1, wars: [], nextWar: 1, feuds: [] };
 }
 
 /** A city's record. */
@@ -412,9 +418,9 @@ export const normalStock = (c: WorldCity, k: number): number => Math.max(50, (c.
 export const usualPrice = (c: WorldCity, k: number): number => marketPrice(k, c.make[k], c.need[k]);
 
 /** The price (unrounded) a city's stock of a good gives, with or without each push. */
-function rawPrice(c: WorldCity, k: number, yours = c.yours[k], crop = c.crop[k]): number {
+function rawPrice(c: WorldCity, k: number, yours = c.yours[k], crop = c.crop[k], strife = c.strife[k], feast = c.feast[k]): number {
   const n = normalStock(c, k);
-  const ratio = Math.max(RATIO_MIN, Math.min(RATIO_MAX, (n + yours + crop) / n));
+  const ratio = Math.max(RATIO_MIN, Math.min(RATIO_MAX, (n + yours + crop + strife + feast) / n));
   return usualRaw(k, c.make[k], c.need[k]) / Math.sqrt(ratio);
 }
 
@@ -428,7 +434,7 @@ export const usualTrail = (k: number, make: number, need: number): number => Mat
 export function reprice(c: WorldCity): void {
   if (!c.ruler) return;
   TRADE_GOODS.forEach((_, k) => {
-    c.stock[k] = Math.max(0, Math.round(normalStock(c, k) + c.yours[k] + c.crop[k]));
+    c.stock[k] = Math.max(0, Math.round(normalStock(c, k) + c.yours[k] + c.crop[k] + c.strife[k] + c.feast[k]));
     c.price[k] = Math.max(1, Math.round(rawPrice(c, k)));
   });
 }
@@ -472,11 +478,18 @@ export function stepWorld(s: SimState): void {
   const was = w.cities.map((c) => c.price[0]);
   if (harvest) for (const c of w.cities) if (c.ruler) harvestIn(w, c.id, c.outlook);
   const keep = 1 - 1 / WEAR_DAYS;
+  const feastKeep = 1 - 1 / FEAST_WEAR_DAYS;
   for (const c of w.cities) {
     if (!c.ruler) continue;
+    const feasts = feasting(c.id, s.tick);
     TRADE_GOODS.forEach((_, k) => {
       c.yours[k] = tidy(c.yours[k] * keep);
       c.crop[k] = tidy(c.crop[k] * keep);
+      const n = normalStock(c, k);
+      // At war: drawn down towards its war's mark (no further: deeper, after a defeat, it eases to it); at peace, wearing off.
+      c.strife[k] = tidy(c.war && STRIFE_SHARE[k] > 0 ? toward(c.strife[k], -STRIFE_SHARE[k] * n, STRIFE_RAMP_DAYS, keep) : c.strife[k] * keep);
+      // Laying in for its festival and keeping it: drawn down towards the festival's mark; after, easing within a season.
+      c.feast[k] = tidy(feasts && FEAST_SHARE[k] > 0 ? toward(c.feast[k], -FEAST_SHARE[k] * n, FEAST_RAMP_DAYS, feastKeep) : c.feast[k] * feastKeep);
     });
     reprice(c);
     TRADE_GOODS.forEach((_, k) => {
@@ -507,6 +520,21 @@ export function stepWorld(s: SimState): void {
 /** How many lines of news from Greece are kept. */
 const NEWS_KEEP = 12;
 
+/** How far a war draws each trade good's stock down in both cities at most (a share of normal): food and fleece. */
+export const STRIFE_SHARE: readonly number[] = [0.4, 0.4, 0.4, 0, 0.45, 0];
+/** Days for a war's push to come on, by about two thirds. */
+export const STRIFE_RAMP_DAYS = 8;
+
+/**
+ * A push moving a day towards a mark below nothing: closing on it by 1/`ramp`
+ * of the gap while short of it; past it (deeper), easing back as a push wears
+ * off (`keep` a day), but not past the mark.
+ */
+function toward(x: number, mark: number, ramp: number, keep: number): number {
+  if (x > mark) return x + (mark - x) / ramp;
+  return Math.min(mark, x * keep);
+}
+
 /** The news of a failed or rich harvest: "Athens’ harvest has failed, and wheat there is 46 a hundred (it was 25)". */
 function harvestLine(c: WorldCity, was: number): string {
   const name = PLACES[c.id].name;
@@ -534,8 +562,8 @@ export interface PriceWhy {
   arrow: Arrow;
   /** Dear or cheap against its usual price, or at it. */
   word: 'dear' | 'cheap' | 'usual';
-  /** What moves it most now: you, the harvest, or nothing (its usual price). */
-  push: 'you' | 'harvest' | 'usual';
+  /** What moves it most now: you, the harvest, a war, a festival, or nothing (its usual price). */
+  push: 'you' | 'harvest' | 'war' | 'festival' | 'usual';
   /** The reason, in words: "you sold them 1,400 in the last year", "their harvest failed this autumn". */
   why: string;
   /** Its usual price. */
@@ -544,20 +572,24 @@ export interface PriceWhy {
 
 const fmtN = (n: number): string => Math.round(n).toLocaleString('en-GB');
 
-/** Why a city's price for a good is what it is now: the biggest push on it, if any moves it by 3% or more. */
-export function priceWhy(c: WorldCity, k: number, tick: number): PriceWhy {
+/** Why a city's price for a good is what it is now: the biggest push on it, if any moves it by 3% or more. (`w`: Greece, to name the war.) */
+export function priceWhy(c: WorldCity, k: number, tick: number, w?: World): PriceWhy {
   const usual = usualPrice(c, k);
   const arrow = arrowOf(c, k);
   const now = c.ruler ? rawPrice(c, k) : c.price[k];
   const word: PriceWhy['word'] = now > usual * 1.03 ? 'dear' : now < usual * 0.97 ? 'cheap' : 'usual';
   const byYou = c.ruler ? now - rawPrice(c, k, 0) : 0;
   const byCrop = c.ruler ? now - rawPrice(c, k, c.yours[k], 0) : 0;
-  const big = Math.max(Math.abs(byYou), Math.abs(byCrop));
+  const byWar = c.ruler ? now - rawPrice(c, k, c.yours[k], c.crop[k], 0) : 0;
+  const byFeast = c.ruler ? now - rawPrice(c, k, c.yours[k], c.crop[k], c.strife[k], 0) : 0;
+  const big = Math.max(Math.abs(byYou), Math.abs(byCrop), Math.abs(byWar), Math.abs(byFeast));
   // (Within 3% of its usual price, nothing moves it much: say what it usually is, not a push the price doesn't show.)
   if (!c.ruler || word === 'usual' || big < usual * 0.03) {
     const why = c.make[k] > c.need[k] * 1.15 ? 'they make plenty of it' : c.need[k] > c.make[k] * 1.15 ? 'they are short of it' : 'they make about what they use';
     return { arrow, word: 'usual', push: 'usual', why, usual };
   }
+  if (Math.abs(byWar) === big && byWar !== 0) return { arrow, word, push: 'war', why: warWords(c, w), usual };
+  if (Math.abs(byFeast) === big && byFeast !== 0) return { arrow, word, push: 'festival', why: feastWords(c.id, tick), usual };
   if (Math.abs(byYou) >= Math.abs(byCrop)) {
     const n = dealtYear(c, k);
     // (When what is left of the push is more than all of the year's dealings, older trade must be in it too: say so.)
@@ -570,6 +602,18 @@ export function priceWhy(c: WorldCity, k: number, tick: number): PriceWhy {
   const h = c.harvest;
   const why = h === 0 ? `their harvest failed ${autumn}` : h === 1 ? `a poor harvest ${autumn}` : h === 3 ? `a good harvest ${autumn}` : h === 4 ? `a rich harvest ${autumn}` : `the harvest before last, still felt`;
   return { arrow, word, push: 'harvest', why, usual };
+}
+
+/** A war's push on a city's prices, in words: "their war with Athens", "they lost their war with Athens", "the war with Athens, lately ended". */
+function warWords(c: WorldCity, w?: World): string {
+  const name = (id: string): string => PLACES[id as keyof typeof PLACES]?.name ?? id;
+  if (c.war) return `their war with ${name(c.war)}`;
+  const last = w?.wars.filter((x) => x.ended > 0 && (x.a === c.id || x.b === c.id)).sort((x, y) => y.ended - x.ended)[0];
+  if (!last) return 'a war, lately ended';
+  const foe = last.a === c.id ? last.b : last.a;
+  if (last.fate === c.id) return `their war with ${name(foe)}, which they won, is still felt`;
+  if (last.fate === foe) return `they lost their war with ${name(foe)}`;
+  return `the war with ${name(foe)}, lately ended`;
 }
 
 /** How the next harvest's fields look, from June until it comes in ('' before then). */

@@ -35,6 +35,7 @@ import {
   yourPrice,
 } from '../src/sim/world';
 import { stepDiplomacy } from '../src/sim/diplomacy';
+import { stepRivals } from '../src/sim/rivals';
 
 const WHEAT_K = 0;
 const OIL_K = 3;
@@ -52,6 +53,7 @@ function greece(seed: number, tick = 0): Greece {
       for (let i = 0; i < ticks; i++) {
         s.tick++;
         stepWorld(s);
+        stepRivals(s);
         stepDiplomacy(s);
         each?.(s);
       }
@@ -198,11 +200,15 @@ describe('harvests', () => {
 
   it('the news of a failed or rich harvest, when Greece rolls one', () => {
     // Somewhere in twenty years a harvest fails, and a line of news says so.
+    // (Watched as it comes: festivals and wars make news too, and only the latest twelve lines are kept.)
     const g = greece(21);
-    g.run(20 * TICKS_PER_YEAR);
+    let failed = false;
+    g.run(20 * TICKS_PER_YEAR, (s) => {
+      failed ||= s.world.news.some((n) => /harvest has failed, and wheat there is \d+ a hundred \(it was \d+\)/.test(n.line));
+    });
     const news = w(g).news;
     expect(news.length).toBeGreaterThan(0);
-    expect(news.some((n) => /harvest has failed, and wheat there is \d+ a hundred \(it was \d+\)/.test(n.line))).toBe(true);
+    expect(failed).toBe(true);
     expect(news.length).toBeLessThanOrEqual(12);
   });
 });
