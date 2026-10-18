@@ -2,6 +2,70 @@
 
 Notes to Oliver, newest first.
 
+## Slice 21 — Greece goes on (18 Oct)
+
+Greece now has a life of its own. The rulers feel something about each other as well as about you, and those feelings move. Rivals who fall far enough out go to war: their armies march out on the map, the way between them closes, and food grows dear in both cities. Each side may ask your city for help, and whatever you trade with one side, the other remembers. The festivals come round at their seasons, each city's fields on the map show its harvest, and a News of Greece list tells you what happened, newest first. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with no wars and no feuds, every ruler feeling about the others as before; from there Greece goes on by itself, and the welcome back says so. A town with no trade route plays exactly as before: its city is the same tick for tick. Its Greece may now have wars and festivals, which show on the map, but they don't reach the lines under its top bar until it deals with Greece. 72 of the 82 earlier demos open and play 900 ticks on exactly as before. The 10 that trade with Corinth or Athens (`#caravan`, `#request`, `#tribute`, `#threat`, `#raid`, `#raiders`, `#aftermath`, `#athensship`, `#promise`, `#famine`) earn a little more, with the same people. In their Greece the dice start a war: Corinth declares war on Athens on 1 December 748 BC and wins in May 747 BC, so meat sells dearer in Corinth and food in Athens (11 dr more by 900 ticks in the Corinth towns, 61 to 109 dr in the Athens sea towns). In `#promise`, Athens' archon now asks for 800 wheat rather than 1,000, because wheat is dearer in Athens after its war. Two smaller changes everywhere: a price's reason now names what pushed it the way it went, and the twelve lines of news kept for Greece now include its festivals and wars.
+
+### What's new
+- **Rulers' feelings for each other.** Each ruler's feeling for each of the other three is made of reasons, like their mood towards you:
+  - the old rivalries of the cities, fixed: Athens and Sparta "old rivals for the leadership of Greece" −20, Sparta and Corinth "old friends in the Peloponnese" +10, everyone and Troy −10;
+  - the ruler's own liking or dislike, from the start of the game;
+  - what has passed between them lately: quarrels ("a quarrel with Athens: cattle raided across the border") and friendships ("a friendship with Corinth: sacrifices together at Delphi").
+
+  Quarrels and friendships come by the dice, about one month in eighteen and one in sixteen for each pair. They fade over eighteen months. Warlike and proud rulers quarrel more, generous ones less. A proud ruler takes a quarrel harder, a steadfast one more lightly, and a fickle one forgets in half the time. Their feeling in a word: friends, cordial, cool, feuding (−25 or worse), at war. A feud starting or being made up is news.
+- **War.** From the third year of a game, a pair whose feelings average −35 or worse may go to war: one war at a time in Greece, none within six months of the last, and the same pair not again within three years. With the dice as they are, that is about one war every three and a half years. The angrier ruler declares it, naming the grievance. It lasts three to six months. It ends in a weary peace about one time in three; otherwise in a defeat, the bigger and the warlike city more likely to win. A battle half-way through hints at the end: "A battle at Megara between Sparta and Athens: Athens had the better of it."
+- **On the map.** Each side's army marches out along the road between them: a phalanx of hoplites in their city's colours, more ranks for a bigger city, a banner at the head. Wars with Troy are fought by fleets of three galleys on the sea lane. The armies stand facing each other short of the meeting place (Megara between Athens and Sparta, Mantinea between Sparta and Corinth, off Aegina for Corinth and Troy), with crossed swords between them. The road between the two cities is drawn in red: closed. When it ends, the armies walk home. Hover an army for whose it is and what it is doing, or the swords for the war: since when, why, and the wheat and fleece prices in both cities.
+- **Prices.** While a war lasts, wheat, meat and cheese grow about a quarter dearer in both cities, and fleece a third, over about three weeks. A defeat leaves the loser's food and fleece about one and a half times their usual price (oil and wine less so: fields burned, flocks driven off). It wears off over months as any push does, two thirds gone in five. The winner's spoils ease its own prices. The reason under each price says so: "their war with Athens", "they lost their war with Athens", "the war with Athens, lately ended".
+- **Your part.** A ruler at war asks your city for help much more often, about one month in two and a half, for wheat, meat, cheese or fleece for the army: "for their army: they are at war with Athens". Both sides can ask at the same time. Trading with one side cools the other. Each of its traders who buys or sells at your city adds to one memory, "you trade with their enemy Corinth (3 visits during the war)": −3 a visit, at most −15, fading over a year from the last visit. Anything you send to one side, as a gift or because they asked, costs you −8 with the other ("you sent 250 dr to their enemy Corinth during the war"). A proud ruler takes both half as hard again.
+- **Festivals.** The Isthmian Games at Corinth in April, the Panathenaia in Athens in July and the Karneia in Sparta in August, each for a month, every year. From a fortnight before and while it lasts, wine and meat grow about a third dearer there, easing within a season. News comes as each begins. On the map, banners stand round the city and smoke rises from its altar. A gift that arrives while it is on counts half as much again (twice for a pious ruler), and the gift buttons and the memory say so: "for the Panathenaia".
+- **Harvests on the map.** Each ruled city has a patch of fields beside it, coloured by its harvest. From June the colour shows how the coming harvest looks; the rest of the year, how the last one was. It runs from parched brown to rich gold. Hover the fields for the harvest in words and the price of wheat there.
+- **City labels** carry crossed swords while the city is at war and a wreath while its festival is on.
+- **A city's page.** Under the mood, a few lines say whether the city is at war (since when, where the armies are), whether a war has just ended and how, whether its festival is on or coming within a month, and how its harvest looks. A new **Rivals** tab shows how its ruler feels about each of the others, with the reasons and what each feels back. It also shows its war, if any, and when its festival is.
+- **News of Greece.** A list at the top right of the map with the latest twelve lines, newest first, each with its date and a dot in its city's colour. Click a line to open that city's page. Click the heading to fold it away. Greece's news keeps its own colour on the line under the top bar, one piece at a time.
+- **Raiders and caravans answer the pointer along their whole length** (from slice 20's review): every moving piece on the map, armies and fleets included, can be hovered anywhere from its tail to its head, not only near its leader.
+
+### What to try
+1. Open `#war`. It is `#caravan`'s town in June 747 BC. Corinth has just won its war with Athens, and King Eurykrates of Sparta has seized the moment and declared war on Athens (the quarrel is set up for this demo, and says so). The map opens on his page. "At war with Athens since 28 May 747 BC: their armies stand at Megara." He asks your city for 1,000 wheat for his army, and Athens' archon has asked the same. Zoom in on Megara, between Corinth and Athens: the two armies face each other with the crossed swords between them, and the road from Sparta to Athens is red. Hover an army and the swords. Look at the Prices tab ("their war with Athens") and the Rivals tab. Click a line in the News of Greece list. Then send the wheat to one side and watch the other's mood.
+2. Open `#festival`. It is `#athensship`'s town on 7 July 747 BC, the Panathenaia six days in. The map opens on Athens' page: "The Panathenaia is on, until 1 August". Hover the gift buttons: each one says it counts for more now. On the Prices tab, wine and meat are dear, "the Panathenaia is on". Zoom in on Athens for the banners and the smoke, and look at the fields beside each city.
+3. Open `#peace`. The same war as `#war`, played on to its end in September: Athens has won. Sparta's army walks home through Corinth, the swords and the red road are gone, and the map opens on Sparta's Prices tab: everything dear, "they lost their war with Athens". Let it run for a few months and watch the prices ease.
+4. Open any town that trades (say `#caravan`) and let it run for a few game years with the map open. Watch the News of Greece list: quarrels, feuds, festivals, and now and then a war.
+
+Each link also opens paused if you add `-paused` (for example `#war-paused`).
+
+### What I'd like your eye on
+- **How a war reads on the map.** At the map's first zoom, the armies at Megara sit under the labels of Corinth and Athens (the labels fade while something passes under them). Up close they are two blocks of shields facing each other. Is that enough, or should a war show more from across the table?
+- **How often.** About one war every three and a half years from the third year, and a few feuds in between. Too quiet, too busy?
+- **How hard a war hits prices**, and how long a defeat is felt. One thing I noticed: pushes stack. In `#festival`, Athens' wine during the Panathenaia, just after losing a war, is twice its usual price, which is as far as a price can go.
+- **The News of Greece list** at the top right: its place, its size, and whether twelve lines is the right number.
+- **The festivals and the fields.** The banners and smoke are small unless you zoom in. Do the field colours read as a harvest?
+- **Choosing a side.** Is "trading with one side cools the other" visible enough to steer what you sell?
+
+### Known rough edges
+- A war never closes your own trade routes, even when the fighting is on the way (your road to Athens runs through Corinth). The spec mentioned "routes through the fighting closed"; I left that for the war phase, and only the road between the two rivals is drawn closed.
+- The armies don't fight on screen: the battle is a line of news half-way through.
+- Troy and Tyre keep no festivals.
+- Athens' fields lie north-west of the city, where its label sits at some angles: the land south of Athens is sea.
+- In `#war` both requests are set up on the same day for the demo; in play they come at their own times.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `4a9c792` (the end of slice 20's review). The work a frame swings by a ms or two from run to run, so small rises are noise.
+
+| | Before | After |
+|---|---|---|
+| Tests | 328 in 27 files | 343 in 28 files, all passing (15 new for feelings, wars, festivals and your part in them) |
+| Bundle | 4 files, 1,410 KB raw, 417 KB gzipped | 4 files, 1,445 KB raw, 429 KB gzipped |
+| Load, bare link, ready and first frame (page clock) | 1.63 s, 2.15 s | 1.61 s, 2.02 s |
+| `#town`: triangles and draws, save | 799,168, 83; 142 KB | the same; 145 KB (the feelings and Greece's news) |
+| `#richtown`: triangles and draws, save | 910,707, 95; 179 KB | the same; 183 KB |
+| Work before drawing a frame, running: `#town`, `#richtown`, `#caravan`, `#tribute`, `#raid`, `#raiders` | 7.8, 11.0, 3.3, 3.5, 3.4, 3.8 ms | 8.7, 11.2, 2.8, 4.6, 4.8, 7.9 ms (one run each) |
+| The map of Greece, first open: built in | 0.24 s | 0.24 s |
+| Map pages: triangles and draws | `#tribute` 304,018, 20; `#hostile` 304,642, 22; `#raid` 305,834, 22 | `#tribute` 306,042, 32; `#hostile` 305,026, 26; `#raid` 306,218, 26 (the fields, and in `#tribute` the Panathenaia's banners and smoke) |
+| `#war`: the armies at Megara | | 314,506 triangles, 33 draws; ready at 3.1 s; 6.5 ms a frame running |
+| `#festival`: the Panathenaia | | 306,230 triangles, 34 draws; ready at 3.2 s; 4.7 ms a frame running |
+| The 82 earlier demos | | 72 open and play 900 ticks on exactly as before, the whole world compared; the other 10 differ only in money, as above |
+
 ## Slice 20 — Raiders at the edge (18 Oct)
 
 A ruler you have pushed too far now does something about it. First a threat with a price and a deadline, then a war band you can watch march across the map of Greece, then raiders in your fields with torches, and you can pay them off at any point until they turn for home. You weren't here while it was built: every choice below is mine, from the spec's defaults.

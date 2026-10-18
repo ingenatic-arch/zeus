@@ -204,6 +204,8 @@ interface Probe {
   greeceJump?: (v: { x: number; z: number; yaw: number; dist: number; tilt: number }) => void;
   /** Show the map of Greece's hover card for a thing on it ('war-3-sparta', 'fields-athens', a city), as if the pointer were at a screen point. */
   greeceHover?: (x: number, y: number) => void;
+  /** A point on the screen towards the rear of a moving piece on the map of Greece (two thirds of the way from its head to its tail), to check that its whole body answers the pointer. */
+  greeceBody?: (key: string) => { x: number; y: number } | null;
   /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
   greeceOpenMs?: number;
   greeceBuildMs?: number;
@@ -1293,6 +1295,7 @@ function start(): void {
   probe.greeceInfo = () => (greece ? greece.info() : { open: false, built: false });
   probe.greeceJump = (v) => greece?.rig.jumpTo(v);
   probe.greeceHover = (x, y) => greece?.hover(x, y);
+  probe.greeceBody = (key) => greece?.bodyPoint(key) ?? null;
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

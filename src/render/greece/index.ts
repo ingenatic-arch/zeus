@@ -350,18 +350,6 @@ export class GreeceMap {
         near = `trav:${key}`;
       }
     }
-    // A city's fields, a little way from it.
-    if (!near)
-      for (const [id, m] of this.fields) {
-        const [fx, fy, fz] = m.userData.at as [number, number, number];
-        const p = screen(fx, fy + 0.05, fz);
-        if (!p) continue;
-        const d = (p[0] - sx) ** 2 + (p[1] - sy) ** 2;
-        if (d < 15 * 15 && d < nd) {
-          nd = d;
-          near = `trav:fields-${id}`;
-        }
-      }
     if (near) return near;
     for (const id of CITY_IDS) {
       const el = this.labels.get(id) as HTMLElement;
@@ -370,6 +358,18 @@ export class GreeceMap {
       // (A little round the label, and its stem down to the city.)
       if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return id;
     }
+    // A city's fields, a little way from it (under the labels, which come first).
+    for (const [id, m] of this.fields) {
+      const [fx, fy, fz] = m.userData.at as [number, number, number];
+      const p = screen(fx, fy + 0.05, fz);
+      if (!p) continue;
+      const d = (p[0] - sx) ** 2 + (p[1] - sy) ** 2;
+      if (d < 15 * 15 && d < nd) {
+        nd = d;
+        near = `trav:fields-${id}`;
+      }
+    }
+    if (near) return near;
     const r = this.host.canvas.getBoundingClientRect();
     let best: CityId | 'ship' | `trav:${string}` | null = null;
     let bd = 34 * 34;
@@ -697,6 +697,18 @@ export class GreeceMap {
 
   render(): void {
     this.host.renderer.render(this.scene, this.camera);
+  }
+
+  /** For the probe: a screen point two thirds of the way from a moving piece's head to its tail. */
+  bodyPoint(key: string): { x: number; y: number } | null {
+    const m = this.travellers.get(key);
+    if (!m || !m.visible) return null;
+    const [back, front] = (m.userData.body as [number, number] | undefined) ?? [0, 0];
+    const k = m.scale.x;
+    const along = front + (back - front) * 0.67;
+    const r = this.host.canvas.getBoundingClientRect();
+    this.v.set(m.position.x + Math.cos(m.rotation.y) * k * along, m.position.y + 0.3 * k, m.position.z - Math.sin(m.rotation.y) * k * along).project(this.camera);
+    return { x: r.left + (this.v.x * 0.5 + 0.5) * r.width, y: r.top + (-this.v.y * 0.5 + 0.5) * r.height };
   }
 
   /** For the probe: what the map shows. */
