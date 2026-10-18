@@ -174,7 +174,7 @@ describe('harvests', () => {
     g.run(20 * TICKS_PER_YEAR);
     const news = w(g).news;
     expect(news.length).toBeGreaterThan(0);
-    expect(news.some((n) => /harvest has failed: wheat there is \d+ a hundred, was \d+/.test(n.line))).toBe(true);
+    expect(news.some((n) => /harvest has failed, and wheat there is \d+ a hundred \(it was \d+\)/.test(n.line))).toBe(true);
     expect(news.length).toBeLessThanOrEqual(12);
   });
 });

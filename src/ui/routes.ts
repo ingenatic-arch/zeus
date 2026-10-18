@@ -11,10 +11,10 @@ import { PLACES, type CityId } from '../map/greece';
 import { dateOfTick, formatYear } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { held, WARE_NAMES } from '../sim/foods';
-import { caravanYard, keptIn, LAND_EVERY, priceAt, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
+import { caravanYard, keptIn, LAND_EVERY, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
+import { termsLine, termsMeaning, yourPriceCell } from './prices';
 import type { Building, SimState, TradeRoute } from '../sim/state';
-import { cityHolds, KEEP_MAX, KEEP_STEP, PRICES, TRADE_GOODS, tradingPost } from '../sim/trade';
-import { cityOf } from '../sim/world';
+import { cityHolds, KEEP_MAX, KEEP_STEP, TRADE_GOODS, tradingPost } from '../sim/trade';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -60,10 +60,15 @@ function uptoCell(r: TradeRoute, k: number): string {
   return `<td class="keep" title="${esc(`Buy enough ${name} to stock the ${keptIn(k)} up to ${fmt(n)}`)}"><button data-upto="${k}" data-by="-1" data-route="${routeKey(r)}" aria-label="Stock up to less ${name}"${n <= 0 ? ' disabled' : ''}>−</button><span>${fmt(n)}</span><button data-upto="${k}" data-by="1" data-route="${routeKey(r)}" aria-label="Stock up to more ${name}"${n >= KEEP_MAX ? ' disabled' : ''}>+</button></td>`;
 }
 
+/** A price cell: your price with the city (the market's and its ruler's terms) and its arrow, with a tip saying what moved it. */
+function priceTd(s: SimState, city: CityId, k: number): string {
+  const p = yourPriceCell(s, city, k);
+  return `<td class="price" title="${esc(p.title)}">${p.html}</td>`;
+}
+
 /** A route's goods: what they buy from you, and what they sell you. */
 export function routeGoods(s: SimState, r: TradeRoute): string {
   const { theyBuy, theySell } = tradesOf(s, r.city);
-  const c = cityOf(s.world, r.city);
   const name = PLACES[r.city].name;
   const depot = depotOf(s, r);
   const at = r.kind === 'land' ? 'Yard' : 'Quay';
@@ -75,7 +80,7 @@ export function routeGoods(s: SimState, r: TradeRoute): string {
       const left = leftOf(s, r, k, true);
       const lim = yearlyLimit(s, r.city, k);
       return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Tick to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
-<td class="price" title="${esc(`${name} pays ${c.price[k]} dr for every 100 ${ware} (the Tyre ship pays ${PRICES[k]})`)}">${c.price[k]}</td>
+${priceTd(s, r.city, k)}
 <td class="left" title="${esc(`${name} buys up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
 ${keepCell(s, k)}
@@ -90,17 +95,17 @@ ${keepCell(s, k)}
       const left = leftOf(s, r, k, false);
       const lim = yearlyLimit(s, r.city, k);
       return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Tick to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
-<td class="price" title="${esc(`${name} asks ${c.price[k]} dr for every 100 ${ware}: ${fmt(priceAt(s, r.city, k, 1000))} dr for 1,000`)}">${c.price[k]}</td>
+${priceTd(s, r.city, k)}
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
 ${uptoCell(r, k)}<td class="quay" title="${esc(`${fmt(depot ? held(depot, w) : 0)} ${ware} at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}${depot && held(depot, w) > 0 ? `, for the ${r.kind === 'land' ? 'porters' : 'dockers'} to carry to the ${keptIn(k)}` : ''}`)}">${depot && held(depot, w) > 0 ? fmt(held(depot, w)) : '·'}</td></tr>`;
     })
     .join('');
   const head = (what: string, fig: string, figTitle: string): string =>
-    `<thead><tr><th>${what}</th><th title="Drachmas for every 100">Price</th><th title="What is left of this year’s limit">Left</th><th title="What your stores hold">Stores</th><th title="${figTitle}">${fig}</th><th title="Waiting at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}">${at}</th></tr></thead>`;
+    `<thead><tr><th>${what}</th><th title="Your price for every 100: the market’s, with the ruler’s terms">Price</th><th title="What is left of this year’s limit">Left</th><th title="What your stores hold">Stores</th><th title="${figTitle}">${fig}</th><th title="Waiting at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}">${at}</th></tr></thead>`;
   const sell = sellRows ? `<table class="goods">${head('Sell', 'Keep', 'What the city keeps, not for sale')}<tbody>${sellRows}</tbody></table>` : `<p class="none">${esc(name)} is short of nothing you could sell it.</p>`;
   const buy = buyRows ? `<table class="goods">${head('Buy', 'Up to', 'Buy enough to stock your stores up to this')}<tbody>${buyRows}</tbody></table>` : `<p class="none">${esc(name)} has nothing to spare.</p>`;
-  return `<h4>${esc(name)} buys</h4>${sell}<h4>${esc(name)} sells</h4>${buy}`;
+  return `<p class="terms" title="${esc(termsMeaning(s, r.city))}">${esc(termsLine(s, r.city))}</p><h4>${esc(name)} buys</h4>${sell}<h4>${esc(name)} sells</h4>${buy}`;
 }
 
 /** A route's last visit: what its trader took and paid, and what it brought. */
@@ -138,7 +143,7 @@ export function waysHtml(s: SimState, city: CityId): string {
     const every = w.kind === 'land' ? 'a caravan every two months to your caravan yard' : 'a ship every three months to your trading post';
     return `<div class="route"><button class="openroute" data-open="${w.city}-${w.kind}"${why ? ' disabled' : ''}>${w.kind === 'land' ? `Open a road to ${name}` : `Open a sea route to ${name}`} · ${fmt(w.fee)} dr</button><p class="line">${esc(cap(every))}.${why ? ` <span class="why">${esc(why)}.</span>` : ''}</p></div>`;
   });
-  return `<section class="routes"><h3>Trade with ${esc(name)}</h3>${blocks.join('')}<p class="foot">Prices are per 100, limits are a year’s. What you sell goes from the stores to the yard or the quay beyond what the city keeps; what you buy comes into the stores.</p></section>`;
+  return `<section class="routes"><h3>Trade with ${esc(name)}</h3>${blocks.join('')}<p class="foot">Your prices per 100 (the market’s, with the ruler’s terms), limits a year’s. What you sell goes from the stores to the yard or the quay beyond what the city keeps; what you buy comes into the stores.</p></section>`;
 }
 
 /**

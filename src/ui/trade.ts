@@ -19,7 +19,9 @@ import { roadsBeside } from '../sim/rounds';
 import { workersLine } from '../sim/status';
 import { morph } from './morph';
 import { depotOf, routeEvent, routeGoods, routeKey, routeLast, routeName, routeNewsBlock, routeWarnings } from './routes';
-import { caravanYard, routeOf, type RouteKind } from '../sim/routes';
+import { caravanYard, routeOf, tradesOf, type RouteKind } from '../sim/routes';
+import { cityOf, priceWhy, yourPrice } from '../sim/world';
+import { harvestLine, priceRows } from './prices';
 import type { TradeRoute } from '../sim/state';
 import { PLACES } from '../map/greece';
 import type { Building, SimState } from '../sim/state';
@@ -97,7 +99,7 @@ function goodsTable(s: SimState, post: Building): string {
     const holdsTitle = `The city’s ${storeKind(w) === 'granary' ? 'granaries' : 'storehouses'} hold ${fmt(holds)} ${name}${sell ? ` · ${spare > 0 ? `${fmt(spare)} to spare beyond what is kept` : 'nothing to spare beyond what is kept'}` : ''}`;
     return `<tr class="${sell ? 'on' : 'off'}">
 <td class="good"><label title="${sell ? `For sale: the dockers carry spare ${name} to the quay` : `Not for sale: tick to sell spare ${name} to the ship`}"><input type="checkbox" data-sell="${k}"${sell ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(name)}</label></td>
-<td class="price" title="The ship pays ${PRICES[k]} dr for every 100 ${name}">${PRICES[k]}</td>
+<td class="price" title="${esc(`The ship pays ${PRICES[k]} dr for every 100 ${name}, always${routesPay(s, k)}`)}">${PRICES[k]}</td>
 <td class="holds" title="${esc(holdsTitle)}">${fmt(holds)}</td>
 <td class="keep" title="${esc(keepTitle)}"><button data-keep="${k}" data-by="-1" aria-label="Keep less ${name}"${keep <= 0 ? ' disabled' : ''}>−</button><span>${fmt(keep)}</span><button data-keep="${k}" data-by="1" aria-label="Keep more ${name}"${keep >= KEEP_MAX ? ' disabled' : ''}>+</button></td>
 <td class="quay" title="${fmt(quay)} ${name} on the quay (room for ${fmt(QUAY_ROOM)})">${quay > 0 ? fmt(quay) : '·'}</td>
@@ -125,6 +127,27 @@ ${warn.map((w) => `<div class="late">${esc(w)}</div>`).join('')}
 <p class="foot">Prices are per 100. The dockers carry what the stores hold beyond what the city keeps to the quay, the most valuable first, and carry back anything taken off sale.</p>`;
 }
 
+/** A route's goods' market prices in its city, with their arrows, a year's chart and why. */
+function routePrices(s: SimState, r: TradeRoute): string {
+  const { theyBuy, theySell } = tradesOf(s, r.city);
+  const goods = [...theyBuy, ...theySell];
+  if (!goods.length) return '';
+  return `<section class="prices"><h3>Prices in ${esc(PLACES[r.city].name)}</h3><p class="harvest">${esc(harvestLine(s, r.city))}</p><ul class="pricelist">${priceRows(s, r.city, goods)}</ul></section>`;
+}
+
+/** What the open routes pay for a good now, for the Tyre tab's price tip: " · Corinth pays 74, falling". */
+function routesPay(s: SimState, k: number): string {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const r of s.world.routes) {
+    if (seen.has(r.city) || !tradesOf(s, r.city).theyBuy.includes(k)) continue;
+    seen.add(r.city);
+    const a = priceWhy(cityOf(s.world, r.city), k, s.tick).arrow;
+    parts.push(`${PLACES[r.city].name} pays ${yourPrice(s.world, r.city, k, s.tick)}${a > 0 ? ', rising' : a < 0 ? ', falling' : ''}`);
+  }
+  return parts.length ? ` · ${parts.join('; ')}` : '';
+}
+
 /** A route's tab. */
 export function routeHtml(s: SimState, map: CoastMap, r: TradeRoute): string {
   const name = PLACES[r.city].name;
@@ -134,6 +157,7 @@ export function routeHtml(s: SimState, map: CoastMap, r: TradeRoute): string {
 ${routeNewsBlock(s, r)}
 ${routeWarnings(s, r).map((w) => `<div class="late">${esc(w)}</div>`).join('')}
 <section class="routegoods">${routeGoods(s, r)}${people ? `<p class="dockers">${esc(people)}</p>` : ''}</section>
+${routePrices(s, r)}
 <section><h3>The last ${r.kind === 'land' ? 'caravan' : 'ship'}</h3>${routeLast(r)}</section>
 <p class="foot">Prices are per 100; each city buys and sells only so much a year. What you sell goes beyond what the city keeps; what you buy is unloaded and paid for as the trader arrives, as much as the treasury can spare then (it keeps back a month’s wages).</p>`;
 }

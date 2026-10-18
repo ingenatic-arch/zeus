@@ -449,18 +449,15 @@ export function stepWorld(s: SimState): void {
 /** How many lines of news from Greece are kept. */
 const NEWS_KEEP = 12;
 
-/** The news of a failed or rich harvest: "Athens’ harvest has failed: wheat there is 82, was 41". */
+/** The news of a failed or rich harvest: "Athens’ harvest has failed, and wheat there is 46 a hundred (it was 25)". */
 function harvestLine(c: WorldCity, was: number): string {
   const name = PLACES[c.id].name;
   const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
-  return c.harvest === 0 ? `${whose} harvest has failed: wheat there is ${c.price[0]} a hundred, was ${was}` : `A rich harvest in ${name}: wheat there is ${c.price[0]} a hundred, was ${was}`;
+  return c.harvest === 0 ? `${whose} harvest has failed, and wheat there is ${c.price[0]} a hundred (it was ${was})` : `A rich harvest in ${name}: wheat there is down to ${c.price[0]} a hundred (it was ${was})`;
 }
 
-/** The latest news from Greece within so many ticks (for the line under the top bar), or undefined. */
-export const freshNews = (s: SimState, within: number): NewsItem | undefined => {
-  const n = s.world.news[s.world.news.length - 1];
-  return n && s.tick - n.tick < within ? n : undefined;
-};
+/** The news from Greece of the last so many ticks, newest last (for the line under the top bar). */
+export const freshNews = (s: SimState, within: number): NewsItem[] => s.world.news.filter((n) => s.tick - n.tick < within);
 
 // ---------------------------------------------------------------------------
 // Reading a price: its arrow, its reason, the ruler's terms.

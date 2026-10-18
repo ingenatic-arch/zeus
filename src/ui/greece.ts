@@ -1,17 +1,20 @@
 /**
  * What the map of Greece says: the rulers' portraits, the labels over the
  * cities, the hover card, and each city's panel (who rules it, how they feel
- * about you and why, what it sells and buys and at what price). Loaded with
+ * about you and why, its prices with their arrows, charts and reasons, and its
+ * trade routes). Loaded with
  * the map, the first time it opens.
  */
 import { PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { dateOfTick, formatDate, TICKS_PER_DAY } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
-import type { Ruler, SimState, WorldCity } from '../sim/state';
+import type { Ruler, SimState, TradeRoute } from '../sim/state';
+import { caravansOnMap, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
+import { pricesBlock } from './prices';
 import { waysHtml } from './routes';
-import { cityOf, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, sellsAndBuys, TRAIT_WORDS, tyreShip, type MoodWord } from '../sim/world';
+import { cityOf, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, TRAIT_WORDS, tyreShip, type MoodWord } from '../sim/world';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -113,8 +116,41 @@ export function labelHtml(s: SimState, id: CityId): string {
   return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}`;
 }
 
-/** The card under the pointer over a city (or the Tyre ship). */
-export function hoverHtml(s: SimState, id: CityId | 'ship'): string {
+/** The goods a route's trader comes for and brings, in words: " · for your oil and meat · bringing the wine you buy". */
+function tradesWords(r: TradeRoute): string {
+  const names = (ticks: readonly boolean[]): string[] => ticks.map((on, k) => (on ? WARE_NAMES[TRADE_GOODS[k]] : '')).filter((x) => x);
+  const and = (xs: string[]): string => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const sell = names(r.sell);
+  const buy = names(r.buy);
+  return `${sell.length ? ` · for your ${and(sell)}` : ''}${buy.length ? ` · bringing the ${and(buy)} you buy` : ''}`;
+}
+
+/** The card over a route's trader on the map ('corinth-sea', 'corinth-land-0'): who, coming or going, when, and what for. */
+function travellerHtml(s: SimState, key: string): string {
+  const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
+  const r = routeOf(s, city, kind);
+  const name = PLACES[city]?.name ?? city;
+  if (!r) return `<b>A trader from ${esc(name)}</b>`;
+  const days = (t: number): string => {
+    const d = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
+    return d === 1 ? '1 day' : `${d} days`;
+  };
+  const paid = r.visits > 0 && r.lastPaid > 0 ? ` · paid ${fmt(r.lastPaid)} dr for ${wareList(r.lastSold)}` : '';
+  if (kind === 'sea') {
+    const v = visitorOnMap(r, s.tick);
+    const line = v.homeward ? `Sailing home to ${name}${paid}` : `Sailing to your city: due at your jetty in ${days(r.next)}${tradesWords(r)}`;
+    return `<b>The ship from ${esc(name)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
+  }
+  const c = caravansOnMap(s, r, s.tick)[Number(nth ?? 0)];
+  const home = c?.homeward ?? false;
+  const line = home ? `On the road home to ${name}${paid}` : `On the road to your city: at the edge of your map in ${days(r.next)}${tradesWords(r)}`;
+  return `<b>A caravan from ${esc(name)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
+}
+
+/** The card under the pointer over a city (or the Tyre ship, or a route's trader). */
+export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`): string {
+  if (hit.startsWith('trav:')) return travellerHtml(s, hit.slice(5));
+  const id = hit as CityId | 'ship';
   if (id === 'ship') {
     const t = tyreShip(s, s.tick);
     const news = shipNews(s);
@@ -131,22 +167,6 @@ export function hoverHtml(s: SimState, id: CityId | 'ship'): string {
 
 const goodRow = (k: number, price: string, title: string): string =>
   `<li title="${esc(title)}"><i style="background:${SWATCH[k]}"></i><span class="g">${cap(WARE_NAMES[TRADE_GOODS[k]])}</span><span class="p">${price}</span></li>`;
-
-/** The goods a city sells and buys, at what price, against Tyre's. */
-function goodsBlock(c: WorldCity, name: string): string {
-  const { sells, buys } = sellsAndBuys(c);
-  const row = (k: number, buying: boolean): string => {
-    const p = c.price[k];
-    const t = PRICES[k];
-    const d = Math.round(((p - t) / t) * 100);
-    const vs = d === 0 ? 'as Tyre' : `Tyre ${t}`;
-    const title = buying
-      ? `${name} is short of ${WARE_NAMES[TRADE_GOODS[k]]}: makes about ${fmt(c.make[k])} a year and uses about ${fmt(c.need[k])}, so it pays ${p} dr for 100 (the Tyre ship pays ${t})`
-      : `${name} makes plenty of ${WARE_NAMES[TRADE_GOODS[k]]}: about ${fmt(c.make[k])} a year and uses about ${fmt(c.need[k])}, so it asks ${p} dr for 100 (the Tyre ship pays ${t})`;
-    return goodRow(k, `<b>${p}</b> dr <em>${vs}</em>`, title);
-  };
-  return `<div class="trade2"><section><h3>${esc(name)} sells</h3><ul class="goodlist">${sells.map((k) => row(k, false)).join('') || '<li class="none">Nothing to spare</li>'}</ul></section><section><h3>${esc(name)} buys</h3><ul class="goodlist">${buys.map((k) => row(k, true)).join('') || '<li class="none">Nothing it lacks</li>'}</ul></section></div><p class="foot">Prices are per 100 and steady for now. Cheap where it has plenty, dear where it is short.</p>`;
-}
 
 /** How a city is reached from yours. */
 const REACH: Partial<Record<CityId, string>> = {
@@ -192,7 +212,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div></header>
 <section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)}</div><div class="num">${signed(m)} in all</div></div></div><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
-${goodsBlock(c, place.name)}
+${pricesBlock(s, id)}
 <section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>
 ${waysHtml(s, id)}`;
 }

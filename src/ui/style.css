@@ -483,6 +483,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .townline svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 .townline.ship { border-left-color: #2f6f8e; background: #eef6f8; }
 .townline.ship svg { width: 19px; }
+.townline.greece { border-left-color: #c8643b; background: #fbeee0; }
+.townline.greece svg { width: 18px; }
 @keyframes line-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 kbd {
@@ -730,6 +732,31 @@ body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, 
 .greece-panel .rename button.ok { background: var(--olive); border-color: #55612c; color: #fbf6e6; }
 .greece-panel .rename button:disabled { opacity: 0.45; cursor: default; }
 .greece-panel .why { font-size: 12px; color: var(--terracotta-deep); margin-top: 3px; }
+/* Prices that move (slice 17): the arrows, the year's chart and the reason lines, on a city's page and a route's tab. */
+.parrow { display: inline-block; vertical-align: 0; margin-left: 3px; }
+.parrow.up { fill: #b0482a; }
+.parrow.down { fill: #2f6f8e; }
+.parrow.flat { stroke: #9a8468; fill: none; }
+:is(.household.trade, .greece-panel) .terms { margin: 2px 0 0; font-size: 13px; font-variant: small-caps; letter-spacing: 0.03em; color: var(--ink); }
+:is(.household.trade, .greece-panel) .harvest { margin: 1px 0 4px; font-size: 12.5px; color: var(--ink-soft); }
+:is(.household.trade, .greece-panel) .pricelist { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+:is(.household.trade, .greece-panel) .pricelist li { display: grid; grid-template-columns: 13px 1fr auto 86px; align-items: center; gap: 0 6px; padding: 2px 0 3px; border-top: 1px solid rgba(184, 138, 80, 0.22); }
+:is(.household.trade, .greece-panel) .pricelist li:first-child { border-top: none; }
+:is(.household.trade, .greece-panel) .pricelist li > i { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(74, 52, 32, 0.45); }
+:is(.household.trade, .greece-panel) .pricelist .p { font-variant-numeric: tabular-nums; white-space: nowrap; color: #8a6418; text-align: right; min-width: 38px; }
+:is(.household.trade, .greece-panel) .pricelist .p b { font-size: 14px; }
+:is(.household.trade, .greece-panel) .pricelist .why { grid-column: 2 / 5; font-size: 11.5px; color: var(--ink-soft); line-height: 1.25; }
+:is(.household.trade, .greece-panel) .pricelist .why b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 12.5px; }
+:is(.household.trade, .greece-panel) .pricelist .why b.dear { color: #b0482a; }
+:is(.household.trade, .greece-panel) .pricelist .why b.cheap { color: #2f6f8e; }
+:is(.household.trade, .greece-panel) .pricelist .why b.usual { color: var(--ink-soft); }
+.spark { display: block; overflow: visible; }
+.spark polyline { fill: none; stroke: #7a5c3c; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+.spark line.usual { stroke: rgba(122, 92, 60, 0.4); stroke-width: 1; stroke-dasharray: 2 2; }
+.spark circle { fill: #9a8468; }
+.spark circle.up { fill: #b0482a; }
+.spark circle.down { fill: #2f6f8e; }
+:is(.household.trade, .greece-panel) table.goods td.price { white-space: nowrap; }
 /* With the side panel showing, the view is narrower by its width: the household panel opens below the top bar up to that much wider a window. */
 @media (max-width: 2016px) {
   #ui.side-open .household { top: 92px; max-height: calc(100% - 212px); }

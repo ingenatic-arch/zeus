@@ -8,6 +8,9 @@
 import { TICKS_PER_DAY } from '../sim/clock';
 import type { TownLine } from '../sim/status';
 
+/** Lines that are news, not shortfalls: they come and go at once. */
+const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece'];
+
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
 
@@ -24,6 +27,8 @@ const ICONS: Record<TownLine['need'], string> = {
   workers:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   tax: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="6.4" cy="11.6" rx="4.6" ry="1.8" fill="#a07a1e"/><ellipse cx="6.4" cy="10.4" rx="4.6" ry="1.8" fill="#d9b04a"/><path d="M12.4 2.4v8.2m-2.4-2.4 2.4 2.6 2.4-2.6" fill="none" stroke="#b23a22" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  greece:
+    '<svg viewBox="0 0 18 16" aria-hidden="true"><path d="M1.5 3.2 6 1.6l6 1.8 4.5-1.6v11.2L12 14.6l-6-1.8-4.5 1.6z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M6 1.6v11.2M12 3.4v11.2" stroke="rgba(138,100,64,.55)" stroke-width=".8"/><path d="M3 6.4c1.6-.6 2.4.6 3.8.2s2.2-1.4 3.6-.6 2 .8 3.8.2" fill="none" stroke="#2f7f9e" stroke-width="1.1" stroke-linecap="round"/><circle cx="9.6" cy="10" r="1.3" fill="#c8643b"/></svg>',
   money:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#d9b04a"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/><path d="M5.4 6.4h5.2" stroke="#8a6414" stroke-width=".9" stroke-linecap="round"/></svg>',
 };
@@ -32,7 +37,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['ship', 'trader', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
+const ORDER: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -62,14 +67,14 @@ export class TownLines {
       if (s) {
         s.lastSeen = tick;
         s.line = l;
-      } else this.seen.set(l.need, { since: this.first || l.need === 'ship' || l.need === 'trader' ? tick - settle : tick, lastSeen: tick, line: l, el: null });
+      } else this.seen.set(l.need, { since: this.first || NEWS.includes(l.need) ? tick - settle : tick, lastSeen: tick, line: l, el: null });
     }
     this.first = false;
     for (const [need, s] of this.seen) {
       // A tick that went backwards (a save opened) starts over.
       if (tick < s.since) s.since = s.lastSeen = tick;
       // (The ships' and caravans' news comes and goes at once: it is news, not a shortfall.)
-      const gone = tick - s.lastSeen > (need === 'ship' || need === 'trader' ? 0 : settle);
+      const gone = tick - s.lastSeen > (NEWS.includes(need) ? 0 : settle);
       const shown = tick - s.since >= settle && !gone;
       if (shown && !s.el) {
         const b = document.createElement('button');

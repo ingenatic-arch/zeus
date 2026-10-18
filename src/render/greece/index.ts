@@ -43,7 +43,8 @@ export class GreeceMap {
   open = false;
   /** The city whose panel is open, or null. */
   shown: CityId | null = null;
-  hovered: CityId | 'ship' | null = null;
+  /** A city, the Tyre ship ('ship'), or a route's trader on the map ('trav:' and its key, such as 'trav:corinth-land-0'). */
+  hovered: CityId | 'ship' | `trav:${string}` | null = null;
   private readonly host: GreeceHost;
   private readonly labels = new Map<CityId, HTMLElement>();
   private readonly layer: HTMLElement;
@@ -232,7 +233,23 @@ export class GreeceMap {
   }
 
   /** The city whose label is under a screen point (labels let the pointer through to the canvas), or the city (or the ship) nearest it, within a finger's width. */
-  pick(sx: number, sy: number): CityId | 'ship' | null {
+  pick(sx: number, sy: number): CityId | 'ship' | `trav:${string}` | null {
+    // A route's ship or caravan right under the pointer comes first (they are small, and often pass under a city's label).
+    const r0 = this.host.canvas.getBoundingClientRect();
+    let near: `trav:${string}` | null = null;
+    let nd = 18 * 18;
+    for (const [key, m] of this.travellers) {
+      if (!m.visible) continue;
+      this.v.set(m.position.x, m.position.y + 0.3, m.position.z).project(this.camera);
+      if (this.v.z > 1) continue;
+      const dx = r0.left + (this.v.x * 0.5 + 0.5) * r0.width - sx;
+      const dy = r0.top + (-this.v.y * 0.5 + 0.5) * r0.height - sy;
+      if (dx * dx + dy * dy < nd) {
+        nd = dx * dx + dy * dy;
+        near = `trav:${key}`;
+      }
+    }
+    if (near) return near;
     for (const id of CITY_IDS) {
       const el = this.labels.get(id) as HTMLElement;
       if (el.style.display === 'none') continue;
@@ -241,9 +258,9 @@ export class GreeceMap {
       if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return id;
     }
     const r = this.host.canvas.getBoundingClientRect();
-    let best: CityId | 'ship' | null = null;
+    let best: CityId | 'ship' | `trav:${string}` | null = null;
     let bd = 34 * 34;
-    const test = (id: CityId | 'ship', x: number, y: number, z: number, reach = 1): void => {
+    const test = (id: CityId | 'ship' | `trav:${string}`, x: number, y: number, z: number, reach = 1): void => {
       this.v.set(x, y, z).project(this.camera);
       if (this.v.z > 1) return;
       const dx = r.left + (this.v.x * 0.5 + 0.5) * r.width - sx;
@@ -271,7 +288,8 @@ export class GreeceMap {
 
   click(sx: number, sy: number): void {
     const p = this.pick(sx, sy);
-    this.show(p === 'ship' ? 'tyre' : p);
+    // (A trader opens its city's page.)
+    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? (p.slice(5).split('-')[0] as CityId) : (p as CityId | null));
   }
 
   private drawCard(): void {
@@ -281,7 +299,7 @@ export class GreeceMap {
       return;
     }
     morph(this.card, hoverHtml(s, this.hovered));
-    this.card.className = `greece-card${this.hovered !== 'ship' && this.hovered !== 'home' && this.hovered !== 'tyre' ? ' ruled' : ''}`;
+    this.card.className = `greece-card${this.hovered !== 'ship' && this.hovered !== 'home' && this.hovered !== 'tyre' && !this.hovered.startsWith('trav:') ? ' ruled' : ''}`;
     this.card.hidden = false;
     // Below and to the right of the pointer, or where there is no room for it there, above or to the left (never over the city it is about).
     const w = this.card.offsetWidth;

@@ -171,7 +171,7 @@ interface Probe {
   tradeText?: () => string;
   /** A docker carrying a ware (any, -1) to the quay (back) or back to a store, where he is drawn. */
   dockerOf?: (ware: number, back?: boolean) => { x: number; z: number } | null;
-  trade?: (open: boolean) => void;
+  trade?: (open: boolean, tab?: string) => void;
   ship?: () => { visible: boolean; x: number; z: number; heading: number; version: string; phase: number; due: number; since: number; visits: number; lastPaid: number; chip: string; short: string };
   /** The trade routes: each one's trader (a foreign ship where it is drawn, or the caravan in the city), its travellers on the map of Greece, its news and visits; and the trade panel's tab. */
   traders?: () => { tab: string; routes: Array<{ key: string; next: number; visits: number; lastPaid: number; lastCost: number; short: string; ship: { visible: boolean; x: number; z: number; phase: number } | null; caravan: { x: number; z: number; back: boolean; trading: boolean; donkeys: number } | null; onMap: number[] }> };
@@ -359,6 +359,7 @@ function start(): void {
     if (l.need === 'money') return ledger.toggle(true);
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
+    if (l.need === 'greece') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined);
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -1163,7 +1164,10 @@ function start(): void {
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;
   probe.tradeText = () => tradePanel.text;
-  probe.trade = (open) => tradePanel.toggle(open);
+  probe.trade = (open, tab) => {
+    tradePanel.toggle(open);
+    if (open && tab) tradePanel.showTab(tab);
+  };
   probe.ship = () => {
     const sh = sim.state.trade.ship;
     return { ...city.ship.info, phase: sh.phase, due: sh.due, since: sh.since, visits: sh.visits, lastPaid: sh.lastPaid, chip: shipNews(sim.state)?.chip ?? '', short: shipNews(sim.state)?.short ?? '' };
