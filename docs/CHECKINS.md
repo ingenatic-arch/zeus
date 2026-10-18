@@ -24,9 +24,9 @@ What breaks, or moves: no save is lost. A town saved before this slice opens wit
 - **The books.** The ledger has "Gift · to Corinth" under money going out and "Gift · from Corinth" under money coming in. The side panel's goods pages show "A gift to Corinth" and "A gift from Corinth".
 
 ### What to try
-1. Open `#gift`. It is the town from `#routes` (a caravan yard on the north road, nothing opened with Corinth yet), with the map on Corinth's Ruler tab. Each gift button shows what it would add; Corinth's lord is shrewd, so 250 dr adds +11. Send 250 dr. A herald sets off on the road to Corinth on the map (hover him). About five days later a line comes up under the top bar, and the reason is on the page: "+11 Your gift of 250 dr (shrewd: hard to impress)". Try the Prices and Trade tabs too.
+1. Open `#gift`. It is the town from `#routes` (a caravan yard on the north road, nothing opened with Corinth yet), with the map on Corinth's Ruler tab. Each gift button shows what it would add; Corinth's lord is shrewd, so 250 dr adds +11. Send 250 dr. A herald sets off on the road to Corinth on the map (hover him). About six days later a line comes up under the top bar, and the reason is on the page: "+11 Your gift of 250 dr (shrewd: hard to impress)". Try the Prices and Trade tabs too.
 2. In `#gift`, send 400 oil instead. Close the map (Tab) and let it run: the yard's porters carry the oil up from the storehouse. When it is all there, three donkeys in your colours walk out of the city by the north road (hover them; it takes a while, the yard is far from the north edge). Then they cross the map to Corinth.
-3. Open `#hostile`. It is `#buywine`'s town with Corinth's lord set up furious with your city. **This anger is staged for the demo**: nothing in this slice makes a ruler that angry on its own (broken promises and raids come in later slices), and the reason says "(set up for this demo)". The road is closed, the Trade tab says "closed", and the line under the top bar says why. The wine caravan already in your city still unloads and goes home; no other comes. Send 250 dr (100 is not enough: the buttons show it). When it arrives the road opens again, and the next caravan comes about a month later. Left alone, the anger fades and the road opens by itself in about five months.
+3. Open `#hostile`. It is `#buywine`'s town with Corinth's lord set up furious with your city. **This anger is staged for the demo**: nothing in this slice makes a ruler that angry on its own (broken promises and raids come in later slices), and the reason says "(set up for this demo)". The road is closed, the Trade tab says "closed", and the line under the top bar says why. The wine caravan already in your city still unloads and goes home; no other comes. Send 250 dr (100 is not enough: the Ruler tab says how many points the road is short of opening, and each button what it would add). When it arrives the road opens again, and the next caravan comes about a month later. Left alone, the anger fades and the road opens by itself in about five months.
 4. Open `#thanks`. Corinth's lord has been warmed by three gifts of 500 dr sent one after another; the reasons show each one counting for less. His own gift of 400 cheese is on the road to your city, four days from the edge. Close the map and let it run: a line says the gift has come, and the cheese is unloaded at the caravan yard. **The timing is staged:** a warm ruler sends a gift about one month in ten, and the demo sends this one at once rather than waiting.
 5. Open `#quay`, press Tab and send Troy (by sea only) 400 wheat. The trading post's dockers carry it to the quay, and a ship in your colours sails out of the bay with it.
 
@@ -39,9 +39,7 @@ Each link also opens paused if you add `-paused` (for example `#gift-paused`).
 - **The news lines.** Is one line for each mood turn the right amount?
 
 ### Known rough edges
-- On the map of Greece the road from your city to Corinth is short, and a gift on it sits under the city labels for most of its way (hover finds it first, but you can barely see it).
-- When a ruler closes a sea route while their ship is out on the lane, the ship disappears from the map rather than turning round (caravans on the road turn back).
-- The "What it means for you" list still mentions gifts back when a ruler is hostile, which is true but beside the point.
+- On the map of Greece the road from your city to Corinth is short and runs under the city labels; a label now fades while a gift or a caravan passes under it, but at the map's opening distance they are still tiny.
 - A gift of goods can take months: fetching it to a far yard, then walking out through the city. Coin is the quick way.
 
 ### Measurements
@@ -54,12 +52,30 @@ Headless Chromium with software rendering at 1920 × 1080, so frame rates mean n
 | Load, bare link, ready and first frame (page clock) | 2.13 and 2.75 s; 2.04 and 2.87 s | 2.01 and 2.63 s |
 | `#town`: triangles and draws, save | 799,168, 83; 141 KB | the same; 142 KB |
 | `#richtown`: triangles and draws, save | 910,707, 95; 178 KB | the same; 179 KB |
-| Work before drawing a frame, running: `#town`, `#quay`, `#richtown` | 13.2 and 13.5 ms; 8.8 and 7.8 ms; 16.1 and 18.4 ms | 12.4 ms; 6.8 ms; 20.2 ms (as noisy as the two before runs) |
+| Work before drawing a frame, running: `#town`, `#quay`, `#richtown` | 13.2 and 13.5 ms; 8.8 and 7.8 ms; 16.1 and 18.4 ms | 12.4 ms; 6.8 ms; 20.2 ms (noise: the review measured `#richtown` four times each way, 13 to 18 ms both before and after) |
 | `#caravan`: triangles and draws following the caravan | 516,365, 39 | the same |
 | The map of Greece, first open: built in | 0.92 s (loaded), 0.34 s | 0.50 s |
 | `#prices`, `#famine`: map triangles and draws | 304,642, 22; 304,206, 22 | the same |
 | `#gift`, `#hostile`: map triangles and draws; ready (page clock); work a frame | | 304,018, 20; 4.06 s; 6.1 ms · 304,642, 22; 4.00 s; 6.8 ms |
 | The 71 earlier demos | | 69 open and play 900 ticks on exactly as before; `#athensship` and `#famine` differ by Athens' whim |
+
+### What the review changed
+I played through every step above in the browser at 1920 × 1080 (`#gift` with coin and with oil, `#hostile`, `#thanks`, and the gift ship from `#quay`), and read the rulers' rules, the gifts, the saves and the demos. What changed:
+
+- **A ship turns back.** When a ruler closes a sea route while their ship is out on the lane, she now turns round where she is and sails home, as a caravan on the road does (she used to vanish from the map). Hovering a trader heading home on a closed route says the ruler has closed it.
+- **Every turn of mood says why.** When a mood turned because something had just faded out completely (most often a ruler's first impression of your city), the line under the top bar said only "has turned wary towards you", with no reason. It now names it, in plain words: "the good first word of your city is wearing off", "your gift of 250 dr is wearing off", "the black temper is passing".
+- **The Ruler tab,** with a road closed, says how many points short of opening it is ("−59 or better, 8 more than now"), so you can match it against the gift buttons. It no longer mentions gifts back while the ruler is cold or hostile.
+- **Labels make way.** On the map of Greece, a city's label fades while a gift or a trader passes under it. The road from Corinth runs right under the labels, so a gift on it used to be hidden for most of its way.
+- **Two gift ships.** Gifts of goods to two cities by sea can leave together; each now has her own ship in the bay (only one was drawn).
+- **The goods pages** count a gift of goods as gone when the porters take it from the stores, rather than when it leaves the city, so a month's figures match what is in store. A ruler's gift of goods that finds no room in your stores now says so.
+- **Under the hood, no change in play:** the porters and gift caravans keep the gift's number in a spare field; that is now read and written in one place, which checks what kind of walker it is. The gift rows on the Ruler tab find the road out of the city once, instead of once per button, twice a second.
+
+Also looked at, and left as they are:
+- **What gifts are worth.** In `#gift` a fair gift for the town's size is 550 dr, so 250 dr adds +11 to Corinth's shrewd lord and 500 dr +15; two fair gifts six months apart just take him from cordial (+5) to warm (+30). I've left the numbers as built for you to judge.
+- **`#hostile` reopening by itself after about five months.** That is the demo's own set-up anger (−72 fading over four years), chosen so you can see it happen. How long a real closure lasts will come from what makes rulers that angry (refusals, broken promises and raids, the next two slices), each with its own fading.
+- **`#richtown`'s 20.2 ms a frame** was noise: measured four times each way, before and after this slice, it ran between 13 and 18 ms both ways. Nothing new runs in a town that has never dealt with Greece.
+- A gift of goods from `#gift` takes about four months in all: the porters fetch it from a storehouse about thirty tiles from the yard (seven weeks there and back), the donkeys walk two months to the north edge, then four days on the road. That is the town's walking pace, the same as the trade caravans'.
+- All 64 demos from before slice 16, and every route demo, open and play 900 ticks on exactly as the builder left them; `#athensship` and `#famine` still differ from slice 17 only by Athens' whim. Tests: 285 in 25 files; the build, the smoke run and the measurements are clean (bundle 1,343 KB raw, 396 KB gzipped; triangles and draws as above).
 
 ## Slice 17 — Prices that move (18 Oct)
 
