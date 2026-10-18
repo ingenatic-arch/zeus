@@ -2,6 +2,59 @@
 
 Notes to Oliver, newest first.
 
+## Slice 20 — Raiders at the edge (18 Oct)
+
+A ruler you have pushed too far now does something about it. First a threat with a price and a deadline, then a war band you can watch march across the map of Greece, then raiders in your fields with torches, and you can pay them off at any point until they turn for home. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with no threats. If it has a tribute that was refused while the ruler was already cold, the threat comes on the first of the next month. All 78 earlier demos open and play 900 ticks on exactly as before, the whole of Greece included (checked by playing each one in the old code and the new and comparing). One thing from slice 19 now plays out differently: refusing tribute to a ruler who is already cold brings a threat at once, where before it was only noted.
+
+### What's new
+- **The threat.** Refuse tribute to a ruler who is already cold (or let it run out), and he threatens your city: pay a price of peace (about a fair gift and a fifth for your size: 750 dr in `#caravan`'s town), or send goods he is short of worth the same where your city can send them, within two months, "or his raiders will come". A hostile ruler who is proud or warlike may also threaten on his own, about one month in six. Only one threat or band is live at a time in Greece. There is never one before your first trade route, and no raiders reach you in your first year of trade.
+- **On his page.** The threat sits at the top of his Ruler tab. It says what it costs, by when, how many men gather if nothing comes, and roughly when they would reach your edge. The buttons are Pay (+10), Send goods (when he takes them) and Refuse, and the page says when goods sent now would arrive, compared with the deadline or with the band. A red seal with crossed spears marks his label on the map.
+- **The band.** If nothing comes by the deadline (or you refuse), 8 to 12 men gather at his city for ten days: a camp round a banner on the map. Then they march along the road towards your edge, a little slower than a caravan. Troy's band sails the sea lane in a dark-sailed ship. Hover the band for whose it is and when it arrives.
+- **The chip.** Under the top bar, a red chip counts down: "Sparta's raiders · 12 days", then "Raiders in the city". Click it to open the ruler's page. A standing line under it says the same with the date. News of a threat or a band never waits behind other news: it gets its own line at once.
+- **The raid.** A horn sounds and "Raiders!" floats up where they come in. They enter at the edge of your land nearest their city (Sparta from the west, Corinth and Athens from the north, Troy from the east) and run across country, roads and open ground, to the nearest field or store near that edge. That means a farm, a pasture or an olive grove, or a granary or storehouse holding 300 or more. They never go for homes. A field is set alight as they arrive. It is the same fire as before: it burns for ten days, the watchmen fight it, and it can spread. They stay two days, then leave the way they came with sacks over their shoulders, carrying what was in the field's barn (up to 80 a man). A store is plundered instead (never more than half of what it holds). People within six tiles of them run indoors and come out when they have passed. Hover the band to see whose they are, what they carry and where they are going.
+- **Stopping them.** Coin paid while the band is out turns it back at once, wherever it is: on the map it turns round on the road, and in your fields it walks off with whatever it already has. Goods count when they reach his city. Anything that lifts his mood above cold (a gift, say) calls them off too. Once they are leaving, nothing is gained by paying.
+- **Afterwards.** A raid eases his anger: "their raid has eased the king's temper", +25, fading over eighteen months. Paying him off is remembered too: +10 for a year. Either way he makes no threat for a year (nobody else does for three months). The ledger has a "Lost to raiders" section ("Raided by Sparta · wheat 880") beside "Burnt down"; coin paid goes on "Peace bought · Sparta"; the goods pages show "Carried off by Sparta's raiders"; the rubble stays where the fire left it.
+- **Nothing piles up** (from slice 19's review). While a threat or band is live, no ruler asks for anything new. A yearly tribute that comes round waits a month at a time while its ruler has another deal open, two deals are open in Greece, or a threat is live.
+- **Lines refresh at once.** After you answer a ruler, the line under the top bar and the labels on the map change straight away, not up to half a second later.
+
+### What to try
+1. Open `#threat`. It is `#caravan`'s town, ten months on. King Eurykrates of Sparta turned cold when you refused his first demand for tribute, demanded again, and was refused again. The map opens on his page with the threat: pay 750 dr within 60 days, or 11 of his men come. Click Refuse (or close the map and let the days run). The band camps at Sparta, marches north, and the chip counts the days. Then the horn: they come in at the west edge, set a wheat farm alight, stand round it two days, and walk off with its wheat.
+2. Open `#raid`. The same threat was left to run out, and the band is on the road, 4 days from your west edge, with the chip counting. Click "Pay 750 dr": the band turns round on the map at once, the chip goes, and "+10 You paid them to call off their raiders" goes on his page.
+3. Open `#raiders`. The band is at the farm by the river, torches up and the fields burning. Hover them. Press Tab, click Pay on Sparta's page and come back: they turn for the edge with what they have (nothing yet). Or let it run and watch them leave over the bridge with sacks.
+4. Open `#aftermath`. A few days after they left, the three burnt farms are rubble and the ledger is open on "Lost to raiders · Raided by Sparta · wheat 880" and "Burnt down · farms 3". On Sparta's page: "+25 Their raid has eased the king's temper".
+
+Each link also opens paused if you add `-paused` (for example `#raid-paused`).
+
+### What I'd like your eye on
+- **How hard a raid hits.** In `#raiders` the fire spreads from the first farm to the two beside it, because no watch post reaches the west fields, and the town loses all three wheat farms and 880 wheat. That is the old fire doing what it does, and it makes a watch post by the fields worth building, but it is heavy for one raid. Should raiders only fire the field they come for, or should the fire stay as it is?
+- **How the band reads**, on the map (warriors and a banner on the road) and in your fields (shields and crests in Sparta's red, torches, sacks on the way out). Too small, too busy?
+- **The warning time.** Two months to pay, ten days gathering, then the march (11 days from Sparta). Enough time to see it coming, or too much?
+- **The horn.** I could only check that it plays, not how it sounds. Is it right?
+
+### Known rough edges
+- Goods sent as a price of peace can arrive later than the page says: in the tests, fetching them took about a quarter longer than the estimate. He waits for what is on its way, so it still counts, but the date is optimistic. Coin has no such problem.
+- In `#caravan`'s town no road leads from the caravan yard to Sparta, so he only asks for coin. The goods answer is in the tests but not in a demo.
+- Troy's band (by sea, landing beyond the eastern hills) is tested in the simulation but I haven't looked at it on screen.
+- People running indoors simply stop and vanish where they stand. They don't walk to a door first.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `ba7bc00` (the end of slice 19's review). Everything in the "after" run was a little slower, the unchanged demos included (`#greece` 2.95 to 3.34 ms a frame), so small rises are noise.
+
+| | Before | After |
+|---|---|---|
+| Tests | 308 in 26 files | 326 in 27 files, all passing (18 new for threats, bands and raids) |
+| Bundle | 4 files, 1,376 KB raw, 407 KB gzipped | 4 files, 1,409 KB raw, 417 KB gzipped |
+| Load, bare link, ready and first frame (page clock) | 1.44 s, 1.82 s | 1.50 s, 1.91 s |
+| `#town`: triangles and draws, save | 799,168, 83; 142 KB | the same |
+| `#richtown`: triangles and draws, save | 910,707, 95; 179 KB | the same |
+| Work before drawing a frame, running: `#town`, `#richtown`, `#caravan`, `#tribute`, `#hostile`, `#blaze` | 7.1, 10.9, 2.8, 3.6, 4.8, 6.3 ms | 7.6, 11.8, 3.9, 5.3, 4.9, 6.8 ms (one run each; these swing by a ms or two run to run) |
+| The map of Greece, first open: built in | 0.23 s | 0.25 s |
+| Map pages: triangles and draws | `#tribute` 304,018, 20; `#hostile` 304,642, 22 | the same; `#raid` (the band on the road) 305,834, 22, ready at 3.4 s, 5.4 ms a frame running |
+| `#raiders`: the band at the farm, fields alight | | 596,979 triangles, 57 draws; ready at 3.9 s; 4.9 ms a frame running |
+| The 78 earlier demos | | all 78 open and play 900 ticks on exactly as before, the whole world compared |
+
 ## Slice 19 — Favours, offers and tribute (18 Oct)
 
 The rulers now ask things of you. A ruler may ask for goods or coin by a deadline, and you can send it, promise it, refuse it or let it run out; each answer stays in their memory, and a broken promise stays longest. A ruler who is pleased with you may offer a better deal for a year. A proud or warlike ruler who is wary of you, and whose city is far bigger than yours, may demand tribute. You can pay it or refuse it. What you send leaves the city the way slice 18's gifts do: the porters fetch it from the stores, then a caravan or a ship in your colours carries it out. It is faster now, and the page says when it will arrive. You weren't here while it was built: every choice below is mine, from the spec's defaults.

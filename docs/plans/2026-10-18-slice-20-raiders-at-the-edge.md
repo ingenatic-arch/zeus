@@ -103,3 +103,19 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#threat` (the thr
 
 ## As built
 
+All five tasks done. What differs from the plan, and what was learned:
+
+- **The fire comes as they arrive, the loot as they leave.** The plan had the field fired at the end of their day at it; that left the band walking away before the fire showed. Now they set the field alight as they come (the phase 2 fire: ten days to burn down, the watchmen fight it, it can spread), stand round it for two days loading up, and carry off what was in its barn as they go. A store is plundered rather than fired unless what they could take is under 150.
+- **They come in at the open edge tile with the shortest walk.** Taking the edge tile nearest the target as the crow flies sometimes picked a pocket with no way out (beside cliffs); the way is now found from every open tile on that edge at once, and they come in where it starts.
+- **A refusal can't hurry them inside your first year of trade**: refused early, the band gathers for longer, so no raiders reach your edge within a year of your first route either way.
+- **Paying the band off once it is leaving** is not offered: they go with what they took, and paying would only lose the anger it spends.
+- **A threat's goods arrive when they arrive.** The ruler waits for what is on its way even past the day (as a request does). Fetching the goods took longer than slice 19's estimate in the tests (about a quarter longer), so the page's arrival date can be late; coin does not have that problem.
+- **Fields burnt together.** In `#raiders` and `#aftermath` the fire spread from the first farm to the two beside it (no watch post reaches the west fields in `#caravan`'s town): all three wheat farms burn. That is the phase 2 fire doing what it does; it shows why a watch post by the fields matters, but it is a heavy loss, and the check-in asks Oliver about it.
+- **Raiders' walker** keeps the target as its origin, so the band survives the target burning down (removeBuilding spares it as it spares caravans); following the band follows the band itself.
+- **Urgent news** has its own line (`alarm`) ahead of the queue; while a standing raid line says the same thing, the news that made the phase is hidden. The threat or band has its own standing line (`raid`), above the deal line.
+- **Not built:** a Troy raid shown on screen (tested in the sim only: the sea band sails the lane and comes in from the east edge, plundering the storehouse in `#caravan`'s town); goods as the price of peace in the demos (`#caravan`'s town has no way to send Sparta goods, so he asks only coin).
+
+Checks: typecheck clean; 326 tests in 27 files pass (18 new in `tests/raids.test.ts`, one slice 19 test updated: a cold refusal now threatens instead of marking); the 78 earlier demos open and play 900 ticks on identically, the whole of Greece included (probe outside the repo); a version 19 save with a tribute marked angry loads and gets its threat on the month's turn (`tests/fixtures/slice19-angry.save.json.gz`).
+
+
+After (same machine, headless Chromium with software WebGL at 1920 × 1080): bundle 1,409 KB raw, 417 KB gzipped; bare link ready at 1.50 s, first frame 1.91 s; `#town` and `#richtown` unchanged in triangles, draws and save size; the map first built in 251 ms; `#raid` 305,834 triangles and 22 draws on the map; `#raiders` 596,979 triangles and 57 draws in the city, 4.9 ms a frame running. `npm run smoke` passes.
