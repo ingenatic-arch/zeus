@@ -19,10 +19,12 @@ export interface Festival {
   month: number;
   /** In a few words, what it is. */
   what: string;
+  /** Its name is plural ("the Isthmian Games are on"). */
+  many?: true;
 }
 
 export const FESTIVALS: readonly Festival[] = [
-  { city: 'corinth', name: 'the Isthmian Games', month: 3, what: 'games for Poseidon on the isthmus' },
+  { city: 'corinth', name: 'the Isthmian Games', month: 3, what: 'games for Poseidon on the isthmus', many: true },
   { city: 'athens', name: 'the Panathenaia', month: 6, what: 'Athena’s birthday, with a procession up to her temple' },
   { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, with no marching to war' },
 ];
@@ -35,6 +37,9 @@ export const FEAST_LEAD = 15 * TICKS_PER_DAY;
 export const FEAST_WEAR_DAYS = 40;
 /** Days for the push to come on, by about two thirds, as the festival nears. */
 export const FEAST_RAMP_DAYS = 10;
+
+/** "is" or "are", as the festival's name takes ("the Panathenaia is on", "the Isthmian Games are on"). */
+export const isAre = (f: Festival): string => (f.many ? 'are' : 'is');
 
 /** A city's festival, if it keeps one. */
 export const festivalOf = (city: CityId): Festival | undefined => FESTIVALS.find((f) => f.city === city);
@@ -69,12 +74,12 @@ export function feastWords(city: CityId, tick: number): string {
   const f = festivalOf(city);
   const n = nextFestival(city, tick);
   if (!f || !n) return '';
-  if (tick >= n.start) return `${f.name} is on`;
+  if (tick >= n.start) return `${f.name} ${isAre(f)} on`;
   if (tick >= n.start - FEAST_LEAD) {
     const days = Math.max(1, Math.ceil((n.start - tick) / TICKS_PER_DAY));
     return `they are laying in for ${f.name}, in ${days === 1 ? 'a day' : `${days} days`}`;
   }
-  return `${f.name} is lately over`;
+  return `${f.name} ${isAre(f)} lately over`;
 }
 
 /** "July", the month a festival is in. */

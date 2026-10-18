@@ -18,7 +18,7 @@ import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWo
 import type { Deal } from '../sim/state';
 import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
-import { armyCard, fieldsCard, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
+import { armyCard, fieldsCard, foeNote, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
 import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
@@ -321,7 +321,9 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   const wayWhy = goodsWay && 'why' in goodsWay ? goodsWay.why : '';
   const button = (ware: number, k: number, amount: number): string => {
     const why = map ? giftRefusal(s, map, id, ware, amount, ware < 0 ? undefined : wayWhy) : '';
-    const mem = giftMemory(s, c, k, amount, s.tick);
+    // (What it is worth when it arrives, as it will be judged then: a gift landing in a festival counts for more, one sent today but arriving after it doesn't.)
+    const t = map && !why ? sendTicks(s, map, { city: id, good: k, amount }) : -1;
+    const mem = giftMemory(s, c, k, amount, s.tick + Math.max(0, t));
     const label = k < 0 ? `${fmt(amount)} dr` : fmt(amount);
     const value = k >= 0 ? ` (worth ${fmt(giftValue(s, id, k, amount))} dr in ${name})` : '';
     const title = why || `${cap(mem.why)}${value}: +${mem.amount} to the mood when it arrives, fading over ${months(mem.fade)}`;
@@ -340,7 +342,8 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
   const way = map && first !== undefined ? giftRefusal(s, map, id, first, GIFT_LOTS[0], wayWhy) : '';
   const goodsNote = !goods ? `<p class="none">Goods: your stores hold none of the trade goods to spare (${GIFT_LOTS[0]} at the least).</p>` : /caravan yard|trading post|edge of the map/.test(way) ? `<p class="none">${esc(way)}.</p>` : '';
-  return `<section class="gifts"><h3>Send a gift</h3><ul class="giftrows">${rows.join('')}</ul>${goodsNote}${coming}
+  const foe = foeNote(s, id);
+  return `<section class="gifts"><h3>Send a gift</h3><ul class="giftrows">${rows.join('')}</ul>${goodsNote}${coming}${foe ? `<p class="none foe">${esc(foe)}</p>` : ''}
 <p class="foot">Each shows what it would add to the mood when it arrives. A fair gift for a city your size is about ${fmt(fairGift(s))} dr: more counts for more, but less than you’d think, and gifts within six months of each other count for less. Goods are fetched from your stores to the caravan yard or the trading post, and leave from there.</p></section>`;
 }
 
@@ -416,8 +419,10 @@ ${acts}${etaLine(s, map, d)}<p class="if">${d.gift ? '' : `Refused, or let run o
     : d.promised
       ? `You promised it: if nothing has been sent by the day, it is a promise broken (${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}).`
       : `Let run out: ${signed(w.lapsed?.amount ?? 0)}. Promised and not sent by the day: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}.`;
+  // (At war: what sending it costs you with the enemy, said before you send.)
+  const foe = d.gift ? '' : foeNote(s, d.city);
   return `<div class="deal request${d.promised ? ' promised' : ''}${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} asks for ${esc(words)}</b>, ${esc(dueWords(s, d))}${d.promised && !d.gift ? ' · <i>you promised it</i>' : ''}. <span class="why">${esc(cap(d.why))}.</span>
-${acts}${etaLine(s, map, d)}${stakes ? `<p class="if">${esc(stakes)}</p>` : ''}</div></div>`;
+${acts}${etaLine(s, map, d)}${stakes ? `<p class="if">${esc(stakes)}</p>` : ''}${foe ? `<p class="if foe">${esc(foe)}</p>` : ''}</div></div>`;
 }
 
 /**

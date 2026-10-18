@@ -247,6 +247,8 @@ export function dispatch(s: SimState, map: CoastMap, id: CityId, ware: number, a
   }
   w.gifts.push(g);
   if (!w.contact) w.contact = Math.max(1, s.tick);
+  // Anything of yours sent to a city at war cools its enemy, who hears of it as it is sent (rivals.ts).
+  helpedFoe(s, id, giftWords(g.good, amount));
   s.rev++;
   return g;
 }
@@ -321,8 +323,6 @@ function leave(s: SimState, map: CoastMap, g: Gift): void {
 function arrive(s: SimState, g: Gift): void {
   const w = s.world;
   w.gifts = w.gifts.filter((x) => x !== g);
-  // Anything of yours reaching a city at war cools its enemy (rivals.ts).
-  if (g.from === 'home') helpedFoe(s, g.to, giftWords(g.good, g.amount));
   // Sent for a request or tribute: it meets it (favours.ts).
   if (g.deal) {
     delivered(s, g);

@@ -1054,3 +1054,5 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .greece-news li em { font-style: normal; color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: 2px; }
 .greece-news li.urgent span { color: #8e2a20; }
 .greece-news li.none { cursor: default; color: var(--ink-soft); font-style: italic; }
+/* What sending a city at war costs you with its enemy, said before you send (slice 21 review). */
+.greece-panel p.foe, .greece-panel .deal p.if.foe { color: #8e2a20; font-style: normal; }

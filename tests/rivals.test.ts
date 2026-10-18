@@ -21,6 +21,8 @@ import {
   armiesOnMap,
   declareWar,
   endWar,
+  FEUD,
+  FOE_HELP,
   FOE_TRADE,
   FOE_TRADE_MOST,
   GREECE_PEACE,
@@ -32,6 +34,9 @@ import {
   tieReasons,
   tieWord,
   tradedWithFoe,
+  helpCost,
+  WAR_AT,
+  warBar,
   WAR_FROM,
   WAR_LEAST,
   WAR_MOST,
@@ -264,6 +269,43 @@ describe('wars between rivals', () => {
     }
     expect(s.world.news.at(-1)?.line).toMatch(/have made peace/);
   });
+
+  it('after a long quiet the bar for war comes down, a step a year, to a feud at most; counted from the last war’s end', () => {
+    const s = new Sim(1, 7).state;
+    s.world.wars = [];
+    expect(warBar(s.world, WAR_FROM)).toBe(WAR_AT);
+    expect(warBar(s.world, WAR_FROM + TICKS_PER_YEAR - 1)).toBe(WAR_AT);
+    expect(warBar(s.world, WAR_FROM + TICKS_PER_YEAR)).toBe(WAR_AT + 5);
+    expect(warBar(s.world, WAR_FROM + 9 * TICKS_PER_YEAR)).toBe(FEUD);
+    s.tick = WAR_FROM + 3 * TICKS_PER_YEAR;
+    const x = declareWar(s, 'sparta', 'athens', 'a staged quarrel');
+    // (While a war is on, and for a year after it ends, the bar is where it was.)
+    expect(warBar(s.world, s.tick + TICKS_PER_MONTH)).toBe(WAR_AT);
+    x.ended = s.tick + 4 * TICKS_PER_MONTH;
+    expect(warBar(s.world, x.ended + TICKS_PER_YEAR - 1)).toBe(WAR_AT);
+    expect(warBar(s.world, x.ended + 2 * TICKS_PER_YEAR)).toBe(WAR_AT + 10);
+  });
+
+  it('a price two pushes have made dear names both, the bigger first; a good the war on now leaves alone is named by the war before', () => {
+    const sim = new Sim(1, 7);
+    const s = sim.state;
+    const athens = cityOf(s.world, 'athens');
+    // Athens loses a war to Corinth just before the Panathenaia, then Sparta declares war on it.
+    const fest = nextFestival('athens', WAR_FROM)!;
+    s.tick = fest.start - 20 * TICKS_PER_DAY;
+    const lost = stage(s, 'corinth', 'athens');
+    lost.fate = 'corinth';
+    endWar(s, lost);
+    sim.run(25 * TICKS_PER_DAY);
+    expect(festivalOn('athens', s.tick)).toBe(true);
+    const wine = priceWhy(athens, WINE, s.tick, s.world);
+    expect(wine.word).toBe('dear');
+    expect(wine.why).toMatch(/^(the Panathenaia is on, and they lost their war with Corinth|they lost their war with Corinth, and the Panathenaia is on)$/);
+    declareWar(s, 'sparta', 'athens', 'a staged quarrel');
+    const OIL = 3;
+    expect(priceWhy(athens, OIL, s.tick, s.world).why).toMatch(/^they lost their war with Corinth/);
+    expect(priceWhy(athens, WHEAT, s.tick, s.world).why).toMatch(/^their war with Sparta/);
+  }, 60000);
 });
 
 describe('festivals', () => {
@@ -343,7 +385,7 @@ describe('your part in it', () => {
     expect(cityOf(s.world, 'athens').memories.some((x) => x.kind === 'foetrade')).toBe(false);
   });
 
-  it('a caravan from a city at war trading at your city cools its enemy; a gift sent to one side cools the other', () => {
+  it('a caravan from a city at war trading at your city cools its enemy; a gift sent to one side cools the other as it is sent', () => {
     const sim = fresh('caravan');
     const s = sim.state;
     stage(s, 'sparta', 'corinth');
@@ -354,9 +396,26 @@ describe('your part in it', () => {
     expect(sparta.memories.find((x) => x.kind === 'foetrade')?.why).toMatch(/you trade with their enemy Corinth/);
     s.money += 2000;
     s.ledger.start += 2000;
+    expect(helpCost(s.world, 'corinth')).toEqual({ foe: 'sparta', amount: FOE_HELP * (sparta.ruler?.traits.includes('proud') ? 1.5 : 1) });
+    expect(helpCost(s.world, 'troy')).toBeNull();
     send(sim, { type: 'gift', city: 'corinth', good: -1, amount: 250 });
-    until(sim, () => sparta.memories.some((x) => x.kind === 'foehelp'), 2 * TICKS_PER_MONTH);
+    // (Sparta hears of it as it is sent, not weeks later when it arrives: by then the war may be over.)
     expect(sparta.memories.find((x) => x.kind === 'foehelp')?.why).toBe('you sent 250 dr to their enemy Corinth during the war');
+  }, 120000);
+
+  it('in #war, wheat sent to Sparta cools Athens at once, though it reaches Sparta after the war; and the war ends as #peace shows', () => {
+    const sim = fresh('war');
+    const s = sim.state;
+    const x = warOn(s.world)!;
+    expect(x.fate).toBe('athens');
+    const ask = s.world.deals.find((d) => d.city === 'sparta' && d.state === 'open')!;
+    send(sim, { type: 'answer', deal: ask.id, act: 'send' });
+    const athens = cityOf(s.world, 'athens');
+    expect(athens.memories.find((m) => m.kind === 'foehelp')?.why).toBe('you sent 1,000 wheat to their enemy Sparta during the war');
+    until(sim, () => ask.state !== 'open', TICKS_PER_YEAR);
+    expect(ask.state).toBe('met');
+    expect(s.tick).toBeGreaterThan(x.until);
+    expect(athens.memories.filter((m) => m.kind === 'foehelp').length).toBe(1);
   }, 120000);
 });
 

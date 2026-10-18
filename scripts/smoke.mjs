@@ -1636,7 +1636,7 @@ const at21 = g.travellers[army21];
 await page.mouse.move(at21.x, at21.y);
 await frames(2);
 g = await gi();
-if (!/^Sparta’s army · \d+ men\s*Facing Athens’ army at Megara/.test(g.card)) fail(`#war: the army's card: ${g.card}`);
+if (!/^Sparta’s army · [\d,]+ men\s*Facing Athens’ army at Megara/.test(g.card)) fail(`#war: the army's card: ${g.card}`);
 const body21 = await zeus((k) => window.__zeus.greeceBody?.(k), army21);
 if (body21) {
   await page.mouse.move(body21.x, body21.y);

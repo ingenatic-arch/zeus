@@ -590,31 +590,42 @@ export function priceWhy(c: WorldCity, k: number, tick: number, w?: World): Pric
   }
   // (The biggest push the way the price has gone: a dear price is named by what made it dear, even where a push the other way, as a good harvest after a lost war, is bigger.)
   const sign = word === 'dear' ? 1 : -1;
-  const pushes = [byYou, byCrop, byWar, byFeast];
-  const best = pushes.some((x) => x * sign > 0) ? Math.max(...pushes.map((x) => x * sign)) : -1;
+  const pushes: Array<{ push: PriceWhy['push']; by: number }> = [
+    { push: 'war', by: byWar },
+    { push: 'festival', by: byFeast },
+    { push: 'you', by: byYou },
+    { push: 'harvest', by: byCrop },
+  ];
+  const best = pushes.some((x) => x.by * sign > 0) ? Math.max(...pushes.map((x) => x.by * sign)) : -1;
   const named = (x: number): boolean => (best > 0 ? x * sign === best : Math.abs(x) === big) && x !== 0;
-  if (named(byWar)) return { arrow, word, push: 'war', why: warWords(c, w), usual };
-  if (named(byFeast)) return { arrow, word, push: 'festival', why: feastWords(c.id, tick), usual };
-  if (named(byYou) || (!named(byCrop) && Math.abs(byYou) >= Math.abs(byCrop))) {
+  const first: PriceWhy['push'] = named(byWar) ? 'war' : named(byFeast) ? 'festival' : named(byYou) || (!named(byCrop) && Math.abs(byYou) >= Math.abs(byCrop)) ? 'you' : 'harvest';
+  // (Two pushes the same way, the second at least half the first, as a festival in a city that has lost a war: both are named, the bigger first.)
+  const second = best > 0 ? pushes.filter((x) => x.push !== first && x.by * sign >= Math.max(best * 0.5, usual * 0.03)).sort((a, b) => b.by * sign - a.by * sign)[0] : undefined;
+  const why = `${pushWords(c, k, tick, first, byYou, w)}${second ? `, and ${pushWords(c, k, tick, second.push, byYou, w)}` : ''}`;
+  return { arrow, word, push: first, why, usual };
+}
+
+/** One push on a price, in words: a war's, a festival's, yours, a harvest's. */
+function pushWords(c: WorldCity, k: number, tick: number, push: PriceWhy['push'], byYou: number, w?: World): string {
+  if (push === 'war') return warWords(c, k, w);
+  if (push === 'festival') return feastWords(c.id, tick);
+  if (push === 'you') {
     const n = dealtYear(c, k);
     // (When what is left of the push is more than all of the year's dealings, older trade must be in it too: say so.)
     const before = Math.abs(c.yours[k]) > Math.abs(n) && Math.sign(c.yours[k]) === Math.sign(n) ? ', and more before' : '';
-    const why =
-      n > 0 ? `you sold them ${fmtN(n)} in the last year${before}` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year${before}` : byYou < 0 ? 'you sold them a good deal of it lately' : 'you bought a good deal of it from them lately';
-    return { arrow, word, push: 'you', why, usual };
+    return n > 0 ? `you sold them ${fmtN(n)} in the last year${before}` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year${before}` : byYou < 0 ? 'you sold them a good deal of it lately' : 'you bought a good deal of it from them lately';
   }
   const autumn = dateOfTick(tick).month >= HARVEST_MONTH ? 'this autumn' : 'last autumn';
   const h = c.harvest;
-  const why = h === 0 ? `their harvest failed ${autumn}` : h === 1 ? `a poor harvest ${autumn}` : h === 3 ? `a good harvest ${autumn}` : h === 4 ? `a rich harvest ${autumn}` : `the harvest before last, still felt`;
-  return { arrow, word, push: 'harvest', why, usual };
+  return h === 0 ? `their harvest failed ${autumn}` : h === 1 ? `a poor harvest ${autumn}` : h === 3 ? `a good harvest ${autumn}` : h === 4 ? `a rich harvest ${autumn}` : `the harvest before last, still felt`;
 }
 
-/** A war's push on a city's prices, in words: "their war with Athens", "they lost their war with Athens", "the war with Athens, lately ended". */
-function warWords(c: WorldCity, w?: World): string {
+/** A war's push on a city's prices, in words: "their war with Athens", "they lost their war with Athens", "the war with Athens, lately ended". (A good the war on now doesn't draw down, as oil or wine, is dear from the last war, if any.) */
+function warWords(c: WorldCity, k: number, w?: World): string {
   const name = (id: string): string => PLACES[id as keyof typeof PLACES]?.name ?? id;
-  if (c.war) return `their war with ${name(c.war)}`;
+  if (c.war && STRIFE_SHARE[k] > 0) return `their war with ${name(c.war)}`;
   const last = w?.wars.filter((x) => x.ended > 0 && (x.a === c.id || x.b === c.id)).sort((x, y) => y.ended - x.ended)[0];
-  if (!last) return 'a war, lately ended';
+  if (!last) return c.war ? `their war with ${name(c.war)}` : 'a war, lately ended';
   const foe = last.a === c.id ? last.b : last.a;
   if (last.fate === c.id) return `their war with ${name(foe)}, which they won, is still felt`;
   if (last.fate === foe) return `they lost their war with ${name(foe)}`;

@@ -6,9 +6,9 @@
  * swords and the fields, and the News of Greece list. Only reads the sim.
  */
 import { PLACES, rivalWay, RULED, type CityId } from '../map/greece';
-import { dateOfTick, formatDate, TICKS_PER_DAY, TICKS_PER_YEAR } from '../sim/clock';
-import { festivalMonth, festivalOf, festivalOn, nextFestival } from '../sim/festivals';
-import { armiesOnMap, foeIn, PAIR_LULL, sinceWords, tieOf, tieReasons, tieWord, warLine, warOf } from '../sim/rivals';
+import { dateOfTick, formatDate, formatYear, TICKS_PER_DAY, TICKS_PER_YEAR } from '../sim/clock';
+import { festivalMonth, festivalOf, festivalOn, isAre, nextFestival } from '../sim/festivals';
+import { armiesOnMap, foeIn, helpCost, PAIR_LULL, sinceWords, tieOf, tieReasons, tieWord, warLine, warOf } from '../sim/rivals';
 import type { SimState, War } from '../sim/state';
 import { cityOf, HARVEST_WORDS, OUTLOOK_MONTH, HARVEST_MONTH, outlookWords, usualPrice } from '../sim/world';
 
@@ -37,6 +37,12 @@ export const FEAST_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" class
 export function labelIcons(s: SimState, id: CityId): string {
   const c = cityOf(s.world, id);
   return `${c.war ? WAR_ICON : ''}${festivalOn(id, s.tick) ? FEAST_ICON : ''}`;
+}
+
+/** What sending a city at war anything costs you with its enemy, in a sentence ('' at peace): "Athens, at war with Sparta, will hold anything you send Sparta against you: −8." */
+export function foeNote(s: SimState, id: CityId): string {
+  const cost = helpCost(s.world, id);
+  return cost ? `${name(cost.foe)}, at war with ${name(id)}, will hold anything you send ${name(id)} against you: ${signed(cost.amount)}.` : '';
 }
 
 /** The last war a city fought, ended within the lull (for its page and its prices). */
@@ -81,7 +87,7 @@ export function statusHtml(s: SimState, id: CityId): string {
   const f = festivalOf(id);
   const n = nextFestival(id, s.tick);
   if (f && n) {
-    if (s.tick >= n.start) out.push(`<li class="feast">${FEAST_ICON}<span><b>${esc(cap(f.name))}</b> is on, until ${esc(dayMonth(n.end))}: wine and meat dear; a gift that arrives now counts for more.</span></li>`);
+    if (s.tick >= n.start) out.push(`<li class="feast">${FEAST_ICON}<span><b>${esc(cap(f.name))}</b> ${isAre(f)} on, until ${esc(dayMonth(n.end))}: wine and meat dear; a gift that arrives now counts for more.</span></li>`);
     else {
       const d = Math.ceil((n.start - s.tick) / TICKS_PER_DAY);
       if (d <= 30) out.push(`<li class="feast">${FEAST_ICON}<span>${esc(cap(f.name))} in ${esc(days(d))}: they are laying in wine and meat for it.</span></li>`);
@@ -140,7 +146,7 @@ export function armyCard(s: SimState, id: number, city: CityId): string {
         : x.fate === 'peace'
           ? `Going home to ${name(city)}: the war ended in a weary peace`
           : `Going home to ${name(city)}: ${x.fate === city ? 'the war won' : 'the war lost'}`;
-  const size = x.by === 'sea' ? `${Math.max(3, Math.round(men / 3))} galleys` : `${men * 100} men`;
+  const size = x.by === 'sea' ? `${Math.max(3, Math.round(men / 3))} galleys` : `${(men * 100).toLocaleString('en-GB')} men`;
   return `<b>${esc(`${whose(city)} ${what} · ${size}`)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name(city))}’s page</span>`;
 }
 
@@ -165,11 +171,14 @@ export function fieldsCard(s: SimState, id: CityId): string {
 /** The News of Greece: the latest lines, newest first, each with its date and its city's colour (click for its page). */
 export function newsHtml(s: SimState, open: boolean): string {
   const items = s.world.news.slice().reverse();
+  const year = dateOfTick(s.tick).yearBC;
   const rows = items
     .map((n) => {
       const d = dateOfTick(n.tick);
       const line = n.line.replace(/\.$/, '');
-      return `<li data-city="${n.city}" class="${n.urgent ? 'urgent' : n.greece ? 'greece' : ''}" title="Click for ${esc(PLACES[n.city]?.name ?? '')}’s page"><i style="background:${PLACES[n.city]?.colour ?? '#888'}"></i><span><em>${d.day} ${esc(d.monthName.slice(0, 3))}</em> ${esc(line)}.</span></li>`;
+      // (A line from an earlier year says which: the list can reach back more than a year, and each festival comes every year.)
+      const when = `${d.day} ${d.monthName.slice(0, 3)}${d.yearBC !== year ? ` ${formatYear(d.yearBC)}` : ''}`;
+      return `<li data-city="${n.city}" class="${n.urgent ? 'urgent' : n.greece ? 'greece' : ''}" title="Click for ${esc(PLACES[n.city]?.name ?? '')}’s page"><i style="background:${PLACES[n.city]?.colour ?? '#888'}"></i><span><em>${esc(when)}</em> ${esc(line)}.</span></li>`;
     })
     .join('');
   return `<button class="nhead" aria-expanded="${open}"><b>News of Greece</b><span>${items.length ? (open ? '▾' : `▸ ${items.length}`) : ''}</span></button>${open ? `<ul>${rows || '<li class="none">Nothing yet.</li>'}</ul>` : ''}`;

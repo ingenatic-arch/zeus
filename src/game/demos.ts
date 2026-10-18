@@ -1234,7 +1234,7 @@ function raidTown(stage: RaidStage): (sim: Sim) => void {
  * named so); some weeks on, both armies stand facing each other at Megara,
  * food and fleece dear in both cities, and both rulers ask your city for
  * wheat for their armies; the map opens on Sparta's page. #peace: the same
- * war played to its end, Athens the winner (set for the demo): the armies on
+ * war played to its end, Athens the winner (set for both demos): the armies on
  * their way home, Sparta's food dearer still; the map opens on Sparta's
  * prices. #festival: #athensship's town played on into July, the Panathenaia
  * on in Athens; the map opens on Athens' page.
@@ -1263,8 +1263,9 @@ function greeceTown(stage: GreeceStage): (sim: Sim) => void {
     const on = warOn(s.world);
     if (on) endWar(s, on);
     const x = declareWar(s, 'sparta', 'athens', 'an old rivalry, and Athens weakened by its last war (set up for this demo)');
+    // (Athens wins it, set for the demos, so #war played on ends as #peace shows.)
+    x.fate = 'athens';
     if (stage === 'peace') {
-      x.fate = 'athens';
       sim.run(x.until + PEACE_DAYS * TICKS_PER_DAY - s.tick);
       return;
     }

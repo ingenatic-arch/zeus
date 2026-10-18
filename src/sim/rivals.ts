@@ -59,6 +59,9 @@ export const FRIEND_FADE = 18 * TICKS_PER_MONTH;
 export const WAR_FROM = 2 * TICKS_PER_YEAR;
 /** A pair far enough out goes to war about one month in three. */
 const WAR_ODDS = 1 / 3;
+/** After a long quiet (no war anywhere in Greece for a year or more, counted from the third year or the last war's end), the bar for war comes down by this much a year, to a feud at most: old grudges come to blows in the end. */
+const QUIET_EASE = 5;
+const QUIET_EASE_MOST = FEUD - WAR_AT;
 /** No new war within six months of the last one's end, anywhere in Greece; and none between the same pair within three years. */
 export const GREECE_PEACE = 6 * TICKS_PER_MONTH;
 export const PAIR_LULL = 3 * TICKS_PER_YEAR;
@@ -240,7 +243,7 @@ function festivals(s: SimState): void {
     if (on && c.festival !== n.end) {
       c.festival = n.end;
       const usual = (k: number): number => usualPrice(c, k);
-      told(w, s.tick, f.city, `${cap(f.name)} begins in ${name(f.city)}: wine there is ${c.price[5]} a hundred (usually ${usual(5)}) and meat ${c.price[1]} (usually ${usual(1)}). A gift that arrives while it lasts counts for more`);
+      told(w, s.tick, f.city, `${cap(f.name)} ${f.many ? 'begin' : 'begins'} in ${name(f.city)}: wine there is ${c.price[5]} a hundred (usually ${usual(5)}) and meat ${c.price[1]} (usually ${usual(1)}). A gift that arrives while it lasts counts for more`);
     } else if (!on && c.festival > 0) {
       c.festival = 0;
     }
@@ -292,14 +295,22 @@ function feuds(s: SimState): void {
   }
 }
 
+/** How far out a pair must be for war now: WAR_AT, coming down by QUIET_EASE a year after a year or more with no war in Greece (to a feud at most). */
+export function warBar(w: World, tick: number): number {
+  const last = Math.max(WAR_FROM, ...w.wars.map((x) => x.ended || tick));
+  const years = Math.max(0, Math.floor((tick - last) / TICKS_PER_YEAR));
+  return WAR_AT + Math.min(QUIET_EASE_MOST, QUIET_EASE * years);
+}
+
 /** On the first of a month: a pair far enough out may go to war (one war at a time in Greece). */
 function maybeWar(s: SimState, month: number): void {
   const w = s.world;
   if (s.tick < WAR_FROM || warOn(w)) return;
   if (w.wars.some((x) => x.ended > 0 && s.tick - x.ended < GREECE_PEACE)) return;
   // The pair furthest out first.
+  const bar = warBar(w, s.tick);
   const pairs = PAIRS.map(([x, y], i) => ({ x, y, i, m: mutual(w, x, y, s.tick) }))
-    .filter((p) => p.m <= WAR_AT && !w.wars.some((v) => pairKey(v.a, v.b) === pairKey(p.x, p.y) && s.tick - v.ended < PAIR_LULL))
+    .filter((p) => p.m <= bar && !w.wars.some((v) => pairKey(v.a, v.b) === pairKey(p.x, p.y) && s.tick - v.ended < PAIR_LULL))
     .sort((a, b) => a.m - b.m);
   for (const p of pairs) {
     // The angrier declares it (a warlike ruler, if they are as angry as each other).
@@ -376,14 +387,14 @@ export function endWar(s: SimState, x: War): void {
     const cl = cityOf(w, loser);
     cl.bonds.push({ kind: 'lost', city: winner, why: `lost the war to ${name(winner)}, and bitter about it`, amount: bend(cl, LOST.amount), tick: s.tick, fade: fadeOf(cl, LOST.fade) });
     cw.bonds.push({ kind: 'won', city: loser, why: `beat ${name(loser)} in the war, and wary of them since`, amount: bend(cw, WON.amount), tick: s.tick, fade: fadeOf(cw, WON.fade) });
-    // The loser poorer: fields burned, flocks driven off, stores taken; the winner's stores eased by the spoils.
+    // The loser poorer: stores plundered, flocks driven off (its fields, and the harvest to come, are spared); the winner's stores eased by the spoils.
     TRADE_GOODS.forEach((_, k) => {
       cl.strife[k] = Math.min(cl.strife[k], -DEFEAT_SHARE[k] * normalStock(cl, k));
       cw.strife[k] = Math.round(cw.strife[k] * 50) / 100;
     });
     reprice(cl);
     reprice(cw);
-    told(w, s.tick, winner, `${name(winner)} has won its war with ${name(loser)}. ${cap(whose(loser))} fields were burned and its flocks driven off: food there will be dear for a good while`);
+    told(w, s.tick, winner, `${name(winner)} has won its war with ${name(loser)}. ${cap(whose(loser))} stores were plundered and its flocks driven off: food and fleece there will be dear for a good while`);
   }
 }
 
@@ -469,15 +480,23 @@ export function tradedWithFoe(s: SimState, city: CityId): void {
   s.rev++;
 }
 
-/** What you sent a city at war (a gift, what it asked for) has arrived: its enemy remembers. */
-export function helpedFoe(s: SimState, city: CityId, words: string): Memory | null {
-  const w = s.world;
+/** Who would hold it against you if you sent a city something now (its enemy in a war on now), and by how much (a proud ruler half as much again). */
+export function helpCost(w: World, city: CityId): { foe: CityId; amount: number } | null {
   const x = warOf(w, city);
   if (!x) return null;
   const foe = cityOf(w, foeIn(x, city));
   if (!foe.ruler) return null;
-  const proud = foe.ruler.traits.includes('proud') ? 1.5 : 1;
-  const m: Memory = { kind: 'foehelp', why: `you sent ${words} to their enemy ${name(city)} during the war`, amount: Math.round(FOE_HELP * proud), tick: s.tick, fade: FOE_HELP_FADE };
+  return { foe: foe.id, amount: Math.round(FOE_HELP * (foe.ruler.traits.includes('proud') ? 1.5 : 1)) };
+}
+
+/** You have sent a city at war something (a gift, what it asked for): its enemy hears of it as it is sent, and remembers. */
+export function helpedFoe(s: SimState, city: CityId, words: string): Memory | null {
+  const w = s.world;
+  const cost = helpCost(w, city);
+  if (!cost) return null;
+  const foe = cityOf(w, cost.foe);
+  if (!foe.ruler) return null;
+  const m: Memory = { kind: 'foehelp', why: `you sent ${words} to their enemy ${name(city)} during the war`, amount: cost.amount, tick: s.tick, fade: FOE_HELP_FADE };
   foe.memories.push(m);
   const line = settleMood(s, foe, m.why, true);
   news(w, s.tick, foe.id, line || `${rulerShort(foe)} has heard that you sent ${words} to ${name(city)}, ${foe.ruler.female ? 'her' : 'his'} enemy (${m.amount})`);
