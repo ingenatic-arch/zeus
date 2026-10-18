@@ -2,6 +2,65 @@
 
 Notes to Oliver, newest first.
 
+## Slice 18 — Rulers who remember (18 Oct)
+
+The rulers of Greece now answer what you do. Send a ruler a gift of coin or goods and you can watch it go: down the road or out of the bay, then across the map. When it arrives their mood lifts, and the reason goes on their page. A ruler who turns hostile closes their road until you mend things, and a warm one sends you gifts of their own. When a mood turns, a line comes up under the top bar saying so and why. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost. A town saved before this slice opens with every mood where it was and no gifts on the way. A town that has never dealt with Greece plays exactly as before: rulers only act on your city (whims, gifts back, news of their moods) once you have opened a route or sent a gift. All 64 demos from before slice 16 open and play 900 ticks on exactly as they did, and so do `#routes`, `#caravan`, `#buywine`, `#anchor` and `#prices` (checked by playing each one in the old code and the new and comparing the whole city). Two demos have changed on purpose. In `#athensship` and `#famine`, Athens' lord (who is fickle) now takes a passing fancy to your city, so the town has 18 dr more after 900 ticks. `#routes`, `#prices` and `#famine` now open on the matching tab of the city's page.
+
+### What's new
+- **A city's page has tabs.** At the top: the ruler, their traits, their mood (face, word, number) and their terms, said once. Below that, three tabs. **Ruler** has how they feel and why, what that means for you, and sending gifts. **Prices** is slice 17's prices. **Trade** has the routes and how the city is reached. Each tab is shorter than the old page, and the terms line no longer appears twice when a route is open.
+- **What the mood means, in words.** The Ruler tab says how often their traders come, whether the road is closed and what would open it, whether they would send you gifts, and where the mood is heading a year on as things stand ("A year on, as things stand: +8, cordial, prices 3% in your favour"). That last line also shows the terms drifting as first impressions fade.
+- **Gifts.** Coin: 100, 250 or 500 dr, paid at once, then carried by a herald along the road (or by sea where there is no road). Goods: 200, 400 or 800 of any trade good your stores hold. The caravan yard's porters (or the trading post's dockers) fetch it from the stores, ahead of their trade work. Then it leaves: a little caravan in your city's colours walks out to the edge of the map, or a ship in your colours casts off from the jetty and sails out of the bay. After that it travels the road or the lane on the map of Greece, and it counts when it arrives. Each button shows what that gift would add to the mood right now. You can hover the gift in the city and on the map.
+- **What a gift is worth.** A fair gift for your size (half a drachma a head) is worth +20, and more counts for more, but less than you'd think (four times the gift, twice the effect), up to +40. Personalities bend it: a greedy ruler loves coin, a generous one remembers longer, a shrewd one is hard to impress, a steadfast one is slow to change, a proud one thinks little of a meagre gift. Gifts sent close together count for less ("another so soon: kind, but…"). Every bend is named in the reason line, and a gift's worth fades over eighteen months.
+- **What the mood does.**
+  - It moves the terms (slice 17's), now that the mood moves.
+  - A cold ruler (−30 or worse) sends their traders half as often again.
+  - A hostile ruler (−60 or worse) closes their road or sea route: no trader sets off, and a caravan already on the road on the map turns back. The road opens again when the mood mends past −60, and the next trader comes a month later.
+  - A warm ruler (+30 or better) now and then sends you a gift: coin for the treasury, or goods they make plenty of, which go to the yard or the quay and from there to the stores.
+  - A fickle ruler now and then takes a fancy or a dislike to your city for a few months.
+  - A trader turned back at your city (no yard, no road, no post) is a small snub.
+- **News of moods.** When a ruler's mood passes into another word, a line comes up under the top bar for a fortnight, naming why: "Your gift of 500 dr reached Corinth (+6): Lord Periandros has warmed to you, warm now", "Lord Periandros of Corinth is hostile now, and has closed the road to your city: …". The line shows the newest two pieces of news; click it for that city's page.
+- **The books.** The ledger has "Gift · to Corinth" under money going out and "Gift · from Corinth" under money coming in. The side panel's goods pages show "A gift to Corinth" and "A gift from Corinth".
+
+### What to try
+1. Open `#gift`. It is the town from `#routes` (a caravan yard on the north road, nothing opened with Corinth yet), with the map on Corinth's Ruler tab. Each gift button shows what it would add; Corinth's lord is shrewd, so 250 dr adds +11. Send 250 dr. A herald sets off on the road to Corinth on the map (hover him). About five days later a line comes up under the top bar, and the reason is on the page: "+11 Your gift of 250 dr (shrewd: hard to impress)". Try the Prices and Trade tabs too.
+2. In `#gift`, send 400 oil instead. Close the map (Tab) and let it run: the yard's porters carry the oil up from the storehouse. When it is all there, three donkeys in your colours walk out of the city by the north road (hover them; it takes a while, the yard is far from the north edge). Then they cross the map to Corinth.
+3. Open `#hostile`. It is `#buywine`'s town with Corinth's lord set up furious with your city. **This anger is staged for the demo**: nothing in this slice makes a ruler that angry on its own (broken promises and raids come in later slices), and the reason says "(set up for this demo)". The road is closed, the Trade tab says "closed", and the line under the top bar says why. The wine caravan already in your city still unloads and goes home; no other comes. Send 250 dr (100 is not enough: the buttons show it). When it arrives the road opens again, and the next caravan comes about a month later. Left alone, the anger fades and the road opens by itself in about five months.
+4. Open `#thanks`. Corinth's lord has been warmed by three gifts of 500 dr sent one after another; the reasons show each one counting for less. His own gift of 400 cheese is on the road to your city, four days from the edge. Close the map and let it run: a line says the gift has come, and the cheese is unloaded at the caravan yard. **The timing is staged:** a warm ruler sends a gift about one month in ten, and the demo sends this one at once rather than waiting.
+5. Open `#quay`, press Tab and send Troy (by sea only) 400 wheat. The trading post's dockers carry it to the quay, and a ship in your colours sails out of the bay with it.
+
+Each link also opens paused if you add `-paused` (for example `#gift-paused`).
+
+### What I'd like your eye on
+- **The city page's tabs.** Does Ruler / Prices / Trade make the page easier to read? Is the header (mood and terms) the right thing to keep in view?
+- **What gifts are worth.** In `#gift`, 250 dr adds +11 to a shrewd lord and 500 dr adds +15, fading over a year and a half; three gifts in a row warmed Corinth from +5 to +33. Is that too cheap, too dear, or about right for what warmth gets you (better terms and, now and then, a gift back)?
+- **The gift leaving the city.** The donkeys and the ship are small, and the walk out from `#gift`'s yard to the north edge takes about two months of game time. Is it visible enough, and worth the wait?
+- **The news lines.** Is one line for each mood turn the right amount?
+
+### Known rough edges
+- On the map of Greece the road from your city to Corinth is short, and a gift on it sits under the city labels for most of its way (hover finds it first, but you can barely see it).
+- When a ruler closes a sea route while their ship is out on the lane, the ship disappears from the map rather than turning round (caravans on the road turn back).
+- The "What it means for you" list still mentions gifts back when a ruler is hostile, which is true but beside the point.
+- A gift of goods can take months: fetching it to a far yard, then walking out through the city. Coin is the quick way.
+
+### Measurements
+Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `2805f15` (the end of slice 17's review), measured twice (the first run while tests were running alongside), the new build once between them.
+
+| | Before | After |
+|---|---|---|
+| Tests | 268 in 24 files | 284 in 25 files, all passing (16 new for rulers and gifts) |
+| Bundle | 4 files, 1,317 KB raw, 387 KB gzipped | 4 files, 1,342 KB raw, 395 KB gzipped |
+| Load, bare link, ready and first frame (page clock) | 2.13 and 2.75 s; 2.04 and 2.87 s | 2.01 and 2.63 s |
+| `#town`: triangles and draws, save | 799,168, 83; 141 KB | the same; 142 KB |
+| `#richtown`: triangles and draws, save | 910,707, 95; 178 KB | the same; 179 KB |
+| Work before drawing a frame, running: `#town`, `#quay`, `#richtown` | 13.2 and 13.5 ms; 8.8 and 7.8 ms; 16.1 and 18.4 ms | 12.4 ms; 6.8 ms; 20.2 ms (as noisy as the two before runs) |
+| `#caravan`: triangles and draws following the caravan | 516,365, 39 | the same |
+| The map of Greece, first open: built in | 0.92 s (loaded), 0.34 s | 0.50 s |
+| `#prices`, `#famine`: map triangles and draws | 304,642, 22; 304,206, 22 | the same |
+| `#gift`, `#hostile`: map triangles and draws; ready (page clock); work a frame | | 304,018, 20; 4.06 s; 6.1 ms · 304,642, 22; 4.00 s; 6.8 ms |
+| The 71 earlier demos | | 69 open and play 900 ticks on exactly as before; `#athensship` and `#famine` differ by Athens' whim |
+
 ## Slice 17 — Prices that move (18 Oct)
 
 Prices in Greece now move: sell a city the same good visit after visit and its price slides, a failed harvest sends wheat soaring in one city, and every price says what moved it, with an arrow and a year's chart. You weren't here while it was built: every choice below is mine, from the spec's defaults.
