@@ -40,7 +40,7 @@ import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, 
 export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned'>;
 import { note } from './stockbook';
 import { income } from './treasury';
-import { DOCKER_SPEED, giftOf, newWalker, position, setGiftOf, setPath } from './walk';
+import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk';
 
 /** The goods the ship buys, in the order the trade record keeps them. */
 export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE];
@@ -64,6 +64,8 @@ export const QUAY_ROOM = 2400;
 export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600];
 /** Most dockers out at once; ticks between one setting off and the next; the smallest load worth a trip. */
 export const MAX_DOCKERS = 4;
+/** Two more hands, only for fetching gifts and sendings when the others are all out. */
+export const GIFT_HANDS = 2;
 export const DOCKER_GAP = 2 * TICKS_PER_DAY;
 export const MIN_LOT = 100;
 /** Ticks before the post's first docker can go (once it has workers). */
@@ -782,12 +784,30 @@ function dockerJobs(s: SimState, post: Building): DockerJob[] {
   return jobs;
 }
 
-/** The store a docker would go to for a job, by road from the post: carrying back, the nearest with room for some of it; fetching, the nearest holding the good. */
+/** What porters already on their way to fetch for gifts and sendings will take of a good from each store (by its id). */
+function giftReserved(s: SimState, w: Ware): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const d of s.walkers) if (d.kind === 'docker' && giftOf(d) > 0 && !d.back && d.food === w) m.set(d.target, (m.get(d.target) ?? 0) + d.meat);
+  return m;
+}
+
+/**
+ * The store a docker would go to for a job, by road from the post: carrying
+ * back, the nearest with room for some of it; fetching, the nearest holding
+ * the good. Fetching for a gift or a sending, the nearest holding some that
+ * no other porter is already on his way to fetch, and no more than it has
+ * left (so the loads come in from several stores together, not one after
+ * another from the nearest).
+ */
 function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): { g: Building; way: number[] } | null {
   const kind = storeKind(job.w);
-  return job.back
-    ? nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT))
-    : nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+  if (job.back) return nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT));
+  if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+  const res = giftReserved(s, job.w);
+  const free = (g: Building): number => held(g, job.w) - (res.get(g.id) ?? 0);
+  const found = nearestBy(s, size, roads, (g) => g.kind === kind && free(g) > 0);
+  if (found) job.lot = Math.min(job.lot, free(found.g));
+  return found;
 }
 
 /**
@@ -797,9 +817,13 @@ function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): {
  */
 export function stepDockers(s: SimState, map: CoastMap, post: Building): void {
   if (post.clock > 0) post.clock--;
-  if (post.clock > 0 || rateOf(post) === 0 || dockersOut(s, post) >= MAX_DOCKERS) return;
+  if (post.clock > 0 || rateOf(post) === 0) return;
+  const out = dockersOut(s, post);
+  // (With every docker out, a gift or a sending still goes: there are two more hands for those.)
+  const extra = out >= MAX_DOCKERS;
+  if (extra && (out >= MAX_DOCKERS + GIFT_HANDS || !s.world.gifts.some((g) => g.phase === 0 && g.depot === post.id))) return;
   post.clock = DOCKER_GAP;
-  const jobs = dockerJobs(s, post);
+  const jobs = extra ? dockerJobs(s, post).filter((j) => j.gift) : dockerJobs(s, post);
   if (jobs.length === 0) return;
   const size = map.size;
   const roads = roadsBeside(s, size, post);
@@ -872,7 +896,9 @@ function home(s: SimState, d: Walker, post: Building): false {
     const g = s.world.gifts.find((x) => x.id === giftOf(d) && x.phase === 0);
     if (g && d.load > 0) {
       g.got += d.load;
-      note(s, d.food, 'sold', `gift:${g.to}`, d.load);
+      // (Sent for a request or tribute: on its own line of the stock book.)
+      const deal = g.deal ? s.world.deals.find((x) => x.id === g.deal) : undefined;
+      note(s, d.food, 'sold', `${deal ? (deal.kind === 'tribute' ? 'tribute' : 'sent') : 'gift'}:${g.to}`, d.load);
     } else if (d.load > 0) setHeld(post, d.food, held(post, d.food) + d.load);
     if (d.load > 0) s.looks++;
     d.meat = 0;
@@ -932,7 +958,8 @@ export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
     if (!(d.back ? goTo(s, size, d, post, lastRoad(s, d)) : redirect(s, size, d, post))) return home(s, d, post);
   }
   if (!d.back && !findBuilding(s, d.target) && !redirect(s, size, d, post)) return home(s, d, post);
-  let move = DOCKER_SPEED;
+  // (Fetching a gift or a sending, he hurries: speedOf.)
+  let move = speedOf(d);
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = d.path.length / 2 - 1;
     if (d.seg >= last) break;
@@ -970,7 +997,9 @@ export function dockerDoing(s: SimState, d: Walker): string {
   const where = g ? (g.kind === 'granary' ? 'the granary' : 'the storehouse') : depot;
   if (giftOf(d) > 0) {
     const gift = s.world.gifts.find((x) => x.id === giftOf(d));
-    const to = gift ? ` for your gift to ${gift.to.replace(/^./, (c) => c.toUpperCase())}` : ' for your gift';
+    const city = gift ? gift.to.replace(/^./, (c) => c.toUpperCase()) : '';
+    const deal = gift?.deal ? s.world.deals.find((x) => x.id === gift.deal) : undefined;
+    const to = !gift ? ' for your gift' : deal ? (deal.kind === 'tribute' ? ` for the tribute ${city} demands` : ` for ${city}, as they asked`) : ` for your gift to ${city}`;
     if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to ${depot}${to}` : `going back to ${depot}`;
     return d.wait > 0 ? `loading ${name} at ${where}${to}` : `going to ${where} for ${name}${to}`;
   }

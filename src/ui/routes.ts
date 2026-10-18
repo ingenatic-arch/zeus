@@ -12,6 +12,7 @@ import { dateOfTick, formatYear } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { held, WARE_NAMES } from '../sim/foods';
 import { caravanYard, keptIn, LAND_EVERY, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
+import { offerLeft, offerOn, offerPrice } from '../sim/favours';
 import { termsLine, termsMeaning, yourPriceCell } from './prices';
 import type { Building, SimState, TradeRoute } from '../sim/state';
 import { cityHolds, KEEP_MAX, KEEP_STEP, TRADE_GOODS, tradingPost } from '../sim/trade';
@@ -44,7 +45,17 @@ export function routeNewsBlock(s: SimState, r: TradeRoute): string {
 }
 
 /** What is left of a city's yearly limit in a good, sold or bought this year (and taken so far this visit). */
-const leftOf = (s: SimState, r: TradeRoute, k: number, selling: boolean): number => Math.max(0, yearlyLimit(s, r.city, k) - (selling ? r.sold[k] + r.hold[k] : r.bought[k]));
+function leftOf(s: SimState, r: TradeRoute, k: number, selling: boolean): number {
+  const o = offerOn(s.world, r.city, k, selling ? 'buy' : 'sell');
+  if (o) return Math.max(0, offerLeft(o) - (selling ? r.hold[k] : 0));
+  return Math.max(0, yearlyLimit(s, r.city, k) - (selling ? r.sold[k] + r.hold[k] : r.bought[k]));
+}
+
+/** The year's limit in a good: the offer's amount while one is taken, else the city's own. */
+function limitOf(s: SimState, r: TradeRoute, k: number, selling: boolean): number {
+  const o = offerOn(s.world, r.city, k, selling ? 'buy' : 'sell');
+  return o ? o.amount : yearlyLimit(s, r.city, k);
+}
 
 /** The keep figure's − and + (the one the trading post has always had, shared by every route). */
 function keepCell(s: SimState, k: number): string {
@@ -61,7 +72,12 @@ function uptoCell(r: TradeRoute, k: number): string {
 }
 
 /** A price cell: your price with the city (the market's and its ruler's terms) and its arrow, with a tip saying what moved it. */
-function priceTd(s: SimState, city: CityId, k: number): string {
+function priceTd(s: SimState, city: CityId, k: number, selling: boolean): string {
+  const o = offerOn(s.world, city, k, selling ? 'buy' : 'sell');
+  if (o) {
+    const n = offerPrice(s, o);
+    return `<td class="price offer" title="${esc(`${PLACES[city].name}'s offer: ${fmt(n)} for every 100 ${WARE_NAMES[TRADE_GOODS[k]]}, ${fmt(offerLeft(o))} more this year`)}">${fmt(n)} <small>offer</small></td>`;
+  }
   const p = yourPriceCell(s, city, k);
   return `<td class="price" title="${esc(p.title)}">${p.html}</td>`;
 }
@@ -78,9 +94,9 @@ export function routeGoods(s: SimState, r: TradeRoute, withTerms = true): string
       const on = r.sell[k];
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, true);
-      const lim = yearlyLimit(s, r.city, k);
+      const lim = limitOf(s, r, k, true);
       return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Tick to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
-${priceTd(s, r.city, k)}
+${priceTd(s, r.city, k, true)}
 <td class="left" title="${esc(`${name} buys up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
 ${keepCell(s, k)}
@@ -93,9 +109,9 @@ ${keepCell(s, k)}
       const on = r.buy[k];
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, false);
-      const lim = yearlyLimit(s, r.city, k);
+      const lim = limitOf(s, r, k, false);
       return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Tick to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
-${priceTd(s, r.city, k)}
+${priceTd(s, r.city, k, false)}
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
 ${uptoCell(r, k)}<td class="quay" title="${esc(`${fmt(depot ? held(depot, w) : 0)} ${ware} at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}${depot && held(depot, w) > 0 ? `, for the ${r.kind === 'land' ? 'porters' : 'dockers'} to carry to the ${keptIn(k)}` : ''}`)}">${depot && held(depot, w) > 0 ? fmt(held(depot, w)) : '·'}</td></tr>`;

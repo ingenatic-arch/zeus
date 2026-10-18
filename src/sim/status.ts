@@ -9,7 +9,7 @@ import { fertilityOf, grassOf, oliveOf, vineOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, footSide, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { freshNews } from './world';
+import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals } from './favours';
 import {
   BARN,
   CHEESE_BATCH,
@@ -48,7 +48,7 @@ import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, rateOf, workforce } from './labour';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
-import type { Building, BuildingKind, Herd, SimState, Walker } from './state';
+import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { caravanDoing, caravanOf, routeNews } from './routes';
 import { PLACES } from '../map/greece';
@@ -1025,7 +1025,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1047,8 +1047,53 @@ export const BREAD_LEAD_MONTHS = 6;
  */
 export const BREAD_SPARE = 1.1;
 
-/** How long a line of news from Greece stands under the top bar. */
+/** How long a line of news from Greece stands under the top bar, and at the least before the next takes its place (one at a time, in turn). */
 const NEWS_DAYS = 14;
+const NEWS_LEAST_DAYS = 5;
+
+/**
+ * The news from Greece showing under the top bar now: one piece at a time,
+ * each for a fortnight, or at least five days before the next (which waits
+ * its turn) takes its place; and how many more are waiting.
+ */
+export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null {
+  const show = NEWS_DAYS * TICKS_PER_DAY;
+  const least = NEWS_LEAST_DAYS * TICKS_PER_DAY;
+  let at = -Infinity;
+  let item: NewsItem | null = null;
+  let start = 0;
+  let waiting = 0;
+  for (const n of s.world.news) {
+    at = Math.max(n.tick, at + least);
+    if (at <= s.tick) {
+      item = n;
+      start = at;
+    } else waiting++;
+  }
+  if (!item || s.tick - start >= show) return null;
+  return { item, waiting };
+}
+
+/** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
+function dealTownLine(s: SimState, map: CoastMap): TownLine | null {
+  const open = openDeals(s.world);
+  if (!open.length) return null;
+  const rank = (d: Deal): number => (d.kind === 'offer' ? 2 : d.gift ? 1 : 0);
+  const d = open.slice().sort((a, b) => rank(a) - rank(b) || a.due - b.due)[0];
+  const name = PLACES[d.city].name;
+  const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
+  const more = open.length > 1 ? ` (and ${open.length - 1} more: see ${open.filter((x) => x !== d).map((x) => `${PLACES[x.city].name}’s page`).join(', ')})` : '';
+  const words = dealWords(d);
+  let text: string;
+  if (d.gift) {
+    const g = s.world.gifts.find((x) => x.id === d.gift);
+    text = g ? `The ${words} for ${name} ${d.kind === 'tribute' ? '(tribute) ' : ''}is on its way: it arrives about ${dayWords(arrivesAt(s, map, g))}, ${againstDue(arrivesAt(s, map, g), d.due)}` : `The ${words} for ${name} is on its way`;
+  } else if (d.kind === 'offer') text = `${name} offers ${offerWords(d)}: answer ${dueWords(s, d)}, on ${whose} page`;
+  else if (d.kind === 'tribute') text = `${name} demands ${words} in tribute ${dueWords(s, d)}: pay it or refuse it, on ${whose} page`;
+  else if (d.promised) text = `You promised ${name} ${words}: send it ${dueWords(s, d)}, from ${whose} page`;
+  else text = `${name} asks for ${words} ${dueWords(s, d)}: ${d.why}. Answer on ${whose} page`;
+  return { need: 'favour', text: `${text}${more}.`, at: 0, route: d.city };
+}
 
 /** Workers with no road to the jobs left, before the workers line names them rather than asking for more homes. */
 const IDLE_WORDS = 4;
@@ -1066,9 +1111,12 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (ship) out.unshift(ship);
   const trader = traderTownLine(s);
   if (trader) out.unshift(trader);
-  // News from Greece (a harvest, a mood turning, a gift), for a fortnight: the newest two.
-  const news = freshNews(s, NEWS_DAYS * TICKS_PER_DAY).slice(-2);
-  if (news.length) out.push({ need: 'greece', text: `From Greece: ${news.map((n) => n.line).join('. ')}.`, at: 0, route: news[news.length - 1].city });
+  // What a ruler waits on you for (a request, an offer, tribute), while it is open.
+  const deal = dealTownLine(s, map);
+  if (deal) out.push(deal);
+  // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time.
+  const news = newsNow(s);
+  if (news) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);

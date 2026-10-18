@@ -27,6 +27,7 @@ import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepDockers, stepTrade,
 import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
+import { answer, stepFavours } from './favours';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -179,6 +180,8 @@ export class Sim {
     stepWorld(s);
     // The gifts on their way, and the rulers' moods: their turns and what follows (once a day; whims and gifts back once a month, once your city deals with Greece).
     stepGifts(s, map);
+    // The rulers' requests, offers and tribute: deadlines, and now and then a new one (once your first route is six months old).
+    stepFavours(s, map);
     stepDiplomacy(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
@@ -250,6 +253,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'gift':
       if (typeof c.good === 'number' && typeof c.amount === 'number') sendGift(s, map, String(c.city), c.good, c.amount);
+      break;
+    case 'answer':
+      if (typeof c.deal === 'number' && typeof c.act === 'string') answer(s, map, c.deal, c.act);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {

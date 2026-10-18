@@ -41,9 +41,10 @@ import { rateOf } from './labour';
 import { caravanEntry, caravanYard, landTicks, routeWay, voyageTicks, type RouteKind } from './routes';
 import { door } from './rounds';
 import { roomFor } from './stores';
-import type { Building, Gift, Memory, SimState, TradeRoute, World, WorldCity } from './state';
+import type { Building, Gift, LedgerKind, Memory, SimState, TradeRoute, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { berthOf, cityHolds, depotRoom, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
+import { berthOf, cityHolds, depotRoom, forSale, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
+import { dealOf, delivered, sentWords, undelivered } from './favours';
 import { income, pay, spendable } from './treasury';
 import { giftOf, newWalker, offMapPoint, roadPoints, setGiftOf, setPath } from './walk';
 import { cityOf, fadeFor, HOSTILE, MOOD_WORDS, moodLevel, moodOf, memoryWorth, rulerName, rulerShort, WARM } from './world';
@@ -161,8 +162,8 @@ export function giftWay(s: SimState, map: CoastMap, city: CityId, coin: boolean)
   return { why: 'Goods go by sea from the trading post: build one' };
 }
 
-/** A gift of yours on its way to a city (fetching, leaving or on the road), if there is one. */
-export const giftTo = (w: World, city: CityId): Gift | undefined => w.gifts.find((g) => g.from === 'home' && g.to === city);
+/** A gift of yours on its way to a city (fetching, leaving or on the road), if there is one (not what you send for a request or tribute: see favours.ts). */
+export const giftTo = (w: World, city: CityId): Gift | undefined => w.gifts.find((g) => g.from === 'home' && g.to === city && !g.deal);
 /** A ruler's gift on its way to you, if there is one. */
 export const giftFrom = (w: World, city: CityId): Gift | undefined => w.gifts.find((g) => g.from === city);
 
@@ -185,7 +186,7 @@ export function giftRefusal(s: SimState, map: CoastMap, city: CityId | string, w
 }
 
 /** Where a way's far end is along it, and the way's id. */
-const wayFor = (city: CityId, by: RouteKind): { id: string; L: number } => {
+export const wayFor = (city: CityId, by: RouteKind): { id: string; L: number } => {
   const w = routeWay(city, by);
   const id = w ? w.way : `${city}-${by}`;
   return { id, L: w ? lineLength(tableWay(wayOf(id))) : 0 };
@@ -194,7 +195,17 @@ const wayFor = (city: CityId, by: RouteKind): { id: string; L: number } => {
 /** Send a gift (a command; nothing if giftRefusal says no). Coin is paid at once and a herald sets off; goods are fetched first. */
 export function sendGift(s: SimState, map: CoastMap, city: CityId | string, ware: number, amount: number): void {
   if (giftRefusal(s, map, city, ware, amount) !== '') return;
-  const id = city as CityId;
+  dispatch(s, map, city as CityId, ware, amount);
+}
+
+/**
+ * Send coin or goods from your city to a ruler: a gift (`deal` 0), or what a
+ * request or tribute asks (its deal's id; favours.ts). Coin is paid at once,
+ * on the ledger's `ledger` line, and a herald sets off; goods (`ware` a ware
+ * number) are fetched from the stores first, then leave the city. Whether it
+ * can go at all is the caller's to say (giftRefusal, sendRefusal).
+ */
+export function dispatch(s: SimState, map: CoastMap, id: CityId, ware: number, amount: number, deal = 0, ledger: LedgerKind = 'gifts'): Gift {
   const w = s.world;
   const coin = ware < 0;
   const way = giftWay(s, map, id, coin) as { by: RouteKind; depot: Building | null };
@@ -217,17 +228,22 @@ export function sendGift(s: SimState, map: CoastMap, city: CityId | string, ware
     a1: L,
     ship: null,
     note: '',
+    deal,
   };
   if (coin) {
-    pay(s, -amount, 'gifts', `to ${cityName(id)}`);
+    pay(s, -amount, ledger, `to ${cityName(id)}`);
     g.got = amount;
     // A herald takes it from your city along the way: as long as a trader takes, and a day to set out.
-    onTheWay(g, s.tick, 0, L, (way.by === 'land' ? landTicks(id) : voyageTicks(id) + 3 * TICKS_PER_DAY) + TICKS_PER_DAY);
+    onTheWay(g, s.tick, 0, L, heraldTicks(id, way.by));
   }
   w.gifts.push(g);
   if (!w.contact) w.contact = Math.max(1, s.tick);
   s.rev++;
+  return g;
 }
+
+/** How long a herald takes with coin to a city: as long as a trader, and a day to set out. */
+export const heraldTicks = (city: CityId, by: RouteKind): number => (by === 'land' ? landTicks(city) : voyageTicks(city) + 3 * TICKS_PER_DAY) + TICKS_PER_DAY;
 
 /** A gift sets off along its way on the map of Greece. */
 function onTheWay(g: Gift, tick: number, a0: number, a1: number, dur: number): void {
@@ -249,9 +265,10 @@ const donkeysFor = (amount: number): number => (amount >= 800 ? 4 : amount >= 40
 function leave(s: SimState, map: CoastMap, g: Gift): void {
   const w = s.world;
   if (g.got <= 0) {
-    // Nothing could be fetched: the gift is given up.
+    // Nothing could be fetched: the gift is given up (what was sent for a request or tribute waits to be sent again).
     w.gifts = w.gifts.filter((x) => x !== g);
-    news(w, s.tick, g.to, `Your gift for ${cityName(g.to)} was given up: there was no ${WARE_NAMES[TRADE_GOODS[g.good]]} in the stores to send`);
+    if (g.deal) undelivered(s, g);
+    else news(w, s.tick, g.to, `Your gift for ${cityName(g.to)} was given up: there was no ${WARE_NAMES[TRADE_GOODS[g.good]]} in the stores to send`);
     return;
   }
   // (The stock book noted each load as it was handed over, trade.ts.)
@@ -295,6 +312,11 @@ function leave(s: SimState, map: CoastMap, g: Gift): void {
 function arrive(s: SimState, g: Gift): void {
   const w = s.world;
   w.gifts = w.gifts.filter((x) => x !== g);
+  // Sent for a request or tribute: it meets it (favours.ts).
+  if (g.deal) {
+    delivered(s, g);
+    return;
+  }
   if (g.from === 'home') {
     const c = cityOf(w, g.to);
     if (!c.ruler) return;
@@ -315,7 +337,9 @@ function arrive(s: SimState, g: Gift): void {
     const ware = TRADE_GOODS[g.good];
     let left = g.amount;
     // Onto the caravan yard or the quay, for the porters or dockers to carry to the stores; or straight into the stores.
-    const depot = g.by === 'land' ? caravanYard(s) : tradingPost(s);
+    // (Not if the good is for sale there: it would wait there to be sold, not go to the stores.)
+    const at = g.by === 'land' ? caravanYard(s) : tradingPost(s);
+    const depot = at && !forSale(s, at, g.good) ? at : undefined;
     if (depot) {
       const n = Math.max(0, Math.min(left, depotRoom(depot, ware)));
       setHeld(depot, ware, held(depot, ware) + n);
@@ -380,7 +404,7 @@ export function giftOnMap(g: Gift, tick: number): { along: number; homeward: boo
 // The mood: its turns, the routes it closes, whims and gifts back.
 
 /** A line of news from Greece. */
-function news(w: World, tick: number, city: CityId, line: string): void {
+export function news(w: World, tick: number, city: CityId, line: string): void {
   w.news.push({ tick, city, line });
   if (w.news.length > 12) w.news.splice(0, w.news.length - 12);
 }
@@ -421,6 +445,11 @@ function fadingWords(m: Memory): string {
   if (m.kind === 'gift') return `${m.why.replace(/ \(.*\)$/, '')} is wearing off`;
   if (m.kind === 'whim') return good ? 'the good humour is passing' : 'the black temper is passing';
   if (m.kind === 'snub') return `the snub is fading from memory (${m.why})`;
+  // (Your answers to their requests, offers and tribute: favours.ts.)
+  const bare = m.why.replace(/ \(.*\)$/, '');
+  if (m.kind === 'met' || m.kind === 'paid' || m.kind === 'kept' || m.kind === 'taken') return `${bare}, and their thanks is wearing off`;
+  if (m.kind === 'refused' || m.kind === 'lapsed' || m.kind === 'defied' || m.kind === 'declined') return `the sting of it is passing (${bare})`;
+  if (m.kind === 'broken' || m.kind === 'reneged') return `your broken word is slowly forgiven (${bare})`;
   return `${m.why}, and that is fading`;
 }
 
@@ -581,6 +610,7 @@ export function rulerGift(s: SimState, c: WorldCity, good: number, amount: numbe
     a1: L,
     ship: null,
     note: why,
+    deal: 0,
   };
   onTheWay(g, s.tick, L, by === 'land' ? EDGE_ALONG : HORIZON_ALONG, by === 'land' ? landTicks(c.id) : voyageTicks(c.id));
   w.gifts.push(g);
@@ -597,6 +627,8 @@ export function giftNews(s: SimState, g: Gift): string {
     return d === 1 ? '1 day' : `${d} days`;
   };
   const words = giftWords(g.good, g.amount);
+  // (What you send for a request or tribute says so.)
+  if (g.deal) return sentWords(s, g, dealOf(s.world, g.deal));
   if (g.from !== 'home') return `${cityName(g.from)}’s gift of ${words} is on its way to you: at ${g.by === 'land' ? 'the edge of your map' : 'your gulf'} in ${days(g.start + g.dur)}`;
   const to = cityName(g.to);
   if (g.phase === 0) {

@@ -78,6 +78,11 @@
  * ruler could close one before). Your city dealt with Greece first when it
  * opened its first route, if it has. Nothing in the city changes.
  *
+ * Version 18 to 19 (slice 19, favours, offers and tribute): no ruler has
+ * asked anything of you yet (the list of deals was always empty), and every
+ * gift on its way is a gift, not something sent for a request. Nothing in
+ * the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -130,6 +135,7 @@ export function migrate(st: unknown): number {
   if (st.version === 15) from15(st);
   if (st.version === 16) from16(st);
   if (st.version === 17) from17(st);
+  if (st.version === 18) from18(st);
   return from;
 }
 
@@ -321,4 +327,14 @@ function from18Fields(w: Record<string, unknown>, tick: number): void {
 function from17(st: Record<string, unknown>): void {
   if (isObj(st.world)) from18Fields(st.world, typeof st.tick === 'number' ? st.tick : 0);
   st.version = 18;
+}
+
+function from18(st: Record<string, unknown>): void {
+  const w = st.world;
+  if (isObj(w)) {
+    w.deals = [];
+    if (typeof w.nextDeal !== 'number') w.nextDeal = 1;
+    if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.deal !== 'number') g.deal = 0;
+  }
+  st.version = 19;
 }

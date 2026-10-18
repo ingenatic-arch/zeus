@@ -168,7 +168,11 @@ export class GreeceMap {
       const t = e.target as HTMLElement;
       const tab = t.closest('button[data-tab]') as HTMLButtonElement | null;
       const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;
-      if (tab) {
+      const deal = t.closest('button[data-deal]') as HTMLButtonElement | null;
+      if (deal && !deal.disabled) {
+        host.send({ type: 'answer', deal: Number(deal.dataset.deal), act: deal.dataset.act as 'promise' | 'send' | 'refuse' | 'take' | 'decline' });
+        setTimeout(() => this.redraw(), 0);
+      } else if (tab) {
         this.tab = (CITY_TABS as readonly string[]).includes(tab.dataset.tab ?? '') ? (tab.dataset.tab as CityTab) : 'ruler';
         this.redraw(true);
         this.panel.scrollTop = 0;

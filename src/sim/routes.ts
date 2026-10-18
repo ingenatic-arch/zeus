@@ -78,8 +78,9 @@ import {
   DEFAULT_KEEP,
 } from './trade';
 import { income, pay, spendable, wageBill } from './treasury';
-import { CARAVAN_SPEED, giftOf, newWalker, offMapPoint, position, roadPoints, setPath } from './walk';
+import { giftOf, newWalker, offMapPoint, position, roadPoints, setPath, speedOf } from './walk';
 import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
+import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -282,7 +283,9 @@ function takeShare(s: SimState, r: TradeRoute, depot: Building, share: number, l
   TRADE_GOODS.forEach((w, k) => {
     if (!r.sell[k]) return;
     const q = held(depot, w);
-    const room = yearlyLimit(s, r.city, k) - r.sold[k] - r.hold[k];
+    // (Under an offer you took, its own limit for its year instead: favours.ts.)
+    const o = offerOn(s.world, r.city, k, 'buy');
+    const room = (o ? offerLeft(o) : yearlyLimit(s, r.city, k) - r.sold[k]) - r.hold[k];
     if (q <= 0 || room <= 0) return;
     const take = Math.min(room, last ? q : Math.ceil(q * share));
     if (take <= 0) return;
@@ -314,14 +317,18 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     if (!r.buy[k]) continue;
     const w = TRADE_GOODS[k];
     const want = r.upto[k] - cityHolds(s, w) - held(depot, w) - inHand(s, depot, w).returning;
-    const left = yearlyLimit(s, r.city, k) - r.bought[k];
-    const price = Math.max(1, yourPrice(s.world, r.city, k, s.tick));
+    // (Under an offer you took: its price and its own limit for its year.)
+    const o = offerOn(s.world, r.city, k, 'sell');
+    const left = o ? offerLeft(o) : yearlyLimit(s, r.city, k) - r.bought[k];
+    const price = Math.max(1, o ? offerPrice(s, o) : yourPrice(s.world, r.city, k, s.tick));
     const purse = importPurse(s);
     let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
     n = Math.floor(n / 10) * 10;
-    while (n > 0 && priceAt(s, r.city, k, n) > purse) n -= 10;
+    const cost = (m: number): number => Math.round((m * price) / 100);
+    while (n > 0 && cost(n) > purse) n -= 10;
     if (n < MIN_IMPORT) continue;
-    const dr = priceAt(s, r.city, k, n);
+    const dr = cost(n);
+    if (o) tradedUnder(o, n);
     pay(s, -dr, 'imports', `${WARE_NAMES[w]} from ${cityName(r.city)}`, n);
     setHeld(depot, w, held(depot, w) + n);
     note(s, w, 'bought', r.city, n);
@@ -341,7 +348,10 @@ function settle(s: SimState, r: TradeRoute): void {
   TRADE_GOODS.forEach((w, k) => {
     const n = r.hold[k];
     if (n <= 0) return;
-    const dr = priceAt(s, r.city, k, n);
+    // (Under an offer you took: at its price, if better than the market's.)
+    const o = offerOn(s.world, r.city, k, 'buy');
+    const dr = o ? Math.round((n * offerPrice(s, o)) / 100) : priceAt(s, r.city, k, n);
+    if (o) tradedUnder(o, n);
     paid += dr;
     r.sold[k] += n;
     income(s, dr, 'sales', `${WARE_NAMES[w]} to ${cityName(r.city)}`, n);
@@ -585,7 +595,8 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
   if ((next !== undefined && next >= 0 && s.tiles[next] !== TILE_ROAD) || (!w.back && (!yard || !r))) {
     if (!(w.back ? headOut(s, map, w) : rerouteCaravan(s, map, w, r))) return caravanGone(s, w);
   }
-  let move = CARAVAN_SPEED;
+  // (Your own caravan taking a gift or a sending out walks faster: speedOf.)
+  let move = speedOf(w);
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;
@@ -957,6 +968,9 @@ export function caravanDoing(s: SimState, w: Walker): { title: string; detail: s
   if (giftOf(w) > 0) {
     const g = s.world.gifts.find((x) => x.id === giftOf(w));
     const to = g ? cityName(g.to) : 'Greece';
+    const deal = g?.deal ? s.world.deals.find((x) => x.id === g.deal) : undefined;
+    // (Sent for a request or tribute: it says so.)
+    if (g && deal) return { title: deal.kind === 'tribute' ? `Tribute for ${to}` : `${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]} for ${to}`, detail: `${w.people} donkeys in your city’s colours with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}${deal.kind === 'tribute' ? ', the tribute it demands' : ', as it asked'}, on their way out of the city to the road to ${to}` };
     return { title: `Your gift to ${to}`, detail: `${w.people} donkeys in your city’s colours${g && g.good >= 0 ? ` with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}` : ''}, on their way out of the city to the road to ${to}` };
   }
   const city = CITY_IDS[w.food] ?? 'corinth';

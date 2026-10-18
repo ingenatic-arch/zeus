@@ -24,26 +24,27 @@ export const COLLECTOR_SPEED = PATROL_SPEED;
 /** The trading post's dockers walk at the collector's pace with their handcarts (the stores can be far from the shore: see trade.ts). */
 export const DOCKER_SPEED = COLLECTOR_SPEED;
 
+/** A docker or yard porter fetching a gift or a sending from the stores hurries: half as fast again (trade.ts). */
+export const SENDING_FETCH_SPEED = DOCKER_SPEED * 1.5;
+
 /** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
 export const RUN_SPEED = PATROL_SPEED * 1.6;
 
 /** A caravan's drover and donkeys walk at a man's pace, faster than an ox cart (see routes.ts). */
 export const CARAVAN_SPEED = WALK_SPEED;
+/** Your own little caravan taking a gift or what a ruler asked for out of the city knows the streets and travels light: twice a trader's pace (diplomacy.ts). */
+export const SENDING_SPEED = CARAVAN_SPEED * 2;
 
-export const speedOf = (w: Walker): number =>
-  w.kind === 'cart' || w.kind === 'caravan'
-    ? w.kind === 'cart'
-      ? CART_SPEED
-      : CARAVAN_SPEED
-    : w.kind === 'watchman' && w.target > 0
-      ? RUN_SPEED
-      : w.kind === 'tax' || w.kind === 'docker'
-        ? COLLECTOR_SPEED
-        : w.kind === 'watchman' || w.kind === 'inspector'
-          ? PATROL_SPEED
-          : isRoundsWalker(w.kind)
-            ? CARRIER_SPEED
-            : WALK_SPEED;
+export function speedOf(w: Walker): number {
+  if (w.kind === 'cart') return CART_SPEED;
+  // (Your own caravan or porter about a gift or a sending: the gift's number is in `cheese`, see giftOf.)
+  if (w.kind === 'caravan') return w.cheese > 0 ? SENDING_SPEED : CARAVAN_SPEED;
+  if (w.kind === 'watchman' && w.target > 0) return RUN_SPEED;
+  if (w.kind === 'docker') return w.cheese > 0 ? SENDING_FETCH_SPEED : COLLECTOR_SPEED;
+  if (w.kind === 'tax') return COLLECTOR_SPEED;
+  if (w.kind === 'watchman' || w.kind === 'inspector') return PATROL_SPEED;
+  return isRoundsWalker(w.kind) ? CARRIER_SPEED : WALK_SPEED;
+}
 
 /** A hunter walks at the settlers' pace, across country. */
 export const HUNTER_SPEED = WALK_SPEED;

@@ -14,9 +14,11 @@ import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
+import { againstDue, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, TRIBUTE_YEARS } from '../sim/favours';
+import type { Deal } from '../sim/state';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { waysHtml } from './routes';
-import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, termsOf, TRAIT_WORDS, tyreShip, WARM, type MoodWord } from '../sim/world';
+import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
 export type CityTab = 'ruler' | 'prices' | 'trade';
@@ -119,7 +121,25 @@ export function labelHtml(s: SimState, id: CityId): string {
   const c = cityOf(s.world, id);
   const name = id === 'home' ? s.world.name : PLACES[id].name;
   if (!c.ruler) return `<b>${esc(name)}</b>${id === 'home' ? '<span class="you">you</span>' : ''}`;
-  return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}`;
+  // A deal waiting on your answer: a scroll (a request, an offer) or a red seal (tribute).
+  const d = liveDeals(s.world, id).find((x) => x.state === 'open');
+  return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${d ? dealIcon(d) : ''}`;
+}
+
+/** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
+export function dealIcon(d: Pick<Deal, 'kind' | 'gift'>): string {
+  const sent = d.gift > 0 ? ' sent' : '';
+  if (d.kind === 'tribute') return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask tribute${sent}" aria-hidden="true"><path d="M3 3.5h8.6c1 0 1.6.7 1.6 1.6v7.4H4.6C3.7 12.5 3 11.8 3 10.9z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9"/><circle cx="10.4" cy="11" r="3" fill="#b8322a" stroke="#6e1a14" stroke-width=".8"/><path d="M9 11h2.8M10.4 9.6v2.8" stroke="#f2c7b8" stroke-width=".8"/></svg>`;
+  return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask ${d.kind}${sent}" aria-hidden="true"><path d="M4 2.6h8.4c.9 0 1.4.6 1.4 1.4s-.5 1.4-1.4 1.4H12v7.2c0 1-.7 1.7-1.7 1.7H3.6c.9 0 1.4-.6 1.4-1.4V4c0-.8-.5-1.4-1-1.4z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M6.6 7h3.6M6.6 9h3.6M6.6 11h2.4" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/></svg>`;
+}
+
+/** A deal in a few words, for the hover card and the label's tip: "Asks for 1,000 wheat · 63 days left". */
+export function dealShort(s: SimState, d: Deal): string {
+  const days = Math.max(0, Math.ceil((d.due - s.tick) / TICKS_PER_DAY));
+  const left = `${days === 1 ? '1 day' : `${days} days`} left`;
+  if (d.kind === 'offer') return d.state === 'taken' ? `Your year’s deal for ${WARE_NAMES[TRADE_GOODS[d.good]]}: ${fmt(d.done)} of ${fmt(d.amount)} so far` : `Offers a deal for ${WARE_NAMES[TRADE_GOODS[d.good]]} · answer within ${days === 1 ? '1 day' : `${days} days`}`;
+  const what = d.kind === 'tribute' ? `Demands ${dealWords(d)} in tribute` : `Asks for ${dealWords(d)}`;
+  return `${what}${d.gift ? ' · sent, on its way' : d.promised ? ' · promised' : ''} · ${left}`;
 }
 
 /** The goods a route's trader comes for and brings, in words: " · for your oil and meat · bringing the wine you buy". */
@@ -190,7 +210,10 @@ export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`):
   if (!c.ruler) return `<b>${PLACES[id].name}</b><span>${esc(cap(PLACES[id].blurb))}</span><span class="sub">Click for what its merchants buy</span>`;
   const m = moodOf(c, s.tick);
   const w = moodWord(m);
-  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span><span class="sub">Click to meet them</span></div>`;
+  const deals = liveDeals(s.world, id)
+    .map((d) => `<span class="deal">${dealIcon(d)} ${esc(dealShort(s, d))}</span>`)
+    .join('');
+  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span>${deals}<span class="sub">Click to meet them</span></div>`;
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
@@ -274,6 +297,96 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
 <p class="foot">Each shows what it would add to the mood when it arrives. A fair gift for a city your size is about ${fmt(fairGift(s))} dr: more counts for more, but less than you’d think, and gifts within six months of each other count for less. Goods are fetched from your stores to the caravan yard or the trading post, and leave from there.</p></section>`;
 }
 
+/** "+31", "−15": a memory's worth, for the buttons. */
+const worthEm = (n: number | undefined): string => (n === undefined || n === 0 ? '' : `<em class="${n > 0 ? 'up' : 'down'}">${signed(n)}</em>`);
+
+/** "fading over two years". */
+const fadeWords = (ticks: number): string => (ticks <= 0 ? 'until it is settled' : ticks % TICKS_PER_YEAR === 0 ? `fading over ${['', 'a year', 'two years', 'three years', 'four years', 'five years', 'six years'][ticks / TICKS_PER_YEAR] ?? `${ticks / TICKS_PER_YEAR} years`}` : `fading over ${months(ticks)}`);
+
+/** A deal's answer button: its act, its label, what it would do to the mood, and why it can't be given (disabled) or what it means (its tip). */
+function actButton(s: SimState, map: CoastMap | undefined, d: Deal, act: 'promise' | 'send' | 'refuse' | 'take' | 'decline', label: string, worth: number | undefined, tip: string): string {
+  const why = map ? answerRefusal(s, map, d, act) : '';
+  return `<button data-deal="${d.id}" data-act="${act}" class="${act}" title="${esc(why || tip)}"${why ? ' disabled' : ''}>${esc(label)}${worthEm(worth)}</button>`;
+}
+
+/** When what you would send (or have sent) arrives, against the deadline. */
+function etaLine(s: SimState, map: CoastMap | undefined, d: Deal): string {
+  if (!map) return '';
+  const g = d.gift ? s.world.gifts.find((x) => x.id === d.gift) : undefined;
+  if (g) {
+    const at = arrivesAt(s, map, g);
+    return `<p class="eta sent">${esc(giftNews(s, g))}. It arrives about ${esc(dayWords(at))}, ${esc(againstDue(at, d.due))}.</p>`;
+  }
+  const why = sendRefusal(s, map, d);
+  if (why) return `<p class="eta no">${esc(why)}.</p>`;
+  const t = sendTicks(s, map, d);
+  if (t < 0) return '';
+  const how = d.good < 0 ? 'a herald takes it' : 'fetched from your stores, then out of the city and along the way';
+  return `<p class="eta">If sent now (${how}), it arrives about ${esc(dayWords(s.tick + t))}, ${esc(againstDue(s.tick + t, d.due))}.</p>`;
+}
+
+/** One of a ruler's deals: what they ask or offer and why, by when, your answers with what each does to the mood, and when a sending would arrive. */
+function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
+  const c = cityOf(s.world, d.city);
+  const they = c.ruler?.female ? 'she' : 'he';
+  const w = answerWorths(s, d);
+  const name = PLACES[d.city].name;
+  const words = dealWords(d);
+  if (d.kind === 'offer') {
+    const ware = WARE_NAMES[TRADE_GOODS[d.good]];
+    const bound = Math.ceil(d.amount * OFFER_KEPT);
+    const today = yourPriceNow(s, d);
+    if (d.state === 'taken') {
+      const share = Math.min(1, d.done / Math.max(1, d.amount));
+      const done = d.done >= bound;
+      return `<div class="deal offer taken">${dealIcon(d)}<div><b>Your year’s deal</b>: ${esc(name)} ${d.side === 'buy' ? `buys your ${ware} at ${d.price} a hundred, however much you sell` : `sells you ${ware} at ${d.price} a hundred`}, up to ${fmt(d.amount)}, until ${esc(dayWords(d.until))}.
+<div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i><s style="left:${(OFFER_KEPT * 100).toFixed(0)}%"></s></div>
+<p class="if">${fmt(d.done)} ${d.side === 'buy' ? 'sold' : 'bought'} so far${done ? `: enough to keep your word (${fmt(bound)})` : `: at least ${fmt(bound)} by then to keep your word, or it counts as a promise broken (${signed(w.reneged?.amount ?? 0)})`}. The market pays ${today} today.</p></div></div>`;
+    }
+    return `<div class="deal offer">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} offers</b> ${esc(offerWords(d))}. <span class="why">${esc(cap(d.why))}.</span>
+<p class="if">Today ${esc(name)} ${d.side === 'buy' ? 'pays' : 'asks'} ${today} a hundred. Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
+<div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
+  }
+  if (d.kind === 'tribute') {
+    const cold = moodOf(c, s.tick) <= COLD;
+    const { theirs } = stronger(s, d.city);
+    const yearly = d.yearly ? ` every year (${d.paid ? `paid ${d.paid} of ${TRIBUTE_YEARS}` : `for ${TRIBUTE_YEARS} years`})` : '';
+    const acts = d.gift
+      ? ''
+      : `<div class="acts">${actButton(s, map, d, 'send', 'Pay it', w.paid?.amount, `${cap(w.paid?.why ?? '')}: ${signed(w.paid?.amount ?? 0)}, ${fadeWords(w.paid?.fade ?? 0)}`)}${actButton(s, map, d, 'refuse', 'Refuse', w.defied?.amount, `${cap(w.defied?.why ?? '')}: ${signed(w.defied?.amount ?? 0)}, ${fadeWords(w.defied?.fade ?? 0)}${cold ? `; and ${they} is cold towards you, so ${they} will not let it pass` : ''}`)}</div>`;
+    return `<div class="deal tribute${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} demands ${esc(words)} in tribute</b>${esc(yearly)}, ${esc(dueWords(s, d))}. <span class="why">${esc(cap(d.why))}.</span>
+${acts}${etaLine(s, map, d)}<p class="if">${d.gift ? '' : `Refused, or let run out: ${signed(w.defied?.amount ?? 0)}, ${fadeWords(w.defied?.fade ?? 0)}. `}${cold ? `${cap(they)} is cold towards you: refused, ${they} will not let it pass, and threats will follow.` : `If ${they} turns cold, a refusal will not be let pass.`} (${esc(name)} has about ${fmt(theirs)} people to your ${fmt(s.population)}.)</p></div></div>`;
+  }
+  const acts = d.gift
+    ? ''
+    : `<div class="acts">${actButton(s, map, d, 'send', 'Send it', w.met?.amount, `${cap(w.met?.why ?? '')}: ${signed(w.met?.amount ?? 0)} if it arrives by the day (${signed(w.late?.amount ?? 0)} if late), ${fadeWords(w.met?.fade ?? 0)}`)}${d.promised ? '' : actButton(s, map, d, 'promise', 'Promise', w.promise?.amount, `Promise it now and send it later: ${signed(w.promise?.amount ?? 0)} while the promise stands; but if nothing has been sent by the day, it is a promise broken (${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)})`)}${actButton(s, map, d, 'refuse', 'Refuse', d.promised ? w.broken?.amount : w.refused?.amount, d.promised ? `Going back on your promise is a promise broken: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}` : `${cap(w.refused?.why ?? '')}: ${signed(w.refused?.amount ?? 0)}, ${fadeWords(w.refused?.fade ?? 0)}`)}</div>`;
+  const stakes = d.gift
+    ? ''
+    : d.promised
+      ? `You promised it: if nothing has been sent by the day, it is a promise broken (${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}).`
+      : `Let run out: ${signed(w.lapsed?.amount ?? 0)}. Promised and not sent by the day: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}.`;
+  return `<div class="deal request${d.promised ? ' promised' : ''}${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} asks for ${esc(words)}</b>, ${esc(dueWords(s, d))}${d.promised && !d.gift ? ' · <i>you promised it</i>' : ''}. <span class="why">${esc(cap(d.why))}.</span>
+${acts}${etaLine(s, map, d)}${stakes ? `<p class="if">${esc(stakes)}</p>` : ''}</div></div>`;
+}
+
+/** "the king", "the archon", "the lady". */
+function rulerTitle(c: ReturnType<typeof cityOf>): string {
+  const t = (c.ruler?.title ?? '').replace(/ of .*/, '').toLowerCase();
+  return t ? `the ${t}` : PLACES[c.id].name;
+}
+
+/** Your price with a city for a deal's good today (what the market pays or asks, with the terms). */
+const yourPriceNow = (s: SimState, d: Deal): number => yourPrice(s.world, d.city, d.good, s.tick);
+
+/** What a ruler asks of you, offers you, or demands: the deals open or running, at the top of their Ruler tab. */
+function dealsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
+  const deals = liveDeals(s.world, id);
+  if (!deals.length) return '';
+  const c = cityOf(s.world, id);
+  const head = deals.some((d) => d.kind === 'tribute') ? `What ${c.ruler?.female ? 'she' : 'he'} demands` : deals.every((d) => d.kind === 'offer') ? `What ${c.ruler?.female ? 'she' : 'he'} offers` : `What ${c.ruler?.female ? 'she' : 'he'} asks of you`;
+  return `<section class="deals"><h3>${head}</h3>${deals.map((d) => dealHtml(s, d, map)).join('')}</section>`;
+}
+
 /** A gift on its way (the hover card's and the map's). */
 export const giftKey = (g: Gift): string => `gift-${g.id}`;
 
@@ -318,7 +431,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
 <div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div></header>
 <nav class="citytabs">${tabs}</nav>
-${pane('ruler', `<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
+${pane('ruler', `${dealsHtml(s, id, map)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}`)}
 ${pane('prices', pricesBlock(s, id, false))}

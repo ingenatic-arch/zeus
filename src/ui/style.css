@@ -746,6 +746,40 @@ body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, 
 .greece-panel ul.giftrows button:disabled { opacity: 0.42; cursor: default; background: transparent; }
 .greece-panel .giftnews { margin: 4px 0 0; padding: 6px 9px; border-radius: 10px; background: #f6eedb; border: 1.2px solid #c9a35a; font-size: 13px; }
 .greece-panel .giftnews.theirs { background: #eef3e2; border-color: #8aa04a; }
+/* A ruler's requests, offers and tribute, at the top of the Ruler tab. */
+.greece-panel section.deals h3 { color: var(--terracotta-deep); }
+.greece-panel .deal { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 0; padding: 7px 9px 8px; border-radius: 10px; background: #fbf1da; border: 1.4px solid #c9a35a; font-size: 13px; line-height: 1.35; }
+.greece-panel .deal > svg { flex: none; margin-top: 1px; width: 18px; height: 18px; }
+.greece-panel .deal > div { flex: 1; min-width: 0; }
+.greece-panel .deal b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
+.greece-panel .deal .why { color: var(--ink-soft); }
+.greece-panel .deal.tribute { background: #f8e6dc; border-color: #b8564a; }
+.greece-panel .deal.offer { background: #eef3e2; border-color: #8aa04a; }
+.greece-panel .deal.sent { border-style: dashed; }
+.greece-panel .deal .acts { display: flex; gap: 5px; margin: 6px 0 2px; flex-wrap: wrap; }
+.greece-panel .deal .acts button {
+  appearance: none; font: inherit; font-size: 12.5px; padding: 2px 9px; border-radius: 9px; border: 1.2px solid var(--edge);
+  background: #fff8ea; color: var(--ink); cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline;
+}
+.greece-panel .deal .acts button.send, .greece-panel .deal .acts button.take { background: #2f6f8e; border-color: #2f6f8e; color: #fff6e4; }
+.greece-panel .deal .acts button.send em.up, .greece-panel .deal .acts button.take em.up { color: #d9f0a8; }
+.greece-panel .deal .acts button:hover:not(:disabled) { filter: brightness(1.06); border-color: #b88a50; }
+.greece-panel .deal .acts button:disabled { opacity: 0.45; cursor: default; }
+.greece-panel .deal .acts em { font-style: normal; font-weight: bold; font-size: 12px; }
+.greece-panel .deal .acts em.up { color: #5f7f2c; }
+.greece-panel .deal .acts em.down { color: var(--terracotta-deep); }
+.greece-panel .deal p { margin: 4px 0 0; }
+.greece-panel .deal p.eta { font-size: 12.5px; }
+.greece-panel .deal p.eta.no { color: var(--terracotta-deep); }
+.greece-panel .deal p.eta.sent { color: #2f5f3a; }
+.greece-panel .deal p.if { font-size: 12px; color: var(--ink-soft); font-style: italic; }
+.greece-panel .deal .bar { position: relative; height: 7px; margin: 6px 0 2px; border-radius: 4px; background: rgba(74, 52, 32, 0.15); overflow: hidden; }
+.greece-panel .deal .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #6f8f3c; border-radius: 4px; }
+.greece-panel .deal .bar s { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #4a3420; }
+.glabel svg.ask { flex: none; margin-left: 1px; }
+.glabel svg.ask:not(.sent) { animation: ask-bob 1.6s ease-in-out infinite; }
+@keyframes ask-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.greece-card .deal { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
 .greece-panel .whys { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; }
 .greece-panel .whys li { display: flex; gap: 8px; margin: 3px 0; }
 .greece-panel .whys .v { flex: none; width: 30px; text-align: right; font-variant-numeric: tabular-nums; font-weight: bold; }

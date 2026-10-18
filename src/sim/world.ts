@@ -25,7 +25,7 @@
 import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RULED, wayOf, wayPoints, type CityId } from '../map/greece';
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
-import type { Memory, NewsItem, Ruler, SimState, Trait, World, WorldCity } from './state';
+import type { Memory, Ruler, SimState, Trait, World, WorldCity } from './state';
 import { PRICES, SAIL_IN, SHIP_AWAY, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, shipAt, TRADE_GOODS } from './trade';
 
 /** What your city is called to begin with. */
@@ -265,7 +265,7 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     c.history = c.price.map((p) => new Array<number>(12).fill(p));
     c.feel = moodLevel(moodOf(c, tick));
   }
-  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0 };
+  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1 };
 }
 
 /** A city's record. */
@@ -514,8 +514,6 @@ function harvestLine(c: WorldCity, was: number): string {
   return c.harvest === 0 ? `${whose} harvest has failed, and wheat there is ${c.price[0]} a hundred (it was ${was})` : `A rich harvest in ${name}: wheat there is down to ${c.price[0]} a hundred (it was ${was})`;
 }
 
-/** The news from Greece of the last so many ticks, newest last (for the line under the top bar). */
-export const freshNews = (s: SimState, within: number): NewsItem[] => s.world.news.filter((n) => s.tick - n.tick < within);
 
 // ---------------------------------------------------------------------------
 // Reading a price: its arrow, its reason, the ruler's terms.

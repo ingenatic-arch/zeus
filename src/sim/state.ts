@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 18;
+export const SIM_STATE_VERSION = 19;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -284,7 +284,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -561,17 +561,46 @@ export interface Visitor {
   aside: number;
 }
 
-/** A ruler's request, offer, demand for tribute or threat, with its deadline (slices 19 and 20). */
+/**
+ * A ruler's request, offer or demand for tribute (see favours.ts; threats
+ * come with slice 20), with its deadline and how it stands.
+ */
 export interface Deal {
+  id: number;
   kind: 'request' | 'offer' | 'tribute' | 'threat';
   city: CityId;
   /** The trade good (by TRADE_GOODS order), or -1 for drachmas. */
   good: number;
   amount: number;
-  /** When it was made, and by when it must be met. */
+  /** When it was made, and by when it must be met (an offer: answered). */
   at: number;
   due: number;
-  state: 'open' | 'promised' | 'met' | 'refused' | 'broken' | 'lapsed';
+  /**
+   * Open (waiting on you, or on what you sent); a request or tribute met in
+   * time, late, refused, let run out (`lapsed`) or a promise broken; an offer
+   * taken (running), declined, lapsed, kept or broken at the end of its year,
+   * or ended (its route closed).
+   */
+  state: 'open' | 'met' | 'late' | 'refused' | 'lapsed' | 'broken' | 'taken' | 'declined' | 'kept' | 'ended';
+  /** Why they ask, in words: "their harvest failed". */
+  why: string;
+  /** You promised it (a request). */
+  promised: boolean;
+  /** What you sent for it, on its way (a gift's id in world.gifts; 0 none), and how much of it arrived. */
+  gift: number;
+  got: number;
+  /** When it was settled (0 while open or running). */
+  ended: number;
+  /** An offer: they buy from you ('buy') or sell to you ('sell'), at this price a hundred, so much gone under it, until this tick once taken. */
+  side: '' | 'buy' | 'sell';
+  price: number;
+  done: number;
+  until: number;
+  /** Tribute: yearly or once, and how often paid. */
+  yearly: boolean;
+  paid: number;
+  /** Tribute refused while the ruler was cold or worse: a threat follows (slice 20). */
+  angry: boolean;
 }
 
 /**
@@ -622,6 +651,8 @@ export interface Gift {
   ship: { phase: number; since: number; turned: number; path: number[] } | null;
   /** A ruler's gift: why they sent it, in words ("in thanks for your friendship"). */
   note: string;
+  /** Sent for a ruler's request or tribute (a deal's id in world.deals; see favours.ts), not a gift: 0 for a gift. */
+  deal: number;
 }
 
 /** A line of news from Greece. */
@@ -650,6 +681,8 @@ export interface World {
   nextGift: number;
   /** The tick your city first dealt with Greece (opened a route or sent a gift; 0: not yet): only then do rulers act on you. */
   contact: number;
+  /** The next deal's number (world.deals). */
+  nextDeal: number;
 }
 
 /**

@@ -363,7 +363,7 @@ function start(): void {
     if (l.need === 'money') return ledger.toggle(true);
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
-    if (l.need === 'greece') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined);
+    if (l.need === 'greece' || l.need === 'favour') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'favour' ? 'ruler' : undefined);
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -665,7 +665,7 @@ function start(): void {
     for (const [to, view] of city.giftShips) {
       if (!shipNear(sx, sy, view.info)) continue;
       const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.to === to && x.phase === 1 && x.by === 'sea');
-      if (g) return showStatus({ title: `Your gift ship · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
+      if (g) return showStatus({ title: `${g.deal ? 'Your ship' : 'Your gift ship'} · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}${g.deal ? (sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'tribute' ? ', as tribute' : ', as they asked') : ''}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
     }
     const b = buildingAt(world);
     if (!b) {
