@@ -11,20 +11,20 @@ What breaks, or moves: no save is lost. A town saved before this slice opens as 
 ### What's new
 - **Trade routes, opened from the map of Greece.** Each city's page has a "Trade with …" section: a button for each way there, with its fee, or why it can't be opened yet (no caravan yard, no trading post, not enough in the treasury). By road: Corinth 500 dr, Sparta 600, Athens 750 (the long road through Corinth). By sea: Athens 800, Corinth 800, Troy 1,000. Once open, the whole route can be run from that page.
 - **The caravan yard** (G four times, 300 dr, 4 workers, one only): a walled yard with a gateway, a donkey pen with a hay rack, a well, an awning over trestles and a banner. Its porters carry what you sell to the yard and carry what you buy to the granaries and storehouses, as the dockers do for the quay.
-- **Caravans.** A drover leading four or five pack donkeys, their blankets in their city's colour (Corinth's orange, Sparta's red, Athens' blue). One comes every two months: in by the road at the edge of the map on its city's side, down your streets at an ox cart's pace to the yard, three days' trading at the gate, and out the way it came. With no road from the edge to the yard it turns back, and the route says why. On the map of Greece you can see it on the road between its city and yours.
+- **Caravans.** A drover leading four or five pack donkeys, their blankets in their city's colour (Corinth's orange, Sparta's red, Athens' blue). One comes every two months: in by the road at the edge of the map on its city's side, down your streets at a walking pace to the yard, three days' trading at the gate, and out the way it came. With a yard far from the edge, the next can be walking in while the last walks out; only one trades at a time. With no road from the edge to the yard it turns back, and the route says why. On the map of Greece you can see it on the road between its city and yours.
 - **Foreign ships** in their city's colours (the hull band, the stripe, the pennant): one every three months, the same way in, berth and way out as the Tyre ship. If the Tyre ship has the jetty, the visitor anchors off to one side and waits her turn. On the map she sails her lane.
-- **Buying and selling, city by city.** Each city buys what it is short of and sells what it has plenty of, at its own price, up to a yearly limit. Tick what to sell to each route (one "keep" figure per good, shared with the Tyre ship). For what you buy, tick the good and set "up to": the trader brings enough to stock your stores up to that figure, as far as the year's limit, the room at the yard or quay, and what the treasury can pay for when it arrives. You pay as it unloads ("Bought · wine from Corinth" in the ledger) and it pays as it leaves ("Sales · oil to Corinth"). Route fees have their own ledger line.
+- **Buying and selling, city by city.** Each city buys what it is short of and sells what it has plenty of, at its own price, up to a yearly limit. Tick what to sell to each route (one "keep" figure per good, shared with the Tyre ship). For what you buy, tick the good and set "up to": the trader brings enough to stock your stores up to that figure, as far as the year's limit, the room at the yard or quay, and what the treasury can spare when it arrives (it keeps back a month's wages). You pay as it unloads ("Bought · wine from Corinth" in the ledger) and it pays as it leaves ("Sales · oil to Corinth"). Route fees have their own ledger line.
 - **The trade panel has tabs:** Tyre, each open route (its news, what they buy and sell, the price, what is left of the year's limit, your stores, keep or up to, what waits at the yard or quay, and its last visit), and the yard. Clicking the trading post, the yard or a foreign ship opens the right tab (clicking a caravan follows it, as with any walker).
 - **The traders chip** on the top bar shows whichever trader matters most (one in port first, then one coming, then the soonest due), with a donkey for a caravan. Click it for that trader's tab.
 - **Hover a caravan or a foreign ship** to see who they are and what they're doing. The line under the top bar says when a caravan is in the city or trading, when a ship is sighted, at anchor or in port, and when a trader turned back and why.
 
 ### What to try
 1. Open `#routes`: `#town` with a caravan yard at the east end of the main street, a road out to the north edge, and the map of Greece open on Corinth's page. Click "Open a road to Corinth". Run at speed and zoom in on the Argolid: the caravan sets out from Corinth on the map.
-2. Open `#caravan`: a month after the road opened, the first caravan from Corinth is walking in from the north edge; the camera follows it down to the yard. Hover it. Click the traders chip.
+2. Open `#caravan`: a month after the road opened, the first caravan from Corinth is walking in from the north edge; the camera follows it down to the yard. Hover it. Click the traders chip: its tab opens, and while the caravan is walking in the camera follows it.
 3. Open `#buywine`: the same town (it has no vineyards) buying wine from Corinth, up to 1,200, with a wine stall added to the main agora. The caravan is about a week from the yard: watch it arrive, unload the wine and trade, and the porters carry the wine up to the storehouse. Then open the ledger (the coin on the top bar).
 4. Open `#athensship`: an Athenian ship coming up the bay to the jetty, with her tab of the trade panel open. Watch her tie up and load wheat; then click the Tyre tab.
 5. Open `#anchor`: the Tyre ship is loading at the jetty, so the Athenian ship rides at anchor in the bay. Let it run: she comes alongside once the Tyre ship has gone.
-6. In any of these, build the yard yourself in a new place (G four times) and read its placement tip; then open the map (Tab), click Sparta or Troy and read why a route can or can't be opened.
+6. In `#athensship` or `#anchor` (the road demos already have their one yard), build a caravan yard yourself (G four times) and read its placement tip; then open the map (Tab), click Sparta or Troy and read why a route can or can't be opened.
 
 Each link also opens paused if you add `-paused` (for example `#buywine-paused`): useful, since a caravan trades for three days and a ship is in port for about three, which is three seconds at normal speed.
 
@@ -33,21 +33,18 @@ Each link also opens paused if you add `-paused` (for example `#buywine-paused`)
 - **The caravan yard.** It is low and open (walls, gateway, pen, awning), sitting half-way down its slope. Does it read as a place where traders meet, next to the trading post and the storehouse?
 - **The Athenian ship's colours.** The difference from the Tyre ship is in the hull band, the stripe and the pennant; the sails are the same cloth. Enough, from your usual height?
 - **The trade panel's route tab.** It has six columns (good, price, what is left of the year's limit, stores, keep or up to, at the yard or quay). Is that too much at once?
-- **How often caravans come.** See the first rough edge below.
+- **How busy the street gets.** In `#town`'s layout the yard is a long walk from the north edge (about two months), so for a while a caravan walks in as the last walks out: two, now and then three, strings of donkeys on the main street.
 
 ### Known rough edges
-- **In `#town` caravans come about every 87 days, not every 60.** They walk at an ox cart's pace and the yard is about 70 road tiles from the north edge: about 80 days in. The next caravan is due two months after the last one was, so it arrives as soon as the last one leaves, and for a while there are two on the main street, one in and one out. A yard near the edge road gets one every two months. The yard's placement tip says so.
 - The traders on the map of Greece can't be hovered or clicked yet; the Tyre ship still can.
-- Buying stops at what the treasury can spare when the trader arrives, so a big order can leave a small town short for wages until the next taxes come in. The ledger shows it.
 - The donkeys bunch up a little where a caravan turns a corner, and at the gate a donkey can overlap a wall corner.
-- No sounds for traders yet.
 
 ### Measurements
 Headless Chromium with software rendering at 1920 × 1080, so frame rates mean nothing; "before" is `da734a1` (the end of slice 15's review), each build measured twice, alternating.
 
 | | Before | After |
 |---|---|---|
-| Tests | 234 in 22 files | 251 in 23 files, all passing (17 new for routes and traders) |
+| Tests | 234 in 22 files | 252 in 23 files, all passing (18 new for routes and traders, one of them from the review) |
 | Bundle | 4 files, 1,252 KB raw, 368 KB gzipped | 4 files, 1,301 KB raw, 382 KB gzipped |
 | Load, bare link, first frame (page clock) | 2.45 s, 2.37 s | 2.80 s, 2.40 s |
 | `#town`: triangles and draws, people, save | 799,168, 83; 693; 140 KB | the same |
@@ -57,6 +54,24 @@ Headless Chromium with software rendering at 1920 × 1080, so frame rates mean n
 | `#athensship`: triangles and draws; ready; work a frame | | 573,819, 49 at the jetty (817,862, 86 over the town); 3.22 s and 3.47 s; 7.2 and 5.4 ms |
 | The map of Greece, first open: built in | 0.33 s, 0.35 s | 0.30 s, 0.33 s |
 | The 64 earlier demos | | each opens and plays 900 ticks on exactly as before |
+
+### What the review changed
+I played every step above in a headless browser at 1920 × 1080, looked at the screenshots, read the code, and changed these:
+
+- **Caravans now come every two months, as promised.** Before, each caravan pushed the next one back twice (once when it finished trading and again when it left the map), so in `#town` they came every 87 days at best and sometimes only every 140, and some crossed the map of Greece in a day instead of five. Now the next is due two months after the last one stepped onto your map, whatever that one is doing, and it sets off from Corinth in time to walk the whole road on the map. With a yard far from the edge one walks in while the last walks out; only one trades at a time, and one that reaches the gate while another is trading waits its turn there.
+- **Caravans walk at a man's pace**, a third faster than ox carts, so in `#town` a caravan takes about two months from the north edge to the yard rather than nearly three, and the main street rarely has more than two strings of donkeys on it.
+- **Buying keeps back a month's wages.** A big order used to spend everything the treasury could spare (`#buywine`'s first caravan could leave 5 dr); now the trader brings only what can be paid for with a month's wages still in hand, so the workplaces are paid on the first. The panels say so.
+- **Sounds for traders:** a donkey's bray and harness bells when a caravan comes in at the edge of the map, the harbour bell when a foreign ship is sighted, and coins counted out when a caravan or a foreign ship pays, with the drachmas floating up from the yard or the quay as they do for the Tyre ship.
+- **A foreign ship's line under the top bar has a ship on it,** not the caravans' donkey.
+- **Hovering any part of a caravan** shows its tip (before, only the drover's feet did), and the camera follows the middle of the string.
+- **The traders chip, while a caravan is walking in,** opens its tab and follows it down the street, instead of flying to the empty yard.
+- **The route tab's last column** now also shows what you bought that waits at the yard or the quay for the porters or dockers.
+- "Athens’ ship", not "Athens’s ship".
+- Step 6 above now names a demo you can build a yard in: the road demos already have their one yard.
+
+Measured again after these changes: 252 tests passing, the bundle 1,303 KB raw and 383 KB gzipped, `#town` and `#richtown` exactly as in the table, `#caravan` 529,303 triangles and 40 draws following the caravan, and the 64 earlier demos still open and play 900 ticks on exactly as before.
+
+Still for you to judge, as above: the donkeys, the yard on its slope (from the downhill side its wall stands tall and plain), the ships' colours and the route tab's six columns. One more thing I noticed: in the road demos the yard is outside the watchmen's rounds, so if you play on it catches fire after about a year and a half unless you build a watch post near it (its tip warns first).
 
 ## Slice 15 — The map of Greece (17 Oct)
 
