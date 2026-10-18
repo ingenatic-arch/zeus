@@ -223,7 +223,11 @@ describe('what the mood does to a route', () => {
     const s = sim.state;
     const c = cityOf(s.world, 'corinth');
     const r = routeOf(s, 'corinth', 'land')!;
+    // (#buywine opens with the next caravan already set off on the road on the map: closing the road calls it home.)
+    const onRoad = caravanTraveller(s, 'corinth', false);
     expect(until(sim, () => r.closed > 0, TICKS_PER_DAY + 1)).toBe(true);
+    if (onRoad) expect(onRoad.homeward).toBe(true);
+    expect(caravanTraveller(s, 'corinth', false)).toBeUndefined();
     expect(moodWord(moodOf(c, s.tick))).toBe('hostile');
     expect(s.world.news[s.world.news.length - 1].line).toMatch(/is hostile now, and has closed the road to your city: furious with your city/);
     expect(routeRefusal(s, 'corinth', 'sea')).toMatch(/won’t deal with you: hostile/);

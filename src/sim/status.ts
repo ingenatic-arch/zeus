@@ -1066,8 +1066,8 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (ship) out.unshift(ship);
   const trader = traderTownLine(s);
   if (trader) out.unshift(trader);
-  // News from Greece (a failed or rich harvest), for a fortnight.
-  const news = freshNews(s, NEWS_DAYS * TICKS_PER_DAY);
+  // News from Greece (a harvest, a mood turning, a gift), for a fortnight: the newest two.
+  const news = freshNews(s, NEWS_DAYS * TICKS_PER_DAY).slice(-2);
   if (news.length) out.push({ need: 'greece', text: `From Greece: ${news.map((n) => n.line).join('. ')}.`, at: 0, route: news[news.length - 1].city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');

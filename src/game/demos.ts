@@ -17,7 +17,8 @@ import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } from '../sim/routes';
-import { cityOf, lastHarvest } from '../sim/world';
+import { cityOf, lastHarvest, sellsAndBuys } from '../sim/world';
+import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -108,6 +109,8 @@ export interface Demo {
   trade?: true | string;
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
+  /** The tab that city's page opens on (its ruler's, unless named). */
+  greeceTab?: 'ruler' | 'prices' | 'trade';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
 }
@@ -1058,6 +1061,56 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
 }
 
 /**
+ * The rulers who remember (slice 18), all on #routes' town and Corinth.
+ * #gift: #routes' town as it stands (no route yet), the map open on Corinth's
+ * ruler, to send a gift and watch it go. #hostile: #buywine's town, its wine
+ * caravan come and gone, with Corinth's lord set up furious with your city
+ * (a memory this slice has nothing to make on its own: the demo says so in
+ * its reason), the road closed the day after (the caravan already on its
+ * way in still comes, and is the last). #thanks: three gifts of
+ * 500 dr sent to Corinth one after another (warming its lord),
+ * and his own gift of goods on the road to your city, a few days from the edge.
+ */
+type RulerStage = 'hostile' | 'thanks';
+/** #hostile's set-up anger: past hostile (−60) with Corinth's first impression, mended by a gift of 250 dr or more (100 is not enough); it fades over four years, so the road opens again by itself in about five months. */
+const HOSTILE_ANGER = -72;
+/** How many days from your map's edge Corinth's gift is when #thanks opens. */
+const THANKS_DAYS = 4;
+
+function rulerTown(stage: RulerStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const corinth = cityOf(s.world, 'corinth');
+    if (stage === 'hostile') {
+      routesTown('buywine')(sim);
+      // (The wine caravan a few days short of the yard is already on its way: it still comes, unloads and goes home, and is the last.)
+      corinth.memories.push({ kind: 'staged', why: 'furious with your city (set up for this demo)', amount: HOSTILE_ANGER, tick: s.tick, fade: 4 * TICKS_PER_YEAR });
+      // The next day the road closes, and the line under the top bar says so.
+      sim.run(TICKS_PER_DAY - (s.tick % TICKS_PER_DAY) + 1);
+      return;
+    }
+    routesTown('routes')(sim);
+    // Saved up for three gifts, sent one after another (each counting for less, so soon after the last).
+    waitFor(sim, s.tick, 3 * 500, s.tick + 2 * ROUTE_WAIT);
+    for (let i = 0; i < 3; i++) {
+      send({ type: 'gift', city: 'corinth', good: -1, amount: 500 });
+      const end = s.tick + ROUTE_WAIT;
+      while (s.tick < end && giftTo(s.world, 'corinth')) sim.run(10);
+    }
+    // His gift back: goods his city makes plenty of (the dice would send one in a month or two; the demo sends it now).
+    const { sells } = sellsAndBuys(corinth);
+    rulerGift(s, corinth, sells[0] ?? -1, sells.length ? 400 : 300, 'in return for your gifts');
+    corinth.gave = s.tick;
+    const g = giftFrom(s.world, 'corinth')!;
+    while (g.start + g.dur - s.tick > THANKS_DAYS * TICKS_PER_DAY) sim.step();
+  };
+}
+
+/**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
  * and meat ticked for sale to it and wine bought, up to 600. #athensship
@@ -1208,14 +1261,18 @@ const SCENES: Record<string, Demo> = {
   // The side panel: #richtown with the panel open on wine's page (every chain is at work there, and the ship buys).
   goods: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { ware: WINE } },
   // Slice 16: routes and traders.
-  routes: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth' },
+  routes: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth', greeceTab: 'trade' },
   caravan: { view: 'caravan', setup: routesTown('caravan'), overlay: 'missing', follow: 'caravan' },
   buywine: { view: 'yard', setup: routesTown('buywine'), overlay: 'wine' },
   athensship: { view: 'ship', setup: seaTown('athensship'), overlay: 'food', trade: 'athens-sea' },
   anchor: { view: 'anchor', setup: seaTown('anchor'), overlay: 'food' },
   // Slice 17: prices that move. Oil sold to Corinth caravan after caravan, its price sliding; and a failed harvest in Athens, days away.
-  prices: { view: 'town', setup: routesTown('prices'), overlay: 'oil', greece: 'corinth' },
-  famine: { view: 'ship', setup: seaTown('famine'), overlay: 'food', greece: 'athens' },
+  prices: { view: 'town', setup: routesTown('prices'), overlay: 'oil', greece: 'corinth', greeceTab: 'prices' },
+  famine: { view: 'ship', setup: seaTown('famine'), overlay: 'food', greece: 'athens', greeceTab: 'prices' },
+  // Slice 18: rulers who remember. A gift to send; a ruler turned hostile, the road closed; a ruler's gift back on the road.
+  gift: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth', greeceTab: 'ruler' },
+  hostile: { view: 'yard', setup: rulerTown('hostile'), overlay: 'wine', greece: 'corinth', greeceTab: 'ruler' },
+  thanks: { view: 'town', setup: rulerTown('thanks'), overlay: 'missing', greece: 'corinth', greeceTab: 'ruler' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

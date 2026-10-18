@@ -6,7 +6,7 @@ import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
 import { routeOf } from '../sim/routes';
-import { cityShipColours, ShipView, visitorLook } from './ship';
+import { cityShipColours, giftLook, ShipView, visitorLook } from './ship';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -29,6 +29,8 @@ export class CityView {
   readonly ship = new ShipView();
   /** The sea routes' ships, by city, made as each route opens. */
   readonly visitors = new Map<string, ShipView>();
+  /** Your gift ship, sailing out of the bay with a gift of goods for a ruler. */
+  readonly giftShip = new ShipView(giftLook, cityShipColours('home'), 'ship-gift', 0.7);
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -50,7 +52,7 @@ export class CityView {
     this.bridges = new Bridges(map);
     this.animals = new Animals(map, this.folk);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group, this.giftShip.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -62,6 +64,7 @@ export class CityView {
     this.animals.update(s, alpha, time);
     this.folk.end();
     this.ship.update(s, alpha, time);
+    this.giftShip.update(s, alpha, time);
     for (const r of s.world.routes) {
       if (r.kind !== 'sea') continue;
       let view = this.visitors.get(r.city);

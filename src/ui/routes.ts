@@ -66,8 +66,8 @@ function priceTd(s: SimState, city: CityId, k: number): string {
   return `<td class="price" title="${esc(p.title)}">${p.html}</td>`;
 }
 
-/** A route's goods: what they buy from you, and what they sell you. */
-export function routeGoods(s: SimState, r: TradeRoute): string {
+/** A route's goods: the ruler's terms (unless the page shows them already), what they buy from you, and what they sell you. */
+export function routeGoods(s: SimState, r: TradeRoute, withTerms = true): string {
   const { theyBuy, theySell } = tradesOf(s, r.city);
   const name = PLACES[r.city].name;
   const depot = depotOf(s, r);
@@ -105,7 +105,7 @@ ${uptoCell(r, k)}<td class="quay" title="${esc(`${fmt(depot ? held(depot, w) : 0
     `<thead><tr><th>${what}</th><th title="Your price for every 100: the market’s, with the ruler’s terms">Price</th><th title="What is left of this year’s limit">Left</th><th title="What your stores hold">Stores</th><th title="${figTitle}">${fig}</th><th title="Waiting at the ${r.kind === 'land' ? 'caravan yard' : 'quay'}">${at}</th></tr></thead>`;
   const sell = sellRows ? `<table class="goods">${head('Sell', 'Keep', 'What the city keeps, not for sale')}<tbody>${sellRows}</tbody></table>` : `<p class="none">${esc(name)} is short of nothing you could sell it.</p>`;
   const buy = buyRows ? `<table class="goods">${head('Buy', 'Up to', 'Buy enough to stock your stores up to this')}<tbody>${buyRows}</tbody></table>` : `<p class="none">${esc(name)} has nothing to spare.</p>`;
-  return `<p class="terms" title="${esc(termsMeaning(s, r.city))}">${esc(termsLine(s, r.city))}</p><h4>${esc(name)} buys</h4>${sell}<h4>${esc(name)} sells</h4>${buy}`;
+  return `${withTerms ? `<p class="terms" title="${esc(termsMeaning(s, r.city))}">${esc(termsLine(s, r.city))}</p>` : ''}<h4>${esc(name)} buys</h4>${sell}<h4>${esc(name)} sells</h4>${buy}`;
 }
 
 /** A route's last visit: what its trader took and paid, and what it brought. */
@@ -129,7 +129,7 @@ export function routeWarnings(s: SimState, r: TradeRoute): string[] {
 }
 
 /** The ways to a city: each open one's goods, or a button to open it (and why it can't be, if it can't). */
-export function waysHtml(s: SimState, city: CityId): string {
+export function waysHtml(s: SimState, city: CityId, withTerms = true): string {
   const ways = ROUTE_WAYS.filter((w) => w.city === city);
   if (ways.length === 0) return '';
   const name = PLACES[city].name;
@@ -137,7 +137,7 @@ export function waysHtml(s: SimState, city: CityId): string {
     const r = routeOf(s, city, w.kind);
     const how = w.kind === 'land' ? 'By road' : 'By sea';
     if (r) {
-      return `<div class="route open"><h4>${how} · open since ${when(r.opened)}</h4>${routeNewsBlock(s, r)}${routeWarnings(s, r).map((x) => `<div class="late">${esc(x)}</div>`).join('')}${routeGoods(s, r)}${routeLast(r)}</div>`;
+      return `<div class="route open"><h4>${how} · open since ${when(r.opened)}</h4>${routeNewsBlock(s, r)}${routeWarnings(s, r).map((x) => `<div class="late">${esc(x)}</div>`).join('')}${routeGoods(s, r, withTerms)}${routeLast(r)}</div>`;
     }
     const why = routeRefusal(s, city, w.kind);
     const every = w.kind === 'land' ? 'a caravan every two months to your caravan yard' : 'a ship every three months to your trading post';

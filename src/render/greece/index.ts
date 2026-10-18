@@ -9,12 +9,14 @@
  */
 import * as THREE from 'three';
 import { alongLine, CITY_IDS, lineLength, OTHER_ROADS, PLACES, project, TABLE_D, TABLE_W, wayOf, wayPoints, WAYS, type CityId } from '../../map/greece';
+import type { CoastMap } from '../../map/bake';
 import type { Command } from '../../sim/commands';
 import type { SimState } from '../../sim/state';
 import { tyreShip } from '../../sim/world';
 import { caravansOnMap, routeWay, visitorOnMap } from '../../sim/routes';
+import { giftOnMap } from '../../sim/diplomacy';
 import { morph } from '../../ui/morph';
-import { hoverHtml, labelHtml, moods, panelHtml } from '../../ui/greece';
+import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { caravanModel, cityModel, shipModel, tableModel, wayMarks } from './models';
@@ -31,6 +33,8 @@ export interface GreeceHost {
   canvas: HTMLCanvasElement;
   ui: HTMLElement;
   send: (c: Command) => void;
+  /** Your city's land (gifts of goods need to know their way out of it). */
+  map: CoastMap;
 }
 
 export class GreeceMap {
@@ -60,6 +64,8 @@ export class GreeceMap {
   private homeSize = -1;
   private renaming = false;
   private draft = '';
+  /** The tab a ruled city's page shows (remembered from city to city while the map is open). */
+  private tab: CityTab = 'ruler';
   private panelAt = -Infinity;
   private labelAt = -Infinity;
   private pointer = { x: -1, y: -1 };
@@ -158,7 +164,16 @@ export class GreeceMap {
     this.body.addEventListener('click', (e) => {
       routes(e);
       const t = e.target as HTMLElement;
-      if (t.closest('.renamebtn') && this.state) {
+      const tab = t.closest('button[data-tab]') as HTMLButtonElement | null;
+      const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;
+      if (tab) {
+        this.tab = (CITY_TABS as readonly string[]).includes(tab.dataset.tab ?? '') ? (tab.dataset.tab as CityTab) : 'ruler';
+        this.redraw(true);
+        this.panel.scrollTop = 0;
+      } else if (gift && !gift.disabled && this.shown) {
+        host.send({ type: 'gift', city: this.shown, good: Number(gift.dataset.gift), amount: Number(gift.dataset.amount) });
+        setTimeout(() => this.redraw(), 0);
+      } else if (t.closest('.renamebtn') && this.state) {
         this.renaming = true;
         this.draft = this.state.world.name;
         this.redraw(true);
@@ -220,13 +235,15 @@ export class GreeceMap {
       this.panel.hidden = true;
       this.hovered = null;
       this.renaming = false;
+      this.tab = 'ruler';
     } else if (this.shown) this.panel.hidden = false;
     document.body.classList.toggle('greece-open', on);
   }
 
-  /** Open a city's panel (null closes it). */
-  show(id: CityId | null): void {
+  /** Open a city's panel (null closes it), on a tab if given. */
+  show(id: CityId | null, tab?: CityTab): void {
     this.shown = id;
+    if (tab) this.tab = tab;
     this.renaming = false;
     this.panel.hidden = !id || !this.open;
     this.redraw(true);
@@ -289,7 +306,8 @@ export class GreeceMap {
   click(sx: number, sy: number): void {
     const p = this.pick(sx, sy);
     // (A trader opens its city's page.)
-    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? (p.slice(5).split('-')[0] as CityId) : (p as CityId | null));
+    if (p?.startsWith('trav:') && !this.state) return;
+    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? cityOfTraveller(this.state as SimState, p.slice(5)) : (p as CityId | null));
   }
 
   private drawCard(): void {
@@ -314,7 +332,7 @@ export class GreeceMap {
     const s = this.state;
     if (!s || !this.shown) return;
     if (!now && this.renaming) return;
-    const html = panelHtml(s, this.shown, this.renaming, this.draft);
+    const html = panelHtml(s, this.shown, this.renaming, this.draft, this.tab, this.host.map);
     if (now) this.body.innerHTML = html;
     else morph(this.body, html);
   }
@@ -409,7 +427,36 @@ export class GreeceMap {
         });
       }
     }
-    for (const [key, m] of this.travellers) if (!seen.has(key)) m.visible = false;
+    // Gifts on their way: yours in your colours, a ruler's in theirs; by road a little caravan, by sea a ship.
+    for (const g of s.world.gifts) {
+      const at = giftOnMap(g, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(g.way));
+      const L = lineLength(line);
+      const city = g.from === 'home' ? 'home' : g.from;
+      const dir = at.homeward ? 1 : -1;
+      if (g.by === 'sea') {
+        const m = piece(giftKey(g), () => shipModel(PLACES[city].colour, PLACES[city].trim));
+        const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+        m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 2.1) * 0.03, p.z);
+        m.rotation.set(Math.sin(time * 1.3 + 1.1) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      } else {
+        const m = piece(giftKey(g), () => caravanModel(PLACES[city].colour));
+        const p = alongLine(line, Math.max(0.6, Math.min(L - 0.9, at.along)));
+        m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+        m.scale.setScalar(1.4);
+        m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      }
+    }
+    for (const [key, m] of this.travellers) {
+      if (seen.has(key)) continue;
+      // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again).
+      if (key.startsWith('gift-')) {
+        this.scene.remove(m);
+        m.geometry.dispose();
+        this.travellers.delete(key);
+      } else m.visible = false;
+    }
   }
 
   render(): void {
@@ -417,7 +464,7 @@ export class GreeceMap {
   }
 
   /** For the probe: what the map shows. */
-  info(): { open: boolean; built: boolean; buildMs: number; shown: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView>; travellers: Record<string, { x: number; y: number }> } {
+  info(): { open: boolean; built: boolean; buildMs: number; shown: string; tab: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView>; travellers: Record<string, { x: number; y: number }> } {
     const r = this.host.canvas.getBoundingClientRect();
     const cities: Record<string, { x: number; y: number }> = {};
     for (const id of CITY_IDS) {
@@ -439,6 +486,7 @@ export class GreeceMap {
       built: true,
       buildMs: this.buildMs,
       shown: this.shown ?? '',
+      tab: this.tab,
       hovered: this.hovered ?? '',
       panel: this.panel.hidden ? '' : (this.body.textContent ?? ''),
       card: this.card.hidden ? '' : (this.card.textContent ?? ''),

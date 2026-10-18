@@ -38,6 +38,7 @@ import { HouseholdPanel } from './ui/household';
 import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
+import { giftNews, giftWords } from './sim/diplomacy';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
 import { SidePanel } from './ui/sidepanel';
@@ -46,6 +47,7 @@ import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
 import { GreeceButton } from './ui/greeceButton';
 import type { GreeceMap } from './render/greece/index';
+import type { CityTab } from './ui/greece';
 import { PLACES, type CityId } from './map/greece';
 import { DEFAULT_SEED } from './sim/sim';
 
@@ -163,6 +165,7 @@ interface Probe {
   saveNow?: () => string;
   /** The shortfall lines showing under the top bar. */
   townLines?: () => string[];
+  gifts?: () => Array<{ id: number; from: string; to: string; good: number; amount: number; got: number; by: string; phase: number; caravan: { x: number; z: number } | null; ship: { visible: boolean; x: number; z: number } | null }>;
   sound?: () => { started: boolean; muted: boolean; played: number; state: string };
   welcome?: () => boolean;
   /** The ledger card's text ('' when closed). */
@@ -189,7 +192,7 @@ interface Probe {
   /** Debug, for screenshots only: make a home warned about every need it has (it changes the state outside the command queue). */
   warnAll?: (id: number) => void;
   /** Open or close the map of Greece (loading it the first time), optionally with a city's panel; and what it shows. */
-  greece?: (open: boolean, city?: string) => void;
+  greece?: (open: boolean, city?: string, tab?: string) => void;
   greeceInfo?: () => Record<string, unknown>;
   /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
   greeceOpenMs?: number;
@@ -658,6 +661,10 @@ function start(): void {
     if (shipNear(sx, sy)) return showStatus(shipStatus(), sx, sy);
     const visitor = visitorNear(sx, sy);
     if (visitor) return showStatus(visitorStatus(visitor), sx, sy);
+    if (shipNear(sx, sy, city.giftShip.info)) {
+      const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.phase === 1 && x.by === 'sea');
+      if (g) return showStatus({ title: `Your gift ship · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
+    }
     const b = buildingAt(world);
     if (!b) {
       const h = herdAt(world);
@@ -880,6 +887,7 @@ function start(): void {
           renderer,
           canvas,
           ui,
+          map,
           send: (c) => {
             sim.enqueue(c);
             sim.flush();
@@ -893,7 +901,7 @@ function start(): void {
       return greece;
     }));
   /** Open or close the map (opening it the first time loads it). */
-  function toggleGreece(on?: boolean, city?: CityId): void {
+  function toggleGreece(on?: boolean, city?: CityId, tab?: CityTab): void {
     // (The button shows what was asked for, so Tab pressed again while the map first loads takes it back.)
     const want = on ?? !greeceButton.el.classList.contains('on');
     if (!want) {
@@ -919,7 +927,7 @@ function start(): void {
       if (!greeceButton.el.classList.contains('on')) return;
       g.toggle(true);
       resize();
-      if (city) g.show(city);
+      if (city) g.show(city, tab);
       sound.play('map');
     });
   }
@@ -932,7 +940,7 @@ function start(): void {
   else if (demo?.trade) tradePanel.toggle(true);
   if (demo?.side?.ware !== undefined) side.showWare(demo.side.ware);
   else if (demo?.side?.tab) side.showTab(demo.side.tab);
-  if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece);
+  if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -1164,6 +1172,13 @@ function start(): void {
     return lastSave.includes(':') ? '' : lastSave;
   };
   probe.townLines = () => lines.texts;
+  // Slice 18: the gifts on their way, and where your gift's caravan or ship is drawn in the city.
+  probe.gifts = () =>
+    sim.state.world.gifts.map((g) => {
+      const w = g.from === 'home' ? sim.state.walkers.find((x) => x.kind === 'caravan' && x.cheese === g.id) : undefined;
+      const at = w ? drawnAt((x) => x === w) : null;
+      return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, caravan: at ? { x: at.x, z: at.z } : null, ship: g.ship ? { visible: city.giftShip.info.visible, x: city.giftShip.info.x, z: city.giftShip.info.z } : null };
+    });
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;
@@ -1233,7 +1248,7 @@ function start(): void {
     sim.state.rev++;
   };
   probe.speed = (s) => driver.setSpeed(s);
-  probe.greece = (open, city) => toggleGreece(open, city as CityId | undefined);
+  probe.greece = (open, city, tab) => toggleGreece(open, city as CityId | undefined, tab as CityTab | undefined);
   probe.greeceInfo = () => (greece ? greece.info() : { open: false, built: false });
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);

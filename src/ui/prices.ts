@@ -118,8 +118,8 @@ export function priceRows(s: SimState, city: CityId, goods: readonly number[]): 
     .join('');
 }
 
-/** A ruled city's prices block for its page: the terms, the harvest, and every good, grouped as it sells, buys or has about enough of. */
-export function pricesBlock(s: SimState, city: CityId): string {
+/** A ruled city's prices block: the terms (unless the page shows them already), the harvest, and every good, grouped as it sells, buys or has about enough of. */
+export function pricesBlock(s: SimState, city: CityId, withTerms = true): string {
   const c = cityOf(s.world, city);
   const name = PLACES[city].name;
   const { sells, buys } = sellsAndBuys(c);
@@ -128,8 +128,8 @@ export function pricesBlock(s: SimState, city: CityId): string {
   const moved = TRADE_GOODS.some((_, k) => priceWhy(c, k, s.tick).word !== 'usual');
   const terms = termsLine(s, city);
   return `<section class="prices"><h3>Prices in ${esc(name)}</h3>
-<p class="terms" title="${esc(termsMeaning(s, city))}">${esc(terms)}</p>
+${withTerms ? `<p class="terms" title="${esc(termsMeaning(s, city))}">${esc(terms)}</p>` : ''}
 <p class="harvest">${esc(harvestLine(s, city))}</p>
 ${group(`${name} sells: it makes plenty`, sells)}${group(`${name} buys: it is short`, buys)}${group('It has about enough of', rest)}${moved ? '' : '<p class="none">Every price is at its usual level: nothing is moving them now.</p>'}
-<p class="foot">Market prices per 100, with the last year’s on the chart (the dashed line is the usual price). What you sell a city makes it cheaper there for a while, what you buy dearer; harvests come in each September. The terms are on top, for what you trade with ${esc(name)}.</p></section>`;
+<p class="foot">Market prices per 100, with the last year’s on the chart (the dashed line is the usual price). What you sell a city makes it cheaper there for a while, what you buy dearer; harvests come in each September. ${withTerms ? 'The terms are on top' : 'The terms at the top of the page are'} for what you trade with ${esc(name)}.</p></section>`;
 }

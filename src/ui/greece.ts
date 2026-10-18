@@ -5,16 +5,22 @@
  * trade routes). Loaded with
  * the map, the first time it opens.
  */
+import type { CoastMap } from '../map/bake';
 import { PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
-import { dateOfTick, formatDate, TICKS_PER_DAY } from '../sim/clock';
+import { dateOfTick, formatDate, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
-import type { Ruler, SimState, TradeRoute } from '../sim/state';
-import { caravansOnMap, routeOf, visitorOnMap, wareList } from '../sim/routes';
+import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
+import { caravansOnMap, everyOf, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
-import { pricesBlock } from './prices';
+import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWords } from '../sim/diplomacy';
+import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { waysHtml } from './routes';
-import { cityOf, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, TRAIT_WORDS, tyreShip, type MoodWord } from '../sim/world';
+import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, termsOf, TRAIT_WORDS, tyreShip, WARM, type MoodWord } from '../sim/world';
+
+/** The tabs of a ruled city's page. */
+export type CityTab = 'ruler' | 'prices' | 'trade';
+export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade'];
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -127,6 +133,7 @@ function tradesWords(r: TradeRoute): string {
 
 /** The card over a route's trader on the map ('corinth-sea', 'corinth-land-0'): who, coming or going, when, and what for. */
 function travellerHtml(s: SimState, key: string): string {
+  if (key.startsWith('gift-')) return giftCard(s, Number(key.slice(5)));
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -145,6 +152,26 @@ function travellerHtml(s: SimState, key: string): string {
   const home = c?.homeward ?? false;
   const line = home ? `On the road home to ${name}${paid}` : `On the road to your city: at the edge of your map in ${days(r.next)}${tradesWords(r)}`;
   return `<b>A caravan from ${esc(name)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
+}
+
+/** The card over a gift on the map: whose, to whom, what, and when it arrives. */
+function giftCard(s: SimState, id: number): string {
+  const g = s.world.gifts.find((x) => x.id === id);
+  if (!g) return '<b>A gift</b>';
+  const yours = g.from === 'home';
+  const city = yours ? g.to : g.from;
+  const name = PLACES[city].name;
+  const head = yours ? `Your gift to ${name}` : `A gift from ${name}`;
+  return `<b>${esc(head)} · ${esc(giftWords(g.good, g.amount))}</b><span>${esc(giftNews(s, g))}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
+}
+
+/** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
+export function cityOfTraveller(s: SimState, key: string): CityId | null {
+  if (key.startsWith('gift-')) {
+    const g = s.world.gifts.find((x) => x.id === Number(key.slice(5)));
+    return g ? (g.from === 'home' ? g.to : g.from) : null;
+  }
+  return key.split('-')[0] as CityId;
 }
 
 /** The card under the pointer over a city (or the Tyre ship, or a route's trader). */
@@ -177,8 +204,76 @@ const REACH: Partial<Record<CityId, string>> = {
   tyre: 'By sea, far to the south-east: its merchant ship comes to your trading post.',
 };
 
-/** A city's panel. `renaming` shows your city's name as a text box. */
-export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft: string): string {
+const months = (ticks: number): string => {
+  const m = Math.round((ticks / TICKS_PER_MONTH) * 2) / 2;
+  return m === 1 ? 'a month' : m === 2 ? 'two months' : m === 3 ? 'three months' : `${String(m).replace('.5', '½')} months`;
+};
+
+/** What a ruler's mood means for your city, a line each: their traders, their routes, their gifts, and where it is heading. */
+function meansHtml(s: SimState, id: CityId): string {
+  const c = cityOf(s.world, id);
+  const m = moodOf(c, s.tick);
+  const they = c.ruler?.female ? 'she' : 'he';
+  const out: string[] = [];
+  const routes = s.world.routes.filter((r) => r.city === id);
+  for (const r of routes) {
+    const who = r.kind === 'land' ? 'caravan' : 'ship';
+    const way = r.kind === 'land' ? 'road' : 'sea route';
+    if (r.closed > 0) out.push(`<li class="bad"><b>The ${way} is closed</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off until the mood mends past hostile (${signed(HOSTILE + 1)} or better). A gift can mend it.</li>`);
+    else if (m <= COLD) out.push(`<li class="bad"><b>Cold:</b> a ${who} every ${months(everyOf(s, r))} instead of ${months(r.kind === 'land' ? 2 * TICKS_PER_MONTH : 3 * TICKS_PER_MONTH)}. At ${signed(HOSTILE)} ${they} closes the ${way}.</li>`);
+    else out.push(`<li>A ${who} every ${months(everyOf(s, r))} by the ${way}. Cold (${signed(COLD)} or worse), ${they} sends them half as often again; hostile (${signed(HOSTILE)}), ${they} closes it.</li>`);
+  }
+  if (!routes.length) out.push(m <= COLD ? `<li class="bad">No route open, and while ${they} is cold or worse ${they} won’t open one.</li>` : `<li>No route open yet: the Trade tab opens one.</li>`);
+  if (m >= WARM) out.push(`<li class="good"><b>Warm:</b> now and then ${they} sends your city a gift${s.world.contact ? '' : ', once you have dealt with Greece'}.</li>`);
+  else out.push(`<li>Warm (${WARM} or better), ${they} would send you a gift now and then.</li>`);
+  // Where the mood is heading as its memories fade: a year on, as things stand.
+  const later = moodOf(c, s.tick + TICKS_PER_YEAR);
+  if (later !== m) {
+    const t = termsOf(c, s.tick + TICKS_PER_YEAR);
+    const how = t > 0 ? `prices ${t}% in your favour` : t < 0 ? `prices ${-t}% against you` : 'prices as the market';
+    out.push(`<li class="ahead">A year on, as things stand: ${signed(later)}, ${moodWord(later)}, ${how} (as what ${they} remembers fades).</li>`);
+  } else out.push(`<li class="ahead">Nothing ${they} remembers is fading: ${they} stays as ${they} is until something happens.</li>`);
+  return `<section class="means"><h3>What it means for you</h3><ul class="means">${out.join('')}</ul></section>`;
+}
+
+/** The gift buttons: drachmas, and each trade good your stores hold enough of, each with what it would be worth to the ruler now. */
+function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
+  const c = cityOf(s.world, id);
+  const name = PLACES[id].name;
+  const out = giftTo(s.world, id);
+  const back = giftFrom(s.world, id);
+  const coming = back ? `<p class="giftnews theirs">${esc(giftNews(s, back))}.</p>` : '';
+  if (out) return `<section class="gifts"><h3>Gifts</h3><p class="giftnews">${esc(giftNews(s, out))}.</p>${coming}<p class="foot">One gift on its way to ${esc(name)} at a time. It counts when it arrives.</p></section>`;
+  const button = (ware: number, k: number, amount: number): string => {
+    const why = map ? giftRefusal(s, map, id, ware, amount) : '';
+    const mem = giftMemory(s, c, k, amount, s.tick);
+    const label = k < 0 ? `${fmt(amount)} dr` : fmt(amount);
+    const value = k >= 0 ? ` (worth ${fmt(giftValue(s, id, k, amount))} dr in ${name})` : '';
+    const title = why || `${cap(mem.why)}${value}: +${mem.amount} to the mood when it arrives, fading over ${months(mem.fade)}`;
+    return `<button data-gift="${ware}" data-amount="${amount}" title="${esc(title)}"${why ? ' disabled' : ''}>${label}<em>+${mem.amount}</em></button>`;
+  };
+  const rows: string[] = [];
+  rows.push(`<li><span class="g"><i class="coin"></i>Drachmas</span><span class="b">${GIFT_COINS.map((n) => button(-1, -1, n)).join('')}</span></li>`);
+  let goods = 0;
+  TRADE_GOODS.forEach((w, k) => {
+    const have = cityHolds(s, w);
+    if (have < GIFT_LOTS[0]) return;
+    goods++;
+    rows.push(`<li><span class="g" title="${esc(`Your stores hold ${fmt(have)} ${WARE_NAMES[w]}`)}"><i style="background:${SWATCH[k]}"></i>${cap(WARE_NAMES[w])}</span><span class="b">${GIFT_LOTS.map((n) => button(w, k, n)).join('')}</span></li>`);
+  });
+  // (Why goods can't go, if it is the way rather than the stores: no yard or post.)
+  const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
+  const way = map && first !== undefined ? giftRefusal(s, map, id, first, GIFT_LOTS[0]) : '';
+  const goodsNote = !goods ? `<p class="none">Goods: your stores hold none of the trade goods to spare (${GIFT_LOTS[0]} at the least).</p>` : /caravan yard|trading post|edge of the map/.test(way) ? `<p class="none">${esc(way)}.</p>` : '';
+  return `<section class="gifts"><h3>Send a gift</h3><ul class="giftrows">${rows.join('')}</ul>${goodsNote}${coming}
+<p class="foot">Each shows what it would add to the mood when it arrives. A fair gift for a city your size is about ${fmt(fairGift(s))} dr: more counts for more, but less than you’d think, and gifts within six months of each other count for less. Goods are fetched from your stores to the caravan yard or the trading post, and leave from there.</p></section>`;
+}
+
+/** A gift on its way (the hover card's and the map's). */
+export const giftKey = (g: Gift): string => `gift-${g.id}`;
+
+/** A city's panel. `renaming` shows your city's name as a text box; a ruled city's page opens on `tab`. */
+export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft: string, tab: CityTab = 'ruler', map?: CoastMap): string {
   const c = cityOf(s.world, id);
   const place = PLACES[id];
   if (id === 'home') {
@@ -209,12 +304,20 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
     .map((x) => `<li class="${x.worth > 0 ? 'good' : 'bad'}"><span class="v">${x.worth > 0 ? '+' : '−'}${Math.abs(x.worth)}</span><span class="t">${esc(cap(x.why))}<em>${since(x.tick)}${x.fading ? ', fading' : ''}</em></span></li>`)
     .join('');
   const traits = r.traits.map((t) => `<li><b>${cap(t)}</b>: ${TRAIT_WORDS[t]}</li>`).join('');
+  const routes = s.world.routes.filter((x) => x.city === id);
+  const closed = routes.some((x) => x.closed > 0);
+  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade' };
+  const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ' title="The ruler has closed the way: see the Ruler tab"' : ''}>${tabName[k]}</button>`).join('');
+  const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
-<div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div></header>
-<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)}</div><div class="num">${signed(m)} in all</div></div></div><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
-${pricesBlock(s, id)}
-<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>
-${waysHtml(s, id)}`;
+<div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
+<div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div></header>
+<nav class="citytabs">${tabs}</nav>
+${pane('ruler', `<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
+${meansHtml(s, id)}
+${giftsHtml(s, id, map)}`)}
+${pane('prices', pricesBlock(s, id, false))}
+${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}`;
 }
 
 /** Every ruled city's mood in a word, for the probe and the smoke test. */

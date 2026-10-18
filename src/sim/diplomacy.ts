@@ -411,6 +411,17 @@ function causeOf(c: WorldCity, tick: number, up: boolean): string {
   return best ? `${best.why}, and that is fading` : '';
 }
 
+/** A ruler closing the road calls home a caravan still on it, not yet at your map's edge: it turns round where it is. (One already in your city still comes to the yard.) */
+function recall(s: SimState, city: CityId): void {
+  for (const t of s.world.travellers) {
+    if (t.kind !== 'trader' || t.city !== city || t.homeward || s.tick < t.start || s.tick >= t.start + t.dur) continue;
+    // From where it is now (u of its way in), the same pace back.
+    const u = (s.tick - t.start) / t.dur;
+    t.homeward = true;
+    t.start = s.tick - Math.round((1 - u) * t.dur);
+  }
+}
+
 /**
  * Bring what follows from a ruler's mood up to date: their routes closed when
  * hostile and opened again when not, and the word for their mood. Returns the
@@ -428,6 +439,7 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
     if (hostile && r.closed === 0) {
       r.closed = s.tick;
       closed.push(r.kind);
+      if (r.kind === 'land') recall(s, r.city);
     } else if (!hostile && r.closed > 0) {
       r.closed = 0;
       opened.push(r.kind);
@@ -514,9 +526,15 @@ function giftBack(s: SimState, c: WorldCity, month: number, i: number): void {
     good = sells[Math.floor(dice(w, month, i, 8) * sells.length)];
     amount = Math.max(200, Math.min(800, Math.round((value * 100) / Math.max(1, c.price[good]) / 50) * 50));
   }
+  const yours = c.memories.some((m) => m.kind === 'gift' && s.tick - m.tick < 12 * TICKS_PER_MONTH);
+  rulerGift(s, c, good, amount, yours ? 'in return for your gifts' : moodLevel(mood) >= 5 ? 'out of friendship' : 'in thanks for your friendship');
+}
+
+/** A ruler's gift sets off for your city: drachmas (`good` -1) or so many of a trade good (by its trade index), along the road if there is one, else the lane. */
+export function rulerGift(s: SimState, c: WorldCity, good: number, amount: number, why: string): void {
+  const w = s.world;
   const by: RouteKind = routeWay(c.id, 'land') ? 'land' : 'sea';
   const { id: way, L } = wayFor(c.id, by);
-  const yours = c.memories.some((m) => m.kind === 'gift' && s.tick - m.tick < 12 * TICKS_PER_MONTH);
   const g: Gift = {
     id: w.nextGift++,
     from: c.id,
@@ -534,7 +552,7 @@ function giftBack(s: SimState, c: WorldCity, month: number, i: number): void {
     a0: L,
     a1: L,
     ship: null,
-    note: yours ? 'in return for your gifts' : moodLevel(mood) >= 5 ? 'out of friendship' : 'in thanks for your friendship',
+    note: why,
   };
   onTheWay(g, s.tick, L, by === 'land' ? EDGE_ALONG : HORIZON_ALONG, by === 'land' ? landTicks(c.id) : voyageTicks(c.id));
   w.gifts.push(g);
