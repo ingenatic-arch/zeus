@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 19;
+export const SIM_STATE_VERSION = 20;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -141,9 +141,9 @@ export interface Building {
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -284,7 +284,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -562,8 +562,8 @@ export interface Visitor {
 }
 
 /**
- * A ruler's request, offer or demand for tribute (see favours.ts; threats
- * come with slice 20), with its deadline and how it stands.
+ * A ruler's request, offer, demand for tribute (see favours.ts) or threat
+ * (see raids.ts), with its deadline and how it stands.
  */
 export interface Deal {
   id: number;
@@ -579,9 +579,10 @@ export interface Deal {
    * Open (waiting on you, or on what you sent); a request or tribute met in
    * time, late, refused, let run out (`lapsed`) or a promise broken; an offer
    * taken (running), declined, lapsed, kept or broken at the end of its year,
-   * or ended (its route closed).
+   * or ended (its route closed). A threat stays open while its raiders are
+   * out, and ends met (paid off), ended (called off) or raided.
    */
-  state: 'open' | 'met' | 'late' | 'refused' | 'lapsed' | 'broken' | 'taken' | 'declined' | 'kept' | 'ended';
+  state: 'open' | 'met' | 'late' | 'refused' | 'lapsed' | 'broken' | 'taken' | 'declined' | 'kept' | 'ended' | 'raided';
   /** Why they ask, in words: "their harvest failed". */
   why: string;
   /** You promised it (a request). */
@@ -599,7 +600,7 @@ export interface Deal {
   /** Tribute: yearly or once, and how often paid. */
   yearly: boolean;
   paid: number;
-  /** Tribute refused while the ruler was cold or worse: a threat follows (slice 20). */
+  /** Tribute refused while the ruler was cold or worse: a threat is owed (raids.ts makes it, and clears this). */
   angry: boolean;
 }
 
@@ -660,6 +661,46 @@ export interface NewsItem {
   tick: number;
   city: CityId;
   line: string;
+  /** News that can't wait its turn (a threat, raiders): shown at once (missing: no). */
+  urgent?: boolean;
+}
+
+/**
+ * A ruler's threat and the war band that follows it (see raids.ts): waiting
+ * on the threat's deadline, gathering at their city, marching on yours along
+ * the road (or the lane), raiding on your map, and going home (or turned
+ * back). On the map of Greece where the band is is a pure function of the
+ * tick: from `a0` to `a1` along its way, from `start` over `dur` ticks.
+ */
+export interface Raid {
+  id: number;
+  /** The threat it follows from (a deal in world.deals). */
+  deal: number;
+  city: CityId;
+  /** How many men. */
+  men: number;
+  phase: 'threat' | 'gathering' | 'marching' | 'raiding' | 'homeward' | 'turned' | 'done';
+  /** By road or by sea, and the way on the map (WAYS in map/greece.ts). */
+  by: 'land' | 'sea';
+  way: string;
+  start: number;
+  dur: number;
+  a0: number;
+  a1: number;
+  /** The price of peace: coin, or goods they would take instead (a trade good's index, -1 none, and how many). */
+  coin: number;
+  alt: number;
+  altAmount: number;
+  /** On your map: the edge tile they came in by (-1 before), what they went for (a building id, and what it was), what they carried off (a ware, -1 none, and how many) and whether they set it alight. */
+  edge: number;
+  target: number;
+  aim: BuildingKind | '';
+  ware: number;
+  took: number;
+  fired: boolean;
+  /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
+  ended: number;
+  end: string;
 }
 
 /** Greece: your city's name, the cities and their rulers, and what goes on between them. */
@@ -683,6 +724,9 @@ export interface World {
   contact: number;
   /** The next deal's number (world.deals). */
   nextDeal: number;
+  /** Threats and their war bands, live or lately over (raids.ts), and the next one's number. */
+  raids: Raid[];
+  nextRaid: number;
 }
 
 /**

@@ -171,7 +171,7 @@ export class GreeceMap {
       const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;
       const deal = t.closest('button[data-deal]') as HTMLButtonElement | null;
       if (deal && !deal.disabled) {
-        host.send({ type: 'answer', deal: Number(deal.dataset.deal), act: deal.dataset.act as 'promise' | 'send' | 'refuse' | 'take' | 'decline' });
+        host.send({ type: 'answer', deal: Number(deal.dataset.deal), act: deal.dataset.act as 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' });
         setTimeout(() => this.redraw(), 0);
       } else if (tab) {
         this.tab = (CITY_TABS as readonly string[]).includes(tab.dataset.tab ?? '') ? (tab.dataset.tab as CityTab) : 'ruler';

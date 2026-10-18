@@ -51,6 +51,7 @@ import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { caravanDoing, caravanOf, routeNews } from './routes';
+import { liveRaid, raidChip, raiderDoing, raidLine, raidersOf } from './raids';
 import { PLACES } from '../map/greece';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, goneForTaxes, HARSH, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
@@ -715,6 +716,7 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     return { title: findBuilding(s, w.origin)?.kind === 'yard' ? 'Porter of the caravan yard' : 'Docker', detail: `${d[0].toUpperCase()}${d.slice(1)}` };
   }
   if (w.kind === 'caravan') return caravanDoing(s, w);
+  if (w.kind === 'raider') return raiderDoing(s, w);
   if (w.kind === 'hunter') {
     const h = s.herds[w.food];
     const name = h ? herdName(h) : 'the herd';
@@ -1025,7 +1027,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'raid' | 'alarm';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1064,6 +1066,8 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
   let start = 0;
   let waiting = 0;
   for (const n of s.world.news) {
+    // (News that can't wait shows on its own line: newsUrgent.)
+    if (n.urgent) continue;
     at = Math.max(n.tick, at + least);
     if (at <= s.tick) {
       item = n;
@@ -1074,12 +1078,50 @@ export function newsNow(s: SimState): { item: NewsItem; waiting: number } | null
   return { item, waiting };
 }
 
+/**
+ * News that can't wait (a threat, raiders gathering, sighted, turned back,
+ * gone): the latest, for a fortnight, on its own line ahead of the queue;
+ * not while the standing line for the same raid already says it (the news
+ * of the raid's phase now, or before).
+ */
+export function newsUrgent(s: SimState, map: CoastMap): NewsItem | null {
+  const show = NEWS_DAYS * TICKS_PER_DAY;
+  const r = liveRaid(s.world) ?? s.world.raids.find((x) => x.phase === 'raiding' && raidersOf(s, x));
+  const standing = r && raidLine(s, map, r) !== '' ? r : undefined;
+  for (let i = s.world.news.length - 1; i >= 0; i--) {
+    const n = s.world.news[i];
+    if (!n.urgent || n.tick > s.tick) continue;
+    if (s.tick - n.tick >= show) return null;
+    if (standing && n.city === standing.city && n.tick <= standing.start) return null;
+    return n;
+  }
+  return null;
+}
+
+/** The standing line for a live threat, or a band out (on the way, or in your city): ahead of every other deal. */
+function raidTownLine(s: SimState, map: CoastMap): TownLine | null {
+  const r = liveRaid(s.world) ?? s.world.raids.find((x) => x.phase === 'raiding' && raidersOf(s, x));
+  if (!r) return null;
+  const text = raidLine(s, map, r);
+  return text ? { need: 'raid', text: `${text}.`, at: 0, route: r.city } : null;
+}
+
+/** The top bar's chip for a band on its way or in your city: its few words, and the city whose page it opens. */
+export function raidChipNow(s: SimState): { chip: string; city: string } | null {
+  for (const r of s.world.raids) {
+    const c = raidChip(s, r);
+    if (c) return { chip: c.chip, city: r.city };
+  }
+  return null;
+}
+
 /** Is a line of news the one that brought a deal (the ruler asking, offering or demanding, that day), not other news from that city? */
 const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick === d.at && / (asks for|demands|offers) |yearly tribute comes round/.test(n.line);
 
 /** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
 function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal } | null {
-  const open = openDeals(s.world);
+  // (A threat has its own line: raidTownLine.)
+  const open = openDeals(s.world).filter((d) => d.kind !== 'threat');
   if (!open.length) return null;
   const rank = (d: Deal): number => (d.kind === 'offer' ? 2 : d.gift ? 1 : 0);
   const d = open.slice().sort((a, b) => rank(a) - rank(b) || a.due - b.due)[0];
@@ -1119,6 +1161,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const trader = traderTownLine(s);
   if (trader) out.unshift(trader);
   // What a ruler waits on you for (a request, an offer, tribute), while it is open.
+  const raid = raidTownLine(s, map);
+  if (raid) out.push(raid);
+  const alarm = newsUrgent(s, map);
+  if (alarm) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.

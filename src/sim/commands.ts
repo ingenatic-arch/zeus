@@ -37,7 +37,7 @@ export type Command =
   /** Send a ruler a gift: drachmas (`good` -1: 100, 250 or 500) or goods from the stores (a ware number: 200, 400 or 800); see giftRefusal in diplomacy.ts (a gift it refuses sends nothing). */
   | { type: 'gift'; city: string; good: number; amount: number }
   /** Answer a ruler's request, offer or demand for tribute (a deal's id; see answerRefusal in favours.ts: an answer it refuses does nothing): promise it, send what it asks (or pay the tribute), refuse it, take or decline an offer. */
-  | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' };
+  | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard';

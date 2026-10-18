@@ -184,6 +184,10 @@ export function flowLabel(kind: StockKind, what: string, w: Ware): string {
     return kind === 'sold' ? `A gift to ${city}` : `A gift from ${city}`;
   }
   if (kind === 'sold' || kind === 'bought') return what === 'tyre' ? 'The ship from Tyre' : (TRADER_NAMES[what] ?? what.replace(/^./, (c) => c.toUpperCase()));
+  if (kind === 'lost' && what.startsWith('raid:')) {
+    const city = TRADER_NAMES[what.slice(5)] ?? what.slice(5).replace(/^./, (c) => c.toUpperCase());
+    return `Carried off by ${city.endsWith('s') ? `${city}’` : `${city}’s`} raiders`;
+  }
   if (kind === 'lost') return what === 'fire' ? 'Burnt' : what === 'collapse' ? 'Fell in' : what === 'cleared' ? 'Cleared away' : what;
   const kindName = MAKER_NAMES[what as BuildingKind];
   if (kindName) return kindName;

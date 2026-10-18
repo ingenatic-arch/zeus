@@ -136,6 +136,7 @@ export function migrate(st: unknown): number {
   if (st.version === 16) from16(st);
   if (st.version === 17) from17(st);
   if (st.version === 18) from18(st);
+  if (st.version === 19) from19(st);
   return from;
 }
 
@@ -337,4 +338,14 @@ function from18(st: Record<string, unknown>): void {
     if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.deal !== 'number') g.deal = 0;
   }
   st.version = 19;
+}
+
+function from19(st: Record<string, unknown>): void {
+  // No threats and no raiders before: a tribute already marked angry (refused by a cold ruler) gets its threat on the next month's turn (raids.ts).
+  const w = st.world;
+  if (isObj(w)) {
+    w.raids = [];
+    if (typeof w.nextRaid !== 'number') w.nextRaid = 1;
+  }
+  st.version = 20;
 }

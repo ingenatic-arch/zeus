@@ -61,6 +61,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'given') return [`Gift · ${l.what}`, ''];
   if (l.kind === 'favours') return [`Sent · ${l.what}, as they asked`, ''];
   if (l.kind === 'tribute') return [`Tribute · ${l.what}`, ''];
+  if (l.kind === 'peace') return [`Peace bought · ${l.what}`, ''];
+  if (l.kind === 'raid') return [`Raided by ${l.what}`, ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
   if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
   if (l.kind === 'fire') return [`Burnt down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
@@ -73,7 +75,7 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
 }
 
 /** The order the kinds come in, money in first. */
-const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'refund', 'wages', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'fire', 'collapse'];
+const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'refund', 'wages', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'peace', 'raid', 'fire', 'collapse'];
 
 interface Row {
   kind: LedgerKind;
@@ -100,7 +102,7 @@ function rowsOf(now: readonly LedgerLine[], last: readonly LedgerLine[]): Row[] 
 const cell = (l: LedgerLine | undefined): string => {
   if (!l) return '<td class="amt nil">·</td>';
   // What fire and collapse took: how many buildings (they cost no coin until they are cleared and built again).
-  if (l.kind === 'fire' || l.kind === 'collapse') return `<td class="amt lost">${l.n}</td>`;
+  if (l.kind === 'fire' || l.kind === 'collapse' || l.kind === 'raid') return `<td class="amt lost">${l.n.toLocaleString('en-GB')}</td>`;
   return `<td class="amt ${l.amount > 0 ? 'in' : l.amount < 0 ? 'out' : ''}">${signed(l.amount)}</td>`;
 };
 
@@ -119,7 +121,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const body: string[] = [];
   let heading = '';
   for (const r of rows) {
-    const head = r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' ? 'Going out' : 'Coming in';
+    const head = r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' ? 'Going out' : 'Coming in';
     if (head !== heading) {
       heading = head;
       body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);

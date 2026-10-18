@@ -365,7 +365,7 @@ function start(): void {
     if (l.need === 'money') return ledger.toggle(true);
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
-    if (l.need === 'greece' || l.need === 'favour') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'favour' ? 'ruler' : undefined);
+    if (l.need === 'greece' || l.need === 'favour' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : 'ruler');
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();

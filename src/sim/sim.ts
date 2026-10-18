@@ -28,6 +28,7 @@ import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
+import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -182,6 +183,8 @@ export class Sim {
     stepGifts(s, map);
     // The rulers' requests, offers and tribute: deadlines, and now and then a new one (once your first route is six months old).
     stepFavours(s, map);
+    // Threats and war bands: deadlines, the band's march, its coming in (nothing in a town that has never opened a route).
+    stepRaids(s, map);
     stepDiplomacy(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
@@ -482,8 +485,8 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   }
   if (b.kind !== 'home') {
     s.walkers = s.walkers.filter((w) => {
-      // (A caravan bound for the yard turns back instead: see routes.ts.)
-      if (w.origin !== b.id || w.kind === 'caravan') return true;
+      // (A caravan bound for the yard turns back instead: see routes.ts. Raiders go on with what they took: raids.ts.)
+      if (w.origin !== b.id || w.kind === 'caravan' || w.kind === 'raider') return true;
       if ((w.kind === 'cart' || (w.kind === 'docker' && w.load > 0)) && !w.back) {
         const g = findBuilding(s, w.target);
         if (g) addComing(g, w.food, -w.load);
@@ -741,7 +744,13 @@ function undoLast(s: SimState, map: CoastMap): void {
 function stepWalkers(s: SimState, map: CoastMap): void {
   if (s.walkers.length === 0) return;
   const keep = [];
+  // Raiders on the map: the walkers near them have run indoors, and wait there.
+  const bands = bandsAt(s);
   for (const w of s.walkers) {
+    if (bands.length && sheltering(bands, w)) {
+      keep.push(w);
+      continue;
+    }
     const on =
       w.kind === 'water'
         ? moveCarrier(s, map, w)
@@ -765,6 +774,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               ? moveCaravan(s, map, w)
               : w.kind === 'hunter'
                 ? moveHunter(s, map, w)
+              : w.kind === 'raider'
+                ? moveRaider(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

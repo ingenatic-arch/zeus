@@ -265,7 +265,7 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     c.history = c.price.map((p) => new Array<number>(12).fill(p));
     c.feel = moodLevel(moodOf(c, tick));
   }
-  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1 };
+  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1, raids: [], nextRaid: 1 };
 }
 
 /** A city's record. */

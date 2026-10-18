@@ -296,7 +296,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -372,8 +372,8 @@ export function stateProblem(st: unknown): string {
 /** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */
 function worldOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
-  if (![w.routes, w.deals, w.travellers, w.news, w.gifts].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal)) return false;
-  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk)) return false;
+  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid)) return false;
+  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk)) return false;
   const g = TRADE_GOODS.length;
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
@@ -389,7 +389,17 @@ function worldOk(w: unknown): boolean {
 
 const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'start', 'dur', 'a0', 'a1', 'deal'];
 const DEAL_NUMBERS = ['id', 'good', 'amount', 'at', 'due', 'gift', 'got', 'ended', 'price', 'done', 'until', 'paid'];
-const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended'];
+const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided'];
+
+const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended'];
+const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];
+
+/** A threat and its war band: its city, phase, way and numbers. */
+function raidOk(r: unknown): boolean {
+  if (!isObj(r) || !CITY_IDS.includes(r.city as never) || !RAID_PHASES.includes(r.phase as string) || !['land', 'sea'].includes(r.by as string)) return false;
+  if (typeof r.way !== 'string' || typeof r.aim !== 'string' || typeof r.end !== 'string' || typeof r.fired !== 'boolean') return false;
+  return RAID_NUMBERS.every((k) => fin(r[k]));
+}
 
 /** A ruler's request, offer or demand for tribute: its kind, city, state and numbers. */
 function dealOk(d: unknown): boolean {

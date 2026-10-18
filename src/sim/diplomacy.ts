@@ -404,8 +404,8 @@ export function giftOnMap(g: Gift, tick: number): { along: number; homeward: boo
 // The mood: its turns, the routes it closes, whims and gifts back.
 
 /** A line of news from Greece. */
-export function news(w: World, tick: number, city: CityId, line: string): void {
-  w.news.push({ tick, city, line });
+export function news(w: World, tick: number, city: CityId, line: string, urgent = false): void {
+  w.news.push(urgent ? { tick, city, line, urgent: true } : { tick, city, line });
   if (w.news.length > 12) w.news.splice(0, w.news.length - 12);
 }
 
@@ -447,7 +447,8 @@ function fadingWords(m: Memory): string {
   if (m.kind === 'snub') return `the snub is fading from memory (${m.why})`;
   // (Your answers to their requests, offers and tribute: favours.ts.)
   const bare = m.why.replace(/ \(.*\)$/, '');
-  if (m.kind === 'met' || m.kind === 'paid' || m.kind === 'kept' || m.kind === 'taken') return `${bare}, and their thanks is wearing off`;
+  if (m.kind === 'met' || m.kind === 'paid' || m.kind === 'kept' || m.kind === 'taken' || m.kind === 'peace') return `${bare}, and their thanks is wearing off`;
+  if (m.kind === 'spent') return 'the satisfaction of their raid is wearing off';
   if (m.kind === 'refused' || m.kind === 'lapsed' || m.kind === 'defied' || m.kind === 'declined') return `the sting of it is passing (${bare})`;
   if (m.kind === 'broken' || m.kind === 'reneged') return `your broken word is slowly forgiven (${bare})`;
   return `${m.why}, and that is fading`;

@@ -34,6 +34,7 @@ import { findBuilding } from './buildings';
 import { dateOfTick, formatYear, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { dispatch, fairGift, giftWay, giftWords, heraldTicks, news, settleMood } from './diplomacy';
 import { HANDLE } from './food';
+import { answerThreat, peaceArrived, threatFromTribute, threatLive, threatRefusal } from './raids';
 import { WARE_NAMES, held } from './foods';
 import { rateOf } from './labour';
 import { roadSearch, nearestReached } from './roads';
@@ -107,6 +108,8 @@ export const WORTH = {
   kept: 8,
   reneged: -20,
   declined: -3,
+  peace: 10,
+  spent: 25,
 } as const;
 export const FADE = {
   met: 24 * TICKS_PER_MONTH,
@@ -119,6 +122,8 @@ export const FADE = {
   kept: 12 * TICKS_PER_MONTH,
   reneged: 36 * TICKS_PER_MONTH,
   declined: 6 * TICKS_PER_MONTH,
+  peace: 12 * TICKS_PER_MONTH,
+  spent: 18 * TICKS_PER_MONTH,
 } as const;
 
 /** How strong each ruled city is: about how many people it has (a city far bigger than yours can demand tribute). */
@@ -173,7 +178,7 @@ export function offerPrice(s: SimState, d: Deal): number {
 // ---------------------------------------------------------------------------
 // The memories your answers make.
 
-type Answer = 'promise' | 'met' | 'refused' | 'lapsed' | 'broken' | 'paid' | 'defied' | 'taken' | 'kept' | 'reneged' | 'declined';
+type Answer = 'promise' | 'met' | 'refused' | 'lapsed' | 'broken' | 'paid' | 'defied' | 'taken' | 'kept' | 'reneged' | 'declined' | 'peace' | 'spent';
 
 /**
  * The memory an answer makes, bent by the ruler's personality (each bend
@@ -252,8 +257,8 @@ export function mayDemand(s: SimState, c: WorldCity): boolean {
   return (t.includes('proud') || t.includes('warlike')) && moodOf(c, s.tick) < 0 && stronger(s, c.id).far;
 }
 
-/** A new deal. */
-function newDeal(s: SimState, kind: Deal['kind'], city: CityId, good: number, amount: number, due: number, why: string): Deal {
+/** A new deal (raids.ts makes threats with it). */
+export function makeDeal(s: SimState, kind: Deal['kind'], city: CityId, good: number, amount: number, due: number, why: string): Deal {
   const w = s.world;
   const d: Deal = { id: w.nextDeal++, kind, city, good, amount, at: s.tick, due, state: 'open', why, promised: false, gift: 0, got: 0, ended: 0, side: '', price: 0, done: 0, until: 0, yearly: false, paid: 0, angry: false };
   w.deals.push(d);
@@ -299,7 +304,7 @@ export function deadlineFor(s: SimState, map: CoastMap, city: CityId, good: numb
 /** A ruler asks for goods (a trade good's index) or drachmas (-1): a request with its deadline, and a line of news. */
 export function makeRequest(s: SimState, map: CoastMap, c: WorldCity, good: number, amount: number, why: string): Deal {
   const days = deadlineFor(s, map, c.id, good, amount, good < 0 ? REQUEST_COIN_DAYS : REQUEST_GOODS_DAYS);
-  const d = newDeal(s, 'request', c.id, good, amount, s.tick + days, why);
+  const d = makeDeal(s, 'request', c.id, good, amount, s.tick + days, why);
   news(s.world, s.tick, c.id, `${rulerName(c)} asks for ${dealWords(d)} within ${monthsWords(days)}: ${why}`);
   return d;
 }
@@ -319,7 +324,7 @@ export function makeTribute(s: SimState, map: CoastMap, c: WorldCity, good: numb
   const he = c.ruler?.female ? 'the queen' : c.ruler?.title.startsWith('King') ? 'the king' : c.ruler?.title.startsWith('Archon') ? 'the archon' : 'the lord';
   const why = `${cityName(c.id)} is far stronger than your city (about ${fmt(theirs)} people to your ${fmt(s.population)}), and ${he} is ${moodOf(c, s.tick) <= COLD ? 'cold' : 'wary'} towards you`;
   const days = deadlineFor(s, map, c.id, good, amount, TRIBUTE_DAYS);
-  const d = newDeal(s, 'tribute', c.id, good, amount, s.tick + days, why);
+  const d = makeDeal(s, 'tribute', c.id, good, amount, s.tick + days, why);
   d.yearly = yearly;
   news(s.world, s.tick, c.id, `${rulerName(c)} demands ${dealWords(d)} in tribute${yearly ? ' every year' : ''}, within ${monthsWords(days)}: ${why}`);
   return d;
@@ -340,7 +345,7 @@ export function makeOffer(s: SimState, c: WorldCity, k: number, side: 'buy' | 's
   const limit = yearlyLimit(s, c.id, k);
   const amount = side === 'buy' ? clamp(round(limit * OFFER_MORE, 100), 600, 4000) : limit;
   const why = side === 'buy' ? `${cityName(c.id)} is short of ${goodName(k)}, and ${rulerShort(c)} is pleased with your city` : `${cityName(c.id)} has ${goodName(k)} to spare, and ${rulerShort(c)} is pleased with your city`;
-  const d = newDeal(s, 'offer', c.id, k, amount, s.tick + OFFER_ANSWER, why);
+  const d = makeDeal(s, 'offer', c.id, k, amount, s.tick + OFFER_ANSWER, why);
   d.side = side;
   d.price = price;
   news(s.world, s.tick, c.id, `${rulerName(c)} offers ${offerWords(d)}`);
@@ -373,7 +378,7 @@ const offerRunning = (w: World, city: CityId): boolean => w.deals.some((d) => d.
 function asks(s: SimState, map: CoastMap): void {
   const w = s.world;
   const first = firstRoute(w);
-  if (!first || s.tick - first < ASK_AFTER || openDeals(w).length >= MOST_OPEN) return;
+  if (!first || s.tick - first < ASK_AFTER || openDeals(w).length >= MOST_OPEN || threatLive(w)) return;
   if (w.deals.some((d) => s.tick - d.at < GREECE_GAP)) return;
   const month = Math.floor(s.tick / TICKS_PER_MONTH);
   for (let i = 0; i < w.cities.length; i++) {
@@ -450,7 +455,8 @@ export function stepFavours(s: SimState, map: CoastMap): void {
   const w = s.world;
   if (w.routes.length === 0 && w.deals.length === 0) return;
   for (const d of w.deals.slice()) {
-    if (d.state === 'open' && s.tick >= d.due && d.gift === 0) overdue(s, d);
+    if (d.kind === 'threat') continue; // (raids.ts)
+    if (d.state === 'open' && s.tick >= d.due && d.gift === 0) overdue(s, map, d);
     else if (d.state === 'taken') running(s, d);
     else if (d.state === 'met' && d.kind === 'tribute' && d.yearly && d.paid < TRIBUTE_YEARS && d.until > 0 && s.tick >= d.until - TRIBUTE_DAYS) comesRound(s, d);
   }
@@ -464,7 +470,7 @@ export function stepFavours(s: SimState, map: CoastMap): void {
 }
 
 /** A deal's deadline has passed and nothing is on its way. */
-function overdue(s: SimState, d: Deal): void {
+function overdue(s: SimState, map: CoastMap, d: Deal): void {
   const c = cityOf(s.world, d.city);
   const words = dealWords(d);
   if (d.kind === 'offer') {
@@ -482,27 +488,25 @@ function overdue(s: SimState, d: Deal): void {
     }
     return;
   }
-  defy(s, d, `you ignored their demand for tribute (${words})`, `You let ${whose(d.city)} demand for tribute run out`, 'lapsed');
+  defy(s, map, d, `you ignored their demand for tribute (${words})`, `You let ${whose(d.city)} demand for tribute run out`, 'lapsed');
 }
 
 /** Tribute refused (or ignored): a heavy memory, and from a ruler who is cold or worse, the start of threats (`angered`). */
-function defy(s: SimState, d: Deal, why: string, line: string, state: 'refused' | 'lapsed'): void {
+function defy(s: SimState, map: CoastMap, d: Deal, why: string, line: string, state: 'refused' | 'lapsed'): void {
   const c = cityOf(s.world, d.city);
   const cold = moodOf(c, s.tick) <= COLD;
   close(s, d, state);
   remember(s, d, answerMemory(c, 'defied', why, s.tick), cold ? `${line}: ${rulerShort(c)} is cold towards you, and will not let it pass` : line);
-  if (cold) angered(s, c, d);
+  if (cold) angered(s, map, c, d);
 }
 
 /**
- * A tribute refused by a ruler who is cold or worse. In slice 20 a threat
- * follows from here (a deadline and a price of peace, then raiders); for now
- * the deal is marked, so the threat can find it, and nothing else happens.
+ * A tribute refused by a ruler who is cold or worse: a threat follows (a
+ * deadline and a price of peace, then raiders; raids.ts), at once if no
+ * other threat is live, else on a later month's turn (the deal is marked).
  */
-export function angered(s: SimState, c: WorldCity, d: Deal): void {
-  void c;
-  d.angry = true;
-  s.rev++;
+export function angered(s: SimState, map: CoastMap, c: WorldCity, d: Deal): void {
+  threatFromTribute(s, map, c, d);
 }
 
 /** An offer you took, running: it ends with its route closed (no blame), or at the end of its year, kept or broken. */
@@ -527,6 +531,13 @@ function running(s: SimState, d: Deal): void {
 /** A yearly tribute comes round again, three months before it is due; or ends, if the ruler has warmed to cordial. */
 function comesRound(s: SimState, d: Deal): void {
   const c = cityOf(s.world, d.city);
+  // (It waits a month at a time while its ruler has another deal open, two are open in Greece, or a threat is live: never stacking up badly.)
+  const w = s.world;
+  if (threatLive(w) || openDeals(w).length >= MOST_OPEN || w.deals.some((x) => x !== d && x.city === d.city && x.state === 'open')) {
+    d.until = Math.max(d.until, s.tick + TRIBUTE_DAYS + TICKS_PER_MONTH);
+    s.rev++;
+    return;
+  }
   if (moodOf(c, s.tick) >= 0 || !stronger(s, d.city).far) {
     d.yearly = false;
     d.until = 0;
@@ -548,7 +559,7 @@ function comesRound(s: SimState, d: Deal): void {
 // ---------------------------------------------------------------------------
 // Your answers (the `answer` command).
 
-export type Act = 'promise' | 'send' | 'refuse' | 'take' | 'decline';
+export type Act = 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods';
 
 /** Why what you would send for a deal can't go now, or '' if it can (`way`: why goods can't go that way, if already known). */
 export function sendRefusal(s: SimState, map: CoastMap, d: Deal, way?: string): string {
@@ -565,6 +576,8 @@ export function sendRefusal(s: SimState, map: CoastMap, d: Deal, way?: string): 
 /** Why an answer can't be given now, or '' if it can. */
 export function answerRefusal(s: SimState, map: CoastMap, d: Deal | undefined, act: Act): string {
   if (!d || d.state !== 'open') return 'It is settled';
+  if (d.kind === 'threat') return threatRefusal(s, map, d, act);
+  if (act === 'goods') return 'Not a threat';
   if (act === 'send') return sendRefusal(s, map, d);
   if (act === 'promise') return d.kind !== 'request' ? 'Only a request can be promised' : d.promised ? 'You have promised it' : d.gift ? 'It is on its way' : '';
   if (act === 'refuse') return d.kind === 'offer' ? 'Decline an offer instead' : d.gift ? 'It is on its way' : '';
@@ -576,6 +589,10 @@ export function answerRefusal(s: SimState, map: CoastMap, d: Deal | undefined, a
 export function answer(s: SimState, map: CoastMap, id: number, act: string): void {
   const d = dealOf(s.world, id);
   if (!d || answerRefusal(s, map, d, act as Act) !== '') return;
+  if (d.kind === 'threat') {
+    answerThreat(s, map, d, act);
+    return;
+  }
   const c = cityOf(s.world, d.city);
   const words = dealWords(d);
   if (act === 'promise') {
@@ -591,7 +608,7 @@ export function answer(s: SimState, map: CoastMap, id: number, act: string): voi
   }
   if (act === 'refuse') {
     if (d.kind === 'tribute') {
-      defy(s, d, `you refused them tribute (${words})`, `You refused ${cityName(d.city)} its tribute of ${words}`, 'refused');
+      defy(s, map, d, `you refused them tribute (${words})`, `You refused ${cityName(d.city)} its tribute of ${words}`, 'refused');
       return;
     }
     if (d.promised) {
@@ -627,6 +644,10 @@ export function answer(s: SimState, map: CoastMap, id: number, act: string): voi
 /** What you sent for a deal has arrived: a request met (late, or short), tribute paid (and a yearly one's next due date set). */
 export function delivered(s: SimState, g: Gift): void {
   const d = dealOf(s.world, g.deal);
+  if (d && d.kind === 'threat') {
+    peaceArrived(s, g, d);
+    return;
+  }
   if (!d || d.state !== 'open') return;
   const c = cityOf(s.world, d.city);
   d.gift = 0;

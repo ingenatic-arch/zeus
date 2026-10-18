@@ -4,8 +4,8 @@
  * answer is worth and how long it is remembered, a request sent (the goods
  * leaving the stores and the city, arriving by the day it said), promised and
  * broken, refused, let run out; a year's offer taken and kept or not;
- * tribute only from the proud or warlike who are far stronger, refused (and
- * marked for the threat to come) or paid yearly; the news one piece at a
+ * tribute only from the proud or warlike who are far stronger, refused (a
+ * threat follows from a cold ruler) or paid yearly; the news one piece at a
  * time; and saves.
  */
 import { readFileSync } from 'node:fs';
@@ -374,7 +374,7 @@ describe('tribute', () => {
     expect(mayDemand(s, { ...sparta, memories: [...sparta.memories, { kind: 'gift', why: 'x', amount: 40, tick: s.tick, fade: TICKS_PER_YEAR }] })).toBe(false);
   });
 
-  it('refused while wary: a heavy memory and no more; refused while cold: marked, for the threat that follows', () => {
+  it('refused while wary: a heavy memory and no more; refused while cold: a threat follows (raids.test.ts)', () => {
     for (const cold of [false, true]) {
       const sim = fresh('caravan');
       const s = sim.state;
@@ -385,7 +385,8 @@ describe('tribute', () => {
       send(sim, { type: 'answer', deal: d.id, act: 'refuse' });
       expect(d.state).toBe('refused');
       expect(c.memories.find((m) => m.kind === 'defied')?.amount).toBe(WORTH.defied);
-      expect(d.angry).toBe(cold);
+      expect(d.angry).toBe(false);
+      expect(s.world.raids.length).toBe(cold ? 1 : 0);
     }
   });
 
