@@ -1380,6 +1380,8 @@ const fam17 = await zeus(() => window.__zeus.tick());
 await zeus(() => window.__zeus.speed('fast'));
 await page.waitForFunction((t) => window.__zeus.tick() > t + 60, fam17, { timeout: 300000, polling: 16 });
 await zeus(() => window.__zeus.speed('paused'));
+// (The lines under the top bar are brought up to date every half second, not every frame: give them a moment.)
+await page.waitForFunction(() => window.__zeus.townLines().some((l) => /^From Greece: Athens’ harvest/.test(l)), null, { timeout: 5000 }).catch(() => {});
 await frames(3);
 if (!(await zeus(() => window.__zeus.townLines())).some((l) => /From Greece: Athens’ harvest has failed, and wheat there is \d+ a hundred/.test(l))) fail(`#famine: no town line for the harvest: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
 if (!(await zeus(() => !!document.querySelector('.townline.greece')))) fail('#famine: the harvest line is not drawn');
