@@ -29,6 +29,10 @@ export const VIEWS: Record<string, CameraView> = {
   sail: { x: 70, z: 92, yaw: 3.1, dist: 30, tilt: -0.5 },
   // The ship tied up at the jetty.
   ship: { x: 74, z: 76, yaw: 2.3, dist: 16, tilt: -0.02 },
+  // #threat, #raid and #aftermath: the farms by the west edge of the land, where Sparta's raiders come in.
+  raidwest: { x: 44, z: 43, yaw: 2.65, dist: 24, tilt: -0.05 },
+  // #raiders: close over the farm they are firing.
+  raidfarm: { x: 41, z: 43, yaw: 2.65, dist: 13, tilt: 0.05 },
   // #caravan: the road in from the north edge, where Corinth's caravans come down to the main street (the camera then follows the caravan).
   caravan: { x: 86.5, z: 9, yaw: 0.4, dist: 9, tilt: 0.12 },
   // #buywine: the caravan yard at the east end of #town's main street.

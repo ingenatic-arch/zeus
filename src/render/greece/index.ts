@@ -15,11 +15,12 @@ import type { SimState } from '../../sim/state';
 import { tyreShip } from '../../sim/world';
 import { caravansOnMap, routeWay, visitorOnMap } from '../../sim/routes';
 import { giftOnMap } from '../../sim/diplomacy';
+import { raidOnMap } from '../../sim/raids';
 import { morph } from '../../ui/morph';
 import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
-import { caravanModel, cityModel, shipModel, tableModel, wayMarks } from './models';
+import { bandModel, caravanModel, cityModel, shipModel, tableModel, wayMarks } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
 
 /** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left. */
@@ -172,6 +173,8 @@ export class GreeceMap {
       const deal = t.closest('button[data-deal]') as HTMLButtonElement | null;
       if (deal && !deal.disabled) {
         host.send({ type: 'answer', deal: Number(deal.dataset.deal), act: deal.dataset.act as 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' });
+        // (The labels too, at once: a seal gone, a band turned.)
+        this.labelAt = -Infinity;
         setTimeout(() => this.redraw(), 0);
       } else if (tab) {
         this.tab = (CITY_TABS as readonly string[]).includes(tab.dataset.tab ?? '') ? (tab.dataset.tab as CityTab) : 'ruler';
@@ -179,6 +182,7 @@ export class GreeceMap {
         this.panel.scrollTop = 0;
       } else if (gift && !gift.disabled && this.shown) {
         host.send({ type: 'gift', city: this.shown, good: Number(gift.dataset.gift), amount: Number(gift.dataset.amount) });
+        this.labelAt = -Infinity;
         setTimeout(() => this.redraw(), 0);
       } else if (t.closest('.renamebtn') && this.state) {
         this.renaming = true;
@@ -471,10 +475,34 @@ export class GreeceMap {
         m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       }
     }
+    // War bands: gathering at their city (a camp round a banner), marching on yours, turned back or going home; Troy's by sea, a ship with a dark sail.
+    for (const r of s.world.raids) {
+      const at = raidOnMap(r, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(r.way));
+      const L = lineLength(line);
+      const city = r.city;
+      const dir = at.homeward ? 1 : -1;
+      if (r.by === 'sea' && !at.gathering) {
+        const m = piece(`raid-${r.id}`, () => shipModel('#3a2a26', PLACES[city].colour));
+        const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+        m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 0.4) * 0.03, p.z);
+        m.rotation.set(Math.sin(time * 1.3 + 0.2) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+        m.scale.setScalar(1.15);
+      } else {
+        const key = `raid-${r.id}${at.gathering ? '-camp' : ''}`;
+        const m = piece(key, () => bandModel(PLACES[city].colour, PLACES[city].trim, at.gathering));
+        const p = alongLine(line, Math.max(0.6, Math.min(L - (at.gathering ? 1.6 : 0.9), at.along)));
+        m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+        // (Larger than life, as the caravans are, and more so: a band must be seen coming.)
+        m.scale.setScalar(2.3);
+        m.rotation.set(0, at.gathering ? 0 : -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      }
+    }
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
-      // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again).
-      if (key.startsWith('gift-')) {
+      // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over).
+      if (key.startsWith('gift-') || key.startsWith('raid-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);

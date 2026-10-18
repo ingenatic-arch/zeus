@@ -16,7 +16,7 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn';
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -343,6 +343,11 @@ export class Sound {
         this.swish(0.05, 2400, 900, 0.28);
         this.swish(0.035, 1500, 3200, 0.2);
         break;
+      case 'horn':
+        // Raiders sighted at the edge of your land: a war horn, two long low calls, the second rising.
+        this.horn(0.08, 0, 1.1, 0);
+        this.horn(0.08, 1.3, 1.5, 1);
+        break;
       case 'sale':
         // Paid: coins counted out onto the counter.
         for (let i = 0; i < 6; i++) this.bell(0.022, 1568 + rand(-120, 160), i * 0.07 + rand(0, 0.03));
@@ -528,6 +533,29 @@ export class Sound {
     o.connect(f).connect(this.env(gain, at, 0.12, 0.6));
     o.start(at);
     o.stop(at + 0.85);
+  }
+
+  /** A war horn's call: a rough low note, swelling and fading, bending up a little (more on the second call). */
+  private horn(gain: number, delay: number, len: number, rise: number): void {
+    const ctx = this.ctx as AudioContext;
+    const at = ctx.currentTime + delay;
+    for (const [mul, g] of [
+      [1, 1],
+      [2, 0.45],
+      [3, 0.2],
+    ] as const) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(98 * mul, at);
+      o.frequency.linearRampToValueAtTime((98 + rise * 18) * mul, at + len * 0.8);
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 700;
+      f.Q.value = 1.2;
+      o.connect(f).connect(this.env(gain * g, at, len * 0.35, len * 0.65));
+      o.start(at);
+      o.stop(at + len + 0.1);
+    }
   }
 
   /** A donkey's bray: a rough high "hee" breathed in, a low "haw" breathed out, twice. */

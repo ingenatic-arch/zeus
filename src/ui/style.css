@@ -998,3 +998,19 @@ body.greece-open .topbar { left: calc((100% - 200px) / 2); }
 body.greece-open .notices { left: calc((100% - 200px) / 2); }
 /* There is no build bar on the map: a city's page may run down to the window's foot. */
 body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
+/* The raid chip under the top bar: a war band counting down to your edge, then in your city. */
+.raid-chip {
+  appearance: none; pointer-events: auto; cursor: pointer; font: inherit; font-size: 13.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; font-variant-caps: small-caps; letter-spacing: 0.03em;
+  color: #fff4e4; background: linear-gradient(180deg, #b8463a, #8e2a20); border: 1.5px solid #5e1410; border-radius: 999px;
+  padding: 3px 12px 3px 8px; box-shadow: 0 2px 0 rgba(80, 20, 10, 0.35), 0 4px 12px rgba(80, 20, 10, 0.2);
+}
+.raid-chip[hidden] { display: none; }
+.raid-chip:hover { filter: brightness(1.08); }
+.raid-chip svg { width: 17px; height: 17px; background: #f4e4bf; border-radius: 50%; padding: 1px; }
+.raid-chip.in { animation: raid-pulse 1.2s ease-in-out infinite; }
+@keyframes raid-pulse { 50% { box-shadow: 0 2px 0 rgba(80, 20, 10, 0.35), 0 0 0 5px rgba(184, 70, 58, 0.3); } }
+.townline.raid { border-left-color: #b8322a; background: rgba(250, 230, 220, 0.96); }
+.townline.alarm { border-left-color: #b8322a; }
+.greece-panel .deal.threat { background: #f6ded6; border-color: #9e3a30; border-width: 2px; }
+.greece-panel .deal.threat > div > p:not(.if):not(.eta) { margin: 4px 0 0; }

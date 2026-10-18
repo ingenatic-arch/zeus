@@ -14,8 +14,9 @@ import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, keptIn, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
-import { againstDue, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, TRIBUTE_YEARS } from '../sim/favours';
+import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
+import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
@@ -122,13 +123,16 @@ export function labelHtml(s: SimState, id: CityId): string {
   const name = id === 'home' ? s.world.name : PLACES[id].name;
   if (!c.ruler) return `<b>${esc(name)}</b>${id === 'home' ? '<span class="you">you</span>' : ''}`;
   // A deal waiting on your answer: a scroll (a request, an offer) or a red seal (tribute).
-  const d = liveDeals(s.world, id).find((x) => x.state === 'open');
+  const open = liveDeals(s.world, id).filter((x) => x.state === 'open');
+  const d = open.find((x) => x.kind === 'threat') ?? open[0];
   return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${d ? dealIcon(d) : ''}`;
 }
 
 /** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
 export function dealIcon(d: Pick<Deal, 'kind' | 'gift'>): string {
   const sent = d.gift > 0 ? ' sent' : '';
+  // A threat: a red seal under two crossed spears.
+  if (d.kind === 'threat') return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask threat${sent}" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>`;
   if (d.kind === 'tribute') return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask tribute${sent}" aria-hidden="true"><path d="M3 3.5h8.6c1 0 1.6.7 1.6 1.6v7.4H4.6C3.7 12.5 3 11.8 3 10.9z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9"/><circle cx="10.4" cy="11" r="3" fill="#b8322a" stroke="#6e1a14" stroke-width=".8"/><path d="M9 11h2.8M10.4 9.6v2.8" stroke="#f2c7b8" stroke-width=".8"/></svg>`;
   return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask ${d.kind}${sent}" aria-hidden="true"><path d="M4 2.6h8.4c.9 0 1.4.6 1.4 1.4s-.5 1.4-1.4 1.4H12v7.2c0 1-.7 1.7-1.7 1.7H3.6c.9 0 1.4-.6 1.4-1.4V4c0-.8-.5-1.4-1-1.4z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M6.6 7h3.6M6.6 9h3.6M6.6 11h2.4" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/></svg>`;
 }
@@ -137,6 +141,12 @@ export function dealIcon(d: Pick<Deal, 'kind' | 'gift'>): string {
 export function dealShort(s: SimState, d: Deal): string {
   const days = Math.max(0, Math.ceil((d.due - s.tick) / TICKS_PER_DAY));
   const left = `${days === 1 ? '1 day' : `${days} days`} left`;
+  if (d.kind === 'threat') {
+    const r = raidOf(s.world, d.id);
+    if (r && r.phase === 'raiding') return `Raiders in your city · pay ${fmt(r.coin)} dr to turn them back`;
+    if (r && bandOut(r)) return `Raiders on the march · at your edge in ${daysToEdge(r, s.tick) === 1 ? '1 day' : `${daysToEdge(r, s.tick)} days`} · pay ${fmt(r.coin)} dr`;
+    return `Threatens your city · the price of peace ${dealWords(d)}${d.gift ? ' · sent, on its way' : ''} · ${left}`;
+  }
   if (d.kind === 'offer') return d.state === 'taken' ? `Your year’s deal for ${WARE_NAMES[TRADE_GOODS[d.good]]}: ${fmt(d.done)} of ${fmt(d.amount)} so far` : `Offers a deal for ${WARE_NAMES[TRADE_GOODS[d.good]]} · answer within ${days === 1 ? '1 day' : `${days} days`}`;
   const what = d.kind === 'tribute' ? `Demands ${dealWords(d)} in tribute` : `Asks for ${dealWords(d)}`;
   return `${what}${d.gift ? ' · sent, on its way' : d.promised ? ' · promised' : ''} · ${left}`;
@@ -154,6 +164,7 @@ function tradesWords(r: TradeRoute): string {
 /** The card over a route's trader on the map ('corinth-sea', 'corinth-land-0'): who, coming or going, when, and what for. */
 function travellerHtml(s: SimState, key: string): string {
   if (key.startsWith('gift-')) return giftCard(s, Number(key.slice(5)));
+  if (key.startsWith('raid-')) return bandCard(s, Number(key.slice(5).replace('-camp', '')));
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -186,8 +197,32 @@ function giftCard(s: SimState, id: number): string {
   return `<b>${esc(head)} · ${esc(giftWords(g.good, g.amount))}</b><span>${esc(giftNews(s, g))}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
 }
 
+/** The card over a war band on the map: whose, how many, where, and when it reaches you (or that it has turned back). */
+function bandCard(s: SimState, id: number): string {
+  const r = s.world.raids.find((x) => x.id === id);
+  if (!r) return '<b>A war band</b>';
+  const name = PLACES[r.city].name;
+  const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
+  const edge = reachesEdge(s, r);
+  const n = Math.max(1, Math.ceil((edge - s.tick) / TICKS_PER_DAY));
+  const when = `${n === 1 ? '1 day' : `${n} days`} (${dayWords(edge)})`;
+  const line =
+    r.phase === 'gathering'
+      ? `Gathering at ${name} to march on your city: at the ${RAID_SIDE[r.city]} edge of your land in about ${when}`
+      : r.phase === 'marching'
+        ? `${r.by === 'sea' ? 'Sailing' : 'Marching'} on your city: at the ${RAID_SIDE[r.city]} edge of your land in about ${when}`
+        : r.end === 'paid'
+          ? `Paid off: going home to ${name}`
+          : r.end === 'called'
+            ? `Called off: going home to ${name}`
+            : `Going home to ${name}${r.took ? ` with ${fmt(r.took)} ${WARE_NAMES[r.ware]}` : ''}`;
+  const pay = live(r) ? `Pay ${fmt(r.coin)} dr on ${whose} page to turn them back` : `Click for ${name}’s page`;
+  return `<b>${esc(`${whose} raiders · ${r.men} men`)}</b><span>${esc(line)}</span><span class="sub">${esc(pay)}</span>`;
+}
+
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): CityId | null {
+  if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('gift-')) {
     const g = s.world.gifts.find((x) => x.id === Number(key.slice(5)));
     return g ? (g.from === 'home' ? g.to : g.from) : null;
@@ -347,6 +382,7 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
 <p class="if">${d.side === 'buy' ? `Without it, what ${esc(name)} pays falls as you sell: ${today} today, about ${priceAfter(s.world, d.city, d.good, d.amount, s.tick)} after another ${fmt(d.amount)} (and it comes back only slowly).${esc(spareWords(s, d))}` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
 <div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
   }
+  if (d.kind === 'threat') return threatHtml(s, d, map);
   if (d.kind === 'tribute') {
     const cold = moodOf(c, s.tick) <= COLD;
     const { theirs } = stronger(s, d.city);
@@ -372,6 +408,77 @@ ${acts}${etaLine(s, map, d)}<p class="if">${d.gift ? '' : `Refused, or let run o
 ${acts}${etaLine(s, map, d)}${stakes ? `<p class="if">${esc(stakes)}</p>` : ''}</div></div>`;
 }
 
+/**
+ * A threat: what it would cost to stop it (coin, or goods), by when, and
+ * what follows if nothing comes; or, the band out, where it is and when it
+ * reaches you; your answers (pay, send the goods, refuse) and when what you
+ * send would arrive, against the band.
+ */
+function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
+  const c = cityOf(s.world, d.city);
+  const r = raidOf(s.world, d.id);
+  if (!r) return '';
+  const they = c.ruler?.female ? 'she' : 'he';
+  const his = c.ruler?.female ? 'her' : 'his';
+  const name = PLACES[d.city].name;
+  const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
+  const coin = `${fmt(r.coin)} dr`;
+  const goods = r.alt >= 0 ? giftWords(r.alt, r.altAmount) : '';
+  const peace = answerMemory(c, 'peace', 'you paid them to call off their raiders', s.tick);
+  const edge = reachesEdge(s, r);
+  const days = (t: number): string => {
+    const n = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
+    return n === 1 ? '1 day' : `${n} days`;
+  };
+  const side = RAID_SIDE[d.city];
+  const band = raidersOf(s, r);
+  let head: string;
+  let where: string;
+  if (r.phase === 'threat') {
+    head = `${cap(rulerTitle(c))} threatens your city`;
+    where = `Pay ${coin}${goods ? `, or send ${goods}` : ''}, by ${dayWords(d.due)} (${days(d.due)}). If nothing comes by then, ${r.men} of ${his} men gather at ${name} and march on your city: at the ${side} edge of your land about ${dayWords(edge)}, for the fields and stores nearest it.`;
+  } else if (r.phase === 'raiding') {
+    const at = r.aim ? aimWords({ kind: r.aim }) : 'your fields';
+    head = `${cap(whose)} raiders are in your city`;
+    where = band?.back
+      ? `${r.men} men, leaving your land the way they came${band.load ? `, with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : ''}.`
+      : `${r.men} men in at the ${side} edge, ${band && band.wait > 0 ? `at ${at}` : `making for ${at}`}. Pay ${coin} now and they turn back at once, with whatever they have taken.`;
+  } else {
+    head = `${cap(whose)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}`;
+    where = `${r.men} men, at the ${side} edge of your land about ${dayWords(edge)} (${days(edge)}). Pay ${coin} now and they turn back at once, wherever they are.`;
+  }
+  const out = bandOut(r);
+  const coinTip = out ? `Paid at once, and the band turns back: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}` : `A herald takes it to ${name}: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}`;
+  const button = (act: 'send' | 'goods' | 'refuse', label: string, worth: number | undefined, tip: string): string => {
+    const why = map ? answerRefusal(s, map, d, act) : '';
+    return `<button data-deal="${d.id}" data-act="${act}" class="${act === 'goods' ? 'send' : act}" title="${esc(why || tip)}"${why ? ' disabled' : ''}>${esc(label)}${worthEm(worth)}</button>`;
+  };
+  const acts =
+    d.gift || !live(r) || band?.back
+      ? ''
+      : `<div class="acts">${button('send', `Pay ${coin}`, peace.amount, coinTip)}${r.alt >= 0 ? button('goods', `Send ${goods}`, peace.amount, `Fetched from your stores and sent to ${name}: when it arrives, the threat is lifted${out ? ' and the band turns back, if it has not already done its worst' : ''}`) : ''}${r.phase === 'threat' ? button('refuse', 'Refuse', undefined, `${cap(they)} sends ${his} raiders at once`) : ''}</div>`;
+  // When what you send would arrive (or what you sent will), against the day and the band.
+  let eta = '';
+  if (map && d.gift) {
+    const g = s.world.gifts.find((x) => x.id === d.gift);
+    if (g) {
+      const at = arrivesAt(s, map, g);
+      eta = `<p class="eta sent">${esc(giftNews(s, g))}. It arrives about ${esc(dayWords(at))}${r.phase === 'threat' ? `; ${they} waits for it` : out ? (at < edge ? ', before the raiders reach your land' : ', after the raiders reach your land') : ''}.</p>`;
+    }
+  } else if (map && live(r) && r.alt >= 0) {
+    const at = goodsArrive(s, map, r);
+    if (at > 0) eta = `<p class="eta">The ${esc(goods)}, sent now, would reach ${esc(name)} about ${esc(dayWords(at))}${r.phase === 'threat' ? (at <= d.due ? ', before the day' : `, after the day (${they} waits for what is on its way)`) : out ? (at < edge ? ', before the raiders reach your land' : ', after the raiders reach your land: only coin turns them back now') : ''}.</p>`;
+  }
+  const mood = moodOf(c, s.tick);
+  const ifs = live(r)
+    ? `Paid: ${signed(peace.amount)}, ${fadeWords(peace.fade)}. Raided: ${his} anger is partly spent (${signed(answerMemory(c, 'spent', '', s.tick).amount)}). Either way, no threat from ${them(c)} for a year. A gift that warms ${them(c)} past cold (${signed(mood)} now; cold ends at ${signed(COLD)}) calls them off too.`
+    : '';
+  return `<div class="deal threat${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(head)}</b>. <span class="why">${esc(cap(d.why))}.</span>
+<p>${esc(where)}</p>${acts}${eta}${ifs ? `<p class="if">${esc(ifs)}</p>` : ''}</div></div>`;
+}
+
+const them = (c: ReturnType<typeof cityOf>): string => (c.ruler?.female ? 'her' : 'him');
+
 /** For an offer to buy your goods: what your stores hold beyond the keep figure, and whether that is too little for the deal (" Your storehouses hold 650 oil and keep 800: none goes until you keep less, on the Trade tab."). */
 function spareWords(s: SimState, d: Deal): string {
   const ware = WARE_NAMES[TRADE_GOODS[d.good]];
@@ -396,7 +503,8 @@ function dealsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   const deals = liveDeals(s.world, id);
   if (!deals.length) return '';
   const c = cityOf(s.world, id);
-  const head = deals.some((d) => d.kind === 'tribute') ? `What ${c.ruler?.female ? 'she' : 'he'} demands` : deals.every((d) => d.kind === 'offer') ? `What ${c.ruler?.female ? 'she' : 'he'} offers` : `What ${c.ruler?.female ? 'she' : 'he'} asks of you`;
+  deals.sort((a, b) => Number(b.kind === 'threat') - Number(a.kind === 'threat'));
+  const head = deals.some((d) => d.kind === 'threat') ? `What ${c.ruler?.female ? 'she' : 'he'} threatens` : deals.some((d) => d.kind === 'tribute') ? `What ${c.ruler?.female ? 'she' : 'he'} demands` : deals.every((d) => d.kind === 'offer') ? `What ${c.ruler?.female ? 'she' : 'he'} offers` : `What ${c.ruler?.female ? 'she' : 'he'} asks of you`;
   return `<section class="deals"><h3>${head}</h3>${deals.map((d) => dealHtml(s, d, map)).join('')}</section>`;
 }
 

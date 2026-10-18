@@ -779,7 +779,7 @@ export function againstDue(at: number, due: number): string {
 /** What you sent for a deal, on its way, in words (giftNews's, for the panels and tips). */
 export function sentWords(s: SimState, g: Gift, d: Deal | undefined): string {
   const name = cityName(g.to);
-  const what = d?.kind === 'tribute' ? `Your tribute of ${giftWords(g.good, g.amount)} for ${name}` : `The ${giftWords(g.good, g.amount)} for ${name}`;
+  const what = d?.kind === 'tribute' ? `Your tribute of ${giftWords(g.good, g.amount)} for ${name}` : d?.kind === 'threat' ? `The price of peace, ${giftWords(g.good, g.amount)}, for ${name}` : `The ${giftWords(g.good, g.amount)} for ${name}`;
   const days = (t: number): string => {
     const n = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
     return n === 1 ? '1 day' : `${n} days`;

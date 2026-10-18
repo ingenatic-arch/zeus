@@ -522,12 +522,27 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     const b = findBuilding(s, w.target);
     if (!b || b.kind === 'rubble' || (r && r.end !== '')) return headOff(s, map, w, r) || gone(s, w, r);
     w.wait = AT_TARGET;
+    light(s, b, r);
     break;
   }
   return true;
 }
 
-/** At the target: a field set alight (and its barn emptied), a store plundered (or, almost empty, set alight). */
+/** At the target, as they come: a field set alight; a store too, if there is little in it worth carrying. */
+function light(s: SimState, b: Building, r: Raid | undefined): void {
+  if (!r || r.end !== '') return;
+  const field = FIELDS[b.kind] !== undefined;
+  let most = 0;
+  for (const x of WARES) most = Math.max(most, held(b, x));
+  // (Not with fire switched off, as while a demo's history is built: it would never burn out.)
+  if (s.hazards && (field || Math.min(Math.floor(most / 2), r.men * CARRY) < STORE_WORTH / 2) && burnable(b) && b.fire !== FIRE_BURNING) {
+    ignite(s, b);
+    r.fired = true;
+    s.rev++;
+  }
+}
+
+/** At the end of their time there: what is in a field's barn carried off, a store plundered (up to 80 a man, never more than half). */
 function strike(s: SimState, w: Walker, r: Raid | undefined): void {
   const b = findBuilding(s, w.target);
   if (!b || !r || r.end !== '') return;
@@ -557,12 +572,6 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
     r.ware = ware;
     r.took = took;
     s.looks++;
-  }
-  // Fields are fired; a store too, if there was little in it.
-  // (Not with fire switched off, as while a demo's history is built: it would never burn out.)
-  if (s.hazards && (field !== undefined || took < STORE_WORTH / 2) && burnable(b) && b.fire !== FIRE_BURNING) {
-    ignite(s, b);
-    r.fired = true;
   }
   s.rev++;
 }
@@ -668,6 +677,9 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
 export function threatRefusal(s: SimState, map: CoastMap, d: Deal, act: string): string {
   const r = raidOf(s.world, d.id);
   if (!r || !live(r) || d.state !== 'open') return 'It is settled';
+  // (Leaving already, with whatever they took: nothing to pay for.)
+  const leaving = r.phase === 'raiding' && raidersOf(s, r)?.back === true;
+  if ((act === 'send' || act === 'goods') && leaving) return 'They are leaving your land already';
   if (act === 'send') {
     if (d.gift) return 'What you sent is on its way';
     return spendable(s) < r.coin ? `The treasury can’t spare ${fmt(r.coin)} dr now` : '';
@@ -790,7 +802,7 @@ export function raidChip(s: SimState, r: Raid): { chip: string; line: string } |
   if (r.phase === 'raiding') {
     const band = raidersOf(s, r);
     const doing = !band ? '' : band.back ? (band.load ? `making off with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : 'leaving your land') : band.wait > 0 ? (FIELDS[r.aim as BuildingKind] !== undefined ? `firing ${aimWords({ kind: r.aim as BuildingKind })}` : `plundering ${aimWords({ kind: r.aim as BuildingKind })}`) : `making for ${aimWords({ kind: r.aim as BuildingKind })}`;
-    return { chip: 'Raiders in the city', line: `${r.men} of ${whose(r.city)} raiders are in your city, ${doing}${live(r) ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
+    return { chip: 'Raiders in the city', line: `${r.men} of ${whose(r.city)} raiders are in your city, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
   }
   const days = daysToEdge(r, s.tick);
   const when = `${days === 1 ? '1 day' : `${days} days`}`;

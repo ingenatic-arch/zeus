@@ -6,11 +6,14 @@ import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
 import { routeOf } from '../sim/routes';
+import { bandsAt, sheltering } from '../sim/raids';
 import { cityShipColours, giftLook, ShipView, visitorLook } from './ship';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
 import { Works } from './works';
+
+const NO_ONE: ReadonlySet<number> = new Set();
 
 /**
  * Everything the player has built and everyone walking about, read from the
@@ -60,6 +63,9 @@ export class CityView {
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
     this.folk.begin();
+    // Raiders on the map: whoever is near them has run indoors (the sim's own rule), and is not drawn.
+    const bands = bandsAt(s);
+    this.walkers.hidden = bands.length ? new Set(s.walkers.filter((w) => sheltering(bands, w)).map((w) => w.id)) : NO_ONE;
     this.walkers.update(s, alpha, time);
     this.animals.update(s, alpha, time);
     this.folk.end();

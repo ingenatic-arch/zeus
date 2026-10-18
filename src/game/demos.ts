@@ -20,7 +20,8 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } 
 import { cityOf, lastHarvest, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
-import { askWhy, makeOffer, makeRequest, makeTribute, requestSize, tributeSize } from '../sim/favours';
+import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, tributeSize } from '../sim/favours';
+import { AT_TARGET, GATHER, marchTicks, raidersOf, THREAT_DAYS } from '../sim/raids';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
@@ -92,7 +93,7 @@ export interface Demo {
   /** A tool picked from the start. */
   tool?: ToolName;
   /** The camera follows the first walker of this kind (or waits at her workplace). */
-  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'caravan' | 'docker';
+  follow?: 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'caravan' | 'docker' | 'raider';
   /** For `follow: 'cart'`: the kind of maker whose carts to follow (a farm if not given). */
   followFrom?: 'farm' | 'vineyard' | 'winery' | 'pasture' | 'grove' | 'press';
   /** Which overlay `-overlay` shows for this demo (water if not given). */
@@ -1167,6 +1168,65 @@ function favourTown(stage: FavourStage): (sim: Sim) => void {
 }
 
 /**
+ * Raiders at the edge (slice 20). #threat: #caravan's town, run on until
+ * its first route is nearly a year old; Sparta's king, who was refused a
+ * first tribute (and turned cold), demanded tribute again and was refused:
+ * he threatens the city, and the map opens on his page. #raid: that threat
+ * let run out, the band on the road from Sparta a few days from your west
+ * edge, the map open on his page. #raiders: the band in your city, at the
+ * farm nearest the west edge, torches lit (fire switched on for the raid,
+ * as #blaze does). #aftermath: a few days after they left (a month after the raid), the burnt
+ * farm's rubble, the ledger open.
+ */
+type RaidStage = 'threat' | 'raid' | 'raiders' | 'aftermath';
+/** How many days from your edge #raid's band is when it opens. */
+const RAID_DAYS = 4;
+/** How long #raiders' band has been at the farm when it opens (ticks). */
+const RAIDERS_IN = 4;
+/** How long after the band left #aftermath opens (days). */
+const AFTER_DAYS = 5;
+
+function raidTown(stage: RaidStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    routesTown('caravan')(sim);
+    const sparta = cityOf(s.world, 'sparta');
+    // A first tribute, refused: the king (wary) turns cold.
+    const first = makeTribute(s, sim.map, sparta, -1, tributeSize(s, sparta, -1, false), false);
+    send({ type: 'answer', deal: first.id, act: 'refuse' });
+    // On until his raiders could come at the end of the usual two months (no raid in a city's first year of trade), the treasury able to pay them off.
+    const ready = firstRoute(s.world) + TICKS_PER_YEAR - GATHER - marchTicks('sparta') - THREAT_DAYS;
+    waitFor(sim, ready, 1000, ready + 3 * TICKS_PER_MONTH);
+    // The second demand, refused while he is cold: the threat.
+    const again = makeTribute(s, sim.map, sparta, -1, tributeSize(s, sparta, -1, false), false);
+    send({ type: 'answer', deal: again.id, act: 'refuse' });
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r || stage === 'threat') return;
+    // Let run out (as if nothing came): the band gathers and marches.
+    send({ type: 'answer', deal: r.deal, act: 'refuse' });
+    if (stage === 'raid') {
+      while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
+      waitFor(sim, s.tick, r.coin, s.tick);
+      return;
+    }
+    // In your city: fire on for the raid (a demo's history is built with it off), at the farm with torches lit.
+    hazards(sim, true);
+    while (r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
+    if (stage === 'raiders') {
+      // (At the farm, a few hours after setting it alight.)
+      for (let band = raidersOf(s, r); band && !band.back && !(band.wait > 0 && band.wait <= AT_TARGET - RAIDERS_IN); band = raidersOf(s, r)) sim.step();
+      return;
+    }
+    while (raidersOf(s, r) && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+    sim.run(AFTER_DAYS * TICKS_PER_DAY);
+  };
+}
+
+/**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
  * and meat ticked for sale to it and wine bought, up to 600. #athensship
@@ -1334,6 +1394,11 @@ const SCENES: Record<string, Demo> = {
   promise: { view: 'quay', setup: favourTown('promise'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
   offer: { view: 'yard', setup: favourTown('offer'), overlay: 'oil', greece: 'corinth', greeceTab: 'ruler' },
   tribute: { view: 'town', setup: favourTown('tribute'), overlay: 'missing', greece: 'sparta', greeceTab: 'ruler' },
+  // Slice 20: raiders at the edge. Sparta's threat; his band on the road; in your city at a farm; some weeks after.
+  threat: { view: 'raidwest', setup: raidTown('threat'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
+  raid: { view: 'raidwest', setup: raidTown('raid'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
+  raiders: { view: 'raidfarm', setup: raidTown('raiders'), overlay: 'food' },
+  aftermath: { view: 'raidwest', setup: raidTown('aftermath'), overlay: 'food', ledger: true },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -26,7 +26,7 @@ import { FLEECE, held, OIL, WHEAT, WINE } from './sim/foods';
 import { goodUntil, hasStall } from './sim/goods';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
-import { herdStatus, homeStatus, moneyTip, townLines, walkerStatus, type Status } from './sim/status';
+import { herdStatus, homeStatus, moneyTip, raidChipNow, townLines, walkerStatus, type Status } from './sim/status';
 import { kindTotal, monthOf, owedWages, totals } from './sim/treasury';
 import { purseTotal } from './sim/taxes';
 import { TILE_ROAD, type Building, type Herd, type Walker } from './sim/state';
@@ -39,11 +39,12 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
-import { giftOf } from './sim/walk';
+import { giftOf, position } from './sim/walk';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
 import { SidePanel } from './ui/sidepanel';
 import { TownLines } from './ui/townlines';
+import { RaidChip } from './ui/raidchip';
 import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
 import { GreeceButton } from './ui/greeceButton';
@@ -169,6 +170,8 @@ interface Probe {
   gifts?: () => Array<{ id: number; from: string; to: string; good: number; amount: number; got: number; by: string; phase: number; deal: number; caravan: { x: number; z: number } | null; porters: Array<{ x: number; z: number }>; ship: { visible: boolean; x: number; z: number } | null }>;
   /** Rulers' requests, offers and demands for tribute, and how each stands. */
   deals?: () => Array<{ id: number; kind: string; city: string; good: number; amount: number; state: string; promised: boolean; gift: number; due: number; done: number; angry: boolean }>;
+  /** Slice 20: the raids, the band in the city (where it is drawn), whether the chip shows, and how many walkers are indoors from it. */
+  raids?: () => { raids: Array<{ id: number; city: string; phase: string; end: string; men: number; took: number; fired: boolean; coin: number; deal: number }>; band: { x: number; z: number; back: boolean; load: number; drawn: boolean } | null; chip: string; indoors: number };
   sound?: () => { started: boolean; muted: boolean; played: number; state: string };
   welcome?: () => boolean;
   /** The ledger card's text ('' when closed). */
@@ -315,6 +318,7 @@ function start(): void {
   const notices = document.createElement('div');
   notices.className = 'notices';
   ui.appendChild(notices);
+  const raidChip = new RaidChip(notices, (city) => toggleGreece(true, city as CityId, 'ruler'));
   const panel = new HouseholdPanel(ui, () => panel.show(0));
   // The trading post's panel shares the household panel's place: one at a time.
   const tradePanel = new TradePanel(ui, (c) => {
@@ -322,6 +326,7 @@ function start(): void {
     sim.flush();
     sound.play('build');
     startAutosaving();
+    linesAt = -Infinity;
   });
   tradePanel.onOpen = () => panel.show(0);
   /** Open the trading post's panel and go to the post. */
@@ -575,7 +580,7 @@ function start(): void {
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders' };
 
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -667,7 +672,7 @@ function start(): void {
     for (const [to, view] of city.giftShips) {
       if (!shipNear(sx, sy, view.info)) continue;
       const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.to === to && x.phase === 1 && x.by === 'sea');
-      if (g) return showStatus({ title: `${g.deal ? 'Your ship' : 'Your gift ship'} · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}${g.deal ? (sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'tribute' ? ', as tribute' : ', as they asked') : ''}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
+      if (g) return showStatus({ title: `${g.deal ? 'Your ship' : 'Your gift ship'} · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}${g.deal ? (sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'tribute' ? ', as tribute' : sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'threat' ? ', the price of peace' : ', as they asked') : ''}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
     }
     const b = buildingAt(world);
     if (!b) {
@@ -698,6 +703,12 @@ function start(): void {
   const updateFollow = (): void => {
     if (!follow) return;
     if (rig.pans !== follow.pans) return stopFollow();
+    // Raiders: the band itself, until it leaves the map (what it came for may burn down under it).
+    if (follow.kind === 'raider') {
+      const band = city.walkers.serviceAt.get(follow.walker);
+      if (!band) return stopFollow();
+      return rig.follow(band.pos.x, band.pos.z);
+    }
     const f = findBuilding(sim.state, follow.origin);
     if (!f) return stopFollow();
     let at = city.walkers.serviceAt.get(follow.walker);
@@ -897,6 +908,8 @@ function start(): void {
             sim.flush();
             sound.play('build');
             startAutosaving();
+            // (The lines under the top bar say what the answer did at once, not half a second on.)
+            linesAt = -Infinity;
           },
         },
         () => performance.now(),
@@ -1187,6 +1200,18 @@ function start(): void {
       return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, deal: g.deal, caravan: at ? { x: at.x, z: at.z } : null, porters, ship: g.ship ? shipInfo(city.giftShips.get(g.to)?.info) : null };
     });
   probe.deals = () => sim.state.world.deals.map((d) => ({ id: d.id, kind: d.kind, city: d.city, good: d.good, amount: d.amount, state: d.state, promised: d.promised, gift: d.gift, due: d.due, done: d.done, angry: d.angry }));
+  probe.raids = () => {
+    const s = sim.state;
+    const w = s.walkers.find((x) => x.kind === 'raider');
+    const at = w ? city.walkers.serviceAt.get(w.id) : undefined;
+    const [x, z] = w ? position(w) : [0, 0];
+    return {
+      raids: s.world.raids.map((r) => ({ id: r.id, city: r.city, phase: r.phase, end: r.end, men: r.men, took: r.took, fired: r.fired, coin: r.coin, deal: r.deal })),
+      band: w ? { x, z, back: w.back, load: w.load, drawn: !!at } : null,
+      chip: raidChip.el.hidden ? '' : raidChip.el.textContent ?? '',
+      indoors: city.walkers.hidden.size,
+    };
+  };
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;
@@ -1288,6 +1313,8 @@ function start(): void {
   const routesSeen = new Map<string, { phase: number; visits: number }>();
   for (const r of sim.state.world.routes) routesSeen.set(`${r.city}-${r.kind}`, { phase: r.ship?.phase ?? 0, visits: r.visits });
   const caravansSeen = new Set(sim.state.walkers.filter((w) => w.kind === 'caravan').map((w) => w.id));
+  // Raiders already in the city as it opens are not news; a band coming in at the edge is: the horn, and "Raiders!" where they come in.
+  const raidersSeen = new Set(sim.state.walkers.filter((w) => w.kind === 'raider').map((w) => w.id));
   // Tax collectors' satchels as last seen, so "+84 dr" floats up from the office when one hands in.
   const satchels = new Map<number, { dr: number; origin: number }>();
   // The population's tooltip says how often newcomers are coming, and why.
@@ -1421,6 +1448,14 @@ function start(): void {
           if (!w.back) cue ??= 'caravan';
         }
         if (caravansSeen.size > 8) for (const id of caravansSeen) if (!s.walkers.some((w) => w.id === id)) caravansSeen.delete(id);
+        for (const w of s.walkers) {
+          if (w.kind !== 'raider' || raidersSeen.has(w.id)) continue;
+          raidersSeen.add(w.id);
+          const x = w.path[2] ?? w.path[0];
+          const z = w.path[3] ?? w.path[1];
+          floaters.add('Raiders!', new THREE.Vector3(x, map.heightAt(x, z) + 1.4, z), time, 'fire');
+          cue = 'horn';
+        }
       }
       if (cue) sound.play(cue);
     }
@@ -1488,6 +1523,7 @@ function start(): void {
       const tyre = shipNews(s);
       traderChip = s.world.routes.length ? (tradersNews(s, tyre)[0] ?? null) : tyre ? { ...tyre, who: 'tyre', kind: 'sea' } : null;
       topbar.showShip(traderChip);
+      raidChip.show(raidChipNow(s));
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;

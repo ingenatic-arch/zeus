@@ -633,6 +633,47 @@ function drover(): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/**
+ * A raider, facing +x: a dark leather tunic, a bronze helmet with a crest in
+ * his city's colour, a round shield on his left arm in the colour (the tinted
+ * parts), and in his right hand a torch alight (`torch`), a spear, or, on the
+ * way out, a sack of loot over his shoulder.
+ */
+function raider(hold: 'torch' | 'spear' | 'sack'): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1.3),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1.3),
+    { geo: new THREE.CylinderGeometry(0.058, 0.088, 0.21, 6).rotateZ(-0.16).translate(0.01, 0.205, 0), color: PAL.leather },
+    { geo: new THREE.CylinderGeometry(0.072, 0.072, 0.024, 6).translate(0, 0.17, 0), color: PAL.woodDark },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.025, 0.36, 0), color: PAL.skin },
+    // The helmet, and its crest from front to back.
+    { geo: new THREE.IcosahedronGeometry(0.066, 0).scale(1, 0.8, 1).translate(0.02, 0.385, 0), color: PAL.bronze },
+    { geo: new THREE.BoxGeometry(0.13, 0.05, 0.018).translate(0.0, 0.445, 0), color: '', tint: true },
+    // The round shield on his left, a bronze boss.
+    { geo: new THREE.CylinderGeometry(0.085, 0.085, 0.016, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.085), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.02, 6).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.095), color: PAL.bronze },
+  ];
+  if (hold === 'torch') {
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.15, 4).rotateZ(-0.9).translate(0.06, 0.3, 0.07), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.009, 0.011, 0.2, 4).rotateZ(-0.35).translate(0.13, 0.38, 0.07), color: PAL.wood });
+    parts.push({ geo: new THREE.ConeGeometry(0.035, 0.09, 5).translate(0.17, 0.5, 0.07), color: PAL.ember });
+    parts.push({ geo: new THREE.ConeGeometry(0.02, 0.06, 4).translate(0.17, 0.52, 0.07), color: PAL.flame });
+  } else if (hold === 'spear') {
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateX(-0.4).translate(0.03, 0.25, 0.075), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.006, 0.62, 3).rotateZ(-0.25).translate(0.06, 0.33, 0.085), color: PAL.wood });
+    parts.push({ geo: new THREE.ConeGeometry(0.014, 0.06, 4).rotateZ(-0.25).translate(0.135, 0.65, 0.085), color: PAL.rockGrey });
+  } else {
+    // A bulging sack over his right shoulder, held by its neck.
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateX(0.9).translate(-0.01, 0.33, 0.06), color: PAL.skin });
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.085, 1), 0.2, 2001).scale(1.1, 0.9, 0.9).translate(-0.08, 0.36, 0.06), color: PAL.sack });
+    parts.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.03, 4).translate(-0.02, 0.42, 0.06), color: PAL.rope });
+  }
+  return mergeTinted(parts);
+}
+
+/** How the raiders hold themselves: in to the target with torches and spears, out with sacks if they took anything. */
+const RAIDER_HOLDS = ['torch', 'spear', 'sack'] as const;
+
 /** Which porter look a docker's handcart takes for each trade good (wheat; meat and cheese as the mixed load). */
 const DOCKER_LOOK: Record<number, number> = { [WHEAT]: 1, [MEAT]: 2, [CHEESE]: 2, [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
 
@@ -669,6 +710,8 @@ export class Walkers {
   private readonly inspectors: Look;
   /** Caravans: their drover and their donkeys. */
   private readonly drovers: Look;
+  /** Raiders: [a torch, a spear, a sack of loot]. */
+  private readonly raiders: Look[];
   private readonly donkeys: Look;
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
@@ -706,7 +749,8 @@ export class Walkers {
     this.inspectors = small(inspector());
     this.drovers = small(drover());
     this.donkeys = big(donkey());
-    this.all = [...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
+    this.raiders = RAIDER_HOLDS.map((h) => small(raider(h)));
+    this.all = [...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
   }
 
   get count(): number {
@@ -741,7 +785,7 @@ export class Walkers {
     return [x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, (x1 - x0) / len, (z1 - z0) / len];
   }
 
-  update(state: SimState, alpha: number, _time: number): void {
+  update(state: SimState, alpha: number, time: number): void {
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
     const saffron = col(PAL.vendorDress);
@@ -765,6 +809,12 @@ export class Walkers {
         this.caravan(w, cum, lead, total);
         continue;
       }
+      if (w.kind === 'raider') {
+        this.band(w, cum, lead, total, time);
+        continue;
+      }
+      // (Run indoors from raiders near them: not drawn until they come out.)
+      if (this.hidden.has(w.id)) continue;
       if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
@@ -839,6 +889,65 @@ export class Walkers {
     }
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
+  }
+
+  /** Walkers who have run indoors from the raiders (set by the city view each frame: the sim's own rule). */
+  hidden: ReadonlySet<number> = new Set();
+
+  /**
+   * A raiding band: its men at a run in a loose pack, in their city's colours
+   * (shields and crests), torches and spears going in, sacks going out with
+   * loot; at their target they spread round it, torches up.
+   */
+  private band(w: Walker, cum: Float32Array, lead: number, total: number, time: number): void {
+    const city = CITY_IDS[w.food];
+    const colour = col(city ? PLACES[city].colour : PAL.tunicTerracotta);
+    const there = w.wait > 0;
+    const [hx, hz] = this.at(w, cum, lead);
+    for (let k = 0; k < w.people; k++) {
+      let x: number;
+      let z: number;
+      let heading: number;
+      let moving = 0;
+      if (there) {
+        // Round the target: each at his own place, turning now and then.
+        const a = hash2(w.id, k, 2101) * Math.PI * 2;
+        const r = 0.7 + hash2(w.id, k, 2102) * 1.1;
+        x = hx + Math.cos(a) * r;
+        z = hz + Math.sin(a) * r;
+        heading = a + Math.PI + Math.sin(time * 0.7 + k) * 0.6;
+      } else {
+        // A loose pack: a few abreast, rank behind rank, each a little off his line.
+        const row = Math.floor(k / 3);
+        const d = Math.max(0, lead - row * SPACING * 1.4 - hash2(w.id, k, 2103) * 0.12);
+        const [x0, z0, dx, dz] = this.at(w, cum, d);
+        const side = ((k % 3) - 1) * 0.22 + (hash2(w.id, k, 2104) - 0.5) * 0.08;
+        x = x0 - dz * side;
+        z = z0 + dx * side;
+        heading = Math.atan2(-dz, dx);
+        moving = d > 0 && d < total ? 1 : 0;
+      }
+      const phase = ((x + z) * Math.PI * 2) / STRIDE + k;
+      const bob = Math.abs(Math.cos(phase)) * 0.02 * moving;
+      this.e.set(Math.sin(phase) * 0.05 * moving, heading, 0, 'YXZ');
+      this.q.setFromEuler(this.e);
+      this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
+      const sc = 1.05 + 0.08 * hash2(w.id, k, 2105);
+      this.s.set(sc, sc, sc);
+      this.m.compose(this.p, this.q, this.s);
+      this.c.copy(colour);
+      if (!moving) this.c.multiplyScalar(-1);
+      // Going out with loot: most carry a sack; going in (or with nothing), torches and spears.
+      const hold = w.back && w.load > 0 && k % 4 !== 0 ? 2 : k % 2 === 0 || there ? 0 : 1;
+      this.raiders[hold].push(this.m, this.c);
+      // Hovered, clicked and followed by the band's middle (its head on the way; the target they stand round).
+      if (k === 0) {
+        this.p.set(hx, this.ground(hx, hz) + 0.03, hz);
+        const v = this.serviceAt.get(w.id);
+        if (v) v.pos.copy(this.p);
+        else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'raider' });
+      }
+    }
   }
 
   /** A caravan: its drover ahead in his city's colour, his donkeys strung out behind him along the road, each in a blanket of the same colour. */

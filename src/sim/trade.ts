@@ -898,7 +898,7 @@ function home(s: SimState, d: Walker, post: Building): false {
       g.got += d.load;
       // (Sent for a request or tribute: on its own line of the stock book.)
       const deal = g.deal ? s.world.deals.find((x) => x.id === g.deal) : undefined;
-      note(s, d.food, 'sold', `${deal ? (deal.kind === 'tribute' ? 'tribute' : 'sent') : 'gift'}:${g.to}`, d.load);
+      note(s, d.food, 'sold', `${deal ? (deal.kind === 'tribute' ? 'tribute' : deal.kind === 'threat' ? 'peace' : 'sent') : 'gift'}:${g.to}`, d.load);
     } else if (d.load > 0) setHeld(post, d.food, held(post, d.food) + d.load);
     if (d.load > 0) s.looks++;
     d.meat = 0;
@@ -999,7 +999,7 @@ export function dockerDoing(s: SimState, d: Walker): string {
     const gift = s.world.gifts.find((x) => x.id === giftOf(d));
     const city = gift ? gift.to.replace(/^./, (c) => c.toUpperCase()) : '';
     const deal = gift?.deal ? s.world.deals.find((x) => x.id === gift.deal) : undefined;
-    const to = !gift ? ' for your gift' : deal ? (deal.kind === 'tribute' ? ` for the tribute ${city} demands` : ` for ${city}, as they asked`) : ` for your gift to ${city}`;
+    const to = !gift ? ' for your gift' : deal ? (deal.kind === 'tribute' ? ` for the tribute ${city} demands` : deal.kind === 'threat' ? ` for ${city}, the price of peace` : ` for ${city}, as they asked`) : ` for your gift to ${city}`;
     if (d.back) return d.load > 0 ? `bringing ${d.load.toLocaleString('en-GB')} ${name} to ${depot}${to}` : `going back to ${depot}`;
     return d.wait > 0 ? `loading ${name} at ${where}${to}` : `going to ${where} for ${name}${to}`;
   }

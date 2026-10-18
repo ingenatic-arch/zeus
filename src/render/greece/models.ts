@@ -185,6 +185,34 @@ export function caravanModel(colour: string): THREE.BufferGeometry {
   return merge(p);
 }
 
+/**
+ * A war band on the road (along +x, the head at +x): a few warriors in ranks
+ * of two, round shields in the city's colour, spears up, and a banner at the
+ * head; gathering (`camp`), they stand in a ring round the banner by a tent.
+ */
+export function bandModel(colour: string, trim: string, camp = false): THREE.BufferGeometry {
+  const p: Part[] = [];
+  const men: Array<[number, number, number]> = [];
+  if (camp) {
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + 0.3;
+      men.push([Math.cos(a) * 0.55, Math.sin(a) * 0.55, a + Math.PI]);
+    }
+    p.push({ geo: new THREE.ConeGeometry(0.32, 0.42, 4).rotateY(Math.PI / 4).translate(-0.15, 0.21, -0.1), color: '#e9dcc0' });
+  } else for (let i = 0; i < 8; i++) men.push([0.8 - Math.floor(i / 2) * 0.36, i % 2 ? 0.13 : -0.13, 0]);
+  for (const [x, z, turn] of men) {
+    // A warrior: dark tunic, bronze helmet, a round shield in the colour on his left, a spear up on his right.
+    p.push({ geo: new THREE.CylinderGeometry(0.055, 0.085, 0.3, 6).translate(x, 0.15, z), color: colour });
+    p.push({ geo: new THREE.SphereGeometry(0.065, 6, 4).translate(x, 0.36, z), color: '#b08a3a' });
+    const sx = x + Math.sin(turn) * 0.09;
+    const sz = z + (camp ? Math.cos(turn) * 0.09 : -0.09);
+    p.push({ geo: new THREE.CylinderGeometry(0.1, 0.1, 0.03, 8).rotateX(Math.PI / 2).rotateY(camp ? turn : 0).translate(sx, 0.2, sz), color: '#c9a04a' });
+    p.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.62, 4).translate(x - Math.sin(turn) * 0.08, 0.31, z + (camp ? -Math.cos(turn) * 0.08 : 0.09)), color: POLE });
+  }
+  banner(p, camp ? 0 : 1.05, 0, 0, 0.95, colour, trim);
+  return merge(p);
+}
+
 /** The wooden table under the map, and the raised frame round it. */
 export function tableModel(): THREE.Group {
   const g = new THREE.Group();

@@ -191,6 +191,16 @@ const SHOTS = {
   'sail-bay': '#sail',
   'ship-leaving': '#ship',
   'black-after': '#black',
+  // Slice 20: raiders at the edge.
+  threat: '#threat-paused',
+  raid: '#raid-paused',
+  'raid-band': '#raid-paused',
+  'raid-city': '#raid-paused',
+  raiders: '#raiders-paused-shot',
+  'raiders-close': '#raiders-paused-shot',
+  'raiders-tip': '#raiders-paused',
+  'raiders-leaving': '#raiders',
+  aftermath: '#aftermath-paused',
 };
 
 /** Hover the pointer over a world point (after a few frames, so the camera has settled). */
@@ -221,6 +231,34 @@ const closeToWalker = async (page, find, ticks = 40, view = { yaw: 0.5, dist: 2.
 
 /** Things to do on the page before a shot. */
 const BEFORE = {
+  // The band on the map of Greece, close: the map's camera on the road between Sparta and your city, the band's card under the pointer.
+  'raid-band': async (page) => {
+    const g = await page.evaluate(() => window.__zeus.greeceInfo());
+    const at = g.travellers['raid-1'];
+    if (at) {
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.move(at.x + 1, at.y + 1);
+    }
+  },
+  // With the map put away: the city, the chip under the top bar counting the days.
+  'raid-city': async (page) => {
+    await page.evaluate(() => window.__zeus.greece(false));
+  },
+  'raiders-close': async (page) => {
+    const r = await page.evaluate(() => window.__zeus.raids());
+    if (r.band) await page.evaluate((v) => window.__zeus.jump(v), { x: r.band.x, z: r.band.z, yaw: 2.2, dist: 4.5, tilt: 0.15 });
+  },
+  'raiders-tip': async (page) => {
+    const r = await page.evaluate(() => window.__zeus.raids());
+    if (r.band) await hover(page, r.band.x, r.band.z);
+  },
+  // On the way out with their sacks.
+  'raiders-leaving': async (page) => {
+    await page.waitForFunction(() => window.__zeus.raids().band?.back === true, null, { timeout: 400000, polling: 100 });
+    await page.evaluate(() => window.__zeus.speed('paused'));
+    const r = await page.evaluate(() => window.__zeus.raids());
+    if (r.band) await page.evaluate((v) => window.__zeus.jump(v), { x: r.band.x, z: r.band.z, yaw: 2.4, dist: 6, tilt: 0.12 });
+  },
   'quay-close': async (page) => {
     await closeTo(page, 'trading', 2.2, 7, 0.15);
   },

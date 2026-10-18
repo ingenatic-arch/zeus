@@ -238,6 +238,8 @@ export const PAL = {
   bucket: '#7a5638',
   bucketWater: '#5aa6c4',
   leather: '#6a4a30',
+  // A raider's helmet and shield boss.
+  bronze: '#b8893a',
   watchmanTunic: '#b4492c',
   inspectorDress: '#2f4f7e',
   inspectorScarf: '#e8dcc0',

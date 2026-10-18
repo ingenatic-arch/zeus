@@ -261,6 +261,8 @@ for (const [hash, views] of [
   // Slice 16: a caravan walking in down the main street, and the Athenian ship coming in to the jetty.
   ['#caravan-paused-shot', [null, 'town']],
   ['#athensship-paused-shot', ['ship', 'town']],
+  // Slice 20: raiders at a farm by the west edge, the fire alight.
+  ['#raiders-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -292,8 +294,8 @@ for (const [hash, views] of [
   await page.waitForFunction(() => window.__zeus.greeceOpenMs !== undefined, null, { timeout: 120000 });
   const g = await page.evaluate(() => ({ build: window.__zeus.greeceBuildMs, open: window.__zeus.greeceOpenMs }));
   console.log(`map of Greece, first opened from #town: built in ${g.build.toFixed(0)} ms (code fetch and scene), first map frame ${g.open.toFixed(0)} ms after the key by the page's clock (Playwright saw it after ${Date.now() - t} ms)`);
-  // (Slice 17: #prices and #famine open on a city's page of prices, after a few years' trading or a year's play set up. Slice 18: #gift and #hostile on a ruler's page. Slice 19: #request and #tribute, a ruler's page with a deal on it.)
-  for (const hash of ['#greece-paused-shot', '#greecesail-paused-shot', '#prices-paused-shot', '#famine-paused-shot', '#gift-paused-shot', '#hostile-paused-shot', '#request-paused-shot', '#tribute-paused-shot']) {
+  // (Slice 17: #prices and #famine open on a city's page of prices, after a few years' trading or a year's play set up. Slice 18: #gift and #hostile on a ruler's page. Slice 19: #request and #tribute, a ruler's page with a deal on it. Slice 20: #raid, the band on the road.)
+  for (const hash of ['#greece-paused-shot', '#greecesail-paused-shot', '#prices-paused-shot', '#famine-paused-shot', '#gift-paused-shot', '#hostile-paused-shot', '#request-paused-shot', '#tribute-paused-shot', '#raid-paused-shot']) {
     await page.goto('about:blank');
     await page.goto(url + hash);
     await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
@@ -308,7 +310,7 @@ for (const [hash, views] of [
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
