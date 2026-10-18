@@ -19,8 +19,8 @@ What breaks, or moves: no save is lost. A town saved before this slice opens wit
 
 ### What to try
 1. Open `#prices`: the town from `#caravan` a year and a half on (April 746 BC), selling oil to Corinth caravan after caravan, with the map open on Corinth's page. Oil there is 56 against its usual 90, and the chart shows it stepping down visit by visit. Hover a chart for its year in figures. Close the map (Tab) and open the trade panel's Corinth tab: the same prices, at your price on Corinth's terms.
-2. In `#prices`, run at speed and watch Corinth's oil ease back up between caravans, then drop again as the next one pays. Untick oil in the route tab and watch the price recover over the following months.
-3. Open `#famine`: the town from `#athensship` in late August, with the map on Athens' page saying "the fields look parched". Close the map and let it run: five days later the harvests come in, Athens' fails, and a line comes up under the top bar. Click it: wheat in Athens has nearly doubled, and the reason says why. Athens' ship comes about three weeks later to buy your wheat at the higher price.
+2. In `#prices`, run at speed and watch Corinth's oil ease back up between caravans, then drop again as the next one pays (a week in, from 56 to 48). Corinth only buys so much oil a year (the route tab's "Left" column): by June this year's is used up, and the price climbs back until January. Untick oil in the route tab and watch it recover over the following months.
+3. Open `#famine`: the town from `#athensship` in late August, with the map on Athens' page saying "the fields look parched". Close the map and let it run: five days later the harvests come in, Athens' fails, and a line comes up under the top bar. Click it: wheat in Athens has nearly doubled, and the reason says why. Athens' ship ties up in mid-September, about two weeks after the harvest, and pays about 42 a hundred for the wheat on the quay, where it was 25 before.
 4. Open `#ruler` and read Sparta's terms, or open any city's page (Tab, then click a city) to compare prices across Greece. On the map, hover a caravan on the road or a foreign ship at sea.
 5. Open `#buywine`, `#routes` or `#caravan`: the watch post and the architect's office now stand by the caravan yard.
 
@@ -33,7 +33,7 @@ Each link also opens paused if you add `-paused` (for example `#famine-paused`).
 - **How often harvests fail.** About one year in fourteen per city, with four cities, so somewhere in Greece most years has a poor or failed harvest. Is that the right rhythm of news?
 
 ### Known rough edges
-- The terms don't change yet, since the moods don't (that is slice 18), and in the demos they are only 2%, so they barely show there.
+- The terms barely change yet: only as a ruler's first impression of your city fades over its first three years (moods that answer what you do are slice 18). In the demos they are only 2%, so they barely show there.
 - `#prices` takes about a second longer to open than the other trade demos (about 4 seconds), since it plays the town on from its founding for four years first.
 - Wheat's arrow can point down while the reason still says "dear": that is the price easing back after a failed harvest. The reason line says "easing" then, but the arrow on its own can look contradictory.
 - A city's page now runs long (the ruler, the prices, the routes). On a laptop screen it scrolls.
@@ -54,6 +54,22 @@ Headless Chromium with software rendering at 1920 × 1080, so frame rates mean n
 | `#famine`: map triangles and draws; ready; work a frame | | 304,206, 22; 3.49 s and 3.71 s; 6.1 and 5.5 ms |
 | The map of Greece, first open: built in | 0.29 s, 0.35 s | 0.30 s, 0.35 s |
 | The 64 demos before slice 16 | | each opens and plays 900 ticks on exactly as before |
+
+### What the review changed
+I played through every step above in the browser at 1920 × 1080 and read the price model, the saves and the demos. What changed:
+
+- **Arrows start steady.** In a new game, a few prices showed a rising or falling arrow from the first day with nothing moving them (it came from rounding the prices to whole drachmas). Every arrow now starts steady, in a new game and in a town saved before this slice.
+- **Reasons that match the price.** A price within a whisker of its usual level no longer names a push in its tip ("at its usual price: a good harvest last autumn"); it says what the city usually has. And when part of what keeps a price low is trade from more than a year ago, the reason now says so ("you sold them 170 in the last year, and more before") instead of naming only the small figure.
+- **Pushes wear off completely.** The last sliver of a push (under one measure) could stay for ever; too small to move a price, but it meant a city never quite got back to normal. It now goes.
+- **The harvest news** quotes the wheat price the city's page shows that day (it said one more, from before the day's wear).
+- **A measuring fix, not a game one.** The whole-town view of `#caravan` gave different triangle counts from run to run. Nothing in the game varies: the measuring script picked a view while the camera was still following the caravan, which pulled it back at the speed of the frames. Picking a view now stops following, and that view measures the same every run (770,459 triangles, 79 draws, three runs).
+
+Also looked at, and left as they are:
+- `#prices` still takes about 4 seconds to open. Most of its setup is the town saving up for the yard, the groves and the road to Corinth; opening the road before the groves made it only about a third of a second faster, and Corinth then bought a fraction of the oil, so the chart barely moved.
+- `#famine` sets Athens' coming harvest to fail in its own setup. That is a value any game can roll, only in that demo, so it can't reach a real game, and a save made from it is just a town whose Athens is due a failed harvest.
+- In new games the terms run from about 13% against you to 13% in your favour (400 new games); the pages read, for example, "Sparta’s terms: cordial, prices 6% in your favour".
+- Corrected above: step 2 now says Corinth's yearly limit for oil runs out by June (after which its price climbs back on its own), step 3 says when Athens' ship ties up and what she pays, and the terms do drift a little as first impressions fade.
+- All 64 demos from before slice 16 still open and play 900 ticks on exactly as before, and the route demos are the same as the builder left them. Tests: 268 in 24 files; the build, the smoke run and the measurements are clean (bundle 1,317 KB raw, 387 KB gzipped).
 
 ## Slice 16 — Routes and traders (17 Oct)
 

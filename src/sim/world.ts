@@ -259,7 +259,7 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
       c.crop[k] = tidy(HARVEST_SHIFT[c.harvest] * CROP_WEIGHT[k] * normalStock(c, k) * wear);
     });
     reprice(c);
-    c.trail = c.price.slice();
+    c.trail = trailOf(c);
     c.history = c.price.map((p) => new Array<number>(12).fill(p));
   }
   return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [] };
@@ -339,8 +339,13 @@ const HARVEST_ODDS = [7, 18, 45, 20, 10];
 export const HARVEST_SHIFT = [-0.75, -0.35, 0, 0.32, 0.6];
 /** How much each trade good feels the harvest: wheat fully, oil and wine (crops too) six tenths, meat and cheese (fodder) three, fleece not at all. */
 export const CROP_WEIGHT = [1, 0.3, 0.3, 0.6, 0, 0.6];
-/** A push smaller than this (measures) is let go. */
-const TIDY = 0.5;
+/**
+ * A push smaller than this (measures) is let go. (At least 0.75: pushes are
+ * kept to the hundredth, and below that a day's wearing off, 1/150 of it, is
+ * less than half a hundredth, so it would round back to where it was and
+ * never reach nothing.)
+ */
+const TIDY = 1;
 
 const tidy = (x: number): number => (Math.abs(x) < TIDY ? 0 : Math.round(x * 100) / 100);
 
@@ -366,6 +371,12 @@ function rawPrice(c: WorldCity, k: number, yours = c.yours[k], crop = c.crop[k])
   const ratio = Math.max(RATIO_MIN, Math.min(RATIO_MAX, (n + yours + crop) / n));
   return usualRaw(k, c.make[k], c.need[k]) / Math.sqrt(ratio);
 }
+
+/** A ruled city's prices as they stand now, unrounded (to the hundredth), for the arrow's trail to start from: steady. */
+export const trailOf = (c: WorldCity): number[] => TRADE_GOODS.map((_, k) => Math.round(rawPrice(c, k) * 100) / 100);
+
+/** A city's usual price for a good unrounded (to the hundredth), from what it makes and uses: where a price with nothing pushing it sits, for a trail. */
+export const usualTrail = (k: number, make: number, need: number): number => Math.round(usualRaw(k, make, need) * 100) / 100;
 
 /** Set a ruled city's stock and prices from its pushes (Tyre and your city keep theirs). */
 export function reprice(c: WorldCity): void {
@@ -411,15 +422,9 @@ export const isHarvest = (tick: number): boolean => lastHarvest(tick) === tick;
 export function stepWorld(s: SimState): void {
   if (s.tick % TICKS_PER_DAY !== 0) return;
   const w = s.world;
-  if (isHarvest(s.tick)) {
-    for (const c of w.cities) {
-      if (!c.ruler) continue;
-      const was = c.price[0];
-      harvestIn(w, c.id, c.outlook);
-      if (c.harvest === 0 || c.harvest === 4) w.news.push({ tick: s.tick, city: c.id, line: harvestLine(c, was) });
-    }
-    if (w.news.length > NEWS_KEEP) w.news.splice(0, w.news.length - NEWS_KEEP);
-  }
+  const harvest = isHarvest(s.tick);
+  const was = w.cities.map((c) => c.price[0]);
+  if (harvest) for (const c of w.cities) if (c.ruler) harvestIn(w, c.id, c.outlook);
   const keep = 1 - 1 / WEAR_DAYS;
   for (const c of w.cities) {
     if (!c.ruler) continue;
@@ -431,6 +436,13 @@ export function stepWorld(s: SimState): void {
     TRADE_GOODS.forEach((_, k) => {
       c.trail[k] = Math.round((c.trail[k] + (rawPrice(c, k) - c.trail[k]) / TRAIL_DAYS) * 100) / 100;
     });
+  }
+  // The news of a failed or rich harvest, with wheat's price as the pages show it from today.
+  if (harvest) {
+    w.cities.forEach((c, i) => {
+      if (c.ruler && (c.harvest === 0 || c.harvest === 4)) w.news.push({ tick: s.tick, city: c.id, line: harvestLine(c, was[i]) });
+    });
+    if (w.news.length > NEWS_KEEP) w.news.splice(0, w.news.length - NEWS_KEEP);
   }
   if (s.tick % TICKS_PER_MONTH !== 0) return;
   for (const c of w.cities) {
@@ -497,14 +509,17 @@ export function priceWhy(c: WorldCity, k: number, tick: number): PriceWhy {
   const byYou = c.ruler ? now - rawPrice(c, k, 0) : 0;
   const byCrop = c.ruler ? now - rawPrice(c, k, c.yours[k], 0) : 0;
   const big = Math.max(Math.abs(byYou), Math.abs(byCrop));
-  if (!c.ruler || big < usual * 0.03) {
+  // (Within 3% of its usual price, nothing moves it much: say what it usually is, not a push the price doesn't show.)
+  if (!c.ruler || word === 'usual' || big < usual * 0.03) {
     const why = c.make[k] > c.need[k] * 1.15 ? 'they make plenty of it' : c.need[k] > c.make[k] * 1.15 ? 'they are short of it' : 'they make about what they use';
     return { arrow, word: 'usual', push: 'usual', why, usual };
   }
   if (Math.abs(byYou) >= Math.abs(byCrop)) {
     const n = dealtYear(c, k);
+    // (When what is left of the push is more than all of the year's dealings, older trade must be in it too: say so.)
+    const before = Math.abs(c.yours[k]) > Math.abs(n) && Math.sign(c.yours[k]) === Math.sign(n) ? ', and more before' : '';
     const why =
-      n > 0 ? `you sold them ${fmtN(n)} in the last year` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year` : byYou < 0 ? 'you sold them a good deal of it lately' : 'you bought a good deal of it from them lately';
+      n > 0 ? `you sold them ${fmtN(n)} in the last year${before}` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year${before}` : byYou < 0 ? 'you sold them a good deal of it lately' : 'you bought a good deal of it from them lately';
     return { arrow, word, push: 'you', why, usual };
   }
   const autumn = dateOfTick(tick).month >= HARVEST_MONTH ? 'this autumn' : 'last autumn';

@@ -972,7 +972,11 @@ function start(): void {
     geometries: renderer.info.memory.geometries,
     textures: renderer.info.memory.textures,
   });
-  probe.setView = (name: string) => rig.jumpTo(VIEWS[name] ?? VIEWS.coast);
+  probe.setView = (name: string) => {
+    // (A view chosen stops following anyone: otherwise the camera eases back to them frame by frame, and what is in view depends on how fast the frames come.)
+    stopFollow();
+    rig.jumpTo(VIEWS[name] ?? VIEWS.coast);
+  };
   probe.jump = (v: CameraView) => {
     stopFollow();
     rig.jumpTo(v);

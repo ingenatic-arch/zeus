@@ -86,7 +86,7 @@ import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
 import { freshTrade, TRADE_GOODS } from './trade';
-import { freshWorld } from './world';
+import { freshWorld, usualTrail } from './world';
 import { freshBook } from './stockbook';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
@@ -284,9 +284,12 @@ function from16(st: Record<string, unknown>): void {
     for (const c of w.cities as Array<Record<string, unknown>>) {
       if (!isObj(c) || Array.isArray(c.yours)) continue;
       const price = Array.isArray(c.price) ? (c.price as number[]) : [];
+      const make = Array.isArray(c.make) ? (c.make as number[]) : [];
+      const need = Array.isArray(c.need) ? (c.need as number[]) : [];
       c.yours = TRADE_GOODS.map(() => 0);
       c.crop = TRADE_GOODS.map(() => 0);
-      c.trail = price.slice();
+      // (The arrow's trail at the price unrounded, as it will be from the first day, so every arrow starts steady.)
+      c.trail = c.ruler && price.length === TRADE_GOODS.length ? TRADE_GOODS.map((_, k) => usualTrail(k, make[k] ?? 0, need[k] ?? 0)) : price.slice();
       c.dealt = TRADE_GOODS.map(() => new Array<number>(12).fill(0));
       c.outlook = 2;
     }

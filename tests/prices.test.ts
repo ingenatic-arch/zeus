@@ -88,6 +88,32 @@ describe('your trade moves a city’s prices', () => {
     expect(Math.abs(c.yours[OIL_K])).toBeLessThan(10);
     // The year's record of what you sold has moved on too.
     expect(c.dealt[OIL_K].every((n) => n === 0)).toBe(true);
+    // And a year later the push has worn off to nothing at all (not a sliver left over by the rounding).
+    a.run(TICKS_PER_YEAR);
+    expect(c.yours[OIL_K]).toBe(0);
+  });
+
+  it('a new Greece’s arrows all start steady, whatever the rounding of its prices', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const g = greece(seed);
+      for (const id of RULED) for (const k of TRADE_GOODS.keys()) expect(arrowOf(cityOf(w(g), id), k)).toBe(0);
+      g.run(10 * TICKS_PER_DAY);
+      for (const id of RULED) for (const k of TRADE_GOODS.keys()) expect(arrowOf(cityOf(w(g), id), k)).toBe(0);
+    }
+  });
+
+  it('a price the trade has left near its usual level names no push, and an old push says so', () => {
+    const g = greece(5);
+    g.run(10);
+    const c = cityOf(w(g), 'corinth');
+    // A little bought back after a sale: the price is within 3% of usual, so it is "usual", whatever is left of the pushes.
+    traded(w(g), 'corinth', OIL_K, 40);
+    if (Math.abs(c.price[OIL_K] - usualPrice(c, OIL_K)) <= usualPrice(c, OIL_K) * 0.02) expect(priceWhy(c, OIL_K, g.s.tick)).toMatchObject({ word: 'usual', push: 'usual' });
+    // A big sale, then a small one a year later: what is left of the first is more than the year's dealings, and the reason says so.
+    traded(w(g), 'corinth', OIL_K, 3000);
+    g.run(13 * TICKS_PER_MONTH);
+    traded(w(g), 'corinth', OIL_K, 100);
+    expect(priceWhy(c, OIL_K, g.s.tick).why).toBe('you sold them 100 in the last year, and more before');
   });
 
   it('buying raises the price, and the reason says what you bought', () => {
@@ -309,6 +335,8 @@ describe('saves', () => {
     expect(c.price).toEqual(TRADE_GOODS.map((_, k) => usualPrice(c, k)));
     expect(c.yours.every((n) => n === 0) && c.crop.every((n) => n === 0)).toBe(true);
     expect(c.outlook).toBe(2);
+    // Every arrow starts steady.
+    for (const id of RULED) for (const k of TRADE_GOODS.keys()) expect(arrowOf(cityOf(s.world, id), k)).toBe(0);
     const sim = new Sim();
     sim.state = s;
     const k = tradeIndex(WINE);
