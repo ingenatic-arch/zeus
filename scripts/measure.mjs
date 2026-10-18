@@ -258,6 +258,9 @@ for (const [hash, views] of [
   ['#quay-paused-shot', ['quay', 'overview']],
   ['#sail-paused-shot', ['sail']],
   ['#ship-paused-shot', ['ship', 'town']],
+  // Slice 16: a caravan walking in down the main street, and the Athenian ship coming in to the jetty.
+  ['#caravan-paused-shot', [null, 'town']],
+  ['#athensship-paused-shot', ['ship', 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -303,7 +306,7 @@ for (const [hash, views] of [
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

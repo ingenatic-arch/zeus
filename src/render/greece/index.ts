@@ -399,7 +399,7 @@ export class GreeceMap {
   }
 
   /** For the probe: what the map shows. */
-  info(): { open: boolean; built: boolean; buildMs: number; shown: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView> } {
+  info(): { open: boolean; built: boolean; buildMs: number; shown: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView>; travellers: Record<string, { x: number; y: number }> } {
     const r = this.host.canvas.getBoundingClientRect();
     const cities: Record<string, { x: number; y: number }> = {};
     for (const id of CITY_IDS) {
@@ -409,6 +409,13 @@ export class GreeceMap {
     }
     this.v.copy(this.ship.position).setY(0.6).project(this.camera);
     cities.ship = { x: r.left + (this.v.x * 0.5 + 0.5) * r.width, y: r.top + (-this.v.y * 0.5 + 0.5) * r.height };
+    // The trade routes' ships and caravans in sight, by route key (a caravan's with its number), where they are on the screen.
+    const travellers: Record<string, { x: number; y: number }> = {};
+    for (const [key, m] of this.travellers) {
+      if (!m.visible) continue;
+      this.v.copy(m.position).setY(m.position.y + 0.4).project(this.camera);
+      travellers[key] = { x: r.left + (this.v.x * 0.5 + 0.5) * r.width, y: r.top + (-this.v.y * 0.5 + 0.5) * r.height };
+    }
     return {
       open: this.open,
       built: true,
@@ -422,6 +429,7 @@ export class GreeceMap {
       moods: this.state ? moods(this.state) : {},
       name: this.state?.world.name ?? '',
       view: this.rig.view,
+      travellers,
     };
   }
 }

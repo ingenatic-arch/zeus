@@ -986,9 +986,9 @@ await page.mouse.up();
 await frames(3);
 c = await city();
 if (!(c.tradingPosts === 1 && money13 - c.money === 250 && c.shipChip === '90 d')) fail(`building the trading post: ${JSON.stringify(c)} (was ${money13} dr)`);
-// G cycles the granary, the storehouse and the trading post.
+// G cycles the granary, the storehouse, the trading post and the caravan yard.
 await page.keyboard.press('Escape');
-for (const want of ['granary', 'storehouse', 'trading', 'granary']) {
+for (const want of ['granary', 'storehouse', 'trading', 'yard', 'granary']) {
   await page.keyboard.press('g');
   await frames(1);
   c = await city();
@@ -1264,6 +1264,74 @@ await page.mouse.click(g.cities.ship.x, g.cities.ship.y);
 await frames(3);
 g = await gi();
 if (!(g.shown === 'tyre' && /The ship/.test(g.panel))) fail(`clicking the ship: ${g.shown} ${g.panel.slice(0, 200)}`);
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// Slice 16. #routes: the map open on Corinth's page with its road ready to open; opening it, and its caravan on the map's road.
+const tr16 = () => zeus(() => window.__zeus.traders());
+await open('#routes-paused');
+await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
+await frames(3);
+g = await gi();
+if (!(g.shown === 'corinth' && /Open a road to Corinth · 500 dr/.test(g.panel) && /Open a sea route to Corinth[\s\S]*needs the trading post/.test(g.panel))) fail(`#routes: ${g.panel.slice(-500)}`);
+if (await zeus(() => document.querySelector('.greece-panel button[data-open="corinth-land"]')?.disabled !== false)) fail('#routes: the road to Corinth cannot be opened');
+await page.click('.greece-panel button[data-open="corinth-land"]');
+await frames(3);
+let t16 = await tr16();
+g = await gi();
+if (!(t16.routes.length === 1 && t16.routes[0].key === 'corinth-land' && /By road · open since[\s\S]*Corinth buys[\s\S]*Corinth sells/.test(g.panel))) fail(`opening the road: ${JSON.stringify(t16)} ${g.panel.slice(-600)}`);
+await zeus(() => window.__zeus.speed('fast'));
+await page.waitForFunction(() => window.__zeus.traders().routes[0].onMap.length > 0, null, { timeout: 300000, polling: 16 });
+await zeus(() => window.__zeus.speed('paused'));
+await frames(2);
+g = await gi();
+if (!g.travellers['corinth-land-0']) fail(`no caravan on the map's road: ${JSON.stringify(g.travellers)}`);
+// #caravan: the caravan walking in from the north edge, followed, with its town line, its tip and the donkey on the chip.
+await open('#caravan-paused');
+c = await city();
+t16 = await tr16();
+const cv16 = t16.routes[0]?.caravan;
+if (!(cv16 && !cv16.back && !cv16.trading && cv16.donkeys === 5 && c.following)) fail(`#caravan: ${JSON.stringify(t16)} following ${c.following}`);
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /caravan from Corinth/.test(l))) fail('#caravan: no town line for the caravan');
+if (!(await zeus(() => !!document.querySelector('.ship-chip.land:not([hidden])')))) fail('#caravan: the chip does not show the caravan');
+await page.keyboard.press('Escape');
+await frames(2);
+const cw16 = await zeus(() => window.__zeus.walker('caravan'));
+if (cw16) {
+  await page.mouse.move(cw16.x, cw16.y);
+  await frames(2);
+  const ct16 = await tip();
+  if (!/^A caravan from Corinth\n5 donkeys and their drover/.test(ct16 ?? '')) fail(`hovering the caravan: ${ct16}`);
+} else fail('#caravan: the caravan is not drawn');
+// #buywine: the caravan comes in to the yard, unloads the wine and trades; the chip opens its tab.
+await open('#buywine-paused');
+await zeus(() => window.__zeus.speed('normal'));
+await page.waitForFunction(() => window.__zeus.traders().routes[0].caravan?.trading === true, null, { timeout: 300000, polling: 16 });
+await zeus(() => window.__zeus.speed('paused'));
+await page.click('.ship-chip');
+await frames(3);
+t16 = await tr16();
+const bt16 = await zeus(() => window.__zeus.tradeText());
+if (!(t16.tab === 'corinth-land' && /Corinth’s caravan trading[\s\S]*it brought 1,200 wine[\s\S]*Corinth sells[\s\S]*Wine/.test(bt16))) fail(`#buywine: ${t16.tab} ${bt16.slice(0, 600)}`);
+await zeus(() => window.__zeus.ledger(true));
+await frames(3);
+if (!/Bought · wine from Corinth\s*−852/.test(await zeus(() => window.__zeus.ledgerText()))) fail('#buywine: no ledger line for the wine');
+// #athensship: her route's tab, both tabs, and the chip names her once she is in port.
+await open('#athensship-paused');
+t16 = await tr16();
+if (!(t16.tab === 'athens-sea' && t16.routes[0].ship?.visible && (await zeus(() => document.querySelectorAll('.tradetabs button').length)) === 2)) fail(`#athensship: ${JSON.stringify(t16)}`);
+await zeus(() => window.__zeus.speed('normal'));
+await page.waitForFunction(() => window.__zeus.traders().routes[0].ship?.phase === 2, null, { timeout: 300000, polling: 16 });
+await zeus(() => window.__zeus.speed('paused'));
+await frames(3);
+c = await city();
+if (c.shipChip !== 'In port') fail(`#athensship: the chip says ${c.shipChip}`);
+await page.click('.tradetabs button[data-tab="tyre"]');
+await frames(2);
+if (!/^Tyre[\s\S]*The trading post/.test(await zeus(() => window.__zeus.tradeText()))) fail('#athensship: the Tyre tab');
+// #anchor: she rides at anchor clear of the Tyre ship at the jetty.
+await open('#anchor-paused');
+t16 = await tr16();
+const sh16 = await zeus(() => window.__zeus.ship());
+const v16 = t16.routes[0].ship;
+if (!(v16?.visible && v16.phase === 4 && sh16.phase === 2 && Math.hypot(v16.x - sh16.x, v16.z - sh16.z) > 3)) fail(`#anchor: ${JSON.stringify(v16)} ${JSON.stringify(sh16)}`);
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, #buywine and the yard tab, #athensship, its tabs and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();
