@@ -344,7 +344,7 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
 <p class="if">${fmt(d.done)} ${d.side === 'buy' ? 'sold' : 'bought'} so far${done ? `: enough to keep your word (${fmt(bound)})` : `: at least ${fmt(bound)} by then to keep your word, or it counts as a promise broken (${signed(w.reneged?.amount ?? 0)})`}. The market pays ${today} today.</p></div></div>`;
     }
     return `<div class="deal offer">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} offers</b> ${esc(offerWords(d))}. <span class="why">${esc(cap(d.why))}.</span>
-<p class="if">Today ${esc(name)} ${d.side === 'buy' ? 'pays' : 'asks'} ${today} a hundred. Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
+<p class="if">${d.side === 'buy' ? `Without it, the price ${esc(name)} pays falls as you sell (${today} today).` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
 <div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
   }
   if (d.kind === 'tribute') {
@@ -357,9 +357,12 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     return `<div class="deal tribute${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} demands ${esc(words)} in tribute</b>${esc(yearly)}, ${esc(dueWords(s, d))}. <span class="why">${esc(cap(d.why))}.</span>
 ${acts}${etaLine(s, map, d)}<p class="if">${d.gift ? '' : `Refused, or let run out: ${signed(w.defied?.amount ?? 0)}, ${fadeWords(w.defied?.fade ?? 0)}. `}${cold ? `${cap(they)} is cold towards you: refused, ${they} will not let it pass, and threats will follow.` : `If ${they} turns cold, a refusal will not be let pass.`} (${esc(name)} has about ${fmt(theirs)} people to your ${fmt(s.population)}.)</p></div></div>`;
   }
+  // (Sent now, would it be late? Then the button shows what late is worth.)
+  const t = map && !d.gift ? sendTicks(s, map, d) : -1;
+  const late = t >= 0 && s.tick + t > d.due;
   const acts = d.gift
     ? ''
-    : `<div class="acts">${actButton(s, map, d, 'send', 'Send it', w.met?.amount, `${cap(w.met?.why ?? '')}: ${signed(w.met?.amount ?? 0)} if it arrives by the day (${signed(w.late?.amount ?? 0)} if late), ${fadeWords(w.met?.fade ?? 0)}`)}${d.promised ? '' : actButton(s, map, d, 'promise', 'Promise', w.promise?.amount, `Promise it now and send it later: ${signed(w.promise?.amount ?? 0)} while the promise stands; but if nothing has been sent by the day, it is a promise broken (${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)})`)}${actButton(s, map, d, 'refuse', 'Refuse', d.promised ? w.broken?.amount : w.refused?.amount, d.promised ? `Going back on your promise is a promise broken: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}` : `${cap(w.refused?.why ?? '')}: ${signed(w.refused?.amount ?? 0)}, ${fadeWords(w.refused?.fade ?? 0)}`)}</div>`;
+    : `<div class="acts">${actButton(s, map, d, 'send', late ? 'Send it, late' : 'Send it', late ? w.late?.amount : w.met?.amount, `${cap(w.met?.why ?? '')}: ${signed(w.met?.amount ?? 0)} if it arrives by the day (${signed(w.late?.amount ?? 0)} if late), ${fadeWords(w.met?.fade ?? 0)}`)}${d.promised ? '' : actButton(s, map, d, 'promise', 'Promise', w.promise?.amount, `Promise it now and send it later: ${signed(w.promise?.amount ?? 0)} while the promise stands; but if nothing has been sent by the day, it is a promise broken (${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)})`)}${actButton(s, map, d, 'refuse', 'Refuse', d.promised ? w.broken?.amount : w.refused?.amount, d.promised ? `Going back on your promise is a promise broken: ${signed(w.broken?.amount ?? 0)}, ${fadeWords(w.broken?.fade ?? 0)}` : `${cap(w.refused?.why ?? '')}: ${signed(w.refused?.amount ?? 0)}, ${fadeWords(w.refused?.fade ?? 0)}`)}</div>`;
   const stakes = d.gift
     ? ''
     : d.promised

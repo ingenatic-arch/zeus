@@ -20,6 +20,7 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } 
 import { cityOf, lastHarvest, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
+import { askWhy, makeOffer, makeRequest, makeTribute, requestSize, tributeSize } from '../sim/favours';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
@@ -1111,6 +1112,61 @@ function rulerTown(stage: RulerStage): (sim: Sim) => void {
 }
 
 /**
+ * Favours, offers and tribute (slice 19). Each deal is made by the demo (the
+ * dice would bring one in its own time, six months after a first route at
+ * the soonest). #request: #caravan's town, Sparta's king asking for wheat,
+ * the map open on his page to answer it. #promise: #athensship's town, the
+ * archon of Athens asked for wheat and was promised it, and nothing sent;
+ * it opens five days before the day. #offer: #prices' town, Corinth's lord
+ * (pleased with your city: a memory the demo sets up and names) offering to
+ * buy your oil for a year. #tribute: #caravan's town, Sparta's king (warlike,
+ * wary, and his city far bigger) demanding tribute in coin.
+ */
+type FavourStage = 'request' | 'promise' | 'offer' | 'tribute';
+/** How many days before its deadline #promise opens. */
+const PROMISE_DAYS = 5;
+/** #offer's set-up goodwill: enough to lift Corinth's lord past pleased (+15); it fades over two years. */
+const OFFER_GOODWILL = 12;
+/** What #tribute's treasury holds beyond the tribute and a month's wages when it opens, at the least. */
+const TRIBUTE_SPARE = 200;
+const WHEAT_K = 0;
+const OIL_K = 3;
+
+function favourTown(stage: FavourStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    if (stage === 'request' || stage === 'tribute') {
+      routesTown('caravan')(sim);
+      const sparta = cityOf(s.world, 'sparta');
+      if (stage === 'request') {
+        makeRequest(s, sim.map, sparta, WHEAT_K, requestSize(s, sparta, WHEAT_K), askWhy(sparta, WHEAT_K, s.tick));
+        return;
+      }
+      // (Saved up first, so the treasury could pay it: refusing or paying is the choice.)
+      waitFor(sim, s.tick, tributeSize(s, sparta, -1, false) + TRIBUTE_SPARE, s.tick + 6 * TICKS_PER_MONTH);
+      makeTribute(s, sim.map, sparta, -1, tributeSize(s, sparta, -1, false), false);
+      return;
+    }
+    if (stage === 'offer') {
+      routesTown('prices')(sim);
+      const corinth = cityOf(s.world, 'corinth');
+      corinth.memories.push({ kind: 'staged', why: 'pleased with how your city trades (set up for this demo)', amount: OFFER_GOODWILL, tick: s.tick, fade: 2 * TICKS_PER_YEAR });
+      makeOffer(s, corinth, OIL_K, 'buy');
+      return;
+    }
+    seaTown('athensship')(sim);
+    const athens = cityOf(s.world, 'athens');
+    const d = makeRequest(s, sim.map, athens, WHEAT_K, requestSize(s, athens, WHEAT_K), askWhy(athens, WHEAT_K, s.tick));
+    send({ type: 'answer', deal: d.id, act: 'promise' });
+    sim.run(d.due - PROMISE_DAYS * TICKS_PER_DAY - s.tick);
+  };
+}
+
+/**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
  * and meat ticked for sale to it and wine bought, up to 600. #athensship
@@ -1273,6 +1329,11 @@ const SCENES: Record<string, Demo> = {
   gift: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth', greeceTab: 'ruler' },
   hostile: { view: 'yard', setup: rulerTown('hostile'), overlay: 'wine', greece: 'corinth', greeceTab: 'ruler' },
   thanks: { view: 'town', setup: rulerTown('thanks'), overlay: 'missing', greece: 'corinth', greeceTab: 'ruler' },
+  // Slice 19: favours, offers and tribute. Sparta asks for wheat; a promise to Athens about to be broken; Corinth's offer for oil; Sparta's demand for tribute.
+  request: { view: 'yard', setup: favourTown('request'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
+  promise: { view: 'quay', setup: favourTown('promise'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
+  offer: { view: 'yard', setup: favourTown('offer'), overlay: 'oil', greece: 'corinth', greeceTab: 'ruler' },
+  tribute: { view: 'town', setup: favourTown('tribute'), overlay: 'missing', greece: 'sparta', greeceTab: 'ruler' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

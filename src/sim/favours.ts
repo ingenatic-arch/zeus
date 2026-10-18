@@ -31,7 +31,7 @@ import type { CoastMap } from '../map/bake';
 import { PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { findBuilding } from './buildings';
-import { dateOfTick, formatDate, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
+import { dateOfTick, formatYear, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { dispatch, fairGift, giftWay, giftWords, heraldTicks, news, settleMood } from './diplomacy';
 import { HANDLE } from './food';
 import { WARE_NAMES, held } from './foods';
@@ -39,11 +39,11 @@ import { rateOf } from './labour';
 import { roadSearch, nearestReached } from './roads';
 import { roadsBeside } from './rounds';
 import { caravanEntry, landTicks, routeOf, voyageTicks, yearlyLimit } from './routes';
-import type { Deal, Gift, Memory, SimState, World, WorldCity } from './state';
+import type { Deal, Gift, Memory, SimState, Walker, World, WorldCity } from './state';
 import { berthOf, cityHolds, DOCKER_GAP, DOCKER_TAKE, leaveTicks, SAIL_OUT, shipRoute, SHIP_LEAVING, storeKind, TRADE_GOODS } from './trade';
 import { spendable } from './treasury';
 import { SENDING_FETCH_SPEED, SENDING_SPEED } from './walk';
-import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, termsOf, usualPrice, yourPrice } from './world';
+import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, yourPrice } from './world';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -78,6 +78,8 @@ export const OFFER_RUNS = TICKS_PER_YEAR;
 export const OFFER_KEPT = 0.25;
 /** A sell offer's price: this share of today's. */
 const OFFER_OFF = 0.8;
+/** How much more than their usual yearly limit a ruler offers to buy. */
+const OFFER_MORE = 1.25;
 
 /** Tribute: how often, never within a year of their last, how big (a fair gift's worth), yearly one time in three at three fifths of it, for three years; within how long. */
 const TRIBUTE_ODDS = 1 / 8;
@@ -259,7 +261,7 @@ const monthsWords = (ticks: number): string => {
 };
 
 /** Why they ask for a good, in words. */
-function askWhy(c: WorldCity, k: number, tick: number): string {
+export function askWhy(c: WorldCity, k: number, tick: number): string {
   if (k === 0 && c.harvest <= 1 && tick - lastHarvestOf(tick) < HUNGRY_FOR) return c.harvest === 0 ? 'their harvest failed' : 'their harvest was poor';
   return ['their granaries run low', 'for the feasts at their table', 'their dairies make too little', 'their lamps and baths are short of oil', 'their weavers want for fleece', 'for their festivals and their table'][k];
 }
@@ -326,11 +328,10 @@ export function tributeSize(s: SimState, c: WorldCity, good: number, yearly: boo
 /** A pleased ruler offers a deal for a year: to buy a good of yours at their usual price however much you sell ('buy'), or to sell you one at a fifth off ('sell'). */
 export function makeOffer(s: SimState, c: WorldCity, k: number, side: 'buy' | 'sell'): Deal {
   const today = yourPrice(s.world, c.id, k, s.tick);
-  const t = termsOf(c, s.tick);
-  // (Buying: their usual price with their terms, or today's if better; selling: a fifth off today's.)
-  const price = side === 'buy' ? Math.max(today, Math.round((usualPrice(c, k) * (100 + t)) / 100)) : Math.max(1, Math.round(today * OFFER_OFF));
+  // (Buying: today's price, held for the year however much you sell, and a quarter more than they usually take; selling: a fifth off today's.)
+  const price = side === 'buy' ? today : Math.max(1, Math.round(today * OFFER_OFF));
   const limit = yearlyLimit(s, c.id, k);
-  const amount = side === 'buy' ? clamp(round(limit * 1.5, 100), 600, 4000) : limit;
+  const amount = side === 'buy' ? clamp(round(limit * OFFER_MORE, 100), 600, 4000) : limit;
   const why = side === 'buy' ? `${cityName(c.id)} is short of ${goodName(k)}, and ${rulerShort(c)} is pleased with your city` : `${cityName(c.id)} has ${goodName(k)} to spare, and ${rulerShort(c)} is pleased with your city`;
   const d = newDeal(s, 'offer', c.id, k, amount, s.tick + OFFER_ANSWER, why);
   d.side = side;
@@ -339,11 +340,11 @@ export function makeOffer(s: SimState, c: WorldCity, k: number, side: 'buy' | 's
   return d;
 }
 
-/** What an offer is, in words: "to buy all the oil you can send for a year at 90 a hundred, up to 2,000". */
+/** What an offer is, in words: "to buy all the oil you can send for a year at today’s price, 90 a hundred, however much you sell, up to 2,000". */
 export function offerWords(d: Deal): string {
   const name = goodName(d.good);
   return d.side === 'buy'
-    ? `to buy all the ${name} you can send for a year at ${d.price} a hundred, up to ${fmt(d.amount)}`
+    ? `to buy all the ${name} you can send for a year at today’s price, ${d.price} a hundred, however much you sell, up to ${fmt(d.amount)}`
     : `you ${name} at a fifth off for a year, at ${d.price} a hundred, up to ${fmt(d.amount)}`;
 }
 
@@ -693,18 +694,38 @@ export function arrivesAt(s: SimState, map: CoastMap, g: Gift): number {
   if (g.phase === 1) {
     if (g.by === 'sea') return (g.ship ? g.ship.since + leaveTicks(g.ship) : s.tick) + voyageTicks(g.to);
     const c = s.walkers.find((x) => x.kind === 'caravan' && x.cheese === g.id);
-    let left = 0;
-    if (c) {
-      left = -c.along;
-      for (let i = c.seg * 2; i + 3 < c.path.length; i += 2) left += Math.hypot(c.path[i + 2] - c.path[i], c.path[i + 3] - c.path[i + 1]);
-    }
-    return s.tick + Math.round(Math.max(0, left) / SENDING_SPEED) + landTicks(g.to);
+    return s.tick + Math.round((c ? pathLeft(c) : 0) / SENDING_SPEED) + landTicks(g.to);
   }
-  return s.tick + fetchTicks(s, map, g.depot, g.good, g.amount - g.got) + outTicks(s, map, g.by, g.depot, g.to);
+  // Fetching: the porters already on their way (to the stores and back, or back), and any of it not yet sent for.
+  const depot = findBuilding(s, g.depot);
+  const rate = Math.max(0.25, depot ? rateOf(depot) : 1);
+  let fetching = 0;
+  let carried = 0;
+  for (const w of s.walkers) {
+    if (w.kind !== 'docker' || w.cheese !== g.id) continue;
+    carried += w.back ? w.load : w.meat;
+    // (Going: the rest of the way there, and all the way back.)
+    const left = pathLeft(w);
+    const way = w.back ? left : left + pathLeft({ ...w, seg: 0, along: 0 });
+    fetching = Math.max(fetching, Math.round(way / SENDING_FETCH_SPEED + (w.back ? 0 : w.wait > 0 ? w.wait / rate : HANDLE / rate)));
+  }
+  const rest = g.amount - g.got - carried;
+  if (rest > 0) fetching = Math.max(fetching, fetchTicks(s, map, g.depot, g.good, rest));
+  return s.tick + fetching + outTicks(s, map, g.by, g.depot, g.to);
+}
+
+/** How far a walker has still to go along her path (tiles). */
+function pathLeft(w: Pick<Walker, 'path' | 'seg' | 'along'>): number {
+  let left = -w.along;
+  for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+  return Math.max(0, left);
 }
 
 /** "12 June 748 BC". */
-export const dayWords = (tick: number): string => formatDate(dateOfTick(tick));
+export const dayWords = (tick: number): string => {
+  const d = dateOfTick(tick);
+  return `${d.day} ${d.monthName} ${formatYear(d.yearBC)}`;
+};
 
 /** How an arrival stands against a deadline: "38 days before the deadline", "12 days after it". */
 export function againstDue(at: number, due: number): string {

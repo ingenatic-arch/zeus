@@ -166,7 +166,9 @@ interface Probe {
   saveNow?: () => string;
   /** The shortfall lines showing under the top bar. */
   townLines?: () => string[];
-  gifts?: () => Array<{ id: number; from: string; to: string; good: number; amount: number; got: number; by: string; phase: number; caravan: { x: number; z: number } | null; ship: { visible: boolean; x: number; z: number } | null }>;
+  gifts?: () => Array<{ id: number; from: string; to: string; good: number; amount: number; got: number; by: string; phase: number; deal: number; caravan: { x: number; z: number } | null; porters: Array<{ x: number; z: number }>; ship: { visible: boolean; x: number; z: number } | null }>;
+  /** Rulers' requests, offers and demands for tribute, and how each stands. */
+  deals?: () => Array<{ id: number; kind: string; city: string; good: number; amount: number; state: string; promised: boolean; gift: number; due: number; done: number; angry: boolean }>;
   sound?: () => { started: boolean; muted: boolean; played: number; state: string };
   welcome?: () => boolean;
   /** The ledger card's text ('' when closed). */
@@ -1180,8 +1182,11 @@ function start(): void {
     sim.state.world.gifts.map((g) => {
       const w = g.from === 'home' ? sim.state.walkers.find((x) => x.kind === 'caravan' && giftOf(x) === g.id) : undefined;
       const at = w ? drawnAt((x) => x === w) : null;
-      return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, caravan: at ? { x: at.x, z: at.z } : null, ship: g.ship ? shipInfo(city.giftShips.get(g.to)?.info) : null };
+      // (The porters or dockers fetching it, where they are drawn.)
+      const porters = sim.state.walkers.filter((x) => x.kind === 'docker' && giftOf(x) === g.id).map((p) => drawnAt((x) => x === p)).filter((p) => p !== null).map((p) => ({ x: p!.x, z: p!.z }));
+      return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, deal: g.deal, caravan: at ? { x: at.x, z: at.z } : null, porters, ship: g.ship ? shipInfo(city.giftShips.get(g.to)?.info) : null };
     });
+  probe.deals = () => sim.state.world.deals.map((d) => ({ id: d.id, kind: d.kind, city: d.city, good: d.good, amount: d.amount, state: d.state, promised: d.promised, gift: d.gift, due: d.due, done: d.done, angry: d.angry }));
   probe.sound = () => ({ started: sound.started, muted: sound.muted, played: sound.played, state: sound.state });
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;

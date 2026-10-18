@@ -970,7 +970,7 @@ export function caravanDoing(s: SimState, w: Walker): { title: string; detail: s
     const to = g ? cityName(g.to) : 'Greece';
     const deal = g?.deal ? s.world.deals.find((x) => x.id === g.deal) : undefined;
     // (Sent for a request or tribute: it says so.)
-    if (g && deal) return { title: deal.kind === 'tribute' ? `Tribute for ${to}` : `${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]} for ${to}`, detail: `${w.people} donkeys in your city’s colours with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}${deal.kind === 'tribute' ? ', the tribute it demands' : ', as it asked'}, on their way out of the city to the road to ${to}` };
+    if (g && deal) return { title: deal.kind === 'tribute' ? `Tribute for ${to}` : `${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]} for ${to}`, detail: `${w.people} donkeys in your city’s colours with ${deal.kind === 'tribute' ? `${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}, the tribute ${to} demands` : `the ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]} ${to} asked for`}, on their way out of the city to the road to ${to}` };
     return { title: `Your gift to ${to}`, detail: `${w.people} donkeys in your city’s colours${g && g.good >= 0 ? ` with ${fmt(g.amount)} ${WARE_NAMES[TRADE_GOODS[g.good]]}` : ''}, on their way out of the city to the road to ${to}` };
   }
   const city = CITY_IDS[w.food] ?? 'corinth';

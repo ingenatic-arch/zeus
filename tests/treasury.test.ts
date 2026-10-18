@@ -294,7 +294,7 @@ describe('the demo towns and money', () => {
       expect(owed, name).toBe(0);
     }
     // Every demo's town is played forward from the founding: a few seconds in all.
-  }, 90000);
+  }, 180000);
 
   // Since slice 10 #town runs three wheat farms, not seven (it ate about 170 of the 1,070 measures they grew), and pays an
   // oil chain's wages: at fair it gains about 1,700 a year (slice 9: about 950). Slice 14 retunes money across the game.

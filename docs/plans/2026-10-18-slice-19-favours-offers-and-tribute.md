@@ -38,12 +38,12 @@ Measured at `ddfd4ce` (the end of slice 18's review), headless Chromium with sof
 
 | | Before |
 |---|---|
-| Tests | (filled in below) |
-| Bundle | |
-| Load, bare link (page clock) | |
-| `#town` | |
-| `#richtown` | |
-| `#caravan`, `#prices`, `#famine`, `#gift`, `#hostile` | |
+| Tests | 285 in 25 files, all passing |
+| Bundle | 4 files, 1,343 KB raw, 396 KB gzipped |
+| Load, bare link (page clock) | ready 2,279 ms, first frame 2,963 ms |
+| `#town` | 799,168 triangles, 83 draw calls, save 142 KB, update 18.76 ms a frame running (1.88 paused) |
+| `#richtown` | 910,707 triangles, 95 draw calls, save 179 KB, update 22.42 ms running |
+| `#caravan`, `#prices`, `#famine`, `#gift`, `#hostile` | `#caravan` 7.80 ms running; map pages: `#prices` 304,642 triangles / 22 calls (ready 4,779 ms), `#famine` 304,206 / 22 (4,042 ms), `#gift` 304,018 / 20 (3,649 ms), `#hostile` 304,642 / 22 (4,405 ms); running: `#prices` 8.23 ms, `#famine` 10.59, `#gift` 5.63, `#hostile` 15.87; the map's first open built in 414 ms |
 | The 74 demos | each one's opening and a hash of its whole city state at opening and 900 ticks on, recorded outside the repo |
 
 ## Design decisions

@@ -9,7 +9,7 @@ import { fertilityOf, grassOf, oliveOf, vineOf } from './build';
 import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, footSide, HOME_NAMES, HUT, JOBS, jobsAt, levelName, TENT, TOWNHOUSE } from './buildings';
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals } from './favours';
+import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals, sendTicks } from './favours';
 import {
   BARN,
   CHEESE_BATCH,
@@ -1090,7 +1090,11 @@ function dealTownLine(s: SimState, map: CoastMap): TownLine | null {
     text = g ? `The ${words} for ${name} ${d.kind === 'tribute' ? '(tribute) ' : ''}is on its way: it arrives about ${dayWords(arrivesAt(s, map, g))}, ${againstDue(arrivesAt(s, map, g), d.due)}` : `The ${words} for ${name} is on its way`;
   } else if (d.kind === 'offer') text = `${name} offers ${offerWords(d)}: answer ${dueWords(s, d)}, on ${whose} page`;
   else if (d.kind === 'tribute') text = `${name} demands ${words} in tribute ${dueWords(s, d)}: pay it or refuse it, on ${whose} page`;
-  else if (d.promised) text = `You promised ${name} ${words}: send it ${dueWords(s, d)}, from ${whose} page`;
+  else if (d.promised) {
+    const t = sendTicks(s, map, d);
+    const late = t >= 0 && s.tick + t > d.due;
+    text = `You promised ${name} ${words} and nothing has gone: send it ${dueWords(s, d)}, from ${whose} page, or your word is broken${late ? ` (it would arrive late now, for half the thanks, but sending it keeps your word)` : ''}`;
+  }
   else text = `${name} asks for ${words} ${dueWords(s, d)}: ${d.why}. Answer on ${whose} page`;
   return { need: 'favour', text: `${text}${more}.`, at: 0, route: d.city };
 }
