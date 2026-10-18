@@ -20,7 +20,9 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } 
 import { cityOf, lastHarvest, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
-import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, tributeSize } from '../sim/favours';
+import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, tributeSize, warWhy } from '../sim/favours';
+import { declareWar, endWar, warOn } from '../sim/rivals';
+import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, marchTicks, raidersOf, THREAT_DAYS } from '../sim/raids';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -112,7 +114,7 @@ export interface Demo {
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
   /** The tab that city's page opens on (its ruler's, unless named). */
-  greeceTab?: 'ruler' | 'prices' | 'trade';
+  greeceTab?: 'ruler' | 'prices' | 'trade' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
 }
@@ -1227,6 +1229,58 @@ function raidTown(stage: RaidStage): (sim: Sim) => void {
 }
 
 /**
+ * Greece goes on (slice 21). #war: #caravan's town; once any war Greece has
+ * going ends, Sparta's king declares war on Athens (the quarrel staged, and
+ * named so); some weeks on, both armies stand facing each other at Megara,
+ * food and fleece dear in both cities, and both rulers ask your city for
+ * wheat for their armies; the map opens on Sparta's page. #peace: the same
+ * war played to its end, Athens the winner (set for the demo): the armies on
+ * their way home, Sparta's food dearer still; the map opens on Sparta's
+ * prices. #festival: #athensship's town played on into July, the Panathenaia
+ * on in Athens; the map opens on Athens' page.
+ */
+type GreeceStage = 'war' | 'peace' | 'festival';
+/** How long #war's war has run when it opens (days): both armies at Megara, the prices moved. */
+const WAR_DAYS = 25;
+/** How long after #peace's war ended it opens (days): the armies on their way home. */
+const PEACE_DAYS = 6;
+/** How far into the Panathenaia #festival opens (days). */
+const FESTIVAL_DAYS = 6;
+
+function greeceTown(stage: GreeceStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    if (stage === 'festival') {
+      seaTown('athensship')(sim);
+      const n = nextFestival('athens', s.tick);
+      if (n) sim.run(n.start + FESTIVAL_DAYS * TICKS_PER_DAY - s.tick);
+      return;
+    }
+    routesTown('caravan')(sim);
+    // (One war at a time in Greece: any war Greece has going is let run to its end first; one still on after a year is ended.)
+    const stop = s.tick + TICKS_PER_YEAR;
+    while (warOn(s.world) && s.tick < stop) sim.run(TICKS_PER_DAY);
+    const on = warOn(s.world);
+    if (on) endWar(s, on);
+    const x = declareWar(s, 'sparta', 'athens', 'an old rivalry, and Athens weakened by its last war (set up for this demo)');
+    if (stage === 'peace') {
+      x.fate = 'athens';
+      sim.run(x.until + PEACE_DAYS * TICKS_PER_DAY - s.tick);
+      return;
+    }
+    sim.run(WAR_DAYS * TICKS_PER_DAY);
+    // Both sides ask your city for wheat for their armies.
+    for (const [id, foe] of [
+      ['sparta', 'Athens'],
+      ['athens', 'Sparta'],
+    ] as const) {
+      const c = cityOf(s.world, id);
+      makeRequest(s, sim.map, c, 0, requestSize(s, c, 0), warWhy(0, foe));
+    }
+  };
+}
+
+/**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
  * and meat ticked for sale to it and wine bought, up to 600. #athensship
@@ -1399,6 +1453,10 @@ const SCENES: Record<string, Demo> = {
   raid: { view: 'raidwest', setup: raidTown('raid'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
   raiders: { view: 'raidfarm', setup: raidTown('raiders'), overlay: 'food' },
   aftermath: { view: 'raidwest', setup: raidTown('aftermath'), overlay: 'food', ledger: true },
+  // Slice 21: Greece goes on. Sparta and Athens at war, both asking for wheat; the war over, Athens the winner; the Panathenaia on in Athens.
+  war: { view: 'town', setup: greeceTown('war'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
+  peace: { view: 'town', setup: greeceTown('peace'), overlay: 'food', greece: 'sparta', greeceTab: 'prices' },
+  festival: { view: 'ship', setup: greeceTown('festival'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -588,9 +588,14 @@ export function priceWhy(c: WorldCity, k: number, tick: number, w?: World): Pric
     const why = c.make[k] > c.need[k] * 1.15 ? 'they make plenty of it' : c.need[k] > c.make[k] * 1.15 ? 'they are short of it' : 'they make about what they use';
     return { arrow, word: 'usual', push: 'usual', why, usual };
   }
-  if (Math.abs(byWar) === big && byWar !== 0) return { arrow, word, push: 'war', why: warWords(c, w), usual };
-  if (Math.abs(byFeast) === big && byFeast !== 0) return { arrow, word, push: 'festival', why: feastWords(c.id, tick), usual };
-  if (Math.abs(byYou) >= Math.abs(byCrop)) {
+  // (The biggest push the way the price has gone: a dear price is named by what made it dear, even where a push the other way, as a good harvest after a lost war, is bigger.)
+  const sign = word === 'dear' ? 1 : -1;
+  const pushes = [byYou, byCrop, byWar, byFeast];
+  const best = pushes.some((x) => x * sign > 0) ? Math.max(...pushes.map((x) => x * sign)) : -1;
+  const named = (x: number): boolean => (best > 0 ? x * sign === best : Math.abs(x) === big) && x !== 0;
+  if (named(byWar)) return { arrow, word, push: 'war', why: warWords(c, w), usual };
+  if (named(byFeast)) return { arrow, word, push: 'festival', why: feastWords(c.id, tick), usual };
+  if (named(byYou) || (!named(byCrop) && Math.abs(byYou) >= Math.abs(byCrop))) {
     const n = dealtYear(c, k);
     // (When what is left of the push is more than all of the year's dealings, older trade must be in it too: say so.)
     const before = Math.abs(c.yours[k]) > Math.abs(n) && Math.sign(c.yours[k]) === Math.sign(n) ? ', and more before' : '';

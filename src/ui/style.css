@@ -1014,3 +1014,43 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .townline.alarm { border-left-color: #b8322a; }
 .greece-panel .deal.threat { background: #f6ded6; border-color: #9e3a30; border-width: 2px; }
 .greece-panel .deal.threat > div > p:not(.if):not(.eta) { margin: 4px 0 0; }
+
+/* Greece goes on (slice 21): the label icons for a war and a festival (still, unlike a ruler's ask), the status lines on a city's page, its Rivals tab, and the News of Greece. */
+.glabel svg.ask.war, .glabel svg.ask.feast { animation: none; }
+.greece-panel ul.status { list-style: none; margin: 7px 0 0; padding: 0; font-size: 12.5px; line-height: 1.32; }
+.greece-panel ul.status li { display: flex; gap: 7px; align-items: flex-start; margin: 3px 0; }
+.greece-panel ul.status li > svg { flex: none; width: 15px; height: 15px; margin-top: 1px; }
+.greece-panel ul.status li > i { flex: none; width: 13px; height: 11px; margin: 2px 1px 0; border-radius: 3px; border: 1px solid rgba(74, 52, 32, 0.45); }
+.greece-panel ul.status li b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 13.5px; }
+.greece-panel ul.status li.war { color: #8e2a20; }
+.greece-panel ul.status li.war b { color: #8e2a20; }
+.greece-panel ul.status li.feast b { color: #4f6f1c; }
+.greece-panel .rival { margin: 7px 0 0; padding: 6px 9px 7px; border-radius: 10px; background: rgba(255, 255, 255, 0.4); border: 1.2px solid rgba(184, 138, 80, 0.6); }
+.greece-panel .rival.bad { background: #f8e6dc; border-color: #c98a74; }
+.greece-panel .rival.good { background: #eef3e2; border-color: #a9bb78; }
+.greece-panel .rival .rhead { display: flex; align-items: center; gap: 7px; }
+.greece-panel .rival .rhead i { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.45); flex: none; }
+.greece-panel .rival .rhead b { flex: 1; font-weight: normal; font-variant: small-caps; letter-spacing: 0.05em; font-size: 15px; }
+.greece-panel .rival .rword { font-variant: small-caps; letter-spacing: 0.04em; font-size: 14px; }
+.greece-panel .rival.bad .rword { color: var(--terracotta-deep); }
+.greece-panel .rival.good .rword { color: #4f6f1c; }
+.greece-panel .rival .rword .num { font-size: 12px; font-variant: normal; letter-spacing: 0; color: var(--ink-soft); }
+.greece-panel .rival .whys { margin-top: 3px; font-size: 12.5px; }
+.greece-panel .rival .whys em { display: block; font-size: 11.5px; color: var(--ink-soft); }
+.greece-panel .rival .back { margin: 3px 0 0; font-size: 11.5px; font-style: italic; color: var(--ink-soft); }
+.greece-news {
+  position: absolute; right: 14px; top: 74px; z-index: 6; width: 330px; max-width: calc(100vw - 28px);
+  background: linear-gradient(180deg, rgba(251, 242, 221, 0.95), rgba(239, 220, 179, 0.95)); border: 1.5px solid var(--edge); border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(40, 25, 10, 0.28); font-size: 12.5px; line-height: 1.3; overflow: hidden;
+}
+.greece-news[hidden] { display: none; }
+.greece-news .nhead { appearance: none; display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 11px 4px; border: 0; background: transparent; font: inherit; color: var(--ink); cursor: pointer; }
+.greece-news .nhead b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.06em; font-size: 15px; }
+.greece-news .nhead span { color: var(--ink-soft); font-size: 12px; }
+.greece-news ul { list-style: none; margin: 0; padding: 0 6px 6px; max-height: 38vh; overflow-y: auto; }
+.greece-news li { display: flex; gap: 7px; padding: 4px 5px; border-top: 1px solid rgba(184, 138, 80, 0.35); cursor: pointer; border-radius: 6px; }
+.greece-news li:hover { background: rgba(255, 255, 255, 0.55); }
+.greece-news li > i { flex: none; width: 9px; height: 9px; margin-top: 3px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.4); }
+.greece-news li em { font-style: normal; color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.greece-news li.urgent span { color: #8e2a20; }
+.greece-news li.none { cursor: default; color: var(--ink-soft); font-style: italic; }

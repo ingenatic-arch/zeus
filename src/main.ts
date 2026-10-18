@@ -200,6 +200,10 @@ interface Probe {
   /** Open or close the map of Greece (loading it the first time), optionally with a city's panel; and what it shows. */
   greece?: (open: boolean, city?: string, tab?: string) => void;
   greeceInfo?: () => Record<string, unknown>;
+  /** Put the map of Greece's camera somewhere (a table x, z, and yaw, distance, tilt), for a close look in a screenshot. */
+  greeceJump?: (v: { x: number; z: number; yaw: number; dist: number; tilt: number }) => void;
+  /** Show the map of Greece's hover card for a thing on it ('war-3-sparta', 'fields-athens', a city), as if the pointer were at a screen point. */
+  greeceHover?: (x: number, y: number) => void;
   /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
   greeceOpenMs?: number;
   greeceBuildMs?: number;
@@ -1287,6 +1291,8 @@ function start(): void {
   probe.speed = (s) => driver.setSpeed(s);
   probe.greece = (open, city, tab) => toggleGreece(open, city as CityId | undefined, tab as CityTab | undefined);
   probe.greeceInfo = () => (greece ? greece.info() : { open: false, built: false });
+  probe.greeceJump = (v) => greece?.rig.jumpTo(v);
+  probe.greeceHover = (x, y) => greece?.hover(x, y);
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

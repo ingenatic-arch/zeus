@@ -152,6 +152,12 @@ export const rivalWay = (x: CityId, y: CityId): RivalWay | undefined => RIVAL_WA
 /** A rival way's points on the table (x, z pairs), from `a` to `b`. */
 export const rivalPoints = (w: RivalWay): number[] => w.pts.flatMap(([lon, lat]) => project(lon, lat));
 
+/** Where on the table a rival way's meeting place is. */
+export function meetPoint(w: RivalWay): { x: number; z: number } {
+  const p = alongLine(rivalPoints(w), meetAlong(w));
+  return { x: p.x, z: p.z };
+}
+
 /** How far along a rival way (from `a`) its meeting place is. */
 export function meetAlong(w: RivalWay): number {
   const p = rivalPoints(w);

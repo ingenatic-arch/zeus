@@ -77,7 +77,7 @@ export const DEFEAT_SHARE: readonly number[] = [0.6, 0.6, 0.6, 0.3, 0.6, 0.3];
 /** Armies march a little slower than a caravan. */
 const ARMY_SLOWER = 1.2;
 /** Each side's army stands this far short of the meeting place, on its own side (table units). */
-export const STAND_OFF = 0.8;
+export const STAND_OFF = 1.9;
 /** Trading with one side of a war: what each visit costs with the other, and how far it can go; what sending them anything costs. */
 export const FOE_TRADE = -3;
 export const FOE_TRADE_MOST = -15;
@@ -87,7 +87,7 @@ const FOE_HELP_FADE = 18 * TICKS_PER_MONTH;
 
 /** What quarrels and friendships are about (by the dice). */
 const QUARRELS = [
-  'a quarrel over the border lands',
+  'over the border lands',
   'cattle raided across the border',
   'an insult at the games',
   'a dispute over harbour dues',
@@ -95,7 +95,11 @@ const QUARRELS = [
   'exiles given shelter',
   'a boundary stone moved in the night',
 ];
-const FRIENDSHIPS = ['a marriage between their houses', 'gifts exchanged', 'a treaty of friendship', 'sacrifices together at Delphi', 'guests at each other’s table', 'a dispute settled fairly'];
+const FRIENDSHIPS = ['a marriage between their houses', 'gifts exchanged', 'a treaty sworn', 'sacrifices together at Delphi', 'guests at each other’s table', 'a dispute settled fairly'];
+/** A quarrel or friendship's reason with its city named: "a quarrel with Athens: cattle raided across the border". */
+const passingWhy = (kind: 'quarrel' | 'friendship', what: string, other: CityId): string => (what.startsWith('over ') ? `a ${kind} with ${name(other)} ${what}` : `a ${kind} with ${name(other)}: ${what}`);
+/** A reason without its city: "cattle raided across the border" (for the news, which names both). */
+const bare = (why: string): string => why.replace(/^a (quarrel|friendship) with [A-Z][a-z]+(: )?/, '').replace(/ with [A-Z][a-z]+$/, '').trim();
 /** The old rivalries of the cities, in words (the amounts are OLD_TIES in world.ts). */
 const HISTORY: Record<string, string> = {
   'athens-sparta': 'old rivals for the leadership of Greece',
@@ -256,11 +260,11 @@ function passing(s: SimState, x: CityId, y: CityId, month: number, i: number): v
   if (dice(w, month, i, 1) < quarrel) {
     const size = QUARREL_LEAST + Math.round(dice(w, month, i, 2) * (QUARREL_MOST - QUARREL_LEAST));
     const what = QUARRELS[Math.floor(dice(w, month, i, 3) * QUARRELS.length)];
-    bond(w, x, y, 'quarrel', (o) => `${what} with ${name(o)}`, -size, s.tick, QUARREL_FADE);
+    bond(w, x, y, 'quarrel', (o) => passingWhy('quarrel', what, o), -size, s.tick, QUARREL_FADE);
   } else if (dice(w, month, i, 4) < friend) {
     const size = FRIEND_LEAST + Math.round(dice(w, month, i, 5) * (FRIEND_MOST - FRIEND_LEAST));
     const what = FRIENDSHIPS[Math.floor(dice(w, month, i, 6) * FRIENDSHIPS.length)];
-    bond(w, x, y, 'friendship', (o) => `${what} with ${name(o)}`, size, s.tick, FRIEND_FADE);
+    bond(w, x, y, 'friendship', (o) => passingWhy('friendship', what, o), size, s.tick, FRIEND_FADE);
   }
 }
 
@@ -280,7 +284,7 @@ function feuds(s: SimState): void {
     if (!on && m <= FEUD) {
       w.feuds.push(key);
       const why = grievance(w, x, y, s.tick) || grievance(w, y, x, s.tick);
-      told(w, s.tick, x, `${name(x)} and ${name(y)} are feuding${why ? `: ${why.replace(/ with [A-Z][a-z]+$/, '')}` : ''}`);
+      told(w, s.tick, x, `${name(x)} and ${name(y)} are feuding${why ? `: ${bare(why)}` : ''}`);
     } else if (on && m > MAKE_UP && !(warOf(w, x) && foeIn(warOf(w, x) as War, x) === y)) {
       w.feuds = w.feuds.filter((k) => k !== key);
       told(w, s.tick, x, `${name(x)} and ${name(y)} have made up their quarrel`);
@@ -326,7 +330,7 @@ export function declareWar(s: SimState, a: CityId, b: CityId, why?: string): War
   const might = (id: CityId): number => (STRENGTH[id] ?? 5000) * (cityOf(w, id).ruler?.traits.includes('warlike') ? 1.25 : 1);
   const fate: War['fate'] = dice(w, n, 0, 22) < PEACE_ODDS ? 'peace' : dice(w, n, 0, 23) * (might(a) + might(b)) < might(a) ? a : b;
   const men = (id: CityId): number => clamp(Math.round(might(id) / 600), 8, 14);
-  const cause = why ?? (grievance(w, a, b, s.tick) || 'old enmity').replace(/ with [A-Z][a-z]+$/, '');
+  const cause = why ?? bare(grievance(w, a, b, s.tick) || 'old enmity');
   const x: War = { id: n, a, b, why: cause, way: way.id, by: way.kind, start: s.tick, until: s.tick + len, fate, menA: men(a), menB: men(b), told: false, ended: 0 };
   w.wars.push(x);
   cityOf(w, a).war = b;

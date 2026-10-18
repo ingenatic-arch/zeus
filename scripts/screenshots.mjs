@@ -722,6 +722,55 @@ const BEFORE = {
   },
 };
 
+// Slice 21: Greece goes on. The map's camera close on a war, a festival, the fields; the pointer on a piece for its card.
+const greeceAt = async (page, v) => {
+  await page.evaluate((v) => window.__zeus.greeceJump(v), v);
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 4, f, { timeout: 120000 });
+};
+const pointAt = async (page, key) => {
+  const g = await page.evaluate(() => window.__zeus.greeceInfo());
+  const at = g.travellers[key];
+  if (!at) return console.log(`(no ${key} on the map: ${Object.keys(g.travellers).join(', ')})`);
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.move(at.x + 1, at.y + 1);
+};
+Object.assign(SHOTS, {
+  war: '#war-paused',
+  'war-close': '#war-paused',
+  'war-army': '#war-paused',
+  'war-swords': '#war-paused',
+  'war-rivals': '#war-paused',
+  peace: '#peace-paused',
+  'peace-close': '#peace-paused',
+  festival: '#festival-paused',
+  'festival-close': '#festival-paused',
+  'fields-close': '#festival-paused',
+});
+Object.assign(BEFORE, {
+  'war-close': async (page) => greeceAt(page, { x: 50, z: 68, yaw: 0, dist: 30, tilt: 0.05 }),
+  'war-army': async (page) => {
+    await greeceAt(page, { x: 50, z: 68, yaw: 0, dist: 30, tilt: 0.05 });
+    const g = await page.evaluate(() => window.__zeus.greeceInfo());
+    const key = Object.keys(g.travellers).find((k) => /^war-\d+-sparta$/.test(k));
+    if (key) await pointAt(page, key);
+  },
+  'war-swords': async (page) => {
+    await greeceAt(page, { x: 50, z: 68, yaw: 0, dist: 30, tilt: 0.05 });
+    const g = await page.evaluate(() => window.__zeus.greeceInfo());
+    const key = Object.keys(g.travellers).find((k) => /^war-\d+$/.test(k));
+    if (key) await pointAt(page, key);
+  },
+  'war-rivals': async (page) => {
+    await page.click('.greece-panel button[data-tab="rivals"]');
+  },
+  'peace-close': async (page) => greeceAt(page, { x: 50, z: 68, yaw: 0, dist: 30, tilt: 0.05 }),
+  'festival-close': async (page) => {
+    await greeceAt(page, { x: 58, z: 67, yaw: 0, dist: 22, tilt: 0.05 });
+  },
+  'fields-close': async (page) => greeceAt(page, { x: 48, z: 70, yaw: 0, dist: 44, tilt: 0.05 }),
+});
+
 const want = process.argv.slice(2);
 const names = want.length ? want : Object.keys(SHOTS);
 const outDir = resolve('screenshots');

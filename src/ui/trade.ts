@@ -142,7 +142,7 @@ function routesPay(s: SimState, k: number): string {
   for (const r of s.world.routes) {
     if (seen.has(r.city) || !tradesOf(s, r.city).theyBuy.includes(k)) continue;
     seen.add(r.city);
-    const a = priceWhy(cityOf(s.world, r.city), k, s.tick).arrow;
+    const a = priceWhy(cityOf(s.world, r.city), k, s.tick, s.world).arrow;
     parts.push(`${PLACES[r.city].name} pays ${yourPrice(s.world, r.city, k, s.tick)}${a > 0 ? ', rising' : a < 0 ? ', falling' : ''}`);
   }
   return parts.length ? ` · ${parts.join('; ')}` : '';

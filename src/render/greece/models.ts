@@ -213,6 +213,157 @@ export function bandModel(colour: string, trim: string, camp = false): THREE.Buf
   return merge(p);
 }
 
+/**
+ * How far each moving piece reaches behind and ahead of its place along its
+ * own +x (in its own units, before its scale): the body the pointer is
+ * tested against on the screen, so a column can be picked anywhere along
+ * it, not only at its head.
+ */
+export const BODY = {
+  ship: [-1.05, 1.3],
+  caravan: [-0.9, 1.1],
+  band: [-0.65, 1.3],
+  camp: [-0.65, 0.65],
+  fleet: [-1.6, 1.4],
+} as const;
+
+/** An army's body: its ranks from the rear to the banner at its head (as `armyModel` lays them out). */
+export const armyBody = (men: number): readonly [number, number] => [-0.36 * Math.ceil(men / ARMY_FILE) + 0.2, 1.05];
+
+/** Men abreast in an army's ranks. */
+const ARMY_FILE = 3;
+
+/**
+ * A city's army on the march (along +x, the head at +x): a phalanx of
+ * hoplites three abreast, rank behind rank (more ranks for a bigger city),
+ * shields in the city's colour with a rim of its trim, spears up, and a tall
+ * banner at the head.
+ */
+export function armyModel(colour: string, trim: string, men: number): THREE.BufferGeometry {
+  const p: Part[] = [];
+  for (let i = 0; i < men; i++) {
+    const rank = Math.floor(i / ARMY_FILE);
+    const file = i % ARMY_FILE;
+    const x = 0.62 - rank * 0.36;
+    const z = (file - (ARMY_FILE - 1) / 2) * 0.24;
+    p.push({ geo: new THREE.CylinderGeometry(0.055, 0.085, 0.3, 6).translate(x, 0.15, z), color: '#7a4a32' });
+    p.push({ geo: new THREE.SphereGeometry(0.066, 6, 4).translate(x, 0.36, z), color: '#b08a3a' });
+    // A crest on the helmet, in the city's colour.
+    p.push({ geo: box(0.13, 0.05, 0.025, x - 0.01, 0.41, z), color: colour });
+    // The shield, facing forward-left, big and round; its rim in the trim.
+    p.push({ geo: new THREE.CylinderGeometry(0.12, 0.12, 0.03, 9).rotateZ(Math.PI / 2).translate(x + 0.09, 0.21, z - 0.04), color: colour });
+    p.push({ geo: new THREE.CylinderGeometry(0.045, 0.045, 0.035, 6).rotateZ(Math.PI / 2).translate(x + 0.1, 0.21, z - 0.04), color: trim });
+    p.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.7, 4).translate(x - 0.03, 0.35, z + 0.08), color: POLE });
+  }
+  banner(p, 1.0, 0, 0, 1.15, colour, trim);
+  return merge(p);
+}
+
+/** A war galley (bow along +x): long and low, a ram at the bow, a row of oars each side, a painted eye, a dark sail with its city's stripe. */
+function galley(p: Part[], x: number, z: number, colour: string, trim: string): void {
+  const hull = new THREE.CylinderGeometry(0.2, 0.12, 2.0, 7, 1).rotateZ(Math.PI / 2).scale(1, 0.5, 0.85);
+  p.push({ geo: hull.translate(x, 0.08, z), color: '#3d2a1e' });
+  p.push({ geo: box(1.7, 0.04, 0.28, x - 0.05, 0.15, z), color: '#7a5a3a' });
+  p.push({ geo: new THREE.ConeGeometry(0.06, 0.32, 5).rotateZ(-Math.PI / 2).translate(x + 1.12, 0.03, z), color: '#b08a3a' });
+  p.push({ geo: box(0.04, 0.07, 0.07, x + 0.82, 0.12, z + 0.15), color: '#f2ead8' });
+  p.push({ geo: box(0.04, 0.07, 0.07, x + 0.82, 0.12, z - 0.15), color: '#f2ead8' });
+  for (let k = 0; k < 7; k++) {
+    const ox = x - 0.65 + k * 0.2;
+    for (const side of [-1, 1]) p.push({ geo: box(0.025, 0.02, 0.36, ox, 0.06, z + side * 0.28).rotateX(side * 0.25), color: '#c9a777' });
+  }
+  p.push({ geo: new THREE.CylinderGeometry(0.025, 0.03, 1.0, 5).translate(x - 0.05, 0.6, z), color: POLE });
+  p.push({ geo: box(0.04, 0.55, 0.8, x - 0.05, 0.5, z), color: colour });
+  p.push({ geo: box(0.05, 0.1, 0.82, x - 0.05, 0.72, z), color: trim });
+}
+
+/** A city's fleet at sea: three galleys in a wedge (the lead at +x). */
+export function fleetModel(colour: string, trim: string): THREE.BufferGeometry {
+  const p: Part[] = [];
+  galley(p, 0.3, 0, colour, trim);
+  galley(p, -0.5, 0.75, colour, trim);
+  galley(p, -0.5, -0.75, colour, trim);
+  return merge(p);
+}
+
+/** Crossed swords over the place two armies meet: two bronze blades, their hilts and guards dark, on a small red-rimmed disc. */
+export function swordsModel(): THREE.BufferGeometry {
+  const p: Part[] = [];
+  for (const side of [-1, 1]) {
+    const blade = box(0.09, 1.0, 0.03, 0, 0, 0).translate(0, 0.2, 0);
+    const guard = box(0.32, 0.05, 0.06, 0, 0.17, 0);
+    const hilt = box(0.06, 0.2, 0.05, 0, -0.03, 0);
+    const pommel = new THREE.SphereGeometry(0.05, 6, 4).translate(0, -0.05, 0);
+    for (const [g, c] of [
+      [blade, '#d8dcdf'],
+      [guard, '#b08a3a'],
+      [hilt, '#4a2e1c'],
+      [pommel, '#b08a3a'],
+    ] as const)
+      p.push({ geo: g.rotateZ(side * 0.62).translate(0, 0.62, 0), color: c });
+  }
+  p.push({ geo: new THREE.CylinderGeometry(0.42, 0.46, 0.06, 14).translate(0, 0.03, 0), color: '#a8322a' });
+  p.push({ geo: new THREE.CylinderGeometry(0.34, 0.34, 0.07, 14).translate(0, 0.04, 0), color: '#f3e6c8' });
+  return merge(p);
+}
+
+/** A festival round a city: banners on poles in a ring (its colour and gold), and an altar with garlands, for the smoke to rise from. */
+export function festivalModel(colour: string, trim: string, r: number): THREE.BufferGeometry {
+  const p: Part[] = [];
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + 0.2;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    p.push({ geo: new THREE.CylinderGeometry(0.022, 0.028, 0.78, 5).translate(x, 0.39, z), color: POLE });
+    // A long banner hanging from a crossbar, facing out from the city, alternately in its colour and gold, with a band of its trim.
+    const turn = -a;
+    p.push({ geo: box(0.03, 0.03, 0.36, 0, 0, 0).rotateY(turn).translate(x, 0.72, z), color: POLE });
+    p.push({ geo: box(0.025, 0.42, 0.32, 0, 0, 0).rotateY(turn).translate(x, 0.3, z), color: i % 2 ? '#e8c04a' : colour });
+    p.push({ geo: box(0.03, 0.07, 0.33, 0, 0, 0).rotateY(turn).translate(x, 0.6, z), color: trim });
+    p.push({ geo: new THREE.SphereGeometry(0.04, 6, 4).translate(x, 0.8, z), color: '#e8c04a' });
+  }
+  // The altar, white, garlanded, before the city.
+  p.push({ geo: box(0.36, 0.22, 0.26, r * 0.55, 0, r * 0.55), color: MARBLE });
+  p.push({ geo: box(0.4, 0.04, 0.3, r * 0.55, 0.22, r * 0.55), color: '#6f8f3c' });
+  return merge(p);
+}
+
+/**
+ * A patch of fields beside a city, laid over the ground (in table
+ * coordinates, draped on the relief): two rows of strips of ploughland in a
+ * few shades, with the ground showing between them; the harvest's colour is
+ * its material's.
+ */
+export function fieldsModel(cx: number, cz: number, turn: number, seed: number, heightAt: (x: number, z: number) => number): THREE.BufferGeometry {
+  const p: Part[] = [];
+  const shades = ['#ffffff', '#e6e2d6', '#f2eee2', '#d6d0bf'];
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  for (let j = 0; j < 2; j++)
+    for (let i = 0; i < 6; i++) {
+      const w = 0.36 + hash2(i, j, seed) * 0.12;
+      const d = 1.25 + hash2(i, j + 7, seed) * 0.3;
+      const g = new THREE.PlaneGeometry(w, d, 1, 4).rotateX(-Math.PI / 2);
+      const pos = g.attributes.position as THREE.BufferAttribute;
+      const ox = (i - 2.5) * 0.48;
+      const oz = (j - 0.5) * 1.62;
+      for (let v = 0; v < pos.count; v++) {
+        const lx = pos.getX(v) + ox;
+        const lz = pos.getZ(v) + oz;
+        const x = cx + lx * c - lz * s;
+        const z = cz + lx * s + lz * c;
+        pos.setXYZ(v, x, heightAt(x, z) + 0.05, z);
+      }
+      p.push({ geo: g, color: shades[(i * 3 + j + seed) % shades.length] });
+    }
+  const geo = merge(p);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/** A puff of smoke (one geometry for every puff). */
+export const puffGeometry = (): THREE.BufferGeometry => new THREE.IcosahedronGeometry(0.16, 0);
+
 /** The wooden table under the map, and the raised frame round it. */
 export function tableModel(): THREE.Group {
   const g = new THREE.Group();
@@ -278,4 +429,24 @@ export function wayMarks(roads: number[][], lanes: number[][], heightAt: (x: num
   dashMesh.name = 'greece-lanes';
   g.add(dotMesh, dashMesh);
   return g;
+}
+
+/** A war's way drawn red on the table, closed: red dots along a road, red dashes along a lane. */
+export function closedWay(line: number[], kind: 'land' | 'sea', heightAt: (x: number, z: number) => number): THREE.InstancedMesh {
+  const L = lineLength(line);
+  const step = kind === 'land' ? 0.55 : 0.9;
+  const ms: THREE.Matrix4[] = [];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let d = 0.8; d < L - 0.8; d += step) {
+    const p = alongLine(line, d);
+    q.setFromAxisAngle(up, -Math.atan2(p.dz, p.dx));
+    m.compose(new THREE.Vector3(p.x, (kind === 'land' ? heightAt(p.x, p.z) : 0) + 0.09, p.z), q, new THREE.Vector3(1, 1, 1));
+    ms.push(m.clone());
+  }
+  const geo = kind === 'land' ? new THREE.CylinderGeometry(0.13, 0.14, 0.08, 6) : new THREE.BoxGeometry(0.5, 0.03, 0.13);
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: '#c0392b', roughness: 0.7, emissive: '#5a0e08', emissiveIntensity: 0.5 }), ms.length);
+  ms.forEach((x, i) => mesh.setMatrixAt(i, x));
+  return mesh;
 }

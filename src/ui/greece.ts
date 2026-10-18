@@ -18,12 +18,13 @@ import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWo
 import type { Deal } from '../sim/state';
 import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
+import { armyCard, fieldsCard, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
 import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
-export type CityTab = 'ruler' | 'prices' | 'trade';
-export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade'];
+export type CityTab = 'ruler' | 'prices' | 'trade' | 'rivals';
+export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade', 'rivals'];
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -125,7 +126,7 @@ export function labelHtml(s: SimState, id: CityId): string {
   // A deal waiting on your answer: a scroll (a request, an offer) or a red seal (tribute).
   const open = liveDeals(s.world, id).filter((x) => x.state === 'open');
   const d = open.find((x) => x.kind === 'threat') ?? open[0];
-  return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${d ? dealIcon(d) : ''}`;
+  return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
 }
 
 /** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
@@ -165,6 +166,12 @@ function tradesWords(r: TradeRoute): string {
 function travellerHtml(s: SimState, key: string): string {
   if (key.startsWith('gift-')) return giftCard(s, Number(key.slice(5)));
   if (key.startsWith('raid-')) return bandCard(s, Number(key.slice(5).replace('-camp', '')));
+  // An army or fleet ('war-3-sparta'), the crossed swords where they meet ('war-3'), a city's fields ('fields-sparta').
+  if (key.startsWith('war-')) {
+    const [, n, city] = key.split('-');
+    return city ? armyCard(s, Number(n), city as CityId) : warCard(s, Number(n));
+  }
+  if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -223,6 +230,11 @@ function bandCard(s: SimState, id: number): string {
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): CityId | null {
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
+  if (key.startsWith('fields-')) return key.slice(7) as CityId;
+  if (key.startsWith('war-')) {
+    const [, n, city] = key.split('-');
+    return (city as CityId | undefined) ?? s.world.wars.find((x) => x.id === Number(n))?.a ?? null;
+  }
   if (key.startsWith('gift-')) {
     const g = s.world.gifts.find((x) => x.id === Number(key.slice(5)));
     return g ? (g.from === 'home' ? g.to : g.from) : null;
@@ -545,18 +557,19 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   const traits = r.traits.map((t) => `<li><b>${cap(t)}</b>: ${TRAIT_WORDS[t]}</li>`).join('');
   const routes = s.world.routes.filter((x) => x.city === id);
   const closed = routes.some((x) => x.closed > 0);
-  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade' };
+  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', rivals: c.war ? 'Rivals · at war' : 'Rivals' };
   const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ' title="The ruler has closed the way: see the Ruler tab"' : ''}>${tabName[k]}</button>`).join('');
   const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
-<div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div></header>
+<div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div>${statusHtml(s, id)}</header>
 <nav class="citytabs">${tabs}</nav>
 ${pane('ruler', `${dealsHtml(s, id, map)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}`)}
 ${pane('prices', pricesBlock(s, id, false))}
-${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}`;
+${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}
+${pane('rivals', rivalsHtml(s, id))}`;
 }
 
 /** Every ruled city's mood in a word, for the probe and the smoke test. */

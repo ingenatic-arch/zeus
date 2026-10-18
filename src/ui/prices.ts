@@ -31,7 +31,7 @@ export function arrowHtml(a: Arrow): string {
 /** A good's price in a city and why, in a line: "Oil cheap in Corinth: you sold them 2,500 in the last year". */
 export function priceLine(s: SimState, city: CityId, k: number): string {
   const c = cityOf(s.world, city);
-  const w = priceWhy(c, k, s.tick);
+  const w = priceWhy(c, k, s.tick, s.world);
   const ware = cap(WARE_NAMES[TRADE_GOODS[k]]);
   const name = PLACES[city].name;
   if (w.word === 'usual') return `${ware} at its usual price in ${name}: ${w.why}`;
@@ -43,14 +43,14 @@ export function priceLine(s: SimState, city: CityId, k: number): string {
 export function sparkHtml(s: SimState, c: WorldCity, k: number, width = 84, height = 24): string {
   const hist = c.history[k];
   const values = [...hist, c.price[k]];
-  const usual = priceWhy(c, k, s.tick).usual;
+  const usual = priceWhy(c, k, s.tick, s.world).usual;
   const lo = Math.min(usual, ...values) * 0.94;
   const hi = Math.max(usual, ...values) * 1.06;
   const span = Math.max(1, hi - lo);
   const x = (i: number): number => 1.5 + (i / (values.length - 1)) * (width - 5);
   const y = (v: number): number => height - 2 - ((v - lo) / span) * (height - 4);
   const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const a = priceWhy(c, k, s.tick).arrow;
+  const a = priceWhy(c, k, s.tick, s.world).arrow;
   const last = values.length - 1;
   // The months the history covers, for the tip: the oldest is eleven months before this one's first.
   const m0 = dateOfTick(Math.max(0, s.tick - 12 * TICKS_PER_MONTH)).month;
@@ -99,7 +99,7 @@ export function yourPriceCell(s: SimState, city: CityId, k: number): { html: str
   const pays = buys.includes(k) ? `${name} pays you ${yours} dr for every 100 ${ware}` : `${name} asks ${yours} dr for every 100 ${ware}`;
   const terms = t === 0 ? ` (the market price)` : ` (the market price ${market}, ${t > 0 ? `${t}% in your favour` : `${-t}% against you`} on ${whose(name)} terms)`;
   const title = `${pays}${terms}. ${priceLine(s, city, k)}. The Tyre ship pays ${PRICES[k]}.`;
-  return { html: `${yours}${arrowHtml(priceWhy(c, k, s.tick).arrow)}`, title };
+  return { html: `${yours}${arrowHtml(priceWhy(c, k, s.tick, s.world).arrow)}`, title };
 }
 
 /** A list of goods' prices in a city, each with its arrow, a year's chart and its reason. */
@@ -107,7 +107,7 @@ export function priceRows(s: SimState, city: CityId, goods: readonly number[]): 
   const c = cityOf(s.world, city);
   return goods
     .map((k) => {
-      const w = priceWhy(c, k, s.tick);
+      const w = priceWhy(c, k, s.tick, s.world);
       const ware = cap(WARE_NAMES[TRADE_GOODS[k]]);
       const line = priceLine(s, city, k);
       // Only a price something is moving gets a reason line (the tip has the rest).
@@ -125,7 +125,7 @@ export function pricesBlock(s: SimState, city: CityId, withTerms = true): string
   const { sells, buys } = sellsAndBuys(c);
   const rest = TRADE_GOODS.map((_, k) => k).filter((k) => !sells.includes(k) && !buys.includes(k));
   const group = (title: string, goods: number[]): string => (goods.length ? `<h4>${esc(title)}</h4><ul class="pricelist">${priceRows(s, city, goods)}</ul>` : '');
-  const moved = TRADE_GOODS.some((_, k) => priceWhy(c, k, s.tick).word !== 'usual');
+  const moved = TRADE_GOODS.some((_, k) => priceWhy(c, k, s.tick, s.world).word !== 'usual');
   const terms = termsLine(s, city);
   return `<section class="prices"><h3>Prices in ${esc(name)}</h3>
 ${withTerms ? `<p class="terms" title="${esc(termsMeaning(s, city))}">${esc(terms)}</p>` : ''}
