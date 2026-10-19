@@ -15,8 +15,8 @@ In the original, the right-hand control panel was the whole game's menu: a tab f
 Picked by Oliver (19 Oct):
 
 - **Tabs by kind of building, as in the original** (not one Build tab beside today's tabs).
-- *When to build:* now, alongside phase 4, on its own branch. *(recommended; awaiting Oliver)*
-- *The look:* marble and bronze. *(recommended; awaiting Oliver; mock in `/mnt/project-files/zeus-ui/panel-looks-mock.png`)*
+- **Built now, alongside phase 4**, on its own branch: "Apply the UI changes in parallel to the other session building."
+- **The look of the second mock** (`/mnt/project-files/zeus-ui/panel-mock-2.png`): "Much better." The first mock's flat marble and parchment looked, in his words, "very tacky AI looking", so the look is lit relief rather than flat colour (below), and it brings two typefaces with it.
 
 Mine, from the vision (Oliver can change any):
 
@@ -37,9 +37,11 @@ Mine, from the vision (Oliver can change any):
   The original's Aesthetics tab waits until there is something to put in it.
 - **Building buttons are pictures of the building**, rendered from the game's own models into small images (an offscreen renderer, once per kind, the first time a tab opens), with the name and cost under each. A button you can't use says why, greyed: too dear, or "only one" for the trading post and caravan yard. Hovering shows today's hint. Kinds that share a key today sit side by side in their tab, in the key's order, so pressing a key again still steps through them.
 - **A tool row above the minimap:** road, clear, undo and an overlays button that lists every overlay; each tab also offers its own overlays as links under its numbers. The hint line for the tool in hand moves to the foot of the view, where the build bar was.
-- **The panel is always there**, since building lives in it. The corner button that hid it goes. On a window under 1,280 pixels it narrows rather than hiding. While the map of Greece is open it steps aside as it does now.
+- **The panel is always there**, since building lives in it. The corner button that hid it goes. While the map of Greece is open it steps aside as it does now.
 - **Keys don't change.** A key picks its tool as now, and also opens that tool's tab and lights its button.
-- **The look (if marble and bronze):** veined marble for the panel and the bars, bronze for frames, buttons and the minimap's rim, a lapis band with a gold key pattern between the panel's parts, lapis for the open tab; anything you read (numbers, pages, the ledger, tips) on light parchment so it scans. The top bar, the cards (ledger, saves, controls, house pages, the tax rates), the chips and the tips take the same look. All of it is made in code (noise filters into small images at load); the font stays the system serif with small caps for headings, since a web font would be an outside asset.
+- **The look: lit relief.** Every piece of the frame is drawn in code as height, colour and shine (veined marble, bronze, lapis with gold flecks, gold leaf), then lit once from a lamp at the upper left, with soft cast shadows and darkened hollows (`src/ui/relief.ts`). The minimap sits in a bronze ring with its compass marks, four bronze bosses round it; the tabs are carved marble tiles, the open one inlaid with lapis and a gold icon; the buildings stand in sunk, bronze-framed wells (the one in hand framed in gold); each tab's name is cut into a lintel and gilded. What you read sits on honed marble. The top bar, the cards, the chips and the tips take the same materials: a bronze frame (one image cut in nine) round a tiled marble ground. Only fixed-size pieces are lit at load; long and stretchy ones are tiles, so the cost doesn't grow with the window.
+- **Two typefaces, shipped with the game:** Cinzel (Roman inscriptional capitals) for headings, the date and names; Alegreya for reading. Both are under the SIL Open Font License, about 120 KB together, served with the game's own files (no network). This is the one outside asset Oliver allowed ("Yes, this look").
+- **The corner buttons move into the top bar's right end** (sound, saves, controls), so the panel's head is the minimap block; the face-north button becomes the gold leaf at the top of the minimap's rim (N still works).
 
 ## Not in this slice
 
@@ -58,7 +60,7 @@ The look of the city itself (terrain, buildings, walkers). New buildings. Keys c
 1. The table of tabs and their buildings (`src/ui/categories.ts`), from today's build bar groups and phase 4's additions.
 2. Building pictures: an offscreen renderer that draws each kind's model at a fixed angle into a small image, cached; measure its cost.
 3. The panel's new shape (`src/ui/sidepanel.ts`): the tool row, the minimap, the tab strip, each tab's buttons and its part of today's tabs; the overlays menu; the hint line at the foot of the view; keys opening their tab. Remove the build bar (`src/ui/buildbar.ts`) and the corner's hide button; keep `pointerTip`.
-4. The look (`src/ui/style.css`, a small `src/ui/textures.ts`): marble, bronze, the lapis key band and parchment for reading, across the panel, the top bar, the cards, the chips and the tips.
+4. The look (`src/ui/relief.ts`, `src/ui/skin.ts`, `src/ui/style.css`, the fonts in `src/ui/fonts/`): the lit pieces and tiles, across the panel, the top bar, the cards, the chips and the tips.
 5. `#panel`; demos with a tool open on its tab; the smoke test's build bar checks moved to the panel's buttons.
 6. Look and tune by screenshots; check first load and the main-thread cost of the panel.
 7. Check-in, merge onto main with whatever phase 4 has merged, publish to the playable build.
