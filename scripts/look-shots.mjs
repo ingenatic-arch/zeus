@@ -1,5 +1,6 @@
-// Exploration only: shots of a demo town with the UI hidden, for city-look mock-ups.
-// node scripts/look-shots.mjs <outDir> <look> [hash]
+// Shots of a demo town with the UI hidden, for judging the city look by eye.
+// node scripts/look-shots.mjs <outDir> <name> [hash]   e.g. new "#goods-paused", old "#goods-paused-plain"
+// The name prefixes the files and is set as window.__look ("lab" turns on the stage-2 trees and people).
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { launch } from './browser.mjs';

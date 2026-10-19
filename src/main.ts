@@ -1,4 +1,3 @@
-import { applyLookLight, applyLookPalette, makeLookPost, patchScene } from './render/lookLab';
 import './ui/style.css';
 import * as THREE from 'three';
 import { earshot } from './audio/earshot';
@@ -13,6 +12,7 @@ import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { districtGrid } from './map/districts';
+import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
@@ -241,7 +241,9 @@ function start(preparedTown: string | null): void {
   const speed: Speed = launch.speed ?? demo?.speed ?? 'normal';
   const shot = launch.shot;
 
-  applyLookPalette();
+  // The city's finish (render/finish.ts); a link ending in -plain opens with the old look.
+  setFinish(!launch.plain);
+  applyFinishPalette();
   const map = coastMap();
   // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
   districtGrid(map);
@@ -320,8 +322,8 @@ function start(preparedTown: string | null): void {
     world.scene.add(mark.mesh);
   }
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
-  applyLookLight(world.scene, renderer);
-  const lookPost = makeLookPost(renderer, world.scene, camera);
+  applyFinishLight(world.scene, renderer);
+  const finish = makeFinishPost(renderer, world.scene, camera);
   const rig = new CameraRig(camera, map, view);
 
   const ui = document.getElementById('ui') as HTMLElement;
@@ -1779,9 +1781,10 @@ function start(preparedTown: string | null): void {
     corner.setHeading(rig.view.yaw);
     // What frames cost on the main thread before drawing (the sim's steps and every view's update), summed.
     probe.updateMs += performance.now() - jsStart;
-    if (lookPost) {
-      if (probe.frames < 40 || probe.frames % 60 === 0) patchScene(world.scene, map);
-      lookPost.render();
+    if (finish) {
+      // New meshes (rebuilt chunks, new buildings) share the patched materials; the check for new ones is cheap but needn't run every frame.
+      if (probe.frames < 40 || probe.frames % 60 === 0) patchFinish(world.scene, map);
+      finish.render();
     } else renderer.render(world.scene, camera);
     floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);
     probe.frames++;

@@ -5,32 +5,21 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { PAL } from './palette';
+import { col, PAL } from './palette';
 
 /**
- * Exploration only (the city-look mock-ups): alternative looks for the city,
- * switched on by `window.__look` before the game boots. Nothing here is wired
- * into the game unless that is set.
+ * The city's finish (the new look, picked by Oliver on 19 Oct from the
+ * mock-ups in the shared folder, zeus-city-look): a warmer palette, a lower
+ * sky fill and a stronger sun, surfaces drawn in the shader (tufted ground,
+ * tiled roofs, plaster, flagstones), ambient occlusion and a warm grade.
  *
- *  a  Sunlit terracotta: smooth painted ground, tiled roofs, plaster grain, AO, warm grade.
- *  b  Painted fresco: (a) plus a brushed, inked, paper-grain finish.
- *  c  Light and colour only: today's facets, regraded palette and light, AO.
+ * It only changes how things are drawn: nothing here touches the simulation.
+ * A link ending in `-plain` (e.g. `#goods-plain`) opens with the old look,
+ * for comparing and for measuring what the finish costs.
  */
-export type LookName = 'base' | 'a' | 'b' | 'c';
 
-interface LookDef {
-  palette: Partial<Record<keyof typeof PAL, string>>;
-  smoothGround: boolean;
-  detail: boolean;
-  ao: number;
-  hemi: number;
-  sun: number;
-  grade: { sat: number; contrast: number; shadow: [number, number, number]; high: [number, number, number]; vignette: number; grain: number };
-  bloom: number;
-  painterly: boolean;
-}
-
-const WARM_PALETTE: LookDef['palette'] = {
+/** The palette entries the finish changes (sRGB hex, picked by eye). */
+const PALETTE: Partial<Record<keyof typeof PAL, string>> = {
   lush: '#68803f',
   lushDeep: '#55733a',
   meadow: '#8e9a52',
@@ -75,64 +64,36 @@ const WARM_PALETTE: LookDef['palette'] = {
   hemiGround: '#b08f62',
 };
 
-const LOOKS: Record<Exclude<LookName, 'base'>, LookDef> = {
-  a: {
-    palette: WARM_PALETTE,
-    smoothGround: true,
-    detail: true,
-    ao: 1,
-    hemi: 0.85,
-    sun: 3.3,
-    grade: { sat: 0.97, contrast: 1.07, shadow: [0.92, 0.95, 1.07], high: [1.05, 1.0, 0.92], vignette: 0.24, grain: 0.018 },
-    bloom: 0.12,
-    painterly: false,
-  },
-  b: {
-    palette: {
-      ...WARM_PALETTE,
-      roofTile: '#b25e3d',
-      shallow: '#58a8a2',
-      mid: '#2e7c95',
-      deep: '#1d4a72',
-    },
-    smoothGround: true,
-    detail: true,
-    ao: 0.8,
-    hemi: 1.0,
-    sun: 3.0,
-    grade: { sat: 0.9, contrast: 1.02, shadow: [0.95, 0.93, 1.0], high: [1.05, 1.01, 0.92], vignette: 0.3, grain: 0 },
-    bloom: 0,
-    painterly: true,
-  },
-  c: {
-    palette: WARM_PALETTE,
-    smoothGround: false,
-    detail: false,
-    ao: 1,
-    hemi: 0.85,
-    sun: 3.3,
-    grade: { sat: 1.04, contrast: 1.06, shadow: [0.93, 0.95, 1.06], high: [1.04, 1.0, 0.93], vignette: 0.22, grain: 0.012 },
-    bloom: 0.1,
-    painterly: false,
-  },
+/** How strong each part of the finish is. */
+const F = {
+  ao: 1,
+  hemi: 0.85,
+  sun: 3.3,
+  grade: { sat: 0.97, contrast: 1.07, shadow: [0.92, 0.95, 1.07] as const, high: [1.05, 1.0, 0.92] as const, vignette: 0.24, grain: 0.018 },
+  bloom: 0.12,
 };
 
-export function currentLook(): LookName {
-  const l = (globalThis as { __look?: string }).__look;
-  return l === 'a' || l === 'b' || l === 'c' ? l : 'base';
+let on = true;
+
+/** Turn the finish on or off (before the world is built). */
+export function setFinish(want: boolean): void {
+  on = want;
 }
 
-function def(): LookDef | null {
-  const l = currentLook();
-  return l === 'base' ? null : LOOKS[l];
+export function finishOn(): boolean {
+  return on;
+}
+
+/** Previews of what comes next (stage 2: the fuller trees and people), only for the mock-up shots: `window.__look = 'lab'`. */
+export function labOn(): boolean {
+  return on && (globalThis as { __look?: string }).__look === 'lab';
 }
 
 /** Swap palette entries before anything is built. */
-export function applyLookPalette(): void {
-  const d = def();
-  if (!d) return;
+export function applyFinishPalette(): void {
+  if (!on) return;
   const pal = PAL as unknown as Record<string, string>;
-  for (const [k, v] of Object.entries(d.palette)) pal[k] = v as string;
+  for (const [k, v] of Object.entries(PALETTE)) pal[k] = v as string;
 }
 
 /** Average colours and normals over shared corners, so the ground shades smoothly instead of in facets. */
@@ -144,8 +105,9 @@ export function smoothByPosition(g: THREE.BufferGeometry): void {
   const colAttr = g.getAttribute('color') as THREE.BufferAttribute | undefined;
   if (!g.getAttribute('normal')) g.computeVertexNormals();
   const nrm = g.getAttribute('normal') as THREE.BufferAttribute;
-  const key = (i: number): string => `${Math.round(pos.getX(i) * 100)},${Math.round(pos.getZ(i) * 100)}`;
-  const acc = new Map<string, number[]>();
+  // Corners are on a grid of at most a few hundred units: one number per corner.
+  const key = (i: number): number => Math.round(pos.getX(i) * 100 + 100000) * 1e7 + Math.round(pos.getZ(i) * 100 + 100000);
+  const acc = new Map<number, number[]>();
   for (let i = 0; i < pos.count; i++) {
     const k = key(i);
     let a = acc.get(k);
@@ -214,9 +176,11 @@ const GROUND = /* glsl */ `
     float grain = lkNoise(p * 13.0);
     float greenness = clamp((c.g - max(c.r * 0.82, c.b * 1.6)) * 9.0, 0.0, 1.0);
     // How small a clump is on screen: fade the fine pattern out to its average far away.
-    float fwC = fwidth(p.x * 5.0);
+    // Both axes: at a low angle the ground shrinks along the view, not across it.
+    float fwP = max(fwidth(p.x), fwidth(p.y));
+    float fwC = fwP * 5.0;
     float nearC = 1.0 - smoothstep(0.35, 1.0, fwC);
-    float nearB = 1.0 - smoothstep(0.35, 1.0, fwidth(p.x * 38.0));
+    float nearB = 1.0 - smoothstep(0.35, 1.0, fwP * 38.0);
     // Tufts: soft dark hollows between, scattered rather than in a net.
     float tuftA = lkNoise(p * 7.0 + 3.1);
     float tuftB = lkNoise(p * 15.0 - 7.7);
@@ -237,14 +201,21 @@ const GROUND = /* glsl */ `
     soil = mix(soil, soil * 1.25, stone * 0.6);
     grass = mix(grass, soil, bare * 0.85);
 
-    vec3 bareGround = c * (0.86 + 0.24 * lkFbm(p * 3.1)) * (0.94 + 0.12 * grain);
+    vec3 bareGround = c * (0.86 + 0.24 * lkFbm(p * 3.1)) * mix(1.0, 0.94 + 0.12 * grain, nearB);
     float steep = 1.0 - clamp(lkWorldN.y, 0.0, 1.0);
     float sandy = clamp((c.r - c.b * 1.6) * 3.0, 0.0, 1.0) * (1.0 - greenness) * (1.0 - smoothstep(0.2, 0.4, steep));
-    // Wind ripples on the sand.
-    float rip = sin(dot(p, vec2(0.8, 0.6)) * 9.0 + lkNoise(p * 1.3) * 6.0);
-    bareGround *= mix(1.0, 0.95 + 0.06 * rip, sandy * nearC);
+    // Dry grass has sand's hue: sand is paler, or (wet sand) right at the water.
+    float lumG = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    sandy *= max(smoothstep(0.48, 0.56, lumG), 1.0 - smoothstep(0.3, 0.6, vLkWorld.y));
+    // Sand is smoother than soil: calm the blotches, then add wind ripples.
+    bareGround = mix(bareGround, c * (0.97 + 0.06 * lkNoise(p * 0.7)), sandy);
+    // They only show close up: further off they read as smears.
+    float rip = sin(dot(p, vec2(0.8, 0.6)) * 16.0 + lkNoise(p * 1.3) * 6.0);
+    float nearR = 1.0 - smoothstep(0.25, 0.6, fwP * 16.0);
+    rip *= nearR;
+    bareGround *= mix(1.0, 0.975 + 0.035 * rip, sandy);
     // Bedding in the rock.
-    bareGround *= 0.9 + 0.2 * lkNoise(vec2(dot(p, vec2(0.7, 0.7)) * 1.5, vLkWorld.y * 7.0)) * smoothstep(0.15, 0.4, steep);
+    bareGround *= 0.9 + 0.2 * lkNoise(vec2(dot(p, vec2(0.7, 0.7)) * 1.5, vLkWorld.y * 7.0)) * smoothstep(0.15, 0.4, steep) * (1.0 - sandy);
     c = mix(bareGround, grass, greenness);
     diffuseColor.rgb = c;
     lkH = mix(0.004 * rip * sandy * nearC, (0.025 * clump + 0.006 * blade * nearB) * nearC * (1.0 - bare * 0.7), greenness);
@@ -260,7 +231,10 @@ const OBJECTS = /* glsl */ `
     float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
     float hi = max(c.r, max(c.g, c.b));
     float lo = min(c.r, min(c.g, c.b));
-    bool terracotta = c.r > c.g * 2.4 && c.r > c.b * 4.0 && c.r > 0.2;
+    // Roof tiles by their exact palette colours (pots and awnings are near in hue but are not tiled).
+    vec3 vc = vColor.rgb;
+    bool terracotta = false;
+    for (int t = 0; t < 3; t++) if (all(lessThan(abs(vc - lkTiles[t]), vec3(0.004)))) terracotta = true;
     bool green = c.g > c.r * 1.05 && c.g > c.b * 1.5 && lum < 0.45;
     bool pale = lum > 0.5 && (hi - lo) < 0.35 * hi;
     vec3 tri = abs(n);
@@ -304,7 +278,7 @@ const OBJECTS = /* glsl */ `
     } else if (pale) {
       // Paving, steps and marble tops: big slabs.
       vec2 cell = lkFlags(wp.xz * vec2(2.2, 2.2));
-      float far = smoothstep(0.2, 0.6, fwidth(wp.x * 2.2));
+      float far = smoothstep(0.2, 0.6, max(fwidth(wp.x), fwidth(wp.z)) * 2.2);
       float joint = smoothstep(0.015, 0.06, cell.x);
       c *= mix((0.92 + 0.1 * cell.y) * mix(0.84, 1.0, joint) * (0.95 + 0.08 * lkFbm(wp.xz * 4.0)), 0.97, far);
       lkH = 0.01 * joint * (1.0 - far);
@@ -324,7 +298,7 @@ const PAVING = /* glsl */ `
     vec3 c = diffuseColor.rgb;
     vec2 p = vLkWorld.xz;
     float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    float far = smoothstep(0.25, 0.8, fwidth(p.x * 3.0));
+    float far = smoothstep(0.25, 0.8, max(fwidth(p.x), fwidth(p.y)) * 3.0);
     if (lum > 0.5) {
       vec2 cell = lkFlags(p * vec2(3.0, 4.0));
       float joint = smoothstep(0.02, 0.09, cell.x);
@@ -382,19 +356,19 @@ function patch(mat: THREE.MeshStandardMaterial, body: string, name: string): voi
         }`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying vec3 vLkWorld;\nuniform sampler2D lkGroundTex;\nuniform float lkGroundSize;\n${NOISE}\nfloat lkGround(vec2 p) { return texture2D(lkGroundTex, (p + 0.5) / (lkGroundSize + 1.0)).r; }`)
+      .replace('#include <common>', `#include <common>\nvarying vec3 vLkWorld;\nuniform sampler2D lkGroundTex;\nuniform float lkGroundSize;\nuniform vec3 lkTiles[3];\n${NOISE}\nfloat lkGround(vec2 p) { return texture2D(lkGroundTex, (p + 0.5) / (lkGroundSize + 1.0)).r; }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\nvec3 lkWorldN = normalize((vec4(normal, 0.0) * viewMatrix).xyz);\nfloat lkH = 0.0;\nfloat lkBend = 0.0;\n${body}\n${APPLY}`);
     shader.uniforms.lkGroundTex = { value: groundTex };
     shader.uniforms.lkGroundSize = { value: groundSize };
+    shader.uniforms.lkTiles = { value: [col(PAL.roofTile), col(PAL.roofTileDark), col(PAL.rubbleTile)] };
   };
-  mat.customProgramCacheKey = () => `${baseKey}-look-${name}`;
+  mat.customProgramCacheKey = () => `${baseKey}-finish-${name}`;
   mat.needsUpdate = true;
 }
 
 /** Patch the scene's materials (call again as things are added; it is idempotent). */
-export function patchScene(scene: THREE.Scene, map: { size: number; corner(x: number, z: number): number }): void {
-  const d = def();
-  if (!d) return;
+export function patchFinish(scene: THREE.Scene, map: { size: number; corner(x: number, z: number): number }): void {
+  if (!on) return;
   if (!groundTex) {
     const n = map.size + 1;
     const data = new Uint16Array(n * n);
@@ -419,31 +393,26 @@ export function patchScene(scene: THREE.Scene, map: { size: number; corner(x: nu
       if (p.name === 'trees') inPlants = true;
     }
     // The fuller plants (lookTrees.ts) carry crown normals: shade them smooth.
-    if (inPlants && d.detail && mat.flatShading) {
+    if (inPlants && labOn() && mat.flatShading) {
       mat.flatShading = false;
       mat.needsUpdate = true;
     }
     if (inTerrain) {
-      if (d.smoothGround) {
-        smoothByPosition(m.geometry);
-        mat.flatShading = false;
-      }
-      if (d.detail) patch(mat, GROUND, 'ground');
+      smoothByPosition(m.geometry);
+      mat.flatShading = false;
+      patch(mat, GROUND, 'ground');
     } else if (inStreets) {
-      if (d.smoothGround) {
-        smoothByPosition(m.geometry);
-        mat.flatShading = false;
-      }
-      if (d.detail) patch(mat, PAVING, 'paving');
-    } else if (d.detail && mat.vertexColors) {
+      smoothByPosition(m.geometry);
+      mat.flatShading = false;
+      patch(mat, PAVING, 'paving');
+    } else if (mat.vertexColors) {
+      // Buildings, plants, the ship and bridges. (The walkers and animals have no vertex colours of their own: they stay crisp.)
       patch(mat, OBJECTS, 'objects');
-    } else if (d.detail && !mat.vertexColors) {
-      // Instanced walkers and the like: leave them crisp.
     }
   });
   // The street chunks are rebuilt as roads change: smooth the new ones too.
   const streets = scene.getObjectByName('streets');
-  if (streets && d.smoothGround && !(streets.userData.lkHooked as boolean)) {
+  if (streets && !(streets.userData.lkHooked as boolean)) {
     streets.userData.lkHooked = true;
     streets.addEventListener('childadded', (e) => {
       const c = (e as unknown as { child: THREE.Mesh }).child;
@@ -457,15 +426,14 @@ export function patchScene(scene: THREE.Scene, map: { size: number; corner(x: nu
 }
 
 /** The light: a lower sky fill and a stronger, warmer sun, so form and shadow read. */
-export function applyLookLight(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
-  const d = def();
-  if (!d) return;
+export function applyFinishLight(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
+  if (!on) return;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   scene.traverse((o) => {
     const h = o as THREE.HemisphereLight;
-    if (h.isHemisphereLight) h.intensity = d.hemi;
+    if (h.isHemisphereLight) h.intensity = F.hemi;
     const s = o as THREE.DirectionalLight;
-    if (s.isDirectionalLight) s.intensity = d.sun;
+    if (s.isDirectionalLight) s.intensity = F.sun;
   });
 }
 
@@ -500,96 +468,20 @@ const GRADE = {
   `,
 };
 
-/** Generalised Kuwahara (four quadrants): flattens texture into brush-like patches, keeping edges. */
-const BRUSH = {
-  uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1, 1) } },
-  vertexShader: GRADE.vertexShader,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform vec2 uRes; varying vec2 vUv;
-    void main() {
-      vec2 px = 1.0 / uRes;
-      const int R = 3;
-      vec3 m[4]; vec3 s[4];
-      for (int k = 0; k < 4; k++) { m[k] = vec3(0.0); s[k] = vec3(0.0); }
-      for (int j = -R; j <= R; j++) for (int i = -R; i <= R; i++) {
-        vec3 c = texture2D(tDiffuse, vUv + vec2(float(i), float(j)) * px).rgb;
-        vec3 cc = c * c;
-        if (i <= 0 && j <= 0) { m[0] += c; s[0] += cc; }
-        if (i >= 0 && j <= 0) { m[1] += c; s[1] += cc; }
-        if (i <= 0 && j >= 0) { m[2] += c; s[2] += cc; }
-        if (i >= 0 && j >= 0) { m[3] += c; s[3] += cc; }
-      }
-      float n = float((R + 1) * (R + 1));
-      float best = 1e9; vec3 outc = vec3(0.0);
-      for (int k = 0; k < 4; k++) {
-        vec3 mu = m[k] / n;
-        vec3 v = abs(s[k] / n - mu * mu);
-        float sig = v.r + v.g + v.b;
-        if (sig < best) { best = sig; outc = mu; }
-      }
-      gl_FragColor = vec4(outc, 1.0);
-    }
-  `,
-};
-
-/** Ink lines where depth or facing jumps, laid over a paper grain. */
-const INK = {
-  uniforms: {
-    tDiffuse: { value: null },
-    tDepth: { value: null },
-    tNormal: { value: null },
-    uRes: { value: new THREE.Vector2(1, 1) },
-    cameraNear: { value: 0.1 },
-    cameraFar: { value: 9000 },
-  },
-  vertexShader: GRADE.vertexShader,
-  fragmentShader: /* glsl */ `
-    #include <packing>
-    uniform sampler2D tDiffuse, tDepth, tNormal; uniform vec2 uRes; uniform float cameraNear, cameraFar;
-    varying vec2 vUv;
-    float vz(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, cameraNear, cameraFar); }
-    vec3 nm(vec2 uv) { return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
-    float h(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-    float nz(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
-      return mix(mix(h(i), h(i + vec2(1, 0)), u.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), u.x), u.y); }
-    void main() {
-      vec2 px = 1.0 / uRes;
-      float z = vz(vUv);
-      float zs = 0.0; float ns = 0.0;
-      vec3 n0 = nm(vUv);
-      for (int k = 0; k < 4; k++) {
-        vec2 o = k == 0 ? vec2(px.x, 0.0) : k == 1 ? vec2(-px.x, 0.0) : k == 2 ? vec2(0.0, px.y) : vec2(0.0, -px.y);
-        zs += max(vz(vUv + o) - z, 0.0);
-        ns += 1.0 - dot(n0, nm(vUv + o));
-      }
-      float edge = smoothstep(0.012, 0.04, zs / z) + smoothstep(0.25, 0.7, ns);
-      edge = clamp(edge, 0.0, 1.0) * (1.0 - smoothstep(60.0, 160.0, z));
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
-      c = mix(c, c * vec3(0.42, 0.32, 0.26), edge * 0.75);
-      float paper = nz(vUv * uRes / 3.0) * 0.5 + nz(vUv * uRes / 11.0) * 0.5;
-      float fibre = nz(vec2(vUv.x * uRes.x / 1.5, vUv.y * uRes.y / 40.0));
-      c *= 0.94 + 0.08 * paper + 0.03 * fibre;
-      c = mix(c, c * vec3(1.03, 0.99, 0.9), 0.5);
-      gl_FragColor = vec4(c, 1.0);
-    }
-  `,
-};
-
-export interface LookPost {
+export interface FinishPost {
   render(): void;
 }
 
-/** The look's post-processing chain, or null for today's look. */
-export function makeLookPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): LookPost | null {
-  const d = def();
-  if (!d) return null;
+/** The finish's post-processing chain (null with the finish off: draw straight to the screen). */
+export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): FinishPost | null {
+  if (!on) return null;
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 }));
   composer.setPixelRatio(1);
   composer.addPass(new RenderPass(scene, camera));
   const ao = new GTAOPass(scene, camera, size.x, size.y);
-  ao.blendIntensity = d.ao;
+  ao.blendIntensity = F.ao;
   // Most of the city has no normals of its own (flat shading works them out from the faces): do the same in the AO's normal pass.
   ao.normalMaterial.flatShading = true;
   ao.normalMaterial.side = THREE.DoubleSide;
@@ -597,21 +489,10 @@ export function makeLookPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 16 });
   ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
   composer.addPass(ao);
-  if (d.bloom > 0) composer.addPass(new UnrealBloomPass(size, d.bloom, 0.5, 0.92));
+  composer.addPass(new UnrealBloomPass(size, F.bloom, 0.5, 0.92));
   composer.addPass(new OutputPass());
-  const extra: ShaderPass[] = [];
-  if (d.painterly) {
-    const brush = new ShaderPass(BRUSH);
-    composer.addPass(brush);
-    extra.push(brush);
-    const ink = new ShaderPass(INK);
-    ink.uniforms.tDepth.value = ao.depthTexture;
-    ink.uniforms.tNormal.value = ao.normalTexture;
-    composer.addPass(ink);
-    extra.push(ink);
-  }
   const grade = new ShaderPass(GRADE);
-  const g = d.grade;
+  const g = F.grade;
   grade.uniforms.uSat.value = g.sat;
   grade.uniforms.uContrast.value = g.contrast;
   grade.uniforms.uShadow.value.set(...g.shadow);
@@ -619,7 +500,6 @@ export function makeLookPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   grade.uniforms.uVignette.value = g.vignette;
   grade.uniforms.uGrain.value = g.grain;
   composer.addPass(grade);
-  extra.push(grade);
   const last = new THREE.Vector2();
   return {
     render() {
@@ -627,13 +507,7 @@ export function makeLookPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
       if (!size.equals(last)) {
         last.copy(size);
         composer.setSize(size.x, size.y);
-        for (const p of extra) p.uniforms.uRes?.value.copy(size);
-      }
-      for (const p of extra) {
-        if (p.uniforms.cameraNear) {
-          p.uniforms.cameraNear.value = camera.near;
-          p.uniforms.cameraFar.value = camera.far;
-        }
+        grade.uniforms.uRes.value.copy(size);
       }
       composer.render();
     },

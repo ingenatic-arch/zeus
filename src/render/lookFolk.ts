@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { currentLook } from './lookLab';
+import { labOn } from './finish';
 import { PAL } from './palette';
 import type { TPart } from './walkers';
 
@@ -11,7 +11,7 @@ import type { TPart } from './walkers';
  * shins and sandals. Facing +x, about 0.42 tall.
  */
 
-export const lookFolkOn = (): boolean => currentLook() === 'a' || currentLook() === 'b';
+export const lookFolkOn = (): boolean => labOn();
 
 const V = (r: number, y: number): THREE.Vector2 => new THREE.Vector2(r, y);
 

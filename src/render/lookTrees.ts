@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TreeKind } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { currentLook } from './lookLab';
+import { labOn } from './finish';
 import { col, PAL } from './palette';
 
 /**
@@ -194,7 +194,7 @@ function broom(seed: number): THREE.BufferGeometry {
 
 /** The look's model for a kind of plant, or null to keep today's. */
 export function lookTreeModel(kind: TreeKind): THREE.BufferGeometry | null {
-  if (currentLook() !== 'a' && currentLook() !== 'b') return null;
+  if (!labOn()) return null;
   switch (kind) {
     case TreeKind.Olive:
       return olive(301);
