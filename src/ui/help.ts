@@ -30,9 +30,10 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>Q / E</dt><dd>Turn a quarter left / right</dd>
       <dt>R / F</dt><dd>Tilt up / down</dd>
       <dt>+ / −</dt><dd>Zoom in / out</dd>
-      <dt>N</dt><dd>Face north</dd>
+      <dt>N</dt><dd>Face north (or click the gold N on the minimap’s ring)</dd>
     </dl>
     <h2 style="margin-top:12px">Building</h2>
+    <p class="lead">The panel on the right has a tab for each kind of building: click a picture to pick it up. Road, clear, undo and the overlays are round the minimap. The keys:</p>
     <dl>
       <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>

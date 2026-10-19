@@ -383,7 +383,7 @@ await page.keyboard.press('Escape');
 await frames(2);
 if ((await city()).panel !== 0) fail('Esc did not close the household panel');
 // The undo button says why it can't (the demo's building was over a month ago).
-const undoTitle = await page.evaluate(() => document.querySelector('.btn[aria-label^="Undo"]')?.getAttribute('title'));
+const undoTitle = await page.evaluate(() => document.querySelector('.boss[data-boss="undo"]')?.getAttribute('title'));
 if (!/about a month|Nothing to undo|clear it instead/.test(undoTitle ?? '')) fail(`undo button title: ${undoTitle}`);
 // I: the what's-missing overlay.
 await page.keyboard.press('i');
@@ -511,11 +511,11 @@ if (!/they give up the (townhouse for a cottage|fine house for a townhouse)/.tes
 
 // Slice 7: a town worth keeping.
 const zeus = (f, arg) => page.evaluate(f, arg);
-// The bare link: a welcome card pointing at the build bar and #town; picking a tool puts it away.
+// The bare link: a welcome card pointing at the control panel and #town; picking a tool puts it away.
 await open('#');
 if (!(await zeus(() => window.__zeus.welcome()))) fail('no welcome card on the bare link');
 const wel = await zeus(() => ({ text: document.querySelector('.welcome')?.textContent ?? '', town: !!document.querySelector('.welcome a[href="#town"]') }));
-if (!/bar along the bottom/.test(wel.text) || !wel.town) fail(`welcome card: ${JSON.stringify(wel)}`);
+if (!/panel on the right/.test(wel.text) || !wel.town) fail(`welcome card: ${JSON.stringify(wel)}`);
 await page.mouse.move(640, 300);
 await page.keyboard.press('t');
 await frames(2);

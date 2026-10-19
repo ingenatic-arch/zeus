@@ -153,7 +153,7 @@
   position: absolute; right: 6px; top: 268px; z-index: 6; width: 232px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 1px; padding: 8px;
   background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
-  border: 7px solid transparent; border-image: var(--skin-frame) 16 / 8px stretch;
+  border: 7px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch;
   box-shadow: 0 8px 20px rgba(20, 12, 4, 0.45);
 }
 .side-layers[hidden] { display: none; }
@@ -193,7 +193,7 @@ body.greece-open .corner { width: auto; right: 14px; top: 10px; }
 .tool-hint {
   bottom: 14px; padding: 6px 18px 7px; border-radius: 0;
   background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
-  border: 6px solid transparent; border-image: var(--skin-frame-thin) 10 / 6px stretch;
+  border: 6px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 6px stretch;
   font: italic 16px/1.3 var(--serif); color: var(--ink); text-shadow: var(--cut);
   box-shadow: 0 6px 16px rgba(20, 12, 4, 0.35);
   max-width: min(760px, calc(100% - var(--side) - 32px));
@@ -214,7 +214,7 @@ body.greece-open .corner { width: auto; right: 14px; top: 10px; }
 /* Cards: marble in a bronze frame. */
 .topbar, .help, .rates, .ledger, .household, .saves, .welcome, .greece-card, .greece-news {
   background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
-  border: 8px solid transparent; border-image: var(--skin-frame) 16 / 8px stretch; border-radius: 0;
+  border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch; border-radius: 0;
   box-shadow: 0 10px 24px rgba(20, 12, 4, 0.4);
   text-shadow: var(--cut);
 }
@@ -224,12 +224,12 @@ body.greece-open .corner { width: auto; right: 14px; top: 10px; }
 /* Labels over the city: marble in a thin frame. */
 .hint, .pointer-tip, .follow-chip, .legend, .save-note, .townline {
   background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
-  border: 5px solid transparent; border-image: var(--skin-frame-thin) 10 / 5px stretch; border-radius: 0;
+  border: 5px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch; border-radius: 0;
   text-shadow: var(--cut);
 }
 .townline { border-left-width: 5px; }
 .pointer-tip { padding: 2px 8px; }
-.pointer-tip.bad { border-image: var(--skin-frame-thin) 10 / 5px stretch; color: var(--down); }
+.pointer-tip.bad { border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch; color: var(--down); }
 .hint { padding: 6px 18px; }
 /* Bronze plaques for the cards' buttons; the main one in lapis with gold letters. */
 .pill {
@@ -279,3 +279,4 @@ button.stat.money:hover { background: rgba(255, 252, 240, 0.5); border-radius: 3
 .btn svg { filter: drop-shadow(0 1px 0 rgba(255, 240, 200, 0.5)); }
 .btn.on svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
 .btn:focus-visible { outline: 2px solid var(--gold); }
+.help .lead { margin: 0 0 6px; font-size: 13.5px; color: var(--ink-soft); }

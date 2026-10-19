@@ -8,10 +8,11 @@ import * as THREE from 'three';
 import { isLarge, isSmall } from '../sim/buildings';
 import type { BuildingKind } from '../sim/state';
 import { homePicture } from './homes';
+import { SCALE } from '../ui/relief';
 import { PAL, col } from './palette';
 import { workPicture, type PicturePart } from './works';
 
-/** A picture's size in CSS pixels (drawn at twice that). */
+/** A picture's size in CSS pixels (drawn at twice that on a high-density screen). */
 export const PICTURE_W = 76;
 export const PICTURE_H = 60;
 
@@ -29,7 +30,7 @@ export function drawPictures(tools: readonly string[]): Map<string, string> {
   const out = new Map<string, string>();
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(1);
-  renderer.setSize(PICTURE_W * 2, PICTURE_H * 2);
+  renderer.setSize(PICTURE_W * SCALE, PICTURE_H * SCALE);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, side: THREE.DoubleSide });
   const grass = new THREE.MeshStandardMaterial({ color: col(PAL.meadow), flatShading: true, roughness: 1 });

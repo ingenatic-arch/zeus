@@ -7,7 +7,7 @@
  * properties on the root; the pieces are image URLs, made the first time
  * they are asked for and kept.
  */
-import { bronze, canvasOf, cutOut, darkStone, disc, flat, gold, iconMask, inside, lapis, marble, Relief, rrect, sampled, ss, textMask, type Material } from './relief';
+import { bronze, canvasOf, cutOut, darkStone, disc, flat, gold, iconMask, inside, lapis, marble, Relief, rrect, sampled, SCALE, ss, textMask, type Material } from './relief';
 
 /** The side panel's width, and the moulding and groove down its left edge. */
 export const PANEL_W = 296;
@@ -49,6 +49,9 @@ export async function prepareSkin(icons: Record<string, string>, root: HTMLEleme
   set('--skin-mould', moulding());
   set('--skin-frame', frame(48, 7, 4));
   set('--skin-frame-thin', frame(24, 4, 2.6));
+  // Where border-image cuts the frames, in their own pixels.
+  root.style.setProperty('--skin-frame-cut', String(8 * SCALE));
+  root.style.setProperty('--skin-frame-thin-cut', String(5 * SCALE));
   return performance.now() - t0;
 }
 

@@ -196,7 +196,8 @@ export class SidePanel {
   private undoOk = false;
   /** The buildings' pictures, drawn the first time they are wanted. */
   private pictures: Map<string, string> | null = null;
-  private picturesSoon = false;
+  /** When the panel was first brought up to date (the pictures are drawn a second later, once the game is running; the wells show the buildings' icons until then). */
+  private firstAt = -1;
   private wellsKey = '';
 
   constructor(
@@ -413,15 +414,6 @@ export class SidePanel {
     const key = `${this.tab}|${this.tool}|${tools.map((t) => (money < costOf(t) ? 0 : 1)).join('')}|${tools.map((t) => (ONLY_ONE[t] && has(ONLY_ONE[t] as BuildingKind) ? 1 : 0)).join('')}`;
     if (key === this.wellsKey) return;
     this.wellsKey = key;
-    // The pictures are drawn just after the game opens (the wells show the buildings' icons until then).
-    if (!this.pictures && !this.picturesSoon) {
-      this.picturesSoon = true;
-      setTimeout(() => {
-        this.pictures = drawPictures(CATEGORIES.flatMap((c) => c.tools));
-        this.wellsKey = '';
-        this.showWells();
-      }, 300);
-    }
     this.wellsEl.innerHTML = tools
       .map((t) => {
         const i = INFO[t];
@@ -550,6 +542,11 @@ export class SidePanel {
   /** Bring the panel up to date (a few times a second while it shows). */
   update(s: SimState, time: number): void {
     this.s = s;
+    if (this.firstAt < 0) this.firstAt = time;
+    if (!this.pictures && time - this.firstAt > 1) {
+      this.pictures = drawPictures(CATEGORIES.flatMap((c) => c.tools));
+      this.wellsKey = '';
+    }
     if (!this.isOpen) return;
     if (time - this.shownAt < 0.3) return;
     this.shownAt = time;

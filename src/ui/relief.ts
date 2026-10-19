@@ -11,8 +11,8 @@
  * repeats without a seam.
  */
 
-/** Device pixels to a CSS pixel in every piece (crisp on a high-density screen). */
-export const SCALE = 2;
+/** Device pixels to a CSS pixel in every piece: two on a high-density screen, so it stays crisp; one on an ordinary one, a quarter of the work. */
+export const SCALE = typeof devicePixelRatio === 'number' && devicePixelRatio >= 1.25 ? 2 : 1;
 
 export type RGB = [number, number, number];
 /** A material: colour, how metallic (0..1) and how glossy (0..1), at a point. */
