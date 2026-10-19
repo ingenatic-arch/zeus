@@ -35,6 +35,8 @@ export const VIEWS: Record<string, CameraView> = {
   raidfarm: { x: 41, z: 43, yaw: 2.65, dist: 13, tilt: 0.05 },
   // #caravan: the road in from the north edge, where Corinth's caravans come down to the main street (the camera then follows the caravan).
   caravan: { x: 86.5, z: 9, yaw: 0.4, dist: 9, tilt: 0.12 },
+  // #rivalstreet: down the main street from beside the caravan yard, where the caravans from Corinth, Athens and Sparta wait at the gate.
+  rivalstreet: { x: 108.5, z: 41.5, yaw: 2.0, dist: 15, tilt: 0.02 },
   // #buywine: the caravan yard at the east end of #town's main street.
   yard: { x: 113.5, z: 42.5, yaw: 2.65, dist: 11, tilt: -0.02 },
   // #anchor: the bay off the jetty, a foreign ship at anchor waiting while the Tyre ship loads.

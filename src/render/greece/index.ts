@@ -90,6 +90,8 @@ export class GreeceMap {
   private tab: CityTab = 'ruler';
   private panelAt = -Infinity;
   private labelAt = -Infinity;
+  /** The top bar and the City button on the screen: left, right and bottom (measured with the labels' words). */
+  private barRect: [number, number, number] | null = null;
   private pointer = { x: -1, y: -1 };
   private state: SimState | null = null;
   private readonly v = new THREE.Vector3();
@@ -133,7 +135,7 @@ export class GreeceMap {
       const [cx, cz] = this.at(id);
       const h = this.relief.heightAt;
       let best: [number, number, number, number] | null = null;
-      for (const rad of [3.4, 4.4, 5.4])
+      for (const rad of [3.4, 4.4, 5.4, 6.4])
         for (let k = 0; k < 16; k++) {
           const a = (k / 16) * Math.PI * 2;
           const x = cx + Math.cos(a) * rad;
@@ -142,9 +144,9 @@ export class GreeceMap {
           const hs: number[] = [];
           for (const u of [-1.5, 0, 1.5]) for (const v of [-1.5, 0, 1.5]) hs.push(h(x + u * Math.cos(turn) - v * Math.sin(turn), z + u * Math.sin(turn) + v * Math.cos(turn)));
           if (Math.min(...hs) < 0.15) continue;
-          // (Clear of the other towns, yours above all; and never behind the city, where its label stands over it: slice 22, Athens' fields were under its label.)
+          // (Clear of the other towns, yours above all. Behind the city its label stands over it: only if there is nowhere else, and then as far back as may be, beyond the label; slice 22, Athens' fields were under its label.)
           if (CITY_IDS.some((o) => o !== id && Math.hypot(this.at(o)[0] - x, this.at(o)[1] - z) < rad + 1.5)) continue;
-          const score = Math.max(...hs) - Math.min(...hs) + (Math.sin(a) < -0.2 ? 8 : 0) + rad * 0.15;
+          const score = Math.max(...hs) - Math.min(...hs) + (Math.sin(a) < -0.2 ? 8 + (6.4 - rad) * 2 : 0) + rad * 0.15;
           if (!best || score < best[3]) best = [x, z, turn, score];
         }
       if (!best) return;
@@ -474,22 +476,36 @@ export class GreeceMap {
       this.v.copy(m.position).project(this.camera);
       under.push([r.left + (this.v.x * 0.5 + 0.5) * r.width, r.top + (-this.v.y * 0.5 + 0.5) * r.height]);
     }
+    // (The top bar and the City button hanging under it: a label that would stand under them hangs below its city instead. Slice 22: Troy's sat under the City button.)
+    if (refresh || !this.barRect) {
+      const a = document.querySelector('.topbar')?.getBoundingClientRect();
+      const b = document.querySelector('.greece-btn')?.getBoundingClientRect();
+      this.barRect = a && b ? [Math.min(a.left, b.left), Math.max(a.right, b.right), Math.max(a.bottom, b.bottom)] : a ? [a.left, a.right, a.bottom] : [0, 0, 0];
+    }
+    const [barL, barR, barB] = this.barRect;
     for (const id of CITY_IDS) {
       const el = this.labels.get(id) as HTMLElement;
       const [x, z] = this.at(id);
-      this.v.set(x, this.relief.heightAt(x, z) + 1.5 * SCALE[id], z).project(this.camera);
+      const ground = this.relief.heightAt(x, z);
+      this.v.set(x, ground + 1.5 * SCALE[id], z).project(this.camera);
       const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
       el.style.display = off ? 'none' : '';
       const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
-      const ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
-      el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
-      el.classList.toggle('hot', this.hovered === id || this.shown === id);
+      let ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
       let size = this.labelSize.get(id);
       if (refresh || !size) {
         size = [el.offsetWidth, el.offsetHeight];
         this.labelSize.set(id, size);
       }
       const [lw, lh] = size;
+      const below = ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR;
+      if (below) {
+        this.v.set(x, ground, z).project(this.camera);
+        ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh;
+      }
+      el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
+      el.classList.toggle('below', below);
+      el.classList.toggle('hot', this.hovered === id || this.shown === id);
       el.classList.toggle('veil', !off && under.some(([px, py]) => Math.abs(px - lx) < lw / 2 + 6 && py > ly - lh - 6 && py < ly + 10));
       if (refresh) morph(el, labelHtml(s, id));
     }

@@ -799,6 +799,16 @@ export class Walkers {
     const watchTunic = col(PAL.watchmanTunic);
     const blue = col(PAL.inspectorDress);
     const dockerTunic = col(PAL.dockerTunic);
+    // Caravans waiting at the same gate stand one behind the other along the road, not in one another (slice 22): each one's place in the line, by who came first.
+    const queue = new Map<number, number>();
+    const gates = new Map<string, number>();
+    for (const w of state.walkers) {
+      if (w.kind !== 'caravan' || w.wait <= 0 || w.path.length < 2) continue;
+      const key = `${w.path[w.path.length - 2]},${w.path[w.path.length - 1]}`;
+      const n = gates.get(key) ?? 0;
+      if (n > 0) queue.set(w.id, n);
+      gates.set(key, n + 1);
+    }
     for (const w of state.walkers) {
       live.add(w.id);
       const cum = this.cum(w);
@@ -806,7 +816,8 @@ export class Walkers {
       // (Waiting, as a hunter stalking: no creeping on between ticks.)
       const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * speedOf(w)));
       if (w.kind === 'caravan') {
-        this.caravan(w, cum, lead, total);
+        const back = (queue.get(w.id) ?? 0) * (DROVER_GAP + w.people * DONKEY_SPACING + 0.35);
+        this.caravan(w, cum, Math.max(0, lead - back), total);
         continue;
       }
       if (w.kind === 'raider') {

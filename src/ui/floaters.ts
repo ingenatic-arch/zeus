@@ -52,8 +52,9 @@ export class Floaters {
       this.v.copy(it.pos);
       this.v.y += 0.9 + age * 0.6;
       this.v.project(camera);
-      const behind = this.v.z > 1;
-      it.x = (this.v.x * 0.5 + 0.5) * w;
+      // (Off the side of the view, under the side panel, it isn't shown; at the edge it is kept clear of the panel: slice 22.)
+      const behind = this.v.z > 1 || this.v.x > 1 || this.v.x < -1;
+      it.x = Math.min(w - it.w / 2, Math.max(it.w / 2, (this.v.x * 0.5 + 0.5) * w));
       it.y = behind ? -1e4 : (-this.v.y * 0.5 + 0.5) * h;
       it.el.style.opacity = behind ? '0' : String(Math.min(1, age * 5) * (1 - Math.max(0, age - 1.1) / 0.7));
     }

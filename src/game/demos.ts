@@ -1548,7 +1548,7 @@ const SCENES: Record<string, Demo> = {
   // Slice 22: a world of rivals. The prepared town trading with every city, over the town; on the map of Greece; at street level by the yard.
   rivals: { view: 'richtown', setup: RIVALS, overlay: 'missing' },
   rivalsmap: { view: 'richtown', setup: RIVALS, overlay: 'missing', greece: true },
-  rivalstreet: { view: 'townstreet', setup: RIVALS, overlay: 'missing' },
+  rivalstreet: { view: 'rivalstreet', setup: RIVALS, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
