@@ -280,3 +280,6 @@ button.stat.money:hover { background: rgba(255, 252, 240, 0.5); border-radius: 3
 .btn.on svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
 .btn:focus-visible { outline: 2px solid var(--gold); }
 .help .lead { margin: 0 0 6px; font-size: 13.5px; color: var(--ink-soft); }
+
+/* The cards the corner bosses and the treasury open stand beside the panel, not over its head. */
+#ui > .help, #ui > .ledger, #ui > .saves, #ui > .save-note { right: calc(var(--side) + 14px); }
