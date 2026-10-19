@@ -205,6 +205,10 @@ interface Probe {
   army?: () => { selected: number; hint: string; companies: Array<{ id: number; kind: string; order: string; x: number; z: number; men: number; ready: number; screen: { x: number; y: number } | null }> };
   /** Take a company's banner in hand (0: let go). */
   selectCompany?: (id: number) => void;
+  /** Open a building's panel (0: close it). */
+  showPanel?: (id: number) => void;
+  /** The homes a soldier comes from (slice 23). */
+  servingHomes?: () => number[];
   sideWare?: (ware: number) => void;
   /** Debug: how long building each tab's HTML takes (ms, the mean of n). */
   sideBench?: (n: number) => Record<string, number>;
@@ -1440,6 +1444,8 @@ function start(preparedTown: string | null): void {
     };
   };
   probe.selectCompany = (id) => takeBanner(id);
+  probe.showPanel = (id) => panel.show(id);
+  probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

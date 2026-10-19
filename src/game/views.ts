@@ -131,7 +131,7 @@ export const VIEWS: Record<string, CameraView> = {
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
   // #bronze: the east hills from above the top of the oil road, the copper outcrop (green-streaked with the mine tool in hand), the mine on it and the road down past the armoury to the storehouse.
-  bronze: { x: 103, z: 13, yaw: 0.3, dist: 30, tilt: -0.15 },
+  bronze: { x: 106.5, z: 10, yaw: 0.3, dist: 24, tilt: -0.1 },
   // #barracks: over the barracks beside the armoury below the oil storehouse, the men walking in from the villas.
   barracks: { x: 89, z: 34, yaw: 0.6, dist: 18, tilt: 0.1 },
   // #companies: the barracks and the core's streets round it, both companies' banners in sight.
