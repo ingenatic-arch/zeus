@@ -479,6 +479,9 @@ export interface Company {
   why: string;
 }
 
+/** How the man who serves stands in his house. */
+export type ServesAs = 'head' | 'son' | 'husband' | 'brother' | 'cousin';
+
 /** What a soldier is doing: walking in from his home, waiting at the barracks for armour, in the ranks, or walking home, dismissed. */
 export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving';
 
@@ -491,10 +494,16 @@ export interface Soldier {
   slot: number;
   /** The home he comes from (a building id; 0 for a hireling, later). */
   home: number;
-  /** His name, his father's (or the house's head's) name, and the house's. */
+  /**
+   * His name, the name of the one he is known by in the house (a son's
+   * father, a husband's wife, a brother's or cousin's head of the house; ''
+   * for the head himself), and the house's.
+   */
   name: string;
   father: string;
   house: string;
+  /** How he stands in the house: its head, a son, or the husband, brother or cousin of `father` (a save from before this was kept: a son if `father` is set, else the head). */
+  kin?: ServesAs;
   state: SoldierState;
   /** Where he stands (world units) and which way he faces (radians). */
   x: number;

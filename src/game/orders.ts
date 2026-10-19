@@ -34,6 +34,8 @@ export class Orders {
     private readonly pick: (sx: number, sy: number) => number,
     /** Is a build tool in hand (it keeps the placement grid when the banner is let go)? */
     private readonly toolOn: () => boolean,
+    /** Who the soldier under a screen point is, in a line ('' for none: a banner, or nobody). */
+    private readonly who: (sx: number, sy: number) => string = () => '',
   ) {}
 
   onChange(l: (id: number) => void): void {
@@ -86,10 +88,13 @@ export class Orders {
     const over = this.pick(sx, sy);
     if (!c || this.hover < 0 || over) {
       this.placement.setMarks(new Map());
+      // (A man under the pointer says who he is first, as he does with no banner in hand.)
+      const man = over ? this.who(sx, sy) : '';
+      const line = (t: string): string => (man ? `${man}\n${t}` : t);
       if (c && over && over !== c.id) {
         const o = companyOf(s, over);
-        if (o) this.tip.show(`${cap(companyName(o))} of ${kindWord(o.kind)} · click to take its banner instead`, sx, sy);
-      } else if (c && over) this.tip.show(`${cap(companyName(c))} of ${kindWord(c.kind)}: its banner is in hand · click a street or open ground to march there`, sx, sy);
+        if (o) this.tip.show(line(`${cap(companyName(o))} of ${kindWord(o.kind)} · click to take its banner instead`), sx, sy);
+      } else if (c && over) this.tip.show(line(`${cap(companyName(c))} of ${kindWord(c.kind)}: its banner is in hand · click a street or open ground to march there`), sx, sy);
       else this.tip.show(null);
       return;
     }

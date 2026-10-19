@@ -336,7 +336,18 @@ function start(preparedTown: string | null): void {
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
   let armyPick: (sx: number, sy: number) => { company: number; soldier: number } = () => ({ company: 0, soldier: 0 });
-  const orders = new Orders(sim, placement, tip, (sx, sy) => armyPick(sx, sy).company, () => tools.tool !== null);
+  const orders = new Orders(
+    sim,
+    placement,
+    tip,
+    (sx, sy) => armyPick(sx, sy).company,
+    () => tools.tool !== null,
+    (sx, sy) => {
+      const id = armyPick(sx, sy).soldier;
+      const x = id ? sim.state.army.soldiers.find((o) => o.id === id) : undefined;
+      return x ? soldierStatus(sim.state, x).title : '';
+    },
+  );
   // Picking up a build tool lets go of a banner.
   tools.onChange((t) => {
     if (t) orders.select(0);
