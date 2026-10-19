@@ -7,6 +7,7 @@ import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { architectModel, fineA, fineB, rubbleModel, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB, watchPostModel } from './grand';
+import { finishOn } from './finish';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -638,6 +639,7 @@ export class Homes {
   /** Where each home's fire is (world), by chunk, for the smoke. */
   private fires = new Map<number, Array<[number, number, number, number]>>();
   private readonly smoke: ChunkedInstances;
+  private readonly smokeSize: number;
   private readonly sm = new THREE.Matrix4();
   private readonly sq = new THREE.Quaternion();
   private readonly sp = new THREE.Vector3();
@@ -686,7 +688,9 @@ export class Homes {
     this.group.add(this.stakes.group);
     // Soft blots turned to the camera (slice 14: they were faceted balls).
     const puff = new THREE.PlaneGeometry(2, 2);
-    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xeee8de, map: puffTexture(), transparent: true, opacity: 0.42, depthWrite: false });
+    // With the city's finish the smoke is a fainter, greyer haze in bigger wisps, so it drifts rather than bubbling.
+    this.smokeSize = finishOn() ? 1.7 : 1;
+    const smokeMat = new THREE.MeshBasicMaterial({ color: finishOn() ? 0xd9d3c9 : 0xeee8de, map: puffTexture(), transparent: true, opacity: finishOn() ? 0.2 : 0.42, depthWrite: false });
     this.smoke = new ChunkedInstances('smoke', puff, smokeMat, HOME_CHUNK, { castShadow: false, receiveShadow: false, colors: false });
     this.group.add(this.smoke.group);
   }
@@ -702,10 +706,10 @@ export class Homes {
           const f = (time / 3.6 + k / 4 + seed) % 1;
           // Small near the fire, swelling as it rises, then gone.
           const r = (0.025 + 0.075 * f) * Math.min(1, (1 - f) * 4);
-          const drift = f * f * 0.3;
+          const drift = f * f * 0.3 * this.smokeSize;
           this.sp.set(x + wx * drift, y + 0.14 + f * 0.6, z + wz * drift);
           this.sq.copy(face);
-          this.ss.set(r * 1.3, r * 1.2, 1);
+          this.ss.set(r * 1.3 * this.smokeSize, r * 1.2 * this.smokeSize, 1);
           this.sm.compose(this.sp, this.sq, this.ss);
           this.smoke.push(this.sm);
         }

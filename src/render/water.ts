@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { FIELD_MIN, FIELD_N, RIVER_EDGE_FADE, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { smoothstep } from '../map/noise';
+import { finishOn } from './finish';
 import { col, PAL } from './palette';
 
 /**
@@ -94,6 +95,8 @@ const fragment = /* glsl */ `
   varying float vFade;
   varying float vEdge;
   uniform vec2 uEdgeFade;
+  // 1 with the city's finish on (render/finish.ts): lacy, broken foam rather than a solid band.
+  uniform float uSoft;
 
   vec2 groundAt(vec2 p) {
     vec2 uv = (p - uFieldMin + 0.5) / uFieldSize;
@@ -108,6 +111,11 @@ const fragment = /* glsl */ `
   }
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+  }
 
   void main() {
     vec3 N = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
@@ -159,15 +167,19 @@ const fragment = /* glsl */ `
     // A second, broken line a little way out.
     float band = smoothstep(0.06, 0.0, abs(depth - (0.5 + 0.3 * breathe))) * (1.0 - uRiver);
     band *= step(0.6, hash(floor(vWorld.xz * 0.9)));
-    c = mix(c, uFoam, clamp(foam * 0.85 + band * 0.22, 0.0, 1.0));
+    // With the finish: the foam breaks into lace that drifts, thick at the water's edge and thinning out.
+    float lace = vnoise(vWorld.xz * 2.3 + vec2(uTime * 0.15, -uTime * 0.1)) * 0.6 + vnoise(vWorld.xz * 6.1 - uTime * 0.2) * 0.4;
+    foam *= mix(1.0, smoothstep(0.4, 0.8, lace + (1.0 - depth / max(foamW, 0.01)) * 0.22), uSoft);
+    band *= mix(1.0, smoothstep(0.45, 0.7, lace), uSoft);
+    c = mix(c, uFoam, clamp(foam * mix(0.85, 0.62, uSoft) + band * 0.22, 0.0, 1.0));
 
     float alpha = mix(0.62, 0.94, smoothstep(0.0, 2.5, depth));
-    alpha = max(alpha, foam);
+    alpha = max(alpha, foam * mix(1.0, 0.85, uSoft));
     if (uRiver > 0.5) {
       // The stream draws its own edge, a smooth curve with a thin line of foam,
       // fading out over the shallow shelf before the bank breaks the surface.
       float rim = smoothstep(uEdgeFade.x - 0.16, uEdgeFade.x, vEdge);
-      c = mix(c, uFoam, rim * 0.6);
+      c = mix(c, uFoam, rim * mix(0.6, 0.35, uSoft));
       alpha = max(alpha, rim * 0.8);
       alpha *= 1.0 - smoothstep(uEdgeFade.x, uEdgeFade.y, vEdge);
       alpha *= vFade;
@@ -372,6 +384,7 @@ export function buildWater(map: CoastMap): Water {
     uFieldMin: { value: new THREE.Vector2(FIELD_MIN, FIELD_MIN) },
     uFieldSize: { value: FIELD_N },
     uEdgeFade: { value: new THREE.Vector2(...RIVER_EDGE_FADE) },
+    uSoft: { value: finishOn() ? 1 : 0 },
   };
   const group = new THREE.Group();
   group.name = 'water';

@@ -39,6 +39,20 @@ You asked for the menus to work more like the original game's, with everything y
 - Screenshots at 1920 × 1080, 1600 × 900 and 1280 × 720. On a window up to 820 tall, the panel's head is drawn smaller.
 - First load, measured locally in a headless browser. The bare link was ready at 1.8 s, with its first frame at 2.2 s; main was ready at about 1.3 s. That is about half a second slower than main, mostly the marble and bronze being made, which happens while a demo's town is fetched. All 92 demo links were ready at a median of 1.6 s, the slowest being `#offer` at 2.3 s, and none took over 3 s. The game's files are 587 KB gzipped, fonts included.
 
+## City look, stage 1 — light, ground and materials (19 Oct)
+
+You picked look A, Sunlit terracotta. Stage 1 of its plan (`docs/plans/2026-10-19-city-look.md`) is now the game's own look in every demo: light and colour, the ground, the building materials and the sea. Trees and people are stage 2, and cornices and window frames stage 3. Add `-plain` to any link (`#goods-plain`) to see the old look side by side. Nothing in the simulation or the saves changed.
+
+### What's new
+- **Light.** A warmer, stronger sun with softer shadows and a lower sky fill; ambient occlusion so buildings sit on the ground; a light bloom and a warm grade with a soft vignette.
+- **Ground.** Smooth ground instead of triangle facets: grass in tufts with dry gold drifts and bare soil, ripples on the sand when you're close, bedding on rock. Roads have flagstones, plots have trodden earth.
+- **Buildings.** Tiled roofs with rows and channels, plaster walls with grain and dust at the foot, slabs on paving and steps. Awnings, pots and cloth are left as they were.
+- **Sea and smoke.** A deeper Aegean with turquoise only in the shallows, shore foam that breaks into drifting lace instead of a hard white band, and hearth smoke that drifts thin instead of white bubbles.
+
+### Your eye on
+- Whether the grade is too warm or too dark for you; it is one set of numbers and easy to move.
+- Frame rate on your laptop. These shots ran on software graphics here, so I couldn't measure it. If it drops, the fallback in the plan is a Graphics setting that turns off ambient occlusion and bloom.
+
 ## Slice 23 — Bronze and the barracks (19 Oct)
 
 The first slice of the new phase lets the city arm itself: copper in the hills, a mine and an armoury that make armour, a barracks that raises companies of hoplites and archers from your best homes, and banners you carry through your streets to march them (there is nobody to fight yet; raiders fought in the streets come next). You weren't here while it was built: every choice below is mine, from the spec's defaults.
@@ -325,7 +339,6 @@ Phase 3, "Greece beyond the walls", in eight slices. What you can do now that yo
 - Are the travellers on the map the right size from far out, and is `#rivals`' opening, with five notes at once, too much?
 - Phase 2's open questions still stand: should early fire be gentler, and should tax money come in smoothly?
 - What should the next phase be?
-
 
 ## Slice 21 — Greece goes on (18 Oct)
 
@@ -1698,7 +1711,6 @@ Nothing to break: there are no saves until slice 7. Every earlier demo still ope
 - **Re-checked.** I followed the steps of every earlier check-in again after the bread change. They still do what their notes say, and in `#bridge`, where 14 homes went down over two years before, none do now. `#harvest` opens with 473 people (was 470), and `#missing` with 438 (was 434), three huts instead of two and 7 homes warning instead of 9, because bread reaches the stalls at a different pace. In `#missing`, the two extra farms still bring every home back to a cottage in about six months, as its note says.
 - **Corrected in this note.** Step 1 (`#grow`) now tells the bread story as it plays now, step 7 (`#closed`) has the new numbers, and the measurements are the new ones.
 
-
 ## Slice 5 — The people who live there (16 Oct)
 
 Every home is now a household you can click: a named family from somewhere in the Greek world, who they are, how they feel and why, what they have and lack, a line or two of their talk, and what has happened to them; when a home loses what it needs it warns you with a sign over its roof for two months before it goes down a level and some of the family walk out. You weren't here while it was built: every choice below is mine, from the spec's defaults.
@@ -1756,7 +1768,6 @@ Nothing to break: there are no saves until slice 7. What changes on purpose: a h
 - **The talk.** No line has a baby doing grown-up things. No lines say "back to a tent" from a cottage. No line says a relative is leaving when the panel says otherwise. Places of origin now read right in every line ("a farm near Sparta" became "the hills of Laconia"). A few weaker lines were rewritten.
 - **Smaller things.** "Here since" stays on the panel even after the story fills up. When bread runs short because a farm has no road or too few workers, the reason now says so instead of asking for another farm. The undo button explains itself from the start. When a home that has already gone down a level is still without and starts worrying again, its story says so.
 - **Corrected in this note.** The steps for `#warning` and `#missing` now match what happens: `#warning` opens paused, and the farms in `#missing` must be right beside the road. With three farms the reds clear in about a minute at speed 3, not a couple of minutes. `#warning` and `#decline` don't open any slower than the other demos: by the game's own clock they're ready in about a second, like `#food`. The 3.5 seconds I gave before was the headless browser's overhead.
-
 
 ## Slice 4 — Bread on the table (16 Oct)
 
