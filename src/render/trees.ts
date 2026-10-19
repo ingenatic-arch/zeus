@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TreeKind, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { lookTreeModel } from './lookTrees';
 import { col, PAL } from './palette';
 
 /**
@@ -224,7 +225,7 @@ export function buildTrees(map: CoastMap): Plants {
   const model = (k: TreeKind): THREE.BufferGeometry => {
     let g = models.get(k);
     if (!g) {
-      g = MODELS[k]();
+      g = lookTreeModel(k) ?? MODELS[k]();
       models.set(k, g);
     }
     return g;
