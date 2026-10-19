@@ -2,6 +2,81 @@
 
 Notes to Oliver, newest first.
 
+## Slice 23 — Bronze and the barracks (19 Oct)
+
+The first slice of the new phase lets the city arm itself: copper in the hills, a mine and an armoury that make armour, a barracks that raises companies of hoplites and archers from your best homes, and banners you carry through your streets to march them (there is nobody to fight yet; raiders fought in the streets come next). You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing you had is lost.
+- **Saves.** Saves from before load, with no army. The welcome back says the city can now arm itself, and where.
+- **Earlier demos.** Every earlier demo opens, and plays 900 ticks on, exactly as before, the ones with trade routes included. Greece's two new goods draw on no dice, so no route's history moved.
+- **What reads differently.** A city's prices page now has eight goods, not six (copper and armour). The ledger and the Money tab gain a "Soldiers' pay" line once you have soldiers.
+
+### What's new
+- **Copper on the hills.** There are three copper outcrops: on the rocky north-west massif, in the east hills above the town, and on the headland. Pick up the copper mine (B twice) and they show as green bands over the ground, stronger where the rock is richer. A mine (150 dr, 6 workers) goes only where its ground averages enough copper, and beside a road. On the richest rock it digs about 200 measures of ore a month, fully worked. Its ox carts take the ore to the nearest storehouse.
+- **The armoury** (B three times, 300 dr, 6 workers). It is a stone smithy with a forge under a lean-to, bellows, an anvil and a quenching trough. Its smiths hammer ten measures of copper into one set of armour: a bronze helmet, a breastplate, a round shield in the city's colour and a spear. Fully worked, that is up to 20 sets a month. Its porter fetches copper from the storehouse when its heap runs low, and its carts take the armour back. Storehouses show copper ore in baskets and armour on stands.
+- **Copper and armour as goods.** Both are in the stock book and on the Goods tab, copper under "From the land" and armour under a new "Arms". On Greece's routes, Sparta sells copper, and Corinth and Athens sell armour, so a town with no copper can still arm its men. The Tyre ship doesn't deal in either.
+- **The barracks** (B four times, 500 dr, 4 staff). It is a walled yard with a colonnade along one side, spear racks, a sanded drill ground and a banner pole by the gate. It holds four companies.
+- **Raising a company.** On the Army tab, "Raise a company of hoplites" (from fine houses and villas) or "of archers" (from townhouses and better).
+  - Sixteen men answer, one from each home, nearest first. Each man leaves his job and walks in from his home.
+  - An archer is ready as he arrives. A hoplite waits for his set of armour, which the barracks' porter carries in from the stores, up to 32 sets a trip.
+  - A company that can't fill says why, for example "No armour in the stores: 6 men are waiting for theirs".
+  - Each soldier is paid 3 dr a month (a worker gets 2), on its own ledger line.
+- **Who serves.** A home's panel says who of theirs serves: "Kleon, the head of the house, serves in the 1st company of hoplites; he has left his work". Hovering a soldier says who he is: "Theodoros, son of Xanthos · hoplite of the 1st company, of the house of Hieron, a villa".
+- **Drill.** A company at its barracks drills on the ground. It stands in ranks, turns and marches a few paces across the ground and back.
+- **Banners and marching.** Each company has a banner on a pole: the city's red, its own emblem (owl, boar, lion, bull and so on) and its number. Archers' banners have a fringe.
+  - To pick a banner up, click it, click one of its men, or click its row on the Army tab. The banner rises over a gold ring, and a line at the top says what to do.
+  - The tile under the pointer is marked green where it can go and red where it can't. Its tip says how many days away it is, or why not.
+  - Click a street or open ground (or drag the banner there) and the company marches by the shortest way, round buildings. It stands in ranks there, facing the way it came.
+  - Esc or a right-click puts the banner down. Orders work while paused.
+- **The Army tab and the army chip.** The side panel has a fifth tab, Army. It shows the city's whole strength, then each barracks with its companies: men, wounded (none yet), where they are, what they are doing, and pay. It also has the "Back to barracks", "Dismiss" and "Raise" buttons. Dismissing sends the men home to their old work, and their armour back to the stores. A helmet chip under the top bar ("32 soldiers · 2 companies") opens the tab.
+
+### What to try
+1. Open `#bronze`. You are over the east hills in June 747 BC with the copper mine tool in hand, and the green bands show the copper.
+   - A road runs up from the oil storehouse to a mine on the richest rock, and its ore carts are on the road.
+   - The armoury stands lower down the oil road, beside the storehouse. Four sets of armour are already in the stores (see the Goods tab).
+   - Move the tool over the rest of the outcrop: the tip says how much a mine there would dig. Build a second one off the road's end.
+2. Open `#barracks`. It is the same town four months on, with a barracks beside the armoury. A company of hoplites has just been raised.
+   - Half the men are on the streets, walking in from the villas and fine houses. The other half wait on the drill ground for their armour, and the porter is on his way back with it.
+   - Run it at normal speed: within a few days the porter arrives, and the men take their armour and start drilling.
+   - The Army tab is open; watch the company's line change. Then raise a company of archers there.
+3. Open `#companies`. Two full companies, hoplites and archers, are drilling at the barracks, and the hoplites' banner is in hand.
+   - Click a street (the north street west of the barracks, say) and watch them march off in a file and form up there.
+   - Click the archers' banner (or their row on the Army tab) and send them somewhere else. Bring one back with "Back to barracks".
+   - Pause and give orders while paused.
+4. In `#companies`, hover a soldier: he says whose son he is and which house he comes from. Find that house and click it to read who of theirs serves. Then dismiss a company and watch the men walk home.
+5. Open any earlier demo (say `#rivals` or `#richtown`): it is the same town as before.
+
+Each link also opens paused if you add `-paused` (for example `#companies-paused`).
+
+### What I'd like your eye on
+- **The soldiers up close.** Hoplites have a red tunic, a bronze helmet with a crest, a shield and a spear. Archers have an ochre tunic, a cap, a bow and a quiver. Do they read as soldiers, and as two different kinds, at the distances you play at?
+- **The banners.** Each is a cloth on a tall pole with its emblem and "1ST", "2ND". Too big, too small, too plain?
+- **The barracks and the armoury.** Does the barracks read as a place where men train? The armoury's forge glow sits under its lean-to and only shows from low down.
+- **The copper's look.** It shows as green bands over the ground while the mine tool is in hand. On the east hills the map draws much of that ground as grass and scrub rather than bare rock, so the bands lie on both.
+- **The pace.** Soldiers march at walking pace. In `#companies`, the hoplites took ten game days to march from the barracks to the north street, about ten tiles. Raising a company took about 16 days in `#barracks`: the men walking in, then the porter's trip for the armour. Too slow for a city under threat, once raiders come?
+
+### Known rough edges
+- No miner figures at the mine yet; only its carts and the windlass show it is worked.
+- A marching company follows its banner two abreast. On a narrow street the outer file brushes what stands beside it: in `#companies`, the watch tower by the oil road.
+- The demos' town has more men out of work than jobs (317 of 476), so raising takes nobody from a short-handed workplace here. In a tighter town, a company of 16 empties a few workplaces.
+- Hirelings, wounds and fighting come next slice; the Army tab's "0 wounded" is a placeholder for them.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080, before (at the phase spec) and after:
+
+| What | Before | After |
+|---|---|---|
+| Tests | 353, all passing | 366, all passing |
+| Download (gzipped) | 1,946 KB: the game 437 KB, the prepared towns 1,510 KB | 2,081 KB: the game 456 KB, the prepared towns 1,625 KB (three more) |
+| First load (bare link) | ready at 2.5 s, first frame at 3.4 s | ready at 1.9 s, first frame at 2.4 s (a quieter machine; the page does the same work) |
+| Every demo's load | 88 demos, median 1.9 s, slowest 2.5 s, none over 3 s | 91 demos, median 1.9 s, slowest 2.4 s, none over 3 s |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same |
+| `#companies` | — | 914,290 triangles, 86 draw calls, with 32 soldiers and two banners |
+| Work a frame before drawing | `#town` 13.0 ms, `#richtown` 14.2, `#richstreet` 17.4, `#rivals` 14.3 | 12.2, 11.7, 16.2, 12.7; `#bronze` 7.2, `#barracks` 9.8, `#companies` 11.8 |
+| A save of `#richtown` | 183 KB | 186 KB |
+
+The soldiers are drawn in the same batch as the walkers, and no bigger per figure than the largest walker, so a few hundred stay cheap. The banners are one cloth mesh and one set of poles, whatever their number.
+
 ## Slice 22 — A world of rivals (19 Oct)
 
 The last slice of the phase puts everything Greece now does into one town, and tunes it to read well over years rather than minutes. `#rivals` is a prepared town on the bay that trades with every city of Greece. Caravans from Corinth, Athens and Sparta walk its streets to the yard, and ships from Athens, Corinth and Troy come in to the quay. Athens' archon has a request open, Sparta's king has a threat running towards its deadline, and Troy and Athens are at war at sea. Every demo now opens from a town prepared when the game is built, rather than playing its history while you wait, so each one opens in about the time the bare link takes. The world's pacing was checked over six to eight years of play, left alone and looked after, and the wars and raids were retuned. The map and the city had a look-and-feel pass by screenshots. You weren't here while it was built: every choice below is mine, from the spec's defaults.

@@ -653,7 +653,7 @@ export class SidePanel {
     const k = (lines: typeof now, kind: Parameters<typeof kindTotal>[1]): number => kindTotal(lines, kind);
     const building = (lines: typeof now): number => k(lines, 'building') + k(lines, 'clearing') + k(lines, 'refund');
     out.push(
-      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${row('Building', building(now), building(last))}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
+      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${row('Building', building(now), building(last))}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
     );
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const taxed = homes.filter((b) => taxedLately(s, b)).length;
