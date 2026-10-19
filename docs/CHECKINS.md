@@ -202,7 +202,7 @@ Phase 3, "Greece beyond the walls", in eight slices. What you can do now that yo
 - **Triangles and draw batches** in `#town` and `#richtown` are unchanged. `#rivals` is the most yet as it opens, about a million triangles, because its view takes in the whole town.
 - **Saves** grew a few KB for Greece (`#town` 140 to 145 KB).
 - **Time per frame** before drawing is within noise of the end of phase 2 once a town has warmed up.
-- **The same sums in every browser:** the game now does its own maths, so a town plays exactly the same in Chrome, Firefox or Safari, and a save opened in another browser carries on the same way.
+- **The same sums everywhere:** the game now does its own maths rather than the browser's, so a town should play the same in any browser and a save carries on the same way wherever it is opened. Checked between Chrome and the build's own engine; Firefox and Safari aren't tested here.
 - **Frame rate on a real laptop is still unmeasured.** Only your machine can say whether `#rivals` and the map hold 60 frames a second.
 
 **Questions for you**
