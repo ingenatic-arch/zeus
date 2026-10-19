@@ -13,6 +13,8 @@ import { WARE_NAMES } from '../sim/foods';
 import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, keptIn, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
+import { heraldWords, whose } from '../sim/loans';
+import { LOAN_ICON, loanDealHtml, loanDealShort, loansTabHtml, loansTabName } from './loans';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
 import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, type SendMemo, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
@@ -23,8 +25,8 @@ import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
-export type CityTab = 'ruler' | 'prices' | 'trade' | 'rivals';
-export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade', 'rivals'];
+export type CityTab = 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
+export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade', 'loans', 'rivals'];
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -132,6 +134,8 @@ export function labelHtml(s: SimState, id: CityId): string {
 /** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
 export function dealIcon(d: Pick<Deal, 'kind' | 'gift'>): string {
   const sent = d.gift > 0 ? ' sent' : '';
+  // A ruler's offer of a loan or ask for one: a coin on a scroll (loans.ts).
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') return LOAN_ICON;
   // A threat: a red seal under two crossed spears.
   if (d.kind === 'threat') return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask threat${sent}" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>`;
   if (d.kind === 'tribute') return `<svg viewBox="0 0 16 16" width="15" height="15" class="ask tribute${sent}" aria-hidden="true"><path d="M3 3.5h8.6c1 0 1.6.7 1.6 1.6v7.4H4.6C3.7 12.5 3 11.8 3 10.9z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9"/><circle cx="10.4" cy="11" r="3" fill="#b8322a" stroke="#6e1a14" stroke-width=".8"/><path d="M9 11h2.8M10.4 9.6v2.8" stroke="#f2c7b8" stroke-width=".8"/></svg>`;
@@ -142,6 +146,7 @@ export function dealIcon(d: Pick<Deal, 'kind' | 'gift'>): string {
 export function dealShort(s: SimState, d: Deal): string {
   const days = Math.max(0, Math.ceil((d.due - s.tick) / TICKS_PER_DAY));
   const left = `${days === 1 ? '1 day' : `${days} days`} left`;
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') return loanDealShort(s, d);
   if (d.kind === 'threat') {
     const r = raidOf(s.world, d.id);
     if (r && r.phase === 'raiding') return `Raiders in your city · pay ${fmt(r.coin)} dr to turn them back`;
@@ -197,6 +202,12 @@ function travellerHtml(s: SimState, key: string): string {
 function giftCard(s: SimState, id: number): string {
   const g = s.world.gifts.find((x) => x.id === id);
   if (!g) return '<b>A gift</b>';
+  if (g.loan) {
+    // A herald about a loan (loans.ts).
+    const h = heraldWords(s, g);
+    const city = g.from === 'home' ? g.to : g.from;
+    return `<b>${esc(h.head)}</b><span>${esc(h.line)}</span><span class="sub">Click for ${esc(whose(city))} Loans tab</span>`;
+  }
   const yours = g.from === 'home';
   const city = yours ? g.to : g.from;
   const name = PLACES[city].name;
@@ -379,6 +390,7 @@ function etaLine(s: SimState, map: CoastMap | undefined, d: Deal): string {
 
 /** One of a ruler's deals: what they ask or offer and why, by when, your answers with what each does to the mood, and when a sending would arrive. */
 function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') return loanDealHtml(s, d);
   const c = cityOf(s.world, d.city);
   const they = c.ruler?.female ? 'she' : 'he';
   const w = answerWorths(s, d);
@@ -523,7 +535,7 @@ function dealsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   if (!deals.length) return '';
   const c = cityOf(s.world, id);
   deals.sort((a, b) => Number(b.kind === 'threat') - Number(a.kind === 'threat'));
-  const head = deals.some((d) => d.kind === 'threat') ? `What ${c.ruler?.female ? 'she' : 'he'} threatens` : deals.some((d) => d.kind === 'tribute') ? `What ${c.ruler?.female ? 'she' : 'he'} demands` : deals.every((d) => d.kind === 'offer') ? `What ${c.ruler?.female ? 'she' : 'he'} offers` : `What ${c.ruler?.female ? 'she' : 'he'} asks of you`;
+  const head = deals.some((d) => d.kind === 'threat') ? `What ${c.ruler?.female ? 'she' : 'he'} threatens` : deals.some((d) => d.kind === 'tribute') ? `What ${c.ruler?.female ? 'she' : 'he'} demands` : deals.every((d) => d.kind === 'offer' || d.kind === 'loanoffer') ? `What ${c.ruler?.female ? 'she' : 'he'} offers` : `What ${c.ruler?.female ? 'she' : 'he'} asks of you`;
   return `<section class="deals"><h3>${head}</h3>${deals.map((d) => dealHtml(s, d, map)).join('')}</section>`;
 }
 
@@ -564,7 +576,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   const traits = r.traits.map((t) => `<li><b>${cap(t)}</b>: ${TRAIT_WORDS[t]}</li>`).join('');
   const routes = s.world.routes.filter((x) => x.city === id);
   const closed = routes.some((x) => x.closed > 0);
-  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', rivals: c.war ? 'Rivals · at war' : 'Rivals' };
+  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', loans: loansTabName(s, id), rivals: c.war ? 'Rivals · at war' : 'Rivals' };
   const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ' title="The ruler has closed the way: see the Ruler tab"' : ''}>${tabName[k]}</button>`).join('');
   const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
@@ -576,6 +588,7 @@ ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}`)}
 ${pane('prices', pricesBlock(s, id, false))}
 ${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}
+${pane('loans', tab === 'loans' ? loansTabHtml(s, id) : '')}
 ${pane('rivals', tab === 'rivals' ? rivalsHtml(s, id) : '')}`;
 }
 

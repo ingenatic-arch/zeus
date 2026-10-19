@@ -36,6 +36,7 @@ import { TAX_RATES, taxedLately } from '../sim/taxes';
 import { kindTotal, monthOf as ledgerMonth, owedWages, totals } from '../sim/treasury';
 import { Minimap } from './minimap';
 import { morph } from './morph';
+import { moneyLoansHtml } from './loans';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -135,6 +136,8 @@ export interface SideHooks {
   army(c: Command): void;
   selectCompany(id: number): void;
   selected(): number;
+  /** Open a city's page on the map of Greece, on its Loans tab (the Money tab's loans). */
+  loans?(city: string): void;
 }
 
 /** Remembered between visits (where the browser lets it): whether the panel is open, and the tab. */
@@ -299,7 +302,9 @@ export class SidePanel {
     else if (act === 'recall') this.hooks.army({ type: 'banner', company: Number(a.dataset.id), tile: -1 });
     else if (act === 'dismiss') this.hooks.army({ type: 'dismiss', company: Number(a.dataset.id) });
     else if (act === 'raise') this.hooks.army({ type: 'raise', barracks: Number(a.dataset.id), kind: a.dataset.kind === 'archer' ? 'archer' : 'hoplite' });
-    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise') {
+    else if (act === 'repay') this.hooks.army({ type: 'loan', act: 'repay', loan: Number(a.dataset.id) });
+    else if (act === 'loancity') this.hooks.loans?.(a.dataset.city ?? '');
+    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise' || act === 'repay') {
       this.shownAt = -Infinity;
       if (this.s) this.render(this.s);
     }
@@ -652,8 +657,9 @@ export class SidePanel {
     const row = (label: string, a: number, b: number): string => `<tr><td class="what">${label}</td><td class="amt ${a > 0 ? 'in' : a < 0 ? 'out' : 'nil'}">${a ? signed(a) : '·'}</td><td class="amt ${b > 0 ? 'in' : b < 0 ? 'out' : 'nil'}">${b ? signed(b) : '·'}</td></tr>`;
     const k = (lines: typeof now, kind: Parameters<typeof kindTotal>[1]): number => kindTotal(lines, kind);
     const building = (lines: typeof now): number => k(lines, 'building') + k(lines, 'clearing') + k(lines, 'refund');
+    const loans = (lines: typeof now): number => k(lines, 'borrowed') + k(lines, 'repaid') + k(lines, 'lent') + k(lines, 'repayment') + k(lines, 'returned');
     out.push(
-      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${row('Building', building(now), building(last))}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
+      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${row('Building', building(now), building(last))}${loans(now) || loans(last) ? row('Loans', loans(now), loans(last)) : ''}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
     );
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const taxed = homes.filter((b) => taxedLately(s, b)).length;
@@ -662,6 +668,7 @@ export class SidePanel {
     out.push(`<p class="side-row"><span>The rate</span><button class="chip" data-act="rates" title="Change the tax rate">${cap(TAX_RATES[s.taxRate] ?? '?')}</button></p>`);
     out.push(`<p class="side-note">${offices ? `Collectors from ${offices} tax ${offices === 1 ? 'office' : 'offices'} called on ${fmt(taxed)} of ${fmt(homes.length)} homes in the last month.` : 'No tax office yet: build one (Z) by the houses, so a collector brings the taxes in.'}</p>`);
     out.push(`<button class="wide" data-act="ledger">Open the ledger <kbd>$</kbd></button>`);
+    out.push(moneyLoansHtml(s));
     return out.join('');
   }
 }

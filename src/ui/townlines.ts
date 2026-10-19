@@ -9,13 +9,15 @@ import { TICKS_PER_DAY } from '../sim/clock';
 import type { TownLine } from '../sim/status';
 
 /** Lines that are news, not shortfalls: they come and go at once. */
-const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'raid', 'alarm'];
+const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm'];
 
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
 
 const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>';
 const ICONS: Record<TownLine['need'], string> = {
+  // (A loan's: a coin on a scroll, as on the city's label and page.)
+  loan: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.8h8.6c.9 0 1.5.6 1.5 1.5V12H4.5C3.7 12 3 11.3 3 10.5z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M5.2 5.4h5M5.2 7.2h3" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/><circle cx="10.6" cy="11" r="3.3" fill="#e8c04a" stroke="#8a6414" stroke-width=".9"/><circle cx="10.6" cy="11" r="1.7" fill="none" stroke="#b88a1e" stroke-width=".7"/></svg>',
   raid: SPEARS,
   alarm: '<svg viewBox="0 0 18 16" aria-hidden="true"><path d="M2 6.2c3.4-.2 7.6-1.8 11.6-4.6.9 3.6.9 8.2 0 11.8-4-2.8-8.2-4.4-11.6-4.6z" fill="#d9b04a" stroke="#6a4416" stroke-width=".9" stroke-linejoin="round"/><ellipse cx="13.6" cy="7.6" rx="1.4" ry="5.8" fill="#a07a1e" stroke="#6a4416" stroke-width=".8"/><path d="M15.6 4.4l1.6-1M16 7.6h1.8M15.6 10.8l1.6 1" stroke="#b8322a" stroke-width="1.1" stroke-linecap="round"/></svg>',
   favour:
@@ -42,7 +44,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'alarm', 'ship', 'trader', 'favour', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;

@@ -66,6 +66,11 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'tribute') return [`Tribute · ${l.what}`, ''];
   if (l.kind === 'peace') return [`Peace bought · ${l.what}`, ''];
   if (l.kind === 'raid') return [`Raided by ${l.what}`, ''];
+  if (l.kind === 'borrowed') return [`Loan · ${l.what}`, ''];
+  if (l.kind === 'repayment') return [`Loan repaid · ${l.what}`, ''];
+  if (l.kind === 'returned') return [`Loan sent back · ${l.what}`, ''];
+  if (l.kind === 'lent') return [`Lent · ${l.what}`, ''];
+  if (l.kind === 'repaid') return [`Loan repaid · ${l.what}`, ''];
   if (l.kind === 'soldiers') return ['Soldiers’ pay', n ? count(n, 'man', 'men') : ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
   if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
@@ -79,7 +84,7 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
 }
 
 /** The order the kinds come in, money in first. */
-const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'refund', 'wages', 'soldiers', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'peace', 'raid', 'fire', 'collapse'];
+const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'borrowed', 'repayment', 'returned', 'refund', 'wages', 'soldiers', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'peace', 'lent', 'repaid', 'raid', 'fire', 'collapse'];
 
 interface Row {
   kind: LedgerKind;
@@ -125,7 +130,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const body: string[] = [];
   let heading = '';
   for (const r of rows) {
-    const head = r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' ? 'Going out' : 'Coming in';
+    const head = r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' || r.kind === 'lent' || r.kind === 'repaid' ? 'Going out' : 'Coming in';
     if (head !== heading) {
       heading = head;
       body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);

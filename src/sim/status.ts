@@ -1036,7 +1036,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'raid' | 'alarm';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1188,10 +1188,11 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (deal) out.push(deal.line);
   // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
   const loan = loanTownLine(s);
-  if (loan) out.push({ need: 'favour', text: loan.text, at: 0, route: loan.city });
+  if (loan) out.push({ need: 'loan', text: loan.text, at: 0, route: loan.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
-  if (news && !(deal && askedFor(news.item, deal.deal))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)
+  if (news && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);

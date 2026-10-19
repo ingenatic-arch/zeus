@@ -22,10 +22,11 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
-import { askWhy, deadlineFor, firstRoute, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
+import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
+import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
-import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS } from '../sim/raids';
+import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -117,7 +118,7 @@ export interface Demo {
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
   /** The tab that city's page opens on (its ruler's, unless named). */
-  greeceTab?: 'ruler' | 'prices' | 'trade' | 'rivals';
+  greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
@@ -1538,6 +1539,68 @@ function hazards(sim: Sim, on: boolean): void {
 /** The prepared town of #rivals (one setup for its three demos). */
 const RIVALS = rivalsTown();
 
+/**
+ * Loans both ways (slice 27). #borrow: #caravan's young town, its treasury
+ * nearly empty, where you asked Corinth and Sparta for 2,000 dr each (or as
+ * much as the city could spare, if less) and both answers have come back;
+ * the map opens on Corinth's Loans tab, its terms waiting on you. #lend:
+ * #rivals' town (rich, trading with every city), played on until a ruler
+ * wary or better is in trouble (a war, a poor harvest): they ask to borrow
+ * (the demo makes the ask; the dice would bring one in their own time) and
+ * the map opens on their page. #repaid: that loan lent, played on to the
+ * day it falls due and is paid: their herald on the road with the whole sum,
+ * a few days from your land; the map opens on their Loans tab.
+ */
+type LoanStage = 'borrow' | 'lend' | 'repaid';
+/** What #borrow asks each city for. */
+const BORROW_ASK = 2000;
+/** How long #lend plays #rivals' town on, at most, for a ruler in trouble. */
+const LEND_LOOK = 24 * TICKS_PER_MONTH;
+/** How many days from your land #repaid's herald is when it opens. */
+const REPAID_DAYS = 4;
+/** The ruler who asks in #lend and repays in #repaid (beaten by Troy some months on in #rivals' town, once Sparta's raiders have gone). */
+const LEND_CITY: CityId = 'athens';
+
+function loanTown(stage: LoanStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    if (stage === 'borrow') {
+      routesTown('caravan')(sim);
+      for (const city of ['corinth', 'athens'] as const) {
+        const spare = spareOf(s, cityOf(s.world, city)).spare;
+        const amount = [...ASK_SUMS].reverse().find((n) => n <= Math.min(BORROW_ASK, spare)) ?? BORROW_ASK;
+        send({ type: 'loan', act: 'ask', city, amount });
+      }
+      const end = s.tick + 3 * TICKS_PER_MONTH;
+      while (s.tick < end && s.world.loans.some((l) => l.state === 'asking')) sim.run(10);
+      return;
+    }
+    RIVALS(sim);
+    const end = s.tick + LEND_LOOK;
+    // (As the dice would have it: the ruler wary or better and in trouble, free to ask (no deal of theirs open or lately settled), and Greece calm enough for another deal.)
+    const c = cityOf(s.world, LEND_CITY);
+    const free = (): boolean => !s.world.deals.some((d) => d.city === c.id && (d.state === 'open' || (d.ended > 0 && s.tick - d.ended < ASK_GAP)));
+    const ready = (): boolean => moodOf(c, s.tick) > COLD && troubles(s, c).words.length > 0 && free() && openDeals(s.world).length < MOST_OPEN && !threatLive(s.world);
+    while (s.tick < end && !ready()) sim.run(TICKS_PER_DAY);
+    if (!ready()) return;
+    const d = makeLoanAsk(s, c, loanSize(s, 4000));
+    if (stage === 'lend') return;
+    send({ type: 'answer', deal: d.id, act: 'send' });
+    const l = loanOfDeal(s.world, d.id);
+    if (!l) return;
+    const stop = s.tick + 3 * TICKS_PER_YEAR;
+    while (s.tick < stop && l.state !== 'repaying' && l.state !== 'overdue' && l.ended === 0) sim.run(TICKS_PER_DAY);
+    const g = s.world.gifts.find((x) => x.id === l.gift);
+    if (g) while (g.start + g.dur - s.tick > REPAID_DAYS * TICKS_PER_DAY) sim.step();
+  };
+}
+/** The prepared towns of the loans demos. */
+const LEND = loanTown('lend');
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -1641,6 +1704,10 @@ const SCENES: Record<string, Demo> = {
   bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing', side: { tab: 'goods' } },
   barracks: { view: 'barracks', setup: BARRACKS, overlay: 'missing', side: { tab: 'army' } },
   companies: { view: 'companies', setup: COMPANIES, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
+  // Slice 27: loans both ways. Corinth's and Sparta's answers to your asks, Corinth's terms waiting on you; a ruler in trouble asking to borrow; that loan repaid, their herald on the road.
+  borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
+  lend: { view: 'rivals', setup: LEND, overlay: 'missing', greece: LEND_CITY, greeceTab: 'ruler' },
+  repaid: { view: 'rivals', setup: loanTown('repaid'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

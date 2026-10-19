@@ -48,6 +48,8 @@ import { SidePanel } from './ui/sidepanel';
 import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
+import { DebtsChip } from './ui/debtschip';
+import { debtsChip as debtsNow } from './sim/loans';
 import { Orders } from './game/orders';
 import { companyName, companyOf, doingWords, kindWord, menOf, strength } from './sim/army';
 import { soldierStatus } from './sim/armystatus';
@@ -181,6 +183,8 @@ interface Probe {
   gifts?: () => Array<{ id: number; from: string; to: string; good: number; amount: number; got: number; by: string; phase: number; deal: number; caravan: { x: number; z: number } | null; porters: Array<{ x: number; z: number }>; ship: { visible: boolean; x: number; z: number } | null }>;
   /** Rulers' requests, offers and demands for tribute, and how each stands. */
   deals?: () => Array<{ id: number; kind: string; city: string; good: number; amount: number; state: string; promised: boolean; gift: number; due: number; done: number; angry: boolean }>;
+  /** Loans either way (slice 27): each one's city, side, state and numbers, and the debts chip's text. */
+  loans?: () => { loans: Array<{ id: number; city: string; side: string; by: string; state: string; amount: number; rate: number; months: number; owed: number; due: number; gift: number; deal: number }>; chip: string; chipShown: boolean; overdue: boolean };
   /** Slice 20: the raids, the band in the city (where it is drawn), whether the chip shows, and how many walkers are indoors from it. */
   raids?: () => { raids: Array<{ id: number; city: string; phase: string; end: string; men: number; took: number; fired: boolean; coin: number; deal: number }>; band: { x: number; z: number; back: boolean; load: number; drawn: boolean } | null; chip: string; indoors: number };
   sound?: () => { started: boolean; muted: boolean; played: number; state: string };
@@ -362,6 +366,8 @@ function start(preparedTown: string | null): void {
   ui.appendChild(notices);
   const raidChip = new RaidChip(notices, (city) => toggleGreece(true, city as CityId, 'ruler'));
   const armyChip = new ArmyChip(notices, () => side.showTab('army'));
+  // While a loan stands either way: the next date due (red while one is overdue); it opens the Money tab, where every loan is listed.
+  const debtsChip = new DebtsChip(notices, () => side.showTab('money'));
   const panel = new HouseholdPanel(ui, () => panel.show(0));
   // The trading post's panel shares the household panel's place: one at a time.
   const tradePanel = new TradePanel(ui, (c) => {
@@ -413,7 +419,7 @@ function start(preparedTown: string | null): void {
     if (l.need === 'money') return ledger.toggle(true);
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
-    if (l.need === 'greece' || l.need === 'favour' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : 'ruler');
+    if (l.need === 'greece' || l.need === 'favour' || l.need === 'loan' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : l.need === 'loan' ? 'loans' : 'ruler');
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -606,6 +612,7 @@ function start(preparedTown: string | null): void {
       rig.flyTo({ ...v, x: c.x, z: c.z, dist: Math.min(v.dist, 34) });
     },
     selected: () => orders.selected,
+    loans: (city) => toggleGreece(true, city as CityId, 'loans'),
     toggled: (open) => {
       sideBtn.classList.toggle('on', open);
       sideBtn.setAttribute('aria-pressed', String(open));
@@ -657,6 +664,10 @@ function start(preparedTown: string | null): void {
     // …and one saved before the army (slice 22 or older): the city can arm itself.
     if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
+    }
+    // …and one saved before loans (slice 23 or older): rulers lend and borrow now.
+    if (loaded.from !== undefined && loaded.from <= 22 && sim.state.world.routes.length > 0) {
+      changed += ' · Loans both ways now: ask a ruler to lend you coin, or lend them yours, on the Loans tab of their page on the map of Greece (Tab).';
     }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
@@ -1347,6 +1358,12 @@ function start(preparedTown: string | null): void {
       return { id: g.id, from: g.from, to: g.to, good: g.good, amount: g.amount, got: g.got, by: g.by, phase: g.phase, deal: g.deal, caravan: at ? { x: at.x, z: at.z } : null, porters, ship: g.ship ? shipInfo(city.giftShips.get(g.to)?.info) : null };
     });
   probe.deals = () => sim.state.world.deals.map((d) => ({ id: d.id, kind: d.kind, city: d.city, good: d.good, amount: d.amount, state: d.state, promised: d.promised, gift: d.gift, due: d.due, done: d.done, angry: d.angry }));
+  probe.loans = () => ({
+    loans: sim.state.world.loans.map((l) => ({ id: l.id, city: l.city, side: l.side, by: l.by, state: l.state, amount: l.amount, rate: l.rate, months: l.months, owed: l.owed, due: l.due, gift: l.gift, deal: l.deal })),
+    chip: debtsChip.el.textContent ?? '',
+    chipShown: !debtsChip.el.hidden,
+    overdue: debtsChip.el.classList.contains('overdue'),
+  });
   probe.raids = () => {
     const s = sim.state;
     const w = s.walkers.find((x) => x.kind === 'raider');
@@ -1695,6 +1712,7 @@ function start(preparedTown: string | null): void {
       raidChip.show(raidChipNow(s));
       const army = strength(s);
       armyChip.show(army.men, army.companies, s.army.companies.filter((c) => c.order !== 'drill').length);
+      debtsChip.show(debtsNow(s));
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;

@@ -1105,3 +1105,42 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .side-body .raise { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 .side-body .raise button { font-size: 13.5px; padding: 4px 10px; color: #fff6e4; background: var(--terracotta); border-color: var(--terracotta-deep); border-radius: 10px; box-shadow: 0 2px 0 rgba(120, 50, 20, 0.3); }
 .side-body .raise button:hover { background: #d36f45; }
+
+/* Loans both ways (slice 27): the debts chip, a city's Loans tab, the Money tab's loans. */
+.debts-chip.overdue { border-color: #9e3a30; background: linear-gradient(180deg, #f8e2d8, #ecc2b0); color: #7a2418; }
+.greece-panel .deal.loan.theirs { background: #eef3e2; border-color: #8aa04a; }
+.greece-panel .deal.loan.overdue { background: #f6ded6; border-color: #9e3a30; }
+.greece-panel section.loanask, .greece-panel section.loanoffer { margin-top: 10px; }
+.greece-panel section.loanask p.if, .greece-panel section.loanoffer p.if, .greece-panel p.likely { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.greece-panel p.if.no { color: var(--terracotta-deep); }
+.greece-panel p.if.yes { color: #2f5f3a; }
+.greece-panel p.likely b { font-weight: bold; font-variant: small-caps; }
+.greece-panel p.likely.likely b { color: #4f6f24; }
+.greece-panel p.likely.fair b { color: #8a6414; }
+.greece-panel p.likely.doubtful b { color: var(--terracotta-deep); }
+.greece-panel p.likely .why { font-size: 12px; }
+.greece-panel .sums, .greece-panel .pickrow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 6px 0 0; }
+.greece-panel .pickrow > span { width: 64px; font-size: 12.5px; color: var(--ink-soft); }
+.greece-panel .sums button, .greece-panel .pickrow button, .greece-panel section.loanoffer .acts button {
+  appearance: none; font: inherit; font-size: 12.5px; min-width: 52px; padding: 1px 7px; border-radius: 8px; border: 1.2px solid var(--edge);
+  background: #fff8ea; color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.greece-panel .sums button:hover:not(:disabled), .greece-panel .pickrow button:hover:not(.on) { background: #fff2d6; }
+.greece-panel .sums button:disabled, .greece-panel section.loanoffer .acts button:disabled { opacity: 0.42; cursor: default; }
+.greece-panel .pickrow button.on { background: #e9cf8f; border-color: #8a6414; font-weight: bold; }
+.greece-panel section.loanoffer .acts { display: flex; margin: 8px 0 2px; }
+.greece-panel section.loanoffer .acts button.take { background: #2f6f8e; border-color: #2f6f8e; color: #fff6e4; padding: 3px 10px; }
+.greece-panel section.loanoffer .acts button em { font-style: normal; font-weight: bold; font-size: 12px; margin-left: 4px; }
+.greece-panel section.loanoffer .acts button em.up { color: #d9f0a8; }
+.side-body ul.loans { list-style: none; margin: 4px 0 0; padding: 0; }
+.side-body ul.loans li { margin: 0 0 8px; padding: 5px 8px 6px; border-radius: 9px; background: rgba(255, 248, 234, 0.7); border: 1.2px solid rgba(184, 138, 80, 0.6); }
+.side-body ul.loans li.out { background: rgba(238, 243, 226, 0.8); border-color: rgba(138, 160, 74, 0.7); }
+.side-body ul.loans li.overdue { background: #f6ded6; border-color: #9e3a30; }
+.side-body ul.loans .side-row { margin: 0; align-items: baseline; gap: 8px; }
+.side-body ul.loans .side-row button.link { white-space: nowrap; flex: none; }
+.side-body ul.loans .side-row span { text-align: right; }
+/* Five tabs on a ruled city's page now: each keeps its label on one line, and the row wraps if it must. */
+.greece-panel .citytabs { flex-wrap: wrap; }
+.greece-panel .citytabs button { white-space: nowrap; padding: 2px 9px; }
+.side-body ul.loans .side-note { margin: 2px 0 4px; }
+.side-body ul.loans button.link { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--ink); text-decoration: underline dotted rgba(122, 92, 60, 0.6); text-underline-offset: 3px; }

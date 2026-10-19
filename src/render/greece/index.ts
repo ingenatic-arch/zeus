@@ -20,6 +20,7 @@ import { armiesOnMap } from '../../sim/rivals';
 import { FESTIVALS, festivalOn } from '../../sim/festivals';
 import { fieldColour, newsHtml } from '../../ui/rivals';
 import { morph } from '../../ui/morph';
+import { loanEvent } from '../../ui/loans';
 import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
@@ -235,6 +236,12 @@ export class GreeceMap {
     this.body.addEventListener('change', routes);
     this.body.addEventListener('click', (e) => {
       routes(e);
+      // A loan's buttons: ask, offer (and choosing its terms), accept, decline, repay (ui/loans.ts).
+      if (loanEvent(e, host.send)) {
+        this.labelAt = -Infinity;
+        setTimeout(() => this.redraw(), 0);
+        return;
+      }
       const t = e.target as HTMLElement;
       const tab = t.closest('button[data-tab]') as HTMLButtonElement | null;
       const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;

@@ -879,7 +879,7 @@ export function debtsChip(s: SimState): { line: string; more: number; overdue: b
   const name = cityName(l.city);
   const d = dateOfTick(l.due);
   const when = `${d.day} ${d.monthName}`;
-  const line = l.state === 'overdue' ? (l.side === 'in' ? `Overdue: ${fmt(l.owed)} dr to ${name}` : `Overdue: ${name} owes you ${fmt(l.owed)} dr`) : l.side === 'in' ? `You owe ${name} ${fmt(l.owed)} dr · ${l.state === 'coming' ? 'coming' : when}` : `${name} owes you ${fmt(l.owed)} dr · ${when}`;
+  const line = l.state === 'overdue' ? (l.side === 'in' ? `Overdue: ${fmt(l.owed)} dr to ${name}` : `Overdue: ${name} owes you ${fmt(l.owed)} dr`) : l.side === 'in' ? `You owe ${name} ${fmt(l.owed)} dr · ${when}` : `${name} owes you ${fmt(l.owed)} dr · ${when}`;
   return { line, more: ds.length - 1, overdue: late.length > 0, city: l.city };
 }
 
