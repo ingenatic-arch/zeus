@@ -178,6 +178,7 @@ const NOISE = /* glsl */ `
     vec2 u = f * f * (3.0 - 2.0 * f);
     return mix(mix(lkHash(i), lkHash(i + vec2(1.0, 0.0)), u.x), mix(lkHash(i + vec2(0.0, 1.0)), lkHash(i + vec2(1.0, 1.0)), u.x), u.y);
   }
+  float lkNoise3(vec3 p) { return (lkNoise(p.xy) + lkNoise(p.yz + 17.3) + lkNoise(p.zx + 41.9)) / 3.0; }
   float lkFbm(vec2 p) { float a = 0.5, s = 0.0; for (int k = 0; k < 4; k++) { s += a * lkNoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
   // Running-bond flagstones: (distance to the nearest joint, a per-stone random).
   vec2 lkFlags(vec2 p) {
@@ -203,30 +204,50 @@ const NOISE = /* glsl */ `
   }
 `;
 
-/** Ground: tufted grass with dry patches and fine grain, strata on rock; bumped so the light picks out the tufts. */
+/** Ground: grass in clumps with gaps between, dry gold drifts, bare soil and stones showing through, rippled sand, strata on rock. */
 const GROUND = /* glsl */ `
   {
     vec3 c = diffuseColor.rgb;
     vec2 p = vLkWorld.xz;
-    float big = lkFbm(p * 0.18);
-    float mid = lkFbm(p * 0.8 + 5.1);
-    float tuft = lkFbm(p * 3.1);
+    float big = lkFbm(p * 0.12);
+    float patchy = lkFbm(p * 0.45 + 3.3);
     float grain = lkNoise(p * 13.0);
     float greenness = clamp((c.g - max(c.r * 0.82, c.b * 1.6)) * 9.0, 0.0, 1.0);
-    vec3 grass = c * (0.78 + 0.4 * tuft) * (0.92 + 0.14 * grain);
-    // Hue drifts: golden where it is dry, deeper green in the hollows.
-    grass = mix(grass, grass * vec3(1.14, 1.03, 0.72), smoothstep(0.5, 0.7, big) * 0.6);
-    grass = mix(grass, grass * vec3(0.8, 0.95, 0.74), smoothstep(0.42, 0.25, big) * 0.65);
-    grass *= 0.9 + 0.2 * mid;
-    float fleck = lkNoise(p * 31.0);
-    grass *= mix(1.0, 0.8 + 0.4 * fleck, 1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 31.0)));
-    vec3 bare = c * (0.88 + 0.22 * tuft) * (0.94 + 0.12 * grain);
+    // How small a clump is on screen: fade the fine pattern out to its average far away.
+    float fwC = fwidth(p.x * 5.0);
+    float nearC = 1.0 - smoothstep(0.35, 1.0, fwC);
+    float nearB = 1.0 - smoothstep(0.35, 1.0, fwidth(p.x * 38.0));
+    // Tufts: soft dark hollows between, scattered rather than in a net.
+    float tuftA = lkNoise(p * 7.0 + 3.1);
+    float tuftB = lkNoise(p * 15.0 - 7.7);
+    float clump = smoothstep(0.25, 0.65, tuftA * 0.6 + tuftB * 0.4);
+    float blade = lkNoise(vec2(p.x * 38.0, p.y * 38.0)) * 0.6 + lkNoise(p * 61.0) * 0.4;
+
+    vec3 grass = c;
+    grass *= mix(vec3(0.94, 1.03, 0.9), vec3(1.14, 1.0, 0.7), smoothstep(0.42, 0.68, big));
+    grass = mix(grass, grass * vec3(0.84, 0.96, 0.78), smoothstep(0.55, 0.75, patchy) * 0.55);
+    grass *= mix(0.9, mix(0.74, 1.06, clump), nearC);
+    grass = mix(grass, grass * vec3(1.08, 1.04, 0.86), (1.0 - clump) * 0.0 + smoothstep(0.6, 0.9, tuftB) * 0.3 * nearC);
+    grass *= mix(1.0, 0.84 + 0.3 * blade, nearB);
+    // Bare, trodden soil and a few stones where the grass gives out.
+    float bare = smoothstep(0.6, 0.7, lkFbm(p * 0.6 + 11.0)) * mix(0.75, 1.0 - clump * 0.7, nearC);
+    vec3 soil = c * vec3(1.05, 0.72, 0.5) * (0.8 + 0.4 * lkNoise(p * 9.0));
+    vec2 st = lkCells(p * 7.0 + 40.0);
+    float stone = step(0.93, st.y) * smoothstep(0.1, 0.3, st.x) * nearC;
+    soil = mix(soil, soil * 1.25, stone * 0.6);
+    grass = mix(grass, soil, bare * 0.85);
+
+    vec3 bareGround = c * (0.86 + 0.24 * lkFbm(p * 3.1)) * (0.94 + 0.12 * grain);
     float steep = 1.0 - clamp(lkWorldN.y, 0.0, 1.0);
-    bare *= 0.9 + 0.2 * lkNoise(vec2(dot(p, vec2(0.7, 0.7)) * 1.5, vLkWorld.y * 7.0)) * smoothstep(0.15, 0.4, steep);
-    c = mix(bare, grass, greenness);
+    float sandy = clamp((c.r - c.b * 1.6) * 3.0, 0.0, 1.0) * (1.0 - greenness) * (1.0 - smoothstep(0.2, 0.4, steep));
+    // Wind ripples on the sand.
+    float rip = sin(dot(p, vec2(0.8, 0.6)) * 9.0 + lkNoise(p * 1.3) * 6.0);
+    bareGround *= mix(1.0, 0.95 + 0.06 * rip, sandy * nearC);
+    // Bedding in the rock.
+    bareGround *= 0.9 + 0.2 * lkNoise(vec2(dot(p, vec2(0.7, 0.7)) * 1.5, vLkWorld.y * 7.0)) * smoothstep(0.15, 0.4, steep);
+    c = mix(bareGround, grass, greenness);
     diffuseColor.rgb = c;
-    float far = smoothstep(0.3, 1.2, fwidth(p.x * 3.1));
-    lkH = (0.08 * tuft + 0.015 * grain * greenness) * (1.0 - far);
+    lkH = mix(0.004 * rip * sandy * nearC, (0.025 * clump + 0.006 * blade * nearB) * nearC * (1.0 - bare * 0.7), greenness);
   }
 `;
 
@@ -263,11 +284,16 @@ const OBJECTS = /* glsl */ `
     } else if (terracotta && n.y >= 0.985) {
       c *= 0.88 + 0.22 * lkFbm(wp.xz * 6.0);
     } else if (green) {
-      float leaf = lkNoise(wp.xz * 9.0 + wp.y * 6.0) * 0.6 + lkNoise(wp.xz * 23.0 - wp.y * 11.0) * 0.4;
-      c *= 0.7 + 0.55 * leaf;
+      float leaf = clamp((lkNoise3(wp * 14.0) - 0.5) * 2.2 + 0.5, 0.0, 1.0) * 0.5 + clamp((lkNoise3(wp * 37.0 + 3.0) - 0.5) * 2.2 + 0.5, 0.0, 1.0) * 0.5;
+      float gap = smoothstep(0.4, 0.3, lkNoise3(wp * 21.0 + 5.0));
+      c *= (0.72 + 0.5 * leaf) * (1.0 - 0.45 * gap);
       c = mix(c, c * vec3(1.15, 1.08, 0.8), clamp(n.y, 0.0, 1.0) * 0.35);
+      #ifdef FLAT_SHADED
       lkBend = 0.75;
-      lkH = 0.06 * leaf;
+      #else
+      lkBend = 0.12;
+      #endif
+      lkH = 0.03 * leaf - 0.02 * gap;
     } else if (pale && abs(n.y) < 0.4) {
       float plaster = lkFbm(wallUv * 7.0);
       float stain = lkFbm(wallUv * vec2(1.2, 0.5) + 3.7);
@@ -386,9 +412,16 @@ export function patchScene(scene: THREE.Scene, map: { size: number; corner(x: nu
     if (!mat || !(mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) return;
     let inTerrain = false;
     let inStreets = false;
+    let inPlants = false;
     for (let p: THREE.Object3D | null = o; p; p = p.parent) {
       if (p.name === 'terrain') inTerrain = true;
       if (p.name === 'streets') inStreets = true;
+      if (p.name === 'trees') inPlants = true;
+    }
+    // The fuller plants (lookTrees.ts) carry crown normals: shade them smooth.
+    if (inPlants && d.detail && mat.flatShading) {
+      mat.flatShading = false;
+      mat.needsUpdate = true;
     }
     if (inTerrain) {
       if (d.smoothGround) {

@@ -10,6 +10,9 @@ const CAMS = {
   wide: null,
   town: { x: 74, z: 40, yaw: -0.3, dist: 24, tilt: 0 },
   street: { x: 70, z: 38, yaw: -0.5, dist: 9, tilt: 0.12 },
+  people: { x: 66, z: 43.4, yaw: -0.3, dist: 4, tilt: 0.4 },
+  people2: { x: 70, z: 45.6, yaw: -0.3, dist: 4, tilt: 0.4 },
+  trees: { x: 88, z: 48, yaw: -0.3, dist: 8, tilt: 0.12 },
   coast: { x: 76, z: 74, yaw: -0.35, dist: 17, tilt: 0.05 },
 };
 const want = (process.env.CAMS ?? Object.keys(CAMS).join(',')).split(',');
