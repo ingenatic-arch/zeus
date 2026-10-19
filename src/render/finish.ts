@@ -472,24 +472,29 @@ export interface FinishPost {
   render(): void;
 }
 
+/**
+ * True when the page is drawn in software (no graphics card: SwiftShader, llvmpipe), where
+ * ambient occlusion and bloom cost several times the rest of the frame. The look-shots
+ * script sets window.__look to keep the full finish for screenshots.
+ */
+function softwareGL(renderer: THREE.WebGLRenderer): boolean {
+  if (typeof window !== 'undefined' && (window as { __look?: string }).__look) return false;
+  const gl = renderer.getContext();
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+  return /swiftshader|llvmpipe|softpipe|software/i.test(name);
+}
+
 /** The finish's post-processing chain (null with the finish off: draw straight to the screen). */
 export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): FinishPost | null {
   if (!on) return null;
+  const light = softwareGL(renderer);
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 }));
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: light ? 0 : 4 }));
   composer.setPixelRatio(1);
   composer.addPass(new RenderPass(scene, camera));
-  const ao = new GTAOPass(scene, camera, size.x, size.y);
-  ao.blendIntensity = F.ao;
-  // Most of the city has no normals of its own (flat shading works them out from the faces): do the same in the AO's normal pass.
-  ao.normalMaterial.flatShading = true;
-  ao.normalMaterial.side = THREE.DoubleSide;
-  ao.normalMaterial.needsUpdate = true;
-  ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 16 });
-  ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-  composer.addPass(ao);
-  composer.addPass(new UnrealBloomPass(size, F.bloom, 0.5, 0.92));
+  if (!light) addDepth(composer, scene, camera, size);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE);
   const g = F.grade;
@@ -512,4 +517,18 @@ export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene
       composer.render();
     },
   };
+}
+
+/** Ambient occlusion and bloom: the expensive part of the finish. */
+function addDepth(composer: EffectComposer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, size: THREE.Vector2): void {
+  const ao = new GTAOPass(scene, camera, size.x, size.y);
+  ao.blendIntensity = F.ao;
+  // Most of the city has no normals of its own (flat shading works them out from the faces): do the same in the AO's normal pass.
+  ao.normalMaterial.flatShading = true;
+  ao.normalMaterial.side = THREE.DoubleSide;
+  ao.normalMaterial.needsUpdate = true;
+  ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 16 });
+  ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  composer.addPass(ao);
+  composer.addPass(new UnrealBloomPass(size, F.bloom, 0.5, 0.92));
 }
