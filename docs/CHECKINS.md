@@ -119,6 +119,53 @@ I went through every step above in the browser at 1920 × 1080 (and 1280 × 720 
 
 What I checked and found as described: every demo with a history (86) opens as exactly its prepared town, and plays 900 ticks on exactly as the town its history makes; the published files load each town from beside the page (they are ordinary JavaScript files, like the game's own), and if a town's file is missing the page plays its history instead, ending in the same town; a fresh copy of the project with nothing prepared builds the same files in about 35 s; every demo is ready in under 3 s (median 1.5 s, slowest `#pasture` 2.0 s). Left alone, `#rivals` had Sparta's band come in August 746 BC and burn a farm, Troy beat Athens at sea by September, a war between Sparta and Troy in June 743 BC, and two to four requests a year; the treasury balanced every month. I can't tell you whether it feels alive: that is for you to judge.
 
+### What the phase review changed
+I played the whole phase the way you would. I started from the bare link and built a town by hand, with the tools: roads, plots, a fountain, farms, a granary, an agora, olive groves and a press. Then I added a caravan yard at the town end of the north road, the road to Corinth, a trading post on the bay and the sea route to Athens. I played it for about six game years (750 to 744 BC), saving it and loading it again five times, until all of Greece had come to it. Then I opened one "What to try" step from each slice of the phase, and `#town`, `#richtown` and `#quay`. What I changed:
+- **The same sums in every browser.** This mends the rough edge above, "Browsers don't all do the same sums". The game now works out its own sines, powers and the like, the same way everywhere, so a town plays on the same in any browser as in the build that prepares the demos. Every demo opens as exactly the town it did before, and plays on exactly as before. I also checked six of them (`#town`, `#richtown`, `#caravan`, `#raiders`, `#rivals`, `#war`): each plays 900 ticks the same in the browser as in the build.
+- **A straight road drag lays a straight road.** Dragging a road along a row between two roads already there could lay only its two end tiles: the road tool took the way round the block on the roads you had. In one of my hand-built towns that left 17 plots with no road beside them, and newcomers stopped coming at about 300 people. Now a straight drag over open, dry ground lays the straight line. Other drags still find their way round as before.
+- **Plots with no road to the edge say so.** When newcomers had no room only because the empty plots had no road to the edge of the map, the side panel and top bar still said "mark out more plots". Now they say the plots have no road beside them that leads to the edge, and to lay a road past them.
+- **A slope too steep says what it is too steep for.** Placing a caravan yard, a farm or any building other than a home on a steep slope said "Too steep for a home". Now it says "Too steep to build on", and that roads, olive groves and vineyards can take a slope like that.
+- **The controls card knows about Greece.** It now lists Tab for the map of Greece, the caravan yard as the fourth press of G, pointing at a caravan, a ship or a raider to see who they are, and clicking the caravan yard or the traders chip.
+- **The notes on the map keep clear of Troy and of a city's page.** With a city's page open, the notes under the top bar took the wider column meant for a household's panel, and at 1920 they covered Troy's label. Now they don't. On windows up to 1440 wide they are narrower, so Troy's label shows at 1280 × 720 (an open point from the slice). Up to 1400 wide, with a city's page open, they start beside the page rather than under it.
+- **`#rivals` opens over the whole town.** Before, it used `#richtown`'s view, which showed much empty ground. Now you see the town under the notes, from the farms by the river to the caravan yard at the east end, with the quay and the Tyre ship below. `#rivalsmap` opens with the map as before.
+- **Athens' request in `#rivals` can be met.** The archon asked for 1,000 wheat by the war's end, 90 days away, but goods take about 95 days to get from this town to Athens, so even sent at once it could only arrive late. Greece's own war requests already check this, and ask for coin when goods couldn't arrive in time. The demo now does the same: Athens asks for 450 dr within 60 days, "to pay their soldiers". So in steps 1 and 2 of "What to try" above, the request is for coin, not "for their fleet". Only `#rivals`, `#rivalsmap` and `#rivalstreet` change.
+
+What I saw in the hand-built town, as it happened:
+- In November 749 BC I opened the road to Corinth (the yard would only go where the north road meets the town: the hillside along it is too steep). Corinth's caravan of five donkeys came down the north road a month later.
+- From December 748 BC I sold oil to Corinth. The page showed its price sliding from 91 to 71, "you sold them 2,060 in the last year".
+- Requests came about twice a year, from Athens, Corinth, Troy and Sparta. Each page said when what I sent would arrive.
+- I took Athens' year's deal for wheat. Athens' page kept count of what I had sold and what keeping my word needed, but I sent only 270 of the 1,000, and it cost me 20.
+- I refused Sparta's tribute twice, and Queen Helen went hostile. Her threat gave four months, "pay 300 dr or send 400 oil". The red chip counted down the days as her band gathered and marched. Eight raiders came in at the west edge, burned a wheat farm and carried off 270 wheat. Pointing at them said who they were and where they were going.
+- Afterwards her anger was partly spent (+25). A gift of 250 dr brought her from cold to wary, and before the year was out she was asking for oil like anyone else.
+- Corinth went to war with Athens in February 744 BC. The trade went on, and the news said why prices moved.
+
+Things I noticed and left for you, since each changes how the game plays:
+- **Money: tight early, easy late.** My hand-built town of 455 people, at heavy taxes, sat at 0 to 100 dr for a year, unable to pay all its wages. The money line said so and pointed to taxes. Selling oil to Corinth turned it round: 1,600 dr a year later, 4,500 two years after that. At the other end, `#richtown` on its own grows about 5,000 dr a year from taxes against wages, and `#rivals` about 7,000, of which Greece's trade is about 2,000. So most of the late surplus comes from the town, not from Greece. Tuning taxes or wages would move every demo, so I left them as they are: is it too easy late, too hard early, or both?
+- **Fire early on.** My first scripted town had its watch posts waiting behind other building. A fire in its first year went from house to house, from 146 people down to 13. The warning lines were there, saying where no watchman had seen the fire.
+- **Harsh taxes.** In the town stuck at 300 people (above), harsh taxes halved it to 94 within two years.
+- **Lumpy money.** The drachmas still jump by a month's taxes and wages at a time. The arrow beside them shows last month's net, so "▲ −138" can show together for a moment.
+- **Sending takes time.** In my town, 400 wheat took about 85 days to reach Corinth next door, mostly porters fetching it from the granaries and carrying it out of the town. A request due in 56 days that I answered with 18 days left arrived late (+13 rather than +25), as the page had said it would.
+- **A whim that flickers.** Once in four years of `#caravan`, a fickle ruler's mood crossed from cordial to warm and back within a month, giving two news lines that contradict each other.
+- **#rivals' notes over the town** still cover the top of the main street on a 1280 × 720 window, with the side panel open.
+
+Measurements across the phase, headless Chromium with software rendering (frame rates mean nothing):
+
+| | Phase start (slice 15's "before") | End of slice 22 | After this review |
+|---|---|---|---|
+| Tests | 234 | 353 | 357 |
+| The game's own files | 3 files, 1,205 KB raw, 351 KB gzipped | 4 files, 1,457 KB, 433 KB | 4 files, 1,466 KB, 437 KB |
+| The demos' prepared towns | | 58 files, 7,655 KB, 1,510 KB gzipped | the same |
+| Bare link, ready and first frame | 2.81 s, 2.36 s | 1.62 s, 2.03 s | 1.93 s, 2.38 s in one run; side by side with the build before this review, four loads each, ready in 1.50 to 1.76 s before and 1.50 to 1.83 s after (the map is worked out about 60 ms slower with the game's own sums) |
+| Demo loads, ready | | median 1.49 s, none over 3 s | median 1.72 s, slowest `#famine` 2.46 s, none over 3 s |
+| `#town`: triangles and draws, save | 799,168, 83; 140 KB | the same; 145 KB | the same; 145 KB |
+| `#richtown`: triangles and draws, save | 910,707, 95; 177 KB | the same; 183 KB | the same; 183 KB |
+| `#rivals` as it opens | | 960,009 triangles, 99 draws | 1,013,764, 114 (it now shows the whole town) |
+| The map of Greece: first open, built in; `#war`'s triangles and draws | 0.37 s; | 0.29 s; 313,882, 31 | 0.26 s; the same |
+| Work before drawing a frame, after 10 s running | | `#town` 9.45 ms, `#richtown` 5.78, `#rivals` 10.19, `#rivalsmap` 5.67 | `#town` 10.55, `#richtown` 7.45, `#rivals` 9.09, `#rivalsmap` 4.91, `#greece` 3.91 (8 to 17 slow frames each, so they swing by a few ms) |
+| My hand-built town's save, six years on | | | 79 KB |
+
+What I checked and found as described: requests begin only after the first route; no threat came before the first year of trading was out, and there were four months from the threat to the raid; refusing a cold ruler's tribute led to the threat, as the page said; a hostile ruler's page names every reason with its date; prices name what moved them; the side panel and minimap step aside while the map is open and come back when it closes; every demo is ready in under 3 s. I can't tell you whether any of it feels right: that is yours to judge.
+
 ## Slice 21 — Greece goes on (18 Oct)
 
 Greece now has a life of its own. The rulers feel something about each other as well as about you, and those feelings move. Rivals who fall far enough out go to war: their armies march out on the map, the way between them closes, and food grows dear in both cities. Each side may ask your city for help, and whatever you trade with one side, the other remembers. The festivals come round at their seasons, each city's fields on the map show its harvest, and a News of Greece list tells you what happened, newest first. You weren't here while it was built: every choice below is mine, from the spec's defaults.
