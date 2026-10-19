@@ -90,7 +90,7 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#rivals`, `#rival
 
 ## As built
 
-Commits: `6ae928d` (this plan), `90b60c5` (prepared towns, tuning, the sim's rough edges, `#rivals`), `b73da81` (the map's and the city's look), `6f43cf9` (a loaded town runs as fast as a played one), `2a88433` (tests, smoke and measure), and the check-in.
+Commits: `6ae928d` (this plan), `90b60c5` (prepared towns, tuning, the sim's rough edges, `#rivals`), `b73da81` (the map's and the city's look), `6f43cf9` (a loaded town runs as fast as a played one), `2a88433` (tests, smoke and measure), `07f05f1` (armies drawn larger grow back from their head), and the check-in.
 
 **Prepared towns.** As designed. `scripts/prepared.ts` (the Vite plugin and the cache), `scripts/bake.ts` (play a demo's setup and write it as a save, checked by decoding it and comparing), `scripts/bake-worker.mjs` (the workers, loading the game through Vite's module runner). 86 demos are prepared; they make 58 distinct towns (twelve share `#town`'s). The two demos with no history (`#coast` and `#build`) open as before. From a cold cache the build plays them in about 30 s on four cores; with the cache fresh it takes 2 s as before. The page (`src/main.ts`) fetches the demo's town before it starts and decodes it; if the fetch fails, or the town doesn't decode, it plays the setup as before. `__zeus.prepared` and `__zeus.fetchMs` say which happened.
 - Found on the way: a decoded save ran about a fifth slower in the sim than the same town played (records rebuilt key by key keep their fields out of line). `decodeSave` now passes the unpacked state once more through JSON (about 20 ms for a big town), so a prepared town or a loaded save runs as fast as the town it came from.

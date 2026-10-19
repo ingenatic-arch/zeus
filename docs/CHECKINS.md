@@ -2,6 +2,110 @@
 
 Notes to Oliver, newest first.
 
+## Slice 22 — A world of rivals (19 Oct)
+
+The last slice of the phase puts everything Greece now does into one town, and tunes it to read well over years rather than minutes. `#rivals` is a prepared town on the bay that trades with every city of Greece. Caravans from Corinth, Athens and Sparta walk its streets to the yard, and ships from Athens, Corinth and Troy come in to the quay. Athens' archon has a request open, Sparta's king has a threat running towards its deadline, and Troy and Athens are at war at sea. Every demo now opens from a town prepared when the game is built, rather than playing its history while you wait, so each one opens in about the time the bare link takes. The world's pacing was checked over six to eight years of play, left alone and looked after, and the wars and raids were retuned. The map and the city had a look-and-feel pass by screenshots. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: no save is lost, and the save format is unchanged. A loaded town now runs as fast as a played one (before, a loaded town ran a little slower). The caravan change moves 12 of the earlier demos a little: `#caravan`, `#buywine`, `#prices`, `#request`, `#offer`, `#tribute`, `#threat`, `#raid`, `#raiders`, `#aftermath`, `#war` and `#peace`. Their people are the same, open and 900 ticks on. `#prices` and `#offer` open with 50 dr less (3,126 rather than 3,176) and are within 7 dr after 900 ticks. In the others only where the caravans stand differs. The other 73 demos open and play 900 ticks on exactly as before. In every game, Greece's wars now come closer together after a long quiet. In the demos' own Greece, the next war after `#caravan` opens is in August 746 BC, not December 743 BC (slice 21's "What to try" 4 is corrected below). A raiding ruler waits longer before threatening again. A price's reason "you sold them a good deal of it lately" now reads "what you sold them over a year ago is still felt".
+
+### What's new
+- **`#rivals`, a town trading with all Greece.** It is `#richtown`'s town (the villas, the quay, every chain) with `#caravan`'s road and yard, a watch post, and `#prices`' olive groves and press, so it has oil to sell.
+  - Routes opened one by one as the treasury allowed, from May to December 747 BC: Corinth and Athens by road and by sea, Sparta by road, Troy by sea, and the Tyre ship as always. Each sells what its city buys; Troy's ship also brings fleece the town is short of.
+  - It traded for a year from the first route, so prices have moved, the rulers remember the trade, and Greece has its own news.
+  - Then three things were set up for the demo, and each says so in its words:
+    - Sparta's king, left without his tribute and turned cold, threatens the city: 850 dr by 23 July, or his raiders come.
+    - Troy declares war on Athens over "the grain ships in the straits". Their fleets stand off Andros.
+    - Athens' archon asks for 1,000 wheat for the fleet, due by the war's end.
+  - It opens on 3 June 746 BC with 1,411 people and 3,350 dr. Corinth's and Athens' caravans are at the yard, Sparta's is walking in from the west, the Tyre ship is loading at the quay and Troy's ship is in the bay.
+- **Every demo opens from a prepared town.** When the game is built, each demo's history is played once and kept as a save, in the same format your own saves use. Each is checked: decoded, it must be exactly the town its history makes. The page fetches that one small file and opens it. `#prices` was ready at 3.6 s and is now ready at about 1.6 s; every demo is now under the 3 s budget (figures below). The bare link's own files didn't grow. Identical towns are kept once; twelve demos share `#town`'s.
+- **The world's pacing, tuned** (figures below):
+  - **Wars.** After a year with no war anywhere in Greece, the bar for war now comes down twice as fast: 10 a year, to −20 at most. Over 30 shuffled games of 12 years, the longest gap between wars fell from 4 years 4 months to 3 years 7 months, and a war comes about every two years.
+  - **Raids.** A ruler whose band came, or turned back with nothing, waits two years before threatening again, not one. A hostile ruler threatens about one month in eight, not six. With Sparta kept hostile and nothing answered, `#caravan`'s town was raided five times in eight years and lost every farm and its granary, down to 729 people. Now it is raided three times, losing two of its three farms but keeping its granary, with 1,213 people at the end.
+  - **Caravans.** A city's next caravan waits at the edge of the map while its last one is still walking in or trading. At most two of a route are in the streets, one coming and one going; before, up to three. In `#rivals` that is up to six caravans in town at once, two for each road.
+  - **Left as they were:** how often requests, offers and tribute come, about two requests a year across Greece left alone and three looked after; and what gifts and routes are worth (see "your eye on").
+- **The map.**
+  - Armies, fleets, raiding bands, caravans, gifts and ships are drawn larger the farther out the camera is, up to 1.8 times at the opening view, and life-size close up. Two armies facing each other grow backwards from their heads, so they don't run into each other.
+  - Athens' fields no longer sit under its label: a city's fields go behind it only when nowhere else will do, and then as far back as they can.
+  - A label that would stand under the top bar or the City button hangs below its city instead.
+  - On windows narrower than 1440 pixels, the News of Greece starts below the City button; before, it covered it.
+- **The city.**
+  - Caravans waiting at the same gate stand one behind the other, not inside each other.
+  - The "+N dr" floaters no longer drift over the side panel.
+  - Homes rising a level cost less each frame: only what is rising is redrawn.
+- **Rough edges from the reviews.**
+  - A request made during a war is due by the war's end, and only asks for what could arrive by then.
+  - The Karneia's page line no longer says Sparta begins no war while it is at war: "at war now, its army keeps the feast where it stands".
+  - A town saved during a festival no longer announces it again when loaded.
+  - The Rivals tab is built only when you open it.
+  - The gift buttons share their road searches.
+  - A price that is dear or cheap only because of a cap still names what pushed it.
+  - "A good deal of it lately" is now "over a year ago is still felt".
+- **Faster checks.** The tests take their demo towns from the same prepared towns, so the suite runs in 88 s rather than 111 s, with seven more tests.
+
+### What to try
+1. Open `#rivals`. It opens over the town in June 746 BC. Five notes stack at the top: Sparta's threat, the Tyre ship loading, Corinth's caravan trading at the yard, Athens' request, and a fleece shortfall. Run it at normal speed and watch the caravans come and go along the main street to the yard at its east end, and the ships at the quay. Then decide: pay Sparta, or let his band come for the farms by the west edge, as in `#raid`.
+2. Open `#rivalsmap`. It is the same town with the map open. Off Andros, Troy's green galleys face Athens' blue across the crossed swords, and the lane from Troy to Athens is red. Sparta's label carries the threat's seal and Athens' the request. Read the News of Greece, then click Athens' line: "At war with Troy … their fleets face each other", and the request "for their fleet". Open Athens' Rivals tab.
+3. Open `#rivalstreet`. It is the same town, down the main street from beside the yard. Corinth's and Athens' caravans stand at the gate one behind the other, and Sparta's is walking in from the west edge.
+4. Play `#rivals` for a few game years at the fastest speed, with the map open now and then. Answer things or don't. Left alone, the scratch runs saw about two requests a year from all four cities, Sparta's tribute demands, the one raid, and wars in Greece in June 743 and January 741 BC. Looked after (requests met, tribute paid, the threat paid off, a gift now and then), the rulers warmed and offers came as well.
+5. Open any earlier demo (say `#prices`, `#raiders` or `#tribute`). It is the same town as before, ready in well under 3 s.
+
+Each link also opens paused if you add `-paused` (for example `#rivals-paused`).
+
+### What I'd like your eye on
+- **The map from afar.** Travellers are now drawn up to 1.8 times larger at the opening view. In `#war` the two armies now reach from Corinth to Athens. Too big, too small?
+- **`#rivals`' opening.** The five notes at the top cover the middle of the map. On a smaller window they also cover Athens' and Troy's labels for their few seconds. Is it too much at once?
+- **How often things happen.** A war about every two years; about two requests a year across Greece; a hostile ruler's raid at most about every two and a half years. Too quiet, too busy?
+- **What gifts are worth against routes.** A fair gift for `#rivals`' town is about 700 dr. In the scratch runs its roads to Sparta and Corinth earn 500 to 1,450 dr a year each. Athens takes little: it buys wheat and meat, which the town eats. Troy's ship costs 150 to 300 dr a year, since it is mostly fleece bought in. I left both as they are.
+- **Two caravans of a route in the streets.** Most days, one is coming in while the last goes home. Should the next wait until the last has left the map?
+
+### Known rough edges
+- **The prepared towns cost build time and disk.** A build that has to prepare the towns takes about 30 s more (a few seconds when nothing they come from has changed). The prepared towns add about 7.5 MB (1.5 MB gzipped) to the published files, but each is fetched only when its demo is opened.
+- **A demo's first few seconds run its simulation a little slower.** The browser hasn't yet warmed up the code that, before, it had just run for the whole history. It settles in seconds.
+- **Athens' fields** lie behind and to the left of the city; at the opening view they touch the left end of its label. The land south of Athens is sea.
+- **Not done this slice**, left for later:
+  - a demo for a raid from the sea (Troy is busy with its war in `#rivals`);
+  - `#famine`'s small payoff;
+  - the price arrows' colours;
+  - the yard's blank wall on a slope;
+  - a land and a sea route to one city counting an offer's limit separately;
+  - the band camping about 70 days in `#threat`.
+- **The sea war in `#rivals`** is Troy against Athens, set up for the demo, as `#war`'s is. The war request and Sparta's threat are set up too, and say so.
+
+### Measurements before and after
+Headless Chromium with software rendering, so frame rates mean nothing; "before" is `bfbd838` (the end of slice 21's review). The work a frame swings by a ms or two from run to run.
+
+| | Before | After |
+|---|---|---|
+| Tests | 346 in 28 files, 111 s | 353 in 30 files, 88 s (7 new: prepared towns and `#rivals`) |
+| The game's own files | 4 files, 1,446 KB raw, 429 KB gzipped | 4 files, 1,457 KB raw, 433 KB gzipped |
+| The demos' prepared towns | | 58 files, 7,655 KB raw, 1,510 KB gzipped (the largest 38 KB gzipped), each fetched only when its demo opens |
+| Building the game | about 1.5 s | about 30 s when the towns must be prepared, about 2 s when they are cached |
+| Load, bare link, ready and first frame (page clock) | 1.50 s, 1.90 s | 1.62 s, 2.03 s (the same work: run-to-run noise) |
+| Demo loads, ready (page clock) | 11 over 3 s, the slowest `#raiders` 3.70 s, `#prices` 3.59, `#tribute` 3.53 | none over 3 s: median 1.49 s, the slowest `#raiders` 1.88, `#peace` 1.86, `#routes` 1.80; a prepared town is fetched in 10 to 50 ms and opened in 15 to 35 ms |
+| `#town`: triangles and draws, save | 799,168, 83; 145 KB | the same |
+| `#richtown`: triangles and draws, save | 910,707, 95; 183 KB | the same |
+| `#rivals`: over the town, on the map, down the street | | 960,009 triangles, 99 draws; 309,626, 33; 915,189, 96. Ready at 1.51 s, 1.66 s, 1.56 s |
+| The map of Greece, first open: built in | 0.24 s | 0.29 s |
+| Map pages: triangles and draws | `#war` 314,506, 33; `#festival` 306,230, 34; `#raid` 306,218, 26 | `#war` 313,882, 31; `#festival` and `#raid` the same |
+| Work before drawing a frame, running, in the first 8 s after opening | `#town` 7.75 ms, `#richtown` 10.43, `#richstreet` 12.61, `#villas` 6.91, `#blaze` 5.48, `#caravan` 2.75, `#tribute` 5.85, `#raid` 6.28, `#raiders` 7.41, `#war` 7.21, `#festival` 5.01 | `#town` 10.67, `#richtown` 11.54, `#richstreet` 12.51, `#villas` 8.72, `#blaze` 9.09, `#caravan` 3.10, `#tribute` 4.69, `#raid` 6.52, `#raiders` 7.46, `#war` 5.64, `#festival` 4.33; `#rivals` 10.51, `#rivalsmap` 5.14, `#rivalstreet` 12.39 |
+| The simulation, 1,200 ticks of a loaded town against the same town played (Node) | loaded about a fifth slower | the same |
+| `npm run smoke` | | about 26 min |
+
+About the frame work: the higher figures for `#town`, `#villas` and `#blaze` are measured in the first seconds after a demo opens, while the browser is still compiling the simulation's code. Even a town that has just played its history runs its first 300 ticks about three times slower than later ones. Before, playing the history did some of that warming up while you waited. Now all of it lands in the measured seconds, so the open is faster and the first seconds a little heavier. In Node, from a fresh start, a prepared `#town` and a played one run at the same speed after their first 300 ticks.
+
+The world's pacing, from scratch runs outside the repo:
+
+| | Before | After |
+|---|---|---|
+| Wars, 30 shuffled games of 12 years: a year; gap median, 9 in 10 under, longest | 0.43; 18, 40, 52 months | 0.49; 18, 32, 43 months |
+| The demos' own Greece: wars at month (from the game's start) | 33, 93, 106, 141 | 33, 53, 87, 106, 141 |
+| `#caravan`'s town, Sparta kept hostile, nothing answered, 8 years: raids at month; people at the end | 11, 29, 47, 65, 90; 729 (every farm and the granary burned) | 14, 43, 73; 1,213 (two farms burned, the granary kept) |
+| `#caravan`'s town, 8 years: caravans of one route in town at once | up to 3; two or more on 2,829 of 2,880 days | at most 2; two on 2,319 days |
+| `#caravan`'s town, 8 years: requests left alone, looked after; tribute demanded | 16; 16 (18 answered); 3 | 16; 17 (19 answered); 3 |
+| `#rivals`, 6 years left alone: requests, tribute, threats and raids | | 13 requests (Athens 5, Troy 4, Corinth 2, Sparta 2), 3 tribute demands, 1 threat and its raid (set up) |
+| `#rivals`, 6 years looked after | | 14 requests met, 2 offers, 1 tribute paid, the threat paid off, 3 gifts; moods between −11 and +35 |
+| `#rivals`, routes' yearly earnings | | Sparta's road 500 to 1,450 dr; Corinth's road 400 to 1,300 and its sea route 0 to 1,000; Athens 0 to 160; Troy −300 to +170 |
+
 ## Slice 21 — Greece goes on (18 Oct)
 
 Greece now has a life of its own. The rulers feel something about each other as well as about you, and those feelings move. Rivals who fall far enough out go to war: their armies march out on the map, the way between them closes, and food grows dear in both cities. Each side may ask your city for help, and whatever you trade with one side, the other remembers. The festivals come round at their seasons, each city's fields on the map show its harvest, and a News of Greece list tells you what happened, newest first. You weren't here while it was built: every choice below is mine, from the spec's defaults.
@@ -30,7 +134,7 @@ What breaks, or moves: no save is lost. A town saved before this slice opens wit
 1. Open `#war`. It is `#caravan`'s town in June 747 BC. Corinth has just won its war with Athens, and King Eurykrates of Sparta has seized the moment and declared war on Athens (the quarrel is set up for this demo, and says so). The map opens on his page. "At war with Athens since 28 May 747 BC: their armies stand at Megara." He asks your city for 1,000 wheat for his army, and Athens' archon has asked the same. Under the request, in red: "Athens, at war with Sparta, will hold anything you send Sparta against you: −8." Zoom in on Megara, between Corinth and Athens: the two armies face each other with the crossed swords between them, and the road from Sparta to Athens is red. Hover an army and the swords. Look at the Prices tab ("their war with Athens") and the Rivals tab. Click a line in the News of Greece list. Then send the wheat to one side (Send it on Sparta's page) and open the other's page: Athens' archon turns wary at once, "−8 You sent 1,000 wheat to their enemy Sparta during the war". Let it run and the war ends as `#peace` shows, Athens the winner (set for both demos).
 2. Open `#festival`. It is `#athensship`'s town on 7 July 747 BC, the Panathenaia six days in. The map opens on Athens' page: "The Panathenaia is on, until 1 August". Hover the drachma buttons: each says it counts for more, "for the Panathenaia" (a herald gets there while it lasts; goods, fetched from the stores first, would arrive after it ends, so their buttons show the plain worth). On the Prices tab, wine and meat are dear, "the Panathenaia is on". Zoom in on Athens for the banners and the smoke, and look at the fields beside each city.
 3. Open `#peace`. The same war as `#war`, played on to its end in September: Athens has won. Sparta's army walks home through Corinth, the swords and the red road are gone, and the map opens on Sparta's Prices tab: everything dear, "they lost their war with Athens". Let it run for a few months and watch the prices ease.
-4. Open any town that trades (say `#caravan`) and let it run for a few game years with the map open. Watch the News of Greece list: feuds, festivals, and now and then a war. With the demos' dice it is a quiet stretch: Athens and Sparta fall to feuding twice and make it up, and the next war comes in December 743 BC, about four and a half game years after `#caravan` opens (about seven minutes at the fastest speed). A new game shuffles Greece afresh.
+4. Open any town that trades (say `#caravan`) and let it run for a few game years with the map open. Watch the News of Greece list: feuds, festivals, and now and then a war. With the demos' dice it is a quiet stretch: Athens and Sparta fall to feuding twice and make it up, and the next war comes in December 743 BC, about four and a half game years after `#caravan` opens (about seven minutes at the fastest speed). *(Slice 22: wars now come sooner after a long quiet; the next is in August 746 BC, about fifteen months after `#caravan` opens.)* A new game shuffles Greece afresh.
 
 Each link also opens paused if you add `-paused` (for example `#war-paused`).
 
