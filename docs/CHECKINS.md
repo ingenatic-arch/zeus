@@ -24,7 +24,7 @@ What breaks, or moves: no save is lost, and the save format is unchanged. A load
   - **Caravans.** A city's next caravan waits at home, in its own city, while its last one is still walking in or trading, and sets off once that one has turned for home. At most two of a route are in the streets, one coming and one going; before, up to three. In `#rivals` that is up to six caravans in town at once, two for each road.
   - **Left as they were:** how often requests, offers and tribute come, about two requests a year across Greece left alone and three looked after; and what gifts and routes are worth (see "your eye on").
 - **The map.**
-  - Armies, fleets, raiding bands, caravans, gifts and ships are drawn larger the farther out the camera is, up to 1.8 times at the opening view, and life-size close up. Two armies facing each other grow backwards from their heads, so they don't run into each other.
+  - Armies, fleets, raiding bands, caravans, gifts and ships are drawn larger the farther out the camera is, up to 1.8 times at the opening view (an army on a road up to 1.25 times, since the roads between the cities are short), and life-size close up. Two armies facing each other grow backwards from their heads, so they don't run into each other.
   - Athens' fields no longer sit under its label: a city's fields go behind it only when nowhere else will do, and then as far back as they can.
   - A label that would stand under the top bar or the City button hangs below its city instead.
   - On windows narrower than 1440 pixels, the News of Greece starts below the City button; before, it covered it.
@@ -43,20 +43,21 @@ What breaks, or moves: no save is lost, and the save format is unchanged. A load
 - **Faster checks.** The tests take their demo towns from the same prepared towns, so the suite runs in 88 s rather than 111 s, with seven more tests.
 
 ### What to try
-1. Open `#rivals`. It opens over the town in June 746 BC. Five notes stack at the top: Sparta's threat, the Tyre ship loading, Corinth's caravan trading at the yard, Athens' request, and a fleece shortfall. Run it at normal speed and watch the caravans come and go along the main street to the yard at its east end, and the ships at the quay. Then decide: pay Sparta, or let his band come for the farms by the west edge, as in `#raid`.
+1. Open `#rivals`. It opens over the town in June 746 BC. Five notes stack at the top: Sparta's threat, the Tyre ship loading, Corinth's caravan trading at the yard, Athens' request, and a fleece shortfall. Run it at normal speed and watch the caravans come and go along the main street to the yard at its east end (top right), and the ships at the quay. Then decide: pay Sparta, or let his band come for the farms by the west edge, as in `#raid`.
 2. Open `#rivalsmap`. It is the same town with the map open. Off Andros, Troy's green galleys face Athens' blue across the crossed swords, and the lane from Troy to Athens is red. Sparta's label carries the threat's seal and Athens' the request. Read the News of Greece, then click Athens' line: "At war with Troy … their fleets face each other", and the request "for their fleet". Open Athens' Rivals tab.
-3. Open `#rivalstreet`. It is the same town, down the main street from beside the yard. Corinth's and Athens' caravans stand at the gate one behind the other, and Sparta's is walking in from the west edge.
+3. Open `#rivalstreet`. It is the same town, down the main street from beside the yard. Athens' caravan stands at the yard gate and Corinth's waits right behind it in the street; Sparta's is walking in from the west edge, out of sight.
 4. Play `#rivals` for a few game years at the fastest speed, with the map open now and then. Answer things or don't. Left alone, the scratch runs saw about two requests a year from all four cities, Sparta's tribute demands, the one raid, and wars in Greece in June 743 and January 741 BC. Looked after (requests met, tribute paid, the threat paid off, a gift now and then), the rulers warmed and offers came as well.
 5. Open any earlier demo (say `#prices`, `#raiders` or `#tribute`). It is the same town as before, ready in well under 3 s.
 
 Each link also opens paused if you add `-paused` (for example `#rivals-paused`).
 
 ### What I'd like your eye on
-- **The map from afar.** Travellers are now drawn up to 1.8 times larger at the opening view. In `#war` the two armies now reach from Corinth to Athens. Too big, too small?
-- **`#rivals`' opening.** The five notes at the top cover the middle of the map. On a smaller window they also cover Athens' and Troy's labels for their few seconds. Is it too much at once?
+- **The map from afar.** Travellers are now drawn up to 1.8 times larger at the opening view, armies on a road up to 1.25 times. In `#war` the two armies fill the road from Corinth to Athens. Too big, too small?
+- **`#rivals`' opening.** Five notes stack at the top, and they stay while what they say holds: the threat for its 50 days, the request until you answer it, the fleece line while homes go without. Over the town they cover the main street; on the map they keep to one row each, but on a 1280 × 720 window they still cover Troy's label. Is it too much at once?
 - **How often things happen.** A war about every two years; about two requests a year across Greece; a hostile ruler's raid at most about every two and a half years. Too quiet, too busy?
 - **What gifts are worth against routes.** A fair gift for `#rivals`' town is about 700 dr. In the scratch runs its roads to Sparta and Corinth earn 500 to 1,450 dr a year each. Athens takes little: it buys wheat and meat, which the town eats. Troy's ship costs 150 to 300 dr a year, since it is mostly fleece bought in. I left both as they are.
 - **Two caravans of a route in the streets.** Most days, one is coming in while the last goes home. Should the next wait until the last has left the map?
+- **Money in `#rivals`.** Left alone for four years (found in the review), its treasury grows from 3,350 dr to about 32,000 dr, some 7,000 dr a year from taxes and trade, so a fair gift of about 700 dr soon costs little. Is the town too rich for Greece's prices to bite?
 
 ### Known rough edges
 - **The prepared towns cost build time and disk.** A build that has to prepare the towns takes about 30 s more (a few seconds when nothing they come from has changed). The prepared towns add about 7.5 MB (1.5 MB gzipped) to the published files, but each is fetched only when its demo is opened.
@@ -70,6 +71,7 @@ Each link also opens paused if you add `-paused` (for example `#rivals-paused`).
   - a land and a sea route to one city counting an offer's limit separately;
   - the band camping about 70 days in `#threat`.
 - **The sea war in `#rivals`** is Troy against Athens, set up for the demo, as `#war`'s is. The war request and Sparta's threat are set up too, and say so.
+- **Browsers don't all do the same sums** (found in the review). A few of the maths functions the simulation uses (sines and powers, for the wild herds' wandering and some curves) can differ in the last decimal place between one browser and another, and between a browser and the build, where the demo towns are prepared. Each demo opens as exactly its prepared town. But a town played on in two different browsers can slowly drift apart: where the deer graze, then what the hunters bring home. Nothing breaks and no save is lost. It matters only for replaying a game exactly, so it is left for later.
 
 ### Measurements before and after
 Headless Chromium with software rendering, so frame rates mean nothing; "before" is `bfbd838` (the end of slice 21's review). The work a frame swings by a ms or two from run to run.

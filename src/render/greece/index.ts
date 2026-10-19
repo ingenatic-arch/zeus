@@ -347,11 +347,13 @@ export class GreeceMap {
       const k = m.scale.x;
       const fx = Math.cos(m.rotation.y) * k;
       const fz = -Math.sin(m.rotation.y) * k;
-      const y = m.position.y + 0.3 * k;
+      const swords = /^war-\d+$/.test(key);
+      const y = m.position.y + (swords ? 0 : 0.3 * k);
       const a = screen(m.position.x + fx * back, y, m.position.z + fz * back);
       const b = screen(m.position.x + fx * front, y, m.position.z + fz * front);
       if (!a || !b) continue;
-      const d = segmentDist2(sx, sy, a, b);
+      // (A war's swords, small and standing between the two armies' heads, come first when the pointer is about as near them: slice 22's review.)
+      const d = swords ? segmentDist2(sx, sy, a, b) * 0.25 - 1 : segmentDist2(sx, sy, a, b);
       if (d < nd) {
         nd = d;
         near = `trav:${key}`;
