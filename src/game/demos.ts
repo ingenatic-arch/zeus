@@ -1640,7 +1640,7 @@ const SCENES: Record<string, Demo> = {
   rivalsmap: { view: 'rivals', setup: RIVALS, overlay: 'missing', greece: true },
   rivalstreet: { view: 'rivalstreet', setup: RIVALS, overlay: 'missing' },
   // Slice 23: bronze and the barracks. The copper on the east hills with the mine tool in hand; a company raised, its men walking in; two companies ready, a banner in hand.
-  bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing' },
+  bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing', side: { tab: 'goods' } },
   barracks: { view: 'barracks', setup: BARRACKS, overlay: 'missing', side: { tab: 'army' } },
   companies: { view: 'companies', setup: COMPANIES, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
 };
