@@ -47,7 +47,7 @@ What breaks, or moves: nothing you had is lost.
 ### What to try
 1. Open `#bronze`. You are over the east hills in June 747 BC with the copper mine tool in hand, and the green bands show the copper.
    - A road runs up from the oil storehouse to a mine on the richest rock, and its ore carts are on the road.
-   - The armoury stands lower down the oil road, beside the storehouse. Four sets of armour are already in the stores (see the Goods tab).
+   - The armoury stands lower down the oil road, beside the storehouse. The first sets of armour are already made: the Goods tab counts them, in the storehouse and on the armoury's racks.
    - Move the tool over the rest of the outcrop: the tip says how much a mine there would dig. Build a second one off the road's end.
 2. Open `#barracks`. It is the same town four months on, with a barracks beside the armoury. A company of hoplites has just been raised.
    - Half the men are on the streets, walking in from the villas and fine houses. The other half wait on the drill ground for their armour, and the porter is on his way back with it.
@@ -67,7 +67,7 @@ Each link also opens paused if you add `-paused` (for example `#companies-paused
 - **The banners.** Each is a cloth on a tall pole with its emblem and "1ST", "2ND". Too big, too small, too plain?
 - **The barracks and the armoury.** Does the barracks read as a place where men train? The armoury's forge glow sits under its lean-to and only shows from low down.
 - **The copper's look.** It shows as green bands over the ground while the mine tool is in hand. On the east hills the map draws much of that ground as grass and scrub rather than bare rock, so the bands lie on both.
-- **The pace.** Soldiers march at walking pace. In `#companies`, the hoplites took ten game days to march from the barracks to the north street, about ten tiles. Raising a company took about 16 days in `#barracks`: the men walking in, then the porter's trip for the armour. Too slow for a city under threat, once raiders come?
+- **The pace.** Soldiers march briskly, a third faster than the townsfolk walk and a little slower than raiders run. In `#companies`, the hoplites take about six game days (six seconds at normal speed) to march from the barracks to the north street. Raising a company took about 16 days in `#barracks`: the men walking in, then the porter's trip for the armour. Too slow for a city under threat, once raiders come?
 
 ### Known rough edges
 - No miner figures at the mine yet; only its carts and the windlass show it is worked.
@@ -90,6 +90,19 @@ Headless Chromium with software WebGL at 1920 × 1080, before (at the phase spec
 | A save of `#richtown` | 183 KB | 186 KB |
 
 The soldiers are drawn in the same batch as the walkers, and no bigger per figure than the largest walker, so a few hundred stay cheap. The banners are one cloth mesh and one set of poles, whatever their number.
+
+### What the review changed
+A second pass went through every step above in the browser at 1920 × 1080, read the new code, and played the demos on in the simulation. What it changed:
+- **Who serves is named rightly.** When a house had no grown son, the man who went was often the husband of the woman who heads it, or the head's brother or cousin, and he was still called "the head of the house": 13 of the 32 men in `#companies`. Now he says so: "Phanias, husband of Archippe, serves in the 1st company of hoplites", and his hover says "Phanias, husband of Archippe". A son whose mother leads her part of the house is named by his father, her husband, where the house knows him.
+- **Nobody over sixty is called up.** One of `#companies`' hoplites was 65. A house whose only grown man is past sixty now has nobody to spare.
+- **Companies march briskly.** The banner used to go slower than anyone else in the streets, and at half the pace raiders run, so a company sent across the town would rarely have met a band in time. It now marches a third faster than the townsfolk walk and a little slower than raiders run: about six game days from the barracks to the north street in `#companies`, not ten. The men walking in from their homes go at the same pace as before.
+- **A soldier says who he is while a banner is in hand.** `#companies` opens with the hoplites' banner in hand, and hovering one of the men then only said what a click would do. Now his name and company come first, so step 4 works without putting the banner down first.
+- **The smoke check runs again.** A stray apostrophe stopped the whole browser check from starting.
+- **Step 1's words.** It said four sets of armour were in the stores; the Goods tab counts the armoury's racks too, and shows six.
+
+The new city look from the other line of work (light, ground, materials and the sea) was merged in before this review, so the screenshots I looked at were in that look. The measurements above were taken before it.
+
+What I checked and did not change, for your eye: the forge's glow is still only seen from low down; there are still no miners at the mine; the marching column still brushes the watch tower by the oil road; a plain red board on a pole stands by the barracks gate beside the company's own banner, and may read as a second banner. Dismissing a company takes one click, with no "are you sure".
 
 ## Slice 22 — A world of rivals (19 Oct)
 
