@@ -269,6 +269,8 @@ export function decodeSave(text: string | null): Decoded {
       if (!tiles) return { ok: false, why: 'This save is damaged (its map of roads and buildings is wrong), so it can’t be opened.' };
       data.state.tiles = tiles;
     }
+    // (Once more through JSON: records rebuilt key by key above are slower for the sim to read, a fifth slower to run, than the same records as JSON makes them, each with its fields in the record itself. Slice 22, found with the prepared demo towns.)
+    data.state = JSON.parse(JSON.stringify(data.state));
   }
   if (data.save >= 2) {
     const bad = unpackRounds(data.state);
