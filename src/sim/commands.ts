@@ -37,11 +37,17 @@ export type Command =
   /** Send a ruler a gift: drachmas (`good` -1: 100, 250 or 500) or goods from the stores (a ware number: 200, 400 or 800); see giftRefusal in diplomacy.ts (a gift it refuses sends nothing). */
   | { type: 'gift'; city: string; good: number; amount: number }
   /** Answer a ruler's request, offer or demand for tribute (a deal's id; see answerRefusal in favours.ts: an answer it refuses does nothing): promise it, send what it asks (or pay the tribute), refuse it, take or decline an offer. */
-  | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' };
+  | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' }
+  /** Raise a company of hoplites or archers at a barracks (its id; see raiseRefusal in army.ts: one it refuses raises nothing). */
+  | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' }
+  /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores. */
+  | { type: 'dismiss'; company: number }
+  /** Send a company's banner to a tile (see marchRefusal in army.ts), or back to its barracks (`tile` -1). */
+  | { type: 'banner'; company: number; tile: number };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

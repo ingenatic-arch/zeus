@@ -4,6 +4,8 @@
  * sim state.
  */
 import { WATER_NONE, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
+import { coast } from '../map/coast';
+import { dhypot } from '../map/dmath';
 import { beside, findBuilding, sideOf } from './buildings';
 import { shoreRefusal } from './trade';
 import { TILE_EMPTY, TILE_ROAD, type BuildingKind, type SimState } from './state';
@@ -31,6 +33,10 @@ export const ARCHITECT_COST = 80;
 export const TRADING_COST = 250;
 /** The caravan yard: a walled yard with a donkey pen, a well and an awning over trestles, where caravans from Greece trade. */
 export const YARD_COST = 300;
+/** The copper mine (2 x 2, on copper in the rock), the armoury (3 x 3) and the barracks (4 x 4). */
+export const MINE_COST = 150;
+export const ARMOURY_COST = 300;
+export const BARRACKS_COST = 500;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -65,10 +71,13 @@ export const COST: Record<BuildingKind, number> = {
   rubble: 0,
   trading: TRADING_COST,
   yard: YARD_COST,
+  mine: MINE_COST,
+  armoury: ARMOURY_COST,
+  barracks: BARRACKS_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
-export const clearFee = (side: number): number => (side <= 2 ? CLEAR_SMALL : CLEAR_BIG);
+export const clearFee = (side: number): number => (side <= 2 ? CLEAR_SMALL : side <= 3 ? CLEAR_BIG : CLEAR_BIG * 2);
 
 /** What the refusals say about building on rubble. */
 export const RUBBLE_REFUSAL = 'Rubble: clear it first, with the clear tool';
@@ -418,8 +427,62 @@ export function vineOf(map: CoastMap, x: number, z: number, side: number): numbe
   return g / (side * side);
 }
 
-/** Kinds planted on the slopes, each tree or vine on its own ground: they take ground too steep and uneven for a house. */
-export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard';
+/** A copper mine needs at least this much copper in the rock over its footprint (0..1; see tileCopper). */
+export const MINE_COPPER_MIN = 0.3;
+
+const coppers = new WeakMap<CoastMap, Float32Array>();
+
+/**
+ * How rich a tile's rock is in copper (0..1): within one of the coast's
+ * outcrops (coast.copper), richest at its centre and nothing at its edge, and
+ * only where the ground is rock. Worked out once per map, apart from the bake.
+ */
+export function tileCopper(map: CoastMap, t: number): number {
+  let grid = coppers.get(map);
+  if (!grid) {
+    const n = map.size;
+    grid = new Float32Array(n * n);
+    for (const o of coast.copper) {
+      for (let z = Math.max(0, Math.floor(o.z - o.r)); z <= Math.min(n - 1, Math.ceil(o.z + o.r)); z++) {
+        for (let x = Math.max(0, Math.floor(o.x - o.r)); x <= Math.min(n - 1, Math.ceil(o.x + o.r)); x++) {
+          const d = dhypot(x + 0.5 - o.x, z + 0.5 - o.z) / o.r;
+          if (d >= 1) continue;
+          const rock = smooth(0.15, 0.45, map.sample(map.rock, x + 0.5, z + 0.5));
+          const v = Math.min(1, (1 - d * d) * 1.25) * rock;
+          const i = z * n + x;
+          grid[i] = Math.max(grid[i], Math.round(v * 100) / 100);
+        }
+      }
+    }
+    coppers.set(map, grid);
+  }
+  return grid[t] ?? 0;
+}
+
+/** The mean copper of a footprint's tiles (0..1). */
+export function copperOf(map: CoastMap, x: number, z: number, side: number): number {
+  const n = map.size;
+  let g = 0;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) g += tileCopper(map, Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx));
+  return g / (side * side);
+}
+
+/** Where the copper outcrop nearest a tile is said to be ("in the east hills"). */
+export function outcropPlace(x: number, z: number): string {
+  let best = coast.copper[0];
+  let bd = Infinity;
+  for (const o of coast.copper) {
+    const d = dhypot(x - o.x, z - o.z);
+    if (d < bd) {
+      bd = d;
+      best = o;
+    }
+  }
+  return best.place;
+}
+
+/** Kinds planted on the slopes, each tree or vine on its own ground (and the copper mine, cut into the hillside): they take ground too steep and uneven for a house. */
+export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine';
 
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
@@ -427,7 +490,7 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
   // (The ground's own word is a home's: for anything else, it is too steep for that.)
-  if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves and vineyards can take a slope like this';
+  if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves, vineyards and mines can take a slope like this';
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
@@ -439,6 +502,7 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
     if (shore) return shore;
   }
   if (kind === 'yard' && s.buildings.some((b) => b.kind === 'yard')) return 'Only one caravan yard: every caravan comes to it';
+  if (kind === 'mine' && copperOf(map, tx, tz, side) < MINE_COPPER_MIN) return 'No copper in the rock here: a mine needs the green-streaked rock in the hills';
   if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';
   return '';
 }

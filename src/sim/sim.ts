@@ -30,6 +30,7 @@ import { stepRivals } from './rivals';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
+import { barracksGone, dismiss, freshArmy, raise, sendBanner, stepArmy } from './army';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -76,6 +77,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     taxGone: [],
     world: freshWorld(worldSeed),
     stocks: freshBook(0),
+    army: freshArmy(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -189,6 +191,8 @@ export class Sim {
     // Threats and war bands: deadlines, the band's march, its coming in (nothing in a town that has never opened a route).
     stepRaids(s, map);
     stepDiplomacy(s);
+    // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
+    stepArmy(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -262,6 +266,15 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'answer':
       if (typeof c.deal === 'number' && typeof c.act === 'string') answer(s, map, c.deal, c.act);
+      break;
+    case 'raise':
+      if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);
+      break;
+    case 'dismiss':
+      if (typeof c.company === 'number') dismiss(s, map, c.company);
+      break;
+    case 'banner':
+      if (typeof c.company === 'number' && Number.isInteger(c.tile)) sendBanner(s, map, c.company, c.tile);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
@@ -499,6 +512,8 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
       return false;
     });
   }
+  // A barracks' companies are disbanded with it.
+  if (b.kind === 'barracks') barracksGone(s, map, b);
   if (b.people > 0) {
     s.left += b.people;
     sendLeavers(s, map, b.people, centreOf(b), around(n, b));

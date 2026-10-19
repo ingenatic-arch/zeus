@@ -8,7 +8,7 @@
 import { districtTitle } from '../map/districts';
 import { centreOf } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
-import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WARES, WHEAT, WINE, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WARES, WHEAT, WINE, type Ware } from './foods';
 import { rateOf } from './labour';
 import { MAKERS } from './production';
 import { districtOfLine, STOCK_KINDS } from './stockbook';
@@ -21,7 +21,7 @@ export interface WareInfo {
   /** How its measures are counted ("measures", "jars", "bales", "amphorae"). */
   unit: string;
   /** Food (eaten as a meal), a good (sold at a stall) or from the land (worked up into a good). */
-  group: 'food' | 'goods' | 'land';
+  group: 'food' | 'goods' | 'land' | 'arms';
   /** Its colour (its swatch, its bar in the year's chart). */
   colour: string;
 }
@@ -35,6 +35,8 @@ export const WARE_INFO: Record<Ware, WareInfo> = {
   [FLEECE]: { name: 'Fleece', unit: 'bales', group: 'goods', colour: '#c8b68a' },
   [GRAPES]: { name: 'Grapes', unit: 'measures', group: 'land', colour: '#7a3a78' },
   [WINE]: { name: 'Wine', unit: 'amphorae', group: 'goods', colour: '#8e2f4e' },
+  [COPPER]: { name: 'Copper', unit: 'measures', group: 'land', colour: '#4f9a86' },
+  [ARMOUR]: { name: 'Armour', unit: 'sets', group: 'arms', colour: '#b0803a' },
 };
 
 /** A ware's panel info (a plain fallback for one with no row yet). */
@@ -45,6 +47,7 @@ export const WARE_GROUPS: ReadonlyArray<{ group: WareInfo['group']; title: strin
   { group: 'food', title: 'Food' },
   { group: 'goods', title: 'Goods' },
   { group: 'land', title: 'From the land' },
+  { group: 'arms', title: 'Arms' },
 ];
 
 /** Every ware the panel lists, in its order: by group, then by ware. */
@@ -161,6 +164,8 @@ const MAKER_NAMES: Partial<Record<BuildingKind, string>> = {
   pasture: 'Sheep pastures',
   vineyard: 'Vineyards',
   winery: 'Wineries',
+  mine: 'Copper mines',
+  armoury: 'Armouries',
 };
 
 /** Who a ware was sold to or bought from (the stock book's lines by city: see routes.ts). */
@@ -173,6 +178,8 @@ export function flowLabel(kind: StockKind, what: string, w: Ware): string {
   if (kind === 'used') {
     if (what === 'press') return 'Pressed into oil';
     if (what === 'winery') return 'Trodden into wine';
+    if (what === 'armoury') return 'Hammered into armour';
+    if (what === 'barracks') return 'Issued to soldiers (less what came back)';
   }
   if (kind === 'sold' && what.startsWith('peace:')) return `Sent to ${TRADER_NAMES[what.slice(6)] ?? what.slice(6)}, the price of peace`;
   if (kind === 'sold' && (what.startsWith('sent:') || what.startsWith('tribute:'))) {

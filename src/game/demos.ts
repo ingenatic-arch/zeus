@@ -15,7 +15,7 @@ import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
-import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
+import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
@@ -754,7 +754,8 @@ function bayQuarter(sim: Sim, at: At, afford: (t: number, cost: number) => void)
   // The post, timed so the ship's first visit comes as the villas rise (later if the money is late).
   afford(wine + RICH_VILLAS - (FIRST_SHIP - SAIL_IN + RICH_IN), TRADING_COST + JOBS.trading * WAGE);
   at(s.tick, { type: 'build', kind: 'trading', at: [T(QUAY_POST.x, QUAY_POST.z)] });
-  for (const good of TRADE_GOODS) at(s.tick, { type: 'trade', good, sell: true });
+  // (The goods of phase 3: copper and armour, added in slice 23, are kept for the town's own army.)
+  for (const good of TRADE_GOODS.slice(0, OLD_GOODS)) at(s.tick, { type: 'trade', good, sell: true });
   // Her first visit is due FIRST_SHIP from now (the post is built on the next tick): the town opens RICH_IN into her way in.
   return s.tick + 1 + FIRST_SHIP - SAIL_IN + RICH_IN;
 }

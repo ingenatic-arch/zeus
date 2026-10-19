@@ -168,7 +168,7 @@ export class Streets {
     // Plots: an outline marked on the grass, then trodden earth once a tent is up.
     for (const b of s.buildings) {
       if (b.x < cx || b.x >= x1 || b.z < cz || b.z >= z1) continue;
-      if (footSide(b) === 3) this.worksGround(s, b, quad);
+      if (footSide(b) >= 3 || b.kind === 'mine') this.worksGround(s, b, quad);
       else this.plotGround(b, quad, c);
     }
     if (pos.length === 0) return null;
@@ -229,9 +229,9 @@ export class Streets {
     quad: (x0: number, z0: number, x1: number, z1: number, main: boolean, a: THREE.Color, b: THREE.Color, c: THREE.Color, d: THREE.Color) => void,
   ): void {
     const map = this.map;
-    const S = 3;
+    const S = footSide(b);
     // The lodge's and the dairy's grounds are plain (a worn patch, a pen and a yard): a coarser grid will do.
-    const steps = b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' || b.kind === 'pasture' || b.kind === 'vineyard' || b.kind === 'winery' ? 12 : 24;
+    const steps = b.kind === 'mine' ? 8 : b.kind === 'barracks' ? 16 : b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' || b.kind === 'pasture' || b.kind === 'vineyard' || b.kind === 'winery' || b.kind === 'armoury' ? 12 : 24;
     const inset = 0.04;
     const cx = b.x + S / 2;
     const cz = b.z + S / 2;
@@ -292,7 +292,19 @@ export class Streets {
           const off = Math.abs(row - Math.round(row));
           if (lx > 0.75) c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
           else c.copy(off < 0.22 ? earth : dry).lerp(worn, off < 0.22 ? 0.15 : 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 322)).multiplyScalar(j2);
-        } else if (b.kind === 'press' || b.kind === 'storehouse' || b.kind === 'winery') {
+        } else if (b.kind === 'mine') {
+          // Broken rock and spoil, greenish where the copper shows, worn to earth at the front where the carts load.
+          const rockC = col(PAL.rockGrey);
+          const ore = col('#5f8f78');
+          const k = hash2(Math.round(xa * 4), Math.round(za * 4), 323);
+          c.copy(rockC).lerp(ore, k > 0.7 ? 0.6 : 0.1).lerp(worn, Math.max(0, Math.min(0.8, lx * 0.8))).multiplyScalar(j2);
+        } else if (b.kind === 'barracks') {
+          // The drill ground: raked sand, a paved walk under the colonnade at the back and along the gate.
+          const sandC = col('#d9c28e');
+          const rim = lx < -1.35 || Math.abs(lz) > 1.72 || lx > 1.72;
+          if (rim) c.copy(pave).lerp(paveDark, 0.4 * hash2(Math.round(xa * 2), Math.round(za * 2), 324));
+          else c.copy(sandC).lerp(worn, 0.12 * hash2(Math.round(xa * 3), Math.round(za * 3), 325)).multiplyScalar(j2);
+        } else if (b.kind === 'press' || b.kind === 'storehouse' || b.kind === 'winery' || b.kind === 'armoury') {
           // Beaten earth, worn most at the front where the carts turn.
           c.copy(earth).lerp(worn, Math.max(0, Math.min(1, (lx + 0.6) / 2))).multiplyScalar(j2);
         } else if (b.kind === 'dairy') {

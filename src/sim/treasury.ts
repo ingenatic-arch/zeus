@@ -21,6 +21,8 @@ import type { Building, BuildingKind, Ledger, LedgerKind, SimState } from './sta
 
 /** What a workplace pays each of its workers on the first of the month. */
 export const WAGE = 2;
+/** What a soldier is paid on the first of the month (army.ts), after the workplaces' wages. */
+export const SOLDIER_PAY = 3;
 
 /** The month (since the founding) a tick falls in. */
 export const monthOf = (tick: number): number => Math.floor(tick / TICKS_PER_MONTH);
@@ -90,7 +92,7 @@ export function payable(s: SimState): number {
  */
 export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): number {
   if (kind === 'taxoffice') return s.money;
-  return Math.max(0, payable(s) - owedWages(s).owed);
+  return Math.max(0, payable(s) - owedWages(s).owed - soldiersOwed(s));
 }
 
 /**
@@ -131,7 +133,16 @@ export function settle(s: SimState): void {
       b.owed = 0;
     }
   }
+  // Then the soldiers, company by company, each in full or not at all.
+  for (const c of s.army.companies) {
+    if (c.owed <= 0 || payable(s) < c.owed) continue;
+    pay(s, -c.owed, 'soldiers', 'soldiers', c.owed / SOLDIER_PAY);
+    c.owed = 0;
+  }
 }
+
+/** Soldiers' pay owed and unpaid this month (drachmas). */
+export const soldiersOwed = (s: SimState): number => s.army.companies.reduce((a, c) => a + c.owed, 0);
 
 /** Wages owed and unpaid this month: how much, and at how many workplaces. */
 export function owedWages(s: SimState): { owed: number; places: number; workers: number } {

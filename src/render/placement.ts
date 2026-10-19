@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tileCopper } from '../sim/build';
 import type { CoastMap } from '../map/bake';
 
 /** What the drag would do to a tile, as shown while placing. */
@@ -47,6 +48,7 @@ const fragment = /* glsl */ `
   uniform vec2 uCursor;
   uniform float uRadius;
   uniform float uEdgeGlow;
+  uniform float uCopper;
   uniform float uTime;
   uniform float uGrid;
   uniform float uOverlay;
@@ -105,8 +107,19 @@ const fragment = /* glsl */ `
     // Ground the tool can't use, near the pointer: a soft rust wash.
     col = mix(col, vec4(0.78, 0.32, 0.2, 0.22), m.g * near * (1.0 - line * 0.5));
 
+    // Copper in the rock, while the mine tool is in hand: green streaks over the rock, the richer the stronger (b: 1..201; 255 is the map's edge).
+    float bv = floor(m.b * 255.0 + 0.5);
+    float rich = (bv > 0.5 && bv < 254.5) ? (bv - 1.0) / 200.0 : 0.0;
+    if (uCopper > 0.5 && rich > 0.0) {
+      float sv = sin((p.x * 1.3 + p.y * 0.7) * 3.4 + sin(p.y * 1.9 + p.x * 0.4) * 2.2);
+      float streak = smoothstep(0.35, 0.85, sv);
+      vec4 green = vec4(0.22, 0.78, 0.58, (0.16 + 0.5 * streak) * (0.35 + 0.65 * rich));
+      col = mix(col, green, green.a / max(green.a + col.a * (1.0 - green.a), 0.001));
+      col.a = max(col.a, green.a);
+    }
+
     // Where settlers come in: the map's edge glows gold under the road tool.
-    float glow = m.b * uEdgeGlow * (0.55 + 0.25 * sin(uTime * 2.4));
+    float glow = step(254.5, bv) * uEdgeGlow * (0.55 + 0.25 * sin(uTime * 2.4));
     col = mix(col, vec4(1.0, 0.82, 0.32, 0.6), glow);
 
     // The drag's tiles, with a slightly brighter rim.
@@ -170,6 +183,11 @@ export class Placement {
       const x = t % n;
       const z = (t - x) / n;
       if ((x === 0 || z === 0 || x === n - 1 || z === n - 1) && map.tileWater[t] === 0) this.data[t * 4 + 2] = 255;
+      // Copper in the rock (slice 23): 1..201 by how rich, shown while the mine tool is in hand.
+      else {
+        const c = tileCopper(map, t);
+        if (c > 0.02) this.data[t * 4 + 2] = 1 + Math.round(c * 200);
+      }
     }
     this.uniforms = {
       uMarks: { value: this.tex },
@@ -177,6 +195,7 @@ export class Placement {
       uCursor: { value: new THREE.Vector2(-100, -100) },
       uRadius: { value: 9 },
       uEdgeGlow: { value: 0 },
+      uCopper: { value: 0 },
       uTime: { value: 0 },
       uGrid: { value: 0 },
       uOverlay: { value: 0 },
@@ -232,10 +251,11 @@ export class Placement {
   private overlay = false;
 
   /** A tool is picked (the grid and the drag's tiles show); the road tool also lights the map's edge. */
-  show(on: boolean, edgeGlow: boolean): void {
+  show(on: boolean, edgeGlow: boolean, copper = false): void {
     this.tool = on;
     this.uniforms.uGrid.value = on ? 1 : 0;
     this.uniforms.uEdgeGlow.value = edgeGlow ? 1 : 0;
+    this.uniforms.uCopper.value = copper ? 1 : 0;
     this.mesh.visible = this.tool || this.overlay;
   }
 

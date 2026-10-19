@@ -35,7 +35,10 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
-import { FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, OIL, OLIVES, WARE_NAMES, WINE, type Ware } from './foods';
+import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, OIL, OLIVES, WARE_NAMES, WINE, type Ware } from './foods';
+
+/** What a storehouse keeps, each in its own room. */
+const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR];
 import { stallLow, STALL_GOODS, STALL_NAMES, STALL_VENDOR, unitOf, vendorGood } from './goods';
 import { FLEECE_MONTH, grapesOf, OLIVE_GROW, olivesOf, OIL_MONTH, stageOf, MAKERS, VINE_GROW, WINE_MONTH } from './production';
 import { roomFor as roomForWare, roomOf as roomForWareKind, storeOf as storeOfKind } from './stores';
@@ -45,7 +48,8 @@ import { herdDistance, herdsInReach, huntersFor, huntersOut, HUNT_RANGE, LODGE_M
 import { goodUntil, hasStall } from './goods';
 import { fleeing, herdName, MIN_HEAD, moving, regrowIn } from './wild';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
-import { canWork, rateOf, workforce } from './labour';
+import { canWork, canWorkIn, rateOf, workforce } from './labour';
+import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -119,6 +123,9 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'winery') return wineryStatus(s, map, b);
   if (b.kind === 'trading') return tradingStatus(s, map, b);
   if (b.kind === 'yard') return yardStatus(s, map, b);
+  if (b.kind === 'mine') return mineStatus(s, map, b, workersLine(s, map, b));
+  if (b.kind === 'armoury') return armouryStatus(s, map, b, workersLine(s, map, b));
+  if (b.kind === 'barracks') return barracksStatus(s, map, b, workersLine(s, map, b));
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -135,7 +142,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), taxLine(s, map, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */
@@ -454,7 +461,7 @@ export function reachesWork(s: SimState, size: number, b: Building): boolean {
 
 /** How many of a home's people work. */
 function workLine(s: SimState, size: number, b: Building): string {
-  const able = canWork(b);
+  const able = canWorkIn(s, b);
   if (able === 0) return '';
   const can = `${able} can work`;
   if (!s.buildings.some((o) => JOBS[o.kind] > 0)) return `${can} · nothing needs workers yet`;
@@ -908,19 +915,19 @@ export function pastureStatus(s: SimState, map: CoastMap, p: Building): Status {
 
 /** A storehouse: what it holds, what carts are bringing, who fetches from it. */
 export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Status {
-  const held_ = STALL_GOODS.filter((w) => held(g, w) > 0);
+  const held_ = STORE_GOODS.filter((w) => held(g, w) > 0);
   const title = `${BUILDING_NAMES.storehouse} · ${held_.length ? held_.map((w) => `${fmt(held(g, w))} of ${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(' · ') : 'empty'}`;
   if (roadsBeside(s, map.size, g).length === 0) return { title, detail: 'Needs a road beside it, for carts and porters to reach it' };
-  const rooms = `Holds ${STALL_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
-  const bringing = STALL_GOODS.filter((w) => coming(g, w) > 0).map((w) => amount(w, coming(g, w)));
+  const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
+  const bringing = STORE_GOODS.filter((w) => coming(g, w) > 0).map((w) => amount(w, coming(g, w)));
   const anyMaker = STALL_GOODS.some((w) => s.buildings.some((m) => MAKERS[m.kind]?.ware === w));
   const coming_ = bringing.length ? `Carts are bringing ${bringing.join(', ')} more` : !anyMaker ? 'Build an olive press, a sheep pasture or a winery (M): their carts bring their goods here' : '';
-  const fullOf = STALL_GOODS.filter((w) => held(g, w) >= roomForWareKind('storehouse', w));
+  const fullOf = STORE_GOODS.filter((w) => held(g, w) >= roomForWareKind('storehouse', w));
   const full = fullOf.length ? `Its ${fullOf.map((w) => WARE_NAMES[w]).join(' and ')} ${fullOf.length === 1 ? 'room is' : 'rooms are'} full: carts with more wait for room, and the makers fill their own stores` : '';
-  const fetching = STALL_GOODS.map((w) => [w, s.walkers.filter((p) => p.kind === 'porter' && p.target === g.id && p.food === w).length] as const).filter(([, n]) => n > 0);
+  const fetching = STORE_GOODS.map((w) => [w, s.walkers.filter((p) => p.kind === 'porter' && p.target === g.id && p.food === w).length] as const).filter(([, n]) => n > 0);
   const unsold = STALL_GOODS.filter((w) => held(g, w) > 0 && !citySells(s, w));
   const fetch = fetching.length
-    ? fetching.map(([w, n]) => `${n === 1 ? 'A porter is' : `${n} porters are`} fetching ${WARE_NAMES[w]} from here for an agora’s ${WARE_NAMES[w]} stall`).join('\n')
+    ? fetching.map(([w, n]) => `${n === 1 ? 'A porter is' : `${n} porters are`} fetching ${WARE_NAMES[w]} from here ${w === ARMOUR ? 'for a barracks’ men' : `for an agora’s ${WARE_NAMES[w]} stall`}`).join('\n')
     : unsold.length
       ? unsold.map((w) => `No agora has a ${STALL_NAMES[w]} to sell its ${WARE_NAMES[w]} yet: ${CHAINS[w]?.key ?? 'K'}, then click an agora`).join('\n')
       : '';

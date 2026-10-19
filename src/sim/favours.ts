@@ -42,7 +42,7 @@ import { roadSearch, nearestReached } from './roads';
 import { roadsBeside } from './rounds';
 import { caravanEntry, landTicks, routeOf, voyageTicks, yearlyLimit } from './routes';
 import type { Deal, Gift, Memory, SimState, Walker, World, WorldCity } from './state';
-import { berthOf, cityHolds, DOCKER_GAP, DOCKER_TAKE, leaveTicks, SAIL_OUT, shipRoute, SHIP_LEAVING, storeKind, TRADE_GOODS } from './trade';
+import { berthOf, cityHolds, DOCKER_GAP, DOCKER_TAKE, leaveTicks, OLD_GOODS, SAIL_OUT, shipRoute, SHIP_LEAVING, storeKind, TRADE_GOODS } from './trade';
 import { spendable } from './treasury';
 import { SENDING_FETCH_SPEED, SENDING_SPEED } from './walk';
 import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, yourPrice } from './world';
@@ -134,7 +134,7 @@ export const FADE = {
 export const STRENGTH: Partial<Record<CityId, number>> = { athens: 7000, sparta: 6000, corinth: 5500, troy: 6500 };
 
 /** What makes each trade good in your city (TRADE_GOODS order): a request asks for what you make or hold. */
-const MAKERS = ['farm', 'lodge', 'dairy', 'press', 'pasture', 'winery'] as const;
+const MAKERS = ['farm', 'lodge', 'dairy', 'press', 'pasture', 'winery', 'mine', 'armoury'] as const;
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cityName = (id: CityId): string => PLACES[id].name;
@@ -402,7 +402,7 @@ function tribute(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   if (!mayDemand(s, c)) return false;
   if (w.deals.some((d) => d.kind === 'tribute' && d.city === c.id && s.tick - Math.max(d.at, d.ended) < TRIBUTE_GAP)) return false;
   if (dice(w, month, i, 1) >= TRIBUTE_ODDS) return false;
-  const { buys } = sellsAndBuys(c);
+  const buys = sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS);
   const goods = canSendGoods(s, map, c.id) ? buys.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 400) : [];
   const good = goods.length && dice(w, month, i, 2) < 0.4 ? goods[Math.floor(dice(w, month, i, 3) * goods.length)] : -1;
   const yearly = dice(w, month, i, 4) < TRIBUTE_YEARLY;
@@ -416,7 +416,7 @@ function request(s: SimState, map: CoastMap, c: WorldCity, month: number, i: num
   if (c.war) return warRequest(s, map, c, month, i);
   const hungry = c.harvest <= 1 && s.tick - lastHarvestOf(s.tick) < HUNGRY_FOR;
   if (dice(w, month, i, 11) >= REQUEST_ODDS * (hungry ? HUNGRY_ODDS : 1)) return false;
-  const { buys } = sellsAndBuys(c);
+  const buys = sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS);
   const wants = hungry && !buys.includes(0) ? [0, ...buys] : buys;
   // (Goods only if your city could send them to them at all: a yard with a road out, or a post on a lane to them; else coin.)
   const goods = canSendGoods(s, map, c.id) ? wants.filter((k) => makes(s, k) || cityHolds(s, TRADE_GOODS[k]) >= 300) : [];
@@ -456,14 +456,15 @@ export function mayOffer(s: SimState, c: WorldCity): boolean {
 
 /** The goods of yours a ruler would offer to buy: ones they are short of that your city makes and has to spare (some sold to a trader this year, or enough beyond the keep figure in store now), so the year's deal can be kept. */
 export function offerGoods(s: SimState, c: WorldCity): number[] {
-  return sellsAndBuys(c).buys.filter((k) => makes(s, k) && (s.world.routes.some((r) => r.sold[k] > 0) || cityHolds(s, TRADE_GOODS[k]) - s.trade.keep[k] >= OFFER_SPARE));
+  return sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS && makes(s, k) && (s.world.routes.some((r) => r.sold[k] > 0) || cityHolds(s, TRADE_GOODS[k]) - s.trade.keep[k] >= OFFER_SPARE));
 }
 
 function offer(s: SimState, c: WorldCity, month: number, i: number): boolean {
   const w = s.world;
   if (!mayOffer(s, c)) return false;
   if (dice(w, month, i, 21) >= OFFER_ODDS * (moodOf(c, s.tick) >= 30 ? 2 : 1)) return false;
-  const { sells } = sellsAndBuys(c);
+  // (Offers keep to the six goods of phase 3, so copper and armour move no ruler's dice.)
+  const sells = sellsAndBuys(c).sells.filter((k) => k < OLD_GOODS);
   const yours = offerGoods(s, c);
   if (yours.length) makeOffer(s, c, yours[Math.floor(dice(w, month, i, 22) * yours.length)], 'buy');
   else if (sells.length) makeOffer(s, c, sells[Math.floor(dice(w, month, i, 23) * sells.length)], 'sell');

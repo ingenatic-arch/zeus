@@ -13,13 +13,14 @@
  *
  * The sheep pasture is a batch by its grass (its flock is sheared), the
  * vineyard a crop like the grove, the winery a batch with an input (grapes)
- * like the press.
+ * like the press. The copper mine is a batch by its copper (how rich the rock
+ * is), the armoury a batch with an input, copper, ten measures to a set.
  */
 import type { CoastMap } from '../map/bake';
-import { grassOf, oliveOf, vineOf } from './build';
+import { copperOf, grassOf, oliveOf, vineOf } from './build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { CHEESE_BATCH, CHEESE_EVERY, GROW, harvestOf, sendCart } from './food';
-import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, setHeld, WHEAT, WINE, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, setHeld, WHEAT, WINE, type Ware } from './foods';
 import { stepLodges } from './hunt';
 import { rateOf } from './labour';
 import { storeOf } from './stores';
@@ -41,6 +42,13 @@ export const VINE_GROW = 2 * TICKS_PER_MONTH;
 /** A winery makes WINE_BATCH amphorae of wine from as many measures of grapes every WINE_EVERY ticks fully worked (300 a month). */
 export const WINE_EVERY = 3 * TICKS_PER_DAY;
 export const WINE_BATCH = 30;
+/** A copper mine digs MINE_BATCH measures of ore every MINE_EVERY ticks fully worked on the richest rock (200 a month). */
+export const MINE_EVERY = 3 * TICKS_PER_DAY;
+export const MINE_BATCH = 20;
+/** An armoury makes ARMOURY_BATCH sets of armour every ARMOURY_EVERY ticks fully worked, from ARMOUR_COPPER measures of copper a set (20 sets a month from 200 copper). */
+export const ARMOURY_EVERY = 3 * TICKS_PER_DAY;
+export const ARMOURY_BATCH = 2;
+export const ARMOUR_COPPER = 10;
 
 export interface Maker {
   /** What it makes. */
@@ -53,8 +61,9 @@ export interface Maker {
   every?: number;
   batch?: number;
   ground?(map: CoastMap, b: Building): number;
-  /** A batch with an input: what it uses up, measure for measure. */
+  /** A batch with an input: what it uses up, measure for measure (or `per` measures of it for each one made). */
   input?: Ware;
+  per?: number;
 }
 
 /** The harvest an olive grove brings in on its ground. */
@@ -71,6 +80,8 @@ export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
   pasture: { ware: FLEECE, how: 'batch', every: FLEECE_EVERY, batch: FLEECE_BATCH, ground: (map, p) => grassOf(map, p.x, p.z, 3) },
   vineyard: { ware: GRAPES, how: 'crop', grow: VINE_GROW, yieldOf: grapesOf },
   winery: { ware: WINE, how: 'batch', every: WINE_EVERY, batch: WINE_BATCH, input: GRAPES },
+  mine: { ware: COPPER, how: 'batch', every: MINE_EVERY, batch: MINE_BATCH, ground: (map, m) => copperOf(map, m.x, m.z, 2) },
+  armoury: { ware: ARMOUR, how: 'batch', every: ARMOURY_EVERY, batch: ARMOURY_BATCH, input: COPPER, per: ARMOUR_COPPER },
 };
 
 /** How far a crop has grown, in eighths (what the renderer shows). */
@@ -99,15 +110,16 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
     const every = m.every ?? 1;
     const batch = m.batch ?? 0;
     const input = m.input;
-    if (held(b, m.ware) < store && rate > 0 && (input === undefined || held(b, input) > 0)) {
+    const per = m.per ?? 1;
+    if (held(b, m.ware) < store && rate > 0 && (input === undefined || held(b, input) >= per)) {
       b.growth += m.ground ? rate * m.ground(map, b) : rate;
       if (b.growth >= every) {
         b.growth -= every;
         let made = batch;
         if (input !== undefined) {
-          made = Math.min(batch, held(b, input));
-          setHeld(b, input, held(b, input) - made);
-          note(s, input, 'used', b.kind, made);
+          made = Math.min(batch, Math.floor(held(b, input) / per));
+          setHeld(b, input, held(b, input) - made * per);
+          note(s, input, 'used', b.kind, made * per);
         }
         const had = held(b, m.ware);
         setHeld(b, m.ware, Math.min(store, had + made));
@@ -129,8 +141,8 @@ function stepKind(s: SimState, map: CoastMap, kind: BuildingKind): void {
 /**
  * Every maker's tick, in a fixed order: farms, lodges (their hunters, then
  * their carts), dairies, groves and presses, then pastures, vineyards and
- * wineries (each after everything that was there before it, so towns without
- * them run exactly as they did).
+ * wineries, then copper mines and armouries (each after everything that was
+ * there before it, so towns without them run exactly as they did).
  */
 export function stepMakers(s: SimState, map: CoastMap): void {
   stepKind(s, map, 'farm');
@@ -142,6 +154,8 @@ export function stepMakers(s: SimState, map: CoastMap): void {
   stepKind(s, map, 'pasture');
   stepKind(s, map, 'vineyard');
   stepKind(s, map, 'winery');
+  stepKind(s, map, 'mine');
+  stepKind(s, map, 'armoury');
 }
 
 /** The oil a press makes a month, fully worked (with olives always in hand). */
@@ -150,3 +164,6 @@ export const OIL_MONTH = Math.round((PRESS_BATCH * TICKS_PER_MONTH) / PRESS_EVER
 export const FLEECE_MONTH = Math.round((FLEECE_BATCH * TICKS_PER_MONTH) / FLEECE_EVERY);
 /** The wine a winery makes a month, fully worked (with grapes always in hand). */
 export const WINE_MONTH = Math.round((WINE_BATCH * TICKS_PER_MONTH) / WINE_EVERY);
+/** The copper a mine digs a month on the richest rock, and the armour an armoury makes a month, fully worked. */
+export const COPPER_MONTH = Math.round((MINE_BATCH * TICKS_PER_MONTH) / MINE_EVERY);
+export const ARMOUR_MONTH = Math.round((ARMOURY_BATCH * TICKS_PER_MONTH) / ARMOURY_EVERY);

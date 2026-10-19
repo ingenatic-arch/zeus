@@ -26,7 +26,9 @@ import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_SECOND } from '.
 import { citySells, lackWords, NEED_WORDS, NEEDS, needsOf, untilOf, warningsOf } from '../sim/folk';
 import { GOOD_SERVICE, isGood, type Ware } from '../sim/foods';
 import { burnable, HAZARD_MARK, wears } from '../sim/hazards';
-import { canWork, workforce } from '../sim/labour';
+import { canWorkIn, workforce } from '../sim/labour';
+import { armyHtml } from './armytab';
+import type { Command } from '../sim/commands';
 import { arrivalOutlook, type Outlook } from '../sim/settlers';
 import type { Building, BuildingKind, Service, SimState } from '../sim/state';
 import { bookNow, flowRows, makersOf, monthOf, panelWares, stockOf, totalsOf, usersOf, WARE_GROUPS, wareInfo, type FlowRow, type WareMonth } from '../sim/stocks';
@@ -41,18 +43,20 @@ const signed = (n: number): string => (Math.round(n) > 0 ? `+${fmt(n)}` : Math.r
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
 const lower = (t: string): string => (t ? `${t[0].toLowerCase()}${t.slice(1)}` : t);
 
-export type SideTab = 'goods' | 'people' | 'services' | 'money';
+export type SideTab = 'goods' | 'people' | 'services' | 'money' | 'army';
 const TABS: ReadonlyArray<{ tab: SideTab; label: string; tip: string }> = [
   { tab: 'goods', label: 'Goods', tip: 'What the city makes, keeps and uses' },
   { tab: 'people', label: 'People', tip: 'Who lives here, in what homes, and who has work' },
   { tab: 'services', label: 'Services', tip: 'What reaches the homes that need it, and fire and wear' },
   { tab: 'money', label: 'Money', tip: 'The treasury, taxes and wages' },
+  { tab: 'army', label: 'Army', tip: 'The barracks, their companies and the city’s strength' },
 ];
 
 const TAB_ICONS: Record<SideTab, string> = {
   goods: '<svg viewBox="0 0 24 24"><path d="M9.6 2.6h4.8l-.6 2.8c3.2 1.2 5 4.4 5 8 0 4-2.4 7-5.2 8H10.4c-2.8-1-5.2-4-5.2-8 0-3.6 1.8-6.8 5-8z" class="f"/><path d="M6 11.4h12" class="s"/></svg>',
   people: '<svg viewBox="0 0 20 16"><circle cx="7" cy="4" r="2.6" class="f"/><path d="M2.4 15c0-3.6 2-6 4.6-6s4.6 2.4 4.6 6z" class="f"/><circle cx="14" cy="5.2" r="2.1" class="f"/><path d="M12.6 15c.1-2.4-.4-4.2-1.3-5.2.8-.5 1.6-.7 2.7-.7 2.2 0 3.8 2 3.8 5.9z" class="f"/></svg>',
   services: '<svg viewBox="0 0 24 24"><path d="M12 2.8c3.3 4.6 6.2 8.2 6.2 11.6a6.2 6.2 0 0 1-12.4 0c0-3.4 2.9-7 6.2-11.6z" class="f"/><path d="M9.2 14.6a2.8 2.8 0 0 0 2.6 2.6" class="s"/></svg>',
+  army: '<svg viewBox="0 0 24 24"><circle cx="11" cy="13" r="7.4" class="f"/><circle cx="11" cy="13" r="2.2" class="s"/><path d="M19.4 2v20" class="s"/></svg>',
   money: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.6" class="f"/><circle cx="8" cy="8" r="4.4" class="s"/><path d="M8 5.2l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" class="m"/></svg>',
 };
 
@@ -127,6 +131,10 @@ export interface SideHooks {
   openHome(id: number): void;
   /** The panel opened or closed (the view makes room for it). */
   toggled(open: boolean): void;
+  /** The Army tab: send a command (raise, dismiss, back to barracks), take a company's banner in hand, and which is in hand. */
+  army(c: Command): void;
+  selectCompany(id: number): void;
+  selected(): number;
 }
 
 /** Remembered between visits (where the browser lets it): whether the panel is open, and the tab. */
@@ -287,6 +295,25 @@ export class SidePanel {
       this.refresh();
     } else if (act === 'ledger') this.hooks.ledger();
     else if (act === 'rates') this.hooks.rates();
+    else if (act === 'company') this.hooks.selectCompany(Number(a.dataset.id));
+    else if (act === 'recall') this.hooks.army({ type: 'banner', company: Number(a.dataset.id), tile: -1 });
+    else if (act === 'dismiss') this.hooks.army({ type: 'dismiss', company: Number(a.dataset.id) });
+    else if (act === 'raise') this.hooks.army({ type: 'raise', barracks: Number(a.dataset.id), kind: a.dataset.kind === 'archer' ? 'archer' : 'hoplite' });
+    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise') {
+      this.shownAt = -Infinity;
+      if (this.s) this.render(this.s);
+    }
+  }
+
+  /** The barracks picked out on the Army tab (clicked in the city), or 0. */
+  private armyFocus = 0;
+
+  /** Open the Army tab, a barracks picked out. */
+  showBarracks(id: number): void {
+    this.armyFocus = id;
+    this.showTab('army');
+    const el = this.body.querySelector(`[data-barracks="${id}"]`);
+    if (el && 'scrollIntoView' in el) (el as HTMLElement).scrollIntoView({ block: 'nearest' });
   }
 
   /** Bring the panel up to date (a few times a second while it shows). */
@@ -305,7 +332,7 @@ export class SidePanel {
   /** The current tab's HTML. */
   html(s: SimState): string {
     if (this.tab === 'people' && !this.outlook) this.outlook = arrivalOutlook(s, this.map);
-    return this.tab === 'goods' ? (this.ware >= 0 ? this.warePage(s, this.ware) : this.goodsList(s)) : this.tab === 'people' ? this.people(s) : this.tab === 'services' ? this.services(s) : this.money(s);
+    return this.tab === 'goods' ? (this.ware >= 0 ? this.warePage(s, this.ware) : this.goodsList(s)) : this.tab === 'people' ? this.people(s) : this.tab === 'services' ? this.services(s) : this.tab === 'army' ? armyHtml(s, this.map, this.armyFocus, this.hooks.selected()) : this.money(s);
   }
 
   private render(s: SimState): void {
@@ -524,7 +551,7 @@ export class SidePanel {
     if (plots) out.push(`<p class="side-note">${plots} empty ${plots === 1 ? 'plot' : 'plots'} marked out for settlers.</p>`);
     // Work.
     const wf = workforce(s);
-    const able = homes.reduce((a, b) => a + canWork(b), 0);
+    const able = homes.reduce((a, b) => a + canWorkIn(s, b), 0);
     out.push('<h3>Work</h3>');
     out.push(`<dl class="sums"><div><dt>Jobs filled</dt><dd>${fmt(wf.filled)}<small> / ${fmt(wf.jobs)}</small></dd></div><div><dt>Can work</dt><dd>${fmt(able)}</dd></div><div><dt>Without work</dt><dd>${fmt(Math.max(0, able - wf.filled))}</dd></div></dl>`);
     if (wf.short.length) {

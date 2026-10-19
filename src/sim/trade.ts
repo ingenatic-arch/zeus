@@ -8,7 +8,7 @@
  * deep water; the ship sails only on it (and beyond the edge, out to the
  * horizon).
  *
- * The ship buys six goods (TRADE_GOODS) at steady prices. For each the
+ * The ship buys eight goods (TRADE_GOODS) at steady prices. For each the
  * player chooses whether to sell it and how much the city keeps in its
  * stores (`s.trade`). The post's dockers carry the surplus (what the city's
  * granaries or storehouses hold beyond what is kept) from the nearest store
@@ -31,7 +31,7 @@ import { Ground, mapIndex } from './build';
 import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { goTo, HANDLE, lastRoad, nearestBy, wayPoints } from './food';
-import { addComing, CHEESE, coming, FLEECE, held, MEAT, OIL, setHeld, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
+import { addComing, ARMOUR, CHEESE, coming, COPPER, FLEECE, held, MEAT, OIL, setHeld, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
 import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
 import { roomFor, roomOf } from './stores';
@@ -43,16 +43,18 @@ import { note } from './stockbook';
 import { income } from './treasury';
 import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk';
 
-/** The goods the ship buys, in the order the trade record keeps them. */
-export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE];
+/** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23). */
+export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR];
+/** How many trade goods there were before copper and armour (the requests, offers and rulers' gifts keep to these). */
+export const OLD_GOODS = 6;
 /** A good's place in the trade record (-1: the ship doesn't buy it). */
 export const tradeIndex = (w: Ware): number => TRADE_GOODS.indexOf(w);
-/** What the ship pays for a hundred measures of each (by trade good): fine goods most, wheat least. Steady this phase. */
-export const PRICES: readonly number[] = [20, 35, 35, 70, 55, 100];
+/** What the ship pays for a hundred measures of each (by trade good): fine goods most, wheat least; armour by the hundred sets. Steady. */
+export const PRICES: readonly number[] = [20, 35, 35, 70, 55, 100, 40, 1200];
 /** What she pays for so many measures of a trade good. */
 export const priceFor = (k: number, n: number): number => Math.round((n * PRICES[k]) / 100);
 /** What the city keeps of each to begin with: half a granary's or storehouse's room. */
-export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600];
+export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600, 400, 100];
 /** The panel's step for what is kept, and the most that can be kept. */
 export const KEEP_STEP = 200;
 export const KEEP_MAX = 20000;
@@ -62,7 +64,7 @@ export const storeKind = (w: Ware): BuildingKind => (w === WHEAT || w === MEAT |
 /** What the quay holds of each good. */
 export const QUAY_ROOM = 2400;
 /** What a docker's handcart takes of each trade good. */
-export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600];
+export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600, 600, 60];
 /** Most dockers out at once; ticks between one setting off and the next; the smallest load worth a trip. */
 export const MAX_DOCKERS = 4;
 /** Two more hands, only for fetching gifts and sendings when the others are all out. */

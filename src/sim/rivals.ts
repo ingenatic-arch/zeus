@@ -84,7 +84,7 @@ const LOST = { amount: -25, fade: 3 * TICKS_PER_YEAR };
 const WON = { amount: -10, fade: 2 * TICKS_PER_YEAR };
 const PEACE = { amount: -10, fade: 2 * TICKS_PER_YEAR };
 /** A defeat leaves the loser's stores this far below normal at least (a share), by trade good: food and fleece, then oil and wine. */
-export const DEFEAT_SHARE: readonly number[] = [0.6, 0.6, 0.6, 0.3, 0.6, 0.3];
+export const DEFEAT_SHARE: readonly number[] = [0.6, 0.6, 0.6, 0.3, 0.6, 0.3, 0, 0.3];
 /** Armies march a little slower than a caravan. */
 const ARMY_SLOWER = 1.2;
 /** Each side's army stands this far short of the meeting place, on its own side (table units). */

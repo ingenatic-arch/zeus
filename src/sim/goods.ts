@@ -21,7 +21,7 @@ import { STALL_COST } from './build';
 import { COTTAGE, FINE, findBuilding, TOWNHOUSE } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { FIRST_VENDOR, nearestBy, porterTake, PORTER_RETRY, stallPorterOut, stallRoom, VENDOR_RANGE, VENDOR_REST, VENDOR_WALK, wayPoints } from './food';
-import { FLEECE, gi, held, OIL, setHeld, WINE, type Ware } from './foods';
+import { ARMOUR, FLEECE, gi, held, OIL, setHeld, WINE, type Ware } from './foods';
 import { serviceDue, serviceScore } from './folk';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { Building, Service, SimState, Walker } from './state';
@@ -31,9 +31,9 @@ import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
 
 /** Each good by name, in order (from olives). */
-export const GOOD_NAMES = ['olives', 'oil', 'fleece', 'grapes', 'wine'] as const;
+export const GOOD_NAMES = ['olives', 'oil', 'fleece', 'grapes', 'wine', 'copper', 'armour'] as const;
 /** What each ware is counted in, one and many (foods and the picked crops in measures). */
-export const UNITS: Partial<Record<Ware, readonly [string, string]>> = { [OIL]: ['jar', 'jars'], [FLEECE]: ['bale', 'bales'], [WINE]: ['amphora', 'amphorae'] };
+export const UNITS: Partial<Record<Ware, readonly [string, string]>> = { [OIL]: ['jar', 'jars'], [FLEECE]: ['bale', 'bales'], [WINE]: ['amphora', 'amphorae'], [ARMOUR]: ['set', 'sets'] };
 /** "a jar", "12 jars", "1 measure", "300 measures". */
 export const unitOf = (w: Ware, n: number): string => (UNITS[w] ?? ['measure', 'measures'])[n === 1 ? 0 : 1];
 

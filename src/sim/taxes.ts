@@ -22,7 +22,7 @@ import { districtAt, DISTRICTS } from '../map/districts';
 import { around, centreOf, livedIn, recountPopulation, VILLA } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { leavingGroups, moodOf, moveOut } from './folk';
-import { canWork, rateOf } from './labour';
+import { canWorkIn, rateOf } from './labour';
 import { moveRounds, sendOut, type ServiceSpec } from './rounds';
 import { sendLeavers } from './settlers';
 import type { Building, SimState, Walker } from './state';
@@ -186,7 +186,7 @@ export function stepHarsh(s: SimState, map: CoastMap): void {
   for (const b of s.buildings) {
     const f = b.family;
     if (!f || !livedIn(b) || b.taxedAt === 0 || s.tick - b.taxedAt >= 2 * TICKS_PER_MONTH) continue;
-    const mood = moodOf(s, b, ctx, canWork(b)).level;
+    const mood = moodOf(s, b, ctx, canWorkIn(s, b)).level;
     const roll = mix(f.seed, month) % HARSH_DIE;
     if (roll >= HARSH_GO[mood] + HARSH_SEND[mood]) continue;
     if (roll < HARSH_GO[mood]) {

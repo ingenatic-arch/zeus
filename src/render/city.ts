@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import type { SimState } from '../sim/state';
 import { Animals } from './animals';
+import { ArmyView } from './army';
 import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
@@ -28,6 +29,8 @@ export class CityView {
   readonly works: Works;
   readonly bridges: Bridges;
   readonly animals: Animals;
+  /** The soldiers and their companies' banners (slice 23). */
+  readonly army: ArmyView;
   /** The merchant ship, when she is in sight. */
   readonly ship = new ShipView();
   /** The sea routes' ships, by city, made as each route opens. */
@@ -54,8 +57,10 @@ export class CityView {
     this.works = new Works(map);
     this.bridges = new Bridges(map);
     this.animals = new Animals(map, this.folk);
+    this.army = new ArmyView(map, this.folk);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.folk.group, this.ship.group);
+    this.army.ground = this.walkers.ground;
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -68,6 +73,7 @@ export class CityView {
     this.walkers.hidden = bands.length ? new Set(s.walkers.filter((w) => sheltering(bands, w)).map((w) => w.id)) : NO_ONE;
     this.walkers.update(s, alpha, time);
     this.animals.update(s, alpha, time);
+    this.army.update(s, alpha, time);
     this.folk.end();
     this.ship.update(s, alpha, time);
     for (const g of s.world.gifts) {

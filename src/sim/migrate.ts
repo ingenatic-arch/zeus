@@ -96,8 +96,9 @@ import { SIM_STATE_VERSION, type SimState, type WorldCity } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
-import { freshTrade, TRADE_GOODS } from './trade';
-import { freshWorld, moodLevel, moodOf, usualTrail } from './world';
+import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, TRADE_GOODS } from './trade';
+import { armsOf, freshWorld, marketPrice, moodLevel, moodOf, normalStock, usualTrail } from './world';
+import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { nextFestival } from './festivals';
 import type { CityId } from '../map/greece';
@@ -140,6 +141,7 @@ export function migrate(st: unknown): number {
   if (st.version === 18) from18(st);
   if (st.version === 19) from19(st);
   if (st.version === 20) from20(st);
+  if (st.version === 21) from21(st);
   return from;
 }
 
@@ -306,7 +308,8 @@ function from16(st: Record<string, unknown>): void {
       c.yours = TRADE_GOODS.map(() => 0);
       c.crop = TRADE_GOODS.map(() => 0);
       // (The arrow's trail at the price unrounded, as it will be from the first day, so every arrow starts steady.)
-      c.trail = c.ruler && price.length === TRADE_GOODS.length ? TRADE_GOODS.map((_, k) => usualTrail(k, make[k] ?? 0, need[k] ?? 0)) : price.slice();
+      // (Its goods then were the first six trade goods: from21 adds copper and armour.)
+      c.trail = c.ruler && price.length === OLD_GOODS ? price.map((_, k) => usualTrail(k, make[k] ?? 0, need[k] ?? 0)) : price.slice();
       c.dealt = TRADE_GOODS.map(() => new Array<number>(12).fill(0));
       c.outlook = 2;
     }
@@ -374,4 +377,65 @@ function from20(st: Record<string, unknown>): void {
     }
   }
   st.version = 21;
+}
+
+/** Pad a list of numbers to `n` with `fill` (a list already that long is left as it is). */
+function pad<T>(xs: unknown, n: number, fill: (k: number) => T): void {
+  if (!Array.isArray(xs)) return;
+  for (let k = xs.length; k < n; k++) xs.push(fill(k));
+}
+
+function from21(st: Record<string, unknown>): void {
+  // Copper and armour (slice 23): every building's goods one copper and one armour longer, and every trade
+  // record two trade goods longer. Each city of Greece makes and uses them by its character (armsOf), at its
+  // usual price for them, with nothing pushing it; nothing was traded. No barracks, so no army.
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  }
+  if (Array.isArray(st.undo)) for (const e of st.undo as Array<Record<string, unknown>>) if (isObj(e) && Array.isArray(e.removedGoods)) for (const g of e.removedGoods) pad(g, GOOD_COUNT, zero);
+  const g = TRADE_GOODS.length;
+  if (isObj(st.trade)) {
+    const t = st.trade;
+    pad(t.sell, g, () => false);
+    pad(t.keep, g, (k) => DEFAULT_KEEP[k]);
+    pad(t.lost, g, zero);
+    if (isObj(t.ship)) {
+      pad(t.ship.hold, g, zero);
+      pad(t.ship.lastBought, g, zero);
+    }
+  }
+  const w = st.world;
+  if (isObj(w)) {
+    if (Array.isArray(w.cities)) {
+      for (const c of w.cities as Array<Record<string, unknown>>) {
+        if (!isObj(c) || !Array.isArray(c.make) || !Array.isArray(c.need) || !Array.isArray(c.price)) continue;
+        const arms = armsOf(c.id as CityId);
+        pad(c.make, g, (k) => (k === OLD_GOODS ? arms[0] : arms[2]));
+        pad(c.need, g, (k) => (k === OLD_GOODS ? arms[1] : arms[3]));
+        for (const k of ['yours', 'crop', 'strife', 'feast']) pad(c[k], g, zero);
+        const make = c.make as number[];
+        const need = c.need as number[];
+        const usual = (k: number): number => (c.ruler ? marketPrice(k, make[k], need[k]) : PRICES[k]);
+        pad(c.stock, g, (k) => Math.round(normalStock(c as unknown as WorldCity, k)));
+        pad(c.price, g, usual);
+        pad(c.trail, g, (k) => (c.ruler ? usualTrail(k, make[k], need[k]) : usual(k)));
+        pad(c.history, g, (k) => new Array<number>(12).fill(usual(k)));
+        pad(c.dealt, g, () => new Array<number>(12).fill(0));
+      }
+    }
+    if (Array.isArray(w.routes)) {
+      for (const r of w.routes as Array<Record<string, unknown>>) {
+        if (!isObj(r)) continue;
+        for (const k of ['sold', 'bought', 'upto', 'hold', 'unloaded', 'lastSold', 'lastBought']) pad(r[k], g, zero);
+        pad(r.sell, g, () => false);
+        pad(r.buy, g, () => false);
+      }
+    }
+  }
+  if (!isObj(st.army)) st.army = freshArmy();
+  st.version = 22;
 }

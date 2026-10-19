@@ -1,0 +1,78 @@
+/**
+ * The side panel's Army tab (slice 23): the city's whole strength, then each
+ * barracks with its companies (kind, men, wounded, where, what it is doing,
+ * pay), and the barracks' own buttons: raise a company of hoplites or of
+ * archers, and for each company select it (to march its banner), bring it
+ * back to barracks, or dismiss it. Only reads the state; its buttons carry
+ * data-act for the side panel to send.
+ */
+import type { CoastMap } from '../map/bake';
+import { districtAt, districtTitle } from '../map/districts';
+import { canSpare, companiesAt, companyName, COMPANY_SIZE, doingWords, kindWord, menOf, PER_BARRACKS, servingHomes, strength } from '../sim/army';
+import { centreOf, jobsAt } from '../sim/buildings';
+import { ARMOUR, held } from '../sim/foods';
+import type { Company, SimState } from '../sim/state';
+import { SOLDIER_PAY } from '../sim/treasury';
+
+const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
+const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
+const lower = (t: string): string => (t ? `${t[0].toLowerCase()}${t.slice(1)}` : t);
+
+/** Where a company is, in words: "at its barracks", or the district its banner stands in. */
+export function whereWords(map: CoastMap, c: Company): string {
+  if (c.order === 'drill') return 'at its barracks';
+  return lower(districtTitle(districtAt(map, c.x, c.z)));
+}
+
+/** The Army tab's HTML. `focus`: a barracks picked out (clicked in the city); `selected`: the company whose banner is in hand. */
+export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: number): string {
+  const out: string[] = [];
+  const barracks = s.buildings.filter((b) => b.kind === 'barracks');
+  const st = strength(s);
+  if (st.companies === 0 && barracks.length === 0) {
+    out.push('<div class="bigline"><span class="big">0</span><span>soldiers</span></div>');
+    out.push(
+      `<p class="side-note">The city has no army yet. Build a barracks (B ×4) beside a road, then raise companies there: hoplites from the fine houses and villas, archers from the townhouses and better. Hoplites each need a set of armour: a copper mine on the green-streaked rock in the hills (B B) and an armoury (B ×3) make it, or Corinth and Athens sell it.</p>`,
+    );
+    return out.join('');
+  }
+  out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
+  out.push(`<dl class="sums"><div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div><div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div><div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`);
+  if (st.companies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there. Esc lets go. Orders work while paused.</p>');
+  const serving = servingHomes(s);
+  const homes = s.buildings.filter((b) => b.kind === 'home');
+  const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length };
+  const armour = s.buildings.reduce((a, b) => a + (b.kind === 'storehouse' ? held(b, ARMOUR) : 0), 0);
+  barracks.forEach((b, i) => {
+    const cs = companiesAt(s, b);
+    const [cx, cz] = centreOf(b);
+    const title = barracks.length === 1 ? 'The barracks' : `The ${['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][i] ?? `${i + 1}th`} barracks`;
+    out.push(`<section class="barracks${b.id === focus ? ' focus' : ''}" data-barracks="${b.id}">`);
+    out.push(`<h3><button class="link" data-act="go" data-x="${cx}" data-z="${cz}">${esc(title)}</button> <small>${esc(lower(districtTitle(districtAt(map, cx, cz))))} · ${b.workers} of ${jobsAt(b)} staff</small></h3>`);
+    if (b.workers === 0) out.push('<p class="side-note warn">It has no staff yet: nobody takes the men in until it has workers.</p>');
+    if (cs.length === 0) out.push('<p class="side-note">No companies yet.</p>');
+    out.push('<ul class="companies">');
+    for (const c of cs) {
+      const men = menOf(s, c).length;
+      const sel = c.id === selected;
+      out.push(
+        `<li class="company${sel ? ' on' : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"><b>${esc(cap(companyName(c)))} of ${kindWord(c.kind)}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
+          `<p>${esc(cap(doingWords(s, c)))} · ${esc(whereWords(map, c))} · 0 wounded · ${fmt(men * SOLDIER_PAY)} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
+          (c.why ? `<p class="why">${esc(c.why)}</p>` : '') +
+          `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="The men walk home to their old work; their armour goes back to the stores">Dismiss</button></div></li>`,
+      );
+    }
+    out.push('</ul>');
+    if (cs.length < PER_BARRACKS) {
+      out.push(
+        `<div class="raise"><button data-act="raise" data-id="${b.id}" data-kind="hoplite" title="Sixteen men from the fine houses and villas, one a home, each with a set of armour from the stores">Raise a company of hoplites</button><button data-act="raise" data-id="${b.id}" data-kind="archer" title="Sixteen men from the townhouses and better, one a home; they need no armour">Raise a company of archers</button></div>`,
+      );
+      out.push(
+        `<p class="side-note">Room for ${PER_BARRACKS - cs.length} more. Homes that could send a man now: ${spare.hoplite} for hoplites, ${spare.archer} for archers · ${fmt(armour)} ${armour === 1 ? 'set' : 'sets'} of armour in the storehouses · ${SOLDIER_PAY} dr a man a month.</p>`,
+      );
+    } else out.push(`<p class="side-note">Full: a barracks holds ${PER_BARRACKS} companies. Build another for more.</p>`);
+    out.push('</section>');
+  });
+  return out.join('');
+}

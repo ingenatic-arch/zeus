@@ -15,8 +15,11 @@ import type { Building, SimState } from './state';
 /** The share of a household that can work. */
 export const WORK_SHARE = 0.5;
 
-/** How many of a home's people can work. */
-export const canWork = (b: Building): number => (livedIn(b) ? Math.floor(b.people * WORK_SHARE) : 0);
+/** How many of a home's people can work (`away`: men of it serving in the army, who have left their jobs). */
+export const canWork = (b: Building, away = 0): number => (livedIn(b) ? Math.max(0, Math.floor(b.people * WORK_SHARE) - away) : 0);
+
+/** How many of a home's people can work, its man serving in the army (if any) left out. */
+export const canWorkIn = (s: SimState, b: Building): number => canWork(b, b.kind === 'home' && s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') ? 1 : 0);
 
 export { jobsAt };
 
@@ -43,11 +46,15 @@ export function shareWork(s: SimState, map: CoastMap): void {
   const places: Building[] = [];
   const homes: Array<{ b: Building; roads: number[]; free: number }> = [];
   const before = s.buildings.map((b) => b.workers);
+  // (The homes with a man in the army: he has left his job.)
+  const away = new Set<number>();
+  for (const x of s.army.soldiers) if (x.home > 0 && x.state !== 'leaving') away.add(x.home);
   for (const b of s.buildings) {
     b.workers = 0;
     b.unpaid = 0;
+    const free = canWork(b, away.has(b.id) ? 1 : 0);
     if (jobsAt(b) > 0) places.push(b);
-    else if (canWork(b) > 0) homes.push({ b, roads: roadsBeside(s, size, b), free: canWork(b) });
+    else if (free > 0) homes.push({ b, roads: roadsBeside(s, size, b), free });
   }
   if (places.length > 0 && homes.length > 0) fill(s, size, places, homes);
   // A workplace that works at a new rate may look different (the farm's field).
@@ -96,7 +103,7 @@ export function workforce(s: SimState): { jobs: number; filled: number; able: nu
       jobs += j;
       filled += b.workers;
       if (b.workers < j) short.push(b);
-    } else able += canWork(b);
+    } else able += canWorkIn(s, b);
   }
   return { jobs, filled, able, short };
 }

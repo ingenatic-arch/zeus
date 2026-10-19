@@ -46,6 +46,9 @@ const PLURAL: Record<BuildingKind, string> = {
   rubble: 'heaps of rubble',
   trading: 'trading posts',
   yard: 'caravan yards',
+  mine: 'copper mines',
+  armoury: 'armouries',
+  barracks: 'barracks',
 };
 
 const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;

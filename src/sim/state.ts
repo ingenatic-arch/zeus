@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 21;
+export const SIM_STATE_VERSION = 22;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -30,9 +30,12 @@ export type BuildingKind =
   | 'architect'
   | 'rubble'
   | 'trading'
-  | 'yard';
+  | 'yard'
+  | 'mine'
+  | 'armoury'
+  | 'barracks';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -284,7 +287,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -429,6 +432,91 @@ export interface SimState {
   world: World;
   /** What the city made, used, sold, bought and lost of each ware, this month, last month and the last year (see stockbook.ts). */
   stocks: StockBook;
+  /** The city's companies of soldiers and their men (see army.ts). */
+  army: Army;
+}
+
+// ---------------------------------------------------------------------------
+// The army (see army.ts). Nothing here draws on any random numbers: a town
+// with no barracks has an empty army and plays exactly as it did before.
+
+/** What a company is: heavy infantry with spear and shield, or light, with a bow. */
+export type CompanyKind = 'hoplite' | 'archer';
+
+/**
+ * What a company is doing: drilling at its barracks, marching to its banner's
+ * tile, holding there (slice 24: fighting what comes within reach), or
+ * marching back to its barracks.
+ */
+export type CompanyOrder = 'drill' | 'march' | 'hold' | 'return';
+
+/** A company of up to 16 men under its banner. */
+export interface Company {
+  id: number;
+  /** Its number in the city (the 1st, the 2nd…): the lowest free when it was raised. */
+  n: number;
+  kind: CompanyKind;
+  /** The barracks it belongs to (a building id). */
+  barracks: number;
+  /** Its banner's emblem (see EMBLEMS in army.ts). */
+  emblem: number;
+  order: CompanyOrder;
+  /** Where its banner stands (world units: tile units), and which way the company faces (radians; 0 is +x). */
+  x: number;
+  z: number;
+  face: number;
+  /** Marching: the banner's way, as x, z pairs, how far along it is, and the tile it is going to (-1: none). */
+  path: number[];
+  along: number;
+  target: number;
+  /** How many men it wants (16). */
+  want: number;
+  /** The tick it was raised. */
+  raised: number;
+  /** Pay owed and not yet paid this month (drachmas; 0 paid). */
+  owed: number;
+  /** Why it can't fill, in words ('' while it is full or filling). */
+  why: string;
+}
+
+/** What a soldier is doing: walking in from his home, waiting at the barracks for armour, in the ranks, or walking home, dismissed. */
+export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving';
+
+/** A man serving in a company. */
+export interface Soldier {
+  id: number;
+  /** His company (its id; 0 once dismissed and walking home). */
+  company: number;
+  /** His place in the ranks (0 to 15). */
+  slot: number;
+  /** The home he comes from (a building id; 0 for a hireling, later). */
+  home: number;
+  /** His name, his father's (or the house's head's) name, and the house's. */
+  name: string;
+  father: string;
+  house: string;
+  state: SoldierState;
+  /** Where he stands (world units) and which way he faces (radians). */
+  x: number;
+  z: number;
+  face: number;
+  /** His own way while walking in or home, or to his place (x, z pairs), and which waypoint he is heading for. */
+  path: number[];
+  seg: number;
+  /** How far he has walked, for the renderer's stride. */
+  walked: number;
+  /** A hoplite: whether he has his set of armour. */
+  armed: boolean;
+  /** Health, 0 to 100 (slice 24: wounds). */
+  hp: number;
+}
+
+/** The city's companies and their men. */
+export interface Army {
+  companies: Company[];
+  soldiers: Soldier[];
+  /** The next company's and soldier's id. */
+  nextId: number;
 }
 
 // ---------------------------------------------------------------------------

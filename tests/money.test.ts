@@ -13,7 +13,7 @@ import { arrivalInterval, HARSH_SLOWER } from '../src/sim/settlers';
 import { replay, serialize, Sim } from '../src/sim/sim';
 import type { SimState } from '../src/sim/state';
 import { FAIR, HARSH, TAX_RATES, taxOf } from '../src/sim/taxes';
-import { SHIP_COMING, tradingPost } from '../src/sim/trade';
+import { OLD_GOODS, SHIP_COMING, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { demoSim, liveSim } from './prepared';
 
@@ -109,8 +109,10 @@ describe('#richtown', () => {
       expect(s.walkers.some((w) => w.kind === k), k).toBe(true);
     const post = tradingPost(s)!;
     expect(post).toBeTruthy();
-    expect(s.trade.sell.every((on) => on)).toBe(true);
-    expect([WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE].length).toBe(s.trade.sell.length);
+    // Every good of phase 3 ticked for sale; copper and armour (slice 23) kept for the town's own army.
+    expect(s.trade.sell.slice(0, OLD_GOODS).every((on) => on)).toBe(true);
+    expect([WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE].length).toBe(OLD_GOODS);
+    expect(s.trade.sell.slice(OLD_GOODS).some((on) => on)).toBe(false);
     expect(s.trade.ship.phase).toBe(SHIP_COMING);
     expect(s.taxRate).toBe(FAIR);
     expect(s.buildings.every((b) => b.owed === 0)).toBe(true);

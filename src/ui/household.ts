@@ -9,7 +9,8 @@ import { capacity, COTTAGE, FINE, findBuilding, HOME_NAMES, HUT, JOBS, levelName
 import { chatterOf } from '../sim/chatter';
 import { dateOfTick, formatYear, TICKS_PER_DAY } from '../sim/clock';
 import { ageOf, BRINGER, cityHas, cityOffers, citySells, COTTAGE_FOOD_MIN, kinship, lackWords, leavingGroups, missingSince, moodOf, NEED_WORDS, NEEDS, needsOf, newNeeds, RISE_MIN, SETTLE, untilOf, URGENT, WARN_AFTER, WARNING, warningsOf, type Mood } from '../sim/folk';
-import { canWork } from '../sim/labour';
+import { canWorkIn } from '../sim/labour';
+import { servesLine } from '../sim/armystatus';
 import { foodLine, hazardLines, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
 import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
@@ -188,7 +189,10 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
     if (left > 0) has.push(`${ICON[need]}<span><b>${TITLE[need]}</b>${table} · ${need === 'religion' || need === 'culture' ? 'last' : 'lasts'} ${days(left)} more</span>`);
     else lack.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${esc(whyLacks(s, map, b, need))}</span>`);
   }
-  const able = canWork(b);
+  const able = canWorkIn(s, b);
+  // Their man in the army (slice 23): a line of its own.
+  const serves = servesLine(s, b);
+  if (serves) has.push(`${ICON.work}<span><b>Serves</b> · ${esc(serves.replace(/ · he has left his work$/, ''))}; he has left his work</span>`);
   if (able > 0 && s.buildings.some((o) => JOBS[o.kind] > 0)) {
     if (b.workers > 0) has.push(`${ICON.work}<span><b>Work</b> for ${b.workers} of the ${able} who can work</span>`);
     if (b.workers < able) {
@@ -282,8 +286,8 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
   const since = ` · here since ${when(f.came)}`;
   const has = (k: Building['kind']): boolean => s.buildings.some((o) => o.kind === k);
-  const mood = moodOf(s, b, { agora: has('agora'), jobs: s.buildings.some((o) => JOBS[o.kind] > 0), shrine: has('shrine'), theatre: has('theatre') }, canWork(b));
-  const able = canWork(b);
+  const mood = moodOf(s, b, { agora: has('agora'), jobs: s.buildings.some((o) => JOBS[o.kind] > 0), shrine: has('shrine'), theatre: has('theatre') }, canWorkIn(s, b));
+  const able = canWorkIn(s, b);
   const talk = chatterOf(s, b, able > b.workers)
     .map((l) => `<blockquote>“${esc(l.text)}”<cite>${esc(l.who.name)}, ${ageOf(s, l.who)}</cite></blockquote>`)
     .join('');

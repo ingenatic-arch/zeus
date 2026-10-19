@@ -44,10 +44,13 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   rubble: 'Rubble',
   trading: 'The trading post',
   yard: 'The caravan yard',
+  mine: 'A copper mine',
+  armoury: 'An armoury',
+  barracks: 'A barracks',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;
@@ -62,13 +65,16 @@ export const stallCount = (b: Building): number => {
 /** Jobs a building offers: its kind's, and an agora's stalls'. */
 export const jobsAt = (b: Building): number => JOBS[b.kind] + (b.stalls ? stallCount(b) * STALL_JOBS : 0);
 
-/** Buildings drawn on a two-by-two footprint (the rest take three by three; rubble takes what stood there). */
+/** Buildings drawn on a two-by-two footprint (the rest take three by three, the barracks four by four; rubble takes what stood there). */
 export const isSmall = (kind: BuildingKind): boolean =>
-  kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice' || kind === 'watchpost' || kind === 'architect';
+  kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice' || kind === 'watchpost' || kind === 'architect' || kind === 'mine';
+
+/** Buildings drawn on a four-by-four footprint: the barracks. */
+export const isLarge = (kind: BuildingKind): boolean => kind === 'barracks';
 
 /** The side of a kind of building's square footprint, in tiles (for rubble, see footSide). */
 export function sideOf(kind: BuildingKind): number {
-  return isSmall(kind) ? 2 : 3;
+  return isSmall(kind) ? 2 : isLarge(kind) ? 4 : 3;
 }
 
 /** The side of this building's footprint: its kind's, or for rubble, that of what stood there. */

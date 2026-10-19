@@ -283,6 +283,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .btn.tool.overlay.religion.on { background: #7a5cb8; border-color: #5c4392; }
 .btn.tool.overlay.culture.on { background: #c4506c; border-color: #9a3a52; }
 .btn.tool .fill-tax { fill: #4f9f88; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.btn.tool .stroke-copper { fill: none; stroke: #3f9a7c; stroke-width: 2.2; stroke-linecap: round; }
+.btn.tool.on .stroke-copper { stroke: #c4efe2; }
 .btn.tool.on .fill-tax { fill: #c4efe2; stroke: #fff6e4; }
 .btn.tool.overlay.tax.on { background: #2f7f6a; border-color: #23604f; }
 .btn.tool.overlay.tax.on .fill-gold { fill: #ffe9b8; stroke: #fff6e4; }
@@ -855,7 +857,7 @@ body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, 
 .side-map { flex: none; display: grid; place-items: center; padding: 0 0 6px; }
 .minimap { width: 228px; height: 228px; border-radius: 50%; filter: drop-shadow(0 3px 4px rgba(60, 40, 20, 0.35)); }
 .minimap canvas { display: block; border-radius: 50%; cursor: crosshair; touch-action: none; }
-.side-tabs { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 12px 0 18px; border-bottom: 1.5px solid var(--edge); }
+.side-tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 4px 12px 0 18px; border-bottom: 1.5px solid var(--edge); }
 .side-tab {
   appearance: none; font: inherit; font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px 4px;
@@ -1070,3 +1072,36 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .greece-news li.none { cursor: default; color: var(--ink-soft); font-style: italic; }
 /* What sending a city at war costs you with its enemy, said before you send (slice 21 review). */
 .greece-panel p.foe, .greece-panel .deal p.if.foe { color: #8e2a20; font-style: normal; }
+
+/* The army (slice 23): the army chip under the top bar, the banner-in-hand chip, the Army tab's barracks and companies. */
+.army-chip {
+  appearance: none; pointer-events: auto; cursor: pointer; font: inherit; font-size: 13.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: linear-gradient(180deg, #f7e6c2, #e8cf98); border: 1.5px solid #9a6a2c; border-radius: 999px;
+  padding: 3px 12px 3px 8px; box-shadow: 0 2px 0 rgba(90, 60, 20, 0.25), 0 4px 12px rgba(90, 60, 20, 0.15);
+}
+.army-chip[hidden] { display: none; }
+.army-chip:hover { filter: brightness(1.05); }
+.army-chip svg { width: 17px; height: 17px; }
+.orders-chip { border-color: #c8963e; background: rgba(255, 244, 214, 0.97); box-shadow: 0 0 0 2px rgba(255, 217, 104, 0.55), 0 4px 14px rgba(60, 40, 20, 0.15); }
+.side-body section.barracks { margin-top: 8px; padding: 0 0 6px; }
+.side-body section.barracks.focus { background: rgba(255, 236, 190, 0.5); border-radius: 10px; padding: 0 6px 8px; margin-left: -6px; margin-right: -6px; }
+.side-body h3 button.link { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-variant: small-caps; color: var(--ink); text-decoration: underline dotted rgba(122, 92, 60, 0.6); text-underline-offset: 3px; }
+.side-body .companies { list-style: none; margin: 4px 0 0; padding: 0; }
+.side-body .company { margin: 6px 0; padding: 5px 8px 6px; border: 1.5px solid rgba(184, 138, 80, 0.5); border-radius: 10px; background: rgba(255, 255, 255, 0.45); }
+.side-body .company.on { border-color: #c8963e; background: #fff4d6; box-shadow: 0 0 0 2px rgba(255, 217, 104, 0.6); }
+.side-body .company .pick { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; width: 100%; display: flex; justify-content: space-between; align-items: baseline; text-align: left; font-size: 13.5px; }
+.side-body .company .pick:hover b { color: var(--terracotta-deep); }
+.side-body .company .pick b { font-weight: normal; text-decoration: underline dotted rgba(122, 92, 60, 0.6); text-underline-offset: 3px; }
+.side-body .company .n { font-variant-numeric: lining-nums tabular-nums; }
+.side-body .company p { margin: 2px 0 0; font-size: 12px; color: var(--ink-soft); }
+.side-body .company p.why { color: #8a3a1c; }
+.side-body .company .warn, .side-note.warn { color: #8a3a1c; }
+.side-body .company .acts { display: flex; gap: 6px; margin-top: 4px; }
+.side-body .company .acts button, .side-body .raise button {
+  appearance: none; cursor: pointer; font-size: 12.5px; background: #fff8ea; border: 1.5px solid var(--edge); border-radius: 999px; padding: 1px 10px;
+}
+.side-body .company .acts button:hover, .side-body .raise button:hover { background: #fff2d6; }
+.side-body .raise { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.side-body .raise button { font-size: 13.5px; padding: 4px 10px; color: #fff6e4; background: var(--terracotta); border-color: var(--terracotta-deep); border-radius: 10px; box-shadow: 0 2px 0 rgba(120, 50, 20, 0.3); }
+.side-body .raise button:hover { background: #d36f45; }

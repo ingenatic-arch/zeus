@@ -46,6 +46,10 @@ import { SaveMenu } from './ui/saveMenu';
 import { SidePanel } from './ui/sidepanel';
 import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
+import { ArmyChip } from './ui/armychip';
+import { Orders } from './game/orders';
+import { companyName, companyOf, doingWords, kindWord, menOf, strength } from './sim/army';
+import { soldierStatus } from './sim/armystatus';
 import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
 import { GreeceButton } from './ui/greeceButton';
@@ -316,6 +320,13 @@ function start(preparedTown: string | null): void {
   const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool && !welcoming);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
+  /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
+  let armyPick: (sx: number, sy: number) => { company: number; soldier: number } = () => ({ company: 0, soldier: 0 });
+  const orders = new Orders(sim, placement, tip, (sx, sy) => armyPick(sx, sy).company, () => tools.tool !== null);
+  // Picking up a build tool lets go of a banner.
+  tools.onChange((t) => {
+    if (t) orders.select(0);
+  });
   const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
   tools.onChange((t) => bar.showTool(t));
   // Picking a tool puts the welcome card away.
@@ -336,6 +347,7 @@ function start(preparedTown: string | null): void {
   notices.className = 'notices';
   ui.appendChild(notices);
   const raidChip = new RaidChip(notices, (city) => toggleGreece(true, city as CityId, 'ruler'));
+  const armyChip = new ArmyChip(notices, () => side.showTab('army'));
   const panel = new HouseholdPanel(ui, () => panel.show(0));
   // The trading post's panel shares the household panel's place: one at a time.
   const tradePanel = new TradePanel(ui, (c) => {
@@ -401,6 +413,26 @@ function start(preparedTown: string | null): void {
   followChip.className = 'follow-chip';
   followChip.hidden = true;
   notices.appendChild(followChip);
+  // A banner in hand: what it is and what to do (slice 23).
+  const ordersChip = document.createElement('div');
+  ordersChip.className = 'follow-chip orders-chip';
+  ordersChip.hidden = true;
+  notices.appendChild(ordersChip);
+  /** Take a company's banner in hand (0: let go), putting down any tool. */
+  const takeBanner = (id: number): void => {
+    if (id && tools.tool) tools.select(null);
+    orders.select(id);
+  };
+  orders.onChange((id) => {
+    ordersChip.hidden = !id;
+    ordersChip.textContent = orders.hint();
+  });
+  orders.onAct = (c) => {
+    if (!c) return sound.play('refuse');
+    sound.play('build');
+    if (c.type !== 'undo') startAutosaving();
+    linesAt = -Infinity;
+  };
   let welcomeCard: Welcome | null = null;
   // Saving: by hand (the scroll button, Ctrl+S), and by itself every three
   // months and when the page is left, once the player has built something
@@ -550,6 +582,16 @@ function start(preparedTown: string | null): void {
       tradePanel.toggle(false);
       panel.show(id);
     },
+    army: (c) => orders.send(c),
+    selectCompany: (id) => {
+      const c = companyOf(sim.state, id);
+      if (!c || id === orders.selected) return takeBanner(0);
+      takeBanner(id);
+      stopFollow();
+      const v = rig.view;
+      rig.flyTo({ ...v, x: c.x, z: c.z, dist: Math.min(v.dist, 34) });
+    },
+    selected: () => orders.selected,
     toggled: (open) => {
       sideBtn.classList.toggle('on', open);
       sideBtn.setAttribute('aria-pressed', String(open));
@@ -598,11 +640,48 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from >= 14 && loaded.from <= 20) {
       changed += ' · Greece goes on by itself now: its rulers quarrel, feud and go to war with each other, and keep their festivals. The map of Greece (Tab) has the news.';
     }
+    // …and one saved before the army (slice 22 or older): the city can arm itself.
+    if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
   const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders' };
 
+  // The banner or the soldier under a screen point: a banner's cloth within a finger's breadth, a man within a few pixels.
+  armyPick = (sx, sy) => {
+    const r = canvas.getBoundingClientRect();
+    const v = new THREE.Vector3();
+    const dist2 = (p: THREE.Vector3, lift: number): number => {
+      v.copy(p).setY(p.y + lift).project(camera);
+      if (v.z > 1) return Infinity;
+      const dx = r.left + (v.x * 0.5 + 0.5) * r.width - sx;
+      const dy = r.top + (-v.y * 0.5 + 0.5) * r.height - sy;
+      return dx * dx + dy * dy;
+    };
+    let company = 0;
+    let bd = 24 * 24;
+    for (const [id, pos] of city.army.bannerAt) {
+      const d = dist2(pos, 0);
+      if (d < bd) {
+        bd = d;
+        company = id;
+      }
+    }
+    if (company) return { company, soldier: 0 };
+    let soldier = 0;
+    bd = 14 * 14;
+    for (const [id, pos] of city.army.soldierAt) {
+      const d = dist2(pos, 0.22);
+      if (d < bd) {
+        bd = d;
+        soldier = id;
+      }
+    }
+    if (!soldier) return { company: 0, soldier: 0 };
+    return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier };
+  };
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
     const r = canvas.getBoundingClientRect();
@@ -683,6 +762,20 @@ function start(preparedTown: string | null): void {
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
+    // A soldier, or a company's banner.
+    const pickedArmy = armyPick(sx, sy);
+    if (pickedArmy.soldier) {
+      const x = sim.state.army.soldiers.find((o) => o.id === pickedArmy.soldier);
+      if (x) {
+        const st = soldierStatus(sim.state, x);
+        if (x.company) st.detail = `${st.detail}\nClick to take his company’s banner in hand`;
+        return showStatus(st, sx, sy);
+      }
+    }
+    if (pickedArmy.company) {
+      const co = companyOf(sim.state, pickedArmy.company);
+      if (co) return showStatus({ title: `The banner of ${companyName(co)} of ${kindWord(co.kind)} · ${menOf(sim.state, co).length} of ${co.want} men`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
+    }
     const c = walkerNear(sx, sy);
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
     const ws = w ? walkerStatus(sim.state, w) : null;
@@ -765,16 +858,17 @@ function start(preparedTown: string | null): void {
   const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector' };
   const pointerTools: PointerTools = {
     get active() {
-      return tools.tool !== null && !greeceOpen();
+      return (tools.tool !== null || orders.selected !== 0) && !greeceOpen();
     },
     pointer(w, sx, sy) {
       if (greeceOpen()) return greece?.hover(sx, sy);
       lastPointer = { world: w, sx, sy };
       if (tools.tool) tools.pointer(w, sx, sy);
+      else if (orders.selected) orders.pointer(w, sx, sy);
       else hover(w, sx, sy);
     },
-    down: () => tools.down(),
-    up: () => tools.up(),
+    down: () => (tools.tool ? tools.down() : orders.down()),
+    up: () => (tools.tool ? tools.up() : orders.up()),
     cancel: () => {
       // Esc puts away the welcome card, the saves card and the controls card first.
       if (welcomeCard?.open) welcomeCard.dismiss();
@@ -787,6 +881,7 @@ function start(preparedTown: string | null): void {
         if (greece.shown) greece.show(null);
         else toggleGreece(false);
       } else if (tools.tool) tools.cancel();
+      else if (orders.selected) takeBanner(0);
       else if (follow) stopFollow();
       else if (tradePanel.open) tradePanel.toggle(false);
       else if (panel.open) panel.show(0);
@@ -794,6 +889,13 @@ function start(preparedTown: string | null): void {
     },
     click(w, sx, sy) {
       if (greeceOpen()) return greece?.click(sx, sy);
+      // A banner or a soldier: take his company's banner in hand.
+      const army = armyPick(sx, sy);
+      if (army.company) {
+        stopFollow();
+        takeBanner(army.company);
+        return;
+      }
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
       const c = walkerNear(sx, sy);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
@@ -806,6 +908,11 @@ function start(preparedTown: string | null): void {
       if (b?.kind === 'home' && b.people > 0) {
         tradePanel.toggle(false);
         panel.show(b.id);
+        return hover(w, sx, sy);
+      }
+      // A barracks: the Army tab, its companies and its buttons.
+      if (b?.kind === 'barracks') {
+        side.showBarracks(b.id);
         return hover(w, sx, sy);
       }
       // The trading post: its panel (what to sell, how much to keep, when the ship comes).
@@ -880,6 +987,8 @@ function start(preparedTown: string | null): void {
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
+      // B again: the fountain, then the copper mine, the armoury and the barracks.
+      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks'], tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -1548,6 +1657,8 @@ function start(preparedTown: string | null): void {
       traderChip = s.world.routes.length ? (tradersNews(s, tyre)[0] ?? null) : tyre ? { ...tyre, who: 'tyre', kind: 'sea' } : null;
       topbar.showShip(traderChip);
       raidChip.show(raidChipNow(s));
+      const army = strength(s);
+      armyChip.show(army.men, army.companies, s.army.companies.filter((c) => c.order !== 'drill').length);
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;
@@ -1596,6 +1707,7 @@ function start(preparedTown: string | null): void {
     }
     world.setSeason(sim.date.month / 12 + (sim.date.day - 1) / (12 * 30));
     world.update(time, rig, s.wind.angle, s.wind.strength);
+    city.army.selected = orders.selected;
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     updateFollow();
     overlay.update(s, time);
@@ -1624,6 +1736,8 @@ function start(preparedTown: string | null): void {
     }
     placement.update(time);
     tools.frame();
+    orders.frame();
+    if (!ordersChip.hidden) ordersChip.textContent = orders.hint();
     topbar.showDate(sim.date);
     topbar.showCity(s.population, s.money, time);
     const why = undoRefusal(s);

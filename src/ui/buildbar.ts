@@ -25,6 +25,9 @@ import {
   YARD_COST,
   VINEYARD_COST,
   WINERY_COST,
+  MINE_COST,
+  ARMOURY_COST,
+  BARRACKS_COST,
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
@@ -127,6 +130,12 @@ const ICONS: Record<ButtonName, string> = {
   // An architect's office: a porch on columns, a set square leaning by it.
   architect:
     '<svg viewBox="0 0 24 24"><path d="M2.6 9 11 4l8.4 5z" class="fill-soft"/><path d="M4.6 10.4v8.6M8.2 10.4v8.6M11.8 10.4v8.6M15.4 10.4v8.6" class="stroke-ink"/><path d="M2.8 19.2h16.4v2H2.8z" class="fill-soft"/><path d="M15.6 21.6 21.4 9.4l1.4.6-4.4 11.6z" class="fill-bless"/><path d="M17.4 18.6h3.4" class="stroke-ink"/></svg>',
+  // A pick over a lump of rock streaked with green copper.
+  mine: '<svg viewBox="0 0 24 24"><path d="M3 20.6c.4-3.6 2.6-6.4 6-7.4 2.6-.8 5.2.2 7 1.8 2 1.8 3.4 3.6 4 5.6z" class="fill-soft"/><path d="M7.4 17.4l2.6-1.6M11.6 18.4l3-2.4M15.6 19l1.6-1.4" class="stroke-copper"/><path d="M6.6 3.4c3.4-.8 7.4.4 10 2.8" class="stroke-ink"/><path d="M12 4.6 8.6 13.4" class="stroke-ink"/></svg>',
+  // A crested bronze helmet.
+  armoury: '<svg viewBox="0 0 24 24"><path d="M5.4 19.6V12c0-4 3-7 6.6-7s6.6 3 6.6 7v7.6h-3.4v-4.4h-1.8v-3.4h-2.8v3.4H8.8v4.4z" class="fill-gold"/><path d="M6.4 6.6C7.6 3.6 10 2.4 12 2.4s4.4 1.2 5.6 4.2" class="stroke-meat"/><path d="M12 2.4v3" class="stroke-ink"/></svg>',
+  // A round shield in the city's colour, a spear upright behind it.
+  barracks: '<svg viewBox="0 0 24 24"><path d="M17.6 2v20" class="stroke-ink"/><path d="M17.6 1.4l1.4 3h-2.8z" class="fill-ink"/><circle cx="10.4" cy="13" r="7.6" class="fill-gold"/><circle cx="10.4" cy="13" r="5.8" class="fill-meat"/><circle cx="10.4" cy="13" r="1.8" class="fill-soft"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
@@ -268,6 +277,24 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${ARCHITECT_COST} dr`,
     hint: 'Click beside a road. Its inspector walks the streets nearby: the buildings beside her way are made sound before they wear out and fall in (big buildings wear fastest).',
   },
+  mine: {
+    name: 'Copper mine',
+    key: 'B B',
+    cost: `${MINE_COST} dr`,
+    hint: 'Click on the green-streaked rock in the hills, beside a road (the copper shows while this tool is in hand). Its miners dig copper ore; its carts take it to a storehouse.',
+  },
+  armoury: {
+    name: 'Armoury',
+    key: 'B ×3',
+    cost: `${ARMOURY_COST} dr`,
+    hint: 'Click beside a road. Carts bring it copper; its smiths hammer it into armour for the hoplites, and its carts take the armour to a storehouse.',
+  },
+  barracks: {
+    name: 'Barracks',
+    key: 'B ×4',
+    cost: `${BARRACKS_COST} dr`,
+    hint: 'Click beside a road, then click the barracks to raise a company: hoplites from fine houses and villas, archers from townhouses and better.',
+  },
   clear: {
     name: 'Clear land',
     key: 'X',
@@ -317,6 +344,7 @@ const SLOTS: Slot[] = [
   'theatre',
   '|',
   { id: 'offices', name: 'Offices: the tax office, the watch post and the architect’s office', key: 'Z', members: ['taxoffice', 'watchpost', 'architect'] },
+  { id: 'arms', name: 'Bronze and the army: the copper mine, the armoury and the barracks', key: 'B B', members: ['mine', 'armoury', 'barracks'] },
   '|',
   'clear',
   '|',

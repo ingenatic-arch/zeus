@@ -29,6 +29,11 @@ export interface Area {
   r: number;
 }
 
+/** A copper outcrop, and how people name where it is ("in the east hills"). */
+export interface Outcrop extends Area {
+  place: string;
+}
+
 export interface Grove extends Area {
   /** Direction of the planted rows, radians. */
   rows: number;
@@ -130,6 +135,17 @@ export const coast = {
     { x: 92, z: 66, r: 8 },
     { x: 70, z: 97, r: 2.2 },
   ] as Area[],
+
+  /**
+   * Copper in the rock (slice 23): outcrops on the rocky hills where a copper
+   * mine can go, richest at the centre. Read only by the mine's rules
+   * (tileCopper in build.ts), never by the bake, so the ground is as it was.
+   */
+  copper: [
+    { x: 12, z: 10, r: 5.5, place: 'in the crags above the spring' },
+    { x: 110, z: 10, r: 5.5, place: 'in the east hills' },
+    { x: 114, z: 96, r: 4.5, place: 'on the headland' },
+  ] as Outcrop[],
 
   /** Spots with a few tall cypresses. */
   cypressStands: [

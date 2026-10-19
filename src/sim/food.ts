@@ -20,7 +20,7 @@ import { findBuilding, HUT } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { DECLINE_AFTER, needsOf } from './folk';
 import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MEAT, nth, setFoodUntil, setHeld, type Food, type Ware } from './foods';
-import { BARN, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
+import { ARMOURY_COPPER, BARN, BARRACKS_RACK, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -42,7 +42,7 @@ export const CART_LOAD = 160;
  * or dairy's carts keep up with what it makes; then olives, oil, fleece,
  * grapes and wine).
  */
-export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200];
+export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16];
 /** Most carts a farm has on the road at once. */
 export const MAX_CARTS = 3;
 /** Ticks between carts setting off from the same farm. */
@@ -82,11 +82,14 @@ export const GOOD_STALL_ROOM = 800;
 export const GOOD_PORTER_TAKE = 400;
 /**
  * The same for every good's stall, by its place in `goods` (olives, oil,
- * fleece, grapes, wine; only oil, fleece and wine have stalls): the fleece
- * and wine stalls hold less, as homes use less of them.
+ * fleece, grapes, wine, copper, armour; only oil, fleece and wine have
+ * stalls): the fleece and wine stalls hold less, as homes use less of them.
+ * Armour's is the barracks' rack, which its porter fills from the stores,
+ * and copper's the armoury's heap, which its porter tops up from the stores
+ * when the mines' carts (or Greece's traders) left it there (army.ts).
  */
-export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600];
-export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300];
+export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600, ARMOURY_COPPER, BARRACKS_RACK];
+export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300, 100, 16];
 /** What a stall holds of its good, and what its porter brings at most. */
 export const stallRoom = (w: Ware): number => GOOD_STALL_ROOMS[w - FIRST_GOOD] ?? 0;
 export const porterTake = (w: Ware): number => GOOD_PORTER_TAKES[w - FIRST_GOOD] ?? 0;
@@ -251,8 +254,8 @@ export function wayPoints(size: number, here: [number, number], way: number[], t
  * grove or press) to the nearest building with room for it (foods to a
  * granary, olives to a press, oil to a storehouse), if it is time.
  */
-export function sendCart(s: SimState, size: number, f: Building, food: Ware): void {
-  const stock = held(f, food);
+export function sendCart(s: SimState, size: number, f: Building, food: Ware, most = Infinity): void {
+  const stock = Math.min(held(f, food), most);
   if (stock <= 0 || f.clock > 0 || errandsOut(s, f) >= MAX_CARTS) return;
   const roads = roadsBeside(s, size, f);
   const found = nearestBy(s, size, roads, (g) => roomFor(g, food) > 0);
@@ -268,7 +271,7 @@ export function sendCart(s: SimState, size: number, f: Building, food: Ware): vo
   w.load = load;
   w.food = food;
   w.since = s.tick;
-  setHeld(f, food, stock - load);
+  setHeld(f, food, held(f, food) - load);
   s.looks++;
   addComing(g, food, load);
   setPath(w, wayPoints(size, door(size, f, way[0]), way, g));

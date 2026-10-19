@@ -298,7 +298,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -368,7 +368,21 @@ export function stateProblem(st: unknown): string {
   if (!nums(st.taxGone)) return damaged('its record of households driven out by taxes is wrong');
   if (!worldOk(st.world)) return damaged('its map of Greece is wrong');
   if (!bookOk(st.stocks)) return damaged('its stock book is wrong');
+  if (!armyOk(st.army)) return damaged('its army is wrong');
   return '';
+}
+
+const COMPANY_NUMBERS = ['id', 'n', 'barracks', 'emblem', 'x', 'z', 'face', 'along', 'target', 'want', 'raised', 'owed'];
+const SOLDIER_NUMBERS = ['id', 'company', 'slot', 'home', 'x', 'z', 'face', 'seg', 'walked', 'hp'];
+
+/** The army: its companies (kind, order, banner, march) and their men (who they are, what they are doing, where). */
+function armyOk(a: unknown): boolean {
+  if (!isObj(a) || !fin(a.nextId) || !Array.isArray(a.companies) || !Array.isArray(a.soldiers)) return false;
+  const companyOk = (c: unknown): boolean =>
+    isObj(c) && COMPANY_NUMBERS.every((k) => fin(c[k])) && (c.kind === 'hoplite' || c.kind === 'archer') && ['drill', 'march', 'hold', 'return'].includes(c.order as string) && nums(c.path) && (c.path as number[]).length % 2 === 0 && typeof c.why === 'string';
+  const soldierOk = (x: unknown): boolean =>
+    isObj(x) && SOLDIER_NUMBERS.every((k) => fin(x[k])) && ['coming', 'arming', 'ready', 'leaving'].includes(x.state as string) && typeof x.name === 'string' && typeof x.father === 'string' && typeof x.house === 'string' && typeof x.armed === 'boolean' && nums(x.path) && (x.path as number[]).length % 2 === 0;
+  return a.companies.every(companyOk) && a.soldiers.every(soldierOk);
 }
 
 /** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */

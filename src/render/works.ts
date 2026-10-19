@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM, stallRoom } from '../sim/food';
-import { CHEESE, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WHEAT, WINE } from '../sim/foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WHEAT, WINE } from '../sim/foods';
+import { footSide } from '../sim/buildings';
+import { armourStand, armouryModel, barracksModel, mineModel, oreBasket } from './arms';
 import { berthOf, QUAY_ROOM, YARD_ROOM } from '../sim/trade';
 import { hasStall } from '../sim/goods';
 import { MAKERS, stageOf } from '../sim/production';
-import { GROVE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
+import { ARMOURY_COPPER, ARMOURY_STORE, GROVE_STORE, MINE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
@@ -582,6 +584,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
   pasture: [0.55, -1.4, 1.36, -0.74],
   vineyard: [0.68, -1.42, 1.38, -0.82],
   winery: [-1.47, -1.45, -0.25, 0.47],
+  armoury: [-1.47, -1.45, -0.3, 0.4],
 };
 /**
  * Kinds levelled to the highest ground under their main building (or, with
@@ -589,9 +592,9 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * hillsides, and their floors and yards stand on terraces whose foundations
  * run down the slope, so nothing is buried on the uphill side.
  */
-const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading']);
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury']);
 /** Kinds levelled half-way between the lowest and the highest ground under them: the caravan yard, whose walls run round the whole of it (part sunk into the slope uphill, on a low footing downhill). */
-const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard']);
+const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard', 'barracks', 'mine']);
 
 
 // ---------------------------------------------------------------------------
@@ -1305,8 +1308,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1347,6 +1350,13 @@ const STORE_AMPHORAE = 12;
 const STALL_AMPHORAE = 3;
 const VINEYARD_BASKETS = 6;
 const WINERY_BASKETS = 5;
+/** Baskets of copper ore at a mine, by an armoury's door and in a storehouse's yard; stands of armour in an armoury's yard, a storehouse's shed and under a barracks' colonnade (slice 23). */
+const MINE_BASKETS = 6;
+const ARMOURY_BASKETS = 4;
+const STORE_ORE = 6;
+const ARMOURY_STANDS = 8;
+const STORE_STANDS = 8;
+const RACK_STANDS = 16;
 /** What shows of each good waiting on the trading post's quay for the ship: sacks, hams, cheeses, jars, bales, amphorae. */
 const QUAY_SACKS = 12;
 const QUAY_HAMS = 6;
@@ -1393,6 +1403,8 @@ export class Works {
   private readonly amphorae: ChunkedInstances;
   private readonly grapes: ChunkedInstances;
   private readonly grapeBaskets: ChunkedInstances;
+  private readonly ore: ChunkedInstances;
+  private readonly armour: ChunkedInstances;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -1451,6 +1463,9 @@ export class Works {
       vat: treadingVat(),
       trading: tradingModel(),
       yard: caravanYardModel(),
+      mine: mineModel(),
+      armoury: armouryModel(),
+      barracks: barracksModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1470,12 +1485,16 @@ export class Works {
     this.amphorae = new ChunkedInstances('wine-amphorae', wineAmphoraModel(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
     this.grapes = new ChunkedInstances('grapes', vineGrapes(), mat, ALL, { castShadow: false, receiveShadow: true, colors: true });
     this.grapeBaskets = new ChunkedInstances('grape-baskets', grapeBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
-    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars, this.bales, this.amphorae, this.grapes, this.grapeBaskets];
+    // Baskets of copper ore and stands of armour (slice 23): few, one batch each.
+    this.ore = new ChunkedInstances('ore-baskets', oreBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
+    this.armour = new ChunkedInstances('armour-stands', armourStand(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars, this.bales, this.amphorae, this.grapes, this.grapeBaskets, this.ore, this.armour];
     for (const c of this.all) this.group.add(c.group);
   }
 
   private key(b: Building): number {
-    return this.wheat.key(b.x + 1.5, b.z + 1.5);
+    const h = footSide(b) / 2;
+    return this.wheat.key(b.x + h, b.z + h);
   }
 
   /** What a building looks like now: its facing and the state of its crop or stock. */
@@ -1515,7 +1534,10 @@ export class Works {
     if (b.kind === 'dairy') return `dairy:${face}:${shown(b.cheese, DAIRY_STORE, BENCH)}`;
     if (b.kind === 'grove') return `grove:${face}:${stageOf(b, MAKERS.grove!)}:${shown(held(b, OLIVES), GROVE_STORE, GROVE_BASKETS)}`;
     if (b.kind === 'press') return `press:${face}:${shown(held(b, OLIVES), PRESS_OLIVES, PRESS_BASKETS)}:${shown(held(b, OIL), PRESS_STORE, PRESS_JARS)}`;
-    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}:${shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES)}:${shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE)}`;
+    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}:${shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES)}:${shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE)}:${shown(held(b, COPPER), STOREHOUSE_COPPER, STORE_ORE)}:${shown(held(b, ARMOUR), STOREHOUSE_ARMOUR, STORE_STANDS)}`;
+    if (b.kind === 'mine') return `mine:${face}:${shown(held(b, COPPER), MINE_STORE, MINE_BASKETS)}`;
+    if (b.kind === 'armoury') return `armoury:${face}:${shown(held(b, COPPER), ARMOURY_COPPER, ARMOURY_BASKETS)}:${shown(held(b, ARMOUR), ARMOURY_STORE, ARMOURY_STANDS)}`;
+    if (b.kind === 'barracks') return `barracks:${face}:${Math.min(RACK_STANDS, held(b, ARMOUR))}`;
     if (b.kind === 'pasture') return `pasture:${face}:${shown(held(b, FLEECE), PASTURE_STORE, PASTURE_BALES)}`;
     if (b.kind === 'vineyard') return `vineyard:${face}:${stageOf(b, MAKERS.vineyard!)}:${shown(held(b, GRAPES), VINEYARD_STORE, VINEYARD_BASKETS)}`;
     if (b.kind === 'winery') return `winery:${face}:${shown(held(b, GRAPES), WINERY_GRAPES, WINERY_BASKETS)}:${shown(held(b, WINE), WINERY_STORE, WINERY_AMPHORAE)}`;
@@ -1582,6 +1604,8 @@ export class Works {
       this.flush(this.bales, this.balesBy);
       this.flush(this.amphorae, this.amphoraeBy);
       this.flush(this.grapeBaskets, this.grapeBasketsBy);
+      this.flush(this.ore, this.oreBy);
+      this.flush(this.armour, this.armourBy);
       this.flushColoured(this.fruit, this.fruitBy);
       this.flushColoured(this.grapes, this.grapesBy);
     }
@@ -1596,6 +1620,8 @@ export class Works {
   private balesBy = new Map<number, THREE.Matrix4[]>();
   private amphoraeBy = new Map<number, THREE.Matrix4[]>();
   private grapeBasketsBy = new Map<number, THREE.Matrix4[]>();
+  private oreBy = new Map<number, THREE.Matrix4[]>();
+  private armourBy = new Map<number, THREE.Matrix4[]>();
   /** Each grove tree's olives and each length of vine's grapes, and their colour, by chunk. */
   private fruitBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
   private grapesBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
@@ -1672,9 +1698,11 @@ export class Works {
     const frame = (b: Building): { x: number; y: number; z: number; yaw: number; k: number } => {
       let f = frames.get(b.id);
       if (f) return f;
-      const cx = b.x + 1.5;
-      const cz = b.z + 1.5;
+      const half = footSide(b) / 2;
+      const cx = b.x + half;
+      const cz = b.z + half;
       const yaw = this.yawOf(s, b);
+      const H = half - 0.05;
       let y: number;
       const foot = MAIN_FOOT[b.kind];
       const high = HIGH_FOOT.has(b.kind);
@@ -1682,12 +1710,13 @@ export class Works {
         // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
         y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
       } else if (MID_FOOT.has(b.kind)) {
-        y = (lowest(cx, cz, yaw, 0, 0, 1.45, 1.45) + lowest(cx, cz, yaw, 0, 0, 1.45, 1.45, true)) / 2;
+        y = (lowest(cx, cz, yaw, 0, 0, H, H) + lowest(cx, cz, yaw, 0, 0, H, H, true)) / 2;
       } else if (high) {
-        y = lowest(cx, cz, yaw, 0, 0, 1.45, 1.45, true);
+        y = lowest(cx, cz, yaw, 0, 0, H, H, true);
       } else {
         y = map.heightAt(cx, cz);
-        for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
+        const d = half - 0.5;
+        for (const [dx, dz] of [[-d, -d], [d, -d], [-d, d], [d, d]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
       }
       const t0 = this.rising.get(b.id);
       let k = 1;
@@ -2057,6 +2086,33 @@ export class Works {
       } else {
         part(b, m, WINE_STALL_X, WINE_STALL_Z - 0.2 + i * 0.2, i, [0.6, 0.6, 0.6], false, 0.29);
       }
+    });
+
+    // Baskets of copper ore (slice 23): before the mine's adit, by the armoury's door, in the storehouse's corner by the gate.
+    const mines = list.filter((b) => b.kind === 'mine');
+    const armouries = list.filter((b) => b.kind === 'armoury');
+    const barracks = list.filter((b) => b.kind === 'barracks');
+    const ore: Array<{ b: Building; i: number }> = [];
+    for (const b of mines) for (let i = 0; i < shown(held(b, COPPER), MINE_STORE, MINE_BASKETS); i++) ore.push({ b, i });
+    for (const b of armouries) for (let i = 0; i < shown(held(b, COPPER), ARMOURY_COPPER, ARMOURY_BASKETS); i++) ore.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, COPPER), STOREHOUSE_COPPER, STORE_ORE); i++) ore.push({ b, i });
+    this.collect(this.oreBy, key, ore.length, (n, m) => {
+      const { b, i } = ore[n];
+      if (b.kind === 'mine') part(b, m, 0.62 + (i % 2) * 0.17, 0.16 + Math.floor(i / 2) * 0.16, hash2(b.id, i, 2350), [1, 1, 1], true, 0.0);
+      else if (b.kind === 'armoury') part(b, m, -0.12 + (i % 2) * 0.17, -1.3 + Math.floor(i / 2) * 0.17, hash2(b.id, i, 2351), [1, 1, 1], true, 0.0);
+      else part(b, m, 0.56 + (i % 3) * 0.18, -1.2 + Math.floor(i / 3) * 0.19, hash2(b.id, i, 2352), [1.1, 1.1, 1.1], true, 0.0);
+    });
+
+    // Stands of armour: in rows in the armoury's yard, under the storehouse's shed, under the barracks' colonnade.
+    const stands: Array<{ b: Building; i: number }> = [];
+    for (const b of armouries) for (let i = 0; i < shown(held(b, ARMOUR), ARMOURY_STORE, ARMOURY_STANDS); i++) stands.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, ARMOUR), STOREHOUSE_ARMOUR, STORE_STANDS); i++) stands.push({ b, i });
+    for (const b of barracks) for (let i = 0; i < Math.min(RACK_STANDS, held(b, ARMOUR)); i++) stands.push({ b, i });
+    this.collect(this.armourBy, key, stands.length, (n, m) => {
+      const { b, i } = stands[n];
+      if (b.kind === 'armoury') part(b, m, 0.62 + Math.floor(i / 4) * 0.34, -1.15 + (i % 4) * 0.3, 0, [1, 1, 1], true, 0.0);
+      else if (b.kind === 'storehouse') part(b, m, -1.12, -1.28 + i * 0.22, 0, [1, 1, 1], false, 0.04);
+      else part(b, m, -1.8, -1.65 + i * 0.22, 0, [1, 1, 1], false, 0.06);
     });
   }
 }

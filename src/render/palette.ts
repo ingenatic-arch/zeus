@@ -266,6 +266,11 @@ export const PAL = {
   sailStripe: '#c0462e',
   eye: '#f4efe4',
   dockerTunic: '#3f7a74',
+  // Bronze and the barracks (slice 23): copper ore and its spoil, the helmets' crests.
+  ore: '#4f9a7e',
+  oreDark: '#3b6e5e',
+  spoil: '#8a8d7c',
+  crest: '#9c2a20',
   // Sky and light
   skyZenith: '#4f9fe0',
   skyReflect: '#a9d6ec',

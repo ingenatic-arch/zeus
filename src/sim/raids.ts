@@ -46,7 +46,7 @@ import { overland } from './roads';
 import { landTicks, routeWay, voyageTicks } from './routes';
 import type { Building, BuildingKind, Deal, Gift, Raid, SimState, Walker, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { cityHolds, TRADE_GOODS } from './trade';
+import { cityHolds, OLD_GOODS, TRADE_GOODS } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
@@ -157,7 +157,7 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
   const canGoods = !('why' in giftWay(s, map, c.id, false));
   const worth = (k: number): number => clamp(Math.round((coin * 100) / Math.max(1, c.price[k]) / 100) * 100, 200, 2000);
   // (Only a good your stores hold twice over, as a request asks no more than about half: fetching it is then quick, and the day it would arrive can be trusted.)
-  const goods = canGoods ? sellsAndBuys(c).buys.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= 2 * worth(k)) : [];
+  const goods = canGoods ? sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS && cityHolds(s, TRADE_GOODS[k]) >= 2 * worth(k)) : [];
   const alt = goods.length ? goods[Math.floor(dice(w, n, 0, 1) * goods.length)] : -1;
   const altAmount = alt >= 0 ? worth(alt) : 0;
   const first = firstRoute(w);

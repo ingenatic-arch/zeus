@@ -43,7 +43,7 @@ import { door } from './rounds';
 import { roomFor } from './stores';
 import type { Building, Gift, LedgerKind, Memory, SimState, TradeRoute, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { berthOf, cityHolds, depotRoom, forSale, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
+import { berthOf, cityHolds, depotRoom, forSale, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, OLD_GOODS, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
 import { dealOf, delivered, sentWords, undelivered } from './favours';
 import { income, pay, spendable } from './treasury';
 import { giftOf, newWalker, offMapPoint, roadPoints, setGiftOf, setPath } from './walk';
@@ -588,7 +588,7 @@ function giftBack(s: SimState, c: WorldCity, month: number, i: number): void {
   if (dice(w, month, i, 5) >= odds) return;
   const value = BACK_LEAST + dice(w, month, i, 6) * (BACK_MOST - BACK_LEAST);
   // Goods they make plenty of (more often than coin), worth about the same, or drachmas.
-  const sells = TRADE_GOODS.map((_, k) => k).filter((k) => c.make[k] > c.need[k] * 1.15);
+  const sells = TRADE_GOODS.map((_, k) => k).filter((k) => k < OLD_GOODS && c.make[k] > c.need[k] * 1.15);
   let good = -1;
   let amount = Math.round(value / 50) * 50;
   if (sells.length && dice(w, month, i, 7) < 0.6) {
