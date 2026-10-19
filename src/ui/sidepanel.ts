@@ -542,8 +542,10 @@ export class SidePanel {
   /** Bring the panel up to date (a few times a second while it shows). */
   update(s: SimState, time: number): void {
     this.s = s;
-    if (this.firstAt < 0) this.firstAt = time;
-    if (!this.pictures && time - this.firstAt > 1) {
+    // A second of real time, not of the game's clock, which slow frames hold back.
+    const now = performance.now() / 1000;
+    if (this.firstAt < 0) this.firstAt = now;
+    if (!this.pictures && now - this.firstAt > 1) {
       this.pictures = drawPictures(CATEGORIES.flatMap((c) => c.tools));
       this.wellsKey = '';
     }

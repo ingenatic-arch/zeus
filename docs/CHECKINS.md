@@ -2,6 +2,43 @@
 
 Notes to Oliver, newest first.
 
+## Side slice — The control panel (19 Oct)
+
+You asked for the menus to work more like the original game's, with everything you build in the side panel, and for the interface to look like a polished game rather than parchment and pills. The panel now has a tab for each kind of building, and each tab holds that kind's buildings over that part of the city's state. The build bar along the bottom is gone. The whole interface is marble and bronze, with two typefaces. It was built alongside phase 4 and touches nothing in the simulation: saves load as they are, the save format is unchanged, and every demo plays exactly as before.
+
+### What's new
+- **A tab for each kind of building**, as in the original: Population, Husbandry, Industry, Distribution, Hygiene and safety, Administration, Culture, Mythology and Military. Each tab shows its buildings as pictures in bronze-framed wells. The pictures are drawn from the town's own models when the game opens. Each well shows the building's cost, and is dimmed when the treasury can't pay or the city already has its one. Under the wells is the name and cost of the one in hand or under the pointer. Below that is the tab's part of the city:
+  - **Population**: who lives here, their homes, work and homes in trouble (the old People tab).
+  - **Husbandry** and **Industry**: what their buildings made last month, ware by ware, and how many of each are short of workers. Click a ware for its page, as on the old Goods tab.
+  - **Distribution**: every good in the city (the old Goods tab), and how many homes the agora's vendors reach.
+  - **Hygiene and safety**: water, fire and wear. **Culture** and **Mythology**: plays and blessings.
+  - **Administration**: the treasury, the tax rate and the ledger (the old Money tab). **Military**: the barracks and their companies (the old Army tab).
+- **Keys work as before**, and a key also opens its tool's tab and lights its well. M opens Husbandry or Industry, K and G open Distribution, Z opens Administration or Hygiene and safety.
+- **Road, clear, undo and the overlays** are four bronze bosses round the minimap. The overlays boss lists every overlay, with the open tab's own first.
+- **North** is a gold N on the minimap's ring. It turns with the view, and a click on it faces north (N still does). The compass button is gone.
+- **The tool in hand** says how to use it in a line at the foot of the view, where the build bar was.
+- **The panel is always there.** Its hide button is gone, and it still steps aside for the map of Greece. Sound, saves and controls are small bosses above the minimap. I'd planned them for the top bar's right end, but there is no room for them there at 1280 wide. While the map of Greece is open, they go back to the top right corner. The cards they open, and the ledger, stand beside the panel rather than over it.
+- **The look.** Every piece of the frame is drawn in code and lit from the upper left, with real shadows and hollows: veined marble, bronze, lapis with gold flecks, gold leaf. The tabs are carved marble tiles, and the open one is inlaid with lapis. Each tab's name is cut into a gilded lintel, and what you read sits on honed marble. The top bar, cards, chips, notices and tips are marble in bronze frames. The speed buttons are bronze bosses, with the one that's on in lapis and gold.
+- **Two typefaces**, Cinzel for names and headings and Alegreya for reading. Both are under the SIL Open Font License and ship with the game's files (about 120 KB).
+- **`#panel`** opens `#richtown` on the Husbandry tab.
+
+### What to try
+1. Open `#panel`. Click each tab and look at the buildings and what sits under them. Click a picture to pick a building up, and see the line at the foot of the view.
+2. Press M a few times, then K, then Z, and watch the panel follow the keys.
+3. Click the overlays boss (bottom right of the minimap) and pick one. Click the gold N on the ring after turning the view with Q.
+4. Open the ledger ($), the controls (?), a household, and the map of Greece (Tab), and judge the cards and frames.
+
+### Your eye on
+- Whether the panel's head (the minimap in its ring, with the four bosses) is the right size, or should give more room to the tab below it.
+- Whether the wells are too dark, and whether a picture plus a cost reads well enough without the name, which only shows under the wells.
+- The colours of the cards next to the city: I kept the marble pale so they don't fight the land.
+
+### Checked
+- Typecheck and unit tests pass, including a new one that checks every building is in exactly one tab, so a building phase 4 adds can't be left without a button.
+- The smoke test's build bar checks now drive the panel: wells, keys opening tabs, the bosses, the overlays list, and the fit at 1280 × 720. Main's slice 23 fixes are merged in.
+- Screenshots at 1920 × 1080, 1600 × 900 and 1280 × 720. On a window up to 820 tall, the panel's head is drawn smaller.
+- First load, measured locally in a headless browser. The bare link was ready at 1.8 s, with its first frame at 2.2 s; main was ready at about 1.3 s. That is about half a second slower than main, mostly the marble and bronze being made, which happens while a demo's town is fetched. All 92 demo links were ready at a median of 1.6 s, the slowest being `#offer` at 2.3 s, and none took over 3 s. The game's files are 587 KB gzipped, fonts included.
+
 ## Slice 22 — A world of rivals (19 Oct)
 
 The last slice of the phase puts everything Greece now does into one town, and tunes it to read well over years rather than minutes. `#rivals` is a prepared town on the bay that trades with every city of Greece. Caravans from Corinth, Athens and Sparta walk its streets to the yard, and ships from Athens, Corinth and Troy come in to the quay. Athens' archon has a request open, Sparta's king has a threat running towards its deadline, and Troy and Athens are at war at sea. Every demo now opens from a town prepared when the game is built, rather than playing its history while you wait, so each one opens in about the time the bare link takes. The world's pacing was checked over six to eight years of play, left alone and looked after, and the wars and raids were retuned. The map and the city had a look-and-feel pass by screenshots. You weren't here while it was built: every choice below is mine, from the spec's defaults.
