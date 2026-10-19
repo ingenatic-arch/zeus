@@ -1693,7 +1693,7 @@ g = await gi();
 const keys22 = Object.keys(g.travellers);
 if (!(keys22.some((k) => /^war-\d+-troy$/.test(k)) && keys22.some((k) => /^war-\d+-athens$/.test(k)) && keys22.some((k) => /^war-\d+$/.test(k)))) fail(`#rivalsmap: the fleets and swords: ${JSON.stringify(keys22)}`);
 if (!(await zeus(() => !!document.querySelector('.glabel.troy svg.ask.war') && !!document.querySelector('.glabel.athens svg.ask.war')))) fail('#rivalsmap: no swords on the labels');
-if (!(/King Priam of Troy has declared war on Athens[\s\S]*fleets sail to meet/.test(g.news) && /Sparta is out of patience: pay [\d,]+ dr/.test(g.news) && /Athens asks for 1,000 wheat[\s\S]*for their fleet/.test(g.news))) fail(`#rivalsmap: the News of Greece: ${g.news.slice(0, 1200)}`);
+if (!(/King Priam of Troy has declared war on Athens[\s\S]*fleets sail to meet/.test(g.news) && /Sparta is out of patience: pay [\d,]+ dr/.test(g.news) && /Athens asks for [\d,]+ dr[\s\S]*to pay their soldiers: they are at war with Troy/.test(g.news))) fail(`#rivalsmap: the News of Greece: ${g.news.slice(0, 1200)}`);
 // No city's label under the top bar or the City button (Troy's was).
 const under22 = await zeus(() => {
   const bar = [document.querySelector('.topbar'), document.querySelector('.greece-btn')].map((e) => e.getBoundingClientRect());
@@ -1704,7 +1704,7 @@ await page.mouse.move(5, 500);
 await page.click('.greece-news li[data-city="athens"]');
 await frames(2);
 g = await gi();
-if (!(g.shown === 'athens' && /At war with Troy since[\s\S]*their fleets/.test(g.panel) && /asks for 1,000 wheat[\s\S]*For their fleet: they are at war with Troy/.test(g.panel))) fail(`#rivalsmap: Athens' page: ${g.shown} ${g.panel.slice(0, 1400)}`);
+if (!(g.shown === 'athens' && /At war with Troy since[\s\S]*their fleets/.test(g.panel) && /asks for [\d,]+ dr[\s\S]*To pay their soldiers: they are at war with Troy/.test(g.panel))) fail(`#rivalsmap: Athens' page: ${g.shown} ${g.panel.slice(0, 1400)}`);
 // The Rivals tab is built when it is shown (slice 22), not before.
 if (/How (he|she) feels about the others/.test(g.panel)) fail('#rivalsmap: the Rivals tab built while hidden');
 await page.click('.greece-panel button[data-tab="rivals"]');
