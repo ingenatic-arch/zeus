@@ -1,10 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { decodeSave, encodeSave } from '../src/game/saves';
 import { coast } from '../src/map/coast';
 import { companiesAt, COMPANY_SIZE, marchRefusal, menOf, readyOf, servingHomes } from '../src/sim/army';
 import { buildingRefusal, copperOf, MINE_COPPER_MIN } from '../src/sim/build';
 import { around, findBuilding, FINE, footprint, TOWNHOUSE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
-import { ARMOUR, held, setHeld } from '../src/sim/foods';
+import { ARMOUR, GOOD_COUNT, held, setHeld } from '../src/sim/foods';
+import { SIM_STATE_VERSION } from '../src/sim/state';
+import { TRADE_GOODS } from '../src/sim/trade';
 import { canWork, canWorkIn } from '../src/sim/labour';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
@@ -219,3 +224,26 @@ describe('the barracks', () => {
     expect(around(N, b).length).toBeGreaterThan(0);
   });
 });
+
+describe('old saves', () => {
+  it('a slice 22 save (version 21, every route open) loads with no army, every goods list two longer, and plays on', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/slice22-rivals.save.json.gz')).toString();
+    expect(JSON.parse(text).state.version).toBe(21);
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    const s = got.file.state;
+    expect(s.version).toBe(SIM_STATE_VERSION);
+    expect(s.army).toEqual({ companies: [], soldiers: [], nextId: 1 });
+    for (const b of s.buildings) expect(b.goods.length).toBe(GOOD_COUNT);
+    expect(s.trade.sell.length).toBe(TRADE_GOODS.length);
+    for (const c of s.world.cities) expect(c.price.length).toBe(TRADE_GOODS.length);
+    for (const r of s.world.routes) expect(r.sold.length).toBe(TRADE_GOODS.length);
+    const people = s.population;
+    const sim = new Sim();
+    sim.state = s;
+    sim.run(TICKS_PER_MONTH);
+    expect(s.population).toBeGreaterThan(people * 0.9);
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+  }, 60000);
+});
+

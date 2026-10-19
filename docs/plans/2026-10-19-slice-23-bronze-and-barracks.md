@@ -36,7 +36,7 @@ Measured at `b06bbea` (the phase 4 spec, on top of slice 22's review), headless 
 
 | What | Before |
 |---|---|
-| Tests | 353 in 32 files, all passing |
+| Tests | 353 in 30 files, all passing |
 | Bundle | 62 files, 9,121 KB raw, 1,946 KB gzipped (the game itself 4 files, 437 KB gzipped; the prepared towns 58 files, 1,510 KB gzipped) |
 | First load (bare link) | ready at 2,492 ms, first frame at 3,414 ms by the page's clock |
 | Every demo's load | 88 demos, 86 from prepared towns; ready at median 1,909 ms, slowest `#famine` 2,521 ms; none over 3 s |
@@ -106,7 +106,7 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#bronze`, `#barra
 
 ## As built
 
-Commits: `dea6638` (this plan), `8210b05` (copper, armour and the army in the sim; the overlay, the three buildings, soldiers, banners, the tools, the Army tab and chip, the home and soldier lines), `16d644f` (the three demos, tuning found while building them, smoke, measure and screenshots), `dae47cd` (the `#bronze` view, probe hooks), and the check-in.
+Commits: `dea6638` (this plan), `8210b05` (copper, armour and the army in the sim; the overlay, the three buildings, soldiers, banners, the tools, the Army tab and chip, the home and soldier lines), `16d644f` (the three demos, tuning found while building them, smoke, measure and screenshots), `dae47cd` (the `#bronze` view, probe hooks), `45617d1` (smoke fixes: the Tyre ship's prices in the trading post's tip, Corinth's eight price charts, `#bronze` on the Goods tab), `0af26b8` (soldiers' pay in the ledger and on the Money tab), and the check-in.
 
 **Copper on the hills.** As designed: three outcrops in `src/map/coast.ts` (the north-west massif, the east hills, the headland), `tileCopper` and `copperOf` in `src/sim/build.ts`, a mine allowed where its footprint averages at least 0.3. The baked map is untouched. The placement overlay paints the copper as green bands over the ground while the mine tool is in hand (the map's own colouring of the east outcrop is grass and scrub as much as rock, so the bands lie on both).
 
@@ -130,4 +130,27 @@ Commits: `dea6638` (this plan), `8210b05` (copper, armour and the army in the si
 - **`#companies`:** archers raised too. It opens once both companies are full, plus two days of drill, with the hoplites' banner in hand and the Army tab open.
 
 **Not done** (in the check-in's rough edges): no miner figures at the mine (its carts and the windlass only); the forge's glow is under the lean-to's roof, seen only from low down; the soldiers walk the same pace as everyone, so a march across the town takes a few weeks of game time.
+- **Found by the smoke.** The trading post's tip listed copper and armour among the Tyre ship's prices; it now lists the old six. The ledger put soldiers' pay first, under "Coming in"; it is now "Soldiers' pay · N men" under "Going out", and the Money tab has its own row for it.
+
+**Checks.**
+- `npm test`: 366 tests in 31 files pass. The new file is `tests/army.test.ts`; `tests/money.test.ts` now expects the new goods unticked for sale in `#richtown`.
+- `npm run build`: 65 files.
+- `npm run smoke`: passes. The full run was on the build before the ledger fix. Its slice 23 section, with the new check on soldiers' pay, was then run again on its own against the final build and passed.
+- The demo probe (outside the repo) played every one of the 86 earlier demos at `b06bbea` and at this slice, and compared the whole city at opening and 900 ticks on (the army, the new goods' entries and the redraw counters left out). All 86 are identical, the route towns included.
+- Old saves: a new fixture, `tests/fixtures/slice22-rivals.save.json.gz`, is `#rivals` saved at `b06bbea` (version 21). It loads at version 22 with no army and every goods list two longer, plays a month on, and saves again (`tests/army.test.ts`). The older fixtures (versions 8 to 20) still load through every migration.
+
+**Measurements** (`npm run measure`, headless Chromium, software WebGL, 1920 × 1080):
+
+| What | Before | After |
+|---|---|---|
+| Tests | 353 in 30 files | 366 in 31 files |
+| Bundle | 62 files, 9,121 KB raw, 1,946 KB gzipped (game 437 KB, prepared towns 1,510 KB) | 65 files, 9,949 KB raw, 2,081 KB gzipped (game 456 KB, prepared towns 1,625 KB in 61 files) |
+| First load (bare link) | ready at 2,492 ms, first frame at 3,414 ms | ready at 1,881 ms, first frame at 2,399 ms (the machine was quieter; the page's work is the same) |
+| Every demo's load | 88 demos, median 1,909 ms, slowest `#famine` 2,521 ms, none over 3 s | 91 demos, median 1,862 ms, slowest `#tribute` 2,395 ms, none over 3 s |
+| `#town` | 799,168 triangles, 83 draw calls | the same |
+| `#richtown` | 910,707 triangles, 95 draw calls; a save 183 KB | the same; a save 186 KB (the army and the two new goods' entries) |
+| `#companies` | — | 914,290 triangles, 86 draw calls (its view); 991,881 and 95 over the town |
+| Work a frame before drawing | `#town-shot` 12.99 ms, `#richtown-shot` 14.16, `#richstreet-shot` 17.40, `#rivals-shot` 14.25 | 12.22, 11.65, 16.22, 12.68; `#bronze-shot` 7.20, `#barracks-shot` 9.75, `#companies-shot` 11.79 |
+| Walkers' batch | `folk-people` 452 triangles an instance | 452 (the soldiers' looks fit within the largest look); `#companies` draws 191 figures in it, 32 of them soldiers |
+| Banners | — | one cloth mesh (768 triangles for two banners) and one instanced mesh of poles |
 
