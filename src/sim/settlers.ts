@@ -130,6 +130,8 @@ export interface Outlook {
   interval: number;
   /** Harsh taxes keep newcomers away. */
   harsh: boolean;
+  /** Empty plots that no road from the edge passes (settlers can't reach them). */
+  cutOff: number;
 }
 
 export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
@@ -137,9 +139,12 @@ export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
   const edges = edgeRoads(s, size);
   const water = waterShare(s);
   const harsh = harshNow(s);
-  if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL, harsh };
-  const room = reachableRoom(s, size, roadSearch(s, size, edges));
-  return { road: true, room, water, interval: arrivalInterval(room, water, harsh), harsh };
+  const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.people === 0 && b.incoming === 0);
+  if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL, harsh, cutOff: plots.length };
+  const search = roadSearch(s, size, edges);
+  const room = reachableRoom(s, size, search);
+  const cutOff = plots.filter((b) => nearestReached(search, around(size, b).filter((t) => s.tiles[t] === TILE_ROAD)) < 0).length;
+  return { road: true, room, water, interval: arrivalInterval(room, water, harsh), harsh, cutOff };
 }
 
 /**

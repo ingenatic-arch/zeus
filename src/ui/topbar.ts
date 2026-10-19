@@ -279,6 +279,8 @@ export class TopBar {
     const el = this.bar.querySelector('.stat.people') as HTMLElement;
     let why: string;
     if (!o.road) why = 'Settlers come in where a road meets the edge of the map.';
+    else if (o.room === 0 && o.cutOff > 0)
+      why = `No room for newcomers: ${o.cutOff === 1 ? 'the empty plot you marked out has' : `the ${o.cutOff} empty plots you marked out have`} no road beside ${o.cutOff === 1 ? 'it' : 'them'} that leads to the edge of the map. Lay a road past ${o.cutOff === 1 ? 'it' : 'them'}.`;
     else if (o.room === 0) why = 'No room for newcomers: mark out more plots, or bring water so tents grow into huts.';
     else {
       const secs = o.interval / TICKS_PER_SECOND;

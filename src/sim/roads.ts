@@ -250,6 +250,26 @@ export function roadRoute(map: CoastMap, s: SimState, from: number, to: number, 
   if (from === to) return [from];
   const tx = to % n;
   const tz = (to - tx) / n;
+  // A drag along one row or column lays that straight line when it can (on dry land): the cheapest way could run
+  // round the block on roads already there, laying only the two ends, which is never what a straight drag means.
+  {
+    const fx0 = from % n;
+    const fz0 = (from - fx0) / n;
+    if (fx0 === tx || fz0 === tz) {
+      const step = fx0 === tx ? (tz > fz0 ? n : -n) : tx > fx0 ? 1 : -1;
+      const line: number[] = [];
+      const ground0 = mapIndex(map).ground;
+      for (let t = from; ; t += step) {
+        if (ground0[t] === Ground.Water || !roadPassable(map, s, t)) {
+          line.length = 0;
+          break;
+        }
+        line.push(t);
+        if (t === to) break;
+      }
+      if (line.length) return line;
+    }
+  }
   const h = (t: number): number => Math.abs((t % n) - tx) + Math.abs(Math.floor(t / n) - tz);
   // State = tile * 5 + direction (0 = none yet, 1..4 = N W E S).
   const states = n * n * 5;

@@ -11,6 +11,7 @@ const map = coastMap();
 const N = MAP_SIZE;
 const T = (x: number, z: number): number => z * N + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
+const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));
 
 /** Run the sim, checking that whenever a walker reaches a waypoint inside the map, it is standing on a road. */
 function watchWalkers(sim: Sim, ticks: number, onStep?: (s: SimState) => void): void {
@@ -130,6 +131,15 @@ describe('roads and routes', () => {
   it('a straight drag on open land is a straight road', () => {
     const route = roadRoute(map, new Sim(1).state, T(2, 80), T(20, 80));
     expect(route).toEqual(row(2, 20, 80));
+  });
+
+  it('a straight drag closing a block is a straight road, not the way round on the roads already there', () => {
+    // (Found in the phase 3 review: dragging the top side of a block from one cross street to the other laid only its
+    // two end tiles, joined round the block by the roads below.)
+    const sim = new Sim(1);
+    sim.enqueue({ type: 'road', tiles: [...col(62, 33, 41), ...row(63, 85, 41), ...col(86, 33, 40)] });
+    sim.step();
+    expect(roadRoute(map, sim.state, T(63, 33), T(85, 33))).toEqual(row(63, 85, 33));
   });
 });
 

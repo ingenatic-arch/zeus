@@ -1547,8 +1547,8 @@ const SCENES: Record<string, Demo> = {
   peace: { view: 'town', setup: greeceTown('peace'), overlay: 'food', greece: 'sparta', greeceTab: 'prices' },
   festival: { view: 'ship', setup: greeceTown('festival'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
   // Slice 22: a world of rivals. The prepared town trading with every city, over the town; on the map of Greece; at street level by the yard.
-  rivals: { view: 'richtown', setup: RIVALS, overlay: 'missing' },
-  rivalsmap: { view: 'richtown', setup: RIVALS, overlay: 'missing', greece: true },
+  rivals: { view: 'rivals', setup: RIVALS, overlay: 'missing' },
+  rivalsmap: { view: 'rivals', setup: RIVALS, overlay: 'missing', greece: true },
   rivalstreet: { view: 'rivalstreet', setup: RIVALS, overlay: 'missing' },
 };
 

@@ -41,7 +41,7 @@ describe('#rivals', () => {
   });
 
   it('the three tokens open the one town, over the city, on the map and by the yard', () => {
-    expect([DEMOS.rivals.view, DEMOS.rivalsmap.greece, DEMOS.rivalstreet.view]).toEqual(['richtown', true, 'rivalstreet']);
+    expect([DEMOS.rivals.view, DEMOS.rivalsmap.greece, DEMOS.rivalstreet.view]).toEqual(['rivals', true, 'rivalstreet']);
   });
 
   it('prepared, it is the town its setup makes, and plays on the same', () => {
