@@ -298,7 +298,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'borrowed', 'repaid', 'lent', 'repayment', 'returned'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -388,8 +388,8 @@ function armyOk(a: unknown): boolean {
 /** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */
 function worldOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
-  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids, w.wars].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid) || !fin(w.nextWar) || !strs(w.feuds)) return false;
-  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk) || !(w.wars as unknown[]).every(warOk)) return false;
+  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids, w.wars].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid) || !fin(w.nextWar) || !strs(w.feuds) || !Array.isArray(w.loans) || !fin(w.nextLoan)) return false;
+  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk) || !(w.wars as unknown[]).every(warOk) || !(w.loans as unknown[]).every(loanOk)) return false;
   const g = TRADE_GOODS.length;
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
@@ -404,9 +404,20 @@ function worldOk(w: unknown): boolean {
   });
 }
 
-const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'start', 'dur', 'a0', 'a1', 'deal'];
+const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'start', 'dur', 'a0', 'a1', 'deal', 'loan'];
 const DEAL_NUMBERS = ['id', 'good', 'amount', 'at', 'due', 'gift', 'got', 'ended', 'price', 'done', 'until', 'paid'];
 const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided'];
+
+const LOAN_NUMBERS = ['id', 'amount', 'rate', 'months', 'owed', 'deal', 'gift', 'at', 'until', 'start', 'due', 'ended'];
+const LOAN_STATES = ['asking', 'terms', 'proposed', 'coming', 'offering', 'sending', 'returning', 'running', 'overdue', 'repaying', 'repaid', 'refused', 'declined', 'lapsed'];
+const whysOk = (x: unknown): boolean => Array.isArray(x) && x.every((y: unknown) => isObj(y) && typeof y.why === 'string' && fin(y.n));
+
+/** A loan either way: its city, side, state, numbers and the reasons for its terms. */
+function loanOk(l: unknown): boolean {
+  if (!isObj(l) || !RULED.includes(l.city as never) || (l.side !== 'in' && l.side !== 'out') || (l.by !== 'you' && l.by !== 'them') || !LOAN_STATES.includes(l.state as string)) return false;
+  if (typeof l.why !== 'string' || typeof l.late !== 'boolean' || !whysOk(l.rateWhy) || !whysOk(l.monthsWhy)) return false;
+  return LOAN_NUMBERS.every((k) => fin(l[k]));
+}
 
 const WAR_NUMBERS = ['id', 'start', 'until', 'menA', 'menB', 'ended'];
 
@@ -429,7 +440,7 @@ function raidOk(r: unknown): boolean {
 
 /** A ruler's request, offer or demand for tribute: its kind, city, state and numbers. */
 function dealOk(d: unknown): boolean {
-  if (!isObj(d) || !['request', 'offer', 'tribute', 'threat'].includes(d.kind as string) || !CITY_IDS.includes(d.city as never) || !DEAL_STATES.includes(d.state as string)) return false;
+  if (!isObj(d) || !['request', 'offer', 'tribute', 'threat', 'loanoffer', 'loanask'].includes(d.kind as string) || !CITY_IDS.includes(d.city as never) || !DEAL_STATES.includes(d.state as string)) return false;
   if (typeof d.why !== 'string' || !['', 'buy', 'sell'].includes(d.side as string) || ![d.promised, d.yearly, d.angry].every((b) => typeof b === 'boolean')) return false;
   return DEAL_NUMBERS.every((k) => fin(d[k]));
 }

@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 22;
+export const SIM_STATE_VERSION = 23;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -287,7 +287,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -696,7 +696,8 @@ export interface Visitor {
  */
 export interface Deal {
   id: number;
-  kind: 'request' | 'offer' | 'tribute' | 'threat';
+  /** (`loanoffer`, `loanask`: a ruler's offer to lend you coin, or ask to borrow it; its loan in world.loans names it: loans.ts.) */
+  kind: 'request' | 'offer' | 'tribute' | 'threat' | 'loanoffer' | 'loanask';
   city: CityId;
   /** The trade good (by TRADE_GOODS order), or -1 for drachmas. */
   good: number;
@@ -783,6 +784,55 @@ export interface Gift {
   note: string;
   /** Sent for a ruler's request or tribute (a deal's id in world.deals; see favours.ts), not a gift: 0 for a gift. */
   deal: number;
+  /** A herald about a loan, with its coin or none (a loan's id in world.loans; see loans.ts), not a gift: 0 for a gift. */
+  loan: number;
+}
+
+/** A thing that moved a loan's interest or months, and by how much (percent, or months). */
+export interface LoanWhy {
+  why: string;
+  n: number;
+}
+
+/**
+ * A loan between your city and a ruler (see loans.ts): `side` 'in' you
+ * borrow, 'out' you lend; `by` who proposed it. Repaid in one payment of the
+ * whole sum and its interest (`owed`) on the day it is due.
+ */
+export interface Loan {
+  id: number;
+  city: CityId;
+  side: 'in' | 'out';
+  by: 'you' | 'them';
+  /**
+   * asking (your herald on his way to ask), terms (their terms wait on your
+   * answer), proposed (a ruler's own offer or ask, a deal), coming (their
+   * coin on its way to you), offering (your coin on its way, for them to take
+   * or send back), sending (your coin on its way, as they asked), returning
+   * (sent back), running, overdue, repaying (the whole sum on its way back);
+   * over: repaid, refused, declined, lapsed.
+   */
+  state: 'asking' | 'terms' | 'proposed' | 'coming' | 'offering' | 'sending' | 'returning' | 'running' | 'overdue' | 'repaying' | 'repaid' | 'refused' | 'declined' | 'lapsed';
+  /** The sum, the interest (a percent of it, for the whole loan), the months, and what is owed in all. */
+  amount: number;
+  rate: number;
+  months: number;
+  owed: number;
+  /** What moved the interest and the months, each named. */
+  rateWhy: LoanWhy[];
+  monthsWhy: LoanWhy[];
+  /** Why, in words: why they ask or offer, why they refused, took it or sent it back. */
+  why: string;
+  /** The ruler's offer or ask it came from (a deal's id; 0 none), and its herald on the way (a gift's id; 0 none). */
+  deal: number;
+  gift: number;
+  /** When it was made; until when its terms stand (terms); when it was agreed and when it falls due; when it ended (0 while live); whether it was repaid late. */
+  at: number;
+  until: number;
+  start: number;
+  due: number;
+  ended: number;
+  late: boolean;
 }
 
 /** A line of news from Greece. */
@@ -863,6 +913,9 @@ export interface World {
   nextWar: number;
   /** The pairs of rulers feuding now ('athens-sparta', in RULED order), so a feud's start and end are news once. */
   feuds: string[];
+  /** Loans either way, live or lately over (loans.ts), and the next one's number. */
+  loans: Loan[];
+  nextLoan: number;
 }
 
 /**

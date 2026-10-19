@@ -10,6 +10,7 @@ import { BUILDING_NAMES, capacity, COTTAGE, findBuilding, footSide, HOME_NAMES, 
 import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './culture';
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals, sendTicks } from './favours';
+import { loanOfDeal, loanTownLine, termsWords } from './loans';
 import {
   BARN,
   CHEESE_BATCH,
@@ -1125,7 +1126,7 @@ export function raidChipNow(s: SimState): { chip: string; city: string } | null 
 }
 
 /** Is a line of news the one that brought a deal (the ruler asking, offering or demanding, that day), not other news from that city? */
-const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick === d.at && / (asks for|demands|offers) |yearly tribute comes round/.test(n.line);
+const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick === d.at && / (asks for|asks to borrow|demands|offers) |yearly tribute comes round/.test(n.line);
 
 /** Is a line of news the ask of a deal you have already answered (or that has ended)? */
 const answeredAsk = (s: SimState, n: NewsItem): boolean => s.world.deals.some((d) => d.state !== 'open' && askedFor(n, d));
@@ -1135,7 +1136,7 @@ function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal 
   // (A threat has its own line: raidTownLine.)
   const open = openDeals(s.world).filter((d) => d.kind !== 'threat');
   if (!open.length) return null;
-  const rank = (d: Deal): number => (d.kind === 'offer' ? 2 : d.gift ? 1 : 0);
+  const rank = (d: Deal): number => (d.kind === 'offer' || d.kind === 'loanoffer' ? 2 : d.gift ? 1 : 0);
   const d = open.slice().sort((a, b) => rank(a) - rank(b) || a.due - b.due)[0];
   const name = PLACES[d.city].name;
   const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
@@ -1146,6 +1147,12 @@ function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal 
     const g = s.world.gifts.find((x) => x.id === d.gift);
     text = g ? `The ${words} for ${name} ${d.kind === 'tribute' ? '(tribute) ' : ''}is on its way: it arrives about ${dayWords(arrivesAt(s, map, g))}, ${againstDue(arrivesAt(s, map, g), d.due)}` : `The ${words} for ${name} is on its way`;
   } else if (d.kind === 'offer') text = `${name} offers ${offerWords(d)}: answer ${dueWords(s, d)}, on ${whose} page`;
+  else if (d.kind === 'loanoffer' || d.kind === 'loanask') {
+    // (A ruler's offer of a loan, or ask for one: loans.ts.)
+    const l = loanOfDeal(s.world, d.id);
+    const terms = l ? termsWords(l) : `${words}`;
+    text = d.kind === 'loanoffer' ? `${name} offers to lend you ${terms}: take it or decline it ${dueWords(s, d)}, on ${whose} page` : `${name} asks to borrow ${terms}, ${d.why}. Lend it or refuse it ${dueWords(s, d)}, on ${whose} page`;
+  }
   else if (d.kind === 'tribute') text = `${name} demands ${words} in tribute ${dueWords(s, d)}: pay it or refuse it, on ${whose} page`;
   else if (d.promised) {
     const t = sendTicks(s, map, d);
@@ -1179,6 +1186,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (alarm) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
+  // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
+  const loan = loanTownLine(s);
+  if (loan) out.push({ need: 'favour', text: loan.text, at: 0, route: loan.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
   if (news && !(deal && askedFor(news.item, deal.deal))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });

@@ -38,6 +38,8 @@ export type Command =
   | { type: 'gift'; city: string; good: number; amount: number }
   /** Answer a ruler's request, offer or demand for tribute (a deal's id; see answerRefusal in favours.ts: an answer it refuses does nothing): promise it, send what it asks (or pay the tribute), refuse it, take or decline an offer. */
   | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' }
+  /** Loans (see loans.ts; one it refuses does nothing): ask a ruler (`city`) to lend you `amount` (500, 1,000, 2,000, 3,000 or 5,000), offer to lend one `amount` at `rate` percent over `months`, accept or decline the terms their herald brought (`loan` its id), or repay your loan early. */
+  | { type: 'loan'; act: 'ask' | 'offer' | 'accept' | 'decline' | 'repay'; city?: string; amount?: number; rate?: number; months?: number; loan?: number }
   /** Raise a company of hoplites or archers at a barracks (its id; see raiseRefusal in army.ts: one it refuses raises nothing). */
   | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' }
   /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores. */

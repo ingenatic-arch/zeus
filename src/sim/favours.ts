@@ -38,6 +38,7 @@ import { HANDLE } from './food';
 import { answerThreat, peaceArrived, threatFromTribute, threatLive, threatRefusal } from './raids';
 import { WARE_NAMES, held } from './foods';
 import { rateOf } from './labour';
+import { answerLoan, loanAnswerRefusal, loanDeal, loanDealLapsed } from './loans';
 import { roadSearch, nearestReached } from './roads';
 import { roadsBeside } from './rounds';
 import { caravanEntry, landTicks, routeOf, voyageTicks, yearlyLimit } from './routes';
@@ -55,7 +56,7 @@ export const ASK_AFTER = 6 * TICKS_PER_MONTH;
 /** No more than this many open across Greece. */
 export const MOST_OPEN = 2;
 /** A ruler waits this long after their last deal was settled before the next. */
-const ASK_GAP = 3 * TICKS_PER_MONTH;
+export const ASK_GAP = 3 * TICKS_PER_MONTH;
 /** Greece waits this long after any ruler's last new deal before the next (so they come now and then, not one on another's heels). */
 export const GREECE_GAP = 2 * TICKS_PER_MONTH;
 
@@ -393,7 +394,8 @@ function asks(s: SimState, map: CoastMap): void {
       if (c.war && request(s, map, c, month, i)) return;
       continue;
     }
-    if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i)) return;
+    // (A loan offered or asked for comes last, so a month that brought an older kind brings it still: loans.ts.)
+    if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i) || loanDeal(s, c, month, i)) return;
   }
 }
 
@@ -506,6 +508,10 @@ export function stepFavours(s: SimState, map: CoastMap): void {
 function overdue(s: SimState, map: CoastMap, d: Deal): void {
   const c = cityOf(s.world, d.city);
   const words = dealWords(d);
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') {
+    loanDealLapsed(s, d, (st) => close(s, d, st));
+    return;
+  }
   if (d.kind === 'offer') {
     close(s, d, 'lapsed');
     news(s.world, s.tick, d.city, `${whose(d.city)} offer for ${goodName(d.good)} has lapsed unanswered`);
@@ -610,6 +616,7 @@ export function sendRefusal(s: SimState, map: CoastMap, d: Deal, way?: string): 
 export function answerRefusal(s: SimState, map: CoastMap, d: Deal | undefined, act: Act): string {
   if (!d || d.state !== 'open') return 'It is settled';
   if (d.kind === 'threat') return threatRefusal(s, map, d, act);
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') return loanAnswerRefusal(s, d, act);
   if (act === 'goods') return 'Not a threat';
   if (act === 'send') return sendRefusal(s, map, d);
   if (act === 'promise') return d.kind !== 'request' ? 'Only a request can be promised' : d.promised ? 'You have promised it' : d.gift ? 'It is on its way' : '';
@@ -624,6 +631,10 @@ export function answer(s: SimState, map: CoastMap, id: number, act: string): voi
   if (!d || answerRefusal(s, map, d, act as Act) !== '') return;
   if (d.kind === 'threat') {
     answerThreat(s, map, d, act);
+    return;
+  }
+  if (d.kind === 'loanoffer' || d.kind === 'loanask') {
+    answerLoan(s, d, act, (st) => close(s, d, st));
     return;
   }
   const c = cityOf(s.world, d.city);

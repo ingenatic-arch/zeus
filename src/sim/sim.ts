@@ -29,6 +29,7 @@ import { freshWorld, nameRefusal, stepWorld } from './world';
 import { stepRivals } from './rivals';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
+import { loanCommand, stepLoans } from './loans';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
 import { barracksGone, dismiss, freshArmy, raise, sendBanner, stepArmy } from './army';
 
@@ -188,6 +189,8 @@ export class Sim {
     stepGifts(s, map);
     // The rulers' requests, offers and tribute: deadlines, and now and then a new one (once your first route is six months old).
     stepFavours(s, map);
+    // Loans either way: terms running out, days due, debts overdue (once a day; nothing with no loans).
+    stepLoans(s);
     // Threats and war bands: deadlines, the band's march, its coming in (nothing in a town that has never opened a route).
     stepRaids(s, map);
     stepDiplomacy(s);
@@ -266,6 +269,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'answer':
       if (typeof c.deal === 'number' && typeof c.act === 'string') answer(s, map, c.deal, c.act);
+      break;
+    case 'loan':
+      if (typeof c.act === 'string') loanCommand(s, c.act, String(c.city ?? ''), Number(c.amount ?? 0), Number(c.rate ?? 0), Number(c.months ?? 0), Number(c.loan ?? 0));
       break;
     case 'raise':
       if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);

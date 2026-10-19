@@ -142,6 +142,7 @@ export function migrate(st: unknown): number {
   if (st.version === 19) from19(st);
   if (st.version === 20) from20(st);
   if (st.version === 21) from21(st);
+  if (st.version === 22) from22(st);
   return from;
 }
 
@@ -438,4 +439,15 @@ function from21(st: Record<string, unknown>): void {
   }
   if (!isObj(st.army)) st.army = freshArmy();
   st.version = 22;
+}
+
+function from22(st: Record<string, unknown>): void {
+  // Loans both ways (slice 27): no loans either way yet, and no gift on its way is a herald about one.
+  const w = st.world;
+  if (isObj(w)) {
+    if (!Array.isArray(w.loans)) w.loans = [];
+    if (typeof w.nextLoan !== 'number') w.nextLoan = 1;
+    if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.loan !== 'number') g.loan = 0;
+  }
+  st.version = 23;
 }
