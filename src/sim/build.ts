@@ -426,6 +426,8 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   if (kind === 'rubble') return 'Rubble isn’t built';
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
+  // (The ground's own word is a home's: for anything else, it is too steep for that.)
+  if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves and vineyards can take a slope like this';
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';

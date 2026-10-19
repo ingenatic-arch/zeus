@@ -42,7 +42,7 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road</dd>
       <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery</dd>
-      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece and wine), and again for the trading post (on the bay shore)</dd>
+      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece and wine), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
@@ -62,8 +62,9 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, and again for wear</dd>
       <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas); the chip beside them sets the taxes</dd>
       <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
-      <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed</dd>
-      <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop). The trading post, or the ship beside the drachmas: choose what to sell</dd>
+      <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed; a caravan, a ship or a raider, who they are and what they are doing</dd>
+      <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop). The trading post, the caravan yard, or the traders beside the drachmas: choose what to sell and buy</dd>
+      <dt>Tab</dt><dd>The map of Greece: its cities and rulers, their prices and your routes (Tab again, or the City button, to come back)</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

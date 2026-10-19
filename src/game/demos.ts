@@ -20,7 +20,7 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
-import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, tributeSize, warWhy } from '../sim/favours';
+import { askWhy, deadlineFor, firstRoute, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS } from '../sim/raids';
@@ -1357,7 +1357,12 @@ function rivalsTown(): (sim: Sim) => void {
     // The archon of Athens asks the city for wheat for the war, by its end (set up for the demo: the dice would bring it within a month or two).
     const athens = cityOf(s.world, 'athens');
     const left = Math.floor((x.until - s.tick) / TICKS_PER_MONTH) * TICKS_PER_MONTH;
-    makeRequest(s, map, athens, WHEAT_K, requestSize(s, athens, WHEAT_K), warWhy(WHEAT_K, 'Troy', 'sea'), left);
+    // As a war's own requests do, it asks for wheat only if wheat sent at once could reach Athens by then, else for coin to pay
+    // their men. (From this town, goods take about 95 days to reach Athens, so a request for wheat due in 90 could only be met
+    // late: phase 3's review.)
+    const size = requestSize(s, athens, WHEAT_K);
+    if (deadlineFor(s, map, 'athens', WHEAT_K, size, TICKS_PER_MONTH) <= left) makeRequest(s, map, athens, WHEAT_K, size, warWhy(WHEAT_K, 'Troy', 'sea'), left);
+    else makeRequest(s, map, athens, -1, requestCoin(s), 'to pay their soldiers: they are at war with Troy', left);
     // It opens with caravans in the streets and a ship at the quay or coming in up the bay.
     const ships = (): boolean => s.world.routes.some((r) => r.ship && (r.ship.phase === SHIP_MOORED || r.ship.phase === SHIP_COMING)) || s.trade.ship.phase === SHIP_MOORED;
     const caravans = (): number => s.walkers.filter((w) => w.kind === 'caravan').length;
