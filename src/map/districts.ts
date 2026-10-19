@@ -7,6 +7,7 @@
  * flood plain. Pure; worked out once per map, per tile.
  */
 import type { CoastMap } from './bake';
+import { sq } from './dmath';
 
 /** A named place: where it is, and how a sentence says where something is ("by the olive grove"). */
 export interface District {
@@ -58,7 +59,7 @@ export function districtGrid(map: CoastMap): Uint8Array {
       let best = 1;
       let bd = Infinity;
       for (let i = 1; i < DISTRICTS.length; i++) {
-        const d = (DISTRICTS[i].x - cx) ** 2 + (DISTRICTS[i].z - cz) ** 2;
+        const d = sq(DISTRICTS[i].x - cx) + sq(DISTRICTS[i].z - cz);
         if (d < bd) [best, bd] = [i, d];
       }
       grid[z * n + x] = best;

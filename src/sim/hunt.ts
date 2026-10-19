@@ -9,6 +9,7 @@
  * take the meat from the lodge to a granary (food.ts).
  */
 import type { CoastMap } from '../map/bake';
+import { datan2, dcos, dhypot, dsin } from '../map/dmath';
 import { around, centreOf, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { LODGE_STORE } from './food';
@@ -59,7 +60,7 @@ export const huntersFor = (l: Building): number => {
  */
 export const herdDistance = (l: Building, h: Herd): number => {
   const [cx, cz] = centreOf(l);
-  return Math.hypot(h.hx - cx, h.hz - cz);
+  return dhypot(h.hx - cx, h.hz - cz);
 };
 
 /** The herds within a lodge's reach, nearest first, with how many head each has to spare (counting hunters already after it). */
@@ -91,7 +92,7 @@ function routeTo(s: SimState, map: CoastMap, here: [number, number], starts: num
   if (short > 0 && out.length >= 2) {
     const a = out[out.length - 2];
     const b = out[out.length - 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const len = dhypot(b[0] - a[0], b[1] - a[1]);
     if (len > short + 0.5) {
       b[0] -= ((b[0] - a[0]) * short) / len;
       b[1] -= ((b[1] - a[1]) * short) / len;
@@ -165,10 +166,10 @@ export function stepLodges(s: SimState, map: CoastMap): void {
     }
     // He steps out on the side nearest the herd.
     const [cx, cz] = centreOf(l);
-    const ang = Math.atan2(game.h.z - cz, game.h.x - cx);
+    const ang = datan2(game.h.z - cz, game.h.x - cx);
     const side = sides.reduce((a, t) => {
-      const da = Math.hypot((a % size) + 0.5 - cx - Math.cos(ang) * 2, Math.floor(a / size) + 0.5 - cz - Math.sin(ang) * 2);
-      const dt = Math.hypot((t % size) + 0.5 - cx - Math.cos(ang) * 2, Math.floor(t / size) + 0.5 - cz - Math.sin(ang) * 2);
+      const da = dhypot((a % size) + 0.5 - cx - dcos(ang) * 2, Math.floor(a / size) + 0.5 - cz - dsin(ang) * 2);
+      const dt = dhypot((t % size) + 0.5 - cx - dcos(ang) * 2, Math.floor(t / size) + 0.5 - cz - dsin(ang) * 2);
       return dt < da ? t : a;
     });
     const way = routeTo(s, map, door(size, l, side), [side], game.h.x, game.h.z, SHORT);
@@ -191,7 +192,7 @@ function strike(s: SimState, map: CoastMap, w: Walker, l: Building): boolean {
   const h = s.herds[w.food];
   const [x, z] = position(w);
   if (h && h.head > MIN_HEAD) {
-    if (Math.hypot(h.x - x, h.z - z) <= REACH + 1) {
+    if (dhypot(h.x - x, h.z - z) <= REACH + 1) {
       h.head--;
       w.load = MEAT_KILL;
       bolt(s, map, h, x, z);
@@ -229,7 +230,7 @@ export function moveHunter(s: SimState, map: CoastMap, w: Walker): boolean {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;
@@ -252,7 +253,7 @@ export function moveHunter(s: SimState, map: CoastMap, w: Walker): boolean {
     const h = s.herds[w.food];
     const [x, z] = position(w);
     if (!h || h.head <= MIN_HEAD) return goHome(s, map, w, l) || home(s, w, l);
-    if (Math.hypot(h.x - x, h.z - z) > REACH) {
+    if (dhypot(h.x - x, h.z - z) > REACH) {
       // It has moved on: after it again, a few times.
       if (w.steps < REAIMS && aim(s, map, w)) {
         w.steps++;
@@ -315,7 +316,7 @@ export function lodgeOutlook(s: SimState, x: number, z: number): { game: Array<{
   const cx = x + 1.5;
   const cz = z + 1.5;
   const game = s.herds
-    .map((h) => ({ h, d: Math.hypot(h.x - cx, h.z - cz) }))
+    .map((h) => ({ h, d: dhypot(h.x - cx, h.z - cz) }))
     .filter((g) => g.d <= HUNT_RANGE)
     .sort((a, b) => a.d - b.d);
   const others = s.buildings.filter((o) => o.kind === 'lodge' && huntersFor(o) > 0);

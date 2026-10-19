@@ -33,6 +33,7 @@
  * seed and the month or the raid's number. Pure.
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { EDGE_ALONG, HORIZON_ALONG, PLACES, RULED, type CityId, CITY_IDS } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { around, centreOf, findBuilding } from './buildings';
@@ -381,7 +382,7 @@ export function landing(s: SimState, map: CoastMap, city: CityId): { edge: numbe
     if (!goals.length) continue;
     // The side of it facing the edge they come from; in at whichever open edge tile is the shortest walk from it.
     const toEdge = (t: number): number => edgeDistance(size, t % size, Math.floor(t / size), side);
-    goals.sort((p, q) => toEdge(p) - toEdge(q) || Math.hypot((p % size) - cx, Math.floor(p / size) - cz) - Math.hypot((q % size) - cx, Math.floor(q / size) - cz) || p - q);
+    goals.sort((p, q) => toEdge(p) - toEdge(q) || dhypot((p % size) - cx, Math.floor(p / size) - cz) - dhypot((q % size) - cx, Math.floor(q / size) - cz) || p - q);
     const tiles = offRoadPath(map, s, edges, goals[0]);
     if (!tiles) continue;
     const edge = tiles[0];
@@ -513,7 +514,7 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;
@@ -790,7 +791,7 @@ export function bandsAt(s: SimState): number[] {
 export function sheltering(bands: readonly number[], w: Walker): boolean {
   if (!bands.length || w.kind === 'raider' || w.kind === 'watchman' || w.kind === 'caravan' || w.path.length < 2) return false;
   const [x, z] = position(w);
-  for (let i = 0; i < bands.length; i += 2) if (Math.hypot(bands[i] - x, bands[i + 1] - z) < SHELTER) return true;
+  for (let i = 0; i < bands.length; i += 2) if (dhypot(bands[i] - x, bands[i + 1] - z) < SHELTER) return true;
   return false;
 }
 

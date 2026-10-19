@@ -27,6 +27,7 @@
  * What is random is a hash of Greece's seed and the month or the war's
  * number, never `world.rng` (the harvests draw on it). Pure.
  */
+import { dpow } from '../map/dmath';
 import { lineLength, meetAlong, PLACES, RIVAL_WAYS, rivalPoints, rivalWay, RULED, wayOf, wayPoints, CITY_IDS, HORIZON_ALONG, type CityId, type RivalWay } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { dateOfTick, formatYear, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
@@ -265,8 +266,8 @@ function passing(s: SimState, x: CityId, y: CityId, month: number, i: number): v
   const b = cityOf(w, y);
   const traits = [...(a.ruler?.traits ?? []), ...(b.ruler?.traits ?? [])];
   const count = (t: string): number => traits.filter((u) => u === t).length;
-  const quarrel = QUARREL_ODDS * Math.pow(1.5, count('warlike')) * Math.pow(1.2, count('proud')) * Math.pow(0.7, count('generous')) * Math.pow(1.3, count('fickle'));
-  const friend = FRIEND_ODDS * Math.pow(1.5, count('generous')) * Math.pow(0.7, count('warlike')) * Math.pow(1.3, count('fickle'));
+  const quarrel = QUARREL_ODDS * dpow(1.5, count('warlike')) * dpow(1.2, count('proud')) * dpow(0.7, count('generous')) * dpow(1.3, count('fickle'));
+  const friend = FRIEND_ODDS * dpow(1.5, count('generous')) * dpow(0.7, count('warlike')) * dpow(1.3, count('fickle'));
   if (dice(w, month, i, 1) < quarrel) {
     const size = QUARREL_LEAST + Math.round(dice(w, month, i, 2) * (QUARREL_MOST - QUARREL_LEAST));
     const what = QUARRELS[Math.floor(dice(w, month, i, 3) * QUARRELS.length)];

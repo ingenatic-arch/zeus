@@ -14,6 +14,7 @@
  * the homes beside it.
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { around, centreOf, findBuilding } from './buildings';
 import { roadSearch, tracePath } from './roads';
 import { TILE_ROAD, type Building, type ServiceRecord, type SimState, type Walker } from './state';
@@ -222,7 +223,7 @@ export function moveRounds(s: SimState, map: CoastMap, w: Walker, spec: ServiceS
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;

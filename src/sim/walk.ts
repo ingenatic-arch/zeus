@@ -3,6 +3,7 @@
  * between them, how fast each kind walks, and the junction rule service
  * walkers use to choose their way.
  */
+import { dhypot } from '../map/dmath';
 import { centreOf, findBuilding } from './buildings';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 
@@ -140,7 +141,7 @@ export function position(w: Walker): [number, number] {
   if (i + 3 >= w.path.length) return [w.path[w.path.length - 2], w.path[w.path.length - 1]];
   const x0 = w.path[i];
   const z0 = w.path[i + 1];
-  const len = Math.hypot(w.path[i + 2] - x0, w.path[i + 3] - z0) || 1;
+  const len = dhypot(w.path[i + 2] - x0, w.path[i + 3] - z0) || 1;
   const f = Math.min(1, w.along / len);
   return [x0 + (w.path[i + 2] - x0) * f, z0 + (w.path[i + 3] - z0) * f];
 }

@@ -26,6 +26,7 @@
  */
 import { WATER_SEA, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
+import { dcos, dhypot, dsin } from '../map/dmath';
 import { Ground, mapIndex } from './build';
 import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
@@ -264,7 +265,7 @@ function findBerth(map: CoastMap, x: number, z: number): Berth | null {
       const pz = tz + 0.5;
       const ex = Math.max(x - px, 0, px - (x + 3));
       const ez = Math.max(z - pz, 0, pz - (z + 3));
-      const d = Math.hypot(ex, ez);
+      const d = dhypot(ex, ez);
       if (d <= JETTY_MAX) near.push({ t, d });
     }
   }
@@ -384,7 +385,7 @@ export function shipRoute(map: CoastMap, berth: Berth): number[] {
 
 /** Can she sail straight from a to b (over deep water or beyond the edge all the way)? */
 function clearWay(map: CoastMap, a: [number, number], b: [number, number]): boolean {
-  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const d = dhypot(b[0] - a[0], b[1] - a[1]);
   const k = Math.max(1, Math.ceil(d / 0.4));
   for (let i = 1; i < k; i++) {
     const f = i / k;
@@ -396,7 +397,7 @@ function clearWay(map: CoastMap, a: [number, number], b: [number, number]): bool
 /** A path's length, and the point and heading a distance along it. */
 export function pathLength(p: readonly number[]): number {
   let l = 0;
-  for (let i = 0; i + 3 < p.length; i += 2) l += Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
+  for (let i = 0; i + 3 < p.length; i += 2) l += dhypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
   return l;
 }
 export function pointAlong(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
@@ -404,7 +405,7 @@ export function pointAlong(p: readonly number[], d: number): { x: number; z: num
   for (let i = 0; i + 3 < p.length; i += 2) {
     const sx = p[i + 2] - p[i];
     const sz = p[i + 3] - p[i + 1];
-    const l = Math.hypot(sx, sz);
+    const l = dhypot(sx, sz);
     if (left <= l || i + 4 >= p.length - 1) {
       const f = l > 0 ? Math.min(1, left / l) : 0;
       return { x: p[i] + sx * f, z: p[i + 1] + sz * f, dx: l > 0 ? sx / l : 1, dz: l > 0 ? sz / l : 0 };
@@ -462,7 +463,7 @@ function outerLength(p: readonly number[]): number {
   outer: for (let i = 0; i + 3 < p.length; i += 2) {
     const sx = p[i + 2] - p[i];
     const sz = p[i + 3] - p[i + 1];
-    const l = Math.hypot(sx, sz);
+    const l = dhypot(sx, sz);
     const k = Math.max(1, Math.ceil(l / 0.25));
     for (let j = 0; j < k; j++) {
       const f = j / k;
@@ -532,8 +533,8 @@ export function shipAt(ship: Sailing, tick: number): { x: number; z: number; dx:
   if (swing >= 0) {
     // Round from bow in to bow out, the same way every time.
     const a = Math.PI * swing;
-    const c = Math.cos(a);
-    const sn = Math.sin(a);
+    const c = dcos(a);
+    const sn = dsin(a);
     return { x: p.x, z: p.z, dx: p.dx * c - p.dz * sn, dz: p.dx * sn + p.dz * c, inward: f };
   }
   return { x: p.x, z: p.z, dx: back ? -p.dx : p.dx, dz: back ? -p.dz : p.dz, inward: f };
@@ -964,7 +965,7 @@ export function moveDocker(s: SimState, map: CoastMap, d: Walker): boolean {
     const last = d.path.length / 2 - 1;
     if (d.seg >= last) break;
     const i = d.seg * 2;
-    const len = Math.hypot(d.path[i + 2] - d.path[i], d.path[i + 3] - d.path[i + 1]);
+    const len = dhypot(d.path[i + 2] - d.path[i], d.path[i + 3] - d.path[i + 1]);
     if (d.along + move < len) {
       d.along += move;
       d.walked += move;

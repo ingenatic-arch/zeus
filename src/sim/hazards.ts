@@ -29,6 +29,7 @@
  * random numbers (and a town with no fire runs exactly as before).
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { beside, capacity, centreOf, findBuilding, footSide, HOME_CAPACITY } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { rateOf } from './labour';
@@ -326,7 +327,7 @@ export function fireInSight(s: SimState, size: number, here: [number, number], f
   for (const f of s.buildings) {
     if (f.fire !== which) continue;
     const [cx, cz] = centreOf(f);
-    if (Math.hypot(cx - here[0], cz - here[1]) > WATCH_SIGHT) continue;
+    if (dhypot(cx - here[0], cz - here[1]) > WATCH_SIGHT) continue;
     const roads = roadsBeside(s, size, f);
     if (roads.length === 0) continue;
     const search = roadSearch(s, size, roads);
@@ -434,7 +435,7 @@ export function moveWatchman(s: SimState, map: CoastMap, w: Walker): boolean {
     const next = w.tiles[w.seg + 1];
     if (next >= 0 && s.tiles[next] !== TILE_ROAD) return after();
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;

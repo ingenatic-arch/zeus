@@ -10,6 +10,8 @@
  * the Aegean's middle latitude, so the shapes keep their proportions.
  */
 
+import { dcos, dhypot } from './dmath';
+
 /** The cities of Greece, in the order the world record keeps them: yours first, then the four with rulers, then Tyre. */
 export type CityId = 'home' | 'athens' | 'sparta' | 'corinth' | 'troy' | 'tyre';
 export const CITY_IDS: readonly CityId[] = ['home', 'athens', 'sparta', 'corinth', 'troy', 'tyre'];
@@ -23,7 +25,7 @@ export const LAT0 = 34.7;
 export const LAT1 = 41.2;
 /** Table units per degree of latitude. */
 export const DEG = 20;
-const COS = Math.cos((38.5 * Math.PI) / 180);
+const COS = dcos((38.5 * Math.PI) / 180);
 /** The table's size in units (x by z). */
 export const TABLE_W = (LON1 - LON0) * COS * DEG;
 export const TABLE_D = (LAT1 - LAT0) * DEG;
@@ -172,7 +174,7 @@ export function wayPoints(w: Way): number[] {
 /** A polyline's length (x, z pairs). */
 export function lineLength(p: readonly number[]): number {
   let l = 0;
-  for (let i = 0; i + 3 < p.length; i += 2) l += Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
+  for (let i = 0; i + 3 < p.length; i += 2) l += dhypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
   return l;
 }
 
@@ -182,7 +184,7 @@ export function alongLine(p: readonly number[], d: number): { x: number; z: numb
   for (let i = 0; i + 3 < p.length; i += 2) {
     const sx = p[i + 2] - p[i];
     const sz = p[i + 3] - p[i + 1];
-    const l = Math.hypot(sx, sz);
+    const l = dhypot(sx, sz);
     if (left <= l || i + 4 >= p.length - 1) {
       const f = l > 0 ? Math.min(1, left / l) : 0;
       return { x: p[i] + sx * f, z: p[i + 1] + sz * f, dx: l > 0 ? sx / l : 1, dz: l > 0 ? sz / l : 0 };

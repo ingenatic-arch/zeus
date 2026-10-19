@@ -22,6 +22,7 @@
  *
  * Pure: plain data in, plain data out; only `world.rng` is drawn from.
  */
+import { dpow } from '../map/dmath';
 import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RULED, wayOf, wayPoints, type CityId } from '../map/greece';
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
@@ -262,7 +263,7 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     if (!c.ruler) continue;
     c.harvest = drawHarvest(rng);
     c.outlook = drawHarvest(rng);
-    const wear = Math.pow(1 - 1 / WEAR_DAYS, Math.floor((tick - last) / TICKS_PER_DAY));
+    const wear = dpow(1 - 1 / WEAR_DAYS, Math.floor((tick - last) / TICKS_PER_DAY));
     TRADE_GOODS.forEach((_, k) => {
       c.crop[k] = tidy(HARVEST_SHIFT[c.harvest] * CROP_WEIGHT[k] * normalStock(c, k) * wear);
     });

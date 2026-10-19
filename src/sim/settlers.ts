@@ -1,4 +1,5 @@
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { around, capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
 import { moveIn } from './folk';
 import { nextInt } from './rng';
@@ -298,7 +299,7 @@ export function moveGroup(s: SimState, map: CoastMap, w: Walker): boolean {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;

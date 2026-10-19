@@ -24,6 +24,7 @@ import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, t
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS } from '../sim/raids';
+import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
@@ -262,7 +263,7 @@ function nearest(s: SimState, x: number, z: number, among = homes(s)): number {
   let best = 0;
   let d = Infinity;
   for (const b of among) {
-    const e = (b.x + 1 - x) ** 2 + (b.z + 1 - z) ** 2;
+    const e = sq(b.x + 1 - x) + sq(b.z + 1 - z);
     if (e < d) [best, d] = [b.id, e];
   }
   return best;
@@ -1056,7 +1057,7 @@ function routesTown(stage: RouteStage): (sim: Sim) => void {
       // #buywine: a few days short of the yard's gate, to be seen coming in, unloading the wine and its porters carrying it off.
       if (!w || w.back) return false;
       let left = -w.along;
-      for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+      for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
       return left < BUYWINE_LEFT;
     };
     const stop = s.tick + (stage === 'prices' ? 2 : 1) * ROUTE_WAIT;

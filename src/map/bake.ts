@@ -13,6 +13,7 @@
  */
 import { Rng } from '../sim/rng';
 import { coast as defaultCoast, COAST_SEED, MAP_MARGIN, MAP_SIZE, type CoastData } from './coast';
+import { dcos, dexp, dhypot, dpow, dsin, sq } from './dmath';
 import { clamp, fbm, lerp, ridged, smoothstep, valueNoise } from './noise';
 
 export const FIELD_MIN = -MAP_MARGIN;
@@ -176,7 +177,7 @@ export class CoastMap {
     const e = 0.75;
     const dx = (this.sample(this.heights, x + e, z) - this.sample(this.heights, x - e, z)) / (2 * e);
     const dz = (this.sample(this.heights, x, z + e) - this.sample(this.heights, x, z - e)) / (2 * e);
-    return Math.hypot(dx, dz);
+    return dhypot(dx, dz);
   }
 
   riverAt(x: number, z: number): RiverQuery {
@@ -273,7 +274,7 @@ function buildRiverPath(data: CoastData): Omit<RiverPath, 'surface'> {
     const p1 = ctrl[k];
     const p2 = ctrl[k + 1];
     const p3 = ctrl[Math.min(ctrl.length - 1, k + 2)];
-    const segLen = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const segLen = dhypot(p2[0] - p1[0], p2[1] - p1[1]);
     const steps = Math.max(2, Math.ceil(segLen / 0.5));
     for (let s = 0; s < steps; s++) {
       const t = s / steps;
@@ -286,7 +287,7 @@ function buildRiverPath(data: CoastData): Omit<RiverPath, 'surface'> {
   zs.push(lastP[1]);
   const n = xs.length;
   const dist = new Float32Array(n);
-  for (let i = 1; i < n; i++) dist[i] = dist[i - 1] + Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]);
+  for (let i = 1; i < n; i++) dist[i] = dist[i - 1] + dhypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]);
   const length = dist[n - 1];
   const width = new Float32Array(n);
   const valley = new Float32Array(n);
@@ -294,7 +295,7 @@ function buildRiverPath(data: CoastData): Omit<RiverPath, 'surface'> {
     const t = dist[i] / length;
     // Slight swells and narrows so it doesn't look ruled.
     const wob = 1 + 0.18 * (valueNoise(dist[i] * 0.12, 3.7, COAST_SEED + 31) * 2 - 1);
-    width[i] = lerp(data.riverWidth[0], data.riverWidth[1], Math.pow(t, 0.85)) * wob;
+    width[i] = lerp(data.riverWidth[0], data.riverWidth[1], dpow(t, 0.85)) * wob;
     valley[i] = lerp(data.valleyWidth[0], data.valleyWidth[1], t) * (1 + 0.25 * (valueNoise(dist[i] * 0.05, 9.1, COAST_SEED + 41) * 2 - 1));
   }
   return { xs: Float32Array.from(xs), zs: Float32Array.from(zs), width, valley, dist, length };
@@ -326,7 +327,7 @@ export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Ar
   }
   const dx = r.xs[bi + 1] - r.xs[bi];
   const dz = r.zs[bi + 1] - r.zs[bi];
-  const l = Math.hypot(dx, dz) || 1;
+  const l = dhypot(dx, dz) || 1;
   const at = (arr: Float32Array): number => arr[bi] + (arr[bi + 1] - arr[bi]) * bu;
   return {
     d: Math.sqrt(best),
@@ -357,7 +358,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       const slope = (shoreZ(data.shore, x + 0.5) - shoreZ(data.shore, x - 0.5)) / 1;
       let d = (sz - z) / Math.sqrt(1 + slope * slope);
       for (const is of data.islets) {
-        const e = Math.hypot((x - is.x) / is.rx, (z - is.z) / is.rz);
+        const e = dhypot((x - is.x) / is.rx, (z - is.z) / is.rz);
         d = Math.max(d, (1 - e) * Math.min(is.rx, is.rz));
       }
       const k = j * N + i;
@@ -386,19 +387,19 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       const d = shore[k];
       let h: number;
       if (d >= 0) {
-        h = 1.9 * (1 - Math.exp(-d / 14)) + 0.012 * d;
+        h = 1.9 * (1 - dexp(-d / 14)) + 0.012 * d;
         h += fbm(x * 0.045, z * 0.045, seed + 11, 4) * 0.9 * smoothstep(2, 14, d);
       } else {
         const dd = -d;
-        h = -(1.7 * (1 - Math.exp(-dd / 6)) + 0.035 * dd);
+        h = -(1.7 * (1 - dexp(-dd / 6)) + 0.035 * dd);
         h += fbm(x * 0.06, z * 0.06, seed + 13, 3) * 0.35 * smoothstep(1, 6, dd);
         h = Math.max(h, -9);
       }
       let rocky = 0;
       for (const hill of data.hills) {
-        const r2 = ((x - hill.x) ** 2 + (z - hill.z) ** 2) / (hill.r * hill.r);
+        const r2 = (sq(x - hill.x) + sq(z - hill.z)) / (hill.r * hill.r);
         if (r2 > 9) continue;
-        const g = Math.exp(-r2);
+        const g = dexp(-r2);
         const w = hill.cliffy ? smoothstep(-2.5, 1.2, d) : smoothstep(0, 9, d);
         h += hill.h * g * w;
         if (hill.rocky) rocky = Math.max(rocky, smoothstep(0.15, 0.6, g) * w);
@@ -431,7 +432,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
     // Lowest ground across the stream's width, so the surface sits below both banks.
     const dx = i < rn - 1 ? path.xs[i + 1] - path.xs[i] : path.xs[i] - path.xs[i - 1];
     const dz = i < rn - 1 ? path.zs[i + 1] - path.zs[i] : path.zs[i] - path.zs[i - 1];
-    const l = Math.hypot(dx, dz) || 1;
+    const l = dhypot(dx, dz) || 1;
     const nx = -dz / l;
     const nz = dx / l;
     let lo = Infinity;
@@ -493,7 +494,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       const bank = s + 0.05 + 0.3 * smoothstep(w + RIVER_SHELF, w + RIVER_SHELF + 0.8, q.d);
       if (q.d < w) {
         const depth = lerp(0.35, 0.95, q.t);
-        heights[k] = Math.min(h0, s - RIVER_SHELF_DEPTH - depth * (1 - (q.d / w) ** 4));
+        heights[k] = Math.min(h0, s - RIVER_SHELF_DEPTH - depth * (1 - dpow(q.d / w, 4)));
       } else if (q.d < w + RIVER_SHELF) {
         heights[k] = Math.min(h0, s - RIVER_SHELF_DEPTH);
       } else if (h0 > s) {
@@ -505,7 +506,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       }
       // The flood plain is fertile; it fades away from the water.
       if (shore[k] > 1) {
-        const f = Math.exp(-((Math.max(0, q.d - w) / (V * 1.1)) ** 2));
+        const f = dexp(-sq(Math.max(0, q.d - w) / (V * 1.1)));
         fertility[k] = Math.max(fertility[k], f * (1 - rock[k]));
       }
       // Rocks soften to meadow near the water.
@@ -517,7 +518,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   for (let j = 1; j < N - 1; j++) {
     for (let i = 1; i < N - 1; i++) {
       const k = j * N + i;
-      const sl = Math.hypot(heights[k + 1] - heights[k - 1], heights[k + N] - heights[k - N]) * 0.5;
+      const sl = dhypot(heights[k + 1] - heights[k - 1], heights[k + N] - heights[k - N]) * 0.5;
       const flat = 1 - smoothstep(0.12, 0.45, sl);
       const low = 1 - smoothstep(2.5, 6, heights[k]);
       const g = flat * low * smoothstep(2, 7, shore[k]) * (1 - rock[k]) * 0.3;
@@ -604,15 +605,15 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
 
   // Olive groves in loose rows.
   for (const g of data.groves) {
-    const c = Math.cos(g.rows);
-    const s = Math.sin(g.rows);
+    const c = dcos(g.rows);
+    const s = dsin(g.rows);
     const n = Math.ceil(g.r / g.spacing) + 1;
     for (let a = -n; a <= n; a++) {
       for (let b = -n; b <= n; b++) {
         const lx = a * g.spacing + (b % 2 ? g.spacing * 0.5 : 0);
         const lz = b * g.spacing * 0.92;
         const edge = g.r * (0.75 + 0.4 * valueNoise(a * 0.7 + g.x, b * 0.7 + g.z, seed + 51));
-        if (Math.hypot(lx, lz) > edge) continue;
+        if (dhypot(lx, lz) > edge) continue;
         if (rng.float() < 0.1) continue; // a missing tree here and there
         const x = g.x + lx * c - lz * s + rng.range(-0.3, 0.3);
         const z = g.z + lx * s + lz * c + rng.range(-0.3, 0.3);
@@ -628,8 +629,8 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, Math.PI * 2);
       const r = Math.sqrt(rng.float()) * st.r;
-      const x = st.x + Math.cos(a) * r;
-      const z = st.z + Math.sin(a) * r;
+      const x = st.x + dcos(a) * r;
+      const z = st.z + dsin(a) * r;
       if (groundOk(x, z, 0.7)) put(TreeKind.Cypress, x, z, rng.range(0.8, 1.25));
     }
   }
@@ -638,7 +639,7 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
     const side = rng.float() < 0.5 ? -1 : 1;
     const dx = map.river.xs[Math.min(i + 1, map.river.xs.length - 1)] - map.river.xs[Math.max(0, i - 1)];
     const dz = map.river.zs[Math.min(i + 1, map.river.xs.length - 1)] - map.river.zs[Math.max(0, i - 1)];
-    const l = Math.hypot(dx, dz) || 1;
+    const l = dhypot(dx, dz) || 1;
     const off = map.river.width[i] + rng.range(2.2, 4.5);
     const x = map.river.xs[i] - (dz / l) * off * side;
     const z = map.river.zs[i] + (dx / l) * off * side;
@@ -651,8 +652,8 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, Math.PI * 2);
       const r = Math.sqrt(rng.float()) * w.r;
-      const x = w.x + Math.cos(a) * r;
-      const z = w.z + Math.sin(a) * r;
+      const x = w.x + dcos(a) * r;
+      const z = w.z + dsin(a) * r;
       if (groundOk(x, z, 0.8)) put(TreeKind.Pine, x, z, rng.range(0.8, 1.2));
     }
   }
@@ -720,7 +721,7 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
       const side = rng.float() < 0.5 ? -1 : 1;
       const dx = r.xs[i + 1] - r.xs[i];
       const dz = r.zs[i + 1] - r.zs[i];
-      const l = Math.hypot(dx, dz) || 1;
+      const l = dhypot(dx, dz) || 1;
       const off = r.width[i] + rng.range(-0.15, 0.9);
       const x = r.xs[i] - (dz / l) * off * side + rng.range(-0.2, 0.2);
       const z = r.zs[i] + (dx / l) * off * side + rng.range(-0.2, 0.2);

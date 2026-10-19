@@ -20,6 +20,7 @@
  */
 import type { CoastMap } from '../map/bake';
 import { HERDS } from '../map/coast';
+import { datan2, dcos, dhypot, dsin, sq } from '../map/dmath';
 import { Ground, mapIndex } from './build';
 import { TICKS_PER_DAY } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
@@ -132,7 +133,7 @@ function nearestGround(map: CoastMap, s: SimState, x: number, z: number, reach: 
         if (tx < 0 || tz < 0 || tx >= n || tz >= n) continue;
         const t = tz * n + tx;
         if (!herdGround(map, s, t)) continue;
-        const d = (tx + 0.5 - x) ** 2 + (tz + 0.5 - z) ** 2;
+        const d = sq(tx + 0.5 - x) + sq(tz + 0.5 - z);
         if (d < bd) {
           bd = d;
           best = t;
@@ -167,10 +168,10 @@ function wander(s: SimState, map: CoastMap, h: Herd): void {
   for (let k = 0; k < 6; k++) {
     const a = nextFloat(r) * Math.PI * 2;
     const d = Math.sqrt(nextFloat(r)) * h.r;
-    let x = h.hx + Math.cos(a) * d;
-    let z = h.hz + Math.sin(a) * d;
+    let x = h.hx + dcos(a) * d;
+    let z = h.hz + dsin(a) * d;
     // Not too far in one go.
-    const far = Math.hypot(x - h.x, z - h.z);
+    const far = dhypot(x - h.x, z - h.z);
     if (far > LEG) {
       x = h.x + ((x - h.x) * LEG) / far;
       z = h.z + ((z - h.z) * LEG) / far;
@@ -186,12 +187,12 @@ function wander(s: SimState, map: CoastMap, h: Herd): void {
 /** A hunter has taken one of the herd: it bolts a little way from him. */
 export function bolt(s: SimState, map: CoastMap, h: Herd, fromX: number, fromZ: number): void {
   h.fled = s.tick;
-  const away = Math.atan2(h.z - fromZ, h.x - fromX);
+  const away = datan2(h.z - fromZ, h.x - fromX);
   const d = 5 + nextFloat(s.wild) * 3;
   for (const turn of [0, 0.6, -0.6, 1.2, -1.2, 2]) {
-    const x = h.x + Math.cos(away + turn) * d;
-    const z = h.z + Math.sin(away + turn) * d;
-    if (Math.hypot(x - h.hx, z - h.hz) > h.r + 4) continue;
+    const x = h.x + dcos(away + turn) * d;
+    const z = h.z + dsin(away + turn) * d;
+    if (dhypot(x - h.hx, z - h.hz) > h.r + 4) continue;
     const t = Math.floor(z) * map.size + Math.floor(x);
     if (!herdGround(map, s, t) || !lineClear(map, s, h.x, h.z, x, z, herdGround)) continue;
     h.tx = x;
@@ -216,7 +217,7 @@ export function stepWild(s: SimState, map: CoastMap): void {
       const speed = s.tick - h.fled < BOLT_TIME ? BOLT : AMBLE;
       const dx = h.tx - h.x;
       const dz = h.tz - h.z;
-      const d = Math.hypot(dx, dz);
+      const d = dhypot(dx, dz);
       if (d <= speed) {
         h.x = h.tx;
         h.z = h.tz;

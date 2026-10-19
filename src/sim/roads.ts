@@ -4,6 +4,7 @@
  * Pure and deterministic (neighbours are always visited in the same order).
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { bridgeSpan, Ground, isEdgeTile, mapIndex, roadRefusal } from './build';
 import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
 
@@ -143,7 +144,7 @@ export function overland(map: CoastMap, s: SimState, from: number): { points: nu
   const clear = (a: number, b: number): boolean => {
     const ax = cx(a);
     const az = cz(a);
-    const len = Math.hypot(cx(b) - ax, cz(b) - az);
+    const len = dhypot(cx(b) - ax, cz(b) - az);
     const steps = Math.ceil(len * 4);
     for (let k = 1; k < steps; k++) {
       const f = k / steps;

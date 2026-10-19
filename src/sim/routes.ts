@@ -36,6 +36,7 @@
  * that has never opened a route or built a yard.
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { CITY_IDS, EDGE_ALONG, HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints as tableWay, type CityId } from '../map/greece';
 import { findBuilding } from './buildings';
 import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
@@ -615,7 +616,7 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;
     const i = w.seg * 2;
-    const len = Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
     if (w.along + move < len) {
       w.along += move;
       w.walked += move;

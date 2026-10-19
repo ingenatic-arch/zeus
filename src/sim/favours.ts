@@ -28,6 +28,7 @@
  * Pure.
  */
 import type { CoastMap } from '../map/bake';
+import { dhypot } from '../map/dmath';
 import { PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { findBuilding } from './buildings';
@@ -802,7 +803,7 @@ export function arrivesAt(s: SimState, map: CoastMap, g: Gift): number {
 /** How far a walker has still to go along her path (tiles). */
 function pathLeft(w: Pick<Walker, 'path' | 'seg' | 'along'>): number {
   let left = -w.along;
-  for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+  for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) left += dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
   return Math.max(0, left);
 }
 
