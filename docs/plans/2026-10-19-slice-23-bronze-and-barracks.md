@@ -106,4 +106,28 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#bronze`, `#barra
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits: `dea6638` (this plan), `8210b05` (copper, armour and the army in the sim; the overlay, the three buildings, soldiers, banners, the tools, the Army tab and chip, the home and soldier lines), `16d644f` (the three demos, tuning found while building them, smoke, measure and screenshots), `dae47cd` (the `#bronze` view, probe hooks), and the check-in.
+
+**Copper on the hills.** As designed: three outcrops in `src/map/coast.ts` (the north-west massif, the east hills, the headland), `tileCopper` and `copperOf` in `src/sim/build.ts`, a mine allowed where its footprint averages at least 0.3. The baked map is untouched. The placement overlay paints the copper as green bands over the ground while the mine tool is in hand (the map's own colouring of the east outcrop is grass and scrub as much as rock, so the bands lie on both).
+
+**The mine and the armoury.** As designed (`src/sim/production.ts`, `src/sim/stores.ts`): the mine 200 measures a month fully worked on the richest rock and holds 400; the armoury two sets every three days from 10 copper a set, holding 200 copper. One change: the mines' carts take ore to the nearest building with room, usually a storehouse, so an armoury could starve beside a full one. The armoury now has a porter who fetches up to 100 copper from the nearest store holding some whenever its heap is half empty (`smithy` in `src/sim/army.ts`).
+
+**Copper and armour as wares.** Ware 8 and 9, in `WARE_INFO`, the stock book, the storehouse's display (ore baskets and armour stands), the Goods tab (copper under "From the land", armour under its own "Arms"). On Greece's routes: Sparta sells copper, Corinth and Athens armour, from their character with no dice; requests, offers and gifts keep to the old six goods; the Tyre ship doesn't deal in them. The probe confirms every earlier demo plays exactly as before, routes included: no route history moved.
+
+**The army.** As designed (`src/sim/army.ts`, `src/sim/armystatus.ts`, commands `raise`, `dismiss`, `banner`), with two changes found while building the demos:
+- The barracks' porter carries 32 sets a trip, not 16. Where a barracks is some way from the stores, a company of 16 waited two round trips.
+- Sets left over on the barracks' rack stay there while it has hoplites, for the men who fill places later. Before, a cart took them straight back, so the porter fetched 22 and a cart returned 6. A barracks with no hoplites left still sends its armour back.
+- The man who serves is the home's eldest son, or its head if it has none. A home's panel says "Kleon, the head of the house, serves in the 1st company of hoplites; he has left his work".
+- The Army tab says "raising: 0 of 16 ready (8 walking in, 8 waiting for armour)" while nobody is ready, rather than "drilling".
+
+**Drawing.** `src/render/arms.ts` holds the mine, the armoury, the barracks, the ore basket, the armour stand and the soldiers' looks. `src/render/army.ts` holds the soldiers (in the walkers' batch), the banners (one instanced mesh of poles, one cloth mesh on a shared canvas atlas with the emblem and number) and the ring under the banner in hand. The workplaces' frames now take any footprint (3×3 unchanged; the 4×4 barracks).
+
+**Selecting and moving.** `src/game/orders.ts` and the hooks in `src/main.ts`. Click a banner (within 24 px), a soldier (14 px), or the company's row on the Army tab. The tile under the pointer is marked, and its tip gives the march's length in days or why not. A click, or a drag from the banner, sends the company; Esc or a right-click lets go; orders apply at once while paused. A build tool and a banner in hand put each other down.
+
+**Demos.** All three are `#richtown`'s town carried on (`armsTown` in `src/game/demos.ts`):
+- **`#bronze`:** a road from the top of the oil road into the east hills (35 tiles); the mine on the richest rock there (107, 9); the armoury on the oil road below the storehouse (87, 36). Played until four sets are in the stores (June 747 BC). Higher up, the oil road's slope is too steep for a 3×3. The plan had the working mine on "the other outcrop", but only the east outcrop can be reached by road from the town, so the free copper for Oliver is the rest of that same outcrop.
+- **`#barracks`:** a barracks east of the armoury on a two-tile lane, (89, 31), and a company of hoplites raised. It opens when half the men are in, waiting, and the porter is on his way back with their armour.
+- **`#companies`:** archers raised too. It opens once both companies are full, plus two days of drill, with the hoplites' banner in hand and the Army tab open.
+
+**Not done** (in the check-in's rough edges): no miner figures at the mine (its carts and the windlass only); the forge's glow is under the lean-to's roof, seen only from low down; the soldiers walk the same pace as everyone, so a march across the town takes a few weeks of game time.
+

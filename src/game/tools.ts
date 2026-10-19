@@ -61,7 +61,7 @@ import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/tre
 import { hazardReach, previewReach, type ServiceOverlay } from '../render/overlay';
 import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
 import { placeName } from '../sim/status';
-import { berthAt, FIRST_SHIP, PRICES, quayTiles, TRADE_GOODS } from '../sim/trade';
+import { berthAt, FIRST_SHIP, PRICES, OLD_GOODS, quayTiles, TRADE_GOODS } from '../sim/trade';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 
 export type ToolName =
@@ -805,7 +805,7 @@ export class Tools {
       const berth = berthAt(map, x, z);
       lines.push('Its dockers carry what the granaries and storehouses hold beyond what the city keeps to the quay; a merchant ship calls every three months and buys it');
       if (berth) lines.push(`A jetty runs ${Math.round(berth.len)} ${Math.round(berth.len) === 1 ? 'tile' : 'tiles'} out to deep water, where she ties up`);
-      lines.push(`She pays for every 100: ${TRADE_GOODS.map((w, k) => `${WARE_NAMES[w]} ${PRICES[k]}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
+      lines.push(`She pays for every 100: ${TRADE_GOODS.slice(0, OLD_GOODS).map((w, k) => `${WARE_NAMES[w]} ${PRICES[k]}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
       if (roads.length === 0) warn = 'No road beside it: its dockers couldn’t reach the stores. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its dockers fetch from the granaries and storehouses: the city has none yet');
       else lines.push(this.dockerTrips(at, roads));

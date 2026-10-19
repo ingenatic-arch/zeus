@@ -974,7 +974,7 @@ if (!(c.tool === 'trading' && c.tradingPosts === 0 && c.shipChip === '')) fail(`
 await zeus((v) => window.__zeus.jump(v), { x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 });
 await frames(3);
 gt = await groveTipAt(74.5, 70.5, /^Trading post · \d+ dr/);
-if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 20[\s\S]*wine 100 dr[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
+if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 20[\s\S]*wine 100 dr ·[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
 gt = await groveTipAt(70.5, 62.5, /^A trading post goes on the bay shore/);
 if (!/^A trading post goes on the bay shore: no sea beside it here/.test(gt ?? '')) fail(`trading post refused inland: ${gt}`);
 // Building it: the countdown appears in the top bar and the post's panel.
@@ -1361,7 +1361,8 @@ g = await gi();
 if (!(g.shown === 'corinth' && g.tab === 'prices' && /Corinth’s terms: [a-z]+, prices[\s\S]*Prices in Corinth[\s\S]*Harvest: [a-z]+ (last|this) autumn/.test(g.panel))) fail(`#prices: ${g.tab} ${g.panel.slice(0, 600)}`);
 if (!/Cheap[^(]*\(usually 90\): you sold them/.test(g.panel)) fail(`#prices: no reason for cheap oil: ${g.panel.slice(0, 900)}`);
 const pr17 = await zeus(() => ({ sparks: document.querySelectorAll('.greece-panel svg.spark').length, arrows: document.querySelectorAll('.greece-panel svg.parrow').length }));
-if (!(pr17.sparks === 6 && pr17.arrows >= 6)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
+// (Slice 23: copper and armour too, eight goods.)
+if (!(pr17.sparks === 8 && pr17.arrows >= 8)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
 // Its route tab: your price with its arrow, the terms, and the prices list.
 await zeus(() => window.__zeus.greece(false));
 await zeus(() => window.__zeus.trade(true, 'corinth-land'));
