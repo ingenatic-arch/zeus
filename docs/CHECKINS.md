@@ -2,6 +2,20 @@
 
 Notes to Oliver, newest first.
 
+## City look, stage 1 — light, ground and materials (19 Oct)
+
+You picked look A, Sunlit terracotta. Stage 1 of its plan (`docs/plans/2026-10-19-city-look.md`) is now the game's own look in every demo: light and colour, the ground, the building materials and the sea. Trees and people are stage 2, and cornices and window frames stage 3. Add `-plain` to any link (`#goods-plain`) to see the old look side by side. Nothing in the simulation or the saves changed.
+
+### What's new
+- **Light.** A warmer, stronger sun with softer shadows and a lower sky fill; ambient occlusion so buildings sit on the ground; a light bloom and a warm grade with a soft vignette.
+- **Ground.** Smooth ground instead of triangle facets: grass in tufts with dry gold drifts and bare soil, ripples on the sand when you're close, bedding on rock. Roads have flagstones, plots have trodden earth.
+- **Buildings.** Tiled roofs with rows and channels, plaster walls with grain and dust at the foot, slabs on paving and steps. Awnings, pots and cloth are left as they were.
+- **Sea and smoke.** A deeper Aegean with turquoise only in the shallows, shore foam that breaks into drifting lace instead of a hard white band, and hearth smoke that drifts thin instead of white bubbles.
+
+### Your eye on
+- Whether the grade is too warm or too dark for you; it is one set of numbers and easy to move.
+- Frame rate on your laptop. These shots ran on software graphics here, so I couldn't measure it. If it drops, the fallback in the plan is a Graphics setting that turns off ambient occlusion and bloom.
+
 ## Slice 23 — Bronze and the barracks (19 Oct)
 
 The first slice of the new phase lets the city arm itself: copper in the hills, a mine and an armoury that make armour, a barracks that raises companies of hoplites and archers from your best homes, and banners you carry through your streets to march them (there is nobody to fight yet; raiders fought in the streets come next). You weren't here while it was built: every choice below is mine, from the spec's defaults.
