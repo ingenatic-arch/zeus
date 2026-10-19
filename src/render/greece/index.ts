@@ -624,8 +624,10 @@ export class GreeceMap {
         const { colour, trim } = PLACES[a.city];
         const men = a.city === x.a ? x.menA : x.menB;
         const m = a.by === 'sea' ? piece(`war-${x.id}-${a.city}`, () => fleetModel(colour, trim), BODY.fleet) : piece(`war-${x.id}-${a.city}`, () => armyModel(colour, trim, men), armyBody(men));
-        const p = alongLine(line, Math.max(1.2, Math.min(L - 1.2, a.along)));
         const dir = a.facing;
+        // (Drawn larger from afar, an army grows backwards from its head, where the sim has it: two armies facing each other at the opening view would otherwise run into each other.)
+        const grow = (far - 1) * (a.by === 'sea' ? 1.25 * BODY.fleet[1] : 2.1 * armyBody(men)[1]);
+        const p = alongLine(line, Math.max(1.2, Math.min(L - 1.2, a.along - dir * grow)));
         if (a.by === 'sea') {
           m.position.set(p.x, 0.02 + Math.sin(time * 1.5 + x.id) * 0.03, p.z);
           m.rotation.set(Math.sin(time * 1.2 + x.id) * 0.03, -Math.atan2(p.dz * dir, p.dx * dir), 0);
