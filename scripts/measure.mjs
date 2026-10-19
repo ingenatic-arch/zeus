@@ -26,6 +26,15 @@ for (const f of files) {
   gz += gzipSync(b).length;
 }
 console.log(`bundle: ${files.length} files, ${(raw / 1024).toFixed(0)} KB raw, ${(gz / 1024).toFixed(0)} KB gzipped`);
+// (Slice 22: of which the demos' prepared towns, each its own file fetched only when its demo is opened, named by a hash of the town.)
+{
+  const towns = files.filter((f) => /[\\/][0-9a-f]{12}-[^\\/]+\.js$/.test(f));
+  const boot = files.filter((f) => !towns.includes(f));
+  const size = (fs) => fs.reduce((a, f) => [a[0] + statSync(f).size, a[1] + gzipSync(readFileSync(f)).length], [0, 0]);
+  const [br, bg] = size(boot);
+  const [tr, tg] = size(towns);
+  console.log(`  the game itself: ${boot.length} files, ${(br / 1024).toFixed(0)} KB raw, ${(bg / 1024).toFixed(0)} KB gzipped; the demos' prepared towns: ${towns.length} files, ${(tr / 1024).toFixed(0)} KB raw, ${(tg / 1024).toFixed(0)} KB gzipped (largest ${(Math.max(0, ...towns.map((f) => gzipSync(readFileSync(f)).length)) / 1024).toFixed(0)} KB gzipped)`);
+}
 
 const { server, url } = await serveDist(dist);
 const browser = await launch();
@@ -263,14 +272,17 @@ for (const [hash, views] of [
   ['#athensship-paused-shot', ['ship', 'town']],
   // Slice 20: raiders at a farm by the west edge, the fire alight.
   ['#raiders-paused-shot', [null, 'town']],
+  // Slice 22: the town trading with every city, over the town and down the main street by the yard.
+  ['#rivals-paused-shot', [null, 'town']],
+  ['#rivalstreet-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 0, null, { timeout: 120000 });
-  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, ready: window.__zeus.readyAt }));
-  console.log(`load ${hash}: setup ${tp.setup.toFixed(0)} ms, ready at ${tp.ready.toFixed(0)} ms by the page's clock (Playwright saw ready after ${Date.now() - t} ms)`);
+  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, ready: window.__zeus.readyAt, prepared: window.__zeus.prepared, fetch: window.__zeus.fetchMs }));
+  console.log(`load ${hash}: ${tp.prepared ? `prepared town fetched in ${(tp.fetch ?? 0).toFixed(0)} ms and opened in` : 'setup'} ${tp.setup.toFixed(0)} ms, ready at ${tp.ready.toFixed(0)} ms by the page's clock (Playwright saw ready after ${Date.now() - t} ms)`);
   for (const cam of views) {
     if (cam) await page.evaluate((c) => window.__zeus.setView(c), cam);
     const f = await page.evaluate(() => window.__zeus.frames);
@@ -295,7 +307,7 @@ for (const [hash, views] of [
   const g = await page.evaluate(() => ({ build: window.__zeus.greeceBuildMs, open: window.__zeus.greeceOpenMs }));
   console.log(`map of Greece, first opened from #town: built in ${g.build.toFixed(0)} ms (code fetch and scene), first map frame ${g.open.toFixed(0)} ms after the key by the page's clock (Playwright saw it after ${Date.now() - t} ms)`);
   // (Slice 17: #prices and #famine open on a city's page of prices, after a few years' trading or a year's play set up. Slice 18: #gift and #hostile on a ruler's page. Slice 19: #request and #tribute, a ruler's page with a deal on it. Slice 20: #raid, the band on the road. Slice 21: #war, two armies, the swords and the red way; #festival, banners and smoke.)
-  for (const hash of ['#greece-paused-shot', '#greecesail-paused-shot', '#prices-paused-shot', '#famine-paused-shot', '#gift-paused-shot', '#hostile-paused-shot', '#request-paused-shot', '#tribute-paused-shot', '#raid-paused-shot', '#war-paused-shot', '#festival-paused-shot']) {
+  for (const hash of ['#greece-paused-shot', '#greecesail-paused-shot', '#prices-paused-shot', '#famine-paused-shot', '#gift-paused-shot', '#hostile-paused-shot', '#request-paused-shot', '#tribute-paused-shot', '#raid-paused-shot', '#war-paused-shot', '#festival-paused-shot', '#rivalsmap-paused-shot']) {
     await page.goto('about:blank');
     await page.goto(url + hash);
     await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
@@ -310,7 +322,7 @@ for (const [hash, views] of [
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
@@ -321,5 +333,22 @@ for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fi
 }
 const mem = await page.evaluate(() => window.__zeus.info());
 console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures`);
+
+// Slice 22: every demo's load at 1920 x 1080, by the page's clock (its town prepared when the game was built, fetched and opened).
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const demos = await page.evaluate(() => window.__zeus.demos);
+  const rows = [];
+  for (const d of demos) {
+    await page.goto('about:blank');
+    await page.goto(`${url}#${d}-paused-shot`);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.firstFrameAt !== undefined, null, { timeout: 120000 });
+    rows.push({ d, ...(await page.evaluate(() => ({ ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt, prepared: !!window.__zeus.prepared }))) });
+  }
+  rows.sort((a, b) => b.ready - a.ready);
+  const over = rows.filter((r) => r.ready > 3000);
+  const median = rows[Math.floor(rows.length / 2)];
+  console.log(`demo loads: ${rows.length} demos, ${rows.filter((r) => r.prepared).length} from prepared towns; ready at median ${median.ready.toFixed(0)} ms, slowest ${rows.slice(0, 5).map((r) => `#${r.d} ${r.ready.toFixed(0)}`).join(', ')} ms; over 3 s: ${over.length ? over.map((r) => `#${r.d} ${r.ready.toFixed(0)}`).join(', ') : 'none'}`);
+}
 await browser.close();
 server.close();

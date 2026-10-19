@@ -71,6 +71,8 @@ interface Probe {
   /** Whether the demo opened from its town prepared at build time (slice 22), and how long fetching it took (before startMs). */
   prepared?: boolean;
   fetchMs?: number;
+  /** Every demo's token (for the measurements' load of each). */
+  demos: string[];
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
@@ -215,7 +217,7 @@ interface Probe {
   greeceBuildMs?: number;
 }
 
-const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0 };
+const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
 (window as unknown as { __zeus: Probe }).__zeus = probe;
 
 function start(preparedTown: string | null): void {
