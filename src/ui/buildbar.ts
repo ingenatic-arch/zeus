@@ -31,9 +31,9 @@ import {
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 
-type ButtonName = ToolName | 'undo' | OverlayMode;
+export type ButtonName = ToolName | 'undo' | OverlayMode;
 
-const ICONS: Record<ButtonName, string> = {
+export const ICONS: Record<ButtonName, string> = {
   // Paving stones running off into the distance.
   road: '<svg viewBox="0 0 24 24"><path d="M9 3h6l5 18H4z" class="fill-soft"/><path d="M11 6h2v3h-2zM10.6 11h2.8v3.4h-2.8zM10.1 16.6h3.8v3.6h-3.8z" class="fill-ink"/></svg>',
   // A tent.
@@ -142,7 +142,7 @@ const ICONS: Record<ButtonName, string> = {
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
 
-const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: string }> = {
+export const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: string }> = {
   road: {
     name: 'Road',
     key: 'T',

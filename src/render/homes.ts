@@ -933,3 +933,24 @@ export class Homes {
     this.merged.set(key, settled);
   }
 }
+
+/** A home or a small town building's look for the build panel's picture (see pictures.ts), or null for a kind drawn elsewhere. */
+export function homePicture(kind: string): THREE.BufferGeometry[] | null {
+  switch (kind) {
+    case 'housing':
+      return [hutA()];
+    case 'fountain': {
+      const f = fountainModel();
+      return [f.stone, f.water];
+    }
+    case 'shrine':
+      return [shrineModel()];
+    case 'taxoffice':
+      return [taxOfficeModel()];
+    case 'watchpost':
+      return [watchPostModel()];
+    case 'architect':
+      return [architectModel()];
+  }
+  return null;
+}

@@ -2116,3 +2116,96 @@ export class Works {
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Pictures for the build panel (see pictures.ts).
+
+/** A part of a building's picture: a model set on its ground, turned and scaled as in the town (tint: a colour over a white model). */
+export interface PicturePart {
+  geo: THREE.BufferGeometry;
+  x: number;
+  z: number;
+  yaw: number;
+  s: [number, number, number];
+  tint?: string;
+}
+
+/** A workplace's look for its picture: the building and its yard pieces, made afresh (once each), or null for a kind drawn elsewhere. */
+export function workPicture(kind: string): PicturePart[] | null {
+  const at = (geo: THREE.BufferGeometry): PicturePart => ({ geo, x: 0, z: 0, yaw: 0, s: [1, 1, 1] });
+  const PIECE: Record<Piece, () => THREE.BufferGeometry> = {
+    panel: wattlePanel,
+    shed: goatShed,
+    hayrack: hayRack,
+    trough,
+    rack: dryingRack,
+    hide: hideFrame,
+    firepit: firePit,
+    olivetree: () => groveTree(false),
+    oliveladder: () => groveTree(true),
+    terrace: terraceWall,
+    basin: crushingBasin,
+    beampress: beamPress,
+    yardwall: yardWall,
+    gate: storeGate,
+    sheeptrough: sheepTrough,
+    vinerow: vineRow,
+    vat: treadingVat,
+  };
+  const made = new Map<Piece, THREE.BufferGeometry>();
+  const pieces = (list: Placed[]): PicturePart[] =>
+    list.map((p) => {
+      let geo = made.get(p.piece);
+      if (!geo) made.set(p.piece, (geo = PIECE[p.piece]()));
+      const tree = p.piece === 'olivetree' || p.piece === 'oliveladder';
+      return { geo, x: p.lx, z: p.lz, yaw: p.yaw, s: tree ? [p.len, p.len, p.len] : [p.len, 1, 1] };
+    });
+  switch (kind) {
+    case 'farm': {
+      const row = wheatRow();
+      const rows: PicturePart[] = Array.from({ length: 6 }, (_, i) => ({ geo: row, x: -0.55, z: -1.15 + i * 0.46, yaw: 0, s: [1.75, 0.55, 1.4], tint: PAL.wheatGold }));
+      return [at(farmModel()), ...rows];
+    }
+    case 'granary':
+      return [at(granaryModel())];
+    case 'agora': {
+      const a = agoraModel();
+      return [at(a.stone), at(a.awning)];
+    }
+    case 'theatre':
+      return [at(theatreModel())];
+    case 'lodge':
+      return [at(lodgeModel()), ...pieces(LODGE_PIECES)];
+    case 'dairy':
+      return [at(dairyModel()), ...pieces(DAIRY_PIECES)];
+    case 'grove':
+      return [at(groveHut()), ...pieces(GROVE_PIECES)];
+    case 'press':
+      return [at(pressModel()), ...pieces(PRESS_PIECES)];
+    case 'storehouse':
+      return [at(storehouseModel()), ...pieces(STORE_PIECES)];
+    case 'pasture':
+      return [at(pastureModel()), ...pieces(PASTURE_PIECES)];
+    case 'vineyard':
+      return [at(vineyardModel()), ...pieces(VINEYARD_PIECES)];
+    case 'winery':
+      return [at(wineryModel()), ...pieces(WINERY_PIECES)];
+    case 'trading':
+      return [at(tradingModel())];
+    case 'yard':
+      return [at(caravanYardModel())];
+    case 'mine':
+      return [at(mineModel())];
+    case 'armoury':
+      return [at(armouryModel())];
+    case 'barracks':
+      return [at(barracksModel())];
+    case 'stall':
+      return [at(oilStallModel())];
+    case 'fleecestall':
+      return [at(fleeceStallModel())];
+    case 'winestall':
+      return [at(wineStallModel())];
+  }
+  return null;
+}
