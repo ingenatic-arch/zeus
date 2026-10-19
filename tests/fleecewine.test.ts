@@ -23,12 +23,12 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { goodLine, homeStatus } from '../src/sim/status';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
 import { FAIR, HARSH, TAX } from '../src/sim/taxes';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0);

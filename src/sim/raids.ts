@@ -60,11 +60,15 @@ export const THREAT_DAYS = 2 * TICKS_PER_MONTH;
 export const GATHER = 10 * TICKS_PER_DAY;
 /** A war band on the road is a little slower than a trader's caravan. */
 const MARCH_SLOWER = 1.2;
-/** After a raid (or a band paid off or called off): no threat from that ruler for a year, and none from anyone for three months. */
+/** After a band paid off or called off: no threat from that ruler for a year, and none from anyone for three months. */
 export const LULL = TICKS_PER_YEAR;
+/** After a raid that came, the anger spent: none from that ruler for two years (slice 22: a ruler kept hostile raided every eighteen months, and a town left to itself lost every field it had in four years). */
+export const RAID_LULL = 2 * TICKS_PER_YEAR;
 const GREECE_LULL = 3 * TICKS_PER_MONTH;
-/** A hostile, proud or warlike ruler threatens about one month in six. */
-const HOSTILE_ODDS = 1 / 6;
+/** How long a ruler's last raid or band holds them back. */
+const lullOf = (r: Raid): number => (r.end === 'raided' || r.end === 'nothing' ? RAID_LULL : LULL);
+/** A hostile, proud or warlike ruler threatens about one month in eight. */
+const HOSTILE_ODDS = 1 / 8;
 /** A tribute marked angry still gets its threat for this long after it was refused (if another threat held it back). */
 const ANGRY_FOR = TICKS_PER_YEAR;
 /** The price of peace: this much of a fair gift for your size, in coin (300 to 2,500 dr), or goods worth the same. */
@@ -131,11 +135,11 @@ export const peaceCoin = (s: SimState): number => clamp(Math.round((PEACE_VALUE 
 // ---------------------------------------------------------------------------
 // The threat.
 
-/** May this ruler threaten now: no threat or band live in Greece, none ended in the last three months, theirs not within a year? */
+/** May this ruler threaten now: no threat or band live in Greece, none ended in the last three months, theirs not within a year (two after a raid)? */
 export function mayThreaten(s: SimState, city: CityId): boolean {
   const w = s.world;
   if (threatLive(w)) return false;
-  return !w.raids.some((r) => (r.ended > 0 && s.tick - r.ended < GREECE_LULL) || (r.city === city && r.ended > 0 && s.tick - r.ended < LULL));
+  return !w.raids.some((r) => (r.ended > 0 && s.tick - r.ended < GREECE_LULL) || (r.city === city && r.ended > 0 && s.tick - r.ended < lullOf(r)));
 }
 
 /**
@@ -260,7 +264,7 @@ export function stepRaids(s: SimState, map: CoastMap): void {
     }
   }
   if (s.tick % TICKS_PER_MONTH === 0) {
-    if (w.raids.some((r) => r.phase === 'done' && s.tick - r.ended > LULL)) w.raids = w.raids.filter((r) => !(r.phase === 'done' && s.tick - r.ended > LULL));
+    if (w.raids.some((r) => r.phase === 'done' && s.tick - r.ended > lullOf(r))) w.raids = w.raids.filter((r) => !(r.phase === 'done' && s.tick - r.ended > lullOf(r)));
     threats(s, map);
   }
 }

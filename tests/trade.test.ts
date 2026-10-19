@@ -6,7 +6,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
@@ -43,6 +42,7 @@ import {
 } from '../src/sim/trade';
 import { owedWages, totals } from '../src/sim/treasury';
 import { townLines } from '../src/sim/status';
+import { demoSim, liveSim } from './prepared';
 
 const map = coastMap();
 const N = map.size;
@@ -51,8 +51,7 @@ const T = (x: number, z: number): number => z * N + x;
 const POST = { x: 73, z: 69 };
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
@@ -374,7 +373,7 @@ describe('saves and determinism', () => {
   });
 
   it('a save with the ship sailing in and dockers on the road carries on identically; a replay of the log rebuilds the same town', () => {
-    const sim = demo('sail');
+    const sim = liveSim('sail');
     const r = decodeSave(encodeSave(sim.state, 1));
     if (!r.ok) throw new Error(r.why);
     const again = new Sim();

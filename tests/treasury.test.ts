@@ -21,6 +21,7 @@ import { moneyLine } from '../src/sim/status';
 import type { Building, SimState } from '../src/sim/state';
 import { COLLECTOR_RANGE, FAIR, HARSH, HEAVY, purseTotal, TAX, taxOf } from '../src/sim/taxes';
 import { kindTotal, owedWages, priceOf, spendable, totals, WAGE } from '../src/sim/treasury';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -28,8 +29,7 @@ const T = (x: number, z: number): number => z * N + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0);

@@ -583,6 +583,18 @@ export function priceWhy(c: WorldCity, k: number, tick: number, w?: World): Pric
   const byWar = c.ruler ? now - rawPrice(c, k, c.yours[k], c.crop[k], 0) : 0;
   const byFeast = c.ruler ? now - rawPrice(c, k, c.yours[k], c.crop[k], c.strife[k], 0) : 0;
   const big = Math.max(Math.abs(byYou), Math.abs(byCrop), Math.abs(byWar), Math.abs(byFeast));
+  // (Dear or cheap with every push at the price's limit, so that taking any one away leaves it there: the push that holds most of its stock away from normal, the way the price has gone.)
+  if (c.ruler && word !== 'usual' && big < usual * 0.03) {
+    const stocks: Array<{ push: PriceWhy['push']; by: number }> = [
+      { push: 'war', by: c.strife[k] },
+      { push: 'festival', by: c.feast[k] },
+      { push: 'you', by: c.yours[k] },
+      { push: 'harvest', by: c.crop[k] },
+    ];
+    const dir = word === 'dear' ? -1 : 1;
+    const most = stocks.filter((x) => x.by * dir > 0).sort((a, b) => b.by * dir - a.by * dir)[0];
+    if (most) return { arrow, word, push: most.push, why: pushWords(c, k, tick, most.push, -dir, w), usual };
+  }
   // (Within 3% of its usual price, nothing moves it much: say what it usually is, not a push the price doesn't show.)
   if (!c.ruler || word === 'usual' || big < usual * 0.03) {
     const why = c.make[k] > c.need[k] * 1.15 ? 'they make plenty of it' : c.need[k] > c.make[k] * 1.15 ? 'they are short of it' : 'they make about what they use';
@@ -613,7 +625,7 @@ function pushWords(c: WorldCity, k: number, tick: number, push: PriceWhy['push']
     const n = dealtYear(c, k);
     // (When what is left of the push is more than all of the year's dealings, older trade must be in it too: say so.)
     const before = Math.abs(c.yours[k]) > Math.abs(n) && Math.sign(c.yours[k]) === Math.sign(n) ? ', and more before' : '';
-    return n > 0 ? `you sold them ${fmtN(n)} in the last year${before}` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year${before}` : byYou < 0 ? 'you sold them a good deal of it lately' : 'you bought a good deal of it from them lately';
+    return n > 0 ? `you sold them ${fmtN(n)} in the last year${before}` : n < 0 ? `you bought ${fmtN(-n)} from them in the last year${before}` : byYou < 0 ? 'what you sold them over a year ago is still felt' : 'what you bought from them over a year ago is still felt';
   }
   const autumn = dateOfTick(tick).month >= HARVEST_MONTH ? 'this autumn' : 'last autumn';
   const h = c.harvest;

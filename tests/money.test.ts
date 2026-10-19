@@ -5,7 +5,6 @@
  * #richtown, the prepared richer town.
  */
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { FINE, VILLA } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
@@ -16,10 +15,10 @@ import type { SimState } from '../src/sim/state';
 import { FAIR, HARSH, TAX_RATES, taxOf } from '../src/sim/taxes';
 import { SHIP_COMING, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
+import { demoSim, liveSim } from './prepared';
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
@@ -62,7 +61,7 @@ describe('the money', () => {
   });
 
   it('a household that leaves for harsh taxes leaves an empty plot and says so in the record; it is all through the command queue, so a replay is identical', () => {
-    const sim = demo('harsh');
+    const sim = liveSim('harsh');
     const s = sim.state;
     sim.run(4 * TICKS_PER_MONTH);
     expect(s.taxGone.length).toBeGreaterThan(0);

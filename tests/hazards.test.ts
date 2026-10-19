@@ -7,7 +7,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { buildingRefusal, CLEAR_SMALL, plotRefusal, RUBBLE_REFUSAL, roadRefusal } from '../src/sim/build';
@@ -31,14 +30,14 @@ import {
 import { replay, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
+import { demoSim, liveSim } from './prepared';
 
 const map = coastMap();
 const N = map.size;
 const T = (x: number, z: number): number => z * N + x;
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const at = (s: SimState, x: number, z: number): Building => {
@@ -332,7 +331,7 @@ describe('saves and determinism', () => {
   });
 
   it('a save in the middle of a fire, with a watchman running to it, carries on identically; a replay of the log rebuilds the same burnt town', () => {
-    const sim = demo('blaze');
+    const sim = liveSim('blaze');
     const s = sim.state;
     expect(s.buildings.filter((b) => b.fire === FIRE_BURNING).length).toBeGreaterThanOrEqual(2);
     // As a player would, a watch post at the head of the slope road, where the street east of the core begins (since

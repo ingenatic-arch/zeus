@@ -7,7 +7,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { RULED, type CityId } from '../src/map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
@@ -36,6 +35,7 @@ import {
 } from '../src/sim/world';
 import { stepDiplomacy } from '../src/sim/diplomacy';
 import { stepRivals } from '../src/sim/rivals';
+import { demoSim } from './prepared';
 
 const WHEAT_K = 0;
 const OIL_K = 3;
@@ -132,8 +132,7 @@ describe('your trade moves a city’s prices', () => {
   });
 
   it('through a route: each caravan pays at the price its last left, which slides visit after visit', () => {
-    const sim = new Sim();
-    DEMOS.routes.setup!(sim);
+    const sim = demoSim('routes');
     const s = sim.state;
     const send = (c: Parameters<Sim['enqueue']>[0]): void => {
       sim.enqueue(c);
@@ -233,8 +232,7 @@ describe('the ruler’s terms', () => {
   });
 
   it('a route trades at your price: the market price and the terms', () => {
-    const sim = new Sim();
-    DEMOS.routes.setup!(sim);
+    const sim = demoSim('routes');
     const s = sim.state;
     const c = cityOf(s.world, 'corinth');
     const k = tradeIndex(WINE);
@@ -300,8 +298,7 @@ describe('sane bounds', () => {
 
 describe('Greece is kept apart from the city', () => {
   it('its prices are the same whatever the city does, while no route is open', () => {
-    const busy = new Sim();
-    DEMOS.town.setup!(busy);
+    const busy = demoSim('town');
     const g = greece(busy.state.world.seed);
     // (The town's Greece was made at tick 0 and has stepped with it since.)
     g.run(busy.state.tick);
@@ -313,8 +310,7 @@ describe('Greece is kept apart from the city', () => {
 
 describe('saves', () => {
   it('a town with moving prices round-trips and plays on the same', () => {
-    const sim = new Sim();
-    DEMOS.routes.setup!(sim);
+    const sim = demoSim('routes');
     sim.enqueue({ type: 'route', city: 'corinth', kind: 'land' });
     sim.run(TICKS_PER_MONTH);
     traded(sim.state.world, 'corinth', OIL_K, 500);

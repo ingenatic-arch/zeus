@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { coastMap } from '../src/map/bake';
 import { MAP_SIZE } from '../src/map/coast';
 import { COST } from '../src/sim/build';
@@ -14,6 +13,7 @@ import { distFrom } from '../src/sim/rounds';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { homeStatus, whyHungry } from '../src/sim/status';
 import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -24,8 +24,7 @@ const of = (s: SimState, k: Building['kind']): Building => {
   return b;
 };
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 

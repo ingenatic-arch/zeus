@@ -10,6 +10,7 @@ import { canWork } from '../src/sim/labour';
 import { serialize, Sim, UNDO_WINDOW, undoRefusal } from '../src/sim/sim';
 import { homeStatus } from '../src/sim/status';
 import type { Building, SimState } from '../src/sim/state';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -168,8 +169,7 @@ describe('warn, then decline', () => {
   });
 
   it('a home cut off from water and bread warns about both, and mending the road in time brings both back, the story saying so (#warning)', () => {
-    const sim = new Sim();
-    DEMOS.warning.setup!(sim);
+    const sim = demoSim('warning');
     const s = sim.state;
     const warned = homes(s).filter((b) => warningsOf(s, b).length > 0);
     expect(warned.length).toBe(7);
@@ -213,8 +213,7 @@ describe('warn, then decline', () => {
 describe('who moves away', () => {
   it('whole families go together: never the head, never a partner or a young child without the rest of their family', () => {
     // The one-farm town of #missing, where bread is short and homes go down a level again and again.
-    const sim = new Sim();
-    DEMOS.missing.setup!(sim);
+    const sim = demoSim('missing');
     let drops = 0;
     let extra = 0;
     for (let t = 0; t < 2 * TICKS_PER_YEAR; t++) {

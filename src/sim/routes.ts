@@ -385,6 +385,12 @@ export const caravanOf = (s: SimState, city: CityId): Walker | undefined => {
   return s.walkers.find((w) => mine(w) && w.wait > 0) ?? s.walkers.find((w) => mine(w) && !w.back) ?? s.walkers.find(mine);
 };
 
+/** Is one of a city's caravans in your city, not yet turned for home (your own caravans, carrying a gift or a sending, aside)? */
+const caravanIn = (s: SimState, city: CityId): boolean => {
+  const ci = CITY_IDS.indexOf(city);
+  return s.walkers.some((w) => w.kind === 'caravan' && w.food === ci && !w.back && !(w.cheese > 0));
+};
+
 /** The caravan's route (by its city). */
 export const caravanRoute = (s: SimState, w: Walker): TradeRoute | undefined => routeOf(s, CITY_IDS[w.food] ?? '', 'land');
 
@@ -443,8 +449,13 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     return;
   }
   if (!coming) {
-    // It sets off from home to arrive when due.
-    if (s.tick >= r.next - landTicks(r.city)) s.world.travellers.push({ kind: 'trader', city: r.city, way, start: s.tick, dur: Math.max(1, r.next - s.tick), homeward: false });
+    // It sets off from home to arrive when due; but only once the last of its city's caravans has traded and turned for home (one at a time in your streets: the next waits at home, due as soon as it could walk here).
+    if (s.tick < r.next - landTicks(r.city)) return;
+    if (caravanIn(s, r.city)) {
+      r.next = Math.max(r.next, s.tick + 1 + landTicks(r.city));
+      return;
+    }
+    s.world.travellers.push({ kind: 'trader', city: r.city, way, start: s.tick, dur: Math.max(1, r.next - s.tick), homeward: false });
     return;
   }
   if (s.tick < coming.start + coming.dur) return;

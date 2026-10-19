@@ -5,7 +5,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { GRACE, GRACE_OIL } from '../src/sim/migrate';
 import { coastMap } from '../src/map/bake';
@@ -17,13 +16,13 @@ import { OIL, tableUntil } from '../src/sim/foods';
 import { serialize, Sim } from '../src/sim/sim';
 import { foodLine, homeStatus, townLines } from '../src/sim/status';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0);

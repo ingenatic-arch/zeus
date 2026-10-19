@@ -16,14 +16,14 @@ import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { dockersOut, FIRST_SHIP, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
-import { caravanOf, caravanYard, firstShipAfter, routeOf, routeWay, visitorAt } from '../sim/routes';
-import { cityOf, lastHarvest, sellsAndBuys } from '../sim/world';
+import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
+import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
 import { askWhy, firstRoute, makeOffer, makeRequest, makeTribute, requestSize, tributeSize, warWhy } from '../sim/favours';
-import { declareWar, endWar, warOn } from '../sim/rivals';
+import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { nextFestival } from '../sim/festivals';
-import { AT_TARGET, GATHER, marchTicks, raidersOf, THREAT_DAYS } from '../sim/raids';
+import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS } from '../sim/raids';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
@@ -1282,6 +1282,90 @@ function greeceTown(stage: GreeceStage): (sim: Sim) => void {
 }
 
 /**
+ * A world of rivals (slice 22). #rivals: #richtown's town (every chain, its
+ * villas, the quay and the Tyre ship) given the north road and the caravan
+ * yard as #caravan's town has them, and then, as the treasury allows, a route
+ * to every city of Greece: Corinth by land, Athens by sea, Sparta by land,
+ * Troy by sea, Corinth by sea and Athens by land. Each sells that city what it
+ * buys of the town's goods, and Troy's ship brings fleece for the villas.
+ * Played on a year with its routes, answering nothing, as Greece's own dice
+ * have it; then what the year hasn't brought is set up and named so: a
+ * request open, a threat running towards its deadline, and two rivals at war
+ * with their armies on the map. #rivalsmap opens it on the map of Greece,
+ * #rivalstreet at street level where the caravans come down to the yard.
+ */
+const RIVAL_ROUTES: Array<[CityId, 'land' | 'sea']> = [
+  ['corinth', 'land'],
+  ['athens', 'sea'],
+  ['sparta', 'land'],
+  ['troy', 'sea'],
+  ['corinth', 'sea'],
+  ['athens', 'land'],
+];
+/** How long #rivals trades with Greece before what it opens on is set up (from its first route). */
+const RIVALS_TRADE = 12 * TICKS_PER_MONTH;
+const FLEECE_K = 4;
+
+function rivalsTown(): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, SAFE, true)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    // The road north to the edge and the caravan yard at the east street's end, with a watch post and an architect beside it.
+    const roads = (NORTH_ROAD.length + YARD_ROAD.length) * ROAD_COST;
+    waitFor(sim, s.tick, roads + YARD_COST + WATCHPOST_COST + ARCHITECT_COST + (JOBS.yard + JOBS.watchpost + JOBS.architect) * WAGE);
+    send({ type: 'road', tiles: [...NORTH_ROAD, ...YARD_ROAD] });
+    send({ type: 'build', kind: 'yard', at: [T(YARD_AT.x, YARD_AT.z)] });
+    send({ type: 'build', kind: 'watchpost', at: [T(YARD_WATCH.x, YARD_WATCH.z)] });
+    send({ type: 'build', kind: 'architect', at: [T(YARD_ARCHITECT.x, YARD_ARCHITECT.z)] });
+    // More oil, for Corinth (as #prices has it): two more olive groves up the road north, and a second press below them.
+    waitFor(sim, s.tick, 2 * GROVE_COST + PRESS_COST + (2 * JOBS.grove + JOBS.press) * WAGE);
+    send({ type: 'build', kind: 'grove', at: PRICES_GROVES });
+    send({ type: 'build', kind: 'press', at: [PRICES_PRESS] });
+    // Once the yard is staffed: a route to every city, one after another as the treasury can pay for them.
+    const staffed = s.tick + ROUTE_WAIT;
+    while (s.tick < staffed && !(rateOf(caravanYard(s)!) > 0)) sim.run(10);
+    let first = 0;
+    for (const [city, kind] of RIVAL_ROUTES) {
+      const fee = routeWay(city, kind)!.fee;
+      waitFor(sim, s.tick, fee + 300, s.tick + 6 * TICKS_PER_MONTH);
+      if (routeRefusal(s, city, kind)) continue;
+      send({ type: 'route', city, kind });
+      first ||= s.tick;
+      const { theyBuy, theySell } = tradesOf(s, city);
+      for (const k of theyBuy) send({ type: 'deal', city, kind, good: TRADE_GOODS[k], sell: true });
+      if (city === 'troy' && theySell.includes(FLEECE_K)) send({ type: 'deal', city, kind, good: FLEECE, buy: true, upto: 600 });
+    }
+    sim.run(Math.max(0, first + RIVALS_TRADE - s.tick));
+    const map = sim.map;
+    // Sparta's king, warlike: whatever he has asked of the city by now is refused (as a player keeping his coin would), and he threatens it (set up for the demo, and named so).
+    const sparta = cityOf(s.world, 'sparta');
+    for (const d of s.world.deals.filter((x) => x.city === 'sparta' && x.state === 'open')) send({ type: 'answer', deal: d.id, act: 'refuse' });
+    if (!liveRaid(s.world) && moodOf(sparta, s.tick) <= COLD) threaten(s, map, sparta, 'you paid him no tribute, and the king is warlike (set up for this demo)');
+    // A war at sea between Troy and Athens, the two cities your ships trade with on either side of the Aegean (any war Greece has going is let run to its end first).
+    const stop = s.tick + TICKS_PER_YEAR;
+    while (warOn(s.world) && s.tick < stop) sim.run(TICKS_PER_DAY);
+    const on = warOn(s.world);
+    if (on) endWar(s, on);
+    const x = declareWar(s, 'troy', 'athens', 'an old grudge over the grain ships in the straits (set up for this demo)');
+    // On until both fleets stand off Andros.
+    while (armiesOnMap(x, s.tick).some((a) => a.phase === 'out') && s.tick < x.until) sim.run(TICKS_PER_DAY);
+    // The archon of Athens asks the city for wheat for the war, by its end (set up for the demo: the dice would bring it within a month or two).
+    const athens = cityOf(s.world, 'athens');
+    const left = Math.floor((x.until - s.tick) / TICKS_PER_MONTH) * TICKS_PER_MONTH;
+    makeRequest(s, map, athens, WHEAT_K, requestSize(s, athens, WHEAT_K), warWhy(WHEAT_K, 'Troy', 'sea'), left);
+    // It opens with caravans in the streets and a ship at the quay or coming in up the bay.
+    const ships = (): boolean => s.world.routes.some((r) => r.ship && (r.ship.phase === SHIP_MOORED || r.ship.phase === SHIP_COMING)) || s.trade.ship.phase === SHIP_MOORED;
+    const caravans = (): number => s.walkers.filter((w) => w.kind === 'caravan').length;
+    const end = s.tick + 2 * TICKS_PER_MONTH;
+    while (s.tick < end && !(caravans() >= 2 && ships())) sim.step();
+  };
+}
+
+/**
  * The sea route demos: #quay's town (the post built, wheat, meat, cheese and
  * oil for sale to the Tyre ship) with the sea route to Athens opened, wheat
  * and meat ticked for sale to it and wine bought, up to 600. #athensship
@@ -1362,6 +1446,9 @@ function hazards(sim: Sim, on: boolean): void {
   sim.enqueue({ type: 'hazards', on });
   sim.flush();
 }
+
+/** The prepared town of #rivals (one setup for its three demos). */
+const RIVALS = rivalsTown();
 
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
@@ -1458,6 +1545,10 @@ const SCENES: Record<string, Demo> = {
   war: { view: 'town', setup: greeceTown('war'), overlay: 'food', greece: 'sparta', greeceTab: 'ruler' },
   peace: { view: 'town', setup: greeceTown('peace'), overlay: 'food', greece: 'sparta', greeceTab: 'prices' },
   festival: { view: 'ship', setup: greeceTown('festival'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
+  // Slice 22: a world of rivals. The prepared town trading with every city, over the town; on the map of Greece; at street level by the yard.
+  rivals: { view: 'richtown', setup: RIVALS, overlay: 'missing' },
+  rivalsmap: { view: 'richtown', setup: RIVALS, overlay: 'missing', greece: true },
+  rivalstreet: { view: 'townstreet', setup: RIVALS, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -832,10 +832,12 @@ export class Homes {
     };
     // Settled buildings go into the chunk's merged mesh; rising ones are drawn instanced until they have risen.
     const settled: MergedItem[] = [];
+    // (Each frame while a home rises (`all` false) only the rising homes move: the settled ones, their merged mesh and their hearths' smoke stay as they are.)
     const homes = (sets: Building[][], meshes: ChunkedInstances[], models: THREE.BufferGeometry[], fireAt: THREE.Vector3[] | null): void => {
       sets.forEach((bs, v) => {
         const up = bs.filter((b) => this.rising.has(b.id));
-        meshes[v].set(kx, kz, up.length, (i, m) => void place(up[i], m, true));
+        if (all || up.length) meshes[v].set(kx, kz, up.length, (i, m) => void place(up[i], m, true));
+        if (!all) return;
         for (const b of bs) {
           if (this.rising.has(b.id)) continue;
           const m = new THREE.Matrix4();
@@ -857,6 +859,7 @@ export class Homes {
     homes(villasBy, this.villas, md.villa, null);
     // Some of the bigger houses have their hearth lit: a wisp from the roof.
     const hearths = (sets: Building[][], models: THREE.BufferGeometry[]): void => {
+      if (!all) return;
       sets.forEach((bs, v) => {
         const top = roofTop(models[v]);
         for (const b of bs) {
@@ -875,7 +878,7 @@ export class Homes {
     // The shrine's altar fire smokes like a hearth.
     homes([shrines], [this.shrines], [this.shrineGeo], null);
     for (const b of shrines) {
-      if (this.rising.has(b.id)) continue;
+      if (!all || this.rising.has(b.id)) continue;
       const m = new THREE.Matrix4();
       place(b, m, false);
       fp.copy(SHRINE_FIRE).applyMatrix4(m);
@@ -900,8 +903,10 @@ export class Homes {
     }
     // The fountain's stone merges with the rest; its water keeps its own shiny material.
     const fountainUp = fountains.filter((b) => this.rising.has(b.id));
-    this.fountains[0].set(kx, kz, fountainUp.length, (i, m) => void place(fountainUp[i], m, false));
-    this.fountains[1].set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
+    if (all || fountainUp.length) {
+      this.fountains[0].set(kx, kz, fountainUp.length, (i, m) => void place(fountainUp[i], m, false));
+      this.fountains[1].set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
+    }
     if (all) {
       for (const b of fountains) {
         if (this.rising.has(b.id)) continue;
@@ -910,8 +915,8 @@ export class Homes {
         settled.push({ key: `${b.id}:${this.seen.get(b.id)?.sig}`, geo: this.fountainGeo, m });
       }
     }
-    this.fires.set(key, fires);
     if (!all) return;
+    this.fires.set(key, fires);
     for (const b of plots) {
       const a = 0.14;
       const e = PLOT_SIZE - 0.14;

@@ -5,7 +5,6 @@
  * throws.
  */
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { decodeSave, encodeSave, packRuns, packTables, SAVE_FORMAT, SafeStorage, Saves, unpackRuns, unpackTables, type KeyValueStore } from '../src/game/saves';
@@ -17,12 +16,12 @@ import { MAP_SIZE } from '../src/map/coast';
 import { serialize, Sim } from '../src/sim/sim';
 import { OLDEST_READABLE } from '../src/sim/migrate';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
+import { demoSim } from './prepared';
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 

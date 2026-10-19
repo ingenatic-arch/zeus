@@ -59,9 +59,16 @@ export const FRIEND_FADE = 18 * TICKS_PER_MONTH;
 export const WAR_FROM = 2 * TICKS_PER_YEAR;
 /** A pair far enough out goes to war about one month in three. */
 const WAR_ODDS = 1 / 3;
-/** After a long quiet (no war anywhere in Greece for a year or more, counted from the third year or the last war's end), the bar for war comes down by this much a year, to a feud at most: old grudges come to blows in the end. */
-const QUIET_EASE = 5;
-const QUIET_EASE_MOST = FEUD - WAR_AT;
+/**
+ * After a long quiet (no war anywhere in Greece for a year or more, counted
+ * from the third year or the last war's end), the bar for war comes down by
+ * this much a year, to −20 at most: old grudges come to blows in the end.
+ * (Slice 22: 10 a year to −20, from 5 a year to a feud; over 30 shuffled
+ * games of 12 years a war comes about every two years, rarely more than three
+ * apart.)
+ */
+const QUIET_EASE = 10;
+const QUIET_EASE_MOST = 15;
 /** No new war within six months of the last one's end, anywhere in Greece; and none between the same pair within three years. */
 export const GREECE_PEACE = 6 * TICKS_PER_MONTH;
 export const PAIR_LULL = 3 * TICKS_PER_YEAR;

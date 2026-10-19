@@ -40,6 +40,7 @@ import { cityHolds, SHIP_ANCHORED, SHIP_AWAY, SHIP_BERTHING, SHIP_COMING, SHIP_L
 import { income, pay, spendable, totals, wageBill } from '../src/sim/treasury';
 import { position } from '../src/sim/walk';
 import { cityOf } from '../src/sim/world';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = map.size;
@@ -49,8 +50,7 @@ const T = (x: number, z: number): number => z * N + x;
 const made: Record<string, string> = {};
 const fresh = (name: string): Sim => {
   if (!made[name]) {
-    const sim = new Sim();
-    DEMOS[name].setup!(sim);
+    const sim = demoSim(name);
     made[name] = serialize(sim.state);
   }
   const sim = new Sim();
@@ -196,8 +196,8 @@ describe('caravans', () => {
     expect(until(sim, () => w.back, TRADE_TICKS + 5)).toBe(true);
     expect(s.tick - at).toBe(TRADE_TICKS);
     expect(r.visits).toBe(1);
-    // (The next caravans keep their own schedule, two months apart, whatever this one does.)
-    expect((r.next - firstDue) % LAND_EVERY).toBe(0);
+    // (The next is due two months after this one at the soonest; it waits at home while this one walks in and trades, slice 22.)
+    expect(r.next).toBeGreaterThanOrEqual(firstDue + LAND_EVERY);
     // Out the way it came: it leaves the map at the north edge, and heads home on the map.
     let pos = position(w);
     expect(until(sim, () => { if (s.walkers.includes(w)) pos = position(w); return !s.walkers.includes(w); }, 3000)).toBe(true);
@@ -302,7 +302,7 @@ describe('caravans', () => {
     ledgerAddsUp(s);
   }, 30000);
 
-  it('caravans come every two months even to a yard far from the edge: the next is on the road in time, and only one trades at a time', () => {
+  it('caravans come every two months, but one at a time: to a yard far from the edge the next sets off once the last has traded, and they pass on the road', () => {
     const sim = corinth({ sell: true });
     const s = sim.state;
     const r = routeOf(s, 'corinth', 'land')!;
@@ -314,14 +314,18 @@ describe('caravans', () => {
       sim.step();
       const here = s.walkers.filter((w) => w.kind === 'caravan');
       for (const w of here) if (!seen.has(w.id)) seen.add(w.id) && entered.push(s.tick);
-      expect(here.filter((w) => w.wait > 0).length).toBeLessThanOrEqual(1);
+      // Never two of its caravans walking in or trading at once (one walks out as the next walks in).
+      expect(here.filter((w) => !w.back).length).toBeLessThanOrEqual(1);
       most = Math.max(most, here.length);
       for (const t of s.world.travellers) if (!t.homeward) trips.add(`${t.start}:${t.dur}`);
     }
-    // #routes' yard is a long walk from the north edge (more than two months there and back), so one walks out as the next walks in.
-    expect(most).toBeGreaterThan(1);
-    expect(entered).toHaveLength(4);
-    expect(entered.slice(1).map((t, i) => t - entered[i])).toEqual([LAND_EVERY, LAND_EVERY, LAND_EVERY]);
+    // #routes' yard is a long walk from the north edge (about two months each way), so one walks out as the next walks in, a little more than two months apart.
+    expect(most).toBe(2);
+    expect(entered).toHaveLength(3);
+    for (const [i, t] of entered.slice(1).entries()) {
+      expect(t - entered[i]).toBeGreaterThan(LAND_EVERY);
+      expect(t - entered[i]).toBeLessThan(LAND_EVERY + TICKS_PER_MONTH);
+    }
     // Each one's whole way down the road on the map of Greece, none cut short.
     expect([...trips].map((t) => Number(t.split(':')[1]))).toEqual([...trips].map(() => landTicks('corinth')));
     expect(r.visits).toBe(2);

@@ -6,7 +6,8 @@ import { ClockDriver, type Speed } from './game/clockDriver';
 import { DEMOS } from './game/demos';
 import { attachInput, type PointerTools } from './game/input';
 import { readLaunch } from './game/links';
-import { browserStorage, labelOf, Saves, type SaveFile, type Slot } from './game/saves';
+import { browserStorage, decodeSave, labelOf, Saves, type SaveFile, type Slot } from './game/saves';
+import { PREPARED } from 'virtual:prepared';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
@@ -65,8 +66,11 @@ interface Probe {
   /** When (ms since the page began loading) the game was ready, and when its first frame was drawn. */
   readyAt?: number;
   firstFrameAt?: number;
-  /** How long the demo's town took to prepare (its setup ticks), within startMs. */
+  /** How long the demo's town took to prepare (its setup ticks, or decoding its prepared town), within startMs. */
   setupMs?: number;
+  /** Whether the demo opened from its town prepared at build time (slice 22), and how long fetching it took (before startMs). */
+  prepared?: boolean;
+  fetchMs?: number;
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
@@ -214,7 +218,7 @@ interface Probe {
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0 };
 (window as unknown as { __zeus: Probe }).__zeus = probe;
 
-function start(): void {
+function start(preparedTown: string | null): void {
   const t0 = performance.now();
   const launch = readLaunch(location.search, location.hash, DEMOS, VIEWS);
   const demo = launch.demo ? DEMOS[launch.demo] : undefined;
@@ -230,7 +234,12 @@ function start(): void {
   const sim = demo || launch.load ? new Sim() : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
   // Fire risk and wear build up in every game (a demo turns them on as it opens).
-  if (demo?.setup) demo.setup(sim);
+  // A demo opens from its town prepared when the game was built (the same state its setup makes, checked then), or plays its setup.
+  const ready = preparedTown ? decodeSave(preparedTown) : null;
+  if (demo?.setup && ready?.ok) {
+    sim.state = ready.file.state;
+    probe.prepared = true;
+  } else if (demo?.setup) demo.setup(sim);
   else {
     sim.enqueue({ type: 'hazards', on: true });
     sim.flush();
@@ -1639,5 +1648,21 @@ function start(): void {
   if (card && l.demo && DEMOS[l.demo]?.setup) card.textContent = 'Shaping the coast and getting the town ready…';
   else if (card && l.load) card.textContent = 'Opening your town…';
 }
+/** A demo's prepared town, fetched (its own small file) before the game starts; null when there is none (the demo then plays its setup). */
+async function boot(): Promise<void> {
+  const l = readLaunch(location.search, location.hash, DEMOS, VIEWS);
+  const t0 = performance.now();
+  let town: string | null = null;
+  const load = l.demo && DEMOS[l.demo]?.setup && Object.hasOwn(PREPARED, l.demo) ? PREPARED[l.demo] : undefined;
+  if (load) {
+    try {
+      town = (await load()).default;
+    } catch {
+      town = null;
+    }
+    probe.fetchMs = performance.now() - t0;
+  }
+  start(town);
+}
 // Let the loading card paint before the coast is shaped.
-requestAnimationFrame(() => setTimeout(start, 0));
+requestAnimationFrame(() => setTimeout(() => void boot(), 0));

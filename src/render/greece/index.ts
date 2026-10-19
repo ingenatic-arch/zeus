@@ -28,6 +28,9 @@ import { buildRelief, reliefMesh, type Relief } from './relief';
 
 /** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left. */
 const START: CameraView = { x: TABLE_W * 0.5, z: TABLE_D * 0.6, yaw: 0, dist: 146, tilt: -0.12 };
+/** Travellers on the map are drawn larger from this camera distance on, up to FAR_MOST times. */
+const FAR_FROM = 80;
+const FAR_MOST = 1.8;
 const LIMITS: RigLimits = { minDist: 24, maxDist: 175, x0: 0, z0: 0, x1: TABLE_W, z1: TABLE_D, pitchNear: 0.58, pitchFar: 1.12 };
 /** How the cities stand out: your own and the four with rulers a little larger than life. */
 const SCALE: Record<CityId, number> = { home: 1.7, athens: 2.0, sparta: 1.85, corinth: 1.8, troy: 2.0, tyre: 1.6 };
@@ -139,9 +142,9 @@ export class GreeceMap {
           const hs: number[] = [];
           for (const u of [-1.5, 0, 1.5]) for (const v of [-1.5, 0, 1.5]) hs.push(h(x + u * Math.cos(turn) - v * Math.sin(turn), z + u * Math.sin(turn) + v * Math.cos(turn)));
           if (Math.min(...hs) < 0.15) continue;
-          // (Clear of the other towns, yours above all.)
+          // (Clear of the other towns, yours above all; and never behind the city, where its label stands over it: slice 22, Athens' fields were under its label.)
           if (CITY_IDS.some((o) => o !== id && Math.hypot(this.at(o)[0] - x, this.at(o)[1] - z) < rad + 1.5)) continue;
-          const score = Math.max(...hs) - Math.min(...hs) + (Math.sin(a) < -0.2 ? (rad < 5 ? 3 : 1) : 0) + rad * 0.15;
+          const score = Math.max(...hs) - Math.min(...hs) + (Math.sin(a) < -0.2 ? 8 : 0) + rad * 0.15;
           if (!best || score < best[3]) best = [x, z, turn, score];
         }
       if (!best) return;
@@ -504,6 +507,8 @@ export class GreeceMap {
   /** The trade routes' ships on their lanes and caravans on their roads (hidden when at home, or in your city). */
   private drawTravellers(s: SimState, tick: number, time: number): void {
     const seen = new Set<string>();
+    // (Drawn larger the farther the camera is, up to nearly twice at the opening view, so armies, bands, caravans and gifts read from across the table and stay life-size close up: slice 22.)
+    const far = Math.min(FAR_MOST, Math.max(1, this.rig.distance / FAR_FROM));
     const piece = (key: string, make: () => THREE.BufferGeometry, body: readonly [number, number]): THREE.Mesh => {
       let m = this.travellers.get(key);
       if (!m) {
@@ -532,6 +537,7 @@ export class GreeceMap {
         const dir = v.homeward ? 1 : -1;
         m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 1.3) * 0.03, p.z);
         m.rotation.set(Math.sin(time * 1.3 + 0.7) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+        m.scale.setScalar(far);
       } else {
         const all = caravansOnMap(s, r, tick);
         all.forEach((c, i) => {
@@ -540,7 +546,7 @@ export class GreeceMap {
           const dir = c.homeward ? 1 : -1;
           m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
           // (A little larger than life, as the towns are, to be seen from across the table.)
-          m.scale.setScalar(1.6);
+          m.scale.setScalar(1.6 * far);
           m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
         });
       }
@@ -558,11 +564,12 @@ export class GreeceMap {
         const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
         m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 2.1) * 0.03, p.z);
         m.rotation.set(Math.sin(time * 1.3 + 1.1) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+        m.scale.setScalar(far);
       } else {
         const m = piece(giftKey(g), () => caravanModel(PLACES[city].colour), BODY.caravan);
         const p = alongLine(line, Math.max(0.6, Math.min(L - 0.9, at.along)));
         m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
-        m.scale.setScalar(1.4);
+        m.scale.setScalar(1.4 * far);
         m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       }
     }
@@ -579,14 +586,14 @@ export class GreeceMap {
         const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
         m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + 0.4) * 0.03, p.z);
         m.rotation.set(Math.sin(time * 1.3 + 0.2) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
-        m.scale.setScalar(1.15);
+        m.scale.setScalar(1.15 * far);
       } else {
         const key = `raid-${r.id}${at.gathering ? '-camp' : ''}`;
         const m = piece(key, () => bandModel(PLACES[city].colour, PLACES[city].trim, at.gathering), at.gathering ? BODY.camp : BODY.band);
         const p = alongLine(line, Math.max(0.6, Math.min(L - (at.gathering ? 1.6 : 0.9), at.along)));
         m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
         // (Larger than life, as the caravans are, and more so: a band must be seen coming.)
-        m.scale.setScalar(2.3);
+        m.scale.setScalar(2.3 * far);
         m.rotation.set(0, at.gathering ? 0 : -Math.atan2(p.dz * dir, p.dx * dir), 0);
       }
     }
@@ -606,12 +613,12 @@ export class GreeceMap {
         if (a.by === 'sea') {
           m.position.set(p.x, 0.02 + Math.sin(time * 1.5 + x.id) * 0.03, p.z);
           m.rotation.set(Math.sin(time * 1.2 + x.id) * 0.03, -Math.atan2(p.dz * dir, p.dx * dir), 0);
-          m.scale.setScalar(1.25);
+          m.scale.setScalar(1.25 * far);
         } else {
           m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
           m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
           // (Larger than life, as the bands are: an army must be seen from across the table.)
-          m.scale.setScalar(2.1);
+          m.scale.setScalar(2.1 * far);
         }
       }
       if (x.ended) continue;
@@ -621,7 +628,7 @@ export class GreeceMap {
       const ground = way.kind === 'land' ? this.relief.heightAt(at.x, at.z) : 0;
       sw.position.set(at.x, ground + 0.25 + Math.sin(time * 1.6) * 0.06, at.z);
       sw.rotation.set(0, time * 0.5, 0);
-      sw.scale.setScalar(1.15);
+      sw.scale.setScalar(1.15 * far);
     }
     for (const way of RIVAL_WAYS) {
       let m = this.closed.get(way.id);

@@ -305,8 +305,8 @@ export function deadlineFor(s: SimState, map: CoastMap, city: CityId, good: numb
 }
 
 /** A ruler asks for goods (a trade good's index) or drachmas (-1): a request with its deadline, and a line of news. */
-export function makeRequest(s: SimState, map: CoastMap, c: WorldCity, good: number, amount: number, why: string): Deal {
-  const days = deadlineFor(s, map, c.id, good, amount, good < 0 ? REQUEST_COIN_DAYS : REQUEST_GOODS_DAYS);
+export function makeRequest(s: SimState, map: CoastMap, c: WorldCity, good: number, amount: number, why: string, most = Infinity): Deal {
+  const days = Math.min(most, deadlineFor(s, map, c.id, good, amount, good < 0 ? REQUEST_COIN_DAYS : REQUEST_GOODS_DAYS));
   const d = makeDeal(s, 'request', c.id, good, amount, s.tick + days, why);
   news(s.world, s.tick, c.id, `${rulerName(c)} asks for ${dealWords(d)} within ${monthsWords(days)}: ${why}`);
   return d;
@@ -431,17 +431,22 @@ function warRequest(s: SimState, map: CoastMap, c: WorldCity, month: number, i: 
   const w = s.world;
   if (dice(w, month, i, 11) >= REQUEST_ODDS * WAR_ASKS) return false;
   const foe = cityName(c.war as CityId);
-  const goods = canSendGoods(s, map, c.id) ? WAR_GOODS.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= 300) : [];
+  // (What the army needs it needs while the war lasts: the deadline is the war's end at the latest, in whole months, and they ask only for what could reach them by then.)
+  const war = w.wars.find((x) => x.ended === 0 && (x.a === c.id || x.b === c.id));
+  const left = war ? Math.floor((war.until - s.tick) / TICKS_PER_MONTH) * TICKS_PER_MONTH : Infinity;
+  const inTime = (k: number, amount: number): boolean => deadlineFor(s, map, c.id, k, amount, TICKS_PER_MONTH) <= left;
+  const goods = canSendGoods(s, map, c.id) ? WAR_GOODS.filter((k) => cityHolds(s, TRADE_GOODS[k]) >= 300 && inTime(k, requestSize(s, c, k))) : [];
   if (goods.length) {
     // (Wheat first, if you have it: an army marches on bread.)
     const good = goods.includes(0) && dice(w, month, i, 15) < 0.6 ? 0 : goods[Math.floor(dice(w, month, i, 16) * goods.length)];
-    makeRequest(s, map, c, good, requestSize(s, c, good), warWhy(good, foe));
-  } else makeRequest(s, map, c, -1, requestCoin(s), `to pay their soldiers: they are at war with ${foe}`);
+    makeRequest(s, map, c, good, requestSize(s, c, good), warWhy(good, foe, war?.by), left);
+  } else if (inTime(-1, requestCoin(s))) makeRequest(s, map, c, -1, requestCoin(s), `to pay their soldiers: they are at war with ${foe}`, left);
+  else return false;
   return true;
 }
 
 /** Why a ruler at war asks for a good, in words. */
-export const warWhy = (k: number, foe: string): string => `${k === 4 ? 'cloaks for their soldiers' : 'for their army'}: they are at war with ${foe}`;
+export const warWhy = (k: number, foe: string, by: 'land' | 'sea' = 'land'): string => `${k === 4 ? `cloaks for their ${by === 'sea' ? 'oarsmen' : 'soldiers'}` : `for their ${by === 'sea' ? 'fleet' : 'army'}`}: they are at war with ${foe}`;
 
 /** Can this ruler make you an offer now: pleased, with a route of theirs open, and no year's deal of theirs already running? */
 export function mayOffer(s: SimState, c: WorldCity): boolean {
@@ -707,11 +712,12 @@ export function undelivered(s: SimState, g: Gift): void {
 // When it would arrive.
 
 /** How long fetching so many of a good from the stores to a depot takes, about (ticks): the farthest store needed and back, the loading, and the porters setting off two days apart. */
-function fetchTicks(s: SimState, map: CoastMap, depotId: number, k: number, amount: number): number {
+function fetchTicks(s: SimState, map: CoastMap, depotId: number, k: number, amount: number, memo?: SendMemo): number {
   const depot = findBuilding(s, depotId);
   if (!depot || amount <= 0) return 0;
   const size = map.size;
-  const search = roadSearch(s, size, roadsBeside(s, size, depot));
+  const search = (memo?.search ?? roadSearch(s, size, roadsBeside(s, size, depot))) as ReturnType<typeof roadSearch>;
+  if (memo) memo.search = search;
   const w = TRADE_GOODS[k];
   const stores: Array<[number, number]> = [];
   for (const b of s.buildings) {
@@ -735,15 +741,26 @@ function fetchTicks(s: SimState, map: CoastMap, depotId: number, k: number, amou
 }
 
 /** How long sending a deal's goods (or coin) would take from now, until it arrives (ticks), or -1 if it can't go. */
-export function sendTicks(s: SimState, map: CoastMap, d: Pick<Deal, 'city' | 'good' | 'amount'>): number {
+export function sendTicks(s: SimState, map: CoastMap, d: Pick<Deal, 'city' | 'good' | 'amount'>, memo?: SendMemo): number {
   if (d.good < 0) {
     const way = giftWay(s, map, d.city, true);
     return 'why' in way ? -1 : heraldTicks(d.city, way.by);
   }
-  const way = giftWay(s, map, d.city, false);
+  const way = (memo?.way ?? giftWay(s, map, d.city, false)) as ReturnType<typeof giftWay>;
+  if (memo) memo.way = way;
   if ('why' in way || !way.depot) return -1;
-  return fetchTicks(s, map, way.depot.id, d.good, d.amount) + outTicks(s, map, way.by, way.depot.id, d.city);
+  const out = memo?.out ?? outTicks(s, map, way.by, way.depot.id, d.city);
+  if (memo) memo.out = out;
+  return fetchTicks(s, map, way.depot.id, d.good, d.amount, memo) + out;
 }
+
+/**
+ * What working out a sending's time for several goods to one city at one
+ * moment can share (slice 22): the way, the road search from the depot and the
+ * time out of the city. Pass a fresh one for each city and moment (the gift
+ * buttons pass one per redraw), so a page of buttons does each search once.
+ */
+export type SendMemo = { way?: unknown; out?: number; search?: unknown };
 
 /** From the depot out of the city and along the road or the lane, to them (ticks). */
 function outTicks(s: SimState, map: CoastMap, by: 'land' | 'sea', depotId: number, city: CityId): number {

@@ -5,7 +5,6 @@
  * without anyone going down or leaving.
  */
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { coastMap, type CoastMap } from '../src/map/bake';
 import { COTTAGE, FINE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_YEAR } from '../src/sim/clock';
@@ -13,11 +12,11 @@ import { mapIndex } from '../src/sim/build';
 import { warningOf } from '../src/sim/folk';
 import { Sim } from '../src/sim/sim';
 import { BREAD_LEAD_MONTHS, BREAD_SPARE, foodBalance, townLines } from '../src/sim/status';
+import { demoSim } from './prepared';
 
 const map: CoastMap = coastMap();
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 

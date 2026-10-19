@@ -8,7 +8,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { EDGE_ALONG, HORIZON_ALONG, RULED } from '../src/map/greece';
@@ -22,6 +21,7 @@ import { bookNow } from '../src/sim/stocks';
 import { cityHolds, SHIP_AWAY, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { cityOf, fadeFor, freshWorld, HOSTILE, memoryWorth, moodOf, moodReasons, moodWord, stepWorld, WARM } from '../src/sim/world';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 
@@ -29,8 +29,7 @@ const map = coastMap();
 const made: Record<string, string> = {};
 const fresh = (name: string): Sim => {
   if (!made[name]) {
-    const sim = new Sim();
-    DEMOS[name].setup!(sim);
+    const sim = demoSim(name);
     made[name] = serialize(sim.state);
   }
   const sim = new Sim();

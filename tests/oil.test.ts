@@ -23,14 +23,14 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { homeStatus, oilLine } from '../src/sim/status';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
 const T = (x: number, z: number): number => z * N + x;
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0);

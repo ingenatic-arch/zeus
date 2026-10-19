@@ -19,6 +19,8 @@ export interface Festival {
   month: number;
   /** In a few words, what it is. */
   what: string;
+  /** What it means while the city is at war, if that needs saying. */
+  atWar?: string;
   /** Its name is plural ("the Isthmian Games are on"). */
   many?: true;
 }
@@ -26,7 +28,7 @@ export interface Festival {
 export const FESTIVALS: readonly Festival[] = [
   { city: 'corinth', name: 'the Isthmian Games', month: 3, what: 'games for Poseidon on the isthmus', many: true },
   { city: 'athens', name: 'the Panathenaia', month: 6, what: 'Athena’s birthday, with a procession up to her temple' },
-  { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, with no marching to war' },
+  { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, when by custom Sparta begins no war', atWar: 'at war now, its army keeps the feast where it stands' },
 ];
 
 /** The trade goods a festival makes dear (TRADE_GOODS order: wheat, meat, cheese, oil, fleece, wine), and how far it draws each one's stock down at most (a share of normal). */

@@ -4,7 +4,6 @@
  * their way from the lodge and the dairy through the granary to the table.
  */
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { coastMap } from '../src/map/bake';
 import { HERDS, MAP_SIZE } from '../src/map/coast';
 import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
@@ -17,6 +16,7 @@ import { herdStatus, lodgeStatus } from '../src/sim/status';
 import { TILE_EMPTY, TILE_ROAD, type Building, type SimState } from '../src/sim/state';
 import { position } from '../src/sim/walk';
 import { freshHerds, herdGround, MIN_HEAD, offRoadPath, REGROW, regrowIn, walkable } from '../src/sim/wild';
+import { demoSim } from './prepared';
 
 const map = coastMap();
 const N = MAP_SIZE;
@@ -25,8 +25,7 @@ const firm = (t: number): boolean => ground[t] === Ground.Ok || ground[t] === Gr
 const tileAt = (x: number, z: number): number => Math.floor(z) * N + Math.floor(x);
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 const kinds = (s: SimState, k: Building['kind']): Building[] => s.buildings.filter((b) => b.kind === k);

@@ -10,7 +10,6 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { lineLength, meetAlong, rivalPoints, rivalWay, type CityId } from '../src/map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
@@ -21,7 +20,6 @@ import {
   armiesOnMap,
   declareWar,
   endWar,
-  FEUD,
   FOE_HELP,
   FOE_TRADE,
   FOE_TRADE_MOST,
@@ -46,13 +44,13 @@ import {
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState, type War } from '../src/sim/state';
 import { cityOf, priceWhy, usualPrice } from '../src/sim/world';
+import { demoSim } from './prepared';
 
 /** The demos' towns, set up once and copied for each test. */
 const made: Record<string, string> = {};
 const fresh = (name: string): Sim => {
   if (!made[name]) {
-    const sim = new Sim();
-    DEMOS[name].setup!(sim);
+    const sim = demoSim(name);
     made[name] = serialize(sim.state);
   }
   const sim = new Sim();
@@ -270,20 +268,22 @@ describe('wars between rivals', () => {
     expect(s.world.news.at(-1)?.line).toMatch(/have made peace/);
   });
 
-  it('after a long quiet the bar for war comes down, a step a year, to a feud at most; counted from the last war’s end', () => {
+  it('after a long quiet the bar for war comes down, a step a year, to −20 at most; counted from the last war’s end', () => {
     const s = new Sim(1, 7).state;
     s.world.wars = [];
     expect(warBar(s.world, WAR_FROM)).toBe(WAR_AT);
     expect(warBar(s.world, WAR_FROM + TICKS_PER_YEAR - 1)).toBe(WAR_AT);
-    expect(warBar(s.world, WAR_FROM + TICKS_PER_YEAR)).toBe(WAR_AT + 5);
-    expect(warBar(s.world, WAR_FROM + 9 * TICKS_PER_YEAR)).toBe(FEUD);
+    expect(warBar(s.world, WAR_FROM + TICKS_PER_YEAR)).toBe(WAR_AT + 10);
+    expect(warBar(s.world, WAR_FROM + 2 * TICKS_PER_YEAR)).toBe(-20);
+    expect(warBar(s.world, WAR_FROM + 9 * TICKS_PER_YEAR)).toBe(-20);
     s.tick = WAR_FROM + 3 * TICKS_PER_YEAR;
     const x = declareWar(s, 'sparta', 'athens', 'a staged quarrel');
     // (While a war is on, and for a year after it ends, the bar is where it was.)
     expect(warBar(s.world, s.tick + TICKS_PER_MONTH)).toBe(WAR_AT);
     x.ended = s.tick + 4 * TICKS_PER_MONTH;
     expect(warBar(s.world, x.ended + TICKS_PER_YEAR - 1)).toBe(WAR_AT);
-    expect(warBar(s.world, x.ended + 2 * TICKS_PER_YEAR)).toBe(WAR_AT + 10);
+    expect(warBar(s.world, x.ended + TICKS_PER_YEAR)).toBe(WAR_AT + 10);
+    expect(warBar(s.world, x.ended + 2 * TICKS_PER_YEAR)).toBe(-20);
   });
 
   it('a price two pushes have made dear names both, the bigger first; a good the war on now leaves alone is named by the war before', () => {

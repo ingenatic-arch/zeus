@@ -99,6 +99,8 @@ import { freshHerds, wildRng } from './wild';
 import { freshTrade, TRADE_GOODS } from './trade';
 import { freshWorld, moodLevel, moodOf, usualTrail } from './world';
 import { freshBook } from './stockbook';
+import { nextFestival } from './festivals';
+import type { CityId } from '../map/greece';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -365,7 +367,9 @@ function from20(st: Record<string, unknown>): void {
         c.strife = TRADE_GOODS.map(() => 0);
         c.feast = TRADE_GOODS.map(() => 0);
         c.war = '';
-        c.festival = 0;
+        // (A festival already on when the town was saved is on, not news: it isn't announced again.)
+        const n = typeof c.id === 'string' && typeof st.tick === 'number' ? nextFestival(c.id as CityId, st.tick) : null;
+        c.festival = n && typeof st.tick === 'number' && st.tick >= n.start && st.tick < n.end ? n.end : 0;
       }
     }
   }

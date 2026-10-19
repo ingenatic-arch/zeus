@@ -5,16 +5,15 @@
  * about how a town plays.
  */
 import { describe, expect, it } from 'vitest';
-import { DEMOS } from '../src/game/demos';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import { WARES, WHEAT, WINE, OLIVES } from '../src/sim/foods';
 import { Sim } from '../src/sim/sim';
 import { BOOK_MONTHS, districtOfLine } from '../src/sim/stockbook';
 import { bookNow, stockOf, totalsOf } from '../src/sim/stocks';
+import { demoSim } from './prepared';
 
 const demo = (name: string): Sim => {
-  const sim = new Sim();
-  DEMOS[name].setup!(sim);
+  const sim = demoSim(name);
   return sim;
 };
 

@@ -14,7 +14,7 @@ import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, keptIn, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
-import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, TRIBUTE_YEARS } from '../sim/favours';
+import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, type SendMemo, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
 import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
@@ -319,10 +319,12 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   // (Whether goods can go that way at all, found once for every row.)
   const goodsWay = map ? giftWay(s, map, id, false) : null;
   const wayWhy = goodsWay && 'why' in goodsWay ? goodsWay.why : '';
+  // (The road searches behind each button's arrival time, done once for the whole page.)
+  const memo: SendMemo = {};
   const button = (ware: number, k: number, amount: number): string => {
     const why = map ? giftRefusal(s, map, id, ware, amount, ware < 0 ? undefined : wayWhy) : '';
     // (What it is worth when it arrives, as it will be judged then: a gift landing in a festival counts for more, one sent today but arriving after it doesn't.)
-    const t = map && !why ? sendTicks(s, map, { city: id, good: k, amount }) : -1;
+    const t = map && !why ? sendTicks(s, map, { city: id, good: k, amount }, k < 0 ? undefined : memo) : -1;
     const mem = giftMemory(s, c, k, amount, s.tick + Math.max(0, t));
     const label = k < 0 ? `${fmt(amount)} dr` : fmt(amount);
     const value = k >= 0 ? ` (worth ${fmt(giftValue(s, id, k, amount))} dr in ${name})` : '';
@@ -488,7 +490,7 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
   }
   const mood = moodOf(c, s.tick);
   const ifs = live(r)
-    ? `Paid: ${signed(peace.amount)}, ${fadeWords(peace.fade)}. Raided: ${his} anger is partly spent (${signed(answerMemory(c, 'spent', '', s.tick).amount)}). Either way, no threat from ${them(c)} for a year. A gift that warms ${them(c)} past cold (${signed(mood)} now; cold ends at ${signed(COLD)}) calls them off too.`
+    ? `Paid: ${signed(peace.amount)}, ${fadeWords(peace.fade)}, and no threat from ${them(c)} for a year. Raided: ${his} anger is partly spent (${signed(answerMemory(c, 'spent', '', s.tick).amount)}), and no threat from ${them(c)} for two years. A gift that warms ${them(c)} past cold (${signed(mood)} now; cold ends at ${signed(COLD)}) calls them off too.`
     : '';
   return `<div class="deal threat${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(head)}</b>. <span class="why">${esc(cap(d.why))}.</span>
 <p>${esc(where)}</p>${acts}${eta}${ifs ? `<p class="if">${esc(ifs)}</p>` : ''}</div></div>`;
@@ -574,7 +576,7 @@ ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}`)}
 ${pane('prices', pricesBlock(s, id, false))}
 ${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}
-${pane('rivals', rivalsHtml(s, id))}`;
+${pane('rivals', tab === 'rivals' ? rivalsHtml(s, id) : '')}`;
 }
 
 /** Every ruled city's mood in a word, for the probe and the smoke test. */
