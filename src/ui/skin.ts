@@ -1,13 +1,13 @@
 /**
  * The interface's materials (see relief.ts), made once as the game opens:
- * marble and honed marble as tiles, the bronze moulding down the panel's
+ * a tile of marble (honed marble is the same, washed lighter in CSS), the bronze moulding down the panel's
  * edge, bronze frames cut in nine for the bars and cards, and the fixed
  * pieces of the side panel (its head round the minimap, the bosses, the
  * tabs, the wells, the lintels). The tiles and frames go to CSS as custom
  * properties on the root; the pieces are image URLs, made the first time
  * they are asked for and kept.
  */
-import { bronze, canvasOf, cutOut, darkStone, disc, flat, gold, iconMask, inside, lapis, marble, Relief, rrect, ss, textMask, type Material } from './relief';
+import { bronze, canvasOf, cutOut, darkStone, disc, flat, gold, iconMask, inside, lapis, marble, Relief, rrect, sampled, ss, textMask, type Material } from './relief';
 
 /** The side panel's width, and the moulding and groove down its left edge. */
 export const PANEL_W = 296;
@@ -20,7 +20,8 @@ export const WELL = { w: 84, h: 76, gap: 6 } as const;
 export const LINTEL = { w: 266, h: 30 } as const;
 export const BAND = { w: PANEL_W - MOULD, h: 18 } as const;
 
-const MARBLE = marble(3, 256);
+/** The panel's marble (worked out a CSS pixel apart once the game opens: see prepareSkin). */
+let MARBLE: Material = marble(3, 256);
 const BRONZE = bronze();
 const GOLD = gold();
 const LAPIS = lapis();
@@ -35,30 +36,26 @@ const url = (c: HTMLCanvasElement): string => c.toDataURL('image/png');
 /** Fonts, the icons' masks, the tiles and frames: once, before the interface is drawn. */
 export async function prepareSkin(icons: Record<string, string>, root: HTMLElement = document.documentElement): Promise<number> {
   const t0 = performance.now();
-  await Promise.all([document.fonts.load('700 17px Cinzel'), document.fonts.load('500 13px Cinzel'), document.fonts.load('15px Alegreya'), document.fonts.load('italic 15px Alegreya'), document.fonts.load('700 15px Alegreya')]).catch(() => undefined);
-  await Promise.all(
-    Object.entries(icons).flatMap(([k, svg]) => [
+  await Promise.all([
+    Promise.all([document.fonts.load('700 17px Cinzel'), document.fonts.load('500 13px Cinzel'), document.fonts.load('15px Alegreya'), document.fonts.load('italic 15px Alegreya'), document.fonts.load('700 15px Alegreya')]).catch(() => undefined),
+    ...Object.entries(icons).flatMap(([k, svg]) => [
       iconMask(svg, 22).then((m) => masks.set(`${k}:22`, m)),
       iconMask(svg, 22, true).then((m) => masks.set(`${k}:22s`, m)),
     ]),
-  );
+  ]);
+  MARBLE = sampled(MARBLE, 256, 256, true);
   const set = (name: string, c: HTMLCanvasElement): void => root.style.setProperty(name, `url(${url(c)})`);
-  set('--skin-marble', marbleTile(MARBLE, 0.5));
-  set('--skin-honed', marbleTile(marble(8, 256, 1.035, 0.6), 0.25));
+  set('--skin-marble', new Relief(256, 256, true, true).paint([0, 0, 256, 256], MARBLE).grain(0.5).render(false));
   set('--skin-mould', moulding());
   set('--skin-frame', frame(48, 7, 4));
   set('--skin-frame-thin', frame(24, 4, 2.6));
   return performance.now() - t0;
 }
 
-function marbleTile(mat: Material, grain: number): HTMLCanvasElement {
-  return new Relief(256, 256, true, true).paint([0, 0, 256, 256], mat).grain(grain).render();
-}
-
 /** The bronze moulding down the panel's edge, studded, with a groove after it: a tile that repeats down. */
 function moulding(): HTMLCanvasElement {
   const r = new Relief(MOULD, 256, false, true);
-  r.paint([0, 0, MOULD, 256], MARBLE).paint([0, 0, 10, 256], bronze(2, 256));
+  r.paint([0, 0, 10, 256], bronze(2, 256)).paint([10, 0, 2, 256], MARBLE);
   r.raise([0, 0, 10, 256], (x) => 6 * Math.sin(Math.PI * Math.min(1, x / 10)));
   for (const y of [42, 128, 214]) r.bevel(disc(5, y, 2.8), [1, y - 4, 8, 8], 2.8, 2.6);
   r.raise([10, 0, 2, 256], () => -2.5);

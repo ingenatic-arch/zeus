@@ -1,25 +1,34 @@
 /**
- * The side panel down the right of the screen, as in the original game: the
- * minimap at the top, then the city's information in tabs.
+ * The control panel down the right of the screen, as in the original game.
+ * At its head the minimap in a bronze ring, with four bosses round it: road,
+ * clear, undo, and the overlays. Below, a tab for each kind of building
+ * (see categories.ts); each tab holds the buttons to build that kind, its
+ * pictures drawn from the town's own models, and under them the state of
+ * that part of the city:
  *
- * - **Goods**: every ware, what the city holds of it and its net last month;
- *   click one for its page: how much and where it is kept, what made it and
- *   where it went (homes by district, workshops, the ship), this month and
- *   last, the year's chart, and what would help.
- * - **People**: who lives in the city, in what homes, who has work, and the
- *   homes in trouble.
- * - **Services**: how many homes that need each service have it, and the
- *   fire and wear across the town; a click shows the service's overlay.
- * - **Money**: the treasury, last month and this one, the tax rate, and the
- *   ledger.
+ * - **Population**: who lives in the city, in what homes, who has work, and
+ *   the homes in trouble.
+ * - **Husbandry** and **Industry**: what their buildings made last month and
+ *   how they are staffed; click a ware for its page (how much and where it
+ *   is kept, what made it and where it went, the year's chart, and what
+ *   would help).
+ * - **Distribution**: every good in the city, and how many homes the agora's
+ *   vendors reach.
+ * - **Hygiene and safety**: water, and the fire and wear across the town.
+ * - **Administration**: the treasury, last month and this one, the tax rate,
+ *   and the ledger.
+ * - **Culture** and **Mythology**: how many homes have plays and blessings.
+ * - **Military**: the barracks and their companies.
  *
- * It only reads the sim state (refreshing a few times a second while open);
- * clicks call back into the game (fly the camera, show an overlay, open the
- * ledger or a household).
+ * It only reads the sim state (refreshing a few times a second); clicks
+ * call back into the game (pick up a tool, fly the camera, show an overlay,
+ * open the ledger or a household).
  */
 import { districtTitle, DISTRICTS } from '../map/districts';
 import type { CoastMap } from '../map/bake';
+import type { ToolName } from '../game/tools';
 import type { OverlayMode } from '../render/overlay';
+import { drawPictures } from '../render/pictures';
 import { BUILDING_NAMES, centreOf, HOME_NAMES, jobsAt, TOP_LEVEL } from '../sim/buildings';
 import { districtAt } from '../map/districts';
 import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_SECOND } from '../sim/clock';
@@ -28,6 +37,8 @@ import { GOOD_SERVICE, isGood, type Ware } from '../sim/foods';
 import { burnable, HAZARD_MARK, wears } from '../sim/hazards';
 import { canWorkIn, workforce } from '../sim/labour';
 import { armyHtml } from './armytab';
+import { ICONS, INFO } from './buildbar';
+import { CATEGORIES, categoryOf, HEAD_TOOLS, OLD_TABS, type Category, type CategoryInfo } from './categories';
 import type { Command } from '../sim/commands';
 import { arrivalOutlook, type Outlook } from '../sim/settlers';
 import type { Building, BuildingKind, Service, SimState } from '../sim/state';
@@ -36,6 +47,7 @@ import { TAX_RATES, taxedLately } from '../sim/taxes';
 import { kindTotal, monthOf as ledgerMonth, owedWages, totals } from '../sim/treasury';
 import { Minimap } from './minimap';
 import { morph } from './morph';
+import { bandURL, BOSS, bossURL, HEAD, headURL, lintelURL, MOULD, tabURL, wellURL } from './skin';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -43,22 +55,31 @@ const signed = (n: number): string => (Math.round(n) > 0 ? `+${fmt(n)}` : Math.r
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
 const lower = (t: string): string => (t ? `${t[0].toLowerCase()}${t.slice(1)}` : t);
 
-export type SideTab = 'goods' | 'people' | 'services' | 'money' | 'army';
-const TABS: ReadonlyArray<{ tab: SideTab; label: string; tip: string }> = [
-  { tab: 'goods', label: 'Goods', tip: 'What the city makes, keeps and uses' },
-  { tab: 'people', label: 'People', tip: 'Who lives here, in what homes, and who has work' },
-  { tab: 'services', label: 'Services', tip: 'What reaches the homes that need it, and fire and wear' },
-  { tab: 'money', label: 'Money', tip: 'The treasury, taxes and wages' },
-  { tab: 'army', label: 'Army', tip: 'The barracks, their companies and the city’s strength' },
-];
+/** The overlays' boss: three sheets, one over another. */
+const LAYERS = '<svg viewBox="0 0 24 24"><path d="M12 3.4 21 8l-9 4.6L3 8z" class="fill-soft"/><path d="M4.6 11.6 12 15.4l7.4-3.8M4.6 15.4 12 19.2l7.4-3.8" class="stroke-ink"/></svg>';
 
-const TAB_ICONS: Record<SideTab, string> = {
-  goods: '<svg viewBox="0 0 24 24"><path d="M9.6 2.6h4.8l-.6 2.8c3.2 1.2 5 4.4 5 8 0 4-2.4 7-5.2 8H10.4c-2.8-1-5.2-4-5.2-8 0-3.6 1.8-6.8 5-8z" class="f"/><path d="M6 11.4h12" class="s"/></svg>',
-  people: '<svg viewBox="0 0 20 16"><circle cx="7" cy="4" r="2.6" class="f"/><path d="M2.4 15c0-3.6 2-6 4.6-6s4.6 2.4 4.6 6z" class="f"/><circle cx="14" cy="5.2" r="2.1" class="f"/><path d="M12.6 15c.1-2.4-.4-4.2-1.3-5.2.8-.5 1.6-.7 2.7-.7 2.2 0 3.8 2 3.8 5.9z" class="f"/></svg>',
-  services: '<svg viewBox="0 0 24 24"><path d="M12 2.8c3.3 4.6 6.2 8.2 6.2 11.6a6.2 6.2 0 0 1-12.4 0c0-3.4 2.9-7 6.2-11.6z" class="f"/><path d="M9.2 14.6a2.8 2.8 0 0 0 2.6 2.6" class="s"/></svg>',
-  army: '<svg viewBox="0 0 24 24"><circle cx="11" cy="13" r="7.4" class="f"/><circle cx="11" cy="13" r="2.2" class="s"/><path d="M19.4 2v20" class="s"/></svg>',
-  money: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.6" class="f"/><circle cx="8" cy="8" r="4.4" class="s"/><path d="M8 5.2l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" class="m"/></svg>',
+/** The icons the panel's pieces are cut with (for prepareSkin). */
+export const PANEL_ICONS: Record<string, string> = {
+  road: ICONS.road,
+  clear: ICONS.clear,
+  undo: ICONS.undo,
+  layers: LAYERS,
+  ...Object.fromEntries(CATEGORIES.map((c) => [c.id, c.icon])),
 };
+
+/** The four bosses round the minimap, from top left. */
+const BOSSES = ['road', 'clear', 'undo', 'layers'] as const;
+type Boss = (typeof BOSSES)[number];
+
+/** Every overlay, in the order the overlays' list shows them (the open tab's first). */
+const ALL_OVERLAYS: readonly OverlayMode[] = ['missing', 'water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear'];
+/** An overlay's colour on its row (as its walkers' paths are drawn). */
+const OVERLAY_COLOUR: Record<OverlayMode, string> = { missing: '#7a8f3a', water: '#4f9be0', food: '#e0a548', variety: '#c98f2a', oil: '#8aa83a', fleece: '#c8b68a', wine: '#8e2f4e', religion: '#a98ae0', culture: '#e3778f', tax: '#4f9f88', fire: '#d8542a', wear: '#8a7458' };
+
+/** The drachmas a tool's building costs (0 for a tool with none, or a cost by the tile). */
+const costOf = (t: ToolName): number => Number(/^\d[\d,]*/.exec(INFO[t].cost)?.[0].replace(/,/g, '') ?? 0);
+/** Buildings the city may have only one of. */
+const ONLY_ONE: Partial<Record<ToolName, BuildingKind>> = { trading: 'trading', yard: 'yard' };
 
 /** A small picture of each ware. */
 const WARE_ICONS: Record<number, string> = {
@@ -122,72 +143,139 @@ function placeName(b: Building, map: CoastMap): string {
 export interface SideHooks {
   /** Fly the camera to a world point (`jump`: at once, for dragging on the minimap). */
   goTo(x: number, z: number, jump?: boolean): void;
-  /** Show a service's overlay (or hide it if it shows). */
+  /** Face north (north's marker on the minimap's ring). */
+  faceNorth(): void;
+  /** Pick up a building tool (or put it down, if it is the one in hand), and undo. */
+  tool(t: ToolName): void;
+  undo(): void;
+  /** Show an overlay (or hide it if it shows). */
   overlay(mode: OverlayMode): void;
   overlayMode(): OverlayMode | null;
   /** Open the ledger, the tax rates card, a household's panel. */
   ledger(): void;
   rates(): void;
   openHome(id: number): void;
-  /** The panel opened or closed (the view makes room for it). */
+  /** The panel showed or stepped aside (the view makes room for it). */
   toggled(open: boolean): void;
-  /** The Army tab: send a command (raise, dismiss, back to barracks), take a company's banner in hand, and which is in hand. */
+  /** The Military tab: send a command (raise, dismiss, back to barracks), take a company's banner in hand, and which is in hand. */
   army(c: Command): void;
   selectCompany(id: number): void;
   selected(): number;
 }
 
-/** Remembered between visits (where the browser lets it): whether the panel is open, and the tab. */
+/** Remembered between visits (where the browser lets it): the open tab. */
 const STORE_KEY = 'zeus-remake.side';
+
+/** A tab by its name, or by one of the old tabs' names (demo links and the probe still use them). */
+const tabNamed = (t: string): Category | null => (CATEGORIES.some((c) => c.id === t) ? (t as Category) : (OLD_TABS[t] ?? null));
 
 export class SidePanel {
   readonly el: HTMLElement;
   readonly minimap: Minimap;
   private readonly body: HTMLElement;
+  private readonly scroll: HTMLElement;
   private readonly tabsEl: HTMLElement;
-  private tab: SideTab = 'goods';
-  /** The ware whose page is open on the goods tab (-1: the list). */
+  private readonly wellsEl: HTMLElement;
+  private readonly lintel: HTMLImageElement;
+  private readonly pickEl: HTMLElement;
+  private readonly layersEl: HTMLElement;
+  private readonly bosses = new Map<Boss, HTMLButtonElement>();
+  private readonly hint: HTMLElement;
+  private tab: Category = 'population';
+  /** The ware whose page is open on the tab (-1: the tab's own page). */
   private ware = -1;
   private shownAt = -Infinity;
   private outlook: Outlook | null = null;
   private outlookAt = -Infinity;
   private isOpen = true;
   private lastHtml = '';
+  /** The tool in hand, the overlay showing, the well under the pointer. */
+  private tool: ToolName | null = null;
+  private overlayNow: OverlayMode | null = null;
+  private hover: ToolName | null = null;
+  private undoOk = false;
+  /** The buildings' pictures, drawn the first time they are wanted. */
+  private pictures: Map<string, string> | null = null;
+  private picturesSoon = false;
+  private wellsKey = '';
 
   constructor(
     root: HTMLElement,
     private readonly map: CoastMap,
     private readonly hooks: SideHooks,
-    startOpen: boolean,
   ) {
     const el = document.createElement('aside');
     el.className = 'side';
-    el.setAttribute('aria-label', 'City information');
-    el.innerHTML = `<div class="side-head"></div><div class="side-map"></div><nav class="side-tabs" role="tablist"></nav><div class="side-body"></div>`;
+    el.setAttribute('aria-label', 'Control panel');
+    const boss = (b: Boss, i: number): string => {
+      const [x, y] = BOSS.at[i];
+      return `<button class="boss" data-boss="${b}" style="left:${x - BOSS.r - 1}px;top:${y - BOSS.r - 1}px"></button>`;
+    };
+    el.innerHTML = `<div class="side-cornice"></div><div class="side-head"><div class="side-head-art" style="background-image:url(${headURL()})"></div><div class="side-map" style="left:${HEAD.cx - HEAD.plate - HEAD.ring}px;top:${HEAD.cy - HEAD.plate - HEAD.ring}px"></div>${BOSSES.map(boss).join('')}</div><div class="side-band" style="background-image:url(${bandURL()})"></div><nav class="side-tabs" role="tablist" aria-label="Kinds of building"></nav><div class="side-scroll"><div class="side-lintel" role="heading" aria-level="2"><img alt=""></div><div class="side-wells"></div><div class="side-pick"></div><div class="side-body"></div></div><div class="side-layers" role="menu" hidden></div>`;
+    el.style.setProperty('--mould', `${MOULD}px`);
     // First in the UI layer, so the corner's buttons and the cards they open lie over it.
     root.prepend(el);
     this.el = el;
-    this.minimap = new Minimap(map, (x, z, fly) => hooks.goTo(x, z, !fly));
+    this.minimap = new Minimap(map, (x, z, fly) => hooks.goTo(x, z, !fly), () => hooks.faceNorth());
     (el.querySelector('.side-map') as HTMLElement).appendChild(this.minimap.el);
+    for (const b of el.querySelectorAll<HTMLButtonElement>('.boss')) this.bosses.set(b.dataset.boss as Boss, b);
     this.tabsEl = el.querySelector('.side-tabs') as HTMLElement;
-    this.tabsEl.innerHTML = TABS.map((t) => `<button role="tab" class="side-tab" data-tab="${t.tab}" title="${esc(t.tip)}">${TAB_ICONS[t.tab]}<span>${t.label}</span></button>`).join('');
+    this.tabsEl.innerHTML = CATEGORIES.map((c) => `<button role="tab" class="side-tab" data-tab="${c.id}" title="${esc(c.tip)}" aria-label="${esc(c.title)}"></button>`).join('');
+    this.scroll = el.querySelector('.side-scroll') as HTMLElement;
+    this.wellsEl = el.querySelector('.side-wells') as HTMLElement;
+    this.lintel = el.querySelector('.side-lintel img') as HTMLImageElement;
+    this.pickEl = el.querySelector('.side-pick') as HTMLElement;
+    this.layersEl = el.querySelector('.side-layers') as HTMLElement;
     this.body = el.querySelector('.side-body') as HTMLElement;
-    let saved: { open?: boolean; tab?: SideTab } = {};
+    // The line for the tool in hand, at the foot of the view.
+    this.hint = document.createElement('div');
+    this.hint.className = 'tool-hint';
+    this.hint.hidden = true;
+    root.appendChild(this.hint);
+    let saved: { tab?: string } = {};
     try {
       saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}') as typeof saved;
     } catch {
-      /* No storage here: start as the window suggests. */
+      /* No storage here: start on the first tab. */
     }
-    if (saved.tab && TABS.some((t) => t.tab === saved.tab)) this.tab = saved.tab;
-    this.isOpen = saved.open ?? startOpen;
+    this.tab = tabNamed(saved.tab ?? '') ?? 'population';
     this.tabsEl.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('.side-tab') as HTMLElement | null;
       if (!b) return;
-      const t = b.dataset.tab as SideTab;
-      if (t === this.tab && this.ware >= 0) this.ware = -1;
-      this.tab = t;
-      this.remember();
-      this.refresh();
+      this.openTab(b.dataset.tab as Category);
+    });
+    el.querySelector('.side-head')?.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('.boss') as HTMLButtonElement | null;
+      if (!b || b.disabled) return;
+      const which = b.dataset.boss as Boss;
+      if (which === 'road' || which === 'clear') hooks.tool(which);
+      else if (which === 'undo') hooks.undo();
+      else this.toggleLayers();
+    });
+    this.layersEl.addEventListener('click', (e) => {
+      const r = (e.target as HTMLElement).closest('[data-mode]') as HTMLElement | null;
+      if (!r) return;
+      hooks.overlay(r.dataset.mode as OverlayMode);
+      this.toggleLayers(false);
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (!this.layersEl.hidden && e.target instanceof Node && !this.layersEl.contains(e.target) && !this.bosses.get('layers')?.contains(e.target)) this.toggleLayers(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.toggleLayers(false);
+    });
+    this.wellsEl.addEventListener('click', (e) => {
+      const w = (e.target as HTMLElement).closest('.well') as HTMLElement | null;
+      if (w) hooks.tool(w.dataset.tool as ToolName);
+    });
+    this.wellsEl.addEventListener('pointerover', (e) => {
+      const w = (e.target as HTMLElement).closest('.well') as HTMLElement | null;
+      this.hover = (w?.dataset.tool as ToolName | undefined) ?? null;
+      this.showPick();
+    });
+    this.wellsEl.addEventListener('pointerleave', () => {
+      this.hover = null;
+      this.showPick();
     });
     this.body.addEventListener('click', (e) => this.clicked(e));
     this.body.addEventListener('keydown', (e) => {
@@ -196,6 +284,7 @@ export class SidePanel {
         this.clicked(e);
       }
     });
+    this.showBosses();
     this.showTabs();
     this.apply();
   }
@@ -204,25 +293,38 @@ export class SidePanel {
     return this.isOpen;
   }
 
-  /** Show or hide the panel (toggles without an argument). */
+  /** Show the panel or put it aside (for the probe; it shows all the time in play). */
   toggle(show = !this.isOpen): void {
     if (show === this.isOpen) return;
     this.isOpen = show;
-    this.remember();
     this.apply();
   }
 
-  /** Open the goods tab on a ware's page. */
+  /** Open a tab (a second click on the open one goes back from a ware's page to the tab's own). */
+  private openTab(t: Category): void {
+    if (t === this.tab && this.ware < 0) return;
+    this.tab = t;
+    this.ware = -1;
+    this.scroll.scrollTop = 0;
+    this.remember();
+    this.refresh();
+  }
+
+  /** Open a ware's page, on the tab of what makes it (the goods of the agora's stalls on Distribution). */
   showWare(w: Ware): void {
-    this.tab = 'goods';
+    // (What kind of building makes it, asked of a city with none.)
+    const maker = makersOf({ buildings: [] } as unknown as SimState, w).kind;
+    this.tab = (maker && categoryOf(maker as ToolName)?.id) || 'distribution';
     this.ware = w;
     this.toggle(true);
     this.refresh();
   }
 
-  /** Open a tab. */
-  showTab(t: SideTab): void {
-    this.tab = t;
+  /** Open a tab, by its name or an old tab's. */
+  showTab(t: string): void {
+    const c = tabNamed(t);
+    if (!c) return;
+    this.tab = c;
     this.ware = -1;
     this.toggle(true);
     this.refresh();
@@ -230,7 +332,7 @@ export class SidePanel {
 
   private remember(): void {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ open: this.isOpen, tab: this.tab }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ tab: this.tab }));
     } catch {
       /* Not kept: fine. */
     }
@@ -245,12 +347,141 @@ export class SidePanel {
     this.hooks.toggled(this.isOpen);
   }
 
+  private get info(): CategoryInfo {
+    return CATEGORIES.find((c) => c.id === this.tab) ?? CATEGORIES[0];
+  }
+
   private showTabs(): void {
-    for (const b of this.tabsEl.querySelectorAll('.side-tab')) {
-      const on = (b as HTMLElement).dataset.tab === this.tab;
+    CATEGORIES.forEach((c, i) => {
+      const b = this.tabsEl.querySelector(`[data-tab="${c.id}"]`) as HTMLElement;
+      const on = c.id === this.tab;
       b.classList.toggle('on', on);
       b.setAttribute('aria-selected', String(on));
+      b.style.backgroundImage = `url(${tabURL(c.id, on, i)})`;
+    });
+    this.lintel.src = lintelURL(this.info.title);
+    this.lintel.alt = this.info.title;
+    this.showWells();
+  }
+
+  /** The bosses round the minimap: road and clear lit while in hand, undo greyed when there is nothing to undo, the overlays' lit while one shows. */
+  private showBosses(): void {
+    const on: Record<Boss, boolean> = { road: this.tool === 'road', clear: this.tool === 'clear', undo: false, layers: this.overlayNow !== null || !this.layersEl.hidden };
+    for (const [k, b] of this.bosses) {
+      b.style.backgroundImage = `url(${bossURL(k, BOSS.r, on[k])})`;
+      b.classList.toggle('on', on[k]);
+      b.setAttribute('aria-pressed', String(on[k]));
     }
+    const road = this.bosses.get('road') as HTMLButtonElement;
+    const clear = this.bosses.get('clear') as HTMLButtonElement;
+    const layers = this.bosses.get('layers') as HTMLButtonElement;
+    const label = (b: HTMLElement, text: string): void => {
+      b.title = text;
+      b.setAttribute('aria-label', text);
+    };
+    label(road, `${INFO.road.name} (${INFO.road.key}) · ${INFO.road.cost}`);
+    label(clear, `${INFO.clear.name} (${INFO.clear.key}) · ${INFO.clear.cost}`);
+    label(layers, this.overlayNow ? `Overlays: ${INFO[this.overlayNow].name.split(':')[0]} shows · click to choose another or hide it` : 'Overlays: show on the map where each service reaches, and more');
+    layers.setAttribute('aria-haspopup', 'menu');
+    layers.setAttribute('aria-expanded', String(!this.layersEl.hidden));
+  }
+
+  /** Open or close the list of overlays (the open tab's first). */
+  private toggleLayers(show = this.layersEl.hidden): void {
+    if (show === !this.layersEl.hidden) return;
+    this.layersEl.hidden = !show;
+    if (show) {
+      const mine = this.info.overlays;
+      const order = [...mine, ...ALL_OVERLAYS.filter((o) => !mine.includes(o))];
+      this.layersEl.innerHTML = order
+        .map((o, i) => {
+          const [name] = INFO[o].name.split(':');
+          const gap = i === mine.length && mine.length ? ' gap' : '';
+          return `<button role="menuitemcheckbox" aria-checked="${o === this.overlayNow}" class="layer${o === this.overlayNow ? ' on' : ''}${gap}" data-mode="${o}" title="${esc(INFO[o].name)}"><i style="background:${OVERLAY_COLOUR[o]}"></i><span>${esc(name.replace(/ overlay$/, ''))}</span><kbd>${INFO[o].key}</kbd></button>`;
+        })
+        .join('');
+    }
+    this.showBosses();
+  }
+
+  /** The wells of the open tab's buildings: lit gold for the one in hand, dimmed where the treasury can't pay or the city has its one. */
+  private showWells(): void {
+    const s = this.s;
+    const tools = this.info.tools;
+    const money = s?.money ?? Infinity;
+    const has = (k: BuildingKind): boolean => !!s?.buildings.some((b) => b.kind === k);
+    const key = `${this.tab}|${this.tool}|${tools.map((t) => (money < costOf(t) ? 0 : 1)).join('')}|${tools.map((t) => (ONLY_ONE[t] && has(ONLY_ONE[t] as BuildingKind) ? 1 : 0)).join('')}`;
+    if (key === this.wellsKey) return;
+    this.wellsKey = key;
+    // The pictures are drawn just after the game opens (the wells show the buildings' icons until then).
+    if (!this.pictures && !this.picturesSoon) {
+      this.picturesSoon = true;
+      setTimeout(() => {
+        this.pictures = drawPictures(CATEGORIES.flatMap((c) => c.tools));
+        this.wellsKey = '';
+        this.showWells();
+      }, 300);
+    }
+    this.wellsEl.innerHTML = tools
+      .map((t) => {
+        const i = INFO[t];
+        const n = costOf(t);
+        const dear = money < n;
+        const one = ONLY_ONE[t] && has(ONLY_ONE[t] as BuildingKind);
+        const why = one ? ' · the city has its one' : dear ? ' · more than the treasury holds' : '';
+        const pic = this.pictures?.get(t);
+        const label = `${i.name} (${i.key}) · ${i.cost}${why}`;
+        return `<button class="well${t === this.tool ? ' on' : ''}${dear || one ? ' dear' : ''}" data-tool="${t}" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${t === this.tool}" style="background-image:url(${wellURL(t === this.tool)})">${pic ? `<img src="${pic}" alt="">` : ICONS[t]}<span class="cost">${n ? fmt(n) : ''}</span></button>`;
+      })
+      .join('');
+    this.showPick();
+  }
+
+  /** Under the wells: the building in hand (or under the pointer), by name and cost. */
+  private showPick(): void {
+    const t = this.hover ?? (this.tool && this.info.tools.includes(this.tool) ? this.tool : null);
+    const html = t ? `<span class="nm">${esc(INFO[t].name)}</span><span class="cost">${esc(INFO[t].cost.replace(/ dr\b/, ' drachmas'))}</span>` : `<span class="none">${esc(this.info.tools.length > 1 ? 'Pick a building to place it' : 'Click to place it')}</span>`;
+    if (this.pickEl.innerHTML !== html) this.pickEl.innerHTML = html;
+  }
+
+  /** A tool was picked up or put down: light it, open its tab, say how to use it at the foot of the view. */
+  showTool(t: ToolName | null): void {
+    this.tool = t;
+    const c = t && !HEAD_TOOLS.includes(t) ? categoryOf(t) : undefined;
+    if (c && c.id !== this.tab) {
+      this.tab = c.id;
+      this.ware = -1;
+      this.remember();
+      this.refresh();
+    } else this.showWells();
+    this.showPick();
+    this.showBosses();
+    this.hint.hidden = !t;
+    if (t) this.hint.textContent = `${INFO[t].hint}  Right-click or Esc to put it down.`;
+  }
+
+  /** The overlay showing, if any. */
+  showOverlay(mode: OverlayMode | null): void {
+    if (mode === this.overlayNow) return;
+    this.overlayNow = mode;
+    this.showBosses();
+    this.shownAt = -Infinity;
+  }
+
+  private undoWhy: string | null = null;
+
+  /** Undo is greyed out when the last action can't be undone, and its tip says why. */
+  setUndo(available: boolean, why = ''): void {
+    const b = this.bosses.get('undo') as HTMLButtonElement;
+    if (available !== this.undoOk || b.disabled === available) {
+      this.undoOk = available;
+      b.disabled = !available;
+    }
+    if (why === this.undoWhy) return;
+    this.undoWhy = why;
+    const label = available || !why ? 'Undo (U) · the last thing you built or cleared, within about a month' : `Undo (U) · ${why}`;
+    b.title = label;
+    b.setAttribute('aria-label', label);
   }
 
   private s: SimState | null = null;
@@ -266,7 +497,7 @@ export class SidePanel {
     return this.isOpen ? (this.body.textContent ?? '') : '';
   }
 
-  get tabNow(): SideTab {
+  get tabNow(): Category {
     return this.tab;
   }
 
@@ -280,7 +511,7 @@ export class SidePanel {
     const act = a.dataset.act;
     if (act === 'ware') {
       this.ware = Number(a.dataset.ware);
-      this.body.scrollTop = 0;
+      this.scroll.scrollTop = 0;
       this.refresh();
     } else if (act === 'back') {
       this.ware = -1;
@@ -305,13 +536,13 @@ export class SidePanel {
     }
   }
 
-  /** The barracks picked out on the Army tab (clicked in the city), or 0. */
+  /** The barracks picked out on the Military tab (clicked in the city), or 0. */
   private armyFocus = 0;
 
-  /** Open the Army tab, a barracks picked out. */
+  /** Open the Military tab, a barracks picked out. */
   showBarracks(id: number): void {
     this.armyFocus = id;
-    this.showTab('army');
+    this.showTab('military');
     const el = this.body.querySelector(`[data-barracks="${id}"]`);
     if (el && 'scrollIntoView' in el) (el as HTMLElement).scrollIntoView({ block: 'nearest' });
   }
@@ -324,15 +555,35 @@ export class SidePanel {
     this.shownAt = time;
     if (time - this.outlookAt > 2) {
       this.outlookAt = time;
-      this.outlook = this.tab === 'people' ? arrivalOutlook(s, this.map) : null;
+      this.outlook = this.tab === 'population' ? arrivalOutlook(s, this.map) : null;
     }
+    this.showWells();
     this.render(s);
   }
 
-  /** The current tab's HTML. */
+  /** The open tab's HTML (below its buildings). */
   html(s: SimState): string {
-    if (this.tab === 'people' && !this.outlook) this.outlook = arrivalOutlook(s, this.map);
-    return this.tab === 'goods' ? (this.ware >= 0 ? this.warePage(s, this.ware) : this.goodsList(s)) : this.tab === 'people' ? this.people(s) : this.tab === 'services' ? this.services(s) : this.tab === 'army' ? armyHtml(s, this.map, this.armyFocus, this.hooks.selected()) : this.money(s);
+    if (this.tab === 'population' && !this.outlook) this.outlook = arrivalOutlook(s, this.map);
+    if (this.ware >= 0) return this.warePage(s, this.ware);
+    switch (this.tab) {
+      case 'population':
+        return this.people(s);
+      case 'husbandry':
+      case 'industry':
+        return this.makers(s, this.info);
+      case 'distribution':
+        return this.goodsList(s) + this.services(s, ['food', 'oil', 'fleece', 'wine'], 'Sold in the agora', 'Of the homes whose level needs each, how many its vendors reached lately.');
+      case 'safety':
+        return this.services(s, ['water'], '', 'Of the homes that need water, how many have it now.') + this.hazards(s);
+      case 'administration':
+        return this.money(s);
+      case 'culture':
+        return this.services(s, ['culture'], '', 'Of the homes whose level needs plays, how many the actors reached lately.') + this.counted(s, 'theatre', 'theatre', 'theatres');
+      case 'mythology':
+        return this.services(s, ['religion'], '', 'Of the homes whose level needs a blessing, how many the priestesses reached lately.') + this.counted(s, 'shrine', 'shrine', 'shrines');
+      case 'military':
+        return armyHtml(s, this.map, this.armyFocus, this.hooks.selected());
+    }
   }
 
   private render(s: SimState): void {
@@ -340,6 +591,40 @@ export class SidePanel {
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     morph(this.body, html);
+  }
+
+  // -------------------------------------------------------------------------
+  // Husbandry and industry.
+
+  /** What a tab's buildings made, ware by ware, and how they are staffed. */
+  private makers(s: SimState, c: CategoryInfo): string {
+    const wares = panelWares().filter((w) => {
+      const k = makersOf(s, w).kind;
+      return k !== '' && c.tools.includes(k as ToolName);
+    });
+    const b = bookNow(s);
+    const out: string[] = [];
+    out.push(`<h3>${b.full ? 'Made last month' : 'Made this month so far'}</h3><ul class="wares">${wares.map((w) => this.wareRow(s, w)).join('')}</ul>`);
+    const lines: string[] = [];
+    for (const t of c.tools) {
+      const kind = t as BuildingKind;
+      const all = s.buildings.filter((x) => x.kind === kind);
+      if (!all.length) continue;
+      const short = all.filter((x) => jobsAt(x) > 0 && x.workers < jobsAt(x)).length;
+      const one = lower(INFO[t].name);
+      const name = all.length === 1 ? one : (MANY[kind] ?? (/[^aeiou]y$/.test(one) ? `${one.slice(0, -1)}ies` : `${one}s`));
+      lines.push(`<li class="${short ? 'bad' : ''}"><span>${all.length} ${esc(name)}</span><span class="n">${short ? `${short} short of workers` : 'all staffed'}</span></li>`);
+    }
+    out.push('<h3>Their workers</h3>');
+    out.push(lines.length ? `<ul class="places staff">${lines.join('')}</ul>` : `<p class="side-note">None built yet: pick one above to place it.</p>`);
+    out.push('<p class="side-note">Click a ware for where it comes from and goes.</p>');
+    return out.join('');
+  }
+
+  /** A theatre's or a shrine's line: how many the city has. */
+  private counted(s: SimState, kind: BuildingKind, one: string, many: string): string {
+    const n = s.buildings.filter((b) => b.kind === kind).length;
+    return `<p class="side-note">${n ? `The city has ${n} ${n === 1 ? one : many}.` : `No ${one} yet: pick it above to place it beside a road.`}</p>`;
   }
 
   // -------------------------------------------------------------------------
@@ -359,22 +644,22 @@ export class SidePanel {
     for (const g of WARE_GROUPS) {
       const ws = panelWares().filter((w) => wareInfo(w).group === g.group);
       if (!ws.length) continue;
-      out.push(`<h3>${g.title}</h3><ul class="wares">`);
-      for (const w of ws) {
-        const st = stockOf(s, w);
-        const { m } = this.quoted(s, w);
-        const any = st.total > 0 || m.made + m.used + m.sold + m.bought + m.lost > 0 || makersOf(s, w).count > 0;
-        const net = m.net;
-        const arrow = net > 0 ? '<i class="up"></i>' : net < 0 ? '<i class="down"></i>' : '';
-        const info = wareInfo(w);
-        const tip = `${info.name}: ${fmt(st.total)} ${info.unit} in the city · ${b.full ? 'last month' : 'this month so far'} made ${fmt(m.made)}, used ${fmt(m.used)}${m.sold ? `, sold ${fmt(m.sold)}` : ''}${m.bought ? `, bought ${fmt(m.bought)}` : ''}${m.lost ? `, lost ${fmt(m.lost)}` : ''}`;
-        out.push(
-          `<li class="${any ? '' : 'none'}"><button class="ware-row" data-act="ware" data-ware="${w}" title="${esc(tip)}">${wareIcon(w)}<span class="nm">${esc(info.name)}</span><span class="amt">${any ? fmt(st.total) : '—'}</span><span class="net ${net > 0 ? 'up' : net < 0 ? 'down' : ''}">${any ? `${arrow}${signed(net)}` : ''}</span></button></li>`,
-        );
-      }
-      out.push('</ul>');
+      out.push(`<h3>${g.title}</h3><ul class="wares">${ws.map((w) => this.wareRow(s, w)).join('')}</ul>`);
     }
     return out.join('');
+  }
+
+  /** A ware's row: what the city holds and its net; a click opens its page. */
+  private wareRow(s: SimState, w: Ware): string {
+    const b = bookNow(s);
+    const st = stockOf(s, w);
+    const { m } = this.quoted(s, w);
+    const any = st.total > 0 || m.made + m.used + m.sold + m.bought + m.lost > 0 || makersOf(s, w).count > 0;
+    const net = m.net;
+    const arrow = net > 0 ? '<i class="up"></i>' : net < 0 ? '<i class="down"></i>' : '';
+    const info = wareInfo(w);
+    const tip = `${info.name}: ${fmt(st.total)} ${info.unit} in the city · ${b.full ? 'last month' : 'this month so far'} made ${fmt(m.made)}, used ${fmt(m.used)}${m.sold ? `, sold ${fmt(m.sold)}` : ''}${m.bought ? `, bought ${fmt(m.bought)}` : ''}${m.lost ? `, lost ${fmt(m.lost)}` : ''}`;
+    return `<li class="${any ? '' : 'none'}"><button class="ware-row" data-act="ware" data-ware="${w}" title="${esc(tip)}">${wareIcon(w)}<span class="nm">${esc(info.name)}</span><span class="amt">${any ? fmt(st.total) : '—'}</span><span class="net ${net > 0 ? 'up' : net < 0 ? 'down' : ''}">${any ? `${arrow}${signed(net)}` : ''}</span></button></li>`;
   }
 
   /** The year's chart: a pair of bars a month, what came in above the line and what went out below, this month's lighter at the end. */
@@ -413,7 +698,7 @@ export class SidePanel {
     const b = bookNow(s);
     const { m, full } = this.quoted(s, w);
     const out: string[] = [];
-    out.push(`<button class="back" data-act="back">‹ All goods</button>`);
+    out.push(`<button class="back" data-act="back">‹ ${this.tab === 'distribution' ? 'All goods' : esc(this.info.title)}</button>`);
     out.push(`<header class="ware-head">${wareIcon(w)}<div><h2>${esc(info.name)}</h2><p>${fmt(st.total)} ${info.unit} in the city</p></div></header>`);
     // The net, in words.
     const when = full ? 'Last month' : 'This month so far';
@@ -587,12 +872,15 @@ export class SidePanel {
   // -------------------------------------------------------------------------
   // Services.
 
-  private services(s: SimState): string {
+  /** Of the homes whose level needs each of these services, how many have it now; a click shows its overlay. */
+  private services(s: SimState, needs: readonly Service[], title: string, note: string): string {
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const mode = this.hooks.overlayMode();
     const out: string[] = [];
-    out.push('<p class="side-note">Of the homes whose level needs each, how many have it now. Click one to see it on the map.</p><ul class="svc">');
+    if (title) out.push(`<h3>${esc(title)}</h3>`);
+    out.push(`<p class="side-note">${esc(note)} Click one to see it on the map.</p><ul class="svc">`);
     for (const r of SERVICE_ROWS) {
+      if (!needs.includes(r.need)) continue;
       const need = homes.filter((b) => needsOf(b).includes(r.need));
       const have = need.filter((b) => untilOf(b, r.need) > s.tick).length;
       const share = need.length ? have / need.length : 0;
@@ -604,7 +892,19 @@ export class SidePanel {
       );
     }
     out.push('</ul>');
-    // Fire and wear.
+    // What the homes that lack something lack most, of these.
+    const lack = new Map<Service, number>();
+    for (const b of homes) for (const n of needsOf(b)) if (needs.includes(n) && untilOf(b, n) <= s.tick) lack.set(n, (lack.get(n) ?? 0) + 1);
+    const worst = [...lack.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (worst && needs.length > 1) out.push(`<p class="side-note">Most missed: ${esc(NEED_WORDS[worst[0]])}, in ${worst[1]} ${worst[1] === 1 ? 'home' : 'homes'}.</p>`);
+    void NEEDS;
+    return out.join('');
+  }
+
+  /** Fire and wear across the town; a click shows its overlay. */
+  private hazards(s: SimState): string {
+    const mode = this.hooks.overlayMode();
+    const out: string[] = [];
     const burn = s.buildings.filter((b) => burnable(b));
     const risky = burn.filter((b) => b.fire === 0 && b.risk >= HAZARD_MARK).length;
     const smoulder = s.buildings.filter((b) => b.fire === 1).length;
@@ -625,12 +925,6 @@ export class SidePanel {
     );
     out.push('</ul>');
     out.push(`<p class="side-note">${posts} watch ${posts === 1 ? 'post' : 'posts'} and ${offices} architect’s ${offices === 1 ? 'office' : 'offices'}${rubble ? `; ${rubble} ${rubble === 1 ? 'heap' : 'heaps'} of rubble to clear (X)` : ''}.</p>`);
-    // What the homes that lack something lack most.
-    const lack = new Map<Service, number>();
-    for (const b of homes) for (const n of needsOf(b)) if (untilOf(b, n) <= s.tick) lack.set(n, (lack.get(n) ?? 0) + 1);
-    const worst = [...lack.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (worst) out.push(`<p class="side-note">Most missed: ${esc(NEED_WORDS[worst[0]])}, in ${worst[1]} ${worst[1] === 1 ? 'home' : 'homes'}.</p>`);
-    void NEEDS;
     return out.join('');
   }
 

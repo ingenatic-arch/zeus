@@ -2200,12 +2200,13 @@ export function workPicture(kind: string): PicturePart[] | null {
       return [at(armouryModel())];
     case 'barracks':
       return [at(barracksModel())];
+    // A stall stands at the side of its agora's square: moved back to the middle of its picture.
     case 'stall':
-      return [at(oilStallModel())];
+      return [{ ...at(oilStallModel()), x: -OIL_STALL_X, z: -OIL_STALL_Z }];
     case 'fleecestall':
-      return [at(fleeceStallModel())];
+      return [{ ...at(fleeceStallModel()), x: -FLEECE_STALL_X, z: -FLEECE_STALL_Z }];
     case 'winestall':
-      return [at(wineStallModel())];
+      return [{ ...at(wineStallModel()), x: -WINE_STALL_X, z: -WINE_STALL_Z }];
   }
   return null;
 }

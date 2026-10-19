@@ -119,7 +119,7 @@ export interface Demo {
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
-  side?: { tab?: 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
+  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
 }
@@ -1606,6 +1606,8 @@ const SCENES: Record<string, Demo> = {
   ruler: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: 'sparta' },
   // The side panel: #richtown with the panel open on wine's page (every chain is at work there, and the ship buys).
   goods: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { ware: WINE } },
+  // The control panel (a side slice): #richtown with the panel on its Husbandry tab, the farms' pictures and what the land gave.
+  panel: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { tab: 'husbandry' } },
   // Slice 16: routes and traders.
   routes: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth', greeceTab: 'trade' },
   caravan: { view: 'caravan', setup: routesTown('caravan'), overlay: 'missing', follow: 'caravan' },

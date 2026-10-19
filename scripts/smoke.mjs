@@ -926,7 +926,7 @@ for (const [hash, mode, count, name] of [['#watchman', 'fire', 'watchmen', 'watc
     if (t && !new RegExp(`^${name[0].toUpperCase()}${name.slice(1)}`).test(t)) fail(`hovering the ${name}: ${t}`);
   }
 }
-// Z cycles the offices and J the overlays: tax, fire risk, wear, off. The build bar groups them: a click opens a row, a click in it picks.
+// Z cycles the offices and J the overlays: tax, fire risk, wear, off.
 await open('#town-paused');
 for (const want of ['taxoffice', 'watchpost', 'architect', 'taxoffice']) {
   await page.keyboard.press('z');
@@ -941,22 +941,45 @@ for (const want of ['tax', 'fire', 'wear', null]) {
   c = await city();
   if ((c.overlay ? c.overlayMode : null) !== want) fail(`J cycling: wanted ${want}, got ${c.overlayMode} (${c.overlay})`);
 }
-const barButtons = await zeus(() => document.querySelectorAll('.buildbar > button').length);
-if (barButtons > 24) fail(`the build bar has ${barButtons} buttons`);
-await page.click('.btn.tool.group[data-group="makers"]');
+// The control panel (a side slice): a tab for each kind of building; a well picks its building and opens nothing else; a key opens its tool's tab;
+// the bosses round the minimap pick road and clear and list the overlays; it all fits at 1280 × 720.
+const panelNow = () => zeus(() => ({ tab: window.__zeus.sideState().tab, tabs: document.querySelectorAll('.side-tab').length, wells: [...document.querySelectorAll('.side-wells .well')].map((w) => w.dataset.tool), lit: document.querySelector('.side-wells .well.on')?.dataset.tool ?? '', hint: document.querySelector('.tool-hint')?.hidden ? '' : (document.querySelector('.tool-hint')?.textContent ?? '') }));
+let pn = await panelNow();
+if (!(pn.tab === 'administration' && pn.tabs === 9)) fail(`the control panel after Z cycling: ${JSON.stringify(pn)}`);
+await page.click('.side-tab[data-tab="husbandry"]');
 await frames(1);
-const rowOpen = await zeus(() => ({ open: !document.querySelector('.group-row[data-group="makers"]').hidden, n: document.querySelectorAll('.group-row[data-group="makers"] button').length }));
-if (!(rowOpen.open && rowOpen.n === 8)) fail(`the farms row: ${JSON.stringify(rowOpen)}`);
-await page.click('.group-row[data-group="makers"] button[data-tool="lodge"]');
+pn = await panelNow();
+if (pn.wells.join() !== 'farm,lodge,dairy,grove,pasture,vineyard') fail(`the Husbandry tab's wells: ${JSON.stringify(pn)}`);
+await page.click('.side-wells .well[data-tool="lodge"]');
 await frames(1);
 c = await city();
-const rowAfter = await zeus(() => !document.querySelector('.group-row[data-group="makers"]').hidden);
-if (c.tool !== 'lodge' || rowAfter) fail(`picking the lodge from its row: ${c.tool}, row open ${rowAfter}`);
+pn = await panelNow();
+if (c.tool !== 'lodge' || pn.lit !== 'lodge' || !/herds/.test(pn.hint)) fail(`picking the lodge from its well: ${c.tool}, ${JSON.stringify(pn)}`);
+await page.keyboard.press('k');
+await frames(1);
+pn = await panelNow();
+c = await city();
+if (!(c.tool === 'agora' && pn.tab === 'distribution' && pn.lit === 'agora')) fail(`K opens the Distribution tab: ${c.tool}, ${JSON.stringify(pn)}`);
+await page.click('.boss[data-boss="road"]');
+await frames(1);
+c = await city();
+if (c.tool !== 'road' || (await panelNow()).tab !== 'distribution') fail(`the road boss: ${c.tool}`);
+await page.keyboard.press('Escape');
+await page.click('.boss[data-boss="layers"]');
+await frames(1);
+if (await zeus(() => document.querySelector('.side-layers').hidden)) fail('the overlays boss did not list them');
+await page.click('.side-layers [data-mode="water"]');
+await frames(2);
+c = await city();
+if (c.overlayMode !== 'water' || !(await zeus(() => document.querySelector('.side-layers').hidden))) fail(`picking the water overlay from the list: ${c.overlayMode}`);
+await page.keyboard.press('o');
 const fits = await zeus(() => {
-  const r = document.querySelector('.buildbar').getBoundingClientRect();
-  return r.left >= 0 && r.right <= innerWidth && document.querySelector('.buildbar').scrollWidth <= document.querySelector('.buildbar').clientWidth + 1;
+  const r = document.querySelector('.side').getBoundingClientRect();
+  const w = document.querySelector('.side-wells').getBoundingClientRect();
+  const top = document.querySelector('.topbar').getBoundingClientRect();
+  return r.right <= innerWidth && r.bottom <= innerHeight && w.top < innerHeight && w.right <= innerWidth && top.right <= r.left;
 });
-if (!fits) fail('the build bar does not fit at 1280 wide');
+if (!fits) fail('the control panel does not fit at 1280 × 720');
 await page.keyboard.press('Escape');
 // A slice 11 (version 10) save opens safe and sound, says what changed, and its risk builds from here.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice11-town.save.json.gz')).toString());

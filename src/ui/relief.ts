@@ -125,6 +125,47 @@ export function darkStone(): Material {
   const b = hex('#2c241d');
   return (x, y) => ({ c: mix(a, b, fbm(x, y, 0.06, 13, 3)), m: 0, g: 0.2 });
 }
+/**
+ * A costly material worked out once a CSS pixel over `w` × `h` (wrapping, for
+ * a tile) and read between those points: a quarter of the work at SCALE 2,
+ * for materials whose detail is coarser than a pixel (marble).
+ */
+export function sampled(mat: Material, w: number, h: number, wrap = false): Material {
+  const W = Math.ceil(w) + 1;
+  const H = Math.ceil(h) + 1;
+  const C = new Float32Array(W * H * 3);
+  const MG = new Float32Array(W * H * 2);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const v = mat(wrap ? x % w : x, wrap ? y % h : y);
+      const i = y * W + x;
+      C.set(v.c, i * 3);
+      MG[i * 2] = v.m;
+      MG[i * 2 + 1] = v.g;
+    }
+  return (x, y) => {
+    if (wrap) {
+      x = ((x % w) + w) % w;
+      y = ((y % h) + h) % h;
+    }
+    const fx = clamp(x, 0, W - 1.001);
+    const fy = clamp(y, 0, H - 1.001);
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const i00 = y0 * W + x0;
+    const i10 = i00 + 1;
+    const i01 = i00 + W;
+    const i11 = i01 + 1;
+    const lerp = (a: Float32Array, n: number, k: number): number => {
+      const top = a[i00 * n + k] + (a[i10 * n + k] - a[i00 * n + k]) * tx;
+      const bot = a[i01 * n + k] + (a[i11 * n + k] - a[i01 * n + k]) * tx;
+      return top + (bot - top) * ty;
+    };
+    return { c: [lerp(C, 3, 0), lerp(C, 3, 1), lerp(C, 3, 2)], m: lerp(MG, 2, 0), g: lerp(MG, 2, 1) };
+  };
+}
 /** One colour. */
 export function flat(h: string, m = 0, g = 0.3): Material {
   const c = hex(h);
@@ -268,8 +309,8 @@ export class Relief {
       }
   }
 
-  /** Light it, into a canvas. */
-  render(): HTMLCanvasElement {
+  /** Light it, into a canvas (`shadows` off for a piece too flat to cast any, like a tile of stone). */
+  render(shadows = true): HTMLCanvasElement {
     const { w, h, H, A, M, G, wrapX, wrapY } = this;
     const img = new ImageData(w, h);
     const out = img.data;
@@ -291,7 +332,7 @@ export class Relief {
       const Y = wrapY ? ((y % h) + h) % h : Math.min(h - 1, Math.max(0, y));
       return H[Y * w + X];
     };
-    const steps = 8 * SCALE;
+    const steps = shadows ? 8 * SCALE : 0;
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
@@ -330,14 +371,14 @@ export class Relief {
     const cv = document.createElement('canvas');
     cv.width = w;
     cv.height = h;
-    (cv.getContext('2d') as CanvasRenderingContext2D).putImageData(img, 0, 0);
+    (cv.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D).putImageData(img, 0, 0);
     return cv;
   }
 }
 
 /** A piece's alpha: transparent wherever a shape (CSS px) says so, after lighting (for round or rounded pieces). */
 export function cutOut(cv: HTMLCanvasElement, s: Shape): HTMLCanvasElement {
-  const g = cv.getContext('2d') as CanvasRenderingContext2D;
+  const g = cv.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
   const d = g.getImageData(0, 0, cv.width, cv.height);
   for (let y = 0; y < cv.height; y++)
     for (let x = 0; x < cv.width; x++) {
@@ -376,7 +417,7 @@ export function boxBlur(src: Float32Array, w: number, h: number, r: number, wrap
 }
 
 function pixels(c: HTMLCanvasElement | OffscreenCanvas): Uint8ClampedArray {
-  return ((c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D).getImageData(0, 0, c.width, c.height)).data;
+  return ((c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D).getImageData(0, 0, c.width, c.height)).data;
 }
 function lumaOf(c: HTMLCanvasElement | OffscreenCanvas): Float32Array {
   const d = pixels(c);
@@ -399,7 +440,7 @@ export function canvasOf(w: number, h: number, draw: (g: CanvasRenderingContext2
   const c = document.createElement('canvas');
   c.width = Math.round(w * SCALE);
   c.height = Math.round(h * SCALE);
-  const g = c.getContext('2d') as CanvasRenderingContext2D;
+  const g = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
   g.scale(SCALE, SCALE);
   g.fillStyle = '#fff';
   g.strokeStyle = '#fff';
