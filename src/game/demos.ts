@@ -5,11 +5,13 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
-import { ARCHITECT_COST, FARM_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
+import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
-import { CHEESE, FLEECE, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
+import { ARMOUR, CHEESE, FLEECE, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
+import { COMPANY_SIZE, readyOf } from '../sim/army';
+import { roadRoute } from '../sim/roads';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
@@ -117,7 +119,9 @@ export interface Demo {
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
-  side?: { tab?: 'goods' | 'people' | 'services' | 'money'; ware?: number };
+  side?: { tab?: 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
+  /** The company whose banner is in hand from the start (a company id, 0 for none). */
+  select?: (s: SimState) => number;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1434,6 +1438,83 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
 }
 
 /**
+ * Bronze and the barracks (slice 23). #bronze: #richtown's town carried on,
+ * as its builder would: a road up from the top of the oil road into the east
+ * hills, a copper mine on the richest rock there and an armoury on the oil
+ * road beside the storehouse, played on until the first armour is in the
+ * stores (the rest of the outcrop is free for another mine, the mine tool in
+ * hand). #barracks: the same town once there is armour for a company, a
+ * barracks beside the armoury and a company of hoplites just raised, the men
+ * walking in from their homes. #companies: a company of archers raised there
+ * too, both filled and drilling, the hoplites' banner in hand.
+ */
+const ARMS_MINE = { x: 107, z: 9 };
+/** The road's end beside the mine (its west side). */
+const ARMS_ROAD_END = { x: 106, z: 9 };
+/** The armoury on the oil road below the storehouse the mine's carts bring their ore to (higher up, the slope is too steep for it); the barracks on the open ground east of it, a short lane off the oil road between the storehouse and the watch post. */
+const ARMS_ARMOURY = { x: 87, z: 36 };
+const ARMS_BARRACKS = { x: 89, z: 31 };
+const ARMS_LANE = row(87, 88, 31);
+/** How long #bronze looks for its first sets of armour in the stores (four months at most). */
+const BRONZE_WAIT = 4 * TICKS_PER_MONTH;
+/** The sets #bronze waits for, and #barracks for a company. */
+const BRONZE_SETS = 4;
+/** #barracks plays on after the company is raised until this many of its men are in (the rest on their way), a month at most. */
+const BARRACKS_IN = COMPANY_SIZE / 2;
+/** The longest #companies waits for its two companies to fill (three months). */
+const COMPANIES_WAIT = 3 * TICKS_PER_MONTH;
+type ArmsStage = 'bronze' | 'barracks' | 'companies';
+const storedOf = (s: SimState, w: number): number => s.buildings.reduce((a, b) => a + (b.kind === 'storehouse' ? held(b, w) : 0), 0);
+function armsTown(stage: ArmsStage): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, SAFE, true)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const road = roadRoute(sim.map, s, T(TOWN_OIL_X, TOWN_OIL_ROAD), T(ARMS_ROAD_END.x, ARMS_ROAD_END.z)) ?? [];
+    waitFor(sim, s.tick, road.length * ROAD_COST + MINE_COST + ARMOURY_COST + (JOBS.mine + JOBS.armoury) * WAGE);
+    send({ type: 'road', tiles: road });
+    send({ type: 'build', kind: 'mine', at: [T(ARMS_MINE.x, ARMS_MINE.z)] });
+    send({ type: 'build', kind: 'armoury', at: [T(ARMS_ARMOURY.x, ARMS_ARMOURY.z)] });
+    const sets = stage === 'bronze' ? BRONZE_SETS : COMPANY_SIZE;
+    const end = s.tick + (stage === 'bronze' ? BRONZE_WAIT : 2 * BRONZE_WAIT);
+    while (s.tick < end && storedOf(s, ARMOUR) < sets) sim.run(10);
+    if (stage === 'bronze') return;
+    waitFor(sim, s.tick, ARMS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE);
+    send({ type: 'road', tiles: ARMS_LANE });
+    send({ type: 'build', kind: 'barracks', at: [T(ARMS_BARRACKS.x, ARMS_BARRACKS.z)] });
+    const barracks = s.buildings.find((b) => b.kind === 'barracks');
+    if (!barracks) return;
+    // Raised once it has its staff (they are shared out once a day), as a player would.
+    const staffed = s.tick + 2 * TICKS_PER_DAY;
+    while (s.tick < staffed && barracks.workers === 0) sim.step();
+    send({ type: 'raise', barracks: barracks.id, kind: 'hoplite' });
+    if (stage === 'barracks') {
+      // Until half the men are in, waiting for their armour, and the porter is on his way back with it (or someone is ready).
+      const until = s.tick + TICKS_PER_MONTH;
+      const inside = (): number => s.army.soldiers.filter((x) => x.state === 'arming' || x.state === 'ready').length;
+      const bringing = (): boolean => s.walkers.some((w) => w.kind === 'porter' && w.origin === barracks.id && w.load > 0);
+      while (s.tick < until && !(inside() >= BARRACKS_IN && bringing()) && !s.army.soldiers.some((x) => x.state === 'ready')) sim.step();
+      return;
+    }
+    send({ type: 'raise', barracks: barracks.id, kind: 'archer' });
+    const full = (): boolean => s.army.companies.length >= 2 && s.army.companies.every((c) => readyOf(s, c).length >= COMPANY_SIZE);
+    const stop = s.tick + COMPANIES_WAIT;
+    while (s.tick < stop && !full()) sim.run(10);
+    // A few days' drill after the last man came in.
+    sim.run(2 * TICKS_PER_DAY);
+  };
+}
+/** The prepared towns of the arms demos (one setup each, shared). */
+const BRONZE = armsTown('bronze');
+const BARRACKS = armsTown('barracks');
+const COMPANIES = armsTown('companies');
+/** #companies: the hoplites' banner in hand. */
+const hoplitesBanner = (s: SimState): number => s.army.companies.find((c) => c.kind === 'hoplite')?.id ?? 0;
+
+/**
  * Every demo's history is built with fire risk and wear switched off (so a
  * town from before slice 12 grows exactly as it did, and every demo opens
  * with no risk or wear anywhere), and switched on as it opens. A demo about
@@ -1556,6 +1637,10 @@ const SCENES: Record<string, Demo> = {
   rivals: { view: 'rivals', setup: RIVALS, overlay: 'missing' },
   rivalsmap: { view: 'rivals', setup: RIVALS, overlay: 'missing', greece: true },
   rivalstreet: { view: 'rivalstreet', setup: RIVALS, overlay: 'missing' },
+  // Slice 23: bronze and the barracks. The copper on the east hills with the mine tool in hand; a company raised, its men walking in; two companies ready, a banner in hand.
+  bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing' },
+  barracks: { view: 'barracks', setup: BARRACKS, overlay: 'missing', side: { tab: 'army' } },
+  companies: { view: 'companies', setup: COMPANIES, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

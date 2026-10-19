@@ -177,6 +177,8 @@ describe('the barracks', () => {
     for (const h of homes) expect(canWorkIn(s, h)).toBe(canWork(h));
     sim.run(60 * TICKS_PER_DAY);
     expect(s.army.soldiers.length).toBe(0);
+    // (The rack's carts take the sets back a load at a time.)
+    for (let i = 0; i < 120 * TICKS_PER_DAY && (held(b, ARMOUR) > 0 || s.walkers.some((w) => w.origin === b.id)); i++) sim.step();
     // Every set back in the stores (none left on the barracks' rack).
     expect(held(b, ARMOUR)).toBe(0);
     const armourAfter = s.buildings.reduce((a, g) => a + (g.kind === 'storehouse' ? held(g, ARMOUR) : 0), 0);

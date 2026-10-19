@@ -130,4 +130,10 @@ export const VIEWS: Record<string, CameraView> = {
   winevendor: { x: 28.5, z: 72.5, yaw: 0.9, dist: 11, tilt: 0.3 },
   // Open land near the west edge, ready to build.
   build: { x: 18, z: 80, yaw: 0.2, dist: 44, tilt: -0.2 },
+  // #bronze: the east hills from above the top of the oil road, the copper outcrop (green-streaked with the mine tool in hand), the mine on it and the road down past the armoury to the storehouse.
+  bronze: { x: 103, z: 13, yaw: 0.3, dist: 30, tilt: -0.15 },
+  // #barracks: over the barracks beside the armoury below the oil storehouse, the men walking in from the villas.
+  barracks: { x: 89, z: 34, yaw: 0.6, dist: 18, tilt: 0.1 },
+  // #companies: the barracks and the core's streets round it, both companies' banners in sight.
+  companies: { x: 86, z: 35, yaw: 0.6, dist: 26, tilt: 0.0 },
 };

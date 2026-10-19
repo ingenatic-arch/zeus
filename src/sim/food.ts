@@ -89,7 +89,7 @@ export const GOOD_PORTER_TAKE = 400;
  * when the mines' carts (or Greece's traders) left it there (army.ts).
  */
 export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600, ARMOURY_COPPER, BARRACKS_RACK];
-export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300, 100, 16];
+export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300, 100, 32];
 /** What a stall holds of its good, and what its porter brings at most. */
 export const stallRoom = (w: Ware): number => GOOD_STALL_ROOMS[w - FIRST_GOOD] ?? 0;
 export const porterTake = (w: Ware): number => GOOD_PORTER_TAKES[w - FIRST_GOOD] ?? 0;

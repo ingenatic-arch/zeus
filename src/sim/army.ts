@@ -522,7 +522,7 @@ function unarmed(s: SimState, b: Building): number {
   return n;
 }
 
-/** A barracks' rack: its porter fetches armour while men need it, and a cart takes back what nobody needs. */
+/** A barracks' rack: its porter fetches armour while men need it, and a cart takes back what nobody needs (once it has no hoplites). */
 function racks(s: SimState, map: CoastMap, b: Building): void {
   const size = map.size;
   const k = gi(ARMOUR);
@@ -536,8 +536,9 @@ function racks(s: SimState, map: CoastMap, b: Building): void {
     fetchWare(s, size, b, ARMOUR);
     return;
   }
-  // Armour nobody here needs (handed back on dismissal) goes back to the stores.
-  const spare = have - need;
+  // Armour nobody here needs goes back to the stores: all of it once the barracks has no hoplites (handed back on
+  // dismissal); while it has some, the rack keeps what is left over for the men who come to fill their places.
+  const spare = companiesAt(s, b).some((c) => c.kind === 'hoplite') ? 0 : have - need;
   if (spare > 0 && !out && errandsOut(s, b) === 0 && rateOf(b) > 0) sendCart(s, size, b, ARMOUR, spare);
 }
 
@@ -752,5 +753,6 @@ export function doingWords(s: SimState, c: Company): string {
   const bits: string[] = [];
   if (coming) bits.push(`${coming} walking in`);
   if (arming) bits.push(`${arming} waiting for armour`);
-  return `${ready} of ${c.want} ready${bits.length ? ` (${bits.join(', ')})` : ''}; ${what}`;
+  // (Nobody ready yet: nobody is drilling or marching.)
+  return `${ready ? '' : 'raising: '}${ready} of ${c.want} ready${bits.length ? ` (${bits.join(', ')})` : ''}${ready ? `; ${what}` : ''}`;
 }
