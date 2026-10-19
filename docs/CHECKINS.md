@@ -166,6 +166,55 @@ Measurements across the phase, headless Chromium with software rendering (frame 
 
 What I checked and found as described: requests begin only after the first route; no threat came before the first year of trading was out, and there were four months from the threat to the raid; refusing a cold ruler's tribute led to the threat, as the page said; a hostile ruler's page names every reason with its date; prices name what moved them; the side panel and minimap step aside while the map is open and come back when it closes; every demo is ready in under 3 s. I can't tell you whether any of it feels right: that is yours to judge.
 
+### The phase, all told
+
+Phase 3, "Greece beyond the walls", in eight slices. What you can do now that you couldn't at the end of phase 2:
+- **Slice 15, the map of Greece.** Press Tab (or the Greece tab) and the city gives way to a toy Aegean on a table: Athens, Sparta, Corinth and Troy, Tyre far off, and your own Nea Argos, which you can rename. Hover or click a city to meet its ruler: a portrait, two traits, a mood with every reason behind it, and what the city makes and wants. Rulers are shuffled every new game.
+- **Slice 16, routes and traders.** Build a caravan yard (G four times), open a road to Corinth or Sparta or a sea lane to Athens, Corinth or Troy, and their donkeys walk your streets and their ships tie up at your quay to buy and sell, within a yearly limit. Buying brings in goods you don't make, and you can watch every trader on the map on their way.
+- **Slice 17, prices that move.** Every city has its own price for every good, moved by what you sell and buy there and by its harvests, each with an arrow, a reason and a year's chart. Sell oil to Corinth visit after visit and watch it slide, and say why.
+- **Slice 18, rulers who remember.** Send gifts of coin or goods (goods leave by caravan or ship you can follow), see the mood lift with its reason and fade over time, get gifts back from a warm ruler, and see a hostile one close their road until you mend it.
+- **Slice 19, favours, offers and tribute.** Rulers ask for goods or coin by a deadline, offer year-long deals, and demand tribute. Promise, send, refuse or let it lapse, and each is remembered: a broken promise longest.
+- **Slice 20, raiders at the edge.** Refuse a cold ruler and a threat follows with its price and deadline; a band gathers and marches on the map with a countdown; then raiders come in at your edge, burn a field and carry off its stock. Pay them off, even late, and they turn back.
+- **Slice 21, Greece goes on.** Rivals quarrel and go to war with each other, armies and fleets on the map, prices moved in both cities, both sides asking you for help; festivals at Corinth, Athens and Sparta; harvests in the fields; and the News of Greece.
+- **Slice 22, a world of rivals.** `#rivals` is a town trading with all of Greece, with a threat running, a request open and a war at sea. Every demo now opens from a town prepared when the game is built, so each is ready in under 3 seconds.
+
+**Recorded for later**
+- From the spec: colonies and vassals; war (soldiers, walls, fighting raiders off, fleets guarding and raiding the sea lanes); Egypt and more cities; the gods in diplomacy; alliances; goods that only come from abroad (bronze, marble, timber).
+- From the way:
+  - no demo of a raid from the sea (Troy's raids work, but you have to wait for one);
+  - `#famine`'s payoff is small, because the town keeps most of its wheat;
+  - price arrows are red for rising and blue for falling, whatever that means for you;
+  - the caravan yard shows a tall blank wall on a slope;
+  - a refused band camps at Sparta about 70 days in `#threat`, because of the first-year rule;
+  - with a land and a sea route to one city, an offer's limit is counted separately for each;
+  - sending goods takes about three months, mostly porters walking;
+  - a fickle ruler's mood can cross a line and back within a month, giving two lines that disagree;
+  - there is no debt or loan, so a town at break-even sits at 0 dr with wages owed;
+  - plots can still be marked out with no road to them (the note now says why nobody comes);
+  - at 1280 × 720, `#rivals`' notes cover the top of the main street;
+  - the drachma arrow and its floater can disagree for a moment ("▲ −138").
+- Still open from phase 2: early fire, harsh taxes' bite, lumpy tax money, the ship's pace.
+
+**Budgets that moved** (end of phase 2 against now)
+- **Download:** the game's own files went from 351 KB to 437 KB compressed, for the map of Greece (in its own file, fetched the first time you open it), the traders, the rulers and the raiders. The prepared demo towns are a further 1.5 MB, but each demo fetches only its own small file, and the bare link fetches none.
+- **Load:** the bare link is ready in about 1.5 to 1.9 s. Every demo is now under the 3-second target (median about 1.7 s, the slowest about 2.5 s); before this phase, eleven were over it, `#prices` at about 4 s.
+- **The map of Greece** builds in about a quarter of a second the first time it opens, and draws about 314k triangles.
+- **Triangles and draw batches** in `#town` and `#richtown` are unchanged. `#rivals` is the most yet as it opens, about a million triangles, because its view takes in the whole town.
+- **Saves** grew a few KB for Greece (`#town` 140 to 145 KB).
+- **Time per frame** before drawing is within noise of the end of phase 2 once a town has warmed up.
+- **The same sums in every browser:** the game now does its own maths, so a town plays exactly the same in Chrome, Firefox or Safari, and a save opened in another browser carries on the same way.
+- **Frame rate on a real laptop is still unmeasured.** Only your machine can say whether `#rivals` and the map hold 60 frames a second.
+
+**Questions for you**
+- Does Greece feel alive, and can you always see where you stand with each ruler and why?
+- Is money tight early and too easy late? A 455-person town at heavy taxes sat at 0 for a year until it sold oil, while `#rivals` grows by about 7,000 dr a year, which makes a 700 dr gift cheap. Should it be retuned, and should there be loans?
+- How often things happen: a war about every two years, about two requests a year, a hostile ruler's raid at most every two and a half years. Too quiet or too busy?
+- Is one raid's cost (a field burned, its stock taken) the right size of setback?
+- Are the travellers on the map the right size from far out, and is `#rivals`' opening, with five notes at once, too much?
+- Phase 2's open questions still stand: should early fire be gentler, and should tax money come in smoothly?
+- What should the next phase be?
+
+
 ## Slice 21 — Greece goes on (18 Oct)
 
 Greece now has a life of its own. The rulers feel something about each other as well as about you, and those feelings move. Rivals who fall far enough out go to war: their armies march out on the map, the way between them closes, and food grows dear in both cities. Each side may ask your city for help, and whatever you trade with one side, the other remembers. The festivals come round at their seasons, each city's fields on the map show its harvest, and a News of Greece list tells you what happened, newest first. You weren't here while it was built: every choice below is mine, from the spec's defaults.
