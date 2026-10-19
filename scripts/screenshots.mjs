@@ -771,6 +771,26 @@ Object.assign(BEFORE, {
   'fields-close': async (page) => greeceAt(page, { x: 48, z: 70, yaw: 0, dist: 44, tilt: 0.05 }),
 });
 
+// Slice 23: bronze and the barracks. The copper with the mine tool in hand; the mine, the armoury and the barracks close; a company walking in; two companies, a banner in hand.
+Object.assign(SHOTS, {
+  bronze: '#bronze-paused',
+  'bronze-shot': '#bronze-paused-shot',
+  mine: '#bronze-paused-shot',
+  armoury: '#bronze-paused-shot',
+  barracks: '#barracks-paused',
+  'barracks-close': '#barracks-paused-shot',
+  companies: '#companies-paused',
+  'companies-close': '#companies-paused-shot',
+  'army-tab': '#companies-paused',
+});
+Object.assign(BEFORE, {
+  mine: async (page) => page.evaluate(() => window.__zeus.jump({ x: 108, z: 10, yaw: 0.5, dist: 9, tilt: 0.25 })),
+  armoury: async (page) => page.evaluate(() => window.__zeus.jump({ x: 88.5, z: 37.5, yaw: 0.9, dist: 8, tilt: 0.25 })),
+  'barracks-close': async (page) => page.evaluate(() => window.__zeus.jump({ x: 91, z: 33, yaw: 0.7, dist: 8, tilt: 0.25 })),
+  'companies-close': async (page) => page.evaluate(() => window.__zeus.jump({ x: 91, z: 33, yaw: 2.2, dist: 6, tilt: 0.1 })),
+  'army-tab': async (page) => page.evaluate(() => window.__zeus.sideTab?.('army')),
+});
+
 const want = process.argv.slice(2);
 const names = want.length ? want : Object.keys(SHOTS);
 const outDir = resolve('screenshots');

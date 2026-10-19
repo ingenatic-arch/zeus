@@ -201,6 +201,14 @@ interface Probe {
   sideText?: () => string;
   side?: (open: boolean) => void;
   sideTab?: (tab: string) => void;
+  /** The army (slice 23): the company whose banner is in hand, and each company with its banner's screen point. */
+  army?: () => { selected: number; hint: string; companies: Array<{ id: number; kind: string; order: string; x: number; z: number; men: number; ready: number; screen: { x: number; y: number } | null }> };
+  /** Take a company's banner in hand (0: let go). */
+  selectCompany?: (id: number) => void;
+  /** Open a building's panel (0: close it). */
+  showPanel?: (id: number) => void;
+  /** The homes a soldier comes from (slice 23). */
+  servingHomes?: () => number[];
   sideWare?: (ware: number) => void;
   /** Debug: how long building each tab's HTML takes (ms, the mean of n). */
   sideBench?: (n: number) => Record<string, number>;
@@ -1088,6 +1096,9 @@ function start(preparedTown: string | null): void {
   if (demo?.side?.ware !== undefined) side.showWare(demo.side.ware);
   else if (demo?.side?.tab) side.showTab(demo.side.tab);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
+  // A demo can open with a company's banner in hand (slice 23).
+  const banner = demo?.select?.(sim.state) ?? 0;
+  if (banner) takeBanner(banner);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -1416,6 +1427,25 @@ function start(preparedTown: string | null): void {
   probe.greeceJump = (v) => greece?.rig.jumpTo(v);
   probe.greeceHover = (x, y) => greece?.hover(x, y);
   probe.greeceBody = (key) => greece?.bodyPoint(key) ?? null;
+  probe.army = () => {
+    const toScreen = (v: THREE.Vector3): { x: number; y: number } => {
+      const p = v.clone().project(camera);
+      const r = canvas.getBoundingClientRect();
+      return { x: r.left + (p.x * 0.5 + 0.5) * r.width, y: r.top + (-p.y * 0.5 + 0.5) * r.height };
+    };
+    return {
+      selected: orders.selected,
+      hint: ordersChip.hidden ? '' : (ordersChip.textContent ?? ''),
+      companies: sim.state.army.companies.map((c) => {
+        const at = city.army.bannerAt.get(c.id);
+        const men = sim.state.army.soldiers.filter((x) => x.company === c.id);
+        return { id: c.id, kind: c.kind, order: c.order, x: c.x, z: c.z, men: men.length, ready: men.filter((x) => x.state === 'ready').length, screen: at ? toScreen(at) : null };
+      }),
+    };
+  };
+  probe.selectCompany = (id) => takeBanner(id);
+  probe.showPanel = (id) => panel.show(id);
+  probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

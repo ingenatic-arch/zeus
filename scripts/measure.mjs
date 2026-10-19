@@ -275,6 +275,10 @@ for (const [hash, views] of [
   // Slice 22: the town trading with every city, over the town and down the main street by the yard.
   ['#rivals-paused-shot', [null, 'town']],
   ['#rivalstreet-paused-shot', [null]],
+  // Slice 23: the copper mine in the east hills; a company walking in to the barracks; two companies drilling, a banner in hand.
+  ['#bronze-paused-shot', [null, 'town']],
+  ['#barracks-paused-shot', [null]],
+  ['#companies-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -294,6 +298,15 @@ for (const [hash, views] of [
       `${hash.replace(/-.*$/, '')} view ${(cam ?? 'demo').padEnd(10)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}  · marks ${c.hazardMarks}, smoke puffs ${c.smokePuffs}, flames ${c.flames} · smoulders ${c.smoulders}, fires ${c.fires}, creaks ${c.creaks}, rubble ${c.rubble}${trade}`,
     );
   }
+}
+
+// Slice 23: the meshes in #companies (the soldiers in the walkers' batch, the banners' poles and cloth).
+{
+  await page.goto('about:blank');
+  await page.goto(url + '#companies-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  console.log('#companies meshes:');
+  await summarise();
 }
 
 // Slice 15: the map of Greece, built the first time it is opened (its code is a separate file, fetched then).
@@ -325,7 +338,7 @@ for (const [hash, views] of [
 // first. A demo now opens from its prepared town, without playing its history in the page, so without
 // the warm-up its first seconds land in the window and read a few ms heavier, before and after alike.)
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot', '#bronze-shot', '#barracks-shot', '#companies-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
