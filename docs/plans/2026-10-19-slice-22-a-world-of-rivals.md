@@ -64,7 +64,7 @@ Measured at `bfbd838` (the end of slice 21's review), headless Chromium with sof
 - a war in Greece about every two years, never much more than three years between them;
 - a ruler's requests now and then (a few a year across Greece once you trade with everyone), never two from one ruler running back to back;
 - raids rare and recoverable: a ruler kept hostile raids at most about once every two years, and a town that ignores everyone loses some fields, not half its people;
-- no more than one caravan of a city walking in at a time (as built: the next waits at the edge of the map until the last has started home, so at most two of a route are in the streets, one coming and one going);
+- no more than one caravan of a city walking in at a time (as built: the next waits at home, in its city, until the last has started home, so at most two of a route are in the streets, one coming and one going);
 - a gift worth what it costs against a route's yearly earnings.
 
 **Look and feel.** By screenshots, over `#rivals` and the earlier demos: armies and raid bands readable at the map's first zoom (bigger figures, or a marker that stays the same size on screen); city labels clear of the fields, of each other and of the City (Tab) button (Troy's label sat under it); the News of Greece list; caravans waiting at the yard gate side by side rather than on top of each other; the traders and raiders in the city; the city's page.
@@ -99,7 +99,7 @@ Commits: `6ae928d` (this plan), `90b60c5` (prepared towns, tuning, the sim's rou
 **Tuning** (the runs live outside the repo; the figures are in the check-in):
 - Wars: after a year with no war anywhere in Greece the bar comes down 10 a year to −20 at most (was 5 a year to −25). Over 30 shuffled games of 12 years, the longest gap between wars fell from 52 months to 43 (p90 40 to 32), about one war every two years.
 - Raids: a ruler whose band came, or turned back with nothing, threatens again only after two years (was one); a hostile ruler threatens about one month in eight (was six). Sparta kept hostile on `#caravan`'s town now raids at months 14, 43 and 73 of eight years (was 11, 29, 47, 65, 90), and the town keeps its granary and most of its people.
-- Caravans: a city's next caravan waits at the edge of the map while its last is still walking in or trading (`caravanIn` in `src/sim/routes.ts`), so at most two of a route are in the streets, one coming and one going (was up to three).
+- Caravans: a city's next caravan waits at home, in its city, while its last is still walking in or trading (`caravanIn` in `src/sim/routes.ts`), so at most two of a route are in the streets, one coming and one going (was up to three).
 - Requests, offers and tribute were left as they are: about two requests a year across Greece left alone, three looked after.
 - Gifts and routes were left as they are. A fair gift for `#rivals`' town is about 700 dr; its best roads (Sparta, Corinth) earn 500 to 1,450 dr a year.
 

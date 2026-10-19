@@ -321,11 +321,15 @@ for (const [hash, views] of [
 
 // Main-thread time per frame before drawing (sim steps and view updates) in the fed town, paused and
 // running at normal speed, at a small window so headless frames come often enough to average.
+// (Slice 22's review: measured after 10 s of running, so the browser has compiled the simulation's code
+// first. A demo now opens from its prepared town, without playing its history in the page, so without
+// the warm-up its first seconds land in the window and read a few ms heavier, before and after alike.)
 await page.setViewportSize({ width: 960, height: 540 });
 for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  await page.waitForTimeout(10000);
   const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
   await page.waitForTimeout(8000);
   const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));

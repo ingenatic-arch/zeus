@@ -31,6 +31,8 @@ const START: CameraView = { x: TABLE_W * 0.5, z: TABLE_D * 0.6, yaw: 0, dist: 14
 /** Travellers on the map are drawn larger from this camera distance on, up to FAR_MOST times. */
 const FAR_FROM = 80;
 const FAR_MOST = 1.8;
+/** An army on a road is drawn larger from afar only up to this: the roads between the cities are short, and at FAR_MOST two armies at Megara reached into Corinth and Athens themselves (slice 22's review). */
+const ARMY_FAR_MOST = 1.25;
 const LIMITS: RigLimits = { minDist: 24, maxDist: 175, x0: 0, z0: 0, x1: TABLE_W, z1: TABLE_D, pitchNear: 0.58, pitchFar: 1.12 };
 /** How the cities stand out: your own and the four with rulers a little larger than life. */
 const SCALE: Record<CityId, number> = { home: 1.7, athens: 2.0, sparta: 1.85, corinth: 1.8, troy: 2.0, tyre: 1.6 };
@@ -626,7 +628,8 @@ export class GreeceMap {
         const m = a.by === 'sea' ? piece(`war-${x.id}-${a.city}`, () => fleetModel(colour, trim), BODY.fleet) : piece(`war-${x.id}-${a.city}`, () => armyModel(colour, trim, men), armyBody(men));
         const dir = a.facing;
         // (Drawn larger from afar, an army grows backwards from its head, where the sim has it: two armies facing each other at the opening view would otherwise run into each other.)
-        const grow = (far - 1) * (a.by === 'sea' ? 1.25 * BODY.fleet[1] : 2.1 * armyBody(men)[1]);
+        const k = a.by === 'sea' ? far : Math.min(far, ARMY_FAR_MOST);
+        const grow = (k - 1) * (a.by === 'sea' ? 1.25 * BODY.fleet[1] : 2.1 * armyBody(men)[1]);
         const p = alongLine(line, Math.max(1.2, Math.min(L - 1.2, a.along - dir * grow)));
         if (a.by === 'sea') {
           m.position.set(p.x, 0.02 + Math.sin(time * 1.5 + x.id) * 0.03, p.z);
@@ -636,7 +639,7 @@ export class GreeceMap {
           m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
           m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
           // (Larger than life, as the bands are: an army must be seen from across the table.)
-          m.scale.setScalar(2.1 * far);
+          m.scale.setScalar(2.1 * k);
         }
       }
       if (x.ended) continue;
