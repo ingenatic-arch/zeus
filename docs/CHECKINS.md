@@ -7,7 +7,7 @@ Notes to Oliver, newest first.
 Coin now moves between your city and the rulers as loans, both ways. You can ask a ruler to lend you coin, and their herald brings back terms, every reason named, or a refusal and why. You can lend to a ruler, choosing the sum, the interest and the months, and see beforehand whether they would take it and how likely they are to repay. Now and then a pleased ruler offers you a loan, and a ruler in trouble asks you for one. Each loan is paid back in one payment, interest and all, on the day it falls due. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
 What breaks, or moves: nothing you had is lost.
-- **Saves.** Saves from before load with no loans. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask.
+- **Saves.** Saves from before load with no loans, slice 24's included. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask. One fix on the way: on the main line, a town saved once hirelings had been paid (slice 24) was refused as damaged when opened. It opens now.
 - **Earlier demos.** Every earlier demo opens, and plays 900 ticks on, exactly as before, the Greek ones included. No ruler happens to offer or ask a loan in any of them in that time.
 - **What reads differently.** A ruled city's page has a fifth tab, Loans, so its row of tabs now wraps onto two lines. The ledger has five new lines for loans, and the Money tab gets a Loans row when there are any.
 
@@ -61,14 +61,13 @@ Each link also opens paused if you add `-paused` (for example `#borrow-paused`).
 - No demo shows a ruler's own offer: the dice bring them in their own time. I looked at one set up by hand (Corinth offering 1,500 dr at 10%, on the Ruler tab).
 - The tabs on a city's page wrap onto two lines when a tab has a state word ("Trade · 2 open", "Loans · they owe").
 - The sum, interest and months you choose in "Offer a loan" are kept while the game is open, not in the save.
-- The browser check (`npm run smoke`) passes every loans step, but seven of its older raid checks fail since slice 24 (raiders fought in the streets) was merged in. They fail the same way on the main line: slice 24 changed how a raid plays, and its checks are still to be brought up to date there.
 
 ### Measurements
 Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's check-in) and after (with the new city look and slice 24 merged in):
 
 | What | Before | After |
 |---|---|---|
-| Tests | 366, all passing | 389, all passing |
+| Tests | 366, all passing | 390, all passing |
 | Download (gzipped) | 2,081 KB: the game 456 KB, the prepared towns 1,625 KB | 2,347 KB: the game 498 KB (loans, the city look and slice 24), the prepared towns 1,849 KB (six more, three of them these) |
 | First load (bare link) | ready at 2.4 s, first frame at 3.1 s | ready at 1.5 s, first frame at 2.4 s |
 | Every demo's load | 91 demos, median 2.3 s, slowest 4.3 s, 11 over 3 s | 97 demos, median 1.6 s, slowest 2.5 s, none over 3 s (a quieter machine) |
