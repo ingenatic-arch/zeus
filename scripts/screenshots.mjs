@@ -871,6 +871,85 @@ Object.assign(BEFORE, {
   },
 });
 
+// Slice 25: walls, gates and towers. #walls as it opens and with a wall drawn round the old town's west and north, gates and towers; #siege at the gate, close, with the panel; the gate broken; raiders against hoplites close up (the colours).
+const T25 = (x, z) => z * 128 + x;
+const drawRing = async (page) =>
+  page.evaluate(() => {
+    const z = window.__zeus;
+    const T = (x, zz) => zz * 128 + x;
+    const line = (x0, z0, x1, z1) => {
+      const out = [];
+      if (x0 === x1) for (let k = Math.min(z0, z1); k <= Math.max(z0, z1); k++) out.push(T(x0, k));
+      else for (let k = Math.min(x0, x1); k <= Math.max(x0, x1); k++) out.push(T(k, z0));
+      return out;
+    };
+    z.order({ type: 'wall', tiles: [...line(40, 12, 40, 45), ...line(41, 20, 84, 20)] });
+    z.order({ type: 'build', kind: 'tower', at: [T(41, 39)] });
+    z.order({ type: 'build', kind: 'tower', at: [T(38, 39)] });
+    z.skip(12);
+  });
+Object.assign(SHOTS, {
+  walls: '#walls-paused',
+  'walls-drag': '#walls-paused',
+  'walls-shot': '#walls-paused-shot',
+  'walls-drawn': '#walls-paused-shot',
+  'walls-gate': '#walls-paused-shot',
+  siege: '#siege-paused',
+  'siege-shot': '#siege-paused-shot',
+  'siege-close': '#siege-paused-shot',
+  'siege-breach': '#siege-paused-shot',
+  'siege-crack': '#siege-paused-shot',
+  'siege-fight': '#siege-paused-shot',
+});
+Object.assign(BEFORE, {
+  'walls-drag': async (page) => {
+    // Pressed on the river bank north of the bridge and dragged down across the west road: the wall's tiles marked, a gate where it crosses, the tip.
+    await page.evaluate(() => window.__zeus.jump({ x: 46, z: 38, yaw: 2.65, dist: 30, tilt: -0.05 }));
+    await page.waitForTimeout(1500);
+    const a = await page.evaluate(() => window.__zeus.screenOf(40.5, 26.5));
+    const b = await page.evaluate(() => window.__zeus.screenOf(40.5, 44.5));
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 6, a.y + ((b.y - a.y) * i) / 6);
+    await page.waitForTimeout(1500);
+  },
+  'walls-drawn': async (page) => {
+    await drawRing(page);
+    await page.evaluate(() => window.__zeus.jump({ x: 56, z: 34, yaw: 2.4, dist: 40, tilt: -0.05 }));
+  },
+  'walls-gate': async (page) => {
+    await drawRing(page);
+    await page.evaluate(() => window.__zeus.jump({ x: 40.5, z: 40.5, yaw: 2.2, dist: 7, tilt: 0.12 }));
+  },
+  'siege-close': async (page) => page.evaluate(() => window.__zeus.jump({ x: 40, z: 41, yaw: 2.0, dist: 8, tilt: 0.15 })),
+  'siege-breach': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 1200 && z.walls().pieces.some((p) => p.gate && p.hp > 0); i += 2) z.skip(2);
+      z.skip(60);
+      z.jump({ x: 40.5, z: 41.5, yaw: -0.9, dist: 7, tilt: 0.4 });
+    });
+  },
+  'siege-crack': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 1200 && z.walls().pieces.some((p) => p.gate && p.hp > 90); i += 2) z.skip(2);
+      z.jump({ x: 40.5, z: 41.5, yaw: -1.2, dist: 5, tilt: 0.2 });
+    });
+  },
+  'siege-fight': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      const hop = z.army().companies.find((c) => c.kind === 'hoplite');
+      if (hop) z.order({ type: 'banner', company: hop.id, tile: 41 * 128 + 43 });
+      for (let i = 0; i < 1600 && z.battle().fighting < 6; i += 2) z.skip(2);
+      const c = z.battle().centre ?? { x: 42, z: 41 };
+      z.jump({ x: c.x, z: c.z, yaw: 2.3, dist: 6, tilt: 0.18 });
+    });
+  },
+});
+void T25;
+
 const want = process.argv.slice(2);
 const names = want.length ? want : Object.keys(SHOTS);
 const outDir = resolve('screenshots');

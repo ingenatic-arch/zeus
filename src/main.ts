@@ -31,7 +31,9 @@ import { arrivalOutlook } from './sim/settlers';
 import { herdStatus, homeStatus, moneyTip, raidChipNow, townLines, walkerStatus, type Status } from './sim/status';
 import { kindTotal, monthOf, owedWages, totals } from './sim/treasury';
 import { purseTotal } from './sim/taxes';
-import { TILE_ROAD, type Building, type Herd, type Walker } from './sim/state';
+import { TILE_ROAD, type Building, type Herd, type Walker, type WallPiece } from './sim/state';
+import { wallAt } from './sim/walls';
+import { wallStatus } from './sim/wallstatus';
 import { Sim, undoRefusal } from './sim/sim';
 import { BuildBar, pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
@@ -211,6 +213,8 @@ interface Probe {
   order?: (c: Parameters<Sim['enqueue']>[0]) => void;
   skip?: (ticks: number) => void;
   foeScreen?: () => { x: number; y: number } | null;
+  /** Slice 25: the walls (each stretch's tile, strength and whether a gate), the towers and their archers, the band's siege and breaches, tower arrows in the air. */
+  walls?: () => { pieces: Array<{ t: number; hp: number; gate: boolean }>; towers: Array<{ id: number; x: number; z: number; workers: number }>; siege: number; breaches: number; towerArrows: number; hammering: number };
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
@@ -779,6 +783,12 @@ function start(preparedTown: string | null): void {
     if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return false;
     return isBridge(map, sim.state, Math.floor(world.z) * n + Math.floor(world.x));
   };
+  /** The stretch of wall or gate under the pointer (slice 25), if any. */
+  const wallAtPointer = (world: { x: number; z: number } | null): WallPiece | undefined => {
+    const n = map.size;
+    if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n || sim.state.walls.length === 0) return undefined;
+    return wallAt(sim.state, Math.floor(world.z) * n + Math.floor(world.x));
+  };
   /** Is the pointer on the ship (near her hull or her mast, on screen)? */
   const shipNear = (sx: number, sy: number, at = city.ship.info): boolean => {
     if (!at.visible) return false;
@@ -854,6 +864,8 @@ function start(preparedTown: string | null): void {
     if (!b) {
       const h = herdAt(world);
       if (h) return showStatus(herdStatus(sim.state, h), sx, sy);
+      const piece = wallAtPointer(world);
+      if (piece) return showStatus(wallStatus(sim.state, map, piece), sx, sy);
       return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
     }
     const st = homeStatus(sim.state, map, b);
@@ -1049,8 +1061,8 @@ function start(preparedTown: string | null): void {
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
-      // B again: the fountain, then the copper mine, the armoury and the barracks.
-      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks'], tools.tool, e?.shiftKey);
+      // B again: the fountain, then the copper mine, the armoury, the barracks, the wall and the tower.
+      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks', 'wall', 'tower'], tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -1519,6 +1531,18 @@ function start(preparedTown: string | null): void {
     const near = fight.length ? fight : up;
     const centre = near.length ? { x: near.reduce((s, f) => s + f.x, 0) / near.length, z: near.reduce((s, f) => s + f.z, 0) / near.length } : null;
     return { foes: up.length, fighting: fight.length, fallen: r?.fallen ?? 0, arrows: a.arrows.length, broke: r?.broke ?? false, killed: r?.killed ?? 0, wounded: r?.wounded ?? 0, centre, news: a.news.map((n) => n.line) };
+  };
+  probe.walls = () => {
+    const s = sim.state;
+    const r = s.world.raids.find((x) => x.phase === 'raiding') ?? s.world.raids.at(-1);
+    return {
+      pieces: s.walls.map((p) => ({ t: p.t, hp: p.hp, gate: p.gate })),
+      towers: s.buildings.filter((b) => b.kind === 'tower').map((b) => ({ id: b.id, x: b.x, z: b.z, workers: b.workers })),
+      siege: r?.siege ?? -1,
+      breaches: r?.breaches ?? 0,
+      towerArrows: s.army.arrows.filter((a) => a.h0 !== undefined).length,
+      hammering: s.army.foes.filter((f) => f.state === 'with' && f.swung > 0 && s.tick - f.swung < 24).length,
+    };
   };
   probe.showPanel = (id) => panel.show(id);
   probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);

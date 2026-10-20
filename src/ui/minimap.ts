@@ -230,6 +230,11 @@ export class Minimap {
     });
     const road = hex(PAL.road);
     for (let t = 0; t < n * n; t++) if (s.tiles[t] === TILE_ROAD) put(t, road);
+    // The walls (slice 25) in pale stone, their gates darker, breaches as faint rubble.
+    const wall = hex('#e8dcc0');
+    const gate = hex('#8a6a48');
+    const breach = hex('#7a6c5c');
+    for (const p of s.walls) put(p.t, p.hp <= 0 ? breach : p.gate ? gate : wall, p.hp <= 0 ? 0.5 : 1);
     const cache = new Map<string, [number, number, number]>();
     const colourOf = (b: Building): [number, number, number] => {
       const key = b.kind === 'home' ? `home${b.level}` : b.kind;

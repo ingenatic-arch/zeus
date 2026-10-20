@@ -17,6 +17,7 @@ import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
+import { GATE_HP } from '../sim/walls';
 import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
@@ -1570,6 +1571,44 @@ function lootedTown(): (sim: Sim) => void {
     sim.run(LOOTED_DAYS * TICKS_PER_DAY);
   };
 }
+/**
+ * Walls, gates and towers (slice 25). #walls: #battle's town about a month
+ * before Sparta's band reaches the west edge, paused, the wall tool in hand.
+ * #siege: the same town walled up the east bank of the river (x = 40), a gate
+ * where the west road crosses just past the bridge, towers either side of it
+ * staffed, played on until the band stands at the gate hammering at it; the
+ * companies still at the barracks.
+ */
+const WALLS_DAYS = 30;
+/** #siege's wall, gate and towers. */
+const SIEGE_WALL = col(40, 12, 45);
+const SIEGE_TOWERS = [T(41, 39), T(38, 39)];
+function wallsTown(): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    stagedRaid(sim, 'sparta', 'the king fears a city that arms itself so near his lands');
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= WALLS_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+  };
+}
+function siegeTown(): (sim: Sim) => void {
+  return (sim) => {
+    WALLS(sim);
+    const s = sim.state;
+    sim.enqueue({ type: 'wall', tiles: SIEGE_WALL });
+    for (const t of SIEGE_TOWERS) sim.enqueue({ type: 'build', kind: 'tower', at: [t] });
+    sim.flush();
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    // Until the band has hammered at the gate for a day or so: a crack in it, a man or two down to the towers.
+    const until = s.tick + 3 * TICKS_PER_MONTH;
+    while (s.tick < until && !(r.siege >= 0 && (s.walls.find((p) => p.t === r.siege)?.hp ?? 0) < GATE_HP * 0.8)) sim.step();
+  };
+}
+const WALLS = wallsTown();
+const SIEGE = siegeTown();
 const BATTLE = battleTown();
 const HIRELINGS_TOWN = hirelingsTown();
 const LOOTED = lootedTown();
@@ -1705,6 +1744,9 @@ const SCENES: Record<string, Demo> = {
   battle: { view: 'battle', speed: 'paused', setup: BATTLE, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
   looted: { view: 'looted', setup: LOOTED, overlay: 'missing', ledger: true },
   hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
+  // Slice 25: walls, gates and towers. The town a month before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
+  walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
+  siege: { view: 'siege', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

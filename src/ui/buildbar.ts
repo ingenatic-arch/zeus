@@ -28,8 +28,10 @@ import {
   MINE_COST,
   ARMOURY_COST,
   BARRACKS_COST,
+  TOWER_COST,
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
+import { GATE_COST, WALL_COST } from '../sim/walls';
 
 type ButtonName = ToolName | 'undo' | OverlayMode;
 
@@ -136,6 +138,10 @@ const ICONS: Record<ButtonName, string> = {
   armoury: '<svg viewBox="0 0 24 24"><path d="M5.4 19.6V12c0-4 3-7 6.6-7s6.6 3 6.6 7v7.6h-3.4v-4.4h-1.8v-3.4h-2.8v3.4H8.8v4.4z" class="fill-gold"/><path d="M6.4 6.6C7.6 3.6 10 2.4 12 2.4s4.4 1.2 5.6 4.2" class="stroke-meat"/><path d="M12 2.4v3" class="stroke-ink"/></svg>',
   // A round shield in the city's colour, a spear upright behind it.
   barracks: '<svg viewBox="0 0 24 24"><path d="M17.6 2v20" class="stroke-ink"/><path d="M17.6 1.4l1.4 3h-2.8z" class="fill-ink"/><circle cx="10.4" cy="13" r="7.6" class="fill-gold"/><circle cx="10.4" cy="13" r="5.8" class="fill-meat"/><circle cx="10.4" cy="13" r="1.8" class="fill-soft"/></svg>',
+  // A stretch of crenellated wall with a gate's arch.
+  wall: '<svg viewBox="0 0 24 24"><path d="M2 21V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9H22v12h-7.4v-4.6a2.6 2.6 0 0 0-5.2 0V21z" class="fill-soft"/><path d="M2 15h7.4M14.6 15H22" class="stroke-ink"/></svg>',
+  // A square tower with merlons and an arrow slit.
+  tower: '<svg viewBox="0 0 24 24"><path d="M6 22V7.4H5V3h2.6v2h2.2V3h4.4v2h2.2V3H19v4.4h-1V22z" class="fill-soft"/><path d="M12 10v4.4M10 22v-3.4a2 2 0 0 1 4 0V22" class="stroke-ink"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
@@ -295,6 +301,18 @@ const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: 
     cost: `${BARRACKS_COST} dr`,
     hint: 'Click beside a road, then click the barracks to raise a company: hoplites from fine houses and villas, archers from townhouses and better.',
   },
+  wall: {
+    name: 'Wall',
+    key: 'B ×5',
+    cost: `${WALL_COST} dr a stretch, ${GATE_COST} dr a gate`,
+    hint: 'Drag a line of stone wall, like a road, on dry ground. Where it crosses a road it becomes a gate: your people pass through, raiders must break it. Draw over a cracked or broken stretch to mend it.',
+  },
+  tower: {
+    name: 'Tower',
+    key: 'B ×6',
+    cost: `${TOWER_COST} dr`,
+    hint: 'Click on or beside a wall, beside a road (by a gate is best). Its four workers are its archers: they shoot raiders within ten tiles, over walls and roofs.',
+  },
   clear: {
     name: 'Clear land',
     key: 'X',
@@ -344,7 +362,7 @@ const SLOTS: Slot[] = [
   'theatre',
   '|',
   { id: 'offices', name: 'Offices: the tax office, the watch post and the architect’s office', key: 'Z', members: ['taxoffice', 'watchpost', 'architect'] },
-  { id: 'arms', name: 'Bronze and the army: the copper mine, the armoury and the barracks', key: 'B B', members: ['mine', 'armoury', 'barracks'] },
+  { id: 'arms', name: 'Bronze, the army and the walls: the copper mine, the armoury, the barracks, the wall and the tower', key: 'B B', members: ['mine', 'armoury', 'barracks', 'wall', 'tower'] },
   '|',
   'clear',
   '|',
