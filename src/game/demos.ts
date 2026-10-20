@@ -1558,7 +1558,7 @@ function hirelingsTown(): (sim: Sim) => void {
   };
 }
 /** #looted: plays #raiders' history on until the band leaves the tax office with the treasury's drachmas, and some days on its way out. */
-const LOOTED_DAYS = 3;
+const LOOTED_DAYS = 6;
 function lootedTown(): (sim: Sim) => void {
   return (sim) => {
     raidTown('raiders')(sim);
@@ -1704,7 +1704,7 @@ const SCENES: Record<string, Demo> = {
   // Slice 24: raiders fought in the streets. Sparta's band on its way, the companies to place, paused; a band let through, leaving with its loot; a threat come with no company raised, hirelings to hire.
   battle: { view: 'battle', speed: 'paused', setup: BATTLE, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
   looted: { view: 'looted', setup: LOOTED, overlay: 'missing', ledger: true },
-  hirelings: { view: 'barracks', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
+  hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

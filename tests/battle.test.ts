@@ -13,6 +13,7 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { COMPANY_SIZE, HEAL_DAYS, HIRED_PAY, HIRELINGS, menOf, readyOf, strength } from '../src/sim/army';
 import { buildingRefusal } from '../src/sim/build';
 import { findBuilding } from '../src/sim/buildings';
+import { FIRE_BURNING } from '../src/sim/hazards';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { moodOf as homeMood } from '../src/sim/folk';
 import { raidersOf } from '../src/sim/raids';
@@ -71,9 +72,11 @@ describe('the battle', () => {
     let first = 0;
     let told = 0;
     let line = false;
+    let held = 0;
     until(
       sim,
       () => {
+        if (!held && hop.order === 'hold' && arc.order === 'hold') held = s.tick;
         if (s.army.news.length !== told) {
           told = s.army.news.length;
           line ||= townLines(s, sim.map).some((l) => l.need === 'battle');
@@ -96,6 +99,9 @@ describe('the battle', () => {
     // (Nobody fights forever: the fight is over within days.)
     expect(fighting).toBeGreaterThan(0);
     expect(fighting).toBeLessThan(15 * TICKS_PER_DAY);
+    // (Time to place them: sent as #battle opens, both companies stand in their ranks days before the band comes. Slice 24's review: at the old march they were there less than a day before it.)
+    expect(held).toBeGreaterThan(0);
+    expect(first - held).toBeGreaterThanOrEqual(5 * TICKS_PER_DAY);
     expect(s.army.foes).toEqual([]);
     expect(s.army.news.some((n) => /^Your soldiers broke Sparta’s raiders .*: \d+ of their \d+ men fell/.test(n.line))).toBe(true);
     expect(line).toBe(true);
@@ -151,6 +157,13 @@ describe('the battle', () => {
     expect(arc.routed).toBe(true);
     expect(arc.order).toBe('return');
     expect(r.broke).toBe(false);
+    // (A broken company runs, and the raiders let it go: nobody else of it falls on the way back. Slice 24's review: they cut it down as it ran.)
+    const [killed, wounded] = [r.killed, r.wounded];
+    for (let i = 0; i < 10 * TICKS_PER_DAY; i++) {
+      sim.step();
+      watch();
+    }
+    expect([r.killed, r.wounded]).toEqual([killed, wounded]);
     expect(s.army.news.some((n) => /has lost half its men and breaks/.test(n.line))).toBe(true);
     expect(dead.length + hurt.length).toBeGreaterThanOrEqual(COMPANY_SIZE / 2);
     expect(dead.length).toBeGreaterThan(0);
@@ -205,6 +218,38 @@ describe('loot', () => {
     ledgerAddsUp(s);
     until(sim, () => r.phase === 'homeward', 2 * TICKS_PER_MONTH);
     expect(s.world.news.some((n) => /raiders have gone: \d+ of their \d+ men fell and the rest ran, .* carried off/.test(n.line)), JSON.stringify(s.world.news.slice(-3))).toBe(true);
+  }, 120000);
+});
+
+describe('fire', () => {
+  it('a band let through sets buildings alight on its way, but never the stores or the tax office it came to plunder', () => {
+    const { sim, s, r } = battle();
+    const plundered = (id: number): boolean => ['granary', 'storehouse', 'taxoffice'].includes(findBuilding(s, id)?.kind ?? '');
+    let lit = 0;
+    let burning = new Set(s.buildings.filter((b) => b.fire === FIRE_BURNING).map((b) => b.id));
+    until(
+      sim,
+      () => {
+        const now = new Set(s.buildings.filter((b) => b.fire === FIRE_BURNING).map((b) => b.id));
+        // (A building the band set alight this tick: one burning now that wasn't, as its count of fires goes up.)
+        if (r.fires > lit) {
+          lit = r.fires;
+          const fresh = [...now].filter((id) => !burning.has(id));
+          expect(fresh.length).toBeGreaterThan(0);
+          for (const id of fresh) expect(plundered(id), findBuilding(s, id)?.kind).toBe(false);
+        }
+        burning = now;
+        return r.phase === 'homeward';
+      },
+      3 * TICKS_PER_MONTH,
+    );
+    expect(r.took).toBeGreaterThan(0);
+    expect(r.stole).toBeGreaterThan(0);
+    expect(r.fires).toBeGreaterThan(0);
+    // (Nor the tax office as they come to it: with nothing in it that counts as worth carrying, it was set alight every time.)
+    expect(r.fired).toBe(false);
+    for (const b of s.buildings) if (b.kind === 'granary' || b.kind === 'taxoffice') expect(b.fire).not.toBe(FIRE_BURNING);
+    expect(s.buildings.some((b) => b.kind === 'taxoffice')).toBe(true);
   }, 120000);
 });
 

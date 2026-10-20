@@ -341,7 +341,7 @@ function start(preparedTown: string | null): void {
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
-  let armyPick: (sx: number, sy: number) => { company: number; soldier: number } = () => ({ company: 0, soldier: 0 });
+  let armyPick: (sx: number, sy: number) => { company: number; soldier: number; d?: number } = () => ({ company: 0, soldier: 0 });
   const orders = new Orders(
     sim,
     placement,
@@ -715,13 +715,13 @@ function start(preparedTown: string | null): void {
       }
     }
     if (!soldier) return { company: 0, soldier: 0 };
-    return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier };
+    return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier, d: bd };
   };
-  /** The raider nearest a screen point (within a few pixels), or 0. */
-  const foeNear = (sx: number, sy: number): number => {
+  /** The raider nearest a screen point (within a few pixels), or 0; `most`: only one nearer than this (pixels squared). */
+  const foeNear = (sx: number, sy: number, most = 14 * 14): number => {
     const r = canvas.getBoundingClientRect();
     let best = 0;
-    let bd = 14 * 14;
+    let bd = most;
     const v = new THREE.Vector3();
     for (const [id, pos] of city.walkers.foeAt) {
       v.copy(pos).setY(pos.y + 0.24).project(camera);
@@ -816,8 +816,11 @@ function start(preparedTown: string | null): void {
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
-    // A soldier, or a company's banner.
+    // A soldier, or a company's banner; a raider nearer the pointer than the soldier (in a fight they stand close: slice 24's review).
     const pickedArmy = armyPick(sx, sy);
+    const foeFirst = pickedArmy.soldier && pickedArmy.d !== undefined ? foeNear(sx, sy, pickedArmy.d) : 0;
+    const ff = foeFirst ? sim.state.army.foes.find((o) => o.id === foeFirst) : undefined;
+    if (ff) return showStatus(foeDoing(sim.state, ff), sx, sy);
     if (pickedArmy.soldier) {
       const x = sim.state.army.soldiers.find((o) => o.id === pickedArmy.soldier);
       if (x) {

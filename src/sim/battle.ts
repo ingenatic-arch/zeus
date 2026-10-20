@@ -13,8 +13,8 @@
  *   hoplites close with any raider within four tiles of the banner, and chase
  *   no further than a few more; archers shoot at any raider within eight tiles
  *   of them, and step back from one who comes too close (fighting him only if
- *   they can't). A man on the march, or of a broken company, only strikes back
- *   at a raider on him.
+ *   they can't). A man on the march only strikes back at a raider on him. A
+ *   broken company runs: its men fight nobody, and raiders let them go.
  * - **Blows and arrows.** Every few ticks a man in reach strikes; the city's
  *   dice (a hash of the seed, the tick and who) say whether it lands and how
  *   hard. Hoplites hit hard and their armour turns most blows; raiders beat
@@ -41,8 +41,8 @@ import { hash2 } from '../map/noise';
 import { armyNews, companyName, companyOf, FALLEN_LIE, fatherWords, HIRELINGS, kinOf, sendBanner, type HiredKind } from './army';
 import { findBuilding, recountPopulation } from './buildings';
 import { tell } from './folk';
-import { held, setHeld, WARE_NAMES } from './foods';
-import { breakBand, raidersOf } from './raids';
+import { held, setHeld } from './foods';
+import { breakBand, lootWords, raidersOf } from './raids';
 import { note } from './stockbook';
 import { isStore, roomFor } from './stores';
 import type { Company, Foe, Raid, SimState, Soldier, Walker } from './state';
@@ -124,6 +124,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
   for (const x of men) byMan.set(x.id, x);
   const companies = new Map<number, Company>();
   for (const c of a.companies) companies.set(c.id, c);
+  // (The men raiders go for: not those of a broken company, running for their barracks.)
+  const menToFight = men.filter((x) => !companies.get(x.company)?.routed);
 
   // Arrows landing.
   if (a.arrows.length) {
@@ -145,7 +147,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     if (!band || !band.w) continue;
     const { r, w } = band;
     let t = f.foe ? byMan.get(f.foe) : undefined;
-    if (r.broke || s.tick < f.calm) t = undefined;
+    // (Nor a man of a broken company: they let him run. Slice 24's review: they cut down a whole broken company as it ran.)
+    if (r.broke || s.tick < f.calm || (t && companies.get(t.company)?.routed)) t = undefined;
     // Not able to strike him for a while: he gives up on him (and soldiers) and goes on.
     if (t && s.tick - f.since > STALL && s.tick - f.swung > STALL) {
       t = undefined;
@@ -153,7 +156,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     }
     if (!t && !r.broke && s.tick >= f.calm) {
       // (A band already fighting charges: its men go for any soldier within a charge of them, not only one in their way.)
-      t = nearest(men, f.x, f.z, r.fought >= s.tick - 1 ? CHARGE : FOE_SEE);
+      t = nearest(menToFight, f.x, f.z, r.fought >= s.tick - 1 ? CHARGE : FOE_SEE);
       if (t) f.since = s.tick;
     }
     if (t) {
@@ -183,6 +186,11 @@ export function stepBattle(s: SimState, map: CoastMap): void {
   for (const x of men) {
     const c = companies.get(x.company);
     if (!c) continue;
+    // (A broken company runs: its men turn to fight nobody, not even one at their heels.)
+    if (c.routed) {
+      x.foe = 0;
+      continue;
+    }
     // (A company on the march stops and fights when raiders come at it: army.ts holds its banner while its men fight.)
     const seek = (c.order === 'hold' || c.order === 'drill' || (c.order === 'march' && marchFight.has(c.id))) && !c.routed && x.path.length === 0;
     let t = x.foe ? byFoe.get(x.foe) : undefined;
@@ -571,6 +579,7 @@ export function foeDoing(s: SimState, f: Foe): { title: string; detail: string }
   const man = f.foe ? s.army.soldiers.find((x) => x.id === f.foe) : undefined;
   const c = man ? companyOf(s, man.company) : undefined;
   const doing = r?.broke ? 'running for the edge with the rest' : man ? `fighting ${man.name} of ${c ? companyWords(c) : 'your soldiers'}` : 'with the band';
-  const loot = r && r.took - r.regained > 0 && r.ware >= 0 ? ` · the band carries ${r.took - r.regained} ${WARE_NAMES[r.ware]}` : '';
+  const carried = r ? lootWords(r) : '';
+  const loot = carried ? ` · the band carries ${carried}` : '';
   return { title, detail: `${health} · ${doing}${loot}` };
 }
