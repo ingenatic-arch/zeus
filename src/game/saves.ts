@@ -381,7 +381,7 @@ function armyOk(a: unknown): boolean {
   const companyOk = (c: unknown): boolean =>
     isObj(c) && COMPANY_NUMBERS.every((k) => fin(c[k])) && (c.kind === 'hoplite' || c.kind === 'archer') && ['drill', 'march', 'hold', 'return'].includes(c.order as string) && nums(c.path) && (c.path as number[]).length % 2 === 0 && typeof c.why === 'string';
   const soldierOk = (x: unknown): boolean =>
-    isObj(x) && SOLDIER_NUMBERS.every((k) => fin(x[k])) && ['coming', 'arming', 'ready', 'leaving'].includes(x.state as string) && typeof x.name === 'string' && typeof x.father === 'string' && typeof x.house === 'string' && typeof x.armed === 'boolean' && nums(x.path) && (x.path as number[]).length % 2 === 0;
+    isObj(x) && SOLDIER_NUMBERS.every((k) => fin(x[k])) && ['coming', 'arming', 'ready', 'leaving'].includes(x.state as string) && typeof x.name === 'string' && typeof x.father === 'string' && typeof x.house === 'string' && (x.kin === undefined || ['head', 'son', 'husband', 'brother', 'cousin'].includes(x.kin as string)) && typeof x.armed === 'boolean' && nums(x.path) && (x.path as number[]).length % 2 === 0;
   return a.companies.every(companyOk) && a.soldiers.every(soldierOk);
 }
 

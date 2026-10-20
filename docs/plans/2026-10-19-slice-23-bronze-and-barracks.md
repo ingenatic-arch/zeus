@@ -154,3 +154,10 @@ Commits: `dea6638` (this plan), `8210b05` (copper, armour and the army in the si
 | Walkers' batch | `folk-people` 452 triangles an instance | 452 (the soldiers' looks fit within the largest look); `#companies` draws 191 figures in it, 32 of them soldiers |
 | Banners | — | one cloth mesh (768 triangles for two banners) and one instanced mesh of poles |
 
+**Review.** Fixes in their own commits ("Fixes from reviewing slice 23: …"):
+- `scripts/smoke.mjs` didn't parse (a straight apostrophe in its single-quoted summary).
+- A man serving who is the husband, brother or cousin in his house said he was its head. A soldier now keeps `kin` (head, son, husband, brother, cousin; optional, so a save without it reads a son if `father` is set, else the head), `fatherWords` and `servesLine` use it, and a son of a woman who leads her unit is named by her husband where the house has one. `SERVE_AGE_MAX` (60) keeps old men home.
+- `MARCH_SPEED` 0.1 → 0.16 (the walkers' 0.12, raiders' 0.192), `STRIDE` 0.14 → 0.22 for keeping place, and `WALK_IN` 0.14 for a man's own way in or home. `#companies`' march to the north street: 5.6 days.
+- With a banner in hand, the orders' tip names the soldier under the pointer first (`Orders` takes a `who` hook).
+- Checked and left: the probe's claim, spot-checked on `#town`, `#richtown`, `#caravan`, `#prices`, `#threat` and `#raiders` (opening and 900 ticks on, at `b06bbea` and after the review): identical. Wars and defeats now draw armour down in Greece (`STRIFE_SHARE`, `DEFEAT_SHARE`), which the plan said they wouldn't; it uses no dice and moves no route history, so it stays. Dismissing a company forgets any pay it was owed; a barracks with no road beside it says "Only N … can spare a man" rather than that it needs a road. Handed to slice 24.
+

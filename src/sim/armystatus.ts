@@ -5,7 +5,7 @@
 import type { CoastMap } from '../map/bake';
 import { copperOf, outcropPlace } from './build';
 import { BUILDING_NAMES, findBuilding, levelName } from './buildings';
-import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, kindWord, menOf, PER_BARRACKS, servingFrom } from './army';
+import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom } from './army';
 import { errandsOut } from './food';
 import { ARMOUR, coming, COPPER, held } from './foods';
 import { rateOf } from './labour';
@@ -114,7 +114,8 @@ export function servesLine(s: SimState, b: Building): string {
   const x = servingFrom(s, b);
   if (!x) return '';
   const c = companyOf(s, x.company);
-  const who = x.father ? `Their eldest, ${x.name},` : `${x.name}, the head of the house,`;
+  const k = kinOf(x);
+  const who = k === 'son' ? `Their eldest, ${x.name},` : k === 'head' || !x.father ? `${x.name}, the head of the house,` : `${x.name}, ${fatherWords(x)},`;
   if (!c) return '';
   return `${who} serves in ${companyName(c)} of ${kindWord(c.kind)}${x.state === 'coming' ? ' (on his way to the barracks)' : ''} · he has left his work`;
 }

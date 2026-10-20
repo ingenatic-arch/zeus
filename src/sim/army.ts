@@ -32,7 +32,7 @@ import { rateOf, WORK_SHARE } from './labour';
 import { door, roadsBeside } from './rounds';
 import { note } from './stockbook';
 import { ARMOURY_COPPER, isStore, roomOf } from './stores';
-import { TILE_ROAD, type Army, type Building, type Company, type CompanyKind, type Person, type SimState, type Soldier } from './state';
+import { TILE_ROAD, type Army, type Building, type Company, type CompanyKind, type Person, type ServesAs, type SimState, type Soldier } from './state';
 import { settle, SOLDIER_PAY } from './treasury';
 import { newWalker, setPath } from './walk';
 import { offRoadPath, prunePath, walkable } from './wild';
@@ -45,9 +45,16 @@ export const PER_BARRACKS = 4;
 export const CALLS_A_DAY = 4;
 /** The home levels each kind is drawn from, at least. */
 export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: TOWNHOUSE };
-/** How fast a banner marches, and a man walks (tiles a tick): a man is quicker, so the column keeps up. */
-export const MARCH_SPEED = 0.1;
-export const STRIDE = 0.14;
+/**
+ * How fast a banner marches (tiles a tick): a brisk march, a third quicker
+ * than the townsfolk walk (0.12) and a little slower than raiders run (0.192),
+ * so a company sent in time meets them; how fast a man keeps his place in the
+ * column or the ranks (quicker, so the column keeps up); and how fast he walks
+ * his own way, in from his home or home again.
+ */
+export const MARCH_SPEED = 0.16;
+export const STRIDE = 0.22;
+export const WALK_IN = 0.14;
 /** Ticks between the drill's moves. */
 export const DRILL_STEP = 40;
 /** How far apart the men stand in ranks (tiles): hoplites shoulder to shoulder, archers looser. */
@@ -58,8 +65,9 @@ const FILE_GAP = 0.42;
 const THERE = 0.02;
 /** The banners' emblems, one per company number in turn. */
 export const EMBLEMS = ['owl', 'boar', 'lion', 'bull', 'horse', 'dolphin', 'trident', 'snake'] as const;
-/** The age a man must be to serve. */
+/** The age a man must be to serve, and the age past which he no longer does. */
 export const SERVE_AGE = 16;
+export const SERVE_AGE_MAX = 60;
 
 export const freshArmy = (): Army => ({ companies: [], soldiers: [], nextId: 1 });
 
@@ -190,7 +198,7 @@ const ageOf = (s: SimState, p: Person): number => Math.max(0, Math.floor((s.tick
 export function eldestMan(s: SimState, b: Building): Person | null {
   const f = b.family;
   if (!f) return null;
-  const men = f.members.filter((p) => !p.female && ageOf(s, p) >= SERVE_AGE);
+  const men = f.members.filter((p) => !p.female && ageOf(s, p) >= SERVE_AGE && ageOf(s, p) <= SERVE_AGE_MAX);
   const order: Person['role'][] = ['son', 'head', 'husband', 'brother', 'cousin'];
   for (const role of order) {
     const of = men.filter((p) => p.role === role).sort((a, c) => a.born - c.born);
@@ -207,9 +215,26 @@ export function canSpare(s: SimState, b: Building, kind: CompanyKind, serving: S
   return eldestMan(s, b) !== null;
 }
 
-/** How the man is named by his father: "son of Nikias" (or "head of the house"). */
+/** How a man stands in his house (a save from before it was kept: a son if he is named by someone, else the head). */
+export const kinOf = (x: Soldier): ServesAs => x.kin ?? (x.father ? 'son' : 'head');
+
+/** How the man is named in his house: "son of Nikias", "husband of Theano", "head of his house". */
 export function fatherWords(x: Soldier): string {
-  return x.father ? `son of ${x.father}` : 'head of his house';
+  const k = kinOf(x);
+  return k === 'head' || !x.father ? 'head of his house' : `${k} of ${x.father}`;
+}
+
+/**
+ * Who a man serving is known by in his house: a son by his father (or, if
+ * the house's records name only his mother, by her husband, else by her); a
+ * husband by his wife; a brother or cousin by the head; the head by nobody.
+ */
+function knownBy(b: Building, p: Person): string {
+  if (p.role === 'head') return '';
+  if (p.role !== 'son') return p.kin;
+  const parent = b.family?.members.find((m) => m.name === p.kin);
+  if (parent?.female) return b.family?.members.find((m) => m.role === 'husband' && m.kin === parent.name)?.name ?? p.kin;
+  return p.kin;
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +517,8 @@ function call(s: SimState, map: CoastMap, c: Company, b: Building, most: number,
       slot,
       home: h.id,
       name: p.name,
-      father: p.role === 'son' ? p.kin : '',
+      father: knownBy(h, p),
+      kin: p.role as ServesAs,
       house: h.family?.name ?? '',
       state: 'coming',
       x: hx,
@@ -648,7 +674,7 @@ export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x
 function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
   if (x.path.length >= 2) {
     // His own way: waypoint by waypoint.
-    let pace = STRIDE;
+    let pace = WALK_IN;
     for (let guard = 0; guard < 4 && pace > 0 && x.path.length >= 2; guard++) {
       const i = x.seg * 2;
       if (i >= x.path.length) {
