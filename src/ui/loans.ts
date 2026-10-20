@@ -22,6 +22,7 @@ import {
   STEP_GAP,
   timeAnswer,
   TIME_MONTHS,
+  TIME_RATE,
   lendRefusal,
   likelyToRepay,
   likelyWords,
@@ -206,7 +207,7 @@ function graceHtml(s: SimState, l: Loan): string {
   const c = cityOf(s.world, l.city);
   const granted = loanMemory(c, 'granted', '', s.tick).amount;
   const denied = loanMemory(c, 'denied', '', s.tick).amount;
-  return `<div class="acts">${loanButton('grant', `Grant it${worthEm(granted) ? ` ${worthEm(granted)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'grant'), `Due ${TIME_MONTHS} months from today, ${fmt(l.owed + Math.round((l.amount * 3) / 100))} dr in all`, 'take')}${loanButton('deny', `Refuse${worthEm(denied) ? ` ${worthEm(denied)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'deny'), 'The loan is overdue at once: then you can forgive it, demand it, or send your soldiers', 'refuse')}</div><p class="if">Let run out, it is overdue as if refused (without the ill feeling).</p>`;
+  return `<div class="acts">${loanButton('grant', `Grant it${worthEm(granted) ? ` ${worthEm(granted)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'grant'), `Due ${TIME_MONTHS} months from today, ${fmt(l.owed + Math.round((l.amount * TIME_RATE) / 100))} dr in all`, 'take')}${loanButton('deny', `Refuse${worthEm(denied) ? ` ${worthEm(denied)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'deny'), 'The loan is overdue at once: then you can forgive it, demand it, or send your soldiers', 'refuse')}</div><p class="if">Let run out, it is overdue as if refused (without the ill feeling).</p>`;
 }
 
 /** A loan a ruler owes you, overdue: forgive it, demand it, or send your soldiers, each with what follows and the odds. */

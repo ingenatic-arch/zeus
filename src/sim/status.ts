@@ -1187,6 +1187,11 @@ const IDLE_WORDS = 4;
  * already warning about bread while the farms grow less than a tenth more
  * than the town eats) and workers (jobs unfilled). Empty when all is well.
  */
+/** The news of a debt of yours climbing a step (loans.ts: warn, seizeStep), which the loan's own town line stands for. */
+const DEBT_STEP_NEWS = /^Your loan from .+ fell due and went unpaid \(|has closed (his|her) routes to you over your unpaid debt/;
+/** The news of a ruler's debt to you gone overdue (loans.ts: fallsDue, stageDefault). */
+const THEIR_DEBT_NEWS = /has not repaid the [\d,]+ dr it owes you/;
+
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = hazardTownLines(s, map);
   const ship = shipTownLine(s);
@@ -1199,7 +1204,11 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const battle = battleTownLine(s);
   if (battle) out.push(battle);
   const alarm = newsUrgent(s, map);
-  if (alarm) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
+  // (Not the news of your debt's warning or its routes closing (slice 28): the loan's own line below says what it is now and what
+  // comes next, and once it is paid the news would be stale. Nor the news of a ruler's debt to you gone overdue once it no longer is:
+  // forgiven, met or collected.)
+  const stale = alarm && (DEBT_STEP_NEWS.test(alarm.line) || (THEIR_DEBT_NEWS.test(alarm.line) && !s.world.loans.some((l) => l.city === alarm.city && l.side === 'out' && l.state === 'overdue')));
+  if (alarm && !stale) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
   // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
@@ -1210,7 +1219,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
   // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)
-  if (news && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  // (Nor the news that you sent your soldiers out (slice 28): the army's own news says it, and the expedition's line where they are.)
+  const sent = away && news && news.item.city === away.city && /^You sent (a raiding party|a full force) /.test(news.item.line);
+  if (news && !sent && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);

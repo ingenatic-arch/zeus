@@ -42,7 +42,7 @@ What breaks, or moves:
 3. Open #creditors. It is the same debt two more months on, with the threat let run: Corinth's 35 men are in your city, and the camera follows them. This town has no soldiers, so watch them take what is owed and leave.
 4. Open #collect. It is `#companies`' town (a company of hoplites and one of archers), with Corinth overdue on a loan you made it (set up for the demo). The map opens on Corinth's Loans tab with the four answers and their odds.
    - Send a full force, close the map and watch the companies march north out of the city. Then open the Army tab, and the map again.
-5. Open #report. That full force has fought and won, and is on its way home. Read the report on Corinth's Loans tab, and hover the little army on the map.
+5. Open #report. That full force has fought and won. It opens paused, with the little army at Corinth under the crossed swords a day before it marches home. Read the report on Corinth's Loans tab, and hover the army on the map. Then play on to watch it come home and march back in.
 6. Open #forgive. It is `#rivals`' town, with Athens unable to repay the 2,000 dr you lent her. Forgive it, then look at her Ruler tab.
 
 Each link also opens paused if you add `-paused` (for example `#collect-paused`).
@@ -55,7 +55,7 @@ Each link also opens paused if you add `-paused` (for example `#collect-paused`)
   |---|---|---|---|---|---|
   | `#collect`, raiding party (16 men vs the watch of 8) | about 9 in 10 | won | 1 / 1 | 450 dr and 750 wheat (600 dr against the debt; 1,020 dr still owed) | 51 days |
   | `#collect`, full force (32 men vs the garrison of 30) | about 5 in 10 | won | 2 / 2 | the whole 1,620 dr, and 1,620 wheat as the penalty | 52 days |
-  | `#creditors`, Corinth's 35 collectors vs no soldiers | — | took what was owed | — | 1,826 dr and 200 goods carried off; the loan is paid off | — |
+  | `#creditors`, Corinth's 35 collectors vs no soldiers | — | took what was owed | — | 2,040 dr and 200 oil carried off (2,220 dr at Corinth's prices); the loan is paid off | — |
 
   Is a full force at evens worth the risk, set against a near-certain raid that brings back a third? Does about 50 days away feel too long?
 - **The army on the map.** It is 3 to 9 figures in your colours, along the road. From the opening view it sits close to your city's label and is hard to pick out. Is it visible enough?
@@ -63,8 +63,6 @@ Each link also opens paused if you add `-paused` (for example `#collect-paused`)
 
 ### Known rough edges
 - **#seized shows a seized gift, not seized goods,** because the caravan yard there is empty (above).
-- **Several lines under the top bar about the same loan:** the news flash and the loan's own line both show for a few days.
-- **City tabs still wrap to two lines** on a ruler's page ("Loans · overdue" is long).
 - **A line under the top bar can lag** for a moment after you pause.
 - **Repaying early still costs the whole interest,** as in slice 27.
 - **At sea, an expedition meets nobody.** The triremes carry the men but fight no one on the way, and pirates don't waylay them. A full force to Troy takes only as many companies as you have triremes fit to sail. No demo shows it; the test drives it from `#triremes`.
@@ -83,6 +81,24 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `579a3f2` (slic
 | Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 11.9 ms, `#richtown` 14.8, `#companies` 10.8, `#borrow` 5.9, `#lend` 7.4, `#repaid` 13.7, `#battle` fought 26.9; new: `#overdue` 6.6, `#seized` 10.8, `#creditors` 11.8, `#collect` 12.3, `#report` 8.2, `#forgive` 11.4 |
 
 Every frame time here is within the run-to-run swing.
+
+### What the review changed
+A second pass went through every step above in the browser at 1920 × 1080, read the new code, played `#rivals` and `#borrow` on for three years each to see how often rulers now offer and ask, and compared every earlier demo with the main line, at opening and 900 ticks on: all the same. The steps above have been corrected to match. What it changed:
+- **Collectors by sea say what they are.** When a lender across the sea sends its army, the "Sails!" news, the line under the top bar and the landing news offered to "pay to turn them back", as for raiders. They now say the army has come to collect what you owe. A new test sends Troy's army by sea and checks it lands, takes no more than is owed, sets no fires and leaves the books adding up.
+- **The warning names the right routes.** It used to say a lender would close "the road" (or "the sea" for Troy). It now names what is actually open with them: the road, the sea route, or both.
+- **Fewer repeated lines under the top bar.** The news of a debt's warning or its routes closing no longer shows beside the loan's own line, which says the same and what comes next. The news that a ruler hasn't repaid you goes once you forgive it or it is paid or collected, and the news that you sent soldiers out goes while the expedition's own line shows where they are.
+- **`#report` opens paused, at Corinth.** It used to open with the army a moment from your edge on the way home, so it walked in before you could hover it. Step 5 above is updated.
+- **The raiding party's estimate is closer to what it brings.** The button valued the goods it would carry off at your prices, not Corinth's, and said about 970 dr in `#collect`; it now says about 640, and the run brought 600.
+- **Men killed on a raid are mourned as such.** Their homes said they fell fighting a garrison when it was the countryside's watch; they now say the watch, "far from home".
+- **Following Corinth's collectors.** In `#creditors` the chip over the town said "Following raiders"; it now says "Following Corinth's collectors".
+- **An expedition with nobody left.** If you pull down the barracks while your companies are away, the expedition now ends with a line saying there was nobody left to fight, and any triremes still come home. Before, it would have fought with no men.
+- **City tabs fit on one row**, "Loans · overdue" included.
+- **The figures for `#creditors`** in the table above are corrected: Corinth's men carried off 2,040 dr and 200 oil, which is the whole debt at Corinth's prices.
+
+What I checked and did not change, for your eye:
+- **How busy rulers are.** In three years of each town played on with nobody touching it, no ruler offered or asked for a loan at all (requests and tributes came as before). The new odds are not too busy; if anything, loans from rulers are still rare.
+- **Collectors from across the sea are slow.** Troy's army takes about 24 days from being sighted to landing, the sea raiders' own pace.
+- **The army on the map** still sits near your city's label at first and is hard to pick out (above).
 
 ## Slice 25 — Walls, gates and towers (20 Oct)
 

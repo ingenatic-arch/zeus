@@ -114,8 +114,8 @@ function storyLine(f: Family, e: Story, i: number): string {
       if (e.need === 'tax') return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}: the taxes were too harsh` : `${who} moved away: the taxes were too harsh`;
       return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
     case 'fell':
-      // (Slice 28: a man killed abroad, on an expedition, fell fighting a city's garrison.)
-      return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'}${/garrison$/.test(e.names[1] ?? '') ? ', far from home' : ' in the streets'}, and the house mourned him`;
+      // (Slice 28: a man killed abroad, on an expedition, fell fighting a city's garrison or its watch.)
+      return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'}${/(garrison|watch)$/.test(e.names[1] ?? '') ? ', far from home' : ' in the streets'}, and the house mourned him`;
   }
 }
 

@@ -729,7 +729,9 @@ function arriveBySea(s: SimState, map: CoastMap, r: Raid): void {
   sailIn(s, map, r, at.spots);
   const days = daysToBeach(s, map, r);
   const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
-  news(w, s.tick, r.city, `Sails! ${r.ships} of ${whose(r.city)} ships are in sight off your shore, about ${r.men} men aboard, making for the beach${shoreWhere(map, at.from)}: they will land for ${aimWords(at.target)}${then ? ` and then ${then}` : ''} in about ${days === 1 ? 'a day' : `${days} days`}. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  // (A lender's army (slice 28) comes for what you owe, and can't be paid off once it is here.)
+  const pay = r.loan ? `, come to collect the ${fmt(r.coin)} dr you owe` : '';
+  news(w, s.tick, r.city, `Sails! ${r.ships} of ${whose(r.city)} ships are in sight off your shore, about ${r.men} men aboard${pay}, making for the beach${shoreWhere(map, at.from)}: they will land for ${aimWords(at.target)}${then ? ` and then ${then}` : ''} in about ${days === 1 ? 'a day' : `${days} days`}${r.loan ? '' : `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`}`, true);
   s.rev++;
 }
 
@@ -783,7 +785,8 @@ export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void
   setPath(band, path);
   s.walkers.push(band);
   const then = r.next.map((id) => findBuilding(s, id)).filter((x): x is Building => !!x).map(aimWords).join(', then ');
-  news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  if (r.loan) news(s.world, s.tick, r.city, `${whose(r.city)} army is ashore${shoreWhere(map, best.from)}, ${r.landed} men come to collect the ${fmt(r.coin)} dr you owe, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
+  else news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   s.rev++;
 }
 
@@ -1460,7 +1463,7 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
     const sunk = r.sunk ? ` (${r.sunk} sunk)` : '';
     return {
       chip: `${name}’s ships · ${n} in the bay`,
-      line: `${n} of ${whose(r.city)} ships${sunk} ${up ? 'are drawn up on your beach, their men landing' : `are sailing in for your beach, ${men} men aboard: they land in about ${days === 1 ? 'a day' : `${days} days`}`}, for ${at}${live(r) ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}`,
+      line: `${n} of ${whose(r.city)} ships${sunk} ${up ? 'are drawn up on your beach, their men landing' : `are sailing in for your beach, ${men} men aboard: they land in about ${days === 1 ? 'a day' : `${days} days`}`}, for ${at}${r.loan ? ', come to collect what you owe' : live(r) ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}`,
     };
   }
   if (r.phase === 'raiding') {

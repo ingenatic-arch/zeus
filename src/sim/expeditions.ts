@@ -115,7 +115,6 @@ export function expeditionWay(s: SimState, city: CityId): { by: 'land' | 'sea'; 
   if (f.ids.length) return { by: 'sea', way: sea.way };
   if (s.fleet.triremes.length === 0) return { why: `${cityName(city)} can only be reached by sea: you need triremes (build a shipyard on the shore and order one)` };
   return { why: `${cityName(city)} can only be reached by sea, and your triremes can’t go: ${f.why.charAt(0).toLowerCase()}${f.why.slice(1)}` };
-  return { why: `No way leads to ${cityName(city)}` };
 }
 
 /** The debt a city owes you that an expedition would go after (overdue), if any. */
@@ -161,10 +160,12 @@ export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind
   const theirs = defenders(s, c, kind);
   const debt = debtFrom(s, city);
   const owed = debt?.owed ?? 0;
+  // (Their goods at their price: a raid's sacks of wheat are worth less against the debt than its coin.)
+  const unit = Math.max(0.01, c.price[plentiful(c)] / 100);
   const brings =
     kind === 'raid'
       ? debt
-        ? `about ${fmt(Math.min(owed * RAID_SHARE, men * (RAID_COIN + RAID_GOODS)))} dr of the ${fmt(owed)} owed, in coin and goods`
+        ? `about ${fmt(Math.min(owed * RAID_SHARE, men * (RAID_COIN + RAID_GOODS * unit)))} dr of the ${fmt(owed)} owed, in coin and goods`
         : `about ${fmt(men * RAID_COIN)} dr and ${fmt(men * RAID_GOODS)} of their goods`
       : debt
         ? `the whole ${fmt(owed)} dr, and a fifth more in goods`
@@ -412,6 +413,19 @@ function fight(s: SimState, e: Expedition): void {
   const c = cityOf(w, e.city);
   const name = cityName(e.city);
   const men = menWith(s, e);
+  // (Nobody left with it: its barracks pulled down at home while it was on the road, and its men sent home. No fight and
+  // nothing taken; any triremes that carried it sail home.)
+  if (!men.length) {
+    const l = e.loan ? loanOf(w, e.loan) : undefined;
+    if (l && l.sent === e.id) l.sent = 0;
+    e.report = [`Nobody was left to fight at ${name}: the companies were disbanded at home while they were on the road.`];
+    e.phase = 'fighting';
+    e.start = s.tick;
+    e.dur = 0;
+    e.a0 = e.a1;
+    s.rev++;
+    return;
+  }
   const comps = e.companies.map((id) => companyOf(s, id)).filter((x): x is Company => !!x);
   const kindOf = new Map(comps.map((x) => [x.id, x.kind] as const));
   e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0));
@@ -432,9 +446,7 @@ function fight(s: SimState, e: Expedition): void {
   for (const x of wounded) x.hp = 30;
   // The killed are mourned at home now, as the news comes (and lie in Greece).
   const foe = `${whose(e.city)} ${e.kind === 'raid' ? 'watch' : 'garrison'}`;
-  for (const x of killed) {
-    mournMan(s, x, companyOf(s, x.company), e.kind === 'raid' ? `${whose(e.city)} garrison` : foe);
-  }
+  for (const x of killed) mournMan(s, x, companyOf(s, x.company), foe);
   s.army.soldiers = s.army.soldiers.filter((x) => !e.killed.includes(x.id));
   // The takings.
   const l = e.loan ? loanOf(w, e.loan) : undefined;

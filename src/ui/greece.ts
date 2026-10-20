@@ -151,6 +151,12 @@ export function dealShort(s: SimState, d: Deal): string {
   if (d.kind === 'loanoffer' || d.kind === 'loanask') return loanDealShort(s, d);
   if (d.kind === 'threat') {
     const r = raidOf(s.world, d.id);
+    // (A lender's army, slice 28: it comes for what you owe, and once in your city can't be paid off.)
+    if (r?.loan) {
+      if (r.phase === 'raiding') return 'Collectors in your city, taking what you owe';
+      if (bandOut(r)) return `An army on the march to collect your debt · at your edge in ${daysToEdge(r, s.tick) === 1 ? '1 day' : `${daysToEdge(r, s.tick)} days`} · pay ${fmt(r.coin)} dr`;
+      return `Sends to collect what you owe · ${fmt(r.coin)} dr · ${left}`;
+    }
     if (r && r.phase === 'raiding') return `Raiders in your city · pay ${fmt(r.coin)} dr to turn them back`;
     if (r && bandOut(r)) return `Raiders on the march · at your edge in ${daysToEdge(r, s.tick) === 1 ? '1 day' : `${daysToEdge(r, s.tick)} days`} · pay ${fmt(r.coin)} dr`;
     return `Threatens your city · the price of peace ${dealWords(d)}${d.gift ? ' · sent, on its way' : ''} · ${left}`;
@@ -250,7 +256,7 @@ function bandCard(s: SimState, id: number): string {
             ? `Called off: going home to ${name}`
             : `Going home to ${name}${r.took ? ` with ${fmt(r.took)} ${WARE_NAMES[r.ware]}` : ''}`;
   const pay = live(r) ? `Pay ${fmt(r.coin)} dr on ${whose} page to turn them back` : `Click for ${name}’s page`;
-  if (r.loan) return `<b>${esc(`${whose} army · ${r.men} men`)}</b><span>${esc(line.replace('to march on your city', 'to collect what you owe').replace('on your city:', 'on your city, to collect what you owe:'))}</span><span class="sub">${esc(pay)}</span>`;
+  if (r.loan) return `<b>${esc(`${whose} army · ${r.men} men`)}</b><span>${esc(line.replace(/to (march|sail) on your city/, 'to collect what you owe').replace('on your city:', 'on your city, to collect what you owe:'))}</span><span class="sub">${esc(pay)}</span>`;
   return `<b>${esc(`${whose} raiders · ${r.men} men`)}</b><span>${esc(line)}</span><span class="sub">${esc(pay)}</span>`;
 }
 
@@ -533,7 +539,7 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
   const acts =
     d.gift || !live(r) || band?.back
       ? ''
-      : `<div class="acts">${button('send', `Pay ${coin}`, r.loan ? undefined : peace.amount, coinTip)}${r.alt >= 0 ? button('goods', `Send ${goods}`, peace.amount, `Fetched from your stores and sent to ${name}: when it arrives, the threat is lifted${out ? ' and the band turns back, if it has not already done its worst' : ''}`) : ''}${r.phase === 'threat' ? button('refuse', 'Refuse', undefined, `${cap(they)} sends ${his} raiders at once`) : ''}</div>`;
+      : `<div class="acts">${button('send', `Pay ${coin}`, r.loan ? undefined : peace.amount, coinTip)}${r.alt >= 0 ? button('goods', `Send ${goods}`, peace.amount, `Fetched from your stores and sent to ${name}: when it arrives, the threat is lifted${out ? ' and the band turns back, if it has not already done its worst' : ''}`) : ''}${r.phase === 'threat' ? button('refuse', 'Refuse', undefined, `${cap(they)} sends ${his} ${r.loan ? 'army' : 'raiders'} at once`) : ''}</div>`;
   // When what you send would arrive (or what you sent will), against the day and the band.
   let eta = '';
   if (map && d.gift) {

@@ -54,7 +54,8 @@ import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
 import { DebtsChip } from './ui/debtschip';
-import { debtsChip as debtsNow } from './sim/loans';
+import { debtsChip as debtsNow, whose as whoseCity } from './sim/loans';
+import { raidOfBand } from './sim/raids';
 import { Orders } from './game/orders';
 import { companyOf, doingWords, menOf, strength, woundedOf } from './sim/army';
 import { companyWords, foeDoing } from './sim/battle';
@@ -919,7 +920,10 @@ function start(preparedTown: string | null): void {
   let follow: { walker: number; origin: number; kind: Walker['kind']; pans: number } | null = null;
   const startFollow = (origin: number, kind: Walker['kind'], walker = 0): void => {
     follow = { walker, origin, kind, pans: rig.pans };
-    followChip.textContent = `Following ${WALKER_NAMES[kind] ?? 'them'} · drag the map or press Esc to stop`;
+    // (A lender's army, slice 28: its collectors, not raiders.)
+    const band = kind === 'raider' && walker ? sim.state.walkers.find((o) => o.id === walker) : undefined;
+    const r = band ? raidOfBand(sim.state, band) : undefined;
+    followChip.textContent = `Following ${r?.loan ? `${whoseCity(r.city)} collectors` : (WALKER_NAMES[kind] ?? 'them')} · drag the map or press Esc to stop`;
     followChip.hidden = false;
   };
   const stopFollow = (): void => {

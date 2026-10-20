@@ -1014,9 +1014,9 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .side-body ul.loans .side-row { margin: 0; align-items: baseline; gap: 8px; }
 .side-body ul.loans .side-row button.link { white-space: nowrap; flex: none; }
 .side-body ul.loans .side-row span { text-align: right; }
-/* Five tabs on a ruled city's page now: each keeps its label on one line, and the row wraps if it must. */
-.greece-panel .citytabs { flex-wrap: wrap; }
-.greece-panel .citytabs button { white-space: nowrap; padding: 2px 9px; }
+/* Five tabs on a ruled city's page now: each keeps its label on one line, and the row wraps if it must (slice 28's review: a little tighter, so "Loans · overdue" fits on one row). */
+.greece-panel .citytabs { flex-wrap: wrap; gap: 3px; }
+.greece-panel .citytabs button { white-space: nowrap; padding: 2px 6px; letter-spacing: 0.02em; }
 .side-body ul.loans .side-note { margin: 2px 0 4px; }
 .side-body ul.loans button.link { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--ink); text-decoration: underline dotted rgba(122, 92, 60, 0.6); text-underline-offset: 3px; }
 /* Debts unpaid (slice 28): an unpaid loan's steps, the answers to a debtor, your soldiers sent out and their report. */

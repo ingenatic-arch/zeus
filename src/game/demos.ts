@@ -1774,12 +1774,13 @@ const LEND = loanTown('lend');
  * accepted (Athens' declined) and the payment held back, played on to a few
  * days after the day: the warning given, the next two steps dated on
  * Corinth's Loans tab. #seized: on to the second step, Corinth's road closed
- * and the oil and meat waiting in the caravan yard seized (the ledger open).
+ * and a gift of coin sent to Corinth seized on the road (the ledger open).
  * #creditors: on to the third, the threat refused, Corinth's men in the city
  * (the camera on them). #collect: #companies' town, Corinth's ask to borrow
  * (set up for the demo) lent, played on to its day, which Corinth lets pass
  * (set up for the demo): the Loans tab with the four answers. #report: the
- * full force sent, played on until it is on the road home: the report.
+ * full force sent, played on until it has fought, two days at Corinth under
+ * the crossed swords before it marches home (opened paused): the report.
  * #forgive: #lend's loan to Athens lent and played on to its day, which she
  * lets pass (set up for the demo): her Loans tab, Forgive at hand.
  */
@@ -1794,7 +1795,7 @@ const SEIZED_DAYS = 30;
 const CREDITORS_DAYS = 4;
 /** What #collect lends Corinth, at most. */
 const COLLECT_LEND = 2000;
-/** How many days on the road home #report's force is. */
+/** How many days #report's force has been at Corinth after the fight (it marches home a day after; slice 28's review: on the road home it reached your edge a moment after the demo opened, a game day being a second). */
 const REPORT_DAYS = 2;
 
 function debtTown(stage: DebtStage): (sim: Sim) => void {
@@ -1862,7 +1863,7 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
     const e = s.world.expeditions.find((x) => x.city === 'corinth');
     if (!e) return;
     const stop = s.tick + 4 * TICKS_PER_MONTH;
-    while (s.tick < stop && e.phase !== 'homeward' && e.phase !== 'done') sim.run(10);
+    while (s.tick < stop && e.phase !== 'fighting' && e.phase !== 'homeward' && e.phase !== 'done') sim.run(1);
     sim.run(REPORT_DAYS * TICKS_PER_DAY);
   };
 }
@@ -2005,7 +2006,7 @@ const SCENES: Record<string, Demo> = {
   seized: { view: 'town', setup: debtTown('seized'), overlay: 'missing', ledger: true },
   creditors: { view: 'town', setup: debtTown('creditors'), overlay: 'missing', follow: 'raider' },
   collect: { view: 'companies', setup: debtTown('collect'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
-  report: { view: 'companies', setup: debtTown('report'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
+  report: { view: 'companies', speed: 'paused', setup: debtTown('report'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   forgive: { view: 'rivals', setup: debtTown('forgive'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
 };
 

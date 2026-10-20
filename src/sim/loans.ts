@@ -936,7 +936,10 @@ function warn(s: SimState, l: Loan): void {
     o.memories.push(loanMemory(o, 'heard', `heard you failed to repay ${name}`, s.tick));
     settleMood(s, o);
   }
-  news(w, s.tick, l.city, `Your loan from ${name} fell due and went unpaid (${why}): ${fmt(l.owed)} dr is overdue. ${cap(title(c))} warns that in two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} will close ${cityName(l.city) === 'Troy' ? 'the sea' : 'the road'} to you and seize your goods on it; and Greece has heard (every loan’s terms are dearer now)`, true);
+  // (The routes open with them: the road, the sea route, or both; with none, what they would close.)
+  const kinds = w.routes.filter((r) => r.city === l.city).map((r) => (r.kind === 'land' ? 'the road' : 'the sea route'));
+  const ways = kinds.length ? kinds.join(' and ') : `${his(c)} routes`;
+  news(w, s.tick, l.city, `Your loan from ${name} fell due and went unpaid (${why}): ${fmt(l.owed)} dr is overdue. ${cap(title(c))} warns that in two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} will close ${ways} to you and seize your goods on ${kinds.length > 1 || !kinds.length ? 'them' : 'it'}; and Greece has heard (every loan’s terms are dearer now)`, true);
 }
 
 /**

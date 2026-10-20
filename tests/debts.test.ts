@@ -390,6 +390,44 @@ describe('expeditions', () => {
   }, 240000);
 });
 
+describe('a lender across the sea', () => {
+  it('its army comes by ship and lands through the landings, takes no more than is owed, sets nothing alight, and what it carries off comes off the debt', () => {
+    const sim = fresh('companies');
+    const s = sim.state;
+    ruler(s, 'troy', ['pious', 'warlike'], 10);
+    const l = staged(s, 'troy', 'in', 1000, 0);
+    // (Overdue, held back, and two months into the seizing: the threat comes the next day.)
+    l.state = 'overdue';
+    l.withhold = true;
+    l.fell = Math.max(1, s.tick);
+    l.step = 2;
+    l.stepAt = s.tick - STEP_GAP;
+    income(s, 4000, 'given', 'for the test');
+    expect(until(sim, () => l.step === 3, 2 * TICKS_PER_DAY)).toBe(true);
+    const r = s.world.raids.find((x) => x.id === l.raid)!;
+    expect(r.loan).toBe(l.id);
+    expect(r.by).toBe('sea');
+    send(sim, { type: 'answer', deal: r.deal, act: 'refuse' });
+    expect(until(sim, () => r.phase === 'raiding', 6 * TICKS_PER_MONTH)).toBe(true);
+    // Ships in the bay: come to collect, and (in your waters) not to be paid off.
+    expect(r.shore).toBeGreaterThanOrEqual(0);
+    expect(lines(s).some((x) => /^Sails! .* come to collect the [\d,]+ dr you owe/.test(x))).toBe(true);
+    expect(lines(s).some((x) => /^Sails! .*to turn them back/.test(x))).toBe(false);
+    expect(until(sim, () => r.landed > 0 || r.ended > 0, 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(r.landed).toBeGreaterThan(0);
+    expect(lines(s).some((x) => /^Troy’s army is ashore.* come to collect/.test(x))).toBe(true);
+    const owed = l.owed;
+    expect(until(sim, () => r.ended > 0 && !raidersOf(s, r), 4 * TICKS_PER_MONTH)).toBe(true);
+    expect(r.fired).toBe(false);
+    const v = lootValue(s, r);
+    expect(v).toBeLessThanOrEqual(owed + 60);
+    if (v > 0) expect(l.seized).toBeGreaterThan(0);
+    if (l.state === 'overdue') expect(l.owed).toBe(owed - Math.min(owed, v));
+    else expect(l.state).toBe('collected');
+    ledgerAddsUp(s);
+  }, 240000);
+});
+
 describe('old saves', () => {
   it('a slice 27 save (version 25, a loan from Corinth nearly due) loads, and the loan falls due as a slice 28 debt', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/slice27-borrow.save.json.gz')).toString();
