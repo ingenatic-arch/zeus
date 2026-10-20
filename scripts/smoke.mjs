@@ -1877,7 +1877,13 @@ if (!/Hire Cretan archers[\s\S]*Hire Arcadian hoplites/.test(a24.side)) fail(`#b
     return { ...z.battle(), arrowsSeen: arrows };
   });
   if (!(b24.broke && b24.fallen >= 14)) fail(`#battle: the band not broken: ${JSON.stringify(b24)}`);
-  if (!b24.news.some((l) => /^Your soldiers broke Sparta’s raiders/.test(l))) fail(`#battle: the army's news: ${JSON.stringify(b24.news)}`);
+  // (Slice 26, from slice 25's review: the news of the break is told once the band has left, counting every man who fell.)
+  b24 = await zeus(() => {
+    const z = window.__zeus;
+    for (let i = 0; i < 1500 && !z.battle().news.some((l) => /^Your soldiers broke/.test(l)); i += 5) z.skip(5);
+    return z.battle();
+  });
+  if (!b24.news.some((l) => /^Your soldiers broke Sparta’s raiders[\s\S]*\d+ of their \d+ men fell/.test(l))) fail(`#battle: the army's news: ${JSON.stringify(b24.news)}`);
   await frames(3);
   const lines24 = await zeus(() => window.__zeus.townLines());
   if (!JSON.stringify(lines24).includes('Your soldiers broke')) fail(`#battle: the battle's town line: ${JSON.stringify(lines24).slice(0, 600)}`);
