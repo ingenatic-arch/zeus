@@ -1553,7 +1553,7 @@ if (!(await zeus(() => !!document.querySelector('.glabel svg.ask.threat')))) fai
 await page.click('.greece-panel button[data-act="refuse"]');
 await frames(3);
 let r20 = await zeus(() => window.__zeus.raids());
-if (!(r20.raids[0]?.phase === 'gathering' && /^Sparta’s raiders · \d+ days$/.test(r20.chip))) fail(`#threat: refused: ${JSON.stringify(r20)}`);
+if (!(r20.raids[0]?.phase === 'gathering' && /^Sparta’s raiders · \d+ men · \d+ days$/.test(r20.chip))) fail(`#threat: refused: ${JSON.stringify(r20)}`);
 g = await gi();
 if (!Object.keys(g.travellers).some((k) => k.startsWith('raid-'))) fail(`#threat: no band on the map: ${JSON.stringify(g.travellers)}`);
 if (!(await lines18()).some((l) => /Sparta’s raiders are gathering, \d+ men: at the west edge of your land in about \d+ days/.test(l))) fail(`#threat: no line for the band: ${JSON.stringify(await lines18())}`);
@@ -1563,7 +1563,7 @@ await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, nul
 await frames(3);
 g = await gi();
 r20 = await zeus(() => window.__zeus.raids());
-if (!(r20.raids[0]?.phase === 'marching' && /^Sparta’s raiders · \d days?$/.test(r20.chip) && Object.keys(g.travellers).includes('raid-1'))) fail(`#raid: ${JSON.stringify(r20)} ${JSON.stringify(g.travellers)}`);
+if (!(r20.raids[0]?.phase === 'marching' && /^Sparta’s raiders · \d+ men · \d days?$/.test(r20.chip) && Object.keys(g.travellers).includes('raid-1'))) fail(`#raid: ${JSON.stringify(r20)} ${JSON.stringify(g.travellers)}`);
 if (!/Sparta’s raiders are on the march[\s\S]*Pay [\d,]+ dr now and they turn back at once, wherever they are[\s\S]*Pay [\d,]+ dr\s*\+\d+/.test(g.panel)) fail(`#raid: the page: ${g.panel.slice(0, 1400)}`);
 const money20 = (await city()).money;
 await page.click('.greece-panel button[data-act="send"]');
@@ -1574,24 +1574,24 @@ if ((await city()).money !== money20 - r20.raids[0].coin) fail(`#raid: paying to
 if (!(await lines18()).some((l) => /King Eurykrates has the price of peace: his raiders turn round on the road home/.test(l))) fail(`#raid: no news of it: ${JSON.stringify(await lines18())}`);
 g = await gi();
 if (!/\+\d+You paid them to call off their raiders/.test(g.panel)) fail(`#raid: no memory of it: ${g.panel.slice(0, 1400)}`);
-// #raiders: in the city at the farm, torches lit and the farm alight, the chip, the band's tip; they leave with what they took.
+// #raiders: in the city at the granary (slice 24: bands come for the stores, and burn on their way), the chip, the band's tip; they leave with what they took.
 await open('#raiders-paused');
 await frames(3);
 r20 = await zeus(() => window.__zeus.raids());
-if (!(r20.raids[0]?.phase === 'raiding' && r20.raids[0].fired && r20.band?.drawn && r20.chip === 'Raiders in the city')) fail(`#raiders: ${JSON.stringify(r20)}`);
-if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, firing the farm\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
+if (!(r20.raids[0]?.phase === 'raiding' && r20.band?.drawn && r20.chip === 'Raiders in the city')) fail(`#raiders: ${JSON.stringify(r20)}`);
+if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, plundering the granary\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
 const at20 = await zeus((p) => window.__zeus.screenOf(p.x, p.z), r20.band);
 await page.mouse.move(at20.x, at20.y - 8);
 await page.waitForFunction(() => /^Raiders of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});
 const tip20 = await zeus(() => window.__zeus.tipText());
 if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
 await page.mouse.move(5, 5);
-// The chip opens Sparta's page, with the band at the farm and the coin to turn them back (not paid here: they go on to take the wheat).
+// The chip opens Sparta's page, with the band at the granary and the coin to turn them back (not paid here: they go on to take the wheat).
 await page.click('.raid-chip');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);
 g = await gi();
-if (!(g.shown === 'sparta' && /Sparta’s raiders are in your city[\s\S]*at the farm\. Pay [\d,]+ dr now and they turn back at once/.test(g.panel))) fail(`#raiders: the chip's page: ${g.shown} ${g.panel.slice(0, 1200)}`);
+if (!(g.shown === 'sparta' && /Sparta’s raiders are in your city[\s\S]*\d+ men in at the west edge, at the granary\. Pay [\d,]+ dr now and they turn back at once/.test(g.panel))) fail(`#raiders: the chip's page: ${g.shown} ${g.panel.slice(0, 1200)}`);
 await zeus(() => window.__zeus.greece(false));
 await frames(2);
 await zeus(() => window.__zeus.speed('fast'));
@@ -1599,11 +1599,11 @@ await page.waitForFunction(() => window.__zeus.raids().band === null, null, { ti
 await zeus(() => window.__zeus.speed('paused'));
 r20 = await zeus(() => window.__zeus.raids());
 if (!(r20.raids[0].end === 'raided' && r20.raids[0].took > 0)) fail(`#raiders: after: ${JSON.stringify(r20)}`);
-// #aftermath: the ledger's raid line and the burnt farms; on Sparta's page, the king's anger spent.
+// #aftermath: the ledger's raid lines (drachmas and wheat) and what burnt; on Sparta's page, the king's anger spent.
 await open('#aftermath-paused');
 await frames(3);
 const led20 = await zeus(() => window.__zeus.ledgerText());
-if (!/Lost to raiders\s*Raided by Sparta · wheat[\s\S]*Burnt down · farms/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
+if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Raided by Sparta · wheat[\s\S]*Burnt down · granaries[\s\S]*Burnt down · tax offices/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
 await zeus(() => window.__zeus.greece(true, 'sparta'));
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);
@@ -1810,8 +1810,12 @@ if (!/Hire Cretan archers[\s\S]*Hire Arcadian hoplites/.test(a24.side)) fail(`#b
     await frames(3);
   };
   await click(40.5, 41.5);
+  // (The row takes the archers' banner and flies the camera to them: once it is there, back to the bridge.)
   await page.click(`.side button[data-act="company"][data-id="${arc24.id}"]`);
-  await frames(2);
+  await frames(40);
+  if ((await zeus(() => window.__zeus.army().selected)) !== arc24.id) fail('#battle: the archers\' row did not take their banner');
+  await zeus(() => window.__zeus.jump({ x: 50, z: 41, yaw: 2.65, dist: 34, tilt: -0.1 }));
+  await frames(3);
   await click(44.5, 39.5);
   a24 = await zeus(() => window.__zeus.army());
   const h = a24.companies.find((c) => c.id === hop24.id);
