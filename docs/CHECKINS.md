@@ -61,6 +61,7 @@ Each link also opens paused if you add `-paused` (for example `#borrow-paused`).
 - No demo shows a ruler's own offer: the dice bring them in their own time. I looked at one set up by hand (Corinth offering 1,500 dr at 10%, on the Ruler tab).
 - The tabs on a city's page wrap onto two lines when a tab has a state word ("Trade · 2 open", "Loans · they owe").
 - The sum, interest and months you choose in "Offer a loan" are kept while the game is open, not in the save.
+- The browser check (`npm run smoke`) passes every loans step, but seven of its older raid checks fail since slice 24 (raiders fought in the streets) was merged in. They fail the same way on the main line: slice 24 changed how a raid plays, and its checks are still to be brought up to date there.
 
 ### Measurements
 Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's check-in) and after (with the new city look merged in):
