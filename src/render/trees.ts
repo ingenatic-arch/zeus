@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { TreeKind, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { finishBuilding } from './buildFinish';
+import { finishOn } from './finish';
 import { lookTreeModel } from './lookTrees';
 import { col, PAL } from './palette';
 
@@ -29,6 +31,8 @@ export function lumpy(geo: THREE.BufferGeometry, amount: number, seed: number): 
 }
 
 export function merge(parts: Part[]): THREE.BufferGeometry {
+  // The city's finish: stone surrounds, cornices and string courses on the walls (buildFinish.ts).
+  if (finishOn()) parts = finishBuilding(parts);
   const positions: number[] = [];
   const colors: number[] = [];
   for (const { geo, color } of parts) {

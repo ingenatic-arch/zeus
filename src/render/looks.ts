@@ -82,9 +82,14 @@ function depthMaterial(tex: { value: THREE.Texture | null }, name: string): THRE
 }
 
 /**
- * A set of looks drawn as one instanced mesh. add() each look's model first
- * (it returns the look's number); then each frame begin(), push() every
+ * A set of looks drawn as a few instanced meshes. add() each look's model
+ * first (it returns the look's number); then each frame begin(), push() every
  * instance with its look, and end().
+ *
+ * Every instance runs as many vertices as the biggest look in its mesh, so the
+ * looks are sorted by size into tiers (up to 512 vertices, 1,024, 2,048 and so
+ * on), one mesh each: a settler doesn't pay for an ox cart's corners. All the
+ * tiers read their vertices from the one texture.
  */
 export class MergedLooks {
   readonly group = new THREE.Group();
@@ -92,11 +97,9 @@ export class MergedLooks {
   private readonly looks: Look[] = [];
   private starts: number[] = [];
   private counts: number[] = [];
-  private mesh: THREE.InstancedMesh | null = null;
-  private lookAttr: THREE.InstancedBufferAttribute | null = null;
-  private cap = 0;
-  private n = 0;
-  private verts = 0;
+  /** Each look's tier. */
+  private tierOf: Tier[] = [];
+  private tiers: Tier[] = [];
   private readonly tex = { value: null as THREE.Texture | null };
   private readonly lit: THREE.MeshStandardMaterial;
   private readonly depth: THREE.MeshDepthMaterial;
@@ -119,16 +122,26 @@ export class MergedLooks {
     return l;
   }
 
-  /** Lay every look's vertices out in the texture. */
+  /** Lay every look's vertices out in the texture, and sort the looks into their tiers. */
   private seal(): void {
     let total = 0;
+    const bySize = new Map<number, Tier>();
     for (const g of this.models) {
       this.starts.push(total);
       const n = g.attributes.position.count;
       this.counts.push(n);
       total += n;
-      this.verts = Math.max(this.verts, n);
+      let size = 512;
+      while (size < n) size *= 2;
+      let tier = bySize.get(size);
+      if (!tier) {
+        tier = new Tier(`${this.name}-${size}`, this.lit, this.depth, this.group);
+        bySize.set(size, tier);
+      }
+      tier.verts = Math.max(tier.verts, n);
+      this.tierOf.push(tier);
     }
+    this.tiers = [...bySize.values()];
     const rows = Math.max(1, Math.ceil((total * 3) / TEX_W));
     const data = new Float32Array(TEX_W * rows * 4);
     let o = 0;
@@ -149,10 +162,47 @@ export class MergedLooks {
     tex.generateMipmaps = false;
     tex.needsUpdate = true;
     this.tex.value = tex;
-    this.grow(this.startCap);
+    for (const t of this.tiers) t.grow(this.tiers.length === 1 ? this.startCap : 8);
   }
 
-  private grow(need: number): void {
+  begin(): void {
+    if (!this.tex.value) this.seal();
+    for (const t of this.tiers) t.n = 0;
+    for (const l of this.looks) l.n = 0;
+  }
+
+  push(look: number, m: THREE.Matrix4, c: THREE.Color): void {
+    this.tierOf[look].push(this.starts[look], this.counts[look], m, c);
+  }
+
+  end(): void {
+    for (const t of this.tiers) t.end();
+  }
+
+  /** Instances drawn this frame. */
+  get count(): number {
+    let n = 0;
+    for (const t of this.tiers) n += t.n;
+    return n;
+  }
+}
+
+/** One mesh of a MergedLooks: the looks of about one size. */
+class Tier {
+  n = 0;
+  verts = 0;
+  private cap = 0;
+  private mesh: THREE.InstancedMesh | null = null;
+  private lookAttr: THREE.InstancedBufferAttribute | null = null;
+
+  constructor(
+    private readonly name: string,
+    private readonly lit: THREE.Material,
+    private readonly depth: THREE.Material,
+    private readonly group: THREE.Group,
+  ) {}
+
+  grow(need: number): void {
     const cap = Math.max(need, this.cap * 2, 8);
     const geo = new THREE.BufferGeometry();
     // Blank vertices: the shader reads each from the texture.
@@ -172,6 +222,7 @@ export class MergedLooks {
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3);
     mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
+    mesh.visible = false;
     const old = this.mesh;
     if (old && this.lookAttr) {
       mesh.instanceMatrix.array.set(old.instanceMatrix.array.subarray(0, this.n * 16));
@@ -187,18 +238,12 @@ export class MergedLooks {
     this.group.add(mesh);
   }
 
-  begin(): void {
-    if (!this.tex.value) this.seal();
-    this.n = 0;
-    for (const l of this.looks) l.n = 0;
-  }
-
-  push(look: number, m: THREE.Matrix4, c: THREE.Color): void {
+  push(start: number, count: number, m: THREE.Matrix4, c: THREE.Color): void {
     if (this.n >= this.cap) this.grow(this.n + 1);
     const mesh = this.mesh!;
     mesh.setMatrixAt(this.n, m);
     mesh.setColorAt(this.n, c);
-    this.lookAttr!.setXY(this.n, this.starts[look], this.counts[look]);
+    this.lookAttr!.setXY(this.n, start, count);
     this.n++;
   }
 
@@ -212,11 +257,6 @@ export class MergedLooks {
       a.addUpdateRange(0, this.n * a.itemSize);
       a.needsUpdate = true;
     }
-  }
-
-  /** Instances drawn this frame. */
-  get count(): number {
-    return this.n;
   }
 }
 

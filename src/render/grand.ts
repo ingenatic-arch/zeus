@@ -7,6 +7,7 @@
  * footprint's centre at the origin, the front facing +x.
  */
 import * as THREE from 'three';
+import { finishOn } from './finish';
 import { amphora, cyl, prism, windowBack, windowX } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
@@ -50,16 +51,34 @@ function windowZ(x: number, y: number, z: number, side: number): Part[] {
   return windowX(0, y, 0).map((p) => ({ geo: p.geo.rotateY(side > 0 ? -Math.PI / 2 : Math.PI / 2).translate(x, 0, z), color: p.color }));
 }
 
-/** An olive tree: a trunk and a lumpy grey-green crown. */
+/** An olive tree: a trunk and a lumpy grey-green crown (with the city's finish, a crown of leafy clumps over a forked trunk). */
 function olive(x: number, z: number, s: number, seed: number): Part[] {
+  if (finishOn()) {
+    const out: Part[] = [
+      { geo: cyl(0.028 * s, 0.045 * s, 0.32 * s, 6).rotateZ(0.12).translate(x, 0.16 * s, z), color: PAL.trunk },
+      { geo: cyl(0.016 * s, 0.026 * s, 0.2 * s, 5).rotateZ(-0.6).translate(x + 0.06 * s, 0.34 * s, z), color: PAL.trunk },
+    ];
+    const clumps: Array<[number, number, number, number]> = [[0, 0.47, 0, 0.13], [0.12, 0.42, 0.06, 0.1], [-0.11, 0.43, -0.05, 0.1], [0.03, 0.42, -0.13, 0.095], [-0.04, 0.42, 0.12, 0.095], [0.02, 0.55, 0.01, 0.09]];
+    clumps.forEach(([cx, cy, cz, r], i) => out.push({ geo: lumpy(new THREE.IcosahedronGeometry(r * s, 0), 0.3, seed + i).scale(1.1, 0.8, 1.05).translate(x + cx * s, cy * s, z + cz * s), color: i % 2 ? PAL.oliveLeafDark : PAL.oliveLeaf }));
+    return out;
+  }
   return [
     { geo: cyl(0.03 * s, 0.045 * s, 0.36 * s, 5).translate(x, 0.18 * s, z), color: PAL.trunk },
     { geo: lumpy(new THREE.IcosahedronGeometry(0.22 * s, 0), 0.3, seed).scale(1.2, 0.8, 1.1).translate(x, 0.45 * s, z), color: PAL.oliveLeaf },
   ];
 }
 
-/** A cypress: a tall dark cone on a stub of trunk. */
+/** A cypress: a tall dark cone on a stub of trunk (with the city's finish, a flame of upright sprays). */
 function cypress(x: number, z: number, h: number): Part[] {
+  if (finishOn()) {
+    const out: Part[] = [{ geo: cyl(0.02, 0.03, 0.1, 5).translate(x, 0.05, z), color: PAL.trunk }];
+    for (let i = 0; i < 4; i++) {
+      const t = i / 3;
+      const r = 0.11 * (1 - t * 0.55);
+      out.push({ geo: lumpy(new THREE.IcosahedronGeometry(r, 0), 0.25, 900 + i).scale(1, 1.9, 1).translate(x, 0.1 + h * (0.2 + t * 0.62), z), color: i % 2 ? PAL.cypress : PAL.pineDark });
+    }
+    return out;
+  }
   return [
     { geo: cyl(0.02, 0.03, 0.1, 4).translate(x, 0.05, z), color: PAL.trunk },
     { geo: new THREE.ConeGeometry(0.11, h, 6).translate(x, 0.08 + h / 2, z), color: PAL.cypress },

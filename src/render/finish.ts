@@ -394,7 +394,7 @@ export function patchFinish(scene: THREE.Scene, map: { size: number; corner(x: n
       if (p.name === 'trees') inPlants = true;
     }
     // The fuller plants (lookTrees.ts) carry crown normals: shade them smooth.
-    if (inPlants && labOn() && mat.flatShading) {
+    if (inPlants && finishOn() && mat.flatShading) {
       mat.flatShading = false;
       mat.needsUpdate = true;
     }

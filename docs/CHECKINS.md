@@ -2,6 +2,19 @@
 
 Notes to Oliver, newest first.
 
+## City look, stages 2 and 3 — trees, people and stonework (20 Oct)
+
+The rest of the city-look plan is built and published: new trees and shrubs, a finer figure for every person in the streets, and stonework on the buildings. `#goods` shows it; `#goods-plain` shows the old look. Nothing in the simulation or the saves changed.
+
+### What's new
+- **Trees and shrubs.** Olives, stone pines, cypresses, scrub and broom have crowns of leafy clumps that shade as one soft mass, with boughs reaching into them. The olives and cypresses in courtyards and gardens are leafier too.
+- **People.** Every walker has a rounded head with a nose, a neck, a waist, shoulders, folds in the skirt, hands and sandals. Each keeps what it carries and wears. This works on any walker's model as it is built, so soldiers, raiders and walkers yet to come get it without extra work.
+- **Buildings.** Stone surrounds and sills round the windows, jambs and lintels round the doors, a cornice under the eaves and a string course between floors on two-storey houses.
+
+### Your eye on
+- Whether the window surrounds should stand out more. They are kept quiet so the streets don't look busy from above.
+- Frame rate. The plants now have about three times the triangles and the people about two and a half times, and I still can't measure frames on this machine. If it stutters, tell me and I'll add a Graphics setting with a lighter option.
+
 ## Slice 24 — Raiders fought in the streets (20 Oct)
 
 Raiders now come for something, and your soldiers can stand in their way. A band makes for your best-stocked granary or storehouse and then the tax office, carries off goods and drachmas, sets a building or two alight, and goes home. Each raider is a man of his own, and a company placed in the band's way fights it blow by blow: hoplites close with them, archers shoot, men fall, are wounded or killed and mourned at home, and a side that loses half its men breaks and runs. In a pinch the barracks can hire Cretan archers or Arcadian hoplites. You weren't here while it was built: every choice below is mine, from the spec's defaults.
