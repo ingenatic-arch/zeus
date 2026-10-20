@@ -222,7 +222,7 @@ describe('pirates', () => {
     expect(g?.by).toBe('sea');
     expect(until(sim, () => !s.world.gifts.includes(g!), 3 * TICKS_PER_MONTH)).toBe(true);
     expect(p.took.some((x) => x.startsWith('200 '))).toBe(true);
-    expect(s.world.news.some((n) => /Pirates off Cape Zoster seized your gift/.test(n.line))).toBe(true);
+    expect(s.world.news.some((n) => /Pirates off Cape Skyllaion seized your gift/.test(n.line))).toBe(true);
   }, 120000);
 
   it('a trireme sent to guard the lane goes on station, fights the pirates, and a report is written', () => {

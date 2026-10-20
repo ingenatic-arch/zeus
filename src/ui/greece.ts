@@ -574,20 +574,20 @@ function laneHtml(s: SimState, id: CityId): string {
   const lines: string[] = [];
   if (p) {
     const when = p.state === 'seen' ? `they start seizing what of yours passes there about ${dayWords(p.from)}` : `seizing what of yours passes there${p.took.length ? `: ${p.took.slice(-3).join(', ')}` : ''}`;
-    lines.push(`<p class="line warn">${esc(`Pirates ${p.place}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}.`)}</p>`);
-  } else lines.push(`<p class="line">${esc(`No pirates seen on the lane to ${PLACES[id].name}.`)}</p>`);
-  for (const t of guards) lines.push(`<p class="line">${esc(`${triremeDoing(s, t).replace(/^./, (c) => c.toUpperCase())}: the ${triremeName(t)}, ${Math.round(t.hp)}% sound.`)}</p>`);
+    lines.push(`<p><b>${esc(`Pirates ${p.place}`)}</b></p><p>${esc(`${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}.`)}</p>`);
+  } else lines.push(`<p>${esc(`No pirates seen on the lane to ${PLACES[id].name}.`)}</p>`);
+  for (const t of guards) lines.push(`<p>${esc(`${triremeDoing(s, t).replace(/^./, (c) => c.toUpperCase())}: the ${triremeName(t)}, ${Math.round(t.hp)}% sound.`)}</p>`);
   const rep = s.fleet.reports.filter((r) => r.way === lane.way).slice(-1)[0];
-  if (rep) lines.push(`<p class="line"><small>${esc(dayWords(rep.tick))}</small> ${esc(rep.line)}.</p>`);
+  if (rep) lines.push(`<p class="if"><small>${esc(dayWords(rep.tick))}</small> ${esc(rep.line)}.</p>`);
   const send = ts
     .filter((t) => !(t.order === 'lane' && t.lane === lane.way))
     .map((t) => {
       const no = guardRefusal(t, lane.way);
-      return `<button data-guard="${t.id}" data-lane="${lane.way}" class="send" title="${esc(no || `She rows out of your bay and along the lane to ${lane.name}, and keeps it: what of yours passes there is safe`)}"${no ? ' disabled' : ''}>Send the ${esc(triremeName(t))} to guard it</button>`;
+      return `<button data-guard="${t.id}" data-lane="${lane.way}" class="send" title="${esc(no || `She rows out of your bay and along the lane to ${PLACES[id].name}, and keeps watch ${lane.name}: what of yours passes there is safe`)}"${no ? ' disabled' : ''}>Send the ${esc(triremeName(t))} to guard it</button>`;
     });
   const home = guards.map((t) => `<button data-trihome="${t.id}" title="Back along the lane, into your bay and to her mooring">Bring the ${esc(triremeName(t))} home</button>`);
-  const none = ts.length ? '' : '<p class="line"><small>A shipyard on your shore (B ×7) builds triremes that can guard the lane.</small></p>';
-  return `<section class="lane"><h3>The sea lane</h3>${lines.join('')}${send.length || home.length ? `<div class="acts">${send.join('')}${home.join('')}</div>` : none}</section>`;
+  const none = ts.length ? '' : '<p class="if"><small>A shipyard on your shore (B ×7) builds triremes that can guard the lane.</small></p>';
+  return `<section class="deals lane"><h3>The sea lane</h3><div class="deal${p && !guards.length ? ' tribute' : ''}"><div>${lines.join('')}${send.length || home.length ? `<div class="acts">${send.join('')}${home.join('')}</div>` : none}</div></div></section>`;
 }
 
 /** A gift on its way (the hover card's and the map's). */

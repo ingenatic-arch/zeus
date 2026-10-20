@@ -546,6 +546,7 @@ export class SidePanel {
     this.showTab('military');
     const el = this.body.querySelector(`[data-barracks="${id}"]`);
     if (el && 'scrollIntoView' in el) (el as HTMLElement).scrollIntoView({ block: 'nearest' });
+    else this.scrollTo = id;
   }
 
   /** Bring the panel up to date (a few times a second while it shows). */
@@ -599,7 +600,16 @@ export class SidePanel {
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     morph(this.body, html);
+    // A barracks or shipyard asked for before its section was drawn: scroll to it now.
+    if (this.scrollTo) {
+      const el = this.body.querySelector(`[data-barracks="${this.scrollTo}"]`);
+      if (el) {
+        (el as HTMLElement).scrollIntoView({ block: 'nearest' });
+        this.scrollTo = 0;
+      }
+    }
   }
+  private scrollTo = 0;
 
   // -------------------------------------------------------------------------
   // Husbandry and industry.

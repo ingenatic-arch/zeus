@@ -131,17 +131,17 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     LANES.map((l) => {
       const no = guardRefusal(t, l.way);
       const p = piratesOn(s, l.way);
-      const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.ships === 1 ? 'pirate ship' : `${p.ships} pirate ships`} there` : ''}`;
-      return `<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>Guard ${esc(cityName(l.city))}${p ? ' <small class="warn">pirates</small>' : ''}</button>`;
+      const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps watch ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.ships === 1 ? 'pirate ship' : `${p.ships} pirate ships`} there` : ''}`;
+      return `<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>${esc(cityName(l.city))}${p ? ' <small>(pirates)</small>' : ''}</button>`;
     }).join('');
   const row = (t: (typeof ts)[number]): string => {
     const why = crewWhy(s, map, t);
     const hull = t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}%${t.hp < FIT ? ' <span class="warn">(mending before she goes out)</span>' : ''}`;
-    const crew = t.state === 'building' ? '' : ` · ${t.crew.length} of ${CREW} rowers`;
     const pay = t.crew.length ? ` · ${fmt(t.crew.length * ROWER_PAY)} dr a month` : '';
     const owed = t.owed > 0 ? ` · <span class="warn">${fmt(t.owed)} dr pay owed</span>` : '';
     const acts = t.state === 'building' ? '' : t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out') ? `<div class="acts"><button data-act="trihome" data-id="${t.id}" title="Back along the lane, into the bay and to her mooring">Bring her home</button></div>` : `<div class="acts lanes">${lanes(t)}</div>`;
-    return `<li class="trireme"><p><b>The ${esc(triremeName(t))}</b></p><p>${esc(triremeDoing(s, t))}${hull}${crew}${pay}${owed}</p>${why ? `<p class="why">${esc(why)}</p>` : ''}${acts}</li>`;
+    const n = t.state === 'building' ? '' : `<span class="n">${t.crew.length}<small> / ${CREW}</small></span>`;
+    return `<li class="company trireme"><div class="pick"><b>The ${esc(triremeName(t))}</b>${n}</div><p>${esc(triremeDoing(s, t))}${hull}${pay}${owed}</p>${why ? `<p class="why">${esc(why)}</p>` : ''}${acts}</li>`;
   };
   yards.forEach((b, i) => {
     const [cx, cz] = centreOf(b);

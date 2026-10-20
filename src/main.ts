@@ -1204,6 +1204,9 @@ function start(preparedTown: string | null): void {
   else if (demo?.trade) tradePanel.toggle(true);
   if (demo?.side?.ware !== undefined) side.showWare(demo.side.ware);
   else if (demo?.side?.tab) side.showTab(demo.side.tab);
+  // (Slice 26: the Army tab scrolled to the shipyard, its fleet.)
+  const yard = demo?.side?.fleet ? sim.state.buildings.find((b) => b.kind === 'shipyard') : undefined;
+  if (yard) side.showBarracks(yard.id);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;

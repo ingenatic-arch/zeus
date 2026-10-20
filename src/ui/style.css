@@ -966,6 +966,13 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .side-body .raise.hire button:hover { background: #fff2d6; }
 .side-body .raise.hire button small { color: var(--ink-soft); font-variant-numeric: lining-nums tabular-nums; }
 .side-body .raise button[disabled] { opacity: 0.55; cursor: not-allowed; }
+.side-body .company.trireme .pick { cursor: default; }
+.side-body .company.trireme .pick b { text-decoration: none; }
+.side-body .company .acts.lanes { flex-wrap: wrap; gap: 4px; }
+.side-body .company .acts.lanes::before { content: 'Send to guard the lane to:'; width: 100%; font-size: 11.5px; color: var(--ink-soft); }
+.side-body .company .acts button[disabled] { opacity: 0.5; cursor: not-allowed; }
+.side-body h3.fleet-head { margin-top: 14px; }
+.side-body .army-news li.warn-line { color: #8a3a1c; }
 .side-body .company.hired.cretan { border-left: 4px solid #4f7a3a; }
 .side-body .company.hired.arcadian { border-left: 4px solid #38558a; }
 .side-body .army-news { list-style: none; margin: 6px 0 2px; padding: 5px 8px; border-left: 3px solid #a87a2a; background: rgba(246, 236, 212, 0.7); border-radius: 0 8px 8px 0; font-size: 12px; line-height: 1.35; }
