@@ -40,7 +40,18 @@ Ships: an expedition by sea needs triremes (slice 26). Troy can only be reached 
 
 Measured at `579a3f2` (slice 25's check-in, the main line), headless Chromium with software WebGL at 1920 × 1080, on a machine shared with other builds:
 
-(filled in below once the baseline run finishes)
+| What | Before |
+|---|---|
+| Tests | 404 in 35 files, all passing (367 s) |
+| Bundle | 79 files, 11,793 KB raw, 2,566 KB gzipped: the game 641 KB, the demos' prepared towns 1,925 KB (69 distinct) |
+| First load | ready at 2,935 ms, first frame at 3,871 ms |
+| Demo loads | 100 demos, 98 from prepared towns; median ready 2,732 ms, slowest `#coast` 3,477 ms |
+| `#town` | 1,453,964 triangles, 89 draw calls; 693 people, 60 walkers; a save 149 KB |
+| `#richtown` | 1,623,607 triangles, 101 draw calls; 928 people, 88 walkers; a save 187 KB |
+| Map of Greece | `#greece` 305,842 triangles, 32 draw calls; first opened 5,364 ms after the key |
+| Frame work (update before drawing) | `#town` 11.96 ms, `#richtown` 16.12 ms, `#companies` 19.60 ms, `#borrow` 12.29 ms, `#lend` 11.04 ms, `#repaid` 23.48 ms, `#battle` fought 23.95 ms |
+
+Software WebGL on a shared machine: frame and load times swing by a third from run to run, so only large changes count.
 
 ## Design decisions
 
