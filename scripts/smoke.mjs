@@ -2134,12 +2134,15 @@ e28 = await zeus(() => window.__zeus.expeditions());
 if (!(e28[0]?.phase === 'homeward' && /Your soldiers[\s\S]*on the road home from Corinth[\s\S]*A full force: the 1st company of hoplites[\s\S]*They met Corinth’s garrison/.test(g28.panel))) fail(`#report: ${JSON.stringify(e28)} ${g28.panel.slice(0, 1600)}`);
 const ek28 = Object.keys(g28.travellers).find((k) => k.startsWith('exp-'));
 if (ek28) {
+  // (At this window size the lines under the top bar lie over the army: set them aside for the hover.)
+  const hide28 = await page.addStyleTag({ content: '.townlines { visibility: hidden !important; }' });
   const at28 = g28.travellers[ek28];
   await page.mouse.move(at28.x, at28.y);
   await frames(2);
   g28 = await gi();
   if (!/^Your army · \d+ men\s*Your army is on the road home from Corinth/.test(g28.card)) fail(`#report: the army's card: ${g28.card}`);
   await page.mouse.move(5, 500);
+  await hide28.evaluate((e) => e.remove());
 } else fail(`#report: no army on the map: ${JSON.stringify(Object.keys(g28.travellers))}`);
 await open('#forgive-paused');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
