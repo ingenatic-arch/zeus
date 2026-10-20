@@ -128,6 +128,9 @@ export function wallJob(map: CoastMap, s: SimState, t: number): WallJob {
   const p = wallAt(s, t);
   if (p) {
     if (p.hp >= fullOf(p)) return { what: 'none', why: p.gate ? 'A gate already' : 'A wall already' };
+    // (Not while a band is hammering at it: masons can't work under the rams. Slice 25's review: mending it for a few drachmas every
+    // few days held any gate for ever.)
+    if (p.hp > 0 && underRams(s, map, t)) return { what: 'none', why: `Raiders are hammering at this ${p.gate ? 'gate' : 'wall'}: it can be mended once they have gone` };
     const price = p.gate ? GATE_COST : WALL_COST;
     return { what: 'mend', cost: Math.max(1, Math.ceil(price * (1 - p.hp / fullOf(p)))) };
   }
@@ -144,6 +147,18 @@ export function wallJob(map: CoastMap, s: SimState, t: number): WallJob {
   }
   if (on !== TILE_EMPTY) return { what: 'none', why: 'Something is built here' };
   return { what: 'wall', cost: WALL_COST };
+}
+
+/** Are raiders standing at this stretch or gate, hammering at it (a band whose way ends there, a man of it at the wall)? */
+export function underRams(s: SimState, map: CoastMap, t: number): boolean {
+  const n = map.size;
+  const x = (t % n) + 0.5;
+  const z = Math.floor(t / n) + 0.5;
+  for (const r of s.world.raids) {
+    if (r.siege !== t || r.phase !== 'raiding') continue;
+    if (s.army.foes.some((f) => f.raid === r.id && f.state === 'with' && f.hp > 0 && dhypot(f.x - x, f.z - z) <= AT_WALL)) return true;
+  }
+  return false;
 }
 
 /** Put a piece in the list, keeping it in tile order (a new list, so the lookup is rebuilt). */

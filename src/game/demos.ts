@@ -1812,7 +1812,8 @@ const SCENES: Record<string, Demo> = {
   hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
   // Slice 25: walls, gates and towers. The town three weeks before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
   walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
-  siege: { view: 'siege', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
+  // (Paused, as #battle and #walls are: at normal speed the gate fell about ten seconds after it opened. Slice 25's review.)
+  siege: { view: 'siege', speed: 'paused', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
   // Slice 27: loans both ways. Corinth's and Athens' answers to your asks, Corinth's terms waiting on you; a ruler in trouble asking to borrow; that loan repaid, their herald on the road.
   borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   lend: { view: 'rivals', setup: LEND, overlay: 'missing', greece: LEND_CITY, greeceTab: 'ruler' },

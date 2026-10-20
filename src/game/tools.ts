@@ -705,6 +705,7 @@ export class Tools {
     let stretches = 0;
     let gates = 0;
     let mends = 0;
+    let gateMends = 0;
     let short = false;
     let why = '';
     const lay: number[] = [];
@@ -720,7 +721,10 @@ export class Tools {
       total += job.cost;
       if (job.what === 'wall') stretches++;
       else if (job.what === 'gate') gates++;
-      else mends++;
+      else {
+        mends++;
+        if (wallAt(s, t)?.gate) gateMends++;
+      }
       if (!short && money >= job.cost) {
         money -= job.cost;
         lay.push(t);
@@ -740,7 +744,7 @@ export class Tools {
       return;
     }
     const lines = [`Wall · ${bits.join(', ')} · ${fmt(total)} dr`];
-    lines.push(gates ? 'Your people pass through gates; raiders must break them' : 'Nobody crosses a wall: carts and walkers go round, or through a gate where it crosses a road');
+    lines.push(gates || gateMends ? 'Your people pass through gates; raiders must break them' : 'Nobody crosses a wall: carts and walkers go round, or through a gate where it crosses a road');
     if (from === this.hover && !this.dragging) lines.push('Drag to draw a line of wall');
     const warn = why ? `Skipped where it can’t stand: ${why}` : '';
     if (short) this.tip.show(`Not enough drachmas: ${fmt(total)} dr for all of it\n${lines.slice(1).join('\n')}`, sx, sy, true, warn);

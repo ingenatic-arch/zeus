@@ -75,6 +75,8 @@ export class CityView {
     // Raiders on the map: whoever is near them has run indoors (the sim's own rule), and is not drawn.
     const bands = bandsAt(s);
     this.walkers.hidden = bands.length ? new Set(s.walkers.filter((w) => sheltering(bands, w)).map((w) => w.id)) : NO_ONE;
+    // (A gate's door opens for your own people going through it while raiders are about.)
+    this.walls.frame(s, this.walkers.hidden);
     this.walkers.update(s, alpha, time);
     this.animals.update(s, alpha, time);
     this.army.update(s, alpha, time);

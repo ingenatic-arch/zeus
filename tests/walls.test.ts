@@ -16,11 +16,12 @@ import { buildingRefusal } from '../src/sim/build';
 import { centreOf, findBuilding } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { raidersOf } from '../src/sim/raids';
-import { deserialize, serialize, Sim } from '../src/sim/sim';
+import { deserialize, serialize, Sim, undoRefusal } from '../src/sim/sim';
+import { migrate } from '../src/sim/migrate';
 import { SIM_STATE_VERSION, TILE_ROAD, TILE_WALL, type Building, type Raid, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
 import { offRoadPath } from '../src/sim/wild';
-import { fullOf, GATE_COST, GATE_HP, TOWER_RANGE, WALL_COST, WALL_HP, wallAt } from '../src/sim/walls';
+import { fullOf, GATE_COST, GATE_HP, TOWER_RANGE, WALL_COST, WALL_HP, wallAt, wallJob } from '../src/sim/walls';
 import { TOWER_COST } from '../src/sim/build';
 import { demoSim } from './prepared';
 
@@ -175,6 +176,63 @@ describe('raiders and walls', () => {
     expect(s.tiles[tile(18, 46)]).toBe(0);
     expect(r.breaches).toBe(1);
   }, 120000);
+});
+
+describe('the review of slice 25', () => {
+  it('a wall all along the edge of the map does not turn the band away: it breaks in through it', () => {
+    const sim = fresh();
+    const s = sim.state;
+    s.money += 5000;
+    send(sim, { type: 'wall', tiles: line(0, 0, N - 1) });
+    expect(s.walls.length).toBeGreaterThan(40);
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0)!;
+    expect(until(sim, () => r.phase !== 'marching' && r.phase !== 'gathering', 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(r.phase).toBe('raiding');
+    expect(r.siege % N).toBe(0);
+    expect(until(sim, () => r.breaches > 0, 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(wallAt(s, r.edge)!.hp).toBe(0);
+  }, 120000);
+
+  it('a gate under the rams can’t be mended until the band has gone', () => {
+    const { sim, s, r } = walled();
+    expect(until(sim, () => r.siege === GATE && s.army.foes.some((f) => f.raid === r.id && f.swung === s.tick), 2 * TICKS_PER_MONTH)).toBe(true);
+    sim.run(2 * TICKS_PER_DAY);
+    const gate = wallAt(s, GATE)!;
+    const hp = gate.hp;
+    expect(hp).toBeLessThan(GATE_HP);
+    expect(wallJob(sim.map, s, GATE)).toMatchObject({ what: 'none', why: expect.stringMatching(/hammering/) });
+    const m = s.money;
+    send(sim, { type: 'wall', tiles: [GATE] });
+    expect(gate.hp).toBeLessThanOrEqual(hp);
+    expect(s.money).toBeGreaterThanOrEqual(m - 1);
+  }, 120000);
+
+  it('undo doesn’t hand back the price of a wall raiders have cracked', () => {
+    const sim = fresh();
+    const s = sim.state;
+    const before = s.money;
+    send(sim, { type: 'wall', tiles: line(40, 12, 45) });
+    wallAt(s, GATE)!.hp = GATE_HP / 2;
+    expect(undoRefusal(s)).toMatch(/cracked/);
+    send(sim, { type: 'undo' });
+    expect(s.walls.length).toBeGreaterThan(15);
+    expect(s.money).toBeLessThan(before);
+    ledgerAddsUp(s);
+  }, 60000);
+
+  it('a version 24 save from the loans’ own line of work (loans, no walls) loads with no walls', () => {
+    const st = JSON.parse(serialize(fresh().state)) as Record<string, unknown>;
+    delete st.walls;
+    for (const r of (st.world as { raids: Array<Record<string, unknown>> }).raids) {
+      delete r.siege;
+      delete r.breaches;
+    }
+    st.version = 24;
+    expect(migrate(st)).toBe(24);
+    expect(st.version).toBe(SIM_STATE_VERSION);
+    expect(st.walls).toEqual([]);
+    for (const r of (st.world as { raids: Array<Record<string, unknown>> }).raids) expect(r.siege).toBe(-1);
+  }, 60000);
 });
 
 describe('towers', () => {

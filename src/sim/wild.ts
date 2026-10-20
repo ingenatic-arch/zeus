@@ -283,7 +283,9 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
   // (Slice 25: raiders' way, `toll`, where a wall or gate standing in the way is not a wall but a cost, its strength in steps;
   // without one, only ground a person can walk, exactly as before.)
   const free = toll ? (t: number): boolean => toll(t) === 0 : (t: number): boolean => walkable(map, s, t);
-  if (goal < 0 || goal >= total || !free(goal)) return null;
+  // (A raider's way may also start or end at a wall or gate he must break: one along the very edge of the map, say, at its toll.)
+  const end = toll ? (t: number): boolean => toll(t) >= 0 : free;
+  if (goal < 0 || goal >= total || !end(goal)) return null;
   if (seen.length !== total) {
     gScore = new Float64Array(total);
     parent = new Int32Array(total);
@@ -333,11 +335,11 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
     return top;
   };
   for (const t of starts) {
-    if (t < 0 || t >= total || !free(t) || seen[t] === gen) continue;
+    if (t < 0 || t >= total || !end(t) || seen[t] === gen) continue;
     seen[t] = gen;
-    gScore[t] = 0;
+    gScore[t] = toll ? toll(t) : 0;
     parent[t] = -1;
-    push(t, h(t));
+    push(t, gScore[t] + h(t));
   }
   let looked = 0;
   while (size > 0) {

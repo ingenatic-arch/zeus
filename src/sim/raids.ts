@@ -57,7 +57,7 @@ import { cityHolds, OLD_GOODS, TRADE_GOODS } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
-import { foeToll, foeWalkable, wallAt } from './walls';
+import { barsFoe, foeToll, foeWalkable, wallAt } from './walls';
 import { districtAt, districtTitle } from '../map/districts';
 import { cityOf, COLD, HOSTILE, moodOf, rulerName, rulerShort, sellsAndBuys } from './world';
 
@@ -400,7 +400,8 @@ function edgeTiles(map: CoastMap, s: SimState, side: string): number[] {
   const out: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = side === 'north' ? i : side === 'south' ? (n - 1) * n + i : side === 'west' ? i * n : i * n + n - 1;
-    if (foeWalkable(map, s, t)) out.push(t);
+    // (A stretch of wall or a gate along the very edge is a way in too, once broken: slice 25's review.)
+    if (foeWalkable(map, s, t) || (s.walls.length > 0 && barsFoe(s, t))) out.push(t);
   }
   return out;
 }
@@ -431,11 +432,12 @@ export function landing(s: SimState, map: CoastMap, city: CityId): { edge: numbe
     goals.sort((p, q) => toEdge(p) - toEdge(q) || dhypot((p % size) - cx, Math.floor(p / size) - cz) - dhypot((q % size) - cx, Math.floor(q / size) - cz) || p - q);
     const found = foeWay(map, s, edges, goals[0]);
     if (!found) continue;
-    const { tiles, siege } = found;
-    const edge = tiles[0];
+    const { tiles, siege, from: edge } = found;
     const [ox, oz] = offMapPoint(size, edge);
     const path: Array<[number, number, number]> = [[ox, oz, -1]];
     for (const [px, pz] of prunePath(map, s, tiles, foeWalkable)) path.push([px, pz, -1]);
+    // (A wall along the very edge: they stand just off the map, at it, to break it.)
+    if (!tiles.length) path.push([...justOff(size, edge), -1]);
     // After a store, the tax office nearest it (its way is found when they set off from the store).
     const [bx, bz] = centreOf(b);
     const office = STORES.includes(b.kind) ? offices.slice().sort((p, q) => dhypot(centreOf(p)[0] - bx, centreOf(p)[1] - bz) - dhypot(centreOf(q)[0] - bx, centreOf(q)[1] - bz) || p.id - q.id)[0] : undefined;
@@ -450,17 +452,27 @@ export function landing(s: SimState, map: CoastMap, city: CityId): { edge: numbe
  * break (walls.ts). The tiles they walk up to the first one they must break,
  * and that one's tile (-1: none in the way). Null if there is no way at all.
  */
-export function foeWay(map: CoastMap, s: SimState, starts: readonly number[], goal: number): { tiles: number[]; siege: number } | null {
+export function foeWay(map: CoastMap, s: SimState, starts: readonly number[], goal: number): { tiles: number[]; siege: number; from: number } | null {
   if (s.walls.length === 0) {
     const tiles = offRoadPath(map, s, starts, goal);
-    return tiles ? { tiles, siege: -1 } : null;
+    return tiles ? { tiles, siege: -1, from: tiles[0] } : null;
   }
   const all = offRoadPath(map, s, starts, goal, 20000, foeToll(map, s));
   if (!all) return null;
   const i = all.findIndex((t) => (wallAt(s, t)?.hp ?? 0) > 0);
-  if (i < 0) return { tiles: all, siege: -1 };
-  // (Breaking in at the very edge: they stand off the map, at it.)
-  return { tiles: i > 0 ? all.slice(0, i) : [], siege: all[i] };
+  if (i < 0) return { tiles: all, siege: -1, from: all[0] };
+  // (Breaking in at the very edge, `from` a wall on it: no tiles to walk, they stand off the map, at it.)
+  return { tiles: i > 0 ? all.slice(0, i) : [], siege: all[i], from: all[0] };
+}
+
+/** The middle of the tile just off the map beyond an edge tile (where a band stands to break a wall on the edge). */
+function justOff(size: number, t: number): [number, number] {
+  const tx = t % size;
+  const tz = (t - tx) / size;
+  if (tx === 0) return [-0.5, tz + 0.5];
+  if (tx === size - 1) return [size + 0.5, tz + 0.5];
+  if (tz === 0) return [tx + 0.5, -0.5];
+  return [tx + 0.5, size + 0.5];
 }
 
 /** The band reaches your edge: in it comes, for its target (or, with nothing worth taking in reach, it goes home). */
