@@ -29,6 +29,7 @@ import {
   ARMOURY_COST,
   BARRACKS_COST,
   TOWER_COST,
+  SHIPYARD_COST,
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 import { GATE_COST, WALL_COST } from '../sim/walls';
@@ -148,6 +149,8 @@ export const ICONS: Record<ButtonName, string> = {
   wall: '<svg viewBox="0 0 24 24"><path d="M2 21V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9h2.6v2.4h2.4V9H22v12h-7.4v-4.6a2.6 2.6 0 0 0-5.2 0V21z" class="fill-soft"/><path d="M2 15h7.4M14.6 15H22" class="stroke-ink"/></svg>',
   // A square tower with merlons and an arrow slit.
   tower: '<svg viewBox="0 0 24 24"><path d="M6 22V7.4H5V3h2.6v2h2.2V3h4.4v2h2.2V3H19v4.4h-1V22z" class="fill-soft"/><path d="M12 10v4.4M10 22v-3.4a2 2 0 0 1 4 0V22" class="stroke-ink"/></svg>',
+  // A trireme on the slip: a long low hull with its ram, a mast, and a row of oars.
+  shipyard: '<svg viewBox="0 0 24 24"><path d="M2 13h17.5l2.5 1.6-2.4.4-1.6 2H5.2L3 15.2z" class="fill-soft"/><path d="M11 13V4.5M8 5.5h6M5 17.4l-1.2 3M8 17.4l-.8 3M11 17.4l-.4 3M14 17.4v3M17 17.4l.4 3M2.4 13.4c-.4-1.6 0-2.8.8-3.6" class="stroke-ink"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
   // An arrow curling back.
@@ -318,6 +321,12 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: 'B ×6',
     cost: `${TOWER_COST} dr`,
     hint: 'Click on or beside a wall, beside a road (by a gate is best). Its four workers are its archers: they shoot raiders within ten tiles, over walls and roofs.',
+  },
+  shipyard: {
+    name: 'Shipyard',
+    key: 'B ×7',
+    cost: `${SHIPYARD_COST} dr`,
+    hint: 'Click on the bay shore, beside a road, where a jetty can reach deep water. Then click it to order a trireme (400 dr): rowers come from the huts and cottages, and she meets raiders’ ships in the bay or guards a sea lane.',
   },
   clear: {
     name: 'Clear land',

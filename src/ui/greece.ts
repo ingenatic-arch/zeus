@@ -18,7 +18,8 @@ import { LOAN_ICON, loanDealHtml, loanDealShort, loansTabHtml, loansTabName } fr
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
 import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, type SendMemo, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
-import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
+import { afloat, guardRefusal, guardsOf, LANES, piratesOn, triremeDoing, triremeName } from '../sim/fleet';
+import { aimWords, bandMen, bandOut, daysToEdge, edgeWords, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { armyCard, fieldsCard, foeNote, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
 import { waysHtml } from './routes';
@@ -177,6 +178,18 @@ function travellerHtml(s: SimState, key: string): string {
     return city ? armyCard(s, Number(n), city as CityId) : warCard(s, Number(n));
   }
   if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
+  if (key.startsWith('pirates-')) {
+    const p = s.fleet.pirates.find((x) => x.id === Number(key.slice(8)));
+    if (!p) return '<b>Pirates</b>';
+    const g = guardsOf(s, p.way);
+    const line = p.state === 'seen' ? `Seen ${p.place}: from about ${dayWords(p.from)} they seize what of yours passes there` : `${p.place.replace(/^./, (c) => c.toUpperCase())}, seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
+    return `<b>${esc(`Pirates · ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}`)}</b><span>${esc(line)}</span><span class="sub">${esc(g.length ? `The ${triremeName(g[0])} guards the lane` : `Send a trireme to guard the lane, from ${PLACES[p.city].name}’s page or the Army tab`)}</span>`;
+  }
+  if (key.startsWith('trireme-')) {
+    const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
+    if (!t) return '<b>Your trireme</b>';
+    return `<b>${esc(`The trireme ${triremeName(t)} · ${t.crew.length} rowers · ${Math.round(t.hp)}% sound`)}</b><span>${esc(triremeDoing(s, t))}</span>`;
+  }
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -226,9 +239,9 @@ function bandCard(s: SimState, id: number): string {
   const when = `${n === 1 ? '1 day' : `${n} days`} (${dayWords(edge)})`;
   const line =
     r.phase === 'gathering'
-      ? `Gathering at ${name} to march on your city: at the ${RAID_SIDE[r.city]} edge of your land in about ${when}`
+      ? `Gathering at ${name} to ${r.by === 'sea' ? 'sail' : 'march'} on your city: ${edgeWords(r)} in about ${when}`
       : r.phase === 'marching'
-        ? `${r.by === 'sea' ? 'Sailing' : 'Marching'} on your city: at the ${RAID_SIDE[r.city]} edge of your land in about ${when}`
+        ? `${r.by === 'sea' ? 'Sailing' : 'Marching'} on your city: ${edgeWords(r)} in about ${when}`
         : r.end === 'paid'
           ? `Paid off: going home to ${name}`
           : r.end === 'called'
@@ -242,6 +255,11 @@ function bandCard(s: SimState, id: number): string {
 export function cityOfTraveller(s: SimState, key: string): CityId | null {
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
+  if (key.startsWith('pirates-')) return s.fleet.pirates.find((x) => x.id === Number(key.slice(8)))?.city ?? null;
+  if (key.startsWith('trireme-')) {
+    const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
+    return LANES.find((l) => l.way === t?.lane)?.city ?? null;
+  }
   if (key.startsWith('war-')) {
     const [, n, city] = key.split('-');
     return (city as CityId | undefined) ?? s.world.wars.find((x) => x.id === Number(n))?.a ?? null;
@@ -461,22 +479,23 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     const n = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
     return n === 1 ? '1 day' : `${n} days`;
   };
-  const side = RAID_SIDE[d.city];
+  const side = edgeWords(r);
+  const sea = r.by === 'sea';
   const band = raidersOf(s, r);
   let head: string;
   let where: string;
   if (r.phase === 'threat') {
     head = `${cap(rulerTitle(c))} threatens your city`;
-    where = `Pay ${coin}${goods ? `, or send ${goods}` : ''}, by ${dayWords(d.due)} (${days(d.due)}). If nothing comes by then, ${r.men} of ${his} men gather at ${name} and march on your city: at the ${side} edge of your land about ${dayWords(edge)}, for the fields and stores nearest it.`;
+    where = `Pay ${coin}${goods ? `, or send ${goods}` : ''}, by ${dayWords(d.due)} (${days(d.due)}). If nothing comes by then, ${r.men} of ${his} men gather at ${name} and ${sea ? 'sail' : 'march'} on your city: ${side} about ${dayWords(edge)}, for the ${sea ? 'stores nearest the beach where they land' : 'fields and stores nearest it'}.`;
   } else if (r.phase === 'raiding') {
     const at = r.aim ? aimWords({ kind: r.aim }) : 'your fields';
     head = `${cap(whose)} raiders are in your city`;
     where = band?.back
-      ? `${r.men} men, leaving your land the way they came${band.load ? `, with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : ''}.`
-      : `${r.men} men in at the ${side} edge, ${band && band.wait > 0 ? `at ${at}` : `making for ${at}`}. Pay ${coin} now and they turn back at once, with whatever they have taken.`;
+      ? `${bandMen(r)} men, ${sea ? 'making back for their ships' : 'leaving your land the way they came'}${band.load ? `, with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : ''}.`
+      : `${bandMen(r)} men ${sea ? (r.landed > 0 ? 'landed from their ships' : 'in ships in your bay') : `in at the ${RAID_SIDE[r.city]} edge`}, ${band && band.wait > 0 ? `at ${at}` : `making for ${at}`}. Pay ${coin} now and they turn back at once, with whatever they have taken.`;
   } else {
     head = `${cap(whose)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}`;
-    where = `${r.men} men, at the ${side} edge of your land about ${dayWords(edge)} (${days(edge)}). Pay ${coin} now and they turn back at once, wherever they are.`;
+    where = `${r.men} men, ${side} about ${dayWords(edge)} (${days(edge)}). Pay ${coin} now and they turn back at once, wherever they are.`;
   }
   const out = bandOut(r);
   const coinTip = out ? `Paid at once, and the band turns back: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}` : `A herald takes it to ${name}: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}`;
@@ -539,6 +558,38 @@ function dealsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   return `<section class="deals"><h3>${head}</h3>${deals.map((d) => dealHtml(s, d, map)).join('')}</section>`;
 }
 
+/**
+ * The sea lane to a city (slice 26): pirates on it, the triremes guarding
+ * it, and buttons to send one out or bring her home ('' when the city has no
+ * lane with a pirates' place, or there is nothing to say).
+ */
+function laneHtml(s: SimState, id: CityId): string {
+  const lane = LANES.find((l) => l.city === id);
+  if (!lane) return '';
+  const p = piratesOn(s, lane.way);
+  const ts = s.fleet.triremes.filter((t) => afloat(t) && t.state !== 'building');
+  const trades = s.world.routes.some((r) => r.city === id && r.kind === 'sea');
+  if (!p && !ts.length && !trades) return '';
+  const guards = guardsOf(s, lane.way);
+  const lines: string[] = [];
+  if (p) {
+    const when = p.state === 'seen' ? `they start seizing what of yours passes there about ${dayWords(p.from)}` : `seizing what of yours passes there${p.took.length ? `: ${p.took.slice(-3).join(', ')}` : ''}`;
+    lines.push(`<p class="line warn">${esc(`Pirates ${p.place}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}.`)}</p>`);
+  } else lines.push(`<p class="line">${esc(`No pirates seen on the lane to ${PLACES[id].name}.`)}</p>`);
+  for (const t of guards) lines.push(`<p class="line">${esc(`${triremeDoing(s, t).replace(/^./, (c) => c.toUpperCase())}: the ${triremeName(t)}, ${Math.round(t.hp)}% sound.`)}</p>`);
+  const rep = s.fleet.reports.filter((r) => r.way === lane.way).slice(-1)[0];
+  if (rep) lines.push(`<p class="line"><small>${esc(dayWords(rep.tick))}</small> ${esc(rep.line)}.</p>`);
+  const send = ts
+    .filter((t) => !(t.order === 'lane' && t.lane === lane.way))
+    .map((t) => {
+      const no = guardRefusal(t, lane.way);
+      return `<button data-guard="${t.id}" data-lane="${lane.way}" class="send" title="${esc(no || `She rows out of your bay and along the lane to ${lane.name}, and keeps it: what of yours passes there is safe`)}"${no ? ' disabled' : ''}>Send the ${esc(triremeName(t))} to guard it</button>`;
+    });
+  const home = guards.map((t) => `<button data-trihome="${t.id}" title="Back along the lane, into your bay and to her mooring">Bring the ${esc(triremeName(t))} home</button>`);
+  const none = ts.length ? '' : '<p class="line"><small>A shipyard on your shore (B ×7) builds triremes that can guard the lane.</small></p>';
+  return `<section class="lane"><h3>The sea lane</h3>${lines.join('')}${send.length || home.length ? `<div class="acts">${send.join('')}${home.join('')}</div>` : none}</section>`;
+}
+
 /** A gift on its way (the hover card's and the map's). */
 export const giftKey = (g: Gift): string => `gift-${g.id}`;
 
@@ -583,7 +634,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
 <div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div>${statusHtml(s, id)}</header>
 <nav class="citytabs">${tabs}</nav>
-${pane('ruler', `${dealsHtml(s, id, map)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
+${pane('ruler', `${dealsHtml(s, id, map)}${laneHtml(s, id)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}`)}
 ${pane('prices', pricesBlock(s, id, false))}

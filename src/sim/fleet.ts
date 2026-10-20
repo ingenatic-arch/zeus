@@ -96,7 +96,7 @@ const SPREAD = 15;
 /** How long a ship takes to go under (ticks). */
 export const SINK_TICKS = 40;
 /** How far apart triremes moor, side by side off the jetty's end. */
-const MOOR_GAP = 0.85;
+const MOOR_GAP = 1.15;
 /** Your waters: enemy ships this far beyond the map's edge are fought too. */
 const WATERS = 2;
 
@@ -1288,4 +1288,55 @@ export function fleetCommand(s: SimState, map: CoastMap, id: number, act: string
 /** Rowing out or in: called from the bay's step for triremes on those errands. */
 export function stepErrands(s: SimState, map: CoastMap): void {
   for (const t of s.fleet.triremes) if (t.state === 'rowing' && (t.task === 'out' || t.task === 'in')) rowOutIn(s, map, t);
+}
+
+// ---------------------------------------------------------------------------
+// In words (for the Army tab and the hovers).
+
+/** What a trireme is doing, in words: "Moored at the shipyard", "Rowing out to meet a ship of Troy". */
+export function triremeDoing(s: SimState, t: Trireme): string {
+  const lane = LANES.find((l) => l.way === t.lane);
+  switch (t.state) {
+    case 'building':
+      return `On the slip: ${Math.min(99, Math.floor((100 * t.work) / BUILD_TICKS))}% built`;
+    case 'sinking':
+      return 'Going down';
+    case 'moored':
+      return t.hp < 100 ? `Moored at the shipyard, being mended (${Math.round(t.hp)}% sound)` : t.crew.length * 2 < CREW ? 'Moored at the shipyard, waiting for her rowers' : 'Moored at the shipyard, guarding the bay';
+    case 'rowing': {
+      if (t.task === 'fight') {
+        const e = s.fleet.ships.find((x) => x.id === t.foe);
+        const r = e ? s.world.raids.find((x) => x.id === e.raid) : undefined;
+        const of = r ? ` of ${cityName(r.city)}` : '';
+        return e?.state === 'beached' ? `Rowing in on a ship${of} drawn up on the beach` : `Rowing out to ram a ship${of}`;
+      }
+      if (t.task === 'home') return t.hp < BREAK_OFF ? 'Badly holed: rowing home to be mended' : 'Rowing back to her mooring';
+      if (t.task === 'out') return lane ? `Rowing out of the bay, to guard the lane to ${cityName(lane.city)}` : 'Rowing out of the bay';
+      return 'Rowing in from the sea';
+    }
+    case 'away': {
+      const at = triremeOnMap(t, s.tick);
+      if (t.order === 'away') return at?.homeward ? 'Sailing home from the expedition' : 'Away with your soldiers';
+      if (!lane || at?.homeward) return 'Sailing home along the lane';
+      return at?.station ? `On guard ${lane.name}, on the lane to ${cityName(lane.city)}` : `Sailing to guard the lane to ${cityName(lane.city)}, ${lane.name}`;
+    }
+  }
+  return '';
+}
+
+/** What an enemy ship is doing, in words. */
+export function enemyDoing(s: SimState, e: EnemyShip): string {
+  const r = s.world.raids.find((x) => x.id === e.raid);
+  const of = r ? ` of ${cityName(r.city)}` : '';
+  switch (e.state) {
+    case 'sailing':
+      return s.tick < e.from ? `A ship${of} on the horizon` : `A ship${of} sailing in, ${e.men} men aboard`;
+    case 'beached':
+      return `A ship${of} drawn up on the beach: ${e.men} ${e.men === 1 ? 'man' : 'men'} guard her while the raiders are ashore`;
+    case 'leaving':
+      return e.laden ? `A ship${of} sailing off with what was taken` : `A ship${of} sailing off`;
+    case 'sinking':
+      return `A ship${of} going down`;
+  }
+  return '';
 }

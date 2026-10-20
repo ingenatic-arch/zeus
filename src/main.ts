@@ -1,3 +1,4 @@
+import { CREW, crewWhy, enemyDoing, triremeDoing, triremeName, triremeOf } from './sim/fleet';
 import './ui/style.css';
 import './ui/skin.css';
 import * as THREE from 'three';
@@ -223,6 +224,8 @@ interface Probe {
   foeScreen?: () => { x: number; y: number } | null;
   /** Slice 25: the walls (each stretch's tile, strength and whether a gate), the towers and their archers, the band's siege and breaches, tower arrows in the air. */
   walls?: () => { pieces: Array<{ t: number; hp: number; gate: boolean }>; towers: Array<{ id: number; x: number; z: number; workers: number }>; siege: number; breaches: number; towerArrows: number; hammering: number };
+  /** Slice 26: the fleet (triremes and enemy ships, each where she is and what she is doing; pirates; reports) and what the fleet view draws. */
+  fleet?: () => { triremes: Array<{ id: number; name: string; state: string; task: string; order: string; lane: string; x: number; z: number; hp: number; crew: number; work: number }>; ships: Array<{ id: number; raid: number; state: string; x: number; z: number; hp: number; men: number; laden: boolean }>; pirates: Array<{ way: string; state: string; ships: number; took: number }>; reports: string[]; shown: Array<{ kind: string; id: number; x: number; z: number }> };
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
@@ -693,6 +696,10 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 24 && sim.state.world.routes.length > 0) {
       changed += ' · Loans both ways now: ask a ruler to lend you coin, or lend them yours, on the Loans tab of their page on the map of Greece (Tab).';
     }
+    // …and one saved before the fleet (version 25 or older, with a town): the sea.
+    if (loaded.from !== undefined && loaded.from <= 25 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · From the sea: raiders from Troy (and from cities you trade with only by sea) now come in ships and land on your beach. A shipyard on the shore (B ×7) builds triremes that fight them in the bay and guard your sea lanes from pirates.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
@@ -800,7 +807,7 @@ function start(preparedTown: string | null): void {
     return wallAt(sim.state, Math.floor(world.z) * n + Math.floor(world.x));
   };
   /** Is the pointer on the ship (near her hull or her mast, on screen)? */
-  const shipNear = (sx: number, sy: number, at = city.ship.info): boolean => {
+  const shipNear = (sx: number, sy: number, at: { visible: boolean; x: number; z: number } = city.ship.info): boolean => {
     if (!at.visible) return false;
     const r = canvas.getBoundingClientRect();
     const v = new THREE.Vector3();
@@ -820,6 +827,22 @@ function start(preparedTown: string | null): void {
   const visitorNear = (sx: number, sy: number): string | null => {
     for (const [id, view] of city.visitors) if (shipNear(sx, sy, view.info)) return id;
     return null;
+  };
+  /** A trireme or an enemy ship under the pointer (slice 26), nearest first. */
+  const fleetNear = (sx: number, sy: number): { kind: 'trireme' | 'enemy'; id: number } | null => {
+    for (const o of city.fleet.shown) if (shipNear(sx, sy, o)) return { kind: o.kind, id: o.id };
+    return null;
+  };
+  /** A trireme's or an enemy ship's tip. */
+  const fleetStatus = (o: { kind: 'trireme' | 'enemy'; id: number }): Status | null => {
+    if (o.kind === 'trireme') {
+      const t = triremeOf(sim.state, o.id);
+      if (!t) return null;
+      return { title: `The trireme ${triremeName(t)} · ${t.crew.length} of ${CREW} rowers · hull ${Math.round(t.hp)}%`, detail: [triremeDoing(sim.state, t), crewWhy(sim.state, map, t), 'Click for the fleet, on the Army tab'].filter((l) => l).join('\n') };
+    }
+    const e = sim.state.fleet.ships.find((x) => x.id === o.id);
+    if (!e) return null;
+    return { title: enemyDoing(sim.state, e), detail: `Hull ${Math.max(0, Math.round(e.hp))}%${sim.state.fleet.triremes.some((t) => t.foe === e.id) ? ' · your triremes are on her' : ''}` };
   };
   /** A foreign ship's tip: who she is, where she is in her visit, what her city trades. */
   const visitorStatus = (id: string): Status => {
@@ -862,6 +885,9 @@ function start(preparedTown: string | null): void {
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
     const ws = w ? walkerStatus(sim.state, w) : null;
     if (ws) return showStatus(ws, sx, sy);
+    const fl = fleetNear(sx, sy);
+    const fs = fl ? fleetStatus(fl) : null;
+    if (fs) return showStatus(fs, sx, sy);
     if (shipNear(sx, sy)) return showStatus(shipStatus(), sx, sy);
     const visitor = visitorNear(sx, sy);
     if (visitor) return showStatus(visitorStatus(visitor), sx, sy);
@@ -984,6 +1010,11 @@ function start(preparedTown: string | null): void {
       const c = walkerNear(sx, sy);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
+      const fl = fleetNear(sx, sy);
+      if (fl?.kind === 'trireme') {
+        side.showBarracks(triremeOf(sim.state, fl.id)?.yard ?? 0);
+        return hover(w, sx, sy);
+      }
       if (shipNear(sx, sy)) return goToPost();
       const visitor = visitorNear(sx, sy);
       if (visitor) return goToTrader(`${visitor}-sea`);
@@ -995,7 +1026,7 @@ function start(preparedTown: string | null): void {
         return hover(w, sx, sy);
       }
       // A barracks: the Army tab, its companies and its buttons.
-      if (b?.kind === 'barracks') {
+      if (b?.kind === 'barracks' || b?.kind === 'shipyard') {
         side.showBarracks(b.id);
         return hover(w, sx, sy);
       }
@@ -1071,8 +1102,8 @@ function start(preparedTown: string | null): void {
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
-      // B again: the fountain, then the copper mine, the armoury, the barracks, the wall and the tower.
-      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks', 'wall', 'tower'], tools.tool, e?.shiftKey);
+      // B again: the fountain, then the copper mine, the armoury, the barracks, the wall, the tower and the shipyard.
+      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks', 'wall', 'tower', 'shipyard'], tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -1547,6 +1578,16 @@ function start(preparedTown: string | null): void {
     const near = fight.length ? fight : up;
     const centre = near.length ? { x: near.reduce((s, f) => s + f.x, 0) / near.length, z: near.reduce((s, f) => s + f.z, 0) / near.length } : null;
     return { foes: up.length, fighting: fight.length, fallen: r?.fallen ?? 0, arrows: a.arrows.length, broke: r?.broke ?? false, killed: r?.killed ?? 0, wounded: r?.wounded ?? 0, centre, news: a.news.map((n) => n.line) };
+  };
+  probe.fleet = () => {
+    const f = sim.state.fleet;
+    return {
+      triremes: f.triremes.map((t) => ({ id: t.id, name: triremeName(t), state: t.state, task: t.task, order: t.order, lane: t.lane, x: t.x, z: t.z, hp: t.hp, crew: t.crew.length, work: t.work })),
+      ships: f.ships.map((e) => ({ id: e.id, raid: e.raid, state: e.state, x: e.x, z: e.z, hp: e.hp, men: e.men, laden: e.laden })),
+      pirates: f.pirates.map((p) => ({ way: p.way, state: p.state, ships: p.ships, took: p.took.length })),
+      reports: f.reports.map((r) => r.line),
+      shown: city.fleet.shown.map((o) => ({ kind: o.kind, id: o.id, x: o.x, z: o.z })),
+    };
   };
   probe.walls = () => {
     const s = sim.state;

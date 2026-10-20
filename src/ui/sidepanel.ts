@@ -528,7 +528,10 @@ export class SidePanel {
     else if (act === 'hire') this.hooks.army({ type: 'hire', barracks: Number(a.dataset.id), kind: a.dataset.kind ?? '' });
     else if (act === 'repay') this.hooks.army({ type: 'loan', act: 'repay', loan: Number(a.dataset.id) });
     else if (act === 'loancity') this.hooks.loans?.(a.dataset.city ?? '');
-    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise' || act === 'hire' || act === 'repay') {
+    else if (act === 'trireme') this.hooks.army({ type: 'trireme', yard: Number(a.dataset.id) });
+    else if (act === 'guard') this.hooks.army({ type: 'fleet', trireme: Number(a.dataset.id), act: 'guard', lane: a.dataset.lane ?? '' });
+    else if (act === 'trihome') this.hooks.army({ type: 'fleet', trireme: Number(a.dataset.id), act: 'home' });
+    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise' || act === 'hire' || act === 'repay' || act === 'trireme' || act === 'guard' || act === 'trihome') {
       this.shownAt = -Infinity;
       if (this.s) this.render(this.s);
     }

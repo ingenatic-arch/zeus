@@ -15,6 +15,8 @@ import { centreOf, jobsAt } from '../sim/buildings';
 import { ARMOUR, held } from '../sim/foods';
 import type { Company, SimState } from '../sim/state';
 import { SOLDIER_PAY } from '../sim/treasury';
+import { afloat, CREW, crewWhy, FIT, guardRefusal, LANES, orderRefusal, PER_YARD, piratesOn, ROWER_PAY, triremeDoing, triremeName, triremesAt, TRIREME_COST } from '../sim/fleet';
+import { PLACES } from '../map/greece';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -44,6 +46,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     out.push(
       `<p class="side-note">The city has no army yet. Build a barracks (B ×4) beside a road, then raise companies there: hoplites from the fine houses and villas, archers from the townhouses and better. Hoplites each need a set of armour: a copper mine on the green-streaked rock in the hills (B B) and an armoury (B ×3) make it, or Corinth and Athens sell it. In a pinch a barracks can hire a company of Cretan archers or Arcadian hoplites, for a fee and three times the pay.</p>`,
     );
+    fleetHtml(s, map, focus, out);
     return out.join('');
   }
   out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
@@ -100,5 +103,77 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     } else out.push(`<p class="side-note">Full: a barracks holds ${PER_BARRACKS} companies. Build another for more.</p>`);
     out.push('</section>');
   });
+  fleetHtml(s, map, focus, out);
   return out.join('');
 }
+
+const cityName = (id: keyof typeof PLACES): string => PLACES[id].name;
+
+/**
+ * The fleet (slice 26): each shipyard with its triremes (what each is doing,
+ * her hull, her rowers and why she is short, her pay), and their buttons:
+ * order a trireme, send one to guard a sea lane, bring her home; then the
+ * pirates on the lanes and the last reports of fights at sea.
+ */
+function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): void {
+  const f = s.fleet;
+  const yards = s.buildings.filter((b) => b.kind === 'shipyard');
+  const pirates = LANES.map((l) => piratesOn(s, l.way)).filter((p) => !!p);
+  if (!yards.length && !f.triremes.length && !pirates.length && !f.reports.length) {
+    out.push('<p class="side-note">On the shore, a shipyard (B ×7, Military) builds triremes to fight ships in the bay and guard your sea lanes.</p>');
+    return;
+  }
+  const ts = f.triremes.filter(afloat);
+  const rowers = ts.reduce((a, t) => a + t.crew.length, 0);
+  out.push('<h3 class="fleet-head">The fleet</h3>');
+  out.push(`<dl class="sums"><div><dt>Triremes</dt><dd>${fmt(ts.filter((t) => t.state !== 'building').length)}</dd></div><div><dt>Rowers</dt><dd>${fmt(rowers)}</dd></div><div><dt>Pay a month</dt><dd>${fmt(rowers * ROWER_PAY)}<small> dr</small></dd></div></dl>`);
+  const lanes = (t: (typeof ts)[number]): string =>
+    LANES.map((l) => {
+      const no = guardRefusal(t, l.way);
+      const p = piratesOn(s, l.way);
+      const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.ships === 1 ? 'pirate ship' : `${p.ships} pirate ships`} there` : ''}`;
+      return `<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>Guard ${esc(cityName(l.city))}${p ? ' <small class="warn">pirates</small>' : ''}</button>`;
+    }).join('');
+  const row = (t: (typeof ts)[number]): string => {
+    const why = crewWhy(s, map, t);
+    const hull = t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}%${t.hp < FIT ? ' <span class="warn">(mending before she goes out)</span>' : ''}`;
+    const crew = t.state === 'building' ? '' : ` · ${t.crew.length} of ${CREW} rowers`;
+    const pay = t.crew.length ? ` · ${fmt(t.crew.length * ROWER_PAY)} dr a month` : '';
+    const owed = t.owed > 0 ? ` · <span class="warn">${fmt(t.owed)} dr pay owed</span>` : '';
+    const acts = t.state === 'building' ? '' : t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out') ? `<div class="acts"><button data-act="trihome" data-id="${t.id}" title="Back along the lane, into the bay and to her mooring">Bring her home</button></div>` : `<div class="acts lanes">${lanes(t)}</div>`;
+    return `<li class="trireme"><p><b>The ${esc(triremeName(t))}</b></p><p>${esc(triremeDoing(s, t))}${hull}${crew}${pay}${owed}</p>${why ? `<p class="why">${esc(why)}</p>` : ''}${acts}</li>`;
+  };
+  yards.forEach((b, i) => {
+    const [cx, cz] = centreOf(b);
+    const title = yards.length === 1 ? 'The shipyard' : `The ${['first', 'second', 'third', 'fourth'][i] ?? `${i + 1}th`} shipyard`;
+    const at = triremesAt(s, b.id).filter(afloat);
+    out.push(`<section class="barracks shipyard${b.id === focus ? ' focus' : ''}" data-barracks="${b.id}">`);
+    out.push(`<h3><button class="link" data-act="go" data-x="${cx}" data-z="${cz}">${esc(title)}</button> <small>${esc(lower(districtTitle(districtAt(map, cx, cz))))} · ${b.workers} of ${jobsAt(b)} shipwrights</small></h3>`);
+    if (b.workers === 0) out.push('<p class="side-note warn">It has no shipwrights yet: nothing is built or mended, and no rowers are taken on.</p>');
+    if (!at.length) out.push('<p class="side-note">No triremes yet.</p>');
+    else out.push(`<ul class="companies">${at.map(row).join('')}</ul>`);
+    const no = orderRefusal(s, b);
+    out.push(
+      `<div class="raise"><button data-act="trireme" data-id="${b.id}" title="${esc(no || `Built on the slip in about a month while the yard is staffed, then ${CREW} rowers come from the huts and cottages, one a home, at ${ROWER_PAY} dr a man a month`)}"${no ? ' disabled' : ''}>Build a trireme <small>${TRIREME_COST} dr</small></button></div>`,
+    );
+    out.push(`<p class="side-note">${at.length} of ${PER_YARD} moorings used. Triremes at home, crewed and sound, row out to meet enemy ships in the bay.</p>`);
+    out.push('</section>');
+  });
+  // Triremes whose yard is gone.
+  const lost = ts.filter((t) => !yards.some((b) => b.id === t.yard));
+  if (lost.length) out.push(`<section class="barracks"><h3>Without a yard</h3><ul class="companies">${lost.map(row).join('')}</ul></section>`);
+  // The lanes.
+  const lines: string[] = [];
+  for (const l of LANES) {
+    const p = piratesOn(s, l.way);
+    if (!p) continue;
+    const g = ts.filter((t) => t.order === 'lane' && t.lane === l.way);
+    const when = p.state === 'seen' ? `they start seizing what of yours passes there in ${Math.max(1, Math.ceil((p.from - s.tick) / TICKS_PER_DAY))} days` : `seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
+    lines.push(`<li class="warn-line">${esc(`Pirates ${p.place}, on the lane to ${cityName(p.city)}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && triremeOnStation(s, g[0]) ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
+  }
+  const reps = f.reports.filter((r) => r.tick <= s.tick).slice(-3).reverse();
+  for (const r of reps) lines.push(`<li><small>${esc(agoWords(s.tick - r.tick))}</small> ${esc(r.line)}.</li>`);
+  if (lines.length) out.push(`<ul class="army-news">${lines.join('')}</ul>`);
+}
+
+const triremeOnStation = (s: SimState, t: { state: string; start: number; dur: number; homeward: boolean }): boolean => !t.homeward && s.tick >= t.start + t.dur;

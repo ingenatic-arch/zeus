@@ -15,6 +15,7 @@ import { ChunkedInstances } from './chunks';
 import { theatreModel } from './grand';
 import { amphora, cyl, facingOf, HOME_CHUNK, MergedChunks, prism, stoneWall, windowX, woodpile, type MergedItem } from './homes';
 import { PAL } from './palette';
+import { PLACES } from '../map/greece';
 import { lumpy, merge, type Part } from './trees';
 
 // ---------------------------------------------------------------------------
@@ -592,7 +593,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * hillsides, and their floors and yards stand on terraces whose foundations
  * run down the slope, so nothing is buried on the uphill side.
  */
-const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury']);
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury', 'shipyard']);
 /** Kinds levelled half-way between the lowest and the highest ground under them: the caravan yard, whose walls run round the whole of it (part sunk into the slope uphill, on a low footing downhill). */
 const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard', 'barracks', 'mine']);
 
@@ -1211,6 +1212,55 @@ function jettyModel(len: number): THREE.BufferGeometry {
 }
 
 // ---------------------------------------------------------------------------
+// The shipyard (slice 26).
+
+/**
+ * The shipyard, its front (+x) to the sea: a timber slipway running down
+ * into the water under a long shed roofed in tiles on posts (where the
+ * trireme being built lies: drawn with the fleet), a timber yard beside it
+ * with logs and planks stacked, a sawhorse and a pot of pitch on its fire,
+ * and a pole flying your city's colour. Its jetty is the trading post's.
+ */
+const SLIP_Z = -0.8;
+function shipyardModel(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  parts.push({ geo: slab(-1.49, -1.49, 1.49, 1.49, -1.6, 0.03), color: PAL.stone });
+  parts.push({ geo: slab(-1.48, -1.48, 1.48, 1.48, 0.03, 0.06), color: PAL.earth });
+  // The slipway: two greased rails on sleepers, from the back of the shed down into the water.
+  const x0 = -1.45;
+  const x1 = 1.75;
+  const y0 = 0.14;
+  const y1 = -0.5;
+  const slope = Math.atan2(y0 - y1, x1 - x0);
+  const len = Math.hypot(x1 - x0, y0 - y1);
+  for (const dz of [-0.24, 0.24]) parts.push({ geo: new THREE.BoxGeometry(len, 0.07, 0.09).rotateZ(-slope).translate((x0 + x1) / 2, (y0 + y1) / 2, SLIP_Z + dz), color: PAL.woodDark });
+  for (let k = 0; k < 9; k++) {
+    const x = x0 + 0.15 + (k * (x1 - x0 - 0.3)) / 8;
+    const y = y0 + ((y1 - y0) * (x - x0)) / (x1 - x0) - 0.06;
+    parts.push({ geo: new THREE.BoxGeometry(0.1, 0.05, 0.75).translate(x, y, SLIP_Z), color: PAL.wood });
+  }
+  // The shed over it: posts, beams and a tiled roof, open at the seaward end.
+  for (const x of [-1.38, -0.45, 0.48, 1.38]) for (const z of [-1.42, -0.18]) parts.push({ geo: cyl(0.045, 0.055, 1.25, 5).translate(x, 0.65, z), color: PAL.wood });
+  for (const z of [-1.42, -0.18]) parts.push({ geo: slab(-1.45, z - 0.05, 1.45, z + 0.05, 1.22, 1.3), color: PAL.woodDark });
+  parts.push({ geo: prism(3.05, 0.78, 0.42).translate(0, 1.3, SLIP_Z), color: PAL.roofTile });
+  parts.push({ geo: cyl(0.03, 0.03, 3.1, 5).rotateZ(Math.PI / 2).translate(0, 1.73, SLIP_Z), color: PAL.roofTileDark });
+  // The back wall of the shed, where the tools hang.
+  parts.push({ geo: slab(-1.49, -1.45, -1.4, -0.15, 0.06, 1.2), color: PAL.wood });
+  // The timber yard: logs stacked three, two, one; a stack of planks; a sawhorse with a log on it; pitch on its fire.
+  const logs: Array<[number, number, number]> = [[-1.2, 0.5, 0.11], [-1.2, 0.72, 0.11], [-1.2, 0.94, 0.11], [-1.2, 0.61, 0.3], [-1.2, 0.83, 0.3], [-1.2, 0.72, 0.49]];
+  for (const [x, z, y] of logs) parts.push({ geo: cyl(0.1, 0.1, 1.3, 7).rotateZ(Math.PI / 2).translate(x + 0.65, y, z), color: PAL.woodDark });
+  for (let k = 0; k < 5; k++) parts.push({ geo: slab(-1.1, 1.0 + k * 0.004, 0.2, 1.36, 0.06 + k * 0.05, 0.1 + k * 0.05), color: k % 2 ? PAL.wood : PAL.jettyPlank });
+  for (const x of [0.45, 0.85]) for (const dz of [-0.1, 0.1]) parts.push({ geo: cyl(0.02, 0.02, 0.4, 4).rotateX(dz * 3).translate(x, 0.24, 0.55 + dz), color: PAL.wood });
+  parts.push({ geo: cyl(0.08, 0.08, 0.9, 6).rotateZ(Math.PI / 2).translate(0.65, 0.44, 0.55), color: PAL.woodDark });
+  parts.push({ geo: cyl(0.14, 0.11, 0.18, 7).translate(0.7, 0.2, 1.1), color: PAL.hullDark });
+  parts.push({ geo: cyl(0.16, 0.18, 0.06, 7).translate(0.7, 0.08, 1.1), color: PAL.stoneBlockShade });
+  // The pole by the water, flying your city's colour.
+  parts.push({ geo: cyl(0.016, 0.02, 1.7, 4).translate(1.3, 0.9, 1.25), color: PAL.pole });
+  parts.push({ geo: new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.22, 0), new THREE.Vector3(0.42, -0.1, 0)]).translate(1.31, 1.74, 1.25), color: PLACES.home.colour });
+  return merge(parts);
+}
+
+// ---------------------------------------------------------------------------
 // Routes and traders (slice 16).
 
 /**
@@ -1308,8 +1358,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1466,6 +1516,7 @@ export class Works {
       mine: mineModel(),
       armoury: armouryModel(),
       barracks: barracksModel(),
+      shipyard: shipyardModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1500,7 +1551,7 @@ export class Works {
   /** What a building looks like now: its facing and the state of its crop or stock. */
   /** Which way a building faces: its road (local +x towards it), or for the trading post, its jetty and the sea. */
   private yawOf(s: SimState, b: Building): number {
-    if (b.kind === 'trading') {
+    if (b.kind === 'trading' || b.kind === 'shipyard') {
       const berth = berthOf(this.map, b);
       if (berth) return Math.atan2(-berth.oz, berth.ox);
     }
@@ -1762,7 +1813,7 @@ export class Works {
       if (hasStall(b, OIL)) add(b, 'oilstall', m, 'oilstall');
       if (hasStall(b, FLEECE)) add(b, 'fleecestall', m, 'fleecestall');
       if (hasStall(b, WINE)) add(b, 'winestall', m, 'winestall');
-      if (b.kind === 'trading') {
+      if (b.kind === 'trading' || b.kind === 'shipyard') {
         // Its jetty, out from the quay's seaward edge to where the ship lies.
         const berth = berthOf(map, b);
         const f = frame(b);
@@ -2200,6 +2251,8 @@ export function workPicture(kind: string): PicturePart[] | null {
       return [at(armouryModel())];
     case 'barracks':
       return [at(barracksModel())];
+    case 'shipyard':
+      return [at(shipyardModel())];
     // A stall stands at the side of its agora's square: moved back to the middle of its picture.
     case 'stall':
       return [{ ...at(oilStallModel()), x: -OIL_STALL_X, z: -OIL_STALL_Z }];
