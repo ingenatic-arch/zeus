@@ -1035,7 +1035,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'raid' | 'alarm';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'raid' | 'alarm' | 'battle';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1115,6 +1115,17 @@ function raidTownLine(s: SimState, map: CoastMap): TownLine | null {
   return text ? { need: 'raid', text: `${text}.`, at: 0, route: r.city } : null;
 }
 
+/** How long the army's latest news (a band broken, a man fallen, a company broken, hirelings walking off) stays on the town lines. */
+const ARMY_NEWS_SHOWS = 10 * TICKS_PER_DAY;
+
+/** The army's latest news, in its own line: a fight's outcome, the fallen mourned, hirelings gone. */
+function battleTownLine(s: SimState): TownLine | null {
+  const n = s.army.news.at(-1);
+  if (!n || n.tick > s.tick || s.tick - n.tick >= ARMY_NEWS_SHOWS) return null;
+  const more = s.army.news.filter((x) => x !== n && x.tick <= s.tick && s.tick - x.tick < ARMY_NEWS_SHOWS).length;
+  return { need: 'battle', text: `${n.line}.${more ? ` (${more === 1 ? 'And one more' : `And ${more} more`} on the Army tab.)` : ''}`, at: n.at };
+}
+
 /** The top bar's chip for a band on its way or in your city: its few words, and the city whose page it opens. */
 export function raidChipNow(s: SimState): { chip: string; city: string } | null {
   for (const r of s.world.raids) {
@@ -1175,6 +1186,8 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // What a ruler waits on you for (a request, an offer, tribute), while it is open.
   const raid = raidTownLine(s, map);
   if (raid) out.push(raid);
+  const battle = battleTownLine(s);
+  if (battle) out.push(battle);
   const alarm = newsUrgent(s, map);
   if (alarm) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);

@@ -142,6 +142,7 @@ export function migrate(st: unknown): number {
   if (st.version === 19) from19(st);
   if (st.version === 20) from20(st);
   if (st.version === 21) from21(st);
+  if (st.version === 22) from22(st);
   return from;
 }
 
@@ -438,4 +439,43 @@ function from21(st: Record<string, unknown>): void {
   }
   if (!isObj(st.army)) st.army = freshArmy();
   st.version = 22;
+}
+
+/**
+ * Version 22 to 23 (slice 24, raiders fought in the streets): the army gains
+ * its raiders man by man, arrows in the air, its news and the pay owed to men
+ * dismissed (none of any); each company is a citizens' one, not fighting; each
+ * soldier stands, fighting nobody; and each raid has no next target, nothing
+ * taken from the treasury, nothing set alight on the way and nobody fallen.
+ * A band already in the city when it was saved gets its men from its numbers
+ * on the next tick (battle.ts).
+ */
+function from22(st: Record<string, unknown>): void {
+  if (isObj(st.army)) {
+    const a = st.army;
+    if (!Array.isArray(a.foes)) a.foes = [];
+    if (!Array.isArray(a.arrows)) a.arrows = [];
+    if (!Array.isArray(a.news)) a.news = [];
+    if (typeof a.owed !== 'number') a.owed = 0;
+    for (const c of (Array.isArray(a.companies) ? a.companies : []) as Array<Record<string, unknown>>) {
+      if (!isObj(c)) continue;
+      if (typeof c.hired !== 'string') c.hired = '';
+      if (typeof c.strong !== 'number') c.strong = 0;
+      if (typeof c.routed !== 'boolean') c.routed = false;
+    }
+    for (const x of (Array.isArray(a.soldiers) ? a.soldiers : []) as Array<Record<string, unknown>>) {
+      if (!isObj(x)) continue;
+      for (const k of ['foe', 'cool', 'swung', 'fell']) if (typeof x[k] !== 'number') x[k] = 0;
+    }
+  }
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.raids)) {
+    for (const r of w.raids as Array<Record<string, unknown>>) {
+      if (!isObj(r)) continue;
+      if (!Array.isArray(r.next)) r.next = [];
+      for (const k of ['stole', 'fires', 'fallen', 'regained', 'coinBack', 'fought', 'killed', 'wounded']) if (typeof r[k] !== 'number') r[k] = 0;
+      if (typeof r.broke !== 'boolean') r.broke = false;
+    }
+  }
+  st.version = 23;
 }

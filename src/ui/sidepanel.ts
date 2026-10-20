@@ -131,7 +131,7 @@ export interface SideHooks {
   openHome(id: number): void;
   /** The panel opened or closed (the view makes room for it). */
   toggled(open: boolean): void;
-  /** The Army tab: send a command (raise, dismiss, back to barracks), take a company's banner in hand, and which is in hand. */
+  /** The Army tab: send a command (raise, hire, dismiss, back to barracks), take a company's banner in hand, and which is in hand. */
   army(c: Command): void;
   selectCompany(id: number): void;
   selected(): number;
@@ -299,7 +299,8 @@ export class SidePanel {
     else if (act === 'recall') this.hooks.army({ type: 'banner', company: Number(a.dataset.id), tile: -1 });
     else if (act === 'dismiss') this.hooks.army({ type: 'dismiss', company: Number(a.dataset.id) });
     else if (act === 'raise') this.hooks.army({ type: 'raise', barracks: Number(a.dataset.id), kind: a.dataset.kind === 'archer' ? 'archer' : 'hoplite' });
-    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise') {
+    else if (act === 'hire') this.hooks.army({ type: 'hire', barracks: Number(a.dataset.id), kind: a.dataset.kind ?? '' });
+    if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise' || act === 'hire') {
       this.shownAt = -Infinity;
       if (this.s) this.render(this.s);
     }
@@ -653,7 +654,7 @@ export class SidePanel {
     const k = (lines: typeof now, kind: Parameters<typeof kindTotal>[1]): number => kindTotal(lines, kind);
     const building = (lines: typeof now): number => k(lines, 'building') + k(lines, 'clearing') + k(lines, 'refund');
     out.push(
-      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${row('Building', building(now), building(last))}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
+      `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${k(now, 'hirelings') || k(last, 'hirelings') ? row('Hirelings', k(now, 'hirelings'), k(last, 'hirelings')) : ''}${row('Building', building(now), building(last))}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
     );
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const taxed = homes.filter((b) => taxedLately(s, b)).length;

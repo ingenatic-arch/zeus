@@ -5,7 +5,8 @@
 import type { CoastMap } from '../map/bake';
 import { copperOf, outcropPlace } from './build';
 import { BUILDING_NAMES, findBuilding, levelName } from './buildings';
-import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom } from './army';
+import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, HIRED_PAY, HIRELINGS, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom, woundedOf, type HiredKind } from './army';
+import { companyWords } from './battle';
 import { errandsOut } from './food';
 import { ARMOUR, coming, COPPER, held } from './foods';
 import { rateOf } from './labour';
@@ -76,11 +77,14 @@ export function barracksStatus(s: SimState, map: CoastMap, b: Building, workers:
   const men = cs.reduce((a, c) => a + menOf(s, c).length, 0);
   const title = `${BUILDING_NAMES.barracks} · ${cs.length ? `${cs.length} ${cs.length === 1 ? 'company' : 'companies'}, ${men} ${men === 1 ? 'man' : 'men'}` : 'no companies yet'}`;
   if (roadsBeside(s, map.size, b).length === 0) return { title, detail: 'Needs a road beside it, for its men and its porter' };
-  const rows = cs.map((c) => `${companyName(c).replace(/^t/, 'T')} of ${kindWord(c.kind)}: ${menOf(s, c).length} of ${COMPANY_SIZE} · ${doingWords(s, c)}${c.why ? ` · ${c.why}` : ''}${c.owed > 0 ? ` · ${fmt(c.owed)} dr pay owed` : ''}`);
+  const rows = cs.map((c) => {
+    const hurt = woundedOf(s, c).length;
+    return `${companyWords(c).replace(/^t/, 'T')}: ${menOf(s, c).length} of ${COMPANY_SIZE}${hurt ? ` (${hurt} wounded)` : ''} · ${doingWords(s, c)}${c.why ? ` · ${c.why}` : ''}${c.owed > 0 ? ` · ${fmt(c.owed)} dr pay owed` : ''}`;
+  });
   const rack = held(b, ARMOUR);
   const porter = s.walkers.find((w) => w.origin === b.id && w.kind === 'porter');
   const carrying = porter ? (porter.back ? `Its porter is bringing ${porter.load} ${porter.load === 1 ? 'set' : 'sets'} of armour from a storehouse` : 'Its porter is on his way to a storehouse for armour') : '';
-  const room = cs.length < PER_BARRACKS ? `Room for ${PER_BARRACKS - cs.length} more ${PER_BARRACKS - cs.length === 1 ? 'company' : 'companies'}: click it to raise one (hoplites from fine houses and villas, archers from townhouses and better) · ${SOLDIER_PAY} dr a man a month` : `Full: a barracks holds ${PER_BARRACKS} companies`;
+  const room = cs.length < PER_BARRACKS ? `Room for ${PER_BARRACKS - cs.length} more ${PER_BARRACKS - cs.length === 1 ? 'company' : 'companies'}: click it to raise one (hoplites from fine houses and villas, archers from townhouses and better) · ${SOLDIER_PAY} dr a man a month; or to hire one (${HIRED_PAY} dr a man)` : `Full: a barracks holds ${PER_BARRACKS} companies`;
   return { title, detail: lines(workers, ...rows, rack > 0 ? `Armour on the racks: ${rack} ${rack === 1 ? 'set' : 'sets'}` : '', carrying, room) };
 }
 
@@ -88,25 +92,40 @@ export function barracksStatus(s: SimState, map: CoastMap, b: Building, workers:
 export function soldierStatus(s: SimState, x: Soldier): Status {
   const c = companyOf(s, x.company);
   const home = findBuilding(s, x.home);
-  const kind = c ? kindWord(c.kind, false) : 'soldier';
-  const title = `${x.name}, ${fatherWords(x)} · ${c ? `${kind} of ${companyName(c)}` : 'dismissed, going home'}`;
-  const house = x.house ? `Of the house of ${x.house}${home && home.kind === 'home' ? `, ${levelName(home.level)}` : ''}` : '';
+  const h = c?.hired ? HIRELINGS[c.hired as HiredKind] : undefined;
+  const kind = h ? h.one : c ? kindWord(c.kind, false) : 'soldier';
+  const gone = x.home === 0 ? 'paid off, leaving your land' : 'dismissed, going home';
+  const title = `${x.name}, ${fatherWords(x)} · ${x.state === 'fallen' ? `fallen, of ${c ? companyName(c) : 'his company'}` : c ? `${kind} of ${companyName(c)}` : gone}`;
+  const house = h ? `From ${x.house}, hired for ${HIRED_PAY} dr a month` : x.house ? `Of the house of ${x.house}${home && home.kind === 'home' ? `, ${levelName(home.level)}` : ''}` : '';
+  const foe = x.foe ? s.army.foes.find((f) => f.id === x.foe) : undefined;
+  const raid = foe ? s.world.raids.find((r) => r.id === foe.raid) : undefined;
   const doing =
-    x.state === 'coming'
-      ? 'Walking in from his home to the barracks'
-      : x.state === 'arming'
-        ? 'At the barracks, waiting for his set of armour from the stores'
-        : x.state === 'leaving'
-          ? 'Walking home to his old work'
-          : c
-            ? c.order === 'drill'
-              ? 'Drilling on the barracks ground'
-              : c.order === 'march' || c.order === 'return'
-                ? 'Marching with his company'
-                : 'Holding with his company, under its banner'
-            : '';
-  const kit = c?.kind === 'hoplite' ? (x.armed ? 'Bronze helmet, breastplate, round shield and spear' : 'No armour yet') : c?.kind === 'archer' ? 'A bow and a quiver' : '';
-  return { title, detail: lines(house, doing, kit) };
+    x.state === 'fallen'
+      ? x.home ? 'Killed fighting raiders; his house mourns him' : 'Killed fighting raiders'
+      : x.state === 'wounded'
+        ? x.path.length ? 'Wounded: limping back to the barracks to heal' : 'Wounded: down where he fell, and he will get up'
+        : x.state === 'healing'
+          ? `Healing at the barracks: ${x.hp}% whole`
+          : x.state === 'coming'
+            ? h ? 'Marching in from the edge of your land' : 'Walking in from his home to the barracks'
+            : x.state === 'arming'
+              ? 'At the barracks, waiting for his set of armour from the stores'
+              : x.state === 'leaving'
+                ? x.home === 0 ? 'Walking off to the edge of your land' : 'Walking home to his old work'
+                : foe
+                  ? `Fighting a raider${raid ? ` of ${raid.city[0].toUpperCase()}${raid.city.slice(1)}` : ''}`
+                  : c
+                    ? c.routed
+                      ? 'Running back to the barracks with his broken company'
+                      : c.order === 'drill'
+                        ? 'Drilling on the barracks ground'
+                        : c.order === 'march' || c.order === 'return'
+                          ? 'Marching with his company'
+                          : 'Holding with his company, under its banner'
+                    : '';
+  const hurt = x.state === 'ready' && x.hp < 100 ? (x.hp >= 60 ? 'Hurt' : 'Badly hurt') : '';
+  const kit = c?.kind === 'hoplite' ? (x.armed ? (h ? 'His own bronze, and an Arcadian shield' : 'Bronze helmet, breastplate, round shield and spear') : 'No armour yet') : c?.kind === 'archer' ? (h ? 'A Cretan bow, and the skill to use it' : 'A bow and a quiver') : '';
+  return { title, detail: lines(house, doing, hurt, kit) };
 }
 
 /** A home's word about its man in the army ('' if none of its men serves): "Their eldest, Lykon, serves in the 2nd company of hoplites". */
@@ -117,5 +136,6 @@ export function servesLine(s: SimState, b: Building): string {
   const k = kinOf(x);
   const who = k === 'son' ? `Their eldest, ${x.name},` : k === 'head' || !x.father ? `${x.name}, the head of the house,` : `${x.name}, ${fatherWords(x)},`;
   if (!c) return '';
-  return `${who} serves in ${companyName(c)} of ${kindWord(c.kind)}${x.state === 'coming' ? ' (on his way to the barracks)' : ''} · he has left his work`;
+  const state = x.state === 'coming' ? ' (on his way to the barracks)' : x.state === 'wounded' || x.state === 'healing' ? ' (wounded, healing at the barracks)' : '';
+  return `${who} serves in ${companyName(c)} of ${kindWord(c.kind)}${state} · he has left his work`;
 }

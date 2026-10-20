@@ -1026,6 +1026,8 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 @keyframes raid-pulse { 50% { box-shadow: 0 2px 0 rgba(80, 20, 10, 0.35), 0 0 0 5px rgba(184, 70, 58, 0.3); } }
 .townline.raid { border-left-color: #b8322a; background: rgba(250, 230, 220, 0.96); }
 .townline.alarm { border-left-color: #b8322a; }
+/* The army's news (slice 24): bronze. */
+.townline.battle { border-left-color: #a87a2a; background: rgba(246, 236, 212, 0.96); }
 .greece-panel .deal.threat { background: #f6ded6; border-color: #9e3a30; border-width: 2px; }
 .greece-panel .deal.threat > div > p:not(.if):not(.eta) { margin: 4px 0 0; }
 
@@ -1105,3 +1107,14 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .side-body .raise { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 .side-body .raise button { font-size: 13.5px; padding: 4px 10px; color: #fff6e4; background: var(--terracotta); border-color: var(--terracotta-deep); border-radius: 10px; box-shadow: 0 2px 0 rgba(120, 50, 20, 0.3); }
 .side-body .raise button:hover { background: #d36f45; }
+/* Slice 24: the hire buttons (quieter than raising: a price to pay), hirelings' rows in their colours, the army's news. */
+.side-body .raise.hire { flex-direction: row; gap: 6px; margin-top: 4px; }
+.side-body .raise.hire button { flex: 1; font-size: 12.5px; padding: 3px 8px; color: var(--ink); background: #fff8ea; border-color: var(--edge); box-shadow: none; }
+.side-body .raise.hire button:hover { background: #fff2d6; }
+.side-body .raise.hire button small { color: var(--ink-soft); font-variant-numeric: lining-nums tabular-nums; }
+.side-body .raise button[disabled] { opacity: 0.55; cursor: not-allowed; }
+.side-body .company.hired.cretan { border-left: 4px solid #4f7a3a; }
+.side-body .company.hired.arcadian { border-left: 4px solid #38558a; }
+.side-body .army-news { list-style: none; margin: 6px 0 2px; padding: 5px 8px; border-left: 3px solid #a87a2a; background: rgba(246, 236, 212, 0.7); border-radius: 0 8px 8px 0; font-size: 12px; line-height: 1.35; }
+.side-body .army-news li { margin: 2px 0; }
+.side-body .army-news small { color: var(--ink-soft); font-variant-caps: small-caps; }

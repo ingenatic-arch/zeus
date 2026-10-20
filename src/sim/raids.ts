@@ -13,14 +13,21 @@
  *   gathers at their city for ten days, then marches on yours along the road
  *   (Troy's sails the lane), its place on the map of Greece a pure function
  *   of the tick, and a chip counts the days.
- * - **On your map.** It comes in at the edge nearest their city, at the open
- *   tile nearest its target: the field or store nearest that edge worth the
- *   trouble (a farm, a pasture or an olive grove; a granary or a storehouse
- *   with 300 or more in it), never a house. It crosses the land as a hunter
- *   does (roads and open ground, round buildings), spends two days there
- *   (a field set alight through the fire code, and what is in its barn
- *   carried off; a store plundered, up to 80 a man and never more than half
- *   of it), and walks off the way it came. Walkers near it run indoors.
+ * - **On your map** (slice 24: loot, burn, then leave). It comes in at the
+ *   edge nearest their city, at the open tile nearest its first target: the
+ *   store nearest that edge worth the trouble (a granary or a storehouse with
+ *   300 or more in it), then the tax office, where the treasury is kept (with
+ *   neither, the field nearest the edge, as in phase 3). It crosses the land
+ *   as a hunter does (roads and open ground, round buildings), spends a few
+ *   days at each (a store plundered, up to 80 a man and never more than half
+ *   of it; up to a tenth of the treasury from the tax office; a field set
+ *   alight and its barn emptied), sets a few buildings alight on its way
+ *   (houses too, through the fire code), and walks off the way it came.
+ *   Walkers near it run indoors. Its men fight whoever stands in their way,
+ *   man by man (battle.ts); while they fight the band waits, and a band that
+ *   loses half its men breaks and runs for the edge.
+ * - **Its size.** Eight to twelve men, and more the bigger your city and the
+ *   stronger their city (Sparta most): a big city can face forty or more.
  * - **Stopping them.** Paying in coin while the band is out pays at once and
  *   turns it round wherever it is; goods count when they reach their city;
  *   anything that lifts the ruler's mood past cold calls it off.
@@ -76,15 +83,34 @@ const ANGRY_FOR = TICKS_PER_YEAR;
 const PEACE_VALUE = 1.2;
 const PEACE_LEAST = 300;
 const PEACE_MOST = 2500;
-/** A band is 8 to 12 men. */
+/** A band is 8 to 12 men, and more for a bigger city: a man for every 60 people past the first 400, times their city's strength; 48 at the most. */
 const MEN_LEAST = 8;
 const MEN_MOST = 12;
+const MEN_CAP = 48;
+const MEN_PER = 60;
+const MEN_FROM = 400;
+export const STRENGTH: Record<CityId, number> = { home: 1, athens: 1.1, corinth: 0.8, sparta: 1.4, troy: 1, tyre: 1 };
+/** The band a city sends against yours, for its size: the dice's 8 to 12, and the rest from your size and their strength. */
+export function bandSize(s: SimState, city: CityId, roll: number): number {
+  const base = MEN_LEAST + Math.floor(roll * (MEN_MOST - MEN_LEAST + 1));
+  return Math.min(MEN_CAP, base + Math.round((Math.max(0, s.population - MEN_FROM) / MEN_PER) * (STRENGTH[city] ?? 1)));
+}
 /** They cross your land at a run. */
 export const RAID_SPEED = WALK_SPEED * 1.6;
-/** How long they spend at their target (firing it, and loading up): long enough to see them there, and to pay them off before they take anything. */
-export const AT_TARGET = 6 * TICKS_PER_DAY;
+/** How long they spend at each target (firing it, and loading up): long enough to see them there, and to pay them off before they take anything. */
+export const AT_TARGET = 4 * TICKS_PER_DAY;
 /** What each man carries off, at most; never more than half of what a store holds. */
 const CARRY = 80;
+/** What each man carries off from the tax office, at most, and never more than a tenth of the treasury. */
+const COIN_CARRY = 40;
+const COIN_SHARE = 0.1;
+/** The buildings they set alight on their way (one at most on the way in, the rest going out): one, and one more for every twelve men, four at most; once a day near one, about two days in five. */
+const FIRES_LEAST = 1;
+const FIRES_PER = 12;
+const FIRES_MOST = 4;
+const TORCH_ODDS = 0.4;
+/** How near their way (tiles, from a building's edge) a building must be for them to set it alight. */
+const TORCH_REACH = 1.6;
 /** A store is worth raiding with this much in it. */
 const STORE_WORTH = 300;
 /** Walkers this close (tiles) to the band run indoors. */
@@ -174,7 +200,7 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     id: w.nextRaid++,
     deal: d.id,
     city: c.id,
-    men: MEN_LEAST + Math.floor(dice(w, n, 0, 2) * (MEN_MOST - MEN_LEAST + 1)),
+    men: bandSize(s, c.id, dice(w, n, 0, 2)),
     phase: 'threat',
     by: land ? 'land' : 'sea',
     way,
@@ -191,12 +217,22 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     ware: -1,
     took: 0,
     fired: false,
+    next: [],
+    stole: 0,
+    fires: 0,
+    fallen: 0,
+    regained: 0,
+    coinBack: 0,
+    broke: false,
+    fought: 0,
+    killed: 0,
+    wounded: 0,
     ended: 0,
     end: '',
   };
   w.raids.push(r);
   if (!w.contact) w.contact = Math.max(1, s.tick);
-  news(w, s.tick, c.id, `${rulerName(c)} is out of patience: pay ${fmt(coin)} dr${alt >= 0 ? ` or send ${giftWords(alt, altAmount)}` : ''} ${dueIn(days, s.tick + days)}, or ${his(c)} raiders will come`, true);
+  news(w, s.tick, c.id, `${rulerName(c)} is out of patience: pay ${fmt(coin)} dr${alt >= 0 ? ` or send ${giftWords(alt, altAmount)}` : ''} ${dueIn(days, s.tick + days)}, or ${his(c)} raiders will come, about ${r.men} men`, true);
   s.rev++;
   return r;
 }
@@ -349,9 +385,10 @@ const edgeDistance = (size: number, x: number, z: number, side: string): number 
 /** Is a building worth raiding: a field (always), or a store with 300 or more of something in it? */
 export function worthRaiding(b: Building): boolean {
   if (FIELDS[b.kind] !== undefined) return true;
-  if (!STORES.includes(b.kind)) return false;
-  return WARES.reduce((a, w) => a + held(b, w), 0) >= STORE_WORTH;
+  return storeWorth(b);
 }
+/** A store worth raiding: a granary or storehouse with 300 or more in it. */
+const storeWorth = (b: Building): boolean => STORES.includes(b.kind) && WARES.reduce((a, w) => a + held(b, w), 0) >= STORE_WORTH;
 
 /** The open tiles along an edge. */
 function edgeTiles(map: CoastMap, s: SimState, side: string): number[] {
@@ -370,13 +407,18 @@ function edgeTiles(map: CoastMap, s: SimState, side: string): number[] {
  * leads to one), in at the open edge tile nearest it, and the way there
  * across the land. Null if nothing worth it can be reached from that edge.
  */
-export function landing(s: SimState, map: CoastMap, city: CityId): { edge: number; target: Building; path: Array<[number, number, number]> } | null {
+export function landing(s: SimState, map: CoastMap, city: CityId): { edge: number; target: Building; path: Array<[number, number, number]>; next: number[] } | null {
   const size = map.size;
   const side = RAID_SIDE[city];
   const edges = edgeTiles(map, s, side);
   if (!edges.length) return null;
-  const targets = s.buildings.filter(worthRaiding).sort((a, b) => fromEdge(size, a, side) - fromEdge(size, b, side) || a.id - b.id);
-  for (const b of targets.slice(0, TRIES)) {
+  const near = (a: Building, b: Building): number => fromEdge(size, a, side) - fromEdge(size, b, side) || a.id - b.id;
+  // The stores worth it first, nearest the edge; then the tax offices (where the treasury is kept); a town with neither, its fields.
+  const stores = s.buildings.filter(storeWorth).sort(near);
+  const offices = s.buildings.filter((b) => b.kind === 'taxoffice').sort(near);
+  const fields = s.buildings.filter((b) => FIELDS[b.kind] !== undefined).sort(near);
+  const targets = stores.length ? [...stores.slice(0, TRIES), ...offices.slice(0, TRIES)] : offices.length ? offices.slice(0, TRIES) : fields;
+  for (const b of targets.slice(0, 2 * TRIES)) {
     const [cx, cz] = centreOf(b);
     const goals = around(size, b).filter((t) => walkable(map, s, t));
     if (!goals.length) continue;
@@ -389,7 +431,10 @@ export function landing(s: SimState, map: CoastMap, city: CityId): { edge: numbe
     const [ox, oz] = offMapPoint(size, edge);
     const path: Array<[number, number, number]> = [[ox, oz, -1]];
     for (const [px, pz] of prunePath(map, s, tiles)) path.push([px, pz, -1]);
-    return { edge, target: b, path };
+    // After a store, the tax office nearest it (its way is found when they set off from the store).
+    const [bx, bz] = centreOf(b);
+    const office = STORES.includes(b.kind) ? offices.slice().sort((p, q) => dhypot(centreOf(p)[0] - bx, centreOf(p)[1] - bz) - dhypot(centreOf(q)[0] - bx, centreOf(q)[1] - bz) || p.id - q.id)[0] : undefined;
+    return { edge, target: b, path, next: office ? [office.id] : [] };
   }
   return null;
 }
@@ -410,6 +455,7 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   r.edge = at.edge;
   r.target = at.target.id;
   r.aim = at.target.kind;
+  r.next = at.next;
   const band = newWalker(s, 'raider', r.men);
   band.origin = at.target.id;
   band.target = at.target.id;
@@ -419,13 +465,14 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   band.since = s.tick;
   setPath(band, at.path);
   s.walkers.push(band);
-  news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  const then = at.next.length ? findBuilding(s, at.next[0]) : undefined;
+  news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${aimWords(then)}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   void c;
   s.rev++;
 }
 
-/** "the farm", "the granary": what they make for. */
-export const aimWords = (b: Pick<Building, 'kind'>): string => (b.kind === 'grove' ? 'the olive grove' : b.kind === 'pasture' ? 'the sheep pasture' : `the ${b.kind}`);
+/** "the farm", "the granary", "the tax office": what they make for. */
+export const aimWords = (b: Pick<Building, 'kind'>): string => (b.kind === 'grove' ? 'the olive grove' : b.kind === 'pasture' ? 'the sheep pasture' : b.kind === 'taxoffice' ? 'the tax office' : `the ${b.kind}`);
 
 /** The raiders on your map now (the band's walker), if any. */
 export const raidersOf = (s: SimState, r: Raid): Walker | undefined => s.walkers.find((w) => w.kind === 'raider' && w.home === r.id);
@@ -445,7 +492,7 @@ function startsAt(map: CoastMap, s: SimState, x: number, z: number): number[] {
 }
 
 /** Off the way they came: to the edge tile they came in by (or the nearest open edge), and off the map. False if there is no way at all. */
-function headOff(s: SimState, map: CoastMap, w: Walker, r: Raid | undefined): boolean {
+export function headOff(s: SimState, map: CoastMap, w: Walker, r: Raid | undefined): boolean {
   const size = map.size;
   const [x, z] = position(w);
   w.back = true;
@@ -495,20 +542,28 @@ function reaim(s: SimState, map: CoastMap, w: Walker): boolean {
 /** Move the raiders one tick: across the land to their target, two days there, and off the way they came. False when they have left your map. */
 export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
   const r = raidOfBand(s, w);
+  // Fighting (battle.ts, last tick): the band stands where it is until the fight is done, or it breaks.
+  const fighting = !!r && !r.broke && r.fought >= s.tick - 1;
   if (w.wait > 0) {
     // (Paid off or called off while they stand at their target: they go at once, with nothing from it.)
     if (r && r.end !== '') {
       w.wait = 0;
       return headOff(s, map, w, r) || gone(s, w, r);
     }
+    if (fighting) return true;
     if (--w.wait > 0) return true;
     strike(s, w, r);
+    // Then on to the next place they came for (the tax office, after a store), or off home.
+    if (r && onward(s, map, w, r)) return true;
     return headOff(s, map, w, r) || gone(s, w, r);
   }
   // Paid off or called off on the way in: they turn for the edge from where they stand.
   if (!w.back && r && r.end !== '') {
     if (!headOff(s, map, w, r)) return gone(s, w, r);
   }
+  if (fighting) return true;
+  // Torches on their way: now and then a building beside them is set alight.
+  if (r && s.tick % TICKS_PER_DAY === 0) torch(s, map, w, r);
   let move = RAID_SPEED;
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
@@ -536,12 +591,65 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     // The end of the way: off the map, or at the target.
     if (w.back) return gone(s, w, r);
     const b = findBuilding(s, w.target);
-    if (!b || b.kind === 'rubble' || (r && r.end !== '')) return headOff(s, map, w, r) || gone(s, w, r);
+    if (!b || b.kind === 'rubble' || (r && r.end !== '')) {
+      if (r && r.end === '' && onward(s, map, w, r)) return true;
+      return headOff(s, map, w, r) || gone(s, w, r);
+    }
     w.wait = AT_TARGET;
     light(s, b, r);
     break;
   }
   return true;
+}
+
+/** On from one target to the next they came for (the tax office, after a store): a fresh way there from where they stand. False if there is none left (or no way to it). */
+function onward(s: SimState, map: CoastMap, w: Walker, r: Raid): boolean {
+  while (r.next.length) {
+    const id = r.next.shift()!;
+    const b = findBuilding(s, id);
+    if (!b || b.kind === 'rubble') continue;
+    w.target = id;
+    r.target = id;
+    w.wait = 0;
+    if (!reaim(s, map, w)) continue;
+    s.rev++;
+    return true;
+  }
+  return false;
+}
+
+/** How many buildings a band sets alight on its way, at most. */
+const firesFor = (r: Raid): number => Math.min(FIRES_MOST, FIRES_LEAST + Math.floor(r.men / FIRES_PER));
+
+/**
+ * Once a day on their way (in or out, not running from a beating): now and
+ * then the band sets alight a building beside it, a house as likely as any,
+ * up to a few in a raid. Through the fire code, so the watchmen come and it
+ * can spread. Not with fire switched off (as while a demo's history is built).
+ */
+function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
+  if (!s.hazards || r.broke || r.end !== '' || r.fires >= firesFor(r) || w.wait > 0) return;
+  // (One at most on their way in: the rest as they leave, loaded.)
+  if (!w.back && r.fires >= 1) return;
+  if (dice(s.world, r.id, Math.floor(s.tick / TICKS_PER_DAY), 7) >= TORCH_ODDS) return;
+  const [x, z] = position(w);
+  if (x < 0 || z < 0 || x >= map.size || z >= map.size) return;
+  let best: Building | null = null;
+  let bd = Infinity;
+  for (const b of s.buildings) {
+    if (!burnable(b) || b.fire === FIRE_BURNING || b.id === w.target || r.next.includes(b.id)) continue;
+    const [cx, cz] = centreOf(b);
+    const half = b.kind === 'home' ? 0.5 : 1.5;
+    const d = dhypot(cx - x, cz - z) - half;
+    if (d <= TORCH_REACH && (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && best && b.id < best.id))) {
+      bd = d;
+      best = b;
+    }
+  }
+  if (!best) return;
+  ignite(s, best);
+  r.fires++;
+  s.rev++;
 }
 
 /** At the target, as they come: a field set alight; a store too, if there is little in it worth carrying. */
@@ -567,6 +675,16 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
   const field = FIELDS[b.kind];
   let ware = -1;
   let took = 0;
+  if (b.kind === 'taxoffice') {
+    // The treasury: up to a tenth of it, as much as they can carry.
+    const coin = Math.min(Math.floor(Math.max(0, s.money) * COIN_SHARE), w.people * COIN_CARRY);
+    if (coin > 0) {
+      pay(s, -coin, 'raid', `${cityName(city)} · drachmas`, coin);
+      r.stole += coin;
+      s.rev++;
+    }
+    return;
+  }
   if (field !== undefined) {
     ware = field;
     took = Math.min(held(b, field), most);
@@ -586,7 +704,7 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
     w.load = took;
     w.meat = ware;
     r.ware = ware;
-    r.took = took;
+    r.took += took;
     s.looks++;
   }
   s.rev++;
@@ -599,10 +717,36 @@ function gone(s: SimState, w: Walker, r: Raid | undefined): false {
   if (r.end === '') settle(s, r, 'raided');
   else {
     // (Paid off or called off while in your city: they go with what they took.)
-    news(s.world, s.tick, r.city, `${whose(r.city)} raiders have left your land${r.took ? `, with ${fmt(r.took)} ${WARE_NAMES[r.ware]}` : ''}`, true);
+    const loot = lootWords(r);
+    news(s.world, s.tick, r.city, `${whose(r.city)} raiders have left your land${loot ? `, with ${loot}` : ''}`, true);
   }
   void w;
   return false;
+}
+
+/** What a band carries off (what it took, less what was taken back from its fallen), in words: "400 wheat and 315 dr"; '' for nothing. */
+export function lootWords(r: Raid): string {
+  const goods = r.took - r.regained;
+  const coin = r.stole - r.coinBack;
+  return [goods > 0 && r.ware >= 0 ? `${fmt(goods)} ${WARE_NAMES[r.ware]}` : '', coin > 0 ? `${fmt(coin)} dr` : ''].filter(Boolean).join(' and ');
+}
+
+/**
+ * The band breaks (battle.ts: half its men have fallen): it runs for the
+ * edge from where it stands, with what it still carries, and sets nothing
+ * more alight. Its men no longer stand to fight.
+ */
+export function breakBand(s: SimState, map: CoastMap, r: Raid): void {
+  if (r.broke) return;
+  r.broke = true;
+  const w = raidersOf(s, r);
+  if (w) {
+    w.wait = 0;
+    r.next = [];
+    if (!headOff(s, map, w, r)) s.walkers = s.walkers.filter((o) => o !== w);
+  }
+  news(s.world, s.tick, r.city, `${whose(r.city)} raiders break and run for the ${RAID_SIDE[r.city]} edge: ${r.fallen} of their ${r.men} men have fallen`, true);
+  s.rev++;
 }
 
 /** The band heads home along the way on the map from your edge (or your gulf). */
@@ -632,8 +776,12 @@ function settle(s: SimState, r: Raid, how: string): void {
     d.ended = s.tick;
   }
   if (how === 'raided' || how === 'nothing') {
-    const lost = r.took ? `${fmt(r.took)} ${WARE_NAMES[r.ware]} carried off` : '';
-    const what = [lost, r.fired ? `${r.aim === 'grove' ? 'the olive grove' : r.aim === 'pasture' ? 'the sheep pasture' : `the ${r.aim}`} set alight` : ''].filter(Boolean).join(', ');
+    const loot = lootWords(r);
+    const lost = loot ? `${loot} carried off` : '';
+    const burnt = r.fires + (r.fired ? 1 : 0);
+    const fired = r.fired && r.fires === 0 ? `${r.aim === 'grove' ? 'the olive grove' : r.aim === 'pasture' ? 'the sheep pasture' : `the ${r.aim}`} set alight` : burnt ? `${burnt === 1 ? 'a building' : `${burnt} buildings`} set alight` : '';
+    const beaten = r.fallen ? `${r.fallen} of their ${r.men} men fell${r.broke ? ' and the rest ran' : ''}` : '';
+    const what = [beaten, lost, fired].filter(Boolean).join(', ');
     const m = answerMemory(c, 'spent', `their raid has eased ${rulerWord(c).replace(/^the /, 'the ')}’s temper`, s.tick);
     c.memories.push(m);
     const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
@@ -819,13 +967,17 @@ export function raidChip(s: SimState, r: Raid): { chip: string; line: string } |
   if (r.phase === 'threat') return null;
   if (r.phase === 'raiding') {
     const band = raidersOf(s, r);
-    const doing = !band ? '' : band.back || r.end !== '' ? (band.load ? `making off with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : band.wait > 0 ? (FIELDS[r.aim as BuildingKind] !== undefined ? `firing ${aimWords({ kind: r.aim as BuildingKind })}` : `plundering ${aimWords({ kind: r.aim as BuildingKind })}`) : `making for ${aimWords({ kind: r.aim as BuildingKind })}`;
-    return { chip: 'Raiders in the city', line: `${r.men} of ${whose(r.city)} raiders are in your city, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
+    const aim = band ? findBuilding(s, band.target) : undefined;
+    const at = aim ? aimWords(aim) : aimWords({ kind: r.aim as BuildingKind });
+    const loot = lootWords(r);
+    const doing = !band ? '' : r.broke ? `beaten, running for the edge${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${at}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) : `making for ${at}`;
+    const left = r.men - r.fallen;
+    return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Raiders in the city', line: `${left} of ${whose(r.city)} raiders are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
   }
   const days = daysToEdge(r, s.tick);
   const when = `${days === 1 ? '1 day' : `${days} days`}`;
   return {
-    chip: `${name}’s raiders · ${when}`,
+    chip: `${name}’s raiders · ${r.men} men · ${when}`,
     line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
   };
 }
@@ -839,7 +991,7 @@ export function raidLine(s: SimState, map: CoastMap, r: Raid): string {
     const days = Math.max(0, Math.ceil((d.due - s.tick) / TICKS_PER_DAY));
     if (d.gift) return `${whose(r.city)} price of peace is on its way: ${rulerShort(c)} waits for it`;
     void map;
-    return `${rulerName(c)} threatens your city: pay ${fmt(r.coin)} dr${r.alt >= 0 ? ` or send ${giftWords(r.alt, r.altAmount)}` : ''} by ${dayWords(d.due)} (${days === 1 ? '1 day' : `${days} days`}), or ${his(c)} raiders will come. Answer on ${name}’s page`;
+    return `${rulerName(c)} threatens your city: pay ${fmt(r.coin)} dr${r.alt >= 0 ? ` or send ${giftWords(r.alt, r.altAmount)}` : ''} by ${dayWords(d.due)} (${days === 1 ? '1 day' : `${days} days`}), or ${his(c)} raiders will come, about ${r.men} men. Answer on ${name}’s page`;
   }
   return raidChip(s, r)?.line ?? '';
 }
@@ -850,13 +1002,16 @@ export function raiderDoing(s: SimState, w: Walker): { title: string; detail: st
   const city = CITY_IDS[w.food] ?? 'sparta';
   const name = cityName(city);
   const title = `Raiders of ${name}`;
-  const kit = `${w.people} men in ${whose(city)} colours, with shields and torches`;
+  const kit = `${w.people} men in ${whose(city)} colours, with shields and torches${r && r.fallen ? ` (${r.fallen} fallen)` : ''}`;
   const b = findBuilding(s, w.target);
   const aim = b ? aimWords(b) : 'what they came for';
+  const loot = r ? lootWords(r) : '';
+  if (r && r.broke) return { title, detail: `${kit} · beaten: half of them have fallen, and the rest run for the edge${loot ? `, with ${loot} in their sacks` : ''}` };
+  if (r && r.fought >= s.tick - 1) return { title, detail: `${kit} · fighting your soldiers on their way to ${aim}` };
   if (w.back) {
     const why = r && r.end === 'paid' ? `paid off, they are leaving your land` : r && r.end === 'called' ? `called off, they are leaving your land` : 'leaving your land the way they came';
-    return { title, detail: `${kit} · ${w.load ? `${why}, with ${fmt(w.load)} ${WARE_NAMES[w.meat]} in their sacks` : why}` };
+    return { title, detail: `${kit} · ${loot ? `${why}, with ${loot} in their sacks` : why}` };
   }
-  if (w.wait > 0) return { title, detail: `${kit} · ${b && FIELDS[b.kind] !== undefined ? `setting fire to ${aim} and emptying its barn` : `plundering ${aim}`}` };
+  if (w.wait > 0) return { title, detail: `${kit} · ${b && FIELDS[b.kind] !== undefined ? `setting fire to ${aim} and emptying its barn` : b?.kind === 'taxoffice' ? 'breaking into the tax office for the treasury’s drachmas' : `plundering ${aim}`}` };
   return { title, detail: `${kit} · crossing your land to ${aim}${r && live(r) ? ` · pay ${fmt(r.coin)} dr on ${name}’s page to turn them back` : ''}` };
 }

@@ -791,6 +791,86 @@ Object.assign(BEFORE, {
   'army-tab': async (page) => page.evaluate(() => window.__zeus.sideTab?.('army')),
 });
 
+// Slice 24: raiders fought in the streets. The two companies placed in the band's way at the bridge and the fight close up; its end (the fallen lying, the band running); a band let through, loaded, with the ledger; hirelings marching in.
+const place = async (page) =>
+  page.evaluate(() => {
+    const z = window.__zeus;
+    const cs = z.army().companies;
+    const hop = cs.find((c) => c.kind === 'hoplite');
+    const arc = cs.find((c) => c.kind === 'archer');
+    if (hop) z.order({ type: 'banner', company: hop.id, tile: 41 * 128 + 40 });
+    if (arc) z.order({ type: 'banner', company: arc.id, tile: 39 * 128 + 44 });
+  });
+const fightUntil = async (page, ok, most) =>
+  page.evaluate(
+    ([okSrc, n]) => {
+      const z = window.__zeus;
+      const ok = new Function('b', `return ${okSrc}`);
+      for (let i = 0; i < n && !ok(z.battle()); i += 2) z.skip(2);
+      return z.battle();
+    },
+    [ok, most],
+  );
+const closeOn = async (page, dist, yaw = 2.65, tilt = 0.12) =>
+  page.evaluate(
+    ([d, y, t]) => {
+      const b = window.__zeus.battle();
+      const c = b.centre ?? { x: 40, z: 41 };
+      window.__zeus.jump({ x: c.x, z: c.z, yaw: y, dist: d, tilt: t });
+    },
+    [dist, yaw, tilt],
+  );
+Object.assign(SHOTS, {
+  battle: '#battle-paused',
+  'battle-shot': '#battle-paused-shot',
+  'battle-fight': '#battle-paused-shot',
+  'battle-close': '#battle-paused-shot',
+  'battle-after': '#battle-paused-shot',
+  'battle-ui': '#battle-paused',
+  looted: '#looted-paused',
+  'looted-shot': '#looted-paused-shot',
+  hirelings: '#hirelings-paused',
+  'hirelings-march': '#hirelings-paused-shot',
+});
+Object.assign(BEFORE, {
+  'battle-fight': async (page) => {
+    await place(page);
+    await fightUntil(page, 'b.fighting >= 6', 900);
+    await fightUntil(page, 'b.fallen >= 4', 200);
+    await closeOn(page, 14);
+  },
+  'battle-close': async (page) => {
+    await place(page);
+    await fightUntil(page, 'b.fighting >= 6', 900);
+    await fightUntil(page, 'b.fallen >= 6', 200);
+    await closeOn(page, 6, 2.3, 0.18);
+  },
+  'battle-after': async (page) => {
+    await place(page);
+    await fightUntil(page, 'b.broke', 1200);
+    await page.evaluate(() => window.__zeus.skip(6));
+    await closeOn(page, 10, 2.65, 0.15);
+  },
+  'battle-ui': async (page) => {
+    await place(page);
+    await fightUntil(page, 'b.broke', 1200);
+    await page.evaluate(() => window.__zeus.skip(6));
+    await closeOn(page, 22, 2.65, 0.02);
+  },
+  'hirelings-march': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      const b = z.buildingsOf('barracks')[0];
+      z.order({ type: 'hire', barracks: b.id, kind: 'arcadian' });
+      z.order({ type: 'hire', barracks: b.id, kind: 'cretan' });
+      z.skip(60);
+    });
+    const at = await page.evaluate(() => window.__zeus.army().companies.map((c) => c.id));
+    void at;
+    await page.evaluate(() => window.__zeus.jump({ x: 87, z: 14, yaw: 0.9, dist: 12, tilt: 0.15 }));
+  },
+});
+
 const want = process.argv.slice(2);
 const names = want.length ? want : Object.keys(SHOTS);
 const outDir = resolve('screenshots');

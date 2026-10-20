@@ -136,4 +136,8 @@ export const VIEWS: Record<string, CameraView> = {
   barracks: { x: 89, z: 34, yaw: 0.6, dist: 18, tilt: 0.1 },
   // #companies: the barracks and the core's streets round it, both companies' banners in sight.
   companies: { x: 86, z: 35, yaw: 0.6, dist: 26, tilt: 0.0 },
+  // #battle: the west of the town from above the granary, where Sparta's band comes in along the lane from the west edge.
+  battle: { x: 50, z: 41, yaw: 2.65, dist: 34, tilt: -0.1 },
+  // #looted: the granary and the tax office west of the core, the band leaving westwards past what it set alight.
+  looted: { x: 52, z: 42, yaw: 2.65, dist: 22, tilt: -0.02 },
 };

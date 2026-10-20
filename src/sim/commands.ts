@@ -40,7 +40,9 @@ export type Command =
   | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' }
   /** Raise a company of hoplites or archers at a barracks (its id; see raiseRefusal in army.ts: one it refuses raises nothing). */
   | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' }
-  /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores. */
+  /** Hire a company of mercenaries at a barracks: 'cretan' archers or 'arcadian' hoplites (see hireRefusal in army.ts). */
+  | { type: 'hire'; barracks: number; kind: string }
+  /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores (hirelings walk off). */
   | { type: 'dismiss'; company: number }
   /** Send a company's banner to a tile (see marchRefusal in army.ts), or back to its barracks (`tile` -1). */
   | { type: 'banner'; company: number; tile: number };

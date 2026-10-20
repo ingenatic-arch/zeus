@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 22;
+export const SIM_STATE_VERSION = 23;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -165,8 +165,8 @@ export type Kin = 'head' | 'wife' | 'husband' | 'son' | 'daughter' | 'mother' | 
 /** Something that happened to a household, for its story. */
 export interface Story {
   tick: number;
-  /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away. */
-  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left';
+  /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away; fell: the man who served fell in battle (names: his, and the city whose raiders it was). */
+  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell';
   /** The need it was about (a Service), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Service | 'tax';
   /** The home's level after it. */
@@ -287,7 +287,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -445,7 +445,7 @@ export type CompanyKind = 'hoplite' | 'archer';
 
 /**
  * What a company is doing: drilling at its barracks, marching to its banner's
- * tile, holding there (slice 24: fighting what comes within reach), or
+ * tile, holding there (fighting what comes within reach: battle.ts), or
  * marching back to its barracks.
  */
 export type CompanyOrder = 'drill' | 'march' | 'hold' | 'return';
@@ -477,13 +477,24 @@ export interface Company {
   owed: number;
   /** Why it can't fill, in words ('' while it is full or filling). */
   why: string;
+  /** Hirelings (slice 24): Cretan archers or Arcadian hoplites, hired for a fee ('' for citizens). They walk in from the edge, refill from nobody's home, and walk off if their pay is a month owed. */
+  hired: '' | 'cretan' | 'arcadian';
+  /** In a fight: how many men stood in its ranks when it began (0: not fighting). It breaks when half of them have fallen. */
+  strong: number;
+  /** Broken: running back to its barracks, fighting nobody on the way. */
+  routed: boolean;
 }
 
 /** How the man who serves stands in his house. */
 export type ServesAs = 'head' | 'son' | 'husband' | 'brother' | 'cousin';
 
-/** What a soldier is doing: walking in from his home, waiting at the barracks for armour, in the ranks, or walking home, dismissed. */
-export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving';
+/**
+ * What a soldier is doing: walking in from his home, waiting at the barracks
+ * for armour, in the ranks, or walking home, dismissed; fallen in a fight
+ * (lying still, then gone), or wounded (lying still, then walking back to
+ * his barracks) and healing there.
+ */
+export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving' | 'fallen' | 'wounded' | 'healing';
 
 /** A man serving in a company. */
 export interface Soldier {
@@ -516,16 +527,72 @@ export interface Soldier {
   walked: number;
   /** A hoplite: whether he has his set of armour. */
   armed: boolean;
-  /** Health, 0 to 100 (slice 24: wounds). */
+  /** Health, 0 to 100. */
   hp: number;
+  /** In a fight (battle.ts): the raider he is fighting (a foe's id, 0 none), ticks until his next blow or arrow, the tick he last struck (for the drawing: a spear's thrust, a bow drawn), and the tick he fell (0 standing). */
+  foe: number;
+  cool: number;
+  swung: number;
+  fell: number;
+}
+
+/** A raider on your map (battle.ts): one man of a band, with the band (`raid`: its raid's id) or fighting. */
+export interface Foe {
+  id: number;
+  raid: number;
+  /** His place in the band's loose pack. */
+  slot: number;
+  x: number;
+  z: number;
+  face: number;
+  hp: number;
+  /** With the band, fighting a soldier, or fallen (lying still a moment, then gone). */
+  state: 'with' | 'fight' | 'fallen';
+  /** The soldier he is fighting (0 none), ticks until his next blow, the tick he last struck, the tick he fell (0 standing). */
+  foe: number;
+  cool: number;
+  swung: number;
+  fell: number;
+  /** How far he has walked, for the drawing's stride. */
+  walked: number;
+  /** The tick he took on the soldier he is fighting, and the tick until which he pays soldiers no mind (one he could not reach for a while: he gives up on him and goes on). */
+  since: number;
+  calm: number;
+}
+
+/** An arrow in flight (battle.ts): from where it was loosed to where it lands, over its flight, at a foe (0: at nobody now), and what it does if it strikes. */
+export interface Arrow {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  /** The ticks it was loosed and lands. */
+  t0: number;
+  t1: number;
+  foe: number;
+  dmg: number;
+}
+
+/** A line of the army's news for the town lines: a man fallen and mourned, a band broken, hirelings walking off (`at`: the building it is about, 0 none). */
+export interface ArmyNews {
+  tick: number;
+  line: string;
+  at: number;
 }
 
 /** The city's companies and their men. */
 export interface Army {
   companies: Company[];
   soldiers: Soldier[];
-  /** The next company's and soldier's id. */
+  /** The next company's and soldier's id (raiders' too). */
   nextId: number;
+  /** Raiders on your map, man by man, and the arrows in the air (both empty but in a fight). */
+  foes: Foe[];
+  arrows: Arrow[];
+  /** The last few lines of news from the fighting. */
+  news: ArmyNews[];
+  /** Pay still owed to men dismissed (their companies gone), paid as money comes in. */
+  owed: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -838,6 +905,24 @@ export interface Raid {
   ware: number;
   took: number;
   fired: boolean;
+  /**
+   * Slice 24: the places they go for after `target`, in turn (building ids:
+   * the tax office, after a store); the drachmas they took from the treasury;
+   * how many buildings they set alight on the way; how many of them have
+   * fallen; what of their loot was recovered from the fallen (goods, coin);
+   * whether they broke and ran; and the tick they were last in a fight.
+   */
+  next: number[];
+  stole: number;
+  fires: number;
+  fallen: number;
+  regained: number;
+  coinBack: number;
+  broke: boolean;
+  fought: number;
+  /** How many of your men they killed, and wounded. */
+  killed: number;
+  wounded: number;
   /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
   ended: number;
   end: string;
