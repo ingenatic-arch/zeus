@@ -25,7 +25,7 @@ import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
 import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
-import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, troubles } from '../sim/loans';
+import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, stageDefault, STEP_GAP, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { dhypot, sq } from '../map/dmath';
@@ -1701,6 +1701,116 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
 /** The prepared towns of the loans demos. */
 const LEND = loanTown('lend');
 
+/**
+ * Debts unpaid (slice 28). #overdue: #borrow's town, Corinth's terms
+ * accepted (Athens' declined) and the payment held back, played on to a few
+ * days after the day: the warning given, the next two steps dated on
+ * Corinth's Loans tab. #seized: on to the second step, Corinth's road closed
+ * and the oil and meat waiting in the caravan yard seized (the ledger open).
+ * #creditors: on to the third, the threat refused, Corinth's men in the city
+ * (the camera on them). #collect: #companies' town, Corinth's ask to borrow
+ * (set up for the demo) lent, played on to its day, which Corinth lets pass
+ * (set up for the demo): the Loans tab with the four answers. #report: the
+ * full force sent, played on until it is on the road home: the report.
+ * #forgive: #lend's loan to Athens lent and played on to its day, which she
+ * lets pass (set up for the demo): her Loans tab, Forgive at hand.
+ */
+type DebtStage = 'overdue' | 'seized' | 'creditors' | 'collect' | 'report' | 'forgive';
+/** The gift of coin #seized sends Corinth to soften the lord, which he seizes on the road. */
+const SEIZED_GIFT = 250;
+/** How many days after the day #overdue opens. */
+const OVERDUE_DAYS = 3;
+/** How many days into the seizing #seized opens, at most (once something has been seized). */
+const SEIZED_DAYS = 30;
+/** How many days #creditors' men have been in the city. */
+const CREDITORS_DAYS = 4;
+/** What #collect lends Corinth, at most. */
+const COLLECT_LEND = 2000;
+/** How many days on the road home #report's force is. */
+const REPORT_DAYS = 2;
+
+function debtTown(stage: DebtStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    if (stage === 'overdue' || stage === 'seized' || stage === 'creditors') {
+      loanTown('borrow')(sim);
+      const l = s.world.loans.find((x) => x.city === 'corinth' && x.state === 'terms');
+      if (!l) return;
+      for (const o of s.world.loans.filter((x) => x.state === 'terms' && x !== l)) send({ type: 'loan', act: 'decline', loan: o.id });
+      send({ type: 'loan', act: 'accept', loan: l.id });
+      const end = s.tick + 3 * TICKS_PER_MONTH;
+      while (s.tick < end && l.state === 'coming') sim.run(10);
+      // (Held back, as a player who would rather keep the coin might: the treasury could pay it by then.)
+      send({ type: 'loan', act: 'withhold', loan: l.id });
+      while (l.state === 'running' && s.tick < l.due + TICKS_PER_DAY) sim.run(10);
+      if (l.state !== 'overdue') return;
+      if (stage === 'overdue') {
+        sim.run(OVERDUE_DAYS * TICKS_PER_DAY);
+        return;
+      }
+      const two = l.stepAt + STEP_GAP + TICKS_PER_DAY;
+      while (s.tick < two && l.step < 2) sim.run(10);
+      if (stage === 'seized') {
+        // (A gift of coin sent to soften him, as a player might: he seizes it on the road against the debt. The yard's meat went with the last caravan.)
+        send({ type: 'gift', city: 'corinth', good: -1, amount: SEIZED_GIFT });
+        const most = s.tick + SEIZED_DAYS * TICKS_PER_DAY;
+        while (s.tick < most && l.seized === 0) sim.run(TICKS_PER_DAY);
+        return;
+      }
+      const three = l.stepAt + STEP_GAP + 2 * TICKS_PER_DAY;
+      while (s.tick < three && l.step < 3 && l.state === 'overdue') sim.run(10);
+      const r = s.world.raids.find((x) => x.id === l.raid);
+      if (!r) return;
+      send({ type: 'answer', deal: r.deal, act: 'refuse' });
+      const until = s.tick + 6 * TICKS_PER_MONTH;
+      while (s.tick < until && r.phase !== 'raiding') sim.run(10);
+      sim.run(CREDITORS_DAYS * TICKS_PER_DAY);
+      return;
+    }
+    if (stage === 'forgive') {
+      LEND(sim);
+      const d = s.world.deals.find((x) => x.city === LEND_CITY && x.kind === 'loanask' && x.state === 'open');
+      if (!d) return;
+      send({ type: 'answer', deal: d.id, act: 'send' });
+      const l = loanOfDeal(s.world, d.id);
+      if (!l) return;
+      dueAndDefault(sim, l.id);
+      return;
+    }
+    COMPANIES(sim);
+    const c = cityOf(s.world, 'corinth');
+    const d = makeLoanAsk(s, c, loanSize(s, COLLECT_LEND));
+    d.why = `${d.why} (set up for this demo)`;
+    send({ type: 'answer', deal: d.id, act: 'send' });
+    const l = loanOfDeal(s.world, d.id);
+    if (!l) return;
+    dueAndDefault(sim, l.id);
+    if (stage === 'collect') return;
+    send({ type: 'expedition', city: 'corinth', kind: 'force' });
+    const e = s.world.expeditions.find((x) => x.city === 'corinth');
+    if (!e) return;
+    const stop = s.tick + 4 * TICKS_PER_MONTH;
+    while (s.tick < stop && e.phase !== 'homeward' && e.phase !== 'done') sim.run(10);
+    sim.run(REPORT_DAYS * TICKS_PER_DAY);
+  };
+}
+
+/** A loan to a ruler, lent: played on to the day before it falls due, then let pass unpaid (set up for the demo: the dice would decide). */
+function dueAndDefault(sim: Sim, id: number): void {
+  const s = sim.state;
+  const l = s.world.loans.find((x) => x.id === id);
+  if (!l) return;
+  const stop = s.tick + 3 * TICKS_PER_YEAR;
+  while (s.tick < stop && l.state !== 'running' && l.ended === 0) sim.run(10);
+  while (s.tick < stop && l.state === 'running' && s.tick < l.due - 1) sim.step();
+  stageDefault(s, l, 'set up for this demo');
+  sim.run(TICKS_PER_DAY);
+}
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -1817,6 +1927,13 @@ const SCENES: Record<string, Demo> = {
   borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   lend: { view: 'rivals', setup: LEND, overlay: 'missing', greece: LEND_CITY, greeceTab: 'ruler' },
   repaid: { view: 'rivals', setup: loanTown('repaid'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
+  // Slice 28: debts unpaid. Your loan from Corinth held back past its day, the warning given and the next steps dated; Corinth seizing your goods; Corinth's men in your city, collecting. Corinth owing you, overdue, with the four answers; a full force sent, its report; Athens unable to repay, Forgive at hand.
+  overdue: { view: 'town', setup: debtTown('overdue'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
+  seized: { view: 'town', setup: debtTown('seized'), overlay: 'missing', ledger: true },
+  creditors: { view: 'town', setup: debtTown('creditors'), overlay: 'missing', follow: 'raider' },
+  collect: { view: 'companies', setup: debtTown('collect'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
+  report: { view: 'companies', setup: debtTown('report'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
+  forgive: { view: 'rivals', setup: debtTown('forgive'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

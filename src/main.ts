@@ -224,6 +224,8 @@ interface Probe {
   /** Slice 25: the walls (each stretch's tile, strength and whether a gate), the towers and their archers, the band's siege and breaches, tower arrows in the air. */
   walls?: () => { pieces: Array<{ t: number; hp: number; gate: boolean }>; towers: Array<{ id: number; x: number; z: number; workers: number }>; siege: number; breaches: number; towerArrows: number; hammering: number };
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
+  /** Slice 28: your expeditions (see expeditions.ts). */
+  expeditions?: () => Array<{ id: number; city: string; kind: string; phase: string; loan: number; companies: number[]; men: number; won: boolean; coin: number; goods: number; killed: number; wounded: number; report: string[] }>;
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
   /** The homes a soldier comes from (slice 23). */
@@ -1422,11 +1424,13 @@ function start(preparedTown: string | null): void {
     });
   probe.deals = () => sim.state.world.deals.map((d) => ({ id: d.id, kind: d.kind, city: d.city, good: d.good, amount: d.amount, state: d.state, promised: d.promised, gift: d.gift, due: d.due, done: d.done, angry: d.angry }));
   probe.loans = () => ({
-    loans: sim.state.world.loans.map((l) => ({ id: l.id, city: l.city, side: l.side, by: l.by, state: l.state, amount: l.amount, rate: l.rate, months: l.months, owed: l.owed, due: l.due, gift: l.gift, deal: l.deal })),
+    loans: sim.state.world.loans.map((l) => ({ id: l.id, city: l.city, side: l.side, by: l.by, state: l.state, amount: l.amount, rate: l.rate, months: l.months, owed: l.owed, due: l.due, gift: l.gift, deal: l.deal, step: l.step, withhold: l.withhold, seized: l.seized, raid: l.raid, demand: l.demand, sent: l.sent })),
     chip: debtsChip.el.textContent ?? '',
     chipShown: !debtsChip.el.hidden,
     overdue: debtsChip.el.classList.contains('overdue'),
   });
+  // Slice 28: your expeditions, where they are and their reports.
+  probe.expeditions = () => sim.state.world.expeditions.map((e) => ({ id: e.id, city: e.city, kind: e.kind, phase: e.phase, loan: e.loan, companies: e.companies, men: e.men.length, won: e.won, coin: e.coin, goods: e.goods, killed: e.killed.length, wounded: e.wounded.length, report: e.report }));
   probe.raids = () => {
     const s = sim.state;
     const w = s.walkers.find((x) => x.kind === 'raider');
