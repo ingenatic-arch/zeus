@@ -74,7 +74,7 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `579a3f2` (slic
 
 | What | Before | After |
 |---|---|---|
-| Tests | 404, all passing | 433, all passing (12 of them debts; the rest from slice 25's review and slice 26) |
+| Tests | 404, all passing | 434, all passing (13 of them debts, one from the review; the rest from slice 25's review and slice 26) |
 | Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,935 KB: the game 676 KB (debts and slice 26's fleet), the prepared towns 2,259 KB (this slice's six demos and slice 26's three) |
 | First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.5 s, first frame at 3.8 s |
 | Demo loads | 100 demos, median ready 2.7 s | 109 demos, median ready 2.4 s, slowest `#panel` 3.1 s |
@@ -101,6 +101,8 @@ What I checked and did not change, for your eye:
 - **How busy rulers are.** In three years of each town played on with nobody touching it, no ruler offered or asked for a loan at all (requests and tributes came as before). The new odds are not too busy; if anything, loans from rulers are still rare.
 - **Collectors from across the sea are slow.** Troy's army takes about 24 days from being sighted to landing, the sea raiders' own pace.
 - **The army on the map** still sits near your city's label at first and is hard to pick out (above).
+
+Measured again after the fixes: the download, triangles and draw calls are as above, every demo is ready within 3 seconds (median 2.2 s), and the frame times are within the run-to-run swing (`#report` is lighter now it opens paused at Corinth). The tests number 434, all passing (one new, for the review).
 
 ## Slice 26 — From the sea (20 Oct)
 
