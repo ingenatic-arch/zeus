@@ -502,6 +502,8 @@ function from23(st: Record<string, unknown>): void {
 
 /** Version 24 to 25 (slice 27, loans both ways). */
 function from24(st: Record<string, unknown>): void {
+  // (A version 24 save from the loans' own line of work, before walls reached it, has loans and no walls: it gets none. Slice 25's review.)
+  if (!Array.isArray(st.walls)) from23(st);
   // No loans either way yet, and no gift on its way is a herald about one.
   const w = st.world;
   if (isObj(w)) {

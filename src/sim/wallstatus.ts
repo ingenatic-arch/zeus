@@ -43,7 +43,8 @@ export function wallStatus(s: SimState, map: CoastMap, p: WallPiece): Status {
     const days = men > 0 ? Math.max(1, Math.ceil(p.hp / (men * BLOW) / TICKS_PER_DAY)) : 0;
     hammer = men > 0 ? `${whose(r.city)} raiders are hammering at it, ${men} at a time: through in about ${days === 1 ? 'a day' : `${days} days`} at this rate` : `${whose(r.city)} raiders are making for it, to break it`;
   }
-  const mend = crack > 0 ? `Draw the wall over it to mend it: ${Math.max(1, Math.ceil(price * (1 - p.hp / full)))} dr` : '';
+  const rams = /hammering at it/.test(hammer);
+  const mend = crack > 0 ? (rams ? 'It can be mended once they have gone: masons can’t work under the rams' : `Draw the wall over it to mend it: ${Math.max(1, Math.ceil(price * (1 - p.hp / full)))} dr`) : '';
   return { title, detail: lines(hammer, `Strength ${Math.ceil(p.hp)} of ${full}`, what, mend) };
 }
 

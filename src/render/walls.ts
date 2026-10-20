@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { bandsAt } from '../sim/raids';
+import { position } from '../sim/walk';
 import { TILE_ROAD, TILE_WALL, type Building, type SimState, type WallPiece } from '../sim/state';
 import { crackOf, TOWER_TOP } from '../sim/walls';
 import { merge, type Part } from './trees';
@@ -52,11 +53,34 @@ export class WallsView {
     this.group.name = 'walls';
   }
 
+  /** The gates someone of yours is passing through while raiders are about, their doors drawn open for them ('' none). */
+  private pass = '';
+
+  /** Each frame: while raiders are about, a gate's door opens for your own soldiers and walkers going through it (the sim lets them by; slice 25's review). */
+  frame(s: SimState, hidden: ReadonlySet<number>): void {
+    const pass = s.walls.length > 0 && bandsAt(s).length > 0 ? this.passing(s, hidden) : '';
+    if (pass === this.pass) return;
+    this.pass = pass;
+    this.sync(s);
+  }
+
+  private passing(s: SimState, hidden: ReadonlySet<number>): string {
+    const n = this.map.size;
+    const near = (x: number, z: number, t: number): boolean => Math.abs(x - ((t % n) + 0.5)) < 1.2 && Math.abs(z - (Math.floor(t / n) + 0.5)) < 1.2;
+    const out: number[] = [];
+    for (const p of s.walls) {
+      if (!p.gate || p.hp <= 0) continue;
+      if (s.army.soldiers.some((x) => x.state !== 'fallen' && x.state !== 'healing' && near(x.x, x.z, p.t)) || s.walkers.some((w) => w.kind !== 'raider' && !hidden.has(w.id) && w.path.length >= 2 && near(...position(w), p.t))) out.push(p.t);
+    }
+    return out.join(',');
+  }
+
   /** Bring the walls up to date with the state (called whenever the state's revision moves). */
   sync(s: SimState): void {
     const towers = s.buildings.filter((b) => b.kind === 'tower');
     const shut = s.walls.length > 0 && bandsAt(s).length > 0;
-    const key = `${s.walls.map((p) => `${p.t}${p.gate ? 'g' : ''}${crackOf(p)}`).join(',')}|${towers.map((b) => `${b.x},${b.z}`).join(';')}|${shut ? 1 : 0}`;
+    const open = new Set(this.pass ? this.pass.split(',').map(Number) : []);
+    const key = `${s.walls.map((p) => `${p.t}${p.gate ? 'g' : ''}${crackOf(p)}`).join(',')}|${towers.map((b) => `${b.x},${b.z}`).join(';')}|${shut ? 1 : 0}|${this.pass}`;
     if (key === this.key) return;
     this.key = key;
     if (this.mesh) {
@@ -68,7 +92,7 @@ export class WallsView {
     const parts: Part[] = [];
     for (const p of s.walls) {
       if (p.hp <= 0) this.rubble(parts, s, p);
-      else if (p.gate) this.gate(parts, s, p, shut);
+      else if (p.gate) this.gate(parts, s, p, shut && !open.has(p.t));
       else this.stretch(parts, s, p);
     }
     for (const b of towers) this.tower(parts, b);
@@ -208,7 +232,7 @@ export class WallsView {
     }
     if (crack >= 1) {
       // Splintered: a pale gash in the door, and a seam in a pier.
-      for (let i = 0; i < crack; i++) {
+      for (let i = 0; shut && i < crack; i++) {
         const k = hash2(tx + i, tz, 908);
         this.box(parts, ew ? 0.07 : 0.11, dh * 0.45, ew ? 0.11 : 0.07, cx + (ew ? 0.05 + k * 0.2 : 0), g + dh * 0.15, cz + (ew ? 0 : 0.05 + k * 0.2), '#d8b98a');
       }
@@ -228,17 +252,31 @@ export class WallsView {
     // Which way the line ran: along its standing neighbours (or across the road, for a gate).
     const ew = this.joins(s, p.t, 1, 0) || this.joins(s, p.t, -1, 0) || (p.gate && (s.tiles[p.t + n] === TILE_ROAD || s.tiles[p.t - n] === TILE_ROAD));
     if (p.gate) {
-      // The piers broken off low, either side of the road.
+      // The piers broken off at about half their height, either side of the road, their tops jagged (slice 25's review: lower
+      // stumps read at play distance as a gate standing open).
       for (const side of [-1, 1]) {
         const o = side * 0.4;
-        const h = g - base + 0.28 + 0.14 * hash2(tx + side, tz, 913);
+        const h = g - base + 0.5 + 0.12 * hash2(tx + side, tz, 913);
         this.box(parts, ew ? 0.2 : THICK + 0.1, h, ew ? THICK + 0.1 : 0.2, cx + (ew ? o : 0), base, cz + (ew ? 0 : o), STONE_SHADE);
+        const half = (THICK + 0.1) / 2;
+        this.box(parts, ew ? 0.2 : half, 0.14, ew ? half : 0.2, cx + (ew ? o : (side * half) / 2), base + h, cz + (ew ? (side * half) / 2 : o), STONE_DARK, 0.2 * side);
       }
-      // A leaf of the door, split and thrown down.
-      const geo = new THREE.BoxGeometry(0.34, 0.05, 0.26);
+      // The lintel fallen at the foot of one pier, askew across the road's edge (the way through stays clear), and a leaf of
+      // the door, split and thrown down at the other.
+      const lo = hash2(tx, tz, 916) < 0.5 ? -1 : 1;
+      const out = hash2(tx, tz, 917) < 0.5 ? -1 : 1;
+      const at = (along: number, across: number): [number, number] => (ew ? [cx + along, cz + across] : [cx + across, cz + along]);
+      const lin = new THREE.BoxGeometry(0.7, 0.2, THICK * 0.7);
+      lin.rotateZ(0.22);
+      lin.rotateY((ew ? 0 : Math.PI / 2) + (hash2(tx, tz, 915) - 0.5) * 0.5);
+      const [lx, lz] = at(lo * 0.5, out * 0.45);
+      lin.translate(lx, g + 0.13, lz);
+      parts.push({ geo: lin, color: STONE });
+      const geo = new THREE.BoxGeometry(0.42, 0.06, 0.3);
       geo.rotateY(hash2(tx, tz, 914) * 2);
       geo.rotateX(0.18);
-      geo.translate(cx + (ew ? 0.06 : 0.22), g + 0.05, cz + (ew ? 0.22 : 0.06));
+      const [dx, dz] = at(-lo * 0.42, -out * 0.4);
+      geo.translate(dx, g + 0.05, dz);
       parts.push({ geo, color: TIMBER_DARK });
     } else {
       // The stumps of the wall, and a low heap where it fell, spilling out on both sides.
@@ -258,7 +296,7 @@ export class WallsView {
         if (ew) x = cx + push;
         else z = cz + push;
       }
-      const sz = 0.13 + 0.15 * c;
+      const sz = (p.gate ? 0.17 : 0.13) + 0.15 * c;
       const y = this.map.heightAt(x, z) - 0.02 + (p.gate ? 0 : 0.08) + (i < 6 ? 0.1 : 0);
       const geo = new THREE.BoxGeometry(sz * 1.3, sz * 0.8, sz);
       geo.rotateY(c * 3);

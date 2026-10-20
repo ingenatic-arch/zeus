@@ -34,7 +34,7 @@ import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
 import { sendExpedition, stepExpeditions } from './expeditions';
 import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } from './army';
 import { stepBattle } from './battle';
-import { dropWalls, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
+import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -721,6 +721,12 @@ export function undoRefusal(s: SimState): string {
     if (b.meat > 0 || b.cheese > 0) return `There is ${b.meat > 0 ? 'meat' : 'cheese'} stored in it now: clear it instead`;
     const k = b.goods.findIndex((n) => n > 0);
     if (k >= 0) return `There ${k + FIRST_GOOD === OLIVES || k + FIRST_GOOD === GRAPES ? 'are' : 'is'} ${WARE_NAMES[k + FIRST_GOOD]} stored in it now: clear it instead`;
+  }
+  // (A wall raiders have hammered at since stays, cracked or broken: undo would hand back its whole price. Slice 25's review.)
+  const ws = e.walls ?? [];
+  for (let i = 0; i + 2 < ws.length; i += 3) {
+    const p = wallAt(s, ws[i]);
+    if (p && p.hp < fullOf(p)) return p.hp > 0 ? 'Raiders have cracked that wall since: it stays (draw over it to mend it)' : 'Raiders have broken that wall since: it stays (draw over it to build it again)';
   }
   const st = e.stalls ?? [];
   for (let i = 0; i + 1 < st.length; i += 2) {
