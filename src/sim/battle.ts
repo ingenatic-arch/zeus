@@ -660,7 +660,11 @@ function fallMan(s: SimState, x: Soldier, c: Company | undefined, bands: Map<num
 
 /** A man killed: his house mourns him (its story, its mood, one fewer living there), and the town hears. */
 function mourn(s: SimState, x: Soldier, c: Company | undefined, r: Raid | undefined): void {
-  const foe = r ? `${whose(r)} raiders` : 'raiders';
+  mournMan(s, x, c, r ? `${whose(r)} ${r.loan ? 'army' : 'raiders'}` : 'raiders');
+}
+
+/** A man killed fighting `foe` ("Sparta’s raiders", or abroad "Corinth’s garrison": expeditions.ts): his house mourns him, and the town hears. */
+export function mournMan(s: SimState, x: Soldier, c: Company | undefined, foe: string): void {
   const company = c ? `${companyName(c)}` : 'his company';
   if (c?.hired || x.home === 0) {
     const h = c?.hired ? HIRELINGS[c.hired as HiredKind] : undefined;

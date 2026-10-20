@@ -31,6 +31,7 @@ import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
 import { loanCommand, stepLoans } from './loans';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
+import { sendExpedition, stepExpeditions } from './expeditions';
 import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } from './army';
 import { stepBattle } from './battle';
 import { dropWalls, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
@@ -193,12 +194,14 @@ export class Sim {
     // The rulers' requests, offers and tribute: deadlines, and now and then a new one (once your first route is six months old).
     stepFavours(s, map);
     // Loans either way: terms running out, days due, debts overdue (once a day; nothing with no loans).
-    stepLoans(s);
+    stepLoans(s, map);
     // Threats and war bands: deadlines, the band's march, its coming in (nothing in a town that has never opened a route).
     stepRaids(s, map);
     stepDiplomacy(s);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
+    // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
+    stepExpeditions(s, map);
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // Daily systems.
@@ -280,6 +283,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'loan':
       if (typeof c.act === 'string') loanCommand(s, c.act, String(c.city ?? ''), Number(c.amount ?? 0), Number(c.rate ?? 0), Number(c.months ?? 0), Number(c.loan ?? 0));
+      break;
+    case 'expedition':
+      if (c.kind === 'raid' || c.kind === 'force') sendExpedition(s, map, String(c.city), c.kind);
       break;
     case 'raise':
       if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);

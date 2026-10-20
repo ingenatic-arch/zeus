@@ -34,6 +34,13 @@
  * - **Afterwards.** The anger is partly spent (a memory), and a lull: no
  *   threat from that ruler for a year, and none from anyone for three months.
  *
+ * - **A lender's army** (slice 28, `raid.loan`): step 3 of a debt you have
+ *   not repaid (loans.ts). Its threat asks what is left owed, in coin, within
+ *   a month; paying it repays the loan. Its army is half again a band's size,
+ *   no mood calls it off, it sets nothing alight, and it takes up to 80 a man
+ *   of goods and 60 dr a man from the treasury (up to half of it), never more
+ *   in all than what is owed; what it carries off is taken off the debt.
+ *
  * One threat (or band) at a time across Greece; while one is live no ruler
  * makes a new request, offer or demand (favours.ts). Nothing here runs in a
  * town that has never opened a route. What is random is a hash of Greece's
@@ -51,9 +58,10 @@ import { FLEECE, held, OLIVES, setHeld, WARE_NAMES, WARES, WHEAT, type Ware } fr
 import { burnable, FIRE_BURNING, ignite } from './hazards';
 import { overland } from './roads';
 import { landTicks, routeWay, voyageTicks } from './routes';
-import type { Building, BuildingKind, Deal, Gift, Raid, SimState, Walker, World, WorldCity } from './state';
+import { collectorsGone, loanOf, payDebt } from './loans';
+import type { Building, BuildingKind, Deal, Gift, Loan, Raid, SimState, Walker, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { cityHolds, OLD_GOODS, TRADE_GOODS } from './trade';
+import { cityHolds, OLD_GOODS, TRADE_GOODS, tradeIndex } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
@@ -97,6 +105,16 @@ export function bandSize(s: SimState, city: CityId, roll: number): number {
   const base = MEN_LEAST + Math.floor(roll * (MEN_MOST - MEN_LEAST + 1));
   return Math.min(MEN_CAP, base + Math.round((Math.max(0, s.population - MEN_FROM) / MEN_PER) * (STRENGTH[city] ?? 1)));
 }
+/** A lender's army (slice 28): half again a band's size, at least 14 men, at most 60. */
+const DEBT_MEN = 1.5;
+const DEBT_LEAST = 14;
+const DEBT_MOST = 60;
+export const debtBand = (s: SimState, city: CityId, roll: number): number => Math.min(DEBT_MOST, Math.max(DEBT_LEAST, Math.round(bandSize(s, city, roll) * DEBT_MEN)));
+/** A lender's threat gives a month to pay what is left. */
+export const DEBT_DAYS = TICKS_PER_MONTH;
+/** What a lender's army carries off from the treasury: up to 60 dr a man, and up to half of it. */
+const DEBT_COIN_CARRY = 60;
+const DEBT_COIN_SHARE = 0.5;
 /** They cross your land at a run. */
 export const RAID_SPEED = WALK_SPEED * 1.6;
 /** How long they spend at each target (firing it, and loading up): long enough to see them there, and to pay them off before they take anything. */
@@ -177,22 +195,22 @@ export function mayThreaten(s: SimState, city: CityId): boolean {
  * (longer if the goods need it, or if raiders would otherwise reach you
  * within a year of your first route), and a line of news that can't wait.
  */
-export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string): Raid {
+export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string, debt?: Loan): Raid {
   const w = s.world;
-  const coin = peaceCoin(s);
+  const coin = debt ? debt.owed : peaceCoin(s);
   // The goods they would take instead: one they are short of that your stores hold and you could send them.
   const n = w.nextRaid;
   const canGoods = !('why' in giftWay(s, map, c.id, false));
   const worth = (k: number): number => clamp(Math.round((coin * 100) / Math.max(1, c.price[k]) / 100) * 100, 200, 2000);
   // (Only a good your stores hold twice over, as a request asks no more than about half: fetching it is then quick, and the day it would arrive can be trusted.)
-  const goods = canGoods ? sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS && cityHolds(s, TRADE_GOODS[k]) >= 2 * worth(k)) : [];
+  const goods = canGoods && !debt ? sellsAndBuys(c).buys.filter((k) => k < OLD_GOODS && cityHolds(s, TRADE_GOODS[k]) >= 2 * worth(k)) : [];
   const alt = goods.length ? goods[Math.floor(dice(w, n, 0, 1) * goods.length)] : -1;
   const altAmount = alt >= 0 ? worth(alt) : 0;
   const first = firstRoute(w);
   const march = marchTicks(c.id);
-  let days = Math.max(deadlineFor(s, map, c.id, -1, coin, THREAT_DAYS), alt >= 0 ? deadlineFor(s, map, c.id, alt, altAmount, THREAT_DAYS) : 0);
-  // (No raiders at your edge within a year of your first route.)
-  if (first) days = Math.max(days, first + TICKS_PER_YEAR - GATHER - march - s.tick);
+  let days = debt ? DEBT_DAYS : Math.max(deadlineFor(s, map, c.id, -1, coin, THREAT_DAYS), alt >= 0 ? deadlineFor(s, map, c.id, alt, altAmount, THREAT_DAYS) : 0);
+  // (No raiders at your edge within a year of your first route; a lender's army comes when the debt says.)
+  if (first && !debt) days = Math.max(days, first + TICKS_PER_YEAR - GATHER - march - s.tick);
   days = Math.ceil(days / TICKS_PER_DAY) * TICKS_PER_DAY;
   const why = cause;
   const d = makeDeal(s, 'threat', c.id, -1, coin, s.tick + days, why);
@@ -202,7 +220,7 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     id: w.nextRaid++,
     deal: d.id,
     city: c.id,
-    men: bandSize(s, c.id, dice(w, n, 0, 2)),
+    men: debt ? debtBand(s, c.id, dice(w, n, 0, 2)) : bandSize(s, c.id, dice(w, n, 0, 2)),
     phase: 'threat',
     by: land ? 'land' : 'sea',
     way,
@@ -233,9 +251,15 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     breaches: 0,
     ended: 0,
     end: '',
+    loan: debt ? debt.id : 0,
   };
   w.raids.push(r);
   if (!w.contact) w.contact = Math.max(1, s.tick);
+  if (debt) {
+    news(w, s.tick, c.id, `${rulerName(c)} will wait no longer for the ${fmt(coin)} dr you owe: pay it ${dueIn(days, s.tick + days)}, or ${his(c)} army will come to collect it, about ${r.men} men`, true);
+    s.rev++;
+    return r;
+  }
   news(w, s.tick, c.id, `${rulerName(c)} is out of patience: pay ${fmt(coin)} dr${alt >= 0 ? ` or send ${giftWords(alt, altAmount)}` : ''} ${dueIn(days, s.tick + days)}, or ${his(c)} raiders will come, about ${r.men} men`, true);
   s.rev++;
   return r;
@@ -263,6 +287,24 @@ export function threatFromTribute(s: SimState, map: CoastMap, c: WorldCity, d: D
   if (!mayThreaten(s, c.id)) return;
   d.angry = false;
   threaten(s, map, c, `you refused ${his(c)} tribute while ${c.ruler?.female ? 'she' : 'he'} was cold towards you`);
+}
+
+/** A lender's threat over a debt of yours (loans.ts, step 3): what is left owed, in coin, within a month, or an army comes to collect it. */
+export function threatenDebt(s: SimState, map: CoastMap, c: WorldCity, l: Loan): Raid {
+  return threaten(s, map, c, `you have not repaid ${rulerWord(c).replace(/^the /, 'the ')}’s loan of ${fmt(l.amount)} dr`, l);
+}
+
+/** The debt a lender's army comes for, if it is one. */
+export const debtOf = (s: SimState, r: Raid): Loan | undefined => (r.loan ? loanOf(s.world, r.loan) : undefined);
+
+/** What a lender's army has carried off so far, at the lender's prices (dr): the coin it took and the goods, less what was taken back from its fallen. */
+export function lootValue(s: SimState, r: Raid): number {
+  const coin = r.stole - r.coinBack;
+  const goods = r.took - r.regained;
+  if (goods <= 0 || r.ware < 0) return Math.max(0, coin);
+  const k = tradeIndex(r.ware as Ware);
+  const unit = k >= 0 ? cityOf(s.world, r.city).price[k] / 100 : 1;
+  return Math.max(0, coin) + Math.round(goods * unit);
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +335,7 @@ export function stepRaids(s: SimState, map: CoastMap): void {
     const c = cityOf(w, r.city);
     const d = dealOf(w, r.deal);
     // Their mood mended past cold (a gift, or time): the threat is called off, the band turned back.
-    if (moodOf(c, s.tick) > COLD) {
+    if (!r.loan && moodOf(c, s.tick) > COLD) {
       callOff(s, r, 'called');
       continue;
     }
@@ -345,10 +387,15 @@ export function gather(s: SimState, r: Raid, refused: boolean): void {
   r.start = s.tick;
   // (Ten days; longer, so that no raiders reach your edge within a year of your first route.)
   const first = firstRoute(s.world);
-  r.dur = Math.ceil(Math.max(GATHER, first ? first + TICKS_PER_YEAR - marchTicks(r.city) - s.tick : 0) / TICKS_PER_DAY) * TICKS_PER_DAY;
+  r.dur = Math.ceil(Math.max(GATHER, first && !r.loan ? first + TICKS_PER_YEAR - marchTicks(r.city) - s.tick : 0) / TICKS_PER_DAY) * TICKS_PER_DAY;
   r.a0 = L;
   r.a1 = L;
   const days = Math.round((r.dur + marchTicks(r.city)) / TICKS_PER_DAY);
+  if (r.loan) {
+    news(s.world, s.tick, r.city, `${refused ? `You would not pay ${rulerShort(c)}: ` : ''}${whose(r.city)} army gathers to collect your debt, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${days} days. Pay the ${fmt(r.coin)} dr to turn them back`, true);
+    s.rev++;
+    return;
+  }
   news(s.world, s.tick, r.city, `${refused ? `You defied ${rulerShort(c)}: ` : ''}${whose(r.city)} raiders gather to march on your city, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${days} days. Pay ${fmt(r.coin)} dr to turn them back`, true);
   s.rev++;
 }
@@ -491,7 +538,8 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   setPath(band, at.path);
   s.walkers.push(band);
   const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
-  news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  if (r.loan) news(w, s.tick, r.city, `${whose(r.city)} army is in at the ${RAID_SIDE[r.city]} edge of your land, ${r.men} men come to collect the ${fmt(r.coin)} dr you owe, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
+  else news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   void c;
   s.rev++;
 }
@@ -674,7 +722,8 @@ const firesFor = (r: Raid): number => Math.min(FIRES_MOST, FIRES_LEAST + Math.fl
  * can spread. Not with fire switched off (as while a demo's history is built).
  */
 function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
-  if (!s.hazards || r.broke || r.end !== '' || r.fires >= firesFor(r) || w.wait > 0) return;
+  // (A lender's army came for coin, and sets nothing alight.)
+  if (!s.hazards || r.loan || r.broke || r.end !== '' || r.fires >= firesFor(r) || w.wait > 0) return;
   // (One at most on their way in: the rest as they leave, loaded.)
   if (!w.back && r.fires >= 1) return;
   if (dice(s.world, r.id, Math.floor(s.tick / TICKS_PER_DAY), 7) >= TORCH_ODDS) return;
@@ -703,7 +752,7 @@ function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
 /** At the target, as they come: a field set alight; a store too, if there is little in it worth carrying (never the tax office: they came for its coin). */
 function light(s: SimState, b: Building, r: Raid | undefined): void {
   // (Slice 24's review: with nothing in it to count as worth carrying, every tax office they reached was set alight, and burnt down.)
-  if (!r || r.end !== '' || b.kind === 'taxoffice') return;
+  if (!r || r.end !== '' || r.loan || b.kind === 'taxoffice') return;
   const field = FIELDS[b.kind] !== undefined;
   let most = 0;
   for (const x of WARES) most = Math.max(most, held(b, x));
@@ -720,13 +769,16 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
   const b = findBuilding(s, w.target);
   if (!b || !r || r.end !== '') return;
   const city = r.city;
+  // (A lender's army: never more in all than what is owed, at the lender's prices.)
+  const debt = debtOf(s, r);
+  const left = debt ? Math.max(0, debt.owed - lootValue(s, r)) : Infinity;
   const most = w.people * CARRY;
   const field = FIELDS[b.kind];
   let ware = -1;
   let took = 0;
   if (b.kind === 'taxoffice') {
-    // The treasury: up to a tenth of it, as much as they can carry.
-    const coin = Math.min(Math.floor(Math.max(0, s.money) * COIN_SHARE), w.people * COIN_CARRY);
+    // The treasury: up to a tenth of it, as much as they can carry (a lender's army: up to half, and what is owed).
+    const coin = debt ? Math.min(Math.floor(Math.max(0, s.money) * DEBT_COIN_SHARE), w.people * DEBT_COIN_CARRY, left) : Math.min(Math.floor(Math.max(0, s.money) * COIN_SHARE), w.people * COIN_CARRY);
     if (coin > 0) {
       pay(s, -coin, 'raid', `${cityName(city)} · drachmas`, coin);
       r.stole += coin;
@@ -746,6 +798,13 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
       took = Math.min(Math.floor(held(b, best) / 2), most);
     }
   }
+  if (debt && ware >= 0 && took > 0) {
+    const k = tradeIndex(ware as Ware);
+    const unit = k >= 0 ? cityOf(s.world, city).price[k] / 100 : 1;
+    took = Math.min(took, Math.ceil(left / Math.max(0.01, unit)));
+    // (Another ware than the one they carry already: they take only the one, as a band does.)
+    if (r.ware >= 0 && r.ware !== ware && r.took > r.regained) took = 0;
+  }
   if (ware >= 0 && took > 0) {
     setHeld(b, ware, held(b, ware) - took);
     note(s, ware, 'lost', `raid:${city}`, took);
@@ -756,6 +815,8 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
     r.took += took;
     s.looks++;
   }
+  // (A lender's army with what it came for: home, with nothing more.)
+  if (debt && lootValue(s, r) >= debt.owed) r.next = [];
   s.rev++;
 }
 
@@ -824,6 +885,12 @@ function settle(s: SimState, r: Raid, how: string): void {
     d.state = how === 'paid' ? 'met' : how === 'called' ? 'ended' : 'raided';
     d.ended = s.tick;
   }
+  if (r.loan && (how === 'raided' || how === 'nothing')) {
+    // A lender's army gone: what it carried off comes off the debt (loans.ts). No anger spent: it came for coin.
+    collectorsGone(s, r, lootValue(s, r));
+    s.rev++;
+    return;
+  }
   if (how === 'raided' || how === 'nothing') {
     const loot = lootWords(r);
     const lost = loot ? `${loot} carried off` : '';
@@ -851,7 +918,7 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
   const was = r.phase;
   settle(s, r, how);
   const d = dealOf(w, r.deal);
-  if (how === 'paid') c.memories.push(answerMemory(c, 'peace', `you paid them to call off their raiders (${r.alt >= 0 && d?.good === r.alt ? giftWords(r.alt, d.got || r.altAmount) : `${fmt(r.coin)} dr`})`, s.tick));
+  if (how === 'paid' && !r.loan) c.memories.push(answerMemory(c, 'peace', `you paid them to call off their raiders (${r.alt >= 0 && d?.good === r.alt ? giftWords(r.alt, d.got || r.altAmount) : `${fmt(r.coin)} dr`})`, s.tick));
   const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
   const { L } = wayFor(r.city, r.by);
   if (was === 'threat') r.phase = 'done';
@@ -872,8 +939,9 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
   }
   // (In your city: the band sees it next tick and heads off, moveRaider.)
   const band = was === 'raiding' ? ' turn back' : was === 'threat' ? '' : ' turn round on the road home';
-  const line =
-    how === 'paid'
+  const line = r.loan
+    ? `${rulerShort(c)} has the coin you owed: ${was === 'threat' ? 'the threat to collect it is lifted' : `${his(c)} army${band}`}`
+    : how === 'paid'
       ? was === 'threat'
         ? `${rulerShort(c)} has the price of peace: the threat is lifted`
         : `${rulerShort(c)} has the price of peace: ${his(c)} raiders${band}`
@@ -894,6 +962,12 @@ export function threatRefusal(s: SimState, map: CoastMap, d: Deal, act: string):
   // (Leaving already, with whatever they took: nothing to pay for.)
   const leaving = r.phase === 'raiding' && raidersOf(s, r)?.back === true;
   if ((act === 'send' || act === 'goods') && leaving) return 'They are leaving your land already';
+  if (r.loan) {
+    // (A lender's army: paying is repaying the loan; nothing once they are in your city, taking what is owed.)
+    const l = loanOf(s.world, r.loan);
+    if (act === 'goods') return 'They want coin';
+    if (act === 'send') return !l ? 'It is settled' : r.phase === 'raiding' ? 'They are in your city, taking what is owed' : spendable(s) < l.owed ? `The treasury can’t spare ${fmt(l.owed)} dr now` : '';
+  }
   if (act === 'send') {
     if (d.gift) return 'What you sent is on its way';
     return spendable(s) < r.coin ? `The treasury can’t spare ${fmt(r.coin)} dr now` : '';
@@ -919,6 +993,10 @@ export function answerThreat(s: SimState, map: CoastMap, d: Deal, act: string): 
   if (!r || threatRefusal(s, map, d, act) !== '') return;
   if (act === 'refuse') {
     gather(s, r, true);
+    return;
+  }
+  if (act === 'send' && r.loan) {
+    payDebt(s, r.loan);
     return;
   }
   if (act === 'send') {
@@ -1033,10 +1111,17 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
     const wall = band && besieging(s, r, band) ? wallAt(s, r.siege) : undefined;
     const doing = !band ? '' : r.broke ? `beaten, running for the edge${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)} to get out${loot ? ` with ${loot}` : ''}` : loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${ats}` : wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)}, to get at ${ats}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) + (rest ? `, then making for ${rest}` : '') : `making for ${ats}`;
     const left = r.men - r.fallen;
+    // (A lender's army (slice 28) came for what you owe: it can't be paid off once it is in.)
+    if (r.loan) return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Collectors in the city', line: `${left} of ${whose(r.city)} men, come to collect what you owe, are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}` };
     return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Raiders in the city', line: `${left} of ${whose(r.city)} raiders are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
   }
   const days = daysToEdge(r, s.tick);
   const when = `${days === 1 ? '1 day' : `${days} days`}`;
+  if (r.loan)
+    return {
+      chip: `${name}’s army · ${r.men} men · ${when}`,
+      line: `${whose(r.city)} army ${r.phase === 'gathering' ? 'is gathering' : 'is on the march'} to collect what you owe, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${when} (${dayWords(reachesEdge(s, r))}). Pay the ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
+    };
   return {
     chip: `${name}’s raiders · ${r.men} men · ${when}`,
     line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
@@ -1052,6 +1137,7 @@ export function raidLine(s: SimState, map: CoastMap, r: Raid): string {
     const days = Math.max(0, Math.ceil((d.due - s.tick) / TICKS_PER_DAY));
     if (d.gift) return `${whose(r.city)} price of peace is on its way: ${rulerShort(c)} waits for it`;
     void map;
+    if (r.loan) return `${rulerName(c)} sends to collect what you owe: pay the ${fmt(r.coin)} dr by ${dayWords(d.due)} (${days === 1 ? '1 day' : `${days} days`}), or about ${r.men} of ${his(c)} men will come and take it. Answer on ${name}’s page`;
     return `${rulerName(c)} threatens your city: pay ${fmt(r.coin)} dr${r.alt >= 0 ? ` or send ${giftWords(r.alt, r.altAmount)}` : ''} by ${dayWords(d.due)} (${days === 1 ? '1 day' : `${days} days`}), or ${his(c)} raiders will come, about ${r.men} men. Answer on ${name}’s page`;
   }
   return raidChip(s, r, map)?.line ?? '';
@@ -1062,8 +1148,8 @@ export function raiderDoing(s: SimState, w: Walker): { title: string; detail: st
   const r = raidOfBand(s, w);
   const city = CITY_IDS[w.food] ?? 'sparta';
   const name = cityName(city);
-  const title = `Raiders of ${name}`;
-  const kit = `${w.people} men in ${whose(city)} colours, with shields and torches${r && r.fallen ? ` (${r.fallen} fallen)` : ''}`;
+  const title = r?.loan ? `${name}’s collectors` : `Raiders of ${name}`;
+  const kit = r?.loan ? `${w.people} men in ${whose(city)} colours, come for what you owe${r.fallen ? ` (${r.fallen} fallen)` : ''}` : `${w.people} men in ${whose(city)} colours, with shields and torches${r && r.fallen ? ` (${r.fallen} fallen)` : ''}`;
   const b = findBuilding(s, w.target);
   const aim = b ? aimWords(b) : 'what they came for';
   const loot = r ? lootWords(r) : '';
@@ -1073,6 +1159,7 @@ export function raiderDoing(s: SimState, w: Walker): { title: string; detail: st
     const why = r && r.end === 'paid' ? `paid off, they are leaving your land` : r && r.end === 'called' ? `called off, they are leaving your land` : 'leaving your land the way they came';
     return { title, detail: `${kit} · ${loot ? `${why}, with ${loot} in their sacks` : why}` };
   }
+  if (w.wait > 0 && r?.loan) return { title, detail: `${kit} · ${b?.kind === 'taxoffice' ? 'taking the treasury’s drachmas' : `emptying ${aim}`}, up to what is owed` };
   if (w.wait > 0) return { title, detail: `${kit} · ${b && FIELDS[b.kind] !== undefined ? `setting fire to ${aim} and emptying its barn` : b?.kind === 'taxoffice' ? 'breaking into the tax office for the treasury’s drachmas' : `plundering ${aim}`}` };
-  return { title, detail: `${kit} · crossing your land to ${aim}${r && live(r) ? ` · pay ${fmt(r.coin)} dr on ${name}’s page to turn them back` : ''}` };
+  return { title, detail: `${kit} · crossing your land to ${aim}${r && live(r) && !r.loan ? ` · pay ${fmt(r.coin)} dr on ${name}’s page to turn them back` : ''}` };
 }

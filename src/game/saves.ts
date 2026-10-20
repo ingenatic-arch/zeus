@@ -298,7 +298,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned', 'seized', 'collected'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -397,17 +397,17 @@ const SOLDIER_NUMBERS = ['id', 'company', 'slot', 'home', 'x', 'z', 'face', 'seg
 function armyOk(a: unknown): boolean {
   if (!isObj(a) || !fin(a.nextId) || !Array.isArray(a.companies) || !Array.isArray(a.soldiers)) return false;
   const companyOk = (c: unknown): boolean =>
-    isObj(c) && COMPANY_NUMBERS.every((k) => fin(c[k])) && (c.kind === 'hoplite' || c.kind === 'archer') && ['drill', 'march', 'hold', 'return'].includes(c.order as string) && nums(c.path) && (c.path as number[]).length % 2 === 0 && typeof c.why === 'string';
+    isObj(c) && COMPANY_NUMBERS.every((k) => fin(c[k])) && (c.kind === 'hoplite' || c.kind === 'archer') && ['drill', 'march', 'hold', 'return', 'away'].includes(c.order as string) && (c.away === undefined || fin(c.away)) && nums(c.path) && (c.path as number[]).length % 2 === 0 && typeof c.why === 'string';
   const soldierOk = (x: unknown): boolean =>
-    isObj(x) && SOLDIER_NUMBERS.every((k) => fin(x[k])) && ['coming', 'arming', 'ready', 'leaving'].includes(x.state as string) && typeof x.name === 'string' && typeof x.father === 'string' && typeof x.house === 'string' && (x.kin === undefined || ['head', 'son', 'husband', 'brother', 'cousin'].includes(x.kin as string)) && typeof x.armed === 'boolean' && nums(x.path) && (x.path as number[]).length % 2 === 0;
+    isObj(x) && SOLDIER_NUMBERS.every((k) => fin(x[k])) && ['coming', 'arming', 'ready', 'leaving', 'fallen', 'wounded', 'healing', 'away'].includes(x.state as string) && typeof x.name === 'string' && typeof x.father === 'string' && typeof x.house === 'string' && (x.kin === undefined || ['head', 'son', 'husband', 'brother', 'cousin'].includes(x.kin as string)) && typeof x.armed === 'boolean' && nums(x.path) && (x.path as number[]).length % 2 === 0;
   return a.companies.every(companyOk) && a.soldiers.every(soldierOk);
 }
 
 /** Greece: its seed and random numbers, your city's name, and the six cities in order with their rulers, memories and goods. */
 function worldOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.seed) || !nums(w.rng, 4) || typeof w.name !== 'string' || !Array.isArray(w.cities) || w.cities.length !== CITY_IDS.length) return false;
-  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids, w.wars].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid) || !fin(w.nextWar) || !strs(w.feuds) || !Array.isArray(w.loans) || !fin(w.nextLoan)) return false;
-  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk) || !(w.wars as unknown[]).every(warOk) || !(w.loans as unknown[]).every(loanOk)) return false;
+  if (![w.routes, w.deals, w.travellers, w.news, w.gifts, w.raids, w.wars].every(Array.isArray) || !fin(w.nextGift) || !fin(w.contact) || !fin(w.nextDeal) || !fin(w.nextRaid) || !fin(w.nextWar) || !strs(w.feuds) || !Array.isArray(w.loans) || !fin(w.nextLoan) || !Array.isArray(w.expeditions) || !fin(w.nextExpedition)) return false;
+  if (!(w.gifts as unknown[]).every(giftOk) || !(w.deals as unknown[]).every(dealOk) || !(w.raids as unknown[]).every(raidOk) || !(w.wars as unknown[]).every(warOk) || !(w.loans as unknown[]).every(loanOk) || !(w.expeditions as unknown[]).every(expeditionOk)) return false;
   const g = TRADE_GOODS.length;
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
@@ -426,15 +426,25 @@ const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'st
 const DEAL_NUMBERS = ['id', 'good', 'amount', 'at', 'due', 'gift', 'got', 'ended', 'price', 'done', 'until', 'paid'];
 const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided'];
 
-const LOAN_NUMBERS = ['id', 'amount', 'rate', 'months', 'owed', 'deal', 'gift', 'at', 'until', 'start', 'due', 'ended'];
-const LOAN_STATES = ['asking', 'terms', 'proposed', 'coming', 'offering', 'sending', 'returning', 'running', 'overdue', 'repaying', 'repaid', 'refused', 'declined', 'lapsed'];
+const LOAN_NUMBERS = ['id', 'amount', 'rate', 'months', 'owed', 'deal', 'gift', 'at', 'until', 'start', 'due', 'ended', 'step', 'stepAt', 'fell', 'seized', 'extended', 'raid', 'demand', 'sent'];
+const LOAN_STATES = ['asking', 'terms', 'proposed', 'coming', 'offering', 'sending', 'returning', 'running', 'overdue', 'repaying', 'grace', 'repaid', 'refused', 'declined', 'lapsed', 'forgiven', 'collected'];
 const whysOk = (x: unknown): boolean => Array.isArray(x) && x.every((y: unknown) => isObj(y) && typeof y.why === 'string' && fin(y.n));
 
 /** A loan either way: its city, side, state, numbers and the reasons for its terms. */
 function loanOk(l: unknown): boolean {
   if (!isObj(l) || !RULED.includes(l.city as never) || (l.side !== 'in' && l.side !== 'out') || (l.by !== 'you' && l.by !== 'them') || !LOAN_STATES.includes(l.state as string)) return false;
-  if (typeof l.why !== 'string' || typeof l.late !== 'boolean' || !whysOk(l.rateWhy) || !whysOk(l.monthsWhy)) return false;
+  if (typeof l.why !== 'string' || ![l.late, l.withhold, l.reminded, l.demanded].every((b) => typeof b === 'boolean') || !whysOk(l.rateWhy) || !whysOk(l.monthsWhy)) return false;
   return LOAN_NUMBERS.every((k) => fin(l[k]));
+}
+
+const EXPEDITION_NUMBERS = ['id', 'loan', 'edge', 'start', 'dur', 'a0', 'a1', 'at', 'ours', 'theirs', 'odds', 'fallen', 'coin', 'good', 'goods', 'value', 'ended'];
+const EXPEDITION_PHASES = ['mustering', 'marching', 'fighting', 'homeward', 'back', 'done'];
+
+/** An expedition of your companies: its city, kind, phase, way, numbers, companies and men, and its report. */
+function expeditionOk(x: unknown): boolean {
+  if (!isObj(x) || !RULED.includes(x.city as never) || (x.kind !== 'raid' && x.kind !== 'force') || !EXPEDITION_PHASES.includes(x.phase as string) || !['land', 'sea'].includes(x.by as string)) return false;
+  if (typeof x.way !== 'string' || typeof x.won !== 'boolean' || !strs(x.report) || ![x.companies, x.men, x.killed, x.wounded].every((a) => nums(a))) return false;
+  return EXPEDITION_NUMBERS.every((k) => fin(x[k]));
 }
 
 const WAR_NUMBERS = ['id', 'start', 'until', 'menA', 'menB', 'ended'];
@@ -446,7 +456,7 @@ function warOk(x: unknown): boolean {
   return WAR_NUMBERS.every((k) => fin(x[k]));
 }
 
-const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches'];
+const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches', 'loan'];
 const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];
 
 /** A threat and its war band: its city, phase, way and numbers. */

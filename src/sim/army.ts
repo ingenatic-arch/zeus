@@ -330,6 +330,7 @@ export function raise(s: SimState, barracks: number, kind: CompanyKind): Company
     hired: '',
     strong: 0,
     routed: false,
+    away: 0,
   };
   s.army.companies.push(c);
   const [x, z] = drillSpot(s, b, c);
@@ -442,7 +443,7 @@ function sendHome(s: SimState, map: CoastMap, x: Soldier): void {
 /** Dismiss a company: the men go home, their armour back on the rack (hirelings walk off the way they came, with their own); what it was owed is still paid. */
 export function dismiss(s: SimState, map: CoastMap, id: number): void {
   const c = companyOf(s, id);
-  if (!c) return;
+  if (!c || c.away) return;
   const b = findBuilding(s, c.barracks);
   for (const x of s.army.soldiers.filter((o) => o.company === c.id)) {
     if (x.state === 'fallen') continue;
@@ -552,6 +553,7 @@ export function wayFrom(s: SimState, map: CoastMap, x: number, z: number, goal: 
 /** Why a company can't march to a tile, or '' if it can (`way`: its way there, worked out). */
 export function marchRefusal(s: SimState, map: CoastMap, c: Company | undefined, tile: number): string {
   if (!c) return 'No such company';
+  if (c.away) return 'Away on an expedition';
   const n = map.size;
   if (!Number.isInteger(tile) || tile < 0 || tile >= n * n) return 'Beyond the edge of the map';
   if (!walkable(map, s, tile)) return s.tiles[tile] > 0 ? 'A building stands there: send it to a street or open ground' : 'No footing there: water, the river bank or a cliff';
@@ -563,6 +565,7 @@ export function marchRefusal(s: SimState, map: CoastMap, c: Company | undefined,
 export function sendBanner(s: SimState, map: CoastMap, id: number, tile: number): boolean {
   const c = companyOf(s, id);
   if (!c) return false;
+  if (c.away && tile < 0) return false;
   if (tile < 0) return recall(s, map, c);
   if (marchRefusal(s, map, c, tile) !== '') return false;
   const way = wayFrom(s, map, c.x, c.z, tile);
@@ -668,6 +671,11 @@ function daily(s: SimState, map: CoastMap): void {
     const men = menOf(s, c);
     const waiting = men.filter((x) => x.state === 'arming').length;
     c.why = '';
+    // (Away on an expedition (slice 28): its places are filled once it is home.)
+    if (c.away) {
+      c.why = 'Away on an expedition: its places are filled once it is home';
+      continue;
+    }
     // (Hirelings come all at once, and nobody fills a hireling's place.)
     if (c.hired) continue;
     // (Nor while it fights or runs: the men called would come into the fight one by one.)
@@ -879,8 +887,8 @@ function stepTo(x: Soldier, tx: number, tz: number, pace: number): boolean {
 /** Where a man of a company stands now: his place in its ranks, or in its column on the march. */
 export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x: number; z: number; face: number } {
   const base = baseOf(s, map, c);
-  // Waiting for armour, he stands on the drill ground whatever the company is doing.
-  if (x.state === 'arming' && base.b && c.order !== 'drill') {
+  // Waiting for armour, he stands on the drill ground whatever the company is doing (and so does a man left behind while it is away).
+  if ((x.state === 'arming' || c.order === 'away') && base.b && c.order !== 'drill') {
     const [hx, hz] = base.spot;
     const front = base.front;
     const [px, pz] = slotAt(c.kind, x.slot, hx, hz, front);
@@ -923,7 +931,8 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     return;
   }
   // (Fighting, his steps are the battle's; fallen or lying wounded, he lies still; healing, he is in the colonnade.)
-  if (x.state === 'leaving' || x.state === 'fallen' || x.state === 'healing' || x.foe > 0) return;
+  // (Away on an expedition, he is off your map: expeditions.ts moves him.)
+  if (x.state === 'leaving' || x.state === 'fallen' || x.state === 'healing' || x.state === 'away' || x.foe > 0) return;
   if (x.state === 'wounded') {
     if (s.tick - x.fell >= LIE) limpBack(s, map, x);
     return;
@@ -953,7 +962,7 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     const goal = c.order === 'hold' || c.order === 'march' ? (c.target >= 0 ? c.target : Math.floor(c.z) * map.size + Math.floor(c.x)) : baseOf(s, map, c).gate;
     const way = wayFrom(s, map, x.x, x.z, goal);
     if (way) {
-      x.path = c.order === 'drill' || c.order === 'return' ? [...way, ...baseOf(s, map, c).spot] : way;
+      x.path = c.order === 'drill' || c.order === 'return' || c.order === 'away' ? [...way, ...baseOf(s, map, c).spot] : way;
       x.seg = 1;
     } else x.cool = LOOK_AGAIN;
     return;
@@ -1039,7 +1048,7 @@ export function doingWords(s: SimState, c: Company): string {
   const ready = men.filter((x) => x.state === 'ready').length;
   const coming = men.filter((x) => x.state === 'coming').length;
   const arming = men.filter((x) => x.state === 'arming').length;
-  const what = c.routed ? 'broken, running back to barracks' : fighting(s, c) ? 'fighting' : c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
+  const what = c.order === 'away' ? 'away on an expedition' : c.routed ? 'broken, running back to barracks' : fighting(s, c) ? 'fighting' : c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
   const hurt = men.filter((x) => x.state === 'wounded' || x.state === 'healing').length;
   if (c.hired && coming === men.length && men.length > 0) return `walking in from the edge of your land (${men.length} men)`;
   if (c.hired || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;

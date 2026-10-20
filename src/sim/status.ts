@@ -11,6 +11,7 @@ import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './cult
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals, sendTicks } from './favours';
 import { loanOfDeal, loanTownLine, termsWords } from './loans';
+import { expeditionLine, expeditionOut } from './expeditions';
 import {
   BARN,
   CHEESE_BATCH,
@@ -1202,7 +1203,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
   // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
-  const loan = loanTownLine(s);
+  // (Or your soldiers out on an expedition: where they are; slice 28.)
+  const away = expeditionOut(s);
+  const loan = loanTownLine(s) ?? (away ? { text: `${expeditionLine(s, away)}.`, city: away.city } : null);
   if (loan) out.push({ need: 'loan', text: loan.text, at: 0, route: loan.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);

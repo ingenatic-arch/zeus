@@ -115,7 +115,7 @@ describe('terms', () => {
     expect(askRefusal(s, 'corinth', 5000)).toBe('Corinth can spare 2,500 dr at most now');
     const c = ruler(s, 'corinth', ['pious', 'warlike'], 10);
     const t0 = loanTerms(s, c).rate;
-    s.world.loans.push({ id: 99, city: 'athens', side: 'in', by: 'you', state: 'running', amount: 1000, rate: 10, months: 12, owed: 1100, rateWhy: [], monthsWhy: [], why: '', deal: 0, gift: 0, at: s.tick, until: 0, start: s.tick, due: s.tick + TICKS_PER_YEAR, ended: 0, late: false });
+    s.world.loans.push({ id: 99, city: 'athens', side: 'in', by: 'you', state: 'running', amount: 1000, rate: 10, months: 12, owed: 1100, rateWhy: [], monthsWhy: [], why: '', deal: 0, gift: 0, at: s.tick, until: 0, start: s.tick, due: s.tick + TICKS_PER_YEAR, ended: 0, late: false, step: 0, stepAt: 0, fell: 0, seized: 0, withhold: false, extended: 0, reminded: false, raid: 0, demand: 0, demanded: false, sent: 0 });
     expect(loanTerms(s, c).rate).toBe(t0 + 4);
     expect(loanTerms(s, c).rateWhy.some((x) => x.why === 'you owe Athens already')).toBe(true);
   });

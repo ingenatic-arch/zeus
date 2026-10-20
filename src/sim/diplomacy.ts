@@ -38,7 +38,7 @@ import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { held, setHeld, WARE_NAMES, type Ware } from './foods';
 import { rateOf } from './labour';
-import { heraldArrived, heraldWords } from './loans';
+import { heraldArrived, heraldWords, seizing } from './loans';
 import { caravanEntry, caravanYard, landTicks, routeWay, voyageTicks, type RouteKind } from './routes';
 import { door } from './rounds';
 import { roomFor } from './stores';
@@ -511,15 +511,17 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   if (!c.ruler) return '';
   const mood = moodOf(c, s.tick);
   const hostile = mood <= HOSTILE;
+  // (Slice 28: closed too while they seize your goods over a debt unpaid: loans.ts.)
+  const shut = hostile || seizing(s.world, c.id);
   const closed: RouteKind[] = [];
   const opened: RouteKind[] = [];
   for (const r of s.world.routes) {
     if (r.city !== c.id) continue;
-    if (hostile && r.closed === 0) {
+    if (shut && r.closed === 0) {
       r.closed = s.tick;
       closed.push(r.kind);
       recall(s, r);
-    } else if (!hostile && r.closed > 0) {
+    } else if (!shut && r.closed > 0) {
       r.closed = 0;
       opened.push(r.kind);
     }
@@ -533,7 +535,7 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   const why = cause || causeOf(c, s.tick, up);
   const word = MOOD_WORDS[lvl];
   const because = why ? `: ${why}` : '';
-  if (closed.length) return `${name} is hostile now, and has closed ${waysWords(closed)} to your city${because}`;
+  if (closed.length && hostile) return `${name} is hostile now, and has closed ${waysWords(closed)} to your city${because}`;
   // Warming into cordial or better, softening while still wary or worse; cooling while still cordial or better, turning below it.
   const turn = up ? (lvl >= 3 ? `${name} has warmed to you, ${word} now` : `${name} has softened towards you, ${word} now`) : lvl >= 3 ? `${name} has cooled towards you, ${word} now` : `${name} has turned ${word} towards you`;
   return `${turn}${opened.length ? `, and has opened ${waysWords(opened)} again` : ''}${because}`;

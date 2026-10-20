@@ -145,6 +145,7 @@ export function migrate(st: unknown): number {
   if (st.version === 22) from22(st);
   if (st.version === 23) from23(st);
   if (st.version === 24) from24(st);
+  if (st.version === 25) from25(st);
   return from;
 }
 
@@ -509,4 +510,29 @@ function from24(st: Record<string, unknown>): void {
     if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.loan !== 'number') g.loan = 0;
   }
   st.version = 25;
+}
+
+/**
+ * Version 25 to 26 (slice 28, debts unpaid): no loan has climbed a step, been
+ * put off or seized from; no raid comes to collect a debt; no company is away
+ * on an expedition, and there are none.
+ */
+function from25(st: Record<string, unknown>): void {
+  const w = st.world;
+  if (isObj(w)) {
+    if (!Array.isArray(w.expeditions)) w.expeditions = [];
+    if (typeof w.nextExpedition !== 'number') w.nextExpedition = 1;
+    if (Array.isArray(w.loans))
+      for (const l of w.loans as unknown[]) {
+        if (!isObj(l)) continue;
+        for (const k of ['step', 'stepAt', 'seized', 'extended', 'raid', 'demand', 'sent']) if (typeof l[k] !== 'number') l[k] = 0;
+        // (A loan already overdue fell on its day.)
+        if (typeof l.fell !== 'number') l.fell = l.state === 'overdue' && typeof l.due === 'number' ? l.due : 0;
+        for (const k of ['withhold', 'reminded', 'demanded']) if (typeof l[k] !== 'boolean') l[k] = false;
+      }
+    if (Array.isArray(w.raids)) for (const r of w.raids as unknown[]) if (isObj(r) && typeof r.loan !== 'number') r.loan = 0;
+  }
+  const a = st.army;
+  if (isObj(a) && Array.isArray(a.companies)) for (const c of a.companies as unknown[]) if (isObj(c) && typeof c.away !== 'number') c.away = 0;
+  st.version = 26;
 }
