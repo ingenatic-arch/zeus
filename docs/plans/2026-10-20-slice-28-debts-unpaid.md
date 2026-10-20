@@ -102,4 +102,36 @@ Plus the existing suite. `smoke.mjs` opens the new demos and drives a forgive, a
 
 ## As built
 
-(To be filled in.)
+Built as planned, in `src/sim/loans.ts` (the steps, time, holding back, seizures, grace, forgive, demand), the collectors behind `raid.loan` in `src/sim/raids.ts`, a new `src/sim/expeditions.ts`, and `src/ui/loans.ts`; state version 26 with a self-contained migration. Commits: the plan `fc6d79c` and `90e7adc`, the sim `132119e`, the UI `3d9ab58`, the demos `14dfabe`, tuning from screenshots `78e35b9`, main merged in `c13bf0a`, a smoke fix `8e7c3d3`, and this As built and the check-in.
+
+**Where it differs from the plan:**
+- **`#seized` seizes a gift, not the caravan yard.** In `#borrow`'s town the yard is nearly always empty when Corinth's trader is due (its goods leave as fast as they come), so the demo sends Corinth a 250 dr gift that is seized on the road: the ledger's "Seized by Corinth · drachmas 250", the town line and the chip show it. Yard and quay seizures work (tested), but they rarely bite in play for the same reason.
+- **`#collect`'s debt is staged.** Corinth asks to borrow (`makeLoanAsk`), is lent the sum and doesn't pay on the day; its news says "(set up for this demo)". With no troubles, its reason falls back to "for new walls and a temple" (only a demo asks for a ruler in no trouble).
+- **The expedition on the map is 3 to 9 figures,** a figure for about five men, not one per man: drawn one a man, a full force stretched from your city to Corinth's.
+- **Rulers offer and ask more often** (a carried-over finding): an offer a month in 9 (was 18), an ask a month in 5 while in trouble (was 10). Every earlier demo still opens and plays 900 ticks on exactly as before.
+- **A fix on the main line's saves:** a save holding a wounded or healing soldier was refused (the save check knew only coming, arming, ready and leaving). It now accepts every soldier state, `away` included.
+- **An overdue loan pays itself when it can, unless you hold it back.** The plan had an overdue loan wait for "Repay now". As built, the card's toggle reads "Pay when the treasury can" while you hold it back, and "Hold back payment" while you don't; not held back, it is paid (and the steps stop) on the first day the treasury can spare what is owed. A loan already overdue in an old save gets its warning when the game next runs.
+- **A company away** reads "Away · on the road to Corinth" on the Army tab; its banner can't be picked and it has no orders while away.
+
+**The balance, from the demos' own dice** (one run each, so only a sample):
+- `#creditors`: Corinth's 35 men, unopposed (the town has no soldiers), carry off 1,826 dr and 200 goods and the loan is `collected`.
+- `#collect`, a raiding party (one company, 16 men, odds about 9 in 10 against the countryside's 8): won; 1 killed, 1 wounded; it brings 450 dr and 750 wheat (600 dr against the debt, 1,020 dr still owed); home in 51 days.
+- `#collect`, a full force (32 men, odds about 5 in 10 against the garrison of 30): won; 2 killed, 2 wounded; it brings the 1,620 dr and 1,620 wheat (the penalty); home in 52 days.
+
+**After** (measured on `8e7c3d3`; the check-in compares it with Before):
+
+| What | Before | After |
+|---|---|---|
+| Tests | 404, all passing | 419, all passing (11 of them debts; 4 from slice 25's review) |
+| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,806 KB: the game 657 KB, the prepared towns 2,149 KB (the six new demos) |
+| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.7 s, first frame at 4.1 s |
+| Demo loads | 100 demos, median ready 2.7 s | 106 demos, median ready 2.9 s, slowest `#raiders` 4.0 s |
+| `#town` / `#richtown` | 1,453,964 / 1,623,607 triangles, 89 / 101 draw calls | the same |
+| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; the new demos' maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
+| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 23.7 ms, `#richtown` 16.3, `#companies` 12.4, `#borrow` 10.9, `#lend` 18.6, `#repaid` 11.9, `#battle` fought 25.4; new: `#overdue` 9.7, `#seized` 15.2, `#creditors` 14.9, `#collect` 15.8, `#report` 13.6, `#forgive` 9.4 |
+
+`#town` has no loans, and nothing in it changed (the same triangles, and the same people, money and levels at 900 ticks), so its 12 to 24 ms is the shared machine. Every frame time here is within the run-to-run swing.
+
+**Checks:** `npm test` 419 passing; `npm run build` clean. The full smoke passed apart from one check: the army's hover card in `#report`, which lies under the town lines at the smoke's 1280 × 720. That check was fixed (`8e7c3d3`) and the slice 28 section re-run on its own, passing. Every earlier demo (97) opens, and plays 900 ticks on, with the same people, money, homes, house levels and soldiers as on main. Old saves load: the version 25 fixture, and every older fixture in the suite.
+
+**How far it got:** everything in Tasks 1 to 5.

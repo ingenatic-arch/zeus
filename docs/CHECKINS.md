@@ -2,6 +2,87 @@
 
 Notes to Oliver, newest first.
 
+## Slice 28 — Debts unpaid (20 Oct)
+
+A loan now has teeth both ways. Leave one of yours unpaid and the lender warns you, closes the road and seizes your goods, then sends an army to take what you owe. When a ruler won't pay you back, you can forgive the debt, demand it, or send your own soldiers out across the map of Greece to collect it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Old saves load at the new version. A loan already overdue in an old save gets its warning (step 1) when the game next runs.
+- **Every earlier demo** opens, and plays 900 ticks on, exactly as before (all 97 compared).
+- **Rulers offer and ask for loans about twice as often** as in slice 27: an offer about one month in nine from a pleased ruler with coin to spare, and an ask about one month in five from one in trouble. This changes no earlier demo's opening or its first 900 ticks.
+- **A fix to saving:** a save with a wounded or healing soldier in it was refused on loading. It now loads.
+
+### What's new
+- **Your debts, before the day.** A month before a loan falls due, a line of news says what it comes to and what the treasury can spend.
+  - On the lender's Loans tab you can **ask for more time**. The answer comes at once, by their mood and character: three months more (six from a generous ruler) for a few percent more. The tab says what they would likely answer.
+  - You can also **hold back payment**. If you don't, it is paid on the day if the treasury can, as before.
+- **Unpaid, it climbs three steps.** The loan's card shows all three, each with its date: done, now, and to come.
+  1. *On the day:* the lender remembers it longest (−30, fading over four years). Every other ruler hears (−5), and every loan's terms are dearer for three years.
+  2. *Two months on:* the lender closes their road or sea route and seizes your goods. That means what waits for their trader in your caravan yard or on your quay, and anything of yours on its way to them: a gift, goods for a request, coin. Each seizure is a line of news and a ledger line ("Seized by Corinth"), and comes off the debt.
+  3. *Two months more:* a threat. Pay what is left within a month, or an army half again a war band's size marches on your city. It comes in at the edge, makes for the storehouse and tax office, and takes up to what you owe. It sets no fires. If your soldiers beat it off, the debt stands and another comes four months later.
+  - Paying at any step stops the next one. Once overdue, the card's button reads "Pay when the treasury can" while you hold it back; let go, it pays the first day the treasury can.
+  - **The debts chip** names the step ("Overdue: 1,970 dr to Corinth · seizing"), and the line under the top bar follows each step. While the army is in your city it reads "Collectors in the city".
+- **Their debts.** A ruler who doesn't pay you on the day may first ask for time; you grant (+4) or refuse (−4). Once overdue, their Loans tab offers four answers:
+  - **Forgive it:** a big lift with them, a small one with every other ruler.
+  - **Demand it:** they have two months. Whether they pay is shown in advance, with its reasons, including how much they fear your army.
+  - **Send a raiding party or a full force:** each button shows the odds, what a win brings, and what it does to the mood.
+- **Expeditions.**
+  - Your companies march out of the city to the edge on the debtor's side, then leave the map. The drill ground empties, and the Army tab says where they are ("Away · on the road to Corinth").
+  - A little army in your colours marches along the road on the map of Greece. It fights at their city under crossed swords, then comes home the same way.
+  - The fight is settled by the two sides' strength and the dice. A raiding party meets only the countryside's watch: likelier to win, but it brings less. A full force meets the garrison and, if it wins, brings the whole debt and a fifth more as goods.
+  - **The report** is on the city's Loans tab, in the news and on the map's hover card. It says who went, the fight and the odds, what they took and what is still owed, who was killed and wounded by company and by name, and how the ruler and Greece took it.
+  - The coin and goods go into the treasury and stores when the army is home, as "Brought home by your soldiers" on the ledger. The killed are mourned in their homes, and the wounded walk back to heal. Troy can only be reached by sea, so its buttons say you need triremes (they come with the sea slice).
+  - With no debt behind it, a city's Ruler tab has "Send your soldiers against Corinth" folded away. Without cause, every ruler takes it badly.
+
+### What to try
+1. Open #overdue. It is `#borrow`'s town some months on, with Corinth's loan held back and its day just passed. The map opens on Corinth's Loans tab: the warning given and the next two steps with their dates.
+   - Click "Pay when the treasury can" and play: it is paid, and the steps stop.
+2. Open #seized. It is the same debt two months on. The road to Corinth is closed, and a 250 dr gift on its way there has been seized. The treasury is open on "Seized against your debts".
+3. Open #creditors. It is the same debt two more months on, with the threat let run: Corinth's 35 men are in your city, and the camera follows them. This town has no soldiers, so watch them take what is owed and leave.
+4. Open #collect. It is `#companies`' town (a company of hoplites and one of archers), with Corinth overdue on a loan you made it (set up for the demo). The map opens on Corinth's Loans tab with the four answers and their odds.
+   - Send a full force, close the map and watch the companies march north out of the city. Then open the Army tab, and the map again.
+5. Open #report. That full force has fought and won, and is on its way home. Read the report on Corinth's Loans tab, and hover the little army on the map.
+6. Open #forgive. It is `#rivals`' town, with Athens unable to repay the 2,000 dr you lent her. Forgive it, then look at her Ruler tab.
+
+Each link also opens paused if you add `-paused` (for example `#collect-paused`).
+
+### What I'd like your eye on
+- **The steps on the loan's card.** In #overdue: is it clear what has happened, what comes next and when, and what stops it?
+- **The odds and the report.** These are the demos' own runs (one each, so only a sample):
+
+  | | Odds | Result | Ours killed / wounded | Brought home | Home in |
+  |---|---|---|---|---|---|
+  | `#collect`, raiding party (16 men vs the watch of 8) | about 9 in 10 | won | 1 / 1 | 450 dr and 750 wheat (600 dr against the debt; 1,020 dr still owed) | 51 days |
+  | `#collect`, full force (32 men vs the garrison of 30) | about 5 in 10 | won | 2 / 2 | the whole 1,620 dr, and 1,620 wheat as the penalty | 52 days |
+  | `#creditors`, Corinth's 35 collectors vs no soldiers | — | took what was owed | — | 1,826 dr and 200 goods carried off; the loan is paid off | — |
+
+  Is a full force at evens worth the risk, set against a near-certain raid that brings back a third? Does about 50 days away feel too long?
+- **The army on the map.** It is 3 to 9 figures in your colours, along the road. From the opening view it sits close to your city's label and is hard to pick out. Is it visible enough?
+- **Seizures.** They take only what waits for the lender's trader in your yard or on your quay, and what is on its way to them. In `#borrow`'s town the yard is nearly always empty, so seizures rarely bite (#seized shows a gift being seized). Should they take from your storehouse too?
+
+### Known rough edges
+- **#seized shows a seized gift, not seized goods,** because the caravan yard there is empty (above).
+- **Several lines under the top bar about the same loan:** the news flash and the loan's own line both show for a few days.
+- **City tabs still wrap to two lines** on a ruler's page ("Loans · overdue" is long).
+- **A line under the top bar can lag** for a moment after you pause.
+- **Repaying early still costs the whole interest,** as in slice 27.
+- **Expeditions don't go by sea yet:** Troy needs triremes (the sea slice). The seam is `fleetFor` in `src/sim/expeditions.ts`.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `579a3f2` (slice 25's check-in on the main line). After is this slice with main merged in (`c13bf0a`, slice 25's review fixes). The machine was shared with other threads, so frame and load times swing by a third from run to run; only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 404, all passing | 419, all passing (11 of them debts; 4 from slice 25's review) |
+| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,806 KB: the game 657 KB, the prepared towns 2,149 KB (the six new demos) |
+| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.7 s, first frame at 4.1 s |
+| Demo loads | 100 demos, median ready 2.7 s | 106 demos, median ready 2.9 s, slowest `#raiders` 4.0 s |
+| `#town` / `#richtown` | 1,453,964 / 1,623,607 triangles, 89 / 101 draw calls | the same |
+| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; the new demos' maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
+| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 23.7 ms, `#richtown` 16.3, `#companies` 12.4, `#borrow` 10.9, `#lend` 18.6, `#repaid` 11.9, `#battle` fought 25.4; new: `#overdue` 9.7, `#seized` 15.2, `#creditors` 14.9, `#collect` 15.8, `#report` 13.6, `#forgive` 9.4 |
+
+`#town` has no loans, and nothing in it changed (the same triangles, and the same people, money and levels at 900 ticks), so its 12 to 24 ms is the shared machine. Every frame time here is within the run-to-run swing.
+
 ## Slice 25 — Walls, gates and towers (20 Oct)
 
 You can now draw stone walls like roads, with a gate wherever a wall crosses a road, and set towers on them whose archers shoot raiders; a band looks for the cheapest way in, round the end of a short wall or through a gate or stretch it hammers at until it breaks. You weren't here while it was built: every choice below is mine, from the spec's defaults.
