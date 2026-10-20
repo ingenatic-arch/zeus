@@ -57,6 +57,8 @@ import { cityHolds, OLD_GOODS, TRADE_GOODS } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
+import { foeToll, foeWalkable, wallAt } from './walls';
+import { districtAt, districtTitle } from '../map/districts';
 import { cityOf, COLD, HOSTILE, moodOf, rulerName, rulerShort, sellsAndBuys } from './world';
 
 // ---------------------------------------------------------------------------
@@ -227,6 +229,8 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     fought: 0,
     killed: 0,
     wounded: 0,
+    siege: -1,
+    breaches: 0,
     ended: 0,
     end: '',
   };
@@ -396,7 +400,7 @@ function edgeTiles(map: CoastMap, s: SimState, side: string): number[] {
   const out: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = side === 'north' ? i : side === 'south' ? (n - 1) * n + i : side === 'west' ? i * n : i * n + n - 1;
-    if (walkable(map, s, t)) out.push(t);
+    if (foeWalkable(map, s, t)) out.push(t);
   }
   return out;
 }
@@ -407,7 +411,7 @@ function edgeTiles(map: CoastMap, s: SimState, side: string): number[] {
  * leads to one), in at the open edge tile nearest it, and the way there
  * across the land. Null if nothing worth it can be reached from that edge.
  */
-export function landing(s: SimState, map: CoastMap, city: CityId): { edge: number; target: Building; path: Array<[number, number, number]>; next: number[] } | null {
+export function landing(s: SimState, map: CoastMap, city: CityId): { edge: number; target: Building; path: Array<[number, number, number]>; next: number[]; siege: number } | null {
   const size = map.size;
   const side = RAID_SIDE[city];
   const edges = edgeTiles(map, s, side);
@@ -420,23 +424,43 @@ export function landing(s: SimState, map: CoastMap, city: CityId): { edge: numbe
   const targets = stores.length ? [...stores.slice(0, TRIES), ...offices.slice(0, TRIES)] : offices.length ? offices.slice(0, TRIES) : fields;
   for (const b of targets.slice(0, 2 * TRIES)) {
     const [cx, cz] = centreOf(b);
-    const goals = around(size, b).filter((t) => walkable(map, s, t));
+    const goals = around(size, b).filter((t) => foeWalkable(map, s, t));
     if (!goals.length) continue;
     // The side of it facing the edge they come from; in at whichever open edge tile is the shortest walk from it.
     const toEdge = (t: number): number => edgeDistance(size, t % size, Math.floor(t / size), side);
     goals.sort((p, q) => toEdge(p) - toEdge(q) || dhypot((p % size) - cx, Math.floor(p / size) - cz) - dhypot((q % size) - cx, Math.floor(q / size) - cz) || p - q);
-    const tiles = offRoadPath(map, s, edges, goals[0]);
-    if (!tiles) continue;
+    const found = foeWay(map, s, edges, goals[0]);
+    if (!found) continue;
+    const { tiles, siege } = found;
     const edge = tiles[0];
     const [ox, oz] = offMapPoint(size, edge);
     const path: Array<[number, number, number]> = [[ox, oz, -1]];
-    for (const [px, pz] of prunePath(map, s, tiles)) path.push([px, pz, -1]);
+    for (const [px, pz] of prunePath(map, s, tiles, foeWalkable)) path.push([px, pz, -1]);
     // After a store, the tax office nearest it (its way is found when they set off from the store).
     const [bx, bz] = centreOf(b);
     const office = STORES.includes(b.kind) ? offices.slice().sort((p, q) => dhypot(centreOf(p)[0] - bx, centreOf(p)[1] - bz) - dhypot(centreOf(q)[0] - bx, centreOf(q)[1] - bz) || p.id - q.id)[0] : undefined;
-    return { edge, target: b, path, next: office ? [office.id] : [] };
+    return { edge, target: b, path, next: office ? [office.id] : [], siege };
   }
   return null;
+}
+
+/**
+ * A raiders' way from any of `starts` to `goal` (slice 25): across country,
+ * a wall or gate standing in the way counted as the steps it is worth to
+ * break (walls.ts). The tiles they walk up to the first one they must break,
+ * and that one's tile (-1: none in the way). Null if there is no way at all.
+ */
+export function foeWay(map: CoastMap, s: SimState, starts: readonly number[], goal: number): { tiles: number[]; siege: number } | null {
+  if (s.walls.length === 0) {
+    const tiles = offRoadPath(map, s, starts, goal);
+    return tiles ? { tiles, siege: -1 } : null;
+  }
+  const all = offRoadPath(map, s, starts, goal, 20000, foeToll(map, s));
+  if (!all) return null;
+  const i = all.findIndex((t) => (wallAt(s, t)?.hp ?? 0) > 0);
+  if (i < 0) return { tiles: all, siege: -1 };
+  // (Breaking in at the very edge: they stand off the map, at it.)
+  return { tiles: i > 0 ? all.slice(0, i) : [], siege: all[i] };
 }
 
 /** The band reaches your edge: in it comes, for its target (or, with nothing worth taking in reach, it goes home). */
@@ -456,6 +480,7 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   r.target = at.target.id;
   r.aim = at.target.kind;
   r.next = at.next;
+  r.siege = at.siege;
   const band = newWalker(s, 'raider', r.men);
   band.origin = at.target.id;
   band.target = at.target.id;
@@ -465,8 +490,8 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   band.since = s.tick;
   setPath(band, at.path);
   s.walkers.push(band);
-  const then = at.next.length ? findBuilding(s, at.next[0]) : undefined;
-  news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${aimWords(then)}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
+  news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   void c;
   s.rev++;
 }
@@ -487,8 +512,8 @@ const tileAt = (size: number, x: number, z: number): number => Math.max(0, Math.
 function startsAt(map: CoastMap, s: SimState, x: number, z: number): number[] {
   const size = map.size;
   const t = tileAt(size, x, z);
-  if (walkable(map, s, t)) return [t];
-  return [t - size, t - 1, t + 1, t + size, t - size - 1, t - size + 1, t + size - 1, t + size + 1].filter((u) => u >= 0 && u < size * size && walkable(map, s, u));
+  if (foeWalkable(map, s, t)) return [t];
+  return [t - size, t - 1, t + 1, t + size, t - size - 1, t - size + 1, t + size - 1, t + size + 1].filter((u) => u >= 0 && u < size * size && foeWalkable(map, s, u));
 }
 
 /** Off the way they came: to the edge tile they came in by (or the nearest open edge), and off the map. False if there is no way at all. */
@@ -499,15 +524,20 @@ export function headOff(s: SimState, map: CoastMap, w: Walker, r: Raid | undefin
   w.wait = 0;
   const starts = startsAt(map, s, x, z);
   const edge = r && r.edge >= 0 ? r.edge : -1;
-  const tiles = edge >= 0 && starts.length ? offRoadPath(map, s, starts, edge) : null;
-  if (tiles) {
+  const found = edge >= 0 && starts.length ? foeWay(map, s, starts, edge) : null;
+  if (found) {
     const way: Array<[number, number, number]> = [[x, z, -1]];
-    for (const [px, pz] of prunePath(map, s, tiles)) way.push([px, pz, -1]);
-    const [ox, oz] = offMapPoint(size, edge);
-    way.push([ox, oz, -1]);
+    for (const [px, pz] of prunePath(map, s, found.tiles, foeWalkable)) way.push([px, pz, -1]);
+    // (Walled in: out the way they broke in, or through another stretch they must break first.)
+    if (r) r.siege = found.siege;
+    if (found.siege < 0) {
+      const [ox, oz] = offMapPoint(size, edge);
+      way.push([ox, oz, -1]);
+    }
     setPath(w, way);
     return true;
   }
+  if (r) r.siege = -1;
   const out = overland(map, s, tileAt(size, x, z));
   if (!out) return false;
   const way: Array<[number, number, number]> = [[x, z, -1]];
@@ -525,18 +555,25 @@ function reaim(s: SimState, map: CoastMap, w: Walker): boolean {
   if (!b) return false;
   const [x, z] = position(w);
   const starts = startsAt(map, s, x, z);
-  const goals = around(size, b).filter((t) => walkable(map, s, t));
+  const goals = around(size, b).filter((t) => foeWalkable(map, s, t));
   if (!starts.length || !goals.length) return false;
-  let best: number[] | null = null;
+  let best: { tiles: number[]; siege: number } | null = null;
   for (const g of goals.slice(0, 4)) {
-    const p = offRoadPath(map, s, starts, g);
-    if (p && (!best || p.length < best.length)) best = p;
+    const p = foeWay(map, s, starts, g);
+    if (p && (!best || p.tiles.length < best.tiles.length)) best = p;
   }
   if (!best) return false;
   const way: Array<[number, number, number]> = [[x, z, -1]];
-  for (const [px, pz] of prunePath(map, s, best)) way.push([px, pz, -1]);
+  for (const [px, pz] of prunePath(map, s, best.tiles, foeWalkable)) way.push([px, pz, -1]);
+  const r = raidOfBand(s, w);
+  if (r) r.siege = best.siege;
   setPath(w, way);
   return true;
+}
+
+/** Is the band standing at a stretch of wall or a gate it must break (at the end of its way, the stretch still standing)? */
+export function besieging(s: SimState, r: Raid, w: Walker): boolean {
+  return r.siege >= 0 && w.seg >= w.path.length / 2 - 1 && (wallAt(s, r.siege)?.hp ?? 0) > 0;
 }
 
 /** Move the raiders one tick: across the land to their target, two days there, and off the way they came. False when they have left your map. */
@@ -562,6 +599,12 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     if (!headOff(s, map, w, r)) return gone(s, w, r);
   }
   if (fighting) return true;
+  // At a wall or gate they must break (slice 25): they stand and hammer at it (battle.ts); once it is broken, on through it.
+  if (r && r.siege >= 0 && w.seg >= w.path.length / 2 - 1) {
+    if ((wallAt(s, r.siege)?.hp ?? 0) > 0) return true;
+    r.siege = -1;
+    if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, w, r);
+  }
   // Torches on their way: now and then a building beside them is set alight.
   if (r && s.tick % TICKS_PER_DAY === 0) torch(s, map, w, r);
   let move = RAID_SPEED;
@@ -583,11 +626,13 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
       // Something built across the way ahead (not the last step, off the map): find another.
       const j = w.seg * 2;
       const offMap = (x: number, z: number): boolean => x < 0 || z < 0 || x >= map.size || z >= map.size;
-      if (!offMap(w.path[j], w.path[j + 1]) && !offMap(w.path[j + 2], w.path[j + 3]) && !lineClear(map, s, w.path[j], w.path[j + 1], w.path[j + 2], w.path[j + 3], walkable)) {
+      if (!offMap(w.path[j], w.path[j + 1]) && !offMap(w.path[j + 2], w.path[j + 3]) && !lineClear(map, s, w.path[j], w.path[j + 1], w.path[j + 2], w.path[j + 3], s.walls.length ? foeWalkable : walkable)) {
         if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, w, r);
       }
       continue;
     }
+    // The end of the way at a wall or gate they must break (slice 25): they stand and hammer at it (battle.ts); broken, on.
+    if (r && r.siege >= 0) break;
     // The end of the way: off the map, or at the target.
     if (w.back) return gone(s, w, r);
     const b = findBuilding(s, w.target);
@@ -964,8 +1009,16 @@ const dayWords = (tick: number): string => {
   return `${d.day} ${d.monthName} ${formatYear(d.yearBC)}`;
 };
 
+/** " in the market quarter": where a stretch of wall stands, for the band's line (nothing without the map). */
+function wallWhere(map: CoastMap | undefined, t: number): string {
+  if (!map) return '';
+  const n = map.size;
+  const title = districtTitle(districtAt(map, (t % n) + 0.5, Math.floor(t / n) + 0.5));
+  return title ? ` ${title[0].toLowerCase()}${title.slice(1)}` : '';
+}
+
 /** A live raid in a few words, for the top bar's chip: "Sparta's raiders · 12 days", "Raiders in the city"; '' for a threat (it has its line) or a band settled. */
-export function raidChip(s: SimState, r: Raid): { chip: string; line: string } | null {
+export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; line: string } | null {
   if (!live(r) && !(r.phase === 'raiding' && raidersOf(s, r))) return null;
   const name = cityName(r.city);
   if (r.phase === 'threat') return null;
@@ -973,8 +1026,12 @@ export function raidChip(s: SimState, r: Raid): { chip: string; line: string } |
     const band = raidersOf(s, r);
     const aim = band ? findBuilding(s, band.target) : undefined;
     const at = aim ? aimWords(aim) : aimWords({ kind: r.aim as BuildingKind });
+    // Every place it makes for, in turn: "the granary, then the tax office".
+    const rest = r.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
+    const ats = rest ? `${at}, then ${rest}` : at;
     const loot = lootWords(r);
-    const doing = !band ? '' : r.broke ? `beaten, running for the edge${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${at}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) : `making for ${at}`;
+    const wall = band && besieging(s, r, band) ? wallAt(s, r.siege) : undefined;
+    const doing = !band ? '' : r.broke ? `beaten, running for the edge${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)} to get out${loot ? ` with ${loot}` : ''}` : loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${ats}` : wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)}, to get at ${ats}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) + (rest ? `, then making for ${rest}` : '') : `making for ${ats}`;
     const left = r.men - r.fallen;
     return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Raiders in the city', line: `${left} of ${whose(r.city)} raiders are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
   }
@@ -997,7 +1054,7 @@ export function raidLine(s: SimState, map: CoastMap, r: Raid): string {
     void map;
     return `${rulerName(c)} threatens your city: pay ${fmt(r.coin)} dr${r.alt >= 0 ? ` or send ${giftWords(r.alt, r.altAmount)}` : ''} by ${dayWords(d.due)} (${days === 1 ? '1 day' : `${days} days`}), or ${his(c)} raiders will come, about ${r.men} men. Answer on ${name}’s page`;
   }
-  return raidChip(s, r)?.line ?? '';
+  return raidChip(s, r, map)?.line ?? '';
 }
 
 /** What the raiders are doing, for their hover tip. */

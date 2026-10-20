@@ -335,7 +335,7 @@ export function stateProblem(st: unknown): string {
   if (!isObj(st.wind) || !fin(st.wind.angle) || !fin(st.wind.strength)) return damaged('its wind is missing');
   if (!ledgerOk(st.ledger)) return damaged('its ledger is missing');
   const n = MAP_SIZE * MAP_SIZE;
-  if (!nums(st.tiles, n) || !(st.tiles as number[]).every((t) => Number.isInteger(t) && t >= -1)) return damaged('its map of roads and buildings is wrong');
+  if (!nums(st.tiles, n) || !(st.tiles as number[]).every((t) => Number.isInteger(t) && t >= -2)) return damaged('its map of roads and buildings is wrong');
   if (!isObj(st.rounds)) return damaged('the walkers’ rounds are missing');
   for (const sv of ROUNDS) {
     const r = (st.rounds as Record<string, unknown>)[sv];
@@ -369,7 +369,25 @@ export function stateProblem(st: unknown): string {
   if (!worldOk(st.world)) return damaged('its map of Greece is wrong');
   if (!bookOk(st.stocks)) return damaged('its stock book is wrong');
   if (!armyOk(st.army)) return damaged('its army is wrong');
+  if (!wallsOk(st.walls, st.tiles as number[])) return damaged('its walls are wrong');
   return '';
+}
+
+/** The walls: each stretch's tile (in order, once each), its strength and whether it is a gate; every standing stretch, and nothing else, marked as wall on the map. */
+function wallsOk(ws: unknown, tiles: readonly number[]): boolean {
+  if (!Array.isArray(ws)) return false;
+  let last = -1;
+  let up = 0;
+  for (const p of ws as unknown[]) {
+    if (!isObj(p) || !Number.isInteger(p.t) || !fin(p.hp) || typeof p.gate !== 'boolean' || (p.hp as number) < 0) return false;
+    if ((p.t as number) <= last || (p.t as number) >= tiles.length) return false;
+    last = p.t as number;
+    if ((p.hp as number) > 0 && !p.gate) {
+      if (tiles[p.t as number] !== -2) return false;
+      up++;
+    }
+  }
+  return tiles.filter((t) => t === -2).length === up;
 }
 
 const COMPANY_NUMBERS = ['id', 'n', 'barracks', 'emblem', 'x', 'z', 'face', 'along', 'target', 'want', 'raised', 'owed'];
@@ -417,7 +435,7 @@ function warOk(x: unknown): boolean {
   return WAR_NUMBERS.every((k) => fin(x[k]));
 }
 
-const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended'];
+const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches'];
 const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];
 
 /** A threat and its war band: its city, phase, way and numbers. */

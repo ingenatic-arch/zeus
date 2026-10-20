@@ -49,6 +49,7 @@ const PLURAL: Record<BuildingKind, string> = {
   mine: 'copper mines',
   armoury: 'armouries',
   barracks: 'barracks',
+  tower: 'towers',
 };
 
 const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;
@@ -75,6 +76,9 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'collapse') return [`Fell down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
   if (l.what === 'road') return ['Roads', count(n, 'tile', 'tiles')];
   if (l.what === 'bridge') return ['Bridges', count(n, 'tile', 'tiles')];
+  if (l.what === 'wall') return ['Walls', count(n, 'stretch', 'stretches')];
+  if (l.what === 'gate') return ['Gates', count(n, 'gate', 'gates')];
+  if (l.what === 'mended') return ['Walls mended', count(n, 'stretch', 'stretches')];
   if (l.what === 'plots') return ['Housing plots', count(n, 'plot', 'plots')];
   const k = l.what as BuildingKind;
   return [`${(PLURAL[k] ?? l.what).replace(/^./, (c) => c.toUpperCase())}`, n > 1 ? String(n) : ''];
