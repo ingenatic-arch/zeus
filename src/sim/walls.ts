@@ -44,9 +44,9 @@ export const WALL_HP = 600;
 export const GATE_HP = 300;
 /** A raider counts a standing stretch as this many steps out of his way for each point of its strength (a whole gate 25, a whole stretch 50). */
 export const TOLL_PER_HP = 1 / 12;
-/** How many men can hammer at a stretch at once, and what each takes off its strength a tick. */
+/** How many men can hammer at a stretch at once, and what each takes off its strength a tick (a whole gate in about 12 days, a stretch in about 24, for a band of ten or more). */
 export const HAMMERERS = 10;
-export const BLOW = 0.5;
+export const BLOW = 0.25;
 /** A man hammers at a stretch while he stands this near its middle (tiles). */
 export const AT_WALL = 2.2;
 /** How far a tower shoots (tiles, from its middle), and how high its archers stand. */

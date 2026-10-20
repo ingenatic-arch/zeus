@@ -1,6 +1,6 @@
 /**
  * The welcome card on the bare link: a few warm lines on how to begin,
- * pointing at the build bar, a way to see a grown town (#town), and, when
+ * pointing at the control panel, a way to see a grown town (#town), and, when
  * this browser holds a saved town, a way back to it. It goes away when a
  * tool is picked or the player says so.
  */
@@ -39,7 +39,7 @@ export class Welcome {
         <li><b>Bring water</b> with a fountain by the road <kbd>B</kbd>, and the tents become huts</li>
       </ol>
       <p class="more">Then keep it going: workers are paid each month, so a <b>tax office</b> <kbd>Z</kbd> by the houses brings the taxes in; and buildings slowly gather fire risk and wear, so a <b>watch post</b> and an <b>architect’s office</b> (<kbd>Z</kbd> again) keep them safe.</p>
-      <p class="more">Everything you can build is on the bar along the bottom; hover a button to see what it does, and <kbd>?</kbd> lists the controls.</p>
+      <p class="more">Everything you can build is in the panel on the right, a tab for each kind of building; hover a picture to see what it does, and <kbd>?</kbd> lists the controls.</p>
       ${carry}
       <div class="actions">
         <button class="pill primary" data-act="start">Start building</button>

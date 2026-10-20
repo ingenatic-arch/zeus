@@ -710,7 +710,8 @@ export function foeDoing(s: SimState, f: Foe): { title: string; detail: string }
   const health = f.hp >= 75 ? 'unhurt' : f.hp >= 40 ? 'hurt' : 'badly hurt';
   const man = f.foe ? s.army.soldiers.find((x) => x.id === f.foe) : undefined;
   const c = man ? companyOf(s, man.company) : undefined;
-  const doing = r?.broke ? 'running for the edge with the rest' : man ? `fighting ${man.name} of ${c ? companyWords(c) : 'your soldiers'}` : 'with the band';
+  const wall = r && r.siege >= 0 && f.state === 'with' ? wallAt(s, r.siege) : undefined;
+  const doing = r?.broke ? 'running for the edge with the rest' : man ? `fighting ${man.name} of ${c ? companyWords(c) : 'your soldiers'}` : wall && wall.hp > 0 && f.swung > 0 && s.tick - f.swung < 3 * SWING ? `hammering at your ${wall.gate ? 'gate' : 'wall'}` : 'with the band';
   const carried = r ? lootWords(r) : '';
   const loot = carried ? ` · the band carries ${carried}` : '';
   return { title, detail: `${health} · ${doing}${loot}` };

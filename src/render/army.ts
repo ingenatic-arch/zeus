@@ -264,7 +264,8 @@ export class ArmyView {
       const peak = 0.12 + d * 0.06;
       const x = ar.x0 + dx * u;
       const z = ar.z0 + dz * u;
-      const y0 = this.ground(ar.x0, ar.z0) + 0.3;
+      // (From a tower's roof walk, slice 25: high above the ground.)
+      const y0 = this.ground(ar.x0, ar.z0) + (ar.h0 ?? 0.3);
       const y1 = this.ground(ar.x1, ar.z1) + 0.22;
       const y = y0 + (y1 - y0) * u + 4 * peak * u * (1 - u);
       // Its heading: along the way, and up or down the arc's slope.

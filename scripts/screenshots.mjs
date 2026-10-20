@@ -161,12 +161,13 @@ const SHOTS = {
   'fire-panel': '#fire-paused',
   'fire-tip': '#fire-paused',
   'rubble-hover': '#rubble-paused',
-  'bar-1280': '#town-paused',
-  'bar-1366': '#town-paused',
-  'bar-1920': '#town-paused',
-  'bar-open-1280': '#town-paused',
-  'bar-open-1920': '#town-paused',
-  'bar-offices': '#town-paused',
+  // The control panel (a side slice) at a laptop's width and wider; with the overlays listed (panel-layers-<width>), and a lodge in hand.
+  'panel-1280': '#panel-paused',
+  'panel-1366': '#panel-paused',
+  'panel-1920': '#panel-paused',
+  'panel-layers-1280': '#panel-paused',
+  'panel-layers-1920': '#panel-paused',
+  'panel-tool': '#panel-paused',
   // Slice 13.
   trade: '#trade-paused',
   quay: '#quay-paused-shot',
@@ -871,6 +872,85 @@ Object.assign(BEFORE, {
   },
 });
 
+// Slice 25: walls, gates and towers. #walls as it opens and with a wall drawn round the old town's west and north, gates and towers; #siege at the gate, close, with the panel; the gate broken; raiders against hoplites close up (the colours).
+const T25 = (x, z) => z * 128 + x;
+const drawRing = async (page) =>
+  page.evaluate(() => {
+    const z = window.__zeus;
+    const T = (x, zz) => zz * 128 + x;
+    const line = (x0, z0, x1, z1) => {
+      const out = [];
+      if (x0 === x1) for (let k = Math.min(z0, z1); k <= Math.max(z0, z1); k++) out.push(T(x0, k));
+      else for (let k = Math.min(x0, x1); k <= Math.max(x0, x1); k++) out.push(T(k, z0));
+      return out;
+    };
+    z.order({ type: 'wall', tiles: [...line(40, 12, 40, 45), ...line(41, 20, 84, 20)] });
+    z.order({ type: 'build', kind: 'tower', at: [T(41, 39)] });
+    z.order({ type: 'build', kind: 'tower', at: [T(38, 39)] });
+    z.skip(12);
+  });
+Object.assign(SHOTS, {
+  walls: '#walls-paused',
+  'walls-drag': '#walls-paused',
+  'walls-shot': '#walls-paused-shot',
+  'walls-drawn': '#walls-paused-shot',
+  'walls-gate': '#walls-paused-shot',
+  siege: '#siege-paused',
+  'siege-shot': '#siege-paused-shot',
+  'siege-close': '#siege-paused-shot',
+  'siege-breach': '#siege-paused-shot',
+  'siege-crack': '#siege-paused-shot',
+  'siege-fight': '#siege-paused-shot',
+});
+Object.assign(BEFORE, {
+  'walls-drag': async (page) => {
+    // Pressed on the river bank north of the bridge and dragged down across the west road: the wall's tiles marked, a gate where it crosses, the tip.
+    await page.evaluate(() => window.__zeus.jump({ x: 46, z: 38, yaw: 2.65, dist: 30, tilt: -0.05 }));
+    await page.waitForTimeout(1500);
+    const a = await page.evaluate(() => window.__zeus.screenOf(40.5, 26.5));
+    const b = await page.evaluate(() => window.__zeus.screenOf(40.5, 44.5));
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 6, a.y + ((b.y - a.y) * i) / 6);
+    await page.waitForTimeout(1500);
+  },
+  'walls-drawn': async (page) => {
+    await drawRing(page);
+    await page.evaluate(() => window.__zeus.jump({ x: 56, z: 34, yaw: 2.4, dist: 40, tilt: -0.05 }));
+  },
+  'walls-gate': async (page) => {
+    await drawRing(page);
+    await page.evaluate(() => window.__zeus.jump({ x: 40.5, z: 40.5, yaw: 2.2, dist: 7, tilt: 0.12 }));
+  },
+  'siege-close': async (page) => page.evaluate(() => window.__zeus.jump({ x: 40, z: 41, yaw: 2.0, dist: 8, tilt: 0.15 })),
+  'siege-breach': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 1200 && z.walls().pieces.some((p) => p.gate && p.hp > 0); i += 2) z.skip(2);
+      z.skip(60);
+      z.jump({ x: 40.5, z: 41.5, yaw: -0.9, dist: 7, tilt: 0.4 });
+    });
+  },
+  'siege-crack': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 1200 && z.walls().pieces.some((p) => p.gate && p.hp > 90); i += 2) z.skip(2);
+      z.jump({ x: 40.5, z: 41.5, yaw: -1.2, dist: 5, tilt: 0.2 });
+    });
+  },
+  'siege-fight': async (page) => {
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      const hop = z.army().companies.find((c) => c.kind === 'hoplite');
+      if (hop) z.order({ type: 'banner', company: hop.id, tile: 41 * 128 + 43 });
+      for (let i = 0; i < 1600 && z.battle().fighting < 6; i += 2) z.skip(2);
+      const c = z.battle().centre ?? { x: 42, z: 41 };
+      z.jump({ x: c.x, z: c.z, yaw: 2.3, dist: 6, tilt: 0.18 });
+    });
+  },
+});
+void T25;
+
 const want = process.argv.slice(2);
 const names = want.length ? want : Object.keys(SHOTS);
 const outDir = resolve('screenshots');
@@ -887,8 +967,8 @@ for (const arg of names) {
   const [name, cam] = arg.split('@');
   const q = SHOTS[name] ?? (name.startsWith('?') || name.startsWith('#') ? name : `?cam=${name}&speed=paused&shot=1`);
   const t0 = Date.now();
-  // The build bar at a laptop's width, and with a group's row open (bar-open-<width>).
-  const bar = /^bar-(open-)?(\d+)$/.exec(name);
+  // The control panel at a laptop's width, and with the overlays listed (panel-layers-<width>).
+  const bar = /^panel-(layers-)?(\d+)$/.exec(name);
   const narrow = /-(1280|1366)$/.exec(name);
   const width = bar ? Number(bar[2]) : narrow ? Number(narrow[1]) : 0;
   await page.setViewportSize(width ? { width, height: Math.round((width * 9) / 16) } : { width: 1600, height: 900 });
@@ -897,11 +977,10 @@ for (const arg of names) {
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
   if (name === 'help') await page.keyboard.press('?');
-  if (bar?.[1]) await page.click('.btn.tool.group[data-group="makers"]');
-  if (name === 'bar-offices') {
-    await page.keyboard.press('z');
-    await page.keyboard.press('z');
-    await page.click('.btn.tool.group[data-group="offices"]');
+  if (bar?.[1]) await page.click('.boss[data-boss="layers"]');
+  if (name === 'panel-tool') {
+    await page.keyboard.press('m');
+    await page.keyboard.press('m');
   }
   if (BEFORE[name]) {
     await BEFORE[name](page);

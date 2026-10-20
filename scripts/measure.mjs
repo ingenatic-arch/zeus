@@ -283,6 +283,9 @@ for (const [hash, views] of [
   ['#battle-paused-shot', [null, 'town']],
   ['#looted-paused-shot', [null]],
   ['#hirelings-paused-shot', [null]],
+  // Slice 25: the town three weeks before the band, the wall tool in hand; the band at the walled west gate under two towers.
+  ['#walls-paused-shot', [null, 'town']],
+  ['#siege-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -344,6 +347,27 @@ for (const [hash, views] of [
   console.log(`#battle fought     update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${a.b.fighting} then ${z.b.fighting} raiders fighting)`);
   await page.setViewportSize({ width: 1920, height: 1080 });
   f = 0;
+}
+
+// Slice 25: the siege at the west gate (the walls' mesh, two towers shooting, the band hammering): what it draws, and the main
+// thread's work a frame while it goes on at normal speed.
+{
+  await page.goto('about:blank');
+  await page.goto(url + '#siege-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const w = await page.evaluate(() => window.__zeus.walls());
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#siege at the gate: triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)} · ${w.pieces.length} stretches and gates, ${w.towers.length} towers`);
+  console.log('#siege meshes:');
+  await summarise();
+  await page.setViewportSize({ width: 960, height: 540 });
+  await page.evaluate(() => window.__zeus.speed('normal'));
+  await page.waitForTimeout(4000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, w: window.__zeus.walls() }));
+  await page.waitForTimeout(8000);
+  const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, w: window.__zeus.walls() }));
+  console.log(`#siege hammering   update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${a.w.hammering} then ${z.w.hammering} raiders hammering, ${z.w.towerArrows} tower arrows in the air)`);
+  await page.setViewportSize({ width: 1920, height: 1080 });
 }
 
 // Slice 15: the map of Greece, built the first time it is opened (its code is a separate file, fetched then).

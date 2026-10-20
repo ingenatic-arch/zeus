@@ -1,4 +1,5 @@
 import './ui/style.css';
+import './ui/skin.css';
 import * as THREE from 'three';
 import { earshot } from './audio/earshot';
 import { Sound, type Cue } from './audio/sound';
@@ -31,9 +32,11 @@ import { arrivalOutlook } from './sim/settlers';
 import { herdStatus, homeStatus, moneyTip, raidChipNow, townLines, walkerStatus, type Status } from './sim/status';
 import { kindTotal, monthOf, owedWages, totals } from './sim/treasury';
 import { purseTotal } from './sim/taxes';
-import { TILE_ROAD, type Building, type Herd, type Walker } from './sim/state';
+import { TILE_ROAD, type Building, type Herd, type Walker, type WallPiece } from './sim/state';
+import { wallAt } from './sim/walls';
+import { wallStatus } from './sim/wallstatus';
 import { Sim, undoRefusal } from './sim/sim';
-import { BuildBar, pointerTip } from './ui/buildbar';
+import { pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
@@ -44,7 +47,8 @@ import { giftNews, giftWords } from './sim/diplomacy';
 import { giftOf, position } from './sim/walk';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
-import { SidePanel } from './ui/sidepanel';
+import { PANEL_ICONS, SidePanel } from './ui/sidepanel';
+import { prepareSkin } from './ui/skin';
 import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
@@ -77,6 +81,8 @@ interface Probe {
   /** Whether the demo opened from its town prepared at build time (slice 22), and how long fetching it took (before startMs). */
   prepared?: boolean;
   fetchMs?: number;
+  /** How long making the interface's materials took (fonts, tiles, frames), in ms, alongside the fetch. */
+  skinMs?: number;
   /** Every demo's token (for the measurements' load of each). */
   demos: string[];
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
@@ -211,6 +217,8 @@ interface Probe {
   order?: (c: Parameters<Sim['enqueue']>[0]) => void;
   skip?: (ticks: number) => void;
   foeScreen?: () => { x: number; y: number } | null;
+  /** Slice 25: the walls (each stretch's tile, strength and whether a gate), the towers and their archers, the band's siege and breaches, tower arrows in the air. */
+  walls?: () => { pieces: Array<{ t: number; hp: number; gate: boolean }>; towers: Array<{ id: number; x: number; z: number; workers: number }>; siege: number; breaches: number; towerArrows: number; hammering: number };
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
@@ -337,7 +345,7 @@ function start(preparedTown: string | null): void {
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   // The bare link opens on the coast with a welcome card (which carries the controls line itself).
   const welcoming = !demo && !loaded && !shot;
-  const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool && !welcoming);
+  const corner = buildCorner(ui, !shot && !demo?.tool && !welcoming);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
@@ -358,8 +366,6 @@ function start(preparedTown: string | null): void {
   tools.onChange((t) => {
     if (t) orders.select(0);
   });
-  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
-  tools.onChange((t) => bar.showTool(t));
   // Picking a tool puts the welcome card away.
   tools.onChange((t) => {
     if (t) welcomeCard?.dismiss();
@@ -590,14 +596,8 @@ function start(preparedTown: string | null): void {
   muteBtn.addEventListener('click', () => sound.toggle());
   corner.el.insertBefore(muteBtn, corner.el.firstChild);
 
-  // The side panel down the right: the minimap and the city's information in tabs, open to begin with on a wide
-  // window; its switch goes beside the mute and saves buttons (they sit over the panel's head while it shows).
-  const sideBtn = document.createElement('button');
-  sideBtn.className = 'btn side-btn';
-  sideBtn.setAttribute('aria-label', 'Side panel');
-  sideBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.2" fill="none" stroke="#7a5c3c" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="#7a5c3c" stroke-width="1.6"/><path d="M16.6 8.4h2.4M16.6 11h2.4M16.6 13.6h2.4" stroke="#c8643b" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  sideBtn.addEventListener('click', () => side.toggle());
-  corner.el.insertBefore(sideBtn, corner.el.firstChild);
+  // The control panel down the right: the minimap with road, clear, undo and the overlays round it, then a tab for
+  // each kind of building, with its buildings and that part of the city's state.
   const side = new SidePanel(ui, map, {
     goTo: (x, z, jump) => {
       stopFollow();
@@ -605,6 +605,9 @@ function start(preparedTown: string | null): void {
       if (jump) rig.jumpTo({ ...v, x, z });
       else rig.flyTo({ ...v, x, z });
     },
+    faceNorth: () => rig.faceNorth(),
+    tool: (t) => tools.select(t),
+    undo: () => tools.undo(),
     overlay: (m) => overlay.toggle(m),
     overlayMode: () => overlay.mode,
     ledger: () => ledger.toggle(true),
@@ -623,13 +626,9 @@ function start(preparedTown: string | null): void {
       rig.flyTo({ ...v, x: c.x, z: c.z, dist: Math.min(v.dist, 34) });
     },
     selected: () => orders.selected,
-    toggled: (open) => {
-      sideBtn.classList.toggle('on', open);
-      sideBtn.setAttribute('aria-pressed', String(open));
-      sideBtn.title = open ? 'Hide the side panel (the map and the city’s goods, people, services and money)' : 'Show the side panel: the map and the city’s goods, people, services and money';
-      resize();
-    },
-  }, innerWidth >= 1200);
+    toggled: () => resize(),
+  });
+  tools.onChange((t) => side.showTool(t));
 
   // The welcome card on the bare link.
   const newest = saves.newest();
@@ -779,6 +778,12 @@ function start(preparedTown: string | null): void {
     if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n) return false;
     return isBridge(map, sim.state, Math.floor(world.z) * n + Math.floor(world.x));
   };
+  /** The stretch of wall or gate under the pointer (slice 25), if any. */
+  const wallAtPointer = (world: { x: number; z: number } | null): WallPiece | undefined => {
+    const n = map.size;
+    if (!world || world.x < 0 || world.z < 0 || world.x >= n || world.z >= n || sim.state.walls.length === 0) return undefined;
+    return wallAt(sim.state, Math.floor(world.z) * n + Math.floor(world.x));
+  };
   /** Is the pointer on the ship (near her hull or her mast, on screen)? */
   const shipNear = (sx: number, sy: number, at = city.ship.info): boolean => {
     if (!at.visible) return false;
@@ -854,6 +859,8 @@ function start(preparedTown: string | null): void {
     if (!b) {
       const h = herdAt(world);
       if (h) return showStatus(herdStatus(sim.state, h), sx, sy);
+      const piece = wallAtPointer(world);
+      if (piece) return showStatus(wallStatus(sim.state, map, piece), sx, sy);
       return tip.show(bridgeAtPointer(world) ? 'A timber bridge' : null, sx, sy);
     }
     const st = homeStatus(sim.state, map, b);
@@ -1049,8 +1056,8 @@ function start(preparedTown: string | null): void {
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
-      // B again: the fountain, then the copper mine, the armoury and the barracks.
-      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks'], tools.tool, e?.shiftKey);
+      // B again: the fountain, then the copper mine, the armoury, the barracks, the wall and the tower.
+      if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks', 'wall', 'tower'], tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -1520,6 +1527,18 @@ function start(preparedTown: string | null): void {
     const centre = near.length ? { x: near.reduce((s, f) => s + f.x, 0) / near.length, z: near.reduce((s, f) => s + f.z, 0) / near.length } : null;
     return { foes: up.length, fighting: fight.length, fallen: r?.fallen ?? 0, arrows: a.arrows.length, broke: r?.broke ?? false, killed: r?.killed ?? 0, wounded: r?.wounded ?? 0, centre, news: a.news.map((n) => n.line) };
   };
+  probe.walls = () => {
+    const s = sim.state;
+    const r = s.world.raids.find((x) => x.phase === 'raiding') ?? s.world.raids.at(-1);
+    return {
+      pieces: s.walls.map((p) => ({ t: p.t, hp: p.hp, gate: p.gate })),
+      towers: s.buildings.filter((b) => b.kind === 'tower').map((b) => ({ id: b.id, x: b.x, z: b.z, workers: b.workers })),
+      siege: r?.siege ?? -1,
+      breaches: r?.breaches ?? 0,
+      towerArrows: s.army.arrows.filter((a) => a.h0 !== undefined).length,
+      hammering: s.army.foes.filter((f) => f.state === 'with' && f.swung > 0 && s.tick - f.swung < 24).length,
+    };
+  };
   probe.showPanel = (id) => panel.show(id);
   probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
   probe.screenOf = (x, z) => {
@@ -1818,7 +1837,7 @@ function start(preparedTown: string | null): void {
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     updateFollow();
     overlay.update(s, time);
-    bar.showOverlay(overlay.mode);
+    side.showOverlay(overlay.mode);
     legend.hidden = overlay.mode !== 'missing' && overlay.mode !== 'variety';
     if (!legend.hidden && legendFor !== overlay.mode) {
       legendFor = overlay.mode as string;
@@ -1848,8 +1867,7 @@ function start(preparedTown: string | null): void {
     topbar.showDate(sim.date);
     topbar.showCity(s.population, s.money, time);
     const why = undoRefusal(s);
-    bar.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
-    corner.setHeading(rig.view.yaw);
+    side.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
     // What frames cost on the main thread before drawing (the sim's steps and every view's update), summed.
     probe.updateMs += performance.now() - jsStart;
     drewMap = false;
@@ -1881,6 +1899,8 @@ async function boot(): Promise<void> {
   const l = readLaunch(location.search, location.hash, DEMOS, VIEWS);
   const t0 = performance.now();
   let town: string | null = null;
+  // The interface's materials are made while the town is fetched.
+  const skin = prepareSkin(PANEL_ICONS).then((ms) => (probe.skinMs = ms));
   const load = l.demo && DEMOS[l.demo]?.setup && Object.hasOwn(PREPARED, l.demo) ? PREPARED[l.demo] : undefined;
   if (load) {
     try {
@@ -1890,6 +1910,7 @@ async function boot(): Promise<void> {
     }
     probe.fetchMs = performance.now() - t0;
   }
+  await skin;
   start(town);
 }
 // Let the loading card paint before the coast is shaped.
