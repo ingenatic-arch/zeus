@@ -64,20 +64,20 @@ Each link also opens paused if you add `-paused` (for example `#borrow-paused`).
 - The browser check (`npm run smoke`) passes every loans step, but seven of its older raid checks fail since slice 24 (raiders fought in the streets) was merged in. They fail the same way on the main line: slice 24 changed how a raid plays, and its checks are still to be brought up to date there.
 
 ### Measurements
-Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's check-in) and after (with the new city look merged in):
+Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's check-in) and after (with the new city look and slice 24 merged in):
 
 | What | Before | After |
 |---|---|---|
-| Tests | 366, all passing | 377, all passing |
-| Download (gzipped) | 2,081 KB: the game 456 KB, the prepared towns 1,625 KB | 2,224 KB: the game 488 KB (loans, and the city look's finish), the prepared towns 1,736 KB (three more) |
-| First load (bare link) | ready at 2.4 s, first frame at 3.1 s | ready at 2.2 s, first frame at 3.4 s |
-| Every demo's load | 91 demos, median 2.3 s, slowest 4.3 s, 11 over 3 s | 94 demos, median 2.2 s, slowest 3.7 s, 10 over 3 s, `#borrow` among them at 3.3 s (a shared machine) |
-| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same (counted in the old look: see below) |
+| Tests | 366, all passing | 389, all passing |
+| Download (gzipped) | 2,081 KB: the game 456 KB, the prepared towns 1,625 KB | 2,347 KB: the game 498 KB (loans, the city look and slice 24), the prepared towns 1,849 KB (six more, three of them these) |
+| First load (bare link) | ready at 2.4 s, first frame at 3.1 s | ready at 1.5 s, first frame at 2.4 s |
+| Every demo's load | 91 demos, median 2.3 s, slowest 4.3 s, 11 over 3 s | 97 demos, median 1.6 s, slowest 2.5 s, none over 3 s (a quieter machine) |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same |
 | The new demos | — | `#borrow` 774,743 triangles, 81 draw calls; `#lend` 941,135, 87; `#repaid` 942,826, 92 |
-| Work a frame before drawing | `#town` 14.6 ms, `#richtown` 22.8, `#richstreet` 20.0, `#rivals` 13.0 | 9.7, 13.6, 15.7, 11.6; `#borrow` 8.0, `#lend` 11.3, `#repaid` 10.0 |
+| Work a frame before drawing | `#town` 14.6 ms, `#richtown` 22.8, `#richstreet` 20.0, `#rivals` 13.0 | 9.9, 9.0, 30.5, 8.5; `#borrow` 5.6, `#lend` 6.6, `#repaid` 9.3 |
 | A save of `#richtown` | 186 KB | 187 KB |
 
-Loans add nothing to draw in the city, and the coin on the map is drawn as a coin gift is, so the map's counts are those of the other Greek demos. One thing for the next measuring: the city look draws through a finishing pass that resets the renderer's own counts, so `npm run measure` now prints 1 triangle and 1 draw call for every city view. The triangle rows above were counted with `-plain` (the old look), which draws the same meshes.
+Loans add nothing to draw in the city, and the coin on the map is drawn as a coin gift is. `#richstreet`'s 30.5 ms is noise from a few software-drawn frames on a shared machine: measured twice more it gave 14.6 and 24.1 ms here, and 22.1 and 39.4 ms on the main line without loans.
 
 ## City look, stage 1 — light, ground and materials (19 Oct)
 

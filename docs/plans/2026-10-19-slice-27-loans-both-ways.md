@@ -126,7 +126,7 @@ Plus the existing suite. `smoke.mjs` opens `#borrow`, `#lend` and `#repaid` and 
 
 ## As built
 
-Commits: `b72ba50` (this plan), `c9d976e` (main merged in: the city look, stage 1), `e5e0613` (loans in the simulation, tests, the version 22 fixture), `fc3da53` (the Loans tab, the debts chip, the Money tab's loans, the town lines, the three demos, smoke and measure), `d6e78fe` (fixes the smoke found), `4b7046b` (main merged in again: slice 23's review), `4997a6f` (a longer timeout for the test that sets up every demo), and the check-in.
+Commits: `b72ba50` (this plan), `c9d976e` (main merged in: the city look, stage 1), `e5e0613` (loans in the simulation, tests, the version 22 fixture), `fc3da53` (the Loans tab, the debts chip, the Money tab's loans, the town lines, the three demos, smoke and measure), `d6e78fe` (fixes the smoke found), `4b7046b` (main merged in again: slice 23's review), `4997a6f` (a longer timeout for the test that sets up every demo), `2e97923` (the check-in), `803ed88` (main merged in: slice 24, raiders fought in the streets), and the check-in's updates after it.
 
 **The loan and its states.** As designed (`src/sim/loans.ts`, `Loan` in `src/sim/state.ts`, `world.loans` and `world.nextLoan`). Two states were added on the way. `sending` is your coin on its way for a ruler's own ask, which needs no answer when it arrives. `returning` is your coin sent back by a ruler who wouldn't take it. A ruler's offer or ask is a deal (`loanoffer`, `loanask`) with a `proposed` loan behind it, answered through the usual `answer` command. Everything else is the new `loan` command (`ask`, `offer`, `accept`, `decline`, `repay`).
 
@@ -156,23 +156,24 @@ Commits: `b72ba50` (this plan), `c9d976e` (main merged in: the city look, stage 
 - **`#repaid`:** the same ask lent, played on to its day (23 November 745 BC). On that day Athens pays, and the demo opens when her herald is four days from your land.
 
 **Checks.**
-- `npm test`: 377 tests in 32 files, all passing (366 in 31 before). The test that sets up every demo and checks its wages now has 400 s, not 180: the three new demos play `#rivals`' town a year or two on, and on this shared machine the whole test took over three minutes. The new file is `tests/loans.test.ts`: terms, refusals, borrowing (ask, accept, the coin, repaid on the day, early, and overdue then paid), lending (taken, sent back, the likely repayment), the rulers' own (taken, lent, refused), the calm over four years, a save mid-loan round-tripping and playing on identically, and the version 22 save.
+- `npm test`: 389 tests in 33 files, all passing, after slice 24 was merged in (366 in 31 before; 377 in 32 with this slice alone). The test that sets up every demo and checks its wages now has 400 s, not 180: the three new demos play `#rivals`' town a year or two on, and on this shared machine the whole test took over three minutes. The new file is `tests/loans.test.ts`: terms, refusals, borrowing (ask, accept, the coin, repaid on the day, early, and overdue then paid), lending (taken, sent back, the likely repayment), the rulers' own (taken, lent, refused), the calm over four years, a save mid-loan round-tripping and playing on identically, and the version 22 save.
 - `npm run build`: builds, with the same warning as before about the game's one large chunk.
 - `npm run smoke`: before slice 24 was merged in, ok, with the slice's new steps first: `#borrow` (Corinth's terms and reasons, the town line, accepting, the debts chip, Sparta's refusal, the coin in and the Money tab's loans, repaying early), `#lend` (Athens' ask lent, the ledger) and `#repaid` (the repayment arriving). After slice 24 was merged in, every step of this slice and every earlier step passes but seven of slice 20's raid checks (`#threat` refused, `#raid`, `#raiders` four times, `#aftermath`'s ledger). They fail the same way on main at `e6d2351` with main's own smoke: slice 24 changed how a raid plays (the chip counts the band's men, they make for the granary, not the farm) and its smoke checks are not yet brought up to date. They are left to slice 24's line of work.
 - The demo probe (outside the repo) played every earlier demo at the main line and at this slice, comparing the whole city at opening and 900 ticks on, with the loans fields and redraw counters left out: all 89 identical against `c5695a2`, and after slice 24 was merged in, all 92 identical against `e6d2351`.
 - Old saves: slice 24 (main) took state version 23 for its battles, so loans are version 24 (`from23` in `src/sim/migrate.ts`). The version 22 fixture `tests/fixtures/slice23-companies.save.json.gz` (main's) and a new version 23 one, `tests/fixtures/slice24-battle.save.json.gz` (`#battle` saved at `e6d2351`), both load at version 24 with no loans, play a month on and save again. The older fixtures still load.
 - Saves now accept slice 24's own ledger lines (`hirelings`, `recovered`): on main a save made once hirelings were paid was refused as damaged. `tests/saves.test.ts` now saves `#hirelings` after hiring and plays both copies on.
 
-**Measurements** (`npm run measure`, headless Chromium with software WebGL at 1920 × 1080, after main's city look was merged in):
+**Measurements** (`npm run measure`, headless Chromium with software WebGL at 1920 × 1080, with main merged in: the city look and slice 24):
 
 | What | Before (`c5695a2`) | After |
 |---|---|---|
-| Tests | 366 in 31 files | 377 in 32 files |
-| Bundle | 65 files, 2,081 KB gzipped (game 456 KB, prepared towns 1,625 KB) | 68 files, 2,224 KB gzipped (game 488 KB, with the city look's finish; prepared towns 1,736 KB, three more) |
-| First load (bare link) | ready at 2,359 ms, first frame at 3,050 ms | ready at 2,207 ms, first frame at 3,444 ms |
-| Every demo's load | 91 demos, median 2,283 ms, slowest 4,284 ms, 11 over 3 s | 94 demos, median 2,248 ms, slowest `#shrine` 3,745 ms, 10 over 3 s (`#borrow` among them at 3,267 ms; the machine was shared) |
-| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same, counted in the old look (`-plain`): the city look's finish draws through a composer, whose last pass resets the renderer's counts, so `measure` now prints 1 triangle and 1 draw call for every city view |
-| The new demos' town (old look) | — | `#borrow` 774,743 triangles, 81 draw calls; `#lend` 941,135, 87; `#repaid` 942,826, 92 |
-| The new demos' map | — | `#borrow` 311,858 triangles, 31 draw calls; `#lend` 305,402, 30; `#repaid` 305,214, 28 (as the other Greek demos) |
-| Work a frame before drawing | `#town` 14.60 ms, `#richtown` 22.76, `#richstreet` 20.03, `#rivals` 13.02 | 9.73, 13.60, 15.68, 11.62; `#borrow` 7.97, `#lend` 11.27, `#repaid` 9.98 |
+| Tests | 366 in 31 files | 389 in 33 files (slice 24's and this slice's) |
+| Bundle | 65 files, 2,081 KB gzipped (game 456 KB, prepared towns 1,625 KB) | 71 files, 2,347 KB gzipped (game 498 KB, with the city look and slice 24; prepared towns 1,849 KB, six more, three of them this slice's) |
+| First load (bare link) | ready at 2,359 ms, first frame at 3,050 ms | ready at 1,504 ms, first frame at 2,386 ms |
+| Every demo's load | 91 demos, median 2,283 ms, slowest 4,284 ms, 11 over 3 s | 97 demos, median 1,568 ms, slowest `#raid` 2,470 ms, none over 3 s (a quieter machine than before) |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same |
+| The new demos' town | — | `#borrow` 774,743 triangles, 81 draw calls; `#lend` 941,135, 87; `#repaid` 942,826, 92 (counted in the old look, `-plain`, before the merge; the town is the same) |
+| Work a frame before drawing | `#town` 14.60 ms, `#richtown` 22.76, `#richstreet` 20.03, `#rivals` 13.02 | 9.94, 9.04, 30.54, 8.53; `#borrow` 5.64, `#lend` 6.64, `#repaid` 9.28 |
 | A save of `#richtown` | 186 KB | 187 KB |
+
+Two things about these numbers. The frame work is averaged over two to fourteen software-rendered frames on a shared machine, so a single figure moves a lot: run twice more, `#richstreet` gave 14.6 and 24.1 ms on this branch and 22.1 and 39.4 ms on main at `e6d2351`. And main's fix for the city look's counts (`Tally` in `src/render/finish.ts`) counts the city's scene, so `measure`'s "map triangles" rows for the Greek demos now repeat the city's last count (`#greece` reads exactly `#town`'s 799,168), not the map's. Before the merge, the map rows for this slice's demos were `#borrow` 311,858 triangles, 31 draw calls; `#lend` 305,402, 30; `#repaid` 305,214, 28, as the other Greek demos.
