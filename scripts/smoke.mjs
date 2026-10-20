@@ -1602,7 +1602,7 @@ await open('#raiders-paused');
 await frames(3);
 r20 = await zeus(() => window.__zeus.raids());
 if (!(r20.raids[0]?.phase === 'raiding' && r20.band?.drawn && r20.chip === 'Raiders in the city')) fail(`#raiders: ${JSON.stringify(r20)}`);
-if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, plundering the granary\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
+if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, plundering the granary(, then making for the tax office)?\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
 const at20 = await zeus((p) => window.__zeus.screenOf(p.x, p.z), r20.band);
 await page.mouse.move(at20.x, at20.y - 8);
 await page.waitForFunction(() => /^Raiders of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});

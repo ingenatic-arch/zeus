@@ -678,6 +678,10 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 22 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · Raiders now come for your stores and the tax office, and burn on their way; bands grow with your city. Companies placed in their way fight them, and a barracks can hire Cretan archers or Arcadian hoplites in a pinch.';
     }
+    // …and one saved before walls (slice 24 or older, with a town): the city can wall itself in.
+    if (loaded.from !== undefined && loaded.from <= 23 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · You can wall your city now: the wall tool (B ×5) draws stone walls, with gates where they cross a road, and towers (B ×6) on the wall shoot raiders. Raiders must go round a wall or break through it.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
