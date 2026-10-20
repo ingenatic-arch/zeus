@@ -3,6 +3,7 @@ import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { CITY_IDS, PLACES } from '../map/greece';
 import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
+import { FALLEN_LIE } from '../sim/army';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
@@ -636,23 +637,32 @@ function drover(): THREE.BufferGeometry {
 }
 
 /**
- * A raider, facing +x: a dark leather tunic, a bronze helmet with a crest in
- * his city's colour, a round shield on his left arm in the colour (the tinted
+ * A raider, facing +x: a dark leather tunic, an iron helmet with a black
+ * crest, a round iron-rimmed shield on his left arm in his city's colour, darkened (the tinted
  * parts), and in his right hand a torch alight (`torch`), a spear, or, on the
  * way out, a sack of loot over his shoulder.
  */
+/** A raider's jerkin and helmet. */
+const RAIDER_LEATHER = '#3e3128';
+const RAIDER_IRON = '#55524d';
+/** Black horsehair on their helmets, and how dark their city's colour is on their shields. */
+const RAIDER_CREST = '#1d1a17';
+const RAIDER_SHADE = 0.55;
 function raider(hold: 'torch' | 'spear' | 'sack'): THREE.BufferGeometry {
   const parts: TPart[] = [
     leg(0, -0.03, 0.12, 0.02, PAL.skin, -1.3),
     leg(0, 0.03, 0.12, 0.02, PAL.skin, 1.3),
-    { geo: new THREE.CylinderGeometry(0.058, 0.088, 0.21, 6).rotateZ(-0.16).translate(0.01, 0.205, 0), color: PAL.leather },
+    // (Slice 24: dark leather and iron, so a band reads apart from your own red-and-bronze hoplites in a fight; their city's colour on crest and shield.)
+    { geo: new THREE.CylinderGeometry(0.058, 0.088, 0.21, 6).rotateZ(-0.16).translate(0.01, 0.205, 0), color: RAIDER_LEATHER },
     { geo: new THREE.CylinderGeometry(0.072, 0.072, 0.024, 6).translate(0, 0.17, 0), color: PAL.woodDark },
     { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.025, 0.36, 0), color: PAL.skin },
     // The helmet, and its crest from front to back.
-    { geo: new THREE.IcosahedronGeometry(0.066, 0).scale(1, 0.8, 1).translate(0.02, 0.385, 0), color: PAL.bronze },
-    { geo: new THREE.BoxGeometry(0.13, 0.05, 0.018).translate(0.0, 0.445, 0), color: '', tint: true },
-    // The round shield on his left, a bronze boss.
-    { geo: new THREE.CylinderGeometry(0.085, 0.085, 0.016, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.085), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.066, 0).scale(1, 0.8, 1).translate(0.02, 0.385, 0), color: RAIDER_IRON },
+    // (Slice 25: a crest of black horsehair, tall, and the shield in their city's colour darkened with an iron rim, so a band reads as dark against your terracotta-and-bronze hoplites.)
+    { geo: new THREE.BoxGeometry(0.15, 0.065, 0.02).translate(-0.005, 0.452, 0), color: RAIDER_CREST },
+    // The round shield on his left, an iron rim and a bronze boss.
+    { geo: new THREE.CylinderGeometry(0.096, 0.096, 0.012, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.08), color: RAIDER_IRON },
+    { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.016, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.087), color: '', tint: true },
     { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.02, 6).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.095), color: PAL.bronze },
   ];
   if (hold === 'torch') {
@@ -787,7 +797,7 @@ export class Walkers {
     return [x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, (x1 - x0) / len, (z1 - z0) / len];
   }
 
-  update(state: SimState, alpha: number, time: number): void {
+  update(state: SimState, alpha: number, _time: number): void {
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
     const saffron = col(PAL.vendorDress);
@@ -823,7 +833,7 @@ export class Walkers {
         continue;
       }
       if (w.kind === 'raider') {
-        this.band(w, cum, lead, total, time);
+        this.band(w, cum, lead);
         continue;
       }
       // (Run indoors from raiders near them: not drawn until they come out.)
@@ -902,65 +912,121 @@ export class Walkers {
     }
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
+    this.raidersOf(state, alpha);
   }
 
   /** Walkers who have run indoors from the raiders (set by the city view each frame: the sim's own rule). */
   hidden: ReadonlySet<number> = new Set();
 
   /**
-   * A raiding band: its men at a run in a loose pack, in their city's colours
-   * (shields and crests), torches and spears going in, sacks going out with
-   * loot; at their target they spread round it, torches up.
+   * A raiding band (slice 24): its men are drawn one by one from the sim's
+   * raiders (`foes`), so here only the band's head is noted, for hovering,
+   * clicking and following.
    */
-  private band(w: Walker, cum: Float32Array, lead: number, total: number, time: number): void {
-    const city = CITY_IDS[w.food];
-    const colour = col(city ? PLACES[city].colour : PAL.tunicTerracotta);
-    const there = w.wait > 0;
+  private band(w: Walker, cum: Float32Array, lead: number): void {
     const [hx, hz] = this.at(w, cum, lead);
-    for (let k = 0; k < w.people; k++) {
-      let x: number;
-      let z: number;
-      let heading: number;
-      let moving = 0;
-      if (there) {
-        // Round the target: each at his own place, turning now and then.
-        const a = hash2(w.id, k, 2101) * Math.PI * 2;
-        const r = 0.7 + hash2(w.id, k, 2102) * 1.1;
-        x = hx + Math.cos(a) * r;
-        z = hz + Math.sin(a) * r;
-        heading = a + Math.PI + Math.sin(time * 0.7 + k) * 0.6;
-      } else {
-        // A loose pack: a few abreast, rank behind rank, each a little off his line.
-        const row = Math.floor(k / 3);
-        const d = Math.max(0, lead - row * SPACING * 1.4 - hash2(w.id, k, 2103) * 0.12);
-        const [x0, z0, dx, dz] = this.at(w, cum, d);
-        const side = ((k % 3) - 1) * 0.22 + (hash2(w.id, k, 2104) - 0.5) * 0.08;
-        x = x0 - dz * side;
-        z = z0 + dx * side;
-        heading = Math.atan2(-dz, dx);
-        moving = d > 0 && d < total ? 1 : 0;
+    this.p.set(hx, this.ground(hx, hz) + 0.03, hz);
+    const v = this.serviceAt.get(w.id);
+    if (v) v.pos.copy(this.p);
+    else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'raider' });
+  }
+
+  /** Where each raider was drawn this frame (for hovering). */
+  readonly foeAt = new Map<number, THREE.Vector3>();
+  /** Each raider's place at the last two ticks seen. */
+  private readonly foeWas = new Map<number, { px: number; pz: number; x: number; z: number }>();
+  private foeTick = -1;
+
+  /**
+   * The raiders on the map, man by man, in their city's colours: running in a
+   * loose pack with torches and spears, round their target with torches up,
+   * out with sacks if they took anything; in a fight, spears levelled, lunging
+   * as they strike; fallen, lying on their side, sinking from sight before
+   * they are gone.
+   */
+  private raidersOf(state: SimState, alpha: number): void {
+    const foes = state.army.foes;
+    if (!foes.length) {
+      if (this.foeAt.size) this.foeAt.clear();
+      this.foeWas.clear();
+      return;
+    }
+    if (state.tick !== this.foeTick) {
+      const jump = this.foeTick < 0 || state.tick - this.foeTick > 4 || state.tick < this.foeTick;
+      this.foeTick = state.tick;
+      const seen = new Set<number>();
+      for (const f of foes) {
+        seen.add(f.id);
+        const w = this.foeWas.get(f.id);
+        if (!w || jump) this.foeWas.set(f.id, { px: f.x, pz: f.z, x: f.x, z: f.z });
+        else {
+          w.px = w.x;
+          w.pz = w.z;
+          w.x = f.x;
+          w.z = f.z;
+        }
       }
-      const phase = ((x + z) * Math.PI * 2) / STRIDE + k;
-      const bob = Math.abs(Math.cos(phase)) * 0.02 * moving;
-      this.e.set(Math.sin(phase) * 0.05 * moving, heading, 0, 'YXZ');
+      for (const id of this.foeWas.keys()) if (!seen.has(id)) this.foeWas.delete(id);
+    }
+    const a = Math.max(0, Math.min(1, alpha));
+    const now = state.tick + a;
+    const raids = new Map(state.world.raids.map((r) => [r.id, r]));
+    const bands = new Map<number, Walker>();
+    for (const w of state.walkers) if (w.kind === 'raider') bands.set(w.home, w);
+    const live = new Set<number>();
+    for (const f of foes) {
+      const was = this.foeWas.get(f.id);
+      if (!was) continue;
+      live.add(f.id);
+      const r = raids.get(f.raid);
+      const band = bands.get(f.raid);
+      const city = r ? r.city : 'sparta';
+      let x = was.px + (was.x - was.px) * a;
+      let z = was.pz + (was.z - was.pz) * a;
+      const moving = f.state !== 'fallen' && Math.abs(was.x - was.px) + Math.abs(was.z - was.pz) > 1e-4;
+      let tilt = 0;
+      let roll = 0;
+      let lift = 0.03;
+      let sc = 1.05 + 0.08 * hash2(f.id, 5, 2105);
+      if (f.state === 'fallen') {
+        // Down: toppling onto his side over a few ticks, then lying still; sinking from sight before he is gone.
+        const since = now - f.fell;
+        roll = (Math.PI / 2) * Math.min(1, since / 4);
+        lift = 0.05;
+        const fade = Math.max(0, since - (FALLEN_LIE - 12)) / 12;
+        lift -= fade * 0.12;
+        sc *= 1 - fade * 0.3;
+      } else {
+        // Striking: a lunge forward along the way he faces, and back.
+        const dt = now - f.swung;
+        if (f.swung > 0 && dt >= 0 && dt < 3) {
+          const k = Math.sin((dt / 3) * Math.PI);
+          x += Math.cos(f.face) * 0.09 * k;
+          z += Math.sin(f.face) * 0.09 * k;
+          tilt = -0.3 * k;
+        }
+      }
+      const phase = ((x + z) * Math.PI * 2) / STRIDE + f.slot;
+      const bob = moving ? Math.abs(Math.cos(phase)) * 0.02 : 0;
+      this.e.set(roll + (moving ? Math.sin(phase) * 0.05 : 0), -f.face, tilt, 'YXZ');
       this.q.setFromEuler(this.e);
-      this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
-      const sc = 1.05 + 0.08 * hash2(w.id, k, 2105);
+      this.p.set(x, this.ground(x, z) + lift + bob, z);
       this.s.set(sc, sc, sc);
       this.m.compose(this.p, this.q, this.s);
-      this.c.copy(colour);
+      // (Their city's colour darkened, on the shield: slice 24's review found Sparta's red against your hoplites' read as one crowd.)
+      this.c.copy(col(PLACES[city]?.colour ?? PAL.tunicTerracotta)).multiplyScalar(RAIDER_SHADE);
       if (!moving) this.c.multiplyScalar(-1);
-      // Going out with loot: most carry a sack; going in (or with nothing), torches and spears.
-      const hold = w.back && w.load > 0 && k % 4 !== 0 ? 2 : k % 2 === 0 || there ? 0 : 1;
+      // Going out with loot: most carry a sack; fighting, spears; going in (or at their target), torches and spears.
+      const loaded = !!band && band.back && band.load > 0;
+      const hold = f.state === 'fight' ? 1 : loaded && f.slot % 4 !== 0 ? 2 : f.slot % 2 === 0 || (band && band.wait > 0) ? 0 : 1;
       this.raiders[hold].push(this.m, this.c);
-      // Hovered, clicked and followed by the band's middle (its head on the way; the target they stand round).
-      if (k === 0) {
-        this.p.set(hx, this.ground(hx, hz) + 0.03, hz);
-        const v = this.serviceAt.get(w.id);
-        if (v) v.pos.copy(this.p);
-        else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'raider' });
+      if (f.state !== 'fallen') {
+        const at = this.foeAt.get(f.id);
+        if (at) at.copy(this.p);
+        else this.foeAt.set(f.id, this.p.clone());
       }
     }
+    for (const id of this.foeAt.keys()) if (!live.has(id) || foes.find((f) => f.id === id)?.state === 'fallen') this.foeAt.delete(id);
   }
 
   /** A caravan: its drover ahead in his city's colour, his donkeys strung out behind him along the road, each in a blanket of the same colour. */

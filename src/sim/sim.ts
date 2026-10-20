@@ -30,7 +30,9 @@ import { stepRivals } from './rivals';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
-import { barracksGone, dismiss, freshArmy, raise, sendBanner, stepArmy } from './army';
+import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } from './army';
+import { stepBattle } from './battle';
+import { dropWalls, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -78,6 +80,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     world: freshWorld(worldSeed),
     stocks: freshBook(0),
     army: freshArmy(),
+    walls: [],
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -193,6 +196,8 @@ export class Sim {
     stepDiplomacy(s);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
+    // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
+    stepBattle(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -214,6 +219,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
   switch (c.type) {
     case 'road':
       record(s, layRoads(s, map, c.tiles));
+      break;
+    case 'wall':
+      if (Array.isArray(c.tiles)) record(s, drawWalls(s, map, c.tiles));
       break;
     case 'plots':
       record(s, placePlots(s, map, c.at, 'home'));
@@ -270,6 +278,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     case 'raise':
       if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);
       break;
+    case 'hire':
+      if (typeof c.barracks === 'number' && typeof c.kind === 'string') hire(s, map, c.barracks, c.kind);
+      break;
     case 'dismiss':
       if (typeof c.company === 'number') dismiss(s, map, c.company);
       break;
@@ -308,7 +319,7 @@ const emptyEntry = (): UndoEntry => ({
 });
 
 function record(s: SimState, e: UndoEntry): void {
-  const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length;
+  const tiles = e.roads.length + e.plots.length + e.removedRoads.length + e.removedPlots.length + (e.walls?.length ?? 0) + (e.removedWalls?.length ?? 0);
   if (tiles + e.trees.length + (e.stalls?.length ?? 0) === 0) return;
   e.tick = s.tick;
   s.undo.push(e);
@@ -369,6 +380,35 @@ function layRoads(s: SimState, map: CoastMap, tiles: number[]): UndoEntry {
     e.roads.push(t);
   }
   e.trees = clearTrees(s, map, e.roads);
+  // (A road laid over a breach in a wall clears its rubble away.)
+  if (s.walls.length) {
+    const took = dropWalls(s, e.roads.filter((t) => !wallAt(s, t)?.gate));
+    if (took.length) e.removedWalls = took;
+  }
+  return e;
+}
+
+/**
+ * Draw wall over the tiles in order (walls.ts): open dry ground takes a
+ * stretch, a road a gate, a cracked or broken stretch is mended; each paid
+ * for on the building line, while the treasury can pay.
+ */
+function drawWalls(s: SimState, map: CoastMap, tiles: number[]): UndoEntry {
+  const e = emptyEntry();
+  const n = map.size;
+  const valid = tiles.filter((t) => Number.isInteger(t) && t >= 0 && t < n * n);
+  const { done, laid } = layWalls(
+    map,
+    s,
+    valid,
+    (cost) => spendable(s) >= cost,
+    (cost, what) => {
+      pay(s, -cost, 'building', what);
+      e.cost += cost;
+    },
+  );
+  if (done.length) e.walls = done;
+  e.trees = clearTrees(s, map, laid);
   return e;
 }
 
@@ -455,6 +495,8 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     ruin: '',
   };
   s.buildings.push(b);
+  // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)
+  if (s.walls.length) dropWalls(s, footprint(n, x, z, footSide(b)));
   for (const t of footprint(n, x, z, footSide(b))) s.tiles[t] = b.id;
   return b;
 }
@@ -471,6 +513,11 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     const x = t % n;
     const z = Math.floor(t / n);
     if (buildingRefusal(map, s, kind, x, z) !== '') continue;
+    // (A tower takes the stretches of wall under it into it: undo gives them back.)
+    if (s.walls.length) {
+      const took = dropWalls(s, footprint(n, x, z, sideOf(kind)));
+      if (took.length) e.removedWalls = [...(e.removedWalls ?? []), ...took];
+    }
     const b = addBuilding(s, n, x, z, kind);
     pay(s, -cost, 'building', kind === 'home' ? 'plots' : kind);
     e.cost += cost;
@@ -545,6 +592,13 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
         if (b && !homes.includes(b)) homes.push(b);
       } else empty.push(t);
     }
+  }
+  // Walls and gates in it go (a gate with its road), rubble of them too.
+  if (s.walls.length) {
+    const tiles: number[] = [];
+    for (let z = za; z <= zb; z++) for (let x = xa; x <= xb; x++) if (wallAt(s, z * n + x)) tiles.push(z * n + x);
+    const took = dropWalls(s, tiles);
+    if (took.length) e.removedWalls = took;
   }
   for (const t of [...roads].sort((a, b) => a - b)) {
     s.tiles[t] = TILE_EMPTY;
@@ -690,6 +744,8 @@ function undoLast(s: SimState, map: CoastMap): void {
     const b = findBuilding(s, id);
     if (b) removeBuilding(s, map, b);
   }
+  // Walls it laid taken away, those it mended as they were.
+  if (e.walls?.length) unlayWalls(s, e.walls);
   for (const t of e.roads) if (s.tiles[t] === TILE_ROAD) s.tiles[t] = TILE_EMPTY;
   if (e.cost > 0) income(s, e.cost, 'refund', 'undone');
   // What it removed comes back where the ground is still free. A home comes
@@ -698,6 +754,8 @@ function undoLast(s: SimState, map: CoastMap): void {
   const ground = mapIndex(map).ground;
   for (const t of e.removedRoads) if (ground[t] !== Ground.Water && roadRefusal(map, s, t % n, Math.floor(t / n)) === '') s.tiles[t] = TILE_ROAD;
   for (const t of e.removedRoads) if (ground[t] === Ground.Water && s.tiles[t] === TILE_EMPTY) s.tiles[t] = TILE_ROAD;
+  // Walls and gates it cleared, or a tower took in, come back where the ground is free for them.
+  if (e.removedWalls?.length) restoreWalls(s, e.removedWalls);
   // Older undo entries that placed those plots now point at the new ones,
   // so undoing them takes the plot away again (and refunds it only once).
   const order = e.removedPlots.map((_, i) => i).sort((a, b) => e.removedPlots[a] - e.removedPlots[b]);

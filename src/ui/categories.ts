@@ -39,7 +39,7 @@ export const CATEGORIES: readonly CategoryInfo[] = [
   { id: 'administration', title: 'Administration', tip: 'Administration: the tax office; the treasury, taxes and the ledger', icon: ICONS.taxoffice, tools: ['taxoffice'], overlays: ['tax'] },
   { id: 'culture', title: 'Culture', tip: 'Culture: the theatre, and the homes that have plays', icon: ICONS.theatre, tools: ['theatre'], overlays: ['culture'] },
   { id: 'mythology', title: 'Mythology', tip: 'Mythology: the shrines, and the homes they bless', icon: ICONS.shrine, tools: ['shrine'], overlays: ['religion'] },
-  { id: 'military', title: 'Military', tip: 'Military: the barracks, their companies and the city’s strength', icon: HELMET, tools: ['barracks'], overlays: [] },
+  { id: 'military', title: 'Military', tip: 'Military: the barracks, the walls and towers, the companies and the city’s strength', icon: HELMET, tools: ['barracks', 'wall', 'tower'], overlays: [] },
 ];
 
 /** The tools on the panel's head rather than in a tab. */

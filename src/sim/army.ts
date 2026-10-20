@@ -24,17 +24,20 @@
  */
 import type { CoastMap } from '../map/bake';
 import { datan2, dcos, dhypot, dsin } from '../map/dmath';
+import { hash2 } from '../map/noise';
 import { around, centreOf, findBuilding, FINE, footSide, livedIn, TOWNHOUSE, VILLA } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { errandsOut, nearestBy, PORTER_RETRY, sendCart, stallRoom, wayPoints } from './food';
 import { ARMOUR, coming, COPPER, gi, held, setHeld, type Ware } from './foods';
+import { MEN } from './folk';
 import { rateOf, WORK_SHARE } from './labour';
+import { overland } from './roads';
 import { door, roadsBeside } from './rounds';
 import { note } from './stockbook';
 import { ARMOURY_COPPER, isStore, roomOf } from './stores';
-import { TILE_ROAD, type Army, type Building, type Company, type CompanyKind, type Person, type SimState, type Soldier } from './state';
-import { settle, SOLDIER_PAY } from './treasury';
-import { newWalker, setPath } from './walk';
+import { TILE_ROAD, type Army, type Building, type Company, type CompanyKind, type Person, type ServesAs, type SimState, type Soldier } from './state';
+import { HIRED_PAY, pay, settle, SOLDIER_PAY, spendable } from './treasury';
+import { newWalker, offMapPoint, setPath } from './walk';
 import { offRoadPath, prunePath, walkable } from './wild';
 import { restFor } from './water';
 
@@ -45,9 +48,22 @@ export const PER_BARRACKS = 4;
 export const CALLS_A_DAY = 4;
 /** The home levels each kind is drawn from, at least. */
 export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: TOWNHOUSE };
-/** How fast a banner marches, and a man walks (tiles a tick): a man is quicker, so the column keeps up. */
-export const MARCH_SPEED = 0.1;
-export const STRIDE = 0.14;
+/**
+ * How fast a banner marches (tiles a tick): a soldier's quick march, two
+ * thirds quicker than the townsfolk walk (0.12) and about as fast as raiders
+ * run (0.192), so a company sent when the band is first seen meets it at the
+ * stores (slice 24's review: at 0.16 a company from #battle's barracks reached
+ * the west bridge less than a day before the band); how fast a man keeps his
+ * place in the column or the ranks (quicker, so the column keeps up); and how
+ * fast he walks his own way, in from his home or home again.
+ */
+export const MARCH_SPEED = 0.2;
+export const STRIDE = 0.22;
+/** A man's pace keeping his place in the column on the march (the ranks and the drill keep STRIDE's, as before the march quickened). */
+export const MARCH_STRIDE = 0.27;
+export const WALK_IN = 0.14;
+/** Hirelings march in from the map's edge at the double (slice 24): men who march for a living, hired because a band is coming. */
+export const HIRED_IN = 0.34;
 /** Ticks between the drill's moves. */
 export const DRILL_STEP = 40;
 /** How far apart the men stand in ranks (tiles): hoplites shoulder to shoulder, archers looser. */
@@ -58,10 +74,26 @@ const FILE_GAP = 0.42;
 const THERE = 0.02;
 /** The banners' emblems, one per company number in turn. */
 export const EMBLEMS = ['owl', 'boar', 'lion', 'bull', 'horse', 'dolphin', 'trident', 'snake'] as const;
-/** The age a man must be to serve. */
+/** The age a man must be to serve, and the age past which he no longer does. */
 export const SERVE_AGE = 16;
+export const SERVE_AGE_MAX = 60;
 
-export const freshArmy = (): Army => ({ companies: [], soldiers: [], nextId: 1 });
+export const freshArmy = (): Army => ({ companies: [], soldiers: [], nextId: 1, foes: [], arrows: [], news: [], owed: 0 });
+
+/** Hirelings (slice 24): who they are, what they cost to hire, and their pay (three times a citizen's). */
+export const HIRELINGS = {
+  cretan: { kind: 'archer' as CompanyKind, name: 'Cretan archers', one: 'Cretan archer', from: ['Gortyn', 'Knossos', 'Lyttos', 'Kydonia'], fee: 300 },
+  arcadian: { kind: 'hoplite' as CompanyKind, name: 'Arcadian hoplites', one: 'Arcadian hoplite', from: ['Mantinea', 'Tegea', 'Orchomenos', 'Megalopolis'], fee: 450 },
+} as const;
+export type HiredKind = keyof typeof HIRELINGS;
+/** A man's pay a month: a citizen's, or a hireling's. */
+export const payOf = (c: Company): number => (c.hired ? HIRED_PAY : SOLDIER_PAY);
+export { HIRED_PAY };
+/** How long a man wounded lies where he fell before he gets up, and how many days he heals at the barracks. */
+export const LIE = 30;
+export const HEAL_DAYS = 30;
+/** How long a man who can find no way to his company waits before he looks again. */
+const LOOK_AGAIN = TICKS_PER_DAY;
 
 /** "1st", "2nd", "3rd", "4th", "11th". */
 export function ordinal(n: number): string {
@@ -78,19 +110,21 @@ export const kindWord = (k: CompanyKind, many = true): string => (k === 'hoplite
 export const fromWords = (k: CompanyKind): string => (k === 'hoplite' ? 'fine houses and villas' : 'townhouses and better');
 
 export const companyOf = (s: SimState, id: number): Company | undefined => s.army.companies.find((c) => c.id === id);
-/** A company's men (walking in, waiting for armour or in the ranks). */
-export const menOf = (s: SimState, c: Company): Soldier[] => s.army.soldiers.filter((x) => x.company === c.id);
+/** A company's men (walking in, waiting for armour, in the ranks, wounded or healing; not the fallen). */
+export const menOf = (s: SimState, c: Company): Soldier[] => s.army.soldiers.filter((x) => x.company === c.id && x.state !== 'fallen');
+/** Its wounded: lying where they fell, walking back, or healing at the barracks. */
+export const woundedOf = (s: SimState, c: Company): Soldier[] => s.army.soldiers.filter((x) => x.company === c.id && (x.state === 'wounded' || x.state === 'healing'));
 /** The men in its ranks, ready. */
 export const readyOf = (s: SimState, c: Company): Soldier[] => s.army.soldiers.filter((x) => x.company === c.id && x.state === 'ready');
 /** The companies of a barracks, in the order they were raised. */
 export const companiesAt = (s: SimState, b: Building): Company[] => s.army.companies.filter((c) => c.barracks === b.id);
 /** The man serving from a home, if any (not one already dismissed and walking home). */
-export const servingFrom = (s: SimState, b: Building): Soldier | undefined => s.army.soldiers.find((x) => x.home === b.id && x.state !== 'leaving');
+export const servingFrom = (s: SimState, b: Building): Soldier | undefined => s.army.soldiers.find((x) => x.home === b.id && x.state !== 'leaving' && x.state !== 'fallen');
 
 /** The homes with a man serving (not one dismissed, on his way home). */
 export function servingHomes(s: SimState): Set<number> {
   const out = new Set<number>();
-  for (const x of s.army.soldiers) if (x.home > 0 && x.state !== 'leaving') out.add(x.home);
+  for (const x of s.army.soldiers) if (x.home > 0 && x.state !== 'leaving' && x.state !== 'fallen') out.add(x.home);
   return out;
 }
 
@@ -135,6 +169,30 @@ export function drillSpot(s: SimState, b: Building, c: Company): [number, number
   const side = footSide(b);
   const q = side / 4;
   return [b.x + q + (place % 2) * 2 * q, b.z + q + Math.floor(place / 2) * 2 * q];
+}
+
+/**
+ * A company's barracks, which way it faces, its gate and the company's spot on
+ * its drill ground: what every man's step reads. Worked out once a tick and
+ * kept (each costs a walk round the barracks' ring), not once a man (slice 23's
+ * review: the army cost a millisecond a tick with sixteen men walking in).
+ */
+export interface Base {
+  b: Building | undefined;
+  front: number;
+  gate: number;
+  spot: [number, number];
+}
+let bases: { s: SimState | null; tick: number; rev: number; tilesRev: number; n: number; by: Map<number, Base> } = { s: null, tick: -1, rev: -1, tilesRev: -1, n: -1, by: new Map() };
+export function baseOf(s: SimState, map: CoastMap, c: Company): Base {
+  if (bases.s !== s || bases.tick !== s.tick || bases.rev !== s.rev || bases.tilesRev !== s.tilesRev || bases.n !== s.army.companies.length) bases = { s, tick: s.tick, rev: s.rev, tilesRev: s.tilesRev, n: s.army.companies.length, by: new Map() };
+  let o = bases.by.get(c.id);
+  if (!o) {
+    const b = findBuilding(s, c.barracks);
+    o = b ? { b, front: frontOf(s, map, b), gate: gateOf(s, map, b), spot: drillSpot(s, b, c) } : { b, front: Math.PI / 2, gate: -1, spot: [c.x, c.z] };
+    bases.by.set(c.id, o);
+  }
+  return o;
 }
 
 /** Where a man stands in a block round a banner at (x, z) facing `face`: four ranks of four, the first rank to the front. */
@@ -190,7 +248,7 @@ const ageOf = (s: SimState, p: Person): number => Math.max(0, Math.floor((s.tick
 export function eldestMan(s: SimState, b: Building): Person | null {
   const f = b.family;
   if (!f) return null;
-  const men = f.members.filter((p) => !p.female && ageOf(s, p) >= SERVE_AGE);
+  const men = f.members.filter((p) => !p.female && ageOf(s, p) >= SERVE_AGE && ageOf(s, p) <= SERVE_AGE_MAX);
   const order: Person['role'][] = ['son', 'head', 'husband', 'brother', 'cousin'];
   for (const role of order) {
     const of = men.filter((p) => p.role === role).sort((a, c) => a.born - c.born);
@@ -207,9 +265,26 @@ export function canSpare(s: SimState, b: Building, kind: CompanyKind, serving: S
   return eldestMan(s, b) !== null;
 }
 
-/** How the man is named by his father: "son of Nikias" (or "head of the house"). */
+/** How a man stands in his house (a save from before it was kept: a son if he is named by someone, else the head). */
+export const kinOf = (x: Soldier): ServesAs => x.kin ?? (x.father ? 'son' : 'head');
+
+/** How the man is named in his house: "son of Nikias", "husband of Theano", "head of his house". */
 export function fatherWords(x: Soldier): string {
-  return x.father ? `son of ${x.father}` : 'head of his house';
+  const k = kinOf(x);
+  return k === 'head' || !x.father ? 'head of his house' : `${k} of ${x.father}`;
+}
+
+/**
+ * Who a man serving is known by in his house: a son by his father (or, if
+ * the house's records name only his mother, by her husband, else by her); a
+ * husband by his wife; a brother or cousin by the head; the head by nobody.
+ */
+function knownBy(b: Building, p: Person): string {
+  if (p.role === 'head') return '';
+  if (p.role !== 'son') return p.kin;
+  const parent = b.family?.members.find((m) => m.name === p.kin);
+  if (parent?.female) return b.family?.members.find((m) => m.role === 'husband' && m.kin === parent.name)?.name ?? p.kin;
+  return p.kin;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,11 +327,89 @@ export function raise(s: SimState, barracks: number, kind: CompanyKind): Company
     raised: s.tick,
     owed: 0,
     why: '',
+    hired: '',
+    strong: 0,
+    routed: false,
   };
   s.army.companies.push(c);
   const [x, z] = drillSpot(s, b, c);
   c.x = x;
   c.z = z;
+  s.rev++;
+  return c;
+}
+
+/** Why hirelings can't be hired at this barracks now, or '' if they can. */
+export function hireRefusal(s: SimState, b: Building | undefined, kind: string): string {
+  const r = raiseRefusal(s, b);
+  if (r) return r;
+  const h = HIRELINGS[kind as HiredKind];
+  if (!h) return 'No such hirelings';
+  if (spendable(s) < h.fee) return `The treasury can’t spare the ${h.fee} dr they ask to come`;
+  return '';
+}
+
+/**
+ * Hire a company of mercenaries at a barracks: Cretan archers or Arcadian
+ * hoplites, for their fee now and three times a citizen's pay a month. They
+ * walk in from the nearest edge of the map, armed with their own, in their
+ * own colours, and take nobody from your homes. Null if they can't come.
+ */
+export function hire(s: SimState, map: CoastMap, barracks: number, kind: string): Company | null {
+  const b = findBuilding(s, barracks);
+  if (hireRefusal(s, b, kind) !== '' || !b) return null;
+  const h = HIRELINGS[kind as HiredKind];
+  const gate = gateOf(s, map, b);
+  const n = map.size;
+  const edges: number[] = [];
+  for (let i = 0; i < n; i++) for (const t of [i, (n - 1) * n + i, i * n, i * n + n - 1]) if (walkable(map, s, t)) edges.push(t);
+  const tiles = gate >= 0 && edges.length ? offRoadPath(map, s, edges, gate) : null;
+  if (!tiles) return null;
+  const c = raise(s, barracks, h.kind);
+  if (!c) return null;
+  c.hired = kind as HiredKind;
+  pay(s, -h.fee, 'hirelings', h.name);
+  const way: number[] = [];
+  for (const [px, pz] of prunePath(map, s, tiles)) way.push(px, pz);
+  const [ox, oz] = offMapPoint(n, tiles[0]);
+  // (Off the map, beyond the edge they come in by: the column files in, two abreast.)
+  const dx = ox - way[0];
+  const dz = oz - way[1];
+  const d = dhypot(dx, dz) || 1;
+  const front = frontOf(s, map, b);
+  for (let slot = 0; slot < COMPANY_SIZE; slot++) {
+    const back = 0.45 * Math.floor(slot / 2);
+    const side = (slot % 2 === 0 ? -1 : 1) * 0.17;
+    const sx0 = ox + (dx / d) * back - (dz / d) * side;
+    const sz0 = oz + (dz / d) * back + (dx / d) * side;
+    const id = s.army.nextId++;
+    const name = MEN[Math.floor(hash2(id, 1, 2401) * MEN.length)];
+    const father = MEN[Math.floor(hash2(id, 2, 2401) * MEN.length)];
+    const [px, pz] = slotAt(h.kind, slot, ...drillSpot(s, b, c), front);
+    s.army.soldiers.push({
+      id,
+      company: c.id,
+      slot,
+      home: 0,
+      name,
+      father: father === name ? MEN[(MEN.indexOf(name) + 7) % MEN.length] : father,
+      kin: 'son',
+      house: h.from[Math.floor(hash2(id, 3, 2401) * h.from.length)],
+      state: 'coming',
+      x: sx0,
+      z: sz0,
+      face: datan2(-dz, -dx),
+      path: [sx0, sz0, ox, oz, ...way, px, pz],
+      seg: 1,
+      walked: 0,
+      armed: h.kind === 'hoplite',
+      hp: 100,
+      foe: 0,
+      cool: 0,
+      swung: 0,
+      fell: 0,
+    });
+  }
   s.rev++;
   return c;
 }
@@ -286,27 +439,63 @@ function sendHome(s: SimState, map: CoastMap, x: Soldier): void {
   x.seg = 0;
 }
 
-/** Dismiss a company: the men go home, their armour back on the rack. */
+/** Dismiss a company: the men go home, their armour back on the rack (hirelings walk off the way they came, with their own); what it was owed is still paid. */
 export function dismiss(s: SimState, map: CoastMap, id: number): void {
   const c = companyOf(s, id);
   if (!c) return;
   const b = findBuilding(s, c.barracks);
-  for (const x of menOf(s, c)) {
-    handBack(s, x, b);
-    sendHome(s, map, x);
+  for (const x of s.army.soldiers.filter((o) => o.company === c.id)) {
+    if (x.state === 'fallen') continue;
+    if (c.hired) walkOff(s, map, x);
+    else {
+      handBack(s, x, b);
+      sendHome(s, map, x);
+    }
   }
+  // (Slice 23's review: dismissing forgot the pay it was owed.)
+  s.army.owed += c.owed;
   s.army.companies = s.army.companies.filter((o) => o !== c);
   dropGone(s);
   s.rev++;
+}
+
+/** A hireling walks off to the nearest open edge of the map (or, with no way there, is simply gone). */
+function walkOff(s: SimState, map: CoastMap, x: Soldier): void {
+  x.company = 0;
+  x.state = 'leaving';
+  x.foe = 0;
+  const way = edgeWay(s, map, x.x, x.z);
+  if (!way) {
+    x.hp = 0;
+    return;
+  }
+  x.path = way;
+  x.seg = 1;
+}
+
+/** The way from (x, z) to the nearest open tile on the map's edge and a few paces beyond it (null: none). */
+function edgeWay(s: SimState, map: CoastMap, x: number, z: number): number[] | null {
+  const starts = startTiles(s, map, x, z);
+  if (!starts.length) return null;
+  const out = overland(map, s, starts[0]);
+  if (!out) return null;
+  const way = [x, z, ...out.points];
+  const [ox, oz] = offMapPoint(map.size, out.edge);
+  way.push(ox, oz);
+  return way;
 }
 
 /** A barracks is gone (cleared, burnt, fallen in): its companies are disbanded, the men walking home with their armour. */
 export function barracksGone(s: SimState, map: CoastMap, b: Building): void {
   for (const c of companiesAt(s, b)) {
     for (const x of menOf(s, c)) {
-      handBack(s, x, undefined);
-      sendHome(s, map, x);
+      if (c.hired) walkOff(s, map, x);
+      else {
+        handBack(s, x, undefined);
+        sendHome(s, map, x);
+      }
     }
+    s.army.owed += c.owed;
   }
   s.army.companies = s.army.companies.filter((c) => c.barracks !== b.id);
   dropGone(s);
@@ -412,15 +601,40 @@ export function stepArmy(s: SimState, map: CoastMap): void {
   if (a.companies.length === 0 && a.soldiers.length === 0 && !s.buildings.some((b) => b.kind === 'barracks' || b.kind === 'armoury')) return;
   for (const b of s.buildings) if (b.kind === 'armoury') smithy(s, map, b);
   if (s.tick % TICKS_PER_DAY === 0) daily(s, map);
-  if (s.tick % TICKS_PER_MONTH === 0 && a.companies.length) {
-    for (const c of a.companies) c.owed += menOf(s, c).length * SOLDIER_PAY;
+  if (s.tick % TICKS_PER_MONTH === 0 && (a.companies.length || a.owed > 0)) {
+    // Hirelings whose last month's pay is still owed walk off, grumbling.
+    for (const c of a.companies.filter((o) => o.hired && o.owed > 0)) unpaid(s, map, c);
+    for (const c of a.companies) c.owed += menOf(s, c).length * payOf(c);
     settle(s);
   }
   for (const b of s.buildings) if (b.kind === 'barracks') racks(s, map, b);
   for (const c of a.companies) moveBanner(s, map, c);
   for (const x of a.soldiers) moveMan(s, map, x);
-  // The dismissed home, and men whose home is gone, leave the city.
-  if (a.soldiers.some((x) => x.state === 'leaving' && x.hp <= 0)) dropGone(s);
+  // The dismissed home, and men whose home is gone, leave the city; the fallen are gone once they have lain a while.
+  if (a.soldiers.some((x) => (x.state === 'leaving' && x.hp <= 0) || (x.state === 'fallen' && s.tick - x.fell >= FALLEN_LIE))) {
+    dropGone(s);
+    a.soldiers = a.soldiers.filter((x) => !(x.state === 'fallen' && s.tick - x.fell >= FALLEN_LIE));
+    s.rev++;
+  }
+}
+
+/** How long a man killed lies where he fell (then he is gone, fading: render/army.ts). */
+export const FALLEN_LIE = 40;
+
+/** Hirelings unpaid a month walk off, grumbling, with a line in the town's news. */
+function unpaid(s: SimState, map: CoastMap, c: Company): void {
+  const h = HIRELINGS[c.hired as HiredKind];
+  armyNews(s, `The ${h.name} of ${companyName(c)} have had no pay for a month (${c.owed} dr owed): they walk off, grumbling that a city that can’t pay shouldn’t hire`, c.barracks);
+  // (What they were owed goes with them, unpaid: they won't be back for it.)
+  c.owed = 0;
+  dismiss(s, map, c.id);
+}
+
+/** A line of the army's news, for the town lines (the last few kept). */
+export function armyNews(s: SimState, line: string, at: number): void {
+  s.army.news.push({ tick: s.tick, line, at });
+  if (s.army.news.length > 12) s.army.news.splice(0, s.army.news.length - 12);
+  s.rev++;
 }
 
 function daily(s: SimState, map: CoastMap): void {
@@ -437,6 +651,16 @@ function daily(s: SimState, map: CoastMap): void {
     x.hp = 0;
   }
   dropGone(s);
+  // The wounded heal at their barracks, a little each day; whole again, they take their place in the ranks.
+  for (const x of a.soldiers) {
+    if (x.state !== 'healing') continue;
+    x.hp = Math.min(100, x.hp + Math.ceil(100 / HEAL_DAYS));
+    if (x.hp < 100) continue;
+    const c = companyOf(s, x.company);
+    if (!c) continue;
+    x.state = 'ready';
+    ready(s, map, x, c);
+  }
   let serving: Set<number> | null = null;
   for (const c of a.companies) {
     const b = findBuilding(s, c.barracks);
@@ -444,15 +668,27 @@ function daily(s: SimState, map: CoastMap): void {
     const men = menOf(s, c);
     const waiting = men.filter((x) => x.state === 'arming').length;
     c.why = '';
+    // (Hirelings come all at once, and nobody fills a hireling's place.)
+    if (c.hired) continue;
+    // (Nor while it fights or runs: the men called would come into the fight one by one.)
+    if (men.length < c.want && (c.strong > 0 || c.routed)) {
+      c.why = c.routed ? 'Broken: it fills again once it is back at the barracks' : 'In a fight: it fills again once the fight is over';
+      continue;
+    }
     if (men.length < c.want) {
+      if (roadsBeside(s, map.size, b).length === 0) {
+        // (Slice 23's review: it said "Only N can spare a man" when the trouble was the road.)
+        c.why = 'The barracks needs a road beside it: its men come in by the road';
+        continue;
+      }
       if (rateOf(b) <= 0) {
         c.why = 'The barracks has no workers to take the men in';
         continue;
       }
       serving ??= servingHomes(s);
-      const called = call(s, map, c, b, Math.min(CALLS_A_DAY, c.want - men.length), serving);
+      const { called, blocked } = call(s, map, c, b, Math.min(CALLS_A_DAY, c.want - men.length), serving);
       const have = men.length + called;
-      if (have < c.want && called === 0) c.why = have === 0 ? `No ${fromWords(c.kind).replace('and better', 'or better').replace(' and ', ' or ')} can spare a man` : `Only ${have} ${fromWords(c.kind)} can spare a man`;
+      if (have < c.want && called === 0) c.why = blocked > 0 ? `${blocked === 1 ? 'A home that could send a man has' : `${blocked} homes that could send a man have`} no way to the barracks over roads and open ground` : have === 0 ? `No ${fromWords(c.kind).replace('and better', 'or better').replace(' and ', ' or ')} can spare a man` : `Only ${have} ${fromWords(c.kind)} can spare a man`;
     }
     if (!c.why && waiting > 0 && held(b, ARMOUR) === 0 && !armourAbout(s, b)) c.why = `No armour in the stores: ${waiting === 1 ? '1 man is' : `${waiting} men are`} waiting for theirs`;
   }
@@ -464,24 +700,28 @@ function armourAbout(s: SimState, b: Building): boolean {
   return s.buildings.some((g) => isStore(g.kind) && roomOf(g.kind, ARMOUR) > 0 && held(g, ARMOUR) > 0);
 }
 
-/** Call up to `most` men for a company from the nearest homes that can spare one; how many came. */
-function call(s: SimState, map: CoastMap, c: Company, b: Building, most: number, serving: Set<number>): number {
+/** Call up to `most` men for a company from the nearest homes that can spare one; how many came, and how many homes that could have sent one have no way there. */
+function call(s: SimState, map: CoastMap, c: Company, b: Building, most: number, serving: Set<number>): { called: number; blocked: number } {
   const [bx, bz] = centreOf(b);
   const homes = s.buildings
     .filter((h) => h.kind === 'home' && canSpare(s, h, c.kind, serving))
     .map((h) => ({ h, d: dhypot(centreOf(h)[0] - bx, centreOf(h)[1] - bz) }))
     .sort((p, q) => p.d - q.d || p.h.id - q.h.id);
   const gate = gateOf(s, map, b);
-  if (gate < 0) return 0;
+  if (gate < 0) return { called: 0, blocked: homes.length };
   const taken = new Set(menOf(s, c).map((x) => x.slot));
   let called = 0;
+  let blocked = 0;
   for (const { h } of homes) {
     if (called >= most) break;
     const p = eldestMan(s, h);
     if (!p) continue;
     const [hx, hz] = centreOf(h);
     const way = wayFrom(s, map, hx, hz, gate);
-    if (!way) continue;
+    if (!way) {
+      blocked++;
+      continue;
+    }
     let slot = 0;
     while (taken.has(slot)) slot++;
     taken.add(slot);
@@ -492,7 +732,8 @@ function call(s: SimState, map: CoastMap, c: Company, b: Building, most: number,
       slot,
       home: h.id,
       name: p.name,
-      father: p.role === 'son' ? p.kin : '',
+      father: knownBy(h, p),
+      kin: p.role as ServesAs,
       house: h.family?.name ?? '',
       state: 'coming',
       x: hx,
@@ -503,13 +744,17 @@ function call(s: SimState, map: CoastMap, c: Company, b: Building, most: number,
       walked: 0,
       armed: false,
       hp: 100,
+      foe: 0,
+      cool: 0,
+      swung: 0,
+      fell: 0,
     };
     s.army.soldiers.push(x);
     serving.add(h.id);
     called++;
   }
   if (called) s.rev++;
-  return called;
+  return { called, blocked };
 }
 
 /** The men of a barracks still to arm: hoplites waiting, or walking in. */
@@ -577,11 +822,12 @@ function smithy(s: SimState, map: CoastMap, b: Building): void {
 
 /** Move a company's banner along its march. */
 function moveBanner(s: SimState, map: CoastMap, c: Company): void {
-  const b = findBuilding(s, c.barracks);
+  const base = baseOf(s, map, c);
+  const b = base.b;
   if (c.order === 'drill') {
     if (!b) return;
-    const [hx, hz] = drillSpot(s, b, c);
-    const front = frontOf(s, map, b);
+    const [hx, hz] = base.spot;
+    const front = base.front;
     const d = drillAt(s.tick, c);
     c.face = front + (d.turn * Math.PI) / 2;
     c.x = hx + dcos(c.face) * d.ahead;
@@ -589,6 +835,8 @@ function moveBanner(s: SimState, map: CoastMap, c: Company): void {
     return;
   }
   if (c.order !== 'march' && c.order !== 'return') return;
+  // (On the march, its men fighting raiders who came at it: the banner stands until the fight is done.)
+  if (c.order === 'march' && !c.routed && s.army.foes.length && fighting(s, c)) return;
   // (The column waits for its slowest man at the start: nobody is left more than a few paces behind.)
   const L = pathLength(c.path);
   c.along = Math.min(L, c.along + MARCH_SPEED);
@@ -598,7 +846,12 @@ function moveBanner(s: SimState, map: CoastMap, c: Company): void {
   c.face = p.face;
   if (c.along >= L - 1e-9) {
     c.order = c.order === 'return' ? 'drill' : 'hold';
-    if (c.order === 'drill' && b) c.face = frontOf(s, map, b);
+    if (c.order === 'drill' && b) c.face = base.front;
+    // Home again: a broken company gathers itself.
+    if (c.order === 'drill') {
+      c.routed = false;
+      c.strong = 0;
+    }
     c.path = [];
     c.along = 0;
     s.rev++;
@@ -625,11 +878,11 @@ function stepTo(x: Soldier, tx: number, tz: number, pace: number): boolean {
 
 /** Where a man of a company stands now: his place in its ranks, or in its column on the march. */
 export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x: number; z: number; face: number } {
-  const b = findBuilding(s, c.barracks);
+  const base = baseOf(s, map, c);
   // Waiting for armour, he stands on the drill ground whatever the company is doing.
-  if (x.state === 'arming' && b && c.order !== 'drill') {
-    const [hx, hz] = drillSpot(s, b, c);
-    const front = frontOf(s, map, b);
+  if (x.state === 'arming' && base.b && c.order !== 'drill') {
+    const [hx, hz] = base.spot;
+    const front = base.front;
     const [px, pz] = slotAt(c.kind, x.slot, hx, hz, front);
     return { x: px, z: pz, face: front };
   }
@@ -648,7 +901,7 @@ export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x
 function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
   if (x.path.length >= 2) {
     // His own way: waypoint by waypoint.
-    let pace = STRIDE;
+    let pace = x.home === 0 && x.state === 'coming' ? HIRED_IN : WALK_IN;
     for (let guard = 0; guard < 4 && pace > 0 && x.path.length >= 2; guard++) {
       const i = x.seg * 2;
       if (i >= x.path.length) {
@@ -669,7 +922,12 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     if (x.path.length === 0) arrived(s, map, x);
     return;
   }
-  if (x.state === 'leaving') return;
+  // (Fighting, his steps are the battle's; fallen or lying wounded, he lies still; healing, he is in the colonnade.)
+  if (x.state === 'leaving' || x.state === 'fallen' || x.state === 'healing' || x.foe > 0) return;
+  if (x.state === 'wounded') {
+    if (s.tick - x.fell >= LIE) limpBack(s, map, x);
+    return;
+  }
   const c = companyOf(s, x.company);
   if (!c) return;
   if (x.state === 'arming') {
@@ -684,22 +942,50 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     }
   }
   const p = placeOf(s, map, c, x);
-  // Far from his company (it marched off while he was arming): he finds his way to its banner.
-  if (dhypot(p.x - x.x, p.z - x.z) > 3 && c.order === 'hold') {
-    const way = wayFrom(s, map, x.x, x.z, Math.floor(c.z) * map.size + Math.floor(c.x));
-    if (way) {
-      x.path = way;
-      x.seg = 1;
+  // Far from his place (his company marched off while he was arming, or he is coming back from his wounds): he finds
+  // his own way round buildings to where it is going, rather than cutting straight across to it (slice 23's review);
+  // with no way there he waits, and looks again a day later rather than every tick.
+  if (dhypot(p.x - x.x, p.z - x.z) > 3) {
+    if (x.cool > 0) {
+      x.cool--;
       return;
     }
+    const goal = c.order === 'hold' || c.order === 'march' ? (c.target >= 0 ? c.target : Math.floor(c.z) * map.size + Math.floor(c.x)) : baseOf(s, map, c).gate;
+    const way = wayFrom(s, map, x.x, x.z, goal);
+    if (way) {
+      x.path = c.order === 'drill' || c.order === 'return' ? [...way, ...baseOf(s, map, c).spot] : way;
+      x.seg = 1;
+    } else x.cool = LOOK_AGAIN;
+    return;
   }
-  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? STRIDE : STRIDE * 0.8)) x.face = p.face;
+  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? MARCH_STRIDE : STRIDE * 0.8)) x.face = p.face;
+}
+
+/** A wounded man gets up and walks back to his barracks to heal (with his barracks gone, home; a hireling, off). */
+function limpBack(s: SimState, map: CoastMap, x: Soldier): void {
+  const c = companyOf(s, x.company);
+  const base = c ? baseOf(s, map, c) : null;
+  const way = base && base.b ? wayFrom(s, map, x.x, x.z, base.gate) : null;
+  if (!c || !base || !way) {
+    if (c?.hired || x.home === 0) walkOff(s, map, x);
+    else sendHome(s, map, x);
+    return;
+  }
+  x.path = [...way, ...base.spot];
+  x.seg = 1;
+  // (Still 'wounded' on his way: in at the barracks he heals: arrived.)
 }
 
 /** The end of a man's own way: in at the barracks (ready, or waiting for armour), or home. */
 function arrived(s: SimState, map: CoastMap, x: Soldier): void {
   if (x.state === 'leaving') {
     x.hp = 0;
+    return;
+  }
+  if (x.state === 'wounded') {
+    x.state = 'healing';
+    x.hp = Math.max(x.hp, 10);
+    s.rev++;
     return;
   }
   if (x.state !== 'coming') return;
@@ -713,34 +999,39 @@ function arrived(s: SimState, map: CoastMap, x: Soldier): void {
   ready(s, map, x, c);
 }
 
-/** A man takes his place in the ranks; if his company is away, he goes to find it. */
+/** A man takes his place in the ranks; if his company is away, he goes to find it (moveMan). */
 function ready(s: SimState, map: CoastMap, x: Soldier, c: Company): void {
   x.state = 'ready';
+  x.cool = 0;
   s.rev++;
-  if (c.order === 'hold') {
-    const way = wayFrom(s, map, x.x, x.z, Math.floor(c.z) * map.size + Math.floor(c.x));
-    if (way) {
-      x.path = way;
-      x.seg = 1;
-    }
-  }
+  void map;
+  void c;
 }
 
 // ---------------------------------------------------------------------------
 // Reading the army.
 
-/** The city's whole strength: men by kind, and their pay a month. */
-export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number } {
+/** The city's whole strength: its own men by kind, its hirelings (counted once, not again under their kind: slice 24's review), the wounded among them all, and their pay a month. */
+export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number } {
   let hoplites = 0;
   let archers = 0;
+  let pay = 0;
+  let wounded = 0;
+  let hirelings = 0;
   for (const c of s.army.companies) {
     const n = menOf(s, c).length;
-    if (c.kind === 'hoplite') hoplites += n;
+    if (c.hired) hirelings += n;
+    else if (c.kind === 'hoplite') hoplites += n;
     else archers += n;
+    pay += n * payOf(c);
+    wounded += woundedOf(s, c).length;
   }
-  const men = hoplites + archers;
-  return { hoplites, archers, men, pay: men * SOLDIER_PAY, companies: s.army.companies.length };
+  const men = hoplites + archers + hirelings;
+  return { hoplites, archers, men, pay, companies: s.army.companies.length, wounded, hirelings };
 }
+
+/** Is any of a company's men fighting now? */
+export const fighting = (s: SimState, c: Company): boolean => s.army.soldiers.some((x) => x.company === c.id && x.foe > 0);
 
 /** What a company is doing, in a few words: "drilling", "marching", "holding", "raising: 9 of 16, waiting for armour". */
 export function doingWords(s: SimState, c: Company): string {
@@ -748,8 +1039,10 @@ export function doingWords(s: SimState, c: Company): string {
   const ready = men.filter((x) => x.state === 'ready').length;
   const coming = men.filter((x) => x.state === 'coming').length;
   const arming = men.filter((x) => x.state === 'arming').length;
-  const what = c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
-  if (ready >= c.want) return what;
+  const what = c.routed ? 'broken, running back to barracks' : fighting(s, c) ? 'fighting' : c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
+  const hurt = men.filter((x) => x.state === 'wounded' || x.state === 'healing').length;
+  if (c.hired && coming === men.length && men.length > 0) return `walking in from the edge of your land (${men.length} men)`;
+  if (c.hired || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
   const bits: string[] = [];
   if (coming) bits.push(`${coming} walking in`);
   if (arming) bits.push(`${arming} waiting for armour`);

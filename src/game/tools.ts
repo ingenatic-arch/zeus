@@ -38,6 +38,7 @@ import {
   roadRefusal,
   tileGrass,
 } from '../sim/build';
+import { GATE_COST, TOWER_RANGE, WALL_COST, wallAt, wallJob } from '../sim/walls';
 import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
@@ -92,6 +93,8 @@ export type ToolName =
   | 'mine'
   | 'armoury'
   | 'barracks'
+  | 'wall'
+  | 'tower'
   | 'clear';
 export const TOOLS: readonly ToolName[] = [
   'road',
@@ -121,6 +124,8 @@ export const TOOLS: readonly ToolName[] = [
   'mine',
   'armoury',
   'barracks',
+  'wall',
+  'tower',
   'clear',
 ];
 
@@ -131,8 +136,8 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks';
-const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && !isStallTool(t);
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower';
+const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && !isStallTool(t);
 
 export interface ToolTip {
   /** Show text near the pointer (screen px), or hide with null; `warn` is a caution shown last, in amber. */
@@ -242,6 +247,9 @@ export class Tools {
         if (map.tileWater[i] !== WATER_NONE) return false;
         const g = ix.ground[i];
         if (t === 'road') return g === Ground.Steep || g === Ground.Water;
+        // Walls stand on dry ground, steep or not (not on cliffs or in the water).
+        if (t === 'wall') return g !== Ground.Ok && g !== Ground.SteepForHome;
+        if (t === 'tower') return g !== Ground.Ok && g !== Ground.SteepForHome;
         // A farm also needs fertile ground: the rest is washed rust near the pointer.
         if (t === 'farm') return g !== Ground.Ok || map.tileFertility[i] < FARM_FERTILE_MIN;
         // A dairy needs grass for its goats: rock and sand are washed rust.
@@ -483,6 +491,10 @@ export class Tools {
       if (lay.length) this.pending = () => this.send({ type: 'road', tiles: lay });
       return;
     }
+    if (this.tool === 'wall') {
+      this.drawWall(sx, sy, marks);
+      return;
+    }
     if (isPlacer(this.tool)) {
       this.placeOne(this.tool, sx, sy, marks);
       return;
@@ -547,12 +559,20 @@ export class Tools {
     const cleared = new Set(s.cleared);
     let roads = 0;
     let trees = 0;
+    let walls = 0;
     const bridges = new Set<number>();
     const homes = new Set<number>();
     for (let z = z0; z <= z1; z++) {
       for (let x = x0; x <= x1; x++) {
         const t = z * n + x;
         const on = s.tiles[t];
+        // Walls, gates and breaches (slice 25) are cleared like roads.
+        const piece = s.walls.length ? wallAt(s, t) : undefined;
+        if (piece) {
+          walls++;
+          marks.set(t, MARK_CLEAR);
+          if (on !== TILE_ROAD) continue;
+        }
         if (on === TILE_ROAD) {
           if (isBridge(map, s, t)) {
             // Any tile of a bridge takes the whole bridge.
@@ -583,6 +603,7 @@ export class Tools {
     const bits: string[] = [];
     if (roads) bits.push(`${roads} road ${roads === 1 ? 'tile' : 'tiles'}`);
     if (bridges.size) bits.push(bridges.size === 1 ? 'a bridge' : `${bridges.size} bridges`);
+    if (walls) bits.push(`${walls} ${walls === 1 ? 'stretch' : 'stretches'} of wall`);
     const KIND_WORDS: Record<BuildingKind, [string, string]> = {
       home: ['home', 'homes'],
       fountain: ['fountain', 'fountains'],
@@ -608,6 +629,7 @@ export class Tools {
       mine: ['copper mine', 'copper mines'],
       armoury: ['armoury', 'armouries'],
       barracks: ['barracks', 'barracks'],
+      tower: ['tower', 'towers'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -665,6 +687,67 @@ export class Tools {
   }
 
   /** Placing one fountain, farm, granary, agora, shrine, theatre or tax office: where it would go, what it costs, and what it would do there. */
+  /**
+   * The wall tool (slice 25): an L from where the press began to the pointer,
+   * like a road's straight drag. Each tile of open dry ground becomes a
+   * stretch, each road tile a gate, each cracked or broken stretch is mended;
+   * the rest is skipped (red, and the tip says why). The tip counts them and
+   * what they cost; the sim lays as many as the treasury pays for, in order.
+   */
+  private drawWall(sx: number, sy: number, marks: Map<number, number>): void {
+    const s = this.sim.state;
+    const map = this.sim.map;
+    const n = map.size;
+    const from = this.anchor >= 0 ? this.anchor : this.hover;
+    const line = straight(n, from, this.hover);
+    let money = spendable(s);
+    let total = 0;
+    let stretches = 0;
+    let gates = 0;
+    let mends = 0;
+    let short = false;
+    let why = '';
+    const lay: number[] = [];
+    for (const t of line) {
+      const job = wallJob(map, s, t);
+      if (job.what === 'none') {
+        if (!/already$/.test(job.why)) {
+          marks.set(t, MARK_BAD);
+          why ||= job.why;
+        }
+        continue;
+      }
+      total += job.cost;
+      if (job.what === 'wall') stretches++;
+      else if (job.what === 'gate') gates++;
+      else mends++;
+      if (!short && money >= job.cost) {
+        money -= job.cost;
+        lay.push(t);
+        marks.set(t, MARK_OK);
+      } else {
+        short = true;
+        marks.set(t, MARK_BAD);
+      }
+    }
+    this.setMarks(marks);
+    const bits: string[] = [];
+    if (stretches) bits.push(`${stretches} ${stretches === 1 ? 'stretch' : 'stretches'} (${WALL_COST} dr each)`);
+    if (gates) bits.push(`${gates === 1 ? 'a gate' : `${gates} gates`} where it crosses the road (${GATE_COST} dr each)`);
+    if (mends) bits.push(`${mends} mended`);
+    if (bits.length === 0) {
+      this.tip.show(why || (wallAt(s, this.hover) ? `${wallAt(s, this.hover)!.gate ? 'A gate' : 'A wall'} already, whole` : 'Nothing to build here'), sx, sy, !!why);
+      return;
+    }
+    const lines = [`Wall · ${bits.join(', ')} · ${fmt(total)} dr`];
+    lines.push(gates ? 'Your people pass through gates; raiders must break them' : 'Nobody crosses a wall: carts and walkers go round, or through a gate where it crosses a road');
+    if (from === this.hover && !this.dragging) lines.push('Drag to draw a line of wall');
+    const warn = why ? `Skipped where it can’t stand: ${why}` : '';
+    if (short) this.tip.show(`Not enough drachmas: ${fmt(total)} dr for all of it\n${lines.slice(1).join('\n')}`, sx, sy, true, warn);
+    else this.tip.show(lines.join('\n'), sx, sy, false, warn);
+    if (lay.length) this.pending = () => this.send({ type: 'wall', tiles: lay });
+  }
+
   private placeOne(kind: Placer, sx: number, sy: number, marks: Map<number, number>): void {
     const s = this.sim.state;
     const map = this.sim.map;
@@ -820,6 +903,10 @@ export class Tools {
       if (kind === 'mine') text += ` · copper in the rock ${Math.round(copperOf(map, x, z, side) * 100)}%`;
       lines.push(...more.lines);
       warn = more.warn;
+    } else if (kind === 'tower') {
+      lines.push(`Its ${JOBS.tower} workers are its archers: from its top they shoot at raiders within ${TOWER_RANGE} tiles, over walls and roofs`);
+      lines.push('It stands on the wall line: towers either side of a gate make raiders pay for breaking it');
+      if (roads.length === 0) warn = 'No road beside it: no archers could reach it. Set it beside a road, by a gate.';
     } else if (kind === 'storehouse') {
       lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece, ${fmt(STOREHOUSE_WINE)} amphorae of wine, ${fmt(STOREHOUSE_COPPER)} measures of copper and ${fmt(STOREHOUSE_ARMOUR)} sets of armour: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');

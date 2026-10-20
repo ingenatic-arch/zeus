@@ -233,7 +233,7 @@ describe('old saves', () => {
     if (!got.ok) throw new Error(got.why);
     const s = got.file.state;
     expect(s.version).toBe(SIM_STATE_VERSION);
-    expect(s.army).toEqual({ companies: [], soldiers: [], nextId: 1 });
+    expect(s.army).toEqual({ companies: [], soldiers: [], nextId: 1, foes: [], arrows: [], news: [], owed: 0 });
     for (const b of s.buildings) expect(b.goods.length).toBe(GOOD_COUNT);
     expect(s.trade.sell.length).toBe(TRADE_GOODS.length);
     for (const c of s.world.cities) expect(c.price.length).toBe(TRADE_GOODS.length);

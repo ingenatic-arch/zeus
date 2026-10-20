@@ -6,7 +6,7 @@
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { bridgeSpan, Ground, isEdgeTile, mapIndex, roadRefusal } from './build';
-import { TILE_EMPTY, TILE_ROAD, type SimState } from './state';
+import { TILE_EMPTY, TILE_ROAD, TILE_WALL, type SimState } from './state';
 
 export interface Search {
   /** Parent tile on the way back to a source; the source is its own parent; -1 unreached. */
@@ -114,7 +114,8 @@ export function overland(map: CoastMap, s: SimState, from: number): { points: nu
   const size = map.size;
   const ground = mapIndex(map).ground;
   // Round other people's homes, not through them.
-  const open = (t: number): boolean => ground[t] !== Ground.Water && ground[t] !== Ground.Steep && s.tiles[t] <= TILE_EMPTY;
+  // (Nor across a wall: slice 25.)
+  const open = (t: number): boolean => ground[t] !== Ground.Water && ground[t] !== Ground.Steep && s.tiles[t] <= TILE_EMPTY && s.tiles[t] !== TILE_WALL;
   const parent = new Int32Array(size * size).fill(-1);
   const queue = new Int32Array(size * size);
   let head = 0;

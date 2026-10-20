@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { EMBLEMS, ordinal } from '../sim/army';
-import type { Company, SimState, Soldier } from '../sim/state';
-import { ARCHER_TUNIC, archerLook, CITY_COLOUR, CITY_TRIM, HOPLITE_TUNIC, hopliteLook } from './arms';
+import { EMBLEMS, FALLEN_LIE, LIE, ordinal } from '../sim/army';
+import type { Arrow, Company, SimState, Soldier } from '../sim/state';
+import { ARCADIAN_BOSS, ARCADIAN_SHIELD, ARCADIAN_TUNIC, ARCHER_TUNIC, archerLook, CITY_COLOUR, CITY_TRIM, CRETAN_TUNIC, HOPLITE_TUNIC, hopliteLook } from './arms';
 import type { FolkLooks, Look } from './looks';
 import { col, PAL } from './palette';
 
@@ -19,6 +19,10 @@ const ROWS = 4;
 const CX = 6;
 const CY = 2;
 const MAX_BANNERS = COLS * ROWS;
+/** Arrows in the air at once, at most (a pool). */
+const MAX_ARROWS = 256;
+/** How long a blow's lunge lasts (ticks). */
+const LUNGE = 3;
 
 /**
  * The army in the city (slice 23): every soldier as an instanced figure in
@@ -40,6 +44,8 @@ export class ArmyView {
   private readonly hoplites: Look;
   private readonly recruits: Look;
   private readonly archers: Look;
+  private readonly arcadians: Look;
+  private readonly arrows: THREE.InstancedMesh;
   private readonly poles: THREE.InstancedMesh;
   private readonly cloth: THREE.Mesh;
   private readonly clothPos: THREE.BufferAttribute;
@@ -65,6 +71,16 @@ export class ArmyView {
     this.hoplites = folk.people.look(hopliteLook(true));
     this.recruits = folk.people.look(hopliteLook(false));
     this.archers = folk.people.look(archerLook());
+    this.arcadians = folk.people.look(hopliteLook(true, ARCADIAN_SHIELD, ARCADIAN_BOSS));
+    // Arrows: a shaft and a head along +y, one pool.
+    const shaft = new THREE.CylinderGeometry(0.004, 0.004, 0.2, 3).translate(0, -0.02, 0);
+    const head = new THREE.ConeGeometry(0.01, 0.04, 3).translate(0, 0.1, 0);
+    const fletch = new THREE.BoxGeometry(0.018, 0.04, 0.002).translate(0, -0.1, 0);
+    this.arrows = new THREE.InstancedMesh(mergeAll([shaft, head, fletch]), new THREE.MeshStandardMaterial({ color: col(PAL.wood), flatShading: true, roughness: 0.8 }), MAX_ARROWS);
+    this.arrows.name = 'army-arrows';
+    this.arrows.count = 0;
+    this.arrows.visible = false;
+    this.arrows.frustumCulled = false;
     const wood = new THREE.MeshStandardMaterial({ color: col(PAL.pole), flatShading: true, roughness: 0.85 });
     const pole = new THREE.CylinderGeometry(0.018, 0.024, POLE, 5).translate(0, POLE / 2, 0);
     const bar = new THREE.CylinderGeometry(0.01, 0.01, CLOTH_W + 0.06, 4).rotateX(Math.PI / 2).translate(0, POLE - 0.04, 0);
@@ -114,12 +130,12 @@ export class ArmyView {
     this.ring.name = 'army-ring';
     this.ring.renderOrder = 3;
     this.ring.visible = false;
-    this.group.add(this.poles, this.cloth, this.ring);
+    this.group.add(this.poles, this.cloth, this.ring, this.arrows);
   }
 
   /** Soldiers drawn this frame. */
   get count(): number {
-    return this.hoplites.count + this.recruits.count + this.archers.count;
+    return this.hoplites.count + this.recruits.count + this.archers.count + this.arcadians.count;
   }
 
   /** Draw the army (between the folk's begin and end). */
@@ -163,45 +179,107 @@ export class ArmyView {
     for (const c of army.companies) byId.set(c.id, c);
     // The men.
     const live = new Set<number>();
+    const now = s.tick + a;
     for (const x of army.soldiers) {
       const w = this.was.get(x.id);
-      if (!w) continue;
-      live.add(x.id);
-      const px = w.px + (w.x - w.px) * a;
-      const pz = w.pz + (w.z - w.pz) * a;
-      const moving = Math.abs(w.x - w.px) + Math.abs(w.z - w.pz) > 1e-4;
-      this.place(x, px, pz, w.face, moving);
+      // (The healing are indoors at the barracks.)
+      if (!w || x.state === 'healing') continue;
+      let px = w.px + (w.x - w.px) * a;
+      let pz = w.pz + (w.z - w.pz) * a;
+      const down = x.state === 'fallen' || (x.state === 'wounded' && x.path.length === 0);
+      const moving = !down && Math.abs(w.x - w.px) + Math.abs(w.z - w.pz) > 1e-4;
+      let roll = 0;
+      let tilt = 0;
+      let lift = 0.03;
+      let shrink = 1;
+      if (down) {
+        // Down: toppling onto his side over a few ticks and lying there; the killed sink from sight before they are gone, the wounded lie until they get up.
+        const since = now - x.fell;
+        roll = (Math.PI / 2) * Math.min(1, Math.max(0, since) / 4);
+        lift = 0.05;
+        if (x.state === 'fallen') {
+          const fade = Math.max(0, since - (FALLEN_LIE - 12)) / 12;
+          lift -= fade * 0.12;
+          shrink = 1 - fade * 0.3;
+        } else if (since > LIE - 4) roll *= Math.max(0, (LIE - since) / 4);
+      } else if (x.state === 'wounded') tilt = -0.25;
+      else if (x.swung > 0 && now - x.swung >= 0 && now - x.swung < LUNGE) {
+        // A blow: a hoplite thrusts (a lunge along the way he faces, and back); an archer leans into his bow as he looses.
+        const k = Math.sin(((now - x.swung) / LUNGE) * Math.PI);
+        if (x.foe > 0) {
+          px += Math.cos(w.face) * 0.08 * k;
+          pz += Math.sin(w.face) * 0.08 * k;
+          tilt = -0.28 * k;
+        } else tilt = 0.18 * k;
+      }
+      if (!down || x.state === 'wounded') live.add(x.id);
+      this.place(x, px, pz, w.face, moving, roll, tilt, lift, shrink);
       const c = byId.get(x.company);
       const kind = c?.kind ?? 'hoplite';
-      const tone = this.tunic(kind, x.company);
+      const tone = this.tunic(kind, x.company, c?.hired ?? '');
       if (!moving) tone.multiplyScalar(-1);
       if (kind === 'archer' && x.state !== 'leaving') this.archers.push(this.m, tone);
+      else if (c?.hired === 'arcadian' || (x.home === 0 && x.armed && kind === 'hoplite')) this.arcadians.push(this.m, tone);
       else if (x.armed && x.state !== 'leaving') this.hoplites.push(this.m, tone);
       else this.recruits.push(this.m, tone);
+      if (!live.has(x.id)) continue;
       const at = this.soldierAt.get(x.id);
       if (at) at.copy(this.p);
       else this.soldierAt.set(x.id, this.p.clone());
     }
     for (const id of this.soldierAt.keys()) if (!live.has(id)) this.soldierAt.delete(id);
+    this.flights(army.arrows, now);
     this.banners(army.companies, a, time);
   }
 
-  /** The tunic's colour: the kind's, a shade of its own for each company. */
-  private tunic(kind: Company['kind'], company: number): THREE.Color {
-    this.c.copy(col(kind === 'archer' ? ARCHER_TUNIC : HOPLITE_TUNIC));
+  /** The tunic's colour: the kind's (or the hirelings' own), a shade of its own for each company. */
+  private tunic(kind: Company['kind'], company: number, hired: Company['hired']): THREE.Color {
+    this.c.copy(col(hired === 'cretan' ? CRETAN_TUNIC : hired === 'arcadian' ? ARCADIAN_TUNIC : kind === 'archer' ? ARCHER_TUNIC : HOPLITE_TUNIC));
     return this.c.multiplyScalar(0.88 + 0.24 * hash2(company, 7, 2301));
   }
 
-  /** A soldier's matrix: where he stands, the way he faces (the sim's angle in x, z), a bob as he steps. */
-  private place(x: Soldier, px: number, pz: number, face: number, moving: boolean): void {
+  /** A soldier's matrix: where he stands, the way he faces (the sim's angle in x, z), a bob as he steps; rolled onto his side when down, tilted as he strikes. */
+  private place(x: Soldier, px: number, pz: number, face: number, moving: boolean, roll = 0, tilt = 0, lift = 0.03, shrink = 1): void {
     const phase = ((px + pz) * Math.PI * 2) / 0.44;
     const bob = moving ? Math.abs(Math.cos(phase)) * 0.012 : 0;
-    this.e.set(moving ? Math.sin(phase) * 0.03 : 0, -face, 0, 'YXZ');
+    this.e.set(roll + (moving ? Math.sin(phase) * 0.03 : 0), -face, tilt, 'YXZ');
     this.q.setFromEuler(this.e);
-    this.p.set(px, this.ground(px, pz) + 0.03 + bob, pz);
-    const sc = 0.92 + 0.08 * hash2(x.id, 3, 2302);
+    this.p.set(px, this.ground(px, pz) + lift + bob, pz);
+    const sc = (0.92 + 0.08 * hash2(x.id, 3, 2302)) * shrink;
     this.s.set(sc, sc, sc);
     this.m.compose(this.p, this.q, this.s);
+  }
+
+  /** The arrows in the air: each on a low arc from the bow to where it was aimed, pointing the way it flies. */
+  private flights(arrows: readonly Arrow[], now: number): void {
+    let n = 0;
+    for (const ar of arrows) {
+      if (n >= MAX_ARROWS) break;
+      const span = Math.max(1, ar.t1 - ar.t0);
+      const u = (now - ar.t0) / span;
+      if (u < 0 || u > 1) continue;
+      const dx = ar.x1 - ar.x0;
+      const dz = ar.z1 - ar.z0;
+      const d = Math.hypot(dx, dz);
+      const peak = 0.12 + d * 0.06;
+      const x = ar.x0 + dx * u;
+      const z = ar.z0 + dz * u;
+      // (From a tower's roof walk, slice 25: high above the ground.)
+      const y0 = this.ground(ar.x0, ar.z0) + (ar.h0 ?? 0.3);
+      const y1 = this.ground(ar.x1, ar.z1) + 0.22;
+      const y = y0 + (y1 - y0) * u + 4 * peak * u * (1 - u);
+      // Its heading: along the way, and up or down the arc's slope.
+      const dy = (y1 - y0 + 4 * peak * (1 - 2 * u)) / Math.max(1e-3, d);
+      this.p.set(x, y, z);
+      DIR.set(dx / Math.max(1e-3, d), dy, dz / Math.max(1e-3, d)).normalize();
+      this.q.setFromUnitVectors(UP, DIR);
+      this.s.set(1, 1, 1);
+      this.m.compose(this.p, this.q, this.s);
+      this.arrows.setMatrixAt(n++, this.m);
+    }
+    this.arrows.count = n;
+    this.arrows.visible = n > 0;
+    if (n > 0) this.arrows.instanceMatrix.needsUpdate = true;
   }
 
   /** The banners: poles, cloths (rippling), the ring under the picked one. */
@@ -281,6 +359,7 @@ export class ArmyView {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+const DIR = new THREE.Vector3();
 
 /** Merge plain geometries (positions and normals) into one. */
 function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {

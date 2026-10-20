@@ -17,6 +17,7 @@ import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
+import { GATE_HP } from '../sim/walls';
 import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
@@ -1463,7 +1464,7 @@ const BRONZE_SETS = 4;
 const BARRACKS_IN = COMPANY_SIZE / 2;
 /** The longest #companies waits for its two companies to fill (three months). */
 const COMPANIES_WAIT = 3 * TICKS_PER_MONTH;
-type ArmsStage = 'bronze' | 'barracks' | 'companies';
+type ArmsStage = 'bronze' | 'barracks' | 'companies' | 'built';
 const storedOf = (s: SimState, w: number): number => s.buildings.reduce((a, b) => a + (b.kind === 'storehouse' ? held(b, w) : 0), 0);
 function armsTown(stage: ArmsStage): (sim: Sim) => void {
   return (sim) => {
@@ -1490,6 +1491,8 @@ function armsTown(stage: ArmsStage): (sim: Sim) => void {
     // Raised once it has its staff (they are shared out once a day), as a player would.
     const staffed = s.tick + 2 * TICKS_PER_DAY;
     while (s.tick < staffed && barracks.workers === 0) sim.step();
+    // (#hirelings: built and staffed, nobody raised.)
+    if (stage === 'built') return;
     send({ type: 'raise', barracks: barracks.id, kind: 'hoplite' });
     if (stage === 'barracks') {
       // Until half the men are in, waiting for their armour, and the porter is on his way back with it (or someone is ready).
@@ -1511,8 +1514,104 @@ function armsTown(stage: ArmsStage): (sim: Sim) => void {
 const BRONZE = armsTown('bronze');
 const BARRACKS = armsTown('barracks');
 const COMPANIES = armsTown('companies');
+const BARRACKS_ONLY = armsTown('built');
 /** #companies: the hoplites' banner in hand. */
 const hoplitesBanner = (s: SimState): number => s.army.companies.find((c) => c.kind === 'hoplite')?.id ?? 0;
+
+/**
+ * Raiders fought in the streets (slice 24). #battle: #companies' town (two
+ * companies drilling at the barracks) with Sparta's king turned against it
+ * (set up for the demo, and named so): his threat refused, his band on the
+ * road, about ten days from the west edge, and the hoplites' banner in hand,
+ * paused, so both companies can be placed in its way. #hirelings: #barracks'
+ * town with its barracks built and staffed but no company raised, as
+ * Corinth's king (set up the same way) sends a band from the north: the Army
+ * tab open on the hirelings. #looted: #raiders' town, the band let through:
+ * it has emptied part of the granary and the tax office's treasury, and is
+ * leaving with its sacks past the houses it set alight, the ledger open.
+ */
+/** How many days from the edge #battle's band is when it opens, and #hirelings' gathering. */
+const BATTLE_DAYS = 14;
+/** A ruler set against the city for a demo: cold enough to threaten and stay cold. */
+const DEMO_ANGER = -80;
+function stagedRaid(sim: Sim, city: CityId, why: string): void {
+  const s = sim.state;
+  const c = cityOf(s.world, city);
+  c.memories.push({ kind: 'staged', why: `${why} (set up for this demo)`, amount: DEMO_ANGER, tick: s.tick, fade: 4 * TICKS_PER_YEAR });
+  const r = threaten(s, sim.map, c, `${why} (set up for this demo)`);
+  sim.enqueue({ type: 'answer', deal: r.deal, act: 'refuse' });
+  sim.flush();
+}
+function battleTown(): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    stagedRaid(sim, 'sparta', 'the king fears a city that arms itself so near his lands');
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= BATTLE_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+  };
+}
+function hirelingsTown(): (sim: Sim) => void {
+  return (sim) => {
+    BARRACKS_ONLY(sim);
+    stagedRaid(sim, 'corinth', 'the king will not have a rival raising soldiers on his road north');
+  };
+}
+/** #looted: plays #raiders' history on until the band leaves the tax office with the treasury's drachmas, and some days on its way out. */
+const LOOTED_DAYS = 6;
+function lootedTown(): (sim: Sim) => void {
+  return (sim) => {
+    raidTown('raiders')(sim);
+    const s = sim.state;
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.phase === 'raiding');
+    if (!r) return;
+    const until = s.tick + 3 * TICKS_PER_MONTH;
+    for (let band = raidersOf(s, r); band && !(band.back && r.stole > 0) && s.tick < until; band = raidersOf(s, r)) sim.step();
+    sim.run(LOOTED_DAYS * TICKS_PER_DAY);
+  };
+}
+/**
+ * Walls, gates and towers (slice 25). #walls: #battle's town about a month
+ * before Sparta's band reaches the west edge, paused, the wall tool in hand.
+ * #siege: the same town walled up the east bank of the river (x = 40), a gate
+ * where the west road crosses just past the bridge, towers either side of it
+ * staffed, played on until the band stands at the gate hammering at it; the
+ * companies still at the barracks.
+ */
+const WALLS_DAYS = 30;
+/** #siege's wall, gate and towers. */
+const SIEGE_WALL = col(40, 12, 45);
+const SIEGE_TOWERS = [T(41, 39), T(38, 39)];
+function wallsTown(): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    stagedRaid(sim, 'sparta', 'the king fears a city that arms itself so near his lands');
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= WALLS_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+  };
+}
+function siegeTown(): (sim: Sim) => void {
+  return (sim) => {
+    WALLS(sim);
+    const s = sim.state;
+    sim.enqueue({ type: 'wall', tiles: SIEGE_WALL });
+    for (const t of SIEGE_TOWERS) sim.enqueue({ type: 'build', kind: 'tower', at: [t] });
+    sim.flush();
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    // Until the band has hammered at the gate for a day or so: a crack in it, a man or two down to the towers.
+    const until = s.tick + 3 * TICKS_PER_MONTH;
+    while (s.tick < until && !(r.siege >= 0 && (s.walls.find((p) => p.t === r.siege)?.hp ?? 0) < GATE_HP * 0.8)) sim.step();
+  };
+}
+const WALLS = wallsTown();
+const SIEGE = siegeTown();
+const BATTLE = battleTown();
+const HIRELINGS_TOWN = hirelingsTown();
+const LOOTED = lootedTown();
 
 /**
  * Every demo's history is built with fire risk and wear switched off (so a
@@ -1643,6 +1742,13 @@ const SCENES: Record<string, Demo> = {
   bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing', side: { tab: 'goods' } },
   barracks: { view: 'barracks', setup: BARRACKS, overlay: 'missing', side: { tab: 'army' } },
   companies: { view: 'companies', setup: COMPANIES, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
+  // Slice 24: raiders fought in the streets. Sparta's band on its way, the companies to place, paused; a band let through, leaving with its loot; a threat come with no company raised, hirelings to hire.
+  battle: { view: 'battle', speed: 'paused', setup: BATTLE, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
+  looted: { view: 'looted', setup: LOOTED, overlay: 'missing', ledger: true },
+  hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
+  // Slice 25: walls, gates and towers. The town a month before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
+  walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
+  siege: { view: 'siege', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

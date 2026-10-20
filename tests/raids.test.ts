@@ -19,6 +19,7 @@ import { held, OIL, setHeld, WARES, type Ware } from '../src/sim/foods';
 import { catchable, FIRE_BURNING, RAID_FIRE_HELD } from '../src/sim/hazards';
 import {
   bandsAt,
+  bandSize,
   daysToEdge,
   GATHER,
   goodsArrive,
@@ -117,8 +118,13 @@ describe('the threat', () => {
       expect(t.kind).toBe('threat');
       expect(t.due - s.tick).toBeGreaterThanOrEqual(THREAT_DAYS);
       expect(r.coin).toBeGreaterThanOrEqual(300);
-      expect(r.men).toBeGreaterThanOrEqual(8);
-      expect(r.men).toBeLessThanOrEqual(12);
+      // (Sized by Sparta's strength and the town: well over the first raids' 8 to 12 for a town this big.)
+      const grown = Math.round((Math.max(0, s.population - 400) / 60) * 1.4);
+      expect(r.men).toBeGreaterThanOrEqual(Math.min(48, 8 + grown));
+      expect(r.men).toBeLessThanOrEqual(Math.min(48, 12 + grown));
+      expect(bandSize(s, 'sparta', 0)).toBe(Math.min(48, 8 + grown));
+      expect(r.men).toBeGreaterThan(12);
+      expect(r.men).toBeLessThanOrEqual(48);
       // On the town lines, and as news that can't wait.
       expect(townLines(s, map).find((l) => l.need === 'raid')?.text).toMatch(/threatens your city: pay [\d,]+ dr/);
       expect(s.world.news.at(-1)?.urgent).toBe(true);
@@ -211,7 +217,7 @@ describe('the band on the map of Greece', () => {
     expect(raidOnMap(r, s.tick)?.gathering).toBe(true);
     const days = daysToEdge(r, s.tick);
     expect(days).toBe(Math.ceil((GATHER + marchTicks('sparta')) / TICKS_PER_DAY));
-    expect(raidChip(s, r)?.chip).toBe(`Sparta’s raiders · ${days} days`);
+    expect(raidChip(s, r)?.chip).toBe(`Sparta’s raiders · ${r.men} men · ${days} days`);
     until(sim, () => r.phase === 'marching', GATHER + 1);
     const a = raidOnMap(r, s.tick)!.along;
     const later = raidOnMap(r, s.tick + 50)!.along;
@@ -239,29 +245,33 @@ describe('on your map', () => {
     expect(s.buildings.filter((b) => b.kind === 'home').some(worthRaiding)).toBe(false);
   }, 60000);
 
-  it('a field set alight and its barn carried off (the stock book and the ledger say so), and off the map again', () => {
+  it('the granary plundered, then the tax office robbed (the stock book and the ledger say so), and off the map again', () => {
     const sim = settled();
     const s = sim.state;
     const r = inTheCity(sim);
     const band = raidersOf(s, r)!;
     expect(band.people).toBe(r.men);
-    const farm = findBuilding(s, r.target)!;
-    expect(farm.kind).toBe('farm');
+    const store = findBuilding(s, r.target)!;
+    expect(store.kind).toBe('granary');
+    expect(r.next.map((id) => findBuilding(s, id)?.kind)).toEqual(['taxoffice']);
     until(sim, () => r.took > 0, 2 * TICKS_PER_MONTH);
-    expect(r.fired).toBe(true);
-    expect(findBuilding(s, r.target)?.fire ?? FIRE_BURNING).toBe(FIRE_BURNING);
-    expect(band.back).toBe(true);
+    expect(band.back).toBe(false);
     expect(band.load).toBe(r.took);
     expect(r.took).toBeLessThanOrEqual(r.men * 80);
     const lost = bookNow(s).now.find((l) => l.kind === 'lost' && l.what === 'raid:sparta');
     expect(lost?.n).toBe(r.took);
-    expect(s.ledger.now.find((l) => l.kind === 'raid')?.n).toBe(r.took);
+    expect(s.ledger.now.find((l) => l.kind === 'raid' && l.n === r.took)).toBeDefined();
+    const money = s.money;
+    until(sim, () => r.stole > 0, TICKS_PER_MONTH);
+    expect(r.stole).toBeLessThanOrEqual(Math.min(r.men * 40, Math.floor(money * 0.1) + 1));
+    expect(band.back).toBe(true);
     ledgerAddsUp(s);
-    until(sim, () => !raidersOf(s, r), TICKS_PER_MONTH);
+    until(sim, () => !raidersOf(s, r), 2 * TICKS_PER_MONTH);
     expect(raidersOf(s, r)).toBeUndefined();
     expect(r.end).toBe('raided');
     expect(r.phase).toBe('homeward');
     expect(s.world.deals.find((d) => d.id === r.deal)?.state).toBe('raided');
+    expect(s.world.news.some((n) => /raiders have gone: .*dr carried off/.test(n.line))).toBe(true);
   }, 120000);
 
   it('the fire they set burns only their target while it is young (it can spread once it has burnt five days unfought)', () => {
@@ -401,7 +411,7 @@ describe('afterwards', () => {
     const sim = settled();
     const s = sim.state;
     const r = inTheCity(sim);
-    until(sim, () => r.ended > 0, 2 * TICKS_PER_MONTH);
+    until(sim, () => r.ended > 0, 4 * TICKS_PER_MONTH);
     const c = cityOf(s.world, 'sparta');
     const spent = c.memories.find((m) => m.kind === 'spent')!;
     expect(spent.amount).toBeGreaterThan(0);
