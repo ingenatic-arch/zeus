@@ -14,10 +14,10 @@ import { PAL } from '../render/palette';
 import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type BuildingKind, type SimState } from '../sim/state';
 
-/** The plate's size on screen (CSS pixels). */
-export const PLATE = 228;
-/** The rim's width. */
-const RIM = 7;
+/** The minimap's size on screen (CSS pixels): the plate and the bronze ring round it, which the panel's head draws (see skin.ts). */
+export const PLATE = 216;
+/** The ring's width: the map is drawn inside it, north's marker on it. */
+const RIM = 16;
 
 /** What each building is coloured on the plate: homes in terracotta, makers in their crop's colour, stores in stone, the town's own buildings in white. */
 const KIND_COLOUR: Record<BuildingKind, string> = {
@@ -132,6 +132,8 @@ export class Minimap {
     private readonly map: CoastMap,
     /** Go to a world point: `fly` for a click, a jump while dragging. */
     private readonly goTo: (x: number, z: number, fly: boolean) => void,
+    /** Face north (a click on north's marker on the ring). */
+    private readonly onNorth: () => void = () => undefined,
   ) {
     this.n = map.size;
     const el = document.createElement('div');
@@ -155,6 +157,11 @@ export class Minimap {
     this.land = paintLand(map);
     const at = (e: PointerEvent): { x: number; z: number } | null => this.worldAt(e.clientX, e.clientY);
     canvas.addEventListener('pointerdown', (e) => {
+      if (this.onMarker(e.clientX, e.clientY)) {
+        this.onNorth();
+        e.preventDefault();
+        return;
+      }
       const w = at(e);
       if (!w) return;
       this.dragging = true;
@@ -163,7 +170,12 @@ export class Minimap {
       e.preventDefault();
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (!this.dragging) return;
+      if (!this.dragging) {
+        const on = this.onMarker(e.clientX, e.clientY);
+        canvas.style.cursor = on ? 'pointer' : this.worldAt(e.clientX, e.clientY) ? 'crosshair' : 'default';
+        canvas.title = on ? 'North · click to face north (N)' : '';
+        return;
+      }
       const w = at(e);
       if (w) this.goTo(w.x, w.z, false);
     });
@@ -181,11 +193,26 @@ export class Minimap {
     return (PLATE - 2 * RIM - 4) / (this.n * Math.SQRT2);
   }
 
-  /** The world point under a screen point, if it is on the map. */
+  /** Where north's marker is on the plate (CSS pixels from its middle), as last drawn. */
+  private marker: [number, number] = [0, -(PLATE / 2 - RIM / 2)];
+
+  /** Whether a screen point is on north's marker. */
+  private onMarker(clientX: number, clientY: number): boolean {
+    const r = this.canvas.getBoundingClientRect();
+    const k = r.width / PLATE;
+    return Math.hypot((clientX - r.left) / k - PLATE / 2 - this.marker[0], (clientY - r.top) / k - PLATE / 2 - this.marker[1]) < 10;
+  }
+
+  /** The world point under a screen point, if it is on the map (inside the ring). */
   worldAt(clientX: number, clientY: number): { x: number; z: number } | null {
     const r = this.canvas.getBoundingClientRect();
-    const sx = (clientX - r.left - r.width / 2) / this.scale;
-    const sy = (clientY - r.top - r.height / 2) / this.scale;
+    // (The panel's head may be drawn smaller on a short window.)
+    const k = r.width / PLATE;
+    const px = (clientX - r.left) / k - PLATE / 2;
+    const py = (clientY - r.top) / k - PLATE / 2;
+    if (Math.hypot(px, py) > PLATE / 2 - RIM) return null;
+    const sx = px / this.scale;
+    const sy = py / this.scale;
     const c = Math.cos(this.yaw);
     const s = Math.sin(this.yaw);
     const x = sx * c + sy * s + this.n / 2;
@@ -341,42 +368,36 @@ export class Minimap {
         ctx.stroke();
       }
     }
-    // The rim, and north on it.
-    ctx.beginPath();
-    ctx.arc(R, R, R - RIM / 2, 0, Math.PI * 2);
-    const g = ctx.createLinearGradient(0, 0, PLATE, PLATE);
-    g.addColorStop(0, '#e6c27a');
-    g.addColorStop(0.5, '#b88a50');
-    g.addColorStop(1, '#8a6034');
-    ctx.strokeStyle = g;
-    ctx.lineWidth = RIM;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(R, R, R - RIM, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(74, 52, 32, 0.55)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // North: a gold stud on the ring (which the panel's head draws), turning with the view; a click on it faces north.
     const [nx, ny] = this.plateAt(this.n / 2, -1e6);
     const len = Math.hypot(nx, ny) || 1;
     const ux = nx / len;
     const uy = ny / len;
-    const mx = R + ux * (R - RIM / 2);
-    const my = R + uy * (R - RIM / 2);
+    this.marker = [ux * (R - RIM / 2), uy * (R - RIM / 2)];
     ctx.save();
-    ctx.translate(mx, my);
+    ctx.translate(R + this.marker[0], R + this.marker[1]);
     ctx.rotate(Math.atan2(uy, ux) + Math.PI / 2);
+    ctx.shadowColor = 'rgba(30, 18, 6, 0.55)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1.5;
     ctx.beginPath();
-    ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#fbf2dd';
+    ctx.arc(0, 0, 7.6, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(-2.4, -2.6, 0.5, 0, 0, 8);
+    g.addColorStop(0, '#fff1bf');
+    g.addColorStop(0.45, '#e2b24e');
+    g.addColorStop(1, '#8a5e1c');
+    ctx.fillStyle = g;
     ctx.fill();
-    ctx.strokeStyle = '#8a6034';
-    ctx.lineWidth = 1.2;
+    ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = 'rgba(70, 44, 12, 0.8)';
+    ctx.lineWidth = 0.8;
     ctx.stroke();
-    ctx.fillStyle = '#a24e2c';
-    ctx.font = 'bold 9.5px Palatino, Georgia, serif';
+    ctx.fillStyle = '#4a2e0c';
+    ctx.font = '700 9.5px Cinzel, Palatino, Georgia, serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('N', 0, 0.5);
+    ctx.fillText('N', 0, 0.6);
     ctx.restore();
   }
 }
