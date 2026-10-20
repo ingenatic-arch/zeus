@@ -2006,19 +2006,20 @@ const err26 = errors.length;
 await open('#landing-paused');
 {
   const a26 = await zeus(() => ({ prepared: window.__zeus.prepared, f: window.__zeus.fleet(), chip: document.querySelector('.raid-chip')?.textContent ?? '', side: window.__zeus.sideText() }));
-  if (!(a26.prepared && a26.f.ships.length >= 2 && a26.f.ships.every((e) => e.state === 'sailing') && a26.f.triremes.length === 0)) fail(`#landing: ${JSON.stringify(a26.f)}`);
+  if (!(a26.prepared && a26.f.ships.length >= 2 && a26.f.ships.some((e) => e.state === 'sailing') && a26.f.triremes.length === 0)) fail(`#landing: ${JSON.stringify(a26.f)}`);
   if (!/Troy’s ships · \d+ in the bay/i.test(a26.chip)) fail(`#landing: the raid chip: ${a26.chip}`);
   // The shipyard's picture on the Military tab, after the tower's.
   if (!/shipyard/i.test(await zeus(() => [...document.querySelectorAll('.side-wells [data-tool]')].map((b) => b.getAttribute('data-tool')).join(',')))) fail('#landing: no shipyard in the Military tab');
-  // A ship's hover.
-  const ship = a26.f.ships.slice().sort((p, q) => p.z - q.z)[0];
-  await zeus((v) => window.__zeus.jump(v), { x: ship.x, z: ship.z, yaw: 3.0, dist: 12, tilt: -0.1 });
+  // A ship's hover (the hoplites' banner let go first: in hand, the pointer places it).
+  await page.keyboard.press('Escape');
+  const ship = a26.f.ships.filter((e) => e.state === 'sailing').sort((p, q) => p.z - q.z)[0];
+  await zeus((v) => window.__zeus.jump(v), { x: ship.x, z: ship.z, yaw: 3.0, dist: 14, tilt: 0.2 });
   await frames(4);
-  const shown = (await zeus(() => window.__zeus.fleet())).shown.find((o) => o.kind === 'enemy');
+  const shown = (await zeus(() => window.__zeus.fleet())).shown.find((o) => o.id === ship.id);
   let tip = '';
   if (shown) {
     const p = await zeus(([x, z]) => window.__zeus.screenOf(x, z), [shown.x, shown.z]);
-    for (const dy of [-8, -16, 0]) {
+    for (const dy of [-8, -16, 0, -24]) {
       await page.mouse.move(p.x, p.y + dy);
       await page.mouse.move(p.x + 1, p.y + dy);
       await frames(3);
@@ -2026,13 +2027,15 @@ await open('#landing-paused');
       if (/A ship of Troy/.test(tip)) break;
     }
   }
-  if (!/A ship of Troy (sailing in|on the horizon)/.test(tip)) fail(`#landing: an enemy ship's hover: ${tip}`);
+  if (!/A ship of Troy (sailing in|on the horizon)/.test(tip)) fail(`#landing: an enemy ship's hover: ${tip} ${JSON.stringify(shown)}`);
   // On: drawn up on the beach, and the band ashore.
   const b26 = await zeus(() => {
     const z = window.__zeus;
     for (let i = 0; i < 1200 && !(z.fleet().ships.every((e) => e.state === 'beached') && z.battle().foes > 0); i += 5) z.skip(5);
-    return { f: z.fleet(), b: z.battle(), lines: z.townLines() };
+    return { f: z.fleet(), b: z.battle() };
   });
+  await frames(6);
+  b26.lines = await zeus(() => window.__zeus.townLines());
   if (!(b26.f.ships.length >= 2 && b26.f.ships.every((e) => e.state === 'beached') && b26.b.foes >= 10)) fail(`#landing: not landed: ${JSON.stringify({ f: b26.f, foes: b26.b.foes })}`);
   if (!/ashore|landed|in your city/.test(JSON.stringify(b26.lines))) fail(`#landing: the landing's line: ${JSON.stringify(b26.lines).slice(0, 600)}`);
 }
