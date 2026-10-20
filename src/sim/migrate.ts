@@ -145,6 +145,7 @@ export function migrate(st: unknown): number {
   if (st.version === 22) from22(st);
   if (st.version === 23) from23(st);
   if (st.version === 24) from24(st);
+  if (st.version === 25) from25(st);
   return from;
 }
 
@@ -511,4 +512,26 @@ function from24(st: Record<string, unknown>): void {
     if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.loan !== 'number') g.loan = 0;
   }
   st.version = 25;
+}
+
+/**
+ * Version 25 to 26 (slice 26, from the sea): no shipyard, trireme, enemy
+ * ship or pirates yet; no raid has come ashore or lost a ship; no trader has
+ * been robbed.
+ */
+function from25(st: Record<string, unknown>): void {
+  if (!isObj(st.fleet)) st.fleet = { triremes: [], ships: [], pirates: [], reports: [], nextId: 1 };
+  const w = st.world;
+  if (isObj(w)) {
+    if (Array.isArray(w.raids)) {
+      for (const r of w.raids as Array<Record<string, unknown>>) {
+        if (!isObj(r)) continue;
+        if (typeof r.shore !== 'number') r.shore = -1;
+        for (const k of ['ships', 'sunk', 'landed', 'drowned']) if (typeof r[k] !== 'number') r[k] = 0;
+        if (typeof r.brokeAt !== 'string') r.brokeAt = '';
+      }
+    }
+    if (Array.isArray(w.routes)) for (const r of w.routes as Array<Record<string, unknown>>) if (isObj(r) && typeof r.robbed !== 'number') r.robbed = 0;
+  }
+  st.version = 26;
 }

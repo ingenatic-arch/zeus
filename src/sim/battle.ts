@@ -42,7 +42,7 @@ import { armyNews, companyName, companyOf, FALLEN_LIE, fatherWords, HIRELINGS, k
 import { findBuilding, recountPopulation } from './buildings';
 import { tell } from './folk';
 import { held, setHeld } from './foods';
-import { besieging, breakBand, lootWords, raidersOf } from './raids';
+import { bandMen, besieging, breakBand, lootWords, raidersOf, runFor } from './raids';
 import { Ground, mapIndex } from './build';
 import { centreOf } from './buildings';
 import { news } from './diplomacy';
@@ -322,20 +322,20 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     if (left === 0) {
       s.walkers = s.walkers.filter((o) => o !== w);
       s.rev++;
-    } else if (!r.broke && left * 2 <= r.men) {
+    } else if (!r.broke && left * 2 <= bandMen(r)) {
       for (const f of a.foes) if (f.raid === r.id && up(f)) {
         f.state = 'with';
         f.foe = 0;
       }
       breakBand(s, map, r);
-      battleNews(s, map, r, w);
+      battleNews(map, r, w);
     }
   }
 }
 
 /** The men of a band just in: in a loose pack round where it stands. */
 function muster(s: SimState, r: Raid, w: Walker): void {
-  for (let k = 0; k < r.men; k++) {
+  for (let k = 0; k < bandMen(r); k++) {
     const f: Foe = { id: s.army.nextId++, raid: r.id, slot: k, x: 0, z: 0, face: 0, hp: 100, state: 'with', foe: 0, cool: 0, swung: 0, fell: 0, walked: 0, since: 0, calm: 0 };
     const [px, pz, face] = packPlace(w, f);
     f.x = px;
@@ -692,10 +692,10 @@ function rout(s: SimState, map: CoastMap, c: Company): void {
 }
 
 /** The news of a band broken: who broke it, and what it cost. */
-function battleNews(s: SimState, map: CoastMap, r: Raid, w: Walker): void {
+function battleNews(map: CoastMap, r: Raid, w: Walker): void {
   const [x, z] = [w.path[w.seg * 2] ?? 0, w.path[w.seg * 2 + 1] ?? 0];
-  const ours = [r.killed ? `${r.killed} of yours ${r.killed === 1 ? 'was' : 'were'} killed` : '', r.wounded ? `${r.wounded} wounded` : ''].filter(Boolean).join(' and ');
-  armyNews(s, `Your soldiers broke ${whose(r)} raiders ${whereWords(map, x, z)}: ${r.fallen} of their ${r.men} men fell${ours ? `; ${ours}` : ', and none of yours'}`, 0);
+  // (Told when the band has gone, with the whole fight's count: raids.ts's settle. Slice 25's review.)
+  r.brokeAt = whereWords(map, x, z);
 }
 
 /** Who a company is, for a hover: "the 1st company of Cretan archers". */
@@ -711,7 +711,7 @@ export function foeDoing(s: SimState, f: Foe): { title: string; detail: string }
   const man = f.foe ? s.army.soldiers.find((x) => x.id === f.foe) : undefined;
   const c = man ? companyOf(s, man.company) : undefined;
   const wall = r && r.siege >= 0 && f.state === 'with' ? wallAt(s, r.siege) : undefined;
-  const doing = r?.broke ? 'running for the edge with the rest' : man ? `fighting ${man.name} of ${c ? companyWords(c) : 'your soldiers'}` : wall && wall.hp > 0 && f.swung > 0 && s.tick - f.swung < 3 * SWING ? `hammering at your ${wall.gate ? 'gate' : 'wall'}` : 'with the band';
+  const doing = r?.broke ? `running for ${runFor(r)} with the rest` : man ? `fighting ${man.name} of ${c ? companyWords(c) : 'your soldiers'}` : wall && wall.hp > 0 && f.swung > 0 && s.tick - f.swung < 3 * SWING ? `hammering at your ${wall.gate ? 'gate' : 'wall'}` : 'with the band';
   const carried = r ? lootWords(r) : '';
   const loot = carried ? ` · the band carries ${carried}` : '';
   return { title, detail: `${health} · ${doing}${loot}` };

@@ -28,6 +28,7 @@ import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
+import { CREW, daysToBeach, pirateBand, shipsOf } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -1609,6 +1610,73 @@ function siegeTown(): (sim: Sim) => void {
     while (s.tick < until && !(r.siege >= 0 && (s.walls.find((p) => p.t === r.siege)?.hp ?? 0) < GATE_HP * 0.8)) sim.step();
   };
 }
+/**
+ * From the sea (slice 26). #landing: #companies' town with Troy's king
+ * turned against it (set up for the demo, and named so): his threat refused,
+ * his ships in the bay a few days from the beach below the storehouse they
+ * came for, paused, the hoplites' banner in hand so both companies can be
+ * placed on the shore. #triremes: the same town with a shipyard on the shore
+ * west of the trading post (a road down to it) and two triremes built and
+ * crewed at its jetty, as Troy's ships come into sight; the Army tab open on
+ * the fleet. #pirates: #athensship's town, trading with Athens by sea, with
+ * the shipyard and a crewed trireme, as pirates are seen off Cape Zoster on
+ * the lane to Athens (set up for the demo): the map open on Athens, where she
+ * can be sent to guard the lane.
+ */
+/** The shipyard by the river mouth, west of the trading post, and the road from the quay road down to it. */
+const SHIPYARD_AT = { x: 68, z: 67 };
+const SHIPYARD_ROAD = [68, 69, 70, 71, 72, 73].map((x) => T(x, 66));
+/** How many days from the beach #landing's ships are when it opens. */
+const LANDING_DAYS = 6;
+/** The longest a demo waits for a trireme to be built and crewed (three months). */
+const TRIREME_WAIT = 3 * TICKS_PER_MONTH;
+/** A shipyard and `n` triremes, each built and crewed in turn. */
+function fleetOf(sim: Sim, n: number): void {
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  send({ type: 'road', tiles: SHIPYARD_ROAD });
+  send({ type: 'build', kind: 'shipyard', at: [T(SHIPYARD_AT.x, SHIPYARD_AT.z)] });
+  const yard = s.buildings.find((b) => b.kind === 'shipyard');
+  if (!yard) return;
+  for (let k = 0; k < n; k++) {
+    send({ type: 'trireme', yard: yard.id });
+    const t = s.fleet.triremes[s.fleet.triremes.length - 1];
+    if (!t) return;
+    const stop = s.tick + TRIREME_WAIT;
+    while (s.tick < stop && !(t.state === 'moored' && t.crew.length >= CREW)) sim.run(10);
+  }
+}
+function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    if (stage === 'triremes') fleetOf(sim, 2);
+    stagedRaid(sim, 'troy', 'the king covets the wine of a city with no ships to guard its shore');
+    const r = s.world.raids.find((x) => x.city === 'troy' && x.ended === 0);
+    if (!r) return;
+    const stop = s.tick + TICKS_PER_YEAR;
+    // #landing: a few days from the beach; #triremes: the first sail just in sight from the shore.
+    const ready = (): boolean => {
+      if (r.phase !== 'raiding' || r.landed > 0) return r.phase !== 'gathering' && r.phase !== 'marching' && r.phase !== 'threat';
+      const ships = shipsOf(s, r);
+      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS : ships.some((e) => e.z < MAP_SIZE + 8);
+    };
+    while (s.tick < stop && !ready()) sim.step();
+  };
+}
+function piratesTown(): (sim: Sim) => void {
+  return (sim) => {
+    seaTown('athensship')(sim);
+    fleetOf(sim, 1);
+    pirateBand(sim.state, 'athens-sea', 2, 'set up for this demo');
+  };
+}
+const LANDING = landingTown('landing');
+const TRIREMES = landingTown('triremes');
+const PIRATES = piratesTown();
 const WALLS = wallsTown();
 const SIEGE = siegeTown();
 const BATTLE = battleTown();
@@ -1814,6 +1882,10 @@ const SCENES: Record<string, Demo> = {
   walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
   // (Paused, as #battle and #walls are: at normal speed the gate fell about ten seconds after it opened. Slice 25's review.)
   siege: { view: 'siege', speed: 'paused', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
+  // Slice 26: from the sea. Troy's ships a few days from the beach, paused, the hoplites' banner in hand; two triremes at the shipyard as the ships come in; pirates on the lane to Athens.
+  landing: { view: 'landing', speed: 'paused', setup: LANDING, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
+  triremes: { view: 'triremes', setup: TRIREMES, overlay: 'missing', side: { tab: 'army' } },
+  pirates: { view: 'triremes', setup: PIRATES, overlay: 'missing', greece: 'athens', greeceTab: 'ruler' },
   // Slice 27: loans both ways. Corinth's and Athens' answers to your asks, Corinth's terms waiting on you; a ruler in trouble asking to borrow; that loan repaid, their herald on the road.
   borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   lend: { view: 'rivals', setup: LEND, overlay: 'missing', greece: LEND_CITY, greeceTab: 'ruler' },

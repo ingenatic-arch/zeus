@@ -40,6 +40,8 @@ export const ARMOURY_COST = 300;
 export const BARRACKS_COST = 500;
 /** A tower on the wall line (2 x 2, slice 25; see walls.ts). */
 export const TOWER_COST = 200;
+/** The shipyard (3 x 3 on the shore, like the trading post; slice 26, see fleet.ts): its triremes are paid for as they are ordered. */
+export const SHIPYARD_COST = 300;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -78,6 +80,7 @@ export const COST: Record<BuildingKind, number> = {
   armoury: ARMOURY_COST,
   barracks: BARRACKS_COST,
   tower: TOWER_COST,
+  shipyard: SHIPYARD_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -506,6 +509,11 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
     if (s.buildings.some((b) => b.kind === 'trading')) return 'Only one trading post: the ship calls at one quay';
     const shore = shoreRefusal(map, tx, tz);
     if (shore) return shore;
+  }
+  if (kind === 'shipyard') {
+    // (On the shore like the trading post, its jetty out over deep water; as many as you like.)
+    const shore = shoreRefusal(map, tx, tz);
+    if (shore) return shore.replace('trading post', 'shipyard');
   }
   if (kind === 'yard' && s.buildings.some((b) => b.kind === 'yard')) return 'Only one caravan yard: every caravan comes to it';
   if (kind === 'mine' && copperOf(map, tx, tz, side) < MINE_COPPER_MIN) return 'No copper in the rock here: a mine needs the green-streaked rock in the hills';

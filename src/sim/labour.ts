@@ -19,7 +19,7 @@ export const WORK_SHARE = 0.5;
 export const canWork = (b: Building, away = 0): number => (livedIn(b) ? Math.max(0, Math.floor(b.people * WORK_SHARE) - away) : 0);
 
 /** How many of a home's people can work, its man serving in the army (if any) left out. */
-export const canWorkIn = (s: SimState, b: Building): number => canWork(b, b.kind === 'home' && s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') ? 1 : 0);
+export const canWorkIn = (s: SimState, b: Building): number => canWork(b, b.kind === 'home' && (s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') || s.fleet.triremes.some((t) => t.crew.some((r) => r.home === b.id))) ? 1 : 0);
 
 export { jobsAt };
 

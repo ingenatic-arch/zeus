@@ -33,6 +33,7 @@ import { loanCommand, stepLoans } from './loans';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
 import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } from './army';
 import { stepBattle } from './battle';
+import { fleetCommand, freshFleet, orderTrireme, stepErrands, stepFleet, yardGone } from './fleet';
 import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
@@ -82,6 +83,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     stocks: freshBook(0),
     army: freshArmy(),
     walls: [],
+    fleet: freshFleet(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -201,6 +203,9 @@ export class Sim {
     stepArmy(s, map);
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
+    // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
+    stepFleet(s, map);
+    stepErrands(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -292,6 +297,12 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'banner':
       if (typeof c.company === 'number' && Number.isInteger(c.tile)) sendBanner(s, map, c.company, c.tile);
+      break;
+    case 'trireme':
+      if (typeof c.yard === 'number') orderTrireme(s, map, c.yard);
+      break;
+    case 'fleet':
+      if (typeof c.trireme === 'number' && (c.act === 'guard' || c.act === 'home')) fleetCommand(s, map, c.trireme, c.act, String(c.lane ?? ''));
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
@@ -567,6 +578,8 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
   }
   // A barracks' companies are disbanded with it.
   if (b.kind === 'barracks') barracksGone(s, map, b);
+  // A shipyard's trireme on the slip is lost with it; those afloat ride where they are.
+  if (b.kind === 'shipyard') yardGone(s, b);
   if (b.people > 0) {
     s.left += b.people;
     sendLeavers(s, map, b.people, centreOf(b), around(n, b));

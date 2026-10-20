@@ -14,6 +14,7 @@
  * neither wages nor other building can spend it, so a city that has run dry
  * can always build one and recover.
  */
+import { ROWER_PAY } from './lanes';
 import { COST, TAX_OFFICE_COST } from './build';
 import { JOBS } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
@@ -94,7 +95,7 @@ export function payable(s: SimState): number {
  */
 export function spendable(s: SimState, kind: BuildingKind | 'road' = 'road'): number {
   if (kind === 'taxoffice') return s.money;
-  return Math.max(0, payable(s) - owedWages(s).owed - soldiersOwed(s));
+  return Math.max(0, payable(s) - owedWages(s).owed - soldiersOwed(s) - s.fleet.triremes.reduce((a, t) => a + t.owed, 0));
 }
 
 /**
@@ -147,6 +148,12 @@ export function settle(s: SimState): void {
   if (s.army.owed > 0 && payable(s) >= s.army.owed) {
     pay(s, -s.army.owed, 'soldiers', 'soldiers', s.army.owed / SOLDIER_PAY);
     s.army.owed = 0;
+  }
+  // Then the rowers (slice 26), trireme by trireme, each crew in full or not at all.
+  for (const t of s.fleet.triremes) {
+    if (t.owed <= 0 || payable(s) < t.owed) continue;
+    pay(s, -t.owed, 'rowers', 'rowers', t.owed / ROWER_PAY);
+    t.owed = 0;
   }
 }
 
