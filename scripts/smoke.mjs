@@ -18,9 +18,9 @@ const fail = (msg) => {
   console.error('FAIL:', msg);
   process.exitCode = 1;
 };
-const frames = async (n) => {
+const frames = async (n, timeout = 60000) => {
   const f = await page.evaluate(() => window.__zeus.frames);
-  await page.waitForFunction((f0) => window.__zeus.frames >= f0, f + n, { timeout: 60000 });
+  await page.waitForFunction((f0) => window.__zeus.frames >= f0, f + n, { timeout });
 };
 
 await page.goto(url + '?demo=coast');
@@ -1835,7 +1835,8 @@ if (!/Hire Cretan archers[\s\S]*Hire Arcadian hoplites/.test(a24.side)) fail(`#b
   await click(40.5, 41.5);
   // (The row takes the archers' banner and flies the camera to them: once it is there, back to the bridge.)
   await page.click(`.side button[data-act="company"][data-id="${arc24.id}"]`);
-  await frames(40);
+  // (Forty frames for the flight: at headless software rendering's frame or two a second on a busy machine, that can take minutes.)
+  await frames(40, 300000);
   if ((await zeus(() => window.__zeus.army().selected)) !== arc24.id) fail('#battle: the archers\' row did not take their banner');
   await zeus(() => window.__zeus.jump({ x: 50, z: 41, yaw: 2.65, dist: 34, tilt: -0.1 }));
   await frames(3);
