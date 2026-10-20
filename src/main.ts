@@ -51,7 +51,7 @@ import { ArmyChip } from './ui/armychip';
 import { DebtsChip } from './ui/debtschip';
 import { debtsChip as debtsNow } from './sim/loans';
 import { Orders } from './game/orders';
-import { companyOf, doingWords, menOf, strength } from './sim/army';
+import { companyOf, doingWords, menOf, strength, woundedOf } from './sim/army';
 import { companyWords, foeDoing } from './sim/battle';
 import { soldierStatus } from './sim/armystatus';
 import { Welcome } from './ui/welcome';
@@ -214,6 +214,7 @@ interface Probe {
   /** Slice 24: send a player's command (as the panel would), play the city on a number of ticks at once, and the fight as it stands. */
   order?: (c: Parameters<Sim['enqueue']>[0]) => void;
   skip?: (ticks: number) => void;
+  foeScreen?: () => { x: number; y: number } | null;
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
@@ -344,7 +345,7 @@ function start(preparedTown: string | null): void {
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
-  let armyPick: (sx: number, sy: number) => { company: number; soldier: number } = () => ({ company: 0, soldier: 0 });
+  let armyPick: (sx: number, sy: number) => { company: number; soldier: number; d?: number } = () => ({ company: 0, soldier: 0 });
   const orders = new Orders(
     sim,
     placement,
@@ -681,6 +682,10 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
     }
+    // …and one saved before raiders were fought (slice 23 or older, with a town): raids come for the stores and the treasury now, and soldiers fight them.
+    if (loaded.from !== undefined && loaded.from <= 22 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · Raiders now come for your stores and the tax office, and burn on their way; bands grow with your city. Companies placed in their way fight them, and a barracks can hire Cretan archers or Arcadian hoplites in a pinch.';
+    }
     // …and one saved before loans (slice 24 or older): rulers lend and borrow now.
     if (loaded.from !== undefined && loaded.from <= 23 && sim.state.world.routes.length > 0) {
       changed += ' · Loans both ways now: ask a ruler to lend you coin, or lend them yours, on the Loans tab of their page on the map of Greece (Tab).';
@@ -721,13 +726,13 @@ function start(preparedTown: string | null): void {
       }
     }
     if (!soldier) return { company: 0, soldier: 0 };
-    return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier };
+    return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier, d: bd };
   };
-  /** The raider nearest a screen point (within a few pixels), or 0. */
-  const foeNear = (sx: number, sy: number): number => {
+  /** The raider nearest a screen point (within a few pixels), or 0; `most`: only one nearer than this (pixels squared). */
+  const foeNear = (sx: number, sy: number, most = 14 * 14): number => {
     const r = canvas.getBoundingClientRect();
     let best = 0;
-    let bd = 14 * 14;
+    let bd = most;
     const v = new THREE.Vector3();
     for (const [id, pos] of city.walkers.foeAt) {
       v.copy(pos).setY(pos.y + 0.24).project(camera);
@@ -822,8 +827,11 @@ function start(preparedTown: string | null): void {
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
-    // A soldier, or a company's banner.
+    // A soldier, or a company's banner; a raider nearer the pointer than the soldier (in a fight they stand close: slice 24's review).
     const pickedArmy = armyPick(sx, sy);
+    const foeFirst = pickedArmy.soldier && pickedArmy.d !== undefined ? foeNear(sx, sy, pickedArmy.d) : 0;
+    const ff = foeFirst ? sim.state.army.foes.find((o) => o.id === foeFirst) : undefined;
+    if (ff) return showStatus(foeDoing(sim.state, ff), sx, sy);
     if (pickedArmy.soldier) {
       const x = sim.state.army.soldiers.find((o) => o.id === pickedArmy.soldier);
       if (x) {
@@ -834,7 +842,8 @@ function start(preparedTown: string | null): void {
     }
     if (pickedArmy.company) {
       const co = companyOf(sim.state, pickedArmy.company);
-      if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
+      const hurt = co ? woundedOf(sim.state, co).length : 0;
+      if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men${hurt ? `, ${hurt} wounded` : ''}`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
     }
     // A raider (each of a band's men is a figure of his own).
     const foe = foeNear(sx, sy);
@@ -1509,6 +1518,13 @@ function start(preparedTown: string | null): void {
   probe.selectCompany = (id) => takeBanner(id);
   probe.order = (c) => orders.send(c);
   probe.skip = (n) => sim.run(n);
+  probe.foeScreen = () => {
+    const first = [...city.walkers.foeAt.values()][0];
+    if (!first) return null;
+    const v = first.clone().setY(first.y + 0.24).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
   probe.battle = () => {
     const a = sim.state.army;
     const up = a.foes.filter((f) => f.state !== 'fallen');

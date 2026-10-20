@@ -27,8 +27,9 @@ function agoWords(ticks: number): string {
   return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
 }
 
-/** Where a company is, in words: "at its barracks", or the district its banner stands in. */
-export function whereWords(map: CoastMap, c: Company): string {
+/** Where a company is, in words: "at its barracks", or the district its banner stands in ('' for hirelings not yet in: their row says they are walking in). */
+export function whereWords(s: SimState, map: CoastMap, c: Company): string {
+  if (c.hired && !s.army.soldiers.some((x) => x.company === c.id && x.state !== 'coming')) return '';
   if (c.order === 'drill') return 'at its barracks';
   return lower(districtTitle(districtAt(map, c.x, c.z)));
 }
@@ -47,7 +48,8 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   }
   out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
   out.push(
-    `<dl class="sums"><div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div><div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
+    // (Your own men by kind, and hirelings once, so the three add up to the whole; a kind with none is left out when there are hirelings.)
+    `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
   );
   // The army's news: the last few things that happened to it.
   const news = s.army.news.filter((n) => n.tick <= s.tick).slice(-4).reverse();
@@ -69,11 +71,12 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     for (const c of cs) {
       const men = menOf(s, c).length;
       const hurt = woundedOf(s, c).length;
+      const where = whereWords(s, map, c);
       const sel = c.id === selected;
       const dismiss = c.hired ? 'They walk off the way they came; what they were owed is still paid' : 'The men walk home to their old work; their armour goes back to the stores';
       out.push(
         `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
-          `<p>${esc(cap(doingWords(s, c)))} · ${esc(whereWords(map, c))} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
+          `<p>${esc(cap(doingWords(s, c)))}${where ? ` · ${esc(where)}` : ''} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
           (c.why ? `<p class="why">${esc(c.why)}</p>` : '') +
           `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="${dismiss}">Dismiss</button></div></li>`,
       );

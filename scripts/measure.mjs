@@ -279,6 +279,10 @@ for (const [hash, views] of [
   ['#bronze-paused-shot', [null, 'town']],
   ['#barracks-paused-shot', [null]],
   ['#companies-paused-shot', [null, 'town']],
+  // Slice 24: Sparta's band on the march with two companies at their barracks; a band let through, loaded; hirelings' barracks.
+  ['#battle-paused-shot', [null, 'town']],
+  ['#looted-paused-shot', [null]],
+  ['#hirelings-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -307,6 +311,39 @@ for (const [hash, views] of [
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
   console.log('#companies meshes:');
   await summarise();
+}
+
+// Slice 24: a battle of about 75 figures (29 raiders, two companies of 16, the arrows) at the bridge: what it draws close to, and
+// the main thread's work a frame while it is fought at normal speed (the companies placed, the game played on to the first blows).
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('about:blank');
+  await page.goto(url + '#battle-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const b = await page.evaluate(() => {
+    const z = window.__zeus;
+    const cs = z.army().companies;
+    for (const c of cs) z.order({ type: 'banner', company: c.id, tile: c.kind === 'hoplite' ? 41 * 128 + 40 : 39 * 128 + 44 });
+    for (let i = 0; i < 900 && z.battle().fighting < 6; i += 2) z.skip(2);
+    const c = z.battle().centre;
+    if (c) z.jump({ x: c.x, z: c.z, yaw: 2.65, dist: 14, tilt: 0.12 });
+    return z.battle();
+  });
+  let f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#battle the fight, close: triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)} · ${b.foes} raiders standing, ${b.fighting} fighting, ${b.arrows} arrows in the air`);
+  console.log('#battle meshes in the fight:');
+  await summarise();
+  await page.setViewportSize({ width: 960, height: 540 });
+  await page.evaluate(() => window.__zeus.speed('normal'));
+  await page.waitForTimeout(4000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, b: window.__zeus.battle() }));
+  await page.waitForTimeout(8000);
+  const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, b: window.__zeus.battle() }));
+  console.log(`#battle fought     update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${a.b.fighting} then ${z.b.fighting} raiders fighting)`);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  f = 0;
 }
 
 // Slice 15: the map of Greece, built the first time it is opened (its code is a separate file, fetched then).
@@ -338,7 +375,7 @@ for (const [hash, views] of [
 // first. A demo now opens from its prepared town, without playing its history in the page, so without
 // the warm-up its first seconds land in the window and read a few ms heavier, before and after alike.)
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot', '#bronze-shot', '#barracks-shot', '#companies-shot', '#borrow-shot', '#lend-shot', '#repaid-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot', '#bronze-shot', '#barracks-shot', '#companies-shot', '#battle-shot', '#looted-shot', '#hirelings-shot', '#borrow-shot', '#lend-shot', '#repaid-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

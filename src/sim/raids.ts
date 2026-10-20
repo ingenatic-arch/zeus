@@ -623,8 +623,9 @@ const firesFor = (r: Raid): number => Math.min(FIRES_MOST, FIRES_LEAST + Math.fl
 
 /**
  * Once a day on their way (in or out, not running from a beating): now and
- * then the band sets alight a building beside it, a house as likely as any,
- * up to a few in a raid. Through the fire code, so the watchmen come and it
+ * then the band sets alight a building beside it, a house as likely as any
+ * (but not a store or the tax office: what they came to take), up to a few
+ * in a raid. Through the fire code, so the watchmen come and it
  * can spread. Not with fire switched off (as while a demo's history is built).
  */
 function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
@@ -637,7 +638,9 @@ function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
   let best: Building | null = null;
   let bd = Infinity;
   for (const b of s.buildings) {
-    if (!burnable(b) || b.fire === FIRE_BURNING || b.id === w.target || r.next.includes(b.id)) continue;
+    // (Never the stores and tax offices they came to plunder: burning those would take everything they left, the granary's
+    // food with it, and the town couldn't recover from that. Slice 24's review.)
+    if (!burnable(b) || b.fire === FIRE_BURNING || b.id === w.target || r.next.includes(b.id) || STORES.includes(b.kind) || b.kind === 'taxoffice') continue;
     const [cx, cz] = centreOf(b);
     const half = b.kind === 'home' ? 0.5 : 1.5;
     const d = dhypot(cx - x, cz - z) - half;
@@ -652,9 +655,10 @@ function torch(s: SimState, map: CoastMap, w: Walker, r: Raid): void {
   s.rev++;
 }
 
-/** At the target, as they come: a field set alight; a store too, if there is little in it worth carrying. */
+/** At the target, as they come: a field set alight; a store too, if there is little in it worth carrying (never the tax office: they came for its coin). */
 function light(s: SimState, b: Building, r: Raid | undefined): void {
-  if (!r || r.end !== '') return;
+  // (Slice 24's review: with nothing in it to count as worth carrying, every tax office they reached was set alight, and burnt down.)
+  if (!r || r.end !== '' || b.kind === 'taxoffice') return;
   const field = FIELDS[b.kind] !== undefined;
   let most = 0;
   for (const x of WARES) most = Math.max(most, held(b, x));

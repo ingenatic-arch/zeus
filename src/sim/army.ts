@@ -49,14 +49,18 @@ export const CALLS_A_DAY = 4;
 /** The home levels each kind is drawn from, at least. */
 export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: TOWNHOUSE };
 /**
- * How fast a banner marches (tiles a tick): a brisk march, a third quicker
- * than the townsfolk walk (0.12) and a little slower than raiders run (0.192),
- * so a company sent in time meets them; how fast a man keeps his place in the
- * column or the ranks (quicker, so the column keeps up); and how fast he walks
- * his own way, in from his home or home again.
+ * How fast a banner marches (tiles a tick): a soldier's quick march, two
+ * thirds quicker than the townsfolk walk (0.12) and about as fast as raiders
+ * run (0.192), so a company sent when the band is first seen meets it at the
+ * stores (slice 24's review: at 0.16 a company from #battle's barracks reached
+ * the west bridge less than a day before the band); how fast a man keeps his
+ * place in the column or the ranks (quicker, so the column keeps up); and how
+ * fast he walks his own way, in from his home or home again.
  */
-export const MARCH_SPEED = 0.16;
+export const MARCH_SPEED = 0.2;
 export const STRIDE = 0.22;
+/** A man's pace keeping his place in the column on the march (the ranks and the drill keep STRIDE's, as before the march quickened). */
+export const MARCH_STRIDE = 0.27;
 export const WALK_IN = 0.14;
 /** Hirelings march in from the map's edge at the double (slice 24): men who march for a living, hired because a band is coming. */
 export const HIRED_IN = 0.34;
@@ -954,7 +958,7 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     } else x.cool = LOOK_AGAIN;
     return;
   }
-  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? STRIDE : STRIDE * 0.8)) x.face = p.face;
+  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? MARCH_STRIDE : STRIDE * 0.8)) x.face = p.face;
 }
 
 /** A wounded man gets up and walks back to his barracks to heal (with his barracks gone, home; a hireling, off). */
@@ -1007,7 +1011,7 @@ function ready(s: SimState, map: CoastMap, x: Soldier, c: Company): void {
 // ---------------------------------------------------------------------------
 // Reading the army.
 
-/** The city's whole strength: men by kind, and their pay a month. */
+/** The city's whole strength: its own men by kind, its hirelings (counted once, not again under their kind: slice 24's review), the wounded among them all, and their pay a month. */
 export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number } {
   let hoplites = 0;
   let archers = 0;
@@ -1016,13 +1020,13 @@ export function strength(s: SimState): { hoplites: number; archers: number; men:
   let hirelings = 0;
   for (const c of s.army.companies) {
     const n = menOf(s, c).length;
-    if (c.kind === 'hoplite') hoplites += n;
+    if (c.hired) hirelings += n;
+    else if (c.kind === 'hoplite') hoplites += n;
     else archers += n;
     pay += n * payOf(c);
     wounded += woundedOf(s, c).length;
-    if (c.hired) hirelings += n;
   }
-  const men = hoplites + archers;
+  const men = hoplites + archers + hirelings;
   return { hoplites, archers, men, pay, companies: s.army.companies.length, wounded, hirelings };
 }
 
