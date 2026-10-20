@@ -49,7 +49,7 @@ import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
 import { Orders } from './game/orders';
-import { companyOf, doingWords, menOf, strength } from './sim/army';
+import { companyOf, doingWords, menOf, strength, woundedOf } from './sim/army';
 import { companyWords, foeDoing } from './sim/battle';
 import { soldierStatus } from './sim/armystatus';
 import { Welcome } from './ui/welcome';
@@ -210,6 +210,7 @@ interface Probe {
   /** Slice 24: send a player's command (as the panel would), play the city on a number of ticks at once, and the fight as it stands. */
   order?: (c: Parameters<Sim['enqueue']>[0]) => void;
   skip?: (ticks: number) => void;
+  foeScreen?: () => { x: number; y: number } | null;
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
@@ -674,6 +675,10 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
     }
+    // …and one saved before raiders were fought (slice 23 or older, with a town): raids come for the stores and the treasury now, and soldiers fight them.
+    if (loaded.from !== undefined && loaded.from <= 22 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
+      changed += ' · Raiders now come for your stores and the tax office, and burn on their way; bands grow with your city. Companies placed in their way fight them, and a barracks can hire Cretan archers or Arcadian hoplites in a pinch.';
+    }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
@@ -823,7 +828,8 @@ function start(preparedTown: string | null): void {
     }
     if (pickedArmy.company) {
       const co = companyOf(sim.state, pickedArmy.company);
-      if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
+      const hurt = co ? woundedOf(sim.state, co).length : 0;
+      if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men${hurt ? `, ${hurt} wounded` : ''}`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
     }
     // A raider (each of a band's men is a figure of his own).
     const foe = foeNear(sx, sy);
@@ -1492,6 +1498,13 @@ function start(preparedTown: string | null): void {
   probe.selectCompany = (id) => takeBanner(id);
   probe.order = (c) => orders.send(c);
   probe.skip = (n) => sim.run(n);
+  probe.foeScreen = () => {
+    const first = [...city.walkers.foeAt.values()][0];
+    if (!first) return null;
+    const v = first.clone().setY(first.y + 0.24).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
   probe.battle = () => {
     const a = sim.state.army;
     const up = a.foes.filter((f) => f.state !== 'fallen');

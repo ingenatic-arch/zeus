@@ -267,7 +267,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
   for (const x of men) if (x.hp <= 0 && standing(x)) fallMan(s, x, companies.get(x.company), bands);
   // Who is fighting: the bands stand while theirs fight; companies note their strength as a fight begins.
   for (const { r } of bands.values()) if (a.foes.some((f) => f.raid === r.id && f.state === 'fight')) r.fought = s.tick;
-  const anyFoes = a.foes.some(up);
+  // (A band running for its edge fights no more: companies count their fight over.)
+  const anyFoes = a.foes.some((f) => up(f) && !bands.get(f.raid)?.r.broke);
   for (const c of a.companies) {
     const engaged = a.soldiers.some((x) => x.company === c.id && standing(x) && (x.foe > 0 || shooting.has(x.id)));
     const ready = a.soldiers.filter((x) => x.company === c.id && standing(x)).length;

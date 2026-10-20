@@ -31,8 +31,8 @@ export const VIEWS: Record<string, CameraView> = {
   ship: { x: 74, z: 76, yaw: 2.3, dist: 16, tilt: -0.02 },
   // #threat, #raid and #aftermath: the farms by the west edge of the land, where Sparta's raiders come in.
   raidwest: { x: 44, z: 43, yaw: 2.65, dist: 24, tilt: -0.05 },
-  // #raiders: close over the farm they are firing.
-  raidfarm: { x: 41, z: 43, yaw: 2.65, dist: 13, tilt: 0.05 },
+  // #raiders: close over the farm they are firing (slice 24: the granary they are plundering, the tax office beyond).
+  raidfarm: { x: 54, z: 44, yaw: 2.65, dist: 15, tilt: 0.05 },
   // #caravan: the road in from the north edge, where Corinth's caravans come down to the main street (the camera then follows the caravan).
   caravan: { x: 86.5, z: 9, yaw: 0.4, dist: 9, tilt: 0.12 },
   // #rivals: the whole trading town from over the plain, below the notes under the top bar: the main street with the caravan yard at its east end, the road down to the quay and the ship, the lane in from the west.
