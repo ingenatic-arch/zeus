@@ -26,7 +26,7 @@ import { rateOf } from '../sim/labour';
 import { askWhy, deadlineFor, firstRoute, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { nextFestival } from '../sim/festivals';
-import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS } from '../sim/raids';
+import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS } from '../sim/raids';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -1572,10 +1572,10 @@ function lootedTown(): (sim: Sim) => void {
   };
 }
 /**
- * Walls, gates and towers (slice 25). #walls: #battle's town about a month
+ * Walls, gates and towers (slice 25). #walls: #battle's town about three weeks
  * before Sparta's band reaches the west edge, paused, the wall tool in hand.
  * #siege: the same town walled up the east bank of the river (x = 40), a gate
- * where the west road crosses just past the bridge, towers either side of it
+ * where the west road crosses just past the bridge, two towers beside it on its north side
  * staffed, played on until the band stands at the gate hammering at it; the
  * companies still at the barracks.
  */
@@ -1590,7 +1590,8 @@ function wallsTown(): (sim: Sim) => void {
     stagedRaid(sim, 'sparta', 'the king fears a city that arms itself so near his lands');
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
     if (!r) return;
-    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= WALLS_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+    // (As early as the staged threat allows: the band still gathering at Sparta, about three weeks from the west edge.)
+    while (reachesEdge(s, r) - s.tick > WALLS_DAYS * TICKS_PER_DAY && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
   };
 }
 function siegeTown(): (sim: Sim) => void {
@@ -1744,7 +1745,7 @@ const SCENES: Record<string, Demo> = {
   battle: { view: 'battle', speed: 'paused', setup: BATTLE, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
   looted: { view: 'looted', setup: LOOTED, overlay: 'missing', ledger: true },
   hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
-  // Slice 25: walls, gates and towers. The town a month before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
+  // Slice 25: walls, gates and towers. The town three weeks before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
   walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
   siege: { view: 'siege', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
 };

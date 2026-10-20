@@ -283,7 +283,7 @@ for (const [hash, views] of [
   ['#battle-paused-shot', [null, 'town']],
   ['#looted-paused-shot', [null]],
   ['#hirelings-paused-shot', [null]],
-  // Slice 25: the town a month before the band, the wall tool in hand; the band at the walled west gate under two towers.
+  // Slice 25: the town three weeks before the band, the wall tool in hand; the band at the walled west gate under two towers.
   ['#walls-paused-shot', [null, 'town']],
   ['#siege-paused-shot', [null, 'town']],
 ]) {
