@@ -329,7 +329,10 @@ export function stepRaids(s: SimState, map: CoastMap): void {
     }
     if (r.phase === 'threat' && d && s.tick >= d.due && d.gift === 0) gather(s, r, false);
     // (The band no longer on your map, however that came about: the raid is over, not stuck live for ever.)
-    else if (r.phase === 'raiding' && !raidersOf(s, r) && !(r.shore >= 0 && r.landed === 0 && seaborne(s, r))) {
+    // (From the sea and not landed yet: while any of its ships is still in the water, sinking ones included, so that a fleet sunk to the last ship is told as one: fleet.ts's lostAtSea.)
+    else if (r.phase === 'raiding' && !raidersOf(s, r) && !(r.shore >= 0 && r.landed === 0 && s.fleet.ships.some((e) => e.raid === r.id))) {
+      // (A band from the sea fallen to the last man ashore: its ships put off for home, with nobody to wait for. Review of slice 26.)
+      if (r.shore >= 0 && r.landed > 0) embark(s, map, r, false);
       home(s, r);
       settle(s, r, 'raided');
     }

@@ -295,7 +295,13 @@ interface Drawn {
   spray: THREE.Mesh;
   heading: number;
   shown: boolean;
+  /** A trireme at her foe: the side of the foe she is drawn on (an angle round her), and which foe. */
+  aim: number | null;
+  aimFoe: number;
 }
+
+/** An angle wrapped into (-pi, pi]. */
+const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
@@ -310,6 +316,8 @@ export class FleetView {
   /** Where each ship was at the last tick and this one (to draw between them). */
   private prev = new Map<string, [number, number]>();
   private cur = new Map<string, [number, number]>();
+  /** Where each was drawn last (a trireme at her foe stands off from where the sim has her). */
+  private last = new Map<string, [number, number]>();
   private tick = -1;
   private lastTime = 0;
   /** For the probes and the hovers. */
@@ -329,7 +337,7 @@ export class FleetView {
     const spray = new THREE.Mesh(this.spray, this.sprayMat);
     spray.visible = false;
     this.group.add(mesh, spray);
-    d = { mesh, spray, heading: 0, shown: false };
+    d = { mesh, spray, heading: 0, shown: false, aim: null, aimFoe: 0 };
     this.drawn.set(key, d);
     return d;
   }
@@ -374,6 +382,22 @@ export class FleetView {
       d.spray.visible = false;
       d.shown = false;
     }
+  }
+
+  /**
+   * How much room a trireme standing off her foe at (fx, fz) has on the side
+   * at angle a: the least distance from her hull (ram, middle and stern) to
+   * any other ship drawn, her foe and herself left out.
+   */
+  private room(self: string, foe: string, fx: number, fz: number, a: number): number {
+    const ux = Math.cos(a);
+    const uz = Math.sin(a);
+    let least = Infinity;
+    for (const [key, [ox, oz]] of this.last) {
+      if (key === self || key === foe || !this.drawn.get(key)?.mesh.visible) continue;
+      for (const k of [0.55, 1, 1.6]) least = Math.min(least, Math.hypot(fx + ux * STAND_OFF * k - ox, fz + uz * STAND_OFF * k - oz));
+    }
+    return least;
   }
 
   private place(s: SimState, key: string, o: Trireme | EnemyShip, alpha: number, time: number, dt: number): void {
@@ -425,13 +449,25 @@ export class FleetView {
           const fz = e.state === 'beached' ? e.bz : e.z;
           const dd = Math.hypot(x - fx, z - fz);
           if (dd < STAND_OFF) {
-            const ux = dd > 1e-3 ? (x - fx) / dd : -o.hx;
-            const uz = dd > 1e-3 ? (z - fz) / dd : -o.hz;
+            // Of the two sides of her foe, the one clear of other hulls (a ship going down beside her, the other trireme), kept unless the other is much clearer; she rows round to it. Review of slice 26: she was drawn across a sinking ship.
+            const base = dd > 1e-3 ? Math.atan2(z - fz, x - fx) : Math.atan2(-o.hz, -o.hx);
+            const other = base + Math.PI;
+            const room = (a: number): number => this.room(key, `e${e.id}`, fx, fz, a);
+            if (d.aim === null || d.aimFoe !== e.id) {
+              d.aim = base;
+              d.aimFoe = e.id;
+            }
+            const near = Math.abs(wrap(d.aim - base)) <= Math.PI / 2 ? base : other;
+            const far = near === base ? other : base;
+            const goal = room(far) > room(near) + 1 ? far : near;
+            d.aim = wrap(d.aim + wrap(goal - d.aim) * (1 - Math.exp(-dt * 2.5)));
+            const ux = Math.cos(d.aim);
+            const uz = Math.sin(d.aim);
             x = fx + ux * STAND_OFF;
             z = fz + uz * STAND_OFF;
             want = Math.atan2(uz, -ux);
-          }
-        }
+          } else d.aim = null;
+        } else d.aim = null;
         // Rowing: the stroke goes round, quicker at a fight.
         const k = Math.floor(time * (tri.task === 'fight' ? 3.2 : 2.4) + tri.id * 0.37) % 4;
         geo = m[`row${k}` as TriVersion];
@@ -489,6 +525,7 @@ export class FleetView {
     d.mesh.position.set(x, y - 0.02, z);
     d.mesh.rotation.set(roll, d.heading, pitch, 'YXZ');
     d.mesh.visible = true;
+    this.last.set(key, [x, z]);
     this.shown.push({ kind: tri ? 'trireme' : 'enemy', id: o.id, x, z, visible: true });
   }
 }

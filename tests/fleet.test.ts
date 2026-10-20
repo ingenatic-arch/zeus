@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
-import { CREW, BUILD_TICKS, fleetFor, guarded, MEND_A_DAY, ROWER_PAY, shipsOf, TRIREME_COST } from '../src/sim/fleet';
+import { CREW, BUILD_TICKS, fleetFor, guarded, guardRefusal, MEND_A_DAY, ROWER_PAY, shipsOf, triremeOnMap, TRIREME_COST } from '../src/sim/fleet';
 import { canWorkIn } from '../src/sim/labour';
 import { migrate } from '../src/sim/migrate';
 import { raidersOf } from '../src/sim/raids';
@@ -160,6 +160,57 @@ describe('ships lost', () => {
     expect(until(sim, () => r.phase !== 'raiding', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(r.end).toBe('raided');
     ledgerAddsUp(s);
+  }, 120000);
+});
+
+describe('the review of slice 26', () => {
+  it('a band from the sea fallen to the last man ashore: its ships put off for home', () => {
+    const sim = fresh('landing');
+    const s = sim.state;
+    const r = troy(s);
+    expect(until(sim, () => r.landed > 0, TICKS_PER_MONTH)).toBe(true);
+    sim.run(20);
+    // (Every man of it down, as battle.ts leaves a band whose last man falls.)
+    const band = raidersOf(s, r)!;
+    s.walkers = s.walkers.filter((o) => o !== band);
+    s.army.foes = s.army.foes.filter((f) => f.raid !== r.id);
+    expect(until(sim, () => r.phase !== 'raiding', 2 * TICKS_PER_DAY)).toBe(true);
+    expect(s.fleet.ships.filter((e) => e.raid === r.id).every((e) => e.state === 'leaving')).toBe(true);
+    expect(until(sim, () => !s.fleet.ships.some((e) => e.raid === r.id), TICKS_PER_MONTH)).toBe(true);
+  }, 120000);
+
+  it('every ship sunk at sea, whatever the hour: told as never reaching the shore', () => {
+    for (const hour of [0, 1, 2, 3]) {
+      const sim = fresh('triremes');
+      const s = sim.state;
+      const r = troy(s);
+      sim.run(30);
+      // (The last ship goes down this many ticks before a day turns.)
+      while ((s.tick + 1 + hour) % TICKS_PER_DAY !== 0) sim.step();
+      for (const e of shipsOf(s, r)) e.hp = 0;
+      expect(until(sim, () => r.phase !== 'raiding', 100)).toBe(true);
+      expect(r.end).toBe('sunk');
+      expect(r.phase).toBe('done');
+    }
+  }, 120000);
+
+  it('a trireme out on one lane is brought home before she guards another; sailing home, she is still on the map', () => {
+    const sim = fresh('pirates');
+    const s = sim.state;
+    const t = s.fleet.triremes[0];
+    send(sim, { type: 'fleet', trireme: t.id, act: 'guard', lane: 'athens-sea' });
+    expect(until(sim, () => t.state === 'away', 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(guardRefusal(t, 'troy-sea')).toMatch(/bring her home first/);
+    send(sim, { type: 'fleet', trireme: t.id, act: 'guard', lane: 'troy-sea' });
+    expect(t.lane).toBe('athens-sea');
+    send(sim, { type: 'fleet', trireme: t.id, act: 'home' });
+    if (t.state === 'away') {
+      expect(triremeOnMap(t, s.tick)?.homeward).toBe(true);
+      expect(guardRefusal(t, 'troy-sea')).toMatch(/sailing home/);
+    }
+    expect(until(sim, () => t.state === 'moored', 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(t.lane).toBe('');
+    expect(guardRefusal(t, 'troy-sea')).toBe(t.hp < 60 ? 'Her hull needs mending first' : '');
   }, 120000);
 });
 

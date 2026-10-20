@@ -40,16 +40,16 @@ What breaks, or moves:
   - Pirates on a guarded lane bring a fight, settled the next day, with a report in the news and on the city's page. A trireme is worth two pirate ships, so one trireme against one ship wins about two times in three. Beaten, she comes home holed (or is lost), and the pirates stay.
 
 ### What to try
-1. Open `#landing`. It is `#companies`' town, paused, with the hoplites' banner in hand. Troy's king has turned on it (set up for this demo): three ships with 24 men are sailing in, about 6 days from the beach below the storehouse by the trading post.
-   - Place the hoplites on the shore by the trading post, take the archers' banner (click their row) and place them behind. Then play, and watch the ships beach and the men land into your companies.
-   - Or play without placing anyone: 18 men land on day 6, take about 360 from the storehouse and sail off with it.
+1. Open `#landing`. It is `#companies`' town, paused, with the hoplites' banner in hand. Troy's king has turned on it (set up for this demo): three ships with 24 men are sailing in, about 12 days from the beach below the storehouse by the trading post. Both companies have marched down from the barracks (also set up for the demo) and wait on open ground above the harbour, about 9 days' march from that beach.
+   - Place the hoplites on the sand below the storehouse, take the archers' banner (click their row) and place them a little inland behind. Then play, and watch the ships beach and the men land into your companies. In my run the band broke by the bay (9 of its 18 men fell), took nothing, and its ships sailed off empty.
+   - Or play without placing anyone: 18 men land on day 12, take 360 wine from the storehouse and 388 dr from the tax office, and sail off with them.
 2. Open `#triremes`. It is the same town, playing, with a shipyard west of the trading post and two crewed triremes, the Nike and the Glaukos. Four of Troy's ships with 25 men are just showing on the horizon. The Army tab is open at the shipyard.
-   - Watch the triremes row out and ram. In my run they sank three ships at sea (19 men drowned). The fourth beached, landed its last 4 men, and was sunk on the beach. Its men came back to an empty shore and dropped the 320 wine they had taken.
+   - Watch the triremes row out and ram. In my run they sank three ships at sea (19 men drowned). The fourth beached, landed its last 4 men, and was sunk on the beach. Its men set two buildings alight, came back to an empty shore and dropped the 320 wine and 160 dr they had taken.
    - Hover a trireme or a ship to see her hull and what she is doing.
    - Build a third trireme from the Army tab and watch her on the slip.
 3. Open `#pirates`. It is `#athensship`'s town, trading with Athens by sea, with a shipyard and the trireme Nike. One pirate ship has been seen off Cape Skyllaion on the lane to Athens (set up for this demo). The map of Greece is open on Athens.
    - Click "Send the Nike to guard it" on the sea-lane card. She takes about two weeks to row out of the bay, then sails the lane on the map.
-   - On station, she fights the pirates the next day. The report lands in the News of Greece, the Army tab and Athens' page.
+   - On station, she fights the pirates the next day. The report lands in the News of Greece, the Army tab and Athens' page. The fight is a throw of the dice: in my runs, sent at once, she was beaten the first time.
    - If she is beaten, she comes home to mend; the button's tip says why she can't go out again until her hull is at 60.
 4. Open any earlier demo, say `#siege` or `#richtown`: it is the same town as before.
 
@@ -59,7 +59,7 @@ Each link also opens paused if you add `-paused` (for example `#triremes-paused`
 - **Do the ships read?** Are the triremes (long and low in your colours, a bronze ram, eyes, oars that row, the sail furled) and Troy's ships (shorter, dark, a dark sail with Troy's green stripe) clear at the distances you play at?
   - When a trireme rams, I draw her standing off so her ram, not her hull, is at the ship's side. Does a fight read as ramming?
   - Ships sinking (listing, then going under) and ships drawn up on the sand: do these read?
-- **The balance.** Two triremes against four ships sank all four in `#triremes`, and the band carried nothing home. Undefended, `#landing`'s band took about 360 from the storehouse.
+- **The balance.** Two triremes against four ships sank all four in `#triremes`, and the band carried nothing home. Undefended, `#landing`'s band took 360 wine and 388 dr.
   - A trireme costs 400 dr and 24 dr a month in rowers' pay. Is that worth it against Troy?
 - **Pirates.** One trireme against two pirate ships is an even fight. In my runs of `#pirates` with two ships, she lost three times running, so the demo now has one ship. Is a pirate place a fair threat, and should a single trireme be stronger than it is?
 - **Time.** Rowing out of the bay takes about two weeks, and the ships take about two weeks from the horizon to the beach. Does that feel slow or right?
@@ -67,9 +67,9 @@ Each link also opens paused if you add `-paused` (for example `#triremes-paused`
 ### Known rough edges
 - **Oars don't break.** The plan said a rammed trireme loses oars. She rocks and throws up spray, but her oars stay whole.
 - **No panel for the shipyard.** Its triremes, rowers and orders live on the Army tab.
-- **Ships overlap in a fight.** Two triremes on one ship, or a ship sinking beside another, can draw into each other.
+- **Ships can touch in a fight.** A trireme standing off keeps to the side of her ship clearer of other hulls, but two triremes on one ship, or oars, can still draw into each other.
 - **A trireme guarding a lane** is drawn just short of the pirates' place, the pirates just beyond. In a fight nothing moves on the map; the report says what happened.
-- **Moored triremes** lie close side by side and can touch.
+- **Moored triremes** lie side by side off the jetty; their oars can overlap.
 - **Pirate places are fixed,** one per lane.
 
 ### For slice 28
@@ -89,6 +89,24 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `b754f9a` (slic
 | The new demos | — | `#landing` 1,565,491 triangles, 93 draw calls; `#triremes` 1,433,369 and 78; the fight close in 1,398,760 and 73. A trireme is one mesh of 1,282 triangles, an enemy ship 988. `#pirates`' map 313,834 and 43 |
 | Work a frame before drawing | `#town` 13.0 ms, `#richtown` 17.3, `#raiders` 9.0, `#companies` 15.1; `#battle` during the fight 23.7; `#siege` 20.2 | 17.5, 15.3, 8.9, 11.5; `#battle` 38.8; `#siege` 24.3; `#triremes` during the fight 17.6 (a busy machine: `#battle` and `#siege` have no ships, and their sim and drawing are unchanged) |
 | A save of `#richtown` | 187 KB | 187 KB |
+
+### What the review changed
+A second pass went through every step above in the browser at 1920 × 1080, read the new code, and played the raids from the sea again, by hand and in the sim. The steps above have been corrected to match. What it changed:
+- **`#landing` gives your companies a chance.** Its ships beached six days after it opened, but both companies stood at the barracks, about three weeks' march away, so wherever you placed them the band landed unopposed. The ships are now about twelve days out, and both companies wait above the harbour, about nine days from the beach.
+- **Ships no longer wait on the beach for ever.** If every man a band had landed fell ashore, its ships stayed drawn up on the sand for good. They now put off and sail home.
+- **A fleet sunk to the last ship is told as sunk.** About one time in five, when your triremes sank the last of Troy's ships at sea, the raid was settled as if the band had landed and gone home empty-handed, instead of "sunk at sea" with its men drowned. It is now always told as sunk.
+- **No jumping between lanes.** A trireme guarding one lane could be sent straight to another, and she jumped across the map of Greece. Now the button's tip says to bring her home first. A trireme called home also vanished from the map; she now sails home along her lane, and while she does there is no "Bring her home" button.
+- **Each event once.** A sinking, or the report of a fight on a lane, showed twice in the lines over the town: once as the army's news and once as news from Greece. It now shows once.
+- **Moored triremes lie further apart,** so their hulls no longer touch (their oars can still cross).
+- **A trireme ramming stands off on the clear side** of her ship. She was sometimes drawn across another ship sinking beside it.
+
+What I checked and did not change, for your eye:
+- **`#landing`, defended.** With the hoplites on the sand below the storehouse and the archers a little inland behind them, the band broke by the bay: 9 of its 18 men fell, 1 of ours was wounded, and it took nothing. With the archers placed nearer the beach than the hoplites, the archers broke and the band took more. Undefended, it took 360 wine and 388 dr. The ships are far out when it opens and small on the screen; the raid chip and the town line say where they are.
+- **`#pirates` and the dice.** In my runs, sent at once, the Nike lost her first fight, and lost again when sent back out with her hull at 60. Her odds are two in three against one ship, and a little over a half once she is holed; over many throws the dice come out as those odds say. A beaten trireme must then mend to 60 at the yard and row out again, about two weeks, before she can try again.
+- **`#triremes`** played as step 2 says, in the sim and in the browser: three ships sunk at sea, the fourth sunk on the beach, its four men dropping what they took.
+- **Ramming from above.** From high up a fight reads as ships standing bow-on to each other, the struck ship rocking. Close in, two triremes on one ship can still touch.
+
+The tests number 424, all passing (3 of them new, for the review). Every earlier demo opens, and plays 900 ticks on, exactly as before the review; only `#landing` and `#triremes` changed.
 
 ## Slice 25 — Walls, gates and towers (20 Oct)
 

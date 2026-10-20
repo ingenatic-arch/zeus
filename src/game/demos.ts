@@ -1613,21 +1613,29 @@ function siegeTown(): (sim: Sim) => void {
 /**
  * From the sea (slice 26). #landing: #companies' town with Troy's king
  * turned against it (set up for the demo, and named so): his threat refused,
- * his ships in the bay a few days from the beach below the storehouse they
- * came for, paused, the hoplites' banner in hand so both companies can be
- * placed on the shore. #triremes: the same town with a shipyard on the shore
- * west of the trading post (a road down to it) and two triremes built and
- * crewed at its jetty, as Troy's ships come into sight; the Army tab open on
- * the fleet. #pirates: #athensship's town, trading with Athens by sea, with
- * the shipyard and a crewed trireme, as pirates are seen off Cape Skyllaion on
+ * his ships in the bay about twelve days from the beach below the storehouse
+ * they came for, both companies marched down to wait above the harbour,
+ * paused, the hoplites' banner in hand so both can be placed on the shore.
+ * #triremes: the same town with a shipyard on the shore west of the trading
+ * post (a road down to it) and two triremes built and crewed at its jetty, as
+ * Troy's ships come into sight; the Army tab open on the fleet. #pirates:
+ * #athensship's town, trading with Athens by sea, with the shipyard and a crewed trireme, as pirates are seen off Cape Skyllaion on
  * the lane to Athens (set up for the demo): the map open on Athens, where she
  * can be sent to guard the lane.
  */
 /** The shipyard by the river mouth, west of the trading post, and the road from the quay road down to it. */
 const SHIPYARD_AT = { x: 68, z: 67 };
 const SHIPYARD_ROAD = [68, 69, 70, 71, 72, 73].map((x) => T(x, 66));
-/** How many days from the beach #landing's ships are when it opens. */
-const LANDING_DAYS = 6;
+/**
+ * How many days from the beach #landing's ships are when it opens, and where
+ * its two companies wait (marched there for the demo): on open ground above
+ * the harbour, clear of the band's way inland, about ten days' march from the
+ * beach (from the barracks it is three weeks, more than the ships take from
+ * the horizon). Review of slice 26: the ships were six days off with both
+ * companies at the barracks, so none could meet the landing.
+ */
+const LANDING_DAYS = 12;
+const LANDING_HOLD = { hoplite: { x: 81, z: 54 }, archer: { x: 84, z: 54 } };
 /** The longest a demo waits for a trireme to be built and crewed (three months). */
 const TRIREME_WAIT = 3 * TICKS_PER_MONTH;
 /** A shipyard and `n` triremes, each built and crewed in turn. */
@@ -1654,11 +1662,18 @@ function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
     COMPANIES(sim);
     const s = sim.state;
     if (stage === 'triremes') fleetOf(sim, 2);
+    else {
+      for (const c of s.army.companies) {
+        const at = LANDING_HOLD[c.kind === 'archer' ? 'archer' : 'hoplite'];
+        sim.enqueue({ type: 'banner', company: c.id, tile: T(at.x, at.z) });
+      }
+      sim.flush();
+    }
     stagedRaid(sim, 'troy', 'the king covets the wine of a city with no ships to guard its shore');
     const r = s.world.raids.find((x) => x.city === 'troy' && x.ended === 0);
     if (!r) return;
     const stop = s.tick + TICKS_PER_YEAR;
-    // #landing: a few days from the beach; #triremes: the first sail just in sight from the shore.
+    // #landing: about twelve days from the beach; #triremes: the first sail just in sight from the shore.
     const ready = (): boolean => {
       if (r.phase !== 'raiding' || r.landed > 0) return r.phase !== 'gathering' && r.phase !== 'marching' && r.phase !== 'threat';
       const ships = shipsOf(s, r);
@@ -1882,7 +1897,7 @@ const SCENES: Record<string, Demo> = {
   walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
   // (Paused, as #battle and #walls are: at normal speed the gate fell about ten seconds after it opened. Slice 25's review.)
   siege: { view: 'siege', speed: 'paused', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
-  // Slice 26: from the sea. Troy's ships a few days from the beach, paused, the hoplites' banner in hand; two triremes at the shipyard as the ships come in; pirates on the lane to Athens.
+  // Slice 26: from the sea. Troy's ships about twelve days from the beach, both companies waiting above the harbour, paused, the hoplites' banner in hand; two triremes at the shipyard as the ships come in; pirates on the lane to Athens.
   landing: { view: 'landing', speed: 'paused', setup: LANDING, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
   triremes: { view: 'triremes', setup: TRIREMES, overlay: 'missing', side: { tab: 'army', fleet: true } },
   pirates: { view: 'triremes', setup: PIRATES, overlay: 'missing', greece: 'athens', greeceTab: 'ruler' },

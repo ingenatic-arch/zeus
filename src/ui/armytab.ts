@@ -139,7 +139,8 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     const hull = t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}%${t.hp < FIT ? ' <span class="warn">(mending before she goes out)</span>' : ''}`;
     const pay = t.crew.length ? ` · ${fmt(t.crew.length * ROWER_PAY)} dr a month` : '';
     const owed = t.owed > 0 ? ` · <span class="warn">${fmt(t.owed)} dr pay owed</span>` : '';
-    const acts = t.state === 'building' ? '' : t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out') ? `<div class="acts"><button data-act="trihome" data-id="${t.id}" title="Back along the lane, into the bay and to her mooring">Bring her home</button></div>` : `<div class="acts lanes">${lanes(t)}</div>`;
+    // (Sailing home already: no button. Review of slice 26.)
+    const acts = t.state === 'building' || (t.state === 'away' && t.order === 'bay') ? '' : t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out') ? `<div class="acts"><button data-act="trihome" data-id="${t.id}" title="Back along the lane, into the bay and to her mooring">Bring her home</button></div>` : `<div class="acts lanes">${lanes(t)}</div>`;
     const n = t.state === 'building' ? '' : `<span class="n">${t.crew.length}<small> / ${CREW}</small></span>`;
     return `<li class="company trireme"><div class="pick"><b>The ${esc(triremeName(t))}</b>${n}</div><p>${esc(triremeDoing(s, t))}${hull}${pay}${owed}</p>${why ? `<p class="why">${esc(why)}</p>` : ''}${acts}</li>`;
   };

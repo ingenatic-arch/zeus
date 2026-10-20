@@ -95,8 +95,8 @@ export const BREAK_OFF = 35;
 const SPREAD = 15;
 /** How long a ship takes to go under (ticks). */
 export const SINK_TICKS = 40;
-/** How far apart triremes moor, side by side off the jetty's end. */
-const MOOR_GAP = 1.25;
+/** How far apart triremes moor, side by side off the jetty’s end (a little more than two beams, outriggers and all: review of slice 26, they touched). */
+const MOOR_GAP = 1.45;
 /** Your waters: enemy ships this far beyond the map's edge are fought too. */
 const WATERS = 2;
 
@@ -142,8 +142,6 @@ export const afloat = (o: { state: string }): boolean => o.state !== 'sinking';
 export const shipsOf = (s: SimState, r: Raid): EnemyShip[] => s.fleet.ships.filter((e) => e.raid === r.id && afloat(e));
 /** Are a band's ships still sailing in, or drawn up on the beach waiting for it? */
 export const seaborne = (s: SimState, r: Raid): boolean => s.fleet.ships.some((e) => e.raid === r.id && (e.state === 'sailing' || e.state === 'beached'));
-/** Has a band from the sea a ship on the beach (or coming to it) to take it off? */
-export const shipsWaiting = (s: SimState, r: Raid): boolean => s.fleet.ships.some((e) => e.raid === r.id && (e.state === 'beached' || e.state === 'sailing'));
 /** Rowers serving now (every trireme's crew), by home. */
 export function rowingHomes(s: SimState): Set<number> {
   const out = new Set<number>();
@@ -747,6 +745,7 @@ function moor(s: SimState, map: CoastMap, t: Trireme): void {
   t.state = 'moored';
   t.task = '';
   t.foe = 0;
+  if (t.order === 'bay') t.lane = '';
   t.x = m.x;
   t.z = m.z;
   t.hx = m.hx;
@@ -798,8 +797,8 @@ function sinkEnemy(s: SimState, e: EnemyShip): void {
     const name = whose(r.city);
     const left = shipsOf(s, r).length;
     const what = men > 0 ? `, and ${men} of their men with her` : e.laden ? ', with what she carried off' : ' on the beach';
+    // (The army's line only: the news of Greece hears the whole of it when the raid is over. Review of slice 26: the two said the same.)
     armyNews(s, `Your triremes have sunk one of ${name} ships${what}${left ? ` (${left} left)` : ''}`, 0);
-    news(s.world, s.tick, r.city, `Your triremes have sunk one of ${name} ships in your bay${men > 0 ? `, with ${men} men aboard` : ''}`, true);
   }
   e.men = 0;
   s.rev++;
@@ -940,6 +939,9 @@ export function guardRefusal(t: Trireme | undefined, way: string): string {
   if (!lane) return 'No such sea lane';
   if (t.order === 'lane' && t.lane === way) return 'She is guarding it already';
   if (t.order === 'away') return 'She is away with your soldiers';
+  // (Out on another lane, or sailing home along one: home first. Review of slice 26: she can't cross from lane to lane on the map.)
+  const on = t.state === 'away' ? LANES.find((l) => l.way === t.lane) : undefined;
+  if (on && on.way !== way) return t.order === 'lane' ? `She is out on the lane to ${cityName(on.city)}: bring her home first` : `She is sailing home along the lane to ${cityName(on.city)}: she can go out again once she is in`;
   if (t.crew.length * 2 < CREW) return `She needs at least ${CREW / 2} rowers to go out (${t.crew.length} now)`;
   if (t.hp < FIT) return 'Her hull needs mending first';
   return '';
@@ -984,7 +986,8 @@ export function callHome(s: SimState, map: CoastMap, id: number): boolean {
   const city = LANES.find((l) => l.way === t.lane)?.city ?? 'troy';
   const at = triremeOnMap(t, s.tick);
   t.order = 'bay';
-  t.lane = '';
+  // (Away, she keeps her lane while she sails home along it, so the map still shows her: moor() lets it go.)
+  if (t.state !== 'away') t.lane = '';
   if (t.state === 'away') {
     const here = at ? at.along : HORIZON_ALONG;
     t.a0 = here;
@@ -1261,7 +1264,6 @@ function laneFight(s: SimState, p: Pirates): void {
     } else {
       line = `${who} fought ${many} ${p.place} and was beaten off: the ${triremeName(t)}’s hull took ${h}, and she comes home to be mended${sank ? '; one pirate ship went down' : ''}. The pirates still hold the lane`;
       t.order = 'bay';
-      t.lane = '';
       const at = triremeOnMap(t, s.tick);
       const here = at ? at.along : HORIZON_ALONG;
       t.a0 = here;

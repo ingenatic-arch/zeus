@@ -1197,8 +1197,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (raid) out.push(raid);
   const battle = battleTownLine(s);
   if (battle) out.push(battle);
+  // (Not news the army's line has just told in the same words: a fight at sea on a lane. Review of slice 26.)
+  const told = battle ? s.army.news.at(-1)?.line : undefined;
   const alarm = newsUrgent(s, map);
-  if (alarm) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
+  if (alarm && alarm.line !== told) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
   // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
@@ -1207,7 +1209,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
   // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)
-  if (news && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  if (news && news.item.line !== told && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
