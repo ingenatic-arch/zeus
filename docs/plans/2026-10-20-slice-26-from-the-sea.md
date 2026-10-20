@@ -90,4 +90,25 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#landing`, `#trir
 
 ## As built
 
-*(Filled in when the slice is done.)*
+Commits: the plan `644c58b`; the sim `1abaca3`; render and UI `cd4d753`; look and tune `e8f965a`; the check-in (this file's As built and `docs/CHECKINS.md`) after them.
+
+**Built as planned:** sea raids from Troy (and from Athens or Corinth when you trade with them by sea and not by land), their ships sailing in, beaching on the shore nearest what they came for by the raiders' own way-finding (walls counted), landing, going back to their ships and sailing off laden; ships sunk before they beach drown their men, and a band that finds its ships sunk drops what it carried and flees overland. The shipyard (300 dr, 8 shipwrights, placed like the trading post), triremes (400 dr, about 30 days on the slip, three to a yard), twelve rowers each from huts and cottages, paid 2 dr a month on their own ledger line ("Rowers' pay"), mended 3 a day at the yard. Fights in the bay with rams and blows back, sinking, breaking off; pirates on the lanes, seen a fortnight before they prey, seizing gifts, goods sent and traders' cargo; guarding a lane from the Army tab or the city's page; the fight on the map with a report. `fleetFor` / `sailFor` / `fleetHome` for slice 28. State version 26, with a migration from 25. Slice 25's findings: the "broke" news counts every man fallen over the whole fight; the wall tool's tip says "each" only for several; landing parties use the same way-finding as a band on land.
+
+**Changed from the plan, and why:**
+- **Triremes go out only with their hull at 60 or better** (the plan said 40), and **a ram takes 20 to 35 off a hull** (the plan said 30 to 50; a third more against a ship on the beach). With the plan's numbers a single trireme sank a whole three-ship landing on its own and went straight back out half-wrecked; with these, two triremes against four ships sink some at sea and some on the beach, and come home hurt.
+- **Ship paces**: a trireme rows 0.55 tiles a tick, an enemy ship 0.8 far out and 0.45 across the bay, so the sails show about two weeks before they beach.
+- **Two triremes spread out**: a trireme prefers a ship nobody else is on unless that one is 15 tiles farther; never three on one.
+- **No oars breaking off.** A trireme struck rocks and throws spray, like an enemy ship; her oars stay whole.
+- **The shipyard has no panel of its own.** Clicking it (or a trireme) opens the Army tab at its section: its triremes, their rowers, Build a trireme, and the lanes to guard.
+- **Beaches beside a jetty are left out** (the trading post's or a shipyard's): a ship drawn up there lay across the jetty.
+- **#pirates sets one pirate ship, not two.** One trireme against two ships is an even fight by the plan's rule (her strength is twice a ship's); against one she wins two times in three. The report is there either way.
+- **The places**: off Cape Skyllaion on the lane to Athens, off Aegina on the lane to Corinth, off Kea on the lane to Troy, as planned (the Athens place first sat off Cape Zoster, right in front of Athens on the map, and was moved).
+- **The demo probe** compares every earlier demo at opening (people, money, buildings, levels, walkers, raids, routes) and 900 ticks on, against `b754f9a`.
+
+**For slice 28:** `fleetFor(s, city)` returns `{ ids, carry, why }`: the triremes at home, crewed and sound, the men they carry (16 each), or why none can. `sailFor(s, map, ids, city)` takes them off the bay's guard and out of the bay (order `'away'`; on the map of Greece along the lane, a pure function of the tick: `triremeOnMap`), returning the ids that went. `fleetHome(s, map, ids)` brings them back to their moorings. The state version is 26; slice 28 takes 27 (or renumbers if it lands first).
+
+**Checks:** typecheck clean; `npm test` 421 tests in 36 files, all passing; `npm run build` clean; `npm run smoke` passes (with `#landing`, `#triremes` and `#pirates`); `npm run measure` in the check-in. The demo probe: all 100 earlier demos the same as at `b754f9a` at opening and 900 ticks on.
+
+**Balance runs** (the sim, no player action): `#triremes`, two triremes against four ships and 25 men: three ships sunk at sea (19 men drowned), the fourth beached and landed its 4 men, then was sunk on the beach; the band dropped the 320 it took and fled; both triremes home and mended. `#landing` undefended: 18 men land on day 6 and sail off with about 360 from the storehouse.
+
+**Measurements** (before and after): in `docs/CHECKINS.md`.

@@ -2,6 +2,94 @@
 
 Notes to Oliver, newest first.
 
+## Slice 26 — From the sea (20 Oct)
+
+Troy's raiders now come by sea: their dark-sailed ships cross your bay, run up on the beach and land their men, and sail off with what they took. A shipyard on the shore builds triremes that row out to meet them, and that you can send to guard a sea lane from pirates. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Saves from before load with no shipyard, no triremes and no pirates. The welcome back says raiders can come from the sea now, and what the shipyard is for.
+- **Every earlier demo** opens, and plays 900 ticks on, exactly as before (all 100 compared).
+- **Raids from Troy come by sea.** So do raids from Athens or Corinth if you trade with them by sea but not by road. Their threat and line say so ("off your shore"), and they land on the beach nearest what they came for. Raids from Sparta, and from cities you reach by road, still come over land.
+- **Pirates** may now appear on a sea lane you trade over, once that trade is a year old.
+- **The news when a band breaks** (slice 25's review) is now told once the band has left your land, so it counts every man who fell: "Your soldiers broke Sparta's raiders at the bridge: 20 of their 29 men fell".
+- **The wall tool's tip** says "(40 dr each)" only when there is more than one gate.
+
+### What's new
+- **The shipyard** (B seven times, or the Military tab after the tower; 300 dr). It goes on the shore like the trading post: a slipway under a tiled shed, timber, a pitch pot and a jetty. It needs 8 shipwrights and a road beside it. Clicking it opens the Army tab at its section.
+- **Triremes** (400 dr each, on the Army tab under the shipyard). She is built on the slip in about a month while the yard is staffed. You can watch her frame, then her hull, under the shed.
+  - Each yard moors three, side by side off its jetty.
+  - She needs 12 rowers, one from each hut or cottage that can spare a man, a few a day. A rower leaves his work and is paid 2 dr a month, on its own line of the ledger ("Rowers' pay"). His house says "Their eldest, Dion, rows in the trireme Nike".
+  - Rowers left unpaid for a month go home.
+  - Moored, she is mended 3 a day while the yard has shipwrights.
+- **Ships in the bay.**
+  - Troy's ships show on the horizon about two weeks before they beach: one ship for every eight men or so, two to four of them.
+  - They beach a little apart on the open shore. The men march inland as any band does. Each ship keeps two men to guard her, and the men go back to the ships with what they carried.
+  - The raid chip reads "Troy's ships · 3 in the bay", and hovering a ship says what she is doing.
+- **Fights in the bay.**
+  - Every trireme at home with half her rowers and her hull at 60 or more rows out to the nearest enemy ship. Two triremes go for different ships when they can.
+  - She rams every day and a half or so, and the ship strikes back. A ship struck rocks and throws up spray. One whose hull runs out lists and goes under, with the men aboard.
+  - A trireme badly holed (under 35) breaks off and rows home.
+  - If every ship is sunk before it beaches, nobody lands. If the ships are sunk on the beach while the band is ashore, the band comes back to an empty shore, drops what it carried (it goes back to your stores and treasury) and flees overland.
+- **Pirates** take up a place on a lane you trade over: off Cape Skyllaion on the way to Athens, off Aegina on the way to Corinth, or off Kea on the way to Troy.
+  - They are seen a fortnight before they strike (a line in the News of Greece), stay about four months, and come with one to three ships.
+  - While they prey on an unguarded lane, they seize your gifts, goods sent for a ruler, coin sent by sea, and traders' cargo coming to you (the trader comes in empty). What was sent for a ruler's request waits to be sent again.
+  - On the map of Greece they are a dark galley at their place.
+- **Guarding a lane.**
+  - From the Army tab ("Send to guard the lane to: Athens Corinth Troy") or the sea-lane card on a city's page, send a trireme. She rows out of the bay and sails the lane on the map, in your colours, to the pirates' place, and stays there until you bring her home.
+  - Nothing is seized on a guarded lane.
+  - Pirates on a guarded lane bring a fight, settled the next day, with a report in the news and on the city's page. A trireme is worth two pirate ships, so one trireme against one ship wins about two times in three. Beaten, she comes home holed (or is lost), and the pirates stay.
+
+### What to try
+1. Open `#landing`. It is `#companies`' town, paused, with the hoplites' banner in hand. Troy's king has turned on it (set up for this demo): three ships with 24 men are sailing in, about 6 days from the beach below the storehouse by the trading post.
+   - Place the hoplites on the shore by the trading post, take the archers' banner (click their row) and place them behind. Then play, and watch the ships beach and the men land into your companies.
+   - Or play without placing anyone: 18 men land on day 6, take about 360 from the storehouse and sail off with it.
+2. Open `#triremes`. It is the same town, playing, with a shipyard west of the trading post and two crewed triremes, the Nike and the Glaukos. Four of Troy's ships with 25 men are just showing on the horizon. The Army tab is open at the shipyard.
+   - Watch the triremes row out and ram. In my run they sank three ships at sea (19 men drowned). The fourth beached, landed its last 4 men, and was sunk on the beach. Its men came back to an empty shore and dropped the 320 wine they had taken.
+   - Hover a trireme or a ship to see her hull and what she is doing.
+   - Build a third trireme from the Army tab and watch her on the slip.
+3. Open `#pirates`. It is `#athensship`'s town, trading with Athens by sea, with a shipyard and the trireme Nike. One pirate ship has been seen off Cape Skyllaion on the lane to Athens (set up for this demo). The map of Greece is open on Athens.
+   - Click "Send the Nike to guard it" on the sea-lane card. She takes about two weeks to row out of the bay, then sails the lane on the map.
+   - On station, she fights the pirates the next day. The report lands in the News of Greece, the Army tab and Athens' page.
+   - If she is beaten, she comes home to mend; the button's tip says why she can't go out again until her hull is at 60.
+4. Open any earlier demo, say `#siege` or `#richtown`: it is the same town as before.
+
+Each link also opens paused if you add `-paused` (for example `#triremes-paused`).
+
+### What I'd like your eye on
+- **Do the ships read?** Are the triremes (long and low in your colours, a bronze ram, eyes, oars that row, the sail furled) and Troy's ships (shorter, dark, a dark sail with Troy's green stripe) clear at the distances you play at?
+  - When a trireme rams, I draw her standing off so her ram, not her hull, is at the ship's side. Does a fight read as ramming?
+  - Ships sinking (listing, then going under) and ships drawn up on the sand: do these read?
+- **The balance.** Two triremes against four ships sank all four in `#triremes`, and the band carried nothing home. Undefended, `#landing`'s band took about 360 from the storehouse.
+  - A trireme costs 400 dr and 24 dr a month in rowers' pay. Is that worth it against Troy?
+- **Pirates.** One trireme against two pirate ships is an even fight. In my runs of `#pirates` with two ships, she lost three times running, so the demo now has one ship. Is a pirate place a fair threat, and should a single trireme be stronger than it is?
+- **Time.** Rowing out of the bay takes about two weeks, and the ships take about two weeks from the horizon to the beach. Does that feel slow or right?
+
+### Known rough edges
+- **Oars don't break.** The plan said a rammed trireme loses oars. She rocks and throws up spray, but her oars stay whole.
+- **No panel for the shipyard.** Its triremes, rowers and orders live on the Army tab.
+- **Ships overlap in a fight.** Two triremes on one ship, or a ship sinking beside another, can draw into each other.
+- **A trireme guarding a lane** is drawn just short of the pirates' place, the pirates just beyond. In a fight nothing moves on the map; the report says what happened.
+- **Moored triremes** lie close side by side and can touch.
+- **Pirate places are fixed,** one per lane.
+
+### For slice 28
+`fleetFor(s, city)` gives `{ ids, carry, why }`: the triremes at home that are crewed and sound, the men they carry (16 each), or why none can go. `sailFor(s, map, ids, city)` takes them off the bay's guard and out of the bay. They are then 'away' on the lane, placed by `triremeOnMap`, and the call returns the ids that went. `fleetHome(s, map, ids)` brings them home. The state version is 26, so slice 28 takes 27 (or renumbers if it lands first).
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `b754f9a` (slice 25 with its review). After is this slice. Another builder was running its own browser tests on the same machine for both runs, so frame and load times are noisy.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 408 in 35 files, all passing | 421 in 36 files, all passing (13 of them the fleet) |
+| Download (gzipped) | 2,566 KB: the game 642 KB, the prepared towns 1,925 KB | 2,695 KB: the game 660 KB, the prepared towns 2,034 KB (`#landing`, `#triremes` and `#pirates` among them) |
+| First load (bare link) | ready at 2.6 s, first frame at 3.5 s | ready at 2.8 s, first frame at 3.8 s |
+| Every demo's load | 100 demos, median 2.9 s, slowest 4.6 s, 12 over 3 s | 103 demos, median 2.4 s, slowest 3.2 s (`#triremes`), 5 over 3 s |
+| `#town` / `#richtown` | 1,453,964 / 1,623,607 triangles; 89 / 101 draw calls | the same |
+| `#battle` / `#siege` | 1,594,671 and 95 / 1,561,618 and 93 | the same |
+| The new demos | — | `#landing` 1,565,491 triangles, 93 draw calls; `#triremes` 1,433,369 and 78; the fight close in 1,398,760 and 73. A trireme is one mesh of 1,282 triangles, an enemy ship 988. `#pirates`' map 313,834 and 43 |
+| Work a frame before drawing | `#town` 13.0 ms, `#richtown` 17.3, `#raiders` 9.0, `#companies` 15.1; `#battle` during the fight 23.7; `#siege` 20.2 | 17.5, 15.3, 8.9, 11.5; `#battle` 38.8; `#siege` 24.3; `#triremes` during the fight 17.6 (a busy machine: `#battle` and `#siege` have no ships, and their sim and drawing are unchanged) |
+| A save of `#richtown` | 187 KB | 187 KB |
+
 ## Slice 25 — Walls, gates and towers (20 Oct)
 
 You can now draw stone walls like roads, with a gate wherever a wall crosses a road, and set towers on them whose archers shoot raiders; a band looks for the cheapest way in, round the end of a short wall or through a gate or stretch it hammers at until it breaks. You weren't here while it was built: every choice below is mine, from the spec's defaults.
