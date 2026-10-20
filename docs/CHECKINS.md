@@ -96,6 +96,7 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **A broken company is let go.** When a company broke and ran for its barracks, the raiders kept cutting its men down from behind: 12 archers were killed in one run of archers alone. The raiders now let a broken company go, and its men stop fighting while they run.
 - **The Army tab's sums.** Hirelings were counted twice, once under Hoplites or Archers and again under Hirelings. Now Hoplites and Archers count only your own citizens. A hired company still walking in from the edge no longer says "at its barracks".
 - **Hovering a fight.** In the press, the hover often showed the soldier when the pointer was on the raider. Now whichever man is nearer the pointer is the one described. The band's line in a raider's hover now gives what it carries in full ("1,600 wheat and 235 dr"), not the wheat alone.
+- **Saving after a fight.** Once hirelings had been paid, or loot taken back from fallen raiders, the town could no longer be saved and opened again: the save was refused as damaged. It now opens as it should, and I added a check for both.
 - **`#hirelings` opens paused,** so the band doesn't walk on while you read the panel.
 - **The older raid demos' steps.** `#threat`, `#raiders` and `#aftermath` read differently since this slice; I added a short note to slice 21's steps, and to slice 23's note on the march pace.
 
@@ -106,7 +107,7 @@ What I checked and did not change, for your eye:
 - **One torch, two houses.** On the west bank, where no watch post reaches, a single fire burnt down two houses.
 - **The band's line** in the threat names only its first target.
 
-The frame work during a fight is as before: the fight itself costs a fraction of a millisecond a tick in the simulation; the occasional slow tick comes from other walkers finding their way and from the band arriving.
+The frame work during a fight is as before: the fight itself costs a fraction of a millisecond a tick in the simulation; the occasional slow tick comes from other walkers finding their way and from the band arriving. A full measure after the review: every demo ready in under 3 s (94 demos, median 1.8 s, slowest 2.5 s); the download is 2,224 KB; `#battle` in the fight 785,000 triangles and 70 draw calls, and 20 ms of work a frame in headless software rendering (several ticks a frame, as above). `#companies` read 24 ms once in that run; measured again with the old build taking turns it was 11 to 13 ms in both. The measure's figures for the map of Greece had been repeating the city's last count since the new city look; they now count the map (305,842 triangles and 32 draw calls for `#greece`, not `#town`'s 799,168).
 
 ## City look, stage 1 — light, ground and materials (19 Oct)
 

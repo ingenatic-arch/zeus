@@ -42,6 +42,12 @@ const until = (sim: Sim, ok: () => boolean, most: number): boolean => {
   return ok();
 };
 const ledgerAddsUp = (s: SimState): void => expect(s.ledger.start + totals(s.ledger.now).net).toBe(s.money);
+/** A save made now opens again, the same town (slice 24's review: a ledger with the hirelings' or the loot taken back's lines was refused as damaged). */
+const reopens = (s: SimState): void => {
+  const got = decodeSave(encodeSave(s, 1));
+  if (!got.ok) throw new Error(got.why);
+  expect(serialize(got.file.state)).toBe(serialize(s));
+};
 
 /** #battle's town: Sparta's band, its hoplites and its archers. */
 function battle(): { sim: Sim; s: SimState; r: Raid; hop: Company; arc: Company } {
@@ -194,7 +200,7 @@ describe('the battle', () => {
 });
 
 describe('loot', () => {
-  it('a band let through carries off goods and drachmas; its fallen give theirs back (to a store, and to the treasury on its own line)', () => {
+  it('a band let through carries off goods and drachmas; its fallen give theirs back (to a store, and to the treasury on its own line); a save then opens', () => {
     const { sim, s, r } = battle();
     until(sim, () => (raidersOf(s, r)?.back ?? false) && r.stole > 0, 3 * TICKS_PER_MONTH);
     expect(r.took).toBeGreaterThan(0);
@@ -216,6 +222,7 @@ describe('loot', () => {
     const lost = (): number => bookNow(s).now.filter((l) => l.kind === 'lost' && l.what === 'raid:sparta').reduce((a, l) => a + l.n, 0);
     expect(lost() - lostBefore).toBe(-r.regained);
     ledgerAddsUp(s);
+    reopens(s);
     until(sim, () => r.phase === 'homeward', 2 * TICKS_PER_MONTH);
     expect(s.world.news.some((n) => /raiders have gone: \d+ of their \d+ men fell and the rest ran, .* carried off/.test(n.line)), JSON.stringify(s.world.news.slice(-3))).toBe(true);
   }, 120000);
@@ -254,7 +261,7 @@ describe('fire', () => {
 });
 
 describe('hirelings', () => {
-  it('hired for a fee, they walk in from the edge armed, take nobody from your homes, are paid three times a citizen, and walk off when unpaid', () => {
+  it('hired for a fee, they walk in from the edge armed, take nobody from your homes, are paid three times a citizen (a save then opens), and walk off when unpaid', () => {
     const sim = fresh('hirelings');
     const s = sim.state;
     const b = s.buildings.find((x) => x.kind === 'barracks')!;
@@ -280,6 +287,7 @@ describe('hirelings', () => {
     until(sim, () => s.tick % TICKS_PER_MONTH === 1, TICKS_PER_MONTH + 1);
     expect(s.ledger.now.find((l) => l.kind === 'hirelings' && l.what === 'pay')?.amount).toBe(-COMPANY_SIZE * HIRED_PAY);
     ledgerAddsUp(s);
+    reopens(s);
     // An empty treasury: a month unpaid, and they walk off.
     s.ledger.start -= s.money + 2000;
     s.money = -2000;
