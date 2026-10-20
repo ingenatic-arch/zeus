@@ -36,20 +36,20 @@ What breaks, or moves:
 - **Slice 23's loose ends.** A dismissed company's unpaid wages are still paid when money comes. A barracks with no road beside it now says so, instead of saying no home can spare a man. Each company's barracks, gate and drill spot are now worked out once a tick, not once for each of its men.
 
 ### What to try
-1. Open [#battle](#battle). It is `#companies`' town, paused. Sparta's band of 29 is about 11 days from the west edge, the hoplites' banner is in hand and the Army tab is open.
-   - Click the west road at the bridge (or just this side of it) to send the hoplites there. Then click the archers' row and send them a few tiles behind.
+1. Open `#battle`. It is `#companies`' town, paused. Sparta's band of 29 is about 11 days from the west edge, the hoplites' banner is in hand and the Army tab is open.
+   - Click the west road at the bridge (or just this side of it) to send the hoplites there. Then click the archers' row (the camera goes to them at the barracks; come back to the bridge) and send them a few tiles behind.
    - Play at normal speed. The march takes the companies about a month (the tip says "about 33 days away"), and the band gets to the bridge at about the same time. Watch the fight at the bridge from close in, and hover a raider.
    - With both companies there, the band breaks after about half its men fall. Count the cost on the Army tab and in the town line, and find the house that mourns its man.
-2. In [#battle](#battle) again, try one company alone. In my runs, the outcome depended on where it stood:
+2. In `#battle` again, try one company alone. In my runs, the outcome depended on where it stood:
    - Hoplites alone at the bridge's foot were broken: 12 raiders fell, and 7 of ours were killed and 8 wounded.
    - Hoplites alone on the road further east, below the cypress hill, broke the band for 2 killed and 2 wounded.
    - Archers alone at the bridge were broken and ran, and the band went on to the granary.
-3. Open [#looted](#looted). It is `#raiders`' town, and nobody stood in the way.
+3. Open `#looted`. It is `#raiders`' town, and nobody stood in the way.
    - A band of 32 is making off with 1,600 wheat and 235 dr. The tax office is burning, and the ledger is open on what was taken.
    - Watch the band walk out, then read the town line once it has gone.
-4. Open [#hirelings](#hirelings). It is the barracks town with no companies. Corinth's band of 21 is gathering 16 days out, and the treasury is full.
+4. Open `#hirelings`. It is the barracks town with no companies. Corinth's band of 21 is gathering 16 days out, and the treasury is full.
    - Hire Arcadian hoplites and Cretan archers from the Army tab. Watch them march in from the edge in green and blue, then place them in the band's way.
-5. Open any earlier demo, say [#companies](#companies) or [#richtown](#richtown): it is the same town as before.
+5. Open any earlier demo, say `#companies` or `#richtown`: it is the same town as before.
 
 Each link also opens paused if you add `-paused` (for example `#battle-paused`).
 
