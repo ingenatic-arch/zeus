@@ -686,8 +686,8 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 22 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · Raiders now come for your stores and the tax office, and burn on their way; bands grow with your city. Companies placed in their way fight them, and a barracks can hire Cretan archers or Arcadian hoplites in a pinch.';
     }
-    // …and one saved before loans (slice 24 or older): rulers lend and borrow now.
-    if (loaded.from !== undefined && loaded.from <= 23 && sim.state.world.routes.length > 0) {
+    // …and one saved before loans (version 24 or older): rulers lend and borrow now.
+    if (loaded.from !== undefined && loaded.from <= 24 && sim.state.world.routes.length > 0) {
       changed += ' · Loans both ways now: ask a ruler to lend you coin, or lend them yours, on the Loans tab of their page on the map of Greece (Tab).';
     }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
@@ -1096,6 +1096,8 @@ function start(preparedTown: string | null): void {
   let greeceLoading: Promise<GreeceMap> | null = null;
   let greeceAsked = 0;
   let greeceFirst = false;
+  /** The last frame drew the map of Greece, straight to the screen (not through the city's finish). */
+  let drewMap = false;
   const greeceOpen = (): boolean => greece?.open === true;
   const greeceButton = new GreeceButton(() => toggleGreece());
   const loadGreece = (): Promise<GreeceMap> =>
@@ -1199,8 +1201,9 @@ function start(preparedTown: string | null): void {
 
   probe.info = () => ({
     // (With the finish on, what the scene's own pass drew: the renderer's count after the chain is only its last full-screen pass.)
-    triangles: finish ? finish.info().triangles : renderer.info.render.triangles,
-    calls: finish ? finish.info().calls : renderer.info.render.calls,
+    // (The map of Greece draws without the finish, so then the renderer's own count is the map's, not the city's last frame.)
+    triangles: finish && !drewMap ? finish.info().triangles : renderer.info.render.triangles,
+    calls: finish && !drewMap ? finish.info().calls : renderer.info.render.calls,
     geometries: renderer.info.memory.geometries,
     textures: renderer.info.memory.textures,
   });
@@ -1817,6 +1820,7 @@ function start(preparedTown: string | null): void {
       topbar.showCity(s.population, s.money, time);
       probe.updateMs += performance.now() - jsStart;
       greece.render();
+      drewMap = true;
       // (The city's floating labels are hidden here, but go on ageing, so they don't pile up while the map is open.)
       floaters.update(camera, canvas.clientWidth, canvas.clientHeight, time);
       if (!greeceFirst) {
@@ -1866,6 +1870,7 @@ function start(preparedTown: string | null): void {
     corner.setHeading(rig.view.yaw);
     // What frames cost on the main thread before drawing (the sim's steps and every view's update), summed.
     probe.updateMs += performance.now() - jsStart;
+    drewMap = false;
     if (finish) {
       // New meshes (rebuilt chunks, new buildings) share the patched materials; the check for new ones is cheap but needn't run every frame.
       if (probe.frames < 40 || probe.frames % 60 === 0) patchFinish(world.scene, map);

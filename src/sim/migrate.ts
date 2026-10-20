@@ -144,6 +144,7 @@ export function migrate(st: unknown): number {
   if (st.version === 21) from21(st);
   if (st.version === 22) from22(st);
   if (st.version === 23) from23(st);
+  if (st.version === 24) from24(st);
   return from;
 }
 
@@ -481,8 +482,25 @@ function from22(st: Record<string, unknown>): void {
   st.version = 23;
 }
 
-/** Version 23 to 24 (slice 27, loans both ways). */
+/**
+ * Version 23 to 24 (slice 25, walls, gates and towers): the town has no walls,
+ * and no raid is at a wall or has broken one.
+ */
 function from23(st: Record<string, unknown>): void {
+  if (!Array.isArray(st.walls)) st.walls = [];
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.raids)) {
+    for (const r of w.raids as Array<Record<string, unknown>>) {
+      if (!isObj(r)) continue;
+      if (typeof r.siege !== 'number') r.siege = -1;
+      if (typeof r.breaches !== 'number') r.breaches = 0;
+    }
+  }
+  st.version = 24;
+}
+
+/** Version 24 to 25 (slice 27, loans both ways). */
+function from24(st: Record<string, unknown>): void {
   // No loans either way yet, and no gift on its way is a herald about one.
   const w = st.world;
   if (isObj(w)) {
@@ -490,5 +508,5 @@ function from23(st: Record<string, unknown>): void {
     if (typeof w.nextLoan !== 'number') w.nextLoan = 1;
     if (Array.isArray(w.gifts)) for (const g of w.gifts as unknown[]) if (isObj(g) && typeof g.loan !== 'number') g.loan = 0;
   }
-  st.version = 24;
+  st.version = 25;
 }

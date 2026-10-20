@@ -2,11 +2,13 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 24;
+export const SIM_STATE_VERSION = 25;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
 export const TILE_ROAD = -1;
+/** A stretch of wall standing on the tile (slice 25; see walls.ts): nobody walks across it. A gate stands on a road tile, which stays TILE_ROAD. */
+export const TILE_WALL = -2;
 
 /** What a building is. */
 export type BuildingKind =
@@ -33,9 +35,10 @@ export type BuildingKind =
   | 'yard'
   | 'mine'
   | 'armoury'
-  | 'barracks';
+  | 'barracks'
+  | 'tower';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -349,6 +352,14 @@ export interface UndoEntry {
   removedNames?: string[];
   /** Fire and wear of what it cleared, six numbers each in the same order: risk, wear, fire, fireAt, creakAt and the tick it was placed (missing in older saves: undo brings buildings back safe and sound). */
   removedHazards?: number[];
+  /**
+   * Slice 25: the wall stretches it laid, mended or took in (a tower), as
+   * [tile, strength before (-1: new), gate (1) or not (0)] triples; and the
+   * stretches it cleared away, as [tile, strength, gate] triples (missing in
+   * older saves: none).
+   */
+  walls?: number[];
+  removedWalls?: number[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -434,6 +445,20 @@ export interface SimState {
   stocks: StockBook;
   /** The city's companies of soldiers and their men (see army.ts). */
   army: Army;
+  /** Its walls and gates, stretch by stretch, in tile order (slice 25; see walls.ts). */
+  walls: WallPiece[];
+}
+
+/**
+ * One tile's stretch of wall, or a gate where a wall crosses a road (slice
+ * 25, walls.ts). Its strength runs down as raiders hammer at it; at 0 it is
+ * rubble, a breach anyone can walk through, until the wall is drawn over it
+ * again.
+ */
+export interface WallPiece {
+  t: number;
+  hp: number;
+  gate: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -571,6 +596,8 @@ export interface Arrow {
   t1: number;
   foe: number;
   dmg: number;
+  /** How high it was loosed from (a tower's top; missing: a man's bow). */
+  h0?: number;
 }
 
 /** A line of the army's news for the town lines: a man fallen and mourned, a band broken, hirelings walking off (`at`: the building it is about, 0 none). */
@@ -973,6 +1000,9 @@ export interface Raid {
   /** How many of your men they killed, and wounded. */
   killed: number;
   wounded: number;
+  /** Slice 25: the stretch of wall or the gate their way ends at, which they must break (its tile; -1 none), and how many they have broken. */
+  siege: number;
+  breaches: number;
   /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
   ended: number;
   end: string;

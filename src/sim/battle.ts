@@ -42,7 +42,13 @@ import { armyNews, companyName, companyOf, FALLEN_LIE, fatherWords, HIRELINGS, k
 import { findBuilding, recountPopulation } from './buildings';
 import { tell } from './folk';
 import { held, setHeld } from './foods';
-import { breakBand, lootWords, raidersOf } from './raids';
+import { besieging, breakBand, lootWords, raidersOf } from './raids';
+import { Ground, mapIndex } from './build';
+import { centreOf } from './buildings';
+import { news } from './diplomacy';
+import { RAID_SIDE } from './raids';
+import { AT_WALL, BLOW, breakPiece, crackOf, gateStands, HAMMERERS, TOWER_RANGE, TOWER_TOP, towerArchers, wallAt, wallsBetween } from './walls';
+import { TILE_ROAD, TILE_WALL, type Building } from './state';
 import { note } from './stockbook';
 import { isStore, roomFor } from './stores';
 import type { Company, Foe, Raid, SimState, Soldier, Walker } from './state';
@@ -87,9 +93,17 @@ const STALL = 80;
 const CALM = 60;
 /** The pack: how far behind one another its rows run, and how far round its target the men stand. */
 const PACK_ROW = 0.5;
+/** A tower's arrows (slice 25): loosed from above, they strike a little harder and fall off less with the distance than a bowman's on the ground. */
+export const TOWER_HURT = 18;
+const TOWER_HIT = 0.85;
+const TOWER_FALL_OFF = 0.025;
+/** A man in a fight wades a river (water off a bridge) at this share of his pace (slice 24's review: men waded round the bridge, so it narrowed nothing). */
+export const WADE = 1 / 3;
 
 /** The city's dice for a battle: a number in [0, 1) from the tick, who, and what for. */
 const roll = (s: SimState, who: number, salt: number): number => hash2(s.tick, who * 16 + salt, (s.seed ^ 0x62617474) | 0);
+/** A tower's dice (slice 25), apart from the men's. */
+const towerRoll = (s: SimState, b: Building, salt: number): number => hash2(s.tick, b.id * 8 + salt, (s.seed ^ 0x746f7772) | 0);
 
 const cityName = (r: Raid): string => PLACES[r.city].name;
 const whose = (r: Raid): string => (cityName(r).endsWith('s') ? `${cityName(r)}’` : `${cityName(r)}’s`);
@@ -141,7 +155,13 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     a.arrows = flying;
   }
 
+  // Towers (slice 25): their archers shoot at the nearest raider in range, over walls and roofs.
+  if (foes.length) for (const b of s.buildings) if (b.kind === 'tower') towerShoots(s, map, b, foes);
+
   // The raiders: who goes for whom, and the pack.
+  const walled = s.walls.length > 0;
+  const sieges = new Map<number, [number, number] | null>();
+  for (const { r, w } of bands.values()) sieges.set(r.id, w && besieging(s, r, w) ? tileMiddle(map, r.siege) : null);
   for (const f of foes) {
     const band = bands.get(f.raid);
     if (!band || !band.w) continue;
@@ -155,19 +175,22 @@ export function stepBattle(s: SimState, map: CoastMap): void {
       f.calm = s.tick + CALM;
     }
     if (!t && !r.broke && s.tick >= f.calm) {
-      // (A band already fighting charges: its men go for any soldier within a charge of them, not only one in their way.)
-      t = nearest(menToFight, f.x, f.z, r.fought >= s.tick - 1 ? CHARGE : FOE_SEE);
+      // (A band already fighting charges: its men go for any soldier within a charge of them, not only one in their way;
+      // never one beyond a wall or a gate still standing, whom they can't reach: slice 25.)
+      const most = r.fought >= s.tick - 1 ? CHARGE : FOE_SEE;
+      t = walled ? nearest(menToFight, f.x, f.z, most, (x) => !wallsBetween(map, s, f.x, f.z, x.x, x.z, true)) : nearest(menToFight, f.x, f.z, most);
       if (t) f.since = s.tick;
     }
     if (t) {
       f.state = 'fight';
       f.foe = t.id;
-      if (dhypot(t.x - f.x, t.z - f.z) > REACH * 0.85) moveTo(map, s, f, t.x, t.z, CLOSE_PACE.raider);
+      if (dhypot(t.x - f.x, t.z - f.z) > REACH * 0.85) moveTo(map, s, f, t.x, t.z, CLOSE_PACE.raider, true);
       f.face = datan2(t.z - f.z, t.x - f.x);
     } else {
       f.state = 'with';
       f.foe = 0;
-      const [px, pz, face] = packPlace(w, f);
+      const at = sieges.get(r.id) ?? null;
+      const [px, pz, face] = at ? siegePlace(map, s, w, f, at) : packPlace(w, f);
       const d = dhypot(px - f.x, pz - f.z);
       if (d > 1e-6) {
         const step = Math.min(d, PACK_PACE);
@@ -198,8 +221,9 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     const onMe = (): Foe | undefined => foes.find((f) => f.foe === x.id && dhypot(f.x - x.x, f.z - x.z) <= REACH);
     if (c.kind === 'hoplite') {
       // (A hoplite chases no further than his leash from the banner, nor a band already running.)
-      if (t && (!seek || dhypot(t.x - c.x, t.z - c.z) > LEASH || bands.get(t.raid)?.r.broke)) t = undefined;
-      if (!t && seek) t = nearestFoe(foes, bands, x.x, x.z, ENGAGE + 2, (f) => dhypot(f.x - c.x, f.z - c.z) <= ENGAGE);
+      if (t && (!seek || dhypot(t.x - c.x, t.z - c.z) > LEASH || bands.get(t.raid)?.r.broke || (walled && wallsBetween(map, s, x.x, x.z, t.x, t.z, false)))) t = undefined;
+      // (Nor one beyond a wall: slice 25.)
+      if (!t && seek) t = nearestFoe(foes, bands, x.x, x.z, ENGAGE + 2, (f) => dhypot(f.x - c.x, f.z - c.z) <= ENGAGE && !(walled && wallsBetween(map, s, x.x, x.z, f.x, f.z, false)));
       t ??= onMe();
       x.foe = t ? t.id : 0;
       if (t) {
@@ -232,7 +256,12 @@ export function stepBattle(s: SimState, map: CoastMap): void {
 
   // (Men in a fight keep a little apart: no two crowd onto the same spot.)
   spread(map, s, men.filter((x) => x.foe > 0));
-  spread(map, s, foes.filter((f) => f.state === 'fight'));
+  spread(map, s, foes.filter((f) => f.state === 'fight'), true);
+  // Bands at a wall or gate they must break hammer at it (slice 25).
+  for (const { r } of bands.values()) {
+    const at = sieges.get(r.id);
+    if (at && !r.broke) hammer(s, map, r, foes, at);
+  }
 
   // Blows, and arrows loosed.
   for (const x of men) {
@@ -313,6 +342,7 @@ function muster(s: SimState, r: Raid, w: Walker): void {
     f.z = pz;
     f.face = face;
     s.army.foes.push(f);
+    void r;
   }
   s.rev++;
 }
@@ -363,12 +393,12 @@ export function packPlace(w: Walker, f: Foe): [number, number, number] {
 }
 
 /** The nearest of a list of figures within `most` tiles of (x, z). */
-function nearest<T extends { x: number; z: number }>(list: readonly T[], x: number, z: number, most: number): T | undefined {
+function nearest<T extends { x: number; z: number }>(list: readonly T[], x: number, z: number, most: number, ok?: (o: T) => boolean): T | undefined {
   let best: T | undefined;
   let bd = most;
   for (const o of list) {
     const d = dhypot(o.x - x, o.z - z);
-    if (d <= bd) {
+    if (d <= bd && (!ok || ok(o))) {
       bd = d;
       best = o;
     }
@@ -397,29 +427,42 @@ function nearestFoe(foes: readonly Foe[], bands: Map<number, { r: Raid }>, x: nu
  * narrow lane stands in ranks wider than it, and the raiders must be able to
  * come at its outer files.)
  */
-function footing(map: CoastMap, s: SimState, x: number, z: number): boolean {
+function footing(map: CoastMap, s: SimState, x: number, z: number, foe = false): boolean {
   const n = map.size;
   if (x < 0 || z < 0 || x >= n || z >= n) return true;
-  return s.tiles[Math.floor(z) * n + Math.floor(x)] <= 0;
+  const t = Math.floor(z) * n + Math.floor(x);
+  const on = s.tiles[t];
+  // (Nor onto a wall, nor (a raider) through a gate still standing: slice 25.)
+  if (on === TILE_WALL) return false;
+  if (foe && on === TILE_ROAD && gateStands(s, t)) return false;
+  return on <= 0;
+}
+
+/** Is a man standing in the river (water off a bridge), wading? */
+function wading(map: CoastMap, s: SimState, x: number, z: number): boolean {
+  const n = map.size;
+  if (x < 0 || z < 0 || x >= n || z >= n) return false;
+  const t = Math.floor(z) * n + Math.floor(x);
+  return mapIndex(map).ground[t] === Ground.Water && s.tiles[t] !== TILE_ROAD;
 }
 
 /** A step towards (tx, tz): straight if the ground allows, else along one axis; not at all if neither (a man already off his footing may step anywhere). */
-function moveTo(map: CoastMap, s: SimState, o: { x: number; z: number; walked: number }, tx: number, tz: number, pace: number): void {
+function moveTo(map: CoastMap, s: SimState, o: { x: number; z: number; walked: number }, tx: number, tz: number, pace: number, foe = false): void {
   const dx = tx - o.x;
   const dz = tz - o.z;
   const d = dhypot(dx, dz);
   if (d < 1e-6) return;
-  const step = Math.min(d, pace);
+  const step = Math.min(d, wading(map, s, o.x, o.z) ? pace * WADE : pace);
   const nx = o.x + (dx / d) * step;
   const nz = o.z + (dz / d) * step;
-  const loose = !footing(map, s, o.x, o.z);
+  const loose = !footing(map, s, o.x, o.z, foe);
   const tries: Array<[number, number]> = [
     [nx, nz],
     [o.x + Math.sign(dx) * Math.min(Math.abs(dx), step), o.z],
     [o.x, o.z + Math.sign(dz) * Math.min(Math.abs(dz), step)],
   ];
   for (const [px, pz] of tries) {
-    if (!loose && !footing(map, s, px, pz)) continue;
+    if (!loose && !footing(map, s, px, pz, foe)) continue;
     o.walked += dhypot(px - o.x, pz - o.z);
     o.x = px;
     o.z = pz;
@@ -432,7 +475,7 @@ const ELBOW = 0.24;
 const SHOVE = 0.03;
 
 /** Men in a fight closer than an elbow's room step apart (each pair once, in list order). */
-function spread(map: CoastMap, s: SimState, list: ReadonlyArray<{ x: number; z: number; walked: number; id: number }>): void {
+function spread(map: CoastMap, s: SimState, list: ReadonlyArray<{ x: number; z: number; walked: number; id: number }>, foe = false): void {
   for (let i = 0; i < list.length; i++) {
     const a = list[i];
     for (let j = i + 1; j < list.length; j++) {
@@ -446,10 +489,99 @@ function spread(map: CoastMap, s: SimState, list: ReadonlyArray<{ x: number; z: 
       const ux = d > 1e-6 ? dx / d : dcos(a.id + b.id);
       const uz = d > 1e-6 ? dz / d : dsin(a.id + b.id);
       const step = Math.min(SHOVE, (ELBOW - d) / 2);
-      moveTo(map, s, b, b.x + ux * step, b.z + uz * step, step);
-      moveTo(map, s, a, a.x - ux * step, a.z - uz * step, step);
+      moveTo(map, s, b, b.x + ux * step, b.z + uz * step, step, foe);
+      moveTo(map, s, a, a.x - ux * step, a.z - uz * step, step, foe);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Walls and towers (slice 25).
+
+/** The middle of a tile, world units. */
+const tileMiddle = (map: CoastMap, t: number): [number, number] => [(t % map.size) + 0.5, Math.floor(t / map.size) + 0.5];
+
+/**
+ * A raider's place while his band hammers at a stretch of wall or a gate: a
+ * few abreast along it on their side, row behind row back from it, facing it.
+ * A spot that would be on a wall or in a building is at the band's head.
+ */
+function siegePlace(map: CoastMap, s: SimState, w: Walker, f: Foe, at: [number, number]): [number, number, number] {
+  const n = w.path.length;
+  const hx = w.path[n - 2];
+  const hz = w.path[n - 1];
+  const d = dhypot(at[0] - hx, at[1] - hz) || 1;
+  const ux = (at[0] - hx) / d;
+  const uz = (at[1] - hz) / d;
+  const k = f.slot;
+  const row = Math.floor(k / 5);
+  const side = ((k % 5) - 2) * 0.4 + (hash2(w.id, k, 2105) - 0.5) * 0.1;
+  const back = row * 0.42 - 0.4 + hash2(w.id, k, 2106) * 0.08;
+  const x = hx - ux * back - uz * side;
+  const z = hz - uz * back + ux * side;
+  const face = datan2(uz, ux);
+  if (!footing(map, s, x, z, true)) return [hx + (hash2(w.id, k, 2107) - 0.5) * 0.3, hz + (hash2(w.id, k, 2108) - 0.5) * 0.3, face];
+  return [x, z, face];
+}
+
+/** A band at a stretch of wall or a gate it must break hammers at it: up to ten of its men standing at it, each taking a little off its strength a tick. Broken, it is rubble. */
+function hammer(s: SimState, map: CoastMap, r: Raid, foes: readonly Foe[], at: [number, number]): void {
+  const p = wallAt(s, r.siege);
+  if (!p || p.hp <= 0) return;
+  let men = 0;
+  for (const f of foes) {
+    if (f.raid !== r.id || f.state !== 'with' || dhypot(f.x - at[0], f.z - at[1]) > AT_WALL) continue;
+    men++;
+    // (Each swings at it now and then: drawn as a lunge.)
+    if (men <= HAMMERERS && (s.tick + f.id) % SWING === 0) f.swung = s.tick;
+  }
+  men = Math.min(HAMMERERS, men);
+  if (men === 0) return;
+  const before = crackOf(p);
+  p.hp = Math.max(0, p.hp - men * BLOW);
+  if (p.hp <= 0) {
+    breakPiece(s, p);
+    r.breaches++;
+    const what = p.gate ? 'gate' : 'wall';
+    news(s.world, s.tick, r.city, `${whose(r)} raiders have broken through your ${what} ${whereWords(map, at[0], at[1])}: they are in, making for what they came for`, true);
+    armyNews(s, `${whose(r)} raiders have broken through the ${what} ${whereWords(map, at[0], at[1])}`, 0);
+  } else if (crackOf(p) !== before) s.rev++;
+  void RAID_SIDE;
+}
+
+/** A tower's archers loose an arrow at the nearest raider in range, every few ticks (more often the more of them there are). */
+function towerShoots(s: SimState, map: CoastMap, b: Building, foes: readonly Foe[]): void {
+  const archers = towerArchers(b);
+  if (archers <= 0) return;
+  if (b.clock > 0) {
+    b.clock--;
+    return;
+  }
+  const [cx, cz] = centreOf(b);
+  // (The archers on a tower pick off the weakest man in range, the nearest of them if several: arrows from above finish what they start.)
+  let aim: Foe | undefined;
+  let ad = 0;
+  for (const f of foes) {
+    if (!up(f)) continue;
+    const d = dhypot(f.x - cx, f.z - cz);
+    if (d > TOWER_RANGE) continue;
+    if (!aim || f.hp < aim.hp || (f.hp === aim.hp && d < ad)) {
+      aim = f;
+      ad = d;
+    }
+  }
+  if (!aim) return;
+  b.clock = Math.max(1, Math.round((RELOAD + Math.floor(towerRoll(s, b, 1) * 4)) / archers));
+  // (From one corner of its roof walk or another, by the dice.)
+  const corner = Math.floor(towerRoll(s, b, 2) * 4);
+  const x0 = cx + (corner % 2 === 0 ? -0.45 : 0.45);
+  const z0 = cz + (corner < 2 ? -0.45 : 0.45);
+  const d = dhypot(aim.x - x0, aim.z - z0);
+  const good = towerRoll(s, b, 3) < TOWER_HIT - TOWER_FALL_OFF * d;
+  const ox = good ? 0 : (towerRoll(s, b, 4) - 0.5) * 1.2;
+  const oz = good ? 0 : (towerRoll(s, b, 5) - 0.5) * 1.2;
+  s.army.arrows.push({ x0, z0, x1: aim.x + ox, z1: aim.z + oz, t0: s.tick, t1: s.tick + Math.max(2, Math.ceil(d / ARROW_SPEED)), foe: good ? aim.id : 0, dmg: TOWER_HURT * (0.8 + 0.4 * towerRoll(s, b, 6)) * TAKES.raider, h0: TOWER_TOP });
+  void map;
 }
 
 /** "in the market quarter", for the news: where a fight was. */

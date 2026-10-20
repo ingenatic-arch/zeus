@@ -4,10 +4,12 @@ Notes to Oliver, newest first.
 
 ## Slice 27 — Loans both ways (19 Oct)
 
+*Built alongside slices 24 to 26, in its own line of work, and joining the main line before them: slice 24 is in, and slices 25 and 26 are still to come.*
+
 Coin now moves between your city and the rulers as loans, both ways. You can ask a ruler to lend you coin, and their herald brings back terms, every reason named, or a refusal and why. You can lend to a ruler, choosing the sum, the interest and the months, and see beforehand whether they would take it and how likely they are to repay. Now and then a pleased ruler offers you a loan, and a ruler in trouble asks you for one. Each loan is paid back in one payment, interest and all, on the day it falls due. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
 What breaks, or moves: nothing you had is lost.
-- **Saves.** Saves from before load with no loans, slice 24's included. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask. One fix on the way: on the main line, a town saved once hirelings had been paid (slice 24) was refused as damaged when opened. It opens now.
+- **Saves.** Saves from before load with no loans, slice 24's included. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask.
 - **Earlier demos.** Every earlier demo opens, and plays 900 ticks on, exactly as before, the Greek ones included. No ruler happens to offer or ask a loan in any of them in that time.
 - **What reads differently.** A ruled city's page has a fifth tab, Loans, so its row of tabs now wraps onto two lines. The ledger has five new lines for loans, and the Money tab gets a Loans row when there are any.
 
@@ -87,6 +89,8 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **Loans never crowd out older deals.** A ruler's loan offer or ask was tried in the same pass as tribute, requests and offers, so one city's loan could stop a later city's request that month. Now loans come only in a month when no ruler made an older kind of deal, as the plan said.
 - **The offer rows fit.** "Offer a loan"'s five sums wrapped onto a second line; each row of choices now fits on one.
 - **One wrong capital.** "As things stand, sparta has no coin to spare" now keeps its capital S.
+
+The tests number 392 after the review, all passing, and 403 once it joined the main line (with the start of slice 25's walls), all passing. The browser check passes every loans step there; its one failure is an older raid demo's line, whose words the walls work on the main line has just changed ("plundering the granary, then making for the tax office"), and which that slice will bring up to date.
 
 What I checked and did not change, for your eye:
 - **Two lines about the same terms.** In `#borrow` the line for Corinth's terms and the news of Athens' answer show together under the top bar, and after you answer while paused, the old line stays until the game runs again (as every line under the top bar does).
@@ -187,6 +191,7 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **A broken company is let go.** When a company broke and ran for its barracks, the raiders kept cutting its men down from behind: 12 archers were killed in one run of archers alone. The raiders now let a broken company go, and its men stop fighting while they run.
 - **The Army tab's sums.** Hirelings were counted twice, once under Hoplites or Archers and again under Hirelings. Now Hoplites and Archers count only your own citizens. A hired company still walking in from the edge no longer says "at its barracks".
 - **Hovering a fight.** In the press, the hover often showed the soldier when the pointer was on the raider. Now whichever man is nearer the pointer is the one described. The band's line in a raider's hover now gives what it carries in full ("1,600 wheat and 235 dr"), not the wheat alone.
+- **Saving after a fight.** Once hirelings had been paid, or loot taken back from fallen raiders, the town could no longer be saved and opened again: the save was refused as damaged. It now opens as it should, and I added a check for both.
 - **`#hirelings` opens paused,** so the band doesn't walk on while you read the panel.
 - **The older raid demos' steps.** `#threat`, `#raiders` and `#aftermath` read differently since this slice; I added a short note to slice 21's steps, and to slice 23's note on the march pace.
 
@@ -197,7 +202,7 @@ What I checked and did not change, for your eye:
 - **One torch, two houses.** On the west bank, where no watch post reaches, a single fire burnt down two houses.
 - **The band's line** in the threat names only its first target.
 
-The frame work during a fight is as before: the fight itself costs a fraction of a millisecond a tick in the simulation; the occasional slow tick comes from other walkers finding their way and from the band arriving.
+The frame work during a fight is as before: the fight itself costs a fraction of a millisecond a tick in the simulation; the occasional slow tick comes from other walkers finding their way and from the band arriving. A full measure after the review: every demo ready in under 3 s (94 demos, median 1.8 s, slowest 2.5 s); the download is 2,224 KB; `#battle` in the fight 785,000 triangles and 70 draw calls, and 20 ms of work a frame in headless software rendering (several ticks a frame, as above). `#companies` read 24 ms once in that run; measured again with the old build taking turns it was 11 to 13 ms in both. The measure's figures for the map of Greece had been repeating the city's last count since the new city look; they now count the map (305,842 triangles and 32 draw calls for `#greece`, not `#town`'s 799,168).
 
 ## City look, stage 1 — light, ground and materials (19 Oct)
 
