@@ -126,4 +126,52 @@ Plus the existing suite. `smoke.mjs` opens `#borrow`, `#lend` and `#repaid` and 
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits: `b72ba50` (this plan), `c9d976e` (main merged in: the city look, stage 1), `e5e0613` (loans in the simulation, tests, the version 22 fixture), `fc3da53` (the Loans tab, the debts chip, the Money tab's loans, the town lines, the three demos, smoke and measure), `d6e78fe` (fixes the smoke found), `4b7046b` (main merged in again: slice 23's review), `4997a6f` (a longer timeout for the test that sets up every demo), and the check-in.
+
+**The loan and its states.** As designed (`src/sim/loans.ts`, `Loan` in `src/sim/state.ts`, `world.loans` and `world.nextLoan`). Two states were added on the way. `sending` is your coin on its way for a ruler's own ask, which needs no answer when it arrives. `returning` is your coin sent back by a ruler who wouldn't take it. A ruler's offer or ask is a deal (`loanoffer`, `loanask`) with a `proposed` loan behind it, answered through the usual `answer` command. Everything else is the new `loan` command (`ask`, `offer`, `accept`, `decline`, `repay`).
+
+**The herald.** As designed: a `Gift` with `loan` set to its loan's id, travelling for `heraldTicks`. `giftTo`, `giftFrom` and the gift memories leave it out. `arrive` hands it to `heraldArrived`. It is drawn as a coin gift is, and its hover card and page lines come from `heraldWords`.
+
+**Terms, refusals, lending and the likely repayment.** As designed, with the numbers in the plan. `troubles` reads a war, a poor or failed harvest in the last four months, and a war lost in the last six. Asked for more than they can spare, the ruler lends what they can and says so. Built beyond the plan:
+- the ask's terms when a ruler asks: 10%, +3% at war, +2% after a failed harvest, −2% shrewd, −2% greedy, +1% generous; 12 months, 18 at war;
+- the most interest a ruler in need will bear: 14%, +4% at war, +2% after a failed harvest, −4% shrewd.
+
+**The rulers' own.** As designed: `loanDeal` is the last call in `asks` (favours.ts), after tribute, requests and offers, so a month that brought an older kind of deal brings it still. Its dice are a hash with their own salt (`0x6c6f616e`). The calm is the requests' calm (`free`, `MOST_OPEN`, `GREECE_GAP`, `ASK_AFTER`, no new deal while a threat is live). `overdue`, `answerRefusal` and `answer` hand the two new kinds to `loanDealLapsed`, `loanAnswerRefusal` and `answerLoan`. In four years of `#caravan`'s town with a full treasury, one ruler offered or asked (the test checks there was one).
+
+**Repaying.** As designed. Yours falls due and is paid from what the treasury can spend, or goes overdue. An overdue loan is paid as soon as the treasury can, with a line of news, and no ruler lends to you meanwhile. Theirs is decided by `dice(loan id) < likelyToRepay(...)` as things stand on the day. The seam for slice 28 is `stepOverdue`, which does nothing yet for a ruler's overdue loan to you. Ended loans are let go after three years.
+
+**Ledger.** Five kinds: `borrowed` ("Loan · from Corinth"), `repayment` ("Loan repaid · by Athens") and `returned` ("Loan sent back · by Troy") coming in; `lent` ("Lent · to Athens") and `repaid` ("Loan repaid · to Corinth") going out. The labels follow the ledger's existing "Gift · to Corinth" style, not the plan's wording. The Money tab's table has a Loans row when any moved this month or last.
+
+**The page, the chip and the lines** (`src/ui/loans.ts`, `src/ui/debtschip.ts`, `src/ui/greece.ts`, `src/ui/sidepanel.ts`):
+- The Loans tab is the fourth of five on a ruled city's page. Its name carries the state ("Loans · terms", "Loans · you owe", "Loans · they owe", "Loans · overdue"). The tab row now wraps rather than squeezing.
+- What stands between you, with every reason. "Ask for a loan" shows the terms as things stand, or why they won't lend. "Offer a loan" has three rows of choices, the likely answer and the likely repayment, and what the city's enemy would think if it is at war (`foeNote`).
+- A ruler's offer or ask sits on the Ruler tab with the other deals, with what each answer does to the mood.
+- Loans have their own kind of line under the top bar (`loan`), not the deals' (`favour`): one line per kind shows, and a loan's line would otherwise hide an open request's. Clicking it opens the city's Loans tab.
+- While a loan's line stands, the news of your herald's answer from that city is not repeated as a line from Greece.
+- The welcome back for a version 22 save with a route says where to find loans.
+
+**Demos** (`loanTown` in `src/game/demos.ts`):
+- **`#borrow`:** `#caravan`'s town, then asks to Corinth and Athens for 2,000 dr each (the most each can spare, if less), played on until both heralds are back (21 May 747 BC). The plan had Sparta as the second city, but in this town Sparta's king is wary and has no route to you, so he would refuse. Athens, whose generous archon offers 6% over 15 months, is the better contrast to Corinth's 11% over 6. Sparta's page shows the refusal and its reason.
+- **`#lend`:** `#rivals`' town played on until Athens, beaten by Troy, is free to ask, Greece has fewer than two deals open and Sparta's threat is over (4 November 746 BC). The ask itself is made by the demo. Troy (at war) was in trouble sooner, but Sparta's raiders were out then and the calm would have kept any ruler from asking.
+- **`#repaid`:** the same ask lent, played on to its day (20 November 745 BC). On that day Athens pays, and the demo opens when her herald is four days from your land.
+
+**Checks.**
+- `npm test`: 377 tests in 32 files, all passing (366 in 31 before). The test that sets up every demo and checks its wages now has 400 s, not 180: the three new demos play `#rivals`' town a year or two on, and on this shared machine the whole test took over three minutes. The new file is `tests/loans.test.ts`: terms, refusals, borrowing (ask, accept, the coin, repaid on the day, early, and overdue then paid), lending (taken, sent back, the likely repayment), the rulers' own (taken, lent, refused), the calm over four years, a save mid-loan round-tripping and playing on identically, and the version 22 save.
+- `npm run build`: builds, with the same warning as before about the game's one large chunk.
+- `npm run smoke`: ok, with the slice's new steps first: `#borrow` (Corinth's terms and reasons, the town line, accepting, the debts chip, Sparta's refusal, the coin in and the Money tab's loans, repaying early), `#lend` (Athens' ask lent, the ledger) and `#repaid` (the repayment arriving).
+- The demo probe (outside the repo) played every one of the 89 earlier demos at `c5695a2` and at this slice, comparing the whole city at opening and 900 ticks on, with the loans fields and redraw counters left out. All 89 are identical.
+- Old saves: a new fixture, `tests/fixtures/slice23-companies.save.json.gz`, is `#companies` saved at `c5695a2` (version 22). It loads at version 23 with no loans, plays a month on and saves again. The older fixtures still load.
+
+**Measurements** (`npm run measure`, headless Chromium with software WebGL at 1920 × 1080, after main's city look was merged in):
+
+| What | Before (`c5695a2`) | After |
+|---|---|---|
+| Tests | 366 in 31 files | 377 in 32 files |
+| Bundle | 65 files, 2,081 KB gzipped (game 456 KB, prepared towns 1,625 KB) | 68 files, 2,224 KB gzipped (game 488 KB, with the city look's finish; prepared towns 1,736 KB, three more) |
+| First load (bare link) | ready at 2,359 ms, first frame at 3,050 ms | ready at 2,207 ms, first frame at 3,444 ms |
+| Every demo's load | 91 demos, median 2,283 ms, slowest 4,284 ms, 11 over 3 s | 94 demos, median 2,248 ms, slowest `#shrine` 3,745 ms, 10 over 3 s (`#borrow` among them at 3,267 ms; the machine was shared) |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same, counted in the old look (`-plain`): the city look's finish draws through a composer, whose last pass resets the renderer's counts, so `measure` now prints 1 triangle and 1 draw call for every city view |
+| The new demos' town (old look) | — | `#borrow` 774,743 triangles, 81 draw calls; `#lend` 941,135, 87; `#repaid` 942,826, 92 |
+| The new demos' map | — | `#borrow` 311,858 triangles, 31 draw calls; `#lend` 305,402, 30; `#repaid` 305,214, 28 (as the other Greek demos) |
+| Work a frame before drawing | `#town` 14.60 ms, `#richtown` 22.76, `#richstreet` 20.03, `#rivals` 13.02 | 9.73, 13.60, 15.68, 11.62; `#borrow` 7.97, `#lend` 11.27, `#repaid` 9.98 |
+| A save of `#richtown` | 186 KB | 187 KB |

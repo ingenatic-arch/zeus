@@ -2,6 +2,82 @@
 
 Notes to Oliver, newest first.
 
+## Slice 27 — Loans both ways (19 Oct)
+
+Coin now moves between your city and the rulers as loans, both ways. You can ask a ruler to lend you coin, and their herald brings back terms, every reason named, or a refusal and why. You can lend to a ruler, choosing the sum, the interest and the months, and see beforehand whether they would take it and how likely they are to repay. Now and then a pleased ruler offers you a loan, and a ruler in trouble asks you for one. Each loan is paid back in one payment, interest and all, on the day it falls due. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing you had is lost.
+- **Saves.** Saves from before load with no loans. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask.
+- **Earlier demos.** Every earlier demo opens, and plays 900 ticks on, exactly as before, the Greek ones included. No ruler happens to offer or ask a loan in any of them in that time.
+- **What reads differently.** A ruled city's page has a fifth tab, Loans, so its row of tabs now wraps onto two lines. The ledger has five new lines for loans, and the Money tab gets a Loans row when there are any.
+
+### What's new
+- **Asking for a loan.** On a city's Loans tab, "Ask for a loan" says what the ruler would likely do as things stand: the interest, the months and what the city can spare, with every reason. Or it says why they won't lend ("the king of Sparta does not lend to a city he barely knows (wary, and no route between you)").
+  - Pick a sum (500 to 5,000 dr). Your herald goes, on the map as a coin gift goes.
+  - When he arrives, the ruler answers, as things stand then. Their terms wait two months for your Accept or Decline. Accepted, their herald brings the coin into the treasury.
+- **The terms.** The interest is a percent of the sum for the whole loan, from 12%, and the months run from 12. Each thing that moves them is named:
+  - the ruler's mood: cordial −2%, warm −4% and six months more;
+  - the city's wealth: Athens and Corinth are rich (−2%), Sparta keeps little coin (+2%);
+  - their character: a greedy ruler +5%, a generous one −3% and six months more, a shrewd one +2% and six months fewer;
+  - their troubles: at war +3%;
+  - your own name: your city owes no one (−2%), you owe another city already (+2%), or Greece knows you pay your debts (−1% for each loan repaid on time lately).
+- **Lending.** "Offer a loan" lets you pick the sum, the interest (5 to 20%) and the months (6 to 24).
+  - Before you send, it says whether they would likely take it and why ("they need coin (at war with Athens), and 10% is fair to them"), and how likely they are to repay: likely, fair or doubtful, with each reason marked + or −.
+  - The coin leaves with your herald. When he arrives they take it, or send it back and say why. A ruler in need takes a fair rate; one not in need takes only cheap coin. Lent to a ruler in need, it warms them.
+- **The rulers' own offers and asks.** These come like requests, with the same calm: none until six months after your first route, one a ruler, two across Greece.
+  - A pleased ruler with coin to spare now and then offers you a loan, more often when your treasury is low.
+  - A ruler in trouble (at war, a poor harvest, beaten lately) now and then asks to borrow.
+  - Both sit on the Ruler tab with a coin-on-a-scroll seal on the city's label and a line under the top bar. Each answer shows what it does to their mood: lend +15 (+19 from a generous ruler such as Athens’ archon), refuse −6, let it run out −4.
+- **Repaying.** On the day yours is due, the whole sum goes from the treasury and your herald takes it to them. Repaid on time, the lender is pleased (+8), and every ruler's terms are a percent better.
+  - If the treasury can't pay on the day, the loan is overdue. It is paid as soon as the treasury can, and until then no ruler will lend to you.
+  - "Repay now" on the Money tab or the Loans tab pays early.
+  - On the day theirs is due, Greece's dice decide, against how likely they were to repay, whether their herald brings it or the loan stands overdue.
+- **Where you see it.**
+  - A chip under the top bar shows the next date due either way ("You owe Corinth 2,220 dr · 21 November"), red if one is overdue. It opens the Money tab, which lists every loan with its terms, dates and how it stands.
+  - The ledger has the five new lines: Loan, Loan repaid, Loan sent back, Lent, and Loan repaid going out.
+  - A line under the top bar shows when terms wait on you, when your loan is due within a month and the treasury can't cover it, or when it is overdue.
+
+### What to try
+1. Open `#borrow`. It is `#caravan`'s young town in May 747 BC, with 760 dr in the treasury. You asked Corinth and Athens for 2,000 dr each, and both answers are back. The map is open on Corinth's Loans tab.
+   - Corinth will lend at 11%, repaid in 6 months: the lord is shrewd and at war with Athens.
+   - Open Athens' Loans tab: 6% over 15 months, as the archon is generous.
+   - Open Sparta's: the king won't lend to a city he barely knows.
+   - Accept one, run it for a week, and watch the coin come in. Then look at the chip and the Money tab, and try "Repay now".
+2. Open `#lend`. It is `#rivals`' town in November 746 BC, with nearly 7,000 dr. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
+3. Open `#repaid`. It is the same town a year on. You lent Athens the 2,000 dr, and on the day the archon paid: her herald is on the road with 2,220 dr, four days from your land. Run it and watch the treasury and the ledger ("Loan repaid · by Athens").
+4. Open any earlier demo (say `#rivals` or `#war`): it is the same as before.
+
+Each link also opens paused if you add `-paused` (for example `#borrow-paused`).
+
+### What I'd like your eye on
+- **The numbers.** The interest is a flat percent for the whole loan, whatever the months. Six months at 11% from Corinth against 15 months at 6% from Athens: does that feel like a choice?
+- **How often rulers offer and ask.** Rarely: in four years of `#caravan`'s town with a full treasury, one ruler did. With a low treasury, offers come four times as often. Too rare to notice, or right for something that should feel like an event?
+- **The Loans tab.** It holds a lot: what stands between you, asking, and offering with three rows of choices. Is it readable, or should offering fold away?
+- **The herald on the map.** It is drawn as a coin gift is (a caravan or a ship in the sender's colours), and its hover card names it ("Athens' repayment · 2,220 dr"). Should a loan's coin look different?
+
+### Known rough edges
+- A ruler's loan that falls overdue just stands overdue, with a line of news. What you can do about it (pressing them, seizing goods) is slice 28. The hook for it is in place (`stepOverdue` in `src/sim/loans.ts`).
+- Your own overdue loan has no cost beyond no ruler lending to you until it's paid, and a smaller thank-you when it is.
+- No demo shows a ruler's own offer: the dice bring them in their own time. I looked at one set up by hand (Corinth offering 1,500 dr at 10%, on the Ruler tab).
+- The tabs on a city's page wrap onto two lines when a tab has a state word ("Trade · 2 open", "Loans · they owe").
+- The sum, interest and months you choose in "Offer a loan" are kept while the game is open, not in the save.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's check-in) and after (with the new city look merged in):
+
+| What | Before | After |
+|---|---|---|
+| Tests | 366, all passing | 377, all passing |
+| Download (gzipped) | 2,081 KB: the game 456 KB, the prepared towns 1,625 KB | 2,224 KB: the game 488 KB (loans, and the city look's finish), the prepared towns 1,736 KB (three more) |
+| First load (bare link) | ready at 2.4 s, first frame at 3.1 s | ready at 2.2 s, first frame at 3.4 s |
+| Every demo's load | 91 demos, median 2.3 s, slowest 4.3 s, 11 over 3 s | 94 demos, median 2.2 s, slowest 3.7 s, 10 over 3 s, `#borrow` among them at 3.3 s (a shared machine) |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same (counted in the old look: see below) |
+| The new demos | — | `#borrow` 774,743 triangles, 81 draw calls; `#lend` 941,135, 87; `#repaid` 942,826, 92 |
+| Work a frame before drawing | `#town` 14.6 ms, `#richtown` 22.8, `#richstreet` 20.0, `#rivals` 13.0 | 9.7, 13.6, 15.7, 11.6; `#borrow` 8.0, `#lend` 11.3, `#repaid` 10.0 |
+| A save of `#richtown` | 186 KB | 187 KB |
+
+Loans add nothing to draw in the city, and the coin on the map is drawn as a coin gift is, so the map's counts are those of the other Greek demos. One thing for the next measuring: the city look draws through a finishing pass that resets the renderer's own counts, so `npm run measure` now prints 1 triangle and 1 draw call for every city view. The triangle rows above were counted with `-plain` (the old look), which draws the same meshes.
+
 ## City look, stage 1 — light, ground and materials (19 Oct)
 
 You picked look A, Sunlit terracotta. Stage 1 of its plan (`docs/plans/2026-10-19-city-look.md`) is now the game's own look in every demo: light and colour, the ground, the building materials and the sea. Trees and people are stage 2, and cornices and window frames stage 3. Add `-plain` to any link (`#goods-plain`) to see the old look side by side. Nothing in the simulation or the saves changed.
