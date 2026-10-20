@@ -1055,3 +1055,4 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .greece-panel ul.report li { margin: 2px 0; }
 .greece-panel details.nocause { margin-top: 10px; font-size: 13px; }
 .greece-panel details.nocause summary { cursor: pointer; color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.03em; }
+.greece-panel details.nocause section.soldiers h4 { display: none; }
