@@ -13,7 +13,7 @@ export class DebtsChip {
 
   constructor(parent: HTMLElement, open: () => void) {
     const el = document.createElement('button');
-    el.className = 'army-chip debts-chip';
+    el.className = 'debts-chip';
     el.hidden = true;
     el.innerHTML = `${SCALES}<span></span>`;
     el.title = 'Loans: the next date due either way. Click for the Money tab';
