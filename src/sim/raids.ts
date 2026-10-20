@@ -534,6 +534,16 @@ export function headOff(s: SimState, map: CoastMap, w: Walker, r: Raid | undefin
   const [x, z] = position(w);
   w.back = true;
   w.wait = 0;
+  // (Still off the map, on their way to a wall they must break (one on the very edge, say): straight off again. Slice 25's review.)
+  if (r && r.siege >= 0 && (x < 0 || z < 0 || x >= size || z >= size)) {
+    r.siege = -1;
+    const [ox, oz] = offMapPoint(size, tileAt(size, x, z));
+    setPath(w, [
+      [x, z, -1],
+      [ox, oz, -1],
+    ]);
+    return true;
+  }
   const starts = startsAt(map, s, x, z);
   const edge = r && r.edge >= 0 ? r.edge : -1;
   const found = edge >= 0 && starts.length ? foeWay(map, s, starts, edge) : null;

@@ -189,6 +189,15 @@ describe('the review of slice 25', () => {
     expect(until(sim, () => r.phase !== 'marching' && r.phase !== 'gathering', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(r.phase).toBe('raiding');
     expect(r.siege % N).toBe(0);
+    // A copy of the town paid off while they hammer: they go straight off the map again, breaking nothing.
+    const paid = new Sim();
+    paid.state = deserialize(serialize(s));
+    const pr = paid.state.world.raids.find((x) => x.id === r.id)!;
+    expect(until(paid, () => paid.state.army.foes.some((f) => f.raid === pr.id && f.swung === paid.state.tick), TICKS_PER_MONTH)).toBe(true);
+    send(paid, { type: 'answer', deal: pr.deal, act: 'send' });
+    expect(until(paid, () => !raidersOf(paid.state, pr), TICKS_PER_MONTH)).toBe(true);
+    expect(pr.breaches).toBe(0);
+    // Unpaid, they break in through it.
     expect(until(sim, () => r.breaches > 0, 2 * TICKS_PER_MONTH)).toBe(true);
     expect(wallAt(s, r.edge)!.hp).toBe(0);
   }, 120000);
