@@ -2,6 +2,94 @@
 
 Notes to Oliver, newest first.
 
+## Slice 24 — Raiders fought in the streets (20 Oct)
+
+Raiders now come for something, and your soldiers can stand in their way. A band makes for your best-stocked granary or storehouse and then the tax office, carries off goods and drachmas, sets a building or two alight, and goes home. Each raider is a man of his own, and a company placed in the band's way fights it blow by blow: hoplites close with them, archers shoot, men fall, are wounded or killed and mourned at home, and a side that loses half its men breaks and runs. In a pinch the barracks can hire Cretan archers or Arcadian hoplites. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Saves from before load. The welcome back says what raids do now, and that companies fight them and the barracks can hire.
+- **Raids are harder.** This is on purpose, as the spec says. A band is sized by its ruler and your city: the first ones are the old 8 to 12 men, but a town of 1,150 faces a Spartan band of about 29. A band goes for the stores and the treasury, not a field, and burns on its way. `#threat`, `#raid`, `#raiders` and `#aftermath` play differently from before, and `#raiders` now looks over the granary it plunders. In `#rivals`, `#rivalsmap` and `#rivalstreet` the threat's line now gives the band's size; the towns are otherwise the same.
+- **Every other demo** opens, and plays 900 ticks on, exactly as before.
+- **What reads differently.** The ledger can show what a band took under "Lost to raiders" ("Raided by Sparta · drachmas", "· wheat"), "Taken back from Sparta’s raiders", and "Hirelings’ pay". The Army tab's "Wounded" count is now real.
+
+### What's new
+- **Raiders' aim.** As a band comes in, it picks the nearest granary or storehouse holding 300 measures or more, then the nearest tax office. With no store worth it, it goes straight to the tax office; with neither, a field, as before. The threat and the town line say where it is making for ("making for the granary and then the tax office"), and how many men are in it ("Sparta’s raiders · 29 men · 12 days").
+- **What they take.** At a store, the ware it holds most of: up to half, and at most 80 measures a man. At the tax office, a tenth of the treasury, at most 40 dr a man. They spend 4 days at each.
+- **Fire.** They may set one building alight on the way in, and more on the way out once loaded (one for every 12 men, at most 4). These are ordinary fires: watchmen fight them, and they can spread.
+- **Raiders as men.** Each raider is a figure of his own in a loose pack round the band, in dark leather with a spear or torch, or a sack once loaded. Hover one: who he is, how hurt, what he is doing and what the band carries.
+- **The fight.**
+  - A company holding its ground, or drilling at its barracks, fights raiders who come near its banner.
+  - Hoplites close with raiders within 4 tiles of the banner and hit hard behind their armour. Archers shoot at any raider within 8 tiles, and step back from one who comes at them. Raiders beat archers hand to hand.
+  - A marching company that raiders come at stops and fights.
+  - Every thrust and every arrow is drawn: hoplites lunge, archers lean into the draw, raiders stab, and arrows fly on a low arc.
+- **Falling.**
+  - A raider whose health runs out falls, lies a while and fades. His share of the loot is taken back on the spot: goods to the nearest store, drachmas to the treasury.
+  - A soldier who falls is wounded or killed, about even odds.
+  - The wounded lie a while, get up, limp back to the barracks and heal over a month.
+  - The killed are mourned at home. Their house's story says so, its mood drops for a season ("Mourning Lykon, who fell fighting Sparta’s raiders"), there is one fewer living there, and a town line names him.
+- **Breaking.** A band that loses half its men runs for its edge with what it still carries, and burns nothing more. A company that loses half of the men it began the fight with runs back to its barracks. Once the fight is over, a company calls new men from homes to fill the places of the fallen.
+- **The army's news.** The Army tab keeps the last dozen lines: a band broken, a man fallen, a company broken, hirelings walking off. The latest shows under the top bar for ten days, in bronze with a helmet.
+- **Hirelings.** The barracks panel and the Army tab can hire a company:
+  - Cretan archers (300 dr) or Arcadian hoplites (450 dr), then 9 dr a man a month, three times a citizen's pay.
+  - Sixteen men march in from the nearest edge of your land in their own colours, the Cretans in green and the Arcadians in blue. They take nobody from your homes and bring their own arms.
+  - If a month's pay is still owed when the next month turns, they walk off.
+- **Slice 23's loose ends.** A dismissed company's unpaid wages are still paid when money comes. A barracks with no road beside it now says so, instead of saying no home can spare a man. Each company's barracks, gate and drill spot are now worked out once a tick, not once for each of its men.
+
+### What to try
+1. Open [#battle](#battle). It is `#companies`' town, paused. Sparta's band of 29 is about 11 days from the west edge, the hoplites' banner is in hand and the Army tab is open.
+   - Click the west road at the bridge (or just this side of it) to send the hoplites there. Then click the archers' row and send them a few tiles behind.
+   - Play at normal speed. The march takes the companies about a month (the tip says "about 33 days away"), and the band gets to the bridge at about the same time. Watch the fight at the bridge from close in, and hover a raider.
+   - With both companies there, the band breaks after about half its men fall. Count the cost on the Army tab and in the town line, and find the house that mourns its man.
+2. In [#battle](#battle) again, try one company alone. In my runs, the outcome depended on where it stood:
+   - Hoplites alone at the bridge's foot were broken: 12 raiders fell, and 7 of ours were killed and 8 wounded.
+   - Hoplites alone on the road further east, below the cypress hill, broke the band for 2 killed and 2 wounded.
+   - Archers alone at the bridge were broken and ran, and the band went on to the granary.
+3. Open [#looted](#looted). It is `#raiders`' town, and nobody stood in the way.
+   - A band of 32 is making off with 1,600 wheat and 235 dr. The tax office is burning, and the ledger is open on what was taken.
+   - Watch the band walk out, then read the town line once it has gone.
+4. Open [#hirelings](#hirelings). It is the barracks town with no companies. Corinth's band of 21 is gathering 16 days out, and the treasury is full.
+   - Hire Arcadian hoplites and Cretan archers from the Army tab. Watch them march in from the edge in green and blue, then place them in the band's way.
+5. Open any earlier demo, say [#companies](#companies) or [#richtown](#richtown): it is the same town as before.
+
+Each link also opens paused if you add `-paused` (for example `#battle-paused`).
+
+### What I'd like your eye on
+- **Does a fight read?** In `#battle` at the bridge, can you tell raiders from hoplites, and see who is striking whom? The raiders are in dark leather and iron, your hoplites in red and bronze. The lunges and arrows are small, so I'd like to know whether they read at the distances you play at.
+- **The balance.** In my runs:
+  - Both companies at the bridge break Sparta's 29 for one man killed and seven wounded.
+  - Hoplites alone at the bridge's foot are broken (7 killed). Further east, below the cypress hill, they break the band for 2 killed.
+  - Archers alone are broken after taking seven raiders down.
+
+  I can't tell from numbers alone whether that is the right weight for one company against a band almost twice its size.
+- **The cost of a raid let through.** In `#looted` the band takes 1,600 wheat and 235 dr, and burns the tax office and a house. Too harsh, or too light?
+- **The fallen.** They topple and lie, then sink into the ground. The wounded get up and limp back. Is that enough to read as a fight's cost, or does it need more?
+- **Time to get there.** From `#companies`' barracks to the west bridge is about 33 days' march. In `#battle` the companies only just get there before the band. The threat gives a couple of months' warning, so there is time if you act when it comes, but not if you wait until the band is on the map. Does that feel right?
+- **Hirelings' price.** A company costs 300 or 450 dr, then 144 dr a month. Is that the right "in a pinch" cost?
+
+### Known rough edges
+- **Hirelings walking in** are counted "at its barracks" on their company's row ("Walking in from the edge of your land (16 men) · at its barracks"). Its summary counts hirelings twice: once under Hoplites or Archers, and again under Hirelings.
+- **Close quarters.** Men in a fight keep about a quarter of a tile apart. A crowd at the bridge's foot still overlaps a little.
+- **The dead fade** into the ground after a few days; no one carries them home.
+- **Mourning stays at home:** the shrine and the theatre don't mark it (as the spec says).
+- **Breaking a band.** A band broken at the bridge may already have set a building alight on its way in.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080, before (slice 23 with its review) and after. The machine was busy throughout with another thread's build and tests, so the frame work is noisy; I measured the old and new builds taking turns.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 366, all passing | 376, all passing |
+| Download (gzipped) | 2,101 KB: the game 476 KB, the prepared towns 1,625 KB | 2,223 KB: the game 486 KB, the prepared towns 1,737 KB (three more) |
+| First load (bare link) | ready at 1.9 s, first frame at 2.9 s | ready at 1.1 s, first frame at 1.7 s (the page does the same work as before; load times move with the machine) |
+| Every demo's load | 91 demos, median 1.9 s, slowest 2.4 s (slice 23's figures) | 94 demos, median 2.1 s. `#food` (3.2 s) and `#vendor` (3.0 s) went over 3 s on the busy machine, but match the old build when measured side by side |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | the same |
+| `#raiders` | 598,249 triangles, 57 draw calls | 691,296 and 63 (its view is now over the granary, with the band drawn man by man) |
+| `#battle` | — | 923,107 triangles, 89 draw calls at opening; 783,042 and 70 close in on the fight (29 raiders, 13 arrows in the air) |
+| Work a frame before drawing | `#town` 14.7 / 11.2 ms, `#raiders` 11.7 / 14.4, `#companies` 14.8 / 11.2 (two rounds) | 19.4 / 13.4, 8.9 / 12.4, 14.1 / 10.9: within the noise. `#battle` during the fight: 23 ms |
+| A save of `#richtown` | 186 KB | 187 KB |
+
+The fight's 23 ms needs a word. Headless software rendering draws a frame or two a second, so each of its frames steps several ticks of the game at once. In Node, a whole tick of the game while a band of 29 is on the map and fighting 32 soldiers costs 1.3 to 2.2 ms. That should leave a real browser well inside its frame, but I haven't seen it on a laptop: your eye on the frame rate during a fight would settle it.
+
 ## City look, stage 1 — light, ground and materials (19 Oct)
 
 You picked look A, Sunlit terracotta. Stage 1 of its plan (`docs/plans/2026-10-19-city-look.md`) is now the game's own look in every demo: light and colour, the ground, the building materials and the sea. Trees and people are stage 2, and cornices and window frames stage 3. Add `-plain` to any link (`#goods-plain`) to see the old look side by side. Nothing in the simulation or the saves changed.

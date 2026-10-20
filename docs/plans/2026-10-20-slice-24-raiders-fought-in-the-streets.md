@@ -103,4 +103,37 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#battle`, `#loote
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits: `412fe79` (this plan), `e6d2351` (the sim, the drawing and the panels, with tests), `c9021e6` (looked at and tuned by screenshots; smoke, measure and screenshots for the new demos), `fb555f8` (the earlier raid demos' smoke checks brought up to the new raids), and the commit that fills this in with the check-in.
+
+**What changed from the design above**, all found by playing the battle in Node and looking at screenshots:
+
+- **The numbers.** Raiders strike for 16, not 18, and a hoplite takes 45 % of a blow, not 55 %. With the first numbers, hoplites alone at the bridge lost 15 men to Sparta's 29 and broke. Now two companies at the bridge break the band (15 to 17 of its 29 fall) for about one man killed and seven wounded; hoplites alone break it for two killed and two wounded on the road below the cypress hill, but are themselves broken at the bridge's foot (12 raiders fell; 7 of ours killed and 8 wounded); archers alone are broken after 7 raiders fall, and the raid goes on to the granary.
+- **A band that is fighting charges.** While any of a band's men fought last tick, the rest close at up to 6 tiles rather than 2.5, so a band's men no longer stand in the pack to be shot. Without it, archers alone beat 29 raiders untouched.
+- **An elbow's room apart.** Men in a fight (both sides) push each other apart to about a quarter of a tile, so a company doesn't pile onto one spot.
+- **No refilling mid-fight.** A company that is fighting, or broken and running, calls no new men until it is over (or back at its barracks); the barracks panel says so ("In a fight: it fills again once the fight is over"). Without it, men walking in from their homes were fed one by one into the fight: 18 archers killed in one run. A company counts its fight over once the band breaks and runs, so it refills while the beaten band is still on its way out.
+- **The ledger's line** for loot recovered reads "Taken back from Sparta’s raiders", not "Taken back from raiders".
+- **`#battle` opens about 11 days before the band reaches the edge**, not two weeks: the demo plays on until the band's march has 14 days or fewer left, and the march's steps are coarse.
+- **`#raiders`' view** now looks over the granary the band plunders (it used to look at the farm it burnt).
+- **Raiders' look.** Dark leather and iron, so a band reads apart from red-and-bronze hoplites.
+- **Saves.** The welcome back for a save from slice 22 or earlier says what raids now do.
+
+**The demo probe** (outside the repo; every demo at `99677b8` and at `c9021e6`, the whole city compared at opening and 900 ticks on): 82 demos are identical. `#threat`, `#raid`, `#raiders` and `#aftermath` changed on purpose (the band's size, aim and fires). `#rivals`, `#rivalsmap` and `#rivalstreet` have the same people and money at opening and 900 ticks on; only the threat's line differs, now saying the band's size. `#battle`, `#looted` and `#hirelings` are new.
+
+**Old saves.** The slice 23 fixture (`slice23-companies`, version 22, a company mid-march) loads at version 23 and plays on (test).
+
+**Measured** (headless Chromium, software WebGL, 1920 × 1080, while another thread's build and tests ran on the same four cores):
+
+| What | Before (`99677b8`) | After |
+|---|---|---|
+| Tests | 366 in 31 files, all passing | 376 in 32 files, all passing |
+| Bundle | 65 files, 10,024 KB raw, 2,101 KB gzipped (the game 476 KB, the prepared towns 1,625 KB) | 68 files, 10,624 KB raw, 2,223 KB gzipped (the game 486 KB, the prepared towns 1,737 KB: three more) |
+| First load (bare link) | ready at 1,909 ms, first frame at 2,922 ms | ready at 1,137 ms, first frame at 1,729 ms |
+| Every demo's load | lost to a container restart before it finished; slice 23's: 91 demos, median 1.9 s, slowest 2.4 s, none over 3 s | 94 demos, median 2.1 s; over 3 s: `#food` 3.2 s, `#vendor` 3.0 s. Measured again side by side with the old build: `#food` is the first page a fresh browser opens, 4.2 s in both builds, and 1.7 / 1.8 s on a second round; `#vendor` 2.3 / 2.1 s before and 2.5 / 2.0 s after. The load is unchanged; the machine was busy |
+| `#town` | 799,168 triangles, 83 draw calls | the same |
+| `#richtown` | 910,707 triangles, 95 draw calls; a save 186 KB | the same; a save 187 KB |
+| `#raiders` | 598,249 triangles, 57 draw calls (the farm); ready at 1,807 ms | 691,296 triangles, 63 draw calls (its view now over the granary: the band of 32 drawn man by man, and the fires); ready at 1,944 ms |
+| `#battle` | — | 923,107 triangles, 89 draw calls at opening; in the fight, close in, 783,042 and 70, with 29 raiders, 27 of them fighting and 13 arrows in the air; ready at 2,174 ms |
+| `#looted`, `#hirelings` | — | 719,305 / 67 and 831,175 / 78; ready at 2,682 and 1,998 ms |
+| Work a frame before drawing (two rounds each, old and new builds taking turns) | `#town` 14.7 / 11.2 ms, `#raiders` 11.7 / 14.4, `#rivals` 16.5 / 11.2, `#barracks` 10.8 / 10.7, `#companies` 14.8 / 11.2 | 19.4 / 13.4, 8.9 / 12.4, 13.3 / 16.8, 9.8 / 10.5, 14.1 / 10.9; `#battle` 2.0 / 1.4 at opening, 23.3 ms in the fight (28, then 17 raiders fighting; one run) |
+
+The machine's load average was 11 to 12 on four cores throughout (another thread's build and tests), so the frame work moves by several milliseconds from round to round; the old and new builds are within that. The fight's 23 ms is a frame at normal speed in headless software rendering, which draws a frame or two a second, so each frame steps several ticks; in Node a whole tick of the simulation while the band is on the map, the fight included, costs about 1.3 to 2.2 ms (29 raiders and 32 soldiers) on the same busy machine.
