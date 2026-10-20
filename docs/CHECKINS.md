@@ -43,7 +43,7 @@ What breaks, or moves: nothing you had is lost.
    - Open Athens' Loans tab: 6% over 15 months, as the archon is generous.
    - Open Sparta's: the king won't lend to a city he barely knows.
    - Accept one, run it for a week, and watch the coin come in. Then look at the chip and the Money tab, and try "Repay now".
-2. Open `#lend`. It is `#rivals`' town in November 746 BC, with nearly 7,000 dr. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
+2. Open `#lend`. It is `#rivals`' town in November 746 BC, with over 6,000 dr; Sparta's raiders have just left with some of your wheat and coin. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
 3. Open `#repaid`. It is the same town a year on. You lent Athens the 2,000 dr, and on the day the archon paid: her herald is on the road with 2,220 dr, four days from your land. Run it and watch the treasury and the ledger ("Loan repaid · by Athens").
 4. Open any earlier demo (say `#rivals` or `#war`): it is the same as before.
 
