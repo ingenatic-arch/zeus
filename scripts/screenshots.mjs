@@ -161,12 +161,13 @@ const SHOTS = {
   'fire-panel': '#fire-paused',
   'fire-tip': '#fire-paused',
   'rubble-hover': '#rubble-paused',
-  'bar-1280': '#town-paused',
-  'bar-1366': '#town-paused',
-  'bar-1920': '#town-paused',
-  'bar-open-1280': '#town-paused',
-  'bar-open-1920': '#town-paused',
-  'bar-offices': '#town-paused',
+  // The control panel (a side slice) at a laptop's width and wider; with the overlays listed (panel-layers-<width>), and a lodge in hand.
+  'panel-1280': '#panel-paused',
+  'panel-1366': '#panel-paused',
+  'panel-1920': '#panel-paused',
+  'panel-layers-1280': '#panel-paused',
+  'panel-layers-1920': '#panel-paused',
+  'panel-tool': '#panel-paused',
   // Slice 13.
   trade: '#trade-paused',
   quay: '#quay-paused-shot',
@@ -966,8 +967,8 @@ for (const arg of names) {
   const [name, cam] = arg.split('@');
   const q = SHOTS[name] ?? (name.startsWith('?') || name.startsWith('#') ? name : `?cam=${name}&speed=paused&shot=1`);
   const t0 = Date.now();
-  // The build bar at a laptop's width, and with a group's row open (bar-open-<width>).
-  const bar = /^bar-(open-)?(\d+)$/.exec(name);
+  // The control panel at a laptop's width, and with the overlays listed (panel-layers-<width>).
+  const bar = /^panel-(layers-)?(\d+)$/.exec(name);
   const narrow = /-(1280|1366)$/.exec(name);
   const width = bar ? Number(bar[2]) : narrow ? Number(narrow[1]) : 0;
   await page.setViewportSize(width ? { width, height: Math.round((width * 9) / 16) } : { width: 1600, height: 900 });
@@ -976,11 +977,10 @@ for (const arg of names) {
   await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
   await page.waitForFunction(() => window.__zeus.frames > 8, null, { timeout: 120000 });
   if (name === 'help') await page.keyboard.press('?');
-  if (bar?.[1]) await page.click('.btn.tool.group[data-group="makers"]');
-  if (name === 'bar-offices') {
-    await page.keyboard.press('z');
-    await page.keyboard.press('z');
-    await page.click('.btn.tool.group[data-group="offices"]');
+  if (bar?.[1]) await page.click('.boss[data-boss="layers"]');
+  if (name === 'panel-tool') {
+    await page.keyboard.press('m');
+    await page.keyboard.press('m');
   }
   if (BEFORE[name]) {
     await BEFORE[name](page);

@@ -1,4 +1,5 @@
 import './ui/style.css';
+import './ui/skin.css';
 import * as THREE from 'three';
 import { earshot } from './audio/earshot';
 import { Sound, type Cue } from './audio/sound';
@@ -35,7 +36,7 @@ import { TILE_ROAD, type Building, type Herd, type Walker, type WallPiece } from
 import { wallAt } from './sim/walls';
 import { wallStatus } from './sim/wallstatus';
 import { Sim, undoRefusal } from './sim/sim';
-import { BuildBar, pointerTip } from './ui/buildbar';
+import { pointerTip } from './ui/buildbar';
 import { Floaters } from './ui/floaters';
 import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
@@ -46,7 +47,8 @@ import { giftNews, giftWords } from './sim/diplomacy';
 import { giftOf, position } from './sim/walk';
 import { caravanOf, caravansOnMap, caravanYard, routeNews, routeOf, tradersNews, visitorOnMap, type RouteKind, type TraderNews } from './sim/routes';
 import { SaveMenu } from './ui/saveMenu';
-import { SidePanel } from './ui/sidepanel';
+import { PANEL_ICONS, SidePanel } from './ui/sidepanel';
+import { prepareSkin } from './ui/skin';
 import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
@@ -79,6 +81,8 @@ interface Probe {
   /** Whether the demo opened from its town prepared at build time (slice 22), and how long fetching it took (before startMs). */
   prepared?: boolean;
   fetchMs?: number;
+  /** How long making the interface's materials took (fonts, tiles, frames), in ms, alongside the fetch. */
+  skinMs?: number;
   /** Every demo's token (for the measurements' load of each). */
   demos: string[];
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
@@ -341,7 +345,7 @@ function start(preparedTown: string | null): void {
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   // The bare link opens on the coast with a welcome card (which carries the controls line itself).
   const welcoming = !demo && !loaded && !shot;
-  const corner = buildCorner(ui, () => rig.faceNorth(), !shot && !demo?.tool && !welcoming);
+  const corner = buildCorner(ui, !shot && !demo?.tool && !welcoming);
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
@@ -362,8 +366,6 @@ function start(preparedTown: string | null): void {
   tools.onChange((t) => {
     if (t) orders.select(0);
   });
-  const bar = new BuildBar(ui, (t) => tools.select(t), () => tools.undo(), (o) => overlay.toggle(o));
-  tools.onChange((t) => bar.showTool(t));
   // Picking a tool puts the welcome card away.
   tools.onChange((t) => {
     if (t) welcomeCard?.dismiss();
@@ -594,14 +596,8 @@ function start(preparedTown: string | null): void {
   muteBtn.addEventListener('click', () => sound.toggle());
   corner.el.insertBefore(muteBtn, corner.el.firstChild);
 
-  // The side panel down the right: the minimap and the city's information in tabs, open to begin with on a wide
-  // window; its switch goes beside the mute and saves buttons (they sit over the panel's head while it shows).
-  const sideBtn = document.createElement('button');
-  sideBtn.className = 'btn side-btn';
-  sideBtn.setAttribute('aria-label', 'Side panel');
-  sideBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.2" fill="none" stroke="#7a5c3c" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="#7a5c3c" stroke-width="1.6"/><path d="M16.6 8.4h2.4M16.6 11h2.4M16.6 13.6h2.4" stroke="#c8643b" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  sideBtn.addEventListener('click', () => side.toggle());
-  corner.el.insertBefore(sideBtn, corner.el.firstChild);
+  // The control panel down the right: the minimap with road, clear, undo and the overlays round it, then a tab for
+  // each kind of building, with its buildings and that part of the city's state.
   const side = new SidePanel(ui, map, {
     goTo: (x, z, jump) => {
       stopFollow();
@@ -609,6 +605,9 @@ function start(preparedTown: string | null): void {
       if (jump) rig.jumpTo({ ...v, x, z });
       else rig.flyTo({ ...v, x, z });
     },
+    faceNorth: () => rig.faceNorth(),
+    tool: (t) => tools.select(t),
+    undo: () => tools.undo(),
     overlay: (m) => overlay.toggle(m),
     overlayMode: () => overlay.mode,
     ledger: () => ledger.toggle(true),
@@ -627,13 +626,9 @@ function start(preparedTown: string | null): void {
       rig.flyTo({ ...v, x: c.x, z: c.z, dist: Math.min(v.dist, 34) });
     },
     selected: () => orders.selected,
-    toggled: (open) => {
-      sideBtn.classList.toggle('on', open);
-      sideBtn.setAttribute('aria-pressed', String(open));
-      sideBtn.title = open ? 'Hide the side panel (the map and the city’s goods, people, services and money)' : 'Show the side panel: the map and the city’s goods, people, services and money';
-      resize();
-    },
-  }, innerWidth >= 1200);
+    toggled: () => resize(),
+  });
+  tools.onChange((t) => side.showTool(t));
 
   // The welcome card on the bare link.
   const newest = saves.newest();
@@ -1842,7 +1837,7 @@ function start(preparedTown: string | null): void {
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     updateFollow();
     overlay.update(s, time);
-    bar.showOverlay(overlay.mode);
+    side.showOverlay(overlay.mode);
     legend.hidden = overlay.mode !== 'missing' && overlay.mode !== 'variety';
     if (!legend.hidden && legendFor !== overlay.mode) {
       legendFor = overlay.mode as string;
@@ -1872,8 +1867,7 @@ function start(preparedTown: string | null): void {
     topbar.showDate(sim.date);
     topbar.showCity(s.population, s.money, time);
     const why = undoRefusal(s);
-    bar.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
-    corner.setHeading(rig.view.yaw);
+    side.setUndo(why === '', why === 'Nothing to undo' ? '' : why);
     // What frames cost on the main thread before drawing (the sim's steps and every view's update), summed.
     probe.updateMs += performance.now() - jsStart;
     drewMap = false;
@@ -1905,6 +1899,8 @@ async function boot(): Promise<void> {
   const l = readLaunch(location.search, location.hash, DEMOS, VIEWS);
   const t0 = performance.now();
   let town: string | null = null;
+  // The interface's materials are made while the town is fetched.
+  const skin = prepareSkin(PANEL_ICONS).then((ms) => (probe.skinMs = ms));
   const load = l.demo && DEMOS[l.demo]?.setup && Object.hasOwn(PREPARED, l.demo) ? PREPARED[l.demo] : undefined;
   if (load) {
     try {
@@ -1914,6 +1910,7 @@ async function boot(): Promise<void> {
     }
     probe.fetchMs = performance.now() - t0;
   }
+  await skin;
   start(town);
 }
 // Let the loading card paint before the coast is shaped.
