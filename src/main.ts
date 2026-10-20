@@ -51,7 +51,8 @@ import { ArmyChip } from './ui/armychip';
 import { DebtsChip } from './ui/debtschip';
 import { debtsChip as debtsNow } from './sim/loans';
 import { Orders } from './game/orders';
-import { companyName, companyOf, doingWords, kindWord, menOf, strength } from './sim/army';
+import { companyOf, doingWords, menOf, strength } from './sim/army';
+import { companyWords, foeDoing } from './sim/battle';
 import { soldierStatus } from './sim/armystatus';
 import { Welcome } from './ui/welcome';
 import { TopBar } from './ui/topbar';
@@ -210,6 +211,10 @@ interface Probe {
   army?: () => { selected: number; hint: string; companies: Array<{ id: number; kind: string; order: string; x: number; z: number; men: number; ready: number; screen: { x: number; y: number } | null }> };
   /** Take a company's banner in hand (0: let go). */
   selectCompany?: (id: number) => void;
+  /** Slice 24: send a player's command (as the panel would), play the city on a number of ticks at once, and the fight as it stands. */
+  order?: (c: Parameters<Sim['enqueue']>[0]) => void;
+  skip?: (ticks: number) => void;
+  battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
   /** The homes a soldier comes from (slice 23). */
@@ -676,8 +681,8 @@ function start(preparedTown: string | null): void {
     if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
       changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
     }
-    // …and one saved before loans (slice 23 or older): rulers lend and borrow now.
-    if (loaded.from !== undefined && loaded.from <= 22 && sim.state.world.routes.length > 0) {
+    // …and one saved before loans (slice 24 or older): rulers lend and borrow now.
+    if (loaded.from !== undefined && loaded.from <= 23 && sim.state.world.routes.length > 0) {
       changed += ' · Loans both ways now: ask a ruler to lend you coin, or lend them yours, on the Loans tab of their page on the map of Greece (Tab).';
     }
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
@@ -717,6 +722,25 @@ function start(preparedTown: string | null): void {
     }
     if (!soldier) return { company: 0, soldier: 0 };
     return { company: sim.state.army.soldiers.find((x) => x.id === soldier)?.company ?? 0, soldier };
+  };
+  /** The raider nearest a screen point (within a few pixels), or 0. */
+  const foeNear = (sx: number, sy: number): number => {
+    const r = canvas.getBoundingClientRect();
+    let best = 0;
+    let bd = 14 * 14;
+    const v = new THREE.Vector3();
+    for (const [id, pos] of city.walkers.foeAt) {
+      v.copy(pos).setY(pos.y + 0.24).project(camera);
+      if (v.z > 1) continue;
+      const dx = r.left + (v.x * 0.5 + 0.5) * r.width - sx;
+      const dy = r.top + (-v.y * 0.5 + 0.5) * r.height - sy;
+      const d = dx * dx + dy * dy;
+      if (d < bd) {
+        bd = d;
+        best = id;
+      }
+    }
+    return best;
   };
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
   const walkerNear = (sx: number, sy: number): number => {
@@ -810,8 +834,12 @@ function start(preparedTown: string | null): void {
     }
     if (pickedArmy.company) {
       const co = companyOf(sim.state, pickedArmy.company);
-      if (co) return showStatus({ title: `The banner of ${companyName(co)} of ${kindWord(co.kind)} · ${menOf(sim.state, co).length} of ${co.want} men`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
+      if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
     }
+    // A raider (each of a band's men is a figure of his own).
+    const foe = foeNear(sx, sy);
+    const f = foe ? sim.state.army.foes.find((o) => o.id === foe) : undefined;
+    if (f) return showStatus(foeDoing(sim.state, f), sx, sy);
     const c = walkerNear(sx, sy);
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
     const ws = w ? walkerStatus(sim.state, w) : null;
@@ -1161,8 +1189,9 @@ function start(preparedTown: string | null): void {
   resize();
 
   probe.info = () => ({
-    triangles: renderer.info.render.triangles,
-    calls: renderer.info.render.calls,
+    // (With the finish on, what the scene's own pass drew: the renderer's count after the chain is only its last full-screen pass.)
+    triangles: finish ? finish.info().triangles : renderer.info.render.triangles,
+    calls: finish ? finish.info().calls : renderer.info.render.calls,
     geometries: renderer.info.memory.geometries,
     textures: renderer.info.memory.textures,
   });
@@ -1478,6 +1507,17 @@ function start(preparedTown: string | null): void {
     };
   };
   probe.selectCompany = (id) => takeBanner(id);
+  probe.order = (c) => orders.send(c);
+  probe.skip = (n) => sim.run(n);
+  probe.battle = () => {
+    const a = sim.state.army;
+    const up = a.foes.filter((f) => f.state !== 'fallen');
+    const fight = up.filter((f) => f.state === 'fight');
+    const r = sim.state.world.raids.find((x) => x.phase === 'raiding') ?? sim.state.world.raids.at(-1);
+    const near = fight.length ? fight : up;
+    const centre = near.length ? { x: near.reduce((s, f) => s + f.x, 0) / near.length, z: near.reduce((s, f) => s + f.z, 0) / near.length } : null;
+    return { foes: up.length, fighting: fight.length, fallen: r?.fallen ?? 0, arrows: a.arrows.length, broke: r?.broke ?? false, killed: r?.killed ?? 0, wounded: r?.wounded ?? 0, centre, news: a.news.map((n) => n.line) };
+  };
   probe.showPanel = (id) => panel.show(id);
   probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
   probe.screenOf = (x, z) => {

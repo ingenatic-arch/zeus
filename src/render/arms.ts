@@ -230,7 +230,7 @@ export function barracksModel(): THREE.BufferGeometry {
 // The soldiers' looks, for the folk's merged meshes (about 0.45 tall, facing +x; the tunic takes the instance's colour).
 
 /** A hoplite: bronze helmet and crest, breastplate, a round shield in the city's colour held before him, a spear upright. `armed` false: a man walking in, with his bedroll and no armour yet. */
-export function hopliteLook(armed: boolean): THREE.BufferGeometry {
+export function hopliteLook(armed: boolean, shield: string = CITY_COLOUR, boss: string = CITY_TRIM): THREE.BufferGeometry {
   const parts: TPart[] = [
     leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
     leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
@@ -250,8 +250,8 @@ export function hopliteLook(armed: boolean): THREE.BufferGeometry {
   parts.push({ geo: new THREE.BoxGeometry(0.15, 0.06, 0.018).translate(-0.01, 0.45, 0), color: PAL.crest });
   // The shield before his left side, face to the front; its boss in the city's trim.
   parts.push({ geo: new THREE.CylinderGeometry(0.105, 0.105, 0.016, 12).rotateZ(Math.PI / 2).translate(0.075, 0.24, -0.035), color: PAL.bronze });
-  parts.push({ geo: new THREE.CylinderGeometry(0.09, 0.09, 0.018, 12).rotateZ(Math.PI / 2).translate(0.078, 0.24, -0.035), color: CITY_COLOUR });
-  parts.push({ geo: new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6).rotateZ(Math.PI / 2).translate(0.08, 0.24, -0.035), color: CITY_TRIM });
+  parts.push({ geo: new THREE.CylinderGeometry(0.09, 0.09, 0.018, 12).rotateZ(Math.PI / 2).translate(0.078, 0.24, -0.035), color: shield });
+  parts.push({ geo: new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6).rotateZ(Math.PI / 2).translate(0.08, 0.24, -0.035), color: boss });
   // The spear upright in his right hand.
   parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.13, 4).rotateX(-0.3).translate(0.03, 0.24, 0.07), color: PAL.skin });
   parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.006, 0.74, 3).translate(0.05, 0.36, 0.085), color: PAL.wood });
@@ -282,3 +282,8 @@ export function archerLook(): THREE.BufferGeometry {
 /** The tunics: hoplites in the city's deep red, archers in ochre, each company a shade of its own. */
 export const HOPLITE_TUNIC = '#9a3a2c';
 export const ARCHER_TUNIC = '#b58a3e';
+/** Hirelings in their own colours (slice 24): Cretan archers in green, Arcadian hoplites in blue with a blue shield and a white boss. */
+export const CRETAN_TUNIC = '#4f7a3a';
+export const ARCADIAN_TUNIC = '#38558a';
+export const ARCADIAN_SHIELD = '#2e4a7e';
+export const ARCADIAN_BOSS = '#e8e2d0';

@@ -23,6 +23,8 @@ import type { Building, BuildingKind, Ledger, LedgerKind, SimState } from './sta
 export const WAGE = 2;
 /** What a soldier is paid on the first of the month (army.ts), after the workplaces' wages. */
 export const SOLDIER_PAY = 3;
+/** A hireling's pay a month (slice 24): three times a citizen soldier's. */
+export const HIRED_PAY = 3 * SOLDIER_PAY;
 
 /** The month (since the founding) a tick falls in. */
 export const monthOf = (tick: number): number => Math.floor(tick / TICKS_PER_MONTH);
@@ -134,15 +136,22 @@ export function settle(s: SimState): void {
     }
   }
   // Then the soldiers, company by company, each in full or not at all.
+  // (Hirelings on their own line.)
   for (const c of s.army.companies) {
     if (c.owed <= 0 || payable(s) < c.owed) continue;
-    pay(s, -c.owed, 'soldiers', 'soldiers', c.owed / SOLDIER_PAY);
+    if (c.hired) pay(s, -c.owed, 'hirelings', 'pay', c.owed / HIRED_PAY);
+    else pay(s, -c.owed, 'soldiers', 'soldiers', c.owed / SOLDIER_PAY);
     c.owed = 0;
+  }
+  // Then what dismissed companies were still owed (slice 23's review: dismissing forgot it).
+  if (s.army.owed > 0 && payable(s) >= s.army.owed) {
+    pay(s, -s.army.owed, 'soldiers', 'soldiers', s.army.owed / SOLDIER_PAY);
+    s.army.owed = 0;
   }
 }
 
 /** Soldiers' pay owed and unpaid this month (drachmas). */
-export const soldiersOwed = (s: SimState): number => s.army.companies.reduce((a, c) => a + c.owed, 0);
+export const soldiersOwed = (s: SimState): number => s.army.companies.reduce((a, c) => a + c.owed, s.army.owed);
 
 /** Wages owed and unpaid this month: how much, and at how many workplaces. */
 export function owedWages(s: SimState): { owed: number; places: number; workers: number } {

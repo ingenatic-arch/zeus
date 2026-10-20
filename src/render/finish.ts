@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { col, PAL } from './palette';
@@ -470,6 +471,21 @@ const GRADE = {
 
 export interface FinishPost {
   render(): void;
+  /** What the scene's own pass drew last frame (the post-processing's full-screen passes left out), for the budgets. */
+  info(): { triangles: number; calls: number };
+}
+
+/** A pass that draws nothing: it notes what the renderer has drawn so far this frame (the scene's pass, before the finish's own). */
+class Tally extends Pass {
+  readonly seen = { triangles: 0, calls: 0 };
+  constructor() {
+    super();
+    this.needsSwap = false;
+  }
+  render(renderer: THREE.WebGLRenderer): void {
+    this.seen.triangles = renderer.info.render.triangles;
+    this.seen.calls = renderer.info.render.calls;
+  }
 }
 
 /**
@@ -494,6 +510,9 @@ export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: light ? 0 : 4 }));
   composer.setPixelRatio(1);
   composer.addPass(new RenderPass(scene, camera));
+  // (The renderer's own count is reset at every draw, so after the chain it says only what the last full-screen pass drew: one triangle.)
+  const tally = new Tally();
+  composer.addPass(tally);
   if (!light) addDepth(composer, scene, camera, size);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE);
@@ -514,8 +533,13 @@ export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene
         composer.setSize(size.x, size.y);
         grade.uniforms.uRes.value.copy(size);
       }
+      const auto = renderer.info.autoReset;
+      renderer.info.autoReset = false;
+      renderer.info.reset();
       composer.render();
+      renderer.info.autoReset = auto;
     },
+    info: () => ({ ...tally.seen }),
   };
 }
 

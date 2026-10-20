@@ -31,7 +31,8 @@ import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
 import { loanCommand, stepLoans } from './loans';
 import { bandsAt, moveRaider, sheltering, stepRaids } from './raids';
-import { barracksGone, dismiss, freshArmy, raise, sendBanner, stepArmy } from './army';
+import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } from './army';
+import { stepBattle } from './battle';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -196,6 +197,8 @@ export class Sim {
     stepDiplomacy(s);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
+    // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
+    stepBattle(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -275,6 +278,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'raise':
       if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);
+      break;
+    case 'hire':
+      if (typeof c.barracks === 'number' && typeof c.kind === 'string') hire(s, map, c.barracks, c.kind);
       break;
     case 'dismiss':
       if (typeof c.company === 'number') dismiss(s, map, c.company);

@@ -113,6 +113,8 @@ function storyLine(f: Family, e: Story, i: number): string {
       // Each family that left together has its own line.
       if (e.need === 'tax') return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}: the taxes were too harsh` : `${who} moved away: the taxes were too harsh`;
       return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
+    case 'fell':
+      return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'} in the streets, and the house mourned him`;
   }
 }
 

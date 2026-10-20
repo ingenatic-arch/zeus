@@ -298,7 +298,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'borrowed', 'repaid', 'lent', 'repayment', 'returned'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',

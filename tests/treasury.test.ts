@@ -293,8 +293,8 @@ describe('the demo towns and money', () => {
       d.setup(sim);
       expect(owed, name).toBe(0);
     }
-    // Every demo's town is played forward from the founding: a few seconds in all. (Slice 27: three more, #lend's and #repaid's a
-    // year or two of #rivals' town further on, so a busy machine can take over three minutes.)
+    // Every demo's town is played forward from the founding (slice 24: about a hundred demos, some with years of history; a few minutes on a busy machine;
+    // slice 27: three more, #lend's and #repaid's a year or two of #rivals' town further on).
   }, 400000);
 
   // Since slice 10 #town runs three wheat farms, not seven (it ate about 170 of the 1,070 measures they grew), and pays an

@@ -325,4 +325,20 @@ describe('old saves', () => {
     sim.run(TICKS_PER_MONTH);
     expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
   }, 60000);
+
+  it('a slice 24 save (version 23, Sparta’s band on its way) loads with no loans and plays on', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/slice24-battle.save.json.gz')).toString();
+    expect(JSON.parse(text).state.version).toBe(23);
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    const s = got.file.state;
+    expect(s.version).toBe(SIM_STATE_VERSION);
+    expect(s.world.loans).toEqual([]);
+    expect(s.world.nextLoan).toBe(1);
+    expect(s.world.raids.length).toBe(1);
+    const sim = new Sim();
+    sim.state = s;
+    sim.run(TICKS_PER_MONTH);
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+  }, 60000);
 });

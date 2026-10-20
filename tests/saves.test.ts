@@ -97,6 +97,19 @@ describe('a save carries on identically', () => {
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
 
+  it('in #hirelings, once the Cretan archers have been hired and paid (their fee and pay are ledger lines of their own)', () => {
+    const a = demo('hirelings');
+    const barracks = a.state.buildings.find((x) => x.kind === 'barracks');
+    if (!barracks) throw new Error('no barracks');
+    a.enqueue({ type: 'hire', barracks: barracks.id, kind: 'cretan' });
+    a.run(2 * TICKS_PER_MONTH);
+    expect([...a.state.ledger.now, ...a.state.ledger.last].some((l) => l.kind === 'hirelings')).toBe(true);
+    const b = reload(a);
+    a.run(600);
+    b.run(600);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+  });
+
   it('in #town: a few hundred people, every kind of building and walker', () => {
     const a = demo('town');
     a.run(37);

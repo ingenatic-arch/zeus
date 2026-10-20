@@ -409,6 +409,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     if (down && s.tick - down.tick < recent && (!up || up.tick < down.tick)) add(-1, `Lost their ${levelName(down.level + 1, '')} lately`);
     else if (up && s.tick - up.tick < recent) add(1, `Moved up to ${levelName(up.level)} lately`);
     if (s.tick - f.came < TICKS_PER_MONTH) add(1, 'Glad of a place of their own');
+    // A man of the house fallen in battle: they mourn him for a season.
+    const fell = lastOf(f, 'fell');
+    if (fell && s.tick - fell.tick < recent) add(-2, `Mourning ${fell.names[0]}, who fell fighting ${fell.names[1] ?? 'raiders'}`);
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
   // A few days from giving up: as low as it goes.
