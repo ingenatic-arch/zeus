@@ -182,8 +182,8 @@ export class ArmyView {
     const now = s.tick + a;
     for (const x of army.soldiers) {
       const w = this.was.get(x.id);
-      // (The healing are indoors at the barracks.)
-      if (!w || x.state === 'healing') continue;
+      // (The healing are indoors at the barracks; the away are off in Greece: slice 28.)
+      if (!w || x.state === 'healing' || x.state === 'away') continue;
       let px = w.px + (w.x - w.px) * a;
       let pz = w.pz + (w.z - w.pz) * a;
       const down = x.state === 'fallen' || (x.state === 'wounded' && x.path.length === 0);
@@ -229,7 +229,7 @@ export class ArmyView {
     }
     for (const id of this.soldierAt.keys()) if (!live.has(id)) this.soldierAt.delete(id);
     this.flights(army.arrows, now);
-    this.banners(army.companies, a, time);
+    this.banners(army.companies.some((c) => c.order === 'away') ? army.companies.filter((c) => c.order !== 'away') : army.companies, a, time);
   }
 
   /** The tunic's colour: the kind's (or the hirelings' own), a shade of its own for each company. */

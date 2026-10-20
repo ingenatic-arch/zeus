@@ -43,7 +43,8 @@ function morphNode(cur: Node, w: Node): void {
     return;
   }
   if (!(cur instanceof Element) || !(w instanceof Element)) return;
-  for (const a of [...cur.attributes]) if (!w.hasAttribute(a.name)) cur.removeAttribute(a.name);
+  // (A folded section the player opened stays open: its `open` is theirs, not the panel's.)
+  for (const a of [...cur.attributes]) if (!w.hasAttribute(a.name) && !(a.name === 'open' && cur instanceof HTMLDetailsElement)) cur.removeAttribute(a.name);
   for (const a of [...w.attributes]) if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value);
   // A checkbox's ticked state and a button's disabled one are properties as well as attributes.
   if (cur instanceof HTMLInputElement && cur.checked !== w.hasAttribute('checked')) cur.checked = w.hasAttribute('checked');

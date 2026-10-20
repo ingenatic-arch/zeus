@@ -16,6 +16,7 @@ import { tyreShip } from '../../sim/world';
 import { caravansOnMap, routeWay, visitorOnMap } from '../../sim/routes';
 import { giftOnMap } from '../../sim/diplomacy';
 import { raidOnMap } from '../../sim/raids';
+import { expeditionMen, expeditionOnMap } from '../../sim/expeditions';
 import { armiesOnMap } from '../../sim/rivals';
 import { FESTIVALS, festivalOn } from '../../sim/festivals';
 import { fieldColour, newsHtml } from '../../ui/rivals';
@@ -419,7 +420,8 @@ export class GreeceMap {
     const p = this.pick(sx, sy);
     // (A trader opens its city's page.)
     if (p?.startsWith('trav:') && !this.state) return;
-    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? cityOfTraveller(this.state as SimState, p.slice(5)) : (p as CityId | null));
+    // (Your expedition opens its city's Loans tab, where its report is: slice 28.)
+    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? cityOfTraveller(this.state as SimState, p.slice(5)) : (p as CityId | null), p?.startsWith('trav:exp-') ? 'loans' : undefined);
   }
 
   private drawCard(): void {
@@ -624,6 +626,31 @@ export class GreeceMap {
         m.rotation.set(0, at.gathering ? 0 : -Math.atan2(p.dz * dir, p.dx * dir), 0);
       }
     }
+    // Your expedition (slice 28): a little army in your colours along the road to their city and home again; crossed swords while it fights there.
+    for (const e of s.world.expeditions) {
+      const at = expeditionOnMap(e, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(e.way));
+      const L = lineLength(line);
+      const men = Math.max(4, expeditionMen(s, e));
+      const { colour, trim } = PLACES.home;
+      const m = piece(`exp-${e.id}`, () => armyModel(colour, trim, men), armyBody(men));
+      const dir = at.homeward ? -1 : 1;
+      const k = Math.min(far, ARMY_FAR_MOST);
+      // (Drawn larger from afar, it grows back from its head, as the rivals' armies do; at their city it stands a little short of it.)
+      const grow = (k - 1) * 2.1 * armyBody(men)[1];
+      const p = alongLine(line, Math.max(1.2, Math.min(L - (at.fighting ? 2.2 : 1.2), at.along - dir * grow)));
+      m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+      m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(2.1 * k);
+      if (at.fighting) {
+        const sw = piece(`exp-${e.id}-swords`, () => swordsModel(), [-0.45, 0.45]);
+        const q = alongLine(line, Math.max(1.2, L - 1.2));
+        sw.position.set(q.x, this.relief.heightAt(q.x, q.z) + 0.25 + Math.sin(time * 1.6) * 0.06, q.z);
+        sw.rotation.set(0, time * 0.5, 0);
+        sw.scale.setScalar(1.15 * far);
+      }
+    }
     // Wars between rivals: each side's army (or fleet) out on the way between them, standing facing the other, or going home; crossed swords where they meet while it lasts; the way drawn red, closed.
     const red = new Set<string>();
     for (const x of s.world.wars) {
@@ -674,7 +701,7 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('exp-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);

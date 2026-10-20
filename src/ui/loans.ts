@@ -7,13 +7,21 @@
  * ruler's offer or ask, an `answer`).
  */
 import { PLACES, type CityId } from '../map/greece';
-import { TICKS_PER_MONTH } from '../sim/clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { dayWords } from '../sim/favours';
+import { expeditionLine, expeditionPlan, expeditionRefusal, lastExpedition } from '../sim/expeditions';
+import { raidersOf, reachesEdge } from '../sim/raids';
 import {
   ASK_SUMS,
   askRefusal,
+  COLLECT_LULL,
+  debtRefusal,
   debts,
+  demandOdds,
+  STEP_GAP,
+  timeAnswer,
+  TIME_MONTHS,
   lendRefusal,
   likelyToRepay,
   likelyWords,
@@ -38,7 +46,7 @@ import {
   whose,
   whysWords,
 } from '../sim/loans';
-import type { Deal, Loan, LoanWhy, SimState } from '../sim/state';
+import type { Deal, Expedition, Loan, LoanWhy, SimState } from '../sim/state';
 import { spendable } from '../sim/treasury';
 import { cityOf } from '../sim/world';
 import { foeNote } from './rivals';
@@ -96,7 +104,6 @@ function loanButton(act: string, label: string, attrs: Record<string, string | n
 
 /** One loan between you and a city, as it stands, for the Loans tab. */
 function loanCard(s: SimState, l: Loan): string {
-  const c = cityOf(s.world, l.city);
   const theirs = l.side === 'out';
   const head = theirs ? `${name(l.city)} owes you` : `You owe ${name(l.city)}`;
   const label = l.state === 'asking' || l.state === 'terms' ? 'Your ask' : l.state === 'offering' ? 'Your offer' : head;
@@ -109,12 +116,157 @@ function loanCard(s: SimState, l: Loan): string {
     body += `<p class="if">${esc(termsWords(l))}${l.start ? `, agreed ${esc(dayWords(l.start))}` : ''}${l.rateWhy.length ? `: ${esc(fromWords(l.rate, l.rateWhy, '%'))}` : ''}.</p>`;
   }
   if (theirs && (l.state === 'running' || l.state === 'offering' || l.state === 'sending')) body += likelyHtml(s, l.city, l.owed, l.rate);
-  if (!theirs && (l.state === 'running' || l.state === 'overdue')) {
-    const why = loanRefusal(s, l, 'repay');
-    const kept = loanMemory(c, 'repaid', 'you repaid their loan on time', s.tick).amount;
-    body += `<div class="acts">${loanButton('repay', `Repay now · ${fmt(l.owed)} dr`, { id: l.id }, why, `The whole sum, interest and all, from the treasury now; your herald takes it.${l.state === 'running' ? ` Repaid on time: ${signed(kept)} with ${name(l.city)}, and every ruler’s terms a percent better` : ''}`, 'take')}</div>`;
+  if (!theirs && (l.state === 'running' || l.state === 'overdue')) body += yourDebtHtml(s, l);
+  if (theirs && l.state === 'grace') body += graceHtml(s, l);
+  if (theirs && l.state === 'overdue') body += theirDebtHtml(s, l);
+  return `<div class="deal loan${theirs ? ' theirs' : ''}${l.state === 'overdue' || l.state === 'grace' ? ' overdue' : ''}">${LOAN_ICON}<div><b>${esc(label)}</b>${body}</div></div>`;
+}
+
+const daysTo = (s: SimState, t: number): string => {
+  const n = Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
+  return n === 1 ? '1 day' : `${n} days`;
+};
+
+/**
+ * A loan you owe (slice 28): repaying it now; holding the payment back or
+ * not; asking for more time, with the likely answer; and, unpaid on its day,
+ * the three steps the lender takes, each with its date (done, now, to come).
+ */
+function yourDebtHtml(s: SimState, l: Loan): string {
+  const c = cityOf(s.world, l.city);
+  const out: string[] = [];
+  const running = l.state === 'running';
+  const can = spendable(s);
+  if (running) {
+    // (Due within a month with too little in the treasury, or held back: say what happens on the day.)
+    const soon = l.due - s.tick <= TICKS_PER_MONTH;
+    if (l.withhold) out.push(`<p class="if no">You hold the payment back: on ${esc(dayWords(l.due))} it goes unpaid, though the treasury could pay it, and the steps below begin.</p>`);
+    else if (soon && can < l.owed) out.push(`<p class="if no">Due in ${daysTo(s, l.due)}, and the treasury can spend ${fmt(can)} dr now: ${fmt(l.owed - can)} dr short. Unpaid on the day, the steps below begin.</p>`);
+    else out.push(`<p class="if">Paid from the treasury on the day, if it can spend ${fmt(l.owed)} dr then (it can spend ${fmt(can)} dr now).</p>`);
+    if (l.withhold || (soon && can < l.owed)) out.push(stepsHtml(s, l));
+    const a = timeAnswer(s, l);
+    const no = debtRefusal(s, l, 'time');
+    const ask = no ? `<p class="if">${esc(no)}.</p>` : `<p class="if ${a.yes ? 'yes' : 'no'}">Asked for more time, ${esc(title(c))} would ${a.yes ? 'likely give it' : 'likely refuse'}: ${esc(a.why)}.</p>`;
+    out.push(ask);
+  } else {
+    out.push(stepsHtml(s, l));
   }
-  return `<div class="deal loan${theirs ? ' theirs' : ''}${l.state === 'overdue' ? ' overdue' : ''}">${LOAN_ICON}<div><b>${esc(label)}</b>${body}</div></div>`;
+  const kept = loanMemory(c, 'repaid', 'you repaid their loan on time', s.tick).amount;
+  const repayWhy = loanRefusal(s, l, 'repay');
+  const repay = loanButton('repay', `Repay now · ${fmt(l.owed)} dr`, { id: l.id }, repayWhy, `The whole sum, interest and all, from the treasury now; your herald takes it.${running ? ` Repaid on time: ${signed(kept)} with ${name(l.city)}, and every ruler’s terms a percent better` : ' It stops the next step'}`, 'take');
+  const time = running ? loanButton('time', 'Ask for more time', { id: l.id }, debtRefusal(s, l, 'time'), `${title(c)}’s envoy answers at once: granted, the day moves on and the sum grows; refused, nothing changes`, 'decline') : '';
+  const hold = l.withhold
+    ? loanButton('withhold', running ? 'Pay it on the day' : 'Pay when the treasury can', { id: l.id }, '', running ? 'Paid from the treasury on the day, if it can' : 'Paid as soon as the treasury can spend it, which stops the steps', 'decline')
+    : loanButton('withhold', 'Hold back payment', { id: l.id }, debtRefusal(s, l, 'withhold'), running ? `Not paid on the day, whatever the treasury holds: ${name(l.city)} remembers it longest (${signed(loanMemory(c, 'defaulted', '', s.tick).amount)}), Greece hears, and the steps below follow` : 'Not paid even when the treasury could: the steps go on', 'refuse');
+  out.push(`<div class="acts">${repay}${time}${hold}</div>`);
+  return out.join('');
+}
+
+/** "the king" (of a city), for lines. */
+const title = (c: ReturnType<typeof cityOf>): string => {
+  const t = (c.ruler?.title ?? '').replace(/ of .*/, '').toLowerCase();
+  return t ? `the ${t}` : name(c.id);
+};
+
+/** Your unpaid loan's three steps, each with its date and what it does (done, now, or to come). */
+function stepsHtml(s: SimState, l: Loan): string {
+  const c = cityOf(s.world, l.city);
+  const nm = name(l.city);
+  const he = c.ruler?.female ? 'she' : 'he';
+  const his = c.ruler?.female ? 'her' : 'his';
+  const step = l.state === 'overdue' ? l.step : 0;
+  const t1 = l.state === 'overdue' ? l.fell || l.due : l.due;
+  const t2 = step >= 2 ? (step === 2 ? l.stepAt : 0) : (step === 1 ? l.stepAt : t1) + STEP_GAP;
+  const t3 = step >= 3 ? l.stepAt : (step === 2 ? l.stepAt : t2) + STEP_GAP;
+  const r = l.raid ? s.world.raids.find((x) => x.id === l.raid) : undefined;
+  const way = s.world.routes.filter((x) => x.city === l.city).map((x) => (x.kind === 'land' ? 'road' : 'sea route'));
+  const ways = way.length ? `the ${way.join(' and the ')}` : `${his} routes (you have none open with ${nm})`;
+  // (Step k is done once a later one has come, now while it stands, and to come before its day.)
+  const li = (k: number, at: number, head: string, what: string): string => {
+    const cls = step > k ? 'done' : step === k ? 'now' : 'next';
+    const when = at > 0 ? (cls === 'next' ? `${dayWords(at)} (${daysTo(s, at)})` : dayWords(at)) : '';
+    return `<li class="${cls}"><span class="when">${esc(when)}</span><b>${esc(head)}</b> <span>${esc(what)}</span></li>`;
+  };
+  const heard = loanMemory(c, 'defaulted', '', s.tick).amount;
+  // Step 3, as it stands: the threat's day, the army on its way or in your city, or gone and coming again.
+  let third: string;
+  if (step >= 3 && r) {
+    if (r.ended > 0) third = `${cap(he)} sent ${his} men${r.fallen ? `, and ${r.fallen} of ${r.men} fell` : ''}. With the debt still standing, ${he} sends again about ${dayWords(r.ended + COLLECT_LULL)}.`;
+    else if (r.phase === 'threat') third = `Pay ${fmt(r.coin)} dr by ${dayWords(s.world.deals.find((d) => d.id === r.deal)?.due ?? s.tick)} (see the Ruler tab), or ${r.men} men march on your city for it.`;
+    else if (r.phase === 'raiding') third = `${r.men} of ${his} men are in your city${raidersOf(s, r)?.back ? ', leaving with what they took' : ', taking what is owed from your stores and treasury'}. They can’t be paid off now.`;
+    else third = `${r.men} men are on their way: at the edge of your land about ${dayWords(reachesEdge(s, r))}. Paying what is left turns them back.`;
+  } else {
+    third = `A threat: pay what is left within a month, or an army half again the size of a war band marches on your city to take it from your stores and treasury (it sets no fires: it comes for coin).`;
+  }
+  return `<ol class="steps">${li(1, t1, 'On the day: unpaid.', `${cap(title(c))} warns you, and remembers it longest (${signed(heard)}); every ruler hears, and every loan’s terms are dearer for three years.`)}${li(2, t2, 'Seizing.', `${cap(he)} closes ${ways} to you and seizes your goods on ${way.length > 1 ? 'them' : 'it'}: what waits for ${his} traders in your caravan yard and on your quay, and anything of yours on its way to ${nm}.${l.seized ? ` Seized so far: ${fmt(l.seized)} dr.` : ''}`)}${li(3, t3, `${cap(his)} army.`, third)}</ol>`;
+}
+
+/** A borrower's plea for more time: grant it or refuse it, each with what it does to the mood, by its day. */
+function graceHtml(s: SimState, l: Loan): string {
+  const c = cityOf(s.world, l.city);
+  const granted = loanMemory(c, 'granted', '', s.tick).amount;
+  const denied = loanMemory(c, 'denied', '', s.tick).amount;
+  return `<div class="acts">${loanButton('grant', `Grant it${worthEm(granted) ? ` ${worthEm(granted)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'grant'), `Due ${TIME_MONTHS} months from today, ${fmt(l.owed + Math.round((l.amount * 3) / 100))} dr in all`, 'take')}${loanButton('deny', `Refuse${worthEm(denied) ? ` ${worthEm(denied)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'deny'), 'The loan is overdue at once: then you can forgive it, demand it, or send your soldiers', 'refuse')}</div><p class="if">Let run out, it is overdue as if refused (without the ill feeling).</p>`;
+}
+
+/** A loan a ruler owes you, overdue: forgive it, demand it, or send your soldiers, each with what follows and the odds. */
+function theirDebtHtml(s: SimState, l: Loan): string {
+  const c = cityOf(s.world, l.city);
+  const out: string[] = [];
+  if (l.sent) {
+    const e = s.world.expeditions.find((x) => x.id === l.sent);
+    if (e) out.push(`<p class="if">${esc(expeditionLine(s, e))}.</p>`);
+    return out.join('');
+  }
+  if (l.demand > 0) {
+    const f = demandOdds(s, l);
+    out.push(`<p class="likely ${f.word}">You demanded it by ${esc(dayWords(l.demand))} (${daysTo(s, l.demand)}): <b>${f.word}</b> to pay <span class="why">(${esc(f.why)})</span></p>`);
+  }
+  const forgave = loanMemory(c, 'forgave', '', s.tick).amount;
+  const heard = loanMemory(cityOf(s.world, l.city === 'athens' ? 'corinth' : 'athens'), 'forgaveheard', '', s.tick).amount;
+  const f = demandOdds(s, l);
+  const forgive = loanButton('forgive', `Forgive it${worthEm(forgave) ? ` ${worthEm(forgave)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'forgive'), `The ${fmt(l.owed)} dr is let go: ${title(c)} is moved (${signed(forgave)}), and every other ruler who hears thinks better of you (about ${signed(heard)})`, 'take');
+  const demand = loanButton('demand', 'Demand it', { id: l.id }, debtRefusal(s, l, 'demand'), `Two months to pay. ${cap(f.word)} to pay, about ${Math.round(f.p * 100)} in 100 (${f.why}). Once only`, 'decline');
+  out.push(`<div class="acts">${forgive}${demand}</div>`);
+  if (!l.demand) out.push(`<p class="likely ${f.word}">Demanded, ${esc(name(l.city))} would be <b>${f.word}</b> to pay <span class="why">(${esc(f.why)})</span></p>`);
+  out.push(soldiersHtml(s, l.city, true));
+  return out.join('');
+}
+
+/** "about 8 in 10". */
+const oddsWords = (p: number): string => `about ${Math.max(1, Math.min(9, Math.round(p * 10)))} in 10`;
+
+/**
+ * Sending your soldiers against a city (slice 28): a raiding party or a full
+ * force, each with who would go, their strength against the city's, the odds,
+ * what it would bring and what Greece would make of it. Over a debt (the Loans
+ * tab) or without cause (the Ruler tab).
+ */
+export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
+  const c = cityOf(s.world, id);
+  const rows = (['raid', 'force'] as const).map((kind) => {
+    const p = expeditionPlan(s, id, kind);
+    const why = expeditionRefusal(s, id, kind);
+    const own = loanMemory(c, cause ? (kind === 'raid' ? 'raided' : 'forced') : kind === 'raid' ? 'raidedfree' : 'forcedfree', '', s.tick).amount;
+    const label = kind === 'raid' ? 'Send a raiding party' : 'Send a full force';
+    const who = p.companies.length ? `${p.companies.length === 1 ? '1 company' : `${p.companies.length} companies`}, ${p.men} men` : 'no company ready';
+    const against = kind === 'raid' ? `their countryside’s watch, about ${p.theirs} men` : `their garrison, about ${p.theirs} men${id === 'troy' ? ' behind walls' : ''}`;
+    const line = why && !p.companies.length ? '' : `${who} (strength ${p.ours}) against ${against}: ${oddsWords(p.odds)}. Won, it brings ${p.brings}.`;
+    const button = `<button data-loan="expedition" data-city="${id}" data-kind="${kind}" class="${kind === 'raid' ? 'send' : 'refuse'}" title="${esc(why || `${line} ${name(id)}: ${signed(own)}`)}"${why ? ' disabled' : ''}>${label}${line ? ` <small>${oddsWords(p.odds)}</small>` : ''}${worthEm(own)}</button>`;
+    return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}</li>`;
+  });
+  const why = expeditionRefusal(s, id, 'raid');
+  const block = /triremes|No way|no soldiers|no ruler/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
+  // (No soldiers at all, or no way there: only why, not two dead buttons.)
+  if (block && (!s.army.companies.length || /triremes|No way/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
+  const heard = cause ? '−3' : '−12';
+  return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}<ul class="sendlist">${rows.join('')}</ul><p class="foot">${cause ? 'They march out by the edge of your land on its side and along the road; won, what they take comes off the debt.' : `Without cause: ${esc(name(id))} will hate it, and every other ruler thinks the worse of you (${heard} each).`} The men who go are paid as ever, and some will not come back.</p></section>`;
+}
+
+/** Your latest expedition after a city: where it is, and once it has fought, its report. */
+function expeditionHtml(s: SimState, e: Expedition): string {
+  const report = e.report.length ? `<ul class="report">${e.report.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  return `<section class="expedition"><h3>${e.phase === 'done' ? 'Your last expedition' : 'Your soldiers'}</h3><p class="line">${esc(expeditionLine(s, e))}.</p>${report}</section>`;
 }
 
 /** The Loans tab of a ruled city's page. */
@@ -128,6 +280,9 @@ export function loansTabHtml(s: SimState, id: CityId): string {
   for (const d of proposed) out.push(loanDealHtml(s, d));
   const mine = w.loans.filter((l) => l.city === id && l.ended === 0 && l.state !== 'proposed');
   if (mine.length) out.push(`<section class="deals loans"><h3>Between you</h3>${mine.map((l) => loanCard(s, l)).join('')}</section>`);
+  // Your soldiers out after them, or home with their report.
+  const e = lastExpedition(s, id);
+  if (e) out.push(expeditionHtml(s, e));
   // Asking.
   const inLoan = liveLoan(w, id, 'in');
   if (!inLoan) {
@@ -233,7 +388,8 @@ export function loanEvent(e: Event, send: (c: Command) => void): boolean {
   }
   if (act === 'ask') send({ type: 'loan', act: 'ask', city, amount: Number(b.dataset.amount) });
   else if (act === 'offer') send({ type: 'loan', act: 'offer', city, amount: Number(b.dataset.amount), rate: Number(b.dataset.rate), months: Number(b.dataset.months) });
-  else if (act === 'accept' || act === 'decline' || act === 'repay') send({ type: 'loan', act, loan: Number(b.dataset.id) });
+  else if (act === 'accept' || act === 'decline' || act === 'repay' || act === 'time' || act === 'withhold' || act === 'grant' || act === 'deny' || act === 'forgive' || act === 'demand') send({ type: 'loan', act, loan: Number(b.dataset.id) });
+  else if (act === 'expedition') send({ type: 'expedition', city, kind: b.dataset.kind === 'force' ? 'force' : 'raid' });
   else return false;
   return true;
 }
@@ -243,6 +399,9 @@ export function loansTabName(s: SimState, id: CityId): string {
   const w = s.world;
   const late = w.loans.some((l) => l.city === id && l.state === 'overdue');
   if (late) return 'Loans · overdue';
+  if (w.loans.some((l) => l.city === id && l.state === 'grace')) return 'Loans · asks time';
+  // (Their own offer or ask waits on your answer: slice 27's review.)
+  if (w.deals.some((d) => d.city === id && d.state === 'open' && (d.kind === 'loanoffer' || d.kind === 'loanask'))) return 'Loans · asks you';
   const inL = liveLoan(w, id, 'in');
   const outL = liveLoan(w, id, 'out');
   if (inL?.state === 'terms') return 'Loans · terms';

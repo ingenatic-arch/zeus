@@ -11,6 +11,8 @@ import { districtAt, districtTitle } from '../map/districts';
 import { canSpare, companiesAt, COMPANY_SIZE, doingWords, HIRED_PAY, hireRefusal, HIRELINGS, menOf, payOf, PER_BARRACKS, servingHomes, strength, woundedOf, type HiredKind } from '../sim/army';
 import { companyWords } from '../sim/battle';
 import { TICKS_PER_DAY } from '../sim/clock';
+import { expeditionOf } from '../sim/expeditions';
+import { PLACES } from '../map/greece';
 import { centreOf, jobsAt } from '../sim/buildings';
 import { ARMOUR, held } from '../sim/foods';
 import type { Company, SimState } from '../sim/state';
@@ -31,6 +33,15 @@ function agoWords(ticks: number): string {
 export function whereWords(s: SimState, map: CoastMap, c: Company): string {
   if (c.hired && !s.army.soldiers.some((x) => x.company === c.id && x.state !== 'coming')) return '';
   if (c.order === 'drill') return 'at its barracks';
+  // (On an expedition, slice 28: where it is in Greece.)
+  const e = c.away ? expeditionOf(s, c.away) : undefined;
+  if (e) {
+    const name = PLACES[e.city].name;
+    if (e.phase === 'mustering') return c.order === 'away' ? `at the edge of your land, waiting for the others, for ${name}` : `on its way to the edge of your land, for ${name}`;
+    if (e.phase === 'marching') return `on the road to ${name}`;
+    if (e.phase === 'fighting') return `at ${name}`;
+    if (e.phase === 'homeward') return `on the road home from ${name}`;
+  }
   return lower(districtTitle(districtAt(map, c.x, c.z)));
 }
 
@@ -75,10 +86,10 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
       const sel = c.id === selected;
       const dismiss = c.hired ? 'They walk off the way they came; what they were owed is still paid' : 'The men walk home to their old work; their armour goes back to the stores';
       out.push(
-        `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
+        `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${c.away ? 'Away on an expedition: it takes orders again once it is home' : sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"${c.away ? ' disabled' : ''}><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
           `<p>${esc(cap(doingWords(s, c)))}${where ? ` · ${esc(where)}` : ''} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
           (c.why ? `<p class="why">${esc(c.why)}</p>` : '') +
-          `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="${dismiss}">Dismiss</button></div></li>`,
+          (c.away ? '</li>' : `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="${dismiss}">Dismiss</button></div></li>`),
       );
     }
     out.push('</ul>');

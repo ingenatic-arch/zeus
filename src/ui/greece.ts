@@ -13,12 +13,13 @@ import { WARE_NAMES } from '../sim/foods';
 import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
 import { caravansOnMap, everyOf, keptIn, routeOf, visitorOnMap, wareList } from '../sim/routes';
 import { cityHolds, PRICES, SAIL_IN, shipNews, TRADE_GOODS } from '../sim/trade';
-import { heraldWords, whose } from '../sim/loans';
-import { LOAN_ICON, loanDealHtml, loanDealShort, loansTabHtml, loansTabName } from './loans';
+import { heraldWords, seizing, whose } from '../sim/loans';
+import { expeditionLine, expeditionMen } from '../sim/expeditions';
+import { LOAN_ICON, loanDealHtml, loanDealShort, loansTabHtml, loansTabName, soldiersHtml } from './loans';
 import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRefusal, giftTo, giftValue, giftWay, giftWords } from '../sim/diplomacy';
 import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, type SendMemo, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
-import { aimWords, bandOut, daysToEdge, goodsArrive, live, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
+import { aimWords, bandOut, daysToEdge, goodsArrive, live, lootWords, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { armyCard, fieldsCard, foeNote, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
 import { waysHtml } from './routes';
@@ -177,6 +178,7 @@ function travellerHtml(s: SimState, key: string): string {
     return city ? armyCard(s, Number(n), city as CityId) : warCard(s, Number(n));
   }
   if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
+  if (key.startsWith('exp-')) return expeditionCard(s, Number(key.split('-')[1]));
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -235,11 +237,23 @@ function bandCard(s: SimState, id: number): string {
             ? `Called off: going home to ${name}`
             : `Going home to ${name}${r.took ? ` with ${fmt(r.took)} ${WARE_NAMES[r.ware]}` : ''}`;
   const pay = live(r) ? `Pay ${fmt(r.coin)} dr on ${whose} page to turn them back` : `Click for ${name}’s page`;
+  if (r.loan) return `<b>${esc(`${whose} army · ${r.men} men`)}</b><span>${esc(line.replace('to march on your city', 'to collect what you owe').replace('on your city:', 'on your city, to collect what you owe:'))}</span><span class="sub">${esc(pay)}</span>`;
   return `<b>${esc(`${whose} raiders · ${r.men} men`)}</b><span>${esc(line)}</span><span class="sub">${esc(pay)}</span>`;
+}
+
+/** The card over your expedition on the map (slice 28): who, how many, where and when; after the fight, how it went. */
+function expeditionCard(s: SimState, id: number): string {
+  const e = s.world.expeditions.find((x) => x.id === id);
+  if (!e) return '<b>Your soldiers</b>';
+  const name = PLACES[e.city].name;
+  const head = `Your ${e.kind === 'raid' ? 'raiding party' : 'army'} · ${expeditionMen(s, e)} men`;
+  const after = e.report.length ? `<span>${esc(e.report[1] ?? '')}</span>` : `<span>${esc(e.loan ? `After the ${fmt(s.world.loans.find((l) => l.id === e.loan)?.owed ?? 0)} dr ${name} owes you` : `Against ${name}, which owes you nothing`)}</span>`;
+  return `<b>${esc(head)}</b><span>${esc(expeditionLine(s, e))}</span>${after}<span class="sub">Click for ${esc(whose(e.city))} Loans tab</span>`;
 }
 
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): CityId | null {
+  if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
   if (key.startsWith('war-')) {
@@ -301,7 +315,8 @@ function meansHtml(s: SimState, id: CityId): string {
   for (const r of routes) {
     const who = r.kind === 'land' ? 'caravan' : 'ship';
     const way = r.kind === 'land' ? 'road' : 'sea route';
-    if (r.closed > 0) out.push(`<li class="bad"><b>The ${way} is closed</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off until the mood mends past hostile (${signed(HOSTILE + 1)} or better, ${HOSTILE + 1 - m} more than now). A gift can mend it.</li>`);
+    if (r.closed > 0 && seizing(s.world, id)) out.push(`<li class="bad"><b>The ${way} is closed over your unpaid debt</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off, and ${they} seizes your goods on it. It opens again once the debt is paid (the Loans tab).</li>`);
+    else if (r.closed > 0) out.push(`<li class="bad"><b>The ${way} is closed</b> (since ${formatDate(dateOfTick(r.closed))}): no ${who} sets off until the mood mends past hostile (${signed(HOSTILE + 1)} or better, ${HOSTILE + 1 - m} more than now). A gift can mend it.</li>`);
     else if (m <= COLD) out.push(`<li class="bad"><b>Cold:</b> a ${who} every ${months(everyOf(s, r))} instead of ${months(r.kind === 'land' ? 2 * TICKS_PER_MONTH : 3 * TICKS_PER_MONTH)}. At ${signed(HOSTILE)} ${they} closes the ${way}.</li>`);
     else out.push(`<li>A ${who} every ${months(everyOf(s, r))} by the ${way}. Cold (${signed(COLD)} or worse), ${they} sends them half as often again; hostile (${signed(HOSTILE)}), ${they} closes it.</li>`);
   }
@@ -465,7 +480,19 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
   const band = raidersOf(s, r);
   let head: string;
   let where: string;
-  if (r.phase === 'threat') {
+  if (r.loan) {
+    // A lender's army (slice 28): what you owe, by its day, or men come to take it.
+    if (r.phase === 'threat') {
+      head = `${cap(rulerTitle(c))} sends to collect what you owe`;
+      where = `Pay the ${coin} still owed by ${dayWords(d.due)} (${days(d.due)}). If nothing comes by then, ${r.men} of ${his} men gather at ${name} and march on your city to take it: at the ${side} edge of your land about ${dayWords(edge)}, for your stores and your treasury. They take no more than is owed, and set nothing alight.`;
+    } else if (r.phase === 'raiding') {
+      head = `${cap(whose)} men are in your city, collecting`;
+      where = band?.back ? `${r.men - r.fallen} men, leaving your land the way they came${lootWords(r) ? `, with ${lootWords(r)}` : ''}: what they carry off comes off the debt.` : `${r.men - r.fallen} men in at the ${side} edge, taking what is owed from your stores and treasury. They can’t be paid off now: fight them, or let them take it.`;
+    } else {
+      head = `${cap(whose)} army ${r.phase === 'gathering' ? 'is gathering' : 'is on the march'} to collect`;
+      where = `${r.men} men, at the ${side} edge of your land about ${dayWords(edge)} (${days(edge)}). Pay the ${coin} now and they turn back at once, wherever they are.`;
+    }
+  } else if (r.phase === 'threat') {
     head = `${cap(rulerTitle(c))} threatens your city`;
     where = `Pay ${coin}${goods ? `, or send ${goods}` : ''}, by ${dayWords(d.due)} (${days(d.due)}). If nothing comes by then, ${r.men} of ${his} men gather at ${name} and march on your city: at the ${side} edge of your land about ${dayWords(edge)}, for the fields and stores nearest it.`;
   } else if (r.phase === 'raiding') {
@@ -479,7 +506,7 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     where = `${r.men} men, at the ${side} edge of your land about ${dayWords(edge)} (${days(edge)}). Pay ${coin} now and they turn back at once, wherever they are.`;
   }
   const out = bandOut(r);
-  const coinTip = out ? `Paid at once, and the band turns back: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}` : `A herald takes it to ${name}: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}`;
+  const coinTip = r.loan ? `Repays the loan in full now: the steps stop, and ${his} routes open again${out ? '; the army turns back' : ''}` : out ? `Paid at once, and the band turns back: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}` : `A herald takes it to ${name}: ${cap(peace.why)}, ${signed(peace.amount)}, ${fadeWords(peace.fade)}`;
   const button = (act: 'send' | 'goods' | 'refuse', label: string, worth: number | undefined, tip: string): string => {
     const why = map ? answerRefusal(s, map, d, act) : '';
     return `<button data-deal="${d.id}" data-act="${act}" class="${act === 'goods' ? 'send' : act}" title="${esc(why || tip)}"${why ? ' disabled' : ''}>${esc(label)}${worthEm(worth)}</button>`;
@@ -487,7 +514,7 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
   const acts =
     d.gift || !live(r) || band?.back
       ? ''
-      : `<div class="acts">${button('send', `Pay ${coin}`, peace.amount, coinTip)}${r.alt >= 0 ? button('goods', `Send ${goods}`, peace.amount, `Fetched from your stores and sent to ${name}: when it arrives, the threat is lifted${out ? ' and the band turns back, if it has not already done its worst' : ''}`) : ''}${r.phase === 'threat' ? button('refuse', 'Refuse', undefined, `${cap(they)} sends ${his} raiders at once`) : ''}</div>`;
+      : `<div class="acts">${button('send', `Pay ${coin}`, r.loan ? undefined : peace.amount, coinTip)}${r.alt >= 0 ? button('goods', `Send ${goods}`, peace.amount, `Fetched from your stores and sent to ${name}: when it arrives, the threat is lifted${out ? ' and the band turns back, if it has not already done its worst' : ''}`) : ''}${r.phase === 'threat' ? button('refuse', 'Refuse', undefined, `${cap(they)} sends ${his} raiders at once`) : ''}</div>`;
   // When what you send would arrive (or what you sent will), against the day and the band.
   let eta = '';
   if (map && d.gift) {
@@ -501,7 +528,11 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     if (at > 0) eta = `<p class="eta">The ${esc(goods)}, sent now, would reach ${esc(name)} about ${esc(dayWords(at))}${r.phase === 'threat' ? (at <= d.due ? ', before the day' : `, after the day (${they} waits for what is on its way)`) : out ? (at < edge ? ', before the raiders reach your land' : ', after the raiders reach your land: only coin turns them back now') : ''}.</p>`;
   }
   const mood = moodOf(c, s.tick);
-  const ifs = live(r)
+  const ifs = r.loan
+    ? live(r)
+      ? `Paid, the loan is repaid (Greece still remembers it went unpaid). Not paid, what ${his} men carry off comes off the debt; if they are beaten off with nothing, the debt stands and ${they} sends again about four months later. No gift calls them off.`
+      : ''
+    : live(r)
     ? `Paid: ${signed(peace.amount)}, ${fadeWords(peace.fade)}, and no threat from ${them(c)} for a year. Raided: ${his} anger is partly spent (${signed(answerMemory(c, 'spent', '', s.tick).amount)}), and no threat from ${them(c)} for two years. A gift that warms ${them(c)} past cold (${signed(mood)} now; cold ends at ${signed(COLD)}) calls them off too.`
     : '';
   return `<div class="deal threat${d.gift ? ' sent' : ''}">${dealIcon(d)}<div><b>${esc(head)}</b>. <span class="why">${esc(cap(d.why))}.</span>
@@ -577,7 +608,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   const routes = s.world.routes.filter((x) => x.city === id);
   const closed = routes.some((x) => x.closed > 0);
   const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', loans: loansTabName(s, id), rivals: c.war ? 'Rivals · at war' : 'Rivals' };
-  const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ' title="The ruler has closed the way: see the Ruler tab"' : ''}>${tabName[k]}</button>`).join('');
+  const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ` title="${seizing(s.world, id) ? 'Closed over your unpaid debt: see the Loans tab' : 'The ruler has closed the way: see the Ruler tab'}"` : ''}>${tabName[k]}</button>`).join('');
   const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
@@ -585,7 +616,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
 <nav class="citytabs">${tabs}</nav>
 ${pane('ruler', `${dealsHtml(s, id, map)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
 ${meansHtml(s, id)}
-${giftsHtml(s, id, map)}`)}
+${giftsHtml(s, id, map)}${s.army.companies.length && !s.world.loans.some((l) => l.city === id && l.side === 'out' && l.state === 'overdue') ? `<details class="nocause"><summary>Send your soldiers against ${esc(place.name)}</summary>${soldiersHtml(s, id, false)}</details>` : ''}`)}
 ${pane('prices', pricesBlock(s, id, false))}
 ${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}
 ${pane('loans', tab === 'loans' ? loansTabHtml(s, id) : '')}
