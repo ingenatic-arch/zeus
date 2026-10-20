@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
-import { CREW, BUILD_TICKS, fleetFor, guarded, guardRefusal, MEND_A_DAY, ROWER_PAY, shipsOf, triremeOnMap, TRIREME_COST } from '../src/sim/fleet';
+import { CREW, BUILD_TICKS, fleetFor, fleetHome, guarded, guardRefusal, MEND_A_DAY, ROWER_PAY, sailFor, shipsOf, triremeOnMap, TRIREME_COST } from '../src/sim/fleet';
 import { canWorkIn } from '../src/sim/labour';
 import { migrate } from '../src/sim/migrate';
 import { raidersOf } from '../src/sim/raids';
@@ -211,6 +211,19 @@ describe('the review of slice 26', () => {
     expect(until(sim, () => t.state === 'moored', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(t.lane).toBe('');
     expect(guardRefusal(t, 'troy-sea')).toBe(t.hp < 60 ? 'Her hull needs mending first' : '');
+  }, 120000);
+
+  it('a trireme carrying soldiers on an expedition is not called home by the Bring her home order', () => {
+    const sim = fresh('triremes');
+    const s = sim.state;
+    const ids = sailFor(s, sim.map, fleetFor(s, 'troy').ids.slice(0, 1), 'troy');
+    expect(ids.length).toBe(1);
+    const t = s.fleet.triremes.find((x) => x.id === ids[0])!;
+    expect(t.order).toBe('away');
+    send(sim, { type: 'fleet', trireme: t.id, act: 'home' });
+    expect(t.order).toBe('away');
+    fleetHome(s, sim.map, ids);
+    expect(t.order).toBe('bay');
   }, 120000);
 });
 

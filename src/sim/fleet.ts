@@ -982,7 +982,8 @@ function goOut(s: SimState, map: CoastMap, t: Trireme): void {
 /** Bring a trireme home (a command): back along the lane, into the bay and to her mooring. */
 export function callHome(s: SimState, map: CoastMap, id: number): boolean {
   const t = triremeOf(s, id);
-  if (!t || !afloat(t) || t.state === 'building') return false;
+  // (Not one carrying your soldiers on an expedition (slice 28): she comes home with them, fleetHome. Review of slice 26.)
+  if (!t || !afloat(t) || t.state === 'building' || t.order === 'away') return false;
   const city = LANES.find((l) => l.way === t.lane)?.city ?? 'troy';
   const at = triremeOnMap(t, s.tick);
   t.order = 'bay';

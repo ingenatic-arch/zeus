@@ -201,6 +201,7 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **Each event once.** A sinking, or the report of a fight on a lane, showed twice in the lines over the town: once as the army's news and once as news from Greece. It now shows once.
 - **Moored triremes lie further apart,** so their hulls no longer touch (their oars can still cross).
 - **A trireme ramming stands off on the clear side** of her ship. She was sometimes drawn across another ship sinking beside it.
+- **Triremes carrying your soldiers stay with them.** With slice 28's expeditions in, a trireme taking your companies to Troy showed a "Bring her home" button that would have left them stranded there. She has no button now, and comes home with them.
 
 What I checked and did not change, for your eye:
 - **`#landing`, defended.** With the hoplites on the sand below the storehouse and the archers a little inland behind them, the band broke by the bay: 9 of its 18 men fell, 1 of ours was wounded, and it took nothing. With the archers placed nearer the beach than the hoplites, the archers broke and the band took more. Undefended, it took 360 wine and 388 dr. The ships are far out when it opens and small on the screen; the raid chip and the town line say where they are.
@@ -208,7 +209,9 @@ What I checked and did not change, for your eye:
 - **`#triremes`** played as step 2 says, in the sim and in the browser: three ships sunk at sea, the fourth sunk on the beach, its four men dropping what they took.
 - **Ramming from above.** From high up a fight reads as ships standing bow-on to each other, the struck ship rocking. Close in, two triremes on one ship can still touch.
 
-The tests number 424, all passing (3 of them new, for the review). Every earlier demo opens, and plays 900 ticks on, exactly as before the review; only `#landing` and `#triremes` changed.
+Measured again after the fixes: every demo's triangles and draw calls are as before, `#landing` a little more (1,569,756 and 93) now its companies stand above the harbour. The fight in `#triremes` took 14.2 ms a frame before drawing (17.6 before), the download is 2,696 KB, and a save of `#richtown` is still 187 KB. Every earlier demo opens, and plays 900 ticks on, exactly as before the review; only `#landing` and `#triremes` changed.
+
+The tests number 438 with slice 28 merged in, all passing (4 of them new, for the review).
 
 ## Slice 25 — Walls, gates and towers (20 Oct)
 
