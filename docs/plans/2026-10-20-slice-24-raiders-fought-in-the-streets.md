@@ -119,6 +119,8 @@ Commits: `412fe79` (this plan), `e6d2351` (the sim, the drawing and the panels, 
 
 **The demo probe** (outside the repo; every demo at `99677b8` and at `c9021e6`, the whole city compared at opening and 900 ticks on): 82 demos are identical. `#threat`, `#raid`, `#raiders` and `#aftermath` changed on purpose (the band's size, aim and fires). `#rivals`, `#rivalsmap` and `#rivalstreet` have the same people and money at opening and 900 ticks on; only the threat's line differs, now saying the band's size. `#battle`, `#looted` and `#hirelings` are new.
 
+**Checks.** The typecheck, the full suite (376 tests in 32 files) and the build pass; `npm run smoke` passes. Its first run failed on the earlier raid demos' checks, which still expected the old raids, and on `#battle`'s archers: the Army tab's row flies the camera to them, so the click meant for the bridge landed elsewhere. Both are fixed in `fb555f8`, the game unchanged. That run, with the archers left at the barracks, also gave the hoplites-alone-at-the-bridge result above.
+
 **Old saves.** The slice 23 fixture (`slice23-companies`, version 22, a company mid-march) loads at version 23 and plays on (test).
 
 **Measured** (headless Chromium, software WebGL, 1920 × 1080, while another thread's build and tests ran on the same four cores):
