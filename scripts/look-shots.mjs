@@ -36,7 +36,25 @@ for (const name of want) {
   const f = await page.evaluate(() => window.__zeus.frames);
   await page.waitForFunction((f0) => window.__zeus.frames > f0 + 4, f, { timeout: 120000 });
   const file = resolve(outDir, `${look}-${name}.png`);
-  await page.screenshot({ path: file });
+  await page.screenshot({ path: file, timeout: 180000 });
+  console.log(file);
+}
+// FOLLOW=water,food,…: a close shot of the first walker of each kind (see the probe's where()).
+for (const kind of (process.env.FOLLOW ?? '').split(',').filter(Boolean)) {
+  const at = await page.evaluate((k) => window.__zeus.where(k), kind);
+  if (!at) {
+    console.log(`no ${kind} walking`);
+    continue;
+  }
+  await page.evaluate((v) => window.__zeus.jump(v), { x: at.x, z: at.z, yaw: -0.4, dist: 3, tilt: 0.4 });
+  const f = await page.evaluate(() => window.__zeus.frames);
+  await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+  // Cropped to the walker (its feet a little below the middle).
+  const sp = await page.evaluate((a) => window.__zeus.screenOf(a.x, a.z), at);
+  const file = resolve(outDir, `${look}-w-${kind}.png`);
+  const w = 360;
+  const clip = { x: Math.max(0, Math.min(1600 - w, sp.x - w / 2)), y: Math.max(0, Math.min(900 - w, sp.y - w * 0.62)), width: w, height: w };
+  await page.screenshot({ path: file, clip, timeout: 180000 });
   console.log(file);
 }
 await browser.close();

@@ -9,7 +9,8 @@ import { speedOf } from '../sim/walk';
 import type { SimState, Walker } from '../sim/state';
 import { type FolkLooks, type Look, STRIDE } from './looks';
 import { col, PAL } from './palette';
-import { carrierFigure, lookFolkOn, personFigure, porterFigure, vendorFigure } from './lookFolk';
+import { finishOn } from './finish';
+import { finishParts } from './folkFinish';
 import { lumpy } from './trees';
 
 /** Space between people walking in a line. */
@@ -28,6 +29,8 @@ export { STRIDE };
 
 /** Merge parts into one geometry with colours, a tint mask (1 where the per-person colour applies: the tunic) and the legs that swing. */
 export function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
+  // The city's finish: the figure kit in place of the plain shapes (folkFinish.ts).
+  if (finishOn()) parts = finishParts(parts);
   const pos: number[] = [];
   const colors: number[] = [];
   const tint: number[] = [];
@@ -55,7 +58,6 @@ export function mergeTinted(parts: TPart[]): THREE.BufferGeometry {
 
 /** A little person, about 0.42 tall, facing +x, carrying a bundle on the head or the back. */
 function person(load: 'head' | 'back'): THREE.BufferGeometry {
-  if (lookFolkOn()) return mergeTinted(personFigure(load, (r, seed) => lumpy(new THREE.IcosahedronGeometry(r, 1), 0.3, seed)));
   const parts: TPart[] = [
     { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, 0.03), color: PAL.skin, leg: [1, 0, 0.12] },
     { geo: new THREE.CylinderGeometry(0.02, 0.018, 0.12, 4).translate(0, 0.06, -0.03), color: PAL.skin, leg: [-1, 0, 0.12] },
@@ -102,7 +104,7 @@ function carrier(): THREE.BufferGeometry {
     { geo: new THREE.CylinderGeometry(0.04, 0.04, 0.015, 6).translate(0, 0.42, 0), color: PAL.carrierShawl },
     { geo: new THREE.LatheGeometry(jar, 7).scale(1.4, 1.35, 1.4).rotateZ(0.12).translate(0, 0.425, 0), color: PAL.pot },
   ];
-  return mergeTinted(lookFolkOn() ? [...carrierFigure(), ...parts.slice(6)] : parts);
+  return mergeTinted(parts);
 }
 
 /**
@@ -132,7 +134,7 @@ function vendor(mixed: boolean): THREE.BufferGeometry {
       parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 0.6, 1).translate(x, 0.47, z), color: PAL.loaf });
     }
   }
-  return mergeTinted(lookFolkOn() ? [...vendorFigure(), ...parts.slice(6)] : parts);
+  return mergeTinted(parts);
 }
 
 /**
@@ -534,7 +536,7 @@ function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine'): T
       parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.05, 0), 0.15, 512).scale(1.5, 0.8, 0.9).translate(cx + 0.02, 0.26, -0.02), color: PAL.meat });
     }
   }
-  return mergeTinted(lookFolkOn() ? [...porterFigure(), ...parts.slice(7)] : parts);
+  return mergeTinted(parts);
 }
 
 /**

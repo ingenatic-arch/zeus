@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TreeKind } from '../map/bake';
 import { hash2 } from '../map/noise';
-import { labOn } from './finish';
+import { finishOn } from './finish';
 import { col, PAL } from './palette';
 
 /**
@@ -93,6 +93,8 @@ interface CrownOpts {
   flat?: number;
   /** Bias clumps to the shell (1) or fill (0). */
   shell?: number;
+  /** Rounder clumps (four times the corners): for the big trees, which are few. */
+  fine?: boolean;
 }
 
 function crown(o: CrownOpts, out: Soft[]): THREE.Vector3[] {
@@ -108,7 +110,7 @@ function crown(o: CrownOpts, out: Soft[]): THREE.Vector3[] {
     const p = new THREE.Vector3(s * Math.cos(th) * rr * o.radius.x, u * rr * o.radius.y, s * Math.sin(th) * rr * o.radius.z).add(o.centre);
     spots.push(p);
     const r = o.size[0] + (o.size[1] - o.size[0]) * rand(i, 4, o.seed);
-    const geo = nudge(new THREE.IcosahedronGeometry(r, 1), 0.3, o.seed + i);
+    const geo = nudge(new THREE.IcosahedronGeometry(r, o.fine ? 1 : 0), 0.3, o.seed + i);
     geo.scale(1, o.flat ?? 0.8, 1).rotateY(rand(i, 5, o.seed) * 3).translate(p.x, p.y, p.z);
     // Lighter on top and towards the sun, darker underneath and inside.
     const up = (p.y - o.centre.y) / o.radius.y;
@@ -127,8 +129,8 @@ function olive(seed: number): THREE.BufferGeometry {
   const p2 = new THREE.Vector3(-0.02, 0.46, -0.03);
   parts.push({ geo: limb(p0, p1, 0.085, 0.065, 7), color: bark }, { geo: limb(p1, p2, 0.065, 0.05, 7), color: bark });
   const c = new THREE.Vector3(0.02, 0.86, 0);
-  const spots = crown({ centre: c, radius: new THREE.Vector3(0.55, 0.32, 0.5), clumps: 30, size: [0.08, 0.13], light: '#aab37e', dark: '#59653f', seed, shell: 0.85, flat: 0.7 }, parts);
-  for (let i = 0; i < 5; i++) {
+  const spots = crown({ centre: c, radius: new THREE.Vector3(0.55, 0.32, 0.5), clumps: 11, size: [0.13, 0.19], light: '#aab37e', dark: '#59653f', seed, shell: 0.8, flat: 0.7, fine: true }, parts);
+  for (let i = 0; i < 4; i++) {
     const to = spots[i].clone().lerp(c, 0.25);
     parts.push({ geo: limb(p2, to, 0.035, 0.015, 5), color: bark });
   }
@@ -143,7 +145,7 @@ function pine(seed: number): THREE.BufferGeometry {
   const top = new THREE.Vector3(0.12, 1.42, 0.02);
   parts.push({ geo: limb(base, top, 0.11, 0.07, 7), color: bark });
   const c = new THREE.Vector3(0.1, 1.72, 0);
-  const spots = crown({ centre: c, radius: new THREE.Vector3(0.85, 0.2, 0.8), clumps: 34, size: [0.11, 0.18], light: '#628c44', dark: '#2c4a28', seed, flat: 0.5, shell: 0.55 }, parts);
+  const spots = crown({ centre: c, radius: new THREE.Vector3(0.85, 0.2, 0.8), clumps: 12, size: [0.18, 0.27], light: '#628c44', dark: '#2c4a28', seed, flat: 0.5, shell: 0.55, fine: true }, parts);
   for (let i = 0; i < 6; i++) parts.push({ geo: limb(top, spots[i].clone().setY(spots[i].y - 0.1), 0.05, 0.02, 5), color: bark });
   return mergeSoft(parts);
 }
@@ -175,16 +177,16 @@ function cypress(seed: number): THREE.BufferGeometry {
 
 function scrub(seed: number): THREE.BufferGeometry {
   const parts: Soft[] = [];
-  crown({ centre: new THREE.Vector3(0, 0.14, 0), radius: new THREE.Vector3(0.32, 0.14, 0.3), clumps: 12, size: [0.07, 0.11], light: '#97a35a', dark: '#54633a', seed, shell: 0.5 }, parts);
+  crown({ centre: new THREE.Vector3(0, 0.14, 0), radius: new THREE.Vector3(0.32, 0.14, 0.3), clumps: 3, size: [0.13, 0.18], light: '#97a35a', dark: '#54633a', seed, shell: 0.5 }, parts);
   return mergeSoft(parts);
 }
 
 function broom(seed: number): THREE.BufferGeometry {
   const parts: Soft[] = [];
-  const spots = crown({ centre: new THREE.Vector3(0, 0.18, 0), radius: new THREE.Vector3(0.28, 0.16, 0.28), clumps: 6, size: [0.09, 0.14], light: '#8f9a52', dark: '#56643a', seed, shell: 0.5 }, parts);
+  const spots = crown({ centre: new THREE.Vector3(0, 0.18, 0), radius: new THREE.Vector3(0.28, 0.16, 0.28), clumps: 3, size: [0.13, 0.17], light: '#8f9a52', dark: '#56643a', seed, shell: 0.5 }, parts);
   const gold = col('#e2b83a');
   const deep = col('#c9932a');
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 6; i++) {
     const s = spots[i % spots.length];
     const p = s.clone().add(new THREE.Vector3((rand(i, 1, seed + 3) - 0.5) * 0.16, 0.06 + rand(i, 2, seed + 3) * 0.05, (rand(i, 3, seed + 3) - 0.5) * 0.16));
     parts.push({ geo: new THREE.OctahedronGeometry(0.035, 0).translate(p.x, p.y, p.z), color: rand(i, 4, seed) > 0.5 ? gold : deep, centre: s, soft: 0.5 });
@@ -194,7 +196,7 @@ function broom(seed: number): THREE.BufferGeometry {
 
 /** The look's model for a kind of plant, or null to keep today's. */
 export function lookTreeModel(kind: TreeKind): THREE.BufferGeometry | null {
-  if (!labOn()) return null;
+  if (!finishOn()) return null;
   switch (kind) {
     case TreeKind.Olive:
       return olive(301);

@@ -4,7 +4,7 @@ Notes to Oliver, newest first.
 
 ## Slice 27 — Loans both ways (19 Oct)
 
-*Built alongside slices 24 to 26, in its own line of work, and landing on the main line before them: slice 24 and the control panel are in, slice 25’s walls are part-way in, and slice 26 is still to come.*
+*Built alongside slices 24 to 26, in its own line of work, and landing on the main line before them: slice 24, the control panel and the city look are in, slice 25’s walls are part-way in, and slice 26 is still to come.*
 
 Coin now moves between your city and the rulers as loans, both ways. You can ask a ruler to lend you coin, and their herald brings back terms, every reason named, or a refusal and why. You can lend to a ruler, choosing the sum, the interest and the months, and see beforehand whether they would take it and how likely they are to repay. Now and then a pleased ruler offers you a loan, and a ruler in trouble asks you for one. Each loan is paid back in one payment, interest and all, on the day it falls due. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
@@ -90,12 +90,25 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **The offer rows fit.** "Offer a loan"'s five sums wrapped onto a second line; each row of choices now fits on one.
 - **One wrong capital.** "As things stand, sparta has no coin to spare" now keeps its capital S.
 
-The tests number 392 after the review, all passing, and 404 on the main line (with the control panel and slice 25's walls), all passing. With the control panel in, the Money tab is the Administration tab: its loans list, "Repay now" and the Loans row sit there, and the debts chip opens it; I looked at them there in `#borrow` and `#repaid`. The browser check passes every loans step on the main line, and every earlier demo plays out exactly as on the main line without loans.
+The tests number 392 after the review, all passing, and 404 on the main line (with the control panel, the city look and slice 25's walls), all passing. With the control panel in, the Money tab is the Administration tab: its loans list, "Repay now" and the Loans row sit there, and the debts chip opens it; I looked at them there in `#borrow` and `#repaid`. The browser check passes every loans step on the main line, and every earlier demo plays out exactly as on the main line without loans.
 
 What I checked and did not change, for your eye:
 - **Two lines about the same terms.** In `#borrow` the line for Corinth's terms and the news of Athens' answer show together under the top bar, and after you answer while paused, the old line stays until the game runs again (as every line under the top bar does).
 - **Repaying early costs the whole interest.** Repaying Corinth a week after the coin arrives still costs 2,220 dr, as the spec says. It buys only "Greece knows you pay your debts".
 - **Rarely seen.** In four years of `#caravan`'s town with a full treasury, one ruler asked to borrow (Athens, which lapsed); with the town's own treasury, none did.
+
+## City look, stages 2 and 3 — trees, people and stonework (20 Oct)
+
+The rest of the city-look plan is built and published: new trees and shrubs, a finer figure for every person in the streets, and stonework on the buildings. `#goods` shows it; `#goods-plain` shows the old look. Nothing in the simulation or the saves changed.
+
+### What's new
+- **Trees and shrubs.** Olives, stone pines, cypresses, scrub and broom have crowns of leafy clumps that shade as one soft mass, with boughs reaching into them. The olives and cypresses in courtyards and gardens are leafier too.
+- **People.** Every walker has a rounded head with a nose, a neck, a waist, shoulders, folds in the skirt, hands and sandals. Each keeps what it carries and wears. This works on any walker's model as it is built, so soldiers, raiders and walkers yet to come get it without extra work.
+- **Buildings.** Stone surrounds and sills round the windows, jambs and lintels round the doors, a cornice under the eaves and a string course between floors on two-storey houses.
+
+### Your eye on
+- Whether the window surrounds should stand out more. They are kept quiet so the streets don't look busy from above.
+- Frame rate. The plants now have about three times the triangles and the people about two and a half times, and I still can't measure frames on this machine. If it stutters, tell me and I'll add a Graphics setting with a lighter option.
 
 ## Side slice — The control panel (19 Oct)
 
