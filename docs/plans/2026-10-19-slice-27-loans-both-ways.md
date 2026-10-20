@@ -177,3 +177,11 @@ Commits: `b72ba50` (this plan), `c9d976e` (main merged in: the city look, stage 
 | A save of `#richtown` | 186 KB | 187 KB |
 
 Two things about these numbers. The frame work is averaged over two to fourteen software-rendered frames on a shared machine, so a single figure moves a lot: run twice more, `#richstreet` gave 14.6 and 24.1 ms on this branch and 22.1 and 39.4 ms on main at `e6d2351`. And main's fix for the city look's counts (`Tally` in `src/render/finish.ts`) counts the city's scene, so `measure`'s "map triangles" rows for the Greek demos now repeat the city's last count (`#greece` reads exactly `#town`'s 799,168), not the map's. Before the merge, the map rows for this slice's demos were `#borrow` 311,858 triangles, 31 draw calls; `#lend` 305,402, 30; `#repaid` 305,214, 28, as the other Greek demos.
+
+**Review.** Every check-in step was followed in headless Chromium at 1920 × 1080, the diff read, and every earlier demo compared with main (`8358833`) at opening and 900 ticks on, outside the repo: all 92 the same, with no ruler's loan deal in any. Fixed:
+- `agreed` sets `due` at the start of a day (`floor(tick / day) * day + months`), since `stepLoans` runs once a day: a loan agreed part-way through a day was settled the next morning (`#repaid`: agreed 23 November, paid on the 24th).
+- `bounded` (`loanTerms`, `askTerms`): a bound that holds the rate or the months is a reason of its own, so the reasons always sum to the terms; the panels write each as "from 12%, …".
+- `asks` (favours.ts) tries `loanDeal` in a second pass, only when no ruler made an older kind of deal that month; before, one city's loan deal could pre-empt a later city's tribute, request or offer.
+- `lendRefusal`: a ruler with a live loan from you (asked, on its way, running or overdue) won't lend you ("is borrowing from you, not lending"). `troubles`' lost war now halves `spareOf` and adds 2% to `loanTerms`; `rulerOffers` needs no trouble and no loan either way.
+- The Loans tab shows a ruler's would-be terms when they refuse for mood or route (the spec's "read why Sparta's terms are worse"); the refusal keeps a city name's capital; the offer rows fit one line.
+- Tests: the reasons add up under a bound; a ruler asking to borrow or beaten lately; the due day and repayment on it. 392 tests in 33 files.

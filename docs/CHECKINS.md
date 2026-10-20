@@ -19,13 +19,13 @@ What breaks, or moves: nothing you had is lost.
   - the ruler's mood: cordial −2%, warm −4% and six months more;
   - the city's wealth: Athens and Corinth are rich (−2%), Sparta keeps little coin (+2%);
   - their character: a greedy ruler +5%, a generous one −3% and six months more, a shrewd one +2% and six months fewer;
-  - their troubles: at war +3%;
+  - their troubles: at war +3%; beaten in a war lately +2% (and they can spare half as much);
   - your own name: your city owes no one (−2%), you owe another city already (+2%), or Greece knows you pay your debts (−1% for each loan repaid on time lately).
 - **Lending.** "Offer a loan" lets you pick the sum, the interest (5 to 20%) and the months (6 to 24).
   - Before you send, it says whether they would likely take it and why ("they need coin (at war with Athens), and 10% is fair to them"), and how likely they are to repay: likely, fair or doubtful, with each reason marked + or −.
   - The coin leaves with your herald. When he arrives they take it, or send it back and say why. A ruler in need takes a fair rate; one not in need takes only cheap coin. Lent to a ruler in need, it warms them.
 - **The rulers' own offers and asks.** These come like requests, with the same calm: none until six months after your first route, one a ruler, two across Greece.
-  - A pleased ruler with coin to spare now and then offers you a loan, more often when your treasury is low.
+  - A pleased ruler with coin to spare, in no trouble of their own, now and then offers you a loan, more often when your treasury is low.
   - A ruler in trouble (at war, a poor harvest, beaten lately) now and then asks to borrow.
   - Both sit on the Ruler tab with a coin-on-a-scroll seal on the city's label and a line under the top bar. Each answer shows what it does to their mood: lend +15 (+19 from a generous ruler such as Athens’ archon), refuse −6, let it run out −4.
 - **Repaying.** On the day yours is due, the whole sum goes from the treasury and your herald takes it to them. Repaid on time, the lender is pleased (+8), and every ruler's terms are a percent better.
@@ -41,9 +41,9 @@ What breaks, or moves: nothing you had is lost.
 1. Open `#borrow`. It is `#caravan`'s young town in May 747 BC, with 760 dr in the treasury. You asked Corinth and Athens for 2,000 dr each, and both answers are back. The map is open on Corinth's Loans tab.
    - Corinth will lend at 11%, repaid in 6 months: the lord is shrewd and at war with Athens.
    - Open Athens' Loans tab: 6% over 15 months, as the archon is generous.
-   - Open Sparta's: the king won't lend to a city he barely knows.
+   - Open Sparta's: the king won't lend to a city he barely knows. The page also says what he would ask if he did (12% over 15 months) and why.
    - Accept one, run it for a week, and watch the coin come in. Then look at the chip and the Money tab, and try "Repay now".
-2. Open `#lend`. It is `#rivals`' town in November 746 BC, with over 6,000 dr; Sparta's raiders have just left with some of your wheat and coin. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
+2. Open `#lend`. It is `#rivals`' town in November 746 BC, with over 6,000 dr; Sparta's raiders have just left with some of your wheat and coin. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Her own Loans tab says she is borrowing from you, not lending. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
 3. Open `#repaid`. It is the same town a year on. You lent Athens the 2,000 dr, and on the day the archon paid: her herald is on the road with 2,220 dr, four days from your land. Run it and watch the treasury and the ledger ("Loan repaid · by Athens").
 4. Open any earlier demo (say `#rivals` or `#war`): it is the same as before.
 
@@ -77,6 +77,21 @@ Headless Chromium with software WebGL at 1920 × 1080, before (at slice 23's che
 | A save of `#richtown` | 186 KB | 187 KB |
 
 Loans add nothing to draw in the city, and the coin on the map is drawn as a coin gift is. `#richstreet`'s 30.5 ms is noise from a few software-drawn frames on a shared machine: measured twice more it gave 14.6 and 24.1 ms here, and 22.1 and 39.4 ms on the main line without loans.
+
+### What the review changed
+A second pass went through every step above in the browser at 1920 × 1080, read the new code, and compared every earlier demo with the main line at opening and 900 ticks on (all 92 the same, and no ruler offers or asks a loan in any of them). The steps above have been corrected to match. What it changed:
+- **Dates that agree.** A loan fell due part-way through a day and was settled the next morning, so in `#repaid` the loan said "agreed 23 November" and the archon paid on 24 November. A loan now falls due at the start of the day it names, and is settled that day: `#repaid`'s repayment is dated 23 November.
+- **The reasons add up.** Every rate and length now says where it starts ("11%: from 12%, cordial (−2%), …"), and where a limit holds the terms it says so too: Troy's king is wary and shrewd, which would make 3 months, and the page now adds "no loan runs shorter than 6 months (+3 months)"; Athens' warm archon in `#repaid` reaches the 4% floor.
+- **Sparta's dearer terms can be read.** The spec promised you could read why Sparta's terms are worse, but in `#borrow` Sparta only refused. Where a ruler refuses for his mood or for want of a route, the page now also shows what he would ask if he did lend, with every reason.
+- **A ruler in need doesn't lend.** In `#lend`, Athens asked to borrow 2,000 dr from you while her own page offered to lend you 2,500 at 8%. A ruler who asks you for coin or owes you now has none to lend you, and says so. A ruler beaten in a war lately has half as much to spare and lends 2% dearer, and a ruler in any trouble (a war, a bad harvest, a lost war) no longer offers you a loan.
+- **Loans never crowd out older deals.** A ruler's loan offer or ask was tried in the same pass as tribute, requests and offers, so one city's loan could stop a later city's request that month. Now loans come only in a month when no ruler made an older kind of deal, as the plan said.
+- **The offer rows fit.** "Offer a loan"'s five sums wrapped onto a second line; each row of choices now fits on one.
+- **One wrong capital.** "As things stand, sparta has no coin to spare" now keeps its capital S.
+
+What I checked and did not change, for your eye:
+- **Two lines about the same terms.** In `#borrow` the line for Corinth's terms and the news of Athens' answer show together under the top bar, and after you answer while paused, the old line stays until the game runs again (as every line under the top bar does).
+- **Repaying early costs the whole interest.** Repaying Corinth a week after the coin arrives still costs 2,220 dr, as the spec says. It buys only "Greece knows you pay your debts".
+- **Rarely seen.** In four years of `#caravan`'s town with a full treasury, one ruler asked to borrow (Athens, which lapsed); with the town's own treasury, none did.
 
 ## Slice 24 — Raiders fought in the streets (20 Oct)
 

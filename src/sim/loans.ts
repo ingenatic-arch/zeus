@@ -175,6 +175,10 @@ export function spareOf(s: SimState, c: WorldCity): { spare: number; why: string
     n *= 0.8;
     why.push('their harvest was poor');
   }
+  if (t.beaten) {
+    n *= 0.5;
+    why.push(`beaten by ${cityName(t.beaten)} lately: half`);
+  }
   return { spare: down(n), why };
 }
 
@@ -219,14 +223,24 @@ export function loanTerms(s: SimState, c: WorldCity, own = false): { rate: numbe
   if (t.war) r(`at war with ${cityName(t.war)}: they need their coin`, 3);
   if (t.harvest === 0) r('their harvest failed', 2);
   else if (t.harvest === 1) r('their harvest was poor', 1);
+  if (t.beaten) r(`beaten by ${cityName(t.beaten)} lately: their coffers are low`, 2);
   const debts = debtsBut(s.world, c.id);
   if (debts.length === 0) r('your city owes no one', -2);
   else r(`you owe ${debts.map((l) => cityName(l.city)).join(' and ')} already`, 2 * debts.length);
   const kept = Math.min(3, paidOnTime(s.world, s.tick));
   if (kept) r('Greece knows you pay your debts', -kept);
   if (own) r('it is their own offer', -1);
-  const rate = clamp(BASE_RATE + rateWhy.reduce((a, x) => a + x.n, 0), RATE_LEAST, RATE_MOST);
-  const months = clamp(BASE_MONTHS + monthsWhy.reduce((a, x) => a + x.n, 0), MONTHS_LEAST, MONTHS_MOST);
+  return bounded(BASE_RATE, BASE_MONTHS, rateWhy, monthsWhy);
+}
+
+/** Terms from a starting rate and months and what moved them, kept within bounds; a bound that holds them is a reason of its own, so the reasons always add up to the terms. */
+function bounded(rate0: number, months0: number, rateWhy: LoanWhy[], monthsWhy: LoanWhy[]): { rate: number; months: number; rateWhy: LoanWhy[]; monthsWhy: LoanWhy[] } {
+  const rawRate = rate0 + rateWhy.reduce((a, x) => a + x.n, 0);
+  const rate = clamp(rawRate, RATE_LEAST, RATE_MOST);
+  if (rate !== rawRate) rateWhy.push({ why: rate > rawRate ? `no one lends for less than ${RATE_LEAST}%` : `no one asks more than ${RATE_MOST}%`, n: rate - rawRate });
+  const rawMonths = months0 + monthsWhy.reduce((a, x) => a + x.n, 0);
+  const months = clamp(rawMonths, MONTHS_LEAST, MONTHS_MOST);
+  if (months !== rawMonths) monthsWhy.push({ why: months > rawMonths ? `no loan runs shorter than ${MONTHS_LEAST} months` : `no loan runs longer than ${MONTHS_MOST / 12} years`, n: months - rawMonths });
   return { rate, months, rateWhy, monthsWhy };
 }
 
@@ -239,6 +253,9 @@ export function lendRefusal(s: SimState, c: WorldCity): string {
   if (mood < 0 && !s.world.routes.some((r) => r.city === c.id)) return `${name} does not lend to a city ${he(c)} barely knows (wary, and no route between you)`;
   const late = overdueOf(s.world);
   if (late.length) return `${name} will not lend to a city that has not repaid ${cityName(late[0].city)}`;
+  // (A ruler who asks to borrow from you, or owes you, has no coin to lend you.)
+  const theirs = liveLoan(s.world, c.id, 'out');
+  if (theirs && theirs.state !== 'returning' && theirs.state !== 'repaying') return `${name} is borrowing from you, not lending (${theirs.state === 'proposed' ? `${he(c)} asks you for ${fmt(theirs.amount)} dr` : theirs.state === 'offering' || theirs.state === 'sending' ? `your loan of ${fmt(theirs.amount)} dr is on its way to ${he(c) === 'she' ? 'her' : 'him'}` : `${he(c)} owes you ${fmt(theirs.owed)} dr`})`;
   const { spare, why } = spareOf(s, c);
   if (spare < LOAN_LEAST) return `${cityName(c.id)} has no coin to spare${why.length ? `: ${why.join(', ')}` : ''}`;
   return '';
@@ -446,10 +463,10 @@ function setTerms(l: Loan, rate: number, months: number, rateWhy: LoanWhy[] = []
   l.monthsWhy = monthsWhy;
 }
 
-/** The loan is agreed now: it falls due its months on. */
+/** The loan is agreed now: it falls due its months on, at the start of that day (loans are settled once a day, so it is settled on the day it names). */
 function agreed(s: SimState, l: Loan): void {
   l.start = s.tick;
-  l.due = s.tick + l.months * TICKS_PER_MONTH;
+  l.due = Math.floor(s.tick / TICKS_PER_DAY) * TICKS_PER_DAY + l.months * TICKS_PER_MONTH;
 }
 
 /** A loan is over. */
@@ -546,9 +563,7 @@ export function askTerms(s: SimState, c: WorldCity): { rate: number; months: num
   if (traits.includes('shrewd')) rateWhy.push({ why: 'shrewd: drives a hard bargain', n: -2 });
   if (traits.includes('greedy')) rateWhy.push({ why: 'greedy: grudges the interest', n: -2 });
   if (traits.includes('generous')) rateWhy.push({ why: 'generous: offers fair interest', n: 1 });
-  const rate = clamp(10 + rateWhy.reduce((a, x) => a + x.n, 0), RATE_LEAST, RATE_MOST);
-  const months = clamp(12 + monthsWhy.reduce((a, x) => a + x.n, 0), MONTHS_LEAST, MONTHS_MOST);
-  return { rate, months, rateWhy, monthsWhy };
+  return bounded(10, 12, rateWhy, monthsWhy);
 }
 
 /** Why they ask, in words: "to pay their soldiers: they are at war with Athens". */
@@ -586,10 +601,10 @@ export function makeLoanAsk(s: SimState, c: WorldCity, amount: number): Deal {
   return d;
 }
 
-/** A pleased ruler with coin to spare, not at war, with no loan to you, now and then offers you one (four times as often when your treasury is low). */
+/** A pleased ruler with coin to spare, in no trouble, with no loan either way between you, now and then offers you one (four times as often when your treasury is low). */
 function rulerOffers(s: SimState, c: WorldCity, month: number, i: number): boolean {
   const w = s.world;
-  if (liveLoan(w, c.id, 'in') || overdueOf(w).length || c.war || moodOf(c, s.tick) < OFFER_PLEASED) return false;
+  if (liveLoan(w, c.id, 'in') || liveLoan(w, c.id, 'out') || overdueOf(w).length || troubles(s, c).words.length || moodOf(c, s.tick) < OFFER_PLEASED) return false;
   const { spare } = spareOf(s, c);
   if (spare < 1000) return false;
   const traits = c.ruler?.traits ?? [];

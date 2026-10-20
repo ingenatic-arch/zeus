@@ -394,8 +394,14 @@ function asks(s: SimState, map: CoastMap): void {
       if (c.war && request(s, map, c, month, i)) return;
       continue;
     }
-    // (A loan offered or asked for comes last, so a month that brought an older kind brings it still: loans.ts.)
-    if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i) || loanDeal(s, c, month, i)) return;
+    if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i)) return;
+  }
+  // A loan offered or asked for comes only in a month when no ruler made an older kind of deal, so every month that brought one brings it still (loans.ts).
+  if (soon) return;
+  for (let i = 0; i < w.cities.length; i++) {
+    const c = w.cities[i];
+    if (!c.ruler || !RULED.includes(c.id) || !free(s, c)) continue;
+    if (loanDeal(s, c, month, i)) return;
   }
 }
 

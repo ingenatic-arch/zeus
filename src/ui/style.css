@@ -1133,11 +1133,13 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .greece-panel p.likely.doubtful b { color: var(--terracotta-deep); }
 .greece-panel p.likely .why { font-size: 12px; }
 .greece-panel .sums, .greece-panel .pickrow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 6px 0 0; }
-.greece-panel .pickrow > span { width: 64px; font-size: 12.5px; color: var(--ink-soft); }
+.greece-panel .pickrow > span { width: 60px; font-size: 12.5px; color: var(--ink-soft); }
 .greece-panel .sums button, .greece-panel .pickrow button, .greece-panel section.loanoffer .acts button {
   appearance: none; font: inherit; font-size: 12.5px; min-width: 52px; padding: 1px 7px; border-radius: 8px; border: 1.2px solid var(--edge);
   background: #fff8ea; color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums;
 }
+/* (Five sums, four rates, four lengths: each row on one line in the page's width.) */
+.greece-panel .pickrow button { min-width: 46px; padding: 1px 5px; }
 .greece-panel .sums button:hover:not(:disabled), .greece-panel .pickrow button:hover:not(.on) { background: #fff2d6; }
 .greece-panel .sums button:disabled, .greece-panel section.loanoffer .acts button:disabled { opacity: 0.42; cursor: default; }
 .greece-panel .pickrow button.on { background: #e9cf8f; border-color: #8a6414; font-weight: bold; }

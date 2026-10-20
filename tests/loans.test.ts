@@ -85,6 +85,27 @@ describe('terms', () => {
     expect(spareOf(s, war).spare).toBe(Math.floor(before / 2 / 500) * 500);
   });
 
+  it('the reasons add up to the terms even where a bound holds them (wary and shrewd: no loan runs shorter than six months)', () => {
+    const s = fresh('caravan').state;
+    const t = loanTerms(s, ruler(s, 'troy', ['shrewd', 'fickle'], -10));
+    expect(t.months).toBe(6);
+    expect(t.months).toBe(12 + t.monthsWhy.reduce((a, x) => a + x.n, 0));
+    expect(t.monthsWhy.at(-1)?.why).toMatch(/no loan runs shorter/);
+    expect(t.rate).toBe(BASE_RATE + t.rateWhy.reduce((a, x) => a + x.n, 0));
+  });
+
+  it('a ruler who asks to borrow from you, or was beaten lately, has no coin to lend you, and offers none', () => {
+    const s = fresh('caravan').state;
+    const c = ruler(s, 'corinth', ['pious', 'warlike'], 40);
+    const spare = spareOf(s, c).spare;
+    s.world.wars.push({ ...(s.world.wars[0] ?? {}), id: 98, a: 'athens', b: 'corinth', fate: 'athens', start: s.tick - 100, until: s.tick - 30, ended: s.tick - 30 } as (typeof s.world.wars)[number]);
+    expect(spareOf(s, c).spare).toBeLessThan(spare);
+    expect(loanTerms(s, c).rateWhy.some((x) => /beaten by Athens/.test(x.why))).toBe(true);
+    makeLoanAsk(s, c, 1000);
+    expect(lendRefusal(s, c)).toMatch(/is borrowing from you, not lending/);
+    expect(askRefusal(s, 'corinth', 500)).toMatch(/is borrowing from you/);
+  });
+
   it('a cold ruler refuses; a wary one with no route refuses; being in debt elsewhere makes it dearer', () => {
     const s = fresh('caravan').state;
     expect(lendRefusal(s, ruler(s, 'corinth', ['pious', 'warlike'], -40))).toMatch(/does not lend to a city he is cold towards|she is cold/);
@@ -115,8 +136,12 @@ describe('borrowing', () => {
     expect(l.state).toBe('terms');
     expect(l.rate).toBe(loanTerms(s, c).rate);
     expect(l.owed).toBe(owedOf(2000, l.rate));
+    sim.run(3);
     send(sim, { type: 'loan', act: 'accept', loan: l.id });
     expect(l.state).toBe('coming');
+    // (Due at the start of the day it names, however late in the day it was agreed, so it is settled on that day.)
+    expect(l.due % TICKS_PER_DAY).toBe(0);
+    expect(l.due).toBe(Math.floor(l.start / TICKS_PER_DAY) * TICKS_PER_DAY + l.months * TICKS_PER_MONTH);
     const money = s.money;
     expect(until(sim, () => l.state === 'running', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(kindTotal(s.ledger.now, 'borrowed')).toBe(2000);
@@ -126,6 +151,7 @@ describe('borrowing', () => {
     income(s, 3000, 'given', 'for the test');
     const mood = moodOf(c, s.tick);
     expect(until(sim, () => l.state === 'repaying', l.due - s.tick + TICKS_PER_DAY)).toBe(true);
+    expect(s.tick).toBe(l.due);
     expect(kindTotal(s.ledger.now, 'repaid')).toBe(-l.owed);
     expect(until(sim, () => l.state === 'repaid', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(l.late).toBe(false);

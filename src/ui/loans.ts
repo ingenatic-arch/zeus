@@ -18,6 +18,7 @@ import {
   likelyToRepay,
   likelyWords,
   liveLoan,
+  LOAN_LEAST,
   loanLine,
   loanAnswerRefusal,
   loanMemory,
@@ -30,13 +31,14 @@ import {
   OFFER_SUMS,
   offerAnswer,
   offerRefusal,
+  overdueOf,
   owedOf,
   spareOf,
   termsWords,
   whose,
   whysWords,
 } from '../sim/loans';
-import type { Deal, Loan, SimState } from '../sim/state';
+import type { Deal, Loan, LoanWhy, SimState } from '../sim/state';
 import { spendable } from '../sim/treasury';
 import { cityOf } from '../sim/world';
 import { foeNote } from './rivals';
@@ -72,10 +74,16 @@ const foeHtml = (s: SimState, id: CityId): string => {
   return foe ? `<p class="if foe">${esc(foe)}</p>` : '';
 };
 
+/** What moved a rate (or the months) from where it starts, in words: "from 12%, cordial (−2%), Corinth is rich (−2%)" (the reasons add up to it). */
+const fromWords = (total: number, ws: readonly LoanWhy[], unit: '%' | ' months'): string => {
+  const base = total - ws.reduce((a, x) => a + x.n, 0);
+  return ws.length ? `from ${base}${unit === '%' ? '%' : ''}, ${whysWords(ws, unit)}` : 'the usual';
+};
+
 /** A loan's terms with their reasons. */
 function termsHtml(l: Pick<Loan, 'amount' | 'rate' | 'months' | 'owed' | 'rateWhy' | 'monthsWhy'>): string {
-  const months = l.monthsWhy.length ? `; ${monthsWords(l.months)}: ${esc(whysWords(l.monthsWhy, ' months'))}` : '';
-  return `<p class="if">${l.rate}%: ${esc(whysWords(l.rateWhy, '%') || 'the usual rate')}${months}. ${fmt(l.owed)} dr to repay in all.</p>`;
+  const months = l.monthsWhy.length ? `; ${monthsWords(l.months)}: ${esc(fromWords(l.months, l.monthsWhy, ' months'))}` : '';
+  return `<p class="if">${l.rate}%: ${esc(fromWords(l.rate, l.rateWhy, '%'))}${months}. ${fmt(l.owed)} dr to repay in all.</p>`;
 }
 
 /** A button that sends a loan command. */
@@ -98,7 +106,7 @@ function loanCard(s: SimState, l: Loan): string {
     if (l.why) body += `<p class="if">${esc(cap(l.why))}.</p>`;
     body += `<div class="acts">${loanButton('accept', `Accept · ${fmt(l.amount)} dr`, { id: l.id }, loanRefusal(s, l, 'accept'), `The coin comes with their herald; ${fmt(l.owed)} dr is due ${monthsWords(l.months)} from today`, 'take')}${loanButton('decline', 'Decline', { id: l.id }, '', 'Nothing lost: they think no less of you')}</div>`;
   } else if (l.rate > 0 && l.state !== 'asking') {
-    body += `<p class="if">${esc(termsWords(l))}${l.start ? `, agreed ${esc(dayWords(l.start))}` : ''}${l.rateWhy.length ? `: ${esc(whysWords(l.rateWhy, '%'))}` : ''}.</p>`;
+    body += `<p class="if">${esc(termsWords(l))}${l.start ? `, agreed ${esc(dayWords(l.start))}` : ''}${l.rateWhy.length ? `: ${esc(fromWords(l.rate, l.rateWhy, '%'))}` : ''}.</p>`;
   }
   if (theirs && (l.state === 'running' || l.state === 'offering' || l.state === 'sending')) body += likelyHtml(s, l.city, l.owed, l.rate);
   if (!theirs && (l.state === 'running' || l.state === 'overdue')) {
@@ -126,9 +134,12 @@ export function loansTabHtml(s: SimState, id: CityId): string {
     const no = lendRefusal(s, c);
     const { spare, why: spareWhy } = spareOf(s, c);
     const t = loanTerms(s, c);
+    const terms = `<b>${t.rate}%</b> (${esc(fromWords(t.rate, t.rateWhy, '%'))}), repaid in ${monthsWords(t.months)}${t.monthsWhy.length ? ` (${esc(fromWords(t.months, t.monthsWhy, ' months'))})` : ''}`;
+    // (Refused for the mood or for want of a route, not for want of coin or for a debt overdue: what the terms would be, so you can see why they are dearer here.)
+    const would = no && c.ruler && spare >= LOAN_LEAST && !overdueOf(w).length ? ` Were ${they} to lend, it would be at about ${terms}.` : '';
     const likely = no
-      ? `<p class="if no">As things stand, ${esc(no[0].toLowerCase() + no.slice(1))}.</p>`
-      : `<p class="if">As things stand, ${they} would lend at about <b>${t.rate}%</b>, repaid in ${monthsWords(t.months)}: ${esc(whysWords(t.rateWhy, '%'))}${t.monthsWhy.length ? `; ${esc(whysWords(t.monthsWhy, ' months'))}` : ''}. ${esc(name(id))} can spare up to ${fmt(spare)} dr${spareWhy.length ? ` (${esc(spareWhy.join(', '))})` : ''}.</p>`;
+      ? `<p class="if no">As things stand, ${esc(no.replace(/^The /, 'the '))}.${would}</p>`
+      : `<p class="if">As things stand, ${they} would lend at about ${terms}. ${esc(name(id))} can spare up to ${fmt(spare)} dr${spareWhy.length ? ` (${esc(spareWhy.join(', '))})` : ''}.</p>`;
     const buttons = ASK_SUMS.map((n) => {
       const why = askRefusal(s, id, n);
       return loanButton('ask', `${fmt(n)} dr`, { city: id, amount: n }, why, `Your herald asks ${name(id)} for ${fmt(n)} dr; at about ${t.rate}%, ${fmt(owedOf(n, t.rate))} dr to repay in ${monthsWords(t.months)}. Being refused costs you nothing`, 'sum');
