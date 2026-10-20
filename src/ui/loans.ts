@@ -183,8 +183,8 @@ function stepsHtml(s: SimState, l: Loan): string {
   const ways = way.length ? `the ${way.join(' and the ')}` : `${his} routes (you have none open with ${nm})`;
   // (Step k is done once a later one has come, now while it stands, and to come before its day.)
   const li = (k: number, at: number, head: string, what: string): string => {
-    const cls = step > k ? 'done' : step === k ? 'now' : 'next';
-    const when = at > 0 ? (cls === 'next' ? `${dayWords(at)} (${daysTo(s, at)})` : dayWords(at)) : '';
+    const cls = step > k ? 'done' : step === k ? 'now' : 'later';
+    const when = at > 0 ? (cls === 'later' ? `${dayWords(at)} (${daysTo(s, at)})` : dayWords(at)) : '';
     return `<li class="${cls}"><span class="when">${esc(when)}</span><b>${esc(head)}</b> <span>${esc(what)}</span></li>`;
   };
   const heard = loanMemory(c, 'defaulted', '', s.tick).amount;

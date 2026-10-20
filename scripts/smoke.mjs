@@ -2121,7 +2121,7 @@ if (!a28.companies.every((c) => c.order === 'away')) fail(`#collect: the compani
 await zeus(() => window.__zeus.sideTab('army'));
 await frames(2);
 const side28 = await zeus(() => window.__zeus.sideText());
-if (!/Away on an expedition[\s\S]*on the road to Corinth/.test(side28)) fail(`#collect: the Army tab: ${side28.slice(0, 1500)}`);
+if (!/Away · on the road to Corinth[\s\S]*Away on an expedition/.test(side28)) fail(`#collect: the Army tab: ${side28.slice(0, 1500)}`);
 await zeus(() => window.__zeus.greece(true));
 await frames(3);
 g28 = await gi();

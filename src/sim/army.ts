@@ -1048,8 +1048,10 @@ export function doingWords(s: SimState, c: Company): string {
   const ready = men.filter((x) => x.state === 'ready').length;
   const coming = men.filter((x) => x.state === 'coming').length;
   const arming = men.filter((x) => x.state === 'arming').length;
-  const what = c.order === 'away' ? 'away on an expedition' : c.routed ? 'broken, running back to barracks' : fighting(s, c) ? 'fighting' : c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
+  const what = c.order === 'away' ? 'away' : c.routed ? 'broken, running back to barracks' : fighting(s, c) ? 'fighting' : c.order === 'drill' ? 'drilling' : c.order === 'march' ? 'marching' : c.order === 'return' ? 'marching back to barracks' : 'holding its ground';
   const hurt = men.filter((x) => x.state === 'wounded' || x.state === 'healing').length;
+  // (Away: its men are out of the city with it, neither ready nor raising.)
+  if (c.order === 'away') return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
   if (c.hired && coming === men.length && men.length > 0) return `walking in from the edge of your land (${men.length} men)`;
   if (c.hired || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
   const bits: string[] = [];

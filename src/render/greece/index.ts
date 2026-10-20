@@ -632,7 +632,8 @@ export class GreeceMap {
       if (!at) continue;
       const line = wayPoints(wayOf(e.way));
       const L = lineLength(line);
-      const men = Math.max(4, expeditionMen(s, e));
+      // (Figures, not men: a rival's army of thousands is 8 to 14; your few dozen are 3 to 9.)
+      const men = Math.max(3, Math.min(9, Math.round(expeditionMen(s, e) / 5)));
       const { colour, trim } = PLACES.home;
       const m = piece(`exp-${e.id}`, () => armyModel(colour, trim, men), armyBody(men));
       const dir = at.homeward ? -1 : 1;

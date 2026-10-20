@@ -93,9 +93,9 @@ const MOOD_MONTHS = [0, 0, -3, 0, 6, 12];
 const MOOD_SPARE = [0, 0, 0.5, 1, 1.2, 1.5];
 
 /** A ruler's offers and asks: how often (a month in so many), how much more often when your treasury is low, and their size (fair gifts' worth). */
-const OFFER_ODDS = 1 / 18;
+const OFFER_ODDS = 1 / 9;
 const LOW_ODDS = 4;
-const ASK_ODDS = 1 / 10;
+const ASK_ODDS = 1 / 5;
 const LOAN_GIFTS = 3;
 /** A ruler in trouble: a poor or failed harvest this long ago at most, a war lost this long ago at most. */
 const HUNGRY_FOR = 4 * TICKS_PER_MONTH;
