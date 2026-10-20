@@ -122,7 +122,7 @@ export interface Demo {
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
-  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
+  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
 }
@@ -1619,7 +1619,7 @@ function siegeTown(): (sim: Sim) => void {
  * west of the trading post (a road down to it) and two triremes built and
  * crewed at its jetty, as Troy's ships come into sight; the Army tab open on
  * the fleet. #pirates: #athensship's town, trading with Athens by sea, with
- * the shipyard and a crewed trireme, as pirates are seen off Cape Zoster on
+ * the shipyard and a crewed trireme, as pirates are seen off Cape Skyllaion on
  * the lane to Athens (set up for the demo): the map open on Athens, where she
  * can be sent to guard the lane.
  */
@@ -1671,7 +1671,7 @@ function piratesTown(): (sim: Sim) => void {
   return (sim) => {
     seaTown('athensship')(sim);
     fleetOf(sim, 1);
-    pirateBand(sim.state, 'athens-sea', 2, 'set up for this demo');
+    pirateBand(sim.state, 'athens-sea', 1, 'set up for this demo');
   };
 }
 const LANDING = landingTown('landing');
@@ -1994,7 +1994,7 @@ const SCENES: Record<string, Demo> = {
   siege: { view: 'siege', speed: 'paused', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
   // Slice 26: from the sea. Troy's ships a few days from the beach, paused, the hoplites' banner in hand; two triremes at the shipyard as the ships come in; pirates on the lane to Athens.
   landing: { view: 'landing', speed: 'paused', setup: LANDING, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
-  triremes: { view: 'triremes', setup: TRIREMES, overlay: 'missing', side: { tab: 'army' } },
+  triremes: { view: 'triremes', setup: TRIREMES, overlay: 'missing', side: { tab: 'army', fleet: true } },
   pirates: { view: 'triremes', setup: PIRATES, overlay: 'missing', greece: 'athens', greeceTab: 'ruler' },
   // Slice 27: loans both ways. Corinth's and Athens' answers to your asks, Corinth's terms waiting on you; a ruler in trouble asking to borrow; that loan repaid, their herald on the road.
   borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },

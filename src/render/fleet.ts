@@ -236,6 +236,9 @@ function foeBody(colour: string): Part[] {
   return parts;
 }
 
+/** How far a trireme at her foe is drawn from the foe's middle: her half-length and the ram, and the foe's half-beam. */
+const STAND_OFF = 2.45;
+
 type TriVersion = 'row0' | 'row1' | 'row2' | 'row3' | 'rest' | 'frame' | 'hull';
 type FoeVersion = 'sail0' | 'sail1' | 'beached';
 
@@ -346,6 +349,8 @@ export class FleetView {
       this.cur = new Map();
       for (const t of f.triremes) this.cur.set(`t${t.id}`, [t.x, t.z]);
       for (const e of f.ships) this.cur.set(`e${e.id}`, [e.x, e.z]);
+      // (A jump of more than a tick, a load or a skip: no gliding across the bay from where she was.)
+      if (s.tick !== this.tick + 1) this.prev = this.cur;
       this.tick = s.tick;
     }
     const seen = new Set<string>();
@@ -413,6 +418,20 @@ export class FleetView {
       } else if (tri.state === 'sinking') {
         geo = m.rest;
       } else {
+        // At her foe: drawn standing off so her ram, not her whole hull, is at the ship's side (the sim has her within a ship's length).
+        const e = tri.task === 'fight' ? s.fleet.ships.find((x) => x.id === tri.foe) : undefined;
+        if (e) {
+          const fx = e.state === 'beached' ? e.bx : e.x;
+          const fz = e.state === 'beached' ? e.bz : e.z;
+          const dd = Math.hypot(x - fx, z - fz);
+          if (dd < STAND_OFF) {
+            const ux = dd > 1e-3 ? (x - fx) / dd : -o.hx;
+            const uz = dd > 1e-3 ? (z - fz) / dd : -o.hz;
+            x = fx + ux * STAND_OFF;
+            z = fz + uz * STAND_OFF;
+            want = Math.atan2(uz, -ux);
+          }
+        }
         // Rowing: the stroke goes round, quicker at a fight.
         const k = Math.floor(time * (tri.task === 'fight' ? 3.2 : 2.4) + tri.id * 0.37) % 4;
         geo = m[`row${k}` as TriVersion];
@@ -423,8 +442,11 @@ export class FleetView {
         geo = m.beached;
         x = foe!.bx;
         z = foe!.bz;
-        y = 0.08;
-        pitch = 0.07;
+        // Drawn up: her keel on the sand under her bow, her stern in the shallows, nose up the slope.
+        const gb = this.map.heightAt(x + o.hx * 1.2, z + o.hz * 1.2);
+        const gs = this.map.heightAt(x - o.hx * 1.2, z - o.hz * 1.2);
+        y = Math.max(0, (Math.max(gb, -0.2) + Math.max(gs, -0.2)) / 2 + 0.2);
+        pitch = clamp(Math.atan2(gb - Math.max(gs, -0.2), 2.4), 0.02, 0.16);
         calm = 0;
       } else {
         geo = Math.floor(time * 2.2 + foe!.id * 0.5) % 2 ? m.sail1 : m.sail0;

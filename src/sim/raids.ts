@@ -61,7 +61,7 @@ import { landTicks, routeWay, voyageTicks } from './routes';
 import { collectorsGone, loanOf, payDebt } from './loans';
 import type { Building, BuildingKind, Deal, Gift, Loan, Raid, SimState, Walker, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { cityHolds, OLD_GOODS, TRADE_GOODS, tradeIndex } from './trade';
+import { berthOf, cityHolds, OLD_GOODS, TRADE_GOODS, tradeIndex } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
@@ -598,10 +598,24 @@ function beachTiles(map: CoastMap, s: SimState): number[] {
   const n = map.size;
   const open = seaOf(map).open;
   const out: number[] = [];
+  // (Not beside a jetty, the trading post's or a shipyard's: a ship drawn up there would lie across it.)
+  const jetties = s.buildings
+    .filter((b) => b.kind === 'trading' || b.kind === 'shipyard')
+    .map((b) => berthOf(map, b))
+    .filter((j) => j !== null);
+  const byJetty = (x: number, z: number): boolean =>
+    jetties.some((j) => {
+      for (let k = 0; k <= 4; k++) {
+        const u = (j.len * k) / 4;
+        if (dhypot(j.jx + j.ox * u - x, j.jz + j.oz * u - z) < 2.6) return true;
+      }
+      return dhypot(j.x - x, j.z - z) < 2.6;
+    });
   for (let z = 1; z < n - 1; z++) {
     for (let x = 1; x < n - 1; x++) {
       const t = z * n + x;
       if (open[t] || !(foeWalkable(map, s, t) || (s.walls.length > 0 && barsFoe(s, t)))) continue;
+      if (jetties.length && byJetty(x + 0.5, z + 0.5)) continue;
       if (open[t - 1] || open[t + 1] || open[t - n] || open[t + n]) out.push(t);
     }
   }

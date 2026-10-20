@@ -96,7 +96,7 @@ const SPREAD = 15;
 /** How long a ship takes to go under (ticks). */
 export const SINK_TICKS = 40;
 /** How far apart triremes moor, side by side off the jetty's end. */
-const MOOR_GAP = 1.15;
+const MOOR_GAP = 1.25;
 /** Your waters: enemy ships this far beyond the map's edge are fought too. */
 const WATERS = 2;
 
@@ -111,7 +111,7 @@ const REFIGHT = 10 * TICKS_PER_DAY;
 
 /** The places on the lanes where pirates lie (a point of the way, by its index), and their names. */
 export const PIRATE_PLACES: ReadonlyArray<{ way: string; city: CityId; at: number; name: string }> = [
-  { way: 'athens-sea', city: 'athens', at: 9, name: 'off Cape Zoster' },
+  { way: 'athens-sea', city: 'athens', at: 6, name: 'off Cape Skyllaion' },
   { way: 'corinth-sea', city: 'corinth', at: 8, name: 'off Aegina' },
   { way: 'troy-sea', city: 'troy', at: 8, name: 'off Kea' },
 ];
@@ -360,8 +360,9 @@ export function moorings(map: CoastMap, yard: Building): Array<{ x: number; z: n
   if (!berth) return [];
   const out: Array<{ x: number; z: number; hx: number; hz: number }> = [];
   for (let k = 0; k < PER_YARD + 2 && out.length < PER_YARD; k++) {
-    const x = berth.x + berth.ox * k * MOOR_GAP;
-    const z = berth.z + berth.oz * k * MOOR_GAP;
+    // (The first a little off the jetty's end, so she lies clear of its planks.)
+    const x = berth.x + berth.ox * (0.5 + k * MOOR_GAP);
+    const z = berth.z + berth.oz * (0.5 + k * MOOR_GAP);
     if (!onWater(map, x, z) || !onWater(map, x + berth.hx * 1.6, z + berth.hz * 1.6) || !onWater(map, x - berth.hx * 1.6, z - berth.hz * 1.6)) continue;
     out.push({ x, z, hx: berth.hx, hz: berth.hz });
   }
