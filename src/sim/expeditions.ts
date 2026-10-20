@@ -12,8 +12,10 @@
  *   months, with those that are), the expedition sets off.
  * - **On the map of Greece.** A little army in your colours along the road,
  *   its place a pure function of the tick as any traveller's, three days at
- *   their city, and home the same way. By sea it needs ships: `fleetFor` (slice
- *   26 wires it to the triremes), so Troy can't be reached yet.
+ *   their city, and home the same way. By sea (Troy) it needs triremes
+ *   (fleet.ts: fleetFor), one to a company: the companies march to the
+ *   shipyard instead of an edge, the triremes go out with them and come home
+ *   with them, and on the map they are ships along the lane.
  * - **The fight.** Your strength (a hoplite 1.2, an archer 0.8) against their
  *   garrison (loans.ts: garrisonOf; Troy's walls half again against a full
  *   force; a raiding party meets only the countryside's watch, a quarter).
@@ -38,10 +40,11 @@ import { EDGE_ALONG, PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { armyNews, companyName, companyOf, kindWord, LIE, readyOf, sendBanner, wayFrom } from './army';
 import { mournMan } from './battle';
-import { findBuilding } from './buildings';
+import { centreOf, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, settleMood, wayFor } from './diplomacy';
 import { dayWords } from './favours';
+import { fleetFor, fleetHome, sailFor, triremeOf } from './fleet';
 import { held, setHeld, WARE_NAMES } from './foods';
 import { end as endLoan, garrisonOf, loanMemory, loanOf, whose, type LoanAnswer } from './loans';
 import { marchTicks, RAID_SIDE } from './raids';
@@ -101,20 +104,17 @@ export const expeditionOut = (s: SimState): Expedition | undefined => s.world.ex
 /** The latest expedition after a city (out, or its report), if any. */
 export const lastExpedition = (s: SimState, city: CityId): Expedition | undefined => s.world.expeditions.filter((e) => e.city === city).at(-1);
 
-/** The ships that could carry an army to a city by sea (slice 26 wires this to the shipyard's triremes): none yet. */
-export function fleetFor(s: SimState, city: CityId): number {
-  void s;
-  void city;
-  return 0;
-}
-
 /** How an expedition would go to a city: by road, or by sea with ships; or why it can't. */
 export function expeditionWay(s: SimState, city: CityId): { by: 'land' | 'sea'; way: string } | { why: string } {
   const land = routeWay(city, 'land');
   if (land) return { by: 'land', way: land.way };
   const sea = routeWay(city, 'sea');
-  if (sea && fleetFor(s, city) > 0) return { by: 'sea', way: sea.way };
-  if (sea) return { why: `${cityName(city)} can only be reached by sea: you need triremes` };
+  if (!sea) return { why: `No way leads to ${cityName(city)}` };
+  // (By sea: the triremes at home, crewed and sound, a company to each: fleet.ts.)
+  const f = fleetFor(s, city);
+  if (f.ids.length) return { by: 'sea', way: sea.way };
+  if (s.fleet.triremes.length === 0) return { why: `${cityName(city)} can only be reached by sea: you need triremes (build a shipyard on the shore and order one)` };
+  return { why: `${cityName(city)} can only be reached by sea, and your triremes can’t go: ${f.why.charAt(0).toLowerCase()}${f.why.slice(1)}` };
   return { why: `No way leads to ${cityName(city)}` };
 }
 
@@ -122,7 +122,14 @@ export function expeditionWay(s: SimState, city: CityId): { by: 'land' | 'sea'; 
 export const debtFrom = (s: SimState, city: CityId): Loan | undefined => s.world.loans.find((l) => l.city === city && l.side === 'out' && l.state === 'overdue');
 
 /** The companies an expedition would take: a raiding party the one or two with the most men ready (one with two or fewer), a full force every company with men ready (but the weakest stays home when there are three or more). */
-export function chosen(s: SimState, kind: Expedition['kind']): Company[] {
+export function chosen(s: SimState, kind: Expedition['kind'], city?: CityId): Company[] {
+  const picked = chosenAll(s, kind);
+  // (By sea, a trireme carries one company: no more go than there are triremes to carry them.)
+  if (city && !routeWay(city, 'land') && routeWay(city, 'sea')) return picked.slice(0, fleetFor(s, city).ids.length);
+  return picked;
+}
+
+function chosenAll(s: SimState, kind: Expedition['kind']): Company[] {
   const all = s.army.companies
     .filter((c) => !c.away && !c.routed && c.order !== 'away' && readyOf(s, c).length > 0)
     .sort((a, b) => readyOf(s, b).length - readyOf(s, a).length || Number(b.kind === 'hoplite') - Number(a.kind === 'hoplite') || a.id - b.id);
@@ -148,7 +155,7 @@ export const oddsOf = (ours: number, theirs: number): number => {
 /** An expedition as it would go now: its companies, men, strength against theirs, the odds, and what it would bring if it won. */
 export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind']): { companies: Company[]; men: number; ours: number; theirs: number; odds: number; brings: string; why: string } {
   const c = cityOf(s.world, city);
-  const companies = chosen(s, kind);
+  const companies = chosen(s, kind, city);
   const men = companies.reduce((a, x) => a + readyOf(s, x).length, 0);
   const ours = Math.round(companies.reduce((a, x) => a + mightOf(s, x), 0));
   const theirs = defenders(s, c, kind);
@@ -174,7 +181,7 @@ export function expeditionRefusal(s: SimState, city: CityId | string, kind: stri
   const out = expeditionOut(s);
   if (out) return `Your soldiers are out already, after ${cityName(out.city)}: one expedition at a time`;
   if (s.world.raids.some((r) => r.phase === 'raiding')) return 'Not while raiders are on your land';
-  if (!chosen(s, kind).length) return s.army.companies.length ? 'No company has men ready in its ranks' : 'You have no soldiers: raise a company at a barracks';
+  if (!chosen(s, kind, city as CityId).length) return s.army.companies.length ? 'No company has men ready in its ranks' : 'You have no soldiers: raise a company at a barracks';
   const l = debtFrom(s, city as CityId);
   if (l?.demand) return 'Your demand stands: wait for its day';
   return '';
@@ -197,6 +204,31 @@ function edgeFor(s: SimState, map: CoastMap, city: CityId, c: Company): number {
   return -1;
 }
 
+/** By sea: the open tile beside the shipyard of the first trireme that can go, nearest the yard, that the first company can reach. */
+function yardTile(s: SimState, map: CoastMap, city: CityId, c: Company): number {
+  const n = map.size;
+  const t = triremeOf(s, fleetFor(s, city).ids[0] ?? 0);
+  const yard = t ? findBuilding(s, t.yard) : undefined;
+  if (!yard) return -1;
+  const [cx, cz] = centreOf(yard);
+  const tiles: number[] = [];
+  for (let dz = -4; dz <= 4; dz++)
+    for (let dx = -4; dx <= 4; dx++) {
+      const x = Math.floor(cx) + dx;
+      const z = Math.floor(cz) + dz;
+      if (x < 0 || z < 0 || x >= n || z >= n) continue;
+      if (walkable(map, s, z * n + x)) tiles.push(z * n + x);
+    }
+  tiles.sort((a, b) => dhypot((a % n) + 0.5 - cx, Math.floor(a / n) + 0.5 - cz) - dhypot((b % n) + 0.5 - cx, Math.floor(b / n) + 0.5 - cz) || a - b);
+  for (const k of tiles.slice(0, 12)) if (wayFrom(s, map, c.x, c.z, k)) return k;
+  return -1;
+}
+
+/** Where the men of an expedition leave your map and come back onto it: off the edge by land; at the shipyard's tile by sea (aboard). */
+function leavePoint(n: number, e: Expedition): [number, number] {
+  return e.by === 'sea' ? [(e.edge % n) + 0.5, Math.floor(e.edge / n) + 0.5] : offMapPoint(n, e.edge);
+}
+
 /** Send an expedition (a command; nothing if expeditionRefusal says no). */
 export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string, kind: string): Expedition | null {
   if (expeditionRefusal(s, city, kind) !== '') return null;
@@ -204,8 +236,8 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
   const k = kind as Expedition['kind'];
   const w = s.world;
   const way = expeditionWay(s, id) as { by: 'land' | 'sea'; way: string };
-  const comps = chosen(s, k);
-  const edge = edgeFor(s, map, id, comps[0]);
+  const comps = chosen(s, k, id);
+  const edge = way.by === 'sea' ? yardTile(s, map, id, comps[0]) : edgeFor(s, map, id, comps[0]);
   if (edge < 0) return null;
   const debt = debtFrom(s, id);
   const e: Expedition = {
@@ -219,6 +251,7 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
     by: way.by,
     way: way.way,
     edge,
+    ships: [],
     start: 0,
     dur: 0,
     a0: 0,
@@ -252,8 +285,13 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
   const men = e.companies.reduce((a, cid) => a + readyOf(s, companyOf(s, cid) as Company).length, 0);
   const what = k === 'raid' ? 'a raiding party' : 'a full force';
   const why = debt ? `to collect the ${fmt(debt.owed)} dr ${cityName(id)} owes you` : 'against a city that owes you nothing';
-  armyNews(s, `${cap(what)} of ${men} men marches out for ${cityName(id)}, ${why}: the companies make for the ${routeWay(id, 'land')?.side ?? RAID_SIDE[id]} edge of your land`, 0);
-  news(w, s.tick, id, `You sent ${what} of ${men} men against ${cityName(id)}, ${why}. They march out by the ${routeWay(id, 'land')?.side ?? RAID_SIDE[id]} edge of your land`);
+  if (way.by === 'sea') {
+    armyNews(s, `${cap(what)} of ${men} men marches out for ${cityName(id)}, ${why}: the companies make for the shipyard, to sail in your triremes`, 0);
+    news(w, s.tick, id, `You sent ${what} of ${men} men against ${cityName(id)}, ${why}. They sail from your shipyard in your triremes`);
+  } else {
+    armyNews(s, `${cap(what)} of ${men} men marches out for ${cityName(id)}, ${why}: the companies make for the ${routeWay(id, 'land')?.side ?? RAID_SIDE[id]} edge of your land`, 0);
+    news(w, s.tick, id, `You sent ${what} of ${men} men against ${cityName(id)}, ${why}. They march out by the ${routeWay(id, 'land')?.side ?? RAID_SIDE[id]} edge of your land`);
+  }
   s.rev++;
   return e;
 }
@@ -272,7 +310,7 @@ export function stepExpeditions(s: SimState, map: CoastMap): void {
       const { L } = wayFor(e.city, e.by);
       e.phase = 'homeward';
       e.start = s.tick;
-      e.dur = marchTicks(e.city);
+      e.dur = marchTicks(e.city, e.by);
       e.a0 = L;
       e.a1 = EDGE_ALONG;
       s.rev++;
@@ -296,7 +334,7 @@ export function stepExpeditions(s: SimState, map: CoastMap): void {
  * months with those that are, the expedition sets off on the map.
  */
 function muster(s: SimState, map: CoastMap, e: Expedition): void {
-  const [ox, oz] = offMapPoint(map.size, e.edge);
+  const [ox, oz] = leavePoint(map.size, e);
   for (const id of e.companies.slice()) {
     const c = companyOf(s, id);
     if (!c || c.routed || (c.order !== 'march' && c.order !== 'hold' && c.order !== 'away') || (c.order !== 'away' && c.target !== e.edge)) {
@@ -333,7 +371,7 @@ function muster(s: SimState, map: CoastMap, e: Expedition): void {
     e.ended = s.tick;
     const l = e.loan ? loanOf(s.world, e.loan) : undefined;
     if (l && l.sent === e.id) l.sent = 0;
-    armyNews(s, `The expedition to ${cityName(e.city)} never left: no company reached the edge of your land`, 0);
+    armyNews(s, `The expedition to ${cityName(e.city)} never left: no company reached ${e.by === 'sea' ? 'the shipyard' : 'the edge of your land'}`, 0);
     return;
   }
   if (!all.every((c) => c.order === 'away') && !late) return;
@@ -344,10 +382,12 @@ function muster(s: SimState, map: CoastMap, e: Expedition): void {
     sendBanner(s, map, c.id, -1);
   }
   e.men = s.army.soldiers.filter((x) => x.state === 'away' && e.companies.includes(x.company)).map((x) => x.id);
+  // (By sea: the triremes go out with them, a company to each: fleet.ts takes them off the bay's guard.)
+  if (e.by === 'sea') e.ships = sailFor(s, map, fleetFor(s, e.city).ids.slice(0, e.companies.length), e.city);
   const { L } = wayFor(e.city, e.by);
   e.phase = 'marching';
   e.start = s.tick;
-  e.dur = marchTicks(e.city);
+  e.dur = marchTicks(e.city, e.by);
   e.a0 = EDGE_ALONG;
   e.a1 = L;
   s.rev++;
@@ -468,7 +508,7 @@ function fight(s: SimState, e: Expedition): void {
     .join('. ');
   r.push(`${byCompany}.`);
   r.push(`${cap(rulerShort(c))} will not soon forget it (${signed(m.amount)}), and Greece ${cause ? 'frowns on it' : 'is shocked'} (${signed(heardAmount)} with every other ruler).`);
-  r.push(`They march home by road: at the edge of your land about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city))}.`);
+  r.push(e.by === 'sea' ? `They sail home: in your bay about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.` : `They march home by road: at the edge of your land about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.`);
   e.report = r;
   e.phase = 'fighting';
   e.start = s.tick;
@@ -498,7 +538,9 @@ function store(s: SimState, ware: number, n: number): number {
 function comeHome(s: SimState, map: CoastMap, e: Expedition): void {
   const n = map.size;
   const [ex, ez] = [(e.edge % n) + 0.5, Math.floor(e.edge / n) + 0.5];
-  const [ox, oz] = offMapPoint(n, e.edge);
+  const [ox, oz] = leavePoint(n, e);
+  // (By sea: the triremes come in to their moorings, fleet.ts.)
+  if (e.ships.length) fleetHome(s, map, e.ships);
   for (const x of s.army.soldiers) {
     if (!e.men.includes(x.id) || x.state !== 'away') continue;
     x.x = ox;
@@ -567,13 +609,13 @@ export function expeditionLine(s: SimState, e: Expedition): string {
   };
   switch (e.phase) {
     case 'mustering':
-      return `${what} for ${name} (${men} men) is marching to the ${routeWay(e.city, 'land')?.side ?? RAID_SIDE[e.city]} edge of your land`;
+      return e.by === 'sea' ? `${what} for ${name} (${men} men) is marching to the shipyard` : `${what} for ${name} (${men} men) is marching to the ${routeWay(e.city, 'land')?.side ?? RAID_SIDE[e.city]} edge of your land`;
     case 'marching':
-      return `${what} (${men} men) is on the road to ${name}: there in ${days(e.start + e.dur)}`;
+      return `${what} (${men} men) is ${e.by === 'sea' ? 'at sea, bound for' : 'on the road to'} ${name}: there in ${days(e.start + e.dur)}`;
     case 'fighting':
       return `${what} is at ${name}, ${e.won ? 'the garrison beaten' : 'beaten by the garrison'}`;
     case 'homeward':
-      return `${what} is on the road home from ${name}${e.won ? ' with what it took' : ', beaten'}: at the edge of your land in ${days(e.start + e.dur)}`;
+      return `${what} is ${e.by === 'sea' ? 'at sea on the way home' : 'on the road home'} from ${name}${e.won ? ' with what it took' : ', beaten'}: ${e.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${days(e.start + e.dur)}`;
     case 'back':
       return `${what} is home from ${name}, marching back to the barracks`;
     default:

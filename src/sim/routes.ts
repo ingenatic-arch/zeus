@@ -35,6 +35,7 @@
  * and goods through the stock book. Pure, and nothing here runs in a town
  * that has never opened a route or built a yard.
  */
+import { preyingOn } from './lanes';
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { CITY_IDS, EDGE_ALONG, HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints as tableWay, type CityId } from '../map/greece';
@@ -220,6 +221,7 @@ export function openRoute(s: SimState, city: CityId | string, kind: RouteKind): 
     missedAt: 0,
     missed: '',
     closed: 0,
+    robbed: 0,
   });
   if (!s.world.contact) s.world.contact = Math.max(1, s.tick);
   s.rev++;
@@ -696,6 +698,8 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
   r.next = v.since + SAIL_IN;
   v.stop = 1;
   v.aside = 0;
+  // (Pirates preying on her lane, unguarded, take her cargo on her way: slice 26.)
+  r.robbed = preyingOn(s, routeWay(r.city, 'sea')?.way ?? '') ? s.tick : 0;
   if (!jettyFree(s, post, v, r.next, r.next + LOADING + CLEAR)) {
     const L = pathLength(v.path);
     v.stop = Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L));
@@ -750,7 +754,9 @@ function moor(s: SimState, r: TradeRoute, v: Visitor, post: Building): void {
   v.stop = 1;
   v.aside = 0;
   r.hold = zeros();
-  unload(s, r, post);
+  // (Robbed by pirates on her way in: nothing to unload this time.)
+  if (r.robbed) r.robbed = 0;
+  else unload(s, r, post);
 }
 
 /** A sea route's ship, once a tick. */

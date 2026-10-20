@@ -50,6 +50,7 @@ const PLURAL: Record<BuildingKind, string> = {
   armoury: 'armouries',
   barracks: 'barracks',
   tower: 'towers',
+  shipyard: 'shipyards',
 };
 
 const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;
@@ -76,6 +77,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'lent') return [`Lent · ${l.what}`, ''];
   if (l.kind === 'repaid') return [`Loan repaid · ${l.what}`, ''];
   if (l.kind === 'soldiers') return ['Soldiers’ pay', n ? count(n, 'man', 'men') : ''];
+  if (l.kind === 'rowers') return ['Rowers’ pay', n ? count(n, 'man', 'men') : ''];
+  if (l.what === 'trireme') return ['Triremes', n > 1 ? String(n) : ''];
   if (l.kind === 'hirelings') return l.what === 'pay' ? ['Hirelings’ pay', n ? count(n, 'man', 'men') : ''] : [`Hired · ${l.what}`, ''];
   if (l.kind === 'recovered') return [`Taken back ${l.what}`, ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
@@ -93,7 +96,7 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
 }
 
 /** The order the kinds come in, money in first. */
-const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'recovered', 'collected', 'borrowed', 'repayment', 'returned', 'refund', 'wages', 'soldiers', 'hirelings', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'peace', 'lent', 'repaid', 'raid', 'seized', 'fire', 'collapse'];
+const ORDER: LedgerKind[] = ['taxes', 'sales', 'given', 'recovered', 'collected', 'borrowed', 'repayment', 'returned', 'refund', 'wages', 'soldiers', 'hirelings', 'rowers', 'building', 'clearing', 'imports', 'routes', 'gifts', 'favours', 'tribute', 'peace', 'lent', 'repaid', 'raid', 'seized', 'fire', 'collapse'];
 
 interface Row {
   kind: LedgerKind;
@@ -140,7 +143,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const body: string[] = [];
   let heading = '';
   for (const r of rows) {
-    const head = r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'seized' ? 'Seized against your debts' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'hirelings' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' || r.kind === 'lent' || r.kind === 'repaid' ? 'Going out' : 'Coming in';
+    const head = r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'seized' ? 'Seized against your debts' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'hirelings' || r.kind === 'rowers' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' || r.kind === 'lent' || r.kind === 'repaid' ? 'Going out' : 'Coming in';
     if (head !== heading) {
       heading = head;
       body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);

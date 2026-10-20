@@ -68,6 +68,10 @@ import { lineClear, offRoadPath, prunePath, walkable } from './wild';
 import { barsFoe, foeToll, foeWalkable, wallAt } from './walls';
 import { districtAt, districtTitle } from '../map/districts';
 import { cityOf, COLD, HOSTILE, moodOf, rulerName, rulerShort, sellsAndBuys } from './world';
+import { armyNews } from './army';
+import { daysToBeach, embark, onWater, sailIn, seaOf, seaborne, shipsFor, shipsOf } from './fleet';
+import { isStore, roomFor } from './stores';
+import { income } from './treasury';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -84,7 +88,7 @@ export const LULL = TICKS_PER_YEAR;
 export const RAID_LULL = 2 * TICKS_PER_YEAR;
 const GREECE_LULL = 3 * TICKS_PER_MONTH;
 /** How long a ruler's last raid or band holds them back. */
-const lullOf = (r: Raid): number => (r.end === 'raided' || r.end === 'nothing' ? RAID_LULL : LULL);
+const lullOf = (r: Raid): number => (r.end === 'raided' || r.end === 'nothing' || r.end === 'sunk' ? RAID_LULL : LULL);
 /** A hostile, proud or warlike ruler threatens about one month in eight. */
 const HOSTILE_ODDS = 1 / 8;
 /** A tribute marked angry still gets its threat for this long after it was refused (if another threat held it back). */
@@ -171,10 +175,28 @@ export const threatLive = (w: World): boolean => w.raids.some(live);
 /** Greece's dice for a month (or a raid) and a purpose. */
 const dice = (w: World, n: number, i: number, salt: number): number => hash2(n, i * 41 + salt, (w.seed ^ 0x72616964) | 0);
 
-/** How long a city's band takes on the map, from their city to your edge (or your gulf). */
-export function marchTicks(city: CityId): number {
-  return routeWay(city, 'land') ? Math.round(landTicks(city) * MARCH_SLOWER) : voyageTicks(city);
+/** How long a city's band takes on the map, from their city to your edge (or, by sea, your gulf). */
+export function marchTicks(city: CityId, by: 'land' | 'sea' = routeWay(city, 'land') ? 'land' : 'sea'): number {
+  return by === 'land' && routeWay(city, 'land') ? Math.round(landTicks(city) * MARCH_SLOWER) : voyageTicks(city);
 }
+
+/**
+ * How a city's band comes (slice 26): by sea from a city with no road to
+ * yours (Troy), or from one you trade with by sea and not by land (Athens or
+ * Corinth, their ships knowing the way); else along the road.
+ */
+export function raidBy(s: SimState, city: CityId): 'land' | 'sea' {
+  if (!routeWay(city, 'land')) return 'sea';
+  if (!routeWay(city, 'sea')) return 'land';
+  const open = (k: 'land' | 'sea'): boolean => s.world.routes.some((r) => r.city === city && r.kind === k);
+  return open('sea') && !open('land') ? 'sea' : 'land';
+}
+
+/** Where a band comes: "at the west edge of your land", "off your shore". */
+export const edgeWords = (r: Pick<Raid, 'by' | 'city'>): string => (r.by === 'sea' ? 'off your shore' : `at the ${RAID_SIDE[r.city]} edge of your land`);
+
+/** The men of a band on your land (by sea, those who landed). */
+export const bandMen = (r: Raid): number => (r.landed > 0 ? r.landed : r.men);
 
 /** The price of peace in coin, for a city your size. */
 export const peaceCoin = (s: SimState): number => clamp(Math.round((PEACE_VALUE * fairGift(s)) / 50) * 50, PEACE_LEAST, PEACE_MOST);
@@ -207,22 +229,22 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
   const alt = goods.length ? goods[Math.floor(dice(w, n, 0, 1) * goods.length)] : -1;
   const altAmount = alt >= 0 ? worth(alt) : 0;
   const first = firstRoute(w);
-  const march = marchTicks(c.id);
+  const by = raidBy(s, c.id);
+  const march = marchTicks(c.id, by);
   let days = debt ? DEBT_DAYS : Math.max(deadlineFor(s, map, c.id, -1, coin, THREAT_DAYS), alt >= 0 ? deadlineFor(s, map, c.id, alt, altAmount, THREAT_DAYS) : 0);
   // (No raiders at your edge within a year of your first route; a lender's army comes when the debt says.)
   if (first && !debt) days = Math.max(days, first + TICKS_PER_YEAR - GATHER - march - s.tick);
   days = Math.ceil(days / TICKS_PER_DAY) * TICKS_PER_DAY;
   const why = cause;
   const d = makeDeal(s, 'threat', c.id, -1, coin, s.tick + days, why);
-  const land = !!routeWay(c.id, 'land');
-  const { id: way } = wayFor(c.id, land ? 'land' : 'sea');
+  const { id: way } = wayFor(c.id, by);
   const r: Raid = {
     id: w.nextRaid++,
     deal: d.id,
     city: c.id,
     men: debt ? debtBand(s, c.id, dice(w, n, 0, 2)) : bandSize(s, c.id, dice(w, n, 0, 2)),
     phase: 'threat',
-    by: land ? 'land' : 'sea',
+    by,
     way,
     start: s.tick,
     dur: days,
@@ -251,16 +273,22 @@ export function threaten(s: SimState, map: CoastMap, c: WorldCity, cause: string
     breaches: 0,
     ended: 0,
     end: '',
+    shore: -1,
+    ships: 0,
+    sunk: 0,
+    landed: 0,
+    drowned: 0,
+    brokeAt: '',
     loan: debt ? debt.id : 0,
   };
   w.raids.push(r);
   if (!w.contact) w.contact = Math.max(1, s.tick);
   if (debt) {
-    news(w, s.tick, c.id, `${rulerName(c)} will wait no longer for the ${fmt(coin)} dr you owe: pay it ${dueIn(days, s.tick + days)}, or ${his(c)} army will come to collect it, about ${r.men} men`, true);
+    news(w, s.tick, c.id, `${rulerName(c)} will wait no longer for the ${fmt(coin)} dr you owe: pay it ${dueIn(days, s.tick + days)}, or ${his(c)} army will come to collect it, about ${r.men} men${by === 'sea' ? ', by sea' : ''}`, true);
     s.rev++;
     return r;
   }
-  news(w, s.tick, c.id, `${rulerName(c)} is out of patience: pay ${fmt(coin)} dr${alt >= 0 ? ` or send ${giftWords(alt, altAmount)}` : ''} ${dueIn(days, s.tick + days)}, or ${his(c)} raiders will come, about ${r.men} men`, true);
+  news(w, s.tick, c.id, `${rulerName(c)} is out of patience: pay ${fmt(coin)} dr${alt >= 0 ? ` or send ${giftWords(alt, altAmount)}` : ''} ${dueIn(days, s.tick + days)}, or ${his(c)} raiders will come, about ${r.men} men${by === 'sea' && routeWay(c.id, 'land') ? ', by sea' : ''}`, true);
   s.rev++;
   return r;
 }
@@ -328,6 +356,8 @@ export function stepRaids(s: SimState, map: CoastMap): void {
       r.phase = 'done';
       s.rev++;
     }
+    // (Ships paid off or called off before they landed, gone over the horizon: home along the lane.)
+    else if (r.phase === 'raiding' && r.shore >= 0 && r.landed === 0 && r.end !== '' && !seaborne(s, r)) home(s, r);
   }
   if (s.tick % TICKS_PER_DAY !== 0) return;
   for (const r of w.raids) {
@@ -341,7 +371,7 @@ export function stepRaids(s: SimState, map: CoastMap): void {
     }
     if (r.phase === 'threat' && d && s.tick >= d.due && d.gift === 0) gather(s, r, false);
     // (The band no longer on your map, however that came about: the raid is over, not stuck live for ever.)
-    else if (r.phase === 'raiding' && !raidersOf(s, r)) {
+    else if (r.phase === 'raiding' && !raidersOf(s, r) && !(r.shore >= 0 && r.landed === 0 && seaborne(s, r))) {
       home(s, r);
       settle(s, r, 'raided');
     }
@@ -387,16 +417,16 @@ export function gather(s: SimState, r: Raid, refused: boolean): void {
   r.start = s.tick;
   // (Ten days; longer, so that no raiders reach your edge within a year of your first route.)
   const first = firstRoute(s.world);
-  r.dur = Math.ceil(Math.max(GATHER, first && !r.loan ? first + TICKS_PER_YEAR - marchTicks(r.city) - s.tick : 0) / TICKS_PER_DAY) * TICKS_PER_DAY;
+  r.dur = Math.ceil(Math.max(GATHER, first && !r.loan ? first + TICKS_PER_YEAR - marchTicks(r.city, r.by) - s.tick : 0) / TICKS_PER_DAY) * TICKS_PER_DAY;
   r.a0 = L;
   r.a1 = L;
-  const days = Math.round((r.dur + marchTicks(r.city)) / TICKS_PER_DAY);
+  const days = Math.round((r.dur + marchTicks(r.city, r.by)) / TICKS_PER_DAY);
   if (r.loan) {
-    news(s.world, s.tick, r.city, `${refused ? `You would not pay ${rulerShort(c)}: ` : ''}${whose(r.city)} army gathers to collect your debt, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${days} days. Pay the ${fmt(r.coin)} dr to turn them back`, true);
+    news(s.world, s.tick, r.city, `${refused ? `You would not pay ${rulerShort(c)}: ` : ''}${whose(r.city)} army gathers to collect your debt, ${r.men} men: ${edgeWords(r)} in about ${days} days. Pay the ${fmt(r.coin)} dr to turn them back`, true);
     s.rev++;
     return;
   }
-  news(s.world, s.tick, r.city, `${refused ? `You defied ${rulerShort(c)}: ` : ''}${whose(r.city)} raiders gather to march on your city, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${days} days. Pay ${fmt(r.coin)} dr to turn them back`, true);
+  news(s.world, s.tick, r.city, `${refused ? `You defied ${rulerShort(c)}: ` : ''}${whose(r.city)} raiders gather to ${r.by === 'sea' ? 'sail' : 'march'} on your city, ${r.men} men: ${edgeWords(r)} in about ${days} days. Pay ${fmt(r.coin)} dr to turn them back`, true);
   s.rev++;
 }
 
@@ -404,23 +434,23 @@ export function gather(s: SimState, r: Raid, refused: boolean): void {
 function march(s: SimState, r: Raid): void {
   r.phase = 'marching';
   r.start = s.tick;
-  r.dur = marchTicks(r.city);
+  r.dur = marchTicks(r.city, r.by);
   r.a1 = r.by === 'land' ? EDGE_ALONG : HORIZON_ALONG;
   s.rev++;
 }
 
 /** Days until the band reaches your edge (gathering or marching), at least 1. */
 export function daysToEdge(r: Raid, tick: number): number {
-  const at = r.phase === 'gathering' ? r.start + r.dur + marchTicks(r.city) : r.phase === 'marching' ? r.start + r.dur : tick;
+  const at = r.phase === 'gathering' ? r.start + r.dur + marchTicks(r.city, r.by) : r.phase === 'marching' ? r.start + r.dur : tick;
   return Math.max(1, Math.ceil((at - tick) / TICKS_PER_DAY));
 }
 
 /** When the band reaches your edge (a tick), from the threat's day if it has not set out. */
 export function reachesEdge(s: SimState, r: Raid): number {
-  if (r.phase === 'gathering') return r.start + r.dur + marchTicks(r.city);
+  if (r.phase === 'gathering') return r.start + r.dur + marchTicks(r.city, r.by);
   if (r.phase === 'marching') return r.start + r.dur;
   const d = dealOf(s.world, r.deal);
-  return (d ? Math.max(d.due, s.tick) : s.tick) + GATHER + marchTicks(r.city);
+  return (d ? Math.max(d.due, s.tick) : s.tick) + GATHER + marchTicks(r.city, r.by);
 }
 
 // ---------------------------------------------------------------------------
@@ -522,8 +552,12 @@ function justOff(size: number, t: number): [number, number] {
   return [tx + 0.5, size + 0.5];
 }
 
-/** The band reaches your edge: in it comes, for its target (or, with nothing worth taking in reach, it goes home). */
+/** The band reaches your edge: in it comes, for its target (or, with nothing worth taking in reach, it goes home). By sea, its ships come into sight. */
 function arrive(s: SimState, map: CoastMap, r: Raid): void {
+  if (r.by === 'sea') {
+    arriveBySea(s, map, r);
+    return;
+  }
   const w = s.world;
   const c = cityOf(w, r.city);
   const at = landing(s, map, r.city);
@@ -553,6 +587,240 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   if (r.loan) news(w, s.tick, r.city, `${whose(r.city)} army is in at the ${RAID_SIDE[r.city]} edge of your land, ${r.men} men come to collect the ${fmt(r.coin)} dr you owe, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
   else news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   void c;
+  s.rev++;
+}
+
+// ---------------------------------------------------------------------------
+// From the sea (slice 26): ships in the bay, the beach, and back to the ships.
+
+/** The shore a band from the sea can land on: open ground (or a stretch of wall or a gate) beside the open sea. */
+function beachTiles(map: CoastMap, s: SimState): number[] {
+  const n = map.size;
+  const open = seaOf(map).open;
+  const out: number[] = [];
+  for (let z = 1; z < n - 1; z++) {
+    for (let x = 1; x < n - 1; x++) {
+      const t = z * n + x;
+      if (open[t] || !(foeWalkable(map, s, t) || (s.walls.length > 0 && barsFoe(s, t)))) continue;
+      if (open[t - 1] || open[t + 1] || open[t - n] || open[t + n]) out.push(t);
+    }
+  }
+  return out;
+}
+
+/** Where a ship runs up on a beach tile: on the waterline, her bow on the sand (world units), from the sea beside it. */
+function shipSpot(map: CoastMap, t: number): { x: number; z: number; tile: number } {
+  const n = map.size;
+  const open = seaOf(map).open;
+  const x = t % n;
+  const z = (t - x) / n;
+  let dx = 0;
+  let dz = 0;
+  if (open[t - 1]) dx -= 1;
+  if (open[t + 1]) dx += 1;
+  if (open[t - n]) dz -= 1;
+  if (open[t + n]) dz += 1;
+  const h = dhypot(dx, dz) || 1;
+  return { x: x + 0.5 + (dx / h) * 0.85, z: z + 0.5 + (dz / h) * 0.85, tile: t };
+}
+
+/** A spot on the beach for each of a band's ships: the landing first, the rest along the shore beside it, a little apart. */
+function spotsNear(map: CoastMap, beaches: readonly number[], from: number, n: number): Array<{ x: number; z: number; tile: number }> {
+  const size = map.size;
+  const fx = from % size;
+  const fz = Math.floor(from / size);
+  const near = beaches
+    .map((t) => ({ t, d: dhypot((t % size) - fx, Math.floor(t / size) - fz) }))
+    .filter((p) => p.d <= 10)
+    .sort((p, q) => p.d - q.d || p.t - q.t);
+  const out = [shipSpot(map, from)];
+  for (const { t } of near) {
+    if (out.length >= n) break;
+    const p = shipSpot(map, t);
+    if (out.every((o) => dhypot(o.x - p.x, o.z - p.z) >= 1.9)) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Where a band from the sea lands and what it goes for: of the stores worth
+ * it (then the tax offices; with neither, the fields), the nearest to the
+ * shore that a way leads to, and the beach from which the walk there is the
+ * shortest, by the raiders' own way-finding (walls and gates counted as on
+ * land). Null if nothing worth it can be reached from the shore.
+ */
+export function seaLanding(s: SimState, map: CoastMap, men: number, ships: number): { from: number; target: Building; next: number[]; spots: Array<{ x: number; z: number; tile: number }> } | null {
+  const size = map.size;
+  const beaches = beachTiles(map, s);
+  if (!beaches.length) return null;
+  void men;
+  const toShore = (x: number, z: number): number => {
+    let best = Infinity;
+    for (const t of beaches) best = Math.min(best, dhypot((t % size) + 0.5 - x, Math.floor(t / size) + 0.5 - z));
+    return best;
+  };
+  const key = new Map<number, number>();
+  const shoreOf = (b: Building): number => {
+    let k = key.get(b.id);
+    if (k === undefined) {
+      const [cx, cz] = centreOf(b);
+      k = toShore(cx, cz);
+      key.set(b.id, k);
+    }
+    return k;
+  };
+  const near = (a: Building, b: Building): number => shoreOf(a) - shoreOf(b) || a.id - b.id;
+  const stores = s.buildings.filter(storeWorth).sort(near);
+  const offices = s.buildings.filter((b) => b.kind === 'taxoffice').sort(near);
+  const fields = s.buildings.filter((b) => FIELDS[b.kind] !== undefined).sort(near);
+  const targets = stores.length ? [...stores.slice(0, TRIES), ...offices.slice(0, TRIES)] : offices.length ? offices.slice(0, TRIES) : fields;
+  for (const b of targets.slice(0, 2 * TRIES)) {
+    const goals = around(size, b).filter((t) => foeWalkable(map, s, t));
+    if (!goals.length) continue;
+    const g = goals.map((t) => ({ t, d: toShore((t % size) + 0.5, Math.floor(t / size) + 0.5) })).sort((p, q) => p.d - q.d || p.t - q.t)[0].t;
+    const found = foeWay(map, s, beaches, g);
+    if (!found) continue;
+    const [bx, bz] = centreOf(b);
+    const office = STORES.includes(b.kind) ? offices.slice().sort((p, q) => dhypot(centreOf(p)[0] - bx, centreOf(p)[1] - bz) - dhypot(centreOf(q)[0] - bx, centreOf(q)[1] - bz) || p.id - q.id)[0] : undefined;
+    return { from: found.from, target: b, next: office ? [office.id] : [], spots: spotsNear(map, beaches, found.from, ships) };
+  }
+  return null;
+}
+
+/** " below the market quarter": where on the shore, for the news (nothing outside a district). */
+function shoreWhere(map: CoastMap, t: number): string {
+  const n = map.size;
+  const title = districtTitle(districtAt(map, (t % n) + 0.5, Math.floor(t / n) + 0.5));
+  return title ? ` ${title[0].toLowerCase()}${title.slice(1)}` : '';
+}
+
+/** A band by sea reaches your gulf: its ships come into sight, each making for its spot on the beach nearest what it came for. */
+function arriveBySea(s: SimState, map: CoastMap, r: Raid): void {
+  const w = s.world;
+  const at = seaLanding(s, map, r.men, shipsFor(r.men));
+  if (!at) {
+    home(s, r);
+    settle(s, r, 'nothing');
+    news(w, s.tick, r.city, `${whose(r.city)} ships came into sight off your shore and found nothing worth landing for: they have sailed home`, true);
+    return;
+  }
+  r.phase = 'raiding';
+  r.start = s.tick;
+  r.shore = at.from;
+  r.edge = at.from;
+  r.target = at.target.id;
+  r.aim = at.target.kind;
+  r.next = at.next;
+  r.siege = -1;
+  sailIn(s, map, r, at.spots);
+  const days = daysToBeach(s, map, r);
+  const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
+  news(w, s.tick, r.city, `Sails! ${r.ships} of ${whose(r.city)} ships are in sight off your shore, about ${r.men} men aboard, making for the beach${shoreWhere(map, at.from)}: they will land for ${aimWords(at.target)}${then ? ` and then ${then}` : ''} in about ${days === 1 ? 'a day' : `${days} days`}. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  s.rev++;
+}
+
+/** The raid a ship sails for. */
+export const raidOfShips = (s: SimState, id: number): Raid | undefined => s.world.raids.find((r) => r.id === id);
+
+/**
+ * Every ship still afloat is drawn up on the beach (fleet.ts): the band lands,
+ * `men` of them (those aboard the ships that made it, less a few left to
+ * guard each), forms up at the ship nearest the way in, and marches inland
+ * for what it came for. With no way to it any more, they sail off again.
+ */
+export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void {
+  const size = map.size;
+  const beached = shipsOf(s, r).filter((e) => e.state === 'beached');
+  r.landed = Math.max(1, men);
+  const b = findBuilding(s, r.target);
+  const starts = beached.map((e) => e.tile);
+  let best: { tiles: number[]; siege: number; from: number } | null = null;
+  if (b && b.kind !== 'rubble' && starts.length) {
+    const goals = around(size, b).filter((t) => foeWalkable(map, s, t));
+    for (const g of goals.slice(0, 4)) {
+      const p = foeWay(map, s, starts, g);
+      if (p && (!best || p.tiles.length < best.tiles.length)) best = p;
+    }
+  }
+  if (!best || !beached.length) {
+    embark(s, map, r, false);
+    home(s, r);
+    settle(s, r, 'nothing');
+    news(s.world, s.tick, r.city, `${whose(r.city)} raiders beached on your shore, but found no way to what they came for: they have sailed home`, true);
+    return;
+  }
+  const ship = beached.find((e) => e.tile === best!.from) ?? beached[0];
+  const path: Array<[number, number, number]> = [[ship.bx, ship.bz, -1]];
+  for (const [px, pz] of prunePath(map, s, best.tiles, foeWalkable)) path.push([px, pz, -1]);
+  // (A wall on the very beach: they stand at the waterline, at it, to break it.)
+  if (!best.tiles.length) {
+    const t = best.from;
+    path.push([(ship.bx + (t % size) + 0.5) / 2, (ship.bz + Math.floor(t / size) + 0.5) / 2, -1]);
+  }
+  r.edge = best.from;
+  r.siege = best.siege;
+  const band = newWalker(s, 'raider', r.landed);
+  band.origin = r.target;
+  band.target = r.target;
+  band.home = r.id;
+  band.food = CITY_IDS.indexOf(r.city);
+  band.meat = -1;
+  band.since = s.tick;
+  setPath(band, path);
+  s.walkers.push(band);
+  const then = r.next.map((id) => findBuilding(s, id)).filter((x): x is Building => !!x).map(aimWords).join(', then ');
+  news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  s.rev++;
+}
+
+/** Every ship of a band sunk before it landed: nobody landed, and the raid is over. */
+export function lostAtSea(s: SimState, map: CoastMap, r: Raid): void {
+  if (r.end !== '') {
+    home(s, r);
+    return;
+  }
+  settle(s, r, 'sunk');
+  r.phase = 'done';
+  void map;
+  s.rev++;
+}
+
+/**
+ * Back at the beach with no ship to take them off (all sunk while they were
+ * ashore): they drop what they carried on the sand (taken back into the
+ * stores and the treasury, as from the fallen) and flee overland.
+ */
+function strand(s: SimState, r: Raid, w: Walker, x: number, z: number): void {
+  r.shore = -1;
+  const goods = r.took - r.regained;
+  const back: string[] = [];
+  if (goods > 0 && r.ware >= 0) {
+    let store: Building | null = null;
+    let bd = Infinity;
+    for (const g of s.buildings) {
+      if (!isStore(g.kind) || roomFor(g, r.ware) < goods) continue;
+      const d = dhypot(g.x + 1 - x, g.z + 1 - z);
+      if (d < bd - 1e-9) {
+        bd = d;
+        store = g;
+      }
+    }
+    if (store) {
+      setHeld(store, r.ware, held(store, r.ware) + goods);
+      note(s, r.ware, 'lost', `raid:${r.city}`, -goods);
+      r.regained += goods;
+      back.push(`${fmt(goods)} ${WARE_NAMES[r.ware]}`);
+      s.looks++;
+    }
+  }
+  const coin = r.stole - r.coinBack;
+  if (coin > 0) {
+    income(s, coin, 'recovered', `from ${whose(r.city)} raiders`);
+    r.coinBack += coin;
+    back.push(`${fmt(coin)} dr`);
+  }
+  w.load = Math.max(0, r.took - r.regained);
+  news(s.world, s.tick, r.city, `${whose(r.city)} raiders came back to the shore and found their ships sunk: they ${back.length ? `dropped what they carried (${back.join(' and ')} taken back) and ` : ''}flee overland`, true);
   s.rev++;
 }
 
@@ -593,7 +861,29 @@ export function headOff(s: SimState, map: CoastMap, w: Walker, r: Raid | undefin
     return true;
   }
   const starts = startsAt(map, s, x, z);
-  const edge = r && r.edge >= 0 ? r.edge : -1;
+  // From the sea (slice 26): back to whichever of their ships on the beach is the shortest walk, and out to her. None left: they flee overland.
+  if (r && r.shore >= 0 && r.landed > 0) {
+    const ships = s.fleet.ships.filter((e) => e.raid === r.id && (e.state === 'beached' || e.state === 'sailing'));
+    let best: { tiles: number[]; siege: number; from: number } | null = null;
+    let to: (typeof ships)[number] | undefined;
+    for (const e of ships) {
+      const p = starts.length ? foeWay(map, s, starts, e.tile) : null;
+      if (p && (!best || p.tiles.length < best.tiles.length)) {
+        best = p;
+        to = e;
+      }
+    }
+    if (best && to) {
+      const way: Array<[number, number, number]> = [[x, z, -1]];
+      for (const [px, pz] of prunePath(map, s, best.tiles, foeWalkable)) way.push([px, pz, -1]);
+      r.siege = best.siege;
+      if (best.siege < 0) way.push([to.bx, to.bz, -1]);
+      setPath(w, way);
+      return true;
+    }
+    if (!ships.length) strand(s, r, w, x, z);
+  }
+  const edge = r && r.edge >= 0 && r.shore < 0 && r.landed === 0 ? r.edge : -1;
   const found = edge >= 0 && starts.length ? foeWay(map, s, starts, edge) : null;
   if (found) {
     const way: Array<[number, number, number]> = [[x, z, -1]];
@@ -655,25 +945,25 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     // (Paid off or called off while they stand at their target: they go at once, with nothing from it.)
     if (r && r.end !== '') {
       w.wait = 0;
-      return headOff(s, map, w, r) || gone(s, w, r);
+      return headOff(s, map, w, r) || gone(s, map, w, r);
     }
     if (fighting) return true;
     if (--w.wait > 0) return true;
     strike(s, w, r);
     // Then on to the next place they came for (the tax office, after a store), or off home.
     if (r && onward(s, map, w, r)) return true;
-    return headOff(s, map, w, r) || gone(s, w, r);
+    return headOff(s, map, w, r) || gone(s, map, w, r);
   }
   // Paid off or called off on the way in: they turn for the edge from where they stand.
   if (!w.back && r && r.end !== '') {
-    if (!headOff(s, map, w, r)) return gone(s, w, r);
+    if (!headOff(s, map, w, r)) return gone(s, map, w, r);
   }
   if (fighting) return true;
   // At a wall or gate they must break (slice 25): they stand and hammer at it (battle.ts); once it is broken, on through it.
   if (r && r.siege >= 0 && w.seg >= w.path.length / 2 - 1) {
     if ((wallAt(s, r.siege)?.hp ?? 0) > 0) return true;
     r.siege = -1;
-    if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, w, r);
+    if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, map, w, r);
   }
   // Torches on their way: now and then a building beside them is set alight.
   if (r && s.tick % TICKS_PER_DAY === 0) torch(s, map, w, r);
@@ -695,20 +985,21 @@ export function moveRaider(s: SimState, map: CoastMap, w: Walker): boolean {
     if (w.seg < last) {
       // Something built across the way ahead (not the last step, off the map): find another.
       const j = w.seg * 2;
-      const offMap = (x: number, z: number): boolean => x < 0 || z < 0 || x >= map.size || z >= map.size;
+      // (Nor the step out to their ships, at the waterline: slice 26.)
+      const offMap = (x: number, z: number): boolean => x < 0 || z < 0 || x >= map.size || z >= map.size || (r !== undefined && r.landed > 0 && onWater(map, x, z));
       if (!offMap(w.path[j], w.path[j + 1]) && !offMap(w.path[j + 2], w.path[j + 3]) && !lineClear(map, s, w.path[j], w.path[j + 1], w.path[j + 2], w.path[j + 3], s.walls.length ? foeWalkable : walkable)) {
-        if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, w, r);
+        if (!(w.back ? headOff(s, map, w, r) : reaim(s, map, w) || headOff(s, map, w, r))) return gone(s, map, w, r);
       }
       continue;
     }
     // The end of the way at a wall or gate they must break (slice 25): they stand and hammer at it (battle.ts); broken, on.
     if (r && r.siege >= 0) break;
     // The end of the way: off the map, or at the target.
-    if (w.back) return gone(s, w, r);
+    if (w.back) return gone(s, map, w, r);
     const b = findBuilding(s, w.target);
     if (!b || b.kind === 'rubble' || (r && r.end !== '')) {
       if (r && r.end === '' && onward(s, map, w, r)) return true;
-      return headOff(s, map, w, r) || gone(s, w, r);
+      return headOff(s, map, w, r) || gone(s, map, w, r);
     }
     w.wait = AT_TARGET;
     light(s, b, r);
@@ -843,8 +1134,13 @@ function strike(s: SimState, w: Walker, r: Raid | undefined): void {
 }
 
 /** The raiders have left your map (or could get nowhere): home along the way on the map; the raid is over, the anger spent. */
-function gone(s: SimState, w: Walker, r: Raid | undefined): false {
+function gone(s: SimState, map: CoastMap, w: Walker, r: Raid | undefined): boolean {
   if (!r) return false;
+  // From the sea: they wade out, and the ships take them off (laden, if they carry anything); with none left, they flee overland.
+  if (r.shore >= 0 && r.landed > 0) {
+    const laden = r.took - r.regained > 0 || r.stole - r.coinBack > 0;
+    if (!embark(s, map, r, laden) && headOff(s, map, w, r) && r.shore < 0) return true;
+  }
   home(s, r);
   if (r.end === '') settle(s, r, 'raided');
   else {
@@ -877,16 +1173,20 @@ export function breakBand(s: SimState, map: CoastMap, r: Raid): void {
     r.next = [];
     if (!headOff(s, map, w, r)) s.walkers = s.walkers.filter((o) => o !== w);
   }
-  news(s.world, s.tick, r.city, `${whose(r.city)} raiders break and run for the ${RAID_SIDE[r.city]} edge: ${r.fallen} of their ${r.men} men have fallen`, true);
+  // (No count here: towers and archers often bring down more as they run. The whole fight's count comes when they have gone. Slice 25's review.)
+  news(s.world, s.tick, r.city, `${whose(r.city)} raiders break and run for ${runFor(r)}: half their men have fallen`, true);
   s.rev++;
 }
+
+/** Where a beaten band runs: "the west edge", "their ships". */
+export const runFor = (r: Raid): string => (r.shore >= 0 && r.landed > 0 ? 'their ships' : `the ${RAID_SIDE[r.city]} edge`);
 
 /** The band heads home along the way on the map from your edge (or your gulf). */
 function home(s: SimState, r: Raid): void {
   const { L } = wayFor(r.city, r.by);
   r.phase = 'homeward';
   r.start = s.tick;
-  r.dur = marchTicks(r.city);
+  r.dur = marchTicks(r.city, r.by);
   r.a0 = r.by === 'land' ? EDGE_ALONG : HORIZON_ALONG;
   r.a1 = L;
   s.rev++;
@@ -907,23 +1207,35 @@ function settle(s: SimState, r: Raid, how: string): void {
     d.state = how === 'paid' ? 'met' : how === 'called' ? 'ended' : 'raided';
     d.ended = s.tick;
   }
-  if (r.loan && (how === 'raided' || how === 'nothing')) {
+  if (r.loan && (how === 'raided' || how === 'nothing' || how === 'sunk')) {
     // A lender's army gone: what it carried off comes off the debt (loans.ts). No anger spent: it came for coin.
     collectorsGone(s, r, lootValue(s, r));
     s.rev++;
     return;
   }
-  if (how === 'raided' || how === 'nothing') {
+  if (how === 'raided' || how === 'nothing' || how === 'sunk') {
     const loot = lootWords(r);
     const lost = loot ? `${loot} carried off` : '';
     const burnt = r.fires + (r.fired ? 1 : 0);
     const fired = r.fired && r.fires === 0 ? `${r.aim === 'grove' ? 'the olive grove' : r.aim === 'pasture' ? 'the sheep pasture' : `the ${r.aim}`} set alight` : burnt ? `${burnt === 1 ? 'a building' : `${burnt} buildings`} set alight` : '';
-    const beaten = r.fallen ? `${r.fallen} of their ${r.men} men fell${r.broke ? ' and the rest ran' : ''}` : '';
-    const what = [beaten, lost, fired].filter(Boolean).join(', ');
+    const beaten = r.fallen ? `${r.fallen} of their ${bandMen(r)} men fell${r.broke ? ' and the rest ran' : ''}` : '';
+    const sunk = r.sunk ? `${r.sunk === 1 ? 'a ship' : `${r.sunk} ships`} sunk by your triremes${r.drowned ? `, ${r.drowned} men with them` : ''}` : '';
+    const what = [beaten, sunk, lost, fired].filter(Boolean).join(', ');
     const m = answerMemory(c, 'spent', `their raid has eased ${rulerWord(c).replace(/^the /, 'the ')}’s temper`, s.tick);
     c.memories.push(m);
     const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
     if (how === 'raided') news(w, s.tick, r.city, `${whose(r.city)} raiders have gone${what ? `: ${what}` : ''}. Their raid has eased ${rulerShort(c)}’s temper (+${m.amount})${turn ? `. ${turn}` : ''}`, true);
+    if (how === 'sunk') {
+      const line = `${whose(r.city)} raiders never reached your shore: your triremes sank ${r.sunk === 2 ? 'both' : `all ${r.sunk}`} of their ships in the bay${r.drowned ? `, and ${r.drowned} men with them` : ''}`;
+      news(w, s.tick, r.city, `${line}. Their raid has eased ${rulerShort(c)}’s temper (+${m.amount})${turn ? `. ${turn}` : ''}`, true);
+      armyNews(s, line, 0);
+    }
+  }
+  // The fight that broke the band, counted whole now it is over (slice 25's review: towers often bring down more as it runs).
+  if (r.broke && r.brokeAt) {
+    const ours = [r.killed ? `${r.killed} of yours ${r.killed === 1 ? 'was' : 'were'} killed` : '', r.wounded ? `${r.wounded} wounded` : ''].filter(Boolean).join(' and ');
+    armyNews(s, `Your soldiers broke ${whose(r.city)} raiders ${r.brokeAt}: ${r.fallen} of their ${bandMen(r)} men fell${ours ? `; ${ours}` : ', and none of yours'}`, 0);
+    r.brokeAt = '';
   }
   s.rev++;
 }
@@ -955,7 +1267,7 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
     const along = r.a0 + (r.a1 - r.a0) * u;
     r.phase = 'turned';
     r.start = s.tick;
-    r.dur = Math.max(1, Math.round(u * marchTicks(r.city)));
+    r.dur = Math.max(1, Math.round(u * marchTicks(r.city, r.by)));
     r.a0 = along;
     r.a1 = L;
   }
@@ -1122,6 +1434,21 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
   if (!live(r) && !(r.phase === 'raiding' && raidersOf(s, r))) return null;
   const name = cityName(r.city);
   if (r.phase === 'threat') return null;
+  // From the sea, not landed yet: the ships in the bay.
+  if (r.phase === 'raiding' && r.shore >= 0 && r.landed === 0) {
+    const ships = shipsOf(s, r);
+    const n = ships.length;
+    const aim = findBuilding(s, r.target);
+    const at = aim ? aimWords(aim) : aimWords({ kind: r.aim as BuildingKind });
+    const up = ships.every((e) => e.state === 'beached');
+    const days = map && !up ? daysToBeach(s, map, r) : 0;
+    const men = ships.reduce((a, e) => a + e.men, 0);
+    const sunk = r.sunk ? ` (${r.sunk} sunk)` : '';
+    return {
+      chip: `${name}’s ships · ${n} in the bay`,
+      line: `${n} of ${whose(r.city)} ships${sunk} ${up ? 'are drawn up on your beach, their men landing' : `are sailing in for your beach, ${men} men aboard: they land in about ${days === 1 ? 'a day' : `${days} days`}`}, for ${at}${live(r) ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}`,
+    };
+  }
   if (r.phase === 'raiding') {
     const band = raidersOf(s, r);
     const aim = band ? findBuilding(s, band.target) : undefined;
@@ -1131,8 +1458,8 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
     const ats = rest ? `${at}, then ${rest}` : at;
     const loot = lootWords(r);
     const wall = band && besieging(s, r, band) ? wallAt(s, r.siege) : undefined;
-    const doing = !band ? '' : r.broke ? `beaten, running for the edge${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)} to get out${loot ? ` with ${loot}` : ''}` : loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${ats}` : wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)}, to get at ${ats}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) + (rest ? `, then making for ${rest}` : '') : `making for ${ats}`;
-    const left = r.men - r.fallen;
+    const doing = !band ? '' : r.broke ? `beaten, running for ${runFor(r)}${loot ? ` with ${loot}` : ''}` : band.back || r.end !== '' ? (wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)} to get out${loot ? ` with ${loot}` : ''}` : loot ? `making off with ${loot}` : r.end === 'paid' ? 'paid off, leaving your land' : 'leaving your land') : r.fought >= s.tick - 1 ? `fighting your soldiers on their way to ${ats}` : wall ? `hammering at your ${wall.gate ? 'gate' : 'wall'}${wallWhere(map, r.siege)}, to get at ${ats}` : band.wait > 0 ? (aim && FIELDS[aim.kind] !== undefined ? `firing ${at}` : `plundering ${at}`) + (rest ? `, then making for ${rest}` : '') : `making for ${ats}`;
+    const left = bandMen(r) - r.fallen;
     // (A lender's army (slice 28) came for what you owe: it can't be paid off once it is in.)
     if (r.loan) return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Collectors in the city', line: `${left} of ${whose(r.city)} men, come to collect what you owe, are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}` };
     return { chip: r.fought >= s.tick - 1 && !r.broke ? 'Fighting in the city' : 'Raiders in the city', line: `${left} of ${whose(r.city)} raiders are in your city${r.fallen ? ` (${r.fallen} fallen)` : ''}, ${doing}${live(r) && !band?.back ? `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back` : ''}` };
@@ -1142,11 +1469,11 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
   if (r.loan)
     return {
       chip: `${name}’s army · ${r.men} men · ${when}`,
-      line: `${whose(r.city)} army ${r.phase === 'gathering' ? 'is gathering' : 'is on the march'} to collect what you owe, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${when} (${dayWords(reachesEdge(s, r))}). Pay the ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
+      line: `${whose(r.city)} army ${r.phase === 'gathering' ? 'is gathering' : 'is on the march'} to collect what you owe, ${r.men} men: ${edgeWords(r)} in about ${when} (${dayWords(reachesEdge(s, r))}). Pay the ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
     };
   return {
     chip: `${name}’s raiders · ${r.men} men · ${when}`,
-    line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}, ${r.men} men: at the ${RAID_SIDE[r.city]} edge of your land in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
+    line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? 'are gathering' : r.by === 'sea' ? 'are at sea' : 'are on the march'}, ${r.men} men: ${edgeWords(r)} in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
   };
 }
 
@@ -1175,10 +1502,10 @@ export function raiderDoing(s: SimState, w: Walker): { title: string; detail: st
   const b = findBuilding(s, w.target);
   const aim = b ? aimWords(b) : 'what they came for';
   const loot = r ? lootWords(r) : '';
-  if (r && r.broke) return { title, detail: `${kit} · beaten: half of them have fallen, and the rest run for the edge${loot ? `, with ${loot} in their sacks` : ''}` };
+  if (r && r.broke) return { title, detail: `${kit} · beaten: half of them have fallen, and the rest run for ${r ? runFor(r) : 'the edge'}${loot ? `, with ${loot} in their sacks` : ''}` };
   if (r && r.fought >= s.tick - 1) return { title, detail: `${kit} · fighting your soldiers on their way to ${aim}` };
   if (w.back) {
-    const why = r && r.end === 'paid' ? `paid off, they are leaving your land` : r && r.end === 'called' ? `called off, they are leaving your land` : 'leaving your land the way they came';
+    const why = r && r.end === 'paid' ? `paid off, they are leaving your land` : r && r.end === 'called' ? `called off, they are leaving your land` : r && r.shore >= 0 && r.landed > 0 ? 'going back to their ships' : 'leaving your land the way they came';
     return { title, detail: `${kit} · ${loot ? `${why}, with ${loot} in their sacks` : why}` };
   }
   if (w.wait > 0 && r?.loan) return { title, detail: `${kit} · ${b?.kind === 'taxoffice' ? 'taking the treasury’s drachmas' : `emptying ${aim}`}, up to what is owed` };

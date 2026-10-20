@@ -144,4 +144,8 @@ export const VIEWS: Record<string, CameraView> = {
   walls: { x: 46, z: 30, yaw: 2.65, dist: 55, tilt: -0.12 },
   // #siege: the west gate just past the bridge from outside it, its two towers, the band at it.
   siege: { x: 40.5, z: 41.5, yaw: -0.7, dist: 11, tilt: 0.1 },
+  // #landing: the shore below the trading post from above the town, out over the bay where Troy's ships come in.
+  landing: { x: 74, z: 78, yaw: 3.0, dist: 40, tilt: -0.35 },
+  // #triremes: the shipyard by the river mouth and its jetty, the bay beyond.
+  triremes: { x: 70, z: 78, yaw: 3.0, dist: 34, tilt: -0.3 },
 };

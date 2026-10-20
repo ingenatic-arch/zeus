@@ -39,6 +39,7 @@ import {
   tileGrass,
 } from '../sim/build';
 import { GATE_COST, TOWER_RANGE, WALL_COST, wallAt, wallJob } from '../sim/walls';
+import { BUILD_TICKS, CREW, PER_YARD, ROWER_PAY, TRIREME_COST } from '../sim/fleet';
 import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
@@ -95,6 +96,7 @@ export type ToolName =
   | 'barracks'
   | 'wall'
   | 'tower'
+  | 'shipyard'
   | 'clear';
 export const TOOLS: readonly ToolName[] = [
   'road',
@@ -126,6 +128,7 @@ export const TOOLS: readonly ToolName[] = [
   'barracks',
   'wall',
   'tower',
+  'shipyard',
   'clear',
 ];
 
@@ -136,7 +139,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && !isStallTool(t);
 
 export interface ToolTip {
@@ -242,7 +245,7 @@ export class Tools {
     const ix = mapIndex(map);
     this.placement.show(t !== null, t === 'road', t === 'mine');
     if (t) {
-      const quay = t === 'trading' ? quayTiles(map) : new Uint8Array(0);
+      const quay = t === 'trading' || t === 'shipyard' ? quayTiles(map) : new Uint8Array(0);
       this.placement.setBlocked((i) => {
         if (map.tileWater[i] !== WATER_NONE) return false;
         const g = ix.ground[i];
@@ -263,7 +266,7 @@ export class Tools {
         // A copper mine needs copper in the rock: the rest is washed rust (the copper itself shows green: see Placement).
         if (t === 'mine') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileCopper(map, i) < MINE_COPPER_MIN * 0.5;
         // The trading post goes on the bay shore where the ship can come alongside: the rest is washed rust.
-        if (t === 'trading') return g !== Ground.Ok || quay[i] === 0;
+        if (t === 'trading' || t === 'shipyard') return g !== Ground.Ok || quay[i] === 0;
         // A stall goes on an agora: nothing is washed.
         if (isStallTool(t)) return false;
         if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
@@ -630,6 +633,7 @@ export class Tools {
       armoury: ['armoury', 'armouries'],
       barracks: ['barracks', 'barracks'],
       tower: ['tower', 'towers'],
+      shipyard: ['shipyard', 'shipyards'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -736,8 +740,9 @@ export class Tools {
     }
     this.setMarks(marks);
     const bits: string[] = [];
-    if (stretches) bits.push(`${stretches} ${stretches === 1 ? 'stretch' : 'stretches'} (${WALL_COST} dr each)`);
-    if (gates) bits.push(`${gates === 1 ? 'a gate' : `${gates} gates`} where it crosses the road (${GATE_COST} dr each)`);
+    // (Slice 25's review: "each" only where there are several.)
+    if (stretches) bits.push(`${stretches === 1 ? 'a stretch' : `${stretches} stretches`} (${WALL_COST} dr${stretches === 1 ? '' : ' each'})`);
+    if (gates) bits.push(`${gates === 1 ? 'a gate' : `${gates} gates`} where it crosses the road (${GATE_COST} dr${gates === 1 ? '' : ' each'})`);
     if (mends) bits.push(`${mends} mended`);
     if (bits.length === 0) {
       this.tip.show(why || (wallAt(s, this.hover) ? `${wallAt(s, this.hover)!.gate ? 'A gate' : 'A wall'} already, whole` : 'Nothing to build here'), sx, sy, !!why);
@@ -907,6 +912,12 @@ export class Tools {
       if (kind === 'mine') text += ` · copper in the rock ${Math.round(copperOf(map, x, z, side) * 100)}%`;
       lines.push(...more.lines);
       warn = more.warn;
+    } else if (kind === 'shipyard') {
+      const berth = berthAt(map, x, z);
+      lines.push(`Its ${JOBS.shipyard} shipwrights build triremes on its slip, one at a time (${TRIREME_COST} dr each, about ${Math.round(BUILD_TICKS / TICKS_PER_DAY)} days), and mend them at its jetty; it moors ${PER_YARD}`);
+      lines.push(`A trireme needs ${CREW} rowers, a man from each of as many huts and cottages, paid ${ROWER_PAY} dr a month: she rows out to meet raiders’ ships in the bay, or guards a sea lane from pirates`);
+      if (berth) lines.push(`A jetty runs ${Math.round(berth.len)} ${Math.round(berth.len) === 1 ? 'tile' : 'tiles'} out to deep water, where they moor`);
+      if (roads.length === 0) warn = 'No road beside it: its shipwrights and rowers couldn’t reach it. Lay a road along one side first.';
     } else if (kind === 'tower') {
       lines.push(`Its ${JOBS.tower} workers are its archers: from its top they shoot at raiders within ${TOWER_RANGE} tiles, over walls and roofs`);
       lines.push('It stands on the wall line: towers either side of a gate make raiders pay for breaking it');

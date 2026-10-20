@@ -298,7 +298,7 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned', 'seized', 'collected'];
+const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned', 'rowers', 'seized', 'collected'];
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
@@ -370,7 +370,25 @@ export function stateProblem(st: unknown): string {
   if (!bookOk(st.stocks)) return damaged('its stock book is wrong');
   if (!armyOk(st.army)) return damaged('its army is wrong');
   if (!wallsOk(st.walls, st.tiles as number[])) return damaged('its walls are wrong');
+  if (!fleetOk(st.fleet)) return damaged('its fleet is wrong');
   return '';
+}
+
+const TRIREME_NUMBERS = ['id', 'n', 'yard', 'x', 'z', 'hx', 'hz', 'along', 'hp', 'work', 'foe', 'cool', 'rammed', 'struck', 'start', 'dur', 'a0', 'a1', 'sank', 'owed'];
+const ENEMY_NUMBERS = ['id', 'raid', 'slot', 'x', 'z', 'hx', 'hz', 'along', 'from', 'hp', 'men', 'bx', 'bz', 'tile', 'struck', 'hit', 'sank', 'cool'];
+const PIRATE_NUMBERS = ['id', 'ships', 'seen', 'from', 'until', 'fought'];
+
+/** The fleet (slice 26): triremes (with their crews), enemy ships, pirates and the sea fights' reports. */
+function fleetOk(f: unknown): boolean {
+  if (!isObj(f) || !fin(f.nextId) || ![f.triremes, f.ships, f.pirates, f.reports].every(Array.isArray)) return false;
+  const way = (p: unknown): boolean => nums(p) && (p as number[]).length % 2 === 0;
+  const rowerOk = (r: unknown): boolean => isObj(r) && fin(r.home) && typeof r.name === 'string' && typeof r.father === 'string' && typeof r.house === 'string' && ['head', 'son', 'husband', 'brother', 'cousin'].includes(r.kin as string);
+  const triremeOk = (t: unknown): boolean =>
+    isObj(t) && TRIREME_NUMBERS.every((k) => fin(t[k])) && ['building', 'moored', 'rowing', 'away', 'sinking'].includes(t.state as string) && ['', 'fight', 'home', 'out', 'in'].includes(t.task as string) && ['bay', 'lane', 'away'].includes(t.order as string) && typeof t.lane === 'string' && typeof t.homeward === 'boolean' && way(t.path) && Array.isArray(t.crew) && t.crew.every(rowerOk);
+  const shipOk = (e: unknown): boolean => isObj(e) && ENEMY_NUMBERS.every((k) => fin(e[k])) && ['sailing', 'beached', 'leaving', 'sinking'].includes(e.state as string) && typeof e.laden === 'boolean' && way(e.path);
+  const pirateOk = (p: unknown): boolean => isObj(p) && PIRATE_NUMBERS.every((k) => fin(p[k])) && typeof p.way === 'string' && CITY_IDS.includes(p.city as never) && typeof p.place === 'string' && ['seen', 'preying', 'gone', 'beaten'].includes(p.state as string) && strs(p.took);
+  const reportOk = (r: unknown): boolean => isObj(r) && fin(r.tick) && typeof r.way === 'string' && CITY_IDS.includes(r.city as never) && typeof r.won === 'boolean' && typeof r.line === 'string';
+  return (f.triremes as unknown[]).every(triremeOk) && (f.ships as unknown[]).every(shipOk) && (f.pirates as unknown[]).every(pirateOk) && (f.reports as unknown[]).every(reportOk);
 }
 
 /** The walls: each stretch's tile (in order, once each), its strength and whether it is a gate; every standing stretch, and nothing else, marked as wall on the map. */
@@ -443,7 +461,7 @@ const EXPEDITION_PHASES = ['mustering', 'marching', 'fighting', 'homeward', 'bac
 /** An expedition of your companies: its city, kind, phase, way, numbers, companies and men, and its report. */
 function expeditionOk(x: unknown): boolean {
   if (!isObj(x) || !RULED.includes(x.city as never) || (x.kind !== 'raid' && x.kind !== 'force') || !EXPEDITION_PHASES.includes(x.phase as string) || !['land', 'sea'].includes(x.by as string)) return false;
-  if (typeof x.way !== 'string' || typeof x.won !== 'boolean' || !strs(x.report) || ![x.companies, x.men, x.killed, x.wounded].every((a) => nums(a))) return false;
+  if (typeof x.way !== 'string' || typeof x.won !== 'boolean' || !strs(x.report) || ![x.companies, x.men, x.killed, x.wounded, x.ships].every((a) => nums(a))) return false;
   return EXPEDITION_NUMBERS.every((k) => fin(x[k]));
 }
 
@@ -456,13 +474,13 @@ function warOk(x: unknown): boolean {
   return WAR_NUMBERS.every((k) => fin(x[k]));
 }
 
-const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches', 'loan'];
+const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches', 'shore', 'ships', 'sunk', 'landed', 'drowned', 'loan'];
 const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];
 
 /** A threat and its war band: its city, phase, way and numbers. */
 function raidOk(r: unknown): boolean {
   if (!isObj(r) || !CITY_IDS.includes(r.city as never) || !RAID_PHASES.includes(r.phase as string) || !['land', 'sea'].includes(r.by as string)) return false;
-  if (typeof r.way !== 'string' || typeof r.aim !== 'string' || typeof r.end !== 'string' || typeof r.fired !== 'boolean') return false;
+  if (typeof r.way !== 'string' || typeof r.aim !== 'string' || typeof r.end !== 'string' || typeof r.fired !== 'boolean' || typeof r.brokeAt !== 'string') return false;
   return RAID_NUMBERS.every((k) => fin(r[k]));
 }
 
@@ -482,7 +500,7 @@ function giftOk(g: unknown): boolean {
 }
 
 const SHIP_NUMBERS = ['phase', 'due', 'since', 'turned', 'post', 'visits', 'lastAt', 'lastPaid'];
-const ROUTE_NUMBERS = ['opened', 'next', 'cost', 'visits', 'lastAt', 'lastPaid', 'lastCost', 'missedAt', 'closed'];
+const ROUTE_NUMBERS = ['opened', 'next', 'cost', 'visits', 'lastAt', 'lastPaid', 'lastCost', 'missedAt', 'closed', 'robbed'];
 const ROUTE_GOODS = ['sold', 'bought', 'upto', 'hold', 'unloaded', 'lastSold', 'lastBought'];
 const VISITOR_NUMBERS = ['phase', 'since', 'turned', 'post', 'stop', 'aside'];
 

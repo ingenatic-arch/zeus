@@ -125,6 +125,8 @@ export const servingFrom = (s: SimState, b: Building): Soldier | undefined => s.
 export function servingHomes(s: SimState): Set<number> {
   const out = new Set<number>();
   for (const x of s.army.soldiers) if (x.home > 0 && x.state !== 'leaving' && x.state !== 'fallen') out.add(x.home);
+  // (And the rowers in the triremes: one man a home serves, slice 26.)
+  for (const t of s.fleet.triremes) for (const r of t.crew) out.add(r.home);
   return out;
 }
 
@@ -279,7 +281,7 @@ export function fatherWords(x: Soldier): string {
  * the house's records name only his mother, by her husband, else by her); a
  * husband by his wife; a brother or cousin by the head; the head by nobody.
  */
-function knownBy(b: Building, p: Person): string {
+export function knownBy(b: Building, p: Person): string {
   if (p.role === 'head') return '';
   if (p.role !== 'son') return p.kin;
   const parent = b.family?.members.find((m) => m.name === p.kin);

@@ -3,6 +3,7 @@ import type { CoastMap } from '../map/bake';
 import type { SimState } from '../sim/state';
 import { Animals } from './animals';
 import { ArmyView } from './army';
+import { FleetView } from './fleet';
 import { Bridges } from './bridges';
 import { FolkLooks } from './looks';
 import { facingOf, Homes } from './homes';
@@ -34,6 +35,8 @@ export class CityView {
   readonly animals: Animals;
   /** The soldiers and their companies' banners (slice 23). */
   readonly army: ArmyView;
+  /** The triremes and the enemy ships in the bay (slice 26). */
+  readonly fleet: FleetView;
   /** The merchant ship, when she is in sight. */
   readonly ship = new ShipView();
   /** The sea routes' ships, by city, made as each route opens. */
@@ -62,9 +65,10 @@ export class CityView {
     this.walls = new WallsView(map);
     this.animals = new Animals(map, this.folk);
     this.army = new ArmyView(map, this.folk);
+    this.fleet = new FleetView(map);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
     this.army.ground = this.walkers.ground;
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -82,6 +86,7 @@ export class CityView {
     this.army.update(s, alpha, time);
     this.folk.end();
     this.ship.update(s, alpha, time);
+    this.fleet.update(s, alpha, time);
     for (const g of s.world.gifts) {
       if (g.from !== 'home' || g.phase !== 1 || !g.ship || this.giftShips.has(g.to)) continue;
       const view = new ShipView(giftLook(g.to), cityShipColours('home'), `ship-gift-${g.to}`, 0.7 + this.giftShips.size * 1.3);

@@ -291,12 +291,12 @@ describe('on your map', () => {
   it('a store plundered: never more than half of it', () => {
     const sim = settled();
     const s = sim.state;
-    // (Troy's band comes in from the east, where the storehouse stands nearest.)
-    const l = landing(s, map, 'troy')!;
-    expect(l.target.kind).toBe('storehouse');
-    const before = WARES.map((w) => held(l.target, w));
+    // (Troy's band comes by sea since slice 26, for the store nearest the shore.)
     const r = inTheCity(sim, 'troy');
-    until(sim, () => r.took > 0, TICKS_PER_MONTH);
+    const l = { target: findBuilding(s, r.target)! };
+    expect(['storehouse', 'granary']).toContain(l.target.kind);
+    const before = WARES.map((w) => held(l.target, w));
+    until(sim, () => r.took > 0, 2 * TICKS_PER_MONTH);
     const store = findBuilding(s, r.target)!;
     expect(r.took).toBeGreaterThan(0);
     expect(r.took).toBeLessThanOrEqual(Math.floor(before[WARES.indexOf(r.ware as Ware)] / 2));

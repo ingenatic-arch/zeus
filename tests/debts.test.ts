@@ -36,6 +36,7 @@ const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
   sim.flush();
 };
 const ledgerAddsUp = (s: SimState): void => expect(s.ledger.start + totals(s.ledger.now).net).toBe(s.money);
+const FIGHT_DAYS = 3;
 const until = (sim: Sim, ok: () => boolean, most: number): boolean => {
   for (let i = 0; i < most && !ok(); i++) sim.step();
   return ok();
@@ -283,7 +284,7 @@ describe('what a ruler owes you', () => {
 describe('expeditions', () => {
   it('Troy can only be reached by sea; one at a time; not with no soldiers', () => {
     const s = fresh('companies').state;
-    expect(expeditionRefusal(s, 'troy', 'raid')).toBe('Troy can only be reached by sea: you need triremes');
+    expect(expeditionRefusal(s, 'troy', 'raid')).toBe('Troy can only be reached by sea: you need triremes (build a shipyard on the shore and order one)');
     expect(expeditionRefusal(s, 'corinth', 'raid')).toBe('');
     expect(expeditionRefusal(fresh('caravan').state, 'corinth', 'raid')).toMatch(/no soldiers/);
   });
@@ -329,6 +330,44 @@ describe('expeditions', () => {
     expect(kindTotal(s.ledger.now, 'collected') + kindTotal(s.ledger.last, 'collected')).toBe(e.coin);
     expect(s.army.soldiers.filter((x) => x.state === 'away').length).toBe(0);
     expect(s.army.soldiers.filter((x) => x.state === 'wounded').length).toBe(e.wounded.length);
+    expect(until(sim, () => e.phase === 'done', 2 * TICKS_PER_MONTH)).toBe(true);
+    ledgerAddsUp(s);
+  }, 240000);
+
+  it('by sea to Troy in the triremes, a company to each: aboard at the shipyard, the ships out with them and home again', () => {
+    const sim = fresh('triremes');
+    const s = sim.state;
+    // (No band or pirates in the way: only the expedition.)
+    s.world.raids = [];
+    s.fleet.pirates = [];
+    s.fleet.ships = [];
+    for (const t of s.fleet.triremes) {
+      t.order = 'bay';
+      t.lane = '';
+    }
+    ruler(s, 'troy', ['pious'], 0);
+    const l = staged(s, 'troy', 'out', 2000, 0);
+    l.state = 'overdue';
+    const fit = s.fleet.triremes.filter((t) => t.state === 'moored' && t.crew.length * 2 >= 12 && t.hp >= 60);
+    expect(fit.length).toBeGreaterThan(0);
+    expect(s.army.companies.length).toBeGreaterThan(fit.length - 1);
+    expect(expeditionRefusal(s, 'troy', 'force')).toBe('');
+    const plan = expeditionPlan(s, 'troy', 'force');
+    // (No more companies than triremes to carry them.)
+    expect(plan.companies.length).toBe(Math.min(fit.length, s.army.companies.filter((c) => c.order !== 'away').length));
+    send(sim, { type: 'expedition', city: 'troy', kind: 'force' });
+    const e = s.world.expeditions[0];
+    expect(e.by).toBe('sea');
+    expect(expeditionLine(s, e)).toMatch(/marching to the shipyard/);
+    expect(until(sim, () => e.phase === 'marching', 2 * TICKS_PER_MONTH + 10)).toBe(true);
+    expect(e.ships.length).toBe(e.companies.length);
+    for (const id of e.ships) expect(s.fleet.triremes.find((t) => t.id === id)?.order).toBe('away');
+    expect(expeditionLine(s, e)).toMatch(/at sea, bound for Troy/);
+    expect(until(sim, () => e.phase === 'homeward', e.dur + FIGHT_DAYS * TICKS_PER_DAY + 2)).toBe(true);
+    expect(e.report.at(-1)).toMatch(/They sail home: in your bay/);
+    expect(until(sim, () => e.phase === 'back', 2 * TICKS_PER_MONTH)).toBe(true);
+    for (const id of e.ships) expect(s.fleet.triremes.find((t) => t.id === id)?.order ?? 'bay').toBe('bay');
+    expect(s.army.soldiers.filter((x) => x.state === 'away').length).toBe(0);
     expect(until(sim, () => e.phase === 'done', 2 * TICKS_PER_MONTH)).toBe(true);
     ledgerAddsUp(s);
   }, 240000);

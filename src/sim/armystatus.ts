@@ -7,6 +7,7 @@ import { copperOf, outcropPlace } from './build';
 import { BUILDING_NAMES, findBuilding, levelName } from './buildings';
 import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, HIRED_PAY, HIRELINGS, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom, woundedOf, type HiredKind } from './army';
 import { companyWords } from './battle';
+import { rowerFrom, triremeName } from './fleet';
 import { errandsOut } from './food';
 import { ARMOUR, coming, COPPER, held } from './foods';
 import { rateOf } from './labour';
@@ -131,7 +132,15 @@ export function soldierStatus(s: SimState, x: Soldier): Status {
 /** A home's word about its man in the army ('' if none of its men serves): "Their eldest, Lykon, serves in the 2nd company of hoplites". */
 export function servesLine(s: SimState, b: Building): string {
   const x = servingFrom(s, b);
-  if (!x) return '';
+  if (!x) {
+    // Slice 26: or rows in a trireme.
+    const row = rowerFrom(s, b);
+    if (!row) return '';
+    const r = row.r;
+    const who = r.kin === 'son' ? `Their eldest, ${r.name},` : r.kin === 'head' || !r.father ? `${r.name}, the head of the house,` : `${r.name}, ${r.kin} of ${r.father},`;
+    const where = row.t.state === 'away' ? ' (away on the sea lanes)' : row.t.state === 'building' ? ' (waiting while she is built)' : '';
+    return `${who} rows in the trireme ${triremeName(row.t)}${where} · he has left his work`;
+  }
   const c = companyOf(s, x.company);
   const k = kinOf(x);
   const who = k === 'son' ? `Their eldest, ${x.name},` : k === 'head' || !x.father ? `${x.name}, the head of the house,` : `${x.name}, ${fatherWords(x)},`;

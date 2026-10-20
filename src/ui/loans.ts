@@ -10,8 +10,8 @@ import { PLACES, type CityId } from '../map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { dayWords } from '../sim/favours';
-import { expeditionLine, expeditionPlan, expeditionRefusal, lastExpedition } from '../sim/expeditions';
-import { raidersOf, reachesEdge } from '../sim/raids';
+import { expeditionLine, expeditionPlan, expeditionRefusal, expeditionWay, lastExpedition } from '../sim/expeditions';
+import { edgeWords, raidersOf, reachesEdge } from '../sim/raids';
 import {
   ASK_SUMS,
   askRefusal,
@@ -194,7 +194,7 @@ function stepsHtml(s: SimState, l: Loan): string {
     if (r.ended > 0) third = `${cap(he)} sent ${his} men${r.fallen ? `, and ${r.fallen} of ${r.men} fell` : ''}. With the debt still standing, ${he} sends again about ${dayWords(r.ended + COLLECT_LULL)}.`;
     else if (r.phase === 'threat') third = `Pay ${fmt(r.coin)} dr by ${dayWords(s.world.deals.find((d) => d.id === r.deal)?.due ?? s.tick)} (see the Ruler tab), or ${r.men} men march on your city for it.`;
     else if (r.phase === 'raiding') third = `${r.men} of ${his} men are in your city${raidersOf(s, r)?.back ? ', leaving with what they took' : ', taking what is owed from your stores and treasury'}. They can’t be paid off now.`;
-    else third = `${r.men} men are on their way: at the edge of your land about ${dayWords(reachesEdge(s, r))}. Paying what is left turns them back.`;
+    else third = `${r.men} men are on their way: ${edgeWords(r)} about ${dayWords(reachesEdge(s, r))}. Paying what is left turns them back.`;
   } else {
     third = `A threat: pay what is left within a month, or an army half again the size of a war band marches on your city to take it from your stores and treasury (it sets no fires: it comes for coin).`;
   }
@@ -256,11 +256,13 @@ export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
     return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}</li>`;
   });
   const why = expeditionRefusal(s, id, 'raid');
-  const block = /triremes|No way|no soldiers|no ruler/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
+  const block = /trireme|No way|no soldiers|no ruler/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
   // (No soldiers at all, or no way there: only why, not two dead buttons.)
-  if (block && (!s.army.companies.length || /triremes|No way/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
+  if (block && (!s.army.companies.length || /trireme|No way/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
   const heard = cause ? '−3' : '−12';
-  return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}<ul class="sendlist">${rows.join('')}</ul><p class="foot">${cause ? 'They march out by the edge of your land on its side and along the road; won, what they take comes off the debt.' : `Without cause: ${esc(name(id))} will hate it, and every other ruler thinks the worse of you (${heard} each).`} The men who go are paid as ever, and some will not come back.</p></section>`;
+  const way = expeditionWay(s, id);
+  const bySea = 'by' in way && way.by === 'sea';
+  return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}<ul class="sendlist">${rows.join('')}</ul><p class="foot">${cause ? `${bySea ? 'They sail from your shipyard, a company to each trireme' : 'They march out by the edge of your land on its side and along the road'}; won, what they take comes off the debt.` : `Without cause: ${esc(name(id))} will hate it, and every other ruler thinks the worse of you (${heard} each).`} The men who go are paid as ever, and some will not come back.</p></section>`;
 }
 
 /** Your latest expedition after a city: where it is, and once it has fought, its report. */

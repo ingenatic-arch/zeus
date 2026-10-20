@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 26;
+export const SIM_STATE_VERSION = 27;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -36,9 +36,10 @@ export type BuildingKind =
   | 'mine'
   | 'armoury'
   | 'barracks'
-  | 'tower';
+  | 'tower'
+  | 'shipyard';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -290,7 +291,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'seized' | 'collected';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -447,6 +448,8 @@ export interface SimState {
   army: Army;
   /** Its walls and gates, stretch by stretch, in tile order (slice 25; see walls.ts). */
   walls: WallPiece[];
+  /** Its triremes, enemy ships in the bay, and pirates on the sea lanes (slice 26; see fleet.ts). */
+  fleet: Fleet;
 }
 
 /**
@@ -776,6 +779,8 @@ export interface TradeRoute {
   missed: string;
   /** The tick its ruler closed it, hostile (0: open): no trader sets off until the mood mends. */
   closed: number;
+  /** Slice 26: her cargo for you was taken by pirates on her way (the tick; 0: not this time): she comes in empty. */
+  robbed: number;
 }
 
 /**
@@ -985,8 +990,10 @@ export interface Expedition {
   phase: 'mustering' | 'marching' | 'fighting' | 'homeward' | 'back' | 'done';
   by: 'land' | 'sea';
   way: string;
-  /** The edge tile its companies leave and come back by. */
+  /** The edge tile its companies leave and come back by (by sea: the tile beside the shipyard where they go aboard). */
   edge: number;
+  /** By sea: the triremes that carry it (fleet.ts), out with it and home with it. */
+  ships: number[];
   /** On the map: from `a0` to `a1` along its way, from `start` over `dur` ticks; when it set out. */
   start: number;
   dur: number;
@@ -1077,6 +1084,19 @@ export interface Raid {
   /** Slice 25: the stretch of wall or the gate their way ends at, which they must break (its tile; -1 none), and how many they have broken. */
   siege: number;
   breaches: number;
+  /**
+   * Slice 26, a band from the sea: the beach tile it landed on (or makes for;
+   * -1: by land), how many ships it came in and how many your triremes sank,
+   * how many men landed (0 until they do) and how many went down with their
+   * ships; and where it broke, in words, for the news once it has gone ('' if
+   * it didn't).
+   */
+  shore: number;
+  ships: number;
+  sunk: number;
+  landed: number;
+  drowned: number;
+  brokeAt: string;
   /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
   ended: number;
   end: string;
@@ -1205,4 +1225,133 @@ export interface Ship {
   lastAt: number;
   lastBought: number[];
   lastPaid: number;
+}
+
+// ---------------------------------------------------------------------------
+// The fleet (slice 26, see fleet.ts). Nothing here draws on any random
+// numbers: a town with no shipyard and no raid from the sea has an empty
+// fleet and plays exactly as it did before.
+
+/** A man rowing in a trireme: from his home (a hut or a cottage), who he is and who he is known by there. */
+export interface Rower {
+  home: number;
+  name: string;
+  father: string;
+  house: string;
+  kin: ServesAs;
+}
+
+/**
+ * One of your triremes. Building at her shipyard, moored at its jetty,
+ * rowing in your waters (to a foe, home to the jetty, out to sea or in from
+ * it), away on the map of Greece (guarding a lane, or carrying a force), or
+ * sinking. Where she is in the bay is kept tick by tick (x, z, her heading,
+ * her way and how far along it); on the map of Greece it is a pure function
+ * of the tick (from `a0` to `a1` along her lane, from `start` over `dur`).
+ */
+export interface Trireme {
+  id: number;
+  /** Her number in the city (names her: NAMES in fleet.ts), and her shipyard (a building id). */
+  n: number;
+  yard: number;
+  state: 'building' | 'moored' | 'rowing' | 'away' | 'sinking';
+  /** Rowing: to a foe, home to the jetty, out to sea (for a lane), or in from it. */
+  task: '' | 'fight' | 'home' | 'out' | 'in';
+  /** Her standing order: guard the bay, guard a sea lane (`lane`: its way's id), or away with a force (slice 28; `lane`: the way). */
+  order: 'bay' | 'lane' | 'away';
+  lane: string;
+  x: number;
+  z: number;
+  hx: number;
+  hz: number;
+  path: number[];
+  along: number;
+  /** Her hull, 0 to 100. Building: how far along she is (ticks of work done). */
+  hp: number;
+  work: number;
+  crew: Rower[];
+  /** In a fight: the enemy ship she is after (0 none), ticks until she can ram again, the tick she last rammed and the tick she was last struck. */
+  foe: number;
+  cool: number;
+  rammed: number;
+  struck: number;
+  /** On the map of Greece: from `a0` to `a1` along her lane, from `start` over `dur`; heading home or not. */
+  start: number;
+  dur: number;
+  a0: number;
+  a1: number;
+  homeward: boolean;
+  /** The tick she began to sink (0 afloat). */
+  sank: number;
+  /** Rowers' pay owed this month (drachmas; 0 paid). */
+  owed: number;
+}
+
+/** An enemy ship in your waters: one of a band's ships from the sea (raids.ts), sailing in, drawn up on the beach, sailing off, or sinking. */
+export interface EnemyShip {
+  id: number;
+  raid: number;
+  slot: number;
+  state: 'sailing' | 'beached' | 'leaving' | 'sinking';
+  x: number;
+  z: number;
+  hx: number;
+  hz: number;
+  path: number[];
+  along: number;
+  /** The tick she sets off from the horizon (ships come in a little apart). */
+  from: number;
+  hp: number;
+  /** Men aboard (sailing in), or left to guard her (beached). */
+  men: number;
+  /** Where she runs up on the beach (world units, in the shallows) and the beach tile beside it. */
+  bx: number;
+  bz: number;
+  tile: number;
+  /** Sailing off with loot aboard. */
+  laden: boolean;
+  /** The tick she last struck a trireme and was last struck, and when she began to sink (0 afloat); ticks until she strikes again. */
+  struck: number;
+  hit: number;
+  sank: number;
+  cool: number;
+}
+
+/**
+ * Pirates on a sea lane (fleet.ts): seen first, preying on your goods that
+ * pass their place from `from`, gone at `until`; or beaten by your triremes.
+ */
+export interface Pirates {
+  id: number;
+  /** The lane (a way's id), the city it leads to, and their place on it (PIRATE_PLACES in fleet.ts). */
+  way: string;
+  city: CityId;
+  place: string;
+  ships: number;
+  seen: number;
+  from: number;
+  until: number;
+  state: 'seen' | 'preying' | 'gone' | 'beaten';
+  /** What they have seized, in words, and how often. */
+  took: string[];
+  /** The tick your triremes last fought them (0 never). */
+  fought: number;
+}
+
+/** A sea fight on a lane, for the report: when, where, and what happened. */
+export interface SeaReport {
+  tick: number;
+  way: string;
+  city: CityId;
+  won: boolean;
+  line: string;
+}
+
+/** The city's triremes, enemy ships in its waters, pirates on the lanes, and the reports of fights at sea. */
+export interface Fleet {
+  triremes: Trireme[];
+  ships: EnemyShip[];
+  pirates: Pirates[];
+  reports: SeaReport[];
+  nextId: number;
 }

@@ -51,11 +51,15 @@ export type Command =
   /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores (hirelings walk off). */
   | { type: 'dismiss'; company: number }
   /** Send a company's banner to a tile (see marchRefusal in army.ts), or back to its barracks (`tile` -1). */
-  | { type: 'banner'; company: number; tile: number };
+  | { type: 'banner'; company: number; tile: number }
+  /** Order a trireme at a shipyard (its id; see orderRefusal in fleet.ts). */
+  | { type: 'trireme'; yard: number }
+  /** A trireme's order (its id): guard a sea `lane` (a way's id, such as 'athens-sea'), or come home and guard the bay. */
+  | { type: 'fleet'; trireme: number; act: 'guard' | 'home'; lane?: string };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

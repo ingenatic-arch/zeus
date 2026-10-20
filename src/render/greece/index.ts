@@ -18,6 +18,7 @@ import { giftOnMap } from '../../sim/diplomacy';
 import { raidOnMap } from '../../sim/raids';
 import { expeditionMen, expeditionOnMap } from '../../sim/expeditions';
 import { armiesOnMap } from '../../sim/rivals';
+import { stationAlong, triremeOnMap } from '../../sim/fleet';
 import { FESTIVALS, festivalOn } from '../../sim/festivals';
 import { fieldColour, newsHtml } from '../../ui/rivals';
 import { morph } from '../../ui/morph';
@@ -247,7 +248,15 @@ export class GreeceMap {
       const tab = t.closest('button[data-tab]') as HTMLButtonElement | null;
       const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;
       const deal = t.closest('button[data-deal]') as HTMLButtonElement | null;
-      if (deal && !deal.disabled) {
+      const guard = t.closest('button[data-guard]') as HTMLButtonElement | null;
+      const trihome = t.closest('button[data-trihome]') as HTMLButtonElement | null;
+      if ((guard && !guard.disabled) || trihome) {
+        // A trireme sent to guard the lane, or brought home (slice 26).
+        if (guard) host.send({ type: 'fleet', trireme: Number(guard.dataset.guard), act: 'guard', lane: guard.dataset.lane ?? '' });
+        else if (trihome) host.send({ type: 'fleet', trireme: Number(trihome.dataset.trihome), act: 'home' });
+        this.labelAt = -Infinity;
+        setTimeout(() => this.redraw(), 0);
+      } else if (deal && !deal.disabled) {
         host.send({ type: 'answer', deal: Number(deal.dataset.deal), act: deal.dataset.act as 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' });
         // (The labels too, at once: a seal gone, a band turned.)
         this.labelAt = -Infinity;
@@ -635,15 +644,25 @@ export class GreeceMap {
       // (Figures, not men: a rival's army of thousands is 8 to 14; your few dozen are 3 to 9.)
       const men = Math.max(3, Math.min(9, Math.round(expeditionMen(s, e) / 5)));
       const { colour, trim } = PLACES.home;
-      const m = piece(`exp-${e.id}`, () => armyModel(colour, trim, men), armyBody(men));
       const dir = at.homeward ? -1 : 1;
+      if (e.by === 'sea') {
+        // (By sea: your triremes carrying it, drawn as one ship in your colours along the lane, as your guards are.)
+        const ship = piece(`exp-${e.id}`, () => shipModel(colour, trim), BODY.ship);
+        const q = alongLine(line, Math.max(0.9, Math.min(L - (at.fighting ? 1.8 : 1.1), at.along)));
+        ship.position.set(q.x, 0.02 + Math.sin(time * 1.6 + e.id) * 0.03, q.z);
+        ship.rotation.set(Math.sin(time * 1.2 + e.id) * 0.04, -Math.atan2(q.dz * dir, q.dx * dir), 0);
+        ship.scale.setScalar(0.95 * far);
+      }
+      const m = e.by === 'sea' ? undefined : piece(`exp-${e.id}`, () => armyModel(colour, trim, men), armyBody(men));
       const k = Math.min(far, ARMY_FAR_MOST);
       // (Drawn larger from afar, it grows back from its head, as the rivals' armies do; at their city it stands a little short of it.)
-      const grow = (k - 1) * 2.1 * armyBody(men)[1];
-      const p = alongLine(line, Math.max(1.2, Math.min(L - (at.fighting ? 2.2 : 1.2), at.along - dir * grow)));
-      m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
-      m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
-      m.scale.setScalar(2.1 * k);
+      if (m) {
+        const grow = (k - 1) * 2.1 * armyBody(men)[1];
+        const p = alongLine(line, Math.max(1.2, Math.min(L - (at.fighting ? 2.2 : 1.2), at.along - dir * grow)));
+        m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+        m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+        m.scale.setScalar(2.1 * k);
+      }
       if (at.fighting) {
         const sw = piece(`exp-${e.id}-swords`, () => swordsModel(), [-0.45, 0.45]);
         const q = alongLine(line, Math.max(1.2, L - 1.2));
@@ -651,6 +670,30 @@ export class GreeceMap {
         sw.rotation.set(0, time * 0.5, 0);
         sw.scale.setScalar(1.15 * far);
       }
+    }
+    // Pirates on a lane (a dark galley at their place), and your triremes out on the lanes in your colours (slice 26).
+    for (const p of s.fleet.pirates) {
+      if (p.state !== 'seen' && p.state !== 'preying') continue;
+      const line = wayPoints(wayOf(p.way));
+      const L = lineLength(line);
+      const m = piece(`pirates-${p.id}`, () => shipModel('#2b2421', '#8c2a1e'), BODY.ship);
+      const at = alongLine(line, Math.max(0.9, Math.min(L - 1.1, stationAlong(p.way) + 0.7)));
+      m.position.set(at.x, 0.02 + Math.sin(time * 1.4 + p.id) * 0.03, at.z);
+      m.rotation.set(Math.sin(time * 1.1 + p.id) * 0.05, -Math.atan2(-at.dz, -at.dx) + Math.sin(time * 0.3 + p.id) * 0.4, 0);
+      m.scale.setScalar(1.1 * far);
+    }
+    for (const t of s.fleet.triremes) {
+      const at = triremeOnMap(t, tick);
+      // (Away with your soldiers (slice 28): drawn as the expedition's ship instead.)
+      if (!at || t.order === 'away') continue;
+      const line = wayPoints(wayOf(t.lane));
+      const L = lineLength(line);
+      const dir = at.homeward ? -1 : 1;
+      const m = piece(`trireme-${t.id}`, () => shipModel(PLACES.home.colour, PLACES.home.trim), BODY.ship);
+      const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along - (at.station ? 0.7 : 0))));
+      m.position.set(p.x, 0.02 + Math.sin(time * 1.6 + t.id) * 0.03, p.z);
+      m.rotation.set(Math.sin(time * 1.2 + t.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(0.95 * far);
     }
     // Wars between rivals: each side's army (or fleet) out on the way between them, standing facing the other, or going home; crossed swords where they meet while it lasts; the way drawn red, closed.
     const red = new Set<string>();
@@ -702,7 +745,7 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('exp-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);
