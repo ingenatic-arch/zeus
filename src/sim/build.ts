@@ -8,7 +8,8 @@ import { coast } from '../map/coast';
 import { dhypot } from '../map/dmath';
 import { beside, findBuilding, sideOf } from './buildings';
 import { shoreRefusal } from './trade';
-import { TILE_EMPTY, TILE_ROAD, type BuildingKind, type SimState } from './state';
+import { towerRefusal } from './walls';
+import { TILE_EMPTY, TILE_ROAD, TILE_WALL, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
 export const PLOT_COST = 10;
@@ -37,6 +38,8 @@ export const YARD_COST = 300;
 export const MINE_COST = 150;
 export const ARMOURY_COST = 300;
 export const BARRACKS_COST = 500;
+/** A tower on the wall line (2 x 2, slice 25; see walls.ts). */
+export const TOWER_COST = 200;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -74,6 +77,7 @@ export const COST: Record<BuildingKind, number> = {
   mine: MINE_COST,
   armoury: ARMOURY_COST,
   barracks: BARRACKS_COST,
+  tower: TOWER_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -84,6 +88,7 @@ export const RUBBLE_REFUSAL = 'Rubble: clear it first, with the clear tool';
 
 /** Why something can't go on a tile that isn't empty. */
 function builtHere(s: SimState, t: number): string {
+  if (s.tiles[t] === TILE_WALL) return 'A wall stands here: draw the wall across a road to make a gate, or clear it first';
   const b = s.tiles[t] > 0 ? findBuilding(s, s.tiles[t]) : undefined;
   return b?.kind === 'rubble' ? RUBBLE_REFUSAL : 'Something is built here';
 }
@@ -487,6 +492,7 @@ export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kin
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
   if (kind === 'rubble') return 'Rubble isn’t built';
+  if (kind === 'tower') return towerRefusal(map, s, tx, tz);
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
   // (The ground's own word is a home's: for anything else, it is too steep for that.)

@@ -143,6 +143,7 @@ export function migrate(st: unknown): number {
   if (st.version === 20) from20(st);
   if (st.version === 21) from21(st);
   if (st.version === 22) from22(st);
+  if (st.version === 23) from23(st);
   return from;
 }
 
@@ -478,4 +479,21 @@ function from22(st: Record<string, unknown>): void {
     }
   }
   st.version = 23;
+}
+
+/**
+ * Version 23 to 24 (slice 25, walls, gates and towers): the town has no walls,
+ * and no raid is at a wall or has broken one.
+ */
+function from23(st: Record<string, unknown>): void {
+  if (!Array.isArray(st.walls)) st.walls = [];
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.raids)) {
+    for (const r of w.raids as Array<Record<string, unknown>>) {
+      if (!isObj(r)) continue;
+      if (typeof r.siege !== 'number') r.siege = -1;
+      if (typeof r.breaches !== 'number') r.breaches = 0;
+    }
+  }
+  st.version = 24;
 }

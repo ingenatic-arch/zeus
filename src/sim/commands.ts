@@ -10,6 +10,8 @@
 export type Command =
   /** Lay road on these tiles (tile indices), in order; a run of wet tiles is a bridge, laid whole or not at all. */
   | { type: 'road'; tiles: number[] }
+  /** Draw wall over these tiles (tile indices), in order: a stretch on open dry ground, a gate over a road, a cracked or broken stretch mended (slice 25: see walls.ts). */
+  | { type: 'wall'; tiles: number[] }
   /** Mark out 2 x 2 housing plots with these top-left tiles, in order. */
   | { type: 'plots'; at: number[] }
   /** Build 2 x 2 fountains with these top-left tiles, in order. */
@@ -48,8 +50,8 @@ export type Command =
   | { type: 'banner'; company: number; tile: number };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

@@ -265,15 +265,25 @@ let gen = 0;
 const SQRT2 = Math.SQRT2;
 
 /**
+ * A raider's toll for a tile (slice 25): 0 for ground he can walk, the steps a
+ * wall or gate standing there is worth to break (more than 0), or -1 for
+ * ground he can't cross at all.
+ */
+export type Toll = (t: number) => number;
+
+/**
  * The shortest way on foot from any of `starts` to `goal` (tiles), across
  * country, as the tiles walked in order (start first), or null if there is
  * none within `limit` tiles looked at. Eight ways, never cutting the corner
  * of something that can't be walked.
  */
-export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[], goal: number, limit = 20000): number[] | null {
+export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[], goal: number, limit = 20000, toll?: Toll): number[] | null {
   const n = map.size;
   const total = n * n;
-  if (goal < 0 || goal >= total || !walkable(map, s, goal)) return null;
+  // (Slice 25: raiders' way, `toll`, where a wall or gate standing in the way is not a wall but a cost, its strength in steps;
+  // without one, only ground a person can walk, exactly as before.)
+  const free = toll ? (t: number): boolean => toll(t) === 0 : (t: number): boolean => walkable(map, s, t);
+  if (goal < 0 || goal >= total || !free(goal)) return null;
   if (seen.length !== total) {
     gScore = new Float64Array(total);
     parent = new Int32Array(total);
@@ -323,7 +333,7 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
     return top;
   };
   for (const t of starts) {
-    if (t < 0 || t >= total || !walkable(map, s, t) || seen[t] === gen) continue;
+    if (t < 0 || t >= total || !free(t) || seen[t] === gen) continue;
     seen[t] = gen;
     gScore[t] = 0;
     parent[t] = -1;
@@ -344,7 +354,7 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
     const tz = (t - tx) / n;
     const base = gScore[t];
     // Orthogonal ways first (N, W, E, S), then the diagonals between two open ones.
-    const open = [tz > 0 && walkable(map, s, t - n), tx > 0 && walkable(map, s, t - 1), tx < n - 1 && walkable(map, s, t + 1), tz < n - 1 && walkable(map, s, t + n)];
+    const open = [tz > 0 && free(t - n), tx > 0 && free(t - 1), tx < n - 1 && free(t + 1), tz < n - 1 && free(t + n)];
     const ways: Array<[number, number, boolean]> = [
       [t - n, 1, open[0]],
       [t - 1, 1, open[1]],
@@ -355,10 +365,18 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
       [t + n - 1, SQRT2, open[3] && open[1]],
       [t + n + 1, SQRT2, open[3] && open[2]],
     ];
-    for (const [u, cost, ok] of ways) {
+    for (let k = 0; k < 8; k++) {
+      const [u, cost, ok0] = ways[k];
+      let ok = ok0;
+      let extra = 0;
+      // (A raider: straight on into a wall or gate he would break, at its toll; never across a corner of one.)
+      if (!ok && toll && k < 4 && ((k === 0 && tz > 0) || (k === 1 && tx > 0) || (k === 2 && tx < n - 1) || (k === 3 && tz < n - 1))) {
+        extra = toll(u);
+        ok = extra > 0;
+      }
       if (!ok || shut[u] === gen) continue;
-      if (cost !== 1 && !walkable(map, s, u)) continue;
-      const g = base + cost;
+      if (cost !== 1 && !free(u)) continue;
+      const g = base + cost + extra;
       if (seen[u] === gen && gScore[u] <= g) continue;
       seen[u] = gen;
       gScore[u] = g;
@@ -370,7 +388,7 @@ export function offRoadPath(map: CoastMap, s: SimState, starts: readonly number[
 }
 
 /** A walked path of tiles as waypoints (tile centres, world units), pruned to straight runs where the line between is clear. */
-export function prunePath(map: CoastMap, s: SimState, tiles: readonly number[]): Array<[number, number]> {
+export function prunePath(map: CoastMap, s: SimState, tiles: readonly number[], ok: (map: CoastMap, s: SimState, t: number) => boolean = walkable): Array<[number, number]> {
   const n = map.size;
   const c = (t: number): [number, number] => [(t % n) + 0.5, Math.floor(t / n) + 0.5];
   const out: Array<[number, number]> = [];
@@ -382,7 +400,7 @@ export function prunePath(map: CoastMap, s: SimState, tiles: readonly number[]):
     let j = Math.min(tiles.length - 1, i + 24);
     for (; j > i + 1; j--) {
       const [x1, z1] = c(tiles[j]);
-      if (lineClear(map, s, x0, z0, x1, z1, walkable)) break;
+      if (lineClear(map, s, x0, z0, x1, z1, ok)) break;
     }
     out.push(c(tiles[j]));
     i = j;
