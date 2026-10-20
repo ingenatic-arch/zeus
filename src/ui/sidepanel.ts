@@ -964,7 +964,7 @@ export class SidePanel {
     const row = (label: string, a: number, b: number): string => `<tr><td class="what">${label}</td><td class="amt ${a > 0 ? 'in' : a < 0 ? 'out' : 'nil'}">${a ? signed(a) : '·'}</td><td class="amt ${b > 0 ? 'in' : b < 0 ? 'out' : 'nil'}">${b ? signed(b) : '·'}</td></tr>`;
     const k = (lines: typeof now, kind: Parameters<typeof kindTotal>[1]): number => kindTotal(lines, kind);
     const building = (lines: typeof now): number => k(lines, 'building') + k(lines, 'clearing') + k(lines, 'refund');
-    const loans = (lines: typeof now): number => k(lines, 'borrowed') + k(lines, 'repaid') + k(lines, 'lent') + k(lines, 'repayment') + k(lines, 'returned');
+    const loans = (lines: typeof now): number => k(lines, 'borrowed') + k(lines, 'repaid') + k(lines, 'lent') + k(lines, 'repayment') + k(lines, 'returned') + k(lines, 'collected');
     out.push(
       `<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${row('Taxes', k(now, 'taxes'), k(last, 'taxes'))}${row('Sales', k(now, 'sales'), k(last, 'sales'))}${row('Wages', k(now, 'wages'), k(last, 'wages'))}${k(now, 'soldiers') || k(last, 'soldiers') ? row('Soldiers’ pay', k(now, 'soldiers'), k(last, 'soldiers')) : ''}${k(now, 'hirelings') || k(last, 'hirelings') ? row('Hirelings', k(now, 'hirelings'), k(last, 'hirelings')) : ''}${row('Building', building(now), building(last))}${loans(now) || loans(last) ? row('Loans', loans(now), loans(last)) : ''}<tr class="total"><td class="what">Net</td><td class="amt ${tn.net > 0 ? 'in' : tn.net < 0 ? 'out' : ''}">${signed(tn.net)}</td><td class="amt ${tl.net > 0 ? 'in' : tl.net < 0 ? 'out' : ''}">${last.length ? signed(tl.net) : '·'}</td></tr></tbody></table>`,
     );

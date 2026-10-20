@@ -54,7 +54,8 @@ import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
 import { DebtsChip } from './ui/debtschip';
-import { debtsChip as debtsNow } from './sim/loans';
+import { debtsChip as debtsNow, whose as whoseCity } from './sim/loans';
+import { raidOfBand } from './sim/raids';
 import { Orders } from './game/orders';
 import { companyOf, doingWords, menOf, strength, woundedOf } from './sim/army';
 import { companyWords, foeDoing } from './sim/battle';
@@ -227,6 +228,8 @@ interface Probe {
   /** Slice 26: the fleet (triremes and enemy ships, each where she is and what she is doing; pirates; reports) and what the fleet view draws. */
   fleet?: () => { triremes: Array<{ id: number; name: string; state: string; task: string; order: string; lane: string; x: number; z: number; hp: number; crew: number; work: number }>; ships: Array<{ id: number; raid: number; state: string; x: number; z: number; hp: number; men: number; laden: boolean }>; pirates: Array<{ way: string; state: string; ships: number; took: number }>; reports: string[]; shown: Array<{ kind: string; id: number; x: number; z: number }> };
   battle?: () => { foes: number; fighting: number; fallen: number; arrows: number; broke: boolean; killed: number; wounded: number; centre: { x: number; z: number } | null; news: string[] };
+  /** Slice 28: your expeditions (see expeditions.ts). */
+  expeditions?: () => Array<{ id: number; city: string; kind: string; phase: string; loan: number; companies: number[]; ships: number[]; men: number; won: boolean; coin: number; goods: number; killed: number; wounded: number; report: string[] }>;
   /** Open a building's panel (0: close it). */
   showPanel?: (id: number) => void;
   /** The homes a soldier comes from (slice 23). */
@@ -917,7 +920,10 @@ function start(preparedTown: string | null): void {
   let follow: { walker: number; origin: number; kind: Walker['kind']; pans: number } | null = null;
   const startFollow = (origin: number, kind: Walker['kind'], walker = 0): void => {
     follow = { walker, origin, kind, pans: rig.pans };
-    followChip.textContent = `Following ${WALKER_NAMES[kind] ?? 'them'} · drag the map or press Esc to stop`;
+    // (A lender's army, slice 28: its collectors, not raiders.)
+    const band = kind === 'raider' && walker ? sim.state.walkers.find((o) => o.id === walker) : undefined;
+    const r = band ? raidOfBand(sim.state, band) : undefined;
+    followChip.textContent = `Following ${r?.loan ? `${whoseCity(r.city)} collectors` : (WALKER_NAMES[kind] ?? 'them')} · drag the map or press Esc to stop`;
     followChip.hidden = false;
   };
   const stopFollow = (): void => {
@@ -1456,11 +1462,13 @@ function start(preparedTown: string | null): void {
     });
   probe.deals = () => sim.state.world.deals.map((d) => ({ id: d.id, kind: d.kind, city: d.city, good: d.good, amount: d.amount, state: d.state, promised: d.promised, gift: d.gift, due: d.due, done: d.done, angry: d.angry }));
   probe.loans = () => ({
-    loans: sim.state.world.loans.map((l) => ({ id: l.id, city: l.city, side: l.side, by: l.by, state: l.state, amount: l.amount, rate: l.rate, months: l.months, owed: l.owed, due: l.due, gift: l.gift, deal: l.deal })),
+    loans: sim.state.world.loans.map((l) => ({ id: l.id, city: l.city, side: l.side, by: l.by, state: l.state, amount: l.amount, rate: l.rate, months: l.months, owed: l.owed, due: l.due, gift: l.gift, deal: l.deal, step: l.step, withhold: l.withhold, seized: l.seized, raid: l.raid, demand: l.demand, sent: l.sent })),
     chip: debtsChip.el.textContent ?? '',
     chipShown: !debtsChip.el.hidden,
     overdue: debtsChip.el.classList.contains('overdue'),
   });
+  // Slice 28: your expeditions, where they are and their reports.
+  probe.expeditions = () => sim.state.world.expeditions.map((e) => ({ id: e.id, city: e.city, kind: e.kind, phase: e.phase, loan: e.loan, companies: e.companies, ships: e.ships, men: e.men.length, won: e.won, coin: e.coin, goods: e.goods, killed: e.killed.length, wounded: e.wounded.length, report: e.report }));
   probe.raids = () => {
     const s = sim.state;
     const w = s.walkers.find((x) => x.kind === 'raider');

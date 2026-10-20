@@ -187,6 +187,9 @@ export function flowLabel(kind: StockKind, what: string, w: Ware): string {
     const city = TRADER_NAMES[what.slice(at + 1)] ?? what.slice(at + 1).replace(/^./, (c) => c.toUpperCase());
     return what.startsWith('sent:') ? `Sent to ${city}, as they asked` : `Tribute to ${city}`;
   }
+  // (Slice 28: seized by a lender against your debt; taken from a debtor by your soldiers.)
+  if (kind === 'lost' && what.startsWith('seized:')) return `Seized by ${TRADER_NAMES[what.slice(7)] ?? what.slice(7)} against your debt`;
+  if (kind === 'bought' && what.startsWith('taken:')) return `Taken from ${TRADER_NAMES[what.slice(6)] ?? what.slice(6)} by your soldiers`;
   if ((kind === 'sold' || kind === 'bought') && what.startsWith('gift:')) {
     const city = TRADER_NAMES[what.slice(5)] ?? what.slice(5).replace(/^./, (c) => c.toUpperCase());
     return kind === 'sold' ? `A gift to ${city}` : `A gift from ${city}`;

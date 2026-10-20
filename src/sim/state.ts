@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 26;
+export const SIM_STATE_VERSION = 27;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -291,7 +291,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -474,9 +474,10 @@ export type CompanyKind = 'hoplite' | 'archer';
 /**
  * What a company is doing: drilling at its barracks, marching to its banner's
  * tile, holding there (fighting what comes within reach: battle.ts), or
- * marching back to its barracks.
+ * marching back to its barracks; or away from the city on an expedition
+ * (slice 28: expeditions.ts), its banner and its men gone from your map.
  */
-export type CompanyOrder = 'drill' | 'march' | 'hold' | 'return';
+export type CompanyOrder = 'drill' | 'march' | 'hold' | 'return' | 'away';
 
 /** A company of up to 16 men under its banner. */
 export interface Company {
@@ -511,6 +512,8 @@ export interface Company {
   strong: number;
   /** Broken: running back to its barracks, fighting nobody on the way. */
   routed: boolean;
+  /** Slice 28: the expedition it marches with (world.expeditions; 0 none). */
+  away: number;
 }
 
 /** How the man who serves stands in his house. */
@@ -520,9 +523,10 @@ export type ServesAs = 'head' | 'son' | 'husband' | 'brother' | 'cousin';
  * What a soldier is doing: walking in from his home, waiting at the barracks
  * for armour, in the ranks, or walking home, dismissed; fallen in a fight
  * (lying still, then gone), or wounded (lying still, then walking back to
- * his barracks) and healing there.
+ * his barracks) and healing there; or away with his company on an
+ * expedition (slice 28), off your map.
  */
-export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving' | 'fallen' | 'wounded' | 'healing';
+export type SoldierState = 'coming' | 'arming' | 'ready' | 'leaving' | 'fallen' | 'wounded' | 'healing' | 'away';
 
 /** A man serving in a company. */
 export interface Soldier {
@@ -917,10 +921,12 @@ export interface Loan {
    * answer), proposed (a ruler's own offer or ask, a deal), coming (their
    * coin on its way to you), offering (your coin on its way, for them to take
    * or send back), sending (your coin on its way, as they asked), returning
-   * (sent back), running, overdue, repaying (the whole sum on its way back);
-   * over: repaid, refused, declined, lapsed.
+   * (sent back), running, overdue, repaying (the whole sum on its way back),
+   * grace (slice 28: a borrower asks you for more time, waiting on your
+   * answer); over: repaid, refused, declined, lapsed, forgiven (you let them
+   * off), collected (paid off by what was seized or taken by force).
    */
-  state: 'asking' | 'terms' | 'proposed' | 'coming' | 'offering' | 'sending' | 'returning' | 'running' | 'overdue' | 'repaying' | 'repaid' | 'refused' | 'declined' | 'lapsed';
+  state: 'asking' | 'terms' | 'proposed' | 'coming' | 'offering' | 'sending' | 'returning' | 'running' | 'overdue' | 'repaying' | 'grace' | 'repaid' | 'refused' | 'declined' | 'lapsed' | 'forgiven' | 'collected';
   /** The sum, the interest (a percent of it, for the whole loan), the months, and what is owed in all. */
   amount: number;
   rate: number;
@@ -941,6 +947,76 @@ export interface Loan {
   due: number;
   ended: number;
   late: boolean;
+  /**
+   * Slice 28, a debt unpaid. How far its escalation has gone (yours: 0 none,
+   * 1 warned, 2 seizing, 3 an army to collect) and when the last step came;
+   * the tick it fell overdue (0 never; kept, as your record or theirs); what
+   * has been taken off it (dr) by seizures, loot or an expedition; you chose
+   * not to pay it on the day; how often its day was put off; the reminder
+   * given; the collectors' raid (0 none); a demand's deadline (0 none) and
+   * whether one was made; the expedition out after it (0 none).
+   */
+  step: number;
+  stepAt: number;
+  fell: number;
+  seized: number;
+  withhold: boolean;
+  extended: number;
+  reminded: boolean;
+  raid: number;
+  demand: number;
+  demanded: boolean;
+  sent: number;
+}
+
+/**
+ * An expedition of your companies (slice 28, expeditions.ts): a raiding party
+ * or a full force sent after a city, for a debt or without cause. It musters
+ * (its companies march to the edge of your map on that city's side), marches
+ * on the map of Greece (a pure function of the tick, as any traveller), fights
+ * the city's garrison (resolved from the two sides' strength and the world's
+ * dice), and comes home with what it took and a report.
+ */
+export interface Expedition {
+  id: number;
+  city: CityId;
+  kind: 'raid' | 'force';
+  /** The debt it goes after (a loan's id; 0: none, an attack without cause). */
+  loan: number;
+  /** Its companies (ids), and the men who set out with each (soldier ids). */
+  companies: number[];
+  men: number[];
+  /** mustering (marching to the edge in your city), marching (on the map), fighting (at their city), homeward, back (in your city, marching to the barracks), done. */
+  phase: 'mustering' | 'marching' | 'fighting' | 'homeward' | 'back' | 'done';
+  by: 'land' | 'sea';
+  way: string;
+  /** The edge tile its companies leave and come back by (by sea: the tile beside the shipyard where they go aboard). */
+  edge: number;
+  /** By sea: the triremes that carry it (fleet.ts), out with it and home with it. */
+  ships: number[];
+  /** On the map: from `a0` to `a1` along its way, from `start` over `dur` ticks; when it set out. */
+  start: number;
+  dur: number;
+  a0: number;
+  a1: number;
+  at: number;
+  /** The fight: your strength and theirs, the odds, won or not, their men fallen. */
+  ours: number;
+  theirs: number;
+  odds: number;
+  won: boolean;
+  fallen: number;
+  /** What it brings home: coin, a trade good (-1 none) and how much, and the dr taken off the debt. */
+  coin: number;
+  good: number;
+  goods: number;
+  value: number;
+  /** Your men killed and wounded (soldier ids). */
+  killed: number[];
+  wounded: number[];
+  /** The report, line by line, once it has fought. */
+  report: string[];
+  ended: number;
 }
 
 /** A line of news from Greece. */
@@ -1024,6 +1100,8 @@ export interface Raid {
   /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
   ended: number;
   end: string;
+  /** Slice 28: the debt it comes to collect (a loan's id: a lender's army, not a war band; 0 none). */
+  loan: number;
 }
 
 /** Greece: your city's name, the cities and their rulers, and what goes on between them. */
@@ -1058,6 +1136,9 @@ export interface World {
   /** Loans either way, live or lately over (loans.ts), and the next one's number. */
   loans: Loan[];
   nextLoan: number;
+  /** Your expeditions, out or lately home (expeditions.ts), and the next one's number. */
+  expeditions: Expedition[];
+  nextExpedition: number;
 }
 
 /**

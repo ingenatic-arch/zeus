@@ -1014,8 +1014,45 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .side-body ul.loans .side-row { margin: 0; align-items: baseline; gap: 8px; }
 .side-body ul.loans .side-row button.link { white-space: nowrap; flex: none; }
 .side-body ul.loans .side-row span { text-align: right; }
-/* Five tabs on a ruled city's page now: each keeps its label on one line, and the row wraps if it must. */
-.greece-panel .citytabs { flex-wrap: wrap; }
-.greece-panel .citytabs button { white-space: nowrap; padding: 2px 9px; }
+/* Five tabs on a ruled city's page now: each keeps its label on one line, and the row wraps if it must (slice 28's review: a little tighter, so "Loans · overdue" fits on one row). */
+.greece-panel .citytabs { flex-wrap: wrap; gap: 3px; }
+.greece-panel .citytabs button { white-space: nowrap; padding: 2px 6px; letter-spacing: 0.02em; }
 .side-body ul.loans .side-note { margin: 2px 0 4px; }
 .side-body ul.loans button.link { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--ink); text-decoration: underline dotted rgba(122, 92, 60, 0.6); text-underline-offset: 3px; }
+/* Debts unpaid (slice 28): an unpaid loan's steps, the answers to a debtor, your soldiers sent out and their report. */
+.greece-panel ol.steps { list-style: none; margin: 6px 0 2px; padding: 0; counter-reset: step; }
+.greece-panel ol.steps li { position: relative; margin: 3px 0; padding: 3px 6px 3px 26px; font-size: 12.5px; line-height: 1.3; color: var(--ink-soft); border-radius: 6px; }
+.greece-panel ol.steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 4px; top: 3px; width: 16px; height: 16px; border-radius: 50%; font-size: 11px; line-height: 16px; text-align: center; background: #e8dcc0; color: var(--ink-soft); }
+.greece-panel ol.steps li .when { display: block; font-size: 11.5px; font-variant-caps: small-caps; letter-spacing: 0.02em; }
+.greece-panel ol.steps li b { color: var(--ink); }
+.greece-panel ol.steps li.done { opacity: 0.72; }
+.greece-panel ol.steps li.done::before { content: '✓'; background: #9e3a30; color: #fff4e4; }
+.greece-panel ol.steps li.now { background: rgba(158, 58, 48, 0.12); color: var(--ink); }
+.greece-panel ol.steps li.now::before { background: #9e3a30; color: #fff4e4; }
+.greece-panel ol.steps li.later .when { color: #8a3a1c; }
+.greece-panel .deal.loan .acts { flex-wrap: wrap; }
+.greece-panel section.soldiers { margin-top: 8px; }
+.greece-panel section.soldiers h4 { margin: 0 0 2px; font-size: 13px; font-variant: small-caps; letter-spacing: 0.03em; }
+.greece-panel ul.sendlist { list-style: none; margin: 0; padding: 0; }
+.greece-panel ul.sendlist li { margin: 5px 0 0; }
+.greece-panel ul.sendlist button {
+  appearance: none; font: inherit; font-size: 12.5px; padding: 2px 9px; border-radius: 9px; border: 1.2px solid var(--edge);
+  background: #fff8ea; color: var(--ink); cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline;
+}
+.greece-panel ul.sendlist button.send { background: #2f6f8e; border-color: #2f6f8e; color: #fff6e4; }
+.greece-panel ul.sendlist button:hover:not(:disabled) { filter: brightness(1.06); border-color: #b88a50; }
+.greece-panel ul.sendlist button:disabled { opacity: 0.45; cursor: default; }
+.greece-panel ul.sendlist button small { opacity: 0.85; font-size: 11.5px; }
+.greece-panel ul.sendlist button em { font-style: normal; font-weight: bold; font-size: 12px; }
+.greece-panel ul.sendlist button em.up { color: #5f7f2c; }
+.greece-panel ul.sendlist button em.down { color: var(--terracotta-deep); }
+.greece-panel ul.sendlist button.send em.down { color: #ffd2b8; }
+.greece-panel ul.sendlist p.if, .greece-panel section.soldiers p.foot { margin: 2px 0 0; font-size: 12px; color: var(--ink-soft); }
+.greece-panel section.expedition { margin-top: 10px; padding: 6px 9px 7px; border-left: 3px solid #2c4a86; background: rgba(226, 232, 244, 0.6); border-radius: 0 8px 8px 0; }
+.greece-panel section.expedition h3 { margin-top: 0; }
+.greece-panel section.expedition p.line { margin: 2px 0 4px; font-size: 13px; }
+.greece-panel ul.report { margin: 0; padding: 0 0 0 16px; font-size: 12.5px; line-height: 1.35; }
+.greece-panel ul.report li { margin: 2px 0; }
+.greece-panel details.nocause { margin-top: 10px; font-size: 13px; }
+.greece-panel details.nocause summary { cursor: pointer; color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.03em; }
+.greece-panel details.nocause section.soldiers h4 { display: none; }

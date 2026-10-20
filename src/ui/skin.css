@@ -283,3 +283,11 @@ button.stat.money:hover { background: rgba(255, 252, 240, 0.5); border-radius: 3
 
 /* The cards the corner bosses and the treasury open stand beside the panel, not over its head. */
 #ui > .help, #ui > .ledger, #ui > .saves, #ui > .save-note { right: calc(var(--side) + 14px); }
+
+/* The army and debts chips under the top bar (slice 28): marble in a thin frame, as the lines under the top bar are, not the old parchment pill. */
+.army-chip, .debts-chip {
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 4px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 4px stretch; border-radius: 0;
+  text-shadow: var(--cut); box-shadow: 0 2px 6px rgba(20, 12, 4, 0.3); padding: 1px 10px 1px 6px;
+}
+.debts-chip.overdue { color: var(--down); background: linear-gradient(rgba(240, 190, 170, 0.5), rgba(240, 190, 170, 0.5)), var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box; }

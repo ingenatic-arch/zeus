@@ -40,8 +40,10 @@ export type Command =
   | { type: 'gift'; city: string; good: number; amount: number }
   /** Answer a ruler's request, offer or demand for tribute (a deal's id; see answerRefusal in favours.ts: an answer it refuses does nothing): promise it, send what it asks (or pay the tribute), refuse it, take or decline an offer. */
   | { type: 'answer'; deal: number; act: 'promise' | 'send' | 'refuse' | 'take' | 'decline' | 'goods' }
-  /** Loans (see loans.ts; one it refuses does nothing): ask a ruler (`city`) to lend you `amount` (500, 1,000, 2,000, 3,000 or 5,000), offer to lend one `amount` at `rate` percent over `months`, accept or decline the terms their herald brought (`loan` its id), or repay your loan early. */
-  | { type: 'loan'; act: 'ask' | 'offer' | 'accept' | 'decline' | 'repay'; city?: string; amount?: number; rate?: number; months?: number; loan?: number }
+  /** Loans (see loans.ts; one it refuses does nothing): ask a ruler (`city`) to lend you `amount` (500, 1,000, 2,000, 3,000 or 5,000), offer to lend one `amount` at `rate` percent over `months`, accept or decline the terms their herald brought (`loan` its id), or repay your loan early. Debts (slice 28, `loan` its id): ask for more time, withhold payment (a toggle), grant or deny a ruler's plea for time, forgive what a ruler owes you, or demand it. */
+  | { type: 'loan'; act: 'ask' | 'offer' | 'accept' | 'decline' | 'repay' | 'time' | 'withhold' | 'grant' | 'deny' | 'forgive' | 'demand'; city?: string; amount?: number; rate?: number; months?: number; loan?: number }
+  /** Send your soldiers against a city (see expeditionRefusal in expeditions.ts: one it refuses sends nobody): a raiding party (`raid`, one or two companies, for part of what it owes) or a full force (`force`, most of your army, for the whole debt). */
+  | { type: 'expedition'; city: string; kind: 'raid' | 'force' }
   /** Raise a company of hoplites or archers at a barracks (its id; see raiseRefusal in army.ts: one it refuses raises nothing). */
   | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' }
   /** Hire a company of mercenaries at a barracks: 'cretan' archers or 'arcadian' hoplites (see hireRefusal in army.ts). */

@@ -83,6 +83,7 @@ import { income, pay, spendable, wageBill } from './treasury';
 import { giftOf, newWalker, offMapPoint, position, roadPoints, setPath, speedOf } from './walk';
 import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
 import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
+import { seizing } from './loans';
 import { tradedWithFoe } from './rivals';
 
 export type RouteKind = 'land' | 'sea';
@@ -971,6 +972,8 @@ function closedLine(s: SimState, r: TradeRoute): string {
   const c = cityOf(s.world, r.city);
   const way = r.kind === 'land' ? 'road' : 'sea route';
   const days = Math.max(1, Math.floor((s.tick - r.closed) / TICKS_PER_DAY));
+  // (Slice 28: closed over a debt of yours, while they seize your goods on it.)
+  if (seizing(s.world, r.city)) return `${rulerName(c)} has closed the ${way} over your unpaid debt (${days === 1 ? 'a day' : `${days} days`} ago), and seizes your goods on it: no ${r.kind === 'land' ? 'caravan' : 'ship'} comes until the debt is paid`;
   return `${rulerName(c)} is hostile and has closed the ${way} (${days === 1 ? 'a day' : `${days} days`} ago): no ${r.kind === 'land' ? 'caravan' : 'ship'} comes until the mood mends past hostile. A gift can mend it`;
 }
 
