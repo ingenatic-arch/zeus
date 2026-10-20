@@ -85,4 +85,42 @@ Plus the existing suite and the demo probe. `smoke.mjs` opens `#walls` and `#sie
 
 ## As built
 
-*(Filled in when the slice is built.)*
+Commits: `fe3a956` (this plan), `f4a0768` (the sim, with tests and a slice 24 save fixture), `f883b62` (the drawing, the hovers, the wall tool and tower in the build bar, the raiders' colours, `#walls` and `#siege`, looked at and tuned by screenshots), `56c77c7` (smoke and measure for the new demos), `5932f01` (`#walls` opens as early as its threat allows), `41a08f9` (the `#raiders` smoke check reads the band's longer line), `72c4864` (main merged in: the control panel), `30b4da0` (the welcome back mentions walls), `3c7713d` (the smoke waits longer in `#battle`), then main fast-forwarded to `6d96d85` (the city look, stages 2 and 3, and the loans), and the commit that fills this in with the check-in.
+
+**What changed from the design above**, found by playing sieges in Node and looking at screenshots:
+
+- **Raiders hammer at half the planned pace.** Each of up to 10 men takes 0.25 off a stretch a tick, not 0.5: a whole gate holds about 12 days, a stretch about 24. At the planned pace a gate fell in 6 days, while a company takes about 25 days to march from `#companies`' barracks to the west gate, so the gate bought too little time to matter.
+- **Towers strike harder and pick their man.** A tower's arrow hurts 18, not 14, and its archers shoot the weakest raider within range (the nearest of equals), so their hits finish men rather than spreading over the band. With the first numbers two towers took 2 of Sparta's 29 while the gate held; now about 7 while it holds and 13 in all.
+- **A tower needs a road beside it** for its archers to get there, like any workplace; its tip and hover say so. A tower on the wall away from a road stands empty and shoots nothing (test).
+- **`#siege`'s towers stand both on the north side of the west gate**, one outside the wall and one inside, not either side of it: south of the gate are the river bank (refused: towers stand on dry land) and a farm.
+- **`#walls` opens about three weeks before the band reaches the edge**, not a month: the staged threat is refused and the band gathers at once, so three weeks is the earliest. The band then takes about 24 days more to walk from the edge to the west gate.
+- **State version 24, not 25.** Walls reached main before the loans (slice 27), so walls take 24 (`from23`) and the loans 25 (`from24`); a slice 24 save goes through both.
+- **The wall and the tower live in the Military tab** of the control panel, which landed on main while this was built (the plan had them in the build bar's bronze-and-army group). The B key still reaches them: five and six presses.
+- **The rest as designed**: the wall layer, gates as road tiles with a record, raiders' ways treating walls as a cost (a whole gate about 25 tiles' walking, a whole stretch 50), hammering, cracks below two thirds and a third, breaches as rubble anyone walks through, mending by drawing over, the clear tool clearing walls, fights that keep off walls and standing gates, men wading the river at a third of their pace, the band's line naming every place it makes for and what it is hammering at, the raiders' black crests and darkened iron-rimmed shields.
+
+**Playing it out** (`#walls`, in Node; the wall up the east bank with its gate, 304 dr; two towers, 400 dr; the companies' banners just inside the gate):
+
+| Defence | The gate | Raiders fallen (of 29) | Ours | What the band took |
+|---|---|---|---|---|
+| Wall and two towers, no companies | broken after 12 days | 13 (7 while it hammered) | none | 331 dr and wheat; 3 fires |
+| Wall, towers and both companies | held | 20, band broken | 3 killed, 2 wounded | nothing; 1 fire on the west bank |
+| Wall and both companies | held | 15, band broken | 1 killed, 8 wounded | nothing; 1 fire |
+| Both companies there, no wall | — | 16, band broken | 3 killed | nothing; 1 fire |
+
+With a wall the band reaches the gate about 45 days after `#walls` opens; the companies are in place by day 25. The hoplites go out through their own gate to fight the band hammering at it.
+
+**Checks**: `npm test` 404 passing in 35 files; `npm run build` clean; `npm run smoke` ok, `#walls` and `#siege` included; `npm run measure` below. The demo probe opened all 93 earlier demos, and played each 900 ticks on, against `8358833`: every one the same once walls, sieges and breaches are left out of the comparison. A slice 24 save (`tests/fixtures/slice24-battle.save.json.gz`, version 23) loads with no walls and plays on, through the walls' step and the loans'.
+
+**Measured**: Headless Chromium with software WebGL at 1920 × 1080. Before is `8358833` (slice 24 with its review). After is this slice on the main line, with the control panel, the city look's stages 2 and 3 and the loans merged in. Most of the change in triangles and download comes from those, not from walls: the city look's trees and people roughly double every view's triangles. The machine was shared with other threads, so frame times are noisy.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 377, all passing | 404, all passing (11 of them walls) |
+| Download (gzipped) | 2,224 KB: the game 486 KB, the prepared towns 1,738 KB | 2,566 KB: the game 641 KB (walls, the control panel, the city look, loans), the prepared towns 1,925 KB (`#walls` and `#siege` among the new ones) |
+| First load (bare link) | ready at 1.4 s, first frame at 2.4 s | ready at 1.9 s, first frame at 2.6 s |
+| Every demo's load | 94 demos, median 2.3 s, slowest 3.8 s, 16 over 3 s (a busy machine) | 100 demos, median 2.0 s, slowest 2.5 s, none over 3 s |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | 1,453,964 / 1,623,607; 89 / 101 (the city look) |
+| `#battle` | 923,107 triangles, 89 draw calls; the fight close in 784,710 and 70 | 1,594,671 and 95; the fight 1,314,806 and 76 |
+| The new demos | — | `#walls` 1,753,233 triangles, 102 draw calls; `#siege` at the gate 1,561,618 and 93. Every wall and gate is one mesh: 3,636 triangles and one draw call for `#siege`'s 22 stretches and gates. Towers are drawn with the other buildings |
+| Work a frame before drawing | `#town` 13.0 ms, `#richtown` 9.5, `#raiders` 8.7, `#companies` 14.9; `#battle` during the fight 26.9 | 7.9, 6.5, 5.3, 9.2; `#battle` 16.4; `#siege` while the band hammers and the towers shoot 12.2 |
+| A save of `#richtown` | 187 KB | 187 KB |

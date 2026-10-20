@@ -2,6 +2,89 @@
 
 Notes to Oliver, newest first.
 
+## Slice 25 — Walls, gates and towers (20 Oct)
+
+You can now draw stone walls like roads, with a gate wherever a wall crosses a road, and set towers on them whose archers shoot raiders; a band looks for the cheapest way in, round the end of a short wall or through a gate or stretch it hammers at until it breaks. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Saves from before load with no walls. The welcome back says the city can wall itself now.
+- **Every earlier demo** opens, and plays 900 ticks on, exactly as before (all 93 compared).
+- **The band's line** now names every place it makes for ("making for the granary, then the tax office"), and says when the band is hammering at a gate or wall.
+- **Raiders look darker.** Black horsehair crests, and shields in their city's colour darkened with an iron rim, so a band reads apart from your red-and-bronze hoplites.
+- **Men in a fight wade the river slowly** (a third of their pace), so a bridge narrows a fight more than it did. This changes no earlier demo's opening or its first 900 ticks.
+
+### What's new
+- **The wall tool** (B five times, or the Military tab). Drag a line, like a road's straight drag:
+  - Each tile of open dry ground becomes a stretch of wall (12 dr). Each road tile becomes a gate (40 dr). A cracked or broken stretch you draw over is mended.
+  - Water, the river bank, cliffs, buildings and bridges are skipped: they're marked red, and the tip says why.
+  - The tip counts the stretches and gates and says what they cost. Undo takes back the whole drag, and the clear tool clears walls like roads.
+- **Walls in the city.**
+  - Your people never cross a wall. Carts, vendors and soldiers go through the gates, and anyone walking across country goes round.
+  - A gate is an arch over the road with a timber door. The door stands open, and swings shut while raiders are on your land.
+- **Towers** (B six times, 200 dr). A square stone tower, 2 × 2, standing on the wall or right beside it.
+  - Its four workers are its archers, paid like any workers. Like any workplace, it needs a road beside it for them to reach it.
+  - From its top it shoots the weakest raider within ten tiles, over walls and roofs.
+  - Towers don't burn or wear, and raiders can't break them.
+- **Raiders and walls.**
+  - A band finds the cheapest way in. If the gap round the end of a wall is near, it goes round. Otherwise it goes through the nearest gate or the weakest stretch, and a cracked stretch draws it.
+  - Ten men at a time hammer at it. A whole gate holds about 12 days and a whole stretch about 24.
+  - A stretch shows cracks as it weakens, below two thirds and again below a third. A badly broken gate has a leaf staved in.
+  - Once through, the band goes on to its target. The breach stays: a gap of fallen stones that anyone can walk through, the band going home included, until you draw the wall over it again (the full price).
+- **Hovers.** A stretch or gate says how strong it is. While it is under the rams, it says who is hammering at it and how long it has left at that rate. A tower names its archers and whom they are shooting at. A raider at the wall is "hammering at your gate".
+- **The town line** reads "hammering at your gate on the flood plain, to get at the granary, then the tax office". When the band is through, the town line and the Army tab's news both say so.
+
+### What to try
+1. Open `#walls`. It is `#battle`'s town, paused, with the wall tool in hand. Sparta's band of 29 is gathering, about three weeks from the west edge and about seven weeks from the town.
+   - Drag a wall up the east bank of the river, from the hills north of the bridge down across the west road to the river's bend. A gate goes where it crosses the road, just past the bridge. The tip shows what it costs (about 300 dr).
+   - Take the tower (B six times, or the Military tab) and set one or two beside the gate, by the road. Then send both companies to just inside the gate, and play.
+   - The band reaches the gate about 45 days after `#walls` opens; your companies are there by about day 25.
+   - Try it again without the companies, or without the towers, and see what the wall alone buys.
+2. Open `#siege`. It is the same town, walled up the east bank, with two towers beside the west gate. The band of 29 is at the gate, hammering, and the towers are shooting. Your companies are still at the barracks.
+   - Hover the gate to see how long it has left. Watch the gate crack and the men fall to the towers.
+   - When it breaks, watch the band go through the gap, then come home through it with what it took.
+   - Then draw the wall over the broken gate to rebuild it.
+3. Open any earlier demo, say `#battle` or `#richtown`: it is the same town as before.
+
+Each link also opens paused if you add `-paused` (for example `#siege-paused`).
+
+### What I'd like your eye on
+- **Do walls read?** In `#siege`, from outside the gate and from above the town: are the stretches, the gate, the towers and the band at the gate clear at the distances you play at? Is the breach (stumps, fallen stones and a broken leaf of the door) clear enough? I tuned all of these by screenshots only.
+- **The balance.** These are my runs in `#walls`, with the wall up the east bank (304 dr), two towers (400 dr), and the companies just inside the gate:
+
+  | Defence | The gate | Raiders fallen (of 29) | Ours | What the band took |
+  |---|---|---|---|---|
+  | Wall and two towers, no companies | broke after 12 days | 13 (7 while they hammered) | none | about 330 dr and 600 wheat |
+  | Wall, towers and both companies | held | 20; the band broke | 3 killed, 2 wounded | nothing |
+  | Wall and both companies | held | 15; the band broke | 1 killed, 8 wounded | nothing |
+  | Both companies, no wall | — | 16; the band broke | 3 killed | nothing |
+
+  Every band burnt a house on the west bank on its way in. Is a wall with towers worth its 700 dr? I can't tell from numbers alone whether a gate holding 12 days is too long or too short.
+- **Hoplites going out.** With the companies inside, the hoplites march out through their own gate to fight the band hammering at it. Their archers shoot over the wall. Is that what you'd expect, or should they hold behind the gate?
+- **Time to get there.** The march from the barracks to the west gate is about 25 days, and a whole gate holds about 12. So in `#siege` the companies can't save the gate; in `#walls` there is time. Does that feel right?
+- **Telling the sides apart.** Are your hoplites and the raiders easy to tell apart in a fight now, with the raiders' black crests and darkened shields?
+
+### Known rough edges
+- **Towers need a road beside them** for their archers. A tower in the middle of a long wall, away from any road, stands empty; its tip and hover say so.
+- **No towers south of `#siege`'s gate.** The river bank and a farm are there, so both towers stand on its north side, one outside the wall and one inside.
+- **`#walls` opens three weeks before the band reaches the edge,** not the month I planned; that is the earliest its staged threat allows.
+- **Steep ground.** A wall can't stand on cliffs, so a line drawn into the hills stops where they begin. Raiders can't climb them either.
+- **Nobody stands on the walls,** and towers can't be broken (as the spec says).
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `8358833` (slice 24 with its review). After is this slice on the main line, with the control panel, the city look's stages 2 and 3 and the loans merged in. Most of the change in triangles and download comes from those, not from walls: the city look's trees and people roughly double every view's triangles. The machine was shared with other threads, so frame times are noisy.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 377, all passing | 404, all passing (11 of them walls) |
+| Download (gzipped) | 2,224 KB: the game 486 KB, the prepared towns 1,738 KB | 2,566 KB: the game 641 KB (walls, the control panel, the city look, loans), the prepared towns 1,925 KB (`#walls` and `#siege` among the new ones) |
+| First load (bare link) | ready at 1.4 s, first frame at 2.4 s | ready at 1.9 s, first frame at 2.6 s |
+| Every demo's load | 94 demos, median 2.3 s, slowest 3.8 s, 16 over 3 s (a busy machine) | 100 demos, median 2.0 s, slowest 2.5 s, none over 3 s |
+| `#town` / `#richtown` | 799,168 / 910,707 triangles; 83 / 95 draw calls | 1,453,964 / 1,623,607; 89 / 101 (the city look) |
+| `#battle` | 923,107 triangles, 89 draw calls; the fight close in 784,710 and 70 | 1,594,671 and 95; the fight 1,314,806 and 76 |
+| The new demos | — | `#walls` 1,753,233 triangles, 102 draw calls; `#siege` at the gate 1,561,618 and 93. Every wall and gate is one mesh: 3,636 triangles and one draw call for `#siege`'s 22 stretches and gates. Towers are drawn with the other buildings |
+| Work a frame before drawing | `#town` 13.0 ms, `#richtown` 9.5, `#raiders` 8.7, `#companies` 14.9; `#battle` during the fight 26.9 | 7.9, 6.5, 5.3, 9.2; `#battle` 16.4; `#siege` while the band hammers and the towers shoot 12.2 |
+| A save of `#richtown` | 187 KB | 187 KB |
+
 ## Slice 27 — Loans both ways (19 Oct)
 
 *Built alongside slices 24 to 26, in its own line of work, and landing on the main line before them: slice 24, the control panel and the city look are in, slice 25’s walls are part-way in, and slice 26 is still to come.*
