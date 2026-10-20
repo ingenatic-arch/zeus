@@ -332,7 +332,7 @@ export class Streets {
     c: THREE.Color,
   ): void {
     // A fountain, a shrine or a tax office stands on its own paving.
-    if (b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice') return;
+    if (b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'tower') return;
     const map = this.map;
     const S = PLOT_SIZE;
     const inset = 0.12;

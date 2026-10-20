@@ -51,6 +51,7 @@ import { fleeing, herdName, MIN_HEAD, moving, regrowIn } from './wild';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
+import { towerStatus } from './wallstatus';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -127,6 +128,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'mine') return mineStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'armoury') return armouryStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'barracks') return barracksStatus(s, map, b, workersLine(s, map, b));
+  if (b.kind === 'tower') return towerStatus(s, b, workersLine(s, map, b));
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';

@@ -115,7 +115,7 @@ describe('drawing walls', () => {
 });
 
 describe('raiders and walls', () => {
-  it('the band breaks the gate rather than going far round, in about six days; it is rubble, and the band goes on and home through it', () => {
+  it('the band breaks the gate rather than going far round, in about twelve days; it is rubble, and the band goes on and home through it', () => {
     const { sim, s, r } = walled();
     expect(until(sim, () => r.siege === GATE, 2 * TICKS_PER_MONTH)).toBe(true);
     const band = raidersOf(s, r)!;
@@ -125,8 +125,8 @@ describe('raiders and walls', () => {
     expect(gate.hp).toBeGreaterThan(GATE_HP * 0.9);
     expect(until(sim, () => gate.hp <= 0, TICKS_PER_MONTH)).toBe(true);
     const took = (s.tick - start) / TICKS_PER_DAY;
-    expect(took).toBeGreaterThan(4);
-    expect(took).toBeLessThan(9);
+    expect(took).toBeGreaterThan(9);
+    expect(took).toBeLessThan(15);
     expect(r.breaches).toBe(1);
     sim.step();
     expect(r.siege).toBeLessThan(0);

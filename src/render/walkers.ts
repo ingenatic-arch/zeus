@@ -637,14 +637,17 @@ function drover(): THREE.BufferGeometry {
 }
 
 /**
- * A raider, facing +x: a dark leather tunic, a bronze helmet with a crest in
- * his city's colour, a round shield on his left arm in the colour (the tinted
+ * A raider, facing +x: a dark leather tunic, an iron helmet with a black
+ * crest, a round iron-rimmed shield on his left arm in his city's colour, darkened (the tinted
  * parts), and in his right hand a torch alight (`torch`), a spear, or, on the
  * way out, a sack of loot over his shoulder.
  */
 /** A raider's jerkin and helmet. */
 const RAIDER_LEATHER = '#3e3128';
-const RAIDER_IRON = '#77746e';
+const RAIDER_IRON = '#55524d';
+/** Black horsehair on their helmets, and how dark their city's colour is on their shields. */
+const RAIDER_CREST = '#1d1a17';
+const RAIDER_SHADE = 0.55;
 function raider(hold: 'torch' | 'spear' | 'sack'): THREE.BufferGeometry {
   const parts: TPart[] = [
     leg(0, -0.03, 0.12, 0.02, PAL.skin, -1.3),
@@ -655,9 +658,11 @@ function raider(hold: 'torch' | 'spear' | 'sack'): THREE.BufferGeometry {
     { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.025, 0.36, 0), color: PAL.skin },
     // The helmet, and its crest from front to back.
     { geo: new THREE.IcosahedronGeometry(0.066, 0).scale(1, 0.8, 1).translate(0.02, 0.385, 0), color: RAIDER_IRON },
-    { geo: new THREE.BoxGeometry(0.13, 0.05, 0.018).translate(0.0, 0.445, 0), color: '', tint: true },
-    // The round shield on his left, a bronze boss.
-    { geo: new THREE.CylinderGeometry(0.085, 0.085, 0.016, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.085), color: '', tint: true },
+    // (Slice 25: a crest of black horsehair, tall, and the shield in their city's colour darkened with an iron rim, so a band reads as dark against your terracotta-and-bronze hoplites.)
+    { geo: new THREE.BoxGeometry(0.15, 0.065, 0.02).translate(-0.005, 0.452, 0), color: RAIDER_CREST },
+    // The round shield on his left, an iron rim and a bronze boss.
+    { geo: new THREE.CylinderGeometry(0.096, 0.096, 0.012, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.08), color: RAIDER_IRON },
+    { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.016, 10).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.087), color: '', tint: true },
     { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.02, 6).rotateX(Math.PI / 2).translate(0.02, 0.24, -0.095), color: PAL.bronze },
   ];
   if (hold === 'torch') {
@@ -1008,7 +1013,8 @@ export class Walkers {
       this.p.set(x, this.ground(x, z) + lift + bob, z);
       this.s.set(sc, sc, sc);
       this.m.compose(this.p, this.q, this.s);
-      this.c.copy(col(PLACES[city]?.colour ?? PAL.tunicTerracotta));
+      // (Their city's colour darkened, on the shield: slice 24's review found Sparta's red against your hoplites' read as one crowd.)
+      this.c.copy(col(PLACES[city]?.colour ?? PAL.tunicTerracotta)).multiplyScalar(RAIDER_SHADE);
       if (!moving) this.c.multiplyScalar(-1);
       // Going out with loot: most carry a sack; fighting, spears; going in (or at their target), torches and spears.
       const loaded = !!band && band.back && band.load > 0;

@@ -12,6 +12,7 @@ import { cityShipColours, giftLook, ShipView, visitorLook } from './ship';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
+import { WallsView } from './walls';
 import { Works } from './works';
 
 const NO_ONE: ReadonlySet<number> = new Set();
@@ -28,6 +29,8 @@ export class CityView {
   readonly walkers: Walkers;
   readonly works: Works;
   readonly bridges: Bridges;
+  /** The walls, gates, towers and breaches (slice 25). */
+  readonly walls: WallsView;
   readonly animals: Animals;
   /** The soldiers and their companies' banners (slice 23). */
   readonly army: ArmyView;
@@ -56,11 +59,12 @@ export class CityView {
     this.walkers = new Walkers(map, this.folk);
     this.works = new Works(map);
     this.bridges = new Bridges(map);
+    this.walls = new WallsView(map);
     this.animals = new Animals(map, this.folk);
     this.army = new ArmyView(map, this.folk);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
     this.army.ground = this.walkers.ground;
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -136,6 +140,7 @@ export class CityView {
     if (dirty.size) this.streets.rebuild(s, dirty);
     this.homes.sync(s, !first);
     if (tilesChanged) this.bridges.sync(s);
+    this.walls.sync(s);
     if (s.cleared !== this.cleared) {
       this.cleared = s.cleared;
       this.plants.sync(s.cleared);

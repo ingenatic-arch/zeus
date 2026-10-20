@@ -140,4 +140,8 @@ export const VIEWS: Record<string, CameraView> = {
   battle: { x: 50, z: 41, yaw: 2.65, dist: 34, tilt: -0.1 },
   // #looted: the granary and the tax office west of the core, the band leaving westwards past what it set alight.
   looted: { x: 52, z: 42, yaw: 2.65, dist: 22, tilt: -0.02 },
+  // #walls: the old town east of the river from above its west side, the bridge and the open land to wall in.
+  walls: { x: 56, z: 40, yaw: 2.65, dist: 48, tilt: -0.12 },
+  // #siege: the west gate just past the bridge from outside it, its two towers, the band at it.
+  siege: { x: 40.5, z: 41.5, yaw: -0.7, dist: 11, tilt: 0.1 },
 };

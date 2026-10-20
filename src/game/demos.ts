@@ -17,6 +17,7 @@ import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
 import { WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
+import { GATE_HP } from '../sim/walls';
 import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
@@ -26,7 +27,7 @@ import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOff
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
-import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
+import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -120,7 +121,7 @@ export interface Demo {
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
-  side?: { tab?: 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
+  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
 }
@@ -1571,6 +1572,45 @@ function lootedTown(): (sim: Sim) => void {
     sim.run(LOOTED_DAYS * TICKS_PER_DAY);
   };
 }
+/**
+ * Walls, gates and towers (slice 25). #walls: #battle's town about three weeks
+ * before Sparta's band reaches the west edge, paused, the wall tool in hand.
+ * #siege: the same town walled up the east bank of the river (x = 40), a gate
+ * where the west road crosses just past the bridge, two towers beside it on its north side
+ * staffed, played on until the band stands at the gate hammering at it; the
+ * companies still at the barracks.
+ */
+const WALLS_DAYS = 30;
+/** #siege's wall, gate and towers. */
+const SIEGE_WALL = col(40, 12, 45);
+const SIEGE_TOWERS = [T(41, 39), T(38, 39)];
+function wallsTown(): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    stagedRaid(sim, 'sparta', 'the king fears a city that arms itself so near his lands');
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    // (As early as the staged threat allows: the band still gathering at Sparta, about three weeks from the west edge.)
+    while (reachesEdge(s, r) - s.tick > WALLS_DAYS * TICKS_PER_DAY && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+  };
+}
+function siegeTown(): (sim: Sim) => void {
+  return (sim) => {
+    WALLS(sim);
+    const s = sim.state;
+    sim.enqueue({ type: 'wall', tiles: SIEGE_WALL });
+    for (const t of SIEGE_TOWERS) sim.enqueue({ type: 'build', kind: 'tower', at: [t] });
+    sim.flush();
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    // Until the band has hammered at the gate for a day or so: a crack in it, a man or two down to the towers.
+    const until = s.tick + 3 * TICKS_PER_MONTH;
+    while (s.tick < until && !(r.siege >= 0 && (s.walls.find((p) => p.t === r.siege)?.hp ?? 0) < GATE_HP * 0.8)) sim.step();
+  };
+}
+const WALLS = wallsTown();
+const SIEGE = siegeTown();
 const BATTLE = battleTown();
 const HIRELINGS_TOWN = hirelingsTown();
 const LOOTED = lootedTown();
@@ -1729,6 +1769,8 @@ const SCENES: Record<string, Demo> = {
   ruler: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', greece: 'sparta' },
   // The side panel: #richtown with the panel open on wine's page (every chain is at work there, and the ship buys).
   goods: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { ware: WINE } },
+  // The control panel (a side slice): #richtown with the panel on its Husbandry tab, the farms' pictures and what the land gave.
+  panel: { view: 'richtown', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', side: { tab: 'husbandry' } },
   // Slice 16: routes and traders.
   routes: { view: 'town', setup: routesTown('routes'), overlay: 'missing', greece: 'corinth', greeceTab: 'trade' },
   caravan: { view: 'caravan', setup: routesTown('caravan'), overlay: 'missing', follow: 'caravan' },
@@ -1768,6 +1810,9 @@ const SCENES: Record<string, Demo> = {
   battle: { view: 'battle', speed: 'paused', setup: BATTLE, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner },
   looted: { view: 'looted', setup: LOOTED, overlay: 'missing', ledger: true },
   hirelings: { view: 'barracks', speed: 'paused', setup: HIRELINGS_TOWN, overlay: 'missing', side: { tab: 'army' } },
+  // Slice 25: walls, gates and towers. The town three weeks before Sparta's band, the wall tool in hand; the band at the west gate, hammering, under two towers.
+  walls: { view: 'walls', speed: 'paused', tool: 'wall', setup: WALLS, overlay: 'missing' },
+  siege: { view: 'siege', setup: SIEGE, overlay: 'missing', side: { tab: 'army' } },
   // Slice 27: loans both ways. Corinth's and Athens' answers to your asks, Corinth's terms waiting on you; a ruler in trouble asking to borrow; that loan repaid, their herald on the road.
   borrow: { view: 'town', setup: loanTown('borrow'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   lend: { view: 'rivals', setup: LEND, overlay: 'missing', greece: LEND_CITY, greeceTab: 'ruler' },

@@ -1,22 +1,18 @@
-/** The "?" card listing the controls, the compass, and the first-time hint. */
+/** The "?" card listing the controls, and the first-time hint. (North is the gold marker on the minimap's ring.) */
 export interface Corner {
-  /** The row of round buttons in the top right corner (more can go in, before the compass). */
+  /** The row of round buttons in the top right corner (more can go in, before the help button). */
   el: HTMLElement;
   /** Show or hide the controls card (toggles without an argument). */
   toggleHelp(show?: boolean): void;
   readonly helpOpen: boolean;
   /** Called when the controls card opens. */
   onHelpOpen(f: () => void): void;
-  setHeading(yaw: number): void;
 }
 
-export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: boolean): Corner {
+export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
   const corner = document.createElement('div');
   corner.className = 'corner';
   corner.innerHTML = `
-    <button class="btn compass" title="Face north (N)" aria-label="Face north">
-      <svg viewBox="0 0 24 24"><g class="needle"><path d="M12 2.5l3.2 9.5h-6.4z" fill="#c8643b"/><path d="M12 21.5l-3.2-9.5h6.4z" fill="#7a5c3c" opacity="0.55"/></g></svg>
-    </button>
     <button class="btn help-btn" title="Controls (?)" aria-label="Controls"><span class="help-q">?</span></button>`;
   root.appendChild(corner);
 
@@ -34,9 +30,10 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       <dt>Q / E</dt><dd>Turn a quarter left / right</dd>
       <dt>R / F</dt><dd>Tilt up / down</dd>
       <dt>+ / −</dt><dd>Zoom in / out</dd>
-      <dt>N</dt><dd>Face north</dd>
+      <dt>N</dt><dd>Face north (or click the gold N on the minimap’s ring)</dd>
     </dl>
     <h2 style="margin-top:12px">Building</h2>
+    <p class="lead">The panel on the right has a tab for each kind of building: click a picture to pick it up. Road, clear, undo and the overlays are round the minimap. The keys:</p>
     <dl>
       <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>
@@ -83,8 +80,6 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     if (show) for (const f of opened) f();
   };
   (corner.querySelector('.help-btn') as HTMLElement).addEventListener('click', () => toggleHelp());
-  (corner.querySelector('.compass') as HTMLElement).addEventListener('click', onNorth);
-  const needle = corner.querySelector('.needle') as SVGGElement;
 
   if (showHint) {
     const hint = document.createElement('div');
@@ -96,7 +91,6 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
     addEventListener('pointerdown', () => setTimeout(dismiss, 2500), { once: true });
   }
 
-  let lastDeg = NaN;
   return {
     el: corner,
     toggleHelp,
@@ -104,11 +98,5 @@ export function buildCorner(root: HTMLElement, onNorth: () => void, showHint: bo
       return !help.hidden;
     },
     onHelpOpen: (f) => void opened.push(f),
-    setHeading(yaw: number) {
-      const deg = Math.round((yaw * 180) / Math.PI);
-      if (deg === lastDeg) return;
-      lastDeg = deg;
-      needle.setAttribute('transform', `rotate(${deg} 12 12)`);
-    },
   };
 }

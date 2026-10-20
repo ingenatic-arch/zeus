@@ -2,7 +2,7 @@
  * What the loans look like (slice 27): a ruled city's Loans tab (what you owe
  * them and they owe you, your herald on the way, their terms waiting on you,
  * asking for a loan and offering one, with the likely answer and why), a
- * ruler's own offer or ask on the Ruler tab, and the Money tab's loans. It
+ * ruler's own offer or ask on the Ruler tab, and the Administration tab's loans. It
  * only reads the sim; every act goes out as a `loan` command (or, for a
  * ruler's offer or ask, an `answer`).
  */
@@ -202,7 +202,7 @@ export function loanDealShort(s: SimState, d: Deal): string {
   return d.kind === 'loanoffer' ? `Offers to lend you ${fmt(l.amount)} dr at ${l.rate}% · ${left}` : `Asks to borrow ${fmt(l.amount)} dr at ${l.rate}% · ${left}`;
 }
 
-/** The Money tab's loans: every loan standing either way, with its terms, dates and how it stands. */
+/** The Administration tab's loans (the old Money tab): every loan standing either way, with its terms, dates and how it stands. */
 export function moneyLoansHtml(s: SimState): string {
   const live = s.world.loans.filter((l) => l.ended === 0 && l.state !== 'proposed');
   if (!live.length) return '';

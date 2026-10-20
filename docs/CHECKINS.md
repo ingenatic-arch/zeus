@@ -4,14 +4,14 @@ Notes to Oliver, newest first.
 
 ## Slice 27 — Loans both ways (19 Oct)
 
-*Built alongside slices 24 to 26, in its own line of work, and joining the main line before them: slice 24 is in, and slices 25 and 26 are still to come.*
+*Built alongside slices 24 to 26, in its own line of work, and landing on the main line before them: slice 24 and the control panel are in, slice 25’s walls are part-way in, and slice 26 is still to come.*
 
 Coin now moves between your city and the rulers as loans, both ways. You can ask a ruler to lend you coin, and their herald brings back terms, every reason named, or a refusal and why. You can lend to a ruler, choosing the sum, the interest and the months, and see beforehand whether they would take it and how likely they are to repay. Now and then a pleased ruler offers you a loan, and a ruler in trouble asks you for one. Each loan is paid back in one payment, interest and all, on the day it falls due. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
 What breaks, or moves: nothing you had is lost.
 - **Saves.** Saves from before load with no loans, slice 24's included. If the town trades with Greece, the welcome back says rulers now lend and borrow, and where to ask.
 - **Earlier demos.** Every earlier demo opens, and plays 900 ticks on, exactly as before, the Greek ones included. No ruler happens to offer or ask a loan in any of them in that time.
-- **What reads differently.** A ruled city's page has a fifth tab, Loans, so its row of tabs now wraps onto two lines. The ledger has five new lines for loans, and the Money tab gets a Loans row when there are any.
+- **What reads differently.** A ruled city's page has a fifth tab, Loans, so its row of tabs now wraps onto two lines. The ledger has five new lines for loans, and the Administration tab (the old Money tab, now in the control panel) gets a Loans row when there are any.
 
 ### What's new
 - **Asking for a loan.** On a city's Loans tab, "Ask for a loan" says what the ruler would likely do as things stand: the interest, the months and what the city can spare, with every reason. Or it says why they won't lend ("the king of Sparta does not lend to a city he barely knows (wary, and no route between you)").
@@ -32,10 +32,10 @@ What breaks, or moves: nothing you had is lost.
   - Both sit on the Ruler tab with a coin-on-a-scroll seal on the city's label and a line under the top bar. Each answer shows what it does to their mood: lend +15 (+19 from a generous ruler such as Athens’ archon), refuse −6, let it run out −4.
 - **Repaying.** On the day yours is due, the whole sum goes from the treasury and your herald takes it to them. Repaid on time, the lender is pleased (+8), and every ruler's terms are a percent better.
   - If the treasury can't pay on the day, the loan is overdue. It is paid as soon as the treasury can, and until then no ruler will lend to you.
-  - "Repay now" on the Money tab or the Loans tab pays early.
+  - "Repay now" on the Administration tab or the Loans tab pays early.
   - On the day theirs is due, Greece's dice decide, against how likely they were to repay, whether their herald brings it or the loan stands overdue.
 - **Where you see it.**
-  - A chip under the top bar shows the next date due either way ("You owe Corinth 2,220 dr · 21 November"), red if one is overdue. It opens the Money tab, which lists every loan with its terms, dates and how it stands.
+  - A chip under the top bar shows the next date due either way ("You owe Corinth 2,220 dr · 21 November"), red if one is overdue. It opens the Administration tab, which lists every loan with its terms, dates and how it stands.
   - The ledger has the five new lines: Loan, Loan repaid, Loan sent back, Lent, and Loan repaid going out.
   - A line under the top bar shows when terms wait on you, when your loan is due within a month and the treasury can't cover it, or when it is overdue.
 
@@ -44,7 +44,7 @@ What breaks, or moves: nothing you had is lost.
    - Corinth will lend at 11%, repaid in 6 months: the lord is shrewd and at war with Athens.
    - Open Athens' Loans tab: 6% over 15 months, as the archon is generous.
    - Open Sparta's: the king won't lend to a city he barely knows. The page also says what he would ask if he did (12% over 15 months) and why.
-   - Accept one, run it for a week, and watch the coin come in. Then look at the chip and the Money tab, and try "Repay now".
+   - Accept one, run it for a week, and watch the coin come in. Then look at the chip and the Administration tab, and try "Repay now".
 2. Open `#lend`. It is `#rivals`' town in November 746 BC, with over 6,000 dr; Sparta's raiders have just left with some of your wheat and coin. Athens lost its war with Troy in September, and the archon asks to borrow 2,000 dr at 11% over a year "to rebuild after their defeat by Troy". Her page says how likely she is to repay (fair) and why. Lend it or refuse it. Her own Loans tab says she is borrowing from you, not lending. Then open Corinth's Loans tab and offer a loan of your own: change the sum and the rate and watch the likely answer change.
 3. Open `#repaid`. It is the same town a year on. You lent Athens the 2,000 dr, and on the day the archon paid: her herald is on the road with 2,220 dr, four days from your land. Run it and watch the treasury and the ledger ("Loan repaid · by Athens").
 4. Open any earlier demo (say `#rivals` or `#war`): it is the same as before.
@@ -90,12 +90,49 @@ A second pass went through every step above in the browser at 1920 × 1080, read
 - **The offer rows fit.** "Offer a loan"'s five sums wrapped onto a second line; each row of choices now fits on one.
 - **One wrong capital.** "As things stand, sparta has no coin to spare" now keeps its capital S.
 
-The tests number 392 after the review, all passing, and 403 once it joined the main line (with the start of slice 25's walls), all passing. The browser check passes every loans step there; its one failure is an older raid demo's line, whose words the walls work on the main line has just changed ("plundering the granary, then making for the tax office"), and which that slice will bring up to date.
+The tests number 392 after the review, all passing, and 404 on the main line (with the control panel and slice 25's walls), all passing. With the control panel in, the Money tab is the Administration tab: its loans list, "Repay now" and the Loans row sit there, and the debts chip opens it; I looked at them there in `#borrow` and `#repaid`. The browser check passes every loans step on the main line, and every earlier demo plays out exactly as on the main line without loans.
 
 What I checked and did not change, for your eye:
 - **Two lines about the same terms.** In `#borrow` the line for Corinth's terms and the news of Athens' answer show together under the top bar, and after you answer while paused, the old line stays until the game runs again (as every line under the top bar does).
 - **Repaying early costs the whole interest.** Repaying Corinth a week after the coin arrives still costs 2,220 dr, as the spec says. It buys only "Greece knows you pay your debts".
 - **Rarely seen.** In four years of `#caravan`'s town with a full treasury, one ruler asked to borrow (Athens, which lapsed); with the town's own treasury, none did.
+
+## Side slice — The control panel (19 Oct)
+
+You asked for the menus to work more like the original game's, with everything you build in the side panel, and for the interface to look like a polished game rather than parchment and pills. The panel now has a tab for each kind of building, and each tab holds that kind's buildings over that part of the city's state. The build bar along the bottom is gone. The whole interface is marble and bronze, with two typefaces. It was built alongside phase 4 and touches nothing in the simulation: saves load as they are, the save format is unchanged, and every demo plays exactly as before.
+
+### What's new
+- **A tab for each kind of building**, as in the original: Population, Husbandry, Industry, Distribution, Hygiene and safety, Administration, Culture, Mythology and Military. Each tab shows its buildings as pictures in bronze-framed wells. The pictures are drawn from the town's own models when the game opens. Each well shows the building's cost, and is dimmed when the treasury can't pay or the city already has its one. Under the wells is the name and cost of the one in hand or under the pointer. Below that is the tab's part of the city:
+  - **Population**: who lives here, their homes, work and homes in trouble (the old People tab).
+  - **Husbandry** and **Industry**: what their buildings made last month, ware by ware, and how many of each are short of workers. Click a ware for its page, as on the old Goods tab.
+  - **Distribution**: every good in the city (the old Goods tab), and how many homes the agora's vendors reach.
+  - **Hygiene and safety**: water, fire and wear. **Culture** and **Mythology**: plays and blessings.
+  - **Administration**: the treasury, the tax rate and the ledger (the old Money tab). **Military**: the barracks, walls and towers, and the companies (the old Army tab).
+- **Keys work as before**, and a key also opens its tool's tab and lights its well. M opens Husbandry or Industry, K and G open Distribution, Z opens Administration or Hygiene and safety.
+- **Road, clear, undo and the overlays** are four bronze bosses round the minimap. The overlays boss lists every overlay, with the open tab's own first.
+- **North** is a gold N on the minimap's ring. It turns with the view, and a click on it faces north (N still does). The compass button is gone.
+- **The tool in hand** says how to use it in a line at the foot of the view, where the build bar was.
+- **The panel is always there.** Its hide button is gone, and it still steps aside for the map of Greece. Sound, saves and controls are small bosses above the minimap. I'd planned them for the top bar's right end, but there is no room for them there at 1280 wide. While the map of Greece is open, they go back to the top right corner. The cards they open, and the ledger, stand beside the panel rather than over it.
+- **The look.** Every piece of the frame is drawn in code and lit from the upper left, with real shadows and hollows: veined marble, bronze, lapis with gold flecks, gold leaf. The tabs are carved marble tiles, and the open one is inlaid with lapis. Each tab's name is cut into a gilded lintel, and what you read sits on honed marble. The top bar, cards, chips, notices and tips are marble in bronze frames. The speed buttons are bronze bosses, with the one that's on in lapis and gold.
+- **Two typefaces**, Cinzel for names and headings and Alegreya for reading. Both are under the SIL Open Font License and ship with the game's files (about 120 KB).
+- **`#panel`** opens `#richtown` on the Husbandry tab.
+
+### What to try
+1. Open `#panel`. Click each tab and look at the buildings and what sits under them. Click a picture to pick a building up, and see the line at the foot of the view.
+2. Press M a few times, then K, then Z, and watch the panel follow the keys.
+3. Click the overlays boss (bottom right of the minimap) and pick one. Click the gold N on the ring after turning the view with Q.
+4. Open the ledger ($), the controls (?), a household, and the map of Greece (Tab), and judge the cards and frames.
+
+### Your eye on
+- Whether the panel's head (the minimap in its ring, with the four bosses) is the right size, or should give more room to the tab below it.
+- Whether the wells are too dark, and whether a picture plus a cost reads well enough without the name, which only shows under the wells.
+- The colours of the cards next to the city: I kept the marble pale so they don't fight the land.
+
+### Checked
+- Typecheck and unit tests pass, including a new one that checks every building is in exactly one tab, so a building phase 4 adds can't be left without a button.
+- The smoke test's build bar checks now drive the panel: wells, keys opening tabs, the bosses, the overlays list, and the fit at 1280 × 720. Main's slice 23 fixes are merged in.
+- Screenshots at 1920 × 1080, 1600 × 900 and 1280 × 720. On a window up to 820 tall, the panel's head is drawn smaller.
+- First load, measured locally in a headless browser. The bare link was ready at 1.8 s, with its first frame at 2.2 s; main was ready at about 1.3 s. That is about half a second slower than main, mostly the marble and bronze being made, which happens while a demo's town is fetched. All 92 demo links were ready at a median of 1.6 s, the slowest being `#offer` at 2.3 s, and none took over 3 s. The game's files are 587 KB gzipped, fonts included.
 
 ## Slice 24 — Raiders fought in the streets (20 Oct)
 
@@ -517,7 +554,6 @@ Phase 3, "Greece beyond the walls", in eight slices. What you can do now that yo
 - Are the travellers on the map the right size from far out, and is `#rivals`' opening, with five notes at once, too much?
 - Phase 2's open questions still stand: should early fire be gentler, and should tax money come in smoothly?
 - What should the next phase be?
-
 
 ## Slice 21 — Greece goes on (18 Oct)
 
@@ -1892,7 +1928,6 @@ Nothing to break: there are no saves until slice 7. Every earlier demo still ope
 - **Re-checked.** I followed the steps of every earlier check-in again after the bread change. They still do what their notes say, and in `#bridge`, where 14 homes went down over two years before, none do now. `#harvest` opens with 473 people (was 470), and `#missing` with 438 (was 434), three huts instead of two and 7 homes warning instead of 9, because bread reaches the stalls at a different pace. In `#missing`, the two extra farms still bring every home back to a cottage in about six months, as its note says.
 - **Corrected in this note.** Step 1 (`#grow`) now tells the bread story as it plays now, step 7 (`#closed`) has the new numbers, and the measurements are the new ones.
 
-
 ## Slice 5 — The people who live there (16 Oct)
 
 Every home is now a household you can click: a named family from somewhere in the Greek world, who they are, how they feel and why, what they have and lack, a line or two of their talk, and what has happened to them; when a home loses what it needs it warns you with a sign over its roof for two months before it goes down a level and some of the family walk out. You weren't here while it was built: every choice below is mine, from the spec's defaults.
@@ -1950,7 +1985,6 @@ Nothing to break: there are no saves until slice 7. What changes on purpose: a h
 - **The talk.** No line has a baby doing grown-up things. No lines say "back to a tent" from a cottage. No line says a relative is leaving when the panel says otherwise. Places of origin now read right in every line ("a farm near Sparta" became "the hills of Laconia"). A few weaker lines were rewritten.
 - **Smaller things.** "Here since" stays on the panel even after the story fills up. When bread runs short because a farm has no road or too few workers, the reason now says so instead of asking for another farm. The undo button explains itself from the start. When a home that has already gone down a level is still without and starts worrying again, its story says so.
 - **Corrected in this note.** The steps for `#warning` and `#missing` now match what happens: `#warning` opens paused, and the farms in `#missing` must be right beside the road. With three farms the reds clear in about a minute at speed 3, not a couple of minutes. `#warning` and `#decline` don't open any slower than the other demos: by the game's own clock they're ready in about a second, like `#food`. The 3.5 seconds I gave before was the headless browser's overhead.
-
 
 ## Slice 4 — Bread on the table (16 Oct)
 

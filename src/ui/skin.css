@@ -1,0 +1,285 @@
+/*
+ * The interface's look: marble, bronze, lapis and gold, lit from the upper
+ * left (the materials are made in code as the game opens, see skin.ts and
+ * relief.ts, and reach this sheet as custom properties on the root), with
+ * Cinzel for names and headings and Alegreya for the rest.
+ */
+@font-face { font-family: Cinzel; src: url(./fonts/cinzel-latin-500-normal.woff2) format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: Cinzel; src: url(./fonts/cinzel-latin-700-normal.woff2) format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Alegreya; src: url(./fonts/alegreya-latin-400-normal.woff2) format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Alegreya; src: url(./fonts/alegreya-latin-500-normal.woff2) format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: Alegreya; src: url(./fonts/alegreya-latin-700-normal.woff2) format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Alegreya; src: url(./fonts/alegreya-latin-400-italic.woff2) format('woff2'); font-style: italic; font-display: swap; }
+
+:root {
+  --ink: #2b2219;
+  --ink-soft: #5e5242;
+  --up: #4c6a26;
+  --down: #8c2f26;
+  --serif: Alegreya, 'Palatino Linotype', Palatino, Georgia, serif;
+  --display: Cinzel, 'Palatino Linotype', Palatino, Georgia, serif;
+  /* Letters cut into stone: lit along their lower edge. */
+  --cut: 0 1px 0 rgba(255, 252, 240, 0.62), 0 -1px 0 rgba(40, 28, 16, 0.14);
+  --lapis: #2c4a86;
+  --lapis-deep: #1e3566;
+  --gold: #e2b24e;
+}
+
+/* ------------------------------------------------------------------------ the control panel */
+.side {
+  position: absolute; top: 0; right: 0; bottom: 0; width: var(--side-w);
+  display: flex; flex-direction: column;
+  background: var(--skin-mould) 0 0 / 12px 256px repeat-y, var(--skin-marble) 0 0 / 256px 256px, #e7dfcf;
+  box-shadow: -5px 0 14px rgba(20, 12, 4, 0.45);
+  font: 15px/1.38 var(--serif); color: var(--ink); text-shadow: var(--cut); user-select: none;
+}
+.side[hidden] { display: none; }
+.side > * { margin-left: var(--mould); }
+/* Room for the corner's bosses (saves, sound, controls), which lie over it. */
+.side-cornice { flex: none; height: 40px; position: relative; }
+.side-cornice::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 1px; height: 2px; background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.75) 50%); }
+
+.side-head { flex: none; position: relative; width: 284px; height: 240px; }
+/* The slab is drawn by a layer of its own, so its shadow isn't drawn again with the minimap. */
+.side-head-art { position: absolute; inset: 0; background-size: 284px 240px; filter: drop-shadow(1px 3px 2.5px rgba(30, 20, 8, 0.45)); pointer-events: none; }
+.side-map { position: absolute; width: 216px; height: 216px; }
+.side-map::after { content: ''; position: absolute; left: 16px; top: 16px; width: 184px; height: 184px; border-radius: 50%; pointer-events: none; box-shadow: inset 5px 7px 12px rgba(20, 12, 4, 0.55), inset 0 0 3px rgba(20, 12, 4, 0.6); }
+.minimap { width: 216px; height: 216px; border-radius: 50%; }
+.minimap canvas { display: block; border-radius: 50%; touch-action: none; }
+
+.boss {
+  position: absolute; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: center / 36px 36px no-repeat; filter: drop-shadow(1px 2px 1.4px rgba(20, 12, 4, 0.55));
+}
+.boss:hover { filter: drop-shadow(1px 2px 1.4px rgba(20, 12, 4, 0.55)) brightness(1.08); }
+.boss:active { transform: translateY(1px); filter: drop-shadow(0 1px 1px rgba(20, 12, 4, 0.55)); }
+.boss:disabled { cursor: default; filter: drop-shadow(1px 2px 1.4px rgba(20, 12, 4, 0.4)) saturate(0.25) brightness(0.92); opacity: 0.75; }
+.boss:focus-visible, .side-tab:focus-visible, .well:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.side-band { flex: none; width: 284px; height: 18px; margin-top: 2px; background-size: 284px 18px; box-shadow: inset 0 1px 2px rgba(10, 8, 20, 0.5), 0 1px 0 rgba(255, 252, 240, 0.6); }
+
+.side-tabs { flex: none; width: 284px; display: flex; justify-content: center; gap: 3px; padding: 8px 0 9px; position: relative; }
+.side-tabs::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: 0; height: 5px; background: linear-gradient(rgba(70, 52, 30, 0.32) 0 1px, rgba(255, 252, 240, 0.75) 1px 2px, transparent 2px 3px, rgba(70, 52, 30, 0.32) 3px 4px, rgba(255, 252, 240, 0.75) 4px 5px); }
+.side-tab {
+  width: 28px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 3px; cursor: pointer;
+  background: center / 28px 36px no-repeat; filter: drop-shadow(1px 1.6px 1.2px rgba(20, 12, 4, 0.45));
+}
+.side-tab:hover:not(.on) { filter: drop-shadow(1px 1.6px 1.2px rgba(20, 12, 4, 0.45)) brightness(1.06); }
+
+.side-scroll { flex: 1; width: 284px; overflow-y: auto; overflow-x: hidden; padding: 9px 0 16px; box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #9a7440 transparent; }
+.side-scroll > * { margin-left: 9px; margin-right: 9px; }
+.side-lintel { height: 30px; margin-bottom: 9px; }
+.side-lintel img { display: block; width: 266px; height: 30px; filter: drop-shadow(1px 2px 1.4px rgba(20, 12, 4, 0.4)); }
+.side-wells { display: grid; grid-template-columns: repeat(3, 84px); gap: 6px; justify-content: center; }
+.well {
+  position: relative; width: 84px; height: 76px; padding: 0; border: 0; cursor: pointer;
+  background: center / 84px 76px no-repeat; filter: drop-shadow(0 1px 0.8px rgba(20, 12, 4, 0.35));
+}
+.well img { position: absolute; left: 4px; top: 6px; width: 76px; height: 60px; filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.55)); transition: transform 0.12s ease; }
+.well > svg { position: absolute; left: 24px; top: 18px; width: 36px; height: 36px; opacity: 0.7; }
+.well > svg * { fill: #d8c8a0; }
+.well > svg [class*='stroke-'] { fill: none; stroke: #d8c8a0; stroke-width: 1.8; stroke-linecap: round; }
+.well > svg .fill-ink { fill: #2e261f; }
+.well:hover img { transform: translateY(-1px) scale(1.04); }
+.well .cost { position: absolute; right: 8px; bottom: 5px; font: 500 12.5px/1 var(--serif); color: #f0e2bf; text-shadow: 0 1px 2px #000; font-variant-numeric: lining-nums; }
+.well.dear img { filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.55)) grayscale(0.75) brightness(0.72); }
+.well.dear .cost { color: #e8a08a; }
+.side-pick { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-height: 21px; padding: 9px 5px 6px; }
+.side-pick .nm { font: 700 15px/1.1 var(--display); letter-spacing: 0.04em; }
+.side-pick .cost { font-size: 15px; font-variant-numeric: lining-nums; white-space: nowrap; }
+.side-pick .none { font-style: italic; color: var(--ink-soft); }
+
+/* The reading pane: a sunk panel of honed marble. */
+.side-body {
+  margin-top: 3px; padding: 9px 12px 14px; border-radius: 3px;
+  /* Honed: the panel's marble, washed lighter and softer. */
+  background: linear-gradient(rgba(250, 247, 240, 0.42), rgba(250, 247, 240, 0.42)), var(--skin-marble) 96px 160px / 256px 256px, #ece6da;
+  box-shadow: inset 2px 3px 6px rgba(40, 28, 16, 0.42), inset 0 0 1px rgba(40, 28, 16, 0.55), 0 1px 0 rgba(255, 252, 240, 0.75);
+  font-size: 14.5px;
+}
+.side-body:empty { display: none; }
+.side-body h3 {
+  margin: 13px 0 5px; padding: 0 0 5px; border: 0; font: 500 13px/1.2 var(--display); letter-spacing: 0.06em; color: var(--ink-soft);
+  background: linear-gradient(rgba(70, 52, 30, 0.26) 50%, rgba(255, 252, 240, 0.8) 50%) left bottom / 100% 2px no-repeat;
+}
+.side-body h3:first-child { margin-top: 2px; }
+.side-body button { font: inherit; color: inherit; text-shadow: inherit; }
+.side-note { margin: 5px 0 0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.32; }
+.side-note.bad { color: var(--down); }
+.side-body small { color: var(--ink-soft); font-size: 12px; }
+.side-body .ware-row { grid-template-columns: 22px 1fr auto 60px; padding: 3px 4px; border-radius: 3px; }
+.side-body .ware-row:hover, .side-body .svc-row:hover { background: rgba(255, 252, 240, 0.5); border-color: rgba(110, 86, 52, 0.28); }
+.side-body .ware-row .nm, .side-body .ware-row .amt { font-size: 15px; }
+.side-body .ware-row .net { font-size: 13px; }
+.side-body svg.ware { width: 20px; height: 20px; filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5)); }
+.side-body .wares li + li .ware-row { background-image: linear-gradient(rgba(70, 52, 30, 0.16) 50%, rgba(255, 252, 240, 0.65) 50%); background-size: 100% 2px; background-repeat: no-repeat; }
+.side-body .net.up, .side-body .netline.up .big, .side-body .flows td.amt.in { color: var(--up); }
+.side-body .net.down, .side-body .netline.down .big, .side-body .flows td.amt.out { color: var(--down); }
+.side-body .netline, .side-body .bigline { border-radius: 3px; background: rgba(255, 252, 240, 0.35); border: 1px solid rgba(110, 86, 52, 0.25); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+.side-body .bigline .big, .side-body .netline .big { font: 500 24px/1.05 var(--serif); }
+.side-body .sums > div { border-radius: 3px; background: rgba(255, 252, 240, 0.32); }
+.side-body .sums dt { font: 500 11px/1.3 var(--display); letter-spacing: 0.05em; }
+.side-body .svc-row { border-radius: 3px; }
+.side-body .svc-row.on { background: rgba(255, 252, 240, 0.6); border-color: rgba(44, 74, 134, 0.6); box-shadow: inset 0 0 0 1px rgba(44, 74, 134, 0.3); }
+.side-body .svc-row .nm { font-size: 14.5px; }
+.side-body .svc-row .cnt { font-size: 13.5px; }
+.side-body .places li { font-size: 14px; }
+.side-body .places.staff li span:first-child { text-transform: none; }
+.side-body .places.staff li .n { color: var(--ink-soft); font-size: 13px; }
+.side-body .places.staff li.bad .n { color: var(--down); }
+.side-body .levels td { font-size: 14px; }
+.side-body .levels td.bar i { background: linear-gradient(90deg, #6a86c0, var(--lapis)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.side-body .places li .fill, .side-body .svc .fill { background: rgba(70, 52, 30, 0.16); box-shadow: inset 0 1px 1px rgba(40, 28, 16, 0.25); }
+.side-body .places li .fill b { background: linear-gradient(90deg, #c8963e, #a87428); }
+.side-body .hints li { border-radius: 3px; background: rgba(255, 252, 240, 0.42); font-size: 13.5px; }
+.side-body .hints li.bad { background: rgba(232, 180, 150, 0.4); color: #6e2a1a; }
+.side-body .flows td, .side-body .flows thead th { font-size: 13.5px; }
+.side-body .flows thead th { font: 500 11.5px/1.2 var(--display); letter-spacing: 0.03em; }
+.side-body .back { color: var(--lapis); font-size: 14px; }
+.side-body .ware-head h2 { font: 700 19px/1.1 var(--display); letter-spacing: 0.03em; font-variant: normal; }
+.side-body .chip, .side-body .wide, .side-body .company .acts button, .side-body .raise button {
+  appearance: none; cursor: pointer; color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6);
+  background: linear-gradient(180deg, #f0d08a, #c8963e 55%, #a07030); border: 1px solid #6a4a1c; border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 246, 210, 0.75), inset 0 -1px 0 rgba(80, 50, 10, 0.35), 0 1px 2px rgba(20, 12, 4, 0.4);
+}
+.side-body .chip:hover, .side-body .wide:hover, .side-body .company .acts button:hover, .side-body .raise button:hover { background: linear-gradient(180deg, #f6dc9c, #d2a24a 55%, #ac7c38); }
+.side-body .wide { padding: 6px 10px; font-size: 15px; }
+.side-body .wide kbd { background: rgba(255, 248, 225, 0.35); color: inherit; border: 1px solid rgba(80, 50, 10, 0.4); }
+.side-body .company { border-radius: 3px; border-color: rgba(110, 86, 52, 0.3); background: rgba(255, 252, 240, 0.35); }
+.side-body .company.on { border-color: var(--lapis); background: rgba(255, 252, 240, 0.65); box-shadow: 0 0 0 2px rgba(44, 74, 134, 0.35); }
+
+/* The overlays, listed under their boss. */
+.side-layers {
+  position: absolute; right: 6px; top: 268px; z-index: 6; width: 232px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 1px; padding: 8px;
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 7px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch;
+  box-shadow: 0 8px 20px rgba(20, 12, 4, 0.45);
+}
+.side-layers[hidden] { display: none; }
+.side-layers .layer {
+  appearance: none; display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 9px; width: 100%;
+  padding: 4px 7px; border: 0; border-radius: 3px; background: none; cursor: pointer; text-align: left;
+  font: 15px/1.2 var(--serif); color: var(--ink); text-shadow: var(--cut);
+}
+.side-layers .layer.gap { margin-top: 7px; padding-top: 9px; background: linear-gradient(rgba(70, 52, 30, 0.26) 50%, rgba(255, 252, 240, 0.8) 50%) center top / 100% 2px no-repeat; border-radius: 0; }
+.side-layers .layer:hover { background-color: rgba(255, 252, 240, 0.55); }
+.side-layers .layer.on { background: linear-gradient(180deg, #3d63a8, var(--lapis-deep)); color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+.side-layers .layer i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 0 0 1px rgba(40, 28, 16, 0.45); }
+.side-layers .layer kbd { font: 12px/1 var(--serif); color: var(--ink-soft); }
+.side-layers .layer.on kbd { color: #d8c48a; }
+
+/* A short window: the head is drawn smaller so more of the tab shows. */
+@media (max-height: 820px) {
+  .side-head { zoom: 0.84; }
+  .side-cornice { height: 38px; }
+}
+
+/* ------------------------------------------------------------------------ the corner's bosses, over the panel's cornice */
+.corner { top: 3px; right: 0; width: calc(var(--side-w) - 12px); justify-content: center; gap: 12px; }
+body.greece-open .corner { width: auto; right: 14px; top: 10px; }
+.corner .btn {
+  width: 32px; height: 32px; border-radius: 50%; border: 0;
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 22%, #a8783a 62%, #6e4a1c 100%);
+  box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 2px 2px rgba(20, 12, 4, 0.5);
+}
+.corner .btn:hover { background: radial-gradient(circle at 34% 28%, #fff0c4 0, #e6bc70 22%, #b28244 62%, #7a5424 100%); }
+.corner .btn svg { width: 19px; height: 19px; filter: drop-shadow(0 1px 0 rgba(255, 240, 200, 0.55)); }
+.corner .btn svg [fill='#7a5c3c'], .corner .btn svg [fill="#7a5c3c"] { fill: #3a2610; }
+.corner .btn svg [stroke='#7a5c3c'] { stroke: #3a2610; }
+.corner .help-q { font: 700 17px/1 var(--display); color: #3a2610; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6); }
+
+/* ------------------------------------------------------------------------ the line for the tool in hand, at the foot of the view */
+.tool-hint {
+  bottom: 14px; padding: 6px 18px 7px; border-radius: 0;
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 6px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 6px stretch;
+  font: italic 16px/1.3 var(--serif); color: var(--ink); text-shadow: var(--cut);
+  box-shadow: 0 6px 16px rgba(20, 12, 4, 0.35);
+  max-width: min(760px, calc(100% - var(--side) - 32px));
+}
+.hint { bottom: 64px; }
+
+/* ------------------------------------------------------------------------ everything else: the parchment turns to stone, the edges to bronze */
+:root {
+  --parchment: #efe9de;
+  --parchment-deep: #ddd4c2;
+  --edge: #8a6430;
+  --terracotta: #b04a2c;
+  --terracotta-deep: #8c2f26;
+  --olive: #2c4a86;
+}
+#ui { font-family: var(--serif); }
+
+/* Cards: marble in a bronze frame. */
+.topbar, .help, .rates, .ledger, .household, .saves, .welcome, .greece-card, .greece-news {
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch; border-radius: 0;
+  box-shadow: 0 10px 24px rgba(20, 12, 4, 0.4);
+  text-shadow: var(--cut);
+}
+.topbar { box-shadow: 0 6px 16px rgba(20, 12, 4, 0.38); padding: 2px 10px 3px; }
+:is(.help, .ledger, .household, .saves, .welcome, .greece-card) h2 { font-family: var(--display); font-weight: 700; font-variant: normal; letter-spacing: 0.03em; }
+:is(.household, .ledger, .saves, .welcome, .greece-card) h3 { font-family: var(--display); font-weight: 500; font-variant: normal; letter-spacing: 0.05em; }
+/* Labels over the city: marble in a thin frame. */
+.hint, .pointer-tip, .follow-chip, .legend, .save-note, .townline {
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 5px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch; border-radius: 0;
+  text-shadow: var(--cut);
+}
+.townline { border-left-width: 5px; }
+.pointer-tip { padding: 2px 8px; }
+.pointer-tip.bad { border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch; color: var(--down); }
+.hint { padding: 6px 18px; }
+/* Bronze plaques for the cards' buttons; the main one in lapis with gold letters. */
+.pill {
+  border-radius: 3px; border: 1px solid #6a4a1c; color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6);
+  background: linear-gradient(180deg, #f0d08a, #c8963e 55%, #a07030);
+  box-shadow: inset 0 1px 0 rgba(255, 246, 210, 0.75), inset 0 -1px 0 rgba(80, 50, 10, 0.35), 0 1px 2px rgba(20, 12, 4, 0.4);
+}
+.pill:hover { background: linear-gradient(180deg, #f6dc9c, #d2a24a 55%, #ac7c38); }
+.pill.primary { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: linear-gradient(180deg, #4a70b4, var(--lapis) 50%, var(--lapis-deep)); box-shadow: inset 0 1px 0 rgba(200, 220, 255, 0.45), 0 1px 2px rgba(20, 12, 4, 0.45); }
+.pill.primary:hover { background: linear-gradient(180deg, #5680c4, #34569a 50%, #22397a); }
+
+/* The top bar. */
+.meander { display: none; }
+.topbar .row { gap: 13px; padding: 3px 4px; }
+.topbar .divider { width: 2px; background: linear-gradient(90deg, rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.75) 50%); opacity: 1; margin: 4px 0; }
+.date .month { font: 700 17px/1.15 var(--display); letter-spacing: 0.05em; font-variant: normal; }
+.date .days { gap: 1.6px; margin-top: 5px; }
+.date .days i { width: 3.6px; height: 3.6px; border-radius: 50%; background: rgba(70, 52, 30, 0.2); box-shadow: inset 0 1px 1px rgba(40, 28, 16, 0.35), 0 1px 0 rgba(255, 252, 240, 0.6); }
+.date .days i.on { background: radial-gradient(circle at 35% 30%, #fff0b8, #d9a441 55%, #8a5e1c); box-shadow: 0 0.5px 1px rgba(40, 28, 16, 0.5); }
+.stat { font-size: 18px; }
+.stat svg { fill: #4e4030; filter: drop-shadow(0 1px 0 rgba(255, 252, 240, 0.7)); }
+.stat.work svg .handle { stroke: #4e4030; }
+.stat.money svg circle { fill: #d9a441; }
+.stat.money svg { filter: drop-shadow(0 1px 1px rgba(40, 28, 16, 0.45)); }
+button.stat.money:hover { background: rgba(255, 252, 240, 0.5); border-radius: 3px; }
+.stat.money .trend.down svg { fill: var(--down); }
+.stat.trouble, .rate-chip, .ship-chip, .greece-btn {
+  border-radius: 3px; border: 1px solid rgba(110, 76, 30, 0.75); background: rgba(255, 252, 240, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(20, 12, 4, 0.3); text-shadow: var(--cut);
+}
+.stat.trouble { color: var(--down); border-color: rgba(140, 47, 38, 0.7); background: rgba(240, 200, 180, 0.4); }
+.rate-chip:hover, .ship-chip:hover, .greece-btn:hover, .stat.trouble:hover { background: rgba(255, 252, 240, 0.75); }
+.rate-chip.r3 { background: rgba(240, 214, 150, 0.45); border-color: #a87428; }
+.rate-chip.r4 { background: rgba(240, 190, 170, 0.45); border-color: var(--down); color: var(--down); }
+.greece-btn { background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; }
+.greece-btn.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: linear-gradient(180deg, #4a70b4, var(--lapis) 50%, var(--lapis-deep)); }
+
+/* Round buttons (the speeds): bronze bosses; the one that is on, lapis with a gold heart. */
+.btn {
+  border: 0; color: #3a2610;
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 22%, #a8783a 62%, #6e4a1c 100%);
+  box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 2px 2px rgba(20, 12, 4, 0.5);
+}
+.btn:hover { background: radial-gradient(circle at 34% 28%, #fff0c4 0, #e6bc70 22%, #b28244 62%, #7a5424 100%); }
+.btn:active { box-shadow: inset 0 1px 2px rgba(60, 36, 8, 0.5), 0 1px 1px rgba(20, 12, 4, 0.5); }
+.btn.on { color: #f2cf72; background: radial-gradient(circle at 34% 28%, #6a90d0 0, #3a5ea2 30%, var(--lapis-deep) 75%, #12224a 100%); box-shadow: 0 0 0 2px #b8893a, inset 0 1px 2px rgba(0, 0, 0, 0.4), 1px 2px 2px rgba(20, 12, 4, 0.5); }
+.btn svg { filter: drop-shadow(0 1px 0 rgba(255, 240, 200, 0.5)); }
+.btn.on svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+.btn:focus-visible { outline: 2px solid var(--gold); }
+.help .lead { margin: 0 0 6px; font-size: 13.5px; color: var(--ink-soft); }
+
+/* The cards the corner bosses and the treasury open stand beside the panel, not over its head. */
+#ui > .help, #ui > .ledger, #ui > .saves, #ui > .save-note { right: calc(var(--side) + 14px); }
