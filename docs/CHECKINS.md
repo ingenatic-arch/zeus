@@ -7,8 +7,8 @@ Notes to Oliver, newest first.
 A loan now has teeth both ways. Leave one of yours unpaid and the lender warns you, closes the road and seizes your goods, then sends an army to take what you owe. When a ruler won't pay you back, you can forgive the debt, demand it, or send your own soldiers out across the map of Greece to collect it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
 What breaks, or moves:
-- **Saves.** Old saves load at the new version. A loan already overdue in an old save gets its warning (step 1) when the game next runs.
-- **Every earlier demo** opens, and plays 900 ticks on, exactly as before (all 97 compared).
+- **Saves.** Old saves load at the new version (27, after the sea slice's 26). A loan already overdue in an old save gets its warning (step 1) when the game next runs.
+- **Every earlier demo** opens, and plays 900 ticks on, exactly as before (all 100 compared, the sea slice's included).
 - **Rulers offer and ask for loans about twice as often** as in slice 27: an offer about one month in nine from a pleased ruler with coin to spare, and an ask about one month in five from one in trouble. This changes no earlier demo's opening or its first 900 ticks.
 - **A fix to saving:** a save with a wounded or healing soldier in it was refused on loading. It now loads.
 
@@ -31,7 +31,8 @@ What breaks, or moves:
   - A little army in your colours marches along the road on the map of Greece. It fights at their city under crossed swords, then comes home the same way.
   - The fight is settled by the two sides' strength and the dice. A raiding party meets only the countryside's watch: likelier to win, but it brings less. A full force meets the garrison and, if it wins, brings the whole debt and a fifth more as goods.
   - **The report** is on the city's Loans tab, in the news and on the map's hover card. It says who went, the fight and the odds, what they took and what is still owed, who was killed and wounded by company and by name, and how the ruler and Greece took it.
-  - The coin and goods go into the treasury and stores when the army is home, as "Brought home by your soldiers" on the ledger. The killed are mourned in their homes, and the wounded walk back to heal. Troy can only be reached by sea, so its buttons say you need triremes (they come with the sea slice).
+  - The coin and goods go into the treasury and stores when the army is home, as "Brought home by your soldiers" on the ledger. The killed are mourned in their homes, and the wounded walk back to heal.
+  - **By sea to Troy.** Troy can only be reached by sea, so the companies march to your shipyard instead of an edge and sail in your triremes, one company to each trireme that is crewed and sound. On the map they are a ship in your colours along the lane. The triremes come home with them. With no triremes, the buttons say so.
   - With no debt behind it, a city's Ruler tab has "Send your soldiers against Corinth" folded away. Without cause, every ruler takes it badly.
 
 ### What to try
@@ -66,22 +67,22 @@ Each link also opens paused if you add `-paused` (for example `#collect-paused`)
 - **City tabs still wrap to two lines** on a ruler's page ("Loans · overdue" is long).
 - **A line under the top bar can lag** for a moment after you pause.
 - **Repaying early still costs the whole interest,** as in slice 27.
-- **Expeditions don't go by sea yet:** Troy needs triremes (the sea slice). The seam is `fleetFor` in `src/sim/expeditions.ts`.
+- **At sea, an expedition meets nobody.** The triremes carry the men but fight no one on the way, and pirates don't waylay them. A full force to Troy takes only as many companies as you have triremes fit to sail. No demo shows it; the test drives it from `#triremes`.
 
 ### Measurements
-Headless Chromium with software WebGL at 1920 × 1080. Before is `579a3f2` (slice 25's check-in on the main line). After is this slice with main merged in (`c13bf0a`, slice 25's review fixes). The machine was shared with other threads, so frame and load times swing by a third from run to run; only large changes count.
+Headless Chromium with software WebGL at 1920 × 1080. Before is `579a3f2` (slice 25's check-in on the main line). After is this slice with main merged in (`42c6b88`): slice 25's review fixes and slice 26, from the sea, are in the After figures too. The machine was shared with other threads, so frame and load times swing by a third from run to run; only large changes count.
 
 | What | Before | After |
 |---|---|---|
-| Tests | 404, all passing | 419, all passing (11 of them debts; 4 from slice 25's review) |
-| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,806 KB: the game 657 KB, the prepared towns 2,149 KB (the six new demos) |
-| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.7 s, first frame at 4.1 s |
-| Demo loads | 100 demos, median ready 2.7 s | 106 demos, median ready 2.9 s, slowest `#raiders` 4.0 s |
+| Tests | 404, all passing | 433, all passing (12 of them debts; the rest from slice 25's review and slice 26) |
+| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,935 KB: the game 676 KB (debts and slice 26's fleet), the prepared towns 2,259 KB (this slice's six demos and slice 26's three) |
+| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.5 s, first frame at 3.8 s |
+| Demo loads | 100 demos, median ready 2.7 s | 109 demos, median ready 2.4 s, slowest `#panel` 3.1 s |
 | `#town` / `#richtown` | 1,453,964 / 1,623,607 triangles, 89 / 101 draw calls | the same |
-| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; the new demos' maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
-| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 23.7 ms, `#richtown` 16.3, `#companies` 12.4, `#borrow` 10.9, `#lend` 18.6, `#repaid` 11.9, `#battle` fought 25.4; new: `#overdue` 9.7, `#seized` 15.2, `#creditors` 14.9, `#collect` 15.8, `#report` 13.6, `#forgive` 9.4 |
+| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; this slice's maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
+| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 11.9 ms, `#richtown` 14.8, `#companies` 10.8, `#borrow` 5.9, `#lend` 7.4, `#repaid` 13.7, `#battle` fought 26.9; new: `#overdue` 6.6, `#seized` 10.8, `#creditors` 11.8, `#collect` 12.3, `#report` 8.2, `#forgive` 11.4 |
 
-`#town` has no loans, and nothing in it changed (the same triangles, and the same people, money and levels at 900 ticks), so its 12 to 24 ms is the shared machine. Every frame time here is within the run-to-run swing.
+Every frame time here is within the run-to-run swing.
 
 ## Slice 25 — Walls, gates and towers (20 Oct)
 

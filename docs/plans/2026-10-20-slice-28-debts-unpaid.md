@@ -102,9 +102,10 @@ Plus the existing suite. `smoke.mjs` opens the new demos and drives a forgive, a
 
 ## As built
 
-Built as planned, in `src/sim/loans.ts` (the steps, time, holding back, seizures, grace, forgive, demand), the collectors behind `raid.loan` in `src/sim/raids.ts`, a new `src/sim/expeditions.ts`, and `src/ui/loans.ts`; state version 26 with a self-contained migration. Commits: the plan `fc6d79c` and `90e7adc`, the sim `132119e`, the UI `3d9ab58`, the demos `14dfabe`, tuning from screenshots `78e35b9`, main merged in `c13bf0a`, a smoke fix `8e7c3d3`, and this As built and the check-in.
+Built as planned, in `src/sim/loans.ts` (the steps, time, holding back, seizures, grace, forgive, demand), the collectors behind `raid.loan` in `src/sim/raids.ts`, a new `src/sim/expeditions.ts`, and `src/ui/loans.ts`; state version 26 with a self-contained migration. Commits: the plan `fc6d79c` and `90e7adc`, the sim `132119e`, the UI `3d9ab58`, the demos `14dfabe`, tuning from screenshots `78e35b9`, main merged in `c13bf0a`, a smoke fix `8e7c3d3`, the check-in `fd9b3e1`, slice 26 merged in and the sea wired `5662cbb` and `42c6b88`, two small follow-ups `5a41393` and `f7e65f0`, and this As built.
 
 **Where it differs from the plan:**
+- **Slice 26 landed first, so this slice wires the sea.** The state is version 27; slice 26's migration is 25 to 26, and this one is 26 to 27. `fleetFor` is slice 26's (in `src/sim/fleet.ts`): the triremes at home, crewed and sound. An expedition to Troy takes as many companies as there are such triremes. The companies march to the open tile beside the first trireme's shipyard, not an edge, and go aboard there. When it sets off, `sailFor` takes the triremes off the bay's guard. On the map it is one ship in your colours along the lane (slice 26's own trireme piece is hidden while it is away). At home, `fleetHome` brings the triremes back to their moorings. The words follow ("marching to the shipyard", "at sea, bound for Troy", "They sail home: in your bay"). Without triremes, the refusal says what is missing. A lender's army comes by sea when slice 26's `raidBy` says so (Troy, or a city you trade with only by sea), through slice 26's landings, and its words use `edgeWords`.
 - **`#seized` seizes a gift, not the caravan yard.** In `#borrow`'s town the yard is nearly always empty when Corinth's trader is due (its goods leave as fast as they come), so the demo sends Corinth a 250 dr gift that is seized on the road: the ledger's "Seized by Corinth · drachmas 250", the town line and the chip show it. Yard and quay seizures work (tested), but they rarely bite in play for the same reason.
 - **`#collect`'s debt is staged.** Corinth asks to borrow (`makeLoanAsk`), is lent the sum and doesn't pay on the day; its news says "(set up for this demo)". With no troubles, its reason falls back to "for new walls and a temple" (only a demo asks for a ruler in no trouble).
 - **The expedition on the map is 3 to 9 figures,** a figure for about five men, not one per man: drawn one a man, a full force stretched from your city to Corinth's.
@@ -118,20 +119,20 @@ Built as planned, in `src/sim/loans.ts` (the steps, time, holding back, seizures
 - `#collect`, a raiding party (one company, 16 men, odds about 9 in 10 against the countryside's 8): won; 1 killed, 1 wounded; it brings 450 dr and 750 wheat (600 dr against the debt, 1,020 dr still owed); home in 51 days.
 - `#collect`, a full force (32 men, odds about 5 in 10 against the garrison of 30): won; 2 killed, 2 wounded; it brings the 1,620 dr and 1,620 wheat (the penalty); home in 52 days.
 
-**After** (measured on `8e7c3d3`; the check-in compares it with Before):
+**After** (measured on `f7e65f0`; the check-in compares it with Before):
 
 | What | Before | After |
 |---|---|---|
-| Tests | 404, all passing | 419, all passing (11 of them debts; 4 from slice 25's review) |
-| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,806 KB: the game 657 KB, the prepared towns 2,149 KB (the six new demos) |
-| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.7 s, first frame at 4.1 s |
-| Demo loads | 100 demos, median ready 2.7 s | 106 demos, median ready 2.9 s, slowest `#raiders` 4.0 s |
+| Tests | 404, all passing | 433, all passing (12 of them debts; the rest from slice 25's review and slice 26) |
+| Download (gzipped) | 2,566 KB: the game 641 KB, the prepared towns 1,925 KB | 2,935 KB: the game 676 KB (debts and slice 26's fleet), the prepared towns 2,259 KB (this slice's six demos and slice 26's three) |
+| First load (bare link) | ready at 2.9 s, first frame at 3.9 s | ready at 2.5 s, first frame at 3.8 s |
+| Demo loads | 100 demos, median ready 2.7 s | 109 demos, median ready 2.4 s, slowest `#panel` 3.1 s |
 | `#town` / `#richtown` | 1,453,964 / 1,623,607 triangles, 89 / 101 draw calls | the same |
-| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; the new demos' maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
-| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 23.7 ms, `#richtown` 16.3, `#companies` 12.4, `#borrow` 10.9, `#lend` 18.6, `#repaid` 11.9, `#battle` fought 25.4; new: `#overdue` 9.7, `#seized` 15.2, `#creditors` 14.9, `#collect` 15.8, `#report` 13.6, `#forgive` 9.4 |
+| Map of Greece (`#greece`) | 305,842 triangles, 32 draw calls | the same; this slice's maps 304,778 to 313,882 triangles, 26 to 31 draw calls |
+| Frame work (update before drawing) | `#town` 12.0 ms, `#richtown` 16.1, `#companies` 19.6, `#borrow` 12.3, `#lend` 11.0, `#repaid` 23.5, `#battle` fought 24.0 | `#town` 11.9 ms, `#richtown` 14.8, `#companies` 10.8, `#borrow` 5.9, `#lend` 7.4, `#repaid` 13.7, `#battle` fought 26.9; new: `#overdue` 6.6, `#seized` 10.8, `#creditors` 11.8, `#collect` 12.3, `#report` 8.2, `#forgive` 11.4 |
 
-`#town` has no loans, and nothing in it changed (the same triangles, and the same people, money and levels at 900 ticks), so its 12 to 24 ms is the shared machine. Every frame time here is within the run-to-run swing.
+Every frame time here is within the run-to-run swing.
 
-**Checks:** `npm test` 419 passing; `npm run build` clean. The full smoke passed apart from one check: the army's hover card in `#report`, which lies under the town lines at the smoke's 1280 × 720. That check was fixed (`8e7c3d3`) and the slice 28 section re-run on its own, passing. Every earlier demo (97) opens, and plays 900 ticks on, with the same people, money, homes, house levels and soldiers as on main. Old saves load: the version 25 fixture, and every older fixture in the suite.
+**Checks:** `npm test` 433 passing; `npm run build` clean. The full smoke passes, slice 26's and this slice's sections included, apart from two `#battle` checks that failed the same way on the main line (`931c516`). The main line has since fixed them (`8bd48c3`, merged in `048ae03`), and that section re-run on its own passes. Every earlier demo (100, slice 26's included) opens, and plays 900 ticks on, with the same people, money, homes, house levels and soldiers as on main. Old saves load: the version 25 fixture (through slice 26's migration and this one), and every older fixture in the suite. One fix to the smoke on the way: in `#report` the army's hover lies under the town lines at the smoke's 1280 × 720, so the check sets them aside (`8e7c3d3`).
 
 **How far it got:** everything in Tasks 1 to 5.
