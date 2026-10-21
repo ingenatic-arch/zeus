@@ -134,6 +134,53 @@ I went over the whole phase at once: every slice's demos, the older ones, and on
 
 The frame times swing by a millisecond or two either way from one run to the next. All 444 tests pass, the smoke test passes, and the copy prepared for publishing opens the bare link, `#town` and the main demos without errors.
 
+### The phase, all told
+
+Phase 4, "A city worth defending", with loans both ways, in seven slices. Loans (27) and unpaid debts (28) were built alongside the army slices, so they sit out of order above. Here's what you can do now that you couldn't at the end of phase 3:
+- **Slice 23, bronze and the barracks.** Find copper in the hills, dig it at a mine and turn it into armour at an armoury, or buy armour from Corinth and Athens. Raise companies of 16 at a barracks: hoplites from fine houses and villas, archers from townhouses. Every soldier is somebody's son, and his house says so. Take a company's banner and click where it should stand, even while paused. Try `#bronze`, `#barracks` and `#companies`.
+- **Slice 24, raiders fought in the streets.** Bands now come in force, sized by the ruler and your city, for your stores and the tax office. They set fires on the way and go home with what they took. Your companies meet them blow by blow. A side that loses half its men breaks, the wounded heal, and the dead are mourned at home. Hirelings march in for a steep wage when you're caught short. Try `#battle`, `#looted` and `#hirelings`.
+- **Slice 25, walls, gates and towers.** Drag a wall like a road. Where it crosses a road it becomes a gate that your people pass through and raiders must break. Towers shoot over the wall. A band goes round a short wall or hammers the weakest gate until it cracks and falls. Try `#walls` and `#siege`.
+- **Slice 26, from the sea.** Troy, and sometimes Athens or Corinth, beach ships on your shore and land their men. A shipyard builds triremes, rowed by men from your huts and cottages, which ram and sink ships in the bay. On the map of Greece, a trireme can guard a lane from the pirates who now take cargoes. Try `#landing`, `#triremes` and `#pirates`.
+- **Slice 27, loans both ways.** Ask a ruler for a loan and get terms with every reason named, or a refusal and why. Offer a loan of your own and see how likely they are to repay, and why. Rulers offer you loans when your treasury is low, and ask for them when they're in trouble. Saying yes or no moves their mood. Try `#borrow`, `#lend` and `#repaid`.
+- **Slice 28, debts unpaid.** Miss a repayment and it escalates in steps you can see coming: a warning that all Greece hears, then goods seized from your yard, quay and stores, then an army sent to collect. Paying stops it at any step. When a city won't repay you, forgive it, demand it, or send a raiding party or a full force across the map, and read the report of what came home. Try `#overdue`, `#seized`, `#creditors`, `#collect`, `#report` and `#forgive`.
+- **Slice 29, a city worth defending.** `#fortress` is a walled town with three companies, two triremes, a loan each way and Sparta's band on its way. Soldiers now march fast enough to meet a threat. Rulers' loans actually come in play. An unpaid debt reaches your stores. And with the phase review, the sounds of war are in.
+
+Two other threads changed the game while this phase was built: the control panel replaced the build bar (the Army tab is now the Military tab), and the city has a new look, with light, ground, stone, sea, trees and people.
+
+**Recorded for later**
+- From the spec: harbour blockades, chariots and horsemen, generals and heroes; taking rivals as vassals and colonies; alliances and joining rivals' wars; the gods in war.
+- From the way:
+  - a band from the sea lands from the ship nearest its target, which may not be where your companies stand;
+  - expeditions at sea never meet pirates, and enemy fleets in wars don't take cargoes, only pirates do;
+  - oars never break in a sea fight, the shipyard has no panel of its own, and no miners are drawn at the mine;
+  - a caravan already in your streets keeps trading after its road is closed;
+  - collectors from across the sea take about 24 days from their sails to the beach;
+  - at 1600 × 900, Troy's label on the map of Greece sits under the lines;
+  - the camera can end up inside trees on hillsides.
+- Still open from phase 3: price arrows coloured by direction only, the caravan yard's blank wall on a slope, a refused band camping in `#threat`, an offer's limit across a road and a sea route to one city, plots marked out with no road. Still open from phase 2: early fire, harsh taxes' bite, lumpy tax money, the ship's pace.
+
+**Budgets that moved** (end of phase 3 against now)
+- **Download:** the game's own files went from 437 KB to 681 KB compressed. That covers this phase's soldiers, walls, ships, loans and sounds, plus the control panel and the city look from the other threads. With the prepared demo towns it's about 3 MB in all, but each demo fetches only its own small file.
+- **Load:** the bare link is ready in about 2 s. All 110 demos are under the 3-second target, median about 1.9 s, the slowest about 2.6 s.
+- **Triangles:** `#town` went from about 800,000 to 1.45 million, almost all of it the city look's trees and people. All of a town's walls are one batch, about 3,600 triangles for `#siege`'s.
+- **Time per frame** before drawing: about 15 to 19 ms headless in the big fights (`#battle`, `#siege`, `#fortress`), against about 6 to 10 ms in `#town` and `#richtown`. Headless runs about one frame a second, so each frame does several ticks; a battle tick alone is a fraction of a millisecond.
+- **Tests:** 353 at the start of the phase, now 444.
+- **Frame rate on a real laptop is still unmeasured.** Only your machine can tell whether a fight at the gate in `#fortress` holds 60 frames a second.
+
+**Questions for you**
+- Does defending feel part of the city, and does where you plant a banner matter in a way you can read?
+- An unpaid debt of yours now waits until the treasury can keep a month's wages before it pays itself. Is that right, or should it pay the moment it can?
+- Should rowers come only from huts and cottages? A town grown into townhouses can't crew its triremes (the game now warns you before you pay).
+- Is a seizure the right size? One took 1,796 wheat, worth 359 dr.
+- Raids are rare: in a nine-year game only Sparta came, once, apart from lenders' armies. More often?
+- Repaying early costs the whole interest. Keep it?
+- Your companies hold where you plant them, and don't chase. Should they sally out?
+- Each tower takes 4 workers. Too many?
+- A lender's army comes back about every four months, even for a small remainder. Too dogged?
+- Money is tight in a thinly built town. Is the squeeze in `#fortress` fair?
+- What should the next phase be?
+
+
 ## Slice 28 — Debts unpaid (20 Oct)
 
 *Built alongside slices 25 and 26, on its own line of work, and joined to the main line once both had landed.*
