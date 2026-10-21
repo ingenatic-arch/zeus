@@ -1474,6 +1474,8 @@ await zeus(() => window.__zeus.speed('fast'));
 await page.waitForFunction(() => window.__zeus.townLines().some((l) => /has opened the road again/.test(l)), null, { timeout: 300000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
 await frames(3);
+// (Slice 29: the page is redrawn on its own beat; under load three frames were not always enough.)
+await page.waitForFunction(() => !/The road is closed|Trade · closed/.test(window.__zeus.greeceInfo().panel), null, { timeout: 10000 }).catch(() => {});
 g = await gi();
 if (/The road is closed|Trade · closed/.test(g.panel)) fail(`#hostile: still closed after the gift: ${g.panel.slice(0, 900)}`);
 // #thanks: Corinth warm, its gift on the road to you, on the page and the map; it arrives, with a line under the top bar.
@@ -2180,7 +2182,7 @@ await zeus(() => window.__zeus.ledger(false));
 if (!/Coming in[\s\S]*Loan repaid · by Athens\s*\+2,\d{3}/.test(led27b)) fail(`#repaid: the ledger: ${led27b.slice(0, 1200)}`);
 if (errors.length > err27) fail('page errors (slice 27):\n' + errors.slice(err27).join('\n'));
 // Slice 28: debts unpaid. #overdue: Corinth's loan held back past its day, the steps dated on its Loans tab, the chip and the line; paid when the
-// treasury can. #seized: the gift seized on the road, the ledger and the line. #creditors: Corinth's men in the city, the chip. #collect: the four
+// treasury can. #seized: the gift seized on the road and goods from the stores (slice 29), the ledger and the line. #creditors: Corinth's men in the city, the chip. #collect: the four
 // answers, a full force sent by a click, the companies away and the army on the map. #report: the report and the army's card. #forgive: forgiven.
 const err28 = errors.length;
 await open('#overdue-paused');
@@ -2201,10 +2203,10 @@ await zeus(() => window.__zeus.speed('paused'));
 await open('#seized-paused');
 await frames(2);
 const led28 = await zeus(() => window.__zeus.ledgerText());
-if (!/Seized against your debts[\s\S]*Seized by Corinth · drachmas\s*250/.test(led28)) fail(`#seized: the ledger: ${led28.slice(0, 1400)}`);
-if (!(await zeus(() => window.__zeus.townLines())).some((l) => /Corinth is seizing your goods against your debt \(1,970 dr left, 250 dr seized so far\)/.test(l))) fail(`#seized: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
+if (!/Seized against your debts[\s\S]*Seized by Corinth · drachmas\s*250/.test(led28) || !/Seized by Corinth · (oil|meat|wheat|cheese|wine|fleece)/.test(led28)) fail(`#seized: the ledger: ${led28.slice(0, 1400)}`);
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /Corinth is seizing your goods against your debt \(1,470 dr left, 750 dr seized so far\)/.test(l))) fail(`#seized: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
 l28 = await zeus(() => window.__zeus.loans());
-if (!/Overdue: 1,970 dr to Corinth · seizing/.test(l28.chip)) fail(`#seized: the chip: ${l28.chip}`);
+if (!/Overdue: 1,470 dr to Corinth · seizing/.test(l28.chip)) fail(`#seized: the chip: ${l28.chip}`);
 await open('#creditors-paused');
 const r28 = await zeus(() => window.__zeus.raids());
 if (!(r28.raids.some((r) => r.city === 'corinth' && r.phase === 'raiding') && r28.band && /Collectors in the city|Fighting in the city/.test(r28.chip) && !r28.raids.some((r) => r.fired))) fail(`#creditors: ${JSON.stringify(r28)}`);

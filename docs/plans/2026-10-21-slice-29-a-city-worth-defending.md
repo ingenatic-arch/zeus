@@ -92,4 +92,34 @@ Software WebGL on a shared machine: frame and load times swing by a third from r
 
 ## As built
 
-(Filled in as it is built.)
+Commits: the plan `cfe2c78`; the sim's tuning `2a6e49f`; `#fortress` `e5e34fe`; the look and rough edges `ed5184e`; the stores seized twice, not monthly, `ee131f0`; the check-in after.
+
+**Natural play, before and after** (`#companies`' town with every route, a shipyard and two triremes, four and a half years with Greece's dice, a middling player):
+
+| | Before | After |
+|---|---|---|
+| Loan offers and asks from rulers | 2: Corinth offers 1,500 (month 33, 5,800 dr in the treasury), Troy asks 2,000 (month 37) | 4: Corinth offers 2,000 "having heard your treasury is low" (month 6, in the lean first year), Corinth offers 1,500 (month 33), Troy asks 2,000 (month 37), Athens offers 2,000 (month 41) |
+| The treasury at 1, 2, 3, 4 years | 1,241 / 3,884 / 5,514 / 6,619 dr | 3,241 (Corinth's loan in it) / 4,194 / 7,824 / 8,944 dr |
+| A land raid refused at once (a stingy player, banners planted on the band's way) | the band at the west edge in 21 days; the companies on the flood plain in 22 to 34 | the companies in place about 8 days before the band reaches the edge: it broke, took nothing, 1 of ours killed |
+| A sea raid (Troy's "Sails!", banners planted on the beach) | companies on the beach the day the band landed (24 to 25 days against 24) | on the beach about 8 days early; the band landed from the ship nearest its way in, past the banners (out of reach), and took 430 dr and 375 wine. A player who plants the banners again on the landed band (the probe's "chase"): it broke, took nothing, 3 of theirs fell |
+
+Rulers' other deals (requests, tribute, offers of goods) came on the same months before and after. With triremes, the sea band never landed either way (all its ships sunk in the bay).
+
+**Seizures from your stores.** As planned at first, a third of the sum every month from step 2 on: in `#borrow`'s debt the stores paid 2,001 of the 2,220 dr before the army came, and `#creditors`' collectors came for 219 dr. So the stores are seized twice, on step 2's first day and a month on, up to a quarter of the sum each time: in that debt, 1,000 dr's worth (530 oil and 432 meat, then 210 oil and 2,083 wheat), and the army comes for the 1,220 dr left.
+
+**Loans' turn.** As planned, with offers one month in six (slice 28 had one in nine) from a free ruler with coin to spare, four times as often when your treasury is low.
+
+**`#fortress`**, as the history brings it: it opens in June 745 BC (five years and a quarter in), 1,325 people, 1,664 dr, wages and pay 577 dr a month. 45 soldiers in three companies: the hoplites and archers by the olive grove (16 each) and the hoplites of the second barracks inside the west gate (13: "Only 13 fine houses and villas can spare a man"). The triremes Nike and Glaukos at the shipyard, crewed. The west wall with its gate and two towers, the north wall with its gate and a tower, three towers of 4 men each. Corinth offered 2,000 dr in the fourth year ("having heard your treasury is low"), taken and repaid on time; no ruler asked to borrow within a year of the second barracks, so Athens' ask of 1,000 dr at 11% for 12 months is set up for the demo (named so) and lent; the walls were paid for by 3,000 dr asked of Corinth, at 7% for 6 months (3,210 dr due 21 November). Sparta's band: 33 men, gathering, at the west edge in about 21 days, 800 dr to turn them back. Left alone, the towers bring down 14 of the 33, the band hammers the gate for 36 days, breaks in and leaves with 748 wheat and 219 dr, three buildings alight; with the three companies held inside the gate, they break it there: 22 of its 33 fall, it takes nothing (one building outside set alight), one of ours killed and one wounded (the test checks it is met and takes nothing).
+
+**The look.** Screenshots of `#fortress` (opening, the band at the gate under the towers, the fight, the band before the gate from close, the map of Greece, 1280 wide), `#siege`, `#landing` and `#report`:
+- **Lines under the top bar** stacked seven deep over the middle of the screen in `#fortress` (the raid, a ship, a caravan, a sending, the loan's coin, meat short), and on the map of Greece covered Corinth and your city. At most four show now (in their fixed order, so a raid's is always first); the rest fold under "+N more", which opens them. News lines go as soon as they no longer stand, paused or not.
+- **`#landing`** opened over the town with Troy's ships far out under the lines: the view is now out over the bay looking west along the shore they make for, two of the three ships in sight and the trading post's jetty on the right.
+- **`#siege`**: from its opening view the band stands in sight before the gate, between the towers; the view is unchanged.
+- **Your army on the map of Greece** is drawn half again as large (5 to 9 figures, its banner above Corinth's label at `#report`).
+- **A trireme rowing home** to her mooring no longer shows the lanes' buttons; **ships that beach with no men left** past their guards land nobody and sail home.
+
+**Earlier demos.** Compared by a hash of the whole town at opening and 900 ticks on with `4a8a473`: 101 of the 107 with a history of their own are the same (the rest open on a fresh map, as before). `#landing` (its companies march faster), `#report` (the expedition marches out faster: the report comes on 17 November, not 23), `#overdue` (900 ticks on: step 2 takes 1,000 dr's worth from the stores), `#seized` (750 dr seized at opening: the gift and 500 dr's worth from the stores; 1,470 dr owed, was 1,970), `#creditors` (the army comes for 1,220 dr, not 2,220, and leaves with 1,600 wheat and 900 dr) and `#festival` (900 ticks on: Athens asks to borrow, in loans' own turn) differ.
+
+**Tests:** 444, all passing (438 before; new: the march, loans' turn, two for seizures from stores, two for `#fortress`, a band with nobody to land). The smoke test passes, with `#fortress` added (its walls, towers, companies, fleet, loans and band, the Army tab, the band met at the gate) and `#seized`'s figures moved (1,470 dr owed, 750 seized, goods from the stores on the ledger); its `#hostile` step now waits for the city's page to redraw after the gift, which under load it once read a moment early.
+
+**Measurements** (after): the download 2,981 KB (the game 679 KB, the prepared towns 2,302 KB in 79 files); first load ready at 1.9 s, first frame 2.6 s; 110 demos, median ready 1.8 s, none over 3 s (`#fortress` 2.0 s); `#town` and `#richtown` as before; `#fortress` 1,322,021 triangles and 82 draw calls from its view, 17.4 ms of work a frame in the fight at the gate; `#battle` fought 15.2 ms, `#siege` 11.7, `#triremes` 6.1.

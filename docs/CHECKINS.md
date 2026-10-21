@@ -2,6 +2,79 @@
 
 Notes to Oliver, newest first.
 
+## Slice 29 — A city worth defending (21 Oct)
+
+The phase ends with `#fortress`, a walled town with three companies, two triremes, a loan each way and Sparta's band on its way, and with the numbers tuned over four and a half years of play: your soldiers now reach a threat in time, rulers offer loans when your treasury is low, and an unpaid debt now costs you goods from your own stores. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Nothing saved changed shape: the state version stays 27, and old saves load as they are.
+- **Companies march half again as fast**: 3 tiles a day, from 2. Raiders keep their pace, so your soldiers outpace a band in your own streets. Expeditions leave and come home faster on your map; their days on the map of Greece are unchanged.
+- **Loans have their own turn.** A ruler's loan offer or ask no longer waits for a month when no ruler has made any deal for two months; loans are spaced by their own gap instead (four months between any two across Greece). Offers come about one month in six (one in nine in slice 28), four times as often when your treasury is low or wages are owed. A ruler only cordial with you (0 or more) now offers when your treasury is low, saying so; one pleased with you (15 or more) offers anytime.
+- **Seizures reach your stores.** In step 2 of an unpaid debt, on its first day and again a month on, the lender's agents take goods from your storehouses and granaries, up to a quarter of the sum each time. They take what you sell that city first, then whatever is worth most to them, each from the fullest store. Each seizure is a line of news naming the store, a ledger line ("Seized by Corinth · oil") and the stock book, and comes off the debt. The warning and step 2's news say so.
+- **Lines under the top bar** show four at most; the rest fold under "+2 more", which opens them. A raid's line is always first. News lines go as soon as they no longer stand, paused or not.
+- **Earlier demos.** Compared at opening and 900 ticks on with the main line, 101 of the 107 with a history are the same. These six differ:
+  - `#landing`: the companies march faster, so they are about 6 days' march from the beach (was 9). It also opens on a new view: out over the bay, looking along the shore, with Troy's ships in sight.
+  - `#report`: the full force reached Corinth sooner, so it opens on 17 November (was 23), with the same report.
+  - `#seized`: step 2 also took 500 dr's worth from the stores, so 1,470 dr is owed (was 1,970), 750 dr seized so far. The gift is still seized on the road.
+  - `#creditors`: the stores paid 1,000 dr of the debt first, so Corinth's 35 men come for 1,220 dr (was 2,220) and leave with 1,600 wheat and 900 dr.
+  - `#overdue`: the same at opening; played on into step 2, the stores are seized.
+  - `#festival`: the same at opening; 900 ticks on, Athens asks to borrow.
+
+### What's new
+- **`#fortress`**, the phase's prepared town. It is `#companies`' town (built street by street from the bare map) carried on over about twenty months as its builder would, each step when the treasury could pay for it and a month's wages:
+  - the caravan yard, and routes to Corinth and Sparta by road and Athens and Troy by sea;
+  - the shipyard by the river mouth and two triremes, the Nike and the Glaukos;
+  - a second barracks inside the west gate with a third company of hoplites (13 men: "Only 13 fine houses and villas can spare a man");
+  - the walls: up the river's east bank from the hills with the west gate where the road crosses (two towers beside it), and across the valley north of the town with a gate on the north road and a tower.
+  - Its loans: Corinth offered 2,000 dr in May 746 BC, "having heard your treasury is low"; it was taken and repaid on time. The walls were paid for with 3,000 dr asked of Corinth at 7% for 6 months, so 3,210 dr is due on 21 November. Athens owes you 1,000 dr at 11% for 12 months. No ruler asked to borrow in time, so that loan is set up for the demo, and named so.
+  - Then Sparta's king turned on the city (set up for the demo, and named so). The town opens paused in June 745 BC with his 33 men gathering, about 21 days from the west edge, and 800 dr would turn them back. It has 1,325 people, 1,664 dr, 45 soldiers, 577 dr of wages and pay a month, and the camera over the west gate.
+- **Defence in time.** Played the natural way, a company sent when a threat is refused is in place about 8 days before the band reaches the edge (it used to arrive after). One sent when Troy's sails show stands on the beach about a week early (it used to arrive the day they landed).
+- **Debts with teeth.** See the stores above. In `#borrow`'s debt of 2,220 dr, step 2 now takes 1,000 dr's worth of goods from the storehouse by the olive grove and the granary below the cypress hill.
+- **The map of Greece**: your army on the march is drawn half again as large, its banner above the cities' labels.
+- **Rough edges:** a trireme rowing home to her mooring no longer shows the lanes' buttons. Ships that beach with no men left past their guards land nobody and sail home (one man used to land).
+
+### What to try
+1. Open #fortress. Read the lines under the top bar, then open "+2 more". Look round the walls, the gates and the towers, then the Army tab, the debts chip and the map of Greece (Tab: Corinth's and Athens' Loans tabs).
+   - Take the banners of all three companies (click each row on the Army tab) and place them on the main street just inside the west gate. Then play. In my run, held there, they broke the band at the gate: 22 of its 33 men fell and it took nothing, though it set one building alight on the way in. One of ours was killed and one wounded. Left alone, the towers brought down 14 of its 33 men, but it hammered the gate for 36 days, broke in, and left with 748 wheat and 219 dr, having set three buildings alight.
+   - Or pay the 800 dr on Sparta's page, and see what the treasury looks like with Corinth's 3,210 dr due in November.
+   - Play on for a few years: Athens' repayment in May, Greece's own asks and offers, and whatever else Greece sends.
+2. Open #landing and compare the new view with the old one. Place the companies on the beach and play: they are there sooner.
+3. Open #seized. Corinth's agents have taken goods from your storehouse and granary as well as the gift on the road (the treasury is open on "Seized against your debts"). Then open #creditors: Corinth's men come for what the stores didn't pay.
+
+Each link also opens paused if you add `-paused` (for example `#fortress-paused`).
+
+### What I'd like your eye on
+- **Does defending feel part of the city in #fortress?** The walls, the towers and the companies at the gate, in screenshots: the band on the bridge hammering the gate under two towers, and the hoplites drawn up inside.
+- **Is the treasury too tight?** #fortress opens with 1,664 dr against 577 dr a month of wages and pay. 3,210 dr is due to Corinth in five months. In the year before the raid, the town took in about 300 dr a month more than it paid out. In the natural run (no walls, no third company), the treasury held 3,200 dr after a year, 4,200 after two and about 9,000 after four.
+- **Seizures.** Two quarters of the sum from your stores, then the army for the rest. Does it bite enough, or too much?
+- **The four-line limit** under the top bar, and "+2 more". In #fortress the loan's arrival and the meat shortfall fold away at opening.
+- **Your army on the map of Greece** (#report): still small beside the cities' labels?
+
+### Known rough edges
+- **A band from the sea lands from the ship nearest its way in,** which may not be where your banners stand. In the natural run it walked past companies holding the beach. Planting the banners on it once it landed broke it.
+- **Each tower takes 4 workers,** so #fortress's three towers employ 12.
+- **Your companies hold where you put them.** Whether they should sally out of the gate or hold behind it is your call, from slice 25.
+- **Repaying early still costs the whole interest** (your call, from slice 27).
+- **At sea, expeditions meet nobody,** oars don't break, and the shipyard has no panel of its own (from slices 26 and 28).
+- **Collectors from across the sea** take about 24 days from the "Sails!" to landing, the sea raiders' own pace.
+- **A caravan already in the city** when a lender closes the road: not looked at in this slice.
+- **The top bar on the map of Greece**, with a city's page open, wraps the month onto two lines at 1600 wide.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `4a8a473` (the main line, slice 26's review); after is this slice. The machine is shared, so frame and load times swing by a third from run to run; only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 438, all passing | 444, all passing (new: the march, loans' turn, two for seizures from the stores, two for `#fortress`, a band with nobody to land) |
+| Download (gzipped) | 2,937 KB: the game 677 KB, the prepared towns 2,260 KB (78 files) | 2,981 KB: the game 679 KB, the prepared towns 2,302 KB (79 files; `#fortress` the largest at 42 KB) |
+| First load (bare link) | ready at 1.9 s, first frame at 2.6 s | ready at 1.9 s, first frame at 2.6 s |
+| Demo loads | 109 demos, median ready 1.7 s, slowest `#trade` 2.1 s; none over 3 s | 110 demos, median ready 1.8 s, slowest `#overdue` 2.7 s; none over 3 s; `#fortress` 2.0 s |
+| `#town` / `#richtown` | 693 people, 60 walkers, a save 149 KB / 928 people, 88 walkers, a save 187 KB | the same |
+| `#fortress` | | 1,322,021 triangles and 82 draw calls from its view (1,659,677 and 114 over the town); in the fight at the gate 1,266,645 and 83 |
+| Frame work (update before drawing) | `#battle` fought 12.1 ms, `#siege` hammering 11.0 ms, `#triremes` fighting 6.1 ms | `#battle` 15.2 ms, `#siege` 11.7 ms, `#triremes` 6.1 ms; `#fortress` fought 17.4 ms |
+
+The frame times are within the run-to-run swing; `#fortress`'s fight (three companies, 33 raiders, three towers) is the heaviest yet, as `#battle`'s was.
+
 ## Slice 28 — Debts unpaid (20 Oct)
 
 *Built alongside slices 25 and 26, on its own line of work, and joined to the main line once both had landed.*
