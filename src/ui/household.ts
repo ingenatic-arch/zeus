@@ -16,7 +16,7 @@ import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 import { morph } from './morph';
 // Slice 30.
-import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName } from '../sim/crime';
+import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut } from '../sim/crime';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -311,7 +311,8 @@ function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
   const holding = t.reasons.filter((r) => r.w < 0).map((r) => r.text);
   const pct = Math.round((100 * b.tempt) / TEMPT_FULL);
   const d = daysToThief(b, t);
-  const soon = d === 0 ? (targetFor(s, map.size, b) ? 'someone slips out any day now' : 'nothing worth stealing within reach, for now') : d < Infinity ? `a thief in about ${days(d * TICKS_PER_DAY)}` : 'easing';
+  const full = thievesOut(s).length >= THIEVES_OUT;
+  const soon = d === 0 ? (targetFor(s, map.size, b) ? (full ? `someone slips out once one of the ${THIEVES_OUT} thieves out now is home` : 'someone slips out any day now') : 'nothing worth stealing within reach, for now') : d < Infinity ? `a thief in about ${days(d * TICKS_PER_DAY)}` : 'easing';
   const head = pushing.length ? `Tempted to steal: ${pushing.join(', ')}` : 'Tempted to steal, less each day';
   const held = holding.length ? `<p class="why">Holding them back: ${esc(holding.join(', '))}.</p>` : '<p class="why">A watchman walking by would hold them back (a watch post, Z twice).</p>';
   return `<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${held}</div></div>`;

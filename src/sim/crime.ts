@@ -72,7 +72,7 @@ export const ENVY_TILES = 5;
 /** At most this many thieves are out in the city at once. */
 export const THIEVES_OUT = 3;
 /** How far (steps by road) a thief walks to steal. */
-export const THIEF_RANGE = 24;
+export const THIEF_RANGE = 40;
 /** He walks at a patrol's pace, keeping to the side of the road. */
 export const THIEF_SPEED = PATROL_SPEED;
 /** Ticks he spends at the door getting in and out. */
@@ -309,6 +309,13 @@ export function thiefName(b: Building | undefined, w: Walker | null): string {
   return (m[i] ?? m[0]).name;
 }
 
+/** Who a thief is, with his house ('Nikias of the house of Kimon', or 'Kimon, the head of the house'). */
+export function thiefWho(b: Building | undefined, w: Walker | null, none = 'a stranger'): string {
+  if (!b?.family) return none;
+  const name = thiefName(b, w);
+  return name === b.family.name ? `${name}, the head of the house` : `${name} of the house of ${b.family.name}`;
+}
+
 /** The grown member of a household who goes out to steal: a son or brother first, else the head (a hash of the day picks among them). */
 function whoGoes(s: SimState, b: Building, day: number): number {
   const m = b.family?.members ?? [];
@@ -337,6 +344,13 @@ export const robbedLately = (s: SimState, b: Building, within = ROBBED_AGAIN): b
   return !!r && s.tick - r.tick < within;
 };
 
+/** Are two homes within ENVY_TILES of each other (centre to centre)? */
+function near(a: Building, b: Building): boolean {
+  const [ax, az] = centreOf(a);
+  const [bx, bz] = centreOf(b);
+  return dhypot(ax - bx, az - bz) <= ENVY_TILES;
+}
+
 /** The ware a granary or storehouse has most of that a thief would take (-1 for none). */
 function wareAt(g: Building): Ware {
   const pool: Ware[] = g.kind === 'granary' ? [WHEAT, MEAT, CHEESE] : g.kind === 'storehouse' ? [OIL, FLEECE, WINE] : [];
@@ -358,7 +372,8 @@ const officeTake = (s: SimState): number => Math.min(OFFICE_TAKE, Math.floor(Mat
 /** What a thief from `home` would get at `t`, and its worth to him (0: nothing worth it). */
 function worthAt(s: SimState, home: Building, t: Building): number {
   if (t === home) return 0;
-  if (t.kind === 'home') return livedIn(t) && t.family && t.level > home.level && !robbedLately(s, t) ? HOME_COIN[Math.min(t.level, HOME_COIN.length - 1)] : 0;
+  // (A richer home within sight of theirs, the one they envy, is worth twice as much to them.)
+  if (t.kind === 'home') return livedIn(t) && t.family && t.level > home.level && !robbedLately(s, t) && !s.walkers.some((w) => w.kind === 'thief' && w.target === t.id && w.people > 0) ? HOME_COIN[Math.min(t.level, HOME_COIN.length - 1)] * (near(home, t) ? 2 : 1) : 0;
   if (t.kind === 'granary') return wareAt(t) >= 0 ? (home.level >= HUT && tableUntil(home) <= s.tick ? 2 * SACK_WORTH : SACK_WORTH) : 0;
   if (t.kind === 'storehouse') return wareAt(t) >= 0 ? JARS_WORTH : 0;
   if (t.kind === 'taxoffice') return officeTake(s) * OFFICE_WORTH;
@@ -716,7 +731,7 @@ export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
     tell(s, home.family, 'caught', home.level, [name]);
     home.family.story[home.family.story.length - 1].n = fine;
   }
-  const whose = home?.family ? `${name} of the house of ${home.family.name}` : name;
+  const whose = home?.family ? thiefWho(home, thief) : name;
   const going = t ? (thief.back ? `on his way home from ${placeOf(t)}` : `on his way to ${placeOf(t)}`) : 'in the street';
   const at = home ?? t;
   tellNews(s, 'caught', `A thief caught ${at ? whereOf(map, at) : 'in the city'}: ${whose}, ${going}. ${fine > 0 ? `His family paid a ${fine} dr fine` : 'He was sent home'}`, home?.id ?? 0);

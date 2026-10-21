@@ -27,6 +27,8 @@ import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOff
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, stageDefault, STEP_GAP, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
+// Slice 30.
+import { daysToThief, temptationOf } from '../sim/crime';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
@@ -655,7 +657,7 @@ const RICH_VILLAS = 1900;
 const RICH_LEAD = TICKS_PER_MONTH;
 const RICH_IN = 165;
 
-function town(opening: number, safety: Safety = SAFE, rich = false): (sim: Sim) => void {
+function town(opening: number, safety: Safety = SAFE, rich = false, richWatch = true): (sim: Sim) => void {
   return (sim) => {
     let ticks = opening;
     const at: At = (t, c) => {
@@ -733,7 +735,7 @@ function town(opening: number, safety: Safety = SAFE, rich = false): (sim: Sim) 
     if (!rich) at(ticks - NEWEST, { type: 'plots', at: [...along([2, 4, 6], 48), ...along([2, 4, 6, 8], 51)] });
     at(ticks - FAIR_AGAIN, { type: 'tax', rate: FAIR });
     const lead = rich ? RICH_LEAD : OFFICE_LEAD;
-    const watch = [...safety.watch, ...(rich ? [RICH_WATCH] : [])];
+    const watch = [...safety.watch, ...(rich && richWatch ? [RICH_WATCH] : [])];
     const architects = [...safety.architects, ...(rich ? [RICH_ARCHITECT] : [])];
     if (watch.length) at(ticks - lead, { type: 'build', kind: 'watchpost', at: watch.map((p) => T(p.x, p.z)) });
     if (architects.length) at(ticks - lead, { type: 'build', kind: 'architect', at: architects.map((p) => T(p.x, p.z)) });
@@ -1728,6 +1730,67 @@ function hazards(sim: Sim, on: boolean): void {
   sim.flush();
 }
 
+// Slice 30
+/**
+ * Thieves in the night (slice 30). #thieves: #richtown's town as its builder
+ * would have had it with no watch post at all, and a new street of huts
+ * marked out on the slope behind the core's villas (a road along the slope
+ * from the oil road, eight plots and their own fountain), out of either
+ * agora's reach, so they have water but no bread, and villas across the way.
+ * Crime is switched on once most of them are huts, and the town played on
+ * until the first of them is a few days from sending a thief out. #nowatch:
+ * the same town carried on four months with still no watch post, thieves
+ * having struck a few times; it opens paused on the most tempted hut's panel.
+ */
+const THIEF_ROAD = row(63, 85, 26);
+const THIEF_XS = [63, 65, 67, 69, 71, 73, 75, 77];
+const THIEF_FOUNTAIN = { x: 79, z: 27 };
+/** (The watch post by the lane on the west bank stays: its hamlet is not what the demo is about.) */
+const THIEF_SAFETY: Safety = { watch: [TOWN_WATCH[1]], architects: TOWN_ARCHITECTS };
+/** How many of the street's plots must be huts before crime goes on, and the longest wait for it. */
+const THIEF_HUTS = 6;
+const THIEF_WAIT = 4 * TICKS_PER_MONTH;
+/** The days before the first thief goes out that #thieves opens at. */
+const THIEF_DAYS = 6;
+/** How long #nowatch carries the town on. */
+const NOWATCH_FOR = 4 * TICKS_PER_MONTH;
+/** The street's homes (for the demos and the tests). */
+export const thiefStreet = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.z === 27 && THIEF_XS.includes(b.x));
+function thievesTown(stage: 'thieves' | 'nowatch'): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, THIEF_SAFETY, true, false)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    waitFor(sim, s.tick, THIEF_ROAD.length * ROAD_COST + THIEF_XS.length * 10 + 150 + JOBS.fountain * WAGE);
+    send({ type: 'road', tiles: [...THIEF_ROAD].reverse() });
+    send({ type: 'plots', at: along(THIEF_XS, 27) });
+    send({ type: 'fountain', at: [T(THIEF_FOUNTAIN.x, THIEF_FOUNTAIN.z)] });
+    const huts = (): number => thiefStreet(s).filter((b) => b.level >= 2 && b.people > 0).length;
+    const end = s.tick + THIEF_WAIT;
+    while (s.tick < end && huts() < THIEF_HUTS) sim.run(10);
+    crime(sim, true);
+    const size = MAP_SIZE;
+    const soon = (): boolean =>
+      thiefStreet(s).some((b) => {
+        const d = daysToThief(b, temptationOf(s, size, b));
+        return b.people > 0 && d <= THIEF_DAYS;
+      }) || s.walkers.some((w) => w.kind === 'thief');
+    const end2 = s.tick + THIEF_WAIT;
+    while (s.tick < end2 && !soon()) sim.run(TICKS_PER_DAY);
+    if (stage === 'nowatch') sim.run(NOWATCH_FOR);
+  };
+}
+/** #nowatch's panel: the street's most tempted home that has had a thief out already (its story says so), else its most tempted (else the town's). */
+const mostTempted = (s: SimState): number => {
+  const homes = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.family);
+  const pool = thiefStreet(s).filter((b) => b.people > 0 && b.family);
+  const stole = (b: Building): number => (b.family?.story.some((e) => e.what === 'stole') ? 1 : 0);
+  return ([...(pool.length ? pool : homes)].sort((a, b) => stole(b) - stole(a) || b.tempt - a.tempt || a.id - b.id)[0]?.id ?? 0);
+};
+
 /** The prepared town of #rivals (one setup for its three demos). */
 const RIVALS = rivalsTown();
 
@@ -2186,6 +2249,10 @@ const SCENES: Record<string, Demo> = {
   // A city worth defending (slice 29).
   // (Opens paused, as #battle does: the band is about three weeks out, and the lines, the walls and the pages are to be read first. Review of slice 29.)
   fortress: { view: 'fortress', speed: 'paused', setup: FORTRESS, overlay: 'missing', side: { tab: 'army' } },
+  // Slice 30
+  // Thieves in the night: the hut street behind the villas, its first thief a few days off, the crime overlay on; four months on with still no watch post, paused on the most tempted hut.
+  thieves: { view: 'thieves', setup: thievesTown('thieves'), overlay: 'crime', overlayOn: true },
+  nowatch: { view: 'thieves', speed: 'paused', setup: thievesTown('nowatch'), overlay: 'crime', open: mostTempted, side: { tab: 'safety' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

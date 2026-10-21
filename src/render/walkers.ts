@@ -709,8 +709,8 @@ function thief(loot: 'none' | 'purse' | 'sack'): THREE.BufferGeometry {
     { geo: new THREE.ConeGeometry(0.045, 0.12, 5).rotateZ(1.9).translate(0.005, 0.38, 0), color: THIEF_HOOD },
   ];
   if (loot === 'purse') {
-    parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 1.2, 1).translate(0.06, 0.17, 0.085), color: PAL.leather });
-    parts.push({ geo: new THREE.CylinderGeometry(0.01, 0.01, 0.025, 4).translate(0.06, 0.215, 0.085), color: PAL.bronze });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.045, 0).scale(1, 1.2, 1).translate(0.06, 0.17, 0.09), color: PAL.leather });
+    parts.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.03, 4).translate(0.06, 0.23, 0.09), color: PAL.bronze });
   } else if (loot === 'sack') {
     parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.09, 1), 0.2, 3001).scale(0.9, 1.05, 1).translate(-0.07, 0.33, 0), color: PAL.sack });
     parts.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.03, 4).translate(-0.03, 0.42, 0), color: PAL.rope });

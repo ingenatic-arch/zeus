@@ -68,6 +68,8 @@ import type { GreeceMap } from './render/greece/index';
 import type { CityTab } from './ui/greece';
 import { PLACES, type CityId } from './map/greece';
 import { DEFAULT_SEED } from './sim/sim';
+// Slice 30.
+import { talliesNow, type CrimeTally } from './sim/crime';
 
 interface Probe {
   ready: boolean;
@@ -253,6 +255,8 @@ interface Probe {
   /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
   greeceOpenMs?: number;
   greeceBuildMs?: number;
+  /** Slice 30: crime: the switch, the tallies, the news, each thief out (where he is drawn, and his state), and the homes tempted from `from` up. */
+  crime?: (from?: number) => { on: boolean; now: CrimeTally; last: CrimeTally; news: string[]; thieves: Array<{ id: number; home: number; target: number; back: boolean; load: number; loot: number; chased: number; drawn: { x: number; z: number } | null }>; chasing: number; tempted: Array<{ id: number; x: number; z: number; level: number; tempt: number }> };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -1622,6 +1626,25 @@ function start(preparedTown: string | null): void {
   };
   probe.showPanel = (id) => panel.show(id);
   probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
+  // Slice 30.
+  probe.crime = (from = 1) => {
+    const s = sim.state;
+    const t = talliesNow(s);
+    return {
+      on: s.crime.on,
+      now: t.now,
+      last: t.last,
+      news: s.crime.news.map((n) => n.line),
+      thieves: s.walkers
+        .filter((w) => w.kind === 'thief' && w.people > 0)
+        .map((w) => {
+          const at = city.walkers.serviceAt.get(w.id);
+          return { id: w.id, home: w.home, target: w.target, back: w.back, load: w.load, loot: w.food, chased: w.meat, drawn: at ? { x: at.pos.x, z: at.pos.z } : null };
+        }),
+      chasing: s.walkers.filter((w) => w.kind === 'watchman' && w.meat > 0).length,
+      tempted: s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= from).map((b) => ({ id: b.id, x: b.x, z: b.z, level: b.level, tempt: b.tempt })),
+    };
+  };
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

@@ -54,7 +54,7 @@ import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { towerStatus } from './wallstatus';
 // Slice 30.
-import { daysToThief, lootWords, moodCtx, placeOf, TEMPT_HALF, temptationOf, temptRate, thiefName, thievesOut, type Temptation } from './crime';
+import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -665,7 +665,7 @@ export function herdStatus(s: SimState, h: Herd): Status {
 function thiefStatus(s: SimState, w: Walker): Status {
   const home = findBuilding(s, w.home);
   const t = findBuilding(s, w.target);
-  const who = home?.family ? `${thiefName(home, w)} of the house of ${home.family.name}` : 'nobody knows who';
+  const who = thiefWho(home, w, 'nobody knows who');
   const doing =
     w.wait > 0 && !w.back
       ? `getting in at ${t ? placeOf(t) : 'a door'}`
@@ -699,7 +699,7 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'watchman' && w.meat > 0) {
     const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
     const home = t ? findBuilding(s, t.home) : undefined;
-    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefName(home, t)} of the house of ${home.family.name}` : ''} · he catches him if he gets within arm’s reach, and the thief’s family pays a fine` };
+    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches him if he gets within arm’s reach, and the thief’s family pays a fine` };
   }
   if (w.kind === 'watchman') {
     const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
@@ -1711,7 +1711,7 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     const w = out[0];
     const home = findBuilding(s, w.home);
     const t = findBuilding(s, w.target);
-    const who = home?.family ? `${thiefName(home, w)} of the house of ${home.family.name}` : 'a hooded figure';
+    const who = thiefWho(home, w, 'a hooded figure');
     const where = home ? whereIs(map, home) : 'In the city';
     const doing = w.back ? `slipping home${w.load > 0 ? ` with ${lootWords(w)}` : ''}` : t ? `on his way to rob ${placeOf(t)}` : 'out in the streets';
     const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
@@ -1724,7 +1724,10 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     if (b.kind !== 'home' || b.tempt < TEMPT_HALF) continue;
     const t = temptationOf(s, size, b, ctx);
     if (t.watched || temptRate(t.score) <= 0) continue;
-    tempted.push({ b, t, d: daysToThief(b, t) });
+    const d = daysToThief(b, t);
+    // (Full, with nothing worth stealing within reach: not about to send anyone.)
+    if (d === 0 && !targetFor(s, size, b)) continue;
+    tempted.push({ b, t, d });
   }
   if (tempted.length === 0) return null;
   tempted.sort((a, c) => a.d - c.d || a.b.id - c.b.id);
