@@ -89,6 +89,8 @@ const CATCH_DIST = 0.9;
 const LOOK_EVERY = 5;
 /** A home robbed within this long isn't robbed again. */
 const ROBBED_AGAIN = 2 * TICKS_PER_MONTH;
+/** Nor a store or the tax office within this long (they keep a closer eye after a theft), nor one another thief is on his way to. */
+const STORE_AGAIN = TICKS_PER_MONTH;
 /** How long a robbed home minds it, and a caught thief's household its shame. */
 export const ROBBED_MOOD = 2 * TICKS_PER_MONTH;
 export const SHAMED_MOOD = 3 * TICKS_PER_MONTH;
@@ -370,10 +372,12 @@ function wareAt(g: Building): Ware {
 const officeTake = (s: SimState): number => Math.min(OFFICE_TAKE, Math.floor(Math.max(0, s.money) * OFFICE_SHARE));
 
 /** What a thief from `home` would get at `t`, and its worth to him (0: nothing worth it). */
-function worthAt(s: SimState, home: Building, t: Building): number {
+export function worthAt(s: SimState, home: Building, t: Building): number {
   if (t === home) return 0;
   // (A richer home within sight of theirs, the one they envy, is worth twice as much to them.)
   if (t.kind === 'home') return livedIn(t) && t.family && t.level > home.level && !robbedLately(s, t) && !s.walkers.some((w) => w.kind === 'thief' && w.target === t.id && w.people > 0) ? HOME_COIN[Math.min(t.level, HOME_COIN.length - 1)] * (near(home, t) ? 2 : 1) : 0;
+  if (t.robbedAt > 0 && s.tick - t.robbedAt < STORE_AGAIN) return 0;
+  if (s.walkers.some((w) => w.kind === 'thief' && w.target === t.id && w.people > 0)) return 0;
   if (t.kind === 'granary') return wareAt(t) >= 0 ? (home.level >= HUT && tableUntil(home) <= s.tick ? 2 * SACK_WORTH : SACK_WORTH) : 0;
   if (t.kind === 'storehouse') return wareAt(t) >= 0 ? JARS_WORTH : 0;
   if (t.kind === 'taxoffice') return officeTake(s) * OFFICE_WORTH;
@@ -534,6 +538,7 @@ function steal(s: SimState, map: CoastMap, w: Walker): void {
     w.load = coin;
     tl.coin += coin;
   } else return;
+  t.robbedAt = s.tick;
   tl.thefts++;
   tellNews(s, 'theft', `A thief robbed ${placeOf(t)} ${whereOf(map, t)}: ${lootWords(w)}`, t.id);
   s.rev++;

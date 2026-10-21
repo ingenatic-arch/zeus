@@ -306,7 +306,7 @@ const BUILDING_NUMBERS = [
   'risk', 'wear', 'fire', 'fireAt', 'creakAt',
 ];
 // Slice 30: a home's temptation to crime, and the ledger's thefts and fines.
-BUILDING_NUMBERS.push('tempt');
+BUILDING_NUMBERS.push('tempt', 'robbedAt');
 LEDGER_KINDS.push('stolen', 'fines');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];

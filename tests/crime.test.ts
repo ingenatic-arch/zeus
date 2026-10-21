@@ -8,7 +8,7 @@ import { coastMap } from '../src/map/bake';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { livedIn, VILLA } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
-import { BREAK_IN, HOME_COIN, moodCtx, setOut, startChase, TEMPT_FULL, temptationOf, temptRate, thievesOut, THIEF_FINE } from '../src/sim/crime';
+import { BREAK_IN, HOME_COIN, moodCtx, setOut, startChase, TEMPT_FULL, temptationOf, temptRate, thievesOut, THIEF_FINE, worthAt } from '../src/sim/crime';
 import { FIRST_YEAR_PACE, riskRate } from '../src/sim/hazards';
 import { moodOf } from '../src/sim/folk';
 import { WHEAT } from '../src/sim/foods';
@@ -150,6 +150,14 @@ describe('thieves', () => {
     expect(kindTotal(s.ledger.now, 'stolen')).toBe(-w.load);
     expect(s.ledger.now.find((l) => l.kind === 'stolen')!.what).toBe('from the tax office');
     ledgerAddsUp(s);
+    // Robbed, the office isn't worth a thief's walk again for a month.
+    const office = s.buildings.find((b) => b.id === w.target)!;
+    expect(office.robbedAt).toBeGreaterThan(0);
+    const home = s.buildings.find((b) => b.id === w.home)!;
+    expect(until(sim, () => !s.walkers.includes(w), TICKS_PER_MONTH)).toBe(true);
+    expect(worthAt(s, home, office)).toBe(0);
+    office.robbedAt = 0;
+    expect(worthAt(s, home, office)).toBeGreaterThan(0);
   });
 
   it('a theft from a granary is in the stock book, and feeds the household', () => {

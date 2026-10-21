@@ -148,6 +148,8 @@ export interface Building {
   ruin: string;
   /** Slice 30: a home's temptation to crime, 0 to 1,000 (TEMPT_FULL in crime.ts): full, one of them slips out to steal (0 for everything else). */
   tempt: number;
+  /** Slice 30: the tick a thief last robbed it (0: never): a store or the tax office isn't robbed again within a month. */
+  robbedAt: number;
 }
 
 /** What a walker is (see Walker.kind). */

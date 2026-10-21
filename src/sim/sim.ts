@@ -525,6 +525,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     was,
     ruin: '',
     tempt: 0,
+    robbedAt: 0,
   };
   s.buildings.push(b);
   // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)
