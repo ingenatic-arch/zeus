@@ -261,6 +261,8 @@ describe('on your map', () => {
     const lost = bookNow(s).now.find((l) => l.kind === 'lost' && l.what === 'raid:sparta');
     expect(lost?.n).toBe(r.took);
     expect(s.ledger.now.find((l) => l.kind === 'raid' && l.n === r.took)).toBeDefined();
+    // (Slice 30: no taxes coming in day by day while they make for the tax office, so the treasury they take a share of is the one here.)
+    sim.enqueue({ type: 'crime', on: false });
     const money = s.money;
     until(sim, () => r.stole > 0, TICKS_PER_MONTH);
     expect(r.stole).toBeLessThanOrEqual(Math.min(r.men * 40, Math.floor(money * 0.1) + 1));

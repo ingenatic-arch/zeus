@@ -46,6 +46,9 @@ describe('the ledger', () => {
   it('every drachma in or out is on a line: two years of #town, with building, undoing, clearing a tax office mid-round and a tax rate change', () => {
     const sim = demo('town');
     const s = sim.state;
+    // (Slice 30: collectors keep their satchels to the end of the round, as when this was written, so one is out with coins at t = 700; tests/crime.test.ts keeps the ledger with thefts, fines and taxes day by day.)
+    sim.enqueue({ type: 'crime', on: false });
+    sim.flush();
     ledgerAddsUp(s);
     let month = s.ledger.month;
     let start = s.ledger.start;

@@ -14,6 +14,8 @@ import { FOODS, foodUntil, kindsNeeded, tableUntil } from '../sim/foods';
 import { GOOD_USE, goodUntil, hasStall } from '../sim/goods';
 import { FLEECE, OIL, WINE, type Ware } from '../sim/foods';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
+// Slice 30.
+import { robbedLately, TEMPT_FULL, TEMPT_HALF } from '../sim/crime';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -31,7 +33,7 @@ interface Mode {
 }
 
 /** What an overlay shows: a service's reach and supply (or where the tax collector reaches, and who has paid), or what each home is missing. */
-export type OverlayMode = Round | 'missing' | 'variety';
+export type OverlayMode = Round | 'missing' | 'variety' | 'crime';
 
 /** A stall good's overlay: its stall's vendors' reach, and the homes that buy it. */
 const goodMode = (w: Ware): Mode => {
@@ -122,6 +124,9 @@ export class ServiceOverlay {
     wear: { has: new THREE.Color('#d8a040'), fresh: new THREE.Color('#ffe0a0'), none: new THREE.Color('#d04a3a') },
   };
 
+  /** Slice 30: the crime overlay's columns: tempted past half, past three-quarters (or a thief out), and robbed lately. */
+  private readonly crimeTones = { half: new THREE.Color('#a0609a'), high: new THREE.Color('#d0383a'), robbed: new THREE.Color('#b8c8e8') };
+
   constructor(
     private readonly map: CoastMap,
     private readonly placement: Placement,
@@ -165,7 +170,7 @@ export class ServiceOverlay {
   update(s: SimState, time: number): void {
     const mode = this.mode;
     this.group.visible = mode !== null;
-    this.placement.showOverlay(mode !== null, mode === 'variety' ? TONE.food : mode && mode !== 'missing' ? TONE[mode] : 0);
+    this.placement.showOverlay(mode !== null, mode === 'variety' ? TONE.food : mode === 'crime' ? TONE.fire : mode && mode !== 'missing' ? TONE[mode] : 0);
     if (!mode) return;
     if (time - this.last < REFRESH && s.rev === this.lastRev && mode === this.lastMode) return;
     this.last = time;
@@ -174,6 +179,7 @@ export class ServiceOverlay {
     if (mode === 'missing') this.refreshMissing(s);
     else if (mode === 'variety') this.refreshVariety(s);
     else if (mode === 'fire' || mode === 'wear') this.refreshHazard(s, mode);
+    else if (mode === 'crime') this.refreshCrime(s);
     else this.refresh(s, mode);
   }
 
@@ -305,6 +311,71 @@ export class ServiceOverlay {
           if (alarm || v >= HAZARD_HIGH) this.c.copy(tone.none);
           else this.c.copy(tone.has).lerp(tone.fresh, 0.3);
           this.columns.setColorAt(n, this.c);
+          n++;
+        }
+      }
+      if (!code) continue;
+      for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+    }
+    this.columns.count = n;
+    this.columns.instanceMatrix.needsUpdate = true;
+    if (this.columns.instanceColor) this.columns.instanceColor.needsUpdate = true;
+    this.placement.setOverlay(codes);
+  }
+
+  /**
+   * Slice 30, crime: the roads a watchman reaches, brighter where one has
+   * walked lately (where he deters thieves); every lived-in home tinted green
+   * below half its temptation, amber past half, red past three-quarters or
+   * with a thief of theirs out, with a column over each one past half, as tall
+   * as how near it is to sending one; and a short pale column over each home
+   * robbed in the last two months. The watch posts are marked as the sources.
+   */
+  private refreshCrime(s: SimState): void {
+    const size = this.map.size;
+    const mode = MODES.fire;
+    const codes = this.codes;
+    codes.fill(0);
+    const reach = reachOf(s, size, mode.source);
+    const walkedAt = s.rounds.fire.walked;
+    const pre = this.preview ? roadSearch(s, size, this.preview).dist : null;
+    for (let t = 0; t < codes.length; t++) {
+      if (s.tiles[t] !== TILE_ROAD) continue;
+      const d = reach.dist[t];
+      if (d >= 0 && d <= mode.range) {
+        const k = Math.round(99 * (1 - d / (mode.range + 1)));
+        const walked = walkedAt[t] > 0 && s.tick - walkedAt[t] < mode.lasts;
+        codes[t] = (walked ? WATER_WALKED : WATER_REACH) + k;
+      } else if (pre && pre[t] >= 0 && pre[t] <= mode.range) codes[t] = WATER_PREVIEW;
+    }
+    const out = new Set<number>();
+    for (const w of s.walkers) if (w.kind === 'thief' && w.people > 0) out.add(w.home);
+    let n = 0;
+    if (s.buildings.length * 2 > this.columns.instanceMatrix.count) this.grow(s.buildings.length * 2);
+    for (const b of s.buildings) {
+      let code = 0;
+      const side = footSide(b);
+      if (b.kind === mode.source) code = WATER_FOUNTAIN;
+      else if (b.kind === 'home' && b.people > 0 && b.family) {
+        const alarm = out.has(b.id);
+        const v = b.tempt;
+        code = alarm || v >= HAZARD_HIGH ? MISSING_WARN : v >= TEMPT_HALF ? MISSING_WANT : MISSING_FINE;
+        const top = ROOF[b.level];
+        const y = this.map.heightAt(b.x + 1, b.z + 1) + top + 0.2;
+        if (alarm || v >= TEMPT_HALF) {
+          const k = alarm ? 1 : (v - TEMPT_HALF) / (TEMPT_FULL - TEMPT_HALF);
+          this.p.set(b.x + 1, y, b.z + 1);
+          this.s.set(1.3, 0.3 + 2.2 * k, 1.3);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          this.columns.setColorAt(n, this.c.copy(alarm || v >= HAZARD_HIGH ? this.crimeTones.high : this.crimeTones.half));
+          n++;
+        } else if (robbedLately(s, b)) {
+          this.p.set(b.x + 1, y, b.z + 1);
+          this.s.set(1.6, 0.35, 1.6);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          this.columns.setColorAt(n, this.c.copy(this.crimeTones.robbed));
           n++;
         }
       }

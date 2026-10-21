@@ -134,6 +134,16 @@ export interface Outlook {
   cutOff: number;
 }
 
+/** Slice 30: the empty plots that no road from the edge passes (settlers can't reach them), for the "no road" sign over each. */
+export function cutOffPlots(s: SimState, map: CoastMap): Building[] {
+  const size = map.size;
+  const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.people === 0 && b.incoming === 0);
+  const edges = edgeRoads(s, size);
+  if (edges.length === 0 || plots.length === 0) return plots;
+  const search = roadSearch(s, size, edges);
+  return plots.filter((b) => nearestReached(search, around(size, b).filter((t) => s.tiles[t] === TILE_ROAD)) < 0);
+}
+
 export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
   const size = map.size;
   const edges = edgeRoads(s, size);

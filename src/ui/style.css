@@ -311,6 +311,11 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .household .warning .why { color: var(--ink-soft); font-size: 12.5px; }
 .household .warning .bar { height: 6px; border-radius: 3px; background: rgba(160, 70, 40, 0.18); margin-top: 6px; overflow: hidden; }
 .household .warning .bar i { display: block; height: 100%; background: linear-gradient(90deg, #c63d24, #e3a23a); border-radius: 3px; }
+/* Slice 30: temptation to crime. */
+.household .warning.crime { background: #ece6ef; border-color: #5a4e68; }
+.household .warning.crime b { color: #3a2e4a; }
+.household .warning.crime .bar { background: rgba(58, 46, 74, 0.16); }
+.household .warning.crime .bar i { background: linear-gradient(90deg, #5a4e68, #9a5a8a); }
 .household .late { display: flex; gap: 7px; margin-top: 10px; padding: 5px 9px; border-radius: 9px; background: rgba(255, 255, 255, 0.45); border: 1px dashed var(--edge); font-size: 12.5px; color: var(--ink-soft); }
 
 .household .mood { display: flex; gap: 10px; align-items: flex-start; }

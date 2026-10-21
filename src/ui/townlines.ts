@@ -9,7 +9,7 @@ import { TICKS_PER_DAY } from '../sim/clock';
 import type { TownLine } from '../sim/status';
 
 /** Lines that are news, not shortfalls: they come and go at once. */
-const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle'];
+const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime'];
 
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
@@ -23,7 +23,10 @@ const shown = (): number => (document.body.classList.contains('greece-open') ? S
 const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>';
 /** The army's news: a bronze helmet with its crest. */
 const HELMET = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4c2.4-1.6 7.6-1.6 10 0" fill="none" stroke="#b8322a" stroke-width="2.2" stroke-linecap="round"/><path d="M8 3.2c-3.2 0-5.2 2.2-5.2 5.4v5.6h3.4v-3.4l-1-1.2V7.4h5.6v2.2l-1 1.2v3.4h3.4V8.6c0-3.2-2-5.4-5.2-5.4z" fill="#c8963c" stroke="#5e4214" stroke-width=".9" stroke-linejoin="round"/><path d="M7.2 7.4v4.2M8.8 7.4v4.2" stroke="#5e4214" stroke-width=".9"/></svg>';
+/** Slice 30: crime's, a hooded figure with a purse. */
+const HOOD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6c-2.6 0-4.2 2-4.2 4.6 0 1.2.3 2.2.8 3L3 14.6h10l-1.6-5.4c.5-.8.8-1.8.8-3 0-2.6-1.6-4.6-4.2-4.6z" fill="#3a3540" stroke="#1a1820" stroke-width=".8" stroke-linejoin="round"/><ellipse cx="8" cy="6.6" rx="2" ry="2.3" fill="#1a1820"/><circle cx="11.8" cy="12" r="2.2" fill="#c8963c" stroke="#5e4214" stroke-width=".8"/></svg>';
 const ICONS: Record<TownLine['need'], string> = {
+  crime: HOOD,
   // (A loan's: a coin on a scroll, as on the city's label and page.)
   loan: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.8h8.6c.9 0 1.5.6 1.5 1.5V12H4.5C3.7 12 3 11.3 3 10.5z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M5.2 5.4h5M5.2 7.2h3" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/><circle cx="10.6" cy="11" r="3.3" fill="#e8c04a" stroke="#8a6414" stroke-width=".9"/><circle cx="10.6" cy="11" r="1.7" fill="none" stroke="#b88a1e" stroke-width=".7"/></svg>',
   raid: SPEARS,
@@ -53,7 +56,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -66,7 +69,7 @@ const rank = (need: TownLine['need']): number => {
  * and caravans. (Review of slice 29: folded in ORDER, a ship and a caravan
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;
@@ -77,6 +80,8 @@ export class TownLines {
   /** The lines standing when the game opens show at once (a demo may open paused). */
   private first = true;
   private seen = new Map<TownLine['need'], { since: number; lastSeen: number; line: TownLine; el: HTMLButtonElement | null }>();
+  /** The tick of the last update: the same tick again means the clock stands still (paused), and a shortfall comes and goes at once (slice 30). */
+  private lastTick = -1;
 
   /** The "+N more" button under the lines, and whether it has opened them all. */
   private more: HTMLButtonElement;
@@ -125,19 +130,23 @@ export class TownLines {
   update(lines: TownLine[], tick: number): void {
     const settle = SETTLE_DAYS * TICKS_PER_DAY;
     const present = new Set(lines.map((l) => l.need));
+    // (Slice 30: while the clock stands still, the days a shortfall waits for never come: it shows, or goes, at once.)
+    const still = tick === this.lastTick;
+    this.lastTick = tick;
     for (const l of lines) {
       const s = this.seen.get(l.need);
       if (s) {
         s.lastSeen = tick;
         s.line = l;
-      } else this.seen.set(l.need, { since: this.first || NEWS.includes(l.need) ? tick - settle : tick, lastSeen: tick, line: l, el: null });
+        if (still) s.since = Math.min(s.since, tick - settle);
+      } else this.seen.set(l.need, { since: this.first || still || NEWS.includes(l.need) ? tick - settle : tick, lastSeen: tick, line: l, el: null });
     }
     this.first = false;
     for (const [need, s] of this.seen) {
       // A tick that went backwards (a save opened) starts over.
       if (tick < s.since) s.since = s.lastSeen = tick;
       // (News, a ship's or a raid's, comes and goes at once: it is news, not a shortfall. Slice 29: gone as soon as it no longer stands, paused or not, instead of waiting for the next tick.)
-      const gone = NEWS.includes(need) ? !present.has(need) : tick - s.lastSeen > settle;
+      const gone = NEWS.includes(need) || still ? !present.has(need) : tick - s.lastSeen > settle;
       const shown = tick - s.since >= settle && !gone;
       if (shown && !s.el) {
         const b = document.createElement('button');

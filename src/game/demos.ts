@@ -1709,7 +1709,16 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     hazards(sim, false);
     setup(sim);
     hazards(sim, true);
+    // Slice 30: crime too (off while the history plays, as it is in a bare state), on as it opens.
+    crime(sim, true);
   };
+}
+
+/** Slice 30: switch crime on or off now (a command, so a replay of the log does the same). */
+function crime(sim: Sim, on: boolean): void {
+  if (sim.state.crime.on === on) return;
+  sim.enqueue({ type: 'crime', on });
+  sim.flush();
 }
 
 /** Switch fire risk and wear on or off now (a command, so a replay of the log does the same). */

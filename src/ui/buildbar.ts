@@ -122,6 +122,8 @@ export const ICONS: Record<ButtonName, string> = {
   // A flame, for the fire risk overlay.
   fire: '<svg viewBox="0 0 24 24"><path d="M12 2.6c.6 3.2 3.4 4.8 4.8 7.6 1.8 3.4.4 8.4-4.8 9.4-5.2-1-6.6-5.6-4.8-9 .6 1.4 1.6 2 2.6 2-.8-3.4.4-7 2.2-10z" class="fill-fire"/><path d="M12 12.4c.8 1.6 2.4 2.4 2.4 4.2 0 1.6-1 2.6-2.4 3-1.4-.4-2.4-1.4-2.4-3 0-1.4 1.4-2.4 2.4-4.2z" class="fill-gold"/></svg>',
   // A wall of blocks with a crack down it, for the wear overlay.
+  // Slice 30: the crime overlay, a hooded figure.
+  crime: '<svg viewBox="0 0 24 24"><path d="M12 2.6c-3.9 0-6.2 3-6.2 6.8 0 1.8.5 3.2 1.2 4.4L4.6 21.4h14.8l-2.4-7.6c.7-1.2 1.2-2.6 1.2-4.4 0-3.8-2.3-6.8-6.2-6.8z" class="fill-soft"/><ellipse cx="12" cy="9.8" rx="3" ry="3.3" class="fill-ink"/><circle cx="17.4" cy="17.6" r="3" class="fill-gold"/></svg>',
   wear: '<svg viewBox="0 0 24 24"><path d="M3 5h18v15H3z" class="fill-soft"/><path d="M3 10h18M3 15h18M9 5v5M15 10v5M9 15v5" class="stroke-ink"/><path d="M13.4 4.4 11.6 8.6l2.2 2.4-2.8 3.6 1.6 2.6-1.8 3.4" class="stroke-warn"/></svg>',
   // A loaf, a ham and a wedge of cheese, for the food variety overlay.
   variety:
@@ -345,6 +347,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
   tax: { name: 'Tax overlay: where the tax collector walks, and which homes have paid this month', key: 'J', cost: '', hint: '' },
   fire: { name: 'Fire risk overlay: where the watchman walks, and which buildings are close to catching fire', key: 'J J', cost: '', hint: '' },
   wear: { name: 'Wear overlay: where the inspector walks, and which buildings are close to falling in', key: 'J ×3', cost: '', hint: '' },
+  crime: { name: 'Crime overlay: where the watchman walks, which homes are tempted to steal, and which were robbed', key: 'J ×4', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };

@@ -28,6 +28,8 @@ import { districtTitle, DISTRICTS } from '../map/districts';
 import type { CoastMap } from '../map/bake';
 import type { ToolName } from '../game/tools';
 import type { OverlayMode } from '../render/overlay';
+// Slice 30.
+import { talliesNow, TEMPT_HALF, thievesOut } from '../sim/crime';
 import { drawPictures } from '../render/pictures';
 import { BUILDING_NAMES, centreOf, HOME_NAMES, jobsAt, TOP_LEVEL } from '../sim/buildings';
 import { districtAt } from '../map/districts';
@@ -73,9 +75,9 @@ const BOSSES = ['road', 'clear', 'undo', 'layers'] as const;
 type Boss = (typeof BOSSES)[number];
 
 /** Every overlay, in the order the overlays' list shows them (the open tab's first). */
-const ALL_OVERLAYS: readonly OverlayMode[] = ['missing', 'water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear'];
+const ALL_OVERLAYS: readonly OverlayMode[] = ['missing', 'water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear', 'crime'];
 /** An overlay's colour on its row (as its walkers' paths are drawn). */
-const OVERLAY_COLOUR: Record<OverlayMode, string> = { missing: '#7a8f3a', water: '#4f9be0', food: '#e0a548', variety: '#c98f2a', oil: '#8aa83a', fleece: '#c8b68a', wine: '#8e2f4e', religion: '#a98ae0', culture: '#e3778f', tax: '#4f9f88', fire: '#d8542a', wear: '#8a7458' };
+const OVERLAY_COLOUR: Record<OverlayMode, string> = { missing: '#7a8f3a', water: '#4f9be0', food: '#e0a548', variety: '#c98f2a', oil: '#8aa83a', fleece: '#c8b68a', wine: '#8e2f4e', religion: '#a98ae0', culture: '#e3778f', tax: '#4f9f88', fire: '#d8542a', wear: '#8a7458', crime: '#5a4e68' };
 
 /** The drachmas a tool's building costs (0 for a tool with none, or a cost by the tile). */
 const costOf = (t: ToolName): number => Number(/^\d[\d,]*/.exec(INFO[t].cost)?.[0].replace(/,/g, '') ?? 0);
@@ -919,6 +921,17 @@ export class SidePanel {
     return out.join('');
   }
 
+  /** Slice 30: crime across the town (thieves out, homes tempted, this month's and last month's thefts); a click shows its overlay. */
+  private crimeRow(s: SimState, mode: OverlayMode | null): string {
+    const out = thievesOut(s).length;
+    const tempted = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= TEMPT_HALF).length;
+    const { now, last } = talliesNow(s);
+    const word = !s.crime.on ? 'none yet' : out ? `${out} ${out === 1 ? 'thief' : 'thieves'} out` : tempted ? `${tempted} ${tempted === 1 ? 'home' : 'homes'} tempted` : now.thefts ? `${now.thefts} ${now.thefts === 1 ? 'theft' : 'thefts'} this month` : 'quiet';
+    const tally = (t: typeof now): string => `${t.thefts} ${t.thefts === 1 ? 'theft' : 'thefts'} (${t.coin} dr${t.goods ? ` and ${t.goods} measures of goods` : ''}), ${t.caught} caught, ${t.fines} dr in fines`;
+    const title = `Crime: ${out} thieves out, ${tempted} homes more than half way to sending one · this month ${tally(now)} · last month ${tally(last)} · click to ${mode === 'crime' ? 'hide' : 'show'} it on the map`;
+    return `<li><button class="svc-row ${mode === 'crime' ? 'on' : ''} ${out ? 'alarm' : ''}" data-act="overlay" data-mode="crime" title="${esc(title)}"><i class="dot" style="background:#5a4e68"></i><span class="nm">Crime</span><span class="cnt">${word}</span></button></li>`;
+  }
+
   /** Fire and wear across the town; a click shows its overlay. */
   private hazards(s: SimState): string {
     const mode = this.hooks.overlayMode();
@@ -932,7 +945,7 @@ export class SidePanel {
     const posts = s.buildings.filter((b) => b.kind === 'watchpost').length;
     const offices = s.buildings.filter((b) => b.kind === 'architect').length;
     const rubble = s.buildings.filter((b) => b.kind === 'rubble').length;
-    out.push('<h3>Fire and wear</h3><ul class="svc">');
+    out.push('<h3>Fire, wear and crime</h3><ul class="svc">');
     const fireWord = fires ? `${fires} burning` : smoulder ? `${smoulder} smouldering` : risky ? `${risky} past half way` : s.hazards ? 'all safe' : 'no risk yet';
     out.push(
       `<li><button class="svc-row ${mode === 'fire' ? 'on' : ''} ${fires ? 'alarm' : ''}" data-act="overlay" data-mode="fire" title="${esc(`Fire: ${fires} burning, ${smoulder} smouldering, ${risky} more past half way to catching · ${posts} watch ${posts === 1 ? 'post' : 'posts'} · click to ${mode === 'fire' ? 'hide' : 'show'} fire risk on the map`)}"><i class="dot" style="background:#d8542a"></i><span class="nm">Fire</span><span class="cnt">${fireWord}</span></button></li>`,
@@ -941,6 +954,8 @@ export class SidePanel {
     out.push(
       `<li><button class="svc-row ${mode === 'wear' ? 'on' : ''}" data-act="overlay" data-mode="wear" title="${esc(`Wear: ${creak} creaking, ${worn} more past half way to falling · ${offices} architect’s ${offices === 1 ? 'office' : 'offices'} · click to ${mode === 'wear' ? 'hide' : 'show'} wear on the map`)}"><i class="dot" style="background:#8a7458"></i><span class="nm">Wear</span><span class="cnt">${wearWord}</span></button></li>`,
     );
+    // Slice 30: crime.
+    out.push(this.crimeRow(s, mode));
     out.push('</ul>');
     out.push(`<p class="side-note">${posts} watch ${posts === 1 ? 'post' : 'posts'} and ${offices} architect’s ${offices === 1 ? 'office' : 'offices'}${rubble ? `; ${rubble} ${rubble === 1 ? 'heap' : 'heaps'} of rubble to clear (X)` : ''}.</p>`);
     return out.join('');

@@ -293,6 +293,8 @@ describe('caravans', () => {
     // Just before it reaches the yard, only 100 dr to spare beyond a month's wages: it brings what that buys.
     expect(importPurse(s)).toBeGreaterThan(100);
     pay(s, -(importPurse(s) - 100), 'routes', 'a test');
+    // (Slice 30: no taxes coming in day by day in the last few steps, so what it can spare is the 100 dr left here.)
+    sim.enqueue({ type: 'crime', on: false });
     const money = s.money;
     expect(until(sim, () => w.wait > 0, 200)).toBe(true);
     expect(r.unloaded[WINE_K]).toBeGreaterThan(0);

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { NEEDS, warningsOf, wantOf, WARNING } from '../sim/folk';
 import type { Building, Service, SimState } from '../sim/state';
+import { cutOffPlots } from '../sim/settlers';
 
 /** How often (seconds) which homes have signs is worked out again. */
 const REFRESH = 0.25;
@@ -59,6 +60,35 @@ function rimGeometry(): THREE.BufferGeometry {
   tail.lineTo(0, -1.66);
   tail.closePath();
   return mergeFlat([flat(ring, '#ffffff', 0, 24), flat(tail, '#ffffff', 0)]);
+}
+
+/** Slice 30: "no road": a stretch of road, a dashed line down its middle, barred across in red. */
+function noRoadGeometry(): THREE.BufferGeometry {
+  const road = new THREE.Shape();
+  road.moveTo(-0.26, -0.66);
+  road.lineTo(0.26, -0.66);
+  road.lineTo(0.18, 0.66);
+  road.lineTo(-0.18, 0.66);
+  road.closePath();
+  const dash = (y: number): THREE.Shape => {
+    const d = new THREE.Shape();
+    d.moveTo(-0.035, y - 0.11);
+    d.lineTo(0.035, y - 0.11);
+    d.lineTo(0.03, y + 0.11);
+    d.lineTo(-0.03, y + 0.11);
+    d.closePath();
+    return d;
+  };
+  const bar = new THREE.Shape();
+  const a = Math.PI / 4;
+  const [c, s] = [Math.cos(a), Math.sin(a)];
+  const pt = (x: number, y: number): [number, number] => [x * c - y * s, x * s + y * c];
+  bar.moveTo(...pt(-0.78, -0.11));
+  bar.lineTo(...pt(0.78, -0.11));
+  bar.lineTo(...pt(0.78, 0.11));
+  bar.lineTo(...pt(-0.78, 0.11));
+  bar.closePath();
+  return mergeFlat([flat(road, '#8a8278', 0.04, 4), flat(dash(-0.36), '#f4ecd8', 0.05, 2), flat(dash(0.02), '#f4ecd8', 0.05, 2), flat(dash(0.38), '#f4ecd8', 0.05, 2), flat(bar, '#c62a1e', 0.06, 2)]);
 }
 
 /** A water drop, blue with a highlight. */
@@ -238,16 +268,20 @@ const WIDE6 = 2.38;
 const WIDE7 = 2.86;
 /** How high over the ground a sign floats, by the home's level (over its roof). */
 const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4, 2.75];
+/** Slice 30: a "no road" sign floats lower, over an empty plot. */
+const PLOT_HEIGHT = 1.1;
 
 interface Sign {
   b: Building;
+  /** Slice 30: an empty plot no road from the edge passes (its sign: a road barred in red; needs empty). */
+  noRoad?: boolean;
   /** What it lacks, in the fixed order: water, bread, blessings, oil, plays, fleece, wine. */
   needs: Service[];
   /** 0 just warned … 1 about to drop a level; -1 for a need to grow (shown with the "what's missing" overlay). */
   urgency: number;
 }
 
-type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | 'rim5' | 'face5' | 'rim6' | 'face6' | 'rim7' | 'face7' | Service;
+type MeshName = 'rim' | 'face' | 'rim3' | 'face3' | 'rim4' | 'face4' | 'rim5' | 'face5' | 'rim6' | 'face6' | 'rim7' | 'face7' | Service | 'noroad';
 const ICON_OF: Record<Service, MeshName> = { water: 'water', food: 'food', religion: 'religion', oil: 'oil', culture: 'culture', fleece: 'fleece', wine: 'wine' };
 
 /**
@@ -318,6 +352,7 @@ export class Signs {
       culture: make('sign-mask', maskGeometry(), false),
       fleece: make('sign-fleece', fleeceGeometry(), false),
       wine: make('sign-grapes', grapesGeometry(), false),
+      noroad: make('sign-noroad', noRoadGeometry(), false),
     };
     const at = (x: number, k: number): THREE.Matrix4 => new THREE.Matrix4().makeTranslation(x, 0.02, 0).multiply(new THREE.Matrix4().makeScale(k, k, 1));
     const row = (l: number, n: number, k: number): THREE.Matrix4[] => Array.from({ length: n }, (_, i) => at(-l + (2 * l * i) / (n - 1), k));
@@ -336,6 +371,8 @@ export class Signs {
         if (want) out.push({ b, needs: [want], urgency: -1 });
       }
     }
+    // Slice 30: and every empty plot no road from the edge passes.
+    for (const b of cutOffPlots(s, this.map)) out.push({ b, needs: [], urgency: 0.6, noRoad: true });
     this.signs = out;
   }
 
@@ -370,11 +407,11 @@ export class Signs {
     const cam = camera.position;
     let wide = 0;
     for (let i = 0; i < n; i++) {
-      const { b, needs, urgency } = this.signs[i];
+      const { b, needs, urgency, noRoad } = this.signs[i];
       const cx = b.x + 1;
       const cz = b.z + 1;
       const bob = Math.sin(time * 1.7 + b.id * 1.3) * 0.045;
-      this.p.set(cx, this.map.heightAt(cx, cz) + HEIGHTS[Math.min(b.level, HEIGHTS.length - 1)] + bob, cz);
+      this.p.set(cx, this.map.heightAt(cx, cz) + (noRoad ? PLOT_HEIGHT : HEIGHTS[Math.min(b.level, HEIGHTS.length - 1)]) + bob, cz);
       // The same size on screen from about 16 units away out to far off (up to three times its size), so a sign
       // reads from the default height and from afar; closer than that it grows, but not to fill the view.
       const far = Math.min(3, Math.max(0.6, this.p.distanceTo(cam) / 27));
@@ -392,6 +429,7 @@ export class Signs {
       counts[`face${shape}` as MeshName]++;
       rim.setMatrixAt(ri, this.m);
       face.setMatrixAt(ri, this.m);
+      if (noRoad) this.meshes.noroad.setMatrixAt(counts.noroad++, this.m);
       const slots = this.slots[Math.min(7, needs.length)];
       needs.forEach((need, j) => {
         const key = ICON_OF[need];

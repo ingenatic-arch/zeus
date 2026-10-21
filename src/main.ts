@@ -285,6 +285,8 @@ function start(preparedTown: string | null): void {
   } else if (demo?.setup) demo.setup(sim);
   else {
     sim.enqueue({ type: 'hazards', on: true });
+    // Slice 30: and crime (with taxes day by day, harsh taxes' harder bite and fire's gentler first year).
+    sim.enqueue({ type: 'crime', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;
@@ -710,7 +712,7 @@ function start(preparedTown: string | null): void {
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders', thief: 'the thief' };
 
   // The banner or the soldier under a screen point: a banner's cloth within a finger's breadth, a man within a few pixels.
   armyPick = (sx, sy) => {
@@ -1097,8 +1099,8 @@ function start(preparedTown: string | null): void {
         return true;
       }
       if (k === 'j') {
-        // J: the taxes overlay, then fire risk, then wear, then off.
-        const cycle = ['tax', 'fire', 'wear'] as const;
+        // J: the taxes overlay, then fire risk, then wear, then crime (slice 30), then off.
+        const cycle = ['tax', 'fire', 'wear', 'crime'] as const;
         const at = cycle.indexOf(overlay.wanted as (typeof cycle)[number]);
         overlay.wanted = at < 0 ? 'tax' : at === cycle.length - 1 ? null : cycle[at + 1];
         return true;

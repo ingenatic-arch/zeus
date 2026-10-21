@@ -302,6 +302,8 @@ describe('hirelings', () => {
 describe('slice 23’s findings', () => {
   it('a company dismissed with pay owed: what it was owed is still paid when money comes', () => {
     const { sim, s, hop } = battle();
+    // (Slice 30: with taxes coming in by the satchel, as when this was written; day by day, the first day's taxes pay what is owed at once.)
+    send(sim, { type: 'crime', on: false });
     const keep = s.money;
     s.ledger.start -= keep + 100;
     s.money = -100;

@@ -685,6 +685,39 @@ function raider(hold: 'torch' | 'spear' | 'sack'): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+/**
+ * Slice 30: a thief, facing +x: a hooded figure in a dark cloak (the tinted
+ * part) to the shins, stooped and quick, the hood pulled forward over a face
+ * in shadow. Empty-handed on the way out; on the way home a fat purse at his
+ * belt (`purse`) or a sack on his back (`sack`).
+ */
+const THIEF_HOOD = '#2a2730';
+const THIEF_FACE = '#8a6a55';
+function thief(loot: 'none' | 'purse' | 'sack'): THREE.BufferGeometry {
+  const lean = -0.32;
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.11, 0.019, PAL.woodDark, -1.4),
+    leg(0, 0.03, 0.11, 0.019, PAL.woodDark, 1.4),
+    // The cloak, long and flaring, leaning forward as he hurries.
+    { geo: new THREE.CylinderGeometry(0.05, 0.1, 0.27, 7).rotateZ(lean).translate(0.03, 0.22, 0), color: '', tint: true },
+    // Arms drawn in under the cloak.
+    { geo: new THREE.CylinderGeometry(0.018, 0.016, 0.13, 4).rotateZ(-0.9).translate(0.07, 0.25, 0.06), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.018, 0.016, 0.13, 4).rotateZ(-0.9).translate(0.07, 0.25, -0.06), color: '', tint: true },
+    // The head thrust forward, the face in the hood's shadow, and the hood itself: a peak falling down the back.
+    { geo: new THREE.IcosahedronGeometry(0.05, 0).translate(0.1, 0.34, 0), color: THIEF_FACE },
+    { geo: new THREE.IcosahedronGeometry(0.068, 0).scale(1.05, 0.95, 1).translate(0.08, 0.36, 0), color: THIEF_HOOD },
+    { geo: new THREE.ConeGeometry(0.045, 0.12, 5).rotateZ(1.9).translate(0.005, 0.38, 0), color: THIEF_HOOD },
+  ];
+  if (loot === 'purse') {
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.035, 0).scale(1, 1.2, 1).translate(0.06, 0.17, 0.085), color: PAL.leather });
+    parts.push({ geo: new THREE.CylinderGeometry(0.01, 0.01, 0.025, 4).translate(0.06, 0.215, 0.085), color: PAL.bronze });
+  } else if (loot === 'sack') {
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.09, 1), 0.2, 3001).scale(0.9, 1.05, 1).translate(-0.07, 0.33, 0), color: PAL.sack });
+    parts.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.03, 4).translate(-0.03, 0.42, 0), color: PAL.rope });
+  }
+  return mergeTinted(parts);
+}
+
 /** How the raiders hold themselves: in to the target with torches and spears, out with sacks if they took anything. */
 const RAIDER_HOLDS = ['torch', 'spear', 'sack'] as const;
 
@@ -697,7 +730,7 @@ const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCre
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -727,6 +760,8 @@ export class Walkers {
   /** Raiders: [a torch, a spear, a sack of loot]. */
   private readonly raiders: Look[];
   private readonly donkeys: Look;
+  /** Thieves (slice 30): [on the way out, home with a purse, home with a sack]. */
+  private readonly thieves: [Look, Look, Look];
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -764,7 +799,8 @@ export class Walkers {
     this.drovers = small(drover());
     this.donkeys = big(donkey());
     this.raiders = RAIDER_HOLDS.map((h) => small(raider(h)));
-    this.all = [...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
+    this.thieves = [small(thief('none')), small(thief('purse')), small(thief('sack'))];
+    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
   }
 
   get count(): number {
@@ -813,6 +849,7 @@ export class Walkers {
     const watchTunic = col(PAL.watchmanTunic);
     const blue = col(PAL.inspectorDress);
     const dockerTunic = col(PAL.dockerTunic);
+    const cloak = col('#3a3540');
     // Caravans waiting at the same gate stand one behind the other along the road, not in one another (slice 22): each one's place in the line, by who came first.
     const queue = new Map<number, number>();
     const gates = new Map<string, number>();
@@ -869,7 +906,12 @@ export class Walkers {
         }
         else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
-        else if (w.kind === 'watchman') this.watchmen[w.target > 0 ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
+        else if (w.kind === 'watchman') this.watchmen[w.target > 0 || w.meat > 0 ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
+        else if (w.kind === 'thief') {
+          // (Caught: gone from the street at once.)
+          if (w.people <= 0) continue;
+          this.thieves[w.back && w.load > 0 ? (w.food < 0 ? 1 : 2) : 0].push(this.m, still(this.c.copy(cloak).multiplyScalar(0.85 + 0.3 * hash2(w.home, 7, 30))));
+        }
         else if (w.kind === 'inspector') this.inspectors.push(this.m, still(this.c.copy(blue)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
         else if (w.kind === 'docker') {

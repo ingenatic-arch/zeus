@@ -31,7 +31,7 @@
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { beside, capacity, centreOf, findBuilding, footSide, HOME_CAPACITY } from './buildings';
-import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { rateOf } from './labour';
 import { roadSearch, tracePath, type Search } from './roads';
 import { door, endRound, headHome, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -173,11 +173,18 @@ export const wears = (b: Building): boolean => (b.kind === 'home' ? b.level > 0 
 /** How crowded a home is (0.7 empty to 1.2 full): a packed house catches more easily. */
 const crowding = (b: Building): number => 0.7 + 0.5 * Math.min(1, b.people / Math.max(1, capacity(b) || HOME_CAPACITY[1]));
 
+/**
+ * In a town's first year fire risk builds at this share of its pace (slice 30): a new town has time to put up its
+ * first watch post. It comes with slice 30's switch (crime.on), so a demo's history plays as it always did.
+ */
+export const FIRST_YEAR_PACE = 0.7;
+
 /** How much a building's fire risk rises a day (0 if it can't burn). */
 export function riskRate(s: SimState, b: Building): number {
   if (!burnable(b)) return 0;
   const days = b.kind === 'home' ? HOME_RISK_DAYS[Math.min(b.level, HOME_RISK_DAYS.length - 1)] / crowding(b) : RISK_DAYS[b.kind];
-  return HAZARD_FULL / (days * pace(s, b, 1));
+  const young = s.tick < TICKS_PER_YEAR && s.crime.on ? FIRST_YEAR_PACE : 1;
+  return (HAZARD_FULL * young) / (days * pace(s, b, 1));
 }
 
 /** How much a building's wear rises a day (0 if it doesn't wear). */
@@ -350,7 +357,7 @@ export function fireInSight(s: SimState, size: number, here: [number, number], f
 }
 
 /** The road tile a walker stands on or is stepping onto (-1 if neither is a road). */
-function roadUnder(s: SimState, w: Walker): number {
+export function roadUnder(s: SimState, w: Walker): number {
   for (const t of [w.tiles[w.seg], w.tiles[w.seg + 1]]) if (t !== undefined && t >= 0 && s.tiles[t] === TILE_ROAD) return t;
   for (let k = w.seg; k >= 0; k--) if (w.tiles[k] >= 0 && s.tiles[w.tiles[k]] === TILE_ROAD) return w.tiles[k];
   return -1;
@@ -374,7 +381,7 @@ function dashTo(size: number, w: Walker, fire: Building, search: Search, from: n
 }
 
 /** Look round for flames (or, with `which`, smoke) from where he is; run to the nearest he can see. */
-function lookForFire(s: SimState, size: number, w: Walker, which = FIRE_BURNING): boolean {
+export function lookForFire(s: SimState, size: number, w: Walker, which = FIRE_BURNING): boolean {
   const from = roadUnder(s, w);
   const got = fireInSight(s, size, position(w), from, which);
   if (!got) return false;
