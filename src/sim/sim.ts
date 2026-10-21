@@ -36,6 +36,7 @@ import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } f
 import { stepBattle } from './battle';
 import { fleetCommand, freshFleet, orderTrireme, stepErrands, stepFleet, yardGone } from './fleet';
 import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
+import { freshMaterials, moveLogger, moveQuarryman, stepMaterials } from './materials';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -85,6 +86,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     army: freshArmy(),
     walls: [],
     fleet: freshFleet(),
+    materials: freshMaterials(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -175,6 +177,8 @@ export class Sim {
     stepWalkers(s, map);
     stepFountains(s, map);
     stepMakers(s, map);
+    // Slice 32: the quarries' faces, the loggers' camps and the woods growing back (nothing with neither and no felled tree).
+    stepMaterials(s, map);
     stepAgoras(s, map, stepStalls);
     stepTrade(s, map);
     // Trade routes, their caravans and ships, and the caravan yard's porters (nothing in a town with neither).
@@ -573,7 +577,7 @@ function removeBuilding(s: SimState, map: CoastMap, b: Building): void {
     s.walkers = s.walkers.filter((w) => {
       // (A caravan bound for the yard turns back instead: see routes.ts. Raiders go on with what they took: raids.ts.)
       if (w.origin !== b.id || w.kind === 'caravan' || w.kind === 'raider') return true;
-      if ((w.kind === 'cart' || (w.kind === 'docker' && w.load > 0)) && !w.back) {
+      if ((w.kind === 'cart' || w.kind === 'sledge' || (w.kind === 'docker' && w.load > 0)) && !w.back) {
         const g = findBuilding(s, w.target);
         if (g) addComing(g, w.food, -w.load);
       }
@@ -873,7 +877,7 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               ? moveWatchman(s, map, w)
             : w.kind === 'inspector'
               ? moveInspector(s, map, w)
-            : w.kind === 'cart' || w.kind === 'porter'
+            : w.kind === 'cart' || w.kind === 'porter' || w.kind === 'sledge'
               ? moveErrand(s, map, w)
             : w.kind === 'docker'
               ? moveDocker(s, map, w)
@@ -883,6 +887,11 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? moveHunter(s, map, w)
               : w.kind === 'raider'
                 ? moveRaider(s, map, w)
+              // Slice 32: the quarrymen at the face and the loggers in the woods.
+              : w.kind === 'quarryman'
+                ? moveQuarryman(s, map, w)
+              : w.kind === 'logger'
+                ? moveLogger(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

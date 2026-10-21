@@ -964,7 +964,7 @@ function start(preparedTown: string | null): void {
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
   /** What M and K cycle through (Shift goes back a step). */
-  const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery'];
+  const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery', 'quarry', 'loggers'];
   const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
   /** What Z cycles through: the offices. */
   const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect'];

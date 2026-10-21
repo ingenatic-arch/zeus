@@ -19,14 +19,14 @@ import { dhypot } from '../map/dmath';
 import { findBuilding, HUT } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { DECLINE_AFTER, needsOf } from './folk';
-import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MEAT, nth, setFoodUntil, setHeld, type Food, type Ware } from './foods';
+import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MARBLE, MEAT, nth, setFoodUntil, setHeld, type Food, type Ware } from './foods';
 import { ARMOURY_COPPER, BARN, BARRACKS_RACK, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
 import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { NeedDue, NeedScore } from './walk';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
-import { besideRoad, CARRIER_SPEED, CART_SPEED, centre, newWalker, position, setPath, WALK_SPEED } from './walk';
+import { besideRoad, CARRIER_SPEED, centre, isCart, newWalker, position, setPath, speedOf, WALK_SPEED } from './walk';
 import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
 
@@ -40,9 +40,10 @@ export const CART_LOAD = 160;
 /**
  * …and of each ware (meat and cheese pack tighter than sheaves: one lodge's
  * or dairy's carts keep up with what it makes; then olives, oil, fleece,
- * grapes and wine).
+ * grapes and wine; copper and armour; then a quarry's sledge of marble
+ * blocks and a camp's cart of logs, slice 32).
  */
-export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16];
+export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16, 40, 40];
 /** Most carts a farm has on the road at once. */
 export const MAX_CARTS = 3;
 /** Ticks between carts setting off from the same farm. */
@@ -88,8 +89,8 @@ export const GOOD_PORTER_TAKE = 400;
  * and copper's the armoury's heap, which its porter tops up from the stores
  * when the mines' carts (or Greece's traders) left it there (army.ts).
  */
-export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600, ARMOURY_COPPER, BARRACKS_RACK];
-export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300, 100, 32];
+export const GOOD_STALL_ROOMS: readonly number[] = [0, GOOD_STALL_ROOM, 600, 0, 600, ARMOURY_COPPER, BARRACKS_RACK, 0, 0];
+export const GOOD_PORTER_TAKES: readonly number[] = [0, GOOD_PORTER_TAKE, 300, 0, 300, 100, 32, 0, 0];
 /** What a stall holds of its good, and what its porter brings at most. */
 export const stallRoom = (w: Ware): number => GOOD_STALL_ROOMS[w - FIRST_GOOD] ?? 0;
 export const porterTake = (w: Ware): number => GOOD_PORTER_TAKES[w - FIRST_GOOD] ?? 0;
@@ -196,7 +197,7 @@ export const FOOD: ServiceSpec = {
 /** Carts out from a farm (or any maker), or porters from the agora. */
 export function errandsOut(s: SimState, b: Building): number {
   let n = 0;
-  for (const w of s.walkers) if (w.origin === b.id && (w.kind === 'cart' || w.kind === 'porter')) n++;
+  for (const w of s.walkers) if (w.origin === b.id && (isCart(w) || w.kind === 'porter')) n++;
   return n;
 }
 
@@ -265,7 +266,8 @@ export function sendCart(s: SimState, size: number, f: Building, food: Ware, mos
   }
   const { g, way } = found;
   const load = Math.min(CART_TAKE[food], stock, roomFor(g, food));
-  const w = newWalker(s, 'cart', 1);
+  // (A quarry's carts are sledges, slice 32.)
+  const w = newWalker(s, food === MARBLE ? 'sledge' : 'cart', 1);
   w.origin = f.id;
   w.target = g.id;
   w.load = load;
@@ -345,7 +347,7 @@ export function goTo(s: SimState, size: number, w: Walker, to: Building, from: n
 
 /** Is this where a cart or porter is going: a building with room for the cart's ware, the granary for the food porter, a store of his good for a goods porter? */
 export function fits(g: Building, w: Walker): boolean {
-  if (w.kind === 'cart') return roomOf(g.kind, w.food) > 0;
+  if (isCart(w)) return roomOf(g.kind, w.food) > 0;
   return w.food >= FIRST_GOOD ? isStore(g.kind) && roomOf(g.kind, w.food) > 0 : g.kind === 'granary';
 }
 
@@ -356,12 +358,12 @@ export function fits(g: Building, w: Walker): boolean {
  */
 function rethink(s: SimState, size: number, w: Walker, origin: Building): boolean {
   const old = findBuilding(s, w.target);
-  if (old && w.kind === 'cart' && !w.back) addComing(old, w.food, -w.load);
+  if (old && isCart(w) && !w.back) addComing(old, w.food, -w.load);
   w.wait = 0;
   const from = lastRoad(s, w);
   if (!w.back && from >= 0) {
     const ok =
-      w.kind === 'cart'
+      isCart(w)
         ? (g: Building) => roomFor(g, w.food) >= w.load
         : w.food >= FIRST_GOOD
           ? (g: Building) => fits(g, w) && held(g, w.food) > 0
@@ -369,7 +371,7 @@ function rethink(s: SimState, size: number, w: Walker, origin: Building): boolea
     const found = nearestBy(s, size, [from], ok);
     if (found) {
       w.target = found.g.id;
-      if (w.kind === 'cart') addComing(found.g, w.food, w.load);
+      if (isCart(w)) addComing(found.g, w.food, w.load);
       setPath(w, wayPoints(size, position(w), found.way, found.g));
       return true;
     }
@@ -388,7 +390,7 @@ function lost(s: SimState, w: Walker, origin: Building): false {
 
 /** What a cart or porter carries goes into its own building (the barn, store or stall), as much as there is room for. */
 function bringBack(w: Walker, origin: Building): void {
-  if (w.kind === 'cart') {
+  if (isCart(w)) {
     const f = w.food;
     setHeld(origin, f, Math.min(storeOf(origin.kind), held(origin, f) + w.load));
     return;
@@ -414,7 +416,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     w.wait -= rateOf(g);
     if (w.wait > 0) return true;
     w.wait = 0;
-    if (w.kind === 'cart') {
+    if (isCart(w)) {
       const f = w.food;
       addComing(g, f, -w.load);
       setHeld(g, f, Math.min(roomOf(g.kind, f), held(g, f) + w.load));
@@ -449,7 +451,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     if (!(w.back ? goTo(s, size, w, origin, lastRoad(s, w)) : rethink(s, size, w, origin))) return lost(s, w, origin);
   }
   if (!w.back && !findBuilding(s, w.target) && !rethink(s, size, w, origin)) return lost(s, w, origin);
-  let move = w.kind === 'cart' ? CART_SPEED : WALK_SPEED;
+  let move = isCart(w) ? speedOf(w) : WALK_SPEED;
   for (let guard = 0; guard < 8 && move > 0; guard++) {
     const last = w.path.length / 2 - 1;
     if (w.seg >= last) break;

@@ -371,7 +371,15 @@ export function stateProblem(st: unknown): string {
   if (!armyOk(st.army)) return damaged('its army is wrong');
   if (!wallsOk(st.walls, st.tiles as number[])) return damaged('its walls are wrong');
   if (!fleetOk(st.fleet)) return damaged('its fleet is wrong');
+  // Slice 32.
+  if (!materialsOk(st.materials)) return damaged('its record of felled trees is wrong');
   return '';
+}
+
+/** The trees the loggers have felled (slice 32): each by its number in the map's plants, and the tick it fell. */
+function materialsOk(m: unknown): boolean {
+  if (!isObj(m) || !Array.isArray(m.felled)) return false;
+  return (m.felled as unknown[]).every((f) => isObj(f) && Number.isInteger(f.tree) && (f.tree as number) >= 0 && fin(f.at));
 }
 
 const TRIREME_NUMBERS = ['id', 'n', 'yard', 'x', 'z', 'hx', 'hz', 'along', 'hp', 'work', 'foe', 'cool', 'rammed', 'struck', 'start', 'dur', 'a0', 'a1', 'sank', 'owed'];

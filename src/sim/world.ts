@@ -127,6 +127,21 @@ const ARMS_EVEN: readonly [number, number, number, number] = [500, 500, 300, 300
 /** A city's copper and armour, made and used in a year: [copper made, copper used, armour made, armour used]. */
 export const armsOf = (id: CityId): readonly [number, number, number, number] => ARMS[id] ?? ARMS_EVEN;
 
+/**
+ * Slice 32: what each city makes and uses of marble and timber in a year, set
+ * by its character with no shuffle (as copper and armour are): Athens quarries
+ * marble to spare on Pentelikon, Troy fells timber to spare on Ida; everywhere
+ * else makes what it uses, and neither sells nor buys them.
+ * [marble made, marble used, timber made, timber used].
+ */
+const MATERIALS: Partial<Record<CityId, readonly [number, number, number, number]>> = {
+  athens: [1500, 500, 600, 600],
+  troy: [400, 400, 1800, 600],
+};
+const MATERIALS_EVEN: readonly [number, number, number, number] = [400, 400, 600, 600];
+/** A city's marble and timber, made and used in a year: [marble made, marble used, timber made, timber used]. */
+export const materialsOf = (id: CityId): readonly [number, number, number, number] => MATERIALS[id] ?? MATERIALS_EVEN;
+
 /** History between your city (where old Argos stood) and each, remembered for good. */
 const HISTORY: Partial<Record<CityId, { amount: number; why: string }>> = {
   sparta: { amount: -10, why: 'your city stands where old Argos did, Sparta’s old rival for the Peloponnese' },
@@ -194,6 +209,10 @@ function shuffleGoods(rng: RngState, c: WorldCity, ch: Character | null): void {
   const arms = armsOf(c.id);
   c.make.push(arms[0], arms[2]);
   c.need.push(arms[1], arms[3]);
+  // Marble and timber (slice 32), drawn on no dice either (see MATERIALS).
+  const mats = materialsOf(c.id);
+  c.make.push(mats[0], mats[2]);
+  c.need.push(mats[1], mats[3]);
   c.yours = zeros();
   c.crop = zeros();
   c.strife = zeros();
@@ -412,7 +431,7 @@ const HARVEST_ODDS = [7, 18, 45, 20, 10];
 /** What a harvest adds to (or takes from) a normal stock, failed to rich, for a good that feels it fully. */
 export const HARVEST_SHIFT = [-0.75, -0.35, 0, 0.32, 0.6];
 /** How much each trade good feels the harvest: wheat fully, oil and wine (crops too) six tenths, meat and cheese (fodder) three, fleece, copper and armour not at all. */
-export const CROP_WEIGHT = [1, 0.3, 0.3, 0.6, 0, 0.6, 0, 0];
+export const CROP_WEIGHT = [1, 0.3, 0.3, 0.6, 0, 0.6, 0, 0, 0, 0];
 /**
  * A push smaller than this (measures) is let go. (At least 0.75: pushes are
  * kept to the hundredth, and below that a day's wearing off, 1/150 of it, is
@@ -543,7 +562,7 @@ export function stepWorld(s: SimState): void {
 const NEWS_KEEP = 12;
 
 /** How far a war draws each trade good's stock down in both cities at most (a share of normal): food and fleece, and armour. */
-export const STRIFE_SHARE: readonly number[] = [0.4, 0.4, 0.4, 0, 0.45, 0, 0, 0.3];
+export const STRIFE_SHARE: readonly number[] = [0.4, 0.4, 0.4, 0, 0.45, 0, 0, 0.3, 0, 0];
 /** Days for a war's push to come on, by about two thirds. */
 export const STRIFE_RAMP_DAYS = 8;
 

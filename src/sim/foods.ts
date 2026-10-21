@@ -24,7 +24,7 @@ export const FOODS: readonly Food[] = [WHEAT, MEAT, CHEESE];
 /**
  * Every ware carried and stored, in a fixed order (saved by index): the
  * three foods, then the goods (see goods.ts): olives, oil, fleece, grapes,
- * wine, then copper and armour. A building keeps foods in their own fields and goods in `goods`
+ * wine, then copper and armour, then marble and timber. A building keeps foods in their own fields and goods in `goods`
  * (one number per good, from FIRST_GOOD); a cart carries one ware.
  */
 export const OLIVES = 3;
@@ -35,13 +35,16 @@ export const WINE = 7;
 /** Copper ore, dug from the hills (slice 23), and armour (a helmet, a breastplate, a round shield and a spear: one set a man), made from it at the armoury. */
 export const COPPER = 8;
 export const ARMOUR = 9;
+/** Marble, cut in blocks at a quarry, and timber, felled in logs at a loggers' camp (slice 32): what monuments and great houses are built of. */
+export const MARBLE = 10;
+export const TIMBER = 11;
 export type Ware = number;
 export const FIRST_GOOD = OLIVES;
 /** How many goods there are (the length of a building's `goods`, `goodsIn` and `goodsUntil`). */
-export const GOOD_COUNT = 7;
-export const WARES: readonly Ware[] = [WHEAT, MEAT, CHEESE, OLIVES, OIL, FLEECE, GRAPES, WINE, COPPER, ARMOUR];
+export const GOOD_COUNT = 9;
+export const WARES: readonly Ware[] = [WHEAT, MEAT, CHEESE, OLIVES, OIL, FLEECE, GRAPES, WINE, COPPER, ARMOUR, MARBLE, TIMBER];
 /** Each ware by name, as it is stored and carried. */
-export const WARE_NAMES = ['wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine', 'copper', 'armour'] as const;
+export const WARE_NAMES = ['wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine', 'copper', 'armour', 'marble', 'timber'] as const;
 /** The goods homes buy from a stall, by the need each is (see goods.ts), and back. */
 export const SERVICE_GOOD: Partial<Record<Service, Ware>> = { oil: OIL, fleece: FLEECE, wine: WINE };
 export const GOOD_SERVICE: Partial<Record<Ware, Service>> = { [OIL]: 'oil', [FLEECE]: 'fleece', [WINE]: 'wine' };

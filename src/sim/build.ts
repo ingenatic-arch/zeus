@@ -9,6 +9,7 @@ import { dhypot } from '../map/dmath';
 import { beside, findBuilding, sideOf } from './buildings';
 import { shoreRefusal } from './trade';
 import { towerRefusal } from './walls';
+import { materialRefusal } from './materials';
 import { TILE_EMPTY, TILE_ROAD, TILE_WALL, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
@@ -42,6 +43,9 @@ export const BARRACKS_COST = 500;
 export const TOWER_COST = 200;
 /** The shipyard (3 x 3 on the shore, like the trading post; slice 26, see fleet.ts): its triremes are paid for as they are ordered. */
 export const SHIPYARD_COST = 300;
+/** The marble quarry (3 x 3, on marble in the rock) and the loggers' camp (2 x 2, at a wood's edge; slice 32, see materials.ts). */
+export const QUARRY_COST = 250;
+export const LOGGERS_COST = 150;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -81,6 +85,8 @@ export const COST: Record<BuildingKind, number> = {
   barracks: BARRACKS_COST,
   tower: TOWER_COST,
   shipyard: SHIPYARD_COST,
+  quarry: QUARRY_COST,
+  loggers: LOGGERS_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -489,8 +495,8 @@ export function outcropPlace(x: number, z: number): string {
   return best.place;
 }
 
-/** Kinds planted on the slopes, each tree or vine on its own ground (and the copper mine, cut into the hillside): they take ground too steep and uneven for a house. */
-export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine';
+/** Kinds planted on the slopes, each tree or vine on its own ground (and the copper mine and the marble quarry, cut into the hillside): they take ground too steep and uneven for a house. */
+export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine' || kind === 'quarry';
 
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
@@ -499,7 +505,7 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   const side = sideOf(kind);
   const r = footprintRefusal(map, s, tx, tz, side, onSlopes(kind));
   // (The ground's own word is a home's: for anything else, it is too steep for that.)
-  if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves, vineyards and mines can take a slope like this';
+  if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves, vineyards, mines and quarries can take a slope like this';
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
@@ -517,6 +523,11 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   }
   if (kind === 'yard' && s.buildings.some((b) => b.kind === 'yard')) return 'Only one caravan yard: every caravan comes to it';
   if (kind === 'mine' && copperOf(map, tx, tz, side) < MINE_COPPER_MIN) return 'No copper in the rock here: a mine needs the green-streaked rock in the hills';
+  // Slice 32: the quarry on marble, the loggers' camp at a wood's edge.
+  if (kind === 'quarry' || kind === 'loggers') {
+    const m = materialRefusal(map, s, kind, tx, tz);
+    if (m) return m;
+  }
   if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';
   return '';
 }

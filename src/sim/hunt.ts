@@ -81,7 +81,7 @@ export function herdsInReach(s: SimState, l: Building): Array<{ h: Herd; i: numb
 const tileAt = (size: number, x: number, z: number): number => Math.floor(z) * size + Math.floor(x);
 
 /** A path for a hunter from where he stands (or the lodge's side) to a point, as waypoints with no road tiles; null if there is no way. */
-function routeTo(s: SimState, map: CoastMap, here: [number, number], starts: number[], x: number, z: number, short: number): Array<[number, number, number]> | null {
+export function routeTo(s: SimState, map: CoastMap, here: [number, number], starts: number[], x: number, z: number, short: number): Array<[number, number, number]> | null {
   const size = map.size;
   const tiles = offRoadPath(map, s, starts, tileAt(size, x, z));
   if (!tiles) return null;
@@ -102,7 +102,7 @@ function routeTo(s: SimState, map: CoastMap, here: [number, number], starts: num
 }
 
 /** The tiles a walker standing here can set off from: his own, or the nearest walkable ones round it. */
-function startsAt(map: CoastMap, s: SimState, x: number, z: number): number[] {
+export function startsAt(map: CoastMap, s: SimState, x: number, z: number): number[] {
   const size = map.size;
   const t = tileAt(size, x, z);
   if (walkable(map, s, t)) return [t];
@@ -112,7 +112,7 @@ function startsAt(map: CoastMap, s: SimState, x: number, z: number): number[] {
 }
 
 /** Send him home to his lodge from where he stands. False if there is no way. */
-function goHome(s: SimState, map: CoastMap, w: Walker, l: Building): boolean {
+export function goHome(s: SimState, map: CoastMap, w: Walker, l: Building): boolean {
   const size = map.size;
   const here = position(w);
   const sides = around(size, l).filter((t) => walkable(map, s, t));

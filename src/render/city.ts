@@ -75,6 +75,8 @@ export class CityView {
     if (s.rev !== this.rev) this.sync(s);
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
+    // Slice 32: the trees being chopped and felled, and the woods growing back.
+    this.plants.works(s, alpha, time);
     this.folk.begin();
     // Raiders on the map: whoever is near them has run indoors (the sim's own rule), and is not drawn.
     const bands = bandsAt(s);

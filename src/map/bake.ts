@@ -728,6 +728,28 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
       put(TreeKind.Reed, x, z, rng.range(0.55, 0.9), false);
     }
   }
+
+  // Slice 32: the woods the loggers fell, pines with a cypress here and there, on their own random numbers
+  // and after every other plant, so every plant that was there before keeps its place and its number.
+  const wr = new Rng(COAST_SEED + 32);
+  for (const w of data.woods ?? []) {
+    const count = Math.round(w.r * w.r * 0.65);
+    for (let i = 0; i < count; i++) {
+      const a = wr.range(0, Math.PI * 2);
+      const r = Math.sqrt(wr.float()) * w.r;
+      const x = w.x + dcos(a) * r;
+      const z = w.z + dsin(a) * r;
+      const cypress = wr.float() < 0.15;
+      const scale = cypress ? wr.range(0.85, 1.2) : wr.range(0.8, 1.2);
+      const rot = wr.range(0, Math.PI * 2);
+      const tint = wr.range(-1, 1);
+      if (!map.inMap(x, z) || !groundOk(x, z, 0.8)) continue;
+      const key = cellKey(x, z);
+      if (taken.has(key)) continue;
+      taken.add(key);
+      out.push({ kind: cypress ? TreeKind.Cypress : TreeKind.Pine, x, z, scale, rot, tint });
+    }
+  }
   return out;
 }
 
