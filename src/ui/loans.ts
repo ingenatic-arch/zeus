@@ -157,7 +157,7 @@ function yourDebtHtml(s: SimState, l: Loan): string {
   const repay = loanButton('repay', `Repay now · ${fmt(l.owed)} dr`, { id: l.id }, repayWhy, `The whole sum, interest and all, from the treasury now; your herald takes it.${running ? ` Repaid on time: ${signed(kept)} with ${name(l.city)}, and every ruler’s terms a percent better` : ' It stops the next step'}`, 'take');
   const time = running ? loanButton('time', 'Ask for more time', { id: l.id }, debtRefusal(s, l, 'time'), `${title(c)}’s envoy answers at once: granted, the day moves on and the sum grows; refused, nothing changes`, 'decline') : '';
   const hold = l.withhold
-    ? loanButton('withhold', running ? 'Pay it on the day' : 'Pay when the treasury can', { id: l.id }, '', running ? 'Paid from the treasury on the day, if it can' : 'Paid as soon as the treasury can spend it, which stops the steps', 'decline')
+    ? loanButton('withhold', running ? 'Pay it on the day' : 'Pay when the treasury can', { id: l.id }, '', running ? 'Paid from the treasury on the day, if it can' : 'Paid as soon as the treasury can spare it and keep a month’s wages and pay, which stops the steps; Repay now pays it at once', 'decline')
     : loanButton('withhold', 'Hold back payment', { id: l.id }, debtRefusal(s, l, 'withhold'), running ? `Not paid on the day, whatever the treasury holds: ${name(l.city)} remembers it longest (${signed(loanMemory(c, 'defaulted', '', s.tick).amount)}), Greece hears, and the steps below follow` : 'Not paid even when the treasury could: the steps go on', 'refuse');
   out.push(`<div class="acts">${repay}${time}${hold}</div>`);
   return out.join('');

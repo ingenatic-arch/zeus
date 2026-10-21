@@ -54,6 +54,8 @@ import { OLD_GOODS, TRADE_GOODS, tradingPost } from './trade';
 import { isStore } from './stores';
 import { districtAt, districtTitle } from '../map/districts';
 import { income, owedWages, pay, spendable, wageBill } from './treasury';
+import { strength } from './army';
+import { ROWER_PAY } from './lanes';
 import { cityOf, COLD, fadeFor, lastHarvest, moodLevel, moodOf, MOOD_WORDS, rulerName } from './world';
 
 // ---------------------------------------------------------------------------
@@ -970,7 +972,7 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
     if (l.demand > 0 && s.tick >= l.demand) demandDay(s, l);
     return;
   }
-  if (!l.withhold && spendable(s) >= l.owed && !collecting(s, l)) {
+  if (!l.withhold && spendable(s) >= l.owed + monthsPay(s) && !collecting(s, l)) {
     const days = Math.round((s.tick - l.due) / TICKS_PER_DAY);
     repay(s, l);
     news(w, s.tick, l.city, `Your overdue loan from ${cityName(l.city)} is paid at last: ${fmt(l.owed)} dr, ${days} days late`);
@@ -1003,6 +1005,15 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
     } else if (r && r.ended === 0 && r.coin !== l.owed && r.phase !== 'raiding') r.coin = l.owed;
   }
 }
+
+/**
+ * What a month's wages and pay come to (dr): the workplaces', the soldiers'
+ * and the rowers'. An overdue loan of yours paid of itself keeps this back,
+ * so paying it never leaves the next month's wages unpaid (review of phase 4:
+ * #fortress's debt, paid the day the treasury could, left 3 dr, and wages
+ * went unpaid for three months). "Repay now" still pays whatever is left.
+ */
+export const monthsPay = (s: SimState): number => wageBill(s) + strength(s).pay + s.fleet.triremes.reduce((a, t) => a + t.crew.length * ROWER_PAY, 0);
 
 /** Step 2: two months on, still unpaid, the lender closes their routes and seizes your goods on them. */
 function seizeStep(s: SimState, l: Loan): void {
@@ -1394,7 +1405,7 @@ export function loanLine(s: SimState, l: Loan): string {
     case 'running':
       return `${fmt(l.owed)} dr due ${l.side === 'in' ? 'to' : 'from'} ${name} ${dayWords(l.due)} (in ${days(l.due)})`;
     case 'overdue':
-      if (l.side === 'in') return `Overdue since ${dayWords(l.due)}: ${fmt(l.owed)} dr${l.seized ? ` (${fmt(l.seized)} dr of it seized already)` : ''}, ${l.withhold ? 'held back' : 'paid as soon as the treasury can spend it'}`;
+      if (l.side === 'in') return `Overdue since ${dayWords(l.due)}: ${fmt(l.owed)} dr${l.seized ? ` (${fmt(l.seized)} dr of it seized already)` : ''}, ${l.withhold ? 'held back' : `paid once the treasury can spend ${fmt(l.owed + monthsPay(s))} dr, the debt and a month’s wages besides`}`;
       return `Overdue since ${dayWords(l.due)}: ${name} has not repaid the ${fmt(l.owed)} dr it owes you${l.seized ? ` (${fmt(l.seized)} dr recovered by your soldiers)` : ''}`;
     case 'grace':
       return `${name} cannot repay the ${fmt(l.owed)} dr due ${dayWords(l.due)}, and asks for ${TIME_MONTHS} months more, for ${TIME_RATE}% more (${fmt(timeOwed(l, TIME_RATE))} dr in all): answer by ${dayWords(l.until)} (${days(l.until)})`;
@@ -1456,7 +1467,7 @@ export function loanTownLine(s: SimState): { text: string; city: CityId } | null
     const name = cityName(late.city);
     const c = cityOf(w, late.city);
     const he = c.ruler?.female ? 'she' : 'he';
-    const pays = late.withhold ? 'you are holding it back' : `paid as soon as the treasury can spend it (it can spend ${fmt(spendable(s))} dr now)`;
+    const pays = late.withhold ? 'you are holding it back' : `paid once the treasury can spend ${fmt(late.owed + monthsPay(s))} dr, the debt and a month’s wages besides (it can spend ${fmt(spendable(s))} dr now)`;
     if (late.step <= 1) return { text: `Your loan from ${name} is overdue: ${fmt(late.owed)} dr, ${pays}. Unpaid on ${dayWords(late.stepAt + STEP_GAP)}, ${name} closes its routes to you and seizes your goods on them.`, city: late.city };
     if (late.step === 2) return { text: `${name} is seizing your goods against your debt (${fmt(late.owed)} dr left${late.seized ? `, ${fmt(late.seized)} dr seized so far` : ''}): unpaid on ${dayWords(late.stepAt + STEP_GAP)}, ${he} sends men to collect the rest. ${cap(pays)}.`, city: late.city };
     const r = w.raids.find((x) => x.id === late.raid);
