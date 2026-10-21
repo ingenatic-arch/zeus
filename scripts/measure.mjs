@@ -292,6 +292,8 @@ for (const [hash, views] of [
   // Slice 28: Corinth's men in the city collecting a debt; the companies' town with its army away.
   ['#creditors-paused-shot', [null, 'town']],
   ['#report-paused-shot', ['companies', 'town']],
+  // Slice 29: the walled town with Sparta's band gathering, over the west gate.
+  ['#fortress-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -373,6 +375,33 @@ for (const [hash, views] of [
   await page.waitForTimeout(8000);
   const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, w: window.__zeus.walls() }));
   console.log(`#siege hammering   update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${a.w.hammering} then ${z.w.hammering} raiders hammering, ${z.w.towerArrows} tower arrows in the air)`);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+}
+
+// Slice 29: #fortress's fight at the west gate (three companies held inside it, the band at the gate under three towers): what it
+// draws, and the main thread's work a frame while it goes on at normal speed.
+{
+  await page.goto('about:blank');
+  await page.goto(url + '#fortress-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const b0 = await page.evaluate(() => {
+    const z = window.__zeus;
+    for (const c of z.army().companies) z.order({ type: 'banner', company: c.id, tile: 41 * 128 + 43 });
+    for (let i = 0; i < 1500 && z.battle().fighting < 6; i += 2) z.skip(2);
+    const c = z.battle().centre ?? { x: 41, z: 41 };
+    z.jump({ x: c.x, z: c.z, yaw: 2.65, dist: 16, tilt: 0.0 });
+    return z.battle();
+  });
+  await page.waitForFunction((f) => window.__zeus.frames > f, (await page.evaluate(() => window.__zeus.frames)) + 3, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#fortress the fight: triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)} · ${b0.foes} raiders standing, ${b0.fighting} fighting, ${b0.arrows} arrows in the air`);
+  await page.setViewportSize({ width: 960, height: 540 });
+  await page.evaluate(() => window.__zeus.speed('normal'));
+  await page.waitForTimeout(4000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, b: window.__zeus.battle() }));
+  await page.waitForTimeout(8000);
+  const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, b: window.__zeus.battle() }));
+  console.log(`#fortress fought   update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${a.b.fighting} then ${z.b.fighting} raiders fighting)`);
   await page.setViewportSize({ width: 1920, height: 1080 });
 }
 

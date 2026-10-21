@@ -949,6 +949,56 @@ Object.assign(BEFORE, {
     });
   },
 });
+// Slice 29: #fortress as it opens, with its panel; the band at the west gate under the towers with the companies held inside;
+// the fight there; the band before the gate from close; the triremes at the jetty; the map of Greece with the loans and the band.
+Object.assign(SHOTS, {
+  fortress: '#fortress-paused',
+  'fortress-shot': '#fortress-paused-shot',
+  'fortress-gate': '#fortress-paused-shot',
+  'fortress-fight': '#fortress-paused-shot',
+  'fortress-close': '#fortress-paused-shot',
+  'fortress-ships': '#fortress-paused-shot',
+  'fortress-greece': '#fortress-paused',
+  'fortress-1280': '#fortress-paused',
+});
+const holdAtGate = () => {
+  const z = window.__zeus;
+  for (const c of z.army().companies) z.order({ type: 'banner', company: c.id, tile: 41 * 128 + 43 });
+};
+Object.assign(BEFORE, {
+  'fortress-gate': async (page) => {
+    await page.evaluate(holdAtGate);
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 1600 && !z.raids().raids.some((r) => r.phase === 'raiding'); i += 2) z.skip(2);
+      for (let i = 0; i < 400 && z.walls().hammering === 0 && z.battle().fighting === 0; i += 2) z.skip(2);
+      z.jump({ x: 36, z: 41, yaw: 1.4, dist: 18, tilt: 0.05 });
+    });
+  },
+  'fortress-fight': async (page) => {
+    await page.evaluate(holdAtGate);
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 2000 && z.battle().fighting < 6; i += 2) z.skip(2);
+      const c = z.battle().centre ?? { x: 41, z: 41 };
+      z.jump({ x: c.x, z: c.z, yaw: 1.9, dist: 9, tilt: 0.15 });
+    });
+  },
+  'fortress-close': async (page) => {
+    await page.evaluate(holdAtGate);
+    await page.evaluate(() => {
+      const z = window.__zeus;
+      for (let i = 0; i < 2000 && z.walls().hammering < 3; i += 2) z.skip(2);
+      z.jump({ x: 39.5, z: 41.5, yaw: -1.6, dist: 8, tilt: 0.2 });
+    });
+  },
+  'fortress-ships': async (page) => page.evaluate(() => window.__zeus.jump({ x: 70, z: 72, yaw: 2.6, dist: 22, tilt: 0.0 })),
+  'fortress-greece': async (page) => {
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
+    await page.waitForTimeout(1500);
+  },
+});
 void T25;
 
 const want = process.argv.slice(2);

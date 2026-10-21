@@ -5,7 +5,7 @@
  */
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
-import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
+import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, SHIPYARD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TOWER_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
@@ -15,9 +15,9 @@ import { roadRoute } from '../sim/roads';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
-import { WAGE, wageBill } from '../sim/treasury';
+import { spendable, WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
-import { GATE_HP } from '../sim/walls';
+import { GATE_COST, GATE_HP, WALL_COST } from '../sim/walls';
 import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
@@ -28,7 +28,7 @@ import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, stageDefault, STEP_GAP, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
-import { CREW, daysToBeach, pirateBand, shipsOf } from '../sim/fleet';
+import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import type { Speed } from './clockDriver';
@@ -1898,6 +1898,154 @@ function dueAndDefault(sim: Sim, id: number): void {
   sim.run(TICKS_PER_DAY);
 }
 
+/**
+ * A city worth defending (slice 29). #fortress: #companies' town (built
+ * street by street, its mine, armoury, barracks and two companies) carried
+ * on as its builder would carry it on, each step when the treasury can pay
+ * for it and a month's wages, answering Greece as a middling player would
+ * (requests sent when the stores or the treasury can, offers and loans
+ * offered taken, tribute paid when it can be, asks to borrow lent when the
+ * treasury can spare it):
+ * - the road north and the caravan yard, and routes to Corinth and Sparta by
+ *   road and Athens and Troy by sea, with what each buys ticked for sale;
+ * - a shipyard by the river mouth and two triremes, built and crewed in turn;
+ * - a second barracks inside the west gate, and a company of hoplites raised
+ *   there (filling as far as the fine houses and villas can spare men);
+ * - a loan to a ruler (Greece's own ask, lent, if one comes within a year;
+ *   else asked for the demo and named so, once the treasury can spare it);
+ * - the walls, on a loan asked of Corinth as a player in want of their cost
+ *   would (unless a ruler's offer taken is still running): the west wall up
+ *   the river's east bank from the hills (#siege's line), its gate where the
+ *   road crosses and two towers beside it, and a wall across the valley
+ *   north of the town with a gate on the north road and a tower inside it.
+ * Then, played on until Greece is calm (no threat or band live), Sparta's
+ * king is turned against the city (set up for the demo, and named so, as
+ * #battle's): his threat refused, his band gathering. It opens with the band
+ * at most FORTRESS_DAYS from the west edge (about three weeks: it gathers
+ * for ten days, then marches), the Army tab open.
+ */
+const FORTRESS_ROUTES: Array<[CityId, 'land' | 'sea']> = [
+  ['corinth', 'land'],
+  ['sparta', 'land'],
+  ['athens', 'sea'],
+  ['troy', 'sea'],
+];
+/** The north wall: across the valley north of the town (row 22), from the west wall's head to the east edge, cliffs skipped, a gate on the north road. */
+const FORTRESS_NORTH = row(41, 127, 22);
+const FORTRESS_NORTH_TOWER = T(87, 23);
+/** The second barracks, inside the west gate, and its lane up from the main street. */
+const FORTRESS_BARRACKS = T(44, 34);
+const FORTRESS_LANE = col(48, 34, 40);
+/** How many days from the west edge Sparta's band is when #fortress opens. */
+const FORTRESS_DAYS = 24;
+/** The longest #fortress plays on for a ruler's own loan offer or ask (a year each), and for Greece to be calm. */
+const FORTRESS_WAIT = TICKS_PER_YEAR;
+/** What #fortress lends a ruler, if none has asked by the time its second barracks is up (set up for the demo, and named so). */
+const FORTRESS_LEND = 1000;
+
+/** Answer whatever Greece has asked, as a middling player would (nothing a threat: the demo deals with those). */
+function answerAsMiddling(sim: Sim, seen: Set<number>): void {
+  const s = sim.state;
+  for (const d of s.world.deals) {
+    if (seen.has(d.id) || d.state !== 'open') continue;
+    seen.add(d.id);
+    const act = d.kind === 'offer' || d.kind === 'loanoffer' ? 'take' : d.kind === 'request' || d.kind === 'tribute' || d.kind === 'loanask' ? 'send' : '';
+    if (!act) continue;
+    sim.enqueue({ type: 'answer', deal: d.id, act });
+    sim.flush();
+  }
+}
+
+function fortressTown(): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    // Played on a day at a time, answering Greece; until `done` or `most` ticks.
+    const playOn = (most: number, done: () => boolean = () => false): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const afford = (cost: number, most = 6 * TICKS_PER_MONTH): void => playOn(most, () => spendable(s) >= cost + wageBill(s));
+    // The road north and the caravan yard (as #rivals), with a watch post and an architect beside it.
+    afford((NORTH_ROAD.length + YARD_ROAD.length) * ROAD_COST + YARD_COST + WATCHPOST_COST + ARCHITECT_COST + (JOBS.yard + JOBS.watchpost + JOBS.architect) * WAGE);
+    send({ type: 'road', tiles: [...NORTH_ROAD, ...YARD_ROAD] });
+    send({ type: 'build', kind: 'yard', at: [T(YARD_AT.x, YARD_AT.z)] });
+    send({ type: 'build', kind: 'watchpost', at: [T(YARD_WATCH.x, YARD_WATCH.z)] });
+    send({ type: 'build', kind: 'architect', at: [T(YARD_ARCHITECT.x, YARD_ARCHITECT.z)] });
+    playOn(ROUTE_WAIT, () => (rateOf(caravanYard(s)!) ?? 0) > 0);
+    for (const [city, kind] of FORTRESS_ROUTES) {
+      afford(routeWay(city, kind)!.fee + 300);
+      if (routeRefusal(s, city, kind)) continue;
+      send({ type: 'route', city, kind });
+      for (const k of tradesOf(s, city).theyBuy) send({ type: 'deal', city, kind, good: TRADE_GOODS[k], sell: true });
+    }
+    // The shipyard and two triremes.
+    afford(SHIPYARD_COST + SHIPYARD_ROAD.length * ROAD_COST + 2 * TRIREME_COST);
+    fleetOf(sim, 2);
+    answerAsMiddling(sim, seen);
+    // The second barracks inside the west gate, and a company of hoplites raised there once it is staffed.
+    afford(FORTRESS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE, FORTRESS_WAIT);
+    send({ type: 'road', tiles: FORTRESS_LANE });
+    send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
+    const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+    if (second) {
+      playOn(3 * TICKS_PER_DAY, () => second.workers > 0);
+      send({ type: 'raise', barracks: second.id, kind: 'hoplite' });
+    }
+    // A loan to a ruler who asks: Greece's own, while the treasury fills (a year at most); else one asked for the demo, and named so, once the treasury can spare it.
+    const loanOut = (): boolean => s.world.loans.some((l) => l.side === 'out' && l.ended === 0 && l.state !== 'proposed');
+    playOn(FORTRESS_WAIT, loanOut);
+    if (!loanOut()) {
+      afford(FORTRESS_LEND + wageBill(s), FORTRESS_WAIT);
+      const c = s.world.cities.find((x) => x.ruler && moodOf(x, s.tick) > COLD && !s.world.loans.some((l) => l.city === x.id && l.ended === 0) && !s.world.deals.some((d) => d.city === x.id && d.state === 'open'));
+      if (c) {
+        const d = makeLoanAsk(s, c, FORTRESS_LEND);
+        d.why = `${d.why} (set up for this demo)`;
+        const l = loanOfDeal(s.world, d.id);
+        if (l) l.why = d.why;
+        seen.add(d.id);
+        playOn(TICKS_PER_DAY);
+        send({ type: 'answer', deal: d.id, act: 'send' });
+      }
+    }
+    // The walls and towers, on a loan from Corinth (as a player in want of their cost would ask), unless a ruler's offer taken is still running: the west wall first (Sparta's side), then the north.
+    const loanIn = (): boolean => s.world.loans.some((l) => l.side === 'in' && (l.state === 'coming' || l.state === 'running'));
+    const west = SIEGE_WALL.length * WALL_COST + GATE_COST + SIEGE_TOWERS.length * TOWER_COST;
+    const north = FORTRESS_NORTH.length * WALL_COST + GATE_COST + TOWER_COST;
+    if (!loanIn()) {
+      const want = west + north + 3 * wageBill(s) - spendable(s);
+      const spare = spareOf(s, cityOf(s.world, 'corinth')).spare;
+      const amount = ASK_SUMS.find((n) => n >= want && n <= spare) ?? [...ASK_SUMS].reverse().find((n) => n <= spare) ?? ASK_SUMS[0];
+      send({ type: 'loan', act: 'ask', city: 'corinth', amount });
+      playOn(3 * TICKS_PER_MONTH, () => !s.world.loans.some((l) => l.state === 'asking'));
+      const terms = s.world.loans.find((l) => l.city === 'corinth' && l.state === 'terms');
+      if (terms) send({ type: 'loan', act: 'accept', loan: terms.id });
+      playOn(3 * TICKS_PER_MONTH, () => !s.world.loans.some((l) => l.side === 'in' && l.state === 'coming'));
+    }
+    afford(west, FORTRESS_WAIT);
+    send({ type: 'wall', tiles: SIEGE_WALL });
+    for (const t of SIEGE_TOWERS) send({ type: 'build', kind: 'tower', at: [t] });
+    afford(north, FORTRESS_WAIT);
+    send({ type: 'wall', tiles: FORTRESS_NORTH });
+    send({ type: 'build', kind: 'tower', at: [FORTRESS_NORTH_TOWER] });
+    // Calm in Greece, and the herald home; then Sparta's king turned against the city.
+    playOn(FORTRESS_WAIT, () => !threatLive(s.world) && !s.world.gifts.some((g) => g.loan > 0));
+    stagedRaid(sim, 'sparta', 'the king will not have a walled city arming itself across his road north');
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    playOn(TICKS_PER_YEAR, () => reachesEdge(s, r) - s.tick <= FORTRESS_DAYS * TICKS_PER_DAY || r.phase === 'raiding');
+  };
+}
+const FORTRESS = fortressTown();
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -2026,6 +2174,8 @@ const SCENES: Record<string, Demo> = {
   collect: { view: 'companies', setup: debtTown('collect'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   report: { view: 'companies', speed: 'paused', setup: debtTown('report'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   forgive: { view: 'rivals', setup: debtTown('forgive'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
+  // A city worth defending (slice 29).
+  fortress: { view: 'fortress', setup: FORTRESS, overlay: 'missing', side: { tab: 'army' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
