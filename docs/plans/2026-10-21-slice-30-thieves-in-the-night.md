@@ -37,9 +37,9 @@ Measured at `70087da` (the phase 5 spec, on the trunk after phase 4's review), h
 |---|---|
 | Tests | 444, all passing |
 | Download (gzipped) | 2,983 KB: the game 681 KB, the prepared towns 2,302 KB (79 files) |
-| First load (bare link) | see As built (measured with three other lines building) |
-| Demo loads | 110 demos |
-| `#town` / `#richtown` | 693 people, 322 dr at opening / see As built |
+| First load (bare link) | ready at 4.8 s, first frame at 6.0 s (side by side with the slice's build, with three lines building: see the check-in) |
+| Demo loads | 110 demo links (108 with a history); `#town` ready at 4.8 s, `#richtown` 4.5 s, `#fortress` 5.0 s under the same load |
+| `#town` / `#richtown` | 693 people, 322 dr, a save 149 KB / a save 187 KB |
 
 Software WebGL on a machine shared with three other builders: frame and load times swing by a third or more from run to run, so only large changes count.
 
@@ -92,4 +92,34 @@ Each day (staggered by id) `tempt` rises by the score times TEMPT_STEP (about 8,
 
 ## As built
 
-(Filled in at the end of the slice.)
+Commits on `claude/p5-city`: the plan `4b0e7b5`; the sim, panel, ledger, lines and overlay `52726ac`; the demos, their smoke and measures `f21409a`; the stores' and tax office's month between thefts `3d694f8`; young men first, and the words following who went `f5e5153`; and this note with the check-in.
+
+**As planned:** `crime.ts` (temptation, thieves, catches, news, tallies), the switch (`{ type: 'crime', on }`, on in a new game, as a demo opens and as a save loads), state version 28 with `fromSlice30`, the thief (`thief`, last in `WALKER_KINDS`), the story's `robbed`, `stole` and `caught`, the ledger's `stolen` and `fines`, the stock book's "Stolen by thieves", the panel's temptation block, the crime overlay and side-panel row, the town lines, and the leftovers (first-year fire at 70% and its line from half way; harsh's harder bite; satchels handed in each day; the "no road" sign; town lines while paused). The temptation reasons and their weights are the plan's.
+
+**Changed while tuning** (each found by playing a demo on in the sim and reading what happened):
+- **Temptation needs a real grievance.** It rises only at a score of 3 or more (TEMPT_FROM), each point from there adding 8 a day, and falls 25 a day below it. With "more than nothing", as planned, `#food` lost 1,804 dr to thieves over three years and ten homes went down a level; now it loses next to nothing and none go down.
+- **A thief's reach is 40 steps by road** (planned 24): at 24 the hut street's thieves could only reach the storehouse and robbed it over and over, never the villas. A richer home within envy's reach (5 tiles) is worth twice as much to them, and a target another thief is already heading for is passed by.
+- **The tax office gives up at most 20 dr,** or a twentieth of the treasury if less (planned 40), and counts for a quarter of that in a thief's choice, so homes come first.
+- **A store or the tax office robbed isn't robbed again for a month** (new `robbedAt` on every building, filled in by `fromSlice30`). The demo probe found `#closed`, played on with crime on, losing 780 dr in six months to thieves at its tax office, robbed every few days; now it loses 100 dr.
+- **The watchman's chase** lives in `crime.ts` (`moveWatch` wraps the round's step and is what `sim.ts` calls), not inside `hazards.ts`; fires still come first.
+- **A household's young men go out first,** then the older men, then a woman, and every line says he or she as it is (a run of `#harsh` had "Timarete ... on his way home").
+- **A thief who is the head of his house** is named so ("Telekles, the head of the house"), not "Telekles of the house of Telekles"; a full home held back by the three-thieves cap says so in its panel.
+
+**The demos.** `#thieves` is `#richtown`'s town with only the west bank's watch post kept (its hamlet isn't what the demo is about) and a new street of eight huts and a fountain along the slope behind the core's villas, out of either agora's reach; crime goes on once six are huts, and it opens about 6 days before the first thief, with five huts more than half way. `#nowatch` carries it on four months (by then the street's thieves have robbed villas nine times and nothing else: the villas are worth more than the stores or the office), and opens paused on the panel of the most tempted hut whose son has already stolen. So `#nowatch`'s ledger has no Stolen line; the tests cover that line instead, and the smoke checks the story.
+
+**Earlier towns** (the demo probe, outside the repo: every demo's state hashed without the slice's own fields, the version and the command count). All 108 earlier demos open identically. Played on 900 ticks with the switch turned off again, all 108 are identical. With it on: people are the same in 107 (`#harsh` 577, was 628: harsh bites harder), levels the same in 107 (`#harsh`), and money is never lower, median 219 dr higher (taxes reach the treasury day by day, so more of what was collected is in by then). Natural play, `#town` a year on: at its own rate the same 1,040 people and 81 homes, 2,254 dr (was 1,982), taxes in on about 225 days of the year (was 30), the biggest day 332 dr (was 212: the collector still calls on most homes within a day or two); at harsh 286 people and 53 homes (was 436 and 68), 2,735 dr (was 4,160), 56 thefts and 4 thieves caught.
+
+**Touched outside the line** (each in a block of its own marked "Slice 30", nothing reordered):
+- `src/sim/state.ts`: the version (28), `tempt` and `robbedAt` on buildings, `thief` at the end of `WALKER_KINDS`, the story's three kinds and `n`, the ledger's two kinds, `SimState.crime`.
+- `src/sim/sim.ts`: `crime` in a fresh state, the two building fields, the `crime` command, `stepCrime` after `stepHazards`, the thief's and watchman's steps. `src/sim/commands.ts`: the `crime` command, last in the union.
+- `src/sim/migrate.ts`: the note and `fromSlice30`. `src/game/saves.ts`: the two building numbers, the two ledger kinds, a check on `crime`.
+- `src/sim/settlers.ts`: `cutOffPlots`, for the "no road" sign. `src/sim/status.ts`: the crime town line, the thief's and the chasing watchman's tips, fire risk's line from half way.
+- `src/game/demos.ts`: `calm()` turns crime on as a demo opens; `town()` can drop the rich town's watch posts; the "// Slice 30" block. `src/game/views.ts`: the `thieves` view. `src/main.ts`: crime on in a new game, J's cycle, the thief's name, the `crime` probe.
+- `src/render/overlay.ts` (the crime overlay), `src/render/signs.ts` (the "no road" sign), `src/ui/ledger.ts`, `src/ui/sidepanel.ts`, `src/ui/townlines.ts`, `src/ui/categories.ts`, `src/ui/buildbar.ts`, `src/ui/help.ts`, `src/ui/style.css`.
+- `scripts/smoke.mjs` and `scripts/measure.mjs`: the two demos; and in the smoke, the J-cycling check's list gains `crime` (the one existing line changed).
+- Tests: `battle`, `raids`, `routes` and `treasury` (its ledger test) turn crime off, because their timings count on taxes arriving by the satchel; `treasury`'s every-demo history test has 900 s, not 400.
+
+**Checks:** 457 tests, all passing (13 new in `tests/crime.test.ts`; `treasury`'s every-demo history test now has 15 minutes, as it ran past 400 s with three lines building at once, 2.5 minutes alone). The build passes. The smoke, as written, timed out waiting for frames at its first quarter turn (before anything of this slice's) while two other lines' smokes ran, so I ran a copy outside the repo with its timeouts loosened and every check the same. It found one failure, the old J-cycling check, which didn't know of crime; with that fixed in `smoke.mjs` the check passes on its own, and everything else, this slice's checks included, passed. `npm run measure` hit the background time limit both times (the baseline's part way through the frame-work section, this slice's before every demo's load), so the loads were measured side by side instead.
+
+**Measurements:** see the check-in.
+

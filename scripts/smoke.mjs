@@ -935,7 +935,7 @@ for (const want of ['taxoffice', 'watchpost', 'architect', 'taxoffice']) {
   if (c.tool !== want) fail(`Z cycling: wanted ${want}, got ${c.tool}`);
 }
 await page.keyboard.press('Escape');
-for (const want of ['tax', 'fire', 'wear', null]) {
+for (const want of ['tax', 'fire', 'wear', 'crime', null]) {
   await page.keyboard.press('j');
   await frames(2);
   c = await city();

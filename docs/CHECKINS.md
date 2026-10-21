@@ -2,6 +2,93 @@
 
 Notes to Oliver, newest first.
 
+## Slice 30 — Thieves in the night (21 Oct)
+
+Every home now has a temptation to steal, which its panel names. When it fills, one of the household slips out as a hooded figure, robs a richer home, a store or the tax office, and slips home again. A watchman on his round deters thieves, and catches the ones he sees. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is now 28. Older saves load with no home tempted and nobody out stealing, and crime switched on. Taxes coming in day by day and harsher harsh taxes (below) come on with it.
+- **Taxes reach the treasury day by day.** A collector hands in his satchel at the end of each day he is out, not at the end of his round. In `#town` over a year, taxes come in on about 225 days instead of 30. The biggest single day is no smaller (332 dr, was 212), because the collector still calls on most homes within a day or two of each other.
+- **Harsh taxes bite harder.** At harsh, a fed-up or unhappy household a collector has called on now leaves whole two times in three (was one in two), a worried one one in three (was one in four), and one getting by one in six (was one in twelve). More households send someone away, and harsh taxes add a lot to the temptation to steal. `#town` played a year at harsh ends with 286 people in 53 homes (was 436 in 68) and 2,735 dr (was 4,160), with 56 thefts and 4 thieves caught.
+- **A new town's first year** builds fire risk at 70% of the old pace. The fire line now warns from half way to a smoulder (it waited for three quarters), and gives the days to the first one.
+- **J** now cycles tax, fire, wear and crime.
+- **While paused**, a line about something the town is short of now shows, or goes, at once. Before, it waited for three days that never came.
+- **Earlier demos.** All 108 earlier demos open exactly as before. Crime is off while a demo's history is played, and switched on as it opens. Played on 900 ticks from opening, they differ:
+  - People are the same in 107. The exception is `#harsh`: 577 people, was 628, because harsh bites harder.
+  - Money is never lower. The median is 219 dr higher, because taxes reach the treasury sooner.
+  - With crime switched off again, all 108 play exactly as before.
+
+### What's new
+- **Temptation.** Once a day each home's temptation moves by a score of named reasons:
+  - hunger (+2), and other needs it is warning about;
+  - its mood (fed up +3, unhappy +2, worried +1, content −1);
+  - heavy (+1) or harsh (+3) taxes;
+  - richer homes nearby (villas next to huts +2);
+  - no work, and wages owed.
+  
+  A watchman walking past within the month takes 3 off. With no watchman, "no watchman this month" adds 1. A score of 3 or more fills the temptation, at about a month for a hungry hut beside villas. Anything less lets it drain.
+- **The household panel** names it from a quarter full: "Tempted to steal: hungry, villas nearby, no work, no watchman this month · 81% · a thief in about 6 days", with what is holding them back.
+- **Thieves.** When a home's temptation is full, one of the household slips out: a young man first (a son or a brother), else an older man, else a woman. He walks up to 40 steps by road to whatever is most worth the walk, then slips home:
+  - a richer home not robbed in the last two months (24 dr from a villa, 2 from a tent; a home within sight of his own counts double);
+  - a granary (a sack of food) or a storehouse (a few jars or bales);
+  - the tax office (20 dr, or a twentieth of the treasury if that is less).
+  
+  At most three thieves are out at once. A store or the tax office that has been robbed isn't robbed again for a month.
+  - At home, the household's story says so ("Philon came home before dawn with a purse of 24 dr that wasn't his"). Stolen food or goods feed them for twenty days.
+  - The robbed home's story and mood say so too ("Robbed 12 days ago: a thief took 24 dr").
+  - The tax office's loss is a ledger line, "Stolen · from the tax office", under "Lost to thieves". A store's loss is in the stock book as "Stolen by thieves". A town line carries the news for a few days.
+- **The watch.** A watchman on his round who sees a thief within 6 tiles runs after him. Fires still come first. If he catches him:
+  - the loot goes back;
+  - the family pays a fine, 5 dr for a tent and up to 20 for a villa ("Fines · thieves caught" on the ledger);
+  - their story says so, and they are shamed for a season;
+  - the town line reads, for example, "A thief caught below the cypress hill: Telekles, the head of the house, on his way home from the villa of Hieron. His family paid a 6 dr fine."
+- **Warnings before it happens.** A town line says when homes more than half way to sending someone out have no watchman walking by. It gives how many, why, and how soon: "Crime below the cypress hill: 5 homes are tempted to steal (no watchman this month, no work and villas nearby), the first thief in about 6 days."
+- **The crime overlay** (J four times, or the Crime row on the Hygiene and safety tab):
+  - homes tinted green, amber or red by their temptation;
+  - a column over each one more than half way, red where a thief is out;
+  - the watchmen's reach and the roads they walked.
+  
+  The tab's row says how many thieves are out, or how many homes are tempted.
+- **A thief** is a stooped figure in a dark hooded cloak, with a purse at his belt or a sack on his back on the way home. His tip names him and where he is going. A watchman after him runs.
+- **"No road" signs.** A plot no road from the edge reaches now has a sign over it: a road with a red bar across it.
+
+### What to try
+1. Open #thieves. Five huts on the new street behind the villas are tempted, and the first thief is about six days off. Click a red one to read why. Play, follow the hooded figure to a villa and back, then read the line. Then build a watch post north of the street's road (Z twice) and watch the next thief caught. In my run, a post on the north side of the street's road, about a third of the way along, caught the next one 12 days after it went in.
+2. Open #nowatch. It is four months on with still no watch post. The open panel is the house of Aischron, a hut whose son Philon has stolen twice. Its story is at the bottom, and the Crime row on the Hygiene and safety tab says three thieves are out. Then try a watch post here too.
+3. Open #harsh and play a few months: more households leave, and the crime overlay (J four times) shows the temptation building.
+4. In any town, mark out a plot away from the roads to see the "no road" sign.
+
+Each link also opens paused if you add `-paused` (for example `#thieves-paused`).
+
+### What I'd like your eye on
+- **Can you see a thief?** He is small and dark at the usual distance (screenshots: close up, and on the street with a watchman after him). Is the hood enough, or should he stand out more?
+- **How often thieves strike.** In `#nowatch`, the street's eight huts robbed villas nine times in four months with no watchman. With one post, the first thief after it went in was caught 12 days later. Too much, too little?
+- **Temptation is invisible until the panel or the overlay.** A tempted home looks like any other until a thief steps out. Should it show on the house itself?
+- **Fines and loot.** A villa loses 24 dr and a hut's family pays a 6 dr fine. The tax office gives up at most 20 dr a theft, and at most one theft a month.
+
+### Known rough edges
+- **A caught thief just vanishes.** His family pays and the loot goes back, but nobody walks him home.
+- **Three thieves at most at once.** So in `#nowatch` the two huts at the street's west end sat full for four months without their turn, while their neighbours went out twice. Their panel says they are waiting on the three out now.
+- **A watchman sees a thief through houses,** within 6 tiles as the crow flies, as long as a short road reaches him.
+- **`#nowatch`'s thieves only robbed villas,** so its ledger has no "Stolen" line. Thieves go for the stores and the tax office when nothing richer is in reach (in `#closed`, played on, they robbed its tax office of 100 dr in six months).
+- **No night, and no sound.** Thieves go out whenever their temptation fills, and nothing whistles when one is caught.
+- **Thieves don't take from the quay, the caravan yard or the armoury,** and there are no riots, courts or prison (the spec leaves those for later).
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `70087da` (the phase 5 spec, on the trunk after phase 4's review); after is this slice. Three lines were building on the machine at once (its load stayed around 12 to 17), so loads ran about two and a half times slower than in slice 29's note. I measured the loads side by side, alternating the two builds, five rounds for the bare link and `#town` and three for the rest, and give the medians. Only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 444, all passing | 457, all passing (13 new: temptation, thieves, the tax office's and a granary's thefts, the chase and the catch, the same town twice and through a save, first-year fire, daily taxes, harsh, a slice 29 save) |
+| Download (gzipped) | 2,983 KB: the game 681 KB, the prepared towns 2,302 KB (79 files) | 3,066 KB: the game 689 KB, the prepared towns 2,377 KB (81 files; `#thieves` and `#nowatch` about 35 KB each) |
+| First load (bare link) | ready at 4.8 s, first frame at 6.0 s | ready at 4.9 s, first frame at 5.9 s |
+| Demo loads (ready) | `#town` 4.8 s, `#richtown` 4.5 s, `#fortress` 5.0 s | `#town` 4.6 s, `#richtown` 4.5 s, `#fortress` 5.0 s; `#thieves` 4.6 s, `#nowatch` 5.6 s |
+| `#town` / `#richtown` | 693 people, 322 dr, a save 149 KB; 1,453,964 triangles and 89 draw calls over the town / a save 187 KB | the same |
+| `#thieves` | | 1,378,012 triangles and 78 draw calls from its view (1,629,690 and 100 over the town) |
+| Frame work (update before drawing, running) | `#town` 27.2 ms, `#blaze` 23.2 ms | `#town` 13.3 ms, `#blaze` 30.4 ms; `#thieves` 13.9 ms, `#nowatch` (paused) 3.2 ms |
+
+The frame times swing by more than these differences from run to run. `npm run measure` hit the two-hour limit for a background job both times: the baseline's run stopped part way through the frame-work section, and this slice's before its last section (every demo's load). So the loads above are from the side-by-side runs instead.
+
 ## Slice 29 — A city worth defending (21 Oct)
 
 The phase ends with `#fortress`, a walled town with three companies, two triremes, a loan each way and Sparta's band on its way, and with the numbers tuned over four and a half years of play: your soldiers now reach a threat in time, rulers offer loans when your treasury is low, and an unpaid debt now costs you goods from your own stores. You weren't here while it was built: every choice below is mine, from the spec's defaults.
