@@ -1069,3 +1069,32 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .greece-panel details.nocause { margin-top: 10px; font-size: 13px; }
 .greece-panel details.nocause summary { cursor: pointer; color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.03em; }
 .greece-panel details.nocause section.soldiers h4 { display: none; }
+
+/* Slice 31 (the Greece line): price arrows coloured for what the move means for you (good green, bad red, a good neither sold nor bought a plain brown); a size line, a vassal's lord chip and the empty sites on the map. */
+.parrow.good, .spark circle.good { fill: #4f7f2a; }
+.parrow.bad, .spark circle.bad { fill: #b0482a; }
+.parrow.plain, .spark circle.plain { fill: #9a8468; }
+.glabel .sz { font-size: 11.5px; font-variant: normal; color: var(--ink-soft); letter-spacing: 0; }
+.glabel .sz .tr { font-size: 10px; margin-left: 1px; }
+.glabel .sz .tr.up { color: #4f7f2a; }
+.glabel .sz .tr.down { color: #b0482a; }
+.glabel .lord { width: 9px; height: 9px; border-radius: 2px; flex: none; box-shadow: 0 0 0 1px rgba(40, 25, 10, 0.4); }
+.glabel.site { font-size: 11.5px; padding: 1px 6px; opacity: 0.88; border-style: dashed; background: rgba(251, 242, 221, 0.8); }
+.glabel.site.held { border-style: solid; opacity: 0.95; }
+.glabel.site .gd { font-variant: normal; font-style: italic; color: var(--ink-soft); }
+.greece-panel ul.status li.size { font-size: 13px; }
+.greece-panel ul.status li.size .tr.up, .greece-panel section.stands .tr.up { color: #4f7f2a; }
+.greece-panel ul.status li.size .tr.down, .greece-panel section.stands .tr.down { color: #b0482a; }
+.greece-panel section.stands .stand { margin: 6px 0 0; }
+.greece-panel section.stands .shead { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.greece-panel section.stands .shead b { min-width: 64px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; }
+.greece-panel section.stands .shead .ch { color: var(--ink-soft); font-size: 12.5px; }
+.greece-panel section.stands ul.whys { margin-top: 2px; }
+.greece-panel section.stands .whys .v { width: auto; min-width: 44px; white-space: nowrap; }
+.greece-panel section.stands p.line { margin: 6px 0 0; font-size: 13px; }
+/* (Slice 31) A label lifted clear of another stands on a longer stem; one hanging below, a longer stem up. */
+.glabel.lifted::after { height: var(--stem, 5px); bottom: calc(-1px - var(--stem, 5px)); }
+.glabel.lifted.below::after { bottom: auto; top: calc(-1px - var(--stem, 5px)); }
+/* (Slice 31) The tag over your army on the map of Greece: in your colours, over the cities' labels, and not in the way of a click. */
+.glabel.armytag { pointer-events: none; font-size: 11.5px; padding: 1px 7px; background: var(--c); color: #fff8e6; border-color: rgba(60, 30, 10, 0.55); font-variant: small-caps; letter-spacing: 0.03em; }
+.glabel.armytag::after { background: var(--c); }

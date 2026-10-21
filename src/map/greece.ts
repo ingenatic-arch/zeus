@@ -73,7 +73,7 @@ export const PLACES: Record<CityId, CityPlace> = {
   tyre: { id: 'tyre', name: 'Tyre', lon: 28.72, lat: 34.95, colour: '#7b3f8c', trim: '#f2e7c9', blurb: 'the Phoenician port whose merchant ship calls at your quay' },
   // Slice 31: the newcomers. Thebes in Boeotia; Argos, the old Argives, on the hills west of your plain; Knossos on Crete; Rhodes on its island's northern tip; Memphis, beyond the sea at the map's southern edge (as Tyre is at its corner).
   thebes: { id: 'thebes', name: 'Thebes', lon: 23.32, lat: 38.32, colour: '#5b6b2e', trim: '#e6d39a', blurb: 'the seven-gated city of Boeotia, rich in grain and proud of its spears' },
-  argos: { id: 'argos', name: 'Argos', lon: 22.48, lat: 37.66, colour: '#8a5a8f', trim: '#efe2c4', blurb: 'the old Argives on their hills, who say your plain was theirs' },
+  argos: { id: 'argos', name: 'Argos', lon: 22.3, lat: 37.75, colour: '#8a5a8f', trim: '#efe2c4', blurb: 'the old Argives on their hills, who say your plain was theirs' },
   knossos: { id: 'knossos', name: 'Knossos', lon: 25.16, lat: 35.3, colour: '#b23a3a', trim: '#2f3f6e', blurb: 'the palace city of Crete, rich in oil and wine, mistress of the southern sea' },
   rhodes: { id: 'rhodes', name: 'Rhodes', lon: 28.14, lat: 36.36, colour: '#d06a2a', trim: '#f7efd8', blurb: 'the trading island of the sun, its ships in every harbour' },
   memphis: { id: 'memphis', name: 'Memphis', lon: 26.6, lat: 34.78, colour: '#c9a227', trim: '#2a5a8a', blurb: 'the great city of Egypt beyond the sea, rich in grain and gold' },
@@ -128,7 +128,7 @@ export const WAYS: readonly Way[] = [
   // Slice 31. By road to Thebes: to Corinth, over the isthmus to Megara, and north over Kithairon (the roads drawn between them).
   { id: 'thebes-land', to: 'thebes', kind: 'land', pts: [...TO_CORINTH, ...CORINTH_ATHENS.slice(1, 4), ...MEGARA_THEBES.slice(1)], drawn: false },
   // West up onto the hills to Argos.
-  { id: 'argos-land', to: 'argos', kind: 'land', pts: [[22.76, 37.605], [22.66, 37.63], [22.56, 37.66], [22.48, 37.66]] },
+  { id: 'argos-land', to: 'argos', kind: 'land', pts: [[22.76, 37.605], [22.64, 37.64], [22.5, 37.7], [22.38, 37.74], [22.3, 37.75]] },
   // South past the Argolid and the Cyclades' western isles, and across to Crete's northern shore.
   { id: 'knossos-sea', to: 'knossos', kind: 'sea', pts: [...SOUTH, [24.7, 35.85], [25.1, 35.5], [25.16, 35.3]] },
   // The Tyre lane's way past Crete, north of Karpathos, and up to the harbour at Rhodes' northern tip.
@@ -190,9 +190,9 @@ export const RIVAL_WAYS: readonly RivalWay[] = [
   // Sparta to Thebes, up through Arcadia, past Corinth and over the isthmus: Thebes' army marches into the Peloponnese, and they meet at Mantinea.
   { id: 'sparta-thebes', a: 'sparta', b: 'thebes', kind: 'land', pts: [...SPARTA_CORINTH, ...CORINTH_ATHENS.slice(1, 4), ...MEGARA_THEBES.slice(1)], meet: 3, place: 'Mantinea' },
   // Sparta to Argos, up to Tegea and over the hills: they meet at Tegea.
-  { id: 'sparta-argos', a: 'sparta', b: 'argos', kind: 'land', pts: [[22.43, 37.08], [22.42, 37.25], [22.42, 37.4], [22.47, 37.53], [22.48, 37.66]], meet: 2, place: 'Tegea' },
+  { id: 'sparta-argos', a: 'sparta', b: 'argos', kind: 'land', pts: [[22.43, 37.08], [22.42, 37.25], [22.42, 37.4], [22.38, 37.55], [22.33, 37.66], [22.3, 37.75]], meet: 2, place: 'Tegea' },
   // Corinth to Argos, by Nemea: they meet there.
-  { id: 'corinth-argos', a: 'corinth', b: 'argos', kind: 'land', pts: [[22.88, 37.91], [22.62, 37.78], [22.56, 37.71], [22.48, 37.66]], meet: 1, place: 'Nemea' },
+  { id: 'corinth-argos', a: 'corinth', b: 'argos', kind: 'land', pts: [[22.88, 37.91], [22.66, 37.84], [22.48, 37.8], [22.3, 37.75]], meet: 1, place: 'Nemea' },
   // Sparta's ships from Gytheion round Cape Maleas, past Kythera and across to Crete: they meet off Kythera.
   { id: 'sparta-knossos', a: 'sparta', b: 'knossos', kind: 'sea', pts: [[22.6, 36.7], [22.66, 36.6], [22.88, 36.44], [23.15, 36.42], [23.3, 36.15], [24.0, 35.9], [24.8, 35.6], [25.1, 35.45], [25.16, 35.3]], meet: 4, place: 'off Kythera' },
   // Athens round Sounion and south past Melos to Crete: they meet off Melos.

@@ -8,7 +8,9 @@
  * It only reads the sim; renaming your city goes out as a command.
  */
 import * as THREE from 'three';
-import { alongLine, CITY_IDS, lineLength, meetPoint, OTHER_ROADS, PLACES, project, RIVAL_WAYS, rivalPoints, RULED, TABLE_D, TABLE_W, wayOf, wayPoints, WAYS, type CityId } from '../../map/greece';
+import { alongLine, CITY_IDS, lineLength, meetPoint, OTHER_ROADS, PLACES, project, RIVAL_WAYS, rivalPoints, RULED, SITES, TABLE_D, TABLE_W, wayOf, wayPoints, WAYS, type CityId } from '../../map/greece';
+import { baseOf } from '../../sim/growth';
+import { siteLabelHtml } from '../../ui/rivals';
 import type { CoastMap } from '../../map/bake';
 import type { Command } from '../../sim/commands';
 import type { SimState } from '../../sim/state';
@@ -26,11 +28,12 @@ import { loanEvent } from '../../ui/loans';
 import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
-import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, swordsModel, tableModel, wayMarks } from './models';
+import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
 
-/** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left. */
-const START: CameraView = { x: TABLE_W * 0.5, z: TABLE_D * 0.6, yaw: 0, dist: 146, tilt: -0.12 };
+/** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left.
+ * (Slice 31: drawn back and south so Memphis and Cyrene on the southern edge and Thasos in the north are on the table at first look.) */
+const START: CameraView = { x: TABLE_W * 0.5, z: TABLE_D * 0.62, yaw: 0, dist: 170, tilt: -0.1 };
 /** Travellers on the map are drawn larger from this camera distance on, up to FAR_MOST times. */
 const FAR_FROM = 80;
 const FAR_MOST = 1.8;
@@ -39,8 +42,13 @@ const ARMY_FAR_MOST = 1.25;
 /** Your expedition's army, alone on its road, may grow further from afar (slice 29). */
 const EXPEDITION_FAR_MOST = 1.6;
 const LIMITS: RigLimits = { minDist: 24, maxDist: 175, x0: 0, z0: 0, x1: TABLE_W, z1: TABLE_D, pitchNear: 0.58, pitchFar: 1.12 };
-/** How the cities stand out: your own and the four with rulers a little larger than life. */
-const SCALE: Record<CityId, number> = { home: 1.7, athens: 2.0, sparta: 1.85, corinth: 1.8, troy: 2.0, tyre: 1.6 };
+/** How the cities stand out: your own and the four with rulers a little larger than life (slice 31: the newcomers too, Argos the smallest and Memphis the greatest). */
+const SCALE: Record<CityId, number> = { home: 1.7, athens: 2.0, sparta: 1.85, corinth: 1.8, troy: 2.0, tyre: 1.6, thebes: 1.8, argos: 1.5, knossos: 1.85, rhodes: 1.7, memphis: 2.1 };
+/** (Slice 31) A ruled city's model grows and shrinks with its people against its usual number, in steps of a tenth so it never jitters: from three quarters to nearly half again as large. */
+const GROW_LEAST = 0.75;
+const GROW_MOST = 1.4;
+/** A site's piece, a little larger than life as the towns are. */
+const SITE_SCALE = 1.6;
 /** How far from the pointer (screen pixels) a moving piece's body answers it. */
 const BODY_REACH = 13;
 /** Smoke puffs over each festival's altar. */
@@ -53,6 +61,12 @@ export interface GreeceHost {
   send: (c: Command) => void;
   /** Your city's land (gifts of goods need to know their way out of it). */
   map: CoastMap;
+}
+
+/** (Slice 31) Where a label hanging below its place stands (its bottom), let down further if a bar it is under would still cover it: at 1600 x 900 Troy's hung under the lines below the top bar. */
+function clearOf(bars: ReadonlyArray<[number, number, number]>, lx: number, lw: number, lh: number, ly: number): number {
+  for (const [barL, barR, barB] of bars) if (lx + lw / 2 > barL && lx - lw / 2 < barR && ly - lh < barB + 4) ly = barB + 4 + lh;
+  return ly;
 }
 
 export class GreeceMap {
@@ -69,6 +83,13 @@ export class GreeceMap {
   hovered: CityId | 'ship' | `trav:${string}` | null = null;
   private readonly host: GreeceHost;
   private readonly labels = new Map<CityId, HTMLElement>();
+  /** (Slice 31) Each city's model, drawn larger or smaller with its people (the step it is drawn at), and each site's piece and label (with what it shows now: free, or whose colony at what size). */
+  private readonly towns = new Map<CityId, THREE.Mesh>();
+  private readonly grown = new Map<CityId, number>();
+  private readonly sites = new Map<string, { mesh: THREE.Mesh; look: string }>();
+  private readonly siteLabels = new Map<string, HTMLElement>();
+  /** Where the cities' labels stand on the screen this frame (left, top, right, bottom), for the sites' labels to keep clear of. */
+  private placed: Array<[number, number, number, number]> = [];
   /** Each label's size on screen (measured when its words are refreshed), to see what passes under it. */
   private readonly labelSize = new Map<CityId, [number, number]>();
   private readonly layer: HTMLElement;
@@ -97,8 +118,10 @@ export class GreeceMap {
   private tab: CityTab = 'ruler';
   private panelAt = -Infinity;
   private labelAt = -Infinity;
-  /** The top bar and the City button on the screen: left, right and bottom (measured with the labels' words). */
-  private barRect: [number, number, number] | null = null;
+  /** The top bar and the City button on the screen, and the lines under the top bar: left, right and bottom of each (measured with the labels' words). */
+  private barRect: Array<[number, number, number]> | null = null;
+  private siteSize = new Map<string, [number, number]>();
+  private armyTag!: HTMLElement;
   private pointer = { x: -1, y: -1 };
   private state: SimState | null = null;
   private readonly v = new THREE.Vector3();
@@ -121,7 +144,8 @@ export class GreeceMap {
     scene.add(tableModel());
     const lanes = WAYS.filter((w) => w.kind === 'sea').map(wayPoints);
     // (The road to Athens runs through Corinth: it is the two roads already drawn.)
-    const roads = [...WAYS.filter((w) => w.kind === 'land' && w.id !== 'athens-land').map(wayPoints), ...OTHER_ROADS.map((r) => r.flatMap(([lon, lat]) => project(lon, lat)))];
+    // (Slice 31: and Thebes' runs through Corinth and Megara, drawn as its own last stretch; a way marked not drawn is made of others.)
+    const roads = [...WAYS.filter((w) => w.kind === 'land' && w.drawn !== false).map(wayPoints), ...OTHER_ROADS.map((r) => r.flatMap(([lon, lat]) => project(lon, lat)))];
     scene.add(wayMarks(roads, lanes, this.relief.heightAt));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, flatShading: true });
     this.mat = mat;
@@ -134,7 +158,19 @@ export class GreeceMap {
       m.castShadow = true;
       m.name = `greece-city-${id}`;
       scene.add(m);
+      this.towns.set(id, m);
       if (id === 'home') home = m;
+    }
+    // (Slice 31) The empty sites: a cairn and a pennant, or a colony's houses in its founder's colours.
+    for (const site of SITES) {
+      const m = new THREE.Mesh(siteModel('#efe6cf', '#efe6cf', 0), mat);
+      const [x, z] = project(site.lon, site.lat);
+      m.position.set(x, this.relief.heightAt(x, z), z);
+      m.scale.setScalar(SITE_SCALE);
+      m.castShadow = true;
+      m.name = `greece-site-${site.id}`;
+      scene.add(m);
+      this.sites.set(site.id, { mesh: m, look: '' });
     }
     this.home = home as THREE.Mesh;
     // Each ruled city's fields, beside it on its plain: the flattest dry ground a little way out, in front of it as the map is first seen (its label stands behind it).
@@ -203,6 +239,21 @@ export class GreeceMap {
       layer.appendChild(el);
       this.labels.set(id, el);
     }
+    for (const site of SITES) {
+      const el = document.createElement('div');
+      el.className = `glabel site ${site.id}`;
+      el.style.setProperty('--c', '#b8a27a');
+      // (Before the cities' labels, so a city's stands over a site's where they meet.)
+      layer.prepend(el);
+      this.siteLabels.set(site.id, el);
+    }
+    // (Slice 31: a tag over your army on the march, standing over the cities' labels: from the opening view it was hard to pick out by Nea Argos'.)
+    const tag = document.createElement('div');
+    tag.className = 'glabel armytag';
+    tag.style.setProperty('--c', PLACES.home.colour);
+    tag.style.display = 'none';
+    layer.appendChild(tag);
+    this.armyTag = tag;
     const card = document.createElement('div');
     card.className = 'greece-card';
     card.hidden = true;
@@ -386,6 +437,12 @@ export class GreeceMap {
       // (A little round the label, and its stem down to the city.)
       if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return id;
     }
+    // (Slice 31) A site's label, or its piece.
+    for (const [id, el] of this.siteLabels) {
+      if (el.style.display === 'none') continue;
+      const b = el.getBoundingClientRect();
+      if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return `trav:site-${id}`;
+    }
     // A city's fields, a little way from it (under the labels, which come first).
     for (const [id, m] of this.fields) {
       const [fx, fy, fz] = m.userData.at as [number, number, number];
@@ -417,6 +474,7 @@ export class GreeceMap {
       test(id, x, this.relief.heightAt(x, z) + 0.6, z);
     }
     if (this.ship.visible) test('ship', this.ship.position.x, 0.6, this.ship.position.z, 0.8);
+    for (const [id, x] of this.sites) test(`trav:site-${id}`, x.mesh.position.x, x.mesh.position.y + 0.4, x.mesh.position.z, 0.6);
     return best;
   }
 
@@ -504,14 +562,21 @@ export class GreeceMap {
     if (refresh || !this.barRect) {
       const a = document.querySelector('.topbar')?.getBoundingClientRect();
       const b = document.querySelector('.greece-btn')?.getBoundingClientRect();
-      this.barRect = a && b ? [Math.min(a.left, b.left), Math.max(a.right, b.right), Math.max(a.bottom, b.bottom)] : a ? [a.left, a.right, a.bottom] : [0, 0, 0];
+      this.barRect = [a && b ? [Math.min(a.left, b.left), Math.max(a.right, b.right), Math.max(a.bottom, b.bottom)] : a ? [a.left, a.right, a.bottom] : [0, 0, 0]];
+      // (Slice 31: and the lines under the top bar, where they show; at 1600 × 900 Troy's label sat under them. And the News of Greece: at 1280 × 720 Rhodes's sat under it.)
+      for (const l of document.querySelectorAll('.townlines > .townline:not(.folded), .townlines > .townlines-more:not([hidden]), .greece-news')) {
+        const q = l.getBoundingClientRect();
+        if (q.height > 0) this.barRect.push([q.left, q.right, q.bottom]);
+      }
     }
-    const [barL, barR, barB] = this.barRect;
+    const bars = this.barRect;
+    // Where each label would stand (its bottom middle), and its size.
+    const spots: Array<{ id: CityId; el: HTMLElement; off: boolean; lx: number; ly: number; at: number; lw: number; lh: number; below: boolean; gy: number }> = [];
     for (const id of CITY_IDS) {
       const el = this.labels.get(id) as HTMLElement;
       const [x, z] = this.at(id);
       const ground = this.relief.heightAt(x, z);
-      this.v.set(x, ground + 1.5 * SCALE[id], z).project(this.camera);
+      this.v.set(x, ground + 1.5 * SCALE[id] * (this.grown.get(id) ?? 1), z).project(this.camera);
       const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
       el.style.display = off ? 'none' : '';
       const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
@@ -522,25 +587,145 @@ export class GreeceMap {
         this.labelSize.set(id, size);
       }
       const [lw, lh] = size;
-      const below = ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR;
-      if (below) {
-        this.v.set(x, ground, z).project(this.camera);
-        ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh;
+      const below = bars.some(([barL, barR, barB]) => ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR);
+      this.v.set(x, ground, z).project(this.camera);
+      const gy = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+      if (below) ly = clearOf(bars, lx, lw, lh, gy + 10 + lh);
+      spots.push({ id, el, off, lx, ly, at: ly, lw, lh, below, gy });
+    }
+    // (Slice 31: with eleven cities the labels round the Saronic Gulf ran into each other. Your city's stands where it is; then, from the
+    // lowest on the screen up, a label that would overlap one already placed is lifted clear of it on a longer stem, or, hanging below its city, let down.)
+    const placed: Array<[number, number, number, number]> = [];
+    const order = spots.filter((p) => !p.off).sort((a, b) => Number(b.id === 'home') - Number(a.id === 'home') || b.ly - a.ly);
+    const settle = (p: (typeof spots)[number]): void => {
+      for (let guard = 0; guard < 8; guard++) {
+        const hit = placed.find(([l, t, rr, bb]) => p.lx - p.lw / 2 < rr + 2 && p.lx + p.lw / 2 > l - 2 && p.ly - p.lh < bb + 2 && p.ly > t - 2);
+        if (!hit) break;
+        p.ly = p.below ? hit[3] + 3 + p.lh : hit[1] - 3;
       }
+    };
+    for (const p of order) {
+      settle(p);
+      // (Lifted up under a bar, it hangs below its city instead, if there is room there; at 1280 x 720 with five lines there isn't for Thebes, and it stays lifted.)
+      if (!p.below && p.ly < p.at - 0.5 && bars.some(([barL, barR, barB]) => p.ly - p.lh - 2 < barB && p.lx + p.lw / 2 > barL && p.lx - p.lw / 2 < barR)) {
+        const was = { ly: p.ly, at: p.at };
+        p.below = true;
+        p.at = p.ly = clearOf(bars, p.lx, p.lw, p.lh, p.gy + 10 + p.lh);
+        settle(p);
+        if (p.ly - p.at > p.lh * 1.5) Object.assign(p, was, { below: false });
+      }
+      placed.push([p.lx - p.lw / 2, p.ly - p.lh, p.lx + p.lw / 2, p.ly]);
+    }
+    for (const { id, el, off, lx, ly, at, lw, lh, below } of spots) {
+      const lift = below ? ly - at : at - ly;
       el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
       el.classList.toggle('below', below);
+      el.classList.toggle('lifted', lift > 0.5);
+      if (lift > 0.5) el.style.setProperty('--stem', `${(5 + lift).toFixed(1)}px`);
       el.classList.toggle('hot', this.hovered === id || this.shown === id);
       el.classList.toggle('veil', !off && under.some(([px, py]) => Math.abs(px - lx) < lw / 2 + 6 && py > ly - lh - 6 && py < ly + 10));
       if (refresh) morph(el, labelHtml(s, id));
     }
+    this.placed = placed;
     if (refresh) {
       for (const [id, m] of this.fields) (m.material as THREE.MeshStandardMaterial).color.set(fieldColour(s, id));
       this.drawNews(s);
+      this.drawSizes(s);
     }
+    this.drawSites(s, r, refresh, under);
+    this.drawArmyTag(s, r, refresh);
     if (time - this.panelAt > 0.5) {
       this.panelAt = time;
       this.redraw();
       if (this.hovered) this.drawCard();
+    }
+  }
+
+  /** (Slice 31) The tag over your army while it is out on the map (by road or by sea), with its men. */
+  private drawArmyTag(s: SimState, r: DOMRect, refresh: boolean): void {
+    const e = s.world.expeditions.find((x) => this.travellers.get(`exp-${x.id}`)?.visible);
+    const m = e && this.travellers.get(`exp-${e.id}`);
+    if (!e || !m) {
+      this.armyTag.style.display = 'none';
+      return;
+    }
+    this.v.set(m.position.x, m.position.y + 1.4 * m.scale.y, m.position.z).project(this.camera);
+    const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
+    this.armyTag.style.display = off ? 'none' : '';
+    const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+    let ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+    let size = this.siteSize.get('army');
+    if (refresh || !size || !this.armyTag.textContent) {
+      this.armyTag.textContent = `Your army · ${expeditionMen(s, e)} men`;
+      size = [this.armyTag.offsetWidth, this.armyTag.offsetHeight];
+      this.siteSize.set('army', size);
+    }
+    const [lw, lh] = size;
+    // (Where it would stand over a city's label, at the city it marches on, it hangs below the army instead.)
+    const below = this.placed.some(([l, t, rr, bb]) => lx - lw / 2 < rr && lx + lw / 2 > l && ly - lh < bb && ly > t);
+    if (below) {
+      this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
+      ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh;
+    }
+    this.armyTag.classList.toggle('below', below);
+    this.armyTag.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
+  }
+
+  /** (Slice 31) Each ruled city's model at the step its people stand at against its usual number. */
+  private drawSizes(s: SimState): void {
+    for (const id of RULED) {
+      const c = s.world.cities.find((x) => x.id === id);
+      const m = this.towns.get(id);
+      if (!c || !m || !c.pop) continue;
+      const k = Math.max(GROW_LEAST, Math.min(GROW_MOST, Math.round(Math.sqrt(c.pop / baseOf(id).pop) * 10) / 10));
+      if (this.grown.get(id) === k) continue;
+      this.grown.set(id, k);
+      m.scale.setScalar(SCALE[id] * k);
+    }
+  }
+
+  /** (Slice 31) The sites: each piece as it stands (free, or a colony at its size in its founder's colours), and its label. */
+  private drawSites(s: SimState, r: DOMRect, refresh: boolean, under: Array<[number, number]>): void {
+    for (const x of s.world.sites) {
+      const piece = this.sites.get(x.id);
+      const el = this.siteLabels.get(x.id);
+      if (!piece || !el) continue;
+      const owner = x.owner ? PLACES[x.owner as CityId] : undefined;
+      const look = owner ? `${x.owner}:${Math.max(3, Math.min(12, Math.round(3 + x.pop / 200)))}` : '';
+      if (look !== piece.look) {
+        piece.look = look;
+        piece.mesh.geometry.dispose();
+        piece.mesh.geometry = siteModel(owner?.colour ?? '#efe6cf', owner?.trim ?? '#efe6cf', owner ? x.pop : 0);
+        el.classList.toggle('held', !!owner);
+        el.style.setProperty('--c', owner?.colour ?? '#b8a27a');
+      }
+      const m = piece.mesh;
+      this.v.set(m.position.x, m.position.y + 1.25 * SITE_SCALE, m.position.z).project(this.camera);
+      const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
+      el.style.display = off ? 'none' : '';
+      const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+      let ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+      if (refresh) morph(el, siteLabelHtml(s, x.id));
+      let size = this.siteSize.get(x.id);
+      if (refresh || !size) {
+        size = [el.offsetWidth, el.offsetHeight];
+        this.siteSize.set(x.id, size);
+      }
+      const [lw, lh] = size;
+      // (Like a city's, a label that would stand under the top bar or the lines under it hangs below its site: Thasos's did.)
+      const below = (this.barRect ?? []).some(([barL, barR, barB]) => ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR);
+      if (below) {
+        this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
+        ly = clearOf(this.barRect ?? [], lx, lw, lh, r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh);
+      }
+      el.classList.toggle('below', below);
+      el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
+      el.classList.toggle('hot', this.hovered === `trav:site-${x.id}`);
+      if (refresh) {
+        // (Faded where a traveller passes under it, or where a city's label stands over it.)
+        const city = this.placed.some(([l, t, rr, bb]) => lx - lw / 2 < rr && lx + lw / 2 > l && ly - lh < bb && ly > t);
+        el.classList.toggle('veil', !off && (city || under.some(([px, py]) => Math.abs(px - lx) < lw / 2 + 6 && py > ly - lh - 6 && py < ly + 10)));
+      }
     }
   }
 
@@ -823,7 +1008,7 @@ export class GreeceMap {
   }
 
   /** For the probe: what the map shows. */
-  info(): { open: boolean; built: boolean; buildMs: number; shown: string; tab: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView>; travellers: Record<string, { x: number; y: number }>; news: string; fields: Record<string, string>; closed: string[]; feasts: string[] } {
+  info(): { open: boolean; built: boolean; buildMs: number; shown: string; tab: string; hovered: string; panel: string; card: string; ship: { x: number; z: number; visible: boolean }; cities: Record<string, { x: number; y: number }>; moods: Record<string, string>; name: string; view: Required<CameraView>; travellers: Record<string, { x: number; y: number }>; news: string; fields: Record<string, string>; closed: string[]; feasts: string[]; sites: Record<string, string>; grown: Record<string, number>; siteLabels: Record<string, { x: number; y: number; text: string }> } {
     const r = this.host.canvas.getBoundingClientRect();
     const cities: Record<string, { x: number; y: number }> = {};
     for (const id of CITY_IDS) {
@@ -859,6 +1044,15 @@ export class GreeceMap {
       fields: Object.fromEntries([...this.fields].map(([id, m]) => [id, `#${(m.material as THREE.MeshStandardMaterial).color.getHexString()} at ${(m.userData.at as number[]).map((v) => v.toFixed(1)).join(',')}`])),
       closed: [...this.closed].filter(([, m]) => m.visible).map(([k]) => k),
       feasts: [...this.feasts].filter(([, f]) => f.banners.visible).map(([k]) => k),
+      // (Slice 31.)
+      sites: Object.fromEntries([...this.sites].map(([k, v]) => [k, v.look || 'free'])),
+      grown: Object.fromEntries(this.grown),
+      siteLabels: Object.fromEntries(
+        [...this.siteLabels].map(([k, el]) => {
+          const b = el.getBoundingClientRect();
+          return [k, { x: b.left + b.width / 2, y: b.top + b.height / 2, text: el.textContent ?? '' }];
+        }),
+      ),
     };
   }
 }

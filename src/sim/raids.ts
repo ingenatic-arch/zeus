@@ -91,7 +91,7 @@ const GREECE_LULL = 3 * TICKS_PER_MONTH;
 const lullOf = (r: Raid): number => (r.end === 'raided' || r.end === 'nothing' || r.end === 'sunk' ? RAID_LULL : LULL);
 /** A hostile, proud or warlike ruler threatens about one month in eight. */
 const HOSTILE_ODDS = 1 / 8;
-/** (Slice 31, Oliver's balance card: raids about twice as often.) A ruler only cold towards you, proud or warlike, threatens too, about one month in a hundred and twenty; bolder with an army grown past its usual size, less so with one shrunk (half to half again as often). Over nine years of a middling player this about doubles the threats: see the slice 31 plan. */
+/** (Slice 31, Oliver's balance card: raids about twice as often.) A ruler only cold towards you, proud or warlike, threatens too, about one month in a hundred and twenty; bolder with an army grown past its usual size, less so with one shrunk (half to half again as often). What a probe of nine years of a middling player found is in the slice 31 plan's As built. */
 const COLD_ODDS = 1 / 120;
 /** A tribute marked angry still gets its threat for this long after it was refused (if another threat held it back). */
 const ANGRY_FOR = TICKS_PER_YEAR;

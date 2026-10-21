@@ -11,6 +11,9 @@ import { festivalMonth, festivalOf, festivalOn, isAre, nextFestival } from '../s
 import { armiesOnMap, foeIn, helpCost, PAIR_LULL, sinceWords, tieOf, tieReasons, tieWord, warLine, warOf } from '../sim/rivals';
 import type { SimState, War } from '../sim/state';
 import { cityOf, HARVEST_WORDS, OUTLOOK_MONTH, HARVEST_MONTH, outlookWords, usualPrice } from '../sim/world';
+import { adjective, baseOf, coloniesOf, lordWords, recordSince, sizeWhy, siteWords, trendOf, vassalsOf, wealthWord } from '../sim/growth';
+import { siteOf } from '../map/greece';
+import type { WorldCity } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
@@ -94,7 +97,87 @@ export function statusHtml(s: SimState, id: CityId): string {
     }
   }
   out.push(`<li class="crop"><i style="background:${fieldColour(s, id)}"></i><span>${esc(harvestLine(s, id))}.</span></li>`);
+  // (Slice 31: its size, with its trends.)
+  out.unshift(sizeHtml(s, id));
   return `<ul class="status">${out.join('')}</ul>`;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 31: how big a city is, and why.
+
+const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
+/** A small arrow for a size growing or shrinking by a twentieth over the record ('' steady). */
+export const trendHtml = (t: -1 | 0 | 1): string => (t > 0 ? '<span class="tr up" title="growing">▲</span>' : t < 0 ? '<span class="tr down" title="shrinking">▼</span>' : '');
+/** A city's men under arms as the cards count them (a hundred men to each the sim keeps). */
+export const menWords = (army: number): string => `${fmt(Math.round(army) * 100)} men`;
+/** "7,300": a city's people, to the hundred. */
+export const peopleShort = (c: WorldCity): string => fmt(Math.round(c.pop / 100) * 100);
+
+/** The line of a ruled city's size on its page: "7,320 people ▲ · rich · 4,000 men · 14 ships · Sparta's vassal since 746 BC". */
+export function sizeHtml(s: SimState, id: CityId): string {
+  const c = cityOf(s.world, id);
+  if (!c.ruler || !c.pop) return '';
+  const fleet = baseOf(id).fleet > 0 ? ` · ${fmt(c.fleet)} ${Math.round(c.fleet) === 1 ? 'ship' : 'ships'}${trendHtml(trendOf(c, 'fleet'))}` : '';
+  const lord = c.lord ? ` · <b>${esc(lordWords(c))}</b>` : '';
+  const vs = vassalsOf(s.world, id);
+  const lordOf = vs.length ? ` · lord of ${esc(vs.map((v) => name(v.id)).join(' and '))}` : '';
+  const cols = coloniesOf(s.world, id);
+  const colonies = cols.length ? ` · ${cols.length === 1 ? 'a colony' : `${cols.length} colonies`} (${esc(cols.map((x) => siteOf(x.id)?.name ?? x.id).join(', '))})` : '';
+  return `<li class="size"><span>${fmt(c.pop)} people${trendHtml(trendOf(c, 'pop'))} · ${esc(wealthWord(c))}${trendHtml(trendOf(c, 'wealth'))} · ${menWords(c.army)}${trendHtml(trendOf(c, 'army'))}${fleet}${lord}${lordOf}${colonies}. The Rivals tab says why.</span></li>`;
+}
+
+/** "How it stands", at the top of the Rivals tab: people, wealth, army and fleet, each with its change over the record and the reasons, biggest first; its lord or its vassals; its colonies. */
+export function standsHtml(s: SimState, id: CityId): string {
+  const c = cityOf(s.world, id);
+  if (!c.ruler || !c.pop) return '';
+  const rows: string[] = [];
+  const since = recordSince(s.tick);
+  const kinds: Array<['pop' | 'wealth' | 'army' | 'fleet', string, (n: number) => string]> = [
+    ['pop', 'People', (n) => fmt(n)],
+    ['wealth', 'Treasury', (n) => `${fmt(n)} dr`],
+    ['army', 'Army', (n) => menWords(n)],
+    ['fleet', 'Fleet', (n) => `${fmt(n)} ${Math.round(n) === 1 ? 'ship' : 'ships'}`],
+  ];
+  for (const [what, label, show] of kinds) {
+    if (what === 'fleet' && baseOf(id).fleet === 0) continue;
+    const x = sizeWhy(c, what);
+    const unit = (n: number): string => (what === 'pop' ? fmt(Math.abs(n)) : what === 'wealth' ? fmt(Math.abs(n)) : what === 'army' ? fmt(Math.abs(Math.round(n * 100))) : (Math.abs(n) < 10 ? Math.abs(n).toFixed(1) : fmt(Math.abs(n))));
+    const why = x.why
+      .filter((r) => (what === 'army' ? Math.abs(r.n * 100) >= 5 : what === 'fleet' ? Math.abs(r.n) >= 0.05 : true))
+      .slice(0, 5)
+      .map((r) => `<li class="${r.n > 0 ? 'good' : 'bad'}"><span class="v">${r.n > 0 ? '+' : '−'}${unit(r.n)}</span><span class="t">${esc(cap(r.why))}</span></li>`)
+      .join('');
+    const pct = Math.round(x.share * 100);
+    const change = Math.abs(pct) >= 1 ? `${pct > 0 ? '+' : '−'}${Math.abs(pct)}% ${since}` : `steady ${since}`;
+    const note = what === 'wealth' ? ` (${esc(wealthWord(c))})` : '';
+    rows.push(`<div class="stand"><div class="shead"><b>${label}</b><span>${show(x.now)}${note}${trendHtml(trendOf(c, what))}</span><span class="ch">${esc(change)}</span></div><ul class="whys">${why || '<li>Nothing moving it</li>'}</ul></div>`);
+  }
+  const lines: string[] = [];
+  if (c.lord) lines.push(`${cap(lordWords(c))}: it pays ${name(c.lord)} a tenth of what it takes in, and goes to no war of its own. It breaks free if ${name(c.lord)} loses a war, or once its army is two thirds of ${whose(c.lord)}.`);
+  const vs = vassalsOf(s.world, id);
+  if (vs.length) lines.push(`Lord of ${vs.map((v) => name(v.id)).join(' and ')}, which ${vs.length === 1 ? 'pays' : 'pay'} it tribute.`);
+  for (const x of coloniesOf(s.world, id)) lines.push(`${cap(siteOf(x.id)?.name ?? x.id)}: ${siteWords(s, x)}, making ${siteOf(x.id)?.good ?? 'goods'} for ${name(id)}.`);
+  for (const x of s.world.sites.filter((y) => y.bound === id)) lines.push(`Settlers bound for ${siteOf(x.id)?.name ?? x.id}: ${siteWords(s, x)}.`);
+  const more = lines.map((l) => `<p class="line">${esc(l)}</p>`).join('');
+  return `<section class="stands"><h3>How it stands</h3>${rows.join('')}${more}<p class="foot">Each month a city’s people, treasury, army and fleet move with its harvests, its trade (yours too), its wars, its debts and its tribute, and are pulled back towards what its land can hold. A bigger city buys and sells more with you; a richer one has more to lend; a bigger army sends a bigger band.</p></section>`;
+}
+
+/** A site's hover card: its name and good, what it is, and who holds it or is bound for it. */
+export function siteCard(s: SimState, id: string): string {
+  const p = siteOf(id);
+  const x = s.world.sites.find((y) => y.id === id);
+  if (!p || !x) return '<b>An empty site</b>';
+  const who = x.owner ? `Click for ${esc(whose(x.owner as CityId))} page` : x.bound ? `Click for ${esc(whose(x.bound as CityId))} page` : 'A strong city with ships may send settlers here';
+  return `<b>${esc(`${p.name} · ${p.good}`)}</b><span>${esc(cap(p.blurb))}</span><span>${esc(cap(siteWords(s, x)))}${x.owner ? esc(`: ${p.good} for ${name(x.owner as CityId)}`) : ''}</span><span class="sub">${who}</span>`;
+}
+
+/** A site's label on the map: its name and good, or whose colony it is (with the founder's colour). */
+export function siteLabelHtml(s: SimState, id: string): string {
+  const p = siteOf(id);
+  const x = s.world.sites.find((y) => y.id === id);
+  if (!p || !x) return '';
+  if (x.owner) return `<i class="lord" style="background:${PLACES[x.owner as CityId]?.colour ?? '#888'}"></i><b>${esc(p.name)}</b> <span class="gd">${esc(adjective(x.owner as CityId))}</span>`;
+  return `<b>${esc(p.name)}</b> <span class="gd">${esc(p.good)}</span>`;
 }
 
 /** Where a war's armies meet: "Megara", "off Aegina". */
@@ -121,7 +204,7 @@ export function rivalsHtml(s: SimState, id: CityId): string {
   const f = festivalOf(id);
   const n = nextFestival(id, s.tick);
   const feast = f && n ? `<section class="festival"><h3>Festival</h3><p class="line"><b>${esc(cap(f.name))}</b>, every ${esc(festivalMonth(f))}: ${esc(f.what)}${c.war && f.atWar ? ` (${esc(f.atWar)})` : ''}. ${s.tick >= n.start ? `On now, until ${esc(dayMonth(n.end))}.` : `Next on ${esc(dayMonth(n.start))}.`} For a fortnight before it and while it lasts, wine and meat are dear in ${esc(name(id))}; a gift that arrives while it is on counts half as much again${c.ruler?.traits.includes('pious') ? ` (twice as much: ${they} is pious)` : ''}.</p></section>` : '';
-  return `<section class="rivals"><h3>How ${they} feels about the others</h3>${rows}<p class="foot">Rulers far enough out fall to feuding (${signed(-25)} or worse), and may go to war. Quarrels and friendships come and fade.</p></section>${war}${feast}`;
+  return `${standsHtml(s, id)}<section class="rivals"><h3>How ${they} feels about the others</h3>${rows}<p class="foot">Rulers far enough out fall to feuding (${signed(-25)} or worse), and may go to war. Quarrels and friendships come and fade.</p></section>${war}${feast}`;
 }
 
 /** The card over an army or fleet on the map: whose, how many, out, standing or going home. */

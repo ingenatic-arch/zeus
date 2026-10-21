@@ -1392,6 +1392,20 @@ export function stageDefault(s: SimState, l: Loan, why: string): void {
   news(s.world, s.tick, l.city, `${cityName(l.city)} has not repaid the ${fmt(l.owed)} dr it owes you, due ${dayWords(l.due)}: the loan is overdue (${why})`, true);
 }
 
+/** (Slice 31) Whether a ruler's dice, as they stand now, would have them repay a loan of yours on its day (as fallsDue throws them). */
+export function repaysOnTheDay(s: SimState, l: Loan): boolean {
+  return dice(s.world, l.id, 0, 7) < likelyToRepay(s, cityOf(s.world, l.city), l.owed, l.rate).p;
+}
+
+/** (Slice 31) A demo's ruler repaying a loan of yours on its day, whatever the dice (named so): #repaid, once Greece grew and Athens' dice fell the other way. */
+export function stageRepay(s: SimState, l: Loan, why: string): void {
+  if (l.side !== 'out' || l.state !== 'running') return;
+  const c = cityOf(s.world, l.city);
+  l.state = 'repaying';
+  herald(s, l, false, l.owed);
+  news(s.world, s.tick, l.city, `${cityName(l.city)} repays your loan on the day: ${title(c)}’s herald brings ${fmt(l.owed)} dr (${why})`);
+}
+
 // ---------------------------------------------------------------------------
 // In words, for the panels, chips and lines.
 

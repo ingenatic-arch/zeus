@@ -22,7 +22,8 @@ import type { Deal } from '../sim/state';
 import { afloat, guardRefusal, guardsOf, LANES, piratesOn, triremeDoing, triremeName } from '../sim/fleet';
 import { aimWords, bandMen, bandOut, daysToEdge, edgeWords, goodsArrive, live, lootWords, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
-import { armyCard, fieldsCard, foeNote, labelIcons, rivalsHtml, statusHtml, warCard } from './rivals';
+import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
+import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
@@ -130,7 +131,9 @@ export function labelHtml(s: SimState, id: CityId): string {
   // A deal waiting on your answer: a scroll (a request, an offer) or a red seal (tribute).
   const open = liveDeals(s.world, id).filter((x) => x.state === 'open');
   const d = open.find((x) => x.kind === 'threat') ?? open[0];
-  return `<b>${esc(name)}</b>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
+  // (Slice 31: its people to the hundred, with an arrow while it grows or shrinks; a vassal's lord's colour beside its name.)
+  const lord = c.lord ? `<i class="lord" style="background:${PLACES[c.lord]?.colour ?? '#888'}" title="${esc(cap(lordWords(c)))}"></i>` : '';
+  return `${lord}<b>${esc(name)}</b><span class="sz">${peopleShort(c)}${trendHtml(trendOf(c, 'pop'))}</span>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
 }
 
 /** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
@@ -185,6 +188,7 @@ function travellerHtml(s: SimState, key: string): string {
     return city ? armyCard(s, Number(n), city as CityId) : warCard(s, Number(n));
   }
   if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
+  if (key.startsWith('site-')) return siteCard(s, key.slice(5));
   if (key.startsWith('exp-')) return expeditionCard(s, Number(key.split('-')[1]));
   if (key.startsWith('pirates-')) {
     const p = s.fleet.pirates.find((x) => x.id === Number(key.slice(8)));
@@ -275,6 +279,10 @@ export function cityOfTraveller(s: SimState, key: string): CityId | null {
   if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
+  if (key.startsWith('site-')) {
+    const x = s.world.sites.find((y) => y.id === key.slice(5));
+    return x?.owner || x?.bound || null;
+  }
   if (key.startsWith('pirates-')) return s.fleet.pirates.find((x) => x.id === Number(key.slice(8)))?.city ?? null;
   if (key.startsWith('trireme-')) {
     const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
@@ -309,7 +317,7 @@ export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`):
   const deals = liveDeals(s.world, id)
     .map((d) => `<span class="deal">${dealIcon(d)} ${esc(dealShort(s, d))}</span>`)
     .join('');
-  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span>${deals}<span class="sub">Click to meet them</span></div>`;
+  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span><span>${fmt(c.pop)} people${trendHtml(trendOf(c, 'pop'))} · ${esc(wealthWord(c))} · ${menWords(c.army)}${c.lord ? ` · ${esc(lordWords(c))}` : ''}</span>${deals}<span class="sub">Click to meet them</span></div>`;
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
@@ -322,6 +330,12 @@ const REACH: Partial<Record<CityId, string>> = {
   corinth: 'By road through Nemea, or by sea to its eastern harbour.',
   troy: 'By sea only, the long way through the islands and up the Aegean.',
   tyre: 'By sea, far to the south-east: its merchant ship comes to your trading post.',
+  // (Slice 31.)
+  thebes: 'By road only, north through Corinth, over the isthmus by Megara and over Mount Kithairon into Boeotia.',
+  argos: 'By road only, a short way west over the hills: the Argives’ old town looks down on your plain.',
+  knossos: 'By sea only, south out of the gulf, past Cape Maleas and across to Crete.',
+  rhodes: 'By sea only, the long way south-east through the islands, past Karpathos.',
+  memphis: 'By sea only, the longest voyage: south past Crete and across the open sea to the mouths of the Nile.',
 };
 
 const months = (ticks: number): string => {
