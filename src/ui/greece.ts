@@ -191,7 +191,7 @@ function travellerHtml(s: SimState, key: string): string {
     if (!p) return '<b>Pirates</b>';
     const g = guardsOf(s, p.way);
     const line = p.state === 'seen' ? `Seen ${p.place}: from about ${dayWords(p.from)} they seize what of yours passes there` : `${p.place.replace(/^./, (c) => c.toUpperCase())}, seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
-    return `<b>${esc(`Pirates · ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}`)}</b><span>${esc(line)}</span><span class="sub">${esc(g.length ? `The ${triremeName(g[0])} guards the lane` : `Send a trireme to guard the lane, from ${PLACES[p.city].name}’s page or the Army tab`)}</span>`;
+    return `<b>${esc(`Pirates · ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}`)}</b><span>${esc(line)}</span><span class="sub">${esc(g.length ? `The ${triremeName(g[0])} guards the lane` : `Send a trireme to guard the lane, from ${PLACES[p.city].name}’s page or the Military tab`)}</span>`;
   }
   if (key.startsWith('trireme-')) {
     const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));

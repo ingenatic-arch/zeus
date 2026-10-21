@@ -34,8 +34,8 @@ What breaks, or moves:
 - **Rough edges:** a trireme rowing home to her mooring no longer shows the lanes' buttons. Ships that beach with no men left past their guards land nobody and sail home (one man used to land).
 
 ### What to try
-1. Open #fortress. Read the lines under the top bar, then open "+2 more". Look round the walls, the gates and the towers, then the Army tab, the debts chip and the map of Greece (Tab: Corinth's and Athens' Loans tabs).
-   - Take the banners of all three companies (click each row on the Army tab) and place them on the main street just inside the west gate. Clicking a row takes the view to that company, so you come back to the gate each time. Then play. In my run, held there, they broke the band at the gate: 22 of its 33 men fell and it took nothing, though it set one building alight on the way in. One of ours was killed and one wounded. Left alone, the towers brought down 14 of its 33 men, but it hammered the gate for 36 days, broke in, and left with 748 wheat and 219 dr, having set three buildings alight.
+1. Open #fortress. Read the lines under the top bar, then open "+2 more". Look round the walls, the gates and the towers, then the Military tab (once called the Army tab), the debts chip and the map of Greece (Tab: Corinth's and Athens' Loans tabs).
+   - Take the banners of all three companies (click each row on the Military tab) and place them on the main street just inside the west gate. Clicking a row takes the banner in hand and leaves the view where it is, so you can stay at the gate and click each row in turn (the company's place on its row takes you to it). Then play. In my run, held there, they broke the band at the gate: 22 of its 33 men fell and it took nothing, though it set one building alight on the way in. One of ours was killed and one wounded. Left alone, the towers brought down 14 of its 33 men, but it hammered the gate for 36 days, broke in, and left with 748 wheat and 219 dr, having set three buildings alight.
    - Or pay the 800 dr on Sparta's page, and see what the treasury looks like with Corinth's 3,210 dr due in November.
    - Play on for a few years: Athens' repayment in May, Greece's own asks and offers, and whatever else Greece sends.
 2. Open #landing and compare the new view with the old one. Place the companies on the beach and play: they are there sooner.
@@ -589,7 +589,7 @@ What breaks, or moves:
 
 ### What to try
 1. Open `#battle`. It is `#companies`' town, paused. Sparta's band of 29 is about 11 days from the west edge, the hoplites' banner is in hand and the Army tab is open.
-   - Click the west road at the bridge (or just this side of it) to send the hoplites there. Then click the archers' row (the camera goes to them at the barracks; come back to the bridge) and send them a few tiles behind.
+   - Click the west road at the bridge (or just this side of it) to send the hoplites there. Then click the archers' row (the view stays at the bridge) and send them a few tiles behind.
    - Play at normal speed. The march takes the companies about 26 days (the tip says "about 26 days away"), and they stand in their ranks at the bridge about a week before the band gets there. Watch the fight at the bridge from close in, and hover a raider.
    - With both companies there, the band breaks after about half its men fall. Count the cost on the Army tab and in the town line, and find the houses that mourn their men.
 2. In `#battle` again, try one company alone. In my runs, the outcome depended on where it stood:

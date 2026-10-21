@@ -15,7 +15,7 @@ export class ArmyChip {
     el.className = 'army-chip';
     el.hidden = true;
     el.innerHTML = `${HELMET}<span></span>`;
-    el.title = 'The army: click for the Army tab';
+    el.title = 'The army: click for the Military tab';
     el.addEventListener('click', open);
     parent.prepend(el);
     this.el = el;

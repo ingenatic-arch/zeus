@@ -16,6 +16,9 @@ const SETTLE_DAYS = 3;
 
 /** Slice 29: at most this many lines show at once (the most pressing, by WEIGHT); the rest fold under "+N more", which opens them. Seven lines covered the middle of the screen. */
 const SHOWN = 4;
+/** On the map of Greece, two: four lines and the chips covered Corinth, Athens, Sparta and your own city at 1600 × 900 (phase 4's review). */
+const SHOWN_ON_MAP = 2;
+const shown = (): number => (document.body.classList.contains('greece-open') ? SHOWN_ON_MAP : SHOWN);
 
 const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>';
 /** The army's news: a bronze helmet with its crest. */
@@ -101,14 +104,15 @@ export class TownLines {
   /** Fold all but the SHOWN most pressing lines under the "+N more" button (or show them all, opened). */
   private fold(): void {
     const lines = [...this.el.querySelectorAll<HTMLElement>('.townline')];
-    const over = lines.length - SHOWN;
+    const most = shown();
+    const over = lines.length - most;
     if (over <= 0) this.open = false;
-    const kept = new Set(lines.slice().sort((a, b) => weight(a.dataset.need ?? '') - weight(b.dataset.need ?? '') || Number(a.dataset.rank) - Number(b.dataset.rank)).slice(0, SHOWN));
+    const kept = new Set(lines.slice().sort((a, b) => weight(a.dataset.need ?? '') - weight(b.dataset.need ?? '') || Number(a.dataset.rank) - Number(b.dataset.rank)).slice(0, most));
     lines.forEach((l) => l.classList.toggle('folded', !this.open && !kept.has(l)));
     this.more.hidden = over <= 0;
     const text = this.open ? 'Fewer' : `+${over} more`;
     if (this.more.textContent !== text) this.more.textContent = text;
-    this.more.title = this.open ? `Fold all but the ${SHOWN} most pressing lines` : `${over} more line${over === 1 ? '' : 's'}: click to show ${over === 1 ? 'it' : 'them'}`;
+    this.more.title = this.open ? `Fold all but the ${most} most pressing lines` : `${over} more line${over === 1 ? '' : 's'}: click to show ${over === 1 ? 'it' : 'them'}`;
     if (this.el.lastElementChild !== this.more) this.el.appendChild(this.more);
   }
 

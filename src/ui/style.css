@@ -49,6 +49,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
   box-shadow: 0 3px 0 rgba(120, 80, 40, 0.25), 0 8px 24px rgba(60, 40, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   padding: 4px 10px 6px;
   user-select: none;
+  /* Its own width, not what is left right of its centre: on the map of Greece at 1600 wide, with chips in it, the date wrapped onto two lines (phase 4's review). */
+  width: max-content; max-width: calc(100% - var(--side) - 24px);
 }
 .topbar .row { display: flex; align-items: center; gap: 14px; padding: 4px 4px 2px; }
 .date { display: flex; flex-direction: column; align-items: center; min-width: 168px; }
@@ -365,6 +367,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 }
 #ui > .notices { pointer-events: none; }
 .notices > * { pointer-events: none; }
+.notices > .chiprow { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.notices > .chiprow:empty, .notices > .chiprow:not(:has(> :not([hidden]))) { display: none; }
 .notices > .townlines { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
 .townline {
   appearance: none; pointer-events: auto; cursor: pointer; font: inherit; color: var(--ink);
@@ -888,6 +892,8 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .townline.alarm { border-left-color: #b8322a; }
 /* The army's news (slice 24): bronze. */
 .townline.battle { border-left-color: #a87a2a; background: rgba(246, 236, 212, 0.96); }
+/* A debt or a loan (slice 27; phase 4 review: its own colour, as the spec asks): coin gold. */
+.townline.loan { border-left-color: #8a6414; background: rgba(249, 239, 206, 0.96); }
 .greece-panel .deal.threat { background: #f6ded6; border-color: #9e3a30; border-width: 2px; }
 .greece-panel .deal.threat > div > p:not(.if):not(.eta) { margin: 4px 0 0; }
 

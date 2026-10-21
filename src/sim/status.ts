@@ -1106,6 +1106,8 @@ export function newsUrgent(s: SimState, map: CoastMap): NewsItem | null {
     if (!n.urgent || n.tick > s.tick) continue;
     if (s.tick - n.tick >= show) return null;
     if (standing && n.city === standing.city && n.tick <= standing.start) return null;
+    // (Nor the band breaking, while its own line says it is beaten and running: review of phase 4.)
+    if (standing && n.city === standing.city && / raiders break and run for /.test(n.line)) return null;
     return n;
   }
   return null;
@@ -1127,7 +1129,7 @@ function battleTownLine(s: SimState): TownLine | null {
   const n = s.army.news.at(-1);
   if (!n || n.tick > s.tick || s.tick - n.tick >= ARMY_NEWS_SHOWS) return null;
   const more = s.army.news.filter((x) => x !== n && x.tick <= s.tick && s.tick - x.tick < ARMY_NEWS_SHOWS).length;
-  return { need: 'battle', text: `${n.line}.${more ? ` (${more === 1 ? 'And one more' : `And ${more} more`} on the Army tab.)` : ''}`, at: n.at };
+  return { need: 'battle', text: `${n.line}.${more ? ` (${more === 1 ? 'And one more' : `And ${more} more`} on the Military tab.)` : ''}`, at: n.at };
 }
 
 /** The top bar's chip for a band on its way or in your city: its few words, and the city whose page it opens. */
@@ -1210,7 +1212,13 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // comes next, and once it is paid the news would be stale. Nor the news of a ruler's debt to you gone overdue once it no longer is:
   // forgiven, met or collected.)
   const stale = alarm && (DEBT_STEP_NEWS.test(alarm.line) || (THEIR_DEBT_NEWS.test(alarm.line) && !s.world.loans.some((l) => l.city === alarm.city && l.side === 'out' && l.state === 'overdue')));
-  if (alarm && !stale && alarm.line !== told) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
+  // (Nor news the army's line tells in other words, the same up to its first stop: raiders through a gate or wall, your army's
+  // fight abroad. Review of phase 4.)
+  // (Once the army's line has told it, not after it goes either: the alarm would come back days late. Review of phase 4.)
+  const lead = (t: string): string => t.replace(/ your (gate|wall)/, ' the $1').split(/[:,]/)[0];
+  const armyTold = (line: string): boolean => s.army.news.some((n) => n.tick <= s.tick && s.tick - n.tick < NEWS_DAYS * TICKS_PER_DAY && lead(n.line) === lead(line));
+  const same = alarm && armyTold(alarm.line);
+  if (alarm && !stale && !same) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
   const deal = dealTownLine(s, map);
   if (deal) out.push(deal.line);
   // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
@@ -1223,7 +1231,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)
   // (Nor the news that you sent your soldiers out (slice 28): the army's own news says it, and the expedition's line where they are.)
   const sent = away && news && news.item.city === away.city && /^You sent (a raiding party|a full force) /.test(news.item.line);
-  if (news && !sent && news.item.line !== told && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  if (news && !sent && news.item.line !== told && !armyTold(news.item.line) && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);

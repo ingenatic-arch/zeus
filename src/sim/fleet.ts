@@ -1164,7 +1164,7 @@ function stepPirates(s: SimState): void {
     }
     if ((p.state === 'seen' || p.state === 'preying') && s.tick >= p.until) {
       p.state = 'gone';
-      news(w, s.tick, p.city, `The pirates ${p.place} have sailed away${p.took.length ? `, with ${p.took.join(', ')}` : ''}`);
+      news(w, s.tick, p.city, `The pirates ${p.place} have sailed away${p.took.length ? `, with ${tookWords(p.took)}` : ''}`);
       s.rev++;
     }
     if ((p.state === 'seen' || p.state === 'preying') && guarded(s, p.way) && (p.fought === 0 || s.tick - p.fought >= REFIGHT)) laneFight(s, p);
@@ -1343,4 +1343,12 @@ export function enemyDoing(s: SimState, e: EnemyShip): string {
       return `A ship${of} going down`;
   }
   return '';
+}
+
+/** What pirates took, in words, each kind once ("Troy’s trader’s cargo twice", not the same words twice over: review of phase 4). */
+function tookWords(took: readonly string[]): string {
+  const n = new Map<string, number>();
+  for (const t of took) n.set(t, (n.get(t) ?? 0) + 1);
+  const times = ['', '', ' twice', ' three times'];
+  return [...n].map(([t, k]) => `${t}${times[k] ?? ` ${k} times`}`).join(', ');
 }

@@ -13,6 +13,7 @@ import { PREPARED } from 'virtual:prepared';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
+import { MAP_SIZE } from './map/coast';
 import { districtGrid } from './map/districts';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
 import { CameraRig, type CameraView } from './render/cameraRig';
@@ -393,10 +394,14 @@ function start(preparedTown: string | null): void {
   const notices = document.createElement('div');
   notices.className = 'notices';
   ui.appendChild(notices);
-  const raidChip = new RaidChip(notices, (city) => toggleGreece(true, city as CityId, 'ruler'));
-  const armyChip = new ArmyChip(notices, () => side.showTab('army'));
+  // The chips (a raid, the army, debts) side by side in one row, not stacked one under another (phase 4's review: three stacked pushed the lines down over Greece's cities).
+  const chips = document.createElement('div');
+  chips.className = 'chiprow';
+  notices.prepend(chips);
+  const raidChip = new RaidChip(chips, (city) => toggleGreece(true, city as CityId, 'ruler'));
+  const armyChip = new ArmyChip(chips, () => side.showTab('army'));
   // While a loan stands either way: the next date due (red while one is overdue); it opens the Administration tab (the old Money tab), where every loan is listed.
-  const debtsChip = new DebtsChip(notices, () => side.showTab('administration'));
+  const debtsChip = new DebtsChip(chips, () => side.showTab('administration'));
   const panel = new HouseholdPanel(ui, () => panel.show(0));
   // The trading post's panel shares the household panel's place: one at a time.
   const tradePanel = new TradePanel(ui, (c) => {
@@ -629,13 +634,12 @@ function start(preparedTown: string | null): void {
       panel.show(id);
     },
     army: (c) => orders.send(c),
+    // (The view stays where it is, so you can take each company's banner in turn and plant it where you are looking:
+    // review of phase 4. The company's place on its row is a link that goes to it.)
     selectCompany: (id) => {
       const c = companyOf(sim.state, id);
       if (!c || id === orders.selected) return takeBanner(0);
       takeBanner(id);
-      stopFollow();
-      const v = rig.view;
-      rig.flyTo({ ...v, x: c.x, z: c.z, dist: Math.min(v.dist, 34) });
     },
     selected: () => orders.selected,
     loans: (city) => toggleGreece(true, city as CityId, 'loans'),
@@ -685,7 +689,7 @@ function start(preparedTown: string | null): void {
     }
     // …and one saved before the army (slice 22 or older): the city can arm itself.
     if (loaded.from !== undefined && loaded.from <= 21 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
-      changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Army tab in the side panel has them.';
+      changed += ' · The city can arm itself now: copper in the hills for a copper mine and an armoury (B B, B ×3), and a barracks (B ×4) that raises companies of hoplites and archers from your best homes. The Military tab in the side panel has them.';
     }
     // …and one saved before raiders were fought (slice 23 or older, with a town): raids come for the stores and the treasury now, and soldiers fight them.
     if (loaded.from !== undefined && loaded.from <= 22 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
@@ -841,7 +845,7 @@ function start(preparedTown: string | null): void {
     if (o.kind === 'trireme') {
       const t = triremeOf(sim.state, o.id);
       if (!t) return null;
-      return { title: `The trireme ${triremeName(t)} · ${t.crew.length} of ${CREW} rowers · hull ${Math.round(t.hp)}%`, detail: [triremeDoing(sim.state, t), crewWhy(sim.state, map, t), 'Click for the fleet, on the Army tab'].filter((l) => l).join('\n') };
+      return { title: `The trireme ${triremeName(t)} · ${t.crew.length} of ${CREW} rowers · hull ${Math.round(t.hp)}%`, detail: [triremeDoing(sim.state, t), crewWhy(sim.state, map, t), 'Click for the fleet, on the Military tab'].filter((l) => l).join('\n') };
     }
     const e = sim.state.fleet.ships.find((x) => x.id === o.id);
     if (!e) return null;
@@ -1638,6 +1642,53 @@ function start(preparedTown: string | null): void {
   };
   seeHazards();
   let hazardTick = sim.state.tick;
+  // The war's sounds (phase 4's review): companies as last seen (a new one, or one sent off under its banner, sounds the trumpet),
+  // the walls' strength (a blow heard as a thud), and loans' states (their coin counted in or out).
+  const companiesSeen = new Map<number, string>();
+  const orderOf = (c: { order: string; target: number }): string => (c.order === 'march' ? `march:${c.target}` : c.order);
+  for (const c of sim.state.army.companies) companiesSeen.set(c.id, orderOf(c));
+  const wallsSeen = new Map<number, number>();
+  for (const p of sim.state.walls) wallsSeen.set(p.t, p.hp);
+  const loansSeen = new Map<number, string>();
+  for (const l of sim.state.world.loans) loansSeen.set(l.id, l.state);
+  const COIN_STATES = new Set(['running', 'repaid', 'repaying', 'offering', 'sending', 'collected']);
+  const warSounds = (since: number): void => {
+    const st = sim.state;
+    const ear = rig.view;
+    const hearing = 12 + ear.dist * 0.8;
+    const near = (x: number, z: number): boolean => Math.hypot(x - ear.x, z - ear.z) < hearing;
+    const cues: Cue[] = [];
+    for (const c of st.army.companies) {
+      const o = orderOf(c);
+      const was = companiesSeen.get(c.id);
+      if (was !== o) {
+        if (was === undefined || (c.order === 'march' && was !== o)) cues.push('trumpet');
+        companiesSeen.set(c.id, o);
+      }
+    }
+    if (companiesSeen.size > st.army.companies.length) for (const id of companiesSeen.keys()) if (!st.army.companies.some((c) => c.id === id)) companiesSeen.delete(id);
+    if (st.army.foes.length) {
+      let clash = false;
+      for (const x of st.army.soldiers) if (x.swung > since && x.foe > 0 && near(x.x, x.z)) clash = true;
+      for (const f of st.army.foes) if (f.swung > since && f.state === 'fight' && near(f.x, f.z)) clash = true;
+      if (clash) cues.push('clash');
+      if (st.army.arrows.some((a) => a.t0 > since && near(a.x0, a.z0))) cues.push('arrow');
+    }
+    if (st.walls.length) {
+      for (const p of st.walls) {
+        const was = wallsSeen.get(p.t);
+        if (was !== undefined && p.hp < was && near(p.t % MAP_SIZE, Math.floor(p.t / MAP_SIZE))) cues.push('thud');
+        wallsSeen.set(p.t, p.hp);
+      }
+    }
+    if (st.fleet.triremes.some((t) => t.state === 'rowing' && near(t.x, t.z))) cues.push('oars');
+    for (const l of st.world.loans) {
+      const was = loansSeen.get(l.id);
+      if (was !== l.state && COIN_STATES.has(l.state)) cues.push('coins');
+      loansSeen.set(l.id, l.state);
+    }
+    for (const c of new Set(cues)) sound.play(c);
+  };
   // The ship as last seen: her sail sighted rings the harbour bell; her paying floats the drachmas up from the quay.
   let shipSeen = { phase: sim.state.trade.ship.phase, visits: sim.state.trade.ship.visits };
   // The routes' traders as last seen: a caravan coming in brays, a foreign ship sighted rings the bell, a trader paying floats its drachmas up from the yard or the quay.
@@ -1712,6 +1763,7 @@ function start(preparedTown: string | null): void {
     if (!onMap) rig.update(dt);
     const s = sim.state;
     if (s.tick !== hazardTick) {
+      warSounds(hazardTick);
       hazardTick = s.tick;
       let cue: Cue | null = null;
       const ear = rig.view;

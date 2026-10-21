@@ -68,7 +68,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   // The army's news: the last few things that happened to it.
   const news = s.army.news.filter((n) => n.tick <= s.tick).slice(-4).reverse();
   if (news.length) out.push(`<ul class="army-news">${news.map((n) => `<li><small>${esc(agoWords(s.tick - n.tick))}</small> ${esc(n.line)}.</li>`).join('')}</ul>`);
-  if (st.companies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there. Esc lets go. Orders work while paused.</p>');
+  if (st.companies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there; the view stays where you are looking, and the company’s place on its row takes you to it. Esc lets go. Orders work while paused.</p>');
   const serving = servingHomes(s);
   const homes = s.buildings.filter((b) => b.kind === 'home');
   const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length };
@@ -90,7 +90,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
       const dismiss = c.hired ? 'They walk off the way they came; what they were owed is still paid' : 'The men walk home to their old work; their armour goes back to the stores';
       out.push(
         `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${c.away ? 'Away on an expedition: it takes orders again once it is home' : sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"${c.away ? ' disabled' : ''}><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
-          `<p>${esc(cap(doingWords(s, c)))}${where ? ` · ${esc(where)}` : ''} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
+          `<p>${esc(cap(doingWords(s, c)))}${where ? ` · ${c.away ? esc(where) : `<button class="link" data-act="go" data-x="${c.x.toFixed(1)}" data-z="${c.z.toFixed(1)}" title="Go there">${esc(where)}</button>`}` : ''} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
           (c.why ? `<p class="why">${esc(c.why)}</p>` : '') +
           (c.away ? '</li>' : `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="${dismiss}">Dismiss</button></div></li>`),
       );

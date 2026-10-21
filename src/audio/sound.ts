@@ -16,7 +16,10 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn' | 'trumpet' | 'clash' | 'arrow' | 'thud' | 'oars' | 'coins';
+
+/** The war's sounds (phase 4's review), each at most once in so many seconds, however many men strike at once. */
+const SPACING: Partial<Record<Cue, number>> = { rise: 1, decline: 1, groan: 1, douse: 1, trumpet: 2.5, clash: 0.16, arrow: 0.22, thud: 0.45, oars: 0.95, coins: 0.6 };
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -266,9 +269,10 @@ export class Sound {
     const ctx = this.ctx;
     if (!ctx || !this.master || this.muted) return;
     // A home going up or down: at most one chime a second, however fast the town grows.
-    if (cue === 'rise' || cue === 'decline' || cue === 'groan' || cue === 'douse') {
+    const spacing = SPACING[cue];
+    if (spacing !== undefined) {
       const last = this.lastCue.get(cue) ?? -Infinity;
-      if (ctx.currentTime - last < 1) return;
+      if (ctx.currentTime - last < spacing) return;
       this.lastCue.set(cue, ctx.currentTime);
     }
     this.played++;
@@ -347,6 +351,39 @@ export class Sound {
         // Raiders sighted at the edge of your land: a war horn, two long low calls, the second rising.
         this.horn(0.08, 0, 1.1, 0);
         this.horn(0.08, 1.3, 1.5, 1);
+        break;
+      case 'trumpet':
+        // A company raised, or marching off under its banner: a bronze salpinx, three bright calls, the last held.
+        this.salpinx(0.05, 0, 0.16, 392);
+        this.salpinx(0.05, 0.2, 0.16, 392);
+        this.salpinx(0.055, 0.4, 0.6, 523);
+        break;
+      case 'clash':
+        // Spear on shield: a dull wooden knock and a short ring of bronze.
+        this.knock(0.07, rand(170, 260), 0);
+        this.bell(0.012, rand(1400, 2100), 0.005);
+        this.burst(0.05, rand(2500, 4000), 2, 0.05, 0, 'bandpass');
+        break;
+      case 'arrow':
+        // An arrow's whistle, falling as it flies.
+        this.whistle(0.02);
+        break;
+      case 'thud':
+        // A ram against the gate's timbers, or stones against a wall.
+        this.thump(0.2, 62, 0.35);
+        this.knock(0.06, 140, 0.01);
+        this.burst(0.06, 300, 1, 0.18, 0.02, 'lowpass');
+        break;
+      case 'oars':
+        // The rowers' drum, and their oars dipping together.
+        this.thump(0.1, 90, 0.18);
+        this.burst(0.035, 900, 0.8, 0.25, 0.18, 'lowpass');
+        break;
+      case 'coins':
+        // A loan's coin counted in or out: a heavier pour of coins than a sale.
+        for (let i = 0; i < 10; i++) this.bell(0.02, 1396 + rand(-150, 200), i * 0.055 + rand(0, 0.03));
+        this.knock(0.07, 700, 0.02);
+        this.knock(0.05, 820, 0.4);
         break;
       case 'sale':
         // Paid: coins counted out onto the counter.
@@ -556,6 +593,44 @@ export class Sound {
       o.start(at);
       o.stop(at + len + 0.1);
     }
+  }
+
+  /** A salpinx call: a bright brassy note at `freq`, with a quick swell. */
+  private salpinx(gain: number, delay: number, len: number, freq: number): void {
+    const ctx = this.ctx as AudioContext;
+    const at = ctx.currentTime + delay;
+    for (const [mul, g] of [
+      [1, 1],
+      [2, 0.6],
+      [3, 0.35],
+      [4, 0.15],
+    ] as const) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(freq * mul * 0.97, at);
+      o.frequency.linearRampToValueAtTime(freq * mul, at + 0.04);
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 2400;
+      o.connect(f).connect(this.env(gain * g, at, 0.03, len));
+      o.start(at);
+      o.stop(at + len + 0.08);
+    }
+  }
+
+  /** An arrow's whistle: a thin high note falling, under a breath of air. */
+  private whistle(gain: number): void {
+    const ctx = this.ctx as AudioContext;
+    const at = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    const f0 = rand(2600, 3400);
+    o.frequency.setValueAtTime(f0, at);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.55, at + 0.3);
+    o.connect(this.env(gain, at, 0.05, 0.28));
+    o.start(at);
+    o.stop(at + 0.4);
+    this.burst(gain * 1.5, 5000, 1, 0.25, 0, 'highpass');
   }
 
   /** A donkey's bray: a rough high "hee" breathed in, a low "haw" breathed out, twice. */
