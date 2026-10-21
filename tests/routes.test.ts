@@ -31,6 +31,7 @@ import {
   visitorAt,
   visitorOnMap,
   voyageTicks,
+  soldTo,
   yearlyLimit,
 } from '../src/sim/routes';
 import { deserialize, replay, serialize, Sim } from '../src/sim/sim';
@@ -237,8 +238,9 @@ describe('caravans', () => {
     const yard = caravanYard(s)!;
     // Keep no meat: all of it is surplus. And only 100 left of this year's limit.
     send(sim, { type: 'trade', good: MEAT, keep: 0 });
-    const limit = yearlyLimit(s, 'corinth', MEAT_K);
     expect(until(sim, () => held(yard, MEAT) >= 100 && (caravanOf(s, 'corinth')?.wait ?? 0) > 0, 4 * TICKS_PER_MONTH)).toBe(true);
+    // (Slice 31: the limit follows Corinth's people, so it is read once the caravan trades.)
+    const limit = yearlyLimit(s, 'corinth', MEAT_K);
     r.sold[MEAT_K] = limit - 100;
     const w = caravanOf(s, 'corinth')!;
     // It pays at your price as it settles (which then slides, as the meat piles up in Corinth).
@@ -503,4 +505,44 @@ describe('determinism and saves', () => {
     expect(sim.state.walkers.some((w) => w.kind === 'caravan')).toBe(false);
     void setHeld;
   });
+});
+
+describe('slice 31', () => {
+  it('one yearly limit for a city, whether you trade with it by road or by sea', () => {
+    const sim = corinth({ sell: true });
+    const s = sim.state;
+    const r = routeOf(s, 'corinth', 'land')!;
+    const yard = caravanYard(s)!;
+    send(sim, { type: 'trade', good: MEAT, keep: 0 });
+    expect(until(sim, () => held(yard, MEAT) >= 100 && (caravanOf(s, 'corinth')?.wait ?? 0) > 0, 4 * TICKS_PER_MONTH)).toBe(true);
+    // A sea route to Corinth has sold all but 100 of this year's meat: the caravan takes no more than the 100.
+    const sea = { ...r, kind: 'sea' as const, sold: r.sold.map(() => 0), bought: r.bought.map(() => 0), hold: r.hold.map(() => 0), ship: null };
+    s.world.routes.push(sea);
+    sea.sold[MEAT_K] = yearlyLimit(s, 'corinth', MEAT_K) - 100;
+    expect(soldTo(s, 'corinth', MEAT_K)).toBe(r.sold[MEAT_K] + sea.sold[MEAT_K]);
+    const w = caravanOf(s, 'corinth')!;
+    for (let i = 0; i < 3000 && !w.back; i++) sim.step();
+    expect(w.back).toBe(true);
+    expect(r.lastSold[MEAT_K]).toBeLessThanOrEqual(100);
+    expect(soldTo(s, 'corinth', MEAT_K)).toBeLessThanOrEqual(yearlyLimit(s, 'corinth', MEAT_K));
+  }, 30000);
+
+  it('a caravan trading in your streets when its road is closed pays for what it has loaded and leaves', () => {
+    const sim = corinth({ sell: true });
+    const s = sim.state;
+    const r = routeOf(s, 'corinth', 'land')!;
+    const yard = caravanYard(s)!;
+    send(sim, { type: 'trade', good: MEAT, keep: 0 });
+    expect(until(sim, () => (caravanOf(s, 'corinth')?.wait ?? 0) > 0, 4 * TICKS_PER_MONTH)).toBe(true);
+    const w = caravanOf(s, 'corinth')!;
+    const visits = r.visits;
+    r.closed = s.tick;
+    sim.step();
+    expect(w.back).toBe(true);
+    expect(w.wait).toBe(0);
+    expect(r.visits).toBe(visits + 1);
+    const left = held(yard, MEAT);
+    sim.run(2 * TICKS_PER_DAY);
+    expect(held(yard, MEAT)).toBeGreaterThanOrEqual(left);
+  }, 30000);
 });

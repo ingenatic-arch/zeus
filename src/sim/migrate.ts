@@ -83,6 +83,14 @@
  * gift on its way is a gift, not something sent for a request. Nothing in
  * the city changes.
  *
+ * Slice 31 (Greece grows): Greece reaches its full table. Thebes, Argos,
+ * Knossos, Rhodes and Memphis join it (shuffled from the save's own seed,
+ * each ruler meeting your city for the first time), every ruler has a feeling
+ * for each of them, every ruled city its people, wealth, army and fleet (the
+ * first four's at exactly their usual size, so a loaded town's prices don't
+ * move), nobody is anybody's vassal, and the six empty sites are free.
+ * Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -97,7 +105,7 @@ import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
 import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, TRADE_GOODS } from './trade';
-import { armsOf, freshWorld, marketPrice, moodLevel, moodOf, normalStock, usualTrail } from './world';
+import { armsOf, freshWorld, marketPrice, moodLevel, moodOf, normalStock, settle, usualTrail } from './world';
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { nextFestival } from './festivals';
@@ -147,6 +155,7 @@ export function migrate(st: unknown): number {
   if (st.version === 24) from24(st);
   if (st.version === 25) from25(st);
   if (st.version === 26) from26(st);
+  if (st.version === 27) fromSlice31(st);
   return from;
 }
 
@@ -560,4 +569,23 @@ function from26(st: Record<string, unknown>): void {
   const a = st.army;
   if (isObj(a) && Array.isArray(a.companies)) for (const c of a.companies as unknown[]) if (isObj(c) && typeof c.away !== 'number') c.away = 0;
   st.version = 27;
+}
+
+/**
+ * Slice 31 (Greece grows): the newcomers, every city's size, the vassal
+ * links and the sites, each only if absent (another line's fields are left
+ * alone, and goods arrays are made as long as the trade goods are now).
+ */
+function fromSlice31(st: Record<string, unknown>): void {
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.cities)) {
+    for (const c of w.cities as unknown[]) {
+      if (!isObj(c)) continue;
+      for (const k of ['pop', 'wealth', 'army', 'fleet', 'lordSince']) if (typeof c[k] !== 'number') c[k] = 0;
+      if (typeof c.lord !== 'string') c.lord = '';
+      if (!Array.isArray(c.grew)) c.grew = [];
+    }
+    settle(w as unknown as SimState['world'], typeof st.tick === 'number' ? st.tick : 0, false, false);
+  }
+  st.version = 28;
 }

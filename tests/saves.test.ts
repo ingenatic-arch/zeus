@@ -181,7 +181,8 @@ describe('saves from before', () => {
   it('envelope 3 packs every list of records as rows against a table of key lists, losslessly, and the tiles as runs: #town saves in about half the space of slice 13 (258 KB)', () => {
     const s = demo('town').state;
     const text = encodeSave(s, 4);
-    expect(text.length).toBeLessThan(160_000);
+    // (Slice 31: Greece's eleven cities, with what moved their people, wealth and arms, add about 10 KB.)
+    expect(text.length).toBeLessThan(175_000);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

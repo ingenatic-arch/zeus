@@ -252,7 +252,9 @@ const makes = (s: SimState, k: number): boolean => s.buildings.some((b) => b.kin
 
 /** How strong a ruled city is against yours: its people, and whether it is far stronger (half as big again, or more). */
 export function stronger(s: SimState, city: CityId): { theirs: number; far: boolean } {
-  const theirs = STRENGTH[city] ?? 0;
+  // (Slice 31: its people as they are now, growth.ts; to the hundred.)
+  const c = cityOf(s.world, city);
+  const theirs = c?.pop ? Math.round(c.pop / 100) * 100 : (STRENGTH[city] ?? 0);
   return { theirs, far: theirs >= s.population * 1.5 };
 }
 

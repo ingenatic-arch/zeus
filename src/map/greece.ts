@@ -12,11 +12,20 @@
 
 import { dcos, dhypot } from './dmath';
 
-/** The cities of Greece, in the order the world record keeps them: yours first, then the four with rulers, then Tyre. */
-export type CityId = 'home' | 'athens' | 'sparta' | 'corinth' | 'troy' | 'tyre';
-export const CITY_IDS: readonly CityId[] = ['home', 'athens', 'sparta', 'corinth', 'troy', 'tyre'];
+/**
+ * A city of Greece, by its id ('athens'). Slice 31: the cities are data, a
+ * table that grows by appending, so every array kept by city (the world's
+ * cities, each ruler's feelings for the others) keeps its first places.
+ */
+export type CityId = string;
+/** The cities of Greece, in the order the world record keeps them: yours first, then the four with rulers, then Tyre; then the five of slice 31. */
+export const CITY_IDS: readonly CityId[] = ['home', 'athens', 'sparta', 'corinth', 'troy', 'tyre', 'thebes', 'argos', 'knossos', 'rhodes', 'memphis'];
 /** The cities with a ruler (yours and Tyre have none to deal with). */
-export const RULED: readonly CityId[] = ['athens', 'sparta', 'corinth', 'troy'];
+export const RULED: readonly CityId[] = ['athens', 'sparta', 'corinth', 'troy', 'thebes', 'argos', 'knossos', 'rhodes', 'memphis'];
+/** How many cities Greece had before slice 31 (yours, the four, Tyre): what they shuffle from comes out as it always did. */
+export const FIRST_CITIES = 6;
+/** Is a city one of slice 31's newcomers (shuffled from a generator of their own)? */
+export const newcomer = (id: CityId): boolean => CITY_IDS.indexOf(id) >= FIRST_CITIES;
 
 /** The table's extent in longitude and latitude. */
 export const LON0 = 20.0;
@@ -62,6 +71,12 @@ export const PLACES: Record<CityId, CityPlace> = {
   corinth: { id: 'corinth', name: 'Corinth', lon: 22.88, lat: 37.91, colour: '#d2902c', trim: '#5a3a22', blurb: 'the trading city on its isthmus, between two seas' },
   troy: { id: 'troy', name: 'Troy', lon: 26.24, lat: 39.96, colour: '#4e8a5a', trim: '#e9d9a0', blurb: 'far across the sea, wealthy in fleece and wine' },
   tyre: { id: 'tyre', name: 'Tyre', lon: 28.72, lat: 34.95, colour: '#7b3f8c', trim: '#f2e7c9', blurb: 'the Phoenician port whose merchant ship calls at your quay' },
+  // Slice 31: the newcomers. Thebes in Boeotia; Argos, the old Argives, on the hills west of your plain; Knossos on Crete; Rhodes on its island's northern tip; Memphis, beyond the sea at the map's southern edge (as Tyre is at its corner).
+  thebes: { id: 'thebes', name: 'Thebes', lon: 23.32, lat: 38.32, colour: '#5b6b2e', trim: '#e6d39a', blurb: 'the seven-gated city of Boeotia, rich in grain and proud of its spears' },
+  argos: { id: 'argos', name: 'Argos', lon: 22.48, lat: 37.66, colour: '#8a5a8f', trim: '#efe2c4', blurb: 'the old Argives on their hills, who say your plain was theirs' },
+  knossos: { id: 'knossos', name: 'Knossos', lon: 25.16, lat: 35.3, colour: '#b23a3a', trim: '#2f3f6e', blurb: 'the palace city of Crete, rich in oil and wine, mistress of the southern sea' },
+  rhodes: { id: 'rhodes', name: 'Rhodes', lon: 28.14, lat: 36.36, colour: '#d06a2a', trim: '#f7efd8', blurb: 'the trading island of the sun, its ships in every harbour' },
+  memphis: { id: 'memphis', name: 'Memphis', lon: 26.6, lat: 34.78, colour: '#c9a227', trim: '#2a5a8a', blurb: 'the great city of Egypt beyond the sea, rich in grain and gold' },
 };
 
 /** A road over the land or a lane over the sea, between your city and another, as lon, lat points from yours to theirs. */
@@ -71,6 +86,8 @@ export interface Way {
   to: CityId;
   kind: 'land' | 'sea';
   pts: ReadonlyArray<readonly [number, number]>;
+  /** False for a road the map draws as the roads it runs along (Athens' and Thebes' through Corinth). */
+  drawn?: false;
 }
 
 /** Where the Argolic Gulf opens to the sea: every lane from your city goes out past it. */
@@ -87,6 +104,12 @@ const GULF: ReadonlyArray<readonly [number, number]> = [
 const TO_CORINTH: ReadonlyArray<readonly [number, number]> = [[22.76, 37.605], [22.75, 37.72], [22.72, 37.8], [22.8, 37.87], [22.88, 37.91]];
 /** Corinth to Athens, over the isthmus by Megara and Eleusis. */
 const CORINTH_ATHENS: ReadonlyArray<readonly [number, number]> = [[22.88, 37.91], [23.0, 37.95], [23.2, 37.98], [23.35, 38.0], [23.55, 38.04], [23.73, 37.99]];
+/** Slice 31: from Megara (on the road from Corinth to Athens) north over Kithairon to Thebes. */
+const MEGARA_THEBES: ReadonlyArray<readonly [number, number]> = [[23.35, 38.0], [23.42, 38.1], [23.38, 38.2], [23.32, 38.32]];
+/** Out of the gulf and south past the Argolid's tip, the way every lane to the south takes (Tyre's first). */
+const SOUTH: ReadonlyArray<readonly [number, number]> = [...GULF, [23.4, 37.05], [24.05, 36.45]];
+/** On from there between the islands and Crete, to off Crete's eastern cape. */
+const PAST_CRETE: ReadonlyArray<readonly [number, number]> = [[25.0, 36.1], [26.0, 35.75]];
 
 export const WAYS: readonly Way[] = [
   { id: 'corinth-land', to: 'corinth', kind: 'land', pts: TO_CORINTH },
@@ -101,7 +124,17 @@ export const WAYS: readonly Way[] = [
   // South-east between the islands and Crete, past Karpathos, and off the table's edge towards Tyre.
   { id: 'tyre-sea', to: 'tyre', kind: 'sea', pts: [...GULF, [23.4, 37.05], [24.05, 36.45], [25.0, 36.1], [26.0, 35.75], [26.7, 35.3], [27.6, 35.2], [28.72, 34.95]] },
   // By road to Athens: to Corinth, then over the isthmus (the road drawn between them).
-  { id: 'athens-land', to: 'athens', kind: 'land', pts: [...TO_CORINTH, ...CORINTH_ATHENS.slice(1)] },
+  { id: 'athens-land', to: 'athens', kind: 'land', pts: [...TO_CORINTH, ...CORINTH_ATHENS.slice(1)], drawn: false },
+  // Slice 31. By road to Thebes: to Corinth, over the isthmus to Megara, and north over Kithairon (the roads drawn between them).
+  { id: 'thebes-land', to: 'thebes', kind: 'land', pts: [...TO_CORINTH, ...CORINTH_ATHENS.slice(1, 4), ...MEGARA_THEBES.slice(1)], drawn: false },
+  // West up onto the hills to Argos.
+  { id: 'argos-land', to: 'argos', kind: 'land', pts: [[22.76, 37.605], [22.66, 37.63], [22.56, 37.66], [22.48, 37.66]] },
+  // South past the Argolid and the Cyclades' western isles, and across to Crete's northern shore.
+  { id: 'knossos-sea', to: 'knossos', kind: 'sea', pts: [...SOUTH, [24.7, 35.85], [25.1, 35.5], [25.16, 35.3]] },
+  // The Tyre lane's way past Crete, north of Karpathos, and up to the harbour at Rhodes' northern tip.
+  { id: 'rhodes-sea', to: 'rhodes', kind: 'sea', pts: [...SOUTH, ...PAST_CRETE, [26.7, 35.85], [27.3, 36.05], [27.75, 36.45], [28.14, 36.36]] },
+  // The same way to Crete's eastern cape, then south across the open sea to Egypt.
+  { id: 'memphis-sea', to: 'memphis', kind: 'sea', pts: [...SOUTH, ...PAST_CRETE, [26.55, 35.45], [26.6, 35.1], [26.6, 34.78]] },
 ];
 
 /** Roads between the other cities (drawn on the table; Athens' caravans come by the first). */
@@ -109,6 +142,9 @@ export const OTHER_ROADS: ReadonlyArray<ReadonlyArray<readonly [number, number]>
   CORINTH_ATHENS,
   // Corinth to Sparta, through Arcadia.
   [[22.88, 37.91], [22.62, 37.78], [22.42, 37.4]],
+  // Slice 31: Megara to Thebes, over Kithairon; Argos down to the road through Arcadia; Thebes to Athens by Eleusis.
+  MEGARA_THEBES,
+  [[23.38, 38.2], [23.45, 38.12], [23.55, 38.04]],
 ];
 
 /**
@@ -132,7 +168,7 @@ const SPARTA_CORINTH: ReadonlyArray<readonly [number, number]> = [[22.43, 37.08]
 /** From Troy's beach down the Aegean and through the Cyclades past Andros and Kea, to the mouth of the Saronic Gulf (the Troy lane's way, the other way round). */
 const TROY_SOUTH: ReadonlyArray<readonly [number, number]> = [[26.24, 39.96], [26.12, 39.94], [25.95, 39.86], [25.75, 39.45], [25.5, 38.95], [25.05, 38.4], [24.65, 37.94], [24.3, 37.78], [23.95, 37.42]];
 
-/** The ways between the rival cities, by pair (RULED order: Athens, Sparta, Corinth, Troy). Troy's are by sea. */
+/** The ways between the rival cities, by pair (RULED order: Athens, Sparta, Corinth, Troy, then slice 31's). Troy's are by sea. */
 export const RIVAL_WAYS: readonly RivalWay[] = [
   // Athens to Sparta: over the isthmus, past Corinth, and down through Arcadia. Sparta's army marches all the way into Attica; they meet at Megara.
   { id: 'athens-sparta', a: 'athens', b: 'sparta', kind: 'land', pts: [...CORINTH_ATHENS.slice().reverse(), ...SPARTA_CORINTH.slice(0, -1).reverse()], meet: 2, place: 'Megara' },
@@ -146,7 +182,57 @@ export const RIVAL_WAYS: readonly RivalWay[] = [
   { id: 'sparta-troy', a: 'sparta', b: 'troy', kind: 'sea', pts: [[22.6, 36.7], [22.66, 36.6], [22.88, 36.44], [23.12, 36.31], [23.5, 36.45], [23.95, 37.0], ...TROY_SOUTH.slice().reverse()], meet: 3, place: 'off Cape Maleas' },
   // Corinth's ships sail out of the Saronic Gulf past Aegina, where they meet Troy's.
   { id: 'corinth-troy', a: 'corinth', b: 'troy', kind: 'sea', pts: [[22.88, 37.91], [23.045, 37.872], [23.1, 37.86], [23.45, 37.68], [23.62, 37.36], ...TROY_SOUTH.slice().reverse()], meet: 3, place: 'off Aegina' },
+  // Slice 31: the newcomers' neighbours. (A pair with no way between them is too far apart to come to blows.)
+  // Athens to Thebes, by Eleusis and over Kithairon: they meet in the pass.
+  { id: 'athens-thebes', a: 'athens', b: 'thebes', kind: 'land', pts: [[23.73, 37.99], [23.55, 38.04], [23.45, 38.12], [23.38, 38.2], [23.32, 38.32]], meet: 2, place: 'the pass over Kithairon' },
+  // Corinth to Thebes, over the isthmus and by Megara: they meet at Megara.
+  { id: 'corinth-thebes', a: 'corinth', b: 'thebes', kind: 'land', pts: [...CORINTH_ATHENS.slice(0, 4), ...MEGARA_THEBES.slice(1)], meet: 3, place: 'Megara' },
+  // Sparta to Thebes, up through Arcadia, past Corinth and over the isthmus: Thebes' army marches into the Peloponnese, and they meet at Mantinea.
+  { id: 'sparta-thebes', a: 'sparta', b: 'thebes', kind: 'land', pts: [...SPARTA_CORINTH, ...CORINTH_ATHENS.slice(1, 4), ...MEGARA_THEBES.slice(1)], meet: 3, place: 'Mantinea' },
+  // Sparta to Argos, up to Tegea and over the hills: they meet at Tegea.
+  { id: 'sparta-argos', a: 'sparta', b: 'argos', kind: 'land', pts: [[22.43, 37.08], [22.42, 37.25], [22.42, 37.4], [22.47, 37.53], [22.48, 37.66]], meet: 2, place: 'Tegea' },
+  // Corinth to Argos, by Nemea: they meet there.
+  { id: 'corinth-argos', a: 'corinth', b: 'argos', kind: 'land', pts: [[22.88, 37.91], [22.62, 37.78], [22.56, 37.71], [22.48, 37.66]], meet: 1, place: 'Nemea' },
+  // Sparta's ships from Gytheion round Cape Maleas, past Kythera and across to Crete: they meet off Kythera.
+  { id: 'sparta-knossos', a: 'sparta', b: 'knossos', kind: 'sea', pts: [[22.6, 36.7], [22.66, 36.6], [22.88, 36.44], [23.15, 36.42], [23.3, 36.15], [24.0, 35.9], [24.8, 35.6], [25.1, 35.45], [25.16, 35.3]], meet: 4, place: 'off Kythera' },
+  // Athens round Sounion and south past Melos to Crete: they meet off Melos.
+  { id: 'athens-knossos', a: 'athens', b: 'knossos', kind: 'sea', pts: [[23.73, 37.99], [23.63, 37.92], [23.6, 37.8], [23.6, 37.6], [23.62, 37.36], [23.95, 37.0], [24.1, 36.4], [24.7, 35.85], [25.1, 35.5], [25.16, 35.3]], meet: 6, place: 'off Melos' },
+  // Athens through the Cyclades past Naxos to Rhodes: they meet off Naxos.
+  { id: 'athens-rhodes', a: 'athens', b: 'rhodes', kind: 'sea', pts: [[23.73, 37.99], [23.63, 37.92], [23.6, 37.8], [23.6, 37.6], [23.62, 37.36], [24.3, 37.27], [24.75, 37.25], [25.0, 36.95], [25.35, 36.85], [25.9, 36.55], [26.8, 36.35], [27.75, 36.45], [28.14, 36.36]], meet: 8, place: 'off Naxos' },
+  // Knossos east along Crete's shore and north of Karpathos to Rhodes: they meet off Karpathos.
+  { id: 'knossos-rhodes', a: 'knossos', b: 'rhodes', kind: 'sea', pts: [[25.16, 35.3], [25.2, 35.48], [25.6, 35.5], [26.4, 35.55], [26.9, 35.9], [27.5, 36.2], [27.75, 36.45], [28.14, 36.36]], meet: 4, place: 'off Karpathos' },
+  // Memphis north across the sea and round Crete's eastern cape to Knossos: they meet off the cape.
+  { id: 'knossos-memphis', a: 'knossos', b: 'memphis', kind: 'sea', pts: [[25.16, 35.3], [25.2, 35.48], [25.8, 35.5], [26.55, 35.45], [26.6, 35.1], [26.6, 34.78]], meet: 3, place: 'off Cape Sidero' },
+  // Memphis to Rhodes, south of Karpathos and up its eastern side: they meet south of Karpathos.
+  { id: 'rhodes-memphis', a: 'rhodes', b: 'memphis', kind: 'sea', pts: [[28.14, 36.36], [28.35, 36.3], [28.25, 35.9], [27.8, 35.5], [27.3, 35.3], [26.6, 35.1], [26.6, 34.78]], meet: 4, place: 'south of Karpathos' },
 ];
+
+/**
+ * Slice 31: the empty sites, islands and capes where a city could be
+ * founded, each with the good a city there would make, as a name: marble
+ * and timber are wares of the works line (slice 32), so a site names its
+ * good and the sim looks the ware up when there is one (growth.ts).
+ */
+export interface SitePlace {
+  id: string;
+  name: string;
+  lon: number;
+  lat: number;
+  /** What a city there would make: 'marble', 'timber', 'copper', 'fleece', 'oil', 'wheat'. */
+  good: string;
+  /** In a few words, what it is. */
+  blurb: string;
+}
+export const SITES: readonly SitePlace[] = [
+  { id: 'naxos', name: 'Naxos', lon: 25.42, lat: 37.1, good: 'marble', blurb: 'the greatest of the Cyclades, its hills of white marble' },
+  { id: 'thasos', name: 'Thasos', lon: 24.7, lat: 40.7, good: 'timber', blurb: 'a green island off Thrace, thick with pine and fir' },
+  { id: 'kythnos', name: 'Kythnos', lon: 24.42, lat: 37.4, good: 'copper', blurb: 'a small dry island with old copper workings' },
+  { id: 'melos', name: 'Melos', lon: 24.4, lat: 36.71, good: 'fleece', blurb: 'a round island on a sheltered bay, its slopes grazed by sheep' },
+  { id: 'kythera', name: 'Kythera', lon: 22.99, lat: 36.25, good: 'oil', blurb: 'the island off Cape Maleas, where Aphrodite came ashore; its olives grow to the sea' },
+  { id: 'cyrene', name: 'Cyrene', lon: 21.9, lat: 34.78, good: 'wheat', blurb: 'a green cape on the Libyan shore beyond the sea, good land for wheat' },
+];
+/** A site by its id. */
+export const siteOf = (id: string): SitePlace | undefined => SITES.find((x) => x.id === id);
 
 /** The way between two rival cities (either way round), if there is one. */
 export const rivalWay = (x: CityId, y: CityId): RivalWay | undefined => RIVAL_WAYS.find((w) => (w.a === x && w.b === y) || (w.a === y && w.b === x));

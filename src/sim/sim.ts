@@ -26,6 +26,7 @@ import { freshHerds, stepWild, wildRng } from './wild';
 import { FIRST_DOCKER, freshTrade, KEEP_MAX, moveDocker, stepDockers, stepTrade, TRADE_GOODS, tradeIndex } from './trade';
 import { moveCaravan, openRoute, setDeal, stepRoutes } from './routes';
 import { freshWorld, nameRefusal, stepWorld } from './world';
+import { stepGrowth } from './growth';
 import { stepRivals } from './rivals';
 import { sendGift, stepDiplomacy, stepGifts } from './diplomacy';
 import { answer, stepFavours } from './favours';
@@ -200,6 +201,8 @@ export class Sim {
     // Threats and war bands: deadlines, the band's march, its coming in (nothing in a town that has never opened a route).
     stepRaids(s, map);
     stepDiplomacy(s);
+    // Slice 31: Greece grows, once a month: its cities' people, wealth, armies and fleets, their colonies and vassals (never touching your city).
+    stepGrowth(s);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).

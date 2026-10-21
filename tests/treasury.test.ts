@@ -294,8 +294,9 @@ describe('the demo towns and money', () => {
       expect(owed, name).toBe(0);
     }
     // Every demo's town is played forward from the founding (slice 24: about a hundred demos, some with years of history; a few minutes on a busy machine;
-    // slice 27: three more, #lend's and #repaid's a year or two of #rivals' town further on).
-  }, 400000);
+    // slice 27: three more, #lend's and #repaid's a year or two of #rivals' town further on; slice 31: #greecegrows, #rivals' town played to its tenth year,
+    // on a machine shared with two other lines' builds).
+  }, 1200000);
 
   // Since slice 10 #town runs three wheat farms, not seven (it ate about 170 of the 1,070 measures they grew), and pays an
   // oil chain's wages: at fair it gains about 1,700 a year (slice 9: about 950). Slice 14 retunes money across the game.

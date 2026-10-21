@@ -32,7 +32,6 @@ import { lineLength, meetAlong, PLACES, RIVAL_WAYS, rivalPoints, rivalWay, RULED
 import { hash2 } from '../map/noise';
 import { dateOfTick, formatYear, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, settleMood } from './diplomacy';
-import { STRENGTH } from './favours';
 import { LAND_PACE } from './routes';
 import type { Bond, Memory, SimState, War, World, WorldCity } from './state';
 import { TRADE_GOODS } from './trade';
@@ -119,6 +118,20 @@ const HISTORY: Record<string, string> = {
   'sparta-corinth': 'old friends in the Peloponnese',
   'sparta-troy': 'Helen of Sparta, and the war that followed',
   'corinth-troy': 'the Greeks sailed against Troy once',
+  // Slice 31.
+  'athens-thebes': 'neighbours over Kithairon, and old rivals',
+  'corinth-thebes': 'good neighbours on the isthmus road',
+  'sparta-thebes': 'rivals for the leadership of Greece',
+  'sparta-argos': 'old enemies in the Peloponnese, forever at odds over the border lands',
+  'corinth-argos': 'neighbours by Nemea',
+  'athens-argos': 'old friends against Sparta',
+  'sparta-knossos': 'Sparta’s laws came from Crete, they say',
+  'athens-knossos': 'the tribute of youths Athens once paid to Minos',
+  'knossos-rhodes': 'rivals for the trade of the southern sea',
+  'knossos-memphis': 'old friends across the sea',
+  'rhodes-memphis': 'friends in trade',
+  'corinth-rhodes': 'rivals at sea',
+  'troy-memphis': 'friends from of old',
 };
 
 const name = (id: CityId): string => PLACES[id].name;
@@ -132,8 +145,13 @@ const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.m
 
 /** A pair's key, in RULED order: 'athens-sparta'. */
 export const pairKey = (x: CityId, y: CityId): string => (RULED.indexOf(x) <= RULED.indexOf(y) ? `${x}-${y}` : `${y}-${x}`);
-/** Every pair of ruled cities, in RULED order. */
-export const PAIRS: ReadonlyArray<readonly [CityId, CityId]> = RULED.flatMap((x, i) => RULED.slice(i + 1).map((y) => [x, y] as const));
+/**
+ * Every pair of neighbours (ruled cities with a road or a lane between them),
+ * each in RULED order, in RIVAL_WAYS' order: the first four's six pairs as
+ * they always were, then slice 31's. Only neighbours quarrel, feud and fight;
+ * a ruler's feeling for a far city is the old one (`ties`) alone.
+ */
+export const PAIRS: ReadonlyArray<readonly [CityId, CityId]> = RIVAL_WAYS.map((w) => (RULED.indexOf(w.a) <= RULED.indexOf(w.b) ? ([w.a, w.b] as const) : ([w.b, w.a] as const)));
 
 /** Greece's dice for a month (or a war) and a pair. */
 const dice = (w: World, n: number, i: number, salt: number): number => hash2(n, i * 43 + salt, (w.seed ^ 0x72697661) | 0);
@@ -318,7 +336,8 @@ function maybeWar(s: SimState, month: number): void {
   // The pair furthest out first.
   const bar = warBar(w, s.tick);
   const pairs = PAIRS.map(([x, y], i) => ({ x, y, i, m: mutual(w, x, y, s.tick) }))
-    .filter((p) => p.m <= bar && !w.wars.some((v) => pairKey(v.a, v.b) === pairKey(p.x, p.y) && s.tick - v.ended < PAIR_LULL))
+    // (Slice 31: a vassal goes to war with nobody, and a lord leaves its vassal's neighbours alone.)
+    .filter((p) => p.m <= bar && !w.wars.some((v) => pairKey(v.a, v.b) === pairKey(p.x, p.y) && s.tick - v.ended < PAIR_LULL) && !cityOf(w, p.x).lord && !cityOf(w, p.y).lord)
     .sort((a, b) => a.m - b.m);
   for (const p of pairs) {
     // The angrier declares it (a warlike ruler, if they are as angry as each other).
@@ -346,9 +365,10 @@ export function declareWar(s: SimState, a: CityId, b: CityId, why?: string): War
   const way = rivalWay(a, b) as RivalWay;
   const n = w.nextWar++;
   const len = WAR_LEAST + Math.round((dice(w, n, 0, 21) * (WAR_MOST - WAR_LEAST)) / TICKS_PER_DAY) * TICKS_PER_DAY;
-  const might = (id: CityId): number => (STRENGTH[id] ?? 5000) * (cityOf(w, id).ruler?.traits.includes('warlike') ? 1.25 : 1);
+  // (Slice 31: each side's might is its army, with its ships at sea, as it is now: growth.ts.)
+  const might = (id: CityId): number => mightOf(w, id, way.kind) * (cityOf(w, id).ruler?.traits.includes('warlike') ? 1.25 : 1);
   const fate: War['fate'] = dice(w, n, 0, 22) < PEACE_ODDS ? 'peace' : dice(w, n, 0, 23) * (might(a) + might(b)) < might(a) ? a : b;
-  const men = (id: CityId): number => clamp(Math.round(might(id) / 600), 8, 14);
+  const men = (id: CityId): number => clamp(Math.round(4 + cityOf(w, id).army / 7), 8, 14);
   const cause = why ?? bare(grievance(w, a, b, s.tick) || 'old enmity');
   const x: War = { id: n, a, b, why: cause, way: way.id, by: way.kind, start: s.tick, until: s.tick + len, fate, menA: men(a), menB: men(b), told: false, ended: 0 };
   w.wars.push(x);
@@ -536,3 +556,9 @@ export function warLine(x: War, tick: number): string {
 
 /** The bonds a ruler keeps of another, newest first (for the page). */
 export const bondsOf = (c: WorldCity, other: CityId): Bond[] => c.bonds.filter((b) => b.city === other).slice().reverse();
+
+/** Slice 31: how strong a city is in a war by land or by sea: its army, and at sea its ships (a ship counts for four men) and the men to fight them. */
+export function mightOf(w: World, id: CityId, by: 'land' | 'sea'): number {
+  const c = cityOf(w, id);
+  return Math.max(1, by === 'sea' ? c.fleet * 4 + c.army * 0.5 : c.army);
+}

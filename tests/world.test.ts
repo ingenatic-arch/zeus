@@ -9,7 +9,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
-import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RULED, wayOf, wayPoints, WAYS } from '../src/map/greece';
+import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RIVAL_WAYS, RULED, SITES, wayOf, wayPoints, WAYS } from '../src/map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { Sim } from '../src/sim/sim';
 import type { SimState } from '../src/sim/state';
@@ -246,9 +246,11 @@ describe('the map', () => {
     });
   };
 
-  it('every city but Tyre stands on land, and the sea lanes keep to the water between their ends', () => {
-    for (const id of CITY_IDS) if (id !== 'tyre') expect([id, onLand(PLACES[id].lon, PLACES[id].lat)]).toEqual([id, true]);
-    for (const w of WAYS) {
+  it('every city but Tyre and Memphis (beyond the table’s edge) stands on land, and the sea lanes keep to the water between their ends', () => {
+    for (const id of CITY_IDS) if (id !== 'tyre' && id !== 'memphis') expect([id, onLand(PLACES[id].lon, PLACES[id].lat)]).toEqual([id, true]);
+    // (Slice 31: the sites too, but Cyrene, on the Libyan shore beyond the edge; and the rivals' lanes.)
+    for (const x of SITES) if (x.id !== 'cyrene') expect([x.id, onLand(x.lon, x.lat)]).toEqual([x.id, true]);
+    for (const w of [...WAYS, ...RIVAL_WAYS]) {
       if (w.kind !== 'sea') continue;
       const p = w.pts;
       for (let i = 1; i + 2 < p.length; i++) {
@@ -262,7 +264,7 @@ describe('the map', () => {
   });
 
   it('the roads keep to the land', () => {
-    for (const w of WAYS) {
+    for (const w of [...WAYS, ...RIVAL_WAYS]) {
       if (w.kind !== 'land') continue;
       for (const [lon, lat] of w.pts) expect([w.id, lon, lat, onLand(lon, lat)]).toEqual([w.id, lon, lat, true]);
     }

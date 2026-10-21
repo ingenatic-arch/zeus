@@ -2,7 +2,7 @@ import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 27;
+export const SIM_STATE_VERSION = 28;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -706,6 +706,47 @@ export interface WorldCity {
   feel: number;
   /** The tick the ruler last sent you a gift (0: never). */
   gave: number;
+  /** Slice 31 (growth.ts): its people, its treasury (dr), its men under arms and its ships (all 0 for your city and Tyre, which are not counted here). */
+  pop: number;
+  wealth: number;
+  army: number;
+  fleet: number;
+  /** The city it is a vassal of ('' none), and since when: rivals' in slice 31, yours (`home`) in slice 34. */
+  lord: CityId | '';
+  lordSince: number;
+  /** What has moved its people, wealth, army and fleet lately, by cause and year, oldest first (growth.ts). */
+  grew: Growth[];
+}
+
+/** Slice 31: what one cause did to a city in one year (growth.ts), so its page can name why it grew or shrank. */
+export interface Growth {
+  /** The cause: 'harvest', 'trade' (with you), 'commerce' (its own), 'war', 'defeat', 'victory', 'debt', 'tribute', 'vassals', 'colony', 'land' (the pull back towards what its land can hold), 'upkeep'. */
+  kind: string;
+  /** The game's year it was in (0 the founding year), and its words ("good harvests"). */
+  year: number;
+  why: string;
+  /** What it added (+) or took (−) in that year, unrounded. */
+  pop: number;
+  wealth: number;
+  army: number;
+  fleet: number;
+}
+
+/**
+ * Slice 31: an empty site where a city could be founded (SITES in
+ * map/greece.ts), and who holds it. A colony is the site held by a city:
+ * the rivals' in slice 31, yours (`home`) in slice 37.
+ */
+export interface Site {
+  id: string;
+  /** Who holds it ('' free), since when, and how many people live there. */
+  owner: CityId | '';
+  since: number;
+  pop: number;
+  /** A city sending settlers there ('' none), when it said so, and when they land. */
+  bound: CityId | '';
+  told: number;
+  lands: number;
 }
 
 /** Something a ruler remembers of another ruler (rivals.ts): what it was, what it is worth and when, fading as a memory does. */
@@ -1139,6 +1180,8 @@ export interface World {
   /** Your expeditions, out or lately home (expeditions.ts), and the next one's number. */
   expeditions: Expedition[];
   nextExpedition: number;
+  /** Slice 31: the empty sites and their colonies (growth.ts), in SITES order. */
+  sites: Site[];
 }
 
 /**

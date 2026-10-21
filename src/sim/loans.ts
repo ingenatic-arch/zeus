@@ -56,7 +56,7 @@ import { districtAt, districtTitle } from '../map/districts';
 import { income, owedWages, pay, spendable, wageBill } from './treasury';
 import { strength } from './army';
 import { ROWER_PAY } from './lanes';
-import { cityOf, COLD, fadeFor, lastHarvest, moodLevel, moodOf, MOOD_WORDS, rulerName } from './world';
+import { armyScale, cityOf, COLD, fadeFor, lastHarvest, moodLevel, moodOf, MOOD_WORDS, rulerName, wealthScale } from './world';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -89,7 +89,28 @@ export const COFFERS: Partial<Record<CityId, { spare: number; rate: number; word
   corinth: { spare: 5000, rate: -2, words: 'Corinth is rich' },
   troy: { spare: 4000, rate: -1, words: 'Troy is wealthy' },
   sparta: { spare: 2500, rate: 2, words: 'Sparta keeps little coin' },
+  // Slice 31.
+  thebes: { spare: 3000, rate: 0, words: 'Thebes has coin enough' },
+  argos: { spare: 1200, rate: 3, words: 'Argos is poor' },
+  knossos: { spare: 4000, rate: -1, words: 'Knossos is wealthy' },
+  rhodes: { spare: 5000, rate: -2, words: 'Rhodes is rich' },
+  memphis: { spare: 8000, rate: -3, words: 'Egypt is rich in gold' },
 };
+
+/**
+ * Slice 31: a city's coffers as its treasury stands now (growth.ts): what it
+ * can spare grows and shrinks with its wealth against its usual, and a city
+ * grown much richer or poorer than usual lends cheaper or dearer, and says so.
+ */
+export function coffersOf(c: WorldCity): { spare: number; rate: number; words: string } | undefined {
+  const base = COFFERS[c.id];
+  if (!base) return undefined;
+  const r = wealthScale(c);
+  const spare = Math.max(500, Math.round((base.spare * Math.max(0.3, Math.min(2, r))) / 500) * 500);
+  if (r >= 1.4) return { spare, rate: base.rate - 1, words: `${cityName(c.id)} has grown rich (${fmt(Math.round(c.wealth / 100) * 100)} dr in its treasury)` };
+  if (r < 0.6) return { spare, rate: base.rate + 2, words: `${cityName(c.id)} has grown poor (${fmt(Math.round(c.wealth / 100) * 100)} dr in its treasury)` };
+  return { spare, rate: base.rate, words: base.words };
+}
 
 /** How a ruler's mood (by its level, hostile … devoted) moves the interest and the months, and what they can spare. */
 const MOOD_RATE = [0, 0, 3, -2, -4, -6];
@@ -216,7 +237,7 @@ export function troubles(s: SimState, c: WorldCity): { war: CityId | ''; harvest
 
 /** What a city can spare to lend you now (dr, in 500s), and why it is less than its coffers hold. */
 export function spareOf(s: SimState, c: WorldCity): { spare: number; why: string[] } {
-  const coffers = COFFERS[c.id];
+  const coffers = coffersOf(c);
   if (!coffers || !c.ruler) return { spare: 0, why: [] };
   const lvl = moodLevel(moodOf(c, s.tick));
   let n = coffers.spare * MOOD_SPARE[lvl];
@@ -263,7 +284,7 @@ export function loanTerms(s: SimState, c: WorldCity, own = false): { rate: numbe
   const mood = MOOD_WORDS[lvl];
   r(mood, MOOD_RATE[lvl]);
   m(mood, MOOD_MONTHS[lvl]);
-  const coffers = COFFERS[c.id];
+  const coffers = coffersOf(c);
   if (coffers) r(coffers.words, coffers.rate);
   const traits = c.ruler?.traits ?? [];
   const who = c.ruler?.title.replace(/ of .*/, '').toLowerCase() ?? 'ruler';
@@ -368,7 +389,7 @@ export function likelyToRepay(s: SimState, c: WorldCity, owed = 0, rate = 10): {
   if (t.harvest === 0) add(-0.1, 'their harvest failed');
   else if (t.harvest === 1) add(-0.05, 'their harvest was poor');
   if (t.beaten) add(-0.1, `beaten by ${cityName(t.beaten)} lately`);
-  const coffers = COFFERS[c.id];
+  const coffers = coffersOf(c);
   if (coffers) add(coffers.rate < 0 ? 0.05 : -0.05, coffers.words);
   if (coffers && owed > coffers.spare) add(-0.1, 'more than they can easily repay');
   if (rate >= 20) add(-0.05, 'a heavy rate');
@@ -400,7 +421,7 @@ export function offerAnswer(s: SimState, c: WorldCity, amount: number, rate: num
   const name = cityName(c.id);
   if (!c.ruler) return { take: false, need: false, why: 'there is no ruler there' };
   if (mood <= COLD) return { take: false, need: false, why: `${title(c)} is ${mood <= -60 ? 'hostile' : 'cold'} towards you, and will take nothing from you` };
-  const coffers = COFFERS[c.id];
+  const coffers = coffersOf(c);
   if (coffers && amount > coffers.spare * 1.5) return { take: false, need: false, why: `${fmt(amount)} dr is more than ${name} would want to owe (${fmt(down(coffers.spare * 1.5))} at most)` };
   const t = troubles(s, c);
   const need = t.words.length > 0;
@@ -1332,9 +1353,10 @@ export function fearOf(s: SimState, c: WorldCity): { p: number; words: string } 
 }
 
 /** A city's garrison (men), by its character and its troubles (expeditions.ts uses it too). */
-export const GARRISON: Partial<Record<CityId, number>> = { sparta: 60, athens: 40, troy: 45, corinth: 30 };
+export const GARRISON: Partial<Record<CityId, number>> = { sparta: 60, athens: 40, troy: 45, corinth: 30, thebes: 45, argos: 20, knossos: 35, rhodes: 25, memphis: 70 };
 export function garrisonOf(s: SimState, c: WorldCity): number {
-  let n = GARRISON[c.id] ?? 30;
+  // (Slice 31: with its army as it is now against its usual, growth.ts.)
+  let n = (GARRISON[c.id] ?? 30) * armyScale(c);
   const t = troubles(s, c);
   if (t.war) n *= 0.6;
   if (t.beaten) n *= 0.7;
