@@ -150,4 +150,9 @@ export const VIEWS: Record<string, CameraView> = {
   fortress: { x: 33, z: 41, yaw: 1.4, dist: 30, tilt: 0.0 },
   // #triremes: the shipyard by the river mouth and its jetty, the bay beyond.
   triremes: { x: 70, z: 78, yaw: 3.0, dist: 34, tilt: -0.3 },
+  // Slice 32
+  // #quarry: the headland from above the bay, the quarry cut into its crown, the road down to the storehouse, the other pale outcrop above the bay.
+  quarry: { x: 108, z: 96, yaw: -0.4, dist: 22, tilt: 0.0 },
+  // #loggers: from above the camp's road, looking south over the camp to the west wood and the sea, the stumps and young trees where it has felled between.
+  loggers: { x: 15, z: 76, yaw: 2.85, dist: 14, tilt: 0.05 },
 };

@@ -550,6 +550,8 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     e.cost += cost;
     e.plots.push(b.id);
     covered.push(...footprint(n, x, z, sideOf(kind)));
+    // Slice 32: a quarry's spoil heaps cover the ground round it too (the rocks there would stand in its pit).
+    if (kind === 'quarry') for (let dz = -1; dz <= 3; dz++) for (let dx = -1; dx <= 3; dx++) if ((dz < 0 || dz > 2 || dx < 0 || dx > 2) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
   }
   e.trees = clearTrees(s, map, covered);
   return e;

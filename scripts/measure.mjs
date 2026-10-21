@@ -294,6 +294,9 @@ for (const [hash, views] of [
   ['#report-paused-shot', ['companies', 'town']],
   // Slice 29: the walled town with Sparta's band gathering, over the west gate.
   ['#fortress-paused-shot', [null, 'town']],
+  // Slice 32: the quarry on the headland, its quarrymen and sledges; the loggers' camp at the west wood.
+  ['#quarry-paused-shot', [null]],
+  ['#loggers-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

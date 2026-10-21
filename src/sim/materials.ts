@@ -163,22 +163,31 @@ export function quarryFace(map: CoastMap, x: number, z: number): number {
 }
 
 /**
+ * The turn of a quarry's model (radians, as Works turns its buildings: local
+ * (lx, lz) lies at world (lx cos + lz sin, -lx sin + lz cos) from the centre)
+ * that puts its face, at local -x, on the uphill side.
+ */
+export function quarryYaw(face: number): number {
+  return face === 0 ? -Math.PI / 2 : face === 1 ? Math.PI : face === 2 ? Math.PI / 2 : 0;
+}
+
+/**
  * Where each quarryman stands in the pit (world units), by his place (0..3):
- * three along the face, a little out from it, and one further out by the
- * stack. Turned to the quarry's face side.
+ * three along the foot of the face, a pick's reach out from it, and one by
+ * the stack, squaring the blocks. In the model's frame (face at -x), turned
+ * with it.
  */
 export function quarrySpot(map: CoastMap, q: Pick<Building, 'x' | 'z'>, place: number): [number, number] {
-  // Along the face (u, 0..3) and out from it (v, 0..3), with the face on the north.
   const SPOTS: Array<[number, number]> = [
-    [0.85, 0.95],
-    [1.55, 0.8],
-    [2.2, 1.0],
-    [1.3, 1.75],
+    [-0.64, -0.95],
+    [-0.64, -0.15],
+    [-0.64, 0.8],
+    [0.47, -0.42],
   ];
-  const [u, v] = SPOTS[place % SPOTS.length];
-  const f = quarryFace(map, q.x, q.z);
-  const [lx, lz] = f === 0 ? [u, v] : f === 1 ? [3 - v, u] : f === 2 ? [3 - u, 3 - v] : [v, 3 - u];
-  return [q.x + lx, q.z + lz];
+  const [lx, lz] = SPOTS[place % SPOTS.length];
+  // cos and sin of quarryYaw, by face (whole numbers, so no trigonometry in the simulation).
+  const [c, sn] = ([[0, -1], [-1, 0], [0, 1], [1, 0]] as const)[quarryFace(map, q.x, q.z)];
+  return [q.x + 1.5 + lx * c + lz * sn, q.z + 1.5 - lx * sn + lz * c];
 }
 
 // ---------------------------------------------------------------------------

@@ -27,7 +27,8 @@ import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, FINE, findBuilding, footSide, TOWNHOUSE, VILLA } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
 import { lackWords, warningOf, warningsOf } from './sim/folk';
-import { FLEECE, held, OIL, WHEAT, WINE } from './sim/foods';
+import { FLEECE, held, OIL, TIMBER, WHEAT, WINE } from './sim/foods';
+import { loggerDoing } from './sim/materials';
 import { goodUntil, hasStall } from './sim/goods';
 import { workforce } from './sim/labour';
 import { arrivalOutlook } from './sim/settlers';
@@ -170,6 +171,8 @@ interface Probe {
   porterOf?: (ware: number) => { x: number; z: number } | null;
   /** Buildings of a kind: top-left tile and id. */
   buildingsOf?: (kind: string) => Array<{ id: number; x: number; z: number }>;
+  /** Slice 32: the trees felled and growing back, and where the works' walkers are drawn (a logger by what he is doing: out, chopping, trimming, home). */
+  works?: () => { felled: number; quarrymen: number; sledges: number; logCarts: number; loggers: Array<{ doing: string; x: number; z: number } | null> };
   /** A watchman running to (or fighting) a fire, where he is drawn. */
   dasher?: () => { x: number; z: number } | null;
   /** A watchman at a fire, throwing water on it. */
@@ -1444,6 +1447,20 @@ function start(preparedTown: string | null): void {
   probe.porterOf = (ware) => drawnAt((w) => w.kind === 'porter' && w.food === ware && w.load > 0);
   probe.dockerOf = (ware, back = true) => drawnAt((w) => w.kind === 'docker' && (ware < 0 || w.food === ware) && w.load > 0 && w.back === back);
   probe.buildingsOf = (kind) => sim.state.buildings.filter((b) => b.kind === kind).map((b) => ({ id: b.id, x: b.x, z: b.z }));
+  probe.works = () => {
+    const ws = sim.state.walkers;
+    const at = (w: Walker): { x: number; z: number } | null => {
+      const p = city.walkers.serviceAt.get(w.id);
+      return p ? { x: p.pos.x, z: p.pos.z } : null;
+    };
+    return {
+      felled: sim.state.materials.felled.length,
+      quarrymen: ws.filter((w) => w.kind === 'quarryman').length,
+      sledges: ws.filter((w) => w.kind === 'sledge').length,
+      logCarts: ws.filter((w) => w.kind === 'cart' && w.food === TIMBER && w.load > 0).length,
+      loggers: ws.filter((w) => w.kind === 'logger').map((w) => { const p = at(w); return p ? { doing: loggerDoing(w), ...p } : null; }),
+    };
+  };
   probe.hazardsOf = (from = 1001) =>
     sim.state.buildings
       .filter((b) => b.fire > 0 || b.creakAt > 0 || b.risk >= from || b.wear >= from)

@@ -17,6 +17,50 @@ import { lumpy, merge, type Part } from './trees';
 const slab = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number): THREE.BufferGeometry =>
   new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
 
+/**
+ * A footing battered out as it goes down, under a footprint of half-sizes
+ * (hx, hz), from y = 0 to y = -depth, stepping out `out` at its foot: in
+ * courses of alternating tones, with lumps of rubble along its faces, so a
+ * building on a slope stands on worked stone (or a bank of spoil) rather
+ * than a blank wall. (Slice 32: the quarry's terrace and the caravan yard.)
+ */
+export function batteredFooting(hx: number, hz: number, depth: number, out: number, tones: readonly string[], course: number, seed: number, lumps: readonly string[] = []): Part[] {
+  const parts: Part[] = [];
+  const n = Math.max(1, Math.round(depth / course));
+  for (let i = 0; i < n; i++) {
+    const f1 = i / n;
+    const f0 = (i + 1) / n;
+    parts.push({ geo: frustum(hx + out * f1, hz + out * f1, hx + out * f0, hz + out * f0, -depth * f0, -depth * f1), color: tones[i % tones.length] });
+  }
+  if (lumps.length) {
+    const per = Math.max(2, Math.round((hx + hz) * 2));
+    for (let side = 0; side < 4; side++) {
+      for (let k = 0; k < per; k++) {
+        const along = -1 + (2 * (k + 0.5 + (hash2(k, side, seed) - 0.5) * 0.6)) / per;
+        const f = 0.2 + 0.7 * hash2(k, side, seed + 1);
+        const ex = hx + out * f;
+        const ez = hz + out * f;
+        const [x, z] = side === 0 ? [along * ex, -ez] : side === 1 ? [ex, along * ez] : side === 2 ? [along * ex, ez] : [-ex, along * ez];
+        const r = 0.05 + 0.05 * hash2(k, side, seed + 2);
+        parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, seed + side * 40 + k).scale(1.3, 0.7, 1.3).translate(x, -depth * f, z), color: lumps[(k + side) % lumps.length] });
+      }
+    }
+  }
+  return parts;
+}
+
+/** A box whose top (y1) is (thx, thz) half-sized and its bottom (y0) (bhx, bhz). */
+function frustum(thx: number, thz: number, bhx: number, bhz: number, y0: number, y1: number): THREE.BufferGeometry {
+  const g = new THREE.BoxGeometry(2, 1, 2);
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const top = pos.getY(i) > 0;
+    pos.setXYZ(i, (pos.getX(i) / 2) * 2 * (top ? thx : bhx), top ? y1 : y0, (pos.getZ(i) / 2) * 2 * (top ? thz : bhz));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 /** The marble's tones: fresh-cut faces, the weathered crown, veins, the stone dust and spoil. */
 export const MARBLE = {
   fresh: '#efebe2',
@@ -24,8 +68,9 @@ export const MARBLE = {
   shade: '#d8d1c2',
   weathered: '#b8b1a2',
   vein: '#a7a39a',
-  dust: '#ddd6c6',
-  spoil: '#cbc3b2',
+  dust: '#d3c9b4',
+  spoil: '#b9ae98',
+  spoilLight: '#c9bfab',
   hole: '#4a463f',
 };
 
@@ -35,29 +80,98 @@ const WOOD = { end: '#d6b27a', chips: '#d9bf8e', pit: '#3e3326', bark: '#5a4630'
 // ---------------------------------------------------------------------------
 // The marble quarry (3×3: -1.5..1.5).
 
+/** Where the quarry's front floor gives way to the bench at its face (local x): the riser between them. */
+export const QUARRY_STEP = -0.2;
+
 /**
- * The marble quarry: a stepped face of pale rock cut into the hill at the
- * back, two benches with the drill holes along their edges and the channels
- * of the picks on them, a block half cut out of the face; the side walls
- * stepping down to the front; shear-legs over the floor with a block slung
- * on its rope and a windlass at its foot; a timber shed for the tools in the
- * front corner, and a stone trough. The cut blocks wait on the floor by the
- * track (drawn with its store), where the sledges load.
+ * The quarry's two levels on its ground (world heights): its front floor and
+ * the bench at its face, each at the top of the ground under it (so the
+ * ground never shows through either), the bench never below the floor. The
+ * pit steps up the hillside: a riser of fresh-cut marble between them, the
+ * skirt heaped from each down to the ground round it. `yaw` turns it (see
+ * quarryYaw).
  */
-export function quarryModel(): THREE.BufferGeometry {
+export function quarryLevels(heightAt: (x: number, z: number) => number, b: { x: number; z: number }, yaw: number): { front: number; back: number } {
+  const cx = b.x + 1.5;
+  const cz = b.z + 1.5;
+  const c = Math.cos(yaw);
+  const sn = Math.sin(yaw);
+  const top = (x0: number, x1: number): number => {
+    let h = -Infinity;
+    for (const lx of [x0, (x0 + x1) / 2, x1]) for (const lz of [-1.45, -0.7, 0, 0.7, 1.45]) h = Math.max(h, heightAt(cx + lx * c + lz * sn, cz - lx * sn + lz * c));
+    return h;
+  };
+  const front = top(QUARRY_STEP, 1.45) + 0.01;
+  return { front, back: Math.max(front, top(-1.45, QUARRY_STEP) + 0.01) };
+}
+
+/**
+ * How high the quarry's top stands above its front floor at a point of its
+ * edge (local), with its bench `rise` above the floor: the face's benches
+ * and the side walls at the back, the low steps and the floor at the front.
+ * Where its skirt starts.
+ */
+export function quarryEdge(lx: number, rise: number): number {
+  if (lx >= 0.45) return 0;
+  if (lx >= QUARRY_STEP) return 0.22;
+  if (lx >= -0.95) return rise + 0.44;
+  if (lx >= -1.22) return rise + 0.56;
+  return rise + 0.98;
+}
+
+/**
+ * The marble quarry's front, on its floor: stone dust and a worn track to
+ * the front, the low side steps, the windlass, a timber shed for the tools in
+ * the front corner, and a stone trough. The cut blocks wait on the floor by
+ * the track (drawn with its store), where the sledges load.
+ */
+export function quarryFront(): THREE.BufferGeometry {
   const parts: Part[] = [];
-  // A terrace of its own spoil, down into the slope (levelled to the top of its ground: HIGH_FOOT).
-  parts.push({ geo: slab(-1.49, -1.49, 1.49, 1.49, -1.4, 0.0), color: MARBLE.spoil });
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2;
-    const r = 1.46;
-    const x = Math.max(-1.46, Math.min(1.46, Math.cos(a) * r * 1.3));
-    const z = Math.max(-1.46, Math.min(1.46, Math.sin(a) * r * 1.3));
-    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.08 + 0.04 * hash2(i, 1, 3201), 0), 0.35, 3202 + i).scale(1.2, 0.7, 1.2).translate(x, -0.05, z), color: i % 3 ? MARBLE.spoil : MARBLE.shade });
+  const x0 = QUARRY_STEP;
+  parts.push(...batteredFooting(0.835, 1.49, 0.3, 0.05, [MARBLE.spoil], 0.3, 3203).map((q) => ({ ...q, geo: q.geo.translate((x0 + 1.49) / 2, 0, 0) })));
+  parts.push({ geo: slab(x0, -1.48, 1.48, 1.48, 0.0, 0.03), color: MARBLE.dust });
+  parts.push({ geo: slab(x0, -0.26, 1.49, 0.26, 0.03, 0.036), color: MARBLE.spoil });
+  for (const side of [-1, 1]) parts.push({ geo: slab(x0, side < 0 ? -1.49 : 1.32, 0.45, side < 0 ? -1.32 : 1.49, 0.0, 0.22), color: MARBLE.shade });
+  // The windlass, its rope run to the shear-legs on the bench above.
+  parts.push({ geo: cyl(0.035, 0.035, 0.34, 6).rotateX(Math.PI / 2).translate(0.05, 0.22, 0), color: PAL.timber });
+  for (const z of [-0.19, 0.19]) parts.push({ geo: slab(0.02, z - 0.02, 0.08, z + 0.02, 0.03, 0.26), color: PAL.timberDark });
+  parts.push({ geo: slab(0.04, 0.2, 0.06, 0.23, 0.22, 0.38), color: PAL.woodDark });
+  // The tool shed in the front corner: four posts, a plank roof sloping back, wedges and mallets on its bench.
+  const sx0 = 0.78;
+  const sx1 = 1.42;
+  const sz0 = 0.78;
+  const sz1 = 1.42;
+  for (const [x, z, h] of [[sx0, sz0, 0.5], [sx1, sz0, 0.6], [sx0, sz1, 0.5], [sx1, sz1, 0.6]]) parts.push({ geo: cyl(0.025, 0.03, h, 5).translate(x, 0.03 + h / 2, z), color: PAL.timber });
+  parts.push({ geo: new THREE.BoxGeometry(sx1 - sx0 + 0.18, 0.04, sz1 - sz0 + 0.18).rotateZ(0.16).translate((sx0 + sx1) / 2, 0.6, (sz0 + sz1) / 2), color: PAL.woodDark });
+  parts.push({ geo: slab(sx0 + 0.05, sz1 - 0.2, sx1 - 0.05, sz1 - 0.04, 0.24, 0.27), color: PAL.wood });
+  for (let k = 0; k < 4; k++) parts.push({ geo: slab(sx0 + 0.12 + k * 0.12, sz1 - 0.16, sx0 + 0.16 + k * 0.12, sz1 - 0.1, 0.27, 0.31), color: k % 2 ? PAL.charDark : PAL.woodDark });
+  parts.push({ geo: cyl(0.012, 0.012, 0.36, 4).rotateZ(0.35).translate(sx1 - 0.02, 0.2, sz0 + 0.2), color: PAL.wood });
+  // The stone trough, with water for the picks and the oxen.
+  parts.push({ geo: slab(0.88, -1.38, 1.4, -1.1, 0.03, 0.19), color: MARBLE.shade });
+  parts.push({ geo: slab(0.9, -1.36, 1.38, -1.12, 0.19, 0.192), color: PAL.shallow });
+  // Chips of marble about the floor.
+  for (let i = 0; i < 8; i++) {
+    const x = x0 + 0.1 + 0.8 * hash2(i, 6, 3201);
+    const z = -1.1 + 2.2 * hash2(i, 7, 3201);
+    if (Math.abs(z) < 0.3) continue;
+    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.025, 0), 0.4, 3260 + i).translate(x, 0.04, z), color: i % 2 ? MARBLE.fresh : MARBLE.shade });
   }
-  // The floor: stone dust, a worn track down the middle to the front.
-  parts.push({ geo: slab(-1.48, -1.48, 1.48, 1.48, 0.0, 0.03), color: MARBLE.dust });
-  parts.push({ geo: slab(-0.4, -0.26, 1.49, 0.26, 0.03, 0.036), color: MARBLE.spoil });
+  return merge(parts);
+}
+
+/**
+ * The marble quarry's back, on the bench at its face (drawn as high above the
+ * front as the ground makes it): the stepped face of pale rock cut into the
+ * hill, two benches with the drill holes along their edges and the channels
+ * of the picks on them, a block half cut out of the face; the weathered crown
+ * of the hill above; the side walls; shear-legs over the bench with a block
+ * slung on its rope.
+ */
+export function quarryBack(): THREE.BufferGeometry {
+  const parts: Part[] = [];
+  const x1 = QUARRY_STEP;
+  parts.push(...batteredFooting(0.645, 1.49, 0.3, 0.05, [MARBLE.spoil], 0.3, 3204).map((q) => ({ ...q, geo: q.geo.translate((-1.49 + x1) / 2, 0, 0) })));
+  parts.push({ geo: slab(-1.48, -1.48, x1, 1.48, 0.0, 0.03), color: MARBLE.dust });
   // The face: two benches of fresh-cut marble, the weathered crown of the hill above them.
   parts.push({ geo: slab(-1.49, -1.49, -0.95, 1.49, 0.0, 0.56), color: MARBLE.fresh });
   parts.push({ geo: slab(-1.49, -1.49, -1.22, 1.49, 0.56, 0.98), color: MARBLE.cut });
@@ -66,12 +180,11 @@ export function quarryModel(): THREE.BufferGeometry {
     const h = 0.12 + 0.1 * hash2(i, 2, 3201);
     parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.2, 0), 0.3, 3220 + i).scale(1.1, h / 0.2, 1.0).translate(-1.36, 0.98 + h * 0.4, z), color: i % 2 ? MARBLE.weathered : PAL.rockGrey });
   }
-  // The side walls, stepping down towards the front.
+  // The side walls.
   for (const side of [-1, 1]) {
     const z0 = side < 0 ? -1.49 : 1.25;
     const z1 = side < 0 ? -1.25 : 1.49;
-    parts.push({ geo: slab(-0.95, z0, -0.25, z1, 0.0, 0.44), color: MARBLE.cut });
-    parts.push({ geo: slab(-0.25, side < 0 ? -1.49 : 1.32, 0.45, side < 0 ? -1.32 : 1.49, 0.0, 0.22), color: MARBLE.shade });
+    parts.push({ geo: slab(-0.95, z0, x1, z1, 0.0, 0.44), color: MARBLE.cut });
     parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.14, 0), 0.3, 3240 + side).scale(1.4, 0.6, 1).translate(-0.6, 0.48, side * 1.38), color: MARBLE.weathered });
   }
   // Grey veins running across the faces.
@@ -97,11 +210,11 @@ export function quarryModel(): THREE.BufferGeometry {
   parts.push({ geo: slab(-1.02, -0.36, -0.86, 0.06, 0.03, 0.3), color: MARBLE.fresh });
   parts.push({ geo: slab(-0.94, -0.4, -0.93, 0.1, 0.03, 0.34), color: MARBLE.hole });
   for (const z of [-0.3, -0.15, 0.0]) parts.push({ geo: slab(-0.97, z - 0.012, -0.93, z + 0.012, 0.3, 0.34), color: PAL.woodDark });
-  // Shear-legs over the floor: two poles to an apex, a back stay to the bench, a pulley, the rope and a block slung on it.
-  const ax = -0.55;
-  const ay = 1.25;
+  // Shear-legs over the bench: two poles to an apex, a back stay to the face's top, a pulley, the rope and a block slung on it.
+  const ax = -0.6;
+  const ay = 1.2;
   for (const z of [-0.5, 0.5]) {
-    const bx = -0.15;
+    const bx = -0.3;
     const len = Math.hypot(ax - bx, ay, z);
     const g = cyl(0.022, 0.028, len, 5).translate(0, len / 2, 0);
     g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(ax - bx, ay, -z).normalize()));
@@ -119,31 +232,23 @@ export function quarryModel(): THREE.BufferGeometry {
   parts.push({ geo: cyl(0.005, 0.005, ay - 0.42, 3).translate(ax, (ay + 0.42) / 2, 0), color: PAL.rope });
   parts.push({ geo: slab(ax - 0.12, -0.08, ax + 0.12, 0.08, 0.26, 0.4), color: MARBLE.fresh });
   parts.push({ geo: new THREE.BoxGeometry(0.008, 0.008, 0.18).translate(ax, 0.405, 0), color: PAL.rope });
-  // The windlass at their foot, the rope running to it.
-  parts.push({ geo: cyl(0.035, 0.035, 0.34, 6).rotateX(Math.PI / 2).translate(0.05, 0.22, 0), color: PAL.timber });
-  for (const z of [-0.19, 0.19]) parts.push({ geo: slab(0.02, z - 0.02, 0.08, z + 0.02, 0.03, 0.26), color: PAL.timberDark });
-  parts.push({ geo: slab(0.04, 0.2, 0.06, 0.23, 0.22, 0.38), color: PAL.woodDark });
-  // The tool shed in the front corner: four posts, a plank roof sloping back, wedges and mallets on its bench.
-  const sx0 = 0.78;
-  const sx1 = 1.42;
-  const sz0 = 0.78;
-  const sz1 = 1.42;
-  for (const [x, z, h] of [[sx0, sz0, 0.5], [sx1, sz0, 0.6], [sx0, sz1, 0.5], [sx1, sz1, 0.6]]) parts.push({ geo: cyl(0.025, 0.03, h, 5).translate(x, 0.03 + h / 2, z), color: PAL.timber });
-  parts.push({ geo: new THREE.BoxGeometry(sx1 - sx0 + 0.18, 0.04, sz1 - sz0 + 0.18).rotateZ(0.16).translate((sx0 + sx1) / 2, 0.6, (sz0 + sz1) / 2), color: PAL.woodDark });
-  parts.push({ geo: slab(sx0 + 0.05, sz1 - 0.2, sx1 - 0.05, sz1 - 0.04, 0.24, 0.27), color: PAL.wood });
-  for (let k = 0; k < 4; k++) parts.push({ geo: slab(sx0 + 0.12 + k * 0.12, sz1 - 0.16, sx0 + 0.16 + k * 0.12, sz1 - 0.1, 0.27, 0.31), color: k % 2 ? PAL.charDark : PAL.woodDark });
-  parts.push({ geo: cyl(0.012, 0.012, 0.36, 4).rotateZ(0.35).translate(sx1 - 0.02, 0.2, sz0 + 0.2), color: PAL.wood });
-  // The stone trough, with water for the picks and the oxen.
-  parts.push({ geo: slab(0.88, -1.38, 1.4, -1.1, 0.03, 0.19), color: MARBLE.shade });
-  parts.push({ geo: slab(0.9, -1.36, 1.38, -1.12, 0.19, 0.192), color: PAL.shallow });
-  // Chips of marble about the floor.
-  for (let i = 0; i < 12; i++) {
-    const x = -0.8 + 1.5 * hash2(i, 6, 3201);
-    const z = -1.1 + 2.2 * hash2(i, 7, 3201);
-    if (Math.abs(z) < 0.3) continue;
-    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.025, 0), 0.4, 3260 + i).translate(x, 0.04, z), color: i % 2 ? MARBLE.fresh : MARBLE.shade });
+  // Chips of marble about the bench.
+  for (let i = 0; i < 6; i++) {
+    const x = -0.9 + 0.6 * hash2(i, 8, 3201);
+    const z = -1.1 + 2.2 * hash2(i, 9, 3201);
+    parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(0.025, 0), 0.4, 3280 + i).translate(x, 0.04, z), color: i % 2 ? MARBLE.fresh : MARBLE.shade });
   }
   return merge(parts);
+}
+
+/** The riser between the quarry's floor and its bench, `rise` high: fresh-cut marble, its edge chipped. */
+export function quarryRiser(rise: number): THREE.BufferGeometry {
+  if (rise < 0.02) return new THREE.BufferGeometry();
+  const x = QUARRY_STEP;
+  return merge([
+    { geo: slab(x - 0.02, -1.49, x + 0.01, 1.49, 0.0, rise + 0.03), color: MARBLE.cut },
+    ...[-1.0, -0.35, 0.4, 1.05].map((z, i) => ({ geo: new THREE.BoxGeometry(0.004, 0.008, 0.3).translate(x + 0.012, Math.min(rise, 0.1 + i * 0.13), z), color: MARBLE.shade })),
+  ]);
 }
 
 /** A squared block of marble, about a quarter of a tile long, fresh from the face. */
@@ -240,5 +345,98 @@ export function logPile(): THREE.BufferGeometry {
       for (const x of [-len / 2 - 0.002, len / 2 + 0.002]) parts.push({ geo: cyl(r * 0.9, r * 0.9, 0.004, 6).rotateZ(Math.PI / 2).translate(x, y, z), color: WOOD.end });
     }
   }
+  return merge(parts);
+}
+
+// ---------------------------------------------------------------------------
+// A skirt down to the ground (slice 32).
+
+/**
+ * A heap down the slope round a footprint (half-size `half`), fitted to the
+ * ground under one building: from its edge, at its floor (y = 0), out and
+ * down to where the ground is, bulging a little, in two bands of tone with
+ * lumps of rubble on it. `ground(lx, lz)` is the ground's height under a
+ * point of the building's frame, from its floor (negative below it); where
+ * the ground is up at the floor the skirt is nothing. Along a side with a
+ * road beside it (`road(side)`: 0 the -z side, 1 +x, 2 +z, 3 -x) it stays
+ * steep, so the road isn't buried. `level(lx, lz)` is how high the
+ * building's top edge stands there, where the skirt starts (its floor, 0,
+ * unless given).
+ */
+export function skirt(ground: (lx: number, lz: number) => number, half: number, road: (side: number) => boolean, tones: readonly [string, string], lumps: readonly string[], seed: number, level: (lx: number, lz: number) => number = () => 0): THREE.BufferGeometry {
+  const S = 6;
+  const normals: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const ring: Array<{ ix: number; iz: number; iy: number; nx: number; nz: number; steep: boolean }> = [];
+  for (let k = 0; k < 4; k++) {
+    const [nx, nz] = normals[k];
+    const [tx, tz] = [-nz, nx];
+    for (let j = 0; j < S; j++) {
+      const u = -half + (2 * half * j) / S;
+      const ix = nx * half + tx * u;
+      const iz = nz * half + tz * u;
+      let [mx, mz] = [nx, nz];
+      if (j === 0) {
+        const [px, pz] = normals[(k + 3) % 4];
+        const l = Math.hypot(nx + px, nz + pz);
+        mx = (nx + px) / l;
+        mz = (nz + pz) / l;
+      }
+      ring.push({ ix, iz, iy: level(ix, iz), nx: mx, nz: mz, steep: road(k) || (j === 0 && road((k + 3) % 4)) });
+    }
+  }
+  const outer = ring.map((r, i) => {
+    let out = 0.25;
+    let y = ground(r.ix + r.nx * out, r.iz + r.nz * out);
+    for (let it = 0; it < 2; it++) {
+      const d = Math.max(0, r.iy - y);
+      out = r.steep ? 0.08 : Math.min(1.4, 0.2 + 0.8 * d);
+      y = ground(r.ix + r.nx * out, r.iz + r.nz * out);
+    }
+    if (y > r.iy - 0.04) return null;
+    const j = (hash2(i, 1, seed) - 0.5) * 0.12;
+    return { x: r.ix + r.nx * (out + j), y: y - 0.06, z: r.iz + r.nz * (out + j), d: r.iy - y };
+  });
+  const upper: number[] = [];
+  const lower: number[] = [];
+  const parts: Part[] = [];
+  const mid = (i: number): [number, number, number] | null => {
+    const o = outer[i];
+    if (!o) return null;
+    const r = ring[i];
+    const f = 0.42;
+    const bulge = r.steep ? 0 : 0.08 * Math.min(1, o.d) + (hash2(i, 2, seed) - 0.5) * 0.05;
+    return [r.ix + (o.x - r.ix) * f, r.iy + (o.y - r.iy) * f + bulge, r.iz + (o.z - r.iz) * f];
+  };
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const a = i;
+    const b = (i + 1) % n;
+    const oa = outer[a];
+    const ob = outer[b];
+    if (!oa && !ob) continue;
+    const ra = ring[a];
+    const rb = ring[b];
+    // A side's end where the ground meets the floor: run its outer edge in to the edge (a wedge).
+    const pa: [number, number, number] = [ra.ix, ra.iy - 0.01, ra.iz];
+    const pb: [number, number, number] = [rb.ix, rb.iy - 0.01, rb.iz];
+    const ma = mid(a) ?? pa;
+    const mb = mid(b) ?? pb;
+    const qa: [number, number, number] = oa ? [oa.x, oa.y, oa.z] : pa;
+    const qb: [number, number, number] = ob ? [ob.x, ob.y, ob.z] : pb;
+    upper.push(...pa, ...mb, ...ma, ...pa, ...pb, ...mb);
+    lower.push(...ma, ...qb, ...qa, ...ma, ...mb, ...qb);
+    if (oa && oa.d > 0.18 && i % 2 === 0) {
+      const r = 0.05 + 0.07 * hash2(i, 3, seed) * Math.min(1, oa.d);
+      parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, seed + 10 + i).scale(1.3, 0.75, 1.3).translate(ma[0], ma[1] + r * 0.3, ma[2]), color: lumps[i % lumps.length] });
+    }
+  }
+  const tri = (pos: number[]): THREE.BufferGeometry => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    return g;
+  };
+  if (upper.length) parts.push({ geo: tri(upper), color: tones[0] }, { geo: tri(lower), color: tones[1] });
+  if (!parts.length) return new THREE.BufferGeometry();
   return merge(parts);
 }

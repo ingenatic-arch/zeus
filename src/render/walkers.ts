@@ -840,6 +840,16 @@ export class Walkers {
       }
       // (Run indoors from raiders near them: not drawn until they come out.)
       if (this.hidden.has(w.id)) continue;
+      // Slice 32: the quarrymen, loggers, ox sledges and carts of logs are drawn by the workfolk (workfolk.ts).
+      if (this.workfolk) {
+        const at = this.workfolk.walker(state, w, lead, total, (d) => this.at(w, cum, d), state.tick + alpha);
+        if (at) {
+          const v = this.serviceAt.get(w.id);
+          if (v) v.pos.copy(at);
+          else this.serviceAt.set(w.id, { pos: at.clone(), kind: w.kind as ServiceKind });
+          continue;
+        }
+      }
       if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
@@ -916,6 +926,9 @@ export class Walkers {
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
     this.raidersOf(state, alpha);
   }
+
+  /** Slice 32: who draws the works' walkers (set by the city view). */
+  workfolk: { walker(s: SimState, w: Walker, lead: number, total: number, along: (d: number) => [number, number, number, number], now: number): THREE.Vector3 | null } | null = null;
 
   /** Walkers who have run indoors from the raiders (set by the city view each frame: the sim's own rule). */
   hidden: ReadonlySet<number> = new Set();
