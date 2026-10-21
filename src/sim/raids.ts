@@ -1174,7 +1174,7 @@ function gone(s: SimState, map: CoastMap, w: Walker, r: Raid | undefined): boole
   else {
     // (Paid off or called off while in your city: they go with what they took.)
     const loot = lootWords(r);
-    news(s.world, s.tick, r.city, `${whose(r.city)} raiders have left your land${loot ? `, with ${loot}` : ''}`, true);
+    news(s.world, s.tick, r.city, `${whose(r.city)} ${r.loan ? 'army has' : 'raiders have'} left your land${loot ? `, with ${loot}` : ''}`, true);
   }
   void w;
   return false;
@@ -1202,7 +1202,8 @@ export function breakBand(s: SimState, map: CoastMap, r: Raid): void {
     if (!headOff(s, map, w, r)) s.walkers = s.walkers.filter((o) => o !== w);
   }
   // (No count here: towers and archers often bring down more as they run. The whole fight's count comes when they have gone. Slice 25's review.)
-  news(s.world, s.tick, r.city, `${whose(r.city)} raiders break and run for ${runFor(r)}: half their men have fallen`, true);
+  // (A lender's army is an army, in the singular: review of phase 4.)
+  news(s.world, s.tick, r.city, `${whose(r.city)} ${r.loan ? 'army breaks and runs' : 'raiders break and run'} for ${runFor(r)}: half their men have fallen`, true);
   s.rev++;
 }
 
@@ -1302,7 +1303,7 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
   // (In your city: the band sees it next tick and heads off, moveRaider.)
   const band = was === 'raiding' ? ' turn back' : was === 'threat' ? '' : ' turn round on the road home';
   const line = r.loan
-    ? `${rulerShort(c)} has the coin you owed: ${was === 'threat' ? 'the threat to collect it is lifted' : `${his(c)} army${band}`}`
+    ? `${rulerShort(c)} has the coin you owed: ${was === 'threat' ? 'the threat to collect it is lifted' : `${his(c)} army${band.replace(/^ turn/, ' turns')}`}`
     : how === 'paid'
       ? was === 'threat'
         ? `${rulerShort(c)} has the price of peace: the threat is lifted`

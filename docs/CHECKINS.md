@@ -88,6 +88,51 @@ The frame times are within the run-to-run swing; `#fortress`'s fight (three comp
   - So a player who uses the reminder (asking for time, or holding back) gets through. A player who lets the treasury pay on the day comes out of it with nothing left for wages.
 - **Measured again after these fixes:** all 444 tests pass, and the smoke test passes. The download is unchanged at 2,981 KB. The bare link is ready at 1.9 s, with the first frame at 2.7 s. The 110 demos have a median of 1.8 s, the slowest is `#lend` at 2.6 s, none is over 3 s, and `#fortress` takes 1.9 s. In `#fortress`'s fight at the gate, the work before drawing each frame is 15.7 ms; `#battle` is 12.4 ms and `#siege` 12.7 ms.
 
+### What the phase review changed
+I went over the whole phase at once: every slice's demos, the older ones, and one long game from the bare link with nothing set up for me. These are the changes.
+
+- **Sounds of war.** The spec promised them and they weren't there. A trumpet sounds when a company is raised or marches off. In a fight near where you are looking you hear spear on shield and the whistle of arrows. Raiders hammering a gate or a wall make a thud. Triremes rowing have oars and a drum, and a loan's coin going in or out clinks.
+- **An overdue debt of yours no longer empties the treasury.** Before, it was paid the moment the treasury could find the sum, even if that left nothing for next month's wages. In `#fortress` left alone, that meant 3 dr in the treasury and wages unpaid for three months. Now it waits until the treasury can pay the debt and still keep a month's wages and pay, and the steps go on until then. In `#fortress` left alone, Corinth's agents now take about 750 dr of goods from the stores before the rest is paid, and the treasury keeps about 850 dr. After a year the town is the same size either way. "Repay now" still pays at once. The loan's card and line say what sum it waits for.
+- **The Military tab.** The control panel renamed the Army tab "Military", and every line that still said "Army tab" now says so.
+  - Clicking a company's row takes its banner without moving the view, so you can plant all three of `#fortress`'s companies at one gate in turn. Its place on the row ("on the flood plain") takes you to it. The steps for `#fortress` and `#battle` above now say this.
+  - If no hut or cottage can spare a rower, the shipyard and the "Build a trireme" button now say so before you pay. A town grown into townhouses and fine houses has nobody to row. In my long game, a trireme lay unmanned at her jetty for two years.
+- **Less crowding at the top.**
+  - The raid, army and debts chips sit side by side instead of stacked.
+  - Over the map of Greece only two lines show, with "+N more" for the rest, so the cities underneath stay visible. This holds from the moment the map opens.
+  - The top bar no longer wraps at 1600 wide with a city's page open.
+  - A debt's line has its own colour, as the spec asked.
+- **No more lines repeated.** When a gate fell, "broken through the gate" stood as the army's line, then came back ten days later as news from Greece; now it shows once. Pirates who took the same cargo twice say "twice". A lender's army is called an army when it breaks and runs or leaves, not "raiders".
+- **The help card** (?) now covers the mine, armoury, barracks, wall, tower and shipyard under B, and has a short Soldiers section: take a banner, click where the company should stand, Esc lets go, orders work while paused.
+- **What I checked:**
+  - One step from each slice's "What to try", with screenshots: the mine's tip in `#bronze`, a banner sent in `#battle`, the wall drawn in `#walls` (292 dr, a gate on the road), a third trireme in `#triremes`, accepting Corinth's terms in `#borrow`, the full force in `#collect`, and `#seized`. `#town`, `#richtown`, `#quay`, `#rivals` and `#threat` open as before, and a phase 3 save loads with the welcome back. Compared at opening and 900 days on, all 107 demos with a history are the same as before these changes.
+  - **The long game.** I played from the bare link in March 750 BC to November 741 BC in the browser, building with the tools, and then let it run six more years on fast, without watching, answering as a middling player would. Everything in the phase came up except a landing from the sea:
+    - **Borrowing in a lean year.** I borrowed 2,000 dr from Athens in a lean year and couldn't repay it. Her agents took goods from the stores twice, then her army came twice and carried off coin and goods until the debt was gone.
+    - **Building an army.** I built a copper mine, an armoury and a barracks, raised archers and hoplites from the Military tab, drew a wall from the hills to the river with a gate and a tower by the bridge, and built a shipyard and a trireme.
+    - **A raid fought at the gate.** Sparta's band of 19 was fought at the west gate in July 742 BC, by the tower and the hoplites. Seven had fallen when they broke, one of mine was killed and his house mourned him, and the band took nothing.
+    - **A debt I held back on purpose.** Corinth's agents seized goods from the caravan yard. Twice her army was beaten on the north road by the two companies, the debt still stood, and the line said when the next army would come.
+    - **Pirates.** They came three times on the lane to Athens and plundered Athens' ship. My trireme couldn't go out, because she had no rowers.
+    - **Lending.** Athens asked to borrow and repaid on the day. Later Corinth asked, couldn't pay, and the full force I sent won and brought back the debt and 1,480 wheat, with the report on Corinth's page.
+    - **No landing from the sea.** No ruler sent ships against this town, so I checked landings in `#landing` and `#triremes`.
+- **What I noticed about the money and the raids, for your questions:**
+  - My town's treasury stayed between nothing and about 2,000 dr for nine years at about 800 people, at heavy taxes. Most of that is down to how I built: three farms, and two tax offices whose collectors reached fewer than half the homes.
+  - Rulers did offer loans when the treasury was low, about once a year.
+  - Raids were rare. In nine years only Sparta came once, apart from the lenders' armies: a ruler threatens only when hostile and proud or warlike, or after a tribute refused while already cold.
+- **Measured again**, before the review's changes and after, on the same machine:
+
+| | Before | After |
+|---|---|---|
+| Download | 2,981 KB | 2,983 KB |
+| Bare link ready, first frame | 2.0 s, 2.8 s | 2.1 s, 2.9 s |
+| `#town` ready, first frame | 2.0 s, 3.8 s | 1.8 s, 3.2 s |
+| The 110 demos, ready | median 1.9 s, slowest 2.8 s, none over 3 s | median 1.9 s, slowest 2.6 s, none over 3 s |
+| Triangles and draw calls in `#town`, `#richtown`, `#fortress` and the map of Greece | as before | the same |
+| Work before drawing each frame, `#battle` | 17.4 ms | 18.6 ms |
+| The same, `#siege` | 14.8 ms | 15.8 ms |
+| The same, `#fortress`'s fight at the gate | 18.6 ms | 18.1 ms |
+| The same, `#town` / `#richtown` | 8.4 / 8.1 ms | 10.2 / 6.1 ms |
+| The map of Greece, first opened from `#town` | 5.3 s | 5.3 s |
+
+The frame times swing by a millisecond or two either way from one run to the next. All 444 tests pass, the smoke test passes, and the copy prepared for publishing opens the bare link, `#town` and the main demos without errors.
 
 ## Slice 28 — Debts unpaid (20 Oct)
 

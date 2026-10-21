@@ -470,6 +470,25 @@ function callRowers(s: SimState, t: Trireme, yard: Building, most: number, servi
   return n;
 }
 
+/**
+ * How many homes could send a rower now (huts and cottages with a man to
+ * spare): the shipyard's tip and the trireme button say so before you pay,
+ * since a town grown past its cottages has nobody to row (review of phase 4:
+ * a natural town of fine houses built a trireme that lay unmanned for years).
+ */
+export const rowersSpare = (s: SimState): number => {
+  const serving = new Set([...servingHomes(s)]);
+  return s.buildings.filter((h) => h.kind === 'home' && canRow(s, h, serving)).length;
+};
+
+/** The caution, in words, when fewer homes can spare a rower than a trireme needs ('' when enough can). */
+export function rowersWarning(s: SimState): string {
+  const n = rowersSpare(s);
+  if (n >= CREW) return '';
+  if (n === 0) return `No hut or cottage in the city can spare a man to row now: a trireme would lie at her mooring unmanned until some can (townhouses and better don’t send rowers)`;
+  return `Only ${n} ${n === 1 ? 'hut or cottage' : 'huts and cottages'} can spare a man to row now, of the ${CREW} a trireme needs`;
+}
+
 /** Why a trireme is short of rowers, in words ('' while she isn't, or they are coming). */
 export function crewWhy(s: SimState, map: CoastMap, t: Trireme): string {
   if (t.crew.length >= CREW || t.state === 'building' || t.state === 'sinking') return '';

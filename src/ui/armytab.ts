@@ -16,7 +16,7 @@ import { centreOf, jobsAt } from '../sim/buildings';
 import { ARMOUR, held } from '../sim/foods';
 import type { Company, SimState } from '../sim/state';
 import { SOLDIER_PAY } from '../sim/treasury';
-import { afloat, CREW, crewWhy, FIT, guardRefusal, LANES, orderRefusal, PER_YARD, piratesOn, ROWER_PAY, triremeDoing, triremeName, triremesAt, TRIREME_COST } from '../sim/fleet';
+import { afloat, CREW, crewWhy, FIT, guardRefusal, LANES, orderRefusal, PER_YARD, piratesOn, ROWER_PAY, rowersWarning, triremeDoing, triremeName, triremesAt, TRIREME_COST } from '../sim/fleet';
 import { PLACES } from '../map/greece';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -166,9 +166,11 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     if (!at.length) out.push('<p class="side-note">No triremes yet.</p>');
     else out.push(`<ul class="companies">${at.map(row).join('')}</ul>`);
     const no = orderRefusal(s, b);
+    const short = no ? '' : rowersWarning(s);
     out.push(
-      `<div class="raise"><button data-act="trireme" data-id="${b.id}" title="${esc(no || `Built on the slip in about a month while the yard is staffed, then ${CREW} rowers come from the huts and cottages, one a home, at ${ROWER_PAY} dr a man a month`)}"${no ? ' disabled' : ''}>Build a trireme <small>${TRIREME_COST} dr</small></button></div>`,
+      `<div class="raise"><button data-act="trireme" data-id="${b.id}" title="${esc(no || `Built on the slip in about a month while the yard is staffed, then ${CREW} rowers come from the huts and cottages, one a home, at ${ROWER_PAY} dr a man a month${short ? `. ${short}` : ''}`)}"${no ? ' disabled' : ''}>Build a trireme <small>${TRIREME_COST} dr</small></button></div>`,
     );
+    if (short) out.push(`<p class="side-note warn">${esc(short)}.</p>`);
     out.push(`<p class="side-note">${at.length} of ${PER_YARD} moorings used. Triremes at home, crewed and sound, row out to meet enemy ships in the bay.</p>`);
     out.push('</section>');
   });

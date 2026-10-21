@@ -1107,7 +1107,7 @@ export function newsUrgent(s: SimState, map: CoastMap): NewsItem | null {
     if (s.tick - n.tick >= show) return null;
     if (standing && n.city === standing.city && n.tick <= standing.start) return null;
     // (Nor the band breaking, while its own line says it is beaten and running: review of phase 4.)
-    if (standing && n.city === standing.city && / raiders break and run for /.test(n.line)) return null;
+    if (standing && n.city === standing.city && / (raiders break and run|army breaks and runs) for /.test(n.line)) return null;
     return n;
   }
   return null;

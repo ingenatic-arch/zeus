@@ -39,7 +39,7 @@ import {
   tileGrass,
 } from '../sim/build';
 import { GATE_COST, TOWER_RANGE, WALL_COST, wallAt, wallJob } from '../sim/walls';
-import { BUILD_TICKS, CREW, PER_YARD, ROWER_PAY, TRIREME_COST } from '../sim/fleet';
+import { BUILD_TICKS, CREW, PER_YARD, ROWER_PAY, rowersWarning, TRIREME_COST } from '../sim/fleet';
 import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOBS } from '../sim/buildings';
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
@@ -918,6 +918,7 @@ export class Tools {
       lines.push(`A trireme needs ${CREW} rowers, a man from each of as many huts and cottages, paid ${ROWER_PAY} dr a month: she rows out to meet raiders’ ships in the bay, or guards a sea lane from pirates`);
       if (berth) lines.push(`A jetty runs ${Math.round(berth.len)} ${Math.round(berth.len) === 1 ? 'tile' : 'tiles'} out to deep water, where they moor`);
       if (roads.length === 0) warn = 'No road beside it: its shipwrights and rowers couldn’t reach it. Lay a road along one side first.';
+      else warn = rowersWarning(s);
     } else if (kind === 'tower') {
       lines.push(`Its ${JOBS.tower} workers are its archers: from its top they shoot at raiders within ${TOWER_RANGE} tiles, over walls and roofs`);
       lines.push('It stands on the wall line: towers either side of a gate make raiders pay for breaking it');

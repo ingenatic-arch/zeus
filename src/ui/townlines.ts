@@ -101,6 +101,11 @@ export class TownLines {
     this.more = more;
   }
 
+  /** Fold again at once, as the map of Greece opens or closes (fewer lines show over the map). */
+  refold(): void {
+    this.fold();
+  }
+
   /** Fold all but the SHOWN most pressing lines under the "+N more" button (or show them all, opened). */
   private fold(): void {
     const lines = [...this.el.querySelectorAll<HTMLElement>('.townline')];

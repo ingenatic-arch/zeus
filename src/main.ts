@@ -1183,6 +1183,7 @@ function start(preparedTown: string | null): void {
       if (!greece?.open) return greeceButton.set(false);
       greece.toggle(false);
       greeceButton.set(false);
+      lines.refold();
       // The side panel's column comes back, so the city's canvas narrows again.
       resize();
       sound.play('map');
@@ -1200,6 +1201,7 @@ function start(preparedTown: string | null): void {
     void loadGreece().then((g) => {
       if (!greeceButton.el.classList.contains('on')) return;
       g.toggle(true);
+      lines.refold();
       resize();
       if (city) g.show(city, tab);
       sound.play('map');
