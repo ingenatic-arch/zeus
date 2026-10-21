@@ -50,7 +50,9 @@ import { callOff, liveRaid, lootWords, raidersOf, threatLive, threatenDebt } fro
 import { caravanYard } from './routes';
 import type { Deal, Gift, Loan, LoanWhy, Memory, Raid, SimState, World, WorldCity } from './state';
 import { note } from './stockbook';
-import { TRADE_GOODS, tradingPost } from './trade';
+import { OLD_GOODS, TRADE_GOODS, tradingPost } from './trade';
+import { isStore } from './stores';
+import { districtAt, districtTitle } from '../map/districts';
 import { income, owedWages, pay, spendable, wageBill } from './treasury';
 import { cityOf, COLD, fadeFor, lastHarvest, moodLevel, moodOf, MOOD_WORDS, rulerName } from './world';
 
@@ -93,7 +95,9 @@ const MOOD_MONTHS = [0, 0, -3, 0, 6, 12];
 const MOOD_SPARE = [0, 0, 0.5, 1, 1.2, 1.5];
 
 /** A ruler's offers and asks: how often (a month in so many), how much more often when your treasury is low, and their size (fair gifts' worth). */
-const OFFER_ODDS = 1 / 9;
+const OFFER_ODDS = 1 / 6;
+/** How pleased a ruler must be to offer when your treasury is low (slice 29): cordial. */
+const OFFER_CORDIAL = 0;
 const LOW_ODDS = 4;
 const ASK_ODDS = 1 / 5;
 const LOAN_GIFTS = 3;
@@ -621,6 +625,12 @@ export const treasuryLow = (s: SimState): boolean => owedWages(s).owed > 0 || s.
 /** The size of a ruler's offer or ask for a city your size: about three fair gifts' worth, in 500s. */
 export const loanSize = (s: SimState, most: number): number => clamp(down(LOAN_GIFTS * fairGift(s)), 1000, most);
 
+/** No loan offered or asked for across Greece within this long of the last (slice 29: loans' own gap, in place of the older kinds' two months). */
+export const LOAN_GAP = 4 * TICKS_PER_MONTH;
+
+/** Is it loans' turn this month: no loan offered or asked for in the last LOAN_GAP? */
+export const loanTurn = (s: SimState): boolean => !s.world.deals.some((d) => (d.kind === 'loanoffer' || d.kind === 'loanask') && s.tick - d.at < LOAN_GAP);
+
 /** A ruler, in the month's turn (free, with no other deal this month): perhaps asks to borrow (in trouble), else perhaps offers to lend. */
 export function loanDeal(s: SimState, c: WorldCity, month: number, i: number): boolean {
   return rulerAsks(s, c, month, i) || rulerOffers(s, c, month, i);
@@ -680,14 +690,19 @@ export function makeLoanAsk(s: SimState, c: WorldCity, amount: number): Deal {
   return d;
 }
 
-/** A pleased ruler with coin to spare, in no trouble, with no loan either way between you, now and then offers you one (four times as often when your treasury is low). */
+/**
+ * A pleased ruler with coin to spare, in no trouble, with no loan either way
+ * between you, now and then offers you one (four times as often when your
+ * treasury is low; slice 29: then a cordial one offers too, as a warm ruler
+ * would to a city in want).
+ */
 function rulerOffers(s: SimState, c: WorldCity, month: number, i: number): boolean {
   const w = s.world;
-  if (liveLoan(w, c.id, 'in') || liveLoan(w, c.id, 'out') || overdueOf(w).length || troubles(s, c).words.length || moodOf(c, s.tick) < OFFER_PLEASED) return false;
+  const low = treasuryLow(s);
+  if (liveLoan(w, c.id, 'in') || liveLoan(w, c.id, 'out') || overdueOf(w).length || troubles(s, c).words.length || moodOf(c, s.tick) < (low ? OFFER_CORDIAL : OFFER_PLEASED)) return false;
   const { spare } = spareOf(s, c);
   if (spare < 1000) return false;
   const traits = c.ruler?.traits ?? [];
-  const low = treasuryLow(s);
   const odds = OFFER_ODDS * (low ? LOW_ODDS : 1) * (traits.includes('generous') || traits.includes('greedy') ? 1.5 : 1);
   if (dice(w, month, i, 2) >= odds) return false;
   makeLoanOffer(s, c, Math.min(spare, loanSize(s, 5000)));
@@ -697,7 +712,8 @@ function rulerOffers(s: SimState, c: WorldCity, month: number, i: number): boole
 /** A ruler offers to lend (a deal, and its loan): on their own terms, a percent cheaper. */
 export function makeLoanOffer(s: SimState, c: WorldCity, amount: number, why?: string): Deal {
   const t = loanTerms(s, c, true);
-  const reason = why ?? `pleased with your city${treasuryLow(s) ? ', and has heard your treasury is low' : ''}`;
+  // (A cordial ruler offers only to a city in want: slice 29.)
+  const reason = why ?? (moodOf(c, s.tick) < OFFER_PLEASED ? 'having heard your treasury is low' : `pleased with your city${treasuryLow(s) ? ', and has heard your treasury is low' : ''}`);
   const d = makeDeal(s, 'loanoffer', c.id, -1, amount, s.tick + LOAN_ANSWER, reason);
   const l = newLoan(s, c.id, 'in', 'them', amount);
   l.state = 'proposed';
@@ -939,7 +955,7 @@ function warn(s: SimState, l: Loan): void {
   // (The routes open with them: the road, the sea route, or both; with none, what they would close.)
   const kinds = w.routes.filter((r) => r.city === l.city).map((r) => (r.kind === 'land' ? 'the road' : 'the sea route'));
   const ways = kinds.length ? kinds.join(' and ') : `${his(c)} routes`;
-  news(w, s.tick, l.city, `Your loan from ${name} fell due and went unpaid (${why}): ${fmt(l.owed)} dr is overdue. ${cap(title(c))} warns that in two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} will close ${ways} to you and seize your goods on ${kinds.length > 1 || !kinds.length ? 'them' : 'it'}; and Greece has heard (every loan’s terms are dearer now)`, true);
+  news(w, s.tick, l.city, `Your loan from ${name} fell due and went unpaid (${why}): ${fmt(l.owed)} dr is overdue. ${cap(title(c))} warns that in two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} will close ${ways} to you and seize your goods on ${kinds.length > 1 || !kinds.length ? 'them' : 'it'} and in your stores; and Greece has heard (every loan’s terms are dearer now)`, true);
 }
 
 /**
@@ -966,6 +982,11 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
   if (l.step >= 2) {
     seize(s, l);
     if (!live(l)) return;
+    // (Slice 29: and once a month, from the step's first day, from your stores.)
+    if ((s.tick - l.stepAt) % STORE_EVERY === 0) {
+      seizeStores(s, map, l);
+      if (!live(l)) return;
+    }
   }
   if (l.step === 2 && s.tick >= l.stepAt + STEP_GAP && !threatLive(w)) {
     l.step = 3;
@@ -989,7 +1010,7 @@ function seizeStep(s: SimState, l: Loan): void {
   l.step = 2;
   l.stepAt = s.tick;
   settleMood(s, c);
-  news(s.world, s.tick, l.city, `${cap(title(c))} of ${cityName(l.city)} has closed ${his(c)} routes to you over your unpaid debt (${fmt(l.owed)} dr), and seizes your goods on them: what waits for ${his(c)} traders in your caravan yard and on your quay, and anything of yours on its way to ${cityName(l.city)}. In two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} sends men to collect what is left`, true);
+  news(s.world, s.tick, l.city, `${cap(title(c))} of ${cityName(l.city)} has closed ${his(c)} routes to you over your unpaid debt (${fmt(l.owed)} dr), and seizes your goods: what waits for ${his(c)} traders in your caravan yard and on your quay, anything of yours on its way to ${cityName(l.city)}, and each month up to ${fmt(Math.min(l.owed, Math.ceil(l.amount * STORE_SHARE)))} dr’s worth from your storehouses and granaries. In two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} sends men to collect what is left`, true);
 }
 const his = (c: WorldCity): string => (c.ruler?.female ? 'her' : 'his');
 
@@ -1071,6 +1092,63 @@ export function seize(s: SimState, l: Loan): void {
   }
   if (value <= 0) return;
   takeOff(s, l, value, `${cap(title(c))} of ${name} seized ${took.join(', and ')} against your debt`);
+}
+
+/** Slice 29: how often, from step 2, the lender's agents take goods from your stores, and how much each time (a share of the loan's sum, at their prices). */
+export const STORE_EVERY = TICKS_PER_MONTH;
+export const STORE_SHARE = 1 / 3;
+const SEIZE_LEAST = 20;
+
+/** "the storehouse by the olive grove". */
+function storeWords(map: CoastMap, b: { kind: string; x: number; z: number }): string {
+  const where = districtTitle(districtAt(map, b.x + 1, b.z + 1));
+  return `the ${b.kind} ${where === 'Elsewhere' ? '' : where.replace(/^./, (ch) => ch.toLowerCase())}`.trim();
+}
+
+/**
+ * Step 2 and after, once a month from its first day (slice 29: seizures
+ * rarely bit, the yard and the quay being nearly always empty): the lender's
+ * agents take goods from your storehouses and granaries, up to a third of the
+ * loan's sum (and never more than is left owed). The goods you sell to that
+ * city first, the most first; then whatever is worth most to them; each from
+ * the fullest store first. Each is named with its store in the news, a ledger
+ * line and the stock book, and comes off the debt.
+ */
+export function seizeStores(s: SimState, map: CoastMap, l: Loan): void {
+  const w = s.world;
+  const c = cityOf(w, l.city);
+  const name = cityName(l.city);
+  let left = Math.min(l.owed, Math.ceil(l.amount * STORE_SHARE));
+  const sells = new Set<number>();
+  for (const r of w.routes) if (r.city === l.city) r.sell.forEach((on, k) => on && sells.add(k));
+  const stored = (k: number): number => s.buildings.reduce((a, b) => a + (isStore(b.kind) ? held(b, TRADE_GOODS[k]) : 0), 0);
+  const goods = TRADE_GOODS.map((_, k) => k)
+    .filter((k) => k < OLD_GOODS && stored(k) > 0)
+    .sort((a, b) => Number(sells.has(b)) - Number(sells.has(a)) || stored(b) * unitOf(c, b) - stored(a) * unitOf(c, a) || a - b);
+  const took: string[] = [];
+  let value = 0;
+  // (Not a few measures to make up the last drachma or two: SEIZE_LEAST.)
+  for (const k of goods) {
+    if (left < SEIZE_LEAST) break;
+    const ware = TRADE_GOODS[k];
+    const stores = s.buildings.filter((b) => isStore(b.kind) && held(b, ware) > 0).sort((a, b) => held(b, ware) - held(a, ware) || a.id - b.id);
+    for (const b of stores) {
+      if (left < SEIZE_LEAST) break;
+      const q = held(b, ware);
+      const unit = unitOf(c, k);
+      const n = Math.min(q, Math.ceil(left / unit));
+      const worth = Math.min(left, Math.round(n * unit));
+      setHeld(b, ware, q - n);
+      note(s, ware, 'lost', `seized:${l.city}`, n);
+      pay(s, 0, 'seized', `${name} · ${WARE_NAMES[ware]}`, n);
+      left -= worth;
+      value += worth;
+      took.push(`${fmt(n)} ${WARE_NAMES[ware]} from ${storeWords(map, b)} (worth ${fmt(worth)} dr to ${name})`);
+      s.looks++;
+    }
+  }
+  if (value <= 0) return;
+  takeOff(s, l, value, `${cap(title(c))} of ${name} had ${his(c)} agents seize ${took.join(', and ')} against your debt`);
 }
 
 /**

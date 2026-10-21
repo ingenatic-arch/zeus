@@ -18,6 +18,7 @@ import {
   likelyToRepay,
   loanOfDeal,
   loanTerms,
+  LOAN_GAP,
   LOAN_WORTH,
   makeLoanAsk,
   makeLoanOffer,
@@ -28,7 +29,7 @@ import {
 } from '../src/sim/loans';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Loan, type SimState, type Trait, type WorldCity } from '../src/sim/state';
-import { income, kindTotal, totals } from '../src/sim/treasury';
+import { income, kindTotal, pay, totals, wageBill } from '../src/sim/treasury';
 import { cityOf, moodOf } from '../src/sim/world';
 import { demoSim } from './prepared';
 
@@ -317,6 +318,31 @@ describe('the rulers’ own offers and asks', () => {
     ledgerAddsUp(s);
     // (On this town's seed, one ruler offers or asks in the four years.)
     expect(loans).toBeGreaterThan(0);
+  }, 180000);
+
+  it('have a turn of their own (slice 29): a lean town meets an offer from a cordial ruler within a year, and loan deals come at least four months apart', () => {
+    const sim = fresh('caravan');
+    const s = sim.state;
+    for (const id of ['athens', 'sparta', 'corinth', 'troy'] as const) ruler(s, id, ['pious', 'warlike'], 5);
+    const first = firstRoute(s.world);
+    const at: number[] = [];
+    const offers: string[] = [];
+    while (s.tick < first + ASK_AFTER + TICKS_PER_YEAR) {
+      // (Lean: the treasury kept under two months' wages.)
+      const most = Math.max(100, wageBill(s));
+      if (s.money > most) pay(s, most - s.money, 'given', 'for the test');
+      sim.run(TICKS_PER_DAY);
+      for (const d of s.world.deals) {
+        if ((d.kind === 'loanoffer' || d.kind === 'loanask') && !at.includes(d.at)) {
+          at.push(d.at);
+          if (d.kind === 'loanoffer') offers.push(d.why);
+        }
+      }
+    }
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offers[0]).toMatch(/treasury is low/);
+    for (let i = 1; i < at.length; i++) expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(LOAN_GAP);
+    ledgerAddsUp(s);
   }, 180000);
 
   it('a save with a loan on the road round-trips and plays on identically', () => {

@@ -14,7 +14,7 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { expeditionLine, expeditionOnMap, expeditionPlan, expeditionRefusal } from '../src/sim/expeditions';
 import { held, OIL, setHeld } from '../src/sim/foods';
-import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, timeAnswer } from '../src/sim/loans';
+import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, STORE_EVERY, STORE_SHARE, timeAnswer } from '../src/sim/loans';
 import { lootValue, raidersOf } from '../src/sim/raids';
 import { caravanYard } from '../src/sim/routes';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
@@ -121,12 +121,16 @@ describe('your default', () => {
     const yard = caravanYard(s)!;
     expect(until(sim, () => l.step === 2, STEP_GAP + TICKS_PER_DAY)).toBe(true);
     expect(route.closed).toBeGreaterThan(0);
+    // (Slice 29: on step 2's first day the agents took from your stores too. Oil set in the yard just before the next day's
+    // seizing, so the yard's porters can't carry it back to the storehouse the agents emptied.)
+    const fromStores = l.seized;
+    sim.run(TICKS_PER_DAY - 1);
     setHeld(yard, TRADE_GOODS[ki], 100);
     const owed = l.owed;
-    sim.run(TICKS_PER_DAY);
+    sim.run(1);
     expect(held(yard, TRADE_GOODS[ki])).toBeLessThan(100);
-    expect(l.seized).toBeGreaterThan(0);
-    expect(l.owed).toBe(owed - l.seized);
+    expect(l.seized).toBeGreaterThan(fromStores);
+    expect(l.owed).toBe(owed - (l.seized - fromStores));
     expect(s.ledger.now.some((x) => x.kind === 'seized' && /Corinth · /.test(x.what))).toBe(true);
     expect(lines(s).some((x) => /seized .* in your caravan yard .* against your debt/.test(x))).toBe(true);
     ledgerAddsUp(s);
@@ -192,6 +196,50 @@ describe('your default', () => {
       expect(until(sim, () => l.raid !== r.id, COLLECT_LULL + 2 * TICKS_PER_DAY)).toBe(true);
     }
   }, 240000);
+
+  it('from step 2, once a month, the lender’s agents take up to a third of the sum from your stores, what you sell them first; paid, they stop (slice 29)', () => {
+    const sim = fresh('caravan');
+    const s = sim.state;
+    ruler(s, 'corinth', ['pious', 'warlike'], 10);
+    const l = staged(s, 'corinth', 'in', 1500, 2);
+    send(sim, { type: 'loan', act: 'withhold', loan: l.id });
+    const route = s.world.routes.find((r) => r.city === 'corinth')!;
+    const ki = TRADE_GOODS.indexOf(OIL as never);
+    route.sell.fill(false);
+    route.sell[ki] = true;
+    const store = s.buildings.find((b) => b.kind === 'storehouse')!;
+    expect(until(sim, () => l.step === 1, 3 * TICKS_PER_DAY)).toBe(true);
+    // (The day before step 2: oil in the storehouse, nothing waiting in the yard.)
+    expect(until(sim, () => s.tick >= l.stepAt + STEP_GAP - TICKS_PER_DAY, STEP_GAP)).toBe(true);
+    const yard = caravanYard(s)!;
+    for (const w of TRADE_GOODS) setHeld(yard, w, 0);
+    setHeld(store, OIL, 1500);
+    const owed = l.owed;
+    const third = Math.ceil(l.amount * STORE_SHARE);
+    expect(until(sim, () => l.step === 2, 2 * TICKS_PER_DAY)).toBe(true);
+    // On its first day: oil (what you sell Corinth) from the storehouse, up to a third of the sum.
+    expect(l.seized).toBeGreaterThan(third * 0.9);
+    expect(l.seized).toBeLessThanOrEqual(third);
+    expect(l.owed).toBe(owed - l.seized);
+    expect(held(store, OIL)).toBeLessThan(1500);
+    expect(lines(s).some((x) => /agents seize [\d,]+ oil from the storehouse .* against your debt/.test(x))).toBe(true);
+    expect(s.ledger.now.some((x) => x.kind === 'seized' && x.what === 'Corinth · oil')).toBe(true);
+    ledgerAddsUp(s);
+    // A month on, again.
+    const once = l.seized;
+    sim.run(STORE_EVERY + TICKS_PER_DAY);
+    expect(l.seized).toBeGreaterThan(once);
+    expect(l.seized).toBeLessThanOrEqual(2 * third + 100);
+    // Paid: nothing more is taken.
+    income(s, 5000, 'given', 'for the test');
+    send(sim, { type: 'loan', act: 'repay', loan: l.id });
+    expect(l.state).toBe('repaying');
+    const paid = l.seized;
+    setHeld(store, OIL, 1500);
+    sim.run(STORE_EVERY + TICKS_PER_DAY);
+    expect(l.seized).toBe(paid);
+    ledgerAddsUp(s);
+  }, 120000);
 
   it('asking for more time: granted by a cordial lender (dearer, later), once; refused by a cold one', () => {
     const s = fresh('caravan').state;

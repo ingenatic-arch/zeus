@@ -1840,9 +1840,12 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
       while (s.tick < two && l.step < 2) sim.run(10);
       if (stage === 'seized') {
         // (A gift of coin sent to soften him, as a player might: he seizes it on the road against the debt. The yard's meat went with the last caravan.)
+        // (Slice 29: the lord's agents took from your stores on the step's first day; the demo waits for the gift to be taken too.)
+        const gifts = new Set(s.world.gifts.map((g) => g.id));
         send({ type: 'gift', city: 'corinth', good: -1, amount: SEIZED_GIFT });
+        const gift = s.world.gifts.find((g) => !gifts.has(g.id));
         const most = s.tick + SEIZED_DAYS * TICKS_PER_DAY;
-        while (s.tick < most && l.seized === 0) sim.run(TICKS_PER_DAY);
+        while (s.tick < most && (gift ? s.world.gifts.includes(gift) : l.seized === 0)) sim.run(TICKS_PER_DAY);
         return;
       }
       const three = l.stepAt + STEP_GAP + 2 * TICKS_PER_DAY;

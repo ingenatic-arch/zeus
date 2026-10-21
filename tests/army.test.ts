@@ -3,7 +3,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coast } from '../src/map/coast';
-import { companiesAt, COMPANY_SIZE, marchRefusal, menOf, readyOf, servingHomes } from '../src/sim/army';
+import { companiesAt, COMPANY_SIZE, marchRefusal, menOf, pathLength, placeOf, readyOf, servingHomes, wayFrom } from '../src/sim/army';
 import { buildingRefusal, copperOf, MINE_COPPER_MIN } from '../src/sim/build';
 import { around, findBuilding, FINE, footprint, TOWNHOUSE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
@@ -223,6 +223,31 @@ describe('the barracks', () => {
     expect(s.army.soldiers.length).toBe(0);
     expect(around(N, b).length).toBeGreaterThan(0);
   });
+});
+
+describe('the march (slice 29)', () => {
+  it('a company marches three tiles a day, its men in their places when it halts', () => {
+    const sim = demoSim('companies');
+    const s = sim.state;
+    const c = s.army.companies.find((x) => x.kind === 'hoplite')!;
+    // (Down the core's main street to the granary on the flood plain.)
+    const tile = 41 * N + 52;
+    expect(marchRefusal(s, sim.map, c, tile)).toBe('');
+    const way = wayFrom(s, sim.map, c.x, c.z, tile)!;
+    const days = pathLength(way) / 3;
+    expect(days).toBeGreaterThan(10);
+    sim.enqueue({ type: 'banner', company: c.id, tile });
+    sim.flush();
+    const t0 = s.tick;
+    for (let i = 0; i < 60 * TICKS_PER_DAY && c.order !== 'hold'; i++) sim.step();
+    expect(c.order).toBe('hold');
+    expect(Math.abs((s.tick - t0) / TICKS_PER_DAY - days)).toBeLessThan(1);
+    sim.run(3 * TICKS_PER_DAY);
+    for (const x of readyOf(s, c)) {
+      const p = placeOf(s, sim.map, c, x);
+      expect(Math.hypot(p.x - x.x, p.z - x.z)).toBeLessThan(0.5);
+    }
+  }, 60000);
 });
 
 describe('old saves', () => {

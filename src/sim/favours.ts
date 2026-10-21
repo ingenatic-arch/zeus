@@ -38,7 +38,7 @@ import { HANDLE } from './food';
 import { answerThreat, peaceArrived, threatFromTribute, threatLive, threatRefusal } from './raids';
 import { WARE_NAMES, held } from './foods';
 import { rateOf } from './labour';
-import { answerLoan, loanAnswerRefusal, loanDeal, loanDealLapsed } from './loans';
+import { answerLoan, loanAnswerRefusal, loanDeal, loanDealLapsed, loanTurn } from './loans';
 import { roadSearch, nearestReached } from './roads';
 import { roadsBeside } from './rounds';
 import { caravanEntry, landTicks, routeOf, voyageTicks, yearlyLimit } from './routes';
@@ -397,7 +397,9 @@ function asks(s: SimState, map: CoastMap): void {
     if (tribute(s, map, c, month, i) || request(s, map, c, month, i) || offer(s, c, month, i)) return;
   }
   // A loan offered or asked for comes only in a month when no ruler made an older kind of deal, so every month that brought one brings it still (loans.ts).
-  if (soon) return;
+  // (Slice 29: in a turn of its own, spaced by its own gap, not by everyone's: held back by the older kinds' two months, a
+  // loan came about once in four years of play.)
+  if (!loanTurn(s)) return;
   for (let i = 0; i < w.cities.length; i++) {
     const c = w.cities[i];
     if (!c.ruler || !RULED.includes(c.id) || !free(s, c)) continue;

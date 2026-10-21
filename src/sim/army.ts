@@ -56,11 +56,18 @@ export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: T
  * the west bridge less than a day before the band); how fast a man keeps his
  * place in the column or the ranks (quicker, so the column keeps up); and how
  * fast he walks his own way, in from his home or home again.
+ *
+ * Slice 29, from playing a town built the natural way for four years: at 0.2
+ * a company sent from the barracks by the olive grove when Troy's sails show
+ * reached the beach below the storehouse the day the band landed (24 days
+ * after), and one sent when Sparta's threat was refused reached the flood
+ * plain as the band did. At 0.3 (three tiles a day) your soldiers outpace a
+ * band in their own streets, and stand on that beach about a week early.
  */
-export const MARCH_SPEED = 0.2;
+export const MARCH_SPEED = 0.3;
 export const STRIDE = 0.22;
 /** A man's pace keeping his place in the column on the march (the ranks and the drill keep STRIDE's, as before the march quickened). */
-export const MARCH_STRIDE = 0.27;
+export const MARCH_STRIDE = 0.38;
 export const WALK_IN = 0.14;
 /** Hirelings march in from the map's edge at the double (slice 24): men who march for a living, hired because a band is coming. */
 export const HIRED_IN = 0.34;
