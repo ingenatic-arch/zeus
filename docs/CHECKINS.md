@@ -86,6 +86,7 @@ The frame times are within the run-to-run swing; `#fortress`'s fight (three comp
   - With nobody at the gate, the band gets in. Then the same squeeze leaves the treasury empty for over a year and the town falls to about 500 people.
   - Each month, wages and pay come to about 575 dr. Taxes swing between about 150 and 730 dr, as the collectors' rounds fall, and sales add about 150. That leaves roughly 125 dr a month to save.
   - So a player who uses the reminder (asking for time, or holding back) gets through. A player who lets the treasury pay on the day comes out of it with nothing left for wages.
+- **Measured again after these fixes:** all 444 tests pass, and the smoke test passes. The download is unchanged at 2,981 KB. The bare link is ready at 1.9 s, with the first frame at 2.7 s. The 110 demos have a median of 1.8 s, the slowest is `#lend` at 2.6 s, none is over 3 s, and `#fortress` takes 1.9 s. In `#fortress`'s fight at the gate, the work before drawing each frame is 15.7 ms; `#battle` is 12.4 ms and `#siege` 12.7 ms.
 
 
 ## Slice 28 — Debts unpaid (20 Oct)
