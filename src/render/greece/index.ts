@@ -36,6 +36,8 @@ const FAR_FROM = 80;
 const FAR_MOST = 1.8;
 /** An army on a road is drawn larger from afar only up to this: the roads between the cities are short, and at FAR_MOST two armies at Megara reached into Corinth and Athens themselves (slice 22's review). */
 const ARMY_FAR_MOST = 1.25;
+/** Your expedition's army, alone on its road, may grow further from afar (slice 29). */
+const EXPEDITION_FAR_MOST = 1.6;
 const LIMITS: RigLimits = { minDist: 24, maxDist: 175, x0: 0, z0: 0, x1: TABLE_W, z1: TABLE_D, pitchNear: 0.58, pitchFar: 1.12 };
 /** How the cities stand out: your own and the four with rulers a little larger than life. */
 const SCALE: Record<CityId, number> = { home: 1.7, athens: 2.0, sparta: 1.85, corinth: 1.8, troy: 2.0, tyre: 1.6 };
@@ -642,7 +644,7 @@ export class GreeceMap {
       const line = wayPoints(wayOf(e.way));
       const L = lineLength(line);
       // (Figures, not men: a rival's army of thousands is 8 to 14; your few dozen are 3 to 9.)
-      const men = Math.max(3, Math.min(9, Math.round(expeditionMen(s, e) / 5)));
+      const men = Math.max(5, Math.min(9, Math.round(expeditionMen(s, e) / 5)));
       const { colour, trim } = PLACES.home;
       const dir = at.homeward ? -1 : 1;
       if (e.by === 'sea') {
@@ -654,14 +656,15 @@ export class GreeceMap {
         ship.scale.setScalar(0.95 * far);
       }
       const m = e.by === 'sea' ? undefined : piece(`exp-${e.id}`, () => armyModel(colour, trim, men), armyBody(men));
-      const k = Math.min(far, ARMY_FAR_MOST);
+      // (Slice 29: drawn half again as large as before, and larger from afar than a rival's army may be: alone on its road, it was hard to pick out between the cities' labels.)
+      const k = Math.min(far, EXPEDITION_FAR_MOST);
       // (Drawn larger from afar, it grows back from its head, as the rivals' armies do; at their city it stands a little short of it.)
       if (m) {
-        const grow = (k - 1) * 2.1 * armyBody(men)[1];
+        const grow = (k - 1) * 3.1 * armyBody(men)[1];
         const p = alongLine(line, Math.max(1.2, Math.min(L - (at.fighting ? 2.2 : 1.2), at.along - dir * grow)));
         m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
         m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
-        m.scale.setScalar(2.1 * k);
+        m.scale.setScalar(3.1 * k);
       }
       if (at.fighting) {
         const sw = piece(`exp-${e.id}-swords`, () => swordsModel(), [-0.45, 0.45]);

@@ -14,6 +14,9 @@ const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour',
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
 
+/** Slice 29: at most this many lines show at once (the first, in ORDER: a raid's always among them); the rest fold under "+N more", which opens them. Seven lines covered the middle of the screen. */
+const SHOWN = 4;
+
 const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>';
 /** The army's news: a bronze helmet with its crest. */
 const HELMET = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4c2.4-1.6 7.6-1.6 10 0" fill="none" stroke="#b8322a" stroke-width="2.2" stroke-linecap="round"/><path d="M8 3.2c-3.2 0-5.2 2.2-5.2 5.4v5.6h3.4v-3.4l-1-1.2V7.4h5.6v2.2l-1 1.2v3.4h3.4V8.6c0-3.2-2-5.4-5.2-5.4z" fill="#c8963c" stroke="#5e4214" stroke-width=".9" stroke-linejoin="round"/><path d="M7.2 7.4v4.2M8.8 7.4v4.2" stroke="#5e4214" stroke-width=".9"/></svg>';
@@ -59,6 +62,10 @@ export class TownLines {
   private first = true;
   private seen = new Map<TownLine['need'], { since: number; lastSeen: number; line: TownLine; el: HTMLButtonElement | null }>();
 
+  /** The "+N more" button under the lines, and whether it has opened them all. */
+  private more: HTMLButtonElement;
+  private open = false;
+
   constructor(
     parent: HTMLElement,
     private go: (line: TownLine) => void,
@@ -67,11 +74,33 @@ export class TownLines {
     el.className = 'townlines';
     parent.appendChild(el);
     this.el = el;
+    const more = document.createElement('button');
+    more.className = 'townlines-more';
+    more.hidden = true;
+    more.addEventListener('click', () => {
+      this.open = !this.open;
+      this.fold();
+    });
+    el.appendChild(more);
+    this.more = more;
+  }
+
+  /** Fold the lines past the first SHOWN under the "+N more" button (or show them all, opened). */
+  private fold(): void {
+    const lines = [...this.el.querySelectorAll<HTMLElement>('.townline')];
+    const over = lines.length - SHOWN;
+    if (over <= 0) this.open = false;
+    lines.forEach((l, i) => l.classList.toggle('folded', !this.open && i >= SHOWN));
+    this.more.hidden = over <= 0;
+    this.more.textContent = this.open ? 'Fewer' : `+${over} more`;
+    this.more.title = this.open ? `Fold all but the first ${SHOWN} lines` : `${over} more line${over === 1 ? '' : 's'}: click to show ${over === 1 ? 'it' : 'them'}`;
+    this.el.appendChild(this.more);
   }
 
   /** The lines as they stand now, at game tick `tick`. */
   update(lines: TownLine[], tick: number): void {
     const settle = SETTLE_DAYS * TICKS_PER_DAY;
+    const present = new Set(lines.map((l) => l.need));
     for (const l of lines) {
       const s = this.seen.get(l.need);
       if (s) {
@@ -83,8 +112,8 @@ export class TownLines {
     for (const [need, s] of this.seen) {
       // A tick that went backwards (a save opened) starts over.
       if (tick < s.since) s.since = s.lastSeen = tick;
-      // (The ships' and caravans' news comes and goes at once: it is news, not a shortfall.)
-      const gone = tick - s.lastSeen > (NEWS.includes(need) ? 0 : settle);
+      // (News, a ship's or a raid's, comes and goes at once: it is news, not a shortfall. Slice 29: gone as soon as it no longer stands, paused or not, instead of waiting for the next tick.)
+      const gone = NEWS.includes(need) ? !present.has(need) : tick - s.lastSeen > settle;
       const shown = tick - s.since >= settle && !gone;
       if (shown && !s.el) {
         const b = document.createElement('button');
@@ -96,7 +125,7 @@ export class TownLines {
           if (cur) this.go(cur.line);
         });
         b.dataset.rank = String(rank(need));
-        const after = [...this.el.children].find((c) => Number((c as HTMLElement).dataset.rank) > rank(need)) ?? null;
+        const after = [...this.el.children].find((c) => c === this.more || Number((c as HTMLElement).dataset.rank) > rank(need)) ?? null;
         this.el.insertBefore(b, after);
         s.el = b;
       }
@@ -116,6 +145,7 @@ export class TownLines {
         this.seen.delete(need);
       }
     }
+    this.fold();
   }
 
   /** The lines showing (for the smoke test). */

@@ -79,6 +79,20 @@ describe('landings', () => {
     ledgerAddsUp(s);
   }, 120000);
 
+  it('ships beaching with no men left past their guards land nobody: they sail home and the raid is over (slice 29)', () => {
+    const sim = fresh('landing');
+    const s = sim.state;
+    const r = troy(s);
+    for (const e of shipsOf(s, r)) e.men = 2;
+    expect(until(sim, () => r.end !== '', TICKS_PER_MONTH)).toBe(true);
+    expect(r.end).toBe('nothing');
+    expect(r.landed).toBe(0);
+    expect(raidersOf(s, r)).toBeUndefined();
+    expect(s.world.news.some((n) => /too few men left to land/.test(n.line))).toBe(true);
+    expect(s.fleet.ships.filter((e) => e.raid === r.id).every((e) => e.state === 'leaving')).toBe(true);
+    ledgerAddsUp(s);
+  });
+
   it('a wall along the shore is hammered like any: the band breaks in through it', () => {
     const sim = fresh('landing');
     const s = sim.state;

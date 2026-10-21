@@ -750,7 +750,15 @@ export const raidOfShips = (s: SimState, id: number): Raid | undefined => s.worl
 export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void {
   const size = map.size;
   const beached = shipsOf(s, r).filter((e) => e.state === 'beached');
-  r.landed = Math.max(1, men);
+  // (Slice 29: a band with no men left to land, past each ship's guard, lands none: it sails home. It used to land one.)
+  if (men <= 0) {
+    embark(s, map, r, false);
+    home(s, r);
+    settle(s, r, 'nothing');
+    news(s.world, s.tick, r.city, `${whose(r.city)} ships beached on your shore with too few men left to land: they have sailed home`, true);
+    return;
+  }
+  r.landed = men;
   const b = findBuilding(s, r.target);
   const starts = beached.map((e) => e.tile);
   let best: { tiles: number[]; siege: number; from: number } | null = null;
