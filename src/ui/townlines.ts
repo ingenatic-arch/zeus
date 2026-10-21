@@ -14,7 +14,7 @@ const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour',
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
 
-/** Slice 29: at most this many lines show at once (the first, in ORDER: a raid's always among them); the rest fold under "+N more", which opens them. Seven lines covered the middle of the screen. */
+/** Slice 29: at most this many lines show at once (the most pressing, by WEIGHT); the rest fold under "+N more", which opens them. Seven lines covered the middle of the screen. */
 const SHOWN = 4;
 
 const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 12.6 3.4M13.6 13.6 3.4 3.4" stroke="#5a3a22" stroke-width="1.3" stroke-linecap="round"/><path d="M12.2 1.4l2.4 2.4-2.8.6zM3.8 1.4 1.4 3.8l2.8.6z" fill="#cfd2d4" stroke="#4a4a4a" stroke-width=".5"/><circle cx="8" cy="10.2" r="3.6" fill="#b8322a" stroke="#5e1410" stroke-width=".9"/><circle cx="8" cy="10.2" r="1.1" fill="#e8c46a"/></svg>';
@@ -56,6 +56,19 @@ const rank = (need: TownLine['need']): number => {
   return i < 0 ? ORDER.length : i;
 };
 
+/**
+ * Which lines stay in sight when they fold, most pressing first (they still
+ * stand in ORDER): a threat, a fight, a fire, a debt or wages owed, a ruler's
+ * ask and what the town is short of before the comings and goings of ships
+ * and caravans. (Review of slice 29: folded in ORDER, a ship and a caravan
+ * hid #fortress's meat shortfall, and could have hidden a fire.)
+ */
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
+const weight = (need: string): number => {
+  const i = WEIGHT.indexOf(need as TownLine['need']);
+  return i < 0 ? WEIGHT.length : i;
+};
+
 export class TownLines {
   readonly el: HTMLElement;
   /** The lines standing when the game opens show at once (a demo may open paused). */
@@ -85,16 +98,18 @@ export class TownLines {
     this.more = more;
   }
 
-  /** Fold the lines past the first SHOWN under the "+N more" button (or show them all, opened). */
+  /** Fold all but the SHOWN most pressing lines under the "+N more" button (or show them all, opened). */
   private fold(): void {
     const lines = [...this.el.querySelectorAll<HTMLElement>('.townline')];
     const over = lines.length - SHOWN;
     if (over <= 0) this.open = false;
-    lines.forEach((l, i) => l.classList.toggle('folded', !this.open && i >= SHOWN));
+    const kept = new Set(lines.slice().sort((a, b) => weight(a.dataset.need ?? '') - weight(b.dataset.need ?? '') || Number(a.dataset.rank) - Number(b.dataset.rank)).slice(0, SHOWN));
+    lines.forEach((l) => l.classList.toggle('folded', !this.open && !kept.has(l)));
     this.more.hidden = over <= 0;
-    this.more.textContent = this.open ? 'Fewer' : `+${over} more`;
-    this.more.title = this.open ? `Fold all but the first ${SHOWN} lines` : `${over} more line${over === 1 ? '' : 's'}: click to show ${over === 1 ? 'it' : 'them'}`;
-    this.el.appendChild(this.more);
+    const text = this.open ? 'Fewer' : `+${over} more`;
+    if (this.more.textContent !== text) this.more.textContent = text;
+    this.more.title = this.open ? `Fold all but the ${SHOWN} most pressing lines` : `${over} more line${over === 1 ? '' : 's'}: click to show ${over === 1 ? 'it' : 'them'}`;
+    if (this.el.lastElementChild !== this.more) this.el.appendChild(this.more);
   }
 
   /** The lines as they stand now, at game tick `tick`. */
@@ -125,6 +140,7 @@ export class TownLines {
           if (cur) this.go(cur.line);
         });
         b.dataset.rank = String(rank(need));
+        b.dataset.need = need;
         const after = [...this.el.children].find((c) => c === this.more || Number((c as HTMLElement).dataset.rank) > rank(need)) ?? null;
         this.el.insertBefore(b, after);
         s.el = b;

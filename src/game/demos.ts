@@ -2175,7 +2175,8 @@ const SCENES: Record<string, Demo> = {
   report: { view: 'companies', speed: 'paused', setup: debtTown('report'), overlay: 'missing', greece: 'corinth', greeceTab: 'loans' },
   forgive: { view: 'rivals', setup: debtTown('forgive'), overlay: 'missing', greece: LEND_CITY, greeceTab: 'loans' },
   // A city worth defending (slice 29).
-  fortress: { view: 'fortress', setup: FORTRESS, overlay: 'missing', side: { tab: 'army' } },
+  // (Opens paused, as #battle does: the band is about three weeks out, and the lines, the walls and the pages are to be read first. Review of slice 29.)
+  fortress: { view: 'fortress', speed: 'paused', setup: FORTRESS, overlay: 'missing', side: { tab: 'army' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

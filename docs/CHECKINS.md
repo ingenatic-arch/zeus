@@ -11,7 +11,7 @@ What breaks, or moves:
 - **Companies march half again as fast**: 3 tiles a day, from 2. Raiders keep their pace, so your soldiers outpace a band in your own streets. Expeditions leave and come home faster on your map; their days on the map of Greece are unchanged.
 - **Loans have their own turn.** A ruler's loan offer or ask no longer waits for a month when no ruler has made any deal for two months; loans are spaced by their own gap instead (four months between any two across Greece). Offers come about one month in six (one in nine in slice 28), four times as often when your treasury is low or wages are owed. A ruler only cordial with you (0 or more) now offers when your treasury is low, saying so; one pleased with you (15 or more) offers anytime.
 - **Seizures reach your stores.** In step 2 of an unpaid debt, on its first day and again a month on, the lender's agents take goods from your storehouses and granaries, up to a quarter of the sum each time. They take what you sell that city first, then whatever is worth most to them, each from the fullest store. Each seizure is a line of news naming the store, a ledger line ("Seized by Corinth · oil") and the stock book, and comes off the debt. The warning and step 2's news say so.
-- **Lines under the top bar** show four at most; the rest fold under "+2 more", which opens them. A raid's line is always first. News lines go as soon as they no longer stand, paused or not.
+- **Lines under the top bar** show four at most, the most pressing: a raid, a fight, a fire, a debt, wages owed, a ruler's ask and what the town is short of come before ships and caravans. The rest fold under "+2 more", which opens them. They still stand in their usual order, so a raid's line is always first. News lines go as soon as they no longer stand, paused or not.
 - **Earlier demos.** Compared at opening and 900 ticks on with the main line, 101 of the 107 with a history are the same. These six differ:
   - `#landing`: the companies march faster, so they are about 6 days' march from the beach (was 9). It also opens on a new view: out over the bay, looking along the shore, with Troy's ships in sight.
   - `#report`: the full force reached Corinth sooner, so it opens on 17 November (was 23), with the same report.
@@ -35,7 +35,7 @@ What breaks, or moves:
 
 ### What to try
 1. Open #fortress. Read the lines under the top bar, then open "+2 more". Look round the walls, the gates and the towers, then the Army tab, the debts chip and the map of Greece (Tab: Corinth's and Athens' Loans tabs).
-   - Take the banners of all three companies (click each row on the Army tab) and place them on the main street just inside the west gate. Then play. In my run, held there, they broke the band at the gate: 22 of its 33 men fell and it took nothing, though it set one building alight on the way in. One of ours was killed and one wounded. Left alone, the towers brought down 14 of its 33 men, but it hammered the gate for 36 days, broke in, and left with 748 wheat and 219 dr, having set three buildings alight.
+   - Take the banners of all three companies (click each row on the Army tab) and place them on the main street just inside the west gate. Clicking a row takes the view to that company, so you come back to the gate each time. Then play. In my run, held there, they broke the band at the gate: 22 of its 33 men fell and it took nothing, though it set one building alight on the way in. One of ours was killed and one wounded. Left alone, the towers brought down 14 of its 33 men, but it hammered the gate for 36 days, broke in, and left with 748 wheat and 219 dr, having set three buildings alight.
    - Or pay the 800 dr on Sparta's page, and see what the treasury looks like with Corinth's 3,210 dr due in November.
    - Play on for a few years: Athens' repayment in May, Greece's own asks and offers, and whatever else Greece sends.
 2. Open #landing and compare the new view with the old one. Place the companies on the beach and play: they are there sooner.
@@ -47,7 +47,7 @@ Each link also opens paused if you add `-paused` (for example `#fortress-paused`
 - **Does defending feel part of the city in #fortress?** The walls, the towers and the companies at the gate, in screenshots: the band on the bridge hammering the gate under two towers, and the hoplites drawn up inside.
 - **Is the treasury too tight?** #fortress opens with 1,664 dr against 577 dr a month of wages and pay. 3,210 dr is due to Corinth in five months. In the year before the raid, the town took in about 300 dr a month more than it paid out. In the natural run (no walls, no third company), the treasury held 3,200 dr after a year, 4,200 after two and about 9,000 after four.
 - **Seizures.** Two quarters of the sum from your stores, then the army for the rest. Does it bite enough, or too much?
-- **The four-line limit** under the top bar, and "+2 more". In #fortress the loan's arrival and the meat shortfall fold away at opening.
+- **The four-line limit** under the top bar, and "+2 more". In #fortress the merchant ship and the caravan fold away at opening.
 - **Your army on the map of Greece** (#report): still small beside the cities' labels?
 
 ### Known rough edges
@@ -74,6 +74,19 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `4a8a473` (the 
 | Frame work (update before drawing) | `#battle` fought 12.1 ms, `#siege` hammering 11.0 ms, `#triremes` fighting 6.1 ms | `#battle` 15.2 ms, `#siege` 11.7 ms, `#triremes` 6.1 ms; `#fortress` fought 17.4 ms |
 
 The frame times are within the run-to-run swing; `#fortress`'s fight (three companies, 33 raiders, three towers) is the heaviest yet, as `#battle`'s was.
+
+### What the review changed
+- **#fortress now opens paused,** as this note always said it did. Before, it opened running, so the band's three weeks were ticking away while you read the lines and looked round the walls (by the time I had looked, it was 16 days out, not 21).
+- **The lines that stay in sight are the most pressing ones.** Before, the four that showed were simply the first four in their usual order, so the merchant ship and a caravan pushed #fortress's meat shortfall out of sight, and a fire could have been hidden the same way. Now a raid, a fight, a fire, a debt, wages owed, a ruler's ask and whatever the town is short of come before ships and caravans. The lines still stand in their usual order, and "+2 more" still opens the rest.
+- **What I checked:** every step above at 1920 × 1080 in the browser, with screenshots. I placed the banners by clicking the Army tab's rows and then the street. With two companies inside the west gate, the band broke there: 22 of its 33 men fell and it took nothing; 3 of ours were killed and 6 wounded. #landing, #seized, #creditors and #report show what this note says they do.
+- **What I found playing #fortress on for two years** (the sim on its own, answering Greece as a middling player would, with no other choices made). This is for your "too tight?" question; I changed nothing here:
+  - With the companies held at the gate and the band beaten, the treasury holds 2,500 dr a month before Corinth's day. That is about 120 dr short of the 3,210 dr. The reminder says so a month ahead ("the treasury can spend 3,089 dr now"), and Corinth would likely grant more time.
+  - Left alone, the loan goes overdue on the day, and Greece hears of it. It is paid four days later, which leaves 3 dr in the treasury. Wages then go unpaid for most of three months, and about 230 people leave over the year. After two years the town has about 1,100 people and 1,450 dr, and is slowly mending.
+  - If you pay Sparta's 800 dr instead, the loan stays unpaid for two months. Corinth's agents take 750 dr's worth of oil, wine and wheat from the stores, and then the treasury pays off the rest, leaving almost nothing. The town is down to about 940 people after two years.
+  - With nobody at the gate, the band gets in. Then the same squeeze leaves the treasury empty for over a year and the town falls to about 500 people.
+  - Each month, wages and pay come to about 575 dr. Taxes swing between about 150 and 730 dr, as the collectors' rounds fall, and sales add about 150. That leaves roughly 125 dr a month to save.
+  - So a player who uses the reminder (asking for time, or holding back) gets through. A player who lets the treasury pay on the day comes out of it with nothing left for wages.
+
 
 ## Slice 28 — Debts unpaid (20 Oct)
 
