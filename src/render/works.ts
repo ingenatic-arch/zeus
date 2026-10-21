@@ -1297,6 +1297,25 @@ function caravanYardModel(): THREE.BufferGeometry {
       const z = along ? (z0 + z1) / 2 + (hash2(i, seed, 1602) > 0.5 ? 1 : -1) * ((z1 - z0) / 2) : z0 + (z1 - z0) * f;
       parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, 1603 + i + seed * 50).scale(1.2, 0.8, 1.2).translate(x, 0.08 + 0.26 * hash2(i, seed, 1604), z), color: i % 2 ? PAL.rockDark : PAL.rockWarm });
     }
+    // (Slice 32: its outer face coursed, bed joints and staggered upright joints, down over the footing too, so a wall on a slope isn't a blank face.)
+    const along = x1 - x0 > z1 - z0;
+    const out = along ? Math.sign((z0 + z1) / 2) : Math.sign((x0 + x1) / 2);
+    const face = along ? (out > 0 ? z1 : z0) + out * 0.004 : (out > 0 ? x1 : x0) + out * 0.004;
+    const len = along ? x1 - x0 : z1 - z0;
+    const start = along ? x0 : z0;
+    const COURSE = 0.15;
+    for (let k = 0; k < 6; k++) {
+      const y = H - 0.02 - k * COURSE;
+      const bed = along ? new THREE.BoxGeometry(len, 0.012, 0.008).translate(start + len / 2, y, face) : new THREE.BoxGeometry(0.008, 0.012, len).translate(face, y, start + len / 2);
+      parts.push({ geo: bed, color: PAL.rockDark });
+      const n = Math.max(1, Math.floor(len / 0.26));
+      for (let j = 0; j < n; j++) {
+        const u = start + ((j + (k % 2 ? 0.5 : 0) + 0.25 + 0.2 * hash2(j, k + seed * 7, 1605)) / n) * len;
+        if (u <= start + 0.03 || u >= start + len - 0.03) continue;
+        const ym = y - COURSE / 2;
+        parts.push({ geo: along ? new THREE.BoxGeometry(0.01, COURSE - 0.02, 0.008).translate(u, ym, face) : new THREE.BoxGeometry(0.008, COURSE - 0.02, 0.01).translate(face, ym, u), color: PAL.rockDark });
+      }
+    }
   };
   wall(-1.48, -1.48, -1.36, 1.48, 1);
   wall(-1.48, -1.48, 1.48, -1.36, 2);
