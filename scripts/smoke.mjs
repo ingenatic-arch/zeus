@@ -2315,7 +2315,7 @@ await open('#thieves-paused');
   k30 = await zeus(() => window.__zeus.crime());
   const t30 = k30.thieves[0];
   if (!(t30 && t30.drawn)) fail(`#thieves: no thief out, or not drawn: ${JSON.stringify(k30)}`);
-  if (!(await line30(/^A thief out [^:]+: .+, (on his way to rob|slipping home|out in the streets)/))) fail(`#thieves: the thief's line: ${JSON.stringify(await lines30())}`);
+  if (!(await line30(/^A thief out [^:]+: .+, (on (his|her) way to rob|slipping home|out in the streets)/))) fail(`#thieves: the thief's line: ${JSON.stringify(await lines30())}`);
   if (t30?.drawn) {
     await zeus((t) => window.__zeus.jump({ x: t.x, z: t.z, yaw: -0.2, dist: 12, tilt: 0.1 }), t30.drawn);
     await frames(3);

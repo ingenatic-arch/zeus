@@ -318,17 +318,23 @@ export function thiefWho(b: Building | undefined, w: Walker | null, none = 'a st
   return name === b.family.name ? `${name}, the head of the house` : `${name} of the house of ${b.family.name}`;
 }
 
-/** The grown member of a household who goes out to steal: a son or brother first, else the head (a hash of the day picks among them). */
+/** He or she, his or her, him or her: for the member of the household a thief is. */
+export function pronouns(b: Building | undefined, w: Walker | null): { he: string; his: string; him: string } {
+  const m = b?.family?.members;
+  const p = m ? (m[w ? w.cheese : 0] ?? m[0]) : undefined;
+  return p?.female ? { he: 'she', his: 'her', him: 'her' } : { he: 'he', his: 'his', him: 'him' };
+}
+
+/** The grown member of a household who goes out to steal: a young man first (a son or brother), then an older one, then a woman (a hash of the day picks among them). */
 function whoGoes(s: SimState, b: Building, day: number): number {
   const m = b.family?.members ?? [];
-  const grown: number[] = [];
-  const young: number[] = [];
+  const pools: number[][] = [[], [], [], []];
   m.forEach((p, i) => {
     const age = ageOf(s, p);
     if (age < 16 || age > 60) return;
-    (age <= 35 ? young : grown).push(i);
+    pools[(p.female ? 2 : 0) + (age <= 35 ? 0 : 1)].push(i);
   });
-  const pool = young.length ? young : grown;
+  const pool = pools.find((x) => x.length) ?? [];
   if (pool.length === 0) return 0;
   return pool[Math.floor(unit(s.seed, b.id, day, 31) * pool.length)];
 }
@@ -737,9 +743,10 @@ export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
     home.family.story[home.family.story.length - 1].n = fine;
   }
   const whose = home?.family ? thiefWho(home, thief) : name;
-  const going = t ? (thief.back ? `on his way home from ${placeOf(t)}` : `on his way to ${placeOf(t)}`) : 'in the street';
+  const pr = pronouns(home, thief);
+  const going = t ? (thief.back ? `on ${pr.his} way home from ${placeOf(t)}` : `on ${pr.his} way to ${placeOf(t)}`) : 'in the street';
   const at = home ?? t;
-  tellNews(s, 'caught', `A thief caught ${at ? whereOf(map, at) : 'in the city'}: ${whose}, ${going}. ${fine > 0 ? `His family paid a ${fine} dr fine` : 'He was sent home'}`, home?.id ?? 0);
+  tellNews(s, 'caught', `A thief caught ${at ? whereOf(map, at) : 'in the city'}: ${whose}, ${going}. ${fine > 0 ? `${pr.his === 'her' ? 'Her' : 'His'} family paid a ${fine} dr fine` : `${pr.he === 'she' ? 'She' : 'He'} was sent home`}`, home?.id ?? 0);
   thief.people = 0;
   thief.load = 0;
   thief.meat = 0;

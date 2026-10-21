@@ -54,7 +54,7 @@ import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { towerStatus } from './wallstatus';
 // Slice 30.
-import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, type Temptation } from './crime';
+import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -660,12 +660,12 @@ export function herdStatus(s: SimState, h: Herd): Status {
   return { title, detail: lines(doing, grow, hunted) };
 }
 
-/** What any walker other than settlers is doing. */
 /** Slice 30: a thief's tip: who he is, and what he is about. */
 function thiefStatus(s: SimState, w: Walker): Status {
   const home = findBuilding(s, w.home);
   const t = findBuilding(s, w.target);
   const who = thiefWho(home, w, 'nobody knows who');
+  const pr = pronouns(home, w);
   const doing =
     w.wait > 0 && !w.back
       ? `getting in at ${t ? placeOf(t) : 'a door'}`
@@ -673,11 +673,12 @@ function thiefStatus(s: SimState, w: Walker): Status {
         ? w.load > 0
           ? `slipping home with ${lootWords(w)} from ${t ? placeOf(t) : 'somewhere'}`
           : 'slipping home empty-handed'
-        : `on his way to ${t ? placeOf(t) : 'somewhere'}`;
-  const chased = w.meat > 0 ? ' · a watchman is after him' : ' · a watchman who sees him runs after him';
+        : `on ${pr.his} way to ${t ? placeOf(t) : 'somewhere'}`;
+  const chased = w.meat > 0 ? ` · a watchman is after ${pr.him}` : ` · a watchman who sees ${pr.him} runs after ${pr.him}`;
   return { title: 'Thief', detail: `A hooded figure, keeping to the side of the road: ${who}, ${doing}${chased}` };
 }
 
+/** What any walker other than settlers is doing. */
 export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'water') return carrierStatus(w);
   if (w.kind === 'food') {
@@ -699,7 +700,7 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'watchman' && w.meat > 0) {
     const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
     const home = t ? findBuilding(s, t.home) : undefined;
-    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches him if he gets within arm’s reach, and the thief’s family pays a fine` };
+    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and the thief’s family pays a fine` };
   }
   if (w.kind === 'watchman') {
     const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
@@ -1713,9 +1714,10 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     const t = findBuilding(s, w.target);
     const who = thiefWho(home, w, 'a hooded figure');
     const where = home ? whereIs(map, home) : 'In the city';
-    const doing = w.back ? `slipping home${w.load > 0 ? ` with ${lootWords(w)}` : ''}` : t ? `on his way to rob ${placeOf(t)}` : 'out in the streets';
+    const pr = pronouns(home, w);
+    const doing = w.back ? `slipping home${w.load > 0 ? ` with ${lootWords(w)}` : ''}` : t ? `on ${pr.his} way to rob ${placeOf(t)}` : 'out in the streets';
     const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
-    const chase = w.meat > 0 ? ' A watchman is after him.' : '';
+    const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
     return { need: 'crime', text: `A thief out ${where.toLowerCase()}: ${who}, ${doing}${more}.${chase}`, at: w.home };
   }
   const ctx = moodCtx(s);

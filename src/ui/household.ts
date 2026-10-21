@@ -16,7 +16,7 @@ import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 import { morph } from './morph';
 // Slice 30.
-import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut } from '../sim/crime';
+import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut, pronouns } from '../sim/crime';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -120,7 +120,7 @@ function storyLine(f: Family, e: Story, i: number): string {
       return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'}${/(garrison|watch)$/.test(e.names[1] ?? '') ? ', far from home' : ' in the streets'}, and the house mourned him`;
     // Slice 30: crime.
     case 'robbed':
-      return e.n ? `A thief broke in and took ${e.n} dr` : `A thief broke in${e.names[0] ? ` (${e.names[0]})` : ''}; the watchman caught him and brought it all back`;
+      return e.n ? `A thief broke in and took ${e.n} dr` : `A thief broke in${e.names[0] ? ` (${e.names[0]})` : ''}; the watchman caught the thief and brought it all back`;
     case 'stole':
       return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t his`;
     case 'caught':
@@ -302,8 +302,9 @@ function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
   const out = s.walkers.find((w) => w.kind === 'thief' && w.home === b.id && w.people > 0);
   if (out) {
     const t = findBuilding(s, out.target);
-    const doing = out.back ? (out.load > 0 ? `slipping home with ${lootWords(out)}` : 'slipping home empty-handed') : `on his way to ${t ? placeOf(t) : 'somewhere'}`;
-    return `<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, out))} is out stealing</b><p>${esc(doing)}${out.meat > 0 ? ', a watchman after him' : ''}</p><p class="why">A watchman who sees him runs after him; caught, the house pays a fine.</p></div></div>`;
+    const pr = pronouns(b, out);
+    const doing = out.back ? (out.load > 0 ? `slipping home with ${lootWords(out)}` : 'slipping home empty-handed') : `on ${pr.his} way to ${t ? placeOf(t) : 'somewhere'}`;
+    return `<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, out))} is out stealing</b><p>${esc(doing)}${out.meat > 0 ? `, a watchman after ${pr.him}` : ''}</p><p class="why">A watchman who sees ${pr.him} runs after ${pr.him}; caught, the house pays a fine.</p></div></div>`;
   }
   if (b.tempt < TEMPT_SHOW) return '';
   const t = temptationOf(s, map.size, b);
