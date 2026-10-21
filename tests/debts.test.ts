@@ -197,7 +197,7 @@ describe('your default', () => {
     }
   }, 240000);
 
-  it('from step 2, once a month, the lender’s agents take up to a third of the sum from your stores, what you sell them first; paid, they stop (slice 29)', () => {
+  it('in step 2, on its first day and a month on, the lender’s agents take up to a quarter of the sum from your stores, what you sell them first; no more after; paid, they stop (slice 29)', () => {
     const sim = fresh('caravan');
     const s = sim.state;
     ruler(s, 'corinth', ['pious', 'warlike'], 10);
@@ -215,11 +215,11 @@ describe('your default', () => {
     for (const w of TRADE_GOODS) setHeld(yard, w, 0);
     setHeld(store, OIL, 1500);
     const owed = l.owed;
-    const third = Math.ceil(l.amount * STORE_SHARE);
+    const share = Math.ceil(l.amount * STORE_SHARE);
     expect(until(sim, () => l.step === 2, 2 * TICKS_PER_DAY)).toBe(true);
-    // On its first day: oil (what you sell Corinth) from the storehouse, up to a third of the sum.
-    expect(l.seized).toBeGreaterThan(third * 0.9);
-    expect(l.seized).toBeLessThanOrEqual(third);
+    // On its first day: oil (what you sell Corinth) from the storehouse, up to a quarter of the sum.
+    expect(l.seized).toBeGreaterThan(share * 0.9);
+    expect(l.seized).toBeLessThanOrEqual(share);
     expect(l.owed).toBe(owed - l.seized);
     expect(held(store, OIL)).toBeLessThan(1500);
     expect(lines(s).some((x) => /agents seize [\d,]+ oil from the storehouse .* against your debt/.test(x))).toBe(true);
@@ -229,7 +229,14 @@ describe('your default', () => {
     const once = l.seized;
     sim.run(STORE_EVERY + TICKS_PER_DAY);
     expect(l.seized).toBeGreaterThan(once);
-    expect(l.seized).toBeLessThanOrEqual(2 * third + 100);
+    expect(l.seized).toBeLessThanOrEqual(2 * share + 100);
+    // Not a third time from the stores, while the debt stands (what waits in the yard is still taken).
+    const fromStores = (): number => s.world.news.filter((n) => /agents seize [\d,]+ \w+ from the (storehouse|granary)/.test(n.line)).length;
+    const twice = fromStores();
+    expect(twice).toBe(2);
+    setHeld(store, OIL, 1500);
+    sim.run(STORE_EVERY);
+    expect(fromStores()).toBe(twice);
     // Paid: nothing more is taken.
     income(s, 5000, 'given', 'for the test');
     send(sim, { type: 'loan', act: 'repay', loan: l.id });

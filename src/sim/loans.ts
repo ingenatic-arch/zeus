@@ -982,8 +982,8 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
   if (l.step >= 2) {
     seize(s, l);
     if (!live(l)) return;
-    // (Slice 29: and once a month, from the step's first day, from your stores.)
-    if ((s.tick - l.stepAt) % STORE_EVERY === 0) {
+    // (Slice 29: and from your stores, on step 2's first day and a month on: twice, so the army still has something to come for.)
+    if (l.step === 2 && s.tick - l.stepAt < STEP_GAP && (s.tick - l.stepAt) % STORE_EVERY === 0) {
       seizeStores(s, map, l);
       if (!live(l)) return;
     }
@@ -1010,7 +1010,7 @@ function seizeStep(s: SimState, l: Loan): void {
   l.step = 2;
   l.stepAt = s.tick;
   settleMood(s, c);
-  news(s.world, s.tick, l.city, `${cap(title(c))} of ${cityName(l.city)} has closed ${his(c)} routes to you over your unpaid debt (${fmt(l.owed)} dr), and seizes your goods: what waits for ${his(c)} traders in your caravan yard and on your quay, anything of yours on its way to ${cityName(l.city)}, and each month up to ${fmt(Math.min(l.owed, Math.ceil(l.amount * STORE_SHARE)))} dr’s worth from your storehouses and granaries. In two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} sends men to collect what is left`, true);
+  news(s.world, s.tick, l.city, `${cap(title(c))} of ${cityName(l.city)} has closed ${his(c)} routes to you over your unpaid debt (${fmt(l.owed)} dr), and seizes your goods: what waits for ${his(c)} traders in your caravan yard and on your quay, anything of yours on its way to ${cityName(l.city)}, and up to ${fmt(Math.min(l.owed, Math.ceil(l.amount * STORE_SHARE)))} dr’s worth from your storehouses and granaries, today and again in a month. In two months, on ${dayWords(s.tick + STEP_GAP)}, ${he(c)} sends men to collect what is left`, true);
 }
 const his = (c: WorldCity): string => (c.ruler?.female ? 'her' : 'his');
 
@@ -1094,9 +1094,9 @@ export function seize(s: SimState, l: Loan): void {
   takeOff(s, l, value, `${cap(title(c))} of ${name} seized ${took.join(', and ')} against your debt`);
 }
 
-/** Slice 29: how often, from step 2, the lender's agents take goods from your stores, and how much each time (a share of the loan's sum, at their prices). */
+/** Slice 29: how often, in step 2, the lender's agents take goods from your stores (its first day and a month on), and how much each time (a share of the loan's sum, at their prices). */
 export const STORE_EVERY = TICKS_PER_MONTH;
-export const STORE_SHARE = 1 / 3;
+export const STORE_SHARE = 1 / 4;
 const SEIZE_LEAST = 20;
 
 /** "the storehouse by the olive grove". */
@@ -1106,10 +1106,11 @@ function storeWords(map: CoastMap, b: { kind: string; x: number; z: number }): s
 }
 
 /**
- * Step 2 and after, once a month from its first day (slice 29: seizures
- * rarely bit, the yard and the quay being nearly always empty): the lender's
- * agents take goods from your storehouses and granaries, up to a third of the
- * loan's sum (and never more than is left owed). The goods you sell to that
+ * Step 2, on its first day and a month on (slice 29: seizures rarely bit,
+ * the yard and the quay being nearly always empty): the lender's agents take
+ * goods from your storehouses and granaries, up to a quarter of the loan's
+ * sum each time (and never more than is left owed): half of it at most, so
+ * step 3's army still has something to come for. The goods you sell to that
  * city first, the most first; then whatever is worth most to them; each from
  * the fullest store first. Each is named with its store in the news, a ledger
  * line and the stock book, and comes off the debt.
