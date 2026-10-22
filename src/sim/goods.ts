@@ -6,8 +6,9 @@
  * each), added from the build bar for a price and one more worker
  * (STALL_JOBS). Each stall has its own porter, who fetches its good from the
  * nearest store that has it (a storehouse) when the stall is down to half,
- * on his own clock (`fetch`), and its own vendor, who walks the shared round
- * (rounds.ts) like the food vendor, from her own clock (`vclock`), topping up
+ * on his own clock (`fetch`), and its own vendors, a crew of them (rounds.ts,
+ * CREW) who walk the shared round like the food vendors, from their own
+ * clock (`vclock`, ticks to the next setting off), topping up
  * every home that wants the good beside her way.
  *
  * Every good with a stall is a row of GOOD_USE: the need it is, which homes
@@ -23,7 +24,7 @@ import { TICKS_PER_MONTH } from './clock';
 import { FIRST_VENDOR, nearestBy, porterTake, PORTER_RETRY, stallPorterOut, stallRoom, VENDOR_RANGE, VENDOR_REST, VENDOR_WALK, wayPoints } from './food';
 import { ARMOUR, FLEECE, gi, held, MARBLE, OIL, setHeld, TIMBER, WINE, type Ware } from './foods';
 import { serviceDue, serviceScore } from './folk';
-import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import { CREW_GAP, crewClock, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { Building, Service, SimState, Walker } from './state';
 import { isStore, roomOf } from './stores';
 import { besideRoad, CARRIER_SPEED, newWalker, setPath } from './walk';
@@ -131,9 +132,7 @@ function goodRound(good: Ware, use: GoodUse): ServiceSpec {
       }
     },
     rest: (b) => restFor(b, VENDOR_REST),
-    rested: (b) => {
-      b.vclock[k] = restFor(b, VENDOR_REST);
-    },
+    crew: true,
   };
 }
 
@@ -163,7 +162,7 @@ export function moveStallVendor(s: SimState, map: CoastMap, w: Walker): boolean 
 const anyStoreHas = (s: SimState, w: Ware): boolean => s.buildings.some((g) => isStore(g.kind) && roomOf(g.kind, w) > 0 && held(g, w) > 0);
 
 /**
- * An agora's stalls, each tick: each stall's vendor sets off from her own
+ * An agora's stalls, each tick: each stall's vendors set off, a crew, from their own
  * clock while the stall has its good, and each stall's porter (his clock
  * `fetch`) goes for its good when it is down to half and some store has it.
  * (With only an oil stall this is exactly the one goods porter of before.)
@@ -172,11 +171,9 @@ export function stepStalls(s: SimState, size: number, a: Building, rate: number)
   for (const good of STALL_GOODS) {
     if (!hasStall(a, good)) continue;
     const k = gi(good);
-    if (a.vclock[k] >= 0 && --a.vclock[k] <= 0) {
-      const kind = STALL_VENDOR[good];
-      if (rate === 0 || !kind || held(a, good) <= 0 || !sendOut(s, size, a, kind, true)) a.vclock[k] = VENDOR_REST;
-      else a.vclock[k] = -1;
-    }
+    const kind = STALL_VENDOR[good];
+    // (A save from before the crews has -1 here while her vendor is out: it counts as run out.)
+    if (kind) a.vclock[k] = crewClock(s, a, kind, a.vclock[k], rate > 0 && held(a, good) > 0, () => sendOut(s, size, a, kind, true), restFor(a, CREW_GAP), VENDOR_REST);
   }
   for (const good of STALL_GOODS) {
     if (!hasStall(a, good)) continue;

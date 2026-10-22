@@ -1,22 +1,22 @@
 /**
  * The shrine and its priestess, the theatre and its actor.
  *
- * A shrine or theatre beside a road, with workers, sends out its walker. She
- * (or he) walks the shared round (src/sim/rounds.ts), never further than her
+ * A shrine or theatre beside a road, with workers, sends out its walkers, a
+ * crew of them a few weeks apart (src/sim/rounds.ts, CREW). Each (she, or
+ * he) walks the shared round, never further than her
  * reach by road, and every home beside a road tile she stands on has her
  * service for four months: the priestess's blessing, or plays. She heads for
  * the homes that want her most: the priestess for cottages and better (a
  * cottage needs her blessing to become a townhouse), the actor for townhouses
  * and better (a townhouse needs plays to become a fine house). A short-handed
- * building lets its walker rest longer between rounds; with nobody working
- * it, nobody goes out.
+ * building sends them further apart; with nobody working it, nobody goes out.
  */
 import type { CoastMap } from '../map/bake';
 import { COTTAGE, TOWNHOUSE } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
-import { moveRounds, sendOut, type ServiceSpec } from './rounds';
+import { CREW_GAP, crewClock, moveRounds, sendOut, type ServiceSpec } from './rounds';
 import type { Building, BuildingKind, Service, SimState, Walker } from './state';
 import { besideRoad, CARRIER_SPEED } from './walk';
 import { restFor } from './water';
@@ -55,6 +55,7 @@ export const RELIGION: ServiceSpec = {
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.level > 0 && b.religionUntil < until) b.religionUntil = until;
   },
   rest: (b) => restFor(b, PRIESTESS_REST),
+  crew: true,
 };
 
 /** The actor's round. */
@@ -70,6 +71,7 @@ export const CULTURE: ServiceSpec = {
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.level > 0 && b.cultureUntil < until) b.cultureUntil = until;
   },
   rest: (b) => restFor(b, ACTOR_REST),
+  crew: true,
 };
 
 /** Each of the new services: the building it walks from, its walker, her round, and her rest. */
@@ -78,16 +80,14 @@ export const CULTURE_SERVICES: ReadonlyArray<{ service: Service; building: Build
   { service: 'culture', building: 'theatre', walker: 'actor', spec: CULTURE, rest: ACTOR_REST },
 ];
 
-/** Shrines and theatres: send out the walker when one is due and someone works there. */
+/** Shrines and theatres: send out a walker when one is due and someone works there (up to a crew: see CREW). */
 export function stepCulture(s: SimState, map: CoastMap): void {
   const size = map.size;
   for (const b of s.buildings) {
     if (b.kind !== 'shrine' && b.kind !== 'theatre') continue;
-    if (b.walker !== 0) continue;
-    if (--b.clock > 0) continue;
     const kind = b.kind === 'shrine' ? 'priestess' : 'actor';
     // No road to walk, or nobody to work it: look again in a little while.
-    if (rateOf(b) === 0 || !sendOut(s, size, b, kind)) b.clock = b.kind === 'shrine' ? PRIESTESS_REST : ACTOR_REST;
+    b.clock = crewClock(s, b, kind, b.clock, rateOf(b) > 0, () => sendOut(s, size, b, kind), restFor(b, CREW_GAP), b.kind === 'shrine' ? PRIESTESS_REST : ACTOR_REST);
   }
 }
 

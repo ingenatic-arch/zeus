@@ -1,6 +1,8 @@
 /**
  * Service walkers' rounds, shared by the water carrier, the food vendor, the
- * priestess and the actor. A service walker steps out of her
+ * priestess and the actor (and the stalls' vendors). Each of these buildings
+ * sends a crew: one walker, then another every CREW_GAP while fewer than CREW
+ * are out (see crewClock). A service walker steps out of her
  * building onto a road beside it and walks the roads a tile at a time, never
  * further than her range by road from her building. At a junction she heads
  * for the home in her reach that needs her soonest (counting the walk there):
@@ -47,6 +49,44 @@ export interface ServiceSpec {
    * of the building's own `walker` and `clock`.
    */
   rested?(b: Building): void;
+  /**
+   * She is one of a crew (see CREW): her building keeps sending walkers on its
+   * own clock while she is out, so her coming home only lets go of her.
+   */
+  crew?: boolean;
+}
+
+/**
+ * Most of one building's walkers of a kind out on their rounds at once. A
+ * round takes her two or three months and some seventy streets, so one
+ * walker kept only about a third of the homes in her reach supplied: in a
+ * town of 156 homes with fountains, agoras and shrines dotted about, every
+ * home went up and down again, 725 times in three years. With a crew of
+ * three, 19 times.
+ */
+export const CREW = 3;
+/** Ticks between one of a crew setting off and the next, at a fully staffed building (24 days: a round's length over the crew). */
+export const CREW_GAP = 240;
+/** With the whole crew out, the building looks again this often for one to come home. */
+const CREW_WAIT = 10;
+
+/** How many of a building's walkers of this kind are out now. */
+export function crewOut(s: SimState, b: Building, kind: Walker['kind']): number {
+  let n = 0;
+  for (const w of s.walkers) if (w.origin === b.id && w.kind === kind) n++;
+  return n;
+}
+
+/**
+ * A crew's clock (`clock`, ticks to the next of them setting off), each tick:
+ * when it runs out and fewer than CREW are out, `send` sends one if `ready`
+ * (someone works there, there is something to take); the next goes `gap`
+ * later, or if nobody could go, `rest` later. Returns the clock's new value.
+ */
+export function crewClock(s: SimState, b: Building, kind: Walker['kind'], clock: number, ready: boolean, send: () => boolean, gap: number, rest: number): number {
+  if (clock > 0 && --clock > 0) return clock;
+  if (crewOut(s, b, kind) >= CREW) return CREW_WAIT;
+  return ready && send() ? gap : rest;
 }
 
 /** However much of it was road already walked, she turns for home after this many times `walk` tiles. */
@@ -178,8 +218,11 @@ export function endRound(spec: ServiceSpec, b: Building | undefined): false {
   return done(spec, b);
 }
 
-function done(spec: ServiceSpec, b: Building | undefined): false {
-  if (b && spec.rested) spec.rested(b);
+function done(spec: ServiceSpec, b: Building | undefined, w?: Walker): false {
+  if (b && spec.crew) {
+    // (The building's `walker` is the last of her crew to set off, for its tip; 0 once all are home.)
+    if (w && b.walker === w.id) b.walker = 0;
+  } else if (b && spec.rested) spec.rested(b);
   else if (b) {
     b.walker = 0;
     b.clock = spec.rest(b);
@@ -215,7 +258,7 @@ export function moveRounds(s: SimState, map: CoastMap, w: Walker, spec: ServiceS
   if (!b || b.kind !== kind) return false;
   const end = (): false => {
     spec.finish?.(s, w);
-    return done(spec, b);
+    return done(spec, b, w);
   };
   if (!aheadOk(s, w) && !detour(s, size, w, b)) return end();
   const walked = spec.record(s).walked;

@@ -23,7 +23,7 @@ import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MAR
 import { ARMOURY_COPPER, BARN, BARRACKS_RACK, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
-import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import { CREW_GAP, crewClock, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { NeedDue, NeedScore } from './walk';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 import { besideRoad, CARRIER_SPEED, centre, isCart, newWalker, position, setPath, speedOf, WALK_SPEED } from './walk';
@@ -194,6 +194,7 @@ export const FOOD: ServiceSpec = {
     if (changed) s.looks++;
   },
   rest: (b) => restFor(b, VENDOR_REST),
+  crew: true,
 };
 
 /** Carts out from a farm (or any maker), or porters from the agora. */
@@ -284,19 +285,17 @@ export function sendCart(s: SimState, size: number, f: Building, food: Ware, mos
 }
 
 /**
- * The agora: its porter fetches food when the stall runs low, and its vendor
- * walks while there is food; then its stalls for goods (goods.ts), each with
- * its vendor, and their porter.
+ * The agora: its porter fetches food when the stall runs low, and its vendors
+ * walk while there is food; then its stalls for goods (goods.ts), each with
+ * its vendors and its porter.
  */
 export function stepAgoras(s: SimState, map: CoastMap, stalls: (s: SimState, size: number, a: Building, rate: number) => void): void {
   const size = map.size;
   for (const a of s.buildings) {
     if (a.kind !== 'agora') continue;
     const rate = rateOf(a);
-    // The food vendor.
-    if (a.walker === 0 && --a.clock <= 0) {
-      if (rate === 0 || foodsIn(a) === 0 || !sendOut(s, size, a, 'food')) a.clock = VENDOR_REST;
-    }
+    // The food vendors (a crew of them: see CREW).
+    a.clock = crewClock(s, a, 'food', a.clock, rate > 0 && foodsIn(a) !== 0, () => sendOut(s, size, a, 'food'), restFor(a, CREW_GAP), VENDOR_REST);
     foodPorter(s, size, a, rate);
     if (a.stalls) stalls(s, size, a, rate);
   }

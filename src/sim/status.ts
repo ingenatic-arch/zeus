@@ -39,7 +39,7 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
-import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
+import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, gi, GRAPES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
 
 /** What a storehouse keeps, each in its own room. */
 const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER]; // (marble and timber: slice 32's review)
@@ -60,7 +60,7 @@ import { towerStatus } from './wallstatus';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
-import { distFrom, roadsBeside } from './rounds';
+import { CREW, crewOut, distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { caravanDoing, caravanOf, routeNews } from './routes';
@@ -103,6 +103,17 @@ const days = (ticks: number): string => {
 };
 
 const people = (n: number): string => (n === 1 ? '1 person' : `${n} people`);
+
+/**
+ * A building's crew on their rounds (see CREW), with `one`, the line for her
+ * alone: how many are out, and when the next sets off (`clock`).
+ */
+function crewLine(s: SimState, b: Building, kind: Walker['kind'], names: string, clock: number, one: string): string {
+  const n = crewOut(s, b, kind);
+  if (n >= CREW) return `All ${CREW} ${names} are out on their rounds`;
+  const next = clock > 0 && b.workers > 0 ? ` · another sets off in ${days(clock)}` : '';
+  return n === 1 ? `${one}${next}` : `${n} of ${CREW} ${names} are out on their rounds${next}`;
+}
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const lines = (...ls: string[]): string => ls.filter((l) => l).join('\n');
 
@@ -279,7 +290,7 @@ export function cultureStatus(s: SimState, map: CoastMap, b: Building): Status {
   const w = s.walkers.find((o) => o.id === b.walker);
   const walk = b.kind === 'shrine' ? PRIESTESS_WALK : ACTOR_WALK;
   let line: string;
-  if (w) line = w.back ? `${The} is heading back` : `${The} is out, ${w.steps} of ${walk} new road tiles into ${k.his} round`;
+  if (w) line = crewLine(s, b, b.kind === 'shrine' ? 'priestess' : 'actor', b.kind === 'shrine' ? 'priestesses' : 'actors', b.clock, w.back ? `${The} is heading back` : `${The} is out, ${w.steps} of ${walk} new road tiles into ${k.his} round`);
   else if (b.workers === 0) line = `${The} can’t go out with nobody working the ${k.building}`;
   else line = `${The} is resting · ${k.his === 'her' ? 'she' : 'he'} sets off again soon`;
   const who = b.kind === 'shrine' ? 'Cottages and better want her blessing: a cottage needs it to become a townhouse' : 'Townhouses and better want plays: a townhouse needs them to become a fine house';
@@ -518,7 +529,7 @@ export function fountainStatus(s: SimState, map: CoastMap, f: Building): Status 
   if (roadsBeside(s, map.size, f).length === 0) return { title, detail: 'Needs a road beside it, for the water carrier to walk' };
   const w = s.walkers.find((o) => o.id === f.walker);
   let line: string;
-  if (w) line = carrierLine(w);
+  if (w) line = crewLine(s, f, 'water', 'water carriers', f.clock, carrierLine(w));
   else if (f.workers === 0) line = 'The water carrier can’t go out with nobody working the fountain';
   else line = 'The water carrier is resting · she sets off again soon';
   return { title, detail: lines(workersLine(s, map, f), line) };
@@ -583,7 +594,7 @@ export function agoraStatus(s: SimState, map: CoastMap, a: Building): Status {
   if (roadsBeside(s, map.size, a).length === 0) return { title, detail: 'Needs a road beside it, for the food vendor to walk' };
   const w = s.walkers.find((o) => o.id === a.walker);
   let vendor: string;
-  if (w) vendor = w.back ? 'The food vendor is heading back' : `The food vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into her round`;
+  if (w) vendor = crewLine(s, a, 'food', 'food vendors', a.clock, w.back ? 'The food vendor is heading back' : `The food vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into her round`);
   else if (a.workers === 0) vendor = 'Nobody works the stall, so the food vendor can’t go out';
   else if (foodsIn(a) === 0) vendor = 'The food vendor waits for the stall to have food';
   else vendor = 'The food vendor is resting · she sets off again soon';
@@ -1005,7 +1016,7 @@ function stallLines(s: SimState, a: Building, good: Ware): string {
   const w = s.walkers.find((o) => o.kind === STALL_VENDOR[good] && o.origin === a.id);
   let vendor: string;
   const pro = sheHe(good);
-  if (w) vendor = w.back ? `the ${what} vendor is heading back` : `the ${what} vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into ${pro.her} round`;
+  if (w) vendor = crewLine(s, a, STALL_VENDOR[good]!, `${what} vendors`, a.vclock[gi(good)], w.back ? `the ${what} vendor is heading back` : `the ${what} vendor is out, ${w.steps} of ${VENDOR_WALK} new road tiles into ${pro.her} round`).replace(/^All/, 'all');
   else if (a.workers === 0) vendor = `nobody works the agora, so the ${what} vendor can’t go out`;
   else if (n <= 0) vendor = `the ${what} vendor waits for ${what}`;
   else vendor = `the ${what} vendor is resting · ${pro.she} sets off again soon`;

@@ -1,11 +1,12 @@
 /**
  * Fountains and their water carriers.
  *
- * A fountain beside a road, with workers, sends out a water carrier. She
+ * A fountain beside a road, with workers, sends out water carriers, a crew
+ * of them a few weeks apart (src/sim/rounds.ts, CREW). Each
  * walks her round (src/sim/rounds.ts) never further than CARRIER_RANGE road
  * steps from her fountain, and every home beside a road tile she stands on
- * has water for WATER_LASTS ticks. A short-handed fountain lets her rest
- * longer between rounds; with nobody working it, she doesn't go out at all.
+ * has water for WATER_LASTS ticks. A short-handed fountain sends them out
+ * further apart; with nobody working it, none go out at all.
  */
 import type { CoastMap } from '../map/bake';
 import { findBuilding, HOME_CAPACITY, HUT } from './buildings';
@@ -13,7 +14,7 @@ import { TICKS_PER_MONTH } from './clock';
 import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { roadSearch, type Search } from './roads';
-import { moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import { CREW_GAP, crewClock, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { Building, SimState, Walker } from './state';
 import { besideRoad, CARRIER_SPEED } from './walk';
 
@@ -47,6 +48,7 @@ export const WATER: ServiceSpec = {
     for (const b of besideRoad(s, size, t, near)) if (b.kind === 'home' && b.waterUntil < until) b.waterUntil = until;
   },
   rest: (b) => restFor(b, CARRIER_REST),
+  crew: true,
 };
 
 /** How long a building rests between walkers: longer when short of workers. */
@@ -72,14 +74,13 @@ export function stepsToFountain(reach: Search, s: SimState, size: number, b: Bui
   return best;
 }
 
-/** Fountains: send out a carrier when one is due and someone works there. */
+/** Fountains: send out a carrier when one is due and someone works there (up to a crew of them: see CREW). */
 export function stepFountains(s: SimState, map: CoastMap): void {
   const size = map.size;
   for (const f of s.buildings) {
-    if (f.kind !== 'fountain' || f.walker !== 0) continue;
-    if (--f.clock > 0) continue;
+    if (f.kind !== 'fountain') continue;
     // No road to walk, or nobody to work it: look again in a little while.
-    if (rateOf(f) === 0 || !sendOut(s, size, f, 'water')) f.clock = CARRIER_REST;
+    f.clock = crewClock(s, f, 'water', f.clock, rateOf(f) > 0, () => sendOut(s, size, f, 'water'), restFor(f, CREW_GAP), CARRIER_REST);
   }
 }
 

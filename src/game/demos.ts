@@ -270,8 +270,16 @@ function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: nu
  * two months after that drop a level each, one at a time, unless the road
  * goes back.
  */
-function cutTown(after: number): (sim: Sim) => void {
-  return foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z }) });
+function cutTown(after: number, both = false): (sim: Sim) => void {
+  const cut = foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z }) });
+  if (!both) return cut;
+  // (#warning: and on, a fortnight at most, until a home warns of both water and bread: with the crews of
+  // walkers, the vendors' last visit and the carriers' fall a little apart.)
+  return (sim) => {
+    cut(sim);
+    const end = sim.state.tick + 15 * TICKS_PER_DAY;
+    while (sim.state.tick < end && !homes(sim.state).some((b) => warningsOf(sim.state, b).length >= 2)) sim.run(TICKS_PER_DAY);
+  };
 }
 
 /** The tile of road cut in #warning and #decline: where the west street met the lane. */
@@ -2591,7 +2599,7 @@ const SCENES: Record<string, Demo> = {
   workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0, { officeAt: WORKERS_TICKS }), overlay: 'food' },
   bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
   people: { view: 'people', setup: foodTown(FOOD_TICKS), overlay: 'missing', open: (s) => nearest(s, 30, 67) },
-  warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
+  warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING, true), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
   decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
   grow: { view: 'grow', tool: 'shrine', setup: growTown(FOOD_TICKS), overlay: 'religion' },

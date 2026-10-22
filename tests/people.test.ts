@@ -139,8 +139,10 @@ describe('warn, then decline', () => {
     expect(c.family!.members.length).toBe(c.people);
     const story = c.family!.story;
     expect(story.some((e) => e.what === 'down' && e.need === 'water')).toBe(true);
-    const left = story.find((e) => e.what === 'left');
-    expect(left?.names.length).toBe(people - c.people);
+    // (Each family that walks out together is a line of its own.)
+    const down = story.find((e) => e.what === 'down')!;
+    const left = story.filter((e) => e.what === 'left' && e.tick === down.tick).flatMap((e) => e.names);
+    expect(left.length).toBe(people - c.people);
     // One level at a time: the hut warns afresh, and is still a hut until another two months have passed.
     sim.run(DECLINE_AFTER - 40);
     expect(c.level).toBe(HUT);
