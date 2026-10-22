@@ -7,9 +7,11 @@
  */
 import { TICKS_PER_DAY } from '../sim/clock';
 import type { TownLine } from '../sim/status';
+// Slice 39.
+import { LAUREL } from './ambition';
 
 /** Lines that are news, not shortfalls: they come and go at once. */
-const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime', 'empire', 'monument'];
+const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime', 'empire', 'monument', 'ambition'];
 
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
@@ -28,6 +30,8 @@ const HOOD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6c-2.6 0
 /** Slice 33: the season's, a grey rain cloud over a sheaf. */
 const CLOUD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V9.4" stroke="#a06f1c" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="8" cy="9.2" rx="1.2" ry="1.9" fill="#d9a441"/><ellipse cx="6.2" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(-30 6.2 11.4)"/><ellipse cx="9.8" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(30 9.8 11.4)"/><path d="M3.6 7.2C2.2 7.2 1.4 6.2 1.4 5.2s.9-2 2.1-2c.3-1.4 1.5-2.2 2.9-2.2 1.3 0 2.3.7 2.8 1.8.4-.2.8-.3 1.3-.3 1.6 0 2.8 1.2 2.8 2.6 0 1.2-1 2.1-2.2 2.1z" fill="#9aa6ac" stroke="#4e5a62" stroke-width=".8" stroke-linejoin="round"/></svg>';
 const ICONS: Record<TownLine['need'], string> = {
+  // Slice 39: a laurel's, the wreath.
+  ambition: LAUREL,
   season: CLOUD,
   crime: HOOD,
   // (Slice 34: your empire's, a shield in your colours.)
@@ -63,7 +67,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument', 'ambition'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -77,7 +81,7 @@ const rank = (need: TownLine['need']): number => {
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
 // (Review of slice 35: the monuments' line, the games on or a site stuck, before the News of Greece and the ships and caravans coming and going.)
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'greece', 'ship', 'trader'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'ambition', 'greece', 'ship', 'trader'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;

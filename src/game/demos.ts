@@ -139,6 +139,9 @@ export interface Demo {
   side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army' | 'monuments'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
+  // Slice 39
+  /** Open the Ambition panel from the start. */
+  ambition?: boolean;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1790,7 +1793,16 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     hazards(sim, true);
     // Slice 30: crime too (off while the history plays, as it is in a bare state), on as it opens.
     crime(sim, true);
+    // Slice 39: and the ambitions (off while the history plays, so no history changes): what the town already meets is recorded quietly as it opens.
+    ambition(sim, true);
   };
+}
+
+/** Slice 39: switch the ambitions on or off now (a command, so a replay of the log does the same). */
+function ambition(sim: Sim, on: boolean): void {
+  if (sim.state.ambition.on === on) return;
+  sim.enqueue({ type: 'ambition', on });
+  sim.flush();
 }
 
 /** Slice 33: switch the seasons on or off now (a command, so a replay of the log does the same). */

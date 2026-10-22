@@ -7,9 +7,11 @@ import type { Seasons } from './seasons';
 import type { Empire } from './vassals';
 // Slice 35: the monuments' sites and the Stadium's games.
 import type { Monuments } from './monuments';
+// Slice 39: the ambitions and the milestones reached (ambitions.ts).
+import type { Ambition } from './ambitions';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 33;
+export const SIM_STATE_VERSION = 34;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -485,6 +487,8 @@ export interface SimState {
   empire: Empire;
   /** Slice 35: the monuments' sites, their stages and the Stadium's games (monuments.ts, monumentworks.ts). */
   monuments: Monuments;
+  /** Slice 39: the ambitions' switch, the milestones reached and when, fame drawing settlers, the grand finish (ambitions.ts). */
+  ambition: Ambition;
 }
 
 /**

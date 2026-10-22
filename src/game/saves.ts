@@ -386,7 +386,15 @@ export function stateProblem(st: unknown): string {
   if (!empireOk(st.empire)) return damaged('its record of vassals and allies is wrong');
   // Slice 35.
   if (!monumentsOk(st.monuments)) return damaged('its record of the monuments is wrong');
+  // Slice 39.
+  if (!ambitionOk(st.ambition)) return damaged('its record of the ambitions is wrong');
   return '';
+}
+
+/** The ambitions (slice 39): the switch, the milestones reached (each by its id, when, and quietly or not), fame and the grand finish. */
+function ambitionOk(a: unknown): boolean {
+  if (!isObj(a) || typeof a.on !== 'boolean' || typeof a.looked !== 'boolean' || !fin(a.fameUntil) || !fin(a.grand) || typeof a.grandQuiet !== 'boolean' || !Array.isArray(a.reached)) return false;
+  return (a.reached as unknown[]).every((l) => isObj(l) && typeof l.id === 'string' && fin(l.tick) && typeof l.quiet === 'boolean' && typeof l.note === 'string');
 }
 
 /** The seasons (slice 33): the switch, and the ships winter has held back (days, by ship). */

@@ -1159,3 +1159,65 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .places.monuments li .segs .fill { margin: 0; height: 5px; }
 .places.monuments li .why { color: var(--ink-soft); line-height: 1.3; }
 .places.monuments li.none .nm { color: var(--ink-soft); }
+
+/* Slice 39: the laurel chip at the end of the top bar, and the Ambition panel. */
+.laurel-chip {
+  appearance: none; font: inherit; font-size: 13.5px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums;
+  background: #f6f2dc; border: 1.5px solid #9aa45a; border-radius: 999px; padding: 3px 9px 3px 6px; margin-left: -6px;
+  box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+}
+.laurel-chip[hidden] { display: none; }
+.laurel-chip:hover { background: #fbf8e6; }
+.laurel-chip .lau svg { width: 17px; height: 17px; display: block; }
+.laurel-chip .txt { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.laurel-chip .bar { width: 34px; height: 5px; border-radius: 3px; background: rgba(122, 92, 60, 0.18); overflow: hidden; }
+.laurel-chip .bar[hidden] { display: none; }
+.laurel-chip .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8aa23e, #c9a63a); }
+.laurel-chip .pct { font-size: 12px; color: var(--ink-soft); }
+.laurel-chip.fresh { animation: laurel-glow 1.2s ease-in-out 3; border-color: #c9a63a; }
+@keyframes laurel-glow {
+  0%, 100% { box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22); }
+  50% { box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22), 0 0 0 4px rgba(214, 178, 74, 0.55), 0 0 18px rgba(232, 196, 90, 0.8); }
+}
+.ambition-panel {
+  position: absolute; top: 96px; left: calc((100% - var(--side)) / 2); transform: translateX(-50%);
+  width: min(960px, calc(100% - var(--side) - 28px)); max-height: calc(100% - 140px); overflow-y: auto; scrollbar-width: thin; z-index: 5;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-deep));
+  border: 1.5px solid var(--edge); border-radius: 14px; padding: 12px 16px 14px;
+  box-shadow: 0 8px 24px rgba(60, 40, 20, 0.24); font-size: 13.5px; line-height: 1.35;
+}
+.ambition-panel[hidden] { display: none; }
+.ambition-panel h2 { margin: 0; font-size: 20px; font-variant: small-caps; letter-spacing: 0.06em; font-weight: normal; text-align: center; }
+.ambition-panel .sub { text-align: center; color: var(--ink-soft); font-size: 12.5px; margin: 2px 24px 10px; }
+.ambition-panel .close {
+  position: absolute; top: 6px; right: 8px; appearance: none; border: 0; background: transparent; font: inherit;
+  font-size: 20px; line-height: 1; color: var(--ink-soft); cursor: pointer; width: 26px; height: 26px; border-radius: 50%;
+}
+.ambition-panel .close:hover { background: #fff2d6; }
+.ambition-panel .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ambition-panel .amb { background: rgba(255, 250, 238, 0.7); border: 1px solid rgba(184, 138, 80, 0.55); border-radius: 10px; padding: 8px 10px 6px; }
+.ambition-panel .amb.achieved { background: rgba(250, 244, 214, 0.9); border-color: #c9a63a; box-shadow: inset 0 0 0 1px rgba(201, 166, 58, 0.35); }
+.ambition-panel .amb header { display: flex; gap: 8px; align-items: flex-start; }
+.ambition-panel .amb .emblem svg { width: 30px; height: 30px; display: block; }
+.ambition-panel .amb h3 { margin: 0; font-size: 16px; font-variant: small-caps; letter-spacing: 0.04em; font-weight: normal; }
+.ambition-panel .amb header p { margin: 1px 0 0; font-size: 12px; color: var(--ink-soft); }
+.ambition-panel .status { margin: 6px 0 4px; font-size: 12.5px; color: var(--ink-soft); border-bottom: 1px solid rgba(184, 138, 80, 0.4); padding-bottom: 4px; }
+.ambition-panel .status.done { display: flex; align-items: center; gap: 5px; color: #6a5212; font-weight: 600; font-size: 13.5px; }
+.ambition-panel .status.done svg { width: 20px; height: 20px; }
+.ambition-panel ol { list-style: none; margin: 0; padding: 0; }
+.ambition-panel .ms { display: flex; gap: 7px; padding: 5px 0; border-bottom: 1px dotted rgba(184, 138, 80, 0.45); }
+.ambition-panel .ms:last-child { border-bottom: 0; }
+.ambition-panel .ms .lau svg { width: 22px; height: 22px; display: block; margin-top: 1px; }
+.ambition-panel .ms .body { flex: 1; min-width: 0; }
+.ambition-panel .ms .nm { font-weight: 600; }
+.ambition-panel .ms.great .nm { font-variant: small-caps; letter-spacing: 0.04em; font-size: 14.5px; }
+.ambition-panel .ms.great { background: linear-gradient(90deg, rgba(241, 232, 210, 0.7), transparent); border-radius: 6px; padding-left: 3px; }
+.ambition-panel .ms .want, .ambition-panel .ms .words { font-size: 12.5px; }
+.ambition-panel .ms .words { color: var(--ink-soft); }
+.ambition-panel .ms .reward { font-size: 11.5px; color: #6f7d3c; font-style: italic; margin-top: 1px; }
+.ambition-panel .ms .when { font-size: 12.5px; color: #6a5212; }
+.ambition-panel .ms .note { font-size: 12px; color: var(--ink-soft); }
+.ambition-panel .ms .bar { height: 5px; border-radius: 3px; background: rgba(122, 92, 60, 0.16); overflow: hidden; margin: 3px 0 2px; }
+.ambition-panel .ms .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8aa23e, #c9a63a); }
+.ambition-panel .ms.won .nm { color: #4f5f1e; }

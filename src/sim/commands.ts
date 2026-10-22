@@ -62,7 +62,10 @@ export type Command =
   | { type: 'seasons'; on: boolean }
   // Slice 34
   /** Your vassals and allies (vassals.ts; an act it refuses does nothing): set a vassal's tribute (`good` -1 coin or a trade good's index, `weight` 0 light, 1 fair, 2 heavy); demand that a city submit; offer a debtor its debt for its loyalty; offer an alliance, or end one; send a full force to conquer a city (or crush a vassal arming against you); join or refuse an ally's call to war (`call` its id). */
-  | { type: 'empire'; act: 'tribute' | 'submit' | 'debt' | 'ally' | 'unally' | 'conquer' | 'join' | 'refuse'; city?: string; good?: number; weight?: number; call?: number };
+  | { type: 'empire'; act: 'tribute' | 'submit' | 'debt' | 'ally' | 'unally' | 'conquer' | 'join' | 'refuse'; city?: string; good?: number; weight?: number; call?: number }
+  // Slice 39
+  /** The ambitions' switch (ambitions.ts), on as a game starts or a demo opens (what is already met is recorded quietly), off while a demo's history is played. */
+  | { type: 'ambition'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium';

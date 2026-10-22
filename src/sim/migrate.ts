@@ -118,6 +118,11 @@
  * planned; every building's goods are padded to however many goods there
  * are now. Nothing in the city changes.
  *
+ * Slice 39 (Ambitions): the ambitions are on from loading, with no
+ * milestone recorded yet; on its first tick the town's look records what it
+ * already meets, quietly (no fanfare, no reward, marked as already met), and
+ * goes on from there.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -145,6 +150,8 @@ import { SITES, type CityId } from '../map/greece';
 import { COLONY_MAKES } from './growth';
 // Slice 35.
 import { freshGames, freshMonuments } from './monuments';
+// Slice 39.
+import { freshAmbition } from './ambitions';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -196,6 +203,7 @@ export function migrate(st: unknown): number {
   if (st.version === 30) fromSlice33(st);
   if (st.version === 31) fromSlice34(st);
   if (st.version === 32) fromSlice35(st);
+  if (st.version === 33) fromSlice39(st);
   return from;
 }
 
@@ -766,6 +774,25 @@ function fromSlice35(st: Record<string, unknown>): void {
       if (!isObj(b)) continue;
       for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
     }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 39 (Ambitions): see the notes at the top. It fills in only its own
+ * field (`ambition`) if it is absent: on, nothing recorded, and not yet
+ * looked at (its first tick records what is already met, quietly).
+ */
+function fromSlice39(st: Record<string, unknown>): void {
+  if (!isObj(st.ambition)) st.ambition = freshAmbition(true);
+  else {
+    const a = st.ambition;
+    if (typeof a.on !== 'boolean') a.on = true;
+    if (typeof a.looked !== 'boolean') a.looked = false;
+    if (!Array.isArray(a.reached)) a.reached = [];
+    if (typeof a.fameUntil !== 'number') a.fameUntil = 0;
+    if (typeof a.grand !== 'number') a.grand = 0;
+    if (typeof a.grandQuiet !== 'boolean') a.grandQuiet = false;
   }
   st.version = (st.version as number) + 1;
 }

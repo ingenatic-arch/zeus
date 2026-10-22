@@ -47,6 +47,8 @@ import { empireCommand, freshEmpire, stepEmpire } from './vassals';
 // Slice 35.
 import { freshMonuments, isMonument } from './monuments';
 import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from './monumentworks';
+// Slice 39.
+import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -102,6 +104,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     // Slice 34
     empire: freshEmpire(),
     monuments: freshMonuments(),
+    // Slice 39
+    ambition: freshAmbition(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -236,6 +240,8 @@ export class Sim {
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
     stepFleet(s, map);
     stepErrands(s, map);
+    // Slice 39: the ambitions' milestones, once a day, and settlers drawn by fame (nothing with the switch off).
+    stepAmbition(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
   }
@@ -290,6 +296,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'crime':
       s.crime.on = c.on === true;
+      break;
+    // Slice 39.
+    case 'ambition':
+      setAmbition(s, c.on === true);
       break;
     // Slice 33.
     case 'seasons':
