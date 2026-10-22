@@ -33,6 +33,8 @@ import { townLines } from '../sim/status';
 import { FAIR as WX_FAIR, lateDays, weatherNow } from '../sim/seasons';
 import { AT_TARGET, bandOut, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
+// Slice 38: a blockade staged, a trireme under repair.
+import { stageBlockade } from '../sim/blockades';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import { bow, COLONY_SAIL, coloniesOf, nearestFree, sendSettlers, vassalsOf } from '../sim/growth';
@@ -139,6 +141,8 @@ export interface Demo {
   side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army' | 'monuments'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
+  /** Slice 38: open the shipyard's panel from the start. */
+  shipyard?: boolean;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -2537,6 +2541,56 @@ function monumentTown(stage: 'monument' | 'lit'): (sim: Sim) => void {
 const MONUMENT_TOWN = monumentTown('monument');
 const LIT_TOWN = monumentTown('lit');
 
+// ---------------------------------------------------------------------------
+// Slice 38: contested seas.
+
+/**
+ * #blockade: #triremes' town (the shipyard by the river mouth, west of the
+ * trading post) with two triremes built and crewed at its jetty, the
+ * Tyrian ship tied up at the quay, as Troy's king (turned against the city,
+ * set up for the demo and named so) has his fleet of three take station
+ * across the harbour's mouth: the ship is held at the quay, and the triremes
+ * row out to break it. #shipyard: the same played on until the blockade is
+ * broken and the triremes are home, the most hurt laid up under repair, her
+ * hull holed and her oars broken (if none came home hurt badly enough to be
+ * laid up, she is called in for repair, as a player would), the shipyard's
+ * panel open.
+ */
+const BLOCKADE_WHY = 'the king will not have a rival’s trade at sea so near his own lanes (set up for this demo)';
+/** How long the staged war lasts, and the longest #blockade waits for the ship to tie up and #shipyard for the fight to end. */
+const BLOCKADE_WAR = 6 * TICKS_PER_MONTH;
+const BLOCKADE_WAIT = 4 * TICKS_PER_MONTH;
+/** #blockade opens this many ticks after the ships take station: the triremes have just cast off. */
+const BLOCKADE_LEAD = 6;
+function blockadeTown(stage: 'blockade' | 'shipyard'): (sim: Sim) => void {
+  return (sim) => {
+    COMPANIES(sim);
+    const s = sim.state;
+    // (Two triremes, as #triremes has: a third would lie unmanned, the huts and cottages spared all the rowers they can.)
+    fleetOf(sim, 2);
+    // The Tyrian ship tied up at the quay, loading.
+    const ship = s.trade.ship;
+    const stop = s.tick + BLOCKADE_WAIT;
+    while (s.tick < stop && ship.phase !== SHIP_MOORED) sim.run(10);
+    const c = cityOf(s.world, 'troy');
+    c.memories.push({ kind: 'staged', why: BLOCKADE_WHY, amount: -30, tick: s.tick, fade: 2 * TICKS_PER_YEAR });
+    if (!stageBlockade(s, sim.map, 'troy', 3, BLOCKADE_WHY, s.tick + BLOCKADE_WAR)) return;
+    sim.run(BLOCKADE_LEAD);
+    if (stage === 'blockade') return;
+    // #shipyard: on until it is over and every trireme is in; the most hurt laid up under repair.
+    const end = s.tick + BLOCKADE_WAIT;
+    const done = (): boolean => !s.fleet.blockades.some((b) => b.phase !== 'over') && s.fleet.triremes.every((t) => t.state === 'moored' || t.state === 'sinking');
+    while (s.tick < end && !done()) sim.run(5);
+    const hurt = s.fleet.triremes.filter((t) => t.state === 'moored' && (t.hp < 100 || t.oars < 100)).sort((a, b) => a.hp + a.oars - (b.hp + b.oars) || a.id - b.id)[0];
+    if (hurt && !s.fleet.triremes.some((t) => t.mend)) {
+      sim.enqueue({ type: 'fleet', trireme: hurt.id, act: 'repair' });
+      sim.flush();
+    }
+  };
+}
+const BLOCKADE_TOWN = blockadeTown('blockade');
+const SHIPYARD_TOWN = blockadeTown('shipyard');
+
 /**
  * #games: #lit's town carried on: the Stadium laid out on the level ground
  * between the quay road and the quarry road, built by the same masons'
@@ -2729,6 +2783,9 @@ const SCENES: Record<string, Demo> = {
   lit: { view: 'lit', setup: LIT_TOWN, overlay: 'missing', side: { tab: 'monuments' } },
   // The Stadium's first games on, its seats filling with visitors from all over, the Monuments tab open.
   games: { view: 'games', setup: gamesTown, overlay: 'missing', side: { tab: 'monuments' } },
+  // Slice 38: contested seas. Troy's fleet across the harbour's mouth, the Tyrian ship held at the quay, the triremes rowing out; after the fight, a trireme under repair and the shipyard's panel open.
+  blockade: { view: 'blockade', setup: BLOCKADE_TOWN, overlay: 'missing', side: { tab: 'army', fleet: true } },
+  shipyard: { view: 'shipyard', setup: SHIPYARD_TOWN, overlay: 'missing', shipyard: true },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

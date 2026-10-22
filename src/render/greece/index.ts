@@ -22,6 +22,8 @@ import { expeditionMen, expeditionOnMap } from '../../sim/expeditions';
 import { armiesOnMap } from '../../sim/rivals';
 import { aidOnMap, tributeOnMap } from '../../sim/vassals';
 import { stationAlong, triremeOnMap } from '../../sim/fleet';
+// Slice 38: blockading fleets on their lanes.
+import { blockadeOnMap } from '../../sim/blockades';
 import { FESTIVALS, festivalOn } from '../../sim/festivals';
 import { fieldColour, newsHtml } from '../../ui/rivals';
 import { morph } from '../../ui/morph';
@@ -912,7 +914,8 @@ export class GreeceMap {
       if (p.state !== 'seen' && p.state !== 'preying') continue;
       const line = wayPoints(wayOf(p.way));
       const L = lineLength(line);
-      const m = piece(`pirates-${p.id}`, () => shipModel('#2b2421', '#8c2a1e'), BODY.ship);
+      // (Slice 38: a city's warships in its colours.)
+      const m = piece(`pirates-${p.id}`, () => (p.of ? fleetModel(PLACES[p.of].colour, PLACES[p.of].trim) : shipModel('#2b2421', '#8c2a1e')), p.of ? BODY.fleet : BODY.ship);
       const at = alongLine(line, Math.max(0.9, Math.min(L - 1.1, stationAlong(p.way) + 0.7)));
       m.position.set(at.x, 0.02 + Math.sin(time * 1.4 + p.id) * 0.03, at.z);
       m.rotation.set(Math.sin(time * 1.1 + p.id) * 0.05, -Math.atan2(-at.dz, -at.dx) + Math.sin(time * 0.3 + p.id) * 0.4, 0);
@@ -930,6 +933,20 @@ export class GreeceMap {
       m.position.set(p.x, 0.02 + Math.sin(time * 1.6 + t.id) * 0.03, p.z);
       m.rotation.set(Math.sin(time * 1.2 + t.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       m.scale.setScalar(0.95 * far);
+    }
+    // Slice 38: a fleet sent to blockade your harbour, on its lane (coming, off your gulf, or fleeing home).
+    for (const b of s.fleet.blockades) {
+      const at = blockadeOnMap(s, b, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(at.way));
+      const L = lineLength(line);
+      const dir = at.homeward ? 1 : -1;
+      const { colour, trim } = PLACES[b.city];
+      const m = piece(`blockade-${b.id}`, () => fleetModel(colour, trim), BODY.fleet);
+      const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+      m.position.set(p.x, 0.02 + Math.sin(time * 1.5 + b.id) * 0.03, p.z);
+      m.rotation.set(Math.sin(time * 1.2 + b.id) * 0.03, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(1.25 * far);
     }
     // Wars between rivals: each side's army (or fleet) out on the way between them, standing facing the other, or going home; crossed swords where they meet while it lasts; the way drawn red, closed.
     const red = new Set<string>();
@@ -981,7 +998,7 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('blockade-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);

@@ -3,7 +3,9 @@ import type { CoastMap } from '../map/bake';
 import { PLACES, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { centreOf, findBuilding } from '../sim/buildings';
-import { BUILD_TICKS, SINK_TICKS } from '../sim/fleet';
+import { BUILD_TICKS, CRIPPLED_OARS, SINK_TICKS } from '../sim/fleet';
+// Slice 38: a blockade's ships, and the landing's marker.
+import { blockadeOf } from '../sim/blockades';
 import type { EnemyShip, SimState, Trireme } from '../sim/state';
 import { berthAt } from '../sim/trade';
 import { cyl } from './homes';
@@ -122,8 +124,8 @@ function eyes(h: HullShape, u: number, y: number): Part[] {
   return parts;
 }
 
-/** A row of oars each side: `n` of them from u0 to u1 along her, swept `a` (radians, + towards the bow), the blades `dip` deep (negative: in the air); `out` how far they reach. */
-function oars(h: HullShape, n: number, u0: number, u1: number, a: number, dip: number, out: number, color: string): Part[] {
+/** A row of oars each side: `n` of them from u0 to u1 along her, swept `a` (radians, + towards the bow), the blades `dip` deep (negative: in the air); `out` how far they reach. Slice 38: `broken` of every hundred snapped off short, gaps in the row. */
+function oars(h: HullShape, n: number, u0: number, u1: number, a: number, dip: number, out: number, color: string, broken = 0): Part[] {
   const parts: Part[] = [];
   for (let i = 0; i < n; i++) {
     const u = u0 + ((u1 - u0) * i) / Math.max(1, n - 1);
@@ -131,6 +133,11 @@ function oars(h: HullShape, n: number, u0: number, u1: number, a: number, dip: n
     const y = h.sheer(u) - 0.1;
     for (const side of [1, -1]) {
       const z = (h.beam(u) + 0.06) * side;
+      // (Slice 38: a broken oar: a stub at the oar port, its loom snapped off.)
+      if (broken > 0 && hash2(i, side + 3, 2603) * 100 < broken) {
+        parts.push(spar(v(x, y, z), v(x + Math.sin(a) * out * 0.22, y - 0.03, z + side * Math.cos(a) * out * 0.22), 0.014, color, 3));
+        continue;
+      }
       const tip = v(x + Math.sin(a) * out, -dip, z + side * Math.cos(a) * out);
       parts.push(spar(v(x, y, z), tip, 0.013, color, 3));
       // The blade.
@@ -240,17 +247,20 @@ function foeBody(colour: string): Part[] {
 const STAND_OFF = 2.45;
 
 type TriVersion = 'row0' | 'row1' | 'row2' | 'row3' | 'rest' | 'frame' | 'hull';
+/** Slice 38: her oars as drawn: whole, a few broken, many, most (by how many of every hundred are whole). */
+const OAR_DAMAGE = [0, 22, 45, 68] as const;
+const damageOf = (oars: number): number => (oars >= 85 ? 0 : oars >= 60 ? 1 : oars >= CRIPPLED_OARS ? 2 : 3);
 type FoeVersion = 'sail0' | 'sail1' | 'beached';
 
-function triremeVersions(colour: string): Record<TriVersion, THREE.BufferGeometry> {
+function triremeVersions(colour: string, broken = 0): Record<TriVersion, THREE.BufferGeometry> {
   const body = triremeBody(colour);
   const STROKE: Array<[number, number]> = [[-0.45, 0.06], [-0.1, 0.08], [0.3, -0.06], [0.05, -0.12]];
   const out: Partial<Record<TriVersion, THREE.BufferGeometry>> = {};
   STROKE.forEach(([a, dip], k) => {
-    out[`row${k}` as TriVersion] = merge([...body, ...oars(TRI, 11, -0.62, 0.6, a, dip, 1.0, PAL.mast)]);
+    out[`row${k}` as TriVersion] = merge([...body, ...oars(TRI, 11, -0.62, 0.6, a, dip, 1.0, PAL.mast, broken)]);
   });
   // At rest: oars drawn in and stowed fore and aft along the outriggers.
-  out.rest = merge([...body, ...oars(TRI, 11, -0.62, 0.6, 1.45, -0.32, 0.4, PAL.mast)]);
+  out.rest = merge([...body, ...oars(TRI, 11, -0.62, 0.6, 1.45, -0.32, 0.4, PAL.mast, broken)]);
   out.frame = merge(triremeFrame());
   out.hull = merge(hull(TRI, [PAL.hull, PAL.hull, PAL.hullDark, PAL.hullDark, PAL.hullDark], PAL.deck));
   return out as Record<TriVersion, THREE.BufferGeometry>;
@@ -264,6 +274,18 @@ function foeVersions(colour: string): Record<FoeVersion, THREE.BufferGeometry> {
     sail1: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, true), ...oars(FOE, 7, -0.55, 0.5, 0.25, -0.08, 0.85, PAL.hullDark)]),
     beached: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, false)]),
   };
+}
+
+/** Slice 38: the landing's marker: a pole planted in the sand with a red pennant and a white band, about a man and a half tall. */
+function markerModel(): THREE.BufferGeometry {
+  const parts: Part[] = [spar(v(0, 0, 0), v(0, 1.7, 0), 0.035, PAL.mast, 5)];
+  const flag = new THREE.BufferGeometry();
+  flag.setAttribute('position', new THREE.Float32BufferAttribute([0, 1.68, 0, 0.75, 1.5, 0, 0, 1.3, 0], 3));
+  parts.push({ geo: flag, color: '#b3261e' });
+  parts.push({ geo: cyl(0.05, 0.05, 0.08, 6).translate(0, 1.15, 0), color: '#efe6d6' });
+  // A little cairn of stones at its foot.
+  for (let i = 0; i < 4; i++) parts.push({ geo: new THREE.IcosahedronGeometry(0.1, 0).translate(Math.cos(i * 1.6) * 0.12, 0.05, Math.sin(i * 1.6) * 0.12), color: '#8d8478' });
+  return merge(parts);
 }
 
 /** A burst of spray: a few white lumps, scaled up and faded as it goes. */
@@ -311,6 +333,10 @@ export class FleetView {
   private readonly sprayMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0, transparent: true, opacity: 0.85 });
   private readonly spray = sprayModel();
   private tri: Record<TriVersion, THREE.BufferGeometry> | null = null;
+  /** Slice 38: her versions with oars broken (by OAR_DAMAGE, the first whole), made as first wanted. */
+  private triHurt: Array<Record<TriVersion, THREE.BufferGeometry> | null> = [null, null, null, null];
+  /** Slice 38: the pole and red pennant on the beach a band from the sea makes for, while its ships sail in. */
+  private readonly marker = new THREE.Mesh(markerModel(), this.mat);
   private readonly foes = new Map<string, Record<FoeVersion, THREE.BufferGeometry>>();
   private readonly drawn = new Map<string, Drawn>();
   /** Where each ship was at the last tick and this one (to draw between them). */
@@ -325,6 +351,39 @@ export class FleetView {
 
   constructor(private readonly map: CoastMap) {
     this.group.name = 'fleet';
+    this.marker.name = 'fleet-landing';
+    this.marker.visible = false;
+    this.marker.castShadow = true;
+    this.group.add(this.marker);
+  }
+
+  /** Slice 38: her versions for her oars now. */
+  private triFor(t: Trireme): Record<TriVersion, THREE.BufferGeometry> {
+    const k = damageOf(t.oars);
+    if (k === 0) return this.tri!;
+    return (this.triHurt[k] ??= triremeVersions(PLACES.home.colour, OAR_DAMAGE[k]));
+  }
+
+  /** Slice 38: whose an enemy ship is (her band's city, or her blockade's). */
+  private cityOf(s: SimState, e: EnemyShip): CityId {
+    if (e.blockade) return blockadeOf(s, e.blockade)?.city ?? 'troy';
+    return s.world.raids.find((r) => r.id === e.raid)?.city ?? 'troy';
+  }
+
+  /** Slice 38: the landing's marker: on the beach the "Sails!" line names, while a band's ships sail in to it. */
+  private placeMarker(s: SimState, time: number): void {
+    let at: [number, number] | null = null;
+    for (const r of s.world.raids) {
+      if (r.phase !== 'raiding' || r.shore < 0 || r.landed > 0 || r.end !== '') continue;
+      if (!s.fleet.ships.some((e) => e.raid === r.id && e.state === 'sailing' && s.tick >= e.from)) continue;
+      const n = this.map.size;
+      at = [(r.shore % n) + 0.5, Math.floor(r.shore / n) + 0.5];
+      break;
+    }
+    this.marker.visible = !!at;
+    if (!at) return;
+    this.marker.position.set(at[0], Math.max(0, this.map.heightAt(at[0], at[1])), at[1]);
+    this.marker.rotation.set(0, Math.sin(time * 0.7) * 0.25, 0);
   }
 
   private draw(key: string): Drawn {
@@ -364,6 +423,7 @@ export class FleetView {
     const seen = new Set<string>();
     this.shown = [];
     if (f.triremes.length && !this.tri) this.tri = triremeVersions(PLACES.home.colour);
+    this.placeMarker(s, time);
     for (const t of f.triremes) {
       const key = `t${t.id}`;
       if (t.state === 'away') continue;
@@ -417,7 +477,7 @@ export class FleetView {
     let geo: THREE.BufferGeometry;
     let calm = 1;
     if (tri) {
-      const m = this.tri!;
+      const m = this.triFor(tri);
       if (tri.state === 'building') {
         // On the slip under the shed: a frame, then a hull, bow to the sea.
         const yard = findBuilding(s, tri.yard);
@@ -471,10 +531,16 @@ export class FleetView {
         // Rowing: the stroke goes round, quicker at a fight.
         const k = Math.floor(time * (tri.task === 'fight' ? 3.2 : 2.4) + tri.id * 0.37) % 4;
         geo = m[`row${k}` as TriVersion];
+        // (Slice 38: limping home, her oars broken or her hull holed, she lists a little.)
+        if (tri.task === 'home' && (tri.oars < CRIPPLED_OARS || tri.hp < 35)) roll += 0.09 * (hash2(tri.id, 2, 2604) < 0.5 ? -1 : 1);
       }
     } else {
-      const m = this.foeModel(s.world.raids.find((r) => r.id === foe!.raid)?.city ?? 'troy');
-      if (foe!.state === 'beached') {
+      const m = this.foeModel(this.cityOf(s, foe!));
+      if (foe!.state === 'holding') {
+        // (Slice 38: a blockade's ship on station across the harbour's mouth: her sail furled, riding there.)
+        geo = m.beached;
+        calm = 1.3;
+      } else if (foe!.state === 'beached') {
         geo = m.beached;
         x = foe!.bx;
         z = foe!.bz;

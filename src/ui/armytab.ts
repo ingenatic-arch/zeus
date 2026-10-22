@@ -18,6 +18,9 @@ import type { Company, SimState } from '../sim/state';
 import { SOLDIER_PAY } from '../sim/treasury';
 import { afloat, CREW, crewWhy, FIT, guardRefusal, LANES, orderRefusal, PER_YARD, piratesOn, ROWER_PAY, rowersWarning, triremeDoing, triremeName, triremesAt, TRIREME_COST } from '../sim/fleet';
 import { PLACES } from '../map/greece';
+// Slice 38: the harbour's blockade, oars and repairs, warships.
+import { blockadeWords } from '../sim/blockades';
+import { bandWords, daysToMend } from '../sim/fleet';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -137,17 +140,24 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
   const ts = f.triremes.filter(afloat);
   const rowers = ts.reduce((a, t) => a + t.crew.length, 0);
   out.push('<h3 class="fleet-head">The fleet</h3>');
+  // (Slice 38: the harbour's blockade, and the shipyard's own panel.)
+  const held = blockadeWords(s);
+  if (held) out.push(`<p class="side-note warn">${esc(held)}.</p>`);
+  if (yards.length) out.push(`<div class="raise"><button data-act="shipyard" data-id="${yards.find((b) => b.id === focus)?.id ?? yards[0].id}" title="Every trireme's hull and oars, her repairs and orders, the harbour and the lanes">Open the shipyard</button></div>`);
   out.push(`<dl class="sums"><div><dt>Triremes</dt><dd>${fmt(ts.filter((t) => t.state !== 'building').length)}</dd></div><div><dt>Rowers</dt><dd>${fmt(rowers)}</dd></div><div><dt>Pay a month</dt><dd>${fmt(rowers * ROWER_PAY)}<small> dr</small></dd></div></dl>`);
   const lanes = (t: (typeof ts)[number]): string =>
-    LANES.map((l) => {
+    // (Slice 38: the lanes you trade over, or where pirates or warships lie: every sea lane has a place now.)
+    LANES.filter((l) => s.world.routes.some((r) => r.kind === 'sea' && r.city === l.city) || piratesOn(s, l.way)).map((l) => {
       const no = guardRefusal(t, l.way);
       const p = piratesOn(s, l.way);
-      const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps watch ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.ships === 1 ? 'pirate ship' : `${p.ships} pirate ships`} there` : ''}`;
-      return `<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>${esc(cityName(l.city))}${p ? ' <small>(pirates)</small>' : ''}</button>`;
+      const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps watch ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.ships === 1 ? (p.of ? 'warship' : 'pirate ship') : `${p.ships} ${p.of ? 'warships' : 'pirate ships'}`} there` : ''}`;
+      return `<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>${esc(cityName(l.city))}${p ? ` <small>(${p.of ? 'warships' : 'pirates'})</small>` : ''}</button>`;
     }).join('');
   const row = (t: (typeof ts)[number]): string => {
     const why = crewWhy(s, map, t);
-    const hull = t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}%${t.hp < FIT ? ' <span class="warn">(mending before she goes out)</span>' : ''}`;
+    // (Slice 38: her oars too, and her repair.)
+    const days = daysToMend(s, t);
+    const hull = t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}% · oars ${Math.round(t.oars)}%${t.mend ? ` <span class="warn">(under repair${days > 0 ? `: whole in ${days} ${days === 1 ? 'day' : 'days'}` : ''})</span>` : t.hp < FIT || t.oars < FIT ? ' <span class="warn">(mending before she goes out)</span>' : ''}`;
     const pay = t.crew.length ? ` · ${fmt(t.crew.length * ROWER_PAY)} dr a month` : '';
     const owed = t.owed > 0 ? ` · <span class="warn">${fmt(t.owed)} dr pay owed</span>` : '';
     // (Sailing home already, or carrying your soldiers on an expedition (she comes home with them): no button. Review of slice 26.)
@@ -184,7 +194,7 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     if (!p) continue;
     const g = ts.filter((t) => t.order === 'lane' && t.lane === l.way);
     const when = p.state === 'seen' ? `they start seizing what of yours passes there in ${Math.max(1, Math.ceil((p.from - s.tick) / TICKS_PER_DAY))} days` : `seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
-    lines.push(`<li class="warn-line">${esc(`Pirates ${p.place}, on the lane to ${cityName(p.city)}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && triremeOnStation(s, g[0]) ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
+    lines.push(`<li class="warn-line">${esc(`${bandWords(p)} ${p.place}, on the lane to ${cityName(p.city)}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && triremeOnStation(s, g[0]) ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
   }
   const reps = f.reports.filter((r) => r.tick <= s.tick).slice(-3).reverse();
   for (const r of reps) lines.push(`<li><small>${esc(agoWords(s.tick - r.tick))}</small> ${esc(r.line)}.</li>`);

@@ -1159,3 +1159,33 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .places.monuments li .segs .fill { margin: 0; height: 5px; }
 .places.monuments li .why { color: var(--ink-soft); line-height: 1.3; }
 .places.monuments li.none .nm { color: var(--ink-soft); }
+
+/* Slice 38: the shipyard's panel: each trireme's card, her hull and oars as bars, the harbour's blockade. */
+.household.shipyard { width: 384px; }
+.household.shipyard ul.ships { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.household.shipyard li.ship { padding: 6px 9px 7px; border-radius: 10px; background: rgba(255, 255, 255, 0.5); border: 1.5px solid var(--edge); }
+.household.shipyard li.ship.mending { background: #f6ecdc; border-color: #b0783a; }
+.household.shipyard li.ship .name { display: flex; justify-content: space-between; align-items: baseline; }
+.household.shipyard li.ship .name b { font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
+.household.shipyard li.ship .n { font-variant-numeric: tabular-nums; font-size: 13px; }
+.household.shipyard li.ship p { margin: 2px 0 0; font-size: 13px; }
+.household.shipyard li.ship p.small, .household.shipyard p.small { font-size: 12.5px; color: var(--ink-soft); margin: 3px 0 0; }
+.household.shipyard li.ship p.mend { color: #7a4a1c; font-size: 12.5px; }
+.household.shipyard li.ship p.why { color: #9a3b22; font-size: 12.5px; }
+.household.shipyard .meter { display: grid; grid-template-columns: 38px 1fr 38px; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; }
+.household.shipyard .meter .lab { color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.05em; }
+.household.shipyard .meter .bar { height: 7px; border-radius: 4px; background: rgba(47, 111, 142, 0.16); overflow: hidden; }
+.household.shipyard .meter .bar i { display: block; height: 100%; background: linear-gradient(90deg, #6aa7c0, #2f6f8e); border-radius: 4px; }
+.household.shipyard .meter.low .bar i { background: linear-gradient(90deg, #c63d24, #e3a23a); }
+.household.shipyard .meter .num { text-align: right; font-variant-numeric: tabular-nums; }
+.household.shipyard .acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.household.shipyard .acts button { font: inherit; font-size: 12.5px; padding: 3px 8px; border-radius: 8px; border: 1.5px solid var(--edge); background: rgba(255, 255, 255, 0.6); color: var(--ink); cursor: pointer; }
+.household.shipyard .acts button:hover:not(:disabled) { background: #fff2d6; }
+.household.shipyard .acts button:disabled { opacity: 0.45; cursor: default; }
+.household.shipyard .acts .note { font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
+.household.shipyard section.blockade .warnbox { color: #7a2414; border-color: #b3261e; border-style: solid; background: #f7e3dc; }
+.household.shipyard ul.lanes, .household.shipyard ul.fights { list-style: none; margin: 3px 0 0; padding: 0; font-size: 12.5px; }
+.household.shipyard ul.lanes li { color: #7a2414; margin-top: 2px; }
+.household.shipyard ul.fights li { margin-top: 3px; }
+.household.shipyard ul.fights small { color: var(--ink-soft); }
+.household.shipyard .foot { margin: 10px 0 0; font-size: 12px; color: var(--ink-soft); font-style: italic; }
