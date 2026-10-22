@@ -4,6 +4,8 @@
  * a finished Lighthouse, Colossus and Stadium do; and a town with a site saved,
  * replayed and brought up from before.
  */
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { buildingRefusal } from '../src/sim/build';
@@ -243,5 +245,18 @@ describe('monuments', () => {
     const m = old.monuments as SimState['monuments'];
     expect(m.sites).toEqual([]);
     expect(m.games.next).toBe(0);
+  });
+
+  it('a phase 4 save (version 27) comes up through every step with no monument, and plays on', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/phase4-bronze.save.json.gz')).toString();
+    expect(JSON.parse(text).state.version).toBe(27);
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    expect(got.file.state.version).toBe(SIM_STATE_VERSION);
+    expect(got.file.state.monuments.sites).toEqual([]);
+    const sim = new Sim();
+    sim.state = got.file.state;
+    sim.run(TICKS_PER_MONTH);
+    expect(sim.state.monuments.sites).toEqual([]);
   });
 });

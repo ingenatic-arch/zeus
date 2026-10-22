@@ -300,6 +300,10 @@ for (const [hash, views] of [
   // Slice 32: the quarry on the headland, its quarrymen and sledges; the loggers' camp at the west wood.
   ['#quarry-paused-shot', [null]],
   ['#loggers-paused-shot', [null]],
+  // Slice 35: the Lighthouse half built with its builders and ox carts; finished and lit; the Stadium's games with their crowds.
+  ['#monument-paused-shot', [null]],
+  ['#lit-paused-shot', [null]],
+  ['#games-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
