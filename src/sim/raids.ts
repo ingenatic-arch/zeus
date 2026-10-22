@@ -67,7 +67,7 @@ import { newWalker, offMapPoint, position, setPath, WALK_SPEED } from './walk';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
 import { barsFoe, foeToll, foeWalkable, wallAt } from './walls';
 import { districtAt, districtTitle } from '../map/districts';
-import { cityOf, COLD, HOSTILE, moodOf, rulerName, rulerShort, sellsAndBuys } from './world';
+import { armyScale, cityOf, COLD, HOSTILE, moodOf, rulerName, rulerShort, sellsAndBuys } from './world';
 import { armyNews } from './army';
 import { daysToBeach, embark, onWater, sailIn, seaOf, seaborne, shipsFor, shipsOf } from './fleet';
 import { isStore, roomFor } from './stores';
@@ -91,6 +91,8 @@ const GREECE_LULL = 3 * TICKS_PER_MONTH;
 const lullOf = (r: Raid): number => (r.end === 'raided' || r.end === 'nothing' || r.end === 'sunk' ? RAID_LULL : LULL);
 /** A hostile, proud or warlike ruler threatens about one month in eight. */
 const HOSTILE_ODDS = 1 / 8;
+/** (Slice 31, Oliver's balance card: raids about twice as often.) A ruler only cold towards you, proud or warlike, threatens too, about one month in a hundred and twenty; bolder with an army grown past its usual size, less so with one shrunk (half to half again as often). What a probe of nine years of a middling player found is in the slice 31 plan's As built. */
+const COLD_ODDS = 1 / 120;
 /** A tribute marked angry still gets its threat for this long after it was refused (if another threat held it back). */
 const ANGRY_FOR = TICKS_PER_YEAR;
 /** The price of peace: this much of a fair gift for your size, in coin (300 to 2,500 dr), or goods worth the same. */
@@ -103,11 +105,11 @@ const MEN_MOST = 12;
 const MEN_CAP = 48;
 const MEN_PER = 60;
 const MEN_FROM = 400;
-export const STRENGTH: Record<CityId, number> = { home: 1, athens: 1.1, corinth: 0.8, sparta: 1.4, troy: 1, tyre: 1 };
-/** The band a city sends against yours, for its size: the dice's 8 to 12, and the rest from your size and their strength. */
+export const STRENGTH: Record<CityId, number> = { home: 1, athens: 1.1, corinth: 0.8, sparta: 1.4, troy: 1, tyre: 1, thebes: 1.2, argos: 0.7, knossos: 0.9, rhodes: 0.8, memphis: 1 };
+/** The band a city sends against yours, for its size: the dice's 8 to 12, and the rest from your size and their strength (slice 31: with their army as it is now against its usual size, growth.ts). */
 export function bandSize(s: SimState, city: CityId, roll: number): number {
   const base = MEN_LEAST + Math.floor(roll * (MEN_MOST - MEN_LEAST + 1));
-  return Math.min(MEN_CAP, base + Math.round((Math.max(0, s.population - MEN_FROM) / MEN_PER) * (STRENGTH[city] ?? 1)));
+  return Math.min(MEN_CAP, base + Math.round((Math.max(0, s.population - MEN_FROM) / MEN_PER) * (STRENGTH[city] ?? 1) * armyScale(cityOf(s.world, city))));
 }
 /** A lender's army (slice 28): half again a band's size, at least 14 men, at most 60. */
 const DEBT_MEN = 1.5;
@@ -147,7 +149,7 @@ const FIELDS: Partial<Record<BuildingKind, Ware>> = { farm: WHEAT, grove: OLIVES
 const STORES: readonly BuildingKind[] = ['granary', 'storehouse'];
 
 /** The edge of your map nearest each city: where its band comes in (Troy's lands beyond the eastern hills). */
-export const RAID_SIDE: Record<CityId, 'north' | 'west' | 'east' | 'south'> = { home: 'north', athens: 'north', corinth: 'north', sparta: 'west', troy: 'east', tyre: 'east' };
+export const RAID_SIDE: Record<CityId, 'north' | 'west' | 'east' | 'south'> = { home: 'north', athens: 'north', corinth: 'north', sparta: 'west', troy: 'east', tyre: 'east', thebes: 'north', argos: 'west', knossos: 'east', rhodes: 'east', memphis: 'east' };
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cityName = (id: CityId): string => PLACES[id].name;
@@ -405,9 +407,12 @@ function threats(s: SimState, map: CoastMap): void {
     const c = w.cities[i];
     const t = c.ruler?.traits ?? [];
     if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike'))) continue;
-    if (moodOf(c, s.tick) > HOSTILE || !mayThreaten(s, c.id)) continue;
-    if (dice(w, month, i, 31) >= HOSTILE_ODDS) continue;
-    threaten(s, map, c, `${rulerShort(c)} is hostile to your city, and ${t.includes('warlike') ? 'warlike' : 'proud'}`);
+    const mood = moodOf(c, s.tick);
+    if (mood > COLD || !mayThreaten(s, c.id)) continue;
+    const bold = Math.max(0.5, Math.min(1.5, armyScale(c)));
+    if (dice(w, month, i, 31) >= (mood <= HOSTILE ? HOSTILE_ODDS : COLD_ODDS * bold)) continue;
+    const grown = bold >= 1.2 ? `, with an army grown to ${Math.round(c.army).toLocaleString('en-GB')} men` : '';
+    threaten(s, map, c, `${rulerShort(c)} is ${mood <= HOSTILE ? 'hostile' : 'cold'} to your city, and ${t.includes('warlike') ? 'warlike' : 'proud'}${grown}`);
     return;
   }
 }
@@ -417,13 +422,14 @@ export function gather(s: SimState, r: Raid, refused: boolean): void {
   const c = cityOf(s.world, r.city);
   const { L } = wayFor(r.city, r.by);
   r.phase = 'gathering';
-  r.start = s.tick;
-  // (Ten days; longer, so that no raiders reach your edge within a year of your first route.)
+  // (Ten days. So that no raiders reach your edge within a year of your first route, a band defied early bides its time at home first, out of sight, and gathers for its last ten days: slice 31, where it camped for months.)
   const first = firstRoute(s.world);
-  r.dur = Math.ceil(Math.max(GATHER, first && !r.loan ? first + TICKS_PER_YEAR - marchTicks(r.city, r.by) - s.tick : 0) / TICKS_PER_DAY) * TICKS_PER_DAY;
+  const wait = first && !r.loan ? Math.max(0, first + TICKS_PER_YEAR - marchTicks(r.city, r.by) - GATHER - s.tick) : 0;
+  r.start = s.tick + Math.ceil(wait / TICKS_PER_DAY) * TICKS_PER_DAY;
+  r.dur = GATHER;
   r.a0 = L;
   r.a1 = L;
-  const days = Math.round((r.dur + marchTicks(r.city, r.by)) / TICKS_PER_DAY);
+  const days = Math.round((r.start + r.dur - s.tick + marchTicks(r.city, r.by)) / TICKS_PER_DAY);
   if (r.loan) {
     news(s.world, s.tick, r.city, `${refused ? `You would not pay ${rulerShort(c)}: ` : ''}${whose(r.city)} army gathers to collect your debt, ${r.men} men: ${edgeWords(r)} in about ${days} days. Pay the ${fmt(r.coin)} dr to turn them back`, true);
     s.rev++;
@@ -1438,7 +1444,8 @@ export function sheltering(bands: readonly number[], w: Walker): boolean {
 
 /** Where a band is on the map of Greece at a tick: a distance along its way from your city, which way it faces, and whether it is gathering; null while there is none to see (a threat, in your city, over). */
 export function raidOnMap(r: Raid, tick: number): { along: number; homeward: boolean; gathering: boolean } | null {
-  if (r.phase === 'gathering') return { along: r.a0, homeward: false, gathering: true };
+  // (Biding its time at home, before it gathers: nothing to see yet.)
+  if (r.phase === 'gathering') return tick < r.start ? null : { along: r.a0, homeward: false, gathering: true };
   if (r.phase !== 'marching' && r.phase !== 'homeward' && r.phase !== 'turned') return null;
   const u = Math.max(0, Math.min(1, (tick - r.start) / Math.max(1, r.dur)));
   return { along: r.a0 + (r.a1 - r.a0) * u, homeward: r.phase !== 'marching', gathering: false };
@@ -1502,7 +1509,7 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
     };
   return {
     chip: `${name}’s raiders · ${r.men} men · ${when}`,
-    line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? 'are gathering' : r.by === 'sea' ? 'are at sea' : 'are on the march'}, ${r.men} men: ${edgeWords(r)} in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
+    line: `${whose(r.city)} raiders ${r.phase === 'gathering' ? (s.tick < r.start ? 'bide their time at home' : 'are gathering') : r.by === 'sea' ? 'are at sea' : 'are on the march'}, ${r.men} men: ${edgeWords(r)} in about ${when} (${dayWords(reachesEdge(s, r))}). Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`,
   };
 }
 

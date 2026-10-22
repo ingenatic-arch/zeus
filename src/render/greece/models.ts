@@ -151,9 +151,99 @@ export function cityModel(id: CityId, people = 0): THREE.BufferGeometry {
       banner(p, 0.0, 0.0, 0, 1.25, colour, trim);
       break;
     }
+    // Slice 31's newcomers.
+    case 'thebes': {
+      // Seven-gated Thebes: a ring of wall with seven towers round the Kadmeia, its hill and temple.
+      walls(p, 1.1, 0.24, 14, 7, 13);
+      hill(p, -0.1, 0.1, 0.55, 0.45, 14);
+      temple(p, -0.1, 0.1, 0.42, 0.6, 0.4);
+      houses(p, 16, 0.95, 15, 0, (x, z) => Math.hypot(x + 0.1, z - 0.1) < 0.55);
+      banner(p, 0.7, -0.55, 0, 1.25, colour, trim);
+      break;
+    }
+    case 'argos': {
+      // The Argives' old town on its hills: a steep crag with a little fort on top, the houses at its foot.
+      hill(p, 0.1, -0.2, 0.7, 1.05, 16);
+      const fort: Part[] = [];
+      walls(fort, 0.3, 0.16, 7, 3, 17);
+      for (const q of fort) p.push({ geo: q.geo.translate(0.1, 0.95, -0.2), color: q.color });
+      houses(p, 11, 0.95, 18, 0, (x, z) => Math.hypot(x - 0.1, z + 0.2) < 0.62);
+      banner(p, 0.1, -0.2, 1.05, 1.0, colour, trim);
+      break;
+    }
+    case 'knossos': {
+      // The palace of Knossos: broad flat-roofed terraces round a court, its red columns with black tops; no walls.
+      p.push({ geo: box(1.5, 0.22, 1.1, 0, 0, 0), color: '#e8d8b4' });
+      p.push({ geo: box(0.9, 0.22, 0.7, -0.2, 0.22, -0.1), color: '#efe2c2' });
+      p.push({ geo: box(0.45, 0.18, 0.4, 0.25, 0.44, 0.0), color: '#e8d8b4' });
+      for (let k = 0; k < 6; k++) {
+        const x = -0.6 + k * 0.24;
+        p.push({ geo: new THREE.CylinderGeometry(0.05, 0.035, 0.34, 6).translate(x, 0.39, 0.42), color: '#b23a3a' });
+        p.push({ geo: box(0.1, 0.05, 0.1, x, 0.56, 0.42), color: '#2a1c18' });
+      }
+      p.push({ geo: box(1.36, 0.04, 0.18, -0.0, 0.6, 0.42), color: '#e8d8b4' });
+      // Horns of consecration on the roof.
+      p.push({ geo: box(0.08, 0.16, 0.06, 0.15, 0.62, -0.05), color: MARBLE }, { geo: box(0.08, 0.16, 0.06, 0.35, 0.62, -0.05), color: MARBLE }, { geo: box(0.28, 0.05, 0.08, 0.25, 0.62, -0.05), color: MARBLE });
+      houses(p, 12, 1.25, 19, 0, (x, z) => Math.abs(x) < 0.85 && Math.abs(z) < 0.65);
+      banner(p, -0.85, -0.55, 0, 1.25, colour, trim);
+      break;
+    }
+    case 'rhodes': {
+      // A harbour town on its island's point: houses close-packed up the slope, two moles round the harbour and a beacon tower.
+      houses(p, 18, 0.95, 20, 0, (_x, z) => z > 0.55);
+      p.push({ geo: box(1.2, 0.08, 0.14, -0.25, -0.04, 1.0, 0.25), color: WALL_DARK });
+      p.push({ geo: box(0.9, 0.08, 0.14, 0.55, -0.04, 0.95, -0.5), color: WALL_DARK });
+      p.push({ geo: new THREE.CylinderGeometry(0.1, 0.13, 0.9, 7).translate(0.92, 0.41, 1.15), color: WALL });
+      p.push({ geo: new THREE.ConeGeometry(0.12, 0.16, 7).translate(0.92, 0.94, 1.15), color: '#e8a23a' });
+      temple(p, -0.25, -0.45, 0.0, 0.62, 0.2);
+      banner(p, 0.35, -0.2, 0, 1.25, colour, trim);
+      break;
+    }
+    case 'memphis': {
+      // Egypt: a great pyramid and a smaller one, a temple behind its pylon gate, mud-brick houses, a strip of palms by the river.
+      const sand = '#d9c28a';
+      p.push({ geo: new THREE.ConeGeometry(0.85, 1.05, 4).rotateY(Math.PI / 4).translate(-0.55, 0.52, -0.45), color: sand });
+      p.push({ geo: new THREE.ConeGeometry(0.5, 0.62, 4).rotateY(Math.PI / 4).translate(0.55, 0.31, -0.75), color: '#cfb57c' });
+      p.push({ geo: box(0.28, 0.5, 0.2, 0.35, 0, 0.1).scale(1, 1, 1), color: '#e6d6ac' });
+      p.push({ geo: box(0.28, 0.5, 0.2, 0.75, 0, 0.1), color: '#e6d6ac' });
+      p.push({ geo: box(0.7, 0.32, 0.5, 0.55, 0, -0.25), color: '#efe2c2' });
+      for (let k = 0; k < 14; k++) {
+        const a = hash2(k, 31, 1) * Math.PI * 2;
+        const d = 0.5 + Math.sqrt(hash2(k, 31, 2)) * 0.6;
+        const x = Math.cos(a) * d + 0.1;
+        const z = Math.sin(a) * d * 0.6 + 0.55;
+        p.push({ geo: box(0.22, 0.16 + hash2(k, 31, 3) * 0.08, 0.2, x, 0, z), color: hash2(k, 31, 4) < 0.5 ? '#c8a878' : '#b8956a' });
+      }
+      for (let k = 0; k < 6; k++) {
+        const x = -1.0 + k * 0.38;
+        p.push({ geo: new THREE.CylinderGeometry(0.02, 0.03, 0.5, 4).translate(x, 0.25, 1.15), color: '#7a5a34' });
+        p.push({ geo: new THREE.ConeGeometry(0.16, 0.12, 6).translate(x, 0.54, 1.15), color: '#5f7f2c' });
+      }
+      banner(p, 0.0, 0.2, 0, 1.25, colour, trim);
+      break;
+    }
   }
   const g = merge(p);
   return g;
+}
+
+/**
+ * Slice 31: an empty site, a little cairn with a pale pennant on a pole; or,
+ * once a colony stands there, a few houses round a banner in its founder's
+ * colours (more as it grows, up to about a dozen).
+ */
+export function siteModel(colour: string, trim: string, people: number): THREE.BufferGeometry {
+  const p: Part[] = [];
+  if (people <= 0) {
+    p.push({ geo: lumpy(new THREE.ConeGeometry(0.22, 0.3, 6, 1), 0.12, 23).translate(0, 0.14, 0), color: ROCK });
+    p.push({ geo: new THREE.CylinderGeometry(0.02, 0.025, 0.85, 5).translate(0, 0.42, 0), color: POLE });
+    p.push({ geo: box(0.3, 0.16, 0.02, 0.16, 0.62, 0), color: '#efe6cf' });
+    return merge(p);
+  }
+  const n = Math.max(3, Math.min(12, Math.round(3 + people / 200)));
+  houses(p, n, 0.3 + n * 0.035, 24);
+  banner(p, 0.0, 0.0, 0, 1.0, colour, trim);
+  return merge(p);
 }
 
 /** A little merchant ship (bow along +x) with a sail in her city's colour. */

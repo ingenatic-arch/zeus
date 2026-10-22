@@ -130,7 +130,8 @@ describe('feelings between rulers', () => {
     sim.run(TICKS_PER_YEAR);
     copy.run(TICKS_PER_YEAR);
     expect(copy.state.world.rng).toEqual(sim.state.world.rng);
-    expect(copy.state.world.cities.map((x) => [x.harvest, x.outlook, x.crop])).toEqual(sim.state.world.cities.map((x) => [x.harvest, x.outlook, x.crop]));
+    // (Slice 31: the harvests' sizes follow each city's people, which a war changes; the harvests themselves don't.)
+    expect(copy.state.world.cities.map((x) => [x.harvest, x.outlook])).toEqual(sim.state.world.cities.map((x) => [x.harvest, x.outlook]));
     expect(cityState(copy.state)).toBe(cityState(sim.state));
   }, 120000);
 });

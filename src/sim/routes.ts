@@ -81,7 +81,7 @@ import {
 } from './trade';
 import { income, pay, spendable, wageBill } from './treasury';
 import { giftOf, newWalker, offMapPoint, position, roadPoints, setPath, speedOf } from './walk';
-import { cityOf, COLD, moodOf, moodWord, rulerName, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
+import { cityOf, COLD, moodOf, moodWord, rulerName, scaleOf, sellsAndBuys, snubbed, traded, VOYAGE, yourPrice } from './world';
 import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
 import { seizing } from './loans';
 import { tradedWithFoe } from './rivals';
@@ -106,6 +106,12 @@ export const ROUTE_WAYS: readonly RouteWay[] = [
   { city: 'athens', kind: 'sea', way: 'athens-sea', fee: 800, side: 'south' },
   { city: 'corinth', kind: 'sea', way: 'corinth-sea', fee: 800, side: 'south' },
   { city: 'troy', kind: 'sea', way: 'troy-sea', fee: 1000, side: 'south' },
+  // Slice 31: the newcomers. Argos' road comes in from the west, as Sparta's does; Thebes' through Corinth, from the north.
+  { city: 'argos', kind: 'land', way: 'argos-land', fee: 400, side: 'west' },
+  { city: 'thebes', kind: 'land', way: 'thebes-land', fee: 900, side: 'north' },
+  { city: 'knossos', kind: 'sea', way: 'knossos-sea', fee: 1000, side: 'south' },
+  { city: 'rhodes', kind: 'sea', way: 'rhodes-sea', fee: 1200, side: 'south' },
+  { city: 'memphis', kind: 'sea', way: 'memphis-sea', fee: 1400, side: 'south' },
 ];
 
 /** The way a route takes (undefined: there is none to that city that way). */
@@ -142,11 +148,17 @@ export const caravanYard = (s: SimState): Building | undefined => s.buildings.fi
 /** How many a city buys or sells of a trade good in a year: about the gap between what it makes and uses, in hundreds, 400 to 6,000. */
 export function yearlyLimit(s: SimState, city: CityId, k: number): number {
   const c = cityOf(s.world, city);
-  return Math.max(400, Math.min(6000, Math.round(Math.abs(c.make[k] - c.need[k]) / 100) * 100));
+  // (Slice 31: a city buys and sells more as its people grow.)
+  return Math.max(400, Math.min(6000, Math.round((Math.abs(c.make[k] - c.need[k]) * scaleOf(c)) / 100) * 100));
 }
 
 /** What a city pays you or asks of you for so many measures of a trade good, at your price with it now (its market price and its ruler's terms). */
 export const priceAt = (s: SimState, city: CityId, k: number, n: number): number => Math.round((n * yourPrice(s.world, city, k, s.tick)) / 100);
+
+/** (Slice 31) What all your routes to a city have sold it and bought from it this year, and what their traders hold for it now: a city has one yearly limit, however many roads and sea lanes lead there. */
+export const soldTo = (s: SimState, city: CityId, k: number): number => s.world.routes.reduce((n, r) => n + (r.city === city ? r.sold[k] : 0), 0);
+export const boughtFrom = (s: SimState, city: CityId, k: number): number => s.world.routes.reduce((n, r) => n + (r.city === city ? r.bought[k] : 0), 0);
+export const heldFor = (s: SimState, city: CityId, k: number): number => s.world.routes.reduce((n, r) => n + (r.city === city ? r.hold[k] : 0), 0);
 
 /** What you can sell a city (the goods it buys) and buy from it (the goods it sells), by trade good index. */
 export function tradesOf(s: SimState, city: CityId): { theyBuy: number[]; theySell: number[] } {
@@ -290,7 +302,7 @@ function takeShare(s: SimState, r: TradeRoute, depot: Building, share: number, l
     const q = held(depot, w);
     // (Under an offer you took, its own limit for its year instead: favours.ts.)
     const o = offerOn(s.world, r.city, k, 'buy');
-    const room = (o ? offerLeft(o) : yearlyLimit(s, r.city, k) - r.sold[k]) - r.hold[k];
+    const room = (o ? offerLeft(o) : yearlyLimit(s, r.city, k) - soldTo(s, r.city, k)) - heldFor(s, r.city, k);
     if (q <= 0 || room <= 0) return;
     const take = Math.min(room, last ? q : Math.ceil(q * share));
     if (take <= 0) return;
@@ -324,7 +336,7 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     const want = r.upto[k] - cityHolds(s, w) - held(depot, w) - inHand(s, depot, w).returning;
     // (Under an offer you took: its price and its own limit for its year.)
     const o = offerOn(s.world, r.city, k, 'sell');
-    const left = o ? offerLeft(o) : yearlyLimit(s, r.city, k) - r.bought[k];
+    const left = o ? offerLeft(o) : yearlyLimit(s, r.city, k) - boughtFrom(s, r.city, k);
     const price = Math.max(1, o ? offerPrice(s, o) : yourPrice(s.world, r.city, k, s.tick));
     const purse = importPurse(s);
     let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
@@ -587,7 +599,8 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
   const yard = findBuilding(s, w.origin);
   if (w.wait > 0) {
     // Trading at the yard: a share of what is there each day, all of it on the last; then it pays and heads out.
-    if (!yard || !r) {
+    // (Slice 31: or its road closed while it traded: it pays for what it has loaded and goes.)
+    if (!yard || !r || r.closed > 0) {
       w.wait = 0;
       if (r) settleCaravan(s, r, w);
       return headOut(s, map, w) || caravanGone(s, w);
@@ -603,6 +616,8 @@ export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
     settleCaravan(s, r, w);
     return headOut(s, map, w) || caravanGone(s, w);
   }
+  // (Slice 31) Its road closed on the way in, or while it waited its turn: it turns for home without trading.
+  if (!w.back && r && r.closed > 0 && !headOut(s, map, w)) return caravanGone(s, w);
   // Waiting its turn at the gate while another caravan of its city trades.
   if (!w.back && yard && r && w.seg >= w.path.length / 2 - 1) {
     if (!tradingNow(s, w)) arrive(s, r, yard, w);
@@ -892,6 +907,12 @@ export function caravansOnMap(s: SimState, r: TradeRoute, tick: number): Array<{
 
 const dayWords = (n: number): string => (n === 1 ? '1 day' : `${n} days`);
 const daysTo = (s: SimState, t: number): number => Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
+/** (Slice 31) How many days a walker still has to go along its path, at its pace: a caravan in your streets says when it reaches the yard, or leaves your land (#borrow's walked for two months, and only ever read "in the city"). */
+function daysLeft(w: Walker): number {
+  let left = -w.along;
+  for (let i = w.seg; i < w.path.length / 2 - 1; i++) left += dhypot(w.path[i * 2 + 2] - w.path[i * 2], w.path[i * 2 + 3] - w.path[i * 2 + 1]);
+  return Math.max(1, Math.ceil(Math.max(0, left) / speedOf(w) / TICKS_PER_DAY));
+}
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 
 /** "1,200 wheat, 600 cheese and 400 oil". */
@@ -937,8 +958,8 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
       const brought = r.unloaded.some((n) => n > 0) ? ` · it brought ${wareList(r.unloaded)}` : '';
       return { phase: 2, days, chip: 'At yard', short: `${whose} caravan trading`, line: `The caravan from ${name} is trading at the yard: it pays and heads home in ${dayWords(days)}${brought}${so}`, who, kind: 'land' };
     }
-    if (w && !w.back) return { phase: 1, days: 0, chip: 'In town', short: `${whose} caravan coming in`, line: `The caravan from ${name} is in the city, on its way to the caravan yard`, who, kind: 'land' };
-    if (w) return { phase: 3, days: 0, chip: 'Leaving', short: `${whose} caravan leaving`, line: `The caravan from ${name} is heading home${r.lastPaid > 0 ? `: it paid ${fmt(r.lastPaid)} dr` : ''}`, who, kind: 'land' };
+    if (w && !w.back) return { phase: 1, days: 0, chip: 'In town', short: `${whose} caravan coming in`, line: `The caravan from ${name} is in the city, on its way to the caravan yard: it gets there in about ${dayWords(daysLeft(w))}`, who, kind: 'land' };
+    if (w) return { phase: 3, days: 0, chip: 'Leaving', short: `${whose} caravan leaving`, line: `The caravan from ${name} is heading home${r.lastPaid > 0 ? `: it paid ${fmt(r.lastPaid)} dr` : ''}, out of your land in about ${dayWords(daysLeft(w))}`, who, kind: 'land' };
     const coming = caravanTraveller(s, r.city, false);
     const days = daysTo(s, r.next);
     if (coming) return { phase: 1, days, chip: `${days} d`, short: `Caravan on the road · ${days} d`, line: `A caravan from ${name} is on the road: it reaches the edge of your map in ${dayWords(days)}`, who, kind: 'land' };

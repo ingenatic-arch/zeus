@@ -4,6 +4,7 @@
  * terms; sane bounds over many years; Tyre steady; Greece kept apart from the
  * city; saves.
  */
+import { stepGrowth } from '../src/sim/growth';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +25,7 @@ import {
   isHarvest,
   lastHarvest,
   moodOf,
+  normalStock,
   outlookWords,
   priceWhy,
   sellsAndBuys,
@@ -55,6 +57,8 @@ function greece(seed: number, tick = 0): Greece {
         stepWorld(s);
         stepRivals(s);
         stepDiplomacy(s);
+        // (Slice 31: and each city's growth.)
+        stepGrowth(s);
         each?.(s);
       }
     },
@@ -277,13 +281,14 @@ describe('sane bounds', () => {
       });
       expect(lo).toBeGreaterThanOrEqual(0.25);
       expect(hi).toBeLessThanOrEqual(3);
-      // Three years after the trading stops, the hard-traded Greece is the calm one again (the same harvests fell on both).
+      // Three years after the trading stops, your trade's push on the prices has worn off. (Slice 31: before, the hard-traded Greece was then the
+      // calm one again; now the trade has left its mark on Greece itself, the cities you traded with grown, and their wars gone otherwise.)
       hard.run(3 * TICKS_PER_YEAR);
       calm.run(3 * TICKS_PER_YEAR);
+      check(hard);
       for (const id of RULED) {
-        const a = prices(hard, id);
-        const b = prices(calm, id);
-        a.forEach((p, k) => expect(Math.abs(p - b[k])).toBeLessThanOrEqual(1));
+        const c = cityOf(w(hard), id);
+        c.yours.forEach((y, k) => expect(Math.abs(y)).toBeLessThanOrEqual(0.05 * normalStock(c, k)));
       }
     }
   }, 60000);

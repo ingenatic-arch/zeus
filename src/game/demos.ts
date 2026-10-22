@@ -25,7 +25,7 @@ import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
 import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
-import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, spareOf, stageDefault, STEP_GAP, troubles } from '../sim/loans';
+import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, repaysOnTheDay, spareOf, stageDefault, stageRepay, STEP_GAP, troubles } from '../sim/loans';
 import { nextFestival } from '../sim/festivals';
 // Slice 30.
 import { daysToThief, temptationOf } from '../sim/crime';
@@ -33,6 +33,7 @@ import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threat
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
+import { bow, COLONY_SAIL, coloniesOf, nearestFree, sendSettlers, vassalsOf } from '../sim/growth';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
 
@@ -1848,6 +1849,10 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
     const l = loanOfDeal(s.world, d.id);
     if (!l) return;
     const stop = s.tick + 3 * TICKS_PER_YEAR;
+    while (s.tick < stop && l.state !== 'running' && l.ended === 0) sim.run(10);
+    while (s.tick < stop && l.state === 'running' && s.tick < l.due - 1) sim.run(Math.min(TICKS_PER_DAY, l.due - 1 - s.tick));
+    // (Slice 31: with Greece growing, Athens' dice fell the other way; where they would, the repayment is set up for the demo, and named so.)
+    if (l.state === 'running' && !repaysOnTheDay(s, l)) stageRepay(s, l, 'set up for this demo');
     while (s.tick < stop && l.state !== 'repaying' && l.state !== 'overdue' && l.ended === 0) sim.run(TICKS_PER_DAY);
     const g = s.world.gifts.find((x) => x.id === l.gift);
     if (g) while (g.start + g.dur - s.tick > REPAID_DAYS * TICKS_PER_DAY) sim.step();
@@ -1855,6 +1860,56 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
 }
 /** The prepared towns of the loans demos. */
 const LEND = loanTown('lend');
+
+// Slice 31
+/**
+ * Greece grows (slice 31). #greecegrows: #rivals' town played on to the
+ * tenth year after its founding by a middling player (every other request
+ * and tribute met and the rest refused, every other offer to buy its goods
+ * taken (those to sell it goods declined: it buys by its routes), a threat
+ * paid when the treasury can). If Rhodes has founded no colony by then, it
+ * sends settlers to the nearest free site and they land; if no city is
+ * another's vassal, Argos bows to Sparta (both set up for the demo, and the
+ * news says so). Opens paused on the map of Greece. #knossos and #memphis:
+ * the same town, the map open on the newcomer's page.
+ */
+const GROWS_YEARS = 10;
+
+function growsTown(): (sim: Sim) => void {
+  return (sim) => {
+    RIVALS(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const seen = new Set<number>();
+    const end = GROWS_YEARS * TICKS_PER_YEAR;
+    while (s.tick < end) {
+      for (const d of s.world.deals) {
+        if (d.state !== 'open' || seen.has(d.id)) continue;
+        seen.add(d.id);
+        const act = d.kind === 'request' || d.kind === 'tribute' ? (d.id % 2 ? 'send' : 'refuse') : d.kind === 'offer' ? (d.id % 2 && d.side === 'buy' ? 'take' : 'decline') : d.kind === 'threat' && s.money > d.amount + wageBill(s) ? 'send' : '';
+        if (act) send({ type: 'answer', deal: d.id, act });
+      }
+      sim.run(Math.min(TICKS_PER_MONTH, end - s.tick));
+    }
+    const w = s.world;
+    const rhodes = cityOf(w, 'rhodes');
+    const site = coloniesOf(w, 'rhodes').length ? undefined : nearestFree(w, 'rhodes');
+    if (site) {
+      sendSettlers(s, rhodes, site, 'set up for this demo');
+      sim.run(COLONY_SAIL + TICKS_PER_DAY);
+    }
+    if (!w.cities.some((c) => c.lord) && !vassalsOf(w, 'sparta').length) {
+      const sparta = cityOf(w, 'sparta');
+      const argos = cityOf(w, 'argos');
+      bow(s, sparta, argos, `its army of ${Math.round(argos.army).toLocaleString('en-GB')} men against Sparta’s ${Math.round(sparta.army).toLocaleString('en-GB')} men (set up for this demo)`);
+      sim.run(TICKS_PER_DAY);
+    }
+  };
+}
+const GROWS = growsTown();
 
 /**
  * Debts unpaid (slice 28). #overdue: #borrow's town, Corinth's terms
@@ -2253,6 +2308,10 @@ const SCENES: Record<string, Demo> = {
   // Thieves in the night: the hut street behind the villas, its first thief a few days off, the crime overlay on; four months on with still no watch post, paused on the most tempted hut.
   thieves: { view: 'thieves', setup: thievesTown('thieves'), overlay: 'crime', overlayOn: true },
   nowatch: { view: 'thieves', speed: 'paused', setup: thievesTown('nowatch'), overlay: 'crime', open: mostTempted, side: { tab: 'safety' } },
+  // Slice 31: Greece grows. The town ten years on, paused on the map; the newcomers Knossos and Memphis on their pages.
+  greecegrows: { view: 'rivals', speed: 'paused', setup: GROWS, overlay: 'missing', greece: true },
+  knossos: { view: 'rivals', setup: GROWS, overlay: 'missing', greece: 'knossos', greeceTab: 'ruler' },
+  memphis: { view: 'rivals', setup: GROWS, overlay: 'missing', greece: 'memphis', greeceTab: 'ruler' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

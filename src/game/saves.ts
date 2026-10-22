@@ -442,6 +442,9 @@ function worldOk(w: unknown): boolean {
   const g = TRADE_GOODS.length;
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
+  // Slice 31: the sites, and each city's size, lord and record of growth.
+  if (!Array.isArray(w.sites) || !(w.sites as unknown[]).every((x) => isObj(x) && typeof x.id === 'string' && typeof x.owner === 'string' && typeof x.bound === 'string' && ['since', 'pop', 'told', 'lands'].every((k) => fin(x[k])))) return false;
+  if (!(w.cities as unknown[]).every((c) => isObj(c) && ['pop', 'wealth', 'army', 'fleet', 'lordSince'].every((k) => fin(c[k])) && typeof c.lord === 'string' && Array.isArray(c.grew) && (c.grew as unknown[]).every((g) => isObj(g) && typeof g.kind === 'string' && typeof g.why === 'string' && ['year', 'pop', 'wealth', 'army', 'fleet'].every((k) => fin(g[k]))))) return false;
   return (w.cities as unknown[]).every((c, i) => {
     if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.outlook) || !fin(c.festival) || typeof c.war !== 'string' || !fin(c.feel) || !fin(c.gave)) return false;
     if (!nums(c.ties, CITY_IDS.length) || !['make', 'need', 'stock', 'yours', 'crop', 'strife', 'feast', 'price', 'trail'].every((k) => nums(c[k], g))) return false;

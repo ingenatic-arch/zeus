@@ -20,12 +20,25 @@ export const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#
 export const whose = (name: string): string => (name.endsWith('s') ? `${name}’` : `${name}’s`);
 const ARROW_WORDS = { '1': 'rising', '-1': 'falling', '0': 'steady' } as const;
 
-/** A small arrow: up (rising), down (falling) or a dash (steady). */
-export function arrowHtml(a: Arrow): string {
+/**
+ * A small arrow: up (rising), down (falling) or a dash (steady). Slice 31: coloured for what the move means
+ * for you, if you would sell the good there (`sell`: rising is good) or buy it (`buy`: falling is good);
+ * a good the city has about enough of keeps a plain arrow.
+ */
+export function arrowHtml(a: Arrow, side: '' | 'sell' | 'buy' = ''): string {
   const cls = a > 0 ? 'up' : a < 0 ? 'down' : 'flat';
   const path = a > 0 ? 'M5 1.5L9 8.5H1z' : a < 0 ? 'M5 8.5L9 1.5H1z' : 'M1.5 5h7';
   const shape = a === 0 ? `<path d="${path}" stroke-width="1.8" stroke-linecap="round"/>` : `<path d="${path}"/>`;
-  return `<svg class="parrow ${cls}" viewBox="0 0 10 10" width="10" height="10" aria-label="${ARROW_WORDS[String(a) as '1' | '-1' | '0']}" role="img">${shape}</svg>`;
+  const good = a !== 0 && side !== '' && (a > 0) === (side === 'sell');
+  const meaning = a === 0 || side === '' ? '' : good ? ' good' : ' bad';
+  const words = `${ARROW_WORDS[String(a) as '1' | '-1' | '0']}${meaning ? (good ? ', good for you' : ', bad for you') : ''}`;
+  return `<svg class="parrow ${cls}${meaning || (a !== 0 ? ' plain' : '')}" viewBox="0 0 10 10" width="10" height="10" aria-label="${words}" role="img">${shape}</svg>`;
+}
+
+/** Whether you would sell a good to a city (it buys it) or buy it there (it sells it), for the arrows' colours. */
+export function sideOf(c: WorldCity, k: number): '' | 'sell' | 'buy' {
+  const { sells, buys } = sellsAndBuys(c);
+  return buys.includes(k) ? 'sell' : sells.includes(k) ? 'buy' : '';
 }
 
 /** A good's price in a city and why, in a line: "Oil cheap in Corinth: you sold them 2,500 in the last year". */
@@ -51,12 +64,15 @@ export function sparkHtml(s: SimState, c: WorldCity, k: number, width = 84, heig
   const y = (v: number): number => height - 2 - ((v - lo) / span) * (height - 4);
   const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const a = priceWhy(c, k, s.tick, s.world).arrow;
+  // (Slice 31: the dot coloured as the arrow is, for what the move means for you.)
+  const side = sideOf(c, k);
+  const dot = a === 0 ? 'flat' : side === '' ? 'plain' : (a > 0) === (side === 'sell') ? 'good' : 'bad';
   const last = values.length - 1;
   // The months the history covers, for the tip: the oldest is eleven months before this one's first.
   const m0 = dateOfTick(Math.max(0, s.tick - 12 * TICKS_PER_MONTH)).month;
   const first = MONTH_NAMES[(m0 + 1) % 12];
   const title = `${cap(WARE_NAMES[TRADE_GOODS[k]])} in ${PLACES[c.id].name} over the last year: ${hist[0]} in ${first}, ${Math.min(...values)} at the lowest, ${Math.max(...values)} at the highest, ${c.price[k]} now (usually ${usual})`;
-  return `<svg class="spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><line class="usual" x1="0" x2="${width}" y1="${y(usual).toFixed(1)}" y2="${y(usual).toFixed(1)}"/><polyline points="${pts}"/><circle class="${a > 0 ? 'up' : a < 0 ? 'down' : 'flat'}" cx="${x(last).toFixed(1)}" cy="${y(values[last]).toFixed(1)}" r="2.2"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><line class="usual" x1="0" x2="${width}" y1="${y(usual).toFixed(1)}" y2="${y(usual).toFixed(1)}"/><polyline points="${pts}"/><circle class="${dot}" cx="${x(last).toFixed(1)}" cy="${y(values[last]).toFixed(1)}" r="2.2"/></svg>`;
 }
 
 /** The ruler's terms in words: "Corinth’s terms: cordial, prices 5% in your favour". '' where there is no ruler. */
@@ -99,7 +115,7 @@ export function yourPriceCell(s: SimState, city: CityId, k: number): { html: str
   const pays = buys.includes(k) ? `${name} pays you ${yours} dr for every 100 ${ware}` : `${name} asks ${yours} dr for every 100 ${ware}`;
   const terms = t === 0 ? ` (the market price)` : ` (the market price ${market}, ${t > 0 ? `${t}% in your favour` : `${-t}% against you`} on ${whose(name)} terms)`;
   const title = `${pays}${terms}. ${priceLine(s, city, k)}. The Tyre ship pays ${PRICES[k]}.`;
-  return { html: `${yours}${arrowHtml(priceWhy(c, k, s.tick, s.world).arrow)}`, title };
+  return { html: `${yours}${arrowHtml(priceWhy(c, k, s.tick, s.world).arrow, sideOf(c, k))}`, title };
 }
 
 /** A list of goods' prices in a city, each with its arrow, a year's chart and its reason. */
@@ -113,7 +129,7 @@ export function priceRows(s: SimState, city: CityId, goods: readonly number[]): 
       // Only a price something is moving gets a reason line (the tip has the rest).
       const easing = (w.word === 'dear' && w.arrow < 0) || (w.word === 'cheap' && w.arrow > 0) ? ', easing' : '';
       const why = w.word === 'usual' ? '' : `<span class="why"><b class="${w.word}">${cap(w.word)}${easing}</b> (usually ${w.usual}): ${esc(w.why)}</span>`;
-      return `<li class="${w.word}" title="${esc(`${line}. Usually ${w.usual} here; the Tyre ship pays ${PRICES[k]}.`)}"><i style="background:${SWATCH[k]}"></i><span class="g">${ware}</span><span class="p"><b>${c.price[k]}</b>${arrowHtml(w.arrow)}</span>${sparkHtml(s, c, k)}${why}</li>`;
+      return `<li class="${w.word}" title="${esc(`${line}. Usually ${w.usual} here; the Tyre ship pays ${PRICES[k]}.`)}"><i style="background:${SWATCH[k]}"></i><span class="g">${ware}</span><span class="p"><b>${c.price[k]}</b>${arrowHtml(w.arrow, sideOf(c, k))}</span>${sparkHtml(s, c, k)}${why}</li>`;
     })
     .join('');
 }

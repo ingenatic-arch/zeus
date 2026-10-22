@@ -43,7 +43,7 @@ import { bookNow } from '../src/sim/stocks';
 import { townLines } from '../src/sim/status';
 import { totals } from '../src/sim/treasury';
 import { position } from '../src/sim/walk';
-import { cityOf, COLD, moodOf, moodReasons } from '../src/sim/world';
+import { armyScale, cityOf, COLD, moodOf, moodReasons } from '../src/sim/world';
 import { demoSim } from './prepared';
 
 const map = coastMap();
@@ -119,7 +119,8 @@ describe('the threat', () => {
       expect(t.due - s.tick).toBeGreaterThanOrEqual(THREAT_DAYS);
       expect(r.coin).toBeGreaterThanOrEqual(300);
       // (Sized by Sparta's strength and the town: well over the first raids' 8 to 12 for a town this big.)
-      const grown = Math.round((Math.max(0, s.population - 400) / 60) * 1.4);
+      // (Slice 31: times Sparta's army against its usual size.)
+      const grown = Math.round((Math.max(0, s.population - 400) / 60) * 1.4 * armyScale(c));
       expect(r.men).toBeGreaterThanOrEqual(Math.min(48, 8 + grown));
       expect(r.men).toBeLessThanOrEqual(Math.min(48, 12 + grown));
       expect(bandSize(s, 'sparta', 0)).toBe(Math.min(48, 8 + grown));
@@ -466,4 +467,20 @@ describe('saves and determinism', () => {
     };
     expect(play()).toBe(play());
   }, 120000);
+});
+
+describe('slice 31', () => {
+  it('a band defied within the first year bides its time at home out of sight, and gathers only for its last ten days', () => {
+    const sim = fresh('caravan');
+    const s = sim.state;
+    const r = threatened(sim);
+    send(sim, { type: 'answer', deal: r.deal, act: 'refuse' });
+    expect(r.phase).toBe('gathering');
+    expect(r.dur).toBe(10 * TICKS_PER_DAY);
+    expect(r.start).toBeGreaterThan(s.tick + TICKS_PER_MONTH);
+    expect(raidOnMap(r, s.tick)).toBeNull();
+    expect(townLines(s, map).find((l) => l.need === 'raid')?.text).toMatch(/bide their time at home/);
+    expect(until(sim, () => s.tick >= r.start, TICKS_PER_YEAR)).toBe(true);
+    expect(raidOnMap(r, s.tick)?.gathering).toBe(true);
+  }, 60000);
 });

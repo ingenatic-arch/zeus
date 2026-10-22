@@ -23,7 +23,8 @@
  * Pure: plain data in, plain data out; only `world.rng` is drawn from.
  */
 import { dpow } from '../map/dmath';
-import { CITY_IDS, HORIZON_ALONG, lineLength, PLACES, RULED, wayOf, wayPoints, type CityId } from '../map/greece';
+import { hash2 } from '../map/noise';
+import { CITY_IDS, FIRST_CITIES, HORIZON_ALONG, lineLength, newcomer, PLACES, RULED, SITES, wayOf, wayPoints, type CityId } from '../map/greece';
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
 import type { Memory, Ruler, SimState, Trait, World, WorldCity } from './state';
@@ -55,7 +56,7 @@ const CLASH: ReadonlyArray<readonly [Trait, Trait]> = [
 ];
 
 /** Each ruled city's character: its rulers' names, how likely each trait is, and how big it is. */
-interface Character {
+export interface Character {
   men: readonly string[];
   women: readonly string[];
   /** "King", "Queen". */
@@ -66,9 +67,16 @@ interface Character {
   size: number;
   /** By trade good: +1 makes plenty (sells), -1 short (buys), 0 about enough. */
   goods: readonly number[];
+  /** How likely its ruler is a woman (three in ten if not given). */
+  queens?: number;
+  /** Slice 31: its size to begin with, before the shuffle (growth.ts): people, treasury (dr), men under arms, ships. */
+  people: number;
+  wealth: number;
+  army: number;
+  fleet: number;
 }
 
-const CHARACTERS: Record<'athens' | 'sparta' | 'corinth' | 'troy', Character> = {
+const CHARACTERS: Record<string, Character> = {
   athens: {
     men: ['Megakles', 'Kodros', 'Alkmaion', 'Medon', 'Akastos', 'Erechtheus', 'Kekrops', 'Aigeus'],
     women: ['Praxithea', 'Kreousa', 'Prokne', 'Herse', 'Metaneira'],
@@ -77,6 +85,10 @@ const CHARACTERS: Record<'athens' | 'sparta' | 'corinth' | 'troy', Character> = 
     size: 1.4,
     // Rich and hungry for wheat: buys food, sells oil and wine.
     goods: [-1, -1, 0, 1, 0, 1],
+    people: 7000,
+    wealth: 20000,
+    army: 40,
+    fleet: 14,
   },
   sparta: {
     men: ['Archidamos', 'Polydoros', 'Teleklos', 'Charilaos', 'Eurykrates', 'Menelaos', 'Tyndareos', 'Leotychidas'],
@@ -86,6 +98,10 @@ const CHARACTERS: Record<'athens' | 'sparta' | 'corinth' | 'troy', Character> = 
     size: 1.0,
     // A city of soldiers, short of fine goods: sells food, buys oil, fleece and wine.
     goods: [1, 1, 0, -1, -1, -1],
+    people: 6000,
+    wealth: 10000,
+    army: 60,
+    fleet: 4,
   },
   corinth: {
     men: ['Periandros', 'Kypselos', 'Bakchis', 'Telestes', 'Aletes', 'Glaukos', 'Sisyphos'],
@@ -95,6 +111,10 @@ const CHARACTERS: Record<'athens' | 'sparta' | 'corinth' | 'troy', Character> = 
     size: 1.1,
     // The trading city: sells wine and fleece, buys oil and meat.
     goods: [0, -1, 0, -1, 1, 1],
+    people: 5500,
+    wealth: 20000,
+    army: 30,
+    fleet: 12,
   },
   troy: {
     men: ['Priam', 'Laomedon', 'Ilos', 'Tros', 'Assarakos', 'Anchises', 'Kapys'],
@@ -104,6 +124,78 @@ const CHARACTERS: Record<'athens' | 'sparta' | 'corinth' | 'troy', Character> = 
     size: 1.2,
     // Far off and wealthy in fleece and wine: buys wheat, cheese and oil.
     goods: [-1, 0, -1, -1, 1, 1],
+    people: 6500,
+    wealth: 16000,
+    army: 45,
+    fleet: 12,
+  },
+  // Slice 31: the newcomers.
+  thebes: {
+    men: ['Kadmos', 'Kreon', 'Laios', 'Eteokles', 'Amphion', 'Lykos', 'Pentheus', 'Labdakos'],
+    women: ['Iokaste', 'Antiope', 'Niobe', 'Harmonia', 'Semele'],
+    title: ['King', 'Queen'],
+    leans: { proud: 2, warlike: 2, pious: 1 },
+    size: 1.0,
+    // Grain and cheese from the Boeotian plain: buys oil and wine.
+    goods: [1, 0, 1, -1, 0, -1],
+    people: 5000,
+    wealth: 12000,
+    army: 45,
+    fleet: 0,
+  },
+  argos: {
+    men: ['Adrastos', 'Phoroneus', 'Danaos', 'Akrisios', 'Proitos', 'Diomedes', 'Inachos'],
+    women: ['Hypermnestra', 'Danae', 'Aigialeia', 'Argeia', 'Amymone'],
+    title: ['King', 'Queen'],
+    leans: { proud: 2, fickle: 2 },
+    size: 0.6,
+    // Flocks on the hills: sells meat and fleece, buys wheat and wine.
+    goods: [-1, 1, 0, 0, 1, -1],
+    people: 2800,
+    wealth: 5000,
+    army: 20,
+    fleet: 0,
+  },
+  knossos: {
+    men: ['Minos', 'Rhadamanthys', 'Deukalion', 'Idomeneus', 'Katreus', 'Asterion'],
+    women: ['Pasiphae', 'Ariadne', 'Phaidra', 'Europa', 'Akakallis', 'Ida'],
+    title: ['King', 'Queen'],
+    leans: { proud: 2, pious: 2, shrewd: 1 },
+    size: 1.1,
+    // Oil and wine from the palace's estates: buys wheat and fleece.
+    goods: [-1, 0, 0, 1, -1, 1],
+    queens: 0.6,
+    people: 5500,
+    wealth: 16000,
+    army: 35,
+    fleet: 12,
+  },
+  rhodes: {
+    men: ['Tlepolemos', 'Kleoboulos', 'Ialysos', 'Kameiros', 'Lindos', 'Diagoras'],
+    women: ['Rhodos', 'Kameira', 'Lindia', 'Polyxo', 'Kydippe'],
+    title: ['Lord', 'Lady'],
+    leans: { shrewd: 2, greedy: 2, generous: 1 },
+    size: 0.9,
+    // A trading island: sells wine and fleece, buys wheat and meat.
+    goods: [-1, -1, 0, 0, 1, 1],
+    people: 4500,
+    wealth: 20000,
+    army: 25,
+    fleet: 16,
+  },
+  memphis: {
+    men: ['Psammetichos', 'Amasis', 'Nekho', 'Apries', 'Sheshonq', 'Osorkon', 'Bakenranef'],
+    women: ['Nitokris', 'Ankhnesneferibre', 'Tentamun', 'Shepenwepet'],
+    title: ['Pharaoh', 'Pharaoh'],
+    leans: { pious: 3, steadfast: 2, proud: 1 },
+    size: 1.6,
+    // The granary of the world: sells wheat, buys oil, fleece and wine.
+    goods: [1, 0, 0, -1, -1, -1],
+    queens: 0.15,
+    people: 9000,
+    wealth: 32000,
+    army: 70,
+    fleet: 10,
   },
 };
 
@@ -122,6 +214,8 @@ const ARMS: Partial<Record<CityId, readonly [number, number, number, number]>> =
   athens: [500, 500, 600, 200],
   corinth: [500, 500, 600, 200],
   troy: [500, 500, 300, 300],
+  // Slice 31: Thebes arms more spearmen than it can equip.
+  thebes: [500, 500, 200, 350],
 };
 const ARMS_EVEN: readonly [number, number, number, number] = [500, 500, 300, 300];
 /** A city's copper and armour, made and used in a year: [copper made, copper used, armour made, armour used]. */
@@ -132,6 +226,9 @@ const HISTORY: Partial<Record<CityId, { amount: number; why: string }>> = {
   sparta: { amount: -10, why: 'your city stands where old Argos did, Sparta’s old rival for the Peloponnese' },
   corinth: { amount: 5, why: 'neighbours on the road through Nemea' },
   troy: { amount: -10, why: 'the Argives sailed against Troy once, under Agamemnon' },
+  // Slice 31.
+  argos: { amount: -10, why: 'the Argives hold that your city stands on their old plain' },
+  rhodes: { amount: 5, why: 'Rhodian merchants are glad of a new harbour to trade with' },
 };
 /** What a trait makes of a new city, remembered for good. */
 const TRAIT_FIRST: Partial<Record<Trait, { amount: number; why: string }>> = {
@@ -143,12 +240,17 @@ const TRAIT_FIRST: Partial<Record<Trait, { amount: number; why: string }>> = {
 /** First word of your city fades over this long. */
 const FIRST_FADE = 3 * TICKS_PER_YEAR;
 
-/** How rulers feel about each other at the start, before the shuffle (CITY_IDS order: home, athens, sparta, corinth, troy, tyre). */
+/** How rulers feel about each other at the start, before the shuffle (CITY_IDS order: home, athens, sparta, corinth, troy, tyre; then slice 31's thebes, argos, knossos, rhodes, memphis). */
 export const OLD_TIES: Partial<Record<CityId, readonly number[]>> = {
-  athens: [0, 0, -20, -5, -10, 0],
-  sparta: [0, -20, 0, 10, -10, 0],
-  corinth: [0, -5, 10, 0, -10, 0],
-  troy: [0, -10, -10, -10, 0, 0],
+  athens: [0, 0, -20, -5, -10, 0, -15, 10, -10, 0, 0],
+  sparta: [0, -20, 0, 10, -10, 0, -10, -25, 5, 0, 0],
+  corinth: [0, -5, 10, 0, -10, 0, 5, 0, 0, -5, 0],
+  troy: [0, -10, -10, -10, 0, 0, 0, 0, 0, 0, 5],
+  thebes: [0, -15, -10, 5, 0, 0, 0, 5, 0, 0, 0],
+  argos: [0, 10, -25, 0, 0, 0, 5, 0, 0, 0, 0],
+  knossos: [0, -10, 5, 0, 0, 0, 0, 0, 0, -5, 10],
+  rhodes: [0, 0, 0, -5, 0, 0, 0, 0, -5, 0, 5],
+  memphis: [0, 0, 0, 0, 5, 0, 0, 0, 10, 5, 0],
 };
 
 /** Greece's own generator, from its seed (well apart from the city's, made from a seed of the same number). */
@@ -165,9 +267,9 @@ function weighted<T>(rng: RngState, items: readonly T[], weight: (t: T) => numbe
   return items[items.length - 1];
 }
 
-function shuffleRuler(rng: RngState, id: keyof typeof CHARACTERS): Ruler {
+function shuffleRuler(rng: RngState, id: CityId): Ruler {
   const ch = CHARACTERS[id];
-  const female = nextFloat(rng) < 0.3;
+  const female = nextFloat(rng) < (ch.queens ?? 0.3);
   const names = female ? ch.women : ch.men;
   const name = names[nextInt(rng, names.length)];
   const first = weighted(rng, TRAITS, (t) => 1 + (ch.leans[t] ?? 0));
@@ -222,7 +324,33 @@ const usualRaw = (k: number, make: number, need: number): number => PRICES[k] * 
  */
 export function freshWorld(seed: number, tick = 0, mild = false): World {
   const rng = worldRng(seed);
-  const cities: WorldCity[] = CITY_IDS.map((id) => ({
+  // (The first six cities draw on Greece's generator exactly as they always have; slice 31's newcomers, and every city's size, on one of their own: settle.)
+  const cities: WorldCity[] = CITY_IDS.slice(0, FIRST_CITIES).map((id) => blankCity(id));
+  for (const c of cities) {
+    const ruled = RULED.includes(c.id) ? c.id : null;
+    if (ruled) c.ruler = shuffleRuler(rng, ruled);
+    shuffleGoods(rng, c, ruled ? CHARACTERS[ruled] : null);
+    if (!c.ruler) continue;
+    c.memories = firstMemories(rng, c, tick, mild);
+    const old = OLD_TIES[c.id] ?? [];
+    c.ties = CITY_IDS.slice(0, FIRST_CITIES).map((o, j) => (o === c.id || !RULED.includes(o) ? 0 : (old[j] ?? 0) + Math.round((nextFloat(rng) - 0.5) * 20)));
+  }
+  const w: World = { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1, raids: [], nextRaid: 1, wars: [], nextWar: 1, feuds: [], loans: [], nextLoan: 1, expeditions: [], nextExpedition: 1, sites: [] };
+  settle(w, tick, mild, true);
+  // Last autumn's harvest, worn off as much as it would have by now, and the next one foreseen. (Drawn after
+  // everything else, so the rulers a seed gives are the same as before prices moved.)
+  for (const c of cities.slice(0, FIRST_CITIES)) {
+    if (!c.ruler) continue;
+    c.harvest = drawHarvest(rng);
+    c.outlook = drawHarvest(rng);
+    firstHarvest(c, tick);
+  }
+  return w;
+}
+
+/** A city's record before anything is shuffled. */
+function blankCity(id: CityId): WorldCity {
+  return {
     id,
     ruler: null,
     memories: [],
@@ -245,56 +373,115 @@ export function freshWorld(seed: number, tick = 0, mild = false): World {
     war: '',
     feel: 3,
     gave: 0,
-  }));
-  for (const c of cities) {
-    const ruled = RULED.includes(c.id) ? (c.id as keyof typeof CHARACTERS) : null;
+    pop: 0,
+    wealth: 0,
+    army: 0,
+    fleet: 0,
+    lord: '',
+    lordSince: 0,
+    grew: [],
+  };
+}
+
+/** What a ruler remembers of your city to begin with: your cities' history, what their traits make of a newcomer, and first word of it. */
+function firstMemories(rng: RngState, c: WorldCity, tick: number, mild: boolean): Memory[] {
+  const mem: Memory[] = [];
+  if (!c.ruler) return mem;
+  const h = HISTORY[c.id];
+  if (h) mem.push({ kind: 'history', why: h.why, amount: h.amount, tick, fade: 0 });
+  for (const t of c.ruler.traits) {
+    const f = TRAIT_FIRST[t];
+    if (f) mem.push({ kind: 'trait', why: f.why, amount: f.amount, tick, fade: 0 });
+  }
+  const fixed = mem.reduce((a, m) => a + m.amount, 0);
+  const span = mild ? 20 : 40;
+  const target = Math.round(-span + nextFloat(rng) * span * 2);
+  const first = Math.max(-25, Math.min(25, target - fixed));
+  const fickle = c.ruler.traits.includes('fickle');
+  if (first !== 0) {
+    mem.push({
+      kind: 'first',
+      why: first > 0 ? (fickle ? 'taken with the first word of your city, for now' : 'first word of your city pleased them') : fickle ? 'put out by the first word of your city, for now' : 'first word of your city didn’t impress them',
+      amount: first,
+      tick,
+      // A fickle ruler forgets in half the time.
+      fade: fickle ? FIRST_FADE / 2 : FIRST_FADE,
+    });
+  }
+  return mem;
+}
+
+/** A ruled city's last harvest worn off to a tick, its prices from it, the arrow's trail and the year of history, and the mood's word. */
+function firstHarvest(c: WorldCity, tick: number): void {
+  const wear = dpow(1 - 1 / WEAR_DAYS, Math.floor((tick - lastHarvest(tick)) / TICKS_PER_DAY));
+  TRADE_GOODS.forEach((_, k) => {
+    c.crop[k] = tidy(HARVEST_SHIFT[c.harvest] * CROP_WEIGHT[k] * normalStock(c, k) * wear);
+  });
+  reprice(c);
+  c.trail = trailOf(c);
+  c.history = c.price.map((p) => new Array<number>(12).fill(p));
+  c.feel = moodLevel(moodOf(c, tick));
+}
+
+/** Slice 31: the generator the newcomers and every city's size are shuffled from (well apart from Greece's own, which it never touches). */
+export const settleRng = (seed: number): RngState => seedRng((seed ^ 0x4e455743) >>> 0);
+
+/**
+ * Slice 31: Greece grown to its full table. Each city of CITY_IDS that isn't
+ * there yet (Thebes, Argos, Knossos, Rhodes, Memphis) is shuffled as the
+ * first four are (its ruler, goods, first memories, last harvest and next),
+ * every ruler's feelings for the others reach every city, every ruled city
+ * has its people, wealth, army and fleet (shuffled up to a tenth or so about
+ * its character's, or, `shuffle` false, the first four's at exactly their
+ * character's, so a loaded town's prices don't move), and the empty sites
+ * are marked. All on its own generator from Greece's seed: what the first
+ * six drew is never touched. A new game (freshWorld) and an older save
+ * (migrate.ts) both come through here; what is already there is kept.
+ */
+export function settle(w: World, tick: number, mild: boolean, shuffle: boolean): void {
+  const rng = settleRng(w.seed);
+  const added: WorldCity[] = [];
+  for (const id of CITY_IDS) {
+    if (w.cities.some((c) => c.id === id)) continue;
+    const c = blankCity(id);
+    const ruled = RULED.includes(id) ? id : null;
     if (ruled) c.ruler = shuffleRuler(rng, ruled);
     shuffleGoods(rng, c, ruled ? CHARACTERS[ruled] : null);
-    if (!c.ruler) continue;
-    const mem: Memory[] = [];
-    const h = HISTORY[c.id];
-    if (h) mem.push({ kind: 'history', why: h.why, amount: h.amount, tick, fade: 0 });
-    for (const t of c.ruler.traits) {
-      const f = TRAIT_FIRST[t];
-      if (f) mem.push({ kind: 'trait', why: f.why, amount: f.amount, tick, fade: 0 });
-    }
-    const fixed = mem.reduce((a, m) => a + m.amount, 0);
-    const span = mild ? 20 : 40;
-    const target = Math.round(-span + nextFloat(rng) * span * 2);
-    const first = Math.max(-25, Math.min(25, target - fixed));
-    const fickle = c.ruler.traits.includes('fickle');
-    if (first !== 0) {
-      mem.push({
-        kind: 'first',
-        why: first > 0 ? (fickle ? 'taken with the first word of your city, for now' : 'first word of your city pleased them') : fickle ? 'put out by the first word of your city, for now' : 'first word of your city didn’t impress them',
-        amount: first,
-        tick,
-        // A fickle ruler forgets in half the time.
-        fade: fickle ? FIRST_FADE / 2 : FIRST_FADE,
-      });
-    }
-    c.memories = mem;
-    const old = OLD_TIES[c.id] ?? [];
-    c.ties = CITY_IDS.map((o, j) => (o === c.id || !RULED.includes(o) ? 0 : (old[j] ?? 0) + Math.round((nextFloat(rng) - 0.5) * 20)));
+    c.memories = firstMemories(rng, c, tick, mild);
+    w.cities.push(c);
+    added.push(c);
   }
-  // Last autumn's harvest, worn off as much as it would have by now, and the next one foreseen. (Drawn after
-  // everything else, so the rulers a seed gives are the same as before prices moved.)
-  const last = lastHarvest(tick);
-  for (const c of cities) {
+  // Every ruler's feelings for every other city: what is there is kept; the rest from the old rivalries and their own leaning.
+  for (const c of w.cities) {
+    const old = OLD_TIES[c.id] ?? [];
+    const ties = CITY_IDS.map((o, j) => {
+      if (j < c.ties.length && !added.includes(c)) return c.ties[j];
+      return !c.ruler || o === c.id || !RULED.includes(o) ? 0 : (old[j] ?? 0) + Math.round((nextFloat(rng) - 0.5) * 20);
+    });
+    c.ties = ties;
+  }
+  // Each ruled city's size, about its character's.
+  for (const c of w.cities) {
+    if (!c.ruler || c.pop > 0) continue;
+    const ch = CHARACTERS[c.id];
+    const f = (lo: number, hi: number): number => (shuffle || added.includes(c) ? lo + nextFloat(rng) * (hi - lo) : 1);
+    c.pop = Math.round((ch.people * f(0.9, 1.1)) / 10) * 10;
+    c.wealth = Math.round((ch.wealth * f(0.8, 1.2)) / 100) * 100;
+    c.army = Math.round(ch.army * f(0.9, 1.1));
+    c.fleet = Math.round(ch.fleet * f(0.85, 1.15));
+  }
+  for (const c of added) {
     if (!c.ruler) continue;
     c.harvest = drawHarvest(rng);
     c.outlook = drawHarvest(rng);
-    const wear = dpow(1 - 1 / WEAR_DAYS, Math.floor((tick - last) / TICKS_PER_DAY));
-    TRADE_GOODS.forEach((_, k) => {
-      c.crop[k] = tidy(HARVEST_SHIFT[c.harvest] * CROP_WEIGHT[k] * normalStock(c, k) * wear);
-    });
-    reprice(c);
-    c.trail = trailOf(c);
-    c.history = c.price.map((p) => new Array<number>(12).fill(p));
-    c.feel = moodLevel(moodOf(c, tick));
+    firstHarvest(c, tick);
   }
-  return { seed, rng, name: DEFAULT_NAME, cities, routes: [], deals: [], travellers: [], news: [], gifts: [], nextGift: 1, contact: 0, nextDeal: 1, raids: [], nextRaid: 1, wars: [], nextWar: 1, feuds: [], loans: [], nextLoan: 1, expeditions: [], nextExpedition: 1 };
+  if (!Array.isArray(w.sites)) w.sites = [];
+  for (const p of SITES) if (!w.sites.some((x) => x.id === p.id)) w.sites.push({ id: p.id, owner: '', since: 0, pop: 0, bound: '', told: 0, lands: 0 });
 }
+
+/** A ruled city's character (its base size, what it makes and uses), or undefined. */
+export const characterOf = (id: CityId): Readonly<Character> | undefined => CHARACTERS[id];
 
 /** A city's record. */
 export const cityOf = (w: World, id: CityId): WorldCity => w.cities[CITY_IDS.indexOf(id)];
@@ -427,14 +614,42 @@ function drawHarvest(rng: RngState): number {
   return weighted(rng, [0, 1, 2, 3, 4], (h) => HARVEST_ODDS[h]);
 }
 
+/** A harvest from a number in [0, 1), by the same odds. */
+function harvestOf(r: number): number {
+  let left = r * HARVEST_ODDS.reduce((a, x) => a + x, 0);
+  for (let h = 0; h < HARVEST_ODDS.length; h++) {
+    left -= HARVEST_ODDS[h];
+    if (left < 0) return h;
+  }
+  return HARVEST_ODDS.length - 1;
+}
+
 /** The tick of the latest harvest at or before a tick (the first of September; before the founding for the first months). */
 export function lastHarvest(tick: number): number {
   const since = (((tick + (START_MONTH - HARVEST_MONTH) * TICKS_PER_MONTH) % TICKS_PER_YEAR) + TICKS_PER_YEAR) % TICKS_PER_YEAR;
   return tick - since;
 }
 
-/** A city's normal stock of a trade good: about half a year of what passes through it. */
-export const normalStock = (c: WorldCity, k: number): number => Math.max(50, (c.make[k] + c.need[k]) / 4);
+/** A city's normal stock of a trade good: about half a year of what passes through it (slice 31: more as its people grow, fewer as they shrink). */
+export const normalStock = (c: WorldCity, k: number): number => Math.max(50, ((c.make[k] + c.need[k]) / 4) * scaleOf(c));
+
+/** Slice 31: a ruled city's army now against its character's (1 if it has none counted). */
+export function armyScale(c: WorldCity | undefined): number {
+  const ch = c ? CHARACTERS[c.id] : undefined;
+  return c && ch && c.army > 0 ? c.army / ch.army : 1;
+}
+
+/** Slice 31: a ruled city's treasury now against its character's (1 if none counted). */
+export function wealthScale(c: WorldCity | undefined): number {
+  const ch = c ? CHARACTERS[c.id] : undefined;
+  return c && ch && c.pop > 0 ? c.wealth / ch.wealth : 1;
+}
+
+/** Slice 31: how much bigger a ruled city is than its character's base (its people against its base's): what it makes and uses grows with it (1 for your city and Tyre). */
+export function scaleOf(c: WorldCity): number {
+  const ch = CHARACTERS[c.id];
+  return ch && c.pop > 0 ? c.pop / ch.people : 1;
+}
 
 /** A city's usual price for a trade good, with nothing pushing its stock (what slice 15 set, steady). */
 export const usualPrice = (c: WorldCity, k: number): number => marketPrice(k, c.make[k], c.need[k]);
@@ -470,12 +685,12 @@ export function traded(w: World, city: CityId, k: number, n: number): void {
   reprice(c);
 }
 
-/** A ruled city's harvest comes in: its crops' stocks rise or fall, and next year's is foreseen. */
-export function harvestIn(w: World, city: CityId, h: number): void {
+/** A ruled city's harvest comes in: its crops' stocks rise or fall, and next year's is foreseen (slice 31's newcomers' by a hash of the year, so Greece's generator draws for the first four as it always has). */
+export function harvestIn(w: World, city: CityId, h: number, tick = 0): void {
   const c = cityOf(w, city);
   if (!c.ruler) return;
   c.harvest = h;
-  c.outlook = drawHarvest(w.rng);
+  c.outlook = newcomer(city) ? harvestOf(hash2(Math.floor(tick / TICKS_PER_YEAR), CITY_IDS.indexOf(city), (w.seed ^ 0x68617276) | 0)) : drawHarvest(w.rng);
   TRADE_GOODS.forEach((_, k) => {
     c.crop[k] = tidy(c.crop[k] + HARVEST_SHIFT[h] * CROP_WEIGHT[k] * normalStock(c, k));
   });
@@ -498,7 +713,7 @@ export function stepWorld(s: SimState): void {
   const w = s.world;
   const harvest = isHarvest(s.tick);
   const was = w.cities.map((c) => c.price[0]);
-  if (harvest) for (const c of w.cities) if (c.ruler) harvestIn(w, c.id, c.outlook);
+  if (harvest) for (const c of w.cities) if (c.ruler) harvestIn(w, c.id, c.outlook, s.tick);
   const keep = 1 - 1 / WEAR_DAYS;
   const feastKeep = 1 - 1 / FEAST_WEAR_DAYS;
   for (const c of w.cities) {

@@ -11,7 +11,7 @@ import { PLACES, type CityId } from '../map/greece';
 import { dateOfTick, formatYear } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { held, WARE_NAMES } from '../sim/foods';
-import { caravanYard, keptIn, LAND_EVERY, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
+import { boughtFrom, caravanYard, heldFor, keptIn, LAND_EVERY, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, soldTo, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
 import { offerLeft, offerOn, offerPrice } from '../sim/favours';
 import { termsLine, termsMeaning, yourPriceCell } from './prices';
 import type { Building, SimState, TradeRoute } from '../sim/state';
@@ -47,8 +47,9 @@ export function routeNewsBlock(s: SimState, r: TradeRoute): string {
 /** What is left of a city's yearly limit in a good, sold or bought this year (and taken so far this visit). */
 function leftOf(s: SimState, r: TradeRoute, k: number, selling: boolean): number {
   const o = offerOn(s.world, r.city, k, selling ? 'buy' : 'sell');
-  if (o) return Math.max(0, offerLeft(o) - (selling ? r.hold[k] : 0));
-  return Math.max(0, yearlyLimit(s, r.city, k) - (selling ? r.sold[k] + r.hold[k] : r.bought[k]));
+  // (Slice 31: shared by every route to the city.)
+  if (o) return Math.max(0, offerLeft(o) - (selling ? heldFor(s, r.city, k) : 0));
+  return Math.max(0, yearlyLimit(s, r.city, k) - (selling ? soldTo(s, r.city, k) + heldFor(s, r.city, k) : boughtFrom(s, r.city, k)));
 }
 
 /** The year's limit in a good: the offer's amount while one is taken, else the city's own. */
