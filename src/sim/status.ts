@@ -53,6 +53,7 @@ import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus';
+import { masonsStatus, monumentTownLine, monumentWalkerStatus, siteStatus } from './monumentstatus';
 import { towerStatus } from './wallstatus';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
@@ -136,6 +137,9 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   // Slice 32.
   if (b.kind === 'quarry') return quarryStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'loggers') return campStatus(s, map, b, workersLine(s, map, b));
+  // Slice 35.
+  if (b.kind === 'masons') return masonsStatus(s, b, workersLine(s, map, b));
+  if (b.kind === 'lighthouse' || b.kind === 'colossus' || b.kind === 'stadium') return siteStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -685,6 +689,8 @@ function thiefStatus(s: SimState, w: Walker): Status {
 /** What any walker other than settlers is doing. */
 export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'quarryman' || w.kind === 'logger') return materialWalkerStatus(s, w);
+  // Slice 35.
+  if (w.kind === 'builder' || w.kind === 'oxcart' || w.kind === 'visitor') return monumentWalkerStatus(s, w);
   if (w.kind === 'water') return carrierStatus(w);
   if (w.kind === 'food') {
     const a = findBuilding(s, w.origin);
@@ -925,7 +931,7 @@ function workshopStatus(s: SimState, map: CoastMap, p: Building): Status {
   else if (rate === 0) making = `Nothing is ${press ? 'pressed' : 'trodden'} with nobody working here`;
   else if (raw <= 0) {
     if (!s.buildings.some((g) => g.kind === from)) making = press ? 'It waits for olives: build an olive grove on the dry slopes (M, four times)' : 'It waits for grapes: plant a vineyard on a sunny slope (M, seven times)';
-    else if (s.walkers.some((w) => w.kind === 'cart' && w.target === p.id)) making = `It waits for ${fruit}: a cart is on its way from a ${from}`;
+    else if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.target === p.id)) making = `It waits for ${fruit}: a cart is on its way from a ${from}`;
     else making = `It waits for ${fruit}: the ${from}s’ next picking is still growing`;
   } else making = `${press ? 'Pressing' : 'Treading the grapes'}: about ${fmt(roundTen(month * rate))} ${unitOf(ware, 2)} of ${WARE_NAMES[ware]} a month while it has ${fruit}${rate < 1 ? ` (${fmt(month)} fully worked)` : ''}`;
   const bringing = coming(p, input);
@@ -1019,7 +1025,7 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
     if (s.buildings.some((g) => g.kind === 'storehouse' && held(g, good) > 0)) return `the ${stallName} is empty for now; its porter fetches ${unitOf(good, 2)} from the storehouse`;
     // The goods are on the way: the stall's porter bringing them, or the makers' carts taking them to a storehouse (an ox cart covers about a tile a day).
     if (s.walkers.some((w) => w.kind === 'porter' && w.food === good && w.load > 0 && reaching.some((a) => a.id === w.origin))) return `the ${stallName}’s porter is on his way back from the storehouse with ${unitOf(good, 2)} of ${what}`;
-    if (s.walkers.some((w) => w.kind === 'cart' && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
+    if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
     return chain.stuck(s);
   }
   if (goodUntil(b, good) > 0) return `within reach of a ${stallName}, but the ${what} vendor has taken other turns lately`;
@@ -1039,7 +1045,7 @@ function nextPicking(s: SimState, kind: 'grove' | 'vineyard'): string {
     const rate = rateOf(g);
     if (rate > 0) soonest = Math.min(soonest, (grow - g.growth) / rate);
   }
-  if (s.walkers.some((w) => w.kind === 'cart' && w.food === ware && !w.back)) return ` (a cart of ${WARE_NAMES[ware]} is on its way to the ${kind === 'grove' ? 'press' : 'winery'})`;
+  if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.food === ware && !w.back)) return ` (a cart of ${WARE_NAMES[ware]} is on its way to the ${kind === 'grove' ? 'press' : 'winery'})`;
   return soonest < Infinity ? ` (the next picking is in about ${days(soonest)})` : '';
 }
 
@@ -1077,7 +1083,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'monument';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1380,6 +1386,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (money) out.push(money);
   const harsh = harshLine(s);
   if (harsh) out.push(harsh);
+  // Slice 35: the monuments (the games on or coming, a stage or a monument finished, a site stuck).
+  const monument = monumentTownLine(s);
+  if (monument) out.push({ need: 'monument', text: monument.text, at: monument.at });
   return out;
 }
 

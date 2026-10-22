@@ -992,7 +992,7 @@ function start(preparedTown: string | null): void {
   };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
   /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector' };
+  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector', quarry: 'sledge', loggers: 'logger' };
   const pointerTools: PointerTools = {
     get active() {
       return (tools.tool !== null || orders.selected !== 0) && !greeceOpen();
@@ -1055,6 +1055,12 @@ function start(preparedTown: string | null): void {
       // A barracks: the Army tab, its companies and its buttons.
       if (b?.kind === 'barracks' || b?.kind === 'shipyard') {
         side.showBarracks(b.id);
+        return hover(w, sx, sy);
+      }
+      // Slice 35: a monument or a masons' yard: the Monuments tab, where it stands and what it waits for.
+      if (b?.kind === 'lighthouse' || b?.kind === 'colossus' || b?.kind === 'stadium' || b?.kind === 'masons') {
+        side.showTab('monuments');
+        if (b.kind === 'masons') startFollow(b.id, 'builder', sim.state.walkers.find((o) => o.origin === b.id && o.kind === 'builder')?.id ?? 0);
         return hover(w, sx, sy);
       }
       // The trading post: its panel (what to sell, how much to keep, when the ship comes).

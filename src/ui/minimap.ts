@@ -49,6 +49,11 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   shipyard: '#6a4a30',
   quarry: '#e4ddcc',
   loggers: '#7a5a2e',
+  // Slice 35: the masons' yard in stone, the monuments in bright marble and bronze.
+  masons: '#cfc4a8',
+  lighthouse: '#fff6dc',
+  colossus: '#d09a48',
+  stadium: '#f4ecd6',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */

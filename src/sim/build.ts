@@ -10,6 +10,8 @@ import { beside, findBuilding, sideOf } from './buildings';
 import { shoreRefusal } from './trade';
 import { towerRefusal } from './walls';
 import { materialRefusal } from './materials';
+import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from './monuments';
+import { monumentRefusal } from './monumentworks';
 import { TILE_EMPTY, TILE_ROAD, TILE_WALL, type BuildingKind, type SimState } from './state';
 
 export const ROAD_COST = 4;
@@ -87,6 +89,11 @@ export const COST: Record<BuildingKind, number> = {
   shipyard: SHIPYARD_COST,
   quarry: QUARRY_COST,
   loggers: LOGGERS_COST,
+  // Slice 35: the masons' yard and the monuments (monuments.ts): the most expensive things in the game.
+  masons: MASONS_COST,
+  lighthouse: LIGHTHOUSE_COST,
+  colossus: COLOSSUS_COST,
+  stadium: STADIUM_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -496,7 +503,7 @@ export function outcropPlace(x: number, z: number): string {
 }
 
 /** Kinds planted on the slopes, each tree or vine on its own ground (and the copper mine and the marble quarry, cut into the hillside): they take ground too steep and uneven for a house. */
-export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine' || kind === 'quarry';
+export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine' || kind === 'quarry' || kind === 'lighthouse';
 
 /** Why a building of this kind can't have its top-left tile here, or '' if it can. */
 export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
@@ -526,6 +533,11 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   // Slice 32: the quarry on marble, the loggers' camp at a wood's edge.
   if (kind === 'quarry' || kind === 'loggers') {
     const m = materialRefusal(map, s, kind, tx, tz);
+    if (m) return m;
+  }
+  // Slice 35: one of each monument, the Lighthouse high over the sea, the Colossus by deep water.
+  if (kind === 'lighthouse' || kind === 'colossus' || kind === 'stadium') {
+    const m = monumentRefusal(map, s, kind, tx, tz);
     if (m) return m;
   }
   if (kind === 'vineyard' && vineOf(map, tx, tz, side) < VINE_MIN) return 'Poor ground for vines: vineyards need dry slopes in the sun, not the river land, rock, sand or a slope turned away from the sun';

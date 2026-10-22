@@ -9,7 +9,7 @@ import { TICKS_PER_DAY } from '../sim/clock';
 import type { TownLine } from '../sim/status';
 
 /** Lines that are news, not shortfalls: they come and go at once. */
-const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime'];
+const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime', 'monument'];
 
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
@@ -27,6 +27,8 @@ const HELMET = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4c2.4-
 const HOOD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6c-2.6 0-4.2 2-4.2 4.6 0 1.2.3 2.2.8 3L3 14.6h10l-1.6-5.4c.5-.8.8-1.8.8-3 0-2.6-1.6-4.6-4.2-4.6z" fill="#3a3540" stroke="#1a1820" stroke-width=".8" stroke-linejoin="round"/><ellipse cx="8" cy="6.6" rx="2" ry="2.3" fill="#1a1820"/><circle cx="11.8" cy="12" r="2.2" fill="#c8963c" stroke="#5e4214" stroke-width=".8"/></svg>';
 const ICONS: Record<TownLine['need'], string> = {
   crime: HOOD,
+  // Slice 35: the monuments', a column with its capital.
+  monument: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4h10l-1.2 1.6H4.2z" fill="#f1e8d2" stroke="#7a6446" stroke-width=".8" stroke-linejoin="round"/><path d="M5 4h6v8.6H5z" fill="#efe6cf" stroke="#7a6446" stroke-width=".8"/><path d="M6.6 4.4v7.8M8 4.4v7.8M9.4 4.4v7.8" stroke="#b8a682" stroke-width=".6"/><path d="M3.4 12.6h9.2l.8 1.6H2.6z" fill="#f1e8d2" stroke="#7a6446" stroke-width=".8" stroke-linejoin="round"/></svg>',
   // (A loan's: a coin on a scroll, as on the city's label and page.)
   loan: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.8h8.6c.9 0 1.5.6 1.5 1.5V12H4.5C3.7 12 3 11.3 3 10.5z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M5.2 5.4h5M5.2 7.2h3" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/><circle cx="10.6" cy="11" r="3.3" fill="#e8c04a" stroke="#8a6414" stroke-width=".9"/><circle cx="10.6" cy="11" r="1.7" fill="none" stroke="#b88a1e" stroke-width=".7"/></svg>',
   raid: SPEARS,
@@ -56,7 +58,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'monument'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -69,7 +71,7 @@ const rank = (need: TownLine['need']): number => {
  * and caravans. (Review of slice 29: folded in ORDER, a ship and a caravan
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader', 'monument'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;

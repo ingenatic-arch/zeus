@@ -57,7 +57,7 @@ export function earshot(map: CoastMap, v: Required<CameraView>, s: SimState): Li
       if (wk.path.length < 2) continue;
       const [x, z] = position(wk);
       if ((x - v.x) ** 2 + (z - v.z) ** 2 > near * near) continue;
-      if (wk.kind === 'cart') carts++;
+      if (wk.kind === 'cart' || wk.kind === 'sledge' || wk.kind === 'oxcart') carts++;
       else walkers++;
     }
   }

@@ -102,7 +102,12 @@ export type ToolName =
   | 'clear'
   // Slice 32.
   | 'quarry'
-  | 'loggers';
+  | 'loggers'
+  // Slice 35.
+  | 'masons'
+  | 'lighthouse'
+  | 'colossus'
+  | 'stadium';
 export const TOOLS: readonly ToolName[] = [
   'road',
   'housing',
@@ -138,6 +143,11 @@ export const TOOLS: readonly ToolName[] = [
   // Slice 32.
   'quarry',
   'loggers',
+  // Slice 35.
+  'masons',
+  'lighthouse',
+  'colossus',
+  'stadium',
 ];
 
 /** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
@@ -147,7 +157,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && !isStallTool(t);
 
 export interface ToolTip {
@@ -253,7 +263,7 @@ export class Tools {
     const ix = mapIndex(map);
     this.placement.show(t !== null, t === 'road', t === 'mine', t === 'quarry');
     if (t) {
-      const quay = t === 'trading' || t === 'shipyard' ? quayTiles(map) : new Uint8Array(0);
+      const quay = t === 'trading' || t === 'shipyard' || t === 'colossus' ? quayTiles(map) : new Uint8Array(0);
       this.placement.setBlocked((i) => {
         if (map.tileWater[i] !== WATER_NONE) return false;
         const g = ix.ground[i];
@@ -276,7 +286,9 @@ export class Tools {
         // A quarry needs marble in the rock (it shows pale: see Placement), and takes a slope as a mine does.
         if (t === 'quarry') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileMarble(map, i) < QUARRY_MARBLE_MIN * 0.5;
         // The trading post goes on the bay shore where the ship can come alongside: the rest is washed rust.
-        if (t === 'trading' || t === 'shipyard') return g !== Ground.Ok || quay[i] === 0;
+        if (t === 'trading' || t === 'shipyard' || t === 'colossus') return g !== Ground.Ok || quay[i] === 0;
+        // Slice 35: the Lighthouse takes a slope, as a quarry does (on the headland: its tip says where).
+        if (t === 'lighthouse') return g !== Ground.Ok && g !== Ground.SteepForHome;
         // A stall goes on an agora: nothing is washed.
         if (isStallTool(t)) return false;
         if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
@@ -646,6 +658,10 @@ export class Tools {
       shipyard: ['shipyard', 'shipyards'],
       quarry: ['marble quarry', 'marble quarries'],
       loggers: ['loggers’ camp', 'loggers’ camps'],
+      masons: ['masons’ yard', 'masons’ yards'],
+      lighthouse: ['lighthouse', 'lighthouses'],
+      colossus: ['colossus', 'colossi'],
+      stadium: ['stadium', 'stadiums'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -924,8 +940,8 @@ export class Tools {
       if (kind === 'mine') text += ` · copper in the rock ${Math.round(copperOf(map, x, z, side) * 100)}%`;
       lines.push(...more.lines);
       warn = more.warn;
-    } else if (kind === 'quarry' || kind === 'loggers') {
-      // Slice 32.
+    } else if (kind === 'quarry' || kind === 'loggers' || kind === 'masons' || kind === 'lighthouse' || kind === 'colossus' || kind === 'stadium') {
+      // Slice 32; slice 35.
       const more = worksLines(s, map, kind, x, z, roads.length > 0);
       text += worksHeadline(s, map, kind, x, z);
       lines.push(...more.lines);

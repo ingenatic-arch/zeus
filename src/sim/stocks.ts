@@ -103,7 +103,7 @@ export function stockOf(s: SimState, w: Ware): WareStock {
   for (const k of s.walkers) {
     // Carts and dockers carry one ware in `load`; the food porter wheat in `load` and meat and cheese in `meat` and `cheese`.
     let n = 0;
-    if (k.kind === 'cart' || k.kind === 'sledge' || k.kind === 'docker' || (k.kind === 'porter' && k.food > CHEESE)) n = k.food === w ? k.load : 0;
+    if (k.kind === 'cart' || k.kind === 'sledge' || k.kind === 'oxcart' || k.kind === 'docker' || (k.kind === 'porter' && k.food > CHEESE)) n = k.food === w ? k.load : 0;
     else if (k.kind === 'porter') n = w === WHEAT ? k.load : w === MEAT ? k.meat : w === CHEESE ? k.cheese : 0;
     // (A hunter's kill is the city's once he is home with it: that is when the book counts it made.)
     if (n > 0) {

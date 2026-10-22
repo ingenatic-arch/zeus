@@ -35,6 +35,8 @@ import {
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 import { GATE_COST, WALL_COST } from '../sim/walls';
+// Slice 35.
+import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from '../sim/monuments';
 
 /**
  * Every tool's and overlay's icon, name, key, cost and hint, which the
@@ -161,6 +163,14 @@ export const ICONS: Record<ButtonName, string> = {
   quarry: '<svg viewBox="0 0 24 24"><path d="M4 11.4 11 8l9 3v8.6l-7 2.8-9-3.2z" class="fill-soft"/><path d="M4 11.4l9 3.2 7-3.4M13 14.6v7.8" class="stroke-ink"/><path d="M6.6 15.6l1.6.6M6.6 17.8l1.6.6M15.6 17.4l1.6-.8" class="stroke-ink"/><path d="M2 6.6 21.6 3" class="stroke-ink"/></svg>',
   // Slice 32: an axe bitten into a log end.
   loggers: '<svg viewBox="0 0 24 24"><path d="M3 15.4c0-2.4 1.8-4.2 4.2-4.2H19v8.4H7.2C4.8 19.6 3 17.8 3 15.4z" class="fill-olive"/><circle cx="7.2" cy="15.4" r="3" class="fill-soft"/><circle cx="7.2" cy="15.4" r="1.2" class="stroke-ink"/><path d="M14.4 11.4 18.8 2.6" class="stroke-ink"/><path d="M16.4 3.4c2.6-.6 4.6.4 5.4 2.4l-4.6 1.6z" class="fill-ink"/></svg>',
+  // Slice 35: a mallet and a chisel on a squared block.
+  masons: '<svg viewBox="0 0 24 24"><path d="M3 14.6l8.4-3.4 9.6 3.4-8.4 3.6z" class="fill-soft"/><path d="M3 14.6v4.2l9.6 3.6 8.4-3.6v-4.2M12.6 18.2v4.2" class="stroke-ink"/><path d="M13.4 10.2 18.6 2.2" class="stroke-ink"/><path d="M5.6 9.4 9.6 3.2" class="stroke-ink"/><path d="M8.2 2.2l3.4 2.2-1.6 2.4-3.4-2.2z" class="fill-ink"/></svg>',
+  // Slice 35: a tall stepped tower on the rock, its fire at the top.
+  lighthouse: '<svg viewBox="0 0 24 24"><path d="M7 22h10l-1.2-6H8.2zM8.6 15.4h6.8l-.8-6.4H9.4zM10 8.4h4V5.6h-4z" class="fill-soft"/><path d="M12 1.4c1.4 1.2 1.6 2.4.8 3.6h-1.6c-.8-1.2-.6-2.4.8-3.6z" class="fill-ink"/><path d="M4 22h16M8.2 15.4h7.6M9.4 8.6h5.2" class="stroke-ink"/></svg>',
+  // Slice 35: a bronze giant striding, a torch raised.
+  colossus: '<svg viewBox="0 0 24 24"><circle cx="12" cy="4.6" r="1.8" class="fill-ink"/><path d="M10.2 7.4h3.6l.6 6.4-1.4.4.6 6.8h-1.8L12 15l-.4 6h-1.8l.6-6.8-1.4-.4z" class="fill-soft"/><path d="M13.8 8.2l3.4-4.4M17.2 3.8V1.6" class="stroke-ink"/><path d="M5 22h14" class="stroke-ink"/></svg>',
+  // Slice 35: the stadium's long track between its banks, seen from above.
+  stadium: '<svg viewBox="0 0 24 24"><path d="M3 8.2h15.2a3.8 3.8 0 0 1 0 7.6H3z" class="fill-soft"/><path d="M5.6 10.4h12.2a1.6 1.6 0 0 1 0 3.2H5.6z" class="fill-ink"/><path d="M3 5.6h15.4c3.6 0 5.6 2.8 5.6 6.4s-2 6.4-5.6 6.4H3z" class="stroke-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
@@ -257,6 +267,31 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: 'M ×10',
     cost: `${LOGGERS_COST} dr`,
     hint: 'Click at the edge of a wood of pines and cypresses, beside a road. Its loggers fell the trees in reach and carry the logs home; its carts take them to a storehouse. The wood grows back slowly: a camp can strip a hillside.',
+  },
+  // Slice 35: the masons' yard and the monuments, on the Monuments tab (no key: every letter is taken).
+  masons: {
+    name: 'Masons’ yard',
+    key: '',
+    cost: `${MASONS_COST} dr`,
+    hint: 'Click beside a road. Its builders walk to the monument being built and work on it; a stage goes as fast as the builders there.',
+  },
+  lighthouse: {
+    name: 'The Lighthouse',
+    key: '',
+    cost: `${LIGHTHOUSE_COST} dr`,
+    hint: 'Click on high ground by the sea, beside a road. Built in three stages from marble and timber the ox carts haul from the storehouses. Finished, the ship comes and goes faster and pirates keep clear.',
+  },
+  colossus: {
+    name: 'The Colossus',
+    key: '',
+    cost: `${COLOSSUS_COST} dr`,
+    hint: 'Click on the bay shore by deep water, beside a road. A marble plinth, then a frame and a skin of bronze the armourers cast on site. Finished, every ruler in Greece speaks of it.',
+  },
+  stadium: {
+    name: 'The Stadium',
+    key: '',
+    cost: `${STADIUM_COST} dr`,
+    hint: 'Click on flat ground (six by six), beside a road. Finished, it holds games every four years: visitors walk in and pay for their seats, and the whole city is in a festival mood.',
   },
   stall: {
     name: 'Oil stall',

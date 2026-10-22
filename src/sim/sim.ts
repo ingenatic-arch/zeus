@@ -40,6 +40,9 @@ import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from '.
 // Slice 30.
 import { freshCrime, moveThief, moveWatch, stepCrime } from './crime';
 import { freshMaterials, moveLogger, moveQuarryman, stepMaterials } from './materials';
+// Slice 35.
+import { freshMonuments, isMonument } from './monuments';
+import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from './monumentworks';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -91,6 +94,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     fleet: freshFleet(),
     crime: freshCrime(),
     materials: freshMaterials(),
+    monuments: freshMonuments(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -183,6 +187,8 @@ export class Sim {
     stepMakers(s, map);
     // Slice 32: the quarries' faces, the loggers' camps and the woods growing back (nothing with neither and no felled tree).
     stepMaterials(s, map);
+    // Slice 35: the monuments' sites, their ox carts, the masons' builders and the games (nothing with no monument and no masons' yard).
+    stepMonuments(s, map);
     stepAgoras(s, map, stepStalls);
     stepTrade(s, map);
     // Trade routes, their caravans and ships, and the caravan yard's porters (nothing in a town with neither).
@@ -565,6 +571,10 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     covered.push(...footprint(n, x, z, sideOf(kind)));
     // Slice 32: a quarry's spoil heaps cover the ground round it too (the rocks there would stand in its pit).
     if (kind === 'quarry') for (let dz = -1; dz <= 3; dz++) for (let dx = -1; dx <= 3; dx++) if ((dz < 0 || dz > 2 || dx < 0 || dx > 2) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
+    // Slice 35: a monument's site is marked out the moment it is placed.
+    if (isMonument(kind)) markSite(s, b);
+    // Slice 35 (slice 32's review): the loggers' camp clears the trees right round it too, so none stands (or grows back) through its corner.
+    if (kind === 'loggers') for (let dz = -1; dz <= 2; dz++) for (let dx = -1; dx <= 2; dx++) if ((dz < 0 || dz > 1 || dx < 0 || dx > 1) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
   }
   e.trees = clearTrees(s, map, covered);
   return e;
@@ -909,6 +919,13 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? moveQuarryman(s, map, w)
               : w.kind === 'logger'
                 ? moveLogger(s, map, w)
+              // Slice 35: the monuments' ox carts, the masons' builders and the games' visitors.
+              : w.kind === 'oxcart'
+                ? moveOxcart(s, map, w)
+              : w.kind === 'builder'
+                ? moveBuilder(s, map, w)
+              : w.kind === 'visitor'
+                ? moveVisitor(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

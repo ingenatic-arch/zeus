@@ -43,6 +43,9 @@ export const SENDING_SPEED = CARAVAN_SPEED * 2;
 export function speedOf(w: Walker): number {
   if (w.kind === 'cart') return CART_SPEED;
   if (w.kind === 'sledge') return SLEDGE_SPEED;
+  // (Slice 35: the monuments' ox carts go at a cart's pace; the games' visitors hurry, at your own caravan's.)
+  if (w.kind === 'oxcart') return CART_SPEED;
+  if (w.kind === 'visitor') return SENDING_SPEED;
   // (Your own caravan or porter about a gift or a sending: the gift's number is in `cheese`, see giftOf.)
   if (w.kind === 'caravan') return w.cheese > 0 ? SENDING_SPEED : CARAVAN_SPEED;
   if (w.kind === 'watchman' && w.target > 0) return RUN_SPEED;

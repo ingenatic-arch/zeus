@@ -9,7 +9,7 @@ import type { ToolName } from '../game/tools';
 import type { OverlayMode } from '../render/overlay';
 import { ICONS } from './buildbar';
 
-export type Category = 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military';
+export type Category = 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'monuments';
 
 export interface CategoryInfo {
   id: Category;
@@ -30,6 +30,9 @@ const PEOPLE = '<svg viewBox="0 0 20 16"><circle cx="7" cy="4" r="2.6" class="f"
 // A crested Corinthian helmet; the barracks' shield reads as a ring at tab size.
 const HELMET = '<svg viewBox="0 0 24 24"><path d="M12 4.6c-4.4 0-7.4 3-7.4 7.4V19.4c0 .9.7 1.6 1.6 1.6h3.3v-5.2L7.2 14.6v-2.2h4.1V21h1.4v-8.6h4.1v2.2l-2.3 1.2V21h3.3c.9 0 1.6-.7 1.6-1.6V12c0-4.4-3-7.4-7.4-7.4z" class="f"/><path d="M5.2 6.6C6.6 3.4 9 1.8 12 1.8s5.4 1.6 6.8 4.8" class="s"/></svg>';
 
+// Slice 35: a fluted column with its capital, for the Monuments tab.
+const COLUMN = '<svg viewBox="0 0 24 24"><path d="M4.4 3h15.2l-1.8 2.6H6.2z" class="f"/><path d="M7.4 6.2h9.2v12.4H7.4z" class="f"/><path d="M10.2 7v10.8M13.8 7v10.8" class="s"/><path d="M5 19.2h14l1.4 2.2H3.6z" class="f"/></svg>';
+
 export const CATEGORIES: readonly CategoryInfo[] = [
   { id: 'population', title: 'Population', tip: 'Population: housing, who lives here and who has work', icon: PEOPLE, tools: ['housing'], overlays: ['missing'] },
   { id: 'husbandry', title: 'Husbandry', tip: 'Husbandry: farms, herds, groves and vineyards, and what the land gives', icon: ICONS.farm, tools: ['farm', 'lodge', 'dairy', 'grove', 'pasture', 'vineyard'], overlays: ['food', 'variety'] },
@@ -40,6 +43,8 @@ export const CATEGORIES: readonly CategoryInfo[] = [
   { id: 'culture', title: 'Culture', tip: 'Culture: the theatre, and the homes that have plays', icon: ICONS.theatre, tools: ['theatre'], overlays: ['culture'] },
   { id: 'mythology', title: 'Mythology', tip: 'Mythology: the shrines, and the homes they bless', icon: ICONS.shrine, tools: ['shrine'], overlays: ['religion'] },
   { id: 'military', title: 'Military', tip: 'Military: the barracks, the walls and towers, the shipyard, the companies, the triremes and the city’s strength', icon: HELMET, tools: ['barracks', 'wall', 'tower', 'shipyard'], overlays: [] },
+  // Slice 35.
+  { id: 'monuments', title: 'Monuments', tip: 'Monuments: the masons’ yard, the Lighthouse, the Colossus and the Stadium, how far along each is and what it waits for', icon: COLUMN, tools: ['masons', 'lighthouse', 'colossus', 'stadium'], overlays: [] },
 ];
 
 /** The tools on the panel's head rather than in a tab. */

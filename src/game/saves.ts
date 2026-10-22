@@ -378,7 +378,31 @@ export function stateProblem(st: unknown): string {
   if (!crimeOk(st.crime)) return damaged('its record of crime is wrong');
   // Slice 32.
   if (!materialsOk(st.materials)) return damaged('its record of felled trees is wrong');
+  // Slice 35.
+  if (!monumentsOk(st.monuments)) return damaged('its record of the monuments is wrong');
   return '';
+}
+
+/** The monuments (slice 35): each site's building, kind, stage and work, and the Stadium's games. */
+function monumentsOk(m: unknown): boolean {
+  if (!isObj(m) || !Array.isArray(m.sites) || !isObj(m.games)) return false;
+  const g = m.games;
+  if (!['next', 'until', 'held', 'groups', 'visitors', 'takings', 'ended'].every((k) => fin(g[k]))) return false;
+  return (m.sites as unknown[]).every(
+    (x) =>
+      isObj(x) &&
+      Number.isInteger(x.id) &&
+      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium') &&
+      Number.isInteger(x.stage) &&
+      (x.stage as number) >= 0 &&
+      (x.stage as number) <= 3 &&
+      typeof x.building === 'boolean' &&
+      fin(x.work) &&
+      fin(x.marked) &&
+      fin(x.finished) &&
+      Array.isArray(x.done) &&
+      (x.done as unknown[]).every(fin),
+  );
 }
 
 /** Crime (slice 30): the switch, the news and the month's tallies. */

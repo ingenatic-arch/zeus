@@ -64,8 +64,8 @@ function cartLine(s: SimState, b: Building, w: Ware, what: string, carts: string
   return '';
 }
 
-/** What the stores' marble or timber is for, for now. */
-const FOR_NOW = 'Kept in a storehouse and sold to Greece if you tick it on the Trade tab · the great works to come will want it';
+/** What the stores' marble or timber is for (slice 35: the monuments). */
+const FOR_NOW = 'Kept in a storehouse, where the ox carts fetch it for a monument being built (the Monuments tab), and sold to Greece if you tick it on the Trade tab';
 
 /** A marble quarry: the marble in its rock, its quarrymen, what it cuts, where the blocks go. */
 export function quarryStatus(s: SimState, map: CoastMap, b: Building, workers: string): Status {

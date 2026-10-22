@@ -39,12 +39,13 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road; again for a copper mine (on the green-streaked rock it shows), an armoury, a barracks, a wall (drag it like a road: a gate where it crosses one), a tower (on or beside a wall) and a shipyard (on the bay shore)</dd>
       <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery, marble quarry (on the pale rock of the headland) and loggers’ camp (at a wood’s edge)</dd>
-      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece and wine), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
+      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece, wine, copper, armour, marble and timber), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
       <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away, and thieves: homes he walks by are less tempted to steal, and he runs after any thief he sees), and again for an architect’s office (its inspector keeps buildings from falling)</dd>
       <dt>Shift</dt><dd>With M, G, K or Z: back to the one before</dd>
+      <dt>Monuments</dt><dd>On the Monuments tab (no key: every letter is taken): the masons’ yard, whose builders build the monuments, and the Lighthouse (high over the sea), the Colossus (by deep water) and the Stadium. Each goes up in three stages, a stage starting once its marble, timber or bronze is all on site</dd>
       <dt>X</dt><dd>Clear land: drag over it (rubble costs a little to clear)</dd>
       <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared (within about a month)</dd>
       <dt>Esc</dt><dd>Put the tool down (or right-click)</dd>

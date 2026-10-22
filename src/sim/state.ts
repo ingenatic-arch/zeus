@@ -1,9 +1,11 @@
 import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 import type { Crime } from './crime';
+// Slice 35: the monuments' sites and the Stadium's games.
+import type { Monuments } from './monuments';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 30;
+export const SIM_STATE_VERSION = 31;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -41,9 +43,14 @@ export type BuildingKind =
   | 'shipyard'
   // Slice 32: the quarry and the loggers' camp.
   | 'quarry'
-  | 'loggers';
+  | 'loggers'
+  // Slice 35: the masons' yard and the three monuments.
+  | 'masons'
+  | 'lighthouse'
+  | 'colossus'
+  | 'stadium';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -156,9 +163,9 @@ export interface Building {
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge' | 'builder' | 'oxcart' | 'visitor';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -468,6 +475,8 @@ export interface SimState {
   crime: Crime;
   /** Slice 32: the trees the loggers have felled, growing back (materials.ts). */
   materials: Materials;
+  /** Slice 35: the monuments' sites, their stages and the Stadium's games (monuments.ts, monumentworks.ts). */
+  monuments: Monuments;
 }
 
 /**
@@ -1286,6 +1295,8 @@ export interface Ship {
   lastAt: number;
   lastBought: number[];
   lastPaid: number;
+  /** Slice 35: her pace on this voyage, a share of the usual days in and out (set only while the Lighthouse burns; absent, the usual). */
+  pace?: number;
 }
 
 // ---------------------------------------------------------------------------
