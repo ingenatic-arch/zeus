@@ -2511,8 +2511,9 @@ function monumentTown(stage: 'monument' | 'lit'): (sim: Sim) => void {
     send({ type: 'road', tiles: spur });
     send({ type: 'build', kind: 'lighthouse', at: [MONUMENT_LIGHTHOUSE] });
     for (const at of MONUMENT_YARDS) send({ type: 'build', kind: 'masons', at: [at] });
-    // Troy's timber, by sea, once the treasury can spare the route's fee.
-    playOn(MONUMENT_MOST, () => routeRefusal(s, 'troy', 'sea') === '');
+    // Troy's timber, by sea, once the treasury can spare the route's fee (at the merge of slices 33 and 35: and three months' wages
+    // besides, for the timber the first ships bring; with the seasons' history the fee alone left the wages unpaid that autumn).
+    playOn(MONUMENT_MOST, () => routeRefusal(s, 'troy', 'sea') === '' && spendable(s) >= routeWay('troy', 'sea')!.fee + 3 * wageBill(s));
     send({ type: 'route', city: 'troy', kind: 'sea' });
     send({ type: 'deal', city: 'troy', kind: 'sea', good: TIMBER, buy: true, upto: MONUMENT_TIMBER });
     const site = (): ReturnType<typeof monumentOf> => monumentOf(s, 'lighthouse');

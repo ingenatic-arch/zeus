@@ -648,8 +648,8 @@ export const gamesSoon = (s: SimState): boolean => {
   return g.until <= s.tick && g.next > s.tick && g.next - s.tick <= GAMES_NOTICE && isFinished(s, 'stadium');
 };
 
-/** The rulers who send athletes: those cordial or better, by name of city. */
-const athleteCities = (s: SimState): WorldCity[] => s.world.cities.filter((c) => c.ruler && moodOf(c, s.tick) >= 0);
+/** The rulers who send athletes: those cordial or better, by name of city (at the merge of slices 34 and 35: and your vassals and allies, whatever their mood). */
+const athleteCities = (s: SimState): WorldCity[] => s.world.cities.filter((c) => c.ruler && (moodOf(c, s.tick) >= 0 || c.lord === 'home' || s.empire.allies.some((a) => a.city === c.id)));
 
 /** "Corinth, Sparta and Argos". */
 const andList = (xs: string[]): string => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);

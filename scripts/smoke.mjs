@@ -1063,7 +1063,8 @@ await open('#sail-paused');
 let sh = await zeus(() => window.__zeus.ship());
 lines12 = await zeus(() => window.__zeus.townLines());
 if (!(sh.phase === 1 && sh.visible && sh.version === 'set' && Math.hypot(sh.x - 74.5, sh.z - 77.5) > 40)) fail(`#sail ship: ${JSON.stringify(sh)}`);
-if (!lines12.some((l) => /^A sail on the horizon: the merchant ship ties up at the trading post in \d+ days?\. On the quay: /.test(l))) fail(`#sail town line: ${JSON.stringify(lines12)}`);
+// (At the merge of slices 33 and 35: the line names the winter storms when they held her back, as #sail's ship is in February.)
+if (!lines12.some((l) => /^A sail on the horizon: the merchant ship ties up at the trading post in \d+ days?(, \d+ days late for the winter storms in the gulf)?\. On the quay: /.test(l))) fail(`#sail town line: ${JSON.stringify(lines12)}`);
 if (!(await zeus(() => window.__zeus.meshes().some((m) => m.name === 'ship-mesh')))) fail('#sail: the ship mesh is not drawn');
 // #ship: tied up at the jetty, sail furled, loading; hovering her says so.
 await open('#ship-paused');
@@ -2643,6 +2644,11 @@ const err35 = errors.length;
   if (!/The Lighthouse · \d+% built[\s\S]*stage \d of 3/.test(lt35 ?? '')) fail(`#monument: the site's hover: ${lt35}`);
   const bd35 = await hoverWalker35('builder');
   if (!/^Builder/.test(bd35 ?? '')) fail(`#monument: a builder's hover: ${bd35}`);
+  // (At the merge of slices 33 and 35: with the seasons' autumn lines under the top bar, the carts on the road above the tower can sit under them
+  // at 1280 × 720, so the camera goes to a cart first.)
+  const oxAt35 = await zeus(() => window.__zeus.where('oxcart'));
+  if (oxAt35) await zeus((o) => window.__zeus.jump({ x: o.x, z: o.z, yaw: 0.4, dist: 8, tilt: 0.1 }), oxAt35);
+  await frames(3);
   const ox35 = await hoverWalker35('oxcart');
   if (!/[Oo]x cart/.test(ox35 ?? '')) fail(`#monument: an ox cart's hover: ${ox35}`);
   await zeus((y) => window.__zeus.jump({ x: y.x + 1, z: y.z + 1, yaw: 0.4, dist: 8, tilt: 0.1 }), a35.yards[0]);

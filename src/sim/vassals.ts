@@ -666,12 +666,16 @@ export function loyaltyOf(s: SimState, v: Vassal): Loyalty {
   if (expeditionOut(s) && expeditionOut(s)?.city !== v.city) add(ABROAD, 'your army abroad');
   let gifts = 0;
   let rest = 0;
+  // (At the merge of slices 34 and 35: the Colossus, remembered for good, is named on its own, at the same share as the ruler's other feelings.)
+  let colossus = 0;
   for (const m of c.memories) {
     const n = memoryWorth(m, s.tick);
     if (m.kind === 'gift') gifts += n;
+    else if (m.kind === 'colossus') colossus += n;
     else if (m.kind !== 'forcedfree' && m.kind !== 'raidedfree' && m.kind !== 'crushed') rest += n;
   }
   add(clamp(gifts * GIFT_SHARE, 0, GIFT_MOST), 'your gifts');
+  add(colossus * MOOD_SHARE, 'they speak of your Colossus');
   add(clamp(rest * MOOD_SHARE, -MOOD_MOST, MOOD_MOST), `${rulerShort(c)}’s feelings otherwise`);
   // Whispers: rivals cold to you and friendly with it.
   let whispers = 0;

@@ -215,7 +215,7 @@ export function monumentTownLine(s: SimState): { text: string; at: number } | nu
   const stadium = monumentOf(s, 'stadium');
   const g = s.monuments.games;
   if (stadium?.finished && g.until > s.tick) return { text: `The games are on at the Stadium: ${fmt(g.visitors)} visitors so far have paid ${fmt(g.takings)} dr for their seats, and every home is in a festival mood.`, at: stadium.id };
-  if (stadium?.finished && gamesSoon(s)) return { text: `The games at the Stadium open in ${spanWords(g.next - s.tick)}: visitors are on the roads in, and athletes from cities friendly to you will come.`, at: stadium.id };
+  if (stadium?.finished && gamesSoon(s)) return { text: `The games at the Stadium open in ${spanWords(g.next - s.tick)}: visitors are on the roads in, and athletes from cities friendly to you${s.empire.vassals.length || s.empire.allies.length ? ` and from your ${s.empire.vassals.length && s.empire.allies.length ? 'vassals and allies' : s.empire.vassals.length ? 'vassals' : 'allies'}` : ''} will come.`, at: stadium.id };
   for (const x of sites) {
     if (x.finished && s.tick - x.finished < NEWS_DAYS * TICKS_PER_DAY) return { text: `${monumentName(x.kind, true)} is finished. ${effectLine(s, x.kind)}.`, at: x.id };
     const last = x.done[x.done.length - 1];

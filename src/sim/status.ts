@@ -88,7 +88,7 @@ import {
   wears,
 } from './hazards';
 // Slice 33: the seasons' pace in the farms', groves' and flocks' lines.
-import { AUTUMN, daysToNextSeason, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
+import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 
 export interface Status {
   title: string;
@@ -1880,7 +1880,11 @@ function shipTownLine(s: SimState): TownLine | null {
   const waiting = quay.some((n) => n > 0) ? ` On the quay: ${goodsList(quay)}${worth > 0 ? `, worth ${fmt(worth)} dr` : ''}.` : ' The quay is empty.';
   const inDays = news.days === 1 ? '1 day' : `${news.days} days`;
   // (Review of slice 35: guided in by the Lighthouse, quicker than she used to be.)
-  const guided = ship.phase === SHIP_COMING && ship.pace !== undefined ? ', guided in by your Lighthouse' : '';
-  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}${guided}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
+  const lighthouse = ship.phase === SHIP_COMING && ship.pace !== undefined;
+  // (At the merge of slices 33 and 35: held back by winter's storms, the line says so too, and names both when both apply.)
+  const late = ship.phase === SHIP_COMING ? lateDays(s, 'tyre') : 0;
+  const stormed = late > 0 ? `, ${late} days late for the winter storms in the gulf` : '';
+  const guided = lighthouse ? `${stormed ? ' but' : ','} guided in by your Lighthouse` : '';
+  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}${stormed}${guided}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
   return { need: 'ship', text, at: post.id };
 }

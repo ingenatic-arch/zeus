@@ -22,7 +22,8 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, TILE_ROAD, type Building, type SimState } from '../src/sim/state';
 import { sailInTicks, SAIL_IN, SHIP_COMING } from '../src/sim/trade';
 import { income, totals } from '../src/sim/treasury';
-import { moodReasons } from '../src/sim/world';
+import { cityOf, moodReasons } from '../src/sim/world';
+import { loyaltyOf, take } from '../src/sim/vassals';
 import { demoSim } from './prepared';
 
 const N = 128;
@@ -189,6 +190,38 @@ describe('monuments', () => {
       expect(m.fade).toBe(0);
       expect(moodReasons(c, s.tick).some((r) => r.why === COLOSSUS_WHY && !r.fading)).toBe(true);
     }
+  });
+
+  // (At the merge of slices 34 and 35: the Colossus named in a vassal's loyalty, and vassals and allies send athletes whatever their mood.)
+  it('the Colossus shows in a vassal’s loyalty, and a cold vassal and ally still send athletes to the games', () => {
+    const sim = demoSim('quarry');
+    const s = sim.state;
+    send(sim, { type: 'hazards', on: false });
+    income(s, 12000, 'sales', 'a test');
+    const corinth = cityOf(s.world, 'corinth');
+    const v = take(s, corinth, 'debt', 'a test');
+    const sparta = cityOf(s.world, 'sparta');
+    s.empire.allies.push({ city: 'sparta', since: s.tick, refused: [], declined: 0 });
+    send(sim, { type: 'build', kind: 'colossus', at: [spotFor(sim, 'colossus', 3, false)] });
+    const col = siteOf(s, 'colossus');
+    for (let k = 0; k < 3; k++) finishStage(sim, col);
+    expect(col.finished).toBeGreaterThan(0);
+    expect(loyaltyOf(s, v).why.some((r) => r.why === 'they speak of your Colossus' && r.n > 0)).toBe(true);
+    send(sim, { type: 'build', kind: 'stadium', at: [spotFor(sim, 'stadium', 6, true, [20, 20, 80, 60])] });
+    const st = siteOf(s, 'stadium');
+    for (let k = 0; k < 3; k++) finishStage(sim, st);
+    const g = s.monuments.games;
+    sim.run(g.next - s.tick - 1);
+    // Both turned cold just before the games open.
+    for (const c of [corinth, sparta]) c.memories.push({ kind: 'test', why: 'a test', amount: -100, tick: s.tick, fade: 0 });
+    const athens = cityOf(s.world, 'athens');
+    athens.memories.push({ kind: 'test', why: 'a test', amount: -100, tick: s.tick, fade: 0 });
+    sim.run(2);
+    expect(g.held).toBe(1);
+    expect(corinth.memories.some((m) => m.kind === 'games')).toBe(true);
+    expect(sparta.memories.some((m) => m.kind === 'games')).toBe(true);
+    // (A cold city that is neither still stays home.)
+    expect(athens.memories.some((m) => m.kind === 'games')).toBe(false);
   });
 
   it('a finished Stadium holds games: visitors walk in and pay, and the city’s mood lifts', () => {
