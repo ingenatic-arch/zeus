@@ -44,7 +44,7 @@ At `3c9eb51`, headless Chromium with software WebGL at 1920 × 1080, with the ot
 
 | What | Before |
 |---|---|
-| Tests | (filled in from the base run below) |
+| Tests | 523, all passing (44 files) |
 | Download (gzipped) | 3,869 KB: the game 766 KB, the prepared towns 3,103 KB (93 files) |
 | Loads and frame work | side by side with this slice's build (see the check-in) |
 
@@ -100,4 +100,49 @@ At `3c9eb51`, headless Chromium with software WebGL at 1920 × 1080, with the ot
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+**The milestones**, as planned. Where the prepared towns stand on them as they open (each recorded quietly, as a town opened):
+
+| Town | Laurels | Master of Greece | The great trading city | A city of wonders | Nearest |
+|---|---|---|---|---|---|
+| `#town` | 1 | none | none | a thriving town | a great city, 37% |
+| `#richtown` | 2 | none | none | a thriving town, streets of villas | a great city, 47% |
+| `#fortress` | 5 | an army | open for trade, trade with half of Greece | a thriving town, streets of villas | feared across Greece, 76% (45 men; Sparta's 59) |
+| `#greecegrows` | 6 | none | open for trade, a busy market, half of Greece, the richest treasury (35,816 dr; Rhodes' 25,786) | a thriving town, streets of villas | a great city, 71% |
+| `#vassal` | 5 | an army, a city bows to you | a busy market | a thriving town, streets of villas | a great city, 70% |
+| `#lit` | 3 | none | the Lighthouse | a thriving town, streets of villas | a great city, 70% |
+
+A new game meets none (a test). No prepared town has the second Master of Greece milestone but #vassal's line; none has three cities; only #greecegrows is the richest in Greece (Memphis aside).
+
+**The rewards**, one each:
+
+| | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Master of Greece | a gift of 300 dr | fame, 3 months | renown +5 | a gift of 1,000 dr | renown +10 |
+| The great trading city | a gift of 300 dr | fame, 3 months | renown +5 | fame, 6 months | renown +10 |
+| A city of wonders | a gift of 300 dr | fame, 3 months | renown +5 | a gift of 1,000 dr | fame, 6 months |
+
+(The Stadium's reward is fame rather than renown: its games already bring every ruler's notice.) A gift comes from the warmest ruler by the rulers' gift path (`rulerGift`, its note "in honour of ..."), so it arrives on the map of Greece, then in the ledger as given. Fame runs the settlers' clock twice as fast. Renown is a memory in each ruler's mood ("Your city's renown: the Lighthouse"), fading over a year.
+
+**The demos.** `#ambition` is #vassal's history played with the ambitions on from the founding, so its five laurels came in play with their rewards and dates (an army, Corinth bowed, a busy market, a thriving town, streets of villas); its rewards change its history, so it opens in December 746 BC with 1,393 people and 6,061 dr, where #vassal opens in January 745 BC. `#achieved` carries that town on: the Colossus on the shore west of the trading post (a one-tile spur off the quay road's end), three masons' yards by the quay; its 300 marble, 320 timber and 700 copper put on site at once (set up for this demo: the town has no quarry, and one mine would take years over the copper); 150 days to stand. Then an Arcadian and a Cretan company hired at the barracks (64 men against Sparta's 55) and Argos and Thebes bowed by awe (set up for this demo, and named so in their news lines), until Master of Greece's fifth is won. It opens in June 745 BC, year 6.
+
+**The Colossus's look.** The bronze frame's struts are twice as thick (0.034, five-sided), in bright bronze rather than the darkest, with rings of bars round each leg and the body every so high and a brace across each face, the bars at his hips and shoulders and a ring for his head: it reads as a cast lattice in the shape of a man, apart from the timber scaffold's poles. His crown of rays now radiates all round his head (it stood up in one row, like a crest), his face has a nose, and the pale box on his chest is gone.
+
+**A finding: the order the sim's modules load in.** At first folk.ts imported the homes' pride from ambitions.ts, which pulled diplomacy, monuments and world in ahead of their turn. That changed the order the sim's modules are first evaluated in, so routes.ts was evaluated before trade.ts, and its `CLEAR` (`BACK_TICKS + TURN_TICKS + 2 * TICKS_PER_DAY`, worked out as routes.ts loads, from trade.ts's exports) came out NaN: a visiting ship then saw the jetty as free while the Tyrian ship was due. Ten earlier demos opened differently (#anchor five months later). The demo probe caught it. The record, `achieved` and the pride now live in `src/sim/laurels.ts`, which imports only the clock; folk.ts, migrate.ts and state.ts read that. Every earlier demo opens as at `3c9eb51` again. The trap itself is the trunk's (routes.ts's module-level constants from another module of an import cycle), so the merges should rerun the demo probe.
+
+**Wired at the merge:** `colonyNames` (slice 37: your colonies, counted with vassals in "a city bows to you" and "lord of three cities") and `greatEstates` (slice 36: homes at the great estate's level, for "grand estates"), both in `src/sim/ambitions.ts`, marked `// Wired at the merge of slice 37` and `// Wired at the merge of slice 36`. Until then they count 0.
+
+**Touched outside the line**, each in a "Slice 39" block:
+- `src/sim/state.ts`: the version (34), the `ambition` field, its type import.
+- `src/sim/commands.ts`: the `ambition` command, appended.
+- `src/sim/sim.ts`: the fresh record, `stepAmbition` after the errands, the command.
+- `src/sim/migrate.ts`: `fromSlice39`, its hook and its note.
+- `src/sim/folk.ts`: the homes' pride as a mood reason.
+- `src/sim/status.ts`: the `ambition` town line.
+- `src/game/saves.ts`: the record checked as a save is read.
+- `src/game/demos.ts`: `calm()` switches the ambitions on as a demo opens; the `ambition` demo option; `#ambition` and `#achieved`.
+- `src/game/views.ts`: the `achieved` view.
+- `src/main.ts`: the panel, the chip's updates and tooltip, the fanfares, Esc, the town line opening the panel, the population tooltip's fame, the switch on for a new game, the probe.
+- `src/ui/topbar.ts` (the chip is this line's), `src/ui/townlines.ts` (the laurel icon), `src/ui/style.css` (the chip and the panel), `src/ui/help.ts` (a line for the chip).
+- `src/audio/sound.ts` (the two cues are this line's).
+- `src/render/monumentmodels.ts` (the Colossus is this line's).
+- `scripts/smoke.mjs` and `scripts/measure.mjs`: the two demos.
