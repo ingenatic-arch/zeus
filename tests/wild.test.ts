@@ -268,7 +268,8 @@ describe('the food vendor’s basket', () => {
     const a = kinds(s, 'agora')[0];
     let mixed = false;
     // (Since slice 11's history the stalls open full, so the first porter with meat and cheese goes about two months on.)
-    for (let t = 0; t < 3 * TICKS_PER_MONTH; t++) {
+    // (Since the vendors charge only for what they bring, the stalls run down more slowly: up to eight months, if need be.)
+    for (let t = 0; t < 3 * TICKS_PER_MONTH || (!mixed && t < 8 * TICKS_PER_MONTH); t++) {
       sim.step();
       expect(a.stock).toBeLessThanOrEqual(STALL_ROOM[0]);
       expect(a.meat).toBeLessThanOrEqual(STALL_ROOM[1]);

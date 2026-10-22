@@ -179,15 +179,17 @@ describe('warn, then decline', () => {
     expect(both).toBeTruthy();
     expect(both!.family!.warned).toEqual(warningsOf(s, both!).map((w) => w.need));
     const cottages = homes(s).filter((b) => b.level === COTTAGE).length;
+    const wasWarned = new Map(warned.map((b) => [b.id, warningsOf(s, b).map((w) => w.need)]));
     // As the check-in says: lay the road back at once, and within about two weeks every sign is gone, and nobody went down.
     sim.enqueue({ type: 'road', tiles: [T(25, 74)] });
     const mended = s.tick;
-    sim.run(15 * TICKS_PER_DAY);
+    // (With the crews, wherever the carriers and vendors happen to be on their rounds: 18 days.)
+    sim.run(21 * TICKS_PER_DAY);
     expect(homes(s).filter((b) => warningsOf(s, b).length > 0).length).toBe(0);
     expect(homes(s).filter((b) => b.level === COTTAGE).length).toBe(cottages);
     for (const b of warned) {
       const reliefs = b.family!.story.filter((e) => e.what === 'relief' && e.tick >= mended).map((e) => e.need);
-      expect(reliefs).toContain('water');
+      for (const need of wasWarned.get(b.id)!) expect(reliefs).toContain(need);
     }
     expect(both!.family!.story.filter((e) => e.what === 'relief' && e.tick >= mended).map((e) => e.need).sort()).toEqual(['food', 'water']);
   });

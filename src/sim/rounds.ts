@@ -51,7 +51,8 @@ export interface ServiceSpec {
   rested?(b: Building): void;
   /**
    * She is one of a crew (see CREW): her building keeps sending walkers on its
-   * own clock while she is out, so her coming home only lets go of her.
+   * own clock while she is out, and her coming home only brings the next one
+   * forward to after her rest (`rested` if she keeps her own clock).
    */
   crew?: boolean;
 }
@@ -222,6 +223,10 @@ function done(spec: ServiceSpec, b: Building | undefined, w?: Walker): false {
   if (b && spec.crew) {
     // (The building's `walker` is the last of her crew to set off, for its tip; 0 once all are home.)
     if (w && b.walker === w.id) b.walker = 0;
+    // One home again sets off after her rest, if the next wasn't due sooner: so one walker alone
+    // goes round as she always did, and a crew only adds to her.
+    if (spec.rested) spec.rested(b);
+    else b.clock = Math.min(b.clock, spec.rest(b));
   } else if (b && spec.rested) spec.rested(b);
   else if (b) {
     b.walker = 0;

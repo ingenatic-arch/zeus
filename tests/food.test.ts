@@ -159,7 +159,8 @@ describe('the food chain', () => {
     sim.run(4000);
     const s = sim.state;
     const a = kind(s, 'agora');
-    // Watch servings: each tops a home up to four months, at a measure a person a month added.
+    // Watch servings: each tops a home up to four months, at a measure a person a month added (in whole
+    // measures: as near four months as they come, never more, and paying for no more than it gets).
     let checked = 0;
     for (let i = 0; i < 4000 && checked < 3; i++) {
       const before = new Map(s.buildings.map((b) => [b.id, b.foodUntil]));
@@ -169,8 +170,9 @@ describe('the food chain', () => {
       if (served.length === 0 || a.stock >= stock || a.stock === 0) continue;
       let cost = 0;
       for (const b of served) {
-        expect(b.foodUntil).toBe(s.tick + FOOD_LASTS);
-        cost += Math.ceil((b.people * (b.foodUntil - Math.max(before.get(b.id)!, s.tick))) / TICKS_PER_MONTH);
+        expect(b.foodUntil).toBeLessThanOrEqual(s.tick + FOOD_LASTS);
+        expect(b.foodUntil).toBeGreaterThan(s.tick + FOOD_LASTS - TICKS_PER_MONTH / b.people);
+        cost += Math.floor((b.people * (s.tick + FOOD_LASTS - Math.max(before.get(b.id)!, s.tick))) / TICKS_PER_MONTH);
       }
       expect(stock - a.stock).toBe(cost);
       checked++;

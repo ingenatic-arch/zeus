@@ -296,8 +296,9 @@ describe('slice 30’s findings', () => {
     const s: SimState = sim.state;
     const posts = s.buildings.filter((b) => b.kind === 'watchpost');
     expect(street0(s).some((b) => daysToThief(b, temptationOf(s, map.size, b)) <= 6) || s.walkers.some((w) => w.kind === 'thief')).toBe(true);
-    // (A history is played with fire off, so the watchman has been out little: a fortnight of his rounds.)
-    sim.run(14 * TICKS_PER_DAY);
+    // (A history is played with fire off, so the watchman has been out little: a few weeks of his rounds. Since
+    // the crews of walkers changed the history, #thieves opens as he walks home from the west bank: 30 days.)
+    sim.run(30 * TICKS_PER_DAY);
     // The core's (at the west end of its north street), beside the west bank's.
     expect(posts.some((b) => b.x >= 60 && b.x <= 87 && b.z >= 30 && b.z <= 43)).toBe(true);
     const street = street0(s);

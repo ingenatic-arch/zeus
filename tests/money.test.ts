@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { FINE, VILLA } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
+import { LODGE_STORE } from '../src/sim/food';
 import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../src/sim/foods';
+import { MEAT_KILL } from '../src/sim/hunt';
 import { arrivalInterval, HARSH_SLOWER } from '../src/sim/settlers';
 import { replay, serialize, Sim } from '../src/sim/sim';
 import type { SimState } from '../src/sim/state';
@@ -105,8 +107,12 @@ describe('#richtown', () => {
     const levels = lived(s).map((b) => b.level);
     expect(levels.filter((l) => l === VILLA).length).toBeGreaterThanOrEqual(15);
     expect(levels.filter((l) => l === FINE).length).toBeGreaterThan(0);
-    for (const k of ['watchman', 'inspector', 'tax', 'water', 'food', 'oil', 'wine', 'docker', 'cart', 'hunter'])
+    for (const k of ['watchman', 'inspector', 'tax', 'water', 'food', 'oil', 'wine', 'docker', 'cart'])
       expect(s.walkers.some((w) => w.kind === k), k).toBe(true);
+    // A hunter out, or the lodge too full to send one until a cart calls. (Since the vendors charge a home only
+    // what they bring, the town eats a little less meat, and as it opens the lodge can be waiting on a cart.)
+    const lodgeFull = s.buildings.some((b) => b.kind === 'lodge' && b.meat + MEAT_KILL > LODGE_STORE);
+    expect(s.walkers.some((w) => w.kind === 'hunter') || lodgeFull, 'hunter').toBe(true);
     const post = tradingPost(s)!;
     expect(post).toBeTruthy();
     // Every good of phase 3 ticked for sale; copper and armour (slice 23) kept for the town's own army.

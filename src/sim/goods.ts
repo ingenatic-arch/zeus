@@ -113,16 +113,13 @@ function goodRound(good: Ware, use: GoodUse): ServiceSpec {
         const until = b.goodsUntil[k];
         if (until >= full) continue;
         const from = Math.max(until, s.tick);
-        const cost = Math.ceil((b.people * (full - from)) / (TICKS_PER_MONTH * use.people));
-        if (cost <= have) {
-          b.goodsUntil[k] = full;
-          have -= cost;
-          noteHomeUse(s, good, b, cost);
-        } else {
-          b.goodsUntil[k] = from + Math.floor((have * TICKS_PER_MONTH * use.people) / b.people);
-          noteHomeUse(s, good, b, have);
-          have = 0;
-        }
+        // Whole jars (bales, amphorae) only, as many as bring it up to full or all she has (see the food vendor's).
+        const per = TICKS_PER_MONTH * use.people;
+        const n = Math.min(have, Math.floor((b.people * (full - from)) / per));
+        if (n <= 0) continue;
+        b.goodsUntil[k] = from + Math.floor((n * per) / b.people);
+        have -= n;
+        noteHomeUse(s, good, b, n);
         changed = true;
         if (have <= 0) break;
       }
@@ -132,6 +129,9 @@ function goodRound(good: Ware, use: GoodUse): ServiceSpec {
       }
     },
     rest: (b) => restFor(b, VENDOR_REST),
+    rested: (b) => {
+      b.vclock[k] = Math.min(b.vclock[k], restFor(b, VENDOR_REST));
+    },
     crew: true,
   };
 }

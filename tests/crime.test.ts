@@ -74,6 +74,9 @@ describe('temptation', () => {
     // It rises on its day by its rate.
     // (Slice 33: read just before its step, so a change in the town earlier in the day doesn't move it.)
     b.tempt = 0;
+    // (With crews of food vendors one may come by within the day and feed it: keep them in.)
+    s.walkers = s.walkers.filter((w) => w.kind !== 'food');
+    for (const a of s.buildings) if (a.kind === 'agora') a.clock = 1e9;
     let before = 0;
     for (let k = 0; k < TICKS_PER_DAY && b.tempt === 0; k++) {
       before = temptationOf(s, size, b, moodCtx(s)).score;

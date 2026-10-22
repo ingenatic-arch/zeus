@@ -177,16 +177,15 @@ export const FOOD: ServiceSpec = {
         const until = foodUntil(b, f);
         if (have <= 0 || until >= full) continue;
         const from = Math.max(until, s.tick);
-        const cost = Math.ceil((b.people * (full - from)) / (TICKS_PER_MONTH * kinds));
-        if (cost <= have) {
-          setFoodUntil(b, f, full);
-          setHeld(stall, f, have - cost);
-          noteHomeUse(s, f, b, cost);
-        } else {
-          setFoodUntil(b, f, from + Math.floor((have * TICKS_PER_MONTH * kinds) / b.people));
-          setHeld(stall, f, 0);
-          noteHomeUse(s, f, b, have);
-        }
+        // Whole measures only, as many as bring it up to full (or all she has): a home just topped up
+        // takes none, and pays for no more than it gets (with a crew passing often, rounding each
+        // top-up up to a whole measure ate the stall's meat and cheese).
+        const per = TICKS_PER_MONTH * kinds;
+        const n = Math.min(have, Math.floor((b.people * (full - from)) / per));
+        if (n <= 0) continue;
+        setFoodUntil(b, f, from + Math.floor((n * per) / b.people));
+        setHeld(stall, f, have - n);
+        noteHomeUse(s, f, b, n);
         changed = true;
       }
       if (foodsIn(stall) === 0) break;
