@@ -730,7 +730,7 @@ const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCre
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -877,6 +877,16 @@ export class Walkers {
       }
       // (Run indoors from raiders near them: not drawn until they come out.)
       if (this.hidden.has(w.id)) continue;
+      // Slice 32: the quarrymen, loggers, ox sledges and carts of logs are drawn by the workfolk (workfolk.ts).
+      if (this.workfolk) {
+        const at = this.workfolk.walker(state, w, lead, total, (d) => this.at(w, cum, d), state.tick + alpha);
+        if (at) {
+          const v = this.serviceAt.get(w.id);
+          if (v) v.pos.copy(at);
+          else this.serviceAt.set(w.id, { pos: at.clone(), kind: w.kind as ServiceKind });
+          continue;
+        }
+      }
       if (w.kind !== 'settler' && w.kind !== 'leaver') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
@@ -958,6 +968,9 @@ export class Walkers {
     for (const id of this.serviceAt.keys()) if (!live.has(id)) this.serviceAt.delete(id);
     this.raidersOf(state, alpha);
   }
+
+  /** Slice 32: who draws the works' walkers (set by the city view). */
+  workfolk: { walker(s: SimState, w: Walker, lead: number, total: number, along: (d: number) => [number, number, number, number], now: number): THREE.Vector3 | null } | null = null;
 
   /** Walkers who have run indoors from the raiders (set by the city view each frame: the sim's own rule). */
   hidden: ReadonlySet<number> = new Set();

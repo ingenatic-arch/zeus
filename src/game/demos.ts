@@ -36,6 +36,9 @@ import type { CityId } from '../map/greece';
 import { bow, COLONY_SAIL, coloniesOf, nearestFree, sendSettlers, vassalsOf } from '../sim/growth';
 import type { Speed } from './clockDriver';
 import type { ToolName } from './tools';
+// Slice 32.
+import { LOGGERS_COST, QUARRY_COST } from '../sim/build';
+import { MARBLE, TIMBER } from '../sim/foods';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -2173,6 +2176,62 @@ function fortressTown(): (sim: Sim) => void {
 }
 const FORTRESS = fortressTown();
 
+// Slice 32
+/**
+ * Marble and timber (slice 32). #quarry: #richtown's town carried on, as its
+ * builder would: a road out along the bay to the headland, a marble quarry
+ * on the richest of its pale rock and a storehouse where the road starts up
+ * the headland, played on a couple of months so its quarrymen are at the face
+ * and its sledges on the road (the quarry tool in hand: the other outcrop,
+ * above the bay, is free). #loggers: the same town with a road south from the
+ * west road to the edge of the west wood, a loggers' camp there, a storehouse
+ * on the way and a watch post beside it, played on four months: stumps where
+ * the nearest trees stood, the first of them growing back, loggers out at the
+ * edge of what is left.
+ */
+const WORKS_QUARRY = T(110, 101);
+/** The road to the quarry: from the oil road's end along the bay, ending beside the quarry (its north side). */
+const WORKS_QUARRY_FROM = T(89, 68);
+const WORKS_QUARRY_TO = T(108, 99);
+const WORKS_QUARRY_STORE = T(105, 86);
+/** The camp's road: south from the west road's end to the wood. */
+const WORKS_CAMP_FROM = T(14, 50);
+const WORKS_CAMP_TO = T(18, 74);
+const WORKS_CAMP = T(16, 74);
+const WORKS_CAMP_STORE = T(19, 66);
+const WORKS_CAMP_WATCH = T(19, 71);
+/** How long each plays on once built. */
+const WORKS_QUARRY_DAYS = 70;
+const WORKS_CAMP_DAYS = 120;
+function worksTown(stage: 'quarry' | 'loggers'): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, SAFE, true)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    if (stage === 'quarry') {
+      const road = roadRoute(sim.map, s, WORKS_QUARRY_FROM, WORKS_QUARRY_TO) ?? [];
+      waitFor(sim, s.tick, road.length * ROAD_COST + QUARRY_COST + STOREHOUSE_COST + (JOBS.quarry + JOBS.storehouse) * WAGE);
+      send({ type: 'road', tiles: road });
+      send({ type: 'build', kind: 'quarry', at: [WORKS_QUARRY] });
+      send({ type: 'build', kind: 'storehouse', at: [WORKS_QUARRY_STORE] });
+      sim.run(WORKS_QUARRY_DAYS * TICKS_PER_DAY);
+      return;
+    }
+    const road = roadRoute(sim.map, s, WORKS_CAMP_FROM, WORKS_CAMP_TO) ?? [];
+    waitFor(sim, s.tick, road.length * ROAD_COST + LOGGERS_COST + STOREHOUSE_COST + WATCHPOST_COST + (JOBS.loggers + JOBS.storehouse + JOBS.watchpost) * WAGE);
+    send({ type: 'road', tiles: road });
+    send({ type: 'build', kind: 'loggers', at: [WORKS_CAMP] });
+    send({ type: 'build', kind: 'storehouse', at: [WORKS_CAMP_STORE] });
+    send({ type: 'build', kind: 'watchpost', at: [WORKS_CAMP_WATCH] });
+    sim.run(WORKS_CAMP_DAYS * TICKS_PER_DAY);
+  };
+}
+const WORKS_QUARRY_TOWN = worksTown('quarry');
+const WORKS_CAMP_TOWN = worksTown('loggers');
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -2312,6 +2371,9 @@ const SCENES: Record<string, Demo> = {
   greecegrows: { view: 'rivals', speed: 'paused', setup: GROWS, overlay: 'missing', greece: true },
   knossos: { view: 'rivals', setup: GROWS, overlay: 'missing', greece: 'knossos', greeceTab: 'ruler' },
   memphis: { view: 'rivals', setup: GROWS, overlay: 'missing', greece: 'memphis', greeceTab: 'ruler' },
+  // Slice 32: marble and timber. The quarry on the headland, its sledges on the road, the quarry tool in hand and marble's page open; the loggers' camp at the west wood's edge, stumps and young trees where it has felled, timber's page open.
+  quarry: { view: 'quarry', tool: 'quarry', setup: WORKS_QUARRY_TOWN, overlay: 'missing', side: { ware: MARBLE } },
+  loggers: { view: 'loggers', setup: WORKS_CAMP_TOWN, overlay: 'missing', side: { ware: TIMBER } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

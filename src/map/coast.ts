@@ -147,6 +147,28 @@ export const coast = {
     { x: 114, z: 96, r: 4.5, place: 'on the headland' },
   ] as Outcrop[],
 
+  /**
+   * Marble in the rock (slice 32): pale outcrops on the headland where a
+   * quarry can go, richest at the centre. Read only by the quarry's rules
+   * (tileMarble in materials.ts) and by the renderer (the boulders on them are
+   * drawn pale), never by the bake, so the ground is as it was.
+   */
+  marble: [
+    { x: 111, z: 104, r: 5.5, place: 'on the headland’s crown' },
+    { x: 105, z: 92, r: 4.5, place: 'above the bay on the headland' },
+  ] as Outcrop[],
+
+  /**
+   * Woods of pine and cypress for the loggers (slice 32), scattered by the
+   * bake after every other plant (on their own seed, so every older plant
+   * keeps its number): on the west slopes above the shore, and in the north
+   * hills.
+   */
+  woods: [
+    { x: 12, z: 81, r: 11 },
+    { x: 64, z: 9, r: 10 },
+  ] as Area[],
+
   /** Spots with a few tall cypresses. */
   cypressStands: [
     { x: 70, z: 30, r: 4 },

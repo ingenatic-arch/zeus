@@ -13,6 +13,10 @@ export const WALK_SPEED = 0.12;
 export const CARRIER_SPEED = 0.12;
 /** An ox cart is a little slower. */
 export const CART_SPEED = 0.09;
+/** An ox dragging a sledge of marble blocks (slice 32) is slower still: two thirds of a cart's pace. */
+export const SLEDGE_SPEED = CART_SPEED * (2 / 3);
+/** A maker's cart: an ox cart, or a quarry's sledge (slice 32), which is a cart in every rule but its pace and its look. */
+export const isCart = (w: Walker): boolean => w.kind === 'cart' || w.kind === 'sledge';
 /** How far beyond the map's edge walkers appear and disappear. */
 export const OFF_MAP = 5;
 
@@ -38,6 +42,7 @@ export const SENDING_SPEED = CARAVAN_SPEED * 2;
 
 export function speedOf(w: Walker): number {
   if (w.kind === 'cart') return CART_SPEED;
+  if (w.kind === 'sledge') return SLEDGE_SPEED;
   // (Your own caravan or porter about a gift or a sending: the gift's number is in `cheese`, see giftOf.)
   if (w.kind === 'caravan') return w.cheese > 0 ? SENDING_SPEED : CARAVAN_SPEED;
   if (w.kind === 'watchman' && w.target > 0) return RUN_SPEED;

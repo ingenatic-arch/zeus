@@ -2,6 +2,81 @@
 
 Notes to Oliver, newest first.
 
+## Slice 32 — Marble and timber (21 Oct)
+
+The city has its first building materials: a marble quarry on the pale rock of the headland, whose ox sledges drag the blocks to a storehouse, and a loggers' camp at the edge of two new pine woods, whose loggers fell trees that grow back over two years. Nothing in the city uses marble or timber yet (monuments come in slice 35): they are stored, sold and bought. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 28 on this line (it is renumbered when the three lines merge). Saves from version 27 load: no tree has been felled, every goods list gains marble and timber, Athens makes marble and Troy timber.
+- **Two new woods** on the map: on the west slopes above the shore and in the north hills, 121 pines and cypresses in all. Every earlier tree, rock and bush keeps its place.
+- **Earlier demos.** Compared at opening and 900 ticks on with the starting commit, all 108 prepared towns play exactly as before. In 33 of them (the towns built street by street on the west side of the river, such as #streets, #food, #fine and #villas) the new west wood stands beside the west streets and is cleared where the streets run. Nothing else in them moves.
+- **Greece.** Athens sells marble (usually 300 dr a hundred blocks) and Troy sells timber (usually 150 dr a hundred logs). No other city buys or sells either. Requests, offers, gifts and raids keep to the old goods. Your trading ship buys both if you tick them; nothing is ticked.
+- **The boulders on the headland's marble** are now drawn pale, at any time, so you can see the outcrops.
+- **Every pine on the map is drawn more simply** (its crown in plain clumps, about 430 triangles where it was 1,100), so with the 121 new trees the coast and town views draw about as many triangles as before; there are 14 more draw calls where the woods are in view (see the measurements). Changed in the review.
+- **M** now also cycles to the quarry and the camp, after the winery. Both are on the Industry tab.
+
+### What's new
+- **The marble quarry** (3×3, 250 dr, 8 workers). It can only go where the rock under it is rich enough in marble. With its tool in hand the marble shows as a pale glaze over the ground, the stronger the richer, and the tip says how rich it is and about how many blocks a month it would cut. It steps up the hillside in two benches with a riser of fresh-cut marble between them, its spoil heaped round its edge. It has shear-legs with a block slung on the rope, a windlass, a tool shed and a trough. Up to four quarrymen: three swing their picks at the face, and when a block comes free (a day or so) they lever it onto the stack, where the fourth works at the blocks. Ox sledges, slower than carts, drag the blocks along the road to the nearest storehouse, 60 at a time. Fully worked on the richest rock it cuts about 100 blocks a month, and holds 200.
+- **The loggers' camp** (2×2, 150 dr, 4 workers). It needs at least 8 pines or cypresses within 12 tiles; its tip says how many stand in reach, how long they would last and how fast they grow back. It has a log cabin, a sawpit, a chopping block and an axe rack. Up to three loggers go out a few days apart, each to the nearest tree no other logger is after. One chops for two days; the tree shudders as the axe bites and goes over while he stands back; he trims it for a day and carries the logs home on his shoulder (16 logs a tree). Ox carts take the timber to a storehouse. About 90 logs a month while the wood lasts. The olive trees are Athena's, and the loggers leave them alone.
+- **Felled trees grow back.** A felled tree leaves a stump; nothing shows for about three months, then a sapling grows in steps, slowly at first, to a full tree two years after it fell. A camp that fells faster than its wood grows strips the slope, and its panel says how long the wood in reach will last at that pace.
+- **Marble and timber** are in the stock book, on the Goods tab (their own group, "For building"), in the storehouse (stacked blocks and log piles) and on the routes.
+- **Leftovers from phase 4:** miners at the copper mine (two with picks at the face, one pushing the ore barrow, one at the windlass), and the caravan yard on a slope now stands on a battered stone footing with earth banked against it, its outer walls laid in courses.
+
+### What to try
+1. Open #quarry. It is #richtown's town with a road out along the bay, a quarry on the richest marble of the headland's crown and a storehouse where the road starts up the headland, played on 70 days. The quarry tool is in hand, so the marble glaze shows, and marble's page is open. Move the tool over the outcrop above the bay and read the tip. Watch the quarrymen at the face, hover one and a sledge for their cards, and watch the sledges go down the road to the storehouse. Hover the quarry, and the storehouse, for their cards.
+2. Open #loggers. The same town with a road south to the west wood, a camp at its edge, a storehouse on the way and a watch post, played on four months: 27 trees felled, 14 still standing in reach, 352 logs stored. Hover a logger to see what he is doing, and watch one at his tree until it falls. Then play on a few months (fast) and watch the stumps: the first saplings come up about three months after a tree fell.
+3. Open #bronze for the miners at the copper mine, and #caravan for the caravan yard's new footing.
+4. On the map of Greece, open Athens' and Troy's pages for marble and timber on their routes.
+
+Each link also opens paused if you add `-paused` (for example `#quarry-paused`).
+
+### What I'd like your eye on
+- **The quarry's look.** The ground is one mesh and can't be dug, so the quarry is built up as two benches stepped up the slope with spoil round its edge, not sunk as a pit. Does it read as a quarry cut into the hillside?
+- **The sledges' pace.** In #quarry the storehouse is about 18 tiles of road away (no storehouse fits nearer on the headland's slope). The sledges are slow, so each carries 60 blocks: the three keep up with the quarry fully worked (about 90 to 100 blocks a month), and its stack rises and falls between about 50 and 180 as they come and go. With a storehouse farther off the stack fills, and the quarrymen then cut only as fast as the sledges take blocks away (the card says so). Is that the right pressure?
+- **Felling.** The axe, the fall (a few moments at normal speed) and the trimming, in #loggers. And is two years to grow back the right pressure? The camp strips its 41 trees in reach in about a year and a half.
+- **The woods.** Are the two new woods thick enough to read as woods, and the pale boulders as marble?
+
+### Known rough edges
+- **Nothing uses marble or timber yet.** Monuments (slice 35) and great houses (slice 36) will. Naxos and Thasos will sell them with slice 31's new sites, on the Greece line.
+- **Seasons don't touch the woods** yet (slice 33).
+- **Loggers walk across country** to their trees, off the roads, as hunters do.
+- **Every pine is drawn a little more simply** (changed in the review, to pay for the new woods): up close their crowns are a little more faceted than before.
+- **The quarry stays as it is** however long it is worked: the face doesn't move back.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `70087da` (the phase 5 spec, on top of phase 4's review); after is this slice. Two other lines were building on the same machine, so frame and load times swing by a third or more from run to run; only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 444, all passing | 453, all passing (new: `tests/materials.test.ts`) |
+| Download (gzipped) | 2,983 KB: the game 681 KB, the prepared towns 2,302 KB (79 files) | 3,077 KB: the game 696 KB, the prepared towns 2,381 KB (81 files) |
+| First load (bare link), three runs each side by side | ready at 2.4 to 4.2 s, first frame 3.2 to 5.7 s | ready at 2.4 to 4.4 s, first frame 3.2 to 6.4 s (the same within the swing) |
+| Demo loads, side by side (8 demos, 12 loads each) | ready between 2.1 and 4.2 s, 2.9 s on average | ready between 2.1 and 3.8 s, 2.9 s on average |
+| `#town` | `town` view 1,453,964 triangles, 89 draw calls; `overview` 1,714,632 and 118; a save 149 KB | `town` 1,458,804 and 103; `overview` 1,663,032 and 132; a save 152 KB (as built, before the review's simpler pines: 1,720,604 and 1,981,272) |
+| Map views | `coast` 1,241,324 triangles, 60 draw calls; `overview` 1,271,584 and 63 | `coast` 1,176,220 and 74; `overview` 1,200,360 and 77 (as built: 1,488,340 and 1,518,600) |
+| `#quarry` / `#loggers` | | 1,117,299 triangles and 78 draw calls / 976,067 and 61, from their views (as built: 1,238,531 / 1,147,427) |
+| Frame work (update before drawing, side by side) | `#town` 14.1 and 12.1 ms, `#richtown` 16.4 and 16.7, `#bronze` 11.0, `#caravan` 4.8, `#companies` 11.6 | `#town` 14.9 and 19.9 ms, `#richtown` 18.6 and 17.0, `#bronze` 6.0, `#caravan` 10.4, `#companies` 12.1; `#quarry` 9.7, `#loggers` 12.4 |
+
+As built, the 121 new pines and cypresses added about 250,000 triangles wherever the woods are in view (about 1,100 triangles a pine, drawn twice with their shadows). The review drew every pine's crown more simply (about 430 triangles), so the coast and town views are now back at or below where they were before the slice. There are still 14 more draw calls where the woods are in view: every pine and cypress is drawn in its own batches so a felled one can fall and grow back. The frame times were read over 4 to 21 frames each, with the machine's load between 5 and 18 on 4 cores, so they swing widely. `#caravan`'s doubling did not hold up in the review: two more side-by-side runs gave 4.9 and 7.7 ms before against 8.8 and 7.6 ms after, over 5 to 8 frames each, so it is within the swing. `npm run measure` itself timed out opening a page after `#barracks` (as the before run did after `#caravan`); the figures above come from a copy in the scratch folder with its waits lengthened, and from side-by-side runs of the two builds.
+
+The smoke test passes in parts: on this loaded machine `npm run smoke` timed out at its first wait for frames, so I ran a copy with longer waits. Its one real failure, `#prices` now showing ten price charts rather than eight, is fixed in the smoke test; `#request`'s caravan hover failed once and passes run on its own; the browser crashed once mid-run, and the rest was run on its own and passes.
+
+### What the review changed
+I played every step above in the browser at 1920 × 1080, took screenshots and looked at them, and read the slice's code. What I changed:
+- **The storehouse's card now shows marble and timber.** It listed and counted only oil, fleece, wine, copper and armour, so the storehouse in #quarry, with 20 blocks in it, said "empty". It now says what it holds of all seven, and that sledges are bringing the blocks.
+- **A sledge carries 60 blocks, not 40.** With 40, the three sledges in #quarry moved about 60 blocks a month against about 100 cut, and the stack filled by the third month. With 60 they keep up with the quarry fully worked, about 18 tiles of road from its storehouse. #quarry now opens with 24 blocks on the stack, 20 in the storehouse and 180 on the road (it was 84, 20 and 120).
+- **Every pine is drawn more simply.** Its crown is made of plain clumps, about 430 triangles where it was 1,100. That pays for the new woods: the coast and town views now draw about as many triangles as before the slice, or fewer. I compared the woods side by side in screenshots: at the usual distance I couldn't tell the two apart, and up close the new crowns are a little more faceted. Please look at the pines and say if you see a difference you mind.
+- **A felled wood grows back slowly at first.** Before, a year after a slope was stripped it was full of half-grown trees, while the camp's card said every tree was felled, so it looked like a wood the loggers were ignoring. Now the saplings stay small for the first year and grow faster in the second. It is still a full tree two years after it fell.
+- **The Goods tab names the makers "Marble quarries" and "Loggers' camps"** (it said "Quarry" and "Loggers"), and the camp's card says "no pine or cypress standing" rather than "0 pines and cypresses".
+- **What to try, step 1** now says to hover the quarry and the storehouse for their cards. Clicking a quarry doesn't open a panel.
+
+What I checked and left alone:
+- **#caravan's frame time** (4.8 to 10.4 ms in the builder's measurements) didn't hold up when I measured again. Two more runs of the old and new builds side by side gave 4.9 and 7.7 ms before and 8.8 and 7.6 ms after, so it is within the usual swing on this shared machine.
+- **Earlier towns:** in all 110 prepared towns, no house, road or other building stands on a tree.
+- **Buying marble by road** from Athens works: the caravan unloads it at the yard, it is paid for, and the porters carry it to a storehouse.
+- **The quarry's look.** From above it reads to me as a stepped, pale working floor. From downhill, though, its skirt of spoil is a tall, pale battered wall down the slope, close to the blank wall the caravan yard used to have. I left that for your eye (see above).
+- **The smoke test** passed all the way through in one run, with every wait lengthened because the machine is loaded. The measurements ran through too; the demos were ready at a median of 3.8 s on a machine loaded about three times over.
+
 ## Slice 31 — Greece grows (21 Oct)
 
 Greece is no longer six cities that never change. It now has eleven: Thebes, Argos, Knossos, Rhodes and Memphis have joined, with rulers, goods, roads and sea lanes. Six empty islands and capes wait for settlers. Each city with a ruler rises and falls over the years, and its page says why: its harvests, your trade, its wars, its debts, its tribute. Strong rivals found colonies and make weaker neighbours bow. Raids come more often, as you chose on the balance card, and they are still always a threat with a deadline first. You weren't here while it was built: every choice below is mine, from the spec's defaults.

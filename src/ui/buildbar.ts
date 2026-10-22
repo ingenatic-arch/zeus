@@ -26,6 +26,8 @@ import {
   VINEYARD_COST,
   WINERY_COST,
   MINE_COST,
+  QUARRY_COST,
+  LOGGERS_COST,
   ARMOURY_COST,
   BARRACKS_COST,
   TOWER_COST,
@@ -155,6 +157,10 @@ export const ICONS: Record<ButtonName, string> = {
   shipyard: '<svg viewBox="0 0 24 24"><path d="M2 13h17.5l2.5 1.6-2.4.4-1.6 2H5.2L3 15.2z" class="fill-soft"/><path d="M11 13V4.5M8 5.5h6M5 17.4l-1.2 3M8 17.4l-.8 3M11 17.4l-.4 3M14 17.4v3M17 17.4l.4 3M2.4 13.4c-.4-1.6 0-2.8.8-3.6" class="stroke-ink"/></svg>',
   // A spade.
   clear: '<svg viewBox="0 0 24 24"><path d="M13.6 3.2l1.4 1.4-3.4 7.6-1.5-1.5z" class="fill-ink"/><path d="M9.2 10.1l4.7 4.7-3.9 5.2c-1 1.3-2.9 1.4-4 .3l-2.3-2.3c-1.1-1.1-1-3 .3-4z" class="fill-soft"/><path d="M14.3 2.5l3.2 3.2" class="stroke-ink"/></svg>',
+  // Slice 32: a squared block of pale marble on its lever, chisel marks on its face.
+  quarry: '<svg viewBox="0 0 24 24"><path d="M4 11.4 11 8l9 3v8.6l-7 2.8-9-3.2z" class="fill-soft"/><path d="M4 11.4l9 3.2 7-3.4M13 14.6v7.8" class="stroke-ink"/><path d="M6.6 15.6l1.6.6M6.6 17.8l1.6.6M15.6 17.4l1.6-.8" class="stroke-ink"/><path d="M2 6.6 21.6 3" class="stroke-ink"/></svg>',
+  // Slice 32: an axe bitten into a log end.
+  loggers: '<svg viewBox="0 0 24 24"><path d="M3 15.4c0-2.4 1.8-4.2 4.2-4.2H19v8.4H7.2C4.8 19.6 3 17.8 3 15.4z" class="fill-olive"/><circle cx="7.2" cy="15.4" r="3" class="fill-soft"/><circle cx="7.2" cy="15.4" r="1.2" class="stroke-ink"/><path d="M14.4 11.4 18.8 2.6" class="stroke-ink"/><path d="M16.4 3.4c2.6-.6 4.6.4 5.4 2.4l-4.6 1.6z" class="fill-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
@@ -238,6 +244,19 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: 'M ×8',
     cost: `${WINERY_COST} dr`,
     hint: 'Click beside a road. Carts bring it the vineyards’ grapes; it treads them into amphorae of wine, which its carts take to a storehouse.',
+  },
+  // Slice 32.
+  quarry: {
+    name: 'Marble quarry',
+    key: 'M ×9',
+    cost: `${QUARRY_COST} dr`,
+    hint: 'Click on the pale rock of the headland, beside a road (the marble shows while this tool is in hand). Its quarrymen cut blocks at the face; ox sledges drag them to a storehouse, slowly: build one close by.',
+  },
+  loggers: {
+    name: 'Loggers’ camp',
+    key: 'M ×10',
+    cost: `${LOGGERS_COST} dr`,
+    hint: 'Click at the edge of a wood of pines and cypresses, beside a road. Its loggers fell the trees in reach and carry the logs home; its carts take them to a storehouse. The wood grows back slowly: a camp can strip a hillside.',
   },
   stall: {
     name: 'Oil stall',

@@ -15,6 +15,7 @@ import type { Plants } from './trees';
 import { Walkers } from './walkers';
 import { WallsView } from './walls';
 import { Works } from './works';
+import { Workfolk } from './workfolk';
 
 const NO_ONE: ReadonlySet<number> = new Set();
 
@@ -29,6 +30,7 @@ export class CityView {
   readonly homes: Homes;
   readonly walkers: Walkers;
   readonly works: Works;
+  readonly workfolk: Workfolk;
   readonly bridges: Bridges;
   /** The walls, gates, towers and breaches (slice 25). */
   readonly walls: WallsView;
@@ -67,6 +69,10 @@ export class CityView {
     this.army = new ArmyView(map, this.folk);
     this.fleet = new FleetView(map);
     this.walkers.ground = (x, z) => this.bridges.heightAt(x, z) ?? map.heightAt(x, z);
+    // Slice 32: the works' people (quarrymen, loggers, sledges, miners).
+    this.workfolk = new Workfolk(map, this.folk);
+    this.workfolk.ground = this.walkers.ground;
+    this.walkers.workfolk = this.workfolk;
     this.army.ground = this.walkers.ground;
     this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group);
   }
@@ -75,6 +81,8 @@ export class CityView {
     if (s.rev !== this.rev) this.sync(s);
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
+    // Slice 32: the trees being chopped and felled, and the woods growing back.
+    this.plants.works(s, alpha, time);
     this.folk.begin();
     // Raiders on the map: whoever is near them has run indoors (the sim's own rule), and is not drawn.
     const bands = bandsAt(s);
@@ -82,6 +90,7 @@ export class CityView {
     // (A gate's door opens for your own people going through it while raiders are about.)
     this.walls.frame(s, this.walkers.hidden);
     this.walkers.update(s, alpha, time);
+    this.workfolk.miners(s, alpha);
     this.animals.update(s, alpha, time);
     this.army.update(s, alpha, time);
     this.folk.end();

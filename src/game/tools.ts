@@ -44,8 +44,10 @@ import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOB
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
 import { FLEECE_MONTH, GRAPE_HARVEST, OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST, VINE_GROW, WINE_MONTH } from '../sim/production';
-import { PRESS_OLIVES, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, WINERY_GRAPES } from '../sim/stores';
+import { PRESS_OLIVES, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_MARBLE, STOREHOUSE_OIL, STOREHOUSE_TIMBER, STOREHOUSE_WINE, WINERY_GRAPES } from '../sim/stores';
 import { armsLines } from './armstips';
+import { worksHeadline, worksLines } from './workstips';
+import { marbleOf, QUARRY_MARBLE_MIN, tileMarble } from '../sim/materials';
 import { CHEESE_BATCH, CHEESE_EVERY, GRANARY_CAP, GRANARY_ROOM, GROW, HARVEST, VENDOR_RANGE } from '../sim/food';
 import { HUNT_RANGE, lodgeOutlook } from '../sim/hunt';
 import { herdName, MIN_HEAD } from '../sim/wild';
@@ -97,7 +99,10 @@ export type ToolName =
   | 'wall'
   | 'tower'
   | 'shipyard'
-  | 'clear';
+  | 'clear'
+  // Slice 32.
+  | 'quarry'
+  | 'loggers';
 export const TOOLS: readonly ToolName[] = [
   'road',
   'housing',
@@ -130,6 +135,9 @@ export const TOOLS: readonly ToolName[] = [
   'tower',
   'shipyard',
   'clear',
+  // Slice 32.
+  'quarry',
+  'loggers',
 ];
 
 /** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
@@ -139,7 +147,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && !isStallTool(t);
 
 export interface ToolTip {
@@ -243,7 +251,7 @@ export class Tools {
     this.anchor = -1;
     const map = this.sim.map;
     const ix = mapIndex(map);
-    this.placement.show(t !== null, t === 'road', t === 'mine');
+    this.placement.show(t !== null, t === 'road', t === 'mine', t === 'quarry');
     if (t) {
       const quay = t === 'trading' || t === 'shipyard' ? quayTiles(map) : new Uint8Array(0);
       this.placement.setBlocked((i) => {
@@ -265,6 +273,8 @@ export class Tools {
         if (t === 'vineyard') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileVine(map, i) < VINE_MIN;
         // A copper mine needs copper in the rock: the rest is washed rust (the copper itself shows green: see Placement).
         if (t === 'mine') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileCopper(map, i) < MINE_COPPER_MIN * 0.5;
+        // A quarry needs marble in the rock (it shows pale: see Placement), and takes a slope as a mine does.
+        if (t === 'quarry') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileMarble(map, i) < QUARRY_MARBLE_MIN * 0.5;
         // The trading post goes on the bay shore where the ship can come alongside: the rest is washed rust.
         if (t === 'trading' || t === 'shipyard') return g !== Ground.Ok || quay[i] === 0;
         // A stall goes on an agora: nothing is washed.
@@ -634,6 +644,8 @@ export class Tools {
       barracks: ['barracks', 'barracks'],
       tower: ['tower', 'towers'],
       shipyard: ['shipyard', 'shipyards'],
+      quarry: ['marble quarry', 'marble quarries'],
+      loggers: ['loggers’ camp', 'loggers’ camps'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -778,8 +790,8 @@ export class Tools {
       const grass = kind === 'dairy' || kind === 'pasture' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round((kind === 'dairy' ? DAIRY_GRASS_MIN : PASTURE_GRASS_MIN) * 100)}%)` : '';
       const olive = kind === 'grove' ? ` (olive ground here ${Math.round(oliveOf(map, x, z, side) * 100)}%, it needs ${Math.round(GROVE_OLIVE_MIN * 100)}%)` : '';
       const vine = kind === 'vineyard' ? ` (vine ground here ${Math.round(vineOf(map, x, z, side) * 100)}%, it needs ${Math.round(VINE_MIN * 100)}%)` : '';
-      const copper = kind === 'mine' ? ` (copper here ${Math.round(copperOf(map, x, z, side) * 100)}%, it needs ${Math.round(MINE_COPPER_MIN * 100)}%)` : '';
-      this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : r.startsWith('Poor ground for olives') ? olive : r.startsWith('Poor ground for vines') ? vine : r.startsWith('No copper') ? copper : ''), sx, sy, true);
+      const copper = kind === 'mine' ? ` (copper here ${Math.round(copperOf(map, x, z, side) * 100)}%, it needs ${Math.round(MINE_COPPER_MIN * 100)}%)` : kind === 'quarry' ? ` (marble here ${Math.round(marbleOf(map, x, z, side) * 100)}%, it needs ${Math.round(QUARRY_MARBLE_MIN * 100)}%)` : '';
+      this.tip.show(r + (r.startsWith('Not fertile') ? fert : r.startsWith('Too little grass') ? grass : r.startsWith('Poor ground for olives') ? olive : r.startsWith('Poor ground for vines') ? vine : r.startsWith('No copper') || r.startsWith('No marble') ? copper : ''), sx, sy, true);
       return;
     }
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(An?|The) /, '').replace(/^./, (c) => c.toUpperCase());
@@ -912,6 +924,12 @@ export class Tools {
       if (kind === 'mine') text += ` · copper in the rock ${Math.round(copperOf(map, x, z, side) * 100)}%`;
       lines.push(...more.lines);
       warn = more.warn;
+    } else if (kind === 'quarry' || kind === 'loggers') {
+      // Slice 32.
+      const more = worksLines(s, map, kind, x, z, roads.length > 0);
+      text += worksHeadline(s, map, kind, x, z);
+      lines.push(...more.lines);
+      warn = more.warn;
     } else if (kind === 'shipyard') {
       const berth = berthAt(map, x, z);
       lines.push(`Its ${JOBS.shipyard} shipwrights build triremes on its slip, one at a time (${TRIREME_COST} dr each, about ${Math.round(BUILD_TICKS / TICKS_PER_DAY)} days), and mend them at its jetty; it moors ${PER_YARD}`);
@@ -924,7 +942,7 @@ export class Tools {
       lines.push('It stands on the wall line: towers either side of a gate make raiders pay for breaking it');
       if (roads.length === 0) warn = 'No road beside it: no archers could reach it. Set it beside a road, by a gate.';
     } else if (kind === 'storehouse') {
-      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece, ${fmt(STOREHOUSE_WINE)} amphorae of wine, ${fmt(STOREHOUSE_COPPER)} measures of copper and ${fmt(STOREHOUSE_ARMOUR)} sets of armour: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
+      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece, ${fmt(STOREHOUSE_WINE)} amphorae of wine, ${fmt(STOREHOUSE_COPPER)} measures of copper, ${fmt(STOREHOUSE_ARMOUR)} sets of armour, ${fmt(STOREHOUSE_MARBLE)} blocks of marble and ${fmt(STOREHOUSE_TIMBER)} logs: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'agora' && b.stalls)) lines.push('An agora needs a stall to sell what it holds: K twice (oil), three times (fleece) or four (wine), then click an agora');

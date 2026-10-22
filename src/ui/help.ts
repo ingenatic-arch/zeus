@@ -38,7 +38,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
       <dt>H</dt><dd>Housing plots: click or drag</dd>
       <dt>B</dt><dd>Fountain: click beside a road; again for a copper mine (on the green-streaked rock it shows), an armoury, a barracks, a wall (drag it like a road: a gate where it crosses one), a tower (on or beside a wall) and a shipyard (on the bay shore)</dd>
-      <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery</dd>
+      <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery, marble quarry (on the pale rock of the headland) and loggers’ camp (at a wood’s edge)</dd>
       <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece and wine), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>

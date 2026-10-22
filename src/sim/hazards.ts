@@ -116,6 +116,9 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   barracks: 420,
   tower: Infinity,
   shipyard: 330,
+  // Slice 32: the quarry's sheds burn seldom; the camp's logs and shavings more often.
+  quarry: 600,
+  loggers: 300,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -148,6 +151,9 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   barracks: 330,
   tower: Infinity,
   shipyard: 360,
+  // Slice 32.
+  quarry: 600,
+  loggers: 450,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 

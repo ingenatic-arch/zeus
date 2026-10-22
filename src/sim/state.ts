@@ -3,7 +3,7 @@ import type { RngState } from './rng';
 import type { Crime } from './crime';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 29;
+export const SIM_STATE_VERSION = 30;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -38,9 +38,12 @@ export type BuildingKind =
   | 'armoury'
   | 'barracks'
   | 'tower'
-  | 'shipyard';
+  | 'shipyard'
+  // Slice 32: the quarry and the loggers' camp.
+  | 'quarry'
+  | 'loggers';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -153,9 +156,9 @@ export interface Building {
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -463,6 +466,8 @@ export interface SimState {
   fleet: Fleet;
   /** Slice 30: crime's switch, its news and the month's tallies (see crime.ts; each home's temptation is its `tempt`). */
   crime: Crime;
+  /** Slice 32: the trees the loggers have felled, growing back (materials.ts). */
+  materials: Materials;
 }
 
 /**
@@ -1410,4 +1415,19 @@ export interface Fleet {
   pirates: Pirates[];
   reports: SeaReport[];
   nextId: number;
+}
+
+// ---------------------------------------------------------------------------
+// Marble and timber (slice 32, see materials.ts). Nothing here draws on any
+// random numbers: a town with no loggers' camp has nothing felled.
+
+/** A tree a logger felled (its number in the baked map's plants) and the tick it fell: a stump, then a sapling, back to a tree REGROW after. */
+export interface Felled {
+  tree: number;
+  at: number;
+}
+
+/** What the quarries and loggers' camps leave on the land: the trees felled and growing back, by tree number (replaced as a new list whenever it changes). */
+export interface Materials {
+  felled: Felled[];
 }

@@ -95,6 +95,13 @@
  * move), nobody is anybody's vassal, and the six empty sites are free.
  * Nothing in the city changes.
  *
+ * Slice 32 (Marble and timber): no tree has been felled yet; every
+ * building's goods, and every trade record, gain marble and timber (padded
+ * to however many goods there are now); Athens makes three times the marble
+ * it uses and Troy three times the timber, every other city just what it
+ * uses, each at its usual price with nothing pushing it; nothing is ticked
+ * for sale. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -103,13 +110,13 @@ import { coastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { TICKS_PER_MONTH } from './clock';
 import { FINE } from './buildings';
-import { gi, GOOD_COUNT, OIL } from './foods';
+import { gi, GOOD_COUNT, MARBLE, OIL, TIMBER } from './foods';
 import { SIM_STATE_VERSION, type SimState, type WorldCity } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
-import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, TRADE_GOODS } from './trade';
-import { armsOf, freshWorld, marketPrice, moodLevel, moodOf, normalStock, settle, usualTrail } from './world';
+import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, tradeIndex, TRADE_GOODS } from './trade';
+import { armsOf, freshWorld, marketPrice, materialsOf, moodLevel, moodOf, normalStock, settle, usualTrail } from './world';
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { freshCrime } from './crime';
@@ -162,6 +169,7 @@ export function migrate(st: unknown): number {
   if (st.version === 26) from26(st);
   if (st.version === 27) fromSlice30(st);
   if (st.version === 28) fromSlice31(st);
+  if (st.version === 29) fromSlice32(st);
   return from;
 }
 
@@ -405,6 +413,9 @@ function pad<T>(xs: unknown, n: number, fill: (k: number) => T): void {
   for (let k = xs.length; k < n; k++) xs.push(fill(k));
 }
 
+/** How many goods (and trade goods past the old six) there were at version 22: copper and armour (slice 32 padded later ones on in its own step). */
+const GOODS_22 = 7;
+
 function from21(st: Record<string, unknown>): void {
   // Copper and armour (slice 23): every building's goods one copper and one armour longer, and every trade
   // record two trade goods longer. Each city of Greece makes and uses them by its character (armsOf), at its
@@ -413,11 +424,12 @@ function from21(st: Record<string, unknown>): void {
   if (Array.isArray(st.buildings)) {
     for (const b of st.buildings as Array<Record<string, unknown>>) {
       if (!isObj(b)) continue;
-      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOODS_22, zero);
     }
   }
-  if (Array.isArray(st.undo)) for (const e of st.undo as Array<Record<string, unknown>>) if (isObj(e) && Array.isArray(e.removedGoods)) for (const g of e.removedGoods) pad(g, GOOD_COUNT, zero);
-  const g = TRADE_GOODS.length;
+  if (Array.isArray(st.undo)) for (const e of st.undo as Array<Record<string, unknown>>) if (isObj(e) && Array.isArray(e.removedGoods)) for (const g of e.removedGoods) pad(g, GOODS_22, zero);
+  // (Slice 32: to the goods of its day, copper and armour; later steps pad on to their own goods.)
+  const g = OLD_GOODS + 2;
   if (isObj(st.trade)) {
     const t = st.trade;
     pad(t.sell, g, () => false);
@@ -606,6 +618,79 @@ function fromSlice31(st: Record<string, unknown>): void {
       if (!Array.isArray(c.grew)) c.grew = [];
     }
     settle(w as unknown as SimState['world'], typeof st.tick === 'number' ? st.tick : 0, false, false);
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 32 (Marble and timber): see the notes at the top. It fills in only
+ * its own field (`materials`) and pads every goods list to however many
+ * goods there are now, whatever other steps have padded before it; the
+ * trade goods it doesn't know (another slice's) are padded with nothing made
+ * or used, for that slice's own step to set.
+ */
+function fromSlice32(st: Record<string, unknown>): void {
+  if (!isObj(st.materials)) st.materials = { felled: [] };
+  else if (!Array.isArray(st.materials.felled)) st.materials.felled = [];
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  }
+  if (Array.isArray(st.undo)) for (const e of st.undo as Array<Record<string, unknown>>) if (isObj(e) && Array.isArray(e.removedGoods)) for (const g of e.removedGoods) pad(g, GOOD_COUNT, zero);
+  const g = TRADE_GOODS.length;
+  if (isObj(st.trade)) {
+    const t = st.trade;
+    pad(t.sell, g, () => false);
+    pad(t.keep, g, (k) => DEFAULT_KEEP[k] ?? 0);
+    pad(t.lost, g, zero);
+    if (isObj(t.ship)) {
+      pad(t.ship.hold, g, zero);
+      pad(t.ship.lastBought, g, zero);
+    }
+  }
+  const w = st.world;
+  if (!isObj(w)) return void (st.version = (st.version as number) + 1);
+  if (Array.isArray(w.cities)) {
+    for (const c of w.cities as Array<Record<string, unknown>>) {
+      if (!isObj(c) || !Array.isArray(c.make) || !Array.isArray(c.need) || !Array.isArray(c.price)) continue;
+      const mats = materialsOf(c.id as CityId);
+      const made = (k: number, i: number): number => (TRADE_GOODS[k] === MARBLE ? mats[i] : TRADE_GOODS[k] === TIMBER ? mats[i + 2] : 0);
+      pad(c.make, g, (k) => made(k, 0));
+      pad(c.need, g, (k) => made(k, 1));
+      for (const k of ['yours', 'crop', 'strife', 'feast']) pad(c[k], g, zero);
+      const make = c.make as number[];
+      const need = c.need as number[];
+      // (Another line's step may have padded the lists to their merged length first, with nothing made or used
+      // of marble and timber: every city makes and uses some, so those two are set here, with their prices. Review.)
+      const unset = [tradeIndex(MARBLE), tradeIndex(TIMBER)].filter((k) => k >= 0 && k < make.length && !make[k] && !need[k]);
+      for (const k of unset) {
+        make[k] = made(k, 0);
+        need[k] = made(k, 1);
+      }
+      const usual = (k: number): number => (c.ruler ? marketPrice(k, make[k], need[k]) : PRICES[k]);
+      pad(c.stock, g, (k) => Math.round(normalStock(c as unknown as WorldCity, k)));
+      pad(c.price, g, usual);
+      pad(c.trail, g, (k) => (c.ruler ? usualTrail(k, make[k], need[k]) : usual(k)));
+      pad(c.history, g, (k) => new Array<number>(12).fill(usual(k)));
+      pad(c.dealt, g, () => new Array<number>(12).fill(0));
+      for (const k of unset) {
+        if (Array.isArray(c.stock)) (c.stock as number[])[k] = Math.round(normalStock(c as unknown as WorldCity, k));
+        if (Array.isArray(c.price)) (c.price as number[])[k] = usual(k);
+        if (Array.isArray(c.trail)) (c.trail as number[])[k] = c.ruler ? usualTrail(k, make[k], need[k]) : usual(k);
+        if (Array.isArray(c.history)) (c.history as number[][])[k] = new Array<number>(12).fill(usual(k));
+      }
+    }
+  }
+  if (Array.isArray(w.routes)) {
+    for (const r of w.routes as Array<Record<string, unknown>>) {
+      if (!isObj(r)) continue;
+      for (const k of ['sold', 'bought', 'upto', 'hold', 'unloaded', 'lastSold', 'lastBought']) pad(r[k], g, zero);
+      pad(r.sell, g, () => false);
+      pad(r.buy, g, () => false);
+    }
   }
   st.version = (st.version as number) + 1;
 }

@@ -9,7 +9,7 @@
  *
  * Plain data: later wares (the quay's) only add rows and numbers here.
  */
-import { ARMOUR, coming, COPPER, FLEECE, GRAPES, held, OIL, OLIVES, WARES, WINE, type Ware } from './foods';
+import { ARMOUR, coming, COPPER, FLEECE, GRAPES, held, MARBLE, OIL, OLIVES, TIMBER, WARES, WINE, type Ware } from './foods';
 import type { Building, BuildingKind } from './state';
 
 /** What a granary holds of wheat… */
@@ -23,6 +23,9 @@ export const STOREHOUSE_WINE = 1200;
 /** …and of copper ore and armour (sets). */
 export const STOREHOUSE_COPPER = 800;
 export const STOREHOUSE_ARMOUR = 120;
+/** …and of blocks of marble and logs of timber (slice 32). */
+export const STOREHOUSE_MARBLE = 800;
+export const STOREHOUSE_TIMBER = 800;
 /** What an armoury holds of copper waiting for its smiths. */
 export const ARMOURY_COPPER = 200;
 /** What an olive press holds of olives waiting to be pressed, and a winery of grapes. */
@@ -45,14 +48,17 @@ export const WINERY_STORE = 600;
 export const MINE_STORE = 400;
 export const ARMOURY_STORE = 40;
 export const BARRACKS_RACK = 64;
+/** What a quarry's stack holds of cut blocks, and a loggers' camp's of logs (slice 32). */
+export const QUARRY_STORE = 200;
+export const LOGGERS_STORE = 200;
 
-/** A store's room for each ware, in ware order (wheat, meat, cheese, olives, oil, fleece, grapes, wine, copper, armour). */
+/** A store's room for each ware, in ware order (wheat, meat, cheese, olives, oil, fleece, grapes, wine, copper, armour, marble, timber). */
 const roomsOf = (rooms: Partial<Record<Ware, number>>): number[] => WARES.map((w) => rooms[w] ?? 0);
 
 /** The rooms of every building that takes deliveries: stores, and makers' inputs. */
 export const ROOMS: Partial<Record<BuildingKind, readonly number[]>> = {
   granary: roomsOf({ 0: GRANARY_ROOM[0], 1: GRANARY_ROOM[1], 2: GRANARY_ROOM[2] }),
-  storehouse: roomsOf({ [OIL]: STOREHOUSE_OIL, [FLEECE]: STOREHOUSE_FLEECE, [WINE]: STOREHOUSE_WINE, [COPPER]: STOREHOUSE_COPPER, [ARMOUR]: STOREHOUSE_ARMOUR }),
+  storehouse: roomsOf({ [OIL]: STOREHOUSE_OIL, [FLEECE]: STOREHOUSE_FLEECE, [WINE]: STOREHOUSE_WINE, [COPPER]: STOREHOUSE_COPPER, [ARMOUR]: STOREHOUSE_ARMOUR, [MARBLE]: STOREHOUSE_MARBLE, [TIMBER]: STOREHOUSE_TIMBER }),
   press: roomsOf({ [OLIVES]: PRESS_OLIVES }),
   winery: roomsOf({ [GRAPES]: WINERY_GRAPES }),
   armoury: roomsOf({ [COPPER]: ARMOURY_COPPER }),
@@ -75,6 +81,8 @@ export const OWN_STORE: Partial<Record<BuildingKind, number>> = {
   mine: MINE_STORE,
   armoury: ARMOURY_STORE,
   barracks: BARRACKS_RACK,
+  quarry: QUARRY_STORE,
+  loggers: LOGGERS_STORE,
 };
 
 /** A building's room for a ware (0: it doesn't take it). */

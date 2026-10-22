@@ -2,21 +2,23 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { BARN, DAIRY_STORE, GOOD_STALL_ROOM, GRANARY_CAP, GRANARY_ROOM, GROW, LODGE_STORE, STALL_CAP, STALL_ROOM, stallRoom } from '../sim/food';
-import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, WHEAT, WINE } from '../sim/foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MARBLE, MEAT, OIL, OLIVES, TIMBER, WHEAT, WINE } from '../sim/foods';
 import { footSide } from '../sim/buildings';
 import { armourStand, armouryModel, barracksModel, mineModel, oreBasket } from './arms';
 import { berthOf, QUAY_ROOM, YARD_ROOM } from '../sim/trade';
 import { hasStall } from '../sim/goods';
 import { MAKERS, stageOf } from '../sim/production';
-import { ARMOURY_COPPER, ARMOURY_STORE, GROVE_STORE, MINE_STORE, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
+import { ARMOURY_COPPER, ARMOURY_STORE, GROVE_STORE, LOGGERS_STORE, MINE_STORE, QUARRY_STORE, STOREHOUSE_MARBLE, STOREHOUSE_TIMBER, PASTURE_STORE, PRESS_OLIVES, PRESS_STORE, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_OIL, STOREHOUSE_WINE, VINEYARD_STORE, WINERY_GRAPES, WINERY_STORE } from '../sim/stores';
 import { rateOf } from '../sim/labour';
-import type { Building, SimState } from '../sim/state';
+import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { theatreModel } from './grand';
 import { amphora, cyl, facingOf, HOME_CHUNK, MergedChunks, prism, stoneWall, windowX, woodpile, type MergedItem } from './homes';
 import { PAL } from './palette';
 import { PLACES } from '../map/greece';
 import { lumpy, merge, type Part } from './trees';
+import { batteredFooting, campModel, logPile, marbleBlock, MARBLE as MARBLE_TONE, quarryBack, quarryEdge, quarryFront, quarryLevels, quarryRiser, skirt } from './materialworks';
+import { quarryFace, quarryYaw } from '../sim/materials';
 
 // ---------------------------------------------------------------------------
 // Models. Local frame: the footprint's centre at the origin, spanning
@@ -595,7 +597,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  */
 const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury', 'shipyard']);
 /** Kinds levelled half-way between the lowest and the highest ground under them: the caravan yard, whose walls run round the whole of it (part sunk into the slope uphill, on a low footing downhill). */
-const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard', 'barracks', 'mine']);
+const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard', 'barracks', 'mine', 'loggers']);
 
 
 // ---------------------------------------------------------------------------
@@ -1275,7 +1277,9 @@ function shipyardModel(): THREE.BufferGeometry {
 function caravanYardModel(): THREE.BufferGeometry {
   const parts: Part[] = [];
   // The yard: beaten earth on a footing down into the slope, a worn track in from the gate.
-  parts.push({ geo: slab(-1.49, -1.49, 1.49, 1.49, -1.2, 0.0), color: PAL.stone });
+  // (Slice 32: the footing battered out in courses of rubble, an earth bank heaped against its foot, so on a slope it reads as a terrace rather than a tall blank wall.)
+  parts.push(...batteredFooting(1.49, 1.49, 1.2, 0.2, [PAL.stone, PAL.rockDark], 0.2, 1650, [PAL.rockDark, PAL.rockWarm, PAL.rockGrey]));
+  parts.push(...batteredFooting(1.62, 1.62, 0.75, 0.55, [PAL.earth], 0.75, 1690, [PAL.rockWarm, PAL.earthWorn]).map((q) => ({ ...q, geo: q.geo.translate(0, -0.42, 0) })));
   parts.push({ geo: slab(-1.48, -1.48, 1.48, 1.48, 0.0, 0.04), color: PAL.earth });
   parts.push({ geo: slab(-0.4, -0.38, 1.49, 0.38, 0.04, 0.046), color: PAL.earthWorn });
   // Low rubble walls: the back, the two sides, and the front either side of the gateway.
@@ -1292,6 +1296,25 @@ function caravanYardModel(): THREE.BufferGeometry {
       const x = along ? x0 + (x1 - x0) * f : (x0 + x1) / 2 + (hash2(i, seed, 1602) > 0.5 ? 1 : -1) * ((x1 - x0) / 2);
       const z = along ? (z0 + z1) / 2 + (hash2(i, seed, 1602) > 0.5 ? 1 : -1) * ((z1 - z0) / 2) : z0 + (z1 - z0) * f;
       parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, 1603 + i + seed * 50).scale(1.2, 0.8, 1.2).translate(x, 0.08 + 0.26 * hash2(i, seed, 1604), z), color: i % 2 ? PAL.rockDark : PAL.rockWarm });
+    }
+    // (Slice 32: its outer face coursed, bed joints and staggered upright joints, down over the footing too, so a wall on a slope isn't a blank face.)
+    const along = x1 - x0 > z1 - z0;
+    const out = along ? Math.sign((z0 + z1) / 2) : Math.sign((x0 + x1) / 2);
+    const face = along ? (out > 0 ? z1 : z0) + out * 0.004 : (out > 0 ? x1 : x0) + out * 0.004;
+    const len = along ? x1 - x0 : z1 - z0;
+    const start = along ? x0 : z0;
+    const COURSE = 0.15;
+    for (let k = 0; k < 6; k++) {
+      const y = H - 0.02 - k * COURSE;
+      const bed = along ? new THREE.BoxGeometry(len, 0.012, 0.008).translate(start + len / 2, y, face) : new THREE.BoxGeometry(0.008, 0.012, len).translate(face, y, start + len / 2);
+      parts.push({ geo: bed, color: PAL.rockDark });
+      const n = Math.max(1, Math.floor(len / 0.26));
+      for (let j = 0; j < n; j++) {
+        const u = start + ((j + (k % 2 ? 0.5 : 0) + 0.25 + 0.2 * hash2(j, k + seed * 7, 1605)) / n) * len;
+        if (u <= start + 0.03 || u >= start + len - 0.03) continue;
+        const ym = y - COURSE / 2;
+        parts.push({ geo: along ? new THREE.BoxGeometry(0.01, COURSE - 0.02, 0.008).translate(u, ym, face) : new THREE.BoxGeometry(0.008, COURSE - 0.02, 0.01).translate(face, ym, u), color: PAL.rockDark });
+      }
     }
   };
   wall(-1.48, -1.48, -1.36, 1.48, 1);
@@ -1358,8 +1381,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard' | 'quarry' | 'loggers';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard', 'quarry', 'loggers']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1407,6 +1430,11 @@ const STORE_ORE = 6;
 const ARMOURY_STANDS = 8;
 const STORE_STANDS = 8;
 const RACK_STANDS = 16;
+/** Blocks of marble on the quarry's floor and in a storehouse's yard; piles of logs at the loggers' camp and in a storehouse's yard (slice 32). */
+const QUARRY_BLOCKS = 12;
+const STORE_BLOCKS = 8;
+const CAMP_PILES = 4;
+const STORE_PILES = 3;
 /** What shows of each good waiting on the trading post's quay for the ship: sacks, hams, cheeses, jars, bales, amphorae. */
 const QUAY_SACKS = 12;
 const QUAY_HAMS = 6;
@@ -1439,7 +1467,7 @@ export class Works {
    * holds. Rebuilt only when one of them is placed, cleared, turned or rising.
    */
   private readonly merged: MergedChunks;
-  private readonly models: Record<WorkKind | 'awning' | 'oilstall' | 'fleecestall' | 'winestall' | Piece, THREE.BufferGeometry>;
+  private readonly models: Record<WorkKind | 'awning' | 'oilstall' | 'fleecestall' | 'winestall' | 'quarryback' | Piece, THREE.BufferGeometry>;
   private readonly wheat: ChunkedInstances;
   private readonly stooks: ChunkedInstances;
   private readonly sacks: ChunkedInstances;
@@ -1455,6 +1483,8 @@ export class Works {
   private readonly grapeBaskets: ChunkedInstances;
   private readonly ore: ChunkedInstances;
   private readonly armour: ChunkedInstances;
+  private readonly blocks: ChunkedInstances;
+  private readonly logs: ChunkedInstances;
   private readonly all: ChunkedInstances[];
   private byChunk = new Map<number, Building[]>();
   private seen = new Map<number, { sig: string; key: number }>();
@@ -1517,6 +1547,9 @@ export class Works {
       armoury: armouryModel(),
       barracks: barracksModel(),
       shipyard: shipyardModel(),
+      quarry: quarryFront(),
+      quarryback: quarryBack(),
+      loggers: campModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1539,7 +1572,10 @@ export class Works {
     // Baskets of copper ore and stands of armour (slice 23): few, one batch each.
     this.ore = new ChunkedInstances('ore-baskets', oreBasket(), mat, ALL, { castShadow: false, receiveShadow: true, colors: false });
     this.armour = new ChunkedInstances('armour-stands', armourStand(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
-    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars, this.bales, this.amphorae, this.grapes, this.grapeBaskets, this.ore, this.armour];
+    // Blocks of marble and piles of logs (slice 32): few, one batch each.
+    this.blocks = new ChunkedInstances('marble-blocks', marbleBlock(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.logs = new ChunkedInstances('log-piles', logPile(), mat, ALL, { castShadow: true, receiveShadow: true, colors: false });
+    this.all = [this.wheat, this.stooks, this.sacks, this.loaves, this.hams, this.cheeses, this.fruit, this.baskets, this.jars, this.bales, this.amphorae, this.grapes, this.grapeBaskets, this.ore, this.armour, this.blocks, this.logs];
     for (const c of this.all) this.group.add(c.group);
   }
 
@@ -1555,6 +1591,8 @@ export class Works {
       const berth = berthOf(this.map, b);
       if (berth) return Math.atan2(-berth.oz, berth.ox);
     }
+    // The quarry's face (its back) is cut into the uphill side, whatever side its road is on.
+    if (b.kind === 'quarry') return quarryYaw(quarryFace(this.map, b.x, b.z));
     return facingOf(s, this.map.size, b);
   }
 
@@ -1567,13 +1605,76 @@ export class Works {
     return g;
   }
 
+  /**
+   * Slice 32: the skirt of spoil (a quarry) or earth (a caravan yard) heaped
+   * down to the ground round it, fitted to the ground under it (see skirt()),
+   * made once for each place, height, turn and the roads beside it.
+   */
+  private skirts = new Map<string, THREE.BufferGeometry>();
+  /** Which sides of a building (in its own frame: 0 -z, 1 +x, 2 +z, 3 -x) have a road beside them, as bits. */
+  private roadSides(s: SimState, b: Building, yaw: number): number {
+    const half = footSide(b) / 2;
+    const cx = b.x + half;
+    const cz = b.z + half;
+    const c = Math.round(Math.cos(yaw));
+    const sn = Math.round(Math.sin(yaw));
+    const n = this.map.size;
+    let mask = 0;
+    const sides: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    sides.forEach(([nx, nz], k) => {
+      for (const u of [-half + 0.5, 0, half - 0.5]) {
+        const lx = nx * (half + 0.5) - nz * u;
+        const lz = nz * (half + 0.5) + nx * u;
+        const tx = Math.floor(cx + lx * c + lz * sn);
+        const tz = Math.floor(cz - lx * sn + lz * c);
+        if (tx >= 0 && tz >= 0 && tx < n && tz < n && s.tiles[tz * n + tx] === TILE_ROAD) mask |= 1 << k;
+      }
+    });
+    return mask;
+  }
+  /** How far a quarry's bench stands above its floor. */
+  private riseOf(b: Building, yaw: number): number {
+    const l = quarryLevels((x, z) => this.map.heightAt(x, z), b, yaw);
+    return l.back - l.front;
+  }
+  private risers = new Map<string, THREE.BufferGeometry>();
+  private riser(rise: number): THREE.BufferGeometry {
+    const k = rise.toFixed(3);
+    let g = this.risers.get(k);
+    if (!g) this.risers.set(k, (g = quarryRiser(rise)));
+    return g;
+  }
+  private skirtOf(b: Building, f: { x: number; y: number; z: number; yaw: number }, mask: number, rise = 0): THREE.BufferGeometry {
+    const key = `${b.kind}:${f.x}:${f.z}:${f.y.toFixed(3)}:${f.yaw.toFixed(3)}:${mask}:${rise.toFixed(3)}`;
+    let g = this.skirts.get(key);
+    if (g) return g;
+    if (this.skirts.size > 64) this.skirts.clear();
+    const c = Math.cos(f.yaw);
+    const sn = Math.sin(f.yaw);
+    const ground = (lx: number, lz: number): number => this.map.heightAt(f.x + lx * c + lz * sn, f.z - lx * sn + lz * c) - f.y;
+    const road = (k: number): boolean => (mask & (1 << k)) !== 0;
+    const half = footSide(b) / 2;
+    g =
+      b.kind === 'loggers'
+        ? skirt(ground, half, road, [PAL.earth, PAL.dryGrass], [PAL.rockWarm, PAL.earthWorn], 3700)
+        : b.kind === 'quarry'
+        ? skirt(ground, 1.49, road, [MARBLE_TONE.spoil, MARBLE_TONE.spoilLight], [MARBLE_TONE.shade, MARBLE_TONE.weathered, PAL.rockGrey], 3500, (lx) => quarryEdge(lx, rise))
+        : skirt(ground, half, road, [PAL.earth, PAL.dryGrass], [PAL.rockWarm, PAL.rockDark], 3600);
+    this.skirts.set(key, g);
+    return g;
+  }
+
   private sig(s: SimState, b: Building): string {
     const face = this.yawOf(s, b).toFixed(2);
+    if (b.kind === 'loggers') return `loggers:${face}:${this.roadSides(s, b, this.yawOf(s, b))}:${shown(held(b, TIMBER), LOGGERS_STORE, CAMP_PILES)}`;
+    if (b.kind === 'quarry' || b.kind === 'yard') {
+      // (Slice 32: the roads beside it shape its skirt.)
+      const mask = this.roadSides(s, b, this.yawOf(s, b));
+      if (b.kind === 'quarry') return `quarry:${face}:${mask}:${shown(held(b, MARBLE), QUARRY_STORE, QUARRY_BLOCKS)}`;
+      return `yard:${face}:${mask}:${shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), YARD_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES)}:${shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE)}`;
+    }
     if (b.kind === 'trading') {
       return `trading:${face}:${shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), QUAY_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES)}:${shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE)}`;
-    }
-    if (b.kind === 'yard') {
-      return `yard:${face}:${shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), YARD_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES)}:${shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE)}`;
     }
     if (b.kind === 'farm') {
       const g = Math.floor((b.growth / GROW) * GROWTH_STEPS);
@@ -1585,7 +1686,7 @@ export class Works {
     if (b.kind === 'dairy') return `dairy:${face}:${shown(b.cheese, DAIRY_STORE, BENCH)}`;
     if (b.kind === 'grove') return `grove:${face}:${stageOf(b, MAKERS.grove!)}:${shown(held(b, OLIVES), GROVE_STORE, GROVE_BASKETS)}`;
     if (b.kind === 'press') return `press:${face}:${shown(held(b, OLIVES), PRESS_OLIVES, PRESS_BASKETS)}:${shown(held(b, OIL), PRESS_STORE, PRESS_JARS)}`;
-    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}:${shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES)}:${shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE)}:${shown(held(b, COPPER), STOREHOUSE_COPPER, STORE_ORE)}:${shown(held(b, ARMOUR), STOREHOUSE_ARMOUR, STORE_STANDS)}`;
+    if (b.kind === 'storehouse') return `storehouse:${face}:${shown(held(b, OIL), STOREHOUSE_OIL, STORE_JARS)}:${shown(held(b, FLEECE), STOREHOUSE_FLEECE, STORE_BALES)}:${shown(held(b, WINE), STOREHOUSE_WINE, STORE_AMPHORAE)}:${shown(held(b, COPPER), STOREHOUSE_COPPER, STORE_ORE)}:${shown(held(b, ARMOUR), STOREHOUSE_ARMOUR, STORE_STANDS)}:${shown(held(b, MARBLE), STOREHOUSE_MARBLE, STORE_BLOCKS)}:${shown(held(b, TIMBER), STOREHOUSE_TIMBER, STORE_PILES)}`;
     if (b.kind === 'mine') return `mine:${face}:${shown(held(b, COPPER), MINE_STORE, MINE_BASKETS)}`;
     if (b.kind === 'armoury') return `armoury:${face}:${shown(held(b, COPPER), ARMOURY_COPPER, ARMOURY_BASKETS)}:${shown(held(b, ARMOUR), ARMOURY_STORE, ARMOURY_STANDS)}`;
     if (b.kind === 'barracks') return `barracks:${face}:${Math.min(RACK_STANDS, held(b, ARMOUR))}`;
@@ -1657,6 +1758,8 @@ export class Works {
       this.flush(this.grapeBaskets, this.grapeBasketsBy);
       this.flush(this.ore, this.oreBy);
       this.flush(this.armour, this.armourBy);
+      this.flush(this.blocks, this.blocksBy);
+      this.flush(this.logs, this.logsBy);
       this.flushColoured(this.fruit, this.fruitBy);
       this.flushColoured(this.grapes, this.grapesBy);
     }
@@ -1673,6 +1776,8 @@ export class Works {
   private grapeBasketsBy = new Map<number, THREE.Matrix4[]>();
   private oreBy = new Map<number, THREE.Matrix4[]>();
   private armourBy = new Map<number, THREE.Matrix4[]>();
+  private blocksBy = new Map<number, THREE.Matrix4[]>();
+  private logsBy = new Map<number, THREE.Matrix4[]>();
   /** Each grove tree's olives and each length of vine's grapes, and their colour, by chunk. */
   private fruitBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
   private grapesBy = new Map<number, Array<{ m: THREE.Matrix4; c: THREE.Color }>>();
@@ -1757,7 +1862,10 @@ export class Works {
       let y: number;
       const foot = MAIN_FOOT[b.kind];
       const high = HIGH_FOOT.has(b.kind);
-      if (foot) {
+      if (b.kind === 'quarry') {
+        // (Slice 32: its front floor on the top of the ground under it, its bench at the face stepping up from it.)
+        y = quarryLevels((x, z) => map.heightAt(x, z), b, yaw).front - 0.01;
+      } else if (foot) {
         // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
         y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
       } else if (MID_FOOT.has(b.kind)) {
@@ -1810,6 +1918,18 @@ export class Works {
       whole(b, m);
       add(b, b.kind as WorkKind, m, b.kind);
       if (b.kind === 'agora') add(b, 'awning', m, 'awning');
+      if (b.kind === 'quarry' || b.kind === 'yard' || b.kind === 'loggers') {
+        const f = frame(b);
+        const mask = this.roadSides(s, b, f.yaw);
+        const rise = b.kind === 'quarry' ? this.riseOf(b, f.yaw) : 0;
+        items.push({ key: `${b.id}:skirt:${f.y.toFixed(3)}:${f.yaw.toFixed(3)}:${mask}:${f.k.toFixed(3)}`, geo: this.skirtOf(b, f, mask, rise), m });
+        if (b.kind === 'quarry') {
+          // Its bench at the face, as far above its floor as the ground under it is, and the riser between them.
+          const mb = m.clone().multiply(new THREE.Matrix4().makeTranslation(0, rise, 0));
+          items.push({ key: `${b.id}:quarryback:${rise.toFixed(3)}:${f.yaw.toFixed(3)}:${f.k.toFixed(3)}`, geo: this.models.quarryback, m: mb });
+          items.push({ key: `${b.id}:riser:${rise.toFixed(3)}:${f.yaw.toFixed(3)}:${f.k.toFixed(3)}`, geo: this.riser(rise), m });
+        }
+      }
       if (hasStall(b, OIL)) add(b, 'oilstall', m, 'oilstall');
       if (hasStall(b, FLEECE)) add(b, 'fleecestall', m, 'fleecestall');
       if (hasStall(b, WINE)) add(b, 'winestall', m, 'winestall');
@@ -2165,6 +2285,39 @@ export class Works {
       else if (b.kind === 'storehouse') part(b, m, -1.12, -1.28 + i * 0.22, 0, [1, 1, 1], false, 0.04);
       else part(b, m, -1.8, -1.65 + i * 0.22, 0, [1, 1, 1], false, 0.06);
     });
+
+    // Blocks of marble (slice 32): on the quarry's floor beside its track, where the sledges load; along the storehouse's gate-side wall.
+    const quarries = list.filter((b) => b.kind === 'quarry');
+    const camps = list.filter((b) => b.kind === 'loggers');
+    const blocks: Array<{ b: Building; i: number }> = [];
+    for (const b of quarries) for (let i = 0; i < shown(held(b, MARBLE), QUARRY_STORE, QUARRY_BLOCKS); i++) blocks.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, MARBLE), STOREHOUSE_MARBLE, STORE_BLOCKS); i++) blocks.push({ b, i });
+    this.collect(this.blocksBy, key, blocks.length, (n, m) => {
+      const { b, i } = blocks[n];
+      const wob = (hash2(b.id, i, 3280) - 0.5) * 0.12;
+      if (b.kind === 'quarry') {
+        // Three rows of three on the floor, then three on top.
+        const top = i >= 9;
+        const k = top ? i - 9 : i;
+        part(b, m, 0.2 + (k % 3) * 0.27, top ? -0.91 : -1.1 + Math.floor(k / 3) * 0.19, wob, [1, 1, 1], false, top ? 0.17 : 0.03);
+      } else {
+        // Two rows of three along the wall by the gate, two on top.
+        const top = i >= 6;
+        const k = top ? i - 6 : i;
+        part(b, m, top ? 1.21 : 1.12 + (k % 2) * 0.19, top ? -0.95 + k * 0.2 : -1.15 + Math.floor(k / 2) * 0.2, Math.PI / 2 + wob, [1, 1, 1], true, top ? 0.14 : 0.0);
+      }
+    });
+
+    // Piles of logs: in a row along the camp's side, where its carts load; across the storehouse's yard before the shed.
+    const piles: Array<{ b: Building; i: number }> = [];
+    for (const b of camps) for (let i = 0; i < shown(held(b, TIMBER), LOGGERS_STORE, CAMP_PILES); i++) piles.push({ b, i });
+    for (const b of storehouses) for (let i = 0; i < shown(held(b, TIMBER), STOREHOUSE_TIMBER, STORE_PILES); i++) piles.push({ b, i });
+    this.collect(this.logsBy, key, piles.length, (n, m) => {
+      const { b, i } = piles[n];
+      const wob = (hash2(b.id, i, 3290) - 0.5) * 0.1;
+      if (b.kind === 'loggers') part(b, m, -0.55, 0.18 + i * 0.24, wob, [1, 1, 1], true, 0.0);
+      else part(b, m, -0.38, -0.12 + i * 0.22, wob, [1, 1, 1], true, 0.0);
+    });
   }
 }
 
@@ -2253,6 +2406,14 @@ export function workPicture(kind: string): PicturePart[] | null {
       return [at(barracksModel())];
     case 'shipyard':
       return [at(shipyardModel())];
+    case 'quarry': {
+      const block = marbleBlock();
+      return [at(quarryFront()), at(quarryBack().translate(0, 0.2, 0)), at(quarryRiser(0.2)), ...[0, 1, 2, 3, 4].map((i) => ({ geo: block, x: 0.2 + (i % 3) * 0.27, z: -1.1 + Math.floor(i / 3) * 0.19, yaw: 0, s: [1, 1, 1] as [number, number, number] }))];
+    }
+    case 'loggers': {
+      const pile = logPile();
+      return [at(campModel()), ...[0, 1].map((i) => ({ geo: pile, x: -0.55, z: 0.18 + i * 0.24, yaw: 0, s: [1, 1, 1] as [number, number, number] }))];
+    }
     // A stall stands at the side of its agora's square: moved back to the middle of its picture.
     case 'stall':
       return [{ ...at(oilStallModel()), x: -OIL_STALL_X, z: -OIL_STALL_Z }];

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { tileCopper } from '../sim/build';
+import { tileMarble } from '../sim/materials';
 import type { CoastMap } from '../map/bake';
 
 /** What the drag would do to a tile, as shown while placing. */
@@ -49,6 +50,7 @@ const fragment = /* glsl */ `
   uniform float uRadius;
   uniform float uEdgeGlow;
   uniform float uCopper;
+  uniform float uMarble;
   uniform float uTime;
   uniform float uGrid;
   uniform float uOverlay;
@@ -109,13 +111,23 @@ const fragment = /* glsl */ `
 
     // Copper in the rock, while the mine tool is in hand: green streaks over the rock, the richer the stronger (b: 1..201; 255 is the map's edge).
     float bv = floor(m.b * 255.0 + 0.5);
-    float rich = (bv > 0.5 && bv < 254.5) ? (bv - 1.0) / 200.0 : 0.0;
+    float rich = (bv > 0.5 && bv < 201.5) ? (bv - 1.0) / 200.0 : 0.0;
     if (uCopper > 0.5 && rich > 0.0) {
       float sv = sin((p.x * 1.3 + p.y * 0.7) * 3.4 + sin(p.y * 1.9 + p.x * 0.4) * 2.2);
       float streak = smoothstep(0.35, 0.85, sv);
       vec4 green = vec4(0.22, 0.78, 0.58, (0.16 + 0.5 * streak) * (0.35 + 0.65 * rich));
       col = mix(col, green, green.a / max(green.a + col.a * (1.0 - green.a), 0.001));
       col.a = max(col.a, green.a);
+    }
+
+    // Marble in the rock (slice 32), while the quarry tool is in hand: a pale glaze with soft grey veins, the richer the stronger (b: 202..252).
+    float marble = (bv > 201.5 && bv < 252.5) ? (bv - 202.0) / 50.0 : 0.0;
+    if (uMarble > 0.5 && marble > 0.0) {
+      float vein = sin((p.x * 0.9 - p.y * 1.4) * 2.6 + sin(p.x * 2.3 + p.y * 0.6) * 1.8);
+      float soft = smoothstep(0.55, 0.95, vein);
+      vec4 pale = vec4(mix(vec3(0.98, 0.96, 0.9), vec3(0.62, 0.62, 0.64), soft * 0.6), (0.22 + 0.18 * soft) * (0.4 + 0.6 * marble) + 0.18 * marble);
+      col = mix(col, pale, pale.a / max(pale.a + col.a * (1.0 - pale.a), 0.001));
+      col.a = max(col.a, pale.a);
     }
 
     // Where settlers come in: the map's edge glows gold under the road tool.
@@ -186,7 +198,10 @@ export class Placement {
       // Copper in the rock (slice 23): 1..201 by how rich, shown while the mine tool is in hand.
       else {
         const c = tileCopper(map, t);
-        if (c > 0.02) this.data[t * 4 + 2] = 1 + Math.round(c * 200);
+        // (And marble, slice 32: 202..252, where it is richer than any copper there.)
+        const mb = tileMarble(map, t);
+        if (mb > 0.02 && mb >= c) this.data[t * 4 + 2] = 202 + Math.round(mb * 50);
+        else if (c > 0.02) this.data[t * 4 + 2] = 1 + Math.round(c * 200);
       }
     }
     this.uniforms = {
@@ -196,6 +211,7 @@ export class Placement {
       uRadius: { value: 9 },
       uEdgeGlow: { value: 0 },
       uCopper: { value: 0 },
+      uMarble: { value: 0 },
       uTime: { value: 0 },
       uGrid: { value: 0 },
       uOverlay: { value: 0 },
@@ -251,11 +267,12 @@ export class Placement {
   private overlay = false;
 
   /** A tool is picked (the grid and the drag's tiles show); the road tool also lights the map's edge. */
-  show(on: boolean, edgeGlow: boolean, copper = false): void {
+  show(on: boolean, edgeGlow: boolean, copper = false, marble = false): void {
     this.tool = on;
     this.uniforms.uGrid.value = on ? 1 : 0;
     this.uniforms.uEdgeGlow.value = edgeGlow ? 1 : 0;
     this.uniforms.uCopper.value = copper ? 1 : 0;
+    this.uniforms.uMarble.value = marble ? 1 : 0;
     this.mesh.visible = this.tool || this.overlay;
   }
 

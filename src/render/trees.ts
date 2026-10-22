@@ -5,6 +5,8 @@ import { finishBuilding } from './buildFinish';
 import { finishOn } from './finish';
 import { lookTreeModel } from './lookTrees';
 import { col, PAL } from './palette';
+import { REGROW, tileMarble, timberTrees, TRIM } from '../sim/materials';
+import type { SimState } from '../sim/state';
 
 /**
  * Low-poly plants and rocks, one instanced mesh per kind. Each model is a few
@@ -198,11 +200,67 @@ function swaying(mat: THREE.MeshStandardMaterial, time: { value: number }, key: 
   return mat;
 }
 
+/**
+ * The same breeze for the timber trees (slice 32), which are instanced one by
+ * one so a felled tree can fall and grow back without rebuilding its chunk:
+ * each bends from its own height in its own frame, scaled with it.
+ */
+function swayingInstanced(mat: THREE.MeshStandardMaterial, time: { value: number }): THREE.MeshStandardMaterial {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = time;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;').replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float ph = uTime * 1.4 + instanceMatrix[3][0] * 0.31 + instanceMatrix[3][2] * 0.23;
+          float bendBy = max(position.y - 0.15, 0.0) * ${BEND_TREE.toFixed(3)};
+          transformed.x += (sin(ph) + 0.4 * sin(ph * 2.3)) * bendBy;
+          transformed.z += cos(ph * 0.8) * bendBy * 0.5;
+        #endif`,
+    );
+  };
+  mat.customProgramCacheKey = () => 'sway-timber';
+  return mat;
+}
+
+/** How far trees and shrubs bend (BEND.tree). */
+const BEND_TREE = 0.035;
+/** Ticks a felled tree takes to go over (it falls a little faster than it is trimmed: TRIM). */
+const FALL_TICKS = 4;
+/** A felled tree's stump, sawn pale on top. */
+function stumpModel(): THREE.BufferGeometry {
+  const side = new THREE.CylinderGeometry(0.085, 0.12, 0.2, 6, 1, true).translate(0, 0.08, 0).toNonIndexed();
+  const top = new THREE.CircleGeometry(0.085, 6).rotateX(-Math.PI / 2).translate(0, 0.18, 0).toNonIndexed();
+  const paint = (g: THREE.BufferGeometry, c: string): THREE.BufferGeometry => {
+    const cc = col(c);
+    const n = g.attributes.position.count;
+    const a = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) a.set([cc.r, cc.g, cc.b], i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+    g.deleteAttribute('uv');
+    return g;
+  };
+  const parts = [paint(side, PAL.trunk), paint(top, '#d9b98a')];
+  const pos: number[] = [];
+  const colr: number[] = [];
+  for (const g of parts) {
+    pos.push(...(g.attributes.position.array as Float32Array));
+    colr.push(...(g.attributes.color.array as Float32Array));
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
+  out.computeVertexNormals();
+  return out;
+}
+
 export interface Plants {
   group: THREE.Group;
   update(time: number): void;
   /** Show only the plants not cleared away (indices into map.trees). */
   sync(cleared: readonly number[]): void;
+  /** Slice 32: the trees the loggers are chopping, felling and that grow back, every frame. */
+  works(s: SimState, alpha: number, time: number): void;
 }
 
 /**
@@ -238,7 +296,10 @@ export function buildTrees(map: CoastMap): Plants {
   // Every plant in a chunk of the map, of one group, is merged into one mesh: a few draws for the whole landscape.
   const chunkKey = (x: number, z: number): number => (Math.floor(z / PLANT_CHUNK) + 512) * 1024 + (Math.floor(x / PLANT_CHUNK) + 512);
   const byChunk = new Map<string, number[]>();
+  // (Slice 32: the pines and cypresses the loggers can fell are instanced on their own, below.)
+  const timber = new Set(timberTrees(map));
   map.trees.forEach((t, i) => {
+    if (timber.has(i)) return;
     const k = `${groupOf(t.kind)}:${chunkKey(t.x, t.z)}`;
     const list = byChunk.get(k);
     if (list) list.push(i);
@@ -260,6 +321,14 @@ export function buildTrees(map: CoastMap): Plants {
     return m;
   });
   const nm = new THREE.Matrix3();
+  // Slice 32: the boulders on the marble outcrops are pale marble, not grey stone, the richer the rock the paler.
+  const pale = col('#ece6da');
+  const paleOf = (i: number): number => {
+    const t = map.trees[i];
+    if (t.kind !== TreeKind.Rock || t.x < 0 || t.z < 0 || t.x >= map.size || t.z >= map.size) return 0;
+    const m = tileMarble(map, Math.floor(t.z) * map.size + Math.floor(t.x));
+    return m <= 0.05 ? 0 : Math.min(0.85, 0.35 + m * 0.6);
+  };
   const fill = (key: string, gone: ReadonlySet<number>): void => {
     const ids = (byChunk.get(key) ?? []).filter((i) => !gone.has(i));
     const grp = key.split(':')[0] as Group;
@@ -283,6 +352,7 @@ export function buildTrees(map: CoastMap): Plants {
       const tg = v * (1 + t.tint * 0.02);
       const tb = v * (1 - t.tint * 0.03);
       const bend = BEND[grp] * t.scale;
+      const pl = paleOf(i);
       for (let j = 0; j < sp.length; j += 3) {
         const x = sp[j];
         const y = sp[j + 1];
@@ -303,6 +373,13 @@ export function buildTrees(map: CoastMap): Plants {
         colr[o] = sc[j] * tr;
         colr[o + 1] = sc[j + 1] * tg;
         colr[o + 2] = sc[j + 2] * tb;
+        if (pl > 0) {
+          // (Keeping a little of the rock's own shading in it.)
+          const shade = (sc[j] + sc[j + 1] + sc[j + 2]) / 3 / 0.7;
+          colr[o] += (pale.r * shade - colr[o]) * pl;
+          colr[o + 1] += (pale.g * shade - colr[o + 1]) * pl;
+          colr[o + 2] += (pale.b * shade - colr[o + 2]) * pl;
+        }
         sway[o] = t.x;
         sway[o + 1] = t.z;
         // The higher up the plant, the more it bends (as when each plant was instanced: from its own height, scaled with it).
@@ -340,12 +417,143 @@ export function buildTrees(map: CoastMap): Plants {
   let gone = new Set<number>();
   for (const key of byChunk.keys()) fill(key, gone);
 
+  // Slice 32: the timber trees, instanced by kind and chunk (culled by chunk like the rest), each one's matrix its own.
+  const timberMat = swayingInstanced(plain(), time);
+  const slot = new Map<number, { mesh: THREE.InstancedMesh; k: number }>();
+  const byTimber = new Map<string, number[]>();
+  for (const i of timber) {
+    const t = map.trees[i];
+    const key = `${t.kind}:${chunkKey(t.x, t.z)}`;
+    const list = byTimber.get(key);
+    if (list) list.push(i);
+    else byTimber.set(key, [i]);
+  }
+  const timberMeshes: THREE.InstancedMesh[] = [];
+  const tc = new THREE.Color();
+  for (const [key, ids] of byTimber) {
+    const kind = Number(key.split(':')[0]) as TreeKind;
+    const mesh = new THREE.InstancedMesh(model(kind), timberMat, ids.length);
+    mesh.name = `trees-timber-${key.replace(':', '-')}`;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    ids.forEach((i, k) => {
+      const t = map.trees[i];
+      mesh.setMatrixAt(k, mats[i]);
+      const v = 1 + t.tint * TINT[t.kind];
+      mesh.setColorAt(k, tc.setRGB(v, v * (1 + t.tint * 0.02), v * (1 - t.tint * 0.03)));
+      slot.set(i, { mesh, k });
+    });
+    mesh.computeBoundingSphere();
+    if (mesh.boundingSphere) mesh.boundingSphere.radius += 2.5;
+    timberMeshes.push(mesh);
+    group.add(mesh);
+  }
+  // Their stumps, while each grows back.
+  const stumps = new THREE.InstancedMesh(stumpModel(), plain(), Math.max(1, timber.size));
+  stumps.name = 'trees-stumps';
+  stumps.count = 0;
+  stumps.castShadow = true;
+  stumps.receiveShadow = true;
+  stumps.frustumCulled = false;
+  group.add(stumps);
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  const m4 = new THREE.Matrix4();
+  const qa = new THREE.Quaternion();
+  const qb = new THREE.Quaternion();
+  const axis = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  const vp = new THREE.Vector3();
+  const vs = new THREE.Vector3();
+  const touched = new Set<THREE.InstancedMesh>();
+  const put = (i: number, m: THREE.Matrix4): void => {
+    const sl = slot.get(i);
+    if (!sl) return;
+    sl.mesh.setMatrixAt(sl.k, m);
+    touched.add(sl.mesh);
+  };
+  /** A timber tree's matrix tipped `angle` towards its own fall direction (from its base), scaled by `grow`. */
+  const tipped = (i: number, angle: number, grow: number): THREE.Matrix4 => {
+    const t = map.trees[i];
+    const d = hash2(i, 7, 32) * Math.PI * 2;
+    axis.set(Math.sin(d), 0, -Math.cos(d));
+    qa.setFromAxisAngle(axis, angle);
+    qb.setFromAxisAngle(up, t.rot);
+    vp.setFromMatrixPosition(mats[i]);
+    const sc = t.scale * grow;
+    vs.set(sc, sc, sc);
+    return m4.compose(vp, qa.multiply(qb), vs);
+  };
+  let clearedNow = new Set<number>();
+  let felledRef: SimState['materials']['felled'] | null = null;
+  let felledAt = new Map<number, number>();
+  let dynamic = new Set<number>();
+
   return {
     group,
     update(t: number) {
       time.value = t;
     },
+    works(s: SimState, alpha: number, t: number) {
+      const felled = s.materials?.felled ?? [];
+      if (felled !== felledRef) {
+        felledRef = felled;
+        felledAt = new Map(felled.map((f) => [f.tree, f.at]));
+      }
+      const chopping = new Map<number, number>();
+      for (const w of s.walkers) if (w.kind === 'logger' && w.steps === 1 && w.wait > 0) chopping.set(w.food, w.id);
+      if (felledAt.size === 0 && chopping.size === 0 && dynamic.size === 0) return;
+      const now = s.tick + alpha;
+      const next = new Set<number>([...felledAt.keys(), ...chopping.keys()]);
+      let stumpN = 0;
+      for (const i of next) {
+        if (!slot.has(i)) continue;
+        if (clearedNow.has(i)) {
+          put(i, zero);
+          continue;
+        }
+        const at = felledAt.get(i);
+        if (at === undefined) {
+          // Chopped at: it shudders as the axe bites.
+          const id = chopping.get(i) ?? 0;
+          const bite = Math.max(0, Math.sin(t * 5.2 + id));
+          put(i, tipped(i, 0.012 + 0.025 * bite * bite * bite, 1));
+          continue;
+        }
+        const age = now - at;
+        if (age < FALL_TICKS) {
+          // Going over, slowly then fast.
+          const f = Math.max(0, age / FALL_TICKS);
+          put(i, tipped(i, 1.5 * f * f, 1));
+        } else if (age < TRIM) {
+          put(i, tipped(i, 1.52, 1));
+          stumps.setMatrixAt(stumpN++, tipped(i, 0, 1));
+        } else {
+          // Growing back: nothing for a season, then a sapling in steps to a full tree.
+          // (Slowly at first, then faster: so a stripped slope reads as young wood, not as trees the loggers pass by. Slice 32's review.)
+          const p = Math.min(1, (age - REGROW * 0.12) / (REGROW * 0.88));
+          const grow = p <= 0 ? 0 : 0.15 + 0.85 * Math.floor(p * p * 8) / 8;
+          put(i, grow <= 0 ? zero : tipped(i, 0, grow));
+          if (grow < 0.6) stumps.setMatrixAt(stumpN++, tipped(i, 0, 1));
+        }
+      }
+      // Trees no longer felled or chopped at stand as they were (or stay gone, cleared away).
+      for (const i of dynamic) if (!next.has(i)) put(i, clearedNow.has(i) ? zero : mats[i]);
+      dynamic = next;
+      if (stumps.count !== stumpN || stumpN > 0) {
+        stumps.count = stumpN;
+        stumps.instanceMatrix.needsUpdate = true;
+      }
+      for (const mesh of touched) mesh.instanceMatrix.needsUpdate = true;
+      touched.clear();
+    },
     sync(cleared: readonly number[]) {
+      // (The timber trees cleared away, or back again.)
+      const was = clearedNow;
+      clearedNow = new Set(cleared);
+      for (const i of clearedNow) if (timber.has(i) && !was.has(i)) put(i, zero);
+      for (const i of was) if (timber.has(i) && !clearedNow.has(i) && !dynamic.has(i)) put(i, mats[i]);
+      for (const mesh of touched) mesh.instanceMatrix.needsUpdate = true;
+      touched.clear();
       const next = new Set(cleared);
       const dirty = new Set<string>();
       const mark = (i: number): void => {

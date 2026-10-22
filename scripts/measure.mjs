@@ -297,6 +297,9 @@ for (const [hash, views] of [
   // Slice 30: the hut street tempted, with the crime overlay on; four months on with no watch post.
   ['#thieves-paused-shot', [null, 'town']],
   ['#nowatch-paused-shot', [null]],
+  // Slice 32: the quarry on the headland, its quarrymen and sledges; the loggers' camp at the west wood.
+  ['#quarry-paused-shot', [null]],
+  ['#loggers-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

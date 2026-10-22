@@ -376,6 +376,8 @@ export function stateProblem(st: unknown): string {
   if (!fleetOk(st.fleet)) return damaged('its fleet is wrong');
   // Slice 30.
   if (!crimeOk(st.crime)) return damaged('its record of crime is wrong');
+  // Slice 32.
+  if (!materialsOk(st.materials)) return damaged('its record of felled trees is wrong');
   return '';
 }
 
@@ -385,6 +387,12 @@ function crimeOk(c: unknown): boolean {
   const tallyOk = (t: unknown): boolean => isObj(t) && ['thefts', 'caught', 'coin', 'goods', 'fines'].every((k) => fin(t[k]));
   if (!tallyOk(c.now) || !tallyOk(c.last)) return false;
   return (c.news as unknown[]).every((n) => isObj(n) && fin(n.tick) && fin(n.at) && typeof n.line === 'string' && (n.kind === 'theft' || n.kind === 'caught'));
+}
+
+/** The trees the loggers have felled (slice 32): each by its number in the map's plants, and the tick it fell. */
+function materialsOk(m: unknown): boolean {
+  if (!isObj(m) || !Array.isArray(m.felled)) return false;
+  return (m.felled as unknown[]).every((f) => isObj(f) && Number.isInteger(f.tree) && (f.tree as number) >= 0 && fin(f.at));
 }
 
 const TRIREME_NUMBERS = ['id', 'n', 'yard', 'x', 'z', 'hx', 'hz', 'along', 'hp', 'work', 'foe', 'cool', 'rammed', 'struck', 'start', 'dur', 'a0', 'a1', 'sank', 'owed'];

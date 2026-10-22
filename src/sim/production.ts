@@ -15,12 +15,17 @@
  * vineyard a crop like the grove, the winery a batch with an input (grapes)
  * like the press. The copper mine is a batch by its copper (how rich the rock
  * is), the armoury a batch with an input, copper, ten measures to a set.
+ *
+ * Slice 32: the marble quarry and the loggers' camp are *gathered*, like the
+ * lodge: their own walkers fill their store (materials.ts: the quarrymen cut
+ * blocks at the face, the loggers fell trees and carry the logs home), and
+ * here they only send their carts (the quarry's are sledges).
  */
 import type { CoastMap } from '../map/bake';
 import { copperOf, grassOf, oliveOf, vineOf } from './build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { CHEESE_BATCH, CHEESE_EVERY, GROW, harvestOf, sendCart } from './food';
-import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MEAT, OIL, OLIVES, setHeld, WHEAT, WINE, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MARBLE, MEAT, OIL, OLIVES, setHeld, TIMBER, WHEAT, WINE, type Ware } from './foods';
 import { stepLodges } from './hunt';
 import { rateOf } from './labour';
 import { storeOf } from './stores';
@@ -53,7 +58,7 @@ export const ARMOUR_COPPER = 10;
 export interface Maker {
   /** What it makes. */
   ware: Ware;
-  how: 'crop' | 'batch' | 'hunted';
+  how: 'crop' | 'batch' | 'hunted' | 'gathered';
   /** A crop: ticks of full work to a harvest, and the harvest on its ground. */
   grow?: number;
   yieldOf?(map: CoastMap, b: Building): number;
@@ -82,6 +87,9 @@ export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
   winery: { ware: WINE, how: 'batch', every: WINE_EVERY, batch: WINE_BATCH, input: GRAPES },
   mine: { ware: COPPER, how: 'batch', every: MINE_EVERY, batch: MINE_BATCH, ground: (map, m) => copperOf(map, m.x, m.z, 2) },
   armoury: { ware: ARMOUR, how: 'batch', every: ARMOURY_EVERY, batch: ARMOURY_BATCH, input: COPPER, per: ARMOUR_COPPER },
+  // Slice 32.
+  quarry: { ware: MARBLE, how: 'gathered' },
+  loggers: { ware: TIMBER, how: 'gathered' },
 };
 
 /** How far a crop has grown, in eighths (what the renderer shows). */
@@ -156,6 +164,9 @@ export function stepMakers(s: SimState, map: CoastMap): void {
   stepKind(s, map, 'winery');
   stepKind(s, map, 'mine');
   stepKind(s, map, 'armoury');
+  // Slice 32: the quarries' sledges and the loggers' carts (after everything older, so towns without them run as they did).
+  stepKind(s, map, 'quarry');
+  stepKind(s, map, 'loggers');
 }
 
 /** The oil a press makes a month, fully worked (with olives always in hand). */

@@ -45,7 +45,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, settleMood, wayFor } from './diplomacy';
 import { dayWords } from './favours';
 import { fleetFor, fleetHome, sailFor, triremeOf } from './fleet';
-import { held, setHeld, WARE_NAMES } from './foods';
+import { held, MARBLE, setHeld, TIMBER, WARE_NAMES } from './foods';
 import { end as endLoan, garrisonOf, loanMemory, loanOf, whose, type LoanAnswer } from './loans';
 import { marchTicks, RAID_SIDE } from './raids';
 import { routeWay } from './routes';
@@ -400,10 +400,10 @@ const menWith = (s: SimState, e: Expedition): Soldier[] => s.army.soldiers.filte
 /** "the 1st company of hoplites (16 men)". */
 const companyLine = (c: Company, n: number): string => `${companyName(c)} of ${kindWord(c.kind)} (${n} men)`;
 
-/** The city's most plentiful trade good (by its stock), what its soldiers carry off. */
+/** The city's most plentiful trade good (by its stock), what its soldiers carry off (not marble blocks or logs: slice 32). */
 function plentiful(c: WorldCity): number {
   let best = 0;
-  for (let k = 1; k < TRADE_GOODS.length; k++) if (c.stock[k] > c.stock[best]) best = k;
+  for (let k = 1; k < TRADE_GOODS.length; k++) if (TRADE_GOODS[k] !== MARBLE && TRADE_GOODS[k] !== TIMBER && c.stock[k] > c.stock[best]) best = k;
   return best;
 }
 
