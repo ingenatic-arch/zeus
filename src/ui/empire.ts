@@ -87,7 +87,7 @@ function takeHtml(s: SimState, id: CityId): string {
   if (dp.loan) out.push(wayCard('debt', id, 'Its debt for its loyalty', `Offer: the ${fmt(dp.loan.owed)} dr for its loyalty`, dp, `${name(id)} owes you ${fmt(dp.loan.owed)} dr, overdue. Your herald offers to forget it if it becomes your vassal.`, `Yes, the debt is gone and it bows to you, glad of it; no, the debt stands and it is a little put out (−5).`));
   else out.push(`<p class="if">Were ${esc(name(id))} to owe you a loan that is overdue, you could offer it its debt for its loyalty (the Loans tab lends).</p>`);
   const ap = allyPlan(s, id);
-  out.push(wayCard('ally', id, 'An alliance', 'Offer an alliance', ap, `A warm ruler may accept: each sends men when the other is raided, and each asks the other to join its wars.`, `Refusing an ally’s call is remembered (−15); two refusals in three years end the alliance.`));
+  out.push(wayCard('ally', id, 'An alliance', 'Offer an alliance', ap, `A warm ruler may accept: it sends men when you are raided, asks you to join its wars, and may march with you when you go to conquer.`, `Refusing an ally’s call is remembered (−15); two refusals in three years end the alliance.`));
   return `${heraldHtml(s, id)}<section class="deals empire"><h3>Take ${esc(name(id))}, or win it over</h3>${out.join('')}</section>`;
 }
 
@@ -110,7 +110,7 @@ function tributeHtml(s: SimState, v: Vassal): string {
     const amount = v.good < 0 ? `${fmt(t.dr)} dr` : `${fmt(t.amount)}`;
     return button('tribute', `${cap(wd)} <small>${amount}</small> <em class="${k === 2 ? 'down' : k === 0 ? 'up' : ''}">${WEIGHT_LOYALTY[k]}</em>`, { city: v.city, good: v.good, weight: k }, '', `${cap(wd)}: about ${amount} a year; loyalty ${WEIGHT_LOYALTY[k]}`, k === v.weight ? 'on' : '');
   }).join('');
-  const sent = v.sent ? `It has sent ${v.sent === 1 ? 'one tribute' : `${v.sent} tributes`}, worth ${fmt(v.worth)} dr in all.` : 'It has sent nothing yet.';
+  const sent = v.sent ? `${v.sent === 1 ? 'One tribute has' : `${v.sent} tributes have`} come in, worth ${fmt(v.worth)} dr in all.` : 'None has come in yet.';
   const next = `The next sets out about ${dayWords(v.next)}${v.arming ? ', unless it rises first' : ''}.`;
   const way = s.empire.tribute
     .filter((t) => t.city === v.city && t.phase !== 'done')
@@ -174,7 +174,7 @@ function allyHtml(s: SimState, id: CityId): string {
   const a = allyOf(s, id);
   if (!a) return '';
   const call = openCall(s, id);
-  const out: string[] = [`<p class="line bound">Your ally since ${esc(dayWords(a.since))}. Each of you sends men when the other is raided, and each asks the other to join its wars.</p>`];
+  const out: string[] = [`<p class="line bound">Your ally since ${esc(dayWords(a.since))}. It sends men when you are raided, asks you to join its wars, and may march with you when you go to conquer.</p>`];
   if (call) {
     const why = empireRefusal(s, 'join', id, undefined, undefined, call.id);
     out.push(`<section class="deals"><h3>Its call to war</h3><div class="deal tribute"><div><p><b>${esc(name(id))} asks you to join its war with ${esc(name(call.foe))}</b>: send a full force against ${esc(name(call.foe))} by ${esc(dayWords(call.due))}.</p><div class="acts">${button('join', 'Join: send a full force', { call: call.id }, why, `Your ready army marches on ${name(call.foe)}; won, the war goes ${whose(id)} way`, 'send')}${button('refuse', 'Refuse <em class="down">−15</em>', { call: call.id }, '', `${rulerShort(cityOf(s.world, id))} remembers it; two refusals in three years end the alliance`)}</div><p class="if">Letting the day pass counts as refusing.</p></div></div></section>`);
