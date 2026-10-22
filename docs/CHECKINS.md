@@ -8,7 +8,7 @@ Every home now has a temptation to steal, which its panel names. When it fills, 
 
 What breaks, or moves:
 - **Saves.** The state version is now 28. Older saves load with no home tempted and nobody out stealing, and crime switched on. Taxes coming in day by day and harsher harsh taxes (below) come on with it.
-- **Taxes reach the treasury day by day.** A collector hands in his satchel at the end of each day he is out, not at the end of his round. In `#town` over a year, taxes come in on about 225 days instead of 30. The biggest single day is no smaller (332 dr, was 212), because the collector still calls on most homes within a day or two of each other.
+- **Taxes reach the treasury day by day.** A collector hands in his satchel once a day while he is out, each collector at his own hour, not at the end of his round. In `#town` over a year, taxes come in on about 225 days instead of 30, in about 280 small sums instead of 28 big ones. The biggest sum to land at once is 172 dr (a whole round's was up to 212), because a collector still calls on many homes in his first day out.
 - **Harsh taxes bite harder.** At harsh, a fed-up or unhappy household a collector has called on now leaves whole two times in three (was one in two), a worried one one in three (was one in four), and one getting by one in six (was one in twelve). More households send someone away, and harsh taxes add a lot to the temptation to steal. `#town` played a year at harsh ends with 286 people in 53 homes (was 436 in 68) and 2,735 dr (was 4,160), with 56 thefts and 4 thieves caught.
 - **A new town's first year** builds fire risk at 70% of the old pace. The fire line now warns from half way to a smoulder (it waited for three quarters), and gives the days to the first one.
 - **J** now cycles tax, fire, wear and crime.
@@ -53,7 +53,7 @@ What breaks, or moves:
 - **"No road" signs.** A plot no road from the edge reaches now has a sign over it: a road with a red bar across it.
 
 ### What to try
-1. Open #thieves. Five huts on the new street behind the villas are tempted, and the first thief is about six days off. Click a red one to read why. Play, follow the hooded figure to a villa and back, then read the line. Then build a watch post north of the street's road (Z twice) and watch the next thief caught. In my run, a post on the north side of the street's road, about a third of the way along, caught the next one 12 days after it went in.
+1. Open #thieves. Five huts on the new street behind the villas are tempted, and the first thief is about six days off. Click a red one to read why. Play. When the line under the top bar says a thief is out, click it: the view closes in on him and follows him to a villa and back. Then build a watch post touching the north side of the street's road (Z twice; the tool warns you if no road is beside it) and watch the next thief caught. In my runs, a post on the north side of the street's road, about a third of the way along, caught the next one between 2 and 12 days after it went in.
 2. Open #nowatch. It is four months on with still no watch post. The open panel is the house of Aischron, a hut whose son Philon has stolen twice. Its story is at the bottom, and the Crime row on the Hygiene and safety tab says three thieves are out. Then try a watch post here too.
 3. Open #harsh and play a few months: more households leave, and the crime overlay (J four times) shows the temptation building.
 4. In any town, mark out a plot away from the roads to see the "no road" sign.
@@ -70,6 +70,7 @@ Each link also opens paused if you add `-paused` (for example `#thieves-paused`)
 - **A caught thief just vanishes.** His family pays and the loot goes back, but nobody walks him home.
 - **Three thieves at most at once.** So in `#nowatch` the two huts at the street's west end sat full for four months without their turn, while their neighbours went out twice. Their panel says they are waiting on the three out now.
 - **A watchman sees a thief through houses,** within 6 tiles as the crow flies, as long as a short road reaches him.
+- **`#thieves` has no watchman over the villas either,** so fire builds there too. Played on past about nine months, fire takes much of the core (30 heaps of rubble a year on, with or without crime), as it would in any town with no watch post. A post or two in the core stops it.
 - **`#nowatch`'s thieves only robbed villas,** so its ledger has no "Stolen" line. Thieves go for the stores and the tax office when nothing richer is in reach (in `#closed`, played on, they robbed its tax office of 100 dr in six months).
 - **No night, and no sound.** Thieves go out whenever their temptation fills, and nothing whistles when one is caught.
 - **Thieves don't take from the quay, the caravan yard or the armoury,** and there are no riots, courts or prison (the spec leaves those for later).
@@ -88,6 +89,21 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `70087da` (the 
 | Frame work (update before drawing, running) | `#town` 27.2 ms, `#blaze` 23.2 ms | `#town` 13.3 ms, `#blaze` 30.4 ms; `#thieves` 13.9 ms, `#nowatch` (paused) 3.2 ms |
 
 The frame times swing by more than these differences from run to run. `npm run measure` hit the two-hour limit for a background job both times: the baseline's run stopped part way through the frame-work section, and this slice's before its last section (every demo's load). So the loads above are from the side-by-side runs instead.
+
+### What the review changed
+I played every step above in the browser at 1920 × 1080 and looked at the screenshots, read the code, and played old saves and several towns on in the sim. What I changed:
+- **Following a thief.** Clicking the line "A thief out ..." now closes the view in on him and follows him, as clicking a caravan's line does. At the usual distance he is a small dark figure, often behind a hut, and hard to find without it.
+- **Taxes are smoother.** Each collector now hands in his day's takings at his own hour, so a town's three collectors no longer land their coins in the same moment. In `#town` the biggest jump in the treasury is 172 dr, not 332.
+- **A caught thief's purse** now goes back to the treasury only when it was the treasury's. Before, a purse taken from a home that had since burnt down went to the treasury too, money it never had.
+- **Words.** A woman who steals comes home with a purse "that wasn't hers", and a home whose loot was brought back says "the watchman caught Philon and brought it all back".
+- Small things behind the scenes: older saves fill in everything this slice adds, a test that would have broken when the save version is renumbered at merge, and a test given more time on a busy machine.
+
+What I checked and left as it is:
+- **Old saves.** The phase 4 fortress save played a year with crime on: 15 thefts, 40 dr taken from the treasury, the same people (1,090) as with crime off, and more money at the end (taxes come in sooner).
+- **Harsh taxes.** `#harsh` played a year: 247 people with crime on, 425 with it off, and 38 thefts. That is the harder bite the spec asked for, and it is large. Tell me if harsh should hurt less.
+- **`#nowatch`** still opens as described: the house of Aischron, whose son Philon has stolen twice, nine villas robbed, three thieves out.
+- The "no road" sign shows over a plot marked out away from the roads, and the panel, the overlay, the lines, the ledger's fine and the Safety tab's row all say what the sim is doing.
+- **Loads,** side by side with the phase's starting point after the fixes (three rounds each, medians, with the machine quiet this time): the bare link ready at 4.5 s both before and after; `#town` 4.1 s before and 4.4 s after, `#richtown` 4.7 and 4.3, `#fortress` 4.5 and 4.3; `#thieves` 4.5 s and `#nowatch` 4.8 s. Single loads swing by a second, so these are the same.
 
 ## Slice 29 — A city worth defending (21 Oct)
 
