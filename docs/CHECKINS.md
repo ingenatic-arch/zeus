@@ -2,6 +2,77 @@
 
 Notes to Oliver, newest first.
 
+## Slice 36 — The great houses (22 Oct)
+
+The city has a new kind of home: the estate, a walled house on a 4×4 plot of its own, with a courtyard, a garden with cypresses and a pool, and a stable. A noble house moves in once your city has a villa. With marble for its statues, armour for its sons and horses for its stable, an estate grows into a great estate: two storeys, a portico, statues, and horses in a paddock behind the stable. Horses come from a new horse farm on the grass, or by caravan from Thebes and Argos. And each estate can send a son to ride in a company of horsemen: fast, hard-hitting, and able to ride down raiders as they run. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is now 32. Older saves load (a version 27 save still loads through every step), with no estates, no horses in any store and every goods list padded for horses.
+- **Ships late in winter now come back on schedule.** A ship held back by winter storms used to keep the lateness for good, so her later calls drifted later and later. Now her next call is due a schedule's length after the day she was due. Two ships due on the same winter day are also late by different amounts now. That changes the history of every demo with a ship or a sea route, so 40 of the 117 earlier demos open on a slightly different town. The other 77 open, and play a year on, exactly as before.
+  - **Opening a little sooner or later.** Most moved 10 to 120 ticks (one to twelve days), with people within about 1%:
+    - `#sail`, `#ship` and `#greecesail` open 1 day later.
+    - `#richtown`, `#richstreet`, `#goods` and `#panel` open 4 days sooner, with 927 people (was 935).
+    - `#athensship`, `#anchor` and `#promise` open 8 days sooner. `#anchor` and `#athensship` now wait for a window clear of winter, so their two ships' calls fall as before.
+    - The military family (`#bronze`, `#barracks`, `#companies`, `#battle`, `#hirelings`, `#walls`, `#siege`, `#landing`, `#triremes`), plus `#collect` and `#report`, open 2 days later. The merchant ship is now 19 days out as `#battle` opens (it was 33), so a sail-on-the-horizon line sits among the town lines.
+    - `#pirates` opens 5 days sooner, `#thieves`, `#nowatch` and `#winter` 10 days sooner, and `#quarry` and `#loggers` 4 days sooner.
+  - **`#rivals`** (and `#rivalsmap`, `#rivalstreet`) opens 12 days sooner, with 3,094 dr (was 2,210) and 8,383 measures of food (was 5,652). That is most of the way back to where it was before the seasons (9,310).
+  - **`#fortress`** opens 160 days sooner, with 1,331 people (was 1,368). A year on it keeps 1,075 people (was 785).
+  - **`#greecegrows`, `#knossos` and `#memphis`** open on the same day with 1,411 people (was 1,323) and 39,115 dr (was 35,105).
+  - **`#repaid` and `#forgive` are worse off.** They open 12 days sooner with 1,291 people (was 1,399), because five villas have just gone down to fine houses for want of food. `#repaid` played on a year keeps 1,293 (was 1,382), with fleece and food warnings coming and going and some villas lost. `#lend` a year on keeps 1,291 (was 1,393). Their town has no estates. I traced it to the different history of ships' calls over 20,000 ticks, not to anything wrong in the new code, but I didn't retune them. Their stories (the loan repaid, the herald on the road; the debt forgiven) still play out.
+  - **`#nowatch` played on a year** keeps 920 people (was 1,150), and `#thieves` 1,276 (was 1,383).
+  - `#black` and `#festival` open as before, and `#famine` the same but with 1,885 dr (was 1,742). Their money or food a year on moved by a few percent.
+- **Production through the seasons was not fixed, because nothing needed fixing.** Slice 33's review asked whether a year's output fell with the seasons on. I played every demo for a year after it opens, with the seasons on and with them switched off. Wherever the makers were fully worked, they made the same within a few percent for every ware. What made the demos poorer after slice 33 was the ships' schedule (fixed above) and the season each demo opens in.
+- **The bread line on the town panel** now names this season's pace: "about 340 measures of wheat a month this winter (60% of their pace; about 570 over the year)".
+- **The barracks' armour porter** now carries a set of armour, drawn as the estates' porters' loads are.
+- **The camera's canopy** (which keeps the camera above the trees) now forgets trees as loggers fell them and remembers them as they grow back.
+
+### What's new
+- **The estate plot** (Housing, 100 dr, 4×4). It goes on housing ground beside a road. An empty plot is staked out with a low wall traced on levelled earth. Its tip says what it waits for. A noble house of six comes once the city has a lived-in villa, and its kin follow to fill it to 12.
+- **The estate (12 people)** needs everything a villa needs. If one of those needs goes missing for two months after its warning, the house leaves and the plot stands empty again.
+- **The great estate (20 people).** An estate that has been settled a month, with a month in hand of marble, armour and horses, becomes a great estate. It gets a second storey, a portico, marble statues in the garden and horses in its paddock (as many as it holds). Without marble, armour or horses it warns, and two months later goes back to an estate.
+- **The estate's porters.** Vendors don't bring marble, armour and horses. Each estate sends its own porter to the nearest storehouse that has some, once it has under two months in hand. A block of marble lasts five days, a set of armour two months and a horse a month and a half. Porters carry blocks or a set of armour; for horses, a groom leads them home. The estate's panel and tip say how long each will last: "Its stable and yard: marble for 3 months · armour for 5 months · horses for 2 months".
+- **Tax and envy.** An estate pays 40 dr a month at fair taxes, and a great estate 60 (a villa pays 18). Thieves find as much in them. Envy reaches two tiles further from an estate than from other rich homes, and its neighbours' panels name it. Estates' people don't work: they live off their land.
+- **Horses (a new ware)** have their own group in the stock book. A storehouse keeps up to 40 at a rail in its yard. Thebes sells plenty by its road and Argos a few. The ship pays 2,500 dr a hundred.
+- **The horse farm** (Husbandry, 300 dr, 3×3, 6 workers). It goes on grass like a dairy, and its placing tip shows the grass. It has a long stable, a fenced paddock, a trough and hay. On the best grass it breeds about 8 horses a month, more in spring and fewer in winter, like the flocks. Grooms lead them four at a time to a storehouse. Its tip gives the horses a month at this season's pace.
+- **Horsemen**, a third kind of company, raised at a barracks. A company has 8 riders, one son from each estate, who bring their own armour and horse. They ride at 0.5 tiles a tick (a company on foot marches 0.3), strike harder than hoplites and take about half the hurt. They charge raiders within six tiles of their banner and chase no further than nine. Unlike hoplites, they ride down a broken band's runners up to twelve tiles out. A rider with three or more raiders round him takes twice the hurt. The march tip gives their riding pace. Each rider is a horse (bay, chestnut, grey or black) with the company's tunic, a bronze helmet and a spear, legs swinging as they ride.
+
+### What to try
+1. Open [#estates](#estates). It is `#richtown`'s town with two great estates on the hill above the agora, either side of the road down to the quay, with the first one's panel open. It opens in July 746 BC with 1,329 people. Read the panel's stable and yard, then hover the other estate and the porters on the road. The quarry's sledges bring marble round the bay to the quay storehouse, and the estates' porters walk it up from there.
+2. In [#estates](#estates), pan up the river to the horse farm on the meadow and hover it. Watch for a groom leading horses down to the storehouse.
+3. Open [#horsemen](#horsemen). It opens paused with the riders' banner in hand and the Army tab open, and Sparta's band ten days from the west edge. The town has six estates and a company of six riders. Click a spot on the main street to send them, unpause, and watch them ride. When the band comes, see whether they run down the men who flee.
+4. Open [#richtown](#richtown), which has villas already. Lay out an estate plot (Housing) on open ground beside a road and watch a noble house come and settle. Then bring it marble, armour and horses to make it great.
+
+Each link also opens paused if you add `-paused` (for example `#estates-paused`).
+
+### What I'd like your eye on
+- **The estate itself.** Wall, courtyard, garden, stable, then the second storey, portico and statues of a great estate. Does it read as a noble house from the usual distance? The outer wall is plain; I left it that way.
+- **The terrace.** Each estate stands level at the highest point of its ground, so on the downhill side a stone face shows under the wall. Does it look like a terrace, or like a box sticking out of the hill?
+- **The gardens are green against summer's gold.** I left the summer colour alone, because to me a watered garden should stay green. You may see it differently.
+- **The horsemen.** Their size against the hoplites, the legs' swing, and whether a charge and the ride-down read as such in the fight.
+- **How hard estates are to keep.** Porters walk, so an estate needs its marble within about 50 road tiles. The `#estates` quarry's own storehouse was 76 tiles away, about sixty days' walk each way, and the great estates ran out. I moved the marble to the quay storehouse. Should storehouses send carts on to each other instead, or is it right that you place estates near their supply?
+
+### Known rough edges
+- **No enemy archers yet,** so riders being "good against archers" shows only on their card and abroad (a rider counts as much as a hoplite), not in your streets.
+- **Any estate can send a rider, not only a great estate.** Otherwise `#horsemen` would have needed six great estates and another year of history.
+- **A noble house comes once you have a villa,** not once every villa walker has passed its plot. If a walker it needs never comes, the house leaves after its warning.
+- **`#horsemen` shows two passing religion warnings** in its bigger town as the priestess goes round, even with the new shrine beside the estates.
+- **`#repaid` and `#forgive`** open poorer and lose some villas over the year (above).
+- Estates add people and tax but no workers.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `e0678fc` (the trunk with slices 30 to 33 merged); after is this slice. The other lines were building, testing and measuring on the machine at the same time, and its load stayed between 18 and 37 on 4 cores. So the loads swing by half from run to run, and the frame work couldn't be measured: in most runs the page drew no frames at all in the 8 seconds counted. I ran the loads side by side, alternating the two builds, three rounds each, and give the medians. Only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 496 (the suite less this slice's new file) | 511 (15 new in `tests/estates.test.ts`). Three slow tests timed out at 30 s in the full run under that load (hazards' "a save in the middle of a fire", world's "sails from Tyre", money's "harsh taxes"). Each passed when run again on its own. |
+| Download (JS, CSS and HTML, gzipped) | 3,555 KB: the game 574 KB, the prepared towns 2,965 KB | 3,679 KB: the game 585 KB, the prepared towns 3,077 KB (two more files, for `#estates` and `#horsemen`) |
+| First load (bare link, side by side) | ready at 9.9 s | ready at 12.8 s (the three runs: 8.4, 13.6 and 12.8 s; before: 8.1, 9.9 and 13.7 s) |
+| Demo loads (ready, side by side) | `#town` 10.8 s, `#richtown` 10.5 s, `#rivals` 11.1 s | `#town` 12.5 s, `#richtown` 9.8 s, `#rivals` 11.0 s; `#estates` 12.2 s, `#horsemen` 13.4 s |
+| `#town` | 1,455,906 triangles and 101 draw calls from its view, a save 171 KB | the same, a save 174 KB |
+| `#richtown` | 1,612,081 triangles and 116 draw calls from its view (1,809,026 and 141 from the overview), a save 201 KB | 1,596,849 and 116 (1,793,794 and 141), a save 203 KB |
+| `#estates` | | 1,453,350 triangles and 107 draw calls from its view (1,867,464 and 153 from the overview), 1,329 people, 95 walkers, a save 222 KB |
+| `#horsemen` | | 1,464,475 triangles and 99 draw calls from its view, 1,404 people, 110 walkers, a save 237 KB |
+
 ## Slice 33 — The turning year (22 Oct)
 
 The year now has four seasons. The land goes from green in spring to gold in summer, amber in autumn and a darker grey-green in winter, and the trees, the sea and the sky change with it. It rains, more in winter, with the odd storm. The wheat, the olives and grapes and the flocks follow the year. Winter storms make ships late and keep most rulers' armies at home. A dial under the date says which season it is and what comes next. The game's year is still a year long. You weren't here while it was built: every choice below is mine, from the spec's defaults.

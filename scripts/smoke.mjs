@@ -949,7 +949,8 @@ if (!(pn.tab === 'administration' && pn.tabs === 9)) fail(`the control panel aft
 await page.click('.side-tab[data-tab="husbandry"]');
 await frames(1);
 pn = await panelNow();
-if (pn.wells.join() !== 'farm,lodge,dairy,grove,pasture,vineyard') fail(`the Husbandry tab's wells: ${JSON.stringify(pn)}`);
+// Slice 36: the horse farm joins the Husbandry tab.
+if (pn.wells.join() !== 'farm,lodge,dairy,grove,pasture,vineyard,horsefarm') fail(`the Husbandry tab's wells: ${JSON.stringify(pn)}`);
 await page.click('.side-wells .well[data-tool="lodge"]');
 await frames(1);
 c = await city();
@@ -1386,8 +1387,8 @@ g = await gi();
 if (!(g.shown === 'corinth' && g.tab === 'prices' && /Corinth’s terms: [a-z]+, prices[\s\S]*Prices in Corinth[\s\S]*Harvest: [a-z]+ (last|this) autumn/.test(g.panel))) fail(`#prices: ${g.tab} ${g.panel.slice(0, 600)}`);
 if (!/Cheap[^(]*\(usually 90\): you sold them/.test(g.panel)) fail(`#prices: no reason for cheap oil: ${g.panel.slice(0, 900)}`);
 const pr17 = await zeus(() => ({ sparks: document.querySelectorAll('.greece-panel svg.spark').length, arrows: document.querySelectorAll('.greece-panel svg.parrow').length }));
-// (Slice 23: copper and armour too, eight goods. Slice 32: marble and timber, ten.)
-if (!(pr17.sparks === 10 && pr17.arrows >= 8)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
+// (Slice 23: copper and armour too, eight goods. Slice 32: marble and timber, ten. Slice 36: horses, eleven.)
+if (!(pr17.sparks === 11 && pr17.arrows >= 8)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
 // Its route tab: your price with its arrow, the terms, and the prices list.
 await zeus(() => window.__zeus.greece(false));
 await zeus(() => window.__zeus.trade(true, 'corinth-land'));
@@ -1851,13 +1852,17 @@ if (!/Hire Cretan archers[\s\S]*Hire Arcadian hoplites/.test(a24.side)) fail(`#b
     await page.mouse.up();
     await frames(3);
   };
+  // (Slice 36: with the ships back on schedule a sail is on the horizon as it opens, and its town line covers the bridge's end in the
+  // opening view at 1280 x 720; so each click is made with the camera over its spot.)
+  await zeus(() => window.__zeus.jump({ x: 40.5, z: 41.5, yaw: 2.65, dist: 34, tilt: -0.1 }));
+  await frames(3);
   await click(40.5, 41.5);
   // (The row takes the archers' banner and flies the camera to them: once it is there, back to the bridge.)
   await page.click(`.side button[data-act="company"][data-id="${arc24.id}"]`);
   // (Forty frames for the flight: at headless software rendering's frame or two a second on a busy machine, that can take minutes.)
   await frames(40, 300000);
   if ((await zeus(() => window.__zeus.army().selected)) !== arc24.id) fail('#battle: the archers\' row did not take their banner');
-  await zeus(() => window.__zeus.jump({ x: 50, z: 41, yaw: 2.65, dist: 34, tilt: -0.1 }));
+  await zeus(() => window.__zeus.jump({ x: 44.5, z: 39.5, yaw: 2.65, dist: 34, tilt: -0.1 }));
   await frames(3);
   await click(44.5, 39.5);
   a24 = await zeus(() => window.__zeus.army());
