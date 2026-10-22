@@ -173,7 +173,8 @@ describe('your default', () => {
     const sim = fresh('caravan');
     const s = sim.state;
     ruler(s, 'corinth', ['pious', 'warlike'], 10);
-    const l = staged(s, 'corinth', 'in', 500, 1);
+    // (Slice 34: the lender marches only for a remainder of 500 dr or more, so the sum is 1,000.)
+    const l = staged(s, 'corinth', 'in', 1000, 1);
     l.withhold = true;
     income(s, 4000, 'given', 'for the test');
     until(sim, () => l.step === 3, 2 * STEP_GAP + 3 * TICKS_PER_DAY);

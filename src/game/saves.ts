@@ -308,6 +308,8 @@ const BUILDING_NUMBERS = [
 // Slice 30: a home's temptation to crime, and the ledger's thefts and fines.
 BUILDING_NUMBERS.push('tempt', 'robbedAt');
 LEDGER_KINDS.push('stolen', 'fines');
+// Slice 34: tribute from your vassals.
+LEDGER_KINDS.push('vassals');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -380,12 +382,30 @@ export function stateProblem(st: unknown): string {
   if (!materialsOk(st.materials)) return damaged('its record of felled trees is wrong');
   // Slice 33.
   if (!seasonOk(st.season)) return damaged('its record of the seasons is wrong');
+  // Slice 34.
+  if (!empireOk(st.empire)) return damaged('its record of vassals and allies is wrong');
   return '';
 }
 
 /** The seasons (slice 33): the switch, and the ships winter has held back (days, by ship). */
 function seasonOk(c: unknown): boolean {
   return isObj(c) && typeof c.on === 'boolean' && isObj(c.late) && Object.values(c.late).every(fin);
+}
+
+/** Your vassals and allies (slice 34): each record's cities, kinds and numbers. */
+function empireOk(e: unknown): boolean {
+  if (!isObj(e) || !fin(e.nextId) || !['vassals', 'allies', 'heralds', 'tribute', 'aid', 'calls', 'conquests'].every((k) => Array.isArray(e[k]))) return false;
+  const ruled = (c: unknown): boolean => RULED.includes(c as never);
+  const all = (k: string, ok: (x: Record<string, unknown>) => boolean): boolean => (e[k] as unknown[]).every((x) => isObj(x) && ok(x));
+  return (
+    all('vassals', (v) => ruled(v.city) && ['conquest', 'awe', 'debt'].includes(v.how as string) && ['since', 'good', 'weight', 'loyalty', 'next', 'sent', 'worth', 'arming', 'rises'].every((k) => fin(v[k]))) &&
+    all('allies', (a) => ruled(a.city) && fin(a.since) && nums(a.refused) && fin(a.declined)) &&
+    all('heralds', (h) => ruled(h.city) && ['submit', 'debt', 'alliance'].includes(h.kind as string) && ['', 'yes', 'no', 'friends'].includes(h.answer as string) && typeof h.why === 'string' && typeof h.line === 'string' && ['id', 'loan', 'at', 'due', 'odds'].every((k) => fin(h[k]))) &&
+    all('tribute', (t) => ruled(t.city) && ['land', 'sea'].includes(t.by as string) && ['road', 'bay', 'city', 'done'].includes(t.phase as string) && typeof t.way === 'string' && typeof t.how === 'string' && (t.ship === null || isObj(t.ship)) && ['id', 'good', 'amount', 'worth', 'start', 'dur', 'put', 'lost', 'store', 'ended'].every((k) => fin(t[k]))) &&
+    all('aid', (a) => ruled(a.city) && ['road', 'city', 'home', 'done'].includes(a.phase as string) && typeof a.way === 'string' && typeof a.line === 'string' && ['id', 'raid', 'men', 'start', 'dur', 'company'].every((k) => fin(a[k]))) &&
+    all('calls', (c) => ruled(c.ally) && ruled(c.foe) && ['open', 'joined', 'refused', 'lapsed', 'over'].includes(c.state as string) && ['id', 'war', 'at', 'due', 'expedition'].every((k) => fin(c[k]))) &&
+    all('conquests', (q) => ruled(q.city) && fin(q.expedition) && Array.isArray(q.helpers) && Array.isArray(q.declined) && Array.isArray(q.theirs) && typeof q.crush === 'boolean')
+  );
 }
 
 /** Crime (slice 30): the switch, the news and the month's tallies. */

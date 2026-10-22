@@ -25,11 +25,13 @@ import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
 import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
+import { empireTabHtml, empireTabName } from './empire';
+import { allyOf, tributeWords } from '../sim/vassals';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
-export type CityTab = 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
-export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade', 'loans', 'rivals'];
+export type CityTab = 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
+export const CITY_TABS: readonly CityTab[] = ['ruler', 'prices', 'trade', 'loans', 'rivals', 'empire'];
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -132,7 +134,7 @@ export function labelHtml(s: SimState, id: CityId): string {
   const open = liveDeals(s.world, id).filter((x) => x.state === 'open');
   const d = open.find((x) => x.kind === 'threat') ?? open[0];
   // (Slice 31: its people to the hundred, with an arrow while it grows or shrinks; a vassal's lord's colour beside its name.)
-  const lord = c.lord ? `<i class="lord" style="background:${PLACES[c.lord]?.colour ?? '#888'}" title="${esc(cap(lordWords(c)))}"></i>` : '';
+  const lord = c.lord ? `<i class="lord" style="background:${PLACES[c.lord]?.colour ?? '#888'}" title="${esc(cap(lordWords(c)))}"></i>` : allyOf(s, id) ? `<i class="lord ally" style="--c:${PLACES.home.colour}" title="Your ally"></i>` : '';
   return `${lord}<b>${esc(name)}</b><span class="sz">${peopleShort(c)}${trendHtml(trendOf(c, 'pop'))}</span>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
 }
 
@@ -190,6 +192,9 @@ function travellerHtml(s: SimState, key: string): string {
   if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
   if (key.startsWith('site-')) return siteCard(s, key.slice(5));
   if (key.startsWith('exp-')) return expeditionCard(s, Number(key.split('-')[1]));
+  // (Slice 34: a vassal's tribute, an ally's or vassal's men coming to help you.)
+  if (key.startsWith('levy-')) return tributeCard(s, Number(key.slice(5)));
+  if (key.startsWith('aid-')) return aidCard(s, Number(key.slice(4)));
   if (key.startsWith('pirates-')) {
     const p = s.fleet.pirates.find((x) => x.id === Number(key.slice(8)));
     if (!p) return '<b>Pirates</b>';
@@ -270,13 +275,35 @@ function expeditionCard(s: SimState, id: number): string {
   if (!e) return '<b>Your soldiers</b>';
   const name = PLACES[e.city].name;
   const head = `Your ${e.kind === 'raid' ? 'raiding party' : 'army'} · ${expeditionMen(s, e)} men`;
-  const after = e.report.length ? `<span>${esc(e.report[1] ?? '')}</span>` : `<span>${esc(e.loan ? `After the ${fmt(s.world.loans.find((l) => l.id === e.loan)?.owed ?? 0)} dr ${name} owes you` : `Against ${name}, which owes you nothing`)}</span>`;
-  return `<b>${esc(head)}</b><span>${esc(expeditionLine(s, e))}</span>${after}<span class="sub">Click for ${esc(whose(e.city))} Loans tab</span>`;
+  // (Slice 34: sent to conquer, or to crush a rising, or in an ally's war.)
+  const aim = e.aim === 'conquer' ? `To conquer ${name}` : e.aim === 'war' ? `Against ${name}, in your ally’s war` : '';
+  const after = e.report.length ? `<span>${esc(e.report[1] ?? '')}</span>` : `<span>${esc(aim || (e.loan ? `After the ${fmt(s.world.loans.find((l) => l.id === e.loan)?.owed ?? 0)} dr ${name} owes you` : `Against ${name}, which owes you nothing`))}</span>`;
+  return `<b>${esc(head)}</b><span>${esc(expeditionLine(s, e))}</span>${after}<span class="sub">Click for ${esc(whose(e.city))} ${e.aim === 'conquer' ? 'Empire' : 'Loans'} tab</span>`;
+}
+
+/** (Slice 34) The card over a vassal's tribute on the map. */
+function tributeCard(s: SimState, id: number): string {
+  const t = s.empire.tribute.find((x) => x.id === id);
+  if (!t) return '<b>Tribute</b>';
+  const n = Math.max(1, Math.ceil((t.start + t.dur - s.tick) / TICKS_PER_DAY));
+  const line = t.phase === 'bay' ? 'Sailing into your bay, to come ashore at your trading post' : `${t.by === 'sea' ? 'Sailing' : 'On the road'} to your city: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${n === 1 ? '1 day' : `${n} days`}`;
+  return `<b>${esc(`${PLACES[t.city].name}’s tribute · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its Empire tab</span>`;
+}
+
+/** (Slice 34) The card over a vassal's or ally's men marching to your aid (or home). */
+function aidCard(s: SimState, id: number): string {
+  const a = s.empire.aid.find((x) => x.id === id);
+  if (!a) return '<b>Men coming to help you</b>';
+  const n = Math.max(1, Math.ceil((a.start + a.dur - s.tick) / TICKS_PER_DAY));
+  const line = a.phase === 'home' ? `Going home to ${PLACES[a.city].name}${a.line ? `: ${a.line}` : ''}` : `Marching to your aid against the raiders: at the edge of your land in ${n === 1 ? '1 day' : `${n} days`}`;
+  return `<b>${esc(`${a.men} men of ${PLACES[a.city].name}`)}</b><span>${esc(line)}</span><span class="sub">Click for its Empire tab</span>`;
 }
 
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): CityId | null {
   if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
+  if (key.startsWith('levy-')) return s.empire.tribute.find((x) => x.id === Number(key.slice(5)))?.city ?? null;
+  if (key.startsWith('aid-')) return s.empire.aid.find((x) => x.id === Number(key.slice(4)))?.city ?? null;
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
   if (key.startsWith('site-')) {
@@ -679,7 +706,7 @@ export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft:
   const traits = r.traits.map((t) => `<li><b>${cap(t)}</b>: ${TRAIT_WORDS[t]}</li>`).join('');
   const routes = s.world.routes.filter((x) => x.city === id);
   const closed = routes.some((x) => x.closed > 0);
-  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', loans: loansTabName(s, id), rivals: c.war ? 'Rivals · at war' : 'Rivals' };
+  const tabName: Record<CityTab, string> = { ruler: 'Ruler', prices: 'Prices', trade: closed ? 'Trade · closed' : routes.length ? `Trade · ${routes.length} open` : 'Trade', loans: loansTabName(s, id), rivals: c.war ? 'Rivals · at war' : 'Rivals', empire: empireTabName(s, id) };
   const tabs = CITY_TABS.map((k) => `<button data-tab="${k}"${k === tab ? ' class="on"' : ''}${k === 'trade' && closed ? ` title="${seizing(s.world, id) ? 'Closed over your unpaid debt: see the Loans tab' : 'The ruler has closed the way: see the Ruler tab'}"` : ''}>${tabName[k]}</button>`).join('');
   const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
@@ -692,7 +719,8 @@ ${giftsHtml(s, id, map)}${s.army.companies.length && !s.world.loans.some((l) => 
 ${pane('prices', pricesBlock(s, id, false))}
 ${pane('trade', `${waysHtml(s, id, false)}<section><h3>Getting there</h3><p class="line">${esc(REACH[id] ?? '')}</p></section>`)}
 ${pane('loans', tab === 'loans' ? loansTabHtml(s, id) : '')}
-${pane('rivals', tab === 'rivals' ? rivalsHtml(s, id) : '')}`;
+${pane('rivals', tab === 'rivals' ? rivalsHtml(s, id) : '')}
+${pane('empire', tab === 'empire' ? empireTabHtml(s, id) : '')}`;
 }
 
 /** Every ruled city's mood in a word, for the probe and the smoke test. */

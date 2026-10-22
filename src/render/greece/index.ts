@@ -20,11 +20,13 @@ import { giftOnMap } from '../../sim/diplomacy';
 import { raidOnMap } from '../../sim/raids';
 import { expeditionMen, expeditionOnMap } from '../../sim/expeditions';
 import { armiesOnMap } from '../../sim/rivals';
+import { aidOnMap, tributeOnMap } from '../../sim/vassals';
 import { stationAlong, triremeOnMap } from '../../sim/fleet';
 import { FESTIVALS, festivalOn } from '../../sim/festivals';
 import { fieldColour, newsHtml } from '../../ui/rivals';
 import { morph } from '../../ui/morph';
 import { loanEvent } from '../../ui/loans';
+import { empireEvent } from '../../ui/empire';
 import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
@@ -292,7 +294,7 @@ export class GreeceMap {
     this.body.addEventListener('click', (e) => {
       routes(e);
       // A loan's buttons: ask, offer (and choosing its terms), accept, decline, repay (ui/loans.ts).
-      if (loanEvent(e, host.send)) {
+      if (loanEvent(e, host.send) || empireEvent(e, host.send)) {
         this.labelAt = -Infinity;
         setTimeout(() => this.redraw(), 0);
         return;
@@ -490,7 +492,10 @@ export class GreeceMap {
     // (A trader opens its city's page.)
     if (p?.startsWith('trav:') && !this.state) return;
     // (Your expedition opens its city's Loans tab, where its report is: slice 28.)
-    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? cityOfTraveller(this.state as SimState, p.slice(5)) : (p as CityId | null), p?.startsWith('trav:exp-') ? 'loans' : undefined);
+    // (Slice 34: a vassal's tribute, men coming to your aid, and your army sent to conquer open its Empire tab.)
+    const conquer = p?.startsWith('trav:exp-') && this.state?.world.expeditions.find((x) => x.id === Number(p.split('-')[1]))?.aim === 'conquer';
+    const empire = conquer || p?.startsWith('trav:levy-') || p?.startsWith('trav:aid-');
+    this.show(p === 'ship' ? 'tyre' : p?.startsWith('trav:') ? cityOfTraveller(this.state as SimState, p.slice(5)) : (p as CityId | null), empire ? 'empire' : p?.startsWith('trav:exp-') ? 'loans' : undefined);
   }
 
   private drawCard(): void {
@@ -867,6 +872,41 @@ export class GreeceMap {
         sw.scale.setScalar(1.15 * far);
       }
     }
+    // Slice 34: a vassal's tribute coming to you (a caravan in its colours on its road, or its ship on its lane), and a vassal's or ally's company marching to your aid and home again.
+    for (const t of s.empire.tribute) {
+      const at = tributeOnMap(t, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(t.way));
+      const L = lineLength(line);
+      const { colour, trim } = PLACES[t.city];
+      if (t.by === 'sea') {
+        const m = piece(`levy-${t.id}`, () => shipModel(colour, trim), BODY.ship);
+        const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+        m.position.set(p.x, 0.02 + Math.sin(time * 1.7 + t.id) * 0.03, p.z);
+        m.rotation.set(Math.sin(time * 1.3 + t.id) * 0.04, -Math.atan2(-p.dz, -p.dx), 0);
+        m.scale.setScalar(far);
+      } else {
+        const m = piece(`levy-${t.id}`, () => caravanModel(colour), BODY.caravan);
+        const p = alongLine(line, Math.max(0.6, Math.min(L - 0.9, at.along)));
+        m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+        m.scale.setScalar(1.6 * far);
+        m.rotation.set(0, -Math.atan2(-p.dz, -p.dx), 0);
+      }
+    }
+    for (const a of s.empire.aid) {
+      const at = aidOnMap(a, tick);
+      if (!at) continue;
+      const line = wayPoints(wayOf(a.way));
+      const L = lineLength(line);
+      const { colour, trim } = PLACES[a.city];
+      const men = Math.max(3, Math.min(6, Math.round(a.men / 3)));
+      const dir = at.homeward ? 1 : -1;
+      const m = piece(`aid-${a.id}`, () => armyModel(colour, trim, men), armyBody(men));
+      const p = alongLine(line, Math.max(1.2, Math.min(L - 1.2, at.along)));
+      m.position.set(p.x, this.relief.heightAt(p.x, p.z), p.z);
+      m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(2.4 * Math.min(far, EXPEDITION_FAR_MOST));
+    }
     // Pirates on a lane (a dark galley at their place), and your triremes out on the lanes in your colours (slice 26).
     for (const p of s.fleet.pirates) {
       if (p.state !== 'seen' && p.state !== 'preying') continue;
@@ -941,7 +981,7 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);

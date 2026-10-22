@@ -10,7 +10,7 @@ import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
 import { ARMOUR, CHEESE, FLEECE, gi, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
-import { COMPANY_SIZE, readyOf } from '../sim/army';
+import { COMPANY_SIZE, HIRELINGS, readyOf } from '../sim/army';
 import { roadRoute } from '../sim/roads';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
@@ -37,6 +37,9 @@ import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
 import { bow, COLONY_SAIL, coloniesOf, nearestFree, sendSettlers, vassalsOf } from '../sim/growth';
 import type { Speed } from './clockDriver';
+// Slice 34
+import { take, tributeGoods, tributeYear, vassalOf } from '../sim/vassals';
+import { end as endLoan } from '../sim/loans';
 import type { ToolName } from './tools';
 // Slice 32.
 import { LOGGERS_COST, QUARRY_COST } from '../sim/build';
@@ -128,7 +131,7 @@ export interface Demo {
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
   /** The tab that city's page opens on (its ruler's, unless named). */
-  greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
+  greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
@@ -2121,6 +2124,112 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
   };
 }
 
+// Slice 34
+/**
+ * Vassals and allies (slice 34). #vassal: #collect's town (Corinth owing
+ * you, overdue), its debt offered for its loyalty; if Corinth's ruler says
+ * no, it bows anyway (set up for this demo, and named so). Its tribute set
+ * in oil or wine if it sells them (else the good it holds most of), fair if it can spare a season's worth and else light, as a player wanting goods would, played
+ * on until the tribute's donkeys have come in at your edge and are about ten
+ * days' walk from the store (the camera on them). #submit: #companies' town with a second
+ * barracks inside the west gate and a band of Arcadians hired there, as a
+ * player wanting a bigger army would: Argos' Empire tab, the demand to submit
+ * with its odds and reasons, not yet sent. #conquer: #companies' town, a full
+ * force sent to conquer Argos, played on until it has fought and two days
+ * more (opened paused): the report on Argos' Empire tab. #rebellion:
+ * #companies' town, Corinth bowed to you by awe (set up for this demo) and
+ * its tribute set heavy, played on until it arms and ten days more: its
+ * Empire tab with the warning and the three answers.
+ */
+type EmpireStage = 'vassal' | 'submit' | 'conquer' | 'rebellion';
+/** How many days #rebellion opens after Corinth begins arming. */
+const ARMING_DAYS = 10;
+/** How far (tiles) #vassal's donkeys are from the store as it opens: about ten days' walk. */
+const TRIBUTE_LEFT = 24;
+
+function empireTown(stage: EmpireStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    if (stage === 'vassal') {
+      debtTown('collect')(sim);
+      const corinth = cityOf(s.world, 'corinth');
+      send({ type: 'empire', act: 'debt', city: 'corinth' });
+      const h = s.empire.heralds.find((x) => x.city === 'corinth' && x.kind === 'debt');
+      if (h) while (h.answer === '' && s.tick < h.due + TICKS_PER_DAY) sim.run(10);
+      if (!vassalOf(s, 'corinth')) {
+        const l = s.world.loans.find((x) => x.city === 'corinth' && x.side === 'out' && x.ended === 0);
+        if (l) endLoan(s, l, 'forgiven');
+        take(s, corinth, 'debt', 'its debt let go for its loyalty (set up for this demo)');
+      }
+      const v = vassalOf(s, 'corinth');
+      if (!v) return;
+      // (Jars, as a player wanting goods he can see would: oil or wine if it sells them and can spare a season's worth; else the good it holds most of, by worth.)
+      const sells = tributeGoods(corinth);
+      const v0 = vassalOf(s, 'corinth');
+      const season = (g: number, weight: number): number => (v0 ? tributeYear(s, v0, weight, g).amount / 4 : 0);
+      const jars = [3, 5].find((g) => sells.includes(g));
+      const good = jars ?? sells.sort((a, b) => corinth.stock[b] * corinth.price[b] - corinth.stock[a] * corinth.price[a])[0] ?? -1;
+      // (Fair if it can spare a season's worth, else light.)
+      const weight = good < 0 || corinth.stock[good] * 0.5 >= season(good, 1) ? 1 : 0;
+      send({ type: 'empire', act: 'tribute', city: 'corinth', good, weight });
+      const stop = s.tick + 4 * TICKS_PER_MONTH;
+      while (s.tick < stop && !s.empire.tribute.some((x) => x.city === 'corinth' && x.phase === 'city')) sim.run(10);
+      // (On until its donkeys are some days from the store: in from your edge, the walk through the fields is weeks long.)
+      const t = s.empire.tribute.find((x) => x.city === 'corinth' && x.phase === 'city');
+      const w = t && s.walkers.find((x) => x.kind === 'caravan' && x.cheese === -t.id);
+      const left = (): number => {
+        if (!w) return 0;
+        let d = -w.along;
+        for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) d += dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+        return d;
+      };
+      while (w && t?.phase === 'city' && s.tick < stop && left() > TRIBUTE_LEFT) sim.run(10);
+      return;
+    }
+    COMPANIES(sim);
+    if (stage === 'submit') {
+      const seen = new Set(s.world.deals.map((d) => d.id));
+      const end = s.tick + TICKS_PER_YEAR;
+      while (s.tick < end && spendable(s) < FORTRESS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE + HIRELINGS.arcadian.fee + wageBill(s)) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+      send({ type: 'road', tiles: FORTRESS_LANE });
+      send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
+      const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+      if (!second) return;
+      const staffed = s.tick + TICKS_PER_MONTH;
+      while (s.tick < staffed && second.workers === 0) sim.run(10);
+      send({ type: 'hire', barracks: second.id, kind: 'arcadian' });
+      const hired = s.army.companies.find((c) => c.hired === 'arcadian');
+      const most = s.tick + TICKS_PER_MONTH;
+      while (hired && s.tick < most && readyOf(s, hired).length < COMPANY_SIZE) sim.run(10);
+      return;
+    }
+    if (stage === 'conquer') {
+      send({ type: 'empire', act: 'conquer', city: 'argos' });
+      const e = s.world.expeditions.find((x) => x.city === 'argos' && x.aim === 'conquer');
+      if (!e) return;
+      const stop = s.tick + 4 * TICKS_PER_MONTH;
+      while (s.tick < stop && e.phase !== 'fighting' && e.phase !== 'homeward' && e.phase !== 'done') sim.run(1);
+      sim.run(REPORT_DAYS * TICKS_PER_DAY);
+      return;
+    }
+    const corinth = cityOf(s.world, 'corinth');
+    take(s, corinth, 'awe', 'it bowed to your herald (set up for this demo)');
+    send({ type: 'empire', act: 'tribute', city: 'corinth', good: -1, weight: 2 });
+    const v = vassalOf(s, 'corinth');
+    if (!v) return;
+    const stop = s.tick + TICKS_PER_YEAR;
+    while (s.tick < stop && v.arming === 0 && vassalOf(s, 'corinth')) sim.run(TICKS_PER_DAY);
+    sim.run(ARMING_DAYS * TICKS_PER_DAY);
+  };
+}
+
 /** A loan to a ruler, lent: played on to the day before it falls due, then let pass unpaid (set up for the demo: the dice would decide). */
 function dueAndDefault(sim: Sim, id: number): void {
   const s = sim.state;
@@ -2487,6 +2596,11 @@ const SCENES: Record<string, Demo> = {
   // The turning year: #town's town in the last days of February at the fastest speed, over the farms and the granary (a year to watch); #richtown's in winter, the bay grey and the Tyrian ship late.
   seasons: { view: 'seasons', speed: 'fastest', setup: seasonsTown, overlay: 'food', side: { tab: 'husbandry' } },
   winter: { view: 'winter', setup: winterTown, overlay: 'missing' },
+  // Slice 34: vassals and allies. Corinth's tribute coming in to your stores; Argos told to submit, the odds to read; Argos conquered, the report; Corinth arming against your heavy tribute.
+  vassal: { view: 'companies', setup: empireTown('vassal'), overlay: 'missing', follow: 'caravan' },
+  submit: { view: 'companies', setup: empireTown('submit'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
+  conquer: { view: 'companies', speed: 'paused', setup: empireTown('conquer'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
+  rebellion: { view: 'companies', setup: empireTown('rebellion'), overlay: 'missing', greece: 'corinth', greeceTab: 'empire' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

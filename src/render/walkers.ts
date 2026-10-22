@@ -3,6 +3,7 @@ import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { CITY_IDS, PLACES } from '../map/greece';
 import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
+import { TRADE_GOODS } from '../sim/trade';
 import { FALLEN_LIE } from '../sim/army';
 import { purseTotal } from '../sim/taxes';
 import { speedOf } from '../sim/walk';
@@ -596,7 +597,7 @@ const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5 }
  * tinted part: its city's colour) under a pair of panniers, one a basket and
  * one a sack, and a bundle roped on top.
  */
-function donkey(): THREE.BufferGeometry {
+function donkey(jars = false): THREE.BufferGeometry {
   const parts: TPart[] = [];
   parts.push({ geo: lumpy(new THREE.BoxGeometry(0.24, 0.1, 0.1, 2, 1, 1), 0.1, 1701).translate(0, 0.17, 0), color: PAL.donkey });
   // Neck and head, held low and forward; a pale muzzle; the long ears.
@@ -612,6 +613,16 @@ function donkey(): THREE.BufferGeometry {
   parts.push({ geo: new THREE.BoxGeometry(0.12, 0.012, 0.13).translate(-0.01, 0.225, 0), color: '', tint: true });
   parts.push({ geo: new THREE.BoxGeometry(0.12, 0.05, 0.012).translate(-0.01, 0.2, 0.062), color: '', tint: true });
   parts.push({ geo: new THREE.BoxGeometry(0.12, 0.05, 0.012).translate(-0.01, 0.2, -0.062), color: '', tint: true });
+  if (jars) {
+    // Slice 34: a vassal's tribute of oil or wine: two tall jars a side, slung in rope cradles, their necks above the blanket.
+    for (const z of [-0.085, 0.085])
+      for (const x of [-0.05, 0.035]) {
+        const jar = new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(0.012, 0.004), new THREE.Vector2(0.032, 0.05), new THREE.Vector2(0.026, 0.095), new THREE.Vector2(0.012, 0.11), new THREE.Vector2(0.016, 0.125)], 6);
+        parts.push({ geo: jar.translate(x, 0.13, z), color: PAL.pot });
+      }
+    parts.push({ geo: new THREE.BoxGeometry(0.15, 0.01, 0.2).translate(-0.01, 0.2, 0), color: PAL.rope });
+    return mergeTinted(parts);
+  }
   parts.push({ geo: new THREE.CylinderGeometry(0.045, 0.04, 0.09, 6).translate(-0.01, 0.18, 0.1), color: PAL.basket });
   parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.05, 0), 0.25, 1703).scale(1.1, 1, 0.8).translate(-0.01, 0.18, -0.1), color: PAL.sack });
   parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.045, 0), 0.3, 1704).scale(1.3, 0.7, 1).translate(-0.02, 0.26, 0), color: PAL.bundleCream });
@@ -760,6 +771,8 @@ export class Walkers {
   /** Raiders: [a torch, a spear, a sack of loot]. */
   private readonly raiders: Look[];
   private readonly donkeys: Look;
+  /** (Slice 34) Donkeys carrying a vassal's tribute of oil or wine, in jars. */
+  private readonly jarDonkeys: Look;
   /** Thieves (slice 30): [on the way out, home with a purse, home with a sack]. */
   private readonly thieves: [Look, Look, Look];
   private readonly all: Look[];
@@ -798,9 +811,10 @@ export class Walkers {
     this.inspectors = small(inspector());
     this.drovers = small(drover());
     this.donkeys = big(donkey());
+    this.jarDonkeys = big(donkey(true));
     this.raiders = RAIDER_HOLDS.map((h) => small(raider(h)));
     this.thieves = [small(thief('none')), small(thief('purse')), small(thief('sack'))];
-    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
+    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
   }
 
   get count(): number {
@@ -868,7 +882,9 @@ export class Walkers {
       const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * speedOf(w)));
       if (w.kind === 'caravan') {
         const back = (queue.get(w.id) ?? 0) * (DROVER_GAP + w.people * DONKEY_SPACING + 0.35);
-        this.caravan(w, cum, Math.max(0, lead - back), total);
+        // (Slice 34: a vassal's tribute of oil or wine comes in jars, until it is unloaded.)
+        const levy = w.cheese < 0 && !w.back ? state.empire.tribute.find((x) => x.id === -w.cheese) : undefined;
+        this.caravan(w, cum, Math.max(0, lead - back), total, !!levy && levy.phase === 'city' && (TRADE_GOODS[levy.good] === OIL || TRADE_GOODS[levy.good] === WINE));
         continue;
       }
       if (w.kind === 'raider') {
@@ -1087,7 +1103,7 @@ export class Walkers {
   }
 
   /** A caravan: its drover ahead in his city's colour, his donkeys strung out behind him along the road, each in a blanket of the same colour. */
-  private caravan(w: Walker, cum: Float32Array, lead: number, total: number): void {
+  private caravan(w: Walker, cum: Float32Array, lead: number, total: number, jars = false): void {
     const city = CITY_IDS[w.food];
     const colour = col(city ? PLACES[city].colour : PAL.tunicOchre);
     const resting = w.wait > 0;
@@ -1111,7 +1127,7 @@ export class Walkers {
       this.m.compose(this.p, this.q, this.s);
       this.c.copy(colour);
       if (!moving) this.c.multiplyScalar(-1);
-      (k === 0 ? this.drovers : this.donkeys).push(this.m, this.c);
+      (k === 0 ? this.drovers : jars ? this.jarDonkeys : this.donkeys).push(this.m, this.c);
       // Hovered, clicked and followed by the middle of the string, so pointing at any of it finds it.
       if (k === Math.ceil(w.people / 2)) {
         const v = this.serviceAt.get(w.id);

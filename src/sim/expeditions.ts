@@ -57,6 +57,7 @@ import { income } from './treasury';
 import { offMapPoint } from './walk';
 import { walkable } from './wild';
 import { cityOf, rulerShort } from './world';
+import { aimFought, aimSent, allyOf, conquestDefenders, helpersMight, vassalOf } from './vassals';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -130,7 +131,7 @@ export function chosen(s: SimState, kind: Expedition['kind'], city?: CityId): Co
 
 function chosenAll(s: SimState, kind: Expedition['kind']): Company[] {
   const all = s.army.companies
-    .filter((c) => !c.away && !c.routed && c.order !== 'away' && readyOf(s, c).length > 0)
+    .filter((c) => !c.away && !c.routed && c.order !== 'away' && !c.ally && readyOf(s, c).length > 0)
     .sort((a, b) => readyOf(s, b).length - readyOf(s, a).length || Number(b.kind === 'hoplite') - Number(a.kind === 'hoplite') || a.id - b.id);
   if (kind === 'raid') return all.slice(0, all.length > 2 ? RAID_COMPANIES : 1);
   return all.length >= 3 ? all.slice(0, -1) : all;
@@ -152,13 +153,14 @@ export const oddsOf = (ours: number, theirs: number): number => {
 };
 
 /** An expedition as it would go now: its companies, men, strength against theirs, the odds, and what it would bring if it won. */
-export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind']): { companies: Company[]; men: number; ours: number; theirs: number; odds: number; brings: string; why: string } {
+export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind'], aim: Expedition['aim'] = ''): { companies: Company[]; men: number; ours: number; theirs: number; odds: number; brings: string; why: string } {
   const c = cityOf(s.world, city);
   const companies = chosen(s, kind, city);
   const men = companies.reduce((a, x) => a + readyOf(s, x).length, 0);
   const ours = Math.round(companies.reduce((a, x) => a + mightOf(s, x), 0));
-  const theirs = defenders(s, c, kind);
-  const debt = debtFrom(s, city);
+  // (Slice 34: sent to conquer, or to fight an ally's war, it meets the city's whole army and those who stand by it: vassals.ts.)
+  const theirs = aim ? conquestDefenders(s, c) : defenders(s, c, kind);
+  const debt = aim ? undefined : debtFrom(s, city);
   const owed = debt?.owed ?? 0;
   // (Their goods at their price: a raid's sacks of wheat are worth less against the debt than its coin.)
   const unit = Math.max(0.01, c.price[plentiful(c)] / 100);
@@ -174,9 +176,13 @@ export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind
 }
 
 /** Why an expedition can't go now, or '' if it can. */
-export function expeditionRefusal(s: SimState, city: CityId | string, kind: string): string {
+export function expeditionRefusal(s: SimState, city: CityId | string, kind: string, aim: Expedition['aim'] = ''): string {
   if (!RULED.includes(city as CityId)) return 'There is no ruler there';
   if (kind !== 'raid' && kind !== 'force') return 'Not an expedition';
+  // (Slice 34: your vassal only when it arms against you, to crush it; never your ally.)
+  const v = vassalOf(s, city);
+  if (v && !(aim === 'conquer' && v.arming)) return v.arming ? `${cityName(city as CityId)} is your vassal, arming against you: march on it from its Empire tab, to crush the rising` : `${cityName(city as CityId)} is your vassal: you march on it only if it arms against you`;
+  if (allyOf(s, city)) return `${cityName(city as CityId)} is your ally: end the alliance first`;
   const way = expeditionWay(s, city as CityId);
   if ('why' in way) return way.why;
   const out = expeditionOut(s);
@@ -202,6 +208,8 @@ function edgeFor(s: SimState, map: CoastMap, city: CityId, c: Company): number {
   }
   tiles.sort((a, b) => dhypot((a % n) + 0.5 - c.x, Math.floor(a / n) + 0.5 - c.z) - dhypot((b % n) + 0.5 - c.x, Math.floor(b / n) + 0.5 - c.z) || a - b);
   for (const t of tiles.slice(0, 10)) if (wayFrom(s, map, c.x, c.z, t)) return t;
+  // (Slice 34: the ten nearest can all be cut off, on a cliff or across the river, with the edge open further along: then every fourth of the rest. #collect's town sent nobody west.)
+  for (let i = 10; i < tiles.length; i += 4) if (wayFrom(s, map, c.x, c.z, tiles[i])) return tiles[i];
   return -1;
 }
 
@@ -231,8 +239,8 @@ function leavePoint(n: number, e: Expedition): [number, number] {
 }
 
 /** Send an expedition (a command; nothing if expeditionRefusal says no). */
-export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string, kind: string): Expedition | null {
-  if (expeditionRefusal(s, city, kind) !== '') return null;
+export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string, kind: string, aim: Expedition['aim'] = ''): Expedition | null {
+  if (expeditionRefusal(s, city, kind, aim) !== '') return null;
   const id = city as CityId;
   const k = kind as Expedition['kind'];
   const w = s.world;
@@ -240,7 +248,7 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
   const comps = chosen(s, k, id);
   const edge = way.by === 'sea' ? yardTile(s, map, id, comps[0]) : edgeFor(s, map, id, comps[0]);
   if (edge < 0) return null;
-  const debt = debtFrom(s, id);
+  const debt = aim ? undefined : debtFrom(s, id);
   const e: Expedition = {
     id: w.nextExpedition++,
     city: id,
@@ -271,6 +279,7 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
     wounded: [],
     report: [],
     ended: 0,
+    aim,
   };
   for (const c of comps) {
     if (!sendBanner(s, map, c.id, edge)) continue;
@@ -285,7 +294,10 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
   if (debt) debt.sent = e.id;
   const men = e.companies.reduce((a, cid) => a + readyOf(s, companyOf(s, cid) as Company).length, 0);
   const what = k === 'raid' ? 'a raiding party' : 'a full force';
-  const why = debt ? `to collect the ${fmt(debt.owed)} dr ${cityName(id)} owes you` : 'against a city that owes you nothing';
+  const crush = aim === 'conquer' && !!vassalOf(s, id);
+  const why = aim === 'conquer' ? (crush ? `to crush ${whose(id)} rising` : `to conquer ${cityName(id)}`) : aim === 'war' ? `to fight your ally’s war against ${cityName(id)}` : debt ? `to collect the ${fmt(debt.owed)} dr ${cityName(id)} owes you` : 'against a city that owes you nothing';
+  // (Slice 34: a conquest's record, and the allies who march with it.)
+  if (aim) aimSent(s, e);
   if (way.by === 'sea') {
     armyNews(s, `${cap(what)} of ${men} men marches out for ${cityName(id)}, ${why}: the companies make for the shipyard, to sail in your triremes`, 0);
     news(w, s.tick, id, `You sent ${what} of ${men} men against ${cityName(id)}, ${why}. They sail from your shipyard in your triremes`);
@@ -428,8 +440,8 @@ function fight(s: SimState, e: Expedition): void {
   }
   const comps = e.companies.map((id) => companyOf(s, id)).filter((x): x is Company => !!x);
   const kindOf = new Map(comps.map((x) => [x.id, x.kind] as const));
-  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0));
-  e.theirs = defenders(s, c, e.kind);
+  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e);
+  e.theirs = e.aim ? conquestDefenders(s, c) : defenders(s, c, e.kind);
   e.odds = oddsOf(e.ours, e.theirs);
   e.won = dice(s, e.id, 0, 11) < e.odds;
   e.fallen = Math.round(e.theirs * (e.won ? 0.3 + 0.2 * dice(s, e.id, 1, 12) : 0.1 + 0.1 * dice(s, e.id, 1, 12)));
@@ -485,7 +497,7 @@ function fight(s: SimState, e: Expedition): void {
     debtLine = debt.state === 'collected' ? 'the debt is paid off' : e.value > 0 ? `${fmt(debt.owed)} dr of the debt is still owed` : `the ${fmt(debt.owed)} dr still stands`;
   } else if (l && l.sent === e.id) l.sent = 0;
   // What Greece makes of it.
-  const cause = !!e.loan;
+  const cause = !!e.loan || e.aim === 'war';
   const answer: LoanAnswer = cause ? (e.kind === 'raid' ? 'raided' : 'forced') : e.kind === 'raid' ? 'raidedfree' : 'forcedfree';
   const m = loanMemory(c, answer, cause ? `you sent your soldiers against them over a debt` : `you sent your soldiers against them without cause`, s.tick);
   c.memories.push(m);
@@ -503,8 +515,12 @@ function fight(s: SimState, e: Expedition): void {
   const what = e.kind === 'raid' ? 'A raiding party' : 'A full force';
   const went = comps.map((x) => companyLine(x, men.filter((y) => y.company === x.id).length)).join(' and ');
   const r: string[] = [];
-  r.push(`${what}: ${went}, ${men.length} men in all, ${cause ? `for the ${fmt((l?.owed ?? 0) + (debt ? e.value : 0))} dr ${name} owed you` : `against ${name}, which owed you nothing`}.`);
-  r.push(`They met ${e.kind === 'raid' ? `${whose(e.city)} watch in the countryside, about ${e.theirs} men` : `${whose(e.city)} garrison, about ${e.theirs} men${WALLED[e.city] ? ' behind its walls' : ''}`} (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
+  const aimLine = e.aim === 'conquer' ? (vassalOf(s, e.city) ? `to crush ${whose(e.city)} rising` : `to conquer ${name}`) : e.aim === 'war' ? `to fight your ally’s war against ${name}` : '';
+  r.push(`${what}: ${went}, ${men.length} men in all, ${aimLine || (cause ? `for the ${fmt((l?.owed ?? 0) + (debt ? e.value : 0))} dr ${name} owed you` : `against ${name}, which owed you nothing`)}.`);
+  if (e.aim) r.push(`They met ${whose(e.city)} army on its home ground${WALLED[e.city] ? ', behind its walls,' : ''} with those who stood by it, about ${e.theirs} in all (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
+  else r.push(`They met ${e.kind === 'raid' ? `${whose(e.city)} watch in the countryside, about ${e.theirs} men` : `${whose(e.city)} garrison, about ${e.theirs} men${WALLED[e.city] ? ' behind its walls' : ''}`} (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
+  // (Slice 34: what the aim came to: a city taken, a rising crushed, an ally's war turned.)
+  if (e.aim) r.push(...aimFought(s, e));
   const haul = [e.coin > 0 ? `${fmt(e.coin)} dr` : '', e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : ''].filter(Boolean).join(' and ');
   const goodsWords = e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : '';
   if (!e.won) r.push(`They took nothing${debt ? `: ${debtLine}` : ''}.`);

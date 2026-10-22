@@ -74,6 +74,8 @@ import { isStore, roomFor } from './stores';
 import { income } from './treasury';
 // Slice 33: winter keeps most armies home.
 import { armiesHome } from './seasons';
+// Slice 34.
+import { boundTo } from './vassals';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -395,7 +397,8 @@ const dealOf = (w: World, id: number): Deal | undefined => w.deals.find((d) => d
 function threats(s: SimState, map: CoastMap): void {
   const w = s.world;
   if (threatLive(w)) return;
-  const owed = w.deals.find((d) => d.kind === 'tribute' && d.angry && d.ended > 0 && s.tick - d.ended < ANGRY_FOR && mayThreaten(s, d.city));
+  // (Slice 34: your vassals and allies never threaten you.)
+  const owed = w.deals.find((d) => d.kind === 'tribute' && d.angry && d.ended > 0 && s.tick - d.ended < ANGRY_FOR && mayThreaten(s, d.city) && !boundTo(s, d.city));
   if (owed) {
     owed.angry = false;
     const c = cityOf(w, owed.city);
@@ -408,7 +411,7 @@ function threats(s: SimState, map: CoastMap): void {
   for (let i = 0; i < w.cities.length; i++) {
     const c = w.cities[i];
     const t = c.ruler?.traits ?? [];
-    if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike'))) continue;
+    if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike')) || boundTo(s, c.id)) continue;
     const mood = moodOf(c, s.tick);
     if (mood > COLD || !mayThreaten(s, c.id)) continue;
     // (Slice 33: a band that would march in winter mostly waits for spring; cold rulers' threats (slice 31) too.)

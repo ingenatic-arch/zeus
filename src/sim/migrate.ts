@@ -109,6 +109,11 @@
  * town is in whatever season its date falls in, and its farms, groves and
  * flocks take that season's pace from its next tick.
  *
+ * Slice 34 (Vassals and allies): an empty empire (no vassals, allies,
+ * heralds, tribute, aid or calls to war), and every expedition's aim the
+ * slice 28 one ('': a raid or a force for a debt or without cause). Rivals'
+ * vassals stay as they were; nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -129,6 +134,8 @@ import { freshBook } from './stockbook';
 import { freshCrime } from './crime';
 // Slice 33.
 import { freshSeasons } from './seasons';
+// Slice 34.
+import { freshEmpire } from './vassals';
 import { nextFestival } from './festivals';
 import { SITES, type CityId } from '../map/greece';
 import { COLONY_MAKES } from './growth';
@@ -181,6 +188,7 @@ export function migrate(st: unknown): number {
   if (st.version === 28) fromSlice31(st);
   if (st.version === 29) fromSlice32(st);
   if (st.version === 30) fromSlice33(st);
+  if (st.version === 31) fromSlice34(st);
   return from;
 }
 
@@ -723,5 +731,13 @@ function fromSlice33(st: Record<string, unknown>): void {
     if (typeof se.on !== 'boolean') se.on = true;
     if (!isObj(se.late)) se.late = {};
   }
+  st.version = (st.version as number) + 1;
+}
+
+/** Slice 34 (Vassals and allies): see the note above. Only its own fields, each only if it is missing. */
+function fromSlice34(st: Record<string, unknown>): void {
+  if (!isObj(st.empire)) st.empire = freshEmpire();
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.expeditions)) for (const e of w.expeditions as unknown[]) if (isObj(e) && typeof e.aim !== 'string') e.aim = '';
   st.version = (st.version as number) + 1;
 }

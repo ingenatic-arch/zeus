@@ -1125,3 +1125,30 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .glabel.armytag::after { background: var(--c); }
 /* (Review of slice 31) Beside the army, where above and below would cover a city's label: no stem. */
 .glabel.armytag.beside::after { display: none; }
+/* Slice 34: a ruled city's Empire tab (vassals and allies). */
+.greece-panel .citytabs { flex-wrap: wrap; row-gap: 4px; }
+.greece-panel .line.bound { margin: 6px 0 2px; padding: 5px 9px; border-radius: 10px; background: #eef3e2; border: 1.2px solid #8aa04a; font-size: 13px; }
+.greece-panel .deal.way { background: rgba(255, 255, 255, 0.4); border-color: var(--edge); }
+.greece-panel .deal.way .acts button small, .greece-panel .arming .acts button small { font-size: 11.5px; opacity: 0.85; }
+.greece-panel .choice { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 0; }
+.greece-panel .choice button {
+  appearance: none; font: inherit; font-size: 12.5px; padding: 2px 8px; border-radius: 9px; border: 1.2px solid var(--edge);
+  background: #fff8ea; color: var(--ink); cursor: pointer; display: inline-flex; gap: 5px; align-items: center;
+}
+.greece-panel .choice button i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(74, 52, 32, 0.45); }
+.greece-panel .choice button i.coin { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #f3d36a, #b88a1e); border-color: #8a6414; }
+.greece-panel .choice button small { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.greece-panel .choice button em { font-style: normal; font-weight: bold; font-size: 11.5px; }
+.greece-panel .choice button em.up { color: #5f7f2c; }
+.greece-panel .choice button em.down { color: var(--terracotta-deep); }
+.greece-panel .choice button.on { background: #2f6f8e; border-color: #2f6f8e; color: #fff6e4; }
+.greece-panel .choice button.on small, .greece-panel .choice button.on em { color: #fff6e4; }
+.greece-panel .choice button:hover:not(:disabled):not(.on) { background: #fff2d6; border-color: #b88a50; }
+.greece-panel .choice button:disabled { opacity: 0.45; cursor: default; }
+.greece-panel .tribute .line b, .greece-panel .loyalty .line b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
+.greece-panel .loyalty .bar i { background: #6f8f3c; }
+.greece-panel .arming .bar i, .greece-panel .loyalty .deal.tribute .bar i { background: #b8564a; }
+.greece-panel .acts.endally { display: flex; margin: 10px 0 0; }
+.greece-panel .acts.endally button { appearance: none; font: inherit; font-size: 12.5px; padding: 2px 9px; border-radius: 9px; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink); cursor: pointer; }
+.greece-panel .acts.endally button em { font-style: normal; font-weight: bold; color: var(--terracotta-deep); }
+.glabel .lord.ally { background: transparent; box-shadow: inset 0 0 0 2px var(--c), 0 0 0 1px rgba(40, 25, 10, 0.4); border-radius: 50%; }

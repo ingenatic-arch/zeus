@@ -14,6 +14,7 @@ import { cityOf, HARVEST_WORDS, OUTLOOK_MONTH, HARVEST_MONTH, outlookWords, usua
 import { adjective, baseOf, coloniesOf, lordWords, recordSince, sizeWhy, siteWords, trendOf, vassalsOf, wealthWord } from '../sim/growth';
 import { siteOf } from '../map/greece';
 import type { WorldCity } from '../sim/state';
+import { allyOf, openCall, vassalOf } from '../sim/vassals';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
@@ -39,8 +40,16 @@ export const FEAST_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" class
 /** A city's label icons for Greece's doings: crossed swords while at war, a wreath while its festival is on. */
 export function labelIcons(s: SimState, id: CityId): string {
   const c = cityOf(s.world, id);
-  return `${c.war ? WAR_ICON : ''}${festivalOn(id, s.tick) ? FEAST_ICON : ''}`;
+  // (Slice 34: your vassal arming against you, or your ally's call to war waiting on you.)
+  const v = vassalOf(s, id);
+  const call = openCall(s, id);
+  return `${c.war ? WAR_ICON : ''}${festivalOn(id, s.tick) ? FEAST_ICON : ''}${v?.arming ? ARMING_ICON : ''}${call ? CALL_ICON : ''}`;
 }
+
+/** (Slice 34) A raised spear on a shield, for a vassal arming against you. */
+export const ARMING_ICON = '<svg viewBox="0 0 16 16" width="15" height="15" class="ask arming" aria-hidden="true"><path d="M8 2.2 13 4v4.2c0 2.8-2.2 4.6-5 5.6-2.8-1-5-2.8-5-5.6V4z" fill="#b8564a" stroke="#5a2a20" stroke-width=".9"/><path d="M8 4.6v7" stroke="#f4e4bf" stroke-width="1.3" stroke-linecap="round"/><path d="M6.4 6.2 8 3.8l1.6 2.4z" fill="#f4e4bf"/></svg>';
+/** (Slice 34) A horn, for an ally's call to war waiting on you. */
+export const CALL_ICON = '<svg viewBox="0 0 16 16" width="15" height="15" class="ask call" aria-hidden="true"><path d="M2.5 9.5c3-.2 6.5-2.2 9.5-6l1.5 1c-1.6 4-4.6 7.4-9 8.6z" fill="#e8c04a" stroke="#8a6414" stroke-width=".9" stroke-linejoin="round"/><circle cx="3.6" cy="11.2" r="1.3" fill="#8a6414"/></svg>';
 
 /** What sending a city at war anything costs you with its enemy, in a sentence ('' at peace): "Athens, at war with Sparta, will hold anything you send Sparta against you: −8." */
 export function foeNote(s: SimState, id: CityId): string {
@@ -97,6 +106,11 @@ export function statusHtml(s: SimState, id: CityId): string {
     }
   }
   out.push(`<li class="crop"><i style="background:${fieldColour(s, id)}"></i><span>${esc(harvestLine(s, id))}.</span></li>`);
+  // (Slice 34: your vassal arming, your ally calling: see its Empire tab.)
+  const v = vassalOf(s, id);
+  if (v?.arming) out.unshift(`<li class="war">${ARMING_ICON}<span><b>Arming against you</b>: loyalty ${v.loyalty}. See its Empire tab.</span></li>`);
+  const call = openCall(s, id);
+  if (call && allyOf(s, id)) out.unshift(`<li class="war">${CALL_ICON}<span><b>Asks you to join its war</b> with ${esc(name(call.foe))}: see its Empire tab.</span></li>`);
   // (Slice 31: its size, with its trends.)
   out.unshift(sizeHtml(s, id));
   return `<ul class="status">${out.join('')}</ul>`;

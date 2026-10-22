@@ -512,7 +512,8 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   const mood = moodOf(c, s.tick);
   const hostile = mood <= HOSTILE;
   // (Slice 28: closed too while they seize your goods over a debt unpaid: loans.ts.)
-  const shut = hostile || seizing(s.world, c.id);
+  // (Slice 34: a vassal of yours never closes its routes to you over its mood.)
+  const shut = (hostile && c.lord !== 'home') || seizing(s.world, c.id);
   const closed: RouteKind[] = [];
   const opened: RouteKind[] = [];
   for (const r of s.world.routes) {

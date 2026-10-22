@@ -666,6 +666,11 @@ function mourn(s: SimState, x: Soldier, c: Company | undefined, r: Raid | undefi
 /** A man killed fighting `foe` ("Sparta’s raiders", or abroad "Corinth’s garrison": expeditions.ts): his house mourns him, and the town hears. */
 export function mournMan(s: SimState, x: Soldier, c: Company | undefined, foe: string): void {
   const company = c ? `${companyName(c)}` : 'his company';
+  // (Slice 34: a man of an allied company, mourned in his own city.)
+  if (c?.ally) {
+    armyNews(s, `${x.name}, son of ${x.father}, of ${company}, fell fighting ${foe} for your city`, 0);
+    return;
+  }
   if (c?.hired || x.home === 0) {
     const h = c?.hired ? HIRELINGS[c.hired as HiredKind] : undefined;
     armyNews(s, `${x.name}, a ${h ? h.one : 'hireling'} of ${company} from ${x.house}, fell fighting ${foe}`, 0);
@@ -703,7 +708,7 @@ function battleNews(map: CoastMap, r: Raid, w: Walker): void {
 }
 
 /** Who a company is, for a hover: "the 1st company of Cretan archers". */
-export const companyWords = (c: Company): string => `${companyName(c)} of ${c.hired ? HIRELINGS[c.hired as HiredKind].name : c.kind === 'hoplite' ? 'hoplites' : 'archers'}`;
+export const companyWords = (c: Company): string => (c.ally ? companyName(c) : `${companyName(c)} of ${c.hired ? HIRELINGS[c.hired as HiredKind].name : c.kind === 'hoplite' ? 'hoplites' : 'archers'}`);
 
 /** What a raider is doing, for his hover. */
 export function foeDoing(s: SimState, f: Foe): { title: string; detail: string } {

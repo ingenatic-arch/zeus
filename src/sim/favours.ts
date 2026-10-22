@@ -47,6 +47,7 @@ import { berthOf, cityHolds, DOCKER_GAP, DOCKER_TAKE, leaveTicks, OLD_GOODS, SAI
 import { spendable } from './treasury';
 import { SENDING_FETCH_SPEED, SENDING_SPEED } from './walk';
 import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, yourPrice } from './world';
+import { boundTo } from './vassals';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -261,7 +262,8 @@ export function stronger(s: SimState, city: CityId): { theirs: number; far: bool
 /** Can this ruler demand tribute of you now: proud or warlike, wary or worse, and far stronger? */
 export function mayDemand(s: SimState, c: WorldCity): boolean {
   const t = c.ruler?.traits ?? [];
-  return (t.includes('proud') || t.includes('warlike')) && moodOf(c, s.tick) < 0 && stronger(s, c.id).far;
+  // (Slice 34: never your vassal or your ally.)
+  return (t.includes('proud') || t.includes('warlike')) && moodOf(c, s.tick) < 0 && stronger(s, c.id).far && !boundTo(s, c.id);
 }
 
 /** A new deal (raids.ts makes threats with it). */

@@ -43,7 +43,7 @@ import { hash2 } from '../map/noise';
 import { dateOfTick, formatYear, MONTH_NAMES, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news } from './diplomacy';
 import { FLEECE, OIL, WHEAT, COPPER, MARBLE, TIMBER, type Ware } from './foods';
-import { foeIn, mutual, PAIRS, warOf } from './rivals';
+import { FEUD, foeIn, mutual, PAIRS, warOf } from './rivals';
 import type { Growth, Site, SimState, War, World, WorldCity } from './state';
 import { tradeIndex } from './trade';
 import { characterOf, cityOf, normalStock } from './world';
@@ -111,6 +111,10 @@ const VASSALS_MOST = 2;
 const VASSAL_ODDS = 1 / 30;
 /** ...and the two cool to each other, this or worse (unless the lord beat it lately). */
 const VASSAL_FEELING = -10;
+/** Slice 34 (the finding of slice 31: Argos bowed to Sparta in most runs, their usual armies being far apart): a city bows only when it is weak, its army under this share of its usual, or lately beaten in a war. */
+const VASSAL_WEAK = 0.8;
+/** ...and not again by the lord it lately threw off, while it remembers breaking free (its 'freed' bond lasts two years, and is let go then: review of slice 34, this said four). */
+const FREED_FOR = 2 * TICKS_PER_YEAR;
 /** A vassal breaks free when its army reaches this share of its lord's. */
 const FREE_ARMY = 2 / 3;
 /** A defeat counts against a city in a vassal's eyes for this long. */
@@ -154,8 +158,8 @@ function note(c: WorldCity, tick: number, kind: string, why: string, d: Partial<
   g.fleet = round2(g.fleet + (d.fleet ?? 0));
 }
 
-/** Apply a change and note it. */
-function change(c: WorldCity, tick: number, kind: string, why: string, d: Partial<Pick<Growth, 'pop' | 'wealth' | 'army' | 'fleet'>>): void {
+/** Apply a change and note it (slice 34: vassals.ts takes a vassal's tribute this way). */
+export function change(c: WorldCity, tick: number, kind: string, why: string, d: Partial<Pick<Growth, 'pop' | 'wealth' | 'army' | 'fleet'>>): void {
   const b = baseOf(c.id);
   const before = { pop: c.pop, wealth: c.wealth, army: c.army, fleet: c.fleet };
   c.pop = round2(clamp(c.pop + (d.pop ?? 0), b.pop * POP_LEAST, b.pop * POP_MOST));
@@ -233,7 +237,8 @@ function grow(s: SimState, c: WorldCity): void {
   const upkeep = (b.fleet > 0 ? b.wealth * ARMY_COST * (c.army / b.army) + b.wealth * FLEET_COST * (c.fleet / b.fleet) : b.wealth * (ARMY_COST + FLEET_COST) * (c.army / b.army)) * (war ? 2 : 1);
   const spend = c.wealth * SPEND;
   change(c, t, 'own', 'its own taxes and trade, against its army, fleet and court', { wealth: income - upkeep - spend });
-  if (c.lord) {
+  // (Slice 34: a vassal of yours pays its tribute in caravans, vassals.ts.)
+  if (c.lord && c.lord !== 'home') {
     const lord = cityOf(w, c.lord);
     const due = income * TRIBUTE_SHARE;
     change(c, t, 'vassal', `bowed to ${name(c.lord)}`, { wealth: -due });
@@ -371,6 +376,8 @@ export function vassalRefusal(s: SimState, lord: WorldCity, v: WorldCity): strin
   if (x && foeIn(x, lord.id) === v.id) return 'at war';
   const beaten = w.wars.some((y) => y.ended > 0 && s.tick - y.ended < BEATEN_FOR && y.fate === lord.id && foeIn(y, lord.id) === v.id);
   if (!beaten && mutual(w, lord.id, v.id, s.tick) > VASSAL_FEELING) return 'on good enough terms';
+  if (!beaten && (v.army >= baseOf(v.id).army * VASSAL_WEAK || mutual(w, lord.id, v.id, s.tick) > FEUD)) return 'not weak enough';
+  if (v.bonds.some((b) => b.kind === 'freed' && b.city === lord.id && s.tick - b.tick < FREED_FOR)) return 'lately free of it';
   return '';
 }
 
@@ -378,7 +385,8 @@ export function vassalRefusal(s: SimState, lord: WorldCity, v: WorldCity): strin
 function vassals(s: SimState, month: number): void {
   const w = s.world;
   for (const v of w.cities) {
-    if (!v.lord) continue;
+    // (Slice 34: your vassals are held by their loyalty, vassals.ts.)
+    if (!v.lord || v.lord === 'home') continue;
     const lord = cityOf(w, v.lord);
     const beaten = w.wars.find((y) => y.ended > v.lordSince && y.ended > s.tick - TICKS_PER_MONTH && (y.a === lord.id || y.b === lord.id) && y.fate !== 'peace' && y.fate !== lord.id);
     if (beaten || v.army >= lord.army * FREE_ARMY) {
@@ -467,6 +475,8 @@ export function wealthWord(c: WorldCity): string {
 /** "Argos, Sparta's vassal since 746 BC" or "": a city's standing with others. */
 export function lordWords(c: WorldCity): string {
   if (!c.lord) return '';
+  // (Slice 34: your own.)
+  if (c.lord === 'home') return `your vassal since ${formatYear(yearOf(c.lordSince))}`;
   return `${name(c.lord)}’s vassal since ${formatYear(yearOf(c.lordSince))}`;
 }
 

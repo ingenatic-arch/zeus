@@ -3,9 +3,11 @@ import type { RngState } from './rng';
 import type { Crime } from './crime';
 // Slice 33.
 import type { Seasons } from './seasons';
+// Slice 34: your vassals, allies and heralds (vassals.ts).
+import type { Empire } from './vassals';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 31;
+export const SIM_STATE_VERSION = 32;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -307,7 +309,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected' | 'stolen' | 'fines';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected' | 'stolen' | 'fines' | 'vassals';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -472,6 +474,8 @@ export interface SimState {
   materials: Materials;
   /** Slice 33: the seasons' switch and the ships winter has held back (see seasons.ts; the season itself is the tick's). */
   season: Seasons;
+  /** Slice 34: your vassals and allies, heralds on their way, tribute and aid coming, allies' calls to war (see vassals.ts; a vassal's own link is its city's `lord`, 'home'). */
+  empire: Empire;
 }
 
 /**
@@ -536,6 +540,8 @@ export interface Company {
   routed: boolean;
   /** Slice 28: the expedition it marches with (world.expeditions; 0 none). */
   away: number;
+  /** Slice 34: an allied company come to help against raiders (vassals.ts): the city it came from (missing: your own). */
+  ally?: CityId;
 }
 
 /** How the man who serves stands in his house. */
@@ -1080,6 +1086,8 @@ export interface Expedition {
   /** The report, line by line, once it has fought. */
   report: string[];
   ended: number;
+  /** Slice 34: what it was sent to do besides (vassals.ts): '' as slice 28's, 'conquer' (to make the city your vassal, or crush a vassal arming against you), 'war' (to fight an ally's war). */
+  aim: '' | 'conquer' | 'war';
 }
 
 /** A line of news from Greece. */

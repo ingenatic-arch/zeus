@@ -16,6 +16,8 @@ import {
   ASK_SUMS,
   askRefusal,
   COLLECT_LULL,
+  DEBT_WORTH,
+  worthAMarch,
   debtRefusal,
   debts,
   demandOdds,
@@ -51,6 +53,8 @@ import type { Deal, Expedition, Loan, LoanWhy, SimState } from '../sim/state';
 import { spendable } from '../sim/treasury';
 import { cityOf } from '../sim/world';
 import { foeNote } from './rivals';
+// Slice 34
+import { debtPlan } from '../sim/vassals';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -199,6 +203,8 @@ function stepsHtml(s: SimState, l: Loan): string {
   } else {
     third = `A threat: pay what is left within a month, or an army half again the size of a war band marches on your city to take it from your stores and treasury (it sets no fires: it comes for coin).`;
   }
+  // (Slice 34, the balance card: no army for a remainder under DEBT_WORTH.)
+  if (l.state === 'overdue' && !worthAMarch(l) && !(r && r.ended === 0)) third = `Not worth a march: ${fmt(l.owed)} dr left (${he} sends an army only for ${fmt(DEBT_WORTH)} dr or more). ${cap(he)} goes on seizing your goods until it is paid.`;
   return `<ol class="steps">${li(1, t1, 'On the day: unpaid.', `${cap(title(c))} warns you, and remembers it longest (${signed(heard)}); every ruler hears, and every loan’s terms are dearer for three years.`)}${li(2, t2, 'Seizing.', `${cap(he)} closes ${ways} to you and seizes your goods on ${way.length > 1 ? 'them' : 'it'}: what waits for ${his} traders in your caravan yard and on your quay, and anything of yours on its way to ${nm}.${l.seized ? ` Seized so far: ${fmt(l.seized)} dr.` : ''}`)}${li(3, t3, `${cap(his)} army.`, third)}</ol>`;
 }
 
@@ -228,7 +234,10 @@ function theirDebtHtml(s: SimState, l: Loan): string {
   const f = demandOdds(s, l);
   const forgive = loanButton('forgive', `Forgive it${worthEm(forgave) ? ` ${worthEm(forgave)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'forgive'), `The ${fmt(l.owed)} dr is let go: ${title(c)} is moved (${signed(forgave)}), and every other ruler who hears thinks better of you (about ${signed(heard)})`, 'take');
   const demand = loanButton('demand', 'Demand it', { id: l.id }, debtRefusal(s, l, 'demand'), `Two months to pay. ${cap(f.word)} to pay, about ${Math.round(f.p * 100)} in 100 (${f.why}). Once only`, 'decline');
-  out.push(`<div class="acts">${forgive}${demand}</div>`);
+  // Slice 34: or its debt for its loyalty (the Empire tab says more).
+  const dp = debtPlan(s, l.city);
+  const loyal = `<button data-empire="debt" data-city="${l.city}" class="send" title="${esc(dp.refusal || `Your herald offers to let the debt go if ${name(l.city)} becomes your vassal. ${cap(dp.word)}, about ${Math.max(1, Math.min(9, Math.round(dp.p * 10)))} in 10: ${dp.why}`)}"${dp.refusal ? ' disabled' : ''}>Its debt for its loyalty${dp.refusal ? '' : ` <small>about ${Math.max(1, Math.min(9, Math.round(dp.p * 10)))} in 10</small>`}</button>`;
+  out.push(`<div class="acts">${forgive}${demand}${loyal}</div>`);
   if (!l.demand) out.push(`<p class="likely ${f.word}">Demanded, ${esc(name(l.city))} would be <b>${f.word}</b> to pay <span class="why">(${esc(f.why)})</span></p>`);
   out.push(soldiersHtml(s, l.city, true));
   return out.join('');
@@ -257,9 +266,10 @@ export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
     return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}</li>`;
   });
   const why = expeditionRefusal(s, id, 'raid');
-  const block = /trireme|No way|no soldiers|no ruler/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
+  // (Slice 34 review: your vassal or your ally, too, says why rather than showing two dead buttons with odds.)
+  const block = /trireme|No way|no soldiers|no ruler|your vassal|your ally/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
   // (No soldiers at all, or no way there: only why, not two dead buttons.)
-  if (block && (!s.army.companies.length || /trireme|No way/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
+  if (block && (!s.army.companies.length || /trireme|No way|your vassal|your ally/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
   const heard = cause ? '−3' : '−12';
   const way = expeditionWay(s, id);
   const bySea = 'by' in way && way.by === 'sea';

@@ -115,7 +115,8 @@ describe('growth', () => {
   it('rivals found colonies on the empty sites and take weaker neighbours as vassals, each told as news of Greece', () => {
     let colonies = 0;
     let vassals = 0;
-    for (const seed of [1, 7, 42]) {
+    // (Slice 34: a rival takes a vassal only when it is weak or beaten, so rarer: seed 5 is one where Sparta takes Argos, in its thirteenth year.)
+    for (const seed of [1, 7, 42, 5]) {
       const s = greece(seed, 15).state;
       inBounds(s);
       colonies += s.world.sites.filter((x) => x.owner).length;
