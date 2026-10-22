@@ -39,6 +39,8 @@ import { fleetCommand, freshFleet, orderTrireme, stepErrands, stepFleet, yardGon
 import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
 // Slice 30.
 import { freshCrime, moveThief, moveWatch, stepCrime } from './crime';
+// Slice 34
+import { empireCommand, freshEmpire, stepEmpire } from './vassals';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -89,6 +91,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     walls: [],
     fleet: freshFleet(),
     crime: freshCrime(),
+    // Slice 34
+    empire: freshEmpire(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -208,6 +212,8 @@ export class Sim {
     stepDiplomacy(s);
     // Slice 31: Greece grows, once a month: its cities' people, wealth, armies and fleets, their colonies and vassals (never touching your city).
     stepGrowth(s);
+    // Slice 34: your vassals and allies: tribute on its way, loyalty and risings, heralds' answers, aid against raiders, allies' calls (nothing with none).
+    stepEmpire(s, map);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
@@ -320,6 +326,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'fleet':
       if (typeof c.trireme === 'number' && (c.act === 'guard' || c.act === 'home')) fleetCommand(s, map, c.trireme, c.act, String(c.lane ?? ''));
+      break;
+    // Slice 34
+    case 'empire':
+      empireCommand(s, map, c);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {

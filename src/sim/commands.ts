@@ -57,7 +57,10 @@ export type Command =
   /** A trireme's order (its id): guard a sea `lane` (a way's id, such as 'athens-sea'), or come home and guard the bay. */
   | { type: 'fleet'; trireme: number; act: 'guard' | 'home'; lane?: string }
   /** Slice 30: crime's switch (crime.ts; also taxes day by day, harsh taxes' harder bite and fire's gentler first year), on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'crime'; on: boolean };
+  | { type: 'crime'; on: boolean }
+  // Slice 34
+  /** Your vassals and allies (vassals.ts; an act it refuses does nothing): set a vassal's tribute (`good` -1 coin or a trade good's index, `weight` 0 light, 1 fair, 2 heavy); demand that a city submit; offer a debtor its debt for its loyalty; offer an alliance, or end one; send a full force to conquer a city (or crush a vassal arming against you); join or refuse an ally's call to war (`call` its id). */
+  | { type: 'empire'; act: 'tribute' | 'submit' | 'debt' | 'ally' | 'unally' | 'conquer' | 'join' | 'refuse'; city?: string; good?: number; weight?: number; call?: number };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';

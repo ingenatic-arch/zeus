@@ -72,6 +72,7 @@ import { armyNews } from './army';
 import { daysToBeach, embark, onWater, sailIn, seaOf, seaborne, shipsFor, shipsOf } from './fleet';
 import { isStore, roomFor } from './stores';
 import { income } from './treasury';
+import { boundTo } from './vassals';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -393,7 +394,8 @@ const dealOf = (w: World, id: number): Deal | undefined => w.deals.find((d) => d
 function threats(s: SimState, map: CoastMap): void {
   const w = s.world;
   if (threatLive(w)) return;
-  const owed = w.deals.find((d) => d.kind === 'tribute' && d.angry && d.ended > 0 && s.tick - d.ended < ANGRY_FOR && mayThreaten(s, d.city));
+  // (Slice 34: your vassals and allies never threaten you.)
+  const owed = w.deals.find((d) => d.kind === 'tribute' && d.angry && d.ended > 0 && s.tick - d.ended < ANGRY_FOR && mayThreaten(s, d.city) && !boundTo(s, d.city));
   if (owed) {
     owed.angry = false;
     const c = cityOf(w, owed.city);
@@ -406,7 +408,7 @@ function threats(s: SimState, map: CoastMap): void {
   for (let i = 0; i < w.cities.length; i++) {
     const c = w.cities[i];
     const t = c.ruler?.traits ?? [];
-    if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike'))) continue;
+    if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike')) || boundTo(s, c.id)) continue;
     const mood = moodOf(c, s.tick);
     if (mood > COLD || !mayThreaten(s, c.id)) continue;
     const bold = Math.max(0.5, Math.min(1.5, armyScale(c)));

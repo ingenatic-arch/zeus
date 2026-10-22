@@ -123,7 +123,7 @@ export interface Demo {
   /** Open the map of Greece from the start, with a city's panel if one is named. */
   greece?: true | CityId;
   /** The tab that city's page opens on (its ruler's, unless named). */
-  greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals';
+  greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
   side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */

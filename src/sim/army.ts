@@ -32,6 +32,7 @@ import { ARMOUR, coming, COPPER, gi, held, setHeld, type Ware } from './foods';
 import { MEN } from './folk';
 import { rateOf, WORK_SHARE } from './labour';
 import { overland } from './roads';
+import { PLACES } from '../map/greece';
 import { door, roadsBeside } from './rounds';
 import { note } from './stockbook';
 import { ARMOURY_COPPER, isStore, roomOf } from './stores';
@@ -94,7 +95,7 @@ export const HIRELINGS = {
 } as const;
 export type HiredKind = keyof typeof HIRELINGS;
 /** A man's pay a month: a citizen's, or a hireling's. */
-export const payOf = (c: Company): number => (c.hired ? HIRED_PAY : SOLDIER_PAY);
+export const payOf = (c: Company): number => (c.ally ? 0 : c.hired ? HIRED_PAY : SOLDIER_PAY);
 export { HIRED_PAY };
 /** How long a man wounded lies where he fell before he gets up, and how many days he heals at the barracks. */
 export const LIE = 30;
@@ -110,7 +111,8 @@ export function ordinal(n: number): string {
 }
 
 /** "the 2nd company". */
-export const companyName = (c: Company): string => `the ${ordinal(c.n)} company`;
+// (Slice 34: an allied company is named for its city, vassals.ts.)
+export const companyName = (c: Company): string => (c.ally ? `the company from ${PLACES[c.ally]?.name ?? c.ally}` : `the ${ordinal(c.n)} company`);
 /** "hoplites", "archers". */
 export const kindWord = (k: CompanyKind, many = true): string => (k === 'hoplite' ? (many ? 'hoplites' : 'hoplite') : many ? 'archers' : 'archer');
 /** The homes a kind is drawn from, in words. */
@@ -456,7 +458,7 @@ export function dismiss(s: SimState, map: CoastMap, id: number): void {
   const b = findBuilding(s, c.barracks);
   for (const x of s.army.soldiers.filter((o) => o.company === c.id)) {
     if (x.state === 'fallen') continue;
-    if (c.hired) walkOff(s, map, x);
+    if (c.hired || c.ally) walkOff(s, map, x);
     else {
       handBack(s, x, b);
       sendHome(s, map, x);
@@ -1037,6 +1039,8 @@ export function strength(s: SimState): { hoplites: number; archers: number; men:
   let wounded = 0;
   let hirelings = 0;
   for (const c of s.army.companies) {
+    // (Slice 34: an allied company is not yours.)
+    if (c.ally) continue;
     const n = menOf(s, c).length;
     if (c.hired) hirelings += n;
     else if (c.kind === 'hoplite') hoplites += n;
@@ -1061,8 +1065,8 @@ export function doingWords(s: SimState, c: Company): string {
   const hurt = men.filter((x) => x.state === 'wounded' || x.state === 'healing').length;
   // (Away: its men are out of the city with it, neither ready nor raising.)
   if (c.order === 'away') return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
-  if (c.hired && coming === men.length && men.length > 0) return `walking in from the edge of your land (${men.length} men)`;
-  if (c.hired || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
+  if ((c.hired || c.ally) && coming === men.length && men.length > 0) return `walking in from the edge of your land (${men.length} men)`;
+  if (c.hired || c.ally || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
   const bits: string[] = [];
   if (coming) bits.push(`${coming} walking in`);
   if (arming) bits.push(`${arming} waiting for armour`);

@@ -157,6 +157,10 @@ export const REMIND = 30 * TICKS_PER_DAY;
 export const STEP_GAP = 2 * TICKS_PER_MONTH;
 /** After the lender's army has gone, with the debt still standing: the next threat this long after. */
 export const COLLECT_LULL = 4 * TICKS_PER_MONTH;
+/** Slice 34 (balance card): a lender's army marches only for a remainder at least this big (dr); under it, the lender goes on seizing your goods on its routes. */
+export const DEBT_WORTH = 500;
+/** Is what is left of a debt worth an army's march? */
+export const worthAMarch = (l: Loan): boolean => l.owed >= DEBT_WORTH;
 /** More time, asked or granted: so many months for so many percent of the sum. */
 export const TIME_MONTHS = 3;
 export const TIME_RATE = 3;
@@ -1011,7 +1015,7 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
       if (!live(l)) return;
     }
   }
-  if (l.step === 2 && s.tick >= l.stepAt + STEP_GAP && !threatLive(w)) {
+  if (l.step === 2 && s.tick >= l.stepAt + STEP_GAP && !threatLive(w) && worthAMarch(l)) {
     l.step = 3;
     l.stepAt = s.tick;
     l.raid = threatenDebt(s, map, cityOf(w, l.city), l).id;
@@ -1020,7 +1024,7 @@ export function stepOverdue(s: SimState, map: CoastMap, l: Loan): void {
   if (l.step === 3) {
     const r = w.raids.find((x) => x.id === l.raid);
     // (The army gone, the debt still standing: another threat after a lull.)
-    if ((!r || (r.ended > 0 && s.tick - r.ended >= COLLECT_LULL)) && !threatLive(w) && !liveRaid(w)) {
+    if ((!r || (r.ended > 0 && s.tick - r.ended >= COLLECT_LULL)) && !threatLive(w) && !liveRaid(w) && worthAMarch(l)) {
       l.stepAt = s.tick;
       l.raid = threatenDebt(s, map, cityOf(w, l.city), l).id;
     } else if (r && r.ended === 0 && r.coin !== l.owed && r.phase !== 'raiding') r.coin = l.owed;
@@ -1222,7 +1226,7 @@ export function collectorsGone(s: SimState, r: Raid, value: number): void {
     return;
   }
   s.rev++;
-  news(s.world, s.tick, l.city, `${whose(r.city)} army has left your land with nothing${fell}: the ${fmt(l.owed)} dr still stands, and ${title(cityOf(s.world, l.city))} will send again in about four months unless it is paid`, true);
+  news(s.world, s.tick, l.city, `${whose(r.city)} army has left your land with nothing${fell}: the ${fmt(l.owed)} dr still stands, and ${worthAMarch(l) ? `${title(cityOf(s.world, l.city))} will send again in about four months unless it is paid` : `it is not worth another march (under ${fmt(DEBT_WORTH)} dr): ${title(cityOf(s.world, l.city))} seizes your goods on its routes until it is paid`}`, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -1505,6 +1509,8 @@ export function loanTownLine(s: SimState): { text: string; city: CityId } | null
     const he = c.ruler?.female ? 'she' : 'he';
     const pays = late.withhold ? 'you are holding it back' : `paid once the treasury can spend ${fmt(late.owed + monthsPay(s))} dr, the debt and a month’s wages besides (it can spend ${fmt(spendable(s))} dr now)`;
     if (late.step <= 1) return { text: `Your loan from ${name} is overdue: ${fmt(late.owed)} dr, ${pays}. Unpaid on ${dayWords(late.stepAt + STEP_GAP)}, ${name} closes its routes to you and seizes your goods on them.`, city: late.city };
+    // (Slice 34: under DEBT_WORTH left, not worth a march: the seizing goes on.)
+    if (!worthAMarch(late) && (late.step === 2 || !w.raids.some((x) => x.id === late.raid && x.ended === 0))) return { text: `${name} is seizing your goods against your debt (${fmt(late.owed)} dr left${late.seized ? `, ${fmt(late.seized)} dr seized so far` : ''}): not worth a march for ${fmt(late.owed)} dr, so ${he} sends no army, but the seizing goes on until it is paid. ${cap(pays)}.`, city: late.city };
     if (late.step === 2) return { text: `${name} is seizing your goods against your debt (${fmt(late.owed)} dr left${late.seized ? `, ${fmt(late.seized)} dr seized so far` : ''}): unpaid on ${dayWords(late.stepAt + STEP_GAP)}, ${he} sends men to collect the rest. ${cap(pays)}.`, city: late.city };
     const r = w.raids.find((x) => x.id === late.raid);
     if (!r || r.ended > 0) return { text: `Your loan from ${name} still stands: ${fmt(late.owed)} dr${late.seized ? ` (${fmt(late.seized)} dr seized or carried off)` : ''}. ${cap(he)} sends men again ${r ? `about ${dayWords(r.ended + COLLECT_LULL)}` : 'soon'} unless it is paid; ${pays}.`, city: late.city };

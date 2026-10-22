@@ -895,7 +895,8 @@ export function outlookWords(c: WorldCity, tick: number): string {
  */
 export function termsOf(c: WorldCity, tick: number): number {
   if (!c.ruler) return 0;
-  return Math.max(-20, Math.min(20, Math.round(moodOf(c, tick) / 3)));
+  // (Slice 34: a vassal of yours never trades against you: its terms at worst a cordial ruler's.)
+  return Math.max(c.lord === 'home' ? 0 : -20, Math.min(20, Math.round(moodOf(c, tick) / 3)));
 }
 
 /**

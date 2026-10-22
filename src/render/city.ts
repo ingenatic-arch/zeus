@@ -10,6 +10,8 @@ import { facingOf, Homes } from './homes';
 import { routeOf } from '../sim/routes';
 import { bandsAt, sheltering } from '../sim/raids';
 import { cityShipColours, giftLook, ShipView, visitorLook } from './ship';
+import { tributeShipAt } from '../sim/vassals';
+import { SHIP_ANCHORED, SHIP_COMING } from '../sim/trade';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -43,6 +45,8 @@ export class CityView {
   readonly visitors = new Map<string, ShipView>();
   /** Your gift ships, sailing out of the bay with a gift of goods for a ruler, by the city they sail for (made as the first sails; gifts to two cities can leave together). */
   readonly giftShips = new Map<string, ShipView>();
+  /** (Slice 34) Vassals' tribute ships, by city. */
+  readonly tributeShips = new Map<string, ShipView>();
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -108,6 +112,22 @@ export class CityView {
       }
     }
     for (const view of this.visitors.values()) view.update(s, alpha, time);
+    // Slice 34: a vassal's tribute ship, laden coming in, riding at anchor while its cargo comes ashore (one view a city, as the gift ships).
+    for (const x of s.empire.tribute) {
+      if (!x.ship || this.tributeShips.has(x.city)) continue;
+      const city = x.city;
+      const view = new ShipView((st, tk) => {
+        const tr = st.empire.tribute.find((y) => y.city === city && y.ship);
+        const at = tr ? tributeShipAt(tr, tk) : null;
+        if (!tr?.ship || !at) return null;
+        const v = tr.ship;
+        const coming = v.phase === SHIP_COMING;
+        return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: coming || (v.phase === SHIP_ANCHORED && tr.phase === 'bay'), calm: v.phase === SHIP_ANCHORED };
+      }, cityShipColours(city), `ship-levy-${city}`, 0.4 + this.tributeShips.size * 1.7);
+      this.tributeShips.set(city, view);
+      this.group.add(view.group);
+    }
+    for (const view of this.tributeShips.values()) view.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

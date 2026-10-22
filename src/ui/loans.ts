@@ -16,6 +16,8 @@ import {
   ASK_SUMS,
   askRefusal,
   COLLECT_LULL,
+  DEBT_WORTH,
+  worthAMarch,
   debtRefusal,
   debts,
   demandOdds,
@@ -199,6 +201,8 @@ function stepsHtml(s: SimState, l: Loan): string {
   } else {
     third = `A threat: pay what is left within a month, or an army half again the size of a war band marches on your city to take it from your stores and treasury (it sets no fires: it comes for coin).`;
   }
+  // (Slice 34, the balance card: no army for a remainder under DEBT_WORTH.)
+  if (l.state === 'overdue' && !worthAMarch(l) && !(r && r.ended === 0)) third = `Not worth a march: ${fmt(l.owed)} dr left (${he} sends an army only for ${fmt(DEBT_WORTH)} dr or more). ${cap(he)} goes on seizing your goods until it is paid.`;
   return `<ol class="steps">${li(1, t1, 'On the day: unpaid.', `${cap(title(c))} warns you, and remembers it longest (${signed(heard)}); every ruler hears, and every loan’s terms are dearer for three years.`)}${li(2, t2, 'Seizing.', `${cap(he)} closes ${ways} to you and seizes your goods on ${way.length > 1 ? 'them' : 'it'}: what waits for ${his} traders in your caravan yard and on your quay, and anything of yours on its way to ${nm}.${l.seized ? ` Seized so far: ${fmt(l.seized)} dr.` : ''}`)}${li(3, t3, `${cap(his)} army.`, third)}</ol>`;
 }
 

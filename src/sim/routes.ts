@@ -44,7 +44,7 @@ import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './c
 import { lastRoad, wayPoints } from './food';
 import { held, setHeld, WARE_NAMES } from './foods';
 import { edgeRoads, nearestEdge, overland, roadSearch, tracePath } from './roads';
-import { roadsBeside } from './rounds';
+import { door, roadsBeside } from './rounds';
 import type { Building, SimState, TradeRoute, Traveller, Visitor, Walker } from './state';
 import { TILE_ROAD } from './state';
 import { note } from './stockbook';
@@ -85,6 +85,7 @@ import { cityOf, COLD, moodOf, moodWord, rulerName, scaleOf, sellsAndBuys, snubb
 import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
 import { seizing } from './loans';
 import { tradedWithFoe } from './rivals';
+import { tributeDoing, unload as unloadTribute } from './vassals';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -245,7 +246,8 @@ export function openRoute(s: SimState, city: CityId | string, kind: RouteKind): 
  */
 export function paceOf(s: SimState, city: CityId): number {
   const c = cityOf(s.world, city);
-  return c.ruler && moodOf(c, s.tick) <= COLD ? 1.5 : 1;
+  // (Slice 34: a vassal's traders are never slowed.)
+  return c.ruler && moodOf(c, s.tick) <= COLD && c.lord !== 'home' ? 1.5 : 1;
 }
 /** The time between a route's traders now. */
 export const everyOf = (s: SimState, r: TradeRoute): number => Math.round((r.kind === 'land' ? LAND_EVERY : SEA_EVERY) * paceOf(s, r.city));
@@ -397,14 +399,14 @@ export const donkeysOf = (city: CityId): number => (city === 'corinth' ? 5 : 4);
 /** The caravan of a land route in the city now, if there is one. */
 export const caravanOf = (s: SimState, city: CityId): Walker | undefined => {
   const ci = CITY_IDS.indexOf(city);
-  const mine = (w: Walker): boolean => w.kind === 'caravan' && w.food === ci;
+  const mine = (w: Walker): boolean => w.kind === 'caravan' && w.food === ci && w.cheese >= 0;
   return s.walkers.find((w) => mine(w) && w.wait > 0) ?? s.walkers.find((w) => mine(w) && !w.back) ?? s.walkers.find(mine);
 };
 
 /** Is one of a city's caravans in your city, not yet turned for home (your own caravans, carrying a gift or a sending, aside)? */
 const caravanIn = (s: SimState, city: CityId): boolean => {
   const ci = CITY_IDS.indexOf(city);
-  return s.walkers.some((w) => w.kind === 'caravan' && w.food === ci && !w.back && !(w.cheese > 0));
+  return s.walkers.some((w) => w.kind === 'caravan' && w.food === ci && !w.back && w.cheese === 0);
 };
 
 /** The caravan's route (by its city). */
@@ -595,6 +597,8 @@ function arrive(s: SimState, r: TradeRoute, yard: Building, w: Walker): void {
 
 /** Move a caravan one tick along: in to the yard, trading there, and out again. False when it has left the map. */
 export function moveCaravan(s: SimState, map: CoastMap, w: Walker): boolean {
+  // (Slice 34: a vassal's tribute.)
+  if (w.cheese < 0) return moveTribute(s, map, w);
   const r = caravanRoute(s, w);
   const yard = findBuilding(s, w.origin);
   if (w.wait > 0) {
@@ -1010,6 +1014,8 @@ export function tradersNews(s: SimState, tyre: Omit<TraderNews, 'who' | 'kind'> 
 
 /** What a caravan is doing, for its hover tip. */
 export function caravanDoing(s: SimState, w: Walker): { title: string; detail: string } {
+  // (Slice 34: a vassal's tribute.)
+  if (w.cheese < 0) return tributeDoing(s, -w.cheese, w.back);
   if (giftOf(w) > 0) {
     const g = s.world.gifts.find((x) => x.id === giftOf(w));
     const to = g ? cityName(g.to) : 'Greece';
@@ -1047,3 +1053,93 @@ export function bestBuyer(s: SimState, k: number, kind: RouteKind): { city: City
 
 /** Where a good is kept, in words (granaries, storehouses). */
 export const keptIn = (k: number): string => (storeKind(TRADE_GOODS[k]) === 'granary' ? 'granaries' : 'storehouses');
+
+// ---------------------------------------------------------------------------
+// Slice 34: a vassal's tribute caravan (vassals.ts). Its `cheese` is minus the tribute's id, `food` its city (for its colours), `origin` the store it makes for.
+
+/** The tribute a caravan carries (its id), or 0 for any other walker. */
+export const tributeOf = (w: Walker): number => (w.kind === 'caravan' && w.cheese < 0 ? -w.cheese : 0);
+
+/**
+ * Bring a tribute caravan into your city along the roads to `to` (a store,
+ * or the tax office): in by the road edge on its city's side (the shortest),
+ * or (`from`) from the trading post its ship unloads at. False if no road
+ * reaches `to` from there.
+ */
+export function tributeCaravan(s: SimState, map: CoastMap, id: number, city: CityId, donkeys: number, to: Building, from?: Building): boolean {
+  const size = map.size;
+  let start: [number, number];
+  let tiles: number[];
+  let edge = -1;
+  if (from) {
+    const roads = roadsBeside(s, size, to);
+    if (!roads.length) return false;
+    const search = roadSearch(s, size, roads);
+    const near = roadsBeside(s, size, from).filter((t) => search.dist[t] >= 0).sort((a, b) => search.dist[a] - search.dist[b] || a - b)[0];
+    if (near === undefined) return false;
+    tiles = tracePath(search, near).reverse();
+    start = door(size, from, near);
+  } else {
+    const entry = caravanEntry(s, size, to, city);
+    if (!entry) return false;
+    tiles = entry.tiles;
+    edge = entry.edge;
+    start = offMapPoint(size, edge);
+  }
+  const w = newWalker(s, 'caravan', donkeys);
+  w.origin = to.id;
+  w.target = to.id;
+  w.food = CITY_IDS.indexOf(city);
+  w.cheese = -id;
+  w.home = edge;
+  w.since = s.tick;
+  setPath(w, wayPoints(size, start, tiles, to));
+  s.walkers.push(w);
+  s.looks++;
+  return true;
+}
+
+/** How long a tribute caravan stands at the store unloading. */
+const UNLOADING = 5;
+
+/** Move a tribute caravan a tick: along the roads to its store, unloading there, and out again. False once it has left the map. */
+function moveTribute(s: SimState, map: CoastMap, w: Walker): boolean {
+  const id = -w.cheese;
+  const t = s.empire.tribute.find((x) => x.id === id);
+  const store = findBuilding(s, w.origin);
+  if (w.wait > 0) {
+    w.wait--;
+    if (w.wait > 0) return true;
+    return headOut(s, map, w);
+  }
+  // The way ahead cut, or the store gone, on the way in: what it carries goes straight into the stores, and it heads out.
+  const next = w.tiles[w.seg + 1];
+  if (!w.back && ((next !== undefined && next >= 0 && s.tiles[next] !== TILE_ROAD) || !store)) {
+    if (t) unloadTribute(s, t, undefined, 'carried straight to the stores (the way in was cut)');
+    return headOut(s, map, w);
+  }
+  if (w.back && next !== undefined && next >= 0 && s.tiles[next] !== TILE_ROAD && !headOut(s, map, w)) return false;
+  let move = speedOf(w);
+  for (let guard = 0; guard < 8 && move > 0; guard++) {
+    const last = w.path.length / 2 - 1;
+    if (w.seg >= last) break;
+    const i = w.seg * 2;
+    const len = dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+    if (w.along + move < len) {
+      w.along += move;
+      w.walked += move;
+      break;
+    }
+    move -= len - w.along;
+    w.walked += len - w.along;
+    w.seg++;
+    w.along = 0;
+    if (w.seg < last) continue;
+    if (w.back) return false;
+    // At the store's door: it unloads.
+    if (t) unloadTribute(s, t, store, `into the ${store?.kind === 'taxoffice' ? 'tax office' : (store?.kind ?? 'stores')}${t.by === 'sea' ? ' from the jetty' : ` by the ${routeWay(t.city, 'land')?.side ?? 'north'} road`}`);
+    w.wait = UNLOADING;
+    break;
+  }
+  return true;
+}
