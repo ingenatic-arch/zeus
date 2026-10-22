@@ -53,6 +53,8 @@ import { income } from './treasury';
 import { offMapPoint } from './walk';
 import { offRoadPath, prunePath, walkable } from './wild';
 import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sellsAndBuys, WARM } from './world';
+// Integrating slice 34 with 33: winter holds tribute ships back and keeps most allies at home.
+import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
 
 // ---------------------------------------------------------------------------
 // The records.
@@ -485,7 +487,9 @@ export function conquestPlan(s: SimState, city: CityId): Plan & { men: number; o
   const c = cityOf(s.world, city);
   const plan = expeditionPlan(s, city, 'force', 'conquer');
   const side = sideOf(s, c, true);
-  const allies = marchers(s, city).map((a) => `${name(a.city)} (${Math.round(MARCH_ODDS[moodOf(cityOf(s.world, a.city), s.tick) >= 60 ? 1 : 0] * 10)} in 10)`);
+  // (Integrating slice 34 with 33: in winter most allies keep their men at home, as most rulers do.)
+  const winter = seasonOf(s) === WINTER ? ', but in winter most armies stay home' : '';
+  const allies = marchers(s, city).map((a) => `${name(a.city)} (${Math.round(MARCH_ODDS[moodOf(cityOf(s.world, a.city), s.tick) >= 60 ? 1 : 0] * 10)} in 10${winter})`);
   const refusal = conquerRefusal(s, city);
   return { refusal, p: plan.odds, word: likelyWord(plan.odds), why: `your ${plan.men} men (strength ${plan.ours}) against ${side.parts.map((p) => `${p.who} ${p.n}`).join(', ')}`, men: plan.men, ours: plan.ours, theirs: side.total, parts: side.parts, allies };
 }
@@ -512,8 +516,14 @@ export function aimSent(s: SimState, e: Expedition): void {
   if (e.aim === 'conquer') {
     const v = vassalOf(s, e.city);
     const q: Conquest = { expedition: e.id, city: e.city, helpers: [], declined: [], theirs: sideOf(s, c, true).parts, crush: !!v };
+    // (Integrating slice 34 with 33: an ally whose men would march in winter mostly keeps them home, as slice 33's rulers do; not held against the alliance.)
+    const wintered: CityId[] = [];
     if (!v)
       for (const a of marchers(s, e.city)) {
+        if (armiesHome(s, s.tick, e.id * 16 + RULED.indexOf(a.city))) {
+          wintered.push(a.city);
+          continue;
+        }
         const o = cityOf(s.world, a.city);
         const odds = MARCH_ODDS[moodOf(o, s.tick) >= 60 ? 1 : 0];
         if (dice(s.world, e.id, RULED.indexOf(a.city), 3) < odds) q.helpers.push({ city: a.city, men: Math.max(4, Math.round(o.army * 0.25)) });
@@ -525,6 +535,7 @@ export function aimSent(s: SimState, e: Expedition): void {
     s.empire.conquests.push(q);
     if (q.helpers.length) news(s.world, s.tick, e.city, `${q.helpers.map((h) => `${name(h.city)} sends ${h.men} men`).join(' and ')} to march with your army against ${name(e.city)}`);
     if (q.declined.length) news(s.world, s.tick, e.city, `${q.declined.map((x) => name(x)).join(' and ')} would not march with you against ${name(e.city)}: it is remembered on the alliance`);
+    if (wintered.length) news(s.world, s.tick, e.city, `${wintered.map((x) => name(x)).join(' and ')} ${wintered.length > 1 ? 'keep their' : 'keeps its'} men at home for the winter, and will not march with you against ${name(e.city)} (not held against the alliance)`);
   }
 }
 
@@ -746,9 +757,13 @@ function sendTribute(s: SimState, v: Vassal): void {
     return;
   }
   const { id: way } = wayFor(v.city, by);
-  const t: Tribute = { id: s.empire.nextId++, city: v.city, good: v.good, amount, worth: dr, by, way, phase: 'road', start: s.tick, dur: by === 'land' ? landTicks(v.city) : voyageTicks(v.city), ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0 };
+  // (Integrating slice 34 with 33: a tribute ship due in winter is held back by the storms, as the trading ships are; caravans keep their pace.)
+  const voyage = by === 'land' ? landTicks(v.city) : voyageTicks(v.city);
+  const ship = `${v.city}-tribute`;
+  const late = by === 'sea' ? stormDelay(s, ship, s.tick + voyage) : 0;
+  const t: Tribute = { id: s.empire.nextId++, city: v.city, good: v.good, amount, worth: dr, by, way, phase: 'road', start: s.tick, dur: voyage + late, ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0 };
   s.empire.tribute.push(t);
-  news(w, s.tick, v.city, `${whose(v.city)} tribute is on its way: ${tributeWords(t)}${short}, ${by === 'land' ? `by road: at the edge of your land about ${dayWords(s.tick + t.dur)}, then its donkeys walk it to your stores` : `by sea: in your bay about ${dayWords(s.tick + t.dur + SAIL_IN)}`}`);
+  news(w, s.tick, v.city, `${whose(v.city)} tribute is on its way: ${tributeWords(t)}${short}, ${by === 'land' ? `by road: at the edge of your land about ${dayWords(s.tick + t.dur)}, then its donkeys walk it to your stores` : `by sea: in your bay about ${dayWords(s.tick + t.dur + SAIL_IN)}${late ? lateWords(s, ship) : ''}`}`);
 }
 
 /** "640 jars of oil", "360 dr". */

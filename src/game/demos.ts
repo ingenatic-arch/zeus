@@ -31,7 +31,7 @@ import { nextFestival } from '../sim/festivals';
 import { daysToThief, temptationOf } from '../sim/crime';
 import { townLines } from '../sim/status';
 import { FAIR as WX_FAIR, lateDays, weatherNow } from '../sim/seasons';
-import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
+import { AT_TARGET, bandOut, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
 import type { CityId } from '../map/greece';
@@ -1373,7 +1373,7 @@ const RIVAL_ROUTES: Array<[CityId, 'land' | 'sea']> = [
 const RIVALS_TRADE = 12 * TICKS_PER_MONTH;
 const FLEECE_K = 4;
 
-function rivalsTown(): (sim: Sim) => void {
+function rivalsTown(opening = false): (sim: Sim) => void {
   return (sim) => {
     town(TOWN_TICKS, SAFE, true)(sim);
     const s = sim.state;
@@ -1411,12 +1411,19 @@ function rivalsTown(): (sim: Sim) => void {
     const met = s.tick + 3 * TICKS_PER_MONTH;
     while (s.tick < met && s.world.routes.some((r) => r.visits === 0)) sim.run(TICKS_PER_DAY);
     const map = sim.map;
+    // (Integrating slice 34 with 31 and 33: for #rivals itself, any war Greece has going is let run to its end and any band the dice
+    // sent is let come and go before Sparta's threat: with both lines' Greece the war ran on into July, and a band Sparta's own dice
+    // had sent was a month in the streets as the demo opened. So it opens on a threat to answer, as its notes have it. The demos
+    // built on its town (#lend, #repaid, #forgive, #greecegrows) play on from it as before.)
+    const stop = s.tick + TICKS_PER_YEAR;
+    if (opening) while ((warOn(s.world) || s.world.raids.some((r) => r.ended === 0 && bandOut(r))) && s.tick < stop) sim.run(TICKS_PER_DAY);
     // Sparta's king, warlike: whatever he has asked of the city by now is refused (as a player keeping his coin would), and he threatens it (set up for the demo, and named so).
     const sparta = cityOf(s.world, 'sparta');
     for (const d of s.world.deals.filter((x) => x.city === 'sparta' && x.state === 'open')) send({ type: 'answer', deal: d.id, act: 'refuse' });
+    // (For #rivals, a band of his own having come and gone, his temper is set back to cold for the demo, and named so.)
+    if (opening && !liveRaid(s.world) && moodOf(sparta, s.tick) > COLD) sparta.memories.push({ kind: 'staged', why: 'tired of a city that pays him nothing (set up for this demo)', amount: Math.round(COLD - 10 - moodOf(sparta, s.tick)), tick: s.tick, fade: 2 * TICKS_PER_YEAR });
     if (!liveRaid(s.world) && moodOf(sparta, s.tick) <= COLD) threaten(s, map, sparta, 'you paid him no tribute, and the king is warlike (set up for this demo)');
     // A war at sea between Troy and Athens, the two cities your ships trade with on either side of the Aegean (any war Greece has going is let run to its end first).
-    const stop = s.tick + TICKS_PER_YEAR;
     while (warOn(s.world) && s.tick < stop) sim.run(TICKS_PER_DAY);
     const on = warOn(s.world);
     if (on) endWar(s, on);
@@ -1703,7 +1710,7 @@ const LANDING_HOLD = { hoplite: { x: 81, z: 54 }, archer: { x: 84, z: 54 } };
 /** The longest a demo waits for a trireme to be built and crewed (three months). */
 const TRIREME_WAIT = 3 * TICKS_PER_MONTH;
 /** A shipyard and `n` triremes, each built and crewed in turn. */
-function fleetOf(sim: Sim, n: number): void {
+function fleetOf(sim: Sim, n: number, before?: (cost: number) => void): void {
   const s = sim.state;
   const send = (c: Parameters<Sim['enqueue']>[0]): void => {
     sim.enqueue(c);
@@ -1714,6 +1721,7 @@ function fleetOf(sim: Sim, n: number): void {
   const yard = s.buildings.find((b) => b.kind === 'shipyard');
   if (!yard) return;
   for (let k = 0; k < n; k++) {
+    before?.(TRIREME_COST);
     send({ type: 'trireme', yard: yard.id });
     const t = s.fleet.triremes[s.fleet.triremes.length - 1];
     if (!t) return;
@@ -1905,6 +1913,8 @@ function winterTown(sim: Sim): void {
 
 /** The prepared town of #rivals (one setup for its three demos). */
 const RIVALS = rivalsTown();
+/** #rivals, #rivalsmap and #rivalstreet: the same town, opening on Sparta's threat (integrating slice 34 with 31 and 33). */
+const RIVALS_OPEN = rivalsTown(true);
 
 /**
  * Loans both ways (slice 27). #borrow: #caravan's young town, its treasury
@@ -2333,7 +2343,12 @@ function fortressTown(): (sim: Sim) => void {
     }
     // The shipyard and two triremes.
     afford(SHIPYARD_COST + SHIPYARD_ROAD.length * ROAD_COST + 2 * TRIREME_COST);
-    fleetOf(sim, 2);
+    // (Integrating slice 34 with 32 and 33: each trireme ordered once the treasury can pay for it and the month's wages. With both
+    // lines' Greece the treasury had not reached the whole cost in six months, and the second trireme left the wages unpaid for a month.)
+    fleetOf(sim, 2, (cost) => {
+      const end = s.tick + FORTRESS_WAIT;
+      while (s.tick < end && spendable(s) < cost + wageBill(s)) sim.run(TICKS_PER_DAY);
+    });
     answerAsMiddling(sim, seen);
     // The second barracks inside the west gate, and a company of hoplites raised there once it is staffed.
     afford(FORTRESS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE, FORTRESS_WAIT);
@@ -2548,9 +2563,9 @@ const SCENES: Record<string, Demo> = {
   peace: { view: 'town', setup: greeceTown('peace'), overlay: 'food', greece: 'sparta', greeceTab: 'prices' },
   festival: { view: 'ship', setup: greeceTown('festival'), overlay: 'food', greece: 'athens', greeceTab: 'ruler' },
   // Slice 22: a world of rivals. The prepared town trading with every city, over the town; on the map of Greece; at street level by the yard.
-  rivals: { view: 'rivals', setup: RIVALS, overlay: 'missing' },
-  rivalsmap: { view: 'rivals', setup: RIVALS, overlay: 'missing', greece: true },
-  rivalstreet: { view: 'rivalstreet', setup: RIVALS, overlay: 'missing' },
+  rivals: { view: 'rivals', setup: RIVALS_OPEN, overlay: 'missing' },
+  rivalsmap: { view: 'rivals', setup: RIVALS_OPEN, overlay: 'missing', greece: true },
+  rivalstreet: { view: 'rivalstreet', setup: RIVALS_OPEN, overlay: 'missing' },
   // Slice 23: bronze and the barracks. The copper on the east hills with the mine tool in hand; a company raised, its men walking in; two companies ready, a banner in hand.
   bronze: { view: 'bronze', tool: 'mine', setup: BRONZE, overlay: 'missing', side: { tab: 'goods' } },
   barracks: { view: 'barracks', setup: BARRACKS, overlay: 'missing', side: { tab: 'army' } },

@@ -19,7 +19,10 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Loan, type SimState, type Trait, type WorldCity } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
 import { income } from '../src/sim/treasury';
-import { TRADE_GOODS } from '../src/sim/trade';
+import { TRADE_GOODS, tradeIndex } from '../src/sim/trade';
+import { held, MARBLE, TIMBER } from '../src/sim/foods';
+import { voyageTicks } from '../src/sim/routes';
+import { seasonAt, WINTER } from '../src/sim/seasons';
 import { cityOf, moodOf } from '../src/sim/world';
 import { ARMING, allyPlan, debtPlan, empireList, loyaltyOf, submitPlan, take, tributeGoods, vassalOf, WARNING } from '../src/sim/vassals';
 import { demoSim } from './prepared';
@@ -354,3 +357,42 @@ describe('saves', () => {
 });
 
 const SEASON_TICKS = 3 * TICKS_PER_MONTH;
+
+// Integrating slice 34 with 32 and 33: tribute in marble and timber, and the winter storms on a tribute ship.
+describe('the empire with marble, timber and the seasons', () => {
+  it('Athens can pay in marble and Troy in timber; Athens’ marble walks into a storehouse', () => {
+    const sim = fresh('collect');
+    const s = sim.state;
+    const athens = cityOf(s.world, 'athens');
+    expect(tributeGoods(athens)).toContain(tradeIndex(MARBLE));
+    expect(tributeGoods(cityOf(s.world, 'troy'))).toContain(tradeIndex(TIMBER));
+    take(s, athens, 'debt', 'for the test');
+    send(sim, { type: 'empire', act: 'tribute', city: 'athens', good: tradeIndex(MARBLE), weight: 1 });
+    expect(until(sim, () => s.empire.tribute.some((t) => t.city === 'athens'), 2 * TICKS_PER_MONTH)).toBe(true);
+    const t = s.empire.tribute.find((x) => x.city === 'athens')!;
+    expect(t.good).toBe(tradeIndex(MARBLE));
+    expect(t.amount).toBeGreaterThan(0);
+    expect(until(sim, () => t.phase === 'done', 5 * TICKS_PER_MONTH)).toBe(true);
+    expect(t.put).toBeGreaterThan(0);
+    expect(s.buildings.filter((b) => b.kind === 'storehouse').reduce((a, b) => a + held(b, MARBLE), 0)).toBeGreaterThanOrEqual(t.put);
+  }, 400000);
+
+  it('a tribute ship due in your bay in winter is held back by the storms, and its news says so', () => {
+    const sim = fresh('collect');
+    const s = sim.state;
+    const troy = cityOf(s.world, 'troy');
+    const v = take(s, troy, 'debt', 'for the test');
+    send(sim, { type: 'empire', act: 'tribute', city: 'troy', good: -1, weight: 1 });
+    // (Its next tribute set out on the first day whose voyage ends in winter.)
+    const voyage = voyageTicks('troy');
+    let at = Math.ceil((s.tick + 1) / TICKS_PER_DAY) * TICKS_PER_DAY;
+    while (seasonAt(at + voyage) !== WINTER) at += TICKS_PER_DAY;
+    v.next = at;
+    expect(until(sim, () => s.empire.tribute.some((t) => t.city === 'troy'), at - s.tick + TICKS_PER_DAY)).toBe(true);
+    const t = s.empire.tribute.find((x) => x.city === 'troy')!;
+    expect(t.by).toBe('sea');
+    expect(t.dur - voyage).toBeGreaterThanOrEqual(6 * TICKS_PER_DAY);
+    expect(t.dur - voyage).toBeLessThanOrEqual(12 * TICKS_PER_DAY);
+    expect(lines(s).some((l) => /Troy’s tribute is on its way: .*by sea: .*late: winter storms in the gulf held her back \d+ days/.test(l))).toBe(true);
+  }, 400000);
+});
