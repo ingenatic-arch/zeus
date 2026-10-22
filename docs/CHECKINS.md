@@ -52,6 +52,7 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `3c9eb51` (the 
 | What | Before | After |
 |---|---|---|
 | Tests | 523, all passing | 535, all passing (new: `tests/ambitions.test.ts`, 12). Run with a longer per-test timeout for the load; one hazards test with its own 30-second limit timed out in the full run and passed alone in 22 s |
+| Smoke test | | passes with no failures, with every wait lengthened for the load, in two parts: one run went from the start to `#aftermath` (slice 20) before the 2-hour limit stopped it, and a second ran from `#war` (slice 21) to the end, the slice 39 checks included |
 | Download (gzipped) | 3,869 KB: the game 766 KB, the prepared towns 3,103 KB (93 files) | 3,970 KB: the game 774 KB, the prepared towns 3,195 KB (95 files: the two new demos) |
 | First load (bare link), three runs each, side by side | ready at 8.0 to 11.0 s, first frame 9.5 to 14.4 s | ready at 7.6 to 11.8 s, first frame 10.5 to 13.6 s |
 | Demo loads, side by side (`#town`, `#richtown`, `#vassal`; 9 loads each) | ready between 7.3 and 10.8 s, 9.4 s on average | ready between 7.1 and 12.3 s, 9.5 s on average |
