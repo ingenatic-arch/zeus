@@ -83,6 +83,19 @@ describe('the new cities', () => {
 
 describe('growth', () => {
   it('over thirty years every city stays in bounds, with its reasons adding up to its change', () => {
+    // (Review of slice 31: on several seeds, and within half and twice its base each year, not only the hard bounds.)
+    for (const seed of [1, 42]) {
+      const sim = new Sim(1, seed);
+      for (let y = 0; y < 30; y++) {
+        sim.run(TICKS_PER_YEAR);
+        for (const id of RULED) {
+          const c = cityOf(sim.state.world, id);
+          expect(c.pop / baseOf(id).pop).toBeGreaterThan(0.5);
+          expect(c.pop / baseOf(id).pop).toBeLessThan(2);
+        }
+      }
+      inBounds(sim.state);
+    }
     const s = greece(7, 30).state;
     inBounds(s);
     for (const id of RULED) {
@@ -206,7 +219,8 @@ describe('saves', () => {
 
   it('a phase 4 save (the state version before this slice: #rivals at slice 29) loads, with Greece grown to eleven cities', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/slice29-rivals.save.json.gz')).toString();
-    expect(JSON.parse(text).state.version).toBe(SIM_STATE_VERSION - 1);
+    // (Phase 4's last version, 27, whatever number this slice takes when the lines merge: a test of the migration step itself.)
+    expect(JSON.parse(text).state.version).toBe(27);
     const got = decodeSave(text);
     if (!got.ok) throw new Error(got.why);
     const s = got.file.state;

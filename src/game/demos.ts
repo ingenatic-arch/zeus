@@ -1832,7 +1832,7 @@ function growsTown(): (sim: Sim) => void {
     if (!w.cities.some((c) => c.lord) && !vassalsOf(w, 'sparta').length) {
       const sparta = cityOf(w, 'sparta');
       const argos = cityOf(w, 'argos');
-      bow(s, sparta, argos, `its army of ${(Math.round(argos.army) * 100).toLocaleString('en-GB')} men against Sparta’s ${(Math.round(sparta.army) * 100).toLocaleString('en-GB')} (set up for this demo)`);
+      bow(s, sparta, argos, `its army of ${Math.round(argos.army).toLocaleString('en-GB')} men against Sparta’s ${Math.round(sparta.army).toLocaleString('en-GB')} men (set up for this demo)`);
       sim.run(TICKS_PER_DAY);
     }
   };

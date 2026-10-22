@@ -411,7 +411,7 @@ function threats(s: SimState, map: CoastMap): void {
     if (mood > COLD || !mayThreaten(s, c.id)) continue;
     const bold = Math.max(0.5, Math.min(1.5, armyScale(c)));
     if (dice(w, month, i, 31) >= (mood <= HOSTILE ? HOSTILE_ODDS : COLD_ODDS * bold)) continue;
-    const grown = bold >= 1.2 ? `, with an army grown to ${(Math.round(c.army) * 100).toLocaleString('en-GB')} men` : '';
+    const grown = bold >= 1.2 ? `, with an army grown to ${Math.round(c.army).toLocaleString('en-GB')} men` : '';
     threaten(s, map, c, `${rulerShort(c)} is ${mood <= HOSTILE ? 'hostile' : 'cold'} to your city, and ${t.includes('warlike') ? 'warlike' : 'proud'}${grown}`);
     return;
   }

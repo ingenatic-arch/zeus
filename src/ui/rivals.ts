@@ -108,8 +108,8 @@ export function statusHtml(s: SimState, id: CityId): string {
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 /** A small arrow for a size growing or shrinking by a twentieth over the record ('' steady). */
 export const trendHtml = (t: -1 | 0 | 1): string => (t > 0 ? '<span class="tr up" title="growing">▲</span>' : t < 0 ? '<span class="tr down" title="shrinking">▼</span>' : '');
-/** A city's men under arms as the cards count them (a hundred men to each the sim keeps). */
-export const menWords = (army: number): string => `${fmt(Math.round(army) * 100)} men`;
+/** A city's men under arms, as the sim keeps them: on the scale of its garrison, its bands and your own soldiers (slice 31 review: they were shown a hundredfold, so that Sparta's army outnumbered its people and your 32 men beat Corinth's 3,000). */
+export const menWords = (army: number): string => `${fmt(Math.round(army))} men`;
 /** "7,300": a city's people, to the hundred. */
 export const peopleShort = (c: WorldCity): string => fmt(Math.round(c.pop / 100) * 100);
 
@@ -141,16 +141,18 @@ export function standsHtml(s: SimState, id: CityId): string {
   for (const [what, label, show] of kinds) {
     if (what === 'fleet' && baseOf(id).fleet === 0) continue;
     const x = sizeWhy(c, what);
-    const unit = (n: number): string => (what === 'pop' ? fmt(Math.abs(n)) : what === 'wealth' ? fmt(Math.abs(n)) : what === 'army' ? fmt(Math.abs(Math.round(n * 100))) : (Math.abs(n) < 10 ? Math.abs(n).toFixed(1) : fmt(Math.abs(n))));
+    const unit = (n: number): string => (what === 'pop' || what === 'wealth' ? fmt(Math.abs(n)) : what === 'army' ? fmt(Math.max(1, Math.abs(n))) : Math.abs(n) < 10 ? Math.abs(n).toFixed(1) : fmt(Math.abs(n)));
     const why = x.why
-      .filter((r) => (what === 'army' ? Math.abs(r.n * 100) >= 5 : what === 'fleet' ? Math.abs(r.n) >= 0.05 : true))
+      .filter((r) => (what === 'army' ? Math.abs(r.n) >= 0.5 : what === 'fleet' ? Math.abs(r.n) >= 0.05 : true))
       .slice(0, 5)
       .map((r) => `<li class="${r.n > 0 ? 'good' : 'bad'}"><span class="v">${r.n > 0 ? '+' : '−'}${unit(r.n)}</span><span class="t">${esc(cap(r.why))}</span></li>`)
       .join('');
     const pct = Math.round(x.share * 100);
     const change = Math.abs(pct) >= 1 ? `${pct > 0 ? '+' : '−'}${Math.abs(pct)}% ${since}` : `steady ${since}`;
-    const note = what === 'wealth' ? ` (${esc(wealthWord(c))})` : '';
-    rows.push(`<div class="stand"><div class="shead"><b>${label}</b><span>${show(x.now)}${note}${trendHtml(trendOf(c, what))}</span><span class="ch">${esc(change)}</span></div><ul class="whys">${why || '<li>Nothing moving it</li>'}</ul></div>`);
+    // (Slice 31 review: and what is usual for it, so a town years on can see who rose and fell, not only what moved it lately.)
+    const usual = baseOf(id)[what];
+    const note = what === 'wealth' ? ` (${esc(wealthWord(c))})` : ` <i class="us">(usually about ${what === 'pop' ? fmt(Math.round(usual / 100) * 100) : fmt(usual)})</i>`;
+    rows.push(`<div class="stand"><div class="shead"><b>${label}</b><span>${show(x.now)}${trendHtml(trendOf(c, what))}${note}</span><span class="ch">${esc(change)}</span></div><ul class="whys">${why || '<li>Nothing moving it</li>'}</ul></div>`);
   }
   const lines: string[] = [];
   if (c.lord) lines.push(`${cap(lordWords(c))}: it pays ${name(c.lord)} a tenth of what it takes in, and goes to no war of its own. It breaks free if ${name(c.lord)} loses a war, or once its army is two thirds of ${whose(c.lord)}.`);
@@ -229,7 +231,9 @@ export function armyCard(s: SimState, id: number, city: CityId): string {
         : x.fate === 'peace'
           ? `Going home to ${name(city)}: the war ended in a weary peace`
           : `Going home to ${name(city)}: ${x.fate === city ? 'the war won' : 'the war lost'}`;
-  const size = x.by === 'sea' ? `${Math.max(3, Math.round(men / 3))} galleys` : `${(men * 100).toLocaleString('en-GB')} men`;
+  // (Slice 31 review: the city's own army or fleet as it stands, which the war is fought with and wears down; it was the figures on the map a hundredfold.)
+  const c = cityOf(s.world, city);
+  const size = x.by === 'sea' ? `${Math.max(1, Math.round(c.fleet || men / 3))} galleys` : menWords(c.army || men);
   return `<b>${esc(`${whose(city)} ${what} · ${size}`)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name(city))}’s page</span>`;
 }
 

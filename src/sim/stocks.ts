@@ -168,8 +168,8 @@ const MAKER_NAMES: Partial<Record<BuildingKind, string>> = {
   armoury: 'Armouries',
 };
 
-/** Who a ware was sold to or bought from (the stock book's lines by city: see routes.ts). */
-const TRADER_NAMES: Record<string, string> = { athens: 'Athens', sparta: 'Sparta', corinth: 'Corinth', troy: 'Troy' };
+/** Who a ware was sold to or bought from (the stock book's lines by city: see routes.ts; slice 31's newcomers too, or the price of peace sent to Argos read "argos"). */
+const TRADER_NAMES: Record<string, string> = { athens: 'Athens', sparta: 'Sparta', corinth: 'Corinth', troy: 'Troy', thebes: 'Thebes', argos: 'Argos', knossos: 'Knossos', rhodes: 'Rhodes', memphis: 'Memphis' };
 
 /** What a line is called in the breakdown. */
 export function flowLabel(kind: StockKind, what: string, w: Ware): string {

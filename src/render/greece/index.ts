@@ -661,14 +661,22 @@ export class GreeceMap {
       this.siteSize.set('army', size);
     }
     const [lw, lh] = size;
-    // (Where it would stand over a city's label, at the city it marches on, it hangs below the army instead.)
-    const below = this.placed.some(([l, t, rr, bb]) => lx - lw / 2 < rr && lx + lw / 2 > l && ly - lh < bb && ly > t);
-    if (below) {
-      this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
-      ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh;
-    }
-    this.armyTag.classList.toggle('below', below);
-    this.armyTag.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
+    // (Where it would stand over a city's label, at the city it marches on, it hangs below the army instead; and where that would
+    // cover another's (review of slice 31: in #report it hid Nea Argos', by Corinth), it stands beside the army, east or west.)
+    const hits = (x: number, y: number): boolean => this.placed.some(([l, t, rr, bb]) => x - lw / 2 < rr && x + lw / 2 > l && y - lh < bb && y > t);
+    this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
+    const gy = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+    const spots: Array<[number, number, '' | 'below' | 'beside']> = [
+      [lx, ly, ''],
+      [lx, gy + 10 + lh, 'below'],
+      [lx + lw / 2 + 12, (ly + gy) / 2 + lh / 2, 'beside'],
+      [lx - lw / 2 - 12, (ly + gy) / 2 + lh / 2, 'beside'],
+    ];
+    const [x, y, how] = spots.find(([sx, sy]) => !hits(sx, sy)) ?? spots[0];
+    ly = y;
+    this.armyTag.classList.toggle('below', how === 'below');
+    this.armyTag.classList.toggle('beside', how === 'beside');
+    this.armyTag.style.transform = `translate(${x.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
   }
 
   /** (Slice 31) Each ruled city's model at the step its people stand at against its usual number. */

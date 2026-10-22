@@ -89,7 +89,7 @@ const BUILD = 1 / 18;
 const POP_LEAST = 0.3;
 const POP_MOST = 3;
 
-/** Colonies: from the third year; a city needs this many ships, its wealth and people at least these shares of its base; one in so many months (more for a shrewd or greedy ruler, and for Rhodes); none within four years of its last. */
+/** Colonies: from the third year; a city needs this many ships, its wealth and people at least these shares of its base; one in so many months (more for a shrewd or greedy ruler, and for Rhodes); none within six years of its last. */
 export const COLONY_FROM = 2 * TICKS_PER_YEAR;
 const COLONY_SHIPS = 3;
 const COLONY_WEALTH = 0.9;
@@ -123,8 +123,8 @@ const AMBITION: Record<string, number> = { memphis: 0.3, sparta: 1.3, thebes: 1.
 const SITE_WARES: Record<string, Ware> = { wheat: WHEAT, oil: OIL, fleece: FLEECE, copper: COPPER };
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
-/** A city's men under arms in words, as the map's cards count them: a hundred men to each the sim keeps. */
-const men = (army: number): string => `${fmt(Math.round(army) * 100)} men`;
+/** A city's men under arms in words (slice 31 review: as the sim keeps them, on the scale of its garrison, its bands and your own soldiers). */
+const men = (army: number): string => `${fmt(Math.round(army))} men`;
 const name = (id: CityId): string => (id === 'home' ? 'your city' : (PLACES[id]?.name ?? id));
 const round2 = (x: number): number => Math.round(x * 100) / 100;
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));

@@ -541,7 +541,8 @@ function threatHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
       ? `${bandMen(r)} men, ${sea ? 'making back for their ships' : 'leaving your land the way they came'}${band.load ? `, with ${fmt(band.load)} ${WARE_NAMES[band.meat]}` : ''}.`
       : `${bandMen(r)} men ${sea ? (r.landed > 0 ? 'landed from their ships' : 'in ships in your bay') : `in at the ${RAID_SIDE[r.city]} edge`}, ${band && band.wait > 0 ? `at ${at}` : `making for ${at}`}. Pay ${coin} now and they turn back at once, with whatever they have taken.`;
   } else {
-    head = `${cap(whose)} raiders ${r.phase === 'gathering' ? 'are gathering' : 'are on the march'}`;
+    // (Slice 31 review: a band defied in the town's first year bides its time at home before it gathers, as the line under the top bar says.)
+    head = `${cap(whose)} raiders ${r.phase === 'gathering' ? (s.tick < r.start ? 'bide their time at home' : 'are gathering') : 'are on the march'}`;
     where = `${r.men} men, ${side} about ${dayWords(edge)} (${days(edge)}). Pay ${coin} now and they turn back at once, wherever they are.`;
   }
   const out = bandOut(r);
