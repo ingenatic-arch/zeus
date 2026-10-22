@@ -12,6 +12,8 @@ import { bandsAt, sheltering } from '../sim/raids';
 import { cityShipColours, giftLook, ShipView, visitorLook } from './ship';
 import { tributeShipAt } from '../sim/vassals';
 import { SHIP_ANCHORED, SHIP_COMING } from '../sim/trade';
+// Slice 37: your settlers' ship at anchor and sailing out.
+import { visitorAt } from '../sim/routes';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -47,8 +49,10 @@ export class CityView {
   readonly visitors = new Map<string, ShipView>();
   /** Your gift ships, sailing out of the bay with a gift of goods for a ruler, by the city they sail for (made as the first sails; gifts to two cities can leave together). */
   readonly giftShips = new Map<string, ShipView>();
-  /** (Slice 34) Vassals' tribute ships, by city. */
+  /** (Slice 34) Vassals' tribute ships, by city (slice 37: your colonies' by 'colony:<site>'). */
   readonly tributeShips = new Map<string, ShipView>();
+  /** (Slice 37) Your settlers' ships, by the site they sail for. */
+  readonly colonyShips = new Map<string, ShipView>();
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -123,20 +127,39 @@ export class CityView {
     for (const view of this.visitors.values()) view.update(s, alpha, time);
     // Slice 34: a vassal's tribute ship, laden coming in, riding at anchor while its cargo comes ashore (one view a city, as the gift ships).
     for (const x of s.empire.tribute) {
-      if (!x.ship || this.tributeShips.has(x.city)) continue;
+      // (Slice 37: a colony's share comes on its own ship, one view a colony.)
+      const key = x.colony ? `colony:${x.colony}` : x.city;
+      if (!x.ship || this.tributeShips.has(key)) continue;
       const city = x.city;
+      const colony = x.colony;
       const view = new ShipView((st, tk) => {
-        const tr = st.empire.tribute.find((y) => y.city === city && y.ship);
+        const tr = st.empire.tribute.find((y) => y.city === city && y.colony === colony && y.ship);
         const at = tr ? tributeShipAt(tr, tk) : null;
         if (!tr?.ship || !at) return null;
         const v = tr.ship;
         const coming = v.phase === SHIP_COMING;
         return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: coming || (v.phase === SHIP_ANCHORED && tr.phase === 'bay'), calm: v.phase === SHIP_ANCHORED };
-      }, cityShipColours(city), `ship-levy-${city}`, 0.4 + this.tributeShips.size * 1.7);
-      this.tributeShips.set(city, view);
+      }, cityShipColours(city), colony ? `ship-levy-colony-${colony}` : `ship-levy-${city}`, 0.4 + this.tributeShips.size * 1.7);
+      this.tributeShips.set(key, view);
       this.group.add(view.group);
     }
     for (const view of this.tributeShips.values()) view.update(s, alpha, time);
+    // Slice 37: your settlers' ship sailing in, riding at anchor off the jetty while the families are rowed out, and sailing out laden with them.
+    for (const f of s.empire.foundings) {
+      if (!f.ship || this.colonyShips.has(f.site)) continue;
+      const site = f.site;
+      const view = new ShipView((st, tk) => {
+        const g = st.empire.foundings.find((y) => y.site === site && y.ship);
+        const v = g?.ship;
+        const at = v ? visitorAt(v, tk) : null;
+        if (!g || !v || !at) return null;
+        const coming = v.phase === SHIP_COMING;
+        return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: g.phase !== 'gathering' && g.people > 0, calm: v.phase === SHIP_ANCHORED };
+      }, cityShipColours('home'), `ship-colony-${site}`, 1.1 + this.colonyShips.size * 1.5);
+      this.colonyShips.set(site, view);
+      this.group.add(view.group);
+    }
+    for (const view of this.colonyShips.values()) view.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

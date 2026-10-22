@@ -27,7 +27,13 @@ import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
 import { empireTabHtml, empireTabName } from './empire';
 import { allyOf, tributeWords } from '../sim/vassals';
+// Slice 37: a site's page (an empty site, your settlers, your colony).
+import { sitePageHtml } from './colonies';
+import { siteLaneId, siteOf } from '../map/greece';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
+
+/** (Slice 37) What a page on the map is of: a city, or a site ('site:thasos'). */
+export type PageId = CityId | `site:${string}`;
 
 /** The tabs of a ruled city's page. */
 export type CityTab = 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
@@ -191,6 +197,21 @@ function travellerHtml(s: SimState, key: string): string {
   }
   if (key.startsWith('fields-')) return fieldsCard(s, key.slice(7) as CityId);
   if (key.startsWith('site-')) return siteCard(s, key.slice(5));
+  // (Slice 37: your settlers' ship, and a rival's ships sailing against your colony.)
+  if (key.startsWith('found-')) {
+    const f = s.empire.foundings.find((x) => x.site === key.slice(6) && x.phase !== 'done');
+    const where = siteOf(key.slice(6))?.name ?? key.slice(6);
+    if (!f) return '<b>Your settlers’ ship</b>';
+    const line = f.phase === 'gathering' ? `Sailing into your bay to take your settlers aboard` : f.phase === 'leaving' ? `Sailing out of your bay with ${fmt(f.people)} settlers` : `At sea with ${fmt(f.people)} settlers: they land about ${dayWords(f.start + f.dur)}`;
+    return `<b>${esc(`Your settlers’ ship · for ${where}`)}</b><span>${esc(line)}</span><span class="sub">Click for its page</span>`;
+  }
+  if (key.startsWith('foe-')) {
+    const [, site, city] = key.split('-');
+    const c = s.empire.colonies.find((x) => x.site === site);
+    const t = c?.threat;
+    if (!c || !t) return '<b>Ships</b>';
+    return `<b>${esc(`${whose(city)} ships · ${t.ships}, ${t.men} men`)}</b><span>${esc(`Sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${c.name}: they arrive about ${dayWords(t.due)}`)}</span><span class="sub">Click for ${esc(c.name)}’s page: guard it, or strike at ${esc(PLACES[city]?.name ?? city)}</span>`;
+  }
   if (key.startsWith('exp-')) return expeditionCard(s, Number(key.split('-')[1]));
   // (Slice 34: a vassal's tribute, an ally's or vassal's men coming to help you.)
   if (key.startsWith('levy-')) return tributeCard(s, Number(key.slice(5)));
@@ -287,6 +308,11 @@ function tributeCard(s: SimState, id: number): string {
   if (!t) return '<b>Tribute</b>';
   const n = Math.max(1, Math.ceil((t.start + t.dur - s.tick) / TICKS_PER_DAY));
   const line = t.phase === 'bay' ? 'Sailing into your bay, to come ashore at your trading post' : `${t.by === 'sea' ? 'Sailing' : 'On the road'} to your city: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${n === 1 ? '1 day' : `${n} days`}`;
+  // (Slice 37: your colony's share, on its ship.)
+  if (t.colony) {
+    const nm = s.empire.colonies.find((c) => c.site === t.colony)?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`;
+    return `<b>${esc(`${nm}’s share · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its page</span>`;
+  }
   return `<b>${esc(`${PLACES[t.city].name}’s tribute · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its Empire tab</span>`;
 }
 
@@ -300,19 +326,23 @@ function aidCard(s: SimState, id: number): string {
 }
 
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
-export function cityOfTraveller(s: SimState, key: string): CityId | null {
+export function cityOfTraveller(s: SimState, key: string): PageId | null {
   if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
-  if (key.startsWith('levy-')) return s.empire.tribute.find((x) => x.id === Number(key.slice(5)))?.city ?? null;
+  // (Slice 37: a site, your settlers' ship, a colony's share, a rival's ships against it, and your triremes guarding it open the site's page.)
+  if (key.startsWith('found-') || key.startsWith('foe-')) return `site:${key.split('-')[1]}`;
+  if (key.startsWith('levy-')) {
+    const t = s.empire.tribute.find((x) => x.id === Number(key.slice(5)));
+    return t?.colony ? `site:${t.colony}` : (t?.city ?? null);
+  }
   if (key.startsWith('aid-')) return s.empire.aid.find((x) => x.id === Number(key.slice(4)))?.city ?? null;
   if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
-  if (key.startsWith('site-')) {
-    const x = s.world.sites.find((y) => y.id === key.slice(5));
-    return x?.owner || x?.bound || null;
-  }
+  if (key.startsWith('site-')) return s.world.sites.some((y) => y.id === key.slice(5)) ? `site:${key.slice(5)}` : null;
   if (key.startsWith('pirates-')) return s.fleet.pirates.find((x) => x.id === Number(key.slice(8)))?.city ?? null;
   if (key.startsWith('trireme-')) {
     const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
+    const site = s.empire.colonies.find((c) => t?.lane === siteLaneId(c.site))?.site;
+    if (site) return `site:${site}`;
     return LANES.find((l) => l.way === t?.lane)?.city ?? null;
   }
   if (key.startsWith('war-')) {
@@ -673,7 +703,9 @@ function laneHtml(s: SimState, id: CityId): string {
 export const giftKey = (g: Gift): string => `gift-${g.id}`;
 
 /** A city's panel. `renaming` shows your city's name as a text box; a ruled city's page opens on `tab`. */
-export function panelHtml(s: SimState, id: CityId, renaming: boolean, nameDraft: string, tab: CityTab = 'ruler', map?: CoastMap): string {
+export function panelHtml(s: SimState, page: PageId, renaming: boolean, nameDraft: string, tab: CityTab = 'ruler', map?: CoastMap): string {
+  if (page.startsWith('site:')) return sitePageHtml(s, page.slice(5), map, renaming, nameDraft);
+  const id = page as CityId;
   const c = cityOf(s.world, id);
   const place = PLACES[id];
   if (id === 'home') {

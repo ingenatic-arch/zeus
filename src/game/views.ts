@@ -161,4 +161,6 @@ export const VIEWS: Record<string, CameraView> = {
   seasons: { x: 52, z: 43, yaw: 2.3, dist: 38, tilt: -0.05 },
   // Slice 33, #winter: the bay and the quay from over the water, the town on the slope behind.
   winter: { x: 72, z: 63, yaw: -0.3, dist: 48, tilt: -0.25 },
+  // Slice 37, #ally: the west road where it comes in from the edge, Corinth's company on it.
+  ally: { x: 14, z: 50, yaw: 2.65, dist: 22, tilt: -0.05 },
 };

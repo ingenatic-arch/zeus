@@ -484,6 +484,9 @@ export function lordWords(c: WorldCity): string {
 /** A site in words: "a Rhodian colony since 745 BC, about 640 people", "settlers from Rhodes land within 40 days", or "free". */
 export function siteWords(s: SimState, site: Site): string {
   if (site.owner) return `${site.owner === 'home' ? 'your' : `a ${adjective(site.owner)}`} colony since ${formatYear(yearOf(site.since))}, about ${fmt(Math.round(site.pop / 10) * 10)} people`;
+  // (Slice 37: your own settlers on their way, and a colony that declared itself free.)
+  if (site.bound === 'home') return 'your settlers are on their way there';
+  if (site.free) return `${site.free} stands free here, about ${fmt(Math.round(site.pop / 10) * 10)} people, beholden to nobody`;
   if (site.bound) return `settlers from ${name(site.bound)} land within ${Math.max(1, Math.ceil((site.lands - s.tick) / TICKS_PER_DAY))} days`;
   return 'no city yet: a place to found one';
 }

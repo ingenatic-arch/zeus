@@ -176,7 +176,7 @@ const CHILDREN = 0.03;
 const SHARE_GROWTH = [0.02, 0, -0.03] as const;
 export const COLONY_CEILING = 2000;
 /** What it makes a year for each of its people, in drachmas at the ship's prices; the share of it sent: light, fair, heavy. */
-const MAKES_DR = 3;
+const MAKES_DR = 10;
 export const COLONY_SHARE = [0.2, 0.4, 0.6] as const;
 export const SHARE_WORDS = ['light', 'fair', 'heavy'] as const;
 /** Loyalty: its base; its settlers' ties (fading over twelve years); the share; your triremes (each, most) or none; grown large (each hundred over, most); the governor. */
@@ -193,6 +193,9 @@ const LARGE_MOST = -10;
 export const FREE_FROM = 500;
 const ARMING = 30;
 const STAND_DOWN = 40;
+/** (For the page: where talk of freedom begins and ends.) */
+export const COLONY_ARMING = ARMING;
+export const COLONY_STAND_DOWN = STAND_DOWN;
 const WARNING = 90 * TICKS_PER_DAY;
 /** Threats: one in so many a month for each colony (from its sixth month, a year apart, none told in winter); their day; the ships (a quarter of the rival's fleet, 2 to 5) and the men each carries. */
 const THREAT_ODDS = 1 / 40;
@@ -581,8 +584,13 @@ export function colonyGrowth(s: SimState, c: Colony, winter = false): Array<{ wh
 
 /** What a colony sends a year at a share: in drachmas at the ship's prices, and in its good. */
 export function colonyYear(s: SimState, c: Colony, share = c.share): { dr: number; amount: number; good: number } {
-  const k = siteGood(c.site);
-  const dr = Math.round(peopleOf(s, c) * MAKES_DR * COLONY_SHARE[clamp(share, 0, 2)]);
+  return shareYear(c.site, peopleOf(s, c), share);
+}
+
+/** What a colony of so many people on a site would send a year at a share (for a free site's page, before it is founded). */
+export function shareYear(site: string, people: number, share: number): { dr: number; amount: number; good: number } {
+  const k = siteGood(site);
+  const dr = Math.round(people * MAKES_DR * COLONY_SHARE[clamp(share, 0, 2)]);
   return { dr, amount: k >= 0 ? Math.round((dr * 100) / PRICES[k] / 10) * 10 : 0, good: k };
 }
 

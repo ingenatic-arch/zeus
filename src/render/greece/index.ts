@@ -29,6 +29,10 @@ import { loanEvent } from '../../ui/loans';
 import { empireEvent } from '../../ui/empire';
 import { CITY_TABS, cityOfTraveller, giftKey, hoverHtml, labelHtml, moods, panelHtml, type CityTab } from '../../ui/greece';
 import { routeEvent } from '../../ui/routes';
+// Slice 37: a site's page, your settlers' ship, your colonies' lanes and the rivals' ships sent against them.
+import { colonyEvent } from '../../ui/colonies';
+import { foundingOnMap, threatShare } from '../../sim/colonies';
+import { SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
@@ -55,6 +59,8 @@ const SITE_SCALE = 1.6;
 const BODY_REACH = 13;
 /** Smoke puffs over each festival's altar. */
 const PUFFS = 6;
+/** (Slice 37) A colony that declared itself free: its houses in plain stone and ochre, nobody's colours. */
+const FREE_LOOK = { colour: '#b9a98a', trim: '#7d6a4c' };
 
 export interface GreeceHost {
   renderer: THREE.WebGLRenderer;
@@ -79,8 +85,10 @@ export class GreeceMap {
   /** How long building the scene took (ms of main-thread time, the first open). */
   readonly buildMs: number;
   open = false;
-  /** The city whose panel is open, or null. */
+  /** The city whose panel is open, or null (slice 37: or a site's, 'site:thasos'). */
   shown: CityId | null = null;
+  /** (Slice 37) Your colonies' lanes, drawn while in use (by site). */
+  private readonly colonyLanes = new Map<string, THREE.Group>();
   /** A city, the Tyre ship ('ship'), or a route's trader on the map ('trav:' and its key, such as 'trav:corinth-land-0'). */
   hovered: CityId | 'ship' | `trav:${string}` | null = null;
   private readonly host: GreeceHost;
@@ -294,7 +302,7 @@ export class GreeceMap {
     this.body.addEventListener('click', (e) => {
       routes(e);
       // A loan's buttons: ask, offer (and choosing its terms), accept, decline, repay (ui/loans.ts).
-      if (loanEvent(e, host.send) || empireEvent(e, host.send)) {
+      if (loanEvent(e, host.send) || empireEvent(e, host.send) || colonyEvent(e, host.send, (id) => this.show(id))) {
         this.labelAt = -Infinity;
         setTimeout(() => this.redraw(), 0);
         return;
@@ -326,7 +334,9 @@ export class GreeceMap {
         setTimeout(() => this.redraw(), 0);
       } else if (t.closest('.renamebtn') && this.state) {
         this.renaming = true;
-        this.draft = this.state.world.name;
+        // (Slice 37: on a colony's page, the colony's name.)
+        const site = this.shown?.startsWith('site:') ? this.shown.slice(5) : '';
+        this.draft = site ? (this.state.empire.colonies.find((c) => c.site === site)?.name ?? '') : this.state.world.name;
         this.redraw(true);
         const input = this.body.querySelector('input') as HTMLInputElement | null;
         input?.focus();
@@ -338,13 +348,13 @@ export class GreeceMap {
     });
     this.body.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
-      if (t.name !== 'cityname') return;
+      if (t.name !== 'cityname' && t.name !== 'colonyname') return;
       this.draft = t.value;
       const why = this.body.querySelector('.why');
       const ok = this.body.querySelector('.ok') as HTMLButtonElement | null;
       if (!this.state || !ok) return;
       // Only the warning and the button change while typing (the box itself is left alone).
-      const html = panelHtml(this.state, 'home', true, this.draft);
+      const html = panelHtml(this.state, t.name === 'colonyname' ? (this.shown ?? 'home') : 'home', true, this.draft, this.tab, this.host.map);
       const t2 = document.createElement('template');
       t2.innerHTML = html;
       ok.disabled = !!(t2.content.querySelector('.ok') as HTMLButtonElement | null)?.disabled;
@@ -357,7 +367,9 @@ export class GreeceMap {
       e.preventDefault();
       const ok = this.body.querySelector('.ok') as HTMLButtonElement | null;
       if (ok?.disabled) return;
-      host.send({ type: 'name', name: this.draft });
+      const site = this.shown?.startsWith('site:') ? this.shown.slice(5) : '';
+      if (site) host.send({ type: 'colony', act: 'name', site, name: this.draft });
+      else host.send({ type: 'name', name: this.draft });
       this.renaming = false;
       (document.activeElement as HTMLElement | null)?.blur?.();
       setTimeout(() => this.redraw(true), 0);
@@ -395,7 +407,7 @@ export class GreeceMap {
   /** Open a city's panel (null closes it), on a tab if given. */
   show(id: CityId | null, tab?: CityTab): void {
     this.shown = id;
-    if (tab) this.tab = tab;
+    if (tab && !id?.startsWith('site:')) this.tab = tab;
     this.renaming = false;
     this.panel.hidden = !id || !this.open;
     this.redraw(true);
@@ -703,8 +715,9 @@ export class GreeceMap {
       const piece = this.sites.get(x.id);
       const el = this.siteLabels.get(x.id);
       if (!piece || !el) continue;
-      const owner = x.owner ? PLACES[x.owner as CityId] : undefined;
-      const look = owner ? `${x.owner}:${Math.max(3, Math.min(12, Math.round(3 + x.pop / 200)))}` : '';
+      // (Slice 37: a colony gone free in plain stone colours.)
+      const owner = x.owner ? PLACES[x.owner as CityId] : x.free ? FREE_LOOK : undefined;
+      const look = owner ? `${x.owner || 'free'}:${Math.max(3, Math.min(12, Math.round(3 + x.pop / 200)))}` : '';
       if (look !== piece.look) {
         piece.look = look;
         piece.mesh.geometry.dispose();
@@ -733,7 +746,7 @@ export class GreeceMap {
       }
       el.classList.toggle('below', below);
       el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
-      el.classList.toggle('hot', this.hovered === `trav:site-${x.id}`);
+      el.classList.toggle('hot', this.hovered === `trav:site-${x.id}` || this.shown === `site:${x.id}`);
       if (refresh) {
         // (Faded where a traveller passes under it, or where a city's label stands over it.)
         const city = this.placed.some(([l, t, rr, bb]) => lx - lw / 2 < rr && lx + lw / 2 > l && ly - lh < bb && ly > t);
@@ -907,6 +920,8 @@ export class GreeceMap {
       m.rotation.set(0, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       m.scale.setScalar(2.4 * Math.min(far, EXPEDITION_FAR_MOST));
     }
+    // Slice 37: your settlers' ship on its way to the site, your colonies' lanes while in use, and a rival's ships sailing against a colony.
+    this.drawColonies(s, tick, time, far, piece);
     // Pirates on a lane (a dark galley at their place), and your triremes out on the lanes in your colours (slice 26).
     for (const p of s.fleet.pirates) {
       if (p.state !== 'seen' && p.state !== 'preying') continue;
@@ -981,11 +996,64 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-') || key.startsWith('found-') || key.startsWith('foe-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);
       } else m.visible = false;
+    }
+  }
+
+  /** (Slice 37) Your settlers' ship (keyed 'found-<site>'), your colonies' lanes while in use, and a rival's ships against a colony ('foe-<site>'). */
+  private drawColonies(s: SimState, tick: number, time: number, far: number, piece: (key: string, make: () => THREE.BufferGeometry, body: readonly [number, number]) => THREE.Mesh): void {
+    const { colour, trim } = PLACES.home;
+    const busy = new Set<string>();
+    for (const c of s.empire.colonies) busy.add(c.site);
+    for (const f of s.empire.foundings) {
+      if (f.phase === 'done') continue;
+      busy.add(f.site);
+      const at = foundingOnMap(f, tick);
+      if (!at || at.where === 'quay') continue;
+      const line = wayPoints(wayOf(siteLaneId(f.site)));
+      const L = lineLength(line);
+      const dir = at.where === 'bay' && f.phase === 'gathering' ? -1 : 1;
+      const m = piece(`found-${f.site}`, () => shipModel(colour, trim), BODY.ship);
+      const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+      m.position.set(p.x, 0.02 + Math.sin(time * 1.5 + f.id) * 0.03, p.z);
+      m.rotation.set(Math.sin(time * 1.2 + f.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(1.05 * far);
+    }
+    for (const way of SITE_LANES) {
+      const site = way.to as string;
+      let g = this.colonyLanes.get(site);
+      const on = busy.has(site);
+      if (!g && !on) continue;
+      if (!g) {
+        g = wayMarks([], [wayPoints(way)], this.relief.heightAt);
+        g.name = `greece-colony-lane-${site}`;
+        this.colonyLanes.set(site, g);
+        this.scene.add(g);
+      }
+      g.visible = on;
+    }
+    for (const c of s.empire.colonies) {
+      const t = c.threat;
+      if (!t || t.end !== '') continue;
+      const p = siteOf(c.site);
+      if (!p) continue;
+      // (From their city straight towards the colony, stopping a little short of it: a fleet in their colours.)
+      const [ax, az] = this.at(t.city);
+      const [bx, bz] = project(p.lon, p.lat);
+      const len = Math.hypot(bx - ax, bz - az) || 1;
+      const u = threatShare(t, tick);
+      const d = 2.2 + (len - 4.4) * u;
+      const x = ax + ((bx - ax) * d) / len;
+      const z = az + ((bz - az) * d) / len;
+      const { colour: fc, trim: ft } = PLACES[t.city];
+      const m = piece(`foe-${c.site}-${t.city}`, () => fleetModel(fc, ft), BODY.fleet);
+      m.position.set(x, 0.02 + Math.sin(time * 1.4 + t.at) * 0.03, z);
+      m.rotation.set(Math.sin(time * 1.1 + t.at) * 0.03, -Math.atan2(bz - az, bx - ax), 0);
+      m.scale.setScalar(1.1 * far);
     }
   }
 

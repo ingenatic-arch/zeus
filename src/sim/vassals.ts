@@ -58,6 +58,7 @@ import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
 // Slice 37: your colonies (colonies.ts) keep their records here, and their ships bring their share as tribute does.
 import type { Colony, Founding } from './colonies';
 import { caravanEntry } from './routes';
+import { MAP_SIZE } from '../map/coast';
 import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
 import { TILE_ROAD } from './state';
 
@@ -914,6 +915,16 @@ export function tributeOnMap(t: Tribute, tick: number): { along: number } | null
 // ---------------------------------------------------------------------------
 // Aid against raiders.
 
+/** (Slice 37) The side of the map an edge tile is on. */
+const edgeSide = (n: number, e: number): 'north' | 'south' | 'east' | 'west' => (e % n === 0 ? 'west' : e % n === n - 1 ? 'east' : e < n ? 'north' : 'south');
+
+/** (Slice 37) The side of your land a vassal's or ally's men come in by, for the news and the line: the road edge its caravans use to your yard (or tax office, or granary), as aidArrives walks them in; its road's side with no road in. */
+function aidSide(s: SimState, id: CityId): string {
+  const depot = s.buildings.find((b) => b.kind === 'yard') ?? s.buildings.find((b) => b.kind === 'taxoffice') ?? s.buildings.find((b) => b.kind === 'granary');
+  const entry = depot ? caravanEntry(s, MAP_SIZE, depot, id) : null;
+  return entry ? edgeSide(MAP_SIZE, entry.edge) : (routeWay(id, 'land')?.side ?? 'north');
+}
+
 /** What a vassal or ally would send against raiders: a quarter of its army or so, 8 to 16 men; none with no road to you. */
 export function aidMen(s: SimState, city: CityId): number {
   if (!routeWay(city, 'land')) return 0;
@@ -935,7 +946,7 @@ function sendAid(s: SimState): void {
       if (!men) continue;
       const { id: way } = wayFor(id, 'land');
       s.empire.aid.push({ id: s.empire.nextId++, city: id, raid: r.id, men, way, phase: 'road', start: s.tick, dur: landTicks(id), company: 0, line: '' });
-      news(w, s.tick, id, `${rulerShort(c)} sends ${men} men down the road to help you against ${whose(r.city)} ${r.loan ? 'army' : 'raiders'}: at the ${routeWay(id, 'land')?.side} edge of your land about ${dayWords(s.tick + landTicks(id))}`, true);
+      news(w, s.tick, id, `${rulerShort(c)} sends ${men} men down the road to help you against ${whose(r.city)} ${r.loan ? 'army' : 'raiders'}: at the ${aidSide(s, id)} edge of your land about ${dayWords(s.tick + landTicks(id))}`, true);
     }
   }
 }
@@ -965,8 +976,7 @@ function aidArrives(s: SimState, map: CoastMap, a: Aid, r: Raid): boolean {
     const last = entry.tiles[entry.tiles.length - 1];
     const hold = ring.slice().sort((p, q) => dhypot((p % n) - (last % n), Math.floor(p / n) - Math.floor(last / n)) - dhypot((q % n) - (last % n), Math.floor(q / n) - Math.floor(last / n)) || p - q)[0];
     tiles = [...entry.tiles, hold];
-    const e = entry.tiles[0];
-    side = e % n === 0 ? 'west' : e % n === n - 1 ? 'east' : e < n ? 'north' : 'south';
+    side = edgeSide(n, entry.edge);
   } else {
     const edges: number[] = [];
     for (let i = 0; i < n; i++) {
@@ -1333,7 +1343,7 @@ export function empireTownLine(s: SimState): { text: string; city: CityId; urgen
   const call = openCall(s);
   if (call) return { text: `${name(call.ally)}, your ally, asks you to join its war with ${name(call.foe)}: answer by ${dayWords(call.due)} on its Empire tab.`, city: call.ally, urgent: false };
   const aid = s.empire.aid.find((a) => a.phase === 'road');
-  if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${routeWay(aid.city, 'land')?.side} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false };
+  if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${aidSide(s, aid.city)} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false };
   const t = s.empire.tribute.find((x) => x.phase === 'city' || x.phase === 'bay');
   if (t) return { text: `${t.colony ? `${colonyName(s, t)}’s share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false };
   return null;
