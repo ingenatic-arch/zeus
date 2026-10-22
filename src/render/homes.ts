@@ -9,7 +9,7 @@ import { ChunkedInstances } from './chunks';
 import { architectModel, fineA, fineB, rubbleModel, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB, watchPostModel } from './grand';
 import { finishOn } from './finish';
 // Slice 36: the great houses.
-import { estateModel, estatePlotModel } from './estates';
+import { estateFloor, estateModel, estatePlotModel } from './estates';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -844,7 +844,8 @@ export class Homes {
         k = f < 1 ? Math.max(0.02, 1 - Math.pow(1 - f, 3) + Math.sin(f * Math.PI) * 0.12) : 1;
       }
       // A fountain's platform reaches down into the ground, so it stands at the middle of its footprint.
-      p.set(cx, (paved(b) ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
+      // (Slice 36: an estate stands on its terrace at the highest of its ground, the terrace reaching down on the low side.)
+      p.set(cx, (footSide(b) >= 4 ? estateFloor(map, cx, cz) : paved(b) ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
       q.setFromAxisAngle(UP, facing(s, size, b));
       sc.set(1, k, mirror && hash2(b.id, 2, 40) < 0.5 ? -1 : 1);
       m.compose(p, q, sc);

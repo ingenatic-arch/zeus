@@ -11,7 +11,7 @@ import { col, PAL } from './palette';
 import { lumpy } from './trees';
 import { leg, mergeTinted, type TPart } from './walkers';
 // Slice 36: horses.
-import { HORSE_COATS, horseModel, PADDOCK, STABLE_YARD } from './estates';
+import { estateFloor, HORSE_COATS, horseModel, PADDOCK, STABLE_YARD } from './estates';
 import { gi, HORSES } from '../sim/foods';
 import { HORSEFARM_STORE } from '../sim/stores';
 
@@ -155,10 +155,10 @@ export class Animals {
     return firm(this.ground[t]) && s.tiles[t] === TILE_EMPTY;
   }
 
-  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: Look): void {
+  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: Look, y?: number): void {
     this.e.set(0, yaw, pitch, 'YXZ');
     this.q.setFromEuler(this.e);
-    this.p.set(x, this.map.heightAt(x, z) + 0.01, z);
+    this.p.set(x, y ?? this.map.heightAt(x, z) + 0.01, z);
     this.s.set(sc, sc, sc);
     this.m.compose(this.p, this.q, this.s);
     this.c.copy(col(coat));
@@ -216,6 +216,8 @@ export class Animals {
     const fx = b.x + 2;
     const fz = b.z + 2;
     const [x0, z0, x1, z1] = STABLE_YARD;
+    // (On the estate's terrace, its yard's floor.)
+    const y = estateFloor(this.map, fx, fz) + 0.075;
     for (let k = 0; k < n; k++) {
       const seed = b.id * 23 + k;
       const t = time * 0.03 + hash2(seed, 1, 3651) * 30;
@@ -223,7 +225,7 @@ export class Animals {
       const lz = (z0 + (z1 - z0) * (0.35 + 0.3 * hash2(seed, 2, 3652)) + Math.cos(t * 0.8) * 0.05) * flip;
       const heading = yaw + (hash2(seed, 3, 3653) < 0.5 ? Math.PI / 2 : -Math.PI / 2) + Math.sin(t * 0.5) * 0.4;
       const grazing = Math.sin(time * 0.5 + seed) > 0.3;
-      this.place(fx + lx * c + lz * sn, fz - lx * sn + lz * c, heading, grazing ? -0.1 : 0, 0.95, false, HORSE_COATS[Math.floor(hash2(seed, 4, 3654) * HORSE_COATS.length)], this.horses);
+      this.place(fx + lx * c + lz * sn, fz - lx * sn + lz * c, heading, grazing ? -0.1 : 0, 0.95, false, HORSE_COATS[Math.floor(hash2(seed, 4, 3654) * HORSE_COATS.length)], this.horses, y);
     }
   }
 

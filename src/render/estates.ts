@@ -93,6 +93,8 @@ export function estatePlotModel(): THREE.BufferGeometry {
   const line = (x0: number, z0: number, x1: number, z1: number): void => {
     parts.push({ geo: slab(Math.min(x0, x1) - 0.025, Math.min(z0, z1) - 0.025, Math.max(x0, x1) + 0.025, Math.max(z0, z1) + 0.025, 0.0, 0.03), color: PAL.plotLine });
   };
+  // The ground levelled for it (it stands as the estate will, at the highest of its ground), its bank showing on the low side.
+  parts.push({ geo: slab(-1.97, -1.97, 1.97, 1.97, -0.7, 0.0), color: PAL.earthWorn });
   const e = 1.86;
   line(-e, -e, e, -e);
   line(-e, e, e, e);
@@ -115,6 +117,13 @@ export function estatePlotModel(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+/** The height an estate stands at, its footprint's centre at (cx, cz): the highest of its ground, its terrace reaching down on the low side. */
+export function estateFloor(map: { heightAt(x: number, z: number): number }, cx: number, cz: number): number {
+  let h = -Infinity;
+  for (const dz of [-1.8, -0.9, 0, 0.9, 1.8]) for (const dx of [-1.8, -0.9, 0, 0.9, 1.8]) h = Math.max(h, map.heightAt(cx + dx, cz + dz));
+  return h;
+}
+
 /** Where an estate's horses stand (the stable yard), in its frame: x0, z0, x1, z1. */
 export const STABLE_YARD: readonly [number, number, number, number] = [0.3, 0.5, 1.75, 1.12];
 
@@ -122,7 +131,8 @@ export const STABLE_YARD: readonly [number, number, number, number] = [0.3, 0.5,
 export function estateModel(great: boolean): THREE.BufferGeometry {
   const parts: Part[] = [];
   // The terrace it stands on, the court's paving, the garden's earth and the stable yard's.
-  parts.push({ geo: slab(-1.99, -1.99, 1.99, 1.99, -0.22, 0.05), color: PAL.plinth });
+  // (It stands at the highest of its ground: on a slope the terrace's low side shows, up to about half a tile.)
+  parts.push({ geo: slab(-1.99, -1.99, 1.99, 1.99, -0.7, 0.05), color: PAL.plinth });
   parts.push({ geo: slab(-0.66, -1.32, 1.92, 0.4, 0.05, 0.065), color: PAL.courtyard });
   parts.push({ geo: slab(-1.92, 0.4, 0.05, 1.92, 0.05, 0.07), color: PAL.garden });
   parts.push({ geo: slab(0.12, 0.4, 1.92, 1.92, 0.05, 0.062), color: PAL.earthWorn });

@@ -56,7 +56,8 @@ import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus
 import { towerStatus } from './wallstatus';
 // Slice 36.
 import { ESTATE_NEEDS, ESTATE_WORDS, isEstate, plotWaits, WARE_OF, wareUntil } from './estates';
-import { GREAT_ESTATE } from './buildings';
+import { ESTATE, GREAT_ESTATE } from './buildings';
+import type { Service } from './state';
 import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
@@ -266,7 +267,7 @@ function cultureLine(s: SimState, map: CoastMap, b: Building, service: 'religion
   }
   if (needs) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, service));
-    return `No ${k.what} for ${days(s.tick - until)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the ${k.walker} comes`;
+    return `No ${k.what} for ${goneFor(s, b, until, service)} · ${fallWords(b, goes)} unless the ${k.walker} comes`;
   }
   return `No ${k.what} · ${whyNot(s, map, b, service)}`;
 }
@@ -290,6 +291,11 @@ export function cultureStatus(s: SimState, map: CoastMap, b: Building): Status {
   return { title, detail: lines(workersLine(s, map, b), line, who) };
 }
 
+/** Slice 36: how long a home has gone without a need (an estate counts from when it came or last changed level, as its warning does). */
+const goneFor = (s: SimState, b: Building, until: number, need: Service): string => days(s.tick - (b.estate ? missingSince(b, need) : until));
+/** What a home's warning ends in: down a level, or (an estate) its noble house leaving. */
+const fallWords = (b: Building, goes: number): string => (b.estate && b.level === ESTATE ? `the house leaves the estate in ${days(goes)}` : `goes back to ${levelName(b.level - 1)} in ${days(goes)}`);
+
 /** What water reaches a lived-in home, and if none, why not. */
 export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Search): string {
   const left = b.waterUntil - s.tick;
@@ -299,8 +305,7 @@ export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Searc
   }
   if (b.level >= HUT) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'water'));
-    const to = levelName(b.level - 1);
-    return `No water for ${days(s.tick - b.waterUntil)} · goes back to ${to} in ${days(goes)} unless the water carrier comes`;
+    return `No water for ${goneFor(s, b, b.waterUntil, 'water')} · ${fallWords(b, goes)} unless the water carrier comes`;
   }
   return `No water · ${whyDry(s, map, b, reach)}`;
 }
@@ -360,9 +365,9 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
     const gone = s.tick - Math.max(until, b.grace);
     // (A home from an older save, in its grace, isn't counting yet.)
     const since = gone > 0 ? `for ${days(gone)}` : 'yet';
-    if (table.length === 0) return `No food ${since} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the food vendor comes`;
+    if (table.length === 0) return `No food ${since} · ${fallWords(b, goes)} unless the food vendor comes`;
     const lack = foodsLacking(s, b);
-    return `Only ${foodList(table)} on the table; ${levelName(b.level)} needs ${k === 2 ? 'two kinds' : 'all three'} · no ${foodList(lack, 'or')} ${since}: ${whyLacking(s, lack)} · goes back to ${levelName(b.level - 1)} in ${days(goes)}`;
+    return `Only ${foodList(table)} on the table; ${levelName(b.level)} needs ${k === 2 ? 'two kinds' : 'all three'} · no ${foodList(lack, 'or')} ${since}: ${whyLacking(s, lack)} · ${fallWords(b, goes)}`;
   }
   return `No food · ${whyHungry(s, map, b, agoras)}`;
 }
@@ -1145,7 +1150,7 @@ export function goodLine(s: SimState, map: CoastMap, b: Building, good: Ware): s
     // (A home from an older save, in its grace, isn't counting yet.)
     if (since > s.tick) return `No ${what} yet · they’ll put up with it for ${days(since - s.tick)} more: ${whyNoGood(s, map, b, good)}`;
     const goes = DECLINE_AFTER - (s.tick - since);
-    return `No ${what} for ${days(s.tick - since)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the ${what} vendor comes: ${whyNoGood(s, map, b, good)}`;
+    return `No ${what} for ${days(s.tick - since)} · ${fallWords(b, goes)} unless the ${what} vendor comes: ${whyNoGood(s, map, b, good)}`;
   }
   if (!citySells(s, good)) return '';
   return `No ${what} · ${whyNoGood(s, map, b, good)}`;

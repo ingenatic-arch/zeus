@@ -2085,7 +2085,8 @@ function start(preparedTown: string | null): void {
       probe.sideMs += performance.now() - t;
     }
     const open = panel.update(s, map, time);
-    selection.set(open ?? (tradePanel.open ? ((tradePanel.tab === 'yard' || tradePanel.tab.endsWith('-land') ? caravanYard(s) : tradingPost(s)) ?? null) : null));
+    // (Slice 36: an estate's ring goes round its whole 4 x 4.)
+    selection.set(open ?? (tradePanel.open ? ((tradePanel.tab === 'yard' || tradePanel.tab.endsWith('-land') ? caravanYard(s) : tradingPost(s)) ?? null) : null), open && 'estate' in open && open.estate ? footSide(open) : 2);
     selection.update(time);
     if (mark?.mesh.visible && demo?.mark) {
       if (s.tiles[demo.mark.z * map.size + demo.mark.x] === TILE_ROAD) mark.set(null);

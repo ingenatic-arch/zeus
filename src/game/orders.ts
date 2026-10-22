@@ -7,7 +7,7 @@
  * sim only through its command queue (flushed at once, so it works while
  * paused, as building does).
  */
-import { companyName, companyOf, kindWord, MARCH_SPEED, marchRefusal, pathLength, wayFrom } from '../sim/army';
+import { companyName, companyOf, kindWord, MARCH_SPEED, marchRefusal, pathLength, RIDE_SPEED, wayFrom } from '../sim/army';
 import { TICKS_PER_DAY } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import type { Sim } from '../sim/sim';
@@ -106,11 +106,12 @@ export class Orders {
       this.key = key;
       this.why = marchRefusal(s, this.sim.map, c, this.hover);
       const way = this.why ? null : wayFrom(s, this.sim.map, c.x, c.z, this.hover);
-      this.days = way ? Math.max(1, Math.round(pathLength(way) / MARCH_SPEED / TICKS_PER_DAY)) : 0;
+      // (Slice 36: horsemen ride, faster.)
+      this.days = way ? Math.max(1, Math.round(pathLength(way) / (c.kind === 'horseman' ? RIDE_SPEED : MARCH_SPEED) / TICKS_PER_DAY)) : 0;
     }
     this.placement.setMarks(new Map([[this.hover, this.why ? MARK_BAD : MARK_OK]]));
     if (this.why) this.tip.show(this.why, sx, sy, true);
-    else this.tip.show(`March ${companyName(c)} of ${kindWord(c.kind)} here · about ${this.days} ${this.days === 1 ? 'day' : 'days'} away · they hold here, in ranks`, sx, sy);
+    else this.tip.show(`${c.kind === 'horseman' ? 'Ride' : 'March'} ${companyName(c)} of ${kindWord(c.kind)} here · about ${this.days} ${this.days === 1 ? 'day' : 'days'} away · they hold here, in ranks`, sx, sy);
   }
 
   private downAt = -1;

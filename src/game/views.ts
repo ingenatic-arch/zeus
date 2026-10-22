@@ -161,4 +161,8 @@ export const VIEWS: Record<string, CameraView> = {
   seasons: { x: 52, z: 43, yaw: 2.3, dist: 38, tilt: -0.05 },
   // Slice 33, #winter: the bay and the quay from over the water, the town on the slope behind.
   winter: { x: 72, z: 63, yaw: -0.3, dist: 48, tilt: -0.25 },
+  // Slice 36: #estates: the two great estates either side of the road down to the quay, from above the bay, the villas of the main street behind them.
+  estates: { x: 72.5, z: 46, yaw: -0.35, dist: 22, tilt: -0.05 },
+  // #horsemen: the barracks' yard close to, its riders drawn up by their banner, the core's villas beside it.
+  horsemen: { x: 89, z: 32, yaw: 0.6, dist: 11, tilt: -0.02 },
 };
