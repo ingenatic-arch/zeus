@@ -77,6 +77,12 @@ What I checked and left alone:
 - **The quarry's look.** From above it reads to me as a stepped, pale working floor. From downhill, though, its skirt of spoil is a tall, pale battered wall down the slope, close to the blank wall the caravan yard used to have. I left that for your eye (see above).
 - **The smoke test** passed all the way through in one run, with every wait lengthened because the machine is loaded. The measurements ran through too; the demos were ready at a median of 3.8 s on a machine loaded about three times over.
 
+### At the merge
+This slice was built alongside slices 30 and 31, and joined them on the trunk on 22 Oct. What changed in the joining:
+- **Greece's new cities trade marble and timber too.** All eleven cities make and use some of each. Knossos has Crete's cypresses and sells timber, as Troy does. Memphis has no forests along its river, so it buys timber: it is the first place that will pay well for your logs (191 a hundred in `#greecegrows`, against 150 elsewhere). Athens is still the only city with marble of its own to spare.
+- **Naxos makes marble and Thasos timber.** A city that founds a colony on either island makes more of that good and starts selling it. In `#greecegrows`, Rhodes holds Naxos and now sells marble (242 a hundred, against Athens' 233). A colony that was already standing in a save from before this merge counts too.
+- **Old saves** from before slices 30, 31 and 32 load through all three steps and come out with eleven cities, each with marble and timber at their usual prices.
+
 ## Slice 31 — Greece grows (21 Oct)
 
 Greece is no longer six cities that never change. It now has eleven: Thebes, Argos, Knossos, Rhodes and Memphis have joined, with rulers, goods, roads and sea lanes. Six empty islands and capes wait for settlers. Each city with a ruler rises and falls over the years, and its page says why: its harvests, your trade, its wars, its debts, its tribute. Strong rivals found colonies and make weaker neighbours bow. Raids come more often, as you chose on the balance card, and they are still always a threat with a deadline first. You weren't here while it was built: every choice below is mine, from the spec's defaults.

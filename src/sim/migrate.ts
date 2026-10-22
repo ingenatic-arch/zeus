@@ -98,9 +98,11 @@
  * Slice 32 (Marble and timber): no tree has been felled yet; every
  * building's goods, and every trade record, gain marble and timber (padded
  * to however many goods there are now); Athens makes three times the marble
- * it uses and Troy three times the timber, every other city just what it
- * uses, each at its usual price with nothing pushing it; nothing is ticked
- * for sale. Nothing in the city changes.
+ * it uses, Troy three times the timber and Knossos two and a half times,
+ * Memphis a quarter of the timber it uses, every other city just what it
+ * uses (and a colony already on Naxos or Thasos adds its marble or timber
+ * to what its founder makes), each at its usual price with nothing pushing
+ * it; nothing is ticked for sale. Nothing in the city changes.
  *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
@@ -121,7 +123,8 @@ import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { freshCrime } from './crime';
 import { nextFestival } from './festivals';
-import type { CityId } from '../map/greece';
+import { SITES, type CityId } from '../map/greece';
+import { COLONY_MAKES } from './growth';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -658,6 +661,7 @@ function fromSlice32(st: Record<string, unknown>): void {
       if (!isObj(c) || !Array.isArray(c.make) || !Array.isArray(c.need) || !Array.isArray(c.price)) continue;
       const mats = materialsOf(c.id as CityId);
       const made = (k: number, i: number): number => (TRADE_GOODS[k] === MARBLE ? mats[i] : TRADE_GOODS[k] === TIMBER ? mats[i + 2] : 0);
+      const had = (c.make as unknown[]).length;
       pad(c.make, g, (k) => made(k, 0));
       pad(c.need, g, (k) => made(k, 1));
       for (const k of ['yours', 'crop', 'strife', 'feast']) pad(c[k], g, zero);
@@ -670,6 +674,14 @@ function fromSlice32(st: Record<string, unknown>): void {
         make[k] = made(k, 0);
         need[k] = made(k, 1);
       }
+      // (Integrating slices 31 and 32: a colony already on Naxos or Thasos adds its marble or timber to what its founder makes, as one founded from now on does.)
+      if (Array.isArray(w.sites))
+        for (const x of w.sites as unknown[]) {
+          if (!isObj(x) || x.owner !== c.id) continue;
+          const good = SITES.find((p) => p.id === x.id)?.good;
+          const k = good === 'marble' ? tradeIndex(MARBLE) : good === 'timber' ? tradeIndex(TIMBER) : -1;
+          if (k >= 0 && (k >= had || unset.includes(k))) make[k] += COLONY_MAKES;
+        }
       const usual = (k: number): number => (c.ruler ? marketPrice(k, make[k], need[k]) : PRICES[k]);
       pad(c.stock, g, (k) => Math.round(normalStock(c as unknown as WorldCity, k)));
       pad(c.price, g, usual);

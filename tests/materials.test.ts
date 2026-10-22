@@ -9,6 +9,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
+import { CITY_IDS } from '../src/map/greece';
 import { coast } from '../src/map/coast';
 import { buildingRefusal } from '../src/sim/build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
@@ -16,6 +17,8 @@ import { GOOD_COUNT, held, MARBLE, TIMBER } from '../src/sim/foods';
 import { campWoods, CAMP_TREES_MIN, LOGS_PER_TREE, marbleOf, QUARRY_MARBLE_MIN, REGROW, standing, timberTrees } from '../src/sim/materials';
 import { roadRoute } from '../src/sim/roads';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
+import { COLONY_MAKES } from '../src/sim/growth';
+import { migrate } from '../src/sim/migrate';
 import { SIM_STATE_VERSION, TILE_ROAD, type Building, type SimState } from '../src/sim/state';
 import { TRADE_GOODS, tradeIndex } from '../src/sim/trade';
 import { cityOf, sellsAndBuys } from '../src/sim/world';
@@ -245,6 +248,18 @@ describe('the works and the save', () => {
     for (const r of st.world.routes) expect(r.sell.length).toBe(TRADE_GOODS.length);
     const athens = cityOf(st.world, 'athens');
     expect(athens.make[tradeIndex(MARBLE)]).toBeGreaterThan(athens.need[tradeIndex(MARBLE)]);
+    // (Through slice 30's, 31's and this slice's steps: Greece's eleven cities, the newcomers making and using marble and timber at their prices.)
+    expect(st.world.cities.map((c) => c.id)).toEqual([...CITY_IDS]);
+    expect(st.world.cities.length).toBe(11);
+    expect(st.world.sites.length).toBe(6);
+    for (const c of st.world.cities) {
+      if (!c.ruler) continue;
+      for (const k of [tradeIndex(MARBLE), tradeIndex(TIMBER)]) {
+        expect(c.make[k] > 0 && c.need[k] > 0 && c.price[k] > 0 && c.stock[k] > 0, `${c.id} ${k}`).toBe(true);
+        expect(c.history[k].length, `${c.id} ${k}`).toBe(12);
+      }
+    }
+    expect(sellsAndBuys(cityOf(st.world, 'knossos')).sells).toContain(tradeIndex(TIMBER));
     const sim = new Sim();
     sim.state = st;
     const people = st.population;
@@ -254,7 +269,27 @@ describe('the works and the save', () => {
 });
 
 describe('marble and timber in Greece', () => {
-  it('Athens sells marble and Troy timber; no other city buys or sells either', () => {
+  it('a save from Greece grown but before marble and timber (version 29) loads with a colony on Naxos making marble for its founder', () => {
+    // (Integrating slices 31 and 32: built by hand from a fresh state, its trade lists cut back to the eight goods before this slice.)
+    const st = JSON.parse(serialize(new Sim().state)) as SimState;
+    st.world.sites.find((x) => x.id === 'naxos')!.owner = 'rhodes';
+    const old = tradeIndex(MARBLE);
+    for (const c of st.world.cities) for (const k of ['make', 'need', 'stock', 'yours', 'crop', 'strife', 'feast', 'price', 'trail', 'history', 'dealt'] as const) (c[k] as unknown[]).length = old;
+    for (const k of ['sell', 'keep', 'lost'] as const) (st.trade[k] as unknown[]).length = old;
+    (st as unknown as Record<string, unknown>).materials = undefined;
+    (st as { version: number }).version = 29;
+    migrate(st);
+    expect(st.version).toBe(SIM_STATE_VERSION);
+    const rhodes = cityOf(st.world, 'rhodes');
+    const athens = cityOf(st.world, 'athens');
+    expect(rhodes.make.length).toBe(TRADE_GOODS.length);
+    expect(rhodes.make[old]).toBe(rhodes.need[old] + COLONY_MAKES);
+    expect(athens.make[old]).toBeGreaterThan(athens.need[old]);
+    expect(rhodes.price[old]).toBeLessThan(cityOf(st.world, 'sparta').price[old]);
+  });
+
+
+  it('Athens sells marble, Troy and Knossos timber, Memphis buys timber; no other city buys or sells either', () => {
     const w = new Sim().state.world;
     const m = tradeIndex(MARBLE);
     const t = tradeIndex(TIMBER);
@@ -264,8 +299,9 @@ describe('marble and timber in Greece', () => {
       if (!c.ruler) continue;
       const { sells, buys } = sellsAndBuys(c);
       expect(sells.includes(m), c.id).toBe(c.id === 'athens');
-      expect(sells.includes(t), c.id).toBe(c.id === 'troy');
-      expect(buys.includes(m) || buys.includes(t), c.id).toBe(false);
+      expect(sells.includes(t), c.id).toBe(c.id === 'troy' || c.id === 'knossos');
+      expect(buys.includes(m), c.id).toBe(false);
+      expect(buys.includes(t), c.id).toBe(c.id === 'memphis');
     }
   });
 });

@@ -16,6 +16,8 @@ import { coffersOf } from '../src/sim/loans';
 import { declareWar, endWar } from '../src/sim/rivals';
 import { yearlyLimit } from '../src/sim/routes';
 import { Sim } from '../src/sim/sim';
+import { MARBLE } from '../src/sim/foods';
+import { tradeIndex } from '../src/sim/trade';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { cityOf, freshWorld, harvestIn, scaleOf } from '../src/sim/world';
 
@@ -141,6 +143,8 @@ describe('growth', () => {
     sim.run(COLONY_SAIL + TICKS_PER_MONTH);
     expect(naxos.owner).toBe('rhodes');
     expect(coloniesOf(s.world, 'rhodes')).toContain(naxos);
+    // (Integrating slices 31 and 32: Naxos' marble is a ware now, so Rhodes makes more of it than it uses.)
+    expect(rhodes.make[tradeIndex(MARBLE)]).toBeGreaterThan(rhodes.need[tradeIndex(MARBLE)]);
     // A second lot bound for the same site finds it taken.
     sendSettlers(s, athens, naxos);
     sim.run(COLONY_SAIL + TICKS_PER_MONTH);

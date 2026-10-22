@@ -42,7 +42,7 @@ import { PLACES, project, RULED, siteOf, SITES, type CityId } from '../map/greec
 import { hash2 } from '../map/noise';
 import { dateOfTick, formatYear, MONTH_NAMES, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news } from './diplomacy';
-import { FLEECE, OIL, WHEAT, COPPER, type Ware } from './foods';
+import { FLEECE, OIL, WHEAT, COPPER, MARBLE, TIMBER, type Ware } from './foods';
 import { foeIn, mutual, PAIRS, warOf } from './rivals';
 import type { Growth, Site, SimState, War, World, WorldCity } from './state';
 import { tradeIndex } from './trade';
@@ -119,8 +119,8 @@ const BEATEN_FOR = 2 * TICKS_PER_YEAR;
 /** How far a city reaches out, for colonies and vassals (1 if not given): Egypt looks to its river more than to the Aegean; Sparta and Thebes to their neighbours. */
 const AMBITION: Record<string, number> = { memphis: 0.3, sparta: 1.3, thebes: 1.2 };
 
-/** A site's good as a ware, where it is one already (marble and timber are the works line's, slice 32: wired in at merge). */
-const SITE_WARES: Record<string, Ware> = { wheat: WHEAT, oil: OIL, fleece: FLEECE, copper: COPPER };
+/** A site's good as a ware (every site's is a trade good: Naxos' marble and Thasos' timber are slice 32's). */
+const SITE_WARES: Record<string, Ware> = { wheat: WHEAT, oil: OIL, fleece: FLEECE, copper: COPPER, marble: MARBLE, timber: TIMBER };
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 /** A city's men under arms in words (slice 31 review: as the sim keeps them, on the scale of its garrison, its bands and your own soldiers). */

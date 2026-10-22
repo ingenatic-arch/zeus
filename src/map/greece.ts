@@ -209,9 +209,9 @@ export const RIVAL_WAYS: readonly RivalWay[] = [
 
 /**
  * Slice 31: the empty sites, islands and capes where a city could be
- * founded, each with the good a city there would make, as a name: marble
- * and timber are wares of the works line (slice 32), so a site names its
- * good and the sim looks the ware up when there is one (growth.ts).
+ * founded, each with the good a city there would make, as a name; the sim
+ * looks the ware up (SITE_WARES in growth.ts: Naxos' marble and Thasos'
+ * timber are slice 32's wares).
  */
 export interface SitePlace {
   id: string;

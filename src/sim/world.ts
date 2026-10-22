@@ -224,13 +224,19 @@ export const armsOf = (id: CityId): readonly [number, number, number, number] =>
 /**
  * Slice 32: what each city makes and uses of marble and timber in a year, set
  * by its character with no shuffle (as copper and armour are): Athens quarries
- * marble to spare on Pentelikon, Troy fells timber to spare on Ida; everywhere
- * else makes what it uses, and neither sells nor buys them.
+ * marble to spare on Pentelikon, Troy fells timber to spare on Ida; at the
+ * merge with slice 31, Knossos fells Crete's cypresses to spare and Memphis,
+ * with no forests along its river, buys timber; everywhere else makes what it
+ * uses, and neither sells nor buys them. A colony on Naxos or Thasos adds to
+ * what its founder makes (growth.ts).
  * [marble made, marble used, timber made, timber used].
  */
 const MATERIALS: Partial<Record<CityId, readonly [number, number, number, number]>> = {
   athens: [1500, 500, 600, 600],
   troy: [400, 400, 1800, 600],
+  // Integrating slices 31 and 32.
+  knossos: [400, 400, 1500, 600],
+  memphis: [400, 400, 300, 1200],
 };
 const MATERIALS_EVEN: readonly [number, number, number, number] = [400, 400, 600, 600];
 /** A city's marble and timber, made and used in a year: [marble made, marble used, timber made, timber used]. */
