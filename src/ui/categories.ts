@@ -31,8 +31,8 @@ const PEOPLE = '<svg viewBox="0 0 20 16"><circle cx="7" cy="4" r="2.6" class="f"
 const HELMET = '<svg viewBox="0 0 24 24"><path d="M12 4.6c-4.4 0-7.4 3-7.4 7.4V19.4c0 .9.7 1.6 1.6 1.6h3.3v-5.2L7.2 14.6v-2.2h4.1V21h1.4v-8.6h4.1v2.2l-2.3 1.2V21h3.3c.9 0 1.6-.7 1.6-1.6V12c0-4.4-3-7.4-7.4-7.4z" class="f"/><path d="M5.2 6.6C6.6 3.4 9 1.8 12 1.8s5.4 1.6 6.8 4.8" class="s"/></svg>';
 
 export const CATEGORIES: readonly CategoryInfo[] = [
-  { id: 'population', title: 'Population', tip: 'Population: housing, who lives here and who has work', icon: PEOPLE, tools: ['housing'], overlays: ['missing'] },
-  { id: 'husbandry', title: 'Husbandry', tip: 'Husbandry: farms, herds, groves and vineyards, and what the land gives', icon: ICONS.farm, tools: ['farm', 'lodge', 'dairy', 'grove', 'pasture', 'vineyard'], overlays: ['food', 'variety'] },
+  { id: 'population', title: 'Population', tip: 'Population: housing, who lives here and who has work', icon: PEOPLE, tools: ['housing', 'estate'], overlays: ['missing'] },
+  { id: 'husbandry', title: 'Husbandry', tip: 'Husbandry: farms, herds, groves and vineyards, and what the land gives', icon: ICONS.farm, tools: ['farm', 'lodge', 'dairy', 'grove', 'pasture', 'vineyard', 'horsefarm'], overlays: ['food', 'variety'] },
   { id: 'industry', title: 'Industry', tip: 'Industry: the presses, wineries, mines and armouries, the quarries and the loggers’ camps, and what they make', icon: ICONS.press, tools: ['press', 'winery', 'mine', 'armoury', 'quarry', 'loggers'], overlays: ['oil', 'wine'] },
   { id: 'distribution', title: 'Distribution', tip: 'Distribution: granaries, storehouses, the agora and its stalls, and trade; every good in the city', icon: ICONS.granary, tools: ['granary', 'storehouse', 'agora', 'stall', 'fleecestall', 'winestall', 'trading', 'yard'], overlays: ['food', 'oil', 'fleece', 'wine'] },
   { id: 'safety', title: 'Hygiene and safety', tip: 'Hygiene and safety: fountains, the watch and the architects; water, fire, wear and crime', icon: ICONS.fountain, tools: ['fountain', 'watchpost', 'architect'], overlays: ['water', 'fire', 'wear', 'crime'] },

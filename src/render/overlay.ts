@@ -69,7 +69,7 @@ const MODES: Record<Round, Mode> = {
 const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5, fleece: 6, wine: 7, fire: 8, wear: 9 };
 
 /** How high the top of each level of home stands (for the columns over them). */
-export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8, 2.0];
+export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8, 2.0, 1.9, 2.3];
 
 /** How far by road each road tile is from the nearest building of a kind (dist -1: none reaches it). */
 export function reachOf(s: SimState, size: number, kind: BuildingKind, from?: (b: Building) => boolean): Search {
@@ -226,8 +226,8 @@ export class ServiceOverlay {
       else if (eatsBread(b)) {
         const k = Math.max(1, kindsNeeded(b.level));
         let on = 0;
-        const cx = b.x + 1;
-        const cz = b.z + 1;
+        const cx = b.x + footSide(b) / 2;
+        const cz = b.z + footSide(b) / 2;
         const y0 = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.15;
         for (const f of FOODS) {
           if (foodUntil(b, f) <= s.tick) continue;
@@ -436,8 +436,8 @@ export class ServiceOverlay {
           for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
           continue;
         }
-        const cx = b.x + 1;
-        const cz = b.z + 1;
+        const cx = b.x + footSide(b) / 2;
+        const cz = b.z + footSide(b) / 2;
         const y = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.2;
         // A home the tax collector hasn't called on gets a taller stub: unlike a missing service, it is the whole of what the overlay is for.
         const h = left > 0 ? 0.2 + 2.4 * k : service === 'tax' ? 0.75 : 0.22;

@@ -98,6 +98,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.what === 'gate') return ['Gates', count(n, 'gate', 'gates')];
   if (l.what === 'mended') return ['Walls mended', count(n, 'stretch', 'stretches')];
   if (l.what === 'plots') return ['Housing plots', count(n, 'plot', 'plots')];
+  // Slice 36.
+  if (l.what === 'estates') return ['Estates’ plots', count(n, 'plot', 'plots')];
   const k = l.what as BuildingKind;
   return [`${(PLURAL[k] ?? l.what).replace(/^./, (c) => c.toUpperCase())}`, n > 1 ? String(n) : ''];
 }

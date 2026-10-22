@@ -19,6 +19,8 @@ import { PLACES } from '../map/greece';
 import { lumpy, merge, type Part } from './trees';
 import { batteredFooting, campModel, logPile, marbleBlock, MARBLE as MARBLE_TONE, quarryBack, quarryEdge, quarryFront, quarryLevels, quarryRiser, skirt } from './materialworks';
 import { quarryFace, quarryYaw } from '../sim/materials';
+// Slice 36.
+import { horseFarmModel } from './estates';
 
 // ---------------------------------------------------------------------------
 // Models. Local frame: the footprint's centre at the origin, spanning
@@ -1381,8 +1383,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard' | 'quarry' | 'loggers';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard', 'quarry', 'loggers']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard' | 'quarry' | 'loggers' | 'horsefarm';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard', 'quarry', 'loggers', 'horsefarm']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1550,6 +1552,8 @@ export class Works {
       quarry: quarryFront(),
       quarryback: quarryBack(),
       loggers: campModel(),
+      // Slice 36.
+      horsefarm: horseFarmModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1666,6 +1670,8 @@ export class Works {
 
   private sig(s: SimState, b: Building): string {
     const face = this.yawOf(s, b).toFixed(2);
+    // (Slice 36: its horses are drawn by Animals.)
+    if (b.kind === 'horsefarm') return `horsefarm:${face}`;
     if (b.kind === 'loggers') return `loggers:${face}:${this.roadSides(s, b, this.yawOf(s, b))}:${shown(held(b, TIMBER), LOGGERS_STORE, CAMP_PILES)}`;
     if (b.kind === 'quarry' || b.kind === 'yard') {
       // (Slice 32: the roads beside it shape its skirt.)
@@ -2410,6 +2416,8 @@ export function workPicture(kind: string): PicturePart[] | null {
       const block = marbleBlock();
       return [at(quarryFront()), at(quarryBack().translate(0, 0.2, 0)), at(quarryRiser(0.2)), ...[0, 1, 2, 3, 4].map((i) => ({ geo: block, x: 0.2 + (i % 3) * 0.27, z: -1.1 + Math.floor(i / 3) * 0.19, yaw: 0, s: [1, 1, 1] as [number, number, number] }))];
     }
+    case 'horsefarm':
+      return [at(horseFarmModel())];
     case 'loggers': {
       const pile = logPile();
       return [at(campModel()), ...[0, 1].map((i) => ({ geo: pile, x: -0.55, z: 0.18 + i * 0.24, yaw: 0, s: [1, 1, 1] as [number, number, number] }))];

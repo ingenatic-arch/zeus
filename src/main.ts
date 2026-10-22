@@ -1005,7 +1005,7 @@ function start(preparedTown: string | null): void {
   };
   let lastPointer: { world: { x: number; z: number } | null; sx: number; sy: number } = { world: null, sx: 0, sy: 0 };
   /** What M and K cycle through (Shift goes back a step). */
-  const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery', 'quarry', 'loggers'];
+  const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery', 'quarry', 'loggers', 'horsefarm'];
   const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
   /** What Z cycles through: the offices. */
   const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect'];
@@ -1151,6 +1151,8 @@ function start(preparedTown: string | null): void {
       // G again: the granary, then the storehouse, then the trading post, then the caravan yard; K again: the agora, then its oil, fleece and wine stalls.
       if (k === 'g') t = next(['granary', 'storehouse', 'trading', 'yard'], tools.tool, e?.shiftKey);
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
+      // H again (slice 36): an estate's plot.
+      if (k === 'h') t = next(['housing', 'estate'], tools.tool, e?.shiftKey);
       // Z again: the tax office, then the watch post, then the architect's office.
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
       // B again: the fountain, then the copper mine, the armoury, the barracks, the wall, the tower and the shipyard.

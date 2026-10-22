@@ -53,7 +53,7 @@ const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 
 /** A small mark for each good, in the colours of its stack on the quay (wheat its sacks', cheese its wheels'). */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80'];
+const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#c8963c', '#e8e2d4', '#8a6238', '#6b4a2e']; // (Slice 36: copper, armour, marble, timber and horses had none)
 
 const when = (tick: number): string => {
   const d = dateOfTick(tick);

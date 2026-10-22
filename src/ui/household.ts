@@ -18,7 +18,9 @@ import { morph } from './morph';
 // Slice 30.
 import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut, pronouns } from '../sim/crime';
 // Slice 36: an estate's own needs, in words.
-import { bringerOf, needWord } from '../sim/estates';
+import { bringerOf, ESTATE_NEEDS, ESTATE_WORDS, fetchWords, LASTS, needWord, plotWaits, WARE_OF, wareUntil, wareWarnings, type EstateNeed } from '../sim/estates';
+import { ESTATE, GREAT_ESTATE } from '../sim/buildings';
+import { held } from '../sim/foods';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -84,10 +86,14 @@ function storyLine(f: Family, e: Story, i: number): string {
   const need = e.need === 'food' ? foodFor(e.what === 'down' ? e.level + 1 : e.level) : e.need && e.need !== 'tax' ? needWord(e.need) : 'water';
   switch (e.what) {
     case 'came':
+      // (Slice 36: a noble house comes to an estate.)
+      if (e.level >= ESTATE) return `${who} came from ${f.origin} with their household and took up the estate`;
       return `${who} came from ${f.origin} and pitched a tent`;
     case 'joined':
       return `${who} moved in`;
     case 'up':
+      // (Slice 36: an estate's rise.)
+      if (e.level >= GREAT_ESTATE) return 'Became a great estate: statues in the garden, armour on the wall for its sons, horses in the stable';
       return UP_LINES[Math.min(e.level, VILLA)] || 'Moved up a level';
     case 'warn': {
       // After going down a level for want of it, still without: they worry again.
@@ -116,6 +122,7 @@ function storyLine(f: Family, e: Story, i: number): string {
     case 'left':
       // Each family that left together has its own line.
       if (e.need === 'tax') return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}: the taxes were too harsh` : `${who} moved away: the taxes were too harsh`;
+      if (e.level >= ESTATE && e.names.length === 0) return `The house packed up and went back to ${f.origin}, after two months without ${need}`;
       return e.names.length >= 3 ? `${e.names[0]} and family went back to ${f.origin}` : `${who} moved away`;
     case 'fell':
       // (Slice 28: a man killed abroad, on an expedition, fell fighting a city's garrison or its watch.)
@@ -182,6 +189,12 @@ function nextLine(s: SimState, b: Building): string {
     const fleece = citySells(s, FLEECE) ? `, and a month’s fleece from a fleece vendor${short('fleece')}` : ', and fleece: the city has no fleece stall yet (a sheep pasture, a storehouse, then K three times on an agora)';
     if (!has.theatre) return `To become a fine house: plays, brought by a theatre’s actor, and ${food}${fleece}. The city has no theatre yet`;
     return `To become a fine house: a month’s plays in hand from a theatre’s actor${short('culture')}, with a month of ${food}${plate}${makers}${fleece} and of everything else${settled}`;
+  }
+  // Slice 36: an estate's rise, and the top.
+  if (b.estate) {
+    if (b.level >= GREAT_ESTATE) return 'A great estate is as grand as homes get';
+    const want = ESTATE_NEEDS.filter((n) => wareUntil(s, b, n) - s.tick < RISE_MIN).map((n) => `${ESTATE_WORDS[n]} (they have ${wareUntil(s, b, n) > s.tick ? `${days(wareUntil(s, b, n) - s.tick)}’ worth` : 'none'})`);
+    return `To become a great estate: a month in hand of marble for its statues, armour for its sons and horses for its stable, which its porters and groom fetch from your storehouses${want.length ? ` · short of ${want.join(', ')}` : ''}, with a month of everything a villa needs${settled}`;
   }
   if (b.level === FINE) {
     if (!citySells(s, WINE)) return 'To become a villa: wine, brought by a wine vendor. The city has no wine stall yet (a vineyard, a winery, a storehouse, then K four times on an agora)';
@@ -250,6 +263,13 @@ function warningBlock(s: SimState, map: CoastMap, b: Building): string {
     return `<div class="late">${ICON[need]}<span>${by[0].toUpperCase()}${by.slice(1)} is ${days(gone)} late · they’ll start to worry after ${days(WARN_AFTER)}</span></div>`;
   }
   const to = levelName(b.level - 1);
+  // (Slice 36: an estate is left, not let go down to a villa.)
+  if (b.estate && b.level === ESTATE) {
+    const share = Math.max(0, Math.min(1, w.left / WARNING));
+    const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${lackWords(s, b, x.need)} for ${days(s.tick - x.since)}`).join(', ');
+    const icons = NEEDS.filter((n) => ws.some((x) => x.need === n)).map((n) => ICON[n]).join('');
+    return `<div class="warning${w.left <= URGENT ? ' urgent' : ''}"><span class="icons">${icons}</span><div><b>${title}</b><p>In ${days(w.left)} the house packs up and leaves the estate, unless ${BRINGER[w.need]} comes by.</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div><p class="why">Why: ${esc(whyLacks(s, map, b, w.need))}</p></div></div>`;
+  }
   const share = Math.max(0, Math.min(1, w.left / WARNING));
   const urgent = w.left <= URGENT;
   // Who would go: whole families together, named.
@@ -322,10 +342,44 @@ function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
   return `<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${held}</div></div>`;
 }
 
+/** Slice 36: a little icon for each of an estate's own needs. */
+const ESTATE_ICON: Record<EstateNeed, string> = {
+  marble: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 9.6 12 6l8 3.6v8L12 21l-8-3.4z" fill="#f2ede0" stroke="#7a7260" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 9.6l8 3.4 8-3.4M12 13v8" fill="none" stroke="#7a7260" stroke-width="1.1"/></svg>',
+  armour: '<svg viewBox="0 0 24 24" class="ic"><path d="M6 4.4h12l-1 6.2c-.4 2.8 1 5 1 8.4H6c0-3.4 1.4-5.6 1-8.4z" fill="#c8963c" stroke="#5e4214" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 4.4q3 3 6 0M12 9v8" fill="none" stroke="#5e4214" stroke-width="1.1"/></svg>',
+  horses: '<svg viewBox="0 0 24 24" class="ic"><path d="M7 21c.4-3.4 1.6-6 1-8.4-.4-1.6-2.4-2.4-3.4-3.8L7.6 5c1-.8 2.4-1.4 3.6-1.4l.6-1.8 1.4 1.6c3.6.8 6.2 4 6.6 8.2.2 3.2-.4 6.6-1.6 9.4z" fill="#8a5a34" stroke="#3a2412" stroke-width="1.1" stroke-linejoin="round"/><circle cx="9.6" cy="7.2" r=".9" fill="#1a120c"/></svg>',
+};
+
+/**
+ * Slice 36: an estate's stable and yard: its marble, armour and horses, how
+ * long each lasts, and whether its porters are out for more (or why not); at a
+ * great estate, a warning box for any it has gone without.
+ */
+function stableBlock(s: SimState, b: Building): string {
+  if (b.people === 0) return '';
+  const great = b.level >= GREAT_ESTATE;
+  const ws = wareWarnings(s, b);
+  const w = ws[0];
+  let warn = '';
+  if (w) {
+    const share = Math.max(0, Math.min(1, w.left / WARNING));
+    const title = ws.map((x, i) => `${i ? 'no' : 'No'} ${ESTATE_WORDS[x.need]} for ${days(s.tick - x.since)}`).join(', ');
+    warn = `<div class="warning${w.left <= URGENT ? ' urgent' : ''}"><span class="icons">${ws.map((x) => ESTATE_ICON[x.need]).join('')}</span><div><b>${title}</b><p>In ${days(w.left)} they give up the great estate for an estate, unless ${bringerOf(w.need)} comes back from a storehouse.</p><div class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></div><p class="why">${esc(fetchWords(s, b, w.need))}</p></div></div>`;
+  }
+  const rows = ESTATE_NEEDS.map((n) => {
+    const left = wareUntil(s, b, n) - s.tick;
+    const have = held(b, WARE_OF[n]);
+    const lasts = left > 0 ? `${have} in hand${great ? `, lasting ${days(left)}` : ''}` : 'none';
+    return `<li>${ESTATE_ICON[n]}<span><b>${ESTATE_WORDS[n][0].toUpperCase()}${ESTATE_WORDS[n].slice(1)}</b> · ${esc(lasts)} · ${esc(fetchWords(s, b, n))}</span></li>`;
+  }).join('');
+  const use = great ? `A great estate uses a block of marble every ${days(LASTS.marble)}, a set of armour every ${days(LASTS.armour)} and a horse every ${days(LASTS.horses)}` : 'An estate gathers them for when it becomes a great estate';
+  return `${warn}<section class="needs stable"><h3>Their stable and yard</h3><ul class="chips">${rows}</ul><p class="none">${esc(use)}</p></section>`;
+}
+
 /** The whole panel's inner HTML for a home. */
 export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const f = b.family;
   const level = HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)];
+  if (!f && b.estate) return `<header><div class="kicker">An estate’s plot</div><h2>Waiting for a noble house</h2></header><section class="needs"><p class="next">${ICON.home}<span>${esc(plotWaits(s, map, b))}</span></p></section>`;
   if (!f) return `<header><div class="kicker">${level}</div><h2>Nobody lives here</h2></header>`;
   const cap = capacity(b);
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
@@ -343,6 +397,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
     .join('');
   return `<header><div class="kicker">${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}</div><h2>The house of ${esc(f.name)}</h2><div class="from">From ${esc(f.origin)}${since}</div></header>
 ${warningBlock(s, map, b)}
+${b.estate ? stableBlock(s, b) : ''}
 ${hazardBlock(s, map, b)}
 ${crimeBlock(s, map, b)}
 ${moodBlock(mood)}

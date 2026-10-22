@@ -37,10 +37,10 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
-import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
+import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, HORSES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
 
 /** What a storehouse keeps, each in its own room. */
-const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER]; // (marble and timber: slice 32's review)
+const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER, HORSES]; // (marble and timber: slice 32's review; horses: slice 36)
 import { stallLow, STALL_GOODS, STALL_NAMES, STALL_VENDOR, unitOf, vendorGood } from './goods';
 import { FLEECE_MONTH, grapesOf, OLIVE_GROW, olivesOf, OIL_MONTH, stageOf, MAKERS, VINE_GROW, WINE_MONTH } from './production';
 import { roomFor as roomForWare, roomOf as roomForWareKind, storeOf as storeOfKind } from './stores';
@@ -54,6 +54,10 @@ import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus';
 import { towerStatus } from './wallstatus';
+// Slice 36.
+import { ESTATE_NEEDS, ESTATE_WORDS, isEstate, plotWaits, WARE_OF, wareUntil } from './estates';
+import { GREAT_ESTATE } from './buildings';
+import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -140,6 +144,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   // Slice 32.
   if (b.kind === 'quarry') return quarryStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'loggers') return campStatus(s, map, b, workersLine(s, map, b));
+  // Slice 36.
+  if (b.kind === 'horsefarm') return horseFarmStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -148,6 +154,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
     const search = roadSearch(s, size, edgeRoads(s, size));
     if (nearestReached(search, beside) < 0) road = 'Needs its road joined to the edge of the map, where settlers come in';
   }
+  // Slice 36: an estate's plot waits for a noble house.
+  if (b.estate && b.level === 0) return { title: 'An estate’s plot', detail: plotWaits(s, map, b) };
   if (b.level === 0) {
     if (b.incoming > 0) return { title: 'A housing plot', detail: 'Settlers are on their way' };
     return { title: 'A housing plot', detail: road || 'Waiting for settlers' };
@@ -156,7 +164,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), estateLine(s, b), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */
@@ -769,11 +777,22 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     const to = g ? STORE_NAME[g.kind] ?? 'granary' : WARE_GOES[w.food] ?? 'granary';
     const load = amount(w.food, w.load);
     // (Slice 32: the quarry's oxen drag their blocks on a sledge.)
-    const title = w.kind === 'sledge' ? 'Ox sledge' : 'Ox cart';
-    const taking = w.kind === 'sledge' ? 'Dragging' : 'Taking';
+    // (Slice 36: horses are led by a groom.)
+    const title = w.kind === 'sledge' ? 'Ox sledge' : w.food === HORSES ? 'Groom' : 'Ox cart';
+    const taking = w.kind === 'sledge' ? 'Dragging' : w.food === HORSES ? 'Leading' : 'Taking';
     if (w.back) return { title, detail: w.load > 0 ? `${taking} its ${what} back to its ${home}: nowhere has room for it` : `Heading back to its ${home}` };
     if (w.wait > 0) return { title, detail: g && g.workers === 0 ? `Waiting at the ${to}’s gate: nobody works there to take the ${what} in` : `Unloading ${load} at the ${to}` };
     return { title, detail: `${taking} ${load} to the ${to}` };
+  }
+  // Slice 36: an estate's porter, or its groom for horses.
+  const estate = w.kind === 'porter' ? findBuilding(s, w.origin) : undefined;
+  if (estate && estate.kind === 'home' && estate.estate) {
+    const title = w.food === HORSES ? 'Groom' : 'Porter';
+    const home = levelName(estate.level).toLowerCase();
+    const what = WARE_NAMES[w.food];
+    if (w.back) return { title, detail: w.load > 0 ? `Bringing ${amount(w.food, w.load)} home to the ${home}` : `Heading back to the ${home} empty-handed` };
+    if (w.wait > 0) return { title, detail: `Loading ${unitOf(w.food, 2)} of ${what} at the storehouse` };
+    return { title, detail: `On his way to the storehouse for ${what} for the ${home}` };
   }
   if (w.kind === 'porter' && w.food >= FIRST_GOOD) {
     const what = WARE_NAMES[w.food];
@@ -809,13 +828,13 @@ export { eatsBread };
 // storehouse, the agora's stalls, and the homes.
 
 /** Where each kind's carts come home to, and what each store is called (for the carts' tips). */
-const CART_HOME: Partial<Record<BuildingKind, string>> = { farm: 'farm', lodge: 'lodge', dairy: 'dairy', grove: 'olive grove', press: 'olive press', pasture: 'pasture', vineyard: 'vineyard', winery: 'winery', mine: 'mine', quarry: 'quarry', loggers: 'camp' };
+const CART_HOME: Partial<Record<BuildingKind, string>> = { farm: 'farm', lodge: 'lodge', dairy: 'dairy', grove: 'olive grove', press: 'olive press', pasture: 'pasture', vineyard: 'vineyard', winery: 'winery', mine: 'mine', quarry: 'quarry', loggers: 'camp', horsefarm: 'horse farm' };
 const STORE_NAME: Partial<Record<BuildingKind, string>> = { granary: 'granary', press: 'olive press', winery: 'winery', storehouse: 'storehouse' };
 /** Where carts take each ware when the tip can't name the building (olives to a press, grapes to a winery, goods to a storehouse). */
-const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse' };
+const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse', [HORSES]: 'storehouse' };
 
 /** "12 jars of oil", "300 measures of olives". */
-const amount = (w: Ware, n: number): string => `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`;
+const amount = (w: Ware, n: number): string => (w === HORSES ? `${fmt(n)} ${unitOf(w, n)}` : `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`);
 
 /** The wine vendor is a man; the oil and fleece vendors are women (see the walkers' looks). */
 const VENDOR_MEN: ReadonlySet<Ware> = new Set([WINE]);
@@ -890,7 +909,7 @@ function goodsCartLine(s: SimState, map: CoastMap, b: Building, w: Ware, to: Bui
   const what = WARE_NAMES[w];
   const name = STORE_NAME[to] ?? to;
   const carts = errandsOut(s, b);
-  if (carts) return `${carts === 1 ? 'A cart is' : `${carts} carts are`} taking its ${what} to the ${name}`;
+  if (carts) return w === HORSES ? `${carts === 1 ? 'A groom is' : `${carts} grooms are`} leading its horses to the ${name}` : `${carts === 1 ? 'A cart is' : `${carts} carts are`} taking its ${what} to the ${name}`;
   if (held(b, w) <= 0) return '';
   if (!s.buildings.some((g) => g.kind === to)) return `Build ${build} for its carts to take the ${what} to`;
   if (!s.buildings.some((g) => g.kind === to && roomForWare(g, w) > 0)) return `Every ${name} is full of ${what}: its carts wait for room`;
@@ -982,6 +1001,34 @@ export function pastureStatus(s: SimState, map: CoastMap, p: Building): Status {
   // (Slice 33: the season's pace, named.)
   if (rate > 0 && bales < storeOfKind('pasture')) making = lines(making, paceLine(s, 'pasture'));
   return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, FLEECE, 'storehouse', 'a storehouse (G twice)')) };
+}
+
+/** Slice 36: a horse farm: its grass, its horses, where they go. */
+export function horseFarmStatus(s: SimState, map: CoastMap, p: Building): Status {
+  const grass = grassOf(map, p.x, p.z, 3);
+  const horses = held(p, HORSES);
+  const room = storeOfKind('horsefarm');
+  const title = `${BUILDING_NAMES.horsefarm} · ${fmt(horses)} of ${fmt(room)} horses`;
+  if (roadsBeside(s, map.size, p).length === 0) return { title, detail: 'Needs a road beside it, for its grooms' };
+  const rate = rateOf(p);
+  const month = (HORSE_BATCH * TICKS_PER_MONTH) / HORSE_EVERY;
+  let making: string;
+  if (horses >= room) making = 'The paddock is full: no foals are raised until its grooms lead the horses away';
+  else if (rate === 0) making = 'No foals are raised with nobody to mind the mares';
+  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(month * grass * rate * makerPace(s, 'horsefarm'))} horses a month${rate < 1 ? ` (${fmt(month * grass * makerPace(s, 'horsefarm'))} fully worked)` : ''}`;
+  if (rate > 0 && horses < room) making = lines(making, paceLine(s, 'horsefarm'));
+  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, HORSES, 'storehouse', 'a storehouse (G twice)')) };
+}
+
+/** Slice 36: an estate's marble, armour and horses, in one line. */
+function estateLine(s: SimState, b: Building): string {
+  if (!isEstate(b) || b.people === 0) return '';
+  const great = b.level >= GREAT_ESTATE;
+  const each = ESTATE_NEEDS.map((n) => {
+    const left = wareUntil(s, b, n) - s.tick;
+    return `${ESTATE_WORDS[n]} ${left <= 0 ? 'none' : great ? `for ${days(left)}` : `${fmt(held(b, WARE_OF[n]))} in hand`}`;
+  });
+  return `${great ? 'Its stable and yard' : 'Laid in for a great estate'}: ${each.join(' · ')}`;
 }
 
 /** A storehouse: what it holds, what carts are bringing, who fetches from it. */

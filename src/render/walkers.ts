@@ -12,6 +12,9 @@ import { col, PAL } from './palette';
 import { finishOn } from './finish';
 import { finishParts } from './folkFinish';
 import { lumpy } from './trees';
+// Slice 36: estates' porters and grooms.
+import { ARMOUR, HORSES, MARBLE } from '../sim/foods';
+import { groomModel } from './estates';
 
 /** Space between people walking in a line. */
 const SPACING = 0.36;
@@ -499,7 +502,7 @@ function oxCart(load: 'none' | 'wheat' | 'meat' | 'cheese' | 'olives' | 'oil' | 
  * with sacks of grain on it (and a ham and a cheese with them, `mixed`), or
  * jars of oil, bales of fleece or amphorae of wine for those stalls.
  */
-function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine'): THREE.BufferGeometry {
+function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine' | 'marble' | 'armour'): THREE.BufferGeometry {
   const loaded = load !== 'none';
   const parts: TPart[] = [
     leg(-0.02, -0.03, 0.12, 0.02, PAL.skin, -0.8),
@@ -518,7 +521,16 @@ function porter(load: 'none' | 'wheat' | 'mixed' | 'oil' | 'fleece' | 'wine'): T
   parts.push({ geo: new THREE.BoxGeometry(0.24, 0.05, 0.015).translate(cx, 0.18, -0.1), color: PAL.woodDark });
   for (const z of [-0.08, 0.08]) parts.push({ geo: new THREE.BoxGeometry(0.2, 0.015, 0.015).rotateZ(-0.35).translate(0.15, 0.21, z), color: PAL.cart });
   for (const z of [-0.12, 0.12]) parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.025, 8).rotateX(Math.PI / 2).translate(cx + 0.02, 0.08, z), color: PAL.woodDark });
-  if (load === 'oil') {
+  if (load === 'marble') {
+    // Slice 36: two blocks of marble for an estate's statues.
+    for (const [x, y] of [[cx - 0.04, 0], [cx + 0.03, 0.08]]) parts.push({ geo: lumpy(new THREE.BoxGeometry(0.15, 0.08, 0.13), 0.04, 3661).translate(x, 0.205 + y, 0), color: PAL.marble });
+  } else if (load === 'armour') {
+    // Slice 36: a breastplate, a helmet with its crest and a shield, for an estate's sons (or a barracks' rack).
+    parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.06, 0.1, 7).rotateZ(Math.PI / 2).translate(cx - 0.04, 0.21, 0), color: PAL.bronze });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.045, 0).translate(cx + 0.06, 0.21, 0.04), color: PAL.bronze });
+    parts.push({ geo: new THREE.BoxGeometry(0.1, 0.03, 0.012).translate(cx + 0.06, 0.255, 0.04), color: PAL.crest });
+    parts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 0.014, 10).translate(cx + 0.01, 0.175, -0.04), color: PAL.bronze });
+  } else if (load === 'oil') {
     for (const [x, z] of [[cx - 0.06, -0.05], [cx - 0.06, 0.05], [cx + 0.06, 0]]) parts.push(...moved(oilJar(0.14), (g) => g.translate(x, 0.165, z)));
   } else if (load === 'fleece') {
     for (const [x, z, y, k] of [[cx - 0.05, -0.04, 0, 0], [cx + 0.06, 0.04, 0, 1], [cx, 0, 0.07, 2]]) parts.push(...moved(bale(0.065, 560 + k), (g) => g.rotateY(k).translate(x, 0.21 + y, z)));
@@ -589,7 +601,7 @@ function hunter(carry: 'none' | 'deer' | 'boar'): THREE.BufferGeometry {
 }
 
 /** Which porter look carries each stall good. */
-const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5 };
+const PORTER_LOOK: Record<number, number> = { [OIL]: 3, [FLEECE]: 4, [WINE]: 5, [MARBLE]: 6, [ARMOUR]: 7 };
 /**
  * A caravan's donkey, facing +x, about 0.26 tall at the ears: grey-brown,
  * pale-muzzled, long-eared, a short brush of a tail, a saddle blanket (the
@@ -747,6 +759,8 @@ export class Walkers {
   /** Ox carts: [empty, then by ware: wheat, meat, cheese, olives, oil, fleece, grapes, wine]; porters: [empty, wheat, a mix, oil, fleece, wine]. */
   private readonly carts: Look[];
   private readonly porters: Look[];
+  /** Slice 36: a groom leading a horse, or two. */
+  private readonly grooms: [Look, Look];
   private readonly oilVendors: Look;
   private readonly fleeceVendors: Look;
   private readonly wineVendors: Look;
@@ -792,7 +806,8 @@ export class Walkers {
     this.fleeceVendors = small(fleeceVendor());
     this.wineVendors = small(wineVendor());
     this.carts = (['none', 'wheat', 'meat', 'cheese', 'olives', 'oil', 'fleece', 'grapes', 'wine'] as const).map((l) => big(oxCart(l)));
-    this.porters = (['none', 'wheat', 'mixed', 'oil', 'fleece', 'wine'] as const).map((l) => small(porter(l)));
+    this.porters = (['none', 'wheat', 'mixed', 'oil', 'fleece', 'wine', 'marble', 'armour'] as const).map((l) => small(porter(l)));
+    this.grooms = [small(groomModel(false)), small(groomModel(true))];
     this.hunters = [small(hunter('none')), big(hunter('deer')), big(hunter('boar'))];
     this.watchmen = [small(watchman(false)), small(watchman(true))];
     this.inspectors = small(inspector());
@@ -800,7 +815,7 @@ export class Walkers {
     this.donkeys = big(donkey());
     this.raiders = RAIDER_HOLDS.map((h) => small(raider(h)));
     this.thieves = [small(thief('none')), small(thief('purse')), small(thief('sack'))];
-    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
+    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys];
   }
 
   get count(): number {
@@ -929,8 +944,10 @@ export class Walkers {
           this.porters[w.load > 0 ? (DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(this.c.copy(dockerTunic)));
         } else {
           this.c.copy(col(TUNICS[Math.floor(hash2(w.origin, 3, 62) * TUNICS.length)]));
+          // Slice 36: horses are led, by a horse farm's grooms and an estate's (on his way out, he walks with nothing).
+          if (w.food === HORSES && (cart || w.kind === 'porter')) (w.load > 0 ? this.grooms[w.load >= 2 ? 1 : 0] : this.kinds[1]).push(this.m, still(this.c));
           // A cart shows its ware (wares past those with a look yet show as an empty cart).
-          if (cart) (this.carts[w.load > 0 ? 1 + w.food : 0] ?? this.carts[0]).push(this.m, still(this.c));
+          else if (cart) (this.carts[w.load > 0 ? 1 + w.food : 0] ?? this.carts[0]).push(this.m, still(this.c));
           else {
             const ware = PORTER_LOOK[w.food];
             this.porters[ware !== undefined ? (w.load > 0 ? ware : 0) : w.meat > 0 || w.cheese > 0 ? 2 : w.load > 0 ? 1 : 0].push(this.m, still(this.c));

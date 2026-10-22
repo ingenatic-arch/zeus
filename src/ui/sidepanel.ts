@@ -526,7 +526,7 @@ export class SidePanel {
     else if (act === 'company') this.hooks.selectCompany(Number(a.dataset.id));
     else if (act === 'recall') this.hooks.army({ type: 'banner', company: Number(a.dataset.id), tile: -1 });
     else if (act === 'dismiss') this.hooks.army({ type: 'dismiss', company: Number(a.dataset.id) });
-    else if (act === 'raise') this.hooks.army({ type: 'raise', barracks: Number(a.dataset.id), kind: a.dataset.kind === 'archer' ? 'archer' : 'hoplite' });
+    else if (act === 'raise') this.hooks.army({ type: 'raise', barracks: Number(a.dataset.id), kind: a.dataset.kind === 'archer' ? 'archer' : a.dataset.kind === 'horseman' ? 'horseman' : 'hoplite' });
     else if (act === 'hire') this.hooks.army({ type: 'hire', barracks: Number(a.dataset.id), kind: a.dataset.kind ?? '' });
     else if (act === 'repay') this.hooks.army({ type: 'loan', act: 'repay', loan: Number(a.dataset.id) });
     else if (act === 'loancity') this.hooks.loans?.(a.dataset.city ?? '');

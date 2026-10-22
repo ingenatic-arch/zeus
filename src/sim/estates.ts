@@ -306,6 +306,15 @@ function leave(s: SimState, map: CoastMap, b: Building, need: Need): void {
 /** What an estate's level is called in a sentence. */
 export const estateName = (b: Building): string => (b.level === 0 ? 'an estate’s plot' : levelName(b.level));
 
+/** Whether an estate's porter (or groom) is out for one of its wares, and if not, why not. */
+export function fetchWords(s: SimState, b: Building, need: EstateNeed): string {
+  const w = WARE_OF[need];
+  if (estatePorterOut(s, b, w)) return `${bringerOf(need).replace(/ with .*$/, '')} is on the way to a storehouse`;
+  if (held(b, w) >= MOST[need]) return 'the stable is full';
+  if (!storesHave(s, w)) return need === 'horses' ? 'no horses in your storehouses: a horse farm on grassland, or buy them from Thebes' : need === 'marble' ? 'no marble in your storehouses: a quarry on the marble headland, or buy it from Athens' : 'no armour in your storehouses: a copper mine and an armoury';
+  return 'their porter goes for more as it runs low';
+}
+
 /** Why no noble house has come to an estate's plot yet, in words ('' if one is on its way). */
 export function plotWaits(s: SimState, map: CoastMap, b: Building): string {
   if (b.incoming > 0) return 'A noble house is on its way to it';

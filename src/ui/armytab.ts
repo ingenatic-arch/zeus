@@ -9,6 +9,9 @@
 import type { CoastMap } from '../map/bake';
 import { districtAt, districtTitle } from '../map/districts';
 import { canSpare, companiesAt, COMPANY_SIZE, doingWords, HIRED_PAY, hireRefusal, HIRELINGS, menOf, payOf, PER_BARRACKS, servingHomes, strength, woundedOf, type HiredKind } from '../sim/army';
+// Slice 36.
+import { HORSE_COMPANY } from '../sim/army';
+import { ESTATE } from '../sim/buildings';
 import { companyWords } from '../sim/battle';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { expeditionOf } from '../sim/expeditions';
@@ -63,7 +66,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
   out.push(
     // (Your own men by kind, and hirelings once, so the three add up to the whole; a kind with none is left out when there are hirelings.)
-    `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
+    `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.horsemen ? `<div><dt>Horsemen</dt><dd>${fmt(st.horsemen)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
   );
   // The army's news: the last few things that happened to it.
   const news = s.army.news.filter((n) => n.tick <= s.tick).slice(-4).reverse();
@@ -71,7 +74,9 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   if (st.companies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there; the view stays where you are looking, and the company’s place on its row takes you to it. Esc lets go. Orders work while paused.</p>');
   const serving = servingHomes(s);
   const homes = s.buildings.filter((b) => b.kind === 'home');
-  const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length };
+  const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length, horseman: homes.filter((b) => canSpare(s, b, 'horseman', serving)).length };
+  // Slice 36: the estates that could send a rider (any estate at all: the button shows only then).
+  const estates = homes.filter((b) => b.estate && b.level >= ESTATE && b.people > 0).length;
   const armour = s.buildings.reduce((a, b) => a + (b.kind === 'storehouse' ? held(b, ARMOUR) : 0), 0);
   barracks.forEach((b, i) => {
     const cs = companiesAt(s, b);
@@ -89,7 +94,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
       const sel = c.id === selected;
       const dismiss = c.hired ? 'They walk off the way they came; what they were owed is still paid' : 'The men walk home to their old work; their armour goes back to the stores';
       out.push(
-        `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${c.away ? 'Away on an expedition: it takes orders again once it is home' : sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"${c.away ? ' disabled' : ''}><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${COMPANY_SIZE}</small></span></button>` +
+        `<li class="company${sel ? ' on' : ''}${c.hired ? ` hired ${c.hired}` : ''}"><button class="pick" data-act="company" data-id="${c.id}" title="${c.away ? 'Away on an expedition: it takes orders again once it is home' : sel ? 'Its banner is in hand: click a street or open ground to march it there' : 'Take its banner in hand, to march it'}"${c.away ? ' disabled' : ''}><b>${esc(cap(companyWords(c)))}</b><span class="n">${men}<small> / ${c.want}</small></span></button>` +
           `<p>${esc(cap(doingWords(s, c)))}${where ? ` · ${c.away ? esc(where) : `<button class="link" data-act="go" data-x="${c.x.toFixed(1)}" data-z="${c.z.toFixed(1)}" title="Go there">${esc(where)}</button>`}` : ''} · ${hurt ? `<span class="warn">${hurt} wounded</span>` : 'none wounded'} · ${fmt(men * payOf(c))} dr a month${c.owed > 0 ? ` · <span class="warn">${fmt(c.owed)} dr pay owed</span>` : ''}</p>` +
           (c.why ? `<p class="why">${esc(c.why)}</p>` : '') +
           (c.away ? '</li>' : `<div class="acts">${c.order === 'drill' ? '' : `<button data-act="recall" data-id="${c.id}">Back to barracks</button>`}<button data-act="dismiss" data-id="${c.id}" title="${dismiss}">Dismiss</button></div></li>`),
@@ -98,10 +103,10 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     out.push('</ul>');
     if (cs.length < PER_BARRACKS) {
       out.push(
-        `<div class="raise"><button data-act="raise" data-id="${b.id}" data-kind="hoplite" title="Sixteen men from the fine houses and villas, one a home, each with a set of armour from the stores">Raise a company of hoplites</button><button data-act="raise" data-id="${b.id}" data-kind="archer" title="Sixteen men from the townhouses and better, one a home; they need no armour">Raise a company of archers</button></div>`,
+        `<div class="raise"><button data-act="raise" data-id="${b.id}" data-kind="hoplite" title="Sixteen men from the fine houses and villas, one a home, each with a set of armour from the stores">Raise a company of hoplites</button><button data-act="raise" data-id="${b.id}" data-kind="archer" title="Sixteen men from the townhouses and better, one a home; they need no armour">Raise a company of archers</button>${estates ? `<button data-act="raise" data-id="${b.id}" data-kind="horseman" title="${HORSE_COMPANY} riders, a son from each estate, mounted and armed from their own stables: fast, good against archers and against a band on the run, weak against a line of hoplites">Raise a company of horsemen</button>` : ''}</div>`,
       );
       out.push(
-        `<p class="side-note">Room for ${PER_BARRACKS - cs.length} more. Homes that could send a man now: ${spare.hoplite} for hoplites, ${spare.archer} for archers · ${fmt(armour)} ${armour === 1 ? 'set' : 'sets'} of armour in the storehouses · ${SOLDIER_PAY} dr a man a month.</p>`,
+        `<p class="side-note">Room for ${PER_BARRACKS - cs.length} more. Homes that could send a man now: ${spare.hoplite} for hoplites, ${spare.archer} for archers${estates ? `, ${spare.horseman} ${spare.horseman === 1 ? 'estate' : 'estates'} a rider` : ''} · ${fmt(armour)} ${armour === 1 ? 'set' : 'sets'} of armour in the storehouses · ${SOLDIER_PAY} dr a man a month.</p>`,
       );
       // Hirelings: a company in a few days, for a price.
       const hire = (Object.keys(HIRELINGS) as HiredKind[]).map((k) => {
