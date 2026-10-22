@@ -103,7 +103,7 @@ import { SIM_STATE_VERSION, type SimState, type WorldCity } from './state';
 import { FAIR } from './taxes';
 import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
-import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, TRADE_GOODS } from './trade';
+import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, tradeIndex, TRADE_GOODS } from './trade';
 import { armsOf, freshWorld, marketPrice, materialsOf, moodLevel, moodOf, normalStock, usualTrail } from './world';
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
@@ -615,12 +615,25 @@ function fromSlice32(st: Record<string, unknown>): void {
       for (const k of ['yours', 'crop', 'strife', 'feast']) pad(c[k], g, zero);
       const make = c.make as number[];
       const need = c.need as number[];
+      // (Another line's step may have padded the lists to their merged length first, with nothing made or used
+      // of marble and timber: every city makes and uses some, so those two are set here, with their prices. Review.)
+      const unset = [tradeIndex(MARBLE), tradeIndex(TIMBER)].filter((k) => k >= 0 && k < make.length && !make[k] && !need[k]);
+      for (const k of unset) {
+        make[k] = made(k, 0);
+        need[k] = made(k, 1);
+      }
       const usual = (k: number): number => (c.ruler ? marketPrice(k, make[k], need[k]) : PRICES[k]);
       pad(c.stock, g, (k) => Math.round(normalStock(c as unknown as WorldCity, k)));
       pad(c.price, g, usual);
       pad(c.trail, g, (k) => (c.ruler ? usualTrail(k, make[k], need[k]) : usual(k)));
       pad(c.history, g, (k) => new Array<number>(12).fill(usual(k)));
       pad(c.dealt, g, () => new Array<number>(12).fill(0));
+      for (const k of unset) {
+        if (Array.isArray(c.stock)) (c.stock as number[])[k] = Math.round(normalStock(c as unknown as WorldCity, k));
+        if (Array.isArray(c.price)) (c.price as number[])[k] = usual(k);
+        if (Array.isArray(c.trail)) (c.trail as number[])[k] = c.ruler ? usualTrail(k, make[k], need[k]) : usual(k);
+        if (Array.isArray(c.history)) (c.history as number[][])[k] = new Array<number>(12).fill(usual(k));
+      }
     }
   }
   if (Array.isArray(w.routes)) {

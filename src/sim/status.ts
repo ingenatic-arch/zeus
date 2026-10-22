@@ -933,7 +933,10 @@ export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Statu
   const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
   const bringing = STORE_GOODS.filter((w) => coming(g, w) > 0).map((w) => amount(w, coming(g, w)));
   const anyMaker = STALL_GOODS.some((w) => s.buildings.some((m) => MAKERS[m.kind]?.ware === w));
-  const coming_ = bringing.length ? `Carts are bringing ${bringing.join(', ')} more` : !anyMaker ? 'Build an olive press, a sheep pasture or a winery (M): their carts bring their goods here' : '';
+  // (Slice 32's review: a quarry's blocks come on sledges.)
+  const sledged = coming(g, MARBLE) > 0;
+  const bringers = !sledged ? 'Carts are' : bringing.length > 1 ? 'Carts and sledges are' : 'Sledges are';
+  const coming_ = bringing.length ? `${bringers} bringing ${bringing.join(', ')} more` : !anyMaker ? 'Build an olive press, a sheep pasture or a winery (M): their carts bring their goods here' : '';
   const fullOf = STORE_GOODS.filter((w) => held(g, w) >= roomForWareKind('storehouse', w));
   const full = fullOf.length ? `Its ${fullOf.map((w) => WARE_NAMES[w]).join(' and ')} ${fullOf.length === 1 ? 'room is' : 'rooms are'} full: carts with more wait for room, and the makers fill their own stores` : '';
   const fetching = STORE_GOODS.map((w) => [w, s.walkers.filter((p) => p.kind === 'porter' && p.target === g.id && p.food === w).length] as const).filter(([, n]) => n > 0);
