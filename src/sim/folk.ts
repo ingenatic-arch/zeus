@@ -12,6 +12,9 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { FLEECE, FOODS, foodList, foodUntil, GOOD_SERVICE, gi, kindsNeeded, OIL, onTable, SERVICE_GOOD, tableUntil, WINE, type Food, type Ware } from './foods';
 import { nextInt, seedRng, type RngState } from './rng';
 import type { Building, Family, Kin, Person, Service, SimState, Story } from './state';
+// Slice 36: the estates' own needs.
+import { ESTATE, GREAT_ESTATE } from './buildings';
+import { estateStocked } from './estates';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -514,6 +517,9 @@ export const LEVEL_NEEDS: ReadonlyArray<readonly Service[]> = [
   ['water', 'food', 'religion', 'oil'],
   ['water', 'food', 'religion', 'oil', 'culture', 'fleece'],
   ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
+  // Slice 36: the estate and the great estate need all a villa does, and their own wares besides (estates.ts).
+  ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
+  ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
 ];
 
 /** Each need in a word, as people say it: water, bread, blessings, oil, plays, fleece, wine. */
@@ -587,6 +593,8 @@ export function missingSince(b: Building, need: Service): number {
  */
 export function readyToRise(s: SimState, b: Building): boolean {
   if (b.kind !== 'home' || b.people === 0) return false;
+  // Slice 36: an estate becomes a great estate after a month as it is, with a month in hand of all a villa needs, and of its marble, armour and horses.
+  if (b.estate) return b.level === ESTATE && s.tick - b.since >= SETTLE && LEVEL_NEEDS[GREAT_ESTATE].every((need) => untilOf(b, need, GREAT_ESTATE) - s.tick >= RISE_MIN) && estateStocked(s, b);
   if (b.level === TENT) return b.waterUntil > s.tick;
   if (b.level === HUT) return b.waterUntil > s.tick && tableUntil(b, COTTAGE) - s.tick >= COTTAGE_FOOD_MIN;
   if (b.level >= COTTAGE && b.level < VILLA) {

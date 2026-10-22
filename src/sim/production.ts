@@ -31,6 +31,8 @@ import { rateOf } from './labour';
 import { storeOf } from './stores';
 import { note } from './stockbook';
 import type { Building, BuildingKind, SimState } from './state';
+// Slice 36: horses.
+import { HORSES } from './foods';
 // Slice 33: crops, fruit and flocks to the season's pace.
 import { makerPace } from './seasons';
 
@@ -56,6 +58,9 @@ export const MINE_BATCH = 20;
 export const ARMOURY_EVERY = 3 * TICKS_PER_DAY;
 export const ARMOURY_BATCH = 2;
 export const ARMOUR_COPPER = 10;
+/** Slice 36: a horse farm raises HORSE_BATCH foals to horses every HORSE_EVERY ticks fully worked on the best grass (8 a month), breeding in spring like the flocks. */
+export const HORSE_EVERY = 15 * TICKS_PER_DAY;
+export const HORSE_BATCH = 4;
 
 export interface Maker {
   /** What it makes. */
@@ -92,6 +97,8 @@ export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
   // Slice 32.
   quarry: { ware: MARBLE, how: 'gathered' },
   loggers: { ware: TIMBER, how: 'gathered' },
+  // Slice 36.
+  horsefarm: { ware: HORSES, how: 'batch', every: HORSE_EVERY, batch: HORSE_BATCH, ground: (map, h) => grassOf(map, h.x, h.z, 3) },
 };
 
 /** How far a crop has grown, in eighths (what the renderer shows). */
@@ -170,6 +177,8 @@ export function stepMakers(s: SimState, map: CoastMap): void {
   // Slice 32: the quarries' sledges and the loggers' carts (after everything older, so towns without them run as they did).
   stepKind(s, map, 'quarry');
   stepKind(s, map, 'loggers');
+  // Slice 36: the horse farms (after everything older).
+  stepKind(s, map, 'horsefarm');
 }
 
 /** The oil a press makes a month, fully worked (with olives always in hand). */

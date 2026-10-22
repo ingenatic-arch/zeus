@@ -303,9 +303,15 @@ describe('slice 30’s findings', () => {
     const street = street0(s);
     expect(street.length).toBeGreaterThan(0);
     for (const b of street) expect(watchedLately(s, map.size, b)).toBe(false);
-    // His round takes him by homes of the core.
+    // His round takes him by homes of the core (slice 36: within a month; with the ships back on their schedule after a winter it opens ten days sooner, his round then out along the far end), and never by the hut street.
     const core = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.x >= 62 && b.x <= 86 && b.z >= 31 && b.z <= 42);
-    expect(core.some((b) => watchedLately(s, map.size, b))).toBe(true);
+    let by = false;
+    for (let d = 14; d < 30 && !by; d += 2) {
+      by = core.some((b) => watchedLately(s, map.size, b));
+      for (const b of street0(s)) expect(watchedLately(s, map.size, b)).toBe(false);
+      if (!by) sim.run(2 * TICKS_PER_DAY);
+    }
+    expect(by).toBe(true);
   });
 
   it('a thief caught with the tax office’s coin after the office has gone hands it back to the treasury', () => {

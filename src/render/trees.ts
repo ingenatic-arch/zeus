@@ -510,7 +510,8 @@ export function buildTrees(map: CoastMap): Plants {
   const bakeCanopy = (): void => {
     canopy.fill(-Infinity);
     map.trees.forEach((t, i) => {
-      if (gone.has(i) || groupOf(t.kind) === 'grass') return;
+      // (Slice 36: nor a timber tree felled and not grown back: the camera may come down over a stripped slope.)
+      if (gone.has(i) || felledAt.has(i) || groupOf(t.kind) === 'grass') return;
       const c = crownOf(t.kind);
       const top = mats[i].elements[13] + c.top * t.scale * (t.kind === TreeKind.Rock ? 1.2 : 1);
       const r = c.r * t.scale + CANOPY_MARGIN;
@@ -533,8 +534,11 @@ export function buildTrees(map: CoastMap): Plants {
     works(s: SimState, alpha: number, t: number) {
       const felled = s.materials?.felled ?? [];
       if (felled !== felledRef) {
+        const had = felledAt.size;
         felledRef = felled;
         felledAt = new Map(felled.map((f) => [f.tree, f.at]));
+        // Slice 36: the crowns' tops redone as trees fall and grow back.
+        if (had || felledAt.size) bakeCanopy();
       }
       const chopping = new Map<number, number>();
       for (const w of s.walkers) if (w.kind === 'logger' && w.steps === 1 && w.wait > 0) chopping.set(w.food, w.id);

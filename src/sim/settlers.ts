@@ -1,7 +1,8 @@
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
-import { around, capacity, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
+import { around, capacity, ESTATE, findBuilding, HOME_CAPACITY, recountPopulation } from './buildings';
 import { moveIn } from './folk';
+import { TICKS_PER_MONTH } from './clock';
 import { nextInt } from './rng';
 import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
@@ -55,7 +56,8 @@ function homesWithRoom(s: SimState): Building[] {
   const empty: Building[] = [];
   const room: Building[] = [];
   for (const b of s.buildings) {
-    if (b.kind !== 'home') continue;
+    // (Slice 36: settlers never take an estate: a noble house comes to it, estates.ts.)
+    if (b.kind !== 'home' || b.estate) continue;
     if (b.level === 0 && b.people === 0 && b.incoming === 0) empty.push(b);
     else if (b.level > 0 && b.people + b.incoming < capacity(b)) room.push(b);
   }
@@ -295,8 +297,10 @@ function arrive(s: SimState, w: Walker): void {
   const people = Math.min(w.people, capacity(b) - b.people);
   b.people += people;
   if (b.level === 0) {
-    b.level = 1;
+    b.level = b.estate ? ESTATE : 1;
     b.since = s.tick;
+    // (Slice 36: a noble house brings a month's provisions, its food, oil, fleece and wine, so it has a month to be served before it worries.)
+    if (b.estate) b.grace = s.tick + TICKS_PER_MONTH;
   }
   moveIn(s, b, people);
   s.arrived += people;

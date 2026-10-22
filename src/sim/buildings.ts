@@ -1,11 +1,11 @@
 /** Looking up buildings: their footprints, how many people a home holds, how many a workplace needs. */
 import type { Building, BuildingKind, SimState } from './state';
 
-/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa. */
-export const HOME_CAPACITY = [5, 5, 9, 13, 17, 21, 27];
+/** People a home holds, by level: 0 an empty plot (the first family turns it into a tent), 1 a tent, 2 a hut, 3 a cottage, 4 a townhouse, 5 a fine house, 6 a villa; then (slice 36) 7 an estate and 8 a great estate, a noble house and its servants. */
+export const HOME_CAPACITY = [5, 5, 9, 13, 17, 21, 27, 12, 20];
 
 /** House levels by name, for the hover tips. */
-export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage', 'A townhouse', 'A fine house', 'A villa'];
+export const HOME_NAMES = ['A housing plot', 'A tent', 'A hut', 'A cottage', 'A townhouse', 'A fine house', 'A villa', 'An estate', 'A great estate'];
 
 export const TENT = 1;
 export const HUT = 2;
@@ -15,6 +15,13 @@ export const FINE = 5;
 export const VILLA = 6;
 /** The highest level a home can reach. */
 export const TOP_LEVEL = VILLA;
+/** Slice 36: the estate's two levels (an estate's plot is level 0 with `estate` set; see estates.ts). */
+export const ESTATE = 7;
+export const GREAT_ESTATE = 8;
+/** What an empty estate's plot holds: the noble house that comes to it. */
+export const ESTATE_HOUSE = 12;
+/** A home's name: its level's, or an estate's plot's. */
+export const homeName = (b: Building): string => (b.estate && b.level === 0 ? 'An estate’s plot' : HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]);
 
 /** A level's name in a sentence: "a cottage", "the fine house" with `the`. */
 export const levelName = (level: number, article: 'a' | 'the' | '' = 'a'): string => {
@@ -51,10 +58,12 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   shipyard: 'A shipyard',
   quarry: 'A marble quarry',
   loggers: 'A loggers’ camp',
+  // Slice 36.
+  horsefarm: 'A horse farm',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4, horsefarm: 6 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;
@@ -82,10 +91,12 @@ export function sideOf(kind: BuildingKind): number {
 }
 
 /** The side of this building's footprint: its kind's, or for rubble, that of what stood there. */
-export const footSide = (b: Building): number => (b.kind === 'rubble' ? sideOf(b.was || 'home') : sideOf(b.kind));
+export const footSide = (b: Building): number => (b.estate ? 4 : b.kind === 'rubble' ? sideOf(b.was || 'home') : sideOf(b.kind));
 
 export function capacity(b: Building): number {
   if (b.kind !== 'home') return 0;
+  // (Slice 36: an estate's plot holds the noble house that comes to it.)
+  if (b.estate && b.level === 0) return ESTATE_HOUSE;
   return HOME_CAPACITY[Math.min(b.level, HOME_CAPACITY.length - 1)];
 }
 

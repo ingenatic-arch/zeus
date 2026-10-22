@@ -19,7 +19,7 @@
  */
 import type { CoastMap } from '../map/bake';
 import { districtAt, DISTRICTS } from '../map/districts';
-import { around, centreOf, livedIn, recountPopulation, VILLA } from './buildings';
+import { around, centreOf, GREAT_ESTATE, livedIn, recountPopulation } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { leavingGroups, moodOf, moveOut } from './folk';
 import { canWorkIn, rateOf } from './labour';
@@ -39,18 +39,19 @@ export const HARSH = 4;
 
 /**
  * What a household pays the collector each month, by rate (rows) and level
- * (plot, tent, hut, cottage, townhouse, fine house, villa): the villas pay the most.
+ * (plot, tent, hut, cottage, townhouse, fine house, villa; slice 36: estate,
+ * great estate): the estates pay the most.
  */
 export const TAX: readonly (readonly number[])[] = [
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 1, 2, 3, 5, 7, 12],
-  [0, 2, 3, 5, 7, 10, 18],
-  [0, 3, 4, 7, 10, 14, 25],
-  [0, 4, 6, 9, 13, 18, 32],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 1, 2, 3, 5, 7, 12, 27, 40],
+  [0, 2, 3, 5, 7, 10, 18, 40, 60],
+  [0, 3, 4, 7, 10, 14, 25, 55, 85],
+  [0, 4, 6, 9, 13, 18, 32, 70, 105],
 ];
 
 /** What a full home of this level pays at this rate. */
-export const taxOf = (rate: number, level: number): number => TAX[Math.max(0, Math.min(HARSH, rate))][Math.max(0, Math.min(VILLA, level))];
+export const taxOf = (rate: number, level: number): number => TAX[Math.max(0, Math.min(HARSH, rate))][Math.max(0, Math.min(GREAT_ESTATE, level))];
 
 /** What this household owes the collector at the city's rate (its level's tax). */
 export const taxFor = (s: SimState, b: Building): number => (b.people > 0 ? taxOf(s.taxRate, b.level) : 0);

@@ -8,7 +8,7 @@
 import { districtTitle } from '../map/districts';
 import { centreOf } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
-import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, MARBLE, MEAT, OIL, OLIVES, TIMBER, WARES, WHEAT, WINE, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, HORSES, MARBLE, MEAT, OIL, OLIVES, TIMBER, WARES, WHEAT, WINE, type Ware } from './foods';
 import { rateOf } from './labour';
 import { MAKERS } from './production';
 import { districtOfLine, STOCK_KINDS } from './stockbook';
@@ -21,7 +21,7 @@ export interface WareInfo {
   /** How its measures are counted ("measures", "jars", "bales", "amphorae"). */
   unit: string;
   /** Food (eaten as a meal), a good (sold at a stall) or from the land (worked up into a good). */
-  group: 'food' | 'goods' | 'land' | 'arms' | 'building';
+  group: 'food' | 'goods' | 'land' | 'arms' | 'building' | 'horses';
   /** Its colour (its swatch, its bar in the year's chart). */
   colour: string;
 }
@@ -40,6 +40,8 @@ export const WARE_INFO: Record<Ware, WareInfo> = {
   // Slice 32: marble and timber, for building.
   [MARBLE]: { name: 'Marble', unit: 'blocks', group: 'building', colour: '#d8d2c2' },
   [TIMBER]: { name: 'Timber', unit: 'logs', group: 'building', colour: '#8a5a32' },
+  // Slice 36: horses, for the great estates and their riders.
+  [HORSES]: { name: 'Horses', unit: 'horses', group: 'horses', colour: '#9a6234' },
 };
 
 /** A ware's panel info (a plain fallback for one with no row yet). */
@@ -53,6 +55,8 @@ export const WARE_GROUPS: ReadonlyArray<{ group: WareInfo['group']; title: strin
   { group: 'arms', title: 'Arms' },
   // Slice 32.
   { group: 'building', title: 'For building' },
+  // Slice 36.
+  { group: 'horses', title: 'Horses' },
 ];
 
 /** Every ware the panel lists, in its order: by group, then by ware. */

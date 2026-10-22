@@ -17,6 +17,8 @@ import type { Building, Family, Person, Service, SimState, Story } from '../sim/
 import { morph } from './morph';
 // Slice 30.
 import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut, pronouns } from '../sim/crime';
+// Slice 36: an estate's own needs, in words.
+import { bringerOf, needWord } from '../sim/estates';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -79,7 +81,7 @@ const UP_LINES = [
 /** One line of a household's story. */
 function storyLine(f: Family, e: Story, i: number): string {
   const who = nameList(e.names);
-  const need = e.need === 'food' ? foodFor(e.what === 'down' ? e.level + 1 : e.level) : e.need && e.need !== 'tax' ? NEED_WORDS[e.need] : 'water';
+  const need = e.need === 'food' ? foodFor(e.what === 'down' ? e.level + 1 : e.level) : e.need && e.need !== 'tax' ? needWord(e.need) : 'water';
   switch (e.what) {
     case 'came':
       return `${who} came from ${f.origin} and pitched a tent`;
@@ -106,7 +108,7 @@ function storyLine(f: Family, e: Story, i: number): string {
       let warned = -1;
       for (let j = i - 1; j >= 0 && warned < 0; j--) if (f.story[j].what === 'warn') warned = f.story[j].tick;
       const close = warned >= 0 && e.tick - warned > WARNING / 2;
-      const by = e.need && e.need !== 'tax' ? BRINGER[e.need] : 'the water carrier';
+      const by = e.need && e.need !== 'tax' ? bringerOf(e.need) : 'the water carrier';
       return `${by[0].toUpperCase()}${by.slice(1)} came back${close ? ', just in time' : ''}`;
     }
     case 'down':

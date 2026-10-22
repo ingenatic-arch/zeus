@@ -646,6 +646,7 @@ export class Tools {
       shipyard: ['shipyard', 'shipyards'],
       quarry: ['marble quarry', 'marble quarries'],
       loggers: ['loggers’ camp', 'loggers’ camps'],
+      horsefarm: ['horse farm', 'horse farms'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.

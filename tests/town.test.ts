@@ -72,7 +72,7 @@ describe('the shortfall lines', () => {
   it('a town short of bread says how much the farms grow and the town eats, without hovering', () => {
     const lines = townLines(demo('missing').state, map);
     const bread = lines.find((l) => l.need === 'food');
-    expect(bread?.text).toMatch(/^Bread: the farms grow about [\d,]+ measures of wheat a month and the town eats about [\d,]+\. .* would keep it fed\./);
+    expect(bread?.text).toMatch(/^Bread: the farms grow about [\d,]+ measures of wheat a month(?: this \w+ \([^)]*\))? and the town eats about [\d,]+\. .* would keep it fed\./);
     expect(bread?.at).toBeGreaterThan(0);
   });
 

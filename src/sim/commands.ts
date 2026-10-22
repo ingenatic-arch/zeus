@@ -45,7 +45,7 @@ export type Command =
   /** Send your soldiers against a city (see expeditionRefusal in expeditions.ts: one it refuses sends nobody): a raiding party (`raid`, one or two companies, for part of what it owes) or a full force (`force`, most of your army, for the whole debt). */
   | { type: 'expedition'; city: string; kind: 'raid' | 'force' }
   /** Raise a company of hoplites or archers at a barracks (its id; see raiseRefusal in army.ts: one it refuses raises nothing). */
-  | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' }
+  | { type: 'raise'; barracks: number; kind: 'hoplite' | 'archer' | 'horseman' }
   /** Hire a company of mercenaries at a barracks: 'cretan' archers or 'arcadian' hoplites (see hireRefusal in army.ts). */
   | { type: 'hire'; barracks: number; kind: string }
   /** Dismiss a company (its id): its men go home to their old jobs, and their armour back to the stores (hirelings walk off). */
@@ -59,11 +59,13 @@ export type Command =
   /** Slice 30: crime's switch (crime.ts; also taxes day by day, harsh taxes' harder bite and fire's gentler first year), on as a game starts or a demo opens, off while a demo's history is played. */
   | { type: 'crime'; on: boolean }
   /** Slice 33: the seasons' switch (seasons.ts), on as a game starts and from the first tick of every demo's history; off in a bare state. */
-  | { type: 'seasons'; on: boolean };
+  | { type: 'seasons'; on: boolean }
+  /** Slice 36: mark out 4 x 4 estates' plots with these top-left tiles, in order (see estateRefusal in build.ts). */
+  | { type: 'estate'; at: number[] };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'horsefarm';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'horsefarm'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

@@ -5,7 +5,7 @@ import type { Crime } from './crime';
 import type { Seasons } from './seasons';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 31;
+export const SIM_STATE_VERSION = 32;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -43,9 +43,11 @@ export type BuildingKind =
   | 'shipyard'
   // Slice 32: the quarry and the loggers' camp.
   | 'quarry'
-  | 'loggers';
+  | 'loggers'
+  // Slice 36: the horse farm.
+  | 'horsefarm';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'horsefarm'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -155,7 +157,12 @@ export interface Building {
   tempt: number;
   /** Slice 30: the tick a thief last robbed it (0: never): a store or the tax office isn't robbed again within a month. */
   robbedAt: number;
+  /** Slice 36: a home laid out as an estate (estates.ts): four by four, its levels the estate (7) and the great estate (8); rubble keeps it from what stood there. False for everything else. */
+  estate: boolean;
 }
+
+/** Slice 36: what a home can need: a service walked round the streets, or what an estate's porter fetches (estates.ts). */
+export type Need = Service | 'marble' | 'armour' | 'horses';
 
 /** What a walker is (see Walker.kind). */
 export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge';
@@ -181,8 +188,8 @@ export interface Story {
   tick: number;
   /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away; fell: the man who served fell in battle (names: his, and the city whose raiders it was). */
   what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell' | 'robbed' | 'stole' | 'caught';
-  /** The need it was about (a Service), 'tax' for someone driven out by harsh taxes, or ''. */
-  need: '' | Service | 'tax';
+  /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
+  need: '' | Need | 'tax';
   /** The home's level after it. */
   level: number;
   /** Who it was about. */
@@ -210,7 +217,7 @@ export interface Family {
   /** The last few things that happened, oldest first. */
   story: Story[];
   /** The needs the home is warning about now, so the story notes each warning (and each relief) once. */
-  warned: Service[];
+  warned: Need[];
 }
 
 /**
@@ -377,6 +384,8 @@ export interface UndoEntry {
    */
   walls?: number[];
   removedWalls?: number[];
+  /** Slice 36: whether each building it cleared was an estate (or the rubble of one), in the order of removedPlots (missing in older saves: none was). */
+  removedEstates?: boolean[];
   /** Tree indices it cleared. */
   trees: number[];
   /** Drachmas it cost. */
@@ -490,8 +499,8 @@ export interface WallPiece {
 // The army (see army.ts). Nothing here draws on any random numbers: a town
 // with no barracks has an empty army and plays exactly as it did before.
 
-/** What a company is: heavy infantry with spear and shield, or light, with a bow. */
-export type CompanyKind = 'hoplite' | 'archer';
+/** What a company is: heavy infantry with spear and shield, or light, with a bow; or (slice 36) the estates' sons on horseback. */
+export type CompanyKind = 'hoplite' | 'archer' | 'horseman';
 
 /**
  * What a company is doing: drilling at its barracks, marching to its banner's

@@ -26,6 +26,8 @@ import type { CoastMap } from '../map/bake';
 import { datan2, dcos, dhypot, dsin } from '../map/dmath';
 import { hash2 } from '../map/noise';
 import { around, centreOf, findBuilding, FINE, footSide, livedIn, TOWNHOUSE, VILLA } from './buildings';
+// Slice 36: the estates' sons ride as horsemen.
+import { ESTATE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { errandsOut, nearestBy, PORTER_RETRY, sendCart, stallRoom, wayPoints } from './food';
 import { ARMOUR, coming, COPPER, gi, held, setHeld, type Ware } from './foods';
@@ -47,7 +49,7 @@ export const PER_BARRACKS = 4;
 /** Men a company calls a day while it is short. */
 export const CALLS_A_DAY = 4;
 /** The home levels each kind is drawn from, at least. */
-export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: TOWNHOUSE };
+export const LEVEL_FOR: Record<CompanyKind, number> = { hoplite: FINE, archer: TOWNHOUSE, horseman: ESTATE };
 /**
  * How fast a banner marches (tiles a tick): a soldier's quick march, two
  * thirds quicker than the townsfolk walk (0.12) and about as fast as raiders
@@ -74,7 +76,19 @@ export const HIRED_IN = 0.34;
 /** Ticks between the drill's moves. */
 export const DRILL_STEP = 40;
 /** How far apart the men stand in ranks (tiles): hoplites shoulder to shoulder, archers looser. */
-export const SPACING: Record<CompanyKind, number> = { hoplite: 0.3, archer: 0.4 };
+export const SPACING: Record<CompanyKind, number> = { hoplite: 0.3, archer: 0.4, horseman: 0.6 };
+
+// Slice 36: horsemen.
+/** Riders in a full company of horsemen: one son from each estate (or great estate). */
+export const HORSE_COMPANY = 8;
+/** How fast the horsemen's banner goes (tiles a tick: a trot, against a company's march of 0.3), a rider keeps his place in the column, and rides in from his estate. */
+export const RIDE_SPEED = 0.5;
+export const RIDE_STRIDE = 0.62;
+export const RIDE_IN = 0.3;
+/** How far behind one another riders go, two abreast (a horse is longer than a man). */
+const RIDE_GAP = 0.72;
+/** A company's men, full: sixteen on foot, eight on horseback. */
+export const companySize = (kind: CompanyKind): number => (kind === 'horseman' ? HORSE_COMPANY : COMPANY_SIZE);
 /** How far behind one another the men march, two abreast. */
 const FILE_GAP = 0.42;
 /** A man is in his place when he is this close to it. */
@@ -112,9 +126,9 @@ export function ordinal(n: number): string {
 /** "the 2nd company". */
 export const companyName = (c: Company): string => `the ${ordinal(c.n)} company`;
 /** "hoplites", "archers". */
-export const kindWord = (k: CompanyKind, many = true): string => (k === 'hoplite' ? (many ? 'hoplites' : 'hoplite') : many ? 'archers' : 'archer');
+export const kindWord = (k: CompanyKind, many = true): string => (k === 'hoplite' ? (many ? 'hoplites' : 'hoplite') : k === 'horseman' ? (many ? 'horsemen' : 'horseman') : many ? 'archers' : 'archer');
 /** The homes a kind is drawn from, in words. */
-export const fromWords = (k: CompanyKind): string => (k === 'hoplite' ? 'fine houses and villas' : 'townhouses and better');
+export const fromWords = (k: CompanyKind): string => (k === 'hoplite' ? 'fine houses and villas' : k === 'horseman' ? 'estates' : 'townhouses and better');
 
 export const companyOf = (s: SimState, id: number): Company | undefined => s.army.companies.find((c) => c.id === id);
 /** A company's men (walking in, waiting for armour, in the ranks, wounded or healing; not the fallen). */
@@ -268,7 +282,9 @@ export function eldestMan(s: SimState, b: Building): Person | null {
 
 /** Can a home spare a man for a company of this kind (`serving`: the homes that already send one)? */
 export function canSpare(s: SimState, b: Building, kind: CompanyKind, serving: Set<number>): boolean {
-  if (!livedIn(b) || b.level < LEVEL_FOR[kind] || b.level > VILLA || serving.has(b.id)) return false;
+  // (Slice 36: an estate sends a son to ride, and only to ride; nobody else rides.)
+  if (kind === 'horseman' ? !b.estate : b.estate) return false;
+  if (!livedIn(b) || b.level < LEVEL_FOR[kind] || (b.level > VILLA && kind !== 'horseman') || serving.has(b.id)) return false;
   // Someone of working age left once he has gone.
   if (Math.floor(b.people * WORK_SHARE) < 1) return false;
   return eldestMan(s, b) !== null;
@@ -317,7 +333,7 @@ function freeNumber(s: SimState): number {
 /** Raise a company of hoplites or archers at a barracks: it calls its men from the next day on. */
 export function raise(s: SimState, barracks: number, kind: CompanyKind): Company | null {
   const b = findBuilding(s, barracks);
-  if (raiseRefusal(s, b) !== '' || !b || (kind !== 'hoplite' && kind !== 'archer')) return null;
+  if (raiseRefusal(s, b) !== '' || !b || (kind !== 'hoplite' && kind !== 'archer' && kind !== 'horseman')) return null;
   const n = freeNumber(s);
   const c: Company = {
     id: s.army.nextId++,
@@ -332,7 +348,7 @@ export function raise(s: SimState, barracks: number, kind: CompanyKind): Company
     path: [],
     along: 0,
     target: -1,
-    want: COMPANY_SIZE,
+    want: companySize(kind),
     raised: s.tick,
     owed: 0,
     why: '',
@@ -856,7 +872,7 @@ function moveBanner(s: SimState, map: CoastMap, c: Company): void {
   if (c.order === 'march' && !c.routed && s.army.foes.length && fighting(s, c)) return;
   // (The column waits for its slowest man at the start: nobody is left more than a few paces behind.)
   const L = pathLength(c.path);
-  c.along = Math.min(L, c.along + MARCH_SPEED);
+  c.along = Math.min(L, c.along + (c.kind === 'horseman' ? RIDE_SPEED : MARCH_SPEED));
   const p = pointAlong(c.path, c.along);
   c.x = p.x;
   c.z = p.z;
@@ -906,7 +922,7 @@ export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x
   if (c.order === 'march' || c.order === 'return') {
     const rank = Math.floor(x.slot / 2);
     const file = x.slot % 2 === 0 ? -1 : 1;
-    const p = pointAlong(c.path, c.along - FILE_GAP * (rank + 1));
+    const p = pointAlong(c.path, c.along - (c.kind === 'horseman' ? RIDE_GAP : FILE_GAP) * (rank + 1));
     const off = 0.17 * file;
     return { x: p.x - dsin(p.face) * off, z: p.z + dcos(p.face) * off, face: p.face };
   }
@@ -918,7 +934,7 @@ export function placeOf(s: SimState, map: CoastMap, c: Company, x: Soldier): { x
 function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
   if (x.path.length >= 2) {
     // His own way: waypoint by waypoint.
-    let pace = x.home === 0 && x.state === 'coming' ? HIRED_IN : WALK_IN;
+    let pace = x.home === 0 && x.state === 'coming' ? HIRED_IN : companyOf(s, x.company)?.kind === 'horseman' ? RIDE_IN : WALK_IN;
     for (let guard = 0; guard < 4 && pace > 0 && x.path.length >= 2; guard++) {
       const i = x.seg * 2;
       if (i >= x.path.length) {
@@ -976,7 +992,7 @@ function moveMan(s: SimState, map: CoastMap, x: Soldier): void {
     } else x.cool = LOOK_AGAIN;
     return;
   }
-  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? MARCH_STRIDE : STRIDE * 0.8)) x.face = p.face;
+  if (stepTo(x, p.x, p.z, c.order === 'march' || c.order === 'return' ? (c.kind === 'horseman' ? RIDE_STRIDE : MARCH_STRIDE) : STRIDE * 0.8)) x.face = p.face;
 }
 
 /** A wounded man gets up and walks back to his barracks to heal (with his barracks gone, home; a hireling, off). */
@@ -1030,9 +1046,10 @@ function ready(s: SimState, map: CoastMap, x: Soldier, c: Company): void {
 // Reading the army.
 
 /** The city's whole strength: its own men by kind, its hirelings (counted once, not again under their kind: slice 24's review), the wounded among them all, and their pay a month. */
-export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number } {
+export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number; horsemen: number } {
   let hoplites = 0;
   let archers = 0;
+  let horsemen = 0;
   let pay = 0;
   let wounded = 0;
   let hirelings = 0;
@@ -1040,12 +1057,13 @@ export function strength(s: SimState): { hoplites: number; archers: number; men:
     const n = menOf(s, c).length;
     if (c.hired) hirelings += n;
     else if (c.kind === 'hoplite') hoplites += n;
+    else if (c.kind === 'horseman') horsemen += n;
     else archers += n;
     pay += n * payOf(c);
     wounded += woundedOf(s, c).length;
   }
-  const men = hoplites + archers + hirelings;
-  return { hoplites, archers, men, pay, companies: s.army.companies.length, wounded, hirelings };
+  const men = hoplites + archers + hirelings + horsemen;
+  return { hoplites, archers, men, pay, companies: s.army.companies.length, wounded, hirelings, horsemen };
 }
 
 /** Is any of a company's men fighting now? */

@@ -13,6 +13,8 @@ import { arrivalInterval, HARSH_SLOWER } from '../src/sim/settlers';
 import { replay, serialize, Sim } from '../src/sim/sim';
 import type { SimState } from '../src/sim/state';
 import { FAIR, HARSH, TAX_RATES, taxOf } from '../src/sim/taxes';
+import { MEAT_KILL } from '../src/sim/hunt';
+import { LODGE_STORE } from '../src/sim/stores';
 import { OLD_GOODS, SHIP_COMING, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { demoSim, liveSim } from './prepared';
@@ -105,8 +107,10 @@ describe('#richtown', () => {
     const levels = lived(s).map((b) => b.level);
     expect(levels.filter((l) => l === VILLA).length).toBeGreaterThanOrEqual(15);
     expect(levels.filter((l) => l === FINE).length).toBeGreaterThan(0);
-    for (const k of ['watchman', 'inspector', 'tax', 'water', 'food', 'oil', 'wine', 'docker', 'cart', 'hunter'])
+    for (const k of ['watchman', 'inspector', 'tax', 'water', 'food', 'oil', 'wine', 'docker', 'cart'])
       expect(s.walkers.some((w) => w.kind === k), k).toBe(true);
+    // (Slice 36: with the ships back on their schedule after a winter, it opens a few days sooner, as its granary is full of winter's meat: its hunters wait at the lodge until there is room on the rack.)
+    expect(s.walkers.some((w) => w.kind === 'hunter') || s.buildings.some((b) => b.kind === 'lodge' && b.meat + MEAT_KILL > LODGE_STORE), 'hunter').toBe(true);
     const post = tradingPost(s)!;
     expect(post).toBeTruthy();
     // Every good of phase 3 ticked for sale; copper and armour (slice 23) kept for the town's own army.

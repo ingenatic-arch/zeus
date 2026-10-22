@@ -61,8 +61,8 @@ import { cityOf, rulerShort } from './world';
 // ---------------------------------------------------------------------------
 // The numbers.
 
-/** What each man is worth in a fight abroad. */
-export const MIGHT = { hoplite: 1.2, archer: 0.8 } as const;
+/** What each man is worth in a fight abroad (slice 36: a rider as much as a hoplite). */
+export const MIGHT = { hoplite: 1.2, archer: 0.8, horseman: 1.2 } as const;
 /** A raiding party meets only the countryside's watch: this share of the garrison. */
 export const WATCH = 0.25;
 /** Troy's walls, against a full force. */

@@ -31,6 +31,8 @@ import { nextFestival } from '../sim/festivals';
 import { daysToThief, temptationOf } from '../sim/crime';
 import { townLines } from '../sim/status';
 import { FAIR as WX_FAIR, lateDays, weatherNow } from '../sim/seasons';
+// Slice 36.
+import { onSchedule, seasonAt, WINTER } from '../sim/seasons';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
@@ -1472,8 +1474,10 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
     // Opened that long before, on a visit the treasury can pay for.
     const lead = firstShipAfter('athens') - (stage === 'anchor' ? 2 * TICKS_PER_DAY : -Math.round(SHIP_EVERY / 2));
     // (Slice 33: and the wine she brings, about 430 dr, as the comment below has it: with the seasons the town's money comes at another pace, and a window it could only just pay her fee in came first.)
-    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s) + SEA_WINE_COST)) {
-      if (ship.due - lead <= s.tick) sim.run(Math.max(1, ship.due + SHIP_EVERY - lead - s.tick - 30));
+    // (Slice 36: each ship now has her own winter storms, and keeps to her schedule after; #anchor and #athensship open on a window out of winter, so the two calls fall as they say; the next window is three months after her call was due.)
+    const calm = (): boolean => stage === 'famine' || !s.season.on || (seasonAt(ship.due) !== WINTER && seasonAt(s.tick + firstShipAfter('athens')) !== WINTER);
+    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s) + SEA_WINE_COST && calm())) {
+      if (ship.due - lead <= s.tick) sim.run(Math.max(1, onSchedule(s, 'tyre', ship.due) + SHIP_EVERY - lead - s.tick - 30));
       else sim.run(1);
     }
     send({ type: 'route', city: 'athens', kind: 'sea' });
