@@ -95,12 +95,12 @@ export function sitePageHtml(s: SimState, site: string, map: CoastMap | undefine
   if (f) return `${header(s, site, p.name, `Your settlers are on their way to found a colony here`, map, false, '', false)}${foundingHtml(s, f)}`;
   if (x.owner) {
     const owner = x.owner as CityId;
-    return `${header(s, site, p.name, `${cap(adjective(owner))} colony since ${formatYear(dateOfTick(x.since).yearBC)}, about ${fmt(Math.round(x.pop / 10) * 10)} people`, map, false, '', false)}<section><p class="line">It makes ${esc(p.good)} for ${esc(name(owner))}, and grows ${esc(name(owner))} a little each year. Nobody else founds here while it stands.</p><div class="acts open"><button data-open="${owner}">${esc(whose(owner))} page</button></div></section>`;
+    return `${header(s, site, p.name, `${cap(adjective(owner))} colony since ${formatYear(dateOfTick(x.since).yearBC)}, about ${fmt(Math.round(x.pop / 10) * 10)} people`, map, false, '', false)}<section><p class="line">It makes ${esc(p.good)} for ${esc(name(owner))}, and grows ${esc(name(owner))} a little each year. Nobody else founds here while it stands.</p><div class="acts open"><button data-cityopen="${owner}">${esc(whose(owner))} page</button></div></section>`;
   }
   if (x.free) return `${header(s, site, x.free, `A city in its own right on ${p.name}, about ${fmt(Math.round(x.pop / 10) * 10)} people`, map, false, '', false)}<section><p class="line">It was your colony until it declared itself free, ${esc(dayWords(x.since))}. It answers to nobody now and sends you nothing; nobody founds on ${esc(p.name)} again.</p></section>`;
   if (x.bound) {
     const b = x.bound as CityId;
-    return `${header(s, site, p.name, `Settlers from ${name(b)} are on their way`, map, false, '', false)}<section><p class="line">${esc(whose(b))} settlers land within ${Math.max(1, Math.ceil((x.lands - s.tick) / TICKS_PER_DAY))} days, and ${esc(p.name)} will be ${esc(whose(b))} colony.</p><div class="acts open"><button data-open="${b}">${esc(whose(b))} page</button></div></section>`;
+    return `${header(s, site, p.name, `Settlers from ${name(b)} are on their way`, map, false, '', false)}<section><p class="line">${esc(whose(b))} settlers land within ${Math.max(1, Math.ceil((x.lands - s.tick) / TICKS_PER_DAY))} days, and ${esc(p.name)} will be ${esc(whose(b))} colony.</p><div class="acts open"><button data-cityopen="${b}">${esc(whose(b))} page</button></div></section>`;
   }
   return `${header(s, site, p.name, 'No city yet: a place to found one', map, false, '', false)}${foundHtml(s, site, map)}`;
 }
@@ -239,9 +239,9 @@ function homesHtml(c: Colony): string {
 export function colonyEvent(e: Event, send: (c: Command) => void, open: (id: CityId) => void): boolean {
   const t = e.target as HTMLElement;
   if (e.type !== 'click') return false;
-  const o = t.closest('button[data-open]') as HTMLButtonElement | null;
+  const o = t.closest('button[data-cityopen]') as HTMLButtonElement | null;
   if (o) {
-    open(o.dataset.open as CityId);
+    open(o.dataset.cityopen as CityId);
     return true;
   }
   const b = t.closest('button[data-colony]') as HTMLButtonElement | null;
