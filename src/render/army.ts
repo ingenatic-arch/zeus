@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
+import { PLACES, type CityId } from '../map/greece';
 import { EMBLEMS, FALLEN_LIE, LIE, ordinal } from '../sim/army';
 import type { Arrow, Company, SimState, Soldier } from '../sim/state';
 import { ARCADIAN_BOSS, ARCADIAN_SHIELD, ARCADIAN_TUNIC, ARCHER_TUNIC, archerLook, CITY_COLOUR, CITY_TRIM, CRETAN_TUNIC, HOPLITE_TUNIC, hopliteLook } from './arms';
@@ -216,10 +217,10 @@ export class ArmyView {
       this.place(x, px, pz, w.face, moving, roll, tilt, lift, shrink);
       const c = byId.get(x.company);
       const kind = c?.kind ?? 'hoplite';
-      const tone = this.tunic(kind, x.company, c?.hired ?? '');
+      const tone = this.tunic(kind, x.company, c?.hired ?? '', c?.ally);
       if (!moving) tone.multiplyScalar(-1);
       if (kind === 'archer' && x.state !== 'leaving') this.archers.push(this.m, tone);
-      else if (c?.hired === 'arcadian' || (x.home === 0 && x.armed && kind === 'hoplite')) this.arcadians.push(this.m, tone);
+      else if (c?.hired === 'arcadian' || (!c?.ally && x.home === 0 && x.armed && kind === 'hoplite')) this.arcadians.push(this.m, tone);
       else if (x.armed && x.state !== 'leaving') this.hoplites.push(this.m, tone);
       else this.recruits.push(this.m, tone);
       if (!live.has(x.id)) continue;
@@ -233,8 +234,9 @@ export class ArmyView {
   }
 
   /** The tunic's colour: the kind's (or the hirelings' own), a shade of its own for each company. */
-  private tunic(kind: Company['kind'], company: number, hired: Company['hired']): THREE.Color {
-    this.c.copy(col(hired === 'cretan' ? CRETAN_TUNIC : hired === 'arcadian' ? ARCADIAN_TUNIC : kind === 'archer' ? ARCHER_TUNIC : HOPLITE_TUNIC));
+  private tunic(kind: Company['kind'], company: number, hired: Company['hired'], ally?: string): THREE.Color {
+    // (Slice 34: an ally's or vassal's men in their own city's colour.)
+    this.c.copy(col(ally && PLACES[ally as CityId] ? PLACES[ally as CityId].colour : hired === 'cretan' ? CRETAN_TUNIC : hired === 'arcadian' ? ARCADIAN_TUNIC : kind === 'archer' ? ARCHER_TUNIC : HOPLITE_TUNIC));
     return this.c.multiplyScalar(0.88 + 0.24 * hash2(company, 7, 2301));
   }
 
@@ -313,7 +315,7 @@ export class ArmyView {
       }
       // Its cell of the atlas (drawn again only when what it shows changes).
       const cell = (c.n - 1) % MAX_BANNERS;
-      const sig = `${c.n}:${c.emblem}:${c.kind}`;
+      const sig = `${c.n}:${c.emblem}:${c.kind}:${c.ally ?? ''}`;
       if (this.drawn.get(cell) !== sig) {
         this.drawn.set(cell, sig);
         drawCell(this.canvas, cell, c);
@@ -381,6 +383,27 @@ function drawCell(canvas: HTMLCanvasElement, cell: number, c: Company): void {
   if (!g) return;
   const x0 = (cell % COLS) * CELL;
   const y0 = Math.floor(cell / COLS) * CELL;
+  // Slice 34: an ally's or vassal's company carries its own city's banner: its colours, its letter, its name.
+  if (c.ally && PLACES[c.ally]) {
+    const p = PLACES[c.ally];
+    g.save();
+    g.translate(x0, y0);
+    g.clearRect(0, 0, CELL, CELL);
+    g.fillStyle = p.colour;
+    g.fillRect(0, 0, CELL, CELL);
+    g.strokeStyle = p.trim;
+    g.lineWidth = 7;
+    g.strokeRect(7, 7, CELL - 14, CELL - 14);
+    g.fillStyle = p.trim;
+    g.textAlign = 'center';
+    g.textBaseline = 'alphabetic';
+    g.font = 'bold 64px Georgia, serif';
+    g.fillText(ALLY_LETTER[c.ally] ?? p.name[0], CELL / 2, CELL * 0.62);
+    g.font = 'bold 22px Georgia, serif';
+    g.fillText(p.name.toUpperCase(), CELL / 2, CELL - 20);
+    g.restore();
+    return;
+  }
   g.save();
   g.translate(x0, y0);
   g.clearRect(0, 0, CELL, CELL);
@@ -408,6 +431,9 @@ function drawCell(canvas: HTMLCanvasElement, cell: number, c: Company): void {
   g.fillText(ordinal(c.n).toUpperCase(), CELL / 2, CELL - 20);
   g.restore();
 }
+
+/** (Slice 34) The letter on a city's banner, as its own coins and shields bore it. */
+const ALLY_LETTER: Partial<Record<string, string>> = { corinth: 'Ϙ', sparta: 'Λ', argos: 'Α', athens: 'ΑΘΕ', thebes: 'Θ', troy: 'Τ', knossos: 'Κ', rhodes: 'Ρ', memphis: 'Μ' };
 
 /** An emblem in the trim colour, centred on the origin, about 70 px across. */
 function emblem(g: CanvasRenderingContext2D, which: number): void {

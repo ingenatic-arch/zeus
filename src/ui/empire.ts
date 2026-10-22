@@ -21,7 +21,7 @@ import { dayWords } from '../sim/favours';
 import { expeditionLine } from '../sim/expeditions';
 import type { SimState } from '../sim/state';
 import { TRADE_GOODS } from '../sim/trade';
-import { allyOf, ARMING, conquestPlan, debtPlan, allyPlan, empireRefusal, heraldTo, lastHerald, loyaltyOf, lowWords, openCall, submitPlan, tributeGoods, tributeWords, tributeYear, vassalOf, WEIGHT_WORDS, type Plan, type Vassal } from '../sim/vassals';
+import { allyOf, ARMING, SEASON, conquestPlan, debtPlan, allyPlan, empireRefusal, heraldTo, lastHerald, loyaltyOf, lowWords, openCall, submitPlan, tributeGoods, tributeWords, tributeYear, vassalOf, WEIGHT_WORDS, type Plan, type Vassal } from '../sim/vassals';
 import { cityOf, rulerShort } from '../sim/world';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -33,7 +33,7 @@ const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0
 /** "about 7 in 10". */
 const inTen = (p: number): string => `about ${Math.max(1, Math.min(9, Math.round(p * 10)))} in 10`;
 /** The trade goods' colours, as in the trade panel. */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80'];
+const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#8a8f96'];
 /** What each weight of tribute does to loyalty (vassals.ts' TRIBUTE_LOYALTY, in words for the buttons). */
 const WEIGHT_LOYALTY = ['+15', '0', '−20'];
 
@@ -80,7 +80,7 @@ function takeHtml(s: SimState, id: CityId): string {
   const cq = conquestPlan(s, id);
   const theirs = cq.parts.map((p) => `${p.who} ${p.n}`).join(', ');
   const allies = cq.allies.length ? ` Your allies who might march with you: ${cq.allies.join(', ')}.` : '';
-  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `Your whole ready army marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}`, `Won, it bows to you as your vassal, beaten and cowed for a while; lost, your men come home with fewer of them. Every other ruler thinks the worse of you, as for any war without cause.`));
+  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `${cq.men ? `A full force of ${cq.men} men` : 'A full force'} marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}`, `Won, it bows to you as your vassal, beaten and cowed for a while, with what your men carry off; lost, they come home fewer. As any war without cause: ${name(id)} hates it (−60 or worse), and every other ruler thinks the worse of you (−12 or more each).`));
   const sp = submitPlan(s, id);
   out.push(wayCard('submit', id, 'Demand it submit', 'Send a herald: submit to us', sp, `For a city cold or wary towards you whose side is no more than half your army (your ${sp.ours} men against its ${sp.theirs}).`, `It may bow; refuse and remember it (−20); or call on its friends, who think the worse of you too. One demand a year.`));
   const dp = debtPlan(s, id);
@@ -102,7 +102,7 @@ function tributeHtml(s: SimState, v: Vassal): string {
       const t = tributeYear(s, v, v.weight, g);
       const label = g < 0 ? '<i class="coin"></i>Coin' : `<i style="background:${SWATCH[g]}"></i>${cap(WARE_NAMES[TRADE_GOODS[g]])}`;
       const why = empireRefusal(s, 'tribute', v.city, g, v.weight);
-      return button('tribute', label, { city: v.city, good: g, weight: v.weight }, why, g < 0 ? `In coin: about ${fmt(t.dr)} dr a year, to your treasury` : `In ${WARE_NAMES[TRADE_GOODS[g]]}: about ${fmt(t.amount)} a year, to your stores`, g === v.good ? 'on' : '');
+      return button('tribute', label, { city: v.city, good: g, weight: v.weight }, why, g < 0 ? `In coin: about ${fmt(t.dr)} dr a year, to your treasury` : `In ${WARE_NAMES[TRADE_GOODS[g]]}: about ${fmt(t.amount)} a year, to your stores. ${name(v.city)} holds about ${fmt(c.stock[g])} now, and sends at most half of what it holds`, g === v.good ? 'on' : '');
     })
     .join('');
   const weightButtons = WEIGHT_WORDS.map((wd, k) => {
@@ -145,8 +145,11 @@ function armingHtml(s: SimState, v: Vassal): string {
 function vassalHtml(s: SimState, v: Vassal): string {
   const how = v.how === 'conquest' ? 'by conquest' : v.how === 'awe' ? 'by awe: it bowed to your herald' : 'for its debt';
   const aid = aidHtml(s, v.city);
+  // (Your army's report first while it is fresh: marching home, or home within a season.)
+  const e = s.world.expeditions.filter((x) => x.city === v.city && x.aim === 'conquer').at(-1);
+  const fresh = !!e && (e.phase !== 'done' || s.tick - e.ended < SEASON);
   const conquest = conquestHtml(s, v.city);
-  return `<p class="line bound">Your vassal since ${esc(dayWords(v.since))}, ${esc(how)}. It never trades against you or threatens you, and sends men when you are raided.</p>${armingHtml(s, v)}${loyaltyHtml(s, v)}${tributeHtml(s, v)}${aid}${conquest}`;
+  return `<p class="line bound">Your vassal since ${esc(dayWords(v.since))}, ${esc(how)}. It never trades against you or threatens you, and sends men when you are raided.</p>${fresh ? conquest : ''}${armingHtml(s, v)}${loyaltyHtml(s, v)}${tributeHtml(s, v)}${aid}${fresh ? '' : conquest}`;
 }
 
 /** The aid a city has sent you lately. */

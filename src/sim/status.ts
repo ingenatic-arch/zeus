@@ -12,6 +12,8 @@ import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals, sendTicks } from './favours';
 import { loanOfDeal, loanTownLine, termsWords } from './loans';
 import { expeditionLine, expeditionOut } from './expeditions';
+// Slice 34
+import { empireTownLine } from './vassals';
 import {
   BARN,
   CHEESE_BATCH,
@@ -1066,7 +1068,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'empire';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1253,6 +1255,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const away = expeditionOut(s);
   const loan = loanTownLine(s) ?? (away ? { text: `${expeditionLine(s, away)}.`, city: away.city } : null);
   if (loan) out.push({ need: 'loan', text: loan.text, at: 0, route: loan.city });
+  // Slice 34: a vassal arming, an ally's call waiting, men coming to help you, tribute coming in (vassals.ts).
+  const empire = empireTownLine(s);
+  if (empire) out.push({ need: 'empire', text: empire.text, at: 0, route: empire.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
   // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)

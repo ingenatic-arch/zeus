@@ -196,7 +196,7 @@ const LOYAL_BASE = 50;
 const TRIBUTE_LOYALTY = [15, 0, -20] as const;
 const HOW_LOYALTY: Record<Vassal['how'], { n: number; fade: number; why: string }> = {
   conquest: { n: -15, fade: 3 * TICKS_PER_YEAR, why: 'taken by conquest' },
-  awe: { n: -5, fade: 2 * TICKS_PER_YEAR, why: 'bowed to your army' },
+  awe: { n: -5, fade: 2 * TICKS_PER_YEAR, why: 'bowed under threat, and resents it' },
   debt: { n: 10, fade: 3 * TICKS_PER_YEAR, why: 'its debt let go' },
 };
 /** Fresh from its defeat, or from facing your army, a city is cowed for a while (fading). */
@@ -224,8 +224,8 @@ const ROSE = { amount: -25, fade: 3 * TICKS_PER_YEAR };
 const CRUSHED = { loyalty: 50, amount: -20, fade: 3 * TICKS_PER_YEAR };
 /** Awe: your army at least this many times its side; the odds at that, and for each time more; one demand a city a year. */
 const AWE_RATIO = 2;
-const AWE_BASE = 0.15;
-const AWE_PER = 0.2;
+const AWE_BASE = 0.25;
+const AWE_PER = 0.22;
 const DEMAND_GAP = TICKS_PER_YEAR;
 /** What a refused demand leaves, and what its friends make of it. */
 const DEMANDED = { amount: -20, fade: 2 * TICKS_PER_YEAR };
@@ -649,7 +649,8 @@ export function loyaltyOf(s: SimState, v: Vassal): Loyalty {
   add(Math.min(YEARS_MOST, YEAR_LOYALTY * Math.floor((s.tick - v.since) / TICKS_PER_YEAR)), 'years under you');
   const ours = ourMen(s);
   const r = ours / Math.max(1, c.army);
-  add(clamp(ARMY_LEAST + ((r - 1) * (ARMY_MOST - ARMY_LEAST)) / 3, ARMY_LEAST, ARMY_MOST), `your army: ${ours} men against its ${Math.round(c.army)}`);
+  const might = clamp(ARMY_LEAST + ((r - 1) * (ARMY_MOST - ARMY_LEAST)) / 3, ARMY_LEAST, ARMY_MOST);
+  add(might, `${might < 0 ? 'your army too small to fear' : 'your army'}: ${ours} men against its ${Math.round(c.army)}`);
   if (expeditionOut(s) && expeditionOut(s)?.city !== v.city) add(ABROAD, 'your army abroad');
   let gifts = 0;
   let rest = 0;

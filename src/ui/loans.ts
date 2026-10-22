@@ -53,6 +53,8 @@ import type { Deal, Expedition, Loan, LoanWhy, SimState } from '../sim/state';
 import { spendable } from '../sim/treasury';
 import { cityOf } from '../sim/world';
 import { foeNote } from './rivals';
+// Slice 34
+import { debtPlan } from '../sim/vassals';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -232,7 +234,10 @@ function theirDebtHtml(s: SimState, l: Loan): string {
   const f = demandOdds(s, l);
   const forgive = loanButton('forgive', `Forgive it${worthEm(forgave) ? ` ${worthEm(forgave)}` : ''}`, { id: l.id }, debtRefusal(s, l, 'forgive'), `The ${fmt(l.owed)} dr is let go: ${title(c)} is moved (${signed(forgave)}), and every other ruler who hears thinks better of you (about ${signed(heard)})`, 'take');
   const demand = loanButton('demand', 'Demand it', { id: l.id }, debtRefusal(s, l, 'demand'), `Two months to pay. ${cap(f.word)} to pay, about ${Math.round(f.p * 100)} in 100 (${f.why}). Once only`, 'decline');
-  out.push(`<div class="acts">${forgive}${demand}</div>`);
+  // Slice 34: or its debt for its loyalty (the Empire tab says more).
+  const dp = debtPlan(s, l.city);
+  const loyal = `<button data-empire="debt" data-city="${l.city}" class="send" title="${esc(dp.refusal || `Your herald offers to let the debt go if ${name(l.city)} becomes your vassal. ${cap(dp.word)}, about ${Math.max(1, Math.min(9, Math.round(dp.p * 10)))} in 10: ${dp.why}`)}"${dp.refusal ? ' disabled' : ''}>Its debt for its loyalty${dp.refusal ? '' : ` <small>about ${Math.max(1, Math.min(9, Math.round(dp.p * 10)))} in 10</small>`}</button>`;
+  out.push(`<div class="acts">${forgive}${demand}${loyal}</div>`);
   if (!l.demand) out.push(`<p class="likely ${f.word}">Demanded, ${esc(name(l.city))} would be <b>${f.word}</b> to pay <span class="why">(${esc(f.why)})</span></p>`);
   out.push(soldiersHtml(s, l.city, true));
   return out.join('');
