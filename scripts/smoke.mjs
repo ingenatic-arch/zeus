@@ -945,7 +945,8 @@ for (const want of ['tax', 'fire', 'wear', 'crime', null]) {
 // the bosses round the minimap pick road and clear and list the overlays; it all fits at 1280 × 720.
 const panelNow = () => zeus(() => ({ tab: window.__zeus.sideState().tab, tabs: document.querySelectorAll('.side-tab').length, wells: [...document.querySelectorAll('.side-wells .well')].map((w) => w.dataset.tool), lit: document.querySelector('.side-wells .well.on')?.dataset.tool ?? '', hint: document.querySelector('.tool-hint')?.hidden ? '' : (document.querySelector('.tool-hint')?.textContent ?? '') }));
 let pn = await panelNow();
-if (!(pn.tab === 'administration' && pn.tabs === 9)) fail(`the control panel after Z cycling: ${JSON.stringify(pn)}`);
+// (Slice 35: the Monuments tab makes ten.)
+if (!(pn.tab === 'administration' && pn.tabs === 10)) fail(`the control panel after Z cycling: ${JSON.stringify(pn)}`);
 await page.click('.side-tab[data-tab="husbandry"]');
 await frames(1);
 pn = await panelNow();
