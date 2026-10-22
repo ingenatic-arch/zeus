@@ -2,6 +2,85 @@
 
 Notes to Oliver, newest first.
 
+## Slice 31 — Greece grows (21 Oct)
+
+Greece is no longer six cities that never change. It now has eleven: Thebes, Argos, Knossos, Rhodes and Memphis have joined, with rulers, goods, roads and sea lanes. Six empty islands and capes wait for settlers. Each city with a ruler rises and falls over the years, and its page says why: its harvests, your trade, its wars, its debts, its tribute. Strong rivals found colonies and make weaker neighbours bow. Raids come more often, as you chose on the balance card, and they are still always a threat with a deadline first. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 28 on this line (renumbered when it merges). A phase 4 save loads, and Greece grows to eleven cities in it, each at its usual size.
+- **Every town that trades meets a Greece that changes.** A city's prices and yearly limits follow its people. What it can lend follows its treasury, and a band or a garrison follows its army. Tribute demands compare its people with yours. Wars between rivals go to the stronger army more often. A town that has never opened a route plays exactly as before.
+- **Raids come more often.** A proud or warlike ruler who is only cold towards you (−30 or worse) can now threaten too, about one month in 120, more often if its army has grown. Before, only a hostile one could (−60). The threat's line says why ("Queen Ida is cold to your city, and proud, with an army grown to 4,200 men").
+- **A refused band no longer camps for months** (`#threat`). In your first year, a band you defy waits at home out of sight ("bide their time at home") and only gathers for its last ten days.
+- **A caravan whose road closes** while it is in your streets pays for what it loaded and leaves. On its way in, it turns back without trading. Its line under the top bar now says how many days it has left to walk.
+- **One yearly limit per city.** A road and a sea route to the same city now share its limit.
+- **Price arrows** are green when the move is good for you and red when it is bad. A price rising on a good you sell them is green, and so is one falling on a good you buy. The arrow still points the way the price went.
+- **The map of Greece** opens further back and further south, so Memphis, Cyrene and Thasos are on the table at first look. Labels that would overlap lift clear of each other on longer stems. A label that would sit under the top bar, the lines under it, or the News of Greece hangs below its city instead (Troy's at 1600 × 900).
+- **Your army on the map** has a tag over it in your colours ("Your army · 32 men").
+- **Earlier demos.** I compared every demo's prepared town at opening with the baseline (people, money and date). 99 of the 108 are the same. In all of them except those that never trade, Greece itself has moved: it has eleven cities, sizes and, by the later demos, colonies and vassals (in `#report`, Argos already pays Sparta tribute, and Corinth is sending settlers to Kythnos). These nine moved in the town too:
+  - `#prices`, `#offer`, `#rivals`, `#rivalsmap`, `#rivalstreet`, `#lend` and `#forgive`: the same day and people, 12 to 81 dr more in the treasury (prices in grown cities).
+  - `#repaid`: with the new Greece, Athens' dice said no on the loan's day. So the repayment is now set up for the demo, and named so, like `#forgive`'s default. It opens on the same day as before, the herald with the whole sum four days from your land.
+  - `#fortress` changed the most. A cold ruler's threat came while the town waited for Greece to be calm, so it opens about nine months later than before: March 744 BC (was June 745 BC). It has 1,344 people and 2,836 dr (was 1,325 people and 1,664 dr). The walls were paid for with the loans Knossos (1,500 dr at 5%) and Rhodes (2,000 dr at 15%) offered, instead of a loan asked of Corinth. Sparta's band is 26 men (was 33): a band now follows its city's army, and Sparta's has changed by then. 800 dr still turns it back. The "What to try" steps from slice 29 still work, but the numbers in that note no longer match.
+
+### What's new
+- **Five new cities.**
+  - **Thebes**: inland in Boeotia, a city of farmers and soldiers, reached by road through Corinth.
+  - **Argos**: small and touchy, on its hill west of your plain. It holds that your city stands on its old ground, so it starts at −10 with you. It is the closest road you can open.
+  - **Knossos**: the queen's palace city on Crete, with red columns, reached by sea.
+  - **Rhodes**: a trading island with the biggest fleet for its size, and the keenest to found colonies.
+  - **Memphis**: Egypt, with pyramids at the southern edge of the table. The richest and biggest city, and slow to change.
+
+  Each newcomer can trade with you, send gifts, ask, offer, lend, borrow, threaten and be sent an army, just as the first four can. Their rulers and moods come from their own dice, so the first four rulers of every town are exactly as before.
+- **Six empty sites**: Naxos (marble), Thasos (timber), Kythnos (copper), Melos (fleece), Kythera (oil) and Cyrene (wheat). A free site is a cairn with a pennant and a dashed label. Hover it for what it would make.
+- **Cities grow and shrink.** Each city's label shows its people and an arrow when they have moved by a twentieth in the past year ("Sparta 6,500 ▲" in `#report`), and its model grows or shrinks in steps. A vassal's label carries its lord's colour. A city's page has a size line under its mood ("4,465 people · rich ▲ · 2,600 men · 16 ships ▲ · a colony (Naxos)"). Its Rivals tab opens with **How it stands**: people, treasury, army and fleet, each with its change since January a year ago and the reasons, biggest first. For example, Rhodes in `#greecegrows`: "−179 Poor harvests, +96 Room to grow on its land, +17 Its colony on Naxos".
+- **Colonies.** From the third year, a well-off city at peace with ships may send settlers to the nearest free site. The news says so three months ahead ("Corinth is fitting out ships for settlers bound for Kythnos"), and again when they land. The site becomes a small town in the founder's colours, its label "Naxos · Rhodian". It grows by itself, adds to its founder's people and treasury, and adds its good to what the founder sells you. Marble and timber become goods only when the works line merges.
+- **Vassals.** From the fourth year, a city whose army is two and a half times a neighbour's, and which is on bad terms with it, may make it bow ("Athens has bowed to Sparta: its army of 3,100 men against Sparta's 8,400 men"). A vassal pays its lord a tenth of what it takes in and fights no wars of its own. It breaks free when its lord loses a war, or when its army grows to two thirds of its lord's.
+- **`#greecegrows`**: `#rivals`' town played on to its tenth year by a middling player, who meets every other request and tribute, takes every other offer to buy its goods, and pays threats when it can. It opens paused on the map on 1 March 740 BC, with 1,301 people and 37,249 dr. Everything in it came from the dice: Rhodes has held Naxos since 747 BC (about 460 people), Corinth holds Kythnos and Knossos holds Melos, and Argos and Athens (the month the demo opens) have bowed to Sparta, whose army has grown to 8,400 men. Memphis has grown to 10,400 people. The demo would set up a Rhodian colony and a vassal, and name them so, only if the dice had brought none.
+
+### What to try
+1. Open #greecegrows. Look over the labels: who has grown (▲) and who has shrunk (▼), and which carry a lord's colour. Hover Naxos, then click it to open Rhodes' page, and read its Rivals tab (How it stands).
+2. On the same map, click a line in the News of Greece (Athens bowing to Sparta) and read Athens' page: its size line, its lord, and why it shrank.
+3. Open #knossos and #memphis: the same town, on the two farthest newcomers' pages.
+4. Open #threat and refuse the threat: Sparta's raiders "bide their time at home", then gather for ten days.
+5. Open #report and find your army on the map by its tag, under Corinth's label.
+
+Each link also opens paused if you add `-paused`.
+
+### What I'd like your eye on
+- **How often raids come.** I counted threats not set up for a demo over nine years of `#rivals`' and `#caravan`'s towns, with a middling player, on the demos' own dice and five reseeded ones (12 runs). They went from 2 to 14, or 0.17 to 1.2 per town in nine years. In these runs the old Greece threatened less than in your game (one in nine years), so this is well over twice my baseline but only a little over what you saw. One number sets it (a cold ruler threatens about one month in 120). Should raids be rarer, or more frequent?
+- **The map at first look** (`#greecegrows` at 1920 × 1080). Can you read eleven cities and six sites, or is the Saronic Gulf too crowded? Labels round Corinth, Athens and Thebes stand on longer stems.
+- **How it stands.** Are two years and the five biggest reasons per line the right amount?
+- **The army's tag.** Is "Your army · 30 men" in your colours clear enough, or too loud?
+
+### Known rough edges
+- **At 1280 × 720 with five lines under the top bar,** Thebes' label stands partly under "+3 more". There is no room to hang it below its city without running into its neighbours.
+- **Thasos' island sits under the lines under the top bar at first look,** so its label hangs below them, a little away from the island.
+- **Rhodes and Memphis have no fields on the map** (no dry ground beside them on a small island and at the table's edge). Their harvests show on their pages.
+- **A band biding its time at home is not on the map** until it gathers for its last ten days; the line under the top bar and the chip count the days meanwhile.
+- **Memphis stands on the table's southern edge,** its model half on the frame, as Tyre's does at its corner.
+- **No pirates wait on the new sea lanes** (to Knossos, Rhodes and Memphis). The pirates' lanes are the works line's (slice 38).
+- **A free site's click does nothing yet.** Founding a colony there is slice 37's.
+- **Colonies on Naxos or Thasos add nothing to what their founder sells** until marble and timber merge from the works line.
+- **`#borrow`'s caravan still takes about two months to walk its long path.** It now says how many days it has left.
+- **`#fortress`' slice 29 note** quotes the old numbers (see above).
+- **Only the opening was compared** for earlier demos, not 900 ticks on as in earlier slices: the baseline's prepared towns would have had to be played again on a busy machine.
+
+### Measurements
+Measured headless on a machine shared with the other two lines (load 12 to 18), so times swing; the load times were measured side by side with the baseline, alternating builds.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 444 | 456 |
+| Download (gzipped) | 2,983 KB (game 681 KB) | 3,256 KB (game 693 KB; the prepared towns grow by 11%, as every save carries eleven cities) |
+| Demo loads, side by side (8 demos) | median 4.0 s, slowest 4.3 s | median 4.2 s, slowest 5.1 s |
+| The map of Greece from `#town`, side by side | built in 578 ms | built in 396 ms |
+| Map triangles | 304,000 to 314,000 | 313,000 to 322,000 |
+| Map draw calls | 24 to 43 | 49 to 68 |
+| `#town`'s coast, `#rivals` | 1,241,324 and 1,728,272 triangles | the same |
+
+The demos load in about 4 s here, before and after alike: the 3-second budget can't be judged on this machine.
+
+The smoke test ran with every timeout five times longer, because frames came at under one a second on this machine (the baseline build was the same). It passed with no failures.
+
 ## Slice 29 — A city worth defending (21 Oct)
 
 The phase ends with `#fortress`, a walled town with three companies, two triremes, a loan each way and Sparta's band on its way, and with the numbers tuned over four and a half years of play: your soldiers now reach a threat in time, rulers offer loans when your treasury is low, and an unpaid debt now costs you goods from your own stores. You weren't here while it was built: every choice below is mine, from the spec's defaults.

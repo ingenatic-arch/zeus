@@ -1199,7 +1199,8 @@ await open('#greece-paused');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);
 let g = await gi();
-if (!(g.built && Object.keys(g.moods).length === 4 && g.name === 'Nea Argos')) fail(`#greece: ${JSON.stringify(g).slice(0, 400)}`);
+// (Slice 31: nine cities with rulers.)
+if (!(g.built && Object.keys(g.moods).length === 9 && g.name === 'Nea Argos')) fail(`#greece: ${JSON.stringify(g).slice(0, 400)}`);
 if (!(await zeus(() => document.body.classList.contains('greece-open')))) fail('#greece did not hide the city panels');
 await page.mouse.move(g.cities.athens.x, g.cities.athens.y);
 await frames(3);
@@ -1216,7 +1217,7 @@ const lab = await zeus(() => {
     const r = el.getBoundingClientRect();
     const x = r.x + r.width / 2;
     const y = r.y + r.height / 2;
-    if (r.width > 0 && !el.classList.contains('athens') && document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { id: el.classList[1], x, y };
+    if (r.width > 0 && !el.classList.contains('athens') && !el.classList.contains('site') && !el.classList.contains('armytag') && document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { id: el.classList[1], x, y };
   }
   return null;
 });
@@ -1580,8 +1581,11 @@ await frames(3);
 let r20 = await zeus(() => window.__zeus.raids());
 if (!(r20.raids[0]?.phase === 'gathering' && /^Sparta’s raiders · \d+ men · \d+ days$/.test(r20.chip))) fail(`#threat: refused: ${JSON.stringify(r20)}`);
 g = await gi();
-if (!Object.keys(g.travellers).some((k) => k.startsWith('raid-'))) fail(`#threat: no band on the map: ${JSON.stringify(g.travellers)}`);
-if (!(await lines18()).some((l) => /Sparta’s raiders are gathering, \d+ men: at the west edge of your land in about \d+ days/.test(l))) fail(`#threat: no line for the band: ${JSON.stringify(await lines18())}`);
+// (Slice 31: defied within the town's first year, the band bides its time at home, out of sight, and gathers only for its last ten days.)
+const bide20 = (await lines18()).some((l) => /Sparta’s raiders bide their time at home, \d+ men: at the west edge of your land in about \d+ days/.test(l));
+if (!bide20 && !Object.keys(g.travellers).some((k) => k.startsWith('raid-'))) fail(`#threat: no band on the map: ${JSON.stringify(g.travellers)}`);
+if (bide20 && Object.keys(g.travellers).some((k) => k.startsWith('raid-'))) fail(`#threat: a band biding its time at home is on the map: ${JSON.stringify(g.travellers)}`);
+if (!bide20 && !(await lines18()).some((l) => /Sparta’s raiders are gathering, \d+ men: at the west edge of your land in about \d+ days/.test(l))) fail(`#threat: no line for the band: ${JSON.stringify(await lines18())}`);
 // #raid: the band on the march, days from the edge; pay, and it turns round on the map at once, the chip gone, the coin on the ledger's peace line.
 await open('#raid-paused');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
@@ -1693,7 +1697,8 @@ await page.click('.greece-panel button[data-tab="prices"]');
 await frames(2);
 g = await gi();
 if (!/Wine[\s\S]*Dear \(usually \d+\): the Panathenaia is on/.test(g.panel)) fail(`#festival: the wine price: ${g.panel.slice(0, 1400)}`);
-if (!Object.values(g.fields).every((f) => /^#[0-9a-f]{6} at /.test(f)) || Object.keys(g.fields).length !== 4) fail(`#festival: the fields: ${JSON.stringify(g.fields)}`);
+// (Slice 31: every ruled city with dry ground beside it; Rhodes on its small island and Memphis at the table's edge have none.)
+if (!Object.values(g.fields).every((f) => /^#[0-9a-f]{6} at /.test(f)) || Object.keys(g.fields).length !== 7) fail(`#festival: the fields: ${JSON.stringify(g.fields)}`);
 // #peace: Athens has won: Sparta's army going home, no swords, the way open; Sparta's prices dear for losing.
 await open('#peace-paused');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
@@ -2301,7 +2306,8 @@ await frames(4);
   if (!['thebes', 'argos', 'knossos', 'rhodes', 'memphis'].every((id) => g31.cities[id])) fail(`#greecegrows: the cities: ${JSON.stringify(Object.keys(g31.cities))}`);
   const rh31 = Object.keys(g31.sites).find((k) => /^rhodes:/.test(g31.sites[k]));
   if (!(Object.keys(g31.sites).length === 6 && rh31)) fail(`#greecegrows: the sites: ${JSON.stringify(g31.sites)}`);
-  if (!(/settlers have founded a colony on/.test(g31.news) && /has bowed to/.test(g31.news))) fail(`#greecegrows: the News of Greece: ${g31.news.slice(0, 1500)}`);
+  // (The colonies came years before by the dice, their news long scrolled away: the sites above say who holds them.)
+  if (!/has bowed to/.test(g31.news)) fail(`#greecegrows: the News of Greece: ${g31.news.slice(0, 1500)}`);
   const sz31 = await zeus(() => ['athens', 'rhodes', 'memphis'].map((id) => document.querySelector(`.glabel.${id} .sz`)?.textContent ?? ''));
   if (!sz31.every((t) => /^[\d,]+/.test(t))) fail(`#greecegrows: the labels' sizes: ${JSON.stringify(sz31)}`);
   const n31 = g31.siteLabels[rh31 ?? 'naxos'];
