@@ -98,4 +98,35 @@ Measured at `3a63fad`, headless Chromium with software WebGL, on a machine share
 
 ## As built
 
-(Filled in at the end.)
+*Commits on `claude/p5-greece`: `62d5516` (plan), `11cc854` (sim and tests), `16039b7` (the pages, the map, the city, the demos), `e848202` (looked at and tuned), `0420bca` (fix: a rival colony's button shared the route buttons' attribute, found by the smoke), then the check-in.*
+
+**As planned**, with these differences:
+
+- **The ship anchors, the families are rowed out.** The plan had your ship tie up at the jetty. The jetty's schedule only knows the Tyre ship and the routes' visitors, and holding it for the weeks the families take to come down would turn them away. So she anchors six tiles back from the jetty and to one side where the water is deep (the other side from where a trader waiting for the jetty anchors first), and a household is rowed out to her a day after it reaches the quay (no boat drawn). She sails once all are aboard, or 60 days after the founding with whoever came; nobody aboard, she sails off empty and the site is free again.
+- **What a colony makes:** 10 dr a person a year at the ship's prices (the plan's 3, raised at the look: two years on, a season's ship brought 50 timber or 20 marble, a tenth of what a camp or a quarry gives). A colony of about 270 people at a fair share now sends about 150 timber, or 90 marble, a season.
+- **Rivals' colonies:** `COLONY_GAP` in growth.ts is 10 years (was 6). The probe (Greece alone, 20 seeds): year 10 unchanged (4.1 free sites on average, 19 runs of 20 with two or more); year 15, 3.4 on average (was 2.85; 19 runs with two or more); year 20, 1.85 (was 1.4; 12 runs with two or more, was 8); year 30, 0.55 (was 0.35). Only a city's second colony moves, after about year 8.
+- **The long walks** (slice 34's finding): colonists walk at `SENDING_SPEED` (0.24 tiles a tick, twice a townsman's) and the households nearest the trading post by road go first; in `#colony`'s town the last of them reaches the quay about three weeks after the founding, as the ship anchors. The full force's march out of `#collect`'s town and the tribute donkeys' walk in are left as they were (the size of that land; noted in the check-in).
+- **Aid's edge** is the caravans' (`caravanEntry`) for the walk in, and now for the news when it is sent and the line under the top bar too (they named its road's side, which in `#collect`'s town, with no north road, was not where the men came in).
+- **The threat's fleet on the map** sails a straight line from its city towards the site (there is no way between a rival and a site), stopping short of both. It can cross land.
+- **A site's page** is a page of its own (`site:thasos`), opened by a click on the site, a site's news line, the settlers' ship, a colony's share ship, a threat's fleet, a guarding trireme and the colony's line under the top bar. A rival's colony's page has a button to its city's page.
+- **`#colonies`** is `#colony`'s town (`#richtown`'s) rather than `#rivals'`: in both, by the time the town could pay for a second founding Rhodes' settlers were on Naxos. So `#colonies` sends its first settlers to Naxos, and to Thasos once they have landed, then plays on until Nea Thasos is two years old.
+- **Not built:** a hover for a colony's share ship in your bay (a vassal's tribute ship has none either); colonies' ships taken at sea (slice 38).
+
+**Numbers** (all in `colonies.ts`): founding 1,000 dr, 400 wheat, four households packing two days (six ticks apart), the ship waiting 60 days at most; growth 150 newcomers a year times the room left under 2,000 (none in winter), children 3%, share +2% / 0 / −3% a year; shares a fifth, two fifths, three fifths; loyalty as in the plan; freedom from 500 people under 30, standing down at 40, 90 days' warning; threats one colony-month in forty from its sixth month, a year apart, none told in winter, arriving in 60 days, 2 to 5 ships of 15 men, a claim under 300 people when their men are three times its own (one in eight of its people); fight odds 0.35 + 0.35 × ours / theirs, at most 0.9; memories +15 (driven off), +10 (struck for), −25 (sacked while you did nothing), −10 (raided though your triremes fought); a raid takes 15% of its people and its next shipment; a claim leaves its ruler expecting your resentment (−15).
+
+**Touched outside the line** (each edit in a block headed "Slice 37"; nothing reordered):
+
+- `src/sim/state.ts`: `SIM_STATE_VERSION` 33; the walker kind `colonist` and the ledger kind `colonies` appended; `Site.free`.
+- `src/sim/migrate.ts`: `fromSlice37` and its hook and note.
+- `src/sim/commands.ts`: the `colony` command. `src/sim/sim.ts`: `stepColonies` after the empire's step, the command, the colonists' walk.
+- `src/sim/walk.ts`: colonists at the sending pace. `src/sim/army.ts`: your companies' numbers ignore allied companies.
+- `src/sim/fleet.ts` (works and sea line): a trireme can be sent along a colony's lane (`guardColony`), stationed off its end, and its hover says so.
+- `src/sim/stocks.ts`, `src/ui/ledger.ts`: the stock book's and the ledger's words.
+- `src/sim/status.ts`: the colonists' and empty homes' hovers, the colony's line under the top bar (one empire line at a time: the colony's when it is urgent and the empire's is not, or when there is no other).
+- `src/game/saves.ts`: the new fields checked on load.
+- `src/render/walkers.ts`: colonists drawn as a family with bundles, hoverable. `src/render/city.ts`: your settlers' ship and colonies' share ships (one view a colony). `src/main.ts`: the settlers' ship's hover.
+- `src/game/demos.ts`, `src/game/views.ts`: `#colony`, `#colonies`, `#ally` and two views. `src/ui/style.css`: the site page's few styles.
+- `scripts/smoke.mjs`, `scripts/measure.mjs`: the new demos.
+
+**Checks at check-in:** the full `npm test`: 526 tests in 44 files, all passing (817 s on the loaded machine). `npm run build`: clean. Every one of the 121 earlier prepared demos opens with the same date, people, money and homes as at `3a63fad`. A version 27 save loads through every step (`tests/colonies.test.ts`, `tests/vassals.test.ts`). The slow smoke: the first full run found one real fault (opening a road on a city's page also opened a page called after the road and stopped the page redrawing, because the rival colony's button shared the route buttons' `data-open`; fixed in `0420bca`, with a smoke step for the rival colony's button), and the failure's long waits ran it out of time at `#hostile`. Every step before it passed. **The full smoke after the fix was started but stopped unfinished at hand-back: it still needs one full run.** The fix was checked by hand from the build: `#routes` opens its road with no page error, and a rival colony's button opens its city. Loads were measured side by side against `3a63fad`, two rounds, with the smoke running at the same time (see the check-in).
+

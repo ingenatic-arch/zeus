@@ -2,6 +2,59 @@
 
 Notes to Oliver, newest first.
 
+## Slice 37 — Colonies (22 Oct)
+
+You can now plant your own people on Greece's empty sites. From a site's page you pay 1,000 dr and 400 wheat, and four households from your town pack up, leave their homes standing empty, walk down to the quay and are rowed out to your ship, which sails along the site's own lane across the map. The colony grows by itself, sends you the share of its timber, marble or other good that you choose by ship, has a governor and a loyalty with every reason named, and can be raided or claimed by a rival (warned two months ahead) or, grown large and squeezed, warn you a season before it declares itself free. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 33 on this line (renumbered when it merges). Older saves load, with no colonies and nobody on the way.
+- **Clicking a site on the map** now opens the site's own page, not its holder's. A rival's colony's page has a button to its city's page.
+- **Rivals found colonies less often:** a city waits ten years between its colonies (was six), so sites don't all run out so soon. Over 20 runs of Greece alone: at year 15, 3.4 free sites on average (was 2.85); at year 20, two or more free in 12 runs (was 8). The first decade is unchanged.
+- **Allies' and vassals' men come in by the road their city's caravans use**, and the news and the line under the top bar now name that edge. In `#collect`'s town (no north road) Corinth's men come in on the west road, by the same edge as Sparta's raiders, and walk it towards the granary.
+- **Earlier demos.** Every earlier demo opens on the same day with the same people, money and homes as before (all 121 checked against the starting build). The changes above only show later in play.
+- **The long walks in `#collect`'s town** (slice 34's finding): your settlers walk at the caravans' sending pace (twice a townsman's), and the households nearest the quay go first. In `#colony`'s town that is still about three weeks, about as long as your ship takes to sail in, so nobody waits long. I left the full force's march out to the west edge and the tribute donkeys' walk in as they were: they are the size of that town's land.
+
+### What's new
+- **A site's page.** Click any site on the map of Greece.
+  - Free: what a colony there would make and send (for a colony of 400 at a fair share), the price (1,000 dr, 400 wheat from your granaries, and four households), the households who would go by name, how many days' sail, and the button, or why it can't go now (no trading post, too little money or wheat, too few households, a founding already under way, a rival's settlers bound there).
+  - Your settlers on their way: each household and where it is (packing, walking down to the quay, on the quay, aboard), your ship, and when she sails or lands.
+  - Your colony: its name (rename it with the pencil), its people and why they grow, its governor and his trait, its loyalty with every reason, its share (light, fair, heavy, each with what it sends a year and what it does to loyalty), what is on its way and what came last, its guards, and the households who founded it.
+- **The families leave.** Each household packs for two days, then its home stands empty ("The house of Hermippos left it to found a colony on Thasos"), and the family walks down to the quay with its bundles. Your ship sails in and anchors off the jetty; families are rowed out to her a day after they reach the quay. Once all are aboard (or two months on, with whoever came) she sails out of the bay, and on the map she sails the site's lane, drawn while you have settlers or a colony there. Voyages end later in winter's storms.
+- **The colony.** It grows each month from newcomers from the islands (most while it is small, none in winter) and its own children; a light share helps, a heavy one drives families away. It makes its site's good at about 10 dr a person a year and sends you a quarter of your share each season by ship: she comes into your bay like a vassal's tribute ship, and the donkeys carry the goods to the store. There's a ledger line ("colonies") and a stock book line ("From your colony on Thasos").
+- **Its loyalty** starts at 50 and moves half the way each month towards its reasons: its settlers are your own people (+25, fading over twelve years), the share (light +15, heavy −20), your triremes (+3 each up to +9; none at all −5), being grown large (over 600 people), its governor (loyal +10, steady +5, proud −10 once it is over 500, grasping −10 with a heavy share), and what it remembers of you.
+- **Freedom, warned.** A colony of 500 people or more under 30 loyalty talks of freedom: urgent news, a line under the top bar, a red mark on its label, and its page with the day it declares itself free, a season on, and a button to lighten its share. Back to 40 by then and it drops it. Free, it is a city of its own on the map, sends nothing, and nobody founds there again.
+- **Threats.** Now and then (about one colony-month in forty, from its sixth month, a year apart, not in winter) a rival with ships that is cold to you sends them against a colony: to raid it, or to claim a small one. You get urgent news, a line under the top bar, its fleet on the map sailing towards the colony, a red mark on the label, and about 60 days. On the colony's page: send your triremes to guard it (the odds shown: about 7 in 10 with as many ships as theirs, at most 9 in 10), strike at the rival's city with a full force (its ships are called home as soon as your army sets out), or let it be (a raid takes 15 in every hundred of its people and its next shipment, and it remembers; a claim takes the colony).
+
+### What to try
+1. #colony — your settlers for Thasos coming down to the quay, the first household rowed out to your ship at anchor off the jetty. Hover a family on the road, the ship, and one of the empty homes they left (they are townhouses up the road from the quay). Press Tab and click Thasos for its page; play on and follow the ship out along the lane.
+2. #colonies — the same town two years after Nea Thasos landed, with Nea Naxos too, on Nea Thasos' page. Read its loyalty and its people, change its share and watch the figures move, rename it. Click Nea Naxos for its marble, and an empty site for the price of another. Close the map and watch the bay: a colony's ship comes in every season.
+3. #ally — Corinth is your ally (set up for this demo), Sparta's raiders are gathering, and Corinth's company is walking in along the west road, where its caravans would come in. Press Tab, open Corinth's Empire tab: "Its men in your defence".
+
+### What I'd like your eye on
+- **Is the founding worth watching?** In `#colony` the families take about three weeks from packing to the last one aboard, about the time your ship takes to sail in. They gather at the trading post's corner and are "rowed out": there are no boats drawn. Tell me if you'd like the ship to tie up at the jetty and the families to walk aboard instead (she would hold the jetty against the Tyre ship for those weeks).
+- **Is a colony worth having?** Fitting one out costs 1,000 dr, 400 wheat and four households. Two years on, Nea Thasos at about 270 people sends about 150 timber a season at a fair share (a loggers' camp cuts about 100 a month), and Nea Naxos about 90 marble (a quarry cuts about 100 a month). I raised what a colony makes from 3 to 10 dr a person a year after looking: at 3 a season's ship brought 50 timber or 20 marble, too little to notice.
+- **The page's length.** Your colony's page is long; the loyalty comes before the share. Tell me if the share should come first.
+
+### Known rough edges
+- The rival's fleet sailing against a colony is drawn on a straight line from its city to the site, which can cross land (Sparta's from the Peloponnese, for one).
+- A colony's ship can't be taken at sea yet (that is slice 38's blockades), and nothing lays out a colony's streets: colonies are run from their page.
+- The settlers' ship is drawn at anchor in the city, but on the map of Greece she only appears once she sails out of the bay.
+- Hovering the colony shipment ship in your bay says nothing yet (nor does a vassal's tribute ship's; both were like this).
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080, on a machine shared with the other lines. Before is `3a63fad` (the trunk with slices 30 to 34); after is this slice. The loads were measured side by side, alternating the two builds, but only two rounds each and with the smoke test running at the same time, so the times swing by a third or more. Only large changes count, and none here is clearly more than the noise.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 513 in 43 files | 526 in 44 files, all passing (13 new, in `tests/colonies.test.ts`) |
+| Download (gzipped) | 3,716 KB: the game 743 KB, the prepared towns 2,974 KB (90 files, the largest 45 KB) | 3,851 KB: the game 758 KB, the prepared towns 3,092 KB (93 files, the largest 45 KB) |
+| First load (bare link), side by side | ready at 6.7 s, first frame at 9.0 s | ready at 7.0 s, first frame at 8.7 s |
+| Demo loads, side by side (8 earlier demos) | median 7.3 s, slowest 8.5 s (`#fortress`) | median 8.2 s, slowest 8.8 s (`#rivals`) |
+| The map of Greece from `#town`, side by side | built in 1,750 ms; first frame at 28.8 s | built in 928 ms; first frame at 32.2 s |
+| Free sites (Greece alone, 20 seeds) | year 15: 2.85 on average; year 20: 1.4 (8 runs with two or more) | year 15: 3.4; year 20: 1.85 (12 runs with two or more) |
+
+The new demos' load times were not measured on their own.
+
 ## Slice 34 — Vassals and allies (22 Oct)
 
 Your city can now stand over its neighbours. You can take a city in three ways: march a full force on it to conquer it, send a herald demanding that it submit, or offer to let an overdue debt go in return for its loyalty. Before you send, the page shows the odds and the reasons behind them. A vassal pays tribute every season, in coin or in one of its goods, light, fair or heavy. Its donkeys walk the tribute into your storehouse or tax office. It never trades against you or threatens you, and it sends men down its road when raiders come for you. Its loyalty is a number with every reason listed. When loyalty falls under 30, the vassal arms a season before it rises: lighten its tribute, send a gift, or march on it. A warm ruler can become your ally: it sends men when you are raided and asks you to join its wars, and it may march with you when you go to conquer. A lender's army now comes only for 500 dr or more. You weren't here while it was built: every choice below is mine, from the spec's defaults.
