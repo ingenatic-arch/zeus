@@ -107,7 +107,9 @@ export class MonumentsView {
     // the pad and its skirt on the downhill side are no taller than they must be.
     // (The Stadium's ground is never steep, its placing sees to that: its track always on the highest, so no ground shows through it.)
     const y = b.kind === 'masons' ? (lo + hi) / 2 : b.kind === 'stadium' || hi - lo <= 0.5 ? hi : Math.max(inner, lo + (hi - lo) * 0.6);
-    f = { x: cx, y: y + 0.01, z: cz, yaw, depth: y - lo };
+    // (Review of slice 35: the Stadium's wide track a little higher still, so the ground between the points sampled never shows through it by the seats.)
+    const over = b.kind === 'stadium' ? 0.05 : 0;
+    f = { x: cx, y: y + 0.01 + over, z: cz, yaw, depth: y + over - lo };
     this.frames.set(key, f);
     return f;
   }

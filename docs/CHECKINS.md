@@ -15,8 +15,8 @@ What breaks, or moves:
 
 ### What's new
 - **The masons' yard** (2×2, 200 dr, 8 workers): a walled yard with a lean-to and blocks being dressed. It sends up to four builders (one for each two workers) by road to the monument being built. They climb onto the scaffold and hammer with mallet and chisel, and walk home when the stage is done and the next can't start yet.
-- **A monument** is marked out with pegs and cords the moment you place it, then goes up in three stages. Each stage needs its marble, timber and (for the Colossus) bronze **all on site before it starts**. Ox carts bring them from the storehouses, 50 at a time, up to six on the road at once, slower than other carts, and the blocks, logs and copper pile up by the site. The site says what it waits for: "For the lantern next: 180 of 200 marble on site, 20 on the way; 0 of 160 timber on site, 160 on the way". Once a stage has everything it starts, and it goes as fast as the builders there. A stage takes 30 to 70 days with every builder it wants. Each monument needs 800 to 1,150 blocks of marble, against a quarry's 100 a month at best.
-- **The Lighthouse** (3×3, 1,500 dr) goes on high ground by the sea. Finished, its fire burns at the top, day and night, with a glow and smoke drifting on the wind. The Tyrian ship then comes in in 12 days, not 20, sails off in 10, not 16, and calls every two months, not three. Pirates keep clear of your waters.
+- **A monument** is marked out with pegs and cords the moment you place it, then goes up in three stages. Each stage needs its marble, timber and (for the Colossus) bronze **all on site before it starts**. Ox carts bring them from the storehouses, 50 at a time, up to six on the road at once, at a cart's pace (about a tile of road a day), and the blocks, logs and copper pile up by the site. The site says what it waits for: "For the lantern next: 180 of 200 marble on site, 20 on the way; 0 of 160 timber on site, 160 on the way". Once a stage has everything it starts, and it goes as fast as the builders there. A stage takes 30 to 70 days with every builder it wants. Each monument needs 800 to 1,150 blocks of marble, against a quarry's 100 a month at best.
+- **The Lighthouse** (3×3, 1,500 dr) goes on high ground by the sea. Finished, its fire burns at the top, day and night, with a glow and smoke drifting on the wind. The Tyrian ship then takes 12 days to come in from the horizon, not 20, and 10 to sail off, not 16, and calls every two months, not three; her line under the top bar says she is guided in by your Lighthouse. Pirates keep clear of your waters.
 - **The Colossus** (3×3, 2,000 dr) goes on the shore by deep water: a marble plinth, a bronze frame, then a bronze figure with a torch raised, facing the sea. Its 700 bronze is copper cast on site by an armoury's smiths, so it needs an armoury with workers. Finished, every ruler in Greece is 12 warmer for good: "They speak of your Colossus".
 - **The Stadium** (6×6, 2,500 dr) goes on flat ground: a track, earth banks with rows of stone seats, a colonnade, a judges' stand and a starting line. Games come every four years. The first are four months after it is finished, and each is announced three months ahead. While they are on, groups of visitors walk in from the edge of the map and take their seats, paying 8 dr a head. Pennants fly, the crowd cheers, and every home is happier (+2) while they last and a little (+1) for two months after. Friendly rulers send athletes and remember it.
 - **Every ruler notices** a monument when it is finished (+6, fading over a year), and the warmest sends compliments (News of Greece).
@@ -38,7 +38,6 @@ Each link also opens paused if you add `-paused` (for example `#monument-paused`
 
 ### Known rough edges
 - **No Colossus demo.** Its 700 bronze takes years on one copper mine, so a demo would play far too long. It can be built in play; the tests place one and finish its stages by hand to check its effect.
-- **The town lines cover the top of the view** in #lit, over the sea, though the Lighthouse itself is clear.
 - **The Colossus's bronze frame** (the middle stage) is thin struts, and reads as thin from far off.
 - **Visitors walk about two months** from the map's edge, so the games are announced three months ahead for the seats to fill.
 - **Monuments never burn, wear or fall in**, and can't be repaired (there's nothing to repair).
@@ -62,7 +61,24 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `daeac58` (the 
 The demo loads average 0.7 s slower after, inside a swing of 3 to 4 s between runs of the same build. `#games` at normal speed had the highest frame work of the new demos (54 and 87 ms over 6 frames). Paused, it is 2.5 ms, against 2.9 for `#lit` and `#town`, so drawing the crowds is cheap. A game tick in `#games` takes 1.5 ms in Node (`#lit` 2.8, `#town` 0.8), so the simulation is not the cause either. The likeliest cause is the sim catching up several ticks a frame at software rendering's one frame a second; the review should look again on a quieter machine.
 
 ### What the review changed
-*(For the reviewer.)*
+I played the three links and the placing tools at 1920 × 1080, read the new code, and ran the tests, the build and the smoke's monument checks. What I changed:
+- **#games no longer opens in debt.** Its town used to say yes to the loans Knossos and Athens offered on the way, so it opened with two debts and their lines over the games. It now turns them down: it opens with about 5,800 dr (not 9,800), no debts, and the games' line in sight.
+- **The monuments' line comes before the News of Greece and the ships**, so "The games are on at the Stadium…" or a site waiting for stone is not folded away under "+N more".
+- **#lit is reframed** from a little further round, so the lines under the top bar no longer cover the Lighthouse or the ship.
+- **The Lighthouse's effect is named where it shows.** The ship's line and her news now say she is "guided in by your Lighthouse" (12 days from the horizon, not 20). The Lighthouse's card, tab entry and tool tip now give both of her times, in and out ("10 to sail off, not 16" was missing), in the same words everywhere.
+- **The Colossus's bronze** is called "copper for the bronze" on the tab, the cards and the tool tip, so you know it is copper from the storehouses that the armourers cast on site.
+- **The tool tips** for the monuments no longer say "0 workers".
+- **Placing a second monument of a kind** now says "yours is already standing" once it is finished (it said "marked out" either way).
+- **The marble piles by a site** are bigger blocks on two dark skids, so they show against the pale stone pad. Have a look in #monument, by the tower's foot.
+- **The Stadium's track** is lifted a little, so it no longer flickers through the ground in places.
+- A save test now checks old saves from any earlier version on this line, so it won't break when the lines merge.
+
+What I checked and left alone:
+- **#games' frame work.** On the reviewer's run, an update took about 24 ms at normal speed and 3 ms paused, in #games and #lit alike (#town 19 and 3). A game tick in #games takes about 1.5 ms, and at software rendering's slow frame rate the game runs up to ten ticks a frame to keep time, which is the whole of it. Drawing the crowds costs nothing extra.
+- **The effects are real.** The tests confirm the Lighthouse's quicker ship and the pirates staying clear, and the Colossus's +12 shows in each ruler's mood with its reason, "They speak of your Colossus".
+- **Saves.** #monument, #lit and #games each saved, reloaded and played 1,200 ticks the same as without the save, with the treasury's books balancing.
+- **Ox carts** do deliver: the five in #monument carry 50 each to the site, and the site's wait reads in plain words ("For the lantern next: 180 of 200 marble on site, 20 on the way…").
+- Still for your eye: the Lighthouse's knoll seen from downhill can look like an upside-down wedge of earth under the pad; the marble on the quay sits partly behind its logs; I could not look at a Colossus, as there is no demo.
 
 ## Slice 32 — Marble and timber (21 Oct)
 

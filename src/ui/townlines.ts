@@ -71,7 +71,8 @@ const rank = (need: TownLine['need']): number => {
  * and caravans. (Review of slice 29: folded in ORDER, a ship and a caravan
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader', 'monument'];
+// (Review of slice 35: the monuments' line, the games on or a site stuck, before the News of Greece and the ships and caravans coming and going.)
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'greece', 'ship', 'trader'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;

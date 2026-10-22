@@ -48,8 +48,8 @@ const dayOf = (tick: number): string => {
   return `${d.day} ${d.monthName}`;
 };
 
-/** What a material is called on a site: bronze for the copper the armourers cast. */
-export const materialName = (w: Ware): string => (w === COPPER ? 'bronze' : w === MARBLE ? 'marble' : w === TIMBER ? 'timber' : 'goods');
+/** What a material is called on a site: the copper the armourers cast into bronze is named as copper, so it plainly is the copper from the mines and stores (review of slice 35). */
+export const materialName = (w: Ware): string => (w === COPPER ? 'copper for the bronze' : w === MARBLE ? 'marble' : w === TIMBER ? 'timber' : 'goods');
 /** What would bring a material the stores have none of. */
 const BRINGS: Record<number, string> = {
   [MARBLE]: 'a marble quarry on the headland cuts it, or buy it from Greece on the Trade tab',
@@ -106,9 +106,16 @@ function leftLine(s: SimState, x: Site): string {
   return `About ${spanWords(left / pace)} of work left at this pace${pace < st.builders ? ` (${spanWords(left / st.builders)} with all ${st.builders} builders)` : ''}`;
 }
 
+/** What a finished monument of a kind does, the same whether or not one stands (the tools and the tab say it before one is built). */
+export function doesLine(kind: MonumentKind): string {
+  if (kind === 'lighthouse') return `the Tyrian ship takes ${Math.round((SAIL_IN * LIT_PACE) / TICKS_PER_DAY)} days to sail in, not ${SAIL_IN / TICKS_PER_DAY}, and ${Math.round((SAIL_OUT * LIT_PACE) / TICKS_PER_DAY)} to sail out, not ${SAIL_OUT / TICKS_PER_DAY}, and calls every ${LIT_EVERY / TICKS_PER_MONTH} months, not ${SHIP_EVERY / TICKS_PER_MONTH} · pirates keep clear of your waters`;
+  if (kind === 'colossus') return `every ruler in Greece speaks of it: +${COLOSSUS_MOOD} to each one’s mood, for good`;
+  return 'games every four years, a month long: visitors walk in from the edge of the map and pay for their seats, and every home is in a festival mood';
+}
+
 /** What a finished monument does, in a line. */
 export function effectLine(s: SimState, kind: MonumentKind): string {
-  if (kind === 'lighthouse') return `Its fire burns: the Tyrian ship sails in in ${Math.round((SAIL_IN * LIT_PACE) / TICKS_PER_DAY)} days, not ${SAIL_IN / TICKS_PER_DAY}, and out in ${Math.round((SAIL_OUT * LIT_PACE) / TICKS_PER_DAY)}, and calls every ${LIT_EVERY / TICKS_PER_MONTH} months, not ${SHIP_EVERY / TICKS_PER_MONTH} · pirates keep clear of your waters`;
+  if (kind === 'lighthouse') return `Its fire burns: ${doesLine(kind)}`;
   if (kind === 'colossus') return `Every ruler in Greece speaks of it: +${COLOSSUS_MOOD} to each one’s mood, for good`;
   const g = s.monuments.games;
   if (g.until > s.tick) return `The games are on: ${fmt(g.visitors)} visitors so far, paying ${fmt(g.takings)} dr for their seats (${VISITOR_PAYS} dr a head) · they end in ${spanWords(g.until - s.tick)}`;
@@ -226,7 +233,7 @@ export function monumentTownLine(s: SimState): { text: string; at: number } | nu
     if (!x.building) {
       const st = stageNow(x)!;
       const short = MATERIALS.filter((w) => needOf(st, w) > held(b, w) + comingTo(s, x.id, w) && !s.buildings.some((g) => g.kind === 'storehouse' && held(g, w) > 0));
-      if (short.length) return { text: `${monumentName(x.kind, true)} waits for ${short.map((w) => `${fmt(needOf(st, w) - held(b, w) - comingTo(s, x.id, w))} ${materialName(w)}`).join(' and ')} for ${low(st.name)}, and no storehouse has any.`, at: x.id };
+      if (short.length) return { text: `${monumentName(x.kind, true)} waits for ${short.map((w) => `${fmt(needOf(st, w) - held(b, w) - comingTo(s, x.id, w))} ${materialName(w)}`).join(' and ')} before ${low(st.name)} can start, and no storehouse has any.`, at: x.id };
       if (isBronze(x) && !smithsAt(s) && MATERIALS.every((w) => held(b, w) >= needOf(st, w))) return { text: `${monumentName(x.kind, true)}: the bronze is on site, and waits for the armourers. An armoury with workers casts it.`, at: x.id };
     } else if (buildersTo(s, x.id).length === 0 && !s.buildings.some((y) => y.kind === 'masons' && buildersFor(y) > 0)) {
       return { text: `${monumentName(x.kind, true)}: ${low(stageNow(x)!.name)} is ready to build, but no masons’ yard sends builders.`, at: x.id };

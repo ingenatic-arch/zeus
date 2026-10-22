@@ -237,14 +237,20 @@ describe('monuments', () => {
 
   it('a town from before has no monument and no games', () => {
     const sim = demoSim('quarry');
-    const old = JSON.parse(serialize(sim.state)) as Record<string, unknown>;
-    delete old.monuments;
-    old.version = SIM_STATE_VERSION - 1;
-    expect(migrate(old)).toBe(SIM_STATE_VERSION - 1);
-    expect(old.version).toBe(SIM_STATE_VERSION);
-    const m = old.monuments as SimState['monuments'];
-    expect(m.sites).toEqual([]);
-    expect(m.games.next).toBe(0);
+    const now = serialize(sim.state);
+    // (Review: the step that brings in the monuments is found by trying each version from the newest down, so this holds
+    // when the lines' versions are renumbered at merge and other steps come after it.)
+    let m: SimState['monuments'] | undefined;
+    for (let v = SIM_STATE_VERSION - 1; v >= 28 && !m; v--) {
+      const old = JSON.parse(now) as Record<string, unknown>;
+      delete old.monuments;
+      old.version = v;
+      expect(migrate(old)).toBe(v);
+      expect(old.version).toBe(SIM_STATE_VERSION);
+      m = old.monuments as SimState['monuments'] | undefined;
+    }
+    expect(m?.sites).toEqual([]);
+    expect(m?.games.next).toBe(0);
   });
 
   it('a phase 4 save (version 27) comes up through every step with no monument, and plays on', () => {

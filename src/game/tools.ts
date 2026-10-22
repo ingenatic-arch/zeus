@@ -811,7 +811,8 @@ export class Tools {
       return;
     }
     const name = kind === 'fountain' ? 'Fountain' : BUILDING_NAMES[kind].replace(/^(An?|The) /, '').replace(/^./, (c) => c.toUpperCase());
-    let text = `${name} · ${fmt(cost)} dr · ${JOBS[kind]} workers`;
+    // (Review of slice 35: the monuments have no workers of their own, so no "0 workers".)
+    let text = `${name} · ${fmt(cost)} dr${JOBS[kind] > 0 ? ` · ${JOBS[kind]} workers` : ''}`;
     const lines: string[] = [];
     let warn = '';
     if (kind === 'fountain' || kind === 'agora' || kind === 'shrine' || kind === 'theatre' || kind === 'taxoffice') {

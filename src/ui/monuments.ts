@@ -8,7 +8,7 @@ import type { CoastMap } from '../map/bake';
 import { centreOf } from '../sim/buildings';
 import { COPPER, held, MARBLE, TIMBER } from '../sim/foods';
 import { MONUMENT_KINDS, monumentName, monumentOf, progressOf, STAGES, totalOf, workOf, type MonumentKind } from '../sim/monuments';
-import { effectLine, materialName, siteStatus } from '../sim/monumentstatus';
+import { doesLine, materialName, siteStatus } from '../sim/monumentstatus';
 import { buildersFor, cartsTo, MAX_BUILDERS, siteBuilding } from '../sim/monumentworks';
 import type { SimState } from '../sim/state';
 
@@ -22,7 +22,7 @@ function entry(s: SimState, map: CoastMap, kind: MonumentKind): string {
   const Name = monumentName(kind, true);
   if (!x || !b) {
     const total = [MARBLE, TIMBER, COPPER].filter((w) => totalOf(kind, w) > 0).map((w) => `${fmt(totalOf(kind, w))} ${materialName(w)}`).join(', ');
-    return `<li class="mon none"><span class="nm">${esc(Name)}</span><span class="n">not begun</span><small class="why">${esc(`${total} in all, in three stages · finished: ${effectLine(s, kind).replace(/^Its fire burns: /, '').replace(/^The next games.*|^Games every.*/, 'games every four years')}`)}</small></li>`;
+    return `<li class="mon none"><span class="nm">${esc(Name)}</span><span class="n">not begun</span><small class="why">${esc(`${total} in all, in three stages · finished: ${doesLine(kind)}`)}</small></li>`;
   }
   const [cx, cz] = centreOf(b);
   const p = progressOf(x);

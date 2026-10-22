@@ -159,8 +159,8 @@ export const VIEWS: Record<string, CameraView> = {
   loggers: { x: 15, z: 76, yaw: 2.85, dist: 14, tilt: 0.05 },
   // Slice 35. #monument: the headland's top from above the quarry road, the Lighthouse's tower in its scaffold, the masons' yards and the ox carts below.
   monument: { x: 100, z: 94, yaw: -0.4, dist: 14, tilt: 0.0 },
-  // #lit: from the headland's top, the Lighthouse burning above the beach and the Tyrian ship sailing in past it (top right).
-  lit: { x: 93, z: 103.5, yaw: 2.5, dist: 44, tilt: -0.2 },
+  // #lit: from above the headland, the Lighthouse burning above the beach and the Tyrian ship sailing in (top right, clear of the lines under the top bar: review of slice 35).
+  lit: { x: 90, z: 104, yaw: 2.85, dist: 42, tilt: -0.2 },
   // #games: over the Stadium between the quay road and the quarry road, its seats full.
   games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
 };

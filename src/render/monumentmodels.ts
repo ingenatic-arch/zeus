@@ -243,15 +243,26 @@ export function crane(x: number, z: number, yaw: number, h: number, load: string
   return parts;
 }
 
-/** A pile of n blocks of marble at (x, z), stacked in twos and threes. */
+/**
+ * A pile of n blocks of marble at (x, z), stacked in twos and threes on a
+ * pair of dark timber skids (review of slice 35: on the pale pad and steps
+ * the blocks alone hardly showed, so they are a little bigger, and the skids
+ * set them off).
+ */
 export function marblePile(x: number, z: number, n: number, seed: number): Part[] {
   const parts: Part[] = [];
+  if (n <= 0) return parts;
+  const skid = 0.035;
+  const wide = Math.min(n, 3);
+  const len = 0.19 * (wide - 1) + 0.26 + (n > 3 ? 0.09 : 0);
+  const mid = x + (n > 3 ? 0.045 : 0);
+  for (const dz of [-0.07, 0.07]) parts.push({ geo: new THREE.BoxGeometry(len, skid, 0.05).translate(mid, skid / 2, z + dz), color: TONE.poleDark });
   for (let i = 0; i < n; i++) {
     const row = Math.floor(i / 3);
     const k = i % 3;
-    const bx = x + (k - 1) * 0.15 + (row % 2) * 0.07;
+    const bx = x + (k - 1) * 0.19 + (row % 2) * 0.09;
     const bz = z + (hash2(i, 1, seed) - 0.5) * 0.04;
-    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.13, 0.09, 0.18), 0.05, seed + i).translate(bx, 0.045 + row * 0.09, bz), color: i % 2 ? TONE.marble : TONE.marbleShade });
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.17, 0.115, 0.23), 0.05, seed + i).translate(bx, skid + 0.0575 + row * 0.115, bz), color: i % 2 ? TONE.marble : TONE.marbleShade });
   }
   return parts;
 }

@@ -30,13 +30,14 @@
  * - **Finished**: every ruler admires it (a memory fading over a year), the
  *   warmest sends compliments; the Colossus is remembered for good ("they
  *   speak of your Colossus"); the Lighthouse speeds the Tyrian ship and keeps
- *   pirates off (trade.ts, fleet.ts); the Stadium holds its first games two
+ *   pirates off (trade.ts, fleet.ts); the Stadium holds its first games four
  *   months on.
- * - **The games**: a month every four years. Groups of visitors walk in from
- *   the map's edge every couple of days, pay for their seats at the Stadium
- *   (VISITOR_PAYS a head, on the ledger as sales), watch for a few days and
- *   walk out again; cordial rulers send athletes (a memory fading over a
- *   year). Every home's mood lifts while they are on (folk.ts).
+ * - **The games**: a month every four years, announced three months ahead.
+ *   Groups of visitors walk in from the map's edge every couple of days from
+ *   the announcement, pay for their seats at the Stadium (VISITOR_PAYS a
+ *   head, on the ledger as sales), stay in their seats to the end and walk
+ *   out again; cordial rulers send athletes (a memory fading over a year).
+ *   Every home's mood lifts while they are on (folk.ts).
  *
  * Nothing here draws a random number, and nothing runs in a town with no
  * monument and no masons' yard.
@@ -49,7 +50,7 @@ import { findBuilding, footSide } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_YEAR } from './clock';
 import { news, settleMood } from './diplomacy';
 import { CART_TAKE, goTo, lastRoad, nearestBy, wayPoints } from './food';
-import { COPPER, held, MARBLE, setHeld, TIMBER, WARE_NAMES, type Ware } from './foods';
+import { held, setHeld, type Ware } from './foods';
 import { rateOf } from './labour';
 import {
   finished as isFinished,
@@ -148,7 +149,7 @@ function meanHeight(map: CoastMap, x: number, z: number, side: number): number {
 /** Why a monument (or the masons' yard) can't have its top-left tile here ('' if it can): the ground itself is checked before (build.ts). */
 export function monumentRefusal(map: CoastMap, s: SimState, kind: BuildingKind, tx: number, tz: number): string {
   if (!isMonument(kind)) return '';
-  if (monumentOf(s, kind) || s.buildings.some((b) => b.kind === kind)) return `Only one ${monumentName(kind).replace(/^the /, '')} to a city: yours is already marked out`;
+  if (monumentOf(s, kind) || s.buildings.some((b) => b.kind === kind)) return `Only one ${monumentName(kind).replace(/^the /, '')} to a city: yours is already ${monumentOf(s, kind)?.finished ? 'standing' : 'marked out'}`;
   if (kind === 'lighthouse') {
     if (!seaNear(map, tx, tz, 3)) return 'The Lighthouse stands by the sea: on a headland over the water, where ships can see its fire';
     if (meanHeight(map, tx, tz, 3) < LIGHTHOUSE_HIGH) return 'Too low for the Lighthouse: it needs high ground over the sea, on the headland, so its fire is seen far out';
@@ -711,5 +712,3 @@ export function stepMonuments(s: SimState, map: CoastMap): void {
   if (isFinished(s, 'stadium')) stepGames(s, map);
 }
 
-/** The marble, timber and bronze names, for lines about them. */
-export const materialName = (w: Ware): string => (w === COPPER ? 'bronze' : w === MARBLE ? 'marble' : w === TIMBER ? 'timber' : WARE_NAMES[w]);

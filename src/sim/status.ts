@@ -1836,6 +1836,8 @@ function shipTownLine(s: SimState): TownLine | null {
   const worth = quayWorth(s, post);
   const waiting = quay.some((n) => n > 0) ? ` On the quay: ${goodsList(quay)}${worth > 0 ? `, worth ${fmt(worth)} dr` : ''}.` : ' The quay is empty.';
   const inDays = news.days === 1 ? '1 day' : `${news.days} days`;
-  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
+  // (Review of slice 35: guided in by the Lighthouse, quicker than she used to be.)
+  const guided = ship.phase === SHIP_COMING && ship.pace !== undefined ? ', guided in by your Lighthouse' : '';
+  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}${guided}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
   return { need: 'ship', text, at: post.id };
 }

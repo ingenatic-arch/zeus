@@ -1059,7 +1059,9 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + sailInTicks(ship));
     const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
-    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}` };
+    // (Review of slice 35: a voyage at the Lighthouse's pace says so.)
+    const guided = ship.pace !== undefined ? `, guided in by your Lighthouse (${dayWords(Math.round(sailInTicks(ship) / TICKS_PER_DAY))} from the horizon, not ${dayWords(SAIL_IN / TICKS_PER_DAY)})` : '';
+    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: (near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}`) + guided };
   }
   if (ship.phase === SHIP_MOORED) {
     const days = daysTo(s, ship.since + LOADING);

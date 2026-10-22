@@ -9,7 +9,7 @@ import { CAMP_REACH, campOutlook, LOGS_PER_TREE, MAX_LOGGERS, quarryOutlook, REG
 import { spanWords } from '../sim/materialstatus';
 import type { SimState } from '../sim/state';
 import { MAX_BUILDERS } from '../sim/monumentworks';
-import { effectLine, materialName } from '../sim/monumentstatus';
+import { doesLine, materialName } from '../sim/monumentstatus';
 import { MATERIALS, monumentOf, needOf, STAGES, totalOf, type MonumentKind } from '../sim/monuments';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { TICKS_PER_MONTH } from '../sim/clock';
@@ -50,8 +50,8 @@ export function worksLines(s: SimState, map: CoastMap, kind: WorksTool, x: numbe
     const days = STAGES[kind].reduce((a, st) => a + st.days, 0);
     lines.push(`Built in three stages, each starting once its materials are all on site: ${total} in all, hauled from the storehouses by ox cart, and ${Math.round((days * TICKS_PER_DAY) / TICKS_PER_MONTH)} months of work with every builder there`);
     lines.push(stagesLine(kind));
-    lines.push(`Finished: ${effectLine(s, kind).replace(/^Its fire burns: /, '').replace(/^The next games .*/, 'games every four years, a month long: visitors walk in from the edge of the map and pay for their seats, and every home is in a festival mood')} · every ruler in Greece admires it`);
-    if (kind === 'colossus') lines.push('Its bronze is copper cast on site by the armourers: an armoury with workers is needed for the bronze stages');
+    lines.push(`Finished: ${doesLine(kind)} · and every ruler in Greece admires it`);
+    if (kind === 'colossus') lines.push('Its bronze is copper from the storehouses, cast on site by the armourers: an armoury with workers is needed for the bronze stages');
     if (!road) warn = 'No road beside it: the ox carts and the builders couldn’t reach it. Lay a road along one side first.';
     else if (!has(s, 'masons')) lines.push('Its builders come from a masons’ yard: build one too (or two: a stage goes as fast as the builders there)');
     if (monumentOf(s, kind)) warn = 'Your city already has one.';

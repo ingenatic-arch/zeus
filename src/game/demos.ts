@@ -2316,10 +2316,20 @@ function gamesTown(sim: Sim): void {
   LIT_TOWN(sim);
   const s = sim.state;
   const seen = new Set(s.world.deals.map((d) => d.id));
+  // (Review of slice 35: a town this rich turns down the loans it is offered, so no debt or loan news crowds a demo about the games.)
+  const declineLoans = (): void => {
+    for (const d of s.world.deals) {
+      if (seen.has(d.id) || d.state !== 'open' || d.kind !== 'loanoffer') continue;
+      seen.add(d.id);
+      sim.enqueue({ type: 'answer', deal: d.id, act: 'decline' });
+      sim.flush();
+    }
+  };
   const playOn = (most: number, done: () => boolean): void => {
     const end = s.tick + most;
     while (s.tick < end && !done()) {
       sim.run(TICKS_PER_DAY);
+      declineLoans();
       answerAsMiddling(sim, seen);
     }
   };
