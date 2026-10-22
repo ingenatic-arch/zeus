@@ -52,6 +52,9 @@ export class CameraRig {
   private groundY = 0;
   private readonly map: Ground;
   private readonly lim: RigLimits;
+  // Slice 33: the tops of the trees, so the camera keeps out of them on hillsides (eased, not jumped).
+  private canopy: ((x: number, z: number) => number) | null = null;
+  private over = 0;
 
   constructor(camera: THREE.PerspectiveCamera, map: Ground, view: CameraView, limits: RigLimits = CITY_LIMITS) {
     this.camera = camera;
@@ -184,6 +187,18 @@ export class CameraRig {
     return clamp(lerp(pitchNear, pitchFar, smoothstep(0, 0.9, t)) + tilt, 0.08, 1.45);
   }
 
+  /** Slice 33: keep the camera above the plants' crowns (trees.ts canopyAt). */
+  setCanopy(fn: (x: number, z: number) => number): void {
+    this.canopy = fn;
+  }
+
+  /** How far the crowns under the camera rise above where the ground would put it. */
+  private crownLift(x: number, y: number, z: number): number {
+    if (!this.canopy) return 0;
+    const top = this.canopy(x, z);
+    return top === -Infinity ? 0 : Math.max(0, top + 0.6 - y);
+  }
+
   private groundAt(x: number, z: number): number {
     return Math.max(this.map.heightAt(x, z), 0);
   }
@@ -200,6 +215,10 @@ export class CameraRig {
     const gy = this.groundAt(this.cur.x, this.cur.z);
     this.groundY += (gy - this.groundY) * (1 - Math.exp(-dt * 5));
     this.apply();
+    // Slice 33: ease up over the crowns (quickly) and back down (gently).
+    const want = this.crownLift(this.camera.position.x, this.camera.position.y - this.over, this.camera.position.z);
+    this.over += (want - this.over) * (1 - Math.exp(-dt * (want > this.over ? 10 : 3)));
+    if (this.over > 0.001) this.apply();
   }
 
   private apply(): void {
@@ -211,6 +230,7 @@ export class CameraRig {
     // Never dip below the ground (or the sea).
     const floor = this.groundAt(cam.position.x, cam.position.z) + 0.9;
     if (cam.position.y < floor) cam.position.y = floor;
+    cam.position.y += this.over;
     // Close up, aim a little above the ground so the horizon stays in view.
     const lift = lerp(0.9, 0, smoothstep(this.lim.minDist, 30, dist));
     cam.lookAt(x, this.groundY + lift, z);

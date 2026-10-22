@@ -70,6 +70,10 @@ import { PLACES, type CityId } from './map/greece';
 import { DEFAULT_SEED } from './sim/sim';
 // Slice 30.
 import { talliesNow, type CrimeTally } from './sim/crime';
+// Slice 33.
+import { RAIN, seasonNews, STORM, weatherNow, yearPhase } from './sim/seasons';
+import { applySeasonUniforms, seasonLook } from './render/seasons';
+import { buildRain } from './render/rain';
 
 interface Probe {
   ready: boolean;
@@ -93,6 +97,10 @@ interface Probe {
   /** Every demo's token (for the measurements' load of each). */
   demos: string[];
   info?: () => { triangles: number; calls: number; geometries: number; textures: number };
+  /** Slice 33 (for judging the look): show the land at another point of the year (0 to 4 from 1 March) and weather, or the sim's own again (no argument). */
+  lookAt?: (phase?: number, rain?: number, storm?: number) => void;
+  /** Slice 33: the look now (the year phase it shows and how wet it is). */
+  look?: () => { phase: number | null; rain: number; storm: number };
   setView?: (name: string) => void;
   jump?: (view: CameraView) => void;
   view?: () => Required<CameraView>;
@@ -291,6 +299,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'hazards', on: true });
     // Slice 30: and crime (with taxes day by day, harsh taxes' harder bite and fire's gentler first year).
     sim.enqueue({ type: 'crime', on: true });
+    // Slice 33: and the seasons.
+    sim.enqueue({ type: 'seasons', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;
@@ -354,8 +364,22 @@ function start(preparedTown: string | null): void {
   }
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 9000);
   applyFinishLight(world.scene, renderer);
+  // Slice 33: the season's look and the day's weather (render/seasons.ts, render/rain.ts).
+  const rain = buildRain();
+  world.scene.add(rain.mesh);
+  const look = seasonLook(null);
+  let wetNow = -1;
+  let stormNow = 0;
+  let lookOver: { phase: number; rain: number; storm: number } | null = null;
+  let lookPhase: number | null = null;
+  probe.lookAt = (phase, rain = 0, storm = 0) => {
+    lookOver = phase === undefined ? null : { phase, rain, storm };
+  };
+  probe.look = () => ({ phase: lookPhase, rain: wetNow, storm: stormNow });
   const finish = makeFinishPost(renderer, world.scene, camera);
   const rig = new CameraRig(camera, map, view);
+  // Slice 33: the camera keeps out of the trees on hillsides.
+  rig.setCanopy((x, z) => world.plants.canopyAt(x, z));
 
   const ui = document.getElementById('ui') as HTMLElement;
   const topbar = new TopBar(ui, driver);
@@ -1993,6 +2017,33 @@ function start(preparedTown: string | null): void {
       return;
     }
     world.setSeason(sim.date.month / 12 + (sim.date.day - 1) / (12 * 30));
+    {
+      // Slice 33: the land, sea and sky follow the season; rain and storms ease in and out (and open as they are).
+      const wx = weatherNow(s);
+      const wetTo = wx === STORM ? 1 : wx === RAIN ? 0.65 : 0;
+      const stormTo = wx === STORM ? 1 : 0;
+      if (wetNow < 0) {
+        wetNow = wetTo;
+        stormNow = stormTo;
+      } else {
+        const k = Math.min(1, dt * 0.5);
+        wetNow += (wetTo - wetNow) * k;
+        stormNow += (stormTo - stormNow) * k;
+      }
+      if (lookOver) {
+        wetNow = lookOver.rain;
+        stormNow = lookOver.storm;
+      }
+      lookPhase = lookOver ? lookOver.phase : s.season?.on ? yearPhase(s.tick) : null;
+      seasonLook(lookPhase, wetNow, stormNow, look);
+      applySeasonUniforms(look);
+      // Now and then a flash of lightning in a storm.
+      const beat = Math.floor(time / 6.5);
+      const since = time - beat * 6.5;
+      const flash = stormNow > 0.6 && ((beat * 2654435761) >>> 0) % 3 === 0 && since < 0.35 ? (since < 0.08 || (since > 0.16 && since < 0.24) ? 1 : 0) * stormNow : 0;
+      world.setLook(look, flash);
+      rain.update(camera, rig.target, time % 600, s.wind.angle, s.wind.strength, wetNow + stormNow * 0.6);
+    }
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.army.selected = orders.selected;
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
@@ -2026,6 +2077,8 @@ function start(preparedTown: string | null): void {
     orders.frame();
     if (!ordersChip.hidden) ordersChip.textContent = orders.hint();
     topbar.showDate(sim.date);
+    // Slice 33: the season dial.
+    topbar.showSeason(seasonNews(s), yearPhase(s.tick) / 4);
     topbar.showCity(s.population, s.money, time);
     const why = undoRefusal(s);
     side.setUndo(why === '', why === 'Nothing to undo' ? '' : why);

@@ -42,6 +42,8 @@ export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned'>;
 import { note } from './stockbook';
 import { income } from './treasury';
 import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk';
+// Slice 33: winter storms hold the ship back.
+import { lateWords, stormDelay } from './seasons';
 
 /** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23). */
 export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR];
@@ -634,7 +636,11 @@ export function stepTrade(s: SimState, map: CoastMap): void {
     return;
   }
   // The schedule starts when a post stands.
-  if (ship.due === 0) ship.due = s.tick + FIRST_SHIP;
+  if (ship.due === 0) {
+    ship.due = s.tick + FIRST_SHIP;
+    // (Slice 33: a first visit due in winter is held back by the storms.)
+    ship.due += stormDelay(s, 'tyre', ship.due);
+  }
   stepDockers(s, map, post);
   if (ship.phase === SHIP_AWAY) {
     if (s.tick >= ship.due - SAIL_IN) setSail(s, map, post, ship);
@@ -656,6 +662,7 @@ function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
   const berth = berthOf(map, post);
   if (!berth) {
     ship.due += SHIP_EVERY;
+    ship.due += stormDelay(s, 'tyre', ship.due);
     return;
   }
   ship.path = shipRoute(map, berth);
@@ -725,6 +732,8 @@ function stepLoading(s: SimState, post: Building, ship: Ship): void {
   // The next is due three months after this one was.
   ship.due += SHIP_EVERY;
   while (ship.due - SAIL_IN <= s.tick) ship.due += SHIP_EVERY;
+  // (Slice 33: due in winter, the storms hold her back a week or two.)
+  ship.due += stormDelay(s, 'tyre', ship.due);
 }
 
 // ---------------------------------------------------------------------------
@@ -1044,7 +1053,9 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + SAIL_IN);
     const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
-    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}` };
+    // (Slice 33: late for the winter's storms, the line says so.)
+    const late = lateWords(s, 'tyre');
+    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}${late}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}${late}` };
   }
   if (ship.phase === SHIP_MOORED) {
     const days = daysTo(s, ship.since + LOADING);
@@ -1061,7 +1072,9 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   if (!post) return null;
   // (A post built while the game is paused: her schedule starts with the next tick.)
   const days = daysTo(s, ship.due > 0 ? ship.due : s.tick + FIRST_SHIP);
-  return { phase: ship.phase, days, chip: `${days} d`, short: `Ship in ${days} d`, line: `The next ship is due in ${dayWords(days)}: she buys what is on the quay of the goods ticked for sale` };
+  // (Slice 33: held back by winter's storms, she is late, and the chip and line say so.)
+  const late = lateWords(s, 'tyre');
+  return { phase: ship.phase, days, chip: late ? `${days} d · late` : `${days} d`, short: late ? `Ship late · ${days} d` : `Ship in ${days} d`, line: `The next ship is due in ${dayWords(days)}${late}: she buys what is on the quay of the goods ticked for sale` };
 }
 
 /** What the post's dockers are doing, or why none is going ('' while there is nothing to say). */

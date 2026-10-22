@@ -25,6 +25,8 @@ import { Ground, mapIndex } from './build';
 import { TICKS_PER_DAY } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
 import { TILE_EMPTY, TILE_ROAD, type Herd, type SimState } from './state';
+// Slice 33: herds breed in spring.
+import { paceOf } from './seasons';
 
 /** A herd one short of full grows back a head in about this long (ten days); a thinner herd takes longer. */
 export const REGROW = 10 * TICKS_PER_DAY;
@@ -205,10 +207,12 @@ export function bolt(s: SimState, map: CoastMap, h: Herd, fromX: number, fromZ: 
 /** The herds graze, wander, flee and grow back, a tick at a time. */
 export function stepWild(s: SimState, map: CoastMap): void {
   const n = map.size;
+  // (Slice 33: a head grows back at the season's pace, twice as fast in spring; 1 with the seasons off.)
+  const breed = paceOf(s, 'wild');
   for (let i = 0; i < s.herds.length; i++) {
     const h = s.herds[i];
     if (h.head < h.full) {
-      if (--h.grow <= 0) {
+      if ((h.grow -= breed) <= 0) {
         h.head++;
         h.grow = regrowIn(h);
       }

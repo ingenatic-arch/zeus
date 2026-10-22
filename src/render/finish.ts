@@ -7,6 +7,7 @@ import { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { col, PAL } from './palette';
+import { SEASON_UNIFORMS } from './seasons';
 
 /**
  * The city's finish (the new look, picked by Oliver on 19 Oct from the
@@ -218,6 +219,9 @@ const GROUND = /* glsl */ `
     // Bedding in the rock.
     bareGround *= 0.9 + 0.2 * lkNoise(vec2(dot(p, vec2(0.7, 0.7)) * 1.5, vLkWorld.y * 7.0)) * smoothstep(0.15, 0.4, steep) * (1.0 - sandy);
     c = mix(bareGround, grass, greenness);
+    // Slice 33: the season turns the land (render/seasons.ts): the grass fully, the dry ground nearly as much, sand and rock faces little.
+    float lkVeg = max(greenness, (1.0 - sandy) * (1.0 - smoothstep(0.2, 0.45, steep)) * 0.85);
+    c = mix(c, lkSeasonTint(c, lkGrassTint, lkGrassSat), lkVeg);
     diffuseColor.rgb = c;
     lkH = mix(0.004 * rip * sandy * nearC, (0.025 * clump + 0.006 * blade * nearB) * nearC * (1.0 - bare * 0.7), greenness);
   }
@@ -263,6 +267,8 @@ const OBJECTS = /* glsl */ `
       float gap = smoothstep(0.4, 0.3, lkNoise3(wp * 21.0 + 5.0));
       c *= (0.72 + 0.5 * leaf) * (1.0 - 0.45 * gap);
       c = mix(c, c * vec3(1.15, 1.08, 0.8), clamp(n.y, 0.0, 1.0) * 0.35);
+      // Slice 33: the season turns the leaves, the dark evergreens (pines, cypresses) least.
+      c = mix(c, lkSeasonTint(c, lkLeafTint, lkLeafSat), smoothstep(0.03, 0.16, lum));
       #ifdef FLAT_SHADED
       lkBend = 0.75;
       #else
@@ -331,6 +337,19 @@ const APPLY = /* glsl */ `
   }
 `;
 
+// Slice 33: the season's tint (render/seasons.ts), on the grass and the leaves; the land darker in the wet.
+const SEASON_GLSL = /* glsl */ `
+uniform vec3 lkGrassTint;
+uniform float lkGrassSat;
+uniform vec3 lkLeafTint;
+uniform float lkLeafSat;
+uniform float lkWet;
+vec3 lkSeasonTint(vec3 c, vec3 tint, float sat) {
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return max(mix(vec3(l), c, sat) * tint, vec3(0.0));
+}
+`;
+
 let groundTex: THREE.DataTexture | null = null;
 let groundSize = 128;
 
@@ -357,11 +376,13 @@ function patch(mat: THREE.MeshStandardMaterial, body: string, name: string): voi
         }`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying vec3 vLkWorld;\nuniform sampler2D lkGroundTex;\nuniform float lkGroundSize;\nuniform vec3 lkTiles[3];\n${NOISE}\nfloat lkGround(vec2 p) { return texture2D(lkGroundTex, (p + 0.5) / (lkGroundSize + 1.0)).r; }`)
-      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\nvec3 lkWorldN = normalize((vec4(normal, 0.0) * viewMatrix).xyz);\nfloat lkH = 0.0;\nfloat lkBend = 0.0;\n${body}\n${APPLY}`);
+      .replace('#include <common>', `#include <common>\nvarying vec3 vLkWorld;\nuniform sampler2D lkGroundTex;\nuniform float lkGroundSize;\nuniform vec3 lkTiles[3];\n${SEASON_GLSL}\n${NOISE}\nfloat lkGround(vec2 p) { return texture2D(lkGroundTex, (p + 0.5) / (lkGroundSize + 1.0)).r; }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\nvec3 lkWorldN = normalize((vec4(normal, 0.0) * viewMatrix).xyz);\nfloat lkH = 0.0;\nfloat lkBend = 0.0;\n${body}\ndiffuseColor.rgb *= 1.0 - 0.16 * lkWet;\n${APPLY}`);
     shader.uniforms.lkGroundTex = { value: groundTex };
     shader.uniforms.lkGroundSize = { value: groundSize };
     shader.uniforms.lkTiles = { value: [col(PAL.roofTile), col(PAL.roofTileDark), col(PAL.rubbleTile)] };
+    // Slice 33: the seasons' shared uniforms (one write a frame turns the whole land).
+    Object.assign(shader.uniforms, SEASON_UNIFORMS);
   };
   mat.customProgramCacheKey = () => `${baseKey}-finish-${name}`;
   mat.needsUpdate = true;

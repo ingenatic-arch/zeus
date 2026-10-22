@@ -1,9 +1,11 @@
 import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
 import type { Crime } from './crime';
+// Slice 33.
+import type { Seasons } from './seasons';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 28;
+export const SIM_STATE_VERSION = 29;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -463,6 +465,8 @@ export interface SimState {
   fleet: Fleet;
   /** Slice 30: crime's switch, its news and the month's tallies (see crime.ts; each home's temptation is its `tempt`). */
   crime: Crime;
+  /** Slice 33: the seasons' switch and the ships winter has held back (see seasons.ts; the season itself is the tick's). */
+  season: Seasons;
 }
 
 /**

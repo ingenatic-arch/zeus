@@ -16,6 +16,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock
 import { giftMemory } from '../src/sim/diplomacy';
 import { FESTIVALS, festivalOn, nextFestival } from '../src/sim/festivals';
 import { openDeals } from '../src/sim/favours';
+import { held, OIL as OIL_WARE, setHeld } from '../src/sim/foods';
 import {
   armiesOnMap,
   declareWar,
@@ -392,6 +393,8 @@ describe('your part in it', () => {
     const sparta = cityOf(s.world, 'sparta');
     const r = s.world.routes.find((x) => x.city === 'corinth')!;
     const visits = r.visits;
+    // (Slice 33: #caravan opens in April, its storehouse nearly out of the oil Corinth buys after the winter's thin picking: some to sell.)
+    for (const b of s.buildings) if (b.kind === 'storehouse') setHeld(b, OIL_WARE, held(b, OIL_WARE) + 600);
     until(sim, () => r.visits > visits, 2 * TICKS_PER_MONTH);
     expect(sparta.memories.find((x) => x.kind === 'foetrade')?.why).toMatch(/you trade with their enemy Corinth/);
     s.money += 2000;

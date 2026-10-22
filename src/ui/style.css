@@ -58,6 +58,21 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
 .date .days { display: flex; gap: 2px; margin-top: 4px; }
 .date .days i { display: block; width: 4px; height: 4px; border-radius: 2px; background: rgba(122, 92, 60, 0.22); }
 .date .days i.on { background: var(--terracotta); }
+/* Slice 33: the season dial under the date. */
+.date .season { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 12.5px; line-height: 1; color: var(--ink-soft); white-space: nowrap; }
+.date .season[hidden] { display: none; }
+.date .season .dial { width: 17px; height: 17px; flex: none; }
+.date .season .q0 { fill: #93b24c; }
+.date .season .q1 { fill: #e2bc4e; }
+.date .season .q2 { fill: #c9763a; }
+.date .season .q3 { fill: #8d9ea6; }
+.date .season .rim { fill: none; stroke: #7a5c3c; stroke-width: 1.2; }
+.date .season .hand { stroke: #3a2a1c; stroke-width: 1.8; stroke-linecap: round; }
+.date .season .hub { fill: #3a2a1c; }
+.date .season .nm { font-weight: 600; color: var(--ink); font-variant: small-caps; letter-spacing: 0.04em; font-size: 13.5px; }
+.date .season .wx { font-style: normal; font-size: 11.5px; color: #4e6a7a; }
+.date .season .wx:empty { display: none; }
+.date .season .wx::before { content: '· '; color: var(--ink-soft); }
 .divider { width: 1px; align-self: stretch; background: linear-gradient(transparent, var(--edge), transparent); opacity: 0.7; }
 
 .speeds { display: flex; gap: 5px; }

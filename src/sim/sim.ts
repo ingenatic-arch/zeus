@@ -38,6 +38,8 @@ import { fleetCommand, freshFleet, orderTrireme, stepErrands, stepFleet, yardGon
 import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
 // Slice 30.
 import { freshCrime, moveThief, moveWatch, stepCrime } from './crime';
+// Slice 33.
+import { freshSeasons } from './seasons';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -88,6 +90,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     walls: [],
     fleet: freshFleet(),
     crime: freshCrime(),
+    season: freshSeasons(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -268,6 +271,14 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'crime':
       s.crime.on = c.on === true;
+      break;
+    // Slice 33.
+    case 'seasons':
+      if (s.season.on !== (c.on === true)) {
+        s.season.on = c.on === true;
+        // (The land's look, the farms' and herds' pace and what the dial says all follow it.)
+        s.looks++;
+      }
       break;
     case 'trade': {
       const k = Number.isInteger(c.good) ? tradeIndex(c.good) : -1;

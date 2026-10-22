@@ -8,7 +8,7 @@ import { coastMap } from '../src/map/bake';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { livedIn, VILLA } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
-import { BREAK_IN, HOME_COIN, moodCtx, setOut, startChase, TEMPT_FULL, temptationOf, temptRate, thievesOut, THIEF_FINE, worthAt } from '../src/sim/crime';
+import { BREAK_IN, HOME_COIN, moodCtx, setOut, startChase, TEMPT_FULL, temptationOf, temptRate, thievesOut, THIEF_FINE, TREASURY_COIN, worthAt } from '../src/sim/crime';
 import { FIRST_YEAR_PACE, riskRate } from '../src/sim/hazards';
 import { moodOf } from '../src/sim/folk';
 import { WHEAT } from '../src/sim/foods';
@@ -72,9 +72,13 @@ describe('temptation', () => {
     // At this score, full within about a month.
     expect(TEMPT_FULL / temptRate(t.score)).toBeLessThanOrEqual(32);
     // It rises on its day by its rate.
+    // (Slice 33: read just before its step, so a change in the town earlier in the day doesn't move it.)
     b.tempt = 0;
-    const before = temptationOf(s, size, b, moodCtx(s)).score;
-    sim.run(TICKS_PER_DAY);
+    let before = 0;
+    for (let k = 0; k < TICKS_PER_DAY && b.tempt === 0; k++) {
+      before = temptationOf(s, size, b, moodCtx(s)).score;
+      sim.step();
+    }
     expect(b.tempt).toBe(Math.min(TEMPT_FULL, temptRate(before)));
   });
 
@@ -145,7 +149,7 @@ describe('thieves', () => {
   it('a theft from the tax office is a Stolen line on the ledger, and the ledger adds up', () => {
     const { sim, s, w } = sendTo('taxoffice');
     expect(until(sim, () => w.back, TICKS_PER_MONTH)).toBe(true);
-    expect(w.food).toBe(-1);
+    expect(w.food).toBe(TREASURY_COIN);
     expect(w.load).toBeGreaterThan(0);
     expect(kindTotal(s.ledger.now, 'stolen')).toBe(-w.load);
     expect(s.ledger.now.find((l) => l.kind === 'stolen')!.what).toBe('from the tax office');

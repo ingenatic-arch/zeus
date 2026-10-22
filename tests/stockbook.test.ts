@@ -5,7 +5,7 @@
  * about how a town plays.
  */
 import { describe, expect, it } from 'vitest';
-import { TICKS_PER_MONTH } from '../src/sim/clock';
+import { TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
 import { WARES, WHEAT, WINE, OLIVES } from '../src/sim/foods';
 import { Sim } from '../src/sim/sim';
 import { BOOK_MONTHS, districtOfLine } from '../src/sim/stockbook';
@@ -23,7 +23,9 @@ describe('the stock book', () => {
 
   it('notes what the town makes, where homes use it, what workshops use and what the ship buys', () => {
     // Run on to the last tick of a month, then through the whole of the next (a month's ticks run from its first, m * TICKS_PER_MONTH, to the one before the next).
-    sim.run((TICKS_PER_MONTH - 1 - (s.tick % TICKS_PER_MONTH) + TICKS_PER_MONTH) % TICKS_PER_MONTH);
+    // (Slice 33: October's, in the autumn picking: #richtown opens in the last days of February, when the presses have waited through the winter for olives.)
+    const lastOfSeptember = 7 * TICKS_PER_MONTH - 1;
+    sim.run((lastOfSeptember - (s.tick % TICKS_PER_YEAR) + TICKS_PER_YEAR) % TICKS_PER_YEAR);
     const before = WARES.map((w) => stockOf(s, w).total);
     sim.run(TICKS_PER_MONTH);
     // Into the month after it: that month is now last month, and complete.

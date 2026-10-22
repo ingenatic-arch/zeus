@@ -57,7 +57,9 @@ export type Command =
   /** A trireme's order (its id): guard a sea `lane` (a way's id, such as 'athens-sea'), or come home and guard the bay. */
   | { type: 'fleet'; trireme: number; act: 'guard' | 'home'; lane?: string }
   /** Slice 30: crime's switch (crime.ts; also taxes day by day, harsh taxes' harder bite and fire's gentler first year), on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'crime'; on: boolean };
+  | { type: 'crime'; on: boolean }
+  /** Slice 33: the seasons' switch (seasons.ts), on as a game starts and from the first tick of every demo's history; off in a bare state. */
+  | { type: 'seasons'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';

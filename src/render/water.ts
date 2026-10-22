@@ -199,6 +199,20 @@ export interface Water {
   group: THREE.Group;
   update(time: number, windAngle: number, windStrength: number): void;
   setSun(dir: THREE.Vector3): void;
+  /** Slice 33: the season's sea, `grey` (0 to 1) towards a cold winter grey, `blue` towards a deeper summer blue. */
+  setLook(grey: number, blue: number): void;
+}
+
+/** Slice 33: a colour gone grey and dim (winter), or richer (summer). */
+const GREY_HUE = new THREE.Color(0.9, 0.98, 0.96);
+const BLUE_HUE = new THREE.Color(0.9, 1.0, 1.08);
+function seaGrey(c: THREE.Color, out: THREE.Color): THREE.Color {
+  const l = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  return out.setRGB(l + (c.r - l) * 0.18, l + (c.g - l) * 0.18, l + (c.b - l) * 0.18).multiply(GREY_HUE).multiplyScalar(0.86);
+}
+function seaBlue(c: THREE.Color, out: THREE.Color): THREE.Color {
+  const l = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  return out.setRGB(l + (c.r - l) * 1.3, l + (c.g - l) * 1.3, l + (c.b - l) * 1.3).multiply(BLUE_HUE);
 }
 
 /** How strongly the river shows at each point, from the edge of the stream and its fade into the sea. */
@@ -386,6 +400,10 @@ export function buildWater(map: CoastMap): Water {
     uEdgeFade: { value: new THREE.Vector2(...RIVER_EDGE_FADE) },
     uSoft: { value: finishOn() ? 1 : 0 },
   };
+  // Slice 33: the colours the season moves, as they were built.
+  const looks: [string, THREE.Color][] = ['uShallow', 'uMid', 'uDeep', 'uSky', 'uRiverCol'].map((n) => [n, (shared[n].value as THREE.Color).clone()]);
+  const tmp = new THREE.Color();
+  let lookKey = '0.000 0.000';
   const group = new THREE.Group();
   group.name = 'water';
   const sea = new THREE.Mesh(seaGeometry(map), makeMaterial(shared, false));
@@ -403,6 +421,17 @@ export function buildWater(map: CoastMap): Water {
     },
     setSun(dir) {
       (shared.uSunDir.value as THREE.Vector3).copy(dir).normalize();
+    },
+    setLook(grey, blue) {
+      const key = `${grey.toFixed(3)} ${blue.toFixed(3)}`;
+      if (key === lookKey) return;
+      lookKey = key;
+      for (const [name, base] of looks) {
+        const v = shared[name].value as THREE.Color;
+        v.copy(base);
+        if (blue > 0) v.lerp(seaBlue(base, tmp), Math.max(0, Math.min(1, blue)));
+        if (grey > 0) v.lerp(seaGrey(base, tmp), Math.max(0, Math.min(1, grey)));
+      }
     },
   };
 }

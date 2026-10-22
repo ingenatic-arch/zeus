@@ -152,4 +152,8 @@ export const VIEWS: Record<string, CameraView> = {
   triremes: { x: 70, z: 78, yaw: 3.0, dist: 34, tilt: -0.3 },
   // Slice 30, #thieves and #nowatch: the hut street on the slope behind the core's villas, from above the core looking up the slope.
   thieves: { x: 73, z: 28, yaw: -0.2, dist: 22, tilt: 0.05 },
+  // Slice 33, #seasons: the farms on the flood plain and the granary from the hills to the north-east, the core beyond.
+  seasons: { x: 52, z: 43, yaw: 2.3, dist: 38, tilt: -0.05 },
+  // Slice 33, #winter: the bay and the quay from over the water, the town on the slope behind.
+  winter: { x: 72, z: 63, yaw: -0.3, dist: 48, tilt: -0.25 },
 };

@@ -515,6 +515,9 @@ export function lootWords(w: Walker): string {
   return `${w.load} measures of ${WARE_NAMES[w.food]}`;
 }
 
+/** Slice 33: what a thief carrying the treasury's coin (from the tax office) has in `food`; any other coin is -1. */
+export const TREASURY_COIN = -2;
+
 /** At the door: he takes what he came for. */
 function steal(s: SimState, map: CoastMap, w: Walker): void {
   const t = findBuilding(s, w.target);
@@ -541,6 +544,8 @@ function steal(s: SimState, map: CoastMap, w: Walker): void {
     const coin = officeTake(s);
     if (coin <= 0) return;
     pay(s, -coin, 'stolen', 'from the tax office');
+    // (Slice 33: marked as the treasury's, so a catch hands it back there even if the office has gone since.)
+    w.food = TREASURY_COIN;
     w.load = coin;
     tl.coin += coin;
   } else return;
@@ -723,9 +728,10 @@ export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
         r.names = [name];
       }
       tl.coin -= thief.load;
-    } else if (thief.food < 0 && t?.kind === 'taxoffice') {
+    } else if (thief.food === TREASURY_COIN || (thief.food < 0 && t?.kind === 'taxoffice')) {
       // (Only the tax office's coin goes back to the treasury. Review of slice 30: a purse from a home burnt or
-      // cleared since went there too, coin the treasury never had.)
+      // cleared since went there too, coin the treasury never had. Slice 33: the office's coin goes back even
+      // when the office has been cleared or burnt since.)
       income(s, thief.load, 'recovered', 'from a thief');
       tl.coin -= thief.load;
     } else if (thief.food < 0) {
