@@ -37,16 +37,16 @@ The ambitions and their milestones (slice 39 reads the monuments' state). Blocka
 
 ## Before
 
-Measured at `daeac58`, headless Chromium with software WebGL at 1920 × 1080, with the other two lines building on the same machine (load 8 to 12 on 4 cores):
+Measured at `daeac58`, headless Chromium with software WebGL at 1920 × 1080, with the other two lines building on the same machine (load 17 to 24 on 4 cores); the loads and frame work side by side with this slice's build (see the check-in):
 
 | What | Before |
 |---|---|
 | Tests | 475 |
-| Download (gzipped) | see the measure log (filled in below once the run finishes) |
-| First load (bare link) | |
-| Demo loads | |
-| `#town` | |
-| Frame work (update before drawing) | |
+| Download (gzipped) | 3,455 KB: the game 717 KB, the prepared towns 2,738 KB (84 files) |
+| First load (bare link) | ready at 5.3 to 7.3 s, first frame 6.3 to 8.4 s (five runs) |
+| Demo loads | ready between 4.3 and 7.2 s, 5.6 s on average (`#town`, `#richtown`, `#caravan`, `#quarry`, 18 loads) |
+| `#town` | 1,458,804 triangles, 103 draw calls; `overview` 1,663,032 and 132; a save 171 KB |
+| Frame work (update before drawing) | `#town` 50.8 and 26.9 ms, `#richtown` 40.3 and 33.3, `#quarry` 88.9 and 37.2 (4 to 6 frames each, normal speed) |
 
 ## Design decisions
 
@@ -112,4 +112,32 @@ Bronze is copper (ware 8) cast at the site by an armoury's smiths: the Colossus'
 
 ## As built
 
-*(Filled in when the slice is done.)*
+Built as planned, with these differences:
+
+- **The games' timing.** Visitors walk in from the map's edge, and from there to the Stadium on this map is about two months on foot. As planned (announced a month ahead, groups walking home a few days after they arrive), almost nobody was in the seats. Now the first games open **four months** after the Stadium is finished (not two), every games is announced **three months** ahead (not one), groups set out from the announcement for as long as they would still arrive a few days before the end, and every group stays in its seat until the games end, then leaves over a few days (`LINGER`, a day more for each group in turn up to five). A traced games had 28 groups arrive (about 125 people), 28 groups seated at the peak.
+- **The Lighthouse's height rule** is 1.5 above the sea (the mean of its corners), not 2: at 2 nothing on the headland above the bay would do.
+- **Steep ground.** Every spot the Lighthouse can go on the headland has 1.4 to 2.1 of rise across its 3 × 3. A pad down to the lowest corner was a tall pale wall. A monument now stands at its footprint's inner high ground, on a stone pad at most 0.3 deep, with a fitted skirt of rubble and earth below it (the quarry's `skirt()`), so it reads as a knoll. The Stadium is laid at its highest corner (its banks hide the step), and the masons' yard at the middle.
+- **Drawing steps.** A site's mesh is rebuilt at 12 steps a stage (not 8), and when its piles of marble, timber and copper change by a stack.
+- **Timber for `#monument`.** The headland has few pines, so `#monument`'s history opens a sea route to Troy and buys up to 400 timber (the Lighthouse needs 360). The loggers' camp from the plan's demo line is left out.
+- **No Colossus demo.** 700 bronze is a long wait on one copper mine and an armoury: `#colossus` would play for years. `#games` (the Stadium's first games, built on `#lit`'s town) was cheap enough and is there.
+- **The quarry's look from downhill** (slice 32's finding): its spoil skirt is now banded, spoil next to the quarry, then broken rock, then dry grass, with rubble scattered along the bands and a bulge in its slope, instead of one pale face.
+
+**Files.** New: `src/sim/monuments.ts` (kinds, costs, stages, effects, the games' calendar), `src/sim/monumentworks.ts` (sites, ox carts, builders, visitors, a day at a time), `src/sim/monumentstatus.ts` (cards, tab and town lines), `src/ui/monuments.ts` (the Monuments tab), `src/render/monuments.ts` (one mesh per site, fires, where figures stand), `src/render/monumentmodels.ts` (the yard and the three monuments stage by stage), `tests/monuments.test.ts`.
+
+**Touched outside the line** (each edit in a block headed "Slice 35"):
+- Sim: `state.ts` (kinds, walkers, `monuments`, the ship's `pace`), `sim.ts` (the day's step, placing a site, the loggers' camp clearing its ring), `migrate.ts` (`fromSlice35`, version 31), `buildings.ts` (sizes, workers), `build.ts` (costs, ground rules), `hazards.ts` (monuments never burn or wear; the masons' yard is an architect's), `commands.ts`, `walk.ts` (ox carts at a cart's pace, visitors at a sending's), `stocks.ts` (the stock book's "monuments" line), `folk.ts` (the games' mood line), `trade.ts` (the ship's pace while the Lighthouse burns), `fleet.ts` (pirates keep clear), `status.ts` (the walkers' and buildings' cards, town lines), `materialstatus.ts` (ox carts in "on its way").
+- Game: `saves.ts`, `demos.ts` (`#monument`, `#lit`, `#games`), `views.ts` (their views).
+- UI: `tools.ts`, `buildbar.ts`, `sidepanel.ts`, `categories.ts` (the Monuments tab), `ledger.ts`, `minimap.ts`, `townlines.ts`, `help.ts`, `style.css`, `main.ts` (clicks, probes).
+- Render: `city.ts` (the monuments view, where figures stand), `pictures.ts` (the build panel's pictures), `works.ts` (the masons' yard; marble and timber on the quay and in the caravan yard; the quarry's banded skirt), `materialworks.ts` (`skirt()` takes three tones), `workfolk.ts` (builders, ox carts, visitors), `walkers.ts`, `earshot.ts` (ox carts with the carts).
+- Scripts: `smoke.mjs`, `measure.mjs`.
+
+**Earlier demos.** The demo probe (outside the repo) opened every earlier demo's prepared town at `daeac58` and at this slice, and compared the city (tick, money, people, every building's kind, place, level and people, walkers by kind) at opening and 900 ticks on. 114 of 115 are the same. `#loggers` opens with the same buildings, people and money, but its camp cleared 2 more trees at its corner when placed (113 cleared, not 111), so 26 trees have been felled at opening (not 27), and 900 ticks on it has no logger out where it had 2.
+
+**Old saves.** A version 30 save comes up through `fromSlice35` with no site and no games; the phase 4 fixture (version 27) comes up through every step and plays a month on (`tests/monuments.test.ts`).
+
+**Checks.** Typecheck, the 488 tests and the build pass. The full smoke passes, run in a copy with its waits lengthened for the loaded machine. Its first run caught the side panel's tab count (ten now, with the Monuments tab; fixed in `smoke.mjs`) and once missed `#request`'s caravan under the pointer (a porter was hovered instead). That check passed in two focused runs on each build and in the full rerun, so it is a hover timing under load, not this slice.
+
+**Measurements** (filled into the Before table above; the after figures are in the check-in).
+
+
+

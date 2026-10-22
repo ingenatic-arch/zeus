@@ -2,6 +2,68 @@
 
 Notes to Oliver, newest first.
 
+## Slice 35 — Monuments (22 Oct)
+
+The city has something to build towards with its marble and timber: a masons' yard whose builders walk out to a monument, and three monuments, the Lighthouse, the Colossus and the Stadium, each marked out on the ground and then rising in three stages you can watch, as ox carts haul the stone and timber up from the storehouses. You weren't here while it was built: every choice below is mine, from the spec's defaults, and two of them (the games' timing and the Lighthouse's ground) differ from the plan; both are below.
+
+What breaks, or moves:
+- **Saves.** The state version is 31 on this line (renumbered when the lines merge). Saves from version 30 load with no monument and no games; a phase 4 save comes up through every step.
+- **`#loggers`** changes on purpose (slice 32's review: no pine through the camp's corner). The camp now clears the trees on the ring of tiles round it when it is placed, as the quarry does: 2 more trees go (113 cleared, not 111), so 26 trees have been felled when it opens (not 27), and 900 ticks on no logger is out where 2 were. Its buildings, people and money at opening are as before. Every other earlier demo (114 of 115) plays exactly as before, compared at opening and 900 ticks on with the starting commit.
+- **The quarry's spoil** is drawn in bands (pale spoil by the quarry, broken rock, then dry grass), so from downhill it should no longer read as one tall pale wall.
+- **The quay and the caravan yard** now show their marble blocks and logs when they hold any.
+- A new **Monuments** tab, after Military.
+
+### What's new
+- **The masons' yard** (2×2, 200 dr, 8 workers): a walled yard with a lean-to and blocks being dressed. It sends up to four builders (one for each two workers) by road to the monument being built. They climb onto the scaffold and hammer with mallet and chisel, and walk home when the stage is done and the next can't start yet.
+- **A monument** is marked out with pegs and cords the moment you place it, then goes up in three stages. Each stage needs its marble, timber and (for the Colossus) bronze **all on site before it starts**. Ox carts bring them from the storehouses, 50 at a time, up to six on the road at once, slower than other carts, and the blocks, logs and copper pile up by the site. The site says what it waits for: "For the lantern next: 180 of 200 marble on site, 20 on the way; 0 of 160 timber on site, 160 on the way". Once a stage has everything it starts, and it goes as fast as the builders there. A stage takes 30 to 70 days with every builder it wants. Each monument needs 800 to 1,150 blocks of marble, against a quarry's 100 a month at best.
+- **The Lighthouse** (3×3, 1,500 dr) goes on high ground by the sea. Finished, its fire burns at the top, day and night, with a glow and smoke drifting on the wind. The Tyrian ship then comes in in 12 days, not 20, sails off in 10, not 16, and calls every two months, not three. Pirates keep clear of your waters.
+- **The Colossus** (3×3, 2,000 dr) goes on the shore by deep water: a marble plinth, a bronze frame, then a bronze figure with a torch raised, facing the sea. Its 700 bronze is copper cast on site by an armoury's smiths, so it needs an armoury with workers. Finished, every ruler in Greece is 12 warmer for good: "They speak of your Colossus".
+- **The Stadium** (6×6, 2,500 dr) goes on flat ground: a track, earth banks with rows of stone seats, a colonnade, a judges' stand and a starting line. Games come every four years. The first are four months after it is finished, and each is announced three months ahead. While they are on, groups of visitors walk in from the edge of the map and take their seats, paying 8 dr a head. Pennants fly, the crowd cheers, and every home is happier (+2) while they last and a little (+1) for two months after. Friendly rulers send athletes and remember it.
+- **Every ruler notices** a monument when it is finished (+6, fading over a year), and the warmest sends compliments (News of Greece).
+
+### What to try
+1. Open **#monument**. It is #quarry's town played on: a road out along the headland's top, the Lighthouse marked out above the bay, two masons' yards by the quarry road, and a sea route to Troy for timber. It opens about a year after the Lighthouse was marked out, with its tower half up inside its scaffold, eight builders at work, five ox carts on the road and the Monuments tab open. Hover the site, a builder, an ox cart and a masons' yard for their cards. Play on (fast) to watch the next stage's stone arrive.
+2. Open **#lit**. The same town, played on until the Lighthouse is finished (16 months after it was marked out), as the Tyrian ship sails in at her quicker pace. Watch the fire at the top.
+3. Open **#games**. #lit's town builds a Stadium, plays on until its first games, and opens with the seats filling. Hover a group of visitors; watch the ledger's "visitors at the games".
+4. Try placing the Colossus on the bay shore and the Lighthouse elsewhere: each tool says before you place it whether the ground will do, and why not.
+
+Each link also opens paused if you add `-paused` (for example `#monument-paused`).
+
+### What I'd like your eye on
+- **The quarry's spoil bands**, from downhill, in #quarry: does it still read as a wall?
+- **The Lighthouse on the steep headland.** Every spot there rises 1.4 to 2.1 across its footprint, so it stands on a low stone pad over a heap of rubble and earth, like a knoll. Does that read as built on the rock, or as perched?
+- **The Colossus figure**: a simple low-poly bronze man with a torch. Is it enough at the distance you'd look from?
+- **The Stadium**: the banks, seats, crowds and pennants in #games. Is the crowd big enough, and is the dark outer earth bank all right?
+- **The pace**: about 16 months for the Lighthouse in a busy town. Is that the right length of ambition?
+
+### Known rough edges
+- **No Colossus demo.** Its 700 bronze takes years on one copper mine, so a demo would play far too long. It can be built in play; the tests place one and finish its stages by hand to check its effect.
+- **The town lines cover the top of the view** in #lit, over the sea, though the Lighthouse itself is clear.
+- **The Colossus's bronze frame** (the middle stage) is thin struts, and reads as thin from far off.
+- **Visitors walk about two months** from the map's edge, so the games are announced three months ahead for the seats to fill.
+- **Monuments never burn, wear or fall in**, and can't be repaired (there's nothing to repair).
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `daeac58` (the start of this line); after is this slice. The other two lines were building and reviewing on the same machine (load 17 to 24 on 4 cores, higher than in earlier slices), so load and frame times swing by half or more from run to run; only large changes count. `measure.mjs` (in a copy with its waits lengthened) timed out in its demo-loads section on both builds, so the loads and frame work below come from a side-by-side script that alternates the two builds.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 475, all passing | 488, all passing (new: `tests/monuments.test.ts`) |
+| Download (gzipped) | 3,455 KB: the game 717 KB, the prepared towns 2,738 KB (84 files) | 3,607 KB: the game 740 KB, the prepared towns 2,866 KB (87 files: the three new demos) |
+| First load (bare link), five runs each, side by side | ready at 5.3 to 7.3 s, first frame 6.3 to 8.4 s | ready at 4.9 to 8.8 s, first frame 6.2 to 11.4 s |
+| Demo loads, side by side (`#town`, `#richtown`, `#caravan`, `#quarry`; 18 loads each) | ready between 4.3 and 7.2 s, 5.6 s on average | ready between 4.8 and 8.4 s, 6.3 s on average |
+| New demos' loads (5 each) | | `#monument` 4.7 to 8.4 s, `#lit` 5.3 to 8.7 s, `#games` 4.4 to 6.3 s |
+| `#town` | `town` view 1,458,804 triangles, 103 draw calls; `overview` 1,663,032 and 132; a save 171 KB | the same; a save 171 KB |
+| Map views | `coast` 1,176,220 triangles, 74 draw calls; `overview` 1,200,360 and 77 | the same |
+| `#quarry` / `#loggers` | 1,117,299 triangles, 78 draw calls / 976,067 and 61 | 1,120,131 and 78 (the banded skirt) / 976,031 and 61 |
+| `#monument` / `#lit` / `#games` | | 1,253,149 triangles, 89 draw calls / 993,211 and 83 / 1,374,980 and 89, from their views |
+| Frame work (update before drawing, normal speed, side by side, 4 to 8 frames each) | `#town` 50.8 and 26.9 ms, `#richtown` 40.3 and 33.3, `#quarry` 88.9 and 37.2 | `#town` 26.7 and 37.3 ms, `#richtown` 25.3 and 26.7, `#quarry` 20.0 and 28.4; `#monument` 24.0 and 22.8, `#lit` 21.6 and 22.1, `#games` 87.2 and 53.9 |
+
+The demo loads average 0.7 s slower after, inside a swing of 3 to 4 s between runs of the same build. `#games` at normal speed had the highest frame work of the new demos (54 and 87 ms over 6 frames). Paused, it is 2.5 ms, against 2.9 for `#lit` and `#town`, so drawing the crowds is cheap. A game tick in `#games` takes 1.5 ms in Node (`#lit` 2.8, `#town` 0.8), so the simulation is not the cause either. The likeliest cause is the sim catching up several ticks a frame at software rendering's one frame a second; the review should look again on a quieter machine.
+
+### What the review changed
+*(For the reviewer.)*
+
 ## Slice 32 — Marble and timber (21 Oct)
 
 The city has its first building materials: a marble quarry on the pale rock of the headland, whose ox sledges drag the blocks to a storehouse, and a loggers' camp at the edge of two new pine woods, whose loggers fell trees that grow back over two years. Nothing in the city uses marble or timber yet (monuments come in slice 35): they are stored, sold and bought. You weren't here while it was built: every choice below is mine, from the spec's defaults.
