@@ -41,9 +41,11 @@ export const CART_LOAD = 160;
  * …and of each ware (meat and cheese pack tighter than sheaves: one lodge's
  * or dairy's carts keep up with what it makes; then olives, oil, fleece,
  * grapes and wine; copper and armour; then a quarry's sledge of marble
- * blocks and a camp's cart of logs, slice 32).
+ * blocks and a camp's cart of logs, slice 32: the sledge is slow and so
+ * loaded heavy, 60 blocks, so three keep up with a fully worked quarry about
+ * 18 tiles of road from its storehouse; slice 32's review).
  */
-export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16, 40, 40];
+export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16, 60, 40];
 /** Most carts a farm has on the road at once. */
 export const MAX_CARTS = 3;
 /** Ticks between carts setting off from the same farm. */

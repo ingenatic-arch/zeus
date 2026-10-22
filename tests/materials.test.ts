@@ -230,9 +230,10 @@ describe('the works and the save', () => {
     expect(serialize(c.state)).toBe(serialize(a.state));
   });
 
-  it('a save from before marble and timber (the version before this one) loads: no tree felled, every goods list padded, and it plays on', () => {
+  it('a save from before marble and timber (version 27, phase 4’s) loads: no tree felled, every goods list padded, and it plays on', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/phase4-bronze.save.json.gz')).toString();
-    expect(JSON.parse(text).state.version).toBe(SIM_STATE_VERSION - 1);
+    // (The fixture's own version, phase 4's: a literal, as a migration step's test may use, so it holds when the version is renumbered at merge.)
+    expect(JSON.parse(text).state.version).toBe(27);
     const got = decodeSave(text);
     if (!got.ok) throw new Error(got.why);
     const st = got.file.state;

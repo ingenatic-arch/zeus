@@ -145,7 +145,8 @@ function pine(seed: number): THREE.BufferGeometry {
   const top = new THREE.Vector3(0.12, 1.42, 0.02);
   parts.push({ geo: limb(base, top, 0.11, 0.07, 7), color: bark });
   const c = new THREE.Vector3(0.1, 1.72, 0);
-  const spots = crown({ centre: c, radius: new THREE.Vector3(0.85, 0.2, 0.8), clumps: 12, size: [0.18, 0.27], light: '#628c44', dark: '#2c4a28', seed, flat: 0.5, shell: 0.55, fine: true }, parts);
+  // (Slice 32's review: plain clumps, two more of them, not the rounder ones: about 430 triangles a tree instead of 1,100, for the woods it added; side by side in screenshots, a little more faceted up close.)
+  const spots = crown({ centre: c, radius: new THREE.Vector3(0.85, 0.2, 0.8), clumps: 14, size: [0.18, 0.27], light: '#628c44', dark: '#2c4a28', seed, flat: 0.5, shell: 0.55, fine: false }, parts);
   for (let i = 0; i < 6; i++) parts.push({ geo: limb(top, spots[i].clone().setY(spots[i].y - 0.1), 0.05, 0.02, 5), color: bark });
   return mergeSoft(parts);
 }

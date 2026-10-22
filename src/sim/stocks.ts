@@ -171,6 +171,9 @@ const MAKER_NAMES: Partial<Record<BuildingKind, string>> = {
   winery: 'Wineries',
   mine: 'Copper mines',
   armoury: 'Armouries',
+  // Slice 32 (its review: they read "Quarry" and "Loggers").
+  quarry: 'Marble quarries',
+  loggers: 'Loggers’ camps',
 };
 
 /** Who a ware was sold to or bought from (the stock book's lines by city: see routes.ts). */

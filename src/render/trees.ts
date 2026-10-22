@@ -529,8 +529,9 @@ export function buildTrees(map: CoastMap): Plants {
           stumps.setMatrixAt(stumpN++, tipped(i, 0, 1));
         } else {
           // Growing back: nothing for a season, then a sapling in steps to a full tree.
-          const p = (age - REGROW * 0.12) / (REGROW * 0.88);
-          const grow = p <= 0 ? 0 : 0.18 + 0.82 * Math.floor(Math.min(1, p) * 8) / 8;
+          // (Slowly at first, then faster: so a stripped slope reads as young wood, not as trees the loggers pass by. Slice 32's review.)
+          const p = Math.min(1, (age - REGROW * 0.12) / (REGROW * 0.88));
+          const grow = p <= 0 ? 0 : 0.15 + 0.85 * Math.floor(p * p * 8) / 8;
           put(i, grow <= 0 ? zero : tipped(i, 0, grow));
           if (grow < 0.6) stumps.setMatrixAt(stumpN++, tipped(i, 0, 1));
         }

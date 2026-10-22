@@ -40,7 +40,7 @@ import {
 import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, GRAPES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
 
 /** What a storehouse keeps, each in its own room. */
-const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR];
+const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER]; // (marble and timber: slice 32's review)
 import { stallLow, STALL_GOODS, STALL_NAMES, STALL_VENDOR, unitOf, vendorGood } from './goods';
 import { FLEECE_MONTH, grapesOf, OLIVE_GROW, olivesOf, OIL_MONTH, stageOf, MAKERS, VINE_GROW, WINE_MONTH } from './production';
 import { roomFor as roomForWare, roomOf as roomForWareKind, storeOf as storeOfKind } from './stores';
