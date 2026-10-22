@@ -121,7 +121,14 @@ Built as planned, with these differences and choices:
   - debts: it fills the storehouses' oil room before setting the yard's oil (porters had carried it back).
   - rivals: it adds 600 oil before the caravan's visit.
   - seasons (new, 17 tests): the calendar, paces, rhythm (a farm's year the same within a harvest, most in autumn), grove, dairy, wild herds, ships late in winter, the late ship's line, armies home, the weather's odds, the switch, a year twice the same, a slice 30 save (`tests/fixtures/slice30-nowatch.save.json.gz`), the winter line, `#thieves`' core watch post, the treasury's coin.
-- **Smoke.** `#quay`'s ship may now be late (her first call falls in winter), so its chip and panel checks accept "late".
+- **Smoke** (`scripts/smoke.mjs`, each change in a "Slice 33" comment):
+  - `#quay`'s ship may now be late (her first call falls in winter), so its chip and panel checks accept "late".
+  - `#aftermath`'s ledger check no longer asks for the wheat line or burnt houses. With the seasons' history Sparta's band reaches the edge at the end of a month (its date is pinned a year after the first trade route, which moved nine days earlier), so the wheat it took is two months back by the time the demo opens and off the two-month ledger; and this band burnt a farm on its way, not houses. It still asks for the coin taken and that nothing it plundered burnt. I tried holding the refusal back so the band would come early in a month, but its date is pinned by the first route, so that would have meant moving the whole history.
+  - `#raiders`' hover check accepts the tip of one of the band's men (the pointer can fall on one where the band now stands).
+  - `#thieves`' panel check accepts the tempted home's other reasons: the most tempted home can now be a newcomer's tent, tempted for want of work with villas near, not hunger.
+  - `#seasons` is read paused (at the fastest speed a slow page was well into spring before the first check), and the speed is checked on the bare link after.
+  - `#festival`'s wine price check accepts the festival as the second reason: with the seasons' history the 600 wine bought from Athens weighs more in her price ("Dear (usually 71): you bought 600 from them in the last year, and the Panathenaia is on").
+  - `#hostile`'s gift is pressed once more in the page itself if the first click didn't send it. Under load the Greece page can be redrawn between the press and the release, and the click is lost (three full runs in a row failed there, with no gift on Corinth's page; run on its own it passed every time).
 - **Not done from the plan:** a test of the crime overlay's threshold (it is a renderer constant; the overlay and panel now share `TEMPT_SHOW`), and the dial's tooltip line on the granaries. The check of `#thieves`' core watch is weaker than planned: it checks that the hut street is never watched and that some core home is, not that every core street is, because watchmen walk little in a demo's history (fire risk is off).
 
 ### Touched outside the line

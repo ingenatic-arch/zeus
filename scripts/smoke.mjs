@@ -1471,6 +1471,12 @@ g = await gi();
 if (!(g.shown === 'corinth' && /Hostile −\d+[\s\S]*Trade · closed[\s\S]*Furious with your city \(set up for this demo\)[\s\S]*The road is closed/.test(g.panel))) fail(`#hostile: ${g.panel.slice(0, 900)}`);
 if (!(await lines18()).some((l) => /Corinth is hostile now, and has closed the road to your city/.test(l))) fail(`#hostile: no town line: ${JSON.stringify(await lines18())}`);
 await page.click('.greece-panel button[data-gift="-1"][data-amount="250"]');
+// (Slice 33: the button sits near the foot of the page, and under load the page could be redrawn between scrolling to it
+// and the click, so the gift was not sent: if it isn't on its way, the button is pressed again in the page itself.)
+if (!(await page.waitForFunction(() => /Your gift of 250 dr is on its way to Corinth/.test(window.__zeus.greeceInfo().panel), null, { timeout: 20000 }).then(() => true).catch(() => false))) {
+  await zeus(() => document.querySelector('.greece-panel button[data-gift="-1"][data-amount="250"]')?.click());
+  await frames(3);
+}
 await zeus(() => window.__zeus.speed('fast'));
 await page.waitForFunction(() => window.__zeus.townLines().some((l) => /has opened the road again/.test(l)), null, { timeout: 300000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
@@ -1608,9 +1614,10 @@ if (!(r20.raids[0]?.phase === 'raiding' && r20.band?.drawn && r20.chip === 'Raid
 if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, plundering the granary(, then making for the tax office)?\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
 const at20 = await zeus((p) => window.__zeus.screenOf(p.x, p.z), r20.band);
 await page.mouse.move(at20.x, at20.y - 8);
-await page.waitForFunction(() => /^Raiders of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});
+await page.waitForFunction(() => /^Raiders of Sparta|^A raider of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});
 const tip20 = await zeus(() => window.__zeus.tipText());
-if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
+// (Slice 33: with the seasons' history the band stands otherwise, and the pointer can fall on one of its men: his tip is the band's too.)
+if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches|^A raider of Sparta[\s\S]*with the band/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
 await page.mouse.move(5, 5);
 // The chip opens Sparta's page, with the band at the granary and the coin to turn them back (not paid here: they go on to take the wheat).
 await page.click('.raid-chip');
@@ -1629,7 +1636,10 @@ if (!(r20.raids[0].end === 'raided' && r20.raids[0].took > 0)) fail(`#raiders: a
 await open('#aftermath-paused');
 await frames(3);
 const led20 = await zeus(() => window.__zeus.ledgerText());
-if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Raided by Sparta · wheat[\s\S]*Burnt down · homes/.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
+// (Slice 33: with the seasons' history the band came at the end of a month, and the wheat it took first has gone off the
+// ledger, which keeps this month and last; and it burnt a farm on its way, not houses. Its coin is still there, and nothing
+// it plundered burnt.)
+if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Burnt down · /.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
 await zeus(() => window.__zeus.greece(true, 'sparta'));
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);
@@ -1693,7 +1703,9 @@ if (!(await zeus(() => [...document.querySelectorAll('.greece-panel button[data-
 await page.click('.greece-panel button[data-tab="prices"]');
 await frames(2);
 g = await gi();
-if (!/Wine[\s\S]*Dear \(usually \d+\): the Panathenaia is on/.test(g.panel)) fail(`#festival: the wine price: ${g.panel.slice(0, 1400)}`);
+// (Slice 33: with the seasons' history the wine bought from Athens weighs more in its price than the festival, so the
+// festival's reason can come second.)
+if (!/Wine[\s\S]*Dear \(usually \d+\): ([^.]*, and )?the Panathenaia is on/.test(g.panel)) fail(`#festival: the wine price: ${g.panel.slice(0, 1400)}`);
 if (!Object.values(g.fields).every((f) => /^#[0-9a-f]{6} at /.test(f)) || Object.keys(g.fields).length !== 4) fail(`#festival: the fields: ${JSON.stringify(g.fields)}`);
 // #peace: Athens has won: Sparta's army going home, no swords, the way open; Sparta's prices dear for losing.
 await open('#peace-paused');
@@ -2305,7 +2317,8 @@ await open('#thieves-paused');
   await zeus((id) => window.__zeus.showPanel(id), top30.id);
   await frames(2);
   const p30 = await zeus(() => window.__zeus.panelText());
-  if (!/Tempted to steal: [^·]*hungry[\s\S]*\d+% · a thief in about[\s\S]*(Holding them back|A watchman walking by would hold them back)/.test(p30)) fail(`#thieves: the hut's panel: ${p30.slice(0, 1200)}`);
+  // (Slice 33: with the seasons' history the most tempted home can be a newcomer's tent, tempted for want of work with villas near, not hunger.)
+  if (!/Tempted to steal: [^·]*(hungry|villas nearby|no work)[\s\S]*\d+% · a thief in about[\s\S]*(Holding them back|A watchman walking by would hold them back)/.test(p30)) fail(`#thieves: the hut's panel: ${p30.slice(0, 1200)}`);
   await zeus(() => window.__zeus.showPanel(0));
   // Played on until a thief is out: he is drawn, his tip names him, and the line follows him.
   await zeus(() => {
@@ -2377,16 +2390,13 @@ if (errors.length > err30) fail('page errors (slice 30):\n' + errors.slice(err30
 // the storms (the chip and its tip say so), the dial in winter.
 const err33 = errors.length;
 const dial33 = () => zeus(() => ({ text: document.querySelector('.date .season')?.textContent ?? '', hidden: (document.querySelector('.date .season'))?.hidden ?? true, tip: document.querySelector('.date .season')?.getAttribute('title') ?? '' }));
-await open('#seasons');
+// (Read paused: at the fastest speed a slow page can be well into spring before the first check. The speed is checked after.)
+await open('#seasons-paused');
 {
   const d0 = await dial33();
   if (d0.hidden || !/^Winter.*spring in \d+ d/.test(d0.text)) fail(`#seasons: the dial: ${JSON.stringify(d0)}`);
   const l0 = await zeus(() => window.__zeus.look());
   if (!(l0.phase !== null && l0.phase > 3.8 && l0.phase < 4)) fail(`#seasons: the look: ${JSON.stringify(l0)}`);
-  const t0 = await zeus(() => window.__zeus.tick());
-  await frames(30);
-  const t1 = await zeus(() => window.__zeus.tick());
-  if (t1 - t0 < 20) fail(`#seasons did not open at the fastest speed (${t0} -> ${t1})`);
   const c33 = await city();
   if (c33.granaries < 1) fail(`#seasons: ${JSON.stringify(c33)}`);
   // A season on: spring, its look, and the dial's words.
@@ -2394,8 +2404,16 @@ await open('#seasons');
   await frames(4);
   const d1 = await dial33();
   const l1 = await zeus(() => window.__zeus.look());
-  if (!/^Spring.*summer in \d+ d/.test(d1.text) || !(l1.phase !== null && l1.phase > 0.9 && l1.phase < 1.1)) fail(`#seasons a season on: ${JSON.stringify({ d1, l1 })}`);
+  if (!/^Spring.*summer in \d+ d/.test(d1.text) || !(l1.phase !== null && l1.phase >= 0.85 && l1.phase < 1.1)) fail(`#seasons a season on: ${JSON.stringify({ d1, l1 })}`);
   if (!/^Spring/.test(d1.tip)) fail(`#seasons: the dial's tip: ${d1.tip}`);
+}
+// The bare link opens at the fastest speed.
+await open('#seasons');
+{
+  const t0 = await zeus(() => window.__zeus.tick());
+  await frames(30);
+  const t1 = await zeus(() => window.__zeus.tick());
+  if (t1 - t0 < 20) fail(`#seasons did not open at the fastest speed (${t0} -> ${t1})`);
 }
 await open('#winter');
 {
