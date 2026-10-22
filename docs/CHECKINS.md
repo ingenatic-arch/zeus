@@ -2,6 +2,98 @@
 
 Notes to Oliver, newest first.
 
+## Slice 33 — The turning year (22 Oct)
+
+The year now has four seasons. The land goes from green in spring to gold in summer, amber in autumn and a darker grey-green in winter, and the trees, the sea and the sky change with it. It rains, more in winter, with the odd storm. The wheat, the olives and grapes and the flocks follow the year. Winter storms make ships late and keep most rulers' armies at home. A dial under the date says which season it is and what comes next. The game's year is still a year long. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is now 29. Older saves load with the seasons on, in whatever season their date falls in. From the next tick their farms, groves and flocks work at that season's pace.
+- **A year's food is about the same; when it comes is not.** Each season's pace averages one over the year, so a fully worked farm still brings in the same in a year (within one harvest, checked in a test). More of it now comes in autumn and less in winter. `#town` played on a year ends with 1,059 people (was 1,040) and 12,176 measures in its stores (was 14,815).
+- **Every demo's history is played with the seasons on.** So 102 of the 110 earlier demos open on a slightly different town:
+  - The eight that open the same are the first few, from before there were farms: `#streets`, `#settlers`, `#water`, `#carrier`, `#fountain`, `#chain`, `#workers` and `#decline`.
+  - **The opening day moved** in about half of them. Where the seasons moved the moment a demo opens on, I retuned its setup to open on the same kind of moment (details in the plan's As built). The biggest changes:
+    - `#town` (and the 11 demos that open on its town, such as `#ledger`, `#dairy` and `#greece`) opens 15 days later, once every home has its food and a tent stands on the newest plots. It opens with 738 people (was 693) and 631 dr (was 322). The demos built from `#town`'s history move with it.
+    - `#rivals` (and `#rivalsmap`, `#rivalstreet`) waits until every route has had its first visit: 1,399 people (was 1,411), 2,207 dr (was 3,350), 5,652 measures of food (was 9,310).
+    - `#athensship`, `#anchor` and `#pirates` wait until the treasury can pay for the wine as well.
+    - `#pirates` waits until it can pay for the shipyard and a trireme.
+    - `#villas` and `#winevendor` wait until every villa has its wine.
+    - `#black` opens once the wages have gone unpaid, a few days after her sail shows.
+    - `#overhunt` opens in September, four months later, once its deer are down to their last few head (they grow back twice as fast in spring).
+    - `#raid`, `#raiders`, `#aftermath` and `#looted` turn fire risk on as the band nears, not weeks before. With the seasons, a month of risk had an ordinary fire take their farms and granary.
+  - **People** at opening: within about 5% everywhere but `#town` and the demos that open on its town (738, was 693), `#hunter` (803, was 704: it opens two months later), `#dry` (863, was 799) and `#rubble` (1,046, was 1,113).
+  - **Money** at opening: the median is 10 dr lower. It is down most in the rich military and money towns, with the most in `#forgive` (8,271 dr, was 11,714), `#repaid` (8,592, was 11,612), `#lend` (3,737, was 6,324) and `#triremes` (2,161, was 3,856). It is up most in `#ship` (1,243, was 892) and `#quay` (1,151, was 682).
+  - **Food in the stores** at opening: the median is 2% lower, but single demos swing more, from `#harvest` (1,289 measures, was 2,389: it opens in March, after a slow winter) to `#table` (2,332, was 933).
+  - **No demo opens in famine.** No demo has more homes going without food than before, except `#repaid` and `#forgive`. They open in December with 11 and 4 homes short of meat (it was 2) and 4 short of cheese, because the hunters and the goats bring in less in winter. None of their homes go down in the 900 ticks after (before, six of them did). In `#fortress`, three homes go down for want of oil two or three months after it opens, as some did before.
+  - **`#thieves` and `#nowatch` played on a year** now keep about 1,380 and 1,150 people (it was 772 and 290). Most likely that is the new watch post in the core (below): slice 30's note said fire took much of the core when played on.
+- **The crime overlay** shows a home amber from a quarter tempted (it was half), where its panel starts naming it.
+
+### What's new
+- **The seasons.** Spring is March to May, summer June to August, autumn September to November and winter December to February. Each is three months of the game's year, 900 ticks.
+- **The year's rhythm.** Each of these works at a pace through the year that averages one, so a year brings in what it did:
+
+  | | Spring | Summer | Autumn | Winter |
+  |---|---|---|---|---|
+  | Wheat | 90% | 110% | 140% | 60% |
+  | Olives and grapes | 80% | 100% | 160% | 60% |
+  | The flocks (cheese and fleece) | 140% | 110% | 90% | 60% |
+  | The wild herds growing back | twice as fast | as usual | half as fast | half as fast |
+
+  The farm's, grove's, vineyard's, dairy's and pasture's panels count the harvest through the seasons ahead and say why: "Autumn: the wheat ripens half again as fast".
+- **Winter at sea.** A ship due in winter (the Tyrian ship, or a sea route's ship) is held back 6 to 12 days by the storms. Her chip says "late", and its tip and her line say why: "late: winter storms in the gulf held her back 10 days". Enemy ships in the bay row at three quarters of their pace in winter.
+- **Winter on land.** Two times in three, a hostile ruler whose band would march in winter keeps his men at home. A threat already counting down still comes. So do a refused tribute's anger, a lender's army and your own expeditions.
+- **The weather.** Spells of about three days. It rains on about a quarter of spring's and autumn's days, hardly ever in summer and nearly half of winter's. There is the odd storm in autumn and winter. The weather only changes the look and the dial, not the farms or ships.
+- **The look.**
+  - The grass, fields and hillsides take the season's colour, and the leaves of trees and scrub follow more gently.
+  - The sea is bluer in summer and greyer in winter, and the sky and haze greyer in winter.
+  - In rain, streaks fall around the camera, the ground darkens a little, and the sky, sea and light go greyer. A storm is darker, with lightning.
+  - Each season holds its look for most of its length and turns into the next over its last three weeks.
+- **The season dial** sits under the date. It is a small four-coloured dial with its hand at today, the season's name and what's coming: "Summer · the harvest in 12 d", "Winter · storms · spring in 9 d". It adds "rain" or "storm" when it's wet. Its tip says the season in a sentence.
+- **A winter town line** warns from the last month of autumn if the granaries and stalls won't carry the town to spring at winter's pace. It says how short they are, and that another farm or wheat bought in would help.
+- **The camera no longer ends up inside trees.** It keeps above the crowns of the trees and rocks near it, rising quickly and settling slowly.
+- **`#thieves` has a watch post in the core.** Its round covers the core's streets and stops short of the hut street, so the core is watched and the huts are not.
+- **A thief caught with the tax office's coin hands it back to the treasury,** even if the office has burnt or been cleared since.
+
+### What to try
+1. Open #seasons. It is `#town`'s town nine days before spring, at the fastest speed, over the farms by the river, with the Husbandry tab open. Watch the dial and the land through a year: green, gold, amber, grey-green. Click a farm in summer and again in autumn to see its harvest speed up.
+2. Open #winter. It is `#richtown`'s town in December, raining over the bay. The ship's chip says "80 d · late": hover it for why. Play on into spring and watch the sea and sky lift.
+3. Open #town and play a year at the fastest speed. Watch the dial count down to each season, and look for the rain.
+4. Open #thieves and look at the core's new watch post (the crime overlay, J four times, shows its reach). The hut street is still unwatched.
+5. Add `-plain` to any link (for example #winter-plain) to see the seasons without the finished look. The land keeps its colour; the sea, sky and rain still change.
+
+Each link also opens paused if you add `-paused` (for example `#seasons-paused`).
+
+### What I'd like your eye on
+- **The colours.** Is summer gold enough, autumn too orange, winter too grey or too dark? Each season is a handful of numbers, easy to change (screenshots: the same view in all four seasons, and the winter bay in rain).
+- **The rain.** Thin pale streaks around the camera. Can you see it at the usual distance? Is it too much close up?
+- **How hard winter bites.** The fields at 60% and the flocks at 60%. In the demos the granaries hold enough, so the winter line never shows. Should winter hurt more, so that you plan for it?
+- **Ships late 6 to 12 days, and two in three winter threats held back.** Too gentle?
+- **The dial.** Is it readable, and is "storms · spring in 9 d" the right thing to say?
+
+### Known rough edges
+- **The granaries don't show the harvest.** In `#seasons` the farms grow more than the town eats, so the granaries sit nearly full all year. The rhythm shows in the fields and the farm panels, not in the stores.
+- **In `-plain`, the land doesn't change colour.** The finished look's shaders do that, and `-plain` turns them off. Only the sea, sky, light and rain follow the season there.
+- **No snow, no day and night, and the festivals keep their own calendar.** The rivals' harvests and wars on the map of Greece don't follow the seasons yet either.
+- **The weather doesn't touch the sim.** Rain doesn't slow walkers or put out fires, and a storm doesn't sink ships.
+- **Lightning is a flash of the light only,** with no bolt and no sound.
+- **`#aftermath`'s ledger has lost two of its lines.** Sparta's band now comes at the end of a month. By the time the demo opens, the wheat it took is two months back, and the ledger only keeps this month and last. This band also burnt a farm on its way, not houses. The coin it took and the king's spent anger still show.
+- **Money at opening fell by a quarter or more in the richest demos.** Over their long histories the treasury filled at another pace. Their stories hold, but the numbers in their old notes are out of date.
+
+### Measurements
+Headless Chromium with software WebGL. Before is `1af5f81` (the trunk with slice 30 merged); after is this slice. Other lines were building and measuring on the machine at the same time (its load stayed around 13 to 19 on 4 cores), and the container restarted once in the middle, so times swing by a third or more from run to run. I ran the loads and the frame work side by side, alternating the two builds, three rounds each, and give the medians. Only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 457, all passing | 474, all passing (17 new in `tests/seasons.test.ts`: the calendar, the paces, a farm's, a grove's, a dairy's and the wild herds' year, ships late in winter, armies home, the weather, the switch, a year played twice the same, a slice 30 save, the winter line, `#thieves`' core watch, the treasury's coin) |
+| Download (JS, CSS and HTML, gzipped) | 3,035 KB: the game 551 KB, the prepared towns 2,484 KB | 3,108 KB: the game 558 KB, the prepared towns 2,550 KB (two more files, for `#seasons` and `#winter`) |
+| First load (bare link, side by side) | ready at 4.2 s, first frame at 5.6 s | ready at 4.3 s, first frame at 5.5 s |
+| Demo loads (ready, side by side) | `#town` 5.0 s, `#richtown` 4.9 s, `#thieves` 4.2 s, `#raid` 4.9 s, `#fortress` 3.9 s, `#pirates` 4.2 s | `#town` 4.9 s, `#richtown` 5.4 s, `#thieves` 5.1 s, `#raid` 4.3 s, `#fortress` 5.9 s, `#pirates` 4.8 s; `#seasons` 4.3 s and `#winter` 5.8 s (measured once) |
+| `#town` | 1,453,964 triangles and 89 draw calls over the town, a save 150 KB | 1,450,538 triangles and 87 draw calls, a save 150 KB |
+| `#richtown` | 1,623,607 triangles and 101 draw calls, a save 187 KB | 1,645,321 and 103, a save 180 KB |
+| `#seasons` / `#winter` | | 1,400,584 triangles and 83 draw calls / 1,621,703 and 102, from their views. The rain adds one draw call of 2,600 lines when it rains. |
+| Frame work (update before drawing, running, side by side) | `#town` 34 ms, `#richtown` 46 ms, `#thieves` 32 ms, `#blaze` 19 ms, `#prices` 29 ms | `#town` 24 ms (one of three runs; the other two drew too few frames to count), `#richtown` 33 ms, `#thieves` 44 ms, `#blaze` 18 ms, `#prices` 22 ms; `#seasons` (at the fastest speed) 28 and 119 ms, `#winter` 15 and 25 ms |
+
+On this machine the frame work numbers are mostly noise: single runs ranged from 0 to 176 ms for the same demo. Neither build is clearly slower. The draws and triangles are the same, plus the rain's one draw.
+
 ## Slice 30 — Thieves in the night (21 Oct)
 
 Every home now has a temptation to steal, which its panel names. When it fills, one of the household slips out as a hooded figure, robs a richer home, a store or the tax office, and slips home again. A watchman on his round deters thieves, and catches the ones he sees. You weren't here while it was built: every choice below is mine, from the spec's defaults.

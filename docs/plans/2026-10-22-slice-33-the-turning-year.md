@@ -131,6 +131,13 @@ Built as planned, with these differences and choices:
   - `#hostile`'s gift is pressed once more in the page itself if the first click didn't send it. Under load the Greece page can be redrawn between the press and the release, and the click is lost (three full runs in a row failed there, with no gift on Corinth's page; run on its own it passed every time).
 - **Not done from the plan:** a test of the crime overlay's threshold (it is a renderer constant; the overlay and panel now share `TEMPT_SHOW`), and the dial's tooltip line on the granaries. The check of `#thieves`' core watch is weaker than planned: it checks that the hut street is never watched and that some core home is, not that every core street is, because watchmen walk little in a demo's history (fire risk is off).
 
+- **Checks.**
+  - `npm test`: 474 tests, all passing.
+  - `npm run build` is clean.
+  - The smoke ran in a copy with loosened timeouts, because the machine was loaded. Its fourth full run passed everything before `#seasons` except `#festival`'s wine reason, which was then fixed. That run hit its two-hour limit at `#seasons`. A tail copy (`#festival`, then slices 30 to 33) then passed.
+  - The demo probe (outside the repo) compared every earlier demo at opening, 900 ticks on and a year on with the baseline. The check-in names the ones that moved. A second probe compared the homes going without food at opening: no demo opens in famine.
+  - Measurements: see the check-in.
+
 ### Touched outside the line
 
 Other lines' files, through small hooks that call `src/sim/seasons.ts`, each in a "Slice 33" comment:
