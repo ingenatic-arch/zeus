@@ -25,7 +25,10 @@ const SPEARS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 13.6 1
 const HELMET = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4c2.4-1.6 7.6-1.6 10 0" fill="none" stroke="#b8322a" stroke-width="2.2" stroke-linecap="round"/><path d="M8 3.2c-3.2 0-5.2 2.2-5.2 5.4v5.6h3.4v-3.4l-1-1.2V7.4h5.6v2.2l-1 1.2v3.4h3.4V8.6c0-3.2-2-5.4-5.2-5.4z" fill="#c8963c" stroke="#5e4214" stroke-width=".9" stroke-linejoin="round"/><path d="M7.2 7.4v4.2M8.8 7.4v4.2" stroke="#5e4214" stroke-width=".9"/></svg>';
 /** Slice 30: crime's, a hooded figure with a purse. */
 const HOOD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6c-2.6 0-4.2 2-4.2 4.6 0 1.2.3 2.2.8 3L3 14.6h10l-1.6-5.4c.5-.8.8-1.8.8-3 0-2.6-1.6-4.6-4.2-4.6z" fill="#3a3540" stroke="#1a1820" stroke-width=".8" stroke-linejoin="round"/><ellipse cx="8" cy="6.6" rx="2" ry="2.3" fill="#1a1820"/><circle cx="11.8" cy="12" r="2.2" fill="#c8963c" stroke="#5e4214" stroke-width=".8"/></svg>';
+/** Slice 33: the season's, a grey rain cloud over a sheaf. */
+const CLOUD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V9.4" stroke="#a06f1c" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="8" cy="9.2" rx="1.2" ry="1.9" fill="#d9a441"/><ellipse cx="6.2" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(-30 6.2 11.4)"/><ellipse cx="9.8" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(30 9.8 11.4)"/><path d="M3.6 7.2C2.2 7.2 1.4 6.2 1.4 5.2s.9-2 2.1-2c.3-1.4 1.5-2.2 2.9-2.2 1.3 0 2.3.7 2.8 1.8.4-.2.8-.3 1.3-.3 1.6 0 2.8 1.2 2.8 2.6 0 1.2-1 2.1-2.2 2.1z" fill="#9aa6ac" stroke="#4e5a62" stroke-width=".8" stroke-linejoin="round"/></svg>';
 const ICONS: Record<TownLine['need'], string> = {
+  season: CLOUD,
   crime: HOOD,
   // (A loan's: a coin on a scroll, as on the city's label and page.)
   loan: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.8h8.6c.9 0 1.5.6 1.5 1.5V12H4.5C3.7 12 3 11.3 3 10.5z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M5.2 5.4h5M5.2 7.2h3" stroke="#8a6440" stroke-width=".8" stroke-linecap="round"/><circle cx="10.6" cy="11" r="3.3" fill="#e8c04a" stroke="#8a6414" stroke-width=".9"/><circle cx="10.6" cy="11" r="1.7" fill="none" stroke="#b88a1e" stroke-width=".7"/></svg>',
@@ -56,7 +59,7 @@ const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -69,7 +72,7 @@ const rank = (need: TownLine['need']): number => {
  * and caravans. (Review of slice 29: folded in ORDER, a ship and a caravan
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'greece', 'ship', 'trader'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;

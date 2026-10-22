@@ -72,6 +72,8 @@ import { armyNews } from './army';
 import { daysToBeach, embark, onWater, sailIn, seaOf, seaborne, shipsFor, shipsOf } from './fleet';
 import { isStore, roomFor } from './stores';
 import { income } from './treasury';
+// Slice 33: winter keeps most armies home.
+import { armiesHome } from './seasons';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -409,6 +411,8 @@ function threats(s: SimState, map: CoastMap): void {
     if (!c.ruler || !RULED.includes(c.id) || !(t.includes('proud') || t.includes('warlike'))) continue;
     const mood = moodOf(c, s.tick);
     if (mood > COLD || !mayThreaten(s, c.id)) continue;
+    // (Slice 33: a band that would march in winter mostly waits for spring; cold rulers' threats (slice 31) too.)
+    if (armiesHome(s, s.tick + THREAT_DAYS, month * 64 + i)) continue;
     const bold = Math.max(0.5, Math.min(1.5, armyScale(c)));
     if (dice(w, month, i, 31) >= (mood <= HOSTILE ? HOSTILE_ODDS : COLD_ODDS * bold)) continue;
     const grown = bold >= 1.2 ? `, with an army grown to ${Math.round(c.army).toLocaleString('en-GB')} men` : '';

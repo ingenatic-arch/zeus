@@ -85,6 +85,8 @@ import { cityOf, COLD, moodOf, moodWord, rulerName, scaleOf, sellsAndBuys, snubb
 import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
 import { seizing } from './loans';
 import { tradedWithFoe } from './rivals';
+// Slice 33: winter storms hold the ships of sea routes back.
+import { lateWords, stormDelay } from './seasons';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -760,6 +762,8 @@ function stepLoadingVisitor(s: SimState, r: TradeRoute, v: Visitor, post: Buildi
   const every = everyOf(s, r);
   r.next += every;
   while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + leaveTicks(v) + voyageTicks(r.city)) r.next += every;
+  // (Slice 33: due in winter, the storms hold her back a week or two.)
+  r.next += stormDelay(s, `${r.city}-sea`, r.next);
 }
 
 /** She ties up: the hold empty, what you ordered unloaded onto the quay. */
@@ -806,6 +810,7 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     v.since = s.tick;
     const every = everyOf(s, r);
     while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + voyageTicks(r.city)) r.next += every;
+    r.next += stormDelay(s, `${r.city}-sea`, r.next);
     return;
   }
   if (!post || v.post !== post.id) {
@@ -985,7 +990,9 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   const days = daysTo(s, r.next);
   if (shut) return { phase: 0, days, chip: 'Closed', short: `${whose} sea route closed`, line: shut, who, kind: 'sea' };
   const back = missed ? `The last ship turned back: ${missed}. ` : '';
-  return { phase: 0, days, chip: `${days} d`, short: `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}`, who, kind: 'sea' };
+  // (Slice 33: held back by winter's storms, the line says so.)
+  const late = lateWords(s, `${r.city}-sea`);
+  return { phase: 0, days, chip: late ? `${days} d · late` : `${days} d`, short: late ? `${whose} ship late · ${days} d` : `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}${late}`, who, kind: 'sea' };
 }
 
 /** A closed route, in words: who closed it, since when, and what opens it. */

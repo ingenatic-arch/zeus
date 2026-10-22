@@ -157,4 +157,8 @@ export const VIEWS: Record<string, CameraView> = {
   quarry: { x: 108, z: 96, yaw: -0.4, dist: 22, tilt: 0.0 },
   // #loggers: from above the camp's road, looking south over the camp to the west wood and the sea, the stumps and young trees where it has felled between.
   loggers: { x: 15, z: 76, yaw: 2.85, dist: 14, tilt: 0.05 },
+  // Slice 33, #seasons: the farms on the flood plain and the granary from the hills to the north-east, the core beyond.
+  seasons: { x: 52, z: 43, yaw: 2.3, dist: 38, tilt: -0.05 },
+  // Slice 33, #winter: the bay and the quay from over the water, the town on the slope behind.
+  winter: { x: 72, z: 63, yaw: -0.3, dist: 48, tilt: -0.25 },
 };

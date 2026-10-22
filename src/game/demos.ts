@@ -9,16 +9,16 @@ import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROV
 import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { warningOf, warningsOf } from '../sim/folk';
-import { ARMOUR, CHEESE, FLEECE, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
+import { ARMOUR, CHEESE, FLEECE, gi, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { COMPANY_SIZE, readyOf } from '../sim/army';
 import { roadRoute } from '../sim/roads';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
 import { FAIR, HARSH, HEAVY } from '../sim/taxes';
-import { spendable, WAGE, wageBill } from '../sim/treasury';
+import { owedWages, spendable, WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { GATE_COST, GATE_HP, WALL_COST } from '../sim/walls';
-import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
+import { dockersOut, FIRST_SHIP, OLD_GOODS, SAIL_IN, SHIP_ANCHORED, SHIP_AWAY, SHIP_COMING, SHIP_EVERY, SHIP_MOORED, TRADE_GOODS, tradingPost } from '../sim/trade';
 import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay, tradesOf, visitorAt } from '../sim/routes';
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
@@ -29,6 +29,8 @@ import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, repaysOnTheDay, spareOf, s
 import { nextFestival } from '../sim/festivals';
 // Slice 30.
 import { daysToThief, temptationOf } from '../sim/crime';
+import { townLines } from '../sim/status';
+import { FAIR as WX_FAIR, lateDays, weatherNow } from '../sim/seasons';
 import { AT_TARGET, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 import { dhypot, sq } from '../map/dmath';
@@ -473,6 +475,17 @@ const wineChain =
     return t + after;
   };
 const villaTown = (after: number): ((sim: Sim) => void) => cultureTown(WINE_AT + after, true, false, true, wineChain(after));
+/**
+ * #villas and #winevendor: and on (a fortnight at most) until every villa has its wine. (Slice 33: with the
+ * seasons' history the vendor had not yet been round to the newest villa as it opened.)
+ */
+const villasTown = (sim: Sim): void => {
+  villaTown(VILLAS_AFTER)(sim);
+  const s = sim.state;
+  const dry = (): boolean => s.buildings.some((b) => b.kind === 'home' && b.level === VILLA && b.people > 0 && b.goodsUntil[gi(WINE)] <= s.tick);
+  const end = s.tick + 14 * TICKS_PER_DAY;
+  while (s.tick < end && dry()) sim.run(10);
+};
 
 /**
  * #grow: the food town with a dairy beside the lane three months before it
@@ -545,6 +558,18 @@ function overhuntTown(ticks: number): (sim: Sim) => void {
       moreOffices(at, OVERHUNT_AT);
     },
   });
+}
+
+/**
+ * #overhunt, and on (half a year at most) until the deer are down to their last few head. (Slice 33: the lodges go in
+ * at the end of February, and with the seasons the herds grow back twice as fast through the spring, so three months
+ * on they were not yet thinned.)
+ */
+function overhuntThin(sim: Sim): void {
+  overhuntTown(OVERHUNT_TICKS)(sim);
+  const s = sim.state;
+  const end = s.tick + 6 * TICKS_PER_MONTH;
+  while (s.tick < end && !s.herds.some((h) => h.kind === 'deer' && h.head <= 3)) sim.run(TICKS_PER_DAY);
 }
 
 /**
@@ -744,6 +769,16 @@ function town(opening: number, safety: Safety = SAFE, rich = false, richWatch = 
     if (watch.length) at(ticks - lead, { type: 'build', kind: 'watchpost', at: watch.map((p) => T(p.x, p.z)) });
     if (architects.length) at(ticks - lead, { type: 'build', kind: 'architect', at: architects.map((p) => T(p.x, p.z)) });
     if (sim.state.tick < ticks) sim.run(ticks - sim.state.tick);
+    // (Slice 33: and on, a fortnight at most, until the agoras' vendors have been round every home with its bread,
+    // meat and cheese: with the seasons' history a few homes in the core were a week past their food as it opened.)
+    {
+      const s = sim.state;
+      const unfed = (): boolean => townLines(s, sim.map).some((l) => l.need === 'food' && /going without/.test(l.text));
+      // (And, but for #richtown's builder, who leaves no room for them, the first settlers in tents on the newest plots, as it had.)
+      const tents = (): boolean => rich || s.buildings.some((b) => b.kind === 'home' && b.level === 1 && b.people > 0);
+      const end = s.tick + 15 * TICKS_PER_DAY;
+      while (s.tick < end && (unfed() || !tents())) sim.run(10);
+    }
     if (rich) {
       // In case her schedule moved: on to the moment she is RICH_IN into her way in.
       const ship = sim.state.trade.ship;
@@ -975,6 +1010,9 @@ function tradeTown(stage: TradeStage): (sim: Sim) => void {
     const ready = (): boolean => {
       if (stage === 'quay') return onQuay(s) >= 1800 && dockersOut(s, tradingPost(s)!) > 0;
       if (stage === 'ship') return ship.phase === SHIP_MOORED && s.tick - ship.since >= 15;
+      // (Slice 33: #black, and once wages have gone unpaid: with the seasons' history the treasury held more, and the
+      // first of the month that finds it dry comes a few days after her sail shows.)
+      if (stage === 'black') return ship.phase === SHIP_COMING && s.tick - ship.since >= 8 && owedWages(s).owed > 0;
       return ship.phase === SHIP_COMING && s.tick - ship.since >= 8;
     };
     const end = s.tick + 2 * SHIP_EVERY;
@@ -1218,19 +1256,30 @@ function raidTown(stage: RaidStage): (sim: Sim) => void {
     // On until his raiders could come at the end of the usual two months (no raid in a city's first year of trade), the treasury able to pay them off.
     const ready = firstRoute(s.world) + TICKS_PER_YEAR - GATHER - marchTicks('sparta') - THREAT_DAYS;
     waitFor(sim, ready, 1000, ready + 3 * TICKS_PER_MONTH);
+    // (Review of slice 33: #aftermath, and on to the 3rd of a month, its threat then left to run out rather than
+    // refused at once (a refusal sends the band at once, but no earlier than a year after the first route, so the day the
+    // band comes stays pinned). Left to run out, the band reaches the granary four months and a few days after this
+    // demand and the tax office a week after that, so the wheat and the coin it takes fall in one month's ledger, which
+    // #aftermath opens on (and, as it falls in this history, with what its fires burnt down). With the seasons' history the demand fell on 27 December, the wheat went in April and the coin
+    // in May, and the wheat was off the ledger by the time it opened.)
+    const lapse = stage === 'aftermath';
+    if (lapse) while (Math.floor((s.tick % TICKS_PER_MONTH) / TICKS_PER_DAY) !== 2) sim.run(TICKS_PER_DAY);
     // The second demand, refused while he is cold: the threat.
     const again = makeTribute(s, sim.map, sparta, -1, tributeSize(s, sparta, -1, false), false);
     send({ type: 'answer', deal: again.id, act: 'refuse' });
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
     if (!r || stage === 'threat') return;
-    // Let run out (as if nothing came): the band gathers and marches.
-    send({ type: 'answer', deal: r.deal, act: 'refuse' });
+    // Let run out (as if nothing came): the band gathers and marches. (Refused at once, but for #aftermath: see above.)
+    if (!lapse) send({ type: 'answer', deal: r.deal, act: 'refuse' });
     if (stage === 'raid') {
       while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
       waitFor(sim, s.tick, r.coin, s.tick);
       return;
     }
     // In your city: fire on for the raid (a demo's history is built with it off), at the farm with torches lit.
+    // (Slice 33: switched on as the band nears the edge, as #raid opens, not weeks before while it gathers: with the
+    // seasons' history, a month of risk on the unwatched farm row had an ordinary fire take the farms and the granary.)
+    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
     hazards(sim, true);
     while (r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
     if (stage === 'raiders') {
@@ -1355,6 +1404,9 @@ function rivalsTown(): (sim: Sim) => void {
       if (city === 'troy' && theySell.includes(FLEECE_K)) send({ type: 'deal', city, kind, good: FLEECE, buy: true, upto: 600 });
     }
     sim.run(Math.max(0, first + RIVALS_TRADE - s.tick));
+    // (Slice 33: and until every route's traders have come once, as they had: with the seasons the treasury pays for the last routes later.)
+    const met = s.tick + 3 * TICKS_PER_MONTH;
+    while (s.tick < met && s.world.routes.some((r) => r.visits === 0)) sim.run(TICKS_PER_DAY);
     const map = sim.map;
     // Sparta's king, warlike: whatever he has asked of the city by now is refused (as a player keeping his coin would), and he threatens it (set up for the demo, and named so).
     const sparta = cityOf(s.world, 'sparta');
@@ -1401,6 +1453,8 @@ const FAMINE_DAYS = 5;
 /** How far in from the horizon #athensship's ship is when it opens (0..1 of her way in). */
 const ATHENS_INWARD = 0.7;
 
+/** Slice 33: about what the 600 measures of wine from Athens cost (the treasury must hold it as well as her fee as she is asked in). */
+const SEA_WINE_COST = 450;
 function seaTown(stage: SeaStage): (sim: Sim) => void {
   return (sim) => {
     tradeTown('trade')(sim);
@@ -1417,7 +1471,8 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
     // #anchor: her first call two days after the Tyre ship ties up; #athensship: half-way between the Tyre ship's calls, with the surplus on the quay.
     // Opened that long before, on a visit the treasury can pay for.
     const lead = firstShipAfter('athens') - (stage === 'anchor' ? 2 * TICKS_PER_DAY : -Math.round(SHIP_EVERY / 2));
-    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s))) {
+    // (Slice 33: and the wine she brings, about 430 dr, as the comment below has it: with the seasons the town's money comes at another pace, and a window it could only just pay her fee in came first.)
+    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s) + SEA_WINE_COST)) {
       if (ship.due - lead <= s.tick) sim.run(Math.max(1, ship.due + SHIP_EVERY - lead - s.tick - 30));
       else sim.run(1);
     }
@@ -1691,6 +1746,8 @@ function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
 function piratesTown(): (sim: Sim) => void {
   return (sim) => {
     seaTown('athensship')(sim);
+    // (Slice 33: as a player would, the yard and her hull once the treasury can pay for them and a month's wages: with the seasons, the town's money comes at another pace.)
+    waitFor(sim, sim.state.tick, SHIPYARD_COST + SHIPYARD_ROAD.length * ROAD_COST + TRIREME_COST + (JOBS.shipyard + CREW) * WAGE, sim.state.tick + 6 * TICKS_PER_MONTH);
     fleetOf(sim, 1);
     pirateBand(sim.state, 'athens-sea', 1, 'set up for this demo');
   };
@@ -1712,12 +1769,21 @@ const LOOTED = lootedTown();
  */
 function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
   return (sim) => {
+    // Slice 33: the seasons turn from the first tick of every history (they change histories on purpose: seasons move every harvest).
+    seasons(sim, true);
     hazards(sim, false);
     setup(sim);
     hazards(sim, true);
     // Slice 30: crime too (off while the history plays, as it is in a bare state), on as it opens.
     crime(sim, true);
   };
+}
+
+/** Slice 33: switch the seasons on or off now (a command, so a replay of the log does the same). */
+function seasons(sim: Sim, on: boolean): void {
+  if (sim.state.season.on === on) return;
+  sim.enqueue({ type: 'seasons', on });
+  sim.flush();
 }
 
 /** Slice 30: switch crime on or off now (a command, so a replay of the log does the same). */
@@ -1737,20 +1803,27 @@ function hazards(sim: Sim, on: boolean): void {
 // Slice 30
 /**
  * Thieves in the night (slice 30). #thieves: #richtown's town as its builder
- * would have had it with no watch post at all, and a new street of huts
+ * would have had it with no watch post over the slope (one in the core, whose
+ * round doesn't reach the slope: slice 33), and a new street of huts
  * marked out on the slope behind the core's villas (a road along the slope
  * from the oil road, eight plots and their own fountain), out of either
  * agora's reach, so they have water but no bread, and villas across the way.
  * Crime is switched on once most of them are huts, and the town played on
  * until the first of them is a few days from sending a thief out. #nowatch:
- * the same town carried on four months with still no watch post, thieves
+ * the same town carried on four months with still no watch post on the slope, thieves
  * having struck a few times; it opens paused on the most tempted hut's panel.
  */
 const THIEF_ROAD = row(63, 85, 26);
 const THIEF_XS = [63, 65, 67, 69, 71, 73, 75, 77];
 const THIEF_FOUNTAIN = { x: 79, z: 27 };
-/** (The watch post by the lane on the west bank stays: its hamlet is not what the demo is about.) */
-const THIEF_SAFETY: Safety = { watch: [TOWN_WATCH[1]], architects: TOWN_ARCHITECTS };
+/**
+ * (The watch post by the lane on the west bank stays: its hamlet is not what the demo is about.) Slice 33 (review of
+ * slice 30): and one for the core, at the west end of its north street, whose watchman's round covers every street
+ * of the core but stops short of the hut street (38 road tiles away, his round 32), so the core is watched and the
+ * huts are not.
+ */
+const THIEF_CORE_WATCH: Spot = { x: 60, z: 39 };
+const THIEF_SAFETY: Safety = { watch: [TOWN_WATCH[1], THIEF_CORE_WATCH], architects: TOWN_ARCHITECTS };
 /** How many of the street's plots must be huts before crime goes on, and the longest wait for it. */
 const THIEF_HUTS = 6;
 const THIEF_WAIT = 4 * TICKS_PER_MONTH;
@@ -1794,6 +1867,38 @@ const mostTempted = (s: SimState): number => {
   const stole = (b: Building): number => (b.family?.story.some((e) => e.what === 'stole') ? 1 : 0);
   return ([...(pool.length ? pool : homes)].sort((a, b) => stole(b) - stole(a) || b.tempt - a.tempt || a.id - b.id)[0]?.id ?? 0);
 };
+
+// Slice 33
+/**
+ * The turning year (slice 33). #seasons: #town's town played on to the last
+ * days of February, so a year at the fastest speed runs from green spring
+ * through gold summer to the autumn harvest (the granaries filling) and back
+ * to a grey-green winter. #winter: #richtown's town played on into the winter
+ * until the Tyrian ship has been held back by the storms, on a wet day if one
+ * comes before spring. (#richtown opens in the last days of February: the winter after.)
+ */
+const SEASONS_AT = Math.ceil(TOWN_TICKS / TICKS_PER_YEAR) * TICKS_PER_YEAR - 9 * TICKS_PER_DAY;
+/** The first day of the next winter (1 December) that has most of it still to come. */
+const winterAfter = (tick: number): number => {
+  const from = Math.floor(tick / TICKS_PER_YEAR) * TICKS_PER_YEAR + 9 * TICKS_PER_MONTH;
+  return from + 3 * TICKS_PER_MONTH <= tick + TICKS_PER_MONTH ? from + TICKS_PER_YEAR : from;
+};
+function seasonsTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  if (sim.state.tick < SEASONS_AT) sim.run(SEASONS_AT - sim.state.tick);
+}
+function winterTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const from = winterAfter(s.tick);
+  if (s.tick < from) sim.run(from - s.tick);
+  const end = from + 3 * TICKS_PER_MONTH - 5 * TICKS_PER_DAY;
+  const late = (): boolean => lateDays(s, 'tyre') > 0 && s.trade.ship.phase === SHIP_AWAY;
+  while (s.tick < end && !late()) sim.run(TICKS_PER_DAY);
+  // On a wet day, if one comes while she is still out.
+  const wet = s.tick + 20 * TICKS_PER_DAY;
+  while (s.tick < Math.min(end, wet) && late() && weatherNow(s) === WX_FAIR) sim.run(TICKS_PER_DAY);
+}
 
 /** The prepared town of #rivals (one setup for its three demos). */
 const RIVALS = rivalsTown();
@@ -2269,7 +2374,7 @@ const SCENES: Record<string, Demo> = {
   hunter: { view: 'hunter', setup: hunterTown, follow: 'hunter', overlay: 'food' },
   dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
   table: { view: 'table', setup: tableTown(TABLE_TICKS), overlay: 'variety', overlayOn: true, open: aboutToClimb },
-  overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
+  overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntThin, overlay: 'food' },
   grove: { view: 'grove', tool: 'grove', setup: cultureTown(SHRINE_TICKS, false, false, false), overlay: 'oil' },
   oil: { view: 'oil', setup: town(TOWN_TICKS), overlay: 'oil' },
   storehouse: { view: 'storehouse', setup: town(TOWN_TICKS), overlay: 'oil' },
@@ -2278,9 +2383,9 @@ const SCENES: Record<string, Demo> = {
   pasture: { view: 'pasture', setup: cultureTown(FINE_TICKS), overlay: 'fleece' },
   fleecevendor: { view: 'fleecevendor', setup: cultureTown(FINE_TICKS), follow: 'fleece', overlay: 'fleece', overlayOn: true },
   vineyard: { view: 'vineyard', tool: 'vineyard', setup: cultureTown(FINE_TICKS), overlay: 'wine' },
-  villas: { view: 'villas', setup: villaTown(VILLAS_AFTER), overlay: 'missing', open: firstVilla },
+  villas: { view: 'villas', setup: villasTown, overlay: 'missing', open: firstVilla },
   winery: { view: 'winery', setup: villaTown(WINERY_AFTER), follow: 'cart', followFrom: 'vineyard', overlay: 'wine' },
-  winevendor: { view: 'winevendor', setup: villaTown(VILLAS_AFTER), follow: 'wine', overlay: 'wine', overlayOn: true },
+  winevendor: { view: 'winevendor', setup: villasTown, follow: 'wine', overlay: 'wine', overlayOn: true },
   fire: { view: 'east', speed: 'paused', tool: 'watchpost', setup: fireTown('smoke'), overlay: 'fire', overlayOn: true },
   blaze: { view: 'east', setup: fireTown('blaze'), overlay: 'fire' },
   rubble: { view: 'east', tool: 'clear', setup: fireTown('rubble'), overlay: 'fire' },
@@ -2374,6 +2479,10 @@ const SCENES: Record<string, Demo> = {
   // Slice 32: marble and timber. The quarry on the headland, its sledges on the road, the quarry tool in hand and marble's page open; the loggers' camp at the west wood's edge, stumps and young trees where it has felled, timber's page open.
   quarry: { view: 'quarry', tool: 'quarry', setup: WORKS_QUARRY_TOWN, overlay: 'missing', side: { ware: MARBLE } },
   loggers: { view: 'loggers', setup: WORKS_CAMP_TOWN, overlay: 'missing', side: { ware: TIMBER } },
+  // Slice 33
+  // The turning year: #town's town in the last days of February at the fastest speed, over the farms and the granary (a year to watch); #richtown's in winter, the bay grey and the Tyrian ship late.
+  seasons: { view: 'seasons', speed: 'fastest', setup: seasonsTown, overlay: 'food', side: { tab: 'husbandry' } },
+  winter: { view: 'winter', setup: winterTown, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -49,6 +49,7 @@ export class TopBar {
         <div class="date" title="The date in your city">
           <div class="month"></div>
           <div class="days"></div>
+          <div class="season" hidden><svg viewBox="0 0 20 20" aria-hidden="true" class="dial"><path d="M10 10V1a9 9 0 0 1 9 9z" class="q0"/><path d="M10 10h9a9 9 0 0 1-9 9z" class="q1"/><path d="M10 10v9a9 9 0 0 1-9-9z" class="q2"/><path d="M10 10H1a9 9 0 0 1 9-9z" class="q3"/><circle cx="10" cy="10" r="9" class="rim"/><path d="M10 10V2.4" class="hand"/><circle cx="10" cy="10" r="1.6" class="hub"/></svg><b class="nm"></b><span class="cm"></span><i class="wx"></i></div>
         </div>
         <div class="divider"></div>
         <div class="speeds"></div>
@@ -297,6 +298,32 @@ export class TopBar {
       b.classList.toggle('on', k === s);
       b.setAttribute('aria-pressed', String(k === s));
     }
+  }
+
+  // Slice 33: the season dial.
+  private seasonKey = '';
+
+  /**
+   * The season dial under the date: a round dial in the four seasons'
+   * colours with its hand at today, the season's name and what's coming
+   * ("Summer · the harvest in 12 d"), and the whole in its tooltip. Hidden
+   * with the seasons off.
+   */
+  showSeason(news: { season: number; name: string; coming: string; line: string; weather: number } | null, phase: number): void {
+    const el = this.bar.querySelector('.season') as HTMLElement;
+    const turn = Math.round(phase * 360);
+    const key = news ? `${news.name}:${news.coming}:${news.weather}:${turn}:${news.line}` : '';
+    if (key === this.seasonKey) return;
+    this.seasonKey = key;
+    el.hidden = !news;
+    if (!news) return;
+    el.className = `season s${news.season} w${news.weather}`;
+    (el.querySelector('.hand') as SVGElement).setAttribute('transform', `rotate(${turn} 10 10)`);
+    (el.querySelector('.nm') as HTMLElement).textContent = news.name;
+    (el.querySelector('.cm') as HTMLElement).textContent = news.coming;
+    const wx = el.querySelector('.wx') as HTMLElement;
+    wx.textContent = news.weather === 2 ? 'storm' : news.weather === 1 ? 'rain' : '';
+    el.title = `${news.line}.`;
   }
 
   showDate(d: SimDate): void {

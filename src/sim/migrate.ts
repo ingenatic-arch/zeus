@@ -104,6 +104,11 @@
  * to what its founder makes), each at its usual price with nothing pushing
  * it; nothing is ticked for sale. Nothing in the city changes.
  *
+ * Slice 33 (The turning year): the seasons are on from loading, no ship
+ * held back by winter yet. The season itself is the tick's, so a loaded
+ * town is in whatever season its date falls in, and its farms, groves and
+ * flocks take that season's pace from its next tick.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -122,6 +127,8 @@ import { armsOf, freshWorld, marketPrice, materialsOf, moodLevel, moodOf, normal
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { freshCrime } from './crime';
+// Slice 33.
+import { freshSeasons } from './seasons';
 import { nextFestival } from './festivals';
 import { SITES, type CityId } from '../map/greece';
 import { COLONY_MAKES } from './growth';
@@ -173,6 +180,7 @@ export function migrate(st: unknown): number {
   if (st.version === 27) fromSlice30(st);
   if (st.version === 28) fromSlice31(st);
   if (st.version === 29) fromSlice32(st);
+  if (st.version === 30) fromSlice33(st);
   return from;
 }
 
@@ -703,6 +711,17 @@ function fromSlice32(st: Record<string, unknown>): void {
       pad(r.sell, g, () => false);
       pad(r.buy, g, () => false);
     }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/** Slice 33 (the turning year): see the note above. Only its own field, if it is missing. */
+function fromSlice33(st: Record<string, unknown>): void {
+  if (!isObj(st.season)) st.season = freshSeasons(true);
+  else {
+    const se = st.season as Record<string, unknown>;
+    if (typeof se.on !== 'boolean') se.on = true;
+    if (!isObj(se.late)) se.late = {};
   }
   st.version = (st.version as number) + 1;
 }

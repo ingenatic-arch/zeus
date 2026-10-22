@@ -261,7 +261,12 @@ export interface Plants {
   sync(cleared: readonly number[]): void;
   /** Slice 32: the trees the loggers are chopping, felling and that grow back, every frame. */
   works(s: SimState, alpha: number, time: number): void;
+  /** Slice 33: how high the crowns of the trees (and the rocks) standing near a point reach, or -Infinity: the camera keeps above them. */
+  canopyAt(x: number, z: number): number;
 }
+
+/** Slice 33: how far round a crown the camera keeps off it (world units). */
+const CANOPY_MARGIN = 1.2;
 
 /**
  * Plants are drawn in square chunks of this many units, so what's off screen
@@ -487,6 +492,38 @@ export function buildTrees(map: CoastMap): Plants {
   let felledRef: SimState['materials']['felled'] | null = null;
   let felledAt = new Map<number, number>();
   let dynamic = new Set<number>();
+  // Slice 33: the crowns' tops on a grid of whole tiles (each crown widened by a margin), redone as plants are cleared.
+  const n = map.size + 1;
+  const canopy = new Float32Array(n * n);
+  const tops = new Map<TreeKind, { top: number; r: number }>();
+  const crownOf = (k: TreeKind): { top: number; r: number } => {
+    let c = tops.get(k);
+    if (!c) {
+      const g = model(k);
+      if (!g.boundingBox) g.computeBoundingBox();
+      const b = g.boundingBox as THREE.Box3;
+      c = { top: b.max.y, r: Math.max(-b.min.x, b.max.x, -b.min.z, b.max.z) };
+      tops.set(k, c);
+    }
+    return c;
+  };
+  const bakeCanopy = (): void => {
+    canopy.fill(-Infinity);
+    map.trees.forEach((t, i) => {
+      if (gone.has(i) || groupOf(t.kind) === 'grass') return;
+      const c = crownOf(t.kind);
+      const top = mats[i].elements[13] + c.top * t.scale * (t.kind === TreeKind.Rock ? 1.2 : 1);
+      const r = c.r * t.scale + CANOPY_MARGIN;
+      for (let z = Math.max(0, Math.floor(t.z - r)); z <= Math.min(n - 1, Math.ceil(t.z + r)); z++) {
+        for (let x = Math.max(0, Math.floor(t.x - r)); x <= Math.min(n - 1, Math.ceil(t.x + r)); x++) {
+          if (Math.hypot(x - t.x, z - t.z) > r + 0.71) continue;
+          const j = z * n + x;
+          if (top > canopy[j]) canopy[j] = top;
+        }
+      }
+    });
+  };
+  bakeCanopy();
 
   return {
     group,
@@ -564,6 +601,13 @@ export function buildTrees(map: CoastMap): Plants {
       for (const i of gone) if (!next.has(i)) mark(i);
       gone = next;
       for (const key of dirty) fill(key, next);
+      if (dirty.size) bakeCanopy();
+    },
+    canopyAt(x: number, z: number) {
+      const ix = Math.round(x);
+      const iz = Math.round(z);
+      if (ix < 0 || iz < 0 || ix >= n || iz >= n) return -Infinity;
+      return canopy[iz * n + ix];
     },
   };
 }

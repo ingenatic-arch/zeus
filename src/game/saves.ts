@@ -378,7 +378,14 @@ export function stateProblem(st: unknown): string {
   if (!crimeOk(st.crime)) return damaged('its record of crime is wrong');
   // Slice 32.
   if (!materialsOk(st.materials)) return damaged('its record of felled trees is wrong');
+  // Slice 33.
+  if (!seasonOk(st.season)) return damaged('its record of the seasons is wrong');
   return '';
+}
+
+/** The seasons (slice 33): the switch, and the ships winter has held back (days, by ship). */
+function seasonOk(c: unknown): boolean {
+  return isObj(c) && typeof c.on === 'boolean' && isObj(c.late) && Object.values(c.late).every(fin);
 }
 
 /** Crime (slice 30): the switch, the news and the month's tallies. */

@@ -31,6 +31,8 @@ import { rateOf } from './labour';
 import { storeOf } from './stores';
 import { note } from './stockbook';
 import type { Building, BuildingKind, SimState } from './state';
+// Slice 33: crops, fruit and flocks to the season's pace.
+import { makerPace } from './seasons';
 
 /** An olive grove's harvest on the best olive ground, fully worked, every OLIVE_GROW ticks (two months). */
 export const OLIVE_HARVEST = 400;
@@ -95,8 +97,8 @@ export const MAKERS: Partial<Record<BuildingKind, Maker>> = {
 /** How far a crop has grown, in eighths (what the renderer shows). */
 export const stageOf = (b: Building, m: Maker): number => Math.floor((b.growth / (m.grow ?? 1)) * 8);
 
-/** One maker's tick: its cart clock, its work, and a cart if it is time. */
-function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
+/** One maker's tick: its cart clock, its work (at the season's `pace`: slice 33), and a cart if it is time. */
+function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker, pace: number): void {
   if (b.clock > 0) b.clock--;
   const store = storeOf(b.kind);
   if (m.how === 'crop') {
@@ -104,7 +106,7 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
     const grow = m.grow ?? 1;
     if (held(b, m.ware) < store && rate > 0) {
       const before = Math.floor((b.growth / grow) * 8);
-      b.growth += rate;
+      b.growth += rate * pace;
       if (b.growth >= grow) {
         b.growth = 0;
         const had = held(b, m.ware);
@@ -120,7 +122,7 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
     const input = m.input;
     const per = m.per ?? 1;
     if (held(b, m.ware) < store && rate > 0 && (input === undefined || held(b, input) >= per)) {
-      b.growth += m.ground ? rate * m.ground(map, b) : rate;
+      b.growth += (m.ground ? rate * m.ground(map, b) : rate) * pace;
       if (b.growth >= every) {
         b.growth -= every;
         let made = batch;
@@ -143,7 +145,8 @@ function stepMaker(s: SimState, map: CoastMap, b: Building, m: Maker): void {
 function stepKind(s: SimState, map: CoastMap, kind: BuildingKind): void {
   const m = MAKERS[kind];
   if (!m) return;
-  for (const b of s.buildings) if (b.kind === kind) stepMaker(s, map, b, m);
+  const pace = makerPace(s, kind);
+  for (const b of s.buildings) if (b.kind === kind) stepMaker(s, map, b, m, pace);
 }
 
 /**

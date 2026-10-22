@@ -15,7 +15,7 @@ import { GOOD_USE, goodUntil, hasStall } from '../sim/goods';
 import { FLEECE, OIL, WINE, type Ware } from '../sim/foods';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
 // Slice 30.
-import { robbedLately, TEMPT_FULL, TEMPT_HALF } from '../sim/crime';
+import { robbedLately, TEMPT_FULL, TEMPT_HALF, TEMPT_SHOW } from '../sim/crime';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -326,7 +326,8 @@ export class ServiceOverlay {
   /**
    * Slice 30, crime: the roads a watchman reaches, brighter where one has
    * walked lately (where he deters thieves); every lived-in home tinted green
-   * below half its temptation, amber past half, red past three-quarters or
+   * below a quarter of its temptation (slice 33; it was half), amber past a
+   * quarter (where its panel names it), red past three-quarters or
    * with a thief of theirs out, with a column over each one past half, as tall
    * as how near it is to sending one; and a short pale column over each home
    * robbed in the last two months. The watch posts are marked as the sources.
@@ -359,7 +360,8 @@ export class ServiceOverlay {
       else if (b.kind === 'home' && b.people > 0 && b.family) {
         const alarm = out.has(b.id);
         const v = b.tempt;
-        code = alarm || v >= HAZARD_HIGH ? MISSING_WARN : v >= TEMPT_HALF ? MISSING_WANT : MISSING_FINE;
+        // (Slice 33: amber from a quarter, where the household's panel starts naming it.)
+        code = alarm || v >= HAZARD_HIGH ? MISSING_WARN : v >= TEMPT_SHOW ? MISSING_WANT : MISSING_FINE;
         const top = ROOF[b.level];
         const y = this.map.heightAt(b.x + 1, b.z + 1) + top + 0.2;
         if (alarm || v >= TEMPT_HALF) {

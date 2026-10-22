@@ -298,8 +298,9 @@ describe('on your map', () => {
     const r = inTheCity(sim, 'troy');
     const l = { target: findBuilding(s, r.target)! };
     expect(['storehouse', 'granary']).toContain(l.target.kind);
-    const before = WARES.map((w) => held(l.target, w));
-    until(sim, () => r.took > 0, 2 * TICKS_PER_MONTH);
+    // (What it held as they took from it: carts may bring more while the band walks there. Slice 33: in summer they do.)
+    let before = WARES.map((w) => held(l.target, w));
+    until(sim, () => r.took > 0 || ((before = WARES.map((w) => held(l.target, w))), false), 2 * TICKS_PER_MONTH);
     const store = findBuilding(s, r.target)!;
     expect(r.took).toBeGreaterThan(0);
     expect(r.took).toBeLessThanOrEqual(Math.floor(before[WARES.indexOf(r.ware as Ware)] / 2));
@@ -364,8 +365,9 @@ describe('stopping them', () => {
   it('the goods sent: they count on arrival and the threat is lifted (the ruler waits for them)', () => {
     const sim = settled();
     const s = sim.state;
-    // (Goods are asked for only when your stores hold twice the price of peace: oil to spare.)
-    for (const b of s.buildings) if (b.kind === 'storehouse') setHeld(b, OIL, held(b, OIL) + 1000);
+    // (Goods are asked for only when your stores hold twice the price of peace: oil to spare. Slice 33: #caravan opens in
+    // April, its storehouse low on oil after the winter's thin picking, so more of it.)
+    for (const b of s.buildings) if (b.kind === 'storehouse') setHeld(b, OIL, held(b, OIL) + 2000);
     const r = threatened(sim);
     expect(r.alt).toBeGreaterThanOrEqual(0);
     // (When the page says it would arrive, it does.)

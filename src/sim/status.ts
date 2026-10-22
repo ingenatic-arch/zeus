@@ -84,6 +84,8 @@ import {
   wearRate,
   wears,
 } from './hazards';
+// Slice 33: the seasons' pace in the farms', groves' and flocks' lines.
+import { AUTUMN, daysToNextSeason, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 
 export interface Status {
   title: string;
@@ -534,9 +536,11 @@ export function farmStatus(s: SimState, map: CoastMap, f: Building): Status {
   if (f.stock >= BARN) crop = 'The barn is full: nothing more grows until carts take the grain away';
   else if (rate === 0) crop = 'Nothing grows with nobody to work the fields';
   else {
-    const left = (GROW - f.growth) / rate;
+    const left = ticksToGrow(s, 'wheat', GROW - f.growth, rate);
     crop = `The wheat is ${Math.round((f.growth / GROW) * 100)}% grown · harvest in about ${days(left)}, about ${fmt(harvestOf(map, f))} measures`;
   }
+  // (Slice 33: why it grows as fast as it does now.)
+  if (rate > 0 && f.stock < BARN) crop = lines(crop, paceLine(s, 'farm'));
   const carts = errandsOut(s, f);
   let barn = `Barn: ${fmt(f.stock)} measures`;
   if (carts) barn += ` · ${carts === 1 ? 'a cart' : `${carts} carts`} on the road`;
@@ -636,7 +640,9 @@ export function dairyStatus(s: SimState, map: CoastMap, d: Building): Status {
   let making: string;
   if (d.cheese >= DAIRY_STORE) making = 'The store is full: the goats give nothing more until carts take the cheese away';
   else if (rate === 0) making = 'No cheese is made with nobody to milk the goats';
-  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(roundTen(best * rate))} measures of cheese a month${rate < 1 ? ` (${fmt(roundTen(best))} fully worked)` : ''}`;
+  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(roundTen(best * rate * makerPace(s, 'dairy')))} measures of cheese a month${rate < 1 ? ` (${fmt(roundTen(best * makerPace(s, 'dairy')))} fully worked)` : ''}`;
+  // (Slice 33: the season's pace, named.)
+  if (rate > 0 && d.cheese < DAIRY_STORE) making = lines(making, paceLine(s, 'dairy'));
   return { title, detail: lines(workersLine(s, map, d), making, storeLine(s, map, d, CHEESE)) };
 }
 
@@ -892,7 +898,9 @@ function cropStatus(s: SimState, map: CoastMap, g: Building): Status {
     const look = grove
       ? stage < 2 ? 'the trees are in flower' : stage < 5 ? 'the olives are green on the trees' : 'the olives are ripening'
       : stage < 2 ? 'the vines are in leaf' : stage < 5 ? 'the grapes are small and green on the vines' : 'the grapes are ripening';
-    crop = `${cap(look)} · picked in about ${days((grow - g.growth) / rate)}, about ${fmt(harvest)} measures${rate < 1 ? ' (later with fewer pickers)' : ''}`;
+    crop = `${cap(look)} · picked in about ${days(ticksToGrow(s, 'fruit', grow - g.growth, rate))}, about ${fmt(harvest)} measures${rate < 1 ? ' (later with fewer pickers)' : ''}`;
+    // (Slice 33: why it ripens as fast as it does now.)
+    crop = lines(crop, paceLine(s, g.kind));
   }
   const inStore = `Picked: ${fmt(picked)} of ${fmt(store)} measures of ${fruit}`;
   const month = roundTen((harvest * TICKS_PER_MONTH) / grow);
@@ -948,7 +956,9 @@ export function pastureStatus(s: SimState, map: CoastMap, p: Building): Status {
   let making: string;
   if (bales >= storeOfKind('pasture')) making = 'The shed is full: nobody shears until carts take the fleece away';
   else if (rate === 0) making = 'No fleece is sheared with nobody to mind the sheep';
-  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(roundTen(FLEECE_MONTH * grass * rate))} bales of fleece a month${rate < 1 ? ` (${fmt(roundTen(FLEECE_MONTH * grass))} fully worked)` : ''}`;
+  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(roundTen(FLEECE_MONTH * grass * rate * makerPace(s, 'pasture')))} bales of fleece a month${rate < 1 ? ` (${fmt(roundTen(FLEECE_MONTH * grass * makerPace(s, 'pasture')))} fully worked)` : ''}`;
+  // (Slice 33: the season's pace, named.)
+  if (rate > 0 && bales < storeOfKind('pasture')) making = lines(making, paceLine(s, 'pasture'));
   return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, FLEECE, 'storehouse', 'a storehouse (G twice)')) };
 }
 
@@ -1037,7 +1047,7 @@ function nextPicking(s: SimState, kind: 'grove' | 'vineyard'): string {
   for (const g of s.buildings) {
     if (g.kind !== kind || held(g, ware) >= storeOfKind(kind)) continue;
     const rate = rateOf(g);
-    if (rate > 0) soonest = Math.min(soonest, (grow - g.growth) / rate);
+    if (rate > 0) soonest = Math.min(soonest, ticksToGrow(s, 'fruit', grow - g.growth, rate));
   }
   if (s.walkers.some((w) => w.kind === 'cart' && w.food === ware && !w.back)) return ` (a cart of ${WARE_NAMES[ware]} is on its way to the ${kind === 'grove' ? 'press' : 'winery'})`;
   return soonest < Infinity ? ` (the next picking is in about ${days(soonest)})` : '';
@@ -1077,7 +1087,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'season';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1098,6 +1108,31 @@ export const BREAD_LEAD_MONTHS = 6;
  * between harvests (the same tenth the farm count in balanceWords leaves).
  */
 export const BREAD_SPARE = 1.1;
+
+/**
+ * Slice 33: the winter line. From a month before winter until spring, when
+ * the wheat in the granaries and stalls won't carry the town to spring at
+ * winter's pace (the farms at 60%): how much short, and what would help.
+ */
+function winterLine(s: SimState, bal: { grown: number; eaten: number }, stored: number, farms: Building[]): TownLine | null {
+  const season = seasonOf(s);
+  if (season < 0 || bal.eaten <= 0 || farms.length === 0) return null;
+  const toNext = daysToNextSeason(s.tick);
+  // Months of winter still ahead: all three from late autumn, what is left of it in winter.
+  const months = season === WINTER ? toNext / 30 : season === AUTUMN && toNext <= 30 ? 3 : 0;
+  if (months <= 0) return null;
+  const grows = bal.grown * PACES.wheat[WINTER];
+  const short = (bal.eaten - grows) * months;
+  if (short <= stored) return null;
+  const weeks = Math.max(1, Math.round((stored / Math.max(1, bal.eaten - grows)) * 30 / 7));
+  const when = season === WINTER ? `Winter, ${toNext} ${toNext === 1 ? 'day' : 'days'} to spring` : `Winter in ${toNext} ${toNext === 1 ? 'day' : 'days'}`;
+  const granary = s.buildings.find((g) => g.kind === 'granary');
+  return {
+    need: 'season',
+    text: `${when}: the fields give little until spring, about ${fmt(roundTen(grows))} measures of wheat a month against the ${fmt(roundTen(bal.eaten))} the town eats, and the granaries and stalls hold ${fmt(roundTen(stored))}, ${stored < 1 ? 'nothing to spare' : `about ${weeks} ${weeks === 1 ? 'week' : 'weeks'} of the shortfall`}. Another farm now, or wheat bought in, would carry it through.`,
+    at: granary?.id ?? farms[0].id,
+  };
+}
 
 /** How long a line of news from Greece stands under the top bar, and at the least before the next takes its place (one at a time, in turn). */
 const NEWS_DAYS = 14;
@@ -1321,6 +1356,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
       }
     }
   }
+  // Slice 33: winter coming (or here) with too little in the granaries to carry the town to spring.
+  const winter = winterLine(s, bal, stored, farms);
+  if (winter) out.push(winter);
   // Meat and cheese: homes warning about food for want of one of them.
   for (const f of [MEAT, CHEESE] as Food[]) {
     let short = 0;

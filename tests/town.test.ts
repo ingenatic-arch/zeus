@@ -61,7 +61,10 @@ describe('#town', () => {
     // east end also run a few days past their water a few times (59 home-days): 141 in all, none down a level.
     // Since slice 14's money (two more tax offices go in earlier, so the town is bigger sooner and its newest
     // plots go down a month earlier), the same far ends run a few days more: 261, still none down a level.
-    expect(warnedDays).toBeLessThan(300);
+    // Since slice 33's seasons (every history played with them), the fleece vendor's round misses a dozen fine houses
+    // for a week or two in the first autumn of the two years (fleece on the stall all the while): about 340, still none
+    // down a level.
+    expect(warnedDays).toBeLessThan(400);
   });
 });
 

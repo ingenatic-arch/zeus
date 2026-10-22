@@ -7,6 +7,7 @@ import { buildSky } from './sky';
 import { buildTerrain } from './terrain';
 import { buildTrees, type Plants } from './trees';
 import { buildWater, type Water } from './water';
+import type { SeasonLook } from './seasons';
 
 /** Direction towards the sun: a warm afternoon sun from the south-west. */
 export const SUN_DIR = new THREE.Vector3(-0.62, 0.62, 0.48).normalize();
@@ -23,6 +24,18 @@ export class World {
   private readonly sunSummer = new THREE.Color('#ffe6c2');
   private readonly sunWinter = new THREE.Color('#eef0f0');
   private lastSeason = NaN;
+  // Slice 33: the season's sky and the weather's light.
+  private readonly sky: THREE.Mesh;
+  private readonly zenithBase: THREE.Color;
+  private readonly horizonBase: THREE.Color;
+  private readonly zenithGrey = new THREE.Color('#8d9aa4');
+  private readonly horizonGrey = new THREE.Color('#cfd0c8');
+  private readonly zenithStorm = new THREE.Color('#56626d');
+  private readonly horizonStorm = new THREE.Color('#9a9f9d');
+  private sunI = 2.7;
+  private hemiI = 1.25;
+  private dim = 1;
+  private lookKey = '';
 
   constructor(map: CoastMap) {
     const scene = this.scene;
@@ -30,7 +43,11 @@ export class World {
     scene.fog = this.fog;
     scene.background = col(PAL.skyHorizon).clone();
 
-    scene.add(buildSky(SUN_DIR));
+    this.sky = buildSky(SUN_DIR);
+    scene.add(this.sky);
+    const su = (this.sky.material as THREE.ShaderMaterial).uniforms;
+    this.zenithBase = (su.uZenith.value as THREE.Color).clone();
+    this.horizonBase = (su.uHorizon.value as THREE.Color).clone();
     scene.add(buildTerrain(map));
     this.plants = buildTrees(map);
     scene.add(this.plants.group);
@@ -65,8 +82,35 @@ export class World {
     this.lastSeason = k;
     // Winter is the gentler side, so the early spring the game starts in stays close to the light it was tuned in.
     this.sun.color.copy(this.sunBase).lerp(k > 0 ? this.sunSummer : this.sunWinter, k > 0 ? k * 0.5 : -k * 0.35);
-    this.sun.intensity = 2.7 + (k > 0 ? 0.2 : 0.12) * k;
-    this.hemi.intensity = 1.25 - 0.05 * k;
+    this.sunI = 2.7 + (k > 0 ? 0.2 : 0.12) * k;
+    this.hemiI = 1.25 - 0.05 * k;
+    this.lights();
+  }
+
+  private lights(): void {
+    this.sun.intensity = this.sunI * this.dim;
+    this.hemi.intensity = this.hemiI * (1 - (1 - this.dim) * 0.35);
+  }
+
+  /**
+   * Slice 33: the season's sky and haze (greyer in winter and under rain,
+   * dark in a storm) and the light dimmed by the weather; `flash` is a
+   * lightning flash (0 to 1).
+   */
+  setLook(l: SeasonLook, flash = 0): void {
+    const key = `${l.skyGrey.toFixed(3)} ${l.rain.toFixed(3)} ${l.storm.toFixed(3)} ${flash.toFixed(2)}`;
+    if (key === this.lookKey) return;
+    this.lookKey = key;
+    const u = (this.sky.material as THREE.ShaderMaterial).uniforms;
+    const z = u.uZenith.value as THREE.Color;
+    const h = u.uHorizon.value as THREE.Color;
+    z.copy(this.zenithBase).lerp(this.zenithGrey, l.skyGrey).lerp(this.zenithStorm, l.storm * 0.85);
+    h.copy(this.horizonBase).lerp(this.horizonGrey, l.skyGrey).lerp(this.horizonStorm, l.storm * 0.85);
+    this.fog.color.copy(h);
+    (this.scene.background as THREE.Color).copy(h);
+    this.water.setLook(l.seaGrey, l.seaBlue);
+    this.dim = Math.min(1.6, (1 - Math.min(0.55, l.rain * 0.4 + l.storm * 0.25 + l.skyGrey * 0.12)) + flash * 0.8);
+    this.lights();
   }
 
   /** Keep the shadow box around what the camera is looking at, sized to the view. */

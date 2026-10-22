@@ -1022,9 +1022,10 @@ await page.keyboard.press('Escape');
 // #quay: goods ticked, dockers on the road, goods stacked on the quay; the panel open with its rows, ticks and keeps.
 await open('#quay-paused');
 c = await city();
-if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
+// (Slice 33: her first call falls in winter, so she may be late, and the chip and panel say so.)
+if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d( · late)?$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
 let tt = await zeus(() => window.__zeus.tradeText());
-if (!/The trading post[\s\S]*Ship in \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
+if (!/The trading post[\s\S]*Ship (in|late ·) \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
 // Unticking a good and raising a keep go through the command queue.
 const keep0 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
 await page.click('.trade button[data-keep="0"][data-by="1"]');
@@ -1471,6 +1472,12 @@ g = await gi();
 if (!(g.shown === 'corinth' && /Hostile −\d+[\s\S]*Trade · closed[\s\S]*Furious with your city \(set up for this demo\)[\s\S]*The road is closed/.test(g.panel))) fail(`#hostile: ${g.panel.slice(0, 900)}`);
 if (!(await lines18()).some((l) => /Corinth is hostile now, and has closed the road to your city/.test(l))) fail(`#hostile: no town line: ${JSON.stringify(await lines18())}`);
 await page.click('.greece-panel button[data-gift="-1"][data-amount="250"]');
+// (Slice 33: the button sits near the foot of the page, and under load the page could be redrawn between scrolling to it
+// and the click, so the gift was not sent: if it isn't on its way, the button is pressed again in the page itself.)
+if (!(await page.waitForFunction(() => /Your gift of 250 dr is on its way to Corinth/.test(window.__zeus.greeceInfo().panel), null, { timeout: 20000 }).then(() => true).catch(() => false))) {
+  await zeus(() => document.querySelector('.greece-panel button[data-gift="-1"][data-amount="250"]')?.click());
+  await frames(3);
+}
 await zeus(() => window.__zeus.speed('fast'));
 await page.waitForFunction(() => window.__zeus.townLines().some((l) => /has opened the road again/.test(l)), null, { timeout: 300000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
@@ -1611,9 +1618,10 @@ if (!(r20.raids[0]?.phase === 'raiding' && r20.band?.drawn && r20.chip === 'Raid
 if (!(await lines18()).some((l) => /^\d+ of Sparta’s raiders are in your city, plundering the granary(, then making for the tax office)?\. Pay [\d,]+ dr on Sparta’s page to turn them back/.test(l))) fail(`#raiders: no line: ${JSON.stringify(await lines18())}`);
 const at20 = await zeus((p) => window.__zeus.screenOf(p.x, p.z), r20.band);
 await page.mouse.move(at20.x, at20.y - 8);
-await page.waitForFunction(() => /^Raiders of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});
+await page.waitForFunction(() => /^Raiders of Sparta|^A raider of Sparta/.test(window.__zeus.tipText() ?? ''), null, { timeout: 10000 }).catch(() => {});
 const tip20 = await zeus(() => window.__zeus.tipText());
-if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
+// (Slice 33: with the seasons' history the band stands otherwise, and the pointer can fall on one of its men: his tip is the band's too.)
+if (!/^Raiders of Sparta[\s\S]*men in Sparta’s colours, with shields and torches|^A raider of Sparta[\s\S]*with the band/.test(tip20 ?? '')) fail(`#raiders: the band's tip: ${tip20}`);
 await page.mouse.move(5, 5);
 // The chip opens Sparta's page, with the band at the granary and the coin to turn them back (not paid here: they go on to take the wheat).
 await page.click('.raid-chip');
@@ -1632,7 +1640,9 @@ if (!(r20.raids[0].end === 'raided' && r20.raids[0].took > 0)) fail(`#raiders: a
 await open('#aftermath-paused');
 await frames(3);
 const led20 = await zeus(() => window.__zeus.ledgerText());
-if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Raided by Sparta · wheat[\s\S]*Burnt down · homes/.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
+// (Slice 33: with the seasons' history its fires took a farm and the dairy, not houses; nothing it plundered burnt. Review of
+// slice 33: the wheat line is back, as #aftermath's demand now comes early in a month, so the wheat and the coin fall in one month.)
+if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Raided by Sparta · wheat[\s\S]*Burnt down · /.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
 await zeus(() => window.__zeus.greece(true, 'sparta'));
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);
@@ -1696,7 +1706,9 @@ if (!(await zeus(() => [...document.querySelectorAll('.greece-panel button[data-
 await page.click('.greece-panel button[data-tab="prices"]');
 await frames(2);
 g = await gi();
-if (!/Wine[\s\S]*Dear \(usually \d+\): the Panathenaia is on/.test(g.panel)) fail(`#festival: the wine price: ${g.panel.slice(0, 1400)}`);
+// (Slice 33: with the seasons' history the wine bought from Athens weighs more in its price than the festival, so the
+// festival's reason can come second.)
+if (!/Wine[\s\S]*Dear \(usually \d+\): ([^.]*, and )?the Panathenaia is on/.test(g.panel)) fail(`#festival: the wine price: ${g.panel.slice(0, 1400)}`);
 // (Slice 31: every ruled city with dry ground beside it; Rhodes on its small island and Memphis at the table's edge have none.)
 if (!Object.values(g.fields).every((f) => /^#[0-9a-f]{6} at /.test(f)) || Object.keys(g.fields).length !== 7) fail(`#festival: the fields: ${JSON.stringify(g.fields)}`);
 // #peace: Athens has won: Sparta's army going home, no swords, the way open; Sparta's prices dear for losing.
@@ -2309,7 +2321,8 @@ await open('#thieves-paused');
   await zeus((id) => window.__zeus.showPanel(id), top30.id);
   await frames(2);
   const p30 = await zeus(() => window.__zeus.panelText());
-  if (!/Tempted to steal: [^·]*hungry[\s\S]*\d+% · a thief in about[\s\S]*(Holding them back|A watchman walking by would hold them back)/.test(p30)) fail(`#thieves: the hut's panel: ${p30.slice(0, 1200)}`);
+  // (Slice 33: with the seasons' history the most tempted home can be a newcomer's tent, tempted for want of work with villas near, not hunger.)
+  if (!/Tempted to steal: [^·]*(hungry|villas nearby|no work)[\s\S]*\d+% · a thief in about[\s\S]*(Holding them back|A watchman walking by would hold them back)/.test(p30)) fail(`#thieves: the hut's panel: ${p30.slice(0, 1200)}`);
   await zeus(() => window.__zeus.showPanel(0));
   // Played on until a thief is out: he is drawn, his tip names him, and the line follows him.
   await zeus(() => {
@@ -2491,6 +2504,48 @@ const err32 = errors.length;
 }
 if (errors.length > err32) fail('page errors (slice 32):\n' + errors.slice(err32).join('\n'));
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#quarry, the quarry tool, its tip and refusal, marble on the Goods tab, the quarry, quarrymen and sledges and their hovers, #loggers, the camp, felled trees, timber on the Goods tab, the camp\'s and a logger\'s hovers, #greecegrows, its eleven cities, sites, colony, vassal, labels, a colony’s card, Rhodes’ size line and How it stands, #knossos, #memphis, no label under the lines at 1600 × 900, #thieves, the hut street tempted, the crime overlay, line and panel, a thief out, drawn, his tip and line, a villa robbed, a watch post built and the next thief caught, the fine on the ledger, #nowatch, the panel, its story and the Safety tab\'s row, #fortress, its walls, towers, companies, fleet, loans and Sparta’s band, the Army tab, the band met at the west gate, #overdue, its steps, chip and line, paid when the treasury could, #seized, the ledger, #creditors, #collect, a full force sent and away, the Army tab and the map, #report and the army\'s card, #forgive, #landing, Troy’s ships in the bay, the chip, a ship’s hover, the shipyard on the Military tab, drawn up and landed, #triremes, the Army tab’s fleet, rowing out and a ship sunk, a trireme’s hover, #pirates, the sea lane on Athens’ page, a trireme sent to guard it and on the map, the fight’s report, #borrow, Corinth’s terms and reasons, the town line, accepted, the debts chip, Sparta’s refusal, the coin in and the Administration tab’s loans, repaid early, #lend, Athens’ ask lent, the ledger, #repaid and the repayment arriving, #walls, a wall dragged across the road with its tip and gate, a tower by a click, the stretch\'s and tower\'s hovers, undo, #siege, the band hammering, its line, the towers shooting, the gate\'s hover, #battle, the band\'s numbers, both banners placed by clicks, the fight, a raider\'s hover, the band broken, the army\'s news and town line, #looted\'s ledger and line, #hirelings hired, the fee and the march in, #bronze, the mine tool, its tip and copper and armour on the Goods tab, #barracks, its company walking in, the chip and the Army tab, #companies, a banner in hand marched while paused, Esc, the Army tab row and the banner taking it, the soldiers’ pay, #rivals, #rivalstreet and #rivalsmap from their prepared town: every route, the caravans and the ship, the fleets, swords and labels, the News of Greece, Athens’ page and its Rivals tab built when shown, #war, the armies, swords and red way on the map, the labels, Sparta’s page, prices and Rivals tab, the army’s card along its body, the swords’ card, the News of Greece and a line to Athens’ page, #festival, banners, the wreath, the page, the gift tips, the wine price, the fields, #peace, the armies home and Sparta’s prices after, #threat, its page, line and seal, refused and the band gathering, #raid paid off and the band turning on the map, #raiders at the granary, the chip, the band\'s tip and their leaving, #aftermath, the ledger and the king\'s anger spent, #request, its answers, town line and label, the sending fetched, carried out and its tip, its arrival and thanks, #promise and the promise broken, #offer taken and its trade row, #tribute refused, #gift, its ruler tab, the city page tabs, a gift of coin on the map, its hover card, its arrival and reason, #hostile, the road closed, its line and the gift that opens it, #thanks and Corinth’s gift arriving, the terms once, #prices, Corinth’s prices, terms, harvest, reasons, arrows and charts, its route tab, #famine, the parched fields, the harvest line and its link, wheat dear after it, the caravan’s hover card on the map, #routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, the chip following it, #buywine and the yard tab, #athensship, its tabs, town line and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+
+// Slice 33: the turning year. #seasons: the last days of February at the fastest speed, the dial counting down to
+// spring, the land's look turning as the clock runs, the dial's words a season on. #winter: the Tyrian ship late for
+// the storms (the chip and its tip say so), the dial in winter.
+const err33 = errors.length;
+const dial33 = () => zeus(() => ({ text: document.querySelector('.date .season')?.textContent ?? '', hidden: (document.querySelector('.date .season'))?.hidden ?? true, tip: document.querySelector('.date .season')?.getAttribute('title') ?? '' }));
+// (Read paused: at the fastest speed a slow page can be well into spring before the first check. The speed is checked after.)
+await open('#seasons-paused');
+{
+  const d0 = await dial33();
+  if (d0.hidden || !/^Winter.*spring in \d+ d/.test(d0.text)) fail(`#seasons: the dial: ${JSON.stringify(d0)}`);
+  const l0 = await zeus(() => window.__zeus.look());
+  if (!(l0.phase !== null && l0.phase > 3.8 && l0.phase < 4)) fail(`#seasons: the look: ${JSON.stringify(l0)}`);
+  const c33 = await city();
+  if (c33.granaries < 1) fail(`#seasons: ${JSON.stringify(c33)}`);
+  // A season on: spring, its look, and the dial's words.
+  await zeus(() => window.__zeus.skip(900));
+  await frames(4);
+  const d1 = await dial33();
+  const l1 = await zeus(() => window.__zeus.look());
+  if (!/^Spring.*summer in \d+ d/.test(d1.text) || !(l1.phase !== null && l1.phase >= 0.85 && l1.phase < 1.1)) fail(`#seasons a season on: ${JSON.stringify({ d1, l1 })}`);
+  if (!/^Spring/.test(d1.tip)) fail(`#seasons: the dial's tip: ${d1.tip}`);
+}
+// The bare link opens at the fastest speed.
+await open('#seasons');
+{
+  const t0 = await zeus(() => window.__zeus.tick());
+  await frames(30);
+  const t1 = await zeus(() => window.__zeus.tick());
+  if (t1 - t0 < 20) fail(`#seasons did not open at the fastest speed (${t0} -> ${t1})`);
+}
+await open('#winter');
+{
+  const d0 = await dial33();
+  if (d0.hidden || !/^Winter/.test(d0.text)) fail(`#winter: the dial: ${JSON.stringify(d0)}`);
+  const chip = await zeus(() => ({ text: document.querySelector('.ship-chip .txt')?.textContent ?? '', tip: document.querySelector('.ship-chip')?.getAttribute('title') ?? '' }));
+  if (!/late/.test(chip.text) || !/late: winter storms in the gulf held her back \d+ days/.test(chip.tip)) fail(`#winter: the ship's chip: ${JSON.stringify(chip)}`);
+  const l0 = await zeus(() => window.__zeus.look());
+  if (!(l0.phase !== null && l0.phase >= 3 && l0.phase < 4)) fail(`#winter: the look: ${JSON.stringify(l0)}`);
+}
+if (errors.length > err33) fail('page errors (slice 33):\n' + errors.slice(err33).join('\n'));
+
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#seasons, the dial, the look turning and a season on, #winter, the late ship\'s chip and tip, #quarry, the quarry tool, its tip and refusal, marble on the Goods tab, the quarry, quarrymen and sledges and their hovers, #loggers, the camp, felled trees, timber on the Goods tab, the camp\'s and a logger\'s hovers, #greecegrows, its eleven cities, sites, colony, vassal, labels, a colony’s card, Rhodes’ size line and How it stands, #knossos, #memphis, no label under the lines at 1600 × 900, #thieves, the hut street tempted, the crime overlay, line and panel, a thief out, drawn, his tip and line, a villa robbed, a watch post built and the next thief caught, the fine on the ledger, #nowatch, the panel, its story and the Safety tab\'s row, #fortress, its walls, towers, companies, fleet, loans and Sparta’s band, the Army tab, the band met at the west gate, #overdue, its steps, chip and line, paid when the treasury could, #seized, the ledger, #creditors, #collect, a full force sent and away, the Army tab and the map, #report and the army\'s card, #forgive, #landing, Troy’s ships in the bay, the chip, a ship’s hover, the shipyard on the Military tab, drawn up and landed, #triremes, the Army tab’s fleet, rowing out and a ship sunk, a trireme’s hover, #pirates, the sea lane on Athens’ page, a trireme sent to guard it and on the map, the fight’s report, #borrow, Corinth’s terms and reasons, the town line, accepted, the debts chip, Sparta’s refusal, the coin in and the Administration tab’s loans, repaid early, #lend, Athens’ ask lent, the ledger, #repaid and the repayment arriving, #walls, a wall dragged across the road with its tip and gate, a tower by a click, the stretch\'s and tower\'s hovers, undo, #siege, the band hammering, its line, the towers shooting, the gate\'s hover, #battle, the band\'s numbers, both banners placed by clicks, the fight, a raider\'s hover, the band broken, the army\'s news and town line, #looted\'s ledger and line, #hirelings hired, the fee and the march in, #bronze, the mine tool, its tip and copper and armour on the Goods tab, #barracks, its company walking in, the chip and the Army tab, #companies, a banner in hand marched while paused, Esc, the Army tab row and the banner taking it, the soldiers’ pay, #rivals, #rivalstreet and #rivalsmap from their prepared town: every route, the caravans and the ship, the fleets, swords and labels, the News of Greece, Athens’ page and its Rivals tab built when shown, #war, the armies, swords and red way on the map, the labels, Sparta’s page, prices and Rivals tab, the army’s card along its body, the swords’ card, the News of Greece and a line to Athens’ page, #festival, banners, the wreath, the page, the gift tips, the wine price, the fields, #peace, the armies home and Sparta’s prices after, #threat, its page, line and seal, refused and the band gathering, #raid paid off and the band turning on the map, #raiders at the granary, the chip, the band\'s tip and their leaving, #aftermath, the ledger and the king\'s anger spent, #request, its answers, town line and label, the sending fetched, carried out and its tip, its arrival and thanks, #promise and the promise broken, #offer taken and its trade row, #tribute refused, #gift, its ruler tab, the city page tabs, a gift of coin on the map, its hover card, its arrival and reason, #hostile, the road closed, its line and the gift that opens it, #thanks and Corinth’s gift arriving, the terms once, #prices, Corinth’s prices, terms, harvest, reasons, arrows and charts, its route tab, #famine, the parched fields, the harvest line and its link, wheat dear after it, the caravan’s hover card on the map, #routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, the chip following it, #buywine and the yard tab, #athensship, its tabs, town line and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

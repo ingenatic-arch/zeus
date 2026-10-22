@@ -17,6 +17,7 @@ import { held, OIL, setHeld } from '../src/sim/foods';
 import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, STORE_EVERY, STORE_SHARE, timeAnswer } from '../src/sim/loans';
 import { lootValue, raidersOf } from '../src/sim/raids';
 import { caravanYard } from '../src/sim/routes';
+import { roomOf } from '../src/sim/stores';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Loan, type SimState, type Trait, type WorldCity } from '../src/sim/state';
 import { TRADE_GOODS } from '../src/sim/trade';
@@ -125,6 +126,8 @@ describe('your default', () => {
     // seizing, so the yard's porters can't carry it back to the storehouse the agents emptied.)
     const fromStores = l.seized;
     sim.run(TICKS_PER_DAY - 1);
+    // (Slice 33: and the storehouses' oil rooms full, so there is nowhere to carry it back to even if the agents left room.)
+    for (const b of s.buildings) if (b.kind === 'storehouse') setHeld(b, OIL, roomOf('storehouse', OIL));
     setHeld(yard, TRADE_GOODS[ki], 100);
     const owed = l.owed;
     sim.run(1);

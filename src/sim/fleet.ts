@@ -44,6 +44,8 @@ import type { Building, EnemyShip, Fleet, Pirates, Raid, Rower, ServesAs, SimSta
 import { berthAt, pathLength, pointAlong } from './trade';
 import { pay, settle, spendable } from './treasury';
 import { guarded, preyingOn, ROWER_PAY } from './lanes';
+// Slice 33: winter storms slow ships in the bay.
+import { seaPace } from './seasons';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -782,7 +784,7 @@ function moveEnemy(s: SimState, map: CoastMap, e: EnemyShip): void {
   if (e.state === 'sailing' && r && r.end !== '' && r.landed === 0) leave(map, e);
   if (e.state === 'beached') return;
   const engaged = s.fleet.triremes.some((t) => t.task === 'fight' && t.foe === e.id && dhypot(t.x - e.x, t.z - e.z) <= STRIKE_REACH);
-  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (engaged ? 0.5 : 1);
+  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (engaged ? 0.5 : 1) * seaPace(s);
   const done = sail(e, pace);
   if (!done) return;
   if (e.state === 'sailing') {
@@ -913,6 +915,9 @@ export function daysToBeach(s: SimState, map: CoastMap, r: Raid): number {
     ticks += out / FAR_PACE;
     left -= out;
     ticks += left / BAY_PACE + Math.max(0, e.from - s.tick);
+    // (Slice 33: the sailing, not the wait, slower through winter's storms.)
+    const pace = seaPace(s);
+    if (pace !== 1) ticks += (ticks - Math.max(0, e.from - s.tick)) * (1 / pace - 1);
     most = Math.max(most, ticks);
   }
   return Math.max(1, Math.ceil(most / TICKS_PER_DAY));
