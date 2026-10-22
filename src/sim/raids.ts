@@ -60,6 +60,8 @@ import { overland } from './roads';
 import { landTicks, routeWay, voyageTicks } from './routes';
 import { collectorsGone, loanOf, payDebt } from './loans';
 import type { Building, BuildingKind, Deal, Gift, Loan, Raid, SimState, Walker, World, WorldCity } from './state';
+// Slice 38: the ship a band lands from.
+import type { EnemyShip } from './state';
 import { note } from './stockbook';
 import { berthOf, cityHolds, OLD_GOODS, TRADE_GOODS, tradeIndex } from './trade';
 import { pay, spendable } from './treasury';
@@ -654,6 +656,9 @@ function shipSpot(map: CoastMap, t: number): { x: number; z: number; tile: numbe
   return { x: x + 0.5 + (dx / h) * 0.85, z: z + 0.5 + (dz / h) * 0.85, tile: t };
 }
 
+/** Slice 38: a band's ships draw up within this many tiles of its landing (was 10). */
+const SPOTS_NEAR = 4;
+
 /** A spot on the beach for each of a band's ships: the landing first, the rest along the shore beside it, a little apart. */
 function spotsNear(map: CoastMap, beaches: readonly number[], from: number, n: number): Array<{ x: number; z: number; tile: number }> {
   const size = map.size;
@@ -664,10 +669,13 @@ function spotsNear(map: CoastMap, beaches: readonly number[], from: number, n: n
     .filter((p) => p.d <= 10)
     .sort((p, q) => p.d - q.d || p.t - q.t);
   const out = [shipSpot(map, from)];
-  for (const { t } of near) {
-    if (out.length >= n) break;
-    const p = shipSpot(map, t);
-    if (out.every((o) => dhypot(o.x - p.x, o.z - p.z) >= 1.9)) out.push(p);
+  // (Slice 38: drawn up within SPOTS_NEAR of the landing, as the "Sails!" line names it, and farther only if the beach has no room nearer.)
+  for (const most of [SPOTS_NEAR, 10]) {
+    for (const { t, d } of near) {
+      if (out.length >= n || d > most) break;
+      const p = shipSpot(map, t);
+      if (out.every((o) => dhypot(o.x - p.x, o.z - p.z) >= 1.9)) out.push(p);
+    }
   }
   return out;
 }
@@ -773,9 +781,11 @@ export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void
   }
   r.landed = men;
   const b = findBuilding(s, r.target);
-  const starts = beached.map((e) => e.tile);
+  // (Slice 38: they land from the beach the "Sails!" line named (its first ship's), or the nearest of their ships to it if she was sunk; from any only if no way leads from there.)
+  const named = landingShip(beached, r.shore, size);
   let best: { tiles: number[]; siege: number; from: number } | null = null;
-  if (b && b.kind !== 'rubble' && starts.length) {
+  for (const starts of named ? [[named.tile], beached.map((e) => e.tile)] : [beached.map((e) => e.tile)]) {
+    if (best || !b || b.kind === 'rubble' || !starts.length) break;
     const goals = around(size, b).filter((t) => foeWalkable(map, s, t));
     for (const g of goals.slice(0, 4)) {
       const p = foeWay(map, s, starts, g);
@@ -812,6 +822,52 @@ export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void
   if (r.loan) news(s.world, s.tick, r.city, `${whose(r.city)} army is ashore${shoreWhere(map, best.from)}, ${r.landed} men come to collect the ${fmt(r.coin)} dr you owe, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
   else news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
   s.rev++;
+}
+
+/** Slice 38: of a band's ships on the beach, the one it lands from: on the named landing, or the nearest to it. */
+function landingShip(beached: readonly EnemyShip[], shore: number, size: number): EnemyShip | undefined {
+  if (shore < 0 || !beached.length) return undefined;
+  const sx = shore % size;
+  const sz = Math.floor(shore / size);
+  let best: EnemyShip | undefined;
+  let bd = Infinity;
+  for (const e of beached) {
+    const d = dhypot((e.tile % size) - sx, Math.floor(e.tile / size) - sz);
+    if (d < bd - 1e-9) {
+      bd = d;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/**
+ * Slice 38 (review of slice 26): one of a band's ships sunk laden as she
+ * sails off: her share of what it carried off is hauled out of the shallows
+ * and goes back into the stores (the nearest with room) and the treasury, as
+ * when a band finds its ships sunk. What came back, in words ('' nothing).
+ */
+export function regainAtSea(s: SimState, r: Raid, share: number): string {
+  const back: string[] = [];
+  const goods = Math.round((r.took - r.regained) * Math.min(1, share));
+  if (goods > 0 && r.ware >= 0) {
+    const store = s.buildings.filter((g) => isStore(g.kind) && roomFor(g, r.ware) >= goods).sort((p, q) => p.id - q.id)[0];
+    if (store) {
+      setHeld(store, r.ware, held(store, r.ware) + goods);
+      note(s, r.ware, 'lost', `raid:${r.city}`, -goods);
+      r.regained += goods;
+      back.push(`${fmt(goods)} ${WARE_NAMES[r.ware]}`);
+      s.looks++;
+    }
+  }
+  const coin = Math.round((r.stole - r.coinBack) * Math.min(1, share));
+  if (coin > 0) {
+    income(s, coin, 'recovered', `from ${whose(r.city)} raiders`);
+    r.coinBack += coin;
+    back.push(`${fmt(coin)} dr`);
+  }
+  if (back.length) s.rev++;
+  return back.join(' and ');
 }
 
 /** Every ship of a band sunk before it landed: nobody landed, and the raid is over. */

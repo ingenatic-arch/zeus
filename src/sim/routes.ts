@@ -36,6 +36,9 @@
  * that has never opened a route or built a yard.
  */
 import { preyingOn } from './lanes';
+// Slice 38: a blockade holds the harbour.
+import { blockaded } from './lanes';
+import { pastMouth } from './trade';
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { CITY_IDS, EDGE_ALONG, HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints as tableWay, type CityId } from '../map/greece';
@@ -757,6 +760,8 @@ function stepLoadingVisitor(s: SimState, r: TradeRoute, v: Visitor, post: Buildi
   if (t <= 0 || t % TICKS_PER_DAY !== 0) return;
   const days = LOADING / TICKS_PER_DAY;
   const day = t / TICKS_PER_DAY;
+  // (Slice 38: loaded, she waits at the quay while a blockade holds the harbour, and pays and sails when it ends.)
+  if (day >= days && blockaded(s)) return;
   takeShare(s, r, post, 1 / (days - day + 1), day >= days);
   if (day < days) return;
   settle(s, r);
@@ -807,6 +812,11 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
       return;
     }
     if (s.tick < r.next - SAIL_IN) return;
+    // Slice 38: a blockade holds the harbour: she waits off your gulf, and sails in at once when it ends.
+    if (post && blockaded(s)) {
+      r.next = s.tick + SAIL_IN;
+      return;
+    }
     if (post && setSailVisitor(s, map, r, v, post)) return;
     // No post to call at: she turns back at your horizon, and comes again next time.
     r.missedAt = s.tick;
@@ -823,6 +833,17 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     return;
   }
   if (v.phase === SHIP_COMING) {
+    // Slice 38: a blockade takes station before she is past the harbour's mouth: she turns back, to come again when it ends.
+    if (blockaded(s) && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) {
+      const at = visitorAt(v, s.tick);
+      v.turned = at ? at.inward : 1;
+      v.phase = SHIP_LEAVING;
+      v.since = s.tick;
+      v.aside = 0;
+      r.missedAt = s.tick;
+      r.missed = 'blockade';
+      return;
+    }
     if (s.tick < v.since + SAIL_IN) return;
     if (v.stop < 1) {
       v.phase = SHIP_ANCHORED;
@@ -937,6 +958,8 @@ const MISSED: Record<string, string> = {
   road: 'no road leads from the edge of the map to the caravan yard',
   yard: 'the city has no caravan yard',
   post: 'the city has no trading post',
+  // (Slice 38.)
+  blockade: 'a blockade held the mouth of your harbour',
 };
 
 /** Where a route's trader is, as the top bar's chip (`chip`, `short`) and the panels (`line`) say: `phase` 0 due, 1 coming, 2 here, 3 gone, `days` until the next thing. */
@@ -978,6 +1001,14 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
     return { phase: 0, days, chip: `${days} d`, short: `Caravan in ${days} d`, line: `${back}The next caravan from ${name} is due in ${dayWords(days)}`, who, kind: 'land' };
   }
   const v = r.ship as Visitor;
+  // Slice 38: held by a blockade, off your gulf or at the quay.
+  const held = blockaded(s);
+  if (held && tradingPost(s)) {
+    const hn = cityName(held.city);
+    const by = `${hn.endsWith('s') ? `${hn}’` : `${hn}’s`} fleet holds the mouth of your harbour`;
+    if (v.phase === SHIP_AWAY && r.next - SAIL_IN <= s.tick + 1) return { phase: 0, days: 0, chip: 'Held', short: `${whose} ship held`, line: `The ship from ${name} waits off your gulf: ${by}. She sails in as soon as it is broken or lifted`, who, kind: 'sea' };
+    if (v.phase === SHIP_MOORED && s.tick - v.since >= LOADING) return { phase: 2, days: 0, chip: 'Held', short: `${whose} ship held at the quay`, line: `The ship from ${name} has loaded and waits at the quay: ${by}. She pays and sails as soon as it is broken or lifted`, who, kind: 'sea' };
+  }
   if (v.phase === SHIP_COMING) {
     const days = daysTo(s, v.since + SAIL_IN);
     return v.stop < 1

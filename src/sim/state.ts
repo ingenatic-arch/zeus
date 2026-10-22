@@ -7,9 +7,11 @@ import type { Seasons } from './seasons';
 import type { Empire } from './vassals';
 // Slice 35: the monuments' sites and the Stadium's games.
 import type { Monuments } from './monuments';
+// Slice 38: blockades of your harbour (blockades.ts).
+import type { Blockade } from './blockades';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 33;
+export const SIM_STATE_VERSION = 34;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -1369,6 +1371,9 @@ export interface Trireme {
   sank: number;
   /** Rowers' pay owed this month (drachmas; 0 paid). */
   owed: number;
+  /** Slice 38: her oars, the share whole (0 to 100); laid up at her mooring under repair until hull and oars are whole. */
+  oars: number;
+  mend: boolean;
 }
 
 /** An enemy ship in your waters: one of a band's ships from the sea (raids.ts), sailing in, drawn up on the beach, sailing off, or sinking. */
@@ -1376,13 +1381,17 @@ export interface EnemyShip {
   id: number;
   raid: number;
   slot: number;
-  state: 'sailing' | 'beached' | 'leaving' | 'sinking';
+  /** Slice 38: or holding her station across your harbour mouth, a blockade's ship. */
+  state: 'sailing' | 'beached' | 'leaving' | 'sinking' | 'holding';
   x: number;
   z: number;
   hx: number;
   hz: number;
   path: number[];
   along: number;
+  /** Slice 38: a blockade's ship (its id; `raid` is 0), and her pace across your waters (a share of the usual; absent, the usual). */
+  blockade?: number;
+  pace?: number;
   /** The tick she sets off from the horizon (ships come in a little apart). */
   from: number;
   hp: number;
@@ -1420,6 +1429,10 @@ export interface Pirates {
   took: string[];
   /** The tick your triremes last fought them (0 never). */
   fought: number;
+  /** Slice 38: a city's warships in a war (whose; absent: pirates), the rival war's id (-1: a war with you), and the expeditions that have met them (id, and 1 coming home). */
+  of?: CityId;
+  war?: number;
+  met?: number[];
 }
 
 /** A sea fight on a lane, for the report: when, where, and what happened. */
@@ -1438,6 +1451,8 @@ export interface Fleet {
   pirates: Pirates[];
   reports: SeaReport[];
   nextId: number;
+  /** Slice 38: fleets sent to blockade your harbour, coming, holding or lately over. */
+  blockades: Blockade[];
 }
 
 // ---------------------------------------------------------------------------

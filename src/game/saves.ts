@@ -449,6 +449,17 @@ function materialsOk(m: unknown): boolean {
 const TRIREME_NUMBERS = ['id', 'n', 'yard', 'x', 'z', 'hx', 'hz', 'along', 'hp', 'work', 'foe', 'cool', 'rammed', 'struck', 'start', 'dur', 'a0', 'a1', 'sank', 'owed'];
 const ENEMY_NUMBERS = ['id', 'raid', 'slot', 'x', 'z', 'hx', 'hz', 'along', 'from', 'hp', 'men', 'bx', 'bz', 'tile', 'struck', 'hit', 'sank', 'cool'];
 const PIRATE_NUMBERS = ['id', 'ships', 'seen', 'from', 'until', 'fought'];
+// Slice 38: blockades, oars and repairs, warships.
+const BLOCKADE_NUMBERS = ['id', 'of', 'ships', 'seen', 'arrives', 'holds', 'until', 'sunk', 'ended'];
+const optFin = (x: unknown): boolean => x === undefined || (typeof x === 'number' && Number.isFinite(x));
+function seasOk(f: Record<string, unknown>): boolean {
+  if (!Array.isArray(f.blockades)) return false;
+  const blockadeOk = (b: unknown): boolean => isObj(b) && BLOCKADE_NUMBERS.every((k) => fin(b[k])) && CITY_IDS.includes(b.city as never) && ['raid', 'expedition', 'call', 'rose', 'staged'].includes(b.cause as string) && typeof b.why === 'string' && ['sailing', 'coming', 'holding', 'over'].includes(b.phase as string) && ['', 'broken', 'peace', 'supplies', 'winter', 'harbour'].includes(b.end as string);
+  const triremeOk = (t: unknown): boolean => isObj(t) && fin(t.oars) && typeof t.mend === 'boolean';
+  const shipOk = (e: unknown): boolean => isObj(e) && optFin(e.blockade) && optFin(e.pace);
+  const pirateOk = (p: unknown): boolean => isObj(p) && (p.of === undefined || CITY_IDS.includes(p.of as never)) && optFin(p.war) && (p.met === undefined || nums(p.met));
+  return (f.blockades as unknown[]).every(blockadeOk) && (f.triremes as unknown[]).every(triremeOk) && (f.ships as unknown[]).every(shipOk) && (f.pirates as unknown[]).every(pirateOk);
+}
 
 /** The fleet (slice 26): triremes (with their crews), enemy ships, pirates and the sea fights' reports. */
 function fleetOk(f: unknown): boolean {
@@ -457,10 +468,11 @@ function fleetOk(f: unknown): boolean {
   const rowerOk = (r: unknown): boolean => isObj(r) && fin(r.home) && typeof r.name === 'string' && typeof r.father === 'string' && typeof r.house === 'string' && ['head', 'son', 'husband', 'brother', 'cousin'].includes(r.kin as string);
   const triremeOk = (t: unknown): boolean =>
     isObj(t) && TRIREME_NUMBERS.every((k) => fin(t[k])) && ['building', 'moored', 'rowing', 'away', 'sinking'].includes(t.state as string) && ['', 'fight', 'home', 'out', 'in'].includes(t.task as string) && ['bay', 'lane', 'away'].includes(t.order as string) && typeof t.lane === 'string' && typeof t.homeward === 'boolean' && way(t.path) && Array.isArray(t.crew) && t.crew.every(rowerOk);
-  const shipOk = (e: unknown): boolean => isObj(e) && ENEMY_NUMBERS.every((k) => fin(e[k])) && ['sailing', 'beached', 'leaving', 'sinking'].includes(e.state as string) && typeof e.laden === 'boolean' && way(e.path);
-  const pirateOk = (p: unknown): boolean => isObj(p) && PIRATE_NUMBERS.every((k) => fin(p[k])) && typeof p.way === 'string' && CITY_IDS.includes(p.city as never) && typeof p.place === 'string' && ['seen', 'preying', 'gone', 'beaten'].includes(p.state as string) && strs(p.took);
-  const reportOk = (r: unknown): boolean => isObj(r) && fin(r.tick) && typeof r.way === 'string' && CITY_IDS.includes(r.city as never) && typeof r.won === 'boolean' && typeof r.line === 'string';
-  return (f.triremes as unknown[]).every(triremeOk) && (f.ships as unknown[]).every(shipOk) && (f.pirates as unknown[]).every(pirateOk) && (f.reports as unknown[]).every(reportOk);
+  // (Slice 38: or holding a harbour's mouth; a lane's city any name, for lanes still to come.)
+  const shipOk = (e: unknown): boolean => isObj(e) && ENEMY_NUMBERS.every((k) => fin(e[k])) && ['sailing', 'beached', 'leaving', 'sinking', 'holding'].includes(e.state as string) && typeof e.laden === 'boolean' && way(e.path);
+  const pirateOk = (p: unknown): boolean => isObj(p) && PIRATE_NUMBERS.every((k) => fin(p[k])) && typeof p.way === 'string' && typeof p.city === 'string' && typeof p.place === 'string' && ['seen', 'preying', 'gone', 'beaten'].includes(p.state as string) && strs(p.took);
+  const reportOk = (r: unknown): boolean => isObj(r) && fin(r.tick) && typeof r.way === 'string' && typeof r.city === 'string' && typeof r.won === 'boolean' && typeof r.line === 'string';
+  return (f.triremes as unknown[]).every(triremeOk) && (f.ships as unknown[]).every(shipOk) && (f.pirates as unknown[]).every(pirateOk) && (f.reports as unknown[]).every(reportOk) && seasOk(f);
 }
 
 /** The walls: each stretch's tile (in order, once each), its strength and whether it is a gate; every standing stretch, and nothing else, marked as wall on the map. */
