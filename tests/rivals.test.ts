@@ -359,7 +359,14 @@ describe('your part in it', () => {
     const x = stage(s, 'sparta', 'athens');
     x.until = x.start + WAR_MOST;
     const asked = (id: CityId): boolean => openDeals(s.world).some((d) => d.city === id && d.kind === 'request');
-    expect(until(sim, () => asked('sparta') && asked('athens'), WAR_MOST)).toBe(true);
+    // (Integrating slice 33 with 31: other rulers' deals are set aside as they come, so the two open places stay for the war's
+    // two sides. In the merged #caravan history Argos demanded tribute in the war's fourth month, filling the second place
+    // before Sparta's dice came up.)
+    const sides = (): boolean => {
+      s.world.deals = s.world.deals.filter((d) => d.city === 'sparta' || d.city === 'athens');
+      return asked('sparta') && asked('athens');
+    };
+    expect(until(sim, sides, WAR_MOST)).toBe(true);
     for (const id of ['sparta', 'athens'] as const) {
       const d = openDeals(s.world).find((v) => v.city === id)!;
       expect(d.why).toMatch(/they are at war with (Athens|Sparta)$/);

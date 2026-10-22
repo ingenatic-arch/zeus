@@ -2271,6 +2271,10 @@ function fortressTown(): (sim: Sim) => void {
     afford(north, FORTRESS_WAIT);
     send({ type: 'wall', tiles: FORTRESS_NORTH });
     send({ type: 'build', kind: 'tower', at: [FORTRESS_NORTH_TOWER] });
+    // (Integrating slice 33 with 31 and 32: with the seasons' history the north wall went up only days before the band was
+    // staged, so the town opened with the north tower unmanned and the treasury spent on the wall. Played on until every
+    // tower is manned and the treasury holds two and a half months' wages, three months at most.)
+    playOn(3 * TICKS_PER_MONTH, () => s.buildings.every((b) => b.kind !== 'tower' || b.workers > 0) && s.money >= 2.5 * wageBill(s));
     // Calm in Greece, and the herald home; then Sparta's king turned against the city.
     playOn(FORTRESS_WAIT, () => !threatLive(s.world) && !s.world.gifts.some((g) => g.loan > 0));
     stagedRaid(sim, 'sparta', 'the king will not have a walled city arming itself across his road north');

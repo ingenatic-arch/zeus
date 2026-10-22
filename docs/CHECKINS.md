@@ -106,6 +106,14 @@ What I checked, and how it looked to me (you should judge the look yourself): th
 
 Still 474 tests, all passing. The build is clean. The smoke's end (`#overhunt`, `#aftermath`, slices 30 and 33) passed against the new build.
 
+### At the merge
+This slice was built alongside slices 31 and 32, and joined them on the trunk on 22 Oct. What changed in the joining:
+- **Saves.** The state version is 31 on the trunk, not 29. Saves from before slices 30 to 33 load through all four steps, with the seasons on and Greece's eleven cities.
+- **Cold rulers wait out the winter too.** Since slice 31, a proud or warlike ruler who is only cold towards you can threaten as well as a hostile one. The winter rule now covers both: two times in three, a band that would march in winter stays home. Only 3 months in 12 are winter, so that should take about one threat in six away. I counted threats over 20 nine-year runs of `#rivals` and `#caravan` with the seasons on and off. It came out at 7 both ways, too few to see the difference. Raids still come about as often as you chose on the balance card.
+- **Marble and timber keep the same pace all year.** Stone is cut in any season, and the loggers fell trees in winter as much as in summer. A felled tree takes two years to grow back, whatever the season.
+- **`#fortress` opens a month later,** on 17 February 744 BC. With the seasons, its north wall went up only days before Sparta's band set out, so it opened with the north tower unmanned and the treasury spent. It now plays on until every tower is manned and the treasury holds two and a half months' wages. It opens with 1,368 people and 2,056 dr. Its loans are new again. You owe Knossos 2,180 dr by 1 August 744 BC and Thebes 2,280 dr by 1 May 743 BC (an offer taken while it waited). Athens owes you 1,110 dr by 1 September. Sparta's band is 26 men, 21 days from the west edge. Use these where slice 29's and 31's notes name other loans.
+- **The demos from slices 31 and 32 still show what their notes say.** `#quarry` opens in May with the same stack, storehouse and sledges. `#loggers` opens in June with 27 trees felled and 352 logs stored (it was raining when I opened it). `#greecegrows`, `#knossos` and `#memphis` open in March 740 BC, with Naxos still Rhodian.
+
 ## Slice 32 — Marble and timber (21 Oct)
 
 The city has its first building materials: a marble quarry on the pale rock of the headland, whose ox sledges drag the blocks to a storehouse, and a loggers' camp at the edge of two new pine woods, whose loggers fell trees that grow back over two years. Nothing in the city uses marble or timber yet (monuments come in slice 35): they are stored, sold and bought. You weren't here while it was built: every choice below is mine, from the spec's defaults.

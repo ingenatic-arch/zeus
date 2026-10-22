@@ -94,7 +94,11 @@ export const PACES: Record<Rhythm, readonly [number, number, number, number]> = 
   wild: [2, 1, 0.5, 0.5],
 };
 
-/** Which rhythm each maker follows (the rest, presses, wineries, mines, armouries, lodges, keep their pace all year). */
+/**
+ * Which rhythm each maker follows (the rest, presses, wineries, mines, armouries, lodges, keep their pace all year).
+ * (Integrating with slice 32: the quarries and the loggers' camps keep theirs too, and a felled tree grows back at one
+ * pace: stone is cut the year round, and woods were felled in winter as much as in any season.)
+ */
 export const RHYTHM_OF: Partial<Record<BuildingKind, Rhythm>> = { farm: 'wheat', grove: 'fruit', vineyard: 'fruit', dairy: 'flock', pasture: 'flock' };
 
 /** A rhythm's pace now (1 with the switch off). */
