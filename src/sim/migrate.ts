@@ -151,7 +151,7 @@ import { COLONY_MAKES } from './growth';
 // Slice 35.
 import { freshGames, freshMonuments } from './monuments';
 // Slice 39.
-import { freshAmbition } from './ambitions';
+import { freshAmbition } from './laurels';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;

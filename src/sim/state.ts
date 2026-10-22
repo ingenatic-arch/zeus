@@ -8,7 +8,7 @@ import type { Empire } from './vassals';
 // Slice 35: the monuments' sites and the Stadium's games.
 import type { Monuments } from './monuments';
 // Slice 39: the ambitions and the milestones reached (ambitions.ts).
-import type { Ambition } from './ambitions';
+import type { Ambition } from './laurels';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 export const SIM_STATE_VERSION = 34;

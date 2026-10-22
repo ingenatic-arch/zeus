@@ -41,40 +41,16 @@ import { news, rulerGift, settleMood } from './diplomacy';
 import { monumentName, monumentOf, progressOf, STAGE_COUNT, STAGES, type MonumentKind } from './monuments';
 import type { SimState, WorldCity } from './state';
 import { cityOf, fadeFor, moodOf, rulerName, rulerShort } from './world';
+import { achieved, AMBITION_IN, AMBITIONS, laurelOf, MILESTONE_IDS, type AmbitionKind, type Laurel } from './laurels';
 
 // ---------------------------------------------------------------------------
-// The record.
+// The record, when an ambition was achieved and the city's pride (laurels.ts, which imports nothing but the clock).
 
-/** A milestone reached: which, when, and whether it was already met when the town was opened (no fanfare, no reward); what its reward came to, in words. */
-export interface Laurel {
-  id: string;
-  tick: number;
-  quiet: boolean;
-  note: string;
-}
-
-/** The slice's one top-level field. */
-export interface Ambition {
-  /** The switch (see the notes at the top). */
-  on: boolean;
-  /** Has it looked at the town since it was switched on? (false: the next look records what is met quietly.) */
-  looked: boolean;
-  /** The milestones reached, in the order they were. */
-  reached: Laurel[];
-  /** Settlers drawn by fame come twice as often until this tick (0: none). */
-  fameUntil: number;
-  /** When all three were achieved (0: not yet), and whether that was already so when the town was opened. */
-  grand: number;
-  grandQuiet: boolean;
-}
-
-export const freshAmbition = (on = false): Ambition => ({ on, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false });
+export { achieved, AMBITION_IN, AMBITIONS, freshAmbition, GRAND_MOOD, laurelOf, MILESTONE_IDS, PRIDE_FOR, PRIDE_MOOD, prideMood, type Ambition, type AmbitionKind, type Laurel } from './laurels';
 
 // ---------------------------------------------------------------------------
 // The three ambitions and their milestones.
 
-export type AmbitionKind = 'greece' | 'trade' | 'wonders';
-export const AMBITIONS: readonly AmbitionKind[] = ['greece', 'trade', 'wonders'];
 export const AMBITION_NAMES: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'The great trading city', wonders: 'A city of wonders' };
 /** What each is about, in a line. */
 export const AMBITION_WHAT: Record<AmbitionKind, string> = {
@@ -83,8 +59,6 @@ export const AMBITION_WHAT: Record<AmbitionKind, string> = {
   wonders: 'Monuments, grand estates and a great population',
 };
 /** Each ambition's great monument, its last milestone. */
-/** Each ambition's name within a sentence: "Master of Greece", "the great trading city", "a city of wonders". */
-export const AMBITION_IN: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'the great trading city', wonders: 'a city of wonders' };
 export const GREAT_MONUMENT: Record<AmbitionKind, MonumentKind> = { greece: 'colossus', trade: 'lighthouse', wonders: 'stadium' };
 
 /** A milestone's reward: a gift of coin from the warmest ruler, settlers drawn by fame for some months, or every ruler warmer for a year. */
@@ -134,10 +108,6 @@ export const FAME_PACE = 2;
 export const RENOWN_FADE = TICKS_PER_YEAR;
 /** The town line about a laurel stands this long. */
 export const LINE_DAYS = 12;
-/** Pride: every home happier while an ambition (or all three) was achieved within this long. */
-export const PRIDE_FOR = TICKS_PER_YEAR;
-export const PRIDE_MOOD = 1;
-export const GRAND_MOOD = 2;
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cityWord = (id: CityId): string => PLACES[id]?.name ?? id;
@@ -391,7 +361,7 @@ export const MILESTONES: readonly Milestone[] = [
 ];
 
 export const milestoneOf = (id: string): Milestone | undefined => MILESTONES.find((m) => m.id === id);
-export const milestonesOf = (k: AmbitionKind): Milestone[] => MILESTONES.filter((m) => m.ambition === k);
+export const milestonesOf = (k: AmbitionKind): Milestone[] => MILESTONE_IDS[k].map((id) => MILESTONES.find((m) => m.id === id)!);
 /** A milestone's place in its ambition (1 to 5). */
 export const placeOf = (m: Milestone): number => milestonesOf(m.ambition).indexOf(m) + 1;
 
@@ -400,23 +370,6 @@ export const met = (p: Progress): boolean => p.have >= p.need;
 /** How far towards it, 0 to 1. */
 export const shareOf = (p: Progress): number => (p.need > 0 ? Math.max(0, Math.min(1, p.have / p.need)) : 1);
 
-/** The laurel for a milestone, if it has been reached. */
-export const laurelOf = (s: SimState, id: string): Laurel | undefined => s.ambition.reached.find((l) => l.id === id);
-
-/** When an ambition was achieved (its last milestone reached; 0: not yet), and whether that was already so when the town was opened. */
-export function achieved(s: SimState, k: AmbitionKind): { tick: number; quiet: boolean } {
-  let tick = 0;
-  let quiet = true;
-  for (const m of milestonesOf(k)) {
-    const l = laurelOf(s, m.id);
-    if (!l) return { tick: 0, quiet: false };
-    if (l.tick >= tick) {
-      tick = l.tick;
-      quiet = l.quiet;
-    }
-  }
-  return { tick, quiet };
-}
 
 /** A reward in words, before it is given: "a gift of 300 dr from the warmest ruler". */
 export function rewardWords(r: Reward): string {
@@ -621,20 +574,6 @@ export function ambitionTownLine(s: SimState): string {
   if (done.tick === last.tick && !done.quiet) return `${AMBITION_NAMES[k]}: achieved in year ${yearOf(done.tick)}, with ${m.name.replace(/^The /, 'the ')}${last.note ? `; ${last.note}` : ''}. The other ambitions carry on.`;
   const count = milestonesOf(k).filter((x) => laurelOf(s, x.id)).length;
   return `A laurel for ${AMBITION_IN[k]} (${count} of 5): ${m.name[0].toLowerCase()}${m.name.slice(1)}${last.note ? `. ${last.note[0].toUpperCase()}${last.note.slice(1)}` : ''}.`;
-}
-
-/** Pride: what an ambition achieved adds to every home's mood, for a year (null: nothing). */
-export function prideMood(s: SimState): { w: number; text: string } | null {
-  const a = s.ambition;
-  if (!a.on) return null;
-  // (Not for what was already so when the town was opened: that is recorded quietly.)
-  if (a.grand && !a.grandQuiet && s.tick - a.grand < PRIDE_FOR) return { w: GRAND_MOOD, text: 'All Greece speaks of our city' };
-  let best: { tick: number; k: AmbitionKind } | null = null;
-  for (const k of AMBITIONS) {
-    const { tick: t, quiet } = achieved(s, k);
-    if (t && !quiet && s.tick - t < PRIDE_FOR && (!best || t > best.tick)) best = { tick: t, k };
-  }
-  return best ? { w: PRIDE_MOOD, text: `Proud of their city: ${AMBITION_IN[best.k]}` } : null;
 }
 
 /** Fame drawing settlers, for the population's tooltip ('' none). */

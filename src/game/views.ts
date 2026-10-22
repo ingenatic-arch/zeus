@@ -167,6 +167,6 @@ export const VIEWS: Record<string, CameraView> = {
   lit: { x: 90, z: 104, yaw: 2.85, dist: 42, tilt: -0.2 },
   // #games: over the Stadium between the quay road and the quarry road, its seats full.
   games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
-  // Slice 39, #achieved: the Colossus at the harbour mouth from over the bay, the trading post and the quay road behind him.
-  achieved: { x: 71.5, z: 69.5, yaw: 2.9, dist: 18, tilt: -0.05 },
+  // Slice 39, #achieved: the Colossus on the shore by the trading post's jetty, from over the bay, his torch lit, the quay road and the town behind him.
+  achieved: { x: 71.5, z: 63.5, yaw: -0.3, dist: 22, tilt: -0.1 },
 };

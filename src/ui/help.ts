@@ -64,6 +64,8 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
       <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, again for wear, and again for crime (which homes are tempted to steal, and which were robbed)</dd>
+      <!-- Slice 39 -->
+      <dt>Laurel</dt><dd>The ambitions (the wreath at the end of the top bar): the milestone you are nearest, and how far along; click it for all three side by side, Master of Greece, the great trading city and a city of wonders, each with its five milestones, what each wants and its reward</dd>
       <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas); the chip beside them sets the taxes</dd>
       <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed; a caravan, a ship, a soldier, a raider or a trireme, who they are and what they are doing; a wall, a gate or a tower, how strong it is</dd>

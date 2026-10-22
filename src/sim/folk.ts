@@ -14,7 +14,7 @@ import { nextInt, seedRng, type RngState } from './rng';
 import type { Building, Family, Kin, Person, Service, SimState, Story } from './state';
 import { gamesMood } from './monuments';
 // Slice 39.
-import { prideMood } from './ambitions';
+import { prideMood } from './laurels';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [

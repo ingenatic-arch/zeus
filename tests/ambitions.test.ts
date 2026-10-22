@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import {
   achieved,
+  AMBITIONS,
   ambitionTownLine,
   ambitionView,
   laurelOf,
@@ -160,6 +161,8 @@ describe('ambitions', () => {
       expect(p.need, m.id).toBeGreaterThan(0);
     }
     expect(MILESTONES.length).toBe(15);
+    // laurels.ts lists them by id (so the homes' pride needs nothing of the milestones' imports): the same, in the same order.
+    for (const k of AMBITIONS) expect(milestonesOf(k).map((m) => m.id)).toEqual(MILESTONES.filter((m) => m.ambition === k).map((m) => m.id));
   });
 
   it('the same commands give the same town, laurels and rewards; a save round-trips and plays on the same', () => {
