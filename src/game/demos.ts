@@ -6,15 +6,15 @@
 import { MAP_SIZE } from '../map/coast';
 import type { OverlayMode } from '../render/overlay';
 import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, SHIPYARD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TOWER_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
-import { COTTAGE, JOBS, VILLA } from '../sim/buildings';
+import { COTTAGE, FINE, JOBS, VILLA } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
-import { warningOf, warningsOf } from '../sim/folk';
+import { untilOf, warningOf, warningsOf } from '../sim/folk';
 import { ARMOUR, CHEESE, FLEECE, gi, held, MEAT, OIL, WHEAT, WINE } from '../sim/foods';
 import { COMPANY_SIZE, HIRELINGS, readyOf } from '../sim/army';
 import { roadRoute } from '../sim/roads';
 import { FIRE_BURNING, FIRE_SMOULDER, BURNT } from '../sim/hazards';
 import type { Sim } from '../sim/sim';
-import { FAIR, HARSH, HEAVY } from '../sim/taxes';
+import { FAIR, HARSH, HEAVY, purseTotal } from '../sim/taxes';
 import { owedWages, spendable, WAGE, wageBill } from '../sim/treasury';
 import type { Building, SimState } from '../sim/state';
 import { GATE_COST, GATE_HP, WALL_COST } from '../sim/walls';
@@ -23,6 +23,8 @@ import { caravanOf, caravanYard, firstShipAfter, routeOf, routeRefusal, routeWay
 import { cityOf, COLD, lastHarvest, moodOf, sellsAndBuys } from '../sim/world';
 import { giftFrom, giftTo, rulerGift } from '../sim/diplomacy';
 import { rateOf } from '../sim/labour';
+import { FOOD_LASTS } from '../sim/food';
+import { WATER_LASTS } from '../sim/water';
 import { ASK_GAP, askWhy, deadlineFor, firstRoute, MOST_OPEN, openDeals, makeOffer, makeRequest, makeTribute, requestCoin, requestSize, tributeSize, warWhy } from '../sim/favours';
 import { armiesOnMap, declareWar, endWar, warOn } from '../sim/rivals';
 import { ASK_SUMS, loanOfDeal, loanSize, makeLoanAsk, repaysOnTheDay, spareOf, stageDefault, stageRepay, STEP_GAP, troubles } from '../sim/loans';
@@ -107,6 +109,29 @@ const CLOSE_AT = FINE_TICKS + 2000;
  * round takes about two months), and left alone the town loses most of them.
  */
 const CLOSED_TICKS = CLOSE_AT + 620;
+/**
+ * #closed played on from CLOSED_TICKS until a dozen fine houses warn of plays
+ * alone, or the most urgent home is 27 days from going down, whichever comes
+ * first (four months at most). With the crews of actors (rounds.ts, CREW)
+ * every fine house had plays lately when the theatre went, so they run out
+ * nearer together, and later, than one actor's left them.
+ */
+function closedTown(sim: Sim): void {
+  cultureTown(CLOSED_TICKS, true, true)(sim);
+  const s = sim.state;
+  const ready = (): boolean => {
+    let plays = 0;
+    let least = Infinity;
+    for (const b of homes(s)) {
+      const w = warningsOf(s, b);
+      if (b.level === FINE && w.length === 1 && w[0].need === 'culture') plays++;
+      for (const x of w) least = Math.min(least, x.left);
+    }
+    return plays >= 12 || least <= 27 * TICKS_PER_DAY;
+  };
+  const end = s.tick + 4 * TICKS_PER_MONTH;
+  while (s.tick < end && !ready()) sim.run(10);
+}
 
 export interface Demo {
   /** Camera view (a VIEWS name). */
@@ -270,8 +295,36 @@ function foodTown(ticks: number, start = 400, stagger = 200, more?: { farms?: nu
  * two months after that drop a level each, one at a time, unless the road
  * goes back.
  */
-function cutTown(after: number): (sim: Sim) => void {
-  return foodTown(FOOD_TICKS + after, 400, 200, { then: (at) => at(FOOD_TICKS, { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z }) });
+function cutTown(after: number, both = false): (sim: Sim) => void {
+  const clear = { type: 'clear', x0: CUT.x, z0: CUT.z, x1: CUT.x, z1: CUT.z } as const;
+  // (#warning: the road is cut once the water carriers and the food vendors have both been down the west
+  // street lately, so its homes run dry of both within a month of each other, as they did with one of each.)
+  const fresh = (s: SimState): boolean =>
+    homes(s)
+      .filter((b) => b.x <= 22 && (b.z === 72 || b.z === 75))
+      .every((b) => b.waterUntil - s.tick >= WATER_LASTS - TICKS_PER_MONTH && untilOf(b, 'food') - s.tick >= FOOD_LASTS - TICKS_PER_MONTH);
+  const cut = foodTown(FOOD_TICKS + after, 400, 200, {
+    then: (at) => {
+      const sim = at.sim!;
+      if (both) {
+        if (sim.state.tick < FOOD_TICKS) sim.run(FOOD_TICKS - sim.state.tick);
+        const end = FOOD_TICKS + 2 * TICKS_PER_MONTH;
+        while (sim.state.tick < end && !fresh(sim.state)) sim.run(10);
+      }
+      at(Math.max(FOOD_TICKS, sim.state.tick), clear);
+    },
+  });
+  if (!both) return cut;
+  // (#warning: and on, forty days at most, until a home warns of both water and bread: with the crews of
+  // walkers, the vendors' last visit and the carriers' fall a little apart.)
+  return (sim) => {
+    cut(sim);
+    const end = sim.state.tick + 40 * TICKS_PER_DAY;
+    // (Its story too: a home notes a warning on its day, so on until every home warned of both has noted them.)
+    const both = (b: Building): boolean => warningsOf(sim.state, b).length >= 2;
+    const noted = (): boolean => homes(sim.state).some(both) && homes(sim.state).every((b) => !both(b) || (b.family?.warned.length ?? 0) >= 2);
+    while (sim.state.tick < end && !noted()) sim.run(10);
+  };
 }
 
 /** The tile of road cut in #warning and #decline: where the west street met the lane. */
@@ -415,7 +468,7 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
       at(SHRINE_AT, { type: 'build', kind: 'agora', at: [T(27, 48)] });
       // Two more farms for the bigger households' bread, once the treasury can pay for them and a month's wages.
       // (#shrine opens before they are afforded.)
-      if (!at.sim || waitFor(at.sim, SHRINE_AT, 2 * (FARM_COST + JOBS.farm * WAGE), ticks)) {
+      if (!at.sim || waitFor(at.sim, SHRINE_AT, 2 * (FARM_COST + JOBS.farm * WAGE) + 3 * ROAD_COST, ticks)) {
         at(SHRINE_AT, { type: 'road', tiles: row(51, 53, 63) });
         at(SHRINE_AT, { type: 'build', kind: 'farm', at: [T(41, 60), T(51, 64)] });
       }
@@ -424,8 +477,9 @@ function cultureTown(ticks: number, theatre = true, close = false, oil = true, m
         // Fleece for the fine houses to come, a month before the theatre (see FLEECE_AT).
         if (at.sim) waitFor(at.sim, FLEECE_AT, FLEECE_COST);
         laneFleece(at, FLEECE_AT);
-        // (The fleece set the treasury back: the theatre can wait longer for its money than other things.)
-        if (at.sim) waitFor(at.sim, THEATRE_AT, THEATRE_COST + JOBS.theatre * WAGE, THEATRE_AT + 2 * AFFORD_WAIT);
+        // (The fleece set the treasury back: the theatre can wait longer for its money than other things. And,
+        // since the crews of walkers' histories, a hundred drachmas to spare: with none, #fine owed 10 dr of wages a month on.)
+        if (at.sim) waitFor(at.sim, THEATRE_AT, THEATRE_COST + JOBS.theatre * WAGE + 100, THEATRE_AT + 2 * AFFORD_WAIT);
         late = Math.max(0, (at.sim?.state.tick ?? 0) - THEATRE_AT);
         at(THEATRE_AT, { type: 'build', kind: 'theatre', at: [T(THEATRE.x, THEATRE.z)] });
       }
@@ -489,6 +543,11 @@ const villasTown = (sim: Sim): void => {
   villaTown(VILLAS_AFTER)(sim);
   const s = sim.state;
   const dry = (): boolean => s.buildings.some((b) => b.kind === 'home' && b.level === VILLA && b.people > 0 && b.goodsUntil[gi(WINE)] <= s.tick);
+  // (Since the crews of walkers the town can pay for its vines sooner, and their first vintages reach fewer
+  // villas by VILLAS_AFTER: on, two months at most, until a dozen have filled.)
+  const villas = (): number => s.buildings.filter((b) => b.kind === 'home' && b.level === VILLA && b.people > 0).length;
+  const most = s.tick + 2 * TICKS_PER_MONTH;
+  while (s.tick < most && villas() < 12) sim.run(10);
   const end = s.tick + 14 * TICKS_PER_DAY;
   while (s.tick < end && dry()) sim.run(10);
 };
@@ -797,7 +856,8 @@ function town(opening: number, safety: Safety = SAFE, rich = false, richWatch = 
 /** #richtown's bay quarter and trading post (see RICH_WINE_AT); returns when the town opens. */
 function bayQuarter(sim: Sim, at: At, afford: (t: number, cost: number) => void): number {
   const s = sim.state;
-  afford(RICH_WINE_AT, RICH_WINE_COST);
+  // (And a hundred drachmas to spare: since the crews of walkers' histories, with none the town owed 16 dr of wages a month on.)
+  afford(RICH_WINE_AT, RICH_WINE_COST + 100);
   const wine = s.tick;
   at(s.tick, { type: 'road', tiles: [...QUAY_ROAD, ...RICH_LANE] });
   at(s.tick, { type: 'build', kind: 'vineyard', at: RICH_VINEYARDS.map((v) => T(v.x, v.z)) });
@@ -975,18 +1035,16 @@ function drivenOut(s: SimState): number {
  * town keeps the usual amounts), then play on: #quay until the dockers have
  * stacked a few loads on the quay, #sail until the ship's sail shows on the
  * horizon, #ship until she has tied up and begun loading. #black builds the
- * post as soon as the treasury can pay for it (about a month and a half),
- * puts all six goods up for sale keeping less for the town, and a month and
- * a half before the ship is due turns taxes off, as #dry does, so the
- * treasury runs dry and wages go unpaid; it opens as her sail shows, the
+ * post as soon as the treasury can pay for it (about a month and a half)
+ * and turns taxes off, as #dry does, so the treasury runs dry and wages go
+ * unpaid; it puts all six goods up for sale, keeping less for the town, for
+ * the first ship that comes after that, and opens as her sail shows, the
  * quay stacked.
  */
 const TRADE_AFTER = 4 * TICKS_PER_MONTH;
 const TRADE_SELL = [WHEAT, MEAT, CHEESE, OIL];
 /** #black sells everything, keeping less: wheat 800, meat, cheese and oil 200 (fleece and wine as usual). */
 const BLACK_KEEP: Array<[number, number]> = [[WHEAT, 800], [MEAT, 200], [CHEESE, 200], [OIL, 200], [FLEECE, 600], [WINE, 600]];
-/** How long before the ship is due #black turns its taxes off. */
-const BLACK_DRY = 450;
 type TradeStage = 'trade' | 'quay' | 'sail' | 'ship' | 'black';
 /** What is on the quay, in all. */
 const onQuay = (s: SimState): number => {
@@ -1006,18 +1064,26 @@ function tradeTown(stage: TradeStage): (sim: Sim) => void {
     else sim.run(TRADE_AFTER);
     if (stage === 'trade') return;
     send({ type: 'build', kind: 'trading', at: [T(QUAY_POST.x, QUAY_POST.z)] });
-    if (stage === 'black') for (const [good, keep] of BLACK_KEEP) send({ type: 'trade', good, sell: true, keep });
-    else for (const good of TRADE_SELL) send({ type: 'trade', good, sell: true });
     const ship = s.trade.ship;
     if (stage === 'black') {
-      sim.run(Math.max(0, ship.due - BLACK_DRY - s.tick));
+      // Taxes go off at once, and the goods go up for sale for the first ship due after the first of the month that
+      // finds the treasury dry (what the collectors are carrying home counts: it reaches the treasury after taxes go
+      // off). Until then nothing is sold, so a ship that comes sooner doesn't fill it again. (The crews' histories
+      // left the treasury richer, so a fixed month and a half before she was due no longer ran it dry in time.)
       send({ type: 'tax', rate: 0 });
-    }
+      sim.step();
+      let have = Math.max(0, s.money);
+      for (const w of s.walkers) if (w.kind === 'tax') have += purseTotal(w);
+      const bill = wageBill(s);
+      const dry = (Math.floor(s.tick / TICKS_PER_MONTH) + 1 + Math.floor(have / Math.max(1, bill))) * TICKS_PER_MONTH;
+      const by = s.tick + 2 * SHIP_EVERY;
+      while (s.tick < by && ship.due <= dry) sim.step();
+      for (const [good, keep] of BLACK_KEEP) send({ type: 'trade', good, sell: true, keep });
+    } else for (const good of TRADE_SELL) send({ type: 'trade', good, sell: true });
     const ready = (): boolean => {
       if (stage === 'quay') return onQuay(s) >= 1800 && dockersOut(s, tradingPost(s)!) > 0;
       if (stage === 'ship') return ship.phase === SHIP_MOORED && s.tick - ship.since >= 15;
-      // (Slice 33: #black, and once wages have gone unpaid: with the seasons' history the treasury held more, and the
-      // first of the month that finds it dry comes a few days after her sail shows.)
+      // (#black, and once wages have gone unpaid.)
       if (stage === 'black') return ship.phase === SHIP_COMING && s.tick - ship.since >= 8 && owedWages(s).owed > 0;
       return ship.phase === SHIP_COMING && s.tick - ship.since >= 8;
     };
@@ -2591,7 +2657,7 @@ const SCENES: Record<string, Demo> = {
   workers: { view: 'workers', setup: foodTown(WORKERS_TICKS, 120, 0, { officeAt: WORKERS_TICKS }), overlay: 'food' },
   bridge: { view: 'bridge', tool: 'road', setup: bridgeTown(BRIDGE_TICKS), overlay: 'food' },
   people: { view: 'people', setup: foodTown(FOOD_TICKS), overlay: 'missing', open: (s) => nearest(s, 30, 67) },
-  warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
+  warning: { view: 'warning', speed: 'paused', tool: 'road', setup: cutTown(CUT_WARNING, true), overlay: 'missing', open: (s) => warned(s, true), mark: CUT },
   decline: { view: 'decline', setup: cutTown(CUT_DECLINE), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   missing: { view: 'missing', setup: foodTown(MISSING_TICKS, 400, 200, { farms: 1 }), overlay: 'missing', overlayOn: true },
   grow: { view: 'grow', tool: 'shrine', setup: growTown(FOOD_TICKS), overlay: 'religion' },
@@ -2601,7 +2667,7 @@ const SCENES: Record<string, Demo> = {
   actor: { view: 'actor', setup: cultureTown(THEATRE_TICKS), follow: 'actor', overlay: 'culture' },
   fine: { view: 'fine', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
   compare: { view: 'compare', setup: cultureTown(FINE_TICKS), overlay: 'missing' },
-  closed: { view: 'closed', speed: 'paused', setup: cultureTown(CLOSED_TICKS, true, true), overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
+  closed: { view: 'closed', speed: 'paused', setup: closedTown, overlay: 'missing', open: (s) => warned(s, false), mark: CUT },
   harsh: { view: 'town', setup: harshTown, overlay: 'missing', open: drivenOut },
   dry: { view: 'town', speed: 'paused', setup: dryTown, overlay: 'missing', open: (s) => homes(s).find((b) => b.unpaid > 0)?.id ?? 0 },
   taxes: { view: 'taxes', tool: 'taxoffice', setup: taxesTown, overlay: 'tax' },

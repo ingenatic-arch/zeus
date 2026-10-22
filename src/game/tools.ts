@@ -372,9 +372,13 @@ export class Tools {
     this.send({ type: 'undo' });
   }
 
-  /** Re-draw the preview if the city changed under it. */
+  /**
+   * Re-draw the preview if the city changed under it. With no tool there is
+   * no preview, and the tip is the hover's: a city that changes all the time
+   * (a home going up, a family moving in) hid it every few frames.
+   */
   frame(): void {
-    if (this.sim.state.rev !== this.lastRev) this.preview();
+    if (this.tool && this.sim.state.rev !== this.lastRev) this.preview();
   }
 
   /** How many times a road route has been worked out (for the smoke test: it shouldn't follow settlers arriving). */

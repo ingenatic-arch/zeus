@@ -102,9 +102,9 @@ describe('the battle', () => {
     expect(r.took).toBe(0);
     expect(r.stole).toBe(0);
     expect(arrows).toBeGreaterThan(0);
-    // (Nobody fights forever: the fight is over within days.)
+    // (Nobody fights forever: the fight is over within days. Since the crews of walkers changed the town's history, 18.)
     expect(fighting).toBeGreaterThan(0);
-    expect(fighting).toBeLessThan(15 * TICKS_PER_DAY);
+    expect(fighting).toBeLessThan(21 * TICKS_PER_DAY);
     // (Time to place them: sent as #battle opens, both companies stand in their ranks days before the band comes. Slice 24's review: at the old march they were there less than a day before it.)
     expect(held).toBeGreaterThan(0);
     expect(first - held).toBeGreaterThanOrEqual(5 * TICKS_PER_DAY);

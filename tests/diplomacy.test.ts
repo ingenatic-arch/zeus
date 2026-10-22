@@ -171,8 +171,8 @@ describe('sending a gift', () => {
     expect(until(sim, () => s.walkers.some((w) => w.kind === 'docker' && w.cheese === g.id), 200)).toBe(true);
     expect(until(sim, () => g.phase === 1, 3 * TICKS_PER_MONTH)).toBe(true);
     expect(g.got).toBe(400);
-    expect(cityHolds(s, OIL)).toBeLessThanOrEqual(oil - 400 + 50);
-    // It went from the city's stock book as a gift.
+    // It went from the city's stock book as a gift. (Its stores no longer show it: since the vendors charge only for
+    // what they bring, the groves make more oil than #routes uses, and fill the storehouse again meanwhile.)
     expect(bookNow(s).now.find((l) => l.kind === 'sold' && l.what === 'gift:corinth')?.n).toBe(400);
     const cv = giftCaravan(s, g)!;
     expect(cv.back && cv.food === 0 && cv.people === 3).toBe(true);

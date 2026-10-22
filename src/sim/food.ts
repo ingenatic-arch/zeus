@@ -23,7 +23,7 @@ import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MAR
 import { ARMOURY_COPPER, BARN, BARRACKS_RACK, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
-import { door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import { CREW_GAP, crewClock, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { NeedDue, NeedScore } from './walk';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 import { besideRoad, CARRIER_SPEED, centre, isCart, newWalker, position, setPath, speedOf, WALK_SPEED } from './walk';
@@ -177,16 +177,15 @@ export const FOOD: ServiceSpec = {
         const until = foodUntil(b, f);
         if (have <= 0 || until >= full) continue;
         const from = Math.max(until, s.tick);
-        const cost = Math.ceil((b.people * (full - from)) / (TICKS_PER_MONTH * kinds));
-        if (cost <= have) {
-          setFoodUntil(b, f, full);
-          setHeld(stall, f, have - cost);
-          noteHomeUse(s, f, b, cost);
-        } else {
-          setFoodUntil(b, f, from + Math.floor((have * TICKS_PER_MONTH * kinds) / b.people));
-          setHeld(stall, f, 0);
-          noteHomeUse(s, f, b, have);
-        }
+        // Whole measures only, as many as bring it up to full (or all she has): a home just topped up
+        // takes none, and pays for no more than it gets (with a crew passing often, rounding each
+        // top-up up to a whole measure ate the stall's meat and cheese).
+        const per = TICKS_PER_MONTH * kinds;
+        const n = Math.min(have, Math.floor((b.people * (full - from)) / per));
+        if (n <= 0) continue;
+        setFoodUntil(b, f, from + Math.floor((n * per) / b.people));
+        setHeld(stall, f, have - n);
+        noteHomeUse(s, f, b, n);
         changed = true;
       }
       if (foodsIn(stall) === 0) break;
@@ -194,6 +193,7 @@ export const FOOD: ServiceSpec = {
     if (changed) s.looks++;
   },
   rest: (b) => restFor(b, VENDOR_REST),
+  crew: true,
 };
 
 /** Carts out from a farm (or any maker), or porters from the agora. */
@@ -284,19 +284,17 @@ export function sendCart(s: SimState, size: number, f: Building, food: Ware, mos
 }
 
 /**
- * The agora: its porter fetches food when the stall runs low, and its vendor
- * walks while there is food; then its stalls for goods (goods.ts), each with
- * its vendor, and their porter.
+ * The agora: its porter fetches food when the stall runs low, and its vendors
+ * walk while there is food; then its stalls for goods (goods.ts), each with
+ * its vendors and its porter.
  */
 export function stepAgoras(s: SimState, map: CoastMap, stalls: (s: SimState, size: number, a: Building, rate: number) => void): void {
   const size = map.size;
   for (const a of s.buildings) {
     if (a.kind !== 'agora') continue;
     const rate = rateOf(a);
-    // The food vendor.
-    if (a.walker === 0 && --a.clock <= 0) {
-      if (rate === 0 || foodsIn(a) === 0 || !sendOut(s, size, a, 'food')) a.clock = VENDOR_REST;
-    }
+    // The food vendors (a crew of them: see CREW).
+    a.clock = crewClock(s, a, 'food', a.clock, rate > 0 && foodsIn(a) !== 0, () => sendOut(s, size, a, 'food'), restFor(a, CREW_GAP), VENDOR_REST);
     foodPorter(s, size, a, rate);
     if (a.stalls) stalls(s, size, a, rate);
   }

@@ -82,6 +82,10 @@ describe('the shortfall lines', () => {
     // fine houses share their table with cheese and meat.)
     const sim = demo('food');
     const s = sim.state;
+    // (Its granary as full as it was before the crews of vendors fed every home: since then the town eats its
+    // wheat as it comes, and opens with a few hundred measures in the granary.)
+    const granary = s.buildings.find((b) => b.kind === 'granary')!;
+    granary.stock = Math.max(granary.stock, 1000);
     for (const [x, z] of [
       [44, 60],
       [48, 64],

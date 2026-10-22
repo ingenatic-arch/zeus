@@ -168,7 +168,7 @@ describe('going up, and staying up', () => {
         sim.enqueue({ type: 'road', tiles: [51, 52, 53].map((x) => x + 63 * N) });
         sim.enqueue({ type: 'build', kind: 'farm', at: [41 + 60 * N, 51 + 64 * N] });
       } else {
-        // Short of farms: since slice 9 its fine houses share their table with meat and cheese, so three farms are plenty; with one, the stall's wheat runs out after two years or so.
+        // Short of farms: since slice 9 its fine houses share their table with meat and cheese, so three farms are plenty; with one, the stall's wheat runs out after about three years.
         sim.enqueue({ type: 'clear', x0: 44, z0: 60, x1: 44, z1: 60 });
         sim.enqueue({ type: 'clear', x0: 48, z0: 64, x1: 48, z1: 64 });
       }
@@ -183,7 +183,8 @@ describe('going up, and staying up', () => {
     expect(homes(fed.state).filter((b) => b.level === FINE).length).toBeGreaterThanOrEqual(36);
     const short = grow(false);
     let named = false;
-    for (let d = 0; d < 1000 && !named; d++) {
+    // (Since the vendors charge only for what they bring, not a measure more on every top-up, its granary lasts longer: about three years.)
+    for (let d = 0; d < 1500 && !named; d++) {
       short.run(TICKS_PER_DAY);
       const hungry = homes(short.state).find((b) => b.level >= COTTAGE && b.foodUntil < short.state.tick);
       const why = hungry ? whyHungry(short.state, map, hungry, short.state.buildings.filter((o) => o.kind === 'agora')) : '';

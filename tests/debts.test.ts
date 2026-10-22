@@ -14,7 +14,7 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { expeditionLine, expeditionOnMap, expeditionPlan, expeditionRefusal } from '../src/sim/expeditions';
 import { held, OIL, setHeld } from '../src/sim/foods';
-import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, STORE_EVERY, STORE_SHARE, timeAnswer } from '../src/sim/loans';
+import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, STORE_EVERY, STORE_SHARE, timeAnswer, worthAMarch } from '../src/sim/loans';
 import { lootValue, raidersOf } from '../src/sim/raids';
 import { caravanYard } from '../src/sim/routes';
 import { roomOf } from '../src/sim/stores';
@@ -195,9 +195,12 @@ describe('your default', () => {
     if (l.state === 'overdue') expect(l.owed).toBe(owed - Math.min(owed, v));
     else expect(l.state).toBe('collected');
     ledgerAddsUp(s);
-    if (l.state === 'overdue') {
+    if (l.state === 'overdue' && worthAMarch(l)) {
       // The debt still standing: another threat after the lull.
       expect(until(sim, () => l.raid !== r.id, COLLECT_LULL + 2 * TICKS_PER_DAY)).toBe(true);
+    } else if (l.state === 'overdue') {
+      // (Slice 34: a remainder under 500 dr isn't worth another march.)
+      expect(until(sim, () => l.raid !== r.id, COLLECT_LULL + 2 * TICKS_PER_DAY)).toBe(false);
     }
   }, 240000);
 

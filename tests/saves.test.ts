@@ -183,7 +183,8 @@ describe('saves from before', () => {
     const text = encodeSave(s, 4);
     // (Slice 31: Greece's eleven cities, with what moved their people, wealth and arms, add about 10 KB.)
     // (Slice 33 at the merge: #town opens 15 days later and keeps the seasons' record: 175,210 characters then.)
-    expect(text.length).toBeLessThan(180_000);
+    // (The crews of walkers: three water carriers, food vendors and the rest out at once, each with her trail: 183,450.)
+    expect(text.length).toBeLessThan(190_000);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);
