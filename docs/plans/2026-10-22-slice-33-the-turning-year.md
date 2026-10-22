@@ -91,4 +91,45 @@ Software WebGL on a machine shared with three other builders: frame and load tim
 
 ## As built
 
-(To be filled in when the slice is built.)
+Built as planned, with these differences and choices:
+
+- **Stages.** The plan's stages 2 to 4 (sim, render and UI, demos) went in as one commit (`8d57ebb`), because the demos' histories had to be retuned against the sim and the look tuned against the demos before the suite was green; each stage was typechecked and its tests run as it went.
+- **The calendar and paces** are as planned (`src/sim/seasons.ts`). The wild herds' pace (2, 1, 0.5, 0.5) is applied to a head's regrowth clock, not to the herd's size. The panels' harvest and picking times run through the seasons ahead (`ticksToGrow`), and the farm's, grove's, vineyard's, dairy's and pasture's panels name the season's pace ("Autumn: the wheat ripens half again as fast").
+- **The weather** is three-day spells, rain odds 25%, 7%, 30% and 45% (spring to winter), storms 12% of autumn's and 35% of winter's spells; only the look and the dial read it.
+- **Winter at sea.** The Tyrian ship's and the sea routes' visits due in winter are put back 6 to 12 days (`stormDelay`, a hash of the seed, the ship and the day she was due), kept in `season.late` so the chip and lines can say so ("80 d · late"; the tip: "late: winter storms in the gulf held her back 10 days"). Enemy ships in the bay row at three quarters in winter, and `daysToBeach` counts it.
+- **Winter on land.** In raids.ts's monthly roll, a hostile ruler's new threat whose band would march in winter is skipped two times in three (`armiesHome`, hashed). Threats already made, refused tributes, lenders' armies and expeditions are untouched.
+- **The look.** Shared shader uniforms (`SEASON_UNIFORMS`) added to every material finish.ts patches: the ground's vegetation (weighted by its greenness and flatness, not the sand or cliffs) and the plants' green parts tinted and desaturated by the season, everything a little darker when wet. The sea (`Water.setLook`) goes greyer in autumn and winter and bluer in summer; the sky and fog greyer in winter and in rain, the sun and sky light dimmer, with a lightning flash every few seconds in a storm. Rain is one `LineSegments` draw of 2,600 streaks in a box that follows the camera (`src/render/rain.ts`). Each season holds its look for three quarters of its length and turns into the next over its last quarter. With `-plain` the finish's shaders are off, so the land isn't tinted; the sea, sky, light and rain still follow the season (the plan said a lighter tint: none was needed to keep `-plain` working, and I left it so).
+- **The camera** keeps 0.6 above the crowns of the trees and rocks near it: `Plants.canopyAt` reads a per-tile grid of crown tops (each crown widened by 1.2 tiles), rebuilt when plants are cleared; the lift eases up quickly and down slowly.
+- **The dial** sits under the date: a small four-colour dial with its hand at today, the season's name and what's coming ("Winter · storms · spring in 9 d"), rain or storm when it is wet, and the season's whole line in its tooltip. The tooltip names the paces in words; it does not give the granaries' wheat against what the town eats (the winter town line does that).
+- **The winter town line** (`need: 'season'`, a grey cloud over a sheaf) from the last month of autumn until spring, when the granaries and stalls won't cover winter's shortfall at the farms' 60%. In the demos the granaries hold more than enough, so it doesn't show in any of them; a test drives it.
+- **Findings.** `#thieves`: a watch post at (60, 39), the west end of the core's north street: its round reaches all 71 road tiles of the core and stops 6 short of the hut street (38 road tiles away, the round 32). The crime overlay's amber is from `TEMPT_SHOW` (a quarter), as the panel names it; columns are still from half. A thief's purse from the tax office is marked `TREASURY_COIN` (`food = -2`), so a catch pays it back to the treasury when the office has gone.
+- **Histories, retuned where seasons moved their moment:**
+  - `town()` (`#town` and every demo built from it) plays on, a fortnight at most, until no food line says homes are going without and (but for `#richtown`) a tent stands on the newest plots: with the seasons a few core homes were a week past their food as it opened. `#town` now opens 15 days later (tick 8,550, was 8,400).
+  - `#villas` and `#winevendor` play on, a fortnight at most, until every villa has wine.
+  - `#rivals` (and its three demos) plays on, three months at most, until every route has had a visit.
+  - `#athensship` (and `#anchor`, `#pirates`) waits for a window the treasury can pay her fee and her wine in (+450 dr).
+  - `#pirates` waits for the shipyard, its road, a trireme and a month's wages before the fleet goes in.
+  - `#black` opens once wages have gone unpaid while her sail is on the horizon (with the seasons the treasury held more, and the first of the month that found it dry came a few days after her sail showed).
+  - `#raid`, `#raiders`, `#aftermath` and `#looted` switch fire risk on as the band nears the edge, not weeks before: with the seasons, a month of risk on the unwatched farm row had an ordinary fire take the farms and the granary.
+- **Tests changed, and why.**
+  - crime: the tax office purse is now `TREASURY_COIN`; the temptation test reads the score just before the home's own daily step (the seasons moved the day).
+  - town: the warned-days bound is 400 (the fleece vendor's round, moved by the seasons).
+  - wild: over-hunting is played 240 days (the herds regrow faster in spring, so it took longer to show).
+  - raids: the plunder test records what was held each tick until the take (carts arrive during the band's walk); the goods test adds 2,000 oil (April's presses had made little).
+  - stockbook: it looks at October, when the presses are busy (March's were idle).
+  - debts: it fills the storehouses' oil room before setting the yard's oil (porters had carried it back).
+  - rivals: it adds 600 oil before the caravan's visit.
+  - seasons (new, 17 tests): the calendar, paces, rhythm (a farm's year the same within a harvest, most in autumn), grove, dairy, wild herds, ships late in winter, the late ship's line, armies home, the weather's odds, the switch, a year twice the same, a slice 30 save (`tests/fixtures/slice30-nowatch.save.json.gz`), the winter line, `#thieves`' core watch post, the treasury's coin.
+- **Not done from the plan:** a test of the crime overlay's threshold (it is a renderer constant; the overlay and panel now share `TEMPT_SHOW`), and the dial's tooltip line on the granaries. The check of `#thieves`' core watch is weaker than planned: it checks that the hut street is never watched and that some core home is, not that every core street is, because watchmen walk little in a demo's history (fire risk is off).
+
+### Touched outside the line
+
+Other lines' files, through small hooks that call `src/sim/seasons.ts`, each in a "Slice 33" comment:
+
+- `src/sim/trade.ts`: the Tyrian ship's due date put back by `stormDelay`, and her chip, short and lines with `lateWords`.
+- `src/sim/routes.ts`: a sea route's next visit put back by `stormDelay`, and its line with `lateWords`.
+- `src/sim/fleet.ts`: enemy ships' pace times `seaPace`, and `daysToBeach` with it.
+- `src/sim/raids.ts`: `armiesHome` in the monthly threat roll.
+
+Shared files, in "Slice 33" blocks: `src/sim/state.ts` (the `season` field, version 29), `src/sim/sim.ts` (the field in a fresh state, the `seasons` command), `src/sim/commands.ts`, `src/sim/migrate.ts` (`fromSlice33`), `src/game/saves.ts` (the field's check), `src/sim/status.ts` (panels' harvest timing and pace lines, the winter town line), `src/sim/production.ts` (the makers' pace), `src/sim/wild.ts` (the herds' regrowth), `src/sim/crime.ts` (`TREASURY_COIN`), `src/ui/townlines.ts` (the line's icon), `src/ui/topbar.ts` and `src/ui/style.css` (the dial), `src/render/overlay.ts` (`TEMPT_SHOW`), `src/render/finish.ts`, `src/render/world.ts`, `src/render/water.ts`, `src/render/trees.ts`, `src/render/cameraRig.ts`, `src/main.ts`, `src/game/demos.ts` (the switch in `calm()`, the retuned histories above, the Slice 33 block), `src/game/views.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`, and the tests named above.
+

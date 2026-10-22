@@ -36,6 +36,7 @@ import {
 } from '../src/sim/seasons';
 import { createState, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/state';
+import { townLines } from '../src/sim/status';
 import { shipNews, SHIP_AWAY } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { stepWild } from '../src/sim/wild';
@@ -228,6 +229,23 @@ describe('the weather', () => {
     expect(storms[WINTER]).toBeGreaterThan(storms[AUTUMN]);
     // The same town, the same weather.
     expect(Array.from({ length: 50 }, (_, d) => weatherOn(s, d))).toEqual(Array.from({ length: 50 }, (_, d) => weatherOn(s, d)));
+  });
+});
+
+describe('the winter line', () => {
+  it('warns in late autumn when the granaries won’t carry the town to spring, and not with the seasons off', () => {
+    const sim = demoSim('seasons');
+    const s = sim.state;
+    // Late November of its year, the granaries and stalls emptied and all but one farm left without workers.
+    s.tick = Math.floor(s.tick / TICKS_PER_YEAR) * TICKS_PER_YEAR + 8 * TICKS_PER_MONTH + 19 * TICKS_PER_DAY;
+    expect(seasonAt(s.tick)).toBe(AUTUMN);
+    for (const b of s.buildings) if (b.kind === 'granary' || b.kind === 'agora') b.stock = 0;
+    const farms = s.buildings.filter((b) => b.kind === 'farm');
+    for (const f of farms.slice(1)) f.workers = 0;
+    const line = townLines(s, sim.map).find((l) => l.need === 'season');
+    expect(line?.text).toMatch(/^Winter in 11 days: the fields give little until spring, about [\d,]+ measures of wheat a month against the [\d,]+ the town eats/);
+    s.season.on = false;
+    expect(townLines(s, sim.map).some((l) => l.need === 'season')).toBe(false);
   });
 });
 
