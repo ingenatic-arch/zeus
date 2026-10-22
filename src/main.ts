@@ -10,6 +10,8 @@ import { attachInput, type PointerTools } from './game/input';
 import { readLaunch } from './game/links';
 import { browserStorage, decodeSave, labelOf, Saves, type SaveFile, type Slot } from './game/saves';
 import { PREPARED } from 'virtual:prepared';
+// Slice 37
+import { foundingOf, settlersShipStatus } from './sim/colonies';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
@@ -945,6 +947,12 @@ function start(preparedTown: string | null): void {
       if (!shipNear(sx, sy, view.info)) continue;
       const g = sim.state.world.gifts.find((x) => x.from === 'home' && x.to === to && x.phase === 1 && x.by === 'sea');
       if (g) return showStatus({ title: `${g.deal ? 'Your ship' : 'Your gift ship'} · ${giftWords(g.good, g.amount)} for ${PLACES[g.to].name}${g.deal ? (sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'tribute' ? ', as tribute' : sim.state.world.deals.find((d) => d.id === g.deal)?.kind === 'threat' ? ', the price of peace' : ', as they asked') : ''}`, detail: `${giftNews(sim.state, g)}. On the map of Greece she sails the lane to ${PLACES[g.to].name}` }, sx, sy);
+    }
+    // Slice 37: your settlers' ship, sailing in, at anchor while the families are rowed out, and sailing out with them.
+    for (const [site, view] of city.colonyShips) {
+      if (!shipNear(sx, sy, view.info)) continue;
+      const f = foundingOf(sim.state, site);
+      if (f) return showStatus(settlersShipStatus(sim.state, f), sx, sy);
     }
     const b = buildingAt(world);
     if (!b) {

@@ -48,7 +48,7 @@ import { lateWords, seasonAt, stormDelay, WINTER } from './seasons';
 import type { Building, Memory, SimState, Site, Visitor, Walker } from './state';
 import { TILE_ROAD } from './state';
 import { note } from './stockbook';
-import { berthOf, leaveTicks, PRICES, SAIL_IN, shipRoute, SHIP_ANCHORED, SHIP_COMING, SHIP_LEAVING, tradeIndex, TRADE_GOODS, tradingPost } from './trade';
+import { berthOf, leaveTicks, PRICES, sailable, SAIL_IN, shipRoute, SHIP_ANCHORED, SHIP_COMING, SHIP_LEAVING, tradeIndex, TRADE_GOODS, tradingPost } from './trade';
 import { pay, spendable } from './treasury';
 import { boundTo, SEASON, type Tribute } from './vassals';
 import { newWalker, roadPoints, setPath, speedOf } from './walk';
@@ -168,8 +168,9 @@ const PACK_GAP = 6;
 const BOARD = TICKS_PER_DAY;
 /** She waits for the families at most this long after the founding was ordered. */
 const WAIT_MOST = 60 * TICKS_PER_DAY;
-/** She anchors this far back along her way in from the jetty (tiles), out of the way of the jetty. */
-const ANCHOR_BACK = 14;
+/** She anchors this far back along her way in from the jetty (tiles), and this far to one side of it where the water is deep (the other side from where a trader waiting for the jetty anchors first), in sight of the quay and out of the way. */
+const ANCHOR_BACK = 6;
+const ANCHOR_ASIDE = [-2.2, 2.2, -1.2, 1.2, 0] as const;
 /** Growth: newcomers a year while it is small (none in winter, fewer as it fills), its children a year, the share's pull a year (light, fair, heavy), and its ceiling. */
 const NEWCOMERS = 150;
 const CHILDREN = 0.03;
@@ -338,6 +339,10 @@ function found(s: SimState, map: CoastMap, site: string): void {
   const path = shipRoute(map, berth);
   const L = pathLen(path);
   const ship: Visitor | null = path.length >= 4 ? { phase: SHIP_COMING, since: s.tick, turned: 1, path, post: post.id, stop: Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L)), aside: 0 } : null;
+  if (ship) {
+    const at = pointOn(path, ship.stop * L);
+    ship.aside = ANCHOR_ASIDE.find((a) => a === 0 || [0.5, 1].every((k) => sailable(map, at.x - at.dz * a * k, at.z + at.dx * a * k))) ?? 0;
+  }
   const f: Founding = { id: s.empire.nextId++, site, at: s.tick, cost: FOUND_COST, wheat: FOUND_WHEAT - left, households, post: post.id, phase: 'gathering', ship, until: s.tick + WAIT_MOST, start: 0, dur: 0, people: 0 };
   s.empire.foundings.push(f);
   x.bound = 'home';
@@ -346,6 +351,20 @@ function found(s: SimState, map: CoastMap, site: string): void {
   const people = households.reduce((a, h) => a + h.people, 0);
   news(s.world, s.tick, siteKey(site), `Your settlers for ${siteName(site)} are packing: ${households.map((h) => h.name.replace(/^the house of /, '')).join(', ')} (${people} people) walk down to the quay, and your ship sails in for them about ${dayWords(s.tick + SAIL_IN)}`);
   s.rev++;
+}
+
+/** A point along a path (x, z pairs) at a distance, and the way it runs there (a unit vector). */
+function pointOn(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
+  let left = d;
+  for (let i = 0; i + 3 < p.length; i += 2) {
+    const len = dhypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
+    if (left <= len || i + 4 >= p.length - 1) {
+      const u = len > 0 ? Math.min(1, left / len) : 0;
+      return { x: p[i] + (p[i + 2] - p[i]) * u, z: p[i + 1] + (p[i + 3] - p[i + 1]) * u, dx: len > 0 ? (p[i + 2] - p[i]) / len : 1, dz: len > 0 ? (p[i + 3] - p[i + 1]) / len : 0 };
+    }
+    left -= len;
+  }
+  return { x: p[0], z: p[1], dx: 1, dz: 0 };
 }
 
 const pathLen = (p: readonly number[]): number => {
@@ -961,6 +980,15 @@ export function colonistDoing(s: SimState, w: Walker): { title: string; detail: 
   if (!h || h.state === 'walking') return { title, detail: `Walking down to the quay with their bundles, to sail for ${where} and found a colony` };
   const anchored = f?.ship?.phase === SHIP_ANCHORED;
   return { title, detail: anchored ? `On the quay, being rowed out to your ship for ${where}` : `Waiting on the quay for your ship to ${where}${f?.ship ? `: she sails in about ${dayWords(f.ship.since + SAIL_IN)}` : ''}` };
+}
+
+/** Your settlers' ship's hover in the bay. */
+export function settlersShipStatus(s: SimState, f: Founding): { title: string; detail: string } {
+  const aboard = f.households.filter((h) => h.state === 'aboard').length;
+  const going = f.households.filter((h) => h.state !== 'stayed').length;
+  const v = f.ship;
+  const doing = f.phase !== 'gathering' ? `Sailing out of the bay with ${fmt(f.people)} settlers: they land on ${siteName(f.site)} about ${dayWords(s.tick + (v ? Math.max(0, v.since + leaveTicks(v) - s.tick) : 0) + laneTicks(f.site))}` : v?.phase === SHIP_ANCHORED ? `At anchor off the jetty: ${aboard} of ${going} households rowed out to her so far. She sails once all are aboard, or ${dayWords(f.until)} at the latest` : 'Sailing in for your settlers: she anchors off the jetty';
+  return { title: `Your ship for ${siteName(f.site)}`, detail: `${doing}\nOn the map of Greece she sails the lane to ${siteName(f.site)}` };
 }
 
 /** The line under the top bar, if a colony needs you: talk of freedom, a threat, settlers on the quay. */

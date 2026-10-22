@@ -159,7 +159,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
   const left = b.people === 0 ? leftFor(s, b.id) : '';
-  return { title, detail: lines(left, road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
+  return { title: left ? `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · standing empty` : title, detail: lines(left, road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */

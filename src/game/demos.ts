@@ -2709,7 +2709,7 @@ const SCENES: Record<string, Demo> = {
   conquer: { view: 'companies', speed: 'paused', setup: empireTown('conquer'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
   rebellion: { view: 'companies', setup: empireTown('rebellion'), overlay: 'missing', greece: 'corinth', greeceTab: 'empire' },
   // Slice 37: colonies. Your settlers on the quay and your ship at anchor for Thasos; two colonies grown, Nea Thasos' page open on the map; Corinth's company come to your aid by its road.
-  colony: { view: 'quay', setup: COLONY_TOWN, overlay: 'missing' },
+  colony: { view: 'colony', setup: COLONY_TOWN, overlay: 'missing' },
   colonies: { view: 'bay', setup: COLONIES_TOWN, overlay: 'missing', greece: 'site:thasos' },
   ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
 };

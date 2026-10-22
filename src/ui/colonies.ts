@@ -169,14 +169,14 @@ function threatHtml(s: SimState, c: Colony, map: CoastMap | undefined): string {
   const late = reach > t.due ? ` They would come too late: off its shore about ${dayWords(reach)}.` : '';
   const odds = fightOdds(there + home, t.ships);
   const guardWhy = map ? colonyRefusal(s, map, 'guard', c.site) : 'Not now';
-  const guard = button('guard', `Send ${home === 1 ? 'your trireme' : `your ${home} triremes`} to guard it <small>${inTen(odds)}</small>`, { site: c.site }, guardWhy, `With ${there + home} against their ${t.ships} ships: ${inTen(odds)} to drive them off.${late}`, 'send');
+  const guard = button('guard', guardWhy || !home ? 'Send triremes to guard it' : `Send ${home === 1 ? 'your trireme' : `your ${home} triremes`} to guard it <small>${inTen(odds)}</small>`, { site: c.site }, guardWhy, `With ${there + home} against their ${t.ships} ships: ${inTen(odds)} to drive them off.${late}`, 'send');
   const plan = expeditionPlan(s, t.city, 'force');
   const strikeWhy = expeditionRefusal(s, t.city, 'force');
-  const strike = button('strike', `Strike at ${esc(name(t.city))} <small>${inTen(plan.odds)}</small>`, { city: t.city, site: c.site }, strikeWhy, `A full force marches on ${name(t.city)}: its ships are called home as soon as your army sets out`, 'refuse');
+  const strike = button('strike', `Strike at ${esc(name(t.city))}${strikeWhy ? '' : ` <small>${inTen(plan.odds)}</small>`}`, { city: t.city, site: c.site }, strikeWhy, `A full force marches on ${name(t.city)}: its ships are called home as soon as your army sets out`, 'refuse');
   const fall = t.kind === 'claim' ? `${name(t.city)} takes it: it is yours no more` : `the raiders take 15 in every hundred of its people and its next shipment, and it remembers you did nothing (${signed(-25)})`;
   const guarding = there ? `<p class="eta sent">Your ${there === 1 ? 'trireme is' : `${there} triremes are`} on the way or on station: ${inTen(fightOdds(there, t.ships))} as they stand.</p>` : '';
   return `<section class="deals"><h3>${esc(whose(t.city))} ships</h3><div class="deal threat"><div><p><b>${t.ships} ships of ${esc(name(t.city))}</b> are sailing for ${esc(c.name)} ${esc(what)}. They arrive about <b>${esc(dayWords(t.due))}</b>.</p>${guarding}
-<div class="acts">${home ? guard : guardWhy ? guard : ''}${strike}</div>
+<div class="acts">${guard}${strike}</div>${guardWhy && !there ? `<p class="eta no">Triremes: ${esc(guardWhy)}.</p>` : ''}${strikeWhy ? `<p class="eta no">Your army: ${esc(strikeWhy)}.</p>` : ''}
 <p class="if">Triremes off its shore fight them when they come (driven off, it is grateful: ${signed(15)}). Your army marching on ${esc(name(t.city))} calls them home, though as any war without cause ${esc(name(t.city))} hates it. Let it be, and ${esc(fall)}.</p></div></div></section>`;
 }
 
