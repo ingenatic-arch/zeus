@@ -363,7 +363,7 @@ export function logPile(): THREE.BufferGeometry {
  * building's top edge stands there, where the skirt starts (its floor, 0,
  * unless given).
  */
-export function skirt(ground: (lx: number, lz: number) => number, half: number, road: (side: number) => boolean, tones: readonly [string, string], lumps: readonly string[], seed: number, level: (lx: number, lz: number) => number = () => 0): THREE.BufferGeometry {
+export function skirt(ground: (lx: number, lz: number) => number, half: number, road: (side: number) => boolean, tones: readonly [string, string] | readonly [string, string, string], lumps: readonly string[], seed: number, level: (lx: number, lz: number) => number = () => 0): THREE.BufferGeometry {
   const S = 6;
   const normals: Array<[number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0]];
   const ring: Array<{ ix: number; iz: number; iy: number; nx: number; nz: number; steep: boolean }> = [];
@@ -398,13 +398,16 @@ export function skirt(ground: (lx: number, lz: number) => number, half: number, 
   });
   const upper: number[] = [];
   const lower: number[] = [];
+  // (Slice 35: with three tones, a middle band between them, and rubble scattered over it, so a tall skirt grades from
+  // the spoil at its top to the hillside at its foot instead of reading as one pale bank.)
+  const banded = tones.length === 3;
+  const middle: number[] = [];
   const parts: Part[] = [];
-  const mid = (i: number): [number, number, number] | null => {
+  const mid = (i: number, f = 0.42): [number, number, number] | null => {
     const o = outer[i];
     if (!o) return null;
     const r = ring[i];
-    const f = 0.42;
-    const bulge = r.steep ? 0 : 0.08 * Math.min(1, o.d) + (hash2(i, 2, seed) - 0.5) * 0.05;
+    const bulge = r.steep ? 0 : 0.08 * Math.min(1, o.d) * Math.sin(Math.PI * f) / Math.sin(Math.PI * 0.42) + (hash2(i, 2, seed) - 0.5) * 0.05;
     return [r.ix + (o.x - r.ix) * f, r.iy + (o.y - r.iy) * f + bulge, r.iz + (o.z - r.iz) * f];
   };
   const n = ring.length;
@@ -419,15 +422,33 @@ export function skirt(ground: (lx: number, lz: number) => number, half: number, 
     // A side's end where the ground meets the floor: run its outer edge in to the edge (a wedge).
     const pa: [number, number, number] = [ra.ix, ra.iy - 0.01, ra.iz];
     const pb: [number, number, number] = [rb.ix, rb.iy - 0.01, rb.iz];
-    const ma = mid(a) ?? pa;
-    const mb = mid(b) ?? pb;
     const qa: [number, number, number] = oa ? [oa.x, oa.y, oa.z] : pa;
     const qb: [number, number, number] = ob ? [ob.x, ob.y, ob.z] : pb;
-    upper.push(...pa, ...mb, ...ma, ...pa, ...pb, ...mb);
-    lower.push(...ma, ...qb, ...qa, ...ma, ...mb, ...qb);
-    if (oa && oa.d > 0.18 && i % 2 === 0) {
-      const r = 0.05 + 0.07 * hash2(i, 3, seed) * Math.min(1, oa.d);
-      parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, seed + 10 + i).scale(1.3, 0.75, 1.3).translate(ma[0], ma[1] + r * 0.3, ma[2]), color: lumps[i % lumps.length] });
+    if (banded) {
+      const ma = mid(a, 0.3) ?? pa;
+      const mb = mid(b, 0.3) ?? pb;
+      const na = mid(a, 0.66) ?? pa;
+      const nb = mid(b, 0.66) ?? pb;
+      upper.push(...pa, ...mb, ...ma, ...pa, ...pb, ...mb);
+      middle.push(...ma, ...nb, ...na, ...ma, ...mb, ...nb);
+      lower.push(...na, ...qb, ...qa, ...na, ...nb, ...qb);
+      if (oa && oa.d > 0.18) {
+        for (const [f, k] of [[0.3, 0], [0.5, 1], [0.66, 2]] as Array<[number, number]>) {
+          if (hash2(i, 5 + k, seed) > 0.6) continue;
+          const at = mid(a, f) ?? pa;
+          const r = 0.04 + 0.08 * hash2(i, 3 + k, seed) * Math.min(1, oa.d);
+          parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.4, seed + 10 + i * 3 + k).scale(1.3, 0.7, 1.3).translate(at[0], at[1] + r * 0.25, at[2]), color: lumps[(i + k) % lumps.length] });
+        }
+      }
+    } else {
+      const ma = mid(a) ?? pa;
+      const mb = mid(b) ?? pb;
+      upper.push(...pa, ...mb, ...ma, ...pa, ...pb, ...mb);
+      lower.push(...ma, ...qb, ...qa, ...ma, ...mb, ...qb);
+      if (oa && oa.d > 0.18 && i % 2 === 0) {
+        const r = 0.05 + 0.07 * hash2(i, 3, seed) * Math.min(1, oa.d);
+        parts.push({ geo: lumpy(new THREE.DodecahedronGeometry(r, 0), 0.35, seed + 10 + i).scale(1.3, 0.75, 1.3).translate(ma[0], ma[1] + r * 0.3, ma[2]), color: lumps[i % lumps.length] });
+      }
     }
   }
   const tri = (pos: number[]): THREE.BufferGeometry => {
@@ -436,7 +457,8 @@ export function skirt(ground: (lx: number, lz: number) => number, half: number, 
     g.computeVertexNormals();
     return g;
   };
-  if (upper.length) parts.push({ geo: tri(upper), color: tones[0] }, { geo: tri(lower), color: tones[1] });
+  if (upper.length) parts.push({ geo: tri(upper), color: tones[0] }, { geo: tri(lower), color: (banded ? tones[2] : tones[1]) as string });
+  if (middle.length) parts.push({ geo: tri(middle), color: tones[1] });
   if (!parts.length) return new THREE.BufferGeometry();
   return merge(parts);
 }

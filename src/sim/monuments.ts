@@ -166,14 +166,14 @@ export const NOTICE_MOOD = 6;
 export const NOTICE_FADE = TICKS_PER_YEAR;
 
 /**
- * The Stadium's games: every four years, a month long, the first three months
- * after it is finished, announced two months ahead (when the first visitors
- * set out: the walk in from the edge of the map can take a month or more).
+ * The Stadium's games: every four years, a month long, the first four months
+ * after it is finished, announced three months ahead (when the first visitors
+ * set out: the walk in from the edge of the map can take two months).
  */
 export const GAMES_EVERY = 4 * TICKS_PER_YEAR;
 export const GAMES_LAST = TICKS_PER_MONTH;
-export const FIRST_GAMES = 3 * TICKS_PER_MONTH;
-export const GAMES_NOTICE = 2 * TICKS_PER_MONTH;
+export const FIRST_GAMES = 4 * TICKS_PER_MONTH;
+export const GAMES_NOTICE = 3 * TICKS_PER_MONTH;
 /** The mood the games bring every home, while they are on and for a while after. */
 export const GAMES_MOOD = 2;
 export const AFTER_MOOD = 1;

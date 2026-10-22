@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { footSide } from '../sim/buildings';
-import { held, MARBLE, TIMBER } from '../sim/foods';
+import { COPPER, held, MARBLE, TIMBER } from '../sim/foods';
+import { gamesOn } from '../sim/monuments';
 import { rateOf } from '../sim/labour';
 import { quarryFace, quarryYaw } from '../sim/materials';
 import type { Building, SimState, Walker } from '../sim/state';
@@ -241,6 +242,89 @@ function timberCart(): THREE.BufferGeometry {
 }
 
 // ---------------------------------------------------------------------------
+// Slice 35: the masons' builders, the ox carts of materials for the monuments, and the games' visitors.
+
+/** A mallet held at `hand`, its haft out to `tip`, the wooden head across it. */
+function mallet(hand: V3, tip: V3): TPart[] {
+  const head = new THREE.CylinderGeometry(0.028, 0.028, 0.08, 6).rotateX(Math.PI / 2).translate(tip[0], tip[1], tip[2]);
+  return [rod(hand, tip, 0.007, PAL.wood), { geo: head, color: PAL.woodDark }];
+}
+
+/** A builder dressing stone: his mallet raised (or struck) over the chisel in his other hand, at the block in front of him. */
+function builderStrike(up: boolean): THREE.BufferGeometry {
+  const parts = body(PAL.marbleShade, PAL.hide);
+  const chisel: V3 = [0.2, 0.2, -0.02];
+  parts.push(rod([0, SHOULDER, -ARM_Z], chisel, 0.016, PAL.skin, 0.014), rod(chisel, [0.24, 0.12, -0.02], 0.006, PAL.charDark));
+  if (up) parts.push(rod([0, SHOULDER, ARM_Z], [0.1, 0.45, 0.05], 0.016, PAL.skin, 0.014), ...mallet([0.1, 0.45, 0.05], [0.0, 0.56, 0.04]));
+  else parts.push(rod([0, SHOULDER, ARM_Z], [0.16, 0.28, 0.03], 0.016, PAL.skin, 0.014), ...mallet([0.16, 0.28, 0.03], [0.22, 0.26, -0.02]));
+  // The block he is working, on the scaffold's planks or the ground.
+  parts.push({ geo: lumpy(new THREE.BoxGeometry(0.14, 0.1, 0.16), 0.06, 3520).translate(0.3, 0.05, 0), color: PAL.marble });
+  return mergeTinted(parts);
+}
+
+/** A builder walking to his site (or home), his mallet on his shoulder and a set square in his hand. */
+function builderWalk(): THREE.BufferGeometry {
+  const parts = body(PAL.marbleShade, PAL.hide);
+  parts.push(rod([0, SHOULDER, ARM_Z], [0.06, 0.33, 0.09], 0.016, PAL.skin, 0.014), ...mallet([0.06, 0.33, 0.09], [-0.16, 0.38, 0.09]));
+  parts.push(rod([0, SHOULDER, -ARM_Z], [0.03, 0.17, -0.08], 0.016, PAL.skin, 0.014));
+  parts.push({ geo: new THREE.BoxGeometry(0.12, 0.012, 0.012).translate(0.06, 0.16, -0.09), color: PAL.woodDark }, { geo: new THREE.BoxGeometry(0.012, 0.1, 0.012).translate(0.0, 0.2, -0.09), color: PAL.woodDark });
+  return mergeTinted(parts);
+}
+
+/** The ox cart for a monument: two wheels under a bed with low sides, loaded with marble blocks, bronze ingots, or empty (its timber is the cart of logs). */
+function wagon(load: 'marble' | 'bronze' | null): THREE.BufferGeometry {
+  const parts = oxAndDriver(0.2);
+  parts.push({ geo: new THREE.BoxGeometry(0.4, 0.025, 0.025).translate(-0.12, 0.26, 0), color: PAL.cart });
+  const cx = -0.2;
+  parts.push({ geo: new THREE.BoxGeometry(0.34, 0.04, 0.26).translate(cx, 0.2, 0), color: PAL.cart });
+  for (const z of [-0.125, 0.125]) parts.push({ geo: new THREE.BoxGeometry(0.34, 0.06, 0.015).translate(cx, 0.25, z), color: PAL.woodDark });
+  for (const z of [-0.15, 0.15]) {
+    parts.push({ geo: new THREE.CylinderGeometry(0.12, 0.12, 0.03, 8).rotateX(Math.PI / 2).translate(cx, 0.12, z), color: PAL.woodDark });
+    parts.push({ geo: new THREE.CylinderGeometry(0.03, 0.03, 0.04, 6).rotateX(Math.PI / 2).translate(cx, 0.12, z), color: PAL.cart });
+  }
+  if (load === 'marble') {
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.15, 0.1, 0.11), 0.04, 3521).translate(cx - 0.08, 0.27, -0.055), color: MARBLE_FRESH });
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.15, 0.1, 0.11), 0.04, 3522).translate(cx + 0.08, 0.27, 0.05), color: MARBLE_SHADE });
+    parts.push({ geo: lumpy(new THREE.BoxGeometry(0.14, 0.09, 0.1), 0.04, 3523).translate(cx, 0.36, 0), color: MARBLE_FRESH });
+    parts.push({ geo: new THREE.BoxGeometry(0.012, 0.012, 0.28).translate(cx, 0.41, 0), color: PAL.rope });
+  } else if (load === 'bronze') {
+    for (let i = 0; i < 6; i++) {
+      const row = Math.floor(i / 3);
+      const g = new THREE.BoxGeometry(0.2, 0.035, 0.06);
+      if (row) g.rotateY(Math.PI / 2);
+      const off = ((i % 3) - 1) * 0.07;
+      parts.push({ geo: g.translate(cx + (row ? off : 0), 0.24 + row * 0.036, row ? 0 : off), color: i % 2 ? PAL.bronze : '#9a7130' });
+    }
+  }
+  return mergeTinted(parts);
+}
+
+/** One of the games' visitors: walking (a wreath on his head), sitting on the seats, or on his feet cheering. */
+function visitor(pose: 'walk' | 'sit' | 'cheer', woman: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [];
+  if (pose === 'sit') {
+    for (const z of [-0.03, 0.03]) parts.push(rod([0, 0.1, z], [0.12, 0.1, z], 0.02, PAL.skin), rod([0.12, 0.1, z], [0.13, -0.0, z], 0.018, PAL.skin));
+    parts.push({ geo: new THREE.CylinderGeometry(0.056, 0.08, 0.2, 6).translate(0, 0.2, 0), color: '', tint: true });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.01, 0.35, 0), color: PAL.skin });
+    parts.push(rod([0, 0.29, ARM_Z], [0.1, 0.15, 0.05], 0.015, PAL.skin, 0.013), rod([0, 0.29, -ARM_Z], [0.1, 0.15, -0.05], 0.015, PAL.skin, 0.013));
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.7, 1).translate(-0.01, 0.38, 0), color: PAL.hair });
+    return mergeTinted(parts);
+  }
+  parts.push(leg(0, -0.03, 0.12, 0.02, PAL.skin, -1), leg(0, 0.03, 0.12, 0.02, PAL.skin, 1));
+  parts.push({ geo: new THREE.CylinderGeometry(0.056, woman ? 0.09 : 0.08, woman ? 0.24 : 0.2, 6).translate(0, woman ? 0.19 : 0.21, 0), color: '', tint: true });
+  parts.push({ geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin });
+  parts.push({ geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, woman ? 0.9 : 0.7, 1).translate(-0.012, 0.39, 0), color: PAL.hair });
+  // A wreath of leaves, for the festival.
+  parts.push({ geo: new THREE.TorusGeometry(0.05, 0.012, 3, 8).rotateX(Math.PI / 2).translate(0, 0.395, 0), color: PAL.oliveLeaf });
+  if (pose === 'cheer') parts.push(rod([0, SHOULDER, ARM_Z], [0.04, 0.5, 0.12], 0.016, PAL.skin, 0.014), rod([0, SHOULDER, -ARM_Z], [0.04, 0.5, -0.12], 0.016, PAL.skin, 0.014));
+  else parts.push(rod([0, SHOULDER, ARM_Z], [0.02, 0.17, 0.09], 0.016, PAL.skin, 0.014), rod([0, SHOULDER, -ARM_Z], [0.02, 0.17, -0.09], 0.016, PAL.skin, 0.014));
+  return mergeTinted(parts);
+}
+
+const BUILDER_TUNIC = col('#a99f8c');
+const FESTIVAL = ['#c0563a', '#3f6f9a', '#d2a640', '#e9e0cc', '#5f8a4a', '#7d4a6a'].map((c) => col(c));
+
+// ---------------------------------------------------------------------------
 
 const QUARRY_TUNIC = col('#bdb4a1');
 const MINER_TUNIC = col('#7a604a');
@@ -267,6 +351,13 @@ export class Workfolk {
   private readonly carry: Look;
   private readonly sledges: [Look, Look];
   private readonly logCart: Look;
+  // Slice 35.
+  private readonly strike: [Look, Look];
+  private readonly builderOut: Look;
+  private readonly wagons: [Look, Look, Look];
+  private readonly visitors: Record<'walk' | 'sit' | 'cheer', [Look, Look]>;
+  /** How high someone stands at a point of a monument (its steps, its seats): set by the city view. */
+  stand: ((s: SimState, b: Building, x: number, z: number) => number | null) | null = null;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly e = new THREE.Euler();
@@ -298,11 +389,20 @@ export class Workfolk {
     this.carry = small(loggerCarry());
     this.sledges = [big(sledge(false)), big(sledge(true))];
     this.logCart = big(timberCart());
+    // Slice 35.
+    this.strike = [small(builderStrike(true)), small(builderStrike(false))];
+    this.builderOut = small(builderWalk());
+    this.wagons = [big(wagon(null)), big(wagon('marble')), big(wagon('bronze'))];
+    this.visitors = {
+      walk: [small(visitor('walk', false)), small(visitor('walk', true))],
+      sit: [small(visitor('sit', false)), small(visitor('sit', true))],
+      cheer: [small(visitor('cheer', false)), small(visitor('cheer', true))],
+    };
   }
 
   /** Whether this walker is drawn here (the walkers' view leaves them to it). */
   static draws(w: Walker): boolean {
-    return w.kind === 'quarryman' || w.kind === 'logger' || w.kind === 'sledge' || (w.kind === 'cart' && w.food === TIMBER && w.load > 0);
+    return w.kind === 'quarryman' || w.kind === 'logger' || w.kind === 'sledge' || (w.kind === 'cart' && w.food === TIMBER && w.load > 0) || w.kind === 'builder' || w.kind === 'oxcart' || w.kind === 'visitor';
   }
 
   /** The floor and turn of a building drawn by Works, levelled as Works levels it: the highest ground under it (`high`), or half-way between its lowest and highest. */
@@ -360,6 +460,9 @@ export class Workfolk {
     if (!Workfolk.draws(w)) return null;
     if (w.kind === 'quarryman') return this.quarryman(s, w, now);
     if (w.kind === 'logger') return this.logger(s, w, lead, total, along, now);
+    // Slice 35.
+    if (w.kind === 'builder') return this.builder(s, w, lead, total, along, now);
+    if (w.kind === 'visitor') return this.visitorGroup(s, w, lead, total, along, now);
     const [x, z, dx, dz] = along(lead);
     const moving = lead < total && w.wait <= 0;
     const phase = ((x + z) * Math.PI * 2) / 0.44;
@@ -368,7 +471,11 @@ export class Workfolk {
     this.c.copy(LOGGER_TUNICS[Math.floor(hash2(w.origin, 3, 62) * LOGGER_TUNICS.length)]);
     if (!moving) this.c.multiplyScalar(-1);
     if (w.kind === 'sledge') this.sledges[w.load > 0 ? 1 : 0].push(this.m, this.c);
-    else this.logCart.push(this.m, this.c);
+    else if (w.kind === 'oxcart') {
+      // (Slice 35: timber rides in the cart of logs; marble and bronze in the wagon.)
+      if (w.load > 0 && w.food === TIMBER) this.logCart.push(this.m, this.c);
+      else this.wagons[w.load <= 0 ? 0 : w.food === COPPER ? 2 : 1].push(this.m, this.c);
+    } else this.logCart.push(this.m, this.c);
     return this.p;
   }
 
@@ -442,6 +549,76 @@ export class Workfolk {
     this.place(x, this.ground(x, z) + 0.03 + bob, z, Math.atan2(-dz, dx), 0.95, Math.sin(phase) * 0.03 * (moving ? 1 : 0));
     if (!moving) this.c.multiplyScalar(-1);
     (steps === 3 && w.load > 0 ? this.carry : this.walk).push(this.m, this.c);
+    return this.p;
+  }
+
+  /** Slice 35: a builder, walking to his site or home, or at his place round it, dressing stone. */
+  private builder(s: SimState, w: Walker, lead: number, total: number, along: (d: number) => [number, number, number, number], now: number): THREE.Vector3 | null {
+    this.c.copy(BUILDER_TUNIC);
+    if (w.steps === 1 && !w.back) {
+      const site = s.buildings.find((b) => b.id === w.target);
+      const [x, z] = along(total);
+      if (!site) return null;
+      const half = footSide(site) / 2;
+      const yaw = Math.atan2(-(site.z + half - z), site.x + half - x);
+      const y = this.stand?.(s, site, x, z) ?? this.ground(x, z);
+      this.place(x, y + 0.03, z, yaw, 0.95);
+      this.c.multiplyScalar(-1);
+      this.strike[this.raised(now, w.id, 8) ? 0 : 1].push(this.m, this.c);
+      return this.p;
+    }
+    const [x, z, dx, dz] = along(lead);
+    const moving = lead < total && w.wait <= 0;
+    const phase = ((x + z) * Math.PI * 2) / 0.44;
+    const bob = Math.abs(Math.cos(phase)) * 0.012 * (moving ? 1 : 0);
+    const site = s.buildings.find((b) => b.id === w.target);
+    const y = (site && this.stand?.(s, site, x, z)) ?? this.ground(x, z);
+    this.place(x, y + 0.03 + bob, z, Math.atan2(-dz, dx), 0.95, Math.sin(phase) * 0.03 * (moving ? 1 : 0));
+    if (!moving) this.c.multiplyScalar(-1);
+    this.builderOut.push(this.m, this.c);
+    return this.p;
+  }
+
+  /** Slice 35: a group of the games' visitors, walking in together (or out), or sitting in a row on the seats, on their feet when the games are on. */
+  private visitorGroup(s: SimState, w: Walker, lead: number, total: number, along: (d: number) => [number, number, number, number], now: number): THREE.Vector3 | null {
+    const n = Math.max(1, Math.min(6, w.people));
+    const seated = w.steps === 1 && !w.back;
+    const stadium = seated ? s.buildings.find((b) => b.id === w.target) : undefined;
+    let first: THREE.Vector3 | null = null;
+    for (let k = 0; k < n; k++) {
+      const tone = FESTIVAL[Math.floor(hash2(w.id, k, 3530) * FESTIVAL.length)];
+      const woman = hash2(w.id, k, 3531) > 0.5 ? 1 : 0;
+      if (seated && stadium) {
+        // In a row along the seats, facing the track.
+        const [sx, sz] = along(total);
+        const x = sx + (k - (n - 1) / 2) * 0.17;
+        const facing = sz < stadium.z + footSide(stadium) / 2 ? Math.PI / 2 : -Math.PI / 2;
+        // (Facing the track: +z from the north bank, -z from the south; the walkers' turn is atan2(-dz, dx).)
+        const y = this.stand?.(s, stadium, x, sz) ?? this.ground(x, sz);
+        const cheering = gamesOn(s) && ((now / 6 + hash2(w.id, k, 3532) * 4) % 4) < 1;
+        // (Sitting, his feet on the row below; cheering, on his feet on his row.)
+        this.place(x, cheering ? y + 0.005 : y - 0.08, sz, -facing, 0.92);
+        this.c.copy(tone).multiplyScalar(-1);
+        (cheering ? this.visitors.cheer : this.visitors.sit)[woman].push(this.m, this.c);
+      } else {
+        // Walking together, two abreast, a little behind one another.
+        const d = Math.max(0, lead - Math.floor(k / 2) * 0.24);
+        const [x0, z0, dx, dz] = along(d);
+        const side = (k % 2 ? 1 : -1) * 0.09;
+        const l = Math.hypot(dx, dz) || 1;
+        const x = x0 - (dz / l) * side;
+        const z = z0 + (dx / l) * side;
+        const moving = lead < total && w.wait <= 0;
+        const phase = ((x + z) * Math.PI * 2) / 0.44 + k;
+        const bob = Math.abs(Math.cos(phase)) * 0.012 * (moving ? 1 : 0);
+        this.place(x, this.ground(x, z) + 0.03 + bob, z, Math.atan2(-dz, dx), 0.92, Math.sin(phase) * 0.03 * (moving ? 1 : 0));
+        this.c.copy(tone);
+        if (!moving) this.c.multiplyScalar(-1);
+        this.visitors.walk[woman].push(this.m, this.c);
+      }
+      if (!first) first = this.p.clone();
+    }
+    if (first) this.p.copy(first);
     return this.p;
   }
 

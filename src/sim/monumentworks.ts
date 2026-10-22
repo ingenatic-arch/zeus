@@ -56,6 +56,7 @@ import {
   FIRST_GAMES,
   GAMES_EVERY,
   GAMES_LAST,
+  gamesOn,
   GAMES_NOTICE,
   isMonument,
   MATERIALS,
@@ -104,14 +105,15 @@ export const LIGHTHOUSE_HIGH = 1.5;
  * The games' visitors: a group sets out from the map's edge every VISITOR_GAP
  * from when the games are announced (GAMES_NOTICE before they open: the walk
  * in can take a month or more) for as long as it would still arrive before
- * they end; what each pays for a seat, and how long they stay to watch once
- * the games are on (WATCH, and a day longer for each group in turn up to a
- * week: those who come early wait in their seats for the opening, and don't
- * all leave at once).
+ * they end (a few days before: WATCH); what each pays for a seat; and how
+ * long they linger once the games are over (LINGER, and a day longer for each
+ * group in turn up to five: those who come early wait in their seats for the
+ * opening, every group stays to the end, and they don't all leave at once).
  */
 export const VISITOR_GAP = 2 * TICKS_PER_DAY;
 export const VISITOR_PAYS = 8;
 export const WATCH = 3 * TICKS_PER_DAY;
+export const LINGER = TICKS_PER_DAY;
 /** The size of the n-th group (3 to 6, in turn). */
 export const groupSize = (n: number): number => 3 + (n % 4);
 /** They hurry in for the games, and home after: at the pace of your own little caravan (walk.ts SENDING_SPEED, twice a man's). */
@@ -553,7 +555,9 @@ export function seatOf(b: Building, n: number): [number, number] {
   // Along the banks either side of the track (the Stadium's long sides run along x).
   const side = footSide(b);
   const along = 1 + ((n * 0.618034) % 1) * (side - 2);
-  const bank = n % 2 === 0 ? 0.75 : side - 0.75;
+  // (Three rows up each bank, the groups in turn.)
+  const row = 0.65 + (Math.floor(n / 2) % 3) * 0.2;
+  const bank = n % 2 === 0 ? row : side - row;
   return [b.x + along, b.z + bank];
 }
 
@@ -565,7 +569,7 @@ function sendVisitors(s: SimState, map: CoastMap, b: Building, end: number): boo
   if (edge < 0) return false;
   const tiles = tracePath(search, edge).reverse();
   // (Not if they would get there after the games are over.)
-  if (s.tick + (tiles.length + 2 * OFF_MAP) / VISITOR_SPEED >= end) return false;
+  if (s.tick + (tiles.length + 2 * OFF_MAP) / VISITOR_SPEED >= end - WATCH) return false;
   const g = s.monuments.games;
   const v = newWalker(s, 'visitor', groupSize(g.groups));
   v.origin = b.id;
@@ -615,8 +619,8 @@ export function moveVisitor(s: SimState, map: CoastMap, v: Walker): boolean {
   const b = findBuilding(s, v.target);
   if (v.steps === 1) {
     if (!b) return sendOff(s, map, v, b);
-    // (Come early: they wait in their seats for the opening.)
-    if (gamesSoon(s)) return true;
+    // (Come early: they wait in their seats for the opening; and stay to the end.)
+    if (gamesSoon(s) || gamesOn(s)) return true;
     if (--v.wait > 0) return true;
     return sendOff(s, map, v, b);
   }
@@ -625,14 +629,14 @@ export function moveVisitor(s: SimState, map: CoastMap, v: Walker): boolean {
   if (r === 'on') return true;
   if (r === 'cut') return sendOff(s, map, v, b);
   if (v.back) return false;
-  // In their seats: they pay, and watch a few days.
+  // In their seats: they pay, and watch to the end of the games.
   const g = s.monuments.games;
   const dr = v.people * VISITOR_PAYS;
   income(s, dr, 'sales', 'visitors at the games', v.people);
   g.visitors += v.people;
   g.takings += dr;
   v.steps = 1;
-  v.wait = WATCH + (v.food % 7) * TICKS_PER_DAY;
+  v.wait = LINGER + (v.food % 5) * TICKS_PER_DAY;
   s.looks++;
   return true;
 }

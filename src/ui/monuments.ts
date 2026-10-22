@@ -7,9 +7,9 @@
 import type { CoastMap } from '../map/bake';
 import { centreOf } from '../sim/buildings';
 import { COPPER, held, MARBLE, TIMBER } from '../sim/foods';
-import { MONUMENT_KINDS, monumentName, monumentOf, progressOf, STAGE_COUNT, STAGES, stageNow, totalOf, workOf, type MonumentKind } from '../sim/monuments';
+import { MONUMENT_KINDS, monumentName, monumentOf, progressOf, STAGES, totalOf, workOf, type MonumentKind } from '../sim/monuments';
 import { effectLine, materialName, siteStatus } from '../sim/monumentstatus';
-import { buildersAt, buildersFor, cartsTo, MAX_BUILDERS, siteBuilding } from '../sim/monumentworks';
+import { buildersFor, cartsTo, MAX_BUILDERS, siteBuilding } from '../sim/monumentworks';
 import type { SimState } from '../sim/state';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -33,9 +33,10 @@ function entry(s: SimState, map: CoastMap, kind: MonumentKind): string {
       return `<i class="fill seg"><b style="width:${(f * 100).toFixed(0)}%"></b></i>`;
     })
     .join('');
-  const st = stageNow(x);
   const state = x.finished ? 'finished' : `${Math.floor(p * 100)}%`;
-  const doing = x.finished ? '' : st ? `${st.name} (${x.stage + 1} of ${STAGE_COUNT})${x.building ? ` · ${buildersAt(s, x.id)} of ${st.builders} builders` : ' · waiting for materials'}${cartsTo(s, x.id).length ? ` · ${cartsTo(s, x.id).length} ox carts on the road` : ''}` : '';
+  // (Its stage, builders and materials are in the site's own words below; only the carts on the road are added.)
+  const carts = cartsTo(s, x.id).length;
+  const doing = x.finished || carts === 0 ? '' : `${carts} ox cart${carts === 1 ? '' : 's'} on the road to it`;
   const why = siteStatus(s, map, b).detail.split('\n');
   return `<li class="mon"><button data-act="go" data-x="${cx}" data-z="${cz}" title="Go there">${esc(Name)}</button><span class="n">${state}</span><span class="segs">${segs}</span>${doing ? `<small class="why">${esc(doing)}</small>` : ''}${why.map((l) => `<small class="why">${esc(l)}</small>`).join('')}</li>`;
 }
