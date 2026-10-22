@@ -81,6 +81,17 @@ The demos load in about 4 s here, before and after alike: the 3-second budget ca
 
 The smoke test ran with every timeout five times longer, because frames came at under one a second on this machine (the baseline build was the same). It passed with no failures.
 
+### What the review changed
+- **Armies are shown as they really are in the game.** Before, a city's army was shown a hundred times over: Sparta had "8,400 men" with only 7,000 people, and your 32 men beat Corinth's "3,000". Now it is the number the game fights with, on the same scale as its garrison, its bands and your own soldiers: Sparta 84 men, Athens 31, Memphis 97. The card over an army at war shows that city's own army or fleet. I'd like your eye on whether these smaller numbers read well beside cities of several thousand people.
+- **How it stands now says what is usual for each city.** Beside its people, army and fleet: "10,413 (usually about 9,000)". So a town ten years on shows who rose and fell over the decade, not only what moved them since January. In `#greecegrows` no city is moving fast enough for an arrow as it opens, so step 1 above now says so.
+- **The page of a city whose band is biding its time** now says "bide their time at home", as the line under the top bar does. It used to say "are gathering".
+- **Your army's tag** stands beside the army when it would otherwise cover a city's label. In `#report` it was covering Nea Argos'.
+- **The stock book names the new cities properly.** The price of peace sent to Argos read "Sent to argos".
+- **Corrected above:** `#fortress`' loans are now Knossos', Rhodes' and Athens'. The army numbers in the examples are the new ones.
+- **Checked and left alone:** how often raids come. I counted the threats again over 12 nine-year runs: 14, against 2 before, as the builder found. Ten of them come from the new rule for cold rulers, and the newcomers bring some of their own. One threat per town every seven or eight years seemed fair next to what you saw in phase 4, so it stays. It's still the first question above.
+- Still as listed under the rough edges: at 1280 × 720 with five lines under the top bar, Thebes' label sits partly under "+3 more".
+- Tests: 456, all passing. The smoke test passed with longer timeouts, apart from one check that looked too soon: Troy's label at 1600 × 900 was caught on its way down below the lines. Checked by hand, it stands clear a few frames later, and the check now waits for it.
+
 ## Slice 29 — A city worth defending (21 Oct)
 
 The phase ends with `#fortress`, a walled town with three companies, two triremes, a loan each way and Sparta's band on its way, and with the numbers tuned over four and a half years of play: your soldiers now reach a threat in time, rulers offer loans when your treasury is low, and an unpaid debt now costs you goods from your own stores. You weren't here while it was built: every choice below is mine, from the spec's defaults.

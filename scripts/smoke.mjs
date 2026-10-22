@@ -2337,7 +2337,9 @@ for (const [hash, id, name] of [['#knossos-paused', 'knossos', 'Knossos'], ['#me
   await page.setViewportSize({ width: 1600, height: 900 });
   await open('#rivalsmap-paused');
   await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
-  await frames(4);
+  // (Review of slice 31: the labels follow the lines under the top bar a frame after they change, and on a slow machine the second line
+  // comes in some frames after the map opens; at four frames Troy's was caught on its way down.)
+  await frames(12);
   const under31 = await zeus(() => {
     const bars = [document.querySelector('.topbar'), document.querySelector('.greece-btn'), ...document.querySelectorAll('.townlines > .townline:not(.folded)')].filter(Boolean).map((e) => e.getBoundingClientRect());
     return [...document.querySelectorAll('.glabel')].filter((l) => l.style.display !== 'none').map((l) => [l.className, l.getBoundingClientRect()]).filter(([, r]) => bars.some((b) => b.height > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top)).map(([c]) => c);
