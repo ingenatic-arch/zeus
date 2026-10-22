@@ -38,12 +38,14 @@ import { roomFor, roomOf } from './stores';
 import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
 
 /** What placing a ship needs of her record: the Tyre ship's, or a foreign ship's (a Visitor, see routes.ts). */
-export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned'>;
+export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned' | 'pace'>;
 import { note } from './stockbook';
 import { income } from './treasury';
 import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk';
 // Slice 33: winter storms hold the ship back.
 import { lateWords, stormDelay } from './seasons';
+// Slice 35: the Lighthouse speeds the ship.
+import { LIT_EVERY, LIT_PACE, lit } from './monuments';
 
 /** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23), then marble and timber (slice 32). */
 export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER];
@@ -484,8 +486,14 @@ function outerLength(p: readonly number[]): number {
 }
 
 
-/** How long she takes to sail off from where she turned. */
-export const leaveTicks = (ship: Sailing): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned));
+/** How long she takes to sail off from where she turned (slice 35: at her pace on this voyage, quicker while the Lighthouse burns). */
+export const leaveTicks = (ship: Sailing): number => Math.max(TICKS_PER_DAY, Math.round(SAIL_OUT * ship.turned * (ship.pace ?? 1)));
+/** Slice 35: how long she takes to sail in on this voyage (SAIL_IN, or less while the Lighthouse burns). */
+export const sailInTicks = (ship: Sailing): number => (ship.pace === undefined ? SAIL_IN : Math.round(SAIL_IN * ship.pace));
+/** Slice 35: her pace on a voyage begun now (LIT_PACE while the Lighthouse burns, else the usual), how long she takes to sail in on it, and how often she calls. */
+export const paceNow = (s: SimState): number | undefined => (lit(s) ? LIT_PACE : undefined);
+export const sailInNow = (s: SimState): number => (lit(s) ? Math.round(SAIL_IN * LIT_PACE) : SAIL_IN);
+export const shipEvery = (s: SimState): number => (lit(s) ? LIT_EVERY : SHIP_EVERY);
 
 /**
  * Leaving the jetty: she backs off astern, bow still to the quay, this far
@@ -516,7 +524,7 @@ export function shipAt(ship: Sailing, tick: number): { x: number; z: number; dx:
   let back = false;
   // While she swings round: how far through it (0 bow in, 1 bow out).
   let swing = -1;
-  if (ship.phase === SHIP_COMING) f = inwardAt(ship.path, (tick - ship.since) / SAIL_IN);
+  if (ship.phase === SHIP_COMING) f = inwardAt(ship.path, (tick - ship.since) / sailInTicks(ship));
   else if (ship.phase === SHIP_MOORED) f = 1;
   else if (backsOff(ship, L)) {
     const e = tick - ship.since;
@@ -643,10 +651,10 @@ export function stepTrade(s: SimState, map: CoastMap): void {
   }
   stepDockers(s, map, post);
   if (ship.phase === SHIP_AWAY) {
-    if (s.tick >= ship.due - SAIL_IN) setSail(s, map, post, ship);
+    if (s.tick >= ship.due - sailInNow(s)) setSail(s, map, post, ship);
   } else if (ship.phase === SHIP_COMING) {
     if (ship.post !== post.id) turnBack(s, ship);
-    else if (s.tick >= ship.since + SAIL_IN) {
+    else if (s.tick >= ship.since + sailInTicks(ship)) {
       ship.phase = SHIP_MOORED;
       ship.since = s.tick;
       ship.hold = TRADE_GOODS.map(() => 0);
@@ -661,7 +669,7 @@ export function stepTrade(s: SimState, map: CoastMap): void {
 function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
   const berth = berthOf(map, post);
   if (!berth) {
-    ship.due += SHIP_EVERY;
+    ship.due += shipEvery(s);
     ship.due += stormDelay(s, 'tyre', ship.due);
     return;
   }
@@ -669,10 +677,15 @@ function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
   ship.phase = SHIP_COMING;
   ship.post = post.id;
   ship.turned = 1;
+  // (Slice 35: quicker while the Lighthouse burns; the usual pace leaves no mark on her.)
+  const pace = paceNow(s);
+  if (pace === undefined) delete ship.pace;
+  else ship.pace = pace;
+  const sailIn = sailInTicks(ship);
   // She ties up when due (or SAIL_IN from now, if the town was loaded late in her schedule).
-  ship.since = Math.min(s.tick, ship.due - SAIL_IN);
-  if (ship.since < s.tick - SAIL_IN) ship.since = s.tick;
-  ship.due = ship.since + SAIL_IN;
+  ship.since = Math.min(s.tick, ship.due - sailIn);
+  if (ship.since < s.tick - sailIn) ship.since = s.tick;
+  ship.due = ship.since + sailIn;
 }
 
 /** The post is gone: she turns back from where she is. */
@@ -691,6 +704,7 @@ function stepLeaving(s: SimState, ship: Ship): void {
   ship.path = [];
   ship.post = 0;
   ship.turned = 1;
+  delete ship.pace;
 }
 
 /** Tied up: each day she takes a share of what is on the quay of the goods for sale; at the end she takes the rest, pays and sails off. */
@@ -729,9 +743,10 @@ function stepLoading(s: SimState, post: Building, ship: Ship): void {
   ship.phase = SHIP_LEAVING;
   ship.since = s.tick;
   ship.turned = 1;
-  // The next is due three months after this one was.
-  ship.due += SHIP_EVERY;
-  while (ship.due - SAIL_IN <= s.tick) ship.due += SHIP_EVERY;
+  // The next is due three months after this one was (slice 35: two while the Lighthouse burns).
+  const every = shipEvery(s);
+  ship.due += every;
+  while (ship.due - sailInNow(s) <= s.tick) ship.due += every;
   // (Slice 33: due in winter, the storms hold her back a week or two.)
   ship.due += stormDelay(s, 'tyre', ship.due);
 }
@@ -1051,11 +1066,13 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   // The post cleared while she is on her way or in port (the sim turns her back on its next step, which may wait while paused).
   if (!post && (ship.phase === SHIP_COMING || ship.phase === SHIP_MOORED)) return { phase: SHIP_LEAVING, days: 0, chip: 'Gone', short: 'Ship turned back', line: 'The ship turned back: the trading post is gone' };
   if (ship.phase === SHIP_COMING) {
-    const days = daysTo(s, ship.since + SAIL_IN);
+    const days = daysTo(s, ship.since + sailInTicks(ship));
     const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
     // (Slice 33: late for the winter's storms, the line says so.)
     const late = lateWords(s, 'tyre');
-    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}${late}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}${late}` };
+    // (Review of slice 35: a voyage at the Lighthouse's pace says so. At the merge: both reasons, when the storms held her back and the Lighthouse guides her in.)
+    const guided = ship.pace !== undefined ? `, guided in by your Lighthouse (${dayWords(Math.round(sailInTicks(ship) / TICKS_PER_DAY))} from the horizon, not ${dayWords(SAIL_IN / TICKS_PER_DAY)})` : '';
+    return { phase: ship.phase, days, chip: `${days} d`, short: near ? `Sailing in · ${days} d` : `Sail sighted · ${days} d`, line: (near ? `The ship is sailing into the bay: she ties up at the jetty in ${dayWords(days)}` : `Her sail is on the horizon: the ship ties up at the jetty in ${dayWords(days)}`) + late + guided };
   }
   if (ship.phase === SHIP_MOORED) {
     const days = daysTo(s, ship.since + LOADING);

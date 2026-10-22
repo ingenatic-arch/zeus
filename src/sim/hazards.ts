@@ -119,6 +119,11 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   // Slice 32: the quarry's sheds burn seldom; the camp's logs and shavings more often.
   quarry: 600,
   loggers: 300,
+  // Slice 35: the masons' sheds, as an architect's office; the monuments are stone and bronze, and never burn.
+  masons: 420,
+  lighthouse: Infinity,
+  colossus: Infinity,
+  stadium: Infinity,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -154,6 +159,11 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   // Slice 32.
   quarry: 600,
   loggers: 450,
+  // Slice 35: nor do the monuments wear (they are built to last).
+  masons: 450,
+  lighthouse: Infinity,
+  colossus: Infinity,
+  stadium: Infinity,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 

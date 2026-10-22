@@ -12,6 +12,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { FLEECE, FOODS, foodList, foodUntil, GOOD_SERVICE, gi, kindsNeeded, OIL, onTable, SERVICE_GOOD, tableUntil, WINE, type Food, type Ware } from './foods';
 import { nextInt, seedRng, type RngState } from './rng';
 import type { Building, Family, Kin, Person, Service, SimState, Story } from './state';
+import { gamesMood } from './monuments';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -396,6 +397,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     else if (r === 3) add(-1, 'Taxes are heavy');
     else if (r >= 4) add(-6, 'Taxes are harsh: hardly worth staying');
   }
+  // Slice 35: the Stadium's games, while they are on and for a while after.
+  const games = gamesMood(s);
+  if (games) add(games.w, games.text);
   if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');

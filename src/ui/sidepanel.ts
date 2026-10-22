@@ -51,6 +51,8 @@ import { Minimap } from './minimap';
 import { morph } from './morph';
 import { bandURL, BOSS, bossURL, HEAD, headURL, lintelURL, MOULD, tabURL, wellURL } from './skin';
 import { moneyLoansHtml } from './loans';
+// Slice 35.
+import { monumentsHtml } from './monuments';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -427,7 +429,7 @@ export class SidePanel {
         const one = ONLY_ONE[t] && has(ONLY_ONE[t] as BuildingKind);
         const why = one ? ' · the city has its one' : dear ? ' · more than the treasury holds' : '';
         const pic = this.pictures?.get(t);
-        const label = `${i.name} (${i.key}) · ${i.cost}${why}`;
+        const label = `${i.name}${i.key ? ` (${i.key})` : ''} · ${i.cost}${why}`;
         return `<button class="well${t === this.tool ? ' on' : ''}${dear || one ? ' dear' : ''}" data-tool="${t}" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${t === this.tool}" style="background-image:url(${wellURL(t === this.tool)})">${pic ? `<img src="${pic}" alt="">` : ICONS[t]}<span class="cost">${n ? fmt(n) : ''}</span></button>`;
       })
       .join('');
@@ -594,6 +596,9 @@ export class SidePanel {
         return this.services(s, ['religion'], '', 'Of the homes whose level needs a blessing, how many the priestesses reached lately.') + this.counted(s, 'shrine', 'shrine', 'shrines');
       case 'military':
         return armyHtml(s, this.map, this.armyFocus, this.hooks.selected());
+      // Slice 35.
+      case 'monuments':
+        return monumentsHtml(s, this.map);
     }
   }
 

@@ -18,6 +18,8 @@ import { Walkers } from './walkers';
 import { WallsView } from './walls';
 import { Works } from './works';
 import { Workfolk } from './workfolk';
+// Slice 35: the masons' yards and the monuments.
+import { MonumentsView } from './monuments';
 
 const NO_ONE: ReadonlySet<number> = new Set();
 
@@ -33,6 +35,8 @@ export class CityView {
   readonly walkers: Walkers;
   readonly works: Works;
   readonly workfolk: Workfolk;
+  /** The masons' yards and the monuments, at every stage of their building (slice 35). */
+  readonly monuments: MonumentsView;
   readonly bridges: Bridges;
   /** The walls, gates, towers and breaches (slice 25). */
   readonly walls: WallsView;
@@ -77,14 +81,18 @@ export class CityView {
     this.workfolk = new Workfolk(map, this.folk);
     this.workfolk.ground = this.walkers.ground;
     this.walkers.workfolk = this.workfolk;
+    // Slice 35: the monuments, and where their builders and the games' visitors stand on them.
+    this.monuments = new MonumentsView(map);
+    this.workfolk.stand = (st, b, x, z) => this.monuments.standAt(st, b, x, z);
     this.army.ground = this.walkers.ground;
-    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group);
+    this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group, this.monuments.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
     if (s.rev !== this.rev) this.sync(s);
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
+    this.monuments.update(s, time);
     // Slice 32: the trees being chopped and felled, and the woods growing back.
     this.plants.works(s, alpha, time);
     this.folk.begin();

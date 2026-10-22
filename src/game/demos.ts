@@ -44,6 +44,9 @@ import type { ToolName } from './tools';
 // Slice 32.
 import { LOGGERS_COST, QUARRY_COST } from '../sim/build';
 import { MARBLE, TIMBER } from '../sim/foods';
+// Slice 35.
+import { gamesOn, LIGHTHOUSE_COST, MASONS_COST, monumentOf, progressOf, STADIUM_COST } from '../sim/monuments';
+import { cartsTo } from '../sim/monumentworks';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -133,7 +136,7 @@ export interface Demo {
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
-  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army'; ware?: number; fleet?: boolean };
+  side?: { tab?: 'population' | 'husbandry' | 'industry' | 'distribution' | 'safety' | 'administration' | 'culture' | 'mythology' | 'military' | 'goods' | 'people' | 'services' | 'money' | 'army' | 'monuments'; ware?: number; fleet?: boolean };
   /** The company whose banner is in hand from the start (a company id, 0 for none). */
   select?: (s: SimState) => number;
 }
@@ -2465,6 +2468,110 @@ function worksTown(stage: 'quarry' | 'loggers'): (sim: Sim) => void {
 const WORKS_QUARRY_TOWN = worksTown('quarry');
 const WORKS_CAMP_TOWN = worksTown('loggers');
 
+// Slice 35
+/**
+ * Monuments (slice 35). #monument: #quarry's town carried on, as its builder
+ * would: a spur road out to the headland's top above the bay, the Lighthouse
+ * marked out there, two masons' yards by the quarry road, and a sea route
+ * opened to Troy to buy the timber the headland's few pines can't give;
+ * played on until the tower is about half up inside its scaffold (the
+ * Lighthouse a little under half built), with ox carts on the road. #lit:
+ * the same town played on until the Lighthouse is finished and the Tyrian
+ * ship is sailing in at her quicker pace, its fire burning.
+ */
+const MONUMENT_LIGHTHOUSE = T(97, 93);
+const MONUMENT_SPUR_FROM = T(100, 94);
+const MONUMENT_SPUR_TO = T(107, 94);
+const MONUMENT_YARDS = [T(111, 95), T(111, 98)];
+/** How much timber Troy's ship brings at most (the Lighthouse needs 360 in all). */
+const MONUMENT_TIMBER = 400;
+/** How long each may play on, at most, to its moment. */
+const MONUMENT_MOST = 3 * TICKS_PER_YEAR;
+/** #monument opens with the tower about this far up (its stage's work). */
+const MONUMENT_TOWER = 0.5;
+function monumentTown(stage: 'monument' | 'lit'): (sim: Sim) => void {
+  return (sim) => {
+    WORKS_QUARRY_TOWN(sim);
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const spur = roadRoute(sim.map, s, MONUMENT_SPUR_FROM, MONUMENT_SPUR_TO) ?? [];
+    const cost = spur.length * ROAD_COST + LIGHTHOUSE_COST + MONUMENT_YARDS.length * MASONS_COST + MONUMENT_YARDS.length * JOBS.masons * WAGE;
+    playOn(MONUMENT_MOST, () => spendable(s) >= cost + wageBill(s));
+    send({ type: 'road', tiles: spur });
+    send({ type: 'build', kind: 'lighthouse', at: [MONUMENT_LIGHTHOUSE] });
+    for (const at of MONUMENT_YARDS) send({ type: 'build', kind: 'masons', at: [at] });
+    // Troy's timber, by sea, once the treasury can spare the route's fee.
+    playOn(MONUMENT_MOST, () => routeRefusal(s, 'troy', 'sea') === '');
+    send({ type: 'route', city: 'troy', kind: 'sea' });
+    send({ type: 'deal', city: 'troy', kind: 'sea', good: TIMBER, buy: true, upto: MONUMENT_TIMBER });
+    const site = (): ReturnType<typeof monumentOf> => monumentOf(s, 'lighthouse');
+    const rolling = (): boolean => {
+      const x = site();
+      return !!x && cartsTo(s, x.id).some((k) => k.wait <= 0 && k.load > 0);
+    };
+    if (stage === 'monument') {
+      playOn(MONUMENT_MOST, () => {
+        const x = site();
+        return !!x && progressOf(x) >= (1 + MONUMENT_TOWER) / 3;
+      });
+      playOn(TICKS_PER_MONTH, rolling);
+      return;
+    }
+    playOn(MONUMENT_MOST, () => !!site()?.finished);
+    const ship = s.trade.ship;
+    playOn(MONUMENT_MOST, () => ship.phase === SHIP_COMING && ship.pace !== undefined && s.tick - ship.since >= 4 * TICKS_PER_DAY);
+  };
+}
+const MONUMENT_TOWN = monumentTown('monument');
+const LIT_TOWN = monumentTown('lit');
+
+/**
+ * #games: #lit's town carried on: the Stadium laid out on the level ground
+ * between the quay road and the quarry road, built by the same masons'
+ * yards from the same quarry and Troy's timber, and played on until its
+ * first games are on, the visitors in their seats.
+ */
+const GAMES_STADIUM = T(102, 69);
+/** The games open with at least this many groups of visitors in their seats. */
+const GAMES_SEATED = 20;
+function gamesTown(sim: Sim): void {
+  LIT_TOWN(sim);
+  const s = sim.state;
+  const seen = new Set(s.world.deals.map((d) => d.id));
+  // (Review of slice 35: a town this rich turns down the loans it is offered, so no debt or loan news crowds a demo about the games.)
+  const declineLoans = (): void => {
+    for (const d of s.world.deals) {
+      if (seen.has(d.id) || d.state !== 'open' || d.kind !== 'loanoffer') continue;
+      seen.add(d.id);
+      sim.enqueue({ type: 'answer', deal: d.id, act: 'decline' });
+      sim.flush();
+    }
+  };
+  const playOn = (most: number, done: () => boolean): void => {
+    const end = s.tick + most;
+    while (s.tick < end && !done()) {
+      sim.run(TICKS_PER_DAY);
+      declineLoans();
+      answerAsMiddling(sim, seen);
+    }
+  };
+  playOn(MONUMENT_MOST, () => spendable(s) >= STADIUM_COST + wageBill(s));
+  sim.enqueue({ type: 'build', kind: 'stadium', at: [GAMES_STADIUM] });
+  sim.flush();
+  playOn(2 * MONUMENT_MOST, () => gamesOn(s) && s.walkers.filter((w) => w.kind === 'visitor' && w.steps === 1).length >= GAMES_SEATED);
+}
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -2616,6 +2723,11 @@ const SCENES: Record<string, Demo> = {
   submit: { view: 'companies', setup: empireTown('submit'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
   conquer: { view: 'companies', speed: 'paused', setup: empireTown('conquer'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
   rebellion: { view: 'companies', setup: empireTown('rebellion'), overlay: 'missing', greece: 'corinth', greeceTab: 'empire' },
+  // Slice 35: monuments. The Lighthouse half built on the headland, its tower in its scaffold and the ox carts on the road, the Monuments tab open; finished, its fire lit, the Tyrian ship sailing in at her quicker pace.
+  monument: { view: 'monument', setup: MONUMENT_TOWN, overlay: 'missing', side: { tab: 'monuments' } },
+  lit: { view: 'lit', setup: LIT_TOWN, overlay: 'missing', side: { tab: 'monuments' } },
+  // The Stadium's first games on, its seats filling with visitors from all over, the Monuments tab open.
+  games: { view: 'games', setup: gamesTown, overlay: 'missing', side: { tab: 'monuments' } },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

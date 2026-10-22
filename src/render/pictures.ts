@@ -5,7 +5,9 @@
  * panel asks, with a little renderer of its own that is then let go.
  */
 import * as THREE from 'three';
-import { isLarge, isSmall } from '../sim/buildings';
+import { isHuge, isLarge, isSmall } from '../sim/buildings';
+// Slice 35.
+import { monumentPicture } from './monuments';
 import type { BuildingKind } from '../sim/state';
 import { homePicture } from './homes';
 import { SCALE } from '../ui/relief';
@@ -22,7 +24,8 @@ const KIND: Record<string, BuildingKind> = { housing: 'home', stall: 'agora', fl
 function partsOf(tool: string): PicturePart[] | null {
   const homes = homePicture(tool);
   if (homes) return homes.map((geo) => ({ geo, x: 0, z: 0, yaw: 0, s: [1, 1, 1] }));
-  return workPicture(tool);
+  // (Slice 35: the masons' yard and the monuments.)
+  return monumentPicture(tool) ?? workPicture(tool);
 }
 
 /** Pictures for these tools, by tool (a tool with no model of its own gets none). */
@@ -40,7 +43,7 @@ export function drawPictures(tools: readonly string[]): Map<string, string> {
     if (!parts) continue;
     const kind = KIND[tool] ?? (tool as BuildingKind);
     const stall = tool.endsWith('stall');
-    const side = stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : 3;
+    const side = stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(col(PAL.hemiSky), col(PAL.hemiGround), 1.3));
     const sun = new THREE.DirectionalLight(col(PAL.sun), 2.9);

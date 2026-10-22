@@ -51,10 +51,15 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   shipyard: 'A shipyard',
   quarry: 'A marble quarry',
   loggers: 'A loggers’ camp',
+  // Slice 35.
+  masons: 'A masons’ yard',
+  lighthouse: 'The Lighthouse',
+  colossus: 'The Colossus',
+  stadium: 'The Stadium',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4, masons: 8, lighthouse: 0, colossus: 0, stadium: 0 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;
@@ -71,14 +76,17 @@ export const jobsAt = (b: Building): number => JOBS[b.kind] + (b.stalls ? stallC
 
 /** Buildings drawn on a two-by-two footprint (the rest take three by three, the barracks four by four; rubble takes what stood there). */
 export const isSmall = (kind: BuildingKind): boolean =>
-  kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice' || kind === 'watchpost' || kind === 'architect' || kind === 'mine' || kind === 'tower' || kind === 'loggers';
+  kind === 'home' || kind === 'fountain' || kind === 'shrine' || kind === 'taxoffice' || kind === 'watchpost' || kind === 'architect' || kind === 'mine' || kind === 'tower' || kind === 'loggers' || kind === 'masons';
 
 /** Buildings drawn on a four-by-four footprint: the barracks. */
 export const isLarge = (kind: BuildingKind): boolean => kind === 'barracks';
 
+/** Slice 35: the Stadium takes six by six (its track and banks). */
+export const isHuge = (kind: BuildingKind): boolean => kind === 'stadium';
+
 /** The side of a kind of building's square footprint, in tiles (for rubble, see footSide). */
 export function sideOf(kind: BuildingKind): number {
-  return isSmall(kind) ? 2 : isLarge(kind) ? 4 : 3;
+  return isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
 }
 
 /** The side of this building's footprint: its kind's, or for rubble, that of what stood there. */

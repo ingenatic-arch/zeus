@@ -161,4 +161,10 @@ export const VIEWS: Record<string, CameraView> = {
   seasons: { x: 52, z: 43, yaw: 2.3, dist: 38, tilt: -0.05 },
   // Slice 33, #winter: the bay and the quay from over the water, the town on the slope behind.
   winter: { x: 72, z: 63, yaw: -0.3, dist: 48, tilt: -0.25 },
+  // Slice 35. #monument: the headland's top from above the quarry road, the Lighthouse's tower in its scaffold, the masons' yards and the ox carts below.
+  monument: { x: 100, z: 94, yaw: -0.4, dist: 14, tilt: 0.0 },
+  // #lit: from above the headland, the Lighthouse burning above the beach and the Tyrian ship sailing in (top right, clear of the lines under the top bar: review of slice 35).
+  lit: { x: 90, z: 104, yaw: 2.85, dist: 42, tilt: -0.2 },
+  // #games: over the Stadium between the quay road and the quarry road, its seats full.
+  games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
 };

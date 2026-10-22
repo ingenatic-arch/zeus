@@ -384,6 +384,8 @@ export function stateProblem(st: unknown): string {
   if (!seasonOk(st.season)) return damaged('its record of the seasons is wrong');
   // Slice 34.
   if (!empireOk(st.empire)) return damaged('its record of vassals and allies is wrong');
+  // Slice 35.
+  if (!monumentsOk(st.monuments)) return damaged('its record of the monuments is wrong');
   return '';
 }
 
@@ -405,6 +407,28 @@ function empireOk(e: unknown): boolean {
     all('aid', (a) => ruled(a.city) && ['road', 'city', 'home', 'done'].includes(a.phase as string) && typeof a.way === 'string' && typeof a.line === 'string' && ['id', 'raid', 'men', 'start', 'dur', 'company'].every((k) => fin(a[k]))) &&
     all('calls', (c) => ruled(c.ally) && ruled(c.foe) && ['open', 'joined', 'refused', 'lapsed', 'over'].includes(c.state as string) && ['id', 'war', 'at', 'due', 'expedition'].every((k) => fin(c[k]))) &&
     all('conquests', (q) => ruled(q.city) && fin(q.expedition) && Array.isArray(q.helpers) && Array.isArray(q.declined) && Array.isArray(q.theirs) && typeof q.crush === 'boolean')
+  );
+}
+
+/** The monuments (slice 35): each site's building, kind, stage and work, and the Stadium's games. */
+function monumentsOk(m: unknown): boolean {
+  if (!isObj(m) || !Array.isArray(m.sites) || !isObj(m.games)) return false;
+  const g = m.games;
+  if (!['next', 'until', 'held', 'groups', 'visitors', 'takings', 'ended'].every((k) => fin(g[k]))) return false;
+  return (m.sites as unknown[]).every(
+    (x) =>
+      isObj(x) &&
+      Number.isInteger(x.id) &&
+      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium') &&
+      Number.isInteger(x.stage) &&
+      (x.stage as number) >= 0 &&
+      (x.stage as number) <= 3 &&
+      typeof x.building === 'boolean' &&
+      fin(x.work) &&
+      fin(x.marked) &&
+      fin(x.finished) &&
+      Array.isArray(x.done) &&
+      (x.done as unknown[]).every(fin),
   );
 }
 

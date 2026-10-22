@@ -303,6 +303,10 @@ for (const [hash, views] of [
   // Slice 33: a year to play at speed from the last days of February; the grey bay in winter and a late ship.
   ['#seasons-paused-shot', [null, 'town']],
   ['#winter-paused-shot', [null, 'town']],
+  // Slice 35: the Lighthouse half built with its builders and ox carts; finished and lit; the Stadium's games with their crowds.
+  ['#monument-paused-shot', [null]],
+  ['#lit-paused-shot', [null]],
+  ['#games-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

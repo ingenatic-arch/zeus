@@ -46,6 +46,8 @@ import { pay, settle, spendable } from './treasury';
 import { guarded, preyingOn, ROWER_PAY } from './lanes';
 // Slice 33: winter storms slow ships in the bay.
 import { seaPace } from './seasons';
+// Slice 35: pirates keep clear while the Lighthouse burns.
+import { piratesKeepClear } from './monuments';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -1186,6 +1188,13 @@ function stepPirates(s: SimState): void {
       p.state = 'preying';
       s.rev++;
     }
+    // Slice 35: the Lighthouse's fire is seen far out, and pirates keep clear of your waters while it burns (the hook slice 38 builds on).
+    if ((p.state === 'seen' || p.state === 'preying') && piratesKeepClear(s)) {
+      p.state = 'gone';
+      p.until = s.tick;
+      news(w, s.tick, p.city, `The pirates ${p.place} saw the fire of your Lighthouse and sailed off${p.took.length ? `, with ${tookWords(p.took)}` : ''}: they keep clear of your waters while it burns`);
+      s.rev++;
+    }
     if ((p.state === 'seen' || p.state === 'preying') && s.tick >= p.until) {
       p.state = 'gone';
       news(w, s.tick, p.city, `The pirates ${p.place} have sailed away${p.took.length ? `, with ${tookWords(p.took)}` : ''}`);
@@ -1202,6 +1211,8 @@ function stepPirates(s: SimState): void {
 /** On the first of the month: now and then, pirates on a lane you trade over (none in your first year of sea trade, one band at a time, a lull after). */
 function newPirates(s: SimState): void {
   const f = s.fleet;
+  // (Slice 35: none while the Lighthouse burns.)
+  if (piratesKeepClear(s)) return;
   if (f.pirates.some((p) => p.state === 'seen' || p.state === 'preying')) return;
   if (f.pirates.some((p) => s.tick - Math.min(p.until, p.fought || p.until) < PIRATE_LULL)) return;
   const lanes = lanesUsed(s);

@@ -114,6 +114,10 @@
  * slice 28 one ('': a raid or a force for a debt or without cause). Rivals'
  * vassals stay as they were; nothing else changes.
  *
+ * Slice 35 (Monuments): no monument has been marked out and no games are
+ * planned; every building's goods are padded to however many goods there
+ * are now. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -139,6 +143,8 @@ import { freshEmpire } from './vassals';
 import { nextFestival } from './festivals';
 import { SITES, type CityId } from '../map/greece';
 import { COLONY_MAKES } from './growth';
+// Slice 35.
+import { freshGames, freshMonuments } from './monuments';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -189,6 +195,7 @@ export function migrate(st: unknown): number {
   if (st.version === 29) fromSlice32(st);
   if (st.version === 30) fromSlice33(st);
   if (st.version === 31) fromSlice34(st);
+  if (st.version === 32) fromSlice35(st);
   return from;
 }
 
@@ -739,5 +746,26 @@ function fromSlice34(st: Record<string, unknown>): void {
   if (!isObj(st.empire)) st.empire = freshEmpire();
   const w = st.world;
   if (isObj(w) && Array.isArray(w.expeditions)) for (const e of w.expeditions as unknown[]) if (isObj(e) && typeof e.aim !== 'string') e.aim = '';
+  st.version = (st.version as number) + 1;
+}
+/**
+ * Slice 35 (Monuments): see the notes at the top. It fills in only its own
+ * field (`monuments`) if it is absent, and pads every building's goods to
+ * however many goods there are now.
+ */
+function fromSlice35(st: Record<string, unknown>): void {
+  if (!isObj(st.monuments)) st.monuments = freshMonuments();
+  else {
+    const m = st.monuments;
+    if (!Array.isArray(m.sites)) m.sites = [];
+    if (!isObj(m.games)) m.games = freshGames();
+  }
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  }
   st.version = (st.version as number) + 1;
 }

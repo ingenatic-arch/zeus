@@ -1435,6 +1435,9 @@ const QUARRY_BLOCKS = 12;
 const STORE_BLOCKS = 8;
 const CAMP_PILES = 4;
 const STORE_PILES = 3;
+/** Slice 35: blocks of marble and piles of logs waiting on the trading post's quay and in the caravan yard (bought by sea or road, or for sale). */
+const QUAY_BLOCKS = 4;
+const QUAY_PILES = 2;
 /** What shows of each good waiting on the trading post's quay for the ship: sacks, hams, cheeses, jars, bales, amphorae. */
 const QUAY_SACKS = 12;
 const QUAY_HAMS = 6;
@@ -1658,7 +1661,8 @@ export class Works {
       b.kind === 'loggers'
         ? skirt(ground, half, road, [PAL.earth, PAL.dryGrass], [PAL.rockWarm, PAL.earthWorn], 3700)
         : b.kind === 'quarry'
-        ? skirt(ground, 1.49, road, [MARBLE_TONE.spoil, MARBLE_TONE.spoilLight], [MARBLE_TONE.shade, MARBLE_TONE.weathered, PAL.rockGrey], 3500, (lx) => quarryEdge(lx, rise))
+        ? // (Slice 35: banded, the spoil grading down through weathered rock to the hillside's dry grass, rubble over it: from downhill it was one tall pale bank.)
+          skirt(ground, 1.49, road, [MARBLE_TONE.spoil, PAL.rockWarm, PAL.dryGrass], [MARBLE_TONE.shade, MARBLE_TONE.weathered, PAL.rockGrey, PAL.rockDark], 3500, (lx) => quarryEdge(lx, rise))
         : skirt(ground, half, road, [PAL.earth, PAL.dryGrass], [PAL.rockWarm, PAL.rockDark], 3600);
     this.skirts.set(key, g);
     return g;
@@ -1671,10 +1675,10 @@ export class Works {
       // (Slice 32: the roads beside it shape its skirt.)
       const mask = this.roadSides(s, b, this.yawOf(s, b));
       if (b.kind === 'quarry') return `quarry:${face}:${mask}:${shown(held(b, MARBLE), QUARRY_STORE, QUARRY_BLOCKS)}`;
-      return `yard:${face}:${mask}:${shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), YARD_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES)}:${shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE)}`;
+      return `yard:${face}:${mask}:${shown(held(b, WHEAT), YARD_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), YARD_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), YARD_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), YARD_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), YARD_ROOM, QUAY_BALES)}:${shown(held(b, WINE), YARD_ROOM, QUAY_AMPHORAE)}:${shown(held(b, MARBLE), YARD_ROOM, QUAY_BLOCKS)}:${shown(held(b, TIMBER), YARD_ROOM, QUAY_PILES)}`;
     }
     if (b.kind === 'trading') {
-      return `trading:${face}:${shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), QUAY_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES)}:${shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE)}`;
+      return `trading:${face}:${shown(held(b, WHEAT), QUAY_ROOM, QUAY_SACKS)}:${shown(held(b, MEAT), QUAY_ROOM, QUAY_HAMS)}:${shown(held(b, CHEESE), QUAY_ROOM, QUAY_CHEESES)}:${shown(held(b, OIL), QUAY_ROOM, QUAY_JARS)}:${shown(held(b, FLEECE), QUAY_ROOM, QUAY_BALES)}:${shown(held(b, WINE), QUAY_ROOM, QUAY_AMPHORAE)}:${shown(held(b, MARBLE), QUAY_ROOM, QUAY_BLOCKS)}:${shown(held(b, TIMBER), QUAY_ROOM, QUAY_PILES)}`;
     }
     if (b.kind === 'farm') {
       const g = Math.floor((b.growth / GROW) * GROWTH_STEPS);
@@ -2292,10 +2296,19 @@ export class Works {
     const blocks: Array<{ b: Building; i: number }> = [];
     for (const b of quarries) for (let i = 0; i < shown(held(b, MARBLE), QUARRY_STORE, QUARRY_BLOCKS); i++) blocks.push({ b, i });
     for (const b of storehouses) for (let i = 0; i < shown(held(b, MARBLE), STOREHOUSE_MARBLE, STORE_BLOCKS); i++) blocks.push({ b, i });
+    // (Slice 35: and on the quay, or in the caravan yard, waiting.)
+    for (const b of posts) for (let i = 0; i < shown(held(b, MARBLE), QUAY_ROOM, QUAY_BLOCKS); i++) blocks.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, MARBLE), YARD_ROOM, QUAY_BLOCKS); i++) blocks.push({ b, i });
     this.collect(this.blocksBy, key, blocks.length, (n, m) => {
       const { b, i } = blocks[n];
       const wob = (hash2(b.id, i, 3280) - 0.5) * 0.12;
-      if (b.kind === 'quarry') {
+      if (b.kind === 'trading') {
+        // Two by two at the quay's front corner, by the jetty, where the dockers set them down.
+        part(b, m, 1.0 + (i % 2) * 0.2, -1.18 + Math.floor(i / 2) * 0.21, wob, [1, 1, 1], false, 0.05);
+      } else if (b.kind === 'yard') {
+        // Two by two in the back corner on the near side.
+        part(b, m, -1.2 + (i % 2) * 0.2, -1.2 + Math.floor(i / 2) * 0.21, wob, [1, 1, 1], false, 0.04);
+      } else if (b.kind === 'quarry') {
         // Three rows of three on the floor, then three on top.
         const top = i >= 9;
         const k = top ? i - 9 : i;
@@ -2312,10 +2325,14 @@ export class Works {
     const piles: Array<{ b: Building; i: number }> = [];
     for (const b of camps) for (let i = 0; i < shown(held(b, TIMBER), LOGGERS_STORE, CAMP_PILES); i++) piles.push({ b, i });
     for (const b of storehouses) for (let i = 0; i < shown(held(b, TIMBER), STOREHOUSE_TIMBER, STORE_PILES); i++) piles.push({ b, i });
+    for (const b of posts) for (let i = 0; i < shown(held(b, TIMBER), QUAY_ROOM, QUAY_PILES); i++) piles.push({ b, i });
+    for (const b of yards) for (let i = 0; i < shown(held(b, TIMBER), YARD_ROOM, QUAY_PILES); i++) piles.push({ b, i });
     this.collect(this.logsBy, key, piles.length, (n, m) => {
       const { b, i } = piles[n];
       const wob = (hash2(b.id, i, 3290) - 0.5) * 0.1;
-      if (b.kind === 'loggers') part(b, m, -0.55, 0.18 + i * 0.24, wob, [1, 1, 1], true, 0.0);
+      if (b.kind === 'trading') part(b, m, 0.62, -1.22 + i * 0.24, wob, [1, 1, 1], false, 0.05);
+      else if (b.kind === 'yard') part(b, m, -0.62, -1.22 + i * 0.24, wob, [1, 1, 1], false, 0.04);
+      else if (b.kind === 'loggers') part(b, m, -0.55, 0.18 + i * 0.24, wob, [1, 1, 1], true, 0.0);
       else part(b, m, -0.38, -0.12 + i * 0.22, wob, [1, 1, 1], true, 0.0);
     });
   }
