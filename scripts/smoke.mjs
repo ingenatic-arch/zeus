@@ -1384,8 +1384,8 @@ g = await gi();
 if (!(g.shown === 'corinth' && g.tab === 'prices' && /Corinth’s terms: [a-z]+, prices[\s\S]*Prices in Corinth[\s\S]*Harvest: [a-z]+ (last|this) autumn/.test(g.panel))) fail(`#prices: ${g.tab} ${g.panel.slice(0, 600)}`);
 if (!/Cheap[^(]*\(usually 90\): you sold them/.test(g.panel)) fail(`#prices: no reason for cheap oil: ${g.panel.slice(0, 900)}`);
 const pr17 = await zeus(() => ({ sparks: document.querySelectorAll('.greece-panel svg.spark').length, arrows: document.querySelectorAll('.greece-panel svg.parrow').length }));
-// (Slice 23: copper and armour too, eight goods.)
-if (!(pr17.sparks === 8 && pr17.arrows >= 8)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
+// (Slice 23: copper and armour too, eight goods. Slice 32: marble and timber, ten.)
+if (!(pr17.sparks === 10 && pr17.arrows >= 8)) fail(`#prices: charts and arrows ${JSON.stringify(pr17)}`);
 // Its route tab: your price with its arrow, the terms, and the prices list.
 await zeus(() => window.__zeus.greece(false));
 await zeus(() => window.__zeus.trade(true, 'corinth-land'));
