@@ -1,8 +1,9 @@
 import type { CityId } from '../map/greece';
 import type { RngState } from './rng';
+import type { Crime } from './crime';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 27;
+export const SIM_STATE_VERSION = 28;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -145,12 +146,16 @@ export interface Building {
   was: BuildingKind | '';
   /** Rubble where a home stood: the household's name ('' otherwise). */
   ruin: string;
+  /** Slice 30: a home's temptation to crime, 0 to 1,000 (TEMPT_FULL in crime.ts): full, one of them slips out to steal (0 for everything else). */
+  tempt: number;
+  /** Slice 30: the tick a thief last robbed it (0: never): a store or the tax office isn't robbed again within a month. */
+  robbedAt: number;
 }
 
 /** What a walker is (see Walker.kind). */
-export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider';
+export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -170,13 +175,19 @@ export type Kin = 'head' | 'wife' | 'husband' | 'son' | 'daughter' | 'mother' | 
 export interface Story {
   tick: number;
   /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away; fell: the man who served fell in battle (names: his, and the city whose raiders it was). */
-  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell';
+  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell' | 'robbed' | 'stole' | 'caught';
   /** The need it was about (a Service), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Service | 'tax';
   /** The home's level after it. */
   level: number;
   /** Who it was about. */
   names: string[];
+  /**
+   * Slice 30, crime (crime.ts): robbed, a thief broke in (`n`: the drachmas taken, 0 if the watchman brought them
+   * back; names: the thief's, once caught); stole, one of them came home with loot (`n`: how much; names: his and
+   * what it was); caught, one of them was caught stealing (`n`: the fine; names: his). Missing for everything else.
+   */
+  n?: number;
 }
 
 /** The household in a home: who they are, who lives there, and what has happened to them. */
@@ -291,7 +302,7 @@ export interface ServiceRecord {
 }
 
 /** What a line of the ledger is about. */
-export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected';
+export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected' | 'stolen' | 'fines';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -450,6 +461,8 @@ export interface SimState {
   walls: WallPiece[];
   /** Its triremes, enemy ships in the bay, and pirates on the sea lanes (slice 26; see fleet.ts). */
   fleet: Fleet;
+  /** Slice 30: crime's switch, its news and the month's tallies (see crime.ts; each home's temptation is its `tempt`). */
+  crime: Crime;
 }
 
 /**

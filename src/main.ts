@@ -68,6 +68,8 @@ import type { GreeceMap } from './render/greece/index';
 import type { CityTab } from './ui/greece';
 import { PLACES, type CityId } from './map/greece';
 import { DEFAULT_SEED } from './sim/sim';
+// Slice 30.
+import { talliesNow, type CrimeTally } from './sim/crime';
 
 interface Probe {
   ready: boolean;
@@ -253,6 +255,8 @@ interface Probe {
   /** The map's first open: ms from asking to its first frame drawn, and of that how long building its scene took. */
   greeceOpenMs?: number;
   greeceBuildMs?: number;
+  /** Slice 30: crime: the switch, the tallies, the news, each thief out (where he is drawn, and his state), and the homes tempted from `from` up. */
+  crime?: (from?: number) => { on: boolean; now: CrimeTally; last: CrimeTally; news: string[]; thieves: Array<{ id: number; home: number; target: number; back: boolean; load: number; loot: number; chased: number; drawn: { x: number; z: number } | null }>; chasing: number; tempted: Array<{ id: number; x: number; z: number; level: number; tempt: number }> };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -285,6 +289,8 @@ function start(preparedTown: string | null): void {
   } else if (demo?.setup) demo.setup(sim);
   else {
     sim.enqueue({ type: 'hazards', on: true });
+    // Slice 30: and crime (with taxes day by day, harsh taxes' harder bite and fire's gentler first year).
+    sim.enqueue({ type: 'crime', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;
@@ -454,6 +460,14 @@ function start(preparedTown: string | null): void {
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
     if (l.need === 'greece' || l.need === 'favour' || l.need === 'loan' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : l.need === 'loan' ? 'loans' : 'ruler');
+    // Slice 30 (review): a thief out: close in on him and follow him (he is small and dark at the usual distance).
+    const thief = l.need === 'crime' ? sim.state.walkers.find((o) => o.kind === 'thief' && o.people > 0 && o.home === l.at) : undefined;
+    if (thief) {
+      const at = city.walkers.serviceAt.get(thief.id)?.pos;
+      const v = rig.view;
+      rig.flyTo({ ...v, x: at?.x ?? v.x, z: at?.z ?? v.z, dist: Math.min(v.dist, 14) });
+      return startFollow(thief.origin, 'thief', thief.id);
+    }
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();
@@ -710,7 +724,7 @@ function start(preparedTown: string | null): void {
     saveMenu.flash(`Welcome back · ${loaded.label.date} · ${loaded.label.people.toLocaleString('en-GB')} people${changed}`);
   }
 
-  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders' };
+  const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders', thief: 'the thief' };
 
   // The banner or the soldier under a screen point: a banner's cloth within a finger's breadth, a man within a few pixels.
   armyPick = (sx, sy) => {
@@ -1097,8 +1111,8 @@ function start(preparedTown: string | null): void {
         return true;
       }
       if (k === 'j') {
-        // J: the taxes overlay, then fire risk, then wear, then off.
-        const cycle = ['tax', 'fire', 'wear'] as const;
+        // J: the taxes overlay, then fire risk, then wear, then crime (slice 30), then off.
+        const cycle = ['tax', 'fire', 'wear', 'crime'] as const;
         const at = cycle.indexOf(overlay.wanted as (typeof cycle)[number]);
         overlay.wanted = at < 0 ? 'tax' : at === cycle.length - 1 ? null : cycle[at + 1];
         return true;
@@ -1620,6 +1634,25 @@ function start(preparedTown: string | null): void {
   };
   probe.showPanel = (id) => panel.show(id);
   probe.servingHomes = () => sim.state.army.soldiers.map((x) => x.home).filter((h) => h > 0);
+  // Slice 30.
+  probe.crime = (from = 1) => {
+    const s = sim.state;
+    const t = talliesNow(s);
+    return {
+      on: s.crime.on,
+      now: t.now,
+      last: t.last,
+      news: s.crime.news.map((n) => n.line),
+      thieves: s.walkers
+        .filter((w) => w.kind === 'thief' && w.people > 0)
+        .map((w) => {
+          const at = city.walkers.serviceAt.get(w.id);
+          return { id: w.id, home: w.home, target: w.target, back: w.back, load: w.load, loot: w.food, chased: w.meat, drawn: at ? { x: at.pos.x, z: at.pos.z } : null };
+        }),
+      chasing: s.walkers.filter((w) => w.kind === 'watchman' && w.meat > 0).length,
+      tempted: s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= from).map((b) => ({ id: b.id, x: b.x, z: b.z, level: b.level, tempt: b.tempt })),
+    };
+  };
   probe.screenOf = (x, z) => {
     const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();

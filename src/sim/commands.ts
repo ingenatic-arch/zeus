@@ -55,7 +55,9 @@ export type Command =
   /** Order a trireme at a shipyard (its id; see orderRefusal in fleet.ts). */
   | { type: 'trireme'; yard: number }
   /** A trireme's order (its id): guard a sea `lane` (a way's id, such as 'athens-sea'), or come home and guard the bay. */
-  | { type: 'fleet'; trireme: number; act: 'guard' | 'home'; lane?: string };
+  | { type: 'fleet'; trireme: number; act: 'guard' | 'home'; lane?: string }
+  /** Slice 30: crime's switch (crime.ts; also taxes day by day, harsh taxes' harder bite and fire's gentler first year), on as a game starts or a demo opens, off while a demo's history is played. */
+  | { type: 'crime'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard';

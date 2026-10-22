@@ -305,6 +305,9 @@ const BUILDING_NUMBERS = [
   'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls',
   'risk', 'wear', 'fire', 'fireAt', 'creakAt',
 ];
+// Slice 30: a home's temptation to crime, and the ledger's thefts and fines.
+BUILDING_NUMBERS.push('tempt', 'robbedAt');
+LEDGER_KINDS.push('stolen', 'fines');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -371,7 +374,17 @@ export function stateProblem(st: unknown): string {
   if (!armyOk(st.army)) return damaged('its army is wrong');
   if (!wallsOk(st.walls, st.tiles as number[])) return damaged('its walls are wrong');
   if (!fleetOk(st.fleet)) return damaged('its fleet is wrong');
+  // Slice 30.
+  if (!crimeOk(st.crime)) return damaged('its record of crime is wrong');
   return '';
+}
+
+/** Crime (slice 30): the switch, the news and the month's tallies. */
+function crimeOk(c: unknown): boolean {
+  if (!isObj(c) || typeof c.on !== 'boolean' || !fin(c.month) || !Array.isArray(c.news)) return false;
+  const tallyOk = (t: unknown): boolean => isObj(t) && ['thefts', 'caught', 'coin', 'goods', 'fines'].every((k) => fin(t[k]));
+  if (!tallyOk(c.now) || !tallyOk(c.last)) return false;
+  return (c.news as unknown[]).every((n) => isObj(n) && fin(n.tick) && fin(n.at) && typeof n.line === 'string' && (n.kind === 'theft' || n.kind === 'caught'));
 }
 
 const TRIREME_NUMBERS = ['id', 'n', 'yard', 'x', 'z', 'hx', 'hz', 'along', 'hp', 'work', 'foe', 'cool', 'rammed', 'struck', 'start', 'dur', 'a0', 'a1', 'sank', 'owed'];

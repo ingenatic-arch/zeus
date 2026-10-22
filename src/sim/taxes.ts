@@ -8,8 +8,8 @@
  * rate, unless he (or another collector) called within the last month; homes
  * he never passes pay nothing. He
  * keeps the coins in his satchel, by district, and they reach the treasury
- * (as taxes, by district) when he gets back, or if he is lost on the way, or
- * his office is cleared. A short-handed office lets him rest longer; with
+ * (as taxes, by district) at the end of each day he is out (slice 30; before,
+ * when he got back), or if he is lost on the way, or his office is cleared. A short-handed office lets him rest longer; with
  * nobody working it, he doesn't go out.
  *
  * The rate (none, light, fair, heavy, harsh) is set by a command. Heavy and
@@ -20,7 +20,7 @@
 import type { CoastMap } from '../map/bake';
 import { districtAt, DISTRICTS } from '../map/districts';
 import { around, centreOf, livedIn, recountPopulation, VILLA } from './buildings';
-import { TICKS_PER_MONTH } from './clock';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { leavingGroups, moodOf, moveOut } from './folk';
 import { canWorkIn, rateOf } from './labour';
 import { moveRounds, sendOut, type ServiceSpec } from './rounds';
@@ -127,6 +127,10 @@ export function handIn(s: SimState, w: Walker): void {
 /** Tax offices: send out the collector when one is due and someone works there. */
 export function stepTaxOffices(s: SimState, map: CoastMap): void {
   const size = map.size;
+  // Slice 30: each collector out hands in his satchel once every day (with crime's switch on, so a demo's history
+  // plays as it did): the same ledger lines, taxes by district, coming in day by day instead of in lumps. (Review of
+  // slice 30: each at his own hour of the day, by his id, so a town's three collectors' takings don't land at once.)
+  if (s.crime.on) for (const w of s.walkers) if (w.kind === 'tax' && w.purse.length && (s.tick + w.id) % TICKS_PER_DAY === 0) handIn(s, w);
   for (const b of s.buildings) {
     if (b.kind !== 'taxoffice' || b.walker !== 0) continue;
     if (--b.clock > 0) continue;
@@ -149,6 +153,13 @@ export function moveCollector(s: SimState, map: CoastMap, w: Walker): boolean {
 const HARSH_DIE = 12;
 const HARSH_GO: readonly number[] = [6, 6, 3, 1, 0];
 const HARSH_SEND: readonly number[] = [0, 0, 6, 5, 0];
+/**
+ * Slice 30: harsh taxes bite harder (with crime's switch on, so a demo's history plays as it did): a fed-up or
+ * unhappy household leaves two chances in three, a worried one one in three, one getting by one in six, and one
+ * getting by may send someone away too.
+ */
+const HARSH_GO_NOW: readonly number[] = [8, 8, 4, 2, 0];
+const HARSH_SEND_NOW: readonly number[] = [0, 0, 6, 5, 1];
 /** Households smaller than this send nobody away on their own (nobody can go without breaking up the family). */
 const HARSH_LEAVE_MIN = 3;
 /** How long the city remembers households driven out by the taxes (taxGone): a year. */
@@ -188,8 +199,10 @@ export function stepHarsh(s: SimState, map: CoastMap): void {
     if (!f || !livedIn(b) || b.taxedAt === 0 || s.tick - b.taxedAt >= 2 * TICKS_PER_MONTH) continue;
     const mood = moodOf(s, b, ctx, canWorkIn(s, b)).level;
     const roll = mix(f.seed, month) % HARSH_DIE;
-    if (roll >= HARSH_GO[mood] + HARSH_SEND[mood]) continue;
-    if (roll < HARSH_GO[mood]) {
+    const go = s.crime.on ? HARSH_GO_NOW : HARSH_GO;
+    const send = s.crime.on ? HARSH_SEND_NOW : HARSH_SEND;
+    if (roll >= go[mood] + send[mood]) continue;
+    if (roll < go[mood]) {
       // The whole household packs up and goes.
       const going = b.people;
       leaveWhole(s, b);

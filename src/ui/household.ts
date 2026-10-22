@@ -15,6 +15,8 @@ import { foodLine, hazardLines, reachesWork, taxLine, whyDry, whyHungry, whyNoGo
 import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
 import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
 import { morph } from './morph';
+// Slice 30.
+import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut, pronouns } from '../sim/crime';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -116,6 +118,14 @@ function storyLine(f: Family, e: Story, i: number): string {
     case 'fell':
       // (Slice 28: a man killed abroad, on an expedition, fell fighting a city's garrison or its watch.)
       return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'}${/(garrison|watch)$/.test(e.names[1] ?? '') ? ', far from home' : ' in the streets'}, and the house mourned him`;
+    // Slice 30: crime.
+    case 'robbed':
+      return e.n ? `A thief broke in and took ${e.n} dr` : `A thief broke in; the watchman caught ${e.names[0] ?? 'the thief'} and brought it all back`;
+    case 'stole':
+      // (Review of slice 30: "his" or "hers", as whoever went out.)
+      return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t ${f.members.find((m) => m.name === e.names[0])?.female ? 'hers' : 'his'}`;
+    case 'caught':
+      return `${e.names[0]} was caught stealing by the watchman; the house paid a ${e.n ?? 0} dr fine`;
   }
 }
 
@@ -280,6 +290,36 @@ function hazardBlock(s: SimState, map: CoastMap, b: Building): string {
     .join('');
 }
 
+/** Slice 30: a hooded figure, for the temptation block. */
+const HOOD = '<svg viewBox="0 0 24 24" class="ic"><path d="M12 2.4c-3.9 0-6.3 3-6.3 6.9 0 1.8.5 3.3 1.2 4.5L4.5 21.8h15l-2.4-8c.7-1.2 1.2-2.7 1.2-4.5 0-3.9-2.4-6.9-6.3-6.9z" fill="#3a3540" stroke="#1a1820" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="9.9" rx="3" ry="3.4" fill="#1a1820"/><circle cx="17.6" cy="18" r="3.2" fill="#c8963c" stroke="#5e4214" stroke-width="1"/></svg>';
+
+/**
+ * Slice 30: how tempted the household is to steal, and why, from a quarter up
+ * (or one of them out stealing now): the reasons, how far it has built and
+ * how soon someone slips out, and what holds them back.
+ */
+function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
+  if (!s.crime.on) return '';
+  const out = s.walkers.find((w) => w.kind === 'thief' && w.home === b.id && w.people > 0);
+  if (out) {
+    const t = findBuilding(s, out.target);
+    const pr = pronouns(b, out);
+    const doing = out.back ? (out.load > 0 ? `slipping home with ${lootWords(out)}` : 'slipping home empty-handed') : `on ${pr.his} way to ${t ? placeOf(t) : 'somewhere'}`;
+    return `<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, out))} is out stealing</b><p>${esc(doing)}${out.meat > 0 ? `, a watchman after ${pr.him}` : ''}</p><p class="why">A watchman who sees ${pr.him} runs after ${pr.him}; caught, the house pays a fine.</p></div></div>`;
+  }
+  if (b.tempt < TEMPT_SHOW) return '';
+  const t = temptationOf(s, map.size, b);
+  const pushing = t.reasons.filter((r) => r.w > 0).map((r) => r.text);
+  const holding = t.reasons.filter((r) => r.w < 0).map((r) => r.text);
+  const pct = Math.round((100 * b.tempt) / TEMPT_FULL);
+  const d = daysToThief(b, t);
+  const full = thievesOut(s).length >= THIEVES_OUT;
+  const soon = d === 0 ? (targetFor(s, map.size, b) ? (full ? `someone slips out once one of the ${THIEVES_OUT} thieves out now is home` : 'someone slips out any day now') : 'nothing worth stealing within reach, for now') : d < Infinity ? `a thief in about ${days(d * TICKS_PER_DAY)}` : 'easing';
+  const head = pushing.length ? `Tempted to steal: ${pushing.join(', ')}` : 'Tempted to steal, less each day';
+  const held = holding.length ? `<p class="why">Holding them back: ${esc(holding.join(', '))}.</p>` : '<p class="why">A watchman walking by would hold them back (a watch post, Z twice).</p>';
+  return `<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${held}</div></div>`;
+}
+
 /** The whole panel's inner HTML for a home. */
 export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const f = b.family;
@@ -302,6 +342,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   return `<header><div class="kicker">${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}</div><h2>The house of ${esc(f.name)}</h2><div class="from">From ${esc(f.origin)}${since}</div></header>
 ${warningBlock(s, map, b)}
 ${hazardBlock(s, map, b)}
+${crimeBlock(s, map, b)}
 ${moodBlock(mood)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}

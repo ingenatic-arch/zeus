@@ -412,6 +412,14 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     // A man of the house fallen in battle: they mourn him for a season.
     const fell = lastOf(f, 'fell');
     if (fell && s.tick - fell.tick < recent) add(-2, `Mourning ${fell.names[0]}, who fell fighting ${fell.names[1] ?? 'raiders'}`);
+    // Slice 30: robbed lately (less if the watchman brought it back), or shamed by one of them caught stealing.
+    const robbed = lastOf(f, 'robbed');
+    if (robbed && s.tick - robbed.tick < 2 * TICKS_PER_MONTH) {
+      if (robbed.n) add(-2, `Robbed ${span(s.tick - robbed.tick)} ago: a thief took ${robbed.n} dr`);
+      else add(-1, `A thief broke in ${span(s.tick - robbed.tick)} ago; the watchman brought back what was taken`);
+    }
+    const caught = lastOf(f, 'caught');
+    if (caught && s.tick - caught.tick < recent) add(-1, `Shamed: ${caught.names[0]} was caught stealing`);
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
   // A few days from giving up: as low as it goes.

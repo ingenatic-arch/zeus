@@ -53,6 +53,8 @@ import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
 import { towerStatus } from './wallstatus';
+// Slice 30.
+import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -658,6 +660,24 @@ export function herdStatus(s: SimState, h: Herd): Status {
   return { title, detail: lines(doing, grow, hunted) };
 }
 
+/** Slice 30: a thief's tip: who he is, and what he is about. */
+function thiefStatus(s: SimState, w: Walker): Status {
+  const home = findBuilding(s, w.home);
+  const t = findBuilding(s, w.target);
+  const who = thiefWho(home, w, 'nobody knows who');
+  const pr = pronouns(home, w);
+  const doing =
+    w.wait > 0 && !w.back
+      ? `getting in at ${t ? placeOf(t) : 'a door'}`
+      : w.back
+        ? w.load > 0
+          ? `slipping home with ${lootWords(w)} from ${t ? placeOf(t) : 'somewhere'}`
+          : 'slipping home empty-handed'
+        : `on ${pr.his} way to ${t ? placeOf(t) : 'somewhere'}`;
+  const chased = w.meat > 0 ? ` · a watchman is after ${pr.him}` : ` · a watchman who sees ${pr.him} runs after ${pr.him}`;
+  return { title: 'Thief', detail: `A hooded figure, keeping to the side of the road: ${who}, ${doing}${chased}` };
+}
+
 /** What any walker other than settlers is doing. */
 export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'water') return carrierStatus(w);
@@ -674,6 +694,13 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'actor') {
     if (w.back) return { title: 'Actor', detail: 'Heading back to the theatre, still in costume' };
     return { title: 'Actor', detail: `Out on his round, ${w.steps} of ${ACTOR_WALK} new road tiles walked · he heads for the townhouses and better that have gone longest without a play` };
+  }
+  // Slice 30: a thief, and the watchman after one.
+  if (w.kind === 'thief') return thiefStatus(s, w);
+  if (w.kind === 'watchman' && w.meat > 0) {
+    const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
+    const home = t ? findBuilding(s, t.home) : undefined;
+    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and the thief’s family pays a fine` };
   }
   if (w.kind === 'watchman') {
     const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
@@ -1039,7 +1066,7 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1556,6 +1583,8 @@ export function rubbleStatus(_s: SimState, b: Building): Status {
 
 /** Fire or wear past this share shows on the town lines (where no watchman or inspector reaches). */
 const EARLY_WARN = 0.75;
+/** Slice 30: fire risk warns sooner, from half way, with the days until the first smoulder. */
+const FIRE_WARN = 0.5;
 /** Rubble shows on the town lines for this long after the fall. */
 const RUBBLE_NEWS = 2 * TICKS_PER_MONTH;
 
@@ -1606,11 +1635,14 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     out.push({ need: 'fire', text: `Smoke ${whereIs(map, f).toLowerCase()}: ${named(f)} is smouldering and bursts into flame in ${left(f.fireAt)} unless a watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}${more(smoulders.length, smoulders.length === 2 ? 'smoulder' : 'smoulders')}.`, at: f.id });
   } else if (s.hazards) {
     const posts = guardSearch(s, size, 'watchpost');
-    const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+    const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * FIRE_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
     if (risky.length) {
       const f = risky[0];
       const n = risky.length === 1 ? `${named(f)} is` : `${risky.length} buildings are`;
-      out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${n} three-quarters of the way to smouldering, and no watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`, at: f.id });
+      const soonest = Math.min(...risky.map((b) => daysToFull(b.risk, riskRate(s, b))));
+      const far = f.risk >= HAZARD_FULL * EARLY_WARN ? 'three-quarters of the way' : 'half way';
+      const first = soonest < Infinity ? `, ${risky.length === 1 ? 'it smoulders' : 'the first smoulders'} in about ${days(soonest * TICKS_PER_DAY)}` : '';
+      out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${n} ${far} to smouldering${first}, and no watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`, at: f.id });
     }
   }
   // Wear.
@@ -1636,7 +1668,75 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     const n = heaps.length === 1 ? `${what} ${r.level === BURNT ? 'burnt down' : 'fell down'}` : `${heaps.length} buildings have ${heaps.every((h) => h.level === BURNT) ? 'burnt down' : 'burnt or fallen down'} lately, ${what} last`;
     out.push({ need: 'rubble', text: `Rubble ${whereIs(map, r).toLowerCase()}: ${n}.${gone} Clear ${heaps.length === 1 ? 'it' : 'them'} with the clear tool (X), ${clearFee(2)}–${clearFee(3)} dr a heap, before building there again.`, at: r.id });
   }
+  // Slice 30: crime.
+  const crime = crimeTownLine(s, map);
+  if (crime) out.push(crime);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Crime (slice 30).
+
+/** Crime news shows on the town lines for this long. */
+const CRIME_NEWS_DAYS = 5;
+
+/** "hungry, villas nearby and no watchman": the reasons most of these homes share, most common first. */
+function sharedReasons(ts: readonly Temptation[], most = 3): string {
+  const n = new Map<string, number>();
+  for (const t of ts) for (const r of t.reasons) if (r.w > 0) n.set(r.text, (n.get(r.text) ?? 0) + 1);
+  const top = [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, most).map(([k]) => k);
+  return top.length <= 1 ? (top[0] ?? '') : `${top.slice(0, -1).join(', ')} and ${top[top.length - 1]}`;
+}
+
+/** Why no watchman deters a home: none in the city, or none comes this way. */
+function noWatchWords(s: SimState): string {
+  return s.buildings.some((b) => b.kind === 'watchpost') ? 'A watch post nearer them (Z twice) would deter them, and its watchman catches thieves he sees' : 'A watch post (Z twice) would deter them, and its watchman catches thieves he sees';
+}
+
+/**
+ * The crime line: news of a theft or a catch for a few days; else a thief out
+ * now, and where he is going; else homes more than half way to sending one out
+ * that no watchman walks by, how many, why, and how soon the first.
+ */
+export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
+  if (!s.crime.on) return null;
+  const size = map.size;
+  const news = s.crime.news.at(-1);
+  if (news && s.tick - news.tick < CRIME_NEWS_DAYS * TICKS_PER_DAY) {
+    const watched = s.buildings.some((b) => b.kind === 'watchpost' && b.workers > 0);
+    const hint = news.kind === 'theft' ? (watched ? '' : ' No watchman walks the streets: a watch post (Z twice) would catch the next one.') : '';
+    return { need: 'crime', text: `${news.line}.${hint}`, at: news.at };
+  }
+  const out = thievesOut(s);
+  if (out.length) {
+    const w = out[0];
+    const home = findBuilding(s, w.home);
+    const t = findBuilding(s, w.target);
+    const who = thiefWho(home, w, 'a hooded figure');
+    const where = home ? whereIs(map, home) : 'In the city';
+    const pr = pronouns(home, w);
+    const doing = w.back ? `slipping home${w.load > 0 ? ` with ${lootWords(w)}` : ''}` : t ? `on ${pr.his} way to rob ${placeOf(t)}` : 'out in the streets';
+    const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
+    const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
+    return { need: 'crime', text: `A thief out ${where.toLowerCase()}: ${who}, ${doing}${more}.${chase}`, at: w.home };
+  }
+  const ctx = moodCtx(s);
+  const tempted: Array<{ b: Building; t: Temptation; d: number }> = [];
+  for (const b of s.buildings) {
+    if (b.kind !== 'home' || b.tempt < TEMPT_HALF) continue;
+    const t = temptationOf(s, size, b, ctx);
+    if (t.watched || temptRate(t.score) <= 0) continue;
+    const d = daysToThief(b, t);
+    // (Full, with nothing worth stealing within reach: not about to send anyone.)
+    if (d === 0 && !targetFor(s, size, b)) continue;
+    tempted.push({ b, t, d });
+  }
+  if (tempted.length === 0) return null;
+  tempted.sort((a, c) => a.d - c.d || a.b.id - c.b.id);
+  const f = tempted[0];
+  const n = tempted.length === 1 ? `${placeName(f.b)} is tempted to steal` : `${tempted.length} homes are tempted to steal`;
+  const when = f.d <= 0 ? (tempted.length === 1 ? ', ready to send someone out' : ', the first ready to send someone out') : `, ${tempted.length === 1 ? 'a thief' : 'the first thief'} in about ${days(f.d * TICKS_PER_DAY)}`;
+  return { need: 'crime', text: `Crime ${whereIs(map, f.b).toLowerCase()}: ${n} (${sharedReasons(tempted.map((x) => x.t))})${when}. ${noWatchWords(s)}.`, at: f.b.id };
 }
 
 // ---------------------------------------------------------------------------

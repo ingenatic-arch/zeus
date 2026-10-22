@@ -2,7 +2,7 @@ import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 import { around, centreOf, findBuilding, footprint, footSide, recountPopulation, sideOf } from './buildings';
-import { BURNT, FALLEN, FIRST_INSPECTOR, FIRST_WATCHMAN, moveInspector, moveWatchman, stepArchitects, stepHazards, stepWatchPosts, type Fall } from './hazards';
+import { BURNT, FALLEN, FIRST_INSPECTOR, FIRST_WATCHMAN, moveInspector, stepArchitects, stepHazards, stepWatchPosts, type Fall } from './hazards';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
 import { BUILD_KINDS, type Command, type StampedCommand } from './commands';
 import { FIRST_ACTOR, FIRST_PRIESTESS, moveCulture, stepCulture } from './culture';
@@ -36,6 +36,8 @@ import { barracksGone, dismiss, freshArmy, hire, raise, sendBanner, stepArmy } f
 import { stepBattle } from './battle';
 import { fleetCommand, freshFleet, orderTrireme, stepErrands, stepFleet, yardGone } from './fleet';
 import { dropWalls, fullOf, layWalls, restoreWalls, unlayWalls, wallAt } from './walls';
+// Slice 30.
+import { freshCrime, moveThief, moveWatch, stepCrime } from './crime';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -85,6 +87,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     army: freshArmy(),
     walls: [],
     fleet: freshFleet(),
+    crime: freshCrime(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -187,6 +190,8 @@ export class Sim {
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
+    // Slice 30: temptation in every home, and the thieves it sends out (nothing with crime's switch off).
+    stepCrime(s, map);
     // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
     stepWorld(s);
     // Greece goes on: its festivals, its rulers' quarrels and friendships with each other, their feuds and wars (never touching your city).
@@ -260,6 +265,9 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'hazards':
       s.hazards = c.on === true;
+      break;
+    case 'crime':
+      s.crime.on = c.on === true;
       break;
     case 'trade': {
       const k = Number.isInteger(c.good) ? tradeIndex(c.good) : -1;
@@ -516,6 +524,8 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     creakAt: 0,
     was,
     ruin: '',
+    tempt: 0,
+    robbedAt: 0,
   };
   s.buildings.push(b);
   // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)
@@ -870,7 +880,7 @@ function stepWalkers(s: SimState, map: CoastMap): void {
             : w.kind === 'tax'
               ? moveCollector(s, map, w)
             : w.kind === 'watchman'
-              ? moveWatchman(s, map, w)
+              ? moveWatch(s, map, w)
             : w.kind === 'inspector'
               ? moveInspector(s, map, w)
             : w.kind === 'cart' || w.kind === 'porter'
@@ -883,6 +893,8 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? moveHunter(s, map, w)
               : w.kind === 'raider'
                 ? moveRaider(s, map, w)
+              : w.kind === 'thief'
+                ? moveThief(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

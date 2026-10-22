@@ -46,6 +46,9 @@ describe('the ledger', () => {
   it('every drachma in or out is on a line: two years of #town, with building, undoing, clearing a tax office mid-round and a tax rate change', () => {
     const sim = demo('town');
     const s = sim.state;
+    // (Slice 30: collectors keep their satchels to the end of the round, as when this was written, so one is out with coins at t = 700; tests/crime.test.ts keeps the ledger with thefts, fines and taxes day by day.)
+    sim.enqueue({ type: 'crime', on: false });
+    sim.flush();
     ledgerAddsUp(s);
     let month = s.ledger.month;
     let start = s.ledger.start;
@@ -295,7 +298,8 @@ describe('the demo towns and money', () => {
     }
     // Every demo's town is played forward from the founding (slice 24: about a hundred demos, some with years of history; a few minutes on a busy machine;
     // slice 27: three more, #lend's and #repaid's a year or two of #rivals' town further on).
-  }, 400000);
+    // (Slice 30: two more, #thieves and #nowatch, and three lines building on the machine at once: about 2.5 minutes alone, over 400 s under that load.)
+  }, 900000);
 
   // Since slice 10 #town runs three wheat farms, not seven (it ate about 170 of the 1,070 measures they grew), and pays an
   // oil chain's wages: at fair it gains about 1,700 a year (slice 9: about 950). Slice 14 retunes money across the game.

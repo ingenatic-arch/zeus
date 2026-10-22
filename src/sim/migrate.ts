@@ -83,6 +83,10 @@
  * gift on its way is a gift, not something sent for a request. Nothing in
  * the city changes.
  *
+ * Slice 30 (Thieves in the night): no home is tempted to steal yet, no
+ * thief is out and nothing has been stolen; crime (and with it taxes coming
+ * in day by day and harsh taxes' harder bite) is on from loading.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -100,6 +104,7 @@ import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, TRADE_GOODS } from './trad
 import { armsOf, freshWorld, marketPrice, moodLevel, moodOf, normalStock, usualTrail } from './world';
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
+import { freshCrime } from './crime';
 import { nextFestival } from './festivals';
 import type { CityId } from '../map/greece';
 
@@ -147,6 +152,7 @@ export function migrate(st: unknown): number {
   if (st.version === 24) from24(st);
   if (st.version === 25) from25(st);
   if (st.version === 26) from26(st);
+  if (st.version === 27) fromSlice30(st);
   return from;
 }
 
@@ -560,4 +566,18 @@ function from26(st: Record<string, unknown>): void {
   const a = st.army;
   if (isObj(a) && Array.isArray(a.companies)) for (const c of a.companies as unknown[]) if (isObj(c) && typeof c.away !== 'number') c.away = 0;
   st.version = 27;
+}
+
+/** Slice 30 (thieves in the night): see the note above. Only its own fields, each only if it is missing. */
+function fromSlice30(st: Record<string, unknown>): void {
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings))
+    for (const b of st.buildings as unknown[]) {
+      if (!isObj(b)) continue;
+      if (typeof b.tempt !== 'number') b.tempt = 0;
+      if (typeof b.robbedAt !== 'number') b.robbedAt = 0;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  if (!isObj(st.crime)) st.crime = freshCrime(true);
+  st.version = (st.version as number) + 1;
 }

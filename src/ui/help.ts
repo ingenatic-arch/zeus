@@ -43,7 +43,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
-      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away), and again for an architect’s office (its inspector keeps buildings from falling)</dd>
+      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away, and thieves: homes he walks by are less tempted to steal, and he runs after any thief he sees), and again for an architect’s office (its inspector keeps buildings from falling)</dd>
       <dt>Shift</dt><dd>With M, G, K or Z: back to the one before</dd>
       <dt>X</dt><dd>Clear land: drag over it (rubble costs a little to clear)</dd>
       <dt>U / Ctrl+Z</dt><dd>Undo the last thing you built or cleared (within about a month)</dd>
@@ -62,7 +62,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
       <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of; again for oil, fleece and wine</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
-      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, and again for wear</dd>
+      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, again for wear, and again for crime (which homes are tempted to steal, and which were robbed)</dd>
       <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas); the chip beside them sets the taxes</dd>
       <dt>I</dt><dd>What’s missing: red homes are about to go down a level, amber ones lack what they need to grow</dd>
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed; a caravan, a ship, a soldier, a raider or a trireme, who they are and what they are doing; a wall, a gate or a tower, how strong it is</dd>

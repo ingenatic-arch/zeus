@@ -150,4 +150,6 @@ export const VIEWS: Record<string, CameraView> = {
   fortress: { x: 33, z: 41, yaw: 1.4, dist: 30, tilt: 0.0 },
   // #triremes: the shipyard by the river mouth and its jetty, the bay beyond.
   triremes: { x: 70, z: 78, yaw: 3.0, dist: 34, tilt: -0.3 },
+  // Slice 30, #thieves and #nowatch: the hut street on the slope behind the core's villas, from above the core looking up the slope.
+  thieves: { x: 73, z: 28, yaw: -0.2, dist: 22, tilt: 0.05 },
 };
