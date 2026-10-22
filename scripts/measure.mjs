@@ -307,6 +307,9 @@ for (const [hash, views] of [
   ['#monument-paused-shot', [null]],
   ['#lit-paused-shot', [null]],
   ['#games-paused-shot', [null]],
+  // Slice 39: a town a few laurels in across the three, the Ambition panel open; Master of Greece achieved, the Colossus standing.
+  ['#ambition-paused-shot', [null]],
+  ['#achieved-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

@@ -540,16 +540,18 @@ function figure(): Piece[] {
   }
   add(new THREE.CylinderGeometry(0.27, 0.25, 0.3, 7).scale(0.85, 1, 1.25).translate(0, 1.48, 0), S);
   add(new THREE.CylinderGeometry(0.33, 0.26, 0.75, 7).scale(0.8, 1, 1.2).translate(0, 1.98, 0), B);
-  add(new THREE.BoxGeometry(0.06, 0.18, 0.36).translate(0.2, 2.05, 0), L);
+  // (Slice 39: a nose, so his face shows which way he looks; the pale box that stood on his chest read as a patch.)
+  add(new THREE.BoxGeometry(0.06, 0.07, 0.05).translate(0.18, 2.69, 0), S);
   add(new THREE.CylinderGeometry(0.2, 0.3, 0.12, 7).scale(0.85, 1, 1.35).translate(0, 2.4, 0), B);
   add(drum(0, 0, 0.09, 0.08, 2.44, 2.56, 6), B);
   add(new THREE.IcosahedronGeometry(0.16, 1).scale(1, 1.12, 0.95).translate(0.02, 2.7, 0), B);
-  // The crown of rays.
-  for (let k = 0; k < 7; k++) {
-    const a = -Math.PI / 2 + (k / 6) * Math.PI;
-    const dir = new THREE.Vector3(Math.cos(a) * 0.3, 1, Math.sin(a));
-    const ray = rodGeo([0, 2.78, 0], [-0.02 + dir.x * 0.05, 2.78 + 0.22, dir.z * 0.2], 0.022, 0.003, 4);
-    add(ray, L);
+  // The crown of rays, all round his head. (Slice 39: they stood up from the crown in one row, like a crest.)
+  add(drum(0.02, 0, 0.165, 0.165, 2.74, 2.79, 9), L);
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9) * Math.PI * 2;
+    const ox = Math.cos(a);
+    const oz = Math.sin(a);
+    add(rodGeo([0.02 + ox * 0.15, 2.78, oz * 0.15], [0.02 + ox * 0.25, 2.95, oz * 0.25], 0.028, 0.004, 4), L);
   }
   // The right arm raised (+z), the torch in his hand.
   add(rodGeo([0, 2.32, 0.38], [0.06, 2.75, 0.47], 0.075, 0.065, 6), B);
@@ -571,27 +573,59 @@ export const FIGURE_TOP = 3.5;
 /** Where the Colossus's torch burns (local, from the pad). */
 export const COLOSSUS_FIRE: V3 = [0.11, PLINTH.top + 3.54, 0.46];
 
-/** The bronze frame inside the figure, up to `h` (above the plinth): struts up each leg and the body, hoops round them, and the arms. */
+/**
+ * The bronze frame inside the figure, up to `h` (above the plinth): struts up
+ * each leg and the body, rings of bars round them with a brace across each
+ * face, the bars at his hips and shoulders, the arms and the neck. (Slice 39:
+ * thicker, in bright bronze and braced, so it reads as a cast frame in the
+ * shape of a man rather than more of the scaffold's poles; slice 35's struts
+ * were thinner than a pixel from the usual distance.)
+ */
+const STRUT = 0.034;
+const HOOP = 0.026;
 function frame(h: number): Part[] {
   const parts: Part[] = [];
-  const D = TONE.bronzeDeep;
-  const runs: Array<[V3, V3]> = [];
-  for (const z of [-0.2, 0.2]) {
-    for (const [dx, dz] of [[0.08, 0.08], [-0.08, 0.08], [0.08, -0.08], [-0.08, -0.08]]) runs.push([[dx, 0, z + dz], [dx * 1.4, 1.38, z * 0.7 + dz * 1.4]]);
+  const B = TONE.bronze;
+  const S = TONE.bronzeShade;
+  /** A rod from a to b, cut off at the frame's height. */
+  const rod = (a: V3, b: V3, r: number, color: string): void => {
+    const [lo, hi] = a[1] <= b[1] ? [a, b] : [b, a];
+    if (lo[1] >= h) return;
+    const t = Math.min(1, (h - lo[1]) / (hi[1] - lo[1] || 1));
+    const end: V3 = [lo[0] + (hi[0] - lo[0]) * t, lo[1] + (hi[1] - lo[1]) * t, lo[2] + (hi[2] - lo[2]) * t];
+    parts.push({ geo: rodGeo(lo, end, r, r, 5), color });
+  };
+  // Each leg's four struts and the body's four, in order round them, so the rings and braces sit on them.
+  const legs = [-0.2, 0.2].map((z) => [[0.08, 0.08], [0.08, -0.08], [-0.08, -0.08], [-0.08, 0.08]].map(([dx, dz]): [V3, V3] => [[dx, 0, z + dz], [dx * 1.4, 1.38, z * 0.7 + dz * 1.4]]));
+  const body = [[0.2, 0.28], [0.2, -0.28], [-0.2, -0.28], [-0.2, 0.28]].map(([dx, dz]): [V3, V3] => [[dx * 0.9, 1.35, dz * 0.9], [dx, 2.45, dz * 1.2]]);
+  const on = ([a, b]: [V3, V3], y: number): V3 => {
+    const t = (y - a[1]) / (b[1] - a[1]);
+    return [a[0] + (b[0] - a[0]) * t, y, a[2] + (b[2] - a[2]) * t];
+  };
+  for (const g of [...legs, body]) {
+    for (const [a, b] of g) rod(a, b, STRUT, B);
+    const y0 = g[0][0][1];
+    const y1 = g[0][1][1];
+    const rings: number[] = [];
+    for (let y = y0 + 0.3; y < y1 - 0.1; y += 0.36) rings.push(y);
+    rings.push(y1 - 0.02);
+    for (let k = 0; k < rings.length; k++) {
+      const y = rings[k];
+      if (y > h) break;
+      for (let i = 0; i < 4; i++) rod(on(g[i], y), on(g[(i + 1) % 4], y), HOOP, S);
+      const below = k === 0 ? y0 + 0.02 : rings[k - 1];
+      for (let i = 0; i < 4; i += 2) rod(on(g[i], below), on(g[(i + 1) % 4], y), HOOP * 0.8, S);
+    }
   }
-  for (const [dx, dz] of [[0.2, 0.28], [-0.2, 0.28], [0.2, -0.28], [-0.2, -0.28]]) runs.push([[dx * 0.9, 1.35, dz * 0.9], [dx, 2.45, dz * 1.2]]);
-  runs.push([[0, 2.35, 0.38], [0.06, 2.75, 0.47]], [[0.06, 2.75, 0.47], [0.1, 3.4, 0.46]], [[0, 2.35, -0.38], [0.08, 1.88, -0.45]], [[0, 2.45, 0], [0, 2.85, 0]]);
-  for (const [a, b] of runs) {
-    if (a[1] >= h) continue;
-    const t = Math.min(1, (h - a[1]) / (b[1] - a[1] || 1));
-    const end: V3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-    parts.push({ geo: rodGeo(a, end, 0.016), color: D });
-  }
-  // The hoops, every so high.
-  for (let y = 0.3; y < Math.min(h, 2.45); y += 0.35) {
-    if (y < 1.38) for (const z of [-0.2, 0.2]) parts.push({ geo: new THREE.TorusGeometry(0.13, 0.01, 3, 8).rotateX(Math.PI / 2).translate(0, y, z * (1 - y * 0.2)), color: D });
-    else parts.push({ geo: new THREE.TorusGeometry(0.32, 0.012, 3, 10).rotateX(Math.PI / 2).scale(0.8, 1, 1.15).translate(0, y, 0), color: D });
-  }
+  rod([0, 1.38, -0.2], [0, 1.38, 0.2], STRUT, B);
+  rod([0, 2.38, -0.42], [0, 2.38, 0.42], STRUT, B);
+  rod([0, 2.38, 0], [0, 2.86, 0], STRUT, B);
+  rod([0, 2.38, 0.38], [0.06, 2.75, 0.47], STRUT, B);
+  rod([0.06, 2.75, 0.47], [0.1, 3.4, 0.46], STRUT, B);
+  rod([0, 2.38, -0.38], [0.08, 1.88, -0.45], STRUT, B);
+  rod([0.08, 1.88, -0.45], [0.26, 1.65, -0.38], STRUT * 0.9, B);
+  // A ring for his head.
+  if (h > 2.72) parts.push({ geo: new THREE.TorusGeometry(0.14, HOOP, 4, 10).rotateX(Math.PI / 2).translate(0, 2.72, 0), color: S });
   return parts;
 }
 
