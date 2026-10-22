@@ -55,6 +55,11 @@ import { offRoadPath, prunePath, walkable } from './wild';
 import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sellsAndBuys, WARM } from './world';
 // Integrating slice 34 with 33: winter holds tribute ships back and keeps most allies at home.
 import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
+// Slice 37: your colonies (colonies.ts) keep their records here, and their ships bring their share as tribute does.
+import type { Colony, Founding } from './colonies';
+import { caravanEntry } from './routes';
+import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
+import { TILE_ROAD } from './state';
 
 // ---------------------------------------------------------------------------
 // The records.
@@ -130,6 +135,8 @@ export interface Tribute {
   /** In words, once in: "into the storehouse by the north road". */
   how: string;
   ended: number;
+  /** Slice 37: a colony's shipment (its site; city 'home'), not a vassal's tribute. */
+  colony?: string;
 }
 
 /** A company sent to your aid against raiders: on its road, in your city (`company`), going home, done. */
@@ -180,9 +187,12 @@ export interface Empire {
   calls: WarCall[];
   conquests: Conquest[];
   nextId: number;
+  /** Slice 37: your colonies, and a colony on its way (colonies.ts). */
+  colonies: Colony[];
+  foundings: Founding[];
 }
 
-export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1 });
+export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1, colonies: [], foundings: [] });
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -818,7 +828,7 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
     }
     t.put = t.amount - left;
     t.lost = left;
-    if (t.put > 0) note(s, ware, 'bought', `vassal:${t.city}`, t.put);
+    if (t.put > 0) note(s, ware, 'bought', t.colony ? `colony:${t.colony}` : `vassal:${t.city}`, t.put);
     s.looks++;
   }
   t.how = how;
@@ -834,7 +844,14 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
     v.worth += t.worth;
   }
   const lost = t.lost > 0 ? `; no room for the other ${fmt(t.lost)}, lost` : '';
-  news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}`}${lost}`);
+  // Slice 37: a colony's shipment.
+  const col = t.colony ? s.empire.colonies.find((c) => c.site === t.colony) : undefined;
+  if (col) {
+    col.sent++;
+    col.worth += t.worth;
+  }
+  if (t.colony) news(w, s.tick, `site:${t.colony}`, `${col?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}`);
+  else news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}`}${lost}`);
   s.rev++;
 }
 
@@ -887,7 +904,8 @@ export function tributeOnMap(t: Tribute, tick: number): { along: number } | null
     return at ? { along: HORIZON_ALONG * (1 - at.inward) } : null;
   }
   if (t.phase !== 'road') return null;
-  const { L } = wayFor(t.city, t.by);
+  // (Slice 37: a colony's ship comes in along the colony's lane.)
+  const { L } = t.colony ? { L: lineLength(wayPoints(wayOf(t.way))) } : wayFor(t.city, t.by);
   const u = clamp((tick - t.start) / Math.max(1, t.dur), 0, 1);
   const end = t.by === 'land' ? EDGE_ALONG : HORIZON_ALONG;
   return { along: L + (end - L) * u };
@@ -935,20 +953,34 @@ function aidArrives(s: SimState, map: CoastMap, a: Aid, r: Raid): boolean {
   const n = map.size;
   const goal = aidGoal(s, map, r);
   if (!goal) return false;
-  const side = routeWay(a.city, 'land')?.side ?? 'north';
-  const edges: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = side === 'north' ? i : side === 'south' ? (n - 1) * n + i : side === 'west' ? i * n : i * n + n - 1;
-    if (walkable(map, s, t)) edges.push(t);
-  }
+  let side = routeWay(a.city, 'land')?.side ?? 'north';
   const [gx, gz] = centreOf(goal);
   const ring = around(n, goal).filter((t) => walkable(map, s, t));
-  if (!edges.length || !ring.length) return false;
-  // (The side of it towards where they come in from.)
-  ring.sort((p, q) => dhypot((p % n) - (edges[0] % n), Math.floor(p / n) - Math.floor(edges[0] / n)) - dhypot((q % n) - (edges[0] % n), Math.floor(q / n) - Math.floor(edges[0] / n)) || p - q);
-  const tiles = offRoadPath(map, s, edges, ring[0]);
+  if (!ring.length) return false;
+  // Slice 37 (the finding of slice 34: it came in over the fields by its city's side of the map): in by the road edge its
+  // city's caravans use, and along the road to stand by what the raiders make for; over the fields only with no road in.
+  let tiles: number[] | null = null;
+  const entry = caravanEntry(s, n, goal, a.city);
+  if (entry && entry.tiles.length) {
+    const last = entry.tiles[entry.tiles.length - 1];
+    const hold = ring.slice().sort((p, q) => dhypot((p % n) - (last % n), Math.floor(p / n) - Math.floor(last / n)) - dhypot((q % n) - (last % n), Math.floor(q / n) - Math.floor(last / n)) || p - q)[0];
+    tiles = [...entry.tiles, hold];
+    const e = entry.tiles[0];
+    side = e % n === 0 ? 'west' : e % n === n - 1 ? 'east' : e < n ? 'north' : 'south';
+  } else {
+    const edges: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = side === 'north' ? i : side === 'south' ? (n - 1) * n + i : side === 'west' ? i * n : i * n + n - 1;
+      if (walkable(map, s, t)) edges.push(t);
+    }
+    if (!edges.length) return false;
+    // (The side of it towards where they come in from.)
+    ring.sort((p, q) => dhypot((p % n) - (edges[0] % n), Math.floor(p / n) - Math.floor(edges[0] / n)) - dhypot((q % n) - (edges[0] % n), Math.floor(q / n) - Math.floor(edges[0] / n)) || p - q);
+    tiles = offRoadPath(map, s, edges, ring[0]);
+  }
   if (!tiles || !tiles.length) return false;
-  const used = new Set(s.army.companies.map((c) => c.n));
+  // (Slice 37: numbered among its own city's companies, so yours don't skip a number.)
+  const used = new Set(s.army.companies.filter((c) => c.ally === a.city).map((c) => c.n));
   let num = 1;
   while (used.has(num)) num++;
   const hold = tiles[tiles.length - 1];
@@ -981,7 +1013,9 @@ function aidArrives(s: SimState, map: CoastMap, a: Aid, r: Raid): boolean {
   c.face = datan2(Math.floor(tiles[0] / n) + 0.5 - hz, (tiles[0] % n) + 0.5 - hx);
   s.army.companies.push(c);
   const way: number[] = [];
-  for (const [px, pz] of prunePath(map, s, tiles)) way.push(px, pz);
+  // (On the road, it keeps to the road: Slice 37.)
+  const onRoad = !!entry && entry.tiles.length > 0;
+  for (const [px, pz] of prunePath(map, s, tiles, onRoad ? (_m, st, t) => st.tiles[t] === TILE_ROAD : walkable)) way.push(px, pz);
   const [ox, oz] = offMapPoint(n, tiles[0]);
   const dx = ox - way[0];
   const dz = oz - way[1];
@@ -1301,7 +1335,7 @@ export function empireTownLine(s: SimState): { text: string; city: CityId; urgen
   const aid = s.empire.aid.find((a) => a.phase === 'road');
   if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${routeWay(aid.city, 'land')?.side} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false };
   const t = s.empire.tribute.find((x) => x.phase === 'city' || x.phase === 'bay');
-  if (t) return { text: `${whose(t.city)} tribute is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.city, urgent: false };
+  if (t) return { text: `${t.colony ? `${colonyName(s, t)}’s share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false };
   return null;
 }
 
@@ -1310,9 +1344,18 @@ export function tributeDoing(s: SimState, id: number, back: boolean): { title: s
   const t = s.empire.tribute.find((x) => x.id === id);
   const city = t?.city ?? 'corinth';
   const to = t ? findBuilding(s, t.store) : undefined;
+  // Slice 37: a colony's share.
+  if (t?.colony) {
+    const nm = colonyName(s, t);
+    if (back || t.phase === 'done') return { title: `${nm}’s share`, detail: `Your donkeys, heading back to the quay · they brought ${tributeWords(t)}` };
+    return { title: `${nm}’s share`, detail: `Your donkeys bringing ${tributeWords(t)} from the jetty to ${to ? `the ${to.kind}` : 'your stores'} · your colony’s share for the season` };
+  }
   if (!t || back || t.phase === 'done') return { title: `${whose(city)} tribute`, detail: `Donkeys of ${name(city)}, heading home along the road${t ? ` · they brought ${tributeWords(t)}` : ''}` };
   return { title: `${whose(city)} tribute`, detail: `Donkeys of ${name(city)} bringing ${tributeWords(t)} to ${to ? (to.kind === 'taxoffice' ? 'the tax office' : `the ${to.kind}`) : 'your stores'} · your vassal’s tribute for the season` };
 }
+
+/** Slice 37: the name of the colony a shipment is from. */
+const colonyName = (s: SimState, t: Tribute): string => s.empire.colonies.find((c) => c.site === t.colony)?.name ?? `your colony on ${siteOf(t.colony ?? '')?.name ?? t.colony}`;
 
 /** Every vassal and ally in a line each, for the probes and the smoke test. */
 export const empireList = (s: SimState): string[] => [...s.empire.vassals.map((v) => `${v.city}: vassal (${v.how}), ${WEIGHT_WORDS[v.weight]} ${v.good < 0 ? 'coin' : WARE_NAMES[TRADE_GOODS[v.good]]}, loyalty ${v.loyalty}${v.arming ? ', arming' : ''}`), ...s.empire.allies.map((a) => `${a.city}: ally`)];

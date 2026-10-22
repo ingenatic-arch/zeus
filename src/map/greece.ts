@@ -280,7 +280,31 @@ export function alongLine(p: readonly number[], d: number): { x: number; z: numb
   return { x: p[0] ?? 0, z: p[1] ?? 0, dx: 1, dz: 0 };
 }
 
-const byId = new Map(WAYS.map((w) => [w.id, w]));
+/**
+ * Slice 37: the lanes your own ships sail to the sites, for a colony of
+ * yours (founding it, its ships home, your triremes guarding it): out of the
+ * gulf like every lane, then among the islands to the site. The map draws one
+ * only while you have settlers on it or a colony at its end. By id
+ * `<site>-colony`.
+ */
+export const SITE_LANES: readonly Way[] = [
+  // Past Hydra to Kythnos' western shore.
+  { id: 'kythnos-colony', to: 'kythnos', kind: 'sea', pts: [...GULF, [23.4, 37.22], [23.95, 37.38], [24.42, 37.4]], drawn: false },
+  // South past the Argolid's tip and across to Melos' bay.
+  { id: 'melos-colony', to: 'melos', kind: 'sea', pts: [...GULF, [23.4, 37.05], [24.0, 36.75], [24.4, 36.71]], drawn: false },
+  // Through the western Cyclades, between Sifnos and Melos, past Antiparos to Naxos.
+  { id: 'naxos-colony', to: 'naxos', kind: 'sea', pts: [...GULF, [23.4, 37.15], [24.1, 37.0], [24.6, 36.85], [25.0, 36.9], [25.3, 36.98], [25.42, 37.1]], drawn: false },
+  // The Troy lane's way up the Aegean past Euboea, then north past Lemnos and Athos to Thasos.
+  { id: 'thasos-colony', to: 'thasos', kind: 'sea', pts: [...GULF, [23.4, 37.22], [23.95, 37.42], [24.3, 37.78], [24.65, 37.94], [25.05, 38.4], [24.95, 39.0], [24.85, 39.6], [24.6, 40.2], [24.7, 40.55], [24.7, 40.7]], drawn: false },
+  // Round Cape Maleas to Kythera.
+  { id: 'kythera-colony', to: 'kythera', kind: 'sea', pts: [...GULF, [23.25, 36.95], [23.3, 36.55], [23.2, 36.3], [22.99, 36.25]], drawn: false },
+  // Round Maleas, past Kythera and south across the open sea to the Libyan shore.
+  { id: 'cyrene-colony', to: 'cyrene', kind: 'sea', pts: [...GULF, [23.25, 36.95], [23.3, 36.55], [23.2, 36.15], [22.9, 35.6], [22.3, 35.1], [21.9, 34.78]], drawn: false },
+];
+/** Slice 37: the lane to a site (its id: 'thasos'). */
+export const siteLaneId = (site: string): string => `${site}-colony`;
+
+const byId = new Map([...WAYS, ...SITE_LANES].map((w) => [w.id, w]));
 /** A way by its id (they are fixed). */
 export const wayOf = (id: string): Way => byId.get(id) as Way;
 

@@ -310,6 +310,8 @@ BUILDING_NUMBERS.push('tempt', 'robbedAt');
 LEDGER_KINDS.push('stolen', 'fines');
 // Slice 34: tribute from your vassals.
 LEDGER_KINDS.push('vassals');
+// Slice 37: founding a colony.
+LEDGER_KINDS.push('colonies');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -401,10 +403,15 @@ function empireOk(e: unknown): boolean {
     all('vassals', (v) => ruled(v.city) && ['conquest', 'awe', 'debt'].includes(v.how as string) && ['since', 'good', 'weight', 'loyalty', 'next', 'sent', 'worth', 'arming', 'rises'].every((k) => fin(v[k]))) &&
     all('allies', (a) => ruled(a.city) && fin(a.since) && nums(a.refused) && fin(a.declined)) &&
     all('heralds', (h) => ruled(h.city) && ['submit', 'debt', 'alliance'].includes(h.kind as string) && ['', 'yes', 'no', 'friends'].includes(h.answer as string) && typeof h.why === 'string' && typeof h.line === 'string' && ['id', 'loan', 'at', 'due', 'odds'].every((k) => fin(h[k]))) &&
-    all('tribute', (t) => ruled(t.city) && ['land', 'sea'].includes(t.by as string) && ['road', 'bay', 'city', 'done'].includes(t.phase as string) && typeof t.way === 'string' && typeof t.how === 'string' && (t.ship === null || isObj(t.ship)) && ['id', 'good', 'amount', 'worth', 'start', 'dur', 'put', 'lost', 'store', 'ended'].every((k) => fin(t[k]))) &&
+    all('tribute', (t) => (ruled(t.city) || (t.city === 'home' && typeof t.colony === 'string')) && ['land', 'sea'].includes(t.by as string) && ['road', 'bay', 'city', 'done'].includes(t.phase as string) && typeof t.way === 'string' && typeof t.how === 'string' && (t.ship === null || isObj(t.ship)) && ['id', 'good', 'amount', 'worth', 'start', 'dur', 'put', 'lost', 'store', 'ended'].every((k) => fin(t[k]))) &&
     all('aid', (a) => ruled(a.city) && ['road', 'city', 'home', 'done'].includes(a.phase as string) && typeof a.way === 'string' && typeof a.line === 'string' && ['id', 'raid', 'men', 'start', 'dur', 'company'].every((k) => fin(a[k]))) &&
     all('calls', (c) => ruled(c.ally) && ruled(c.foe) && ['open', 'joined', 'refused', 'lapsed', 'over'].includes(c.state as string) && ['id', 'war', 'at', 'due', 'expedition'].every((k) => fin(c[k]))) &&
-    all('conquests', (q) => ruled(q.city) && fin(q.expedition) && Array.isArray(q.helpers) && Array.isArray(q.declined) && Array.isArray(q.theirs) && typeof q.crush === 'boolean')
+    all('conquests', (q) => ruled(q.city) && fin(q.expedition) && Array.isArray(q.helpers) && Array.isArray(q.declined) && Array.isArray(q.theirs) && typeof q.crush === 'boolean') &&
+    // Slice 37: your colonies and a colony on its way.
+    Array.isArray(e.colonies) &&
+    Array.isArray(e.foundings) &&
+    all('colonies', (c) => typeof c.site === 'string' && typeof c.name === 'string' && typeof c.governor === 'string' && typeof c.trait === 'string' && Array.isArray(c.memories) && Array.isArray(c.guards) && Array.isArray(c.homes) && typeof c.skip === 'boolean' && (c.threat === null || isObj(c.threat)) && ['since', 'settlers', 'share', 'loyalty', 'next', 'sent', 'worth', 'talk', 'frees'].every((k) => fin(c[k]))) &&
+    all('foundings', (f) => typeof f.site === 'string' && ['gathering', 'leaving', 'sea', 'done'].includes(f.phase as string) && Array.isArray(f.households) && (f.ship === null || isObj(f.ship)) && ['id', 'at', 'cost', 'wheat', 'post', 'until', 'start', 'dur', 'people'].every((k) => fin(f[k])))
   );
 }
 
@@ -478,7 +485,7 @@ function worldOk(w: unknown): boolean {
   if (!(w.routes as unknown[]).every(routeOk)) return false;
   if (!(w.travellers as unknown[]).every((t) => isObj(t) && typeof t.kind === 'string' && typeof t.city === 'string' && typeof t.way === 'string' && fin(t.start) && fin(t.dur) && typeof t.homeward === 'boolean')) return false;
   // Slice 31: the sites, and each city's size, lord and record of growth.
-  if (!Array.isArray(w.sites) || !(w.sites as unknown[]).every((x) => isObj(x) && typeof x.id === 'string' && typeof x.owner === 'string' && typeof x.bound === 'string' && ['since', 'pop', 'told', 'lands'].every((k) => fin(x[k])))) return false;
+  if (!Array.isArray(w.sites) || !(w.sites as unknown[]).every((x) => isObj(x) && typeof x.id === 'string' && typeof x.owner === 'string' && typeof x.bound === 'string' && typeof x.free === 'string' && ['since', 'pop', 'told', 'lands'].every((k) => fin(x[k])))) return false;
   if (!(w.cities as unknown[]).every((c) => isObj(c) && ['pop', 'wealth', 'army', 'fleet', 'lordSince'].every((k) => fin(c[k])) && typeof c.lord === 'string' && Array.isArray(c.grew) && (c.grew as unknown[]).every((g) => isObj(g) && typeof g.kind === 'string' && typeof g.why === 'string' && ['year', 'pop', 'wealth', 'army', 'fleet'].every((k) => fin(g[k]))))) return false;
   return (w.cities as unknown[]).every((c, i) => {
     if (!isObj(c) || c.id !== CITY_IDS[i] || !fin(c.harvest) || !fin(c.outlook) || !fin(c.festival) || typeof c.war !== 'string' || !fin(c.feel) || !fin(c.gave)) return false;

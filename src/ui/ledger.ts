@@ -88,6 +88,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'fines') return [`Fines · ${l.what}`, n ? count(n, 'thief', 'thieves') : ''];
   // Slice 34: a vassal's tribute in coin.
   if (l.kind === 'vassals') return [`Tribute from ${l.what}, your vassal`, n > 1 ? count(n, 'caravan', 'caravans') : ''];
+  // Slice 37: founding a colony.
+  if (l.kind === 'colonies') return [l.what, ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
   if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
   if (l.kind === 'fire') return [`Burnt down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
@@ -109,6 +111,8 @@ ORDER.splice(ORDER.indexOf('recovered') + 1, 0, 'fines');
 ORDER.push('stolen');
 // Slice 34: tribute from vassals comes in after what your soldiers brought home.
 ORDER.splice(ORDER.indexOf('collected') + 1, 0, 'vassals');
+// Slice 37: fitting out a colony goes out after gifts and favours.
+ORDER.splice(ORDER.indexOf('favours') + 1, 0, 'colonies');
 
 interface Row {
   kind: LedgerKind;

@@ -29,7 +29,7 @@
 import type { CoastMap } from '../map/bake';
 import { WATER_SEA } from '../map/bake';
 import { dhypot } from '../map/dmath';
-import { HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints, type CityId } from '../map/greece';
+import { HORIZON_ALONG, lineLength, PLACES, siteOf, wayOf, wayPoints, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { armyNews, eldestMan, knownBy, servingHomes } from './army';
 import { findBuilding, livedIn, HUT, COTTAGE, centreOf } from './buildings';
@@ -930,6 +930,8 @@ export function daysToBeach(s: SimState, map: CoastMap, r: Raid): number {
 export function stationAlong(way: string): number {
   const p = PIRATE_PLACES.find((x) => x.way === way);
   const pts = wayPoints(wayOf(way));
+  // Slice 37: guarding your colony, she sails all the way to it (the lane's end, off its shore).
+  if (way.endsWith('-colony')) return Math.max(0, lineLength(pts) - 0.5);
   if (!p) return lineLength(pts) / 2;
   return lineLength(pts.slice(0, (p.at + 1) * 2));
 }
@@ -1126,6 +1128,27 @@ export function fleetHome(s: SimState, map: CoastMap, ids: readonly number[]): v
     } else if (t.state === 'rowing') homeTo(s, map, t);
   }
   s.rev++;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 37: your triremes guarding a colony (colonies.ts sends them, and calls them home with callHome).
+
+/** Send a trireme at home (guarding the bay, crewed and sound) out along a colony's lane to guard it. */
+export function guardColony(s: SimState, map: CoastMap, id: number, way: string): boolean {
+  const t = triremeOf(s, id);
+  if (!t || !afloat(t) || t.order !== 'bay' || !fit(t) || (t.state !== 'moored' && t.state !== 'rowing')) return false;
+  t.order = 'lane';
+  t.lane = way;
+  t.foe = 0;
+  goOut(s, map, t);
+  s.rev++;
+  return true;
+}
+
+/** A colony's guard in words: "Sailing to guard Thasos, your colony". */
+function colonyGuardWords(lane: string, homeward: boolean, station: boolean): string {
+  const site = siteOf(lane.replace(/-colony$/, ''))?.name ?? 'your colony';
+  return homeward ? `Sailing home from guarding ${site}` : station ? `On guard off ${site}, your colony` : `Sailing to guard ${site}, your colony`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1345,6 +1368,8 @@ export function triremeDoing(s: SimState, t: Trireme): string {
     case 'away': {
       const at = triremeOnMap(t, s.tick);
       if (t.order === 'away') return at?.homeward ? 'Sailing home from the expedition' : 'Away with your soldiers';
+      // Slice 37: guarding your colony (colonies.ts).
+      if (t.lane.endsWith('-colony')) return colonyGuardWords(t.lane, !!at?.homeward || t.order !== 'lane', !!at?.station);
       if (!lane || at?.homeward) return 'Sailing home along the lane';
       return at?.station ? `On guard ${lane.name}, on the lane to ${cityName(lane.city)}` : `Sailing to guard the lane to ${cityName(lane.city)}, ${lane.name}`;
     }

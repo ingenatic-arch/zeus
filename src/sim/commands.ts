@@ -62,7 +62,10 @@ export type Command =
   | { type: 'seasons'; on: boolean }
   // Slice 34
   /** Your vassals and allies (vassals.ts; an act it refuses does nothing): set a vassal's tribute (`good` -1 coin or a trade good's index, `weight` 0 light, 1 fair, 2 heavy); demand that a city submit; offer a debtor its debt for its loyalty; offer an alliance, or end one; send a full force to conquer a city (or crush a vassal arming against you); join or refuse an ally's call to war (`call` its id). */
-  | { type: 'empire'; act: 'tribute' | 'submit' | 'debt' | 'ally' | 'unally' | 'conquer' | 'join' | 'refuse'; city?: string; good?: number; weight?: number; call?: number };
+  | { type: 'empire'; act: 'tribute' | 'submit' | 'debt' | 'ally' | 'unally' | 'conquer' | 'join' | 'refuse'; city?: string; good?: number; weight?: number; call?: number }
+  // Slice 37
+  /** Your colonies (colonies.ts; an act it refuses does nothing): found one on a free site; set a colony's share (`share` 0 light, 1 fair, 2 heavy); rename it; send triremes at home to guard it (all, or `n`); bring them home. */
+  | { type: 'colony'; act: 'found' | 'share' | 'name' | 'guard' | 'recall'; site: string; share?: number; name?: string; n?: number };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers';

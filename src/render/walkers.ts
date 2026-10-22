@@ -741,7 +741,9 @@ const TUNICS = [PAL.tunicTerracotta, PAL.tunicOchre, PAL.tunicBlue, PAL.tunicCre
 /** Drachmas in a tax collector's satchel from which it shows full. */
 const SATCHEL_FULL = 20;
 
-export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge';
+export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge'
+  // Slice 37: a household walking down to the quay for a colony (drawn as settlers are).
+  | 'colonist';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -903,7 +905,7 @@ export class Walkers {
           continue;
         }
       }
-      if (w.kind !== 'settler' && w.kind !== 'leaver') {
+      if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist') {
         const [x, z, dx, dz] = this.at(w, cum, lead);
         const moving = lead < total && w.wait <= 0 ? 1 : 0;
         const cart = w.kind === 'cart';
@@ -978,6 +980,12 @@ export class Walkers {
         this.c.copy(col(TUNICS[Math.floor(hash2(seed, 2, 62) * TUNICS.length)]));
         if (!moving) this.c.multiplyScalar(-1);
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);
+        // Slice 37: a colonist household can be hovered and followed, by its first.
+        if (w.kind === 'colonist' && k === 0) {
+          const v = this.serviceAt.get(w.id);
+          if (v) v.pos.copy(this.p);
+          else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'colonist' });
+        }
       }
     }
     for (const id of this.paths.keys()) if (!live.has(id)) this.paths.delete(id);

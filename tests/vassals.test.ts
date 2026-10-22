@@ -16,6 +16,10 @@ import { declareWar } from '../src/sim/rivals';
 import { DEBT_WORTH, STEP_GAP } from '../src/sim/loans';
 import { gather, threaten } from '../src/sim/raids';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
+// Slice 37: aid comes in by its city's caravan road.
+import { caravanEntry } from '../src/sim/routes';
+import { findBuilding } from '../src/sim/buildings';
+import { offMapPoint } from '../src/sim/walk';
 import { SIM_STATE_VERSION, type Loan, type SimState, type Trait, type WorldCity } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
 import { income } from '../src/sim/treasury';
@@ -235,17 +239,27 @@ describe('allies', () => {
     expect(a.city).toBe('corinth');
     expect(a.men).toBeGreaterThanOrEqual(8);
     expect(until(sim, () => a.phase !== 'road', a.dur + 2 * TICKS_PER_DAY)).toBe(true);
-    if (a.phase === 'city') {
-      const co = s.army.companies.find((x) => x.id === a.company)!;
-      expect(co.ally).toBe('corinth');
-      expect(s.army.soldiers.filter((x) => x.company === co.id).length).toBe(a.men);
-      // It costs you nothing.
-      expect(co.owed).toBe(0);
-      expect(until(sim, () => a.phase === 'home' || a.phase === 'done', 8 * TICKS_PER_MONTH)).toBe(true);
-      // Over, or broken: either way it goes home and says so.
-      expect(r.ended > 0 || /broke/.test(a.line)).toBe(true);
-      expect(s.army.companies.some((x) => x.ally)).toBe(false);
-    }
+    // (Slice 37: it arrives, unconditionally; the test only looked if it did.)
+    expect(a.phase).toBe('city');
+    const co = s.army.companies.find((x) => x.id === a.company)!;
+    expect(co.ally).toBe('corinth');
+    // (Slice 37: numbered among Corinth's companies, so yours don't skip a number.)
+    expect(co.n).toBe(1 + s.army.companies.filter((x) => x.ally === 'corinth' && x.id < co.id).length);
+    const men = s.army.soldiers.filter((x) => x.company === co.id);
+    expect(men.length).toBe(a.men);
+    // (Slice 37: in by the road edge Corinth's caravans use, the finding of slice 34: not over the fields by its side of the map.)
+    const n = sim.map.size;
+    const goal = findBuilding(s, r.target) ?? s.buildings.find((b) => b.kind === 'taxoffice')!;
+    const entry = caravanEntry(s, n, goal, 'corinth');
+    expect(entry).not.toBeNull();
+    const [ox, oz] = offMapPoint(n, entry!.edge);
+    expect(Math.hypot(men[0].path[2] - ox, men[0].path[3] - oz)).toBeLessThan(0.01);
+    // It costs you nothing.
+    expect(co.owed).toBe(0);
+    expect(until(sim, () => a.phase === 'home' || a.phase === 'done', 8 * TICKS_PER_MONTH)).toBe(true);
+    // Over, or broken: either way it goes home and says so.
+    expect(r.ended > 0 || /broke/.test(a.line)).toBe(true);
+    expect(s.army.companies.some((x) => x.ally)).toBe(false);
   }, 400000);
 
   it('an ally at war asks you to join; refusing is remembered, and two refusals end the alliance', () => {

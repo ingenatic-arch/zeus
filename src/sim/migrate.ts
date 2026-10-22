@@ -114,6 +114,10 @@
  * slice 28 one ('': a raid or a force for a debt or without cause). Rivals'
  * vassals stay as they were; nothing else changes.
  *
+ * Slice 37 (Colonies): you have no colony and no settlers on their way, and
+ * no site has a colony that declared itself free. Rivals' colonies stay as
+ * they were; nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -189,6 +193,7 @@ export function migrate(st: unknown): number {
   if (st.version === 29) fromSlice32(st);
   if (st.version === 30) fromSlice33(st);
   if (st.version === 31) fromSlice34(st);
+  if (st.version === 32) fromSlice37(st);
   return from;
 }
 
@@ -739,5 +744,17 @@ function fromSlice34(st: Record<string, unknown>): void {
   if (!isObj(st.empire)) st.empire = freshEmpire();
   const w = st.world;
   if (isObj(w) && Array.isArray(w.expeditions)) for (const e of w.expeditions as unknown[]) if (isObj(e) && typeof e.aim !== 'string') e.aim = '';
+  st.version = (st.version as number) + 1;
+}
+
+/** Slice 37 (Colonies): see the note above. Only its own fields, each only if it is missing. */
+function fromSlice37(st: Record<string, unknown>): void {
+  if (isObj(st.empire)) {
+    const e = st.empire as Record<string, unknown>;
+    if (!Array.isArray(e.colonies)) e.colonies = [];
+    if (!Array.isArray(e.foundings)) e.foundings = [];
+  }
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.sites)) for (const x of w.sites as unknown[]) if (isObj(x) && typeof x.free !== 'string') x.free = '';
   st.version = (st.version as number) + 1;
 }
