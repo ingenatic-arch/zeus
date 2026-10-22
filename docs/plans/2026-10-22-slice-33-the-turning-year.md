@@ -95,7 +95,7 @@ Built as planned, with these differences and choices:
 
 - **Stages.** The plan's stages 2 to 4 (sim, render and UI, demos) went in as one commit (`8d57ebb`), because the demos' histories had to be retuned against the sim and the look tuned against the demos before the suite was green; each stage was typechecked and its tests run as it went.
 - **The calendar and paces** are as planned (`src/sim/seasons.ts`). The wild herds' pace (2, 1, 0.5, 0.5) is applied to a head's regrowth clock, not to the herd's size. The panels' harvest and picking times run through the seasons ahead (`ticksToGrow`), and the farm's, grove's, vineyard's, dairy's and pasture's panels name the season's pace ("Autumn: the wheat ripens half again as fast").
-- **The weather** is three-day spells, rain odds 25%, 7%, 30% and 45% (spring to winter), storms 12% of autumn's and 35% of winter's spells; only the look and the dial read it.
+- **The weather** is three-day spells, rain odds 25%, 7%, 30% and 45% (spring to winter), a storm in 12% of autumn's rainy spells and 35% of winter's; only the look and the dial read it.
 - **Winter at sea.** The Tyrian ship's and the sea routes' visits due in winter are put back 6 to 12 days (`stormDelay`, a hash of the seed, the ship and the day she was due), kept in `season.late` so the chip and lines can say so ("80 d · late"; the tip: "late: winter storms in the gulf held her back 10 days"). Enemy ships in the bay row at three quarters in winter, and `daysToBeach` counts it.
 - **Winter on land.** In raids.ts's monthly roll, a hostile ruler's new threat whose band would march in winter is skipped two times in three (`armiesHome`, hashed). Threats already made, refused tributes, lenders' armies and expeditions are untouched.
 - **The look.** Shared shader uniforms (`SEASON_UNIFORMS`) added to every material finish.ts patches: the ground's vegetation (weighted by its greenness and flatness, not the sand or cliffs) and the plants' green parts tinted and desaturated by the season, everything a little darker when wet. The sea (`Water.setLook`) goes greyer in autumn and winter and bluer in summer; the sky and fog greyer in winter and in rain, the sun and sky light dimmer, with a lightning flash every few seconds in a storm. Rain is one `LineSegments` draw of 2,600 streaks in a box that follows the camera (`src/render/rain.ts`). Each season holds its look for three quarters of its length and turns into the next over its last quarter. With `-plain` the finish's shaders are off, so the land isn't tinted; the sea, sky, light and rain still follow the season (the plan said a lighter tint: none was needed to keep `-plain` working, and I left it so).
@@ -110,16 +110,18 @@ Built as planned, with these differences and choices:
   - `#athensship` (and `#anchor`, `#pirates`) waits for a window the treasury can pay her fee and her wine in (+450 dr).
   - `#pirates` waits for the shipyard, its road, a trireme and a month's wages before the fleet goes in.
   - `#black` opens once wages have gone unpaid while her sail is on the horizon (with the seasons the treasury held more, and the first of the month that found it dry came a few days after her sail showed).
+  - `#overhunt` plays on, half a year at most, until the deer are down to their last few head: its lodges go in at the end of February, and with the deer growing back twice as fast in spring they were not yet thinned three months on. It opens in September (tick 5,480, was 4,200).
   - `#raid`, `#raiders`, `#aftermath` and `#looted` switch fire risk on as the band nears the edge, not weeks before: with the seasons, a month of risk on the unwatched farm row had an ordinary fire take the farms and the granary.
 - **Tests changed, and why.**
   - crime: the tax office purse is now `TREASURY_COIN`; the temptation test reads the score just before the home's own daily step (the seasons moved the day).
   - town: the warned-days bound is 400 (the fleece vendor's round, moved by the seasons).
-  - wild: over-hunting is played 240 days (the herds regrow faster in spring, so it took longer to show).
+  - wild: over-hunting is watched 240 days (the herds regrow faster in spring and slower in autumn and winter).
   - raids: the plunder test records what was held each tick until the take (carts arrive during the band's walk); the goods test adds 2,000 oil (April's presses had made little).
   - stockbook: it looks at October, when the presses are busy (March's were idle).
   - debts: it fills the storehouses' oil room before setting the yard's oil (porters had carried it back).
   - rivals: it adds 600 oil before the caravan's visit.
   - seasons (new, 17 tests): the calendar, paces, rhythm (a farm's year the same within a harvest, most in autumn), grove, dairy, wild herds, ships late in winter, the late ship's line, armies home, the weather's odds, the switch, a year twice the same, a slice 30 save (`tests/fixtures/slice30-nowatch.save.json.gz`), the winter line, `#thieves`' core watch post, the treasury's coin.
+- **Smoke.** `#quay`'s ship may now be late (her first call falls in winter), so its chip and panel checks accept "late".
 - **Not done from the plan:** a test of the crime overlay's threshold (it is a renderer constant; the overlay and panel now share `TEMPT_SHOW`), and the dial's tooltip line on the granaries. The check of `#thieves`' core watch is weaker than planned: it checks that the hut street is never watched and that some core home is, not that every core street is, because watchmen walk little in a demo's history (fire risk is off).
 
 ### Touched outside the line

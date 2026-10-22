@@ -183,8 +183,8 @@ describe('the hunting lodge', () => {
     const deer = s.herds.find((h) => h.place === 'below the crags')!;
     let thinnest = deer.head;
     let scarce = '';
-    // (Slice 33: #overhunt opens in May, its deer twice as many as before for the spring's calves, which grow back twice as
-    // fast in spring: thinned to the last two in the autumn, when they grow back half as fast.)
+    // (Slice 33: with the seasons the deer grow back twice as fast in spring and half as fast in autumn and winter, so
+    // #overhunt now opens in September, once they are down to their last few head, and is watched for longer.)
     for (let d = 0; d < 240; d++) {
       sim.run(TICKS_PER_DAY);
       herdsOk(s);

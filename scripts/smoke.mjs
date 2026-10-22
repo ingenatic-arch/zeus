@@ -1022,9 +1022,10 @@ await page.keyboard.press('Escape');
 // #quay: goods ticked, dockers on the road, goods stacked on the quay; the panel open with its rows, ticks and keeps.
 await open('#quay-paused');
 c = await city();
-if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
+// (Slice 33: her first call falls in winter, so she may be late, and the chip and panel say so.)
+if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen && /^\d+ d( · late)?$/.test(c.shipChip))) fail(`#quay: ${JSON.stringify(c)}`);
 let tt = await zeus(() => window.__zeus.tradeText());
-if (!/The trading post[\s\S]*Ship in \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
+if (!/The trading post[\s\S]*Ship (in|late ·) \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
 // Unticking a good and raising a keep go through the command queue.
 const keep0 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
 await page.click('.trade button[data-keep="0"][data-by="1"]');

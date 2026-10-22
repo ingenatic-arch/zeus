@@ -557,6 +557,18 @@ function overhuntTown(ticks: number): (sim: Sim) => void {
 }
 
 /**
+ * #overhunt, and on (half a year at most) until the deer are down to their last few head. (Slice 33: the lodges go in
+ * at the end of February, and with the seasons the herds grow back twice as fast through the spring, so three months
+ * on they were not yet thinned.)
+ */
+function overhuntThin(sim: Sim): void {
+  overhuntTown(OVERHUNT_TICKS)(sim);
+  const s = sim.state;
+  const end = s.tick + 6 * TICKS_PER_MONTH;
+  while (s.tick < end && !s.herds.some((h) => h.kind === 'deer' && h.head <= 3)) sim.run(TICKS_PER_DAY);
+}
+
+/**
  * #town: a town of a few hundred people a few years in, on the east bank of
  * the river, where Oliver looks first. The way in runs from the west edge up
  * a lane, over the bridge at the river's narrows and along a main street
@@ -2240,7 +2252,7 @@ const SCENES: Record<string, Demo> = {
   hunter: { view: 'hunter', setup: hunterTown, follow: 'hunter', overlay: 'food' },
   dairy: { view: 'dairy', setup: town(TOWN_TICKS), overlay: 'food' },
   table: { view: 'table', setup: tableTown(TABLE_TICKS), overlay: 'variety', overlayOn: true, open: aboutToClimb },
-  overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntTown(OVERHUNT_TICKS), overlay: 'food' },
+  overhunt: { view: 'overhunt', tool: 'lodge', setup: overhuntThin, overlay: 'food' },
   grove: { view: 'grove', tool: 'grove', setup: cultureTown(SHRINE_TICKS, false, false, false), overlay: 'oil' },
   oil: { view: 'oil', setup: town(TOWN_TICKS), overlay: 'oil' },
   storehouse: { view: 'storehouse', setup: town(TOWN_TICKS), overlay: 'oil' },
