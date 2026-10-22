@@ -2022,8 +2022,8 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
  * you, overdue), its debt offered for its loyalty; if Corinth's ruler says
  * no, it bows anyway (set up for this demo, and named so). Its tribute set
  * in oil or wine if it sells them (else the good it holds most of), fair if it can spare a season's worth and else light, as a player wanting goods would, played
- * on until the tribute's donkeys have come in at your edge and are walking
- * to the store (the camera on them). #submit: #companies' town with a second
+ * on until the tribute's donkeys have come in at your edge and are about ten
+ * days' walk from the store (the camera on them). #submit: #companies' town with a second
  * barracks inside the west gate and a band of Arcadians hired there, as a
  * player wanting a bigger army would: Argos' Empire tab, the demand to submit
  * with its odds and reasons, not yet sent. #conquer: #companies' town, a full
@@ -2036,8 +2036,8 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
 type EmpireStage = 'vassal' | 'submit' | 'conquer' | 'rebellion';
 /** How many days #rebellion opens after Corinth begins arming. */
 const ARMING_DAYS = 10;
-/** How many days #vassal's donkeys have been walking in from your edge. */
-const TRIBUTE_IN_DAYS = 1;
+/** How far (tiles) #vassal's donkeys are from the store as it opens: about ten days' walk. */
+const TRIBUTE_LEFT = 24;
 
 function empireTown(stage: EmpireStage): (sim: Sim) => void {
   return (sim) => {
@@ -2070,7 +2070,16 @@ function empireTown(stage: EmpireStage): (sim: Sim) => void {
       send({ type: 'empire', act: 'tribute', city: 'corinth', good, weight });
       const stop = s.tick + 4 * TICKS_PER_MONTH;
       while (s.tick < stop && !s.empire.tribute.some((x) => x.city === 'corinth' && x.phase === 'city')) sim.run(10);
-      sim.run(TRIBUTE_IN_DAYS * TICKS_PER_DAY);
+      // (On until its donkeys are some days from the store: in from your edge, the walk through the fields is weeks long.)
+      const t = s.empire.tribute.find((x) => x.city === 'corinth' && x.phase === 'city');
+      const w = t && s.walkers.find((x) => x.kind === 'caravan' && x.cheese === -t.id);
+      const left = (): number => {
+        if (!w) return 0;
+        let d = -w.along;
+        for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) d += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+        return d;
+      };
+      while (w && t?.phase === 'city' && s.tick < stop && left() > TRIBUTE_LEFT) sim.run(10);
       return;
     }
     COMPANIES(sim);

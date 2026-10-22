@@ -2,6 +2,56 @@
 
 Notes to Oliver, newest first.
 
+## Slice 34 — Vassals and allies (22 Oct)
+
+Your city can now stand over its neighbours. You can take a city in three ways: march a full force on it to conquer it, send a herald demanding that it submit, or offer to let an overdue debt go in return for its loyalty. Before you send, the page shows the odds and the reasons behind them. A vassal pays tribute every season, in coin or in one of its goods, light, fair or heavy. Its donkeys walk the tribute into your storehouse or tax office. It never trades against you or threatens you, and it sends men down its road when raiders come for you. Its loyalty is a number with every reason listed. When loyalty falls under 30, the vassal arms a season before it rises: lighten its tribute, send a gift, or march on it. A warm ruler can become your ally: each of you sends men when the other is raided, and each asks the other to join its wars. A lender's army now comes only for 500 dr or more. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 30 on this line (renumbered when it merges). Older saves load, with no vassals or allies.
+- **A lender's army marches only for 500 dr or more** (your balance card). Below that, its agents keep seizing your goods until the debt is paid. The line under the top bar says so ("not worth a march for 120 dr, so he sends no army, but the seizing goes on until it is paid"), and so does the Loans tab ("Not worth a march: 120 dr left"). For a smaller debt, the third step's army never comes.
+- **Rivals take vassals less often.** A rival now takes a vassal only when that city has lost a war lately, or when its army is under four fifths of its usual size and the two are at a feud. A city that broke free can't be taken again by the same lord for four years. Over 40 runs of twelve years: 41 bows (was 83), Argos to Sparta 25 of them (was 54), in 22 runs (was 34).
+- **Earlier demos.** I compared every demo at opening with the baseline (people, money and date). All but ten are the same. Every one that moved did so because Greece now plays differently under the new rival-vassal rule: with the old rule, `#rivals` and `#fortress` open exactly as before.
+  - `#rivals`, `#rivalsmap` and `#rivalstreet`: the town waits for Greece's war to end, and that is now a month later: July 746 BC (was June), 1,411 people as before, 4,846 dr (was 3,410). `#lend`, `#repaid` and `#forgive`, built on it, move by the same month.
+  - `#fortress`: Greece is calm sooner, so it opens in June 745 BC (was March 744 BC), with 1,330 people (was 1,344) and 3,057 dr (was 2,836). The loans it holds may come from other rulers than slice 31's note says: read each city's Loans tab.
+  - `#greecegrows`, `#knossos` and `#memphis`: no rival took a vassal in those ten years. So Argos' bow to Sparta is set up for the demo, and named so, as the setup already did in that case: a day later, 1,313 people (was 1,301).
+- **A force sent west from `#collect`'s town now goes.** It used to find no way out of your land.
+
+### What's new
+- **An Empire tab on every ruled city's page.**
+  - Not yours: the ways to take it, each with its odds and reasons, or why it can't be done now. **Conquer it** meets the city's whole army at home, plus a quarter of each friend's army and its lord's. **Demand it submit** works on a city cold or wary towards you whose side is no more than half your army. **Its debt for its loyalty** needs a loan to you that is overdue. **An alliance** needs a warm ruler. Your herald's last answer stays on the page for a year.
+  - Your vassal: its tribute (coin or a good it sells; light, fair or heavy, each with what it comes to a year and what it does to loyalty), what is on its way and what came last, and its loyalty with every reason. Those reasons are how heavy its tribute is, how it was taken, years under you, your army against its army, your army abroad, your gifts, its ruler's feelings otherwise, and rivals whispering.
+  - Your ally: its calls to war, Join or Refuse, what it has sent you, and End the alliance.
+- **Tribute you can watch arrive.** On the map of Greece, a caravan in the vassal's colours travels its road, or a ship sails its lane. It comes in at your road's edge, and its donkeys walk to the store with room: the tax office for coin, the storehouse or granary for goods. Oil and wine come in jars. A vassal reached only by sea sends a ship that anchors in your bay. The ledger has a tribute line and the stock book has the goods.
+- **A rising, a season ahead.** Under 30 at a month's turn, a vassal arms. You get urgent news, a red shield on its label, a line under the top bar naming its day, and three answers on its page: lighten the tribute, send a gift, or march on it. If your army wins, the rising is crushed; if it loses, the city throws off your rule. If it rises, it is a rival again, with a grudge.
+- **Men in your defence.** When a band comes for you, each vassal and ally with a road sends a company. Its men walk in from its road's edge in their own city's colours, under their city's banner, and stand by what the raiders make for. They go home when it's over or if they break, and they cost you nothing.
+- **Allies' calls.** When an ally goes to war, it asks you to join within 60 days. Join sends a full force, and a win turns the war its way. Refusing is remembered, and two refusals in three years end the alliance. When you march to conquer, your allies with a road may march with you (6 in 10 if warm, 8 in 10 if devoted).
+- **A rival's vassal** can be conquered or cowed. Its lord stands by it, and remembers your taking it. There is no way to set it free without taking it: I kept it to the one way.
+
+### What to try
+1. Open #vassal. The camera follows Corinth's tribute: two donkeys with jars of wine, about ten days from your storehouse. Watch them walk in and unload (the town line says what they bring). Then open the stock book: "Tribute from Corinth, your vassal". Open the map of Greece, then Corinth's page and its Empire tab: its loyalty with the reasons, its tribute. Set it heavy and watch the loyalty's target fall.
+2. Open #submit. Argos' Empire tab is open: read the odds of making it bow (about 2 in 10 with 48 men against its 21, and a proud king), and the conquest's (about 7 in 10). Send the herald if you like: the page names the day his answer comes back.
+3. Open #conquer (it opens paused): your army has just beaten Argos at its gates, and the report is at the top of Argos' Empire tab. Read why Argos is still fairly loyal ("still cowed by its defeat") despite hating you. Set its tribute.
+4. Open #rebellion: Corinth is arming against your heavy tribute and a small army. Read the warning and its day, then choose: lighten the tribute, send a gift from the Ruler tab, or march on it.
+
+Each link also opens paused if you add `-paused`.
+
+### What I'd like your eye on
+- **The odds of awe.** Cowing a city takes at least twice its side, and the odds start low: about 2 in 10 at a little over twice (Argos in `#submit`), and about 5 in 10 at three times. Is that too hard to be worth trying?
+- **What conquest costs.** It's treated like any war without cause: Argos −90, and −12 to −18 with every other ruler. For Argos' 353 dr a year, plus what your men carry off (1,200 dr and 3,000 wheat in `#conquer`), is it worth it?
+- **Loyalty.** Light tribute and a big army keep a vassal; heavy tribute and an army no bigger than its own lose it within a month or two (`#rebellion`). Is the balance right, and are the reasons readable?
+- **The donkeys' walk.** In from the edge to the store is weeks of game time on `#collect`'s long west road. That is why `#vassal` opens with them ten days from the store.
+- **Rival vassals.** Argos is still the city that bows most often, to Sparta.
+
+### Known rough edges
+- **There is no `#ally` demo.** Allies are covered by the tests (aid in a raid, calls, refusals) but not by a link: no ruler in the prepared towns is warm enough at the right moment.
+- **An allied company takes a company number** while it is in your city, so a company you raise then skips that number.
+- **Heralds are not drawn on the map of Greece.** The page names the day his answer comes.
+- **A vassal's tribute in goods only goes into your stores,** and nothing in the ledger shows what it is worth. The vassal's page keeps the running total.
+- **A tribute ship** with no trading post in your bay is unloaded straight into the stores, and the page says so.
+
+### Measurements
+FILL-MEASUREMENTS
+
 ## Slice 31 — Greece grows (21 Oct)
 
 Greece is no longer six cities that never change. It now has eleven: Thebes, Argos, Knossos, Rhodes and Memphis have joined, with rulers, goods, roads and sea lanes. Six empty islands and capes wait for settlers. Each city with a ruler rises and falls over the years, and its page says why: its harvests, your trade, its wars, its debts, its tribute. Strong rivals found colonies and make weaker neighbours bow. Raids come more often, as you chose on the balance card, and they are still always a threat with a deadline first. You weren't here while it was built: every choice below is mine, from the spec's defaults.

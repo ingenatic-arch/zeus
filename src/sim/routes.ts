@@ -1137,7 +1137,11 @@ function moveTribute(s: SimState, map: CoastMap, w: Walker): boolean {
     if (w.seg < last) continue;
     if (w.back) return false;
     // At the store's door: it unloads.
-    if (t) unloadTribute(s, t, store, `into the ${store?.kind === 'taxoffice' ? 'tax office' : (store?.kind ?? 'stores')}${t.by === 'sea' ? ' from the jetty' : ` by the ${routeWay(t.city, 'land')?.side ?? 'north'} road`}`);
+    // (By the edge it came in at, as the walk began.)
+    const n = map.size;
+    const [x0, z0] = [w.path[0], w.path[1]];
+    const edge = x0 <= 0.5 ? 'west' : x0 >= n - 0.5 ? 'east' : z0 <= 0.5 ? 'north' : z0 >= n - 0.5 ? 'south' : (routeWay(t?.city ?? 'corinth', 'land')?.side ?? 'north');
+    if (t) unloadTribute(s, t, store, `into the ${store?.kind === 'taxoffice' ? 'tax office' : (store?.kind ?? 'stores')}${t.by === 'sea' ? ' from the jetty' : ` by the ${edge} road`}`);
     w.wait = UNLOADING;
     break;
   }
