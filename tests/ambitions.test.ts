@@ -153,6 +153,25 @@ describe('ambitions', () => {
     expect(achieved(s, 'greece').tick).toBe(0);
   });
 
+  it('all three achieved: the grand finish, a word from every ruler, the town line and a year’s pride; play goes on', () => {
+    const sim = demoSim('lit');
+    const s = sim.state;
+    // Every milestone but the last won in play, as if; then the last (the Lighthouse, standing) is won on the next look.
+    s.ambition.reached = MILESTONES.filter((m) => m.id !== 'lighthouse').map((m) => ({ id: m.id, tick: s.tick - 100, quiet: false, note: '' }));
+    s.ambition.grand = 0;
+    sim.run(TICKS_PER_DAY);
+    expect(s.ambition.grand).toBeGreaterThan(0);
+    expect(s.ambition.grandQuiet).toBe(false);
+    const words = s.world.news.filter((n) => n.tick === s.ambition.grand);
+    expect(words.length).toBeGreaterThanOrEqual(Math.min(8, s.world.cities.filter((c) => c.ruler && c.pop > 0).length - 1));
+    expect(ambitionTownLine(s)).toMatch(/^All three ambitions achieved: .* Play on as long as you like\.$/);
+    expect(prideMood(s)).toEqual({ w: 2, text: 'All Greece speaks of our city' });
+    const before = s.tick;
+    sim.run(TICKS_PER_MONTH);
+    expect(s.tick).toBe(before + TICKS_PER_MONTH);
+    ledgerHolds(s);
+  });
+
   it('every milestone reads what the town has, and none is met by a bare town', () => {
     const s = new Sim().state;
     for (const m of MILESTONES) {
