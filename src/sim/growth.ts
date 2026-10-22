@@ -113,8 +113,8 @@ const VASSAL_ODDS = 1 / 30;
 const VASSAL_FEELING = -10;
 /** Slice 34 (the finding of slice 31: Argos bowed to Sparta in most runs, their usual armies being far apart): a city bows only when it is weak, its army under this share of its usual, or lately beaten in a war. */
 const VASSAL_WEAK = 0.8;
-/** ...and not again by the lord it lately threw off. */
-const FREED_FOR = 4 * TICKS_PER_YEAR;
+/** ...and not again by the lord it lately threw off, while it remembers breaking free (its 'freed' bond lasts two years, and is let go then: review of slice 34, this said four). */
+const FREED_FOR = 2 * TICKS_PER_YEAR;
 /** A vassal breaks free when its army reaches this share of its lord's. */
 const FREE_ARMY = 2 / 3;
 /** A defeat counts against a city in a vassal's eyes for this long. */

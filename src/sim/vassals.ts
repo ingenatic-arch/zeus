@@ -373,8 +373,9 @@ export function submitPlan(s: SimState, city: CityId): Plan & { ours: number; th
   const friends = friendsOf(s, city).map((f) => name(f.id));
   const refusal = submitRefusal(s, c, ours, theirs);
   const r = ours / Math.max(1, theirs);
-  const why: string[] = [`your ${ours} men against ${sideWords(side.parts)}`];
   let p = AWE_BASE + AWE_PER * Math.max(0, r - AWE_RATIO);
+  // (Review of slice 34: what the armies alone make of it, so the reasons add up to the odds shown.)
+  const why: string[] = [`your ${ours} men against ${sideWords(side.parts)}, ${(Math.floor(r * 10) / 10).toFixed(1)} times its side (${Math.round(p * 100)} in 100)`];
   const t = c.ruler?.traits ?? [];
   const bend = (cond: boolean, n: number, words: string): void => {
     if (!cond) return;
@@ -747,7 +748,7 @@ function sendTribute(s: SimState, v: Vassal): void {
   const { id: way } = wayFor(v.city, by);
   const t: Tribute = { id: s.empire.nextId++, city: v.city, good: v.good, amount, worth: dr, by, way, phase: 'road', start: s.tick, dur: by === 'land' ? landTicks(v.city) : voyageTicks(v.city), ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0 };
   s.empire.tribute.push(t);
-  news(w, s.tick, v.city, `${whose(v.city)} tribute is on its way: ${tributeWords(t)}${short}, ${by === 'land' ? 'by road' : 'by sea'}: in your city about ${dayWords(s.tick + t.dur + (by === 'sea' ? SAIL_IN : 0))}`);
+  news(w, s.tick, v.city, `${whose(v.city)} tribute is on its way: ${tributeWords(t)}${short}, ${by === 'land' ? `by road: at the edge of your land about ${dayWords(s.tick + t.dur)}, then its donkeys walk it to your stores` : `by sea: in your bay about ${dayWords(s.tick + t.dur + SAIL_IN)}`}`);
 }
 
 /** "640 jars of oil", "360 dr". */
@@ -1042,6 +1043,11 @@ function stepCalls(s: SimState): void {
       endAlliance(s, a, `${rulerShort(c)} has turned cold towards you`);
       continue;
     }
+    // (Review of slice 34: an ally made to bow to a rival makes no alliances of its own.)
+    if (c.lord && c.lord !== 'home') {
+      endAlliance(s, a, `${name(a.city)} has bowed to ${name(c.lord)}, and makes no alliances of its own now`);
+      continue;
+    }
     const x = warOf(w, a.city);
     if (x && !s.empire.calls.some((k) => k.war === x.id && k.ally === a.city)) {
       const foe = foeIn(x, a.city);
@@ -1126,7 +1132,7 @@ function answer(s: SimState, map: CoastMap, h: Herald): void {
     const friends = friendsOf(s, h.city);
     if (yes && !c.lord) {
       h.answer = 'yes';
-      take(s, c, 'awe', `it would not face your army (${h.why.split(';')[0]})`);
+      take(s, c, 'awe', `it would not face your army (${h.why.split(';')[0].replace(/, [\d.]+ times its side \(\d+ in 100\)$/, '')})`);
       h.line = `${rulerShort(c)} bows: ${name(h.city)} is your vassal`;
     } else if (yes && c.lord && c.lord !== 'home') {
       h.answer = 'yes';

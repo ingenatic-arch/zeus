@@ -181,7 +181,7 @@ export function expeditionRefusal(s: SimState, city: CityId | string, kind: stri
   if (kind !== 'raid' && kind !== 'force') return 'Not an expedition';
   // (Slice 34: your vassal only when it arms against you, to crush it; never your ally.)
   const v = vassalOf(s, city);
-  if (v && !(aim === 'conquer' && v.arming)) return `${cityName(city as CityId)} is your vassal: you march on it only if it arms against you`;
+  if (v && !(aim === 'conquer' && v.arming)) return v.arming ? `${cityName(city as CityId)} is your vassal, arming against you: march on it from its Empire tab, to crush the rising` : `${cityName(city as CityId)} is your vassal: you march on it only if it arms against you`;
   if (allyOf(s, city)) return `${cityName(city as CityId)} is your ally: end the alliance first`;
   const way = expeditionWay(s, city as CityId);
   if ('why' in way) return way.why;

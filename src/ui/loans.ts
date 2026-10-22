@@ -266,9 +266,10 @@ export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
     return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}</li>`;
   });
   const why = expeditionRefusal(s, id, 'raid');
-  const block = /trireme|No way|no soldiers|no ruler/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
+  // (Slice 34 review: your vassal or your ally, too, says why rather than showing two dead buttons with odds.)
+  const block = /trireme|No way|no soldiers|no ruler|your vassal|your ally/i.test(why) ? `<p class="if no">${esc(why)}.</p>` : '';
   // (No soldiers at all, or no way there: only why, not two dead buttons.)
-  if (block && (!s.army.companies.length || /trireme|No way/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
+  if (block && (!s.army.companies.length || /trireme|No way|your vassal|your ally/.test(why))) return `<section class="soldiers"><h4>${cause ? 'Send your soldiers to collect it' : `Send your soldiers against ${esc(name(id))}`}</h4>${block}</section>`;
   const heard = cause ? '−3' : '−12';
   const way = expeditionWay(s, id);
   const bySea = 'by' in way && way.by === 'sea';

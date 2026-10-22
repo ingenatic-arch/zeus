@@ -2076,7 +2076,7 @@ function empireTown(stage: EmpireStage): (sim: Sim) => void {
       const left = (): number => {
         if (!w) return 0;
         let d = -w.along;
-        for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) d += Math.hypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+        for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) d += dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
         return d;
       };
       while (w && t?.phase === 'city' && s.tick < stop && left() > TRIBUTE_LEFT) sim.run(10);
