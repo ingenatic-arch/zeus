@@ -1149,10 +1149,10 @@ export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
 // Slice 38: the harbour's mouth, where a blockade takes station.
 
 /** How far in from the map's edge, along the ship's way in, the harbour's mouth is (tiles), and the least room left before the jetty. */
-export const MOUTH_IN = 8;
+export const MOUTH_IN = 18;
 const MOUTH_ROOM = 10;
 
-/** How far along a way in (from the horizon) the harbour's mouth is: just inside the map's edge (and never at the jetty). */
+/** How far along a way in (from the horizon) the harbour's mouth is: a way inside the map's edge, out beyond the island (and never at the jetty). */
 const mouthAlong = (path: readonly number[]): number => Math.max(0, Math.min(pathLength(path) - MOUTH_ROOM, outerLength(path) + MOUTH_IN));
 
 /** The harbour's mouth on the ship's way in to the trading post: her way, how far along it, the point and the way it runs there (null with no berth). */

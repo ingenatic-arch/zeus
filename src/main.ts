@@ -47,6 +47,7 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 // Slice 38: the shipyard's panel.
 import { ShipyardPanel } from './ui/shipyard';
+import { blockadeWords } from './sim/blockades';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
 import { giftOf, position } from './sim/walk';
@@ -220,6 +221,8 @@ interface Probe {
   tradeText?: () => string;
   /** Slice 38: the shipyard's panel's text ('' while it is shut). */
   shipyardText?: () => string;
+  /** Slice 38: the triremes' hulls, oars and repairs, the blockades and the warships on the lanes. */
+  seas?: () => { triremes: { id: number; state: string; task: string; hp: number; oars: number; mend: boolean }[]; ships: { id: number; state: string; blockade: number; x: number; z: number }[]; blockades: { city: string; phase: string; ships: number; sunk: number; end: string }[]; warships: { way: string; of: string; ships: number }[]; words: string };
   /** A docker carrying a ware (any, -1) to the quay (back) or back to a store, where he is drawn. */
   dockerOf?: (ware: number, back?: boolean) => { x: number; z: number } | null;
   trade?: (open: boolean, tab?: string) => void;
@@ -1592,6 +1595,16 @@ function start(preparedTown: string | null): void {
   probe.ledgerText = () => ledger.text;
   probe.tradeText = () => tradePanel.text;
   probe.shipyardText = () => shipyardPanel.text;
+  probe.seas = () => {
+    const f = sim.state.fleet;
+    return {
+      triremes: f.triremes.map((t) => ({ id: t.id, state: t.state, task: t.task, hp: t.hp, oars: t.oars, mend: t.mend })),
+      ships: f.ships.map((e) => ({ id: e.id, state: e.state, blockade: e.blockade ?? 0, x: e.x, z: e.z })),
+      blockades: f.blockades.map((b) => ({ city: b.city, phase: b.phase, ships: b.ships, sunk: b.sunk, end: b.end })),
+      warships: f.pirates.filter((p) => p.of).map((p) => ({ way: p.way, of: p.of ?? '', ships: p.ships })),
+      words: blockadeWords(sim.state),
+    };
+  };
   probe.trade = (open, tab) => {
     tradePanel.toggle(open);
     if (open && tab) tradePanel.showTab(tab);

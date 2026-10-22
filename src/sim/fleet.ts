@@ -124,7 +124,7 @@ const LIMP = 0.35;
 const BEACH_TICKS = 14 * TICKS_PER_DAY;
 /** A blockade's ships come in from this far beyond the edge, and lie this far apart across the harbour's mouth. */
 const BLOCKADE_HORIZON = 24;
-const BLOCKADE_GAP = 2.6;
+const BLOCKADE_GAP = 4;
 
 /** Pirates: none before your first sea route is this old; the odds a month once they may come; how long they are seen before they prey; how long they stay; the lull after. */
 const PIRATES_AFTER = TICKS_PER_YEAR;

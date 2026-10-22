@@ -307,6 +307,9 @@ for (const [hash, views] of [
   ['#monument-paused-shot', [null]],
   ['#lit-paused-shot', [null]],
   ['#games-paused-shot', [null]],
+  // Slice 38: Troy's ships holding the harbour's mouth, the triremes rowing out; the shipyard after, a trireme under repair.
+  ['#blockade-paused-shot', [null, 'town']],
+  ['#shipyard-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

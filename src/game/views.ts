@@ -168,7 +168,7 @@ export const VIEWS: Record<string, CameraView> = {
   // #games: over the Stadium between the quay road and the quarry road, its seats full.
   games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
   // Slice 38. #blockade: from over the bay, the harbour's mouth and Troy's ships across it, the triremes rowing out from the shipyard (tuned by eye).
-  blockade: { x: 76, z: 100, yaw: 3.0, dist: 46, tilt: -0.2 },
-  // #shipyard: the shipyard by the river mouth and its jetty, the triremes at their moorings.
-  shipyard: { x: 70, z: 72, yaw: 3.0, dist: 22, tilt: -0.15 },
+  blockade: { x: 63, z: 98, yaw: 0.4, dist: 50, tilt: -0.05 },
+  // #shipyard: the shipyard's jetty from upriver, the triremes at their moorings right of the panel (tuned by eye).
+  shipyard: { x: 69.5, z: 77.5, yaw: 1.2, dist: 10, tilt: 0.1 },
 };
