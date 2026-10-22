@@ -50,7 +50,22 @@ Each link also opens paused if you add `-paused`.
 - **A tribute ship** with no trading post in your bay is unloaded straight into the stores, and the page says so.
 
 ### Measurements
-FILL-MEASUREMENTS
+Measured headless with software WebGL at 1920 × 1080, on a machine shared with the other lines (load 14 to 18), so every time swings. Before is `f9b0d56` (the trunk with slices 30 and 31); after is this slice. The loads were measured side by side, alternating the two builds, three rounds each, and I give the medians. Only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 469 in 40 files | 484 in 41 files, all passing (15 new, in `tests/vassals.test.ts`) |
+| Download (gzipped) | 3,345 KB: the game 701 KB, the prepared towns 2,643 KB (82 files, the largest 45 KB) | 3,528 KB: the game 719 KB, the prepared towns 2,809 KB (86 files, the largest 45 KB) |
+| First load (bare link), side by side | ready at 4.8 s, first frame at 6.2 s | ready at 4.7 s, first frame at 5.5 s |
+| Demo loads, side by side (8 earlier demos) | median 5.1 s, slowest 6.1 s (`#report`) | median 5.2 s, slowest 6.8 s (`#town`) |
+| The new demos (ready, three loads each) | | `#vassal` 4.2 s, `#submit` 4.5 s, `#conquer` 4.2 s, `#rebellion` 4.5 s (`#town` 4.8 s in the same run) |
+| The map of Greece from `#town`, side by side | built in 417 ms; first frame at 16.8 s | built in 559 ms; first frame at 21.4 s |
+| The same, five more rounds of the map alone | built in 794 ms; first frame at 20.1 s (16.2 to 24.1) | built in 399 ms; first frame at 23.3 s (16.4 to 26.2) |
+| Map triangles in the new demos | | 313,690 to 316,066 (slice 31's were 313,000 to 322,000) |
+
+The map's first frame is drawn by software WebGL here, and takes 16 to 26 s for both builds. This slice was slower in both side-by-side runs, but the ranges overlap, and the map's build was faster in one run and slower in the other, so I can't call it a real change. Nothing new is drawn on the map in `#town`. It's worth a look on a real graphics card.
+
+The smoke test ran with every timeout five times longer, because frames came at under one a second on this machine. It passed with no failures, and the slice 34 section passed again after the final build.
 
 ## Slice 31 — Greece grows (21 Oct)
 
