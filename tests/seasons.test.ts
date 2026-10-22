@@ -270,7 +270,8 @@ describe('the switch and the saves', () => {
 
   it('a slice 30 save loads with the seasons on and plays on', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/slice30-nowatch.save.json.gz')).toString();
-    expect(JSON.parse(text).state.version).toBe(SIM_STATE_VERSION - 1);
+    // (Slice 30's version on the trunk, a literal as in the other save tests: another line's slice may merge between.)
+    expect(JSON.parse(text).state.version).toBe(28);
     const d = decodeSave(text);
     expect(d.ok).toBe(true);
     if (!d.ok) return;

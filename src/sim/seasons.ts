@@ -82,7 +82,7 @@ export type Rhythm = 'wheat' | 'fruit' | 'flock' | 'wild';
 
 /**
  * Each rhythm's pace in spring, summer, autumn and winter (each set sums to
- * 4, so the year comes out the same): wheat ripens half again as fast in
+ * 4, so the year comes out the same): wheat ripens 40% faster in
  * autumn and at 60% in winter; olives and grapes ripen fastest for the
  * autumn picking; the flocks give most in spring; the wild herds breed in
  * spring.
@@ -129,18 +129,21 @@ export function ticksToGrow(s: SimState, r: Rhythm, left: number, rate: number):
   return total + need / rate;
 }
 
-/** A season's word for how a rhythm goes in it: "half again as fast", "at 60%". */
+/**
+ * A season's word for how a rhythm goes in it: "40% faster", "at 60% of its pace". (Review of slice 33: 1.4 read
+ * "a little faster (140%)", and the check-in's "half again as fast" was 1.5, not the autumn wheat's 1.4.)
+ */
 export function paceWords(p: number): string {
   if (p >= 1.95) return 'twice as fast';
   if (p >= 1.55) return `${Math.round(p * 10) / 10} times as fast`;
   if (p >= 1.45) return 'half again as fast';
-  if (p > 1.02) return `a little faster (${Math.round(p * 100)}%)`;
+  if (p > 1.02) return `${Math.round((p - 1) * 100)}% faster`;
   if (p >= 0.98) return 'at its usual pace';
-  if (p >= 0.5) return `slower (${Math.round(p * 100)}%)`;
-  return `at ${Math.round(p * 100)}%`;
+  if (p >= 0.85) return `a little slower (${Math.round(p * 100)}% of its pace)`;
+  return `slower (${Math.round(p * 100)}% of its pace)`;
 }
 
-/** Why a crop's or a flock's pace is what it is now, in words ('' with the switch off): "Autumn: the wheat ripens half again as fast". */
+/** Why a crop's or a flock's pace is what it is now, in words ('' with the switch off): "Autumn: the wheat ripens 40% faster". */
 export function paceLine(s: SimState, kind: BuildingKind): string {
   const r = RHYTHM_OF[kind];
   if (!r || !s.season?.on) return '';
@@ -275,10 +278,10 @@ export function seasonNews(s: SimState): SeasonNews | null {
     line = `Spring: the flocks lamb and kid and give the most milk and fleece, and the wild herds breed. The wheat grows a little slower than its usual pace. Summer comes in ${d(left)}`;
   } else if (season === SUMMER) {
     coming = `the harvest in ${left} d`;
-    line = `Summer: the land turns gold and the wheat ripens a little faster. The harvest begins in ${d(left)}: in autumn the fields ripen half again as fast, the olives and grapes are picked, and the granaries fill`;
+    line = `Summer: the land turns gold and the wheat ripens a little faster. The harvest begins in ${d(left)}: in autumn the fields ripen 40% faster, the olives and grapes are picked, and the granaries fill`;
   } else if (season === AUTUMN) {
     coming = `harvest · winter in ${left} d`;
-    line = `Autumn: the harvest. The fields ripen half again as fast, the olives and grapes are picked, and the granaries fill. Winter comes in ${d(left)}: the fields give little until spring, ships run late, and most rulers keep their men at home`;
+    line = `Autumn: the harvest. The fields ripen 40% faster, the olives and grapes are picked, and the granaries fill. Winter comes in ${d(left)}: the fields give little until spring, ships run late, and most rulers keep their men at home`;
   } else {
     coming = `storms · spring in ${left} d`;
     line = `Winter: the fields give little (60% of their pace), storms in the gulf hold ships back a week or two, and most rulers keep their men at home. Spring comes in ${d(left)}`;

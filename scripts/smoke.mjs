@@ -1636,10 +1636,9 @@ if (!(r20.raids[0].end === 'raided' && r20.raids[0].took > 0)) fail(`#raiders: a
 await open('#aftermath-paused');
 await frames(3);
 const led20 = await zeus(() => window.__zeus.ledgerText());
-// (Slice 33: with the seasons' history the band came at the end of a month, and the wheat it took first has gone off the
-// ledger, which keeps this month and last; and it burnt a farm on its way, not houses. Its coin is still there, and nothing
-// it plundered burnt.)
-if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Burnt down · /.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
+// (Slice 33: with the seasons' history its fires took a farm and the dairy, not houses; nothing it plundered burnt. Review of
+// slice 33: the wheat line is back, as #aftermath's demand now comes early in a month, so the wheat and the coin fall in one month.)
+if (!/Lost to raiders\s*Raided by Sparta · drachmas[\s\S]*Raided by Sparta · wheat[\s\S]*Burnt down · /.test(led20) || /Burnt down · (granaries|tax offices)/.test(led20)) fail(`#aftermath: the ledger: ${led20.slice(0, 1500)}`);
 await zeus(() => window.__zeus.greece(true, 'sparta'));
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
 await frames(3);

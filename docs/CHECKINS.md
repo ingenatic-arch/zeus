@@ -18,7 +18,7 @@ What breaks, or moves:
     - `#pirates` waits until it can pay for the shipyard and a trireme.
     - `#villas` and `#winevendor` wait until every villa has its wine.
     - `#black` opens once the wages have gone unpaid, a few days after her sail shows.
-    - `#overhunt` opens in September, four months later, once its deer are down to their last few head (they grow back twice as fast in spring).
+    - `#overhunt` opens in September, four months later, once its deer are down to their last few head (they grow back twice as fast in spring). Cleared of its lodges, its deer are now whole again about three months later, not two, as they grow back at half pace in autumn and winter.
     - `#raid`, `#raiders`, `#aftermath` and `#looted` turn fire risk on as the band nears, not weeks before. With the seasons, a month of risk had an ordinary fire take their farms and granary.
   - **People** at opening: within about 5% everywhere but `#town` and the demos that open on its town (738, was 693), `#hunter` (803, was 704: it opens two months later), `#dry` (863, was 799) and `#rubble` (1,046, was 1,113).
   - **Money** at opening: the median is 10 dr lower. It is down most in the rich military and money towns, with the most in `#forgive` (8,271 dr, was 11,714), `#repaid` (8,592, was 11,612), `#lend` (3,737, was 6,324) and `#triremes` (2,161, was 3,856). It is up most in `#ship` (1,243, was 892) and `#quay` (1,151, was 682).
@@ -38,7 +38,7 @@ What breaks, or moves:
   | The flocks (cheese and fleece) | 140% | 110% | 90% | 60% |
   | The wild herds growing back | twice as fast | as usual | half as fast | half as fast |
 
-  The farm's, grove's, vineyard's, dairy's and pasture's panels count the harvest through the seasons ahead and say why: "Autumn: the wheat ripens half again as fast".
+  The farm's, grove's, vineyard's, dairy's and pasture's panels count the harvest through the seasons ahead and say why: "Autumn: the wheat ripens 40% faster".
 - **Winter at sea.** A ship due in winter (the Tyrian ship, or a sea route's ship) is held back 6 to 12 days by the storms. Her chip says "late", and its tip and her line say why: "late: winter storms in the gulf held her back 10 days". Enemy ships in the bay row at three quarters of their pace in winter.
 - **Winter on land.** Two times in three, a hostile ruler whose band would march in winter keeps his men at home. A threat already counting down still comes. So do a refused tribute's anger, a lender's army and your own expeditions.
 - **The weather.** Spells of about three days. It rains on about a quarter of spring's and autumn's days, hardly ever in summer and nearly half of winter's. There is the odd storm in autumn and winter. The weather only changes the look and the dial, not the farms or ships.
@@ -57,7 +57,7 @@ What breaks, or moves:
 1. Open #seasons. It is `#town`'s town nine days before spring, at the fastest speed, over the farms by the river, with the Husbandry tab open. Watch the dial and the land through a year: green, gold, amber, grey-green. Click a farm in summer and again in autumn to see its harvest speed up.
 2. Open #winter. It is `#richtown`'s town in December, raining over the bay. The ship's chip says "80 d · late": hover it for why. Play on into spring and watch the sea and sky lift.
 3. Open #town and play a year at the fastest speed. Watch the dial count down to each season, and look for the rain.
-4. Open #thieves and look at the core's new watch post (the crime overlay, J four times, shows its reach). The hut street is still unwatched.
+4. Open #thieves and look at the core's new watch post: the crime overlay is on as it opens, so pan down from the hut street to the core to see the post's reach on the roads. The hut street is still unwatched.
 5. Add `-plain` to any link (for example #winter-plain) to see the seasons without the finished look. The land keeps its colour; the sea, sky and rain still change.
 
 Each link also opens paused if you add `-paused` (for example `#seasons-paused`).
@@ -75,7 +75,7 @@ Each link also opens paused if you add `-paused` (for example `#seasons-paused`)
 - **No snow, no day and night, and the festivals keep their own calendar.** The rivals' harvests and wars on the map of Greece don't follow the seasons yet either.
 - **The weather doesn't touch the sim.** Rain doesn't slow walkers or put out fires, and a storm doesn't sink ships.
 - **Lightning is a flash of the light only,** with no bolt and no sound.
-- **`#aftermath`'s ledger has lost two of its lines.** Sparta's band now comes at the end of a month. By the time the demo opens, the wheat it took is two months back, and the ledger only keeps this month and last. This band also burnt a farm on its way, not houses. The coin it took and the king's spent anger still show.
+- **`#aftermath`'s band burnt a farm and the dairy, not houses.** Its fires fall otherwise in the seasons' history. The ledger still shows the wheat and coin it took, and the king's spent anger (after the review: see below).
 - **Money at opening fell by a quarter or more in the richest demos.** Over their long histories the treasury filled at another pace. Their stories hold, but the numbers in their old notes are out of date.
 
 ### Measurements
@@ -93,6 +93,18 @@ Headless Chromium with software WebGL. Before is `1af5f81` (the trunk with slice
 | Frame work (update before drawing, running, side by side) | `#town` 34 ms, `#richtown` 46 ms, `#thieves` 32 ms, `#blaze` 19 ms, `#prices` 29 ms | `#town` 24 ms (one of three runs; the other two drew too few frames to count), `#richtown` 33 ms, `#thieves` 44 ms, `#blaze` 18 ms, `#prices` 22 ms; `#seasons` (at the fastest speed) 28 and 119 ms, `#winter` 15 and 25 ms |
 
 On this machine the frame work numbers are mostly noise: single runs ranged from 0 to 176 ms for the same demo. Neither build is clearly slower. The draws and triangles are the same, plus the rain's one draw.
+
+### What the review changed
+I went through the slice as you would, at 1920 × 1080, and read the code. Five things changed:
+- **The farm panel's words were wrong in autumn.** It said "the wheat ripens a little faster (140%)", and this note promised "half again as fast", which would be 150%. It now says "Autumn: the wheat ripens 40% faster", and the dial's tooltip says the same. The other seasons read "10% faster", "a little slower (90% of its pace)" and "slower (60% of its pace)".
+- **`#aftermath` has its wheat line back.** The ledger keeps only this month and last, and the band took the wheat at the end of April and the coin in May, so by the time it opened the wheat was gone. Its demand now comes on the 3rd of a month and runs out rather than being refused at once, so Sparta's band comes about a week later than in `#raiders` and takes both in May. The ledger opens on "Raided by Sparta · drachmas −191", "Raided by Sparta · wheat 1,600" and what burnt: a dairy, and two farms this month, but nothing it plundered. The king's anger is still spent. It opens on 23 June. `#threat`, `#raid`, `#raiders` and `#looted` are as the builder left them.
+- **A sea route's ship says "late" on its chip too,** as the Tyrian ship's does. Before, only her line and tip said so.
+- **Two notes above were out of date.** `#overhunt`'s deer now take about three months to grow back once its lodges are cleared, not two (they grow back at half pace in autumn and winter). Step 4 now says the crime overlay is already on in `#thieves`.
+- **A test of slice 30's save** compared its version with "the current one minus one". If another line's slice merges first, that is no longer slice 30's version, so it now names slice 30's version, as the other save tests do.
+
+What I checked, and how it looked to me (you should judge the look yourself): the four seasons in `#seasons` side by side, winter in rain and in a storm, `#winter` with the bay grey and the ship's chip at "80 d · late", `#winter-plain`, and `#thieves` in August. In summer the plain by the river goes a strong mustard gold, close up in `#thieves` too. Winter is darker and greyer but the fields and homes still read clearly. The rain streaks show over the bay and the town.
+
+Still 474 tests, all passing. The build is clean. The smoke's end (`#overhunt`, `#aftermath`, slices 30 and 33) passed against the new build.
 
 ## Slice 30 — Thieves in the night (21 Oct)
 

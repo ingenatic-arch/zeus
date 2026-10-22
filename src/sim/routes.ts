@@ -971,7 +971,7 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
   const back = missed ? `The last ship turned back: ${missed}. ` : '';
   // (Slice 33: held back by winter's storms, the line says so.)
   const late = lateWords(s, `${r.city}-sea`);
-  return { phase: 0, days, chip: `${days} d`, short: late ? `${whose} ship late · ${days} d` : `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}${late}`, who, kind: 'sea' };
+  return { phase: 0, days, chip: late ? `${days} d · late` : `${days} d`, short: late ? `${whose} ship late · ${days} d` : `${whose} ship in ${days} d`, line: `${back}The next ship from ${name} is due in ${dayWords(days)}${late}`, who, kind: 'sea' };
 }
 
 /** A closed route, in words: who closed it, since when, and what opens it. */

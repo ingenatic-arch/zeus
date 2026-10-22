@@ -1252,13 +1252,21 @@ function raidTown(stage: RaidStage): (sim: Sim) => void {
     // On until his raiders could come at the end of the usual two months (no raid in a city's first year of trade), the treasury able to pay them off.
     const ready = firstRoute(s.world) + TICKS_PER_YEAR - GATHER - marchTicks('sparta') - THREAT_DAYS;
     waitFor(sim, ready, 1000, ready + 3 * TICKS_PER_MONTH);
+    // (Review of slice 33: #aftermath, and on to the 3rd of a month, its threat then left to run out rather than
+    // refused at once (a refusal sends the band at once, but no earlier than a year after the first route, so the day the
+    // band comes stays pinned). Left to run out, the band reaches the granary four months and a few days after this
+    // demand and the tax office a week after that, so the wheat and the coin it takes fall in one month's ledger, which
+    // #aftermath opens on (and, as it falls in this history, with what its fires burnt down). With the seasons' history the demand fell on 27 December, the wheat went in April and the coin
+    // in May, and the wheat was off the ledger by the time it opened.)
+    const lapse = stage === 'aftermath';
+    if (lapse) while (Math.floor((s.tick % TICKS_PER_MONTH) / TICKS_PER_DAY) !== 2) sim.run(TICKS_PER_DAY);
     // The second demand, refused while he is cold: the threat.
     const again = makeTribute(s, sim.map, sparta, -1, tributeSize(s, sparta, -1, false), false);
     send({ type: 'answer', deal: again.id, act: 'refuse' });
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
     if (!r || stage === 'threat') return;
-    // Let run out (as if nothing came): the band gathers and marches.
-    send({ type: 'answer', deal: r.deal, act: 'refuse' });
+    // Let run out (as if nothing came): the band gathers and marches. (Refused at once, but for #aftermath: see above.)
+    if (!lapse) send({ type: 'answer', deal: r.deal, act: 'refuse' });
     if (stage === 'raid') {
       while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + 2 * TICKS_PER_YEAR) sim.step();
       waitFor(sim, s.tick, r.coin, s.tick);
