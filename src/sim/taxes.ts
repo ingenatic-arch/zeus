@@ -127,9 +127,10 @@ export function handIn(s: SimState, w: Walker): void {
 /** Tax offices: send out the collector when one is due and someone works there. */
 export function stepTaxOffices(s: SimState, map: CoastMap): void {
   const size = map.size;
-  // Slice 30: each collector out hands in his satchel at the end of every day (with crime's switch on, so a demo's
-  // history plays as it did): the same ledger lines, taxes by district, coming in day by day instead of in lumps.
-  if (s.crime.on && s.tick % TICKS_PER_DAY === 0) for (const w of s.walkers) if (w.kind === 'tax' && w.purse.length) handIn(s, w);
+  // Slice 30: each collector out hands in his satchel once every day (with crime's switch on, so a demo's history
+  // plays as it did): the same ledger lines, taxes by district, coming in day by day instead of in lumps. (Review of
+  // slice 30: each at his own hour of the day, by his id, so a town's three collectors' takings don't land at once.)
+  if (s.crime.on) for (const w of s.walkers) if (w.kind === 'tax' && w.purse.length && (s.tick + w.id) % TICKS_PER_DAY === 0) handIn(s, w);
   for (const b of s.buildings) {
     if (b.kind !== 'taxoffice' || b.walker !== 0) continue;
     if (--b.clock > 0) continue;

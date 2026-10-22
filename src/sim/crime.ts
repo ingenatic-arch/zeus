@@ -723,8 +723,12 @@ export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
         r.names = [name];
       }
       tl.coin -= thief.load;
-    } else if (thief.food < 0) {
+    } else if (thief.food < 0 && t?.kind === 'taxoffice') {
+      // (Only the tax office's coin goes back to the treasury. Review of slice 30: a purse from a home burnt or
+      // cleared since went there too, coin the treasury never had.)
       income(s, thief.load, 'recovered', 'from a thief');
+      tl.coin -= thief.load;
+    } else if (thief.food < 0) {
       tl.coin -= thief.load;
     } else if (t && (t.kind === 'granary' || t.kind === 'storehouse')) {
       const back = Math.min(thief.load, Math.max(0, roomOf(t.kind, thief.food) - held(t, thief.food)));

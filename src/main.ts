@@ -460,6 +460,14 @@ function start(preparedTown: string | null): void {
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
     if (l.need === 'greece' || l.need === 'favour' || l.need === 'loan' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : l.need === 'loan' ? 'loans' : 'ruler');
+    // Slice 30 (review): a thief out: close in on him and follow him (he is small and dark at the usual distance).
+    const thief = l.need === 'crime' ? sim.state.walkers.find((o) => o.kind === 'thief' && o.people > 0 && o.home === l.at) : undefined;
+    if (thief) {
+      const at = city.walkers.serviceAt.get(thief.id)?.pos;
+      const v = rig.view;
+      rig.flyTo({ ...v, x: at?.x ?? v.x, z: at?.z ?? v.z, dist: Math.min(v.dist, 14) });
+      return startFollow(thief.origin, 'thief', thief.id);
+    }
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
     stopFollow();

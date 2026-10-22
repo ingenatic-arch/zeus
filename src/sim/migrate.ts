@@ -576,7 +576,7 @@ function fromSlice30(st: Record<string, unknown>): void {
       if (!isObj(b)) continue;
       if (typeof b.tempt !== 'number') b.tempt = 0;
       if (typeof b.robbedAt !== 'number') b.robbedAt = 0;
-      for (const k of ['goods', 'goodsIn', 'goodsUntil']) pad(b[k], GOOD_COUNT, zero);
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
     }
   if (!isObj(st.crime)) st.crime = freshCrime(true);
   st.version = (st.version as number) + 1;

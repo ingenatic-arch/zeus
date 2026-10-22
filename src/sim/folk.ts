@@ -416,7 +416,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     const robbed = lastOf(f, 'robbed');
     if (robbed && s.tick - robbed.tick < 2 * TICKS_PER_MONTH) {
       if (robbed.n) add(-2, `Robbed ${span(s.tick - robbed.tick)} ago: a thief took ${robbed.n} dr`);
-      else add(-1, `A thief broke in ${span(s.tick - robbed.tick)} ago; the watchman brought back what he took`);
+      else add(-1, `A thief broke in ${span(s.tick - robbed.tick)} ago; the watchman brought back what was taken`);
     }
     const caught = lastOf(f, 'caught');
     if (caught && s.tick - caught.tick < recent) add(-1, `Shamed: ${caught.names[0]} was caught stealing`);

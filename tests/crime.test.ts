@@ -247,10 +247,16 @@ describe('what comes in with the switch', () => {
   it('collectors hand in their satchels every day, and the ledger adds up', () => {
     const sim = demoSim('richtown');
     const s = sim.state;
-    for (let d = 0; d < 20; d++) {
-      sim.run(TICKS_PER_DAY - (s.tick % TICKS_PER_DAY) || TICKS_PER_DAY);
-      for (const w of s.walkers) if (w.kind === 'tax') expect(w.purse).toEqual([]);
-      ledgerAddsUp(s);
+    // (Each at his own hour: a satchel never holds more than a day's takings.)
+    const since = new Map<number, number>(s.walkers.filter((w) => w.kind === 'tax').map((w) => [w.id, s.tick]));
+    for (let t = 0; t < 20 * TICKS_PER_DAY; t++) {
+      sim.step();
+      for (const w of s.walkers) {
+        if (w.kind !== 'tax') continue;
+        if (w.purse.length === 0) since.set(w.id, s.tick);
+        else expect(s.tick - (since.get(w.id) ?? w.since)).toBeLessThanOrEqual(TICKS_PER_DAY);
+      }
+      if (t % TICKS_PER_DAY === 0) ledgerAddsUp(s);
     }
     // About the same taxes as with the switch off, over a month (counting what is still in the satchels).
     const taxes = (on: boolean): number => {
@@ -280,7 +286,8 @@ describe('what comes in with the switch', () => {
 describe('old saves', () => {
   it('a slice 29 save (version 27) loads with no temptation and crime on, and plays on', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/slice29-fortress.save.json.gz')).toString();
-    expect(JSON.parse(text).state.version).toBe(SIM_STATE_VERSION - 1);
+    // (A migration step's own test: the fixture is a version 27 save whatever number this slice takes at merge.)
+    expect(JSON.parse(text).state.version).toBe(27);
     const got = decodeSave(text);
     if (!got.ok) throw new Error(got.why);
     const s = got.file.state;

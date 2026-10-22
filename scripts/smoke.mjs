@@ -2362,7 +2362,7 @@ await open('#nowatch');
   if (!(k30.on && k30.news.some((n) => /^A thief robbed /.test(n)) && (await city()).tool === null)) fail(`#nowatch: ${JSON.stringify(k30)}`);
   const p30 = await zeus(() => window.__zeus.panelText());
   if (!/The house of [\s\S]*(Tempted to steal|is out stealing)/.test(p30)) fail(`#nowatch: the panel: ${p30.slice(0, 1400)}`);
-  if (!/came home before dawn with .+ that wasn’t his/.test(p30)) fail(`#nowatch: the panel's story: ${p30.slice(0, 2000)}`);
+  if (!/came home before dawn with .+ that wasn’t (his|hers)/.test(p30)) fail(`#nowatch: the panel's story: ${p30.slice(0, 2000)}`);
   const side30 = await zeus(() => window.__zeus.sideText());
   if (!/Fire, wear and crime[\s\S]*Crime\s*(\d+ (thief|thieves) out|\d+ homes? tempted|\d+ thefts? this month|quiet)/.test(side30)) fail(`#nowatch: the Safety tab: ${side30.slice(0, 1500)}`);
   const t0 = await zeus(() => window.__zeus.tick());

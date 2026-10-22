@@ -120,9 +120,10 @@ function storyLine(f: Family, e: Story, i: number): string {
       return `${e.names[0]} fell fighting ${e.names[1] ?? 'raiders'}${/(garrison|watch)$/.test(e.names[1] ?? '') ? ', far from home' : ' in the streets'}, and the house mourned him`;
     // Slice 30: crime.
     case 'robbed':
-      return e.n ? `A thief broke in and took ${e.n} dr` : `A thief broke in${e.names[0] ? ` (${e.names[0]})` : ''}; the watchman caught the thief and brought it all back`;
+      return e.n ? `A thief broke in and took ${e.n} dr` : `A thief broke in; the watchman caught ${e.names[0] ?? 'the thief'} and brought it all back`;
     case 'stole':
-      return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t his`;
+      // (Review of slice 30: "his" or "hers", as whoever went out.)
+      return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t ${f.members.find((m) => m.name === e.names[0])?.female ? 'hers' : 'his'}`;
     case 'caught':
       return `${e.names[0]} was caught stealing by the watchman; the house paid a ${e.n ?? 0} dr fine`;
   }

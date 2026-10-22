@@ -384,7 +384,8 @@ describe('saves and determinism', () => {
     expect(sim.state.trade.ship.visits).toBe(1);
     const re = replay(sim.state.seed, sim.log, sim.state.tick);
     expect(serialize(re.state)).toEqual(serialize(sim.state));
-  }, 20000);
+    // (Review of slice 30: 6 s alone, past 20 s with the whole suite running on a busy machine.)
+  }, 60000);
 
   it('refuses a damaged trade record in plain words', () => {
     const sim = new Sim();
