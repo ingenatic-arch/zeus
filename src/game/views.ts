@@ -172,4 +172,6 @@ export const VIEWS: Record<string, CameraView> = {
   blockade: { x: 63, z: 98, yaw: 0.4, dist: 50, tilt: -0.05 },
   // #shipyard: the shipyard's jetty from upriver, the triremes at their moorings right of the panel (tuned by eye).
   shipyard: { x: 69.5, z: 77.5, yaw: 1.2, dist: 10, tilt: 0.1 },
+  // Slice 39, #achieved: the Colossus on the shore by the trading post's jetty, from over the bay, his torch lit, the quay road and the town behind him.
+  achieved: { x: 71.5, z: 63.5, yaw: -0.3, dist: 22, tilt: -0.1 },
 };

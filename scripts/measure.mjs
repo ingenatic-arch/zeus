@@ -310,6 +310,9 @@ for (const [hash, views] of [
   // Slice 38: Troy's ships holding the harbour's mouth, the triremes rowing out; the shipyard after, a trireme under repair.
   ['#blockade-paused-shot', [null, 'town']],
   ['#shipyard-paused-shot', [null]],
+  // Slice 39: a town a few laurels in across the three, the Ambition panel open; Master of Greece achieved, the Colossus standing.
+  ['#ambition-paused-shot', [null]],
+  ['#achieved-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

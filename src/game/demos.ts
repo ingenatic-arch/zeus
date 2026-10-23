@@ -51,6 +51,11 @@ import { MARBLE, TIMBER } from '../sim/foods';
 // Slice 35.
 import { gamesOn, LIGHTHOUSE_COST, MASONS_COST, monumentOf, progressOf, STADIUM_COST } from '../sim/monuments';
 import { cartsTo } from '../sim/monumentworks';
+// Slice 39.
+import { achieved } from '../sim/ambitions';
+import { COLOSSUS_COST, totalOf } from '../sim/monuments';
+import { COPPER, setHeld } from '../sim/foods';
+import { note } from '../sim/stockbook';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -168,6 +173,9 @@ export interface Demo {
   select?: (s: SimState) => number;
   /** Slice 38: open the shipyard's panel from the start. */
   shipyard?: boolean;
+  // Slice 39
+  /** Open the Ambition panel from the start. */
+  ambition?: boolean;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -1862,7 +1870,16 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     hazards(sim, true);
     // Slice 30: crime too (off while the history plays, as it is in a bare state), on as it opens.
     crime(sim, true);
+    // Slice 39: and the ambitions (off while the history plays, so no history changes): what the town already meets is recorded quietly as it opens.
+    ambition(sim, true);
   };
+}
+
+/** Slice 39: switch the ambitions on or off now (a command, so a replay of the log does the same). */
+function ambition(sim: Sim, on: boolean): void {
+  if (sim.state.ambition.on === on) return;
+  sim.enqueue({ type: 'ambition', on });
+  sim.flush();
 }
 
 /** Slice 33: switch the seasons on or off now (a command, so a replay of the log does the same). */
@@ -2695,6 +2712,77 @@ function gamesTown(sim: Sim): void {
   playOn(2 * MONUMENT_MOST, () => gamesOn(s) && s.walkers.filter((w) => w.kind === 'visitor' && w.steps === 1).length >= GAMES_SEATED);
 }
 
+// Slice 39
+/**
+ * Ambitions (slice 39). #ambition: #vassal's town with the ambitions on from
+ * its founding, so its laurels came in play, each in its year and with its
+ * reward (an army, Corinth bowed, a busy market, a thriving town, streets of
+ * villas): a few milestones in across the three, the Ambition panel open.
+ * #achieved: that town carried on, as a player chasing Master of Greece
+ * would: the Colossus marked out at the harbour mouth, west of the trading
+ * post, on a spur off the quay road, with three masons' yards by the quay;
+ * its marble, timber and bronze put on site (set up for this demo, and named
+ * so: the town has no quarry, and its mine would take years to give 700 of
+ * copper); played on until he stands. Then two companies of hirelings at the
+ * barracks, and Argos and Thebes bowed by awe (set up for this demo: the
+ * dice would decide), until the last of Master of Greece's five is won.
+ */
+const ACHIEVED_COLOSSUS = T(70, 68);
+const ACHIEVED_SPUR = [T(73, 68)];
+const ACHIEVED_YARDS = [T(76, 69), T(78, 69), T(75, 62)];
+/** How long #achieved may play on, at most, to each of its moments. */
+const ACHIEVED_MOST = 2 * TICKS_PER_YEAR;
+function ambitionTown(stage: 'ambition' | 'achieved'): (sim: Sim) => void {
+  return (sim) => {
+    ambition(sim, true);
+    empireTown('vassal')(sim);
+    if (stage === 'ambition') return;
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const cost = ACHIEVED_SPUR.length * ROAD_COST + COLOSSUS_COST + ACHIEVED_YARDS.length * (MASONS_COST + JOBS.masons * WAGE);
+    playOn(ACHIEVED_MOST, () => spendable(s) >= cost + wageBill(s));
+    send({ type: 'road', tiles: ACHIEVED_SPUR });
+    send({ type: 'build', kind: 'colossus', at: [ACHIEVED_COLOSSUS] });
+    for (const at of ACHIEVED_YARDS) send({ type: 'build', kind: 'masons', at: [at] });
+    const site = monumentOf(s, 'colossus');
+    const b = site && s.buildings.find((x) => x.id === site.id);
+    if (!site || !b) return;
+    for (const w of [MARBLE, TIMBER, COPPER]) {
+      const n = totalOf('colossus', w);
+      setHeld(b, w, held(b, w) + n);
+      note(s, w, 'bought', 'for the Colossus (set up for this demo)', n);
+    }
+    playOn(ACHIEVED_MOST, () => !!site.finished);
+    // The hirelings, as soon as the treasury can spare their fees and some months' pay.
+    const barracks = s.buildings.find((x) => x.kind === 'barracks');
+    if (!barracks) return;
+    for (const kind of ['arcadian', 'cretan'] as const) {
+      playOn(ACHIEVED_MOST, () => spendable(s) >= HIRELINGS[kind].fee + 3 * wageBill(s));
+      send({ type: 'hire', barracks: barracks.id, kind });
+    }
+    const hired = s.army.companies.filter((c) => c.hired);
+    playOn(2 * TICKS_PER_MONTH, () => hired.every((c) => readyOf(s, c).length >= COMPANY_SIZE));
+    for (const id of ['argos', 'thebes'] as const) {
+      if (vassalOf(s, id)) continue;
+      take(s, cityOf(s.world, id), 'awe', 'it bowed to your herald (set up for this demo)');
+      sim.run(TICKS_PER_DAY);
+    }
+    playOn(TICKS_PER_MONTH, () => achieved(s, 'greece').tick > 0);
+    sim.run(2 * TICKS_PER_DAY);
+  };
+}
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -2854,6 +2942,9 @@ const SCENES: Record<string, Demo> = {
   // Slice 38: contested seas. Troy's fleet across the harbour's mouth, the Tyrian ship held at the quay, the triremes rowing out; after the fight, a trireme under repair and the shipyard's panel open.
   blockade: { view: 'blockade', setup: BLOCKADE_TOWN, overlay: 'missing', side: { tab: 'army', fleet: true } },
   shipyard: { view: 'shipyard', setup: SHIPYARD_TOWN, overlay: 'missing', shipyard: true },
+  // Slice 39: ambitions. A town a few milestones in across the three, the Ambition panel open; Master of Greece achieved, the Colossus standing at the harbour mouth.
+  ambition: { view: 'richtown', setup: ambitionTown('ambition'), overlay: 'missing', ambition: true },
+  achieved: { view: 'achieved', setup: ambitionTown('achieved'), overlay: 'missing', ambition: true },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

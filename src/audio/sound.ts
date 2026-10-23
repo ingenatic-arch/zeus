@@ -16,10 +16,13 @@
 
 const MUTE_KEY = 'zeus-remake.muted';
 
-export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn' | 'trumpet' | 'clash' | 'arrow' | 'thud' | 'oars' | 'coins';
+export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn' | 'trumpet' | 'clash' | 'arrow' | 'thud' | 'oars' | 'coins'
+  // Slice 39: a laurel (a milestone reached), and the triumph (an ambition achieved, or all three).
+  | 'laurel'
+  | 'triumph';
 
 /** The war's sounds (phase 4's review), each at most once in so many seconds, however many men strike at once. */
-const SPACING: Partial<Record<Cue, number>> = { rise: 1, decline: 1, groan: 1, douse: 1, trumpet: 2.5, clash: 0.16, arrow: 0.22, thud: 0.45, oars: 0.95, coins: 0.6 };
+const SPACING: Partial<Record<Cue, number>> = { rise: 1, decline: 1, groan: 1, douse: 1, trumpet: 2.5, clash: 0.16, arrow: 0.22, thud: 0.45, oars: 0.95, coins: 0.6, laurel: 1.5, triumph: 4 };
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -384,6 +387,22 @@ export class Sound {
         for (let i = 0; i < 10; i++) this.bell(0.02, 1396 + rand(-150, 200), i * 0.055 + rand(0, 0.03));
         this.knock(0.07, 700, 0.02);
         this.knock(0.05, 820, 0.4);
+        break;
+      // Slice 39.
+      case 'laurel':
+        // A milestone reached: a short salpinx fanfare rising to the fifth, and a lyre's bright chord under its last note.
+        this.salpinx(0.035, 0, 0.14, 392);
+        this.salpinx(0.035, 0.16, 0.14, 494);
+        this.salpinx(0.042, 0.32, 0.7, 587);
+        for (const [i, f] of [784, 988, 1175].entries()) this.bell(0.022, f, 0.32 + i * 0.05);
+        break;
+      case 'triumph':
+        // An ambition achieved (or all three): two salpinxes answering each other, rising to the octave, the last call held, and bells cascading down.
+        for (const [i, f] of [392, 392, 523, 494, 587].entries()) this.salpinx(0.04, i * 0.2, i === 4 ? 0.3 : 0.15, f);
+        this.salpinx(0.048, 1.05, 1.2, 784);
+        this.salpinx(0.03, 1.05, 1.2, 523);
+        for (let i = 0; i < 8; i++) this.bell(0.02, [1568, 1397, 1319, 1175, 1047, 988, 880, 784][i], 1.15 + i * 0.09);
+        this.thump(0.14, 80, 0.5);
         break;
       case 'sale':
         // Paid: coins counted out onto the counter.

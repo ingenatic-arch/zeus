@@ -89,6 +89,8 @@ import {
 } from './hazards';
 // Slice 33: the seasons' pace in the farms', groves' and flocks' lines.
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
+// Slice 39.
+import { ambitionTownLine } from './ambitions';
 
 export interface Status {
   title: string;
@@ -1106,7 +1108,9 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 
 /** A calm line about something the town is short of, for the strip under the top bar, and the building it is about (0 for none). */
 export interface TownLine {
-  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'season' | 'empire' | 'monument';
+  need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'season' | 'empire' | 'monument'
+    // Slice 39
+    | 'ambition';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1443,6 +1447,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // Slice 35: the monuments (the games on or coming, a stage or a monument finished, a site stuck).
   const monument = monumentTownLine(s);
   if (monument) out.push({ need: 'monument', text: monument.text, at: monument.at });
+  // Slice 39: a laurel reached (a milestone, an ambition achieved, the grand finish), for a few days.
+  const laurel = ambitionTownLine(s);
+  if (laurel) out.push({ need: 'ambition', text: laurel, at: 0 });
   return out;
 }
 

@@ -2,6 +2,80 @@
 
 Notes to Oliver, newest first.
 
+## Slice 39 — Ambitions (22 Oct)
+
+The game has a direction now. Three ambitions run side by side from the founding, Master of Greece, the great trading city and a city of wonders, and there is nothing to pick (your choice on 21 Oct: "Chase all three at once"). Each has five milestones from easy to grand. A laurel chip at the end of the top bar always shows the one you are nearest, and the Ambition panel behind it shows all fifteen. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 34 on this line (renumbered when the lines merge). A version 33 save loads with the ambitions on and nothing recorded, and on its first tick it quietly records what the town already meets: no fanfare and no rewards. A phase 4 save comes up through every step.
+- **Every earlier demo opens exactly as before** (all 124 compared with the starting commit: date, people, money, buildings and house levels). The ambitions stay off while a demo's history plays and switch on as it opens, as crime does. What an earlier town already meets is recorded quietly, so the panel says "Already yours when this town was opened".
+- **The top bar** has a new chip at its right end, and the town lines have a laurel line.
+- **The Colossus looks different** while it goes up: a thicker, braced bronze frame. Finished, his crown of rays goes all round his head.
+
+### What's new
+- **The milestones.** Each one names what it wants and how far you are, for example "1 of 3 vassals and colonies: Corinth", or "Your army 32 men; Sparta's 48, the strongest in Greece".
+  - *Master of Greece:* an army of 32 men under arms; a city bows to you (your first vassal or colony); feared across Greece (an army as big as the strongest in Greece, and at least 40); lord of three cities; the Colossus standing.
+  - *The great trading city:* routes to 2 cities; a busy market (600 dr sold to the ship and the traders in a month); trade with 5 cities (Tyre's ship counts); the richest treasury in Greece (at least 10,000 dr); the Lighthouse burning.
+  - *A city of wonders:* 300 people (600 until the review); 20 villas; 2 great estates; 2,000 people; the Stadium finished.
+  - "Greece" for the strongest army and the richest treasury leaves out your vassals and Memphis (Egypt is not Greece).
+- **Rewards**, named on the panel before you reach them. A *gift*: the warmest ruler sends 300 dr (1,000 for lord of three cities and a great city), on the map of Greece like any ruler's gift, then into the ledger. *Fame*: settlers come twice as often for 3 months (6 for the richest treasury and the Stadium), and the population's tooltip says so. *Renown*: every ruler 5 warmer, fading over a year (10 for the Colossus and the Lighthouse), with the reason in each ruler's mood: "Your city's renown: the Lighthouse".
+- **Reaching one** brings a short salpinx call with a lyre chord (made in code like the other sounds), a glow on the chip, a laurel on the panel with the year and date and what the reward came to, and a town line for twelve days: "A laurel for Master of Greece (2 of 5): a city bows to you. Settlers drawn by its fame come twice as often for 3 months." Click the line to open the panel.
+- **An ambition achieved** (all five) gets a longer fanfare. Its column says "Achieved in year 6", the warmest ruler's line in the News of Greece says "all Greece calls Nea Argos Master of Greece now", and every home is a little prouder for a year ("Proud of their city: Master of Greece"). The other two carry on.
+- **All three** is the grand finish: a line from every ruler in their own voice, a town line, and every home happier for a year. Play goes on.
+- **The panel** is three columns side by side, each with its emblem (a crested helmet, a merchant ship, a column). Esc closes it.
+
+### What to try
+1. Open **#ambition**. It is #vassal's town played with the ambitions on from its founding, so its five laurels were won in play: two for Master of Greece, one for the great trading city, two for a city of wonders. Each shows its year and what it brought (Thebes' 300 dr for a thriving town in year 2, Athens' 300 dr for the army, settlers drawn by fame for Corinth's bow). The panel opens on its own. Close it with Esc and look at the chip: "Feared across Greece 67%". Hover it for what it wants and the reward. Fame from Corinth's bow still runs as it opens (the population's tooltip says for how long).
+2. Open **#achieved**. The same town carried on to Master of Greece: the Colossus on the shore by the trading post's jetty, two companies of hirelings hired, Argos and Thebes bowed. The panel shows "Achieved in year 6". Close it and look at the Colossus close up, then zoom out to see him from the bay. Read the town line ("Master of Greece: achieved in year 6, with your rule over three cities; Lord Periandros of Corinth sends 1,000 dr in honour of it").
+3. Open the bare link, press Start building and click the laurel chip: all three start at nothing, except that the richest treasury's bar shows your first 5,000 dr against the richest city's 20,000 or so (so the chip names it at first, until the town grows). Build towards 300 people, the first laurel, and listen for its call.
+4. Open **#greecegrows** and **#fortress**: these older towns open with five or six laurels already theirs, recorded quietly. #greecegrows is one Lighthouse short of the great trading city.
+
+Each link also opens paused if you add `-paused` (for example `#achieved-paused`).
+
+### What I'd like your eye on
+- **The pace.** In #ambition's town the first laurel comes in year 2 (after the review halved the thriving town to 300 people; at 600 it came in year 3), the next in year 3, three more in years 4 and 5, and Master of Greece in year 6 (with help, below). Is that the right rhythm?
+- **The chip** at the end of the top bar. Is "Feared across Greece 67%" enough to read at a glance, and is the glow on a new laurel noticeable? Below 1500 pixels wide it hangs under the bar as a tab, beside the Greece tab.
+- **The fanfares** (I can't hear them here). The laurel call is short, and the triumph is two salpinxes answering, the last call held, with bells.
+- **The Colossus** in #achieved: the figure up close, and the new bronze frame. To see the frame, build one (or ask me for a demo stopped half way).
+- **The rewards.** They are small on purpose (300 dr, a few months of settlers, a little warmth). Do they feel worth a fanfare?
+
+### Known rough edges
+- **#achieved is helped**, and says so. The Colossus's 300 marble, 320 timber and 700 copper are put on site at once: the town has no quarry, and one mine would take years over the copper. Argos and Thebes bow by awe with "(set up for this demo)" in their news lines. The building itself (150 days with three masons' yards) and the hirelings are played.
+- **The colony and great-estate milestones count 0** until slices 37 and 36 are merged ("0 of 2 great estates"). Master of Greece can still be achieved through vassals alone.
+- **No demo of the grand finish.** A test sets it up (every ruler's word, the town line, the pride), but there is no town to open for it.
+- **#ambition opens a little differently from #vassal** (December 746 BC, not January 745), because its rewards changed its history.
+
+### Measurements
+Headless Chromium with software WebGL at 1920 × 1080. Before is `3c9eb51` (the start of this line); after is this slice. The other three lines were building on the same machine, with a load of 22 to 33 on 4 cores (higher than in any earlier slice), so load times swing by a third from run to run and the frame work could not be measured at all: at software rendering's pace under that load, most demos drew no frame in the eight seconds the script waits. The loads come from a script that alternates the two builds; the triangles from each build's views, paused.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 523, all passing | 535, all passing (new: `tests/ambitions.test.ts`, 12). Run with a longer per-test timeout for the load; one hazards test with its own 30-second limit timed out in the full run and passed alone in 22 s |
+| Smoke test | | passes with no failures, with every wait lengthened for the load, in two parts: one run went from the start to `#aftermath` (slice 20) before the 2-hour limit stopped it, and a second ran from `#war` (slice 21) to the end, the slice 39 checks included |
+| Download (gzipped) | 3,869 KB: the game 766 KB, the prepared towns 3,103 KB (93 files) | 3,970 KB: the game 774 KB, the prepared towns 3,195 KB (95 files: the two new demos) |
+| First load (bare link), three runs each, side by side | ready at 8.0 to 11.0 s, first frame 9.5 to 14.4 s | ready at 7.6 to 11.8 s, first frame 10.5 to 13.6 s |
+| Demo loads, side by side (`#town`, `#richtown`, `#vassal`; 9 loads each) | ready between 7.3 and 10.8 s, 9.4 s on average | ready between 7.1 and 12.3 s, 9.5 s on average |
+| New demos' loads (3 each) | | `#ambition` 9.4 to 11.1 s, `#achieved` 11.2 to 12.0 s |
+| `#town` | `town` view 1,455,906 triangles, 101 draw calls; `overview` 1,660,096 and 130 | the same |
+| `coast`, `#vassal`, `#lit` | 1,176,220 triangles and 74 draw calls; 1,313,318 and 100; 925,792 and 79 | the same |
+| `#ambition` / `#achieved`, from their views | | 1,590,314 triangles, 124 draw calls / 1,647,402 and 127 |
+| The ambitions' cost (Node, under the same load) | | a daily look at all fifteen milestones 0.03 to 0.06 ms; the panel's view 0.07 to 0.12 ms; a whole game tick in `#achieved` 5.8 ms (`#vassal` 7.9) |
+
+The loads are the same within the swing. The ambitions add one look a game day (every tenth tick), about a thousandth of what the day's ten ticks take. The review should measure the frame work on a quieter machine.
+
+### What the review changed
+
+I used each "What to try" step in the browser at 1920 × 1080 and 1280 × 720 and looked at the screenshots. Every earlier demo still opens exactly as before (all 124, compared with the starting commit); only `#ambition` and `#achieved` change, on purpose.
+
+- **The first laurel comes sooner.** I played the prepared towns' histories with the ambitions on from the founding: in every one the first laurel (600 people) came in year 3, after two years with nothing to show. A thriving town is now 300 people, so it comes in year 2. In `#ambition` the laurels now come in years 2, 3, 4, 4 and 5 (Thebes sends the first 300 dr), and it opens in December 746 BC with 1,298 people and 6,319 dr; `#achieved` opens in May 745 BC, Master of Greece still achieved in year 6.
+- **A great monument's laurel waited for it to stand.** Its progress was rounded, so the laurel and its renown could come a few days before the last stage was done. Now it comes when the monument stands.
+- **The chip.** Its tooltip is now the game's own, at once and a line each (what it wants, how far you are, the reward, the laurels won), and it stays clear of the side panel. At 1280 wide the chip pushed the top bar past its room and the date broke onto two lines; below 1500 wide it now hangs under the bar as a tab, beside the Greece tab. The glow on a new laurel is a little stronger and lasts a little longer.
+- **The town line for an ambition achieved** reads "with your rule over three cities", not "with Lord of three cities".
+- **A hidden trap fixed.** A number the trading post's jetty uses (how long a ship keeps it) could come out as nonsense depending on the order the game's parts were loaded in. It is what changed ten demos while this slice was built. It is now worked out when it is used, and a new test fails if any such number comes out wrong whichever part loads first.
+- Checked and left as they are: the fanfares play once for each laurel won in play, never for those recorded as a town opens or a save loads (read in the code: I can't hear them here); `#achieved` says plainly what was set up for it; the Colossus up close, and his bronze frame half built (from a saved town), read as a figure and a lattice to me, but they are yours to judge.
+- Tests: 537, all passing. The smoke test's slow second half (`#war` to the end, the slice 39 checks included) passes.
+- **The frame work, side by side** (the builder couldn't measure it; still under load from the other lines, so software rendering drew only about one frame every five seconds): the main thread's work a frame in `#vassal`, running, was 14.8 to 25.4 ms at the starting commit and 16.0 to 19.6 ms now (three runs each, alternated), so the ambitions cost nothing you'd notice there. `#ambition` and `#achieved` take 22 to 30 ms with the Ambition panel open: the panel redraws itself twice a second while the town runs, about 6 ms each time at this machine's pace (`#ambition` with the panel closed: 19 to 20 ms).
+
 ## Slice 38 — Contested seas (22 Oct)
 
 The sea is now somewhere wars are fought. A city at war with you can send its fleet to sit across the mouth of your harbour, and while it holds, no ship comes or goes. In rival wars, and in yours, warships take station on your sea lanes and seize what passes. Expeditions meet the pirates on their way. Your triremes come home from a fight with broken oars, limping, and are mended at a shipyard that now has a panel of its own. You weren't here while it was built: every choice below is mine, from the spec's defaults.

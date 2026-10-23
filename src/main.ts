@@ -59,6 +59,9 @@ import { TownLines } from './ui/townlines';
 import { RaidChip } from './ui/raidchip';
 import { ArmyChip } from './ui/armychip';
 import { DebtsChip } from './ui/debtschip';
+// Slice 39.
+import { AmbitionPanel } from './ui/ambition';
+import { AMBITION_NAMES, ambitionTownLine, ambitionView, fameWords, laurelCount, MILESTONE_COUNT, nearest, placeOf, rewardWords } from './sim/ambitions';
 import { debtsChip as debtsNow, whose as whoseCity } from './sim/loans';
 import { raidOfBand } from './sim/raids';
 import { Orders } from './game/orders';
@@ -275,6 +278,9 @@ interface Probe {
   greeceBuildMs?: number;
   /** Slice 30: crime: the switch, the tallies, the news, each thief out (where he is drawn, and his state), and the homes tempted from `from` up. */
   crime?: (from?: number) => { on: boolean; now: CrimeTally; last: CrimeTally; news: string[]; thieves: Array<{ id: number; home: number; target: number; back: boolean; load: number; loot: number; chased: number; drawn: { x: number; z: number } | null }>; chasing: number; tempted: Array<{ id: number; x: number; z: number; level: number; tempt: number }> };
+  /** Slice 39: the ambitions (the switch, each milestone's progress and laurel, the chip's text and the town line), and the panel opened or closed, and its text. */
+  ambition?: () => Record<string, unknown>;
+  ambitionPanel?: (open: boolean) => string;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -311,6 +317,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'crime', on: true });
     // Slice 33: and the seasons.
     sim.enqueue({ type: 'seasons', on: true });
+    // Slice 39: and the ambitions, counting from the founding.
+    sim.enqueue({ type: 'ambition', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;
@@ -512,6 +520,8 @@ function start(preparedTown: string | null): void {
   let legendFor = 'missing';
   const lines = new TownLines(notices, (l) => {
     if (l.need === 'money') return ledger.toggle(true);
+    // Slice 39: a laurel's line opens the Ambition panel.
+    if (l.need === 'ambition') return ambitionPanel.toggle(true);
     if (l.need === 'ship') return goToPost();
     if (l.need === 'trader') return goToTrader(l.route ?? 'tyre');
     if (l.need === 'greece' || l.need === 'favour' || l.need === 'loan' || l.need === 'raid' || l.need === 'alarm') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, l.need === 'greece' ? undefined : l.need === 'loan' ? 'loans' : 'ruler');
@@ -652,6 +662,47 @@ function start(preparedTown: string | null): void {
     ledger.toggle(false);
   };
   topbar.onMoney(() => ledger.toggle());
+  // Slice 39: the Ambition panel, from the laurel chip; it shares the top of the screen with the corner's cards, one at a time.
+  const ambitionPanel = new AmbitionPanel(ui);
+  ambitionPanel.onOpen = () => {
+    saveMenu.toggle(false);
+    corner.toggleHelp(false);
+    ledger.toggle(false);
+    topbar.toggleRates(false);
+  };
+  {
+    const ledgerOpen = ledger.onOpen;
+    ledger.onOpen = () => {
+      ledgerOpen?.();
+      ambitionPanel.toggle(false);
+    };
+    const savesOpen = saveMenu.onOpen;
+    saveMenu.onOpen = () => {
+      savesOpen?.();
+      ambitionPanel.toggle(false);
+    };
+    const ratesOpen = topbar.onRatesOpen;
+    topbar.onRatesOpen = () => {
+      ratesOpen?.();
+      ambitionPanel.toggle(false);
+    };
+    corner.onHelpOpen(() => ambitionPanel.toggle(false));
+  }
+  topbar.onLaurel(() => ambitionPanel.toggle());
+  // (Review of slice 39: the chip's tip is the game's own, kept left of the side panel, whose column would hide it.)
+  topbar.laurelTips((text, x, y) => {
+    tip.show(text, x, y);
+    const el = ui.querySelector('.pointer-tip') as HTMLElement | null;
+    if (!text || !el) return;
+    const r = side.el.getBoundingClientRect();
+    const room = r.width > 0 && r.left > 0 ? r.left : innerWidth;
+    if (x + 16 + el.offsetWidth > room - 8) tip.show(text, Math.max(8, room - 24 - el.offsetWidth), y);
+  });
+  let laurelFresh = false;
+  ambitionPanel.onLaurel = (cue) => {
+    sound.play(cue);
+    laurelFresh = true;
+  };
   topbar.onShip(() => goToTrader(traderChip?.who ?? 'tyre'));
   // The tax rate, through the command queue like any other action.
   topbar.setupRates(ui, (rate) => {
@@ -1066,6 +1117,8 @@ function start(preparedTown: string | null): void {
       if (welcomeCard?.open) welcomeCard.dismiss();
       else if (topbar.ratesOpen) topbar.toggleRates(false);
       else if (ledger.open) ledger.toggle(false);
+      // Slice 39.
+      else if (ambitionPanel.open) ambitionPanel.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (greece && greeceOpen()) {
@@ -1299,6 +1352,8 @@ function start(preparedTown: string | null): void {
   const opened = demo?.open?.(sim.state) ?? 0;
   if (opened) panel.show(opened);
   if (demo?.ledger) ledger.toggle(true);
+  // Slice 39.
+  if (demo?.ambition) ambitionPanel.toggle(true);
   if (typeof demo?.trade === 'string') tradePanel.showTab(demo.trade);
   else if (demo?.trade) tradePanel.toggle(true);
   if (demo?.side?.ware !== undefined) side.showWare(demo.side.ware);
@@ -1637,6 +1692,30 @@ function start(preparedTown: string | null): void {
     };
   };
   probe.ledger = (open) => ledger.toggle(open);
+  // Slice 39.
+  probe.ambition = () => {
+    const s = sim.state;
+    const n = nearest(s);
+    return {
+      on: s.ambition.on,
+      looked: s.ambition.looked,
+      laurels: laurelCount(s),
+      grand: s.ambition.grand,
+      fameUntil: s.ambition.fameUntil,
+      reached: s.ambition.reached.map((l) => ({ ...l })),
+      columns: ambitionView(s).map((a) => ({ kind: a.kind, achieved: a.achieved, quiet: a.quiet, count: a.count, milestones: a.milestones.map((m) => ({ id: m.id, reached: m.reached, quiet: m.quiet, share: m.share, words: m.words })) })),
+      nearest: n ? { id: n.m.id, share: n.share, words: n.p.words } : null,
+      chip: (document.querySelector('.laurel-chip') as HTMLElement | null)?.textContent ?? '',
+      chipShown: !((document.querySelector('.laurel-chip') as HTMLElement | null)?.hidden ?? true),
+      line: ambitionTownLine(s),
+      panelOpen: ambitionPanel.open,
+    };
+  };
+  probe.ambitionPanel = (open) => {
+    ambitionPanel.toggle(open);
+    ambitionPanel.update(sim.state, Infinity);
+    return ambitionPanel.text;
+  };
   probe.sideText = () => side.text;
   probe.side = (open) => side.toggle(open);
   probe.sideTab = (t) => side.showTab(t as Parameters<typeof side.showTab>[0]);
@@ -1839,6 +1918,8 @@ function start(preparedTown: string | null): void {
   let workRev = -1;
   let troubleAt = -Infinity;
   let linesAt = -Infinity;
+  // Slice 39: the laurel chip's last update.
+  let laurelAt = -Infinity;
   /** A collector handing in at his office: the coins float up from it. */
   function handIn(office: number, dr: number): void {
     const o = findBuilding(sim.state, office);
@@ -2029,6 +2110,8 @@ function start(preparedTown: string | null): void {
     if (time - outlookAt > 2) {
       outlookAt = time;
       topbar.setPeopleTip(arrivalOutlook(s, map));
+      // Slice 39: settlers drawn by fame, named in the people's tooltip.
+      topbar.notePeople(fameWords(s));
       topbar.setMoneyTip(moneyTip(s));
     }
     {
@@ -2045,6 +2128,18 @@ function start(preparedTown: string | null): void {
       const army = strength(s);
       armyChip.show(army.men, army.companies, s.army.companies.filter((c) => c.order !== 'drill').length);
       debtsChip.show(debtsNow(s));
+      // Slice 39: the laurel chip, the nearest milestone across the three ambitions.
+      if (time - laurelAt > 0.5 || laurelFresh) {
+        laurelAt = time;
+        const n = s.ambition.on ? nearest(s) : null;
+        const won = laurelCount(s);
+        // (Review of slice 39: in the game's own tip, a line each.)
+        const tip = n
+          ? `Nearest milestone: ${n.m.name} · ${AMBITION_NAMES[n.m.ambition]}, ${placeOf(n.m)} of 5\nWants: ${n.m.want[0].toLowerCase()}${n.m.want.slice(1)}\nNow: ${n.p.words}\nReward: ${rewardWords(n.m.reward)}\n${won} of ${MILESTONE_COUNT} laurels won · click for the ambitions`
+          : `Every ambition achieved: ${won} of ${MILESTONE_COUNT} laurels\nClick for the ambitions`;
+        topbar.showLaurel(s.ambition.on ? { name: n?.m.name ?? '', share: n?.share ?? 1, tip, won, of: MILESTONE_COUNT } : null, time, laurelFresh);
+        laurelFresh = false;
+      }
     }
     if (s.rev + s.looks !== workRev) {
       workRev = s.rev + s.looks;
@@ -2134,6 +2229,8 @@ function start(preparedTown: string | null): void {
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
+    // Slice 39.
+    ambitionPanel.update(s, time);
     tradePanel.update(s, map, time);
     shipyardPanel.update(s, map, time);
     {
