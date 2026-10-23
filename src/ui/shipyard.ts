@@ -127,7 +127,9 @@ function lanesHtml(s: SimState): string {
 
 function agoWords(ticks: number): string {
   const d = Math.floor(ticks / TICKS_PER_DAY);
-  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
+  // (Phase 5 review: a fight of last year read "477 days ago".)
+  const m = Math.floor(d / 30);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 60 ? `${d} days ago` : m < 24 ? `${m} months ago` : `${Math.floor(m / 12)} years ago`;
 }
 
 /** The panel's page: the yard picked first (or the first), then the others, the harbour and the lanes. */

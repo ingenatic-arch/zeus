@@ -58,11 +58,12 @@
 
 .side-band { flex: none; width: 284px; height: 18px; margin-top: 2px; background-size: 284px 18px; box-shadow: inset 0 1px 2px rgba(10, 8, 20, 0.5), 0 1px 0 rgba(255, 252, 240, 0.6); }
 
-.side-tabs { flex: none; width: 284px; display: flex; justify-content: center; gap: 3px; padding: 8px 0 9px; position: relative; }
+/* (Phase 5 review: ten tabs since slice 35's Monuments, 28 px wide with 3 px between, ran 23 px past the strip, the first and last cut off.) */
+.side-tabs { flex: none; width: 284px; display: flex; justify-content: center; gap: 2px; padding: 9px 0 10px; position: relative; }
 .side-tabs::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: 0; height: 5px; background: linear-gradient(rgba(70, 52, 30, 0.32) 0 1px, rgba(255, 252, 240, 0.75) 1px 2px, transparent 2px 3px, rgba(70, 52, 30, 0.32) 3px 4px, rgba(255, 252, 240, 0.75) 4px 5px); }
 .side-tab {
-  width: 28px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 3px; cursor: pointer;
-  background: center / 28px 36px no-repeat; filter: drop-shadow(1px 1.6px 1.2px rgba(20, 12, 4, 0.45));
+  width: 26px; height: 34px; flex: none; padding: 0; border: 0; border-radius: 3px; cursor: pointer;
+  background: center / 26px 34px no-repeat; filter: drop-shadow(1px 1.6px 1.2px rgba(20, 12, 4, 0.45));
 }
 .side-tab:hover:not(.on) { filter: drop-shadow(1px 1.6px 1.2px rgba(20, 12, 4, 0.45)) brightness(1.06); }
 

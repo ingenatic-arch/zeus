@@ -7,7 +7,7 @@ import { copperOf, outcropPlace } from './build';
 import { BUILDING_NAMES, findBuilding, levelName } from './buildings';
 import { companiesAt, companyName, companyOf, doingWords, fatherWords, HIRED_PAY, HIRELINGS, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom, woundedOf, type HiredKind } from './army';
 import { companyWords } from './battle';
-import { rowerFrom, triremeName } from './fleet';
+import { afloat, orderRefusal, PER_YARD, rowerFrom, triremeDoing, triremeName, triremesAt, TRIREME_COST } from './fleet';
 import { errandsOut } from './food';
 import { ARMOUR, coming, COPPER, held } from './foods';
 import { rateOf } from './labour';
@@ -87,6 +87,16 @@ export function barracksStatus(s: SimState, map: CoastMap, b: Building, workers:
   const carrying = porter ? (porter.back ? `Its porter is bringing ${porter.load} ${porter.load === 1 ? 'set' : 'sets'} of armour from a storehouse` : 'Its porter is on his way to a storehouse for armour') : '';
   const room = cs.length < PER_BARRACKS ? `Room for ${PER_BARRACKS - cs.length} more ${PER_BARRACKS - cs.length === 1 ? 'company' : 'companies'}: click it to raise one (hoplites from fine houses and villas, archers from townhouses and better, horsemen from estates) · ${SOLDIER_PAY} dr a man a month; or to hire one (${HIRED_PAY} dr a man)` : `Full: a barracks holds ${PER_BARRACKS} companies`;
   return { title, detail: lines(workers, ...rows, rack > 0 ? `Armour on the racks: ${rack} ${rack === 1 ? 'set' : 'sets'}` : '', carrying, room) };
+}
+
+/** A shipyard's hover card (phase 5 review: it had none, and read as a housing plot): its triremes and what each is doing. */
+export function shipyardStatus(s: SimState, map: CoastMap, b: Building, workers: string): Status {
+  const at = triremesAt(s, b.id).filter(afloat);
+  const title = `${BUILDING_NAMES.shipyard} · ${at.length ? `${at.length} of ${PER_YARD} ${at.length === 1 ? 'trireme' : 'triremes'}` : 'no triremes yet'}`;
+  if (roadsBeside(s, map.size, b).length === 0) return { title, detail: 'Needs a road beside it, for its shipwrights and rowers' };
+  const rows = at.map((t) => `The ${triremeName(t)}: ${triremeDoing(s, t).replace(/^./, (c) => c.toLowerCase())}${t.state === 'moored' || t.state === 'building' ? '' : ` · hull ${Math.round(t.hp)}%, oars ${Math.round(t.oars)}%`}`);
+  const no = orderRefusal(s, b);
+  return { title, detail: lines(workers, ...rows, no ? '' : `Room for another trireme: ${TRIREME_COST} dr`, 'Click for its panel: build, mend and send out its triremes') };
 }
 
 /** A soldier: who he is, whose son, and what he is doing. */

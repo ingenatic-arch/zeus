@@ -55,7 +55,7 @@ import { goodUntil, hasStall } from './goods';
 import { fleeing, herdName, MIN_HEAD, moving, regrowIn } from './wild';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, canWorkIn, rateOf, workforce } from './labour';
-import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armystatus';
+import { armouryStatus, barracksStatus, mineStatus, servesLine, shipyardStatus } from './armystatus';
 import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus';
 import { masonsStatus, monumentTownLine, monumentWalkerStatus, siteStatus } from './monumentstatus';
 import { towerStatus } from './wallstatus';
@@ -159,6 +159,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'mine') return mineStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'armoury') return armouryStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'barracks') return barracksStatus(s, map, b, workersLine(s, map, b));
+  if (b.kind === 'shipyard') return shipyardStatus(s, map, b, workersLine(s, map, b));
   if (b.kind === 'tower') return towerStatus(s, b, workersLine(s, map, b));
   // Slice 32.
   if (b.kind === 'quarry') return quarryStatus(s, map, b, workersLine(s, map, b));
@@ -779,7 +780,7 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     if (f && w.wait > 0) return { title: 'Watchman', detail: `Fighting the fire at ${placeName(f)} with his bucket and hook · it is out in ${days(w.wait)} if it doesn’t fall first` };
     if (f) return { title: 'Watchman', detail: `Running to the fire at ${placeName(f)}` };
     if (w.back) return { title: 'Watchman', detail: 'Heading back to his watch post, looking out for smoke on the way' };
-    return { title: 'Watchman', detail: `Out on his round, ${w.steps} of ${WATCH_WALK} new road tiles walked · he heads for the buildings nearest to smouldering · every building beside his way is made safe from fire, and he runs to any flames he sees` };
+    return { title: 'Watchman', detail: `Out on his round, ${w.steps} of ${WATCH_WALK} new road tiles walked · he heads for the buildings nearest to smouldering · every building beside his way is made safe from fire, and he runs to any flames he sees${s.crime.on ? ' · homes he passes are less tempted to steal, and he catches any thief he sees' : ''}` };
   }
   if (w.kind === 'inspector') {
     if (w.back) return { title: 'Inspector', detail: 'Heading back to the architect’s office, looking over the walls on the way' };
@@ -1732,7 +1733,7 @@ export function postStatus(s: SimState, map: CoastMap, b: Building): Status {
   else line = `${The} is resting · ${g.he} sets off again soon`;
   const what =
     kind === 'watchpost'
-      ? `Every building beside the watchman’s way is made safe from fire, a smoulder put out; he goes ${WATCH_RANGE} steps by road at most, and runs to any flames he sees`
+      ? `Every building beside the watchman’s way is made safe from fire, a smoulder put out; he goes ${WATCH_RANGE} steps by road at most, and runs to any flames he sees${s.crime.on ? '. Homes he passes are less tempted to steal, and he catches any thief he sees' : ''}`
       : `Every building beside the inspector’s way is made sound, a creak stopped before it falls; she goes ${INSPECT_RANGE} steps by road at most`;
   const kinds = s.buildings.filter((o) => (kind === 'watchpost' ? o.fire > 0 : o.creakAt > 0));
   const news = kinds.length ? (kind === 'watchpost' ? `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} smouldering or burning in the city` : `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} creaking in the city`) : '';
@@ -1810,6 +1811,16 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
       const far = f.risk >= HAZARD_FULL * EARLY_WARN ? 'three-quarters of the way' : 'half way';
       const first = soonest < Infinity ? `, ${risky.length === 1 ? 'it smoulders' : 'the first smoulders'} in about ${days(soonest * TICKS_PER_DAY)}` : '';
       out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${n} ${far} to smouldering${first}, and no watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`, at: f.id });
+    }
+    {
+      // (Phase 5 review: a quarter in a watchman's reach whose buildings he can't get round all of, their risk climbing all together, gave no word until the first smouldered.)
+      const behind = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+      if (behind.length >= 2) {
+        const f = behind[0];
+        const soonest = Math.min(...behind.map((b) => daysToFull(b.risk, riskRate(s, b))));
+        const first = soonest < Infinity ? `, the first smoulders in about ${days(soonest * TICKS_PER_DAY)}` : '';
+        out.push({ need: 'fire', text: `Fire risk ${whereIs(map, f).toLowerCase()}: ${behind.length} buildings are three-quarters of the way to smouldering${first}. A watchman’s round reaches them, but he can’t keep up with them all: another watch post nearer (Z twice) would share the round.`, at: f.id });
+      }
     }
   }
   // Wear.

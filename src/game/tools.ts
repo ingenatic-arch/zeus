@@ -44,7 +44,7 @@ import { beside, BUILDING_NAMES, findBuilding, footSide, JOBS, sideOf, STALL_JOB
 import { FLEECE, held, OIL, WARE_NAMES, WARES, WHEAT, WINE, type Ware } from '../sim/foods';
 import { stallPrice, stallRefusal } from '../sim/goods';
 import { FLEECE_MONTH, GRAPE_HARVEST, OIL_MONTH, OLIVE_GROW, OLIVE_HARVEST, VINE_GROW, WINE_MONTH } from '../sim/production';
-import { PRESS_OLIVES, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_MARBLE, STOREHOUSE_OIL, STOREHOUSE_TIMBER, STOREHOUSE_WINE, WINERY_GRAPES } from '../sim/stores';
+import { PRESS_OLIVES, STOREHOUSE_ARMOUR, STOREHOUSE_COPPER, STOREHOUSE_FLEECE, STOREHOUSE_HORSES, STOREHOUSE_MARBLE, STOREHOUSE_OIL, STOREHOUSE_TIMBER, STOREHOUSE_WINE, WINERY_GRAPES } from '../sim/stores';
 import { armsLines } from './armstips';
 import { worksHeadline, worksLines } from './workstips';
 import { marbleOf, QUARRY_MARBLE_MIN, tileMarble } from '../sim/materials';
@@ -65,7 +65,7 @@ import { hasTaxOffice, owedWages, priceOf, reserve, spendable } from '../sim/tre
 import { hazardReach, previewReach, type ServiceOverlay } from '../render/overlay';
 import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
 import { placeName } from '../sim/status';
-import { berthAt, FIRST_SHIP, PRICES, OLD_GOODS, quayTiles, TRADE_GOODS } from '../sim/trade';
+import { berthAt, FIRST_SHIP, PRICES, quayTiles, TRADE_GOODS } from '../sim/trade';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
 // Slice 36.
 import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal, HORSE_GRASS_MIN } from '../sim/build';
@@ -868,7 +868,7 @@ export class Tools {
       const fire = kind === 'watchpost';
       lines.push(
         fire
-          ? 'Its watchman walks the streets nearby: every building beside his way is made safe from fire, a smouldering one put out, and he runs to flames he can see'
+          ? `Its watchman walks the streets nearby: every building beside his way is made safe from fire, a smouldering one put out, and he runs to flames he can see${s.crime.on ? '. Homes he passes are less tempted to steal, and he catches any thief he sees' : ''}`
           : 'Its inspector walks the streets nearby: every building beside her way is made sound, a creaking one saved from falling in',
       );
       if (roads.length === 0) warn = `No road beside it: its ${fire ? 'watchman' : 'inspector'} would have nowhere to walk. Lay a road along one side first.`;
@@ -960,7 +960,7 @@ export class Tools {
       const berth = berthAt(map, x, z);
       lines.push('Its dockers carry what the granaries and storehouses hold beyond what the city keeps to the quay; a merchant ship calls every three months and buys it');
       if (berth) lines.push(`A jetty runs ${Math.round(berth.len)} ${Math.round(berth.len) === 1 ? 'tile' : 'tiles'} out to deep water, where she ties up`);
-      lines.push(`She pays for every 100: ${TRADE_GOODS.slice(0, OLD_GOODS).map((w, k) => `${WARE_NAMES[w]} ${PRICES[k]}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
+      lines.push(`She pays for every 100: ${TRADE_GOODS.map((w, k) => `${WARE_NAMES[w]} ${fmt(PRICES[k])}`).join(', ')} dr · the first ship is due ${FIRST_SHIP / TICKS_PER_MONTH} months after it is built`);
       if (roads.length === 0) warn = 'No road beside it: its dockers couldn’t reach the stores. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'granary' || b.kind === 'storehouse')) lines.push('Its dockers fetch from the granaries and storehouses: the city has none yet');
       else lines.push(this.dockerTrips(at, roads));
@@ -993,7 +993,7 @@ export class Tools {
       lines.push('It stands on the wall line: towers either side of a gate make raiders pay for breaking it');
       if (roads.length === 0) warn = 'No road beside it: no archers could reach it. Set it beside a road, by a gate.';
     } else if (kind === 'storehouse') {
-      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece, ${fmt(STOREHOUSE_WINE)} amphorae of wine, ${fmt(STOREHOUSE_COPPER)} measures of copper, ${fmt(STOREHOUSE_ARMOUR)} sets of armour, ${fmt(STOREHOUSE_MARBLE)} blocks of marble and ${fmt(STOREHOUSE_TIMBER)} logs: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
+      lines.push(`Stores ${fmt(STOREHOUSE_OIL)} jars of oil, ${fmt(STOREHOUSE_FLEECE)} bales of fleece, ${fmt(STOREHOUSE_WINE)} amphorae of wine, ${fmt(STOREHOUSE_COPPER)} measures of copper, ${fmt(STOREHOUSE_ARMOUR)} sets of armour, ${fmt(STOREHOUSE_MARBLE)} blocks of marble, ${fmt(STOREHOUSE_TIMBER)} logs and ${fmt(STOREHOUSE_HORSES)} horses: the makers’ carts bring them, and the agoras’ stall porters fetch them`);
       lines.push('Near the agora is best: each stall’s porter walks there and back for every load');
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'agora' && b.stalls)) lines.push('An agora needs a stall to sell what it holds: K twice (oil), three times (fleece) or four (wine), then click an agora');

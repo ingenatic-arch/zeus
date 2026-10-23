@@ -70,6 +70,19 @@ export class MonumentsView {
     this.masons = masonsModel();
   }
 
+  /**
+   * The building whose monument mesh a ray meets first, and how far along the ray (phase 5 review: the pointer
+   * picks by the ground under it, so over a tall tower it found the ground behind, or one of the builders on it).
+   */
+  pick(ray: THREE.Raycaster): { id: number; distance: number } | null {
+    let best: { id: number; distance: number } | null = null;
+    for (const [id, v] of this.views) {
+      const hit = ray.intersectObject(v.mesh, false)[0];
+      if (hit && (!best || hit.distance < best.distance)) best = { id, distance: hit.distance };
+    }
+    return best;
+  }
+
   private flame(size: number): THREE.BufferGeometry {
     let g = this.flames.get(size);
     if (!g) this.flames.set(size, (g = flameGeo(size)));

@@ -358,7 +358,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     name: 'Watch post',
     key: 'Z ×2',
     cost: `${WATCHPOST_COST} dr`,
-    hint: 'Click beside a road, near crowded streets and busy workshops. Its watchman walks the streets nearby: the buildings beside his way are made safe from fire, and he runs to any flames he can see.',
+    hint: 'Click beside a road, near crowded streets and busy workshops. Its watchman walks the streets nearby: the buildings beside his way are made safe from fire, and he runs to any flames he can see. Homes he passes are less tempted to steal, and he catches any thief he sees.',
   },
   architect: {
     name: 'Architect’s office',

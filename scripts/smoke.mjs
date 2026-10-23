@@ -1006,7 +1006,7 @@ if (!(c.tool === 'trading' && c.tradingPosts === 0 && c.shipChip === '')) fail(`
 await zeus((v) => window.__zeus.jump(v), { x: 74, z: 70, yaw: 2.65, dist: 18, tilt: 0.1 });
 await frames(3);
 gt = await groveTipAt(74.5, 70.5, /^Trading post · \d+ dr/);
-if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 20[\s\S]*wine 100 dr ·[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
+if (!/^Trading post · \d+ dr · 6 workers[\s\S]*A jetty runs \d+ tiles? out to deep water[\s\S]*She pays for every 100: wheat 20[\s\S]*wine 100, copper 40[\s\S]*horses 2,500 dr ·[\s\S]*the nearest granary is a \d+-day round trip, the nearest storehouse is a \d+-day round trip/.test(gt ?? '')) fail(`trading post tool tip: ${gt}`);
 gt = await groveTipAt(70.5, 62.5, /^A trading post goes on the bay shore/);
 if (!/^A trading post goes on the bay shore: no sea beside it here/.test(gt ?? '')) fail(`trading post refused inland: ${gt}`);
 // Building it: the countdown appears in the top bar and the post's panel.

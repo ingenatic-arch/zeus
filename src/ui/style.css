@@ -99,6 +99,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
   border: 1.5px solid var(--edge); border-radius: 14px; padding: 12px 16px 14px;
   box-shadow: 0 8px 24px rgba(60, 40, 20, 0.22);
   font-size: 14.5px; line-height: 1.45;
+  /* (Phase 5 review: at 1280 × 720 the town lines ran across it.) */
+  z-index: 4;
 }
 .help[hidden] { display: none; }
 .help h2 { margin: 2px 0 8px; font-size: 17px; font-variant: small-caps; letter-spacing: 0.05em; font-weight: normal; }

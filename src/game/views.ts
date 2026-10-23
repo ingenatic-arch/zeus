@@ -183,5 +183,6 @@ export const VIEWS: Record<string, CameraView> = {
   // Slice 37, #colony: the quay and the jetty from inland, your ship at anchor beyond, the families coming down the road.
   colony: { x: 74, z: 76, yaw: 2.65, dist: 26, tilt: -0.2 },
   // Slice 40, #empire: the whole town from the west, its streets on the left, the quay and the bay where Rhodes' fleet will come in the middle, the Lighthouse on its headland on the right.
-  empire: { x: 84, z: 62, yaw: -1.2, dist: 74, tilt: -0.18 },
+  // (Phase 5 review: further out and further south, so the island and the open water beyond it, where the fleet will hold the mouth, are in view too.)
+  empire: { x: 80, z: 74, yaw: -1.2, dist: 84, tilt: -0.18 },
 };

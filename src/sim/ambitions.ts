@@ -537,10 +537,14 @@ export function ambitionView(s: SimState): AmbitionView[] {
   });
 }
 
+/** Which ambition the chip offers first when two are as far along (phase 5 review: not an army for a town of tents). */
+const FIRST: Record<AmbitionKind, number> = { wonders: 0, trade: 1, greece: 2 };
+
 /**
  * The nearest milestone not yet reached, across all three: each ambition's
  * next one (its lowest not yet reached), and of those three the furthest
- * along (ties: Greece, trade, wonders). Null once all are reached. (Slice 40:
+ * along (ties: wonders, trade, Greece; phase 5 review: it was Greece first,
+ * so a town of tents was offered an army under arms). Null once all are reached. (Slice 40:
  * it was the furthest along of all fifteen, so a new town's chip named the
  * richest treasury in Greece, a quarter of the way there with its first
  * 5,000 dr, ahead of open for trade.)
@@ -553,7 +557,8 @@ export function nearest(s: SimState): { m: Milestone; p: Progress; share: number
     next.add(m.ambition);
     const p = m.progress(s);
     const share = shareOf(p);
-    if (!best || share > best.share + 1e-9) best = { m, p, share };
+    // (Even, as at the founding when nothing is begun: the town's own ambition first, then trade, then Greece.)
+    if (!best || share > best.share + 1e-9 || (share > best.share - 1e-9 && FIRST[m.ambition] < FIRST[best.m.ambition])) best = { m, p, share };
   }
   return best;
 }

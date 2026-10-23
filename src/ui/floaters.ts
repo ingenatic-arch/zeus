@@ -35,7 +35,8 @@ export class Floaters {
     const el = document.createElement('div');
     el.className = tone ? `floater ${tone}` : 'floater';
     el.textContent = text;
-    this.root.appendChild(el);
+    // First in the layer, so the bars, town lines and panels drawn after it stay on top (phase 5 review: "+36 dr" ran across the town lines).
+    this.root.prepend(el);
     this.items.push({ el, pos: pos.clone(), t0: now, text, tone: t, n: 1, x: 0, y: 0, w: estWidth(text) });
   }
 

@@ -30,10 +30,11 @@ const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
 const lower = (t: string): string => (t ? `${t[0].toLowerCase()}${t.slice(1)}` : t);
 
-/** "today", "3 days ago". */
+/** "Today", "3 days ago", "13 months ago" (phase 5 review: a launch of last year read "412 days ago"). */
 function agoWords(ticks: number): string {
   const d = Math.floor(ticks / TICKS_PER_DAY);
-  return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
+  const m = Math.floor(d / 30);
+  return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 60 ? `${d} days ago` : m < 24 ? `${m} months ago` : `${Math.floor(m / 12)} years ago`;
 }
 
 /** Where a company is, in words: "at its barracks", or the district its banner stands in ('' for hirelings not yet in: their row says they are walking in). */

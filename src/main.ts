@@ -893,10 +893,10 @@ function start(preparedTown: string | null): void {
     return best;
   };
   /** The walker with a job nearest a screen point (within a few pixels), if any. */
-  const walkerNear = (sx: number, sy: number): number => {
+  const walkerNear = (sx: number, sy: number, most = 22): number => {
     const r = canvas.getBoundingClientRect();
     let best = -1;
-    let bd = 22 * 22;
+    let bd = most * most;
     const v = new THREE.Vector3();
     for (const [id, { pos }] of city.walkers.serviceAt) {
       v.copy(pos).setY(pos.y + 0.3).project(camera);
@@ -909,6 +909,16 @@ function start(preparedTown: string | null): void {
       }
     }
     return best;
+  };
+  /** A monument or masons' yard under the pointer, by its mesh (phase 5 review: tall, so the ground under the pointer can be well behind it). */
+  const monumentRay = new THREE.Raycaster();
+  const monumentNdc = new THREE.Vector2();
+  const monumentAt = (sx: number, sy: number): Building | undefined => {
+    const r = canvas.getBoundingClientRect();
+    monumentNdc.set(((sx - r.left) / r.width) * 2 - 1, -((sy - r.top) / r.height) * 2 + 1);
+    monumentRay.setFromCamera(monumentNdc, camera);
+    const hit = city.monuments.pick(monumentRay);
+    return hit ? findBuilding(sim.state, hit.id) : undefined;
   };
   const buildingAt = (world: { x: number; z: number } | null): Building | undefined => {
     const n = map.size;
@@ -1017,7 +1027,9 @@ function start(preparedTown: string | null): void {
     const foe = foeNear(sx, sy);
     const f = foe ? sim.state.army.foes.find((o) => o.id === foe) : undefined;
     if (f) return showStatus(foeDoing(sim.state, f), sx, sy);
-    const c = walkerNear(sx, sy);
+    // (A monument under the pointer: one of its builders only when the pointer is right on him.)
+    const tall = monumentAt(sx, sy);
+    const c = walkerNear(sx, sy, tall ? 9 : 22);
     const w = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
     const ws = w ? walkerStatus(sim.state, w) : null;
     if (ws) return showStatus(ws, sx, sy);
@@ -1044,7 +1056,7 @@ function start(preparedTown: string | null): void {
       const t = sim.state.empire.tribute.find((y) => (y.colony ? `colony:${y.colony}` : y.city) === key && y.ship);
       if (t) return showStatus(tributeShipStatus(sim.state, t), sx, sy);
     }
-    const b = buildingAt(world);
+    const b = tall ?? buildingAt(world);
     if (!b) {
       const h = herdAt(world);
       if (h) return showStatus(herdStatus(sim.state, h), sx, sy);
@@ -1162,7 +1174,8 @@ function start(preparedTown: string | null): void {
         return;
       }
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
-      const c = walkerNear(sx, sy);
+      const tall = monumentAt(sx, sy);
+      const c = walkerNear(sx, sy, tall ? 9 : 22);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
       const fl = fleetNear(sx, sy);
@@ -1175,7 +1188,7 @@ function start(preparedTown: string | null): void {
       if (shipNear(sx, sy)) return goToPost();
       const visitor = visitorNear(sx, sy);
       if (visitor) return goToTrader(`${visitor}-sea`);
-      const b = buildingAt(w);
+      const b = tall ?? buildingAt(w);
       // A lived-in home: who lives there. Open ground: close the panel.
       if (b?.kind === 'home' && b.people > 0) {
         tradePanel.toggle(false);

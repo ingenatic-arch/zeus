@@ -445,6 +445,9 @@ function meansHtml(s: SimState, id: CityId): string {
     const t = termsOf(c, s.tick + TICKS_PER_YEAR);
     const how = t > 0 ? `prices ${t}% in your favour` : t < 0 ? `prices ${-t}% against you` : 'prices as the market';
     out.push(`<li class="ahead">A year on, as things stand: ${signed(later)}, ${moodWord(later)}, ${how} (as what ${they} remembers fades).</li>`);
+  } else if (moodReasons(c, s.tick).some((x) => x.fading)) {
+    // (Fading both ways can come out even: a slight and a kindness, each wearing off.)
+    out.push(`<li class="ahead">A year on, as things stand: much as now, ${signed(m)}, as the good and the bad ${they} remembers fade together.</li>`);
   } else out.push(`<li class="ahead">Nothing ${they} remembers is fading: ${they} stays as ${they} is until something happens.</li>`);
   return `<section class="means"><h3>What it means for you</h3><ul class="means">${out.join('')}</ul></section>`;
 }
