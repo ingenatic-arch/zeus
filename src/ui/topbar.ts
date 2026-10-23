@@ -110,12 +110,15 @@ export class TopBar {
         st.delta.textContent = `${d > 0 ? '+' : '−'}${Math.abs(d).toLocaleString('en-GB')}`;
         st.delta.className = `delta show ${d > 0 ? 'up' : 'down'}`;
         st.timer = now + 1.6;
+        // (Slice 40: last month's arrow steps aside while a change shows, so "▲ −138" never reads as one thing.)
+        st.num.parentElement?.classList.add('changing');
       }
       st.value = value;
       st.num.textContent = value.toLocaleString('en-GB');
     }
     if (st.timer && now > st.timer) {
       st.delta.classList.remove('show');
+      st.num.parentElement?.classList.remove('changing');
       st.timer = 0;
     }
   }

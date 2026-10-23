@@ -45,6 +45,7 @@ import type { Command } from '../sim/commands';
 import { arrivalOutlook, type Outlook } from '../sim/settlers';
 import type { Building, BuildingKind, Service, SimState } from '../sim/state';
 import { bookNow, flowRows, makersOf, monthOf, panelWares, stockOf, totalsOf, usersOf, WARE_GROUPS, wareInfo, type FlowRow, type WareMonth } from '../sim/stocks';
+import { STOCK_KINDS } from '../sim/stockbook';
 import { TAX_RATES, taxedLately } from '../sim/taxes';
 import { kindTotal, monthOf as ledgerMonth, owedWages, totals } from '../sim/treasury';
 import { Minimap } from './minimap';
@@ -738,14 +739,21 @@ export class SidePanel {
     const hints = this.hints(s, w, st.total, m, full);
     if (hints.length) out.push(`<ul class="hints">${hints.map((h) => `<li class="${h.bad ? 'bad' : ''}">${h.text}</li>`).join('')}</ul>`);
     // The breakdown, this month and last.
-    const rows = flowRows(s, w, DISTRICTS);
-    const HEAD: Record<string, string> = { made: 'Made by', used: 'Used by', sold: 'Sold to', bought: 'Bought from', lost: 'Lost' };
+    // (Slice 40: what came in or went out without a sale (a colony's share, a vassal's tribute, a gift, what your soldiers took,
+    // tribute and gifts sent) has its own heading, not "Bought from" or "Sold to".)
+    const given = (r: FlowRow): boolean => (r.kind === 'bought' || r.kind === 'sold') && /^(colony|vassal|gift|taken|sent|tribute|peace):/.test(r.what);
+    const group = (r: FlowRow): string => (given(r) ? (r.kind === 'bought' ? 'given-in' : 'given-out') : r.kind);
+    const rows = flowRows(s, w, DISTRICTS)
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => STOCK_KINDS.indexOf(a.r.kind) - STOCK_KINDS.indexOf(b.r.kind) || Number(given(a.r)) - Number(given(b.r)) || a.i - b.i)
+      .map((x) => x.r);
+    const HEAD: Record<string, string> = { made: 'Made by', used: 'Used by', sold: 'Sold to', bought: 'Bought from', lost: 'Lost', 'given-in': 'Sent to you', 'given-out': 'Sent away' };
     if (rows.length) {
       const body: string[] = [];
       let kind = '';
       for (const r of rows) {
-        if (r.kind !== kind) {
-          kind = r.kind;
+        if (group(r) !== kind) {
+          kind = group(r);
           body.push(`<tr class="head"><th colspan="3">${HEAD[kind] ?? kind}</th></tr>`);
         }
         body.push(this.flowRow(s, r));

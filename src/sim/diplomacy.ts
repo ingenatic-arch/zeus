@@ -540,7 +540,12 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   const lvl = moodLevel(mood);
   if (lvl === c.feel) return '';
   const up = lvl > c.feel;
+  const was = c.feel;
   c.feel = lvl;
+  // (Slice 40: a mood drifting on the line, a whim or a gift's thanks fading, could warm and cool again within days, in two
+  // lines that disagree. A turn one word straight back across the line its last turn crossed, within a month, takes that line
+  // back from the news instead of adding a second.)
+  if (!closed.length && !opened.length && Math.abs(lvl - was) === 1 && takeBack(s.world, s.tick, c, was, up)) return '';
   const name = named ? rulerShort(c) : rulerName(c);
   const why = cause || causeOf(c, s.tick, up);
   const word = MOOD_WORDS[lvl];
@@ -549,6 +554,27 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   // Warming into cordial or better, softening while still wary or worse; cooling while still cordial or better, turning below it.
   const turn = up ? (lvl >= 3 ? `${name} has warmed to you, ${word} now` : `${name} has softened towards you, ${word} now`) : lvl >= 3 ? `${name} has cooled towards you, ${word} now` : `${name} has turned ${word} towards you`;
   return `${turn}${opened.length ? `, and has opened ${waysWords(opened)} again` : ''}${because}`;
+}
+
+/** A ruler's mood's turn in a line of news: which way, and to what word (null if the line is not one alone). */
+const TURN_LINE = /^.+ has (warmed to you|softened towards you|cooled towards you), (\w+) now(?::|$)|^.+ has turned (\w+) towards you(?::|$)/;
+
+/**
+ * Slice 40: if this city's newest line of news, within the last month, is a turn of its ruler's mood to the word it is
+ * leaving now (`was`), the other way, it is taken back (removed from the news), and true: the mood is back where it was.
+ */
+function takeBack(w: World, tick: number, c: WorldCity, was: number, up: boolean): boolean {
+  for (let i = w.news.length - 1; i >= 0; i--) {
+    const n = w.news[i];
+    if (n.city !== c.id) continue;
+    const m = TURN_LINE.exec(n.line);
+    if (!m || tick - n.tick > TICKS_PER_MONTH) return false;
+    const rose = m[1] === 'warmed to you' || m[1] === 'softened towards you';
+    if ((m[2] ?? m[3]) !== MOOD_WORDS[was] || rose === up) return false;
+    w.news.splice(i, 1);
+    return true;
+  }
+  return false;
 }
 
 /** Greece's dice for a month and a city (a hash: Greece's own generator, and the harvests it draws, are never touched). */

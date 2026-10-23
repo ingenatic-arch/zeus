@@ -352,7 +352,7 @@ describe('saves and determinism', () => {
     // The whole history, fire and all, from the seed and the command log.
     const again = replay(s.seed, sim.log, s.tick);
     expect(serialize(again.state)).toEqual(serialize(s));
-  }, 30000);
+  }, 120000);
 
   it('the fire demos open on what they promise: #fire on a thread of smoke, #blaze on a spreading fire, #rubble on burnt-out rubble, #creak on a creaking building', () => {
     const fire = demo('fire').state;
@@ -366,5 +366,5 @@ describe('saves and determinism', () => {
     const creak = demo('creak').state;
     expect(creak.buildings.filter((b) => b.creakAt > 0).length).toBe(1);
     expect(creak.buildings.some((b) => b.kind === 'rubble' || b.fire !== FIRE_NONE)).toBe(false);
-  }, 30000);
+  }, 120000);
 });

@@ -26,6 +26,8 @@ import { allyOf, ARMING, SEASON, conquestPlan, debtPlan, allyPlan, empireRefusal
 import { cityOf, rulerShort } from '../sim/world';
 // Integrating slice 34 with 33: a tribute ship held back by the winter storms says so.
 import { lateWords } from '../sim/seasons';
+// (Slice 40: the prices page's swatches, so tribute in marble, timber or horses has its colour too.)
+import { SWATCH } from './prices';
 // Slice 38 (review): tribute by sea held off your gulf by a blockade says so.
 import { blockaded } from '../sim/lanes';
 
@@ -37,8 +39,6 @@ const whose = (id: CityId): string => (name(id).endsWith('s') ? `${name(id)}’`
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 /** "about 7 in 10". */
 const inTen = (p: number): string => `about ${Math.max(1, Math.min(9, Math.round(p * 10)))} in 10`;
-/** The trade goods' colours, as in the trade panel. */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#8a8f96'];
 /** What each weight of tribute does to loyalty (vassals.ts' TRIBUTE_LOYALTY, in words for the buttons). */
 const WEIGHT_LOYALTY = ['+15', '0', '−20'];
 

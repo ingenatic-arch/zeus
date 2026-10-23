@@ -11,7 +11,7 @@
 import type { CoastMap } from '../map/bake';
 import { districtAt, DISTRICTS } from '../map/districts';
 import { centreOf, sideOf } from '../sim/buildings';
-import { clearFee, COST } from '../sim/build';
+import { clearFee, COST, ESTATE_PLOT_COST } from '../sim/build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { BuildingKind, LedgerKind, LedgerLine, SimState } from '../sim/state';
 import { monthlyTaxes } from '../sim/status';
@@ -213,8 +213,10 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const gone = thisMonth ? lost(now) : lost(last);
   if (gone.length) {
     const n = gone.reduce((a, x) => a + x.n, 0);
-    const worth = gone.reduce((a, x) => a + x.n * (COST[x.what as BuildingKind] ?? 0), 0);
-    const clearing = gone.reduce((a, x) => a + x.n * clearFee(sideOf(x.what as BuildingKind)), 0);
+    // (Slice 40: an estate's 4 × 4 rubble, not a home's 2 × 2.)
+    const est = (x: LedgerLine): boolean => x.what === 'estates';
+    const worth = gone.reduce((a, x) => a + x.n * (est(x) ? ESTATE_PLOT_COST : (COST[x.what as BuildingKind] ?? 0)), 0);
+    const clearing = gone.reduce((a, x) => a + x.n * clearFee(est(x) ? 4 : sideOf(x.what as BuildingKind)), 0);
     notes.push(
       `<li class="bad">${esc(`${thisMonth ? 'This month' : 'Last month'} fire and collapse took ${count(n, 'building', 'buildings')}: about ${fmt(clearing)} dr to clear the rubble, and ${fmt(worth)} dr to build ${n === 1 ? 'it' : 'them'} again.`)}</li>`,
     );

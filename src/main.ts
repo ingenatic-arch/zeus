@@ -12,6 +12,8 @@ import { browserStorage, decodeSave, labelOf, Saves, type SaveFile, type Slot } 
 import { PREPARED } from 'virtual:prepared';
 // Slice 37
 import { foundingOf, settlersShipStatus } from './sim/colonies';
+// Slice 40: the tribute and share ships' hover.
+import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
@@ -1033,6 +1035,12 @@ function start(preparedTown: string | null): void {
       if (!shipNear(sx, sy, view.info)) continue;
       const f = foundingOf(sim.state, site);
       if (f) return showStatus(settlersShipStatus(sim.state, f), sx, sy);
+    }
+    // Slice 40: a vassal's tribute ship, or a colony's share ship.
+    for (const [key, view] of city.tributeShips) {
+      if (!shipNear(sx, sy, view.info)) continue;
+      const t = sim.state.empire.tribute.find((y) => (y.colony ? `colony:${y.colony}` : y.city) === key && y.ship);
+      if (t) return showStatus(tributeShipStatus(sim.state, t), sx, sy);
     }
     const b = buildingAt(world);
     if (!b) {

@@ -787,7 +787,8 @@ function toRubble(s: SimState, map: CoastMap, b: Building, how: Fall): void {
   const r = addBuilding(s, n, b.x, b.z, 'rubble', 0, 0, 0, noGoods(), 0, kind, b.estate);
   r.level = how === 'fire' ? BURNT : FALLEN;
   r.ruin = name;
-  pay(s, 0, how, kind === 'home' ? (b.level > 0 ? 'home' : 'plots') : kind, 1);
+  // (Slice 40: an estate is named as one, so the ledger can say what its 4 × 4 rubble costs to clear.)
+  pay(s, 0, how, kind === 'home' ? (b.estate ? 'estates' : b.level > 0 ? 'home' : 'plots') : kind, 1);
   s.rev++;
   s.tilesRev++;
 }

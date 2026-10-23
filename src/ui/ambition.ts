@@ -62,6 +62,9 @@ export class AmbitionPanel {
   private body: HTMLElement;
   private key = '';
   private lastAt = -Infinity;
+  /** What the heading's line and each column last said, so only a column that changed is rebuilt. */
+  private sub = '';
+  private cols: string[] = [];
   /** The laurels as last seen (ids), so a new one sounds its fanfare; and whether all three were. */
   private seen: Set<string> | null = null;
   private grandSeen = 0;
@@ -122,12 +125,27 @@ export class AmbitionPanel {
     }
     if (this.el.hidden || time - this.lastAt < 0.5) return;
     this.lastAt = time;
-    const views = ambitionView(s);
-    const key = `${Math.floor(s.tick / TICKS_PER_DAY)}:${a.reached.length}:${s.money}:${s.population}`;
+    // (Slice 40: on a new day or a new laurel only, and only what changed. It was rebuilt twice a second whenever money or
+    // people moved, about 6 ms each time.)
+    const key = `${Math.floor(s.tick / TICKS_PER_DAY)}:${a.reached.length}:${a.grand}`;
     if (key === this.key) return;
     this.key = key;
-    const sub = this.el.querySelector('.sub') as HTMLElement;
-    sub.textContent = `${laurelCount(s)} of ${MILESTONE_COUNT} laurels. All three count from the founding, and whatever you build or do counts toward one of them. ${a.grand ? 'All three achieved: play on as long as you like.' : 'An ambition achieved, play goes on.'}`;
-    this.body.innerHTML = AMBITIONS.map((_, i) => columnHtml(views[i])).join('');
+    const views = ambitionView(s);
+    const sub = `${laurelCount(s)} of ${MILESTONE_COUNT} laurels. All three count from the founding, and whatever you build or do counts toward one of them. ${a.grand ? 'All three achieved: play on as long as you like.' : 'An ambition achieved, play goes on.'}`;
+    if (sub !== this.sub) {
+      this.sub = sub;
+      (this.el.querySelector('.sub') as HTMLElement).textContent = sub;
+    }
+    AMBITIONS.forEach((_, i) => {
+      const html = columnHtml(views[i]);
+      if (html === this.cols[i]) return;
+      this.cols[i] = html;
+      const old = this.body.children[i] as HTMLElement | undefined;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const fresh = tmp.firstElementChild as HTMLElement;
+      if (old) this.body.replaceChild(fresh, old);
+      else this.body.appendChild(fresh);
+    });
   }
 }

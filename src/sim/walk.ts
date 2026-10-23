@@ -29,8 +29,8 @@ export const COLLECTOR_SPEED = PATROL_SPEED;
 /** The trading post's dockers walk at the collector's pace with their handcarts (the stores can be far from the shore: see trade.ts). */
 export const DOCKER_SPEED = COLLECTOR_SPEED;
 
-/** A docker or yard porter fetching a gift or a sending from the stores hurries: half as fast again (trade.ts). */
-export const SENDING_FETCH_SPEED = DOCKER_SPEED * 1.5;
+/** A docker or yard porter fetching a gift or a sending from the stores hurries: two and a half times as fast (trade.ts). (Slice 40: was half as fast again, and fetching took most of a sending's three months.) */
+export const SENDING_FETCH_SPEED = DOCKER_SPEED * 2.5;
 
 /** A watchman running to a fire (see hazards.ts, DASH_SPEED). */
 export const RUN_SPEED = PATROL_SPEED * 1.6;
@@ -39,6 +39,8 @@ export const RUN_SPEED = PATROL_SPEED * 1.6;
 export const CARAVAN_SPEED = WALK_SPEED;
 /** Your own little caravan taking a gift or what a ruler asked for out of the city knows the streets and travels light: twice a trader's pace (diplomacy.ts). */
 export const SENDING_SPEED = CARAVAN_SPEED * 2;
+/** Slice 40: your caravan with a gift or a sending goes three times a trader's pace (it was twice, as tribute donkeys and colonists still go), so a sending across the whole map is not a month and a half in your own streets. */
+export const GIFT_CARAVAN_SPEED = CARAVAN_SPEED * 3;
 
 export function speedOf(w: Walker): number {
   if (w.kind === 'cart') return CART_SPEED;
@@ -48,7 +50,7 @@ export function speedOf(w: Walker): number {
   if (w.kind === 'visitor') return SENDING_SPEED;
   // (Your own caravan or porter about a gift or a sending: the gift's number is in `cheese`, see giftOf.)
   // (Slice 34: a vassal's tribute, `cheese` below 0, walks at a sending's pace too.)
-  if (w.kind === 'caravan') return w.cheese !== 0 ? SENDING_SPEED : CARAVAN_SPEED;
+  if (w.kind === 'caravan') return w.cheese > 0 ? GIFT_CARAVAN_SPEED : w.cheese < 0 ? SENDING_SPEED : CARAVAN_SPEED;
   // (Slice 37: a household going down to the quay for a colony walks at a sending's pace too.)
   if (w.kind === 'colonist') return SENDING_SPEED;
   if (w.kind === 'watchman' && w.target > 0) return RUN_SPEED;

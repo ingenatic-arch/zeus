@@ -145,6 +145,8 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .stat.money.owed .num { color: var(--terracotta-deep); }
 .stat.money .trend { display: inline-flex; margin-left: -3px; }
 .stat.money .trend[hidden] { display: none; }
+/* (Slice 40: out of the way while a change floats beside the number.) */
+.stat.money.changing .trend { visibility: hidden; }
 .stat.money .trend svg { width: 10px; height: 10px; }
 .stat.money .trend.up svg { fill: #c99a2a; }
 .stat.money .trend.down svg { fill: var(--terracotta); }
@@ -1260,6 +1262,8 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
     box-shadow: 0 3px 0 rgba(120, 80, 40, 0.22), 0 6px 14px rgba(60, 40, 20, 0.14);
   }
   .laurel-chip.fresh { border-color: #c9a63a; }
+  /* (Slice 40: the lines under the top bar start below the tab, which they covered at 1280 wide.) */
+  #ui:has(.laurel-chip:not([hidden])) > .notices { top: 114px; }
 }
 /* Slice 37: a site's page (your colony, your settlers, an empty site), and the red mark on a colony's label while it needs you. */
 .greece-panel .acts.open { display: flex; margin: 8px 0 0; }

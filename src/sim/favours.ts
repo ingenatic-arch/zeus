@@ -45,7 +45,7 @@ import { caravanEntry, landTicks, routeOf, voyageTicks, yearlyLimit } from './ro
 import type { Deal, Gift, Memory, SimState, Walker, World, WorldCity } from './state';
 import { berthOf, cityHolds, DOCKER_GAP, DOCKER_TAKE, leaveTicks, OLD_GOODS, SAIL_OUT, shipRoute, SHIP_LEAVING, storeKind, TRADE_GOODS } from './trade';
 import { spendable } from './treasury';
-import { SENDING_FETCH_SPEED, SENDING_SPEED } from './walk';
+import { GIFT_CARAVAN_SPEED, SENDING_FETCH_SPEED } from './walk';
 import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, yourPrice } from './world';
 import { boundTo } from './vassals';
 
@@ -792,7 +792,7 @@ function outTicks(s: SimState, map: CoastMap, by: 'land' | 'sea', depotId: numbe
   const depot = findBuilding(s, depotId);
   if (by === 'land') {
     const entry = depot ? caravanEntry(s, map.size, depot, city) : null;
-    return (entry ? Math.round((entry.tiles.length + 6) / SENDING_SPEED) : 0) + landTicks(city);
+    return (entry ? Math.round((entry.tiles.length + 6) / GIFT_CARAVAN_SPEED) : 0) + landTicks(city);
   }
   const berth = depot ? berthOf(map, depot) : null;
   return (berth ? leaveTicks({ phase: SHIP_LEAVING, since: 0, turned: 0.92, path: shipRoute(map, berth) }) : SAIL_OUT) + voyageTicks(city);
@@ -804,7 +804,7 @@ export function arrivesAt(s: SimState, map: CoastMap, g: Gift): number {
   if (g.phase === 1) {
     if (g.by === 'sea') return (g.ship ? g.ship.since + leaveTicks(g.ship) : s.tick) + voyageTicks(g.to);
     const c = s.walkers.find((x) => x.kind === 'caravan' && x.cheese === g.id);
-    return s.tick + Math.round((c ? pathLeft(c) : 0) / SENDING_SPEED) + landTicks(g.to);
+    return s.tick + Math.round((c ? pathLeft(c) : 0) / GIFT_CARAVAN_SPEED) + landTicks(g.to);
   }
   // Fetching: the porters already on their way (to the stores and back, or back), and any of it not yet sent for.
   const depot = findBuilding(s, g.depot);

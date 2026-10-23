@@ -1376,6 +1376,23 @@ export function tributeDoing(s: SimState, id: number, back: boolean): { title: s
 /** Slice 37: the name of the colony a shipment is from. */
 const colonyName = (s: SimState, t: Tribute): string => s.empire.colonies.find((c) => c.site === t.colony)?.name ?? `your colony on ${siteOf(t.colony ?? '')?.name ?? t.colony}`;
 
+/**
+ * Slice 40: the hover for a vassal's tribute ship or a colony's share ship in your bay (sailing in laden, at anchor while its
+ * cargo comes ashore, or sailing home): whose it is, what it brings and what it is doing.
+ */
+export function tributeShipStatus(s: SimState, t: Tribute): { title: string; detail: string } {
+  const who = t.colony ? `${colonyName(s, t)}’s share ship` : `${whose(t.city)} tribute ship`;
+  const from = t.colony ? colonyName(s, t) : name(t.city);
+  const doing =
+    t.phase === 'road'
+      ? `Sailing into your bay laden: she anchors off your jetty and her cargo comes ashore`
+      : t.phase === 'bay'
+        ? `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
+        : `Unladen, sailing home to ${from}: ${tributeWords(t)} on its way to your stores`;
+  return { title: `${who} · ${tributeWords(t)}`, detail: `${doing}
+${t.colony ? `Your colony sends its share each season` : `Your vassal sends its tribute each season`}; on the map of Greece she sails the lane from ${from}` };
+}
+
 /** Every vassal and ally in a line each, for the probes and the smoke test. */
 export const empireList = (s: SimState): string[] => [...s.empire.vassals.map((v) => `${v.city}: vassal (${v.how}), ${WEIGHT_WORDS[v.weight]} ${v.good < 0 ? 'coin' : WARE_NAMES[TRADE_GOODS[v.good]]}, loyalty ${v.loyalty}${v.arming ? ', arming' : ''}`), ...s.empire.allies.map((a) => `${a.city}: ally`)];
 

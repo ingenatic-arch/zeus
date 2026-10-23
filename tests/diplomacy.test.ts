@@ -434,6 +434,36 @@ describe('the news when a mood turns', () => {
     }
     expect(t.world.news[t.world.news.length - 1].line).toBe('King ' + d.ruler!.name + ' of Sparta has turned wary towards you: the good first word of your city is wearing off');
   });
+
+  it('a mood straight back across the line within a month takes the first line back, not a second that disagrees (slice 40)', () => {
+    const s = { tick: 0, world: freshWorld(9), population: 600 } as SimState;
+    s.world.contact = 1;
+    const c = cityOf(s.world, 'sparta');
+    c.memories = [{ kind: 'staged', why: 'pleased with your city', amount: 28, tick: 0, fade: 0 } as Memory];
+    c.feel = 3;
+    const day = (): void => {
+      s.tick += TICKS_PER_DAY - (s.tick % TICKS_PER_DAY);
+      stepDiplomacy(s);
+    };
+    // Over the line into warm: a line.
+    c.memories.push({ kind: 'staged', why: 'in high good humour', amount: 3, tick: s.tick, fade: 0 });
+    day();
+    expect(c.feel).toBe(4);
+    expect(s.world.news.filter((n) => n.city === 'sparta').map((n) => n.line)).toEqual([expect.stringMatching(/has warmed to you, warm now/)]);
+    // Back under it ten days later: the line is taken back, and none added; the word is cordial again.
+    s.tick += 10 * TICKS_PER_DAY;
+    c.memories.push({ kind: 'staged', why: 'out of sorts', amount: -4, tick: s.tick, fade: 0 });
+    day();
+    expect(c.feel).toBe(3);
+    expect(s.world.news.filter((n) => n.city === 'sparta').length).toBe(0);
+    // Over it again, and back after more than a month: both lines stand.
+    c.memories.push({ kind: 'staged', why: 'in high good humour again', amount: 4, tick: s.tick, fade: 0 });
+    day();
+    s.tick += 40 * TICKS_PER_DAY;
+    c.memories.push({ kind: 'staged', why: 'out of sorts again', amount: -4, tick: s.tick, fade: 0 });
+    day();
+    expect(s.world.news.filter((n) => n.city === 'sparta').map((n) => n.line)).toEqual([expect.stringMatching(/has warmed to you, warm now/), expect.stringMatching(/has cooled towards you, cordial now/)]);
+  });
 });
 
 describe('saves', () => {

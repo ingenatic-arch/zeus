@@ -414,7 +414,8 @@ describe('your part in it', () => {
     expect(sparta.memories.find((x) => x.kind === 'foehelp')?.why).toBe('you sent 250 dr to their enemy Corinth during the war');
   }, 120000);
 
-  it('in #war, wheat sent to Sparta cools Athens at once, though it reaches Sparta after the war; and the war ends as #peace shows', () => {
+  // (Slice 40: a sending goes quicker now, so the wheat reaches Sparta before the war is over, not after it.)
+  it('in #war, wheat sent to Sparta cools Athens at once, once only, and reaches Sparta', () => {
     const sim = fresh('war');
     const s = sim.state;
     const x = warOn(s.world)!;
@@ -425,7 +426,6 @@ describe('your part in it', () => {
     expect(athens.memories.find((m) => m.kind === 'foehelp')?.why).toBe('you sent 1,000 wheat to their enemy Sparta during the war');
     until(sim, () => ask.state !== 'open', TICKS_PER_YEAR);
     expect(ask.state).toBe('met');
-    expect(s.tick).toBeGreaterThan(x.until);
     expect(athens.memories.filter((m) => m.kind === 'foehelp').length).toBe(1);
   }, 120000);
 });
