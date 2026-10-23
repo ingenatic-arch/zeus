@@ -26,8 +26,8 @@
  * The milestones only read what the town already has: vassals (slice 34),
  * the army, routes, the ledger's sales, the treasury against Greece's
  * cities, homes and people, the monuments (slice 35) and the great estates
- * (slice 36, wired in at its merge). One reads a thing that is not here yet
- * and counts 0 until it is wired in: colonies (slice 37).
+ * (slice 36, wired in at its merge) and your colonies (slice 37, wired in at
+ * its merge).
  *
  * The switch: off in a bare state and while a demo's history is played (so
  * no history changes), on as a game starts or a demo opens. Switched on (and
@@ -127,12 +127,12 @@ export function menUnderArms(s: SimState): number {
 export const vassalCities = (s: SimState): CityId[] => s.empire.vassals.map((v) => v.city);
 
 /**
- * Your colonies: none yet.
- * Wired at the merge of slice 37 (colonies): the sites you hold (`s.world.sites` with `owner` 'home', or slice 37's own record), by name.
+ * Your colonies (slice 37, wired at its merge): the colonies you hold, by
+ * their names ("Nea Thasos"), in the order they were founded. One that went
+ * free or was taken is no longer yours, and no longer counts.
  */
-export function colonyNames(_s: SimState): string[] {
-  // Wired at the merge of slice 37
-  return [];
+export function colonyNames(s: SimState): string[] {
+  return s.empire.colonies.filter((c) => s.world.sites.some((x) => x.id === c.site && x.owner === 'home')).map((c) => c.name);
 }
 
 /** Your great estates (slice 36, wired at its merge): the estates at the great estate's level with their noble house in. */

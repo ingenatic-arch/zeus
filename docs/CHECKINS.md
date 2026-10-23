@@ -74,6 +74,24 @@ What I checked and left alone, for your eye:
 - **Is a share too rich in cheap goods?** At 10 dr a person a year, cheap goods pile up. A colony of 400 people on Kythera would send about 2,290 oil a year at a fair share (3,430 at a heavy one), and on Cyrene about 8,000 wheat. A colony that grows towards 2,000 people would send about 8,000 dr a year at a fair share. Tell me if that is too much.
 - **The families are still "rowed out" with no boat drawn.**
 
+### At the merge
+This slice was built from the trunk as it stood after slices 30 to 34. It joined the trunk on 23 Oct, after slices 35, 36, 38 and 39 and the crews of walkers (the change merged from the other thread). What changed in the joining:
+- **Saves.** The state version is 37 on the trunk, not 33. Saves from before slices 30 to 39 load through all ten steps, with no colonies and nobody on the way.
+- **Colonies count for Master of Greece.** *A city bows to you* and *Lord of three cities* now count your colonies by name, with your vassals: "Nea Thasos is yours". A colony that goes free, or is taken, no longer counts (a laurel already won stays won). `#colonies` opens with *A city bows to you* already met. A test wins both in play.
+- **A blockade holds your colonies' ships.** While an enemy fleet holds your harbour's mouth, a colony's share waits off your gulf, as a vassal's tribute does, and sails in when the blockade ends. Your settlers' ship waits outside the harbour, and she can't sail out from her anchorage once the families are aboard. Her hover, the families' hovers on the quay, the line under the top bar, the site's page and the share's card on the map all say why ("Troy's fleet holds the mouth of your harbour"), and the blockade's news lists your colonies' ships and your settlers' ship with the rest.
+- **War at sea takes a colony's share.** When a city at war with you has warships on one of your sea lanes (slice 38), they seize a colony's share as it sails, unless a trireme guards that colony's lane. The news names what they took. Warships only come onto the lanes of cities you trade with by sea, so an enemy you don't trade with can't reach your colonies' ships this way.
+- **A crippled trireme doesn't guard a colony.** One with her hull badly holed or too many oars broken no longer counts in the odds on the colony's page, in the line under the top bar or in the fight itself. A fight off a colony now breaks oars as it hurts the hull, as slice 38's fights do.
+- **Noble houses don't emigrate.** Settlers still come only from huts, cottages and townhouses, and never from an estate.
+- **The crews of walkers.** A family walking to the quay is not counted in any building's crew, and the homes they leave are empty homes like any other, so the vendors pass them by. I checked this in the code.
+- **No colony breeds horses.** Cyrene is famous for its horses, but here it is a wheat cape, so every site makes what it did before.
+- **The colours on a colony's page** are the trade panel's own now, horses included.
+- **The demos.** They open a little earlier on the trunk's history and still show what this note says:
+  - `#colony` opens on 13 February 747 BC (was 18 March), with 876 people and 717 dr. Your ship has just anchored and all four households are walking down to the quay.
+  - `#colonies` opens on 27 June 745 BC, with 1,411 people and 13,608 dr. Nea Thasos has 255 people and Nea Naxos 263, and Nea Naxos' 90 marble is sailing into your bay.
+  - `#ally` opens on 24 September 746 BC, with 1,371 people and 7,258 dr. Corinth's 9 men are in at the west edge, and Sparta's 27 raiders are 13 days out.
+- **Every other demo plays as before.** I compared all 130 earlier demos with the trunk before the merge, at opening (date, people and money) and 900 ticks on. None moved.
+- **Checks on the merged trunk.** All 586 tests pass. The build is clean, and the 15 demos I opened came up with no page errors. The smoke steps for slices 34, 37, 38 and 39 pass. I looked at shots of `#colony`, `#colonies`, Thasos' page with your settlers, and `#ally`.
+
 ## Slice 36 — The great houses (22 Oct)
 
 The city has a new kind of home: the estate, a walled house on a 4×4 plot of its own, with a courtyard, a garden with cypresses and a pool, and a stable. A noble house moves in once your city has a villa. With marble for its statues, armour for its sons and horses for its stable, an estate grows into a great estate: two storeys, a portico, statues, and horses in a paddock behind the stable. Horses come from a new horse farm on the grass, or by caravan from Thebes and Argos. And each estate can send a son to ride in a company of horsemen: fast, hard-hitting, and able to ride down raiders as they run. You weren't here while it was built: every choice below is mine, from the spec's defaults.

@@ -39,6 +39,12 @@ import type { Command } from './commands';
 import { news } from './diplomacy';
 import { dayWords } from './favours';
 import { callHome, fit, guardColony, triremeOf, afloat } from './fleet';
+// Integrating slice 37 with the trunk: slice 38's blockades, warships and crippled ships.
+import { bandWords, crippled, guarded } from './fleet';
+import { blockaded } from './lanes';
+import { pastMouth } from './trade';
+import { visitorAt } from './routes';
+import { armyNews } from './army';
 import { held, setHeld, WARE_NAMES, WHEAT } from './foods';
 import { COLONY_MAKES, SITE_WARES } from './growth';
 import { roadSearch, tracePath } from './roads';
@@ -277,7 +283,8 @@ export function foundingHouseholds(s: SimState, map: CoastMap, n = FOUND_HOUSEHO
   for (const f of s.empire.foundings) for (const h of f.households) if (h.state === 'packing') busy.add(h.home);
   const out: Array<{ b: number; d: number; h: Household }> = [];
   for (const b of s.buildings) {
-    if (b.kind !== 'home' || b.level < HUT || b.level > TOWNHOUSE || b.people < 2 || !b.family || busy.has(b.id)) continue;
+    // (Integrating slice 37 with the trunk: never an estate's noble house, slice 36's, whatever its level.)
+    if (b.kind !== 'home' || b.estate || b.level < HUT || b.level > TOWNHOUSE || b.people < 2 || !b.family || busy.has(b.id)) continue;
     if (servingFrom(s, b) || s.fleet.triremes.some((t) => t.crew.some((r) => r.home === b.id)) || s.walkers.some((w) => w.kind === 'thief' && w.home === b.id)) continue;
     let d = Infinity;
     for (const t of around(map.size, b)) if (s.tiles[t] === TILE_ROAD && search.dist[t] >= 0 && search.dist[t] < d) d = search.dist[t];
@@ -470,6 +477,9 @@ function stepFounding(s: SimState, map: CoastMap, f: Founding): void {
       if (h.state === 'packing' && s.tick >= h.at) setOut(s, map, f, h, i);
     });
     const v = f.ship;
+    // (Integrating slice 37 with the trunk: while a blockade holds the harbour's mouth, your ship waits outside it, where she is, and sails in when it ends.)
+    const closed = !!blockaded(s);
+    if (v && v.phase === SHIP_COMING && closed && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) v.since++;
     if (v && v.phase === SHIP_COMING && s.tick >= v.since + SAIL_IN) {
       v.phase = SHIP_ANCHORED;
       v.since = s.tick;
@@ -483,7 +493,8 @@ function stepFounding(s: SimState, map: CoastMap, f: Founding): void {
       if ((h.state === 'quay' && s.tick - h.at >= BOARD) || (late && (h.state === 'quay' || h.state === 'walking'))) aboard(s, f, h);
       if (late && h.state === 'packing') h.state = 'stayed';
     }
-    if (anchored && f.households.every((h) => h.state === 'aboard' || h.state === 'stayed')) sail(s, f);
+    // (And at anchor she can't sail out past it: she waits, with the families aboard.)
+    if (anchored && !closed && f.households.every((h) => h.state === 'aboard' || h.state === 'stayed')) sail(s, f);
   } else if (f.phase === 'leaving') {
     if (!f.ship || s.tick >= f.ship.since + leaveTicks(f.ship)) {
       f.ship = null;
@@ -656,6 +667,17 @@ function sendShipment(s: SimState, c: Colony): void {
   const amount = Math.round(y.amount / 4 / 10) * 10;
   if (y.good < 0 || amount < 10) return;
   const worth = Math.round((amount * PRICES[y.good]) / 100);
+  // (Integrating slice 37 with the trunk: a city at war with you whose warships prey on your lanes, slice 38's, takes the share as
+  // it sails, unless a trireme guards the colony's lane.)
+  const foe = s.fleet.pirates.find((p) => p.of && p.war === -1 && p.state === 'preying');
+  if (foe && !guarded(s, siteLaneId(c.site))) {
+    const words = `${c.name}’s share of ${fmt(amount)} ${goodName(y.good)}`;
+    foe.took.push(words);
+    news(s.world, s.tick, siteKey(c.site), `${bandWords(foe)} ${foe.place} seized ${words} on its way to you: ${whose(foe.of as CityId)} ships are at war with you. A trireme guarding ${c.name} keeps its ships safe`, true);
+    armyNews(s, `${bandWords(foe)} ${foe.place} seized ${words}`, 0);
+    s.rev++;
+    return;
+  }
   const voyage = laneTicks(c.site);
   const ship = `colony-${c.site}`;
   const late = stormDelay(s, ship, s.tick + voyage);
@@ -758,7 +780,14 @@ export const fightOdds = (ours: number, theirs: number): number => (ours <= 0 ? 
 /** A colony's guards there now (on station off it). */
 const guardsThere = (s: SimState, c: Colony): number => c.guards.filter((id) => {
   const t = triremeOf(s, id);
-  return !!t && afloat(t) && t.order === 'lane' && t.lane === siteLaneId(c.site) && t.state === 'away' && !t.homeward && s.tick >= t.start + t.dur;
+  // (Integrating slice 37 with the trunk: a crippled trireme, slice 38's, hull or oars, does not guard.)
+  return !!t && afloat(t) && !crippled(t) && t.order === 'lane' && t.lane === siteLaneId(c.site) && t.state === 'away' && !t.homeward && s.tick >= t.start + t.dur;
+}).length;
+
+/** A colony's guards that can fight, there or on the way (afloat, not crippled): for its page and the line under the top bar. */
+export const colonyGuards = (s: SimState, c: Colony): number => c.guards.filter((id) => {
+  const t = triremeOf(s, id);
+  return !!t && afloat(t) && !crippled(t);
 }).length;
 
 /** Each day: a threat called off by your army, or come to its day. */
@@ -825,7 +854,10 @@ export const fightRoll = (s: SimState, c: Colony, t: ColonyThreat): number => di
 
 function hurt(s: SimState, id: number, n: number): void {
   const t = triremeOf(s, id);
-  if (t && afloat(t)) t.hp = Math.max(20, t.hp - n);
+  if (!t || !afloat(t)) return;
+  t.hp = Math.max(20, t.hp - n);
+  // (Integrating slice 37 with the trunk: as in slice 38's fights, her oars break as her hull is hurt.)
+  t.oars = Math.max(0, t.oars - n);
 }
 
 function remember(c: Colony, tick: number, kind: string, why: string, amount: number, fade: number): void {
@@ -979,7 +1011,21 @@ export function colonistDoing(s: SimState, w: Walker): { title: string; detail: 
   const title = h ? `${h.name.replace(/^t/, 'T')}, ${h.people} people` : 'Settlers';
   if (!h || h.state === 'walking') return { title, detail: `Walking down to the quay with their bundles, to sail for ${where} and found a colony` };
   const anchored = f?.ship?.phase === SHIP_ANCHORED;
+  // (Integrating slice 37 with the trunk: her way in held by a blockade.)
+  const held = f && !anchored ? heldWords(s, f) : '';
+  if (held) return { title, detail: `Waiting on the quay for your ship to ${where}. ${held}` };
   return { title, detail: anchored ? `On the quay, being rowed out to your ship for ${where}` : `Waiting on the quay for your ship to ${where}${f?.ship ? `: she sails in about ${dayWords(f.ship.since + SAIL_IN)}` : ''}` };
+}
+
+/** (Integrating slice 37 with the trunk) Your settlers' ship held by a blockade of your harbour, in words ('' if she isn't). */
+export function heldWords(s: SimState, f: Founding): string {
+  const b = blockaded(s);
+  const v = f.ship;
+  if (!b || f.phase !== 'gathering' || !v) return '';
+  const fleet = `${whose(b.city)} fleet holds the mouth of your harbour`;
+  if (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) return `Your ship waits outside the harbour: ${fleet}, and she sails in once the blockade is broken or lifted`;
+  if (v.phase === SHIP_ANCHORED && f.households.every((h) => h.state === 'aboard' || h.state === 'stayed')) return `Your ship waits at anchor with the families aboard: ${fleet}, and she sails once the blockade is broken or lifted`;
+  return '';
 }
 
 /** About when a founding's settlers land: at sea, its day; sailing out of the bay, once she clears it and makes the voyage (winter's storms not known yet). */
@@ -994,6 +1040,8 @@ export function settlersShipStatus(s: SimState, f: Founding): { title: string; d
   const aboard = f.households.filter((h) => h.state === 'aboard').length;
   const going = f.households.filter((h) => h.state !== 'stayed').length;
   const v = f.ship;
+  const held = heldWords(s, f);
+  if (held) return { title: `Your ship for ${siteName(f.site)}`, detail: `${held}\nOn the map of Greece she sails the lane to ${siteName(f.site)}` };
   const doing = f.phase !== 'gathering' ? `Sailing out of the bay with ${fmt(f.people)} settlers: they land on ${siteName(f.site)} about ${dayWords(landsAbout(s, f))}` : v?.phase === SHIP_ANCHORED ? `At anchor off the jetty: ${aboard} of ${going} households rowed out to her so far. She sails once all are aboard, or ${dayWords(f.until)} at the latest` : 'Sailing in for your settlers: she anchors off the jetty';
   return { title: `Your ship for ${siteName(f.site)}`, detail: `${doing}\nOn the map of Greece she sails the lane to ${siteName(f.site)}` };
 }
@@ -1006,14 +1054,18 @@ export function colonyTownLine(s: SimState): { text: string; site: string; urgen
   const threat = s.empire.colonies.filter((c) => c.threat && c.threat.end === '').sort((a, b) => (a.threat as ColonyThreat).due - (b.threat as ColonyThreat).due)[0];
   if (threat) {
     const t = threat.threat as ColonyThreat;
-    const g = threat.guards.length ? ` Your ${threat.guards.length} ${threat.guards.length === 1 ? 'trireme is' : 'triremes are'} on the way.` : '';
-    return { text: `${t.ships} ships of ${cityName(t.city)} are sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${threat.name}: they arrive about ${dayWords(t.due)}.${g}`, site: threat.site, urgent: !threat.guards.length, rank: 2 };
+    // (Integrating slice 37 with the trunk: crippled guards don't count.)
+    const n = colonyGuards(s, threat);
+    const g = n ? ` Your ${n} ${n === 1 ? 'trireme is' : 'triremes are'} on the way.` : '';
+    return { text: `${t.ships} ships of ${cityName(t.city)} are sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${threat.name}: they arrive about ${dayWords(t.due)}.${g}`, site: threat.site, urgent: !n, rank: 2 };
   }
   const f = foundingOf(s);
   if (f && f.phase === 'gathering') {
     const aboard = f.households.filter((h) => h.state === 'aboard').length;
     const going = f.households.filter((h) => h.state !== 'stayed').length;
     const anchored = f.ship?.phase === SHIP_ANCHORED;
+    const held = heldWords(s, f);
+    if (held) return { text: `Your settlers for ${siteName(f.site)}: ${aboard} of ${going} households aboard. ${held}.`, site: f.site, urgent: false, rank: 1 };
     return { text: `Your settlers for ${siteName(f.site)} are coming down to the quay: ${aboard} of ${going} households aboard; ${anchored ? 'your ship rides at anchor off the jetty' : `your ship sails in about ${dayWords((f.ship?.since ?? s.tick) + SAIL_IN)}`}.`, site: f.site, urgent: false, rank: 1 };
   }
   // (Review of slice 37: sailing out of the bay, the day counts the way out too, as the news of her sailing did.)

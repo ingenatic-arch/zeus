@@ -15,6 +15,7 @@ import {
   greatEstates,
   ambitionTownLine,
   ambitionView,
+  colonyNames,
   laurelOf,
   milestoneOf,
   MILESTONES,
@@ -33,6 +34,7 @@ import { monumentOf, STAGE_COUNT, stageNow, workOf } from '../src/sim/monuments'
 import { take } from '../src/sim/vassals';
 import { ESTATE, GREAT_ESTATE } from '../src/sim/buildings';
 import { cityOf, moodReasons } from '../src/sim/world';
+import { plantColony } from '../src/sim/colonies';
 import { demoSim } from './prepared';
 
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
@@ -280,5 +282,44 @@ describe('ambitions', () => {
     expect(laurelOf(s, 'estates')?.quiet).toBe(false);
     expect(laurelOf(s, 'estates')?.note).toBe('every ruler in Greece is 5 warmer for it');
     expect(moodReasons(cityOf(s.world, 'athens'), s.tick).some((r) => r.why === 'Your city’s renown: your grand estates' && r.worth === 5)).toBe(true);
+  });
+  // (Wired at the merge of slice 37.)
+  it('colonies count, by name: a colony is a city bowing, colonies and vassals together make a lord of three; one gone free no longer counts', () => {
+    const sim = demoSim('town');
+    const s = sim.state;
+    expect(colonyNames(s)).toEqual([]);
+    expect(laurelOf(s, 'vassal')).toBeUndefined();
+    const free = s.world.sites.filter((x) => !x.owner && !x.bound && !x.free).map((x) => x.id);
+    expect(free.length).toBeGreaterThanOrEqual(2);
+    const a = plantColony(s, free[0], 120);
+    expect(colonyNames(s)).toEqual([a.name]);
+    expect(milestoneOf('vassal')!.progress(s)).toEqual({ have: 1, need: 1, words: `${a.name} is yours` });
+    sim.run(TICKS_PER_DAY);
+    expect(laurelOf(s, 'vassal')?.quiet).toBe(false);
+    expect(laurelOf(s, 'vassal')?.note).toMatch(/settlers drawn by its fame/);
+    // A second colony and a vassal: lord of three cities, the colonies named with the vassal.
+    const b = plantColony(s, free[1], 90);
+    take(s, cityOf(s.world, 'argos'), 'awe', 'for a test');
+    const lord = milestoneOf('lord')!.progress(s);
+    expect(lord.have).toBe(3);
+    expect(lord.words).toContain(a.name);
+    expect(lord.words).toContain(b.name);
+    sim.run(TICKS_PER_DAY);
+    expect(laurelOf(s, 'lord')?.quiet).toBe(false);
+    // A colony gone free (its site no longer yours) no longer counts.
+    const x = s.world.sites.find((y) => y.id === free[0])!;
+    x.owner = '';
+    x.free = a.name;
+    expect(colonyNames(s)).toEqual([b.name]);
+    expect(milestoneOf('lord')!.progress(s).have).toBe(2);
+  });
+
+  it('#colonies opens with its two colonies counted, met quietly as the town opened', () => {
+    const s = demoSim('colonies').state;
+    const names = s.empire.colonies.map((c) => c.name);
+    expect(names.length).toBe(2);
+    expect(colonyNames(s)).toEqual(names);
+    expect(milestoneOf('vassal')!.progress(s).have).toBeGreaterThanOrEqual(2);
+    expect(laurelOf(s, 'vassal')?.quiet).toBe(true);
   });
 });

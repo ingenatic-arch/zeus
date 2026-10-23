@@ -301,9 +301,10 @@ export function sendBlockade(s: SimState, war: WarWithYou, ships: number, until 
   const b: Blockade = { id: s.fleet.nextId++, city: war.city, cause: war.cause, of: war.of, why: war.why, ships: clamp(ships, 1, SHIPS_MOST), phase: 'sailing', seen: s.tick, arrives: s.tick + voyage, holds: 0, until, sunk: 0, ended: 0, end: '' };
   s.fleet.blockades.push(b);
   const days = Math.round((voyage + BAY_TICKS) / TICKS_PER_DAY);
+  // (Integrating slice 37 with the trunk: and your colonies' ships, and your settlers' ship, if you have any.)
   const g = s.fleet.triremes.filter((t) => t.state !== 'building' && t.state !== 'sinking').length;
   const break_ = g ? `Your ${g === 1 ? 'trireme' : `${g} triremes`} can break it: sink ${toBreak(b)} of its ships and the rest flee` : 'Triremes could break it: sink half its ships and the rest flee';
-  news(s.world, s.tick, war.city, `${whose(war.city)} fleet has put to sea to blockade your harbour (${war.why}): ${b.ships} ships, off your harbour in about ${days} days. While they hold its mouth no ship comes or goes: the Tyrian ship, your sea routes’ traders, tribute and gifts by sea all wait. ${break_}`, true);
+  news(s.world, s.tick, war.city, `${whose(war.city)} fleet has put to sea to blockade your harbour (${war.why}): ${b.ships} ships, off your harbour in about ${days} days. While they hold its mouth no ship comes or goes: the Tyrian ship, your sea routes’ traders, tribute and gifts by sea${s.empire.colonies.length ? ', your colonies’ ships' : ''}${s.empire.foundings.some((f) => f.phase === 'gathering') ? ', your settlers’ ship' : ''} all wait. ${break_}`, true);
   s.rev++;
   return b;
 }

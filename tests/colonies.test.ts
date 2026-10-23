@@ -11,6 +11,9 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
+import { colonyGuards, colonyTownLine, heldWords, settlersShipStatus } from '../src/sim/colonies';
+import { stageBlockade, warships } from '../src/sim/blockades';
+import { SHIP_COMING } from '../src/sim/trade';
 import { colonyGrowth, colonyList, colonyLoyalty, colonyOf, colonyRefusal, fightOdds, fightRoll, FOUND_COST, FOUND_WHEAT, foundingOf, foundingPlan, foundRefusal, guardsAtHome, peopleOf, plantColony, siteRecord, threatenColony } from '../src/sim/colonies';
 import { expeditionRefusal } from '../src/sim/expeditions';
 import { held, TIMBER, WHEAT } from '../src/sim/foods';
@@ -342,4 +345,107 @@ describe('Greece’s free sites (the finding of slice 31)', () => {
     expect(founded).toBeGreaterThan(20);
     void cityOf;
   }, 600000);
+});
+
+// Integrating slice 37 with the trunk: slice 38's blockades, warships and crippled triremes.
+describe('colonies and contested seas (at the merge)', () => {
+  it('a blockade of your harbour holds your settlers’ ship outside it, and then at anchor with the families aboard, named as held', () => {
+    const sim = rich();
+    const s = sim.state;
+    send(sim, { type: 'colony', act: 'found', site: 'thasos' });
+    const f = foundingOf(s, 'thasos')!;
+    const b = stageBlockade(s, sim.map, 'troy', 3, 'for a test', s.tick + 3 * TICKS_PER_MONTH)!;
+    expect(b).not.toBeNull();
+    sim.run(SAIL_IN + 10 * TICKS_PER_DAY);
+    // Still outside: she never anchored, and every line says why.
+    expect(f.ship!.phase).toBe(SHIP_COMING);
+    expect(heldWords(s, f)).toMatch(/^Your ship waits outside the harbour: Troy’s fleet holds the mouth of your harbour/);
+    expect(settlersShipStatus(s, f).detail).toMatch(/waits outside the harbour/);
+    expect(colonyTownLine(s)!.text).toMatch(/Troy’s fleet holds the mouth of your harbour/);
+    // Lifted: she sails in and anchors, and the families waiting on the quay go aboard (and she sails, all aboard).
+    b.until = s.tick;
+    expect(until(sim, () => f.ship?.phase !== SHIP_COMING, SAIL_IN + 2 * TICKS_PER_DAY)).toBe(true);
+    expect(heldWords(s, f)).toBe('');
+    // Another founding, held at anchor once all are aboard: she waits, and sails once it ends.
+    const sim2 = rich();
+    const s2 = sim2.state;
+    send(sim2, { type: 'colony', act: 'found', site: 'thasos' });
+    const f2 = foundingOf(s2, 'thasos')!;
+    expect(until(sim2, () => f2.ship?.phase === SHIP_ANCHORED, SAIL_IN + 2 * TICKS_PER_DAY)).toBe(true);
+    expect(f2.households.every((h) => h.state === 'aboard' || h.state === 'stayed')).toBe(false);
+    const c = stageBlockade(s2, sim2.map, 'troy', 3, 'for a test', s2.tick + 6 * TICKS_PER_MONTH)!;
+    expect(until(sim2, () => f2.households.every((h) => h.state === 'aboard' || h.state === 'stayed'), 3 * TICKS_PER_MONTH)).toBe(true);
+    sim2.run(10 * TICKS_PER_DAY);
+    expect(f2.phase).toBe('gathering');
+    expect(heldWords(s2, f2)).toMatch(/^Your ship waits at anchor with the families aboard: Troy’s fleet holds the mouth of your harbour/);
+    c.until = s2.tick;
+    expect(until(sim2, () => f2.phase !== 'gathering', 2 * TICKS_PER_DAY)).toBe(true);
+  }, 240000);
+
+  it('a blockade holds a colony’s share off your gulf, as tribute; warships at war with you take a share unless its lane is guarded', () => {
+    // (A town with no triremes to break the blockade.)
+    const sim0 = rich();
+    const s0 = sim0.state;
+    const c0 = plantColony(s0, 'thasos', 600);
+    c0.next = s0.tick;
+    expect(until(sim0, () => s0.empire.tribute.some((t) => t.colony === 'thasos'), TICKS_PER_DAY + 1)).toBe(true);
+    const t = s0.empire.tribute.find((x) => x.colony === 'thasos')!;
+    const b = stageBlockade(s0, sim0.map, 'troy', 3, 'for a test', s0.tick + 6 * TICKS_PER_MONTH)!;
+    sim0.run(t.start + t.dur - s0.tick + 5 * TICKS_PER_DAY);
+    expect(t.phase).toBe('road');
+    b.until = s0.tick;
+    expect(until(sim0, () => t.phase !== 'road', 2 * TICKS_PER_DAY)).toBe(true);
+    const sim = fresh('triremes');
+    const s = sim.state;
+    const c = plantColony(s, 'thasos', 600);
+    // Warships of a city at war with you, preying on your lanes: the next share is seized as it sails.
+    const p = warships(s, 'troy', 'troy-sea', -1)!;
+    expect(p).not.toBeNull();
+    const seize = (): number => {
+      const sent = s.empire.tribute.filter((x) => x.colony === 'thasos').length;
+      c.next = s.tick;
+      const next = c.next;
+      for (let i = 0; i <= TICKS_PER_DAY && c.next === next; i++) {
+        p.state = 'preying';
+        sim.step();
+      }
+      return s.empire.tribute.filter((x) => x.colony === 'thasos').length - sent;
+    };
+    expect(seize()).toBe(0);
+    expect(p.took.some((w) => /Nea Thasos’s share of \d+ timber/.test(w))).toBe(true);
+    expect(lines(s).some((x) => /warships .* seized Nea Thasos’s share of \d+ timber on its way to you/.test(x))).toBe(true);
+    // A trireme on station off the colony keeps its ships safe.
+    const g = s.fleet.triremes[0];
+    g.order = 'lane';
+    g.lane = 'thasos-colony';
+    g.state = 'away';
+    g.homeward = false;
+    g.start = s.tick - 1;
+    g.dur = 0;
+    expect(seize()).toBe(1);
+  }, 240000);
+
+  it('a crippled trireme does not guard a colony: not in the odds, not in the fight', () => {
+    const sim = fresh('triremes');
+    const s = sim.state;
+    const c = plantColony(s, 'thasos', 600);
+    const home = guardsAtHome(s);
+    expect(home.length).toBeGreaterThanOrEqual(2);
+    const t = threatenColony(s, c, 'sparta', 'raid');
+    send(sim, { type: 'colony', act: 'guard', site: 'thasos' });
+    expect(colonyGuards(s, c)).toBe(home.length);
+    // One of them with her oars broken (slice 38): she counts no more.
+    const hurt = s.fleet.triremes.find((x) => x.id === home[0])!;
+    hurt.oars = 10;
+    expect(colonyGuards(s, c)).toBe(home.length - 1);
+    const odds = fightOdds(home.length - 1, t.ships);
+    const roll = fightRoll(s, c, t);
+    // (Kept crippled until the day: she rows on with the others, but doesn't fight.)
+    expect(until(sim, () => {
+      hurt.oars = Math.min(hurt.oars, 10);
+      return t.end !== '';
+    }, t.due - s.tick + TICKS_PER_DAY + 1)).toBe(true);
+    expect(t.end).toBe(roll < odds ? 'driven' : 'raided');
+    expect(t.line).toMatch(new RegExp(`your ${home.length - 1} ${home.length - 1 === 1 ? 'trireme' : 'triremes'}|raiders took`));
+  }, 240000);
 });

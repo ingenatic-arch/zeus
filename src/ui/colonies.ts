@@ -20,7 +20,10 @@ import { lateWords } from '../sim/seasons';
 import type { SimState } from '../sim/state';
 import { SAIL_IN, SHIP_ANCHORED } from '../sim/trade';
 import { tributeWords } from '../sim/vassals';
+import { blockaded } from '../sim/lanes';
 import { NAME_MAX } from '../sim/world';
+// (Integrating slice 37 with the trunk: the trade goods' colours are the trade panel's own, horses and all, in TRADE_GOODS' order.)
+import { SWATCH } from './prices';
 import {
   COLONY_ARMING,
   COLONY_STAND_DOWN,
@@ -35,7 +38,9 @@ import {
   FREE_FROM,
   GOV_WORDS,
   goodName,
+  colonyGuards,
   guardsAtHome,
+  heldWords,
   laneTicks,
   landsAbout,
   lowReasons,
@@ -56,8 +61,6 @@ const name = (id: CityId): string => PLACES[id]?.name ?? id;
 const whose = (id: CityId): string => (name(id).endsWith('s') ? `${name(id)}’` : `${name(id)}’s`);
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 const inTen = (p: number): string => `about ${Math.max(1, Math.min(9, Math.round(p * 10)))} in 10`;
-/** The trade goods' colours, as in the trade panel (marble and timber the last two, in TRADE_GOODS' order). */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#8a8f96', '#e9e4da', '#8a5a32'];
 /** What each share does to loyalty (colonies.ts' SHARE_LOYALTY, in words for the buttons). */
 const SHARE_LOYALTY = ['+15', '0', '−20'];
 /** A colony of this size, for a free site's page: what one would send once it has grown a few years. */
@@ -135,7 +138,8 @@ function foundingHtml(s: SimState, f: Founding): string {
   let line = '';
   if (f.phase === 'gathering') {
     const anchored = !f.ship || f.ship.phase === SHIP_ANCHORED;
-    line = anchored ? `Your ship rides at anchor off the jetty, and the families are rowed out to her as they come down. She sails once all are aboard, or ${esc(dayWords(f.until))} at the latest.` : `Your ship sails in for them about ${esc(dayWords((f.ship?.since ?? s.tick) + SAIL_IN))}.`;
+    const held = heldWords(s, f);
+    line = held ? `${esc(held)}.` : anchored ? `Your ship rides at anchor off the jetty, and the families are rowed out to her as they come down. She sails once all are aboard, or ${esc(dayWords(f.until))} at the latest.` : `Your ship sails in for them about ${esc(dayWords((f.ship?.since ?? s.tick) + SAIL_IN))}.`;
   } else if (f.phase === 'leaving') line = `All aboard (${fmt(f.people)} people): your ship is sailing out of the bay. They land about ${esc(dayWords(landsAbout(s, f)))}.`;
   else if (f.phase === 'sea') line = `At sea with ${fmt(f.people)} people: they land about ${esc(dayWords(f.start + f.dur))}${esc(lateWords(s, `colony-${f.site}`))}.`;
   return `<section class="founding"><h3>Your settlers</h3><p class="line bound">${line}</p><ul class="means">${rows}</ul><p class="if">Sent ${esc(dayWords(f.at))}: ${fmt(f.cost)} dr and ${fmt(f.wheat)} wheat.</p></section>`;
@@ -165,7 +169,8 @@ function threatHtml(s: SimState, c: Colony, map: CoastMap | undefined): string {
   const pop = peopleOf(s, c);
   const what = t.kind === 'claim' ? `to claim it for ${name(t.city)}: ${t.men} men against its ${Math.round(pop / 8)}` : `to raid it: ${t.men} men`;
   const home = map ? guardsAtHome(s).length : 0;
-  const there = c.guards.length;
+  // (Integrating slice 37 with the trunk: a crippled trireme, slice 38's, does not guard.)
+  const there = colonyGuards(s, c);
   const reach = s.tick + laneTicks(c.site) + 4 * TICKS_PER_DAY;
   const late = reach > t.due ? ` They would come too late: off its shore about ${dayWords(reach)}.` : '';
   // (Review of slice 37: ships that would come too late don't count in the odds.)
@@ -206,7 +211,7 @@ function shareHtml(s: SimState, c: Colony): string {
   const next = `The next sets out about ${dayWords(c.next)}${c.skip ? ', empty: the raiders took what it had' : ''}.`;
   const way = s.empire.tribute
     .filter((t) => t.colony === c.site && t.phase !== 'done')
-    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' ? `at sea: in your bay about ${esc(dayWords(t.start + t.dur + SAIL_IN))}${esc(lateWords(s, `colony-${c.site}`))}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
+    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' && s.tick >= t.start + t.dur && blockaded(s) ? `waiting off your gulf: ${esc(whose(blockaded(s)!.city))} fleet holds the mouth of your harbour, and it sails in once the blockade is broken or lifted` : t.phase === 'road' ? `at sea: in your bay about ${esc(dayWords(t.start + t.dur + SAIL_IN))}${esc(lateWords(s, `colony-${c.site}`))}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
     .join('');
   const last = s.empire.tribute.filter((t) => t.colony === c.site && t.phase === 'done').at(-1);
   const lastLine = last ? `<p class="if">Last: ${esc(tributeWords(last))} ${esc(last.how)}${last.lost ? ` (${fmt(last.lost)} there was no room for)` : ''}, ${esc(dayWords(last.ended))}.</p>` : '';
