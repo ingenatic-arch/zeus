@@ -2927,8 +2927,12 @@ function estatesTown(stage: 'estates' | 'horsemen'): (sim: Sim) => void {
     const c = s.army.companies.find((x) => x.kind === 'horseman');
     if (!c) return;
     while (s.tick < stop && readyOf(s, c).length < Math.min(all.length, companySize('horseman'))) sim.run(10);
-    // A few days' drill, then Sparta's band.
+    // A few days' drill, then Sparta's band. (At the merge with the trunk: and, within a month, a day the town has nothing
+    // to warn about: with the walkers' crews, the actor's round reached the two newest estates a few days later.)
     sim.run(2 * TICKS_PER_DAY);
+    const calm = (): boolean => s.buildings.every((b) => b.kind !== 'home' || b.people === 0 || estateWarnings(s, b).length === 0);
+    const settle = s.tick + TICKS_PER_MONTH;
+    while (s.tick < settle && !calm()) sim.run(10);
     stagedRaid(sim, 'sparta', 'the king will not have a city of horsemen so near his lands', HORSEMEN_BAND);
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
     if (!r) return;

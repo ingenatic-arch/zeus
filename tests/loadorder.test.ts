@@ -16,7 +16,12 @@
  * module blockades.ts is entered like every other, and every private
  * constant slice 38 added (in blockades.ts, fleet.ts, raids.ts, rounds.ts
  * and trade.ts) is a plain number or worked out from clock.ts, which
- * imports nothing, so none can come out wrong.)
+ * imports nothing, so none can come out wrong. At the merge with slice 36,
+ * its new module estates.ts is entered too, and every private constant
+ * slice 36 added (in army.ts, battle.ts, estates.ts, status.ts, stores.ts
+ * and world.ts) is a plain number or table, worked out from clock.ts, or
+ * keyed by foods.ts's wares (foods.ts imports nothing but types), so none
+ * can come out wrong either.)
  */
 import { readdirSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -48,8 +53,8 @@ function problem(v: unknown): string {
 
 describe('the order the sim’s modules load in', () => {
   it('whichever module is loaded first, every exported constant is worked out', async () => {
-    // (Every module in the two folders, slice 38's blockades.ts and slice 39's ambitions.ts and laurels.ts among them.)
-    for (const m of ['sim/blockades', 'sim/ambitions', 'sim/laurels']) expect(MODULES).toContain(`../src/${m}`);
+    // (Every module in the two folders, slice 38's blockades.ts, slice 39's ambitions.ts and laurels.ts and slice 36's estates.ts among them.)
+    for (const m of ['sim/blockades', 'sim/ambitions', 'sim/laurels', 'sim/estates']) expect(MODULES).toContain(`../src/${m}`);
     const bad: string[] = [];
     for (const first of MODULES) {
       vi.resetModules();

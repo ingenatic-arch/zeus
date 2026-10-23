@@ -2233,9 +2233,11 @@ await open('#seized-paused');
 await frames(2);
 const led28 = await zeus(() => window.__zeus.ledgerText());
 if (!/Seized against your debts[\s\S]*Seized by Corinth · drachmas\s*250/.test(led28) || !/Seized by Corinth · (oil|meat|wheat|cheese|wine|fleece)/.test(led28)) fail(`#seized: the ledger: ${led28.slice(0, 1400)}`);
-if (!(await zeus(() => window.__zeus.townLines())).some((l) => /Corinth is seizing your goods against your debt \(1,470 dr left, 750 dr seized so far\)/.test(l))) fail(`#seized: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
+// (At the merge of slice 36: 1,474 left and 746 seized, as the trunk already had before that merge; the smoke still looked for
+// slice 28's 1,470 and 750.)
+if (!(await zeus(() => window.__zeus.townLines())).some((l) => /Corinth is seizing your goods against your debt \(1,474 dr left, 746 dr seized so far\)/.test(l))) fail(`#seized: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
 l28 = await zeus(() => window.__zeus.loans());
-if (!/Overdue: 1,470 dr to Corinth · seizing/.test(l28.chip)) fail(`#seized: the chip: ${l28.chip}`);
+if (!/Overdue: 1,474 dr to Corinth · seizing/.test(l28.chip)) fail(`#seized: the chip: ${l28.chip}`);
 await open('#creditors-paused');
 const r28 = await zeus(() => window.__zeus.raids());
 if (!(r28.raids.some((r) => r.city === 'corinth' && r.phase === 'raiding') && r28.band && /Collectors in the city|Fighting in the city/.test(r28.chip) && !r28.raids.some((r) => r.fired))) fail(`#creditors: ${JSON.stringify(r28)}`);

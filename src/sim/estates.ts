@@ -128,6 +128,22 @@ export function wanted(s: SimState, b: Building): EstateNeed[] {
   return ESTATE_NEEDS.filter((need) => wareUntil(s, b, need) - s.tick < FETCH_BELOW && held(b, WARE_OF[need]) < MOST[need]);
 }
 
+/**
+ * What a storehouse keeps back of a ware for the city's estates: a full
+ * stable and yard's worth (MOST) for each estate with its house in (at the
+ * merge with slice 35: a monument's ox carts leave this much in a
+ * storehouse, so the estates' porters, whose trips can take a month or more,
+ * still find their marble there while a monument is being built; 0 with no
+ * estates, or for a ware estates don't use).
+ */
+export function estatesKeep(s: SimState, w: Ware): number {
+  const need = ESTATE_NEEDS.find((n) => WARE_OF[n] === w);
+  if (!need) return 0;
+  let n = 0;
+  for (const b of s.buildings) if (isEstate(b) && b.people > 0) n += MOST[need];
+  return n;
+}
+
 /** Does any store in the city hold some of a ware? */
 const storesHave = (s: SimState, w: Ware): boolean => s.buildings.some((g) => isStore(g.kind) && held(g, w) > 0);
 

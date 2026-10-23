@@ -12,6 +12,7 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import {
   achieved,
   AMBITIONS,
+  greatEstates,
   ambitionTownLine,
   ambitionView,
   laurelOf,
@@ -30,6 +31,7 @@ import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
 import { monumentOf, STAGE_COUNT, stageNow, workOf } from '../src/sim/monuments';
 import { take } from '../src/sim/vassals';
+import { ESTATE, GREAT_ESTATE } from '../src/sim/buildings';
 import { cityOf, moodReasons } from '../src/sim/world';
 import { demoSim } from './prepared';
 
@@ -67,8 +69,11 @@ describe('ambitions', () => {
     const sim = demoSim('vassal');
     const s = sim.state;
     expect(s.ambition.on).toBe(true);
-    // #vassal: two companies, Corinth its vassal, a busy quay, a town of villas.
-    for (const id of ['army', 'vassal', 'market', 'town', 'villas']) expect(laurelOf(s, id)?.quiet, id).toBe(true);
+    // #vassal: two companies, Corinth its vassal, a town of villas. (At the merge of slice 36: with the ships back on
+    // their schedule after a winter, the Tyrian ship's call falls in January, so nothing was sold in its last two months
+    // and the busy market isn't met as it opens.)
+    for (const id of ['army', 'vassal', 'town', 'villas']) expect(laurelOf(s, id)?.quiet, id).toBe(true);
+    expect(laurelOf(s, 'market')).toBeUndefined();
     expect(s.ambition.reached.every((l) => l.note === '')).toBe(true);
     expect(s.ambition.fameUntil).toBe(0);
     expect(ambitionTownLine(s)).toBe('');
@@ -248,5 +253,32 @@ describe('ambitions', () => {
     expect(sim.state.ambition.on).toBe(true);
     expect(sim.state.ambition.reached.every((l) => l.quiet)).toBe(true);
     ledgerHolds(sim.state);
+  });
+
+  // Wired at the merge of slice 36 (the great houses).
+  it('grand estates: two great estates with their houses in; an estate not yet great doesn’t count; won in play, renown', () => {
+    // #estates: its two great estates, full (recorded quietly as the town opened).
+    const sim = demoSim('estates');
+    const s = sim.state;
+    const m = milestoneOf('estates')!;
+    expect(greatEstates(s)).toBe(2);
+    expect(m.progress(s)).toEqual({ have: 2, need: 2, words: '2 of 2 great estates' });
+    expect(laurelOf(s, 'estates')?.quiet).toBe(true);
+    // One back at the estate's level, or a great estate's house gone, and it is one of two; a villa never counts.
+    const [a, b] = s.buildings.filter((x) => x.estate && x.level === GREAT_ESTATE);
+    a.level = ESTATE;
+    expect(m.progress(s).words).toBe('1 of 2 great estates');
+    a.level = GREAT_ESTATE;
+    const people = b.people;
+    b.people = 0;
+    expect(greatEstates(s)).toBe(1);
+    b.people = people;
+    expect(greatEstates(demoSim('richtown').state)).toBe(0);
+    // Its laurel taken back, the next look wins it in play: every ruler 5 warmer.
+    s.ambition.reached = s.ambition.reached.filter((l) => l.id !== 'estates');
+    sim.run(TICKS_PER_DAY);
+    expect(laurelOf(s, 'estates')?.quiet).toBe(false);
+    expect(laurelOf(s, 'estates')?.note).toBe('every ruler in Greece is 5 warmer for it');
+    expect(moodReasons(cityOf(s.world, 'athens'), s.tick).some((r) => r.why === 'Your city’s renown: your grand estates' && r.worth === 5)).toBe(true);
   });
 });

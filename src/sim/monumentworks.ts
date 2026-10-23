@@ -21,7 +21,8 @@
  *   HAUL_GAP (its building's `clock` counts down), up to MAX_HAULS on the road
  *   at once, from the storehouse nearest it by road that has some. The cart
  *   loads at the storehouse as it sets out, unloads at the site and goes home
- *   empty.
+ *   empty. (At the merge of slice 36: it leaves in the storehouse the marble
+ *   the estates still want, for their porters: estatesKeep in estates.ts.)
  * - **The masons' yard** (2 x 2) has up to MAX_BUILDERS builders out at once
  *   (one for each two of its workers). Each walks to the nearest site by road
  *   that wants builders for a stage under way, works there at his place on the
@@ -52,6 +53,8 @@ import { news, settleMood } from './diplomacy';
 import { CART_TAKE, goTo, lastRoad, nearestBy, wayPoints } from './food';
 import { held, setHeld, type Ware } from './foods';
 import { rateOf } from './labour';
+// At the merge of slice 36: the estates' marble.
+import { estatesKeep } from './estates';
 import {
   finished as isFinished,
   FIRST_GAMES,
@@ -298,10 +301,12 @@ function haul(s: SimState, map: CoastMap, x: Site, b: Building): void {
     .filter((o) => o.n > 0)
     .sort((a, c) => c.n / haulOf(c.w) - a.n / haulOf(a.w) || a.w - c.w);
   for (const { w, n } of wants) {
-    const found = nearestBy(s, size, roads, (g) => g.kind === 'storehouse' && held(g, w) > 0);
+    // (At the merge of slice 36: what the estates still want of it stays in the storehouse for their porters.)
+    const keep = estatesKeep(s, w);
+    const found = nearestBy(s, size, roads, (g) => g.kind === 'storehouse' && held(g, w) > keep);
     if (!found) continue;
     const { g, way } = found;
-    const load = Math.min(haulOf(w), n, held(g, w));
+    const load = Math.min(haulOf(w), n, held(g, w) - keep);
     const k = newWalker(s, 'oxcart', 1);
     k.origin = g.id;
     k.target = x.id;

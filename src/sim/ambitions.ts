@@ -25,9 +25,9 @@
  *
  * The milestones only read what the town already has: vassals (slice 34),
  * the army, routes, the ledger's sales, the treasury against Greece's
- * cities, homes and people, and the monuments (slice 35). Two read things
- * that are not here yet and count 0 until they are wired in: colonies (slice
- * 37) and great estates (slice 36).
+ * cities, homes and people, the monuments (slice 35) and the great estates
+ * (slice 36, wired in at its merge). One reads a thing that is not here yet
+ * and counts 0 until it is wired in: colonies (slice 37).
  *
  * The switch: off in a bare state and while a demo's history is played (so
  * no history changes), on as a game starts or a demo opens. Switched on (and
@@ -36,6 +36,7 @@
  * here draws a random number.
  */
 import { PLACES, RULED, type CityId } from '../map/greece';
+import { GREAT_ESTATE } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, rulerGift, settleMood } from './diplomacy';
 import { monumentName, monumentOf, progressOf, STAGE_COUNT, STAGES, type MonumentKind } from './monuments';
@@ -134,13 +135,9 @@ export function colonyNames(_s: SimState): string[] {
   return [];
 }
 
-/**
- * Your great estates: none yet.
- * Wired at the merge of slice 36 (the great houses): the homes at the great estate's level.
- */
-export function greatEstates(_s: SimState): number {
-  // Wired at the merge of slice 36
-  return 0;
+/** Your great estates (slice 36, wired at its merge): the estates at the great estate's level with their noble house in. */
+export function greatEstates(s: SimState): number {
+  return s.buildings.reduce((a, b) => a + (b.kind === 'home' && b.estate && b.level === GREAT_ESTATE && b.people > 0 ? 1 : 0), 0);
 }
 
 /** The cities of Greece whose army or treasury counts against yours: ruled, peopled, not yours, not Egypt. */

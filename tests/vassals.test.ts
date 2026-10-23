@@ -20,7 +20,7 @@ import { SIM_STATE_VERSION, type Loan, type SimState, type Trait, type WorldCity
 import { totals } from '../src/sim/treasury';
 import { income } from '../src/sim/treasury';
 import { TRADE_GOODS, tradeIndex } from '../src/sim/trade';
-import { held, MARBLE, TIMBER } from '../src/sim/foods';
+import { held, HORSES, MARBLE, TIMBER } from '../src/sim/foods';
 import { voyageTicks } from '../src/sim/routes';
 import { seasonAt, WINTER } from '../src/sim/seasons';
 import { cityOf, moodOf } from '../src/sim/world';
@@ -394,5 +394,30 @@ describe('the empire with marble, timber and the seasons', () => {
     expect(t.dur - voyage).toBeGreaterThanOrEqual(6 * TICKS_PER_DAY);
     expect(t.dur - voyage).toBeLessThanOrEqual(12 * TICKS_PER_DAY);
     expect(lines(s).some((l) => /Troy’s tribute is on its way: .*by sea: .*late: winter storms in the gulf held her back \d+ days/.test(l))).toBe(true);
+  }, 400000);
+});
+
+// Integrating slice 36 with 34: horses as tribute.
+describe('the empire with horses', () => {
+  it('Thebes, which sells horses, can pay in them; its tribute horses are led into a storehouse', () => {
+    const sim = fresh('collect');
+    const s = sim.state;
+    const thebes = cityOf(s.world, 'thebes');
+    const h = tradeIndex(HORSES);
+    expect(tributeGoods(thebes)).toContain(h);
+    // (Athens breeds what it uses: it can't pay in horses.)
+    expect(tributeGoods(cityOf(s.world, 'athens'))).not.toContain(h);
+    take(s, thebes, 'debt', 'for the test');
+    send(sim, { type: 'empire', act: 'tribute', city: 'thebes', good: h, weight: 1 });
+    expect(until(sim, () => s.empire.tribute.some((t) => t.city === 'thebes'), 2 * TICKS_PER_MONTH)).toBe(true);
+    const t = s.empire.tribute.find((x) => x.city === 'thebes')!;
+    expect(t.good).toBe(h);
+    expect(t.amount).toBeGreaterThan(0);
+    expect(lines(s).some((l) => /Thebes’ tribute is on its way: \d+ horses/.test(l))).toBe(true);
+    const before = s.buildings.filter((b) => b.kind === 'storehouse').reduce((a, b) => a + held(b, HORSES), 0);
+    expect(until(sim, () => t.phase === 'done', 5 * TICKS_PER_MONTH)).toBe(true);
+    expect(t.put).toBeGreaterThan(0);
+    expect(s.buildings.filter((b) => b.kind === 'storehouse').reduce((a, b) => a + held(b, HORSES), 0)).toBeGreaterThanOrEqual(before + t.put);
+    ledgerAddsUp(s);
   }, 400000);
 });

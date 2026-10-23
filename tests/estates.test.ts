@@ -378,12 +378,14 @@ describe('horsemen in the field', () => {
   }, 600000);
 
   // (Slice 36's review: #horsemen's riders, sent to the main street on their own, lost to its band of 38 and it raided anyway.)
-  it('#horsemen: six riders sent to the main street break Sparta’s small band and ride down its runners', () => {
+  it('#horsemen: six riders sent to the street by the meadow’s storehouse break Sparta’s small band and ride down its runners', () => {
     const sim = demoSim('horsemen');
     const s = sim.state;
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0)!;
     const c = s.army.companies.find((x) => x.kind === 'horseman')!;
-    send(sim, { type: 'banner', company: c.id, tile: T(55, 41) });
+    // (At the merge with the trunk: in its history the band makes first for the storehouse on the meadow, west of the
+    // main street, so the riders are sent to the street beside it.)
+    send(sim, { type: 'banner', company: c.id, tile: T(47, 41) });
     let atBreak = -1;
     until(
       sim,
