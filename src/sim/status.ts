@@ -1309,9 +1309,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   // Slice 34: a vassal arming, an ally's call waiting, men coming to help you, tribute coming in (vassals.ts).
   const empire = empireTownLine(s);
   // Slice 37: or a colony talking of freedom or threatened, or your settlers on their way (its page on the map). One empire line
-  // shows at a time (they are kept by kind): the colony's if it is urgent and the empire's is not, or if there is no other.
+  // shows at a time (they are kept by kind): the one that matters more (review of slice 37: by rank, then urgency; a tie, the empire's).
   const colony = colonyTownLine(s);
-  if (colony && (!empire || (colony.urgent && !empire.urgent))) out.push({ need: 'empire', text: colony.text, at: 0, route: `site:${colony.site}` });
+  const weigh = (l: { rank: number; urgent: boolean }): number => 2 * l.rank + (l.urgent ? 1 : 0);
+  if (colony && (!empire || weigh(colony) > weigh(empire))) out.push({ need: 'empire', text: colony.text, at: 0, route: `site:${colony.site}` });
   else if (empire) out.push({ need: 'empire', text: empire.text, at: 0, route: empire.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);

@@ -526,8 +526,7 @@ function sail(s: SimState, f: Founding): void {
     f.ship.turned = f.ship.stop;
     f.ship.since = s.tick;
   }
-  const voyage = laneTicks(f.site);
-  news(s.world, s.tick, siteKey(f.site), `Your settlers sail for ${siteName(f.site)}: ${fmt(f.people)} people from ${f.households.filter((h) => h.state === 'aboard').length} households. They land about ${dayWords(s.tick + (f.ship ? leaveTicks(f.ship) : 0) + voyage)}`);
+  news(s.world, s.tick, siteKey(f.site), `Your settlers sail for ${siteName(f.site)}: ${fmt(f.people)} people from ${f.households.filter((h) => h.state === 'aboard').length} households. They land about ${dayWords(landsAbout(s, f))}`);
   s.rev++;
 }
 
@@ -636,7 +635,8 @@ export function colonyLoyalty(s: SimState, c: Colony): Loyalty {
   if (c.trait === 'loyal') add(10, `${c.governor}, its governor, is loyal`);
   if (c.trait === 'steady') add(5, `${c.governor}, its governor, is steady`);
   if (c.trait === 'proud' && pop > FREE_FROM) add(-10, `${c.governor}, its governor, is proud, and it has grown`);
-  if (c.trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping, and the share is heavy`);
+  // (Review of slice 37: the share is already its own reason, so this one doesn't name it again in the short list.)
+  if (c.trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`);
   why.sort((a, b) => Math.abs(b.n) - Math.abs(a.n));
   return { target: clamp(LOYAL_BASE + why.reduce((a, x) => a + x.n, 0), 0, 100), why };
 }
@@ -982,33 +982,42 @@ export function colonistDoing(s: SimState, w: Walker): { title: string; detail: 
   return { title, detail: anchored ? `On the quay, being rowed out to your ship for ${where}` : `Waiting on the quay for your ship to ${where}${f?.ship ? `: she sails in about ${dayWords(f.ship.since + SAIL_IN)}` : ''}` };
 }
 
+/** About when a founding's settlers land: at sea, its day; sailing out of the bay, once she clears it and makes the voyage (winter's storms not known yet). */
+export function landsAbout(s: SimState, f: Founding): number {
+  if (f.phase === 'sea') return f.start + f.dur;
+  const out = f.ship && f.phase === 'leaving' ? Math.max(0, f.ship.since + leaveTicks(f.ship) - s.tick) : 0;
+  return s.tick + out + laneTicks(f.site);
+}
+
 /** Your settlers' ship's hover in the bay. */
 export function settlersShipStatus(s: SimState, f: Founding): { title: string; detail: string } {
   const aboard = f.households.filter((h) => h.state === 'aboard').length;
   const going = f.households.filter((h) => h.state !== 'stayed').length;
   const v = f.ship;
-  const doing = f.phase !== 'gathering' ? `Sailing out of the bay with ${fmt(f.people)} settlers: they land on ${siteName(f.site)} about ${dayWords(s.tick + (v ? Math.max(0, v.since + leaveTicks(v) - s.tick) : 0) + laneTicks(f.site))}` : v?.phase === SHIP_ANCHORED ? `At anchor off the jetty: ${aboard} of ${going} households rowed out to her so far. She sails once all are aboard, or ${dayWords(f.until)} at the latest` : 'Sailing in for your settlers: she anchors off the jetty';
+  const doing = f.phase !== 'gathering' ? `Sailing out of the bay with ${fmt(f.people)} settlers: they land on ${siteName(f.site)} about ${dayWords(landsAbout(s, f))}` : v?.phase === SHIP_ANCHORED ? `At anchor off the jetty: ${aboard} of ${going} households rowed out to her so far. She sails once all are aboard, or ${dayWords(f.until)} at the latest` : 'Sailing in for your settlers: she anchors off the jetty';
   return { title: `Your ship for ${siteName(f.site)}`, detail: `${doing}\nOn the map of Greece she sails the lane to ${siteName(f.site)}` };
 }
 
 /** The line under the top bar, if a colony needs you: talk of freedom, a threat, settlers on the quay. */
-export function colonyTownLine(s: SimState): { text: string; site: string; urgent: boolean } | null {
+// (Review of slice 37: with a rank, as the empire's lines have: 3 talk of freedom, 2 a threat, 1 your settlers on their way.)
+export function colonyTownLine(s: SimState): { text: string; site: string; urgent: boolean; rank: number } | null {
   const talk = s.empire.colonies.filter((c) => c.talk).sort((a, b) => a.frees - b.frees)[0];
-  if (talk) return { text: `${talk.name} talks of freedom: loyalty ${talk.loyalty} (${lowReasons(colonyLoyalty(s, talk))}). It declares itself free about ${dayWords(talk.frees)} unless its loyalty mends (its page on the map of Greece).`, site: talk.site, urgent: true };
+  if (talk) return { text: `${talk.name} talks of freedom: loyalty ${talk.loyalty} (${lowReasons(colonyLoyalty(s, talk))}). It declares itself free about ${dayWords(talk.frees)} unless its loyalty mends (its page on the map of Greece).`, site: talk.site, urgent: true, rank: 3 };
   const threat = s.empire.colonies.filter((c) => c.threat && c.threat.end === '').sort((a, b) => (a.threat as ColonyThreat).due - (b.threat as ColonyThreat).due)[0];
   if (threat) {
     const t = threat.threat as ColonyThreat;
     const g = threat.guards.length ? ` Your ${threat.guards.length} ${threat.guards.length === 1 ? 'trireme is' : 'triremes are'} on the way.` : '';
-    return { text: `${t.ships} ships of ${cityName(t.city)} are sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${threat.name}: they arrive about ${dayWords(t.due)}.${g}`, site: threat.site, urgent: !threat.guards.length };
+    return { text: `${t.ships} ships of ${cityName(t.city)} are sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${threat.name}: they arrive about ${dayWords(t.due)}.${g}`, site: threat.site, urgent: !threat.guards.length, rank: 2 };
   }
   const f = foundingOf(s);
   if (f && f.phase === 'gathering') {
     const aboard = f.households.filter((h) => h.state === 'aboard').length;
     const going = f.households.filter((h) => h.state !== 'stayed').length;
     const anchored = f.ship?.phase === SHIP_ANCHORED;
-    return { text: `Your settlers for ${siteName(f.site)} are coming down to the quay: ${aboard} of ${going} households aboard; ${anchored ? 'your ship rides at anchor off the jetty' : `your ship sails in about ${dayWords((f.ship?.since ?? s.tick) + SAIL_IN)}`}.`, site: f.site, urgent: false };
+    return { text: `Your settlers for ${siteName(f.site)} are coming down to the quay: ${aboard} of ${going} households aboard; ${anchored ? 'your ship rides at anchor off the jetty' : `your ship sails in about ${dayWords((f.ship?.since ?? s.tick) + SAIL_IN)}`}.`, site: f.site, urgent: false, rank: 1 };
   }
-  if (f && f.phase !== 'done') return { text: `Your settlers are at sea for ${siteName(f.site)}: ${fmt(f.people)} people, landing about ${dayWords(f.phase === 'sea' ? f.start + f.dur : s.tick + laneTicks(f.site))}.`, site: f.site, urgent: false };
+  // (Review of slice 37: sailing out of the bay, the day counts the way out too, as the news of her sailing did.)
+  if (f && f.phase !== 'done') return { text: `Your settlers are at sea for ${siteName(f.site)}: ${fmt(f.people)} people, landing about ${dayWords(landsAbout(s, f))}.`, site: f.site, urgent: false, rank: 1 };
   return null;
 }
 

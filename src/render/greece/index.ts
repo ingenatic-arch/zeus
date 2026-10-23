@@ -32,7 +32,7 @@ import { routeEvent } from '../../ui/routes';
 // Slice 37: a site's page, your settlers' ship, your colonies' lanes and the rivals' ships sent against them.
 import { colonyEvent } from '../../ui/colonies';
 import { foundingOnMap, threatShare } from '../../sim/colonies';
-import { SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
+import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
@@ -89,6 +89,8 @@ export class GreeceMap {
   shown: CityId | null = null;
   /** (Slice 37) Your colonies' lanes, drawn while in use (by site). */
   private readonly colonyLanes = new Map<string, THREE.Group>();
+  /** (Review of slice 37) The ways rivals' ships sail against your colonies, by city and site. */
+  private readonly foeWays = new Map<string, number[]>();
   /** A city, the Tyre ship ('ship'), or a route's trader on the map ('trav:' and its key, such as 'trav:corinth-land-0'). */
   hovered: CityId | 'ship' | `trav:${string}` | null = null;
   private readonly host: GreeceHost;
@@ -1041,18 +1043,24 @@ export class GreeceMap {
       if (!t || t.end !== '') continue;
       const p = siteOf(c.site);
       if (!p) continue;
-      // (From their city straight towards the colony, stopping a little short of it: a fleet in their colours.)
-      const [ax, az] = this.at(t.city);
-      const [bx, bz] = project(p.lon, p.lat);
-      const len = Math.hypot(bx - ax, bz - az) || 1;
+      // (From their city towards the colony, stopping a little short of it: a fleet in their colours. Review of slice 37: by
+      // sea, out along one of their lanes and across to the colony's, not straight over the land; straight only with no lane.)
+      const key = `${t.city}-${c.site}`;
+      let way = this.foeWays.get(key);
+      if (!way) {
+        const [ax, az] = this.at(t.city);
+        const [bx, bz] = project(p.lon, p.lat);
+        way = seaWayTo(t.city, c.site) ?? [ax, az, bx, bz];
+        this.foeWays.set(key, way);
+      }
+      const len = lineLength(way);
       const u = threatShare(t, tick);
-      const d = 2.2 + (len - 4.4) * u;
-      const x = ax + ((bx - ax) * d) / len;
-      const z = az + ((bz - az) * d) / len;
+      const from = Math.min(0.6, len / 4);
+      const at = alongLine(way, from + Math.max(0, len - from - Math.min(2.2, len / 4)) * u);
       const { colour: fc, trim: ft } = PLACES[t.city];
       const m = piece(`foe-${c.site}-${t.city}`, () => fleetModel(fc, ft), BODY.fleet);
-      m.position.set(x, 0.02 + Math.sin(time * 1.4 + t.at) * 0.03, z);
-      m.rotation.set(Math.sin(time * 1.1 + t.at) * 0.03, -Math.atan2(bz - az, bx - ax), 0);
+      m.position.set(at.x, 0.02 + Math.sin(time * 1.4 + t.at) * 0.03, at.z);
+      m.rotation.set(Math.sin(time * 1.1 + t.at) * 0.03, -Math.atan2(at.dz, at.dx), 0);
       m.scale.setScalar(1.1 * far);
     }
   }

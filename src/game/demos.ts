@@ -2475,8 +2475,8 @@ const WORKS_CAMP_TOWN = worksTown('loggers');
  * saving for it would, until the treasury can fit out settlers and still pay
  * a month's wages (a year at most); then settlers sent to Thasos (if a rival
  * is bound there or holds it, the first free site instead, named so), played
- * on until your ship rides at anchor off the jetty and the first household
- * has been rowed out to her, the others on the quay or walking down to it.
+ * on until your ship rides at anchor off the jetty, the families still
+ * walking down to the quay (review of slice 37: it opens paused).
  * #colonies: the same town, answering Greece as a middling player would,
  * its first settlers sent to Naxos instead (sent to Thasos first, the town
  * could not pay for a second before Rhodes' settlers were on Naxos), and to
@@ -2529,7 +2529,9 @@ function colonyTown(stage: ColonyStage): (sim: Sim) => void {
       const f = foundingOf(s, first);
       if (!f) return;
       if (stage === 'colony') {
-        playOn(3 * TICKS_PER_MONTH, () => f.phase !== 'gathering' || f.households.some((h) => h.state === 'aboard'));
+        // (Review of slice 37: until your ship has anchored, the families still on the road a few days from the quay; it opens
+        // paused. Played on to the first household aboard, it opened two days before she sailed: too quick to watch or hover.)
+        playOn(3 * TICKS_PER_MONTH, () => f.phase !== 'gathering' || !f.ship || f.ship.phase === SHIP_ANCHORED);
         return;
       }
       playOn(COLONY_WAIT, () => !!colonyOf(s, first) || !foundingOf(s, first));
@@ -2708,8 +2710,8 @@ const SCENES: Record<string, Demo> = {
   submit: { view: 'companies', setup: empireTown('submit'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
   conquer: { view: 'companies', speed: 'paused', setup: empireTown('conquer'), overlay: 'missing', greece: 'argos', greeceTab: 'empire' },
   rebellion: { view: 'companies', setup: empireTown('rebellion'), overlay: 'missing', greece: 'corinth', greeceTab: 'empire' },
-  // Slice 37: colonies. Your settlers on the quay and your ship at anchor for Thasos; two colonies grown, Nea Thasos' page open on the map; Corinth's company come to your aid by its road.
-  colony: { view: 'colony', setup: COLONY_TOWN, overlay: 'missing' },
+  // Slice 37: colonies. Your settlers coming down to the quay and your ship at anchor for Thasos; two colonies grown, Nea Thasos' page open on the map; Corinth's company come to your aid by its road.
+  colony: { view: 'colony', speed: 'paused', setup: COLONY_TOWN, overlay: 'missing' },
   colonies: { view: 'bay', setup: COLONIES_TOWN, overlay: 'missing', greece: 'site:thasos' },
   ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
 };

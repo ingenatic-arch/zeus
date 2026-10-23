@@ -8,7 +8,7 @@ You can now plant your own people on Greece's empty sites. From a site's page yo
 
 What breaks, or moves:
 - **Saves.** The state version is 33 on this line (renumbered when it merges). Older saves load, with no colonies and nobody on the way.
-- **Clicking a site on the map** now opens the site's own page, not its holder's. A rival's colony's page has a button to its city's page.
+- **Clicking a site on the map** now opens the site's own page, not its holder's. A rival's colony's page has a button to its city's page. So in slice 31's step 1 for `#greecegrows`, clicking Naxos opens Naxos' page, and its button opens Rhodes'.
 - **Rivals found colonies less often:** a city waits ten years between its colonies (was six), so sites don't all run out so soon. Over 20 runs of Greece alone: at year 15, 3.4 free sites on average (was 2.85); at year 20, two or more free in 12 runs (was 8). The first decade is unchanged.
 - **Allies' and vassals' men come in by the road their city's caravans use**, and the news and the line under the top bar now name that edge. In `#collect`'s town (no north road) Corinth's men come in on the west road, by the same edge as Sparta's raiders, and walk it towards the granary.
 - **Earlier demos.** Every earlier demo opens on the same day with the same people, money and homes as before (all 121 checked against the starting build). The changes above only show later in play.
@@ -26,7 +26,7 @@ What breaks, or moves:
 - **Threats.** Now and then (about one colony-month in forty, from its sixth month, a year apart, not in winter) a rival with ships that is cold to you sends them against a colony: to raid it, or to claim a small one. You get urgent news, a line under the top bar, its fleet on the map sailing towards the colony, a red mark on the label, and about 60 days. On the colony's page: send your triremes to guard it (the odds shown: about 7 in 10 with as many ships as theirs, at most 9 in 10), strike at the rival's city with a full force (its ships are called home as soon as your army sets out), or let it be (a raid takes 15 in every hundred of its people and its next shipment, and it remembers; a claim takes the colony).
 
 ### What to try
-1. #colony — your settlers for Thasos coming down to the quay, the first household rowed out to your ship at anchor off the jetty. Hover a family on the road, the ship, and one of the empty homes they left (they are townhouses up the road from the quay). Press Tab and click Thasos for its page; play on and follow the ship out along the lane.
+1. #colony — it opens paused: your ship for Thasos has just anchored off the jetty, and your settlers are on the road a few days from the quay. Hover a family on the road, the ship, and one of the empty homes they left (they are townhouses up the road from the quay; click one for its panel). Press play to watch them reach the quay and be rowed out, then she sails (about five days, five seconds at normal speed). Press Tab and click Thasos for its page; play on and follow the ship out along the lane.
 2. #colonies — the same town two years after Nea Thasos landed, with Nea Naxos too, on Nea Thasos' page. Read its loyalty and its people, change its share and watch the figures move, rename it. Click Nea Naxos for its marble, and an empty site for the price of another. Close the map and watch the bay: a colony's ship comes in every season.
 3. #ally — Corinth is your ally (set up for this demo), Sparta's raiders are gathering, and Corinth's company is walking in along the west road, where its caravans would come in. Press Tab, open Corinth's Empire tab: "Its men in your defence".
 
@@ -36,7 +36,6 @@ What breaks, or moves:
 - **The page's length.** Your colony's page is long; the loyalty comes before the share. Tell me if the share should come first.
 
 ### Known rough edges
-- The rival's fleet sailing against a colony is drawn on a straight line from its city to the site, which can cross land (Sparta's from the Peloponnese, for one).
 - A colony's ship can't be taken at sea yet (that is slice 38's blockades), and nothing lays out a colony's streets: colonies are run from their page.
 - The settlers' ship is drawn at anchor in the city, but on the map of Greece she only appears once she sails out of the bay.
 - Hovering the colony shipment ship in your bay says nothing yet (nor does a vassal's tribute ship's; both were like this).
@@ -54,6 +53,26 @@ Headless Chromium with software WebGL at 1920 × 1080, on a machine shared with 
 | Free sites (Greece alone, 20 seeds) | year 15: 2.85 on average; year 20: 1.4 (8 runs with two or more) | year 15: 3.4; year 20: 1.85 (12 runs with two or more) |
 
 The new demos' load times were not measured on their own.
+
+### What the review changed
+I followed the three steps above in the browser at 1920 × 1080 and looked at the screenshots. I also played colonies on for years outside the browser. What I changed:
+- **`#colony` gave you about two seconds.** It used to open just before the ship sailed. It now opens paused the moment she anchors, with the families a few days from the quay (step 1 above is rewritten for it). Press play and in about five seconds they are rowed out and she sails.
+- **The landing day moved about.** While she was sailing out of the bay, Thasos' page said she would land about 11 April and the news said 26 April. Now the news, the page, the site's card on the map and the line under the top bar all give the same day. The card also said she was "coming down to your quay" while she was already sailing out. It now says she is sailing out of your bay.
+- **Ships came into your bay 20 days after the day they were promised.** A colony's share ship and a vassal's tribute by sea said "in your bay about" the day she reached the horizon, but she takes about 20 days more to sail in. The colony's page, a vassal's page and the tribute card on the map now count that too.
+- **The guard's odds counted triremes that would come too late.** When ships sent from home could not reach the colony before the raiders, the odds still counted them. Now they don't, and the page says "too late to fight", with a tip that says why.
+- **A raiding fleet sailed over land.** On the map of Greece, a rival's ships now sail out along the rival's own sea lane, then across to the colony's lane, not in a straight line over the mainland. I looked at both kinds, a raid and a claim.
+- **The founding showed under "Coming in" in the ledger**, as −1,000 dr. It is under "Going out" now.
+- **An empty home's panel said only "Nobody lives here".** Click one of the homes the settlers left and it now names the household that left it, and for which colony, as its hover does.
+- **The line under the top bar could hide a colony's talk of freedom** behind an ordinary tribute line. Now the line that matters most shows: talk of freedom, or a city arming, first; then a threat, an ally's call or aid on its way; then your settlers; tribute last.
+- **A grasping governor's reason said the share twice:** "a heavy share, Hermippos, its governor, is grasping, and the share is heavy". It now reads "a heavy share, Hermippos, its governor, is grasping".
+- **Checked again after these changes.** The checks of the code and the build pass. In the full test run, 525 of the 526 tests passed. The one that didn't is a fire test with its own 30-second limit, which ran out on this busy machine; run on its own, it passed in 23 seconds. Every earlier demo opens exactly as before; only `#colony` starts four days earlier. A save from before colonies still loads. The full slow smoke test passed from start to finish on the final build, with every step, the new ones for colonies among them. An earlier run on this busy machine timed out at `#hostile`, at a step from an earlier slice (the builder's run stopped there too). The line it waits for stays up for five days of game time, and a slow frame can step past it. I checked that step by hand, and in the last full run it passed.
+
+What I checked and left alone, for your eye:
+- **The people add up.** The town loses exactly the 40 settlers and keeps growing as fast as without them. The four empty homes fill again later.
+- **Your colonies can be lost, and you are warned first.** In my long run at a heavy share, Nea Naxos (with its grasping governor) talked of freedom in its third year and went free a season later. Nea Thasos was sacked by Memphis in its sixth year, because I didn't guard it. Its loyalty fell, and it went free a season after that.
+- **Free sites.** In year 10 there were still three free sites in each of the six demo towns I tried.
+- **Is a share too rich in cheap goods?** At 10 dr a person a year, cheap goods pile up. A colony of 400 people on Kythera would send about 2,290 oil a year at a fair share (3,430 at a heavy one), and on Cyrene about 8,000 wheat. A colony that grows towards 2,000 people would send about 8,000 dr a year at a fair share. Tell me if that is too much.
+- **The families are still "rowed out" with no boat drawn.**
 
 ## Slice 34 — Vassals and allies (22 Oct)
 

@@ -2614,12 +2614,12 @@ await open('#colony-paused');
 await frames(4);
 {
   const line37 = await zeus(() => document.querySelector('.townline.empire')?.textContent ?? '');
-  if (!/Your settlers for Thasos are coming down to the quay: [1-4] of 4 households aboard; your ship rides at anchor off the jetty/.test(line37)) fail(`#colony: the town line: ${line37}`);
+  if (!/Your settlers for Thasos are coming down to the quay: [0-4] of 4 households aboard; your ship rides at anchor off the jetty/.test(line37)) fail(`#colony: the town line: ${line37}`);
   await zeus(() => window.__zeus.greece(true, 'site:thasos'));
   await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
   await frames(3);
   const g37 = await gi();
-  if (!(g37.shown === 'site:thasos' && /Thasos[\s\S]*Your settlers are on their way[\s\S]*rides at anchor off the jetty[\s\S]*The house of [\s\S]*aboard[\s\S]*Sent [\s\S]*1,000 dr and 400 wheat/.test(g37.panel))) fail(`#colony: Thasos' page: ${g37.shown} ${g37.panel.slice(0, 1500)}`);
+  if (!(g37.shown === 'site:thasos' && /Thasos[\s\S]*Your settlers are on their way[\s\S]*rides at anchor off the jetty[\s\S]*The house of [\s\S]*(aboard|walking down to the quay|on the quay)[\s\S]*Sent [\s\S]*1,000 dr and 400 wheat/.test(g37.panel))) fail(`#colony: Thasos' page: ${g37.shown} ${g37.panel.slice(0, 1500)}`);
 }
 await open('#colonies-paused');
 await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });

@@ -37,6 +37,7 @@ import {
   goodName,
   guardsAtHome,
   laneTicks,
+  landsAbout,
   lowReasons,
   peopleOf,
   SHARE_WORDS,
@@ -135,7 +136,7 @@ function foundingHtml(s: SimState, f: Founding): string {
   if (f.phase === 'gathering') {
     const anchored = !f.ship || f.ship.phase === SHIP_ANCHORED;
     line = anchored ? `Your ship rides at anchor off the jetty, and the families are rowed out to her as they come down. She sails once all are aboard, or ${esc(dayWords(f.until))} at the latest.` : `Your ship sails in for them about ${esc(dayWords((f.ship?.since ?? s.tick) + SAIL_IN))}.`;
-  } else if (f.phase === 'leaving') line = `All aboard (${fmt(f.people)} people): your ship is sailing out of the bay. They land about ${esc(dayWords(s.tick + laneTicks(f.site)))}.`;
+  } else if (f.phase === 'leaving') line = `All aboard (${fmt(f.people)} people): your ship is sailing out of the bay. They land about ${esc(dayWords(landsAbout(s, f)))}.`;
   else if (f.phase === 'sea') line = `At sea with ${fmt(f.people)} people: they land about ${esc(dayWords(f.start + f.dur))}${esc(lateWords(s, `colony-${f.site}`))}.`;
   return `<section class="founding"><h3>Your settlers</h3><p class="line bound">${line}</p><ul class="means">${rows}</ul><p class="if">Sent ${esc(dayWords(f.at))}: ${fmt(f.cost)} dr and ${fmt(f.wheat)} wheat.</p></section>`;
 }
@@ -167,9 +168,10 @@ function threatHtml(s: SimState, c: Colony, map: CoastMap | undefined): string {
   const there = c.guards.length;
   const reach = s.tick + laneTicks(c.site) + 4 * TICKS_PER_DAY;
   const late = reach > t.due ? ` They would come too late: off its shore about ${dayWords(reach)}.` : '';
-  const odds = fightOdds(there + home, t.ships);
+  // (Review of slice 37: ships that would come too late don't count in the odds.)
+  const odds = fightOdds(there + (late ? 0 : home), t.ships);
   const guardWhy = map ? colonyRefusal(s, map, 'guard', c.site) : 'Not now';
-  const guard = button('guard', guardWhy || !home ? 'Send triremes to guard it' : `Send ${home === 1 ? 'your trireme' : `your ${home} triremes`} to guard it <small>${inTen(odds)}</small>`, { site: c.site }, guardWhy, `With ${there + home} against their ${t.ships} ships: ${inTen(odds)} to drive them off.${late}`, 'send');
+  const guard = button('guard', guardWhy || !home ? 'Send triremes to guard it' : `Send ${home === 1 ? 'your trireme' : `your ${home} triremes`} to guard it <small>${late ? 'too late to fight' : inTen(odds)}</small>`, { site: c.site }, guardWhy, late ? `${late.trim()} They would guard it after, and count for its loyalty.` : `With ${there + home} against their ${t.ships} ships: ${inTen(odds)} to drive them off.`, 'send');
   const plan = expeditionPlan(s, t.city, 'force');
   const strikeWhy = expeditionRefusal(s, t.city, 'force');
   const strike = button('strike', `Strike at ${esc(name(t.city))}${strikeWhy ? '' : ` <small>${inTen(plan.odds)}</small>`}`, { city: t.city, site: c.site }, strikeWhy, `A full force marches on ${name(t.city)}: its ships are called home as soon as your army sets out`, 'refuse');
@@ -204,7 +206,7 @@ function shareHtml(s: SimState, c: Colony): string {
   const next = `The next sets out about ${dayWords(c.next)}${c.skip ? ', empty: the raiders took what it had' : ''}.`;
   const way = s.empire.tribute
     .filter((t) => t.colony === c.site && t.phase !== 'done')
-    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' ? `at sea: in your bay about ${esc(dayWords(t.start + t.dur))}${esc(lateWords(s, `colony-${c.site}`))}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
+    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' ? `at sea: in your bay about ${esc(dayWords(t.start + t.dur + SAIL_IN))}${esc(lateWords(s, `colony-${c.site}`))}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
     .join('');
   const last = s.empire.tribute.filter((t) => t.colony === c.site && t.phase === 'done').at(-1);
   const lastLine = last ? `<p class="if">Last: ${esc(tributeWords(last))} ${esc(last.how)}${last.lost ? ` (${fmt(last.lost)} there was no room for)` : ''}, ${esc(dayWords(last.ended))}.</p>` : '';
@@ -263,7 +265,7 @@ export function siteCardLine(s: SimState, site: string): string {
     return `${c.name}, your colony: ${fmt(peopleOf(s, c))} people, loyalty ${c.loyalty}${c.talk ? ', talking of freedom' : ''}${t}`;
   }
   const f = foundingOf(s, site);
-  if (f) return f.phase === 'sea' ? `Your settlers are at sea for it: they land about ${dayWords(f.start + f.dur)}` : 'Your settlers are coming down to your quay for it';
+  if (f) return f.phase === 'gathering' ? 'Your settlers are coming down to your quay for it' : `Your settlers are ${f.phase === 'sea' ? 'at sea' : 'sailing out of your bay'} for it: they land about ${dayWords(landsAbout(s, f))}`;
   return '';
 }
 

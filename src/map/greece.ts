@@ -304,6 +304,49 @@ export const SITE_LANES: readonly Way[] = [
 /** Slice 37: the lane to a site (its id: 'thasos'). */
 export const siteLaneId = (site: string): string => `${site}-colony`;
 
+/**
+ * Review of slice 37: the way a rival's ships sail against your colony on a
+ * site, by sea (so the map doesn't draw them across land): out along one of
+ * the city's own lanes (to your city, or to another city) as far as the point
+ * nearest the site's lane, across to it, and along it to the site. Table x, z
+ * pairs from the city's end; null for a city with no lane (straight across).
+ */
+export function seaWayTo(city: CityId, site: string): number[] | null {
+  const lane = SITE_LANES.find((w) => w.to === site);
+  if (!lane) return null;
+  const q = lane.pts.map(([lon, lat]) => project(lon, lat));
+  const qLeft: number[] = q.map(() => 0);
+  for (let j = q.length - 2; j >= 0; j--) qLeft[j] = qLeft[j + 1] + dhypot(q[j + 1][0] - q[j][0], q[j + 1][1] - q[j][1]);
+  // (Every sea lane with an end at the city, from that end.)
+  const own: Array<ReadonlyArray<readonly [number, number]>> = [
+    ...WAYS.filter((w) => w.kind === 'sea' && w.to === city).map((w) => w.pts.slice().reverse()),
+    ...RIVAL_WAYS.filter((w) => w.kind === 'sea' && (w.a === city || w.b === city)).map((w) => (w.a === city ? w.pts : w.pts.slice().reverse())),
+  ];
+  // (A stretch across open water costs more than sailing a lane: the crossing is kept short.)
+  const ACROSS = 4;
+  let best: number[] | null = null;
+  let cost = Infinity;
+  for (const pts of own) {
+    const p = pts.map(([lon, lat]) => project(lon, lat));
+    let along = 0;
+    for (let i = 0; i < p.length; i++) {
+      if (i > 0) along += dhypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+      for (let j = 0; j < q.length; j++) {
+        const c = along + ACROSS * dhypot(q[j][0] - p[i][0], q[j][1] - p[i][1]) + qLeft[j];
+        if (c < cost) {
+          cost = c;
+          best = [...p.slice(0, i + 1), ...q.slice(j)].flat();
+        }
+      }
+    }
+  }
+  if (!best) return null;
+  // (Where the two lanes share a point, it is kept once.)
+  const out: number[] = [];
+  for (let i = 0; i + 1 < best.length; i += 2) if (!out.length || dhypot(best[i] - out[out.length - 2], best[i + 1] - out[out.length - 1]) > 1e-6) out.push(best[i], best[i + 1]);
+  return out;
+}
+
 const byId = new Map([...WAYS, ...SITE_LANES].map((w) => [w.id, w]));
 /** A way by its id (they are fixed). */
 export const wayOf = (id: string): Way => byId.get(id) as Way;

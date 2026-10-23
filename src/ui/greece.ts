@@ -306,7 +306,8 @@ function expeditionCard(s: SimState, id: number): string {
 function tributeCard(s: SimState, id: number): string {
   const t = s.empire.tribute.find((x) => x.id === id);
   if (!t) return '<b>Tribute</b>';
-  const n = Math.max(1, Math.ceil((t.start + t.dur - s.tick) / TICKS_PER_DAY));
+  // (Review of slice 37: by sea she is in your bay once she has sailed in from the horizon, as the news of her setting out says.)
+  const n = Math.max(1, Math.ceil((t.start + t.dur + (t.by === 'sea' ? SAIL_IN : 0) - s.tick) / TICKS_PER_DAY));
   const line = t.phase === 'bay' ? 'Sailing into your bay, to come ashore at your trading post' : `${t.by === 'sea' ? 'Sailing' : 'On the road'} to your city: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${n === 1 ? '1 day' : `${n} days`}`;
   // (Slice 37: your colony's share, on its ship.)
   if (t.colony) {

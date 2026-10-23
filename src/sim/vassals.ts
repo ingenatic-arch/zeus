@@ -1334,18 +1334,19 @@ export function boundWords(s: SimState, city: CityId): string {
 }
 
 /** The line under the top bar, if the empire needs you: a vassal arming, an ally's call waiting, aid on its way. */
-export function empireTownLine(s: SimState): { text: string; city: CityId; urgent: boolean } | null {
+// (Review of slice 37: each line has a rank, so a colony's line under the top bar can stand in front of a lesser one of these: 3 a vassal arming, 2 a call or men coming, 0 a shipment coming in.)
+export function empireTownLine(s: SimState): { text: string; city: CityId; urgent: boolean; rank: number } | null {
   const arming = s.empire.vassals.filter((v) => v.arming).sort((a, b) => a.rises - b.rises)[0];
   if (arming) {
     const l = loyaltyOf(s, arming);
-    return { text: `${name(arming.city)} is arming: loyalty ${arming.loyalty} (${lowWords(l)}). It rises about ${dayWords(arming.rises)} unless its loyalty mends: lighten its tribute, send a gift, or march (its Empire tab).`, city: arming.city, urgent: true };
+    return { text: `${name(arming.city)} is arming: loyalty ${arming.loyalty} (${lowWords(l)}). It rises about ${dayWords(arming.rises)} unless its loyalty mends: lighten its tribute, send a gift, or march (its Empire tab).`, city: arming.city, urgent: true, rank: 3 };
   }
   const call = openCall(s);
-  if (call) return { text: `${name(call.ally)}, your ally, asks you to join its war with ${name(call.foe)}: answer by ${dayWords(call.due)} on its Empire tab.`, city: call.ally, urgent: false };
+  if (call) return { text: `${name(call.ally)}, your ally, asks you to join its war with ${name(call.foe)}: answer by ${dayWords(call.due)} on its Empire tab.`, city: call.ally, urgent: false, rank: 2 };
   const aid = s.empire.aid.find((a) => a.phase === 'road');
-  if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${aidSide(s, aid.city)} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false };
+  if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${aidSide(s, aid.city)} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false, rank: 2 };
   const t = s.empire.tribute.find((x) => x.phase === 'city' || x.phase === 'bay');
-  if (t) return { text: `${t.colony ? `${colonyName(s, t)}’s share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false };
+  if (t) return { text: `${t.colony ? `${colonyName(s, t)}’s share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false, rank: 0 };
   return null;
 }
 
