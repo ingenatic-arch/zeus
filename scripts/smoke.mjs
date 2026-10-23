@@ -1470,10 +1470,13 @@ else {
     await page.mouse.move(5, 5);
   }
 }
-await zeus(() => window.__zeus.speed('fast'));
-await page.waitForFunction(() => window.__zeus.townLines().some((l) => /Your gift of 250 dr reached Corinth/.test(l)), null, { timeout: 300000, polling: 50 });
+// (Review of slice 40: at normal speed, not fast. The gift now arrives in under a week and its line stays up five days of game
+// time; under load one slow frame at the fastest speed stepped past it, as in #hostile below.)
+await zeus(() => window.__zeus.speed('normal'));
+await page.waitForFunction(() => window.__zeus.townLines().some((l) => /Your gift of 250 dr reached Corinth/.test(l)), null, { timeout: 600000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
-await frames(3);
+// (The page redraws every half second, so it is waited for rather than read three frames on.)
+await page.waitForFunction(() => /\+\d+Your gift of 250 dr \(shrewd: hard to impress[;)]/.test(window.__zeus.greeceInfo().panel), null, { timeout: 20000 }).catch(() => {});
 g = await gi();
 if (!/\+\d+Your gift of 250 dr \(shrewd: hard to impress[;)]/.test(g.panel)) fail(`#gift: no reason for the gift on the page: ${g.panel.slice(0, 900)}`);
 // #hostile: the road closed, the line under the top bar, the Trade tab says so; a gift of 250 dr opens it again.
