@@ -95,7 +95,7 @@ export const TRADE_CITIES = 5;
 /** The richest treasury: at least as much as any city of Greece holds, and at least this. */
 export const RICHEST_LEAST = 10000;
 /** A city of wonders: a town of this many people; this many villas; this many great estates; a great city of this many people. */
-export const TOWN_PEOPLE = 600;
+export const TOWN_PEOPLE = 300;
 export const VILLAS = 20;
 export const ESTATES = 2;
 export const GREAT_PEOPLE = 2000;
@@ -171,10 +171,11 @@ function monumentProgress(s: SimState, kind: MonumentKind): Progress {
   const name = monumentName(kind, true);
   if (!x) return { have: 0, need: 1, words: `${name} is not yet marked out` };
   if (x.finished) return { have: 1, need: 1, words: `${name} stands, finished in year ${yearOf(x.finished)}` };
-  const p = progressOf(x);
+  // (Review of slice 39: rounded down and kept under 1, so the laurel never comes in the last days before he stands.)
+  const pct = Math.min(99, Math.floor(progressOf(x) * 100));
   const st = STAGES[kind][x.stage];
   const stage = st ? `${st.name.toLowerCase()} ${x.building ? 'going up' : 'waiting for its materials'}` : '';
-  return { have: Math.round(p * 100) / 100, need: 1, words: `${name}: ${Math.round(p * 100)}% built, stage ${Math.min(STAGE_COUNT, x.stage + 1)} of ${STAGE_COUNT}${stage ? `, ${stage}` : ''}` };
+  return { have: pct / 100, need: 1, words: `${name}: ${pct}% built, stage ${Math.min(STAGE_COUNT, x.stage + 1)} of ${STAGE_COUNT}${stage ? `, ${stage}` : ''}` };
 }
 
 /** The game's year a tick falls in, counted from the founding (year 1). */
@@ -571,7 +572,7 @@ export function ambitionTownLine(s: SimState): string {
   if (!m) return '';
   const k = m.ambition;
   const done = achieved(s, k);
-  if (done.tick === last.tick && !done.quiet) return `${AMBITION_NAMES[k]}: achieved in year ${yearOf(done.tick)}, with ${m.name.replace(/^The /, 'the ')}${last.note ? `; ${last.note}` : ''}. The other ambitions carry on.`;
+  if (done.tick === last.tick && !done.quiet) return `${AMBITION_NAMES[k]}: achieved in year ${yearOf(done.tick)}, with ${m.deed}${last.note ? `; ${last.note}` : ''}. The other ambitions carry on.`;
   const count = milestonesOf(k).filter((x) => laurelOf(s, x.id)).length;
   return `A laurel for ${AMBITION_IN[k]} (${count} of 5): ${m.name[0].toLowerCase()}${m.name.slice(1)}${last.note ? `. ${last.note[0].toUpperCase()}${last.note.slice(1)}` : ''}.`;
 }

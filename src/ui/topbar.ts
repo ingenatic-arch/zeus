@@ -340,6 +340,10 @@ export class TopBar {
   // Slice 39: the laurel chip.
   private laurelKey = '';
   private laurelFresh = 0;
+  /** Its tip (the game's own, beside the pointer, not the browser's slow one: review of slice 39), and where the pointer is over it (null: not). */
+  private laurelTip = '';
+  private laurelOver: { x: number; y: number } | null = null;
+  private laurelShowTip: ((text: string | null, x: number, y: number) => void) | null = null;
 
   /**
    * The laurel chip at the end of the bar: the nearest milestone across the
@@ -350,7 +354,7 @@ export class TopBar {
    */
   showLaurel(n: { name: string; share: number; tip: string; won: number; of: number } | null, now: number, fresh = false): void {
     const el = this.bar.querySelector('.laurel-chip') as HTMLButtonElement;
-    if (fresh) this.laurelFresh = now + 4;
+    if (fresh) this.laurelFresh = now + 5;
     const glow = now < this.laurelFresh;
     const key = n ? `${n.name}:${Math.round(n.share * 100)}:${n.tip}:${n.won}:${glow}` : '';
     if (key === this.laurelKey) return;
@@ -365,13 +369,35 @@ export class TopBar {
     (el.querySelector('.bar i') as HTMLElement).style.width = `${Math.round(n.share * 100)}%`;
     (el.querySelector('.pct') as HTMLElement).textContent = all ? '' : `${Math.round(n.share * 100)}%`;
     el.classList.toggle('fresh', glow);
-    el.title = `${n.tip}\nClick for the ambitions.`;
+    this.laurelTip = n.tip;
+    if (this.laurelOver) this.laurelShowTip?.(this.laurelTip, this.laurelOver.x, this.laurelOver.y);
     el.setAttribute('aria-label', all ? `${n.won} laurels: every ambition achieved` : `Ambitions: nearest milestone, ${n.name}, ${Math.round(n.share * 100)}%`);
   }
 
   /** Clicking the laurel chip. */
   onLaurel(f: () => void): void {
     (this.bar.querySelector('.laurel-chip') as HTMLElement).addEventListener('click', f);
+  }
+
+  /** The laurel chip's tip, shown with the game's pointer tip while the pointer is over it. */
+  laurelTips(show: (text: string | null, x: number, y: number) => void): void {
+    this.laurelShowTip = show;
+    const el = this.bar.querySelector('.laurel-chip') as HTMLElement;
+    const over = (e: PointerEvent): void => {
+      this.laurelOver = { x: e.clientX, y: e.clientY };
+      show(this.laurelTip || null, e.clientX, e.clientY);
+    };
+    el.addEventListener('pointerenter', over);
+    el.addEventListener('pointermove', over);
+    el.addEventListener('pointerleave', () => {
+      this.laurelOver = null;
+      show(null, 0, 0);
+    });
+    // A click opens the panel below: the tip makes way until the pointer moves again.
+    el.addEventListener('click', () => {
+      this.laurelOver = null;
+      show(null, 0, 0);
+    });
   }
 
   /** Slice 39: a note added to the population's tooltip (settlers drawn by fame), after setPeopleTip ('' none). */

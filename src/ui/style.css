@@ -1175,10 +1175,11 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .laurel-chip .bar[hidden] { display: none; }
 .laurel-chip .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8aa23e, #c9a63a); }
 .laurel-chip .pct { font-size: 12px; color: var(--ink-soft); }
-.laurel-chip.fresh { animation: laurel-glow 1.2s ease-in-out 3; border-color: #c9a63a; }
+/* (Review of slice 39: a little stronger and longer, with the chip itself lighting up, so a new laurel is noticed.) */
+.laurel-chip.fresh { animation: laurel-glow 1.2s ease-in-out 4; border-color: #c9a63a; }
 @keyframes laurel-glow {
   0%, 100% { box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22); }
-  50% { box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22), 0 0 0 4px rgba(214, 178, 74, 0.55), 0 0 18px rgba(232, 196, 90, 0.8); }
+  50% { background: #fff1b8; box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22), 0 0 0 5px rgba(214, 178, 74, 0.65), 0 0 24px 4px rgba(240, 200, 80, 0.9); }
 }
 .ambition-panel {
   position: absolute; top: 96px; left: calc((100% - var(--side)) / 2); transform: translateX(-50%);
@@ -1221,3 +1222,13 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .ambition-panel .ms .bar { height: 5px; border-radius: 3px; background: rgba(122, 92, 60, 0.16); overflow: hidden; margin: 3px 0 2px; }
 .ambition-panel .ms .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8aa23e, #c9a63a); }
 .ambition-panel .ms.won .nm { color: #4f5f1e; }
+/* (Review of slice 39: at 1280 wide the chip pushed the top bar past its room, and the date wrapped onto two lines. Below 1500 wide it hangs under the bar as a tab, left of the Greece tab, as that one does, so the bar is no wider.) */
+@media (max-width: 1500px) {
+  .laurel-chip {
+    position: absolute; top: calc(100% - 1px); right: 136px; margin: 0; font-size: 13px;
+    background: linear-gradient(180deg, var(--parchment-deep), var(--parchment)); border: 1.5px solid var(--edge); border-top: none;
+    border-radius: 0 0 10px 10px; padding: 3px 9px 4px 7px;
+    box-shadow: 0 3px 0 rgba(120, 80, 40, 0.22), 0 6px 14px rgba(60, 40, 20, 0.14);
+  }
+  .laurel-chip.fresh { border-color: #c9a63a; }
+}

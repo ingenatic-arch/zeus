@@ -28,6 +28,7 @@ import { migrate } from '../src/sim/migrate';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
+import { monumentOf, STAGE_COUNT, stageNow, workOf } from '../src/sim/monuments';
 import { take } from '../src/sim/vassals';
 import { cityOf, moodReasons } from '../src/sim/world';
 import { demoSim } from './prepared';
@@ -130,6 +131,18 @@ describe('ambitions', () => {
     expect(laurelOf(s, 'lighthouse')?.quiet).toBe(false);
     expect(laurelOf(s, 'lighthouse')?.note).toBe('every ruler in Greece is 10 warmer for it');
     expect(moodReasons(athens, s.tick).some((r) => r.why === 'Your city’s renown: the Lighthouse' && r.worth === 10)).toBe(true);
+  });
+
+  it('a great monument’s laurel waits until it stands, however near it is', () => {
+    // (Review of slice 39: its progress was rounded, so the laurel came while the last stage was 99.5% done.)
+    const s = demoSim('monument').state;
+    const x = monumentOf(s, 'lighthouse')!;
+    x.stage = STAGE_COUNT - 1;
+    x.building = true;
+    x.work = workOf(stageNow(x)!) * 0.998;
+    const p = milestoneOf('lighthouse')!.progress(s);
+    expect(p.have).toBeLessThan(p.need);
+    expect(p.words).toMatch(/99% built, stage 3 of 3/);
   });
 
   it('an ambition is achieved with its fifth: the column, the town line, a ruler’s word and a year’s pride', () => {

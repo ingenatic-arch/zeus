@@ -137,8 +137,12 @@ export const ANCHOR_SIDE = 3;
 /** She moves aside over the last stretch of her way to the anchorage (tiles), and comes alongside from it over BERTH_TICKS. */
 const SIDE_RUN = 6;
 export const BERTH_TICKS = 3 * TICKS_PER_DAY;
-/** How long a ship tied up keeps the jetty after she is done loading: backing off and swinging round, and a margin. */
-const CLEAR = BACK_TICKS + TURN_TICKS + 2 * TICKS_PER_DAY;
+/**
+ * How long a ship tied up keeps the jetty after she is done loading: backing off and swinging round, and a margin.
+ * (Review of slice 39: worked out when it is used, not as this module loads: trade.ts and this module import each
+ * other, and loaded before trade.ts a constant made here from its exports came out NaN; tests/loadorder.test.ts.)
+ */
+const clearTicks = (): number => BACK_TICKS + TURN_TICKS + 2 * TICKS_PER_DAY;
 
 const zeros = (): number[] => TRADE_GOODS.map(() => 0);
 const cityName = (id: CityId): string => PLACES[id].name;
@@ -678,16 +682,16 @@ function jettyTaken(s: SimState, post: Building, self: Visitor): Array<[number, 
     out.push([from, to, since]);
   };
   const t = s.trade.ship;
-  if (t.phase === SHIP_MOORED) busy(t.since, t.since + LOADING + CLEAR);
-  else if (t.phase === SHIP_COMING) busy(t.since + SAIL_IN, t.since + SAIL_IN + LOADING + CLEAR);
+  if (t.phase === SHIP_MOORED) busy(t.since, t.since + LOADING + clearTicks());
+  else if (t.phase === SHIP_COMING) busy(t.since + SAIL_IN, t.since + SAIL_IN + LOADING + clearTicks());
   else if (t.phase === SHIP_LEAVING && !underWay(t, s.tick)) busy(t.since, t.since + BACK_TICKS + TURN_TICKS);
-  if (t.due > 0 && t.phase === SHIP_AWAY) busy(t.due, t.due + LOADING + CLEAR);
+  if (t.due > 0 && t.phase === SHIP_AWAY) busy(t.due, t.due + LOADING + clearTicks());
   for (const r of s.world.routes) {
     const v = r.ship;
     if (!v || v === self || v.post !== post.id) continue;
-    if (v.phase === SHIP_MOORED) busy(v.since, v.since + LOADING + CLEAR);
-    else if (v.phase === SHIP_BERTHING) busy(v.since, v.since + BERTH_TICKS + LOADING + CLEAR);
-    else if (v.phase === SHIP_COMING && v.stop >= 1) busy(v.since + SAIL_IN, v.since + SAIL_IN + LOADING + CLEAR);
+    if (v.phase === SHIP_MOORED) busy(v.since, v.since + LOADING + clearTicks());
+    else if (v.phase === SHIP_BERTHING) busy(v.since, v.since + BERTH_TICKS + LOADING + clearTicks());
+    else if (v.phase === SHIP_COMING && v.stop >= 1) busy(v.since + SAIL_IN, v.since + SAIL_IN + LOADING + clearTicks());
     else if (v.phase === SHIP_COMING || v.phase === SHIP_ANCHORED) busy(-Infinity, Infinity, v.phase === SHIP_ANCHORED ? v.since : v.since + SAIL_IN);
     else if (v.phase === SHIP_LEAVING && !underWay(v, s.tick)) busy(v.since, v.since + BACK_TICKS + TURN_TICKS);
   }
@@ -722,7 +726,7 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
   v.aside = 0;
   // (Pirates preying on her lane, unguarded, take her cargo on her way: slice 26.)
   r.robbed = preyingOn(s, routeWay(r.city, 'sea')?.way ?? '') ? s.tick : 0;
-  if (!jettyFree(s, post, v, r.next, r.next + LOADING + CLEAR)) {
+  if (!jettyFree(s, post, v, r.next, r.next + LOADING + clearTicks())) {
     const L = pathLength(v.path);
     v.stop = Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L));
     const p = pointAlong(v.path, v.stop * L);
@@ -829,7 +833,7 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
       v.since = s.tick;
     } else moor(s, r, v, post);
   } else if (v.phase === SHIP_ANCHORED) {
-    if (jettyFree(s, post, v, s.tick, s.tick + BERTH_TICKS + LOADING + CLEAR, v.since)) {
+    if (jettyFree(s, post, v, s.tick, s.tick + BERTH_TICKS + LOADING + clearTicks(), v.since)) {
       v.phase = SHIP_BERTHING;
       v.since = s.tick;
     }

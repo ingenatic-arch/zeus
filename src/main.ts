@@ -661,6 +661,15 @@ function start(preparedTown: string | null): void {
     corner.onHelpOpen(() => ambitionPanel.toggle(false));
   }
   topbar.onLaurel(() => ambitionPanel.toggle());
+  // (Review of slice 39: the chip's tip is the game's own, kept left of the side panel, whose column would hide it.)
+  topbar.laurelTips((text, x, y) => {
+    tip.show(text, x, y);
+    const el = ui.querySelector('.pointer-tip') as HTMLElement | null;
+    if (!text || !el) return;
+    const r = side.el.getBoundingClientRect();
+    const room = r.width > 0 && r.left > 0 ? r.left : innerWidth;
+    if (x + 16 + el.offsetWidth > room - 8) tip.show(text, Math.max(8, room - 24 - el.offsetWidth), y);
+  });
   let laurelFresh = false;
   ambitionPanel.onLaurel = (cue) => {
     sound.play(cue);
@@ -2073,9 +2082,10 @@ function start(preparedTown: string | null): void {
         laurelAt = time;
         const n = s.ambition.on ? nearest(s) : null;
         const won = laurelCount(s);
+        // (Review of slice 39: in the game's own tip, a line each.)
         const tip = n
-          ? `Nearest milestone: ${n.m.name} (${AMBITION_NAMES[n.m.ambition]}, ${placeOf(n.m)} of 5). ${n.m.want}. ${n.p.words}. Reward: ${rewardWords(n.m.reward)}.\n${won} of ${MILESTONE_COUNT} laurels won.`
-          : `Every ambition achieved: ${won} of ${MILESTONE_COUNT} laurels.`;
+          ? `Nearest milestone: ${n.m.name} · ${AMBITION_NAMES[n.m.ambition]}, ${placeOf(n.m)} of 5\nWants: ${n.m.want[0].toLowerCase()}${n.m.want.slice(1)}\nNow: ${n.p.words}\nReward: ${rewardWords(n.m.reward)}\n${won} of ${MILESTONE_COUNT} laurels won · click for the ambitions`
+          : `Every ambition achieved: ${won} of ${MILESTONE_COUNT} laurels\nClick for the ambitions`;
         topbar.showLaurel(s.ambition.on ? { name: n?.m.name ?? '', share: n?.share ?? 1, tip, won, of: MILESTONE_COUNT } : null, time, laurelFresh);
         laurelFresh = false;
       }
