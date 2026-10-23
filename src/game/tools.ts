@@ -67,6 +67,12 @@ import { INSPECT_RANGE, WATCH_RANGE } from '../sim/hazards';
 import { placeName } from '../sim/status';
 import { berthAt, FIRST_SHIP, PRICES, OLD_GOODS, quayTiles, TRADE_GOODS } from '../sim/trade';
 import { MARK_BAD, MARK_CLEAR, MARK_OK, MARK_WARN, type Placement } from '../render/placement';
+// Slice 36.
+import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal, HORSE_GRASS_MIN } from '../sim/build';
+import { ESTATE, GREAT_ESTATE, HOME_CAPACITY, VILLA } from '../sim/buildings';
+import { HORSE_BATCH, HORSE_EVERY } from '../sim/production';
+import { TICKS_PER_YEAR } from '../sim/clock';
+const capacityOf = (level: number): number => HOME_CAPACITY[level];
 
 export type ToolName =
   | 'road'
@@ -107,7 +113,10 @@ export type ToolName =
   | 'masons'
   | 'lighthouse'
   | 'colossus'
-  | 'stadium';
+  | 'stadium'
+  // Slice 36.
+  | 'horsefarm'
+  | 'estate';
 export const TOOLS: readonly ToolName[] = [
   'road',
   'housing',
@@ -148,6 +157,9 @@ export const TOOLS: readonly ToolName[] = [
   'lighthouse',
   'colossus',
   'stadium',
+  // Slice 36.
+  'horsefarm',
+  'estate',
 ];
 
 /** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
@@ -157,8 +169,10 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium';
-const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && !isStallTool(t);
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';
+const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && t !== 'estate' && !isStallTool(t);
+/** Slice 36: tools that put down a footprint where you click (a building, plots, an estate's plot). */
+const isFooted = (t: ToolName | null): boolean => t === 'housing' || t === 'estate' || isPlacer(t);
 
 export interface ToolTip {
   /** Show text near the pointer (screen px), or hide with null; `warn` is a caution shown last, in amber. */
@@ -277,6 +291,8 @@ export class Tools {
         if (t === 'dairy') return g !== Ground.Ok || tileGrass(map, i) < DAIRY_GRASS_MIN;
         // A grove needs dry slopes: the river land, rock and sand are washed rust (slopes too steep for a house will do).
         if (t === 'grove') return (g !== Ground.Ok && g !== Ground.SteepForHome) || tileOlive(map, i) < GROVE_OLIVE_MIN;
+        // A horse farm needs grass for its horses (slice 36).
+        if (t === 'horsefarm') return g !== Ground.Ok || tileGrass(map, i) < HORSE_GRASS_MIN;
         // A pasture needs grass for its sheep.
         if (t === 'pasture') return g !== Ground.Ok || tileGrass(map, i) < PASTURE_GRASS_MIN;
         // A vineyard needs dry ground in the sun: the river land, rock, sand and slopes turned away from the sun are washed rust.
@@ -291,7 +307,7 @@ export class Tools {
         if (t === 'lighthouse') return g !== Ground.Ok && g !== Ground.SteepForHome;
         // A stall goes on an agora: nothing is washed.
         if (isStallTool(t)) return false;
-        if (t === 'housing' || isPlacer(t)) return g !== Ground.Ok;
+        if (isFooted(t)) return g !== Ground.Ok;
         return false;
       });
     }
@@ -304,7 +320,7 @@ export class Tools {
             ? 'food'
             : t === 'grove' || t === 'press' || t === 'storehouse' || t === 'stall'
               ? 'oil'
-              : t === 'pasture' || t === 'fleecestall'
+              : t === 'pasture' || t === 'fleecestall' || t === 'horsefarm'
                 ? 'fleece'
                 : t === 'vineyard' || t === 'winery' || t === 'winestall'
                   ? 'wine'
@@ -336,13 +352,13 @@ export class Tools {
       this.hoverZ = world.z;
       this.hover = Math.floor(world.z) * n + Math.floor(world.x);
     }
-    if (world) this.placement.setCursor(world.x, world.z, this.tool === 'housing' || isPlacer(this.tool) ? 11 : 9);
+    if (world) this.placement.setCursor(world.x, world.z, isFooted(this.tool) ? 11 : 9);
     this.preview();
   }
 
   down(): void {
     if (!this.tool || this.hover < 0) return;
-    this.anchor = this.tool === 'housing' || isPlacer(this.tool) ? this.plotAt(this.side()) : this.hover;
+    this.anchor = isFooted(this.tool) ? this.plotAt(this.side()) : this.hover;
     this.preview();
   }
 
@@ -400,7 +416,7 @@ export class Tools {
 
   /** The footprint side of what the tool places. */
   private side(): number {
-    return isPlacer(this.tool) ? sideOf(this.tool) : PLOT_SIZE;
+    return this.tool === 'estate' ? ESTATE_SIZE : isPlacer(this.tool) ? sideOf(this.tool) : PLOT_SIZE;
   }
 
   /** Top-left tile of the footprint centred on the pointer. */
@@ -526,6 +542,10 @@ export class Tools {
     }
     if (isPlacer(this.tool)) {
       this.placeOne(this.tool, sx, sy, marks);
+      return;
+    }
+    if (this.tool === 'estate') {
+      this.placeEstate(sx, sy, marks);
       return;
     }
     const good = this.tool ? STALL_TOOLS[this.tool] : undefined;
@@ -666,6 +686,7 @@ export class Tools {
       lighthouse: ['lighthouse', 'lighthouses'],
       colossus: ['colossus', 'colossi'],
       stadium: ['stadium', 'stadiums'],
+      horsefarm: ['horse farm', 'horse farms'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -807,7 +828,7 @@ export class Tools {
     this.setMarks(marks);
     if (r) {
       const fert = kind === 'farm' ? ` (here ${Math.round(fertilityOf(map, x, z, side) * 100)}%, it needs ${Math.round(FARM_FERTILE_MIN * 100)}%)` : '';
-      const grass = kind === 'dairy' || kind === 'pasture' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round((kind === 'dairy' ? DAIRY_GRASS_MIN : PASTURE_GRASS_MIN) * 100)}%)` : '';
+      const grass = kind === 'dairy' || kind === 'pasture' || kind === 'horsefarm' ? ` (here ${Math.round(grassOf(map, x, z, side) * 100)}%, it needs ${Math.round((kind === 'dairy' ? DAIRY_GRASS_MIN : kind === 'horsefarm' ? HORSE_GRASS_MIN : PASTURE_GRASS_MIN) * 100)}%)` : '';
       const olive = kind === 'grove' ? ` (olive ground here ${Math.round(oliveOf(map, x, z, side) * 100)}%, it needs ${Math.round(GROVE_OLIVE_MIN * 100)}%)` : '';
       const vine = kind === 'vineyard' ? ` (vine ground here ${Math.round(vineOf(map, x, z, side) * 100)}%, it needs ${Math.round(VINE_MIN * 100)}%)` : '';
       const copper = kind === 'mine' ? ` (copper here ${Math.round(copperOf(map, x, z, side) * 100)}%, it needs ${Math.round(MINE_COPPER_MIN * 100)}%)` : kind === 'quarry' ? ` (marble here ${Math.round(marbleOf(map, x, z, side) * 100)}%, it needs ${Math.round(QUARRY_MARBLE_MIN * 100)}%)` : '';
@@ -913,6 +934,15 @@ export class Tools {
       lines.push(`About ${fmt(Math.round((FLEECE_MONTH * grass) / 10) * 10)} bales of fleece a month, fully worked: the greener the grass, the more`);
       if (roads.length === 0) warn = 'No road beside it: its shepherds couldn’t get there and its carts couldn’t take the fleece away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the fleece to a storehouse: build one too (G twice)');
+    } else if (kind === 'horsefarm') {
+      // Slice 36.
+      const grass = grassOf(map, x, z, side);
+      text += ` · grass ${Math.round(grass * 100)}%`;
+      const year = Math.round((TICKS_PER_YEAR / HORSE_EVERY) * Math.max(1, Math.round(HORSE_BATCH * grass)));
+      lines.push(`About ${fmt(year)} horses a year, fully worked: the mares foal in spring, so most come then; its grooms lead them to a storehouse`);
+      lines.push('Horses are for the estates’ stables (and their sons ride them with the horsemen)');
+      if (roads.length === 0) warn = 'No road beside it: its grooms couldn’t get there or lead the horses away. Lay a road along one side first.';
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its grooms lead the horses to a storehouse: build one too (G twice)');
     } else if (kind === 'vineyard') {
       const ground = vineOf(map, x, z, side);
       const grapes = Math.round(GRAPE_HARVEST * ground);
@@ -974,7 +1004,37 @@ export class Tools {
     this.tip.show([text, ...lines].join('\n'), sx, sy, false, warn);
     this.pending = () => this.send(kind === 'fountain' ? { type: 'fountain', at: [at] } : { type: 'build', kind, at: [at] });
   }
+
+  /** Slice 36: an estate's plot, 4 x 4, where you click. */
+  private placeEstate(sx: number, sy: number, marks: Map<number, number>): void {
+    const s = this.sim.state;
+    const map = this.sim.map;
+    const n = map.size;
+    this.overlay?.setPreview(null);
+    const side = ESTATE_SIZE;
+    const at = this.plotAt(side);
+    const x = at % n;
+    const z = Math.floor(at / n);
+    const r = estateRefusal(map, s, x, z) || (spendable(s, 'home') >= ESTATE_PLOT_COST ? '' : s.money >= ESTATE_PLOT_COST ? keptBack(s) : 'Not enough drachmas');
+    const roads = beside(n, x, z, side).filter((t) => s.tiles[t] === TILE_ROAD);
+    const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;
+    for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) if (x + dx < n && z + dz < n) marks.set((z + dz) * n + x + dx, mk);
+    this.setMarks(marks);
+    if (r) {
+      this.tip.show(r, sx, sy, true);
+      return;
+    }
+    const text = `Estate · ${fmt(ESTATE_PLOT_COST)} dr for the plot · up to ${capacityOf(ESTATE)} people, ${capacityOf(GREAT_ESTATE)} as a great estate`;
+    let warn = '';
+    if (roads.length === 0) warn = 'No road beside it: the noble house comes in by road, and the walkers that serve it need one. Lay a road along one side first.';
+    else if (!s.buildings.some((b) => b.kind === 'home' && !b.estate && b.level >= VILLA && b.people > 0)) warn = 'No villa in your city yet: no noble house will come until there is one.';
+    this.tip.show([text, ESTATE_TIP].join('\n'), sx, sy, false, warn);
+    this.pending = () => this.send({ type: 'estate', at: [at] });
+  }
 }
+
+/** Slice 36: what an estate's plot is for, in the tip. */
+const ESTATE_TIP = 'A noble house comes to it from the edge of your land once your city has a villa. It needs all a villa needs; with marble, armour and horses fetched from your storehouses it becomes a great estate. Its sons ride with the horsemen';
 
 /** Tiles along an L from one tile to another (the longer side first). */
 function straight(n: number, a: number, b: number): number[] {

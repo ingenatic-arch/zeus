@@ -99,7 +99,7 @@ export const PACES: Record<Rhythm, readonly [number, number, number, number]> = 
  * (Integrating with slice 32: the quarries and the loggers' camps keep theirs too, and a felled tree grows back at one
  * pace: stone is cut the year round, and woods were felled in winter as much as in any season.)
  */
-export const RHYTHM_OF: Partial<Record<BuildingKind, Rhythm>> = { farm: 'wheat', grove: 'fruit', vineyard: 'fruit', dairy: 'flock', pasture: 'flock' };
+export const RHYTHM_OF: Partial<Record<BuildingKind, Rhythm>> = { farm: 'wheat', grove: 'fruit', vineyard: 'fruit', dairy: 'flock', pasture: 'flock', horsefarm: 'flock' };
 
 /** A rhythm's pace now (1 with the switch off). */
 export const paceOf = (s: SimState, r: Rhythm): number => (s.season?.on ? PACES[r][seasonAt(s.tick)] : 1);
@@ -165,7 +165,11 @@ export function paceLine(s: SimState, kind: BuildingKind): string {
             ? season === SPRING
               ? 'the goats have their kids and give the most milk'
               : 'the goats give milk'
-            : season === SPRING
+            : kind === 'horsefarm'
+              ? season === SPRING
+                ? 'the mares foal'
+                : 'the foals grow into horses'
+              : season === SPRING
               ? 'the ewes lamb and the flock is sheared'
               : 'the flock’s fleece grows';
   return `${Name}: ${what} ${paceWords(p)}`;
@@ -217,10 +221,25 @@ export function stormDelay(s: SimState, ship: string, due: number): number {
     return 0;
   }
   const day = Math.floor(due / TICKS_PER_DAY);
-  const days = LATE_LEAST + Math.floor(hash2(day, 0x1a7e, s.seed) * (LATE_MOST - LATE_LEAST + 1));
+  // (Slice 36: each ship her own storms: two due the same day are held back by different amounts.)
+  const days = LATE_LEAST + Math.floor(hash2(day, 0x1a7e ^ shipSalt(ship), s.seed) * (LATE_MOST - LATE_LEAST + 1));
   s.season.late[ship] = days;
   return days * TICKS_PER_DAY;
 }
+
+/** Slice 36: a number from a ship's name, to keep her storms apart from other ships'. */
+function shipSalt(ship: string): number {
+  let h = 0;
+  for (let i = 0; i < ship.length; i++) h = (h * 31 + ship.charCodeAt(i)) & 0xffff;
+  return h << 12;
+}
+
+/**
+ * Slice 36: the tick a ship was due before the storms held her back (`due`,
+ * her visit now, less the days late noted for it), for her next visit to
+ * count from: late, then back on her schedule.
+ */
+export const onSchedule = (s: SimState, ship: string, due: number): number => due - lateDays(s, ship) * TICKS_PER_DAY;
 
 /** How many days late a ship's next visit is for the winter's storms (0: on time). */
 export const lateDays = (s: SimState, ship: string): number => (s.season?.on ? (s.season.late[ship] ?? 0) : 0);

@@ -15,6 +15,9 @@ import type { Building, Family, Kin, Person, Service, SimState, Story } from './
 import { gamesMood } from './monuments';
 // Slice 39.
 import { prideMood } from './laurels';
+// Slice 36: the estates' own needs.
+import { ESTATE, GREAT_ESTATE } from './buildings';
+import { estateStocked } from './estates';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -315,13 +318,15 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   const reasons: Array<{ text: string; w: number }> = [];
   const add = (w: number, text: string): void => void reasons.push({ text, w });
   const f = b.family;
+  // (Slice 36's review: a noble house came to an empty estate, not down from a level that had these, so it has gone without them only since it came, not since the founding.)
+  const goneSince = (until: number): number => s.tick - (b.estate && f ? Math.max(until, f.came) : until);
   const wet = b.waterUntil > s.tick;
   const fed = tableUntil(b) > s.tick;
   if (b.level >= HUT) {
     if (wet) add(1, 'Water close at hand');
     else {
       // How long it has really been gone (a home that moved down without it has gone without for longer than its level).
-      const dry = s.tick - b.waterUntil;
+      const dry = goneSince(b.waterUntil);
       if (dry < WARN_AFTER) add(-1, `The water carrier is late (${span(dry)})`);
       else add(dry > TICKS_PER_MONTH ? -3 : -2, `No water for ${span(dry)}`);
     }
@@ -359,7 +364,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   if (b.level >= TOWNHOUSE) {
     if (blessed) add(1, 'Blessed by the priestess');
     else {
-      const gone = s.tick - b.religionUntil;
+      const gone = goneSince(b.religionUntil);
       if (gone < WARN_AFTER) add(-1, `The priestess is late (${span(gone)})`);
       else add(gone > TICKS_PER_MONTH ? -3 : -2, `No blessings for ${span(gone)}`);
     }
@@ -377,7 +382,7 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   if (b.level >= FINE) {
     if (plays) add(1, 'Evenings at the theatre');
     else {
-      const gone = s.tick - b.cultureUntil;
+      const gone = goneSince(b.cultureUntil);
       if (gone < WARN_AFTER) add(-1, `The actor is late (${span(gone)})`);
       else add(gone > TICKS_PER_MONTH ? -3 : -2, `No plays for ${span(gone)}`);
     }
@@ -523,6 +528,9 @@ export const LEVEL_NEEDS: ReadonlyArray<readonly Service[]> = [
   ['water', 'food', 'religion', 'oil'],
   ['water', 'food', 'religion', 'oil', 'culture', 'fleece'],
   ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
+  // Slice 36: the estate and the great estate need all a villa does, and their own wares besides (estates.ts).
+  ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
+  ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine'],
 ];
 
 /** Each need in a word, as people say it: water, bread, blessings, oil, plays, fleece, wine. */
@@ -596,6 +604,8 @@ export function missingSince(b: Building, need: Service): number {
  */
 export function readyToRise(s: SimState, b: Building): boolean {
   if (b.kind !== 'home' || b.people === 0) return false;
+  // Slice 36: an estate becomes a great estate after a month as it is, with a month in hand of all a villa needs, and of its marble, armour and horses.
+  if (b.estate) return b.level === ESTATE && s.tick - b.since >= SETTLE && LEVEL_NEEDS[GREAT_ESTATE].every((need) => untilOf(b, need, GREAT_ESTATE) - s.tick >= RISE_MIN) && estateStocked(s, b);
   if (b.level === TENT) return b.waterUntil > s.tick;
   if (b.level === HUT) return b.waterUntil > s.tick && tableUntil(b, COTTAGE) - s.tick >= COTTAGE_FOOD_MIN;
   if (b.level >= COTTAGE && b.level < VILLA) {

@@ -13,11 +13,11 @@ import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
 /** A box from (x0, z0) to (x1, z1), standing from y0 to y1. */
-const slab = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number): THREE.BufferGeometry =>
+export const slab = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number): THREE.BufferGeometry =>
   new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
 
 /** A gable end: a flat triangle `w` wide and `h` tall in the xy plane (turn it to face along z). */
-function gable(w: number, h: number): THREE.BufferGeometry {
+export function gable(w: number, h: number): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   const a = w / 2;
   g.setAttribute('position', new THREE.Float32BufferAttribute([-a, 0, 0, a, 0, 0, 0, h, 0], 3));
@@ -25,7 +25,7 @@ function gable(w: number, h: number): THREE.BufferGeometry {
 }
 
 /** A tiled gable roof over a box of (dx, dz) at height `top`, its ridge along z, with gable ends and a darker ridge. */
-function gableRoof(parts: Part[], cx: number, cz: number, dx: number, dz: number, top: number, h: number): void {
+export function gableRoof(parts: Part[], cx: number, cz: number, dx: number, dz: number, top: number, h: number): void {
   parts.push({ geo: prism(dz + 0.16, dx / 2 + 0.1, h).rotateY(Math.PI / 2).translate(cx, top, cz), color: PAL.roofTile });
   parts.push({ geo: cyl(0.03, 0.03, dz + 0.18, 5).rotateX(Math.PI / 2).translate(cx, top + h, cz), color: PAL.roofTileDark });
   const g = gable(dx, h * 0.94);
@@ -34,7 +34,7 @@ function gableRoof(parts: Part[], cx: number, cz: number, dx: number, dz: number
 }
 
 /** A hipped tile roof (a four-sided pyramid) over a box of (dx, dz) at height `top`, with a darker eave. */
-function hippedRoof(parts: Part[], cx: number, cz: number, dx: number, dz: number, top: number, h: number): void {
+export function hippedRoof(parts: Part[], cx: number, cz: number, dx: number, dz: number, top: number, h: number): void {
   const r = ((Math.max(dx, dz) + 0.2) / 2) * Math.SQRT2;
   parts.push({ geo: new THREE.ConeGeometry(r, h, 4, 1).rotateY(Math.PI / 4).scale(dx >= dz ? 1 : (dx + 0.2) / (dz + 0.2), 1, dz >= dx ? 1 : (dz + 0.2) / (dx + 0.2)).translate(cx, top + h / 2, cz), color: PAL.roofTile });
   parts.push({ geo: slab(cx - dx / 2 - 0.1, cz - dz / 2 - 0.1, cx + dx / 2 + 0.1, cz + dz / 2 + 0.1, top - 0.02, top + 0.015), color: PAL.roofTileDark });
@@ -47,12 +47,12 @@ function band(parts: Part[], cx: number, cz: number, dx: number, dz: number, y: 
 }
 
 /** A window on a wall facing +z or -z (side = ±1): a dark pane between blue shutters. */
-function windowZ(x: number, y: number, z: number, side: number): Part[] {
+export function windowZ(x: number, y: number, z: number, side: number): Part[] {
   return windowX(0, y, 0).map((p) => ({ geo: p.geo.rotateY(side > 0 ? -Math.PI / 2 : Math.PI / 2).translate(x, 0, z), color: p.color }));
 }
 
 /** An olive tree: a trunk and a lumpy grey-green crown (with the city's finish, a crown of leafy clumps over a forked trunk). */
-function olive(x: number, z: number, s: number, seed: number): Part[] {
+export function olive(x: number, z: number, s: number, seed: number): Part[] {
   if (finishOn()) {
     const out: Part[] = [
       { geo: cyl(0.028 * s, 0.045 * s, 0.32 * s, 6).rotateZ(0.12).translate(x, 0.16 * s, z), color: PAL.trunk },
@@ -69,7 +69,7 @@ function olive(x: number, z: number, s: number, seed: number): Part[] {
 }
 
 /** A cypress: a tall dark cone on a stub of trunk (with the city's finish, a flame of upright sprays). */
-function cypress(x: number, z: number, h: number): Part[] {
+export function cypress(x: number, z: number, h: number): Part[] {
   if (finishOn()) {
     const out: Part[] = [{ geo: cyl(0.02, 0.03, 0.1, 5).translate(x, 0.05, z), color: PAL.trunk }];
     for (let i = 0; i < 4; i++) {
@@ -85,7 +85,7 @@ function cypress(x: number, z: number, h: number): Part[] {
   ];
 }
 
-const pithos = (x: number, z: number): Part => ({
+export const pithos = (x: number, z: number): Part => ({
   geo: new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(0.06, 0.01), new THREE.Vector2(0.11, 0.12), new THREE.Vector2(0.09, 0.23), new THREE.Vector2(0.05, 0.27)], 6).translate(x, 0, z),
   color: PAL.pithos,
 });
@@ -288,13 +288,13 @@ export function fineB(): THREE.BufferGeometry {
 // Villas (slice 11): the grandest homes, a colonnade round a garden.
 
 /** The villa's band under the eaves: Pompeian red with a cream line beneath, round a box of (dx, dz). */
-function redBand(parts: Part[], cx: number, cz: number, dx: number, dz: number, y: number): void {
+export function redBand(parts: Part[], cx: number, cz: number, dx: number, dz: number, y: number): void {
   parts.push({ geo: slab(cx - dx / 2 - 0.006, cz - dz / 2 - 0.006, cx + dx / 2 + 0.006, cz + dz / 2 + 0.006, y - 0.08, y), color: PAL.villaBand });
   parts.push({ geo: slab(cx - dx / 2 - 0.008, cz - dz / 2 - 0.008, cx + dx / 2 + 0.008, cz + dz / 2 + 0.008, y - 0.105, y - 0.08), color: PAL.marble });
 }
 
 /** A column with a square capital, standing on y0, `h` tall. */
-function column(x: number, z: number, y0: number, h: number): Part[] {
+export function column(x: number, z: number, y0: number, h: number): Part[] {
   return [
     { geo: cyl(0.036, 0.044, h, 6).translate(x, y0 + h / 2, z), color: PAL.column },
     { geo: slab(x - 0.055, z - 0.055, x + 0.055, z + 0.055, y0 + h, y0 + h + 0.035), color: PAL.marble },
@@ -306,7 +306,7 @@ function column(x: number, z: number, y0: number, h: number): Part[] {
  * the side `high` names. With `thick` it is a plank of tiles following the
  * slope; without, it is solid down to y0 (a wall whose top follows a roof).
  */
-function sloped(x0: number, z0: number, x1: number, z1: number, yLo: number, yHi: number, high: '+x' | '-x' | '+z' | '-z', y0: number, thick?: number): THREE.BufferGeometry {
+export function sloped(x0: number, z0: number, x1: number, z1: number, yLo: number, yHi: number, high: '+x' | '-x' | '+z' | '-z', y0: number, thick?: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(x1 - x0, 1, z1 - z0).translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
   const pos = g.getAttribute('position');
   for (let i = 0; i < pos.count; i++) {

@@ -17,7 +17,8 @@ import { around, capacity, centreOf, COTTAGE, recountPopulation } from './buildi
 import { TICKS_PER_DAY } from './clock';
 import { COTTAGE_FOOD_MIN, DECLINE_AFTER, missingNeed, moveOut, readyToRise, tell, warningsOf } from './folk';
 import { sendLeavers } from './settlers';
-import type { Building, SimState } from './state';
+import type { Building, Need, SimState } from './state';
+import { estateDay } from './estates';
 
 export { COTTAGE_FOOD_MIN, DECLINE_AFTER };
 
@@ -38,6 +39,11 @@ export function stepHouses(s: SimState, map: CoastMap): void {
   let changed = false;
   for (const b of s.buildings) {
     if (b.kind !== 'home' || b.level === 0 || (s.tick + b.id) % TICKS_PER_DAY !== 0) continue;
+    // Slice 36: an estate keeps its own ways (estates.ts).
+    if (b.estate) {
+      if (estateDay(s, map, b, (e) => rise(s, e, e.level + 1))) changed = true;
+      continue;
+    }
     if (readyToRise(s, b)) {
       rise(s, b, b.level + 1);
       changed = true;
@@ -46,7 +52,7 @@ export function stepHouses(s: SimState, map: CoastMap): void {
     const f = b.family;
     if (f) {
       // The story notes each warning when it starts, and the relief if what was missing comes back in time.
-      const now = warningsOf(s, b).map((w) => w.need);
+      const now: Need[] = warningsOf(s, b).map((w) => w.need);
       for (const need of now) if (!f.warned.includes(need)) tell(s, f, 'warn', b.level, [], need);
       for (const need of f.warned) if (!now.includes(need)) tell(s, f, 'relief', b.level, [], need);
       f.warned = now;

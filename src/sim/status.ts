@@ -39,10 +39,10 @@ import {
   VENDOR_RANGE,
   VENDOR_WALK,
 } from './food';
-import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, gi, GRAPES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
+import { ARMOUR, COPPER, FIRST_GOOD, FLEECE, GOOD_SERVICE, gi, GRAPES, HORSES, MARBLE, OIL, OLIVES, TIMBER, WARE_NAMES, WINE, type Ware } from './foods';
 
 /** What a storehouse keeps, each in its own room. */
-const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER]; // (marble and timber: slice 32's review)
+const STORE_GOODS: readonly Ware[] = [OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER, HORSES]; // (marble and timber: slice 32's review; horses: slice 36)
 import { stallLow, STALL_GOODS, STALL_NAMES, STALL_VENDOR, unitOf, vendorGood } from './goods';
 import { FLEECE_MONTH, grapesOf, OLIVE_GROW, olivesOf, OIL_MONTH, stageOf, MAKERS, VINE_GROW, WINE_MONTH } from './production';
 import { roomFor as roomForWare, roomOf as roomForWareKind, storeOf as storeOfKind } from './stores';
@@ -57,6 +57,11 @@ import { armouryStatus, barracksStatus, mineStatus, servesLine } from './armysta
 import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus';
 import { masonsStatus, monumentTownLine, monumentWalkerStatus, siteStatus } from './monumentstatus';
 import { towerStatus } from './wallstatus';
+// Slice 36.
+import { ESTATE_NEEDS, ESTATE_WORDS, isEstate, plotWaits, WARE_OF, wareUntil } from './estates';
+import { ESTATE, GREAT_ESTATE } from './buildings';
+import type { Service } from './state';
+import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -91,6 +96,8 @@ import {
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 // Slice 39.
 import { ambitionTownLine } from './ambitions';
+// Slice 36: the bread line at this season's pace.
+import { SEASON_NAMES, seasonAt } from './seasons';
 
 export interface Status {
   title: string;
@@ -157,6 +164,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   // Slice 35.
   if (b.kind === 'masons') return masonsStatus(s, b, workersLine(s, map, b));
   if (b.kind === 'lighthouse' || b.kind === 'colossus' || b.kind === 'stadium') return siteStatus(s, map, b);
+  // Slice 36.
+  if (b.kind === 'horsefarm') return horseFarmStatus(s, map, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -165,6 +174,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
     const search = roadSearch(s, size, edgeRoads(s, size));
     if (nearestReached(search, beside) < 0) road = 'Needs its road joined to the edge of the map, where settlers come in';
   }
+  // Slice 36: an estate's plot waits for a noble house.
+  if (b.estate && b.level === 0) return { title: 'An estate’s plot', detail: plotWaits(s, map, b) };
   if (b.level === 0) {
     if (b.incoming > 0) return { title: 'A housing plot', detail: 'Settlers are on their way' };
     return { title: 'A housing plot', detail: road || 'Waiting for settlers' };
@@ -173,7 +184,7 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
+  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), estateLine(s, b), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */
@@ -275,7 +286,7 @@ function cultureLine(s: SimState, map: CoastMap, b: Building, service: 'religion
   }
   if (needs) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, service));
-    return `No ${k.what} for ${days(s.tick - until)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the ${k.walker} comes`;
+    return `No ${k.what} for ${goneFor(s, b, until, service)} · ${fallWords(b, goes)} unless the ${k.walker} comes`;
   }
   return `No ${k.what} · ${whyNot(s, map, b, service)}`;
 }
@@ -299,6 +310,11 @@ export function cultureStatus(s: SimState, map: CoastMap, b: Building): Status {
   return { title, detail: lines(workersLine(s, map, b), line, who) };
 }
 
+/** Slice 36: how long a home has gone without a need (an estate counts from when it came or last changed level, as its warning does). */
+const goneFor = (s: SimState, b: Building, until: number, need: Service): string => days(s.tick - (b.estate ? missingSince(b, need) : until));
+/** What a home's warning ends in: down a level, or (an estate) its noble house leaving. */
+const fallWords = (b: Building, goes: number): string => (b.estate && b.level === ESTATE ? `the house leaves the estate in ${days(goes)}` : `goes back to ${levelName(b.level - 1)} in ${days(goes)}`);
+
 /** What water reaches a lived-in home, and if none, why not. */
 export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Search): string {
   const left = b.waterUntil - s.tick;
@@ -308,8 +324,7 @@ export function waterLine(s: SimState, map: CoastMap, b: Building, reach?: Searc
   }
   if (b.level >= HUT) {
     const goes = DECLINE_AFTER - (s.tick - missingSince(b, 'water'));
-    const to = levelName(b.level - 1);
-    return `No water for ${days(s.tick - b.waterUntil)} · goes back to ${to} in ${days(goes)} unless the water carrier comes`;
+    return `No water for ${goneFor(s, b, b.waterUntil, 'water')} · ${fallWords(b, goes)} unless the water carrier comes`;
   }
   return `No water · ${whyDry(s, map, b, reach)}`;
 }
@@ -369,9 +384,9 @@ export function foodLine(s: SimState, map: CoastMap, b: Building): string {
     const gone = s.tick - Math.max(until, b.grace);
     // (A home from an older save, in its grace, isn't counting yet.)
     const since = gone > 0 ? `for ${days(gone)}` : 'yet';
-    if (table.length === 0) return `No food ${since} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the food vendor comes`;
+    if (table.length === 0) return `No food ${since} · ${fallWords(b, goes)} unless the food vendor comes`;
     const lack = foodsLacking(s, b);
-    return `Only ${foodList(table)} on the table; ${levelName(b.level)} needs ${k === 2 ? 'two kinds' : 'all three'} · no ${foodList(lack, 'or')} ${since}: ${whyLacking(s, lack)} · goes back to ${levelName(b.level - 1)} in ${days(goes)}`;
+    return `Only ${foodList(table)} on the table; ${levelName(b.level)} needs ${k === 2 ? 'two kinds' : 'all three'} · no ${foodList(lack, 'or')} ${since}: ${whyLacking(s, lack)} · ${fallWords(b, goes)}`;
   }
   return `No food · ${whyHungry(s, map, b, agoras)}`;
 }
@@ -407,7 +422,7 @@ export function whyLacking(s: SimState, lack: readonly Food[]): string {
  * (huts and better), shared across the kinds of food the city makes; with
  * what one more farm (lodge, dairy) like these would add.
  */
-export function foodBalance(s: SimState, map: CoastMap, food: Food = WHEAT): { grown: number; eaten: number; perFarm: number } {
+export function foodBalance(s: SimState, map: CoastMap, food: Food = WHEAT): FoodBalance {
   let grown = 0;
   let full = 0;
   let farms = 0;
@@ -432,29 +447,49 @@ export function foodBalance(s: SimState, map: CoastMap, food: Food = WHEAT): { g
   for (const b of s.buildings) if (eatsBread(b)) eaten += b.people;
   eaten /= kinds;
   const typical = food === WHEAT ? (HARVEST * TICKS_PER_MONTH) / GROW : food === MEAT ? LODGE_MONTH : ((CHEESE_BATCH * TICKS_PER_MONTH) / CHEESE_EVERY) * 0.6;
-  return { grown, eaten, perFarm: farms ? full / farms : typical };
+  // (Slice 36: and at this season's pace, with its words: the year's average reads wrong in a winter.)
+  const pace = food === WHEAT ? makerPace(s, 'farm') : food === CHEESE ? makerPace(s, 'dairy') : 1;
+  const when = s.season?.on && Math.abs(pace - 1) > 0.02 ? `this ${SEASON_NAMES[seasonAt(s.tick)]}` : '';
+  return { grown, eaten, perFarm: farms ? full / farms : typical, now: grown * pace, pace, when };
+}
+
+/** Slice 36: what foodBalance says: a month's growing over the year and now, and what the town eats. */
+export interface FoodBalance {
+  grown: number;
+  eaten: number;
+  perFarm: number;
+  /** At this season's pace (`pace`), named by `when` ("this winter"; '' with the seasons off, or at the usual pace). */
+  now: number;
+  pace: number;
+  when: string;
+}
+
+/** Slice 36: what the farms grow, at this season's pace first: "about 340 measures of wheat a month this winter (60% of their pace; about 570 over the year)". */
+export function grownWords(bal: FoodBalance): string {
+  if (!bal.when) return `about ${fmt(roundTen(bal.grown))} measures of wheat a month`;
+  return `about ${fmt(roundTen(bal.now))} measures of wheat a month ${bal.when} (${Math.round(bal.pace * 100)}% of their pace; about ${fmt(roundTen(bal.grown))} over the year)`;
 }
 
 /** Round to the nearest ten from a hundred up. */
 const roundTen = (v: number): number => (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v));
 
 /** "the farms grow about 570 measures a month and the town eats about 800: two more farms would feed it". */
-export function balanceWords(bal: { grown: number; eaten: number; perFarm: number }): string {
+export function balanceWords(bal: FoodBalance): string {
   // With a tenth to spare: the vendor tops homes up in bursts, and towns grow.
   const more = Math.max(1, Math.ceil((bal.eaten * 1.1 - bal.grown) / bal.perFarm));
   const n = more === 1 ? 'another farm' : `${more <= 9 ? ['', '', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][more] : more} more farms`;
-  return `the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}; ${n} would feed it`;
+  return `the farms grow ${grownWords(bal)} and the town eats about ${fmt(roundTen(bal.eaten))}; ${n} would feed it`;
 }
 
 /** The town's wheat in a line, for the granary's and the agora's tips ('' before there are farms and people who eat bread). */
 export function balanceLine(s: SimState, map: CoastMap): string {
   const bal = foodBalance(s, map);
   if (bal.eaten === 0 || !s.buildings.some((f) => f.kind === 'farm')) return '';
-  const both = `The farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}`;
+  const both = `The farms grow ${grownWords(bal)} and the town eats about ${fmt(roundTen(bal.eaten))}`;
   if (bal.eaten > bal.grown && s.buildings.some((f) => f.kind === 'farm' && rateOf(f) < 1)) return `${both}; a farm is short of workers (hover it to see why)`;
   const words = balanceWords(bal);
   if (bal.eaten > bal.grown) return `${words[0].toUpperCase()}${words.slice(1)}`;
-  return `The farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month; the town eats about ${fmt(roundTen(bal.eaten))}`;
+  return `The farms grow ${grownWords(bal)}; the town eats about ${fmt(roundTen(bal.eaten))}`;
 }
 
 /** Why no food reaches a hut or better. */
@@ -768,11 +803,22 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     const to = g ? STORE_NAME[g.kind] ?? 'granary' : WARE_GOES[w.food] ?? 'granary';
     const load = amount(w.food, w.load);
     // (Slice 32: the quarry's oxen drag their blocks on a sledge.)
-    const title = w.kind === 'sledge' ? 'Ox sledge' : 'Ox cart';
-    const taking = w.kind === 'sledge' ? 'Dragging' : 'Taking';
+    // (Slice 36: horses are led by a groom.)
+    const title = w.kind === 'sledge' ? 'Ox sledge' : w.food === HORSES ? 'Groom' : 'Ox cart';
+    const taking = w.kind === 'sledge' ? 'Dragging' : w.food === HORSES ? 'Leading' : 'Taking';
     if (w.back) return { title, detail: w.load > 0 ? `${taking} its ${what} back to its ${home}: nowhere has room for it` : `Heading back to its ${home}` };
     if (w.wait > 0) return { title, detail: g && g.workers === 0 ? `Waiting at the ${to}’s gate: nobody works there to take the ${what} in` : `Unloading ${load} at the ${to}` };
     return { title, detail: `${taking} ${load} to the ${to}` };
+  }
+  // Slice 36: an estate's porter, or its groom for horses.
+  const estate = w.kind === 'porter' ? findBuilding(s, w.origin) : undefined;
+  if (estate && estate.kind === 'home' && estate.estate) {
+    const title = w.food === HORSES ? 'Groom' : 'Porter';
+    const home = levelName(estate.level).toLowerCase();
+    const what = WARE_NAMES[w.food];
+    if (w.back) return { title, detail: w.load > 0 ? `Bringing ${amount(w.food, w.load)} home to the ${home}` : `Heading back to the ${home} empty-handed` };
+    if (w.wait > 0) return { title, detail: w.food === HORSES ? 'Taking horses from the storehouse’s rail' : `Loading ${unitOf(w.food, 2)} of ${what} at the storehouse` };
+    return { title, detail: `On his way to the storehouse for ${what} for the ${home}` };
   }
   if (w.kind === 'porter' && w.food >= FIRST_GOOD) {
     const what = WARE_NAMES[w.food];
@@ -808,13 +854,13 @@ export { eatsBread };
 // storehouse, the agora's stalls, and the homes.
 
 /** Where each kind's carts come home to, and what each store is called (for the carts' tips). */
-const CART_HOME: Partial<Record<BuildingKind, string>> = { farm: 'farm', lodge: 'lodge', dairy: 'dairy', grove: 'olive grove', press: 'olive press', pasture: 'pasture', vineyard: 'vineyard', winery: 'winery', mine: 'mine', quarry: 'quarry', loggers: 'camp' };
+const CART_HOME: Partial<Record<BuildingKind, string>> = { farm: 'farm', lodge: 'lodge', dairy: 'dairy', grove: 'olive grove', press: 'olive press', pasture: 'pasture', vineyard: 'vineyard', winery: 'winery', mine: 'mine', quarry: 'quarry', loggers: 'camp', horsefarm: 'horse farm' };
 const STORE_NAME: Partial<Record<BuildingKind, string>> = { granary: 'granary', press: 'olive press', winery: 'winery', storehouse: 'storehouse' };
 /** Where carts take each ware when the tip can't name the building (olives to a press, grapes to a winery, goods to a storehouse). */
-const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse' };
+const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse', [HORSES]: 'storehouse' };
 
 /** "12 jars of oil", "300 measures of olives". */
-const amount = (w: Ware, n: number): string => `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`;
+const amount = (w: Ware, n: number): string => (w === HORSES ? `${fmt(n)} ${unitOf(w, n)}` : `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`);
 
 /** The wine vendor is a man; the oil and fleece vendors are women (see the walkers' looks). */
 const VENDOR_MEN: ReadonlySet<Ware> = new Set([WINE]);
@@ -889,7 +935,7 @@ function goodsCartLine(s: SimState, map: CoastMap, b: Building, w: Ware, to: Bui
   const what = WARE_NAMES[w];
   const name = STORE_NAME[to] ?? to;
   const carts = errandsOut(s, b);
-  if (carts) return `${carts === 1 ? 'A cart is' : `${carts} carts are`} taking its ${what} to the ${name}`;
+  if (carts) return w === HORSES ? `${carts === 1 ? 'A groom is' : `${carts} grooms are`} leading its horses to the ${name}` : `${carts === 1 ? 'A cart is' : `${carts} carts are`} taking its ${what} to the ${name}`;
   if (held(b, w) <= 0) return '';
   if (!s.buildings.some((g) => g.kind === to)) return `Build ${build} for its carts to take the ${what} to`;
   if (!s.buildings.some((g) => g.kind === to && roomForWare(g, w) > 0)) return `Every ${name} is full of ${what}: its carts wait for room`;
@@ -983,6 +1029,34 @@ export function pastureStatus(s: SimState, map: CoastMap, p: Building): Status {
   return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, FLEECE, 'storehouse', 'a storehouse (G twice)')) };
 }
 
+/** Slice 36: a horse farm: its grass, its horses, where they go. */
+export function horseFarmStatus(s: SimState, map: CoastMap, p: Building): Status {
+  const grass = grassOf(map, p.x, p.z, 3);
+  const horses = held(p, HORSES);
+  const room = storeOfKind('horsefarm');
+  const title = `${BUILDING_NAMES.horsefarm} · ${fmt(horses)} of ${fmt(room)} horses`;
+  if (roadsBeside(s, map.size, p).length === 0) return { title, detail: 'Needs a road beside it, for its grooms' };
+  const rate = rateOf(p);
+  const month = (HORSE_BATCH * TICKS_PER_MONTH) / HORSE_EVERY;
+  let making: string;
+  if (horses >= room) making = 'The paddock is full: no foals are raised until its grooms lead the horses away';
+  else if (rate === 0) making = 'No foals are raised with nobody to mind the mares';
+  else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(month * grass * rate * makerPace(s, 'horsefarm'))} horses a month${rate < 1 ? ` (${fmt(month * grass * makerPace(s, 'horsefarm'))} fully worked)` : ''}`;
+  if (rate > 0 && horses < room) making = lines(making, paceLine(s, 'horsefarm'));
+  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, HORSES, 'storehouse', 'a storehouse (G twice)')) };
+}
+
+/** Slice 36: an estate's marble, armour and horses, in one line. */
+function estateLine(s: SimState, b: Building): string {
+  if (!isEstate(b) || b.people === 0) return '';
+  const great = b.level >= GREAT_ESTATE;
+  const each = ESTATE_NEEDS.map((n) => {
+    const left = wareUntil(s, b, n) - s.tick;
+    return `${ESTATE_WORDS[n]} ${left <= 0 ? 'none' : great ? `for ${days(left)}` : `${fmt(held(b, WARE_OF[n]))} in hand`}`;
+  });
+  return `${great ? 'Its stable and yard' : 'Laid in for a great estate'}: ${each.join(' · ')}`;
+}
+
 /** A storehouse: what it holds, what carts are bringing, who fetches from it. */
 export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Status {
   const held_ = STORE_GOODS.filter((w) => held(g, w) > 0);
@@ -1053,8 +1127,10 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
     if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
     return chain.stuck(s);
   }
-  if (goodUntil(b, good) > 0) return `within reach of a ${stallName}, but the ${what} vendor has taken other turns lately`;
-  return `within reach of a ${stallName}; the ${what} vendor hasn’t come this way yet`;
+  // (Slice 36's review: "an oil stall", not "a oil stall".)
+  const aStall = `${/^[aeiou]/.test(stallName) ? 'an' : 'a'} ${stallName}`;
+  if (goodUntil(b, good) > 0) return `within reach of ${aStall}, but the ${what} vendor has taken other turns lately`;
+  return `within reach of ${aStall}; the ${what} vendor hasn’t come this way yet`;
 }
 
 /** Why no oil reaches a cottage or better. */
@@ -1097,7 +1173,7 @@ export function goodLine(s: SimState, map: CoastMap, b: Building, good: Ware): s
     // (A home from an older save, in its grace, isn't counting yet.)
     if (since > s.tick) return `No ${what} yet · they’ll put up with it for ${days(since - s.tick)} more: ${whyNoGood(s, map, b, good)}`;
     const goes = DECLINE_AFTER - (s.tick - since);
-    return `No ${what} for ${days(s.tick - since)} · goes back to ${levelName(b.level - 1)} in ${days(goes)} unless the ${what} vendor comes: ${whyNoGood(s, map, b, good)}`;
+    return `No ${what} for ${days(s.tick - since)} · ${fallWords(b, goes)} unless the ${what} vendor comes: ${whyNoGood(s, map, b, good)}`;
   }
   if (!citySells(s, good)) return '';
   return `No ${what} · ${whyNoGood(s, map, b, good)}`;
@@ -1349,7 +1425,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
     const granary = s.buildings.find((g) => g.kind === 'granary');
     out.push({
       need: 'food',
-      text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${fmt(roundTen(bal.eaten))}, too little to spare.${already.replace(/\.$/, ' between harvests.')} ${n} would keep it fed.`,
+      text: `Bread: the farms grow ${grownWords(bal)} and the town eats about ${fmt(roundTen(bal.eaten))}, too little to spare.${already.replace(/\.$/, ' between harvests.')} ${n} would keep it fed.`,
       at: granary?.id ?? farms[0].id,
     });
   } else if (bal.eaten > bal.grown && (farms.length > 0 || agora) && (farms.length === 0 || runsOut < BREAD_LEAD_MONTHS || hungry > 0)) {
@@ -1372,7 +1448,7 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
           : slow && slow.owed > 0 && slow.workers >= JOBS.farm
             ? 'a farm’s wages are unpaid, so it works at half pace'
             : `a farm is short of workers (${slow?.workers} of ${JOBS.farm})`;
-      if (slow) out.push({ need: 'food', text: `Bread: the farms grow about ${fmt(roundTen(bal.grown))} measures of wheat a month and the town eats about ${eats}; ${why}.${stores}${already}`, at: slow.id });
+      if (slow) out.push({ need: 'food', text: `Bread: the farms grow ${grownWords(bal)} and the town eats about ${eats}; ${why}.${stores}${already}`, at: slow.id });
       else if (roundTen(bal.grown) === roundTen(bal.eaten)) {
         // Rounded, the two would read the same: say which way it tips.
         out.push({ need: 'food', text: `Bread: the town now eats a little more wheat than the farms grow (about ${eats} measures a month). Another farm would keep it fed.${stores}${already}`, at: granary?.id ?? farms[0].id });

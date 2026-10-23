@@ -129,6 +129,14 @@
  * already meets, quietly (no fanfare, no reward, marked as already met), and
  * goes on from there.
  *
+ * Slice 36 (The great houses): no home is an estate; every building's goods,
+ * and every trade record, gain horses (padded to however many goods there
+ * are now); Thebes breeds four horses for every one it uses and Argos a few
+ * to spare, every other city just what it uses, each at its usual price
+ * with nothing pushing it; nothing is ticked for sale or to buy. Ships held
+ * back by winter keep the day they are due, and their next visit counts
+ * from when they were due before the storms. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -144,6 +152,9 @@ import { freshLedger } from './treasury';
 import { freshHerds, wildRng } from './wild';
 import { DEFAULT_KEEP, freshTrade, OLD_GOODS, PRICES, tradeIndex, TRADE_GOODS } from './trade';
 import { armsOf, freshWorld, marketPrice, materialsOf, moodLevel, moodOf, normalStock, settle, usualTrail } from './world';
+// Slice 36.
+import { horsesOf } from './world';
+import { HORSES } from './foods';
 import { freshArmy } from './army';
 import { freshBook } from './stockbook';
 import { freshCrime } from './crime';
@@ -211,6 +222,7 @@ export function migrate(st: unknown): number {
   if (st.version === 32) fromSlice35(st);
   if (st.version === 33) fromSlice38(st);
   if (st.version === 34) fromSlice39(st);
+  if (st.version === 35) fromSlice36(st);
   return from;
 }
 
@@ -738,6 +750,72 @@ function fromSlice32(st: Record<string, unknown>): void {
     for (const r of w.routes as Array<Record<string, unknown>>) {
       if (!isObj(r)) continue;
       for (const k of ['sold', 'bought', 'upto', 'hold', 'unloaded', 'lastSold', 'lastBought']) pad(r[k], g, zero);
+      pad(r.sell, g, () => false);
+      pad(r.buy, g, () => false);
+    }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/** Slice 36 (the great houses): see the note above. Only its own fields, if they are missing; goods lists padded to however many there are now. */
+function fromSlice36(st: Record<string, unknown>): void {
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      if (typeof b.estate !== 'boolean') b.estate = false;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  }
+  if (Array.isArray(st.undo)) for (const e of st.undo as Array<Record<string, unknown>>) if (isObj(e) && Array.isArray(e.removedGoods)) for (const g of e.removedGoods) pad(g, GOOD_COUNT, zero);
+  const g = TRADE_GOODS.length;
+  if (isObj(st.trade)) {
+    const t = st.trade;
+    pad(t.sell, g, () => false);
+    pad(t.keep, g, (k) => DEFAULT_KEEP[k] ?? 0);
+    pad(t.lost, g, zero);
+    if (isObj(t.ship)) {
+      pad(t.ship.hold, g, zero);
+      pad(t.ship.lastBought, g, zero);
+    }
+  }
+  const w = st.world;
+  if (!isObj(w)) return void (st.version = (st.version as number) + 1);
+  const h = tradeIndex(HORSES);
+  if (Array.isArray(w.cities)) {
+    for (const c of w.cities as Array<Record<string, unknown>>) {
+      if (!isObj(c) || !Array.isArray(c.make) || !Array.isArray(c.need) || !Array.isArray(c.price)) continue;
+      const herd = horsesOf(c.id as CityId);
+      pad(c.make, g, (k) => (k === h ? herd[0] : 0));
+      pad(c.need, g, (k) => (k === h ? herd[1] : 0));
+      for (const k of ['yours', 'crop', 'strife', 'feast']) pad(c[k], g, zero);
+      const make = c.make as number[];
+      const need = c.need as number[];
+      // (An earlier step, or another line's, may have padded the lists to this length with no horses bred or used: every city has some.)
+      const unset = h >= 0 && h < make.length && !make[h] && !need[h];
+      if (unset) {
+        make[h] = herd[0];
+        need[h] = herd[1];
+      }
+      const usual = (k: number): number => (c.ruler ? marketPrice(k, make[k], need[k]) : PRICES[k]);
+      pad(c.stock, g, (k) => Math.round(normalStock(c as unknown as WorldCity, k)));
+      pad(c.price, g, usual);
+      pad(c.trail, g, (k) => (c.ruler ? usualTrail(k, make[k], need[k]) : usual(k)));
+      pad(c.history, g, (k) => new Array<number>(12).fill(usual(k)));
+      pad(c.dealt, g, () => new Array<number>(12).fill(0));
+      if (unset) {
+        if (Array.isArray(c.stock)) (c.stock as number[])[h] = Math.round(normalStock(c as unknown as WorldCity, h));
+        if (Array.isArray(c.price)) (c.price as number[])[h] = usual(h);
+        if (Array.isArray(c.trail)) (c.trail as number[])[h] = c.ruler ? usualTrail(h, make[h], need[h]) : usual(h);
+        if (Array.isArray(c.history)) (c.history as number[][])[h] = new Array<number>(12).fill(usual(h));
+      }
+    }
+  }
+  if (Array.isArray(w.routes)) {
+    for (const r of w.routes as Array<Record<string, unknown>>) {
+      if (!isObj(r)) continue;
+      for (const k of ['sold', 'bought', 'hold', 'unloaded', 'lastSold', 'lastBought']) pad(r[k], g, zero);
+      pad(r.upto, g, (k) => DEFAULT_KEEP[k] ?? 0);
       pad(r.sell, g, () => false);
       pad(r.buy, g, () => false);
     }

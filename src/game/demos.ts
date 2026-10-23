@@ -34,6 +34,12 @@ import { daysToThief, temptationOf } from '../sim/crime';
 import { townLines } from '../sim/status';
 import { FAIR as WX_FAIR, lateDays, weatherNow } from '../sim/seasons';
 import { AT_TARGET, bandOut, GATHER, liveRaid, marchTicks, raidersOf, reachesEdge, threaten, THREAT_DAYS, threatLive } from '../sim/raids';
+// Slice 36.
+import { onSchedule, seasonAt, WINTER } from '../sim/seasons';
+import { ESTATE_PLOT_COST, FOUNTAIN_COST, HORSEFARM_COST, SHRINE_COST } from '../sim/build';
+import { capacity, ESTATE, GREAT_ESTATE } from '../sim/buildings';
+import { companySize } from '../sim/army';
+import { estateWarnings } from '../sim/estates';
 import { CREW, daysToBeach, pirateBand, shipsOf, TRIREME_COST } from '../sim/fleet';
 // Slice 38: a blockade staged, a trireme under repair.
 import { stageBlockade } from '../sim/blockades';
@@ -1571,8 +1577,10 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
     // Opened that long before, on a visit the treasury can pay for.
     const lead = firstShipAfter('athens') - (stage === 'anchor' ? 2 * TICKS_PER_DAY : -Math.round(SHIP_EVERY / 2));
     // (Slice 33: and the wine she brings, about 430 dr, as the comment below has it: with the seasons the town's money comes at another pace, and a window it could only just pay her fee in came first.)
-    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s) + SEA_WINE_COST)) {
-      if (ship.due - lead <= s.tick) sim.run(Math.max(1, ship.due + SHIP_EVERY - lead - s.tick - 30));
+    // (Slice 36: each ship now has her own winter storms, and keeps to her schedule after; #anchor and #athensship open on a window out of winter, so the two calls fall as they say; the next window is three months after her call was due.)
+    const calm = (): boolean => stage === 'famine' || !s.season.on || (seasonAt(ship.due) !== WINTER && seasonAt(s.tick + firstShipAfter('athens')) !== WINTER);
+    while (s.tick < end && !(ship.due - lead <= s.tick + 1 && s.money >= fee + wageBill(s) + SEA_WINE_COST && calm())) {
+      if (ship.due - lead <= s.tick) sim.run(Math.max(1, onSchedule(s, 'tyre', ship.due) + SHIP_EVERY - lead - s.tick - 30));
       else sim.run(1);
     }
     send({ type: 'route', city: 'athens', kind: 'sea' });
@@ -1696,11 +1704,17 @@ const hoplitesBanner = (s: SimState): number => s.army.companies.find((c) => c.k
 const BATTLE_DAYS = 14;
 /** A ruler set against the city for a demo: cold enough to threaten and stay cold. */
 const DEMO_ANGER = -80;
-function stagedRaid(sim: Sim, city: CityId, why: string): void {
+function stagedRaid(sim: Sim, city: CityId, why: string, men?: number): void {
   const s = sim.state;
   const c = cityOf(s.world, city);
   c.memories.push({ kind: 'staged', why: `${why} (set up for this demo)`, amount: DEMO_ANGER, tick: s.tick, fade: 4 * TICKS_PER_YEAR });
   const r = threaten(s, sim.map, c, `${why} (set up for this demo)`);
+  // (A band of a size set for the demo, and its threat's line saying so.)
+  if (men !== undefined) {
+    const was = `about ${r.men} men`;
+    r.men = men;
+    for (const n of s.world.news) if (n.tick === s.tick && n.line.includes(was)) n.line = n.line.replace(was, `about ${men} men`);
+  }
   sim.enqueue({ type: 'answer', deal: r.deal, act: 'refuse' });
   sim.flush();
 }
@@ -2067,6 +2081,7 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
     const d = makeLoanAsk(s, c, loanSize(s, 4000));
     if (stage === 'lend') return;
     send({ type: 'answer', deal: d.id, act: 'send' });
+    stockUp(sim);
     const l = loanOfDeal(s.world, d.id);
     if (!l) return;
     const stop = s.tick + 3 * TICKS_PER_YEAR;
@@ -2081,6 +2096,26 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
 }
 /** The prepared towns of the loans demos. */
 const LEND = loanTown('lend');
+
+/**
+ * Review of slice 36: #repaid's and #forgive's year of waiting for the loan's
+ * day, the town kept as a player would keep a street of villas through the
+ * autumn: a fleece stall at the east agora too, and meat bought from Sparta
+ * and cheese and fleece from Corinth by their roads. (With the ships back on
+ * schedule after the winters, their history fell otherwise: the fleece
+ * vendor's round missed villas in the autumn and the meat ran short in
+ * December, and about twenty villas went down a month before they opened.)
+ */
+function stockUp(sim: Sim): void {
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  send({ type: 'stall', at: T(97, 42), good: FLEECE });
+  send({ type: 'deal', city: 'sparta', kind: 'land', good: MEAT, buy: true, upto: 600 });
+  send({ type: 'deal', city: 'corinth', kind: 'land', good: CHEESE, buy: true, upto: 600 });
+  send({ type: 'deal', city: 'corinth', kind: 'land', good: FLEECE, buy: true, upto: 400 });
+}
 
 // Slice 31
 /**
@@ -2211,6 +2246,7 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
       const d = s.world.deals.find((x) => x.city === LEND_CITY && x.kind === 'loanask' && x.state === 'open');
       if (!d) return;
       send({ type: 'answer', deal: d.id, act: 'send' });
+      stockUp(sim);
       const l = loanOfDeal(s.world, d.id);
       if (!l) return;
       dueAndDefault(sim, l.id);
@@ -2799,6 +2835,112 @@ function ambitionTown(stage: 'ambition' | 'achieved'): (sim: Sim) => void {
   };
 }
 
+// Slice 36
+/**
+ * The great houses (slice 36). #estates: #richtown's town carried on, as its
+ * builder would once its villas stand: first a marble quarry on the headland
+ * (as #quarry's, its sledges bringing the blocks round the bay to the
+ * storehouse by the quay) and two estates' plots facing each other across the
+ * road down to the quay, just below the villas of the main street (their
+ * noble houses take a while to come in from the edge of the map); then a
+ * copper mine and an armoury on the oil road (as #bronze's), a horse farm and
+ * a second sheep pasture on the river meadow and a fleece stall at the east
+ * agora (each great estate wears as much fleece as a street of villas).
+ * Played on until both are great estates, full, with nothing to warn about,
+ * and a few days more, so their porters and grooms are on the road. It opens
+ * over the two, the first one's panel open. #horsemen: the same town with four
+ * more estates' plots down the road and a barracks (as #barracks'), a company
+ * of horsemen raised once their noble houses are in, and Sparta's band sent
+ * at the city when the riders are ready (set up for the demo, and named so):
+ * it opens paused about ESTATE_RAID_DAYS days before the band reaches the
+ * west edge, the horsemen's banner in hand and the Army tab open.
+ */
+const ESTATE_PLOTS = [T(70, 44), T(75, 44)];
+const MORE_ESTATE_PLOTS = [T(70, 48), T(75, 48), T(70, 52), T(75, 52)];
+const ESTATE_FOUNTAIN = T(75, 56);
+const ESTATE_SHRINE = T(75, 58);
+/** (Slice 36's review: #horsemen's shrine for the villas west of the core, whose priestess went other ways once the estates were on her round, and a storehouse on the meadow by the two pastures, whose carts were all on the long road to the storehouse in the east.) */
+const WEST_SHRINE = T(60, 36);
+const MEADOW_STOREHOUSE = T(44, 38);
+const ESTATE_HORSEFARM = T(56, 38);
+const ESTATE_PASTURE = T(39, 38);
+/** The longest #estates plays on for its two great estates, full (two years), and how long after. */
+const ESTATES_WAIT = 2 * TICKS_PER_YEAR;
+const ESTATES_AFTER = 4 * TICKS_PER_DAY;
+/** The longest #horsemen waits for its riders (four months), and how many days from the edge Sparta's band is when it opens. */
+const HORSEMEN_WAIT = 4 * TICKS_PER_MONTH;
+const ESTATE_RAID_DAYS = 10;
+/** (Slice 36's review: and how many men Sparta sends. A city this size draws a band of 38, which six riders on their own can't break: riders ride down a band that runs, they don't stand against one five times their number. So the demo's band is a small one, of a size six riders can break.) */
+const HORSEMEN_BAND = 8;
+function estatesTown(stage: 'estates' | 'horsemen'): (sim: Sim) => void {
+  return (sim) => {
+    town(TOWN_TICKS, SAFE, true)(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    // Marble first (its sledges take months to come round the bay to the storehouse by the quay: a storehouse out at
+    // the quarry, as #quarry's, was over sixty days' walk from the estates for their porters), and the two estates'
+    // plots (their noble houses take a while to come in from the edge of the map).
+    const quarryRoad = roadRoute(sim.map, s, WORKS_QUARRY_FROM, WORKS_QUARRY_TO) ?? [];
+    waitFor(sim, s.tick, quarryRoad.length * ROAD_COST + QUARRY_COST + ESTATE_PLOTS.length * ESTATE_PLOT_COST + JOBS.quarry * WAGE);
+    send({ type: 'road', tiles: quarryRoad });
+    send({ type: 'build', kind: 'quarry', at: [WORKS_QUARRY] });
+    send({ type: 'estate', at: ESTATE_PLOTS });
+    const estates = s.buildings.filter((b) => b.estate);
+    // Bronze: the mine on the east hills and the armoury on the oil road.
+    const mineRoad = roadRoute(sim.map, s, T(TOWN_OIL_X, TOWN_OIL_ROAD), T(ARMS_ROAD_END.x, ARMS_ROAD_END.z)) ?? [];
+    waitFor(sim, s.tick, mineRoad.length * ROAD_COST + MINE_COST + ARMOURY_COST + (JOBS.mine + JOBS.armoury) * WAGE);
+    send({ type: 'road', tiles: mineRoad });
+    send({ type: 'build', kind: 'mine', at: [T(ARMS_MINE.x, ARMS_MINE.z)] });
+    send({ type: 'build', kind: 'armoury', at: [T(ARMS_ARMOURY.x, ARMS_ARMOURY.z)] });
+    // Horses and more fleece, on the river meadow, and a fleece stall at the east agora.
+    waitFor(sim, s.tick, HORSEFARM_COST + PASTURE_COST + STALL_COST + (JOBS.horsefarm + JOBS.pasture + 1) * WAGE);
+    send({ type: 'build', kind: 'horsefarm', at: [ESTATE_HORSEFARM] });
+    send({ type: 'build', kind: 'pasture', at: [ESTATE_PASTURE] });
+    send({ type: 'stall', at: T(97, 42), good: FLEECE });
+    // (And with nothing to warn about: a great estate wears its fleece faster than the vendor's round comes by at first.)
+    const great = (): boolean => estates.every((e) => e.level === GREAT_ESTATE && e.people >= capacity(e) && estateWarnings(s, e).length === 0);
+    const end = s.tick + ESTATES_WAIT;
+    while (s.tick < end && !great()) sim.run(10);
+    sim.run(ESTATES_AFTER);
+    if (stage === 'estates') return;
+    // Four more estates down the road, and a barracks for their sons.
+    waitFor(sim, s.tick, MORE_ESTATE_PLOTS.length * ESTATE_PLOT_COST + FOUNTAIN_COST + 2 * SHRINE_COST + 2 * JOBS.shrine * WAGE + STOREHOUSE_COST + JOBS.storehouse * WAGE + ARMS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE);
+    send({ type: 'estate', at: MORE_ESTATE_PLOTS });
+    send({ type: 'build', kind: 'shrine', at: [WEST_SHRINE] });
+    send({ type: 'build', kind: 'storehouse', at: [MEADOW_STOREHOUSE] });
+    // (A fountain for the lower two, beyond the main street's fountains' reach, and a shrine: one priestess's round
+    // didn't reach the core's north streets as well once the estates were on it.)
+    send({ type: 'fountain', at: [ESTATE_FOUNTAIN] });
+    send({ type: 'build', kind: 'shrine', at: [ESTATE_SHRINE] });
+    send({ type: 'road', tiles: ARMS_LANE });
+    send({ type: 'build', kind: 'barracks', at: [T(ARMS_BARRACKS.x, ARMS_BARRACKS.z)] });
+    const barracks = s.buildings.find((b) => b.kind === 'barracks');
+    if (!barracks) return;
+    const all = s.buildings.filter((b) => b.estate);
+    const stop = s.tick + HORSEMEN_WAIT;
+    // Raised once the noble houses are in (an estate's son rides from the day it is one).
+    while (s.tick < stop && !(barracks.workers > 0 && all.every((e) => e.level >= ESTATE))) sim.run(10);
+    send({ type: 'raise', barracks: barracks.id, kind: 'horseman' });
+    const c = s.army.companies.find((x) => x.kind === 'horseman');
+    if (!c) return;
+    while (s.tick < stop && readyOf(s, c).length < Math.min(all.length, companySize('horseman'))) sim.run(10);
+    // A few days' drill, then Sparta's band.
+    sim.run(2 * TICKS_PER_DAY);
+    stagedRaid(sim, 'sparta', 'the king will not have a city of horsemen so near his lands', HORSEMEN_BAND);
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+    if (!r) return;
+    while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= ESTATE_RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();
+  };
+}
+const ESTATES = estatesTown('estates');
+const HORSEMEN = estatesTown('horsemen');
+/** #estates: the first estate's panel; #horsemen: the horsemen's banner. */
+const firstEstate = (s: SimState): number => s.buildings.find((b) => b.estate && b.level >= GREAT_ESTATE)?.id ?? 0;
+const horsemenBanner = (s: SimState): number => s.army.companies.find((c) => c.kind === 'horseman')?.id ?? 0;
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -2961,6 +3103,9 @@ const SCENES: Record<string, Demo> = {
   // Slice 39: ambitions. A town a few milestones in across the three, the Ambition panel open; Master of Greece achieved, the Colossus standing at the harbour mouth.
   ambition: { view: 'richtown', setup: ambitionTown('ambition'), overlay: 'missing', ambition: true },
   achieved: { view: 'achieved', setup: ambitionTown('achieved'), overlay: 'missing', ambition: true },
+  // Slice 36: the great houses. Two great estates below the villas, the first one's panel open; a company of horsemen from six estates, Sparta's band ten days out, paused, the riders' banner in hand.
+  estates: { view: 'estates', setup: ESTATES, overlay: 'missing', open: firstEstate },
+  horsemen: { view: 'horsemen', speed: 'paused', setup: HORSEMEN, overlay: 'missing', side: { tab: 'army' }, select: horsemenBanner },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

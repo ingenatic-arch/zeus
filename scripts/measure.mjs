@@ -307,6 +307,9 @@ for (const [hash, views] of [
   ['#monument-paused-shot', [null]],
   ['#lit-paused-shot', [null]],
   ['#games-paused-shot', [null]],
+  // Slice 36: two great estates below the villas; the horsemen at the barracks, Sparta's band on its way.
+  ['#estates-paused-shot', [null, 'town']],
+  ['#horsemen-paused-shot', [null, 'town']],
   // Slice 38: Troy's ships holding the harbour's mouth, the triremes rowing out; the shipyard after, a trireme under repair.
   ['#blockade-paused-shot', [null, 'town']],
   ['#shipyard-paused-shot', [null]],
@@ -483,7 +486,7 @@ for (const [hash, views] of [
 // first. A demo now opens from its prepared town, without playing its history in the page, so without
 // the warm-up its first seconds land in the window and read a few ms heavier, before and after alike.)
 await page.setViewportSize({ width: 960, height: 540 });
-for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot', '#bronze-shot', '#barracks-shot', '#companies-shot', '#battle-shot', '#looted-shot', '#hirelings-shot', '#borrow-shot', '#lend-shot', '#repaid-shot', '#landing-shot', '#triremes-shot', '#pirates-shot', '#overdue-shot', '#seized-shot', '#creditors-shot', '#collect-shot', '#report-shot', '#forgive-shot', '#thieves-shot', '#nowatch-shot', '#seasons-shot', '#winter-shot']) {
+for (const hash of ['#food-paused-shot', '#food-shot', '#fine-paused-shot', '#fine-shot', '#town-paused-shot', '#town-shot', '#villas-shot', '#blaze-paused-shot', '#blaze-shot', '#quay-shot', '#ship-shot', '#richtown-paused-shot', '#richtown-shot', '#richstreet-shot', '#greece-shot', '#greecesail-shot', '#caravan-shot', '#athensship-shot', '#prices-shot', '#famine-shot', '#gift-shot', '#hostile-shot', '#request-shot', '#tribute-shot', '#raid-shot', '#raiders-shot', '#war-shot', '#festival-shot', '#rivals-shot', '#rivalsmap-shot', '#rivalstreet-shot', '#bronze-shot', '#barracks-shot', '#companies-shot', '#battle-shot', '#looted-shot', '#hirelings-shot', '#borrow-shot', '#lend-shot', '#repaid-shot', '#landing-shot', '#triremes-shot', '#pirates-shot', '#overdue-shot', '#seized-shot', '#creditors-shot', '#collect-shot', '#report-shot', '#forgive-shot', '#thieves-shot', '#nowatch-shot', '#seasons-shot', '#winter-shot', '#estates-shot', '#horsemen-shot']) {
   await page.goto('about:blank');
   await page.goto(url + hash);
   await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });

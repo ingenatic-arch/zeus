@@ -37,6 +37,8 @@ import type { OverlayMode } from '../render/overlay';
 import { GATE_COST, WALL_COST } from '../sim/walls';
 // Slice 35.
 import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from '../sim/monuments';
+// Slice 36.
+import { ESTATE_PLOT_COST, HORSEFARM_COST } from '../sim/build';
 
 /**
  * Every tool's and overlay's icon, name, key, cost and hint, which the
@@ -162,6 +164,9 @@ export const ICONS: Record<ButtonName, string> = {
   // Slice 32: a squared block of pale marble on its lever, chisel marks on its face.
   quarry: '<svg viewBox="0 0 24 24"><path d="M4 11.4 11 8l9 3v8.6l-7 2.8-9-3.2z" class="fill-soft"/><path d="M4 11.4l9 3.2 7-3.4M13 14.6v7.8" class="stroke-ink"/><path d="M6.6 15.6l1.6.6M6.6 17.8l1.6.6M15.6 17.4l1.6-.8" class="stroke-ink"/><path d="M2 6.6 21.6 3" class="stroke-ink"/></svg>',
   // Slice 32: an axe bitten into a log end.
+  // Slice 36: a walled house with a gate; a horse's head.
+  estate: '<svg viewBox="0 0 24 24"><path d="M2.4 11h19.2v9.6H2.4z" class="fill-soft"/><path d="M5 11V7.6L12 3.6l7 4V11" class="fill-ink"/><path d="M10 20.6v-5.2h4v5.2" class="fill-ink"/><path d="M2 20.8h20M2.4 11h19.2" class="stroke-ink"/></svg>',
+  horsefarm: '<svg viewBox="0 0 24 24"><path d="M7 21c.4-3.4 1.6-6 1-8.4-.4-1.6-2.4-2.4-3.4-3.8L7.6 5c1-.8 2.4-1.4 3.6-1.4l.6-1.8 1.4 1.6c3.6.8 6.2 4 6.6 8.2.2 3.2-.4 6.6-1.6 9.4z" class="fill-soft"/><path d="M11.8 3.6c2.8.6 5.6 3 6.4 6.8" class="stroke-ink"/><circle cx="9.6" cy="7.2" r=".9" class="fill-ink"/><path d="M4.6 8.8 6 10.4" class="stroke-ink"/></svg>',
   loggers: '<svg viewBox="0 0 24 24"><path d="M3 15.4c0-2.4 1.8-4.2 4.2-4.2H19v8.4H7.2C4.8 19.6 3 17.8 3 15.4z" class="fill-olive"/><circle cx="7.2" cy="15.4" r="3" class="fill-soft"/><circle cx="7.2" cy="15.4" r="1.2" class="stroke-ink"/><path d="M14.4 11.4 18.8 2.6" class="stroke-ink"/><path d="M16.4 3.4c2.6-.6 4.6.4 5.4 2.4l-4.6 1.6z" class="fill-ink"/></svg>',
   // Slice 35: a mallet and a chisel on a squared block.
   masons: '<svg viewBox="0 0 24 24"><path d="M3 14.6l8.4-3.4 9.6 3.4-8.4 3.6z" class="fill-soft"/><path d="M3 14.6v4.2l9.6 3.6 8.4-3.6v-4.2M12.6 18.2v4.2" class="stroke-ink"/><path d="M13.4 10.2 18.6 2.2" class="stroke-ink"/><path d="M5.6 9.4 9.6 3.2" class="stroke-ink"/><path d="M8.2 2.2l3.4 2.2-1.6 2.4-3.4-2.2z" class="fill-ink"/></svg>',
@@ -292,6 +297,19 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: '',
     cost: `${STADIUM_COST} dr`,
     hint: 'Click on flat ground (six by six), beside a road. Finished, it holds games every four years: visitors walk in and pay for their seats, and the whole city is in a festival mood.',
+  },
+  // Slice 36.
+  horsefarm: {
+    name: 'Horse farm',
+    key: 'M ×11',
+    cost: `${HORSEFARM_COST} dr`,
+    hint: 'Click on green grassland, beside a road. Its mares foal in spring, and its grooms lead the horses to a storehouse; the estates’ grooms fetch them from there for their stables.',
+  },
+  estate: {
+    name: 'Estate',
+    key: 'H H',
+    cost: `${ESTATE_PLOT_COST} dr for the plot`,
+    hint: 'Click to lay out a 4 × 4 plot for a walled estate, beside a road, near your villas. A noble house comes once your city has a villa; with marble, armour and horses fetched from your storehouses it becomes a great estate, and its sons ride as horsemen.',
   },
   stall: {
     name: 'Oil stall',

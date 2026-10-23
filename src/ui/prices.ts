@@ -15,7 +15,7 @@ import { cityOf, HARVEST_MONTH, HARVEST_WORDS, moodOf, moodWord, outlookWords, p
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 /** The trade goods' colours, as in the trade panel. */
-export const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80'];
+export const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#c8963c', '#e8e2d4', '#8a6238', '#6b4a2e']; // (Slice 36: copper, armour, marble, timber and horses had none)
 /** "Corinth’s", "Athens’". */
 export const whose = (name: string): string => (name.endsWith('s') ? `${name}’` : `${name}’s`);
 const ARROW_WORDS = { '1': 'rising', '-1': 'falling', '0': 'steady' } as const;

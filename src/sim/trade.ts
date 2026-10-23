@@ -32,6 +32,8 @@ import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { goTo, HANDLE, lastRoad, nearestBy, wayPoints } from './food';
 import { addComing, ARMOUR, CHEESE, coming, COPPER, FLEECE, held, MARBLE, MEAT, OIL, setHeld, TIMBER, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
+// Slice 36: horses, bought from Thessaly through Thebes.
+import { HORSES } from './foods';
 import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
 import { roomFor, roomOf } from './stores';
@@ -43,7 +45,7 @@ import { note } from './stockbook';
 import { income } from './treasury';
 import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk';
 // Slice 33: winter storms hold the ship back.
-import { lateWords, stormDelay } from './seasons';
+import { lateWords, onSchedule, stormDelay } from './seasons';
 // Slice 35: the Lighthouse speeds the ship.
 import { LIT_EVERY, LIT_PACE, lit } from './monuments';
 // Slice 38: a blockade holds the harbour.
@@ -52,18 +54,18 @@ import { PLACES, type CityId } from '../map/greece';
 /** "Troy’s", "Athens’". */
 const whoseCity = (id: CityId): string => (PLACES[id].name.endsWith('s') ? `${PLACES[id].name}’` : `${PLACES[id].name}’s`);
 
-/** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23), then marble and timber (slice 32). */
-export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER];
+/** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23), then marble and timber (slice 32), then horses (slice 36). */
+export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER, HORSES];
 /** How many trade goods there were before copper and armour (the requests, offers and rulers' gifts keep to these). */
 export const OLD_GOODS = 6;
 /** A good's place in the trade record (-1: the ship doesn't buy it). */
 export const tradeIndex = (w: Ware): number => TRADE_GOODS.indexOf(w);
 /** What the ship pays for a hundred measures of each (by trade good): fine goods most, wheat least; armour by the hundred sets. Steady. */
-export const PRICES: readonly number[] = [20, 35, 35, 70, 55, 100, 40, 1200, 300, 150];
+export const PRICES: readonly number[] = [20, 35, 35, 70, 55, 100, 40, 1200, 300, 150, 2500];
 /** What she pays for so many measures of a trade good. */
 export const priceFor = (k: number, n: number): number => Math.round((n * PRICES[k]) / 100);
 /** What the city keeps of each to begin with: half a granary's or storehouse's room. */
-export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600, 400, 100, 200, 200];
+export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600, 400, 100, 200, 200, 20];
 /** The panel's step for what is kept, and the most that can be kept. */
 export const KEEP_STEP = 200;
 export const KEEP_MAX = 20000;
@@ -73,7 +75,7 @@ export const storeKind = (w: Ware): BuildingKind => (w === WHEAT || w === MEAT |
 /** What the quay holds of each good. */
 export const QUAY_ROOM = 2400;
 /** What a docker's handcart takes of each trade good. */
-export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600, 600, 60, 200, 200];
+export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600, 600, 60, 200, 200, 8];
 /** Most dockers out at once; ticks between one setting off and the next; the smallest load worth a trip. */
 export const MAX_DOCKERS = 4;
 /** Two more hands, only for fetching gifts and sendings when the others are all out. */
@@ -679,7 +681,8 @@ export function stepTrade(s: SimState, map: CoastMap): void {
 function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
   const berth = berthOf(map, post);
   if (!berth) {
-    ship.due += shipEvery(s);
+    // (Slice 36: three months after she was due before any storm held her back; slice 35: two while the Lighthouse burns.)
+    ship.due = onSchedule(s, 'tyre', ship.due) + shipEvery(s);
     ship.due += stormDelay(s, 'tyre', ship.due);
     return;
   }
@@ -755,9 +758,9 @@ function stepLoading(s: SimState, post: Building, ship: Ship): void {
   ship.phase = SHIP_LEAVING;
   ship.since = s.tick;
   ship.turned = 1;
-  // The next is due three months after this one was (slice 35: two while the Lighthouse burns).
+  // The next is due three months after this one was (slice 35: two while the Lighthouse burns; slice 36: was due, before any storm held her back).
   const every = shipEvery(s);
-  ship.due += every;
+  ship.due = onSchedule(s, 'tyre', ship.due) + every;
   while (ship.due - sailInNow(s) <= s.tick) ship.due += every;
   // (Slice 33: due in winter, the storms hold her back a week or two.)
   ship.due += stormDelay(s, 'tyre', ship.due);

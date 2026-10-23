@@ -48,6 +48,9 @@ export const SHIPYARD_COST = 300;
 /** The marble quarry (3 x 3, on marble in the rock) and the loggers' camp (2 x 2, at a wood's edge; slice 32, see materials.ts). */
 export const QUARRY_COST = 250;
 export const LOGGERS_COST = 150;
+/** Slice 36: the horse farm (3 x 3, on grassland), and an estate's plot (4 x 4, on housing ground). */
+export const HORSEFARM_COST = 300;
+export const ESTATE_PLOT_COST = 100;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -94,6 +97,8 @@ export const COST: Record<BuildingKind, number> = {
   lighthouse: LIGHTHOUSE_COST,
   colossus: COLOSSUS_COST,
   stadium: STADIUM_COST,
+  // Slice 36.
+  horsefarm: HORSEFARM_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */
@@ -121,6 +126,15 @@ export const PASTURE_GRASS_MIN = 0.35;
 export const VINE_MIN = 0.35;
 /** A plot is 2 x 2 tiles. */
 export const PLOT_SIZE = 2;
+/** Slice 36: an estate's plot is 4 x 4; a horse farm needs grass like a dairy's. */
+export const ESTATE_SIZE = 4;
+export const HORSE_GRASS_MIN = 0.35;
+
+/** Slice 36: why an estate's plot can't have its top-left tile here, or '' if it can: housing ground, four tiles square. */
+export function estateRefusal(map: CoastMap, s: SimState, tx: number, tz: number): string {
+  const r = footprintRefusal(map, s, tx, tz, ESTATE_SIZE);
+  return r === 'Too uneven for a building this size' ? 'Too uneven for an estate: its house and courtyard need ground about as level as a home’s' : r;
+}
 
 /** Ground must stand at least this far above the sea, or the river beside it. */
 export const DRY_MARGIN = 0.06;
@@ -517,6 +531,8 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
   if (kind === 'pasture' && grassOf(map, tx, tz, side) < PASTURE_GRASS_MIN) return 'Too little grass for sheep: a pasture needs green grass, not rock or sand';
+  // Slice 36.
+  if (kind === 'horsefarm' && grassOf(map, tx, tz, side) < HORSE_GRASS_MIN) return 'Too little grass for horses: a horse farm needs green grassland, not rock or sand';
   if (kind === 'grove' && oliveOf(map, tx, tz, side) < GROVE_OLIVE_MIN) return 'Poor ground for olives: groves need the dry slopes, not the river land, rock or sand';
   if (kind === 'trading') {
     if (s.buildings.some((b) => b.kind === 'trading')) return 'Only one trading post: the ship calls at one quay';

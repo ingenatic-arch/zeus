@@ -7,6 +7,10 @@ import type { Arrow, Company, SimState, Soldier } from '../sim/state';
 import { ARCADIAN_BOSS, ARCADIAN_SHIELD, ARCADIAN_TUNIC, ARCHER_TUNIC, archerLook, CITY_COLOUR, CITY_TRIM, CRETAN_TUNIC, HOPLITE_TUNIC, hopliteLook } from './arms';
 import type { FolkLooks, Look } from './looks';
 import { col, PAL } from './palette';
+// Slice 36: horsemen.
+import { HORSE_COATS, horseModel, riderModel } from './estates';
+/** The horsemen's cloaks and tunics: the estates' purple. */
+export const HORSEMAN_TUNIC = '#6e3a68';
 
 /** A banner's pole: its height, and the cloth hanging from its crossbar. */
 const POLE = 1.3;
@@ -46,6 +50,8 @@ export class ArmyView {
   private readonly recruits: Look;
   private readonly archers: Look;
   private readonly arcadians: Look;
+  private readonly riders: Look;
+  private readonly mounts: Look;
   private readonly arrows: THREE.InstancedMesh;
   private readonly poles: THREE.InstancedMesh;
   private readonly cloth: THREE.Mesh;
@@ -73,6 +79,8 @@ export class ArmyView {
     this.recruits = folk.people.look(hopliteLook(false));
     this.archers = folk.people.look(archerLook());
     this.arcadians = folk.people.look(hopliteLook(true, ARCADIAN_SHIELD, ARCADIAN_BOSS));
+    this.riders = folk.people.look(riderModel());
+    this.mounts = folk.people.look(horseModel());
     // Arrows: a shaft and a head along +y, one pool.
     const shaft = new THREE.CylinderGeometry(0.004, 0.004, 0.2, 3).translate(0, -0.02, 0);
     const head = new THREE.ConeGeometry(0.01, 0.04, 3).translate(0, 0.1, 0);
@@ -136,7 +144,7 @@ export class ArmyView {
 
   /** Soldiers drawn this frame. */
   get count(): number {
-    return this.hoplites.count + this.recruits.count + this.archers.count + this.arcadians.count;
+    return this.hoplites.count + this.recruits.count + this.archers.count + this.arcadians.count + this.riders.count;
   }
 
   /** Draw the army (between the folk's begin and end). */
@@ -219,7 +227,13 @@ export class ArmyView {
       const kind = c?.kind ?? 'hoplite';
       const tone = this.tunic(kind, x.company, c?.hired ?? '', c?.ally);
       if (!moving) tone.multiplyScalar(-1);
-      if (kind === 'archer' && x.state !== 'leaving') this.archers.push(this.m, tone);
+      if (kind === 'horseman' && !down) {
+        // Slice 36: a rider on his horse (its coat his own); down, he lies where he fell (drawn on foot, below) and his horse is gone.
+        this.riders.push(this.m, tone);
+        this.c.copy(col(HORSE_COATS[Math.floor(hash2(x.id, 9, 2303) * HORSE_COATS.length)]));
+        if (!moving) this.c.multiplyScalar(-1);
+        this.mounts.push(this.m, this.c);
+      } else if (kind === 'archer' && x.state !== 'leaving') this.archers.push(this.m, tone);
       else if (c?.hired === 'arcadian' || (!c?.ally && x.home === 0 && x.armed && kind === 'hoplite')) this.arcadians.push(this.m, tone);
       else if (x.armed && x.state !== 'leaving') this.hoplites.push(this.m, tone);
       else this.recruits.push(this.m, tone);
@@ -236,7 +250,7 @@ export class ArmyView {
   /** The tunic's colour: the kind's (or the hirelings' own), a shade of its own for each company. */
   private tunic(kind: Company['kind'], company: number, hired: Company['hired'], ally?: string): THREE.Color {
     // (Slice 34: an ally's or vassal's men in their own city's colour.)
-    this.c.copy(col(ally && PLACES[ally as CityId] ? PLACES[ally as CityId].colour : hired === 'cretan' ? CRETAN_TUNIC : hired === 'arcadian' ? ARCADIAN_TUNIC : kind === 'archer' ? ARCHER_TUNIC : HOPLITE_TUNIC));
+    this.c.copy(col(ally && PLACES[ally as CityId] ? PLACES[ally as CityId].colour : hired === 'cretan' ? CRETAN_TUNIC : hired === 'arcadian' ? ARCADIAN_TUNIC : kind === 'archer' ? ARCHER_TUNIC : kind === 'horseman' ? HORSEMAN_TUNIC : HOPLITE_TUNIC));
     return this.c.multiplyScalar(0.88 + 0.24 * hash2(company, 7, 2301));
   }
 
@@ -412,6 +426,12 @@ function drawCell(canvas: HTMLCanvasElement, cell: number, c: Company): void {
   g.strokeStyle = CITY_TRIM;
   g.lineWidth = 7;
   g.strokeRect(7, 7, CELL - 14, CELL - 14);
+  if (c.kind === 'horseman') {
+    // Slice 36: the horsemen's, a band of trim down each side inside its border.
+    g.fillStyle = CITY_TRIM;
+    g.fillRect(16, 7, 5, CELL - 14);
+    g.fillRect(CELL - 21, 7, 5, CELL - 14);
+  }
   if (c.kind === 'archer') {
     // A fringe of trim along the bottom.
     g.fillStyle = CITY_TRIM;

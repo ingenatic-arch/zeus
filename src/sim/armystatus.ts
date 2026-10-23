@@ -5,7 +5,7 @@
 import type { CoastMap } from '../map/bake';
 import { copperOf, outcropPlace } from './build';
 import { BUILDING_NAMES, findBuilding, levelName } from './buildings';
-import { companiesAt, companyName, companyOf, COMPANY_SIZE, doingWords, fatherWords, HIRED_PAY, HIRELINGS, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom, woundedOf, type HiredKind } from './army';
+import { companiesAt, companyName, companyOf, doingWords, fatherWords, HIRED_PAY, HIRELINGS, kinOf, kindWord, menOf, PER_BARRACKS, servingFrom, woundedOf, type HiredKind } from './army';
 import { companyWords } from './battle';
 import { rowerFrom, triremeName } from './fleet';
 import { errandsOut } from './food';
@@ -80,12 +80,12 @@ export function barracksStatus(s: SimState, map: CoastMap, b: Building, workers:
   if (roadsBeside(s, map.size, b).length === 0) return { title, detail: 'Needs a road beside it, for its men and its porter' };
   const rows = cs.map((c) => {
     const hurt = woundedOf(s, c).length;
-    return `${companyWords(c).replace(/^t/, 'T')}: ${menOf(s, c).length} of ${COMPANY_SIZE}${hurt ? ` (${hurt} wounded)` : ''} · ${doingWords(s, c)}${c.why ? ` · ${c.why}` : ''}${c.owed > 0 ? ` · ${fmt(c.owed)} dr pay owed` : ''}`;
+    return `${companyWords(c).replace(/^t/, 'T')}: ${menOf(s, c).length} of ${c.want}${hurt ? ` (${hurt} wounded)` : ''} · ${doingWords(s, c)}${c.why ? ` · ${c.why}` : ''}${c.owed > 0 ? ` · ${fmt(c.owed)} dr pay owed` : ''}`;
   });
   const rack = held(b, ARMOUR);
   const porter = s.walkers.find((w) => w.origin === b.id && w.kind === 'porter');
   const carrying = porter ? (porter.back ? `Its porter is bringing ${porter.load} ${porter.load === 1 ? 'set' : 'sets'} of armour from a storehouse` : 'Its porter is on his way to a storehouse for armour') : '';
-  const room = cs.length < PER_BARRACKS ? `Room for ${PER_BARRACKS - cs.length} more ${PER_BARRACKS - cs.length === 1 ? 'company' : 'companies'}: click it to raise one (hoplites from fine houses and villas, archers from townhouses and better) · ${SOLDIER_PAY} dr a man a month; or to hire one (${HIRED_PAY} dr a man)` : `Full: a barracks holds ${PER_BARRACKS} companies`;
+  const room = cs.length < PER_BARRACKS ? `Room for ${PER_BARRACKS - cs.length} more ${PER_BARRACKS - cs.length === 1 ? 'company' : 'companies'}: click it to raise one (hoplites from fine houses and villas, archers from townhouses and better, horsemen from estates) · ${SOLDIER_PAY} dr a man a month; or to hire one (${HIRED_PAY} dr a man)` : `Full: a barracks holds ${PER_BARRACKS} companies`;
   return { title, detail: lines(workers, ...rows, rack > 0 ? `Armour on the racks: ${rack} ${rack === 1 ? 'set' : 'sets'}` : '', carrying, room) };
 }
 
@@ -108,7 +108,7 @@ export function soldierStatus(s: SimState, x: Soldier): Status {
         : x.state === 'healing'
           ? `Healing at the barracks: ${x.hp}% whole`
           : x.state === 'coming'
-            ? h ? 'Marching in from the edge of your land' : 'Walking in from his home to the barracks'
+            ? h ? 'Marching in from the edge of your land' : c?.kind === 'horseman' ? 'Riding in from his estate to the barracks' : 'Walking in from his home to the barracks'
             : x.state === 'arming'
               ? 'At the barracks, waiting for his set of armour from the stores'
               : x.state === 'leaving'
@@ -125,7 +125,7 @@ export function soldierStatus(s: SimState, x: Soldier): Status {
                           : 'Holding with his company, under its banner'
                     : '';
   const hurt = x.state === 'ready' && x.hp < 100 ? (x.hp >= 60 ? 'Hurt' : 'Badly hurt') : '';
-  const kit = c?.kind === 'hoplite' ? (x.armed ? (h ? 'His own bronze, and an Arcadian shield' : 'Bronze helmet, breastplate, round shield and spear') : 'No armour yet') : c?.kind === 'archer' ? (h ? 'A Cretan bow, and the skill to use it' : 'A bow and a quiver') : '';
+  const kit = c?.kind === 'hoplite' ? (x.armed ? (h ? 'His own bronze, and an Arcadian shield' : 'Bronze helmet, breastplate, round shield and spear') : 'No armour yet') : c?.kind === 'archer' ? (h ? 'A Cretan bow, and the skill to use it' : 'A bow and a quiver') : c?.kind === 'horseman' ? 'His own horse from the estate’s stable, a bronze helmet, a light shield and a spear' : '';
   return { title, detail: lines(house, doing, hurt, kit) };
 }
 

@@ -110,7 +110,8 @@ describe('#richtown', () => {
     for (const k of ['watchman', 'inspector', 'tax', 'water', 'food', 'oil', 'wine', 'docker', 'cart'])
       expect(s.walkers.some((w) => w.kind === k), k).toBe(true);
     // A hunter out, or the lodge too full to send one until a cart calls. (Since the vendors charge a home only
-    // what they bring, the town eats a little less meat, and as it opens the lodge can be waiting on a cart.)
+    // what they bring, the town eats a little less meat, and as it opens the lodge can be waiting on a cart; slice 36:
+    // with the ships back on their schedule after a winter, it opens a few days sooner, its granary full of winter's meat.)
     const lodgeFull = s.buildings.some((b) => b.kind === 'lodge' && b.meat + MEAT_KILL > LODGE_STORE);
     expect(s.walkers.some((w) => w.kind === 'hunter') || lodgeFull, 'hunter').toBe(true);
     const post = tradingPost(s)!;

@@ -29,6 +29,8 @@ import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 import { besideRoad, CARRIER_SPEED, centre, isCart, newWalker, position, setPath, speedOf, WALK_SPEED } from './walk';
 import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
+// Slice 36: an estate's porter.
+import { bringHome, estateTake } from './estates';
 
 /** Ticks a crop takes to grow at full strength (two months). */
 export const GROW = 2 * TICKS_PER_MONTH;
@@ -45,7 +47,7 @@ export const CART_LOAD = 160;
  * loaded heavy, 60 blocks, so three keep up with a fully worked quarry about
  * 18 tiles of road from its storehouse; slice 32's review).
  */
-export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16, 60, 40];
+export const CART_TAKE = [CART_LOAD, 240, 240, 200, 200, 200, 200, 200, 200, 16, 60, 40, 4];
 /** Most carts a farm has on the road at once. */
 export const MAX_CARTS = 3;
 /** Ticks between carts setting off from the same farm. */
@@ -384,15 +386,20 @@ function rethink(s: SimState, size: number, w: Walker, origin: Building): boolea
 /** A cart or porter is gone for good: its load goes back where it came from. */
 function lost(s: SimState, w: Walker, origin: Building): false {
   s.looks++;
-  bringBack(w, origin);
+  bringBack(w, origin, s);
   return false;
 }
 
 /** What a cart or porter carries goes into its own building (the barn, store or stall), as much as there is room for. */
-function bringBack(w: Walker, origin: Building): void {
+function bringBack(w: Walker, origin: Building, s: SimState): void {
   if (isCart(w)) {
     const f = w.food;
     setHeld(origin, f, Math.min(storeOf(origin.kind), held(origin, f) + w.load));
+    return;
+  }
+  // (Slice 36: an estate's porter brings its marble, armour or horses home.)
+  if (origin.kind === 'home') {
+    bringHome(s, origin, w.food, w.load);
     return;
   }
   if (w.food >= FIRST_GOOD) {
@@ -424,10 +431,11 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     } else if (w.food >= FIRST_GOOD) {
       // A goods porter: up to a handcart of his good, as much as the stall has room for.
       const f = w.food;
-      const take = Math.min(porterTake(f), held(g, f), Math.max(0, stallRoom(f) - held(origin, f)));
+      // (Slice 36: an estate's porter takes what its yard or stable has room for.)
+      const take = origin.kind === 'home' ? estateTake(origin, f, held(g, f)) : Math.min(porterTake(f), held(g, f), Math.max(0, stallRoom(f) - held(origin, f)));
       setHeld(g, f, held(g, f) - take);
       w.load = take;
-      if (take === 0) origin.fetch[f - FIRST_GOOD] = PORTER_RETRY;
+      if (take === 0 && origin.kind !== 'home') origin.fetch[f - FIRST_GOOD] = PORTER_RETRY;
     } else {
       const take = Math.min(PORTER_LOAD, g.stock, Math.max(0, STALL_CAP - origin.stock));
       g.stock -= take;
@@ -475,7 +483,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
     if (w.back) {
       // Home: the porter fills the stall; a cart that couldn't deliver puts its load back in the barn (or store).
       if (w.load + w.meat + w.cheese > 0) {
-        bringBack(w, origin);
+        bringBack(w, origin, s);
         s.looks++;
       }
       return false;

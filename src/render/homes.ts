@@ -8,6 +8,8 @@ import { TILE_ROAD, type Building, type SimState } from '../sim/state';
 import { ChunkedInstances } from './chunks';
 import { architectModel, fineA, fineB, rubbleModel, SHRINE_FIRE, shrineModel, taxOfficeModel, townhouseA, townhouseB, villaA, villaB, watchPostModel } from './grand';
 import { finishOn } from './finish';
+// Slice 36: the great houses.
+import { estateFloor, estateModel, estatePlotModel } from './estates';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
 
@@ -418,10 +420,13 @@ const UP = new THREE.Vector3(0, 1, 0);
 const TENT_FIRES = [new THREE.Vector3(0.55, 0, 0.42), new THREE.Vector3(0.62, 0, -0.5)];
 const HUT_FIRES = [new THREE.Vector3(0.62, 0, 0.5), new THREE.Vector3(0.5, 0, -0.62)];
 
-type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa' | 'fountain' | 'shrine' | 'taxoffice' | 'watchpost' | 'architect' | 'rubble';
+type Look = 'stakes' | 'tent' | 'hut' | 'cottage' | 'townhouse' | 'fine' | 'villa' | 'fountain' | 'shrine' | 'taxoffice' | 'watchpost' | 'architect' | 'rubble' | 'estateplot' | 'estate' | 'greatestate';
 const LEVEL_LOOKS: Look[] = ['stakes', 'tent', 'hut', 'cottage', 'townhouse', 'fine', 'villa'];
 const lookOf = (b: Building): Look =>
-  b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'watchpost' || b.kind === 'architect' || b.kind === 'rubble'
+  // (Slice 36: an estate's plot, an estate, a great estate.)
+  b.kind === 'home' && b.estate
+    ? b.level >= 8 ? 'greatestate' : b.level >= 7 ? 'estate' : 'estateplot'
+    : b.kind === 'fountain' || b.kind === 'shrine' || b.kind === 'taxoffice' || b.kind === 'watchpost' || b.kind === 'architect' || b.kind === 'rubble'
     ? b.kind
     : LEVEL_LOOKS[Math.min(b.level, LEVEL_LOOKS.length - 1)];
 /** Kinds whose paved yard reaches down into the ground, so they stand at the middle of their footprint. */
@@ -616,6 +621,10 @@ export class Homes {
   private readonly offices: ChunkedInstances;
   private readonly posts: ChunkedInstances;
   private readonly architects: ChunkedInstances;
+  /** Slice 36: estates and great estates (rising), and the models of them and of an estate's plot. */
+  private readonly estates: ChunkedInstances[];
+  private readonly estateGeos: THREE.BufferGeometry[];
+  private readonly estatePlotGeo: THREE.BufferGeometry;
   /** Rubble, by footprint side, burnt or fallen, and one of two heaps (made when first needed). */
   private readonly rubbles = new Map<string, THREE.BufferGeometry>();
   private readonly fountains: ChunkedInstances[];
@@ -674,6 +683,9 @@ export class Homes {
     this.posts = new ChunkedInstances('watchpost', this.postGeo, mat, HOME_CHUNK, opts);
     this.architectGeo = architectModel();
     this.architects = new ChunkedInstances('architect', this.architectGeo, mat, HOME_CHUNK, opts);
+    this.estateGeos = [estateModel(false), estateModel(true)];
+    this.estates = [new ChunkedInstances('estate', this.estateGeos[0], mat, HOME_CHUNK, opts), new ChunkedInstances('great-estate', this.estateGeos[1], mat, HOME_CHUNK, opts)];
+    this.estatePlotGeo = estatePlotModel();
     const f = fountainModel();
     this.fountainGeo = f.stone;
     const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.2, metalness: 0, emissive: new THREE.Color('#1d6f86'), emissiveIntensity: 0.35 });
@@ -684,7 +696,7 @@ export class Homes {
     this.stakeGeo = stake();
     this.stakes = new ChunkedInstances('stakes', this.stakeGeo, mat, HOME_CHUNK, opts);
     this.merged = new MergedChunks(this.group, mat);
-    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, this.posts, this.architects, ...this.fountains]) this.group.add(t.group);
+    for (const t of [...this.tents, ...this.huts, ...this.cottages, ...this.townhouses, ...this.fines, ...this.villas, this.shrines, this.offices, this.posts, this.architects, ...this.fountains, ...this.estates]) this.group.add(t.group);
     this.group.add(this.stakes.group);
     // Soft blots turned to the camera (slice 14: they were faceted balls).
     const puff = new THREE.PlaneGeometry(2, 2);
@@ -793,9 +805,13 @@ export class Homes {
     const architects: Building[] = [];
     const rubble: Building[] = [];
     const plots: Building[] = [];
+    const estatesBy: Building[][] = [[], []];
+    const estatePlots: Building[] = [];
     for (const b of list) {
       const look = lookOf(b);
-      if (look === 'tent') tentsBy[Math.floor(hash2(b.id, 1, 40) * 2)].push(b);
+      if (look === 'estate' || look === 'greatestate') estatesBy[look === 'estate' ? 0 : 1].push(b);
+      else if (look === 'estateplot') estatePlots.push(b);
+      else if (look === 'tent') tentsBy[Math.floor(hash2(b.id, 1, 40) * 2)].push(b);
       else if (look === 'hut') hutsBy[Math.floor(hash2(b.id, 6, 40) * 2)].push(b);
       else if (look === 'cottage') cottagesBy[Math.floor(hash2(b.id, 7, 40) * 2)].push(b);
       else if (look === 'townhouse') townhousesBy[Math.floor(hash2(b.id, 8, 40) * 2)].push(b);
@@ -828,7 +844,8 @@ export class Homes {
         k = f < 1 ? Math.max(0.02, 1 - Math.pow(1 - f, 3) + Math.sin(f * Math.PI) * 0.12) : 1;
       }
       // A fountain's platform reaches down into the ground, so it stands at the middle of its footprint.
-      p.set(cx, (paved(b) ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
+      // (Slice 36: an estate stands on its terrace at the highest of its ground, the terrace reaching down on the low side.)
+      p.set(cx, (footSide(b) >= 4 ? estateFloor(map, cx, cz) : paved(b) ? map.heightAt(cx, cz) : ground(cx, cz)) + 0.01, cz);
       q.setFromAxisAngle(UP, facing(s, size, b));
       sc.set(1, k, mirror && hash2(b.id, 2, 40) < 0.5 ? -1 : 1);
       m.compose(p, q, sc);
@@ -892,6 +909,16 @@ export class Homes {
     homes([offices], [this.offices], [this.officeGeo], null);
     homes([posts], [this.posts], [this.postGeo], null);
     homes([architects], [this.architects], [this.architectGeo], null);
+    // Slice 36: estates rise like the homes (not mirrored: the stable keeps to its side); a plot's stakes just appear.
+    homes(estatesBy, this.estates, this.estateGeos, null);
+    hearths(estatesBy, this.estateGeos);
+    if (all) {
+      for (const b of estatePlots) {
+        const m = new THREE.Matrix4();
+        place(b, m, false);
+        settled.push({ key: `${b.id}:${this.seen.get(b.id)?.sig}`, geo: this.estatePlotGeo, m });
+      }
+    }
     // Rubble just appears (it doesn't rise), on the footprint of what stood there.
     if (all) {
       for (const b of rubble) {
@@ -955,6 +982,9 @@ export function homePicture(kind: string): THREE.BufferGeometry[] | null {
       return [watchPostModel()];
     case 'architect':
       return [architectModel()];
+    // Slice 36.
+    case 'estate':
+      return [estateModel(false)];
   }
   return null;
 }

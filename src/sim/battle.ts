@@ -73,13 +73,22 @@ export const CHARGE = 6;
 /** An archer steps back from a raider this near him. */
 export const TOO_CLOSE = 1.2;
 /** Paces (tiles a tick): closing with a man, stepping back, keeping up with the band. */
-const CLOSE_PACE = { hoplite: 0.14, archer: 0.12, raider: 0.17 } as const;
+const CLOSE_PACE = { hoplite: 0.14, archer: 0.12, raider: 0.17, horseman: 0.32 } as const;
 const BACK_PACE = 0.13;
 const PACK_PACE = 0.26;
 /** How hard each strikes, and how much of a blow each takes (hoplites' armour and shields turn most; raiders have shields). */
-export const ATTACK = { hoplite: 20, archer: 6, raider: 16 } as const;
+export const ATTACK = { hoplite: 20, archer: 6, raider: 16, horseman: 24 } as const;
 export const ARROW_HURT = 11;
-export const TAKES = { hoplite: 0.45, archer: 1, raider: 0.8 } as const;
+export const TAKES = { hoplite: 0.45, archer: 1, raider: 0.8, horseman: 0.55 } as const;
+
+// Slice 36: horsemen.
+/** Horsemen go for raiders this near their banner and chase no further than this from it; the runners of a broken band they ride down this far from it. */
+export const RIDE_ENGAGE = 6;
+export const RIDE_LEASH = 9;
+export const RIDE_DOWN = 12;
+/** A rider with this many raiders on him at once is caught in the press (no room to wheel his horse): every blow hurts him half as much again. (Slice 36's review: it was three raiders and twice the hurt, which every band's charge brought on its first rider in, so six riders, said to be harder than hoplites, lost to eight raiders that six hoplites beat.) */
+export const PRESS = 4;
+export const PRESS_HURT = 1.5;
 /** The odds a blow lands; an arrow's, falling off with the distance. */
 const HIT = 0.65;
 const ARROW_HIT = 0.78;
@@ -232,6 +241,19 @@ export function stepBattle(s: SimState, map: CoastMap): void {
       }
       continue;
     }
+    // Slice 36: a horseman goes for raiders further from his banner, and rides down the men of a broken band as they run.
+    if (c.kind === 'horseman') {
+      const reach = (f: Foe): number => (bands.get(f.raid)?.r.broke ? RIDE_DOWN : RIDE_ENGAGE);
+      if (t && (!seek || dhypot(t.x - c.x, t.z - c.z) > Math.max(RIDE_LEASH, reach(t)) || (walled && wallsBetween(map, s, x.x, x.z, t.x, t.z, false)))) t = undefined;
+      if (!t && seek) t = nearest(foes, x.x, x.z, RIDE_DOWN + 3, (f) => dhypot(f.x - c.x, f.z - c.z) <= reach(f) && !(walled && wallsBetween(map, s, x.x, x.z, f.x, f.z, false)));
+      t ??= onMe();
+      x.foe = t ? t.id : 0;
+      if (t) {
+        if (dhypot(t.x - x.x, t.z - x.z) > REACH * 0.85 && seek) moveTo(map, s, x, t.x, t.z, CLOSE_PACE.horseman);
+        x.face = datan2(t.z - x.z, t.x - x.x);
+      }
+      continue;
+    }
     // An archer: back from a raider too close, hand to hand only if he can't; else he shoots from his place.
     const close = nearest(foes, x.x, x.z, TOO_CLOSE);
     if (close) {
@@ -296,7 +318,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     const c = companies.get(t.company);
     f.cool = SWING + Math.floor(roll(s, f.id, 9) * 4);
     f.swung = s.tick;
-    if (roll(s, f.id, 10) < HIT) t.hp -= ATTACK.raider * (0.8 + 0.4 * roll(s, f.id, 11)) * TAKES[c?.kind ?? 'archer'];
+    if (roll(s, f.id, 10) < HIT) t.hp -= ATTACK.raider * (0.8 + 0.4 * roll(s, f.id, 11)) * TAKES[c?.kind ?? 'archer'] * (c?.kind === 'horseman' && inThePress(foes, t) ? PRESS_HURT : 1);
   }
 
   // The fallen.
@@ -331,6 +353,13 @@ export function stepBattle(s: SimState, map: CoastMap): void {
       battleNews(map, r, w);
     }
   }
+}
+
+/** Slice 36: is a rider caught in the press, PRESS raiders or more on him at once? */
+function inThePress(foes: readonly Foe[], x: Soldier): boolean {
+  let n = 0;
+  for (const f of foes) if (f.foe === x.id && f.state === 'fight' && dhypot(f.x - x.x, f.z - x.z) <= REACH * 1.5 && ++n >= PRESS) return true;
+  return false;
 }
 
 /** The men of a band just in: in a loose pack round where it stands. */
@@ -708,7 +737,7 @@ function battleNews(map: CoastMap, r: Raid, w: Walker): void {
 }
 
 /** Who a company is, for a hover: "the 1st company of Cretan archers". */
-export const companyWords = (c: Company): string => (c.ally ? companyName(c) : `${companyName(c)} of ${c.hired ? HIRELINGS[c.hired as HiredKind].name : c.kind === 'hoplite' ? 'hoplites' : 'archers'}`);
+export const companyWords = (c: Company): string => (c.ally ? companyName(c) : `${companyName(c)} of ${c.hired ? HIRELINGS[c.hired as HiredKind].name : c.kind === 'hoplite' ? 'hoplites' : c.kind === 'horseman' ? 'horsemen' : 'archers'}`);
 
 /** What a raider is doing, for his hover. */
 export function foeDoing(s: SimState, f: Foe): { title: string; detail: string } {

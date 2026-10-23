@@ -124,6 +124,8 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   lighthouse: Infinity,
   colossus: Infinity,
   stadium: Infinity,
+  // Slice 36: the horse farm's hay and straw.
+  horsefarm: 360,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -164,6 +166,8 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   lighthouse: Infinity,
   colossus: Infinity,
   stadium: Infinity,
+  // Slice 36.
+  horsefarm: 480,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 

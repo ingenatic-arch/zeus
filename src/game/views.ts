@@ -168,6 +168,10 @@ export const VIEWS: Record<string, CameraView> = {
   lit: { x: 90, z: 104, yaw: 2.85, dist: 42, tilt: -0.2 },
   // #games: over the Stadium between the quay road and the quarry road, its seats full.
   games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
+  // Slice 36: #estates: the two great estates either side of the road down to the quay, from above the bay, the villas of the main street behind them.
+  estates: { x: 72.5, z: 46, yaw: -0.35, dist: 22, tilt: -0.05 },
+  // #horsemen: the barracks' yard close to, its riders drawn up by their banner, the core's villas beside it.
+  horsemen: { x: 89, z: 32, yaw: 0.6, dist: 11, tilt: -0.02 },
   // Slice 38. #blockade: from over the bay, the harbour's mouth and Troy's ships across it, the triremes rowing out from the shipyard (tuned by eye).
   blockade: { x: 63, z: 98, yaw: 0.4, dist: 50, tilt: -0.05 },
   // #shipyard: the shipyard's jetty from upriver, the triremes at their moorings right of the panel (tuned by eye).

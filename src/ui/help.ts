@@ -36,10 +36,10 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
     <p class="lead">The panel on the right has a tab for each kind of building: click a picture to pick it up. Road, clear, undo and the overlays are round the minimap. The keys:</p>
     <dl>
       <dt>T</dt><dd>Road: drag to lay it (straight across a narrow river: a bridge)</dd>
-      <dt>H</dt><dd>Housing plots: click or drag</dd>
+      <dt>H</dt><dd>Housing plots: click or drag; again for an estate’s plot (4 by 4, click beside a road: a noble house comes once the city has a villa)</dd>
       <dt>B</dt><dd>Fountain: click beside a road; again for a copper mine (on the green-streaked rock it shows), an armoury, a barracks, a wall (drag it like a road: a gate where it crosses one), a tower (on or beside a wall) and a shipyard (on the bay shore)</dd>
-      <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery, marble quarry (on the pale rock of the headland) and loggers’ camp (at a wood’s edge)</dd>
-      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece, wine, copper, armour, marble and timber), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
+      <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery, marble quarry (on the pale rock of the headland), loggers’ camp (at a wood’s edge) and horse farm (on green grass)</dd>
+      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece, wine, copper, armour, marble, timber and horses), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>

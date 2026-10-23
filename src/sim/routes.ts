@@ -46,6 +46,8 @@ import { findBuilding } from './buildings';
 import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { lastRoad, wayPoints } from './food';
 import { held, setHeld, WARE_NAMES } from './foods';
+// Slice 36: horses from Thessaly, through Thebes.
+import { HORSES } from './foods';
 import { edgeRoads, nearestEdge, overland, roadSearch, tracePath } from './roads';
 import { door, roadsBeside } from './rounds';
 import type { Building, SimState, TradeRoute, Traveller, Visitor, Walker } from './state';
@@ -89,7 +91,7 @@ import { offerLeft, offerOn, offerPrice, tradedUnder } from './favours';
 import { seizing } from './loans';
 import { tradedWithFoe } from './rivals';
 // Slice 33: winter storms hold the ships of sea routes back.
-import { lateWords, stormDelay } from './seasons';
+import { lateWords, onSchedule, stormDelay } from './seasons';
 // Slice 34.
 import { tributeDoing, unload as unloadTribute } from './vassals';
 
@@ -352,10 +354,12 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     const price = Math.max(1, o ? offerPrice(s, o) : yourPrice(s.world, r.city, k, s.tick));
     const purse = importPurse(s);
     let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
-    n = Math.floor(n / 10) * 10;
+    // (Slice 36: horses come by the head, the rest by tens.)
+    const lot = w === HORSES ? 1 : 10;
+    n = Math.floor(n / lot) * lot;
     const cost = (m: number): number => Math.round((m * price) / 100);
-    while (n > 0 && cost(n) > purse) n -= 10;
-    if (n < MIN_IMPORT) continue;
+    while (n > 0 && cost(n) > purse) n -= lot;
+    if (n < (w === HORSES ? 1 : MIN_IMPORT)) continue;
     const dr = cost(n);
     if (o) tradedUnder(o, n);
     pay(s, -dr, 'imports', `${WARE_NAMES[w]} from ${cityName(r.city)}`, n);
@@ -774,7 +778,8 @@ function stepLoadingVisitor(s: SimState, r: TradeRoute, v: Visitor, post: Buildi
   v.turned = 1;
   // The next is due SEA_EVERY after this one was (half as long again from a cold ruler), and not before she can sail home and back.
   const every = everyOf(s, r);
-  r.next += every;
+  // (Slice 36: counted from when she was due before any storm held her back.)
+  r.next = onSchedule(s, `${r.city}-sea`, r.next) + every;
   while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + leaveTicks(v) + voyageTicks(r.city)) r.next += every;
   // (Slice 33: due in winter, the storms hold her back a week or two.)
   r.next += stormDelay(s, `${r.city}-sea`, r.next);
@@ -828,6 +833,7 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     snub(s, r, 'post');
     v.since = s.tick;
     const every = everyOf(s, r);
+    r.next = onSchedule(s, `${r.city}-sea`, r.next);
     while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + voyageTicks(r.city)) r.next += every;
     r.next += stormDelay(s, `${r.city}-sea`, r.next);
     return;

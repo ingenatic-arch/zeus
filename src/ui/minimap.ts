@@ -54,10 +54,12 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   lighthouse: '#fff6dc',
   colossus: '#d09a48',
   stadium: '#f4ecd6',
+  // Slice 36.
+  horsefarm: '#b88a52',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */
-const HOME_COLOUR = ['#d8c79a', '#e8dcb8', '#d9b77a', '#d0784a', '#c8643b', '#b85432', '#a8462a'];
+const HOME_COLOUR = ['#d8c79a', '#e8dcb8', '#d9b77a', '#d0784a', '#c8643b', '#b85432', '#a8462a', '#9a3a26', '#8c3022'];
 
 const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const mix = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];

@@ -1,6 +1,8 @@
 import { coastMap, type CoastMap } from '../map/bake';
 import { MAP_SIZE } from '../map/coast';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
+// Slice 36: estates' plots.
+import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal } from './build';
 import { around, centreOf, findBuilding, footprint, footSide, recountPopulation, sideOf } from './buildings';
 import { BURNT, FALLEN, FIRST_INSPECTOR, FIRST_WATCHMAN, moveInspector, stepArchitects, stepHazards, stepWatchPosts, type Fall } from './hazards';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH, type SimDate } from './clock';
@@ -14,6 +16,7 @@ import { stepMakers } from './production';
 import { folkRng } from './folk';
 import { migrate } from './migrate';
 import { stepHouses } from './houses';
+import { stepEstates } from './estates';
 import { stepLabour } from './labour';
 import { nextFloat, seedRng } from './rng';
 import { moveGroup, sendLeavers, SETTLER_INTERVAL, spawnSettlers } from './settlers';
@@ -211,6 +214,8 @@ export class Sim {
     // Each look for a home sets how long until the next.
     if (--s.settlerClock <= 0) spawnSettlers(s, map);
     stepHouses(s, map);
+    // Slice 36: estates' porters, and noble houses and their kin coming in (nothing with no estate's plot).
+    stepEstates(s, map);
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Slice 30: temptation in every home, and the thieves it sends out (nothing with crime's switch off).
     stepCrime(s, map);
@@ -309,6 +314,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
         s.looks++;
       }
       break;
+    // Slice 36.
+    case 'estate':
+      if (Array.isArray(c.at)) record(s, placeEstates(s, map, c.at));
+      break;
     case 'trade': {
       const k = Number.isInteger(c.good) ? tradeIndex(c.good) : -1;
       if (k < 0) break;
@@ -341,7 +350,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       if (c.kind === 'raid' || c.kind === 'force') sendExpedition(s, map, String(c.city), c.kind);
       break;
     case 'raise':
-      if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer')) raise(s, c.barracks, c.kind);
+      if (typeof c.barracks === 'number' && (c.kind === 'hoplite' || c.kind === 'archer' || c.kind === 'horseman')) raise(s, c.barracks, c.kind);
       break;
     case 'hire':
       if (typeof c.barracks === 'number' && typeof c.kind === 'string') hire(s, map, c.barracks, c.kind);
@@ -388,6 +397,7 @@ const emptyEntry = (): UndoEntry => ({
   removedLevels: [],
   removedNames: [],
   removedHazards: [],
+  removedEstates: [],
   trees: [],
   cost: 0,
   tick: 0,
@@ -505,7 +515,7 @@ function spanOf(map: CoastMap, s: SimState, run: number[]): boolean {
   return false;
 }
 
-function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0, goods: number[] = noGoods(), stalls = 0, was: BuildingKind | '' = ''): Building {
+function addBuilding(s: SimState, n: number, x: number, z: number, kind: BuildingKind, stock = 0, meat = 0, cheese = 0, goods: number[] = noGoods(), stalls = 0, was: BuildingKind | '' = '', estate = false): Building {
   const b: Building = {
     id: s.nextId++,
     kind,
@@ -570,6 +580,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     ruin: '',
     tempt: 0,
     robbedAt: 0,
+    estate,
   };
   s.buildings.push(b);
   // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)
@@ -606,6 +617,29 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     if (isMonument(kind)) markSite(s, b);
     // Slice 35 (slice 32's review): the loggers' camp clears the trees right round it too, so none stands (or grows back) through its corner.
     if (kind === 'loggers') for (let dz = -1; dz <= 2; dz++) for (let dx = -1; dx <= 2; dx++) if ((dz < 0 || dz > 1 || dx < 0 || dx > 1) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
+  }
+  e.trees = clearTrees(s, map, covered);
+  return e;
+}
+
+// Slice 36: estates' plots.
+
+/** Mark out estates' plots (4 x 4, on housing ground) at these top-left tiles, for their price each, while the treasury can pay. */
+function placeEstates(s: SimState, map: CoastMap, at: number[]): UndoEntry {
+  const e = emptyEntry();
+  const n = map.size;
+  const covered: number[] = [];
+  for (const t of at) {
+    if (!Number.isInteger(t) || t < 0 || t >= n * n) continue;
+    if (spendable(s, 'home') < ESTATE_PLOT_COST) break;
+    const x = t % n;
+    const z = Math.floor(t / n);
+    if (estateRefusal(map, s, x, z) !== '') continue;
+    const b = addBuilding(s, n, x, z, 'home', 0, 0, 0, noGoods(), 0, '', true);
+    pay(s, -ESTATE_PLOT_COST, 'building', 'estates');
+    e.cost += ESTATE_PLOT_COST;
+    e.plots.push(b.id);
+    covered.push(...footprint(n, x, z, ESTATE_SIZE));
   }
   e.trees = clearTrees(s, map, covered);
   return e;
@@ -710,6 +744,7 @@ function clearArea(s: SimState, map: CoastMap, x0: number, z0: number, x1: numbe
     e.removedCheese?.push(b.cheese);
     e.removedGoods?.push(b.goods.slice());
     e.removedStalls?.push(b.stalls);
+    e.removedEstates?.push(b.estate);
     noteLost(s, b, 'cleared');
     removeBuilding(s, map, b);
   }
@@ -739,9 +774,9 @@ function toRubble(s: SimState, map: CoastMap, b: Building, how: Fall): void {
   for (const e of s.undo) {
     if (!e.plots.includes(b.id)) continue;
     e.plots = e.plots.filter((id) => id !== b.id);
-    e.cost = Math.max(0, e.cost - COST[kind]);
+    e.cost = Math.max(0, e.cost - (b.estate ? ESTATE_PLOT_COST : COST[kind]));
   }
-  const r = addBuilding(s, n, b.x, b.z, 'rubble', 0, 0, 0, noGoods(), 0, kind);
+  const r = addBuilding(s, n, b.x, b.z, 'rubble', 0, 0, 0, noGoods(), 0, kind, b.estate);
   r.level = how === 'fire' ? BURNT : FALLEN;
   r.ruin = name;
   pay(s, 0, how, kind === 'home' ? (b.level > 0 ? 'home' : 'plots') : kind, 1);
@@ -856,11 +891,13 @@ function undoLast(s: SimState, map: CoastMap): void {
     const x = t % n;
     const z = Math.floor(t / n);
     const kind = e.removedKinds[i] ?? 'home';
+    // (Slice 36: an estate, or the rubble of one, comes back four by four.)
+    const estate = e.removedEstates?.[i] === true;
     // Rubble comes back as it was, where nothing has gone up since.
     if (kind === 'rubble') {
       const was = (e.removedWas?.[i] ?? 'home') as BuildingKind;
-      if (footprint(n, x, z, sideOf(was)).every((t) => s.tiles[t] === TILE_EMPTY)) {
-        const r = addBuilding(s, n, x, z, 'rubble', 0, 0, 0, noGoods(), 0, was);
+      if (footprint(n, x, z, estate ? ESTATE_SIZE : sideOf(was)).every((t) => s.tiles[t] === TILE_EMPTY)) {
+        const r = addBuilding(s, n, x, z, 'rubble', 0, 0, 0, noGoods(), 0, was, estate);
         r.level = e.removedLevels?.[i] ?? BURNT;
         r.ruin = e.removedNames?.[i] ?? '';
         // When it fell (for the town lines' news), as before.
@@ -872,10 +909,10 @@ function undoLast(s: SimState, map: CoastMap): void {
     }
     // A granary, farm, lodge, dairy or agora comes back with the food it held.
     const keep = kind !== 'home';
-    if (buildingRefusal(map, s, kind, x, z) === '') {
+    if ((estate ? estateRefusal(map, s, x, z) : buildingRefusal(map, s, kind, x, z)) === '') {
       const goods = keep ? (e.removedGoods?.[i] ?? noGoods()) : noGoods();
       const stalls = kind === 'agora' ? (e.removedStalls?.[i] ?? 0) : 0;
-      const b = addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls);
+      const b = addBuilding(s, n, x, z, kind, keep ? (e.removedStock?.[i] ?? 0) : 0, keep ? (e.removedMeat?.[i] ?? 0) : 0, keep ? (e.removedCheese?.[i] ?? 0) : 0, goods, stalls, '', estate);
       // What it held is no longer lost.
       if (keep) noteLost(s, b, 'cleared', -1);
       // Its fire risk and wear come back with it, smouldering, burning or creaking if it was.

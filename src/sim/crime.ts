@@ -97,10 +97,12 @@ export const SHAMED_MOOD = 3 * TICKS_PER_MONTH;
 /** Stolen food or goods keep a household this many days. */
 export const STOLEN_DAYS = 20;
 
-/** The coin a thief finds in a home, by level (plot, tent, hut, cottage, townhouse, fine house, villa). */
-export const HOME_COIN = [0, 2, 4, 6, 10, 15, 24];
+/** The coin a thief finds in a home, by level (plot, tent, hut, cottage, townhouse, fine house, villa; slice 36: estate, great estate). */
+export const HOME_COIN = [0, 2, 4, 6, 10, 15, 24, 40, 60];
 /** The fine a thief's household pays, by its level. */
-export const THIEF_FINE = [0, 5, 6, 8, 10, 15, 20];
+export const THIEF_FINE = [0, 5, 6, 8, 10, 15, 20, 25, 30];
+/** Slice 36: an estate draws envy from further off: its walls and its horses are seen across the quarter. */
+export const ESTATE_ENVY_MORE = 2;
 /** What a thief carries off from a granary (measures of food) and a storehouse (jars of oil or wine, bales of fleece). */
 export const SACK = 12;
 export const JARS = 4;
@@ -227,8 +229,9 @@ function richestNear(s: SimState, b: Building): Building | null {
   for (const o of s.buildings) {
     if (o === b || o.kind !== 'home' || !livedIn(o) || (best && o.level <= best.level)) continue;
     const [ox, oz] = centreOf(o);
-    if (Math.abs(ox - cx) > ENVY_TILES || Math.abs(oz - cz) > ENVY_TILES) continue;
-    if (dhypot(ox - cx, oz - cz) > ENVY_TILES) continue;
+    const far = ENVY_TILES + (o.estate ? ESTATE_ENVY_MORE : 0);
+    if (Math.abs(ox - cx) > far || Math.abs(oz - cz) > far) continue;
+    if (dhypot(ox - cx, oz - cz) > far) continue;
     best = o;
   }
   return best;

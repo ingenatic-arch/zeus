@@ -34,8 +34,8 @@ const HELMET = '<svg viewBox="0 0 24 24"><path d="M12 4.6c-4.4 0-7.4 3-7.4 7.4V1
 const COLUMN = '<svg viewBox="0 0 24 24"><path d="M4.4 3h15.2l-1.8 2.6H6.2z" class="f"/><path d="M7.4 6.2h9.2v12.4H7.4z" class="f"/><path d="M10.2 7v10.8M13.8 7v10.8" class="s"/><path d="M5 19.2h14l1.4 2.2H3.6z" class="f"/></svg>';
 
 export const CATEGORIES: readonly CategoryInfo[] = [
-  { id: 'population', title: 'Population', tip: 'Population: housing, who lives here and who has work', icon: PEOPLE, tools: ['housing'], overlays: ['missing'] },
-  { id: 'husbandry', title: 'Husbandry', tip: 'Husbandry: farms, herds, groves and vineyards, and what the land gives', icon: ICONS.farm, tools: ['farm', 'lodge', 'dairy', 'grove', 'pasture', 'vineyard'], overlays: ['food', 'variety'] },
+  { id: 'population', title: 'Population', tip: 'Population: housing, who lives here and who has work', icon: PEOPLE, tools: ['housing', 'estate'], overlays: ['missing'] },
+  { id: 'husbandry', title: 'Husbandry', tip: 'Husbandry: farms, herds, groves and vineyards, and what the land gives', icon: ICONS.farm, tools: ['farm', 'lodge', 'dairy', 'grove', 'pasture', 'vineyard', 'horsefarm'], overlays: ['food', 'variety'] },
   { id: 'industry', title: 'Industry', tip: 'Industry: the presses, wineries, mines and armouries, the quarries and the loggers’ camps, and what they make', icon: ICONS.press, tools: ['press', 'winery', 'mine', 'armoury', 'quarry', 'loggers'], overlays: ['oil', 'wine'] },
   { id: 'distribution', title: 'Distribution', tip: 'Distribution: granaries, storehouses, the agora and its stalls, and trade; every good in the city', icon: ICONS.granary, tools: ['granary', 'storehouse', 'agora', 'stall', 'fleecestall', 'winestall', 'trading', 'yard'], overlays: ['food', 'oil', 'fleece', 'wine'] },
   { id: 'safety', title: 'Hygiene and safety', tip: 'Hygiene and safety: fountains, the watch and the architects; water, fire, wear and crime', icon: ICONS.fountain, tools: ['fountain', 'watchpost', 'architect'], overlays: ['water', 'fire', 'wear', 'crime'] },

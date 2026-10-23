@@ -15,7 +15,7 @@ const SMOKE_CAP = 1200;
 const FLAME_CAP = 600;
 
 /** Roughly how high each kind of building stands (homes by level), for where smoke leaves it and marks float. */
-const HOME_TOP = [0.4, 0.75, 0.85, 0.95, 1.35, 1.5, 1.7];
+const HOME_TOP = [0.4, 0.75, 0.85, 0.95, 1.35, 1.5, 1.7, 1.6, 2.0];
 const TOP: Partial<Record<BuildingKind, number>> = {
   farm: 0.35, grove: 1.2, vineyard: 0.55, pasture: 0.3, lodge: 0.8, dairy: 0.9,
   shrine: 1.0, theatre: 1.3, agora: 0.9, granary: 1.2, storehouse: 1.1, press: 1.0, winery: 1.0,

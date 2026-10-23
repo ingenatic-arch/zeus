@@ -10,6 +10,10 @@ import { facingOf } from './homes';
 import { col, PAL } from './palette';
 import { lumpy } from './trees';
 import { leg, mergeTinted, type TPart } from './walkers';
+// Slice 36: horses.
+import { estateFloor, HORSE_COATS, horseModel, PADDOCK, STABLE_YARD } from './estates';
+import { gi, HORSES } from '../sim/foods';
+import { HORSEFARM_STORE } from '../sim/stores';
 
 /**
  * The wild herds, the dairies' goats and the pastures' sheep, redrawn every frame from the sim
@@ -101,6 +105,11 @@ const SHEEP_COATS = [PAL.wool, PAL.wool, PAL.wool, '#f6f0e0', '#ddd0b0', '#4a403
 const SHEEP = 9;
 const GRAZE = 2.8;
 
+/** Slice 36: a horse farm's mares (always in its paddock) and the most there at once; the most in an estate's stable yard. */
+const HORSE_MARES = 3;
+const PADDOCK_MOST = 7;
+const STABLE_MOST = 4;
+
 const firm = (g: number): boolean => g === Ground.Ok || g === Ground.SteepForHome;
 
 export class Animals {
@@ -110,6 +119,7 @@ export class Animals {
   private readonly boars: Look;
   private readonly goats: Look;
   private readonly sheep: Look;
+  private readonly horses: Look;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly p = new THREE.Vector3();
@@ -131,6 +141,7 @@ export class Animals {
     this.boars = folk.people.look(boar());
     this.goats = folk.people.look(goat());
     this.sheep = folk.people.look(sheep());
+    this.horses = folk.people.look(horseModel());
     this.ground = mapIndex(map).ground;
   }
 
@@ -144,10 +155,10 @@ export class Animals {
     return firm(this.ground[t]) && s.tiles[t] === TILE_EMPTY;
   }
 
-  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: Look): void {
+  private place(x: number, z: number, yaw: number, pitch: number, sc: number, walking: boolean, coat: string, into: Look, y?: number): void {
     this.e.set(0, yaw, pitch, 'YXZ');
     this.q.setFromEuler(this.e);
-    this.p.set(x, this.map.heightAt(x, z) + 0.01, z);
+    this.p.set(x, y ?? this.map.heightAt(x, z) + 0.01, z);
     this.s.set(sc, sc, sc);
     this.m.compose(this.p, this.q, this.s);
     this.c.copy(col(coat));
@@ -161,6 +172,61 @@ export class Animals {
     for (let i = 0; i < s.herds.length; i++) this.herd(s, s.herds[i], i, alpha, time);
     for (const d of s.buildings) if (d.kind === 'dairy') this.dairy(s, d, time);
     for (const p of s.buildings) if (p.kind === 'pasture') this.flock(s, p, time);
+    // Slice 36: the horse farms' horses in their paddocks, the estates' in their stable yards.
+    for (const b of s.buildings) {
+      if (b.kind === 'horsefarm') this.paddock(s, b, time);
+      else if (b.kind === 'home' && b.estate && b.level >= 7) this.stableYard(s, b, time);
+    }
+  }
+
+  /** Slice 36: a horse farm's horses grazing its paddock, each on its own slow loop (more as its stable fills: its mares are always there); still if nobody works it. */
+  private paddock(s: SimState, b: SimState['buildings'][number], time: number): void {
+    const yaw = facingOf(s, this.map.size, b);
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    const fx = b.x + 1.5;
+    const fz = b.z + 1.5;
+    const tended = rateOf(b) > 0;
+    const n = HORSE_MARES + Math.ceil((Math.min(HORSEFARM_STORE, b.goods[gi(HORSES)] ?? 0) / HORSEFARM_STORE) * (PADDOCK_MOST - HORSE_MARES));
+    const [x0, z0, x1, z1] = PADDOCK;
+    for (let k = 0; k < n; k++) {
+      const seed = b.id * 19 + k;
+      const t = time * (tended ? 0.04 : 0.012) + hash2(seed, 1, 3641) * 40;
+      const u = 0.5 + 0.42 * Math.sin(t * 0.7 + k * 2.3);
+      const v = 0.5 + 0.42 * Math.sin(t * 0.5 + k * 1.1 + 1);
+      const lx = x0 + 0.1 + (x1 - x0 - 0.2) * u;
+      const lz = z0 + 0.1 + (z1 - z0 - 0.2) * v;
+      const vx = Math.cos(t * 0.7 + k * 2.3) * 0.7 * (x1 - x0);
+      const vz = Math.cos(t * 0.5 + k * 1.1 + 1) * 0.5 * (z1 - z0);
+      const heading = yaw + Math.atan2(-vz, vx);
+      const grazing = Math.sin(time * 0.6 + seed * 1.3) > -0.2;
+      this.place(fx + lx * c + lz * sn, fz - lx * sn + lz * c, heading, grazing ? -0.12 : 0, 0.95 + 0.1 * hash2(seed, 2, 3642), !grazing && tended, HORSE_COATS[Math.floor(hash2(seed, 3, 3643) * HORSE_COATS.length)], this.horses);
+    }
+  }
+
+  /** Slice 36: an estate's horses in its stable yard (those in its stable, and the one in use), standing or idling. */
+  private stableYard(s: SimState, b: SimState['buildings'][number], time: number): void {
+    const n = Math.min(STABLE_MOST, (b.goods[gi(HORSES)] ?? 0) + ((b.goodsUntil[gi(HORSES)] ?? 0) > s.tick ? 1 : 0));
+    if (n <= 0) return;
+    const yaw = facingOf(s, this.map.size, b);
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    // (The model is mirrored for some estates, as the homes are: its stable yard with it.)
+    const flip = hash2(b.id, 2, 40) < 0.5 ? -1 : 1;
+    const fx = b.x + 2;
+    const fz = b.z + 2;
+    const [x0, z0, x1, z1] = STABLE_YARD;
+    // (On the estate's terrace, its yard's floor.)
+    const y = estateFloor(this.map, fx, fz) + 0.075;
+    for (let k = 0; k < n; k++) {
+      const seed = b.id * 23 + k;
+      const t = time * 0.03 + hash2(seed, 1, 3651) * 30;
+      const lx = x0 + 0.15 + ((x1 - x0 - 0.3) * (k + 0.5)) / STABLE_MOST + Math.sin(t) * 0.06;
+      const lz = (z0 + (z1 - z0) * (0.35 + 0.3 * hash2(seed, 2, 3652)) + Math.cos(t * 0.8) * 0.05) * flip;
+      const heading = yaw + (hash2(seed, 3, 3653) < 0.5 ? Math.PI / 2 : -Math.PI / 2) + Math.sin(t * 0.5) * 0.4;
+      const grazing = Math.sin(time * 0.5 + seed) > 0.3;
+      this.place(fx + lx * c + lz * sn, fz - lx * sn + lz * c, heading, grazing ? -0.1 : 0, 0.95, false, HORSE_COATS[Math.floor(hash2(seed, 4, 3654) * HORSE_COATS.length)], this.horses, y);
+    }
   }
 
   /**

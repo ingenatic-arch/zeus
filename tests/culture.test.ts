@@ -188,7 +188,7 @@ describe('going up, and staying up', () => {
       short.run(TICKS_PER_DAY);
       const hungry = homes(short.state).find((b) => b.level >= COTTAGE && b.foodUntil < short.state.tick);
       const why = hungry ? whyHungry(short.state, map, hungry, short.state.buildings.filter((o) => o.kind === 'agora')) : '';
-      if (/farms grow about [\d,]+ measures of wheat a month and the town eats about [\d,]+; (another farm|\w+ more farms) would feed it/.test(why)) named = true;
+      if (/farms grow about [\d,]+ measures of wheat a month(?: this \w+ \([^)]*\))? and the town eats about [\d,]+; (another farm|\w+ more farms) would feed it/.test(why)) named = true;
     }
     expect(named).toBe(true);
   });

@@ -267,7 +267,7 @@ const WIDE5 = 1.9;
 const WIDE6 = 2.38;
 const WIDE7 = 2.86;
 /** How high over the ground a sign floats, by the home's level (over its roof). */
-const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4, 2.75];
+const HEIGHTS = [HEIGHT, HEIGHT, HEIGHT, HEIGHT, 2.25, 2.4, 2.75, 2.6, 3.0];
 /** Slice 30: a "no road" sign floats lower, over an empty plot. */
 const PLOT_HEIGHT = 1.1;
 
@@ -408,8 +408,9 @@ export class Signs {
     let wide = 0;
     for (let i = 0; i < n; i++) {
       const { b, needs, urgency, noRoad } = this.signs[i];
-      const cx = b.x + 1;
-      const cz = b.z + 1;
+      // (Slice 36: over the middle of an estate's 4 x 4.)
+      const cx = b.x + (b.estate ? 2 : 1);
+      const cz = b.z + (b.estate ? 2 : 1);
       const bob = Math.sin(time * 1.7 + b.id * 1.3) * 0.045;
       this.p.set(cx, this.map.heightAt(cx, cz) + (noRoad ? PLOT_HEIGHT : HEIGHTS[Math.min(b.level, HEIGHTS.length - 1)]) + bob, cz);
       // The same size on screen from about 16 units away out to far off (up to three times its size), so a sign

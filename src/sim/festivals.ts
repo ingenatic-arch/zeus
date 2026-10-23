@@ -31,8 +31,8 @@ export const FESTIVALS: readonly Festival[] = [
   { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, when by custom Sparta begins no war', atWar: 'at war now, its army keeps the feast where it stands' },
 ];
 
-/** The trade goods a festival makes dear (TRADE_GOODS order: wheat, meat, cheese, oil, fleece, wine, copper, armour, marble, timber), and how far it draws each one's stock down at most (a share of normal). */
-export const FEAST_SHARE: readonly number[] = [0, 0.4, 0, 0, 0, 0.45, 0, 0, 0, 0];
+/** The trade goods a festival makes dear (TRADE_GOODS order: wheat, meat, cheese, oil, fleece, wine, copper, armour, marble, timber, horses), and how far it draws each one's stock down at most (a share of normal). */
+export const FEAST_SHARE: readonly number[] = [0, 0.4, 0, 0, 0, 0.45, 0, 0, 0, 0, 0];
 /** How long before a festival the city starts laying in for it. */
 export const FEAST_LEAD = 15 * TICKS_PER_DAY;
 /** Days for the festival's push to wear off by about two thirds after it ends (within a season). */

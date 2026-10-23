@@ -19,7 +19,7 @@ export const PICTURE_W = 76;
 export const PICTURE_H = 60;
 
 /** The building kind a tool puts down, for its footprint. */
-const KIND: Record<string, BuildingKind> = { housing: 'home', stall: 'agora', fleecestall: 'agora', winestall: 'agora' };
+const KIND: Record<string, BuildingKind> = { estate: 'home', housing: 'home', stall: 'agora', fleecestall: 'agora', winestall: 'agora' };
 
 function partsOf(tool: string): PicturePart[] | null {
   const homes = homePicture(tool);
@@ -43,7 +43,8 @@ export function drawPictures(tools: readonly string[]): Map<string, string> {
     if (!parts) continue;
     const kind = KIND[tool] ?? (tool as BuildingKind);
     const stall = tool.endsWith('stall');
-    const side = stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
+    // (Slice 36: an estate's plot is 4 x 4.)
+    const side = tool === 'estate' ? 4 : stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(col(PAL.hemiSky), col(PAL.hemiGround), 1.3));
     const sun = new THREE.DirectionalLight(col(PAL.sun), 2.9);
