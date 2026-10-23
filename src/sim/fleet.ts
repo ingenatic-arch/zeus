@@ -112,8 +112,11 @@ const WATERS = 2;
 // Slice 38: oars, wounds and repairs.
 /** Of her oars, a moored trireme's shipwrights mend this many a day (a share with fewer); an enemy's blow that strikes home breaks this many and up to OARS_MORE more; her own ram breaks a few, one time in four. */
 export const OARS_A_DAY = 12;
-const OARS_HURT = 10;
-const OARS_MORE = 15;
+// (At slice 38's merge: 6 to 14 a blow, was 10 to 25. With those, a trireme broke off for her oars after three or four
+// blows, half as many as her hull takes, and two triremes stopped a two-ship landing about one time in three, not nine
+// in ten as before slice 38; with these and the sharing of foes in stepBay, about four in five.)
+const OARS_HURT = 6;
+const OARS_MORE = 8;
 const RAM_OARS_ODDS = 1 / 4;
 const RAM_OARS = 3;
 const RAM_OARS_MORE = 5;
@@ -658,6 +661,29 @@ function stepBay(s: SimState, map: CoastMap): void {
     // (Slice 38: in a fight she fights on until crippled, hull or oars; to go out she must be fit, oars and all, and not laid up under repair.)
     const able = t.crew.length * 2 >= CREW && (engaged ? !crippled(t) : t.hp >= FIT && t.oars >= FIT && !t.mend);
     let foe = able && engaged ? byFoe.get(t.foe) : undefined;
+    // (At slice 38's merge: two on one only while no other ship is free, through the fight and not only when she sets
+    // out. A trireme sharing her foe goes for a ship nobody is on that has come into your waters since, unless that
+    // ship is much farther. With a band's ships a day apart, both triremes stayed on the first while the second beached.)
+    if (foe && (on.get(foe.id) ?? 0) >= 2) {
+      let free: EnemyShip | undefined;
+      let fd = dhypot(foe.x - t.x, foe.z - t.z) + SPREAD;
+      for (const e of foes) {
+        if (on.get(e.id)) continue;
+        const d = dhypot(e.x - t.x, e.z - t.z);
+        if (d < fd - 1e-9) {
+          fd = d;
+          free = e;
+        }
+      }
+      if (free) {
+        on.set(foe.id, (on.get(foe.id) ?? 1) - 1);
+        on.set(free.id, 1);
+        t.foe = free.id;
+        t.path = [];
+        t.along = 0;
+        foe = free;
+      }
+    }
     if (!foe && able && foes.length) {
       if (t.foe && on.has(t.foe)) on.set(t.foe, (on.get(t.foe) ?? 1) - 1);
       let best: EnemyShip | undefined;

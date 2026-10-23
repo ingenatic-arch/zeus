@@ -78,6 +78,23 @@ I played each step above at 1920 × 1080 and read the code. What I changed:
 
 Every demo's history is as the builder left it; only the words in `#blockade`'s and `#shipyard`'s towns changed. Still for your eye: where the blockade lies, whether the staging reads, the panel's length on a shorter screen, and the fight's pace (about three weeks, of which the first five days are the triremes rowing out to it).
 
+### At the merge
+This slice was built from the trunk as it stood after slices 30 to 35. It joined the trunk on 23 Oct, after the crews of walkers (the change merged from the other thread). Nothing in that change touches the sea, so the only changes needed were in one test, until the fights below. What changed:
+- **Saves.** The state version is 34 on the trunk, as on this line. Saves from before slices 30 to 35 and this one load through all seven steps.
+- **Two triremes can stop a landing again.** Slice 26's test has two crewed triremes meet a landing of two ships: every ship is sunk before it beaches. After this slice, that happened about one time in three. I counted 40 runs, each with a different seed. Before this slice, it happened 36 times in 40. On this line the test passed by the luck of the dice; on the trunk's history it failed. There were two causes. First, the ships now set off a day apart, so both triremes went for the first ship and the second sailed past them to the beach. Second, a blow broke 10 to 25 oars, so a trireme broke off for her oars after three or four blows, about half as many as her hull can take. I changed two things:
+  - A trireme sharing her target with another now goes for a ship nobody is on, if one comes into your waters and isn't much farther.
+  - A blow now breaks 6 to 14 oars.
+  With both changes, two triremes stop the two ships 32 times in 40. Oars still break, triremes still limp home with their oars gone, and the ships still reach the beach within a fortnight. The fights' weight is still for your eye, as asked above.
+- **The demos open on the trunk's history.** The crews of walkers had already moved every town a little, so some numbers in the note above come out differently:
+  - `#blockade` opens on 13 February 746 BC, with 1,223 people and 3,746 dr. The Tyrian ship is loading at the quay. Her chip says "Held" three days in. Two of Troy's three ships are sunk and the blockade is broken 17 days after it opens.
+  - `#shipyard` opens on 12 March 746 BC, with 1,248 people and 5,000 dr. All three of Troy's ships were sunk. It is the Glaukos that came home hurt and is laid up under repair, not the Nike. Her hull is at 56% and 47 of every hundred oars are broken; she is whole in about 8 days. The Nike is being mended at her mooring (14 oars broken, whole in about 2 days).
+  - `#landing` opens on 14 October 747 BC, 6 days sooner than before, with 1,127 people (3 fewer) and 3,485 dr (200 less).
+  - `#athensship` and `#promise` open 2 days later. `#athensship` has the same people and money (no month's wages fall due in those days now). `#promise` has 3 more people and the same money. The Karneia's line still comes first, and the broken promise's line follows it.
+  - `#pirates` opens 2 days later, not 14, with 7 more people and the same money. The pirates are off Cape Skyllaion and the trireme is at her mooring, as the note says.
+  - `#triremes` opens 3 ticks sooner, with the same people and money. Played on, its two triremes sink Troy's three ships, but 5 of the 23 men get ashore first. They take 200 dr, which comes back when their laden ship is sunk. Before this slice, nobody landed.
+  - `#anchor` and the `#rivals` towns open as before. Played on, warships come onto your lanes.
+- **Every other demo opens as before.** I compared all 124 earlier demos with the trunk before the merge, at opening (date, people and money) and 900 ticks on. Only the ones named here moved.
+
 ## Slice 35 — Monuments (22 Oct)
 
 The city has something to build towards with its marble and timber: a masons' yard whose builders walk out to a monument, and three monuments, the Lighthouse, the Colossus and the Stadium, each marked out on the ground and then rising in three stages you can watch, as ox carts haul the stone and timber up from the storehouses. You weren't here while it was built: every choice below is mine, from the spec's defaults, and two of them (the games' timing and the Lighthouse's ground) differ from the plan; both are below.
