@@ -14,6 +14,8 @@ import { loanOfDeal, loanTownLine, termsWords } from './loans';
 import { expeditionLine, expeditionOut } from './expeditions';
 // Slice 34
 import { empireTownLine } from './vassals';
+// Slice 37: settlers walking down to the quay, the homes they left, a colony that needs you.
+import { colonistDoing, colonyTownLine, leftFor } from './colonies';
 import {
   BARN,
   CHEESE_BATCH,
@@ -184,7 +186,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   const more = b.incoming > 0 ? ' · more on the way' : full ? ' · full' : road ? '' : ' · room for more';
   const title = `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · ${people(b.people)}${more}`;
   const water = waterLine(s, map, b, reach);
-  return { title, detail: lines(road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), estateLine(s, b), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
+  const left = b.people === 0 ? leftFor(s, b.id) : '';
+  return { title: left ? `${HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)]} · standing empty` : title, detail: lines(left, road && !full ? road : '', water, foodLine(s, map, b), blessingLine(s, map, b), oilLine(s, map, b), playsLine(s, map, b), goodLine(s, map, b, FLEECE), goodLine(s, map, b, WINE), estateLine(s, b), workLine(s, map.size, b), servesLine(s, b), taxLine(s, map, b)) };
 }
 
 /** What a home pays the tax collector, or why he doesn't call. */
@@ -764,6 +767,8 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   }
   // Slice 30: a thief, and the watchman after one.
   if (w.kind === 'thief') return thiefStatus(s, w);
+  // Slice 37: a household going to found a colony.
+  if (w.kind === 'colonist') return colonistDoing(s, w);
   if (w.kind === 'watchman' && w.meat > 0) {
     const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
     const home = t ? findBuilding(s, t.home) : undefined;
@@ -1400,7 +1405,12 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (loan) out.push({ need: 'loan', text: loan.text, at: 0, route: loan.city });
   // Slice 34: a vassal arming, an ally's call waiting, men coming to help you, tribute coming in (vassals.ts).
   const empire = empireTownLine(s);
-  if (empire) out.push({ need: 'empire', text: empire.text, at: 0, route: empire.city });
+  // Slice 37: or a colony talking of freedom or threatened, or your settlers on their way (its page on the map). One empire line
+  // shows at a time (they are kept by kind): the one that matters more (review of slice 37: by rank, then urgency; a tie, the empire's).
+  const colony = colonyTownLine(s);
+  const weigh = (l: { rank: number; urgent: boolean }): number => 2 * l.rank + (l.urgent ? 1 : 0);
+  if (colony && (!empire || weigh(colony) > weigh(empire))) out.push({ need: 'empire', text: colony.text, at: 0, route: `site:${colony.site}` });
+  else if (empire) out.push({ need: 'empire', text: empire.text, at: 0, route: empire.city });
   // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
   const news = newsNow(s);
   // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)

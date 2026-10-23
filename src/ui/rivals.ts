@@ -15,6 +15,8 @@ import { adjective, baseOf, coloniesOf, lordWords, recordSince, sizeWhy, siteWor
 import { siteOf } from '../map/greece';
 import type { WorldCity } from '../sim/state';
 import { allyOf, openCall, vassalOf } from '../sim/vassals';
+// Slice 37: your colonies and your settlers on the sites' cards and labels.
+import { siteCardLine } from './colonies';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
@@ -183,7 +185,10 @@ export function siteCard(s: SimState, id: string): string {
   const p = siteOf(id);
   const x = s.world.sites.find((y) => y.id === id);
   if (!p || !x) return '<b>An empty site</b>';
-  const who = x.owner ? `Click for ${esc(whose(x.owner as CityId))} page` : x.bound ? `Click for ${esc(whose(x.bound as CityId))} page` : 'A strong city with ships may send settlers here';
+  // (Slice 37: a click opens the site's own page: your colony's, your settlers', or what founding one would take.)
+  const mine = siteCardLine(s, id);
+  if (mine) return `<b>${esc(`${p.name} · ${p.good}`)}</b><span>${esc(mine)}</span><span class="sub">Click for its page</span>`;
+  const who = x.owner || x.bound || x.free ? 'Click for its page' : 'A strong city with ships may send settlers here; so may you. Click for what it would take';
   return `<b>${esc(`${p.name} · ${p.good}`)}</b><span>${esc(cap(p.blurb))}</span><span>${esc(cap(siteWords(s, x)))}${x.owner ? esc(`: ${p.good} for ${name(x.owner as CityId)}`) : ''}</span><span class="sub">${who}</span>`;
 }
 
@@ -192,6 +197,11 @@ export function siteLabelHtml(s: SimState, id: string): string {
   const p = siteOf(id);
   const x = s.world.sites.find((y) => y.id === id);
   if (!p || !x) return '';
+  // (Slice 37: your colony by its own name, with a red mark while it is threatened or talks of freedom; your settlers on their way; a colony gone free.)
+  const c = s.empire.colonies.find((y) => y.site === id);
+  if (c) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(c.name)}</b> <span class="gd">${esc(p.good)}</span>${(c.threat && c.threat.end === '') || c.talk ? '<i class="alarm" title="It needs you"></i>' : ''}`;
+  if (x.bound === 'home') return `<b>${esc(p.name)}</b> <span class="gd">your settlers</span>`;
+  if (x.free) return `<b>${esc(x.free)}</b> <span class="gd">free</span>`;
   if (x.owner) return `<i class="lord" style="background:${PLACES[x.owner as CityId]?.colour ?? '#888'}"></i><b>${esc(p.name)}</b> <span class="gd">${esc(adjective(x.owner as CityId))}</span>`;
   return `<b>${esc(p.name)}</b> <span class="gd">${esc(p.good)}</span>`;
 }
@@ -279,7 +289,11 @@ export function newsHtml(s: SimState, open: boolean): string {
       const line = n.line.replace(/\.$/, '');
       // (A line from an earlier year says which: the list can reach back more than a year, and each festival comes every year.)
       const when = `${d.day} ${d.monthName.slice(0, 3)}${d.yearBC !== year ? ` ${formatYear(d.yearBC)}` : ''}`;
-      return `<li data-city="${n.city}" class="${n.urgent ? 'urgent' : n.greece ? 'greece' : ''}" title="Click for ${esc(PLACES[n.city]?.name ?? '')}’s page"><i style="background:${PLACES[n.city]?.colour ?? '#888'}"></i><span><em>${esc(when)}</em> ${esc(line)}.</span></li>`;
+      // (Slice 37: a site's news, 'site:thasos', in your colours, opens the site's page.)
+      const site = n.city.startsWith('site:') ? n.city.slice(5) : '';
+      const label = site ? (s.empire.colonies.find((c) => c.site === site)?.name ?? siteOf(site)?.name ?? site) : (PLACES[n.city]?.name ?? '');
+      const colour = site ? PLACES.home.colour : (PLACES[n.city]?.colour ?? '#888');
+      return `<li data-city="${n.city}" class="${n.urgent ? 'urgent' : n.greece ? 'greece' : ''}" title="Click for ${esc(label)}’s page"><i style="background:${colour}"></i><span><em>${esc(when)}</em> ${esc(line)}.</span></li>`;
     })
     .join('');
   return `<button class="nhead" aria-expanded="${open}"><b>News of Greece</b><span>${items.length ? (open ? '▾' : `▸ ${items.length}`) : ''}</span></button>${open ? `<ul>${rows || '<li class="none">Nothing yet.</li>'}</ul>` : ''}`;

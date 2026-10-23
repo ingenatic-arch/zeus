@@ -89,13 +89,13 @@ const BUILD = 1 / 18;
 const POP_LEAST = 0.3;
 const POP_MOST = 3;
 
-/** Colonies: from the third year; a city needs this many ships, its wealth and people at least these shares of its base; one in so many months (more for a shrewd or greedy ruler, and for Rhodes); none within six years of its last. */
+/** Colonies: from the third year; a city needs this many ships, its wealth and people at least these shares of its base; one in so many months (more for a shrewd or greedy ruler, and for Rhodes); none within ten years of its last (slice 37, the finding of slice 31: six, and the sites ran out in the second decade). */
 export const COLONY_FROM = 2 * TICKS_PER_YEAR;
 const COLONY_SHIPS = 3;
 const COLONY_WEALTH = 0.9;
 const COLONY_POP = 0.95;
 const COLONY_ODDS = 1 / 300;
-const COLONY_GAP = 6 * TICKS_PER_YEAR;
+const COLONY_GAP = 10 * TICKS_PER_YEAR;
 /** What sending settlers costs the founder; how long before they land; how many they are; how big a colony grows; how fast. */
 const COLONY_COST = 2000;
 export const COLONY_SAIL = 90 * TICKS_PER_DAY;
@@ -123,8 +123,8 @@ const BEATEN_FOR = 2 * TICKS_PER_YEAR;
 /** How far a city reaches out, for colonies and vassals (1 if not given): Egypt looks to its river more than to the Aegean; Sparta and Thebes to their neighbours. */
 const AMBITION: Record<string, number> = { memphis: 0.3, sparta: 1.3, thebes: 1.2 };
 
-/** A site's good as a ware (every site's is a trade good: Naxos' marble and Thasos' timber are slice 32's). */
-const SITE_WARES: Record<string, Ware> = { wheat: WHEAT, oil: OIL, fleece: FLEECE, copper: COPPER, marble: MARBLE, timber: TIMBER };
+/** A site's good as a ware (every site's is a trade good: Naxos' marble and Thasos' timber are slice 32's). Slice 37: your colony's too. */
+export const SITE_WARES: Record<string, Ware> = { wheat: WHEAT, oil: OIL, fleece: FLEECE, copper: COPPER, marble: MARBLE, timber: TIMBER };
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 /** A city's men under arms in words (slice 31 review: as the sim keeps them, on the scale of its garrison, its bands and your own soldiers). */
@@ -301,14 +301,15 @@ export function colonyRefusal(s: SimState, c: WorldCity): string {
 
 /** The nearest free site to a city with nobody bound for it, if any. */
 export function nearestFree(w: World, id: CityId): Site | undefined {
-  return w.sites.filter((x) => x.owner === '' && x.bound === '').sort((a, b) => reach(id, a.id) - reach(id, b.id))[0];
+  return w.sites.filter((x) => x.owner === '' && x.bound === '' && !x.free).sort((a, b) => reach(id, a.id) - reach(id, b.id))[0];
 }
 
 /** Settlers land and found colonies; colonies grow; now and then a city sends settlers out. */
 function colonies(s: SimState, month: number): void {
   const w = s.world;
   for (const site of w.sites) {
-    if (site.bound && s.tick >= site.lands) land(s, site);
+    // (Slice 37: your own settlers' landing is colonies.ts'.)
+    if (site.bound && site.bound !== 'home' && s.tick >= site.lands) land(s, site);
     if (site.owner && site.owner !== 'home') site.pop = round2(site.pop + site.pop * COLONY_GROWTH * (1 - site.pop / COLONY_MOST) / 12);
   }
   if (s.tick < COLONY_FROM) return;
@@ -483,6 +484,9 @@ export function lordWords(c: WorldCity): string {
 /** A site in words: "a Rhodian colony since 745 BC, about 640 people", "settlers from Rhodes land within 40 days", or "free". */
 export function siteWords(s: SimState, site: Site): string {
   if (site.owner) return `${site.owner === 'home' ? 'your' : `a ${adjective(site.owner)}`} colony since ${formatYear(yearOf(site.since))}, about ${fmt(Math.round(site.pop / 10) * 10)} people`;
+  // (Slice 37: your own settlers on their way, and a colony that declared itself free.)
+  if (site.bound === 'home') return 'your settlers are on their way there';
+  if (site.free) return `${site.free} stands free here, about ${fmt(Math.round(site.pop / 10) * 10)} people, beholden to nobody`;
   if (site.bound) return `settlers from ${name(site.bound)} land within ${Math.max(1, Math.ceil((site.lands - s.tick) / TICKS_PER_DAY))} days`;
   return 'no city yet: a place to found one';
 }

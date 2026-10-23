@@ -137,6 +137,10 @@
  * back by winter keep the day they are due, and their next visit counts
  * from when they were due before the storms. Nothing in the city changes.
  *
+ * Slice 37 (Colonies): you have no colony and no settlers on their way, and
+ * no site has a colony that declared itself free. Rivals' colonies stay as
+ * they were; nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -223,6 +227,7 @@ export function migrate(st: unknown): number {
   if (st.version === 33) fromSlice38(st);
   if (st.version === 34) fromSlice39(st);
   if (st.version === 35) fromSlice36(st);
+  if (st.version === 36) fromSlice37(st);
   return from;
 }
 
@@ -907,5 +912,17 @@ function fromSlice39(st: Record<string, unknown>): void {
     if (typeof a.grand !== 'number') a.grand = 0;
     if (typeof a.grandQuiet !== 'boolean') a.grandQuiet = false;
   }
+  st.version = (st.version as number) + 1;
+}
+
+/** Slice 37 (Colonies): see the note above. Only its own fields, each only if it is missing. */
+function fromSlice37(st: Record<string, unknown>): void {
+  if (isObj(st.empire)) {
+    const e = st.empire as Record<string, unknown>;
+    if (!Array.isArray(e.colonies)) e.colonies = [];
+    if (!Array.isArray(e.foundings)) e.foundings = [];
+  }
+  const w = st.world;
+  if (isObj(w) && Array.isArray(w.sites)) for (const x of w.sites as unknown[]) if (isObj(x) && typeof x.free !== 'string') x.free = '';
   st.version = (st.version as number) + 1;
 }

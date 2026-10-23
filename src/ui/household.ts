@@ -21,6 +21,8 @@ import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, tem
 import { bringerOf, ESTATE_NEEDS, ESTATE_WORDS, fetchWords, LASTS, needWord, plotWaits, WARE_OF, wareUntil, wareWarnings, type EstateNeed } from '../sim/estates';
 import { ESTATE, GREAT_ESTATE } from '../sim/buildings';
 import { held } from '../sim/foods';
+// Slice 37: a home left by settlers for a colony.
+import { leftFor } from '../sim/colonies';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -380,7 +382,9 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const f = b.family;
   const level = HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)];
   if (!f && b.estate) return `<header><div class="kicker">An estate’s plot</div><h2>Waiting for a noble house</h2></header><section class="needs"><p class="next">${ICON.home}<span>${esc(plotWaits(s, map, b))}</span></p></section>`;
-  if (!f) return `<header><div class="kicker">${level}</div><h2>Nobody lives here</h2></header>`;
+  // (Slice 37 review: a home its household left to found a colony says so, as its hover does.)
+  const left = f ? '' : leftFor(s, b.id);
+  if (!f) return `<header><div class="kicker">${level}</div><h2>Nobody lives here</h2>${left ? `<div class="from">${esc(left)}</div>` : ''}</header>`;
   const cap = capacity(b);
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
   const since = ` · here since ${when(f.came)}`;

@@ -20,7 +20,8 @@ import { WARE_NAMES } from '../sim/foods';
 import { dayWords } from '../sim/favours';
 import { expeditionLine } from '../sim/expeditions';
 import type { SimState } from '../sim/state';
-import { TRADE_GOODS } from '../sim/trade';
+// (Review of slice 37: a tribute ship's day in your bay counts her sail in from the horizon.)
+import { SAIL_IN, TRADE_GOODS } from '../sim/trade';
 import { allyOf, ARMING, SEASON, conquestPlan, debtPlan, allyPlan, empireRefusal, heraldTo, lastHerald, loyaltyOf, lowWords, openCall, submitPlan, tributeGoods, tributeWords, tributeYear, vassalOf, WEIGHT_WORDS, type Plan, type Vassal } from '../sim/vassals';
 import { cityOf, rulerShort } from '../sim/world';
 // Integrating slice 34 with 33: a tribute ship held back by the winter storms says so.
@@ -118,7 +119,7 @@ function tributeHtml(s: SimState, v: Vassal): string {
   const next = `The next sets out about ${dayWords(v.next)}${v.arming ? ', unless it rises first' : ''}.`;
   const way = s.empire.tribute
     .filter((t) => t.city === v.city && t.phase !== 'done')
-    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' && t.by === 'sea' && s.tick >= t.start + t.dur && blockaded(s) ? `waiting off your gulf: ${esc(whose(blockaded(s)!.city))} fleet holds the mouth of your harbour, and it sails in once the blockade is broken or lifted` : t.phase === 'road' ? `on its way by ${t.by === 'sea' ? 'sea' : 'road'}: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} about ${esc(dayWords(t.start + t.dur))}${t.by === 'sea' ? esc(lateWords(s, `${t.city}-tribute`)) : ''}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
+    .map((t) => `<p class="eta sent">${esc(cap(tributeWords(t)))} ${t.phase === 'road' && t.by === 'sea' && s.tick >= t.start + t.dur && blockaded(s) ? `waiting off your gulf: ${esc(whose(blockaded(s)!.city))} fleet holds the mouth of your harbour, and it sails in once the blockade is broken or lifted` : t.phase === 'road' ? `on its way by ${t.by === 'sea' ? 'sea' : 'road'}: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} about ${esc(dayWords(t.start + t.dur + (t.by === 'sea' ? SAIL_IN : 0)))}${t.by === 'sea' ? esc(lateWords(s, `${t.city}-tribute`)) : ''}` : t.phase === 'bay' ? 'on its ship in your bay, coming ashore' : 'coming in to your stores on its donkeys'}.</p>`)
     .join('');
   const last = s.empire.tribute.filter((t) => t.city === v.city && t.phase === 'done').at(-1);
   const lastLine = last ? `<p class="if">Last: ${esc(tributeWords(last))} ${esc(last.how)}${last.lost ? ` (${fmt(last.lost)} there was no room for)` : ''}, ${esc(dayWords(last.ended))}.</p>` : '';

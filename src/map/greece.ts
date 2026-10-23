@@ -280,7 +280,74 @@ export function alongLine(p: readonly number[], d: number): { x: number; z: numb
   return { x: p[0] ?? 0, z: p[1] ?? 0, dx: 1, dz: 0 };
 }
 
-const byId = new Map(WAYS.map((w) => [w.id, w]));
+/**
+ * Slice 37: the lanes your own ships sail to the sites, for a colony of
+ * yours (founding it, its ships home, your triremes guarding it): out of the
+ * gulf like every lane, then among the islands to the site. The map draws one
+ * only while you have settlers on it or a colony at its end. By id
+ * `<site>-colony`.
+ */
+export const SITE_LANES: readonly Way[] = [
+  // Past Hydra to Kythnos' western shore.
+  { id: 'kythnos-colony', to: 'kythnos', kind: 'sea', pts: [...GULF, [23.4, 37.22], [23.95, 37.38], [24.42, 37.4]], drawn: false },
+  // South past the Argolid's tip and across to Melos' bay.
+  { id: 'melos-colony', to: 'melos', kind: 'sea', pts: [...GULF, [23.4, 37.05], [24.0, 36.75], [24.4, 36.71]], drawn: false },
+  // Through the western Cyclades, between Sifnos and Melos, past Antiparos to Naxos.
+  { id: 'naxos-colony', to: 'naxos', kind: 'sea', pts: [...GULF, [23.4, 37.15], [24.1, 37.0], [24.6, 36.85], [25.0, 36.9], [25.3, 36.98], [25.42, 37.1]], drawn: false },
+  // The Troy lane's way up the Aegean past Euboea, then north past Lemnos and Athos to Thasos.
+  { id: 'thasos-colony', to: 'thasos', kind: 'sea', pts: [...GULF, [23.4, 37.22], [23.95, 37.42], [24.3, 37.78], [24.65, 37.94], [25.05, 38.4], [24.95, 39.0], [24.85, 39.6], [24.6, 40.2], [24.7, 40.55], [24.7, 40.7]], drawn: false },
+  // Round Cape Maleas to Kythera.
+  { id: 'kythera-colony', to: 'kythera', kind: 'sea', pts: [...GULF, [23.25, 36.95], [23.3, 36.55], [23.2, 36.3], [22.99, 36.25]], drawn: false },
+  // Round Maleas, past Kythera and south across the open sea to the Libyan shore.
+  { id: 'cyrene-colony', to: 'cyrene', kind: 'sea', pts: [...GULF, [23.25, 36.95], [23.3, 36.55], [23.2, 36.15], [22.9, 35.6], [22.3, 35.1], [21.9, 34.78]], drawn: false },
+];
+/** Slice 37: the lane to a site (its id: 'thasos'). */
+export const siteLaneId = (site: string): string => `${site}-colony`;
+
+/**
+ * Review of slice 37: the way a rival's ships sail against your colony on a
+ * site, by sea (so the map doesn't draw them across land): out along one of
+ * the city's own lanes (to your city, or to another city) as far as the point
+ * nearest the site's lane, across to it, and along it to the site. Table x, z
+ * pairs from the city's end; null for a city with no lane (straight across).
+ */
+export function seaWayTo(city: CityId, site: string): number[] | null {
+  const lane = SITE_LANES.find((w) => w.to === site);
+  if (!lane) return null;
+  const q = lane.pts.map(([lon, lat]) => project(lon, lat));
+  const qLeft: number[] = q.map(() => 0);
+  for (let j = q.length - 2; j >= 0; j--) qLeft[j] = qLeft[j + 1] + dhypot(q[j + 1][0] - q[j][0], q[j + 1][1] - q[j][1]);
+  // (Every sea lane with an end at the city, from that end.)
+  const own: Array<ReadonlyArray<readonly [number, number]>> = [
+    ...WAYS.filter((w) => w.kind === 'sea' && w.to === city).map((w) => w.pts.slice().reverse()),
+    ...RIVAL_WAYS.filter((w) => w.kind === 'sea' && (w.a === city || w.b === city)).map((w) => (w.a === city ? w.pts : w.pts.slice().reverse())),
+  ];
+  // (A stretch across open water costs more than sailing a lane: the crossing is kept short.)
+  const ACROSS = 4;
+  let best: number[] | null = null;
+  let cost = Infinity;
+  for (const pts of own) {
+    const p = pts.map(([lon, lat]) => project(lon, lat));
+    let along = 0;
+    for (let i = 0; i < p.length; i++) {
+      if (i > 0) along += dhypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+      for (let j = 0; j < q.length; j++) {
+        const c = along + ACROSS * dhypot(q[j][0] - p[i][0], q[j][1] - p[i][1]) + qLeft[j];
+        if (c < cost) {
+          cost = c;
+          best = [...p.slice(0, i + 1), ...q.slice(j)].flat();
+        }
+      }
+    }
+  }
+  if (!best) return null;
+  // (Where the two lanes share a point, it is kept once.)
+  const out: number[] = [];
+  for (let i = 0; i + 1 < best.length; i += 2) if (!out.length || dhypot(best[i] - out[out.length - 2], best[i + 1] - out[out.length - 1]) > 1e-6) out.push(best[i], best[i + 1]);
+  return out;
+}
+
+const byId = new Map([...WAYS, ...SITE_LANES].map((w) => [w.id, w]));
 /** A way by its id (they are fixed). */
 export const wayOf = (id: string): Way => byId.get(id) as Way;
 

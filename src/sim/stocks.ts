@@ -6,6 +6,8 @@
  * only a row in WARE_INFO, and shows up everywhere else by itself.
  */
 import { districtTitle } from '../map/districts';
+// Slice 37.
+import { siteOf } from '../map/greece';
 import { centreOf } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import { ARMOUR, CHEESE, COPPER, FLEECE, GRAPES, held, HORSES, MARBLE, MEAT, OIL, OLIVES, TIMBER, WARES, WHEAT, WINE, type Ware } from './foods';
@@ -204,6 +206,11 @@ export function flowLabel(kind: StockKind, what: string, w: Ware): string {
   if (kind === 'bought' && what.startsWith('taken:')) return `Taken from ${TRADER_NAMES[what.slice(6)] ?? what.slice(6)} by your soldiers`;
   // Slice 34: a vassal's tribute.
   if (kind === 'bought' && what.startsWith('vassal:')) return `Tribute from ${TRADER_NAMES[what.slice(7)] ?? what.slice(7)}, your vassal`;
+  // Slice 37: your colony's share, and the wheat its settlers took.
+  if (what.startsWith('colony:')) {
+    const site = siteOf(what.slice(7))?.name ?? what.slice(7);
+    return kind === 'bought' ? `From your colony on ${site}` : `Taken by the settlers for ${site}`;
+  }
   if ((kind === 'sold' || kind === 'bought') && what.startsWith('gift:')) {
     const city = TRADER_NAMES[what.slice(5)] ?? what.slice(5).replace(/^./, (c) => c.toUpperCase());
     return kind === 'sold' ? `A gift to ${city}` : `A gift from ${city}`;

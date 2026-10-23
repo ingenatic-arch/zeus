@@ -326,7 +326,8 @@ export function raiseRefusal(s: SimState, b: Building | undefined): string {
 
 /** The lowest company number not in use. */
 function freeNumber(s: SimState): number {
-  const used = new Set(s.army.companies.map((c) => c.n));
+  // (Slice 37: an ally's company is numbered among its own city's, not yours.)
+  const used = new Set(s.army.companies.filter((c) => !c.ally).map((c) => c.n));
   let n = 1;
   while (used.has(n)) n++;
   return n;

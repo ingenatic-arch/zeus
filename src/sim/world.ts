@@ -521,7 +521,7 @@ export function settle(w: World, tick: number, mild: boolean, shuffle: boolean):
     firstHarvest(c, tick);
   }
   if (!Array.isArray(w.sites)) w.sites = [];
-  for (const p of SITES) if (!w.sites.some((x) => x.id === p.id)) w.sites.push({ id: p.id, owner: '', since: 0, pop: 0, bound: '', told: 0, lands: 0 });
+  for (const p of SITES) if (!w.sites.some((x) => x.id === p.id)) w.sites.push({ id: p.id, owner: '', since: 0, pop: 0, bound: '', told: 0, lands: 0, free: '' });
 }
 
 /** A ruled city's character (its base size, what it makes and uses), or undefined. */

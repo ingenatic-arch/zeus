@@ -52,6 +52,8 @@ import { freshMonuments, isMonument } from './monuments';
 import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from './monumentworks';
 // Slice 39.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
+// Slice 37
+import { colonyCommand, moveColonist, stepColonies } from './colonies';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -236,6 +238,8 @@ export class Sim {
     stepGrowth(s);
     // Slice 34: your vassals and allies: tribute on its way, loyalty and risings, heralds' answers, aid against raiders, allies' calls (nothing with none).
     stepEmpire(s, map);
+    // Slice 37: your colonies: settlers walking to the quay and sailing, the colonies' growth, ships, loyalty and threats (nothing with none).
+    stepColonies(s, map);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
@@ -370,6 +374,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 34
     case 'empire':
       empireCommand(s, map, c);
+      break;
+    // Slice 37
+    case 'colony':
+      if (typeof c.site === 'string' && typeof c.act === 'string') colonyCommand(s, map, c);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
@@ -994,6 +1002,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? moveBuilder(s, map, w)
               : w.kind === 'visitor'
                 ? moveVisitor(s, map, w)
+              // Slice 37: households walking down to the quay for a colony.
+              : w.kind === 'colonist'
+                ? moveColonist(s, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

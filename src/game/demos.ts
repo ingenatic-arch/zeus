@@ -62,6 +62,10 @@ import { achieved } from '../sim/ambitions';
 import { COLOSSUS_COST, totalOf } from '../sim/monuments';
 import { COPPER, setHeld } from '../sim/foods';
 import { note } from '../sim/stockbook';
+// Slice 37
+import { colonyOf, foundingOf, foundRefusal, FOUND_COST } from '../sim/colonies';
+import { news } from '../sim/diplomacy';
+import { allyOf } from '../sim/vassals';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -2945,6 +2949,96 @@ const HORSEMEN = estatesTown('horsemen');
 const firstEstate = (s: SimState): number => s.buildings.find((b) => b.estate && b.level >= GREAT_ESTATE)?.id ?? 0;
 const horsemenBanner = (s: SimState): number => s.army.companies.find((c) => c.kind === 'horseman')?.id ?? 0;
 
+// Slice 37
+/**
+ * Colonies (slice 37). #colony: #richtown's town played on, as a player
+ * saving for it would, until the treasury can fit out settlers and still pay
+ * a month's wages (a year at most); then settlers sent to Thasos (if a rival
+ * is bound there or holds it, the first free site instead, named so), played
+ * on until your ship rides at anchor off the jetty, the families still
+ * walking down to the quay (review of slice 37: it opens paused).
+ * #colonies: the same town, answering Greece as a middling player would,
+ * its first settlers sent to Naxos instead (sent to Thasos first, the town
+ * could not pay for a second before Rhodes' settlers were on Naxos), and to
+ * Thasos once they have landed and it can pay again (the first free site if
+ * a rival is there first); each colony's share left fair, any threat let be (the town has no
+ * triremes); played on until the second colony is two years old: the map of
+ * Greece open on Nea Thasos' page. #ally: #collect's town; an alliance
+ * offered to Corinth, as a player wanting friends against Sparta would (if
+ * its ruler says no, it is made anyway, set up for this demo and named so);
+ * then Sparta's king turned against the city (set up the same way), played
+ * on until Corinth's company has come in at your edge by its caravans' road
+ * and walked a few days: the camera on the road where they came in.
+ */
+type ColonyStage = 'colony' | 'colonies' | 'ally';
+/** How long a colony demo waits, at most, for the treasury (or for a founding to land). */
+const COLONY_WAIT = TICKS_PER_YEAR;
+/** How long #colonies plays on after its second colony lands. */
+const COLONIES_YEARS = 2;
+/** How many days #ally's allies have walked in from your edge. */
+const ALLY_DAYS = 3;
+
+function colonyTown(stage: ColonyStage): (sim: Sim) => void {
+  return (sim) => {
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const seen = new Set<number>();
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        if (stage === 'colonies') answerAsMiddling(sim, seen);
+      }
+    };
+    // (Settlers sent to a site once the treasury can pay for them and a month's wages: the site named, or the first free one.)
+    const found = (want: string): string => {
+      playOn(COLONY_WAIT, () => spendable(s) >= FOUND_COST + wageBill(s));
+      const free = (id: string): boolean => foundRefusal(s, sim.map, id) === '';
+      const site = free(want) ? want : (s.world.sites.find((x) => free(x.id))?.id ?? want);
+      send({ type: 'colony', act: 'found', site });
+      return site;
+    };
+    if (stage === 'colony' || stage === 'colonies') {
+      town(TOWN_TICKS, SAFE, true)(sim);
+      for (const d of s.world.deals) seen.add(d.id);
+      // (#colonies to Naxos first: by the time the town could pay for a second, Rhodes' settlers were there.)
+      const first = found(stage === 'colony' ? 'thasos' : 'naxos');
+      const f = foundingOf(s, first);
+      if (!f) return;
+      if (stage === 'colony') {
+        // (Review of slice 37: until your ship has anchored, the families still on the road a few days from the quay; it opens
+        // paused. Played on to the first household aboard, it opened two days before she sailed: too quick to watch or hover.)
+        playOn(3 * TICKS_PER_MONTH, () => f.phase !== 'gathering' || !f.ship || f.ship.phase === SHIP_ANCHORED);
+        return;
+      }
+      playOn(COLONY_WAIT, () => !!colonyOf(s, first) || !foundingOf(s, first));
+      const second = found('thasos');
+      playOn(COLONY_WAIT, () => !!colonyOf(s, second) || !foundingOf(s, second));
+      const landed = colonyOf(s, second)?.since ?? s.tick;
+      playOn(COLONIES_YEARS * TICKS_PER_YEAR, () => s.tick >= landed + COLONIES_YEARS * TICKS_PER_YEAR);
+      return;
+    }
+    debtTown('collect')(sim);
+    send({ type: 'empire', act: 'ally', city: 'corinth' });
+    const h = s.empire.heralds.find((x) => x.city === 'corinth' && x.kind === 'alliance');
+    if (h) while (h.answer === '' && s.tick < h.due + TICKS_PER_DAY) sim.run(10);
+    if (!allyOf(s, 'corinth')) {
+      s.empire.allies.push({ city: 'corinth', since: s.tick, refused: [], declined: 0 });
+      news(s.world, s.tick, 'corinth', 'Corinth is your ally (set up for this demo): it sends men when you are raided');
+    }
+    stagedRaid(sim, 'sparta', 'the king will not have Corinth’s friend grow strong beside him');
+    const until = s.tick + 4 * TICKS_PER_MONTH;
+    while (s.tick < until && !s.empire.aid.some((a) => a.city === 'corinth' && a.phase === 'city')) sim.run(10);
+    sim.run(ALLY_DAYS * TICKS_PER_DAY);
+  };
+}
+const COLONY_TOWN = colonyTown('colony');
+const COLONIES_TOWN = colonyTown('colonies');
+const ALLY_TOWN = colonyTown('ally');
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -3110,6 +3204,10 @@ const SCENES: Record<string, Demo> = {
   // Slice 36: the great houses. Two great estates below the villas, the first one's panel open; a company of horsemen from six estates, Sparta's band ten days out, paused, the riders' banner in hand.
   estates: { view: 'estates', setup: ESTATES, overlay: 'missing', open: firstEstate },
   horsemen: { view: 'horsemen', speed: 'paused', setup: HORSEMEN, overlay: 'missing', side: { tab: 'army' }, select: horsemenBanner },
+  // Slice 37: colonies. Your settlers coming down to the quay and your ship at anchor for Thasos; two colonies grown, Nea Thasos' page open on the map; Corinth's company come to your aid by its road.
+  colony: { view: 'colony', speed: 'paused', setup: COLONY_TOWN, overlay: 'missing' },
+  colonies: { view: 'bay', setup: COLONIES_TOWN, overlay: 'missing', greece: 'site:thasos' },
+  ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
