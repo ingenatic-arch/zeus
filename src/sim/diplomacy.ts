@@ -556,8 +556,8 @@ export function settleMood(s: SimState, c: WorldCity, cause = '', named = false)
   return `${turn}${opened.length ? `, and has opened ${waysWords(opened)} again` : ''}${because}`;
 }
 
-/** A ruler's mood's turn in a line of news: which way, and to what word (null if the line is not one alone). */
-const TURN_LINE = /^.+ has (warmed to you|softened towards you|cooled towards you), (\w+) now(?::|$)|^.+ has turned (\w+) towards you(?::|$)/;
+/** A ruler's mood's turn in a line of news, after the ruler's name: which way, and to what word. */
+const TURN_LINE = /^ has (warmed to you|softened towards you|cooled towards you), (\w+) now(?::|$)|^ has turned (\w+) towards you(?::|$)/;
 
 /**
  * Slice 40: if this city's newest line of news, within the last month, is a turn of its ruler's mood to the word it is
@@ -567,7 +567,10 @@ function takeBack(w: World, tick: number, c: WorldCity, was: number, up: boolean
   for (let i = w.news.length - 1; i >= 0; i--) {
     const n = w.news[i];
     if (n.city !== c.id) continue;
-    const m = TURN_LINE.exec(n.line);
+    // (Review of slice 40: only a line that is the turn alone, starting with the ruler's name. A line of yours that ends
+    // with the turn, "Your gift of 200 wheat reached Sparta (+8): King Leon has warmed to you, cordial now", stays.)
+    const who = [rulerName(c), rulerShort(c)].find((x) => n.line.startsWith(`${x} has `));
+    const m = who ? TURN_LINE.exec(n.line.slice(who.length)) : null;
     if (!m || tick - n.tick > TICKS_PER_MONTH) return false;
     const rose = m[1] === 'warmed to you' || m[1] === 'softened towards you';
     if ((m[2] ?? m[3]) !== MOOD_WORDS[was] || rose === up) return false;

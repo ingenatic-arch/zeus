@@ -221,6 +221,30 @@ describe('thieves', () => {
     expect(until(sim, () => w.people === 0, TICKS_PER_MONTH)).toBe(true);
   });
 
+  it('a chase never stalls: in #empire every thief is home or caught within two months, and every chase ends within a fortnight (review of slice 40)', () => {
+    // (A chase planned afresh every few ticks from the tile behind the watchman sent him back to it each time: he ran to and
+    // fro on one spot for months, his thief waiting at his own door.)
+    const sim = demoSim('empire');
+    const s = sim.state;
+    const out = new Map<number, number>();
+    const chasing = new Map<number, number>();
+    let thieves = 0;
+    let chases = 0;
+    for (let d = 0; d < 180; d++) {
+      sim.run(TICKS_PER_DAY);
+      for (const w of s.walkers) {
+        if (w.kind === 'thief' && w.people > 0 && !out.has(w.id)) (out.set(w.id, s.tick), thieves++);
+        if (w.kind === 'watchman' && w.meat > 0 && !chasing.has(w.id * 100000 + w.meat)) (chasing.set(w.id * 100000 + w.meat, s.tick), chases++);
+      }
+      for (const w of s.walkers) {
+        if (w.kind === 'thief' && w.people > 0) expect(s.tick - out.get(w.id)!).toBeLessThan(2 * TICKS_PER_MONTH);
+        if (w.kind === 'watchman' && w.meat > 0) expect(s.tick - chasing.get(w.id * 100000 + w.meat)!).toBeLessThan(14 * TICKS_PER_DAY);
+      }
+    }
+    expect(thieves).toBeGreaterThan(3);
+    expect(chases).toBeGreaterThan(0);
+  }, 120000);
+
   it('a town with thefts and catches in it plays the same twice, and keeps through a save', () => {
     const play = (): SimState => {
       const sim = demoSim('richtown');

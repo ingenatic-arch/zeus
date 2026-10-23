@@ -841,7 +841,8 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
   t.how = how;
   t.phase = 'done';
   t.ended = s.tick;
-  if (t.ship && t.ship.phase !== SHIP_LEAVING) {
+  // (Review of slice 40: not through a blockade. She rides at anchor until it lifts: stepTribute.)
+  if (t.ship && t.ship.phase !== SHIP_LEAVING && !blockaded(s)) {
     t.ship.phase = SHIP_LEAVING;
     t.ship.turned = t.ship.stop;
     t.ship.since = s.tick;
@@ -882,8 +883,11 @@ function sailIn(s: SimState, map: CoastMap, t: Tribute): boolean {
 function stepTribute(s: SimState, map: CoastMap): void {
   // (Slice 38: while a blockade holds the harbour, tribute by sea waits off your gulf, and its ship at anchor waits.)
   const closed = !!blockaded(s);
+  // (Review of slice 40: nor while the last ship of hers still rides in the bay, held there by a blockade, so that the two never
+  // sail the bay at once: the bay draws one ship a city or a colony.)
+  const inBay = (t: Tribute): boolean => s.empire.tribute.some((o) => o !== t && !!o.ship && o.city === t.city && o.colony === t.colony);
   for (const t of s.empire.tribute) {
-    if (t.phase === 'road' && s.tick >= t.start + t.dur && !(closed && t.by === 'sea')) {
+    if (t.phase === 'road' && s.tick >= t.start + t.dur && !(closed && t.by === 'sea') && !(t.by === 'sea' && inBay(t))) {
       if (t.by === 'land') tributeIn(s, map, t);
       else if (!sailIn(s, map, t)) unload(s, t, undefined, 'landed on the beach and carried straight to the stores (you have no trading post)');
     } else if (t.phase === 'bay' && t.ship && t.ship.phase === SHIP_COMING && s.tick >= t.start + t.dur) {
@@ -894,7 +898,7 @@ function stepTribute(s: SimState, map: CoastMap): void {
       else unload(s, t, undefined, 'landed on the beach and carried straight to the stores (the trading post is gone)');
     }
     // (Her cargo ashore: she rides at anchor a little, then sails off.)
-    if (t.ship && t.ship.phase === SHIP_ANCHORED && t.phase === 'city' && s.tick - t.ship.since >= ASHORE && !closed) {
+    if (t.ship && t.ship.phase === SHIP_ANCHORED && (t.phase === 'city' || t.phase === 'done') && s.tick - t.ship.since >= ASHORE && !closed) {
       t.ship.phase = SHIP_LEAVING;
       t.ship.turned = t.ship.stop;
       t.ship.since = s.tick;
@@ -1391,7 +1395,7 @@ export function tributeShipStatus(s: SimState, t: Tribute): { title: string; det
       : ph === SHIP_ANCHORED
         ? t.phase === 'bay'
           ? `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
-          : `At anchor off your jetty, unladen: ${tributeWords(t)} on its way to your stores; she sails home soon`
+          : `At anchor off your jetty, unladen: ${tributeWords(t)} ${t.phase === 'done' ? 'in your stores' : 'on its way to your stores'}; ${blockaded(s) ? 'she waits for the blockade to lift before she sails home' : 'she sails home soon'}`
         : `Unladen, sailing home to ${from}: ${tributeWords(t)} on its way to your stores`;
   return { title: `${who} · ${tributeWords(t)}`, detail: `${doing}
 ${t.colony ? `Your colony sends its share each season` : `Your vassal sends its tribute each season`}; on the map of Greece she sails the lane from ${from}` };

@@ -681,9 +681,24 @@ function thiefInSight(s: SimState, size: number, w: Walker, from: number): Walke
   return best;
 }
 
+/**
+ * The road tile a runner is nearest: the nearer end of the stretch he is on. (Review of slice 40: roadUnder gives the
+ * tile at the stretch's start, often the one behind him, and a chase planned afresh every CHASE_REPLAN ticks from there
+ * sent him back to it each time: in #empire a watchman ran to and fro on one spot for months while his thief waited at
+ * his own door.)
+ */
+function roadNearest(s: SimState, w: Walker): number {
+  const a = w.tiles[w.seg];
+  const b = w.tiles[w.seg + 1];
+  const ok = (t: number | undefined): t is number => t !== undefined && t >= 0 && s.tiles[t] === TILE_ROAD;
+  if (!ok(a) || !ok(b)) return roadUnder(s, w);
+  const i = w.seg * 2;
+  return w.along * 2 > dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]) ? b : a;
+}
+
 /** Plan the chaser's way to where the thief is now (false if he can't be reached). */
 function planChase(s: SimState, size: number, w: Walker, thief: Walker): boolean {
-  const from = roadUnder(s, w);
+  const from = roadNearest(s, w);
   const to = roadUnder(s, thief);
   if (from < 0 || to < 0) return false;
   const search = roadSearch(s, size, [to]);

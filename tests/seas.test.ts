@@ -193,6 +193,25 @@ describe('blockades', () => {
     other.run(20 * TICKS_PER_DAY);
     expect(serialize(other.state)).toBe(serialize(sim.state));
   }, 300000);
+
+  it('in #empire a colony’s share ship unloaded while the blockade holds waits at anchor for it to lift, and the next waits off your gulf till she has gone (review of slice 40)', () => {
+    const sim = demoSim('empire');
+    const s = sim.state;
+    let waited = 0;
+    let lifted = false;
+    for (let d = 0; d < 160; d++) {
+      sim.run(TICKS_PER_DAY);
+      const ships = s.empire.tribute.filter((t) => t.ship);
+      if (blockaded(s)) {
+        expect(ships.every((t) => t.ship!.phase !== SHIP_LEAVING)).toBe(true);
+        if (ships.some((t) => t.phase === 'done')) waited++;
+      } else if (s.fleet.blockades.some((b) => b.phase === 'over')) lifted = true;
+      // (One ship a colony in the bay at once.)
+      expect(new Set(ships.map((t) => t.colony ?? t.city)).size).toBe(ships.length);
+    }
+    expect(waited).toBeGreaterThan(10);
+    expect(lifted).toBe(true);
+  }, 120000);
 });
 
 /** Troy's king threatens; the threat is refused (as the demos stage it). */

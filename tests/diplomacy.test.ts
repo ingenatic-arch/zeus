@@ -463,6 +463,20 @@ describe('the news when a mood turns', () => {
     c.memories.push({ kind: 'staged', why: 'out of sorts again', amount: -4, tick: s.tick, fade: 0 });
     day();
     expect(s.world.news.filter((n) => n.city === 'sparta').map((n) => n.line)).toEqual([expect.stringMatching(/has warmed to you, warm now/), expect.stringMatching(/has cooled towards you, cordial now/)]);
+    // (Review of slice 40.) A line of yours that ends with the turn (a gift's arrival) is never taken back: the turn back is told.
+    s.tick += 40 * TICKS_PER_DAY;
+    s.tick += TICKS_PER_DAY - (s.tick % TICKS_PER_DAY);
+    c.memories.push({ kind: 'staged', why: 'grateful', amount: 4, tick: s.tick, fade: 0 });
+    const turn = settleMood(s, c, 'your gift of 200 wheat', true);
+    expect(turn).toMatch(/has warmed to you, warm now/);
+    s.world.news.push({ tick: s.tick, city: 'sparta', line: `Your gift of 200 wheat reached Sparta (+4): ${turn.replace(/: your gift of .*$/, '')}` });
+    expect(c.feel).toBe(4);
+    s.tick += 10 * TICKS_PER_DAY;
+    c.memories.push({ kind: 'staged', why: 'out of sorts once more', amount: -4, tick: s.tick, fade: 0 });
+    day();
+    expect(c.feel).toBe(3);
+    const last2 = s.world.news.filter((n) => n.city === 'sparta').slice(-2).map((n) => n.line);
+    expect(last2).toEqual([expect.stringMatching(/^Your gift of 200 wheat reached Sparta/), expect.stringMatching(/has cooled towards you, cordial now/)]);
   });
 });
 
