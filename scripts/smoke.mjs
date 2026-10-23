@@ -420,6 +420,8 @@ if (await page.evaluate(() => window.__zeus.meshes().some((m) => m.name === 'mar
 await page.keyboard.press('Escape');
 await page.evaluate(() => window.__zeus.speed('fastest'));
 await page.waitForFunction(() => window.__zeus.city().warned === 0, null, { timeout: 120000 });
+// (Phase 5 review: the panel redraws a moment after the count, so on a loaded machine it could still show the day the road was mended.)
+await page.waitForFunction(() => /The water carrier came back/.test(window.__zeus.panelText() ?? ''), null, { timeout: 30000 }).catch(() => {});
 c = await city();
 pt = await panelText();
 if (c.cottages !== c0warn.cottages || !/The water carrier came back/.test(pt ?? '')) fail(`after mending, ${c0warn.cottages} -> ${c.cottages} cottages; panel: ${pt}`);
