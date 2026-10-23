@@ -896,6 +896,13 @@ body.greece-open .notices { width: min(560px, calc(100% - 432px)); }
 body.greece-open .townline { font-size: 12.5px; padding-top: 3px; padding-bottom: 3px; width: 100%; }
 body.greece-open .townline > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.greece-open .townline:hover > span { white-space: normal; }
+/* (Slice 40: on a window up to 800 high, the lines over the town keep to one row each too, the whole line on hover:
+   at 1280 × 720 three lines covered the top of #rivals' main street and #battle's bridge.) */
+@media (max-height: 800px) {
+  .townline { font-size: 12.5px; padding-top: 3px; padding-bottom: 3px; }
+  .townline > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .townline:hover > span { white-space: normal; }
+}
 /* There is no build bar on the map: a city's page may run down to the window's foot. */
 body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 /* The raid chip under the top bar: a war band counting down to your edge, then in your city. */

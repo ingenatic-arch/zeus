@@ -1383,11 +1383,15 @@ const colonyName = (s: SimState, t: Tribute): string => s.empire.colonies.find((
 export function tributeShipStatus(s: SimState, t: Tribute): { title: string; detail: string } {
   const who = t.colony ? `${colonyName(s, t)}’s share ship` : `${whose(t.city)} tribute ship`;
   const from = t.colony ? colonyName(s, t) : name(t.city);
+  // (By where the ship is, not where the goods are: the goods are 'bay' from the horizon on, while she still sails in.)
+  const ph = t.ship?.phase;
   const doing =
-    t.phase === 'road'
+    ph === SHIP_COMING
       ? `Sailing into your bay laden: she anchors off your jetty and her cargo comes ashore`
-      : t.phase === 'bay'
-        ? `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
+      : ph === SHIP_ANCHORED
+        ? t.phase === 'bay'
+          ? `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
+          : `At anchor off your jetty, unladen: ${tributeWords(t)} on its way to your stores; she sails home soon`
         : `Unladen, sailing home to ${from}: ${tributeWords(t)} on its way to your stores`;
   return { title: `${who} · ${tributeWords(t)}`, detail: `${doing}
 ${t.colony ? `Your colony sends its share each season` : `Your vassal sends its tribute each season`}; on the map of Greece she sails the lane from ${from}` };

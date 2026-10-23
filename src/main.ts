@@ -229,6 +229,8 @@ interface Probe {
   /** Slice 38: the shipyard's panel's text ('' while it is shut). */
   shipyardText?: () => string;
   /** Slice 38: the triremes' hulls, oars and repairs, the blockades and the warships on the lanes. */
+  /** Slice 40: the tribute and share ships drawn in the bay, where each is (for hovering them in tests). */
+  tributeShips?: () => Array<{ key: string; visible: boolean; x: number; z: number }>;
   seas?: () => { triremes: { id: number; state: string; task: string; hp: number; oars: number; mend: boolean }[]; ships: { id: number; state: string; blockade: number; x: number; z: number }[]; blockades: { city: string; phase: string; ships: number; sunk: number; end: string }[]; warships: { way: string; of: string; ships: number }[]; words: string };
   /** A docker carrying a ware (any, -1) to the quay (back) or back to a store, where he is drawn. */
   dockerOf?: (ware: number, back?: boolean) => { x: number; z: number } | null;
@@ -1668,6 +1670,7 @@ function start(preparedTown: string | null): void {
   probe.ledgerText = () => ledger.text;
   probe.tradeText = () => tradePanel.text;
   probe.shipyardText = () => shipyardPanel.text;
+  probe.tributeShips = () => [...city.tributeShips].map(([key, v]) => ({ key, visible: v.info.visible, x: v.info.x, z: v.info.z }));
   probe.seas = () => {
     const f = sim.state.fleet;
     return {
