@@ -86,8 +86,9 @@ export const TAKES = { hoplite: 0.45, archer: 1, raider: 0.8, horseman: 0.55 } a
 export const RIDE_ENGAGE = 6;
 export const RIDE_LEASH = 9;
 export const RIDE_DOWN = 12;
-/** A rider with this many raiders on him at once is caught in the press (no room to wheel his horse): every blow hurts him twice as much. */
-export const PRESS = 3;
+/** A rider with this many raiders on him at once is caught in the press (no room to wheel his horse): every blow hurts him half as much again. (Slice 36's review: it was three raiders and twice the hurt, which every band's charge brought on its first rider in, so six riders, said to be harder than hoplites, lost to eight raiders that six hoplites beat.) */
+export const PRESS = 4;
+export const PRESS_HURT = 1.5;
 /** The odds a blow lands; an arrow's, falling off with the distance. */
 const HIT = 0.65;
 const ARROW_HIT = 0.78;
@@ -317,7 +318,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     const c = companies.get(t.company);
     f.cool = SWING + Math.floor(roll(s, f.id, 9) * 4);
     f.swung = s.tick;
-    if (roll(s, f.id, 10) < HIT) t.hp -= ATTACK.raider * (0.8 + 0.4 * roll(s, f.id, 11)) * TAKES[c?.kind ?? 'archer'] * (c?.kind === 'horseman' && inThePress(foes, t) ? 2 : 1);
+    if (roll(s, f.id, 10) < HIT) t.hp -= ATTACK.raider * (0.8 + 0.4 * roll(s, f.id, 11)) * TAKES[c?.kind ?? 'archer'] * (c?.kind === 'horseman' && inThePress(foes, t) ? PRESS_HURT : 1);
   }
 
   // The fallen.

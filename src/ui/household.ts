@@ -166,7 +166,7 @@ const TITLE: Record<Service, string> = { water: 'Water', food: 'Food', religion:
 /** What the next level needs, in a sentence. */
 function nextLine(s: SimState, b: Building): string {
   const fed = b.foodUntil - s.tick;
-  const settled = s.tick - b.since >= SETTLE ? '' : `, once they’ve been a ${levelName(b.level, '')} a month`;
+  const settled = s.tick - b.since >= SETTLE ? '' : `, once they’ve been ${/^[aeiou]/.test(levelName(b.level, '')) ? 'an' : 'a'} ${levelName(b.level, '')} a month`;
   const short = (need: Service): string => (untilOf(b, need) - s.tick >= RISE_MIN ? '' : ` (they have ${untilOf(b, need) > s.tick ? `${days(untilOf(b, need) - s.tick)}’ worth` : 'none'})`);
   if (b.level === TENT) return 'To become a hut: water, brought by a fountain’s water carrier';
   if (b.level === HUT) {

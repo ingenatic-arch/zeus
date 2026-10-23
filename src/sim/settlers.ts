@@ -151,7 +151,8 @@ export function arrivalOutlook(s: SimState, map: CoastMap): Outlook {
   const edges = edgeRoads(s, size);
   const water = waterShare(s);
   const harsh = harshNow(s);
-  const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.people === 0 && b.incoming === 0);
+  // (Slice 36's review: an estate's plot is no room for settlers.)
+  const plots = s.buildings.filter((b) => b.kind === 'home' && !b.estate && b.level === 0 && b.people === 0 && b.incoming === 0);
   if (edges.length === 0) return { road: false, room: 0, water, interval: SETTLER_INTERVAL, harsh, cutOff: plots.length };
   const search = roadSearch(s, size, edges);
   const room = reachableRoom(s, size, search);

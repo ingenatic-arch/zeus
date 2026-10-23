@@ -31,7 +31,7 @@ import type { OverlayMode } from '../render/overlay';
 // Slice 30.
 import { talliesNow, TEMPT_HALF, thievesOut } from '../sim/crime';
 import { drawPictures } from '../render/pictures';
-import { BUILDING_NAMES, centreOf, HOME_NAMES, jobsAt, TOP_LEVEL } from '../sim/buildings';
+import { BUILDING_NAMES, centreOf, GREAT_ESTATE, HOME_NAMES, jobsAt } from '../sim/buildings';
 import { districtAt } from '../map/districts';
 import { START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_SECOND } from '../sim/clock';
 import { citySells, lackWords, NEED_WORDS, NEEDS, needsOf, untilOf, warningsOf } from '../sim/folk';
@@ -843,17 +843,20 @@ export class SidePanel {
     }
     // Homes by level.
     out.push('<h3>Homes</h3><table class="levels"><tbody>');
-    const most = Math.max(1, ...Array.from({ length: TOP_LEVEL }, (_, i) => homes.filter((b) => b.level === i + 1).reduce((a, b) => a + b.people, 0)));
-    for (let lv = TOP_LEVEL; lv >= 1; lv--) {
+    // (Slice 36's review: and the estates and great estates above the villas.)
+    const most = Math.max(1, ...Array.from({ length: GREAT_ESTATE }, (_, i) => homes.filter((b) => b.level === i + 1).reduce((a, b) => a + b.people, 0)));
+    for (let lv = GREAT_ESTATE; lv >= 1; lv--) {
       const at = homes.filter((b) => b.level === lv);
       if (!at.length) continue;
       const people = at.reduce((a, b) => a + b.people, 0);
       const name = HOME_NAMES[lv].replace(/^An? /, '');
       out.push(`<tr><td class="what">${at.length} ${esc(at.length === 1 ? lower(name) : plural(lower(name)))}</td><td class="bar"><i style="width:${((people / most) * 100).toFixed(0)}%"></i></td><td class="amt">${fmt(people)}</td></tr>`);
     }
-    const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0).length;
+    const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && !b.estate).length;
+    const estatePlots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.estate).length;
     out.push('</tbody></table>');
     if (plots) out.push(`<p class="side-note">${plots} empty ${plots === 1 ? 'plot' : 'plots'} marked out for settlers.</p>`);
+    if (estatePlots) out.push(`<p class="side-note">${estatePlots} ${estatePlots === 1 ? 'estate’s plot' : 'estates’ plots'} waiting for a noble house.</p>`);
     // Work.
     const wf = workforce(s);
     const able = homes.reduce((a, b) => a + canWorkIn(s, b), 0);

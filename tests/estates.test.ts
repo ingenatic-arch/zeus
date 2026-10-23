@@ -376,6 +376,27 @@ describe('horsemen in the field', () => {
     expect(horse.after).toBeGreaterThan(foot.after);
     expect(horse.after).toBeGreaterThan(0);
   }, 600000);
+
+  // (Slice 36's review: #horsemen's riders, sent to the main street on their own, lost to its band of 38 and it raided anyway.)
+  it('#horsemen: six riders sent to the main street break Sparta’s small band and ride down its runners', () => {
+    const sim = demoSim('horsemen');
+    const s = sim.state;
+    const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0)!;
+    const c = s.army.companies.find((x) => x.kind === 'horseman')!;
+    send(sim, { type: 'banner', company: c.id, tile: T(55, 41) });
+    let atBreak = -1;
+    until(
+      sim,
+      () => {
+        if (r.broke && atBreak < 0) atBreak = r.fallen;
+        return r.phase === 'homeward' && s.army.foes.length === 0;
+      },
+      2 * TICKS_PER_MONTH,
+    );
+    expect(r.broke).toBe(true);
+    expect(r.fallen - atBreak).toBeGreaterThan(0);
+    expect(r.took).toBe(0);
+  }, 600000);
 });
 
 describe('the slice’s findings', () => {

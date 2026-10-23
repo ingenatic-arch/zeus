@@ -61,7 +61,8 @@ export class Orders {
   hint(): string {
     const c = companyOf(this.sim.state, this.selected);
     if (!c) return '';
-    return `${cap(companyName(c))} of ${kindWord(c.kind)} · click a street or open ground to march there · Esc to let go`;
+    // (Slice 36's review: horsemen ride, as the pointer's tip says.)
+    return `${cap(companyName(c))} of ${kindWord(c.kind)} · click a street or open ground to ${c.kind === 'horseman' ? 'ride' : 'march'} there · Esc to let go`;
   }
 
   /** The pointer moved (world point or null, screen point). */
@@ -94,7 +95,7 @@ export class Orders {
       if (c && over && over !== c.id) {
         const o = companyOf(s, over);
         if (o) this.tip.show(line(`${cap(companyName(o))} of ${kindWord(o.kind)} · click to take its banner instead`), sx, sy);
-      } else if (c && over) this.tip.show(line(`${cap(companyName(c))} of ${kindWord(c.kind)}: its banner is in hand · click a street or open ground to march there`), sx, sy);
+      } else if (c && over) this.tip.show(line(`${cap(companyName(c))} of ${kindWord(c.kind)}: its banner is in hand · click a street or open ground to ${c.kind === 'horseman' ? 'ride' : 'march'} there`), sx, sy);
       else this.tip.show(null);
       return;
     }

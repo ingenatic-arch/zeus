@@ -796,7 +796,7 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     const home = levelName(estate.level).toLowerCase();
     const what = WARE_NAMES[w.food];
     if (w.back) return { title, detail: w.load > 0 ? `Bringing ${amount(w.food, w.load)} home to the ${home}` : `Heading back to the ${home} empty-handed` };
-    if (w.wait > 0) return { title, detail: `Loading ${unitOf(w.food, 2)} of ${what} at the storehouse` };
+    if (w.wait > 0) return { title, detail: w.food === HORSES ? 'Taking horses from the storehouse’s rail' : `Loading ${unitOf(w.food, 2)} of ${what} at the storehouse` };
     return { title, detail: `On his way to the storehouse for ${what} for the ${home}` };
   }
   if (w.kind === 'porter' && w.food >= FIRST_GOOD) {
@@ -1106,8 +1106,10 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
     if (s.walkers.some((w) => w.kind === 'cart' && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
     return chain.stuck(s);
   }
-  if (goodUntil(b, good) > 0) return `within reach of a ${stallName}, but the ${what} vendor has taken other turns lately`;
-  return `within reach of a ${stallName}; the ${what} vendor hasn’t come this way yet`;
+  // (Slice 36's review: "an oil stall", not "a oil stall".)
+  const aStall = `${/^[aeiou]/.test(stallName) ? 'an' : 'a'} ${stallName}`;
+  if (goodUntil(b, good) > 0) return `within reach of ${aStall}, but the ${what} vendor has taken other turns lately`;
+  return `within reach of ${aStall}; the ${what} vendor hasn’t come this way yet`;
 }
 
 /** Why no oil reaches a cottage or better. */

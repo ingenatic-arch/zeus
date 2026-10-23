@@ -1605,11 +1605,17 @@ const hoplitesBanner = (s: SimState): number => s.army.companies.find((c) => c.k
 const BATTLE_DAYS = 14;
 /** A ruler set against the city for a demo: cold enough to threaten and stay cold. */
 const DEMO_ANGER = -80;
-function stagedRaid(sim: Sim, city: CityId, why: string): void {
+function stagedRaid(sim: Sim, city: CityId, why: string, men?: number): void {
   const s = sim.state;
   const c = cityOf(s.world, city);
   c.memories.push({ kind: 'staged', why: `${why} (set up for this demo)`, amount: DEMO_ANGER, tick: s.tick, fade: 4 * TICKS_PER_YEAR });
   const r = threaten(s, sim.map, c, `${why} (set up for this demo)`);
+  // (A band of a size set for the demo, and its threat's line saying so.)
+  if (men !== undefined) {
+    const was = `about ${r.men} men`;
+    r.men = men;
+    for (const n of s.world.news) if (n.tick === s.tick && n.line.includes(was)) n.line = n.line.replace(was, `about ${men} men`);
+  }
   sim.enqueue({ type: 'answer', deal: r.deal, act: 'refuse' });
   sim.flush();
 }
@@ -1962,6 +1968,7 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
     const d = makeLoanAsk(s, c, loanSize(s, 4000));
     if (stage === 'lend') return;
     send({ type: 'answer', deal: d.id, act: 'send' });
+    stockUp(sim);
     const l = loanOfDeal(s.world, d.id);
     if (!l) return;
     const stop = s.tick + 3 * TICKS_PER_YEAR;
@@ -1976,6 +1983,26 @@ function loanTown(stage: LoanStage): (sim: Sim) => void {
 }
 /** The prepared towns of the loans demos. */
 const LEND = loanTown('lend');
+
+/**
+ * Review of slice 36: #repaid's and #forgive's year of waiting for the loan's
+ * day, the town kept as a player would keep a street of villas through the
+ * autumn: a fleece stall at the east agora too, and meat bought from Sparta
+ * and cheese and fleece from Corinth by their roads. (With the ships back on
+ * schedule after the winters, their history fell otherwise: the fleece
+ * vendor's round missed villas in the autumn and the meat ran short in
+ * December, and about twenty villas went down a month before they opened.)
+ */
+function stockUp(sim: Sim): void {
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  send({ type: 'stall', at: T(97, 42), good: FLEECE });
+  send({ type: 'deal', city: 'sparta', kind: 'land', good: MEAT, buy: true, upto: 600 });
+  send({ type: 'deal', city: 'corinth', kind: 'land', good: CHEESE, buy: true, upto: 600 });
+  send({ type: 'deal', city: 'corinth', kind: 'land', good: FLEECE, buy: true, upto: 400 });
+}
 
 // Slice 31
 /**
@@ -2106,6 +2133,7 @@ function debtTown(stage: DebtStage): (sim: Sim) => void {
       const d = s.world.deals.find((x) => x.city === LEND_CITY && x.kind === 'loanask' && x.state === 'open');
       if (!d) return;
       send({ type: 'answer', deal: d.id, act: 'send' });
+      stockUp(sim);
       const l = loanOfDeal(s.world, d.id);
       if (!l) return;
       dueAndDefault(sim, l.id);
@@ -2373,6 +2401,9 @@ const ESTATE_PLOTS = [T(70, 44), T(75, 44)];
 const MORE_ESTATE_PLOTS = [T(70, 48), T(75, 48), T(70, 52), T(75, 52)];
 const ESTATE_FOUNTAIN = T(75, 56);
 const ESTATE_SHRINE = T(75, 58);
+/** (Slice 36's review: #horsemen's shrine for the villas west of the core, whose priestess went other ways once the estates were on her round, and a storehouse on the meadow by the two pastures, whose carts were all on the long road to the storehouse in the east.) */
+const WEST_SHRINE = T(60, 36);
+const MEADOW_STOREHOUSE = T(44, 38);
 const ESTATE_HORSEFARM = T(56, 38);
 const ESTATE_PASTURE = T(39, 38);
 /** The longest #estates plays on for its two great estates, full (two years), and how long after. */
@@ -2381,6 +2412,8 @@ const ESTATES_AFTER = 4 * TICKS_PER_DAY;
 /** The longest #horsemen waits for its riders (four months), and how many days from the edge Sparta's band is when it opens. */
 const HORSEMEN_WAIT = 4 * TICKS_PER_MONTH;
 const ESTATE_RAID_DAYS = 10;
+/** (Slice 36's review: and how many men Sparta sends. A city this size draws a band of 38, which six riders on their own can't break: riders ride down a band that runs, they don't stand against one five times their number. So the demo's band is a small one, of a size six riders can break.) */
+const HORSEMEN_BAND = 8;
 function estatesTown(stage: 'estates' | 'horsemen'): (sim: Sim) => void {
   return (sim) => {
     town(TOWN_TICKS, SAFE, true)(sim);
@@ -2416,8 +2449,10 @@ function estatesTown(stage: 'estates' | 'horsemen'): (sim: Sim) => void {
     sim.run(ESTATES_AFTER);
     if (stage === 'estates') return;
     // Four more estates down the road, and a barracks for their sons.
-    waitFor(sim, s.tick, MORE_ESTATE_PLOTS.length * ESTATE_PLOT_COST + FOUNTAIN_COST + SHRINE_COST + JOBS.shrine * WAGE + ARMS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE);
+    waitFor(sim, s.tick, MORE_ESTATE_PLOTS.length * ESTATE_PLOT_COST + FOUNTAIN_COST + 2 * SHRINE_COST + 2 * JOBS.shrine * WAGE + STOREHOUSE_COST + JOBS.storehouse * WAGE + ARMS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE);
     send({ type: 'estate', at: MORE_ESTATE_PLOTS });
+    send({ type: 'build', kind: 'shrine', at: [WEST_SHRINE] });
+    send({ type: 'build', kind: 'storehouse', at: [MEADOW_STOREHOUSE] });
     // (A fountain for the lower two, beyond the main street's fountains' reach, and a shrine: one priestess's round
     // didn't reach the core's north streets as well once the estates were on it.)
     send({ type: 'fountain', at: [ESTATE_FOUNTAIN] });
@@ -2436,7 +2471,7 @@ function estatesTown(stage: 'estates' | 'horsemen'): (sim: Sim) => void {
     while (s.tick < stop && readyOf(s, c).length < Math.min(all.length, companySize('horseman'))) sim.run(10);
     // A few days' drill, then Sparta's band.
     sim.run(2 * TICKS_PER_DAY);
-    stagedRaid(sim, 'sparta', 'the king will not have a city of horsemen so near his lands');
+    stagedRaid(sim, 'sparta', 'the king will not have a city of horsemen so near his lands', HORSEMEN_BAND);
     const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
     if (!r) return;
     while (!(r.phase === 'marching' && r.start + r.dur - s.tick <= ESTATE_RAID_DAYS * TICKS_PER_DAY) && r.phase !== 'raiding' && s.tick < r.start + TICKS_PER_YEAR) sim.step();

@@ -231,7 +231,7 @@ export class Streets {
     const map = this.map;
     const S = footSide(b);
     // The lodge's and the dairy's grounds are plain (a worn patch, a pen and a yard): a coarser grid will do.
-    const steps = b.kind === 'mine' ? 8 : b.kind === 'barracks' ? 16 : b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' || b.kind === 'pasture' || b.kind === 'vineyard' || b.kind === 'winery' || b.kind === 'armoury' ? 12 : 24;
+    const steps = b.kind === 'mine' ? 8 : b.kind === 'barracks' ? 16 : b.kind === 'lodge' || b.kind === 'dairy' || b.kind === 'grove' || b.kind === 'storehouse' || b.kind === 'pasture' || b.kind === 'vineyard' || b.kind === 'winery' || b.kind === 'armoury' || b.kind === 'horsefarm' ? 12 : 24;
     const inset = 0.04;
     const cx = b.x + S / 2;
     const cz = b.z + S / 2;
@@ -307,6 +307,13 @@ export class Streets {
         } else if (b.kind === 'press' || b.kind === 'storehouse' || b.kind === 'winery' || b.kind === 'armoury') {
           // Beaten earth, worn most at the front where the carts turn.
           c.copy(earth).lerp(worn, Math.max(0, Math.min(1, (lx + 0.6) / 2))).multiplyScalar(j2);
+        } else if (b.kind === 'horsefarm') {
+          // (Slice 36's review: it stood on the agora's paving.) The paddock's cropped grass, trampled to earth at its gate
+          // and round its troughs; the stable's floor and the yard by the groom's hut, beaten earth.
+          if (lx > -0.62 && lx < 1.37 && lz > -1.37 && lz < 0.57) {
+            const trod = Math.max(0, 1 - Math.hypot(lx - 1.25, lz + 0.45) / 0.7) * 0.6 + Math.max(0, 1 - Math.hypot(lx + 0.35, lz + 0.95) / 0.5) * 0.4;
+            c.copy(grass).lerp(worn, Math.min(0.85, 0.2 + trod + 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 326))).multiplyScalar(j2);
+          } else c.copy(worn).lerp(earth, 0.5).multiplyScalar(j2);
         } else if (b.kind === 'dairy') {
           // The pen behind: cropped pasture, trampled in patches; the yard in front, beaten earth.
           if (lx < 0.14) c.copy(grass).lerp(worn, 0.3 * hash2(Math.round(xa * 3), Math.round(za * 3), 318)).multiplyScalar(j2);
