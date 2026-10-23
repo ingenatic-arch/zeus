@@ -12,7 +12,11 @@
  * another module's exports belongs inside a function, as routes.ts's is now,
  * or exported, so this sees it. (When this was written, every such private
  * constant was checked once by exporting it: only routes.ts's went wrong,
- * loaded after trade.ts or world.ts.)
+ * loaded after trade.ts or world.ts. At the merge with slice 38, its new
+ * module blockades.ts is entered like every other, and every private
+ * constant slice 38 added (in blockades.ts, fleet.ts, raids.ts, rounds.ts
+ * and trade.ts) is a plain number or worked out from clock.ts, which
+ * imports nothing, so none can come out wrong.)
  */
 import { readdirSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -44,6 +48,8 @@ function problem(v: unknown): string {
 
 describe('the order the sim’s modules load in', () => {
   it('whichever module is loaded first, every exported constant is worked out', async () => {
+    // (Every module in the two folders, slice 38's blockades.ts and slice 39's ambitions.ts and laurels.ts among them.)
+    for (const m of ['sim/blockades', 'sim/ambitions', 'sim/laurels']) expect(MODULES).toContain(`../src/${m}`);
     const bad: string[] = [];
     for (const first of MODULES) {
       vi.resetModules();

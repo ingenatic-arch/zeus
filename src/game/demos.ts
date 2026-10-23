@@ -763,6 +763,14 @@ const RICH_VILLAS = 1900;
 const RICH_LEAD = TICKS_PER_MONTH;
 const RICH_IN = 165;
 
+/**
+ * What #town's builder keeps back besides the east street's 820 dr before it lays the street out: nothing, but in
+ * #ambition's town (the merge of slice 39 with the trunk). There Thebes' 300 dr for a thriving town comes in June of
+ * year 2, so the street went in two months sooner than in #vassal's history, the treasury ran dry under the new
+ * buildings' wages and the heavy taxes, and the wages went unpaid for a month (tests/treasury.test.ts). Set only while
+ * that setup runs, so every other town's history is as before.
+ */
+let eastSpare = 0;
 function town(opening: number, safety: Safety = SAFE, rich = false, richWatch = true): (sim: Sim) => void {
   return (sim) => {
     let ticks = opening;
@@ -815,8 +823,8 @@ function town(opening: number, safety: Safety = SAFE, rich = false, richWatch = 
     // once fine houses needed fleece and the history changed, went five or six weeks at a time without plays).
     afford(3900, THEATRE_COST + JOBS.theatre * WAGE);
     at(3900, { type: 'build', kind: 'theatre', at: [T(63, 36)] });
-    // The street east of the core, with its own fountain, agora and tax office.
-    afford(3900, 820);
+    // The street east of the core, with its own fountain, agora and tax office (and, for #ambition's town, a month's spare: see EAST_SPARE).
+    afford(3900, 820 + eastSpare);
     at(sim.state.tick, { type: 'road', tiles: row(96, 112, 41) });
     at(sim.state.tick, { type: 'build', kind: 'taxoffice', at: [T(EAST_OFFICE.x, EAST_OFFICE.z)] });
     at(sim.state.tick, {
@@ -2732,10 +2740,18 @@ const ACHIEVED_SPUR = [T(73, 68)];
 const ACHIEVED_YARDS = [T(76, 69), T(78, 69), T(75, 62)];
 /** How long #achieved may play on, at most, to each of its moments. */
 const ACHIEVED_MOST = 2 * TICKS_PER_YEAR;
+/** What #ambition's builder keeps back besides the east street's cost (about a month's wages then; see eastSpare). */
+const AMBITION_EAST_SPARE = 200;
 function ambitionTown(stage: 'ambition' | 'achieved'): (sim: Sim) => void {
   return (sim) => {
     ambition(sim, true);
-    empireTown('vassal')(sim);
+    // (The merge of slice 39 with the trunk: a month's wages kept back before the east street goes in; see eastSpare.)
+    eastSpare = AMBITION_EAST_SPARE;
+    try {
+      empireTown('vassal')(sim);
+    } finally {
+      eastSpare = 0;
+    }
     if (stage === 'ambition') return;
     const s = sim.state;
     const seen = new Set(s.world.deals.map((d) => d.id));
