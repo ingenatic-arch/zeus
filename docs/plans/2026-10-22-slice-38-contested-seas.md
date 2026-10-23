@@ -95,7 +95,7 @@ Measured at `3c9eb51`, headless Chromium with software WebGL at 1920 × 1080, wi
 
 ## As built
 
-Built as planned, in four commits on `claude/p5-works` (plan `09f7e2b`, sim `860f4c2`, render and UI `b894fcc`, demos and tuning `813a130`), with these differences and details:
+Built as planned, in commits on `claude/p5-works` (plan `09f7e2b`, sim `860f4c2`, render and UI `b894fcc`, demos and tuning `813a130`, the end checks' fixes and the check-in `910d5c2`), with these differences and details:
 
 - **Where a blockade lies.** The harbour's mouth is 18 tiles in from the map's edge along the trading post's way in (`MOUTH_IN` in `trade.ts`), out beyond the island, not just inside the edge as first built (8): from there the line reads as across the bay, with the city behind it. Its ships lie 4 apart (`BLOCKADE_GAP`), pulled in towards the middle (then back along the way) until each is on open water. A ship sailing in turns back only if she is not yet past that point; a ship already past it comes in.
 - **The merchant ship's pace.** She crosses the bay at a tile a tick (`BAY_PACE` 1.0, was 0.5). Her time in sight is about **11 seconds**, not the 7 the design guessed: her last stretch into the jetty keeps its slow-down, and at 1.5 or 2 tiles a tick she lurched as she slowed (the trade test's smoothness check failed), so 1.0 it is. Her times of arrival and departure are unchanged.
