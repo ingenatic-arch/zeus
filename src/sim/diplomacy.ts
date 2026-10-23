@@ -51,6 +51,8 @@ import { giftOf, newWalker, offMapPoint, roadPoints, setGiftOf, setPath } from '
 import { cityOf, fadeFor, HOSTILE, MOOD_WORDS, moodLevel, moodOf, memoryWorth, rulerName, rulerShort, WARM } from './world';
 import { festivalOf, festivalOn } from './festivals';
 import { helpedFoe } from './rivals';
+// Slice 38 (review): a blockade holds gifts by sea.
+import { blockaded } from './lanes';
 
 /** What you can give: drachmas, or so many of a trade good. */
 export const GIFT_COINS: readonly number[] = [100, 250, 500];
@@ -182,17 +184,24 @@ export function giftRefusal(s: SimState, map: CoastMap, city: CityId | string, w
   if (!RULED.includes(city as CityId)) return 'There is no ruler there to give to';
   const id = city as CityId;
   if (giftTo(s.world, id)) return `Your gift to ${cityName(id)} is still on its way`;
+  // Slice 38 (review): no gift sails while a blockade holds your harbour's mouth.
+  const shut = blockaded(s);
+  const sea = (coin: boolean): boolean => !!shut && !!routeWay(id, 'sea') && (coin ? !routeWay(id, 'land') : (giftWay(s, map, id, false) as { by?: RouteKind }).by === 'sea');
+  const shutWords = (): string => {
+    const n = PLACES[shut!.city].name;
+    return `No ship can sail with it while ${n.endsWith('s') ? `${n}’` : `${n}’s`} fleet holds the mouth of your harbour`;
+  };
   if (ware < 0) {
     if (!GIFT_COINS.includes(amount)) return 'Not a gift you can send';
     if (spendable(s) < amount) return `The treasury can’t spare ${fmt(amount)} dr now`;
-    return '';
+    return sea(true) ? shutWords() : '';
   }
   const k = Number.isInteger(ware) ? tradeIndex(ware as Ware) : -1;
   if (k < 0 || !GIFT_LOTS.includes(amount)) return 'Not a gift you can send';
   if (cityHolds(s, ware as Ware) < amount) return `Your ${storeKind(ware as Ware) === 'granary' ? 'granaries hold' : 'storehouses hold'} less than ${fmt(amount)} ${WARE_NAMES[ware as Ware]}`;
-  if (way !== undefined) return way;
+  if (way !== undefined) return way || (sea(false) ? shutWords() : '');
   const w = giftWay(s, map, id, false);
-  return 'why' in w ? w.why : '';
+  return 'why' in w ? w.why : sea(false) ? shutWords() : '';
 }
 
 /** Where a way's far end is along it, and the way's id. */

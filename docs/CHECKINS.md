@@ -16,7 +16,7 @@ What breaks, or moves:
 - Every other demo (115 of 124) plays exactly as before. I compared each with the starting commit, at opening and 900 ticks on.
 
 ### What's new
-- **Blockades.** A city at war with you might send its fleet against your harbour, if it has a sea lane to you, a fleet of 6 or more, and you have a trading post. It decides at the turn of a month, one month in three. At war with you means one of these: its raiders are out against you, your expedition went against it (until six months after), it is the foe in an ally's war you joined, or it rose against you within the year. It is telegraphed: an urgent line in the News of Greece when it puts to sea ("Troy's fleet has put to sea to blockade your harbour: 3 ships, off your harbour in about 19 days..."), its galleys on its lane on the map, and its sails on your horizon days before it takes station. At least twelve days' warning in all.
+- **Blockades.** A city at war with you might send its fleet against your harbour, if it has a sea lane to you, a fleet of 6 or more, and you have a trading post. It decides at the turn of a month, one month in three. At war with you means one of these: its raiders are out against you, your expedition went against it (until six months after), it is the foe in an ally's war you joined, or it rose against you within the year. It is telegraphed: an urgent line in the News of Greece when it puts to sea ("Troy's fleet has put to sea to blockade your harbour: 3 ships, off your harbour in about 21 days..."), its galleys on its lane on the map, and its sails on your horizon days before it takes station. At least twelve days' warning in all.
 - **While a blockade holds**, its ships ride across your harbour's mouth, out beyond the island. The Tyrian ship due waits out at sea, and one at the quay finishes loading and waits there, her chip reading "Held". Your sea routes' ships do the same, and a vassal's tribute by sea waits. The Military tab, the shipyard panel and each ship's hover say what it is and how to end it: "Sink 2 more and the rest flee; at most 85 days more before its supplies run short".
 - **Breaking it.** Your triremes row out to the blockading ships as to any enemy in your bay. Sink half of them and the rest flee. The city remembers it (-10, fading over a year) and its fleet is smaller by the ships sunk. Otherwise the blockade ends when its war does, after three months at most, or when winter drives it home (two times in three). The Lighthouse does not keep a war fleet off.
 - **Warships on your lanes.** While two cities are at war, each side with a fleet of 4 or more puts warships on the other's lane from your city, if you trade there. A city at war with you does the same on its own lane. They are seen first and seize from ten days on, as pirates do, until the war ends. A guard fights them (each warship counts for half again a pirate ship). The Lighthouse doesn't keep them off either.
@@ -25,7 +25,7 @@ What breaks, or moves:
 - **Oars.** Each trireme has her oars, the share of them whole. Blows break them, and so does ramming now and then. With oars broken she rows slower, down to a third of her pace. Under 40 whole, or under 35 hull, she breaks off and limps home, listing a little, with gaps in her rows of oars.
 - **Repairs.** Home, she is laid up at the shipyard until she is whole. A full yard mends 6 of a hull and 12 of every hundred oars a day, so a badly beaten trireme is whole in about ten days. You can also call one in for repair yourself.
 - **The shipyard panel.** Click a shipyard or a trireme, or "Open the shipyard" on the Military tab. It shows the harbour (a blockade coming or holding, or broken), the yard's shipwrights and moorings, and each trireme: what she is doing, her hull and oars as bars, her rowers, her pay, how many days until she is whole, and her orders (guard a lane, bring her home, call her in for repair). Below that come the lanes (pirates and warships) and the last fights at sea.
-- **Raiders land where the warning says.** A band from the sea lands from the beach its "Sails!" line names, or from the nearest ship to it if that one is sunk. The other ships draw up within four tiles. While they sail in, a pole with a red pennant marks that beach, so you can plant your companies there in time.
+- **Raiders land where the warning says.** A band from the sea lands from the beach its "Sails!" line names, or from the nearest ship to it if that one is sunk. The other ships draw up within four tiles of it where the beach has room. While they sail in, a pole with a red pennant marks that beach, so you can plant your companies there in time.
 - **Smaller fixes.** An enemy ship sunk while sailing off laden gives back her share of the loot (to the stores and the treasury, and the news says so). Two triremes on one ship take her opposite sides. A trireme rowing home no longer offers the lanes' buttons. The quay's logs sit a little clear of its marble.
 
 ### What to try
@@ -38,12 +38,12 @@ Each link also opens paused if you add `-paused` (for example `#blockade-paused`
 
 ### What I'd like your eye on
 - **Where the blockade lies.** Its three ships ride in a line out beyond the island, about 18 tiles in from the map's edge along the Tyrian ship's way. Does that read as "across the mouth of your harbour", or should it sit closer in?
-- **Broken oars at the mooring.** Rowing, the gaps in a hurt trireme's oars show. At her mooring the oars are drawn in, so the broken ones barely differ, and the two triremes in #shipyard look much alike. Is the panel's bar enough, or should a ship under repair show it (shipwrights, a plank or two)?
+- **A ship under repair.** Rowing, the gaps in a hurt trireme's oars show. At her mooring the oars are drawn in, so since the review a ship laid up under repair has the shipwrights' staging alongside her, pale new planks in her side and new oars on her deck, and lists a little towards the staging. In #shipyard, is that enough to tell her from the whole one beside her?
 - **The shipyard panel's length.** At 900 pixels tall its last section (the lanes) is below the fold and needs a scroll.
 - **The pace of the fights.** In #blockade, about three weeks pass from rowing out to the blockade broken. One trireme limps home with her oars broken before the end, and the other sinks the second ship alone. Is that the right length and weight for it?
 
 ### Known rough edges
-- **Gifts by sea still sail** through a blockade (as the plan has it); only ships trading and tribute are held.
+- **Gifts by sea** can't be sent while a blockade holds (since the review). A gift already being loaded when the blockade takes station still sails, and so do goods sent for a ruler's request.
 - **Your own fleet can't blockade or raid** a rival yet (a later phase).
 - **The quay's marble and logs together** are placed from the models' sizes. No demo opens with both on the quay, so I haven't seen the pair on screen.
 - **Warships never come into your bay.** They keep to the lanes; only a blockade's ships come in.
@@ -64,6 +64,19 @@ Headless Chromium with software WebGL at 1920 × 1080. Before is `3c9eb51` (the 
 | `#fortress` / `#quay` | 1,371,901 and 93 / 1,164,532 and 71 | the same |
 | `#blockade` / `#shipyard` | | 1,559,188 triangles, 115 draw calls / 1,447,500 and 95, from their views |
 | Frame work (update before drawing) | not measurable this time | not measurable this time: at that load, software rendering drew 0 to 2 frames in 8 seconds a demo, on both builds |
+
+### What the review changed
+I played each step above at 1920 × 1080 and read the code. What I changed:
+- **The blockade's days now come true.** Its ships took about nine days to cross from your horizon to the harbour's mouth, while the "Sails!" line said four and the first line's count was five days short. They now row in at a pace that puts the last on station about six days after the first sail is seen, as the line says, and the first line's "off your harbour in about N days" holds: about 21 days from Troy, 12 from Athens or Corinth (twelve days is still the least warning).
+- **Troy's ships read as Troy's.** On station across the mouth they now show their sails, black and green, where before the sails were furled and from over the town they looked like plain brown hulls.
+- **How the fight is going.** Once your triremes have hurt them, the blockade's line (the Military tab, the shipyard panel and its card on the map) gives its ships' hulls: "their hulls at 100%, 64% and 30%".
+- **A trireme under repair looks it.** At her mooring she has the shipwrights' staging alongside, pale new planks in her side and new oars on her deck, and lists a little towards the staging, so in `#shipyard` the hurt one stands out from the whole one.
+- **No gift by sea through a blockade.** While one holds, a gift that would go by sea can't be sent, and its buttons say why. The shipyard panel and the first News line say so too.
+- **Held ships and tribute say they are held.** The merchant ship's line under the top bar said "loading" while her chip said "Held"; it now says she has loaded and waits at the quay. A vassal's tribute by sea waiting off your gulf said "in your bay about today" on its Empire tab and map card; it now says it waits, and why.
+- **The map of Greece.** Hovering a blockading fleet showed "A trader from blockade" and clicking it could open a page for no city; it now has its own card and opens its city's page. Warships' cards and the sea lane on a city's page said "Pirates"; they now say whose warships they are and which war ("Troy's warships · at war with Athens"), as do the lanes on the Military tab and the shipyard panel. A fleet that turns for home before it reaches you now sails home from where it was, not from your gulf.
+- **Smaller.** `#blockade`'s reason no longer has brackets inside brackets. This check-in now says the other ships draw up within four tiles where the beach has room (in `#landing` two of them are about six tiles off, the beach by the jetty being short).
+
+Every demo's history is as the builder left it; only the words in `#blockade`'s and `#shipyard`'s towns changed. Still for your eye: where the blockade lies, whether the staging reads, the panel's length on a shorter screen, and the fight's pace (about three weeks, of which the first five days are the triremes rowing out to it).
 
 ## Slice 35 — Monuments (22 Oct)
 

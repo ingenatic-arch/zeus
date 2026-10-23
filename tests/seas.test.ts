@@ -12,9 +12,9 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { lineLength, wayOf, wayPoints, WAYS } from '../src/map/greece';
-import { blockadeOn, blockadeOnMap, sendBlockade, stageBlockade, toBreak, warsWithYou, WARSHIP_WARNING } from '../src/sim/blockades';
+import { BAY_TICKS, blockadeOn, blockadeOnMap, sendBlockade, stageBlockade, toBreak, warsWithYou, WARSHIP_WARNING } from '../src/sim/blockades';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
-import { giftRefusal } from '../src/sim/diplomacy';
+import { GIFT_COINS, giftRefusal } from '../src/sim/diplomacy';
 import { sendExpedition } from '../src/sim/expeditions';
 import { CHEESE, FLEECE, MEAT, OIL, WHEAT, WINE } from '../src/sim/foods';
 import { CRIPPLED_OARS, daysToMend, FIT, fit, LANES, MEND_A_DAY, OARS_A_DAY, oarPace, pirateBand, ROW_PACE, shipsOf, stationAlong } from '../src/sim/fleet';
@@ -72,6 +72,12 @@ describe('blockades', () => {
     expect(s.tick - b.seen).toBeGreaterThanOrEqual(10 * TICKS_PER_DAY);
     expect(s.tick - sighted).toBeGreaterThan(TICKS_PER_DAY);
     expect(blockaded(s)).toBe(b);
+    // (Review of slice 38: the lines' days come true: on station about BAY_TICKS after the sails are seen, as the Sails! line says, and about when the first line said.)
+    expect(Math.abs(s.tick - sighted - BAY_TICKS)).toBeLessThanOrEqual(TICKS_PER_DAY);
+    expect(s.world.news.some((n) => n.line.startsWith('Sails! Troy’s blockading fleet') && n.line.endsWith(`in about ${Math.round(BAY_TICKS / TICKS_PER_DAY)} days`))).toBe(true);
+    expect(Math.abs(s.tick - (b.arrives + BAY_TICKS))).toBeLessThanOrEqual(TICKS_PER_DAY);
+    // (And no gift goes by sea while it holds; Troy is reached only by sea.)
+    expect(giftRefusal(s, sim.map, 'troy', -1, GIFT_COINS[0])).toMatch(/fleet holds the mouth of your harbour/);
     // While it holds, no ship comes in from beyond the mouth, and none leaves the quay.
     const ship = s.trade.ship;
     const route = routeOf(s, 'athens', 'sea')!;

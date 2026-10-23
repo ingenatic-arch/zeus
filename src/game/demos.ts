@@ -2558,7 +2558,7 @@ const LIT_TOWN = monumentTown('lit');
  * laid up, she is called in for repair, as a player would), the shipyard's
  * panel open.
  */
-const BLOCKADE_WHY = 'the king will not have a rival’s trade at sea so near his own lanes (set up for this demo)';
+const BLOCKADE_WHY = 'the king will not have a rival’s trade at sea so near his own lanes, as set up for this demo';
 /** How long the staged war lasts, and the longest #blockade waits for the ship to tie up and #shipyard for the fight to end. */
 const BLOCKADE_WAR = 6 * TICKS_PER_MONTH;
 const BLOCKADE_WAIT = 4 * TICKS_PER_MONTH;

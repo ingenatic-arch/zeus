@@ -246,11 +246,11 @@ function foeBody(colour: string): Part[] {
 /** How far a trireme at her foe is drawn from the foe's middle: her half-length and the ram, and the foe's half-beam. */
 const STAND_OFF = 2.45;
 
-type TriVersion = 'row0' | 'row1' | 'row2' | 'row3' | 'rest' | 'frame' | 'hull';
+type TriVersion = 'row0' | 'row1' | 'row2' | 'row3' | 'rest' | 'frame' | 'hull' | 'mend';
 /** Slice 38: her oars as drawn: whole, a few broken, many, most (by how many of every hundred are whole). */
 const OAR_DAMAGE = [0, 22, 45, 68] as const;
 const damageOf = (oars: number): number => (oars >= 85 ? 0 : oars >= 60 ? 1 : oars >= CRIPPLED_OARS ? 2 : 3);
-type FoeVersion = 'sail0' | 'sail1' | 'beached';
+type FoeVersion = 'sail0' | 'sail1' | 'beached' | 'hold';
 
 function triremeVersions(colour: string, broken = 0): Record<TriVersion, THREE.BufferGeometry> {
   const body = triremeBody(colour);
@@ -263,7 +263,27 @@ function triremeVersions(colour: string, broken = 0): Record<TriVersion, THREE.B
   out.rest = merge([...body, ...oars(TRI, 11, -0.62, 0.6, 1.45, -0.32, 0.4, PAL.mast, broken)]);
   out.frame = merge(triremeFrame());
   out.hull = merge(hull(TRI, [PAL.hull, PAL.hull, PAL.hullDark, PAL.hullDark, PAL.hullDark], PAL.deck));
+  // (Review of slice 38: laid up under repair, she reads as such at her mooring: oars drawn in, pale new planks let into her side, the shipwrights' staging alongside and new oars on her deck.)
+  out.mend = merge([...body, ...oars(TRI, 11, -0.62, 0.6, 1.45, -0.32, 0.4, PAL.mast, broken), ...repairKit()]);
   return out as Record<TriVersion, THREE.BufferGeometry>;
+}
+
+/** Review of slice 38: a trireme under repair: new planks on her side, a staging raft with its posts alongside, new oars on deck. */
+function repairKit(): Part[] {
+  const parts: Part[] = [];
+  const side = -1;
+  const FRESH = '#e4c896';
+  for (const [u, y, w] of [[-0.35, 0.18, 0.42], [-0.05, 0.08, 0.34], [0.3, 0.16, 0.38], [0.5, 0.05, 0.26]] as const) {
+    parts.push({ geo: new THREE.BoxGeometry(w, 0.075, 0.03).translate(u * TRI.half, y, side * (TRI.beam(u) * 0.985 + 0.012)), color: FRESH });
+  }
+  // The staging: a raft of planks at the waterline beside her, two posts and a rail.
+  const z = side * (TRI.beam(0) + 0.42);
+  parts.push({ geo: new THREE.BoxGeometry(1.5, 0.07, 0.34).translate(-0.05, 0.11, z), color: FRESH });
+  for (const x of [-0.7, 0.6]) parts.push(spar(v(x, -0.1, z + side * 0.1), v(x, 0.62, z + side * 0.1), 0.025, PAL.woodDark));
+  parts.push(spar(v(-0.7, 0.55, z + side * 0.1), v(0.6, 0.55, z + side * 0.1), 0.02, PAL.woodDark));
+  // New oars laid along her deck.
+  for (let i = 0; i < 3; i++) parts.push(spar(v(-0.9, TRI.sheer(0) + 0.03, -0.12 + i * 0.09), v(0.7, TRI.sheer(0) + 0.03, -0.1 + i * 0.09), 0.016, FRESH));
+  return parts;
 }
 
 function foeVersions(colour: string): Record<FoeVersion, THREE.BufferGeometry> {
@@ -273,6 +293,8 @@ function foeVersions(colour: string): Record<FoeVersion, THREE.BufferGeometry> {
     sail0: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, true), ...oars(FOE, 7, -0.55, 0.5, -0.35, 0.06, 0.85, PAL.hullDark)]),
     sail1: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, true), ...oars(FOE, 7, -0.55, 0.5, 0.25, -0.08, 0.85, PAL.hullDark)]),
     beached: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, false)]),
+    // (Review of slice 38: on station across your harbour's mouth, her sail in her city's colours set and her oars shipped, so the fleet reads as whose it is from over the town.)
+    hold: merge([...body, ...rig(0.1, 2.2, 0.85, dark, colour, true)]),
   };
 }
 
@@ -497,7 +519,9 @@ export class FleetView {
         calm = 0;
         geo = tri.work < BUILD_TICKS * 0.5 ? m.frame : m.hull;
       } else if (tri.state === 'moored') {
-        geo = m.rest;
+        // (Review of slice 38: under repair, her staging alongside and a slight list towards it.)
+        geo = tri.mend ? m.mend : m.rest;
+        if (tri.mend) roll -= 0.06;
         calm = 0.4;
       } else if (tri.state === 'sinking') {
         geo = m.rest;
@@ -537,8 +561,8 @@ export class FleetView {
     } else {
       const m = this.foeModel(this.cityOf(s, foe!));
       if (foe!.state === 'holding') {
-        // (Slice 38: a blockade's ship on station across the harbour's mouth: her sail furled, riding there.)
-        geo = m.beached;
+        // (Slice 38: a blockade's ship on station across the harbour's mouth, riding there: review of slice 38, her sail set in her colours, as furled she read as a plain hull from over the town.)
+        geo = m.hold;
         calm = 1.3;
       } else if (foe!.state === 'beached') {
         geo = m.beached;

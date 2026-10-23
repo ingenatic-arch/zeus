@@ -20,6 +20,7 @@ import type { Command } from '../sim/commands';
 import {
   afloat,
   bandWords,
+  warWords,
   CREW,
   crewWhy,
   daysToMend,
@@ -103,7 +104,7 @@ function harbourHtml(s: SimState): string {
   if (!b) return `<section class="harbour"><h3>The harbour</h3><p>${esc(words)}.</p></section>`;
   const left = blockadeLeft(s, b);
   const need = Math.max(0, toBreak(b) - b.sunk);
-  const stops = b.phase === 'holding' ? '<p class="small">While it holds: the Tyrian ship waits out at sea (or at the quay once loaded), your sea routes’ traders wait off your gulf, and a vassal’s tribute by sea waits too. Gifts you send still sail.</p>' : '<p class="small">Once it takes station no ship will come or go until it is broken or lifted.</p>';
+  const stops = b.phase === 'holding' ? '<p class="small">While it holds: the Tyrian ship waits out at sea (or at the quay once loaded), your sea routes’ traders wait off your gulf, and a vassal’s tribute by sea waits too. No gift can go by sea until it ends.</p>' : '<p class="small">Once it takes station no ship will come or go until it is broken or lifted.</p>';
   const how = `<p class="small">${b.phase === 'sailing' ? 'Your triremes at home, crewed and sound, will row out to its ships as they come into your waters' : 'Your triremes at home, crewed and sound, row out to its ships'}: sink ${need > 0 ? need : 'the rest'} ${need === 1 ? 'more' : 'more of them'} and the rest flee${left ? ` (${left} afloat)` : ''}.</p>`;
   return `<section class="harbour blockade"><h3>The harbour</h3><div class="late warnbox">${esc(words)}.</div>${stops}${how}</section>`;
 }
@@ -116,7 +117,7 @@ function lanesHtml(s: SimState): string {
     if (!p) continue;
     const g = s.fleet.triremes.filter((t) => t.order === 'lane' && t.lane === l.way && afloat(t));
     const when = p.state === 'seen' ? `they start seizing what of yours passes there in ${dayWords(Math.max(1, Math.ceil((p.from - s.tick) / TICKS_PER_DAY)))}` : `seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
-    lines.push(`<li class="warn-line">${esc(`${bandWords(p)} ${p.place}, on the lane to ${cityName(p.city)}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && !g[0].homeward && s.tick >= g[0].start + g[0].dur ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
+    lines.push(`<li class="warn-line">${esc(`${bandWords(p)} ${p.place}, on the lane to ${cityName(p.city)}${p.of ? ` (${warWords(s, p)})` : ''}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && !g[0].homeward && s.tick >= g[0].start + g[0].dur ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
   }
   const reps = s.fleet.reports.filter((r) => r.tick <= s.tick).slice(-4).reverse();
   const fights = reps.map((r) => `<li><small>${esc(agoWords(s.tick - r.tick))}</small> ${esc(r.line)}.</li>`);

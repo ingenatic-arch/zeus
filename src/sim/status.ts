@@ -1885,6 +1885,6 @@ function shipTownLine(s: SimState): TownLine | null {
   const late = ship.phase === SHIP_COMING ? lateDays(s, 'tyre') : 0;
   const stormed = late > 0 ? `, ${late} days late for the winter storms in the gulf` : '';
   const guided = lighthouse ? `${stormed ? ' but' : ','} guided in by your Lighthouse` : '';
-  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}${stormed}${guided}.${waiting}` : `The merchant ship is tied up at the trading post, loading.${waiting}`;
+  const text = ship.phase === SHIP_COMING ? `${news.short.startsWith('Sailing in') ? 'The merchant ship is sailing into the bay: she' : 'A sail on the horizon: the merchant ship'} ties up at the trading post in ${inDays}${stormed}${guided}.${waiting}` : news.chip === 'Held' ? `${news.line.replace(/^The ship/, 'The merchant ship')}.${waiting}` /* Slice 38 (review): held at the quay by a blockade. */ : `The merchant ship is tied up at the trading post, loading.${waiting}`;
   return { need: 'ship', text, at: post.id };
 }

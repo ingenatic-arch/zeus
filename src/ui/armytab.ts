@@ -20,7 +20,7 @@ import { afloat, CREW, crewWhy, FIT, guardRefusal, LANES, orderRefusal, PER_YARD
 import { PLACES } from '../map/greece';
 // Slice 38: the harbour's blockade, oars and repairs, warships.
 import { blockadeWords } from '../sim/blockades';
-import { bandWords, daysToMend } from '../sim/fleet';
+import { bandWords, daysToMend, warWords } from '../sim/fleet';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -194,7 +194,7 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     if (!p) continue;
     const g = ts.filter((t) => t.order === 'lane' && t.lane === l.way);
     const when = p.state === 'seen' ? `they start seizing what of yours passes there in ${Math.max(1, Math.ceil((p.from - s.tick) / TICKS_PER_DAY))} days` : `seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
-    lines.push(`<li class="warn-line">${esc(`${bandWords(p)} ${p.place}, on the lane to ${cityName(p.city)}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && triremeOnStation(s, g[0]) ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
+    lines.push(`<li class="warn-line">${esc(`${bandWords(p)} ${p.place}, on the lane to ${cityName(p.city)}${p.of ? ` (${warWords(s, p)})` : ''}: ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}${g.length ? `. The ${triremeName(g[0])} ${g[0].state === 'away' && triremeOnStation(s, g[0]) ? 'guards it' : 'is on her way to guard it'}` : ''}`)}.</li>`);
   }
   const reps = f.reports.filter((r) => r.tick <= s.tick).slice(-3).reverse();
   for (const r of reps) lines.push(`<li><small>${esc(agoWords(s.tick - r.tick))}</small> ${esc(r.line)}.</li>`);

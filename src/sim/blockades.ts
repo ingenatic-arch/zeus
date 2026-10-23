@@ -35,7 +35,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, settleMood } from './diplomacy';
 import { blockadeOff, blockadeSailIn, guardsOf, placeOn, triremeName } from './fleet';
 import { routeWay, voyageTicks } from './routes';
-import { armiesHome, seasonAt, TICKS_PER_SEASON, WINTER } from './seasons';
+import { armiesHome, seaPace, seasonAt, TICKS_PER_SEASON, WINTER } from './seasons';
 import type { Pirates, SimState } from './state';
 import { harbourMouth, tradingPost } from './trade';
 import { cityOf } from './world';
@@ -78,8 +78,8 @@ const LULL_CITY = TICKS_PER_YEAR;
 const LULL_ANY = 4 * TICKS_PER_MONTH;
 /** At least this long between its putting to sea and taking station (it sails slower if its lane is short). */
 const WARNING_LEAST = 12 * TICKS_PER_DAY;
-/** About how long its ships take from your horizon to the harbour's mouth (for the warning's sum). */
-export const BAY_TICKS = 4 * TICKS_PER_DAY;
+/** About how long its ships take from your horizon to the harbour's mouth (for the warning's sum; fleet.ts sets their pace to it: review of slice 38, they took twice the 4 days first set here). */
+export const BAY_TICKS = 6 * TICKS_PER_DAY;
 /** It holds at most this long before its supplies run short. */
 export const HOLD_MOST = 3 * TICKS_PER_MONTH;
 /** An expedition counts as a war with its city for this long after it comes home. */
@@ -174,9 +174,12 @@ export function blockadeOnMap(s: SimState, b: Blockade, tick: number): { along: 
   if (b.phase === 'coming' || b.phase === 'holding') return { along: H * 0.6, homeward: false, way, ships: blockadeLeft(s, b) };
   const left = b.ships - b.sunk;
   if (left <= 0 || b.ended === 0) return null;
-  const u = (tick - b.ended) / voyage;
+  // (Review of slice 38: turned for home before it reached your gulf, it sails home from where it was, not from the gulf.)
+  const early = b.ended < b.arrives;
+  const from = early ? L + (H - L) * clamp((b.ended - b.seen) / voyage, 0, 1) : H;
+  const u = (tick - b.ended) / (early ? Math.max(1, b.ended - b.seen) : voyage);
   if (u < 0 || u >= 1) return null;
-  return { along: H + (L - H) * u, homeward: true, way, ships: left };
+  return { along: from + (L - from) * u, homeward: true, way, ships: left };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,9 +208,10 @@ export function stepBlockades(s: SimState, map: CoastMap): void {
         end(s, map, b, 'harbour');
         continue;
       }
-      blockadeSailIn(s, map, b, mouth, false);
+      // (Review of slice 38: the days as they will sail them, winter's storms and all.)
+      const ticks = blockadeSailIn(s, map, b, mouth, false) / seaPace(s);
       b.phase = 'coming';
-      const days = Math.max(1, Math.round(BAY_TICKS / TICKS_PER_DAY));
+      const days = Math.max(1, Math.round(ticks / TICKS_PER_DAY));
       const line = `Sails! ${whose(b.city)} blockading fleet is in sight off your shore, ${b.ships} ships: they take station across the mouth of your harbour in about ${dayWords(days)}`;
       news(s.world, s.tick, b.city, line, true);
       armyNews(s, line, 0);
@@ -299,7 +303,7 @@ export function sendBlockade(s: SimState, war: WarWithYou, ships: number, until 
   const days = Math.round((voyage + BAY_TICKS) / TICKS_PER_DAY);
   const g = s.fleet.triremes.filter((t) => t.state !== 'building' && t.state !== 'sinking').length;
   const break_ = g ? `Your ${g === 1 ? 'trireme' : `${g} triremes`} can break it: sink ${toBreak(b)} of its ships and the rest flee` : 'Triremes could break it: sink half its ships and the rest flee';
-  news(s.world, s.tick, war.city, `${whose(war.city)} fleet has put to sea to blockade your harbour (${war.why}): ${b.ships} ships, off your harbour in about ${days} days. While they hold its mouth no ship comes or goes: the Tyrian ship, your sea routes’ traders and tribute by sea all wait. ${break_}`, true);
+  news(s.world, s.tick, war.city, `${whose(war.city)} fleet has put to sea to blockade your harbour (${war.why}): ${b.ships} ships, off your harbour in about ${days} days. While they hold its mouth no ship comes or goes: the Tyrian ship, your sea routes’ traders, tribute and gifts by sea all wait. ${break_}`, true);
   s.rev++;
   return b;
 }
@@ -330,7 +334,10 @@ export function blockadeWords(s: SimState): string {
   if (b.phase === 'sailing') return `${whose(b.city)} fleet is on its way to blockade your harbour (${b.why}): ${b.ships} ships, off your harbour in about ${dayWords(Math.max(1, Math.round((b.arrives + BAY_TICKS - s.tick) / TICKS_PER_DAY)))}`;
   if (b.phase === 'coming') return `${whose(b.city)} blockading fleet is sailing in to take station across your harbour’s mouth: ${left} ships`;
   const days = Math.max(1, Math.ceil((b.holds + HOLD_MOST - s.tick) / TICKS_PER_DAY));
-  return `${whose(b.city)} fleet holds your harbour’s mouth (${b.why}): ${left} ships, ${b.sunk} sunk. No ship comes or goes. Sink ${need} more and the rest flee; at most ${dayWords(days)} more before its supplies run short`;
+  // (Review of slice 38: how the fight goes, their hulls as your triremes wear them down.)
+  const hulls = s.fleet.ships.filter((e) => e.blockade === b.id && e.state !== 'sinking').map((e) => `${Math.max(1, Math.round(e.hp))}%`);
+  const hp = hulls.some((h) => h !== '100%') ? ` (${hulls.length === 1 ? 'her hull' : 'their hulls'} at ${hulls.length === 1 ? hulls[0] : `${hulls.slice(0, -1).join(', ')} and ${hulls.at(-1)}`})` : '';
+  return `${whose(b.city)} fleet holds your harbour’s mouth (${b.why}): ${left} ships${hp}, ${b.sunk} sunk. No ship comes or goes. Sink ${need} more and the rest flee; at most ${dayWords(days)} more before its supplies run short`;
 }
 
 // ---------------------------------------------------------------------------

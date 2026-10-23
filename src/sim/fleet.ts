@@ -49,7 +49,7 @@ import { seaPace } from './seasons';
 // Slice 35: pirates keep clear while the Lighthouse burns.
 import { piratesKeepClear } from './monuments';
 // Slice 38: blockades, warships, expeditions at sea, a laden ship's loot.
-import { blockadeOf, stepBlockades, stepWarships, type Blockade } from './blockades';
+import { BAY_TICKS, blockadeOf, stepBlockades, stepWarships, type Blockade } from './blockades';
 import { expeditionOnMap } from './expeditions';
 import { regainAtSea } from './raids';
 import { change } from './growth';
@@ -125,6 +125,8 @@ const BEACH_TICKS = 14 * TICKS_PER_DAY;
 /** A blockade's ships come in from this far beyond the edge, and lie this far apart across the harbour's mouth. */
 const BLOCKADE_HORIZON = 24;
 const BLOCKADE_GAP = 4;
+/** (Review of slice 38.) A blockade's ships set off from the horizon this far apart (ticks). */
+const BLOCKADE_STAGGER = 5;
 
 /** Pirates: none before your first sea route is this old; the odds a month once they may come; how long they are seen before they prey; how long they stay; the lull after. */
 const PIRATES_AFTER = TICKS_PER_YEAR;
@@ -1059,8 +1061,10 @@ export function daysToBeach(s: SimState, map: CoastMap, r: Raid): number {
  * ship's way in, and which way it runs there), bow to the harbour; or (a
  * demo's) are there already, holding.
  */
-export function blockadeSailIn(s: SimState, map: CoastMap, b: Blockade, mouth: { x: number; z: number; dx: number; dz: number }, there: boolean): void {
+export function blockadeSailIn(s: SimState, map: CoastMap, b: Blockade, mouth: { x: number; z: number; dx: number; dz: number }, there: boolean): number {
   const n = b.ships;
+  // (Review of slice 38: how long until the last is on station, for the "Sails!" line.)
+  let last = 0;
   const px = -mouth.dz;
   const pz = mouth.dx;
   const clear = (x: number, z: number): boolean => onWater(map, x, z) && onWater(map, x + mouth.dx * 1.5, z + mouth.dz * 1.5) && onWater(map, x - mouth.dx * 1.5, z - mouth.dz * 1.5);
@@ -1090,7 +1094,7 @@ export function blockadeSailIn(s: SimState, map: CoastMap, b: Blockade, mouth: {
       path,
       along: there ? pathLength(path) : 0,
       blockade: b.id,
-      from: there ? s.tick : s.tick + k * STAGGER,
+      from: there ? s.tick : s.tick + k * BLOCKADE_STAGGER,
       hp: 100,
       men: 0,
       bx: x,
@@ -1106,10 +1110,16 @@ export function blockadeSailIn(s: SimState, map: CoastMap, b: Blockade, mouth: {
       const p = pointAlong(path, 0);
       e.hx = p.dx;
       e.hz = p.dz;
+      // (Review of slice 38: quick enough that the last is on station about BAY_TICKS after the first is sighted, as the lines say; never slower than the usual paces. They took twice that.)
+      const usual = voyageIn(map, path);
+      const room = BAY_TICKS - k * BLOCKADE_STAGGER;
+      if (usual > room) e.pace = Math.round((usual / room) * 100) / 100;
+      last = Math.max(last, k * BLOCKADE_STAGGER + usual / (e.pace ?? 1));
     }
     s.fleet.ships.push(e);
   }
   s.rev++;
+  return last;
 }
 
 /** A blockade is over: its ships still afloat turn for the open sea. */
@@ -1587,6 +1597,12 @@ const OARS_LANE_MORE = 25;
 
 /** "Pirates", "Troy’s warships". */
 export const bandWords = (p: Pirates): string => (p.of ? `${whose(p.of)} warships` : 'Pirates');
+/** Review of slice 38: why a city's warships are on the lane: "at war with Athens", "at war with you" ('' for pirates). */
+export function warWords(s: SimState, p: Pirates): string {
+  if (!p.of) return '';
+  const x = p.war !== undefined && p.war >= 0 ? s.world.wars.find((o) => o.id === p.war) : undefined;
+  return x ? `at war with ${cityName(x.a === p.of ? x.b : x.a)}` : 'at war with you';
+}
 /** "a pirate ship", "two of Troy’s warships". */
 function shipsWords(p: Pirates): string {
   const n = ['a', 'two', 'three'][p.ships - 1] ?? String(p.ships);
