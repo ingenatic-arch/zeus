@@ -20,6 +20,9 @@ import { fairGift, GIFT_COINS, GIFT_LOTS, giftFrom, giftMemory, giftNews, giftRe
 import { againstDue, answerMemory, answerRefusal, answerWorths, arrivesAt, dayWords, dealWords, dueWords, liveDeals, OFFER_KEPT, offerWords, sendRefusal, sendTicks, stronger, type SendMemo, TRIBUTE_YEARS } from '../sim/favours';
 import type { Deal } from '../sim/state';
 import { afloat, guardRefusal, guardsOf, LANES, piratesOn, triremeDoing, triremeName } from '../sim/fleet';
+// Slice 38 (review): warships' and blockading fleets' cards on the map.
+import { bandWords, warWords } from '../sim/fleet';
+import { blockadeOf, blockadeWords } from '../sim/blockades';
 import { aimWords, bandMen, bandOut, daysToEdge, edgeWords, goodsArrive, live, lootWords, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
@@ -27,6 +30,8 @@ import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
 import { empireTabHtml, empireTabName } from './empire';
 import { allyOf, tributeWords } from '../sim/vassals';
+// Slice 38 (review): tribute by sea held by a blockade.
+import { blockaded } from '../sim/lanes';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
 
 /** The tabs of a ruled city's page. */
@@ -200,7 +205,17 @@ function travellerHtml(s: SimState, key: string): string {
     if (!p) return '<b>Pirates</b>';
     const g = guardsOf(s, p.way);
     const line = p.state === 'seen' ? `Seen ${p.place}: from about ${dayWords(p.from)} they seize what of yours passes there` : `${p.place.replace(/^./, (c) => c.toUpperCase())}, seizing what of yours passes there${p.took.length ? ` (${p.took.length} taken so far)` : ''}`;
-    return `<b>${esc(`Pirates · ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}`)}</b><span>${esc(line)}</span><span class="sub">${esc(g.length ? `The ${triremeName(g[0])} guards the lane` : `Send a trireme to guard the lane, from ${PLACES[p.city].name}’s page or the Military tab`)}</span>`;
+    // (Slice 38, review: a city's warships say whose, and why.)
+    return `<b>${esc(`${bandWords(p)} · ${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}${p.of ? ` · ${warWords(s, p)}` : ''}`)}</b><span>${esc(line)}</span><span class="sub">${esc(g.length ? `The ${triremeName(g[0])} guards the lane` : `Send a trireme to guard the lane, from ${PLACES[p.city].name}’s page or the Military tab`)}</span>`;
+  }
+  // (Slice 38, review: a fleet sent to blockade your harbour, on its way, off your gulf or going home. It fell through to a trader's card.)
+  if (key.startsWith('blockade-')) {
+    const b = blockadeOf(s, Number(key.slice(9)));
+    if (!b) return '<b>A war fleet</b>';
+    const n = PLACES[b.city].name;
+    const left = b.ships - b.sunk;
+    const line = b.phase !== 'over' ? blockadeWords(s) : b.end === 'broken' ? `Fleeing home, its blockade of your harbour broken: ${b.sunk} of its ${b.ships} ships sunk` : 'Sailing home, its blockade of your harbour over';
+    return `<b>${esc(`${n}${n.endsWith('s') ? '’' : '’s'} fleet · ${left} ${left === 1 ? 'ship' : 'ships'}`)}</b><span>${esc(line)}</span><span class="sub">${esc(`Click for ${n}’s page`)}</span>`;
   }
   if (key.startsWith('trireme-')) {
     const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
@@ -286,7 +301,9 @@ function tributeCard(s: SimState, id: number): string {
   const t = s.empire.tribute.find((x) => x.id === id);
   if (!t) return '<b>Tribute</b>';
   const n = Math.max(1, Math.ceil((t.start + t.dur - s.tick) / TICKS_PER_DAY));
-  const line = t.phase === 'bay' ? 'Sailing into your bay, to come ashore at your trading post' : `${t.by === 'sea' ? 'Sailing' : 'On the road'} to your city: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${n === 1 ? '1 day' : `${n} days`}`;
+  // (Slice 38, review: held off your gulf by a blockade.)
+  const shut = t.by === 'sea' && s.tick >= t.start + t.dur ? blockaded(s) : undefined;
+  const line = t.phase === 'bay' ? 'Sailing into your bay, to come ashore at your trading post' : shut ? `Waiting off your gulf: ${PLACES[shut.city].name}${PLACES[shut.city].name.endsWith('s') ? '’' : '’s'} fleet holds the mouth of your harbour` : `${t.by === 'sea' ? 'Sailing' : 'On the road'} to your city: ${t.by === 'sea' ? 'in your bay' : 'at the edge of your land'} in ${n === 1 ? '1 day' : `${n} days`}`;
   return `<b>${esc(`${PLACES[t.city].name}’s tribute · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its Empire tab</span>`;
 }
 
@@ -311,6 +328,8 @@ export function cityOfTraveller(s: SimState, key: string): CityId | null {
     return x?.owner || x?.bound || null;
   }
   if (key.startsWith('pirates-')) return s.fleet.pirates.find((x) => x.id === Number(key.slice(8)))?.city ?? null;
+  // (Slice 38, review.)
+  if (key.startsWith('blockade-')) return blockadeOf(s, Number(key.slice(9)))?.city ?? null;
   if (key.startsWith('trireme-')) {
     const t = s.fleet.triremes.find((x) => x.id === Number(key.slice(8)));
     return LANES.find((l) => l.way === t?.lane)?.city ?? null;
@@ -434,7 +453,7 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
   // (Why goods can't go, if it is the way rather than the stores: no yard or post.)
   const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
   const way = map && first !== undefined ? giftRefusal(s, map, id, first, GIFT_LOTS[0], wayWhy) : '';
-  const goodsNote = !goods ? `<p class="none">Goods: your stores hold none of the trade goods to spare (${GIFT_LOTS[0]} at the least).</p>` : /caravan yard|trading post|edge of the map/.test(way) ? `<p class="none">${esc(way)}.</p>` : '';
+  const goodsNote = !goods ? `<p class="none">Goods: your stores hold none of the trade goods to spare (${GIFT_LOTS[0]} at the least).</p>` : /caravan yard|trading post|edge of the map|mouth of your harbour/.test(way) ? `<p class="none">${esc(way)}.</p>` : '';
   const foe = foeNote(s, id);
   return `<section class="gifts"><h3>Send a gift</h3><ul class="giftrows">${rows.join('')}</ul>${goodsNote}${coming}${foe ? `<p class="none foe">${esc(foe)}</p>` : ''}
 <p class="foot">Each shows what it would add to the mood when it arrives. A fair gift for a city your size is about ${fmt(fairGift(s))} dr: more counts for more, but less than you’d think, and gifts within six months of each other count for less. Goods are fetched from your stores to the caravan yard or the trading post, and leave from there.</p></section>`;
@@ -653,8 +672,9 @@ function laneHtml(s: SimState, id: CityId): string {
   const lines: string[] = [];
   if (p) {
     const when = p.state === 'seen' ? `they start seizing what of yours passes there about ${dayWords(p.from)}` : `seizing what of yours passes there${p.took.length ? `: ${p.took.slice(-3).join(', ')}` : ''}`;
-    lines.push(`<p><b>${esc(`Pirates ${p.place}`)}</b></p><p>${esc(`${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}; ${when}.`)}</p>`);
-  } else lines.push(`<p>${esc(`No pirates seen on the lane to ${PLACES[id].name}.`)}</p>`);
+    // (Slice 38, review: or a city's warships, and why.)
+    lines.push(`<p><b>${esc(`${bandWords(p)} ${p.place}`)}</b></p><p>${esc(`${p.ships} ${p.ships === 1 ? 'ship' : 'ships'}${p.of ? `, ${warWords(s, p)}` : ''}; ${when}.`)}</p>`);
+  } else lines.push(`<p>${esc(`No pirates or warships seen on the lane to ${PLACES[id].name}.`)}</p>`);
   for (const t of guards) lines.push(`<p>${esc(`${triremeDoing(s, t).replace(/^./, (c) => c.toUpperCase())}: the ${triremeName(t)}, ${Math.round(t.hp)}% sound.`)}</p>`);
   const rep = s.fleet.reports.filter((r) => r.way === lane.way).slice(-1)[0];
   if (rep) lines.push(`<p class="if"><small>${esc(dayWords(rep.tick))}</small> ${esc(rep.line)}.</p>`);

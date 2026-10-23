@@ -118,6 +118,12 @@
  * planned; every building's goods are padded to however many goods there
  * are now. Nothing in the city changes.
  *
+ * Slice 38 (Contested seas): no fleet has come to blockade your harbour;
+ * every trireme's oars are whole and none is laid up under repair (a hurt
+ * one is mended at her mooring as before); pirates are pirates (no
+ * warships); every building's goods are padded to however many goods there
+ * are now. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -196,6 +202,7 @@ export function migrate(st: unknown): number {
   if (st.version === 30) fromSlice33(st);
   if (st.version === 31) fromSlice34(st);
   if (st.version === 32) fromSlice35(st);
+  if (st.version === 33) fromSlice38(st);
   return from;
 }
 
@@ -759,6 +766,34 @@ function fromSlice35(st: Record<string, unknown>): void {
     const m = st.monuments;
     if (!Array.isArray(m.sites)) m.sites = [];
     if (!isObj(m.games)) m.games = freshGames();
+  }
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 38 (Contested seas): see the notes at the top. It fills in only its
+ * own fields (the fleet's `blockades`, each trireme's `oars` and `mend`) if
+ * they are absent, and pads every building's goods to however many goods
+ * there are now.
+ */
+function fromSlice38(st: Record<string, unknown>): void {
+  const f = st.fleet;
+  if (isObj(f)) {
+    if (!Array.isArray(f.blockades)) f.blockades = [];
+    if (Array.isArray(f.triremes)) {
+      for (const t of f.triremes as unknown[]) {
+        if (!isObj(t)) continue;
+        if (typeof t.oars !== 'number') t.oars = 100;
+        if (typeof t.mend !== 'boolean') t.mend = false;
+      }
+    }
   }
   const zero = (): number => 0;
   if (Array.isArray(st.buildings)) {

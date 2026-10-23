@@ -55,6 +55,8 @@ import { offRoadPath, prunePath, walkable } from './wild';
 import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sellsAndBuys, WARM } from './world';
 // Integrating slice 34 with 33: winter holds tribute ships back and keeps most allies at home.
 import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
+// Slice 38: a blockade holds the harbour.
+import { blockaded } from './lanes';
 
 // ---------------------------------------------------------------------------
 // The records.
@@ -860,8 +862,10 @@ function sailIn(s: SimState, map: CoastMap, t: Tribute): boolean {
 
 /** Each tick, the tribute on its way: on the road to your edge, a ship sailing in, anchored while its cargo comes ashore, sailing off. */
 function stepTribute(s: SimState, map: CoastMap): void {
+  // (Slice 38: while a blockade holds the harbour, tribute by sea waits off your gulf, and its ship at anchor waits.)
+  const closed = !!blockaded(s);
   for (const t of s.empire.tribute) {
-    if (t.phase === 'road' && s.tick >= t.start + t.dur) {
+    if (t.phase === 'road' && s.tick >= t.start + t.dur && !(closed && t.by === 'sea')) {
       if (t.by === 'land') tributeIn(s, map, t);
       else if (!sailIn(s, map, t)) unload(s, t, undefined, 'landed on the beach and carried straight to the stores (you have no trading post)');
     } else if (t.phase === 'bay' && t.ship && t.ship.phase === SHIP_COMING && s.tick >= t.start + t.dur) {
@@ -872,7 +876,7 @@ function stepTribute(s: SimState, map: CoastMap): void {
       else unload(s, t, undefined, 'landed on the beach and carried straight to the stores (the trading post is gone)');
     }
     // (Her cargo ashore: she rides at anchor a little, then sails off.)
-    if (t.ship && t.ship.phase === SHIP_ANCHORED && t.phase === 'city' && s.tick - t.ship.since >= ASHORE) {
+    if (t.ship && t.ship.phase === SHIP_ANCHORED && t.phase === 'city' && s.tick - t.ship.since >= ASHORE && !closed) {
       t.ship.phase = SHIP_LEAVING;
       t.ship.turned = t.ship.stop;
       t.ship.since = s.tick;

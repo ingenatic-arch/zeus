@@ -346,7 +346,7 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       if (typeof c.yard === 'number') orderTrireme(s, map, c.yard);
       break;
     case 'fleet':
-      if (typeof c.trireme === 'number' && (c.act === 'guard' || c.act === 'home')) fleetCommand(s, map, c.trireme, c.act, String(c.lane ?? ''));
+      if (typeof c.trireme === 'number' && (c.act === 'guard' || c.act === 'home' || c.act === 'repair' /* Slice 38 */)) fleetCommand(s, map, c.trireme, c.act, String(c.lane ?? ''));
       break;
     // Slice 34
     case 'empire':

@@ -46,6 +46,11 @@ import { giftOf, newWalker, position, setGiftOf, setPath, speedOf } from './walk
 import { lateWords, stormDelay } from './seasons';
 // Slice 35: the Lighthouse speeds the ship.
 import { LIT_EVERY, LIT_PACE, lit } from './monuments';
+// Slice 38: a blockade holds the harbour.
+import { blockaded } from './lanes';
+import { PLACES, type CityId } from '../map/greece';
+/** "Troy’s", "Athens’". */
+const whoseCity = (id: CityId): string => (PLACES[id].name.endsWith('s') ? `${PLACES[id].name}’` : `${PLACES[id].name}’s`);
 
 /** The goods traded, in the order the trade record keeps them: the six of phase 3, then copper and armour (slice 23), then marble and timber (slice 32). */
 export const TRADE_GOODS: readonly Ware[] = [WHEAT, MEAT, CHEESE, OIL, FLEECE, WINE, COPPER, ARMOUR, MARBLE, TIMBER];
@@ -103,7 +108,8 @@ export const SAIL_OUT = 16 * TICKS_PER_DAY;
  * the bay, and slowing to a stop over the last stretch to the jetty.
  */
 const FAR_PACE = 1.0;
-const BAY_PACE = 0.5;
+// (Slice 38: a tile a tick across the bay, as far out, not half that: she was in sight a fortnight of seconds. Her times are unchanged.)
+const BAY_PACE = 1.0;
 const SLOW_LAST = 12;
 /** Sea at least this deep is deep water. */
 export const DEEP = 0.5;
@@ -650,10 +656,14 @@ export function stepTrade(s: SimState, map: CoastMap): void {
     ship.due += stormDelay(s, 'tyre', ship.due);
   }
   stepDockers(s, map, post);
+  // Slice 38: while a blockade holds the harbour's mouth, the ship due waits out at sea (sailing in at once when it ends), one coming in not yet past the mouth turns back, and one at the quay waits there once loaded (stepLoading).
+  const closed = !!blockaded(s);
   if (ship.phase === SHIP_AWAY) {
-    if (s.tick >= ship.due - sailInNow(s)) setSail(s, map, post, ship);
+    if (closed && s.tick >= ship.due - sailInNow(s)) ship.due = s.tick + sailInNow(s);
+    else if (s.tick >= ship.due - sailInNow(s)) setSail(s, map, post, ship);
   } else if (ship.phase === SHIP_COMING) {
     if (ship.post !== post.id) turnBack(s, ship);
+    else if (closed && !pastMouth(ship.path, shipAt(ship, s.tick)?.inward ?? 0)) turnBack(s, ship);
     else if (s.tick >= ship.since + sailInTicks(ship)) {
       ship.phase = SHIP_MOORED;
       ship.since = s.tick;
@@ -711,6 +721,8 @@ function stepLeaving(s: SimState, ship: Ship): void {
 function stepLoading(s: SimState, post: Building, ship: Ship): void {
   const t = s.tick - ship.since;
   if (t <= 0 || t % TICKS_PER_DAY !== 0) return;
+  // (Slice 38: loaded, she waits at the quay while a blockade holds the harbour, and pays and sails when it ends.)
+  if (t >= LOADING && blockaded(s)) return;
   const days = LOADING / TICKS_PER_DAY;
   const day = t / TICKS_PER_DAY;
   let changed = false;
@@ -1065,6 +1077,13 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   const post = tradingPost(s);
   // The post cleared while she is on her way or in port (the sim turns her back on its next step, which may wait while paused).
   if (!post && (ship.phase === SHIP_COMING || ship.phase === SHIP_MOORED)) return { phase: SHIP_LEAVING, days: 0, chip: 'Gone', short: 'Ship turned back', line: 'The ship turned back: the trading post is gone' };
+  // Slice 38: held by a blockade, out at sea or at the quay, the chip and the line say so and why.
+  const held = post ? blockaded(s) : undefined;
+  if (held) {
+    const by = `${whoseCity(held.city)} fleet holds the mouth of your harbour`;
+    if (ship.phase === SHIP_AWAY && ship.due - sailInNow(s) <= s.tick + 1) return { phase: SHIP_AWAY, days: 0, chip: 'Held', short: 'Ship held · blockade', line: `The ship waits out at sea: ${by}. She sails in as soon as it is broken or lifted` };
+    if (ship.phase === SHIP_MOORED && s.tick - ship.since >= LOADING) return { phase: SHIP_MOORED, days: 0, chip: 'Held', short: 'Ship held at the quay', line: `The ship has loaded and waits at the quay: ${by}. She pays and sails as soon as it is broken or lifted` };
+  }
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + sailInTicks(ship));
     const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
@@ -1125,3 +1144,27 @@ export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
   if (!spare) return 'No dockers out: the stores hold no more of the goods for sale than the city keeps';
   return room ? 'No dockers out' : post.kind === 'yard' ? 'No porters out: the yard is full until the next caravan' : 'No dockers out: the quay is full until the ship comes';
 }
+
+// ---------------------------------------------------------------------------
+// Slice 38: the harbour's mouth, where a blockade takes station.
+
+/** How far in from the map's edge, along the ship's way in, the harbour's mouth is (tiles), and the least room left before the jetty. */
+export const MOUTH_IN = 18;
+const MOUTH_ROOM = 10;
+
+/** How far along a way in (from the horizon) the harbour's mouth is: a way inside the map's edge, out beyond the island (and never at the jetty). */
+const mouthAlong = (path: readonly number[]): number => Math.max(0, Math.min(pathLength(path) - MOUTH_ROOM, outerLength(path) + MOUTH_IN));
+
+/** The harbour's mouth on the ship's way in to the trading post: her way, how far along it, the point and the way it runs there (null with no berth). */
+export function harbourMouth(map: CoastMap, post: Building): { path: number[]; at: number; x: number; z: number; dx: number; dz: number } | null {
+  const berth = berthOf(map, post);
+  if (!berth) return null;
+  const path = shipRoute(map, berth);
+  const at = mouthAlong(path);
+  if (at <= 0) return null;
+  const p = pointAlong(path, at);
+  return { path, at, x: p.x, z: p.z, dx: p.dx, dz: p.dz };
+}
+
+/** Is a ship coming in along her way (how far in she has come, 0 to 1) past the harbour's mouth already? */
+export const pastMouth = (path: readonly number[], inward: number): boolean => path.length >= 4 && inward * pathLength(path) >= mouthAlong(path);

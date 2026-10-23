@@ -2330,7 +2330,8 @@ export class Works {
     this.collect(this.logsBy, key, piles.length, (n, m) => {
       const { b, i } = piles[n];
       const wob = (hash2(b.id, i, 3290) - 0.5) * 0.1;
-      if (b.kind === 'trading') part(b, m, 0.62, -1.22 + i * 0.24, wob, [1, 1, 1], false, 0.05);
+      // (Slice 38: a little further from the marble, which sat partly behind them: review of slice 35.)
+      if (b.kind === 'trading') part(b, m, 0.46, -1.22 + i * 0.24, wob, [1, 1, 1], false, 0.05);
       else if (b.kind === 'yard') part(b, m, -0.62, -1.22 + i * 0.24, wob, [1, 1, 1], false, 0.04);
       else if (b.kind === 'loggers') part(b, m, -0.55, 0.18 + i * 0.24, wob, [1, 1, 1], true, 0.0);
       else part(b, m, -0.38, -0.12 + i * 0.22, wob, [1, 1, 1], true, 0.0);

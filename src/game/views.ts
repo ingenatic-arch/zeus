@@ -145,7 +145,8 @@ export const VIEWS: Record<string, CameraView> = {
   // #siege: the west gate just past the bridge from outside it, its two towers, the band at it.
   siege: { x: 40.5, z: 41.5, yaw: -0.7, dist: 11, tilt: 0.1 },
   // #landing: out over the bay where Troy's ships come in, looking west along the shore they make for, the trading post's jetty on the right (slice 29: from above the town the ships were far out and small).
-  landing: { x: 80, z: 98, yaw: 1.4, dist: 45, tilt: -0.1 },
+  // (Slice 38: it opens as the first ship comes into the bay, so a little further south and round, her and the beach both in sight.)
+  landing: { x: 82, z: 104, yaw: 1.1, dist: 48, tilt: -0.05 },
   // #fortress: the west gate from inside the walls, its two towers and the second barracks' drill ground below, the bridge and the road west beyond, where Sparta's band will come.
   fortress: { x: 33, z: 41, yaw: 1.4, dist: 30, tilt: 0.0 },
   // #triremes: the shipyard by the river mouth and its jetty, the bay beyond.
@@ -167,4 +168,8 @@ export const VIEWS: Record<string, CameraView> = {
   lit: { x: 90, z: 104, yaw: 2.85, dist: 42, tilt: -0.2 },
   // #games: over the Stadium between the quay road and the quarry road, its seats full.
   games: { x: 105, z: 72, yaw: -0.5, dist: 16, tilt: 0.05 },
+  // Slice 38. #blockade: from over the bay, the harbour's mouth and Troy's ships across it, the triremes rowing out from the shipyard (tuned by eye).
+  blockade: { x: 63, z: 98, yaw: 0.4, dist: 50, tilt: -0.05 },
+  // #shipyard: the shipyard's jetty from upriver, the triremes at their moorings right of the panel (tuned by eye).
+  shipyard: { x: 69.5, z: 77.5, yaw: 1.2, dist: 10, tilt: 0.1 },
 };

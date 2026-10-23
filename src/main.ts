@@ -45,6 +45,9 @@ import { buildCorner } from './ui/help';
 import { HouseholdPanel } from './ui/household';
 import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
+// Slice 38: the shipyard's panel.
+import { ShipyardPanel } from './ui/shipyard';
+import { blockadeWords } from './sim/blockades';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
 import { giftOf, position } from './sim/walk';
@@ -216,6 +219,10 @@ interface Probe {
   ledgerText?: () => string;
   /** The trading post's panel text ('' when closed), opening or closing it, and where the ship is. */
   tradeText?: () => string;
+  /** Slice 38: the shipyard's panel's text ('' while it is shut). */
+  shipyardText?: () => string;
+  /** Slice 38: the triremes' hulls, oars and repairs, the blockades and the warships on the lanes. */
+  seas?: () => { triremes: { id: number; state: string; task: string; hp: number; oars: number; mend: boolean }[]; ships: { id: number; state: string; blockade: number; x: number; z: number }[]; blockades: { city: string; phase: string; ships: number; sunk: number; end: string }[]; warships: { way: string; of: string; ships: number }[]; words: string };
   /** A docker carrying a ware (any, -1) to the quay (back) or back to a store, where he is drawn. */
   dockerOf?: (ware: number, back?: boolean) => { x: number; z: number } | null;
   trade?: (open: boolean, tab?: string) => void;
@@ -445,6 +452,27 @@ function start(preparedTown: string | null): void {
     linesAt = -Infinity;
   });
   tradePanel.onOpen = () => panel.show(0);
+  // Slice 38: the shipyard's panel, in the same place: one at a time (with the household's and the trading post's).
+  const shipyardPanel = new ShipyardPanel(ui, (c) => {
+    sim.enqueue(c);
+    sim.flush();
+    sound.play('build');
+    startAutosaving();
+    linesAt = -Infinity;
+  });
+  shipyardPanel.onOpen = () => {
+    panel.show(0);
+    tradePanel.toggle(false);
+  };
+  tradePanel.onOpen = () => {
+    panel.show(0);
+    shipyardPanel.toggle(false);
+  };
+  // (The Army tab's fleet has a button that opens it.)
+  document.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement | null)?.closest?.('button[data-act="shipyard"]') as HTMLButtonElement | null;
+    if (b) shipyardPanel.show(Number(b.dataset.id) || 0);
+  });
   /** Open the trading post's panel and go to the post. */
   const goToPost = (): void => {
     const p = tradingPost(sim.state);
@@ -888,7 +916,8 @@ function start(preparedTown: string | null): void {
     if (o.kind === 'trireme') {
       const t = triremeOf(sim.state, o.id);
       if (!t) return null;
-      return { title: `The trireme ${triremeName(t)} · ${t.crew.length} of ${CREW} rowers · hull ${Math.round(t.hp)}%`, detail: [triremeDoing(sim.state, t), crewWhy(sim.state, map, t), 'Click for the fleet, on the Military tab'].filter((l) => l).join('\n') };
+      // (Slice 38: her oars, and her shipyard's panel.)
+      return { title: `The trireme ${triremeName(t)} · ${t.crew.length} of ${CREW} rowers · hull ${Math.round(t.hp)}% · oars ${Math.round(t.oars)}%`, detail: [triremeDoing(sim.state, t), crewWhy(sim.state, map, t), 'Click for her shipyard'].filter((l) => l).join('\n') };
     }
     const e = sim.state.fleet.ships.find((x) => x.id === o.id);
     if (!e) return null;
@@ -1047,6 +1076,8 @@ function start(preparedTown: string | null): void {
       else if (orders.selected) takeBanner(0);
       else if (follow) stopFollow();
       else if (tradePanel.open) tradePanel.toggle(false);
+      // (Slice 38.)
+      else if (shipyardPanel.open) shipyardPanel.toggle(false);
       else if (panel.open) panel.show(0);
       else tools.cancel();
     },
@@ -1065,7 +1096,9 @@ function start(preparedTown: string | null): void {
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
       const fl = fleetNear(sx, sy);
       if (fl?.kind === 'trireme') {
+        // (Slice 38: her shipyard's panel, as well as the Army tab's fleet.)
         side.showBarracks(triremeOf(sim.state, fl.id)?.yard ?? 0);
+        shipyardPanel.show(triremeOf(sim.state, fl.id)?.yard ?? 0);
         return hover(w, sx, sy);
       }
       if (shipNear(sx, sy)) return goToPost();
@@ -1075,12 +1108,15 @@ function start(preparedTown: string | null): void {
       // A lived-in home: who lives there. Open ground: close the panel.
       if (b?.kind === 'home' && b.people > 0) {
         tradePanel.toggle(false);
+        shipyardPanel.toggle(false);
         panel.show(b.id);
         return hover(w, sx, sy);
       }
       // A barracks: the Army tab, its companies and its buttons.
       if (b?.kind === 'barracks' || b?.kind === 'shipyard') {
         side.showBarracks(b.id);
+        // (Slice 38: a shipyard opens its own panel too.)
+        if (b.kind === 'shipyard') shipyardPanel.show(b.id);
         return hover(w, sx, sy);
       }
       // Slice 35: a monument or a masons' yard: the Monuments tab, where it stands and what it waits for.
@@ -1097,6 +1133,7 @@ function start(preparedTown: string | null): void {
       if (!b) {
         panel.show(0);
         tradePanel.toggle(false);
+        shipyardPanel.toggle(false);
       }
       const kind = b ? FOLLOWS[b.kind] : undefined;
       if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
@@ -1243,6 +1280,7 @@ function start(preparedTown: string | null): void {
     stopFollow();
     panel.show(0);
     tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
     tip.show(null, 0, 0);
     welcomeCard?.dismiss();
     greeceButton.set(true);
@@ -1268,6 +1306,8 @@ function start(preparedTown: string | null): void {
   // (Slice 26: the Army tab scrolled to the shipyard, its fleet.)
   const yard = demo?.side?.fleet ? sim.state.buildings.find((b) => b.kind === 'shipyard') : undefined;
   if (yard) side.showBarracks(yard.id);
+  // (Slice 38: the shipyard's panel open from the start.)
+  if (demo?.shipyard) shipyardPanel.show(sim.state.buildings.find((b) => b.kind === 'shipyard')?.id ?? 0);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;
@@ -1554,6 +1594,17 @@ function start(preparedTown: string | null): void {
   probe.welcome = () => !!welcomeCard?.open;
   probe.ledgerText = () => ledger.text;
   probe.tradeText = () => tradePanel.text;
+  probe.shipyardText = () => shipyardPanel.text;
+  probe.seas = () => {
+    const f = sim.state.fleet;
+    return {
+      triremes: f.triremes.map((t) => ({ id: t.id, state: t.state, task: t.task, hp: t.hp, oars: t.oars, mend: t.mend })),
+      ships: f.ships.map((e) => ({ id: e.id, state: e.state, blockade: e.blockade ?? 0, x: e.x, z: e.z })),
+      blockades: f.blockades.map((b) => ({ city: b.city, phase: b.phase, ships: b.ships, sunk: b.sunk, end: b.end })),
+      warships: f.pirates.filter((p) => p.of).map((p) => ({ way: p.way, of: p.of ?? '', ships: p.ships })),
+      words: blockadeWords(sim.state),
+    };
+  };
   probe.trade = (open, tab) => {
     tradePanel.toggle(open);
     if (open && tab) tradePanel.showTab(tab);
@@ -2084,6 +2135,7 @@ function start(preparedTown: string | null): void {
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     ledger.update(s, map, time);
     tradePanel.update(s, map, time);
+    shipyardPanel.update(s, map, time);
     {
       const t = performance.now();
       side.update(s, time);

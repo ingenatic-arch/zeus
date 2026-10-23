@@ -161,7 +161,7 @@ describe('the ship', () => {
     expect(ship.phase).toBe(SHIP_COMING);
   });
 
-  it('sails in at a pace you can watch (slice 14): on the horizon a while, crossing the bay at about half a tile a tick, slowing evenly to the jetty, never lurching', () => {
+  it('sails in at a pace you can watch (slice 14): on the horizon a while, crossing the bay at under a tile a tick (slice 38: was half that), slowing evenly to the jetty, never lurching', () => {
     const sim = new Sim();
     const s = sim.state;
     const ship = s.trade.ship;
@@ -178,15 +178,17 @@ describe('the ship', () => {
       const v = Math.hypot(at.x - prev.x, at.z - prev.z);
       if (inMap(at)) {
         inside++;
-        expect(v).toBeLessThanOrEqual(0.55);
+        // (Slice 38: a little under a tile a tick, fitted to her time; half that before, when she was in sight a fortnight of seconds.)
+        expect(v).toBeLessThanOrEqual(0.7);
       }
       // Her pace changes by little from one tick to the next: she eases down from her pace at sea before the map's edge.
       if (t > ship.since + 1) expect(Math.abs(v - pace)).toBeLessThan(0.1);
       pace = v;
       prev = at;
     }
-    // In the map, in sight from the town, for more than ten days; the last tick before she ties up, nearly stopped.
+    // In the map, in sight from the town, for more than ten days (slice 38: and less than twelve: it was about fourteen); the last tick before she ties up, nearly stopped.
     expect(inside).toBeGreaterThan(10 * TICKS_PER_DAY);
+    expect(inside).toBeLessThan(12 * TICKS_PER_DAY);
     expect(pace).toBeLessThan(0.1);
   });
 

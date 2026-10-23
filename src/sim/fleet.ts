@@ -29,7 +29,7 @@
 import type { CoastMap } from '../map/bake';
 import { WATER_SEA } from '../map/bake';
 import { dhypot } from '../map/dmath';
-import { HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints, type CityId } from '../map/greece';
+import { HORIZON_ALONG, lineLength, PLACES, wayOf, wayPoints, WAYS, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { armyNews, eldestMan, knownBy, servingHomes } from './army';
 import { findBuilding, livedIn, HUT, COTTAGE, centreOf } from './buildings';
@@ -40,7 +40,7 @@ import { WORK_SHARE, rateOf } from './labour';
 import { landBand, lostAtSea, raidOfShips } from './raids';
 import { roadsBeside } from './rounds';
 import { routeWay, voyageTicks } from './routes';
-import type { Building, EnemyShip, Fleet, Pirates, Raid, Rower, ServesAs, SimState, Trireme } from './state';
+import type { Building, EnemyShip, Expedition, Fleet, Pirates, Raid, Rower, ServesAs, SimState, Trireme } from './state';
 import { berthAt, pathLength, pointAlong } from './trade';
 import { pay, settle, spendable } from './treasury';
 import { guarded, preyingOn, ROWER_PAY } from './lanes';
@@ -48,6 +48,11 @@ import { guarded, preyingOn, ROWER_PAY } from './lanes';
 import { seaPace } from './seasons';
 // Slice 35: pirates keep clear while the Lighthouse burns.
 import { piratesKeepClear } from './monuments';
+// Slice 38: blockades, warships, expeditions at sea, a laden ship's loot.
+import { BAY_TICKS, blockadeOf, stepBlockades, stepWarships, type Blockade } from './blockades';
+import { expeditionOnMap } from './expeditions';
+import { regainAtSea } from './raids';
+import { change } from './growth';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -60,8 +65,8 @@ export const PER_YARD = 3;
 export const CREW = 12;
 export const ROWERS_A_DAY = 4;
 export { ROWER_PAY, guarded, preyingOn };
-/** How much of her hull a moored trireme gets back a day at a staffed yard. */
-export const MEND_A_DAY = 3;
+/** How much of her hull a moored trireme gets back a day at a staffed yard (slice 38: 6, was 3; and 12 of her oars). */
+export const MEND_A_DAY = 6;
 /** Her names, one per number in turn. */
 export const NAMES = ['Nike', 'Glaukos', 'Paralos', 'Salaminia', 'Amphitrite', 'Delphis', 'Euploia', 'Thalassa', 'Hippokampos', 'Nereis', 'Kymothoe', 'Galene'] as const;
 /** Paces (tiles a tick): a trireme rowing; an enemy ship far out and across the bay. */
@@ -70,7 +75,7 @@ export const FAR_PACE = 0.8;
 export const BAY_PACE = 0.45;
 /** How far beyond the map's edge enemy ships first show, and how far apart (ticks) they set off. */
 export const RAIDER_HORIZON = 30;
-const STAGGER = 25;
+const STAGGER = 10;
 /** Men to a ship, and how many ships a band comes in. */
 export const SHIP_MEN = 8;
 const SHIPS_LEAST = 2;
@@ -104,6 +109,25 @@ const MOOR_GAP = 1.45;
 /** Your waters: enemy ships this far beyond the map's edge are fought too. */
 const WATERS = 2;
 
+// Slice 38: oars, wounds and repairs.
+/** Of her oars, a moored trireme's shipwrights mend this many a day (a share with fewer); an enemy's blow that strikes home breaks this many and up to OARS_MORE more; her own ram breaks a few, one time in four. */
+export const OARS_A_DAY = 12;
+const OARS_HURT = 10;
+const OARS_MORE = 15;
+const RAM_OARS_ODDS = 1 / 4;
+const RAM_OARS = 3;
+const RAM_OARS_MORE = 5;
+/** Under this many oars whole she breaks off and limps home; with none whole she rows at LIMP of her pace. */
+export const CRIPPLED_OARS = 40;
+const LIMP = 0.35;
+/** Enemy ships from the sea: the last of a band's ships is on the beach about this long after the first set off (never slower than the usual paces). */
+const BEACH_TICKS = 14 * TICKS_PER_DAY;
+/** A blockade's ships come in from this far beyond the edge, and lie this far apart across the harbour's mouth. */
+const BLOCKADE_HORIZON = 24;
+const BLOCKADE_GAP = 4;
+/** (Review of slice 38.) A blockade's ships set off from the horizon this far apart (ticks). */
+const BLOCKADE_STAGGER = 5;
+
 /** Pirates: none before your first sea route is this old; the odds a month once they may come; how long they are seen before they prey; how long they stay; the lull after. */
 const PIRATES_AFTER = TICKS_PER_YEAR;
 const PIRATE_ODDS = 1 / 10;
@@ -118,6 +142,10 @@ export const PIRATE_PLACES: ReadonlyArray<{ way: string; city: CityId; at: numbe
   { way: 'athens-sea', city: 'athens', at: 6, name: 'off Cape Skyllaion' },
   { way: 'corinth-sea', city: 'corinth', at: 8, name: 'off Aegina' },
   { way: 'troy-sea', city: 'troy', at: 8, name: 'off Kea' },
+  // Slice 38: the newcomers' lanes.
+  { way: 'knossos-sea', city: 'knossos', at: 7, name: 'off Melos' },
+  { way: 'rhodes-sea', city: 'rhodes', at: 8, name: 'off Thera' },
+  { way: 'memphis-sea', city: 'memphis', at: 10, name: 'off Cape Sidero' },
 ];
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -125,7 +153,7 @@ const cityName = (id: CityId): string => PLACES[id].name;
 const whose = (id: CityId): string => (cityName(id).endsWith('s') ? `${cityName(id)}’` : `${cityName(id)}’s`);
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
-export const freshFleet = (): Fleet => ({ triremes: [], ships: [], pirates: [], reports: [], nextId: 1 });
+export const freshFleet = (): Fleet => ({ triremes: [], ships: [], pirates: [], reports: [], nextId: 1, blockades: [] });
 
 /** The city's dice for a sea fight: a number in [0, 1) from the tick, who, and what for. */
 const roll = (s: SimState, who: number, salt: number): number => hash2(s.tick, who * 16 + salt, (s.seed ^ 0x666c6565) | 0);
@@ -157,8 +185,20 @@ export function rowerFrom(s: SimState, b: Building): { t: Trireme; r: Rower } | 
   for (const t of s.fleet.triremes) for (const r of t.crew) if (r.home === b.id) return { t, r };
   return undefined;
 }
-/** Is a trireme fit to go out: half her rowers and a sound hull? */
-export const fit = (t: Trireme): boolean => t.crew.length * 2 >= CREW && t.hp >= FIT;
+/** Is a trireme fit to go out: half her rowers, a sound hull and oars (slice 38), and not laid up under repair? */
+export const fit = (t: Trireme): boolean => t.crew.length * 2 >= CREW && t.hp >= FIT && t.oars >= FIT && !t.mend;
+/** Slice 38: her pace rowing, with her oars broken: down to LIMP of it with none whole. */
+export const oarPace = (t: Trireme): number => ROW_PACE * (LIMP + (1 - LIMP) * clamp(t.oars, 0, 100) / 100);
+/** Slice 38: too hurt to fight on: her hull under BREAK_OFF, or under CRIPPLED_OARS oars whole. */
+export const crippled = (t: Trireme): boolean => t.hp < BREAK_OFF || t.oars < CRIPPLED_OARS;
+/** Slice 38: days until she is whole at her yard's pace now (0: whole; -1: not being mended, her yard gone or unstaffed). */
+export function daysToMend(s: SimState, t: Trireme): number {
+  if (t.hp >= 100 && t.oars >= 100) return 0;
+  const yard = findBuilding(s, t.yard);
+  const rate = yard ? rateOf(yard) : 0;
+  if (rate <= 0) return -1;
+  return Math.max(Math.ceil((100 - t.hp) / (MEND_A_DAY * rate)), Math.ceil((100 - t.oars) / (OARS_A_DAY * rate)), 1);
+}
 
 // ---------------------------------------------------------------------------
 // The water: where ships can go.
@@ -427,6 +467,8 @@ export function orderTrireme(s: SimState, map: CoastMap, yardId: number): Trirem
     homeward: false,
     sank: 0,
     owed: 0,
+    oars: 100,
+    mend: false,
   };
   s.fleet.triremes.push(t);
   pay(s, -TRIREME_COST, 'building', 'trireme');
@@ -520,6 +562,8 @@ export function stepFleet(s: SimState, map: CoastMap): void {
   if (f.ships.length || f.triremes.some((t) => t.state === 'rowing' || t.state === 'sinking')) stepBay(s, map);
   if (f.triremes.some((t) => t.state === 'away')) stepAway(s, map);
   stepPirates(s);
+  // Slice 38: fleets sent to blockade your harbour.
+  stepBlockades(s, map);
 }
 
 /** A trireme on the slip: the shipwrights' work, at the yard's rate; done, she is launched and moors. */
@@ -553,8 +597,16 @@ function daily(s: SimState, map: CoastMap): void {
     if (t.crew.length !== before) s.rev++;
     const yard = findBuilding(s, t.yard);
     if (!yard) continue;
-    // Mended at her yard.
-    if (t.state === 'moored' && t.hp < 100 && rateOf(yard) > 0) t.hp = Math.min(100, t.hp + MEND_A_DAY);
+    // Mended at her yard (slice 38: her hull and her oars, at the shipwrights' rate; laid up until whole, then ready).
+    if (t.state === 'moored' && (t.hp < 100 || t.oars < 100) && rateOf(yard) > 0) {
+      t.hp = Math.min(100, t.hp + MEND_A_DAY * rateOf(yard));
+      t.oars = Math.min(100, t.oars + OARS_A_DAY * rateOf(yard));
+      if (t.mend && t.hp >= 100 && t.oars >= 100) {
+        t.mend = false;
+        armyNews(s, `The trireme ${triremeName(t)} is mended, hull and oars: she is ready to go out again`, t.yard);
+      }
+      s.rev++;
+    }
     // Rowers come down while she is short (not while she is away).
     if (t.crew.length < CREW && t.state !== 'away' && rateOf(yard) > 0 && roadsBeside(s, map.size, yard).length > 0) {
       serving ??= servingHomes(s);
@@ -603,7 +655,8 @@ function stepBay(s: SimState, map: CoastMap): void {
     if (t.order !== 'bay' || (t.state !== 'moored' && t.state !== 'rowing')) continue;
     if (t.state === 'rowing' && (t.task === 'out' || t.task === 'in')) continue;
     const engaged = t.task === 'fight' && t.foe > 0 && byFoe.has(t.foe);
-    const able = t.crew.length * 2 >= CREW && t.hp >= (engaged ? BREAK_OFF : FIT);
+    // (Slice 38: in a fight she fights on until crippled, hull or oars; to go out she must be fit, oars and all, and not laid up under repair.)
+    const able = t.crew.length * 2 >= CREW && (engaged ? !crippled(t) : t.hp >= FIT && t.oars >= FIT && !t.mend);
     let foe = able && engaged ? byFoe.get(t.foe) : undefined;
     if (!foe && able && foes.length) {
       if (t.foe && on.has(t.foe)) on.set(t.foe, (on.get(t.foe) ?? 1) - 1);
@@ -629,15 +682,16 @@ function stepBay(s: SimState, map: CoastMap): void {
         armyNewsOnce(s, t, foe);
       }
     }
-    if (foe) chase(map, t, foe);
+    if (foe) chase(s, map, t, foe);
     else if (t.state === 'rowing') {
       if (t.task === 'fight') {
         // Nothing left to fight, or too hurt to go on: home to the jetty.
-        if (t.hp < BREAK_OFF && t.foe) armyNews(s, `The trireme ${triremeName(t)} is badly holed and breaks off: she rows home to be mended`, t.yard);
+        // (Slice 38: or her oars too broken to row on: she limps home.)
+        if (crippled(t) && t.foe) armyNews(s, t.hp < BREAK_OFF ? `The trireme ${triremeName(t)} is badly holed and breaks off: she rows home to be mended` : `The trireme ${triremeName(t)} has too many oars broken to fight on: she limps home to be mended`, t.yard);
         t.foe = 0;
         homeTo(s, map, t);
       }
-      if (t.task === 'home' && sail(t, ROW_PACE)) moor(s, map, t);
+      if (t.task === 'home' && sail(t, oarPace(t))) moor(s, map, t);
     }
   }
   // Blows: rams, and the enemy striking back.
@@ -653,6 +707,8 @@ function stepBay(s: SimState, map: CoastMap): void {
       e.hp -= hurt;
       e.hit = s.tick;
     }
+    // (Slice 38: ramming breaks a few of her own oars, one time in four.)
+    if (roll(s, t.id, 7) < RAM_OARS_ODDS) t.oars = Math.max(0, t.oars - (RAM_OARS + RAM_OARS_MORE * roll(s, t.id, 8)));
   }
   for (const e of foes) {
     if (e.cool > 0) e.cool--;
@@ -675,6 +731,8 @@ function stepBay(s: SimState, map: CoastMap): void {
     if (roll(s, 1000 + e.id, 5) < odds) {
       near.hp -= STRIKE_HURT + STRIKE_MORE * roll(s, 1000 + e.id, 6);
       near.struck = s.tick;
+      // (Slice 38: and breaks her oars along that side.)
+      near.oars = Math.max(0, near.oars - (OARS_HURT + OARS_MORE * roll(s, 1000 + e.id, 9)));
     }
   }
   // The sunk.
@@ -706,24 +764,46 @@ function stepBay(s: SimState, map: CoastMap): void {
 
 /** The town line as a trireme first goes for an enemy ship (once per ship). */
 function armyNewsOnce(s: SimState, t: Trireme, e: EnemyShip): void {
-  const r = raidOfShips(s, e.raid);
-  if (!r) return;
+  // (Slice 38: or a blockade's.)
+  const city = cityOfShip(s, e);
+  if (!city) return;
   const key = `The trireme ${triremeName(t)} rows out`;
   if (s.army.news.some((n) => n.line.startsWith(key) && s.tick - n.tick < 20 * TICKS_PER_DAY)) return;
-  armyNews(s, `${key} to meet ${whose(r.city)} ships in the bay`, t.yard);
+  armyNews(s, `${key} to meet ${whose(city)} ships ${e.blockade ? 'across the harbour’s mouth' : 'in the bay'}`, t.yard);
+}
+
+/** Slice 38: whose an enemy ship is: her band's city, or her blockade's. */
+function cityOfShip(s: SimState, e: EnemyShip): CityId | undefined {
+  if (e.blockade) return blockadeOf(s, e.blockade)?.city;
+  return raidOfShips(s, e.raid)?.city;
+}
+/** Slice 38: a band's ship's raid (none for a blockade's). */
+const raidOf = (s: SimState, e: EnemyShip): Raid | undefined => (e.blockade ? undefined : raidOfShips(s, e.raid));
+/** Slice 38: home hurt this badly, she is laid up under repair until whole. */
+const mustMend = (t: Trireme): boolean => t.hp < FIT || t.oars < FIT;
+/** Slice 38: how hurt she is, in words: "her hull at 42% and 55 of every hundred oars broken". */
+export function hurtWords(t: Trireme): string {
+  const out: string[] = [];
+  if (t.hp < 100) out.push(`her hull at ${Math.round(t.hp)}%`);
+  if (t.oars < 100) out.push(t.oars <= 0 ? 'every oar broken' : `${Math.round(100 - t.oars)} of every hundred oars broken`);
+  return out.length ? out.join(' and ') : 'whole';
 }
 
 /** Row at a foe: straight at her if the water allows, else by a way round (looked for again as she moves); alongside, keep with her. */
-function chase(map: CoastMap, t: Trireme, e: EnemyShip): void {
+function chase(s: SimState, map: CoastMap, t: Trireme, e: EnemyShip): void {
   const d = dhypot(e.x - t.x, e.z - t.z);
+  const pace = oarPace(t);
   // Alongside: on her beam, a little off, keeping with her.
-  const side = (t.id % 2 === 0 ? 1 : -1) * 0.55;
+  // (Slice 38: two on one ship take her two sides, the first on her one, the second on her other, so they and their oars don't draw into each other.)
+  const on = s.fleet.triremes.filter((o) => o.task === 'fight' && o.foe === e.id && afloat(o));
+  const first = on.length > 1 && on[0] !== t ? on[0] : undefined;
+  const side = (first ? -((first.id % 2 === 0 ? 1 : -1)) : t.id % 2 === 0 ? 1 : -1) * 0.55;
   const gx = e.x - e.hz * side;
   const gz = e.z + e.hx * side;
   if (d <= RAM_REACH * 0.85) {
     const gd = dhypot(gx - t.x, gz - t.z);
     if (gd > 1e-6) {
-      const step = Math.min(gd, ROW_PACE * 0.6);
+      const step = Math.min(gd, pace * 0.6);
       t.x += ((gx - t.x) / gd) * step;
       t.z += ((gz - t.z) / gd) * step;
     }
@@ -736,7 +816,7 @@ function chase(map: CoastMap, t: Trireme, e: EnemyShip): void {
     return;
   }
   if (clearWater(map, t.x, t.z, e.x, e.z)) {
-    const step = Math.min(d, ROW_PACE);
+    const step = Math.min(d, pace);
     t.hx = (e.x - t.x) / d;
     t.hz = (e.z - t.z) / d;
     t.x += t.hx * step;
@@ -751,7 +831,7 @@ function chase(map: CoastMap, t: Trireme, e: EnemyShip): void {
     if (!way) return;
     setWay(t, way);
   }
-  sail(t, ROW_PACE);
+  sail(t, pace);
 }
 
 /** Set a trireme rowing home to her mooring. */
@@ -765,6 +845,11 @@ function homeTo(s: SimState, map: CoastMap, t: Trireme): void {
 /** In at her mooring. */
 function moor(s: SimState, map: CoastMap, t: Trireme): void {
   const m = mooringOf(s, map, t);
+  // (Slice 38: home badly hurt, she is laid up under repair until whole: no more rowing out at half mended.)
+  if (mustMend(t) && !t.mend) {
+    t.mend = true;
+    armyNews(s, `The trireme ${triremeName(t)} is in, ${hurtWords(t)}: she is laid up at the shipyard under repair until she is whole`, t.yard);
+  }
   t.state = 'moored';
   t.task = '';
   t.foe = 0;
@@ -781,15 +866,23 @@ function moor(s: SimState, map: CoastMap, t: Trireme): void {
 /** An enemy ship's tick: sailing in to her spot on the beach (slowed while a trireme is on her), waiting there, sailing off. */
 function moveEnemy(s: SimState, map: CoastMap, e: EnemyShip): void {
   if (!afloat(e) || s.tick < e.from) return;
-  const r = raidOfShips(s, e.raid);
+  const r = raidOf(s, e);
   // Paid off or called off before the band landed: she turns for the open sea.
   if (e.state === 'sailing' && r && r.end !== '' && r.landed === 0) leave(map, e);
-  if (e.state === 'beached') return;
+  // (Slice 38: a blockade's ship on station rides there.)
+  if (e.state === 'beached' || e.state === 'holding') return;
   const engaged = s.fleet.triremes.some((t) => t.task === 'fight' && t.foe === e.id && dhypot(t.x - e.x, t.z - e.z) <= STRIKE_REACH);
-  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (engaged ? 0.5 : 1) * seaPace(s);
+  // (Slice 38: at her own pace, if she has one: collectors and raiders reach the beach within about a fortnight.)
+  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (e.pace ?? 1) * (engaged ? 0.5 : 1) * seaPace(s);
   const done = sail(e, pace);
   if (!done) return;
-  if (e.state === 'sailing') {
+  if (e.state === 'sailing' && e.blockade) {
+    // (Slice 38: on station across the harbour's mouth, bow to the harbour.)
+    e.state = 'holding';
+    e.x = e.bx;
+    e.z = e.bz;
+    s.rev++;
+  } else if (e.state === 'sailing') {
     e.state = 'beached';
     e.x = e.bx;
     e.z = e.bz;
@@ -808,8 +901,11 @@ function leave(map: CoastMap, e: EnemyShip): void {
 
 /** An enemy ship's hull is gone: she lists and goes down, with the men aboard. */
 function sinkEnemy(s: SimState, e: EnemyShip): void {
-  const r = raidOfShips(s, e.raid);
+  const r = raidOf(s, e);
   const men = e.state === 'sailing' ? e.men : 0;
+  // (Slice 38, review of slice 26: sunk laden as she sails off, her share of the loot is hauled out of the shallows and goes back to the stores and the treasury.)
+  let back = '';
+  if (r && e.state === 'leaving' && e.laden) back = regainAtSea(s, r, 1 / Math.max(1, shipsOf(s, r).filter((x) => x.laden && x.state === 'leaving').length));
   e.state = 'sinking';
   e.sank = s.tick;
   e.hp = 0;
@@ -819,9 +915,19 @@ function sinkEnemy(s: SimState, e: EnemyShip): void {
     r.drowned += men;
     const name = whose(r.city);
     const left = shipsOf(s, r).length;
-    const what = men > 0 ? `, and ${men} of their men with her` : e.laden ? ', with what she carried off' : ' on the beach';
+    const what = men > 0 ? `, and ${men} of their men with her` : e.laden ? (back ? `, with what she carried off: ${back} hauled out of the shallows and taken back` : ', with what she carried off') : ' on the beach';
     // (The army's line only: the news of Greece hears the whole of it when the raid is over. Review of slice 26: the two said the same.)
     armyNews(s, `Your triremes have sunk one of ${name} ships${what}${left ? ` (${left} left)` : ''}`, 0);
+  }
+  // Slice 38: one of a blockade's ships: counted towards breaking it, and its city's fleet the smaller.
+  const b = e.blockade ? blockadeOf(s, e.blockade) : undefined;
+  if (b) {
+    b.sunk++;
+    const c = s.world.cities.find((x) => x.id === b.city);
+    if (c) change(c, s.tick, 'blockade', 'ships sunk off your harbour', { fleet: -1 });
+    const left = s.fleet.ships.filter((x) => x.blockade === b.id && afloat(x)).length;
+    const need = b.phase !== 'over' ? Math.max(0, Math.ceil(b.ships / 2) - b.sunk) : 0;
+    armyNews(s, `Your triremes have sunk one of ${whose(b.city)} ${b.phase === 'over' ? 'fleeing' : 'blockading'} ships${left ? ` (${left} left${need ? `: sink ${need} more and the rest flee` : ''})` : ''}`, 0);
   }
   e.men = 0;
   s.rev++;
@@ -830,8 +936,9 @@ function sinkEnemy(s: SimState, e: EnemyShip): void {
 /** A trireme's hull is gone: she goes down; her rowers swim ashore and go home. */
 function sinkTrireme(s: SimState, t: Trireme): void {
   const e = s.fleet.ships.find((o) => o.id === t.foe);
-  const r = e ? raidOfShips(s, e.raid) : undefined;
-  armyNews(s, `The trireme ${triremeName(t)} has been sunk${r ? ` by ${whose(r.city)} ships` : ''}: her ${t.crew.length} rowers swam ashore and have gone home`, t.yard);
+  // (Slice 38: or a blockade's.)
+  const city = e ? cityOfShip(s, e) : undefined;
+  armyNews(s, `The trireme ${triremeName(t)} has been sunk${city ? ` by ${whose(city)} ships` : ''}: her ${t.crew.length} rowers swam ashore and have gone home`, t.yard);
   t.state = 'sinking';
   t.sank = s.tick;
   t.hp = 0;
@@ -887,9 +994,26 @@ export function sailIn(s: SimState, map: CoastMap, r: Raid, spots: ReadonlyArray
     const p = pointAlong(path, 0);
     e.hx = p.dx;
     e.hz = p.dz;
+    // (Slice 38: quick enough that the last is on the beach about a fortnight after the first set off, never slower than the usual paces; winter's storms slow them still.)
+    const usual = voyageIn(map, path);
+    const room = BEACH_TICKS - k * STAGGER;
+    if (usual > room) e.pace = Math.round((usual / room) * 100) / 100;
     s.fleet.ships.push(e);
   }
   s.rev++;
+}
+
+/** Slice 38: how long a way in takes at the usual paces (ticks): the part beyond the map's edge far out, the rest across the bay. */
+function voyageIn(map: CoastMap, path: readonly number[]): number {
+  const L = pathLength(path);
+  const k = Math.max(1, Math.ceil(L / 0.5));
+  let ticks = 0;
+  for (let i = 0; i < k; i++) {
+    const p = pointAlong(path, (L * (i + 0.5)) / k);
+    const inside = p.x >= 0 && p.z >= 0 && p.x < map.size && p.z < map.size;
+    ticks += L / k / (inside ? BAY_PACE : FAR_PACE);
+  }
+  return ticks;
 }
 
 /** The band is back at the beach: its ships take it off and sail away, laden if it carries anything. False if no ship is there to take it. */
@@ -916,13 +1040,92 @@ export function daysToBeach(s: SimState, map: CoastMap, r: Raid): number {
     const out = Math.max(0, Math.min(left, e.z - map.size + 0.5));
     ticks += out / FAR_PACE;
     left -= out;
-    ticks += left / BAY_PACE + Math.max(0, e.from - s.tick);
+    ticks += left / BAY_PACE;
+    // (Slice 38: at her own pace.)
+    ticks /= e.pace ?? 1;
+    ticks += Math.max(0, e.from - s.tick);
     // (Slice 33: the sailing, not the wait, slower through winter's storms.)
     const pace = seaPace(s);
     if (pace !== 1) ticks += (ticks - Math.max(0, e.from - s.tick)) * (1 / pace - 1);
     most = Math.max(most, ticks);
   }
   return Math.max(1, Math.ceil(most / TICKS_PER_DAY));
+}
+
+// ---------------------------------------------------------------------------
+// Slice 38: a blockade's ships (blockades.ts hands them here).
+
+/**
+ * A blockade's ships come in from beyond the horizon, a day apart, each to
+ * her spot in a line across the harbour's mouth (`mouth`: the point on the
+ * ship's way in, and which way it runs there), bow to the harbour; or (a
+ * demo's) are there already, holding.
+ */
+export function blockadeSailIn(s: SimState, map: CoastMap, b: Blockade, mouth: { x: number; z: number; dx: number; dz: number }, there: boolean): number {
+  const n = b.ships;
+  // (Review of slice 38: how long until the last is on station, for the "Sails!" line.)
+  let last = 0;
+  const px = -mouth.dz;
+  const pz = mouth.dx;
+  const clear = (x: number, z: number): boolean => onWater(map, x, z) && onWater(map, x + mouth.dx * 1.5, z + mouth.dz * 1.5) && onWater(map, x - mouth.dx * 1.5, z - mouth.dz * 1.5);
+  for (let k = 0; k < n; k++) {
+    // Her place in the line, pulled in towards its middle (then along the way) until she lies on open water.
+    let off = (k - (n - 1) / 2) * BLOCKADE_GAP;
+    let x = mouth.x + px * off;
+    let z = mouth.z + pz * off;
+    for (let tries = 0; tries < 10 && !clear(x, z); tries++) {
+      off *= 0.8;
+      const back = tries >= 5 ? (tries - 4) * 0.8 : 0;
+      x = mouth.x + px * off - mouth.dx * back;
+      z = mouth.z + pz * off - mouth.dz * back;
+    }
+    const out = wayOut(map, x, z, BLOCKADE_HORIZON + k * 2, (k - (n - 1) / 2) * 5);
+    const path: number[] = [];
+    for (let i = out.length - 2; i >= 0; i -= 2) path.push(out[i], out[i + 1]);
+    const e: EnemyShip = {
+      id: s.fleet.nextId++,
+      raid: 0,
+      slot: k,
+      state: there ? 'holding' : 'sailing',
+      x: there ? x : path[0],
+      z: there ? z : path[1],
+      hx: mouth.dx,
+      hz: mouth.dz,
+      path,
+      along: there ? pathLength(path) : 0,
+      blockade: b.id,
+      from: there ? s.tick : s.tick + k * BLOCKADE_STAGGER,
+      hp: 100,
+      men: 0,
+      bx: x,
+      bz: z,
+      tile: -1,
+      laden: false,
+      struck: 0,
+      hit: 0,
+      sank: 0,
+      cool: 0,
+    };
+    if (!there) {
+      const p = pointAlong(path, 0);
+      e.hx = p.dx;
+      e.hz = p.dz;
+      // (Review of slice 38: quick enough that the last is on station about BAY_TICKS after the first is sighted, as the lines say; never slower than the usual paces. They took twice that.)
+      const usual = voyageIn(map, path);
+      const room = BAY_TICKS - k * BLOCKADE_STAGGER;
+      if (usual > room) e.pace = Math.round((usual / room) * 100) / 100;
+      last = Math.max(last, k * BLOCKADE_STAGGER + usual / (e.pace ?? 1));
+    }
+    s.fleet.ships.push(e);
+  }
+  s.rev++;
+  return last;
+}
+
+/** A blockade is over: its ships still afloat turn for the open sea. */
+export function blockadeOff(s: SimState, map: CoastMap, b: Blockade): void {
+  for (const e of s.fleet.ships) if (e.blockade === b.id && (e.state === 'sailing' || e.state === 'holding')) leave(map, e);
+  s.rev++;
 }
 
 // ---------------------------------------------------------------------------
@@ -936,8 +1139,17 @@ export function stationAlong(way: string): number {
   return lineLength(pts.slice(0, (p.at + 1) * 2));
 }
 
-/** The lanes a trireme can guard: those of the cities you can reach by sea, with a place on them. */
-export const LANES = PIRATE_PLACES.map((p) => ({ way: p.way, city: p.city, name: p.name }));
+/**
+ * The lanes a trireme can guard: every sea lane from your city but the Tyre
+ * ship's (slice 38: each with its place: named, or its middle, "on the lane
+ * to Thasos", for a lane with none named).
+ */
+export const LANES: ReadonlyArray<{ way: string; city: CityId; name: string }> = WAYS.filter((w) => w.kind === 'sea' && w.to !== 'tyre').map((w) => {
+  const p = PIRATE_PLACES.find((x) => x.way === w.id);
+  return { way: w.id, city: w.to, name: p ? p.name : `on the lane to ${PLACES[w.to]?.name ?? w.to}` };
+});
+/** Slice 38: a lane's place for pirates and warships (null: no such lane). */
+export const placeOn = (way: string): { way: string; city: CityId; name: string } | null => LANES.find((l) => l.way === way) ?? null;
 
 /** How long a trireme takes over so far along a lane (ticks): at a trader's pace. */
 function laneTicks(city: CityId, from: number, to: number): number {
@@ -968,9 +1180,38 @@ export function guardRefusal(t: Trireme | undefined, way: string): string {
   // (Out on another lane, or sailing home along one: home first. Review of slice 26: she can't cross from lane to lane on the map.)
   const on = t.state === 'away' ? LANES.find((l) => l.way === t.lane) : undefined;
   if (on && on.way !== way) return t.order === 'lane' ? `She is out on the lane to ${cityName(on.city)}: bring her home first` : `She is sailing home along the lane to ${cityName(on.city)}: she can go out again once she is in`;
+  // (Slice 38, review of slice 26: rowing home in the bay, she offers no lanes until she is in.)
+  if (t.state === 'rowing' && (t.task === 'home' || t.task === 'in')) return 'She is rowing home: she can go out again once she is in';
   if (t.crew.length * 2 < CREW) return `She needs at least ${CREW / 2} rowers to go out (${t.crew.length} now)`;
+  if (t.mend) return 'She is laid up under repair until she is whole';
   if (t.hp < FIT) return 'Her hull needs mending first';
+  // (Slice 38.)
+  if (t.oars < FIT) return 'Her oars need mending first';
   return '';
+}
+
+/** Slice 38: why a trireme can't be called in for repair now, or '' if she can. */
+export function repairRefusal(t: Trireme | undefined): string {
+  if (!t || !afloat(t)) return 'No such trireme';
+  if (t.state === 'building') return 'She is still on the slip';
+  if (t.mend) return 'She is under repair already';
+  if (t.order === 'away') return 'She is away with your soldiers: she is mended when she is home';
+  if (t.hp >= 100 && t.oars >= 100) return 'She is whole: nothing to mend';
+  return '';
+}
+
+/** Slice 38: call a trireme in for repair (a command): home if she is out, then laid up at her mooring until whole. */
+export function callRepair(s: SimState, map: CoastMap, id: number): boolean {
+  const t = triremeOf(s, id);
+  if (repairRefusal(t) !== '' || !t) return false;
+  if (t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out')) callHome(s, map, id);
+  else if (t.state === 'rowing' && t.task === 'fight') {
+    t.foe = 0;
+    homeTo(s, map, t);
+  }
+  t.mend = true;
+  s.rev++;
+  return true;
 }
 
 /** Send a trireme out to guard a lane (a command): out of the bay, then along the lane on the map to its place. */
@@ -1051,7 +1292,8 @@ function stepAway(s: SimState, map: CoastMap): void {
 
 /** A trireme rowing out of the bay (for a lane or with a force) or in from it: along her way; at its end, on the map or at her mooring. */
 function rowOutIn(s: SimState, map: CoastMap, t: Trireme): void {
-  if (!sail(t, ROW_PACE)) return;
+  // (Slice 38: limping, with her oars broken.)
+  if (!sail(t, oarPace(t))) return;
   if (t.task === 'in') {
     moor(s, map, t);
     return;
@@ -1136,14 +1378,14 @@ export function fleetHome(s: SimState, map: CoastMap, ids: readonly number[]): v
 /** The pirates on a lane now (seen or preying), if any. */
 export const piratesOn = (s: SimState, way: string): Pirates | undefined => s.fleet.pirates.find((p) => p.way === way && (p.state === 'seen' || p.state === 'preying'));
 
-/** The lanes your city trades over (a sea route to a city with a pirates' place). */
-function lanesUsed(s: SimState): typeof PIRATE_PLACES[number][] {
-  return PIRATE_PLACES.filter((p) => s.world.routes.some((r) => r.kind === 'sea' && r.city === p.city));
+/** The lanes your city trades over (a sea route to a city with a pirates' place: slice 38, every lane has one). */
+function lanesUsed(s: SimState): typeof LANES[number][] {
+  return LANES.filter((p) => s.world.routes.some((r) => r.kind === 'sea' && r.city === p.city));
 }
 
 /** Set pirates on a lane (now, or a demo's staging): seen now, preying from a fortnight on. */
 export function pirateBand(s: SimState, way: string, ships: number, why = ''): Pirates | null {
-  const place = PIRATE_PLACES.find((p) => p.way === way);
+  const place = placeOn(way);
   if (!place) return null;
   const p: Pirates = {
     id: s.fleet.nextId++,
@@ -1175,7 +1417,10 @@ const dayIn = (tick: number): string => {
 function stepPirates(s: SimState): void {
   const f = s.fleet;
   const w = s.world;
+  // (Slice 38: an expedition by sea may meet pirates or warships on its lane, with or without your trade.)
   if (f.pirates.length === 0 && (!w.contact || !w.routes.some((r) => r.kind === 'sea'))) return;
+  // Slice 38: wars put warships on your lanes, and take them off again.
+  if (s.tick % TICKS_PER_DAY === 0 && w.contact) stepWarships(s);
   // (None come while fire and wear are switched off, as while a demo's history is built: the demos open as they did.)
   // Each tick, while some prey: what of yours passes their place on an unguarded lane is seized.
   if (f.pirates.some((p) => p.state === 'preying')) {
@@ -1189,7 +1434,8 @@ function stepPirates(s: SimState): void {
       s.rev++;
     }
     // Slice 35: the Lighthouse's fire is seen far out, and pirates keep clear of your waters while it burns (the hook slice 38 builds on).
-    if ((p.state === 'seen' || p.state === 'preying') && piratesKeepClear(s)) {
+    // (Slice 38: warships are war, not piracy: its fire doesn't keep them off, nor a blockade.)
+    if ((p.state === 'seen' || p.state === 'preying') && !p.of && piratesKeepClear(s)) {
       p.state = 'gone';
       p.until = s.tick;
       news(w, s.tick, p.city, `The pirates ${p.place} saw the fire of your Lighthouse and sailed off${p.took.length ? `, with ${tookWords(p.took)}` : ''}: they keep clear of your waters while it burns`);
@@ -1197,11 +1443,13 @@ function stepPirates(s: SimState): void {
     }
     if ((p.state === 'seen' || p.state === 'preying') && s.tick >= p.until) {
       p.state = 'gone';
-      news(w, s.tick, p.city, `The pirates ${p.place} have sailed away${p.took.length ? `, with ${tookWords(p.took)}` : ''}`);
+      news(w, s.tick, p.city, `${p.of ? `${whose(p.of)} warships` : 'The pirates'} ${p.place} have sailed away${p.took.length ? `, with ${tookWords(p.took)}` : ''}`);
       s.rev++;
     }
     if ((p.state === 'seen' || p.state === 'preying') && guarded(s, p.way) && (p.fought === 0 || s.tick - p.fought >= REFIGHT)) laneFight(s, p);
   }
+  // Slice 38: expeditions at sea passing their place fight them.
+  if (f.pirates.some((p) => p.state === 'seen' || p.state === 'preying')) meetExpeditions(s);
   // Pirates long gone are forgotten.
   if (f.pirates.some((p) => (p.state === 'gone' || p.state === 'beaten') && s.tick - p.until > TICKS_PER_YEAR)) f.pirates = f.pirates.filter((p) => !((p.state === 'gone' || p.state === 'beaten') && s.tick - p.until > TICKS_PER_YEAR));
   if (f.reports.length > 8) f.reports.splice(0, f.reports.length - 8);
@@ -1213,9 +1461,10 @@ function newPirates(s: SimState): void {
   const f = s.fleet;
   // (Slice 35: none while the Lighthouse burns.)
   if (piratesKeepClear(s)) return;
-  if (f.pirates.some((p) => p.state === 'seen' || p.state === 'preying')) return;
-  if (f.pirates.some((p) => s.tick - Math.min(p.until, p.fought || p.until) < PIRATE_LULL)) return;
-  const lanes = lanesUsed(s);
+  // (Slice 38: pirates only: warships are another matter, and their lanes are taken.)
+  if (f.pirates.some((p) => !p.of && (p.state === 'seen' || p.state === 'preying'))) return;
+  if (f.pirates.some((p) => !p.of && s.tick - Math.min(p.until, p.fought || p.until) < PIRATE_LULL)) return;
+  const lanes = lanesUsed(s).filter((l) => !piratesOn(s, l.way));
   if (!lanes.length) return;
   const first = s.world.routes.filter((r) => r.kind === 'sea').reduce((a, r) => Math.min(a, r.opened), Infinity);
   if (s.tick - first < PIRATES_AFTER) return;
@@ -1239,11 +1488,13 @@ function seize(s: SimState): void {
       w.gifts = w.gifts.filter((x) => x !== g);
       const words = giftWords(g.good, g.amount);
       p.took.push(words);
+      // (Slice 38: or a city's warships.)
+      const who = bandWords(p);
       if (g.deal) {
         undelivered(s, g);
-        news(w, s.tick, p.city, `Pirates ${p.place} seized the ${words} you sent for ${cityName(g.to)}: it never got there, and they wait for it still`, true);
-      } else news(w, s.tick, p.city, `Pirates ${p.place} seized your gift of ${words} for ${cityName(g.to)}: it never got there`, true);
-      armyNews(s, `Pirates ${p.place} seized the ${words} you sent to ${cityName(g.to)}`, 0);
+        news(w, s.tick, p.city, `${who} ${p.place} seized the ${words} you sent for ${cityName(g.to)}: it never got there, and they wait for it still`, true);
+      } else news(w, s.tick, p.city, `${who} ${p.place} seized your gift of ${words} for ${cityName(g.to)}: it never got there`, true);
+      armyNews(s, `${who} ${p.place} seized the ${words} you sent to ${cityName(g.to)}`, 0);
       s.rev++;
     }
   }
@@ -1256,7 +1507,7 @@ function robbedNews(s: SimState): void {
     const p = preyingOn(s, routeWay(r.city, 'sea')?.way ?? '');
     if (!p) continue;
     p.took.push(`${whose(r.city)} trader’s cargo`);
-    news(s.world, s.tick, r.city, `Pirates ${p.place} plundered ${whose(r.city)} ship on her way to you: she comes in empty, with nothing to sell you this time`, true);
+    news(s.world, s.tick, r.city, `${bandWords(p)} ${p.place} ${p.of ? 'seized the cargo of' : 'plundered'} ${whose(r.city)} ship on her way to you: she comes in empty, with nothing to sell you this time`, true);
     s.rev++;
   }
 }
@@ -1271,21 +1522,30 @@ function laneFight(s: SimState, p: Pirates): void {
   if (!guards.length) return;
   p.fought = s.tick;
   const ours = guards.reduce((a, t) => a + 2 * (t.hp / 100) * Math.min(1, t.crew.length / CREW), 0);
-  const odds = clamp(ours / (ours + p.ships), 0.15, 0.92);
+  // (Slice 38: a city's warship counts half again a pirate ship.)
+  const odds = clamp(ours / (ours + p.ships * (p.of ? WARSHIP_WORTH : 1)), 0.15, 0.92);
   const n = p.id * 7 + Math.floor(s.tick / TICKS_PER_DAY);
   const won = dice(s, n, 11) < odds;
   const names = guards.map((t) => triremeName(t));
   const who = names.length === 1 ? `The ${names[0]}` : `The ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-  const many = p.ships === 1 ? 'a pirate ship' : `${p.ships === 2 ? 'two' : 'three'} pirate ships`;
+  const many = shipsWords(p);
   let line: string;
   if (won) {
     const hurt: string[] = [];
     guards.forEach((t, i) => {
       const h = Math.round(10 + 20 * dice(s, n + i, 12));
       t.hp = Math.max(1, t.hp - h);
-      hurt.push(`${guards.length > 1 ? `the ${triremeName(t)}’s ` : 'her '}hull took ${h}`);
+      // (Slice 38: and her oars.)
+      const o = Math.round(OARS_LANE + OARS_LANE_MORE * dice(s, n + i, 15));
+      t.oars = Math.max(0, t.oars - o);
+      hurt.push(`${guards.length > 1 ? `the ${triremeName(t)}’s ` : 'her '}hull took ${h} and ${o} of every hundred oars broke`);
     });
     line = `${who} met ${many} ${p.place} and sank ${p.ships === 1 ? 'her' : p.ships === 2 ? 'both' : 'all three'}; ${hurt.join(', ')}. The lane to ${cityName(p.city)} is clear`;
+    // (Slice 38: a city's warships sunk: its fleet the smaller.)
+    if (p.of) {
+      const c = s.world.cities.find((x) => x.id === p.of);
+      if (c) change(c, s.tick, 'blockade', 'warships sunk on your lanes', { fleet: -p.ships });
+    }
     p.state = 'beaten';
     p.until = s.tick;
   } else {
@@ -1294,11 +1554,13 @@ function laneFight(s: SimState, p: Pirates): void {
     const sank = ours > p.ships * 0.6 && p.ships > 1 && dice(s, n, 14) < 0.5;
     if (sank) p.ships--;
     t.hp -= h;
+    // (Slice 38: and her oars, badly.)
+    t.oars = Math.max(0, t.oars - Math.round(OARS_LANE + OARS_LANE_MORE * dice(s, n, 16)));
     if (t.hp <= 0) {
-      line = `${who} fought ${many} ${p.place} and lost: the ${triremeName(t)} was sunk, her rowers picked up and brought home${sank ? '; one pirate ship went down too' : ''}. The pirates still hold the lane`;
+      line = `${who} fought ${many} ${p.place} and lost: the ${triremeName(t)} was sunk, her rowers picked up and brought home${sank ? `; one ${p.of ? 'warship' : 'pirate ship'} went down too` : ''}. The ${p.of ? 'warships' : 'pirates'} still hold the lane`;
       s.fleet.triremes = s.fleet.triremes.filter((o) => o !== t);
     } else {
-      line = `${who} fought ${many} ${p.place} and was beaten off: the ${triremeName(t)}’s hull took ${h}, and she comes home to be mended${sank ? '; one pirate ship went down' : ''}. The pirates still hold the lane`;
+      line = `${who} fought ${many} ${p.place} and was beaten off: the ${triremeName(t)}’s hull took ${h} and many of her oars broke, and she limps home to be mended${sank ? `; one ${p.of ? 'warship' : 'pirate ship'} went down` : ''}. The ${p.of ? 'warships' : 'pirates'} still hold the lane`;
       t.order = 'bay';
       const at = triremeOnMap(t, s.tick);
       const here = at ? at.along : HORIZON_ALONG;
@@ -1318,10 +1580,96 @@ function laneFight(s: SimState, p: Pirates): void {
 // ---------------------------------------------------------------------------
 // Commands.
 
-/** A fleet order (a command): send a trireme to guard a lane, or bring her home. */
+/** A fleet order (a command): send a trireme to guard a lane, or bring her home (slice 38: or call her in for repair). */
 export function fleetCommand(s: SimState, map: CoastMap, id: number, act: string, lane: string): void {
   if (act === 'guard') sendGuard(s, map, id, lane);
   else if (act === 'home') callHome(s, map, id);
+  else if (act === 'repair') callRepair(s, map, id);
+}
+
+// ---------------------------------------------------------------------------
+// Slice 38: warships, and expeditions meeting pirates at sea.
+
+/** A city's warship in a lane fight counts this many pirate ships; a lane fight breaks this many of a trireme's oars and up to so many more. */
+const WARSHIP_WORTH = 1.5;
+const OARS_LANE = 15;
+const OARS_LANE_MORE = 25;
+
+/** "Pirates", "Troy’s warships". */
+export const bandWords = (p: Pirates): string => (p.of ? `${whose(p.of)} warships` : 'Pirates');
+/** Review of slice 38: why a city's warships are on the lane: "at war with Athens", "at war with you" ('' for pirates). */
+export function warWords(s: SimState, p: Pirates): string {
+  if (!p.of) return '';
+  const x = p.war !== undefined && p.war >= 0 ? s.world.wars.find((o) => o.id === p.war) : undefined;
+  return x ? `at war with ${cityName(x.a === p.of ? x.b : x.a)}` : 'at war with you';
+}
+/** "a pirate ship", "two of Troy’s warships". */
+function shipsWords(p: Pirates): string {
+  const n = ['a', 'two', 'three'][p.ships - 1] ?? String(p.ships);
+  if (p.of) return p.ships === 1 ? `a warship of ${cityName(p.of)}` : `${n} of ${whose(p.of)} warships`;
+  return p.ships === 1 ? 'a pirate ship' : `${n} pirate ships`;
+}
+
+/**
+ * Expeditions at sea (out or home) that have passed the place of pirates or
+ * warships on their lane since yesterday fight them there: their triremes
+ * and the men aboard (a company counts as a trireme) against their ships,
+ * from the strengths and Greece's dice, with a report. Won, they are sunk;
+ * lost, they hold the lane. The triremes take hull and oars but keep with
+ * the fleet carrying your men (never sunk), and are mended when home. The
+ * expedition's own record is not touched.
+ */
+function meetExpeditions(s: SimState): void {
+  for (const e of s.world.expeditions) {
+    if (e.by !== 'sea' || (e.phase !== 'marching' && e.phase !== 'homeward')) continue;
+    const p = s.fleet.pirates.find((x) => x.way === e.way && (x.state === 'seen' || x.state === 'preying'));
+    if (!p) continue;
+    const leg = e.phase === 'homeward' ? 1 : 0;
+    if ((p.met ?? []).some((m) => m === e.id * 2 + leg)) continue;
+    const now = expeditionOnMap(e, s.tick);
+    const before = expeditionOnMap(e, s.tick - TICKS_PER_DAY);
+    if (!now || !before) continue;
+    const at = stationAlong(p.way);
+    const crossed = (before.along - at) * (now.along - at) <= 0 && before.along !== now.along;
+    if (!crossed) continue;
+    p.met = [...(p.met ?? []), e.id * 2 + leg];
+    seaFight(s, e, p);
+  }
+}
+
+function seaFight(s: SimState, e: Expedition, p: Pirates): void {
+  const ships = e.ships.map((id) => triremeOf(s, id)).filter((t): t is Trireme => !!t && afloat(t));
+  const ours = ships.reduce((a, t) => a + 2 * (t.hp / 100) * Math.min(1, t.crew.length / CREW), 0) + 2 * e.companies.length;
+  const theirs = p.ships * (p.of ? WARSHIP_WORTH : 1);
+  const odds = clamp(ours / (ours + theirs), 0.15, 0.95);
+  const n = p.id * 11 + e.id * 3 + Math.floor(s.tick / TICKS_PER_DAY);
+  const won = dice(s, n, 21) < odds;
+  const hurt: string[] = [];
+  ships.forEach((t, i) => {
+    const h = Math.round((won ? 8 : 20) + (won ? 17 : 25) * dice(s, n + i, 22));
+    const o = Math.round((won ? 10 : 20) + (won ? 20 : 25) * dice(s, n + i, 23));
+    t.hp = Math.max(20, t.hp - h);
+    t.oars = Math.max(10, t.oars - o);
+    hurt.push(`the ${triremeName(t)}’s hull took ${h} and ${o} of every hundred oars broke`);
+  });
+  const what = e.kind === 'raid' ? 'Your raiding party' : 'Your army';
+  const going = e.phase === 'homeward' ? `on its way home from ${cityName(e.city)}` : `on its way to ${cityName(e.city)}`;
+  const many = shipsWords(p);
+  let line: string;
+  if (won) {
+    p.state = 'beaten';
+    p.until = s.tick;
+    p.fought = s.tick;
+    if (p.of) {
+      const c = s.world.cities.find((x) => x.id === p.of);
+      if (c) change(c, s.tick, 'blockade', 'warships sunk on your lanes', { fleet: -p.ships });
+    }
+    line = `${what}, ${going}, met ${many} ${p.place} and its triremes sank ${p.ships === 1 ? 'her' : p.ships === 2 ? 'both' : 'all three'}${hurt.length ? `; ${hurt.join(', ')}` : ''}. The lane to ${cityName(p.city)} is clear`;
+  } else line = `${what}, ${going}, met ${many} ${p.place} and was beaten off: they keep the lane${hurt.length ? `; ${hurt.join(', ')}` : ''}. The triremes keep with the men aboard, and are mended when home`;
+  s.fleet.reports.push({ tick: s.tick, way: p.way, city: p.city, won, line });
+  news(s.world, s.tick, p.city, line, true);
+  armyNews(s, line, 0);
+  s.rev++;
 }
 
 /** Rowing out or in: called from the bay's step for triremes on those errands. */
@@ -1341,15 +1689,19 @@ export function triremeDoing(s: SimState, t: Trireme): string {
     case 'sinking':
       return 'Going down';
     case 'moored':
-      return t.hp < 100 ? `Moored at the shipyard, being mended (${Math.round(t.hp)}% sound)` : t.crew.length * 2 < CREW ? 'Moored at the shipyard, waiting for her rowers' : 'Moored at the shipyard, guarding the bay';
+      // (Slice 38: laid up under repair, or mended at her mooring; her oars too.)
+      if (t.mend) return `Laid up at the shipyard under repair: ${hurtWords(t)}`;
+      return t.hp < 100 || t.oars < 100 ? `Moored at the shipyard, being mended (${hurtWords(t)})` : t.crew.length * 2 < CREW ? 'Moored at the shipyard, waiting for her rowers' : 'Moored at the shipyard, guarding the bay';
     case 'rowing': {
       if (t.task === 'fight') {
         const e = s.fleet.ships.find((x) => x.id === t.foe);
-        const r = e ? s.world.raids.find((x) => x.id === e.raid) : undefined;
-        const of = r ? ` of ${cityName(r.city)}` : '';
+        const city = e ? cityOfShip(s, e) : undefined;
+        const of = city ? ` of ${cityName(city)}` : '';
+        if (e?.blockade) return `Rowing out to ram a ship${of} across the harbour’s mouth`;
         return e?.state === 'beached' ? `Rowing in on a ship${of} drawn up on the beach` : `Rowing out to ram a ship${of}`;
       }
-      if (t.task === 'home') return t.hp < BREAK_OFF ? 'Badly holed: rowing home to be mended' : 'Rowing back to her mooring';
+      // (Slice 38: limping, her oars broken.)
+      if (t.task === 'home') return t.hp < BREAK_OFF ? 'Badly holed: rowing home to be mended' : t.oars < CRIPPLED_OARS ? 'Her oars broken: limping home to be mended' : 'Rowing back to her mooring';
       if (t.task === 'out') return lane ? `Rowing out of the bay, to guard the lane to ${cityName(lane.city)}` : 'Rowing out of the bay';
       return 'Rowing in from the sea';
     }
@@ -1365,8 +1717,14 @@ export function triremeDoing(s: SimState, t: Trireme): string {
 
 /** What an enemy ship is doing, in words. */
 export function enemyDoing(s: SimState, e: EnemyShip): string {
-  const r = s.world.raids.find((x) => x.id === e.raid);
-  const of = r ? ` of ${cityName(r.city)}` : '';
+  // (Slice 38: or a blockade's ship.)
+  const city = cityOfShip(s, e);
+  const of = city ? ` of ${cityName(city)}` : '';
+  if (e.blockade) {
+    if (e.state === 'holding') return `A ship${of} holding the mouth of your harbour: no ship comes or goes`;
+    if (e.state === 'sailing') return s.tick < e.from ? `A ship${of} on the horizon, come to blockade your harbour` : `A ship${of} sailing in to blockade your harbour`;
+    if (e.state === 'leaving') return `A ship${of} sailing off, the blockade over`;
+  }
   switch (e.state) {
     case 'sailing':
       return s.tick < e.from ? `A ship${of} on the horizon` : `A ship${of} sailing in, ${e.men} men aboard`;
