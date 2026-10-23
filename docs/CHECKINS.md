@@ -139,6 +139,59 @@ At this load nearly every demo takes over 3 seconds on both builds (at phase 4's
 
 Checked again after the fixes: the code checks clean, all 589 tests pass and the build is clean. The full slow smoke test ran from start to end and passed. On its first run one old step, `#warning`, read a household's panel a moment before it redrew; it passed when run alone, and the test now waits for the panel. That was the test, not the game. The page as it will be published opens the bare link, `#town`, `#empire`, `#thieves`, `#seasons`, `#quarry`, `#greecegrows`, `#vassal`, `#monument`, `#estates`, `#colony`, `#blockade` and `#ambition`, with no page errors (the one request that fails is for the tab's icon, which the host page gives).
 
+### The phase, all told
+
+Phase 5, "Ambitions and empire" with "A deeper city", in eleven slices. As you asked, it was built on four lines side by side (the city, Greece, works and the sea, and the ambitions), each slice reviewed on its own line and then joined to the main line. That is why the check-ins sit in the order they were joined, not by number. Here's what you can do now that you couldn't at the end of phase 4:
+- **Slice 30, thieves in the night.** Every home has a temptation to steal, and its panel says why. When it fills, someone slips out hooded, robs a richer home, a store or the tax office, and goes home. A watchman deters thieves on his round and catches the ones he sees. Try `#thieves`, `#nowatch` and `#harsh`.
+- **Slice 31, Greece grows.** Eleven cities now, with Thebes, Argos, Knossos, Rhodes and Memphis joining, and six empty islands and capes. Each city rises and falls over the years for reasons its page names, and strong rivals found colonies and bully weaker neighbours. Try `#greecegrows`, `#knossos` and `#memphis`.
+- **Slice 32, marble and timber.** A quarry on the headland whose sledges drag blocks to a storehouse, and a loggers' camp by two pine woods that grow back. Naxos and Thasos make them too. Try `#quarry` and `#loggers`.
+- **Slice 33, the turning year.** Four seasons you can see, in the land, the trees, the sea and the sky, with rain and the odd storm. Wheat is reaped in autumn, flocks breed in spring, and winter storms make ships late and keep most armies home. A dial under the date says what's coming. Try `#seasons` and `#winter`.
+- **Slice 34, vassals and allies.** Take a city by conquest, by a herald demanding it submit, or by letting its debt go for its loyalty (your choice: "Conquer, cow or buy"), with the odds and reasons shown first. A vassal pays tribute each season, its donkeys and ships bringing it to your tax office, and its loyalty names its reasons. Push it too hard and it rises, with a season's warning. Allies send men when you're raided. Try `#conquer`, `#submit`, `#vassal`, `#rebellion` and `#ally`.
+- **Slice 35, monuments.** A masons' yard whose builders walk out to the Lighthouse, the Colossus or the Stadium, each rising in three stages as ox carts haul marble and timber up from the stores. The Lighthouse keeps pirates from your waters, and the Stadium holds games. Try `#monument`, `#lit` and `#games`.
+- **Slice 36, the great houses.** The estate, a walled house on its own 4×4 plot, grows into a great estate with marble for its statues, armour for its sons and horses for its stable. Horses come from a new horse farm or from Thessaly by way of Thebes. Each estate sends a son to ride in a company of horsemen, quick against raiders who run. Try `#estates` and `#horsemen`.
+- **Slice 37, colonies.** Found a colony on an empty site and four real households pack up, leave their homes empty, walk to the quay and sail. The colony grows by itself, has a governor and a name you can change, sends the share of its good you choose, and can be raided, claimed, or go free if squeezed, each warned ahead. Try `#colony` and `#colonies`.
+- **Slice 38, contested seas.** A city at war with you can blockade your harbour, holding every ship until your triremes break it or the war ends. Warships seize cargo on the lanes in wars, expeditions meet pirates, oars break in a fight, and a crippled trireme limps home to a shipyard that now has its own panel. Try `#blockade` and `#shipyard`.
+- **Slice 39, ambitions.** Master of Greece, the great trading city and a city of wonders run side by side from the founding (your choice: "Chase all three at once"), five milestones each, with a laurel chip in the top bar and a panel showing every milestone and how far you are. Each ends in a great monument. Try `#ambition` and `#achieved`.
+- **Slice 40, an empire's city.** `#empire` has it all at once: laurels in all three ambitions, a vassal, a colony sending its share, the Lighthouse rising, two estates, thieves, winter coming and Rhodes' fleet on its way to blockade you. Gifts and sendings now arrive in about half the time, a fickle ruler's mood no longer flickers back and forth in the news, and the slice and phase reviews fixed a watchman who could chase a thief on the spot forever, ships that slipped out through a blockade, and a dozen smaller things.
+
+Your balance picks from the start of the phase are in: the debt's wait and the size of a seizure are as they were, threats come about twice as often as in phase 4 (9 in 12 nine-year runs, against 2), a lender's army comes back only for a remainder worth the march, and money is as it was. Another thread also changed the game this phase: service buildings now keep crews of up to three walkers, which ended the flicker of houses going up and down a level, and vendors charge for what they actually hand over.
+
+**Recorded for later**
+- From the spec: the gods (*Beloved of the gods* as a fourth ambition, sanctuaries as monuments, gods in war, which god a shrine belongs to); chariots; generals and heroes; companies that sally out; riots when a whole quarter is unhappy; a court and prison; laying out a colony's streets yourself.
+- From the way:
+  - no blockade came of itself in a ten-year game, though Athens was at war with 11 ships (a blockade needs a war and a fleet of 6 or more, and the wars were short);
+  - your triremes can fight an ally's warships on a lane with no cost to the ally's mood;
+  - a rich, liked city is rarely threatened itself, while its colonies draw threats (9 in 36 colony-years, against 1 in 54 town-years);
+  - colonies' shares are generous in cheap goods (a colony of 400 sends about 2,290 oil a year at a fair share), and an ambition's reward is small (300 dr);
+  - `#repaid` and `#forgive` run short of food in their second year;
+  - no boat is drawn for the families being rowed out to their ship;
+  - in `#horsemen` the headland quarry falls because no inspector reaches it, and pasture carts can't keep up on long roads;
+  - the Lighthouse and Colossus stand on a knoll of earth on steep shores;
+  - the laurel chip shows 0% in a demo where nothing towards it is begun;
+  - a wage slider (phase 2's) needs saved state and its own effect on labour, so it was left.
+- Done from earlier phases' lists: sendings taking about three months, a fickle ruler's mood crossing a line and back, `#rivals`' lines at 1280 × 720, and the drachma arrow and its floater disagreeing.
+
+**Budgets that moved** (end of phase 4 against now, measured side by side on a heavily loaded machine)
+- **Download:** the game's own files went from 681 KB to 817 KB compressed. With the 136 demos' prepared towns it's about 4.5 MB in all, but each demo fetches only its own file (the largest 52 KB).
+- **Load:** under this machine's load nearly every demo takes over 3 seconds on both builds, and the median is a little quicker now (3.9 s against 4.4 s). At phase 4's quieter measuring the median was 1.9 s.
+- **Triangles and draw calls:** `#town` 1.48 million and 101 (from 1.45 million and 89); `#empire`, the heaviest view yet, 1.9 million and 150.
+- **Time per tick:** the game's own work each tick has about doubled in `#town` (0.44 to 1.07 ms) and `#fortress` (1.14 to 2.30 ms). Thieves, seasons and the rest each add a little, with no single part to blame. On a laptop at normal speed that is still a small share of a frame, but real frames a second can't be measured here.
+- **Saves:** `#town` 149 KB to 182 KB; `#empire` 273 KB.
+- **Tests:** 444 at the start of the phase, now 589.
+
+**Questions for you**
+- Do the city and the empire feel like one game in `#empire`? Does what happens beyond the walls show up in the streets clearly enough?
+- Should a rich, liked city draw threats of its own late in the game, rather than only through its colonies?
+- A conquered vassal at a fair tribute rose about 16 months after the conquest. Too soon?
+- Should an ally's warships let your triremes pass, or should fighting them cost its mood?
+- Is a natural blockade too rare?
+- Are a colony's share and an ambition's reward the right size?
+- How does the season tint read to you (the summer gold especially), and the Lighthouse's knoll?
+- Are the bay fights the right weight? Two triremes now stop most landings, but not all.
+- Rival cities still mostly take vassals between Argos and Sparta. Leave it?
+- Do `#town`, `#empire` and the map of Greece stay smooth on your laptop?
+- What should the next phase be?
+
 ## Slice 37 — Colonies (22 Oct)
 
 You can now plant your own people on Greece's empty sites. From a site's page you pay 1,000 dr and 400 wheat, and four households from your town pack up, leave their homes standing empty, walk down to the quay and are rowed out to your ship, which sails along the site's own lane across the map. The colony grows by itself, sends you the share of its timber, marble or other good that you choose by ship, has a governor and a loyalty with every reason named, and can be raided or claimed by a rival (warned two months ahead) or, grown large and squeezed, warn you a season before it declares itself free. You weren't here while it was built: every choice below is mine, from the spec's defaults.
