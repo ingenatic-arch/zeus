@@ -2021,11 +2021,19 @@ function seasonsTown(sim: Sim): void {
 function winterTown(sim: Sim): void {
   town(TOWN_TICKS, SAFE, true)(sim);
   const s = sim.state;
-  const from = winterAfter(s.tick);
-  if (s.tick < from) sim.run(from - s.tick);
-  const end = from + 3 * TICKS_PER_MONTH - 5 * TICKS_PER_DAY;
   const late = (): boolean => lateDays(s, 'tyre') > 0 && s.trade.ship.phase === SHIP_AWAY;
+  // (Slice 40: on the trunk's history no call of hers was held back that first winter, so the demo opened at the end
+  // of February with no late ship. If so, the next winter, at most two more.)
+  let from = winterAfter(s.tick);
+  if (s.tick < from) sim.run(from - s.tick);
+  let end = from + 3 * TICKS_PER_MONTH - 5 * TICKS_PER_DAY;
   while (s.tick < end && !late()) sim.run(TICKS_PER_DAY);
+  for (let tries = 0; tries < 2 && !late(); tries++) {
+    from = winterAfter(s.tick);
+    if (s.tick < from) sim.run(from - s.tick);
+    end = from + 3 * TICKS_PER_MONTH - 5 * TICKS_PER_DAY;
+    while (s.tick < end && !late()) sim.run(TICKS_PER_DAY);
+  }
   // On a wet day, if one comes while she is still out.
   const wet = s.tick + 20 * TICKS_PER_DAY;
   while (s.tick < Math.min(end, wet) && late() && weatherNow(s) === WX_FAIR) sim.run(TICKS_PER_DAY);
