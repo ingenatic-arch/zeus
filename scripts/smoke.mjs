@@ -1544,10 +1544,14 @@ if (!(await lines18()).some((l) => /^You promised Athens [\d,]+ wheat and nothin
 await zeus(() => window.__zeus.speed('normal'));
 await page.waitForFunction(() => window.__zeus.deals()[0].state !== 'open', null, { timeout: 120000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
-await page.waitForFunction(() => window.__zeus.townLines().some((l) => /You promised Athens [\d,]+ wheat and none came by the day/.test(l)), null, { timeout: 5000 }).catch(() => {});
 await frames(3);
 g = await gi();
 if (!/−35You promised them [\d,]+ wheat and it never came/.test(g.panel)) fail(`#promise: no broken promise on the page: ${g.panel.slice(0, 1200)}`);
+// (Slice 38: Athens' ship crosses the bay faster, so this town opens two days later and the Karneia's line comes first:
+// the broken promise's line follows it in turn, a day or two on.)
+await zeus(() => window.__zeus.speed('normal'));
+await page.waitForFunction(() => window.__zeus.townLines().some((l) => /You promised Athens [\d,]+ wheat and none came by the day/.test(l)), null, { timeout: 120000, polling: 50 }).catch(() => {});
+await zeus(() => window.__zeus.speed('paused'));
 if (!(await lines18()).some((l) => /You promised Athens [\d,]+ wheat and none came by the day[^(]*\(−35\)/.test(l))) fail(`#promise: no news of it: ${JSON.stringify(await lines18())}`);
 // #offer: Corinth's offer for oil; take it, and the route's oil row shows the offer's price and what is left of it.
 await open('#offer-paused');
@@ -2046,7 +2050,8 @@ await open('#landing-paused');
   let tip = '';
   if (shown) {
     const p = await zeus(([x, z]) => window.__zeus.screenOf(x, z), [shown.x, shown.z]);
-    for (const dy of [-8, -16, 0, -24]) {
+    // (Slice 38: she is nearer the map's edge when it opens, where the sea bed (which screenOf finds) lies deep below her, so up the screen too.)
+    for (const dy of [-8, -16, 0, -24, -48, -72, -96, -120, -144]) {
       await page.mouse.move(p.x, p.y + dy);
       await page.mouse.move(p.x + 1, p.y + dy);
       await frames(3);

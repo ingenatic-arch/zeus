@@ -1756,7 +1756,9 @@ function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
     const ready = (): boolean => {
       if (r.phase !== 'raiding' || r.landed > 0) return r.phase !== 'gathering' && r.phase !== 'marching' && r.phase !== 'threat';
       const ships = shipsOf(s, r);
-      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS : ships.some((e) => e.z < MAP_SIZE + 8);
+      // (Slice 38: the ships cross the bay at a fortnight's pace now, so twelve days off they are still beyond the edge:
+      // #landing waits too for the first to be inside the bay, about ten days off.)
+      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS && ships.some((e) => e.z < MAP_SIZE - 2) : ships.some((e) => e.z < MAP_SIZE + 8);
     };
     while (s.tick < stop && !ready()) sim.step();
   };
