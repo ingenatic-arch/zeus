@@ -182,4 +182,6 @@ export const VIEWS: Record<string, CameraView> = {
   ally: { x: 8, z: 50.5, yaw: 0, dist: 14, tilt: 0.02 },
   // Slice 37, #colony: the quay and the jetty from inland, your ship at anchor beyond, the families coming down the road.
   colony: { x: 74, z: 76, yaw: 2.65, dist: 26, tilt: -0.2 },
+  // Slice 40, #empire: the whole town from the west, its streets on the left, the quay and the bay where Rhodes' fleet will come in the middle, the Lighthouse on its headland on the right.
+  empire: { x: 84, z: 62, yaw: -1.2, dist: 74, tilt: -0.18 },
 };

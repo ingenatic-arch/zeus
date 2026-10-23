@@ -66,6 +66,8 @@ import { note } from '../sim/stockbook';
 import { colonyOf, foundingOf, foundRefusal, FOUND_COST } from '../sim/colonies';
 import { news } from '../sim/diplomacy';
 import { allyOf } from '../sim/vassals';
+// Slice 40
+import { sendBlockade } from '../sim/blockades';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3039,6 +3041,139 @@ const COLONY_TOWN = colonyTown('colony');
 const COLONIES_TOWN = colonyTown('colonies');
 const ALLY_TOWN = colonyTown('ally');
 
+// Slice 40
+/**
+ * An empire's city (slice 40). #empire: #ambition's town (the ambitions on
+ * from its founding and its laurels won in play, Corinth its vassal for its
+ * debt, two companies at the barracks, the mine and the armoury) carried on
+ * as a player chasing all three ambitions would, each step once the treasury
+ * can pay for it and a month's wages, answering Greece as a middling player
+ * would but turning down loans (a town this rich has no need of them):
+ * - marble and a noble house, as #estates': the quarry on the headland's
+ *   crown (its sledges bring the blocks round the bay to the quay's
+ *   storehouse) and an estate's plot below the villas; a horse farm and a
+ *   second sheep pasture on the river meadow and a fleece stall at the east
+ *   agora;
+ * - a colony: settlers sent to Thasos (the first free site if a rival is
+ *   bound there or holds it), its share left fair;
+ * - the Lighthouse on the headland, as #monument's: the spur road out to its
+ *   top, two masons' yards by the quarry road, and sea routes to Troy for its
+ *   timber and to Athens for marble;
+ * - a second estate's plot once the first is a great estate.
+ * Played on until the colony's share has come in by ship, the Lighthouse is
+ * part built with its ox carts on the road and the second estate's noble
+ * house is in; then on into the autumn, crime switched on as it is when a
+ * town opens (EMPIRE_CRIME before), until a few weeks before winter. Then
+ * Rhodes' queen is turned against the city (set up for this demo, and named
+ * so), her fleet put to sea to blockade the harbour: it opens a few days
+ * later with her ships on their lane, not yet on your horizon, and a thief
+ * out if one is (EMPIRE_THIEF days at most).
+ */
+/** The second estate's plot, across the road down to the quay from the first. */
+const EMPIRE_PLOTS = ESTATE_PLOTS;
+/** The newcomers' street: #thieves' street of plots on the slope behind the core's villas, off the oil road, with its own fountain. */
+const EMPIRE_STREET = [...THIEF_ROAD].reverse();
+const EMPIRE_STREET_PLOTS = along(THIEF_XS, 27);
+const EMPIRE_STREET_FOUNTAIN = T(THIEF_FOUNTAIN.x, THIEF_FOUNTAIN.z);
+/** How long #empire may play on, at most, to each of its moments. */
+const EMPIRE_MOST = 2 * TICKS_PER_YEAR;
+/** How much Athens' ships bring of marble at most (the Lighthouse needs 1,000 or so; the quarry cuts about 100 a month). */
+const EMPIRE_MARBLE = 400;
+/** Crime is switched on this long before the blockade's fleet puts to sea (temptation builds from nothing, as in a town just opened). */
+const EMPIRE_CRIME = 2 * TICKS_PER_MONTH;
+/** The fleet puts to sea this many days before winter, and the town opens this many days after it does (a thief out within EMPIRE_THIEF more, if one goes). */
+const EMPIRE_WINTER_DAYS = 32;
+const EMPIRE_SAILED_DAYS = 2;
+const EMPIRE_THIEF = 4;
+/** The city whose fleet comes, why, its ships, and how long its staged war lasts. */
+const EMPIRE_FOE: CityId = 'rhodes';
+const EMPIRE_WHY = 'the queen will not have a rival’s Lighthouse and colonies across her sea lanes, as set up for this demo';
+const EMPIRE_SHIPS = 3;
+const EMPIRE_WAR = 6 * TICKS_PER_MONTH;
+function empireCityTown(sim: Sim): void {
+  ambitionTown('ambition')(sim);
+  const s = sim.state;
+  const seen = new Set(s.world.deals.map((d) => d.id));
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  // (As #games' town: loans offered are turned down, so no debt's line crowds the demo.)
+  const answer = (): void => {
+    for (const d of s.world.deals) {
+      if (seen.has(d.id) || d.state !== 'open' || d.kind !== 'loanoffer') continue;
+      seen.add(d.id);
+      send({ type: 'answer', deal: d.id, act: 'decline' });
+    }
+    answerAsMiddling(sim, seen);
+  };
+  const playOn = (most: number, done: () => boolean): void => {
+    const end = s.tick + most;
+    while (s.tick < end && !done()) {
+      sim.run(TICKS_PER_DAY);
+      answer();
+    }
+  };
+  const afford = (cost: number): void => playOn(EMPIRE_MOST, () => spendable(s) >= cost + wageBill(s));
+  // Marble and the first estate's plot.
+  const quarryRoad = roadRoute(sim.map, s, WORKS_QUARRY_FROM, WORKS_QUARRY_TO) ?? [];
+  afford(quarryRoad.length * ROAD_COST + QUARRY_COST + ESTATE_PLOT_COST + JOBS.quarry * WAGE);
+  send({ type: 'road', tiles: quarryRoad });
+  send({ type: 'build', kind: 'quarry', at: [WORKS_QUARRY] });
+  send({ type: 'estate', at: [EMPIRE_PLOTS[0]] });
+  // A new street for a great city's newcomers, as a player chasing 2,000 people would lay out: off the quay road on the meadow below the estates, with its own fountain.
+  afford(EMPIRE_STREET.length * ROAD_COST + EMPIRE_STREET_PLOTS.length * 10 + FOUNTAIN_COST + JOBS.fountain * WAGE);
+  send({ type: 'road', tiles: EMPIRE_STREET });
+  send({ type: 'plots', at: EMPIRE_STREET_PLOTS });
+  send({ type: 'fountain', at: [EMPIRE_STREET_FOUNTAIN] });
+  // Horses and more fleece, on the river meadow, and a fleece stall at the east agora.
+  afford(HORSEFARM_COST + PASTURE_COST + STALL_COST + (JOBS.horsefarm + JOBS.pasture + 1) * WAGE);
+  send({ type: 'build', kind: 'horsefarm', at: [ESTATE_HORSEFARM] });
+  send({ type: 'build', kind: 'pasture', at: [ESTATE_PASTURE] });
+  send({ type: 'stall', at: T(97, 42), good: FLEECE });
+  // A colony.
+  afford(FOUND_COST);
+  const free = (id: string): boolean => foundRefusal(s, sim.map, id) === '';
+  const site = free('thasos') ? 'thasos' : (s.world.sites.find((x) => free(x.id))?.id ?? 'thasos');
+  send({ type: 'colony', act: 'found', site });
+  // The Lighthouse, and its timber and marble by sea.
+  const spur = roadRoute(sim.map, s, MONUMENT_SPUR_FROM, MONUMENT_SPUR_TO) ?? [];
+  afford(spur.length * ROAD_COST + LIGHTHOUSE_COST + MONUMENT_YARDS.length * (MASONS_COST + JOBS.masons * WAGE));
+  send({ type: 'road', tiles: spur });
+  send({ type: 'build', kind: 'lighthouse', at: [MONUMENT_LIGHTHOUSE] });
+  for (const at of MONUMENT_YARDS) send({ type: 'build', kind: 'masons', at: [at] });
+  for (const [city, good, upto] of [['troy', TIMBER, MONUMENT_TIMBER], ['athens', MARBLE, EMPIRE_MARBLE]] as const) {
+    playOn(EMPIRE_MOST, () => routeRefusal(s, city, 'sea') === '' && spendable(s) >= routeWay(city, 'sea')!.fee + 3 * wageBill(s));
+    if (routeRefusal(s, city, 'sea')) continue;
+    send({ type: 'route', city, kind: 'sea' });
+    send({ type: 'deal', city, kind: 'sea', good, buy: true, upto });
+  }
+  // On until the first estate is great; then the second's plot.
+  const estates = (): Building[] => s.buildings.filter((b) => b.estate);
+  playOn(EMPIRE_MOST, () => estates().some((e) => e.level === GREAT_ESTATE && e.people >= capacity(e)));
+  afford(ESTATE_PLOT_COST);
+  send({ type: 'estate', at: [EMPIRE_PLOTS[1]] });
+  // On until the colony's share has come in, the Lighthouse's second stage is going up and the second noble house is in.
+  const lighthouse = (): ReturnType<typeof monumentOf> => monumentOf(s, 'lighthouse');
+  const shared = (): boolean => s.empire.colonies.some((c) => c.sent > 0);
+  const rising = (): boolean => {
+    const x = lighthouse();
+    return !!x && (x.stage >= 1 || x.finished > 0);
+  };
+  playOn(EMPIRE_MOST, () => shared() && rising() && estates().every((e) => e.level >= ESTATE));
+  // On to EMPIRE_WINTER_DAYS before the next winter (one with most of its autumn still to come), crime on EMPIRE_CRIME before.
+  const sail = winterAfter(s.tick + EMPIRE_CRIME + EMPIRE_WINTER_DAYS * TICKS_PER_DAY) - EMPIRE_WINTER_DAYS * TICKS_PER_DAY;
+  playOn(EMPIRE_MOST, () => s.tick >= sail - EMPIRE_CRIME);
+  crime(sim, true);
+  playOn(EMPIRE_MOST, () => s.tick >= sail);
+  // Rhodes' fleet puts to sea against the harbour.
+  const c = cityOf(s.world, EMPIRE_FOE);
+  c.memories.push({ kind: 'staged', why: EMPIRE_WHY, amount: -30, tick: s.tick, fade: 2 * TICKS_PER_YEAR });
+  sendBlockade(s, { city: EMPIRE_FOE, cause: 'staged', of: 0, why: EMPIRE_WHY }, EMPIRE_SHIPS, s.tick + EMPIRE_WAR);
+  playOn(EMPIRE_SAILED_DAYS * TICKS_PER_DAY, () => false);
+  playOn(EMPIRE_THIEF * TICKS_PER_DAY, () => s.walkers.some((w) => w.kind === 'thief'));
+}
+
 const SCENES: Record<string, Demo> = {
   coast: { view: 'coast' },
   town: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing' },
@@ -3208,6 +3343,8 @@ const SCENES: Record<string, Demo> = {
   colony: { view: 'colony', speed: 'paused', setup: COLONY_TOWN, overlay: 'missing' },
   colonies: { view: 'bay', setup: COLONIES_TOWN, overlay: 'missing', greece: 'site:thasos' },
   ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
+  // Slice 40: an empire's city. #ambition's town carried on: a vassal, a colony sending its share, the Lighthouse rising, an estate and a great estate, winter coming, a thief out and Rhodes' fleet at sea against the harbour.
+  empire: { view: 'empire', setup: empireCityTown, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

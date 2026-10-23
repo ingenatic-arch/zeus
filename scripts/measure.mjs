@@ -316,6 +316,8 @@ for (const [hash, views] of [
   // Slice 39: a town a few laurels in across the three, the Ambition panel open; Master of Greece achieved, the Colossus standing.
   ['#ambition-paused-shot', [null]],
   ['#achieved-paused-shot', [null]],
+  // Slice 40: an empire's city (its own block below too).
+  ['#empire-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -453,6 +455,48 @@ for (const [hash, views] of [
   const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, fl: window.__zeus.fleet() }));
   const afloat = (fl) => fl.ships.filter((e) => e.state !== 'sinking').length;
   console.log(`#triremes fighting update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${afloat(a.fl)} then ${afloat(z.fl)} enemy ships afloat)`);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+}
+
+// Slice 40: #empire, the phase's town for judging the budgets (two estates, the Lighthouse rising with its ox carts, a thief out, a
+// colony's and a vassal's ships, about 1,450 people): load, triangles and draws from its view and the overview, people, walkers, a
+// save, its meshes, and the main thread's work a frame at normal speed.
+{
+  const t = Date.now();
+  await page.goto('about:blank');
+  await page.goto(url + '#empire-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 0, null, { timeout: 120000 });
+  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt, fetch: window.__zeus.fetchMs }));
+  console.log(`#empire by the page's clock: prepared town fetched in ${(tp.fetch ?? 0).toFixed(0)} ms and opened in ${tp.setup.toFixed(0)} ms, ready at ${tp.ready.toFixed(0)} ms, first frame at ${tp.first.toFixed(0)} ms (Playwright saw ready after ${Date.now() - t} ms)`);
+  for (const cam of [null, 'town', 'overview']) {
+    if (cam) await page.evaluate((c) => window.__zeus.setView(c), cam);
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    console.log(`#empire view ${(cam ?? 'demo').padEnd(9)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+  }
+  const c = await page.evaluate(() => window.__zeus.city());
+  console.log(`  #empire: ${c.population} people, ${c.homes} homes, ${c.walkers} walkers`);
+  await summarise();
+  const size = await page.evaluate(() => {
+    window.__zeus.saveNow();
+    let n = 0;
+    try {
+      n = (localStorage.getItem('zeus-remake.save.manual') ?? '').length;
+      localStorage.clear();
+    } catch {
+      /* no storage */
+    }
+    return n;
+  });
+  console.log(`  a save of #empire: ${(size / 1024).toFixed(0)} KB`);
+  await page.setViewportSize({ width: 960, height: 540 });
+  await page.evaluate(() => window.__zeus.speed('normal'));
+  await page.waitForTimeout(10000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  await page.waitForTimeout(8000);
+  const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, c: window.__zeus.city() }));
+  console.log(`#empire running   update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${z.c.walkers} walkers)`);
   await page.setViewportSize({ width: 1920, height: 1080 });
 }
 
