@@ -2,6 +2,83 @@
 
 Notes to Oliver, newest first.
 
+## Slice 40 — An empire's city (23 Oct)
+
+The phase ends with one town that has everything the phase built in it. `#empire` is `#ambition`'s town carried on about a year and a half. It has laurels in all three ambitions, Corinth as a vassal, Nea Thasos as a colony sending its share by ship, the Lighthouse rising on the headland, a great estate and an estate, and a new street of huts where thieves come from. It opens late in autumn, with winter a month off and Rhodes' fleet just put to sea to blockade the harbour. I also played the rich towns forward for years to look for numbers that are plainly off, looked at every new demo at two window sizes, and closed the leftovers. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** Nothing new is saved: the state version stays 37, and every save that loaded before still loads.
+- **Sending goods is quicker** (a phase 3 leftover). Porters fetch a gift or a sending at two and a half times a docker's pace (was one and a half), and your gift caravan walks at three times a trader's pace (was twice). In `#request`, the 1,000 wheat for Sparta now takes 76 days (was 112), and in `#promise` 45 (was 59).
+- **Some demos open a little differently**, because those two speeds and the mood rule below played out in their histories. I compared every demo at opening and 900 ticks on against the trunk, with the ambitions on and off, and 123 of 134 are exactly as before:
+  - `#greecegrows`, `#knossos` and `#memphis` (one town) open with 1,393 people and 49,664 dr (was 1,359 and 47,104). 900 ticks on they keep 1,395 (was 1,335).
+  - `#games` opens with 9,976 dr (was 8,886), and `#lit` with 4,766 (was 4,376).
+  - `#repaid` and `#forgive` have a few drachmas less. `#rivals`, `#rivalsmap` and `#rivalstreet` have 36 dr more 900 ticks on.
+  - None of these opens on another day or with another story.
+- **`#winter` has its late ship again.** Since the merges, no call of the Tyrian ship was held back in its first winter, so it opened on 26 February 747 BC with the ship on time. It now plays on to the next winter when that happens. It opens on 1 December 747 BC, raining, with 1,170 people (was 931), and the ship's chip says "61 d · late".
+- **A fickle ruler's mood** (a phase 3 leftover). If a mood crosses a line and comes straight back within a month, the News of Greece takes back its first line. It no longer adds a second line that disagrees with it ("cooled towards you, wary now", then "warmed to you, cordial now").
+- **The laurel chip** names each ambition's next milestone, and shows the one of those three you are nearest. A new town's chip no longer names the richest treasury.
+- **The lines under the top bar.** On a window up to 800 pixels high (1280 × 720), the lines over the town keep to one row each, with the whole line on hover, as they already did on the map. Below 1500 wide they start under the laurel tab, which they used to cover.
+- **The stock book** has two new heads. "Sent to you" holds a colony's share, tribute, gifts and what your soldiers took. "Sent away" holds the tribute and gifts you send. They used to be filed under "Bought from" and "Sold to".
+
+### What's new
+- **`#empire`.** It opens on 2 November 745 BC, with 1,457 people and 2,845 dr:
+  - two laurels in each ambition, with the chip on *Trade with half of Greece* at 60%;
+  - a great estate of 20 people and an estate of 6 below the villas, with a horse farm and a pasture for them;
+  - the Lighthouse in its second stage, with ox carts hauling marble and timber up the spur. The marble comes from the town's own quarry on the headland and from Athens by sea;
+  - Nea Thasos, 161 people, which has sent two shares of timber;
+  - Corinth, your vassal, with its tribute of wine coming in;
+  - three thieves out from the hut street behind the town;
+  - "Autumn · winter in 29 d" on the dial;
+  - Rhodes' three ships sailing for the harbour mouth, about 24 days out. The line says the war is set up for the demo.
+- **The estates and the Lighthouse share the town's marble.** Each storehouse keeps back the estates' share while the carts haul. Over four years of play the estates always had 10 to 24 marble in hand while the carts hauled, and the Lighthouse was finished in June 744 BC.
+- **A hover for the ships in your bay.** A vassal's tribute ship and a colony's share ship say whose ship it is, what she carries, and what she is doing: sailing in, at anchor while her cargo comes ashore, or sailing home.
+- **Smaller fixes from the reviews:**
+  - The Ambition panel redraws only when the day or a laurel changes, and only the columns that changed. It used to be rebuilt twice a second.
+  - A vassal's tribute in marble, timber or horses gets its colour on the empire page.
+  - An estate that burns or falls is named as one in the ledger, so the clearing estimate counts its 4 × 4 rubble.
+  - The quarry stands on marble chips and spoil, not on the agora's paving.
+  - The drachmas' arrow steps aside while a change floats beside it, so the two no longer disagree.
+
+### What to try
+1. #empire — play it for a few years. Start by reading the lines under the top bar (the blockade on its way, the thief, Corinth's tribute), then click the estates and the Lighthouse. When Nea Thasos' share ship sails in (it waits while the blockade holds), hover her. Press Tab for Nea Thasos' page and Corinth's Empire tab. Then play on through the winter and the blockade, and see what the city needs from you.
+2. #empire-paused — the same moment, held still, to look round the town and the headland before anything moves.
+3. #colonies — close the map and wait for a colony's ship to sail in, then hover her.
+4. #request — send the 1,000 wheat to Sparta and see when it arrives: about 76 days now.
+5. #rivals — on a 1280 × 720 window the notes over the town keep to one row each. Hover one to read the whole line.
+6. #winter — December again, raining over the bay, the ship's chip "61 d · late". Hover the chip for why.
+
+### What I'd like your eye on
+- **Does the city feel like the centre of the empire?** In `#empire`, everything beyond the walls shows up in the town as something: the share ship and the tribute donkeys, the ox carts on the Lighthouse's spur, the estates' porters, the thieves from the hut street, the blockade's ships offshore. Is it one game, or still a town with menus beside it?
+- **The opening view.** It shows the town on the left, the bay in the middle and the Lighthouse on its headland at the right, from a fair height. The Lighthouse is small in it. Would you rather open closer to the town or to the headland?
+- **The late game is quiet.** In four years of play of `#empire`, `#colonies` and `#ambition`, nobody threatened or raided, and no colony was threatened: their rulers are warm. That fits the rate measured in slice 31, one threat a town every seven or eight years, so I left it. Should a rich, liked city still draw threats?
+- **Money piles up late,** as you chose ("money as is"): `#empire` grew from 2,845 to about 12,000 dr in four years with a caretaker, `#colonies` from 13,600 to 37,500, and `#ambition` from 9,400 to 31,000.
+- **Fires out of the watch's reach.** Left alone, `#empire` falls from 1,457 people to about 450 in three years. Fires take the agora and the theatre, and nothing is rebuilt. Rebuild what burns and it holds about 1,400. The headland and the hut street are out of the watch's reach until you build a watch post. Is that a fair test of a ruler, or too harsh for a demo you play on?
+- **Colony shares.** In `#colonies`, the colonies grow from about 260 to 650 people each in four years and each sends goods worth 2,000 to 2,600 dr a year by year 4. That is generous, but I didn't think it plainly off, so I didn't change it.
+- **The Lighthouse's footing.** On the headland's slope the stone pad stands on a knoll of earth that, seen from downhill, can look like an upside-down wedge (`#monument`, `#empire`). The Colossus on a sloping shore does the same. Should it be a stepped stone footing instead?
+- **Carried over for your judgement:** the weight of bay fights; rewards' size; riders charging one at a time; families rowed out with no boat drawn; the colony page's length.
+
+### Known rough edges
+- In older demos where nothing is under way, the laurel chip says "An army under arms 0%".
+- In `#horsemen` the headland quarry wears and falls, because no inspector reaches it. While it is down the estates swing between great and estate as their marble runs out.
+- A wage slider was weighed and left out: it isn't small, because it needs saved state and an effect on who works.
+- The shrine's god waits for the gods phase.
+
+### Measurements
+Headless Chromium with software WebGL. Before is `61e59ee` (the trunk with all four lines merged); after is this slice. The loads and the frame work were measured side by side in one browser, alternating the two builds, on a quiet machine. Headless frames come about once a second, so the frame work swings by a few milliseconds from run to run, and only large changes count.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 586 in 49 files, all passing (3 min 43 s) | 587 in 49 files, all passing (4 min 10 s; the new one is the mood's take-back) |
+| Download (gzipped) | 4,438 KB: the game 814 KB, the prepared towns 3,624 KB (102 files, the largest 48 KB) | 4,495 KB: the game 816 KB, the prepared towns 3,679 KB (103 files, the largest 52 KB) |
+| First load (bare link, three rounds, middle one) | ready at 2.5 s, first frame at 3.3 s | ready at 2.4 s, first frame at 3.3 s |
+| Demo loads (every demo, ready by the page's clock) | 135 demos, median 2.3 s, slowest `#famine` 2.7 s; none over 3 s | 136 demos, median 2.3 s, slowest `#dry` 2.8 s; none over 3 s; `#empire` 2.2 s |
+| Frame work at normal speed (update before drawing, 960 × 540) | `#town` 12.1 ms, `#richtown` 11.5, `#rivals` 9.7, `#ambition` 10.2, `#colonies` 6.9 | `#town` 11.8 ms, `#richtown` 12.1, `#rivals` 8.4, `#ambition` 11.1, `#colonies` 5.8 |
+| `#empire` | | 1,899,657 triangles and 148 draw calls from its view; 1,817,904 and 125 over the town; 2,043,590 and 169 zoomed out. 1,457 people in 79 homes, 139 walkers. A save is 273 KB. Frame work at normal speed 17.2 ms (in the measure's own run, 25.3 ms) |
+
+Against slice 29's budget town: `#fortress` drew 1,322,021 triangles and 82 draw calls from its view, so `#empire` is the heaviest view yet, about 45% more triangles and 80% more draw calls. Its people (217 drawn, 181,094 triangles) and homes (138,804) are the biggest additions; trees are still the largest single cost (304,000). In the same measuring run, `#fortress`'s fight took 30.7 ms of frame work and `#battle`'s 26.3 ms (17.4 and 15.2 in slice 29's run). So `#empire` at normal speed costs about what a fight does. I can't measure frames a second on a real laptop's GPU here: please watch whether `#empire` stays smooth on yours, zoomed out over the whole town.
+
+The full slow smoke test ran once on this slice's build. Six steps from earlier slices failed, and every other step passed, `#empire`'s among them. Each of the six fails the same way on the starting build: the merges had moved what they looked for (`#water`, `#shrine`, `#black`, `#buywine`, `#threat`, `#winter`). I fixed those six (`#winter`'s demo too, above), and they pass on the final build. I didn't run the whole smoke again after the fixes. Every demo opens with no page errors. A version 27 save still loads, through the test that checks it.
+
 ## Slice 37 — Colonies (22 Oct)
 
 You can now plant your own people on Greece's empty sites. From a site's page you pay 1,000 dr and 400 wheat, and four households from your town pack up, leave their homes standing empty, walk down to the quay and are rowed out to your ship, which sails along the site's own lane across the map. The colony grows by itself, sends you the share of its timber, marble or other good that you choose by ship, has a governor and a loyalty with every reason named, and can be raided or claimed by a rival (warned two months ahead) or, grown large and squeezed, warn you a season before it declares itself free. You weren't here while it was built: every choice below is mine, from the spec's defaults.
