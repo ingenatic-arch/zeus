@@ -15,7 +15,7 @@ import { boughtFrom, caravanYard, heldFor, keptIn, LAND_EVERY, routeNews, routeO
 import { offerLeft, offerOn, offerPrice } from '../sim/favours';
 import { termsLine, termsMeaning, yourPriceCell } from './prices';
 import type { Building, SimState, TradeRoute } from '../sim/state';
-import { cityHolds, KEEP_MAX, KEEP_STEP, TRADE_GOODS, tradingPost } from '../sim/trade';
+import { cityHolds, KEEP_MAX, keepNext, TRADE_GOODS, tradingPost } from '../sim/trade';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -193,11 +193,10 @@ export function routeEvent(e: Event, s: SimState, send: (c: Command) => void): b
   const b = t.closest('button[data-upto], button[data-keep]') as HTMLButtonElement | null;
   if (!b || b.disabled) return false;
   const by = Number(b.dataset.by);
-  const step = (now: number): number => ((by > 0 ? now >= 2000 : now > 2000) ? 1000 : KEEP_STEP);
   if (b.dataset.keep !== undefined) {
     const k = Number(b.dataset.keep);
     const now = s.trade.keep[k];
-    send({ type: 'trade', good: TRADE_GOODS[k], keep: Math.max(0, Math.min(KEEP_MAX, now + by * step(now))) });
+    send({ type: 'trade', good: TRADE_GOODS[k], keep: keepNext(k, now, by) });
     return true;
   }
   const rk = routeOfKey(b.dataset.route);
@@ -205,6 +204,6 @@ export function routeEvent(e: Event, s: SimState, send: (c: Command) => void): b
   if (!rk || !r) return false;
   const k = Number(b.dataset.upto);
   const now = r.upto[k];
-  send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[k], upto: Math.max(0, Math.min(KEEP_MAX, now + by * step(now))) });
+  send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[k], upto: keepNext(k, now, by) });
   return true;
 }

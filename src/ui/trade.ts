@@ -31,7 +31,7 @@ import {
   FIRST_SHIP,
   goodsList,
   KEEP_MAX,
-  KEEP_STEP,
+  keepNext,
   PRICES,
   priceFor,
   QUAY_ROOM,
@@ -248,11 +248,7 @@ export class TradePanel {
       if (!b || !this.state) return;
       const k = Number(b.dataset.keep);
       const by = Number(b.dataset.by);
-      const now = this.state.trade.keep[k];
-      // Steps of KEEP_STEP, and of a thousand above two thousand.
-      const step = (by > 0 ? now >= 2000 : now > 2000) ? 1000 : KEEP_STEP;
-      const next = Math.max(0, Math.min(KEEP_MAX, now + by * step));
-      send({ type: 'trade', good: TRADE_GOODS[k], keep: next });
+      send({ type: 'trade', good: TRADE_GOODS[k], keep: keepNext(k, this.state.trade.keep[k], by) });
       this.last = -Infinity;
     });
   }

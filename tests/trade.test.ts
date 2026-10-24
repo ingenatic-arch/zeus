@@ -10,7 +10,7 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
 import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
 import { TICKS_PER_DAY } from '../src/sim/clock';
-import { coming, held, MEAT, OIL, setHeld, WARE_NAMES, WHEAT } from '../src/sim/foods';
+import { ARMOUR, coming, held, HORSES, MEAT, OIL, setHeld, WARE_NAMES, WHEAT } from '../src/sim/foods';
 import { roomOf } from '../src/sim/stores';
 import { replay, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
@@ -19,6 +19,7 @@ import {
   DEFAULT_KEEP,
   FIRST_SHIP,
   freshTrade,
+  keepNext,
   LOADING,
   priceFor,
   QUAY_ROOM,
@@ -331,6 +332,40 @@ describe('dockers and sales', () => {
     }
     expect(oil).toBe(true);
     expect(held(post, WHEAT)).toBeGreaterThan(0);
+  });
+
+  it('fetch armour and horses for sale too, though a docker carries fewer of them than the least lot of the bulk goods', () => {
+    // #quay with a storehouse holding armour and horses beyond what the city keeps (100 sets, 20 horses), both ticked for sale.
+    const sim = demo('quay');
+    const s = sim.state;
+    const post = tradingPost(s)!;
+    const store = s.buildings.find((b) => b.kind === 'storehouse')!;
+    setHeld(store, ARMOUR, roomOf('storehouse', ARMOUR));
+    setHeld(store, HORSES, roomOf('storehouse', HORSES));
+    for (const w of [ARMOUR, HORSES]) send(sim, { type: 'trade', good: w, sell: true });
+    // Within four months the armour beyond what is kept has gone to the quay (and from there onto the ship), and the horses are on their way, a handcart's eight at a time; the stores never go below what is kept.
+    const a = TRADE_GOODS.indexOf(ARMOUR);
+    const h = TRADE_GOODS.indexOf(HORSES);
+    const sold = [0, 0];
+    let phase = s.trade.ship.phase;
+    for (let i = 0; i < 120 * TICKS_PER_DAY; i++) {
+      sim.step();
+      expect(held(store, ARMOUR)).toBeGreaterThanOrEqual(DEFAULT_KEEP[a]);
+      expect(held(store, HORSES)).toBeGreaterThanOrEqual(DEFAULT_KEEP[h]);
+      const ship = s.trade.ship;
+      if (ship.phase === SHIP_LEAVING && phase !== SHIP_LEAVING) {
+        sold[0] += ship.lastBought[a];
+        sold[1] += ship.lastBought[h];
+      }
+      phase = ship.phase;
+    }
+    expect(held(store, ARMOUR)).toBe(DEFAULT_KEEP[a]);
+    // (What she has loaded so far, if she is still tied up, counts as sold.)
+    const hold = s.trade.ship.hold;
+    expect(held(post, ARMOUR) + sold[0] + hold[a]).toBe(roomOf('storehouse', ARMOUR) - DEFAULT_KEEP[a]);
+    expect(held(post, HORSES) + sold[1] + hold[h]).toBeGreaterThan(0);
+    // The panel's − / + for what is kept moves armour and horses by steps a storehouse can hold, the bulk goods by KEEP_STEP.
+    expect([keepNext(a, 100, -1), keepNext(a, 100, 1), keepNext(h, 20, -1), keepNext(0, 1600, 1)]).toEqual([80, 120, 15, 1800]);
   });
 
   it('#black: the treasury has run dry with wages owed, and the ship’s visit pays them and puts it back in the black', () => {

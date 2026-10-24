@@ -69,6 +69,13 @@ export const DEFAULT_KEEP: readonly number[] = [1600, 600, 600, 800, 600, 600, 4
 /** The panel's step for what is kept, and the most that can be kept. */
 export const KEEP_STEP = 200;
 export const KEEP_MAX = 20000;
+/** The panel's step for what is kept of each, by trade good: KEEP_STEP, but armour by twenty sets and horses by five (a storehouse holds 120 sets and 40 horses). */
+export const KEEP_STEPS: readonly number[] = [KEEP_STEP, KEEP_STEP, KEEP_STEP, KEEP_STEP, KEEP_STEP, KEEP_STEP, KEEP_STEP, 20, KEEP_STEP, KEEP_STEP, 5];
+/** What the panel's − (by -1) or + (by 1) makes of what is kept (or stocked up to) of a trade good: its step, and a thousand above two thousand. */
+export const keepNext = (k: number, now: number, by: number): number => {
+  const step = (by > 0 ? now >= 2000 : now > 2000) ? 1000 : KEEP_STEPS[k];
+  return Math.max(0, Math.min(KEEP_MAX, now + by * step));
+};
 /** Where each good is kept: foods in the granaries, goods in the storehouses. */
 export const storeKind = (w: Ware): BuildingKind => (w === WHEAT || w === MEAT || w === CHEESE ? 'granary' : 'storehouse');
 
@@ -82,6 +89,8 @@ export const MAX_DOCKERS = 4;
 export const GIFT_HANDS = 2;
 export const DOCKER_GAP = 2 * TICKS_PER_DAY;
 export const MIN_LOT = 100;
+/** The smallest load worth a trip, by trade good: MIN_LOT, but ten sets of armour and a single horse (a handcart takes only 60 sets or 8 horses, so MIN_LOT of them was never reached and none went to the quay). */
+export const LEAST_LOT: readonly number[] = [MIN_LOT, MIN_LOT, MIN_LOT, MIN_LOT, MIN_LOT, MIN_LOT, MIN_LOT, 10, MIN_LOT, MIN_LOT, 1];
 /** Ticks before the post's first docker can go (once it has workers). */
 export const FIRST_DOCKER = 20;
 
@@ -810,14 +819,14 @@ function dockerJobs(s: SimState, post: Building): DockerJob[] {
     const { returning } = inHand(s, post, w);
     const want = sale ? s.trade.keep[k] - cityHolds(s, w) - returning : q;
     const lot = Math.min(DOCKER_TAKE[k], q, want);
-    if (lot >= Math.min(MIN_LOT, q)) jobs.push({ w, k, lot, back: true });
+    if (lot >= Math.min(LEAST_LOT[k], q)) jobs.push({ w, k, lot, back: true });
   }
   const fetch: Array<DockerJob & { v: number }> = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     if (!forSale(s, post, k)) continue;
     const w = TRADE_GOODS[k];
     const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), depotRoom(post, w));
-    if (lot < MIN_LOT) continue;
+    if (lot < LEAST_LOT[k]) continue;
     fetch.push({ w, k, lot, back: false, v: priceFor(k, lot) });
   }
   // (Stable: of two loads worth the same, the good earlier in the list.)
@@ -843,7 +852,7 @@ function giftReserved(s: SimState, w: Ware): Map<number, number> {
  */
 function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): { g: Building; way: number[] } | null {
   const kind = storeKind(job.w);
-  if (job.back) return nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, MIN_LOT));
+  if (job.back) return nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, LEAST_LOT[job.k]));
   if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
   const res = giftReserved(s, job.w);
   const free = (g: Building): number => held(g, job.w) - (res.get(g.id) ?? 0);
@@ -1139,9 +1148,9 @@ export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
   let room = false;
   TRADE_GOODS.forEach((w, k) => {
     if (!forSale(s, post, k)) return;
-    if (surplusOf(s, post, k) >= MIN_LOT) {
+    if (surplusOf(s, post, k) >= LEAST_LOT[k]) {
       spare = true;
-      if (depotRoom(post, w) >= MIN_LOT) room = true;
+      if (depotRoom(post, w) >= LEAST_LOT[k]) room = true;
     }
   });
   if (!spare) return 'No dockers out: the stores hold no more of the goods for sale than the city keeps';
