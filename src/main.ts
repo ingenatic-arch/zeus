@@ -19,6 +19,7 @@ import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { MAP_SIZE } from './map/coast';
 import { districtGrid } from './map/districts';
+import { classic, classicSun } from './render/classicLab';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
@@ -26,7 +27,7 @@ import { ServiceOverlay } from './render/overlay';
 import { HazardView } from './render/hazards';
 import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
-import { World } from './render/world';
+import { SUN_DIR, World } from './render/world';
 import { isBridge } from './sim/build';
 import { BUILDING_NAMES, centreOf, FINE, findBuilding, footSide, TOWNHOUSE, VILLA } from './sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './sim/clock';
@@ -303,6 +304,7 @@ function start(preparedTown: string | null): void {
   // The city's finish (render/finish.ts); a link ending in -plain opens with the old look.
   setFinish(!launch.plain);
   applyFinishPalette();
+  classicSun(SUN_DIR);
   const map = coastMap();
   // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
   districtGrid(map);
@@ -359,6 +361,11 @@ function start(preparedTown: string | null): void {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // Capped at 1.5: on high-density screens full resolution costs a lot of shading for little gain.
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  // Mock-ups (classicLab.ts): the original's pixel size, drawn hard-edged.
+  if (classic().pixel) {
+    renderer.setPixelRatio(0.5);
+    canvas.style.imageRendering = 'pixelated';
+  }
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -1783,6 +1790,10 @@ function start(preparedTown: string | null): void {
     sim.state.rev++;
   };
   probe.speed = (s) => driver.setSpeed(s);
+  // Mock-ups (classicLab.ts): step the paused sim by hand, for even frames of an animation.
+  (probe as unknown as { stepSim: (n: number) => void }).stepSim = (n) => {
+    for (let i = 0; i < n; i++) sim.step();
+  };
   probe.greece = (open, city, tab) => toggleGreece(open, city as CityId | undefined, tab as CityTab | undefined);
   probe.greeceInfo = () => (greece ? greece.info() : { open: false, built: false });
   probe.greeceJump = (v) => greece?.rig.jumpTo(v);

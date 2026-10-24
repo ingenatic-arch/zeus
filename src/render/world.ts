@@ -8,6 +8,7 @@ import { buildTerrain } from './terrain';
 import { buildTrees, type Plants } from './trees';
 import { buildWater, type Water } from './water';
 import type { SeasonLook } from './seasons';
+import { classic } from './classicLab';
 
 /** Direction towards the sun: a warm afternoon sun from the south-west. */
 export const SUN_DIR = new THREE.Vector3(-0.62, 0.62, 0.48).normalize();
@@ -39,7 +40,8 @@ export class World {
 
   constructor(map: CoastMap) {
     const scene = this.scene;
-    this.fog = new THREE.Fog(col(PAL.skyHorizon).clone(), 200, 900);
+    // Mock-ups (classicLab.ts): the long lens stands far back, and the original had no haze.
+    this.fog = classic().view ? new THREE.Fog(col(PAL.skyHorizon).clone(), 4000, 9000) : new THREE.Fog(col(PAL.skyHorizon).clone(), 200, 900);
     scene.fog = this.fog;
     scene.background = col(PAL.skyHorizon).clone();
 
@@ -88,8 +90,10 @@ export class World {
   }
 
   private lights(): void {
-    this.sun.intensity = this.sunI * this.dim;
-    this.hemi.intensity = this.hemiI * (1 - (1 - this.dim) * 0.35);
+    // Mock-ups (classicLab.ts): a brighter sky fill, as the original's evenly lit pictures.
+    const lab = classic().view;
+    this.sun.intensity = this.sunI * this.dim * (lab ? 1.05 : 1);
+    this.hemi.intensity = this.hemiI * (1 - (1 - this.dim) * 0.35) * (lab ? 1.2 : 1);
   }
 
   /**

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MAP_SIZE } from '../map/coast';
 import { clamp, lerp, smoothstep } from '../map/noise';
+import { classic, CLASSIC_FOV, CLASSIC_PITCH, CLASSIC_REACH } from './classicLab';
 
 export interface CameraView {
   /** Ground point the camera looks at. */
@@ -182,6 +183,7 @@ export class CameraRig {
 
   /** The automatic view angle: steep from high up, low and level near the ground. */
   pitch(dist: number, tilt: number): number {
+    if (classic().view) return CLASSIC_PITCH;
     const { minDist, maxDist, pitchNear, pitchFar } = this.lim;
     const t = (Math.log(dist) - Math.log(minDist)) / (Math.log(maxDist) - Math.log(minDist));
     return clamp(lerp(pitchNear, pitchFar, smoothstep(0, 0.9, t)) + tilt, 0.08, 1.45);
@@ -222,8 +224,15 @@ export class CameraRig {
   }
 
   private apply(): void {
-    const { x, z, yaw, dist, tilt } = this.cur;
+    const { x, z, yaw, tilt } = this.cur;
+    let dist = this.cur.dist;
     const pitch = this.pitch(dist, tilt);
+    // Mock-ups (classicLab.ts): a long lens from far back, so the view is nearly flat.
+    const lab = classic().view;
+    if (lab) {
+      this.camera.fov = CLASSIC_FOV;
+      dist *= CLASSIC_REACH;
+    }
     const horiz = Math.cos(pitch) * dist;
     const cam = this.camera;
     cam.position.set(x + Math.sin(yaw) * horiz, this.groundY + Math.sin(pitch) * dist, z + Math.cos(yaw) * horiz);
@@ -232,10 +241,10 @@ export class CameraRig {
     if (cam.position.y < floor) cam.position.y = floor;
     cam.position.y += this.over;
     // Close up, aim a little above the ground so the horizon stays in view.
-    const lift = lerp(0.9, 0, smoothstep(this.lim.minDist, 30, dist));
+    const lift = lab ? 0 : lerp(0.9, 0, smoothstep(this.lim.minDist, 30, dist));
     cam.lookAt(x, this.groundY + lift, z);
-    cam.near = clamp(dist * 0.02, 0.1, 2);
-    cam.far = 9000;
+    cam.near = lab ? dist * 0.4 : clamp(dist * 0.02, 0.1, 2);
+    cam.far = lab ? dist * 3 + 400 : 9000;
     cam.updateProjectionMatrix();
   }
 

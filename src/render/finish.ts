@@ -8,6 +8,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { col, PAL } from './palette';
 import { SEASON_UNIFORMS } from './seasons';
+import { applyClassicPalette, classic } from './classicLab';
 
 /**
  * The city's finish (the new look, picked by Oliver on 19 Oct from the
@@ -96,6 +97,7 @@ export function applyFinishPalette(): void {
   if (!on) return;
   const pal = PAL as unknown as Record<string, string>;
   for (const [k, v] of Object.entries(PALETTE)) pal[k] = v as string;
+  applyClassicPalette();
 }
 
 /** Average colours and normals over shared corners, so the ground shades smoothly instead of in facets. */
@@ -456,6 +458,8 @@ export function applyFinishLight(scene: THREE.Scene, renderer: THREE.WebGLRender
     if (h.isHemisphereLight) h.intensity = F.hemi;
     const s = o as THREE.DirectionalLight;
     if (s.isDirectionalLight) s.intensity = F.sun;
+    // Mock-ups (classicLab.ts): crisper, shorter shadows, as the original's pre-drawn ones.
+    if (s.isDirectionalLight && classic().view) s.shadow.radius = 2;
   });
 }
 
@@ -469,14 +473,21 @@ const GRADE = {
     uVignette: { value: 0 },
     uGrain: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
+    uSharp: { value: 0 },
+    uLevels: { value: 0 },
   },
   vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform float uSat, uContrast, uVignette, uGrain; uniform vec3 uShadow, uHigh; uniform vec2 uRes;
+    uniform sampler2D tDiffuse; uniform float uSat, uContrast, uVignette, uGrain, uSharp, uLevels; uniform vec3 uShadow, uHigh; uniform vec2 uRes;
     varying vec2 vUv;
     float h(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
     void main() {
       vec3 c = texture2D(tDiffuse, vUv).rgb;
+      if (uSharp > 0.0) {
+        vec2 px = 1.0 / uRes;
+        vec3 blur = (texture2D(tDiffuse, vUv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, px.y)).rgb) * 0.25;
+        c = max(c + (c - blur) * uSharp * 2.0, vec3(0.0));
+      }
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, uSat);
       c = (c - 0.5) * uContrast + 0.5;
@@ -485,6 +496,7 @@ const GRADE = {
       vec2 q = (vUv - 0.5) * vec2(1.0, 0.85);
       c *= 1.0 - uVignette * smoothstep(0.25, 0.85, length(q) * 1.25);
       c += (h(vUv * uRes) - 0.5) * uGrain;
+      if (uLevels > 0.0) c = floor(c * uLevels + 0.5) / uLevels;
       gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
     }
   `,
@@ -537,7 +549,11 @@ export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene
   if (!light) addDepth(composer, scene, camera, size);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE);
-  const g = F.grade;
+  const lab = classic();
+  // Mock-ups (classicLab.ts): a clean, neutral image with no vignette or grain, crisper with the original's colours.
+  const g = lab.view ? { sat: lab.colour ? 1.05 : 1.0, contrast: lab.colour ? 1.06 : 1.03, shadow: [1, 1, 1] as const, high: [1, 1, 1] as const, vignette: 0, grain: 0 } : F.grade;
+  grade.uniforms.uSharp.value = lab.pixel ? 0.15 : lab.colour ? 0.3 : 0;
+  grade.uniforms.uLevels.value = lab.pixel ? 40 : 0;
   grade.uniforms.uSat.value = g.sat;
   grade.uniforms.uContrast.value = g.contrast;
   grade.uniforms.uShadow.value.set(...g.shadow);
