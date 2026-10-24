@@ -754,8 +754,9 @@ export class Workfolk {
       const hoe: [Look, Look] = [this.pickUp, this.pickDown];
       switch (kind) {
         case 'farm':
-          work(-0.95, -0.75, Math.PI / 2, hoe, T0, 1, 12);
-          if (n > 1) work(-0.35, 0.55, -Math.PI / 2, hoe, T1, 2, 12);
+          // Reaping along the front of the field (the wheat hides anyone further in).
+          work(0.62, -0.75, Math.PI, hoe, T0, 1, 12);
+          if (n > 1) work(0.62, 0.62, Math.PI, hoe, T1, 2, 12);
           if (n > 2) walk([0.98, 0.98], [0, 0], this.strides, QUARRY_TUNIC, 3, 40, 0.24);
           if (n > 3) walk([0.6, 0.1], [0.6, -0.6], this.baskets, T0, 4, 50);
           break;

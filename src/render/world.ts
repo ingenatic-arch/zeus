@@ -149,5 +149,10 @@ export class World {
     const d = rig.distance;
     this.fog.near = 60 + d * 1.6;
     this.fog.far = 420 + d * 4.5;
+    // Mock-ups (classicLab.ts): no haze over the city, only at the end of the world.
+    if (classic().view) {
+      this.fog.near = 4000;
+      this.fog.far = 9000;
+    }
   }
 }
