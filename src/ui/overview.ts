@@ -913,6 +913,8 @@ export class Overview {
   private tabsHtml = '';
   private headHtml = '';
   private last = -Infinity;
+  /** The loop's clock at its last call (a forced refresh, called with Infinity, counts as made then). */
+  private clock = 0;
   private s: SimState | null = null;
   private map: CoastMap | null = null;
   /** The overlay showing (for the Distribution page's rows). */
@@ -1022,8 +1024,9 @@ export class Overview {
   update(s: SimState, map: CoastMap, time: number): void {
     this.s = s;
     this.map = map;
+    if (Number.isFinite(time)) this.clock = time;
     if (this.el.hidden || time - this.last < REFRESH) return;
-    this.last = time;
+    this.last = this.clock;
     const st = tabState(s);
     const tabs = PAGES.map((p) => `<button role="tab" class="ov-tab${p === this.page ? ' on' : ''}${st[p].warn ? ` warn${st[p].warn}` : ''}" data-act="page" data-page="${p}" aria-selected="${p === this.page}"><b>${esc(PAGE_NAMES[p])}</b><span>${esc(st[p].word)}</span></button>`).join('');
     if (tabs !== this.tabsHtml) {

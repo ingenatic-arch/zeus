@@ -619,7 +619,7 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   await page.evaluate(() => window.__zeus.overview('goods'));
   await page.waitForTimeout(4000);
   const a = await page.evaluate(() => ({ ms: window.__zeus.overviewMs ?? 0, t: performance.now(), f: window.__zeus.frames }));
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(45000); // (The loop's clock moves at most 0.1 s a frame and the window refreshes every 0.6 s of it: headless needs the time.)
   const b = await page.evaluate(() => ({ ms: window.__zeus.overviewMs ?? 0, t: performance.now(), f: window.__zeus.frames }));
   console.log(`#overviewempire running, the Goods page open: ${((b.ms - a.ms) / ((b.t - a.t) / 1000)).toFixed(1)} ms a second on the overview (${b.f - a.f} frames)`);
 }
