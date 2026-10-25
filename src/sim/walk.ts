@@ -53,6 +53,8 @@ export function speedOf(w: Walker): number {
   if (w.kind === 'caravan') return w.cheese > 0 ? GIFT_CARAVAN_SPEED : w.cheese < 0 ? SENDING_SPEED : CARAVAN_SPEED;
   // (Slice 37: a household going down to the quay for a colony walks at a sending's pace too.)
   if (w.kind === 'colonist') return SENDING_SPEED;
+  // (Slice 43: a porter carrying goods down to the quay for a colony hurries, as one fetching a sending does.)
+  if (w.kind === 'shipper') return SENDING_FETCH_SPEED;
   if (w.kind === 'watchman' && w.target > 0) return RUN_SPEED;
   if (w.kind === 'docker') return w.cheese > 0 ? SENDING_FETCH_SPEED : COLLECTOR_SPEED;
   if (w.kind === 'tax') return COLLECTOR_SPEED;

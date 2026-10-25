@@ -46,6 +46,8 @@ import { pastMouth } from './trade';
 import { visitorAt } from './routes';
 import { armyNews } from './army';
 import { held, setHeld, WARE_NAMES, WHEAT } from './foods';
+// Slice 43.
+import { ARMOUR, HORSES } from './foods';
 import { COLONY_MAKES, SITE_WARES } from './growth';
 import { roadSearch, tracePath } from './roads';
 import { door, roadsBeside } from './rounds';
@@ -60,18 +62,28 @@ import { boundTo, SEASON, type Tribute } from './vassals';
 import { newWalker, roadPoints, setPath, speedOf } from './walk';
 import { cityOf, COLD, memoryWorth, moodOf, nameRefusal, rulerShort, VOYAGE, WARM } from './world';
 import { dhypot } from '../map/dmath';
+// Slice 43: stages, works, wants and governors, and what a colony makes retuned (colonyworks.ts).
+import { worksTownLine } from './colonyworks';
+import { defenceWords, freshGrowth, govTrait, growthCauses, loyaltyCauses, offerAtLanding, ownDefence, raidTakes, secondYear, sendsMore, sendsYear, shipPace, stageFor, stageOf, walled, type ColonyGrowth } from './colonyworks';
 
 // ---------------------------------------------------------------------------
 // The records (kept in the `empire` field: vassals.ts' Empire has `colonies` and `foundings`).
 
 /** A governor's one trait: loyal to you, steady, proud (wants a city of its own one day), or grasping (keeps what he can). */
-export type GovTrait = 'loyal' | 'steady' | 'proud' | 'grasping';
+export type GovTrait = 'loyal' | 'steady' | 'proud' | 'grasping'
+  // Slice 43: a builder, a miser, a soldier, a favourite of the people (colonyworks.ts).
+  | 'builder' | 'miser' | 'soldier' | 'favourite';
 export const GOV_TRAITS: readonly GovTrait[] = ['loyal', 'steady', 'proud', 'grasping'];
 export const GOV_WORDS: Record<GovTrait, string> = {
   loyal: 'loyal to your city',
   steady: 'steady: a careful hand',
   proud: 'proud: he means it to be a city in its own right one day',
   grasping: 'grasping: he keeps back what he can',
+  // Slice 43.
+  builder: 'a builder: he means to see it grow',
+  miser: 'a miser: he counts every measure',
+  soldier: 'a soldier: he drills its men',
+  favourite: 'a favourite of its people',
 };
 
 /** One household going out with a founding: its home, its name, how many, and where it is. */
@@ -128,8 +140,8 @@ export interface ColonyThreat {
   line: string;
 }
 
-/** One of your colonies. Its people are its site's `pop`. */
-export interface Colony {
+/** One of your colonies. Its people are its site's `pop`. (Slice 43: with its stage, works, want and governor candidates: ColonyGrowth.) */
+export interface Colony extends ColonyGrowth {
   site: string;
   name: string;
   /** Its governor: the head of the first household, and his trait. */
@@ -182,8 +194,7 @@ const NEWCOMERS = 150;
 const CHILDREN = 0.03;
 const SHARE_GROWTH = [0.02, 0, -0.03] as const;
 export const COLONY_CEILING = 2000;
-/** What it makes a year for each of its people, in drachmas at the ship's prices; the share of it sent: light, fair, heavy. */
-const MAKES_DR = 10;
+/** The share of what it makes sent: light, fair, heavy (slice 43: what it makes is in colonyworks.ts). */
 export const COLONY_SHARE = [0.2, 0.4, 0.6] as const;
 export const SHARE_WORDS = ['light', 'fair', 'heavy'] as const;
 /** Loyalty: its base; its settlers' ties (fading over twelve years); the share; your triremes (each, most) or none; grown large (each hundred over, most); the governor. */
@@ -361,7 +372,7 @@ function found(s: SimState, map: CoastMap, site: string): void {
 }
 
 /** A point along a path (x, z pairs) at a distance, and the way it runs there (a unit vector). */
-function pointOn(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
+export function pointOn(p: readonly number[], d: number): { x: number; z: number; dx: number; dz: number } {
   let left = d;
   for (let i = 0; i + 3 < p.length; i += 2) {
     const len = dhypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
@@ -374,7 +385,7 @@ function pointOn(p: readonly number[], d: number): { x: number; z: number; dx: n
   return { x: p[0], z: p[1], dx: 1, dz: 0 };
 }
 
-const pathLen = (p: readonly number[]): number => {
+export const pathLen = (p: readonly number[]): number => {
   let l = 0;
   for (let i = 0; i + 3 < p.length; i += 2) l += dhypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]);
   return l;
@@ -570,8 +581,12 @@ function land(s: SimState, f: Founding): void {
     guards: [],
     homes: f.households.filter((h) => h.state === 'aboard').map((h) => ({ home: h.home, name: h.name })),
     skip: false,
+    // Slice 43: its stage, works, wants and governor.
+    ...freshGrowth(s, f.site, f.people, s.tick),
   };
   s.empire.colonies.push(c);
+  // (Slice 43: its leader governs while you choose from him and two others.)
+  offerAtLanding(s, c);
   c.loyalty = Math.round(colonyLoyalty(s, c).target);
   s.empire.foundings = s.empire.foundings.filter((y) => y !== f);
   const k = siteGood(f.site);
@@ -589,7 +604,7 @@ export function plantColony(s: SimState, site: string, people: number, since = s
   x.bound = '';
   x.since = since;
   x.pop = people;
-  const c: Colony = { site, name: `Nea ${siteName(site)}`, governor, trait, since, settlers: people, share: 1, loyalty: LOYAL_BASE, next: s.tick + SEASON, sent: 0, worth: 0, memories: [], talk: 0, frees: 0, threat: null, guards: [], homes: [], skip: false };
+  const c: Colony = { site, name: `Nea ${siteName(site)}`, governor, trait, since, settlers: people, share: 1, loyalty: LOYAL_BASE, next: s.tick + SEASON, sent: 0, worth: 0, memories: [], talk: 0, frees: 0, threat: null, guards: [], homes: [], skip: false, ...freshGrowth(s, site, people, since) };
   s.empire.colonies.push(c);
   c.loyalty = Math.round(colonyLoyalty(s, c).target);
   s.rev++;
@@ -608,19 +623,23 @@ export function colonyGrowth(s: SimState, c: Colony, winter = false): Array<{ wh
   out.push({ why: 'its own children', n: Math.round(pop * CHILDREN * room) });
   const sh = SHARE_GROWTH[clamp(c.share, 0, 2)];
   if (sh) out.push({ why: sh > 0 ? 'a light share: more stay and more come' : 'a heavy share: families leave for elsewhere', n: Math.round(pop * sh) });
+  // Slice 43: its fields, its governor, a want met or ignored.
+  out.push(...growthCauses(s, c, winter, winter ? 0 : Math.round(NEWCOMERS * room), pop, room));
   return out;
 }
 
 /** What a colony sends a year at a share: in drachmas at the ship's prices, and in its good. */
 export function colonyYear(s: SimState, c: Colony, share = c.share): { dr: number; amount: number; good: number } {
-  return shareYear(c.site, peopleOf(s, c), share);
+  // (Slice 43: at its stage's rate, with what its harbour and its governor add.)
+  return shareYear(c.site, peopleOf(s, c), share, stageOf(c), sendsMore(c));
 }
 
 /** What a colony of so many people on a site would send a year at a share (for a free site's page, before it is founded). */
-export function shareYear(site: string, people: number, share: number): { dr: number; amount: number; good: number } {
+export function shareYear(site: string, people: number, share: number, stage = stageFor(people), more = 0): { dr: number; amount: number; good: number } {
   const k = siteGood(site);
-  const dr = Math.round(people * MAKES_DR * COLONY_SHARE[clamp(share, 0, 2)]);
-  return { dr, amount: k >= 0 ? Math.round((dr * 100) / PRICES[k] / 10) * 10 : 0, good: k };
+  // (Slice 43: measures of its good a person at its stage's rate (colonyworks.ts), no longer slice 37's MAKES_DR drachmas a person, which sent cheap goods by the thousand.)
+  const y = sendsYear(k, people, stage, COLONY_SHARE[clamp(share, 0, 2)], more);
+  return { dr: y.dr, amount: y.amount, good: k };
 }
 
 export interface Loyalty {
@@ -643,11 +662,15 @@ export function colonyLoyalty(s: SimState, c: Colony): Loyalty {
   add(ships ? Math.min(TRIREMES_MOST, ships * TRIREME_EACH) : NO_TRIREMES, ships ? `your ${ships} ${ships === 1 ? 'trireme' : 'triremes'} to protect it` : 'you have no triremes to protect it');
   const pop = peopleOf(s, c);
   if (pop > LARGE_FROM) add(Math.max(LARGE_MOST, -Math.floor((pop - LARGE_FROM) / 100)), 'grown large: it feels it could stand alone');
-  if (c.trait === 'loyal') add(10, `${c.governor}, its governor, is loyal`);
-  if (c.trait === 'steady') add(5, `${c.governor}, its governor, is steady`);
-  if (c.trait === 'proud' && pop > FREE_FROM) add(-10, `${c.governor}, its governor, is proud, and it has grown`);
+  // (Slice 43: no governor's trait while its council holds it.)
+  const trait = govTrait(c);
+  if (trait === 'loyal') add(10, `${c.governor}, its governor, is loyal`);
+  if (trait === 'steady') add(5, `${c.governor}, its governor, is steady`);
+  if (trait === 'proud' && pop > FREE_FROM) add(-10, `${c.governor}, its governor, is proud, and it has grown`);
   // (Review of slice 37: the share is already its own reason, so this one doesn't name it again in the short list.)
-  if (c.trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`);
+  if (trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`);
+  // Slice 43: its agora and temple, and its governor's new traits.
+  for (const x of loyaltyCauses(c)) add(x.n, x.why);
   why.sort((a, b) => Math.abs(b.n) - Math.abs(a.n));
   return { target: clamp(LOYAL_BASE + why.reduce((a, x) => a + x.n, 0), 0, 100), why };
 }
@@ -664,26 +687,38 @@ function sendShipment(s: SimState, c: Colony): void {
     return;
   }
   const y = colonyYear(s, c);
-  const amount = Math.round(y.amount / 4 / 10) * 10;
-  if (y.good < 0 || amount < 10) return;
-  const worth = Math.round((amount * PRICES[y.good]) / 100);
+  // (Slice 43: horses and armour come by the head and the set, not by tens; and a second trade sends its own good on a second ship.)
+  const season = (k: number, n: number): number => {
+    const step = k >= 0 && (TRADE_GOODS[k] === HORSES || TRADE_GOODS[k] === ARMOUR) ? 1 : 10;
+    return Math.round(n / 4 / step) * step;
+  };
+  const two = secondYear(s, c, COLONY_SHARE[clamp(c.share, 0, 2)]);
+  const loads = [
+    { good: y.good, amount: season(y.good, y.amount) },
+    { good: two.good, amount: season(two.good, two.amount) },
+  ].filter((l) => l.good >= 0 && l.amount >= (TRADE_GOODS[l.good] === HORSES || TRADE_GOODS[l.good] === ARMOUR ? 1 : 10));
+  if (!loads.length) return;
   // (Integrating slice 37 with the trunk: a city at war with you whose warships prey on your lanes, slice 38's, takes the share as
   // it sails, unless a trireme guards the colony's lane.)
   const foe = s.fleet.pirates.find((p) => p.of && p.war === -1 && p.state === 'preying');
   if (foe && !guarded(s, siteLaneId(c.site))) {
-    const words = `${c.name}’s share of ${fmt(amount)} ${goodName(y.good)}`;
+    const words = `${c.name}’s share of ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}`;
     foe.took.push(words);
     news(s.world, s.tick, siteKey(c.site), `${bandWords(foe)} ${foe.place} seized ${words} on its way to you: ${whose(foe.of as CityId)} ships are at war with you. A trireme guarding ${c.name} keeps its ships safe`, true);
     armyNews(s, `${bandWords(foe)} ${foe.place} seized ${words}`, 0);
     s.rev++;
     return;
   }
-  const voyage = laneTicks(c.site);
+  // (Slice 43: a colony with a harbour sends its ships a quarter quicker.)
+  const voyage = Math.round(laneTicks(c.site) * shipPace(c));
   const ship = `colony-${c.site}`;
   const late = stormDelay(s, ship, s.tick + voyage);
-  const t: Tribute = { id: s.empire.nextId++, city: 'home', good: y.good, amount, worth, by: 'sea', way: siteLaneId(c.site), phase: 'road', start: s.tick, dur: voyage + late, ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0, colony: c.site };
-  s.empire.tribute.push(t);
-  news(s.world, s.tick, siteKey(c.site), `${c.name} sends you its share: ${fmt(amount)} ${goodName(y.good)}, in your bay about ${dayWords(s.tick + t.dur + SAIL_IN)}${late ? lateWords(s, ship) : ''}`);
+  for (const l of loads) {
+    const worth = Math.round((l.amount * PRICES[l.good]) / 100);
+    const t: Tribute = { id: s.empire.nextId++, city: 'home', good: l.good, amount: l.amount, worth, by: 'sea', way: siteLaneId(c.site), phase: 'road', start: s.tick, dur: voyage + late, ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0, colony: c.site };
+    s.empire.tribute.push(t);
+  }
+  news(s.world, s.tick, siteKey(c.site), `${c.name} sends you its share: ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}${loads.length > 1 ? ', on two ships' : ''}, in your bay about ${dayWords(s.tick + voyage + late + SAIL_IN)}${late ? lateWords(s, ship) : ''}`);
 }
 
 /** Once a month: each colony grows, its loyalty moves, it talks of freedom (or stops, or declares it), and a threat may come. */
@@ -763,7 +798,8 @@ export function threatenColony(s: SimState, c: Colony, city: CityId, kind?: Colo
   const ships = clamp(Math.round(r.fleet / 4), SHIPS_LEAST, SHIPS_MOST);
   const men = ships * MEN_A_SHIP;
   const pop = peopleOf(s, c);
-  const k = kind ?? (pop < CLAIM_UNDER && men >= 3 * Math.round(pop / 8) ? 'claim' : 'raid');
+  // (Slice 43: a walled colony can't be claimed, only raided.)
+  const k = kind ?? (!walled(c) && pop < CLAIM_UNDER && men >= 3 * Math.round(pop / 8) ? 'claim' : 'raid');
   const t: ColonyThreat = { city, kind: k, at: s.tick, due: s.tick + THREAT_DAYS, ships, men, exp: s.world.nextExpedition, end: '', line: '' };
   c.threat = t;
   news(s.world, s.tick, siteKey(c.site), `${ships} ships of ${cityName(city)} are sailing for ${c.name} ${k === 'claim' ? `to claim it for ${cityName(city)}: ${men} men against its ${Math.round(pop / 8)}` : `to raid it: ${men} men`}. They arrive about ${dayWords(t.due)}: send your triremes to guard it, strike at ${cityName(city)}, or let it be`, true);
@@ -812,7 +848,17 @@ function stepThreat(s: SimState, map: CoastMap, c: Colony): void {
   if (s.tick < t.due) return;
   const ours = guardsThere(s, c);
   const p = fightOdds(ours, t.ships);
-  if (ours > 0 && fightRoll(s, c, t) < p) {
+  // (Slice 43: its walls and a soldier governor turn raiders away by themselves, on the same roll past your triremes' odds, so with
+  // neither every fight comes out as it did.)
+  const roll = fightRoll(s, c, t);
+  const own = ownDefence(c);
+  const held = ours > 0 ? 1 - (1 - p) * (1 - own) : own;
+  if (!(ours > 0 && roll < p) && roll < held) {
+    t.end = 'driven';
+    t.line = `${defenceWords(c)} turned ${whose(t.city)} ${t.ships} ships away${ours > 0 ? ' when your triremes could not' : ''}`;
+    if (ours > 0) for (const id of c.guards) hurt(s, id, 30);
+    news(s.world, s.tick, siteKey(c.site), `${whose(t.city)} raiders came to ${c.name} and went away again: ${defenceWords(c)} held them off`, true);
+  } else if (ours > 0 && roll < p) {
     t.end = 'driven';
     t.line = `your ${ours} ${ours === 1 ? 'trireme' : 'triremes'} drove off ${whose(t.city)} ${t.ships} ships`;
     for (const id of c.guards) hurt(s, id, 10);
@@ -822,7 +868,7 @@ function stepThreat(s: SimState, map: CoastMap, c: Colony): void {
     if (ours > 0) for (const id of c.guards) hurt(s, id, 30);
     const fought = ours > 0 ? `; your ${ours} ${ours === 1 ? 'trireme' : 'triremes'} fought and were beaten off` : '';
     const x = siteRecord(s, c.site) as Site;
-    if (t.kind === 'claim') {
+    if (t.kind === 'claim' && !walled(c)) {
       t.end = 'claimed';
       t.line = `${cityName(t.city)} took it${fought}`;
       const r = cityOf(s.world, t.city);
@@ -836,13 +882,14 @@ function stepThreat(s: SimState, map: CoastMap, c: Colony): void {
       news(s.world, s.tick, siteKey(c.site), `${cityName(t.city)} has taken ${c.name}${fought}: ${siteName(c.site)} is ${whose(t.city)} colony now, and ${rulerShort(r)} expects you to resent it (${signed(CLAIMED.amount)})`, true);
     } else {
       t.end = 'raided';
-      const lost = Math.round(x.pop * RAID_TAKES);
+      // (Slice 43: behind walls a raid takes a third as many, and the season's ship still sails.)
+      const lost = Math.round(x.pop * raidTakes(c, RAID_TAKES));
       x.pop = Math.max(1, Math.round((x.pop - lost) * 100) / 100);
-      c.skip = true;
-      t.line = `${whose(t.city)} raiders took ${fmt(lost)} of its people and its next shipment${fought}`;
+      c.skip = !walled(c);
+      t.line = `${whose(t.city)} raiders took ${fmt(lost)} of its people${c.skip ? ' and its next shipment' : ', but not its next shipment: its walls kept them from the stores'}${fought}`;
       const m = ours > 0 ? FOUGHT : SACKED;
       remember(c, s.tick, 'sacked', ours > 0 ? `raided by ${cityName(t.city)} though your triremes fought for it` : `sacked by ${cityName(t.city)} while you did nothing`, m.amount, m.fade);
-      news(s.world, s.tick, siteKey(c.site), `${whose(t.city)} raiders have sacked ${c.name}${fought}: ${fmt(lost)} of its people taken, and its next shipment. It remembers (${signed(m.amount)})`, true);
+      news(s.world, s.tick, siteKey(c.site), `${whose(t.city)} raiders have sacked ${c.name}${fought}: ${fmt(lost)} of its people taken${c.skip ? ', and its next shipment' : ''}. It remembers (${signed(m.amount)})`, true);
     }
   }
   if (s.empire.colonies.includes(c)) guardsHome(s, map, c);
@@ -1059,6 +1106,9 @@ export function colonyTownLine(s: SimState): { text: string; site: string; urgen
     const g = n ? ` Your ${n} ${n === 1 ? 'trireme is' : 'triremes are'} on the way.` : '';
     return { text: `${t.ships} ships of ${cityName(t.city)} are sailing to ${t.kind === 'claim' ? 'claim' : 'raid'} ${threat.name}: they arrive about ${dayWords(t.due)}.${g}`, site: threat.site, urgent: !n, rank: 2 };
   }
+  // (Slice 43: a colony asking for something you haven't sent, then your settlers, then a shipment loading at the quay.)
+  const works = worksTownLine(s);
+  if (works && works.rank >= 2) return works;
   const f = foundingOf(s);
   if (f && f.phase === 'gathering') {
     const aboard = f.households.filter((h) => h.state === 'aboard').length;
@@ -1070,7 +1120,7 @@ export function colonyTownLine(s: SimState): { text: string; site: string; urgen
   }
   // (Review of slice 37: sailing out of the bay, the day counts the way out too, as the news of her sailing did.)
   if (f && f.phase !== 'done') return { text: `Your settlers are at sea for ${siteName(f.site)}: ${fmt(f.people)} people, landing about ${dayWords(landsAbout(s, f))}.`, site: f.site, urgent: false, rank: 1 };
-  return null;
+  return works;
 }
 
 /** Every colony and founding in a line each, for the probes and the smoke test. */

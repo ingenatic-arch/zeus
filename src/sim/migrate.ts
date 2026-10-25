@@ -141,6 +141,14 @@
  * no site has a colony that declared itself free. Rivals' colonies stay as
  * they were; nothing else changes.
  *
+ * Slice 43 (Colonies that grow up): no goods are on their way out to a
+ * colony. Each colony you hold stands at the stage its people make it (an
+ * outpost, a settlement from 150, a town from 400, a city from 900), with no
+ * works funded, nothing asked of you yet (its first ask comes about six
+ * months after loading), no governor to choose, and its governor in office
+ * since it was founded. What it sends is worked out afresh from its stage,
+ * so a colony's next ship carries the new, smaller share of a cheap good.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -173,6 +181,8 @@ import { COLONY_MAKES } from './growth';
 import { freshGames, freshMonuments } from './monuments';
 // Slice 39.
 import { freshAmbition } from './laurels';
+// Slice 43.
+import { stageFor } from './colonyworks';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -228,6 +238,7 @@ export function migrate(st: unknown): number {
   if (st.version === 34) fromSlice39(st);
   if (st.version === 35) fromSlice36(st);
   if (st.version === 36) fromSlice37(st);
+  if (st.version === 37) fromSlice43(st);
   return from;
 }
 
@@ -924,5 +935,35 @@ function fromSlice37(st: Record<string, unknown>): void {
   }
   const w = st.world;
   if (isObj(w) && Array.isArray(w.sites)) for (const x of w.sites as unknown[]) if (isObj(x) && typeof x.free !== 'string') x.free = '';
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 43 (Colonies that grow up): see the note above. Only its own fields,
+ * each only if it is missing: the empire's `cargoes`, and each colony's
+ * stage, works, want, boosts and governor candidates.
+ */
+function fromSlice43(st: Record<string, unknown>): void {
+  if (isObj(st.empire)) {
+    const e = st.empire as Record<string, unknown>;
+    if (!Array.isArray(e.cargoes)) e.cargoes = [];
+    const sites = isObj(st.world) && Array.isArray(st.world.sites) ? (st.world.sites as unknown[]) : [];
+    const tick = typeof st.tick === 'number' ? st.tick : 0;
+    if (Array.isArray(e.colonies)) {
+      for (const c of e.colonies as unknown[]) {
+        if (!isObj(c)) continue;
+        const x = sites.find((y) => isObj(y) && y.id === c.site) as Record<string, unknown> | undefined;
+        const pop = typeof x?.pop === 'number' ? x.pop : 0;
+        if (typeof c.stage !== 'number') c.stage = stageFor(pop);
+        if (!Array.isArray(c.works)) c.works = [];
+        if (c.want === undefined) c.want = null;
+        if (typeof c.wantNext !== 'number') c.wantNext = tick + 6 * TICKS_PER_MONTH;
+        if (!Array.isArray(c.boosts)) c.boosts = [];
+        if (!Array.isArray(c.candidates)) c.candidates = [];
+        if (typeof c.chooseBy !== 'number') c.chooseBy = 0;
+        if (typeof c.govSince !== 'number') c.govSince = typeof c.since === 'number' ? c.since : tick;
+      }
+    }
+  }
   st.version = (st.version as number) + 1;
 }

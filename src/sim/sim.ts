@@ -54,6 +54,8 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
+// Slice 43.
+import { moveShipper, stepColonyWorks, worksCommand } from './colonyworks';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -240,6 +242,8 @@ export class Sim {
     stepEmpire(s, map);
     // Slice 37: your colonies: settlers walking to the quay and sailing, the colonies' growth, ships, loyalty and threats (nothing with none).
     stepColonies(s, map);
+    // Slice 43: your colonies' stages, works, wants and governors, and the goods going out to them from your quay (nothing with no colony or shipment).
+    stepColonyWorks(s, map);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
@@ -378,6 +382,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 37
     case 'colony':
       if (typeof c.site === 'string' && typeof c.act === 'string') colonyCommand(s, map, c);
+      break;
+    // Slice 43
+    case 'colonyworks':
+      if (typeof c.site === 'string' && typeof c.act === 'string') worksCommand(s, map, c);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
@@ -1006,6 +1014,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               // Slice 37: households walking down to the quay for a colony.
               : w.kind === 'colonist'
                 ? moveColonist(s, w)
+              // Slice 43: porters carrying goods down to the quay for a colony.
+              : w.kind === 'shipper'
+                ? moveShipper(s, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

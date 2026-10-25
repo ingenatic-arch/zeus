@@ -13,6 +13,8 @@ import { MAP_SIZE } from '../map/coast';
 import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState, type StockKind } from '../sim/state';
+// Slice 43.
+import { colonyWorksOk } from '../sim/colonyworks';
 import { STOCK_KINDS } from '../sim/stockbook';
 import { GOOD_COUNT } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
@@ -423,7 +425,9 @@ function empireOk(e: unknown): boolean {
     Array.isArray(e.colonies) &&
     Array.isArray(e.foundings) &&
     all('colonies', (c) => typeof c.site === 'string' && typeof c.name === 'string' && typeof c.governor === 'string' && typeof c.trait === 'string' && Array.isArray(c.memories) && Array.isArray(c.guards) && Array.isArray(c.homes) && typeof c.skip === 'boolean' && (c.threat === null || isObj(c.threat)) && ['since', 'settlers', 'share', 'loyalty', 'next', 'sent', 'worth', 'talk', 'frees'].every((k) => fin(c[k]))) &&
-    all('foundings', (f) => typeof f.site === 'string' && ['gathering', 'leaving', 'sea', 'done'].includes(f.phase as string) && Array.isArray(f.households) && (f.ship === null || isObj(f.ship)) && ['id', 'at', 'cost', 'wheat', 'post', 'until', 'start', 'dur', 'people'].every((k) => fin(f[k])))
+    all('foundings', (f) => typeof f.site === 'string' && ['gathering', 'leaving', 'sea', 'done'].includes(f.phase as string) && Array.isArray(f.households) && (f.ship === null || isObj(f.ship)) && ['id', 'at', 'cost', 'wheat', 'post', 'until', 'start', 'dur', 'people'].every((k) => fin(f[k]))) &&
+    // Slice 43: your colonies' stages, works, wants and governors, and goods going out to them.
+    colonyWorksOk(e)
   );
 }
 
