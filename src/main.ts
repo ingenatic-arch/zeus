@@ -313,8 +313,29 @@ function start(preparedTown: string | null): void {
   // A new game shuffles Greece from a seed of its own (the city keeps its seed, so the coast opens as ever); a demo's Greece comes from its city's seed.
   // Slice 42: a prepared town is read first, so that a demo on a generated land founds there (and the Bay isn't baked for nothing).
   const ready = preparedTown ? decodeSave(preparedTown) : null;
+  // A saved town asked for by the link (#continue, #autosave, #saved) is read first too (slice 42's review: so a town on a generated land founds there, and the Bay isn't baked for nothing).
+  const saves = new Saves(browserStorage());
+  let loaded: SaveFile | null = null;
+  let problem = '';
+  if (launch.load && !demo) {
+    const slot: Slot | null = launch.load === 'newest' ? saves.newest() : launch.load;
+    if (!saves.available) problem = 'Saving isn’t available in this window, so there is no saved town here to open.';
+    else if (!slot) problem = 'There is no saved town in this browser yet.';
+    else {
+      const r = saves.load(slot);
+      if (r.ok) {
+        loaded = r.file;
+      } else problem = r.why;
+    }
+    // The link has done its work: reloading the page now starts afresh (with a way back to the save).
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch {
+      /* Not allowed here; reloading would open the save again, which is harmless. */
+    }
+  }
   const tFound = performance.now();
-  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
+  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : loaded ? landOf(loaded.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
   // (Founding bakes the land's map: counted in the bake's time below.)
   const foundMs = tSetup - tFound;
@@ -336,28 +357,8 @@ function start(preparedTown: string | null): void {
   }
   probe.setupMs = performance.now() - tSetup;
 
-  // A saved town asked for by the link (#continue, #autosave, #saved) is opened before anything draws it.
-  const saves = new Saves(browserStorage());
-  let loaded: SaveFile | null = null;
-  let problem = '';
-  if (launch.load && !demo) {
-    const slot: Slot | null = launch.load === 'newest' ? saves.newest() : launch.load;
-    if (!saves.available) problem = 'Saving isn’t available in this window, so there is no saved town here to open.';
-    else if (!slot) problem = 'There is no saved town in this browser yet.';
-    else {
-      const r = saves.load(slot);
-      if (r.ok) {
-        loaded = r.file;
-        sim.state = r.file.state;
-      } else problem = r.why;
-    }
-    // The link has done its work: reloading the page now starts afresh (with a way back to the save).
-    try {
-      history.replaceState(null, '', location.pathname + location.search);
-    } catch {
-      /* Not allowed here; reloading would open the save again, which is harmless. */
-    }
-  }
+  // A saved town asked for by the link (#continue, #autosave, #saved), read above, is opened before anything draws it.
+  if (loaded) sim.state = loaded.state;
   // Slice 42: the map of the town's land (a demo's, a save's, or a new game's: the Bay), baked now that the town is known.
   const tBake = performance.now();
   const map = mapOf(sim.state);

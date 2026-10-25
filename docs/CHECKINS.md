@@ -18,7 +18,7 @@ What breaks, or moves:
 - **The camera** opens over a generated land's bay, and can stand a little further back over a larger land. The minimap shows the whole land.
 
 ### What to try
-1. #landlarge — a 256-tile sheltered bay, four times the Bay's ground, with a road in from the west edge and a bridge over the river. Mark out plots by the road and watch settlers walk in. Zoom out, and use the minimap to find the massif, the north hills and the headland.
+1. #landlarge — a 256-tile sheltered bay, four times the Bay's ground, with a road in from the west edge and a bridge over the river. Mark out plots by the road and watch settlers walk in. The road is long (about 128 tiles from the edge to the bay), so settlers bound for plots by the bay take about three months of game time to walk there, a minute and a half at normal speed; plots near the west edge fill sooner. Zoom out, and use the minimap to find the massif, the north hills and the headland.
 2. #landsmall — the same kind of land at the Bay's size, to compare with #coast.
 3. #landmedium — 192 tiles.
 4. #landlarge-modern and #landlarge-plain — the same land in the other two looks.
@@ -51,6 +51,12 @@ Headless software rendering on a machine shared with three other builds (load 25
 - **Tests:** 607 (590 before, 17 new), all passing.
 
 ### What the review changed
+I went through every step above in the browser at 1920 × 1080 (the original look, then `-modern` and `-plain`), saved a town on the large land and carried on with it from the welcome card, and replayed seven earlier demos on the Bay against the trunk: they come out exactly as before.
+- **Carrying on a town on a generated land** now reads the saved town before the game lays out any ground. Before, the game laid out the Bay first and then the town's own land, which wasted a fraction of a second on every load.
+- **A damaged save** that names a land the game can't make is now turned away in plain words before the game tries to read its map, whatever format it was saved in.
+- **What to try, step 1**, now says how long the first settlers take to reach the bay on the large land. I didn't change how fast they walk.
+
+Still for your eye, and handed on to the next land slice (the land kinds and the new-game screen): the three lands look much alike from their opening views (the bay to the left, the bridge at the river's mouth, the islet, the headland's knoll), and the large land's middle is quiet. On a big land, where the roads come in also matters more, because of that walk.
 
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 

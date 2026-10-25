@@ -294,8 +294,8 @@ export function decodeSave(text: string | null): Decoded {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-/** Slice 42: a saved state's map's side, in tiles: its land's (checked with landProblem), or the Bay's if it has none. */
-const sideOf = (st: Record<string, unknown>): number => (isObj(st.land) && typeof st.land.size === 'number' ? st.land.size : BAY.size);
+/** Slice 42: a saved state's map's side, in tiles: its land's if it is one this game makes, or the Bay's (a land that isn't is refused by stateProblem; slice 42's review: never unpacked to its size first). */
+const sideOf = (st: Record<string, unknown>): number => (isObj(st.land) && !landProblem(st.land) ? (st.land.size as number) : BAY.size);
 const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len === undefined || v.length === len) && v.every(fin);
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
