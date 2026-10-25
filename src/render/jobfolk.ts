@@ -430,7 +430,8 @@ export class Jobfolk {
       case 'yard':
         return [at(-0.95, -0.55, S, P.hay, 70, t(0), { to: [-0.95, 0.4] })];
       case 'armoury':
-        return [at(-0.15, 0.7, S, P.smith, 7, t(0)), at(-0.5, 1.28, N, P.bellows, 10, t(1))];
+        // (On the yard side of the anvil and at the quenching trough, out from under the forge's lean-to, arms.ts.)
+        return [at(0.12, 0.95, W, P.smith, 7, t(0)), at(0.3, 0.86, S, P.smith, 11, t(1))];
       case 'shipyard':
         return [at(-0.1, -0.3, N, P.shipwright, 8, t(0)), at(0.7, -0.3, N, P.shipwright, 9, t(1)), at(-0.7, 0.75, E, P.saw, 8, t(2)), at(0.4, 0.6, E, P.sack, 70, t(3), { to: [-0.3, 0.6] })];
       case 'masons':

@@ -2,6 +2,47 @@
 
 Notes to Oliver, newest first.
 
+## Side slice — The original Zeus look, and people at work (25 Oct)
+
+You picked look 3 from the mock-ups (pixel-crisp: the original's fixed view, its colours and hard pixels) plus the busy workers, and asked for it built now and tried before it goes in. This is that build. It is on its own try-out page; the game at its usual link has not changed and won't until you say yes. Every choice below that you didn't make is mine, from the plan's defaults (`docs/plans/2026-10-25-original-look.md`).
+
+Nothing breaks: it only changes how the city is drawn. Saves, the simulation and every demo's story are exactly as before.
+
+### What's new
+- **The original's view.** The camera looks down at 30°, always along a diagonal, through a long lens so the city is nearly flat, like Zeus' diamond grid. Q and E turn it a quarter, and so does dragging sideways with the right button far enough. The wheel zooms smoothly from one worker to the whole coast. R and F (tilt) do nothing now, and the controls card says so.
+- **The original's colours and pixels.** Greener grass, whiter walls, orange tiles, grey stone roads, a bluer sea, a clean sun from the left with no haze or vignette. The city is drawn at half the screen's resolution with hard pixel edges, so a game pixel is two screen pixels (four on a high-density screen). The panels and text stay sharp.
+- **People at work at 22 kinds of building**, each job with its own figure, tool and poses:
+  - farms: reapers with sickles at the front of the field, a thresher with a flail, a woman carrying sheaves;
+  - granaries and storehouses: porters with sacks and amphorae walking between the gate and the door, a scribe with a tablet;
+  - olive groves: beaters knocking olives down with poles, a woman with a basket; the press: two at the beam, one walking the mill;
+  - vineyards: pickers bent to the vines, a carrier with grapes on her head; wineries: two treading in the vat, one carrying amphorae;
+  - the dairy's milker and cheesemaker, the hunting lodge's hide-scraper and fire-tender, the shepherd walking round his fold, the horse farm's groom;
+  - the armoury's smith at the anvil and another at the trough, shipwrights with mallets and a sawyer, stonecutters at the masons' blocks;
+  - a priestess raising her arms at the shrine, two actors on the theatre's stage, a clerk at the tax office's table, the architect at his drawing table, a watchman looking about with his spear, a woman filling her jar at the fountain, the trading post's merchant and his scribe, a drover with fodder in the caravan yard.
+  How many you see follows how well the building is staffed (one to four, none when nobody works there). They move on the game's clock, so they stop when paused and hurry at faster speeds.
+- **The old looks are kept.** Add `-modern` to any link for the sunlit look and free camera of 24 Oct, or `-plain` for the original low-poly one.
+
+### What to try
+1. #goods — the richest town, in the new look. Zoom in on the farms, the vineyard and winery, the olive grove and press, and watch the people work. Turn the view with Q and E, or by dragging sideways with the right button.
+2. #empire — the late-game city: the armoury, the masons' yards on the headland, the horse farm, the shipyard's quay.
+3. #shipyard — the shipwrights at work.
+4. #goods-modern — the same town in the 24 Oct look, to compare.
+5. #goods-paused, then press space — the workers stand still while paused and start together.
+
+### What I'd like your eye on
+- **Is it close enough to the original?** The view, the colours and the pixel size are my reading of Zeus. Would you like the pixels bigger or smaller, the colours warmer, or the angle steeper?
+- **The workers.** Their size, how busy they are (one to four per building), and whether any job reads wrong or looks silly up close.
+- **No free camera.** You can't tilt or look along a street any more, like the original. Is that a loss?
+
+### Known rough edges
+- The theatre's actors are on its stage, so from the two diagonals that look at the back of the stage building they're hidden. Turn the view to see them.
+- At the closest zoom the pixels are coarse; that is the half resolution doing what it should, but you may want a finer setting.
+- The map of Greece keeps its own camera and look.
+- The agora has no new people: its vendors were already there.
+
+### Measurements
+Headless software rendering, so only the counts mean anything. At 1920 × 1080, `#empire` draws 2.09 million triangles in 152 draw calls (main: 1.90 million in 150), and `#goods` 1.74 million in 113 (main: 1.61 million in 116). The workers add about 0.14 million triangles and no draw calls. The canvas is 812 × 540 pixels instead of 1,624 × 1,080, a quarter of the pixels to fill, which on a real graphics card should more than pay for the extra people. I couldn't measure the frame rate on a real laptop here.
+
 ## Slice 40 — An empire's city (23 Oct)
 
 The phase ends with one town that has everything the phase built in it. `#empire` is `#ambition`'s town carried on about a year and a half. It has laurels in all three ambitions, Corinth as a vassal, Nea Thasos as a colony sending its share by ship, the Lighthouse rising on the headland, a great estate and an estate, and a new street of huts where thieves come from. It opens late in autumn, with winter a month off and Rhodes' fleet just put to sea to blockade the harbour. I also played the rich towns forward for years to look for numbers that are plainly off, looked at every new demo at two window sizes, and closed the leftovers. You weren't here while it was built: every choice below is mine, from the spec's defaults.

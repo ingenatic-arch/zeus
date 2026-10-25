@@ -44,7 +44,7 @@ This is render-only: no sim state changes, no save version bump, determinism unt
 | Architect | an architect at a drawing table |
 | Trading post | a merchant at his scales |
 | Caravan yard | a drover with the donkeys' fodder |
-| Armoury | a smith at the anvil, one at the bellows |
+| Armoury | a smith at the anvil, one quenching at the trough |
 | Shipyard | shipwrights with mallets at the hull, a sawyer |
 | Masons' yard | stonecutters with chisels at the blocks |
 | Horse farm | a groom brushing a horse, one leading |
@@ -62,4 +62,7 @@ No new tests: this is visual and judged by looking. The existing determinism, sa
 
 ## As built
 
-(filled in as it is built)
+- **The look is the game's own** (`src/render/classic.ts`, on unless the link has `-modern` or `-plain`). The camera (`cameraRig.ts`) is a 6° lens 30° above the ground, standing about 7.3 times further back than the distance it frames, so `dist` still means how much ground is in view; its yaw snaps to the diagonals, Q, E and a right-drag past about 20° turn a quarter, tilt does nothing. `EYE.back` tells what sizes or thins things by distance (hazard smoke, signs, rain) how far back the camera really stands. The city is drawn at half resolution (`setPixelRatio(0.5)`, canvas `image-rendering: pixelated`); the grade pass has a light sharpen (0.15) and 40 levels of posterising; the classic palette, a sun from the left-front at 55°, no haze (fog 4,000 to 9,000) and no vignette or grain. The controls card says "Turn the view a quarter (drag sideways)" and drops the tilt row.
+- **People at work** (`src/render/jobfolk.ts`): 22 kinds of building (the table above; the agora is left to its vendors). Each job has its own figure built from the folk's parts with its tool (sickle, flail, pole, mallet, chisel, saw, hammer, scraper, paddle, lever, crook, spear, tablet, scales, mask) and two or three poses, taken in turn on the game's tick, so they stop when paused and speed up with the game. Porters and carriers walk to and fro with a pause at each end, the shepherd walks round the fold. How many are drawn follows the building's staffing (`rateOf`), one to four. The spots are in each building's own frame (`Works.floorOf`, `Monuments.frameOf`, and the homes' mirrored frame for the two-by-two buildings), placed by looking at each building close up; treaders stand in the vat on its own ground. All of them go into the folk's merged meshes, so they add no draw calls.
+- The mock-ups' lab code (`classicLab.ts`, `Workfolk.busy`) is gone.
+- **Not done:** the map of Greece keeps its own camera and look. The theatre's actors are on the stage, so from the two diagonals that look at the back of the stage building they are hidden (turn the view to see them).
