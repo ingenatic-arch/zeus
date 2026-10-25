@@ -318,7 +318,7 @@ Slices are numbered across the whole project. Wave 1 (41 to 44), wave 2 (45 to 4
 - `generateCoast(kind, size, seed)`, pure and seeded, starting with a generated sheltered bay at all three sizes, checked playable.
 - The Bay unchanged, every demo exactly as before. Large lands hold the frame and load budgets.
 
-*Oliver can:* open `#land-large` to start on a generated 256-tile sheltered bay and lay out a city, and `#land-small` and `#land-medium` to compare.
+*Oliver can:* open `#landlarge` to start on a generated 256-tile sheltered bay and lay out a city, and `#landsmall` and `#landmedium` to compare.
 
 ### Slice 43 — Colonies that grow up (empire line, wave 1)
 - Stages (outpost, settlement, town, city) with a drawn picture on the colony's page and on its model on the map.
@@ -344,7 +344,7 @@ Slices are numbered across the whole project. Wave 1 (41 to 44), wave 2 (45 to 4
 - The new-game screen (Oliver's choice): kind, size, seed and a preview, from the welcome card's "Found a new city".
 - Saves carry the land and rebuild it.
 
-*Oliver can:* open the bare link, choose "Found a new city", flip through the kinds and seeds in the preview and found a city on a mountain shore; open `#land-delta` and `#land-plain` to see two of the kinds straight away.
+*Oliver can:* open the bare link, choose "Found a new city", flip through the kinds and seeds in the preview and found a city on a mountain shore; open `#delta` and `#dryplain` to see two of the kinds straight away.
 
 ### Slice 47 — A colonial empire (empire line, wave 2)
 - Companies and triremes stationed in colonies; shorter expeditions from them.
