@@ -17,6 +17,8 @@ import { STOCK_KINDS } from '../sim/stockbook';
 import { GOOD_COUNT } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
 import { CITY_IDS, RULED } from '../map/greece';
+// Slice 41.
+import { NEWS_KINDS } from '../sim/crime';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -312,6 +314,8 @@ LEDGER_KINDS.push('stolen', 'fines');
 LEDGER_KINDS.push('vassals');
 // Slice 37: founding a colony.
 LEDGER_KINDS.push('colonies');
+// Slice 41: repairs to what vandals smashed, and what crooked tax collectors kept back.
+LEDGER_KINDS.push('repairs', 'skimmed');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -452,9 +456,18 @@ function monumentsOk(m: unknown): boolean {
 /** Crime (slice 30): the switch, the news and the month's tallies. */
 function crimeOk(c: unknown): boolean {
   if (!isObj(c) || typeof c.on !== 'boolean' || !fin(c.month) || !Array.isArray(c.news)) return false;
-  const tallyOk = (t: unknown): boolean => isObj(t) && ['thefts', 'caught', 'coin', 'goods', 'fines'].every((k) => fin(t[k]));
+  // (Slice 41: the tallies' new counts, and the new kinds of news.)
+  const tallyOk = (t: unknown): boolean => isObj(t) && ['thefts', 'caught', 'coin', 'goods', 'fines', 'picked', 'smashed', 'arson', 'smuggled', 'skimmed', 'beaten'].every((k) => fin(t[k]));
   if (!tallyOk(c.now) || !tallyOk(c.last)) return false;
-  return (c.news as unknown[]).every((n) => isObj(n) && fin(n.tick) && fin(n.at) && typeof n.line === 'string' && (n.kind === 'theft' || n.kind === 'caught'));
+  if (!(c.news as unknown[]).every((n) => isObj(n) && fin(n.tick) && fin(n.at) && typeof n.line === 'string' && (NEWS_KINDS as readonly unknown[]).includes(n.kind))) return false;
+  return crimeKindsOk(c);
+}
+
+/** Slice 41: the new kinds' switch, what is smashed, talk of burning, the quarters' heat and the gangs. */
+function crimeKindsOk(c: Record<string, unknown>): boolean {
+  if (typeof c.kinds !== 'boolean' || !fin(c.arsonAt) || !nums(c.heat) || !nums(c.seats)) return false;
+  const rows = (v: unknown, keys: string[], strings: string[] = []): boolean => Array.isArray(v) && v.every((x) => isObj(x) && keys.every((k) => fin(x[k])) && strings.every((k) => typeof x[k] === 'string'));
+  return rows(c.broken, ['at', 'part', 'tick'], ['by']) && rows(c.talk, ['home', 'since', 'at']) && rows(c.gangs, ['den', 'district', 'formed', 'next', 'covered'], ['name']);
 }
 
 /** The trees the loggers have felled (slice 32): each by its number in the map's plants, and the tick it fell. */

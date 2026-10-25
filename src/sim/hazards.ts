@@ -38,6 +38,8 @@ import { door, endRound, headHome, moveRounds, roadsBeside, sendOut, type Servic
 import { TILE_ROAD, type Building, type BuildingKind, type SimState, type Walker } from './state';
 import { besideRoad, centre, PATROL_SPEED, position, RUN_SPEED, setPath } from './walk';
 import { restFor } from './water';
+// Slice 41: the inspector mends what vandals smashed.
+import { mendBroken } from './misdeeds';
 
 /** Fire risk and wear run from 0 to this. */
 export const HAZARD_FULL = 1000;
@@ -497,6 +499,9 @@ export function moveWatchman(s: SimState, map: CoastMap, w: Walker): boolean {
 
 /** When a building would start to creak, on the tick scale (a creaking one: well before anything else). */
 function creakScore(b: Building, s: SimState): number {
+  // Slice 41: what a vandal smashed, first of all (misdeeds.ts).
+  const smashed = s.crime.broken.length ? s.crime.broken.find((x) => x.at === b.id) : undefined;
+  if (smashed) return smashed.tick - 3 * TICKS_PER_MONTH;
   if (!wears(b)) return Infinity;
   if (b.creakAt > 0) return b.creakAt - 2 * TICKS_PER_MONTH;
   if (b.wear < CARE_FROM) return Infinity;
@@ -511,10 +516,12 @@ export const INSPECT: ServiceSpec = {
   speed: PATROL_SPEED,
   score: creakScore,
   due: (b) => (b.creakAt > 0 ? b.creakAt : Infinity),
-  serve(s: SimState, size: number, t: number) {
+  serve(s: SimState, size: number, t: number, _w?: Walker, map?: CoastMap) {
     for (const b of besideRoad(s, size, t, near)) {
       b.wear = 0;
       b.creakAt = 0;
+      // Slice 41: and mends what a vandal smashed (misdeeds.ts).
+      if (s.crime.broken.length) mendBroken(s, map ?? null, b);
     }
   },
   rest: (b) => restFor(b, INSPECT_REST),

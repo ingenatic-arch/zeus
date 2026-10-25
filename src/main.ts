@@ -329,6 +329,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'seasons', on: true });
     // Slice 39: and the ambitions, counting from the founding.
     sim.enqueue({ type: 'ambition', on: true });
+    // Slice 41: and the new kinds of crime and gangs.
+    sim.enqueue({ type: 'crimes', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;

@@ -136,9 +136,26 @@ function storyLine(f: Family, e: Story, i: number): string {
       // (Review of slice 30: "his" or "hers", as whoever went out.)
       return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t ${f.members.find((m) => m.name === e.names[0])?.female ? 'hers' : 'his'}`;
     case 'caught':
-      return `${e.names[0]} was caught stealing by the watchman; the house paid a ${e.n ?? 0} dr fine`;
+      // (Slice 41: and the new kinds, by what they were caught at.)
+      return `${e.names[0]} was caught ${CAUGHT_AT[e.names[1] ?? 'theft'] ?? 'stealing'} by the watchman; the house paid a ${e.n ?? 0} dr fine`;
+    // Slice 41: the new kinds of crime, purses cut, and a gang's den.
+    case 'misdeed': {
+      const what = e.names[2] ?? 'something';
+      if (e.names[1] === 'pickpocket') return `${e.names[0]} came home from the crowd with ${what} out of other people’s purses`;
+      if (e.names[1] === 'vandal') return `${e.names[0]} smashed ${what} in a black mood, and came home grinning`;
+      if (e.names[1] === 'arson') return `${e.names[0]} set fire to ${what}, and came home smelling of smoke`;
+      return `${e.names[0]} came home from the waterfront with ${what} that was meant for the traders`;
+    }
+    case 'picked':
+      return `A purse was cut in the crowd at ${e.names[0] ?? 'the agora'}: ${e.n ?? 0} dr gone`;
+    case 'den':
+      return e.n ? `${cap(e.names[0] ?? 'a gang')} made the house its den: rough company at all hours` : `The watch broke up ${e.names[0] ?? 'the gang'}; the house is quieter now`;
   }
 }
+
+/** Slice 41: what one of them was caught at, by the crime's kind. */
+const CAUGHT_AT: Record<string, string> = { theft: 'stealing', pickpocket: 'picking pockets', vandal: 'with a club, on the way to smash something', arson: 'with a torch', smuggling: 'smuggling' };
+const cap = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** The members, head first, with their ages and how they are related. */
 function memberRow(s: SimState, p: Person): string {

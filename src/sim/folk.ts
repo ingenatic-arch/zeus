@@ -433,7 +433,11 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
       else add(-1, `A thief broke in ${span(s.tick - robbed.tick)} ago; the watchman brought back what was taken`);
     }
     const caught = lastOf(f, 'caught');
-    if (caught && s.tick - caught.tick < recent) add(-1, `Shamed: ${caught.names[0]} was caught stealing`);
+    // (Slice 41: at whatever crime it was.)
+    if (caught && s.tick - caught.tick < recent) add(-1, `Shamed: ${caught.names[0]} was caught ${CAUGHT_WORDS[caught.names[1] ?? 'theft'] ?? 'stealing'}`);
+    // Slice 41: a purse cut in a crowd, for a month.
+    const picked = lastOf(f, 'picked');
+    if (picked && s.tick - picked.tick < TICKS_PER_MONTH) add(-1, `A purse cut at ${picked.names[0] ?? 'the agora'} ${span(s.tick - picked.tick)} ago: ${picked.n ?? 0} dr gone`);
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
   }
   // A few days from giving up: as low as it goes.
@@ -780,3 +784,6 @@ export function serviceScore(b: Building, need: Service, wants: boolean, now = -
 export function serviceDue(b: Building, need: Service): number {
   return needsOf(b).includes(need) ? missingSince(b, need) + DECLINE_AFTER : Infinity;
 }
+
+/** Slice 41: what one of a household was caught at, by the crime's kind (crime.ts), for its mood. */
+const CAUGHT_WORDS: Record<string, string> = { theft: 'stealing', pickpocket: 'picking pockets', vandal: 'smashing things', arson: 'with a torch', smuggling: 'smuggling' };

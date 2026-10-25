@@ -54,6 +54,8 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
+// Slice 41
+import { isCriminal } from './crime';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -378,6 +380,13 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 37
     case 'colony':
       if (typeof c.site === 'string' && typeof c.act === 'string') colonyCommand(s, map, c);
+      break;
+    // Slice 41: the new kinds of crime and gangs.
+    case 'crimes':
+      if (s.crime.kinds !== (c.on === true)) {
+        s.crime.kinds = c.on === true;
+        s.rev++;
+      }
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
@@ -1006,6 +1015,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               // Slice 37: households walking down to the quay for a colony.
               : w.kind === 'colonist'
                 ? moveColonist(s, w)
+              // Slice 41: the new kinds of criminal walk as a thief does.
+              : isCriminal(w.kind)
+                ? moveThief(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

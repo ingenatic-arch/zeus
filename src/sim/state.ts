@@ -13,7 +13,7 @@ import type { Blockade } from './blockades';
 import type { Ambition } from './laurels';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 37;
+export const SIM_STATE_VERSION = 38;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -180,9 +180,14 @@ export type Need = Service | 'marble' | 'armour' | 'horses';
 /** What a walker is (see Walker.kind). */
 export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge' | 'builder' | 'oxcart' | 'visitor'
   // Slice 37: a household walking to the quay to sail for a colony (colonies.ts).
-  | 'colonist';
+  | 'colonist'
+  // Slice 41: the new kinds of criminal (misdeeds.ts).
+  | 'pickpocket'
+  | 'vandal'
+  | 'arsonist'
+  | 'smuggler';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'pickpocket', 'vandal', 'arsonist', 'smuggler'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -202,7 +207,11 @@ export type Kin = 'head' | 'wife' | 'husband' | 'son' | 'daughter' | 'mother' | 
 export interface Story {
   tick: number;
   /** came: founded the house; joined: more family moved in; up / down: the home changed level; warn: a need ran out; relief: it came back in time; left: people moved away; fell: the man who served fell in battle (names: his, and the city whose raiders it was). */
-  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell' | 'robbed' | 'stole' | 'caught';
+  what: 'came' | 'joined' | 'up' | 'down' | 'warn' | 'relief' | 'left' | 'fell' | 'robbed' | 'stole' | 'caught'
+    // Slice 41: one of them did a crime of the new kinds (names: who, the crime's kind, what; `n` how much); a purse cut (names: where; `n` the coin); the house became a gang's den (`n` 1) or the watch broke the gang up (`n` 0; names: the gang's).
+    | 'misdeed'
+    | 'picked'
+    | 'den';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */
@@ -331,7 +340,10 @@ export interface ServiceRecord {
 /** What a line of the ledger is about. */
 export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | 'fire' | 'collapse' | 'clearing' | 'imports' | 'routes' | 'gifts' | 'given' | 'favours' | 'tribute' | 'peace' | 'raid' | 'soldiers' | 'hirelings' | 'recovered' | 'borrowed' | 'repaid' | 'lent' | 'repayment' | 'returned' | 'rowers' | 'seized' | 'collected' | 'stolen' | 'fines' | 'vassals'
   // Slice 37: founding a colony.
-  | 'colonies';
+  | 'colonies'
+  // Slice 41: mending what vandals smashed, and what crooked tax collectors kept back.
+  | 'repairs'
+  | 'skimmed';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
