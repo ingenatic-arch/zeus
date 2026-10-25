@@ -956,7 +956,9 @@ function wooded(k: Sketch): CoastData {
       k.cypress.push({ x: h.x + 8, z: h.z - 6, r: 3.5 });
       return;
     }
-    k.woods.push({ x: h.x + k.r(-4, 4), z: h.z + k.r(-3, 5), r: k.r(12, 17), dense: 2 });
+    // (A third thicker than elsewhere, over many more hills: at twice as thick the opening view drew over 5 million
+    // triangles, more than four times the Bay's; at 1.3 it has about 3,200 timber trees, against about 370 on the other kinds.)
+    k.woods.push({ x: h.x + k.r(-4, 4), z: h.z + k.r(-3, 5), r: k.r(12, 17), dense: 1.3 });
     if (i % 3 === 0) k.herds.push({ kind: i % 2 ? 'deer' : 'boar', x: h.x, z: h.z + 8, r: 9, head: 6, place: i % 2 ? 'in the deep woods' : 'in the oak woods' });
   });
   // Pines down to the shore.
