@@ -15,7 +15,7 @@ import type { Ambition } from './laurels';
 import type { Messages } from './messages';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 40;
+export const SIM_STATE_VERSION = 41;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -174,6 +174,13 @@ export interface Building {
   robbedAt: number;
   /** Slice 36: a home laid out as an estate (estates.ts): four by four, its levels the estate (7) and the great estate (8); rubble keeps it from what stood there. False for everything else. */
   estate: boolean;
+  // Slice 48: a workplace's orders, and a store's rules (labour.ts, storerules.ts).
+  /** Paused (1): it takes no workers (they go to other jobs), so it works at nothing. 0 for everything else. (Numbers, not booleans: a town's saves stay within their size.) */
+  paused: 0 | 1;
+  /** Workers first (1): it is filled before every other workplace at the day's share. 0 for everything else. */
+  first: 0 | 1;
+  /** A granary's or storehouse's rule for each ware, in ware order (see stores.ts: what it does with it, and how full it fills); empty until it is given one (a ware past its end: 0), and for every other building. 0: accept, all of its room (as before). */
+  rules: number[];
 }
 
 /** Slice 36: what a home can need: a service walked round the streets, or what an estate's porter fetches (estates.ts). */
@@ -1147,6 +1154,8 @@ export interface NewsItem {
   urgent?: boolean;
   /** News of Greece's own doings (festivals, feuds, wars between rivals; missing: no): under the top bar only once your city has dealt with Greece. */
   greece?: boolean;
+  /** Slice 48: an alarm's kind (raiders in or ashore, a blockade holding the harbour, a vassal or colony risen), so the town's messages know it without reading its words (missing: not an alarm). */
+  alarm?: 'raid' | 'blockade' | 'rebellion';
 }
 
 /**

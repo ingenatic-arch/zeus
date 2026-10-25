@@ -648,7 +648,7 @@ function rise(s: SimState, v: Vassal, why: string): void {
   c.lord = '';
   c.lordSince = s.tick;
   remember(s, c, 'rose', 'threw off your rule', ROSE.amount, ROSE.fade);
-  news(w, s.tick, v.city, `${name(v.city)} has risen and thrown off your rule: ${why}. It pays you nothing now, and remembers your rule bitterly (${signed(ROSE.amount)})`, true);
+  news(w, s.tick, v.city, `${name(v.city)} has risen and thrown off your rule: ${why}. It pays you nothing now, and remembers your rule bitterly (${signed(ROSE.amount)})`, true, 'rebellion');
   s.rev++;
 }
 

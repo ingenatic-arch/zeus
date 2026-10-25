@@ -602,8 +602,8 @@ function arrive(s: SimState, map: CoastMap, r: Raid): void {
   setPath(band, at.path);
   s.walkers.push(band);
   const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
-  if (r.loan) news(w, s.tick, r.city, `${whose(r.city)} army is in at the ${RAID_SIDE[r.city]} edge of your land, ${r.men} men come to collect the ${fmt(r.coin)} dr you owe, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
-  else news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  if (r.loan) news(w, s.tick, r.city, `${whose(r.city)} army is in at the ${RAID_SIDE[r.city]} edge of your land, ${r.men} men come to collect the ${fmt(r.coin)} dr you owe, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors`, true, 'raid');
+  else news(w, s.tick, r.city, `Raiders! ${r.men} of ${whose(r.city)} men are in at the ${RAID_SIDE[r.city]} edge of your land, making for ${aimWords(at.target)}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true, 'raid');
   void c;
   s.rev++;
 }
@@ -755,7 +755,7 @@ function arriveBySea(s: SimState, map: CoastMap, r: Raid): void {
   const then = at.next.map((id) => findBuilding(s, id)).filter((b): b is Building => !!b).map(aimWords).join(', then ');
   // (A lender's army (slice 28) comes for what you owe, and can't be paid off once it is here.)
   const pay = r.loan ? `, come to collect the ${fmt(r.coin)} dr you owe` : '';
-  news(w, s.tick, r.city, `Sails! ${r.ships} of ${whose(r.city)} ships are in sight off your shore, about ${r.men} men aboard${pay}, making for the beach${shoreWhere(map, at.from)}: they will land for ${aimWords(at.target)}${then ? ` and then ${then}` : ''} in about ${days === 1 ? 'a day' : `${days} days`}${r.loan ? '' : `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`}`, true);
+  news(w, s.tick, r.city, `Sails! ${r.ships} of ${whose(r.city)} ships are in sight off your shore, about ${r.men} men aboard${pay}, making for the beach${shoreWhere(map, at.from)}: they will land for ${aimWords(at.target)}${then ? ` and then ${then}` : ''} in about ${days === 1 ? 'a day' : `${days} days`}${r.loan ? '' : `. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`}`, true, 'raid');
   s.rev++;
 }
 
@@ -819,8 +819,8 @@ export function landBand(s: SimState, map: CoastMap, r: Raid, men: number): void
   setPath(band, path);
   s.walkers.push(band);
   const then = r.next.map((id) => findBuilding(s, id)).filter((x): x is Building => !!x).map(aimWords).join(', then ');
-  if (r.loan) news(s.world, s.tick, r.city, `${whose(r.city)} army is ashore${shoreWhere(map, best.from)}, ${r.landed} men come to collect the ${fmt(r.coin)} dr you owe, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors`, true);
-  else news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true);
+  if (r.loan) news(s.world, s.tick, r.city, `${whose(r.city)} army is ashore${shoreWhere(map, best.from)}, ${r.landed} men come to collect the ${fmt(r.coin)} dr you owe, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors`, true, 'raid');
+  else news(s.world, s.tick, r.city, `Raiders! ${r.landed} of ${whose(r.city)} men are ashore${shoreWhere(map, best.from)}, making for ${b ? aimWords(b) : 'what they came for'}${then ? ` and then ${then}` : ''}. People are running indoors. Pay ${fmt(r.coin)} dr on ${whose(r.city)} page to turn them back`, true, 'raid');
   s.rev++;
 }
 

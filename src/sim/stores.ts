@@ -94,11 +94,70 @@ export const OWN_STORE: Partial<Record<BuildingKind, number>> = {
 /** A building's room for a ware (0: it doesn't take it). */
 export const roomOf = (kind: BuildingKind, w: Ware): number => ROOMS[kind]?.[w] ?? 0;
 
-/** Room left in a building for a ware: its room, less what it holds and what carts are bringing (0 if it doesn't take it). */
+/**
+ * Room left in a building for a ware: its room, less what it holds and what
+ * carts are bringing (0 if it doesn't take it). Slice 48: a store's rule for
+ * the ware has its say: none while it doesn't accept it, is emptying it or is
+ * paused, and only up to its limit.
+ */
 export function roomFor(g: Building, w: Ware): number {
   const room = roomOf(g.kind, w);
-  return room > 0 ? room - held(g, w) - coming(g, w) : 0;
+  if (room <= 0) return 0;
+  const r = g.rules?.[w] ?? 0;
+  if (r === 0 && !g.paused) return room - held(g, w) - coming(g, w);
+  if (!takes(g, w)) return 0;
+  return limitOf(g, w) - held(g, w) - coming(g, w);
 }
 
 /** What a maker's own store holds of what it makes (a farm's barn, a lodge's rack, a press's jars…). */
 export const storeOf = (kind: BuildingKind): number => OWN_STORE[kind] ?? 0;
+
+// ---------------------------------------------------------------------------
+// Slice 48: a store's rules.
+
+/**
+ * What a granary or storehouse does with each ware it has room for, as in the
+ * original: accept it (as stores always have), not accept it, get it (its
+ * carts fetch it from other stores) or empty it (its carts take it out to
+ * other stores). And how full it fills: all of its room, three quarters, half
+ * or a quarter. One number a ware (`rules`, in ware order): the mode in its
+ * low two bits, the limit's quarters cut in the next two. 0 is accept, all of
+ * it: what a store did before rules.
+ */
+export const ACCEPT = 0;
+export const REFUSE = 1;
+export const GET = 2;
+export const EMPTY = 3;
+export type StoreMode = 0 | 1 | 2 | 3;
+export const MODES: readonly StoreMode[] = [ACCEPT, REFUSE, GET, EMPTY];
+/** The limits, by how many quarters of the room are cut: 0 all, 1 three quarters, 2 half, 3 a quarter. */
+export const LIMITS = [0, 1, 2, 3] as const;
+export const MODE_NAMES = ['Accept', 'Don’t accept', 'Get', 'Empty'] as const;
+export const LIMIT_NAMES = ['All', '¾', '½', '¼'] as const;
+/** The rule's number for a mode and a limit. */
+export const ruleOf = (mode: number, limit: number): number => (mode & 3) | ((limit & 3) << 2);
+/** A store's mode for a ware (accept for any other building). */
+export const modeOf = (g: Building, w: Ware): StoreMode => ((g.rules?.[w] ?? 0) & 3) as StoreMode;
+/** How many quarters of its room a store's limit for a ware cuts (0: none). */
+export const cutOf = (g: Building, w: Ware): number => ((g.rules?.[w] ?? 0) >> 2) & 3;
+/** How much of a ware a store fills up to: its room, less its limit's cut. */
+export const limitOf = (g: Building, w: Ware): number => Math.floor((roomOf(g.kind, w) * (4 - cutOf(g, w))) / 4);
+/** Does a building take deliveries of a ware: it has room for it, and (a store) is open and accepts it or gets it? */
+export const takes = (g: Building, w: Ware): boolean => roomOf(g.kind, w) > 0 && !g.paused && (modeOf(g, w) === ACCEPT || modeOf(g, w) === GET);
+/** A new building's rules: none (a store accepts everything, all of its room, until it is given one). */
+export const freshRules = (kind: BuildingKind): number[] => (void kind, []);
+/** Has a store any rule but the first (so its carts may have work)? */
+export const hasRules = (g: Building): boolean => !!g.rules?.some((r) => r !== 0);
+
+/**
+ * How a carrier fetching a ware from the stores ranks a store (for nearestBy
+ * in food.ts): 0 never (it is paused: nobody there to load him), 2 first (it
+ * is emptying the ware), 1 otherwise. Any other building ranks 1.
+ */
+export const fromStores =
+  (w: Ware | readonly Ware[]) =>
+  (g: Building): number => {
+    if (!isStore(g.kind)) return 1;
+    if (g.paused) return 0;
+    return (typeof w === 'number' ? modeOf(g, w) === EMPTY : w.some((x) => modeOf(g, x) === EMPTY && held(g, x) > 0)) ? 2 : 1;
+  };

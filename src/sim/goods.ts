@@ -26,7 +26,7 @@ import { ARMOUR, FLEECE, gi, held, HORSES, MARBLE, OIL, setHeld, TIMBER, WINE, t
 import { serviceDue, serviceScore } from './folk';
 import { CREW_GAP, crewClock, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import type { Building, Service, SimState, Walker } from './state';
-import { isStore, roomOf } from './stores';
+import { fromStores, isStore, roomOf } from './stores';
 import { besideRoad, CARRIER_SPEED, newWalker, setPath } from './walk';
 import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
@@ -181,7 +181,7 @@ export function stepStalls(s: SimState, size: number, a: Building, rate: number)
     if (a.fetch[k] > 0) a.fetch[k]--;
     if (rate === 0 || a.fetch[k] > 0 || stallPorterOut(s, a, good)) continue;
     if (held(a, good) > stallLow(good) || !anyStoreHas(s, good)) continue;
-    const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => isStore(g.kind) && roomOf(g.kind, good) > 0 && held(g, good) > 0);
+    const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => isStore(g.kind) && roomOf(g.kind, good) > 0 && held(g, good) > 0, fromStores(good));
     if (!found) {
       a.fetch[k] = PORTER_RETRY;
       continue;

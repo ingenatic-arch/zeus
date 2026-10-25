@@ -36,7 +36,7 @@ import { addComing, ARMOUR, CHEESE, coming, COPPER, FLEECE, held, MARBLE, MEAT, 
 import { HORSES } from './foods';
 import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
-import { roomFor, roomOf } from './stores';
+import { fromStores, roomFor, roomOf, takes } from './stores';
 import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
 
 /** What placing a ship needs of her record: the Tyre ship's, or a foreign ship's (a Visitor, see routes.ts). */
@@ -868,10 +868,10 @@ function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): {
   const kind = storeKind(job.w);
   if (job.back) return nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, LEAST_LOT[job.k]));
   // (For sale: the nearest holding at least half his load, else the nearest holding any; a trip across town for a few horses, when another store holds a stableful, was most of why so few reached the quay.)
-  if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) >= Math.ceil(job.lot / 2)) ?? nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+  if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) >= Math.ceil(job.lot / 2), fromStores(job.w)) ?? nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0, fromStores(job.w));
   const res = giftReserved(s, job.w);
   const free = (g: Building): number => held(g, job.w) - (res.get(g.id) ?? 0);
-  const found = nearestBy(s, size, roads, (g) => g.kind === kind && free(g) > 0);
+  const found = nearestBy(s, size, roads, (g) => g.kind === kind && free(g) > 0, fromStores(job.w));
   if (found) job.lot = Math.min(job.lot, free(found.g));
   return found;
 }
@@ -931,7 +931,8 @@ export function stepDockers(s: SimState, map: CoastMap, post: Building): void {
 /** Does a store suit what a docker is doing: holds his good to fetch, or has room for what he carries back? */
 function suits(g: Building, d: Walker): boolean {
   if (g.kind !== storeKind(d.food)) return false;
-  return d.load > 0 ? roomOf(g.kind, d.food) > 0 : true;
+  // (Slice 48: a store that has stopped taking the good, or is paused, turns him away.)
+  return d.load > 0 ? takes(g, d.food) : !g.paused;
 }
 
 /** A docker's store has gone, or his way was cut: another store from where he stands, else home. False if he can get nowhere at all. */
@@ -942,7 +943,7 @@ function redirect(s: SimState, size: number, d: Walker, post: Building): boolean
   const from = lastRoad(s, d);
   if (!d.back && from >= 0) {
     const ok = d.load > 0 ? (g: Building) => g.kind === storeKind(d.food) && roomFor(g, d.food) >= d.load : (g: Building) => g.kind === storeKind(d.food) && held(g, d.food) > 0;
-    const found = nearestBy(s, size, [from], ok);
+    const found = nearestBy(s, size, [from], ok, d.load > 0 ? undefined : fromStores(d.food));
     if (found) {
       d.target = found.g.id;
       if (d.load > 0) addComing(found.g, d.food, d.load);

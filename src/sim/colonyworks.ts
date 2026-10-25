@@ -43,6 +43,8 @@ import type { Command } from './commands';
 import { news } from './diplomacy';
 import { dayWords } from './favours';
 import { nearestBy } from './food';
+// Slice 48: the stores' rules.
+import { fromStores } from './stores';
 import { ARMOUR, CHEESE, COPPER, FLEECE, held, HORSES, MARBLE, MEAT, OIL, setHeld, TIMBER, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
 import { MEN } from './folk';
 import { blockaded } from './lanes';
@@ -525,7 +527,8 @@ function sendPorter(s: SimState, map: CoastMap, x: Cargo, i: number): boolean {
   const kind = storeKind(w);
   const n = map.size;
   const roads = roadsBeside(s, n, post);
-  const found = nearestBy(s, n, roads, (g) => g.kind === kind && held(g, w) > 0);
+  // (Slice 48: a store emptying the good first; none that is paused.)
+  const found = nearestBy(s, n, roads, (g) => g.kind === kind && held(g, w) > 0, fromStores(w));
   if (!found) return false;
   const take = Math.min(PORTER_LOAD[w] ?? 40, held(found.g, w), it.amount - it.got - it.out);
   if (take <= 0) return false;

@@ -37,7 +37,7 @@ import { overland } from './roads';
 import { PLACES } from '../map/greece';
 import { door, roadsBeside } from './rounds';
 import { note } from './stockbook';
-import { ARMOURY_COPPER, isStore, roomOf } from './stores';
+import { ARMOURY_COPPER, fromStores, isStore, roomOf } from './stores';
 import { TILE_ROAD, type Army, type Building, type Company, type CompanyKind, type Person, type ServesAs, type SimState, type Soldier } from './state';
 import { HIRED_PAY, pay, settle, SOLDIER_PAY, spendable } from './treasury';
 import { newWalker, offMapPoint, setPath } from './walk';
@@ -826,7 +826,7 @@ function racks(s: SimState, map: CoastMap, b: Building): void {
 /** Send a building's porter to the nearest store holding a ware, for a handcart of it (or wait a while if none holds any). */
 function fetchWare(s: SimState, size: number, b: Building, ware: Ware): void {
   const k = gi(ware);
-  const found = nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && roomOf(g.kind, ware) > 0 && held(g, ware) > 0);
+  const found = nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && roomOf(g.kind, ware) > 0 && held(g, ware) > 0, fromStores(ware));
   if (!found) {
     b.fetch[k] = PORTER_RETRY;
     return;

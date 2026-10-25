@@ -78,7 +78,10 @@ export type Command =
   /** The new kinds of crime's and gangs' switch (misdeeds.ts, gangs.ts), beside crime's own: on as a game starts or a demo opens, off while a demo's history is played. */
   | { type: 'crimes'; on: boolean }
   // Slice 44: the town's messages, read or pinned (messages.ts).
-  | { type: 'messages'; act: 'read' | 'unread' | 'pin' | 'unpin' | 'allread'; ids?: number[] };
+  | { type: 'messages'; act: 'read' | 'unread' | 'pin' | 'unpin' | 'allread'; ids?: number[] }
+  // Slice 48: a granary's or storehouse's rule for a ware (`mode`: 0 accept, 1 don't accept, 2 get, 3 empty; `limit`: 0 all of its room, 1 three quarters, 2 half, 3 a quarter), or for every ware at once (`all`: 'none' accepts nothing, 'all' everything, as built); a workplace paused, or given its workers first (storerules.ts).
+  | { type: 'store'; id: number; ware?: number; mode?: number; limit?: number; all?: 'none' | 'all' }
+  | { type: 'work'; id: number; paused?: boolean; first?: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';

@@ -554,7 +554,9 @@ export function workersLine(s: SimState, map: CoastMap, b: Building): string {
 }
 
 function staffLine(s: SimState, map: CoastMap, b: Building, jobs: number): string {
-  if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}`;
+  // Slice 48: paused, or given its workers first.
+  if (b.paused) return `Paused · its ${jobs} workers have gone to other work until it is set going again`;
+  if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}${b.first ? ' · workers first' : ''}`;
   if (b.workers === 0) {
     if (roadsBeside(s, map.size, b).length === 0) return `No workers · it needs ${jobs}, and a road beside it`;
     // Workers are shared out once a day: a workplace built since then hasn't had its turn.

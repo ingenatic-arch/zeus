@@ -241,7 +241,7 @@ function hold(s: SimState, b: Blockade): void {
   b.phase = 'holding';
   b.holds = s.tick;
   const line = `${whose(b.city)} ships hold the mouth of your harbour: no ship comes or goes until the blockade is broken or lifted. Sink ${toBreak(b)} of its ${b.ships} ships and the rest will flee`;
-  news(s.world, s.tick, b.city, line, true);
+  news(s.world, s.tick, b.city, line, true, 'blockade');
   armyNews(s, line, 0);
   s.rev++;
 }
