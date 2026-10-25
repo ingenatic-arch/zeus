@@ -186,10 +186,11 @@ export function titleOf(m: Message): string {
 export function titleFrom(w: string): string {
   const STOP = /[:;.!?](\s|$)|\s·\s|\s\(/g;
   let t = w;
-  // (Up to the first stop; past it while that leaves only a word or two: "Raiders! 35 of Sparta’s men are in…".)
+  // (Up to the first stop; past it while that leaves only a few words: "Raiders! 35 of Sparta’s men are in…", "The merchant
+  // ship: her next call falls in winter", "Fire by the farm: the farm is burning…". Review of slice 44: more than 20 letters, not 12.)
   for (let x = STOP.exec(w); x; x = STOP.exec(w)) {
     t = w.slice(0, x.index + (w[x.index] === '!' || w[x.index] === '?' ? 1 : 0));
-    if (t.length >= 12) break;
+    if (t.length > 20) break;
     t = w;
   }
   // (Too long: up to a comma, if that leaves enough.)

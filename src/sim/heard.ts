@@ -242,7 +242,7 @@ export function stepMessages(s: SimState, map: CoastMap): void {
     for (const l of s.world.loans) {
       if (l.side !== 'in' || l.state !== 'running' || l.due - now > TICKS_PER_MONTH || spendable(s) >= l.owed) continue;
       const n = Math.max(1, Math.ceil((l.due - now) / TICKS_PER_DAY));
-      fact(`${DAILY}loan:${l.id}`, () => `Your loan from ${cityName(l.city)} is due in ${n === 1 ? '1 day' : `${n} days`}: ${l.owed.toLocaleString('en-GB')} dr, and the treasury can spend ${spendable(s).toLocaleString('en-GB')} dr now.`, 'loan', WARNING, { city: l.city });
+      fact(`${DAILY}loan:${l.id}`, () => `Your loan from ${cityName(l.city)} is due in ${n === 1 ? '1 day' : `${n} days`}: ${Math.round(l.owed).toLocaleString('en-GB')} dr, and the treasury can spend ${Math.round(spendable(s)).toLocaleString('en-GB')} dr now.`, 'loan', WARNING, { city: l.city });
     }
     const stuck = monumentTownLine(s);
     if (stuck && /waits for .+ no storehouse has any|waits for the armourers|no masons’ yard sends builders/.test(stuck.text)) {

@@ -24,11 +24,11 @@ What breaks, or moves:
   - "Go there" on a message with a place: the city's camera flies to the building or tile, or the map of Greece opens on the city's or site's page;
   - "Mark unread", a pin, and "Mark all read";
   - at its foot, which alarms may pop up.
-- **Quieter popups.** Only alarms pop up: raiders in or ashore, a fire, a blockade, a rebellion, and plague when health comes in. Each is a card at the bottom left, one at a time, fading after six seconds (not while the pointer is over it). A click goes to the place. At most three wait their turn, and the rest are in the scroll. Everything else arrives quietly with a soft rustle and a small bell. An alarm rings a bronze bell, except a fire and raiders, which already have their own sounds.
+- **Quieter popups.** Only alarms pop up: raiders in or ashore, a fire, a blockade, a rebellion, and plague when health comes in. Each is a card at the bottom left, one at a time, fading after six seconds (not while the pointer is over it). A click goes to the place. At most three wait their turn, and the rest are in the scroll. A second alarm of the same kind within half a minute (a raid's fires, one after another) doesn't pop up again: it goes into the scroll. Everything else arrives quietly with a soft rustle and a small bell. An alarm rings a bronze bell, except a fire and raiders, which already have their own sounds.
 
 ### What to try
 1. #messages — #aftermath's town with the panel open and last season's messages unread. Click War, open "Raiders!", and press Go there.
-2. #raid — let it play. When Sparta's band comes in at the west edge, one card pops up at the bottom left. Everything else that happens goes into the scroll.
+2. #raid — let it play. When Sparta's band comes in at the west edge, a card pops up at the bottom left. When they set the first hut alight, a card for the fire follows; the fires after it, and everything else that happens, go quietly into the scroll.
 3. #empire — a busy town. Open the scroll (the key left of 1) and try the filters.
 4. #borrow — open the scroll: Corinth's and Athens' loan terms wait on you at the top of the panel, and a click goes to the city's loans.
 5. Any older save — its panel starts empty, and says why.
@@ -37,10 +37,10 @@ What breaks, or moves:
 - **Is the scroll the right weight?** It is small and sits beside the date. The seal's red is the only loud thing about it.
 - **The popups.** Only alarms, six seconds, bottom left. Is that quiet enough, or too quiet? You can turn kinds off at the panel's foot.
 - **What stays under the top bar.** Shortfalls, unguarded risks and a debt you can't meet. Do you miss any of the old lines there, the ship coming in for example?
-- **The titles.** Each message's title is its words up to the first stop. A few read oddly ("Sparta's raiders gather to march on…").
+- **The titles.** Each message's title is its words up to the first stop (or the next one, when the first part is only a few words). A few read oddly ("Sparta's raiders gather to march on…").
 
 ### Known rough edges
-- A raid that sets several fires gives one message per fire, so the scroll can hold a run of "Fire on the west bank" and "Rubble on the west bank". They aren't grouped.
+- A raid that sets several fires gives one message per fire, so the scroll can hold a run of "Fire on the west bank" and "Rubble on the west bank". They aren't grouped in the scroll (only one of them pops up).
 - The Health filter is empty until health comes (slice 49).
 - A message whose building has since gone has no Go there.
 - The setting for which alarms pop up is kept in this browser. It holds for every town and demo, but not on another computer.
@@ -60,6 +60,16 @@ Headless Chromium with software WebGL, on a machine shared with the other lines 
 | Every demo | | all 134 prepared towns open, and play 900 ticks on, exactly as at `53e5bb4` apart from their messages |
 
 The measure ran out of its time on both builds before the map of Greece's section, so the map's and the later demos' load times weren't compared side by side.
+
+### What the review changed
+A second pass played #messages, #raid, #borrow and #empire at 1920 × 1080 (and #messages at 1280 × 720, and in the -plain and -modern looks), read the code, and fixed what it found:
+- **Fewer popups in a raid.** Raiders set several fires, and each fire popped up its own card, one after another. Now an alarm of the same kind within half a minute of the last goes into the scroll instead, so a raid gives you the raiders' card and one fire card.
+- **Popups keep to real time.** On a slow machine the six seconds stretched, because they were counted in drawn frames. A card on this loaded machine stayed up for more than 20 seconds. Now it is six seconds of real time.
+- **"Waiting on you" reads properly.** A ruler's ask ended with two full stops. A gift you had already sent, on its way, was listed as if it still waited on you; it isn't now (it comes into the scroll when it arrives). Every vassal arming, every ally's call and every colony in trouble is listed, not just the first of each.
+- **Better titles.** A title that was only a few words ("The merchant ship", "The Lighthouse", "A gift from Corinth") now runs on to the next stop: "The merchant ship: her next call falls in winter", "The Lighthouse: the foundations are finished".
+- **Risk lines stay up during a fire.** The fire-risk line under the top bar used to vanish the moment anything started to smoulder, just as the danger grew; the wear line did the same while a building creaked. They now stay, counting only the buildings not already alight or creaking.
+
+I'd still like your eye on whether the scroll is easy to find and whether the one fire card in a raid is the right amount.
 
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 

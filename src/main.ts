@@ -2326,7 +2326,8 @@ function start(preparedTown: string | null): void {
         topbar.showMessages(u.n, u.u, msgPanel.open);
       }
       msgPanel.update(s, map, time);
-      msgPops.update(time);
+      // (Real time: a card stays its six seconds however slow the frames. Review of slice 44.)
+      msgPops.update(performance.now() / 1000);
       const g = greece as GreeceMap | null;
       const others = panel.open || tradePanel.open || shipyardPanel.open || !!(g?.open && g.shown);
       if (others && !msgOthers && msgPanel.open) msgPanel.toggle(false);

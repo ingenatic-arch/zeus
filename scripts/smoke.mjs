@@ -1597,6 +1597,8 @@ await zeus(() => window.__zeus.speed('normal'));
 await page.waitForFunction(() => window.__zeus.deals()[0].state !== 'open', null, { timeout: 120000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
 await frames(3);
+// (Review of slice 44: the page is redrawn on its own beat, slower under load: waited for, not read at once.)
+await page.waitForFunction(() => /−35You promised them [\d,]+ wheat and it never came/.test(window.__zeus.greeceInfo().panel), null, { timeout: 20000 }).catch(() => {});
 g = await gi();
 if (!/−35You promised them [\d,]+ wheat and it never came/.test(g.panel)) fail(`#promise: no broken promise on the page: ${g.panel.slice(0, 1200)}`);
 // (Slice 38: Athens' ship crosses the bay faster, so this town opens two days later and the Karneia's line comes first:

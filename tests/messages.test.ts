@@ -28,17 +28,21 @@ const rest = (s: SimState): string => JSON.stringify({ ...s, messages: null, com
 describe('the log', () => {
   it('caps the words, says the same words once within a few days, and titles a message by its first part', () => {
     const s = new Sim().state;
-    const m = say(s, { kind: 'greece', words: `A long piece of news: ${'and more '.repeat(80)}` })!;
+    const m = say(s, { kind: 'greece', words: `A longer piece of news: ${'and more '.repeat(80)}` })!;
     expect(m.words.length).toBeLessThanOrEqual(360);
     expect(m.words.endsWith('…')).toBe(true);
     expect(say(s, { kind: 'greece', words: m.words })).toBeNull();
     s.tick += REPEAT_TICKS + 1;
     expect(say(s, { kind: 'greece', words: m.words })).not.toBeNull();
-    expect(titleOf(m)).toBe('A long piece of news');
+    expect(titleOf(m)).toBe('A longer piece of news');
     expect(titleOf(say(s, { kind: 'raid', u: ALARM, words: 'Raiders! 35 of Sparta’s men are in at the west edge of your land, making for the granary.' })!)).toBe('Raiders! 35 of Sparta’s men are in at the west edge of your land');
     expect(capWords('  short  ')).toBe('short');
     // (A ruler's ask a week from due is titled by what waits, not by "Still waiting on you".)
     expect(titleFrom('Corinth asks for 200 wheat: answer within 5 days, on Corinth’s page')).toBe('Corinth asks for 200 wheat');
+    // (A first part of only a few words goes on to the next stop. Review of slice 44.)
+    expect(titleFrom('The merchant ship: her next call falls in winter, and the storms in the gulf will hold her back 8 days.')).toBe('The merchant ship: her next call falls in winter');
+    expect(titleFrom('The ship from Athens: her next call falls in winter, and the storms will hold her back 3 days.')).toBe('The ship from Athens: her next call falls in winter');
+    expect(titleFrom('The Lighthouse: the foundations are finished · the tower waits for its materials.')).toBe('The Lighthouse: the foundations are finished');
   });
 
   it('keeps three years and at most 600, the pinned ones last to go', () => {

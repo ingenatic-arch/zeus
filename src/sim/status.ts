@@ -80,6 +80,7 @@ import {
   burnable,
   daysToFull,
   FIRE_BURNING,
+  FIRE_NONE,
   FIRE_SMOULDER,
   HAZARD_FULL,
   INSPECT_RANGE,
@@ -1778,11 +1779,11 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = [];
   const size = map.size;
   // (Slice 44: a building burning or smouldering, one creaking and rubble lately fallen are news, said in the town's messages
-  // as each happens: burningLine, smoulderLine, creakLine and rubbleLine. The lines keep the risks nobody guards.)
-  const ablaze = s.buildings.some((b) => b.fire === FIRE_BURNING || b.fire === FIRE_SMOULDER);
-  if (!ablaze && s.hazards) {
+  // as each happens: burningLine, smoulderLine, creakLine and rubbleLine. The lines keep the risks nobody guards, of the
+  // buildings not already alight or creaking: review of slice 44, so the line doesn't vanish the moment the danger grows.)
+  if (s.hazards) {
     const posts = guardSearch(s, size, 'watchpost');
-    const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * FIRE_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+    const risky = s.buildings.filter((b) => b.fire === FIRE_NONE && burnable(b) && b.risk >= HAZARD_FULL * FIRE_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
     if (risky.length) {
       const f = risky[0];
       const n = risky.length === 1 ? `${named(f)} is` : `${risky.length} buildings are`;
@@ -1793,7 +1794,7 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     }
     {
       // (Phase 5 review: a quarter in a watchman's reach whose buildings he can't get round all of, their risk climbing all together, gave no word until the first smouldered.)
-      const behind = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+      const behind = s.buildings.filter((b) => b.fire === FIRE_NONE && burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
       if (behind.length >= 2) {
         const f = behind[0];
         const soonest = Math.min(...behind.map((b) => daysToFull(b.risk, riskRate(s, b))));
@@ -1803,9 +1804,9 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     }
   }
   // Wear.
-  if (!s.buildings.some((b) => b.creakAt > 0) && s.hazards) {
+  if (s.hazards) {
     const offices = guardSearch(s, size, 'architect');
-    const worn = s.buildings.filter((b) => wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
+    const worn = s.buildings.filter((b) => b.creakAt === 0 && wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
     if (worn.length) {
       const c = worn[0];
       const n = worn.length === 1 ? `${named(c)} is` : `${worn.length} buildings are`;

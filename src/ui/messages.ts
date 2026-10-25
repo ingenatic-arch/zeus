@@ -276,14 +276,26 @@ export class MessagesPanel {
       const text = raidLine(s, map, r);
       if (text) waiting.push({ city: r.city, text, raid: true });
     }
-    for (const d of dealsWaiting(s)) if (d.kind !== 'threat') waiting.push({ city: d.city, text: dealLine(s, map, d), raid: false });
+    // (Not what you have already sent, on its way: nothing waits on you there. Review of slice 44.)
+    for (const d of dealsWaiting(s)) if (d.kind !== 'threat' && !d.gift) waiting.push({ city: d.city, text: dealLine(s, map, d).replace(/\.$/, ''), raid: false });
     for (const l of loansWaiting(s)) waiting.push({ city: l.city, text: l.text, raid: false, loan: true });
-    // The empire's and the colonies' pressing lines (a vassal arming, an ally's call to answer; a colony talking of freedom or
-    // threatened), which left the top bar too. Men coming to help, settlers on their way and tribute are news in the scroll.
-    const emp = empireTownLine(s);
-    if (emp && (emp.rank === 3 || /asks you to join/.test(emp.text))) waiting.push({ city: emp.city, text: emp.text.replace(/\.$/, ''), raid: false, empire: true });
-    const col = colonyTownLine(s);
-    if (col && col.rank >= 2) waiting.push({ city: `site:${col.site}`, text: col.text.replace(/\.$/, ''), raid: false, empire: true });
+    // The empire's and the colonies' pressing lines (every vassal arming, every ally's call to answer; every colony talking of
+    // freedom or threatened), which left the top bar too, each asked of its own vassal, call or colony (the lines name one
+    // at a time). Men coming to help, settlers on their way and tribute are news in the scroll.
+    const e = s.empire;
+    const only = (o: Partial<SimState['empire']>): SimState => ({ ...s, empire: { ...e, ...o } });
+    for (const v of e.vassals) {
+      const l = v.arming ? empireTownLine(only({ vassals: [v] })) : null;
+      if (l) waiting.push({ city: l.city, text: l.text.replace(/\.$/, ''), raid: false, empire: true });
+    }
+    for (const c of e.calls) {
+      const l = c.state === 'open' ? empireTownLine(only({ vassals: [], calls: [c] })) : null;
+      if (l) waiting.push({ city: l.city, text: l.text.replace(/\.$/, ''), raid: false, empire: true });
+    }
+    for (const c of e.colonies) {
+      const l = c.talk || (c.threat && c.threat.end === '') ? colonyTownLine(only({ colonies: [c], foundings: [] })) : null;
+      if (l) waiting.push({ city: `site:${l.site}`, text: l.text.replace(/\.$/, ''), raid: false, empire: true });
+    }
     const wkey = waiting.map((w) => w.text).join('|');
     const key = `${this.filter}|${g.next}|${g.log.length}|${g.log[0]?.id ?? 0}|${unreadN}|${pins}|${[...this.opened].join(',')}|${wkey}|${g.since}|${[...popupsOff].join(',')}`;
     if (key === this.key) return;
@@ -350,6 +362,8 @@ export class MessagesPanel {
 /** How long a popup stays (seconds of real time), and how many may wait their turn. */
 const POP_SECONDS = 6;
 const POP_QUEUE = 3;
+/** After an alarm of a kind pops up, another of that kind within this long (seconds of real time) waits in the scroll: a raid's fires, one after another, are one card. Review of slice 44. */
+const KIND_GAP = 30;
 
 /**
  * Alarms popping up at the bottom left, one at a time: its icon, title and
@@ -365,6 +379,8 @@ export class MessagePopups {
   private gone = 0;
   private hover = false;
   private now = 0;
+  /** When an alarm of each kind last popped up. */
+  private lastOf = new Map<MessageKind, number>();
 
   constructor(
     root: HTMLElement,
@@ -393,9 +409,13 @@ export class MessagePopups {
     });
   }
 
-  /** Queue an alarm to pop up (false: the queue is full, and it waits in the scroll). */
+  /**
+   * Queue an alarm to pop up (false: it waits in the scroll instead, because the queue is full, or one of its kind is
+   * showing, waiting, or popped up within KIND_GAP seconds).
+   */
   push(m: Message): boolean {
     if (this.queue.length >= POP_QUEUE) return false;
+    if (this.shown?.kind === m.kind || this.queue.some((q) => q.kind === m.kind) || this.now - (this.lastOf.get(m.kind) ?? -Infinity) < KIND_GAP) return false;
     this.queue.push(m);
     return true;
   }
@@ -409,6 +429,7 @@ export class MessagePopups {
   clear(): void {
     this.queue = [];
     this.shown = null;
+    this.lastOf.clear();
     this.el.hidden = true;
   }
 
@@ -418,7 +439,7 @@ export class MessagePopups {
     this.gone = this.now + 0.4;
   }
 
-  /** Each frame, with the screen's clock (seconds). */
+  /** Each frame, with real time in seconds (not the frames' clock, which slows with slow frames). */
   update(time: number): void {
     this.now = time;
     if (this.shown) {
@@ -431,6 +452,7 @@ export class MessagePopups {
     const m = this.queue.shift();
     if (!m) return;
     this.shown = m;
+    this.lastOf.set(m.kind, time);
     this.until = time + POP_SECONDS;
     this.el.className = `msg-pop ${URGENCY[m.u]}`;
     // (The title in bold, then the rest of the words, not the title's again.)

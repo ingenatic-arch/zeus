@@ -115,7 +115,7 @@ At `53e5bb4`, on a loaded machine (four lines building on four cores).
 - The panel's key is the one left of 1, not a letter.
 - Which alarms pop up is the player's setting, kept in the browser; read marks and pins are commands, saved with the town.
 
-**Touched outside the line:** `src/game/saves.ts` (calls `mendMessages` after migrating, so a damaged log loads empty instead of refusing the save); in Slice 44 blocks, `state.ts`, `migrate.ts`, `sim.ts`, `commands.ts`, `main.ts`, `demos.ts`, `help.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`; tests whose news moved to the messages (`battle`, `favours`, `raids`, `trade`) or that compare two towns' city state and now leave the log out, as it tells Greece's news (`rivals`, `world`). `status.ts`' `traderLine` no longer asks for a sea route's news when the route has no ship (a test builds such a route by hand).
+**Touched outside the line:** `src/game/saves.ts` (calls `mendMessages` after migrating, so a damaged log loads empty instead of refusing the save); `src/sim/status.ts` (not in any line's list, but shared: the town lines lost their news, `crimeTownLine` lost its theft, catch and thief-out parts, and the news builders became exported helpers; slice 41's integrator should expect conflicts in `crimeTownLine` and `hazardTownLines`); `src/audio/sound.ts` (two cues appended, `message` and `alarm`); in Slice 44 blocks, `state.ts`, `migrate.ts`, `sim.ts`, `commands.ts`, `main.ts`, `demos.ts`, `help.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`; tests whose news moved to the messages (`battle`, `favours`, `raids`, `trade`) or that compare two towns' city state and now leave the log out, as it tells Greece's news (`rivals`, `world`). `status.ts`' `traderLine` no longer asks for a sea route's news when the route has no ship (a test builds such a route by hand).
 
 **MAP_SIZE:** no new uses. A tile place is turned into x and z with the map's own size in `main.ts`.
 
@@ -132,3 +132,21 @@ At `53e5bb4`, on a loaded machine (four lines building on four cores).
 | The demo probe | | all 134 prepared towns open and play 900 ticks the same as at `53e5bb4` but for the log (the old ones migrated from version 37) |
 
 The loosened measure ran out of its 90 minutes on both builds (the starting build late in the frame work, this one in the map's section), so the map's and the later demos' timings weren't compared.
+
+### Review
+
+A reviewer played `#messages`, `#raid`, `#borrow` and `#empire` at 1920 × 1080 (`#messages` also at 1280 × 720, `-plain` and `-modern`), read the diff, and fixed:
+- **Popups:** an alarm of a kind already showing, waiting, or shown within the last 30 seconds of real time (`KIND_GAP`) is not queued again, so a raid's run of fires is one card after the raiders' (the check-in said one card; under a raid it was the raiders' and then a card for each fire). `MessagePopups.update` takes `performance.now()`, not the frames' clock (`time` advances at most 0.1 s a frame, so on slow frames a card stayed far past its six seconds).
+- **Waiting on you:** deal lines no longer end "..", sent gifts on their way are left out (nothing waits on you; the scroll says when they arrive), and the empire's and colonies' pressing lines are asked of each arming vassal, open call and troubled colony in turn (`empireTownLine`/`colonyTownLine` on a state narrowed to that one), instead of the first line's rank and a regex.
+- **Titles:** `titleFrom` runs on past a first part of 20 letters or fewer (was under 12): "The merchant ship: her next call falls in winter", not "The merchant ship".
+- **Hazard lines:** the unguarded fire-risk and wear lines no longer vanish while anything smoulders, burns or creaks (that gate dated from when the fire's own line took their place); they count only buildings not alight or creaking.
+- `heard.ts`: the loan warning rounds its figures like the rest of the sim's words.
+- `scripts/smoke.mjs` (#promise, outside the Slice 44 blocks): the broken promise on Athens' page is waited for, not read at once; under load the page's half-second redraw lagged and the check failed twice in a row on this build (it passes when waited for).
+
+Checked after: typecheck, 604 tests in 50 files all passing (14 min, the machine loaded), the build, the smoke blocks for #fire to #creak, #richtown, #athensship, #request and #promise, #threat to #aftermath, #looted, #siege, #borrow, #vassal to #rebellion, #colony to #ally, #empire and slice 44's own (all passing), and the measure for #empire and #messages (download, triangles, draw calls and #empire's save the same as the builder's: 4,606 KB gzipped, 2.09 million and 152, 290 KB).
+
+**Routing another line's news (for wave 1's integrators).** Most of it needs no code:
+- Slice 41 (crimes): every line pushed to `crime.news` is heard as a `crime` message (news). To give some kinds an urgency (a gang forming a warning, say), change the one `say` in `hear()`'s crime loop to pick `u` from `n.kind`; arson's fires are already fire alarms through the watchers. A new standing risk stays a town line in `crimeTownLine`.
+- Slice 43 (colonies): lines pushed with `news(w, tick, 'site:<id>', line, urgent)` are heard as `colony` (Empire) messages with their urgency, placed on the site; a colony's revolt, or a fleet or raid against it, is sorted by `RULES` first. A colony want with a deadline can join "Waiting on you" in `src/ui/messages.ts` beside the colonies' loop.
+- Anything else: call `say(s, { kind, u, words, at })` where it happens, appending a kind to `KINDS` (and an icon to `KIND_ICON` in `src/ui/messages.ts`) if none fits.
+
