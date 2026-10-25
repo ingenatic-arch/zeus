@@ -232,7 +232,7 @@ export function cityModel(id: CityId, people = 0): THREE.BufferGeometry {
  * once a colony stands there, a few houses round a banner in its founder's
  * colours (more as it grows, up to about a dozen).
  */
-export function siteModel(colour: string, trim: string, people: number): THREE.BufferGeometry {
+export function siteModel(colour: string, trim: string, people: number, growth?: SiteGrowth): THREE.BufferGeometry {
   const p: Part[] = [];
   if (people <= 0) {
     p.push({ geo: lumpy(new THREE.ConeGeometry(0.22, 0.3, 6, 1), 0.12, 23).translate(0, 0.14, 0), color: ROCK });
@@ -240,9 +240,81 @@ export function siteModel(colour: string, trim: string, people: number): THREE.B
     p.push({ geo: box(0.3, 0.16, 0.02, 0.16, 0.62, 0), color: '#efe6cf' });
     return merge(p);
   }
+  // (Slice 43: your colony by its stage and its works: tents at an outpost, more houses as it grows, and what you have built there.)
+  if (growth) return colonyModel(p, colour, trim, people, growth);
   const n = Math.max(3, Math.min(12, Math.round(3 + people / 200)));
   houses(p, n, 0.3 + n * 0.035, 24);
   banner(p, 0.0, 0.0, 0, 1.0, colour, trim);
+  return merge(p);
+}
+
+// Slice 43
+/** A colony's stage (0 outpost to 3 city) and the works built there (fields, harbour, agora, temple, walls, trade), for its piece on the table. */
+export interface SiteGrowth {
+  stage: number;
+  built: readonly string[];
+  /** Its second trade's look: vines or olives in rows, a quarry, or a paddock. */
+  trade: 'rows' | 'quarry' | 'paddock';
+}
+
+const TENT = '#efe2c4';
+const FIELD_GREEN = '#a5c459';
+const FIELD_GOLD = '#d8b84e';
+const STONE = '#cdbb94';
+const VINE = '#5f7f2c';
+
+/** Your colony's piece: tents or houses by its stage, and its built works around them. */
+function colonyModel(p: Part[], colour: string, trim: string, people: number, g: SiteGrowth): THREE.BufferGeometry {
+  const has = (k: string): boolean => g.built.includes(k);
+  const stage = Math.max(0, Math.min(3, g.stage));
+  const r = [0.36, 0.46, 0.6, 0.74][stage];
+  // (The middle kept open for the agora and the temple's hill when they are built.)
+  const open = (x: number, z: number): boolean => (has('agora') && Math.hypot(x - 0.12, z + 0.05) < 0.22) || (has('temple') && Math.hypot(x + 0.05, z + r * 0.45) < 0.24);
+  if (stage === 0) {
+    for (const [x, z, a] of [[-0.22, 0.05, 0.3], [0.12, -0.16, -0.4], [0.2, 0.18, 0.9]] as Array<[number, number, number]>) {
+      p.push({ geo: new THREE.ConeGeometry(0.17, 0.26, 4).rotateY(a).translate(x, 0.13, z), color: TENT });
+      p.push({ geo: box(0.05, 0.1, 0.02, x, 0, z + 0.12, a), color: colour });
+    }
+  } else {
+    const n = Math.max(3, Math.min(16, Math.round([3, 5, 8, 11][stage] + Math.max(0, people - [0, 150, 400, 900][stage]) / 150)));
+    houses(p, n, r, 24, 0, open);
+  }
+  banner(p, -0.05, 0.05, 0, stage === 0 ? 0.85 : 1.0, colour, trim);
+  if (has('fields')) {
+    for (let i = 0; i < 4; i++) p.push({ geo: box(0.34, 0.025, 0.16, -r - 0.24, 0, -0.27 + i * 0.18, 0.15), color: i % 2 ? FIELD_GOLD : FIELD_GREEN });
+  }
+  if (has('agora')) {
+    p.push({ geo: box(0.36, 0.03, 0.3, 0.12, 0, -0.05), color: '#e8dcc0' });
+    p.push({ geo: box(0.36, 0.14, 0.07, 0.12, 0.03, -0.18), color: MARBLE });
+    p.push({ geo: prism(0.4, 0.08, 0.06).translate(0.12, 0.17, -0.18), color: ROOF });
+  }
+  if (has('temple')) {
+    p.push({ geo: lumpy(new THREE.ConeGeometry(0.3, 0.22, 7, 1), 0.06, 41).translate(-0.05, 0.1, -r * 0.45), color: ROCK });
+    temple(p, -0.05, -r * 0.45, 0.17, 0.42, 0);
+  }
+  if (has('walls')) walls(p, r + 0.14, 0.16, 9, 4, 1.3);
+  if (has('harbour')) {
+    // (A stone mole curving off the shore on the far side from the fields, a jetty beside it.)
+    for (let i = 0; i < 4; i++) {
+      const a = -0.5 + i * 0.36;
+      p.push({ geo: box(0.2, 0.07, 0.11, r + 0.3 + Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3 + 0.1, -a + Math.PI / 2), color: STONE });
+    }
+    p.push({ geo: box(0.36, 0.05, 0.08, r + 0.22, 0.03, -0.22), color: '#8a5a34' });
+  }
+  if (has('trade')) {
+    const x0 = 0.1;
+    const z0 = r + 0.26;
+    if (g.trade === 'rows') {
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) p.push({ geo: new THREE.SphereGeometry(0.045, 5, 3).translate(x0 - 0.18 + j * 0.12, 0.05, z0 - 0.09 + i * 0.09), color: VINE });
+    } else if (g.trade === 'quarry') {
+      p.push({ geo: box(0.36, 0.14, 0.22, x0, 0, z0), color: '#ddd5c2' });
+      p.push({ geo: box(0.12, 0.08, 0.1, x0 + 0.26, 0, z0 + 0.06), color: MARBLE });
+      p.push({ geo: box(0.1, 0.08, 0.1, x0 + 0.24, 0, z0 - 0.08), color: MARBLE });
+    } else {
+      for (const [dx, dz, w, d] of [[0, -0.14, 0.4, 0.02], [0, 0.14, 0.4, 0.02], [-0.2, 0, 0.02, 0.3], [0.2, 0, 0.02, 0.3]] as Array<[number, number, number, number]>) p.push({ geo: box(w, 0.06, d, x0 + dx, 0, z0 + dz), color: POLE });
+      for (const [dx, dz] of [[-0.06, -0.04], [0.08, 0.05]] as Array<[number, number]>) p.push({ geo: box(0.12, 0.07, 0.05, x0 + dx, 0.03, z0 + dz), color: '#8a5a34' });
+    }
+  }
   return merge(p);
 }
 

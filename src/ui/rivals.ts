@@ -199,7 +199,7 @@ export function siteLabelHtml(s: SimState, id: string): string {
   if (!p || !x) return '';
   // (Slice 37: your colony by its own name, with a red mark while it is threatened or talks of freedom; your settlers on their way; a colony gone free.)
   const c = s.empire.colonies.find((y) => y.site === id);
-  if (c) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(c.name)}</b> <span class="gd">${esc(p.good)}</span>${(c.threat && c.threat.end === '') || c.talk ? '<i class="alarm" title="It needs you"></i>' : ''}`;
+  if (c) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(c.name)}</b> <span class="gd">${esc(p.good)}</span>${(c.threat && c.threat.end === '') || c.talk || (c.want && c.want.end === '' && !c.want.cargo) /* Slice 43: and while it asks you for something */ ? '<i class="alarm" title="It needs you"></i>' : ''}`;
   if (x.bound === 'home') return `<b>${esc(p.name)}</b> <span class="gd">your settlers</span>`;
   if (x.free) return `<b>${esc(x.free)}</b> <span class="gd">free</span>`;
   if (x.owner) return `<i class="lord" style="background:${PLACES[x.owner as CityId]?.colour ?? '#888'}"></i><b>${esc(p.name)}</b> <span class="gd">${esc(adjective(x.owner as CityId))}</span>`;

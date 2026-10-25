@@ -14,6 +14,8 @@ import { tributeShipAt } from '../sim/vassals';
 import { SHIP_ANCHORED, SHIP_COMING } from '../sim/trade';
 // Slice 37: your settlers' ship at anchor and sailing out.
 import { visitorAt } from '../sim/routes';
+// Slice 43
+import { RowBoats } from './rowboats';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -60,6 +62,9 @@ export class CityView {
   readonly tributeShips = new Map<string, ShipView>();
   /** (Slice 37) Your settlers' ships, by the site they sail for. */
   readonly colonyShips = new Map<string, ShipView>();
+  /** (Slice 43) Your ships taking goods to your colonies, by site; the rowing boats. */
+  readonly cargoShips = new Map<string, ShipView>();
+  readonly rowboats: RowBoats;
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
   private rev = -1;
@@ -98,6 +103,9 @@ export class CityView {
     this.jobfolk.ground = this.walkers.ground;
     this.army.ground = this.walkers.ground;
     this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group, this.monuments.group);
+    // Slice 43: the rowing boats between the jetty and your ship at anchor.
+    this.rowboats = new RowBoats(map);
+    this.group.add(this.rowboats.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -178,6 +186,23 @@ export class CityView {
       this.group.add(view.group);
     }
     for (const view of this.colonyShips.values()) view.update(s, alpha, time);
+    // Slice 43: your ship for a colony's goods sailing in, riding at anchor while the porters' loads are rowed out, and sailing out laden; the rowing boat.
+    for (const x of s.empire.cargoes ?? []) {
+      if (!x.ship || this.cargoShips.has(x.site)) continue;
+      const site = x.site;
+      const view = new ShipView((st, tk) => {
+        const g = (st.empire.cargoes ?? []).find((y) => y.site === site && y.ship && (y.phase === 'loading' || y.phase === 'leaving'));
+        const v = g?.ship;
+        const at = v ? visitorAt(v, tk) : null;
+        if (!g || !v || !at) return null;
+        const coming = v.phase === SHIP_COMING;
+        return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: g.phase === 'leaving' || (v.phase === SHIP_ANCHORED && g.items.some((it) => it.got > 0)), calm: v.phase === SHIP_ANCHORED };
+      }, cityShipColours('home'), `ship-cargo-${site}`, 0.9 + this.cargoShips.size * 1.4);
+      this.cargoShips.set(site, view);
+      this.group.add(view.group);
+    }
+    for (const view of this.cargoShips.values()) view.update(s, alpha, time);
+    this.rowboats.update(s, alpha, time);
   }
 
   private sync(s: SimState): void {

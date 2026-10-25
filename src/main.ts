@@ -12,6 +12,8 @@ import { browserStorage, decodeSave, labelOf, Saves, type SaveFile, type Slot } 
 import { PREPARED } from 'virtual:prepared';
 // Slice 37
 import { foundingOf, settlersShipStatus } from './sim/colonies';
+// Slice 43
+import { cargoesFor, cargoShipStatus } from './sim/colonyworks';
 // Slice 40: the tribute and share ships' hover.
 import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
@@ -1060,6 +1062,12 @@ function start(preparedTown: string | null): void {
       if (!shipNear(sx, sy, view.info)) continue;
       const f = foundingOf(sim.state, site);
       if (f) return showStatus(settlersShipStatus(sim.state, f), sx, sy);
+    }
+    // Slice 43: your ship taking goods out to a colony.
+    for (const [site, view] of city.cargoShips) {
+      if (!shipNear(sx, sy, view.info)) continue;
+      const x = cargoesFor(sim.state, site).find((y) => y.ship && (y.phase === 'loading' || y.phase === 'leaving'));
+      if (x) return showStatus(cargoShipStatus(sim.state, x), sx, sy);
     }
     // Slice 40: a vassal's tribute ship, or a colony's share ship.
     for (const [key, view] of city.tributeShips) {
