@@ -10,6 +10,7 @@
  * the plate itself is redrawn each frame, which is one image and a few lines.
  */
 import { TreeKind, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
+import { classicOn } from '../render/classic';
 import { PAL } from '../render/palette';
 import { footSide } from '../sim/buildings';
 import { TILE_ROAD, type Building, type BuildingKind, type SimState } from '../sim/state';
@@ -183,7 +184,7 @@ export class Minimap {
       if (!this.dragging) {
         const on = this.onMarker(e.clientX, e.clientY);
         canvas.style.cursor = on ? 'pointer' : this.worldAt(e.clientX, e.clientY) ? 'crosshair' : 'default';
-        canvas.title = on ? 'North · click to face north (N)' : '';
+        canvas.title = on ? (classicOn() ? 'North · click to go back to the first view, north to the upper left (N)' : 'North · click to face north (N)') : '';
         return;
       }
       const w = at(e);

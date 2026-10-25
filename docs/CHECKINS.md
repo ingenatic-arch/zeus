@@ -43,6 +43,15 @@ Nothing breaks: it only changes how the city is drawn. Saves, the simulation and
 ### Measurements
 Headless software rendering, so only the counts mean anything. At 1920 × 1080, `#empire` draws 2.09 million triangles in 152 draw calls (main: 1.90 million in 150), and `#goods` 1.74 million in 113 (main: 1.61 million in 116). The workers add about 0.14 million triangles and no draw calls. The canvas is 812 × 540 pixels instead of 1,624 × 1,080, a quarter of the pixels to fill, which on a real graphics card should more than pay for the extra people. I couldn't measure the frame rate on a real laptop here.
 
+### What the review changed
+- The minimap's outline of what you can see was wrong or off the map from a middling zoom outwards (the new camera stands much further back than it looks); it fits the view again.
+- A part-way sideways drag with the right button was remembered, so a small drag later could turn the view a quarter. Each drag now starts afresh.
+- People no longer stand working in a building while it burns.
+- The workers' spots are no longer worked out afresh every frame for the hundreds of homes that have none.
+- The shrine is mirrored at random like the other little buildings, and its priestess now follows it.
+- The N key's line on the controls card and the minimap's north marker say what they do in this view: back to the first view, with north to the upper left.
+- Left alone: shadows may thin out at the very edges of the screen when fully zoomed out, and fully zoomed in a hill between you and what you're looking at is seen through rather than hiding it.
+
 ## Slice 40 — An empire's city (23 Oct)
 
 The phase ends with one town that has everything the phase built in it. `#empire` is `#ambition`'s town carried on about a year and a half. It has laurels in all three ambitions, Corinth as a vassal, Nea Thasos as a colony sending its share by ship, the Lighthouse rising on the headland, a great estate and an estate, and a new street of huts where thieves come from. It opens late in autumn, with winter a month off and Rhodes' fleet just put to sea to blockade the harbour. I also played the rich towns forward for years to look for numbers that are plainly off, looked at every new demo at two window sizes, and closed the leftovers. You weren't here while it was built: every choice below is mine, from the spec's defaults.
