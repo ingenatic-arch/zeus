@@ -11,9 +11,11 @@ import type { Monuments } from './monuments';
 import type { Blockade } from './blockades';
 // Slice 39: the ambitions and the milestones reached (ambitions.ts).
 import type { Ambition } from './laurels';
+// Slice 44: the town's messages (messages.ts).
+import type { Messages } from './messages';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 37;
+export const SIM_STATE_VERSION = 38;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -504,6 +506,8 @@ export interface SimState {
   monuments: Monuments;
   /** Slice 39: the ambitions' switch, the milestones reached and when, fame drawing settlers, the grand finish (ambitions.ts). */
   ambition: Ambition;
+  /** Slice 44: the town's message log, its read marks and pins, and how far it has heard (messages.ts, heard.ts). */
+  messages: Messages;
 }
 
 /**

@@ -193,7 +193,7 @@ describe('the ship', () => {
     expect(pace).toBeLessThan(0.1);
   });
 
-  it('clearing the post with goods on its quay says what was lost, in a town line, for a month; undoing it brings them back and the line goes (slice 14)', () => {
+  it('clearing the post with goods on its quay says what was lost, in a message, once; undoing it brings them back; cleared again, it is said again (slice 14; slice 44: a message, not a line)', () => {
     const sim = demo('quay');
     const s = sim.state;
     const post = tradingPost(s)!;
@@ -202,15 +202,19 @@ describe('the ship', () => {
     send(sim, { type: 'clear', x0: POST.x, z0: POST.z, x1: POST.x, z1: POST.z });
     expect(tradingPost(s)).toBeUndefined();
     expect(s.trade.lost).toEqual(quay);
-    const line = (): string => townLines(s, map).find((l) => l.need === 'ship')?.text ?? '';
-    expect(line()).toMatch(/^The trading post is gone, and the goods waiting on its quay with it: .*worth about [\d,]+ dr/);
+    const lost = (): string[] => s.messages.log.filter((m) => /^The trading post is gone/.test(m.words)).map((m) => m.words);
+    expect(lost()).toHaveLength(1);
+    expect(lost()[0]).toMatch(/^The trading post is gone, and the goods waiting on its quay with it: .*worth about [\d,]+ dr/);
+    sim.run(5);
+    expect(lost()).toHaveLength(1);
     send(sim, { type: 'undo' });
     expect(TRADE_GOODS.map((w) => held(tradingPost(s)!, w))).toEqual(quay);
-    expect(line()).not.toMatch(/is gone/);
-    // Cleared again and left: the line goes after a month.
+    expect(townLines(s, map).some((l) => /is gone/.test(l.text))).toBe(false);
+    // Cleared again: said again (a few days on, so not the same words within the few days a message isn't repeated).
+    sim.run(TICKS_PER_DAY * 4);
     send(sim, { type: 'clear', x0: POST.x, z0: POST.z, x1: POST.x, z1: POST.z });
     sim.run(TICKS_PER_DAY * 31);
-    expect(line()).toBe('');
+    expect(lost()).toHaveLength(2);
   });
 
   it('turns back when the post is cleared, and none is due until another is built', () => {

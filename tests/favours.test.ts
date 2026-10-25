@@ -44,7 +44,7 @@ import { WHEAT } from '../src/sim/foods';
 import { routeOf } from '../src/sim/routes';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Deal, type SimState, type Trait, type WorldCity } from '../src/sim/state';
-import { newsNow, townLines } from '../src/sim/status';
+import { dealLine, dealsWaiting, newsNow } from '../src/sim/status';
 import { bookNow } from '../src/sim/stocks';
 import { cityHolds, TRADE_GOODS } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
@@ -166,7 +166,8 @@ describe('a request', () => {
     const before = moodOf(c, s.tick);
     const eta = s.tick + sendTicks(s, map, d);
     expect(eta).toBeLessThan(d.due);
-    expect(townLines(s, map).some((l) => l.need === 'favour' && /Sparta/.test(l.text))).toBe(true);
+    // (Slice 44: the ask is a message, a warning, and stands on the Messages panel's Waiting on you.)
+    expect(dealsWaiting(s).some((x) => x.id === d.id && /Sparta/.test(dealLine(s, map, x)))).toBe(true);
     send(sim, { type: 'answer', deal: d.id, act: 'send' });
     const g = s.world.gifts.find((x) => x.deal === d.id)!;
     expect(g).toBeDefined();

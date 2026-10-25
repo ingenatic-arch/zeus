@@ -54,6 +54,9 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
+// Slice 44
+import { freshMessages, messagesCommand } from './messages';
+import { stepMessages } from './heard';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -111,6 +114,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     monuments: freshMonuments(),
     // Slice 39
     ambition: freshAmbition(),
+    // Slice 44
+    messages: freshMessages(),
   };
   s.herds = freshHerds(mapFor(mapId), s);
   return s;
@@ -183,6 +188,8 @@ export class Sim {
       applyCommand(this.state, this.map, c.command);
       this.log.push(c);
     }
+    // Slice 44: the news those commands made (a gift sent, an answer given, the goods on a cleared quay lost) is heard at once, paused or not.
+    stepMessages(this.state, this.map);
   }
 
   /** Advance one fixed tick: first the commands due on it, then everything that moves. */
@@ -253,6 +260,8 @@ export class Sim {
     stepAmbition(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
+    // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
+    stepMessages(s, map);
   }
 
   run(ticks: number): void {
@@ -384,6 +393,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
         s.world.name = c.name.trim().replace(/\s+/g, ' ');
         s.rev++;
       }
+      break;
+    // Slice 44
+    case 'messages':
+      messagesCommand(s, c);
       break;
   }
 }

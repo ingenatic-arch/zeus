@@ -68,7 +68,8 @@ const until = (sim: Sim, ok: () => boolean, most: number): boolean => {
 };
 /** The city's own state, without Greece (and the counters that only tell the screen to redraw). */
 const cityState = (s: SimState): string => {
-  const { world: _w, rev: _r, stocks: _st, looks: _l, ...rest } = s as SimState & { stocks?: unknown; looks?: unknown };
+  // (Slice 44: and the message log, which tells Greece's news.)
+  const { world: _w, rev: _r, stocks: _st, looks: _l, messages: _m, ...rest } = s as SimState & { stocks?: unknown; looks?: unknown };
   return JSON.stringify(rest);
 };
 /** A deep quarrel between two rulers, both ways (staged, long remembered). */

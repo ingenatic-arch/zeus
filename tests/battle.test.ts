@@ -20,7 +20,6 @@ import { raidersOf } from '../src/sim/raids';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, TILE_ROAD, type Company, type Raid, type SimState } from '../src/sim/state';
 import { bookNow } from '../src/sim/stocks';
-import { townLines } from '../src/sim/status';
 import { totals } from '../src/sim/treasury';
 import { demoSim } from './prepared';
 
@@ -85,7 +84,8 @@ describe('the battle', () => {
         if (!held && hop.order === 'hold' && arc.order === 'hold') held = s.tick;
         if (s.army.news.length !== told) {
           told = s.army.news.length;
-          line ||= townLines(s, sim.map).some((l) => l.need === 'battle');
+          // (Slice 44: the army's news is the town's messages now, not a line under the top bar.)
+          line ||= s.messages.log.some((m) => m.tick === s.tick && s.army.news.some((n) => `${n.line}.` === m.words));
         }
         arrows = Math.max(arrows, s.army.arrows.length);
         if (s.army.foes.some((f) => f.state === 'fight')) {

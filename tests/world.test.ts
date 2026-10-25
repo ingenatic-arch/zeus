@@ -20,7 +20,8 @@ import { OUTLINES, ISLES } from '../src/map/aegean';
 
 /** The city's part of the state: everything but Greece. */
 const city = (s: SimState): string => {
-  const { world: _w, ...rest } = s;
+  // Slice 44: the message log tells Greece's news, so it differs with Greece too.
+  const { world: _w, messages: _m, ...rest } = s;
   return JSON.stringify(rest);
 };
 

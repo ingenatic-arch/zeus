@@ -12,6 +12,8 @@
 import { MAP_SIZE } from '../map/coast';
 import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
+// Slice 44.
+import { mendMessages } from '../sim/messages';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState, type StockKind } from '../sim/state';
 import { STOCK_KINDS } from '../sim/stockbook';
 import { GOOD_COUNT } from '../sim/foods';
@@ -278,6 +280,8 @@ export function decodeSave(text: string | null): Decoded {
   }
   // An older town is brought up to date first (rent became taxes in version 7).
   const from = migrate(data.state);
+  // Slice 44: a damaged message log costs only the history (messages.ts).
+  mendMessages(data.state);
   const why = stateProblem(data.state);
   if (why) return { ok: false, why };
   const state = data.state as SimState;

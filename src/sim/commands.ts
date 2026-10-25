@@ -70,7 +70,9 @@ export type Command =
   | { type: 'estate'; at: number[] }
   // Slice 37
   /** Your colonies (colonies.ts; an act it refuses does nothing): found one on a free site; set a colony's share (`share` 0 light, 1 fair, 2 heavy); rename it; send triremes at home to guard it (all, or `n`); bring them home. */
-  | { type: 'colony'; act: 'found' | 'share' | 'name' | 'guard' | 'recall'; site: string; share?: number; name?: string; n?: number };
+  | { type: 'colony'; act: 'found' | 'share' | 'name' | 'guard' | 'recall'; site: string; share?: number; name?: string; n?: number }
+  // Slice 44: the town's messages, read or pinned (messages.ts).
+  | { type: 'messages'; act: 'read' | 'unread' | 'pin' | 'unpin' | 'allread'; ids?: number[] };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';

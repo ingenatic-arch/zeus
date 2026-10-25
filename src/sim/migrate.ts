@@ -141,6 +141,13 @@
  * no site has a colony that declared itself free. Rivals' colonies stay as
  * they were; nothing else changes.
  *
+ * Slice 44 (The town's messages): the town's message log starts empty, as
+ * of the tick the save was made: the scroll says that messages from before
+ * it weren't kept. What Greece, the army and crime had told before is
+ * counted as heard, so none of it comes again as new; what stands when it
+ * loads (a ship in sight, a fire) is said once on its first tick. Nothing
+ * else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -173,6 +180,8 @@ import { COLONY_MAKES } from './growth';
 import { freshGames, freshMonuments } from './monuments';
 // Slice 39.
 import { freshAmbition } from './laurels';
+// Slice 44.
+import { mendMessages } from './messages';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -228,6 +237,7 @@ export function migrate(st: unknown): number {
   if (st.version === 34) fromSlice39(st);
   if (st.version === 35) fromSlice36(st);
   if (st.version === 36) fromSlice37(st);
+  if (st.version === 37) fromSlice44(st);
   return from;
 }
 
@@ -924,5 +934,15 @@ function fromSlice37(st: Record<string, unknown>): void {
   }
   const w = st.world;
   if (isObj(w) && Array.isArray(w.sites)) for (const x of w.sites as unknown[]) if (isObj(x) && typeof x.free !== 'string') x.free = '';
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 44 (The town's messages): see the note above. Only its own field
+ * (`messages`), only if it is missing: an empty log beginning at the save's
+ * tick, with Greece's, the army's and crime's news counted as heard.
+ */
+function fromSlice44(st: Record<string, unknown>): void {
+  if (!isObj(st.messages)) mendMessages(st);
   st.version = (st.version as number) + 1;
 }
