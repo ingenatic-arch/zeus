@@ -17,7 +17,7 @@ import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 // Slice 42: the map is the state's land's, baked once the state is known.
-import { mapOf } from './map/lands';
+import { BAY, landOf, mapOf } from './map/lands';
 import { districtGrid } from './map/districts';
 import { CLASSIC_PIXELS, classicOn, classicSun, EYE, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
@@ -288,6 +288,9 @@ interface Probe {
   /** Slice 39: the ambitions (the switch, each milestone's progress and laurel, the chip's text and the town line), and the panel opened or closed, and its text. */
   ambition?: () => Record<string, unknown>;
   ambitionPanel?: (open: boolean) => string;
+  // Slice 42
+  /** The town's land (kind, size, seed), its site, how many road tiles are laid, the camera's view, and how long its map took to bake. */
+  land?: () => { kind: string; size: number; seed: number; site: { x: number; z: number } | null; roads: number; view: { x: number; z: number; dist: number }; bakeMs: number };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -308,11 +311,15 @@ function start(preparedTown: string | null): void {
   applyFinishPalette();
   classicSun(SUN_DIR);
   // A new game shuffles Greece from a seed of its own (the city keeps its seed, so the coast opens as ever); a demo's Greece comes from its city's seed.
-  const sim = demo || launch.load ? new Sim() : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
+  // Slice 42: a prepared town is read first, so that a demo on a generated land founds there (and the Bay isn't baked for nothing).
+  const ready = preparedTown ? decodeSave(preparedTown) : null;
+  const tFound = performance.now();
+  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
+  // (Founding bakes the land's map: counted in the bake's time below.)
+  const foundMs = tSetup - tFound;
   // Fire risk and wear build up in every game (a demo turns them on as it opens).
   // A demo opens from its town prepared when the game was built (the same state its setup makes, checked then), or plays its setup.
-  const ready = preparedTown ? decodeSave(preparedTown) : null;
   if (demo?.setup && ready?.ok) {
     sim.state = ready.file.state;
     probe.prepared = true;
@@ -356,10 +363,10 @@ function start(preparedTown: string | null): void {
   const map = mapOf(sim.state);
   // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
   districtGrid(map);
-  probe.bakeMs = performance.now() - tBake;
+  probe.bakeMs = foundMs + performance.now() - tBake;
   // A generated land opens over its own bay (its site), unless the link asks for a view.
   const site = map.data.site;
-  const landView: CameraView | null = site && !launch.cam && (!demo || demo.view === 'land') ? { x: site.x, z: site.z, yaw: 0.12, dist: Math.min(150, map.size * 0.62), tilt: -0.5 } : null;
+  const landView: CameraView | null = site && !launch.cam && (!demo || demo.view === 'land') ? { x: site.x, z: site.z - 4, yaw: 0.12, dist: 100, tilt: -0.5 } : null;
   const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : (landView ?? view0);
   const driver = new ClockDriver(sim, speed);
 
@@ -2328,6 +2335,8 @@ function start(preparedTown: string | null): void {
   document.getElementById('loading')?.classList.add('gone');
   probe.startMs = performance.now() - t0;
   probe.readyAt = performance.now();
+  // Slice 42.
+  probe.land = () => ({ ...landOf(sim.state), site: map.data.site ?? null, roads: sim.state.tiles.filter((v) => v === TILE_ROAD).length, view: { x: rig.view.x, z: rig.view.z, dist: rig.view.dist }, bakeMs: probe.bakeMs });
   probe.ready = true;
 }
 

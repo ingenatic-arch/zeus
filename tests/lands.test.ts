@@ -19,6 +19,8 @@ import { migrate } from '../src/sim/migrate';
 import { createState, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION } from '../src/sim/state';
 import { decodeSave, encodeSave } from '../src/game/saves';
+import { DEMOS } from '../src/game/demos';
+import { TILE_ROAD } from '../src/sim/state';
 
 const sheltered = (size: number, seed: number): Land => ({ kind: 'sheltered', size, seed });
 const sha = (a: ArrayLike<number> & { buffer: ArrayBufferLike; byteOffset: number; byteLength: number }): string =>
@@ -266,4 +268,27 @@ describe('saves and lands', () => {
     again.run(300);
     expect(serialize(again.state)).toEqual(serialize(sim.state));
   }, 120_000);
+});
+
+describe('the land demos', () => {
+  for (const [name, size] of [
+    ['landsmall', 128],
+    ['landmedium', 192],
+    ['landlarge', 256],
+  ] as const) {
+    it(`#${name} founds a new city on a ${size}-tile land, with a road in from the west edge towards the bay`, () => {
+      const sim = new Sim();
+      DEMOS[name].setup!(sim);
+      const s = sim.state;
+      expect(s.land?.size).toBe(size);
+      expect(s.land?.kind).toBe('sheltered');
+      expect(s.buildings).toEqual([]);
+      const site = sim.map.data.site!;
+      const roads = s.tiles.flatMap((v, t) => (v === TILE_ROAD ? [t] : []));
+      expect(roads.some((t) => t % size === 0)).toBe(true);
+      expect(roads.some((t) => Math.abs((t % size) - site.x) < 2 && Math.abs(Math.floor(t / size) - site.z) < 16)).toBe(true);
+      expect(s.season.on).toBe(true);
+      expect(s.crime.on).toBe(true);
+    }, 120_000);
+  }
 });

@@ -42,8 +42,8 @@ export interface RigLimits {
   pitchFar: number;
 }
 
-/** The city's: within a few tiles of a map `n` tiles a side, down to street level (slice 42: and further back over a larger land, to see it whole). */
-export const cityLimits = (n: number): RigLimits => ({ minDist: MIN_DIST, maxDist: MAX_DIST * Math.max(1, n / BAY.size), x0: -6, z0: -6, x1: n + 6, z1: n + 6, pitchNear: 0.2, pitchFar: 1.0 });
+/** The city's: within a few tiles of a map `n` tiles a side, down to street level (slice 42: a little further back over a larger land, but never so far that the end of the sea shows). */
+export const cityLimits = (n: number): RigLimits => ({ minDist: MIN_DIST, maxDist: MAX_DIST * Math.sqrt(Math.sqrt(Math.max(1, n / BAY.size))), x0: -6, z0: -6, x1: n + 6, z1: n + 6, pitchNear: 0.2, pitchFar: 1.0 });
 /** The Bay's. */
 export const CITY_LIMITS: RigLimits = cityLimits(BAY.size);
 

@@ -228,7 +228,7 @@ function shelteredBay(n: number, seed: number): CoastData {
     islets,
     hills,
     river,
-    riverWidth: [0.8, lerp(2.6, 3.0, smoothstep(1, 2, s))],
+    riverWidth: [0.8, 2.6],
     valleyWidth: [4, 13],
     groves,
     pineWoods,
