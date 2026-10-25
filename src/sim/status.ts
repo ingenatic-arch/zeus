@@ -625,8 +625,9 @@ export function granaryStatus(s: SimState, map: CoastMap, g: Building): Status {
   const rooms = `Holds ${fmt(GRANARY_CAP)} measures of wheat and ${fmt(GRANARY_ROOM[MEAT])} each of meat and cheese, each in its own store`;
   const bringing = FOODS.filter((f) => coming(g, f) > 0).map((f) => `${fmt(coming(g, f))} ${FOOD_NAMES[f]}`);
   const coming_ = bringing.length ? `Carts are bringing ${bringing.join(', ')} more` : !s.buildings.some((f) => f.kind === 'farm') ? 'Build a wheat farm on the green land by the river to fill it' : '';
-  const full = FOODS.filter((f) => held(g, f) >= GRANARY_ROOM[f] && s.buildings.some((o) => o.kind === MAKER[f].kind)).map((f) => FOOD_NAMES[f]);
-  const fullLine = full.length ? `Its ${foodList(full as unknown as Food[]).replace(/bread/, 'wheat')} store is full: carts with more wait for room` : '';
+  // (Slice 48: the foods themselves, not their names, for foodList: "Its meat and cheese stores are full".)
+  const full = FOODS.filter((f) => held(g, f) >= GRANARY_ROOM[f] && s.buildings.some((o) => o.kind === MAKER[f].kind));
+  const fullLine = full.length ? `Its ${foodList(full).replace(/bread/, 'wheat')} ${full.length === 1 ? 'store is' : 'stores are'} full: carts with more wait for room` : '';
   const waiting = s.walkers.filter((w) => (w.kind === 'cart' || w.kind === 'sledge' || w.kind === 'porter') && w.target === g.id && w.wait > 0).length;
   const gate = waiting && g.workers === 0 ? `${waiting === 1 ? 'A cart is' : `${waiting} are`} waiting at the gate: nobody works here to take it in` : '';
   // Standing empty beside a granary that gets the grain: say why.
