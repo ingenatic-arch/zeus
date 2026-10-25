@@ -57,8 +57,7 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 // Slice 38: the shipyard's panel.
 import { ShipyardPanel } from './ui/shipyard';
-// Slice 45: the court's and the prison's panel, and the crime overlay's colours.
-import { JusticePanel } from './ui/justice';
+// Slice 45: the crime overlay's colours. (Merge of slice 45: the court's and the prison's panels are the building panel's, through its registry.)
 import { CRIME_KIND_TONES } from './render/overlay';
 import { blockadeWords } from './sim/blockades';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
@@ -547,31 +546,6 @@ function start(preparedTown: string | null): void {
     panel.show(0);
     shipyardPanel.toggle(false);
   };
-  // Slice 45: the court's and the prison's panel, in the same place: one at a time with the others.
-  const justicePanel = new JusticePanel(ui, (c) => {
-    sim.enqueue(c);
-    sim.flush();
-    sound.play('build');
-    startAutosaving();
-    linesAt = -Infinity;
-  });
-  justicePanel.onOpen = () => {
-    panel.show(0);
-    tradePanel.toggle(false);
-    shipyardPanel.toggle(false);
-  };
-  {
-    const trade = tradePanel.onOpen;
-    const yard = shipyardPanel.onOpen;
-    tradePanel.onOpen = () => {
-      trade();
-      justicePanel.toggle(false);
-    };
-    shipyardPanel.onOpen = () => {
-      yard();
-      justicePanel.toggle(false);
-    };
-  }
   // (The Army tab's fleet has a button that opens it.)
   document.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement | null)?.closest?.('button[data-act="shipyard"]') as HTMLButtonElement | null;
@@ -1265,8 +1239,6 @@ function start(preparedTown: string | null): void {
       else if (tradePanel.open) tradePanel.toggle(false);
       // (Slice 38.)
       else if (shipyardPanel.open) shipyardPanel.toggle(false);
-      // (Slice 45.)
-      else if (justicePanel.open) justicePanel.toggle(false);
       else if (panel.open) panel.show(0);
       // Slice 48.
       else if (buildingPanel.open) buildingPanel.show(0);
@@ -1297,12 +1269,7 @@ function start(preparedTown: string | null): void {
       const visitor = visitorNear(sx, sy);
       if (visitor) return goToTrader(`${visitor}-sea`);
       const b = tall ?? buildingAt(w);
-      // Slice 45: the court or a prison: its panel (the law, the cases, the prisoners); anything else shuts it.
-      if (b?.kind === 'court' || b?.kind === 'prison') {
-        justicePanel.show(b.id);
-        return hover(w, sx, sy);
-      }
-      if (!b || (b.kind === 'home' && b.people > 0)) justicePanel.toggle(false);
+      // (Slice 45: the court or a prison opens its panel below, slice 48's, with the law, the cases or the prisoners: merge of slice 45.)
       // A lived-in home: who lives there. Open ground: close the panel.
       if (b?.kind === 'home' && b.people > 0) {
         tradePanel.toggle(false);
@@ -1487,8 +1454,6 @@ function start(preparedTown: string | null): void {
     panel.show(0);
     tradePanel.toggle(false);
     shipyardPanel.toggle(false);
-    // (Slice 45.)
-    justicePanel.toggle(false);
     tip.show(null, 0, 0);
     welcomeCard?.dismiss();
     greeceButton.set(true);
@@ -1518,9 +1483,6 @@ function start(preparedTown: string | null): void {
   if (yard) side.showBarracks(yard.id);
   // (Slice 38: the shipyard's panel open from the start.)
   if (demo?.shipyard) shipyardPanel.show(sim.state.buildings.find((b) => b.kind === 'shipyard')?.id ?? 0);
-  // Slice 45: the court's or the prison's panel open from the start.
-  const justiceAt = demo?.justice?.(sim.state) ?? 0;
-  if (justiceAt) justicePanel.show(justiceAt);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;
@@ -2032,11 +1994,16 @@ function start(preparedTown: string | null): void {
     probe.messages = (open, filter, last) => ({ ...was(open, filter, last), sealed: sealOf(sim.state).n });
   }
   // Slice 45.
+  // (Merge of slice 45: the court's and the prison's panels are the building panel, opened on them.)
+  const justiceText = (): string => {
+    const b = buildingPanel.open ? findBuilding(sim.state, buildingPanel.id) : undefined;
+    if (!b || (b.kind !== 'court' && b.kind !== 'prison')) return '';
+    buildingPanel.update(sim.state, map, Infinity);
+    return buildingPanel.text;
+  };
   probe.justicePanel = (at) => {
-    if (at) justicePanel.show(at);
-    else justicePanel.toggle(false);
-    justicePanel.update(sim.state, map, Infinity);
-    return justicePanel.text;
+    buildingPanel.show(at);
+    return justiceText();
   };
   probe.justice = () => {
     const c = sim.state.crime;
@@ -2048,7 +2015,7 @@ function start(preparedTown: string | null): void {
       pinned: c.stocks.filter((p) => sim.state.tick >= p.since && sim.state.tick < p.until).map((p) => p.at),
       convicts: sim.state.walkers.filter((w) => w.kind === 'convict' && w.people > 0).length,
       jails: c.jails.map((j) => ({ at: j.at, unrest: j.unrest, warned: j.warned > 0 })),
-      text: justicePanel.text,
+      text: justiceText(),
     };
   };
   probe.sideText = () => side.text;
@@ -2618,8 +2585,6 @@ function start(preparedTown: string | null): void {
     ambitionPanel.update(s, time);
     tradePanel.update(s, map, time);
     shipyardPanel.update(s, map, time);
-    // Slice 45.
-    justicePanel.update(s, map, time);
     {
       const t = performance.now();
       side.update(s, time);

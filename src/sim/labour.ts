@@ -28,13 +28,15 @@ export const canWork = (b: Building, away = 0): number => (livedIn(b) && !b.esta
 export const canWorkIn = (s: SimState, b: Building): number => canWork(b, (b.kind === 'home' && (s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') || s.fleet.triremes.some((t) => t.crew.some((r) => r.home === b.id))) ? 1 : 0) + awayAt(s, b));
 
 // Slice 45: those of a household at court, in prison or at hard labour can't work at home's jobs; convicts at hard labour fill a quarry's or mine's jobs first, unpaid (treasury.ts leaves them out of the wages).
-/** How many of a household are away at court, in prison or at hard labour (justice.ts). */
+/** How many of a household are away at court, in prison, at hard labour or (merge of slice 45: the review's finding) pinned in the stocks for their days there (justice.ts). */
 export function awayAt(s: SimState, b: Building): number {
   const c = s.crime;
-  if (!c.cases.length && !c.held.length) return 0;
+  if (!c.cases.length && !c.held.length && !c.stocks.length) return 0;
   let n = 0;
   for (const x of c.cases) if (x.home === b.id) n++;
   for (const x of c.held) if (x.home === b.id) n++;
+  // (The stocks are remembered a month after; only while he stands there is he away.)
+  for (const x of c.stocks) if (x.home === b.id && s.tick >= x.since && s.tick < x.until) n++;
   return n;
 }
 /** The convicts at hard labour filling a quarry's or mine's jobs. */

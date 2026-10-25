@@ -1,18 +1,19 @@
 /**
- * Slice 45: the court's and the prison's panels, floating panels like the
- * shipyard's, opened by clicking a court or a prison (or from a demo). The
- * court's: who is at work, the law (a punishment for each kind of crime, each
- * with what it does, deters, costs and suits, and what it falls back to here),
- * the cases waiting and being walked in, the sentences lately, and the crime
- * rate month by month. The prison's: its cells and guards, its unrest (and
- * what would calm it), who it holds and till when, and who labours at the
- * quarry and the mine. It only reads the sim; setting the law is a command.
+ * Slice 45: the court's and the prison's sections, in the building's panel
+ * (merge of slice 45: through slice 48's registry, PANELS in
+ * buildingpanel.ts, so they have its staff, condition, messages, Pause and
+ * Workers first like every other building). The court's: the law (a
+ * punishment for each kind of crime, each with what it does, deters, costs
+ * and suits, and what it falls back to here), the cases waiting and being
+ * walked in, the sentences lately, and the crime rate month by month. The
+ * prison's: its cells, its unrest (and what would calm it), who it holds and
+ * till when, and who labours at the quarry and the mine. They only read the
+ * sim; setting the law is a command (the panel's `law` buttons).
  */
 import './justice.css';
 import type { CoastMap } from '../map/bake';
-import { findBuilding, jobsAt } from '../sim/buildings';
+import { findBuilding } from '../sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
-import type { Command } from '../sim/commands';
 import { whereOf } from '../sim/crime';
 import {
   calmWords,
@@ -41,7 +42,6 @@ import {
   type RateMonth,
 } from '../sim/justice';
 import type { Building, SimState } from '../sim/state';
-import { morph } from './morph';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
@@ -57,8 +57,6 @@ const ago = (t: number): string => {
   const d = Math.floor(t / TICKS_PER_DAY);
   return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 60 ? `${d} days ago` : `${Math.floor(d / 30)} months ago`;
 };
-/** How often the panel is redrawn while open (seconds). */
-const REFRESH = 0.25;
 /** The rate table's kinds, in words. */
 const RATE_WORDS: Readonly<Record<(typeof RATE_KINDS)[number], string>> = { theft: 'Theft', pickpocket: 'Pockets picked', vandal: 'Smashing', arson: 'Arson', smuggling: 'Smuggling', skimming: 'Skimming' };
 /** Short names for the law's buttons. */
@@ -78,9 +76,9 @@ export function courtHtml(s: SimState, _map: CoastMap, court: Building | undefin
   const out: string[] = [];
   const ctx = lawCtx(s);
   ctx.court = true;
-  const at = court ? `${court.workers} of ${jobsAt(court)} at work: a magistrate and jurors` : 'No court';
-  out.push(`<header><div class="kicker">${esc(at)}</div><h2>The court</h2><div class="from">The watch walks the caught here, to be tried by the law within days</div></header>`);
-  if (court && court.workers === 0) out.push('<div class="late">Nobody works here yet: it tries nobody, and the watch fines the caught on the spot as before.</div>');
+  // (Merge of slice 45: the building's panel has its name, picture and staff; this says what the court is for.)
+  const idle = court && court.workers === 0 ? '<div class="late">Nobody works here yet: it tries nobody, and the watch fines the caught on the spot as before.</div>' : '';
+  out.push(`<p class="small lead">The watch walks the caught here, to be tried by the law within days.</p>${idle}`);
   // The law: a row for each kind of crime, its punishment picked, the others a click away.
   const rows = LAW_ROWS.map((r) => {
     const chosen = s.crime.law[r];
@@ -139,13 +137,13 @@ function rateHtml(s: SimState): string {
 /** The prison's page. */
 export function prisonHtml(s: SimState, map: CoastMap, prison: Building | undefined): string {
   const out: string[] = [];
-  if (!prison) return '<header><h2>A prison</h2></header>';
+  if (!prison) return '';
   const held = prisoners(s, prison);
   const j = s.crime.jails.find((x) => x.at === prison.id);
-  out.push(`<header><div class="kicker">${esc(`${prison.workers} of ${jobsAt(prison)} guards · ${held.length} of ${CELLS} cells`)}</div><h2>A prison</h2><div class="from">${esc(`The court sends its prisoners here for ${PRISON_MONTHS} months`)}</div></header>`);
   const why = restlessWords(s, prison);
   const unrest = j?.unrest ?? 0;
-  out.push(`<section class="unrest"><h3>Unrest</h3>${bar('Unrest', unrest, UNREST_WARN)}`);
+  // (Merge of slice 45: the building's panel has its name, picture and guards; this says its cells.)
+  out.push(`<section class="unrest"><h3>Cells and unrest</h3><p class="small lead">${esc(`${held.length} of its ${CELLS} cells full${held.length > CELLS ? `: ${held.length - CELLS} over` : ''}. The court sends its prisoners here for ${PRISON_MONTHS} months.`)}</p>${bar('Unrest', unrest, UNREST_WARN)}`);
   if (unrest >= UNREST_WARN) {
     const d = j ? daysToBreak(s, prison, j) : Infinity;
     out.push(`<div class="late warnbox">${esc(`${cap(why || 'restless still')}: the guards are restless.${d < Infinity ? ` The prisoners break out in about ${d === 1 ? 'a day' : `${d} days`} (at ${UNREST_BREAK}%) and run home as criminals.` : ' It is calming down.'}${why ? ` ${cap(calmWords(s, prison))} would calm it.` : ''}`)}</div>`);
@@ -166,90 +164,11 @@ export function prisonHtml(s: SimState, map: CoastMap, prison: Building | undefi
   return out.join('');
 }
 
-/** A floating panel on the court or on a prison (one at a time, with the household's and the trade panels). */
-export class JusticePanel {
-  private readonly el: HTMLElement;
-  private readonly body: HTMLElement;
-  private shown = false;
-  private html = '';
-  private last = -Infinity;
-  private pressed = false;
-  /** The court or prison shown (a building id). */
-  at = 0;
-  onOpen: () => void = () => {};
+/** The court's sections, for its entry in the building panel's registry (buildingpanel.ts). */
+export const courtSections = (s: SimState, map: CoastMap, b: Building): string => `<div class="justice">${courtHtml(s, map, b)}</div>`;
 
-  constructor(root: HTMLElement, send: (c: Command) => void) {
-    const el = document.createElement('div');
-    el.className = 'household trade justice';
-    el.hidden = true;
-    el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
-    root.appendChild(el);
-    this.el = el;
-    this.body = el.querySelector('.body') as HTMLElement;
-    (el.querySelector('.close') as HTMLElement).addEventListener('click', () => this.toggle(false));
-    this.body.addEventListener('pointerdown', () => {
-      this.pressed = true;
-    });
-    const release = (): void => {
-      this.pressed = false;
-    };
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
-    this.body.addEventListener('click', (e) => {
-      const b = (e.target as HTMLElement).closest('button[data-act]') as HTMLButtonElement | null;
-      if (!b || b.disabled) return;
-      if (b.dataset.act === 'law') send({ type: 'law', crime: b.dataset.row ?? '', punishment: b.dataset.p ?? '' });
-      else return;
-      this.last = -Infinity;
-    });
-  }
+/** The prison's sections, for its entry in the registry. */
+export const prisonSections = (s: SimState, map: CoastMap, b: Building): string => `<div class="justice prison">${prisonHtml(s, map, b)}</div>`;
 
-  get open(): boolean {
-    return this.shown;
-  }
-
-  /** Open on a court or a prison (its id). */
-  show(at: number): void {
-    if (this.shown && at !== this.at) this.body.scrollTop = 0;
-    this.at = at;
-    this.last = -Infinity;
-    this.toggle(true);
-  }
-
-  toggle(show = !this.shown): void {
-    if (show && !this.shown) this.body.scrollTop = 0;
-    this.shown = show;
-    this.last = -Infinity;
-    if (!show) this.html = '';
-    this.el.hidden = !show;
-    this.el.classList.toggle('prison', show && this.kind === 'prison');
-    if (show) this.onOpen();
-  }
-
-  private kind: 'court' | 'prison' = 'court';
-
-  /** Refresh while open; closes itself when its building is gone. */
-  update(s: SimState, map: CoastMap, time: number): void {
-    if (!this.shown) return;
-    const b = findBuilding(s, this.at);
-    if (!b || (b.kind !== 'court' && b.kind !== 'prison')) {
-      this.toggle(false);
-      return;
-    }
-    this.kind = b.kind;
-    this.el.classList.toggle('prison', b.kind === 'prison');
-    if (this.pressed || time - this.last < REFRESH) return;
-    this.last = time;
-    const html = b.kind === 'court' ? courtHtml(s, map, b) : prisonHtml(s, map, b);
-    if (html !== this.html) {
-      if (this.html) morph(this.body, html);
-      else this.body.innerHTML = html;
-      this.html = html;
-    }
-  }
-
-  /** The panel's text (for the smoke test). */
-  get text(): string {
-    return this.el.hidden ? '' : (this.body.textContent ?? '');
-  }
-}
+/** The court's and the prison's own lines, said in their sections (left out of "What it is doing"): the law, the cells, the unrest. */
+export const JUSTICE_QUIET = /^(The law: |Holds \d+ of its \d+ cells|Restless \(\d+%\): |Unrest \d+%: )/;

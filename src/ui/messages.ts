@@ -52,6 +52,8 @@ const KIND_ICON: Partial<Record<MessageKind, string>> = {
   plague: BOWL,
   sickness: BOWL,
   monument: ICONS.monument,
+  // Merge of slice 45.
+  breakout: ICONS.crime,
 };
 export const iconOfKind = (k: MessageKind): string => KIND_ICON[k] ?? SCROLL;
 

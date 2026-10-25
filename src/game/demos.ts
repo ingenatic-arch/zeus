@@ -215,9 +215,6 @@ export interface Demo {
   // Slice 48
   /** The building whose panel is open from the start (a building id, 0 for none). */
   building?: (s: SimState) => number;
-  // Slice 45
-  /** Open the court's or the prison's panel from the start (its building id, 0 for none). */
-  justice?: (s: SimState) => number;
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;
@@ -3462,10 +3459,10 @@ const SCENES: Record<string, Demo> = {
   storerules: { view: 'storerules', setup: storeRulesTown, overlay: 'missing' },
   storeset: { view: 'storerules', setup: storeSetTown, overlay: 'missing', building: quayStoreId },
   workpanel: { view: 'workpanel', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', building: (s) => s.buildings.find((b) => b.kind === 'press')?.id ?? 0 },
-  // Slice 45: a thief walked to the court by a watchman (the pair in the street), the court's panel open; an arsonist and a crooked collector tried in its history.
-  court: { view: 'court', speed: 'paused', setup: courtTown, justice: courtOf, overlay: 'crime' },
+  // Slice 45: a thief walked to the court by a watchman (the pair in the street), the court's panel open (merge of slice 45: slice 48's building panel); an arsonist and a crooked collector tried in its history.
+  court: { view: 'court', speed: 'paused', setup: courtTown, building: courtOf, overlay: 'crime' },
   // The same town's prison crowded, the town warned of its unrest, the prison's panel open: played on, the prisoners break out.
-  jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, justice: prisonOf, overlay: 'crime' },
+  jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, building: prisonOf, overlay: 'crime' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

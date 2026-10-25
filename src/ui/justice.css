@@ -1,40 +1,40 @@
-/* Slice 45: the court's and the prison's panels (floating, like the shipyard's). */
-.household.justice { width: 392px; }
-.household.justice p.small, .household.justice .small { font-size: 12px; color: var(--ink-soft); margin: 3px 0 0; }
-.household.justice ul.laws { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 5px; }
-.household.justice ul.laws li { padding: 5px 8px 6px; border-radius: 8px; background: rgba(255, 255, 255, 0.45); border: 1px solid rgba(184, 138, 80, 0.45); }
-.household.justice ul.laws .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
-.household.justice ul.laws .row b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
-.household.justice ul.laws .deters { font-size: 12px; color: var(--ink-soft); }
-.household.justice ul.laws .instead { font-size: 12px; color: var(--terracotta-deep, #9a3f22); text-align: right; }
-.household.justice .acts.law { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
-.household.justice .acts.law button {
+/* Slice 45: the court's and the prison's sections, in the building's panel (merge of slice 45: slice 48's registry). */
+.household.building:has(.justice) { width: 392px; }
+.household.building .justice p.small, .household.building .justice .small { font-size: 12px; color: var(--ink-soft); margin: 3px 0 0; }
+.household.building .justice ul.laws { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 5px; }
+.household.building .justice ul.laws li { padding: 5px 8px 6px; border-radius: 8px; background: rgba(255, 255, 255, 0.45); border: 1px solid rgba(184, 138, 80, 0.45); }
+.household.building .justice ul.laws .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+.household.building .justice ul.laws .row b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
+.household.building .justice ul.laws .deters { font-size: 12px; color: var(--ink-soft); }
+.household.building .justice ul.laws .instead { font-size: 12px; color: var(--terracotta-deep, #9a3f22); text-align: right; }
+.household.building .justice .acts.law { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.household.building .justice .acts.law button {
   appearance: none; font: inherit; font-size: 12px; padding: 1px 7px; border-radius: 8px;
   border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink); cursor: pointer;
 }
-.household.justice .acts.law button:hover { background: #fff2d6; }
-.household.justice .acts.law button.on { background: #6b4a2e; border-color: #6b4a2e; color: #fff6e4; }
-.household.justice .acts.law button.harsh:not(.on) { color: #9a3f22; border-style: dashed; }
-.household.justice .acts.law button.harsh.on { background: #9a3f22; border-color: #9a3f22; }
-.household.justice ul.punish { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.3; }
-.household.justice ul.punish b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 13.5px; }
-.household.justice ul.cases, .household.justice ul.lately { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.3; }
-.household.justice ul.cases li { padding: 3px 7px; border-radius: 7px; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(184, 138, 80, 0.35); }
-.household.justice ul.cases .who { font-weight: bold; }
-.household.justice ul.cases .what { color: var(--ink-soft); }
-.household.justice ul.lately small { color: var(--ink-soft); font-size: 11.5px; margin-right: 3px; }
-.household.justice h4 { margin: 8px 0 2px; font-size: 12.5px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.06em; color: var(--ink-soft); }
-.household.justice p.none { margin: 2px 0; font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
-.household.justice table.rate { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 3px; }
-.household.justice table.rate th { font-weight: normal; font-size: 11px; color: var(--ink-soft); text-align: right; padding: 0 3px 2px; font-variant: small-caps; letter-spacing: 0.04em; }
-.household.justice table.rate td { padding: 1px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
-.household.justice table.rate td:first-child { text-align: left; }
-.household.justice table.rate tr.per td { font-weight: bold; }
-.household.justice .meter { display: grid; grid-template-columns: 52px 1fr 38px; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; }
-.household.justice .meter .lab { color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.05em; }
-.household.justice .meter .bar { height: 7px; border-radius: 4px; background: rgba(107, 74, 46, 0.16); overflow: hidden; }
-.household.justice .meter .bar i { display: block; height: 100%; background: linear-gradient(90deg, #c9a35a, #8a6418); border-radius: 4px; }
-.household.justice .meter.low .bar i { background: linear-gradient(90deg, #e3a23a, #c63d24); }
-.household.justice .meter .num { text-align: right; font-variant-numeric: tabular-nums; }
-.household.justice .warnbox { display: block; color: #8a2e18; background: #f8e6dc; border: 1.4px solid #b8564a; border-style: solid; }
-.household.justice p.warn { color: #8a4a18; }
+.household.building .justice .acts.law button:hover { background: #fff2d6; }
+.household.building .justice .acts.law button.on { background: #6b4a2e; border-color: #6b4a2e; color: #fff6e4; }
+.household.building .justice .acts.law button.harsh:not(.on) { color: #9a3f22; border-style: dashed; }
+.household.building .justice .acts.law button.harsh.on { background: #9a3f22; border-color: #9a3f22; }
+.household.building .justice ul.punish { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.3; }
+.household.building .justice ul.punish b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 13.5px; }
+.household.building .justice ul.cases, .household.building .justice ul.lately { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.3; }
+.household.building .justice ul.cases li { padding: 3px 7px; border-radius: 7px; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(184, 138, 80, 0.35); }
+.household.building .justice ul.cases .who { font-weight: bold; }
+.household.building .justice ul.cases .what { color: var(--ink-soft); }
+.household.building .justice ul.lately small { color: var(--ink-soft); font-size: 11.5px; margin-right: 3px; }
+.household.building .justice h4 { margin: 8px 0 2px; font-size: 12.5px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.06em; color: var(--ink-soft); }
+.household.building .justice p.none { margin: 2px 0; font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
+.household.building .justice table.rate { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 3px; }
+.household.building .justice table.rate th { font-weight: normal; font-size: 11px; color: var(--ink-soft); text-align: right; padding: 0 3px 2px; font-variant: small-caps; letter-spacing: 0.04em; }
+.household.building .justice table.rate td { padding: 1px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
+.household.building .justice table.rate td:first-child { text-align: left; }
+.household.building .justice table.rate tr.per td { font-weight: bold; }
+.household.building .justice .meter { display: grid; grid-template-columns: 52px 1fr 38px; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; }
+.household.building .justice .meter .lab { color: var(--ink-soft); font-variant: small-caps; letter-spacing: 0.05em; }
+.household.building .justice .meter .bar { height: 7px; border-radius: 4px; background: rgba(107, 74, 46, 0.16); overflow: hidden; }
+.household.building .justice .meter .bar i { display: block; height: 100%; background: linear-gradient(90deg, #c9a35a, #8a6418); border-radius: 4px; }
+.household.building .justice .meter.low .bar i { background: linear-gradient(90deg, #e3a23a, #c63d24); }
+.household.building .justice .meter .num { text-align: right; font-variant-numeric: tabular-nums; }
+.household.building .justice .warnbox { display: block; color: #8a2e18; background: #f8e6dc; border: 1.4px solid #b8564a; border-style: solid; }
+.household.building .justice p.warn { color: #8a4a18; }

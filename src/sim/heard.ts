@@ -133,7 +133,7 @@ export function hear(s: SimState): void {
     const k = kindOfLine(n.line, false, false, 'army');
     say(s, { kind: k.kind, u: k.u, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
   }
-  for (const n of since(s.crime.news, h.crime)) say(s, { kind: 'crime', u: CRIME_URGENCY[n.kind] ?? NEWS, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
+  for (const n of since(s.crime.news, h.crime)) say(s, { kind: n.kind === 'breakout' ? 'breakout' : 'crime', u: CRIME_URGENCY[n.kind] ?? NEWS, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
 }
 
 /**
@@ -142,8 +142,14 @@ export function hear(s: SimState): void {
  * burning, a gang gathering, a gang taking its den and its men beating off a
  * watchman warnings; the rest (a crime done, a catch, a building smashed or
  * mended, the talk dying down, a gang broken up) news.
+ *
+ * Merge of slice 45: the court's news (one brought in for trial, a
+ * sentence, one home again) is news; a prison growing restless is a
+ * warning (said once as it is warned; the crime line under the top bar
+ * keeps saying it while it stands), and its unrest eased is news; a
+ * breakout is an alarm, and pops up (its own kind of message, under Crime).
  */
-const CRIME_URGENCY: Partial<Record<CrimeNews['kind'], Urgency>> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING };
+const CRIME_URGENCY: Partial<Record<CrimeNews['kind'], Urgency>> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING, court: NEWS, sentence: NEWS, freed: NEWS, unrest: WARNING, breakout: ALARM, eased: NEWS };
 
 // ---------------------------------------------------------------------------
 // The watchers.

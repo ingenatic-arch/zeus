@@ -18,7 +18,8 @@
  * The registry (PANELS) holds what differs by kind: a building with a panel
  * of its own elsewhere (a home, the barracks, the trading post…), one with no
  * orders, and any sections of its own. A new building adds an entry of a few
- * lines: `court: { more: (s, map, b) => '<section>…</section>' }`.
+ * lines: `court: { more: (s, map, b) => '<section>…</section>' }` (the court's
+ * and the prison's are so: src/ui/justice.ts).
  *
  * It only reads the state; its buttons send commands.
  */
@@ -41,6 +42,8 @@ import { ICONS as TOOL_ICONS, type ButtonName } from './buildbar';
 import { iconOfKind } from './messages';
 import { morph } from './morph';
 import { wareIcon } from './wareicons';
+// Merge of slice 45.
+import { courtSections, JUSTICE_QUIET, prisonSections } from './justice';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -56,6 +59,8 @@ export interface PanelEntry {
   noOrders?: boolean;
   /** Sections of its own, after what it holds (a court's cases, a prison's cells): HTML, `<section>`s. */
   more?: (s: SimState, map: CoastMap, b: Building) => string;
+  /** Lines of its tip that its own sections say, left out of "What it is doing" (merge of slice 45: the court's law, the prison's cells). */
+  quiet?: RegExp;
 }
 
 /** Each kind's entry (a kind with none gets the panel as it is). */
@@ -69,6 +74,9 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   lighthouse: { own: 'The Monuments tab', noOrders: true },
   colossus: { own: 'The Monuments tab', noOrders: true },
   stadium: { own: 'The Monuments tab', noOrders: true },
+  // Merge of slice 45: the court (the law, its cases, the crime rate) and the prison (its cells, unrest, prisoners), src/ui/justice.ts.
+  court: { more: courtSections, quiet: JUSTICE_QUIET },
+  prison: { more: prisonSections, quiet: JUSTICE_QUIET },
 };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
@@ -99,6 +107,8 @@ const WALKER_WORDS: Partial<Record<Walker['kind'], [string, string]>> = {
   logger: ['logger', 'loggers'],
   builder: ['builder', 'builders'],
   caravan: ['caravan', 'caravans'],
+  // (Merge of slice 45: one of the caught, walked to the court.)
+  convict: ['one of the caught, walked here by a watchman', 'of the caught, walked here by watchmen'],
 };
 const walkerWords = (k: Walker['kind'], n: number): string => {
   const w = WALKER_WORDS[k] ?? [k, `${k}s`];
@@ -199,7 +209,7 @@ function walkersBlock(s: SimState, b: Building): string {
     const loaded = ws.filter((w) => w.load > 0 && w.food >= 0 && !w.back);
     const what = loaded.length && (k === 'cart' || k === 'sledge' || k === 'porter' || k === 'shipper') ? ` · ${[...new Set(loaded.map((w) => WARE_NAMES[w.food as Ware]).filter((x) => x))].join(', ')}` : '';
     const home = ws.filter((w) => w.back).length;
-    const state = home === ws.length ? ' · on the way back' : home ? ` · ${home} on the way back` : ' · out';
+    const state = k === 'convict' ? '' : home === ws.length ? ' · on the way back' : home ? ` · ${home} on the way back` : ' · out';
     rows.push(`<li><span>${esc(cap(walkerWords(k, ws.length)))}${esc(state)}${esc(what)}</span><button class="pill" data-act="follow" data-kind="${k}" data-walker="${ws[0].id}" title="Follow ${esc(walkerWords(k, 1).replace(/^\d+ /, ''))} through the streets">Follow</button></li>`);
   }
   const towards = [...coming].map(([k, n]) => (n === 1 ? `${/^[aeiou]/.test(walkerWords(k, 1)) ? 'an' : 'a'} ${walkerWords(k, 1)}` : walkerWords(k, n))).join(', ');
@@ -313,7 +323,7 @@ export function buildingHtml(s: SimState, map: CoastMap, b: Building): string {
   const head = `<header class="bhead"><div class="pic">${pic}</div><div class="hd"><div class="kicker">${esc(kicker)}</div><h2>${esc(nameOf(b))}</h2>${sub.length ? `<div class="from">${esc(cap(sub.join(' · ')))}</div>` : ''}</div></header>`;
   // (A store's rows say what it holds and has room for: its rooms' line goes.)
   const store = isStore(b.kind);
-  const detail = st.detail.split('\n').filter((l) => !(store && /^Holds .* each in its own (room|store)$/.test(l)));
+  const detail = st.detail.split('\n').filter((l) => !(store && /^Holds .* each in its own (room|store)$/.test(l)) && !entry?.quiet?.test(l));
   return [
     head,
     own,
@@ -409,6 +419,8 @@ export class BuildingPanel {
     else if (act === 'mode') this.deps.send({ type: 'store', id: b.id, ware, mode: Number(t.dataset.mode) });
     else if (act === 'limit') this.deps.send({ type: 'store', id: b.id, ware, limit: Math.max(0, Math.min(3, cutOf(b, ware) + Number(t.dataset.dir))) });
     else if (act === 'all') this.deps.send({ type: 'store', id: b.id, all: t.dataset.all === 'none' ? 'none' : 'all' });
+    // (Merge of slice 45: the court's law, a punishment for a kind of crime.)
+    else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

@@ -66,6 +66,8 @@ export const KINDS = {
   plague: { cat: 'health', name: 'Plague', pop: true },
   sickness: { cat: 'health', name: 'Sickness' },
   monument: { cat: 'works', name: 'Monuments' },
+  // Merge of slice 45: a prison's breakout, an alarm that may pop up.
+  breakout: { cat: 'crime', name: 'Prison breakouts', pop: true },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

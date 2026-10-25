@@ -151,8 +151,8 @@ export interface CrimeTally {
   beaten: number;
 }
 
-/** Slice 41: the kinds of crime news (theft and caught are slice 30's). */
-export const NEWS_KINDS = ['theft', 'caught', 'picked', 'smashed', 'mended', 'talk', 'calmed', 'arson', 'smuggled', 'skimmed', 'gathering', 'dispersed', 'gang', 'beaten', 'brokenup', 'scattered', 'court', 'sentence', 'freed', 'unrest', 'breakout'] as const;
+/** Slice 41: the kinds of crime news (theft and caught are slice 30's). Slice 45: the court's (a case brought in, a sentence, home again), a prison's unrest, a breakout, and its unrest eased (merge of slice 45: a crowded prison's overflow walked to another, or quiet again). */
+export const NEWS_KINDS = ['theft', 'caught', 'picked', 'smashed', 'mended', 'talk', 'calmed', 'arson', 'smuggled', 'skimmed', 'gathering', 'dispersed', 'gang', 'beaten', 'brokenup', 'scattered', 'court', 'sentence', 'freed', 'unrest', 'breakout', 'eased'] as const;
 
 /** A line of crime news: a theft, or a thief caught (slice 41: and every new kind's). */
 export interface CrimeNews {
@@ -477,7 +477,7 @@ export function whoGoes(s: SimState, b: Building, day: number): number {
     const age = ageOf(s, p);
     if (age < 16 || age > 60) return;
     grown++;
-    if (busy.has(i) || ((s.crime.cases.length || s.crime.held.length) && isAway(s, b, p.name))) return;
+    if (busy.has(i) || ((s.crime.cases.length || s.crime.held.length || s.crime.stocks.length) && isAway(s, b, p.name))) return;
     pools[(p.female ? 2 : 0) + (age <= 35 ? 0 : 1)].push(i);
   });
   const pool = pools.find((x) => x.length) ?? [];

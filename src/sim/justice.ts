@@ -260,10 +260,16 @@ export const perThousand = (r: RateMonth, people: number): number => (people > 0
 /** How many of a household are away at court, in prison or at hard labour (they can't work at home's jobs). */
 export const awayFrom = (s: SimState, b: Building): number => awayAt(s, b);
 
-/** Is this member of the household away (at court, in prison, at hard labour) or out walking as a convict? */
+/** Is this member of the household away (at court, in prison, at hard labour, in the stocks) or out walking as a convict? */
 export function isAway(s: SimState, b: Building, name: string): boolean {
   const c = s.crime;
-  return c.cases.some((x) => x.home === b.id && x.name === name) || c.held.some((x) => x.home === b.id && x.name === name) || s.walkers.some((w) => w.kind === 'convict' && w.home === b.id && thiefName(b, w) === name);
+  return (
+    c.cases.some((x) => x.home === b.id && x.name === name) ||
+    c.held.some((x) => x.home === b.id && x.name === name) ||
+    // (Merge of slice 45: pinned in the stocks, for his days there.)
+    c.stocks.some((x) => x.home === b.id && x.name === name && s.tick >= x.since && s.tick < x.until) ||
+    s.walkers.some((w) => w.kind === 'convict' && w.home === b.id && thiefName(b, w) === name)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -560,7 +566,8 @@ export function lawCtx(s: SimState): LawCtx {
     if (b.kind === 'agora') ctx.agora = true;
     else if (b.kind === 'court' && b.workers > 0) ctx.court = true;
     else if (b.kind === 'prison') ctx.prison = true;
-    else if ((b.kind === 'quarry' || b.kind === 'mine') && !ctx.labour && jobsAt(b) > labourers(s, b).length) ctx.labour = true;
+    // (Merge of slice 45: a paused quarry or mine takes no convicts: slice 48.)
+    else if ((b.kind === 'quarry' || b.kind === 'mine') && !b.paused && !ctx.labour && jobsAt(b) > labourers(s, b).length) ctx.labour = true;
   }
   return ctx;
 }
@@ -601,12 +608,13 @@ function prisonFor(s: SimState): Building | undefined {
   return best;
 }
 
-/** Where a convict labours: the quarry or copper mine with the most jobs left that convicts don't already fill (none with a job left: undefined). */
+/** Where a convict labours: the quarry or copper mine with the most jobs left that convicts don't already fill (none with a job left: undefined). Not a paused one. */
 function labourFor(s: SimState): Building | undefined {
   let best: Building | undefined;
   let room = 0;
   for (const b of s.buildings) {
-    if (b.kind !== 'quarry' && b.kind !== 'mine') continue;
+    // (Merge of slice 45: not a paused one, slice 48's: its convicts would stand idle.)
+    if ((b.kind !== 'quarry' && b.kind !== 'mine') || b.paused) continue;
     const r = jobsAt(b) - labourers(s, b).length;
     if (r > room) {
       room = r;
@@ -913,7 +921,7 @@ function stepPrisons(s: SimState, map: CoastMap): void {
     }
     if (moved && to) {
       s.rev++;
-      tellNews(s, 'unrest', `The guards walked ${moved === 1 ? 'a prisoner' : `${moved} prisoners`} from the crowded prison ${whereOf(map, prison)} to the prison ${whereOf(map, to)}, where there is room`, to.id);
+      tellNews(s, 'eased', `The guards walked ${moved === 1 ? 'a prisoner' : `${moved} prisoners`} from the crowded prison ${whereOf(map, prison)} to the prison ${whereOf(map, to)}, where there is room`, to.id);
     }
   }
   for (const prison of s.buildings) {
@@ -935,7 +943,7 @@ function stepPrisons(s: SimState, map: CoastMap): void {
       tellNews(s, 'unrest', `The prison ${whereOf(map, prison)} is ${restlessWords(s, prison)}, and the guards are restless: unless there is ${calmWords(s, prison)}, the prisoners will break out within about ${Math.max(1, Math.ceil((UNREST_BREAK - j.unrest) / Math.max(1, over * UNREST_CROWD + (short ? UNREST_SHORT : 0))))} days`, prison.id);
     } else if (j.unrest === 0 && j.warned > 0) {
       j.warned = 0;
-      tellNews(s, 'unrest', `The prison ${whereOf(map, prison)} is quiet again`, prison.id);
+      tellNews(s, 'eased', `The prison ${whereOf(map, prison)} is quiet again`, prison.id);
     }
     if (j.unrest === 0 && !over && !short) c.jails.splice(c.jails.indexOf(j), 1);
   }
@@ -1016,7 +1024,7 @@ export function awayLines(s: SimState, map: CoastMap, b: Building): string[] {
   for (const p of s.crime.stocks) {
     if (p.home !== b.id || s.tick >= p.until) continue;
     const a = findBuilding(s, p.at);
-    out.push(`${p.name} stands in the stocks at the agora${a ? ` ${whereOf(map, a)}` : ''}, for all to see: free in about ${days(p.until - s.tick)}`);
+    out.push(`${p.name} stands in the stocks at the agora${a ? ` ${whereOf(map, a)}` : ''}, for all to see: free in about ${days(p.until - s.tick)}, a worker short till then`);
   }
   return out;
 }
@@ -1033,7 +1041,6 @@ export function courtLines(s: SimState, b: Building): string[] {
   out.push(cases.length ? `${cases.length === 1 ? 'One case waits' : `${cases.length} cases wait`} for trial${coming ? `, and ${coming === 1 ? 'one more is' : `${coming} more are`} being walked here` : ''}` : coming ? `${coming === 1 ? 'One of the caught is' : `${coming} of the caught are`} being walked here` : 'No case waits for trial');
   const law = LAW_ROWS.map((r) => `${ROW_NAMES[r]} ${PUNISHMENT_NAMES[s.crime.law[r]].replace(/^an? /, '')}`).join(', ');
   out.push(`The law: ${law}`);
-  out.push('Click for the court: the law, what each punishment deters and costs, and the cases');
   return out;
 }
 
@@ -1045,7 +1052,6 @@ export function prisonLines(s: SimState, b: Building): string[] {
   const why = restlessWords(s, b);
   if (j && j.unrest >= UNREST_WARN) out.push(`Restless (${j.unrest}%): ${why || 'calming down'}. At 100% the prisoners break out and run home`);
   else if (why) out.push(`Unrest ${j?.unrest ?? 0}%: ${why}. ${cap(calmWords(s, b))} would calm it`);
-  out.push('Click for the prison: who it holds, for what, and till when');
   return out;
 }
 

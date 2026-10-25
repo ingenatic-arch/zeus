@@ -30,6 +30,7 @@ import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/stat
 import { kindTotal, totals, WAGE, wageBill } from '../src/sim/treasury';
 import { newWalker } from '../src/sim/walk';
 import { demoSim } from './prepared';
+import { ALARM, NEWS, POPUP_KINDS, WARNING, type Message } from '../src/sim/messages';
 
 const map = coastMap();
 const size = map.size;
@@ -288,7 +289,7 @@ describe('the prison', () => {
     expect(second).toBeDefined();
     expect(until(sim, () => prisoners(s, second).length > 0, 2 * TICKS_PER_DAY)).toBe(true);
     expect(prisoners(s, first).length).toBeLessThanOrEqual(CELLS);
-    expect(s.crime.news.some((n) => n.kind === 'unrest' && /walked .+ to the prison/.test(n.line))).toBe(true);
+    expect(s.crime.news.some((n) => n.kind === 'eased' && /walked .+ to the prison/.test(n.line))).toBe(true);
     const was = j.unrest;
     sim.run(15 * TICKS_PER_DAY);
     expect(s.crime.news.some((n) => n.kind === 'breakout')).toBe(false);
@@ -393,5 +394,79 @@ describe('the same town twice, and saves', () => {
     old.state.crime.law.theft = 'flogging';
     const got = decodeSave(JSON.stringify(old));
     expect(got.ok).toBe(false);
+  });
+});
+
+// Merge of slice 45 with the trunk: slice 48's paused workplaces, the stocks as away from work, and slice 44's messages.
+describe('the court and the prison on the trunk', () => {
+  it('one in the stocks is away from work for his days there, and back after', () => {
+    const { sim, s, who } = trial('stocks');
+    expect(awayAt(s, who.home)).toBe(1);
+    expect(canWorkIn(s, who.home)).toBe(Math.max(0, Math.floor(who.home.people * 0.5) - 1));
+    sim.run(STOCKS_DAYS * TICKS_PER_DAY + 1);
+    // (Still remembered round the agora, but home and at work.)
+    expect(s.crime.stocks.some((p) => p.home === who.home.id)).toBe(true);
+    expect(awayAt(s, who.home)).toBe(0);
+  });
+
+  it('a paused quarry takes no convicts, and one already there when it is paused stays held, unpaid', () => {
+    const sim = demoSim('quarry');
+    const s = sim.state;
+    const quarry = s.buildings.find((b) => b.kind === 'quarry')!;
+    const roads = s.tiles.map((v, t) => (v === -1 ? t : -1)).filter((t) => t >= 0 && Math.abs((t % size) - quarry.x) + Math.abs(Math.floor(t / size) - quarry.z) < 30);
+    for (const t of roads) {
+      if (s.buildings.some((b) => b.kind === 'court')) break;
+      for (const [dx, dz] of [[1, 0], [-3, 0], [0, 1], [0, -3]]) {
+        sim.enqueue({ type: 'build', kind: 'court', at: [t + dz * size + dx] });
+        sim.flush();
+        if (s.buildings.some((b) => b.kind === 'court')) break;
+      }
+    }
+    const court = s.buildings.find((b) => b.kind === 'court')!;
+    expect(until(sim, () => court.workers > 0, 3 * TICKS_PER_DAY)).toBe(true);
+    law(sim, 'labour');
+    const grown = (b: Building): boolean => !!b.family && b.family.members.some((m) => ageOf(s, m) >= 16 && ageOf(s, m) <= 60);
+    const tryOne = (not: number[]): { home: Building; x: Case } => {
+      const home = s.buildings.find((b) => livedIn(b) && grown(b) && !not.includes(b.id) && awayAt(s, b) === 0)!;
+      const m = home.family!.members.find((p) => ageOf(s, p) >= 16 && ageOf(s, p) <= 60)!;
+      const x: Case = { home: home.id, name: m.name, female: m.female, kind: 'theft', gang: false, court: court.id, since: s.tick, trial: s.tick };
+      s.crime.cases.push(x);
+      expect(until(sim, () => !s.crime.cases.includes(x), 2 * TICKS_PER_DAY)).toBe(true);
+      return { home, x };
+    };
+    const first = tryOne([]);
+    const held = s.crime.held.find((h) => h.home === first.home.id)!;
+    expect(held.as).toBe('labour');
+    expect(held.at).toBe(quarry.id);
+    // Paused: its workers go, the convict with them stays held there, and nothing is paid for him.
+    sim.enqueue({ type: 'work', id: quarry.id, paused: true });
+    sim.flush();
+    sim.run(2 * TICKS_PER_DAY);
+    expect(quarry.workers).toBe(0);
+    expect(s.crime.held.includes(held)).toBe(true);
+    expect(awayAt(s, first.home)).toBe(1);
+    expect(wageBill(s)).toBeGreaterThanOrEqual(0);
+    // The next sentenced to hard labour goes elsewhere (a mine, or prison with no other), never to the paused quarry.
+    const next = tryOne([first.home.id]);
+    const h2 = s.crime.held.find((h) => h.home === next.home.id);
+    if (h2) expect(h2.at).not.toBe(quarry.id);
+    expect(until(sim, () => s.tick % TICKS_PER_MONTH === 1, TICKS_PER_MONTH + 1)).toBe(true);
+    ledgerAddsUp(s);
+  });
+
+  it('#jailbreak in the town’s messages: the unrest a warning, told once; the breakout an alarm that may pop up', () => {
+    const sim = demoSim('jailbreak');
+    const s = sim.state;
+    const warned = (): Message[] => s.messages.log.filter((m) => m.kind === 'crime' && /guards are restless/.test(m.words));
+    expect(warned().length).toBe(1);
+    expect(warned()[0].u).toBe(WARNING);
+    expect(until(sim, () => s.messages.log.some((m) => m.kind === 'breakout'), 15 * TICKS_PER_DAY)).toBe(true);
+    const broke = s.messages.log.filter((m) => m.kind === 'breakout');
+    expect(broke.length).toBe(1);
+    expect(broke[0].u).toBe(ALARM);
+    expect(POPUP_KINDS).toContain('breakout');
+    expect(warned().length).toBe(1);
+    // A sentence and the court's news are plain news.
+    expect(s.messages.log.filter((m) => m.kind === 'crime' && /^The court /.test(m.words)).every((m) => m.u === NEWS)).toBe(true);
   });
 });

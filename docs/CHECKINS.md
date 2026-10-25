@@ -77,6 +77,28 @@ What I checked, without changing it:
 - **The law's weight, played:** #court's town for two years at harsh taxes under each punishment for every crime. It is a quiet town (it has very little crime even then), so this is only a rough check: a fine for everything let 3 thefts through, the stocks 1 smashing, and prison, hard labour, exile and death none, with homes' temptation at nil. So in a town like this, prison already holds everyone back, and the harsher punishments only add their costs; no punishment came out best on every count. Whether that's the right balance in a hungrier town is for you to judge.
 - **After the review:** all 641 tests pass, the typecheck and the build are clean, and the smoke's blocks for #court, #jailbreak, #crimes, #gang, #thieves, #nowatch and #empire pass. Of the prepared towns, only #court's and #jailbreak's changed; every earlier one is the same file as before. The download is the same size (4,783 KB gzipped). Each view draws the same as before, except #jailbreak's opening view, which draws one more small piece (85 draw calls, was 84): a thief still standing in the stocks there now that it lasts five days. Frame timings on this loaded machine swung either way by more than any difference between the two builds.
 
+### At the merge
+Slices 44 (the town's messages), 42 (lands of any size) and 48 (building panels and the storehouse) joined the main line before this one, so a few things moved to fit with them:
+
+- **Saves.** The state version is 43, not 40. Older saves come up through each slice's step in turn, this one's last: the default law, nobody held and an empty crime record, as above.
+- **The court and the prison open in the building panel**, like every other building since slice 48. At the top are its picture, name and staff. Then come the court's law, cases and crime rate, or the prison's cells, unrest and prisoners. At the bottom are its condition, its recent messages, and Pause and Workers first. The separate floating panel is gone. Clicking either building opens it. #court and #jailbreak open on it, and the convict being walked to the court is listed under its walkers, with Follow.
+- **The court's news is in the scroll**, under the Crime filter:
+  - Someone brought in, a sentence and someone home again are news.
+  - A prison growing restless is a warning. It is said once, and the line under the top bar keeps saying it while it lasts.
+  - Prisoners walked to another prison, or a prison quiet again, are news.
+  - **A breakout is an alarm, and pops up** at the bottom left. You can switch it off as "Prison breakouts" under "Pop up for" in the Messages panel.
+- **A paused quarry or mine takes no convicts.** One already serving there when you pause it stays held there, unpaid and doing nothing, until his time is up. The next one sentenced to hard labour goes to another quarry or mine, or to prison if there is none.
+- **Someone in the stocks is away from work** for his five days there, like those in prison. The household panel says "a worker short till then".
+- **Unchanged by this slice:** a caught thief's or smuggler's goods still go back to the store they came from, whatever its rules, and smugglers still never take from a store. Nothing in this slice measured the map the old way.
+- **Earlier demos.** I compared all 145 prepared towns from the main line before this merge. At opening they are the same, apart from this slice's new crime record: the month-by-month rate, which #empire's and #gang's histories already count thefts into. After 900 ticks of play they are all the same except #gang, which ends 6 dr poorer with one more walker about. That comes from this slice's rule that a lone watchman leaves alone a gang's man who has beaten one off.
+
+Checked on the merged line: the typecheck and the build pass, and all 690 tests pass (one timed out under the machine's load and passed when run alone). In headless Chromium:
+- The smoke checks pass for #court and #jailbreak (including clicking the court open, the warning said once, and the breakout's popup), and for #thieves, #nowatch, #crimes, #gang, #messages, #raid, #empire, #storerules, #storeset, #workpanel and the Z key's cycle.
+- #court, #jailbreak, #crimes, #gang, #storerules, #workpanel, #messages, #empire and #town open with no page errors.
+- I looked at screenshots of #court, #jailbreak and the breakout.
+
+How it all feels to play is still yours to judge.
+
 ## Slice 48 — Building panels and the storehouse (25 Oct)
 
 Click any building and a panel opens: its picture, its staff, what it is doing and why not, what it holds, its walkers, its condition, its recent messages and its orders. The storehouse and granary have a row for each good, with what to accept and how much, and every cart, porter and docker keeps to it. You weren't here while it was built: every choice below is mine, from the spec's defaults.

@@ -166,11 +166,13 @@ describe('the other lines’ news', () => {
       sim.step();
     }
     stepMessages(s, sim.map);
-    const urgent: Record<string, number> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING };
+    // (Merge of slice 45: a prison's unrest a warning, a breakout an alarm of its own kind, which may pop up.)
+    const urgent: Record<string, number> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING, unrest: WARNING, breakout: ALARM };
     for (const k of NEWS_KINDS) {
       const ms = s.messages.log.filter((m) => m.words === `News of the kind ${k}.`);
       expect(ms.length, k).toBe(1);
-      expect(ms[0].kind).toBe('crime');
+      expect(ms[0].kind).toBe(k === 'breakout' ? 'breakout' : 'crime');
+      expect(catOf(ms[0].kind)).toBe('crime');
       expect(ms[0].u, k).toBe(urgent[k] ?? NEWS);
       expect(ms[0].at).toEqual({ building: b.id });
     }
