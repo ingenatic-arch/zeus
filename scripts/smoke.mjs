@@ -938,7 +938,8 @@ for (const [hash, mode, count, name] of [['#watchman', 'fire', 'watchmen', 'watc
 }
 // Z cycles the offices and J the overlays: tax, fire risk, wear, off.
 await open('#town-paused');
-for (const want of ['taxoffice', 'watchpost', 'architect', 'taxoffice']) {
+// (Slice 45: then the court and the prison.)
+for (const want of ['taxoffice', 'watchpost', 'architect', 'court', 'prison', 'taxoffice']) {
   await page.keyboard.press('z');
   await frames(1);
   c = await city();
