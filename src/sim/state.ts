@@ -17,7 +17,7 @@ import type { Messages } from './messages';
 import type { Land } from '../map/lands';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 41;
+export const SIM_STATE_VERSION = 42;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;

@@ -14,10 +14,10 @@
  */
 import { bakeCoast, coastMap, type CoastMap } from './bake';
 import { coast, MAP_SIZE, type CoastData } from './coast';
-import { generateCoast } from './generate';
+import { generateCoast, LAND_GEN } from './generate';
 
-/** The kinds of land: the Bay (hand-made), and the generated kinds. */
-export const LAND_KINDS = ['bay', 'sheltered'] as const;
+/** The kinds of land: the Bay (hand-made), and the generated kinds (slice 46: five more, appended). */
+export const LAND_KINDS = ['bay', 'sheltered', 'islands', 'delta', 'mountains', 'dryplain', 'woods'] as const;
 export type LandKind = (typeof LAND_KINDS)[number];
 /** The sizes a land comes in: small (the Bay's), medium and large. */
 export const LAND_SIZES = [128, 192, 256] as const;
@@ -28,7 +28,15 @@ export interface Land {
   size: number;
   /** The generator's seed (0 on the Bay). */
   seed: number;
+  /** Slice 46: the generator's edition that made it (generate.ts' LAND_GEN; none: the current one). Lands from slice 42 are edition 1. */
+  gen?: number;
 }
+
+/** Slice 46: the edition a land is made by. */
+export const genOf = (land: Land): number => land.gen ?? LAND_GEN;
+
+/** Slice 46: a land as a new town records it: a generated one with the edition that makes it (the Bay as it always was). */
+export const stampLand = (land: Land): Land => (isBay(land) ? { ...land } : { ...land, gen: genOf(land) });
 
 /** The Bay: today's hand-made coast, 128 tiles a side. */
 export const BAY: Readonly<Land> = { kind: 'bay', size: MAP_SIZE, seed: 0 };
@@ -50,15 +58,18 @@ export function landProblem(v: unknown): string {
   if (!(LAND_SIZES as readonly unknown[]).includes(l.size)) return 'its land is of a size this game doesn’t make';
   if (typeof l.seed !== 'number' || !Number.isInteger(l.seed) || l.seed < 0 || l.seed > 0xffffffff) return 'its land’s seed is wrong';
   if (l.kind === 'bay' && (l.size !== MAP_SIZE || l.seed !== 0)) return 'its land is wrong';
+  // Slice 46: an edition this game has (slice 42's first edition made only the sheltered bay).
+  if (l.gen !== undefined && (typeof l.gen !== 'number' || !Number.isInteger(l.gen) || l.gen < 1 || l.gen > LAND_GEN)) return 'its land was made by a newer game than this one';
+  if (l.gen === 1 && l.kind !== 'sheltered') return 'its land is wrong';
   return '';
 }
 
 /** A land's shapes: the Bay's own, or generated from its kind, size and seed. */
 export function landData(land: Land): CoastData {
-  return isBay(land) ? coast : generateCoast(land.kind, land.size, land.seed);
+  return isBay(land) ? coast : generateCoast(land.kind, land.size, land.seed, genOf(land));
 }
 
-const keyOf = (land: Land): string => `${land.kind}:${land.size}:${land.seed}`;
+const keyOf = (land: Land): string => `${land.kind}:${land.size}:${land.seed}:${genOf(land)}`;
 /** The generated lands baked lately (a couple: a page uses one; the tests a few in turn). */
 const kept = new Map<string, CoastMap>();
 const KEEP = 2;
@@ -71,7 +82,7 @@ export function landMap(land: Land): CoastMap {
   if (isBay(land)) map = coastMap();
   else {
     const key = keyOf(land);
-    const hit = kept.get(key);
+    const hit = pinned?.key === key ? pinned.map : kept.get(key);
     if (hit) map = hit;
     else {
       map = bakeCoast(landData(land));
@@ -83,5 +94,29 @@ export function landMap(land: Land): CoastMap {
   return map;
 }
 
+/** Slice 46: the town's own land, kept however many others are baked (the new-game screen bakes lands to show them). */
+let pinned: { key: string; map: CoastMap } | null = null;
+export function pinLand(land: Land): void {
+  pinned = isBay(land) ? null : { key: keyOf(land), map: landMap(land) };
+}
+
 /** A state's baked map. */
 export const mapOf = (s: { land?: Land }): CoastMap => landMap(landOf(s));
+
+/**
+ * Slice 46: a land's seed from a word (the new-game screen's seed, and a
+ * founding link's): letters and digits only, any case, hashed to a whole
+ * number (FNV-1a), so the same word always makes the same land.
+ */
+export function seedOf(word: string): number {
+  const w = cleanWord(word);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < w.length; i++) {
+    h ^= w.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** Slice 46: a seed word as the game keeps it: lower case, letters and digits only, at most 24 of them. */
+export const cleanWord = (word: string): string => word.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24);

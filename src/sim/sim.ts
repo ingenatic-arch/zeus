@@ -1,6 +1,8 @@
 import type { CoastMap } from '../map/bake';
 // Slice 42: lands of any size.
 import { BAY, mapOf, type Land } from '../map/lands';
+// Slice 46: a generated land records the generator's edition that made it.
+import { stampLand } from '../map/lands';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 // Slice 36: estates' plots.
 import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal } from './build';
@@ -124,7 +126,7 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     // Slice 44
     messages: freshMessages(),
     // Slice 42
-    land: { ...land },
+    land: stampLand(land),
   };
   if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
   s.herds = freshHerds(mapOf(s), s);

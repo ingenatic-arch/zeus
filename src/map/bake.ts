@@ -14,6 +14,8 @@
  */
 import { Rng } from '../sim/rng';
 import { coast as defaultCoast, COAST_SEED, HERDS, MAP_MARGIN, MAP_SIZE, type CoastData, type HerdHome } from './coast';
+// Slice 46: more channels, lakes, marsh, dry ground, irregular islands and oaks.
+import type { Channel } from './coast';
 import { dcos, dexp, dhypot, dpow, dsin, sq } from './dmath';
 import { clamp, fbm, lerp, ridged, smoothstep, valueNoise } from './noise';
 
@@ -44,6 +46,8 @@ export enum TreeKind {
   Rock = 5,
   Reed = 6,
   Flowers = 7,
+  /** Slice 46: oaks in the woods of a wooded land (the loggers fell them as they do pines). */
+  Oak = 8,
 }
 
 export interface TreeInstance {
@@ -68,6 +72,14 @@ export interface RiverPath {
   /** Arc length from the spring. */
   dist: Float32Array;
   length: number;
+  /**
+   * Slice 46: on a land with more than one channel, the path holds them all,
+   * one after another; cut[i] is 1 where no water runs from point i to i + 1
+   * (from one channel's end to the next one's start). Each channel's `dist`
+   * is then how far along the whole river it is (dist / length from 0 at the
+   * spring to 1 at the sea), not its own length. None on one river.
+   */
+  cut?: Uint8Array;
 }
 
 export interface RiverQuery {
@@ -107,6 +119,10 @@ export class CoastMap {
   readonly tileFertility: Float32Array;
   readonly river: RiverPath;
   readonly trees: TreeInstance[];
+  /** Slice 46: how marshy the ground is at field corners (0..1), on a land with marsh; null elsewhere. */
+  marsh: Float32Array | null = null;
+  /** Slice 46: on a dry land, the playable tiles with water under the ground (1), where a fountain can go; null elsewhere (a fountain goes anywhere). */
+  groundwater: Uint8Array | null = null;
 
   constructor(
     heights: Float32Array,
@@ -317,6 +333,78 @@ function buildRiverPath(data: CoastData, seed: number): Omit<RiverPath, 'surface
   return { xs: Float32Array.from(xs), zs: Float32Array.from(zs), width, valley, dist, length };
 }
 
+/** Slice 46: one more channel's points, its own arc length along them, and its widths (as buildRiverPath does for the river). */
+function strand(ch: Channel, seed: number, k: number): { xs: number[]; zs: number[]; arc: number[]; width: number[]; valley: number[] } {
+  const ctrl = ch.pts;
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (let j = 0; j < ctrl.length - 1; j++) {
+    const p0 = ctrl[Math.max(0, j - 1)];
+    const p1 = ctrl[j];
+    const p2 = ctrl[j + 1];
+    const p3 = ctrl[Math.min(ctrl.length - 1, j + 2)];
+    const steps = Math.max(2, Math.ceil(dhypot(p2[0] - p1[0], p2[1] - p1[1]) / 0.5));
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      xs.push(catmull(p0[0], p1[0], p2[0], p3[0], t));
+      zs.push(catmull(p0[1], p1[1], p2[1], p3[1], t));
+    }
+  }
+  const lastP = ctrl[ctrl.length - 1];
+  xs.push(lastP[0]);
+  zs.push(lastP[1]);
+  const arc: number[] = [0];
+  for (let i = 1; i < xs.length; i++) arc.push(arc[i - 1] + dhypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]));
+  const len = arc[arc.length - 1] || 1;
+  const width: number[] = [];
+  const valley: number[] = [];
+  for (let i = 0; i < xs.length; i++) {
+    const t = arc[i] / len;
+    const wob = 1 + 0.18 * (valueNoise(arc[i] * 0.12, 3.7 + k * 5.3, seed + 31) * 2 - 1);
+    width.push(lerp(ch.width[0], ch.width[1], dpow(t, 0.85)) * wob);
+    valley.push(lerp(ch.valley[0], ch.valley[1], t) * (1 + 0.25 * (valueNoise(arc[i] * 0.05, 9.1 + k * 5.3, seed + 41) * 2 - 1)));
+  }
+  return { xs, zs, arc, width, valley };
+}
+
+/**
+ * Slice 46: the river and its other channels as one path, one after another
+ * with a cut between each and the next. Each point's dist is how far along
+ * the whole river it is (the river from 0 at its spring to `riverEnd`, each
+ * channel over its own `t`), times the river's own length. One river alone is
+ * buildRiverPath's, untouched. Also where each channel starts in the arrays.
+ */
+function riverPaths(data: CoastData, seed: number, riverEnd: number): { path: Omit<RiverPath, 'surface'>; starts: number[] } {
+  const main = buildRiverPath(data, seed);
+  const chans = data.channels ?? [];
+  if (chans.length === 0) return { path: main, starts: [0] };
+  const L = main.length;
+  const xs = Array.from(main.xs);
+  const zs = Array.from(main.zs);
+  const width = Array.from(main.width);
+  const valley = Array.from(main.valley);
+  const dist = Array.from(main.dist, (d) => d * riverEnd);
+  const starts = [0];
+  chans.forEach((ch, k) => {
+    const st = strand(ch, seed, k + 1);
+    starts.push(xs.length);
+    const len = st.arc[st.arc.length - 1] || 1;
+    for (let i = 0; i < st.xs.length; i++) {
+      xs.push(st.xs[i]);
+      zs.push(st.zs[i]);
+      width.push(st.width[i]);
+      valley.push(st.valley[i]);
+      dist.push(lerp(ch.t[0], ch.t[1], st.arc[i] / len) * L);
+    }
+  });
+  const cut = new Uint8Array(xs.length);
+  for (const s of starts) if (s > 0) cut[s - 1] = 1;
+  return {
+    path: { xs: Float32Array.from(xs), zs: Float32Array.from(zs), width: Float32Array.from(width), valley: Float32Array.from(valley), dist: Float32Array.from(dist), length: L, cut },
+    starts,
+  };
+}
+
 /**
  * Slice 42: the river's segments in runs of RUN, each with the box round its
  * points, so a query can pass over the runs too far off to hold the nearest
@@ -358,6 +446,7 @@ export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Ar
   const n = r.xs.length;
   const xs = r.xs;
   const zs = r.zs;
+  const cut = r.cut;
   // (Exactly what a scan of every segment in order finds, the first of equals: first a bound from the run whose box
   // is nearest, then every run in order but those whose box lies wholly beyond that bound, which hold nothing as near.)
   const boxes = runsOf(xs, zs);
@@ -376,6 +465,7 @@ export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Ar
       if (gaps[k] > bound) continue;
       const i1 = Math.min(n - 1, (k + 1) * RUN);
       for (let i = k * RUN; i < i1; i++) {
+        if (cut !== undefined && cut[i] === 1) continue;
         const ax = xs[i];
         const az = zs[i];
         const bx = xs[i + 1];
@@ -415,6 +505,13 @@ export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Ar
   };
 }
 
+/** Slice 46: how much an irregular shore pushes in or out at a point of an ellipse ((a, b) in its radii, e = |(a, b)|): 1 +- wob / 2, smoothly round it. */
+function wobble(a: number, b: number, e: number, wob: number, key: number, seed: number): number {
+  const ux = e > 1e-6 ? a / e : 1;
+  const uz = e > 1e-6 ? b / e : 0;
+  return 1 + wob * (valueNoise(ux * 1.6 + key, uz * 1.6 - key * 0.37, seed + 461) - 0.5);
+}
+
 /** Bake the coast (the Bay, or a generated land's data: slice 42). Takes a few hundred milliseconds. */
 export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   const size = data.size ?? MAP_SIZE;
@@ -423,6 +520,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   const total = N * N;
 
   // 1. Land and sea, and the signed distance to the shore.
+  const lakes = data.lakes && data.lakes.length > 0 ? data.lakes : null;
   const land = new Uint8Array(total);
   const sea = new Uint8Array(total);
   const near = new Float32Array(total); // analytic distance, accurate close to the shore
@@ -446,9 +544,25 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
         const b = (z - is.z) / is.rz;
         const m = Math.min(is.rx, is.rz);
         // (Slice 42: e is at least the larger of a and b, so where even that leaves the islet's distance below d it can't change it.)
-        if ((1 - Math.max(Math.abs(a), Math.abs(b)) + 1e-9) * m < d) continue;
-        const e = dhypot(a, b);
+        // (Slice 46: an irregular island's e can be as little as (1 - wob / 2) of that.)
+        const shrink = is.wob ? 1 - is.wob / 2 : 1;
+        if ((1 - Math.max(Math.abs(a), Math.abs(b)) * shrink + 1e-9) * m < d) continue;
+        let e = dhypot(a, b);
+        if (is.wob) e *= wobble(a, b, e, is.wob, is.x + is.z * 7.3, seed);
         d = Math.max(d, (1 - e) * m);
+      }
+      // Slice 46: lakes, cut into the land as the sea is.
+      if (lakes) {
+        for (const lk of lakes) {
+          const a = (x - lk.x) / lk.rx;
+          const b = (z - lk.z) / lk.rz;
+          const m = Math.min(lk.rx, lk.rz);
+          const shrink = lk.wob ? 1 - lk.wob / 2 : 1;
+          if ((Math.max(Math.abs(a), Math.abs(b)) * shrink - 1) * m >= d) continue;
+          let e = dhypot(a, b);
+          if (lk.wob) e *= wobble(a, b, e, lk.wob, lk.x * 3.1 + lk.z, seed);
+          d = Math.min(d, (e - 1) * m);
+        }
       }
       const k = j * N + i;
       near[k] = d;
@@ -470,6 +584,8 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   const rock = new Float32Array(total);
   for (let j = 0; j < N; j++) {
     const z = FIELD_MIN + j;
+    // (Slice 46: only the hills that reach this row, in their order: the same sums, and a land of many hills bakes no slower.)
+    const rowHills = data.hills.filter((hill) => sq(z - hill.z) / (hill.r * hill.r) <= 9);
     for (let i = 0; i < N; i++) {
       const x = FIELD_MIN + i;
       const k = j * N + i;
@@ -485,7 +601,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
         h = Math.max(h, -9);
       }
       let rocky = 0;
-      for (const hill of data.hills) {
+      for (const hill of rowHills) {
         const r2 = (sq(x - hill.x) + sq(z - hill.z)) / (hill.r * hill.r);
         if (r2 > 9) continue;
         const g = dexp(-r2);
@@ -498,9 +614,38 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
       rock[k] = rocky;
     }
   }
+  // Slice 46: marsh, low wet ground with pools in it, where a land has any.
+  const marsh = data.marsh && data.marsh.length > 0 ? new Float32Array(total) : null;
+  if (marsh) {
+    for (const m of data.marsh!) {
+      const r = m.r * 1.3;
+      for (let z = Math.max(FIELD_MIN, Math.floor(m.z - r)); z <= Math.min(FIELD_MIN + N - 1, Math.ceil(m.z + r)); z++) {
+        for (let x = Math.max(FIELD_MIN, Math.floor(m.x - r)); x <= Math.min(FIELD_MIN + N - 1, Math.ceil(m.x + r)); x++) {
+          const k = (z - FIELD_MIN) * N + (x - FIELD_MIN);
+          const dd = dhypot(x - m.x, z - m.z) / m.r + (valueNoise(x * 0.09, z * 0.09, seed + 471) - 0.5) * 0.5;
+          const w = 1 - smoothstep(0.55, 1, dd);
+          if (w > marsh[k]) marsh[k] = w;
+        }
+      }
+    }
+    for (let k = 0; k < total; k++) {
+      const w = marsh[k] * smoothstep(0, 2.5, shore[k]);
+      marsh[k] = w;
+      if (w <= 0) continue;
+      const x = FIELD_MIN + (k % N);
+      const z = FIELD_MIN + Math.floor(k / N);
+      const pool = valueNoise(x * 0.15, z * 0.15, seed + 473) * 0.75 + valueNoise(x * 0.41, z * 0.41, seed + 474) * 0.25;
+      const target = pool < 0.36 ? -0.3 : 0.12 + 0.35 * smoothstep(0.36, 0.8, pool);
+      heights[k] = lerp(heights[k], target, w);
+      rock[k] *= 1 - w;
+    }
+  }
 
   // 3. The river: a surface that never flows uphill, carved into its valley.
-  const path = buildRiverPath(data, seed);
+  // (Slice 46: and any other channels, each worked out on its own, after the river; one river alone is as before.)
+  const chans = data.channels ?? [];
+  const riverEnd = chans.reduce((a, c) => (c.join === 'start' ? Math.min(a, c.t[0]) : a), 1);
+  const { path, starts } = riverPaths(data, seed, riverEnd);
   const rn = path.xs.length;
   const sampleH = (x: number, z: number): number => {
     const fx = x - FIELD_MIN;
@@ -517,41 +662,62 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
     return a + (b - a) * tx + (c - a) * tz + (a - b - c + e) * tx * tz;
   };
   const raw = new Float32Array(rn);
-  for (let i = 0; i < rn; i++) {
-    // Lowest ground across the stream's width, so the surface sits below both banks.
-    const dx = i < rn - 1 ? path.xs[i + 1] - path.xs[i] : path.xs[i] - path.xs[i - 1];
-    const dz = i < rn - 1 ? path.zs[i + 1] - path.zs[i] : path.zs[i] - path.zs[i - 1];
-    const l = dhypot(dx, dz) || 1;
-    const nx = -dz / l;
-    const nz = dx / l;
-    let lo = Infinity;
-    for (const o of [-1.5, -0.75, 0, 0.75, 1.5]) {
-      const ww = path.width[i] * o;
-      lo = Math.min(lo, sampleH(path.xs[i] + nx * ww, path.zs[i] + nz * ww));
-    }
-    raw[i] = lo - 0.45;
-  }
   const surface = new Float32Array(rn);
-  surface[0] = raw[0];
-  for (let i = 1; i < rn; i++) surface[i] = Math.min(surface[i - 1] - 0.003, raw[i]);
-  for (let i = 0; i < rn; i++) surface[i] = Math.max(surface[i], 0);
-  // Smooth the steps out, then make sure it still only ever goes down.
-  for (let pass = 0; pass < 4; pass++) {
-    const copy = surface.slice();
-    for (let i = 0; i < rn; i++) {
-      let sum = 0;
-      let cnt = 0;
-      for (let o = -6; o <= 6; o++) {
-        const q = i + o;
-        if (q < 0 || q >= rn) continue;
-        sum += copy[q];
-        cnt++;
-      }
-      surface[i] = Math.min(sum / cnt, raw[i] + 0.25);
+  const ends = [...starts.slice(1), rn];
+  /** The river's own surface (strand 0, worked out first) at its point nearest (x, z). */
+  const riverSurfaceNear = (x: number, z: number): number => {
+    let best = 0;
+    let bd = Infinity;
+    for (let i = 0; i < ends[0]; i++) {
+      const d = sq(path.xs[i] - x) + sq(path.zs[i] - z);
+      if (d < bd) [best, bd] = [i, d];
     }
-  }
-  for (let i = 1; i < rn; i++) surface[i] = Math.min(surface[i], surface[i - 1]);
-  for (let i = 0; i < rn; i++) surface[i] = Math.max(surface[i], 0);
+    return surface[best];
+  };
+  starts.forEach((a, si) => {
+    const b = ends[si];
+    for (let i = a; i < b; i++) {
+      // Lowest ground across the stream's width, so the surface sits below both banks.
+      const dx = i < b - 1 ? path.xs[i + 1] - path.xs[i] : path.xs[i] - path.xs[i - 1];
+      const dz = i < b - 1 ? path.zs[i + 1] - path.zs[i] : path.zs[i] - path.zs[i - 1];
+      const l = dhypot(dx, dz) || 1;
+      const nx = -dz / l;
+      const nz = dx / l;
+      let lo = Infinity;
+      for (const o of [-1.5, -0.75, 0, 0.75, 1.5]) {
+        const ww = path.width[i] * o;
+        lo = Math.min(lo, sampleH(path.xs[i] + nx * ww, path.zs[i] + nz * ww));
+      }
+      raw[i] = lo - 0.45;
+    }
+    const ch = si > 0 ? chans[si - 1] : null;
+    // (A delta's branch leaves the river at the river's own level, or lower.)
+    surface[a] = ch?.join === 'start' ? Math.min(raw[a], riverSurfaceNear(path.xs[a], path.zs[a])) : raw[a];
+    for (let i = a + 1; i < b; i++) surface[i] = Math.min(surface[i - 1] - 0.003, raw[i]);
+    for (let i = a; i < b; i++) surface[i] = Math.max(surface[i], 0);
+    // Smooth the steps out, then make sure it still only ever goes down.
+    for (let pass = 0; pass < 4; pass++) {
+      const copy = surface.slice(a, b);
+      for (let i = a; i < b; i++) {
+        let sum = 0;
+        let cnt = 0;
+        for (let o = -6; o <= 6; o++) {
+          const q = i + o;
+          if (q < a || q >= b) continue;
+          sum += copy[q - a];
+          cnt++;
+        }
+        surface[i] = Math.min(sum / cnt, raw[i] + 0.25);
+      }
+    }
+    for (let i = a + 1; i < b; i++) surface[i] = Math.min(surface[i], surface[i - 1]);
+    for (let i = a; i < b; i++) surface[i] = Math.max(surface[i], 0);
+    // (A tributary never falls below the river it flows into.)
+    if (ch?.join === 'end') {
+      const floor = riverSurfaceNear(path.xs[b - 1], path.zs[b - 1]);
+      for (let i = a; i < b; i++) surface[i] = Math.max(surface[i], floor);
+    }
+  });
   const river: RiverPath = { ...path, surface };
 
   const fertility = new Float32Array(total);
@@ -604,14 +770,18 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   }
 
   // 4. Gentle general fertility on low, flat, inland ground.
+  const dryK = data.dry ? 1 - 0.65 * data.dry : 1;
   for (let j = 1; j < N - 1; j++) {
     for (let i = 1; i < N - 1; i++) {
       const k = j * N + i;
       const sl = dhypot(heights[k + 1] - heights[k - 1], heights[k + N] - heights[k - N]) * 0.5;
       const flat = 1 - smoothstep(0.12, 0.45, sl);
       const low = 1 - smoothstep(2.5, 6, heights[k]);
-      const g = flat * low * smoothstep(2, 7, shore[k]) * (1 - rock[k]) * 0.3;
+      const g0 = flat * low * smoothstep(2, 7, shore[k]) * (1 - rock[k]) * 0.3;
+      // (Slice 46: a dry land is greener only by its water; marsh is too wet to farm.)
+      const g = dryK === 1 ? g0 : g0 * dryK;
       fertility[k] = clamp(Math.max(fertility[k], g), 0, 1);
+      if (marsh && marsh[k] > 0) fertility[k] *= 1 - 0.75 * marsh[k];
     }
   }
 
@@ -662,8 +832,34 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   }
 
   const map = new CoastMap(heights, fertility, rock, shore, tileWater, tileFertility, river, [], data);
+  // Slice 46: where the marsh lies, and on a dry land where water lies under the ground.
+  map.marsh = marsh;
+  if (data.dry) map.groundwater = groundwaterOf(map, data);
   map.trees.push(...scatterTrees(map, data));
   return map;
+}
+
+/** Slice 46: how far from the river's water, a lake's or the sea's shore water lies under a dry land (tiles). */
+export const GROUNDWATER_REACH = 9;
+
+/** Slice 46: the tiles of a dry land with water under the ground: near the river and its channels, the lakes and the sea's shore, and round the springs. */
+function groundwaterOf(map: CoastMap, data: CoastData): Uint8Array {
+  const n = map.size;
+  const out = new Uint8Array(n * n);
+  for (let tz = 0; tz < n; tz++) {
+    for (let tx = 0; tx < n; tx++) {
+      const x = tx + 0.5;
+      const z = tz + 0.5;
+      let wet = map.sample(map.shore, x, z) < GROUNDWATER_REACH * 0.6;
+      if (!wet) {
+        const q = map.riverAt(x, z);
+        wet = q.d < q.width + GROUNDWATER_REACH;
+      }
+      if (!wet) for (const sp of data.springs ?? []) if (dhypot(x - sp.x, z - sp.z) < sp.r) wet = true;
+      if (wet) out[tz * n + tx] = 1;
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -793,7 +989,7 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
       const pz = z + rng.range(-0.5, 0.5);
       const drift = valueNoise(px * 0.13, pz * 0.13, seed + 81);
       const fert = map.sample(map.fertility, px, pz);
-      const chance = smoothstep(0.62, 0.85, drift) * (0.25 + 0.6 * fert) * (1 - map.sample(map.rock, px, pz));
+      const chance = smoothstep(0.62, 0.85, drift) * (0.25 + 0.6 * fert) * (1 - map.sample(map.rock, px, pz)) * (data.dry ? 1 - 0.7 * data.dry : 1);
       if (rng.float() >= chance) continue;
       if (!groundOk(px, pz, 0.5)) continue;
       put(TreeKind.Flowers, px, pz, rng.range(0.8, 1.2), false);
@@ -803,6 +999,8 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
   // Reeds along the lower river banks.
   const r = map.river;
   for (let i = 0; i < r.xs.length - 1; i++) {
+    // (Slice 46: not between one channel's end and the next one's start.)
+    if (r.cut?.[i]) continue;
     const t = r.dist[i] / r.length;
     if (t < 0.25 || r.surface[i] < 0.04) continue;
     for (let k = 0; k < 2; k++) {
@@ -821,14 +1019,18 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
   // Slice 32: the woods the loggers fell, pines with a cypress here and there, on their own random numbers
   // and after every other plant, so every plant that was there before keeps its place and its number.
   const wr = new Rng(seed + 32);
+  const oaks = data.oaks ?? 0;
   for (const w of data.woods ?? []) {
-    const count = Math.round(w.r * w.r * 0.65);
+    // (Slice 46: a wooded land's woods are deeper.)
+    const count = Math.round(w.r * w.r * 0.65 * (w.dense ?? 1));
     for (let i = 0; i < count; i++) {
       const a = wr.range(0, Math.PI * 2);
       const r = Math.sqrt(wr.float()) * w.r;
       const x = w.x + dcos(a) * r;
       const z = w.z + dsin(a) * r;
       const cypress = wr.float() < 0.15;
+      // (Slice 46: on a land with oaks, a draw more for each tree that isn't a cypress; none on the Bay.)
+      const oak = oaks > 0 && !cypress && wr.float() < oaks;
       const scale = cypress ? wr.range(0.85, 1.2) : wr.range(0.8, 1.2);
       const rot = wr.range(0, Math.PI * 2);
       const tint = wr.range(-1, 1);
@@ -836,7 +1038,41 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
       const key = cellKey(x, z);
       if (taken.has(key)) continue;
       taken.add(key);
-      out.push({ kind: cypress ? TreeKind.Cypress : TreeKind.Pine, x, z, scale, rot, tint });
+      out.push({ kind: cypress ? TreeKind.Cypress : oak ? TreeKind.Oak : TreeKind.Pine, x, z, scale, rot, tint });
+    }
+  }
+
+  // Slice 46: thick reeds in the marsh and round the lakes, on their own random numbers and after every other plant.
+  const mr = new Rng(seed + 46);
+  if (map.marsh) {
+    const m = map.marsh;
+    for (const a of data.marsh ?? []) {
+      const r = a.r * 1.3;
+      for (let z = a.z - r; z < a.z + r; z += 0.9) {
+        for (let x = a.x - r; x < a.x + r; x += 0.9) {
+          const px = x + mr.range(-0.4, 0.4);
+          const pz = z + mr.range(-0.4, 0.4);
+          const roll = mr.float();
+          if (!map.inField(px, pz)) continue;
+          const w = map.sample(m, px, pz);
+          const h = map.heightAt(px, pz);
+          // In the shallows of the pools and on the wet ground between them.
+          if (h < -0.22 || h > 0.6 || roll > w * 0.8) continue;
+          put(TreeKind.Reed, px, pz, mr.range(0.6, 1.05), false);
+        }
+      }
+    }
+  }
+  for (const lk of data.lakes ?? []) {
+    const ring = Math.round((lk.rx + lk.rz) * 5);
+    for (let i = 0; i < ring; i++) {
+      const a = mr.range(0, Math.PI * 2);
+      const f = mr.range(0.92, 1.12);
+      const px = lk.x + dcos(a) * lk.rx * f;
+      const pz = lk.z + dsin(a) * lk.rz * f;
+      const h = map.inField(px, pz) ? map.heightAt(px, pz) : 0;
+      if (h < -0.25 || h > 0.7 || mr.float() > 0.7) continue;
+      put(TreeKind.Reed, px, pz, mr.range(0.6, 1.0), false);
     }
   }
   return out;

@@ -27,6 +27,8 @@ export interface Area {
   x: number;
   z: number;
   r: number;
+  /** Slice 46: how much thicker than the Bay's a wood is (none: as the Bay's). */
+  dense?: number;
 }
 
 /** A copper outcrop, and how people name where it is ("in the east hills"). */
@@ -47,7 +49,8 @@ export interface Grove extends Area {
  */
 export interface CoastData {
   shore: [number, number][];
-  islets: Array<{ x: number; z: number; rx: number; rz: number }>;
+  /** (Slice 46: `wob` makes an island's shore irregular; none on the Bay's.) */
+  islets: Array<{ x: number; z: number; rx: number; rz: number; wob?: number }>;
   hills: Hill[];
   river: [number, number][];
   riverWidth: [number, number];
@@ -68,6 +71,43 @@ export interface CoastData {
   districts?: ReadonlyArray<{ x: number; z: number }>;
   /** Where a view of the land opens: the bay's north shore, where a city would start. */
   site?: { x: number; z: number };
+  // Slice 46: what the other kinds of land carry (none on the Bay or slice 42's sheltered bay, which bake as before).
+  /** More river channels: a delta's branches to the sea, a tributary, a second river. */
+  channels?: Channel[];
+  /** Lakes: fresh water at sea level inland, as ellipses (a wobble makes them irregular). */
+  lakes?: Lake[];
+  /** Marsh: low wet ground with pools and thick reeds. */
+  marsh?: Area[];
+  /** How dry the land is away from its water (0 or none: as green as the Bay; 1: a dry plain). */
+  dry?: number;
+  /** On a dry land, springs: water lies under the ground round each (and along the river and round the lakes). */
+  springs?: Area[];
+  /** The share of oaks among the loggers' woods' trees (none: pines with a cypress here and there, as on the Bay). */
+  oaks?: number;
+}
+
+/** Slice 46: a river channel besides the main river. */
+export interface Channel {
+  /** Its course, downstream. */
+  pts: [number, number][];
+  /** Half-width of the stream at its start and its end. */
+  width: [number, number];
+  /** Half-width of the flood plain beside it, at its start and its end. */
+  valley: [number, number];
+  /** How far along the whole river (0 at the spring, 1 at the sea) its start and its end are: it is as deep and as full as that. */
+  t: [number, number];
+  /** Which of its ends joins the main river: 'start' (a delta's branch, leaving it), 'end' (a tributary, flowing into it), or none (a river of its own). */
+  join?: 'start' | 'end';
+}
+
+/** Slice 46: a lake. */
+export interface Lake {
+  x: number;
+  z: number;
+  rx: number;
+  rz: number;
+  /** How irregular its shore is (0: an ellipse). */
+  wob?: number;
 }
 
 export const coast: CoastData = {

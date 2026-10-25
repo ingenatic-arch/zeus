@@ -123,7 +123,8 @@ const LOGGER_WORDS: Record<ReturnType<typeof loggerDoing>, string> = {
   home: 'carrying logs home',
 };
 
-const treeWord = (s: SimState, i: number): string => (mapOf(s).trees[i]?.kind === TreeKind.Cypress ? 'cypress' : 'pine');
+// (Slice 46: and an oak.)
+const treeWord = (s: SimState, i: number): string => ({ [TreeKind.Cypress]: 'cypress', [TreeKind.Oak]: 'oak' } as Partial<Record<TreeKind, string>>)[mapOf(s).trees[i]?.kind] ?? 'pine';
 
 /** A quarryman or a logger, hovered: what he is doing. Null for anyone else. */
 export function materialWalkerStatus(s: SimState, w: Walker): Status | null {

@@ -18,16 +18,30 @@ import { MAP_MARGIN, type Area, type CoastData, type Grove, type HerdHome, type 
 import { dcos, dpow, dsin } from './dmath';
 import { clamp, lerp, smoothstep, valueNoise } from './noise';
 
+// Slice 46: the other kinds, and the sheltered bay's second edition.
+import { generateKind } from './kinds';
+
 /** The generated kinds (lands.ts adds the Bay). */
-export type GeneratedKind = 'sheltered';
+export type GeneratedKind = 'sheltered' | 'islands' | 'delta' | 'mountains' | 'dryplain' | 'woods';
+
+/**
+ * Slice 46: the generator's edition. A land is made by the edition it was
+ * founded with, so a town saved on it always finds the same ground: edition 1
+ * is slice 42's sheltered bay (below, unchanged), edition 2 every kind of
+ * slice 46 (kinds.ts).
+ */
+export const LAND_GEN = 2;
 
 /** A seed for the land's noise and plants, from its generator seed (kept well inside 32 bits, so `seed + k` never wraps). */
 const noiseSeed = (seed: number): number => 0x10000 + ((Math.imul(seed >>> 0, 0x9e3779b1) >>> 0) % 0x3fff0000);
 
-/** Generate a land's shapes. */
-export function generateCoast(kind: string, size: number, seed: number): CoastData {
-  if (kind !== 'sheltered') throw new Error(`No land of kind "${kind}"`);
-  return shelteredBay(size, seed >>> 0);
+/** Generate a land's shapes (slice 46: by the edition it was founded with). */
+export function generateCoast(kind: string, size: number, seed: number, gen: number = LAND_GEN): CoastData {
+  if (gen === 1) {
+    if (kind !== 'sheltered') throw new Error(`No land of kind "${kind}" in the first edition`);
+    return shelteredBay(size, seed >>> 0);
+  }
+  return generateKind(kind, size, seed >>> 0);
 }
 
 /** A rounded bump: 1 at u = 0, falling smoothly to 0 at |u| = 1. */

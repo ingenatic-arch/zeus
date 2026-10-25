@@ -155,6 +155,25 @@ function flowers(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+/** Slice 46: the oaks' leaves (their own, not the palette's: the look keeps today's colours for everything else). */
+const OAK = '#557a35';
+const OAK_DARK = '#44652c';
+
+/** Slice 46: an oak of the wooded coast: a stout trunk and a broad, round, dark crown. */
+function oak(): THREE.BufferGeometry {
+  const trunk = new THREE.CylinderGeometry(0.09, 0.15, 0.95, 5).translate(0, 0.47, 0);
+  const limb = new THREE.CylinderGeometry(0.04, 0.07, 0.5, 4).rotateZ(0.8).translate(0.2, 0.9, 0);
+  return merge([
+    { geo: trunk, color: PAL.trunk },
+    { geo: limb, color: PAL.trunk },
+    { geo: blob(0.66, 0, 1.38, 0, 0.78, 16), color: OAK },
+    { geo: blob(0.48, 0.46, 1.2, 0.12, 0.8, 17), color: OAK_DARK },
+    { geo: blob(0.46, -0.44, 1.24, -0.16, 0.8, 18), color: OAK },
+    { geo: blob(0.42, 0.06, 1.3, 0.48, 0.8, 19), color: OAK_DARK },
+    { geo: blob(0.4, -0.08, 1.74, -0.06, 0.75, 20), color: OAK },
+  ]);
+}
+
 const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Olive]: olive,
   [TreeKind.Pine]: pine,
@@ -164,6 +183,7 @@ const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Rock]: rock,
   [TreeKind.Reed]: reeds,
   [TreeKind.Flowers]: flowers,
+  [TreeKind.Oak]: oak,
 };
 
 /** How much the colour of each kind varies between instances. */
@@ -176,6 +196,7 @@ const TINT: Record<TreeKind, number> = {
   [TreeKind.Rock]: 0.1,
   [TreeKind.Reed]: 0.1,
   [TreeKind.Flowers]: 0.12,
+  [TreeKind.Oak]: 0.1,
 };
 
 /**

@@ -151,6 +151,19 @@ function pine(seed: number): THREE.BufferGeometry {
   return mergeSoft(parts);
 }
 
+/** Slice 46: an oak of the wooded coast: a stout trunk, boughs spreading into a broad, round, deep green crown. */
+function oak(seed: number): THREE.BufferGeometry {
+  const parts: Soft[] = [];
+  const bark = col('#5f4a38');
+  const base = new THREE.Vector3(0, -0.05, 0);
+  const top = new THREE.Vector3(0.04, 0.78, 0);
+  parts.push({ geo: limb(base, top, 0.15, 0.1, 7), color: bark });
+  const c = new THREE.Vector3(0.03, 1.32, 0);
+  const spots = crown({ centre: c, radius: new THREE.Vector3(0.78, 0.52, 0.74), clumps: 15, size: [0.2, 0.3], light: '#6f9248', dark: '#2a4426', seed, flat: 0.8, shell: 0.7, fine: false }, parts);
+  for (let i = 0; i < 5; i++) parts.push({ geo: limb(top, spots[i].clone().lerp(c, 0.3), 0.06, 0.025, 5), color: bark });
+  return mergeSoft(parts);
+}
+
 function cypress(seed: number): THREE.BufferGeometry {
   const parts: Soft[] = [];
   parts.push({ geo: limb(new THREE.Vector3(0, -0.05, 0), new THREE.Vector3(0, 0.3, 0), 0.06, 0.05, 5), color: col(PAL.trunk) });
@@ -209,6 +222,8 @@ export function lookTreeModel(kind: TreeKind): THREE.BufferGeometry | null {
       return scrub(304);
     case TreeKind.Broom:
       return broom(305);
+    case TreeKind.Oak:
+      return oak(306);
     default:
       return null;
   }
