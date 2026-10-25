@@ -1,0 +1,134 @@
+/*
+ * Slice 44: the town's messages. The scroll on the top bar with its seal, the
+ * Messages panel on the left (where a home's panel opens: marble in a bronze
+ * frame, like it), and the alarms popping up at the bottom left.
+ */
+
+/* ------------------------------------------------------------------ the scroll on the top bar */
+.scroll-btn {
+  appearance: none; position: relative; flex: none; width: 34px; height: 32px; padding: 0; margin: 0 -4px 0 -6px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 3px; border: 1px solid rgba(110, 76, 30, 0.75); background: rgba(255, 252, 240, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(20, 12, 4, 0.3);
+}
+.scroll-btn:hover { background: rgba(255, 252, 240, 0.8); }
+.scroll-btn:active { transform: translateY(1px); }
+.scroll-btn:focus-visible { outline: 2px solid var(--gold, #e2b24e); outline-offset: 2px; }
+.scroll-btn svg { width: 22px; height: 22px; filter: drop-shadow(0 1px 0 rgba(255, 252, 240, 0.7)); }
+.scroll-btn svg .sheet { fill: #f4e4bf; stroke: #8a6440; stroke-width: 0.9; }
+.scroll-btn svg .lines { stroke: #8a6440; stroke-width: 0.9; stroke-linecap: round; fill: none; }
+.scroll-btn svg .roll { fill: #d9b98a; stroke: #6e4e30; stroke-width: 0.9; }
+.scroll-btn.open { background: rgba(255, 252, 240, 0.85); border-color: #6e4e30; box-shadow: inset 0 1px 3px rgba(60, 36, 8, 0.35); }
+/* The seal: a wax disc with the count, red for an alarm, amber for a warning, bronze for news. */
+.scroll-btn .seal {
+  position: absolute; top: -7px; right: -9px; min-width: 19px; height: 19px; padding: 0 4px; box-sizing: border-box; border-radius: 10px;
+  font: 700 11.5px/19px var(--serif, Georgia, serif); color: #fff6e4; text-align: center; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  background: radial-gradient(circle at 35% 30%, #c09060, #8a6a3a 60%, #5e4422); border: 1px solid rgba(60, 36, 8, 0.6);
+  box-shadow: 0 1px 2px rgba(20, 12, 4, 0.45); pointer-events: none;
+}
+.scroll-btn .seal[hidden] { display: none; }
+.scroll-btn .seal.warning { background: radial-gradient(circle at 35% 30%, #f0b858, #c8801e 60%, #8a5410); }
+.scroll-btn .seal.alarm { background: radial-gradient(circle at 35% 30%, #e0604a, #b8322a 60%, #7a1a12); }
+
+/* ------------------------------------------------------------------ the Messages panel */
+.household.messages { width: 384px; }
+/* The map of Greece puts the city's panels away; not this one, which is about Greece too (it takes the city's page's place). */
+body.greece-open #ui .household.messages:not([hidden]) { display: flex !important; }
+body.greece-open #ui .household.messages { max-height: calc(100% - 106px); }
+.household.messages .mhead { position: relative; padding: 10px 44px 4px 16px; }
+.household.messages .mhead h2 { margin: 0; }
+.household.messages .mhead .kicker { margin-top: 1px; }
+.household.messages .allread { position: absolute; right: 44px; top: 12px; font-size: 12.5px; padding: 2px 10px; }
+.household.messages .allread:disabled { opacity: 0.5; cursor: default; transform: none; }
+.household.messages .mchips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 14px 8px; border-bottom: 1px solid rgba(138, 100, 48, 0.35); }
+.mchip {
+  appearance: none; font: inherit; font-size: 12.5px; line-height: 1; color: var(--ink); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 3px;
+  border: 1px solid rgba(110, 76, 30, 0.55); background: rgba(255, 252, 240, 0.5); text-shadow: var(--cut, none);
+}
+.mchip:hover { background: rgba(255, 252, 240, 0.9); }
+.mchip.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: linear-gradient(180deg, #4a70b4, var(--lapis, #2c4a86) 50%, var(--lapis-deep, #1e3566)); }
+.mchip b { font-weight: 700; font-size: 11px; min-width: 14px; padding: 1px 3px; border-radius: 7px; text-align: center; color: #fff6e4; background: #8a6a3a; text-shadow: none; }
+.mchip.on b { background: rgba(255, 246, 210, 0.25); }
+.household.messages .body { padding: 2px 10px 12px 12px; }
+.household.messages h3 { margin: 12px 4px 3px; }
+.household.messages .empty, .household.messages .since { margin: 10px 6px; font-size: 13px; color: var(--ink-soft); font-style: italic; }
+
+/* What waits on you. */
+.household.messages .waiting { list-style: none; margin: 0; padding: 0; }
+.household.messages .waiting button {
+  appearance: none; display: flex; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: 13px; line-height: 1.32; color: var(--ink); cursor: pointer;
+  margin: 3px 0; padding: 5px 8px; border-radius: 3px; border: 1px solid rgba(208, 138, 30, 0.75); background: rgba(253, 236, 200, 0.6);
+}
+.household.messages .waiting button:hover { background: rgba(253, 236, 200, 0.95); }
+.household.messages .waiting button.raid { border-color: rgba(184, 50, 42, 0.7); background: rgba(250, 222, 212, 0.6); }
+.household.messages .waiting button.raid:hover { background: rgba(250, 222, 212, 0.95); }
+.household.messages .waiting svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+
+/* A message: its icon, day and title in a row (bold while unread); its words open under it. */
+.household.messages .msg { position: relative; display: grid; grid-template-columns: 1fr auto; border-left: 3px solid transparent; border-radius: 2px; }
+.household.messages .msg + .msg { border-top: 1px solid rgba(138, 100, 48, 0.16); }
+.household.messages .msg.u1 { border-left-color: #d08a1e; }
+.household.messages .msg.u2 { border-left-color: #b8322a; }
+.household.messages .msg.open { background: rgba(255, 252, 240, 0.55); }
+.household.messages .msg .row {
+  appearance: none; display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 4px 4px 4px 5px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 13.5px; line-height: 1.3; color: var(--ink); text-align: left; text-shadow: inherit;
+}
+.household.messages .msg .row:hover { background: rgba(255, 252, 240, 0.6); }
+.household.messages .msg .ic { width: 16px; height: 16px; flex: none; align-self: center; }
+.household.messages .msg .ic svg { width: 16px; height: 16px; display: block; }
+.household.messages .msg .day { flex: none; width: 46px; font-size: 12px; color: var(--ink-soft); font-variant-numeric: lining-nums tabular-nums; }
+.household.messages .msg .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.household.messages .msg.open .t { white-space: normal; }
+.household.messages .msg.unread .t { font-weight: 700; }
+.household.messages .msg.unread.u2 .t { color: #8c2f26; }
+.household.messages .msg .pin { appearance: none; width: 24px; height: 24px; margin: 2px 0; padding: 4px; border: 0; background: none; cursor: pointer; opacity: 0; }
+.household.messages .msg:hover .pin, .household.messages .msg.pinned .pin, .household.messages .msg .pin:focus-visible { opacity: 1; }
+.household.messages .msg .pin svg { width: 15px; height: 15px; display: block; }
+.household.messages .msg .pin .pinhead { fill: none; stroke: #8a6440; stroke-width: 1.1; stroke-linejoin: round; }
+.household.messages .msg.pinned .pin .pinhead { fill: #b8322a; stroke: #6e1a14; }
+.household.messages .msg .more { grid-column: 1 / -1; padding: 0 10px 8px 27px; }
+.household.messages .msg .more p { margin: 0 0 6px; font-size: 13.5px; line-height: 1.38; }
+.household.messages .msg .acts { display: flex; align-items: center; gap: 12px; }
+.household.messages .msg .go { font-size: 12.5px; padding: 2px 10px; }
+.household.messages .link { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--ink-soft); text-decoration: underline; cursor: pointer; }
+
+/* Which alarms pop up. */
+.household.messages .pops { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 2px 4px; }
+.household.messages .pops label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
+.household.messages .pops input { margin: 0; accent-color: #2c4a86; }
+.household.messages .pops svg { width: 15px; height: 15px; }
+.household.messages .foot { margin: 6px 4px 0; font-size: 12px; color: var(--ink-soft); line-height: 1.35; }
+
+/* ------------------------------------------------------------------ the alarms popping up */
+.msg-pop {
+  position: absolute; left: 14px; bottom: 14px; z-index: 6; width: 392px; box-sizing: border-box;
+  display: flex; gap: 10px; align-items: flex-start; padding: 8px 32px 9px 10px; cursor: pointer;
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch;
+  box-shadow: 0 10px 24px rgba(20, 12, 4, 0.45); text-shadow: var(--cut, none); color: var(--ink);
+  font: 14px/1.36 var(--serif, Georgia, serif);
+  animation: msg-pop-in 0.35s ease-out;
+  transition: opacity 0.4s ease-in, transform 0.4s ease-in;
+}
+.msg-pop[hidden] { display: none; }
+.msg-pop.out { opacity: 0; transform: translateY(8px); }
+.msg-pop::before { content: ''; position: absolute; left: -2px; top: -2px; bottom: -2px; width: 4px; background: #b8322a; }
+.msg-pop.u1::before { background: #d08a1e; }
+.msg-pop .ic { flex: none; width: 30px; height: 30px; margin-top: 2px; }
+.msg-pop .ic svg { width: 30px; height: 30px; display: block; }
+.msg-pop .txt { min-width: 0; }
+.msg-pop b { display: block; font: 700 16px/1.25 var(--serif, Georgia, serif); color: #8c2f26; }
+.msg-pop.u1 b { color: #7a4a10; }
+.msg-pop p { margin: 2px 0 0; font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.msg-pop .go { display: block; margin-top: 3px; font-size: 12px; color: var(--ink-soft); font-style: italic; }
+.msg-pop .close {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0 0 2px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(110, 76, 30, 0.6); background: rgba(255, 252, 240, 0.6); color: var(--ink-soft); font: inherit; font-size: 15px; line-height: 1;
+}
+.msg-pop:hover { box-shadow: 0 10px 24px rgba(20, 12, 4, 0.5), 0 0 0 2px rgba(226, 178, 78, 0.6); }
+@keyframes msg-pop-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .msg-pop { animation: none; transition: none; } }
+/* On the map of Greece, beside a city's page rather than over it. */
+body.greece-open #ui:has(> .greece-panel:not([hidden])) > .msg-pop { left: 402px; }

@@ -11,11 +11,8 @@ import { ACTOR_RANGE, ACTOR_WALK, PRIESTESS_RANGE, PRIESTESS_WALK } from './cult
 import { DAYS_PER_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { againstDue, arrivesAt, dayWords, dealWords, dueWords, offerWords, openDeals, sendTicks } from './favours';
 import { loanOfDeal, loanTownLine, termsWords } from './loans';
-import { expeditionLine, expeditionOut } from './expeditions';
-// Slice 34
-import { empireTownLine } from './vassals';
 // Slice 37: settlers walking down to the quay, the homes they left, a colony that needs you.
-import { colonistDoing, colonyTownLine, leftFor } from './colonies';
+import { colonistDoing, leftFor } from './colonies';
 // Slice 43.
 import { shipperDoing } from './colonyworks';
 import {
@@ -59,7 +56,7 @@ import { COTTAGE_FOOD_MIN, DECLINE_AFTER } from './houses';
 import { canWork, canWorkIn, rateOf, workforce } from './labour';
 import { armouryStatus, barracksStatus, mineStatus, servesLine, shipyardStatus } from './armystatus';
 import { campStatus, materialWalkerStatus, quarryStatus } from './materialstatus';
-import { masonsStatus, monumentTownLine, monumentWalkerStatus, siteStatus } from './monumentstatus';
+import { masonsStatus, monumentWalkerStatus, siteStatus } from './monumentstatus';
 import { towerStatus } from './wallstatus';
 // Slice 36.
 import { ESTATE_NEEDS, ESTATE_WORDS, isEstate, plotWaits, WARE_OF, wareUntil } from './estates';
@@ -67,21 +64,21 @@ import { ESTATE, GREAT_ESTATE } from './buildings';
 import type { Service } from './state';
 import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
-import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
+import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, pronouns, type Temptation } from './crime';
 // Slice 41.
 import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeChoice } from './crime';
 import { brokenPlace, criminalDoing, criminalStatus, grievances, mendWords, misdeedLines } from './misdeeds';
 import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { CREW, crewOut, distFrom, roadsBeside } from './rounds';
-import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
+import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, TradeRoute, Walker } from './state';
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { caravanDoing, caravanOf, routeNews } from './routes';
 import { liveRaid, raidChip, raiderDoing, raidLine, raidersOf } from './raids';
-import { PLACES } from '../map/greece';
+import { PLACES, type CityId } from '../map/greece';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, goneForTaxes, HARSH, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
-import { hasTaxOffice, monthOf, owedWages, reserve, totals, WAGE, wageBill } from './treasury';
+import { hasTaxOffice, monthOf, owedWages, reserve, spendable, totals, WAGE, wageBill } from './treasury';
 import { clearFee } from './build';
 import { districtAt, districtTitle } from '../map/districts';
 import {
@@ -89,6 +86,7 @@ import {
   burnable,
   daysToFull,
   FIRE_BURNING,
+  FIRE_NONE,
   FIRE_SMOULDER,
   HAZARD_FULL,
   INSPECT_RANGE,
@@ -102,8 +100,6 @@ import {
 } from './hazards';
 // Slice 33: the seasons' pace in the farms', groves' and flocks' lines.
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
-// Slice 39.
-import { ambitionTownLine } from './ambitions';
 // Slice 36: the bread line at this season's pace.
 import { SEASON_NAMES, seasonAt } from './seasons';
 
@@ -1305,25 +1301,6 @@ export function newsUrgent(s: SimState, map: CoastMap): NewsItem | null {
   return null;
 }
 
-/** The standing line for a live threat, or a band out (on the way, or in your city): ahead of every other deal. */
-function raidTownLine(s: SimState, map: CoastMap): TownLine | null {
-  const r = liveRaid(s.world) ?? s.world.raids.find((x) => x.phase === 'raiding' && raidersOf(s, x));
-  if (!r) return null;
-  const text = raidLine(s, map, r);
-  return text ? { need: 'raid', text: `${text}.`, at: 0, route: r.city } : null;
-}
-
-/** How long the army's latest news (a band broken, a man fallen, a company broken, hirelings walking off) stays on the town lines. */
-const ARMY_NEWS_SHOWS = 10 * TICKS_PER_DAY;
-
-/** The army's latest news, in its own line: a fight's outcome, the fallen mourned, hirelings gone. */
-function battleTownLine(s: SimState): TownLine | null {
-  const n = s.army.news.at(-1);
-  if (!n || n.tick > s.tick || s.tick - n.tick >= ARMY_NEWS_SHOWS) return null;
-  const more = s.army.news.filter((x) => x !== n && x.tick <= s.tick && s.tick - x.tick < ARMY_NEWS_SHOWS).length;
-  return { need: 'battle', text: `${n.line}.${more ? ` (${more === 1 ? 'And one more' : `And ${more} more`} on the Military tab.)` : ''}`, at: n.at };
-}
-
 /** The top bar's chip for a band on its way or in your city: its few words, and the city whose page it opens. */
 export function raidChipNow(s: SimState): { chip: string; city: string } | null {
   for (const r of s.world.raids) {
@@ -1339,16 +1316,21 @@ const askedFor = (n: NewsItem, d: Deal): boolean => n.city === d.city && n.tick 
 /** Is a line of news the ask of a deal you have already answered (or that has ended)? */
 const answeredAsk = (s: SimState, n: NewsItem): boolean => s.world.deals.some((d) => d.state !== 'open' && askedFor(n, d));
 
-/** The most pressing deal a ruler waits on you for (requests and tribute soonest due first, then what you sent, then offers), as a standing line under the top bar. */
-function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal } | null {
-  // (A threat has its own line: raidTownLine.)
-  const open = openDeals(s.world).filter((d) => d.kind !== 'threat');
-  if (!open.length) return null;
+/**
+ * The deals a ruler waits on you for (requests and tribute soonest due
+ * first, then what you sent, then offers), not threats (the raid chip has
+ * them). Slice 44: for the Messages panel's "Waiting on you", now the line
+ * under the top bar that named the first of them is gone.
+ */
+export function dealsWaiting(s: SimState): Deal[] {
   const rank = (d: Deal): number => (d.kind === 'offer' || d.kind === 'loanoffer' ? 2 : d.gift ? 1 : 0);
-  const d = open.slice().sort((a, b) => rank(a) - rank(b) || a.due - b.due)[0];
+  return openDeals(s.world).filter((d) => d.kind !== 'threat').sort((a, b) => rank(a) - rank(b) || a.due - b.due);
+}
+
+/** A deal a ruler waits on you for, in words: what, by when, and where to answer (or what you sent, and when it arrives). */
+export function dealLine(s: SimState, map: CoastMap, d: Deal): string {
   const name = PLACES[d.city].name;
   const whose = name.endsWith('s') ? `${name}’` : `${name}’s`;
-  const more = open.length > 1 ? ` (and ${open.length - 1} more: see ${open.filter((x) => x !== d).map((x) => `${PLACES[x.city].name}’s page`).join(', ')})` : '';
   const words = dealWords(d);
   let text: string;
   if (d.gift) {
@@ -1368,7 +1350,7 @@ function dealTownLine(s: SimState, map: CoastMap): { line: TownLine; deal: Deal 
     text = `You promised ${name} ${words} and nothing has gone: send it ${dueWords(s, d)}, from ${whose} page, or your word is broken${late ? ` (it would arrive late now, for half the thanks, but sending it keeps your word)` : ''}`;
   }
   else text = `${name} asks for ${words} ${dueWords(s, d)}: ${d.why}. Answer on ${whose} page`;
-  return { line: { need: 'favour', text: `${text}${more}.`, at: 0, route: d.city }, deal: d };
+  return `${text}.`;
 }
 
 /** Workers with no road to the jobs left, before the workers line names them rather than asking for more homes. */
@@ -1381,57 +1363,14 @@ const IDLE_WORDS = 4;
  * already warning about bread while the farms grow less than a tenth more
  * than the town eats) and workers (jobs unfilled). Empty when all is well.
  */
-/** The news of a debt of yours climbing a step (loans.ts: warn, seizeStep), which the loan's own town line stands for. */
-const DEBT_STEP_NEWS = /^Your loan from .+ fell due and went unpaid \(|has closed (his|her) routes to you over your unpaid debt/;
-/** The news of a ruler's debt to you gone overdue (loans.ts: fallsDue, stageDefault). */
-const THEIR_DEBT_NEWS = /has not repaid the [\d,]+ dr it owes you/;
-
 export function townLines(s: SimState, map: CoastMap): TownLine[] {
+  // Slice 44: the lines keep how things stand that the town can fix: the risks nobody guards (fire, wear, homes tempted to
+  // steal), your debts overdue or due with too little to pay, and what the town is short of (bread and food, the stall goods,
+  // workers, money, harsh taxes, winter's bread). Everything that is news (ships and caravans, Greece, rulers' asks, raids, the
+  // army, the empire, crime's thefts and catches, fires, rubble, the monuments, laurels) is the town's messages now (heard.ts).
   const out: TownLine[] = hazardTownLines(s, map);
-  const ship = shipTownLine(s);
-  if (ship) out.unshift(ship);
-  const trader = traderTownLine(s);
-  if (trader) out.unshift(trader);
-  // What a ruler waits on you for (a request, an offer, tribute), while it is open.
-  const raid = raidTownLine(s, map);
-  if (raid) out.push(raid);
-  const battle = battleTownLine(s);
-  if (battle) out.push(battle);
-  // (Not news the army's line has just told in the same words: a fight at sea on a lane. Review of slice 26.)
-  const told = battle ? s.army.news.at(-1)?.line : undefined;
-  const alarm = newsUrgent(s, map);
-  // (Not the news of your debt's warning or its routes closing (slice 28): the loan's own line below says what it is now and what
-  // comes next, and once it is paid the news would be stale. Nor the news of a ruler's debt to you gone overdue once it no longer is:
-  // forgiven, met or collected.)
-  const stale = alarm && (DEBT_STEP_NEWS.test(alarm.line) || (THEIR_DEBT_NEWS.test(alarm.line) && !s.world.loans.some((l) => l.city === alarm.city && l.side === 'out' && l.state === 'overdue')));
-  // (Nor news the army's line tells in other words, the same up to its first stop: raiders through a gate or wall, your army's
-  // fight abroad. Review of phase 4.)
-  // (Once the army's line has told it, not after it goes either: the alarm would come back days late. Review of phase 4.)
-  const lead = (t: string): string => t.replace(/ your (gate|wall)/, ' the $1').split(/[:,]/)[0];
-  const armyTold = (line: string): boolean => s.army.news.some((n) => n.tick <= s.tick && s.tick - n.tick < NEWS_DAYS * TICKS_PER_DAY && lead(n.line) === lead(line));
-  const same = alarm && armyTold(alarm.line);
-  if (alarm && !stale && !same) out.push({ need: 'alarm', text: `From Greece: ${alarm.line}.`, at: 0, route: alarm.city });
-  const deal = dealTownLine(s, map);
-  if (deal) out.push(deal.line);
-  // A loan that needs you: terms waiting on your answer, your loan due soon with too little in the treasury, or overdue (loans.ts).
-  // (Or your soldiers out on an expedition: where they are; slice 28.)
-  const away = expeditionOut(s);
-  const loan = loanTownLine(s) ?? (away ? { text: `${expeditionLine(s, away)}.`, city: away.city } : null);
-  if (loan) out.push({ need: 'loan', text: loan.text, at: 0, route: loan.city });
-  // Slice 34: a vassal arming, an ally's call waiting, men coming to help you, tribute coming in (vassals.ts).
-  const empire = empireTownLine(s);
-  // Slice 37: or a colony talking of freedom or threatened, or your settlers on their way (its page on the map). One empire line
-  // shows at a time (they are kept by kind): the one that matters more (review of slice 37: by rank, then urgency; a tie, the empire's).
-  const colony = colonyTownLine(s);
-  const weigh = (l: { rank: number; urgent: boolean }): number => 2 * l.rank + (l.urgent ? 1 : 0);
-  if (colony && (!empire || weigh(colony) > weigh(empire))) out.push({ need: 'empire', text: colony.text, at: 0, route: `site:${colony.site}` });
-  else if (empire) out.push({ need: 'empire', text: empire.text, at: 0, route: empire.city });
-  // News from Greece (a harvest, a mood turning, a gift, a request), one piece at a time; not the news of the deal the line above already shows.
-  const news = newsNow(s);
-  // (Nor the news of the terms or the refusal your herald brought back, while the loan's own line stands for it.)
-  // (Nor the news that you sent your soldiers out (slice 28): the army's own news says it, and the expedition's line where they are.)
-  const sent = away && news && news.item.city === away.city && /^You sent (a raiding party|a full force) /.test(news.item.line);
-  if (news && !sent && news.item.line !== told && !armyTold(news.item.line) && !(deal && askedFor(news.item, deal.deal)) && !(loan && news.item.city === loan.city && /^Your herald reached /.test(news.item.line))) out.push({ need: 'greece', text: `From Greece: ${news.item.line}.${news.waiting ? ` (${news.waiting} more to come)` : ''}`, at: 0, route: news.item.city });
+  const debt = debtTownLine(s);
+  if (debt) out.push(debt);
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
@@ -1545,12 +1484,41 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (money) out.push(money);
   const harsh = harshLine(s);
   if (harsh) out.push(harsh);
-  // Slice 35: the monuments (the games on or coming, a stage or a monument finished, a site stuck).
-  const monument = monumentTownLine(s);
-  if (monument) out.push({ need: 'monument', text: monument.text, at: monument.at });
-  // Slice 39: a laurel reached (a milestone, an ambition achieved, the grand finish), for a few days.
-  const laurel = ambitionTownLine(s);
-  if (laurel) out.push({ need: 'ambition', text: laurel, at: 0 });
+  return out;
+}
+
+/**
+ * Slice 44: your debt as it stands, under the top bar: a loan of yours
+ * overdue (what comes next, and when), or due within a month that the
+ * treasury can't meet. (Terms waiting on your answer, a ruler asking for
+ * time and your soldiers away were here too: they are the town's messages
+ * and the Messages panel's "Waiting on you" now.)
+ */
+function debtTownLine(s: SimState): TownLine | null {
+  const w = s.world;
+  if (w.loans.some((l) => l.side === 'in' && l.state === 'overdue')) {
+    const l = loanTownLine(s);
+    return l ? { need: 'loan', text: l.text, at: 0, route: l.city } : null;
+  }
+  const soon = w.loans.find((l) => l.side === 'in' && l.state === 'running' && l.due - s.tick <= TICKS_PER_MONTH && spendable(s) < l.owed);
+  if (!soon) return null;
+  const n = Math.max(1, Math.ceil((soon.due - s.tick) / TICKS_PER_DAY));
+  return { need: 'loan', text: `Your loan from ${PLACES[soon.city].name} is due in ${n === 1 ? '1 day' : `${n} days`}: ${fmt(soon.owed)} dr, and the treasury can spend ${fmt(spendable(s))} dr now.`, at: 0, route: soon.city };
+}
+
+/**
+ * Slice 44: the loans that wait on your answer, for the Messages panel's
+ * "Waiting on you": terms a ruler offers you (accept or decline), and a city
+ * asking you for more time to repay. In loanTownLine's words, each asked of
+ * that loan alone.
+ */
+export function loansWaiting(s: SimState): Array<{ city: CityId; text: string }> {
+  const out: Array<{ city: CityId; text: string }> = [];
+  for (const l of s.world.loans) {
+    if (l.state !== 'terms' && !(l.side === 'out' && l.state === 'grace')) continue;
+    const line = loanTownLine({ ...s, world: { ...s.world, loans: [l] } });
+    if (line) out.push({ city: line.city, text: line.text.replace(/\.$/, '') });
+  }
   return out;
 }
 
@@ -1767,8 +1735,6 @@ export function rubbleStatus(_s: SimState, b: Building): Status {
 const EARLY_WARN = 0.75;
 /** Slice 30: fire risk warns sooner, from half way, with the days until the first smoulder. */
 const FIRE_WARN = 0.5;
-/** Rubble shows on the town lines for this long after the fall. */
-const RUBBLE_NEWS = 2 * TICKS_PER_MONTH;
 
 /** "By the olive grove": where a building stands, for the start of a town line. */
 const whereIs = (map: CoastMap, b: Building): string => {
@@ -1791,33 +1757,47 @@ const inReach = (search: Search | null, s: SimState, size: number, b: Building, 
 /** "the fine house of the Kallias family", "the granary". */
 const named = (b: Building): string => placeName(b);
 
+/** Slice 44: a building burning, for the town's messages: where, how soon it falls, whether it spreads, and whether help comes. */
+export function burningLine(s: SimState, map: CoastMap, f: Building): string {
+  const coming = s.walkers.some((w) => w.kind === 'watchman' && w.target === f.id);
+  const help = coming ? 'A watchman is on his way with his bucket.' : 'No watchman has seen it: a watch post (Z twice) within sight of it sends one running.';
+  return `Fire ${whereIs(map, f).toLowerCase()}: ${named(f)} is burning and falls in ${days(Math.max(1, f.fireAt - s.tick))}; ${spreadWords(s, f)}. ${help}`;
+}
+
+/** Slice 44: a building smouldering, for the town's messages. */
+export function smoulderLine(s: SimState, map: CoastMap, f: Building): string {
+  return `Smoke ${whereIs(map, f).toLowerCase()}: ${named(f)} is smouldering and bursts into flame in ${days(Math.max(1, f.fireAt - s.tick))} unless a watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}.`;
+}
+
+/** Slice 44: a building creaking, for the town's messages. */
+export function creakLine(s: SimState, map: CoastMap, c: Building): string {
+  return `Creaking ${whereIs(map, c).toLowerCase()}: ${named(c)} falls down in ${days(Math.max(1, c.creakAt - s.tick))} unless an inspector walks by: ${whyUnguarded(s, map, c, 'architect')}.`;
+}
+
+/** Slice 44: a heap of rubble just fallen, for the town's messages: what it was, and clearing it. */
+export function rubbleLine(_s: SimState, map: CoastMap, r: Building): string {
+  const what = r.was === 'home' ? (r.ruin ? `the house of ${r.ruin}` : 'a home') : r.was ? BUILDING_NAMES[r.was].replace(/^An? /, 'a ').replace(/^The /, 'the ') : 'a building';
+  const gone = r.was === 'home' && r.ruin ? ` ${r.ruin}’s household has left the city.` : '';
+  return `Rubble ${whereIs(map, r).toLowerCase()}: ${what} ${r.level === BURNT ? 'burnt down' : 'fell down'}.${gone} Clear it with the clear tool (X), ${clearFee(2)}–${clearFee(3)} dr a heap, before building there again.`;
+}
+
 /**
- * The fire, wear and rubble lines: a building burning (the most urgent:
- * it falls within days and can spread), else one smouldering, else
- * buildings past three-quarters of their fire risk that no watchman
- * reaches; the same for creaking and wear; and rubble lately fallen,
- * waiting to be cleared. Each names the place.
+ * The fire and wear lines: while nothing burns or smoulders, buildings past
+ * three-quarters of their fire risk that no watchman reaches (or more than
+ * one watchman can keep up with); the same for wear while nothing creaks.
+ * Each names the place. (Slice 44: a building burning, smouldering or
+ * creaking, and rubble lately fallen, are the town's messages now, said as
+ * each happens: burningLine, smoulderLine, creakLine, rubbleLine.)
  */
 export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = [];
   const size = map.size;
-  const left = (t: number): string => days(Math.max(1, t - s.tick));
-  const more = (n: number, what: string): string => (n > 1 ? ` (and ${n - 1} more ${what})` : '');
-  const byTime = (a: Building, b: Building, t: (x: Building) => number): number => t(a) - t(b) || a.id - b.id;
-  // Fire.
-  const fires = s.buildings.filter((b) => b.fire === FIRE_BURNING).sort((a, b) => byTime(a, b, (x) => x.fireAt));
-  const smoulders = s.buildings.filter((b) => b.fire === FIRE_SMOULDER).sort((a, b) => byTime(a, b, (x) => x.fireAt));
-  if (fires.length) {
-    const f = fires[0];
-    const coming = s.walkers.some((w) => w.kind === 'watchman' && w.target === f.id);
-    const help = coming ? 'A watchman is on his way with his bucket.' : 'No watchman has seen it: a watch post (Z twice) within sight of it sends one running.';
-    out.push({ need: 'fire', text: `Fire ${whereIs(map, f).toLowerCase()}: ${named(f)} is burning and falls in ${left(f.fireAt)}; ${spreadWords(s, f)}${more(fires.length, fires.length === 2 ? 'fire' : 'fires')}. ${help}`, at: f.id });
-  } else if (smoulders.length) {
-    const f = smoulders[0];
-    out.push({ need: 'fire', text: `Smoke ${whereIs(map, f).toLowerCase()}: ${named(f)} is smouldering and bursts into flame in ${left(f.fireAt)} unless a watchman walks by: ${whyUnguarded(s, map, f, 'watchpost')}${more(smoulders.length, smoulders.length === 2 ? 'smoulder' : 'smoulders')}.`, at: f.id });
-  } else if (s.hazards) {
+  // (Slice 44: a building burning or smouldering, one creaking and rubble lately fallen are news, said in the town's messages
+  // as each happens: burningLine, smoulderLine, creakLine and rubbleLine. The lines keep the risks nobody guards, of the
+  // buildings not already alight or creaking: review of slice 44, so the line doesn't vanish the moment the danger grows.)
+  if (s.hazards) {
     const posts = guardSearch(s, size, 'watchpost');
-    const risky = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * FIRE_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+    const risky = s.buildings.filter((b) => b.fire === FIRE_NONE && burnable(b) && b.risk >= HAZARD_FULL * FIRE_WARN && !inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
     if (risky.length) {
       const f = risky[0];
       const n = risky.length === 1 ? `${named(f)} is` : `${risky.length} buildings are`;
@@ -1828,7 +1808,7 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     }
     {
       // (Phase 5 review: a quarter in a watchman's reach whose buildings he can't get round all of, their risk climbing all together, gave no word until the first smouldered.)
-      const behind = s.buildings.filter((b) => burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
+      const behind = s.buildings.filter((b) => b.fire === FIRE_NONE && burnable(b) && b.risk >= HAZARD_FULL * EARLY_WARN && inReach(posts, s, size, b, WATCH_RANGE)).sort((a, b) => b.risk - a.risk || a.id - b.id);
       if (behind.length >= 2) {
         const f = behind[0];
         const soonest = Math.min(...behind.map((b) => daysToFull(b.risk, riskRate(s, b))));
@@ -1838,27 +1818,14 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
     }
   }
   // Wear.
-  const creaks = s.buildings.filter((b) => b.creakAt > 0).sort((a, b) => byTime(a, b, (x) => x.creakAt));
-  if (creaks.length) {
-    const c = creaks[0];
-    out.push({ need: 'wear', text: `Creaking ${whereIs(map, c).toLowerCase()}: ${named(c)} falls down in ${left(c.creakAt)} unless an inspector walks by: ${whyUnguarded(s, map, c, 'architect')}${more(creaks.length, 'creaking')}.`, at: c.id });
-  } else if (s.hazards) {
+  if (s.hazards) {
     const offices = guardSearch(s, size, 'architect');
-    const worn = s.buildings.filter((b) => wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
+    const worn = s.buildings.filter((b) => b.creakAt === 0 && wears(b) && b.wear >= HAZARD_FULL * EARLY_WARN && !inReach(offices, s, size, b, INSPECT_RANGE)).sort((a, b) => b.wear - a.wear || a.id - b.id);
     if (worn.length) {
       const c = worn[0];
       const n = worn.length === 1 ? `${named(c)} is` : `${worn.length} buildings are`;
       out.push({ need: 'wear', text: `Wear ${whereIs(map, c).toLowerCase()}: ${n} three-quarters worn, and no inspector walks by: ${whyUnguarded(s, map, c, 'architect')}.`, at: c.id });
     }
-  }
-  // Rubble lately fallen.
-  const heaps = s.buildings.filter((b) => b.kind === 'rubble' && s.tick - b.placed < RUBBLE_NEWS).sort((a, b) => b.placed - a.placed || a.id - b.id);
-  if (heaps.length) {
-    const r = heaps[0];
-    const what = r.was === 'home' ? (r.ruin ? `the house of ${r.ruin}` : 'a home') : r.was ? BUILDING_NAMES[r.was].replace(/^An? /, 'a ').replace(/^The /, 'the ') : 'a building';
-    const gone = r.was === 'home' && r.ruin ? ` ${r.ruin}’s household has left the city.` : '';
-    const n = heaps.length === 1 ? `${what} ${r.level === BURNT ? 'burnt down' : 'fell down'}` : `${heaps.length} buildings have ${heaps.every((h) => h.level === BURNT) ? 'burnt down' : 'burnt or fallen down'} lately, ${what} last`;
-    out.push({ need: 'rubble', text: `Rubble ${whereIs(map, r).toLowerCase()}: ${n}.${gone} Clear ${heaps.length === 1 ? 'it' : 'them'} with the clear tool (X), ${clearFee(2)}–${clearFee(3)} dr a heap, before building there again.`, at: r.id });
   }
   // Slice 30: crime.
   const crime = crimeTownLine(s, map);
@@ -1868,9 +1835,6 @@ export function hazardTownLines(s: SimState, map: CoastMap): TownLine[] {
 
 // ---------------------------------------------------------------------------
 // Crime (slice 30).
-
-/** Crime news shows on the town lines for this long. */
-const CRIME_NEWS_DAYS = 5;
 
 /** "hungry, villas nearby and no watchman": the reasons most of these homes share, most common first. */
 function sharedReasons(ts: readonly Temptation[], most = 3): string {
@@ -1886,36 +1850,19 @@ function noWatchWords(s: SimState): string {
 }
 
 /**
- * The crime line: news of a theft or a catch for a few days; else a thief out
- * now, and where he is going; else homes more than half way to sending one out
- * that no watchman walks by, how many, why, and how soon the first.
+ * The crime line: homes more than half way to sending a thief out that no
+ * watchman walks by, how many, why, and how soon the first. (A theft, a catch
+ * and a thief out were news here until slice 44: they are the town's
+ * messages now.)
  */
 export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
   if (!s.crime.on) return null;
   const size = map.size;
-  const news = s.crime.news.at(-1);
-  if (news && s.tick - news.tick < CRIME_NEWS_DAYS * TICKS_PER_DAY) {
-    const watched = s.buildings.some((b) => b.kind === 'watchpost' && b.workers > 0);
-    const hint = news.kind === 'theft' ? (watched ? '' : ' No watchman walks the streets: a watch post (Z twice) would catch the next one.') : '';
-    return { need: 'crime', text: `${news.line}.${hint}`, at: news.at };
-  }
-  // Slice 41: talk of burning, before anything but the news (it is the threat to see coming).
+  // (Slice 44: a theft or a catch is news, said in the town's messages as it happens; a thief out is said there by his theft or his catch.
+  // The line keeps the homes tempted that no watchman deters.)
+  // Slice 41: talk of burning (it is the threat to see coming); then one of the new kinds out, a gang's den, something smashed, a gang gathering.
   const talk = s.crime.kinds ? talkTownLine(s, map) : null;
   if (talk) return talk;
-  const out = thievesOut(s);
-  if (out.length) {
-    const w = out[0];
-    const home = findBuilding(s, w.home);
-    const t = findBuilding(s, w.target);
-    const who = thiefWho(home, w, 'a hooded figure');
-    const where = home ? whereIs(map, home) : 'In the city';
-    const pr = pronouns(home, w);
-    const doing = w.back ? `slipping home${w.load > 0 ? ` with ${lootWords(w)}` : ''}` : t ? `on ${pr.his} way to rob ${placeOf(t)}` : 'out in the streets';
-    const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
-    const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
-    return { need: 'crime', text: `A thief out ${where.toLowerCase()}: ${who}, ${doing}${more}.${chase}`, at: w.home };
-  }
-  // Slice 41: one of the new kinds out, a gang's den, something smashed, a gang gathering.
   const more = s.crime.kinds ? crimesTownLine(s, map) : null;
   if (more) return more;
   const ctx = moodCtx(s);
@@ -2017,41 +1964,32 @@ export function yardStatus(s: SimState, map: CoastMap, b: Building): Status {
 }
 
 /**
- * The traders' news while one is coming in or here (a caravan in the city on
- * its way to the yard, a foreign ship sighted, at anchor or tied up), or for
- * a month after one turned back for want of a road, a yard or a post: the
- * line under the top bar. `route` names which (its tab in the trade panel).
+ * Slice 44: one route's trader, while one is coming in or here, or for a
+ * month after one turned back (`missed`): the words, the yard or post it is
+ * about (0 none), and how it ranks (turned back first). Null when there is
+ * nothing to say.
  */
-function traderTownLine(s: SimState): (TownLine & { route: string }) | null {
-  let best: (TownLine & { route: string }) | null = null;
-  let rank = Infinity;
-  for (const r of s.world.routes) {
-    const n = routeNews(s, r);
-    const name = PLACES[r.city].name;
-    const route = `${r.city}-${r.kind}`;
-    const at = (r.kind === 'land' ? s.buildings.find((b) => b.kind === 'yard') : s.buildings.find((b) => b.kind === 'trading'))?.id ?? 0;
-    let text = '';
-    let k = Infinity;
-    if (r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH && r.missed) {
-      text = r.missed === 'road' ? `The caravan from ${name} turned back at the edge of the map: no road leads from there to the caravan yard. Lay a road from the edge to the yard.` : r.missed === 'yard' ? `The caravan from ${name} turned back: the city has no caravan yard.` : `The ship from ${name} turned back: the city has no trading post.`;
-      k = 0;
-    } else if (r.kind === 'land') {
-      const w = caravanOf(s, r.city);
-      if (w && !w.back) {
-        text = w.wait > 0 ? `${n.line}.` : `A caravan from ${name} is in the city, its donkeys on their way to the caravan yard.`;
-        k = 1;
-      }
-    } else if (n.phase === 1 || n.phase === 2) {
-      text = `${n.line}.`;
-      k = 2;
-    }
-    if (text && k < rank) {
-      rank = k;
-      best = { need: 'trader', text, at, route };
-    }
+export function traderLine(s: SimState, r: TradeRoute): { text: string; at: number; rank: number; missed: boolean } | null {
+  const name = PLACES[r.city].name;
+  const at = (r.kind === 'land' ? s.buildings.find((b) => b.kind === 'yard') : s.buildings.find((b) => b.kind === 'trading'))?.id ?? 0;
+  if (r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH && r.missed) {
+    const text = r.missed === 'road' ? `The caravan from ${name} turned back at the edge of the map: no road leads from there to the caravan yard. Lay a road from the edge to the yard.` : r.missed === 'yard' ? `The caravan from ${name} turned back: the city has no caravan yard.` : `The ship from ${name} turned back: the city has no trading post.`;
+    return { text, at, rank: 0, missed: true };
   }
-  return best;
+  if (r.kind === 'land') {
+    const w = caravanOf(s, r.city);
+    if (w && !w.back) return { text: w.wait > 0 ? `${routeNews(s, r).line}.` : `A caravan from ${name} is in the city, its donkeys on their way to the caravan yard.`, at, rank: 1, missed: false };
+    return null;
+  }
+  // (A sea route without its ship has nothing to say.)
+  if (!r.ship) return null;
+  const n = routeNews(s, r);
+  if (n.phase === 1 || n.phase === 2) return { text: `${n.line}.`, at, rank: 2, missed: false };
+  return null;
 }
+
+/** Slice 44: the merchant ship's news (sighted, or the goods lost with the post), for the town's messages ('' none). */
+export const shipLine = (s: SimState): string => shipTownLine(s)?.text ?? '';
 
 /** The ship's news while she is in sight (sailing in, or tied up loading): the line under the top bar. */
 function shipTownLine(s: SimState): TownLine | null {

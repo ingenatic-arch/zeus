@@ -153,6 +153,13 @@
  * from loading, with nothing smashed, no talk of burning, no quarter running
  * hot, no gang and nothing of the new kinds tallied yet. Nothing else changes.
  *
+ * Slice 44 (The town's messages): the town's message log starts empty, as
+ * of the tick the save was made: the scroll says that messages from before
+ * it weren't kept. What Greece, the army and crime had told before is
+ * counted as heard, so none of it comes again as new; what stands when it
+ * loads (a ship in sight, a fire) is said once on its first tick. Nothing
+ * else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -187,6 +194,8 @@ import { freshGames, freshMonuments } from './monuments';
 import { freshAmbition } from './laurels';
 // Slice 43.
 import { stageFor } from './colonyworks';
+// Slice 44.
+import { mendMessages } from './messages';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -244,6 +253,7 @@ export function migrate(st: unknown): number {
   if (st.version === 36) fromSlice37(st);
   if (st.version === 37) fromSlice43(st);
   if (st.version === 38) fromSlice41(st);
+  if (st.version === 39) fromSlice44(st);
   return from;
 }
 
@@ -989,5 +999,15 @@ function fromSlice41(st: Record<string, unknown>): void {
       for (const k of ['picked', 'smashed', 'arson', 'smuggled', 'skimmed', 'beaten']) if (typeof t[k] !== 'number') t[k] = 0;
     }
   }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 44 (The town's messages): see the note above. Only its own field
+ * (`messages`), only if it is missing: an empty log beginning at the save's
+ * tick, with Greece's, the army's and crime's news counted as heard.
+ */
+function fromSlice44(st: Record<string, unknown>): void {
+  if (!isObj(st.messages)) mendMessages(st);
   st.version = (st.version as number) + 1;
 }

@@ -29,6 +29,7 @@ import {
   mayThreaten,
   raidChip,
   raidersOf,
+  raidLine,
   raidOnMap,
   reachesEdge,
   sheltering,
@@ -40,7 +41,7 @@ import { deserialize, serialize, Sim } from '../src/sim/sim';
 import type { CityId } from '../src/map/greece';
 import { SIM_STATE_VERSION, type Raid, type SimState } from '../src/sim/state';
 import { bookNow } from '../src/sim/stocks';
-import { townLines } from '../src/sim/status';
+import { WARNING } from '../src/sim/messages';
 import { totals } from '../src/sim/treasury';
 import { position } from '../src/sim/walk';
 import { armyScale, cityOf, COLD, moodOf, moodReasons } from '../src/sim/world';
@@ -127,7 +128,9 @@ describe('the threat', () => {
       expect(r.men).toBeGreaterThan(12);
       expect(r.men).toBeLessThanOrEqual(48);
       // On the town lines, and as news that can't wait.
-      expect(townLines(s, map).find((l) => l.need === 'raid')?.text).toMatch(/threatens your city: pay [\d,]+ dr/);
+      // (Slice 44: in the town's messages, a warning; the raid chip stands for it.)
+      expect(s.messages.log.some((m) => m.kind === 'raid' && m.u === WARNING && m.words === `${s.world.news.at(-1)?.line}.`)).toBe(true);
+      expect(raidLine(s, map, r)).toMatch(/threatens your city: pay [\d,]+ dr/);
       expect(s.world.news.at(-1)?.urgent).toBe(true);
     }
   }, 60000);
@@ -481,7 +484,7 @@ describe('slice 31', () => {
     expect(r.dur).toBe(10 * TICKS_PER_DAY);
     expect(r.start).toBeGreaterThan(s.tick + TICKS_PER_MONTH);
     expect(raidOnMap(r, s.tick)).toBeNull();
-    expect(townLines(s, map).find((l) => l.need === 'raid')?.text).toMatch(/bide their time at home/);
+    expect(raidLine(s, map, r)).toMatch(/bide their time at home/);
     expect(until(sim, () => s.tick >= r.start, TICKS_PER_YEAR)).toBe(true);
     expect(raidOnMap(r, s.tick)?.gathering).toBe(true);
   }, 60000);

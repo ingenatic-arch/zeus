@@ -76,7 +76,9 @@ export type Command =
   | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number }
   // Slice 41
   /** The new kinds of crime's and gangs' switch (misdeeds.ts, gangs.ts), beside crime's own: on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'crimes'; on: boolean };
+  | { type: 'crimes'; on: boolean }
+  // Slice 44: the town's messages, read or pinned (messages.ts).
+  | { type: 'messages'; act: 'read' | 'unread' | 'pin' | 'unpin' | 'allread'; ids?: number[] };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';

@@ -195,6 +195,11 @@ export interface Demo {
   // Slice 39
   /** Open the Ambition panel from the start. */
   ambition?: boolean;
+  // Slice 44
+  /** Open the Messages panel from the start. */
+  messages?: boolean;
+  /** A demo opens with its town's messages read, but for those of the last so many ticks (none if not given). */
+  unread?: number;
 }
 
 const T = (x: number, z: number): number => z * MAP_SIZE + x;
@@ -3426,6 +3431,9 @@ const SCENES: Record<string, Demo> = {
   crimes: { view: 'crimes', speed: 'paused', setup: crimesTown, overlay: 'crime', overlayOn: true },
   // A gang's den in the hut street behind the core (its rag on a pole by the door), its men having beaten off the lone watchman of the one watch post there; the den's panel open, the crime overlay a key away.
   gang: { view: 'gang', setup: gangTown, overlay: 'crime', open: gangDen },
+  // Slice 44: the town's messages. #aftermath's town (a year of trade with Greece, Sparta's tribute refused twice, its
+  // raiders in and gone), the Messages panel open on its scroll and the last season's messages still unread.
+  messages: { view: 'raidwest', setup: raidTown('aftermath'), overlay: 'food', messages: true, unread: 3 * TICKS_PER_MONTH },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

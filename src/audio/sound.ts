@@ -19,10 +19,13 @@ const MUTE_KEY = 'zeus-remake.muted';
 export type Cue = 'road' | 'plots' | 'build' | 'clear' | 'undo' | 'refuse' | 'rise' | 'decline' | 'save' | 'ignite' | 'collapse' | 'groan' | 'douse' | 'ship' | 'sale' | 'map' | 'caravan' | 'horn' | 'trumpet' | 'clash' | 'arrow' | 'thud' | 'oars' | 'coins'
   // Slice 39: a laurel (a milestone reached), and the triumph (an ambition achieved, or all three).
   | 'laurel'
-  | 'triumph';
+  | 'triumph'
+  // Slice 44: a message into the scroll (a parchment rustle and a small bell), and an alarm popping up (a bronze bell, struck twice).
+  | 'message'
+  | 'alarm';
 
 /** The war's sounds (phase 4's review), each at most once in so many seconds, however many men strike at once. */
-const SPACING: Partial<Record<Cue, number>> = { rise: 1, decline: 1, groan: 1, douse: 1, trumpet: 2.5, clash: 0.16, arrow: 0.22, thud: 0.45, oars: 0.95, coins: 0.6, laurel: 1.5, triumph: 4 };
+const SPACING: Partial<Record<Cue, number>> = { rise: 1, decline: 1, groan: 1, douse: 1, trumpet: 2.5, clash: 0.16, arrow: 0.22, thud: 0.45, oars: 0.95, coins: 0.6, laurel: 1.5, triumph: 4, message: 4, alarm: 3 };
 
 /** What the camera is looking at, for the ambience: where, and how close. */
 export interface Listener {
@@ -403,6 +406,18 @@ export class Sound {
         this.salpinx(0.03, 1.05, 1.2, 523);
         for (let i = 0; i < 8; i++) this.bell(0.02, [1568, 1397, 1319, 1175, 1047, 988, 880, 784][i], 1.15 + i * 0.09);
         this.thump(0.14, 80, 0.5);
+        break;
+      // Slice 44.
+      case 'message':
+        // News into the scroll: a soft rustle of parchment and one small, high bell.
+        this.swish(0.03, 2000, 3400, 0.18);
+        this.bell(0.016, 1319, 0.12);
+        break;
+      case 'alarm':
+        // An alarm: a bronze bell, struck twice, low enough to carry.
+        this.bell(0.06, 440, 0);
+        this.bell(0.05, 440, 0.42);
+        this.bell(0.02, 660, 0.42);
         break;
       case 'sale':
         // Paid: coins counted out onto the counter.
