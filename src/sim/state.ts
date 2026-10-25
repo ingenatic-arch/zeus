@@ -13,7 +13,7 @@ import type { Blockade } from './blockades';
 import type { Ambition } from './laurels';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 37;
+export const SIM_STATE_VERSION = 38;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -180,9 +180,11 @@ export type Need = Service | 'marble' | 'armour' | 'horses';
 /** What a walker is (see Walker.kind). */
 export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'food' | 'oil' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge' | 'builder' | 'oxcart' | 'visitor'
   // Slice 37: a household walking to the quay to sail for a colony (colonies.ts).
-  | 'colonist';
+  | 'colonist'
+  // Slice 43: a porter carrying goods down to the quay for a colony (colonyworks.ts).
+  | 'shipper';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper'];
 
 /** Someone living in a home. */
 export interface Person {

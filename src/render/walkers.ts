@@ -755,7 +755,9 @@ const SATCHEL_FULL = 20;
 
 export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | 'actor' | 'tax' | 'hunter' | 'oil' | 'fleece' | 'wine' | 'watchman' | 'inspector' | 'docker' | 'caravan' | 'raider' | 'thief' | 'quarryman' | 'logger' | 'sledge' | 'builder' | 'oxcart' | 'visitor'
   // Slice 37: a household walking down to the quay for a colony (drawn as settlers are).
-  | 'colonist';
+  | 'colonist'
+  // Slice 43: a porter carrying goods down to the quay for a colony.
+  | 'shipper';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -957,6 +959,8 @@ export class Walkers {
         }
         else if (w.kind === 'inspector') this.inspectors.push(this.m, still(this.c.copy(blue)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));
+        // Slice 43: a porter carrying goods down to the quay for a colony, in the dockers' sea-green, his load on his shoulder.
+        else if (w.kind === 'shipper') this.porters[w.load > 0 ? (PORTER_LOOK[w.food] ?? DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(this.c.copy(dockerTunic)));
         else if (w.kind === 'docker') {
           // The trading post's docker: a sea-green tunic, his handcart showing what he carries (to the quay, or back to a store).
           this.porters[w.load > 0 ? (DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(this.c.copy(dockerTunic)));

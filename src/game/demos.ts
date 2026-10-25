@@ -62,6 +62,9 @@ import { achieved } from '../sim/ambitions';
 import { COLOSSUS_COST, totalOf } from '../sim/monuments';
 import { COPPER, setHeld } from '../sim/foods';
 import { note } from '../sim/stockbook';
+// Slice 43
+import { askColony, spareOf as storesSpare, STAGE_FROM, stageOf, WORKS } from '../sim/colonyworks';
+import { storeKind } from '../sim/trade';
 // Slice 37
 import { colonyOf, foundingOf, foundRefusal, FOUND_COST } from '../sim/colonies';
 import { news } from '../sim/diplomacy';
@@ -3049,6 +3052,49 @@ const COLONY_TOWN = colonyTown('colony');
 const COLONIES_TOWN = colonyTown('colonies');
 const ALLY_TOWN = colonyTown('ally');
 
+// Slice 43
+/**
+ * Colonies that grow up (slice 43). #colonywants: #colonies' town, Nea
+ * Thasos asking you for wheat after a hard winter (the ask set up for this
+ * demo and named so; if your granaries could not spare it, the rest put in
+ * them for the demo and named so in the stock book), its page open on the
+ * map of Greece. #colonyworks: the same town, Nea Thasos a settlement (grown
+ * to one for the demo, and named so, if it is still an outpost), the timber
+ * for its harbour in your storehouses (topped up for the demo the same way),
+ * its page open on the map.
+ */
+function grownColonyTown(stage: 'wants' | 'works'): (sim: Sim) => void {
+  return (sim) => {
+    COLONIES_TOWN(sim);
+    const s = sim.state;
+    const c = s.empire.colonies.find((x) => x.site === 'thasos') ?? s.empire.colonies[0];
+    if (!c) return;
+    // (Enough of a good in your stores, the rest put there for the demo.)
+    const topUp = (w: number, n: number): void => {
+      const k = TRADE_GOODS.indexOf(w as never);
+      const short = n - storesSpare(s, k);
+      const b = s.buildings.find((x) => x.kind === storeKind(w as never));
+      if (short <= 0 || !b) return;
+      setHeld(b, w as never, held(b, w as never) + short);
+      note(s, w as never, 'bought', 'for a colony (set up for this demo)', short);
+    };
+    if (stage === 'wants') {
+      const w = askColony(s, c, 'wheat', 'set up for this demo');
+      topUp(WHEAT, w.amount + 100);
+      return;
+    }
+    if (stageOf(c) < 1) {
+      const x = s.world.sites.find((y) => y.id === c.site);
+      if (x) x.pop = Math.max(x.pop, STAGE_FROM[1] + 40);
+      c.stage = 1;
+      news(s.world, s.tick, c.site, `${c.name} has grown into a settlement (set up for this demo)`);
+    }
+    topUp(TIMBER, WORKS.harbour.amount + 50);
+  };
+}
+const COLONYWANTS_TOWN = grownColonyTown('wants');
+const COLONYWORKS_TOWN = grownColonyTown('works');
+
 // Slice 40
 /**
  * An empire's city (slice 40). #empire: #ambition's town (the ambitions on
@@ -3351,6 +3397,9 @@ const SCENES: Record<string, Demo> = {
   colony: { view: 'colony', speed: 'paused', setup: COLONY_TOWN, overlay: 'missing' },
   colonies: { view: 'bay', setup: COLONIES_TOWN, overlay: 'missing', greece: 'site:thasos' },
   ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
+  // Slice 43: colonies that grow up. Nea Thasos asking you for wheat, its page open on the map of Greece; Nea Thasos a settlement, the timber for its harbour in your stores, its page open.
+  colonywants: { view: 'bay', setup: COLONYWANTS_TOWN, overlay: 'missing', greece: 'site:thasos' },
+  colonyworks: { view: 'bay', setup: COLONYWORKS_TOWN, overlay: 'missing', greece: 'site:thasos' },
   // Slice 40: an empire's city. #ambition's town carried on: a vassal, a colony sending its share, the Lighthouse rising, an estate and a great estate, winter coming, a thief out and Rhodes' fleet at sea against the harbour.
   empire: { view: 'empire', setup: empireCityTown, overlay: 'missing' },
 };

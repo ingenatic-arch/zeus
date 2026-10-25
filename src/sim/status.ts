@@ -16,6 +16,8 @@ import { expeditionLine, expeditionOut } from './expeditions';
 import { empireTownLine } from './vassals';
 // Slice 37: settlers walking down to the quay, the homes they left, a colony that needs you.
 import { colonistDoing, colonyTownLine, leftFor } from './colonies';
+// Slice 43.
+import { shipperDoing } from './colonyworks';
 import {
   BARN,
   CHEESE_BATCH,
@@ -770,6 +772,8 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'thief') return thiefStatus(s, w);
   // Slice 37: a household going to found a colony.
   if (w.kind === 'colonist') return colonistDoing(s, w);
+  // Slice 43: a porter carrying goods down to the quay for a colony.
+  if (w.kind === 'shipper') return shipperDoing(s, w);
   if (w.kind === 'watchman' && w.meat > 0) {
     const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
     const home = t ? findBuilding(s, t.home) : undefined;

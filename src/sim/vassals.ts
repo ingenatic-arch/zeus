@@ -59,6 +59,8 @@ import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
 import { blockaded } from './lanes';
 // Slice 37: your colonies (colonies.ts) keep their records here, and their ships bring their share as tribute does.
 import type { Colony, Founding } from './colonies';
+// Slice 43.
+import type { Cargo } from './colonyworks';
 import { caravanEntry } from './routes';
 import { MAP_SIZE } from '../map/coast';
 import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
@@ -193,9 +195,11 @@ export interface Empire {
   /** Slice 37: your colonies, and a colony on its way (colonies.ts). */
   colonies: Colony[];
   foundings: Founding[];
+  /** Slice 43: goods going out from your quay to your colonies (colonyworks.ts). */
+  cargoes: Cargo[];
 }
 
-export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1, colonies: [], foundings: [] });
+export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1, colonies: [], foundings: [], cargoes: [] });
 
 // ---------------------------------------------------------------------------
 // The numbers.

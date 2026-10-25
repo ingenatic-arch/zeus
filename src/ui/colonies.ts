@@ -36,7 +36,6 @@ import {
   foundingOf,
   foundingPlan,
   FREE_FROM,
-  GOV_WORDS,
   goodName,
   colonyGuards,
   guardsAtHome,
@@ -53,6 +52,10 @@ import {
   type Founding,
   type Household,
 } from '../sim/colonies';
+// Slice 43.
+import { COLONY_SHARE } from '../sim/colonies';
+import { cargoWords, secondYear, STAGE_NAMES, stageOf } from '../sim/colonyworks';
+import { cargoHtml, governorHtml, pictureHtml, wantHtml, worksEvent, worksHtml } from './colonygrowth';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -150,7 +153,8 @@ function colonyHtml(s: SimState, c: Colony, map: CoastMap | undefined, renaming:
   const p = siteOf(c.site);
   const pop = peopleOf(s, c);
   const sub = `Your colony on ${p?.name ?? c.site} since ${dayWords(c.since)} · ${fmt(pop)} people`;
-  return `${header(s, c.site, c.name, sub, map, renaming, draft, true)}${freedomHtml(s, c)}${threatHtml(s, c, map)}<p class="line bound">${esc(c.governor)} governs it: ${esc(GOV_WORDS[c.trait])}.</p>${loyaltyHtml(s, c)}${shareHtml(s, c)}${peopleHtml(s, c)}${guardsHtml(s, c, map)}${homesHtml(c)}`;
+  // (Slice 43: its picture and stage first, what it asks, the goods going out, its governor or the candidates; its works after its people.)
+  return `${header(s, c.site, c.name, sub, map, renaming, draft, true)}${pictureHtml(s, c)}${freedomHtml(s, c)}${threatHtml(s, c, map)}${wantHtml(s, c, map)}${cargoHtml(s, c)}${governorHtml(s, c)}${loyaltyHtml(s, c)}${shareHtml(s, c)}${peopleHtml(s, c)}${worksHtml(s, c, map)}${guardsHtml(s, c, map)}${homesHtml(c)}`;
 }
 
 /** Talk of freedom: the warning and what mends it. */
@@ -215,7 +219,9 @@ function shareHtml(s: SimState, c: Colony): string {
     .join('');
   const last = s.empire.tribute.filter((t) => t.colony === c.site && t.phase === 'done').at(-1);
   const lastLine = last ? `<p class="if">Last: ${esc(tributeWords(last))} ${esc(last.how)}${last.lost ? ` (${fmt(last.lost)} there was no room for)` : ''}, ${esc(dayWords(last.ended))}.</p>` : '';
-  return `<section class="tribute"><h3>Its share</h3><p class="line">${swatch(y.good)}<b>${esc(cap(SHARE_WORDS[c.share]))}</b>: about ${fmt(y.amount)} ${esc(g)} a year (${fmt(y.dr)} dr at the ship’s prices), a quarter of it each season by ship. ${esc(sent)} ${esc(next)}</p>${way}${lastLine}<div class="choice weights">${buttons}</div><p class="foot">Of what it makes: light a fifth, fair two fifths, heavy three fifths. Heavier fills your stores faster, slows its growth and wears its loyalty down.</p></section>`;
+  const two = secondYear(s, c, COLONY_SHARE[c.share] ?? 0.4);
+  const second = two.amount > 0 ? `, and ${swatch(two.good)}about ${esc(cargoWords(two.good, two.amount))} from its second trade` : '';
+  return `<section class="tribute"><h3>Its share</h3><p class="line">${swatch(y.good)}<b>${esc(cap(SHARE_WORDS[c.share]))}</b>: about ${fmt(y.amount)} ${esc(g)} a year (${fmt(y.dr)} dr at the ship’s prices)${second}, a quarter of it each season by ship. ${esc(sent)} ${esc(next)}</p>${way}${lastLine}<div class="choice weights">${buttons}</div><p class="foot">Of what it makes: light a fifth, fair two fifths, heavy three fifths. Heavier fills your stores faster, slows its growth and wears its loyalty down.</p></section>`;
 }
 
 /** Its people and why they grow. */
@@ -251,6 +257,7 @@ export function colonyEvent(e: Event, send: (c: Command) => void, open: (id: Cit
     open(o.dataset.cityopen as CityId);
     return true;
   }
+  if (worksEvent(e, send)) return true;
   const b = t.closest('button[data-colony]') as HTMLButtonElement | null;
   if (!b || b.disabled) return false;
   const act = b.dataset.colony;
@@ -267,7 +274,9 @@ export function siteCardLine(s: SimState, site: string): string {
   const c = colonyOf(s, site);
   if (c) {
     const t = c.threat && c.threat.end === '' ? `; ${c.threat.ships} ships of ${name(c.threat.city)} coming to ${c.threat.kind} it` : '';
-    return `${c.name}, your colony: ${fmt(peopleOf(s, c))} people, loyalty ${c.loyalty}${c.talk ? ', talking of freedom' : ''}${t}`;
+    // (Slice 43: its stage, and what it asks of you.)
+    const w = c.want && c.want.end === '' && !c.want.cargo ? `; it asks you for ${cargoWords(c.want.good, c.want.amount)}` : '';
+    return `${c.name}, your colony: ${STAGE_NAMES[stageOf(c)]} of ${fmt(peopleOf(s, c))} people, loyalty ${c.loyalty}${c.talk ? ', talking of freedom' : ''}${t}${w}`;
   }
   const f = foundingOf(s, site);
   if (f) return f.phase === 'gathering' ? 'Your settlers are coming down to your quay for it' : `Your settlers are ${f.phase === 'sea' ? 'at sea' : 'sailing out of your bay'} for it: they land about ${dayWords(landsAbout(s, f))}`;

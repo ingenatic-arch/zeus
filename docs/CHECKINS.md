@@ -2,6 +2,74 @@
 
 Notes to Oliver, newest first.
 
+## Slice 43 — Colonies that grow up (25 Oct)
+
+A colony is now a place that grows up and asks things of you: it goes from tents on a beach to a settlement, a town and a city, you pay for works there with drachmas and goods carried down to your own quay, it asks for things by a day and remembers whether you sent them, and you choose who governs it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Colonies send fewer cheap goods.** Phase 5 found a colony of 400 sending about 2,290 oil a year on a fair share. It now makes so much of its good per person, measured against one of your own works, so the same colony sends about 1,280 oil, 1,760 wheat, 1,200 copper, 960 fleece, 900 timber or 600 marble. A small colony makes less per person (an outpost half, a settlement four fifths), a city a little more.
+- **`#colonies` has moved.** Same date, people and money, but both colonies asked you for things during the years it plays, nobody answered, and they remember: Nea Thasos' loyalty is 69 (was 77) and it has 250 people (was 255: its unanswered wheat slowed it for a year); Nea Naxos' loyalty is 39 (was 47).
+- **`#empire` has moved a little.** 164 dr less in the treasury at opening, from Nea Thasos' smaller share; its newest news is Nea Thasos growing into a settlement. Everything else is as before.
+- **`#colony`** opens as before, with a rowing boat now taking the families out to your ship.
+- Every other demo plays exactly as before (all 134 compared at opening and 900 days' ticks on). Old saves load.
+
+### What's new
+- **A picture of each colony** at the top of its page: an island over the sea. An outpost is a few tents and a cook fire; a settlement white houses and a sheep pen; a town houses up the slope; a city houses to the hilltop. A bar shows how far it is to the next stage (150, 400 and 900 people). Its piece on the map of Greece grows the same way.
+- **Works you fund** from its page, each opening at a stage: fields (it feeds itself and grows faster), a harbour (its ships a quarter quicker, its share a quarter larger), an agora (loyalty +6), a temple (+8), walls (about 45 raids in 100 fail at them, one that gets in takes a third as many people, and it can't be claimed) and a second trade (a second good: Thasos marble, Naxos wine, and so on). You pay the drachmas at once; the timber, wheat, marble or copper goes from your stores. Its picture marks the work out in a dashed line while the goods are at sea, shows it in scaffolding while it goes up, and then built.
+- **The goods go from your quay.** Porters carry them from the granary or storehouse down the roads to the trading post; your own ship sails in and anchors off the jetty; a little boat rows the loads out to her; she sails, and you can watch her go along the lane on the map of Greece.
+- **It asks you for things** now and then: wheat after a hard winter, wine for its festival, oil for its lamps, fleece before the winter, timber after a storm, armour for its militia. Each has a day about five months on. The page says when it would land if you sent it now. In time, it is grateful (+10) and grows faster for a year; ignored, it remembers that instead (−10). Its label on the map gets the red mark while it asks, and the line under the top bar names it.
+- **Governors you choose.** When a colony is founded, or its governor dies or is dismissed, you pick from three: a builder (works cheaper and quicker), a miser (more on each ship, less loved), a soldier (raids turned away), a favourite of the people (more loyal, costly to dismiss), and the four from before. Choose within a month or its council picks (at a founding, the settlers' own leader, who governs meanwhile).
+
+### What to try
+1. #colonywants — Nea Thasos is asking for 150 wheat (set up for this demo). Press "Send 150 wheat" on its page, close the map, and watch the porters carry it down to the quay, your ship come in and anchor, the boat row it out, and the ship sail. Speed up to see it land about two months on, at the end of August or early in September.
+2. #colonyworks — Nea Thasos is a settlement. Fund its harbour from its page ("Its works"), then speed up: the timber goes down to the quay and out, the harbour appears in scaffolding, and four or five months after you funded it, it stands with a second ship at its jetty.
+3. #colonies — the two colonies with their histories, now with their asks remembered, their pictures and their works.
+
+### What I'd like your eye on
+- **The picture.** Is the island, the size of the houses and the way works are marked out, in scaffolding and built readable at the panel's width? Would you rather it were bigger?
+- **The pace of an ask.** About 150 days to answer, and a shipment takes about 55 to 65 days from when you send it to when it lands (your ship takes 20 days to come in, and the boat a week or two to row the goods out to her). Is that too easy, or too slow to watch?
+- **The retuned shares.** A colony now sends a third to a half of what one of your own works makes. Is that worth having a colony for?
+- **The rowing boat and the anchored ship** in the bay: are they too small to notice?
+
+### Known rough edges
+- Porters carrying timber, copper or horses look like they carry sacks.
+- On the map of Greece the works on a colony's piece are tiny at the usual zoom; you need to zoom in on it to see them.
+- In `#colonyworks` Nea Thasos also has an ask for oil of its own; if you leave it, it is ignored on 1 October and remembered.
+- A colony's ask and a shipment both use the line under the top bar; with two colonies asking, only the one due first is named there (both are in the News of Greece).
+
+### Measurements
+Headless software rendering on a shared, heavily loaded machine (four builds at once), so only the counts and sizes mean much; before is the starting build, measured the same way just before.
+
+| What | Before | After |
+|---|---|---|
+| Download, the game itself | 2,417 KB (823 KB gzipped) | 2,467 KB (838 KB gzipped) |
+| Prepared demo towns | 103 files, 3,679 KB gzipped | 104 files, 3,722 KB gzipped |
+| `#colonies` on the map of Greece | 315,550 triangles, 53 draw calls | 315,710 triangles, 53 draw calls |
+| `#colony` in the city | 1.48 million triangles, 74 draw calls | the same |
+| `#empire` in the city | 2.09 million triangles, 152 draw calls | 2.09 million, 152 |
+| `#colonywants`, `#colonyworks` | — | 315,710 triangles, 53 draw calls on the map |
+| Demo ready (by the page's clock) | 4.4 to 4.8 s | 3.1 to 5.7 s (the machine's load swings more than this) |
+
+The rowing boats and the goods ship add no draw calls while they are out of sight. The time each frame spends before drawing swung between runs by more than the difference (for `#empire` 29 ms before and 48 ms after, over only 5 and 8 frames), so I can't say it moved; it needs measuring on your laptop.
+
+### What the review changed
+- **The rowing boat rows at a believable pace.** It used to cross to your ship and back in under a second at normal speed, about ten times faster than anyone walks. Now each trip takes about four days and carries two porters' loads, so your ship rides at anchor about a week for 150 wheat and about twelve days for the harbour's timber while the boat loads her. A shipment now lands about 55 to 65 days after you send it, and the "it lands about" dates on the colony's page count the boat's time, so they match what happens.
+- **When a colony is founded**, the news now says that you choose its governor from its page, and by when.
+- **A dead or dismissed governor is never offered again** among the candidates to replace him.
+- **A colony that declares itself free while its council holds it** no longer reads "under ," with a blank where the governor's name should be.
+- **The season under the date keeps time while the map of Greece is open.** It used to stand still there, so speeding up on the map to watch a shipment land left it reading "Summer" into December.
+- **"Your stores hold none"** on a shipment waiting at the quay now shows only when your stores really hold none of the good.
+- **The automatic check of `#colonyworks`** was passing without checking that the harbour goes up (it read a line at the foot of the works list); it now checks the harbour really goes up after its voyage.
+
+I walked both demos at 1920 × 1080 in the original look and with `-modern` and `-plain`: the ask, the button, the porters leaving the granary, your ship coming in and anchoring, the boat at her side, her sailing, the landing and its thanks on the page; and the harbour funded, its outline, its scaffolding and its mole and second ship once built, in the picture and on the map. Whether the picture reads well at the panel's width, and whether the boat is big and slow enough to notice, are yours to judge.
+
+### At the merge
+Slice 43 is the first of this phase to join the main line, so nothing had to be renumbered: its saves are version 38, and older saves still load.
+
+Since this slice started, the main line had the bug fix that lets armour and horses reach the quay in full (six dockers, each good taking its turn). The colony's porters carry their goods to the same quay, so I checked the two don't get in each other's way: in `#colonywants`, with armour and horses also ticked for sale, the wheat for Nea Thasos loaded and sailed, and the Tyrian ship still took all the armour and horses there were (120 sets and 40 horses), exactly as when nothing goes to a colony. Nothing needed changing.
+
+Every demo's prepared town was compared before and after the merge, at opening and 900 ticks on: only `#colonies` and `#empire` moved, as described above (on the main line `#empire` opens 164 dr lighter and is 122 dr lighter 900 ticks on). `#colonywants`, `#colonyworks`, `#colony`, `#colonies`, `#empire` and some older demos open with no errors, and the automatic checks for the trade, the colonies, `#empire` and this slice pass, except one thing that isn't this slice's: since the armour-and-horses fix, `#empire` no longer opens with a thief already out (the first comes about 15 days in). That was already so on the main line before this merge.
+
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 
 You picked look 3 from the mock-ups (pixel-crisp: the original's fixed view, its colours and hard pixels) plus the busy workers, and asked for it built now and tried before it goes in. This is that build. It is on its own try-out page; the game at its usual link has not changed and won't until you say yes. Every choice below that you didn't make is mine, from the plan's defaults (`docs/plans/2026-10-25-original-look.md`).

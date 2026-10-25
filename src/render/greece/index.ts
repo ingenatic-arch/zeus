@@ -34,9 +34,13 @@ import { routeEvent } from '../../ui/routes';
 // Slice 37: a site's page, your settlers' ship, your colonies' lanes and the rivals' ships sent against them.
 import { colonyEvent } from '../../ui/colonies';
 import { foundingOnMap, threatShare } from '../../sim/colonies';
+// Slice 43
+import { built, cargoesFor, cargoOnMap, secondGood, stageOf, WORK_KINDS } from '../../sim/colonyworks';
+import { MARBLE, OIL, WINE } from '../../sim/foods';
+import { TRADE_GOODS } from '../../sim/trade';
 import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
-import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks } from './models';
+import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks, type SiteGrowth } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
 
 /** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left.
@@ -721,11 +725,13 @@ export class GreeceMap {
       if (!piece || !el) continue;
       // (Slice 37: a colony gone free in plain stone colours.)
       const owner = x.owner ? PLACES[x.owner as CityId] : x.free ? FREE_LOOK : undefined;
-      const look = owner ? `${x.owner || 'free'}:${Math.max(3, Math.min(12, Math.round(3 + x.pop / 200)))}` : '';
+      // (Slice 43: your colony's piece by its stage and its built works.)
+      const grown = x.owner === 'home' ? siteGrowth(s, x.id) : undefined;
+      const look = owner ? `${x.owner || 'free'}:${Math.max(3, Math.min(12, Math.round(3 + x.pop / 200)))}${grown ? `:${grown.stage}:${Math.round(x.pop / 150)}:${grown.built.join(',')}` : ''}` : '';
       if (look !== piece.look) {
         piece.look = look;
         piece.mesh.geometry.dispose();
-        piece.mesh.geometry = siteModel(owner?.colour ?? '#efe6cf', owner?.trim ?? '#efe6cf', owner ? x.pop : 0);
+        piece.mesh.geometry = siteModel(owner?.colour ?? '#efe6cf', owner?.trim ?? '#efe6cf', owner ? x.pop : 0, grown);
         el.classList.toggle('held', !!owner);
         el.style.setProperty('--c', owner?.colour ?? '#b8a27a');
       }
@@ -1042,6 +1048,19 @@ export class GreeceMap {
       m.rotation.set(Math.sin(time * 1.2 + f.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       m.scale.setScalar(1.05 * far);
     }
+    // (Slice 43: your ships taking goods out to your colonies, keyed 'cargo-<id>': coming in for them, then out along the lane.)
+    for (const x of cargoesFor(s)) {
+      const at = cargoOnMap(x, tick);
+      if (!at || at.where === 'quay') continue;
+      const line = wayPoints(wayOf(siteLaneId(x.site)));
+      const L = lineLength(line);
+      const dir = x.phase === 'loading' ? -1 : 1;
+      const m = piece(`cargo-${x.id}`, () => shipModel(colour, trim), BODY.ship);
+      const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+      m.position.set(p.x, 0.02 + Math.sin(time * 1.6 + x.id) * 0.03, p.z);
+      m.rotation.set(Math.sin(time * 1.25 + x.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      m.scale.setScalar(far);
+    }
     for (const way of SITE_LANES) {
       const site = way.to as string;
       let g = this.colonyLanes.get(site);
@@ -1211,4 +1230,14 @@ function segmentDist2(px: number, py: number, a: [number, number], b: [number, n
 
 export function createGreece(host: GreeceHost, now: () => number): GreeceMap {
   return new GreeceMap(host, now);
+}
+
+// Slice 43
+/** Your colony's stage, its built works and its second trade's look, for its piece on the table (undefined: not your colony). */
+function siteGrowth(s: SimState, site: string): SiteGrowth | undefined {
+  const c = s.empire.colonies.find((x) => x.site === site);
+  if (!c) return undefined;
+  const k = secondGood(site);
+  const w = k >= 0 ? TRADE_GOODS[k] : -1;
+  return { stage: stageOf(c), built: WORK_KINDS.filter((kind) => built(c, kind)), trade: w === WINE || w === OIL ? 'rows' : w === MARBLE ? 'quarry' : 'paddock' };
 }
