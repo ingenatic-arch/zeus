@@ -27,6 +27,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { ALARM, NEWS, say, titleFrom, WARNING, type Cursor, type MessageKind, type Place, type Urgency } from './messages';
 import { SEASON_NAMES, TICKS_PER_SEASON, seasonAt } from './seasons';
 import type { SimState } from './state';
+import type { CrimeNews } from './crime';
 import { FIRE_BURNING, FIRE_SMOULDER } from './hazards';
 import { burningLine, creakLine, dealLine, rubbleLine, shipLine, smoulderLine, traderLine } from './status';
 import { openDeals } from './favours';
@@ -131,8 +132,17 @@ export function hear(s: SimState): void {
     const k = kindOfLine(n.line, false, false, 'army');
     say(s, { kind: k.kind, u: k.u, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
   }
-  for (const n of since(s.crime.news, h.crime)) say(s, { kind: 'crime', words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
+  for (const n of since(s.crime.news, h.crime)) say(s, { kind: 'crime', u: CRIME_URGENCY[n.kind] ?? NEWS, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
 }
+
+/**
+ * How urgent crime's news is, by its kind (merge of slice 41): an arson an
+ * alarm (its fire is a fire alarm of its own, which is what pops up); talk of
+ * burning, a gang gathering, a gang taking its den and its men beating off a
+ * watchman warnings; the rest (a crime done, a catch, a building smashed or
+ * mended, the talk dying down, a gang broken up) news.
+ */
+const CRIME_URGENCY: Partial<Record<CrimeNews['kind'], Urgency>> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING };
 
 // ---------------------------------------------------------------------------
 // The watchers.

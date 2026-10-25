@@ -9,13 +9,14 @@ import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY } from '../src/sim/clock';
 import { stepMessages } from '../src/sim/heard';
-import { capWords, freshMessages, KEEP_TICKS, MAX_MESSAGES, messagesAt, NEWS, REPEAT_TICKS, say, titleFrom, titleOf, unread, WARNING, ALARM } from '../src/sim/messages';
+import { capWords, catOf, freshMessages, KEEP_TICKS, MAX_MESSAGES, messagesAt, NEWS, REPEAT_TICKS, say, titleFrom, titleOf, unread, WARNING, ALARM } from '../src/sim/messages';
 import { migrate } from '../src/sim/migrate';
 import { Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { townLines } from '../src/sim/status';
 import { FIRE_BURNING } from '../src/sim/hazards';
 import { demoSim } from './prepared';
+import { NEWS_KINDS, tellNews } from '../src/sim/crime';
 
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
   sim.enqueue(c);
@@ -151,6 +152,44 @@ describe('every news source, once each and never twice', () => {
     playNoting(e, 600);
     expect(e.state.messages.log.find((m) => /hold the mouth of your harbour/.test(m.words))?.u).toBe(ALARM);
   }, 120000);
+});
+
+// Merge of slice 44 with slices 41 and 43.
+describe('the other lines’ news', () => {
+  it('crime’s news of every kind is one Crime message at its building: an arson an alarm; talk of burning, a gang gathering, taking its den or beating off a watchman warnings', () => {
+    const sim = demoSim('crimes');
+    const s = sim.state;
+    const b = s.buildings.find((x) => x.kind === 'home')!;
+    // (A tick each: crime keeps only its last few lines.)
+    for (const k of NEWS_KINDS) {
+      tellNews(s, k, `News of the kind ${k}`, b.id);
+      sim.step();
+    }
+    stepMessages(s, sim.map);
+    const urgent: Record<string, number> = { arson: ALARM, talk: WARNING, gathering: WARNING, gang: WARNING, beaten: WARNING };
+    for (const k of NEWS_KINDS) {
+      const ms = s.messages.log.filter((m) => m.words === `News of the kind ${k}.`);
+      expect(ms.length, k).toBe(1);
+      expect(ms[0].kind).toBe('crime');
+      expect(ms[0].u, k).toBe(urgent[k] ?? NEWS);
+      expect(ms[0].at).toEqual({ building: b.id });
+    }
+  }, 60000);
+
+  it('a colony’s news is an Empire message on its site, its ask a warning', () => {
+    const sim = demoSim('colonywants');
+    const s = sim.state;
+    const ask = s.messages.log.find((m) => /^Nea Thasos asks you for \d+ wheat/.test(m.words));
+    expect(ask?.kind).toBe('colony');
+    expect(catOf(ask!.kind)).toBe('empire');
+    expect(ask?.u).toBe(WARNING);
+    expect(ask?.at).toEqual({ site: 'thasos' });
+    send(sim, { type: 'colonyworks', act: 'want', site: 'thasos' });
+    const sent = s.messages.log.find((m) => /^You send Nea Thasos the \d+ wheat it asked for/.test(m.words));
+    expect(sent?.kind).toBe('colony');
+    expect(sent?.u).toBe(NEWS);
+    expect(sent?.at).toEqual({ site: 'thasos' });
+  }, 60000);
 });
 
 describe('the log changes nothing else', () => {

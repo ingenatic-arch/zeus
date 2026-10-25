@@ -15,6 +15,7 @@ import { dealLine, dealsWaiting, loansWaiting } from '../sim/status';
 import { raidLine } from '../sim/raids';
 import { empireTownLine } from '../sim/vassals';
 import { colonyTownLine } from '../sim/colonies';
+import { dayWords } from '../sim/favours';
 import type { CoastMap } from '../map/bake';
 import type { CityId } from '../map/greece';
 import { ICONS } from './townlines';
@@ -293,8 +294,16 @@ export class MessagesPanel {
       if (l) waiting.push({ city: l.city, text: l.text.replace(/\.$/, ''), raid: false, empire: true });
     }
     for (const c of e.colonies) {
-      const l = c.talk || (c.threat && c.threat.end === '') ? colonyTownLine(only({ colonies: [c], foundings: [] })) : null;
+      // (Merge of slice 43: and a colony's ask you haven't sent, or its goods loading at your quay, which were the line under the
+      // top bar too: the colony's most pressing matter, as that line ranked them. Its stage, works landed and governors chosen
+      // are news in the scroll.)
+      const asking = !!c.want && c.want.end === '' && !c.want.cargo;
+      const cargoes = e.cargoes.filter((x) => x.site === c.site);
+      const loading = cargoes.some((x) => x.phase === 'loading');
+      const l = c.talk || (c.threat && c.threat.end === '') || asking || loading ? colonyTownLine(only({ colonies: [c], foundings: [], cargoes })) : null;
       if (l) waiting.push({ city: `site:${l.site}`, text: l.text.replace(/\.$/, ''), raid: false, empire: true });
+      // (A governor to choose: the council holds the colony until you do, or chooses for you on its day.)
+      if (c.candidates.length) waiting.push({ city: `site:${c.site}`, text: `${c.name} waits for a governor: choose one of the ${c.candidates.length} candidates on its page by ${dayWords(c.chooseBy)}, or its council chooses`, raid: false, empire: true });
     }
     const wkey = waiting.map((w) => w.text).join('|');
     const key = `${this.filter}|${g.next}|${g.log.length}|${g.log[0]?.id ?? 0}|${unreadN}|${pins}|${[...this.opened].join(',')}|${wkey}|${g.since}|${[...popupsOff].join(',')}`;

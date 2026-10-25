@@ -67,7 +67,7 @@ import { HORSE_BATCH, HORSE_EVERY } from './production';
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, pronouns, type Temptation } from './crime';
 // Slice 41.
 import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeChoice } from './crime';
-import { brokenPlace, criminalDoing, criminalStatus, grievances, mendWords, misdeedLines } from './misdeeds';
+import { criminalStatus, grievances, misdeedLines } from './misdeeds';
 import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { CREW, crewOut, distFrom, roadsBeside } from './rounds';
@@ -1850,17 +1850,20 @@ function noWatchWords(s: SimState): string {
 }
 
 /**
- * The crime line: homes more than half way to sending a thief out that no
- * watchman walks by, how many, why, and how soon the first. (A theft, a catch
- * and a thief out were news here until slice 44: they are the town's
- * messages now.)
+ * The crime line: talk of burning, a gang's den or one gathering (slice 41);
+ * else homes more than half way to sending a thief out that no watchman walks
+ * by, how many, why, and how soon the first. (A theft, a catch and a thief out
+ * were news here until slice 44: they are the town's messages now, as every
+ * new kind's crimes, catches, smashing and mending are since its merge.)
  */
 export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
   if (!s.crime.on) return null;
   const size = map.size;
   // (Slice 44: a theft or a catch is news, said in the town's messages as it happens; a thief out is said there by his theft or his catch.
   // The line keeps the homes tempted that no watchman deters.)
-  // Slice 41: talk of burning (it is the threat to see coming); then one of the new kinds out, a gang's den, something smashed, a gang gathering.
+  // Slice 41: talk of burning first (it is the threat to see coming), then a gang's den or one gathering. (Merge of slice 44:
+  // a crime of any kind done, a catch, a building smashed and mended are news, said in the messages; a criminal of any kind out
+  // is said there by what he does or his catch, as a thief is.)
   const talk = s.crime.kinds ? talkTownLine(s, map) : null;
   if (talk) return talk;
   const more = s.crime.kinds ? crimesTownLine(s, map) : null;
@@ -1905,31 +1908,19 @@ function talkTownLine(s: SimState, map: CoastMap): TownLine | null {
   return { need: 'crime', text: `Talk of burning ${whereIs(map, b).toLowerCase()}: the house of ${b.family?.name ?? 'a poor family'} has had enough (${grievances(s, b, t)}). Someone sets a fire ${left > 0 ? `in about ${days(left)}` : 'any day now'}, unless a watchman walks by (Z twice) or things get better for them.`, at: b.id };
 }
 
-/** One of the new kinds of criminal out, a gang's den, something smashed, or a gang gathering: the town line. */
+/**
+ * A gang's den, or a gang gathering: the town line. (Merge of slice 44: one of
+ * the new kinds of criminal out, and a building smashed, were lines here
+ * too; what he does, his catch, the smashing and the mending are news, said
+ * in the town's messages, as a thief out and his theft are.)
+ */
 function crimesTownLine(s: SimState, map: CoastMap): TownLine | null {
-  const out = s.walkers.filter((w) => isCriminal(w.kind) && w.kind !== 'thief' && w.people > 0);
-  if (out.length) {
-    const w = out[0];
-    const home = findBuilding(s, w.home);
-    const name = KIND_NAME[crimeOfWalker(w.kind)];
-    const where = home ? whereIs(map, home) : 'In the city';
-    const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
-    const pr = pronouns(home, w);
-    const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
-    return { need: 'crime', text: `${name === 'arsonist' ? 'An' : 'A'} ${name} out ${where.toLowerCase()}: ${thiefWho(home, w, 'a hooded figure')}, ${criminalDoing(s, w)}${more}.${chase}`, at: w.home };
-  }
   const g = s.crime.gangs[0];
   const den = g ? findBuilding(s, g.den) : undefined;
   if (g && den) {
     const n = postsReaching(s, map.size, den).length;
     const posts = g.covered > 0 ? 'Two watch posts reach its den now: the gang breaks up within a month' : n === 1 ? 'One watch post reaches its den: a second whose round reaches it (Z twice) would break the gang up' : 'Two watch posts whose rounds reach its den (Z twice) would break the gang up';
     return { need: 'crime', text: `${g.name.charAt(0).toUpperCase()}${g.name.slice(1)} has its den ${whereIs(map, den).toLowerCase()}, in the house of ${den.family?.name ?? 'a poor family'}: its men go out every week or so, and beat off a lone watchman. ${posts}.`, at: den.id };
-  }
-  const x = s.crime.broken[0];
-  const smashed = x ? findBuilding(s, x.at) : undefined;
-  if (x && smashed) {
-    const stops = smashed.kind === 'fountain' ? 'no water carrier goes out from it' : smashed.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
-    return { need: 'crime', text: `${brokenPlace(map, smashed).charAt(0).toUpperCase()}${brokenPlace(map, smashed).slice(1)} was smashed by a vandal: ${stops} ${mendWords(s)}.`, at: smashed.id };
   }
   const gath = gathering(s)[0];
   const seat = gath ? findBuilding(s, gath.seat) : undefined;

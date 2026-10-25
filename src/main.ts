@@ -299,8 +299,8 @@ interface Probe {
   ambition?: () => Record<string, unknown>;
   ambitionPanel?: (open: boolean) => string;
   // Slice 44
-  /** The town's messages: the log (its last 80), the seal's count and colour, the Messages panel (opened, closed or filtered first) and its text, the popup showing. */
-  messages?: (open?: boolean, filter?: string) => Record<string, unknown>;
+  /** The town's messages: the log (its last 80, or `last`), the seal's count and colour, the Messages panel (opened, closed or filtered first) and its text, the popup showing. */
+  messages?: (open?: boolean, filter?: string, last?: number) => Record<string, unknown>;
   /** What the town has heard: the lines under the top bar, then every message's words, oldest first (the news the lines once told). */
   heard?: () => string[];
 }
@@ -1871,7 +1871,7 @@ function start(preparedTown: string | null): void {
   };
   // Slice 44.
   probe.heard = () => [...lines.texts, ...sim.state.messages.log.map((m) => m.words)];
-  probe.messages = (open, filter) => {
+  probe.messages = (open, filter, last = 80) => {
     if (open !== undefined) msgPanel.toggle(open);
     if (filter) msgPanel.showFilter(filter as Parameters<typeof msgPanel.showFilter>[0]);
     const s = sim.state;
@@ -1888,7 +1888,7 @@ function start(preparedTown: string | null): void {
       open: msgPanel.open,
       text: msgPanel.open ? msgPanel.text : '',
       popup: msgPops.text,
-      log: s.messages.log.slice(-80).map((m) => ({ id: m.id, tick: m.tick, kind: m.kind, u: m.u, title: titleOf(m), words: m.words, at: m.at ?? null, read: !!m.read, pin: !!m.pin })),
+      log: s.messages.log.slice(-last).map((m) => ({ id: m.id, tick: m.tick, kind: m.kind, u: m.u, title: titleOf(m), words: m.words, at: m.at ?? null, read: !!m.read, pin: !!m.pin })),
     };
   };
   probe.sideText = () => side.text;

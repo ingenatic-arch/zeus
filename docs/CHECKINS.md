@@ -71,6 +71,17 @@ A second pass played #messages, #raid, #borrow and #empire at 1920 × 1080 (and 
 
 I'd still like your eye on whether the scroll is easy to find and whether the one fire card in a raid is the right amount.
 
+### At the merge
+Slices 43 (colonies that grow up) and 41 (crimes of every kind) joined the main line first, so this slice's saves are version 40, not 38. Saves from before any of the three still load, with an empty scroll.
+
+Their news now comes into the scroll too:
+- **Crime.** Every new kind of crime and every catch is a Crime message at its place, as a theft is. Talk of burning, a gang gathering, a gang taking its den and its men beating off a watchman are warnings (amber); an arson is an alarm (red), though the card that pops up is the fire's own.
+- **What stays under the top bar.** Talk of burning, a gang's den and a gang gathering stay lines while they last, as other risks do. A pickpocket, vandal or smuggler out has no line any more, the same as a thief out: you see him walking, his tip names him, and what he does or his catch comes into the scroll. A smashed fountain, stall or statue is a message when it happens and another when it is mended, and its panel still says it is smashed until then.
+- **Colonies.** A colony's news (it grows, it asks for something, a work is finished, your ship lands, its governor dies) is an Empire message, and Go there opens its page. A colony's ask, its goods loading at your quay, and a governor waiting to be chosen are listed under "Waiting on you"; before, the ask and the loading were the line under the top bar.
+- **#empire** has no thief line now. Its three thefts before it opens are in the scroll.
+
+Every earlier demo opens and plays 900 ticks on exactly as before the merge (all 136 compared, by date, people, money, walkers and buildings). Please judge whether a criminal out deserves a line after all, and whether a colony's goods loading belong under "Waiting on you".
+
 ## Slice 41 — Crimes of every kind (25 Oct)
 
 Theft now has company. A tempted home turns to the crime its own trouble points to: pickpockets work the agora's and the theatre's crowds, vandals smash a fountain, a stall or a shrine's statue, rare arsonists are talked about in the quarter before they strike, smugglers slip goods off the quay and out of the caravan yard, and a tax collector whose wages are owed keeps some of the takings. A quarter tempted for months grows a gang, which you hear about a season before it takes a house as its den. You weren't here while it was built: every choice below is mine, from the spec's defaults.
