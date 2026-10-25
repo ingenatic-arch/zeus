@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY } from '../src/sim/clock';
 import { stepMessages } from '../src/sim/heard';
-import { capWords, freshMessages, KEEP_TICKS, MAX_MESSAGES, messagesAt, NEWS, REPEAT_TICKS, say, titleOf, unread, WARNING, ALARM } from '../src/sim/messages';
+import { capWords, freshMessages, KEEP_TICKS, MAX_MESSAGES, messagesAt, NEWS, REPEAT_TICKS, say, titleFrom, titleOf, unread, WARNING, ALARM } from '../src/sim/messages';
 import { migrate } from '../src/sim/migrate';
 import { Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
@@ -37,6 +37,8 @@ describe('the log', () => {
     expect(titleOf(m)).toBe('A long piece of news');
     expect(titleOf(say(s, { kind: 'raid', u: ALARM, words: 'Raiders! 35 of Sparta’s men are in at the west edge of your land, making for the granary.' })!)).toBe('Raiders! 35 of Sparta’s men are in at the west edge of your land');
     expect(capWords('  short  ')).toBe('short');
+    // (A ruler's ask a week from due is titled by what waits, not by "Still waiting on you".)
+    expect(titleFrom('Corinth asks for 200 wheat: answer within 5 days, on Corinth’s page')).toBe('Corinth asks for 200 wheat');
   });
 
   it('keeps three years and at most 600, the pinned ones last to go', () => {

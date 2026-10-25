@@ -69,7 +69,7 @@ import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, TradeRoute
 import { dockerDoing, dockerNews, goodsList, priceFor, quayWorth, SHIP_COMING, SHIP_MOORED, shipNews, TRADE_GOODS } from './trade';
 import { caravanDoing, caravanOf, routeNews } from './routes';
 import { liveRaid, raidChip, raiderDoing, raidLine, raidersOf } from './raids';
-import { PLACES } from '../map/greece';
+import { PLACES, type CityId } from '../map/greece';
 import { CARRIER_RANGE, CARRIER_WALK, stepsToFountain, waterReach } from './water';
 import { COLLECTOR_RANGE, COLLECTOR_WALK, goneForTaxes, HARSH, purseTotal, TAX_RATES, taxedLately, taxFor } from './taxes';
 import { hasTaxOffice, monthOf, owedWages, reserve, spendable, totals, WAGE, wageBill } from './treasury';
@@ -1489,6 +1489,22 @@ function debtTownLine(s: SimState): TownLine | null {
   if (!soon) return null;
   const n = Math.max(1, Math.ceil((soon.due - s.tick) / TICKS_PER_DAY));
   return { need: 'loan', text: `Your loan from ${PLACES[soon.city].name} is due in ${n === 1 ? '1 day' : `${n} days`}: ${fmt(soon.owed)} dr, and the treasury can spend ${fmt(spendable(s))} dr now.`, at: 0, route: soon.city };
+}
+
+/**
+ * Slice 44: the loans that wait on your answer, for the Messages panel's
+ * "Waiting on you": terms a ruler offers you (accept or decline), and a city
+ * asking you for more time to repay. In loanTownLine's words, each asked of
+ * that loan alone.
+ */
+export function loansWaiting(s: SimState): Array<{ city: CityId; text: string }> {
+  const out: Array<{ city: CityId; text: string }> = [];
+  for (const l of s.world.loans) {
+    if (l.state !== 'terms' && !(l.side === 'out' && l.state === 'grace')) continue;
+    const line = loanTownLine({ ...s, world: { ...s.world, loans: [l] } });
+    if (line) out.push({ city: line.city, text: line.text.replace(/\.$/, '') });
+  }
+  return out;
 }
 
 /** While taxes are harsh: households leaving and newcomers staying away (null otherwise). */

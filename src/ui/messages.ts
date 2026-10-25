@@ -11,7 +11,7 @@ import { dateOfTick, formatYear, MONTH_NAMES, TICKS_PER_YEAR } from '../sim/cloc
 import type { Command } from '../sim/commands';
 import { ALARM, CAT_NAMES, CATS, KINDS, KEEP_TICKS, MAX_MESSAGES, POPUP_KINDS, catOf, titleOf, type Message, type MessageCat, type MessageKind } from '../sim/messages';
 import type { SimState } from '../sim/state';
-import { dealLine, dealsWaiting } from '../sim/status';
+import { dealLine, dealsWaiting, loansWaiting } from '../sim/status';
 import { raidLine } from '../sim/raids';
 import type { CoastMap } from '../map/bake';
 import type { CityId } from '../map/greece';
@@ -120,7 +120,7 @@ export interface MessagesDeps {
   /** Does a message's place still stand to go to? */
   canGo: (s: SimState, m: Message) => boolean;
   /** Open a city's page on the map of Greece (a deal waiting on you). */
-  goCity: (city: CityId) => void;
+  goCity: (city: CityId, tab?: string) => void;
 }
 
 /**
@@ -210,7 +210,7 @@ export class MessagesPanel {
     const chip = t.closest('button[data-cat]') as HTMLElement | null;
     if (chip) return this.showFilter(chip.dataset.cat as MessageCat | 'all');
     const deal = t.closest('button[data-city]') as HTMLElement | null;
-    if (deal) return this.deps.goCity(deal.dataset.city as CityId);
+    if (deal) return this.deps.goCity(deal.dataset.city as CityId, deal.dataset.tab);
     const row = t.closest('.msg') as HTMLElement | null;
     if (!row) return;
     const id = Number(row.dataset.id);
@@ -269,12 +269,13 @@ export class MessagesPanel {
     }
     // What waits on you: a ruler's threat or band you can still pay off, then the asks, offers and demands (these left the
     // lines under the top bar).
-    const waiting: Array<{ city: string; text: string; raid: boolean }> = [];
+    const waiting: Array<{ city: string; text: string; raid: boolean; loan?: boolean }> = [];
     for (const r of s.world.raids) {
       const text = raidLine(s, map, r);
       if (text) waiting.push({ city: r.city, text, raid: true });
     }
     for (const d of dealsWaiting(s)) if (d.kind !== 'threat') waiting.push({ city: d.city, text: dealLine(s, map, d), raid: false });
+    for (const l of loansWaiting(s)) waiting.push({ city: l.city, text: l.text, raid: false, loan: true });
     const wkey = waiting.map((w) => w.text).join('|');
     const key = `${this.filter}|${g.next}|${g.log.length}|${g.log[0]?.id ?? 0}|${unreadN}|${pins}|${[...this.opened].join(',')}|${wkey}|${g.since}|${[...popupsOff].join(',')}`;
     if (key === this.key) return;
@@ -293,7 +294,7 @@ export class MessagesPanel {
     if (waits.length) {
       parts.push(`<h3>Waiting on you</h3><ul class="waiting">${waits
         .slice(0, 6)
-        .map((w) => `<li><button class="${w.raid ? 'raid' : ''}" data-city="${esc(w.city)}" title="Open the city’s page on the map of Greece">${w.raid ? ICONS.raid : ICONS.favour}<span>${esc(w.text)}.</span></button></li>`)
+        .map((w) => `<li><button class="${w.raid ? 'raid' : ''}" data-city="${esc(w.city)}"${w.loan ? ' data-tab="loans"' : ''} title="Open the city’s page on the map of Greece">${w.raid ? ICONS.raid : w.loan ? ICONS.loan : ICONS.favour}<span>${esc(w.text)}.</span></button></li>`)
         .join('')}</ul>`);
     }
     const shown = g.log.filter((m) => this.filter === 'all' || catOf(m.kind) === this.filter);

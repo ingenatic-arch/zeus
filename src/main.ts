@@ -1473,7 +1473,7 @@ function start(preparedTown: string | null): void {
     send: sendMessages,
     go: goToMessage,
     canGo: (s, m) => !!m.at && ('city' in m.at || 'site' in m.at || messageSpot(s, m) !== null),
-    goCity: (city) => toggleGreece(true, city, 'ruler'),
+    goCity: (city, tab) => toggleGreece(true, city, (tab as CityTab | undefined) ?? 'ruler'),
   });
   msgPanel.onOpen = () => {
     panel.show(0);

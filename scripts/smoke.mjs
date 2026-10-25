@@ -3024,11 +3024,12 @@ await open('#messages-paused');
   await frames(2);
   if (!(await zeus(() => window.__zeus.messages())).open) fail('#messages: the key left of 1 did not open the panel');
 }
-await open('#raid');
+await open('#raid-paused');
 {
   const before44 = await zeus(() => window.__zeus.messages());
   if (before44.popup) fail(`#raid: a popup as it opens: ${before44.popup}`);
-  // The band reaches the edge in a few days: one alarm pops up.
+  // Played on, the band reaches the edge in a few days: one alarm pops up.
+  await page.evaluate(() => window.__zeus.speed('normal'));
   await page.waitForFunction(() => window.__zeus.messages().popup !== '', null, { timeout: 600000, polling: 100 });
   const p44 = await zeus(() => ({ m: window.__zeus.messages(), cards: document.querySelectorAll('.msg-pop:not([hidden])').length }));
   if (!(/^Raiders! \d+ of Sparta’s men are in at the west edge of your land/.test(p44.m.popup) && p44.cards === 1)) fail(`#raid: the popup: ${p44.m.popup} (${p44.cards} cards)`);

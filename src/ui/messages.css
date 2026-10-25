@@ -32,6 +32,9 @@
 
 /* ------------------------------------------------------------------ the Messages panel */
 .household.messages { width: 384px; }
+/* The map of Greece puts the city's panels away; not this one, which is about Greece too (it takes the city's page's place). */
+body.greece-open #ui .household.messages:not([hidden]) { display: flex !important; }
+body.greece-open #ui .household.messages { max-height: calc(100% - 106px); }
 .household.messages .mhead { position: relative; padding: 10px 44px 4px 16px; }
 .household.messages .mhead h2 { margin: 0; }
 .household.messages .mhead .kicker { margin-top: 1px; }
@@ -58,6 +61,8 @@
   margin: 3px 0; padding: 5px 8px; border-radius: 3px; border: 1px solid rgba(208, 138, 30, 0.75); background: rgba(253, 236, 200, 0.6);
 }
 .household.messages .waiting button:hover { background: rgba(253, 236, 200, 0.95); }
+.household.messages .waiting button.raid { border-color: rgba(184, 50, 42, 0.7); background: rgba(250, 222, 212, 0.6); }
+.household.messages .waiting button.raid:hover { background: rgba(250, 222, 212, 0.95); }
 .household.messages .waiting svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 
 /* A message: its icon, day and title in a row (bold while unread); its words open under it. */

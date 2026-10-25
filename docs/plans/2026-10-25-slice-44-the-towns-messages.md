@@ -89,4 +89,32 @@ At `53e5bb4`, on a loaded machine (four lines building on four cores).
 
 ## As built
 
-(To be filled in.)
+**The log** is as designed: `src/sim/messages.ts` (the log, `say`, `titleOf`/`titleFrom`, queries by filter, place and unread, the `messages` command, and `mendMessages` for a missing or damaged log), one top-level field `messages`, state version 38 (`fromSlice44`). A message's filter comes from its kind's row in `KINDS`, so it isn't saved. Twenty kinds: greece, loan, deal, raid, blockade, army, fleet, vassal, colony, rebellion, ship, caravan, fire, collapse, season, laurel, crime, plague, sickness, monument. Five may pop up: raid, blockade, rebellion, fire, plague.
+
+**Routing** (`src/sim/heard.ts`) runs last in every tick and again after commands are applied (only the facts then):
+- Greece's, the army's and crime's news logs are read with a cursor each (tick and count). Greece's lines are sorted by a table of their words (`RULES`): raiders in or ashore, a blockade taking station and a rising are alarms; other urgent lines warnings. A line from a colony's site is Empire; a vassal's or ally's is Empire; raids, fleets, blockades and expeditions are War; loans and asks are Greece; the rest is Greece. A war line the army already told in other words in the last fortnight (the same up to its first comma or colon) is not told twice, and `say` drops the same words within three days.
+- The facts that status.ts used to work out, said once as each becomes true: a building burning (alarm), smouldering or creaking (warning), rubble (news); the merchant ship sighted, goods lost with the post (warning); a caravan or route ship in, or turned back (warning); a stage or a monument finished, the games coming and on, a site stuck (warning); a laurel, an ambition, all three; a new season; daily, a ship held back by winter, a ruler's ask or threat a week from due (warning, titled by what waits), a loan due within a month the treasury can't cover (warning). The facts true at the last look are kept in `seen` (short keys), so nothing is said twice across a save.
+- Nothing in the sim reads the log; the tests check a town played with the log emptied every tick ends the same, and the demo probe below.
+
+**The town lines** (`status.ts`) keep the shortfalls (bread and food, stall goods, workers, money, harsh taxes, winter's bread), the unguarded risks (fire risk, wear, homes tempted to steal), and one money matter: a loan overdue, or due within a month with too little in the treasury. The news lines' text builders became helpers the watchers use (`burningLine`, `smoulderLine`, `creakLine`, `rubbleLine`, `traderLine`, `shipLine`, `dealsWaiting`, `dealLine`, `loansWaiting`). The raid's standing line (a threat, a band gathering, marching or in the city) left the top bar: the raid chip still shows a band, and the Messages panel lists every threat and band you can still pay off under "Waiting on you", with the rulers' asks and offers and any loan whose terms wait on an answer or whose grace is running out (`loansWaiting`).
+
+**The UI** (`src/ui/messages.ts`, `messages.css`):
+- The scroll button beside the date with its seal (`topbar.ts`).
+- The Messages panel as a `household messages` card: it takes the home panel's place and its responsive rules, and one of them is open at a time (the trading post's, the shipyard's, a city's page on the map). "Waiting on you", the filter chips with unread counts, pinned, months, rows bold while unread, an open row with Go there, Mark unread and a pin, Mark all read, the popup setting, and the note for a log that began with an old save.
+- Popups (`MessagePopups`): only alarms of kinds allowed, said after the page opened, not while the panel is open; one at a time, six seconds, at most three waiting.
+- Sounds: `message` (a rustle and a small bell, at most every 4 s) and `alarm` (a bronze bell, twice; not for a fire or raiders, which have their own).
+- Keys: the key left of 1 (`), since every letter is taken; Esc closes the panel.
+- Probes: `messages(open?, filter?)` and `heard()` (the lines and every message's words).
+
+**Demos.** `#messages` (above). Each demo opens with its history read but for the last `unread` ticks (a Slice 44 field on `Demo`; `#messages` keeps three months unread), sent as a `messages` command as the page opens, so the prepared towns themselves are unchanged in everything but their log.
+
+**Decisions that differ from the spec:**
+- Prepared towns carry the messages their history wrote, marked read as they open, instead of starting empty (a prepared town must be exactly the state its setup made, and its history is worth reading).
+- A debt you can't meet stays a line under the top bar (it is how things stand, like money).
+- "A thief out" and an expedition's progress have no line or message of their own now; a theft, a catch and the expedition's news are messages.
+- The panel's key is the one left of 1, not a letter.
+- Which alarms pop up is the player's setting, kept in the browser; read marks and pins are commands, saved with the town.
+
+**Touched outside the line:** `src/game/saves.ts` (calls `mendMessages` after migrating, so a damaged log loads empty instead of refusing the save); in Slice 44 blocks, `state.ts`, `migrate.ts`, `sim.ts`, `commands.ts`, `main.ts`, `demos.ts`, `help.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`; tests whose news moved to the messages (`battle`, `favours`, `raids`, `trade`) or that compare two towns' city state and now leave the log out, as it tells Greece's news (`rivals`, `world`). `status.ts`' `traderLine` no longer asks for a sea route's news when the route has no ship (a test builds such a route by hand).
+
+**MAP_SIZE:** no new uses. A tile place is turned into x and z with the map's own size in `main.ts`.
