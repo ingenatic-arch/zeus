@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { COST } from '../src/sim/build';
 import { COTTAGE, FINE, HOME_CAPACITY, TOWNHOUSE } from '../src/sim/buildings';
 import { chatterOf, LINES } from '../src/sim/chatter';
@@ -16,7 +16,7 @@ import { TILE_ROAD, type Building, type SimState } from '../src/sim/state';
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const homes = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && b.people > 0);
 const of = (s: SimState, k: Building['kind']): Building => {
   const b = s.buildings.find((o) => o.kind === k);

@@ -46,6 +46,8 @@ export function districtGrid(map: CoastMap): Uint8Array {
   let grid = cache.get(map);
   if (grid) return grid;
   const n = map.size;
+  // (Slice 42: a generated land puts each named place where its feature is; the Bay's are DISTRICTS' own.)
+  const at = map.data.districts ?? DISTRICTS;
   grid = new Uint8Array(n * n);
   for (let z = 0; z < n; z++) {
     for (let x = 0; x < n; x++) {
@@ -59,7 +61,7 @@ export function districtGrid(map: CoastMap): Uint8Array {
       let best = 1;
       let bd = Infinity;
       for (let i = 1; i < DISTRICTS.length; i++) {
-        const d = sq(DISTRICTS[i].x - cx) + sq(DISTRICTS[i].z - cz);
+        const d = sq(at[i].x - cx) + sq(at[i].z - cz);
         if (d < bd) [best, bd] = [i, d];
       }
       grid[z * n + x] = best;

@@ -141,12 +141,16 @@
  * no site has a colony that declared itself free. Rivals' colonies stay as
  * they were; nothing else changes.
  *
+ * Slice 42 (Lands of any size): a town from before is on the Bay, the
+ * hand-made coast of 128 tiles a side, as it always was. Nothing in the
+ * city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
  */
-import { coastMap } from '../map/bake';
-import { MAP_SIZE } from '../map/coast';
+// Slice 42: a town's land (an older one is on the Bay).
+import { BAY, landMap } from '../map/lands';
 import { TICKS_PER_MONTH } from './clock';
 import { FINE } from './buildings';
 import { gi, GOOD_COUNT, MARBLE, OIL, TIMBER } from './foods';
@@ -228,6 +232,7 @@ export function migrate(st: unknown): number {
   if (st.version === 34) fromSlice39(st);
   if (st.version === 35) fromSlice36(st);
   if (st.version === 36) fromSlice37(st);
+  if (st.version === 37) fromSlice42(st);
   return from;
 }
 
@@ -238,7 +243,7 @@ function from6(st: Record<string, unknown>): void {
   const tick = typeof st.tick === 'number' ? st.tick : 0;
   st.ledger = freshLedger(money, tick);
   if (isObj(st.rounds)) {
-    const n = MAP_SIZE * MAP_SIZE;
+    const n = BAY.size * BAY.size;
     st.rounds.tax = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
   if (Array.isArray(st.buildings)) {
@@ -277,8 +282,8 @@ function from7(st: Record<string, unknown>): void {
     }
   }
   st.wild = wildRng(typeof st.seed === 'number' ? st.seed : 0);
-  const n = MAP_SIZE * MAP_SIZE;
-  st.herds = Array.isArray(st.tiles) && st.tiles.length === n ? freshHerds(coastMap(), st as unknown as SimState) : [];
+  const n = BAY.size * BAY.size;
+  st.herds = Array.isArray(st.tiles) && st.tiles.length === n ? freshHerds(landMap(BAY), st as unknown as SimState) : [];
   st.version = 8;
 }
 
@@ -298,7 +303,7 @@ function from8(st: Record<string, unknown>): void {
     }
   }
   if (isObj(st.rounds)) {
-    const n = MAP_SIZE * MAP_SIZE;
+    const n = BAY.size * BAY.size;
     st.rounds.oil = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
   st.version = 9;
@@ -316,7 +321,7 @@ function from9(st: Record<string, unknown>): void {
     }
   }
   if (isObj(st.rounds)) {
-    const n = MAP_SIZE * MAP_SIZE;
+    const n = BAY.size * BAY.size;
     st.rounds.fleece = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
     st.rounds.wine = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
@@ -337,7 +342,7 @@ function from10(st: Record<string, unknown>): void {
     }
   }
   if (isObj(st.rounds)) {
-    const n = MAP_SIZE * MAP_SIZE;
+    const n = BAY.size * BAY.size;
     st.rounds.fire = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
     st.rounds.wear = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
   }
@@ -924,5 +929,11 @@ function fromSlice37(st: Record<string, unknown>): void {
   }
   const w = st.world;
   if (isObj(w) && Array.isArray(w.sites)) for (const x of w.sites as unknown[]) if (isObj(x) && typeof x.free !== 'string') x.free = '';
+  st.version = (st.version as number) + 1;
+}
+
+// Slice 42
+function fromSlice42(st: Record<string, unknown>): void {
+  if (!isObj(st.land)) st.land = { ...BAY };
   st.version = (st.version as number) + 1;
 }

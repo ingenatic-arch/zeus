@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { DEMOS, thiefStreet } from '../src/game/demos';
 import { JOBS } from '../src/sim/buildings';
@@ -43,7 +43,7 @@ import { stepWild } from '../src/sim/wild';
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 
 /** A bare sim with one maker of `kind` at (x, z), its seasons switched as asked. */

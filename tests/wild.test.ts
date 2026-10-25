@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { coastMap } from '../src/map/bake';
-import { HERDS, MAP_SIZE } from '../src/map/coast';
+import { HERDS } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { CHEESE_BATCH, CHEESE_EVERY, cheeseOf, GRANARY_ROOM, STALL_ROOM } from '../src/sim/food';
@@ -19,7 +20,7 @@ import { freshHerds, herdGround, MIN_HEAD, offRoadPath, REGROW, regrowIn, walkab
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const ground = mapIndex(map).ground;
 const firm = (t: number): boolean => ground[t] === Ground.Ok || ground[t] === Ground.SteepForHome;
 const tileAt = (x: number, z: number): number => Math.floor(z) * N + Math.floor(x);

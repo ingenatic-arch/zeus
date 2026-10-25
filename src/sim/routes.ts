@@ -94,6 +94,8 @@ import { tradedWithFoe } from './rivals';
 import { lateWords, onSchedule, stormDelay } from './seasons';
 // Slice 34.
 import { tributeDoing, unload as unloadTribute } from './vassals';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -751,7 +753,7 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
 
 /** The post went (or she can't reach it): she turns back from where she is, paying for anything she took. */
 function turnBackVisitor(s: SimState, r: TradeRoute, v: Visitor): void {
-  const at = visitorAt(v, s.tick);
+  const at = visitorAt(v, s.tick, sizeOf(s));
   if (r.hold.some((n) => n > 0) || r.unloaded.some((n) => n > 0)) settle(s, r);
   v.turned = at ? at.inward : 1;
   v.phase = SHIP_LEAVING;
@@ -844,8 +846,8 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
   }
   if (v.phase === SHIP_COMING) {
     // Slice 38: a blockade takes station before she is past the harbour's mouth: she turns back, to come again when it ends.
-    if (blockaded(s) && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) {
-      const at = visitorAt(v, s.tick);
+    if (blockaded(s) && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s))) {
+      const at = visitorAt(v, s.tick, sizeOf(s));
       v.turned = at ? at.inward : 1;
       v.phase = SHIP_LEAVING;
       v.since = s.tick;
@@ -877,14 +879,14 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
  * eases back onto her way and in to the jetty; tied up and leaving she is
  * where the Tyre ship would be (shipAt).
  */
-export function visitorAt(v: Visitor, tick: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
+export function visitorAt(v: Visitor, tick: number, n: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
   if (v.phase === SHIP_AWAY || v.path.length < 4) return null;
-  if (v.phase === SHIP_MOORED || v.phase === SHIP_LEAVING) return shipAt(v, tick);
+  if (v.phase === SHIP_MOORED || v.phase === SHIP_LEAVING) return shipAt(v, tick, n);
   const L = pathLength(v.path);
   let f: number;
   let side: number;
   if (v.phase === SHIP_COMING) {
-    f = v.stop * inwardAt(v.path, (tick - v.since) / SAIL_IN);
+    f = v.stop * inwardAt(v.path, (tick - v.since) / SAIL_IN, n);
     side = v.stop < 1 ? smooth((f * L - (v.stop * L - SIDE_RUN)) / SIDE_RUN) : 0;
   } else if (v.phase === SHIP_ANCHORED) {
     f = v.stop;
@@ -909,7 +911,7 @@ export function visitorAt(v: Visitor, tick: number): { x: number; z: number; dx:
  * sea between the gulf and her city over her voyage, arriving at the horizon
  * as her sail first shows from your quay.
  */
-export function visitorOnMap(r: TradeRoute, tick: number): { along: number; homeward: boolean; where: 'quay' | 'bay' | 'anchored' | 'sea' | 'home' } {
+export function visitorOnMap(r: TradeRoute, tick: number, n: number): { along: number; homeward: boolean; where: 'quay' | 'bay' | 'anchored' | 'sea' | 'home' } {
   const v = r.ship as Visitor;
   const way = routeWay(r.city, 'sea') as RouteWay;
   const L = lineLength(tableWay(wayOf(way.way)));
@@ -917,7 +919,7 @@ export function visitorOnMap(r: TradeRoute, tick: number): { along: number; home
   const voyage = voyageTicks(r.city);
   if (v.phase === SHIP_MOORED) return { along: 0, homeward: false, where: 'quay' };
   if (v.phase !== SHIP_AWAY) {
-    const at = visitorAt(v, tick);
+    const at = visitorAt(v, tick, n);
     const inward = at ? at.inward : v.phase === SHIP_COMING ? 0 : 1;
     return { along: H * (1 - inward), homeward: v.phase === SHIP_LEAVING, where: v.phase === SHIP_ANCHORED ? 'anchored' : 'bay' };
   }

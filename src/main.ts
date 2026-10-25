@@ -16,12 +16,12 @@ import { foundingOf, settlersShipStatus } from './sim/colonies';
 import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
-import { coastMap } from './map/bake';
-import { MAP_SIZE } from './map/coast';
+// Slice 42: the map is the state's land's, baked once the state is known.
+import { mapOf } from './map/lands';
 import { districtGrid } from './map/districts';
 import { CLASSIC_PIXELS, classicOn, classicSun, EYE, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
-import { CameraRig, type CameraView } from './render/cameraRig';
+import { CameraRig, cityLimits, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
 import { HazardView } from './render/hazards';
@@ -307,10 +307,6 @@ function start(preparedTown: string | null): void {
   setClassic(!launch.plain && !launch.modern);
   applyFinishPalette();
   classicSun(SUN_DIR);
-  const map = coastMap();
-  // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
-  districtGrid(map);
-  probe.bakeMs = performance.now() - t0;
   // A new game shuffles Greece from a seed of its own (the city keeps its seed, so the coast opens as ever); a demo's Greece comes from its city's seed.
   const sim = demo || launch.load ? new Sim() : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
@@ -355,7 +351,16 @@ function start(preparedTown: string | null): void {
       /* Not allowed here; reloading would open the save again, which is harmless. */
     }
   }
-  const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : view0;
+  // Slice 42: the map of the town's land (a demo's, a save's, or a new game's: the Bay), baked now that the town is known.
+  const tBake = performance.now();
+  const map = mapOf(sim.state);
+  // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
+  districtGrid(map);
+  probe.bakeMs = performance.now() - tBake;
+  // A generated land opens over its own bay (its site), unless the link asks for a view.
+  const site = map.data.site;
+  const landView: CameraView | null = site && !launch.cam && (!demo || demo.view === 'land') ? { x: site.x, z: site.z, yaw: 0.12, dist: Math.min(150, map.size * 0.62), tilt: -0.5 } : null;
+  const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : (landView ?? view0);
   const driver = new ClockDriver(sim, speed);
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -410,7 +415,7 @@ function start(preparedTown: string | null): void {
   };
   probe.look = () => ({ phase: lookPhase, rain: wetNow, storm: stormNow });
   const finish = makeFinishPost(renderer, world.scene, camera);
-  const rig = new CameraRig(camera, map, view);
+  const rig = new CameraRig(camera, map, view, cityLimits(map.size));
   // The original look's fixed view (render/classic.ts).
   rig.setClassic(classicOn());
   // Slice 33: the camera keeps out of the trees on hillsides.
@@ -1721,7 +1726,7 @@ function start(preparedTown: string | null): void {
         const view = city.visitors.get(r.city);
         const w = r.kind === 'land' ? caravanOf(s, r.city) : undefined;
         const at = w ? drawnAt((x) => x === w) : null;
-        const onMap = r.kind === 'sea' ? (visitorOnMap(r, s.tick).where === 'home' ? [] : [visitorOnMap(r, s.tick).along]) : caravansOnMap(s, r, s.tick).map((c) => c.along);
+        const onMap = r.kind === 'sea' ? (visitorOnMap(r, s.tick, map.size).where === 'home' ? [] : [visitorOnMap(r, s.tick, map.size).along]) : caravansOnMap(s, r, s.tick).map((c) => c.along);
         return {
           key: `${r.city}-${r.kind}`,
           next: r.next,
@@ -1940,7 +1945,7 @@ function start(preparedTown: string | null): void {
     if (st.walls.length) {
       for (const p of st.walls) {
         const was = wallsSeen.get(p.t);
-        if (was !== undefined && p.hp < was && near(p.t % MAP_SIZE, Math.floor(p.t / MAP_SIZE))) cues.push('thud');
+        if (was !== undefined && p.hp < was && near(p.t % map.size, Math.floor(p.t / map.size))) cues.push('thud');
         wallsSeen.set(p.t, p.hp);
       }
     }

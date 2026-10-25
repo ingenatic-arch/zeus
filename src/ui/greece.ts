@@ -8,6 +8,8 @@
 import type { CoastMap } from '../map/bake';
 import { PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 import { dateOfTick, formatDate, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
 import type { Gift, Ruler, SimState, TradeRoute } from '../sim/state';
@@ -254,7 +256,7 @@ function travellerHtml(s: SimState, key: string): string {
   // (Heading home with the route closed: called home, or home from its last visit before it closed.)
   const paid = r.closed > 0 ? `: ${PLACES[city]?.name ?? city}’s ruler has closed the ${kind === 'land' ? 'road' : 'sea route'}` : r.visits > 0 && r.lastPaid > 0 ? ` · paid ${fmt(r.lastPaid)} dr for ${wareList(r.lastSold)}` : '';
   if (kind === 'sea') {
-    const v = visitorOnMap(r, s.tick);
+    const v = visitorOnMap(r, s.tick, sizeOf(s));
     const line = v.homeward ? `Sailing home to ${name}${paid}` : `Sailing to your city: due at your jetty in ${days(r.next)}${tradesWords(r)}`;
     return `<b>The ship from ${esc(name)}</b><span>${esc(line)}</span><span class="sub">Click for ${esc(name)}’s page</span>`;
   }

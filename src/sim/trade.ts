@@ -25,7 +25,6 @@
  * here draws a random number, so a town without a post runs exactly as before.
  */
 import { WATER_SEA, type CoastMap } from '../map/bake';
-import { MAP_SIZE } from '../map/coast';
 import { dcos, dhypot, dsin } from '../map/dmath';
 import { Ground, mapIndex } from './build';
 import { findBuilding } from './buildings';
@@ -38,6 +37,8 @@ import { rateOf } from './labour';
 import { door, roadsBeside } from './rounds';
 import { roomFor, roomOf } from './stores';
 import { TILE_ROAD, type Building, type BuildingKind, type Ship, type SimState, type Trade, type Walker } from './state';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 /** What placing a ship needs of her record: the Tyre ship's, or a foreign ship's (a Visitor, see routes.ts). */
 export type Sailing = Pick<Ship, 'phase' | 'path' | 'since' | 'turned' | 'pace'>;
@@ -446,12 +447,13 @@ const EASE_EDGE = 12;
  * way through sailing in: far out at FAR_PACE, easing down to BAY_PACE over
  * the last EASE_EDGE tiles before she crosses the map's edge, across the bay
  * at BAY_PACE, slowing evenly to the jetty over the last
- * SLOW_LAST tiles, the whole fitted to SAIL_IN. A pure function of her route.
+ * SLOW_LAST tiles, the whole fitted to SAIL_IN. A pure function of her route
+ * and the map's size `n` (slice 42: where its edge is).
  */
-export function inwardAt(path: readonly number[], u: number): number {
+export function inwardAt(path: readonly number[], u: number, n: number): number {
   const L = pathLength(path);
   if (L <= 0) return 1;
-  const outer = Math.min(L, outerLength(path));
+  const outer = Math.min(L, outerLength(path, n));
   const slow = Math.max(0, Math.min(SLOW_LAST, L - outer));
   // Easing from her pace at sea to her pace in the bay over the last EASE_EDGE tiles before the edge.
   const ease = Math.min(EASE_EDGE, outer);
@@ -474,12 +476,11 @@ export function inwardAt(path: readonly number[], u: number): number {
   return Math.max(0, Math.min(1, d / L));
 }
 
-/** How far along her way in she is still beyond the map's edge (cached per route). */
-const outers = new WeakMap<readonly number[], number>();
-function outerLength(p: readonly number[]): number {
+/** How far along her way in she is still beyond the edge of a map `n` tiles a side (cached per route). */
+const outers = new WeakMap<readonly number[], { n: number; d: number }>();
+function outerLength(p: readonly number[], n: number): number {
   const hit = outers.get(p);
-  if (hit !== undefined) return hit;
-  const n = MAP_SIZE;
+  if (hit !== undefined && hit.n === n) return hit.d;
   const inside = (x: number, z: number): boolean => x >= 0 && z >= 0 && x <= n && z <= n;
   let d = 0;
   let found = 0;
@@ -498,7 +499,7 @@ function outerLength(p: readonly number[]): number {
     d += l;
     found = d;
   }
-  outers.set(p, found);
+  outers.set(p, { n, d: found });
   return found;
 }
 
@@ -532,16 +533,17 @@ export const smooth = (u: number): number => {
 /**
  * Where the ship is at a tick (fractional ticks too: the renderer draws her
  * between them), which way her bow points (a unit vector), and how far in she
- * has come (0 at the horizon, 1 at the quay); null while she is away.
+ * has come (0 at the horizon, 1 at the quay); null while she is away. `n`:
+ * the map's size (slice 42).
  */
-export function shipAt(ship: Sailing, tick: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
+export function shipAt(ship: Sailing, tick: number, n: number): { x: number; z: number; dx: number; dz: number; inward: number } | null {
   if (ship.phase === SHIP_AWAY || ship.path.length < 4) return null;
   const L = pathLength(ship.path);
   let f: number;
   let back = false;
   // While she swings round: how far through it (0 bow in, 1 bow out).
   let swing = -1;
-  if (ship.phase === SHIP_COMING) f = inwardAt(ship.path, (tick - ship.since) / sailInTicks(ship));
+  if (ship.phase === SHIP_COMING) f = inwardAt(ship.path, (tick - ship.since) / sailInTicks(ship), n);
   else if (ship.phase === SHIP_MOORED) f = 1;
   else if (backsOff(ship, L)) {
     const e = tick - ship.since;
@@ -551,11 +553,11 @@ export function shipAt(ship: Sailing, tick: number): { x: number; z: number; dx:
       f = off;
       swing = smooth((e - BACK_TICKS) / TURN_TICKS);
     } else {
-      f = off * inwardAt(ship.path, 1 - (e - BACK_TICKS - TURN_TICKS) / (leaveTicks(ship) - BACK_TICKS - TURN_TICKS));
+      f = off * inwardAt(ship.path, 1 - (e - BACK_TICKS - TURN_TICKS) / (leaveTicks(ship) - BACK_TICKS - TURN_TICKS), n);
       back = true;
     }
   } else {
-    f = ship.turned * inwardAt(ship.path, 1 - (tick - ship.since) / leaveTicks(ship));
+    f = ship.turned * inwardAt(ship.path, 1 - (tick - ship.since) / leaveTicks(ship), n);
     back = true;
   }
   const p = pointAlong(ship.path, L * f);
@@ -674,7 +676,7 @@ export function stepTrade(s: SimState, map: CoastMap): void {
     else if (s.tick >= ship.due - sailInNow(s)) setSail(s, map, post, ship);
   } else if (ship.phase === SHIP_COMING) {
     if (ship.post !== post.id) turnBack(s, ship);
-    else if (closed && !pastMouth(ship.path, shipAt(ship, s.tick)?.inward ?? 0)) turnBack(s, ship);
+    else if (closed && !pastMouth(ship.path, shipAt(ship, s.tick, map.size)?.inward ?? 0, map.size)) turnBack(s, ship);
     else if (s.tick >= ship.since + sailInTicks(ship)) {
       ship.phase = SHIP_MOORED;
       ship.since = s.tick;
@@ -712,7 +714,7 @@ function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
 
 /** The post is gone: she turns back from where she is. */
 function turnBack(s: SimState, ship: Ship): void {
-  const at = shipAt(ship, s.tick);
+  const at = shipAt(ship, s.tick, sizeOf(s));
   ship.turned = at ? at.inward : 1;
   ship.phase = SHIP_LEAVING;
   ship.since = s.tick;
@@ -1098,7 +1100,7 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   }
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + sailInTicks(ship));
-    const near = (shipAt(ship, s.tick)?.inward ?? 0) >= 0.6;
+    const near = (shipAt(ship, s.tick, sizeOf(s))?.inward ?? 0) >= 0.6;
     // (Slice 33: late for the winter's storms, the line says so.)
     const late = lateWords(s, 'tyre');
     // (Review of slice 35: a voyage at the Lighthouse's pace says so. At the merge: both reasons, when the storms held her back and the Lighthouse guides her in.)
@@ -1165,18 +1167,18 @@ export const MOUTH_IN = 18;
 const MOUTH_ROOM = 10;
 
 /** How far along a way in (from the horizon) the harbour's mouth is: a way inside the map's edge, out beyond the island (and never at the jetty). */
-const mouthAlong = (path: readonly number[]): number => Math.max(0, Math.min(pathLength(path) - MOUTH_ROOM, outerLength(path) + MOUTH_IN));
+const mouthAlong = (path: readonly number[], n: number): number => Math.max(0, Math.min(pathLength(path) - MOUTH_ROOM, outerLength(path, n) + MOUTH_IN));
 
 /** The harbour's mouth on the ship's way in to the trading post: her way, how far along it, the point and the way it runs there (null with no berth). */
 export function harbourMouth(map: CoastMap, post: Building): { path: number[]; at: number; x: number; z: number; dx: number; dz: number } | null {
   const berth = berthOf(map, post);
   if (!berth) return null;
   const path = shipRoute(map, berth);
-  const at = mouthAlong(path);
+  const at = mouthAlong(path, map.size);
   if (at <= 0) return null;
   const p = pointAlong(path, at);
   return { path, at, x: p.x, z: p.z, dx: p.dx, dz: p.dz };
 }
 
-/** Is a ship coming in along her way (how far in she has come, 0 to 1) past the harbour's mouth already? */
-export const pastMouth = (path: readonly number[], inward: number): boolean => path.length >= 4 && inward * pathLength(path) >= mouthAlong(path);
+/** Is a ship coming in along her way (how far in she has come, 0 to 1) past the harbour's mouth already? `n`: the map's size. */
+export const pastMouth = (path: readonly number[], inward: number, n: number): boolean => path.length >= 4 && inward * pathLength(path) >= mouthAlong(path, n);

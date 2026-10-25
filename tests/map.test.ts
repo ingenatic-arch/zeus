@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bakeCoast, WATER_RIVER, WATER_SEA, type CoastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 
 function digest(map: CoastMap): string {
   // A cheap, order-sensitive checksum of every baked array.
@@ -34,8 +34,8 @@ describe('the coast bake', () => {
       if (w === WATER_SEA) sea++;
       else if (w === 0) land++;
     }
-    expect(sea).toBeGreaterThan(MAP_SIZE * MAP_SIZE * 0.1);
-    expect(land).toBeGreaterThan(MAP_SIZE * MAP_SIZE * 0.5);
+    expect(sea).toBeGreaterThan(BAY.size * BAY.size * 0.1);
+    expect(land).toBeGreaterThan(BAY.size * BAY.size * 0.5);
     // The middle of the bay is sea; the hills in the north-west are land.
     expect(map.tileWater[map.tileIndex(66, 90)]).toBe(WATER_SEA);
     expect(map.tileWater[map.tileIndex(15, 15)]).toBe(0);
@@ -58,13 +58,13 @@ describe('the coast bake', () => {
     const queue = [first];
     while (queue.length) {
       const i = queue.pop() as number;
-      const x = i % MAP_SIZE;
-      const z = Math.floor(i / MAP_SIZE);
+      const x = i % BAY.size;
+      const z = Math.floor(i / BAY.size);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx;
         const nz = z + dz;
-        if (nx < 0 || nz < 0 || nx >= MAP_SIZE || nz >= MAP_SIZE) continue;
-        const j = nz * MAP_SIZE + nx;
+        if (nx < 0 || nz < 0 || nx >= BAY.size || nz >= BAY.size) continue;
+        const j = nz * BAY.size + nx;
         if (!seen.has(j) && map.tileWater[j] === WATER_RIVER) {
           seen.add(j);
           queue.push(j);
@@ -75,9 +75,9 @@ describe('the coast bake', () => {
     // And the river touches the sea.
     let touchesSea = false;
     for (const i of seen) {
-      const x = i % MAP_SIZE;
-      const z = Math.floor(i / MAP_SIZE);
-      if (z + 1 < MAP_SIZE && map.tileWater[(z + 1) * MAP_SIZE + x] === WATER_SEA) touchesSea = true;
+      const x = i % BAY.size;
+      const z = Math.floor(i / BAY.size);
+      if (z + 1 < BAY.size && map.tileWater[(z + 1) * BAY.size + x] === WATER_SEA) touchesSea = true;
     }
     expect(touchesSea).toBe(true);
   });

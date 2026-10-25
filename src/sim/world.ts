@@ -30,6 +30,8 @@ import { nextFloat, nextInt, seedRng, type RngState } from './rng';
 import type { Memory, Ruler, SimState, Trait, World, WorldCity } from './state';
 import { FEAST_RAMP_DAYS, FEAST_SHARE, FEAST_WEAR_DAYS, feasting, feastWords } from './festivals';
 import { PRICES, SAIL_IN, SHIP_AWAY, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, shipAt, TRADE_GOODS } from './trade';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 /** What your city is called to begin with. */
 export const DEFAULT_NAME = 'Nea Argos';
@@ -989,7 +991,7 @@ export function tyreShip(s: SimState, tick: number): { along: number; homeward: 
   const L = lineLength(wayPoints(wayOf('tyre-sea')));
   const H = HORIZON_ALONG;
   if (ship.phase === SHIP_COMING || ship.phase === SHIP_LEAVING) {
-    const at = shipAt(ship, tick);
+    const at = shipAt(ship, tick, sizeOf(s));
     const inward = at ? at.inward : ship.phase === SHIP_COMING ? 0 : 1;
     return { along: H * (1 - inward), homeward: ship.phase === SHIP_LEAVING, where: 'bay' };
   }

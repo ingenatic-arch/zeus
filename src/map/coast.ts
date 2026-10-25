@@ -41,7 +41,36 @@ export interface Grove extends Area {
   spacing: number;
 }
 
-export const coast = {
+/**
+ * A land's shapes, as data: the Bay's below, or a generated land's
+ * (src/map/generate.ts). bake.ts turns either into grids.
+ */
+export interface CoastData {
+  shore: [number, number][];
+  islets: Array<{ x: number; z: number; rx: number; rz: number }>;
+  hills: Hill[];
+  river: [number, number][];
+  riverWidth: [number, number];
+  valleyWidth: [number, number];
+  groves: Grove[];
+  pineWoods: Area[];
+  copper: Outcrop[];
+  marble: Outcrop[];
+  woods: Area[];
+  cypressStands: Area[];
+  // Slice 42: what a generated land carries of its own (the Bay's are MAP_SIZE, COAST_SEED, HERDS and the DISTRICTS' places).
+  /** The playable map's side, in tiles. */
+  size?: number;
+  /** The seed of the land's noise and its plants. */
+  seed?: number;
+  herds?: readonly HerdHome[];
+  /** Where each of the fourteen districts (districts.ts' DISTRICTS, by index) lies on this land. */
+  districts?: ReadonlyArray<{ x: number; z: number }>;
+  /** Where a view of the land opens: the bay's north shore, where a city would start. */
+  site?: { x: number; z: number };
+}
+
+export const coast: CoastData = {
   /**
    * The shoreline as (x, z) points: land lies north of it (smaller z).
    * Interpolated smoothly; a curved bay in the middle and a headland to the east.
@@ -201,4 +230,3 @@ export const HERDS: readonly HerdHome[] = [
   { kind: 'boar', x: 106, z: 82, r: 6, head: 5, place: 'on the headland' },
 ];
 
-export type CoastData = typeof coast;

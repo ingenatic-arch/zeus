@@ -3,7 +3,8 @@
  * queue (so it is an ordinary, replayable game) and runs the clock on a
  * little so there is something to see.
  */
-import { MAP_SIZE } from '../map/coast';
+// Slice 42: every demo before it is on the Bay.
+import { BAY } from '../map/lands';
 import type { OverlayMode } from '../render/overlay';
 import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, SHIPYARD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TOWER_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, FINE, JOBS, VILLA } from '../sim/buildings';
@@ -190,7 +191,7 @@ export interface Demo {
   ambition?: boolean;
 }
 
-const T = (x: number, z: number): number => z * MAP_SIZE + x;
+const T = (x: number, z: number): number => z * BAY.size + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));
 
@@ -1606,7 +1607,7 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
       const v = r?.ship;
       if (!v) return true;
       // #athensship: coming in up the bay, a few seconds from the jetty (she is only there a few days); #anchor: just anchored.
-      if (stage === 'athensship') return v.phase === SHIP_MOORED || (v.phase === SHIP_COMING && (visitorAt(v, s.tick)?.inward ?? 0) >= ATHENS_INWARD);
+      if (stage === 'athensship') return v.phase === SHIP_MOORED || (v.phase === SHIP_COMING && (visitorAt(v, s.tick, sim.map.size)?.inward ?? 0) >= ATHENS_INWARD);
       return v.phase === SHIP_ANCHORED && s.tick - v.since >= 2;
     };
     const stop = s.tick + 2 * SHIP_EVERY;
@@ -1860,7 +1861,7 @@ function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
       const ships = shipsOf(s, r);
       // (Slice 38: the ships cross the bay at a fortnight's pace now, so twelve days off they are still beyond the edge:
       // #landing waits too for the first to be inside the bay, about ten days off.)
-      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS && ships.some((e) => e.z < MAP_SIZE - 2) : ships.some((e) => e.z < MAP_SIZE + 8);
+      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS && ships.some((e) => e.z < sim.map.size - 2) : ships.some((e) => e.z < sim.map.size + 8);
     };
     while (s.tick < stop && !ready()) sim.step();
   };
@@ -1980,7 +1981,7 @@ function thievesTown(stage: 'thieves' | 'nowatch'): (sim: Sim) => void {
     const end = s.tick + THIEF_WAIT;
     while (s.tick < end && huts() < THIEF_HUTS) sim.run(10);
     crime(sim, true);
-    const size = MAP_SIZE;
+    const size = BAY.size;
     const soon = (): boolean =>
       thiefStreet(s).some((b) => {
         const d = daysToThief(b, temptationOf(s, size, b));
@@ -2360,7 +2361,7 @@ function empireTown(stage: EmpireStage): (sim: Sim) => void {
       }
       send({ type: 'road', tiles: FORTRESS_LANE });
       send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
-      const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+      const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % BAY.size && b.z === Math.floor(FORTRESS_BARRACKS / BAY.size));
       if (!second) return;
       const staffed = s.tick + TICKS_PER_MONTH;
       while (s.tick < staffed && second.workers === 0) sim.run(10);
@@ -2504,7 +2505,7 @@ function fortressTown(): (sim: Sim) => void {
     afford(FORTRESS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE, FORTRESS_WAIT);
     send({ type: 'road', tiles: FORTRESS_LANE });
     send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
-    const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+    const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % BAY.size && b.z === Math.floor(FORTRESS_BARRACKS / BAY.size));
     if (second) {
       playOn(3 * TICKS_PER_DAY, () => second.workers > 0);
       send({ type: 'raise', barracks: second.id, kind: 'hoplite' });

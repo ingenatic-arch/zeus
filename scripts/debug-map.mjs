@@ -3,7 +3,7 @@ import { createServer } from 'vite';
 import { writeFileSync } from 'node:fs';
 
 const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
-const { bakeCoast, FIELD_MIN, FIELD_N, TreeKind } = await vite.ssrLoadModule('/src/map/bake.ts');
+const { bakeCoast, FIELD_MIN, TreeKind } = await vite.ssrLoadModule('/src/map/bake.ts');
 const t0 = process.hrtime.bigint();
 const map = bakeCoast();
 console.log('bake ms', Number(process.hrtime.bigint() - t0) / 1e6, 'trees', map.trees.length);

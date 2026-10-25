@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { COTTAGE, HOME_CAPACITY, HUT, TENT } from '../src/sim/buildings';
 import { chatterOf, LINES } from '../src/sim/chatter';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
@@ -13,7 +13,7 @@ import type { Building, SimState } from '../src/sim/state';
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 

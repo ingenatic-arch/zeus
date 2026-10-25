@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { companiesAt, companySize, HORSE_COMPANY, MARCH_SPEED, menOf, readyOf, RIDE_SPEED } from '../src/sim/army';
 import { buildingRefusal, ESTATE_PLOT_COST, estateRefusal } from '../src/sim/build';
 import { capacity, centreOf, ESTATE, findBuilding, footSide, GREAT_ESTATE, VILLA } from '../src/sim/buildings';
@@ -33,7 +33,7 @@ import { horsesOf } from '../src/sim/world';
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
   sim.enqueue(c);

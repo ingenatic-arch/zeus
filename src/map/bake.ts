@@ -6,18 +6,21 @@
  * Two grids:
  * - the "field" covers the playable map plus a margin of scenery, with a
  *   height at every whole-unit corner (n x n corners, origin at FIELD_MIN);
- * - the "tiles" are the 128 x 128 playable squares the sim will build on.
+ * - the "tiles" are the playable squares the sim will build on (128 x 128 on
+ *   the Bay; a generated land's own size, slice 42).
  * The scenery outside the map is drawn coarser (OUTER_STEP units); the map's
  * edge heights are made linear between OUTER_STEP corners so the two meshes
  * meet without cracks.
  */
 import { Rng } from '../sim/rng';
-import { coast as defaultCoast, COAST_SEED, MAP_MARGIN, MAP_SIZE, type CoastData } from './coast';
+import { coast as defaultCoast, COAST_SEED, HERDS, MAP_MARGIN, MAP_SIZE, type CoastData, type HerdHome } from './coast';
 import { dcos, dexp, dhypot, dpow, dsin, sq } from './dmath';
 import { clamp, fbm, lerp, ridged, smoothstep, valueNoise } from './noise';
 
+/** Where the field starts (every land has the same margin of scenery round it). */
 export const FIELD_MIN = -MAP_MARGIN;
-export const FIELD_N = MAP_SIZE + 2 * MAP_MARGIN + 1;
+/** Slice 42: the field's corners a side, for a map of this many tiles a side. */
+export const fieldSide = (size: number): number => size + 2 * MAP_MARGIN + 1;
 export const OUTER_STEP = 2;
 /** Size of the first band of far scenery's cells, beyond the field. */
 export const FAR_STEP = 4;
@@ -81,9 +84,15 @@ export interface RiverQuery {
 }
 
 export class CoastMap {
-  readonly size = MAP_SIZE;
+  /** The playable map's side, in tiles (slice 42: the land's, 128 on the Bay). */
+  readonly size: number;
   readonly fieldMin = FIELD_MIN;
-  readonly fieldN = FIELD_N;
+  /** The field's corners a side (the map plus its margin of scenery each side). */
+  readonly fieldN: number;
+  /** Slice 42: the shapes it was baked from, its noise seed and its wild herds. */
+  readonly data: CoastData;
+  readonly seed: number;
+  readonly herds: readonly HerdHome[];
   /** Heights at field corners. */
   readonly heights: Float32Array;
   /** 0..1 fertility at field corners. */
@@ -108,7 +117,13 @@ export class CoastMap {
     tileFertility: Float32Array,
     river: RiverPath,
     trees: TreeInstance[],
+    data: CoastData = defaultCoast,
   ) {
+    this.data = data;
+    this.size = data.size ?? MAP_SIZE;
+    this.fieldN = fieldSide(this.size);
+    this.seed = data.seed ?? COAST_SEED;
+    this.herds = data.herds ?? HERDS;
     this.heights = heights;
     this.fertility = fertility;
     this.rock = rock;
@@ -121,21 +136,21 @@ export class CoastMap {
 
   /** Field index of the corner at whole-unit world position (x, z). */
   idx(x: number, z: number): number {
-    return (z - FIELD_MIN) * FIELD_N + (x - FIELD_MIN);
+    return (z - FIELD_MIN) * this.fieldN + (x - FIELD_MIN);
   }
 
   inField(x: number, z: number): boolean {
-    return x >= FIELD_MIN && z >= FIELD_MIN && x <= FIELD_MIN + FIELD_N - 1 && z <= FIELD_MIN + FIELD_N - 1;
+    return x >= FIELD_MIN && z >= FIELD_MIN && x <= FIELD_MIN + this.fieldN - 1 && z <= FIELD_MIN + this.fieldN - 1;
   }
 
   inMap(x: number, z: number): boolean {
-    return x >= 0 && z >= 0 && x <= MAP_SIZE && z <= MAP_SIZE;
+    return x >= 0 && z >= 0 && x <= this.size && z <= this.size;
   }
 
   /** Height at a whole-unit corner, clamped to the field. */
   corner(x: number, z: number): number {
-    const cx = clamp(x, FIELD_MIN, FIELD_MIN + FIELD_N - 1);
-    const cz = clamp(z, FIELD_MIN, FIELD_MIN + FIELD_N - 1);
+    const cx = clamp(x, FIELD_MIN, FIELD_MIN + this.fieldN - 1);
+    const cz = clamp(z, FIELD_MIN, FIELD_MIN + this.fieldN - 1);
     return this.heights[this.idx(cx, cz)];
   }
 
@@ -158,17 +173,18 @@ export class CoastMap {
 
   /** Smooth field sample (bilinear) of any corner array. */
   sample(arr: Float32Array, x: number, z: number): number {
-    const fx0 = clamp(x - FIELD_MIN, 0, FIELD_N - 1.001);
-    const fz0 = clamp(z - FIELD_MIN, 0, FIELD_N - 1.001);
+    const N = this.fieldN;
+    const fx0 = clamp(x - FIELD_MIN, 0, N - 1.001);
+    const fz0 = clamp(z - FIELD_MIN, 0, N - 1.001);
     const ix = Math.floor(fx0);
     const iz = Math.floor(fz0);
     const fx = fx0 - ix;
     const fz = fz0 - iz;
-    const i = iz * FIELD_N + ix;
+    const i = iz * N + ix;
     const a = arr[i];
     const b = arr[i + 1];
-    const c = arr[i + FIELD_N];
-    const d = arr[i + FIELD_N + 1];
+    const c = arr[i + N];
+    const d = arr[i + N + 1];
     return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
   }
 
@@ -185,7 +201,7 @@ export class CoastMap {
   }
 
   tileIndex(tx: number, tz: number): number {
-    return tz * MAP_SIZE + tx;
+    return tz * this.size + tx;
   }
 }
 
@@ -265,7 +281,7 @@ function distanceTo(src: Uint8Array, n: number): Float32Array {
   return d;
 }
 
-function buildRiverPath(data: CoastData): Omit<RiverPath, 'surface'> {
+function buildRiverPath(data: CoastData, seed: number): Omit<RiverPath, 'surface'> {
   const ctrl = data.river;
   const xs: number[] = [];
   const zs: number[] = [];
@@ -294,35 +310,94 @@ function buildRiverPath(data: CoastData): Omit<RiverPath, 'surface'> {
   for (let i = 0; i < n; i++) {
     const t = dist[i] / length;
     // Slight swells and narrows so it doesn't look ruled.
-    const wob = 1 + 0.18 * (valueNoise(dist[i] * 0.12, 3.7, COAST_SEED + 31) * 2 - 1);
+    const wob = 1 + 0.18 * (valueNoise(dist[i] * 0.12, 3.7, seed + 31) * 2 - 1);
     width[i] = lerp(data.riverWidth[0], data.riverWidth[1], dpow(t, 0.85)) * wob;
-    valley[i] = lerp(data.valleyWidth[0], data.valleyWidth[1], t) * (1 + 0.25 * (valueNoise(dist[i] * 0.05, 9.1, COAST_SEED + 41) * 2 - 1));
+    valley[i] = lerp(data.valleyWidth[0], data.valleyWidth[1], t) * (1 + 0.25 * (valueNoise(dist[i] * 0.05, 9.1, seed + 41) * 2 - 1));
   }
   return { xs: Float32Array.from(xs), zs: Float32Array.from(zs), width, valley, dist, length };
 }
+
+/**
+ * Slice 42: the river's segments in runs of RUN, each with the box round its
+ * points, so a query can pass over the runs too far off to hold the nearest
+ * (a large land's river is long, and the bake, the ground and the terrain's
+ * colours ask after it at every corner and facet).
+ */
+const RUN = 16;
+const runBoxes = new WeakMap<Float32Array, Float64Array>();
+function runsOf(xs: Float32Array, zs: Float32Array): Float64Array {
+  let boxes = runBoxes.get(xs);
+  if (boxes) return boxes;
+  const segs = xs.length - 1;
+  const runs = Math.ceil(segs / RUN);
+  boxes = new Float64Array(runs * 4);
+  for (let k = 0; k < runs; k++) {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (let i = k * RUN; i <= Math.min(segs, (k + 1) * RUN); i++) {
+      x0 = Math.min(x0, xs[i]);
+      x1 = Math.max(x1, xs[i]);
+      z0 = Math.min(z0, zs[i]);
+      z1 = Math.max(z1, zs[i]);
+    }
+    boxes.set([x0, x1, z0, z1], k * 4);
+  }
+  runBoxes.set(xs, boxes);
+  return boxes;
+}
+
+/** (Scratch for queryRiver: each run's squared distance from the point.) */
+let gaps = new Float64Array(64);
 
 export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Array }, x: number, z: number): RiverQuery {
   let best = Infinity;
   let bi = 0;
   let bu = 0;
   const n = r.xs.length;
-  for (let i = 0; i < n - 1; i++) {
-    const ax = r.xs[i];
-    const az = r.zs[i];
-    const bx = r.xs[i + 1];
-    const bz = r.zs[i + 1];
-    const dx = bx - ax;
-    const dz = bz - az;
-    const l2 = dx * dx + dz * dz;
-    let u = ((x - ax) * dx + (z - az) * dz) / l2;
-    u = u < 0 ? 0 : u > 1 ? 1 : u;
-    const px = ax + dx * u - x;
-    const pz = az + dz * u - z;
-    const d2 = px * px + pz * pz;
-    if (d2 < best) {
-      best = d2;
-      bi = i;
-      bu = u;
+  const xs = r.xs;
+  const zs = r.zs;
+  // (Exactly what a scan of every segment in order finds, the first of equals: first a bound from the run whose box
+  // is nearest, then every run in order but those whose box lies wholly beyond that bound, which hold nothing as near.)
+  const boxes = runsOf(xs, zs);
+  const runs = boxes.length / 4;
+  if (gaps.length < runs) gaps = new Float64Array(runs * 2);
+  let near = 0;
+  for (let k = 0; k < runs; k++) {
+    const ex = Math.max(boxes[k * 4] - x, 0, x - boxes[k * 4 + 1]);
+    const ez = Math.max(boxes[k * 4 + 2] - z, 0, z - boxes[k * 4 + 3]);
+    gaps[k] = ex * ex + ez * ez;
+    if (gaps[k] < gaps[near]) near = k;
+  }
+  let bound = Infinity;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let k = pass === 0 ? near : 0; k < (pass === 0 ? near + 1 : runs); k++) {
+      if (gaps[k] > bound) continue;
+      const i1 = Math.min(n - 1, (k + 1) * RUN);
+      for (let i = k * RUN; i < i1; i++) {
+        const ax = xs[i];
+        const az = zs[i];
+        const bx = xs[i + 1];
+        const bz = zs[i + 1];
+        const dx = bx - ax;
+        const dz = bz - az;
+        const l2 = dx * dx + dz * dz;
+        let u = ((x - ax) * dx + (z - az) * dz) / l2;
+        u = u < 0 ? 0 : u > 1 ? 1 : u;
+        const px = ax + dx * u - x;
+        const pz = az + dz * u - z;
+        const d2 = px * px + pz * pz;
+        if (d2 < best) {
+          best = d2;
+          bi = i;
+          bu = u;
+        }
+      }
+    }
+    if (pass === 0) {
+      bound = best * (1 + 1e-9) + 1e-9;
+      best = Infinity;
     }
   }
   const dx = r.xs[bi + 1] - r.xs[bi];
@@ -340,26 +415,40 @@ export function queryRiver(r: Omit<RiverPath, 'surface'> & { surface?: Float32Ar
   };
 }
 
-/** Bake the coast. Takes a few hundred milliseconds. */
+/** Bake the coast (the Bay, or a generated land's data: slice 42). Takes a few hundred milliseconds. */
 export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
-  const N = FIELD_N;
-  const seed = COAST_SEED;
+  const size = data.size ?? MAP_SIZE;
+  const N = fieldSide(size);
+  const seed = data.seed ?? COAST_SEED;
   const total = N * N;
 
   // 1. Land and sea, and the signed distance to the shore.
   const land = new Uint8Array(total);
   const sea = new Uint8Array(total);
   const near = new Float32Array(total); // analytic distance, accurate close to the shore
+  // (The shore's line and slope at each x, worked out once a column rather than at every corner: slice 42.)
+  const shoreAt = new Float64Array(N);
+  const slopeAt = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = FIELD_MIN + i;
+    shoreAt[i] = shoreZ(data.shore, x) + 1.1 * fbm(x * 0.09, 0.5, seed + 5, 3);
+    slopeAt[i] = (shoreZ(data.shore, x + 0.5) - shoreZ(data.shore, x - 0.5)) / 1;
+  }
   for (let j = 0; j < N; j++) {
     const z = FIELD_MIN + j;
     for (let i = 0; i < N; i++) {
       const x = FIELD_MIN + i;
-      const sz = shoreZ(data.shore, x) + 1.1 * fbm(x * 0.09, 0.5, seed + 5, 3);
-      const slope = (shoreZ(data.shore, x + 0.5) - shoreZ(data.shore, x - 0.5)) / 1;
+      const sz = shoreAt[i];
+      const slope = slopeAt[i];
       let d = (sz - z) / Math.sqrt(1 + slope * slope);
       for (const is of data.islets) {
-        const e = dhypot((x - is.x) / is.rx, (z - is.z) / is.rz);
-        d = Math.max(d, (1 - e) * Math.min(is.rx, is.rz));
+        const a = (x - is.x) / is.rx;
+        const b = (z - is.z) / is.rz;
+        const m = Math.min(is.rx, is.rz);
+        // (Slice 42: e is at least the larger of a and b, so where even that leaves the islet's distance below d it can't change it.)
+        if ((1 - Math.max(Math.abs(a), Math.abs(b)) + 1e-9) * m < d) continue;
+        const e = dhypot(a, b);
+        d = Math.max(d, (1 - e) * m);
       }
       const k = j * N + i;
       near[k] = d;
@@ -411,7 +500,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   }
 
   // 3. The river: a surface that never flows uphill, carved into its valley.
-  const path = buildRiverPath(data);
+  const path = buildRiverPath(data, seed);
   const rn = path.xs.length;
   const sampleH = (x: number, z: number): number => {
     const fx = x - FIELD_MIN;
@@ -528,7 +617,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
 
   // 5. Make the map's edge rows linear between coarse corners (crack-free seam).
   const lo = MAP_MARGIN;
-  const hi = MAP_MARGIN + MAP_SIZE;
+  const hi = MAP_MARGIN + size;
   const fixLine = (get: (t: number) => number): void => {
     for (let t = lo; t < hi; t += OUTER_STEP) {
       const a = heights[get(t)];
@@ -557,13 +646,13 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   }
 
   // 6. Tiles: water and fertility.
-  const tileWater = new Uint8Array(MAP_SIZE * MAP_SIZE);
-  const tileFertility = new Float32Array(MAP_SIZE * MAP_SIZE);
-  for (let tz = 0; tz < MAP_SIZE; tz++) {
-    for (let tx = 0; tx < MAP_SIZE; tx++) {
+  const tileWater = new Uint8Array(size * size);
+  const tileFertility = new Float32Array(size * size);
+  for (let tz = 0; tz < size; tz++) {
+    for (let tx = 0; tx < size; tx++) {
       const k = (tz + lo) * N + (tx + lo);
       const cs = [k, k + 1, k + N, k + N + 1];
-      const t = tz * MAP_SIZE + tx;
+      const t = tz * size + tx;
       tileFertility[t] = (fertility[cs[0]] + fertility[cs[1]] + fertility[cs[2]] + fertility[cs[3]]) / 4;
       const q = queryRiver(river, tx + 0.5, tz + 0.5);
       const minH = Math.min(heights[cs[0]], heights[cs[1]], heights[cs[2]], heights[cs[3]]);
@@ -572,7 +661,7 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
     }
   }
 
-  const map = new CoastMap(heights, fertility, rock, shore, tileWater, tileFertility, river, []);
+  const map = new CoastMap(heights, fertility, rock, shore, tileWater, tileFertility, river, [], data);
   map.trees.push(...scatterTrees(map, data));
   return map;
 }
@@ -581,9 +670,9 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
 // Trees, bushes, rocks and reeds.
 
 function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
-  const rng = new Rng(COAST_SEED + 7);
+  const seed = map.seed;
+  const rng = new Rng(seed + 7);
   const out: TreeInstance[] = [];
-  const seed = COAST_SEED;
   const taken = new Set<number>();
   const cellKey = (x: number, z: number): number => (Math.floor(z * 1.25) + 400) * 2000 + (Math.floor(x * 1.25) + 400);
 
@@ -660,7 +749,7 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
 
   // Scrub, broom, scattered pines and rocks over the whole field (sparser outside the map).
   const lim0 = -60;
-  const lim1 = MAP_SIZE + 60;
+  const lim1 = map.size + 60;
   for (let z = lim0; z < lim1; z += 1.7) {
     for (let x = lim0; x < lim1; x += 1.7) {
       const px = x + rng.range(-0.7, 0.7);
@@ -698,8 +787,8 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
   }
 
   // Wild flowers in drifts on the meadows and the river plain.
-  for (let z = -10; z < MAP_SIZE + 10; z += 1.15) {
-    for (let x = -10; x < MAP_SIZE + 10; x += 1.15) {
+  for (let z = -10; z < map.size + 10; z += 1.15) {
+    for (let x = -10; x < map.size + 10; x += 1.15) {
       const px = x + rng.range(-0.5, 0.5);
       const pz = z + rng.range(-0.5, 0.5);
       const drift = valueNoise(px * 0.13, pz * 0.13, seed + 81);
@@ -731,7 +820,7 @@ function scatterTrees(map: CoastMap, data: CoastData): TreeInstance[] {
 
   // Slice 32: the woods the loggers fell, pines with a cypress here and there, on their own random numbers
   // and after every other plant, so every plant that was there before keeps its place and its number.
-  const wr = new Rng(COAST_SEED + 32);
+  const wr = new Rng(seed + 32);
   for (const w of data.woods ?? []) {
     const count = Math.round(w.r * w.r * 0.65);
     for (let i = 0; i < count; i++) {

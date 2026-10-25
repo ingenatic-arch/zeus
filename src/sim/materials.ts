@@ -28,7 +28,6 @@
  */
 import type { CoastMap } from '../map/bake';
 import { TreeKind } from '../map/bake';
-import { coast } from '../map/coast';
 import { dhypot } from '../map/dmath';
 import { around, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
@@ -96,7 +95,7 @@ export function tileMarble(map: CoastMap, t: number): number {
   if (!grid) {
     const n = map.size;
     grid = new Float32Array(n * n);
-    for (const o of coast.marble) {
+    for (const o of map.data.marble) {
       for (let z = Math.max(0, Math.floor(o.z - o.r)); z <= Math.min(n - 1, Math.ceil(o.z + o.r)); z++) {
         for (let x = Math.max(0, Math.floor(o.x - o.r)); x <= Math.min(n - 1, Math.ceil(o.x + o.r)); x++) {
           const d = dhypot(x + 0.5 - o.x, z + 0.5 - o.z) / o.r;
@@ -122,10 +121,10 @@ export function marbleOf(map: CoastMap, x: number, z: number, side: number): num
 }
 
 /** Where the marble outcrop nearest a point is said to be ("on the headland’s crown"). */
-export function marblePlace(x: number, z: number): string {
-  let best = coast.marble[0];
+export function marblePlace(map: CoastMap, x: number, z: number): string {
+  let best = map.data.marble[0];
   let bd = Infinity;
-  for (const o of coast.marble) {
+  for (const o of map.data.marble) {
     const d = dhypot(x - o.x, z - o.z);
     if (d < bd) {
       bd = d;
@@ -317,7 +316,7 @@ export function campOutlook(
 /** About what a quarry would cut a month if placed here, fully staffed, and on how rich a rock. */
 export function quarryOutlook(map: CoastMap, x: number, z: number): { rich: number; blocks: number; place: string } {
   const rich = marbleOf(map, x, z, 3);
-  return { rich, blocks: Math.round(blocksPerMonth(rich, MAX_QUARRYMEN)), place: marblePlace(x + 1.5, z + 1.5) };
+  return { rich, blocks: Math.round(blocksPerMonth(rich, MAX_QUARRYMEN)), place: marblePlace(map, x + 1.5, z + 1.5) };
 }
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,9 @@
  * when hovered or clicked (slice 32). Pure reads of the state.
  */
 import type { CoastMap } from '../map/bake';
-import { coastMap, TreeKind } from '../map/bake';
+import { TreeKind } from '../map/bake';
+// Slice 42: the state's own land.
+import { mapOf } from '../map/lands';
 import { BUILDING_NAMES, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { errandsOut } from './food';
@@ -84,7 +86,7 @@ export function quarryStatus(s: SimState, map: CoastMap, b: Building, workers: s
     const full = blocksPerMonth(rich, MAX_QUARRYMEN);
     cutting = `${men === 1 ? 'One quarryman is' : `${men} quarrymen are`} cutting at the face (one for each quarter of its workers) · about ${fmt(roundTen(m))} blocks a month${men < MAX_QUARRYMEN ? ` (${fmt(roundTen(full))} fully worked)` : ''}`;
   }
-  const rock = `Marble in the rock ${Math.round(rich * 100)}% · the pale stone ${marblePlace(b.x + 1.5, b.z + 1.5)} · a block takes a quarryman about ${spanWords((CUT / Math.max(0.01, rich)) * 1)} of work${rich < 1 ? ', longer on poorer rock' : ''}`;
+  const rock = `Marble in the rock ${Math.round(rich * 100)}% · the pale stone ${marblePlace(map, b.x + 1.5, b.z + 1.5)} · a block takes a quarryman about ${spanWords((CUT / Math.max(0.01, rich)) * 1)} of work${rich < 1 ? ', longer on poorer rock' : ''}`;
   return { title, detail: lines(workers, cutting, rock, cartLine(s, b, MARBLE, 'marble', 'sledges'), FOR_NOW) };
 }
 
@@ -121,7 +123,7 @@ const LOGGER_WORDS: Record<ReturnType<typeof loggerDoing>, string> = {
   home: 'carrying logs home',
 };
 
-const treeWord = (i: number): string => (coastMap().trees[i]?.kind === TreeKind.Cypress ? 'cypress' : 'pine');
+const treeWord = (s: SimState, i: number): string => (mapOf(s).trees[i]?.kind === TreeKind.Cypress ? 'cypress' : 'pine');
 
 /** A quarryman or a logger, hovered: what he is doing. Null for anyone else. */
 export function materialWalkerStatus(s: SimState, w: Walker): Status | null {
@@ -133,7 +135,7 @@ export function materialWalkerStatus(s: SimState, w: Walker): Status | null {
   }
   if (w.kind === 'logger') {
     const doing = loggerDoing(w);
-    const tree = w.food >= 0 ? treeWord(w.food) : 'tree';
+    const tree = w.food >= 0 ? treeWord(s, w.food) : 'tree';
     if (doing === 'home') return { title: 'Logger', detail: w.load > 0 ? `Carrying ${w.load} logs home to the camp` : 'Walking home to the camp' };
     if (doing === 'chopping') return { title: 'Logger', detail: `Chopping at a ${tree}: it falls in ${spanWords(w.wait)}` };
     if (doing === 'trimming') return { title: 'Logger', detail: `Trimming the ${tree} he felled into logs: done in ${spanWords(w.wait)}` };

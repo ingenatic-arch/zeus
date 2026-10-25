@@ -12,6 +12,8 @@ import { alongLine, CITY_IDS, lineLength, meetPoint, OTHER_ROADS, PLACES, projec
 import { baseOf } from '../../sim/growth';
 import { siteLabelHtml } from '../../ui/rivals';
 import type { CoastMap } from '../../map/bake';
+// Slice 42: the land's size.
+import { sizeOf } from '../../map/lands';
 import type { Command } from '../../sim/commands';
 import type { SimState } from '../../sim/state';
 import { tyreShip } from '../../sim/world';
@@ -785,7 +787,7 @@ export class GreeceMap {
       const L = lineLength(line);
       const city = r.city as CityId;
       if (r.kind === 'sea') {
-        const v = visitorOnMap(r, tick);
+        const v = visitorOnMap(r, tick, sizeOf(s));
         if (v.where === 'home') continue;
         const m = piece(`${r.city}-sea`, () => shipModel(PLACES[city].colour, PLACES[city].trim), BODY.ship);
         const p = alongLine(line, Math.max(0.9, Math.min(L - 1.1, v.along)));
@@ -808,7 +810,7 @@ export class GreeceMap {
     }
     // Gifts on their way: yours in your colours, a ruler's in theirs; by road a little caravan, by sea a ship.
     for (const g of s.world.gifts) {
-      const at = giftOnMap(g, tick);
+      const at = giftOnMap(g, tick, sizeOf(s));
       if (!at) continue;
       const line = wayPoints(wayOf(g.way));
       const L = lineLength(line);
@@ -891,7 +893,7 @@ export class GreeceMap {
     }
     // Slice 34: a vassal's tribute coming to you (a caravan in its colours on its road, or its ship on its lane), and a vassal's or ally's company marching to your aid and home again.
     for (const t of s.empire.tribute) {
-      const at = tributeOnMap(t, tick);
+      const at = tributeOnMap(t, tick, sizeOf(s));
       if (!at) continue;
       const line = wayPoints(wayOf(t.way));
       const L = lineLength(line);

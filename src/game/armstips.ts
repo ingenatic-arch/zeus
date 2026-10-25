@@ -21,7 +21,7 @@ export function armsLines(s: SimState, map: CoastMap, kind: 'mine' | 'armoury' |
   let warn = '';
   if (kind === 'mine') {
     const rich = copperOf(map, x, z, side);
-    lines.push(`About ${fmt(roundTen(COPPER_MONTH * rich))} measures of copper ore a month, fully worked: the richer the rock, the more · the copper ${outcropPlace(x + 1, z + 1)}`);
+    lines.push(`About ${fmt(roundTen(COPPER_MONTH * rich))} measures of copper ore a month, fully worked: the richer the rock, the more · the copper ${outcropPlace(map, x + 1, z + 1)}`);
     if (!road) warn = 'No road beside it: its miners couldn’t get there and its carts couldn’t take the ore away. Lay a road along one side first.';
     else if (!has(s, 'storehouse')) lines.push('Its ox carts take the ore to a storehouse: build one too (G twice)');
     else if (!has(s, 'armoury')) lines.push(`An armoury (B ×3) hammers ${ARMOUR_COPPER} measures of copper into a set of armour`);

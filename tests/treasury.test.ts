@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { DISTRICTS, districtAt, districtGrid } from '../src/map/districts';
 import { PLOT_COST, TAX_OFFICE_COST } from '../src/sim/build';
 import { JOBS } from '../src/sim/buildings';
@@ -24,7 +24,7 @@ import { kindTotal, owedWages, priceOf, spendable, totals, WAGE } from '../src/s
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 

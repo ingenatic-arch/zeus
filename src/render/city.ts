@@ -23,6 +23,8 @@ import { Workfolk } from './workfolk';
 import { Jobfolk } from './jobfolk';
 // Slice 35: the masons' yards and the monuments.
 import { MonumentsView } from './monuments';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 const NO_ONE: ReadonlySet<number> = new Set();
 
@@ -136,7 +138,7 @@ export class CityView {
         const city = r.city;
         view = new ShipView((st, t) => {
           const route = routeOf(st, city, 'sea');
-          return route ? visitorLook(route, t) : null;
+          return route ? visitorLook(route, t, sizeOf(st)) : null;
         }, cityShipColours(city), `ship-${city}`, 1.3 + this.visitors.size * 2.1);
         this.visitors.set(r.city, view);
         this.group.add(view.group);
@@ -152,7 +154,7 @@ export class CityView {
       const colony = x.colony;
       const view = new ShipView((st, tk) => {
         const tr = st.empire.tribute.find((y) => y.city === city && y.colony === colony && y.ship);
-        const at = tr ? tributeShipAt(tr, tk) : null;
+        const at = tr ? tributeShipAt(tr, tk, sizeOf(st)) : null;
         if (!tr?.ship || !at) return null;
         const v = tr.ship;
         const coming = v.phase === SHIP_COMING;
@@ -169,7 +171,7 @@ export class CityView {
       const view = new ShipView((st, tk) => {
         const g = st.empire.foundings.find((y) => y.site === site && y.ship);
         const v = g?.ship;
-        const at = v ? visitorAt(v, tk) : null;
+        const at = v ? visitorAt(v, tk, sizeOf(st)) : null;
         if (!g || !v || !at) return null;
         const coming = v.phase === SHIP_COMING;
         return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: g.phase !== 'gathering' && g.people > 0, calm: v.phase === SHIP_ANCHORED };

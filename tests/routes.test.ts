@@ -42,6 +42,7 @@ import { income, pay, spendable, totals, wageBill } from '../src/sim/treasury';
 import { position } from '../src/sim/walk';
 import { cityOf } from '../src/sim/world';
 import { demoSim } from './prepared';
+import { BAY } from '../src/map/lands';
 
 const map = coastMap();
 const N = map.size;
@@ -346,12 +347,12 @@ describe('foreign ships', () => {
     const r = routeOf(s, city, 'sea')!;
     let bay = 0;
     let sea = 0;
-    let p = visitorAt(r.ship!, s.tick);
-    let m = visitorOnMap(r, s.tick);
+    let p = visitorAt(r.ship!, s.tick, BAY.size);
+    let m = visitorOnMap(r, s.tick, BAY.size);
     for (let i = 0; i < ticks; i++) {
       sim.step();
-      const q = visitorAt(r.ship!, s.tick);
-      const n = visitorOnMap(r, s.tick);
+      const q = visitorAt(r.ship!, s.tick, BAY.size);
+      const n = visitorOnMap(r, s.tick, BAY.size);
       if (p && q) bay = Math.max(bay, Math.hypot(q.x - p.x, q.z - p.z));
       sea = Math.max(sea, Math.abs(n.along - m.along));
       p = q;
