@@ -50,6 +50,7 @@ Headless software rendering, so only the counts mean anything. At 1920 × 1080, 
 - The workers' spots are no longer worked out afresh every frame for the hundreds of homes that have none.
 - The shrine is mirrored at random like the other little buildings, and its priestess now follows it.
 - The N key's line on the controls card and the minimap's north marker say what they do in this view: back to the first view, with north to the upper left.
+- **After you tried it (25 Oct):** turning with a sideways right-drag needed too little movement; it now takes about three times as far (about 170 pixels for a quarter turn). The rain under the long lens bunched into a heavy block in the middle of the screen; it now falls evenly over the whole view, lighter and with shorter streaks.
 - Left alone: shadows may thin out at the very edges of the screen when fully zoomed out, and fully zoomed in a hill between you and what you're looking at is seen through rather than hiding it.
 
 ## Slice 40 — An empire's city (23 Oct)

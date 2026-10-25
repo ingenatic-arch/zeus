@@ -23,7 +23,7 @@ const QUARTER = Math.PI / 2;
 /** The original look's headings: the diagonals, the first with the camera standing south-west. */
 const DIAGONAL = -Math.PI / 4;
 /** How far a right-drag must turn (radians) before the original look's view turns a quarter. */
-const TURN_DRAG = 0.35;
+const TURN_DRAG = 1.0;
 
 /** What the camera looks at: the ground's height anywhere (the city's coast, or the table of Greece). */
 export interface Ground {

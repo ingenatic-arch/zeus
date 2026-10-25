@@ -49,6 +49,7 @@ export function buildRain(): Rain {
       uSpeed: { value: 22 },
       uAmount: { value: 0 },
       uColor: { value: new THREE.Color('#cfd8de') },
+      uAlpha: { value: 0.3 },
     },
     vertexShader: /* glsl */ `
       attribute float aEnd;
@@ -75,10 +76,11 @@ export function buildRain(): Rain {
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
+      uniform float uAlpha;
       varying float vA;
       void main() {
         if (vA <= 0.0) discard;
-        gl_FragColor = vec4(uColor, vA * 0.3);
+        gl_FragColor = vec4(uColor, vA * uAlpha);
       }
     `,
   });
@@ -95,18 +97,28 @@ export function buildRain(): Rain {
       mesh.visible = amount > 0.01;
       if (!mesh.visible) return;
       camera.getWorldPosition(camPos);
-      // (The original look's long lens stands far back: rain round where the ordinary camera would be.)
-      if (EYE.back > 0) camPos.lerp(target, EYE.back / camPos.distanceTo(target));
-      const d = camPos.distanceTo(target);
-      // A box around the near part of the view: the streaks are drawn where they read as rain, not as a haze on the city far below.
-      const size = Math.max(18, Math.min(70, d * 0.55));
-      u.uBox.value.set(size, size * 0.8, size);
-      (u.uCentre.value as THREE.Vector3).copy(camPos).lerp(target, Math.min(0.5, 14 / Math.max(1, d)) + 0.12);
+      let size: number;
+      if (EYE.back > 0 && camera instanceof THREE.PerspectiveCamera) {
+        // The original look's long lens sees nearly flat, so rain near the camera would bunch in the middle
+        // of the screen: instead a box round the point looked at, as wide as the ground in view.
+        const half = camPos.distanceTo(target) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        size = Math.max(18, half * 2 * Math.max(1, camera.aspect));
+        u.uBox.value.set(size, size * 0.5, size);
+        (u.uCentre.value as THREE.Vector3).copy(target).setY(target.y + size * 0.12);
+        u.uAlpha.value = 0.2;
+      } else {
+        const d = camPos.distanceTo(target);
+        // A box around the near part of the view: the streaks are drawn where they read as rain, not as a haze on the city far below.
+        size = Math.max(18, Math.min(70, d * 0.55));
+        u.uBox.value.set(size, size * 0.8, size);
+        (u.uCentre.value as THREE.Vector3).copy(camPos).lerp(target, Math.min(0.5, 14 / Math.max(1, d)) + 0.12);
+        u.uAlpha.value = 0.3;
+      }
       const storm = Math.max(0, amount - 1);
       const slant = 0.12 + windStrength * 0.25 + storm * 0.3;
       (u.uFall.value as THREE.Vector3).set(Math.cos(windAngle) * slant, -1, Math.sin(windAngle) * slant).normalize();
       u.uSpeed.value = 20 + storm * 10;
-      u.uLen.value = Math.max(0.6, size * 0.025) * (1 + storm * 0.4);
+      u.uLen.value = Math.max(0.6, size * (EYE.back > 0 ? 0.012 : 0.025)) * (1 + storm * 0.4);
       u.uAmount.value = Math.min(1, amount);
       u.uTime.value = time;
     },
