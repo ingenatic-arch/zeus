@@ -13,6 +13,8 @@ import { ALARM, CAT_NAMES, CATS, KINDS, KEEP_TICKS, MAX_MESSAGES, POPUP_KINDS, c
 import type { SimState } from '../sim/state';
 import { dealLine, dealsWaiting, loansWaiting } from '../sim/status';
 import { raidLine } from '../sim/raids';
+import { empireTownLine } from '../sim/vassals';
+import { colonyTownLine } from '../sim/colonies';
 import type { CoastMap } from '../map/bake';
 import type { CityId } from '../map/greece';
 import { ICONS } from './townlines';
@@ -269,13 +271,19 @@ export class MessagesPanel {
     }
     // What waits on you: a ruler's threat or band you can still pay off, then the asks, offers and demands (these left the
     // lines under the top bar).
-    const waiting: Array<{ city: string; text: string; raid: boolean; loan?: boolean }> = [];
+    const waiting: Array<{ city: string; text: string; raid: boolean; loan?: boolean; empire?: boolean }> = [];
     for (const r of s.world.raids) {
       const text = raidLine(s, map, r);
       if (text) waiting.push({ city: r.city, text, raid: true });
     }
     for (const d of dealsWaiting(s)) if (d.kind !== 'threat') waiting.push({ city: d.city, text: dealLine(s, map, d), raid: false });
     for (const l of loansWaiting(s)) waiting.push({ city: l.city, text: l.text, raid: false, loan: true });
+    // The empire's and the colonies' pressing lines (a vassal arming, an ally's call to answer; a colony talking of freedom or
+    // threatened), which left the top bar too. Men coming to help, settlers on their way and tribute are news in the scroll.
+    const emp = empireTownLine(s);
+    if (emp && (emp.rank === 3 || /asks you to join/.test(emp.text))) waiting.push({ city: emp.city, text: emp.text.replace(/\.$/, ''), raid: false, empire: true });
+    const col = colonyTownLine(s);
+    if (col && col.rank >= 2) waiting.push({ city: `site:${col.site}`, text: col.text.replace(/\.$/, ''), raid: false, empire: true });
     const wkey = waiting.map((w) => w.text).join('|');
     const key = `${this.filter}|${g.next}|${g.log.length}|${g.log[0]?.id ?? 0}|${unreadN}|${pins}|${[...this.opened].join(',')}|${wkey}|${g.since}|${[...popupsOff].join(',')}`;
     if (key === this.key) return;
@@ -290,11 +298,11 @@ export class MessagesPanel {
       `<button class="mchip${this.filter === cat ? ' on' : ''}" data-cat="${cat}" role="tab" aria-selected="${this.filter === cat}">${name}${n ? `<b>${n > 99 ? '99+' : n}</b>` : ''}</button>`;
     this.chips.innerHTML = chip('all', 'All', unreadN) + CATS.map((c) => chip(c, CAT_NAMES[c], counts.get(c) ?? 0)).join('');
     const parts: string[] = [];
-    const waits = this.filter === 'all' || this.filter === 'greece' ? waiting : this.filter === 'war' ? waiting.filter((w) => w.raid) : [];
+    const waits = this.filter === 'all' || this.filter === 'greece' ? waiting : this.filter === 'war' ? waiting.filter((w) => w.raid) : this.filter === 'empire' ? waiting.filter((w) => w.empire) : [];
     if (waits.length) {
       parts.push(`<h3>Waiting on you</h3><ul class="waiting">${waits
         .slice(0, 6)
-        .map((w) => `<li><button class="${w.raid ? 'raid' : ''}" data-city="${esc(w.city)}"${w.loan ? ' data-tab="loans"' : ''} title="Open the city’s page on the map of Greece">${w.raid ? ICONS.raid : w.loan ? ICONS.loan : ICONS.favour}<span>${esc(w.text)}.</span></button></li>`)
+        .map((w) => `<li><button class="${w.raid ? 'raid' : ''}" data-city="${esc(w.city)}"${w.loan ? ' data-tab="loans"' : w.empire && !w.city.startsWith('site:') ? ' data-tab="empire"' : ''} title="Open its page on the map of Greece">${w.raid ? ICONS.raid : w.loan ? ICONS.loan : w.empire ? ICONS.empire : ICONS.favour}<span>${esc(w.text)}.</span></button></li>`)
         .join('')}</ul>`);
     }
     const shown = g.log.filter((m) => this.filter === 'all' || catOf(m.kind) === this.filter);

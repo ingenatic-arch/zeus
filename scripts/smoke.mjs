@@ -1975,7 +1975,11 @@ if (!/Hire Cretan archers[\s\S]*Hire Arcadian hoplites/.test(a24.side)) fail(`#b
 await open('#looted-paused');
 a24 = await zeus(() => ({ ledger: window.__zeus.ledgerText(), chip: document.querySelector('.raid-chip')?.textContent ?? '', lines: window.__zeus.heard() }));
 if (!(/Raided by Sparta · drachmas\s*−[\d,]+/.test(a24.ledger) && /Raided by Sparta · wheat/.test(a24.ledger))) fail(`#looted: the ledger: ${a24.ledger.slice(0, 900)}`);
-if (!/making off with [\d,]+ wheat and [\d,]+ dr/.test(JSON.stringify(a24.lines))) fail(`#looted: the raid's line: ${JSON.stringify(a24.lines).slice(0, 600)}`);
+// Slice 44: the band in the city is under Waiting on you in the Messages panel, not a town line.
+{
+  const w = await waiting44();
+  if (!/Waiting on you[\s\S]*making off with [\d,]+ wheat and [\d,]+ dr/.test(w)) fail(`#looted: the raid's line: ${w.slice(0, 600)}`);
+}
 await open('#hirelings-paused');
 {
   await page.click('.side button[data-act="hire"][data-kind="arcadian"]');
@@ -2061,7 +2065,9 @@ await open('#siege-paused');
 {
   const s25 = await zeus(() => ({ w: window.__zeus.walls(), lines: window.__zeus.heard(), prepared: window.__zeus.prepared }));
   if (!(s25.prepared && s25.w.siege === 41 * 128 + 40 && s25.w.towers.length === 2 && s25.w.towers.every((t) => t.workers === 4))) fail(`#siege: ${JSON.stringify(s25.w)}`);
-  if (!/hammering at your gate/.test(JSON.stringify(s25.lines))) fail(`#siege: the band's line: ${JSON.stringify(s25.lines).slice(0, 600)}`);
+  // Slice 44: the band in the city is under Waiting on you in the Messages panel, not a town line.
+  const w25s = await waiting44();
+  if (!/Waiting on you[\s\S]*hammering at your gate/.test(w25s)) fail(`#siege: the band's line: ${w25s.slice(0, 600)}`);
   const shot = await zeus(() => {
     const z = window.__zeus;
     let arrows = 0;
@@ -2633,8 +2639,9 @@ await frames(4);
   if (!(await city()).following) fail('#vassal: not following the tribute caravan');
   const chip34 = await zeus(() => document.querySelector('.follow-chip')?.textContent ?? '');
   if (!/caravan/i.test(chip34)) fail(`#vassal: the follow chip: ${chip34}`);
-  const line34 = await zeus(() => document.querySelector('.townline.empire')?.textContent ?? '');
-  if (!/Corinth’s tribute is coming in to your stores: [\d,]+ (wine|oil)/.test(line34)) fail(`#vassal: the town line: ${line34}`);
+  // Slice 44: the tribute's news is in the scroll.
+  const line34 = await zeus(() => window.__zeus.heard());
+  if (!line34.some((l) => /Corinth’s tribute is on its way: [\d,]+ (wine|oil)/.test(l))) fail(`#vassal: the tribute's message: ${JSON.stringify(line34.slice(-8))}`);
   await zeus(() => window.__zeus.greece(true));
   await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
   await page.click('.glabel.corinth', { force: true });
@@ -2674,8 +2681,12 @@ await frames(3);
   let g34 = await gi();
   if (!(g34.shown === 'corinth' && /Corinth is arming[\s\S]*Loyalty \d+[\s\S]*heavy tribute[\s\S]*It rises about[\s\S]*Lighten its tribute to fair[\s\S]*March on it[\s\S]*about \d in 10/.test(g34.panel))) fail(`#rebellion: Corinth's Empire tab: ${g34.shown} ${g34.panel.slice(0, 2000)}`);
   if (!(await zeus(() => !!document.querySelector('.glabel.corinth svg.arming')))) fail('#rebellion: no shield on Corinth\'s label');
-  const line34 = await zeus(() => document.querySelector('.townline.empire')?.textContent ?? '');
-  if (!/Corinth is arming: loyalty \d+/.test(line34)) fail(`#rebellion: the town line: ${line34}`);
+  // Slice 44: under Waiting on you in the Messages panel, not a town line; then Corinth's Empire tab again.
+  const line34 = await zeus(() => window.__zeus.messages(true).text);
+  await zeus(() => window.__zeus.messages(false));
+  await zeus(() => window.__zeus.greece(true, 'corinth', 'empire'));
+  await frames(3);
+  if (!/Waiting on you[\s\S]*Corinth is arming: loyalty \d+/.test(line34)) fail(`#rebellion: not waiting on you: ${line34.slice(0, 600)}`);
   await page.click('.greece-panel .arming button[data-empire="tribute"]');
   await frames(2);
   g34 = await gi();
@@ -2805,8 +2816,9 @@ const err37 = errors.length;
 await open('#colony-paused');
 await frames(4);
 {
-  const line37 = await zeus(() => document.querySelector('.townline.empire')?.textContent ?? '');
-  if (!/Your settlers for Thasos are coming down to the quay: [0-4] of 4 households aboard; your ship rides at anchor off the jetty/.test(line37)) fail(`#colony: the town line: ${line37}`);
+  // Slice 44: the settlers' news is in the scroll.
+  const line37 = await zeus(() => window.__zeus.heard());
+  if (!(line37.some((l) => /^Your settlers for Thasos are packing: .* walk down to the quay/.test(l)) && line37.some((l) => /^Your ship for Thasos rides at anchor off the jetty/.test(l)))) fail(`#colony: the settlers' messages: ${JSON.stringify(line37.slice(-8))}`);
   await zeus(() => window.__zeus.greece(true, 'site:thasos'));
   await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, null, { timeout: 120000 });
   await frames(3);
