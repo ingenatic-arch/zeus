@@ -2,6 +2,56 @@
 
 Notes to Oliver, newest first.
 
+## Slice 42 — Lands of any size (25 Oct)
+
+A city can now be founded on a generated land, a sheltered bay of 128, 192 or 256 tiles made from a seed and checked playable by the game's own rules, while the Bay you know is untouched; until the new-game screen (slice 46, your choice) the three new demos are the way in. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** A town now records the land it stands on (state version 38). Every save from before loads on the Bay, as it was, with nothing else changed. A save on a land this game can't make is refused in plain words.
+- **Nothing in the Bay's towns moves.** The Bay bakes bit for bit as before (every height, tree, outcrop and district; a test now holds it there), and I compared all 134 earlier demos at opening and 900 ticks on against the trunk: every one is exactly as before.
+- **For the other lines:** anything that meant "the map is 128 tiles" now asks the land (`map.size`, or `sizeOf(s)` with only a state). The ship helpers (`shipAt`, `visitorAt`, `tributeShipAt` and the like) take the map's size as a last argument, because where a ship crosses the map's edge depends on it. The plan lists them all.
+
+### What's new
+- **Generated lands.** The first kind is a sheltered bay laid out like the Bay but from a seed: the sea to the south, a broad bay part-way along the shore (an islet in its mouth on about half the seeds), a cliffed headland to its east with marble on its crown, a rocky massif in the north-west where the river rises, the river winding down to the bay through its flood plain, rolling hills along the north and east, olive groves, pine woods, woods for the loggers, cypresses, copper in the crags and on the headland, deer on the hills and boar in the woods. A larger land has the same-sized features with more ground between, a second row of hills, and more rises inland with woods, groves and herds.
+- **Every land is checked playable** with the game's own rules on an empty town: a farm, an olive grove, a pasture, a horse farm, a vineyard, a copper mine, a marble quarry, a loggers' camp, the Lighthouse and a trading post with a berth the ship can reach all have somewhere to go; roads from the north, east and west edges can reach the land (bridging the river where a bridge fits); and there is room for a city. 55 seeds across the three sizes all passed; the tests check 22 on every run.
+- **The sea side works at any size.** The merchant ship sails in from beyond a large land's own edge to its berth (a test plays it).
+- **The camera** opens over a generated land's bay, and can stand a little further back over a larger land. The minimap shows the whole land.
+
+### What to try
+1. #landlarge — a 256-tile sheltered bay, four times the Bay's ground, with a road in from the west edge and a bridge over the river. Mark out plots by the road and watch settlers walk in. Zoom out, and use the minimap to find the massif, the north hills and the headland.
+2. #landsmall — the same kind of land at the Bay's size, to compare with #coast.
+3. #landmedium — 192 tiles.
+4. #landlarge-modern and #landlarge-plain — the same land in the other two looks.
+
+### What I'd like your eye on
+- **Does a generated land read as a place?** The large land's middle is mostly open grass with a few rises, woods and groves. Should it be busier, or is open room what you want from a big map?
+- **The bay's shape.** Broad and flat-bottomed, the river mouth at its head, the headland to the east. The seeds look alike: is the variety enough for one kind, with the other kinds coming in slice 46?
+- **The furthest zoom on a large land.** It goes a little further back than on the Bay (208 against 175), not far enough to see the whole land at once.
+
+### Known rough edges
+- Zoomed right out at a large land's southern corners, the sea shows a faint band where its near grid meets the skirt that carries it to the horizon. The Bay has the same seam, just out of view.
+- A large land draws more: the opening view is about 1.75 times the Bay's triangles, and zoomed fully out 2.4 times (more ground and more trees in view). See the measurements.
+- The camera's named views (overview, river, bay and the rest) are the Bay's places; on a generated land only the opening view is its own.
+- The full smoke's "right-drag did not turn" check fails on this build and on the trunk alike (the drag in the check is shorter than a quarter turn now needs); it isn't from this slice.
+
+### Measurements
+Headless software rendering on a machine shared with three other builds (load 25 to 40 on 4 cores), so only the counts are firm; the times are slow and noisy.
+- **The Bay's demos draw exactly what they did:** the bare link and `#coast` 1.18 million triangles in 71 to 72 draw calls, `#town` 1.49 million in 102, `#empire` 2.09 million in 152, on both builds.
+- **The new lands, at 1920 × 1080:**
+
+| | Opening view | Furthest out |
+|---|---|---|
+| `#coast` (the Bay, 128) | 1.18 million triangles, 71 draws | 1.20 million, 78 |
+| `#landsmall` (128) | 1.16 million, 77 | 1.20 million, 83 |
+| `#landmedium` (192) | 1.74 million, 100 | 2.06 million, 132 |
+| `#landlarge` (256) | 2.07 million, 95 | 2.92 million, 171 |
+
+  Most of the difference is trees and grass: a large land has about 13,500 against the Bay's 4,000, and more of them are in view.
+- **Baking the land when the page opens:** in the page, the large land took 0.9 and 1.4 s in two runs, while the Bay took 0.4 to 1.9 s in the same runs (0.23 s before, when the machine was quieter). In Node, less loaded, the large land takes 0.45 to 0.65 s and the Bay 0.25 s. So a large land costs a little over twice the Bay. I couldn't confirm the one-second target on a normal machine here.
+- **Tests:** 607 (590 before, 17 new), all passing.
+
+### What the review changed
+
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 
 You picked look 3 from the mock-ups (pixel-crisp: the original's fixed view, its colours and hard pixels) plus the busy workers, and asked for it built now and tried before it goes in. This is that build. It is on its own try-out page; the game at its usual link has not changed and won't until you say yes. Every choice below that you didn't make is mine, from the plan's defaults (`docs/plans/2026-10-25-original-look.md`).

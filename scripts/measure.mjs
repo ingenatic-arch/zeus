@@ -559,5 +559,36 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   const median = rows[Math.floor(rows.length / 2)];
   console.log(`demo loads: ${rows.length} demos, ${rows.filter((r) => r.prepared).length} from prepared towns; ready at median ${median.ready.toFixed(0)} ms, slowest ${rows.slice(0, 5).map((r) => `#${r.d} ${r.ready.toFixed(0)}`).join(', ')} ms; over 3 s: ${over.length ? over.map((r) => `#${r.d} ${r.ready.toFixed(0)}`).join(', ') : 'none'}`);
 }
+// Slice 42: lands of any size. Each land demo's load and its map's bake by the page's clock, triangles and draw calls from its
+// opening view and from as far back as the camera goes over its centre, at 1920 x 1080; and the large land's main-thread time a frame.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  for (const d of ['coast', 'landsmall', 'landmedium', 'landlarge']) {
+    await page.goto('about:blank');
+    await page.goto(`${url}#${d}-paused-shot`);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 2, null, { timeout: 120000 });
+    const l = await page.evaluate(() => ({ ...window.__zeus.land(), ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt }));
+    const shots = [];
+    for (const far of [false, true]) {
+      if (far) await page.evaluate((n) => window.__zeus.jump({ x: n / 2, z: n / 2, yaw: 0.12, dist: 175 * Math.sqrt(Math.sqrt(n / 128)), tilt: -0.5 }), l.size); // (cameraRig.ts: cityLimits)
+      const f = await page.evaluate(() => window.__zeus.frames);
+      await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+      const info = await page.evaluate(() => window.__zeus.info());
+      shots.push(`${far ? 'furthest' : 'opening'} ${info.triangles} triangles, ${info.calls} draws`);
+    }
+    console.log(`#${d.padEnd(10)} ${l.size} tiles: map baked in ${l.bakeMs.toFixed(0)} ms, ready at ${l.ready.toFixed(0)} ms, first frame at ${l.first.toFixed(0)} ms; ${shots.join('; ')}`);
+  }
+  await page.setViewportSize({ width: 960, height: 540 });
+  for (const hash of ['#landsmall-shot', '#landlarge-shot']) {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    await page.waitForTimeout(10000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    console.log(`${hash.padEnd(18)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+  }
+}
 await browser.close();
 server.close();

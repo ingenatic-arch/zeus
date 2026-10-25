@@ -289,8 +289,8 @@ interface Probe {
   ambition?: () => Record<string, unknown>;
   ambitionPanel?: (open: boolean) => string;
   // Slice 42
-  /** The town's land (kind, size, seed), its site, how many road tiles are laid, the camera's view, and how long its map took to bake. */
-  land?: () => { kind: string; size: number; seed: number; site: { x: number; z: number } | null; roads: number; view: { x: number; z: number; dist: number }; bakeMs: number };
+  /** The town's land (kind, size, seed), its site, how many road tiles are laid (and the first on the west edge), the camera's view, and how long its map took to bake. */
+  land?: () => { kind: string; size: number; seed: number; site: { x: number; z: number } | null; roads: number; edgeRoad: number; view: { x: number; z: number; dist: number }; bakeMs: number };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -2336,7 +2336,7 @@ function start(preparedTown: string | null): void {
   probe.startMs = performance.now() - t0;
   probe.readyAt = performance.now();
   // Slice 42.
-  probe.land = () => ({ ...landOf(sim.state), site: map.data.site ?? null, roads: sim.state.tiles.filter((v) => v === TILE_ROAD).length, view: { x: rig.view.x, z: rig.view.z, dist: rig.view.dist }, bakeMs: probe.bakeMs });
+  probe.land = () => ({ ...landOf(sim.state), site: map.data.site ?? null, roads: sim.state.tiles.filter((v) => v === TILE_ROAD).length, edgeRoad: sim.state.tiles.findIndex((v, t) => v === TILE_ROAD && t % map.size === 0), view: { x: rig.view.x, z: rig.view.z, dist: rig.view.dist }, bakeMs: probe.bakeMs });
   probe.ready = true;
 }
 
