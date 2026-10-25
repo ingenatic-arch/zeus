@@ -18,6 +18,8 @@ import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBless
 import { robbedLately, TEMPT_FULL, TEMPT_HALF, TEMPT_SHOW } from '../sim/crime';
 // Slice 41.
 import { isCriminal } from '../sim/crime';
+// Slice 45: the columns by kind.
+import { crimeOfWalker, likelyKinds, moodCtx, temptationOf, type CrimeKind } from '../sim/crime';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -36,6 +38,9 @@ interface Mode {
 
 /** What an overlay shows: a service's reach and supply (or where the tax collector reaches, and who has paid), or what each home is missing. */
 export type OverlayMode = Round | 'missing' | 'variety' | 'crime';
+
+/** Slice 45: the crime overlay's columns by the crime a home turns to (the legend's key). */
+export const CRIME_KIND_TONES: Readonly<Record<CrimeKind, string>> = { theft: '#d0383a', pickpocket: '#e0a030', vandal: '#9a58d0', arson: '#ff7a1a', smuggling: '#2f9cc8' };
 
 /** A stall good's overlay: its stall's vendors' reach, and the homes that buy it. */
 const goodMode = (w: Ware): Mode => {
@@ -362,6 +367,19 @@ export class ServiceOverlay {
       for (const t of s.crime.talk) out.add(t.home);
       for (const x of s.crime.broken) smashed.add(x.at);
     }
+    // Slice 45 (from slice 41's review): with the new kinds on, each tempted home's column takes the colour of the crime it turns to (CRIME_KIND_TONES, the legend's key): a criminal of theirs out, what he is out at; else what its trouble points to.
+    const kindOf = new Map<number, CrimeKind>();
+    if (s.crime.kinds) for (const w of s.walkers) if (isCriminal(w.kind) && w.people > 0) kindOf.set(w.home, crimeOfWalker(w.kind));
+    let ctx: ReturnType<typeof moodCtx> | null = null;
+    const toneOf = (b: Building, alarm: boolean, v: number): THREE.Color => {
+      if (!s.crime.kinds) return alarm || v >= HAZARD_HIGH ? this.crimeTones.high : this.crimeTones.half;
+      let k = kindOf.get(b.id);
+      if (!k) {
+        ctx ??= moodCtx(s);
+        k = likelyKinds(s, b, temptationOf(s, size, b, ctx))[0] ?? 'theft';
+      }
+      return this.c.set(CRIME_KIND_TONES[k]).multiplyScalar(alarm || v >= HAZARD_HIGH ? 1 : 0.7);
+    };
     let n = 0;
     if (s.buildings.length * 2 > this.columns.instanceMatrix.count) this.grow(s.buildings.length * 2);
     for (const b of s.buildings) {
@@ -381,7 +399,7 @@ export class ServiceOverlay {
           this.s.set(1.3, 0.3 + 2.2 * k, 1.3);
           this.m.compose(this.p, this.q, this.s);
           this.columns.setMatrixAt(n, this.m);
-          this.columns.setColorAt(n, this.c.copy(alarm || v >= HAZARD_HIGH ? this.crimeTones.high : this.crimeTones.half));
+          this.columns.setColorAt(n, this.c.copy(toneOf(b, alarm, v)));
           n++;
         } else if (robbedLately(s, b)) {
           this.p.set(b.x + 1, y, b.z + 1);

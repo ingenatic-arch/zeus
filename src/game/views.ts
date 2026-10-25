@@ -190,4 +190,8 @@ export const VIEWS: Record<string, CameraView> = {
   crimes: { x: 73, z: 53, yaw: -0.3, dist: 34, tilt: -0.15 },
   // #gang: the hut street on the slope behind the core's villas, its watch post at the west end, right of the den's panel (tuned by eye).
   gang: { x: 69, z: 25, yaw: -0.2, dist: 20, tilt: 0.05 },
+  // Slice 45, #court: the court and its jurors right of its panel, the thief walked in along the road from the upper street (tuned by eye).
+  court: { x: 87, z: 49, yaw: -0.3, dist: 14, tilt: -0.05 },
+  // #jailbreak: the crowded prison right of its panel, the court beside it and the lower street the prisoners run home to.
+  jailbreak: { x: 88.5, z: 53.5, yaw: -0.3, dist: 15, tilt: -0.05 },
 };

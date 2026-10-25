@@ -20,7 +20,25 @@ export const WORK_SHARE = 0.5;
 export const canWork = (b: Building, away = 0): number => (livedIn(b) && !b.estate ? Math.max(0, Math.floor(b.people * WORK_SHARE) - away) : 0);
 
 /** How many of a home's people can work, its man serving in the army (if any) left out. */
-export const canWorkIn = (s: SimState, b: Building): number => canWork(b, b.kind === 'home' && (s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') || s.fleet.triremes.some((t) => t.crew.some((r) => r.home === b.id))) ? 1 : 0);
+export const canWorkIn = (s: SimState, b: Building): number => canWork(b, (b.kind === 'home' && (s.army.soldiers.some((x) => x.home === b.id && x.state !== 'leaving') || s.fleet.triremes.some((t) => t.crew.some((r) => r.home === b.id))) ? 1 : 0) + awayAt(s, b));
+
+// Slice 45: those of a household at court, in prison or at hard labour can't work at home's jobs; convicts at hard labour fill a quarry's or mine's jobs first, unpaid (treasury.ts leaves them out of the wages).
+/** How many of a household are away at court, in prison or at hard labour (justice.ts). */
+export function awayAt(s: SimState, b: Building): number {
+  const c = s.crime;
+  if (!c.cases.length && !c.held.length) return 0;
+  let n = 0;
+  for (const x of c.cases) if (x.home === b.id) n++;
+  for (const x of c.held) if (x.home === b.id) n++;
+  return n;
+}
+/** The convicts at hard labour filling a quarry's or mine's jobs. */
+export function convictsAt(s: SimState, b: Building): number {
+  if (!s.crime.held.length || (b.kind !== 'quarry' && b.kind !== 'mine')) return 0;
+  let n = 0;
+  for (const x of s.crime.held) if (x.as === 'labour' && x.at === b.id) n++;
+  return Math.min(n, jobsAt(b));
+}
 
 export { jobsAt };
 
@@ -53,10 +71,12 @@ export function shareWork(s: SimState, map: CoastMap): void {
   for (const b of s.buildings) {
     b.workers = 0;
     b.unpaid = 0;
-    const free = canWork(b, away.has(b.id) ? 1 : 0);
+    const free = canWork(b, (away.has(b.id) ? 1 : 0) + awayAt(s, b));
     if (jobsAt(b) > 0) places.push(b);
     else if (free > 0) homes.push({ b, roads: roadsBeside(s, size, b), free });
   }
+  // (Slice 45: convicts at hard labour first.)
+  if (s.crime.held.length) for (const p of places) p.workers = convictsAt(s, p);
   if (places.length > 0 && homes.length > 0) fill(s, size, places, homes);
   // A workplace that works at a new rate may look different (the farm's field).
   if (s.buildings.some((b, i) => b.workers !== before[i])) s.looks++;

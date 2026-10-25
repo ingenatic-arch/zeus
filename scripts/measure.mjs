@@ -321,6 +321,9 @@ for (const [hash, views] of [
   // Slice 41: a pickpocket, a vandal and a smuggler on the hut streets; a gang's den in a poor quarter.
   ['#crimes-paused-shot', [null, 'town']],
   ['#gang-paused-shot', [null, 'town']],
+  // Slice 45: the court with its panel open, a thief walked in; the crowded prison warned of.
+  ['#court-paused-shot', [null, 'town']],
+  ['#jailbreak-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

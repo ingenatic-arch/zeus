@@ -71,6 +71,8 @@ import { note } from './stockbook';
 import { depotRoom, TRADE_GOODS } from './trade';
 import { income, pay } from './treasury';
 import { centre, position, setPath } from './walk';
+// Slice 45: the month's crime rate.
+import { collectorCaught, countCrime } from './justice';
 
 /** How far (steps by road) each criminal walks to his crime. */
 export const PICK_REACH = 24;
@@ -298,6 +300,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     if (victims.length === 0) return;
     w.load = coin;
     tl.picked += victims.length;
+    countCrime(s, 'pickpocket');
     tl.coin += coin;
     tellNews(s, 'picked', `A pickpocket worked the crowd at ${t.kind === 'theatre' ? 'the theatre' : 'the agora'} ${where}: ${victims.length === 1 ? 'a purse' : `${victims.length} purses`} cut, ${coin} dr`, t.id);
   } else if (w.kind === 'vandal') {
@@ -306,6 +309,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     s.crime.broken.push({ at: t.id, part, tick: s.tick, by: thiefWho(home, w) });
     w.load = 1;
     tl.smashed++;
+    countCrime(s, 'vandal');
     const what = smashWords(t, part);
     const stops = t.kind === 'fountain' ? 'no water carrier goes out from it' : t.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
     tellNews(s, 'smashed', `A vandal smashed ${what} ${where}: ${stops} ${mendWords(s)}`, t.id);
@@ -315,6 +319,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     s.crime.arsonAt = s.tick;
     w.load = 1;
     tl.arson++;
+    countCrime(s, 'arson');
     tellNews(s, 'arson', `Arson ${where}: ${thiefWho(home, w, 'someone')} set fire to ${placeOf(t)}. A watchman who sees the flames runs to fight them`, t.id);
   } else if (w.kind === 'smuggler') {
     const ware = smuggleWare(t);
@@ -327,6 +332,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     w.load = n;
     tl.smuggled++;
     tl.goods += n;
+    countCrime(s, 'smuggling');
     tellNews(s, 'smuggled', `Smugglers ${t.kind === 'yard' ? 'at the caravan yard' : 'on the quay'} ${where}: ${lootWords(w)} slipped away`, t.id);
   }
   s.rev++;
@@ -350,8 +356,8 @@ export function criminalHome(s: SimState, w: Walker, home: Building): void {
   s.rev++;
 }
 
-/** Caught, any kind but a thief: what he took goes back, the household pays its fine and hears of it, and the town too. */
-export function catchOther(s: SimState, map: CoastMap, w: Walker): void {
+/** Caught, any kind but a thief: what he took goes back, the household pays its fine and hears of it, and the town too. (Slice 45: `court`, walked to the court instead: what he took back and the household told; no fine on the spot.) */
+export function catchOther(s: SimState, map: CoastMap, w: Walker, court = false): void {
   const home = findBuilding(s, w.home);
   const name = thiefName(home, w);
   const kind = crimeOfWalker(w.kind);
@@ -365,6 +371,14 @@ export function catchOther(s: SimState, map: CoastMap, w: Walker): void {
       note(s, w.food, 'lost', 'Smuggled away', -back);
       tl.goods -= back;
     }
+  }
+  if (court) {
+    tl.caught++;
+    if (home?.family) {
+      tell(s, home.family, 'caught', home.level, [name, kind, 'court']);
+      home.family.story[home.family.story.length - 1].n = 0;
+    }
+    return;
   }
   const level = home?.level ?? 0;
   const fine = THIEF_FINE[Math.min(level, THIEF_FINE.length - 1)];
@@ -508,6 +522,8 @@ export function skimmed(s: SimState, w: Walker): number {
   // (The land's size from its tiles: handing in has no map to hand.)
   const size = Math.round(Math.sqrt(s.tiles.length));
   if (watchedLately(s, size, office)) return 0;
+  // (Slice 45: a collector summoned or serving keeps nothing back meanwhile.)
+  if (s.crime.cases.some((x) => x.kind === 'skimming') || s.crime.held.some((x) => x.kind === 'skimming')) return 0;
   let bag = 0;
   for (let i = 0; i < w.purse.length; i += 3) bag += w.purse[i + 1];
   return Math.floor(bag * SKIM_SHARE);
@@ -518,7 +534,11 @@ export function skim(s: SimState, w: Walker, dr: number): void {
   if (dr <= 0) return;
   pay(s, -dr, 'skimmed', 'by the tax collector');
   tally(s).skimmed += dr;
+  countCrime(s, 'skimming');
   tellNews(s, 'skimmed', `The tax collector kept back ${dr} dr of the takings: his office’s wages are owed and no watchman walks by it`, w.origin);
+  // (Slice 45: a court's clerks find him out.)
+  const office = findBuilding(s, w.origin);
+  if (office) collectorCaught(s, office);
   s.rev++;
 }
 

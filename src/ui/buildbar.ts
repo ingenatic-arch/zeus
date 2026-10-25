@@ -39,6 +39,8 @@ import { GATE_COST, WALL_COST } from '../sim/walls';
 import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from '../sim/monuments';
 // Slice 36.
 import { ESTATE_PLOT_COST, HORSEFARM_COST } from '../sim/build';
+// Slice 45.
+import { COURT_COST, PRISON_COST } from '../sim/build';
 
 /**
  * Every tool's and overlay's icon, name, key, cost and hint, which the
@@ -176,6 +178,12 @@ export const ICONS: Record<ButtonName, string> = {
   colossus: '<svg viewBox="0 0 24 24"><circle cx="12" cy="4.6" r="1.8" class="fill-ink"/><path d="M10.2 7.4h3.6l.6 6.4-1.4.4.6 6.8h-1.8L12 15l-.4 6h-1.8l.6-6.8-1.4-.4z" class="fill-soft"/><path d="M13.8 8.2l3.4-4.4M17.2 3.8V1.6" class="stroke-ink"/><path d="M5 22h14" class="stroke-ink"/></svg>',
   // Slice 35: the stadium's long track between its banks, seen from above.
   stadium: '<svg viewBox="0 0 24 24"><path d="M3 8.2h15.2a3.8 3.8 0 0 1 0 7.6H3z" class="fill-soft"/><path d="M5.6 10.4h12.2a1.6 1.6 0 0 1 0 3.2H5.6z" class="fill-ink"/><path d="M3 5.6h15.4c3.6 0 5.6 2.8 5.6 6.4s-2 6.4-5.6 6.4H3z" class="stroke-ink"/></svg>',
+  // Slice 45: a court: a pediment with a bronze shield on two columns, a jurors' voting urn before it.
+  court:
+    '<svg viewBox="0 0 24 24"><path d="M2.4 8.4 12 3l9.6 5.4z" class="fill-soft"/><circle cx="12" cy="6.6" r="1.1" class="fill-gold"/><path d="M4.6 9.6v9.4M19.4 9.6v9.4" class="stroke-ink"/><path d="M2.6 19.4h18.8v2H2.6z" class="fill-soft"/><path d="M9.2 19.2c-1.4-1.8-1.2-5 .6-6.4h4.4c1.8 1.4 2 4.6.6 6.4z" class="fill-ink"/><path d="M10 12.6v-1.4h4v1.4" class="stroke-ink"/></svg>',
+  // Slice 45: a prison: a heavy block with a barred window and a studded door.
+  prison:
+    '<svg viewBox="0 0 24 24"><path d="M3 21V7.4h18V21z" class="fill-ink"/><path d="M2.4 7.6h19.2V5H2.4z" class="fill-soft"/><path d="M5.8 9.6h5v4.2h-5z" class="fill-soft"/><path d="M7.4 9.6v4.2M9.2 9.6v4.2" class="stroke-ink"/><path d="M13.4 21v-8.2h5V21z" class="fill-soft"/><circle cx="16.8" cy="16.8" r=".7" class="fill-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
@@ -407,6 +415,19 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: 'X',
     cost: `free; rubble ${CLEAR_SMALL}–${CLEAR_BIG} dr a heap`,
     hint: 'Drag over roads, bridges, buildings, rubble or trees to clear them. Families in cleared homes leave. Rubble has to be cleared before anything can be built there again.',
+  },
+  // Slice 45.
+  court: {
+    name: 'Court',
+    key: 'Z ×4',
+    cost: `${COURT_COST} dr`,
+    hint: 'Click beside a road, in reach of the watch posts. Its magistrate and jurors try those the watch catches, by the law you set: click the court to choose a punishment for each crime, and see what each deters and costs.',
+  },
+  prison: {
+    name: 'Prison',
+    key: 'Z ×5',
+    cost: `${PRISON_COST} dr`,
+    hint: 'Click beside a road. Its guards hold those the court sends to prison. Keep it from overflowing and staffed: a restless prison is warned of, and then its prisoners break out.',
   },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'O', cost: '', hint: '' },

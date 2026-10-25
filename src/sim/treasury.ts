@@ -19,6 +19,8 @@ import { COST, TAX_OFFICE_COST } from './build';
 import { JOBS } from './buildings';
 import { TICKS_PER_MONTH } from './clock';
 import type { Building, BuildingKind, Ledger, LedgerKind, SimState } from './state';
+// Slice 45: convicts at hard labour, paid no wage.
+import { convictsAt } from './labour';
 
 /** What a workplace pays each of its workers on the first of the month. */
 export const WAGE = 2;
@@ -118,7 +120,8 @@ export const isWorkplace = (b: Building): boolean => JOBS[b.kind] > 0;
 export function stepWages(s: SimState): void {
   if (s.tick % TICKS_PER_MONTH !== 0) return;
   turnMonth(s);
-  for (const b of s.buildings) b.owed = isWorkplace(b) ? b.workers * WAGE : 0;
+  // (Slice 45: convicts at hard labour are paid nothing.)
+  for (const b of s.buildings) b.owed = isWorkplace(b) ? (b.workers - convictsAt(s, b)) * WAGE : 0;
   settle(s);
 }
 
@@ -175,7 +178,7 @@ export function owedWages(s: SimState): { owed: number; places: number; workers:
 /** What wages cost a month at the workplaces' present staffing. */
 export function wageBill(s: SimState): number {
   let w = 0;
-  for (const b of s.buildings) if (isWorkplace(b)) w += b.workers * WAGE;
+  for (const b of s.buildings) if (isWorkplace(b)) w += (b.workers - convictsAt(s, b)) * WAGE;
   return w;
 }
 

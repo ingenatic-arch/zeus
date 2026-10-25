@@ -70,6 +70,8 @@ import { HORSE_BATCH, HORSE_EVERY } from './production';
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 // Slice 41.
 import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeChoice } from './crime';
+// Slice 45: the court and the prison.
+import { convictStatus, courtLines, escorting, justiceLines, prisonLines, prisonWarning, sergeantLine } from './justice';
 import { brokenPlace, criminalDoing, criminalStatus, grievances, mendWords, misdeedLines } from './misdeeds';
 import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -140,7 +142,8 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'watchpost' || b.kind === 'architect') return { ...postStatus(s, map, b), detail: lines(postStatus(s, map, b).detail, ...hazardLines(s, map, b)) };
   const st = buildingStatus(s, map, b, reach);
   // (Slice 41: and what the new crimes have done to it: a smashed fountain, pickpockets about, a skimming collector, a den.)
-  const more = [...misdeedLines(s, map, b), ...hazardLines(s, map, b)];
+  // (Slice 45: and who stands in its stocks, or labours at it.)
+  const more = [...misdeedLines(s, map, b), ...justiceLines(s, b), ...hazardLines(s, map, b)];
   // Smouldering, burning or creaking goes first: it is the news.
   if (b.fire > 0 || b.creakAt > 0) return { title: st.title, detail: lines(...more, st.detail) };
   return { title: st.title, detail: lines(st.detail, ...more) };
@@ -176,6 +179,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'lighthouse' || b.kind === 'colossus' || b.kind === 'stadium') return siteStatus(s, map, b);
   // Slice 36.
   if (b.kind === 'horsefarm') return horseFarmStatus(s, map, b);
+  // Slice 45: the court and the prison.
+  if (b.kind === 'court' || b.kind === 'prison') return { title: BUILDING_NAMES[b.kind], detail: lines(workersLine(s, map, b), ...(b.kind === 'court' ? courtLines(s, b) : prisonLines(s, b))) };
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -782,12 +787,19 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'colonist') return colonistDoing(s, w);
   // Slice 43: a porter carrying goods down to the quay for a colony.
   if (w.kind === 'shipper') return shipperDoing(s, w);
+  // Slice 45: one of the caught, and the watchman walking him to the court.
+  if (w.kind === 'convict') return convictStatus(s, w);
+  if (w.kind === 'watchman' && w.meat > 0 && escorting(s, w)) {
+    const c = escorting(s, w)!;
+    const home = findBuilding(s, c.home);
+    return { title: 'Watchman', detail: `Walking ${thiefWho(home, c)} to the court, ${pronouns(home, c).his} hands bound · then back to his round` };
+  }
   if (w.kind === 'watchman' && w.meat > 0) {
     // (Slice 41: or any criminal, named by what he is.)
     const t = s.walkers.find((o) => o.id === w.meat && isCriminal(o.kind));
     const home = t ? findBuilding(s, t.home) : undefined;
     const name = t ? KIND_NAME[crimeOfWalker(t.kind)] : 'thief';
-    return { title: 'Watchman', detail: `Running after a ${name}${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and the ${name}’s family pays a fine` };
+    return { title: 'Watchman', detail: `Running after a ${name}${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and ${s.buildings.some((o) => o.kind === 'court' && o.workers > 0) ? `walks ${pronouns(home, t ?? null).him} to the court` : `the ${name}’s family pays a fine`}` };
   }
   if (w.kind === 'watchman') {
     const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
@@ -1751,7 +1763,9 @@ export function postStatus(s: SimState, map: CoastMap, b: Building): Status {
       : `Every building beside the inspector’s way is made sound, a creak stopped before it falls; she goes ${INSPECT_RANGE} steps by road at most`;
   const kinds = s.buildings.filter((o) => (kind === 'watchpost' ? o.fire > 0 : o.creakAt > 0));
   const news = kinds.length ? (kind === 'watchpost' ? `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} smouldering or burning in the city` : `${kinds.length === 1 ? 'One building is' : `${kinds.length} buildings are`} creaking in the city`) : '';
-  return { title, detail: lines(workersLine(s, map, b), line, what, news) };
+  // (Slice 45: the posts in reach, whose watchmen help each other.)
+  const sergeant = kind === 'watchpost' && s.crime.on && s.crime.kinds ? sergeantLine(s, map.size, b) : '';
+  return { title, detail: lines(workersLine(s, map, b), line, what, sergeant, news) };
 }
 
 /** Rubble: what stood there, how it ended, and what clearing it costs. */
@@ -1893,15 +1907,17 @@ function noWatchWords(s: SimState): string {
 export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
   if (!s.crime.on) return null;
   const size = map.size;
+  // Slice 45: talk of burning and a restless prison come even before the news: they are the threats to see coming (slice 41's review).
+  const threat = s.crime.kinds ? talkTownLine(s, map) : null;
+  if (threat) return threat;
+  const jail = s.crime.jails.length ? prisonWarning(s, map) : null;
+  if (jail) return { need: 'crime', text: jail.text, at: jail.at };
   const news = s.crime.news.at(-1);
   if (news && s.tick - news.tick < CRIME_NEWS_DAYS * TICKS_PER_DAY) {
     const watched = s.buildings.some((b) => b.kind === 'watchpost' && b.workers > 0);
     const hint = news.kind === 'theft' ? (watched ? '' : ' No watchman walks the streets: a watch post (Z twice) would catch the next one.') : '';
     return { need: 'crime', text: `${news.line}.${hint}`, at: news.at };
   }
-  // Slice 41: talk of burning, before anything but the news (it is the threat to see coming).
-  const talk = s.crime.kinds ? talkTownLine(s, map) : null;
-  if (talk) return talk;
   const out = thievesOut(s);
   if (out.length) {
     const w = out[0];

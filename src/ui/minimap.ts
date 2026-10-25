@@ -57,6 +57,9 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   stadium: '#f4ecd6',
   // Slice 36.
   horsefarm: '#b88a52',
+  // Slice 45: the court in white, the prison in dark stone.
+  court: '#fbf6ea',
+  prison: '#6e6458',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */

@@ -76,11 +76,14 @@ export type Command =
   | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number }
   // Slice 41
   /** The new kinds of crime's and gangs' switch (misdeeds.ts, gangs.ts), beside crime's own: on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'crimes'; on: boolean };
+  | { type: 'crimes'; on: boolean }
+  // Slice 45
+  /** The law (justice.ts): the punishment the court gives for one kind of crime ('theft', 'pickpocket', 'vandal', 'arson', 'smuggling', or 'gang' for a gang's men), one of 'fine', 'stocks', 'prison', 'labour', 'exile', 'execution'. */
+  | { type: 'law'; crime: string; punishment: string };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

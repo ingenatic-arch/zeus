@@ -58,6 +58,8 @@ import { colonyCommand, moveColonist, stepColonies } from './colonies';
 import { moveShipper, stepColonyWorks, worksCommand } from './colonyworks';
 // Slice 41
 import { isCriminal } from './crime';
+// Slice 45
+import { lawCommand, moveConvict } from './justice';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -401,6 +403,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
         s.world.name = c.name.trim().replace(/\s+/g, ' ');
         s.rev++;
       }
+      break;
+    // Slice 45: the law, set on the court's panel.
+    case 'law':
+      if (typeof c.crime === 'string' && typeof c.punishment === 'string') lawCommand(s, c.crime, c.punishment);
       break;
   }
 }
@@ -1029,6 +1035,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               // Slice 41: the new kinds of criminal walk as a thief does.
               : isCriminal(w.kind)
                 ? moveThief(s, map, w)
+              // Slice 45: the caught, walked to the court.
+              : w.kind === 'convict'
+                ? moveConvict(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

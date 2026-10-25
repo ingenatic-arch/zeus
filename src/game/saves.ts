@@ -21,6 +21,8 @@ import { TRADE_GOODS } from '../sim/trade';
 import { CITY_IDS, RULED } from '../map/greece';
 // Slice 41.
 import { NEWS_KINDS } from '../sim/crime';
+// Slice 45: the court and the prison.
+import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -464,7 +466,7 @@ function crimeOk(c: unknown): boolean {
   const tallyOk = (t: unknown): boolean => isObj(t) && ['thefts', 'caught', 'coin', 'goods', 'fines', 'picked', 'smashed', 'arson', 'smuggled', 'skimmed', 'beaten'].every((k) => fin(t[k]));
   if (!tallyOk(c.now) || !tallyOk(c.last)) return false;
   if (!(c.news as unknown[]).every((n) => isObj(n) && fin(n.tick) && fin(n.at) && typeof n.line === 'string' && (NEWS_KINDS as readonly unknown[]).includes(n.kind))) return false;
-  return crimeKindsOk(c);
+  return crimeKindsOk(c) && justiceOk(c);
 }
 
 /** Slice 41: the new kinds' switch, what is smashed, talk of burning, the quarters' heat and the gangs. */
@@ -472,6 +474,29 @@ function crimeKindsOk(c: Record<string, unknown>): boolean {
   if (typeof c.kinds !== 'boolean' || !fin(c.arsonAt) || !nums(c.heat) || !nums(c.seats)) return false;
   const rows = (v: unknown, keys: string[], strings: string[] = []): boolean => Array.isArray(v) && v.every((x) => isObj(x) && keys.every((k) => fin(x[k])) && strings.every((k) => typeof x[k] === 'string'));
   return rows(c.broken, ['at', 'part', 'tick'], ['by']) && rows(c.talk, ['home', 'since', 'at']) && rows(c.gangs, ['den', 'district', 'formed', 'next', 'covered'], ['name']);
+}
+
+/** Slice 45: the law, the cases at court, those serving, the stocks, the prisons' unrest, the monthly rate and the last cut. */
+function justiceOk(c: Record<string, unknown>): boolean {
+  const law = c.law;
+  if (!isObj(law) || !LAW_ROWS.every((r) => (PUNISHMENTS as readonly unknown[]).includes(law[r]))) return false;
+  const kind = (x: Record<string, unknown>): boolean => typeof x.name === 'string' && typeof x.female === 'boolean' && (CASE_KINDS as readonly unknown[]).includes(x.kind);
+  const rows = (v: unknown, keys: string[], ok: (x: Record<string, unknown>) => boolean): boolean => Array.isArray(v) && v.every((x) => isObj(x) && keys.every((k) => fin(x[k])) && ok(x));
+  const rateOk = (r: unknown): boolean => isObj(r) && fin(r.month) && fin(r.people) && fin(r.caught) && fin(r.tried) && nums(r.n) && (r.n as unknown[]).length === RATE_KINDS.length;
+  const cut = c.cut;
+  return (
+    rows(c.cases, ['home', 'court', 'since', 'trial'], (x) => kind(x) && typeof x.gang === 'boolean') &&
+    rows(c.held, ['home', 'level', 'at', 'since', 'until'], (x) => kind(x) && typeof x.gang === 'boolean' && (x.as === 'prison' || x.as === 'labour')) &&
+    rows(c.stocks, ['home', 'at', 'since', 'until'], kind) &&
+    rows(c.jails, ['at', 'unrest', 'warned'], () => true) &&
+    rateOk(c.rate) &&
+    Array.isArray(c.rates) &&
+    (c.rates as unknown[]).every(rateOk) &&
+    isObj(cut) &&
+    fin(cut.tick) &&
+    ['', 'execution', 'exile'].includes(cut.what as string) &&
+    typeof cut.who === 'string'
+  );
 }
 
 /** The trees the loggers have felled (slice 32): each by its number in the map's plants, and the tick it fell. */

@@ -27,6 +27,8 @@ import { ESTATE, GREAT_ESTATE } from '../sim/buildings';
 import { held } from '../sim/foods';
 // Slice 37: a home left by settlers for a colony.
 import { leftFor } from '../sim/colonies';
+// Slice 45: the court and the prison.
+import { awayLines, crimeWords, type CaseKind } from '../sim/justice';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -140,6 +142,9 @@ function storyLine(f: Family, e: Story, i: number): string {
       // (Review of slice 30: "his" or "hers", as whoever went out.)
       return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t ${f.members.find((m) => m.name === e.names[0])?.female ? 'hers' : 'his'}`;
     case 'caught':
+      // (Slice 45: walked to the court, to be tried there.)
+      if (e.names[2] === 'court' && e.names[1] === 'skimming') return `${e.names[0]} kept back some of the tax office’s takings, was found out by the court’s clerks and summoned`;
+      if (e.names[2] === 'court') return `${e.names[0]} was caught ${CAUGHT_AT[e.names[1] ?? 'theft'] ?? 'stealing'} by the watchman and walked to the court`;
       // (Slice 41: and the new kinds, by what they were caught at.)
       return `${e.names[0]} was caught ${CAUGHT_AT[e.names[1] ?? 'theft'] ?? 'stealing'} by the watchman; the house paid a ${e.n ?? 0} dr fine`;
     // Slice 41: the new kinds of crime, purses cut, and a gang's den.
@@ -154,6 +159,19 @@ function storyLine(f: Family, e: Story, i: number): string {
       return `A purse was cut in the crowd at ${e.names[0] ?? 'the agora'}: ${e.n ?? 0} dr gone`;
     case 'den':
       return e.n ? `${cap(e.names[0] ?? 'a gang')} made the house its den: rough company at all hours` : `The watch broke up ${e.names[0] ?? 'the gang'}; the house is quieter now`;
+    // Slice 45: the court's sentence, and home again.
+    case 'sentence': {
+      const [name, p, kind, place] = e.names;
+      const crime = crimeWords((kind ?? 'theft') as CaseKind, false) ?? 'theft';
+      if (p === 'fine') return `The court fined ${name} ${e.n ?? 0} dr for ${crime}`;
+      if (p === 'stocks') return `${name} stood a day in the stocks at the agora${place ? ` ${place}` : ''} for ${crime}, for all to see`;
+      if (p === 'prison') return `The court sent ${name} to prison for ${e.n ?? 0} months for ${crime}`;
+      if (p === 'labour') return `The court sentenced ${name} to ${e.n ?? 0} months of hard labour at ${place || 'the quarry'} for ${crime}`;
+      if (p === 'execution') return `${name} was condemned for ${crime} and drank the hemlock; the house mourned`;
+      return `The court sentenced ${name} for ${crime}`;
+    }
+    case 'freed':
+      return `${e.names[0]} came home from ${e.names[1] ?? 'prison'}`;
   }
 }
 
@@ -375,10 +393,21 @@ function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
   }
   const name = KIND_NAME[kind];
   const soon = d === 0 ? (kind === 'arson' ? 'talk of burning begins any day now' : `a ${name} slips out any day now`) : d < Infinity ? (kind === 'arson' ? `talk of burning in about ${days(d * TICKS_PER_DAY)}` : `a ${name} in about ${days(d * TICKS_PER_DAY)}`) : 'easing';
-  const head = pushing.length ? `Tempted to ${KIND_VERB[kind]}: ${pushing.join(', ')}` : `Tempted to ${KIND_VERB[kind]}, less each day`;
-  const why = `<p class="why">Why ${KIND_VERB[kind] === 'burn' ? 'burning' : KIND_ING[kind]}: ${esc(c?.why ?? '')}, ${esc(placeOf(c!.target))} within reach.</p>`;
+  // Slice 45 (slice 41's review): the reasons once, in the "Why" line, with what points them to this crime rather than theft
+  // (a vandal's "angry and idle" only says again what the reasons say), and the place within reach.
+  const head = pushing.length ? `Tempted to ${KIND_VERB[kind]}` : `Tempted to ${KIND_VERB[kind]}, less each day`;
+  const reason = kind === 'vandal' ? '' : (c?.why ?? '').replace(/^poor, and /, '');
+  const whyText = [pushing.join(', '), reason].filter((x) => x).join(', and ');
+  const why = `<p class="why">${esc(`Why ${KIND_VERB[kind] === 'burn' ? 'burning' : KIND_ING[kind]}: ${whyText || 'not much any more'}. ${cap(placeOf(c!.target))} is within reach.`)}</p>`;
   const held = holding.length ? `<p class="why">Holding them back: ${esc(holding.join(', '))}.</p>` : '<p class="why">A watchman walking by would hold them back (a watch post, Z twice).</p>';
   return `${extra}<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${why}${held}</div></div>`;
+}
+
+/** Slice 45: one of them caught and walked to the court, waiting for trial, in prison, at hard labour or in the stocks. */
+function awayBlock(s: SimState, map: CoastMap, b: Building): string {
+  const lines = awayLines(s, map, b);
+  if (!lines.length) return '';
+  return `<div class="warning crime law">${HOOD}<div><b>${esc(lines.length === 1 ? 'Before the law' : `Before the law: ${lines.length} of them`)}</b>${lines.map((l) => `<p>${esc(l)}</p>`).join('')}</div></div>`;
 }
 
 /** Slice 41: "picking pockets", "smashing things", "smuggling". */
@@ -478,6 +507,7 @@ ${warningBlock(s, map, b)}
 ${b.estate ? stableBlock(s, b) : ''}
 ${hazardBlock(s, map, b)}
 ${crimeBlock(s, map, b)}
+${awayBlock(s, map, b)}
 ${moodBlock(mood)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}
