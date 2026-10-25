@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { footSide } from '../sim/buildings';
+import { FIRE_BURNING } from '../sim/hazards';
 import { rateOf } from '../sim/labour';
 import type { Building, SimState } from '../sim/state';
 import { groomModel } from './estates';
@@ -322,6 +323,9 @@ const VAT: [number, number, number] = [0.4, -0.55, 0.42];
 const SMALL: ReadonlySet<string> = new Set(['fountain', 'shrine', 'taxoffice', 'watchpost', 'architect']);
 const MONUMENT: ReadonlySet<string> = new Set(['masons']);
 
+/** A building with nobody drawn at work (a home, rubble, the agora, a monument): kept so it isn't planned again every frame. */
+const NOBODY = { frame: { x: 0, y: 0, z: 0, yaw: 0, mirror: 1 }, list: [] as Spot[] };
+
 const TUNICS = ['#8a7a52', '#7b5b3a', '#5f6a4a', '#a35a3a', '#4e6a86', '#b8ab8e'].map((c) => col(c));
 const DRESSES = ['#b8573a', '#3f6f9a', '#d2a640', '#6f8a4e', '#8c5a7a', '#e2d6bc'].map((c) => col(c));
 
@@ -449,8 +453,8 @@ export class Jobfolk {
       const half = footSide(b) / 2;
       const x = b.x + half;
       const z = b.z + half;
-      // (The paved little buildings stand at the middle of their footprint; all but the shrine are mirrored at random, homes.ts.)
-      const mirror = b.kind !== 'shrine' && b.kind !== 'fountain' && hash2(b.id, 2, 40) < 0.5 ? -1 : 1;
+      // (The paved little buildings stand at the middle of their footprint; all but the fountain are mirrored at random, homes.ts.)
+      const mirror = b.kind !== 'fountain' && hash2(b.id, 2, 40) < 0.5 ? -1 : 1;
       return { x, y: this.map.heightAt(x, z) + 0.01, z, yaw: facingOf(s, this.map.size, b), mirror };
     }
     const f = MONUMENT.has(b.kind) ? this.frames.monuments(s, b) : this.frames.works(s, b);
@@ -488,10 +492,12 @@ export class Jobfolk {
       let got = this.spots.get(b.id);
       if (!got) {
         const list = this.plan(b);
-        if (!list.length) continue;
-        got = { frame: this.frameOf(s, b), list };
+        got = list.length ? { frame: this.frameOf(s, b), list } : NOBODY;
         this.spots.set(b.id, got);
       }
+      if (!got.list.length) continue;
+      // (Nobody stays at work in a burning building.)
+      if (b.fire === FIRE_BURNING) continue;
       const rate = rateOf(b);
       if (rate <= 0) continue;
       const n = Math.max(1, Math.min(got.list.length, Math.round(rate * 4)));

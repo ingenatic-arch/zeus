@@ -92,6 +92,7 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
       const d = drag;
       drag = null;
       canvas.style.cursor = '';
+      if (d.mode === 'orbit') rig().endOrbit();
       if (d.mode === 'tool') {
         if (e.type === 'pointercancel') tools?.cancel();
         else tools?.up();

@@ -31,7 +31,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>Q / E</dt><dd>Turn a quarter left / right</dd>
       ${classic ? '' : '<dt>R / F</dt><dd>Tilt up / down</dd>'}
       <dt>+ / −</dt><dd>Zoom in / out</dd>
-      <dt>N</dt><dd>Face north (or click the gold N on the minimap’s ring)</dd>
+      ${classic ? '<dt>N</dt><dd>Back to the first view, north to the upper left (or click the gold N on the minimap’s ring)</dd>' : '<dt>N</dt><dd>Face north (or click the gold N on the minimap’s ring)</dd>'}
     </dl>
     <h2 style="margin-top:12px">Building</h2>
     <p class="lead">The panel on the right has a tab for each kind of building: click a picture to pick it up. Road, clear, undo and the overlays are round the minimap. The keys:</p>

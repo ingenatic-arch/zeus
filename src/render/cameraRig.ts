@@ -187,6 +187,11 @@ export class CameraRig {
     this.cur.tilt = this.goal.tilt;
   }
 
+  /** A right-drag has ended: the original look's next drag starts its turn afresh. */
+  endOrbit(): void {
+    this.turnDrag = 0;
+  }
+
   tilt(d: number): void {
     if (this.classic) return;
     this.goal.tilt = clamp(this.goal.tilt + d, MIN_TILT, MAX_TILT);

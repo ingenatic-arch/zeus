@@ -19,7 +19,7 @@ import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { MAP_SIZE } from './map/coast';
 import { districtGrid } from './map/districts';
-import { CLASSIC_PIXELS, classicOn, classicSun, setClassic } from './render/classic';
+import { CLASSIC_PIXELS, classicOn, classicSun, EYE, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
@@ -2000,9 +2000,10 @@ function start(preparedTown: string | null): void {
       const o = outlineRay.ray.origin;
       const d = outlineRay.ray.direction;
       // Where the ray meets the ground's level, no further than 160 tiles out across it.
+      // (The original look's long lens stands EYE.back further off and always looks down onto the ground: the cap allows for it.)
       let t = d.y < -1e-4 ? (ground - o.y) / d.y : Infinity;
       const flat = Math.hypot(d.x, d.z) || 1;
-      t = Math.min(t, 160 / flat);
+      t = Math.min(t, (160 + 2 * EYE.back) / flat);
       outlinePts[i].x = o.x + d.x * t;
       outlinePts[i].z = o.z + d.z * t;
     });
