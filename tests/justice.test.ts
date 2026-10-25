@@ -20,6 +20,7 @@ import {
   postsInReach,
   prisoners,
   RATE_KINDS,
+  STOCKS_DAYS,
   UNREST_WARN,
   type Case,
   type Punishment,
@@ -93,7 +94,7 @@ describe('the walk to the court', () => {
     expect(x.kind).toBe('theft');
     expect(s.crime.news.some((n) => n.kind === 'court')).toBe(true);
     expect(until(sim, () => man.meat === 0, 5 * TICKS_PER_DAY)).toBe(true);
-    // Tried within days, by the law (the stocks for theft): pinned at an agora for a day.
+    // Tried within days, by the law (the stocks for theft): pinned at an agora for five days.
     expect(until(sim, () => !s.crime.cases.includes(x), 5 * TICKS_PER_DAY)).toBe(true);
     expect(lastSentence(home)[1]).toBe('stocks');
     expect(s.buildings.some((a) => a.kind === 'agora' && pinnedAt(s, a).some((p) => p.home === home.id))).toBe(true);
@@ -129,13 +130,15 @@ describe('the law', () => {
     ledgerAddsUp(s);
   });
 
-  it('the stocks: a day pinned at the agora, the household shamed, the quarter round it held back', () => {
+  it('the stocks: five days pinned at the agora, the household shamed, the quarter round it held back', () => {
     const { sim, s, who } = trial('stocks');
     const agora = s.buildings.find((a) => a.kind === 'agora' && pinnedAt(s, a).some((p) => p.home === who.home.id))!;
     expect(agora).toBeDefined();
     expect(justiceMoods(s, who.home).some((m) => m.text.startsWith('Shamed'))).toBe(true);
     const near = s.buildings.find((b) => livedIn(b) && b !== who.home && Math.abs(b.x - agora.x) <= 6 && Math.abs(b.z - agora.z) <= 6)!;
     expect(temptationOf(s, size, near).reasons.some((r) => r.text.includes('stood in the stocks'))).toBe(true);
+    sim.run((STOCKS_DAYS - 1) * TICKS_PER_DAY);
+    expect(pinnedAt(s, agora).some((p) => p.home === who.home.id)).toBe(true);
     sim.run(TICKS_PER_DAY + 1);
     expect(pinnedAt(s, agora).some((p) => p.home === who.home.id)).toBe(false);
   });

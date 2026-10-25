@@ -16,13 +16,13 @@ What breaks, or moves:
 
 ### What's new
 - **The court** (Z four times, 300 dr, a magistrate and four jurors). Its panel opens when you click it:
-  - **The law**, a row for each crime (theft, picking pockets, vandalism, arson, smuggling, and a gang's men, whatever they did). Each row has six buttons, and each button's tip says what that punishment does, what it deters, what it costs and what it suits. "Death" is marked as far too harsh for pickpockets, vandals and smugglers, but you can still choose it. If a punishment can't be carried out here (no agora for the stocks, no prison, no quarry or mine), the row says what happens instead and why.
+  - **The law**, a row for each crime (theft, picking pockets, vandalism, arson, smuggling, and a gang's men, whatever they did). Each row has six buttons, and each button's tip says what that punishment does, what it deters, what it costs and what it suits. "Death" is marked as far too harsh for thieves, pickpockets, vandals and smugglers, but you can still choose it. If a punishment can't be carried out here (no agora for the stocks, no prison, no quarry or mine), the row says what happens instead and why.
   - **Cases**: who is being walked in and who waits for trial, and the last sentences.
   - **The crime rate**, month by month: each kind, per thousand people, and how many were caught and tried.
   - **What each punishment does.** The defaults are the stocks for theft, picking pockets and vandalism, a fine for smuggling, and prison for arson and a gang's men.
 - **The punishments**, each with a cost you can see in the city:
   - **A fine**: as before. It holds back only the poorest.
-  - **The stocks**: a day pinned in a wooden frame at the agora nearest his home, drawn there. The household is shamed (mood −2 for two months). Homes within 12 tiles of that agora remember it for a month, and the rest of the city a little.
+  - **The stocks**: five days pinned in a wooden frame at the agora nearest his home, drawn there (a few seconds at normal speed). The household is shamed (mood −2 for two months). Homes within 12 tiles of that agora remember it for a month, and the rest of the city a little.
   - **Prison**: four months, and the household is a worker short.
   - **Hard labour**: six months as an unpaid hand at the quarry or the copper mine. He fills a job and draws no wage (the ledger shows none for him), but homes of his class are sore while he labours.
   - **Exile**: the whole household walks out of the city and its home stands empty. The poor grumble, and kind rulers (generous or pious) think less of you.
@@ -34,7 +34,7 @@ What breaks, or moves:
 - **The household panel** says when one of the family is being walked to court, waiting for trial, in prison, at hard labour or in the stocks.
 
 ### What to try
-1. #court: opens paused on the court, its panel open. A watchman is walking a thief along the road to it. The panel's "Lately" shows the history: an arsonist caught before he could set his fire and sent to prison, a crooked collector who skimmed the tax office's takings and was put in the stocks, and a pickpocket. Press space: the thief reaches the court and is tried about three days later. Watch him stand in the stocks at the agora nearest his home (east of the court, by the olive grove). Then change the law on the panel (say, prison for thieves) and play on.
+1. #court: opens paused on the court, its panel open. A watchman is walking a thief along the road to it. The panel's "Lately" shows the history: an arsonist caught before he could set his fire and sent to prison, a crooked collector who skimmed the tax office's takings and was put in the stocks, and a pickpocket. Press space: the thief reaches the court and is tried about three days later. He then stands five days in the stocks at the agora nearest his home, by the olive grove, just off the top of the screen: click the line under the top bar to go there. Then change the law on the panel (say, prison for thieves) and play on.
 2. #jailbreak: the prison holds eleven in its eight cells, its panel open, and the line under the top bar warns of a breakout in about four days. Press space and watch the prisoners run home, with the watch after them. Or, before that, build a second prison (Z five times) on a road nearby: the guards walk the overflow over to it the next day and the unrest falls.
 3. #court-overlay: the crime overlay coloured by kind, with its key.
 
@@ -62,6 +62,19 @@ Both runs used a copy of `measure.mjs` with its waits loosened, the starting com
   - **A trireme's hover, a blockading ship's hover, the quarry tool's refusal, and `#seized`'s line and chip** (1,470 dr left where the smoke looks for 1,474) fail the same way at the starting commit. I ran those blocks there.
 - **Old towns:** I compared all 138 earlier prepared towns with the starting commit's build: identical apart from the new fields. A version 37 save loads and plays on, and all 136 version 38 prepared towns I had kept load.
 - **Build:** 10 to 12 minutes under that load, nearly all of it re-baking the prepared towns, as any change to the simulation does.
+
+### What the review changed
+- **#court and #jailbreak now open paused**, as the steps above say. Before, they opened running, so by the time the page had drawn, the thief had already reached the court, and #jailbreak's prisoners were nearer their breakout than its line said.
+- **The stocks last five days, not one.** At normal speed a day of the game passes in about a second, so a thief pinned for a day was in the frame for a second and easy to miss. Five days and nights is what Athens' old law gave a thief. Only how long he stands there changed: his household's shame and the quarter's memory of it last as long as before, and count from the day he is put there.
+- **The law's rows say what each punishment really holds back.** A fine's row said it "deters a little", but a fine only holds back homes in tents and huts, and now says so. The stocks' row now says it deters a little, and more round the agora for a month after someone stands there.
+- **"Death" is marked too harsh for thieves as well**, since its own words say it suits only arsonists and a gang's men.
+- **Wages at the quarry and the mine** can't come out below nothing on a month's turn when a convict has just been sent there.
+
+What I checked, without changing it:
+- Each step above in the browser at 1920 × 1080, in the original look and with `-modern` and `-plain`: the thief walked to the court a step behind his watchman, the trial, the sentence, the stocks at the olive grove's agora, the panel's law, cases, "Lately" and the month-by-month table, and #jailbreak's warning, the breakout four days on (3.5 days by the clock) and the prisoners running home. The breakout's warning line is replaced within half a second.
+- The overflow of a crowded prison only ever moves prisoners to a prison with room, so it can't loop or lose anyone; a convict at a quarry fills a job and draws no wage, and the ledger adds up.
+- Slice 41's findings: the overlay coloured by kind with its key, the den sending only its own free men, two watchmen always taking a gang's man, and the household's "Why" line.
+- **The law's weight, played:** #court's town for two years at harsh taxes under each punishment for every crime. It is a quiet town (it has very little crime even then), so this is only a rough check: a fine for everything let 3 thefts through, the stocks 1 smashing, and prison, hard labour, exile and death none, with homes' temptation at nil. So in a town like this, prison already holds everyone back, and the harsher punishments only add their costs; no punishment came out best on every count. Whether that's the right balance in a hungrier town is for you to judge.
 
 ## Slice 41 — Crimes of every kind (25 Oct)
 

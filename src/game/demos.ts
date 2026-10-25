@@ -3438,9 +3438,9 @@ const SCENES: Record<string, Demo> = {
   // A gang's den in the hut street behind the core (its rag on a pole by the door), its men having beaten off the lone watchman of the one watch post there; the den's panel open, the crime overlay a key away.
   gang: { view: 'gang', setup: gangTown, overlay: 'crime', open: gangDen },
   // Slice 45: a thief walked to the court by a watchman (the pair in the street), the court's panel open; an arsonist and a crooked collector tried in its history.
-  court: { view: 'court', setup: courtTown, justice: courtOf, overlay: 'crime' },
+  court: { view: 'court', speed: 'paused', setup: courtTown, justice: courtOf, overlay: 'crime' },
   // The same town's prison crowded, the town warned of its unrest, the prison's panel open: played on, the prisoners break out.
-  jailbreak: { view: 'jailbreak', setup: jailbreakTown, justice: prisonOf, overlay: 'crime' },
+  jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, justice: prisonOf, overlay: 'crime' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3586,7 +3586,7 @@ function gangDen(s: SimState): number {
  * tried. Then a thief sets out from the upper street, the watchman there runs
  * him down, and it opens as the watchman walks him to the court, the pair in
  * the street, the court's panel open. The law is the default (the stocks for
- * theft, so played on, the thief stands a day pinned at the agora).
+ * theft, so played on, the thief stands five days pinned at the agora).
  * #jailbreak: the same town, its prison holding eleven in its eight cells
  * (men of the two streets, sentenced earlier): played on until the town is
  * warned of the unrest, it opens on the prison's panel, a few days before the

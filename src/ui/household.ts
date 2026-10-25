@@ -28,7 +28,7 @@ import { held } from '../sim/foods';
 // Slice 37: a home left by settlers for a colony.
 import { leftFor } from '../sim/colonies';
 // Slice 45: the court and the prison.
-import { awayLines, crimeWords, type CaseKind } from '../sim/justice';
+import { awayLines, crimeWords, STOCKS_SPAN, type CaseKind } from '../sim/justice';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -164,7 +164,7 @@ function storyLine(f: Family, e: Story, i: number): string {
       const [name, p, kind, place] = e.names;
       const crime = crimeWords((kind ?? 'theft') as CaseKind, false) ?? 'theft';
       if (p === 'fine') return `The court fined ${name} ${e.n ?? 0} dr for ${crime}`;
-      if (p === 'stocks') return `${name} stood a day in the stocks at the agora${place ? ` ${place}` : ''} for ${crime}, for all to see`;
+      if (p === 'stocks') return `${name} stood ${STOCKS_SPAN} in the stocks at the agora${place ? ` ${place}` : ''} for ${crime}, for all to see`;
       if (p === 'prison') return `The court sent ${name} to prison for ${e.n ?? 0} months for ${crime}`;
       if (p === 'labour') return `The court sentenced ${name} to ${e.n ?? 0} months of hard labour at ${place || 'the quarry'} for ${crime}`;
       if (p === 'execution') return `${name} was condemned for ${crime} and drank the hemlock; the house mourned`;

@@ -13,7 +13,7 @@
  * a punishment for each kind of crime and for a gang's men:
  *
  * - a **fine**, as slice 30's;
- * - the **stocks**: a day pinned in the agora nearest his home, for all to see
+ * - the **stocks**: five days pinned in the agora nearest his home, for all to see
  *   (`crime.stocks`); homes round that agora remember it for a month;
  * - **prison**: PRISON_MONTHS behind bars (`crime.held`), his household a
  *   worker short;
@@ -119,7 +119,7 @@ export interface Held {
   until: number;
 }
 
-/** One pinned in the stocks at an agora, for a day (kept a month after, for the quarter's memory of it). */
+/** One pinned in the stocks at an agora, for STOCKS_DAYS (kept a month after, for the quarter's memory of it). */
 export interface Pinned {
   home: number;
   name: string;
@@ -168,8 +168,13 @@ export const freshRate = (month: number): RateMonth => ({ month, people: 0, n: R
 
 /** Days from being handed in to the trial. */
 export const TRIAL_DAYS = 3;
-/** The stocks: a day pinned; the quarter round the agora remembers it a month, within this many tiles. */
-export const STOCKS_DAYS = 1;
+/**
+ * The stocks: five days pinned, as Athens' old law had it for a thief (slice 45's review: a single day is a single
+ * second at normal speed, too short to see); the quarter round the agora remembers it a month, within this many tiles.
+ */
+export const STOCKS_DAYS = 5;
+/** The stocks' days in words. */
+export const STOCKS_SPAN = 'five days';
 export const STOCKS_MEMORY = TICKS_PER_MONTH;
 export const STOCKS_TILES = 12;
 /** Months in prison, and at hard labour. */
@@ -207,7 +212,7 @@ export const CRIME_FOR: Readonly<Record<LawRow, string>> = { theft: 'theft', pic
 /** What each punishment does, deters and costs, and what it suits: the court's panel. */
 export const PUNISHMENT_WORDS: Readonly<Record<Punishment, { does: string; deters: string; costs: string; suits: string }>> = {
   fine: { does: 'Coin from the household, as without a court', deters: 'Weak: only a tent or a hut feels it, the rich hardly at all', costs: 'Nothing but the household’s purse', suits: 'Small crimes, and a gentle town' },
-  stocks: { does: 'A day pinned in the stocks at the agora, for all to see', deters: 'Strong round that agora for a month, a little everywhere', costs: 'The household’s shame (its mood falls for two months)', suits: 'Pickpockets and vandals' },
+  stocks: { does: 'Five days pinned in the stocks at the agora, for all to see', deters: 'Strong round that agora for a month, a little everywhere', costs: 'The household’s shame (its mood falls for two months)', suits: 'Pickpockets and vandals' },
   prison: { does: `${PRISON_MONTHS} months behind bars`, deters: 'Strong', costs: 'The household loses a worker; it needs a prison, and a crowded one is restless', suits: 'Thieves, smugglers and a gang’s men' },
   labour: { does: `${LABOUR_MONTHS} months cutting stone or digging copper, unpaid`, deters: 'Strong', costs: 'Fills a job for nothing, but the class he comes from is sore while he labours', suits: 'Where hands are short at the quarry or the mine' },
   exile: { does: 'The whole household is banished; its home stands empty', deters: 'Very strong', costs: 'The poor grumble, and kind rulers hear of it', suits: 'A gang’s men and arsonists' },
@@ -712,7 +717,7 @@ function sentence(s: SimState, map: CoastMap, x: Case, court: Building | null): 
     )!;
     s.crime.stocks.push({ home: home.id, name: x.name, female: x.female, kind: x.kind, at: agora.id, since: s.tick, until: s.tick + STOCKS_DAYS * TICKS_PER_DAY });
     story('stocks', whereOf(map, agora), 0);
-    tellNews(s, 'sentence', `The court ${where} sentenced ${who} to a day in the stocks for ${what}${instead}: ${pr.he} stands pinned at the agora ${whereOf(map, agora)} for all to see, and the homes round it will remember it`, agora.id);
+    tellNews(s, 'sentence', `The court ${where} sentenced ${who} to ${STOCKS_SPAN} in the stocks for ${what}${instead}: ${pr.he} stands pinned at the agora ${whereOf(map, agora)} for all to see, and the homes round it will remember it`, agora.id);
   } else if (p === 'prison') {
     const prison = prisonFor(s)!;
     s.crime.held.push({ home: home.id, name: x.name, female: x.female, kind: x.kind, gang: x.gang, level: home.level, as: 'prison', at: prison.id, since: s.tick, until: s.tick + PRISON_MONTHS * TICKS_PER_MONTH });
@@ -1011,7 +1016,7 @@ export function awayLines(s: SimState, map: CoastMap, b: Building): string[] {
   for (const p of s.crime.stocks) {
     if (p.home !== b.id || s.tick >= p.until) continue;
     const a = findBuilding(s, p.at);
-    out.push(`${p.name} stands in the stocks at the agora${a ? ` ${whereOf(map, a)}` : ''} today, for all to see`);
+    out.push(`${p.name} stands in the stocks at the agora${a ? ` ${whereOf(map, a)}` : ''}, for all to see: free in about ${days(p.until - s.tick)}`);
   }
   return out;
 }
@@ -1044,13 +1049,13 @@ export function prisonLines(s: SimState, b: Building): string[] {
   return out;
 }
 
-/** Slice 45's lines on other buildings' tips: who stands in an agora's stocks today, and the convicts at hard labour at a quarry or mine. */
+/** Slice 45's lines on other buildings' tips: who stands in an agora's stocks now, and the convicts at hard labour at a quarry or mine. */
 export function justiceLines(s: SimState, b: Building): string[] {
   const out: string[] = [];
   if (b.kind === 'agora' && s.crime.stocks.length) {
     for (const p of pinnedAt(s, b)) {
       const home = findBuilding(s, p.home);
-      out.push(`${memberWho(p.name, home?.family?.name)} stands in the stocks here today, for ${crimeWords(p.kind, false)}: the homes round the agora remember it for a month`);
+      out.push(`${memberWho(p.name, home?.family?.name)} stands in the stocks here, for ${crimeWords(p.kind, false)}: the homes round the agora remember it for a month`);
     }
   } else if ((b.kind === 'quarry' || b.kind === 'mine') && s.crime.held.length) {
     const n = labourers(s, b).length;

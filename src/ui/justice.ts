@@ -70,8 +70,8 @@ function bar(label: string, n: number, warnFrom: number): string {
   return `<div class="meter${v >= warnFrom ? ' low' : ''}"><span class="lab">${esc(label)}</span><span class="bar"><i style="width:${v}%"></i></span><span class="num">${v}%</span></div>`;
 }
 
-/** What a punishment deters, in a word for the law's rows (the household's level aside). */
-const deterWord = (p: Punishment): string => ['', 'a little', 'well', 'strongly', 'most of all'][DETER[p]] ?? '';
+/** What a punishment deters, in a word for the law's rows (as temptationOf weighs it: a fine holds back only tents and huts; the stocks more round the agora for a month after). */
+const deterWord = (p: Punishment): string => (p === 'fine' ? 'only tents and huts' : p === 'stocks' ? 'a little, more round the agora after' : (['', 'a little', 'well', 'strongly', 'most of all'][DETER[p]] ?? ''));
 
 /** The court's page. */
 export function courtHtml(s: SimState, _map: CoastMap, court: Building | undefined): string {
@@ -87,11 +87,12 @@ export function courtHtml(s: SimState, _map: CoastMap, court: Building | undefin
     const { p, why } = punishmentFor(s, r, ctx);
     const btns = PUNISHMENTS.map((q) => {
       const w = PUNISHMENT_WORDS[q];
-      const harsh = q === 'execution' && (r === 'pickpocket' || r === 'vandal' || r === 'smuggling');
+      // (Death suits only arsonists and a gang's men, as its words say: marked too harsh for every other row. Review of slice 45: thieves too.)
+      const harsh = q === 'execution' && r !== 'arson' && r !== 'gang';
       const tip = `${PUNISHMENT_NAMES[q]} for ${ROW_NAMES[r]}: ${w.does}. Deters: ${w.deters}. Costs: ${w.costs}. Suits: ${w.suits}${harsh ? '. Far too harsh for this' : ''}`;
       return `<button data-act="law" data-row="${r}" data-p="${q}" class="${q === chosen ? 'on' : ''}${harsh ? ' harsh' : ''}" title="${esc(tip)}">${SHORT[q]}</button>`;
     }).join('');
-    const now = why ? `<span class="instead">${esc(`${PUNISHMENT_NAMES[p]} instead: there is ${why}`)}</span>` : `<span class="deters">${esc(`deters ${deterWord(p) || 'only the poorest'}`)}</span>`;
+    const now = why ? `<span class="instead">${esc(`${PUNISHMENT_NAMES[p]} instead: there is ${why}`)}</span>` : `<span class="deters">${esc(`deters ${deterWord(p)}`)}</span>`;
     return `<li><div class="row"><b>${esc(cap(ROW_NAMES[r]))}</b>${now}</div><div class="acts law">${btns}</div></li>`;
   });
   out.push(`<section class="law"><h3>The law</h3><ul class="laws">${rows.join('')}</ul></section>`);

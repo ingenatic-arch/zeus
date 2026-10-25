@@ -121,7 +121,8 @@ export function stepWages(s: SimState): void {
   if (s.tick % TICKS_PER_MONTH !== 0) return;
   turnMonth(s);
   // (Slice 45: convicts at hard labour are paid nothing.)
-  for (const b of s.buildings) b.owed = isWorkplace(b) ? (b.workers - convictsAt(s, b)) * WAGE : 0;
+  // (Never below nothing: a convict sentenced since the workers were last shared out isn't among them yet.)
+  for (const b of s.buildings) b.owed = isWorkplace(b) ? Math.max(0, b.workers - convictsAt(s, b)) * WAGE : 0;
   settle(s);
 }
 
@@ -178,7 +179,7 @@ export function owedWages(s: SimState): { owed: number; places: number; workers:
 /** What wages cost a month at the workplaces' present staffing. */
 export function wageBill(s: SimState): number {
   let w = 0;
-  for (const b of s.buildings) if (isWorkplace(b)) w += (b.workers - convictsAt(s, b)) * WAGE;
+  for (const b of s.buildings) if (isWorkplace(b)) w += Math.max(0, b.workers - convictsAt(s, b)) * WAGE;
   return w;
 }
 

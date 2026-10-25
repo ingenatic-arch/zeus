@@ -128,3 +128,5 @@ Commits on `claude/p6-order`: the plan `f60e508`; the slice `ff26fde` (sim, rend
 
 **`MAP_SIZE`:** no new uses (the demos place by the existing `T` and `col` helpers).
 
+
+**Review (slice 45's reviewer):** `#court` and `#jailbreak` open paused (`speed: 'paused'`; the check-in's steps assumed it, and the smoke now opens the bare links and checks). `STOCKS_DAYS` is 5 (with `STOCKS_SPAN` for its words), not the spec's single day: a day is a second at normal speed, too short to see the figure in the stocks; the shame and the quarter's memory still count from the day he is pinned. The court panel's law rows say a fine deters only tents and huts and the stocks more round the agora after (as `temptationOf` weighs them), and "Death" is marked too harsh for thieves too. `stepWages` and `wageBill` never count fewer than nothing paid at a quarry or mine (a convict sentenced after the day's share of work). The justice test checks the five days. Nothing touched outside what the As built already lists.

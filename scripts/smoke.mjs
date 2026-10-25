@@ -3102,7 +3102,8 @@ if (errors.length > err43) fail('page errors (slice 43):\n' + errors.slice(err43
 // the arsonist and the skimming collector tried in its history; the law changed by a click, the thief tried by it and the stocks. #jailbreak:
 // the crowded prison's panel and warning; played on until the prisoners break out, and the line.
 const err45 = errors.length;
-await open('#court-paused');
+// (The bare links open paused, as the check-in says: review of slice 45.)
+await open('#court');
 await frames(3);
 {
   let j45 = await zeus(() => window.__zeus.justice());
@@ -3127,15 +3128,18 @@ await frames(3);
   });
   await frames(3);
   const n45 = (await zeus(() => window.__zeus.crime())).news;
-  if (!n45.some((n) => /^The court .+ sentenced .+ to a day in the stocks|^The court .+ (fined|sent|sentenced)/.test(n))) fail(`#court: the thief not tried: ${JSON.stringify(n45)}`);
+  if (!n45.some((n) => /^The court .+ sentenced .+ to five days in the stocks|^The court .+ (fined|sent|sentenced)/.test(n))) fail(`#court: the thief not tried: ${JSON.stringify(n45)}`);
   if (!/Lately[\s\S]*(stocks|fined|prison)/.test(await zeus(() => window.__zeus.justicePanel(window.__zeus.buildingsOf('court')[0].id)))) fail('#court: the sentence not on the panel');
   await page.keyboard.press('Escape');
   await frames(2);
   if ((await zeus(() => window.__zeus.justice())).text !== '') fail('#court: Esc did not close the panel');
 }
-await open('#jailbreak-paused');
+await open('#jailbreak');
 await frames(3);
 {
+  const t45 = await zeus(() => window.__zeus.tick());
+  await frames(10);
+  if ((await zeus(() => window.__zeus.tick())) !== t45) fail('#jailbreak did not open paused');
   let j45 = await zeus(() => window.__zeus.justice());
   if (!/A prison[\s\S]*Unrest[\s\S]*break out in about[\s\S]*Prisoners/.test(j45.text)) fail(`#jailbreak: the panel: ${j45.text.slice(0, 2000)}`);
   if (!j45.jails.some((x) => x.warned)) fail(`#jailbreak: not warned: ${JSON.stringify(j45.jails)}`);
