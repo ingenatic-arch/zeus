@@ -60,6 +60,9 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   // Slice 45: the court in white, the prison in dark stone.
   court: '#fbf6ea',
   prison: '#6e6458',
+  // Slice 49: the infirmary in pale green-washed plaster, the asklepieion's marble.
+  infirmary: '#d8e8d0',
+  asklepieion: '#f2efe4',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */

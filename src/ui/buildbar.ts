@@ -41,6 +41,8 @@ import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from '../si
 import { ESTATE_PLOT_COST, HORSEFARM_COST } from '../sim/build';
 // Slice 45.
 import { COURT_COST, PRISON_COST } from '../sim/build';
+// Slice 49.
+import { ASKLEPIEION_COST, INFIRMARY_COST } from '../sim/build';
 
 /**
  * Every tool's and overlay's icon, name, key, cost and hint, which the
@@ -184,6 +186,15 @@ export const ICONS: Record<ButtonName, string> = {
   // Slice 45: a prison: a heavy block with a barred window and a studded door.
   prison:
     '<svg viewBox="0 0 24 24"><path d="M3 21V7.4h18V21z" class="fill-ink"/><path d="M2.4 7.6h19.2V5H2.4z" class="fill-soft"/><path d="M5.8 9.6h5v4.2h-5z" class="fill-soft"/><path d="M7.4 9.6v4.2M9.2 9.6v4.2" class="stroke-ink"/><path d="M13.4 21v-8.2h5V21z" class="fill-soft"/><circle cx="16.8" cy="16.8" r=".7" class="fill-ink"/></svg>',
+  // Slice 49: an infirmary: a small whitewashed house, its door, and the rod of Asklepios with its serpent beside it.
+  infirmary:
+    '<svg viewBox="0 0 24 24"><path d="M2.6 21V10.4L9.6 6l7 4.4V21z" class="fill-soft"/><path d="M7.6 21v-5.4h4V21" class="fill-ink"/><path d="M19.6 4v17.4" class="stroke-ink"/><path d="M19.6 6.4c-2 .6-2 2.2 0 2.8s2 2.2 0 2.8-2 2.2 0 2.8 2 2.2 0 2.8" class="stroke-water"/><circle cx="19.6" cy="5.4" r=".9" class="fill-ink"/></svg>',
+  // Slice 49: the asklepieion: a temple front on its steps, the rod and serpent on its pediment.
+  asklepieion:
+    '<svg viewBox="0 0 24 24"><path d="M2 8.4 12 3l10 5.4z" class="fill-soft"/><path d="M4.4 9.8v8.6M8.1 9.8v8.6M11.9 9.8v8.6M15.7 9.8v8.6M19.5 9.8v8.6" class="stroke-ink"/><path d="M2.4 18.6h19.2v1.6H2.4zM1.6 20.4h20.8V22H1.6z" class="fill-soft"/><path d="M12 4.6v3.2" class="stroke-ink"/><path d="M12 5c-1 .3-1 .9 0 1.2s1 .9 0 1.2" class="stroke-water"/></svg>',
+  // Slice 49: the health overlay: Hygieia's bowl with her serpent drinking from it.
+  health:
+    '<svg viewBox="0 0 24 24"><path d="M3.4 11.4h17.2c-.6 4.4-4.2 7.2-8.6 7.2s-8-2.8-8.6-7.2z" class="fill-soft"/><path d="M10 18.4l-1 3h6l-1-3" class="fill-ink"/><path d="M6.4 11.2C5 7.6 8 5.2 10.4 6.6s1.6 4.6 4.8 4.4c2.4-.2 3.4-2.4 2.6-4.4" class="stroke-water"/><circle cx="17.6" cy="6.4" r="1.1" class="fill-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
 };
@@ -429,6 +440,19 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     cost: `${PRISON_COST} dr`,
     hint: 'Click beside a road. Its guards hold those the court sends to prison. Keep it from overflowing and staffed: a restless prison is warned of, and then its prisoners break out.',
   },
+  // Slice 49.
+  infirmary: {
+    name: 'Infirmary',
+    key: 'Z ×6',
+    cost: `${INFIRMARY_COST} dr`,
+    hint: 'Click beside a road. Its physicians walk the streets in a crew of three, calling on the homes beside their way: a home a physician called on lately is healthier, and the sick they tend are half as likely to die. Not a need for any house, but sickly homes fall ill and catch the plague.',
+  },
+  asklepieion: {
+    name: 'Asklepieion',
+    key: 'Z ×7',
+    cost: `${ASKLEPIEION_COST} dr`,
+    hint: 'Click beside a road (four by four). Its stretcher-bearers carry the sick to its beds, where they mend faster and seldom die, and the homes around it are healthier and slow the plague. Click it for the city’s health, and to order a quarantine.',
+  },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'O', cost: '', hint: '' },
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
@@ -441,6 +465,8 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
   fire: { name: 'Fire risk overlay: where the watchman walks, and which buildings are close to catching fire', key: 'J J', cost: '', hint: '' },
   wear: { name: 'Wear overlay: where the inspector walks, and which buildings are close to falling in', key: 'J ×3', cost: '', hint: '' },
   crime: { name: 'Crime overlay: where the watchman walks, which homes are tempted to steal, and which were robbed', key: 'J ×4', cost: '', hint: '' },
+  // Slice 49.
+  health: { name: 'Health overlay: where the physicians walk, each home’s health, and the sick', key: 'J ×5', cost: '', hint: '' },
   missing: { name: 'What’s missing: each home tinted by its biggest need', key: 'I', cost: '', hint: '' },
   variety: { name: 'Food variety overlay: what is on each home’s table (bread, meat, cheese), and the kinds it is short of', key: 'L L', cost: '', hint: '' },
 };

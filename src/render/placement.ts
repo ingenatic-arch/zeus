@@ -168,6 +168,8 @@ export const OVERLAY_TONES: ReadonlyArray<readonly [RGB, RGB, RGB, RGB, RGB, RGB
   [[0.9, 0.46, 0.3], [0.96, 0.38, 0.2], [0.98, 0.46, 0.26], [0.86, 0.36, 0.2], [0.86, 0.3, 0.2], [1.0, 0.56, 0.3]],
   // Wear: the inspector's roads in the slate blue of her dress; her office bright.
   [[0.46, 0.56, 0.78], [0.36, 0.5, 0.86], [0.42, 0.54, 0.9], [0.32, 0.44, 0.74], [0.86, 0.3, 0.2], [0.56, 0.68, 0.96]],
+  // Slice 49, health: the physicians' roads in a fresh herb green; the infirmaries and asklepieia bright.
+  [[0.42, 0.78, 0.56], [0.3, 0.84, 0.5], [0.36, 0.8, 0.54], [0.28, 0.66, 0.42], [0.86, 0.36, 0.26], [0.6, 0.95, 0.7]],
 ];
 
 /**

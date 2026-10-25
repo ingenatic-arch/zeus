@@ -67,6 +67,8 @@ import { freshRules } from './stores';
 import { stepStores, storeCommand, workCommand } from './storerules';
 // Slice 45
 import { lawCommand, moveConvict } from './justice';
+// Slice 49
+import { FIRST_PHYSICIAN, freshHealth, moveBearer, movePhysician, quarantineCommand, setHealth, stepHealth, stepInfirmaries } from './health';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -128,6 +130,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     ambition: freshAmbition(),
     // Slice 44
     messages: freshMessages(),
+    // Slice 49
+    health: freshHealth(),
     // Slice 42
     land: { ...land },
   };
@@ -246,6 +250,9 @@ export class Sim {
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Slice 30: temptation in every home, and the thieves it sends out (nothing with crime's switch off).
     stepCrime(s, map);
+    // Slice 49: the infirmaries' physicians and the asklepieia's bearers; health, sickness and plague (nothing with neither and health off).
+    stepInfirmaries(s, map);
+    stepHealth(s, map);
     // Slice 48: the stores' own carts, for goods set to be fetched or emptied (nothing while every store accepts everything).
     stepStores(s, map);
     // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
@@ -441,6 +448,13 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 45: the law, set on the court's panel.
     case 'law':
       if (typeof c.crime === 'string' && typeof c.punishment === 'string') lawCommand(s, c.crime, c.punishment);
+      break;
+    // Slice 49: health's switch, and the quarantine.
+    case 'health':
+      setHealth(s, c.on === true);
+      break;
+    case 'quarantine':
+      quarantineCommand(s, c.on === true);
       break;
   }
 }
@@ -650,7 +664,12 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     paused: 0,
     first: 0,
     rules: freshRules(kind),
+    // Slice 49
+    health: 0,
+    physician: 0,
   };
+  // (Slice 49: the infirmary's first physician, and the asklepieion's first bearers.)
+  if (kind === 'infirmary' || kind === 'asklepieion') b.clock = FIRST_PHYSICIAN;
   s.buildings.push(b);
   // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)
   if (s.walls.length) dropWalls(s, footprint(n, x, z, footSide(b)));
@@ -1076,6 +1095,11 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               // Slice 45: the caught, walked to the court.
               : w.kind === 'convict'
                 ? moveConvict(s, map, w)
+              // Slice 49: an infirmary's physician, and an asklepieion's stretcher-bearers.
+              : w.kind === 'physician'
+                ? movePhysician(s, map, w)
+              : w.kind === 'bearer'
+                ? moveBearer(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

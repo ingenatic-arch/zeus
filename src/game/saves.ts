@@ -329,6 +329,8 @@ LEDGER_KINDS.push('vassals');
 LEDGER_KINDS.push('colonies');
 // Slice 41: repairs to what vandals smashed, and what crooked tax collectors kept back.
 LEDGER_KINDS.push('repairs', 'skimmed');
+// Slice 49: a home's health and the physician's last call.
+BUILDING_NUMBERS.push('health', 'physician');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -413,7 +415,26 @@ export function stateProblem(st: unknown): string {
   if (!monumentsOk(st.monuments)) return damaged('its record of the monuments is wrong');
   // Slice 39.
   if (!ambitionOk(st.ambition)) return damaged('its record of the ambitions is wrong');
+  // Slice 49.
+  if (!healthOk(st.health)) return damaged('its record of health and plague is wrong');
   return '';
+}
+
+/** Slice 49: health's switch, the sick, plague in Greece and in the city, the fever, the quarantine and the tallies. */
+function healthOk(h: unknown): boolean {
+  if (!isObj(h) || typeof h.on !== 'boolean' || !['since', 'next', 'quarantine', 'lastPlague', 'month'].every((k) => fin(h[k]))) return false;
+  const rows = (v: unknown, keys: string[], ok: (x: Record<string, unknown>) => boolean = () => true): boolean => Array.isArray(v) && v.every((x) => isObj(x) && keys.every((k) => fin(x[k])) && ok(x));
+  const tally = (t: unknown): boolean => isObj(t) && ['ill', 'mended', 'died', 'fled'].every((k) => fin(t[k]));
+  const o = h.outbreak;
+  const f = h.fever;
+  return (
+    rows(h.sick, ['id', 'home', 'since', 'until', 'plague', 'tended', 'bed'], (x) => typeof x.name === 'string' && typeof x.female === 'boolean') &&
+    rows(h.greece, ['from', 'until', 'warned'], (x) => typeof x.city === 'string') &&
+    (o === null || (isObj(o) && typeof o.from === 'string' && ['start', 'until', 'ill', 'dead', 'fled'].every((k) => fin(o[k])) && nums(o.struck))) &&
+    (f === null || (isObj(f) && ['home', 'since', 'homes'].every((k) => fin(f[k])))) &&
+    tally(h.now) &&
+    tally(h.last)
+  );
 }
 
 /** The ambitions (slice 39): the switch, the milestones reached (each by its id, when, and quietly or not), fame and the grand finish. */

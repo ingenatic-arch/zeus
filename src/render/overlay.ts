@@ -20,6 +20,9 @@ import { robbedLately, TEMPT_FULL, TEMPT_HALF, TEMPT_SHOW } from '../sim/crime';
 import { isCriminal } from '../sim/crime';
 // Slice 45: the columns by kind.
 import { crimeOfWalker, likelyKinds, moodCtx, temptationOf, type CrimeKind } from '../sim/crime';
+// Slice 49: the health overlay.
+import { PHYSICIAN_RANGE } from '../sim/health';
+import { livedIn } from '../sim/buildings';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -70,10 +73,12 @@ const MODES: Record<Round, Mode> = {
   // Fire risk and wear have overlays of their own (see refreshHazard); these say where the walkers come from and how far they go.
   fire: { source: 'watchpost', range: WATCH_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },
   wear: { source: 'architect', range: INSPECT_RANGE, lasts: TICKS_PER_MONTH, until: () => 0, wants: () => false },
+  // Slice 49: the physicians' reach; health has an overlay of its own (see refreshHealth).
+  health: { source: 'infirmary', range: PHYSICIAN_RANGE, lasts: TICKS_PER_MONTH, until: (b) => (b.physician > 0 ? b.physician + TICKS_PER_MONTH : 0), wants: livedIn },
 };
 
 /** Which of the placing overlay's tones (OVERLAY_TONES) each service's overlay takes. */
-const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5, fleece: 6, wine: 7, fire: 8, wear: 9 };
+const TONE: Record<Round, number> = { water: 0, food: 1, religion: 2, culture: 3, tax: 4, oil: 5, fleece: 6, wine: 7, fire: 8, wear: 9, health: 10 };
 
 /** How high the top of each level of home stands (for the columns over them). */
 export const ROOF = [0.8, 0.8, 1.1, 1.25, 1.7, 1.8, 2.0, 1.9, 2.3];
@@ -129,7 +134,11 @@ export class ServiceOverlay {
     // Fire risk and wear: their columns go amber past half and red past three-quarters.
     fire: { has: new THREE.Color('#e0a02a'), fresh: new THREE.Color('#ffd27a'), none: new THREE.Color('#e0442a') },
     wear: { has: new THREE.Color('#d8a040'), fresh: new THREE.Color('#ffe0a0'), none: new THREE.Color('#d04a3a') },
+    // Slice 49: health: healthy green, sickly amber, ailing red.
+    health: { has: new THREE.Color('#3aa860'), fresh: new THREE.Color('#e0b040'), none: new THREE.Color('#d0383a') },
   };
+  /** Slice 49: a home with someone sick in it, and one with the plague. */
+  private readonly sickTones = { sick: new THREE.Color('#e8e0c8'), plague: new THREE.Color('#5a2a4a') };
 
   /** Slice 30: the crime overlay's columns: tempted past half, past three-quarters (or a thief out), and robbed lately. */
   private readonly crimeTones = { half: new THREE.Color('#a0609a'), high: new THREE.Color('#d0383a'), robbed: new THREE.Color('#b8c8e8') };
@@ -187,6 +196,8 @@ export class ServiceOverlay {
     else if (mode === 'variety') this.refreshVariety(s);
     else if (mode === 'fire' || mode === 'wear') this.refreshHazard(s, mode);
     else if (mode === 'crime') this.refreshCrime(s);
+    // Slice 49.
+    else if (mode === 'health') this.refreshHealth(s);
     else this.refresh(s, mode);
   }
 
@@ -413,6 +424,77 @@ export class ServiceOverlay {
       // Slice 41: a place smashed, or worked by pickpockets or smugglers this month.
       else if (smashed.has(b.id)) code = MISSING_WARN;
       else if (s.crime.kinds && b.kind !== 'home' && b.kind !== 'granary' && b.kind !== 'storehouse' && b.kind !== 'taxoffice' && b.robbedAt > 0 && s.tick - b.robbedAt < TICKS_PER_MONTH) code = MISSING_WANT;
+      if (!code) continue;
+      for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
+    }
+    this.columns.count = n;
+    this.columns.instanceMatrix.needsUpdate = true;
+    if (this.columns.instanceColor) this.columns.instanceColor.needsUpdate = true;
+    this.placement.setOverlay(codes);
+  }
+
+  /**
+   * Slice 49, health: the roads a physician reaches, brighter where one has
+   * walked within the month; every lived-in home tinted green (well or
+   * healthy), amber (sickly) or red (ailing), with a column over each home
+   * below healthy, as tall as how far below it is, green through amber to
+   * red; and over a home with someone sick at home a tall pale column (dark
+   * plum for the plague). The infirmaries and asklepieia are the sources.
+   */
+  private refreshHealth(s: SimState): void {
+    const size = this.map.size;
+    const mode = MODES.health;
+    const codes = this.codes;
+    codes.fill(0);
+    const reach = reachOf(s, size, mode.source);
+    const walkedAt = s.rounds.health.walked;
+    const pre = this.preview ? roadSearch(s, size, this.preview).dist : null;
+    for (let t = 0; t < codes.length; t++) {
+      if (s.tiles[t] !== TILE_ROAD) continue;
+      const d = reach.dist[t];
+      if (d >= 0 && d <= mode.range) {
+        const k = Math.round(99 * (1 - d / (mode.range + 1)));
+        const walked = walkedAt[t] > 0 && s.tick - walkedAt[t] < mode.lasts;
+        codes[t] = (walked ? WATER_WALKED : WATER_REACH) + k;
+      } else if (pre && pre[t] >= 0 && pre[t] <= mode.range) codes[t] = WATER_PREVIEW;
+    }
+    const sick = new Map<number, number>();
+    for (const x of s.health.sick) if (x.bed === 0) sick.set(x.home, Math.max(sick.get(x.home) ?? 0, x.plague ? 2 : 1));
+    const tone = this.tones.health;
+    let n = 0;
+    if (s.buildings.length * 2 > this.columns.instanceMatrix.count) this.grow(s.buildings.length * 2);
+    for (const b of s.buildings) {
+      let code = 0;
+      const side = footSide(b);
+      if (b.kind === 'infirmary' || b.kind === 'asklepieion') code = WATER_FOUNTAIN;
+      else if (livedIn(b) && b.family) {
+        const v = b.health > 0 ? b.health : 50;
+        code = v < 30 ? MISSING_WARN : v < 50 ? MISSING_WANT : MISSING_FINE;
+        const cx = b.x + side / 2;
+        const cz = b.z + side / 2;
+        let y = this.map.heightAt(cx, cz) + ROOF[b.level] + 0.2;
+        if (v < 75) {
+          const k = (75 - v) / 70;
+          this.p.set(cx, y, cz);
+          this.s.set(1.2, 0.25 + 2 * k, 1.2);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          if (v >= 50) this.c.copy(tone.has).lerp(tone.fresh, (75 - v) / 25);
+          else this.c.copy(tone.fresh).lerp(tone.none, Math.min(1, (50 - v) / 25));
+          this.columns.setColorAt(n, this.c);
+          n++;
+          y += 0.25 + 2 * k;
+        }
+        const ill = sick.get(b.id);
+        if (ill) {
+          this.p.set(cx, y, cz);
+          this.s.set(0.7, 1.4, 0.7);
+          this.m.compose(this.p, this.q, this.s);
+          this.columns.setMatrixAt(n, this.m);
+          this.columns.setColorAt(n, ill === 2 ? this.sickTones.plague : this.sickTones.sick);
+          n++;
+        }
+      }
       if (!code) continue;
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }

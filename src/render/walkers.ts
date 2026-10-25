@@ -889,7 +889,10 @@ export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | '
   | 'arsonist'
   | 'smuggler'
   // Slice 45: someone caught, walked to the court by a watchman.
-  | 'convict';
+  | 'convict'
+  // Slice 49: an infirmary's physician, and an asklepieion's stretcher-bearers.
+  | 'physician'
+  | 'bearer';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {

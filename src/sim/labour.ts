@@ -16,6 +16,8 @@ import { jobsAt, livedIn } from './buildings';
 import { TICKS_PER_DAY } from './clock';
 import { distFrom, roadsBeside } from './rounds';
 import type { Building, SimState } from './state';
+// Slice 49
+import { sickAt } from './health';
 
 /** The share of a household that can work. */
 export const WORK_SHARE = 0.5;
@@ -31,8 +33,10 @@ export const canWorkIn = (s: SimState, b: Building): number => canWork(b, (b.kin
 /** How many of a household are away at court, in prison, at hard labour or (merge of slice 45: the review's finding) pinned in the stocks for their days there (justice.ts). */
 export function awayAt(s: SimState, b: Building): number {
   const c = s.crime;
-  if (!c.cases.length && !c.held.length && !c.stocks.length) return 0;
-  let n = 0;
+  // (Slice 49: and those sick, abed at home or in an asklepieion.)
+  const sick = sickAt(s, b);
+  if (!c.cases.length && !c.held.length && !c.stocks.length) return sick;
+  let n = sick;
   for (const x of c.cases) if (x.home === b.id) n++;
   for (const x of c.held) if (x.home === b.id) n++;
   // (The stocks are remembered a month after; only while he stands there is he away.)

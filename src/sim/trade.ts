@@ -51,6 +51,8 @@ import { lateWords, onSchedule, stormDelay } from './seasons';
 import { LIT_EVERY, LIT_PACE, lit } from './monuments';
 // Slice 38: a blockade holds the harbour.
 import { blockaded } from './lanes';
+// Slice 49: the quarantine, and the plague the Tyrian ship may bring.
+import { landed, quarantined } from './health';
 import { PLACES, type CityId } from '../map/greece';
 /** "Troy’s", "Athens’". */
 const whoseCity = (id: CityId): string => (PLACES[id].name.endsWith('s') ? `${PLACES[id].name}’` : `${PLACES[id].name}’s`);
@@ -675,7 +677,8 @@ export function stepTrade(s: SimState, map: CoastMap): void {
   }
   stepDockers(s, map, post);
   // Slice 38: while a blockade holds the harbour's mouth, the ship due waits out at sea (sailing in at once when it ends), one coming in not yet past the mouth turns back, and one at the quay waits there once loaded (stepLoading).
-  const closed = !!blockaded(s);
+  // (Slice 49: a quarantine holds her off as a blockade does.)
+  const closed = !!blockaded(s) || quarantined(s);
   if (ship.phase === SHIP_AWAY) {
     if (closed && s.tick >= ship.due - sailInNow(s)) ship.due = s.tick + sailInNow(s);
     else if (s.tick >= ship.due - sailInNow(s)) setSail(s, map, post, ship);
@@ -686,6 +689,8 @@ export function stepTrade(s: SimState, map: CoastMap): void {
       ship.phase = SHIP_MOORED;
       ship.since = s.tick;
       ship.hold = TRADE_GOODS.map(() => 0);
+      // (Slice 49.)
+      landed(s, 'tyre', post);
     }
   } else if (ship.phase === SHIP_MOORED) {
     if (ship.post !== post.id) turnBack(s, ship);
@@ -884,6 +889,8 @@ function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): {
  * nowhere to go doesn't hold up the others).
  */
 export function stepDockers(s: SimState, map: CoastMap, post: Building): void {
+  // (Slice 49: under quarantine the dockers stay in; their clock waits.)
+  if (quarantined(s)) return;
   if (post.clock > 0) post.clock--;
   if (post.clock > 0 || rateOf(post) === 0) return;
   const out = dockersOut(s, post);

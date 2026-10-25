@@ -176,6 +176,13 @@ function storyLine(f: Family, e: Story, i: number): string {
     }
     case 'freed':
       return `${e.names[0]} came home from ${e.names[1] ?? 'prison'}`;
+    // Slice 49.
+    case 'ill':
+      return e.n ? `${e.names[0]} fell ill of the plague` : `${e.names[0]} fell ill with a fever`;
+    case 'mended':
+      return e.n ? `${e.names[0]} lived through the plague` : `${e.names[0]} was well again`;
+    case 'died':
+      return e.n ? `${e.names[0]} died of the plague` : `${e.names[0]} died of a fever`;
   }
 }
 

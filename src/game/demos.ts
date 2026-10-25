@@ -1929,7 +1929,17 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     crimes(sim, true);
     // Slice 39: and the ambitions (off while the history plays, so no history changes): what the town already meets is recorded quietly as it opens.
     ambition(sim, true);
+    // Slice 49: and health (off while the history plays): every home at its fair level as it opens, nobody ill for four months, no plague for a year.
+    health(sim, true);
   };
+}
+
+// Slice 49
+/** Switch health on or off now (a command, so a replay of the log does the same). */
+function health(sim: Sim, on: boolean): void {
+  if (sim.state.health.on === on) return;
+  sim.enqueue({ type: 'health', on });
+  sim.flush();
 }
 
 /** Slice 39: switch the ambitions on or off now (a command, so a replay of the log does the same). */
