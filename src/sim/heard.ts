@@ -24,7 +24,7 @@
 import type { CoastMap } from '../map/bake';
 import { PLACES } from '../map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { ALARM, NEWS, say, WARNING, type Cursor, type MessageKind, type Place, type Urgency } from './messages';
+import { ALARM, NEWS, say, titleFrom, WARNING, type Cursor, type MessageKind, type Place, type Urgency } from './messages';
 import { SEASON_NAMES, TICKS_PER_SEASON, seasonAt } from './seasons';
 import type { SimState } from './state';
 import { FIRE_BURNING, FIRE_SMOULDER } from './hazards';
@@ -36,6 +36,7 @@ import { monumentTownLine } from './monumentstatus';
 import { gamesSoon } from './monumentworks';
 import { monumentName } from './monuments';
 import { SHIP_COMING } from './trade';
+import { raidLine } from './raids';
 
 const cityName = (id: string): string => PLACES[id]?.name ?? id;
 
@@ -138,6 +139,8 @@ export function hear(s: SimState): void {
 
 /** Keys kept from one daily look to the next (the daily watchers' facts start with this). */
 const DAILY = 'd:';
+/** How a ruler's ask (or threat) nearly due begins. */
+const WAITING = 'Still waiting on you: ';
 /** A ruler's ask still unanswered this long before it is due is said again, as a warning. */
 const DUE_WARN = 7 * TICKS_PER_DAY;
 
@@ -165,9 +168,11 @@ export function stepMessages(s: SimState, map: CoastMap): void {
   const was = new Set(g.seen);
   const keys: string[] = [];
   /** A fact true now: said if it wasn't at the last look. */
-  const fact = (key: string, words: () => string, kind: MessageKind, u: Urgency, at?: Place): void => {
+  const fact = (key: string, words: () => string, kind: MessageKind, u: Urgency, at?: Place, title?: (w: string) => string): void => {
     keys.push(key);
-    if (!was.has(key)) say(s, { kind, u, words: words(), at });
+    if (was.has(key)) return;
+    const w = words();
+    say(s, { kind, u, words: w, at, title: title?.(w) });
   };
   /** Did something happen since the last look (its tick in (from, now])? */
   const lately = (t: number): boolean => moved && t > from && t <= now;
@@ -227,8 +232,12 @@ export function stepMessages(s: SimState, map: CoastMap): void {
       fact(`${DAILY}late:${ship}`, () => `${name}: her next call falls in winter, and the storms in the gulf will hold her back ${days} ${days === 1 ? 'day' : 'days'}.`, 'ship', NEWS, ship === 'tyre' ? (post ? { building: post.id } : undefined) : { city });
     }
     for (const d of openDeals(s.world)) {
-      if (d.kind === 'threat' || d.gift || d.due - now > DUE_WARN || d.due <= now) continue;
-      fact(`${DAILY}due:${d.id}`, () => `Still waiting on you: ${dealLine(s, map, d)}`, 'deal', WARNING, { city: d.city });
+      if (d.gift || d.due - now > DUE_WARN || d.due <= now) continue;
+      // (A threat: the price of peace, nearly due; it is told as a raid's.)
+      const r = d.kind === 'threat' ? s.world.raids.find((x) => x.deal === d.id && x.phase === 'threat') : undefined;
+      if (d.kind === 'threat' && !r) continue;
+      // (Titled by what waits, not by "Still waiting on you".)
+      fact(`${DAILY}due:${d.id}`, () => `${WAITING}${r ? raidLine(s, map, r) : dealLine(s, map, d)}`, r ? 'raid' : 'deal', WARNING, { city: d.city }, (w) => titleFrom(w.slice(WAITING.length)));
     }
     for (const l of s.world.loans) {
       if (l.side !== 'in' || l.state !== 'running' || l.due - now > TICKS_PER_MONTH || spendable(s) >= l.owed) continue;

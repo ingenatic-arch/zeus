@@ -72,6 +72,8 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>Hover</dt><dd>A home says who lives there and what reaches it; a workplace, how it is staffed; a caravan, a ship, a soldier, a raider or a trireme, who they are and what they are doing; a wall, a gate or a tower, how strong it is</dd>
       <dt>Click</dt><dd>A home: meet the household who live there (Esc to close). A walker with a job, or where she works: follow her (drag or Esc to stop). The trading post, the caravan yard, or the traders beside the drachmas: choose what to sell and buy. The barracks or the shipyard: its companies or triremes, on the Military tab</dd>
       <dt>Tab</dt><dd>The map of Greece: its cities and rulers, their prices, your routes and loans (a city’s Loans tab: borrow, lend, repay), and sea lanes to guard (Tab again, or the City button, to come back)</dd>
+      <!-- Slice 44 -->
+      <dt>&#96;</dt><dd>Messages, or the small scroll beside the date (its seal counts what you haven’t read): everything the town has heard, by month, with filters, pins and a link to where each happened, and what the rulers wait on you for at its top. Only alarms pop up, at the bottom left; you choose which</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

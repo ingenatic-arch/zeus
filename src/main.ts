@@ -78,6 +78,11 @@ import { TopBar } from './ui/topbar';
 import { GreeceButton } from './ui/greeceButton';
 import type { GreeceMap } from './render/greece/index';
 import type { CityTab } from './ui/greece';
+// Slice 44.
+import { MessagePopups, MessagesPanel, MessageWatch, popsUp } from './ui/messages';
+import { titleOf, unread, type Message, type MessageKind } from './sim/messages';
+import type { Command } from './sim/commands';
+import type { SimState } from './sim/state';
 import { PLACES, type CityId } from './map/greece';
 import { DEFAULT_SEED } from './sim/sim';
 // Slice 30.
@@ -288,6 +293,11 @@ interface Probe {
   /** Slice 39: the ambitions (the switch, each milestone's progress and laurel, the chip's text and the town line), and the panel opened or closed, and its text. */
   ambition?: () => Record<string, unknown>;
   ambitionPanel?: (open: boolean) => string;
+  // Slice 44
+  /** The town's messages: the log (its last 80), the seal's count and colour, the Messages panel (opened, closed or filtered first) and its text, the popup showing. */
+  messages?: (open?: boolean, filter?: string) => Record<string, unknown>;
+  /** What the town has heard: the lines under the top bar, then every message's words, oldest first (the news the lines once told). */
+  heard?: () => string[];
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -1160,6 +1170,8 @@ function start(preparedTown: string | null): void {
       else if (ledger.open) ledger.toggle(false);
       // Slice 39.
       else if (ambitionPanel.open) ambitionPanel.toggle(false);
+      // Slice 44.
+      else if (msgPanel.open) msgPanel.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (greece && greeceOpen()) {
@@ -1246,6 +1258,11 @@ function start(preparedTown: string | null): void {
       }
       if (k === '$') {
         ledger.toggle();
+        return true;
+      }
+      // Slice 44: the Messages panel (every letter is taken: the key left of 1, as a game's log often is).
+      if (k === '\u0060') {
+        msgPanel.toggle();
         return true;
       }
       // On the map, the city's tools and overlays are put away.
@@ -1411,6 +1428,76 @@ function start(preparedTown: string | null): void {
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;
   if (banner) takeBanner(banner);
+
+  // Slice 44: the town's messages. The scroll on the top bar opens the Messages panel on the left (where a home's panel
+  // opens: one of them at a time); alarms pop up at the bottom left, the rest come quietly with a soft sound. Read marks
+  // and pins are commands; which kinds pop up is the player's setting, kept in the browser (ui/messages.ts).
+  const sendMessages = (c: Command): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  /** The tab a city's page opens on for a message of each kind (its ruler's page otherwise). */
+  const MESSAGE_TABS: Partial<Record<MessageKind, CityTab>> = { loan: 'loans', deal: 'ruler', raid: 'ruler', blockade: 'ruler', vassal: 'empire', colony: 'empire', rebellion: 'empire' };
+  /** Where a message's place stands in the city (null: on the map of Greece, or gone). */
+  const messageSpot = (s: SimState, m: Message): { x: number; z: number } | null => {
+    const a = m.at;
+    if (!a) return null;
+    if ('building' in a) {
+      const b = findBuilding(s, a.building);
+      if (!b) return null;
+      const [x, z] = centreOf(b);
+      return { x, z };
+    }
+    if ('tile' in a) return { x: (a.tile % map.size) + 0.5, z: Math.floor(a.tile / map.size) + 0.5 };
+    if ('company' in a) {
+      const c = s.army.companies.find((o) => o.id === a.company);
+      return c ? { x: c.x, z: c.z } : null;
+    }
+    return null;
+  };
+  /** Go to a message's place: its city's (or site's) page on the map of Greece, or the city's camera over it. */
+  const goToMessage = (m: Message): void => {
+    const a = m.at;
+    if (!a) return;
+    if ('city' in a) return toggleGreece(true, a.city, MESSAGE_TABS[m.kind]);
+    if ('site' in a) return toggleGreece(true, `site:${a.site}` as CityId);
+    const at = messageSpot(sim.state, m);
+    if (!at) return;
+    if ('company' in a) side.showTab('army');
+    if (greeceOpen()) toggleGreece(false);
+    stopFollow();
+    const v = rig.view;
+    rig.flyTo({ ...v, x: at.x, z: at.z, dist: Math.min(v.dist, 30) });
+  };
+  const msgPanel = new MessagesPanel(ui, {
+    send: sendMessages,
+    go: goToMessage,
+    canGo: (s, m) => !!m.at && ('city' in m.at || 'site' in m.at || messageSpot(s, m) !== null),
+    goCity: (city) => toggleGreece(true, city, 'ruler'),
+  });
+  msgPanel.onOpen = () => {
+    panel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    const g = greece as GreeceMap | null;
+    if (g?.open && g.shown) g.show(null);
+  };
+  const msgPops = new MessagePopups(ui, goToMessage, (m) => {
+    if (!m.read) sendMessages({ type: 'messages', act: 'read', ids: [m.id] });
+  });
+  const msgWatch = new MessageWatch();
+  topbar.onMessages(() => msgPanel.toggle());
+  /** Whether another panel on the left was open last frame (one opening puts the Messages panel away). */
+  let msgOthers = false;
+  let msgBadgeAt = -Infinity;
+  // A demo opens with its history read, but for its last stretch (#messages: the last season's).
+  if (demo) {
+    const s = sim.state;
+    const from = s.tick - (demo.unread ?? 0);
+    const ids = s.messages.log.filter((m) => !m.read && m.tick <= from).map((m) => m.id);
+    if (ids.length) sendMessages({ type: 'messages', act: 'read', ids });
+  }
+  if (demo?.messages) msgPanel.toggle(true);
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -1760,6 +1847,28 @@ function start(preparedTown: string | null): void {
     ambitionPanel.toggle(open);
     ambitionPanel.update(sim.state, Infinity);
     return ambitionPanel.text;
+  };
+  // Slice 44.
+  probe.heard = () => [...lines.texts, ...sim.state.messages.log.map((m) => m.words)];
+  probe.messages = (open, filter) => {
+    if (open !== undefined) msgPanel.toggle(open);
+    if (filter) msgPanel.showFilter(filter as Parameters<typeof msgPanel.showFilter>[0]);
+    const s = sim.state;
+    msgPanel.refresh(s, map);
+    const u = unread(s);
+    const seal = document.querySelector('.scroll-btn .seal') as HTMLElement | null;
+    return {
+      count: s.messages.log.length,
+      since: s.messages.since,
+      unread: u.n,
+      urgent: u.u,
+      seal: seal && !seal.hidden ? (seal.textContent ?? '') : '',
+      sealClass: seal?.className ?? '',
+      open: msgPanel.open,
+      text: msgPanel.open ? msgPanel.text : '',
+      popup: msgPops.text,
+      log: s.messages.log.slice(-80).map((m) => ({ id: m.id, tick: m.tick, kind: m.kind, u: m.u, title: titleOf(m), words: m.words, at: m.at ?? null, read: !!m.read, pin: !!m.pin })),
+    };
   };
   probe.sideText = () => side.text;
   probe.side = (open) => side.toggle(open);
@@ -2198,6 +2307,30 @@ function start(preparedTown: string | null): void {
     if (time - troubleAt > 0.5) {
       troubleAt = time;
       topbar.showTrouble(trouble().map((h) => ({ name: h.b.family?.name ?? '?', need: h.need, days: Math.max(1, Math.ceil(h.left / TICKS_PER_DAY)) })));
+    }
+    // Slice 44: new messages (an alarm pops up, unless the Messages panel is open; anything else, a soft sound), the
+    // scroll's seal, the panel and the popups; and another panel opening on the left puts the Messages panel away.
+    {
+      let cue: Cue | null = null;
+      for (const m of msgWatch.fresh(s)) {
+        if (popsUp(m)) {
+          if (!msgPanel.open) msgPops.push(m);
+          // (A fire and raiders coming in have their own sounds, the flames catching and the war horn.)
+          if (m.kind !== 'fire' && m.kind !== 'raid') cue = 'alarm';
+        } else cue ??= 'message';
+      }
+      if (cue) sound.play(cue);
+      if (time - msgBadgeAt > 0.25) {
+        msgBadgeAt = time;
+        const u = unread(s);
+        topbar.showMessages(u.n, u.u, msgPanel.open);
+      }
+      msgPanel.update(s, map, time);
+      msgPops.update(time);
+      const g = greece as GreeceMap | null;
+      const others = panel.open || tradePanel.open || shipyardPanel.open || !!(g?.open && g.shown);
+      if (others && !msgOthers && msgPanel.open) msgPanel.toggle(false);
+      msgOthers = others;
     }
     if (time - linesAt > 0.5) {
       linesAt = time;

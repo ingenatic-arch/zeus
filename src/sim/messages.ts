@@ -179,8 +179,11 @@ function prune(g: Messages, tick: number): void {
 
 /** A message's title: its own, or its words up to their first stop (a colon, a full stop), at most about 70 characters. */
 export function titleOf(m: Message): string {
-  if (m.title) return m.title;
-  const w = m.words;
+  return m.title || titleFrom(m.words);
+}
+
+/** The title words would have: up to their first stop, at most about 70 characters. */
+export function titleFrom(w: string): string {
   const STOP = /[:;.!?](\s|$)|\s·\s|\s\(/g;
   let t = w;
   // (Up to the first stop; past it while that leaves only a word or two: "Raiders! 35 of Sparta’s men are in…".)

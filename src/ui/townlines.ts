@@ -1,6 +1,7 @@
 /**
  * The shortfall lines under the top bar: what the town as a whole is short
- * of (bread, workers, money), in plain words, readable without hovering. A line
+ * of (bread, workers, money), in plain words, readable without hovering.
+ * (Slice 44: only how things stand; news goes into the town's messages.) A line
  * shows once the shortfall has held for a few days of game time and goes
  * once it has been gone for a few, so a family moving in or out doesn't make
  * it flicker. Clicking a line goes to the place it names.
@@ -10,8 +11,12 @@ import type { TownLine } from '../sim/status';
 // Slice 39.
 import { LAUREL } from './ambition';
 
-/** Lines that are news, not shortfalls: they come and go at once. */
-const NEWS: readonly TownLine['need'][] = ['ship', 'trader', 'greece', 'favour', 'loan', 'raid', 'alarm', 'battle', 'crime', 'empire', 'monument', 'ambition'];
+/**
+ * Lines that come and go at once, not after a few days. (Slice 44: the news, ships, Greece, raids, the army, crime, the
+ * empire, the monuments and the laurels, is the town's messages now, in the scroll on the top bar; only a debt falling due
+ * that the treasury can't meet is still a line, and it comes and goes with the date.)
+ */
+const NEWS: readonly TownLine['need'][] = ['loan'];
 
 /** Days a shortfall must hold before its line shows, and be gone before it goes. */
 const SETTLE_DAYS = 3;
@@ -29,7 +34,8 @@ const HELMET = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.4c2.4-
 const HOOD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6c-2.6 0-4.2 2-4.2 4.6 0 1.2.3 2.2.8 3L3 14.6h10l-1.6-5.4c.5-.8.8-1.8.8-3 0-2.6-1.6-4.6-4.2-4.6z" fill="#3a3540" stroke="#1a1820" stroke-width=".8" stroke-linejoin="round"/><ellipse cx="8" cy="6.6" rx="2" ry="2.3" fill="#1a1820"/><circle cx="11.8" cy="12" r="2.2" fill="#c8963c" stroke="#5e4214" stroke-width=".8"/></svg>';
 /** Slice 33: the season's, a grey rain cloud over a sheaf. */
 const CLOUD = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V9.4" stroke="#a06f1c" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="8" cy="9.2" rx="1.2" ry="1.9" fill="#d9a441"/><ellipse cx="6.2" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(-30 6.2 11.4)"/><ellipse cx="9.8" cy="11.4" rx="1" ry="1.6" fill="#d9a441" transform="rotate(30 9.8 11.4)"/><path d="M3.6 7.2C2.2 7.2 1.4 6.2 1.4 5.2s.9-2 2.1-2c.3-1.4 1.5-2.2 2.9-2.2 1.3 0 2.3.7 2.8 1.8.4-.2.8-.3 1.3-.3 1.6 0 2.8 1.2 2.8 2.6 0 1.2-1 2.1-2.2 2.1z" fill="#9aa6ac" stroke="#4e5a62" stroke-width=".8" stroke-linejoin="round"/></svg>';
-const ICONS: Record<TownLine['need'], string> = {
+/** Each line's icon (slice 44: the town's messages use them too, by kind). */
+export const ICONS: Record<TownLine['need'], string> = {
   // Slice 39: a laurel's, the wreath.
   ambition: LAUREL,
   season: CLOUD,
