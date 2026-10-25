@@ -46,7 +46,8 @@ if (Math.hypot(v1.x - v0.x, v1.z - v0.z) < 1) fail('left-drag did not pan');
 
 // Right-drag orbits.
 await page.mouse.down({ button: 'right' });
-await page.mouse.move(640, 350, { steps: 5 });
+// (A quarter turn takes about 170 px of sideways drag since the original look.)
+await page.mouse.move(760, 350, { steps: 8 });
 await page.mouse.up({ button: 'right' });
 await frames(3);
 const v2 = await page.evaluate(() => window.__zeus.view());
