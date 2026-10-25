@@ -330,7 +330,7 @@ describe('determinism, saves and the migration', () => {
   it('a state from before this slice loads: nothing stationed, sailing or freed', () => {
     const { s } = base();
     const old = JSON.parse(serialize(s)) as Record<string, unknown> & { empire: Record<string, unknown> & { colonies: Array<Record<string, unknown>> } };
-    old.version = SIM_STATE_VERSION - 1;
+    old.version = 38; // (this step's own: renumbered at merge)
     for (const k of ['passages', 'militia', 'freed']) delete old.empire[k];
     for (const c of old.empire.colonies) for (const k of ['garrison', 'ships']) delete c[k];
     migrate(old);

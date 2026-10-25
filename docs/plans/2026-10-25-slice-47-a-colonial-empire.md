@@ -55,7 +55,7 @@ At `5586938`, on the shared machine (four lines' builders at work; load about 13
 
 **Striking from a colony.** A colony with your company stationed there shows its nearest three rival cities (not your vassals or allies) and any city whose ships threaten it, each with how long the voyage is from here and from your city ("Rhodes: 9 days from here, 18 from home"). A raid from there takes the stationed company only, sails at once (no mustering), fights as any raid does (slice 28's odds, takings and losses), and sails back to the colony, where the company stays stationed; the takings are sent home and paid in as any expedition's. The voyage is the sea way from the colony to the city on the map (slice 37's `seaWayTo`) at the colonies' lane pace. It counts as an expedition (one at a time), and like any strike at a threatening city it calls that city's ships home.
 
-**The colonies' trade.** Each colony trades with Greece on its own: about 3 dr a year a person at a town's rate (an outpost half, a settlement three quarters, a city a quarter more), half again with a harbour. It trades with its two nearest cities not at war with you, named on its page. Your share is a third, paid in coin with each season's share ship (a quarter of a year's share each time) and entered in the ledger as "colonies' trade, from Nea Thasos". Halved while its loyalty is under 40; nothing while it talks of freedom; lost with the ship if a war's fleet takes the share. A town of 400 trades about 1,200 dr a year and pays you about 400; with a harbour 600. The page names every factor.
+**The colonies' trade.** Each colony trades with Greece on its own: about 4 dr a year a person at a town's rate (3 in the first draft; see *As built*) (an outpost half, a settlement three quarters, a city a quarter more), half again with a harbour. It trades with its two nearest cities not at war with you, named on its page. Your share is a third, paid in coin with each season's share ship (a quarter of a year's share each time) and entered in the ledger as "colonies' trade, from Nea Thasos". Halved while its loyalty is under 40; nothing while it talks of freedom; lost with the ship if a war's fleet takes the share. A town of 400 trades about 1,600 dr a year and pays you about 533 (133 a season); with a harbour 2,400 and 800. The page names every factor.
 
 **The militia.** A colony of town stage or more, loyalty 40 or more and not talking of freedom, and every free ally, sends its militia: about one man in forty of its people, at least 8 and at most 16.
 - **When you are raided:** once a ruler's threat against you stands (from the threat's day, before the band gathers), the militia sail: along the colony's lane, into your bay and to the quay, where the boat brings them ashore; they march to stand by what the raiders make for, as an ally's aid does (slice 34), fight under their own name ("the militia of Nea Thasos"), and once the raid is over (or the threat paid off) walk back to the quay and sail home.
@@ -95,4 +95,61 @@ At `5586938`, on the shared machine (four lines' builders at work; load about 13
 
 ## As built
 
-*(Filled in at the end.)*
+Built as designed, in three commits after the plan (`a8d1e20` the simulation and its tests, `b19204a` the page, the Empire list, the ships, the map pieces, the demos, smoke and measure, then the check-in with these notes). Where it differs from the design above:
+
+- **The trade is 4 dr a head a year, not 3.** At 3 a town of 400 sent you about 100 dr a season; I raised it to 4 (133 a season) so the coin stands out in the ledger beside the goods. It is one number to tune. So a town of 400 trades about 1,600 dr a year and pays you about 533; with a harbour about 800 (the design paragraph above is corrected). An outpost trades at half the rate, a settlement three quarters, a city 1.25.
+- **The trade's coin rides with the goods.** It is carried on the season's share ship (`Tribute.coin`) and paid in as `colonytrade` when she comes ashore. A colony with no goods to send that season sends the coin on its own ship. A free ally's ship carries only coin. A war's fleet that takes the ship takes the coin too, and the news says so ("and its share of its trade, N dr").
+- **A strike from a colony sails the shorter way.** That is the sea way (slice 37's `seaWayTo`, reversed) or straight across counted 1.3 times as long for the shores it keeps to, whichever is shorter (`strikeWay`). `seaWayTo` runs out along the city's own lanes and then down the colony's, so from Nea Thasos to Troy it measures 84.6 on the table against 36.8 straight across (Nea Naxos to Rhodes keeps the sea way, 52.3).
+- **The militia come ashore as soon as their ship anchors**, with no rowing boat. Their ship sails in like any visitor (20 days from the gulf), so they arrive about three weeks after the threat. A raid that ends before then sends them home without landing; their ship's hover says why ("came into your bay after the raiders had gone").
+- **The third colony in `#colonybase` is on Kythera** ("Nea Kythera"): Kythnos is Corinth's in that history, so the setup takes the first free site, as the design allowed.
+- **A free ally's page** shows its ruler's mood with its reasons (`freeMood`), its trade and share, what is on its way to you (in the tribute's words), and its militia. Its label on the map reads "your ally" in your city's colour. Your colony's label gains a small shield while a company or triremes are stationed there.
+- **The station picker** lists only companies at home with ready men. While a passage is under way the garrison section shows its words in place of the buttons.
+- **The cargo's buttons** ("Sail with what is aboard", "Call it off") sit under the shipment on the colony's page, in `cargoActsHtml`. The line under the top bar names the stores the porters can't reach and the day she gives up: "she sails with what is aboard about X", or "she is called off about X if nothing has come down to her".
+- **A passage's or the militia's ship at anchor** has its line under the top bar (rank 1). A colony's threat (rank 2) outranks it, so with Rhodes coming for Nea Naxos the company's rowing is named only in the News of Greece and the ship's hover.
+
+**Files.** New:
+- `src/sim/colonyempire.ts`: stationing, passages, the threat-roll parts, strikes from a colony, the trade and share, the militia, the treaty and free allies, the bay's ships, words and save checks.
+- `src/ui/colonyempire.ts`: the colony page's garrison, strike, trade, militia, treaty, defence and cargo sections; the free ally's page; the hover pages for ships on the map.
+- `tests/colonyempire.test.ts`: 15 tests.
+
+The line's own files changed:
+- `src/sim/colonies.ts`: stationing and loyalty causes, the hold on the threat roll, the coin with the share ship, the pirates' words, stationed triremes kept after a threat and brought home on loss.
+- `src/sim/colonyworks.ts`: reachable stores only, sail now, call off and the four-month call-off, no sacks before the first row-out, the passage's and militia's town lines.
+- `src/sim/vassals.ts`: `Empire.passages`, `militia` and `freed`; `Tribute.coin`; the share's income as `colonytrade`; `aidGoal` exported for the militia.
+- `src/ui/colonies.ts`, `src/ui/colonygrowth.ts`, `src/ui/empire.ts` (`empireOverviewHtml`), `src/ui/colonies.css`.
+- `src/render/greece/index.ts`: the passage's, militia's and strike's ships on the map; a strike from a colony drawn from there.
+
+**Touched outside the line** (each in a block headed "Slice 47"):
+- `src/sim/state.ts`: `SIM_STATE_VERSION` 39; ledger kind `colonytrade` appended; `Company.posted` and `Company.militia`; `Expedition.from`.
+- `src/sim/migrate.ts`: the note "Slice 47 (A colonial empire): ..." and `fromSlice47`, hooked `if (st.version === 38) fromSlice47(st);`. It fills `passages`, `militia` and `freed` on the empire, and `garrison` and `ships` on each colony, each only if absent. No goods array is added, so nothing to pad.
+- `src/sim/commands.ts`: the `colonyempire` command appended (station, home, ships, shipshome, strike, free, sail, cancel).
+- `src/sim/sim.ts`: `stepColonyEmpire` and the command.
+- `src/sim/army.ts`: the militia's name; a stationed company can't be marched or dismissed, and its places wait until it is home.
+- `src/sim/expeditions.ts`: a raid from a colony (`e.from`) steps in colonyempire.ts; the militia's might is in a full force's plan and fight, and their line is in the report.
+- `src/game/saves.ts`: the `colonytrade` ledger kind pushed, and the empire check calls `colonyEmpireOk`.
+- `src/ui/ledger.ts`: the `colonytrade` line, shown after the vassals' tribute (`ORDER.splice` at run time; no existing line moved).
+- `src/render/city.ts`: the bay's colony ships from a pool (`bayShips`: shipments, passages and militia).
+- `src/main.ts`: their hover over the pool; `__zeus.where(kind)` reads the sim's walker positions.
+- `src/ui/greece.ts`: the empire list on your city's page; the ships' hover pages.
+- `src/ui/rivals.ts`: the stationed shield on a colony's label, and the free ally's label.
+- `src/game/demos.ts`: `#colonybase` and `#freeally`, one setup function and two entries.
+- `scripts/smoke.mjs`: a slice 47 block (`#colonybase`: the page's sections, stationing, the passage's words, the empire list, the company marching; `#freeally`: the treaty, the free ally's page, its label) and the ok line.
+- `scripts/measure.mjs`: both demos on the map's list, and `#colonybase` on the city's.
+- No new use of `MAP_SIZE`. No new ware. `trade.ts` and war options are not touched.
+
+**Histories.** Every demo's prepared town was compared with `5586938`'s at opening and 900 ticks on (date, people, money, walkers, buildings, colonies, sites, newest news): 132 of 136 are exactly as before. Four moved, on purpose, and only by the trade's coin; their people, walkers, buildings, loyalties and sites are as before:
+- `#colonies`, `#colonywants` and `#colonyworks` (the same town): 422 dr more at opening and 518 more 900 ticks on. Nea Naxos' and Nea Thasos' share ships now carry the coin, and the newest news reads "Nea Naxos sends you its share: 90 marble and 74 dr, your share of its trade".
+- `#empire`: 32 dr more at opening and 57 more 900 ticks on.
+
+`#colony` is unchanged. No raid against a town with a town-stage colony happens in any prepared history, so no militia moves one.
+
+**Checks.** See the check-in for the numbers.
+- Typecheck is clean.
+- Tests: 622 in 51 files. The full run on the loaded machine (load about 35, three other lines testing at once) had six time-bound failures: five timeouts (`hazards` every demo's fire risk, `materials` the loggers' camp, `money` harsh taxes, `routes` determinism, `treasury` every demo's wages) and `culture`'s "quickly" check at 2.1 ms against its 2 ms limit. Each file, rerun alone, passes, as does `colonyempire.test.ts` (rerun after its migration test was set to the literal version 38, as slice 43's uses 37, so it still tests this step after renumbering at merge).
+- Every version 37 prepared town (134, slice 43's baseline) loads through `fromSlice43` and `fromSlice47` to version 39 and runs 300 ticks.
+- The build is clean.
+- The smoke blocks for slices 37, 40, 43 and 47, run on their own on the loaded machine, pass, except the two "#empire: the thieves" checks, which fail on the starting commit too.
+- The full slow smoke: SLOW.
+- The measure, side by side with `5586938` (a slimmed copy: download, the colony demos' load, triangles, draw calls and frame work): see the check-in's table.
+- `#colonybase` and `#freeally` were walked at 1920 × 1080 in the original look, `-modern` and `-plain`.
+

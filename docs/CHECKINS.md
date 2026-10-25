@@ -2,6 +2,60 @@
 
 Notes to Oliver, newest first.
 
+## Slice 47 — A colonial empire (25 Oct)
+
+Your colonies are now an empire you can hold. You can station a company or triremes in a colony and strike from it, each colony pays you a share of its trade in coin, a grown colony's militia sails to your aid, and a colony that wants its freedom can be let go by treaty as your ally. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Towns with colonies earn a little more.** Each colony's share ship now also carries your share of its trade in coin, entered in the ledger as "Colonies' trade". `#colonies`, `#colonywants` and `#colonyworks` (the same town) open with 422 dr more and are 518 dr richer 900 ticks on. Their newest news reads "Nea Naxos sends you its share: 90 marble and 74 dr, your share of its trade". `#empire` opens 32 dr richer (57 dr 900 ticks on). Their people, walkers, buildings, loyalties and colonies are exactly as before.
+- **`#colony`** and every other demo play exactly as before (all 136 compared at opening and 900 ticks on). Old saves load (saves are now version 39).
+- A company stationed abroad can't be marched or dismissed until you bring it home. Its men don't defend your walls while they are away.
+
+### What's new
+- **A company stationed in a colony.** Choose a company on the colony's page. Its men march down to the road by your trading post. Your ship comes into the bay, the rowing boat takes them out eight a trip, and she sails. Once they land they hold the colony. Raiders and claims then fail more often (about 3 in 100 for each hoplite, 2 for each archer, at most 45 in 100: a full company of 16 hoplites is about 5 in 10), and the colony is more loyal (+6). "Bring it home" reverses the voyage: they come ashore at your quay and march back to their barracks.
+- **Triremes stationed off a colony** stay for good. They fight every threat that comes and add +2 loyalty each (at most +6). Slice 37's "send triremes to guard it" still sends them home once the threat has passed.
+- **The threat roll names every part of the defence.** A threat's section lists each thing that turns raiders away (your triremes off its shore, the company there, its walls, a soldier governor) with its odds, and the odds of them all together. With nothing there it says so: "As it stands nothing turns them away: no triremes, walls or company there."
+- **Strikes from a colony.** With a company stationed there, the colony's page lists the three nearest rival cities and any city whose ships threaten it. Each row shows how many days' sail it is from here and from your city, and the odds. A strike sails at once, with no mustering, and the company holds the colony again once it is back.
+- **The colonies' trade.** Each colony trades with its two nearest cities: about 4 dr a head a year at a town's rate, half for an outpost, three quarters for a settlement, a quarter more for a city, and half again with a harbour. You get a third. That is halved while its loyalty is under 40, and you get nothing while it talks of freedom. The page names every factor. A town of 400 pays you about 533 dr a year, or 800 with a harbour.
+- **The militia.** A colony of town stage with loyalty 40 or more sends about one man in forty of its people (8 to 16). When raiders threaten your city, they sail into your bay, come ashore at your quay and stand by what the raiders make for. In your wars, their might is counted in a full force's plan and in the fight, and the report names them.
+- **A treaty for freedom.** A colony of 500 or more that talks of freedom can be offered "Sign a treaty: let it go free as your ally". It becomes a free city under its own ruler, warm to you, with the reasons named. It sends half the share it paid as a colony and sends its militia. Its label on the map reads "your ally".
+- **Your empire, on your city's page** on the map of Greece. Every vassal, ally, colony and free ally gets a row: stage and people, loyalty, share, trade, what is stationed there, its militia, wants and threats. Each row has a button to its page.
+- **Slice 43's findings.** A shipment's page counts only the stores your trading post's roads reach. A loading shipment has "Sail with what is aboard" and "Call it off" (the goods go back, a work's drachmas are refunded). With nothing aboard after four months it is called off by itself, and the line under the top bar says when. The anchored ship shows no sacks until the boat's first load. Every ship of a colony's in your bay is drawn, and each has its own hover. `__zeus.where` reads the simulation's own walker positions.
+
+### What to try
+1. #colonybase — Nea Naxos' page is open, with Rhodes' 4 ships due about 16 November. Press "Station your 2 triremes off it" under "Its garrison" and look at the threat's odds, then speed up past mid-November: on this day's roll your triremes win and Nea Naxos alone would lose.
+2. #colonybase — this time press "Station the 1st company of hoplites" and close the map. Watch the men march to the road by the trading post, your ship come in (she anchors about 6 October), the boat row them out eight a trip and the ship sail. Once they land, about the end of October and before Rhodes' ships arrive, Nea Naxos' page shows the company holding it and "Strikes from it" (Rhodes among them, with the days from here and from home).
+3. #colonybase — open your own city (Nea Argos) on the map of Greece for the empire list: three colonies at three stages, with their shares, trade and what is stationed.
+4. #freeally — Nea Thasos talks of freedom. Press "Sign a treaty: let it go free as your ally" in its freedom section: its page becomes your free ally's, and its label reads "your ally".
+
+### What I'd like your eye on
+- **The pace of stationing.** From the button to holding Nea Naxos is about five or six weeks: 20 days for your ship to come in, about a week of rowing, then a week's sail (Nea Thasos is 17 days' sail). Is that worth waiting for, or should a stationed company be quicker?
+- **The trade's size.** A town of 400 pays you about 133 dr a season in coin on top of its goods. Is that enough to make a colony feel like income?
+- **The militia in the city.** They come ashore at the quay and march to the granary with your soldiers. At the usual zoom they are small red figures; can you pick them out?
+- **The empire list** at the top of your city's page: is it the overview you'd want, or too much text?
+
+### Known rough edges
+- The militia arrive about three weeks after a threat stands (their ship takes 20 days into your bay). A raid that ends sooner sends them home without landing.
+- While a colony is threatened, the line under the top bar names the threat, not your company being rowed out. The rowing shows in the News of Greece and the ship's hover.
+- A free ally stays warm for ever. Its mood doesn't move yet.
+- `#empire`'s automatic check for a thief already out fails, as it did before this slice: since the armour-and-horses fix the first thief comes about 15 days in.
+
+### Measurements
+Headless software rendering on a shared, heavily loaded machine (load 27 to 36, the test suite running beside it), so only the counts and sizes mean much. "Before" is the starting build (`5586938`), measured the same way just before.
+
+| What | Before | After |
+|---|---|---|
+| Download, the game itself | 2,470 KB (839 KB gzipped) | 2,524 KB (853 KB gzipped) |
+| Prepared demo towns | 104 files, 3,727 KB gzipped | 106 files, 3,815 KB gzipped |
+| `#colonies`, `#colonyworks` on the map of Greece | 315,710 triangles, 53 draw calls | the same |
+| `#colony` in the city | 1.49 million triangles, 74 draw calls | the same |
+| `#empire` in the city | 2.07 million triangles, 156 draw calls | the same |
+| `#colonybase`, `#freeally` on the map | — | 317,878 and 317,430 triangles, 56 and 61 draw calls |
+| Demo ready (by the page's clock) | 4.5 to 6.7 s | 6.9 to 9.3 s (`#coast`, untouched, 5.5 to 9.3 s); `#colonybase` and `#freeally` 4.4 and 4.3 s |
+| Work before drawing, a frame | `#colonies` 9.9 ms, `#colonyworks` 13.0 ms | 10.4 ms, 12.4 ms; `#colonybase` 8.9 ms |
+
+The ready times swung with the machine's load: `#coast`, which this slice doesn't touch, went from 5.5 s to 9.3 s between the two runs, and the new demos loaded in 4.4 s right after. They need measuring on your laptop.
+
 ## Slice 43 — Colonies that grow up (25 Oct)
 
 A colony is now a place that grows up and asks things of you: it goes from tents on a beach to a settlement, a town and a city, you pay for works there with drachmas and goods carried down to your own quay, it asks for things by a day and remembers whether you sent them, and you choose who governs it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
