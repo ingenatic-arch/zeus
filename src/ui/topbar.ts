@@ -53,7 +53,7 @@ export class TopBar {
           <div class="days"></div>
           <div class="season" hidden><svg viewBox="0 0 20 20" aria-hidden="true" class="dial"><path d="M10 10V1a9 9 0 0 1 9 9z" class="q0"/><path d="M10 10h9a9 9 0 0 1-9 9z" class="q1"/><path d="M10 10v9a9 9 0 0 1-9-9z" class="q2"/><path d="M10 10H1a9 9 0 0 1 9-9z" class="q3"/><circle cx="10" cy="10" r="9" class="rim"/><path d="M10 10V2.4" class="hand"/><circle cx="10" cy="10" r="1.6" class="hub"/></svg><b class="nm"></b><span class="cm"></span><i class="wx"></i></div>
         </div>
-        <button class="scroll-btn" title="Messages: what the town has heard (\u0060)" aria-label="Messages"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sheet" d="M5 4.2h10v11.6H5z"/><path class="lines" d="M7.2 7.6h5.6M7.2 10h5.6M7.2 12.4h3.6"/><rect class="roll" x="3" y="2" width="14" height="3.6" rx="1.8"/><rect class="roll" x="3" y="14.4" width="14" height="3.6" rx="1.8"/></svg><span class="seal" hidden></span></button>
+        <button class="scroll-btn" title="Messages: what the town has heard · the key left of 1 (\u0060)" aria-label="Messages"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sheet" d="M5 4.2h10v11.6H5z"/><path class="lines" d="M7.2 7.6h5.6M7.2 10h5.6M7.2 12.4h3.6"/><rect class="roll" x="3" y="2" width="14" height="3.6" rx="1.8"/><rect class="roll" x="3" y="14.4" width="14" height="3.6" rx="1.8"/></svg><span class="seal" hidden></span></button>
         <div class="divider"></div>
         <div class="speeds"></div>
         <div class="divider"></div>
@@ -345,8 +345,9 @@ export class TopBar {
   private scrollKey = '';
 
   /** The scroll's seal: how many messages are unread, coloured by the most urgent of them (-1: none unread); and whether the panel is open. */
-  showMessages(n: number, u: number, open = false): void {
-    const key = `${n}:${u}:${open}`;
+  showMessages(n: number, u: number, open = false, all = n): void {
+    // (Slice 48: n and u are the unread warnings and alarms, which the seal counts; all, every message unread.)
+    const key = `${n}:${u}:${open}:${all}`;
     if (key === this.scrollKey) return;
     this.scrollKey = key;
     const el = this.bar.querySelector('.scroll-btn') as HTMLElement;
@@ -356,8 +357,10 @@ export class TopBar {
     seal.hidden = n === 0;
     seal.textContent = n > 99 ? '99+' : String(n);
     seal.className = `seal ${u >= 2 ? 'alarm' : u === 1 ? 'warning' : 'news'}`;
-    const what = n === 0 ? 'nothing unread' : `${n} unread${u >= 2 ? ', an alarm among them' : u === 1 ? ', a warning among them' : ''}`;
-    el.title = `Messages: what the town has heard · ${what} (\u0060)`;
+    const news = all - n;
+    const warned = n === 0 ? '' : `${n} ${n === 1 ? (u >= 2 ? 'alarm' : 'warning') : u >= 2 ? 'warnings and alarms' : 'warnings'} unread`;
+    const what = [warned, news > 0 ? `${news} ${news === 1 ? 'piece' : 'pieces'} of news unread` : ''].filter((x) => x).join(', ') || 'nothing unread';
+    el.title = `Messages: what the town has heard · ${what} · the key left of 1 (\u0060)`;
     el.setAttribute('aria-label', `Messages, ${what}`);
   }
 

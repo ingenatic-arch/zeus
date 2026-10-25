@@ -1,0 +1,135 @@
+/* Slice 48: a building's panel (buildingpanel.ts), in the household panel's place and dress. Slice 50 restyles it with the shared kit. */
+.household.building { width: 372px; }
+.household.building .bhead { display: flex; gap: 11px; align-items: center; }
+/* Its picture: the build button's icon, coloured, on a cream medallion. */
+.household.building .pic {
+  width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 40% 35%, #fffaf0, #f0dcb2); border: 1.5px solid var(--edge);
+  box-shadow: inset 0 -2px 0 rgba(120, 80, 40, 0.18), 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.household.building .pic svg { width: 34px; height: 34px; }
+.household.building .pic svg path, .household.building .pic svg ellipse, .household.building .pic svg circle, .household.building .pic svg rect { stroke-linejoin: round; stroke-linecap: round; }
+.household.building .pic .fill-soft { fill: #ead3a2; stroke: #6e4e30; stroke-width: 0.9; }
+.household.building .pic .fill-ink { fill: #5a3e26; }
+.household.building .pic .fill-gold { fill: #e3b34a; stroke: #8a5a14; stroke-width: 0.8; }
+.household.building .pic .fill-grape { fill: #7a2e80; stroke: #3e1240; stroke-width: 0.7; }
+.household.building .pic .fill-wine { fill: #8a2a3a; stroke: #40101a; stroke-width: 0.8; }
+.household.building .pic .fill-oil { fill: #9ab040; stroke: #3e4f12; stroke-width: 0.8; }
+.household.building .pic .fill-olive { fill: #6f8a34; stroke: #3e4f12; stroke-width: 0.8; }
+.household.building .pic .fill-wool { fill: #f4ead0; stroke: #8a744a; stroke-width: 0.8; }
+.household.building .pic .fill-meat { fill: #c4553a; stroke: #6e2a1a; stroke-width: 0.8; }
+.household.building .pic .fill-cheese { fill: #e8c25a; stroke: #8a6414; stroke-width: 0.8; }
+.household.building .pic .fill-water { fill: #4f9be0; stroke: #2c5f8f; stroke-width: 0.8; }
+.household.building .pic .fill-fire, .household.building .pic .fill-warn { fill: #e2531e; }
+.household.building .pic .fill-tax { fill: #e3c060; stroke: #8a5a14; stroke-width: 0.8; }
+.household.building .pic .fill-bless { fill: #a98ae0; stroke: #4a3a6a; stroke-width: 0.8; }
+.household.building .pic .fill-plays { fill: #e3778f; stroke: #7a2a40; stroke-width: 0.8; }
+.household.building .pic [class^='stroke-'] { fill: none; stroke-width: 1.5; }
+.household.building .pic .stroke-ink { stroke: #5a3e26; }
+.household.building .pic .stroke-gold { stroke: #c8963c; }
+.household.building .pic .stroke-water { stroke: #3a86c8; }
+.household.building .pic .stroke-meat { stroke: #a8442e; }
+.household.building .pic .stroke-shine { stroke: #f0c8a0; stroke-width: 1.1; }
+.household.building .pic .stroke-copper { stroke: #c8743a; }
+.household.building .pic .stroke-warn { stroke: #c63d24; }
+.household.building .hd { min-width: 0; padding-right: 26px; }
+.household.building .own { margin: 8px 0 0; }
+
+/* Staff: a pip for each job. */
+.household.building .count { display: flex; align-items: center; gap: 8px; font-size: 13.5px; flex-wrap: wrap; }
+.household.building .pips { display: inline-flex; gap: 3px; flex-wrap: wrap; max-width: 190px; }
+.household.building .pips i { width: 9px; height: 9px; border-radius: 50%; border: 1.2px solid var(--ink-soft); background: transparent; }
+.household.building .pips i.on { background: #6f7d3c; border-color: #4a5424; }
+.household.building .why { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.household.building .why.urgent { color: #8a3a1c; font-weight: bold; }
+.household.building .note { margin: 6px 0 0; padding: 4px 8px; border-radius: 8px; font-size: 12.5px; }
+.household.building .note.paused { background: #e6e3ea; border: 1px solid #6a6478; color: #3a3448; }
+.household.building .note.first { background: #eef0dc; border: 1px solid #7a8a3c; color: #3e4a14; }
+
+/* What it is doing. */
+.household.building .lines { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.household.building .lines li { margin: 2px 0; padding-left: 12px; text-indent: -12px; }
+.household.building .lines li::before { content: '·'; display: inline-block; width: 12px; text-indent: 0; font-weight: bold; color: var(--ink-soft); }
+
+/* What it holds, and the condition's bars. */
+.household.building ul.hold { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 18px 64px 1fr auto; gap: 3px 7px; align-items: center; font-size: 13px; }
+.household.building ul.hold li { display: contents; }
+.household.building ul.hold.cond { grid-template-columns: 82px 1fr auto; }
+.household.building .hbar { height: 7px; border-radius: 4px; background: rgba(122, 92, 60, 0.16); overflow: hidden; }
+.household.building .hbar.none { background: none; }
+.household.building .hbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #a07a3e, #c8963c); }
+.household.building .cond .risk .hbar i { background: linear-gradient(90deg, #e3a23a, #c63d24); }
+.household.building .cond .wear .hbar i { background: linear-gradient(90deg, #b8a080, #7a6446); }
+.household.building .hnum { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.household.building .hnum small { color: var(--ink-soft); font-size: 11.5px; }
+.household.building .ok { font-style: italic; }
+
+/* Its walkers. */
+.household.building ul.out { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.household.building ul.out li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0; }
+.household.building ul.out .pill { padding: 1px 10px; font-size: 12px; flex: none; }
+.household.building .coming, .household.building .none { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+/* Its messages. */
+.household.building .bmsgs ul { list-style: none; margin: 0; padding: 0; }
+.household.building .bmsgs button {
+  display: grid; grid-template-columns: 16px 46px 1fr; gap: 6px; align-items: center; width: 100%; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--ink); background: none; border: 0; border-radius: 6px; padding: 2px 4px; cursor: pointer;
+}
+.household.building .bmsgs button:hover { background: rgba(255, 255, 255, 0.55); }
+.household.building .bmsgs .mic svg { width: 15px; height: 15px; display: block; }
+.household.building .bmsgs .day { color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.household.building .bmsgs .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.household.building .bmsgs .unread .t { font-weight: bold; }
+.household.building .bmsgs .u1 .t { color: #8a4a14; }
+.household.building .bmsgs .u2 .t { color: #a8321e; }
+
+/* Orders: two toggles. */
+.household.building .toggles { display: flex; gap: 8px; }
+.household.building .tog {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; border-radius: 9px; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--ink); background: #fff8ea; border: 1.5px solid var(--edge); box-shadow: 0 2px 0 rgba(120, 80, 40, 0.22);
+}
+.household.building .tog:hover { background: #fff2d6; }
+.household.building .tog:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(120, 80, 40, 0.22); }
+.household.building .tog.on { background: #4a4458; border-color: #2e2a38; color: #fff6e4; }
+.household.building .tog[data-act='first'].on { background: #6f7d3c; border-color: #4a5424; }
+.household.building .glyph { width: 12px; height: 12px; flex: none; position: relative; }
+.household.building .glyph.pause::before, .household.building .glyph.pause::after { content: ''; position: absolute; top: 1px; bottom: 1px; width: 3.5px; border-radius: 1px; background: currentColor; }
+.household.building .glyph.pause::before { left: 2px; }
+.household.building .glyph.pause::after { right: 2px; }
+.household.building .glyph.first::before { content: ''; position: absolute; inset: 1px 2px; clip-path: polygon(50% 0, 100% 60%, 70% 60%, 70% 100%, 30% 100%, 30% 60%, 0 60%); background: currentColor; }
+
+/* A store's rows. */
+.household.building .storeacts { display: flex; gap: 6px; margin: 2px 0 6px; }
+.household.building .storeacts .pill { padding: 1px 10px; font-size: 12px; }
+.household.building .storeacts .pill:disabled { opacity: 0.5; cursor: default; }
+.household.building .ware { padding: 4px 7px 5px; margin: 0 0 4px; border-radius: 9px; background: rgba(255, 255, 255, 0.42); border: 1px solid rgba(184, 138, 80, 0.5); }
+.household.building .ware.m1 { background: rgba(120, 110, 130, 0.12); }
+.household.building .ware.m2 { border-color: #6f7d3c; }
+.household.building .ware.m3 { border-color: #c8643b; }
+.household.building .wtop { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.household.building .wtop b { flex: 1; font-weight: normal; }
+.household.building .ware.m1 .wtop b { color: var(--ink-soft); text-decoration: line-through rgba(122, 92, 60, 0.5); }
+.household.building .wbar { position: relative; height: 6px; margin: 3px 0 4px; border-radius: 3px; background: rgba(122, 92, 60, 0.16); }
+.household.building .wbar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a07a3e, #c8963c); }
+.household.building .ware.m3 .wbar i { background: linear-gradient(90deg, #a24e2c, #c8643b); }
+.household.building .ware.m2 .wbar i { background: linear-gradient(90deg, #4a5424, #6f7d3c); }
+.household.building .wbar em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 1px; }
+.household.building .wset { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.household.building .modes { display: inline-flex; border: 1.2px solid var(--edge); border-radius: 7px; overflow: hidden; }
+.household.building .mode { font: inherit; font-size: 11.5px; padding: 2px 7px; border: 0; border-left: 1px solid rgba(184, 138, 80, 0.6); background: #fff8ea; color: var(--ink); cursor: pointer; }
+.household.building .mode:first-child { border-left: 0; }
+.household.building .mode:hover { background: #fff2d6; }
+.household.building .mode.on { color: #fff6e4; }
+.household.building .mode.m0.on { background: #8a6a3e; }
+.household.building .mode.m1.on { background: #5a5468; }
+.household.building .mode.m2.on { background: #6f7d3c; }
+.household.building .mode.m3.on { background: #c8643b; }
+.household.building .lim { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; }
+.household.building .lim button { font: inherit; font-size: 13px; line-height: 1; width: 20px; height: 20px; border-radius: 50%; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink); cursor: pointer; padding: 0 0 1px; }
+.household.building .lim button:disabled { opacity: 0.35; cursor: default; }
+.household.building .lim .lv { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.household.building .wnote { margin: 4px 0 0; font-size: 12px; color: var(--ink-soft); }
+.household.building .ware.m3 .wnote { color: #8a3a1c; }
+.household.building .ware.m2 .wnote { color: #3e4a14; }

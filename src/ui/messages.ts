@@ -13,6 +13,8 @@ import { ALARM, CAT_NAMES, CATS, KINDS, KEEP_TICKS, MAX_MESSAGES, POPUP_KINDS, c
 import type { SimState } from '../sim/state';
 import { dealLine, dealsWaiting, loansWaiting } from '../sim/status';
 import { raidLine } from '../sim/raids';
+// Slice 48.
+import { besieging, raidersOf } from '../sim/raids';
 import { empireTownLine } from '../sim/vassals';
 import { colonyTownLine } from '../sim/colonies';
 import { dayWords } from '../sim/favours';
@@ -146,6 +148,8 @@ export class MessagesPanel {
   private map: CoastMap | null = null;
   /** Called when the panel opens (the other panels on the left make way). */
   onOpen: (() => void) | null = null;
+  /** Slice 48: a message to bring into view at the next drawing. */
+  private scrollTo = 0;
 
   constructor(
     root: HTMLElement,
@@ -157,7 +161,7 @@ export class MessagesPanel {
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Messages');
     el.innerHTML = `<button class="close" title="Close (Esc)" aria-label="Close">×</button>
-      <header class="mhead"><h2>Messages</h2><div class="kicker"></div><button class="pill allread" title="Mark every message read">Mark all read</button></header>
+      <header class="mhead"><h2>Messages <kbd class="mkey" title="The key left of 1 opens and closes the Messages">\u0060</kbd></h2><div class="kicker"></div><button class="pill allread" title="Mark every message read">Mark all read</button></header>
       <div class="mchips" role="tablist" aria-label="Show"></div>
       <div class="body"></div>`;
     root.appendChild(el);
@@ -192,6 +196,19 @@ export class MessagesPanel {
       this.onOpen?.();
       this.body.scrollTop = 0;
     }
+  }
+
+  /** Slice 48: open on one message (a building's panel lists its own), unfolded, read and scrolled to. */
+  showMessage(id: number): void {
+    const m = this.s?.messages.log.find((x) => x.id === id);
+    if (!m) return;
+    this.filter = 'all';
+    this.opened.add(id);
+    this.scrollTo = id;
+    this.toggle(true);
+    this.key = '';
+    if (!m.read) this.deps.send({ type: 'messages', act: 'read', ids: [id] });
+    this.draw();
   }
 
   /** Show one filter ('all', or a category). */
@@ -237,7 +254,10 @@ export class MessagesPanel {
     if (t.closest('.row')) {
       if (this.opened.has(id)) this.opened.delete(id);
       else this.opened.add(id);
-      if (!m.read) this.deps.send({ type: 'messages', act: 'read', ids: [id] });
+      // (Slice 48: a run of the same message, as one row, is read together.)
+      const run = (row.dataset.ids ?? '').split(' ').map(Number).filter((x) => x && s.messages.log.some((y) => y.id === x && !y.read));
+      if (run.length) this.deps.send({ type: 'messages', act: 'read', ids: run });
+      else if (!m.read) this.deps.send({ type: 'messages', act: 'read', ids: [id] });
       this.key = '';
       this.draw();
     }
@@ -274,6 +294,9 @@ export class MessagesPanel {
     // lines under the top bar).
     const waiting: Array<{ city: string; text: string; raid: boolean; loan?: boolean; empire?: boolean }> = [];
     for (const r of s.world.raids) {
+      // (Slice 48: not a band already leaving, with its loot or without: nothing waits on you there.)
+      const band = r.phase === 'raiding' ? raidersOf(s, r) : undefined;
+      if (band && (band.back || r.end !== '' || r.broke) && !besieging(s, r, band)) continue;
       const text = raidLine(s, map, r);
       if (text) waiting.push({ city: r.city, text, raid: true });
     }
@@ -331,17 +354,30 @@ export class MessagesPanel {
     if (pinned.length) parts.push(`<h3>Pinned</h3>${pinned.map((m) => this.row(s, m)).join('')}`);
     let month = '';
     let rows = 0;
+    // (Slice 48: the same message again in a month, of one kind and title, is one row with "×4", at its newest.)
+    const flush = (groups: Map<string, Message[]>): void => {
+      for (const run of groups.values()) parts.push(this.row(s, run[0], run));
+    };
+    let groups = new Map<string, Message[]>();
     for (let i = shown.length - 1; i >= 0; i--) {
       const m = shown[i];
       if (m.pin) continue;
       const mo = monthOf(m.tick);
       if (mo !== month) {
+        flush(groups);
+        groups = new Map();
         month = mo;
         parts.push(`<h3>${esc(mo)}</h3>`);
       }
-      parts.push(this.row(s, m));
-      rows++;
+      const k = `${m.kind}|${titleOf(m)}`;
+      const run = groups.get(k);
+      if (run) run.push(m);
+      else {
+        groups.set(k, [m]);
+        rows++;
+      }
     }
+    flush(groups);
     if (!rows && !pinned.length) {
       const what = this.filter === 'all' ? 'The town has heard nothing yet' : this.filter === 'health' ? 'Nothing about the town’s health yet' : `Nothing under ${CAT_NAMES[this.filter]} yet`;
       parts.push(`<p class="empty">${what}.</p>`);
@@ -355,14 +391,25 @@ export class MessagesPanel {
     );
     this.body.innerHTML = parts.join('');
     this.body.scrollTop = scroll;
+    // (Slice 48: opened from a building's panel: that message in view.)
+    if (this.scrollTo) {
+      const el = this.body.querySelector(`.msg[data-ids~="${this.scrollTo}"]`) as HTMLElement | null;
+      this.scrollTo = 0;
+      el?.scrollIntoView({ block: 'center' });
+    }
   }
 
-  private row(s: SimState, m: Message): string {
-    const open = this.opened.has(m.id);
+  /** A message's row; with `run`, the newest of the same message again that month (Slice 48), its count shown and each day's words when open. */
+  private row(s: SimState, m: Message, run: Message[] = [m]): string {
+    const open = run.some((x) => this.opened.has(x.id));
     const go = m.at && this.deps.canGo(s, m) ? `<button class="go pill">Go there ›</button>` : '';
-    const more = open ? `<div class="more"><p>${esc(m.words)}</p><div class="acts">${go}${m.read ? '<button class="markunread link">Mark unread</button>' : ''}</div></div>` : '';
+    const unreadRun = run.some((x) => !x.read);
+    const words = run.length > 1 ? run.map((x) => `<p><b class="when">${dayOf(x.tick)}</b> ${esc(x.words)}</p>`).join('') : `<p>${esc(m.words)}</p>`;
+    const more = open ? `<div class="more">${words}<div class="acts">${go}${!unreadRun ? '<button class="markunread link">Mark unread</button>' : ''}</div></div>` : '';
     const title = titleOf(m);
-    return `<div class="msg ${URGENCY[m.u]}${m.read ? '' : ' unread'}${open ? ' open' : ''}${m.pin ? ' pinned' : ''}" data-id="${m.id}"><button class="row" aria-expanded="${open}" title="${esc(open ? 'Click to fold' : m.words)}"><span class="ic">${iconOfKind(m.kind)}</span><span class="day">${dayOf(m.tick)}</span><span class="t">${esc(title)}</span></button><button class="pin" title="${m.pin ? 'Unpin' : 'Pin it to the top'}" aria-label="${m.pin ? 'Unpin' : 'Pin'}" aria-pressed="${!!m.pin}">${PIN}</button>${more}</div>`;
+    const times = run.length > 1 ? `<span class="times" title="${run.length} times this month, the first on ${dayOf(run[run.length - 1].tick)}">×${run.length}</span>` : '';
+    const u = Math.max(...run.map((x) => x.u)) as Message['u'];
+    return `<div class="msg ${URGENCY[u]}${unreadRun ? ' unread' : ''}${open ? ' open' : ''}${m.pin ? ' pinned' : ''}${run.length > 1 ? ' run' : ''}" data-id="${m.id}" data-ids="${run.map((x) => x.id).join(' ')}"><button class="row" aria-expanded="${open}" title="${esc(open ? 'Click to fold' : m.words)}"><span class="ic">${iconOfKind(m.kind)}</span><span class="day">${dayOf(m.tick)}</span><span class="t">${esc(title)}</span>${times}</button><button class="pin" title="${m.pin ? 'Unpin' : 'Pin it to the top'}" aria-label="${m.pin ? 'Unpin' : 'Pin'}" aria-pressed="${!!m.pin}">${PIN}</button>${more}</div>`;
   }
 }
 

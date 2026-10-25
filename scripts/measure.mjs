@@ -323,6 +323,9 @@ for (const [hash, views] of [
   ['#gang-paused-shot', [null, 'town']],
   // Slice 44: #aftermath's town with the Messages panel open on its scroll.
   ['#messages-paused-shot', [null]],
+  // Slice 48: the quay's storehouse emptying its oil up the hill by ox cart, its panel open; the olive press's panel.
+  ['#storeset-paused-shot', [null, 'town']],
+  ['#workpanel-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
