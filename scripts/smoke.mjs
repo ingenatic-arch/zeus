@@ -1184,7 +1184,8 @@ await open('#richtown-paused');
 c = await city();
 sh = await zeus(() => window.__zeus.ship());
 if (!(c.population > 700 && c.population < 1000 && c.villas >= 15 && c.tradingPosts === 1 && c.watchmen > 0 && sh.phase === 1 && sh.visible)) fail(`#richtown: ${JSON.stringify(c)} ship ${JSON.stringify(sh)}`);
-if (!(await zeus(() => window.__zeus.heard())).some((l) => /^The merchant ship is sailing into the bay/.test(l))) fail('#richtown has no ship message');
+// Slice 44: the ship is told once, as she is sighted, in the scroll.
+if (!(await zeus(() => window.__zeus.heard())).some((l) => /^(The merchant ship is sailing into the bay|A sail on the horizon: the merchant ship)/.test(l))) fail('#richtown has no ship message');
 await open('#richstreet-paused');
 if ((await city()).villas < 15) fail('#richstreet has too few villas');
 // #harsh: the harsh-taxes line, and the rate card's harsh row says whole households leave.
@@ -1397,8 +1398,6 @@ if (!/Bought · wine from Corinth\s*−[\d,]+/.test(await zeus(() => window.__ze
 await open('#athensship-paused');
 t16 = await tr16();
 if (!(t16.tab === 'athens-sea' && t16.routes[0].ship?.visible && (await zeus(() => document.querySelectorAll('.tradetabs button').length)) === 2)) fail(`#athensship: ${JSON.stringify(t16)}`);
-// Her town line has a ship's icon, not the caravans' donkey.
-if (!(await zeus(() => document.querySelector('.townline.trader')?.dataset.icon === 'athens-sea' && !!document.querySelector('.townline.trader svg path[d^="M9.6"]')))) fail('#athensship: her town line has no ship');
 await zeus(() => window.__zeus.speed('normal'));
 await page.waitForFunction(() => window.__zeus.traders().routes[0].ship?.phase === 2, null, { timeout: 300000, polling: 16 });
 await zeus(() => window.__zeus.speed('paused'));
@@ -1408,6 +1407,12 @@ if (c.shipChip !== 'In port') fail(`#athensship: the chip says ${c.shipChip}`);
 await page.click('.tradetabs button[data-tab="tyre"]');
 await frames(2);
 if (!/^Tyre[\s\S]*The trading post/.test(await zeus(() => window.__zeus.tradeText()))) fail('#athensship: the Tyre tab');
+// Slice 44: her message in the scroll (Trade) has a ship's icon, not the caravans' donkey.
+{
+  const id = await zeus(() => [...window.__zeus.messages(true, 'trade').log].reverse().find((m) => m.kind === 'ship' && /Athens/.test(m.words))?.id ?? 0);
+  if (!(id && (await zeus((i) => !!document.querySelector(`.household.messages .msg[data-id="${i}"] .ic svg path[d^="M9.6"]`), id)))) fail(`#athensship: no message with a ship for her (${id})`);
+  await zeus(() => window.__zeus.messages(false));
+}
 // #anchor: she rides at anchor clear of the Tyre ship at the jetty.
 await open('#anchor-paused');
 t16 = await tr16();
@@ -1544,7 +1549,11 @@ await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, nul
 await frames(3);
 g = await gi();
 if (!(g.shown === 'sparta' && /What he asks of you[\s\S]*The king asks for 1,000 wheat, by \d+ \w+ 747 BC[\s\S]*Send it\s*\+31[\s\S]*Promise\s*\+4[\s\S]*Refuse\s*−15[\s\S]*If sent now[\s\S]*arrives about \d+ \w+ 747 BC, \d+ days before it is due/.test(g.panel))) fail(`#request: ${g.panel.slice(0, 1200)}`);
-if (!(await lines18()).some((l) => /^Sparta asks for 1,000 wheat by \d+ \w+ 747 BC \(\d+ days\)/.test(l))) fail(`#request: no town line: ${JSON.stringify(await lines18())}`);
+// Slice 44: under Waiting on you in the Messages panel, not a town line.
+{
+  const w = await waiting44('sparta');
+  if (!/Waiting on you[\s\S]*Sparta asks for 1,000 wheat by \d+ \w+ 747 BC \(\d+ days\)/.test(w)) fail(`#request: not waiting on you: ${w.slice(0, 600)}`);
+}
 if (!(await zeus(() => !!document.querySelector('.glabel svg.ask')))) fail('#request: no scroll on Sparta’s label');
 await page.click('.greece-panel button[data-act="send"]');
 await frames(3);
@@ -1579,7 +1588,11 @@ await page.waitForFunction(() => window.__zeus.greeceInfo?.().open === true, nul
 await frames(3);
 g = await gi();
 if (!(g.shown === 'athens' && /you promised it[\s\S]*Send it, late\s*\+\d+[\s\S]*Refuse\s*−35[\s\S]*\+4You promised them [\d,]+ wheat/.test(g.panel))) fail(`#promise: ${g.panel.slice(0, 1200)}`);
-if (!(await lines18()).some((l) => /^You promised Athens [\d,]+ wheat and nothing has gone: send it by \d+ \w+ 747 BC \(5 days\)/.test(l))) fail(`#promise: no town line: ${JSON.stringify(await lines18())}`);
+// Slice 44: under Waiting on you in the Messages panel, not a town line.
+{
+  const w = await waiting44('athens');
+  if (!/Waiting on you[\s\S]*You promised Athens [\d,]+ wheat and nothing has gone: send it by \d+ \w+ 747 BC \(5 days\)/.test(w)) fail(`#promise: not waiting on you: ${w.slice(0, 600)}`);
+}
 await zeus(() => window.__zeus.speed('normal'));
 await page.waitForFunction(() => window.__zeus.deals()[0].state !== 'open', null, { timeout: 120000, polling: 50 });
 await zeus(() => window.__zeus.speed('paused'));
