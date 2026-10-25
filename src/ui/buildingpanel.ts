@@ -163,8 +163,9 @@ function staffBlock(s: SimState, map: CoastMap, b: Building, entry: PanelEntry |
   const head = b.paused ? 'Paused' : `${n} of ${jobs} workers`;
   const rate = rateOf(b);
   const pace = !b.paused && n > 0 && rate < 1 ? ` · working at ${Math.round(rate * 100)}%` : '';
+  // (Review of slice 48: a paused maker's carts still take out what it has made.)
   const note = b.paused
-    ? '<p class="note paused">Paused: its workers have gone to other work, and it does nothing until it is set going again.</p>'
+    ? `<p class="note paused">Paused: its workers have gone to other work, and it does nothing until it is set going again.${MAKERS[b.kind] ? ' What it has already made still goes out by cart.' : ''}</p>`
     : b.first
       ? '<p class="note first">Workers first: it is staffed before any other workplace, from the homes nearest it.</p>'
       : '';
@@ -232,7 +233,7 @@ function messagesBlock(s: SimState, b: Building): string {
 /** Pause and Workers first. */
 function ordersBlock(b: Building, entry: PanelEntry | undefined): string {
   if (b.kind === 'home' || jobsAt(b) === 0 || entry?.noOrders) return '';
-  return `<section class="orders"><h3>Orders</h3><div class="toggles"><button class="tog${b.paused ? ' on' : ''}" data-act="pause" aria-pressed="${!!b.paused}" title="${b.paused ? 'Set it going again: workers come back at once' : 'Stop it: its workers go to other work, and it takes in and sends out nothing'}"><span class="glyph pause"></span>${b.paused ? 'Paused' : 'Pause'}</button><button class="tog${b.first ? ' on' : ''}" data-act="first" aria-pressed="${!!b.first}" title="${b.first ? 'Share its workers out as for any other workplace' : 'Fill it with workers before any other workplace'}"><span class="glyph first"></span>Workers first</button></div></section>`;
+  return `<section class="orders"><h3>Orders</h3><div class="toggles"><button class="tog${b.paused ? ' on' : ''}" data-act="pause" aria-pressed="${!!b.paused}" title="${b.paused ? 'Set it going again: workers come back at once' : isStore(b.kind) ? 'Stop it: its workers go to other work, and it takes in and gives out nothing' : `Stop it: its workers go to other work, and it works at nothing${MAKERS[b.kind] ? ' and takes nothing in (what it has made still goes out by cart)' : ''}`}"><span class="glyph pause"></span>${b.paused ? 'Paused' : 'Pause'}</button><button class="tog${b.first ? ' on' : ''}" data-act="first" aria-pressed="${!!b.first}" title="${b.first ? 'Share its workers out as for any other workplace' : 'Fill it with workers before any other workplace'}"><span class="glyph first"></span>Workers first</button></div></section>`;
 }
 
 const MODE_SHORT = ['Accept', 'Don’t', 'Get', 'Empty'];
@@ -273,15 +274,17 @@ function storeBlock(s: SimState, g: Building): string {
     }
     const carts = (k: number): string => (k === 1 ? 'a cart' : `${k} carts`);
     let note = '';
+    // (Review of slice 48: its carts go only while somebody works here; a limit reached says so.)
+    const staffed = rateOf(g) > 0;
     if (g.paused) note = '';
     else if (mode === EMPTY) {
       const somewhere = s.buildings.some((o) => o !== g && isStore(o.kind) && roomFor(o, w) > 0);
-      note = n <= 0 ? 'Empty: none left here; it takes no more' : out ? `Emptying: ${carts(out)} taking it out to other stores` : somewhere ? 'Emptying: its next cart goes out soon' : 'Emptying, but no other store will take it';
+      note = n <= 0 ? 'Empty: none left here; it takes no more' : out ? `Emptying: ${carts(out)} taking it out to other stores` : !staffed ? 'Emptying, but nobody works here to load a cart' : somewhere ? 'Emptying: its next cart goes out soon' : 'Emptying, but no other store will take it';
     } else if (mode === GET) {
-      const some = s.buildings.some((o) => o !== g && isStore(o.kind) && held(o, w) > 0 && modeOf(o, w) !== GET);
-      note = bring ? `Getting it: ${carts(bring)} bringing it from other stores` : n >= limit ? `Getting it: full to its limit` : some ? 'Getting it: the next cart comes soon' : 'Getting it, but no other store has any to send';
+      const some = s.buildings.some((o) => o !== g && isStore(o.kind) && held(o, w) > 0 && modeOf(o, w) !== GET && !o.paused && rateOf(o) > 0);
+      note = bring ? `Getting it: ${carts(bring)} bringing it from other stores` : n >= limit ? `Getting it: full to its limit` : !staffed ? 'Getting it, but nobody works here to send for it' : some ? 'Getting it: the next cart comes soon' : 'Getting it, but no other store has any to send';
     } else if (mode === REFUSE) note = n > 0 ? `Doesn’t accept more: it keeps the ${fmt(n)} it has, for porters to fetch` : '';
-    else if (cut) note = `Accepts it up to ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)})`;
+    else if (cut) note = n >= limit ? `Full to its limit, ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)}): carts take more elsewhere` : `Accepts it up to ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)})`;
     const modes = [ACCEPT, REFUSE, GET, EMPTY]
       .map((m) => `<button class="mode m${m}${mode === m ? ' on' : ''}" data-act="mode" data-ware="${w}" data-mode="${m}" aria-pressed="${mode === m}" title="${esc(MODE_TIPS[m])}">${MODE_SHORT[m]}</button>`)
       .join('');

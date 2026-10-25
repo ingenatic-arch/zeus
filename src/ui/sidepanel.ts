@@ -638,10 +638,12 @@ export class SidePanel {
       const kind = t as BuildingKind;
       const all = s.buildings.filter((x) => x.kind === kind);
       if (!all.length) continue;
-      const short = all.filter((x) => jobsAt(x) > 0 && x.workers < jobsAt(x)).length;
+      // (Slice 48, from its review: a paused workplace isn't short of workers; it is counted as paused.)
+      const short = all.filter((x) => jobsAt(x) > 0 && !x.paused && x.workers < jobsAt(x)).length;
+      const paused = all.filter((x) => x.paused).length;
       const one = lower(INFO[t].name);
       const name = all.length === 1 ? one : (MANY[kind] ?? (/[^aeiou]y$/.test(one) ? `${one.slice(0, -1)}ies` : `${one}s`));
-      lines.push(`<li class="${short ? 'bad' : ''}"><span>${all.length} ${esc(name)}</span><span class="n">${short ? `${short} short of workers` : 'all staffed'}</span></li>`);
+      lines.push(`<li class="${short ? 'bad' : ''}"><span>${all.length} ${esc(name)}</span><span class="n">${short ? `${short} short of workers` : paused === all.length ? 'paused' : 'all staffed'}${paused && paused < all.length ? ` · ${paused} paused` : ''}</span></li>`);
     }
     out.push('<h3>Their workers</h3>');
     out.push(lines.length ? `<ul class="places staff">${lines.join('')}</ul>` : `<p class="side-note">None built yet: pick one above to place it.</p>`);

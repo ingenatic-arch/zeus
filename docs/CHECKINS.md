@@ -29,14 +29,14 @@ What breaks, or moves:
   - **Empty**: it sends its stock by ox cart to the nearest store that takes it, and porters fetch from it first.
 
   A limit beside each (all, ¾, ½, ¼) stops deliveries once the store holds that share of its room; a mark on the bar shows where. "Accept nothing" and "Accept all" at the top set every row at once. A line under a row says what its rule is doing now, such as how many carts are taking the oil out. Makers' carts, the agora's porters, the barracks', armoury's and estates' porters, the dockers, the colony porters and the monuments' carts all keep to the rules. Goods never go round in a loop.
-- **Pause and Workers first** on every work and service building. Paused, its workers leave at once for other jobs and a small grey plaque with the pause bars floats over it. Workers first, it is filled before anything else, from the nearest homes.
+- **Pause and Workers first** on every work and service building. Paused, its workers leave at once for other jobs and a small grey plaque with the pause bars floats over it; it makes nothing and takes nothing in, though what a maker has already made still goes out by cart. Workers first, it is filled before anything else, from the nearest homes.
 - **The Messages key is found by its place**, the key left of 1, on any keyboard layout (a Mac's included). The scroll's tip and the panel's head show the key.
 - **"Waiting on you"** no longer lists a band that is already leaving with its loot.
 
 ### What to try
 1. #storerules — click the storehouse by the quay. Press Accept nothing, then Accept on wine and Empty on oil. Within a few days an ox cart of oil sets off up the road to the storehouse on the hill.
 2. #storeset — the same storehouse a few days after those settings, its panel open, the oil on its way out. Try a limit of ¼ on wine, or Get on oil to bring it back.
-3. #workpanel — the olive press's panel. Press Pause: its workers walk off and the plaque appears over it. Press it again, then try Workers first.
+3. #workpanel — the olive press's panel. Press Pause: its workers leave for other jobs (none are drawn at the press now) and the plaque appears over it. Press it again, then try Workers first.
 4. #town or #empire — click a farm, a fountain, a granary, a shrine or an agora, and read what each says about itself.
 5. #messages — the runs of fires and rubble are single rows now, with ×N, and the seal counts only the warnings and alarms.
 
@@ -49,7 +49,7 @@ What breaks, or moves:
 ### Known rough edges
 - **Ox carts are slow.** A cart from the quay to the hill takes about two months of game time, so Empty and Get take a while to show. I kept the carts as they are.
 - **#storerules sets up the quay's oil itself.** In #richtown the dockers sell the oil to the ship as it comes, so the quay's storehouse never held any. The demo has the town keep its oil from the ship and has the quay's store get oil from the hill until it holds 700 or more, then puts its rules back to accept everything. Everything else about the town is as it was.
-- Some old wordings in the doing lines read oddly, such as "40 horses of horses" on an estate. They were there before this slice, and I left them alone.
+- Some old wordings in the doing lines read oddly. They were there before this slice, and I left them alone. (The storehouse's "40 horses of horses" is fixed: see What the review changed.)
 - The barracks, shipyard, trading post, caravan yard and masons' yard keep their own panels, so they have no Pause or Workers first yet.
 - The court's and prison's panels come with slice 45 at the merge.
 - Five smoke checks fail on this machine, and fail the same way on the starting build: hovering over a trireme, a blockading ship and the quarry tool, and #seized's line and chip, which look for different numbers from the ones its town has had since an earlier merge (1,470 dr left and 750 seized). I left them alone.
@@ -68,6 +68,16 @@ Headless Chromium with software WebGL, on a machine shared with the other lines 
 | Every demo | | all 139 prepared towns open, and play 900 ticks on, exactly as at `9eba183` |
 
 The measure ran out of its time on the starting build before its last part, every demo's load time, so those weren't compared side by side.
+
+### What the review changed
+A second pair of eyes went through every step above in the browser at 1920 × 1080, in the original look and with -modern and -plain, and played some nasty settings on for months: both storehouses getting oil, both emptying it, the only granary emptying its wheat, and a storehouse paused while carts were on their way to it. No cart ever went between two stores both getting a good, and nothing was lost: carts that were turned away brought their loads home. What changed:
+- **A store's row no longer promises carts it can't send.** Empty and Get need somebody working at the store to load a cart; with nobody there, the row now says so instead of "its next cart goes out soon". Get's "no other store has any to send" now leaves out stores that are paused or have nobody working.
+- **A limit that's already passed says so.** Set the wine to ¼ while the store holds more than that, and the row says "Full to its limit, a quarter of its room (300): carts take more elsewhere" instead of "Accepts it up to a quarter".
+- **Pause tells the truth about carts.** A paused press or farm still sends out by cart what it had already made, so Pause's tip and the paused note now say that, rather than "it sends out nothing". A paused storehouse does give out nothing, and still says so.
+- **A paused workplace isn't "short of workers"** on its tab in the side panel (the Industry tab, for the press); it is counted as paused.
+- **"40 horses of horses"** is gone from the storehouse's hover and panel.
+
+Checked after: all 651 tests pass; the game builds; the smoke checks for this slice and for #messages, #raid, #looted, #quay and the colonies' asks and works all pass; the download is the same size. I haven't judged how any of it feels to play: that's yours.
 
 ## Slice 44 — The town's messages (25 Oct)
 

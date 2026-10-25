@@ -879,6 +879,8 @@ const STORE_NAME: Partial<Record<BuildingKind, string>> = { granary: 'granary', 
 const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse', [HORSES]: 'storehouse' };
 
 /** "12 jars of oil", "300 measures of olives". */
+/** " of oil" after a ware's units, but nothing after "horses" (Review of slice 48: "40 horses of horses"). */
+const ofWare = (w: Ware): string => (w === HORSES ? '' : ` of ${WARE_NAMES[w]}`);
 const amount = (w: Ware, n: number): string => (w === HORSES ? `${fmt(n)} ${unitOf(w, n)}` : `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`);
 
 /** The wine vendor is a man; the oil and fleece vendors are women (see the walkers' looks). */
@@ -1079,9 +1081,9 @@ function estateLine(s: SimState, b: Building): string {
 /** A storehouse: what it holds, what carts are bringing, who fetches from it. */
 export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Status {
   const held_ = STORE_GOODS.filter((w) => held(g, w) > 0);
-  const title = `${BUILDING_NAMES.storehouse} · ${held_.length ? held_.map((w) => `${fmt(held(g, w))} of ${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(' · ') : 'empty'}`;
+  const title = `${BUILDING_NAMES.storehouse} · ${held_.length ? held_.map((w) => `${fmt(held(g, w))} of ${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)}${ofWare(w)}`).join(' · ') : 'empty'}`;
   if (roadsBeside(s, map.size, g).length === 0) return { title, detail: 'Needs a road beside it, for carts and porters to reach it' };
-  const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
+  const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)}${ofWare(w)}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
   const bringing = STORE_GOODS.filter((w) => coming(g, w) > 0).map((w) => amount(w, coming(g, w)));
   const anyMaker = STALL_GOODS.some((w) => s.buildings.some((m) => MAKERS[m.kind]?.ware === w));
   // (Slice 32's review: a quarry's blocks come on sledges.)
