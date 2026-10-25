@@ -2,6 +2,65 @@
 
 Notes to Oliver, newest first.
 
+## Slice 44 — The town's messages (25 Oct)
+
+Everything the town hears now goes into one log, kept with the save. A small scroll beside the date opens it, with a seal counting what you haven't read, and only alarms still pop up. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 38 on this line (renumbered when it merges). Older saves load with an empty log, and the panel says that messages from before the save weren't kept. I loaded all 134 prepared towns from the starting build (version 37 saves) this way.
+- **The lines under the top bar keep only how things stand:** bread and food, the stall goods, workers, money, harsh taxes, winter's bread, and the risks nobody guards (fire risk, wear, homes tempted to steal). A loan overdue, or due within a month with too little in the treasury, stays there too. Everything that was news is a message now: ships and caravans, the News of Greece, rulers' asks, raids, the army, crime's thefts and catches, the empire, fires, smoulders, creaks and rubble, the monuments, laurels and seasons. The chips (a raid, the army, debts, the ship, the laurel) are where they were.
+- **A threat or a band you can still pay off** is no longer a line. It is listed under "Waiting on you" at the top of the Messages panel, with the rulers' asks, offers and demands, any loan whose terms wait on your answer or whose grace is running out, a vassal arming or an ally's call to answer, and a colony talking of freedom or threatened. Tribute coming in and settlers on their way were lines too; they are news in the scroll now. A week before any of them falls due, a warning comes into the scroll.
+- **"A thief out" has no line any more.** The thief is still drawn and his tip names him. A theft or a catch is a message.
+- **Earlier demos.** Every one opens exactly as before and plays 900 ticks on exactly as before, apart from its messages (all 134 compared with the starting build). Each demo now carries the messages its history wrote, all marked read as it opens, so its scroll has a past and its seal is quiet.
+- **The Messages key is the one left of 1** (`). Every letter was taken. The scroll button does the same.
+
+### What's new
+- **The scroll on the top bar**, beside the date. Its seal counts the unread messages: red if an alarm is among them, amber for a warning, bronze for news.
+- **The Messages panel**, on the left where a home's panel opens (one of them at a time). It has:
+  - "Waiting on you" at the top: raids and threats you can still pay off, rulers' asks and offers, loan terms waiting on an answer, a vassal arming, an ally's call, a colony in trouble, each going to its page on the map;
+  - filters with their unread counts: All, City, Trade, Greece, War, Crime, Health, Empire, Works;
+  - pinned messages, then the rest by month, newest first, each with its icon, day and title, bold while unread;
+  - a row that opens on a click to show the full words, and is then read;
+  - "Go there" on a message with a place: the city's camera flies to the building or tile, or the map of Greece opens on the city's or site's page;
+  - "Mark unread", a pin, and "Mark all read";
+  - at its foot, which alarms may pop up.
+- **Quieter popups.** Only alarms pop up: raiders in or ashore, a fire, a blockade, a rebellion, and plague when health comes in. Each is a card at the bottom left, one at a time, fading after six seconds (not while the pointer is over it). A click goes to the place. At most three wait their turn, and the rest are in the scroll. Everything else arrives quietly with a soft rustle and a small bell. An alarm rings a bronze bell, except a fire and raiders, which already have their own sounds.
+
+### What to try
+1. #messages — #aftermath's town with the panel open and last season's messages unread. Click War, open "Raiders!", and press Go there.
+2. #raid — let it play. When Sparta's band comes in at the west edge, one card pops up at the bottom left. Everything else that happens goes into the scroll.
+3. #empire — a busy town. Open the scroll (the key left of 1) and try the filters.
+4. #borrow — open the scroll: Corinth's and Athens' loan terms wait on you at the top of the panel, and a click goes to the city's loans.
+5. Any older save — its panel starts empty, and says why.
+
+### What I'd like your eye on
+- **Is the scroll the right weight?** It is small and sits beside the date. The seal's red is the only loud thing about it.
+- **The popups.** Only alarms, six seconds, bottom left. Is that quiet enough, or too quiet? You can turn kinds off at the panel's foot.
+- **What stays under the top bar.** Shortfalls, unguarded risks and a debt you can't meet. Do you miss any of the old lines there, the ship coming in for example?
+- **The titles.** Each message's title is its words up to the first stop. A few read oddly ("Sparta's raiders gather to march on…").
+
+### Known rough edges
+- A raid that sets several fires gives one message per fire, so the scroll can hold a run of "Fire on the west bank" and "Rubble on the west bank". They aren't grouped.
+- The Health filter is empty until health comes (slice 49).
+- A message whose building has since gone has no Go there.
+- The setting for which alarms pop up is kept in this browser. It holds for every town and demo, but not on another computer.
+- On the map of Greece the panel covers the west of the map, as a city's page does; close it to see a city underneath.
+- Four smoke checks fail on this machine, and fail the same way on the starting build: a right-drag turning the view, and hovering over a trireme, the quarry tool and a blockading ship. I left them alone. Clearing a tent at full speed failed once in the full run and passed on both builds when run again.
+
+### Measurements, before and after
+Headless Chromium with software WebGL, on a machine shared with the other lines the whole time, so the times are mostly the load. Before is `53e5bb4`; after is this slice.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 590 in 49 files, all passing | 604 in 50 files, all passing (three timed out in the full run beside the smoke and passed alone) |
+| Download (gzipped) | 4,501 KB: the game 822 KB, the prepared towns 3,679 KB | 4,606 KB: the game 831 KB, the prepared towns 3,775 KB (the towns carry their history's messages) |
+| `#empire`'s save | 273 KB (52 KB gzipped) | 290 KB (55 KB gzipped), with 101 messages |
+| Triangles and draw calls | | the same in every view the measure reached on both builds, `#empire` included (2.09 million and 152 from its view) |
+| `#empire` running | 37.5 ms a frame of update before drawing | 34.5 ms |
+| Every demo | | all 134 prepared towns open, and play 900 ticks on, exactly as at `53e5bb4` apart from their messages |
+
+The measure ran out of its time on both builds before the map of Greece's section, so the map's and the later demos' load times weren't compared side by side.
+
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 
 You picked look 3 from the mock-ups (pixel-crisp: the original's fixed view, its colours and hard pixels) plus the busy workers, and asked for it built now and tried before it goes in. This is that build. It is on its own try-out page; the game at its usual link has not changed and won't until you say yes. Every choice below that you didn't make is mine, from the plan's defaults (`docs/plans/2026-10-25-original-look.md`).

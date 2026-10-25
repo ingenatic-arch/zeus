@@ -118,3 +118,17 @@ At `53e5bb4`, on a loaded machine (four lines building on four cores).
 **Touched outside the line:** `src/game/saves.ts` (calls `mendMessages` after migrating, so a damaged log loads empty instead of refusing the save); in Slice 44 blocks, `state.ts`, `migrate.ts`, `sim.ts`, `commands.ts`, `main.ts`, `demos.ts`, `help.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`; tests whose news moved to the messages (`battle`, `favours`, `raids`, `trade`) or that compare two towns' city state and now leave the log out, as it tells Greece's news (`rivals`, `world`). `status.ts`' `traderLine` no longer asks for a sea route's news when the route has no ship (a test builds such a route by hand).
 
 **MAP_SIZE:** no new uses. A tile place is turned into x and z with the map's own size in `main.ts`.
+
+**Measured** (the machine shared with the other lines throughout, so the times are mostly the load):
+
+| What | Before (`53e5bb4`) | After |
+|---|---|---|
+| Tests | 590 in 49 files, all passing (8 min 25 s) | 604 in 50 files, all passing: 601 in the full run (25 min, the slow smoke running alongside); the 3 that timed out there (a timing check in `culture.test.ts`, one test each in `money.test.ts` and `treasury.test.ts`) pass alone |
+| Build | 63 s with the towns baked | about 4.5 to 9.5 min when the towns rebake (every town now plays its history's messages); 19 s with the towns cached |
+| Download (gzipped) | 4,501 KB: the game 822 KB, the prepared towns 3,679 KB (103 files, the largest 52 KB) | 4,606 KB: the game 831 KB, the prepared towns 3,775 KB (103 files, the largest 55 KB) |
+| `#empire`'s save | 273 KB (52 KB gzipped) | 289 to 290 KB (55 KB gzipped), 101 messages |
+| Triangles and draw calls | every view the measure reached (all the city views to `#empire` and `#messages`'s place in the list) | the same in every one |
+| `#empire` running | 37.5 ms a frame before drawing (7 frames) | 34.5 ms (9 frames) |
+| The demo probe | | all 134 prepared towns open and play 900 ticks the same as at `53e5bb4` but for the log (the old ones migrated from version 37) |
+
+The loosened measure ran out of its 90 minutes on both builds (the starting build late in the frame work, this one in the map's section), so the map's and the later demos' timings weren't compared.
