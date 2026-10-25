@@ -22,6 +22,7 @@ import {
   defenceParts,
   freeMood,
   freeTrade,
+  garrisonComing,
   garrisonHold,
   garrisonOf,
   homeRefusal,
@@ -152,9 +153,13 @@ export function treatyHtml(s: SimState, c: Colony): string {
 /** How it stands against a threat: every part that turns raiders away, and the whole. */
 export function defenceHtml(s: SimState, c: Colony, triOdds: number, triremes: number): string {
   const d = defenceParts(s, c, ownDefence(c), defenceWords(c), triOdds, triremes);
-  if (!d.parts.length) return `<p class="eta no">As it stands nothing turns them away: no triremes, walls or company there.</p>`;
-  const parts = d.parts.map((x) => `${esc(x.why)} (${inTen(x.p)})`).join('; ');
-  return `<p class="eta ${d.p >= 0.5 ? 'sent' : 'no'}">As it stands, ${inTen(d.p)} that they are turned away: ${parts}.</p>`;
+  // (Review of slice 47: a company on its way says so, and what it will add once it lands.)
+  const g = garrisonComing(s, c);
+  const late = !!g && !!g.lands && !!c.threat && c.threat.end === '' && g.lands > c.threat.due;
+  const coming = g ? `<p class="eta ${late ? 'no' : 'sent'}">${esc(cap(companyName(g.c)))} of ${esc(kindWord(g.c.kind))} is on its way${g.lands ? `, landing about ${esc(dayWords(g.lands))}` : ''}: once there it turns them away by itself ${inTen(g.hold)} times${late ? ', but it lands after they come' : ''}.</p>` : '';
+  if (!d.parts.length) return `<p class="eta no">As it stands nothing turns them away: no triremes, walls or company there.</p>${coming}`;
+  const parts = d.parts.map((x) => `${esc(x.why)}, ${inTen(x.p)}`).join('; ');
+  return `<p class="eta ${d.p >= 0.5 ? 'sent' : 'no'}">As it stands, ${inTen(d.p)} that they are turned away: ${parts}.</p>${coming}`;
 }
 
 /** A shipment loading for it: sail now with what is aboard, or call it off. */

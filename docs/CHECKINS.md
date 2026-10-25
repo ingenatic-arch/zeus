@@ -24,12 +24,12 @@ What breaks, or moves:
 
 ### What to try
 1. #colonybase — Nea Naxos' page is open, with Rhodes' 4 ships due about 16 November. Press "Station your 2 triremes off it" under "Its garrison" and look at the threat's odds, then speed up past mid-November: on this day's roll your triremes win and Nea Naxos alone would lose.
-2. #colonybase — this time press "Station the 1st company of hoplites" and close the map. Watch the men march to the road by the trading post, your ship come in (she anchors about 6 October), the boat row them out eight a trip and the ship sail. Once they land, about the end of October and before Rhodes' ships arrive, Nea Naxos' page shows the company holding it and "Strikes from it" (Rhodes among them, with the days from here and from home).
+2. #colonybase — this time press "Station the 1st company of hoplites" and close the map. Watch the men march to the road by the trading post, your ship come in (she anchors about 6 October), the boat row them out eight a trip and the ship sail. Once they land, about 5 November and before Rhodes' ships arrive, Nea Naxos' page shows the company holding it and "Strikes from it" (Rhodes among them, with the days from here and from home).
 3. #colonybase — open your own city (Nea Argos) on the map of Greece for the empire list: three colonies at three stages, with their shares, trade and what is stationed.
 4. #freeally — Nea Thasos talks of freedom. Press "Sign a treaty: let it go free as your ally" in its freedom section: its page becomes your free ally's, and its label reads "your ally".
 
 ### What I'd like your eye on
-- **The pace of stationing.** From the button to holding Nea Naxos is about five or six weeks: 20 days for your ship to come in, about a week of rowing, then a week's sail (Nea Thasos is 17 days' sail). Is that worth waiting for, or should a stationed company be quicker?
+- **The pace of stationing.** From the button to holding Nea Naxos is about seven weeks: 20 days for your ship to come in, about a week of rowing, then about three weeks out of your bay and across to it (Nea Thasos is longer: the company landed there two months after the button). Is that worth waiting for, or should a stationed company be quicker?
 - **The trade's size.** A town of 400 pays you about 133 dr a season in coin on top of its goods. Is that enough to make a colony feel like income?
 - **The militia in the city.** They come ashore at the quay and march to the granary with your soldiers. At the usual zoom they are small red figures; can you pick them out?
 - **The empire list** at the top of your city's page: is it the overview you'd want, or too much text?
@@ -56,6 +56,19 @@ Headless software rendering on a shared, heavily loaded machine (load 27 to 36, 
 | Work before drawing, a frame | `#colonies` 9.9 ms, `#colonyworks` 13.0 ms | 10.4 ms, 12.4 ms; `#colonybase` 8.9 ms |
 
 The ready times swung with the machine's load: `#coast`, which this slice doesn't touch, went from 5.5 s to 9.3 s between the two runs, and the new demos loaded in 4.4 s right after. They need measuring on your laptop.
+
+### What the review changed
+I played the four steps above at 1920 × 1080 in all three looks and went through the new code. These things were wrong and are now fixed:
+- **A strike's report gave the wrong day home.** It counted the fight's days twice instead of the way back. It now names the day the company is back at the colony.
+- **The militia were counted twice.** A colony whose militia were already out against raiders also sailed with your army, and its men counted again in the force's plan. Now men who are out against raiders stay out of the army's count until they are home.
+- **The militia could be sent again and again** against the same raid if they came home early. They are now sent once per raid.
+- **A free ally's page always said nothing had come in yet**, even after its coin had arrived. It now counts its ships and what they brought.
+- **A company whose men all fell abroad stayed "stationed" for ever.** Now it comes home, even with nobody left in it.
+- **After a treaty, the news came in the wrong order** (sailing home before being back from the strike), and the share's news read oddly ("Your colony on Thasos's share is in"). Both now read properly.
+- **The colony's page didn't say when help was coming.** While a company is on its way, the threat's section now says when it lands, the odds once it is there, and whether it lands too late.
+- **Two of your ships in the bay anchored on the same spot**, one on top of the other, so you could only hover one of them. Each now has its own anchorage a little further out.
+
+Still not fixed, for a later slice: the army chip counts the militia and allied companies with your own, and a militia company can be marched like your own. Please judge the anchorages and the "on its way" line by eye.
 
 ## Slice 43 — Colonies that grow up (25 Oct)
 

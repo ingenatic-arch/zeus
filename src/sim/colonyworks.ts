@@ -49,7 +49,7 @@ import { blockaded } from './lanes';
 import { door, roadsBeside } from './rounds';
 // Slice 47: the stores the trading post's roads reach, a shipment called off, and this line's ships at the oars.
 import { nearestReached, roadSearch } from './roads';
-import { militiaOut, militiaWords, passagesFor, passageWords, rowingPassages } from './colonyempire';
+import { bayShips, militiaOut, militiaWords, passagesFor, passageWords, rowingPassages } from './colonyempire';
 import { income } from './treasury';
 import { roomFor } from './stores';
 import { visitorAt } from './routes';
@@ -260,6 +260,8 @@ const ROW_LOADS = 2;
 /** She anchors this far back from the jetty (further out than a colony's share ship, which lies near its end), and to the other side from the settlers' ship first. */
 const ANCHOR_BACK = 12;
 const ANCHOR_ASIDE = [2.6, -2.6, 1.4, -1.4, 0] as const;
+/** (Review of slice 47) How much further out the next ship of this line in the bay at once anchors. */
+const ANCHOR_NEXT = 5;
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
@@ -528,7 +530,12 @@ export function newShip(s: SimState, map: CoastMap, postId: number): Visitor | n
   const path = shipRoute(map, berth);
   if (path.length < 4) return null;
   const L = pathLen(path);
-  const ship: Visitor = { phase: SHIP_COMING, since: s.tick, turned: 1, path, post: postId, stop: Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L)), aside: 0 };
+  // (Review of slice 47: a second ship of this line in your bay at once, a shipment's and a company's say, anchors further out, not on
+  // top of the first, so each is seen and has its own hover.)
+  const taken = bayShips(s).filter((b) => b.ship.phase !== SHIP_LEAVING).map((b) => b.ship.stop * pathLen(b.ship.path));
+  let back = ANCHOR_BACK;
+  while (back < ANCHOR_BACK + 4 * ANCHOR_NEXT && taken.some((d) => Math.abs(L - back - d) < ANCHOR_NEXT / 2)) back += ANCHOR_NEXT;
+  const ship: Visitor = { phase: SHIP_COMING, since: s.tick, turned: 1, path, post: postId, stop: Math.max(0.3, 1 - back / Math.max(1, L)), aside: 0 };
   const at = pointOn(path, ship.stop * L);
   ship.aside = ANCHOR_ASIDE.find((a) => a === 0 || [0.5, 1].every((k) => sailable(map, at.x - at.dz * a * k, at.z + at.dx * a * k))) ?? 0;
   return ship;

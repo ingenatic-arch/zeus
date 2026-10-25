@@ -62,10 +62,10 @@ import type { Colony, Founding } from './colonies';
 // Slice 43.
 import type { Cargo } from './colonyworks';
 // Slice 47: a colonial empire (colonyempire.ts).
-import { shareFrom, type FreeAlly, type Militia, type Passage } from './colonyempire';
+import { freedOf, shareFrom, type FreeAlly, type Militia, type Passage } from './colonyempire';
 import { caravanEntry } from './routes';
 import { MAP_SIZE } from '../map/coast';
-import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
+import { lineLength, wayOf, wayPoints } from '../map/greece';
 import { TILE_ROAD } from './state';
 
 // ---------------------------------------------------------------------------
@@ -871,11 +871,17 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
     col.sent++;
     col.worth += t.worth;
   }
+  // Slice 47 (its review): a free ally's ship counted for its page.
+  const fa = t.colony && !col ? freedOf(s, t.colony) : undefined;
+  if (fa) {
+    fa.sent++;
+    fa.worth += t.worth;
+  }
   // Slice 47: your share of its trade, in coin, comes ashore with its goods.
   if (t.colony && t.coin) income(s, t.coin, 'colonytrade', `from ${shareFrom(s, t.colony)}`);
   const trade = t.colony && t.coin ? `, and ${fmt(t.coin)} dr of its trade into the treasury` : '';
   if (t.colony && t.good < 0) news(w, s.tick, `site:${t.colony}`, `${shareFrom(s, t.colony).replace(/^your/, 'Your')}’s share of its trade is in: ${fmt(t.put)} dr into the treasury`);
-  else if (t.colony) news(w, s.tick, `site:${t.colony}`, `${col?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}${trade}`);
+  else if (t.colony) news(w, s.tick, `site:${t.colony}`, `${shareFrom(s, t.colony).replace(/^your/, 'Your') /* Slice 47: a free ally's by its name */}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}${trade}`);
   else news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}`}${lost}`);
   s.rev++;
 }

@@ -214,6 +214,17 @@ export function garrisonHold(s: SimState, col: Colony): number {
   return c ? Math.round(Math.min(HOLD_MOST, HOLD_PER * mightAway(s, c)) * 100) / 100 : 0;
 }
 
+/** (Review of slice 47) A company on its way out to a colony: who, how often it will turn raiders away once there, and when it lands (0 while it is still at your quay). */
+export function garrisonComing(s: SimState, col: Colony): { c: Company; hold: number; lands: number } | null {
+  const c = garrisonOf(s, col);
+  const p = c ? passageOf(s, c.id) : undefined;
+  if (!c || !p || p.dir !== 'out') return null;
+  const men = p.men.length + (p.phase === 'boarding' ? readyOf(s, c).length : 0);
+  const lane = Math.round(laneTicks(col.site) * shipPace(col));
+  const lands = p.phase === 'sea' ? p.start + p.dur : p.phase === 'leaving' && p.ship ? p.ship.since + leaveTicks(p.ship) + lane : 0;
+  return { c, hold: Math.round(Math.min(HOLD_MOST, HOLD_PER * men * MIGHT[c.kind]) * 100) / 100, lands };
+}
+
 /** How often a company at home would turn raiders away from a colony once stationed there (its men ready now). */
 export const wouldHold = (s: SimState, c: Company): number => Math.round(Math.min(HOLD_MOST, HOLD_PER * readyOf(s, c).length * MIGHT[c.kind]) * 100) / 100;
 
@@ -507,6 +518,8 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
       p.trips++;
     }
     if (!p.men.length && !closed) {
+      // (Review of slice 47: a company with nobody left aboard, all fallen abroad, is home too, not posted for ever.)
+      if (c.away === -1) ashore(s, map, c, p, 0, false);
       leave(s, v);
       p.phase = 'done';
       sendBanner(s, map, c.id, -1);
@@ -698,8 +711,9 @@ function strike(s: SimState, col: Colony, city: CityId): Expedition | null {
 export function stepFromColony(s: SimState, e: Expedition, fought: () => void): void {
   if (e.phase === 'marching' && s.tick >= e.start + e.dur) {
     fought();
-    // (The report's last line: they sail back to the colony, not home.)
-    if (e.report.length) e.report[e.report.length - 1] = `They sail back to ${shareFrom(s, e.from as string)}: there about ${dayWords(s.tick + e.dur * 2)}${e.coin || e.goods ? ', and what they took comes home on your ship' : ''}.`;
+    // (The report's last line: they sail back to the colony, not home: the fight's days, then the voyage back. Review of slice 47:
+    // it said the fight's days twice.)
+    if (e.report.length) e.report[e.report.length - 1] = `They sail back to ${shareFrom(s, e.from as string)}: there about ${dayWords(s.tick + e.dur + strikeTicks(s, e.from as string, e.city))}${e.coin || e.goods ? ', and what they took comes home on your ship' : ''}.`;
     e.a0 = 1;
     e.a1 = 1;
   } else if (e.phase === 'fighting' && s.tick >= e.start + e.dur) {
@@ -719,10 +733,7 @@ function backAtColony(s: SimState, e: Expedition): void {
   const site = e.from as string;
   const c = companyOf(s, e.companies[0] ?? 0);
   const col = colonyOf(s, site);
-  if (c) {
-    c.away = -1;
-    if (!col || col.garrison !== c.id) sailHome(s, c, site, col ? '' : `: ${siteName(site)} is yours no more`);
-  }
+  if (c) c.away = -1;
   const name = cityName(e.city);
   if (e.coin > 0) income(s, e.coin, 'collected', `from ${name}`);
   let put = 0;
@@ -743,6 +754,8 @@ function backAtColony(s: SimState, e: Expedition): void {
   }
   const haul = [e.coin > 0 ? `${fmt(e.coin)} dr into the treasury` : '', put > 0 ? `${fmt(put)} ${WARE_NAMES[TRADE_GOODS[e.good]]} into the stores` : ''].filter(Boolean).join(' and ');
   news(s.world, s.tick, siteKey(site), `${c ? cap(companyName(c)) : 'Your company'} is back at ${shareFrom(s, site)} from ${name}${haul ? `, and sends home ${haul}` : ''}`);
+  // (Its colony lost or let go while it was out: it sails home. Review of slice 47: told after it is back, not before.)
+  if (c && (!col || col.garrison !== c.id)) sailHome(s, c, site, col ? '' : freedOf(s, site) ? `: ${shareFrom(s, site)} is free by treaty` : `: ${siteName(site)} is yours no more`);
   s.rev++;
 }
 
@@ -788,15 +801,21 @@ export function militiaWhy(c: Colony): string {
 /** How many militiamen a colony would send. */
 export const militiaMen = (s: SimState, site: string): number => militiaReady(s).find((m) => m.site === site)?.men ?? 0;
 
+/** (Review of slice 47) The militia that could sail now: not already out, to your aid at home or with your army (one call at a time each). */
+const militiaFree = (s: SimState): Array<{ site: string; name: string; men: number }> => {
+  const out = militiaOut(s);
+  return militiaReady(s).filter((m) => !out.some((x) => x.site === m.site));
+};
+
 /** The militia's might with an expedition of yours (counted at the fight: expeditions.ts asks). */
 export const militiaMight = (s: SimState, e: Expedition): number => Math.round((s.empire.militia ?? []).filter((m) => m.exp === e.id).reduce((a, m) => a + m.men * MILITIA_MIGHT, 0));
-/** The militia's might that would sail with a full force now (for the plan). */
-export const militiaMightNow = (s: SimState): number => Math.round(militiaReady(s).reduce((a, m) => a + m.men * MILITIA_MIGHT, 0));
+/** The militia's might that would sail with a full force now (for the plan; not those already out). */
+export const militiaMightNow = (s: SimState): number => Math.round(militiaFree(s).reduce((a, m) => a + m.men * MILITIA_MIGHT, 0));
 
 /** An expedition of yours sets out to a war (a full force, a conquest, an ally's war): the militia sail to meet it (expeditions.ts calls this). */
 export function militiaSail(s: SimState, e: Expedition): void {
   if (e.from || (e.kind !== 'force' && !e.aim)) return;
-  const xs = militiaReady(s);
+  const xs = militiaFree(s);
   if (!xs.length) return;
   const e2 = s.empire;
   if (!e2.militia) e2.militia = [];
@@ -811,15 +830,19 @@ export function militiaFought(s: SimState, e: Expedition): string {
   return `The militia of ${listWords(xs.map((m) => `${m.name} (${m.men} men)`))} fought beside them, strength ${militiaMight(s, e)} of the ${e.ours}.`;
 }
 
-/** Each day: a threat or a band against your city has the militia sail (once a raid for each colony). */
+/** A raid against your city that stands: threatened, gathering, on its way or raiding. */
+const raidStands = (r: SimState['world']['raids'][number] | undefined): boolean => !!r && r.ended === 0 && (r.phase === 'threat' || r.phase === 'gathering' || r.phase === 'marching' || r.phase === 'raiding');
+
+/** Each day: a threat or a band against your city has the militia sail (once a raid for each colony, and not while they are out already). */
 function sendMilitia(s: SimState): void {
-  const raids = s.world.raids.filter((r) => r.ended === 0 && (r.phase === 'threat' || r.phase === 'gathering' || r.phase === 'marching' || r.phase === 'raiding'));
+  const raids = s.world.raids.filter(raidStands);
   if (!raids.length) return;
   const e = s.empire;
   if (!e.militia) e.militia = [];
   for (const r of raids) {
-    for (const m of militiaReady(s)) {
-      if (e.militia.some((x) => x.site === m.site && (x.raid === r.id || (x.raid > 0 && x.phase !== 'done')))) continue;
+    for (const m of militiaFree(s)) {
+      // (Review of slice 47: a militia home again, done, is still remembered while its raid stands, so it is not sent again and again.)
+      if (e.militia.some((x) => x.site === m.site && x.raid === r.id)) continue;
       const dur = Math.round(laneTicks(m.site) * shipPace(colonyOf(s, m.site)));
       e.militia.push({ id: e.nextId++, site: m.site, name: m.name, raid: r.id, exp: 0, men: m.men, phase: 'sea', ship: null, post: 0, start: s.tick, dur, company: 0, ids: [], line: '' });
       news(s.world, s.tick, siteKey(m.site), `${m.name} sends its militia, ${m.men} men, to help you against ${whose(r.city)} ${r.loan ? 'army' : 'raiders'}: in your bay about ${dayWords(s.tick + dur + SAIL_IN)}, ashore at your quay`, true);
@@ -1126,7 +1149,9 @@ export function stepColonyEmpire(s: SimState, map: CoastMap): void {
   for (const p of ps) if (p.phase !== 'done') stepPassage(s, map, p);
   if (ps.some((p) => p.phase === 'done' && (!p.ship || p.ship.phase !== SHIP_LEAVING || s.tick >= p.ship.since + leaveTicks(p.ship)))) e.passages = ps.filter((p) => p.phase !== 'done' || (!!p.ship && p.ship.phase === SHIP_LEAVING && s.tick < p.ship.since + leaveTicks(p.ship)));
   for (const m of ms) if (m.phase !== 'done') stepMilitia(s, map, m);
-  if (ms.some((m) => m.phase === 'done')) e.militia = ms.filter((m) => m.phase !== 'done');
+  // (Review of slice 47: one against a raid is kept, done, while its raid stands: sendMilitia sends a colony's men once a raid.)
+  const keep = (m: Militia): boolean => m.phase !== 'done' || (m.raid > 0 && raidStands(s.world.raids.find((r) => r.id === m.raid)));
+  if (ms.some((m) => !keep(m))) e.militia = ms.filter(keep);
   if (s.tick % TICKS_PER_DAY !== 0) return;
   if (e.colonies.length || fs.length) sendMilitia(s);
   for (const f of fs) if (s.tick >= f.next) freeShip(s, f);

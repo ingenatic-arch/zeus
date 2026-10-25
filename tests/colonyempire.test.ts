@@ -23,6 +23,7 @@ import { SIM_STATE_VERSION, TILE_EMPTY, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
 import { cityOf } from '../src/sim/world';
 import { demoSim } from './prepared';
+import { dayWords } from '../src/sim/favours';
 
 const made: Record<string, string> = {};
 const fresh = (name: string): Sim => {
@@ -151,7 +152,11 @@ describe('a strike from a colony', () => {
     expect(e.dur).toBe(strikeTicks(s, 'naxos', 'rhodes'));
     sim.run(TICKS_PER_DAY);
     expect(t.end).toBe('off');
+    // (Review of slice 47: the report's day back at the colony is the day it is back.)
+    expect(until(sim, () => e.phase !== 'marching', TICKS_PER_MONTH)).toBe(true);
+    const said = e.report[e.report.length - 1];
     expect(until(sim, () => e.phase === 'done', 3 * TICKS_PER_MONTH)).toBe(true);
+    expect(said).toContain(`there about ${dayWords(s.tick)}`);
     expect(c.away).toBe(-1);
     expect(stationedThere(s, naxos)).toBe(c);
     if (e.won) expect(s.money).toBeGreaterThan(before);
@@ -209,6 +214,23 @@ describe('the militia', () => {
     expect(s.army.companies.some((x) => x.militia)).toBe(false);
   }, 240000);
 
+  it('out against a raid, they neither sail with your army too nor are sent twice (review of slice 47)', () => {
+    const { sim, s } = base();
+    const sparta = cityOf(s.world, 'sparta');
+    sparta.memories.push({ kind: 'staged', why: 'for the test', amount: -80, tick: s.tick, fade: TICKS_PER_YEAR });
+    const r = threaten(s, sim.map, sparta, 'for the test');
+    send(sim, { type: 'answer', deal: r.deal, act: 'refuse' });
+    sim.run(TICKS_PER_DAY);
+    expect(s.empire.militia.filter((m) => m.site === 'thasos').length).toBe(1);
+    expect(militiaMightNow(s)).toBe(0);
+    const m = s.empire.militia[0];
+    // (Home again before the raid is over, say they broke: not sent again while it stands.)
+    m.phase = 'done';
+    sim.run(2 * TICKS_PER_DAY);
+    expect(s.empire.militia.filter((x) => x.site === 'thasos' && x.phase !== 'done').length).toBe(0);
+    expect(militiaMightNow(s)).toBeGreaterThan(0);
+  });
+
   it('in your wars: a full force’s plan counts their might, a raid’s does not', () => {
     const { s } = base();
     expect(militiaMightNow(s)).toBeGreaterThan(0);
@@ -239,6 +261,9 @@ describe('a treaty for freedom', () => {
     expect(lines(t).some((x) => /You have signed a treaty with Nea Thasos: it stands free/.test(x))).toBe(true);
     const coin = (): number => t.empire.tribute.filter((x) => x.colony === 'thasos' && x.good < 0 && x.phase === 'done').length;
     expect(until(f, () => coin() > 0, 6 * TICKS_PER_MONTH)).toBe(true);
+    // (Review of slice 47: its page counts the ships that have come in.)
+    expect(ally.sent).toBeGreaterThanOrEqual(coin());
+    expect(ally.worth).toBeGreaterThan(0);
     ledgerAddsUp(t);
   }, 240000);
 });

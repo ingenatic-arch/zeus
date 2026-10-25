@@ -156,3 +156,14 @@ The line's own files changed:
 - The measure, side by side with `5586938` (a slimmed copy: download, the colony demos' load, triangles, draw calls and frame work): see the check-in's table.
 - `#colonybase` and `#freeally` were walked at 1920 × 1080 in the original look, `-modern` and `-plain`.
 
+**Review.** The reviewer played the four steps in all three looks and fixed these, all in the line's own files (`colonyempire.ts`, `colonyworks.ts`, `vassals.ts`, `ui/colonyempire.ts`) and the tests. Nothing new was touched outside the line.
+- A strike's report now gives the day the company is back: the fight plus the way back, not the fight twice.
+- Militia out against a raid are left out of `militiaMightNow` and `militiaSail` (`militiaFree`). A finished militia record is kept while its raid stands, so the militia isn't sent twice to one raid.
+- A free ally's `sent` and `worth` are counted when its ship comes ashore. The share's news uses `shareFrom`.
+- A passage that brings nobody home unposts the company.
+- `backAtColony` posts its news before sailing home after a loss or treaty.
+- The defence section names a company on its way (`garrisonComing`): when it lands, its odds, and whether that is after the threat.
+- A new ship in the bay anchors `ANCHOR_NEXT` further out when another ship of the pool is already at that spot.
+- New and changed tests: the strike's report date, the militia not counted twice or sent twice, and the free ally's count.
+- Checks after the review: typecheck clean; 623 tests in 51 files (one new). The full run had one time-bound failure, `culture`'s "quickly" check, which passes rerun alone, as do `colonyempire` and `colonyworks`. The four steps were walked again in the original look, with `#colonybase` and `#freeally` in `-modern` and `-plain`.
+- The smoke blocks for slices 28, 34, 37, 40, 43 and 47 pass, except the known `#seized` and `#empire` thieves checks. The build is clean. The measure is unchanged in triangles and draw calls, and the game is 1 KB larger. Frame work is `#colonybase` 8.9 ms as before; `#colonies` was 14.3 ms on a machine at load 31, so it needs a quieter run.
