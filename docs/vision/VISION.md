@@ -94,3 +94,4 @@ Oliver first: a single-player game made to his taste. Getting it ready for other
 | Which other games should it borrow from? (15 Oct) | Zeus and Poseidon at heart, plus Pharaoh: A New Era, Crusader Kings and Anno. |
 | Is the vision right, with Claude's pillar order? (15 Oct) | Yes, as written. |
 | What should it look like? (25 Oct) | Closer to the original Zeus: its fixed isometric view, its colours and hard pixels, with people visibly at work at every work and service building. Tried on its own page before it goes into the game. |
+| How should a new game choose its land? (25 Oct) | A new-game screen with a preview: a kind of land, a size and a seed, with the original bay kept as one choice. The city's place in Greece stays the same. |
