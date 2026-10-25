@@ -90,7 +90,7 @@ export class MonumentsView {
   }
 
   /** Where a building of these kinds stands: its middle, its floor (the top of the highest ground under it), its turn and how deep its pad goes. */
-  private frameOf(s: SimState, b: Building): Frame {
+  frameOf(s: SimState, b: Building): Frame {
     const key = b.id;
     let f = this.frames.get(key);
     const yaw = this.yawOf(s, b);

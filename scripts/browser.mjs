@@ -6,6 +6,8 @@ const CANDIDATES = [
   process.env.CHROMIUM_PATH,
   '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
   '/opt/pw-browsers/chromium/chrome-linux/chrome',
+  '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome',
+  '/opt/pw-browsers/chromium',
 ].filter(Boolean);
 
 export async function launch() {

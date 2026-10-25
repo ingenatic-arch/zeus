@@ -20,6 +20,7 @@ import { Walkers } from './walkers';
 import { WallsView } from './walls';
 import { Works } from './works';
 import { Workfolk } from './workfolk';
+import { Jobfolk } from './jobfolk';
 // Slice 35: the masons' yards and the monuments.
 import { MonumentsView } from './monuments';
 
@@ -37,6 +38,8 @@ export class CityView {
   readonly walkers: Walkers;
   readonly works: Works;
   readonly workfolk: Workfolk;
+  /** People at work in the works and service buildings (25 Oct). */
+  readonly jobfolk: Jobfolk;
   /** The masons' yards and the monuments, at every stage of their building (slice 35). */
   readonly monuments: MonumentsView;
   readonly bridges: Bridges;
@@ -88,6 +91,11 @@ export class CityView {
     // Slice 35: the monuments, and where their builders and the games' visitors stand on them.
     this.monuments = new MonumentsView(map);
     this.workfolk.stand = (st, b, x, z) => this.monuments.standAt(st, b, x, z);
+    this.jobfolk = new Jobfolk(map, this.folk, {
+      works: (st, b) => this.works.floorOf(st, b),
+      monuments: (st, b) => this.monuments.frameOf(st, b),
+    });
+    this.jobfolk.ground = this.walkers.ground;
     this.army.ground = this.walkers.ground;
     this.group.add(this.streets.group, this.homes.group, this.works.group, this.bridges.group, this.walls.group, this.walkers.group, this.animals.group, this.army.group, this.folk.group, this.ship.group, this.fleet.group, this.monuments.group);
   }
@@ -108,7 +116,7 @@ export class CityView {
     this.walkers.update(s, alpha, time);
     this.workfolk.miners(s, alpha);
     // People at work in the works and service buildings (25 Oct).
-    this.workfolk.busy(s, alpha);
+    this.jobfolk.update(s, alpha);
     this.animals.update(s, alpha, time);
     this.army.update(s, alpha, time);
     this.folk.end();

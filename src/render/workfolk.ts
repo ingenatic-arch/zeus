@@ -29,10 +29,10 @@ import { leg, mergeTinted, type TPart } from './walkers';
  * by the sim's clock (so they stop when the game is paused).
  */
 
-type V3 = [number, number, number];
+export type V3 = [number, number, number];
 
 /** A rod from a to b (radius r at a, r2 at b). */
-function rod(a: V3, b: V3, r: number, color: string, r2 = r, tint = false): TPart {
+export function rod(a: V3, b: V3, r: number, color: string, r2 = r, tint = false): TPart {
   const va = new THREE.Vector3(...a);
   const vb = new THREE.Vector3(...b);
   const len = Math.max(1e-4, va.distanceTo(vb));
@@ -42,11 +42,11 @@ function rod(a: V3, b: V3, r: number, color: string, r2 = r, tint = false): TPar
   return { geo: g, color, tint };
 }
 
-const SHOULDER = 0.3;
-const ARM_Z = 0.068;
+export const SHOULDER = 0.3;
+export const ARM_Z = 0.068;
 
 /** A working man facing +x: legs, a short tunic (the tinted part) belted, his head and a cap or bare hair. */
-function body(cap: string | null, apron: string | null): TPart[] {
+export function body(cap: string | null, apron: string | null): TPart[] {
   const parts: TPart[] = [
     leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
     leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
@@ -60,10 +60,10 @@ function body(cap: string | null, apron: string | null): TPart[] {
 }
 
 /** Both arms from the shoulders to the hands (one hand a little behind the other on a haft). */
-const arms = (h1: V3, h2: V3): TPart[] => [rod([0, SHOULDER, ARM_Z], h1, 0.016, PAL.skin, 0.014), rod([0, SHOULDER, -ARM_Z], h2, 0.016, PAL.skin, 0.014)];
+export const arms = (h1: V3, h2: V3): TPart[] => [rod([0, SHOULDER, ARM_Z], h1, 0.016, PAL.skin, 0.014), rod([0, SHOULDER, -ARM_Z], h2, 0.016, PAL.skin, 0.014)];
 
 /** A pick (or a mattock) held at `hand`, its haft out to `tip`, the iron head across the tip, pointing `point` (unit, in xy). */
-function pick(hand: V3, tip: V3, point: [number, number]): TPart[] {
+export function pick(hand: V3, tip: V3, point: [number, number]): TPart[] {
   const [px, py] = point;
   return [
     rod(hand, tip, 0.008, PAL.wood),
@@ -81,7 +81,7 @@ function axe(hand: V3, tip: V3, edge: [number, number]): TPart[] {
 }
 
 /** Unit vector in xy. */
-const unit = (x: number, y: number): [number, number] => {
+export const unit = (x: number, y: number): [number, number] => {
   const l = Math.hypot(x, y) || 1;
   return [x / l, y / l];
 };
@@ -245,7 +245,7 @@ function timberCart(): THREE.BufferGeometry {
 // Slice 35: the masons' builders, the ox carts of materials for the monuments, and the games' visitors.
 
 /** A mallet held at `hand`, its haft out to `tip`, the wooden head across it. */
-function mallet(hand: V3, tip: V3): TPart[] {
+export function mallet(hand: V3, tip: V3): TPart[] {
   const head = new THREE.CylinderGeometry(0.028, 0.028, 0.08, 6).rotateX(Math.PI / 2).translate(tip[0], tip[1], tip[2]);
   return [rod(hand, tip, 0.007, PAL.wood), { geo: head, color: PAL.woodDark }];
 }
@@ -321,25 +321,12 @@ function visitor(pose: 'walk' | 'sit' | 'cheer', woman: boolean): THREE.BufferGe
   return mergeTinted(parts);
 }
 
-/** Mock-ups (classicLab.ts busy): a worker walking, arms swinging (two strides), a basket on the head or not. */
-function strider(stride: boolean, basket: boolean): THREE.BufferGeometry {
-  const parts = body(null, null);
-  const a = stride ? 0.07 : -0.07;
-  if (basket) parts.push(rod([0, SHOULDER, ARM_Z], [0.0, 0.47, 0.05], 0.016, PAL.skin, 0.014), { geo: new THREE.CylinderGeometry(0.075, 0.055, 0.06, 7).translate(0, 0.46, 0), color: PAL.basket });
-  else parts.push(rod([0, SHOULDER, ARM_Z], [a, 0.17, 0.09], 0.016, PAL.skin, 0.014));
-  parts.push(rod([0, SHOULDER, -ARM_Z], [-a, 0.17, -0.09], 0.016, PAL.skin, 0.014));
-  return mergeTinted(parts);
-}
-
 const BUILDER_TUNIC = col('#a99f8c');
 const FESTIVAL = ['#c0563a', '#3f6f9a', '#d2a640', '#e9e0cc', '#5f8a4a', '#7d4a6a'].map((c) => col(c));
 
 // ---------------------------------------------------------------------------
 
 const QUARRY_TUNIC = col('#bdb4a1');
-/** Mock-ups (classicLab.ts busy): the works with people at them, and those levelled to their highest ground (as Works does). */
-const BUSY: ReadonlySet<string> = new Set(['farm', 'grove', 'press', 'dairy', 'vineyard', 'winery', 'storehouse', 'granary', 'pasture', 'armoury', 'shipyard']);
-const BUSY_HIGH: ReadonlySet<string> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'armoury', 'shipyard']);
 const MINER_TUNIC = col('#7a604a');
 const LOGGER_TUNICS = ['#6d6b3c', '#7b5b3a', '#5f6a4a'].map((c) => col(c));
 
@@ -369,9 +356,6 @@ export class Workfolk {
   private readonly builderOut: Look;
   private readonly wagons: [Look, Look, Look];
   private readonly visitors: Record<'walk' | 'sit' | 'cheer', [Look, Look]>;
-  // Mock-ups (classicLab.ts busy).
-  private readonly strides: [Look, Look];
-  private readonly baskets: [Look, Look];
   /** How high someone stands at a point of a monument (its steps, its seats): set by the city view. */
   stand: ((s: SimState, b: Building, x: number, z: number) => number | null) | null = null;
   private readonly m = new THREE.Matrix4();
@@ -409,8 +393,6 @@ export class Workfolk {
     this.strike = [small(builderStrike(true)), small(builderStrike(false))];
     this.builderOut = small(builderWalk());
     this.wagons = [big(wagon(null)), big(wagon('marble')), big(wagon('bronze'))];
-    this.strides = [small(strider(true, false)), small(strider(false, false))];
-    this.baskets = [small(strider(true, true)), small(strider(false, true))];
     this.visitors = {
       walk: [small(visitor('walk', false)), small(visitor('walk', true))],
       sit: [small(visitor('sit', false)), small(visitor('sit', true))],
@@ -687,116 +669,6 @@ export class Workfolk {
           this.c.copy(MINER_TUNIC).multiplyScalar(-1);
           this.crank[this.raised(now, seed, 8) ? 0 : 1].push(this.m, this.c);
         }
-      }
-    }
-  }
-
-  /**
-   * Mock-ups (classicLab.ts busy): the works' people at their jobs, drawn
-   * from how well each is staffed (not walkers of the sim), as the miners
-   * are: hoeing the fields and threshing, beating the olives down, at the
-   * press beam and the crushing mill, picking grapes, porters with barrows
-   * and baskets, a shepherd round the fold, smiths at the anvil.
-   */
-  busy(s: SimState, alpha: number): void {
-    const now = s.tick + alpha;
-    for (const b of s.buildings) {
-      const kind = b.kind as string;
-      if (!BUSY.has(kind)) continue;
-      const rate = rateOf(b);
-      if (rate <= 0) continue;
-      const { y, yaw } = this.levelOf(s, b, BUSY_HIGH.has(kind));
-      const half = footSide(b) / 2;
-      const cx = b.x + half;
-      const cz = b.z + half;
-      const c = Math.cos(yaw);
-      const sn = Math.sin(yaw);
-      const at = (lx: number, lz: number): [number, number] => [cx + lx * c + lz * sn, cz - lx * sn + lz * c];
-      /** A figure standing at a spot, facing local angle `face` (0: +x), swinging a tool (two looks in turn). */
-      const work = (lx: number, lz: number, face: number, looks: [Look, Look], tunic: THREE.Color, seed: number, stroke = STROKE): void => {
-        const [x, z] = at(lx, lz);
-        this.place(x, Math.max(y, this.ground(x, z)) + 0.01, z, yaw + face, 0.92);
-        this.c.copy(tunic).multiplyScalar(-1);
-        looks[this.raised(now, b.id * 7 + seed, stroke) ? 0 : 1].push(this.m, this.c);
-      };
-      /** A figure walking to and fro between two spots (a pause at each end), or round a ring when `ring` is set. */
-      const walk = (a: [number, number], bb: [number, number], looks: [Look, Look], tunic: THREE.Color, seed: number, T = 60, ring = 0): void => {
-        const f = ((now + hash2(b.id, seed, 3450) * T) % T) / T;
-        let lx: number;
-        let lz: number;
-        let face: number;
-        let moving = true;
-        if (ring > 0) {
-          const t = f * Math.PI * 2;
-          lx = a[0] + Math.cos(t) * ring;
-          lz = a[1] + Math.sin(t) * ring;
-          face = Math.atan2(-Math.cos(t), -Math.sin(t));
-        } else {
-          const out = f < 0.5;
-          const g = out ? f * 2 : (f - 0.5) * 2;
-          const p = Math.min(1, Math.max(0, (g - 0.1) / 0.8));
-          moving = p > 0 && p < 1;
-          const k = out ? p : 1 - p;
-          lx = a[0] + (bb[0] - a[0]) * k;
-          lz = a[1] + (bb[1] - a[1]) * k;
-          face = Math.atan2(-(bb[1] - a[1]) * (out ? 1 : -1), (bb[0] - a[0]) * (out ? 1 : -1));
-        }
-        const [x, z] = at(lx, lz);
-        const step = Math.floor(now / 3 + seed) % 2;
-        this.place(x, Math.max(y, this.ground(x, z)) + 0.02, z, yaw + face, 0.92);
-        this.c.copy(tunic);
-        if (!moving) this.c.multiplyScalar(-1);
-        looks[moving ? step : 0].push(this.m, this.c);
-      };
-      const n = Math.max(1, Math.min(4, Math.round(rate * 4)));
-      const T0 = LOGGER_TUNICS[b.id % 3];
-      const T1 = LOGGER_TUNICS[(b.id + 1) % 3];
-      const hoe: [Look, Look] = [this.pickUp, this.pickDown];
-      switch (kind) {
-        case 'farm':
-          // Reaping along the front of the field (the wheat hides anyone further in).
-          work(0.62, -0.75, Math.PI, hoe, T0, 1, 12);
-          if (n > 1) work(0.62, 0.62, Math.PI, hoe, T1, 2, 12);
-          if (n > 2) walk([0.98, 0.98], [0, 0], this.strides, QUARRY_TUNIC, 3, 40, 0.24);
-          if (n > 3) walk([0.6, 0.1], [0.6, -0.6], this.baskets, T0, 4, 50);
-          break;
-        case 'grove':
-          work(-0.7, 0.05, Math.PI, this.strike, T0, 1, 9);
-          if (n > 1) work(0.25, -0.5, Math.PI, this.strike, T1, 2, 9);
-          if (n > 2) walk([-0.55, -0.95], [0.75, -0.95], this.baskets, QUARRY_TUNIC, 3, 70);
-          if (n > 3) work(0.6, 1.05, 0, this.strike, T0, 4, 9);
-          break;
-        case 'press':
-          work(0.2, 1.2, Math.PI, this.crank, T0, 1, 10);
-          if (n > 1) walk([0.62, -0.62], [0, 0], this.strides, T1, 2, 48, 0.42);
-          if (n > 2) walk([1.0, 0.2], [1.0, -0.9], this.baskets, QUARRY_TUNIC, 3, 60);
-          break;
-        case 'dairy':
-          work(-0.25, -0.95, -Math.PI / 2, [this.lever, this.lever], T0, 1);
-          if (n > 1) walk([0.4, 0.1], [-0.6, 0.1], this.barrow, T1, 2, 64);
-          break;
-        case 'vineyard':
-          work(-0.95, -0.7, 0, hoe, T0, 1, 14);
-          if (n > 1) work(-0.1, 0.0, Math.PI, hoe, T1, 2, 14);
-          if (n > 2) walk([-1.0, 0.7], [0.3, 0.7], this.baskets, QUARRY_TUNIC, 3, 70);
-          break;
-        case 'winery':
-          walk([0.4, -0.55], [0, 0], this.strides, T0, 1, 24, 0.16);
-          if (n > 1) walk([1.0, 0.8], [0.0, 0.8], this.barrow, T1, 2, 60);
-          break;
-        case 'storehouse':
-        case 'granary':
-          walk([1.3, 0.0], [0.0, 0.0], this.barrow, T0, 1, 56);
-          if (n > 1) walk([1.3, 0.35], [0.2, 0.6], this.baskets, T1, 2, 66);
-          break;
-        case 'pasture':
-          walk([-0.5, 0.0], [0, 0], this.strides, T0, 1, 240, 1.0);
-          break;
-        case 'armoury':
-        case 'shipyard':
-          work(0.55, 0.6, Math.PI, this.strike, T0, 1, 6);
-          if (n > 1) work(0.95, 0.9, -Math.PI / 2, this.strike, T1, 2, 7);
-          break;
       }
     }
   }

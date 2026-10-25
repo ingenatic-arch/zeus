@@ -1593,6 +1593,53 @@ export class Works {
 
   /** What a building looks like now: its facing and the state of its crop or stock. */
   /** Which way a building faces: its road (local +x towards it), or for the trading post, its jetty and the sea. */
+  /**
+   * A building's frame: its middle, its floor (at the lowest of its footprint's middle so nothing floats, or as its kind
+   * is levelled), and its turn to face its road. (25 Oct: the people at work stand in it, jobfolk.ts.)
+   */
+  floorOf(s: SimState, b: Building): { x: number; y: number; z: number; yaw: number } {
+    const map = this.map;
+    const half = footSide(b) / 2;
+    const cx = b.x + half;
+    const cz = b.z + half;
+    const yaw = this.yawOf(s, b);
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    /** The lowest (or highest) ground under a box at (lx, lz) of half-sizes (hx, hz) in the frame: its middle, corners and edge middles. */
+    const lowest = (lx: number, lz: number, hx: number, hz: number, high = false): number => {
+      let y = high ? -Infinity : Infinity;
+      for (const ax of [-1, 0, 1]) {
+        for (const az of [-1, 0, 1]) {
+          const x = lx + ax * hx;
+          const z = lz + az * hz;
+          const h = map.heightAt(cx + x * c + z * sn, cz - x * sn + z * c);
+          y = high ? Math.max(y, h) : Math.min(y, h);
+        }
+      }
+      return y;
+    };
+    const H = half - 0.05;
+    let y: number;
+    const foot = MAIN_FOOT[b.kind];
+    const high = HIGH_FOOT.has(b.kind);
+    if (b.kind === 'quarry') {
+      // (Slice 32: its front floor on the top of the ground under it, its bench at the face stepping up from it.)
+      y = quarryLevels((x, z) => map.heightAt(x, z), b, yaw).front - 0.01;
+    } else if (foot) {
+      // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
+      y = lowest((foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
+    } else if (MID_FOOT.has(b.kind)) {
+      y = (lowest(0, 0, H, H) + lowest(0, 0, H, H, true)) / 2;
+    } else if (high) {
+      y = lowest(0, 0, H, H, true);
+    } else {
+      y = map.heightAt(cx, cz);
+      const d = half - 0.5;
+      for (const [dx, dz] of [[-d, -d], [d, -d], [-d, d], [d, d]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
+    }
+    return { x: cx, y: y + 0.01, z: cz, yaw };
+  }
+
   private yawOf(s: SimState, b: Building): number {
     if (b.kind === 'trading' || b.kind === 'shipyard') {
       const berth = berthOf(this.map, b);
@@ -1864,36 +1911,14 @@ export class Works {
     const frame = (b: Building): { x: number; y: number; z: number; yaw: number; k: number } => {
       let f = frames.get(b.id);
       if (f) return f;
-      const half = footSide(b) / 2;
-      const cx = b.x + half;
-      const cz = b.z + half;
-      const yaw = this.yawOf(s, b);
-      const H = half - 0.05;
-      let y: number;
-      const foot = MAIN_FOOT[b.kind];
-      const high = HIGH_FOOT.has(b.kind);
-      if (b.kind === 'quarry') {
-        // (Slice 32: its front floor on the top of the ground under it, its bench at the face stepping up from it.)
-        y = quarryLevels((x, z) => map.heightAt(x, z), b, yaw).front - 0.01;
-      } else if (foot) {
-        // Levelled to the lowest (or highest) ground under its main building only (its yard pieces stand on their own).
-        y = lowest(cx, cz, yaw, (foot[0] + foot[2]) / 2, (foot[1] + foot[3]) / 2, (foot[2] - foot[0]) / 2, (foot[3] - foot[1]) / 2, high);
-      } else if (MID_FOOT.has(b.kind)) {
-        y = (lowest(cx, cz, yaw, 0, 0, H, H) + lowest(cx, cz, yaw, 0, 0, H, H, true)) / 2;
-      } else if (high) {
-        y = lowest(cx, cz, yaw, 0, 0, H, H, true);
-      } else {
-        y = map.heightAt(cx, cz);
-        const d = half - 0.5;
-        for (const [dx, dz] of [[-d, -d], [d, -d], [-d, d], [d, d]]) y = Math.min(y, map.heightAt(cx + dx, cz + dz));
-      }
+      const fl = this.floorOf(s, b);
       const t0 = this.rising.get(b.id);
       let k = 1;
       if (t0 !== undefined) {
         const t = Math.min(1, (this.time - t0) / RISE_SECONDS);
         k = t < 1 ? Math.max(0.02, 1 - Math.pow(1 - t, 3) + Math.sin(t * Math.PI) * 0.1) : 1;
       }
-      f = { x: cx, y: y + 0.01, z: cz, yaw, k };
+      f = { ...fl, k };
       frames.set(b.id, f);
       return f;
     };
