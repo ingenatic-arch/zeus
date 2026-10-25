@@ -265,6 +265,33 @@ describe('the prison', () => {
     expect(runners.every((w) => w.back)).toBe(true);
     ledgerAddsUp(s);
   });
+
+  it('#jailbreak with a second prison built: the guards walk the overflow there, the unrest falls, and nobody breaks out', () => {
+    const sim = demoSim('jailbreak');
+    const s = sim.state;
+    const first = s.buildings.find((b) => b.kind === 'prison')!;
+    const j = s.crime.jails.find((x) => x.at === first.id)!;
+    // Another prison beside a road near the first (the first spot that takes one).
+    const roads = s.tiles.map((v, t) => (v === -1 ? t : -1)).filter((t) => t >= 0 && Math.abs((t % size) - first.x) + Math.abs(Math.floor(t / size) - first.z) < 20);
+    for (const t of roads) {
+      if (s.buildings.filter((b) => b.kind === 'prison').length > 1) break;
+      for (const [dx, dz] of [[1, 0], [-3, 0], [0, 1], [0, -3]]) {
+        sim.enqueue({ type: 'build', kind: 'prison', at: [t + dz * size + dx] });
+        sim.flush();
+        if (s.buildings.filter((b) => b.kind === 'prison').length > 1) break;
+      }
+    }
+    const second = s.buildings.find((b) => b.kind === 'prison' && b !== first)!;
+    expect(second).toBeDefined();
+    expect(until(sim, () => prisoners(s, second).length > 0, 2 * TICKS_PER_DAY)).toBe(true);
+    expect(prisoners(s, first).length).toBeLessThanOrEqual(CELLS);
+    expect(s.crime.news.some((n) => n.kind === 'unrest' && /walked .+ to the prison/.test(n.line))).toBe(true);
+    const was = j.unrest;
+    sim.run(15 * TICKS_PER_DAY);
+    expect(s.crime.news.some((n) => n.kind === 'breakout')).toBe(false);
+    expect(j.unrest).toBeLessThan(was);
+    ledgerAddsUp(s);
+  });
 });
 
 describe('the crime rate', () => {

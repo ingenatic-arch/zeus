@@ -893,6 +893,24 @@ function stepPrisons(s: SimState, map: CoastMap): void {
   const before = c.jails.length;
   c.jails = c.jails.filter((j) => findBuilding(s, j.at)?.kind === 'prison');
   if (c.jails.length !== before) s.rev++;
+  // (The guards walk a crowded prison's last arrivals over to a prison with room: so another prison calms it, as its warning says.)
+  for (const prison of s.buildings) {
+    if (prison.kind !== 'prison') continue;
+    const mine = prisoners(s, prison);
+    let moved = 0;
+    let to: Building | undefined;
+    for (let i = mine.length - 1; i >= CELLS; i--) {
+      const other = prisonFor(s);
+      if (!other || other === prison || CELLS - prisoners(s, other).length <= 0) break;
+      mine[i].at = other.id;
+      to = other;
+      moved++;
+    }
+    if (moved && to) {
+      s.rev++;
+      tellNews(s, 'unrest', `The guards walked ${moved === 1 ? 'a prisoner' : `${moved} prisoners`} from the crowded prison ${whereOf(map, prison)} to the prison ${whereOf(map, to)}, where there is room`, to.id);
+    }
+  }
   for (const prison of s.buildings) {
     if (prison.kind !== 'prison') continue;
     const n = prisoners(s, prison).length;
