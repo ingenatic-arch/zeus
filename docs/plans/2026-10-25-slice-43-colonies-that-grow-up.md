@@ -130,4 +130,35 @@ A governor may die after eight years in office (about one month in twenty-four f
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Built as designed, in four commits after the plan (`100ec8d` the simulation, `fe21b9e` the page, picture, map pieces, ships and demos, `bab7009` the boat's pace and the anchorage, then the check-in). Where it differs from the design above:
+
+- **The page's order.** The picture and stage, talk of freedom, a threat, the ask, the goods going out, the governor (or the candidates), then loyalty, share and people, and **the works after its people** (not before its loyalty): the six works are a long list, and the loyalty and share are what a player reads most. Guards and homes stay last.
+- **Porters** leave half a day apart (not one a day), up to four on the road at once, so a shipment of 150 to 200 is on the quay in two or three days.
+- **The boat sets the ship's pace.** Once she is at anchor, the boat rows one porter's load out each trip (0.8 day out and back), and she sails when the last one is aboard: a 150-wheat ask keeps her about two and a half days, a 150-timber harbour about five. Without this she sailed the moment she anchored (the porters are quicker than her 20 days in), and the boat was never seen.
+- **Her anchorage** is 12 tiles back from the jetty's end and to one side (the settlers' ship's is 6): at 7, as first built, she lay on top of a colony's share ship, which rides near the jetty's end.
+- **The map's piece** shows the stage (tents, then more houses), and once built the fields, the agora's colonnade, the temple on a rocky knoll, the walls, the harbour's mole and jetty, and the second trade's mark (rows of vines or olives, a quarry, or a paddock). Works going up are not drawn on the map, only in the picture.
+- **The picture** is 360 × 160. A funded work is drawn as a dashed outline while its goods are on their way, faint in scaffolding while it goes up, and solid once built; the walls going up show two scaffolds.
+- **The second trade's goods:** Thasos' second trade is marble, so a colony asking for marble never happens (no want is for marble).
+- **Timber, copper and horses carried by porters** use the sack look (the porters' meshes have no planks or ingots).
+
+**Files.** New: `src/sim/colonyworks.ts` (stages, retune, works, wants, governors, shipments, porters, the boat's pace, words for the page and hovers, save checks), `src/ui/colonygrowth.ts` (the page's new sections and their buttons), `src/ui/colonypicture.ts` (the picture), `src/ui/colonies.css` (their styles, imported by `colonygrowth.ts`), `src/render/rowboats.ts` (the rowing boats), `tests/colonyworks.test.ts` (15 tests). The line's own files changed: `src/sim/colonies.ts` (hooks: growth and loyalty causes, the retuned shares and the second good, a harbour's quicker ships, walls and a soldier against threats, the landing's candidates, the town line), `src/sim/vassals.ts` (`cargoes` on the empire), `src/ui/colonies.ts` (the sections in order, the second good on the share line, the stage and ask on the map's hover card), `src/render/greece/models.ts` and `index.ts` (the colony's piece by stage and works; the goods ships on the lanes).
+
+**Touched outside the line** (each in a block headed "Slice 43"):
+- `src/sim/state.ts`: `SIM_STATE_VERSION` 38; walker kind `shipper` appended to `WalkerKind` and `WALKER_KINDS`.
+- `src/sim/migrate.ts`: the note, `fromSlice43` (fills `cargoes`, and each colony's stage from its people, works, want, the next ask 6 months on, boosts, candidates, `chooseBy`, `govSince`, each only if absent), hooked `if (st.version === 37) fromSlice43(st);`.
+- `src/sim/commands.ts`: the `colonyworks` command appended (work, want, governor, dismiss).
+- `src/sim/sim.ts`: `stepColonyWorks` after `stepColonies`; the command; the `shipper` walker's move.
+- `src/sim/walk.ts`: the porter's speed (a sending's fetchers').
+- `src/sim/status.ts`: the porter's hover.
+- `src/game/saves.ts`: the empire's check also checks the shipments and the colonies' new fields.
+- `src/render/walkers.ts`: `shipper` drawn as a porter in a docker's tunic with his load's look.
+- `src/render/city.ts`: the goods ships (one view a colony) and the rowing boats.
+- `src/main.ts`: the goods ship's hover.
+- `src/ui/rivals.ts`: the red mark on a colony's label while it asks for something (one condition added).
+- `src/game/demos.ts`: `#colonywants` and `#colonyworks` (one setup function and two entries).
+- `scripts/smoke.mjs`: a slice 43 block (both demos: the ask, its mark, the picture, the wheat sent and a porter out; the stage, the works, the harbour funded, going up after its voyage) and the ok line; `scripts/measure.mjs`: both demos on the map's list, `#colonywants` on the frame-work list.
+- `trade.ts` is not touched (only read: berth, ship route, phases, store kinds). No new use of `MAP_SIZE`. No new ware.
+
+**Histories.** Every demo's prepared town compared with `53e5bb4`'s at opening and 900 ticks on (date, people, money, colonies, sites): 132 of 134 are exactly as before. Two moved, on purpose: `#colonies` (same date, people and money; Nea Thasos 250 people instead of 255 and loyalty 69 instead of 77, Nea Naxos loyalty 39 instead of 47: each was asked for something during its history, nobody answered, and it remembers; Nea Thasos' unanswered wheat slowed it for a year) and `#empire` (same people; 164 dr less at opening and 128 less 900 ticks on, from Nea Thasos' retuned share; its newest news is now Nea Thasos growing into a settlement). `#colony` (settlers gathering) is unchanged in its numbers but now shows the rowing boat. The two new demos are `#colonies`' town with the ask set up (`#colonywants`) or as it stands (`#colonyworks`: Nea Thasos is already a settlement of 250 with 390 timber in the storehouses, so nothing had to be set up; it also has a real ask for oil of its own).
+
+**Checks.** Typecheck clean. Tests: 605 in 50 files, all passing (the full run on the loaded machine timed out two timing-bound tests, `money.test.ts`' harsh taxes and `treasury.test.ts`' every-demo wages; rerun alone, both pass). Every version 37 prepared town (134) loads through `fromSlice43` and runs 300 ticks. Build clean (3 min 30 s with the prepared towns). **The slow smoke could not be run to its end here:** on the loaded machine (load 23 to 30 on four cores, three other lines running their own smoke and measure) the loosened copy ran twice for the two hours a background job may take and reached about half the script (through slice 18's `#thanks`), with one failure both times that is not this line's: "right-drag did not turn" (the smoke drags 100 pixels, and since the original-look side slice a quarter turn takes about 170: it fails on the starting commit too). The slice 37 and slice 43 blocks were run on their own (a copy of the smoke with just those blocks): all pass. The full `measure.mjs` likewise could not finish in two hours; a slimmed copy (download sizes, and the colony demos' load, triangles, draw calls and frame work) was run on the starting build and this one: see the check-in's table.

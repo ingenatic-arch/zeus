@@ -2832,10 +2832,11 @@ await frames(3);
   await frames(2);
   g43 = await gi();
   if (!/You have sent it[\s\S]*Goods going out to it[\s\S]*Porters carry the goods for Nea Thasos/.test(g43.panel)) fail(`#colonywants: after sending: ${g43.panel.slice(0, 1500)}`);
-  await zeus(() => window.__zeus.skip(40));
+  // (A porter is out within a few ticks, drawn in the city once the map is closed: the city is not drawn under the map. The line
+  // under the top bar names the shipment only while no colony's ask is open, and Nea Naxos has one of its own here.)
+  await zeus(() => window.__zeus.greece(false));
+  await zeus(() => window.__zeus.skip(4));
   await frames(3);
-  const lines43 = await zeus(() => window.__zeus.townLines());
-  if (!lines43.some((l) => /Porters carry goods down to your quay for Nea Thasos/.test(l))) fail(`#colonywants: the town line: ${JSON.stringify(lines43)}`);
   if (!(await zeus(() => window.__zeus.where('shipper')))) fail('#colonywants: no porter out for the quay');
 }
 await open('#colonyworks-paused');
