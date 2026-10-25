@@ -83,7 +83,7 @@ export function wantHtml(s: SimState, c: Colony, map: CoastMap | undefined): str
     return `<section class="deals"><h3>It asks you for ${esc(what)}</h3><div class="deal offer sent"><div><p>${swatch(w.good)}<b>${esc(cap(what))}</b> ${esc(WANT_WHY[w.kind])}. You have sent it: its day is ${esc(dayWords(w.due))}.</p><p class="if">Landed by then, it is grateful (+10) and grows faster for a year; after, it is glad all the same (+3).</p></div></div></section>`;
   }
   const why = map ? wantRefusal(s, map, c) : 'Not now';
-  const lands = wouldLand(s, c.site);
+  const lands = wouldLand(s, c.site, w.good, w.amount);
   const inTime = lands <= w.due;
   const spare = spareOf(s, w.good);
   const send = button('want', `Send ${esc(what)} <small>you have ${fmt(spare)}</small>`, { site: c.site }, why, `Porters carry it from your stores down to your quay, and your ship takes it: it lands about ${dayWords(lands)}${inTime ? ', in time' : ', after its day'}`, 'send');

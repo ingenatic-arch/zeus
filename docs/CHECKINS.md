@@ -21,13 +21,13 @@ What breaks, or moves:
 - **Governors you choose.** When a colony is founded, or its governor dies or is dismissed, you pick from three: a builder (works cheaper and quicker), a miser (more on each ship, less loved), a soldier (raids turned away), a favourite of the people (more loyal, costly to dismiss), and the four from before. Choose within a month or its council picks (at a founding, the settlers' own leader, who governs meanwhile).
 
 ### What to try
-1. #colonywants — Nea Thasos is asking for 150 wheat (set up for this demo). Press "Send 150 wheat" on its page, close the map, and watch the porters carry it down to the quay, your ship come in and anchor, the boat row it out, and the ship sail. Speed up to see it land in August.
+1. #colonywants — Nea Thasos is asking for 150 wheat (set up for this demo). Press "Send 150 wheat" on its page, close the map, and watch the porters carry it down to the quay, your ship come in and anchor, the boat row it out, and the ship sail. Speed up to see it land about two months on, at the end of August or early in September.
 2. #colonyworks — Nea Thasos is a settlement. Fund its harbour from its page ("Its works"), then speed up: the timber goes down to the quay and out, the harbour appears in scaffolding, and four or five months after you funded it, it stands with a second ship at its jetty.
 3. #colonies — the two colonies with their histories, now with their asks remembered, their pictures and their works.
 
 ### What I'd like your eye on
 - **The picture.** Is the island, the size of the houses and the way works are marked out, in scaffolding and built readable at the panel's width? Would you rather it were bigger?
-- **The pace of an ask.** About 150 days to answer, and a shipment takes 40 to 60 days from your quay to land (your ship takes 20 days to come in). Is that too easy, or too slow to watch?
+- **The pace of an ask.** About 150 days to answer, and a shipment takes about 55 to 65 days from when you send it to when it lands (your ship takes 20 days to come in, and the boat a week or two to row the goods out to her). Is that too easy, or too slow to watch?
 - **The retuned shares.** A colony now sends a third to a half of what one of your own works makes. Is that worth having a colony for?
 - **The rowing boat and the anchored ship** in the bay: are they too small to notice?
 
@@ -51,6 +51,17 @@ Headless software rendering on a shared, heavily loaded machine (four builds at 
 | Demo ready (by the page's clock) | 4.4 to 4.8 s | 3.1 to 5.7 s (the machine's load swings more than this) |
 
 The rowing boats and the goods ship add no draw calls while they are out of sight. The time each frame spends before drawing swung between runs by more than the difference (for `#empire` 29 ms before and 48 ms after, over only 5 and 8 frames), so I can't say it moved; it needs measuring on your laptop.
+
+### What the review changed
+- **The rowing boat rows at a believable pace.** It used to cross to your ship and back in under a second at normal speed, about ten times faster than anyone walks. Now each trip takes about four days and carries two porters' loads, so your ship rides at anchor about a week for 150 wheat and about twelve days for the harbour's timber while the boat loads her. A shipment now lands about 55 to 65 days after you send it, and the "it lands about" dates on the colony's page count the boat's time, so they match what happens.
+- **When a colony is founded**, the news now says that you choose its governor from its page, and by when.
+- **A dead or dismissed governor is never offered again** among the candidates to replace him.
+- **A colony that declares itself free while its council holds it** no longer reads "under ," with a blank where the governor's name should be.
+- **The season under the date keeps time while the map of Greece is open.** It used to stand still there, so speeding up on the map to watch a shipment land left it reading "Summer" into December.
+- **"Your stores hold none"** on a shipment waiting at the quay now shows only when your stores really hold none of the good.
+- **The automatic check of `#colonyworks`** was passing without checking that the harbour goes up (it read a line at the foot of the works list); it now checks the harbour really goes up after its voyage.
+
+I walked both demos at 1920 × 1080 in the original look and with `-modern` and `-plain`: the ask, the button, the porters leaving the granary, your ship coming in and anchoring, the boat at her side, her sailing, the landing and its thanks on the page; and the harbour funded, its outline, its scaffolding and its mole and second ship once built, in the picture and on the map. Whether the picture reads well at the panel's width, and whether the boat is big and slow enough to notice, are yours to judge.
 
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 

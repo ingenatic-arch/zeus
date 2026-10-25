@@ -16,7 +16,7 @@ import type { SimState } from '../sim/state';
 import { berthOf } from '../sim/trade';
 import { merge, type Part } from './trees';
 
-/** Boats at most (a trip out and back takes the sim's ROW_TRIP, one load). */
+/** Boats at most (a trip out and back takes the sim's ROW_TRIP, two porters' loads). */
 const MOST = 3;
 
 const box = (w: number, h: number, d: number, x: number, y: number, z: number): THREE.BufferGeometry => new THREE.BoxGeometry(w, h, d).translate(x, y + h / 2, z);

@@ -590,7 +590,7 @@ function land(s: SimState, f: Founding): void {
   c.loyalty = Math.round(colonyLoyalty(s, c).target);
   s.empire.foundings = s.empire.foundings.filter((y) => y !== f);
   const k = siteGood(f.site);
-  news(s.world, s.tick, siteKey(f.site), `Your settlers have landed on ${siteName(f.site)} and founded ${c.name}: ${fmt(f.people)} people, ${c.governor} its governor (${c.trait}). Its first ship of ${goodName(k)} sails for you within a season`, true);
+  news(s.world, s.tick, siteKey(f.site), `Your settlers have landed on ${siteName(f.site)} and founded ${c.name}: ${fmt(f.people)} people, ${c.governor} its governor (${c.trait})${c.candidates.length ? ` until you choose who governs it from its page, by ${dayWords(c.chooseBy)}` /* (Review of slice 43: where the choice is made, and by when.) */ : ''}. Its first ship of ${goodName(k)} sails for you within a season`, true);
   s.rev++;
 }
 
@@ -762,7 +762,7 @@ function goFree(s: SimState, map: CoastMap, c: Colony, l: Loyalty): void {
   x.since = s.tick;
   guardsHome(s, map, c);
   s.empire.colonies = s.empire.colonies.filter((y) => y !== c);
-  news(s.world, s.tick, siteKey(c.site), `${c.name} has declared itself free: ${fmt(peopleOf(s, c))} people under ${c.governor}, with its loyalty at ${c.loyalty} (${lowReasons(l)}). It sends you nothing now`, true);
+  news(s.world, s.tick, siteKey(c.site), `${c.name} has declared itself free: ${fmt(peopleOf(s, c))} people under ${c.governor || 'its council'}, with its loyalty at ${c.loyalty} (${lowReasons(l)}). It sends you nothing now`, true);
   s.rev++;
 }
 

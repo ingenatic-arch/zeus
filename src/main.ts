@@ -2232,6 +2232,8 @@ function start(preparedTown: string | null): void {
       // The map of Greece instead of the city (which runs on, undrawn).
       greece.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, dt);
       topbar.showDate(sim.date);
+      // Slice 43 (review): the season dial keeps time on the map too (it read "Summer" into December while the colony demos ran on there).
+      topbar.showSeason(seasonNews(s), yearPhase(s.tick) / 4);
       topbar.showCity(s.population, s.money, time);
       probe.updateMs += performance.now() - jsStart;
       greece.render();

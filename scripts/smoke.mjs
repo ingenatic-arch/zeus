@@ -2850,12 +2850,13 @@ await frames(3);
   await frames(2);
   g43 = await gi();
   if (!/Goods going out to it[\s\S]*A harbour[\s\S]*Its goods are on their way/.test(g43.panel)) fail(`#colonyworks: after funding: ${g43.panel.slice(0, 2000)}`);
-  for (let i = 0; i < 8 && !/Going up: done about|Built /.test((await gi()).panel); i++) {
+  // (Review of slice 43: "Built " alone matched the works' foot, "Built works show in its picture", so the loop ended at once.)
+  for (let i = 0; i < 8 && !/Going up: done about|Built \d/.test((await gi()).panel); i++) {
     await zeus(() => window.__zeus.skip(500));
     await frames(2);
   }
   g43 = await gi();
-  if (!/A harbour[\s\S]*(Going up: done about|Built )/.test(g43.panel)) fail(`#colonyworks: the harbour not going up after its voyage: ${g43.panel.slice(0, 2000)}`);
+  if (!/A harbour[\s\S]*(Going up: done about|Built \d)/.test(g43.panel)) fail(`#colonyworks: the harbour not going up after its voyage: ${g43.panel.slice(0, 2000)}`);
 }
 if (errors.length > err43) fail('page errors (slice 43):\n' + errors.slice(err43).join('\n'));
 // Slice 38: contested seas. #blockade: Troy's ships holding the harbour's mouth, a ship's hover, the Army tab's line, the triremes rowing out,

@@ -248,8 +248,10 @@ const PORTERS_MOST = 4;
 const PORTER_GAP = TICKS_PER_DAY / 2;
 const PORTER_LOAD: Partial<Record<Ware, number>> = { [WHEAT]: 50, [MEAT]: 40, [CHEESE]: 40, [OIL]: 40, [FLEECE]: 40, [WINE]: 40, [COPPER]: 40, [ARMOUR]: 5, [MARBLE]: 25, [TIMBER]: 25, [HORSES]: 2 };
 const SHIP_WAITS = 120 * TICKS_PER_DAY;
-/** The boat's trip out to her and back with one load (the city's rowing boat keeps this pace too). */
-export const ROW_TRIP = Math.round(TICKS_PER_DAY * 0.8);
+/** The boat's trip out to her and back (the city's rowing boat keeps this pace too), and how many porters' loads it takes out a trip.
+ * (Review of slice 43: at 0.8 day a trip it crossed the dozen tiles to her anchorage at ten times a walker's pace; now about twice.) */
+export const ROW_TRIP = 4 * TICKS_PER_DAY;
+const ROW_LOADS = 2;
 /** She anchors this far back from the jetty (further out than a colony's share ship, which lies near its end), and to the other side from the settlers' ship first. */
 const ANCHOR_BACK = 12;
 const ANCHOR_ASIDE = [2.6, -2.6, 1.4, -1.4, 0] as const;
@@ -409,11 +411,16 @@ export const cargoOf = (s: SimState, id: number): Cargo | undefined => (s.empire
 /** A colony's shipment still loading at your quay, if any. */
 export const loadingFor = (s: SimState, site: string): Cargo | undefined => cargoesFor(s, site).find((x) => x.phase === 'loading');
 
-/** How much of a good your stores hold (granaries for foods, storehouses for goods), less what shipments still loading will take of it. */
-export function spareOf(s: SimState, k: number): number {
+/** How much of a good your stores hold (granaries for foods, storehouses for goods). */
+function storedOf(s: SimState, k: number): number {
   const w = TRADE_GOODS[k];
   const kind = storeKind(w);
-  const have = s.buildings.reduce((a, b) => a + (b.kind === kind ? held(b, w) : 0), 0);
+  return s.buildings.reduce((a, b) => a + (b.kind === kind ? held(b, w) : 0), 0);
+}
+
+/** How much of a good your stores hold, less what shipments still loading will take of it. */
+export function spareOf(s: SimState, k: number): number {
+  const have = storedOf(s, k);
   let promised = 0;
   for (const x of cargoesFor(s)) if (x.phase === 'loading') for (const it of x.items) if (it.good === k) promised += Math.max(0, it.amount - it.got - it.out);
   return Math.max(0, have - promised);
@@ -611,11 +618,15 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
   } else if (x.phase === 'sea' && s.tick >= x.start + x.dur) land(s, x);
 }
 
-/** How long the boat takes to row a shipment's loads out to her at anchor: a trip a porter's load. */
-export function rowTicks(x: Cargo): number {
+/** How many porters' loads so much of a good makes, and how long the boat takes to row so many out to her. */
+const loadsOf = (good: number, n: number): number => Math.ceil(Math.max(0, n) / (PORTER_LOAD[TRADE_GOODS[good]] ?? 40));
+const rowingFor = (loads: number): number => Math.ceil(loads / ROW_LOADS) * ROW_TRIP;
+
+/** How long the boat takes to row a shipment's loads out to her at anchor (what is on the quay or aboard; `all`: everything it will carry), two porters' loads a trip. */
+export function rowTicks(x: Cargo, all = false): number {
   let loads = 0;
-  for (const it of x.items) loads += Math.ceil(Math.max(0, it.got) / (PORTER_LOAD[TRADE_GOODS[it.good]] ?? 40));
-  return loads * ROW_TRIP;
+  for (const it of x.items) loads += loadsOf(it.good, all ? it.amount : it.got);
+  return rowingFor(loads);
 }
 
 /** She sails out of the bay with what is aboard. */
@@ -644,15 +655,19 @@ export function cargoList(x: Cargo): string {
 export function landsAbout(s: SimState, x: Cargo): number {
   if (x.phase === 'sea') return x.start + x.dur;
   const pace = shipPace(colonyOf(s, x.site));
-  const out = x.ship && x.phase === 'leaving' ? Math.max(0, x.ship.since + leaveTicks(x.ship) - s.tick) : x.phase === 'loading' ? Math.max(0, (x.ship && x.ship.phase === SHIP_COMING ? x.ship.since + SAIL_IN - s.tick : 0)) + leaveTicks({ turned: x.ship?.stop ?? 1 } as Visitor) : 0;
+  // (Review of slice 43: loading, she sails once in and the boat has rowed everything out to her.)
+  const v = x.ship;
+  const rowed = v ? (v.phase === SHIP_COMING ? v.since + SAIL_IN : v.since) + rowTicks(x, true) : s.tick;
+  const out = v && x.phase === 'leaving' ? Math.max(0, v.since + leaveTicks(v) - s.tick) : x.phase === 'loading' ? Math.max(0, rowed - s.tick) + leaveTicks({ turned: v?.stop ?? 1 } as Visitor) : 0;
   return s.tick + out + Math.round(laneTicks(x.site) * pace);
 }
 
-/** If goods were sent for a colony now, about when they would land (your ship in, out and over). */
-export function wouldLand(s: SimState, site: string): number {
+/** If goods (so much of a good) were sent for a colony now, about when they would land (your ship in, the boat rowing them out to her, out and over). */
+export function wouldLand(s: SimState, site: string, good = -1, amount = 0): number {
   const had = loadingFor(s, site);
-  if (had) return Math.max(landsAbout(s, had), s.tick + 2 * TICKS_PER_DAY + Math.round(laneTicks(site) * shipPace(colonyOf(s, site))));
-  return s.tick + SAIL_IN + leaveTicks({ turned: 0.9 } as Visitor) + Math.round(laneTicks(site) * shipPace(colonyOf(s, site)));
+  const rowing = good >= 0 ? rowingFor(loadsOf(good, amount)) : 0;
+  if (had) return Math.max(landsAbout(s, had) + rowing, s.tick + 2 * TICKS_PER_DAY + Math.round(laneTicks(site) * shipPace(colonyOf(s, site))));
+  return s.tick + SAIL_IN + rowing + leaveTicks({ turned: 0.9 } as Visitor) + Math.round(laneTicks(site) * shipPace(colonyOf(s, site)));
 }
 
 /** A shipment lands: its want met (or late), its works begun. */
@@ -779,8 +794,9 @@ function monthly(s: SimState, c: Colony): void {
   const i = Math.max(0, siteIndex(c.site));
   if (c.governor && !c.candidates.length && s.tick - c.govSince > OLD_IN_OFFICE && dice(s, Math.floor(s.tick / TICKS_PER_MONTH), i, 24) < DIES_ODDS) {
     const was = c.governor;
-    c.governor = '';
+    // (Review of slice 43: the candidates found while his name is still on the colony, so the dead man is not offered again.)
     c.candidates = candidatesFor(s, c);
+    c.governor = '';
     c.chooseBy = s.tick + CHOOSE_DAYS;
     news(s.world, s.tick, siteKey(c.site), `${was}, governor of ${c.name} these ${Math.floor((s.tick - c.govSince) / TICKS_PER_YEAR)} years, has died. Its council holds it until you choose another from its page, by ${dayWords(c.chooseBy)}`, true);
     s.rev++;
@@ -879,8 +895,9 @@ export function worksCommand(s: SimState, map: CoastMap, cmd: Extract<Command, {
     const fav = c.trait === 'favourite';
     const m = fav ? DISMISSED_FAVOURITE : DISMISSED;
     remember(c, s.tick, 'dismissed', fav ? `you dismissed ${was}, its people’s favourite` : `you dismissed its governor, ${was}`, m.amount, m.fade);
-    c.governor = '';
+    // (Review of slice 43: nor the man just dismissed.)
     c.candidates = candidatesFor(s, c);
+    c.governor = '';
     c.chooseBy = s.tick + CHOOSE_DAYS;
     news(s.world, s.tick, siteKey(site), `You have dismissed ${was}, governor of ${c.name} (${m.amount}). Its council holds it until you choose another, by ${dayWords(c.chooseBy)}`);
   }
@@ -918,7 +935,8 @@ export function cargoDoing(s: SimState, x: Cargo): string {
   if (x.phase === 'leaving') return `Sailing out of the bay for ${to} with ${cargoList(x)}: she lands about ${dayWords(landsAbout(s, x))}`;
   if (x.phase === 'sea') return `At sea for ${to} with ${cargoList(x)}: she lands about ${dayWords(x.start + x.dur)}${lateWords(s, `cargo-${x.site}`)}`;
   const parts = x.items.map((it) => `${fmt(Math.min(it.got, it.amount))} of ${amountWords(it.good, it.amount)}`);
-  const short = x.items.filter((it) => it.amount - it.got - it.out > 0 && spareOf(s, it.good) + 0 <= 0 && !s.walkers.some((w) => w.kind === 'shipper' && w.origin === x.id && w.steps === x.items.indexOf(it)));
+  // (Review of slice 43: "hold none" when they hold none, not when what they hold is all promised to this shipment.)
+  const short = x.items.filter((it) => it.amount - it.got - it.out > 0 && storedOf(s, it.good) <= 0 && !s.walkers.some((w) => w.kind === 'shipper' && w.origin === x.id && w.steps === x.items.indexOf(it)));
   const missing = short.length ? ` Waiting for ${listWords(short.map((it) => goodWord(it.good)))}: your stores hold none` : '';
   const b = blockaded(s);
   const v = x.ship;

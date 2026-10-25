@@ -272,8 +272,9 @@ describe('governors', () => {
     expect(c.governor).toBe(pick.name);
     expect(c.trait).toBe(pick.trait);
     expect(c.candidates.length).toBe(0);
-    // Again, and left to the council.
+    // Again, and left to the council (review of slice 43: the man dismissed is never among those offered).
     send(sim, { type: 'colonyworks', act: 'dismiss', site: 'thasos' });
+    expect(c.candidates.some((x) => x.name === pick.name)).toBe(false);
     const first = c.candidates[0];
     expect(until(sim, () => !!c.governor, 31 * TICKS_PER_DAY)).toBe(true);
     expect(c.governor).toBe(first.name);
