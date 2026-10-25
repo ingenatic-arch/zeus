@@ -10,7 +10,7 @@ import { PLACES, type CityId } from '../map/greece';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { dayWords } from '../sim/favours';
-import { expeditionLine, expeditionPlan, expeditionRefusal, expeditionWay, lastExpedition } from '../sim/expeditions';
+import { expeditionLine, expeditionPlan, expeditionRefusal, expeditionWay, lastExpedition, stayingHome } from '../sim/expeditions';
 import { edgeWords, raidersOf, reachesEdge } from '../sim/raids';
 import {
   ASK_SUMS,
@@ -263,7 +263,10 @@ export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
     const against = kind === 'raid' ? `their countryside’s watch, about ${p.theirs} men` : `their garrison, about ${p.theirs} men${id === 'troy' ? ' behind walls' : ''}`;
     const line = why && !p.companies.length ? '' : `${who} (strength ${p.ours}) against ${against}: ${oddsWords(p.odds)}. Won, it brings ${p.brings}.`;
     const button = `<button data-loan="expedition" data-city="${id}" data-kind="${kind}" class="${kind === 'raid' ? 'send' : 'refuse'}" title="${esc(why || `${line} ${name(id)}: ${signed(own)}`)}"${why ? ' disabled' : ''}>${label}${line ? ` <small>${oddsWords(p.odds)}</small>` : ''}${worthEm(own)}</button>`;
-    return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}</li>`;
+    // (Who stays home from a full force, and why: men waiting for armour, a broken company, no trireme for it. Without it a full force of half your army read as a miscount.)
+    const stay = kind === 'force' && !/trireme|No way|no soldiers|no ruler|your vassal|your ally/i.test(why) ? stayingHome(s, kind, id) : [];
+    const staying = stay.length ? `<ul class="stay">${stay.map((x) => `<li>${esc(cap(x))}</li>`).join('')}</ul>` : '';
+    return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}${staying}</li>`;
   });
   const why = expeditionRefusal(s, id, 'raid');
   // (Slice 34 review: your vassal or your ally, too, says why rather than showing two dead buttons with odds.)

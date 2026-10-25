@@ -149,7 +149,8 @@ describe('your trade moves a city’s prices', () => {
     const r = routeOf(s, 'corinth', 'land')!;
     const paid: number[] = [];
     let visits = 0;
-    for (let i = 0; i < 9 * TICKS_PER_MONTH && paid.length < 3; i++) {
+    // (A year: with six porters, not four, the first caravan takes all the town's spare oil, and the next can find none.)
+    for (let i = 0; i < 12 * TICKS_PER_MONTH && paid.length < 3; i++) {
       sim.step();
       if (r.visits !== visits) {
         visits = r.visits;

@@ -18,7 +18,7 @@ import type { Command } from '../sim/commands';
 import { TICKS_PER_YEAR } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
 import { dayWords } from '../sim/favours';
-import { expeditionLine } from '../sim/expeditions';
+import { expeditionLine, stayingHome } from '../sim/expeditions';
 import type { SimState } from '../sim/state';
 // (Review of slice 37: a tribute ship's day in your bay counts her sail in from the horizon.)
 import { SAIL_IN, TRADE_GOODS } from '../sim/trade';
@@ -59,11 +59,13 @@ export function empireTabName(s: SimState, id: CityId): string {
 }
 
 /** One way of taking a city (or an offer), as a card: its button, its odds and reasons, or why it can't go. */
-function wayCard(act: string, id: CityId, head: string, label: string, plan: Plan, what: string, after: string): string {
+function wayCard(act: string, id: CityId, head: string, label: string, plan: Plan, what: string, after: string, stay: readonly string[] = []): string {
   const odds = plan.refusal ? '' : ` <small>${inTen(plan.p)}</small>`;
   const b = button(act, `${label}${odds}`, { city: id }, plan.refusal, `${cap(plan.word)}, ${inTen(plan.p)}: ${plan.why}`, act === 'conquer' ? 'refuse' : 'send');
   const why = plan.refusal ? `<p class="eta no">${esc(plan.refusal)}.</p>` : `<p class="eta">${esc(cap(plan.word))}, ${inTen(plan.p)}: ${esc(plan.why)}.</p>`;
-  return `<div class="deal way"><div><b>${esc(head)}</b><p>${esc(what)}</p>${why}<div class="acts">${b}</div><p class="if">${esc(after)}</p></div></div>`;
+  // (Who of your army stays home, and why: slice 28's full force, on its Empire card too.)
+  const staying = stay.length ? `<ul class="stay">${stay.map((x) => `<li>${esc(cap(x))}</li>`).join('')}</ul>` : '';
+  return `<div class="deal way"><div><b>${esc(head)}</b><p>${esc(what)}</p>${staying}${why}<div class="acts">${b}</div><p class="if">${esc(after)}</p></div></div>`;
 }
 
 /** Your herald on his way, or his last answer (within the year). */
@@ -85,7 +87,7 @@ function takeHtml(s: SimState, id: CityId): string {
   const cq = conquestPlan(s, id);
   const theirs = cq.parts.map((p) => `${p.who} ${p.n}`).join(', ');
   const allies = cq.allies.length ? ` Your allies who might march with you: ${cq.allies.join(', ')}.` : '';
-  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `${cq.men ? `A full force of ${cq.men} men` : 'A full force'} marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}`, `Won, it bows to you as your vassal, beaten and cowed for a while, with what your men carry off; lost, they come home fewer. As any war without cause: ${name(id)} hates it (−60 or worse), and every other ruler thinks the worse of you (−12 or more each).`));
+  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `${cq.men ? `A full force of ${cq.men} men` : 'A full force'} marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}`, `Won, it bows to you as your vassal, beaten and cowed for a while, with what your men carry off; lost, they come home fewer. As any war without cause: ${name(id)} hates it (−60 or worse), and every other ruler thinks the worse of you (−12 or more each).`, stayingHome(s, 'force', id)));
   const sp = submitPlan(s, id);
   out.push(wayCard('submit', id, 'Demand it submit', 'Send a herald: submit to us', sp, `For a city cold or wary towards you whose side is no more than half your army (your ${sp.ours} men against its ${sp.theirs}).`, `It may bow; refuse and remember it (−20); or call on its friends, who think the worse of you too. One demand a year.`));
   const dp = debtPlan(s, id);

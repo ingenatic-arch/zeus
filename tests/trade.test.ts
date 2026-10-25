@@ -343,7 +343,7 @@ describe('dockers and sales', () => {
     setHeld(store, ARMOUR, roomOf('storehouse', ARMOUR));
     setHeld(store, HORSES, roomOf('storehouse', HORSES));
     for (const w of [ARMOUR, HORSES]) send(sim, { type: 'trade', good: w, sell: true });
-    // Within four months the armour beyond what is kept has gone to the quay (and from there onto the ship), and the horses are on their way, a handcart's eight at a time; the stores never go below what is kept.
+    // Within four months the armour beyond what is kept has gone to the quay (and from there onto the ship), and the horses are on their way, twenty on a lead at a time; the stores never go below what is kept.
     const a = TRADE_GOODS.indexOf(ARMOUR);
     const h = TRADE_GOODS.indexOf(HORSES);
     const sold = [0, 0];
@@ -366,6 +366,21 @@ describe('dockers and sales', () => {
     expect(held(post, HORSES) + sold[1] + hold[h]).toBeGreaterThan(0);
     // The panel's − / + for what is kept moves armour and horses by steps a storehouse can hold, the bulk goods by KEEP_STEP.
     expect([keepNext(a, 100, -1), keepNext(a, 100, 1), keepNext(h, 20, -1), keepNext(0, 1600, 1)]).toEqual([80, 120, 15, 1800]);
+  });
+
+  it('take the goods for sale in turn, not the most valuable first, so horses go to the quay with the armour', () => {
+    // #quay's storehouse full of armour and horses, the city keeping none: there is armour enough for several trips.
+    const sim = demo('quay');
+    const s = sim.state;
+    const store = s.buildings.find((b) => b.kind === 'storehouse')!;
+    setHeld(store, ARMOUR, roomOf('storehouse', ARMOUR));
+    setHeld(store, HORSES, roomOf('storehouse', HORSES));
+    for (const w of [ARMOUR, HORSES]) send(sim, { type: 'trade', good: w, sell: true, keep: 0 });
+    // Once two dockers have set off for them, one goes for the armour and one for the horses (with armour always
+    // first, the horses waited until it was all on the quay, and in a city of far stores none reached it).
+    const fetching = (w: number): number => s.walkers.filter((d) => d.kind === 'docker' && d.food === w && !d.back && d.load === 0).length;
+    until(sim, () => fetching(ARMOUR) + fetching(HORSES) >= 2, 30 * TICKS_PER_DAY);
+    expect([fetching(ARMOUR), fetching(HORSES)]).toEqual([1, 1]);
   });
 
   it('#black: the treasury has run dry with wages owed, and the ship’s visit pays them and puts it back in the black', () => {

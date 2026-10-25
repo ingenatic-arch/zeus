@@ -38,14 +38,14 @@ import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { EDGE_ALONG, PLACES, RULED, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
-import { armyNews, companyName, companyOf, kindWord, LIE, readyOf, sendBanner, wayFrom } from './army';
-import { mournMan } from './battle';
+import { armyNews, companyName, companyOf, kindWord, LIE, menOf, readyOf, sendBanner, wayFrom } from './army';
+import { companyWords, mournMan } from './battle';
 import { centreOf, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { news, settleMood, wayFor } from './diplomacy';
 import { dayWords } from './favours';
 import { fleetFor, fleetHome, sailFor, triremeOf } from './fleet';
-import { held, HORSES, MARBLE, setHeld, TIMBER, WARE_NAMES } from './foods';
+import { ARMOUR, held, HORSES, MARBLE, setHeld, TIMBER, WARE_NAMES } from './foods';
 import { end as endLoan, garrisonOf, loanMemory, loanOf, whose, type LoanAnswer } from './loans';
 import { marchTicks, RAID_SIDE } from './raids';
 import { routeWay } from './routes';
@@ -135,6 +135,44 @@ function chosenAll(s: SimState, kind: Expedition['kind']): Company[] {
     .sort((a, b) => readyOf(s, b).length - readyOf(s, a).length || Number(b.kind === 'hoplite') - Number(a.kind === 'hoplite') || a.id - b.id);
   if (kind === 'raid') return all.slice(0, all.length > 2 ? RAID_COMPANIES : 1);
   return all.length >= 3 ? all.slice(0, -1) : all;
+}
+
+/**
+ * Who of your army would not go on an expedition of this kind, and why, for
+ * the panels beside its numbers: each company left home ("the 1st company of
+ * hoplites: none of its 16 men is ready (16 wait for armour)"), and the men
+ * of a company going who stay behind ("the 3rd company of hoplites goes with
+ * 9 of its 16 (7 wait for armour)"). Only men ready in the ranks go; the rest
+ * were counted nowhere, and a full force looked half its size.
+ */
+export function stayingHome(s: SimState, kind: Expedition['kind'], city?: CityId): string[] {
+  const going = chosen(s, kind, city);
+  const could = chosenAll(s, kind);
+  const sea = city !== undefined && !routeWay(city, 'land') && !!routeWay(city, 'sea');
+  const noArmour = !s.buildings.some((b) => b.kind === 'storehouse' && held(b, ARMOUR) > 0);
+  const out: string[] = [];
+  for (const c of s.army.companies) {
+    if (c.ally) continue;
+    const men = menOf(s, c);
+    const ready = readyOf(s, c).length;
+    const count = (...st: string[]): number => men.filter((x) => st.includes(x.state)).length;
+    const arming = count('arming');
+    const not = [arming ? `${arming} wait for armour${noArmour ? ' (the storehouses have none)' : ''}` : '', count('coming') ? `${count('coming')} still walking in` : '', count('wounded', 'healing') ? `${count('wounded', 'healing')} wounded` : ''].filter(Boolean).join(', ');
+    const name = companyWords(c);
+    if (going.includes(c)) {
+      if (ready < men.length) out.push(`${name} goes with ${ready} of its ${men.length}${not ? ` (${not})` : ''}`);
+      continue;
+    }
+    let why: string;
+    if (c.away || c.order === 'away') why = 'away on an expedition already';
+    else if (c.routed) why = 'broken, running back to its barracks';
+    else if (ready === 0) why = men.length ? `none of its ${men.length} men is ready${not ? ` (${not})` : ''}` : 'no men yet';
+    else if (sea && could.includes(c)) why = `no trireme to carry it (a company to each trireme, and ${going.length === 0 ? 'none is' : going.length === 1 ? 'one is' : `${going.length} are`} fit to sail)`;
+    else if (kind === 'raid') why = `stays home: a raiding party is the ${could.length > 2 ? 'two strongest companies' : 'strongest company'}`;
+    else why = 'stays home to guard the city: a full force leaves the weakest company behind';
+    out.push(`${name}: ${why}`);
+  }
+  return out;
 }
 
 /** A company's men ready in its ranks, as strength abroad. */

@@ -81,10 +81,15 @@ export const storeKind = (w: Ware): BuildingKind => (w === WHEAT || w === MEAT |
 
 /** What the quay holds of each good. */
 export const QUAY_ROOM = 2400;
-/** What a docker's handcart takes of each trade good. */
-export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600, 600, 60, 200, 200, 8];
-/** Most dockers out at once; ticks between one setting off and the next; the smallest load worth a trip. */
-export const MAX_DOCKERS = 4;
+/**
+ * What a docker's handcart takes of each trade good. (Armour by two racks of
+ * sets, and horses a string of twenty on a lead: at sixty sets and eight
+ * horses a trip, a city whose stores were a month's walk from the quay got
+ * only a few onto it between ships.)
+ */
+export const DOCKER_TAKE: readonly number[] = [1200, 800, 800, 800, 600, 600, 600, 120, 200, 200, 20];
+/** Most dockers out at once (one for each of the post's six hands; there were four); ticks between one setting off and the next; the smallest load worth a trip. */
+export const MAX_DOCKERS = 6;
 /** Two more hands, only for fetching gifts and sendings when the others are all out. */
 export const GIFT_HANDS = 2;
 export const DOCKER_GAP = 2 * TICKS_PER_DAY;
@@ -821,18 +826,27 @@ function dockerJobs(s: SimState, post: Building): DockerJob[] {
     const lot = Math.min(DOCKER_TAKE[k], q, want);
     if (lot >= Math.min(LEAST_LOT[k], q)) jobs.push({ w, k, lot, back: true });
   }
-  const fetch: Array<DockerJob & { v: number }> = [];
+  const fetch: Array<DockerJob & { v: number; n: number }> = [];
   for (let k = 0; k < TRADE_GOODS.length; k++) {
     if (!forSale(s, post, k)) continue;
     const w = TRADE_GOODS[k];
     const lot = Math.min(DOCKER_TAKE[k], surplusOf(s, post, k), depotRoom(post, w));
     if (lot < LEAST_LOT[k]) continue;
-    fetch.push({ w, k, lot, back: false, v: priceFor(k, lot) });
+    fetch.push({ w, k, lot, back: false, v: priceFor(k, lot), n: fetchersOf(s, post, w) });
   }
+  // Each good for sale takes its turn: the one with fewest dockers already on their way to fetch it first, then the
+  // most valuable load (with armour always first, the horses waited behind it and none reached the quay).
   // (Stable: of two loads worth the same, the good earlier in the list.)
-  fetch.sort((a, b) => b.v - a.v);
+  fetch.sort((a, b) => a.n - b.n || b.v - a.v);
   for (const { w, k, lot, back } of fetch) jobs.push({ w, k, lot, back });
   return jobs;
+}
+
+/** Dockers on their way to the stores to fetch a good for sale. */
+function fetchersOf(s: SimState, post: Building, w: Ware): number {
+  let n = 0;
+  for (const d of s.walkers) if (d.kind === 'docker' && d.origin === post.id && d.food === w && !d.back && d.load === 0 && giftOf(d) === 0) n++;
+  return n;
 }
 
 /** What porters already on their way to fetch for gifts and sendings will take of a good from each store (by its id). */
@@ -853,7 +867,8 @@ function giftReserved(s: SimState, w: Ware): Map<number, number> {
 function storeFor(s: SimState, size: number, roads: number[], job: DockerJob): { g: Building; way: number[] } | null {
   const kind = storeKind(job.w);
   if (job.back) return nearestBy(s, size, roads, (g) => g.kind === kind && roomFor(g, job.w) >= Math.min(job.lot, LEAST_LOT[job.k]));
-  if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
+  // (For sale: the nearest holding at least half his load, else the nearest holding any; a trip across town for a few horses, when another store holds a stableful, was most of why so few reached the quay.)
+  if (!job.gift) return nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) >= Math.ceil(job.lot / 2)) ?? nearestBy(s, size, roads, (g) => g.kind === kind && held(g, job.w) > 0);
   const res = giftReserved(s, job.w);
   const free = (g: Building): number => held(g, job.w) - (res.get(g.id) ?? 0);
   const found = nearestBy(s, size, roads, (g) => g.kind === kind && free(g) > 0);
@@ -1125,12 +1140,36 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
   return { phase: ship.phase, days, chip: late ? `${days} d · late` : `${days} d`, short: late ? `Ship late · ${days} d` : `Ship in ${days} d`, line: `The next ship is due in ${dayWords(days)}${late}: she buys what is on the quay of the goods ticked for sale` };
 }
 
+/**
+ * What the dockers out are carrying, by good, and how far the furthest store
+ * they are walking to is: ": 3 with armour, 2 with horses; the furthest store
+ * is about 30 days’ walk from the quay (a storehouse near the post would bring
+ * them quicker)". The walk is said once it is ten days or more.
+ */
+function dockersAbout(s: SimState, post: Building): string {
+  const by = new Map<Ware, number>();
+  let far = 0;
+  for (const d of s.walkers) {
+    if (d.kind !== 'docker' || d.origin !== post.id) continue;
+    by.set(d.food, (by.get(d.food) ?? 0) + 1);
+    if (d.back || giftOf(d) > 0) continue;
+    let len = 0;
+    for (let i = 2; i < d.path.length; i += 2) len += dhypot(d.path[i] - d.path[i - 2], d.path[i + 1] - d.path[i - 1]);
+    far = Math.max(far, len / speedOf(d));
+  }
+  const goods = [...by].map(([w, n]) => `${n} with ${WARE_NAMES[w]}`).join(', ');
+  const days = Math.round(far / TICKS_PER_DAY);
+  const depot = post.kind === 'yard' ? 'the yard' : 'the quay';
+  const kinds = new Set([...by.keys()].map(storeKind));
+  const near = kinds.size === 1 && kinds.has('granary') ? 'a granary' : 'a storehouse';
+  return `${goods ? `: ${goods}` : ''}${days >= 10 ? `; the furthest store is about ${dayWords(days)}’ walk from ${depot} (${near} near ${post.kind === 'yard' ? 'the yard' : 'the post'} would bring them quicker)` : ''}`;
+}
+
 /** What the post's dockers are doing, or why none is going ('' while there is nothing to say). */
 export function dockerNews(s: SimState, map: CoastMap, post: Building): string {
   const out = dockersOut(s, post);
   if (rateOf(post) === 0) return '';
-  if (post.kind === 'yard' && out > 0) return `${out} of ${MAX_DOCKERS} porters out, carrying goods between the stores and the yard`;
-  if (out > 0) return `${out} of ${MAX_DOCKERS} dockers out, carrying goods between the stores and the quay`;
+  if (out > 0) return `${out} of ${MAX_DOCKERS} ${post.kind === 'yard' ? 'porters' : 'dockers'} out${dockersAbout(s, post)}`;
   if (!TRADE_GOODS.some((_, k) => forSale(s, post, k)) && !TRADE_GOODS.some((w) => held(post, w) > 0)) return 'No dockers out: nothing is ticked for sale';
   const jobs = dockerJobs(s, post);
   if (jobs.length > 0) {

@@ -8,10 +8,10 @@
  */
 import type { CoastMap } from '../map/bake';
 import { districtAt, districtTitle } from '../map/districts';
-import { canSpare, companiesAt, COMPANY_SIZE, doingWords, HIRED_PAY, hireRefusal, HIRELINGS, menOf, payOf, PER_BARRACKS, servingHomes, strength, woundedOf, type HiredKind } from '../sim/army';
+import { canSpare, companiesAt, companyOf, COMPANY_SIZE, doingWords, HIRED_PAY, hireRefusal, HIRELINGS, menOf, payOf, PER_BARRACKS, servingHomes, strength, woundedOf, type HiredKind } from '../sim/army';
 // Slice 36.
 import { HORSE_COMPANY } from '../sim/army';
-import { ESTATE } from '../sim/buildings';
+import { ESTATE, VILLA } from '../sim/buildings';
 import { companyWords } from '../sim/battle';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { expeditionOf } from '../sim/expeditions';
@@ -67,10 +67,12 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     fleetHtml(s, map, focus, out);
     return out.join('');
   }
+  // (Hoplites in without armour: counted among the soldiers, but not ready to march or go abroad.)
+  const arming = s.army.soldiers.filter((x) => x.state === 'arming' && !companyOf(s, x.company)?.ally).length;
   out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
   out.push(
     // (Your own men by kind, and hirelings once, so the three add up to the whole; a kind with none is left out when there are hirelings.)
-    `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.horsemen ? `<div><dt>Horsemen</dt><dd>${fmt(st.horsemen)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
+    `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.horsemen ? `<div><dt>Horsemen</dt><dd>${fmt(st.horsemen)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}${arming ? `<div class="warn" title="Hoplites in at their barracks without a set of armour: they don’t drill, march or go on an expedition until the barracks’ porter brings them one from the storehouses"><dt>Waiting for armour</dt><dd>${fmt(arming)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
   );
   // The army's news: the last few things that happened to it.
   const news = s.army.news.filter((n) => n.tick <= s.tick).slice(-4).reverse();
@@ -79,8 +81,18 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   const serving = servingHomes(s);
   const homes = s.buildings.filter((b) => b.kind === 'home');
   const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length, horseman: homes.filter((b) => canSpare(s, b, 'horseman', serving)).length };
-  // Slice 36: the estates that could send a rider (any estate at all: the button shows only then).
+  // Slice 36: the estates that could send a rider. (The horsemen's button always shows: it showed only once an estate was
+  // lived in, and a city without one never saw that horsemen could be raised. Without one it says what it takes.)
   const estates = homes.filter((b) => b.estate && b.level >= ESTATE && b.people > 0).length;
+  const plots = homes.filter((b) => b.estate).length;
+  const villas = homes.some((b) => !b.estate && b.level >= VILLA && b.people > 0);
+  const noRiders = estates
+    ? ''
+    : plots
+      ? villas
+        ? 'Your estate’s plot waits for its noble house: it comes along the road from the edge of your land, and once it lives there it sends a son to ride'
+        : 'Your estate’s plot waits for a noble house, and none comes until your city has a villa'
+      : 'Horsemen are the sons of estates: lay out an estate’s plot (Population, Estate) beside a road near your villas; a noble house comes to it once the city has a villa, and each estate sends a rider';
   const armour = s.buildings.reduce((a, b) => a + (b.kind === 'storehouse' ? held(b, ARMOUR) : 0), 0);
   barracks.forEach((b, i) => {
     const cs = companiesAt(s, b);
@@ -107,10 +119,10 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
     out.push('</ul>');
     if (cs.length < PER_BARRACKS) {
       out.push(
-        `<div class="raise"><button data-act="raise" data-id="${b.id}" data-kind="hoplite" title="Sixteen men from the fine houses and villas, one a home, each with a set of armour from the stores">Raise a company of hoplites</button><button data-act="raise" data-id="${b.id}" data-kind="archer" title="Sixteen men from the townhouses and better, one a home; they need no armour">Raise a company of archers</button>${estates ? `<button data-act="raise" data-id="${b.id}" data-kind="horseman" title="${HORSE_COMPANY} riders, a son from each estate, mounted and armed from their own stables: fast, good against archers and against a band on the run, weak against a line of hoplites">Raise a company of horsemen</button>` : ''}</div>`,
+        `<div class="raise"><button data-act="raise" data-id="${b.id}" data-kind="hoplite" title="Sixteen men from the fine houses and villas, one a home, each with a set of armour from the stores">Raise a company of hoplites</button><button data-act="raise" data-id="${b.id}" data-kind="archer" title="Sixteen men from the townhouses and better, one a home; they need no armour">Raise a company of archers</button><button data-act="raise" data-id="${b.id}" data-kind="horseman" title="${esc(noRiders || `${HORSE_COMPANY} riders, a son from each estate, mounted and armed from their own stables: fast, good against archers and against a band on the run, weak against a line of hoplites`)}"${noRiders ? ' disabled' : ''}>Raise a company of horsemen</button></div>`,
       );
       out.push(
-        `<p class="side-note">Room for ${PER_BARRACKS - cs.length} more. Homes that could send a man now: ${spare.hoplite} for hoplites, ${spare.archer} for archers${estates ? `, ${spare.horseman} ${spare.horseman === 1 ? 'estate' : 'estates'} a rider` : ''} · ${fmt(armour)} ${armour === 1 ? 'set' : 'sets'} of armour in the storehouses · ${SOLDIER_PAY} dr a man a month.</p>`,
+        `<p class="side-note">Room for ${PER_BARRACKS - cs.length} more. Homes that could send a man now: ${spare.hoplite} for hoplites, ${spare.archer} for archers, ${estates ? `${spare.horseman} ${spare.horseman === 1 ? 'estate' : 'estates'} a rider` : 'no estate a rider'} · ${fmt(armour)} ${armour === 1 ? 'set' : 'sets'} of armour in the storehouses · ${SOLDIER_PAY} dr a man a month.</p>${noRiders ? `<p class="side-note">${esc(noRiders)}.</p>` : ''}`,
       );
       // Hirelings: a company in a few days, for a price.
       const hire = (Object.keys(HIRELINGS) as HiredKind[]).map((k) => {

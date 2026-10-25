@@ -12,7 +12,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
-import { expeditionLine, expeditionOnMap, expeditionPlan, expeditionRefusal } from '../src/sim/expeditions';
+import { expeditionLine, expeditionOnMap, expeditionPlan, expeditionRefusal, stayingHome } from '../src/sim/expeditions';
 import { held, OIL, setHeld } from '../src/sim/foods';
 import { COLLECT_LULL, debtRefusal, LOAN_WORTH, loanTerms, REMIND, STEP_GAP, STORE_EVERY, STORE_SHARE, timeAnswer, worthAMarch } from '../src/sim/loans';
 import { lootValue, raidersOf } from '../src/sim/raids';
@@ -173,8 +173,9 @@ describe('your default', () => {
     const sim = fresh('caravan');
     const s = sim.state;
     ruler(s, 'corinth', ['pious', 'warlike'], 10);
-    // (Slice 34: the lender marches only for a remainder of 500 dr or more, so the sum is 1,000.)
-    const l = staged(s, 'corinth', 'in', 1000, 1);
+    // (Slice 34: the lender marches only for a remainder of 500 dr or more, so the sum is 1,500: with six porters at the
+    // caravan yard, not four, more is in it or on its way to it to be seized, and a sum of 1,000 fell below 500.)
+    const l = staged(s, 'corinth', 'in', 1500, 1);
     l.withhold = true;
     income(s, 4000, 'given', 'for the test');
     until(sim, () => l.step === 3, 2 * STEP_GAP + 3 * TICKS_PER_DAY);
@@ -349,6 +350,25 @@ describe('expeditions', () => {
     expect(expeditionRefusal(s, 'troy', 'raid')).toBe('Troy can only be reached by sea: you need triremes (build a shipyard on the shore and order one)');
     expect(expeditionRefusal(s, 'corinth', 'raid')).toBe('');
     expect(expeditionRefusal(fresh('caravan').state, 'corinth', 'raid')).toMatch(/no soldiers/);
+  });
+
+  it('a full force says who stays home and why: hoplites waiting for armour are counted, not lost', () => {
+    const s = fresh('companies').state;
+    const [a, b] = s.army.companies;
+    expect(s.army.companies.length).toBe(2);
+    expect(stayingHome(s, 'force', 'corinth')).toEqual([]);
+    expect(expeditionPlan(s, 'corinth', 'force').companies.length).toBe(2);
+    // The first company's men all in without armour, the second's half: only the second goes, with the men it has ready.
+    for (const x of s.army.soldiers) if (x.company === a.id) x.state = 'arming';
+    const second = s.army.soldiers.filter((x) => x.company === b.id && x.state === 'ready');
+    for (const x of second.slice(0, 5)) x.state = 'arming';
+    const plan = expeditionPlan(s, 'corinth', 'force');
+    expect(plan.companies.map((c) => c.id)).toEqual([b.id]);
+    expect(plan.men).toBe(second.length - 5);
+    const stay = stayingHome(s, 'force', 'corinth');
+    expect(stay).toHaveLength(2);
+    expect(stay[0]).toMatch(/^the 1st company of \w+: none of its \d+ men is ready \(\d+ wait for armour/);
+    expect(stay[1]).toMatch(new RegExp(`goes with ${second.length - 5} of its \\d+ \\(5 wait for armour`));
   });
 
   it('a raiding party after a debt: mustering at the edge, the march, the fight, home with what it took; the report, the memories, the ledger', () => {

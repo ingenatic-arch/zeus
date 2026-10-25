@@ -1088,7 +1088,7 @@ export function doingWords(s: SimState, c: Company): string {
   if (c.hired || c.ally || ready + hurt >= c.want) return `${what}${hurt ? ` (${hurt} wounded)` : ''}`;
   const bits: string[] = [];
   if (coming) bits.push(`${coming} walking in`);
-  if (arming) bits.push(`${arming} waiting for armour`);
+  if (arming) bits.push(`${arming} waiting for armour${s.buildings.some((b) => b.kind === 'storehouse' && held(b, ARMOUR) > 0) ? '' : ', and the storehouses have none'}`);
   // (Nobody ready yet: nobody is drilling or marching.)
   return `${ready ? '' : 'raising: '}${ready} of ${c.want} ready${bits.length ? ` (${bits.join(', ')})` : ''}${ready ? `; ${what}` : ''}`;
 }
