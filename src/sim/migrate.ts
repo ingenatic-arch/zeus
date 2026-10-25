@@ -169,6 +169,13 @@
  * always did; no workplace is paused or has its workers first. So an old town
  * plays on exactly as before until its stores are given rules.
  *
+ * Slice 45 (The court and the prison): the law starts at its defaults (the
+ * stocks for theft, pickpocketing and vandalism, a fine for smuggling, prison
+ * for arson and a gang's men), with nobody waiting at a court, nobody in
+ * prison, at labour or in the stocks, no prison restless, no execution or
+ * exile remembered, and the monthly crime rate starting from the month the
+ * save loads in. Nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -267,6 +274,7 @@ export function migrate(st: unknown): number {
   if (st.version === 39) fromSlice44(st);
   if (st.version === 40) fromSlice42(st);
   if (st.version === 41) fromSlice48(st);
+  if (st.version === 42) fromSlice45(st);
   return from;
 }
 
@@ -1048,6 +1056,24 @@ function fromSlice48(st: Record<string, unknown>): void {
       const r = b.rules as unknown[];
       if (r.length) while (r.length < WARES.length) r.push(0);
     }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 45 (The court and the prison): see the note above. Only its own
+ * fields in `crime`, each only if it is missing: the default law, no cases,
+ * nobody held, nobody in the stocks, no restless prison, this month's rate
+ * empty, no months closed and nothing cut.
+ */
+function fromSlice45(st: Record<string, unknown>): void {
+  const c = st.crime;
+  if (isObj(c)) {
+    if (!isObj(c.law)) c.law = { theft: 'stocks', pickpocket: 'stocks', vandal: 'stocks', arson: 'prison', smuggling: 'fine', gang: 'prison' };
+    for (const k of ['cases', 'held', 'stocks', 'jails', 'rates']) if (!Array.isArray(c[k])) c[k] = [];
+    const tick = typeof st.tick === 'number' ? st.tick : 0;
+    if (!isObj(c.rate)) c.rate = { month: Math.floor(tick / TICKS_PER_MONTH), people: 0, n: [0, 0, 0, 0, 0, 0], caught: 0, tried: 0 };
+    if (!isObj(c.cut)) c.cut = { tick: 0, what: '', who: '' };
   }
   st.version = (st.version as number) + 1;
 }

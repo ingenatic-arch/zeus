@@ -194,4 +194,8 @@ export const VIEWS: Record<string, CameraView> = {
   storerules: { x: 76.5, z: 61, yaw: -0.3, dist: 24, tilt: -0.1 },
   // #workpanel: the olive press and the storehouse beside it, right of the press's panel (tuned by eye).
   workpanel: { x: 80, z: 29, yaw: -0.3, dist: 18, tilt: 0.02 },
+  // Slice 45, #court: the court and its jurors right of its panel, the thief walked in along the road from the upper street (tuned by eye).
+  court: { x: 87, z: 49, yaw: -0.3, dist: 14, tilt: -0.05 },
+  // #jailbreak: the crowded prison right of its panel, the court beside it and the lower street the prisoners run home to.
+  jailbreak: { x: 88.5, z: 53.5, yaw: -0.3, dist: 15, tilt: -0.05 },
 };

@@ -68,6 +68,8 @@ import { COTTAGE, TENT } from './buildings';
 import type { WalkerKind } from './state';
 import { act, crimeTargets, criminalHome, holdBroken, mingle, catchOther, startTalk, stepTalk, type Target } from './misdeeds';
 import { denOf, gangOf, lone, stepGangs } from './gangs';
+// Slice 45: the court and the prison.
+import { countCrime, courtFor, deterrence, escort, escorting, freshJustice, isAway, lawCtx, postsInReach, rateNow, stepJustice, toCourt, type Case, type Cut, type Held, type Jail, type Law, type Pinned, type RateMonth } from './justice';
 
 /** Temptation runs from 0 to this; full, a thief goes out. */
 export const TEMPT_FULL = 1000;
@@ -150,7 +152,7 @@ export interface CrimeTally {
 }
 
 /** Slice 41: the kinds of crime news (theft and caught are slice 30's). */
-export const NEWS_KINDS = ['theft', 'caught', 'picked', 'smashed', 'mended', 'talk', 'calmed', 'arson', 'smuggled', 'skimmed', 'gathering', 'dispersed', 'gang', 'beaten', 'brokenup', 'scattered'] as const;
+export const NEWS_KINDS = ['theft', 'caught', 'picked', 'smashed', 'mended', 'talk', 'calmed', 'arson', 'smuggled', 'skimmed', 'gathering', 'dispersed', 'gang', 'beaten', 'brokenup', 'scattered', 'court', 'sentence', 'freed', 'unrest', 'breakout'] as const;
 
 /** A line of crime news: a theft, or a thief caught (slice 41: and every new kind's). */
 export interface CrimeNews {
@@ -213,6 +215,15 @@ export interface Crime {
   seats: number[];
   /** Slice 41: the gangs and their dens. */
   gangs: Gang[];
+  /** Slice 45: the law (a punishment for each kind of crime), the caught waiting for trial, those serving a sentence, those in the stocks, each prison's unrest, this month's crime and the months before, and the last execution or exile (justice.ts). */
+  law: Law;
+  cases: Case[];
+  held: Held[];
+  stocks: Pinned[];
+  jails: Jail[];
+  rate: RateMonth;
+  rates: RateMonth[];
+  cut: Cut;
 }
 
 /** Slice 41: an empty tally (exported for migrate.ts). */
@@ -220,7 +231,7 @@ export const freshTally = (): CrimeTally => ({ thefts: 0, caught: 0, coin: 0, go
 
 /** No crime yet, and the switch off (a new game and a loaded save turn it on; slice 41: the new kinds' switch with it). */
 export function freshCrime(on = false): Crime {
-  return { on, news: [], month: 0, now: freshTally(), last: freshTally(), kinds: on, broken: [], talk: [], arsonAt: 0, heat: [], seats: [], gangs: [] };
+  return { on, news: [], month: 0, now: freshTally(), last: freshTally(), kinds: on, broken: [], talk: [], arsonAt: 0, heat: [], seats: [], gangs: [], ...freshJustice() };
 }
 
 /** This month's tally (turning the month first if it has turned). */
@@ -257,6 +268,10 @@ export interface MoodCtx {
   jobs: boolean;
   shrine: boolean;
   theatre: boolean;
+  /** Slice 45: a court at work, a prison, a quarry or mine with a job for a convict (the law's deterrence: justice.ts). */
+  court?: boolean;
+  prison?: boolean;
+  labour?: boolean;
 }
 
 export function moodCtx(s: SimState): MoodCtx {
@@ -264,13 +279,17 @@ export function moodCtx(s: SimState): MoodCtx {
   let jobs = false;
   let shrine = false;
   let theatre = false;
+  let court = false;
   for (const o of s.buildings) {
     if (o.kind === 'agora') agora = true;
     else if (o.kind === 'shrine') shrine = true;
     else if (o.kind === 'theatre') theatre = true;
+    // (Slice 45.)
+    else if (o.kind === 'court' && o.workers > 0) court = true;
     if (o.kind !== 'home') jobs = true;
   }
-  return { agora, jobs, shrine, theatre };
+  if (!court) return { agora, jobs, shrine, theatre };
+  return { ...lawCtx(s), agora, jobs, shrine, theatre, court };
 }
 
 /** A reason a home is tempted (w > 0) or held back (w < 0). */
@@ -361,6 +380,11 @@ export function temptationOf(s: SimState, size: number, b: Building, ctx: MoodCt
   if (b.unpaid > 0) add(1, 'wages owed');
   // Slice 41: a gang's den in the quarter (never with no gang, so earlier towns are as they were).
   if (s.crime.gangs.length && s.crime.gangs.some((g) => g.den !== b.id && denNear(s, g, b))) add(1, 'a gang’s den nearby');
+  // Slice 45: the law, with a court at work (never without one, so earlier towns are as they were): the punishment for the crime its trouble points to.
+  if (ctx.court) {
+    const t0: Temptation = { score: 0, reasons, watched: false, mood, hungry, harsh: taxed && s.taxRate >= HARSH, envy, idle };
+    for (const r of deterrence(s, b, likelyKinds(s, b, t0), ctx)) add(r.w, r.text);
+  }
   // The watch.
   let score = 0;
   for (const r of reasons) score += r.w;
@@ -381,6 +405,19 @@ export function denNear(s: SimState, g: Gang, b: Building): boolean {
   const [ax, az] = centreOf(den);
   const [bx, bz] = centreOf(b);
   return dhypot(ax - bx, az - bz) <= GANG_TILES;
+}
+
+/**
+ * Slice 45: the crimes a home's trouble would turn it to (crimeFor's order, read cheaply without its road search), for
+ * the law's deterrence: the first that fits, or for a poor home both of its trades (the law's milder counts).
+ */
+export function likelyKinds(s: SimState, b: Building, t: Temptation): CrimeKind[] {
+  if (!s.crime.kinds) return ['theft'];
+  if (aggrieved(s, b, t)) return ['arson'];
+  if ((t.mood ?? 3) <= 1 && t.idle) return ['vandal'];
+  if (t.envy) return ['theft'];
+  if (poorHome(b)) return ['pickpocket', 'smuggling'];
+  return ['theft'];
 }
 
 /** Slice 41: a quarter, for gangs: homes this many tiles (centre to centre) from one another's. */
@@ -424,17 +461,27 @@ export function pronouns(b: Building | undefined, w: Walker | null): { he: strin
   return p?.female ? { he: 'she', his: 'her', him: 'her' } : { he: 'he', his: 'his', him: 'him' };
 }
 
-/** The grown member of a household who goes out to steal: a young man first (a son or brother), then an older one, then a woman (a hash of the day picks among them). */
-function whoGoes(s: SimState, b: Building, day: number): number {
+/**
+ * The grown member of a household who goes out to steal: a young man first (a son or brother), then an older one, then a
+ * woman (a hash of the day picks among them). (Slice 45: never one already out at a crime, at court or serving a sentence;
+ * -1 when every grown member is, so a gang's den sends no more men than it has. A home with none of them grown sends its
+ * head, as ever.)
+ */
+export function whoGoes(s: SimState, b: Building, day: number): number {
   const m = b.family?.members ?? [];
   const pools: number[][] = [[], [], [], []];
+  const busy = new Set<number>();
+  for (const w of s.walkers) if (w.home === b.id && w.people > 0 && (isCriminal(w.kind) || w.kind === 'convict')) busy.add(w.cheese);
+  let grown = 0;
   m.forEach((p, i) => {
     const age = ageOf(s, p);
     if (age < 16 || age > 60) return;
+    grown++;
+    if (busy.has(i) || ((s.crime.cases.length || s.crime.held.length) && isAway(s, b, p.name))) return;
     pools[(p.female ? 2 : 0) + (age <= 35 ? 0 : 1)].push(i);
   });
   const pool = pools.find((x) => x.length) ?? [];
-  if (pool.length === 0) return 0;
+  if (pool.length === 0) return grown > 0 || busy.size > 0 ? -1 : 0;
   return pool[Math.floor(unit(s.seed, b.id, day, 31) * pool.length)];
 }
 
@@ -518,7 +565,7 @@ function pickTarget(s: SimState, size: number, home: Building, search: Search): 
 }
 
 /** A path by road from `from`'s door to `to`'s door (false if no road joins them). */
-function walkBetween(s: SimState, size: number, w: Walker, from: Building, to: Building, here?: [number, number]): boolean {
+export function walkBetween(s: SimState, size: number, w: Walker, from: Building, to: Building, here?: [number, number]): boolean {
   const ends = roadsBeside(s, size, to);
   if (ends.length === 0) return false;
   const search = roadSearch(s, size, ends);
@@ -547,6 +594,10 @@ export function setOut(s: SimState, size: number, b: Building, target: Building,
   w.food = -1;
   w.cheese = whoGoes(s, b, day);
   w.since = s.tick;
+  if (w.cheese < 0) {
+    s.nextId--;
+    return null;
+  }
   if (!walkBetween(s, size, w, b, target)) return null;
   s.walkers.push(w);
   b.tempt = 0;
@@ -606,6 +657,8 @@ export function stepCrime(s: SimState, map: CoastMap): void {
     stepTalk(s, map);
     stepGangs(s, map);
   }
+  // Slice 45: trials, sentences served, the stocks, the prisons' unrest and the month's rate (nothing with no court, case, prisoner or prison).
+  stepJustice(s, map);
 }
 
 // ---------------------------------------------------------------------------
@@ -717,6 +770,10 @@ export function setOutAs(s: SimState, size: number, b: Building, c: Pick<CrimeCh
   w.food = c.kind === 'vandal' ? c.part : -1;
   w.cheese = whoGoes(s, b, day);
   w.since = s.tick;
+  if (w.cheese < 0) {
+    s.nextId--;
+    return null;
+  }
   if (!walkBetween(s, size, w, b, c.target)) return null;
   s.walkers.push(w);
   if (own) b.tempt = 0;
@@ -779,6 +836,8 @@ function steal(s: SimState, map: CoastMap, w: Walker): void {
   } else return;
   t.robbedAt = s.tick;
   tl.thefts++;
+  // (Slice 45: the month's rate.)
+  countCrime(s, 'theft');
   tellNews(s, 'theft', `A thief robbed ${placeOf(t)} ${whereOf(map, t)}: ${lootWords(w)}`, t.id);
   s.rev++;
 }
@@ -907,6 +966,8 @@ function thiefInSight(s: SimState, size: number, w: Walker, from: number): Walke
   for (const t of s.walkers) {
     // (Slice 41: every kind of criminal, but not a gang's man who has beaten this watchman off.)
     if (!isCriminal(t.kind) || t.people <= 0 || (t.meat > 0 && t.meat !== w.id && chased(s, t)) || t.meat === -w.id) continue;
+    // (Slice 45: a gang's man who has beaten off a watchman is known to the watch: a lone watchman runs after him only with a second to help.)
+    if (t.meat < 0 && s.crime.kinds && gangOf(s, t) && lone(s, w) && !helperFor(s, size, w, t)) continue;
     const [x, z] = position(t);
     const d = dhypot(x - here[0], z - here[1]);
     if (d > THIEF_SIGHT || d >= bd) continue;
@@ -970,8 +1031,8 @@ function giveUp(s: SimState, map: CoastMap, w: Walker, thief: Walker | null): bo
   return endRound(WATCH, post);
 }
 
-/** Caught: the loot goes back, the household pays its fine and hears of it, and the town too. */
-export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
+/** Caught: the loot goes back, the household pays its fine and hears of it, and the town too. (Slice 45: `court`, walked to the court instead: the loot back and the household told, no fine on the spot; justice.ts tells the town.) */
+export function catchThief(s: SimState, map: CoastMap, thief: Walker, court = false): void {
   const home = findBuilding(s, thief.home);
   const name = thiefName(home, thief);
   const tl = tally(s);
@@ -999,6 +1060,14 @@ export function catchThief(s: SimState, map: CoastMap, thief: Walker): void {
       note(s, thief.food, 'lost', 'Stolen by thieves', -back);
       tl.goods -= back;
     }
+  }
+  if (court) {
+    tl.caught++;
+    if (home?.family) {
+      tell(s, home.family, 'caught', home.level, [name, 'theft', 'court']);
+      home.family.story[home.family.story.length - 1].n = 0;
+    }
+    return;
   }
   const level = home?.level ?? 0;
   const fine = THIEF_FINE[Math.min(level, THIEF_FINE.length - 1)];
@@ -1073,7 +1142,8 @@ function chase(s: SimState, map: CoastMap, w: Walker): boolean {
 
 /** Slice 41: he lays hands on him: caught (then on as after a fire), or beaten off by a gang's man (then home). */
 function lay(s: SimState, map: CoastMap, w: Walker, thief: Walker): boolean {
-  if (caught(s, map, thief, w)) return giveUp(s, map, w, null);
+  // (Slice 45: walking him to the court, or back to his round.)
+  if (caught(s, map, thief, w)) return escorting(s, w) ? true : giveUp(s, map, w, null);
   w.meat = 0;
   w.wait = 0;
   const post = findBuilding(s, w.origin);
@@ -1092,9 +1162,20 @@ function lay(s: SimState, map: CoastMap, w: Walker, thief: Walker): boolean {
  */
 export function caught(s: SimState, map: CoastMap, criminal: Walker, watchman: Walker): boolean {
   const gang = gangOf(s, criminal);
-  if (gang && lone(s, watchman)) {
+  // (Slice 45: two watchmen together always win: another after the same man counts wherever he is.)
+  if (gang && lone(s, watchman) && !s.walkers.some((o) => o !== watchman && o.kind === 'watchman' && o.people > 0 && o.meat === criminal.id)) {
     beatenOff(s, map, criminal, watchman, gang);
     return false;
+  }
+  rateNow(s).caught++;
+  // Slice 45: a court at work within reach: the loot goes back, and the watchman walks him there to be tried.
+  const from = roadNearest(s, watchman);
+  const court = s.buildings.some((b) => b.kind === 'court') ? courtFor(s, map.size, from) : null;
+  if (court) {
+    if (criminal.kind === 'thief') catchThief(s, map, criminal, true);
+    else catchOther(s, map, criminal, true);
+    toCourt(s, map, criminal, watchman, court.court, court.search, from, !!gang);
+    return true;
   }
   if (criminal.kind === 'thief') catchThief(s, map, criminal);
   else catchOther(s, map, criminal);
@@ -1118,10 +1199,58 @@ function beatenOff(s: SimState, map: CoastMap, criminal: Walker, watchman: Walke
  */
 export function moveWatch(s: SimState, map: CoastMap, w: Walker): boolean {
   if (!s.crime.on) return moveWatchman(s, map, w);
-  if (w.meat > 0) return chase(s, map, w);
+  // Slice 45: walking one of the caught to the court.
+  if (w.meat > 0) {
+    const convict = escorting(s, w);
+    // (One who ran to help: the other walks him to the court, and he goes back to his round.)
+    if (convict && convict.meat !== w.id) return giveUp(s, map, w, null);
+    if (convict) {
+      escort(s, map, w, convict);
+      return true;
+    }
+    return chase(s, map, w);
+  }
   if (w.target === 0 && (s.tick + w.id) % LOOK_EVERY === 2 && s.walkers.some((o) => isCriminal(o.kind) && o.people > 0)) {
     const thief = thiefInSight(s, map.size, w, roadUnder(s, w));
-    if (thief && startChase(s, map, w, thief)) return chase(s, map, w);
+    if (thief && startChase(s, map, w, thief)) {
+      // Slice 45: a watchman of a post in reach of his runs after him too (with the new kinds' switch).
+      if (s.crime.kinds) callHelp(s, map, w, thief);
+      return chase(s, map, w);
+    }
   }
   return moveWatchman(s, map, w);
+}
+
+/** Slice 45: how far (tiles, as the crow flies) a watchman of a post in reach can be from the criminal to come and help. */
+export const HELP_SIGHT = 16;
+
+/** Slice 45: a free watchman of a post in reach of this one's who could run after this criminal too (null: none). */
+export function helperFor(s: SimState, size: number, w: Walker, thief: Walker): Walker | null {
+  const post = findBuilding(s, w.origin);
+  if (!post || post.kind !== 'watchpost') return null;
+  const [tx, tz] = position(thief);
+  for (const o of s.walkers) {
+    if (o === w || o.kind !== 'watchman' || o.people <= 0 || o.meat !== 0 || o.target !== 0) continue;
+    const [ox, oz] = position(o);
+    if (Math.abs(ox - tx) > HELP_SIGHT || Math.abs(oz - tz) > HELP_SIGHT || dhypot(ox - tx, oz - tz) > HELP_SIGHT) continue;
+    const op = findBuilding(s, o.origin);
+    if (!op || op.kind !== 'watchpost' || !postsInReach(s, size, post, op)) continue;
+    const from = roadNearest(s, o);
+    const to = roadUnder(s, thief);
+    if (from < 0 || to < 0) continue;
+    const d = roadSearch(s, size, [to]).dist[from];
+    if (d < 0 || d > CHASE_MAX * 1.5) continue;
+    return o;
+  }
+  return null;
+}
+
+/** Slice 45: the sergeant's call: a watchman of a post in reach joins the chase. */
+function callHelp(s: SimState, map: CoastMap, w: Walker, thief: Walker): void {
+  const o = helperFor(s, map.size, w, thief);
+  if (!o) return;
+  o.meat = thief.id;
+  o.back = false;
+  o.target = 0;
+  if (!planChase(s, map.size, o, thief)) o.meat = 0;
 }

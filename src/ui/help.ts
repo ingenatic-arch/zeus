@@ -44,7 +44,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
-      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away, and thieves: homes he walks by are less tempted to steal or worse, and he runs after any criminal he sees; two whose rounds reach a gang’s den break it up), and again for an architect’s office (its inspector keeps buildings from falling, and mends what vandals smash)</dd>
+      <dt>Z</dt><dd>Tax office: its tax collector brings in each household’s taxes; again for a watch post (its watchman keeps fire away, and thieves: homes he walks by are less tempted to steal or worse, and he runs after any criminal he sees; two whose rounds reach a gang’s den break it up), and again for an architect’s office (its inspector keeps buildings from falling, and mends what vandals smash); again for a court (its magistrate and jurors try the caught by the law you set: click it) and again for a prison (its guards hold the court’s prisoners; keep it staffed and from overflowing, or they break out)</dd>
       <dt>Shift</dt><dd>With M, G, K or Z: back to the one before</dd>
       <dt>Monuments</dt><dd>On the Monuments tab (no key: every letter is taken): the masons’ yard, whose builders build the monuments, and the Lighthouse (high over the sea), the Colossus (by deep water) and the Stadium. Each goes up in three stages, a stage starting once its marble, timber or bronze is all on site</dd>
       <dt>X</dt><dd>Clear land: drag over it (rubble costs a little to clear)</dd>
@@ -64,7 +64,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of; again for oil, fleece and wine</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
       <dt>C</dt><dd>The culture overlay: where the actor walks, and which homes have plays</dd>
-      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, again for wear, and again for crime (which homes are tempted to steal or worse, which were robbed, gangs’ dens, and places smashed or worked by pickpockets and smugglers)</dd>
+      <dt>J</dt><dd>The tax overlay: where the tax collector walks, and which homes have paid this month; again for fire risk, again for wear, and again for crime (which homes are tempted to steal or worse, which were robbed, gangs’ dens, and places smashed or worked by pickpockets and smugglers; each home coloured by the crime it would turn to)</dd>
       <!-- Slice 39 -->
       <dt>Laurel</dt><dd>The ambitions (the wreath at the end of the top bar): the milestone you are nearest, and how far along; click it for all three side by side, Master of Greece, the great trading city and a city of wonders, each with its five milestones, what each wants and its reward</dd>
       <dt>$</dt><dd>The ledger: what came in and went out, this month and last (or click the drachmas); the chip beside them sets the taxes</dd>

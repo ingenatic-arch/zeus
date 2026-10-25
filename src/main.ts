@@ -57,6 +57,9 @@ import { LedgerCard } from './ui/ledger';
 import { TradePanel } from './ui/trade';
 // Slice 38: the shipyard's panel.
 import { ShipyardPanel } from './ui/shipyard';
+// Slice 45: the court's and the prison's panel, and the crime overlay's colours.
+import { JusticePanel } from './ui/justice';
+import { CRIME_KIND_TONES } from './render/overlay';
 import { blockadeWords } from './sim/blockades';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
@@ -318,6 +321,9 @@ interface Probe {
   building?: (id?: number) => { id: number; open: boolean; text: string; plaques: number };
   /** A building's orders and a store's rules, and the store-to-store carts on the road from or to it. */
   store?: (id: number) => { paused: boolean; first: boolean; workers: number; rules: number[]; held: number[]; out: number; coming: number } | null;
+  /** Slice 45: the court's or a prison's panel opened on a building (0 shuts it), and its text; the law, the cases, the held, the stocks, the convicts walking and each prison's unrest. */
+  justicePanel?: (at: number) => string;
+  justice?: () => { law: Record<string, string>; cases: number; held: number; stocks: number; pinned: number[]; convicts: number; jails: Array<{ at: number; unrest: number; warned: boolean }>; text: string };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -541,6 +547,31 @@ function start(preparedTown: string | null): void {
     panel.show(0);
     shipyardPanel.toggle(false);
   };
+  // Slice 45: the court's and the prison's panel, in the same place: one at a time with the others.
+  const justicePanel = new JusticePanel(ui, (c) => {
+    sim.enqueue(c);
+    sim.flush();
+    sound.play('build');
+    startAutosaving();
+    linesAt = -Infinity;
+  });
+  justicePanel.onOpen = () => {
+    panel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+  };
+  {
+    const trade = tradePanel.onOpen;
+    const yard = shipyardPanel.onOpen;
+    tradePanel.onOpen = () => {
+      trade();
+      justicePanel.toggle(false);
+    };
+    shipyardPanel.onOpen = () => {
+      yard();
+      justicePanel.toggle(false);
+    };
+  }
   // (The Army tab's fleet has a button that opens it.)
   document.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement | null)?.closest?.('button[data-act="shipyard"]') as HTMLButtonElement | null;
@@ -581,6 +612,8 @@ function start(preparedTown: string | null): void {
   const MISSING_LEGEND = '<b>What’s missing</b><span><i class="warn"></i>Going down a level unless it comes</span><span><i class="want"></i>Needs it to grow</span><span><i class="fine"></i>Has all it needs</span>';
   const VARIETY_LEGEND =
     '<b>On the table</b><span><i class="bread"></i>Bread</span><span><i class="meat"></i>Meat</span><span><i class="cheese"></i>Cheese</span><span><i class="short"></i>A kind it needs and lacks</span><span><i class="want"></i>Another kind would lift it</span>';
+  // Slice 45: the crime overlay's key (its columns by the crime each home turns to).
+  const CRIME_LEGEND = `<b>Crime</b>${(['theft', 'pickpocket', 'vandal', 'arson', 'smuggling'] as const).map((k) => `<span><i style="background:${CRIME_KIND_TONES[k]}"></i>${{ theft: 'Theft', pickpocket: 'Picking pockets', vandal: 'Smashing things', arson: 'Burning', smuggling: 'Smuggling' }[k]}</span>`).join('')}<span><i class="fine"></i>Content</span>`;
   legend.innerHTML = MISSING_LEGEND;
   let legendFor = 'missing';
   const lines = new TownLines(notices, (l) => {
@@ -1190,7 +1223,7 @@ function start(preparedTown: string | null): void {
   const MAKERS: ToolName[] = ['farm', 'lodge', 'dairy', 'grove', 'press', 'pasture', 'vineyard', 'winery', 'quarry', 'loggers', 'horsefarm'];
   const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
   /** What Z cycles through: the offices. */
-  const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect'];
+  const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect', 'court', 'prison'];
   const next = (list: ToolName[], now: ToolName | null, back = false): ToolName => {
     const i = now ? list.indexOf(now) : -1;
     if (i < 0) return list[0];
@@ -1232,6 +1265,8 @@ function start(preparedTown: string | null): void {
       else if (tradePanel.open) tradePanel.toggle(false);
       // (Slice 38.)
       else if (shipyardPanel.open) shipyardPanel.toggle(false);
+      // (Slice 45.)
+      else if (justicePanel.open) justicePanel.toggle(false);
       else if (panel.open) panel.show(0);
       // Slice 48.
       else if (buildingPanel.open) buildingPanel.show(0);
@@ -1262,6 +1297,12 @@ function start(preparedTown: string | null): void {
       const visitor = visitorNear(sx, sy);
       if (visitor) return goToTrader(`${visitor}-sea`);
       const b = tall ?? buildingAt(w);
+      // Slice 45: the court or a prison: its panel (the law, the cases, the prisoners); anything else shuts it.
+      if (b?.kind === 'court' || b?.kind === 'prison') {
+        justicePanel.show(b.id);
+        return hover(w, sx, sy);
+      }
+      if (!b || (b.kind === 'home' && b.people > 0)) justicePanel.toggle(false);
       // A lived-in home: who lives there. Open ground: close the panel.
       if (b?.kind === 'home' && b.people > 0) {
         tradePanel.toggle(false);
@@ -1446,6 +1487,8 @@ function start(preparedTown: string | null): void {
     panel.show(0);
     tradePanel.toggle(false);
     shipyardPanel.toggle(false);
+    // (Slice 45.)
+    justicePanel.toggle(false);
     tip.show(null, 0, 0);
     welcomeCard?.dismiss();
     greeceButton.set(true);
@@ -1475,6 +1518,9 @@ function start(preparedTown: string | null): void {
   if (yard) side.showBarracks(yard.id);
   // (Slice 38: the shipyard's panel open from the start.)
   if (demo?.shipyard) shipyardPanel.show(sim.state.buildings.find((b) => b.kind === 'shipyard')?.id ?? 0);
+  // Slice 45: the court's or the prison's panel open from the start.
+  const justiceAt = demo?.justice?.(sim.state) ?? 0;
+  if (justiceAt) justicePanel.show(justiceAt);
   if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;
@@ -1985,6 +2031,26 @@ function start(preparedTown: string | null): void {
     const was = probe.messages;
     probe.messages = (open, filter, last) => ({ ...was(open, filter, last), sealed: sealOf(sim.state).n });
   }
+  // Slice 45.
+  probe.justicePanel = (at) => {
+    if (at) justicePanel.show(at);
+    else justicePanel.toggle(false);
+    justicePanel.update(sim.state, map, Infinity);
+    return justicePanel.text;
+  };
+  probe.justice = () => {
+    const c = sim.state.crime;
+    return {
+      law: { ...c.law },
+      cases: c.cases.length,
+      held: c.held.length,
+      stocks: c.stocks.length,
+      pinned: c.stocks.filter((p) => sim.state.tick >= p.since && sim.state.tick < p.until).map((p) => p.at),
+      convicts: sim.state.walkers.filter((w) => w.kind === 'convict' && w.people > 0).length,
+      jails: c.jails.map((j) => ({ at: j.at, unrest: j.unrest, warned: j.warned > 0 })),
+      text: justicePanel.text,
+    };
+  };
   probe.sideText = () => side.text;
   probe.side = (open) => side.toggle(open);
   probe.sideTab = (t) => side.showTab(t as Parameters<typeof side.showTab>[0]);
@@ -2535,10 +2601,10 @@ function start(preparedTown: string | null): void {
     updateFollow();
     overlay.update(s, time);
     side.showOverlay(overlay.mode);
-    legend.hidden = overlay.mode !== 'missing' && overlay.mode !== 'variety';
+    legend.hidden = overlay.mode !== 'missing' && overlay.mode !== 'variety' && !(overlay.mode === 'crime' && sim.state.crime.kinds);
     if (!legend.hidden && legendFor !== overlay.mode) {
       legendFor = overlay.mode as string;
-      legend.innerHTML = legendFor === 'variety' ? VARIETY_LEGEND : MISSING_LEGEND;
+      legend.innerHTML = legendFor === 'variety' ? VARIETY_LEGEND : legendFor === 'crime' ? CRIME_LEGEND : MISSING_LEGEND;
     }
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);
@@ -2552,6 +2618,8 @@ function start(preparedTown: string | null): void {
     ambitionPanel.update(s, time);
     tradePanel.update(s, map, time);
     shipyardPanel.update(s, map, time);
+    // Slice 45.
+    justicePanel.update(s, map, time);
     {
       const t = performance.now();
       side.update(s, time);

@@ -18,6 +18,8 @@ import { prideMood } from './laurels';
 // Slice 36: the estates' own needs.
 import { ESTATE, GREAT_ESTATE } from './buildings';
 import { estateStocked } from './estates';
+// Slice 45: the court's sentences.
+import { justiceMoods } from './justice';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -439,6 +441,8 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     const picked = lastOf(f, 'picked');
     if (picked && s.tick - picked.tick < TICKS_PER_MONTH) add(-1, `A purse cut at ${picked.names[0] ?? 'the agora'} ${span(s.tick - picked.tick)} ago: ${picked.n ?? 0} dr gone`);
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
+    // Slice 45: the court's sentences.
+    for (const m of justiceMoods(s, b)) add(m.w, m.text);
   }
   // A few days from giving up: as low as it goes.
   const warn = warningOf(s, b);

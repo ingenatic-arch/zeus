@@ -74,6 +74,8 @@ import { HORSE_BATCH, HORSE_EVERY } from '../sim/production';
 import { TICKS_PER_YEAR } from '../sim/clock';
 // Slice 41 (review).
 import { denReachWords } from '../sim/gangs';
+// Slice 45.
+import { placeLines as justicePlaceLines } from '../sim/justice';
 const capacityOf = (level: number): number => HOME_CAPACITY[level];
 
 export type ToolName =
@@ -118,7 +120,10 @@ export type ToolName =
   | 'stadium'
   // Slice 36.
   | 'horsefarm'
-  | 'estate';
+  | 'estate'
+  // Slice 45.
+  | 'court'
+  | 'prison';
 export const TOOLS: readonly ToolName[] = [
   'road',
   'housing',
@@ -162,6 +167,9 @@ export const TOOLS: readonly ToolName[] = [
   // Slice 36.
   'horsefarm',
   'estate',
+  // Slice 45.
+  'court',
+  'prison',
 ];
 
 /** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
@@ -171,7 +179,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && t !== 'estate' && !isStallTool(t);
 /** Slice 36: tools that put down a footprint where you click (a building, plots, an estate's plot). */
 const isFooted = (t: ToolName | null): boolean => t === 'housing' || t === 'estate' || isPlacer(t);
@@ -692,6 +700,9 @@ export class Tools {
       colossus: ['colossus', 'colossi'],
       stadium: ['stadium', 'stadiums'],
       horsefarm: ['horse farm', 'horse farms'],
+      // Slice 45.
+      court: ['court', 'courts'],
+      prison: ['prison', 'prisons'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -987,6 +998,11 @@ export class Tools {
     } else if (kind === 'mine' || kind === 'armoury' || kind === 'barracks') {
       const more = armsLines(s, map, kind, x, z, side, roads.length > 0);
       if (kind === 'mine') text += ` · copper in the rock ${Math.round(copperOf(map, x, z, side) * 100)}%`;
+      lines.push(...more.lines);
+      warn = more.warn;
+    } else if (kind === 'court' || kind === 'prison') {
+      // Slice 45.
+      const more = justicePlaceLines(s, kind, roads.length > 0);
       lines.push(...more.lines);
       warn = more.warn;
     } else if (kind === 'quarry' || kind === 'loggers' || kind === 'masons' || kind === 'lighthouse' || kind === 'colossus' || kind === 'stadium') {

@@ -27,6 +27,8 @@ import { Jobfolk } from './jobfolk';
 import { MonumentsView } from './monuments';
 // Slice 42: the land's size.
 import { sizeOf } from '../map/lands';
+// Slice 45: the stocks and the prisoners.
+import { JusticeView } from './justice';
 
 const NO_ONE: ReadonlySet<number> = new Set();
 
@@ -46,6 +48,8 @@ export class CityView {
   readonly jobfolk: Jobfolk;
   /** The masons' yards and the monuments, at every stage of their building (slice 35). */
   readonly monuments: MonumentsView;
+  /** Slice 45: the stocks at an agora with the one pinned in them, and the prisoners in a prison's yard. */
+  readonly justice: JusticeView;
   readonly bridges: Bridges;
   /** The walls, gates, towers and breaches (slice 25). */
   readonly walls: WallsView;
@@ -108,6 +112,9 @@ export class CityView {
     // Slice 43: the rowing boats between the jetty and your ship at anchor.
     this.rowboats = new RowBoats(map);
     this.group.add(this.rowboats.group);
+    // Slice 45.
+    this.justice = new JusticeView(map, (st, b) => this.works.floorOf(st, b));
+    this.group.add(this.justice.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -115,6 +122,8 @@ export class CityView {
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
     this.monuments.update(s, time);
+    // Slice 45.
+    this.justice.update(s);
     // Slice 32: the trees being chopped and felled, and the woods growing back.
     this.plants.works(s, alpha, time);
     this.folk.begin();

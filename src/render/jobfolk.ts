@@ -326,6 +326,10 @@ const MONUMENT: ReadonlySet<string> = new Set(['masons']);
 /** A building with nobody drawn at work (a home, rubble, the agora, a monument): kept so it isn't planned again every frame. */
 const NOBODY = { frame: { x: 0, y: 0, z: 0, yaw: 0, mirror: 1 }, list: [] as Spot[] };
 
+// Slice 45: the magistrate's white robe, and the prison guards' dun tunics.
+const MAGISTRATE_ROBE = '#ece4d2';
+const GUARD_TUNIC = '#6b5a48';
+
 const TUNICS = ['#8a7a52', '#7b5b3a', '#5f6a4a', '#a35a3a', '#4e6a86', '#b8ab8e'].map((c) => col(c));
 const DRESSES = ['#b8573a', '#3f6f9a', '#d2a640', '#6f8a4e', '#8c5a7a', '#e2d6bc'].map((c) => col(c));
 
@@ -442,6 +446,11 @@ export class Jobfolk {
         return [at(0.24, 0.32, N, P.mason, 8, t(0)), at(-0.3, -0.25, W, P.mason, 9, t(1))];
       case 'horsefarm':
         return [at(-0.25, -1.0, E, P.groom, 120, t(0), { to: [1.0, -0.95] })];
+      // Slice 45: the magistrate before his chair under the porch, the jurors by their benches with their voting tablets; the prison's guards at its gate and door, one pacing the yard.
+      case 'court':
+        return [at(0.24, 0.0, E, P.architect, 16, col(MAGISTRATE_ROBE), { y: 0.24 }), at(0.92, -0.6, S, P.scribe, 9, t(1)), at(1.2, 0.6, N, P.scribe, 10, t(2)), at(1.2, -0.6, S, P.scribe, 11, t(3)), at(0.92, 0.6, N, P.scribe, 9, t(4))];
+      case 'prison':
+        return [at(1.18, -0.42, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.8 }), at(-0.02, 0.4, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.6 }), at(0.3, -0.85, E, P.sentry, 50, col(GUARD_TUNIC), { to: [1.1, -0.85] }), at(1.18, 0.75, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.8 }), at(0.3, 0.85, E, P.sentry, 56, col(GUARD_TUNIC), { to: [1.0, 0.85] }), at(0.0, -0.4, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.5 })];
       default:
         return [];
     }

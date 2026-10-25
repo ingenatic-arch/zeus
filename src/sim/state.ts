@@ -17,7 +17,7 @@ import type { Messages } from './messages';
 import type { Land } from '../map/lands';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 42;
+export const SIM_STATE_VERSION = 43;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -62,9 +62,12 @@ export type BuildingKind =
   | 'colossus'
   | 'stadium'
   // Slice 36: the horse farm.
-  | 'horsefarm';
+  | 'horsefarm'
+  // Slice 45: the court and the prison (justice.ts).
+  | 'court'
+  | 'prison';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -198,9 +201,11 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   | 'pickpocket'
   | 'vandal'
   | 'arsonist'
-  | 'smuggler';
+  | 'smuggler'
+  // Slice 45: one of the caught, walked to the court by a watchman (justice.ts).
+  | 'convict';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -224,7 +229,10 @@ export interface Story {
     // Slice 41: one of them did a crime of the new kinds (names: who, the crime's kind, what; `n` how much); a purse cut (names: where; `n` the coin); the house became a gang's den (`n` 1) or the watch broke the gang up (`n` 0; names: the gang's).
     | 'misdeed'
     | 'picked'
-    | 'den';
+    | 'den'
+    // Slice 45: one of them sentenced by the court (names: who, the punishment, the crime's kind, and the place for the stocks, prison or hard labour; `n` the fine or the months), or home from prison or hard labour (names: who, where from).
+    | 'sentence'
+    | 'freed';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */

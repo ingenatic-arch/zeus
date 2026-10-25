@@ -79,6 +79,14 @@ import { crimeTargetsFrom, type Target } from '../sim/misdeeds';
 // Slice 48
 import { ACCEPT, EMPTY, GET } from '../sim/stores';
 import type { Walker } from '../sim/state';
+// Slice 45.
+import { COURT_COST, PRISON_COST } from '../sim/build';
+import { isCriminal, setOut, startChase, targetFor } from '../sim/crime';
+import { position } from '../sim/walk';
+import { skim } from '../sim/misdeeds';
+import { isAway } from '../sim/justice';
+import { ageOf } from '../sim/folk';
+import { livedIn } from '../sim/buildings';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -207,6 +215,9 @@ export interface Demo {
   // Slice 48
   /** The building whose panel is open from the start (a building id, 0 for none). */
   building?: (s: SimState) => number;
+  // Slice 45
+  /** Open the court's or the prison's panel from the start (its building id, 0 for none). */
+  justice?: (s: SimState) => number;
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;
@@ -3451,6 +3462,10 @@ const SCENES: Record<string, Demo> = {
   storerules: { view: 'storerules', setup: storeRulesTown, overlay: 'missing' },
   storeset: { view: 'storerules', setup: storeSetTown, overlay: 'missing', building: quayStoreId },
   workpanel: { view: 'workpanel', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', building: (s) => s.buildings.find((b) => b.kind === 'press')?.id ?? 0 },
+  // Slice 45: a thief walked to the court by a watchman (the pair in the street), the court's panel open; an arsonist and a crooked collector tried in its history.
+  court: { view: 'court', speed: 'paused', setup: courtTown, justice: courtOf, overlay: 'crime' },
+  // The same town's prison crowded, the town warned of its unrest, the prison's panel open: played on, the prisoners break out.
+  jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, justice: prisonOf, overlay: 'crime' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3704,4 +3719,135 @@ function quayStore(s: SimState): Building | undefined {
 /** #storeset's panel: the storehouse by the quay. */
 export function quayStoreId(s: SimState): number {
   return quayStore(s)?.id ?? 0;
+}
+
+// Slice 45
+/**
+ * The court and the prison (slice 45). #court: #crimes' town (its staged
+ * pickpocket, vandal and smuggler out), with a road joining its two hut
+ * streets' east ends, a court and a prison beside it, and two watch posts
+ * there within reach of each other, one at each street. Once they are
+ * staffed, an arsonist sets out from the lower street and the watchman there
+ * catches him and walks him to the court; the tax office by the core's east
+ * agora is found keeping back takings (a crooked collector summoned); both are
+ * tried. Then a thief sets out from the upper street, the watchman there runs
+ * him down, and it opens as the watchman walks him to the court, the pair in
+ * the street, the court's panel open. The law is the default (the stocks for
+ * theft, so played on, the thief stands five days pinned at the agora).
+ * #jailbreak: the same town, its prison holding eleven in its eight cells
+ * (men of the two streets, sentenced earlier): played on until the town is
+ * warned of the unrest, it opens on the prison's panel, a few days before the
+ * breakout.
+ */
+const COURT_ROAD = col(90, 45, 62);
+const COURT_AT: Spot = { x: 91, z: 49 };
+const PRISON_AT: Spot = { x: 91, z: 53 };
+const COURT_WATCH: Spot[] = [
+  { x: 91, z: 45 },
+  { x: 91, z: 59 },
+];
+/** The longest any of #court's staging waits. */
+const COURT_GUARD = 12 * TICKS_PER_DAY;
+/** The shortest way (road tiles) to a staged criminal's target. */
+const COURT_WAY = 14;
+/** How far (tiles) the convict still has to go to the court when #court opens. */
+const COURT_LEFT = 9;
+/** What the crooked collector keeps back. */
+const COURT_SKIM = 40;
+/** How many #jailbreak's prison holds. */
+const JAIL_HELD = 11;
+function courtTown(sim: Sim): void {
+  crimesTown(sim);
+  const s = sim.state;
+  const size = sim.map.size;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  waitFor(sim, s.tick, COURT_ROAD.length * ROAD_COST + COURT_COST + PRISON_COST + 2 * WATCHPOST_COST + (JOBS.court + JOBS.prison + 2 * JOBS.watchpost) * WAGE);
+  send({ type: 'road', tiles: COURT_ROAD });
+  send({ type: 'build', kind: 'court', at: [T(COURT_AT.x, COURT_AT.z)] });
+  send({ type: 'build', kind: 'prison', at: [T(PRISON_AT.x, PRISON_AT.z)] });
+  send({ type: 'build', kind: 'watchpost', at: COURT_WATCH.map((p) => T(p.x, p.z)) });
+  const at = (p: Spot): Building | undefined => s.buildings.find((b) => b.x === p.x && b.z === p.z);
+  const court = at(COURT_AT);
+  // Staffed, and the two watchmen out on their rounds.
+  const watchman = (post: Building | undefined): Walker | undefined => (post ? s.walkers.find((w) => w.id === post.walker && w.kind === 'watchman' && w.people > 0 && w.meat === 0 && w.target === 0) : undefined);
+  for (let guard = 0; guard < COURT_GUARD && !(court && court.workers > 0 && COURT_WATCH.every((p) => watchman(at(p)))); guard++) sim.run(10);
+  const day = (): number => Math.floor(s.tick / TICKS_PER_DAY);
+  // A chase staged: once the post's watchman is free, a criminal sets out from the home of the street nearest him, and the nearest free watchman runs after him; until he is walked off to the court.
+  const free = (): Walker[] => s.walkers.filter((w) => w.kind === 'watchman' && w.people > 0 && w.meat === 0 && w.target === 0);
+  const near = (w: Walker, x: number, z: number): number => {
+    const [wx, wz] = position(w);
+    return dhypot(wx - x, wz - z);
+  };
+  const chase = (homes: Building[], kind: CrimeKind, post: Spot): Walker | null => {
+    for (let guard = 0; guard < COURT_GUARD && !watchman(at(post)); guard++) sim.run(1);
+    const man = watchman(at(post));
+    if (!man) return null;
+    const order = [...homes].sort((a, b) => near(man, a.x, a.z) - near(man, b.x, b.z) || a.id - b.id);
+    // (A target far enough by road that the watchman, running, catches him on the way.)
+    for (const b of order) {
+      if (!b.family || b.people <= 0 || s.walkers.some((w) => w.home === b.id && w.people > 0 && (isCriminal(w.kind) || w.kind === 'convict'))) continue;
+      // (An arsonist whose own target is too near goes for a rich house, as a thief would.)
+      const own = kind === 'theft' ? null : crimeTargetsFrom(s, size, b)[kind as 'arson'];
+      const t = own && own.steps >= COURT_WAY ? own : targetFor(s, size, b);
+      if (!t || t.steps < COURT_WAY) continue;
+      const w = kind === 'theft' ? setOut(s, size, b, t.target, day()) : setOutAs(s, size, b, { kind, target: t.target, part: -1 }, day(), true);
+      if (!w) continue;
+      for (let guard = 0; guard < COURT_GUARD && w.people > 0 && w.meat === 0; guard++) {
+        const [x, z] = position(w);
+        for (const o of free().sort((a, c) => near(a, x, z) - near(c, x, z) || a.id - c.id)) if (w.meat === 0 && startChase(s, sim.map, o, w)) break;
+        if (w.meat === 0) sim.run(1);
+      }
+      for (let guard = 0; guard < COURT_GUARD && w.people > 0 && w.kind !== 'convict'; guard++) sim.run(1);
+      return w.kind === 'convict' ? w : null;
+    }
+    return null;
+  };
+  // The arsonist from the lower street, walked to the court and handed in.
+  const arsonist = chase(crimesLower(s), 'arson', COURT_WATCH[1]);
+  for (let guard = 0; arsonist && arsonist.people > 0 && guard < COURT_GUARD; guard++) sim.run(5);
+  // The crooked collector: the tax office nearest the streets keeps back takings, and the court's clerks find him out.
+  const offices = s.buildings.filter((b) => b.kind === 'taxoffice').sort((a, b) => dhypot(a.x - COURT_AT.x, a.z - COURT_AT.z) - dhypot(b.x - COURT_AT.x, b.z - COURT_AT.z) || a.id - b.id);
+  if (offices[0]) skim(s, { origin: offices[0].id } as Walker, COURT_SKIM);
+  // Both tried.
+  for (let guard = 0; guard < COURT_GUARD && s.crime.cases.length > 0; guard++) sim.run(10);
+  // The thief from the upper street, and the opening: walked to the court, a few steps from it.
+  const thief = chase(crimesUpper(s), 'theft', COURT_WATCH[0]);
+  for (let guard = 0; thief && thief.people > 0 && pathLeft(thief) > COURT_LEFT && guard < COURT_GUARD; guard++) sim.run(1);
+}
+/** #court's panel: the court. */
+function courtOf(s: SimState): number {
+  return s.buildings.find((b) => b.kind === 'court')?.id ?? 0;
+}
+/** #jailbreak's panel: the prison. */
+function prisonOf(s: SimState): number {
+  return s.buildings.find((b) => b.kind === 'prison')?.id ?? 0;
+}
+function jailbreakTown(sim: Sim): void {
+  courtTown(sim);
+  const s = sim.state;
+  const prison = s.buildings.find((b) => b.kind === 'prison');
+  if (!prison) return;
+  // Let the convict be handed in first (he is tried in a few days, after the opening).
+  for (let guard = 0; guard < COURT_GUARD && s.walkers.some((w) => w.kind === 'convict' && w.people > 0); guard++) sim.run(5);
+  // Eleven of the two streets' grown men and women, sentenced earlier to prison.
+  const kinds: CrimeKind[] = ['theft', 'pickpocket', 'smuggling', 'vandal'];
+  let n = s.crime.held.filter((x) => x.as === 'prison').length;
+  for (const b of crimesStreets(s)) {
+    if (n >= JAIL_HELD) break;
+    const f = b.family;
+    if (!f || !livedIn(b)) continue;
+    for (const m of f.members) {
+      if (n >= JAIL_HELD) break;
+      const age = ageOf(s, m);
+      if (age < 16 || age > 60 || isAway(s, b, m.name)) continue;
+      s.crime.held.push({ home: b.id, name: m.name, female: m.female, kind: kinds[n % kinds.length], gang: false, level: b.level, as: 'prison', at: prison.id, since: s.tick - TICKS_PER_MONTH, until: s.tick + 3 * TICKS_PER_MONTH });
+      n++;
+      break;
+    }
+  }
+  // Played on until the town is warned of the unrest.
+  for (let guard = 0; guard < COURT_GUARD && !s.crime.jails.some((j) => j.warned > 0); guard++) sim.run(10);
 }

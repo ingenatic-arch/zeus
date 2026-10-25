@@ -49,6 +49,9 @@ export const QUARRY_COST = 250;
 export const LOGGERS_COST = 150;
 /** Slice 36: the horse farm (3 x 3, on grassland), and an estate's plot (4 x 4, on housing ground). */
 export const HORSEFARM_COST = 300;
+/** Slice 45: the court and the prison (justice.ts). */
+export const COURT_COST = 300;
+export const PRISON_COST = 400;
 export const ESTATE_PLOT_COST = 100;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
@@ -98,6 +101,9 @@ export const COST: Record<BuildingKind, number> = {
   stadium: STADIUM_COST,
   // Slice 36.
   horsefarm: HORSEFARM_COST,
+  // Slice 45.
+  court: COURT_COST,
+  prison: PRISON_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */

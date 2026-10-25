@@ -81,11 +81,14 @@ export type Command =
   | { type: 'messages'; act: 'read' | 'unread' | 'pin' | 'unpin' | 'allread'; ids?: number[] }
   // Slice 48: a granary's or storehouse's rule for a ware (`mode`: 0 accept, 1 don't accept, 2 get, 3 empty; `limit`: 0 all of its room, 1 three quarters, 2 half, 3 a quarter), or for every ware at once (`all`: 'none' accepts nothing, 'all' everything, as built); a workplace paused, or given its workers first (storerules.ts).
   | { type: 'store'; id: number; ware?: number; mode?: number; limit?: number; all?: 'none' | 'all' }
-  | { type: 'work'; id: number; paused?: boolean; first?: boolean };
+  | { type: 'work'; id: number; paused?: boolean; first?: boolean }
+  // Slice 45
+  /** The law (justice.ts): the punishment the court gives for one kind of crime ('theft', 'pickpocket', 'vandal', 'arson', 'smuggling', or 'gang' for a gang's men), one of 'fine', 'stocks', 'prison', 'labour', 'exile', 'execution'. */
+  | { type: 'law'; crime: string; punishment: string };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */
