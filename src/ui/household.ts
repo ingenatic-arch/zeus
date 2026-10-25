@@ -13,10 +13,14 @@ import { canWorkIn } from '../sim/labour';
 import { servesLine } from '../sim/armystatus';
 import { foodLine, hazardLines, reachesWork, taxLine, whyDry, whyHungry, whyNoGood, whyNoPlays, whyUnblessed } from '../sim/status';
 import { FLEECE, foodList, foodsOnTable, kindsNeeded, OIL, onTable, SERVICE_GOOD, WINE } from '../sim/foods';
-import type { Building, Family, Person, Service, SimState, Story } from '../sim/state';
+import type { Building, Family, Person, Service, SimState, Story, Walker } from '../sim/state';
 import { morph } from './morph';
 // Slice 30.
 import { daysToThief, lootWords, placeOf, targetFor, TEMPT_FULL, TEMPT_SHOW, temptationOf, thiefName, THIEVES_OUT, thievesOut, pronouns } from '../sim/crime';
+// Slice 41.
+import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeKind } from '../sim/crime';
+import { criminalDoing, grievances, outFrom } from '../sim/misdeeds';
+import { denOf, gangOf, GANG_BREAK, gathering, monthsToGang, postsReaching } from '../sim/gangs';
 // Slice 36: an estate's own needs, in words.
 import { bringerOf, ESTATE_NEEDS, ESTATE_WORDS, fetchWords, LASTS, needWord, plotWaits, WARE_OF, wareUntil, wareWarnings, type EstateNeed } from '../sim/estates';
 import { ESTATE, GREAT_ESTATE } from '../sim/buildings';
@@ -136,9 +140,26 @@ function storyLine(f: Family, e: Story, i: number): string {
       // (Review of slice 30: "his" or "hers", as whoever went out.)
       return `${e.names[0]} came home before dawn with ${e.names[1] ?? 'something'} that wasn’t ${f.members.find((m) => m.name === e.names[0])?.female ? 'hers' : 'his'}`;
     case 'caught':
-      return `${e.names[0]} was caught stealing by the watchman; the house paid a ${e.n ?? 0} dr fine`;
+      // (Slice 41: and the new kinds, by what they were caught at.)
+      return `${e.names[0]} was caught ${CAUGHT_AT[e.names[1] ?? 'theft'] ?? 'stealing'} by the watchman; the house paid a ${e.n ?? 0} dr fine`;
+    // Slice 41: the new kinds of crime, purses cut, and a gang's den.
+    case 'misdeed': {
+      const what = e.names[2] ?? 'something';
+      if (e.names[1] === 'pickpocket') return `${e.names[0]} came home from the crowd with ${what} out of other people’s purses`;
+      if (e.names[1] === 'vandal') return `${e.names[0]} smashed ${what} in a black mood, and came home grinning`;
+      if (e.names[1] === 'arson') return `${e.names[0]} set fire to ${what}, and came home smelling of smoke`;
+      return `${e.names[0]} came home from the waterfront with ${what} that was meant for the traders`;
+    }
+    case 'picked':
+      return `A purse was cut in the crowd at ${e.names[0] ?? 'the agora'}: ${e.n ?? 0} dr gone`;
+    case 'den':
+      return e.n ? `${cap(e.names[0] ?? 'a gang')} made the house its den: rough company at all hours` : `The watch broke up ${e.names[0] ?? 'the gang'}; the house is quieter now`;
   }
 }
+
+/** Slice 41: what one of them was caught at, by the crime's kind. */
+const CAUGHT_AT: Record<string, string> = { theft: 'stealing', pickpocket: 'picking pockets', vandal: 'with a club, on the way to smash something', arson: 'with a torch', smuggling: 'smuggling' };
+const cap = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** The members, head first, with their ages and how they are related. */
 function memberRow(s: SimState, p: Person): string {
@@ -320,28 +341,81 @@ const HOOD = '<svg viewBox="0 0 24 24" class="ic"><path d="M12 2.4c-3.9 0-6.3 3-
 /**
  * Slice 30: how tempted the household is to steal, and why, from a quarter up
  * (or one of them out stealing now): the reasons, how far it has built and
- * how soon someone slips out, and what holds them back.
+ * how soon someone slips out, and what holds them back. Slice 41: with the
+ * new kinds on, whichever crime their trouble points to, and why; one of them
+ * out at any crime; a gang's den; talk of burning; a gang gathering round it.
  */
 function crimeBlock(s: SimState, map: CoastMap, b: Building): string {
   if (!s.crime.on) return '';
-  const out = s.walkers.find((w) => w.kind === 'thief' && w.home === b.id && w.people > 0);
+  // Slice 41: a gang's den, talk of burning, a gang gathering here, before anything else.
+  const extra = s.crime.kinds ? gangBlock(s, map, b) : '';
+  const out = s.crime.kinds ? outFrom(s, b) : s.walkers.find((w) => w.kind === 'thief' && w.home === b.id && w.people > 0);
+  if (out && (out.kind !== 'thief' || gangOf(s, out))) return extra + outBlock(s, b, out);
   if (out) {
     const t = findBuilding(s, out.target);
     const pr = pronouns(b, out);
     const doing = out.back ? (out.load > 0 ? `slipping home with ${lootWords(out)}` : 'slipping home empty-handed') : `on ${pr.his} way to ${t ? placeOf(t) : 'somewhere'}`;
-    return `<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, out))} is out stealing</b><p>${esc(doing)}${out.meat > 0 ? `, a watchman after ${pr.him}` : ''}</p><p class="why">A watchman who sees ${pr.him} runs after ${pr.him}; caught, the house pays a fine.</p></div></div>`;
+    return `${extra}<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, out))} is out stealing</b><p>${esc(doing)}${out.meat > 0 ? `, a watchman after ${pr.him}` : ''}</p><p class="why">A watchman who sees ${pr.him} runs after ${pr.him}; caught, the house pays a fine.</p></div></div>`;
   }
-  if (b.tempt < TEMPT_SHOW) return '';
+  if (b.tempt < TEMPT_SHOW || denOf(s, b) || s.crime.talk.some((x) => x.home === b.id)) return extra;
   const t = temptationOf(s, map.size, b);
   const pushing = t.reasons.filter((r) => r.w > 0).map((r) => r.text);
   const holding = t.reasons.filter((r) => r.w < 0).map((r) => r.text);
   const pct = Math.round((100 * b.tempt) / TEMPT_FULL);
   const d = daysToThief(b, t);
-  const full = thievesOut(s).length >= THIEVES_OUT;
-  const soon = d === 0 ? (targetFor(s, map.size, b) ? (full ? `someone slips out once one of the ${THIEVES_OUT} thieves out now is home` : 'someone slips out any day now') : 'nothing worth stealing within reach, for now') : d < Infinity ? `a thief in about ${days(d * TICKS_PER_DAY)}` : 'easing';
-  const head = pushing.length ? `Tempted to steal: ${pushing.join(', ')}` : 'Tempted to steal, less each day';
+  // Slice 41: which crime their trouble points to (theft, with the new kinds off).
+  const c = s.crime.kinds ? crimeFor(s, map.size, b, t) : null;
+  const kind = c?.kind ?? 'theft';
+  if (kind === 'theft') {
+    const full = thievesOut(s).length >= THIEVES_OUT;
+    const soon = d === 0 ? (targetFor(s, map.size, b) ? (full ? `someone slips out once one of the ${THIEVES_OUT} thieves out now is home` : 'someone slips out any day now') : 'nothing worth stealing within reach, for now') : d < Infinity ? `a thief in about ${days(d * TICKS_PER_DAY)}` : 'easing';
+    const head = pushing.length ? `Tempted to steal: ${pushing.join(', ')}` : 'Tempted to steal, less each day';
+    const held = holding.length ? `<p class="why">Holding them back: ${esc(holding.join(', '))}.</p>` : '<p class="why">A watchman walking by would hold them back (a watch post, Z twice).</p>';
+    return `${extra}<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${held}</div></div>`;
+  }
+  const name = KIND_NAME[kind];
+  const soon = d === 0 ? (kind === 'arson' ? 'talk of burning begins any day now' : `a ${name} slips out any day now`) : d < Infinity ? (kind === 'arson' ? `talk of burning in about ${days(d * TICKS_PER_DAY)}` : `a ${name} in about ${days(d * TICKS_PER_DAY)}`) : 'easing';
+  const head = pushing.length ? `Tempted to ${KIND_VERB[kind]}: ${pushing.join(', ')}` : `Tempted to ${KIND_VERB[kind]}, less each day`;
+  const why = `<p class="why">Why ${KIND_VERB[kind] === 'burn' ? 'burning' : KIND_ING[kind]}: ${esc(c?.why ?? '')}, ${esc(placeOf(c!.target))} within reach.</p>`;
   const held = holding.length ? `<p class="why">Holding them back: ${esc(holding.join(', '))}.</p>` : '<p class="why">A watchman walking by would hold them back (a watch post, Z twice).</p>';
-  return `<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${held}</div></div>`;
+  return `${extra}<div class="warning crime">${HOOD}<div><b>${esc(head)}</b><p>${pct}% · ${esc(soon)}</p><div class="bar"><i style="width:${pct}%"></i></div>${why}${held}</div></div>`;
+}
+
+/** Slice 41: "picking pockets", "smashing things", "smuggling". */
+const KIND_ING: Record<CrimeKind, string> = { theft: 'stealing', pickpocket: 'picking pockets', vandal: 'smashing things', arson: 'burning', smuggling: 'smuggling' };
+
+/** Slice 41: one of them out at a new kind of crime: what doing, and what the watch would do. */
+function outBlock(s: SimState, b: Building, w: Walker): string {
+  const kind = crimeOfWalker(w.kind);
+  const pr = pronouns(b, w);
+  const g = gangOf(s, w);
+  const doing = criminalDoing(s, w);
+  const watch = g ? `One of ${g.name}’s men: a lone watchman can’t take ${pr.him}; two can.` : `A watchman who sees ${pr.him} runs after ${pr.him}; caught, the house pays a fine.`;
+  return `<div class="warning crime">${HOOD}<div><b>${esc(thiefName(b, w))} is out ${esc(KIND_ING[kind])}</b><p>${esc(doing)}${w.meat > 0 ? `, a watchman after ${pr.him}` : ''}</p><p class="why">${esc(watch)}</p></div></div>`;
+}
+
+/** Slice 41: the house as a gang's den, talk of burning in it, or a gang gathering round it. */
+function gangBlock(s: SimState, map: CoastMap, b: Building): string {
+  const out: string[] = [];
+  const g = denOf(s, b);
+  if (g) {
+    const den = postsReaching(s, map.size, b).length;
+    const men = s.walkers.filter((w) => w.home === b.id && w.people > 0 && isCriminal(w.kind)).length;
+    const breaking = g.covered > 0 ? ` Two watch posts reach it now: the gang breaks up in about ${days(Math.max(1, GANG_BREAK * TICKS_PER_DAY - (s.tick - g.covered)))}.` : den === 1 ? ' One watch post’s round reaches it: a second whose round reaches this house would break the gang up.' : ' Two watch posts whose rounds reach this house would break the gang up.';
+    out.push(`<div class="warning urgent crime">${HOOD}<div><b>The den of ${esc(g.name)}</b><p>${men ? `${men} of its men out now · ` : ''}its men go out every week or so, to steal, smuggle or pick pockets, and beat off a lone watchman</p><p class="why">${esc(breaking.trim())}</p></div></div>`);
+  }
+  const talk = s.crime.talk.find((x) => x.home === b.id);
+  if (talk) {
+    const t = temptationOf(s, map.size, b);
+    const left = Math.max(0, talk.at - s.tick);
+    out.push(`<div class="warning urgent crime">${HOOD}<div><b>Talk of burning: ${esc(grievances(s, b, t))}</b><p>someone sets a fire ${left > 0 ? `in about ${days(left)}` : 'any day now'}, unless things get better</p><p class="why">A watchman walking by would calm it (a watch post, Z twice); so would food on the table and lighter taxes.</p></div></div>`);
+  }
+  const gath = gathering(s).find((x) => x.seat === b.id);
+  if (gath && !g) {
+    const m = monthsToGang(gath.heat);
+    out.push(`<div class="warning crime">${HOOD}<div><b>A gang is gathering around this house</b><p>the homes here have been tempted for ${gath.heat} months: ${m > 0 ? `in about ${m} ${m === 1 ? 'month' : 'months'}` : 'any day now'} a gang takes a house here as its den</p><p class="why">A watch post whose round comes this way would scatter it.</p></div></div>`);
+  }
+  return out.join('');
 }
 
 /** Slice 36: a little icon for each of an estate's own needs. */

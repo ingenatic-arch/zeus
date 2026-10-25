@@ -30,6 +30,8 @@ import type { ToolName } from '../game/tools';
 import type { OverlayMode } from '../render/overlay';
 // Slice 30.
 import { talliesNow, TEMPT_HALF, thievesOut } from '../sim/crime';
+// Slice 41.
+import { criminalsOut } from '../sim/crime';
 import { drawPictures } from '../render/pictures';
 import { BUILDING_NAMES, centreOf, GREAT_ESTATE, HOME_NAMES, jobsAt } from '../sim/buildings';
 import { districtAt } from '../map/districts';
@@ -942,10 +944,14 @@ export class SidePanel {
     const out = thievesOut(s).length;
     const tempted = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= TEMPT_HALF).length;
     const { now, last } = talliesNow(s);
-    const word = !s.crime.on ? 'none yet' : out ? `${out} ${out === 1 ? 'thief' : 'thieves'} out` : tempted ? `${tempted} ${tempted === 1 ? 'home' : 'homes'} tempted` : now.thefts ? `${now.thefts} ${now.thefts === 1 ? 'theft' : 'thefts'} this month` : 'quiet';
-    const tally = (t: typeof now): string => `${t.thefts} ${t.thefts === 1 ? 'theft' : 'thefts'} (${t.coin} dr${t.goods ? ` and ${t.goods} measures of goods` : ''}), ${t.caught} caught, ${t.fines} dr in fines`;
-    const title = `Crime: ${out} thieves out, ${tempted} homes more than half way to sending one · this month ${tally(now)} · last month ${tally(last)} · click to ${mode === 'crime' ? 'hide' : 'show'} it on the map`;
-    return `<li><button class="svc-row ${mode === 'crime' ? 'on' : ''} ${out ? 'alarm' : ''}" data-act="overlay" data-mode="crime" title="${esc(title)}"><i class="dot" style="background:#5a4e68"></i><span class="nm">Crime</span><span class="cnt">${word}</span></button></li>`;
+    // Slice 41: the new kinds out too, a gang's den, and what they did this month.
+    const others = s.crime.kinds ? criminalsOut(s).length - out : 0;
+    const gangs = s.crime.kinds ? s.crime.gangs.length : 0;
+    const word = !s.crime.on ? 'none yet' : gangs ? `${gangs === 1 ? 'a gang' : `${gangs} gangs`}${out + others ? `, ${out + others} out` : ''}` : others ? `${out + others} out` : out ? `${out} ${out === 1 ? 'thief' : 'thieves'} out` : tempted ? `${tempted} ${tempted === 1 ? 'home' : 'homes'} tempted` : now.thefts ? `${now.thefts} ${now.thefts === 1 ? 'theft' : 'thefts'} this month` : 'quiet';
+    const newer = (t: typeof now): string => (s.crime.kinds ? [t.picked ? `${t.picked} purses cut` : '', t.smashed ? `${t.smashed} smashed` : '', t.smuggled ? `${t.smuggled} smuggled` : '', t.arson ? `${t.arson} set on fire` : '', t.skimmed ? `${t.skimmed} dr skimmed` : '', t.beaten ? `${t.beaten} watchmen beaten off` : ''].filter((x) => x).map((x) => `, ${x}`).join('') : '');
+    const tally = (t: typeof now): string => `${t.thefts} ${t.thefts === 1 ? 'theft' : 'thefts'} (${t.coin} dr${t.goods ? ` and ${t.goods} measures of goods` : ''})${newer(t)}, ${t.caught} caught, ${t.fines} dr in fines`;
+    const title = `Crime: ${out} thieves out${others ? ` and ${others} others` : ''}${gangs ? `, ${gangs} ${gangs === 1 ? 'gang' : 'gangs'}` : ''}, ${tempted} homes more than half way to sending one · this month ${tally(now)} · last month ${tally(last)} · click to ${mode === 'crime' ? 'hide' : 'show'} it on the map`;
+    return `<li><button class="svc-row ${mode === 'crime' ? 'on' : ''} ${out || others || gangs ? 'alarm' : ''}" data-act="overlay" data-mode="crime" title="${esc(title)}"><i class="dot" style="background:#5a4e68"></i><span class="nm">Crime</span><span class="cnt">${word}</span></button></li>`;
   }
 
   /** Fire and wear across the town; a click shows its overlay. */

@@ -73,7 +73,10 @@ export type Command =
   | { type: 'colony'; act: 'found' | 'share' | 'name' | 'guard' | 'recall'; site: string; share?: number; name?: string; n?: number }
   // Slice 43
   /** A colony's works, wants and governor (colonyworks.ts; an act it refuses does nothing): fund a work (`work`: fields, harbour, agora, temple, walls, trade); send what it asks for; choose candidate `n` to govern it; dismiss its governor. */
-  | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number };
+  | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number }
+  // Slice 41
+  /** The new kinds of crime's and gangs' switch (misdeeds.ts, gangs.ts), beside crime's own: on as a game starts or a demo opens, off while a demo's history is played. */
+  | { type: 'crimes'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';

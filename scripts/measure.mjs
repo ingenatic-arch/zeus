@@ -318,6 +318,9 @@ for (const [hash, views] of [
   ['#achieved-paused-shot', [null]],
   // Slice 40: an empire's city (its own block below too).
   ['#empire-paused-shot', [null, 'town']],
+  // Slice 41: a pickpocket, a vandal and a smuggler on the hut streets; a gang's den in a poor quarter.
+  ['#crimes-paused-shot', [null, 'town']],
+  ['#gang-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

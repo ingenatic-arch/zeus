@@ -27,6 +27,9 @@ import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
 import { HazardView } from './render/hazards';
+// Slice 41
+import { CrimeMarks } from './render/misdeeds';
+import { isCriminal } from './sim/crime';
 import { Selection, Signs } from './render/signs';
 import { Placement } from './render/placement';
 import { SUN_DIR, World } from './render/world';
@@ -286,7 +289,7 @@ interface Probe {
   greeceOpenMs?: number;
   greeceBuildMs?: number;
   /** Slice 30: crime: the switch, the tallies, the news, each thief out (where he is drawn, and his state), and the homes tempted from `from` up. */
-  crime?: (from?: number) => { on: boolean; now: CrimeTally; last: CrimeTally; news: string[]; thieves: Array<{ id: number; home: number; target: number; back: boolean; load: number; loot: number; chased: number; drawn: { x: number; z: number } | null }>; chasing: number; tempted: Array<{ id: number; x: number; z: number; level: number; tempt: number }> };
+  crime?: (from?: number) => { on: boolean; now: CrimeTally; last: CrimeTally; news: string[]; thieves: Array<{ id: number; home: number; target: number; back: boolean; load: number; loot: number; chased: number; drawn: { x: number; z: number } | null }>; chasing: number; tempted: Array<{ id: number; x: number; z: number; level: number; tempt: number }>; kinds?: boolean; criminals?: Array<Record<string, unknown>>; gangs?: unknown[]; broken?: unknown[]; talk?: unknown[]; marks?: { marks: number; shards: number; flags: number } };
   /** Slice 39: the ambitions (the switch, each milestone's progress and laurel, the chip's text and the town line), and the panel opened or closed, and its text. */
   ambition?: () => Record<string, unknown>;
   ambitionPanel?: (open: boolean) => string;
@@ -331,6 +334,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'seasons', on: true });
     // Slice 39: and the ambitions, counting from the founding.
     sim.enqueue({ type: 'ambition', on: true });
+    // Slice 41: and the new kinds of crime and gangs.
+    sim.enqueue({ type: 'crimes', on: true });
     sim.flush();
   }
   probe.setupMs = performance.now() - tSetup;
@@ -389,6 +394,9 @@ function start(preparedTown: string | null): void {
   world.scene.add(signs.group);
   const hazardView = new HazardView(map);
   world.scene.add(hazardView.group);
+  // Slice 41: what the new crimes leave in the street (smashed buildings, gangs' dens, talk of burning).
+  const crimeMarks = new CrimeMarks(map);
+  world.scene.add(crimeMarks.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
   // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
@@ -547,12 +555,13 @@ function start(preparedTown: string | null): void {
     // Slice 34: your empire's line opens its city's Empire tab.
     if (l.need === 'empire') return toggleGreece(true, (l.route as CityId | undefined) ?? undefined, 'empire');
     // Slice 30 (review): a thief out: close in on him and follow him (he is small and dark at the usual distance).
-    const thief = l.need === 'crime' ? sim.state.walkers.find((o) => o.kind === 'thief' && o.people > 0 && o.home === l.at) : undefined;
+    // (Slice 41: or any kind of criminal.)
+    const thief = l.need === 'crime' ? sim.state.walkers.find((o) => isCriminal(o.kind) && o.people > 0 && o.home === l.at) : undefined;
     if (thief) {
       const at = city.walkers.serviceAt.get(thief.id)?.pos;
       const v = rig.view;
       rig.flyTo({ ...v, x: at?.x ?? v.x, z: at?.z ?? v.z, dist: Math.min(v.dist, 14) });
-      return startFollow(thief.origin, 'thief', thief.id);
+      return startFollow(thief.origin, thief.kind, thief.id);
     }
     const b = findBuilding(sim.state, l.at);
     if (!b) return;
@@ -852,6 +861,8 @@ function start(preparedTown: string | null): void {
   }
 
   const WALKER_NAMES: Record<string, string> = { water: 'the water carrier', food: 'the food vendor', oil: 'the oil vendor', fleece: 'the fleece vendor', wine: 'the wine vendor', cart: 'the ox cart', porter: 'the porter', priestess: 'the priestess', actor: 'the actor', tax: 'the tax collector', hunter: 'the hunter', watchman: 'the watchman', inspector: 'the inspector', docker: 'the docker', caravan: 'the caravan', raider: 'the raiders', thief: 'the thief' };
+  // Slice 41.
+  Object.assign(WALKER_NAMES, { pickpocket: 'the pickpocket', vandal: 'the vandal', arsonist: 'the arsonist', smuggler: 'the smuggler' });
 
   // The banner or the soldier under a screen point: a banner's cloth within a finger's breadth, a man within a few pixels.
   armyPick = (sx, sy) => {
@@ -1544,6 +1555,8 @@ function start(preparedTown: string | null): void {
       hazardMarks: hazardView.count.marks,
       smokePuffs: hazardView.count.smoke,
       flames: hazardView.count.flames,
+      // Slice 41.
+      crimeMarks: crimeMarks.count.marks,
       panel: panel.id,
       undo: undoRefusal(s),
       routes: tools.routesFound,
@@ -1886,6 +1899,18 @@ function start(preparedTown: string | null): void {
           return { id: w.id, home: w.home, target: w.target, back: w.back, load: w.load, loot: w.food, chased: w.meat, drawn: at ? { x: at.pos.x, z: at.pos.z } : null };
         }),
       chasing: s.walkers.filter((w) => w.kind === 'watchman' && w.meat > 0).length,
+      // Slice 41: the new kinds out, and the gangs, broken buildings and talk.
+      kinds: s.crime.kinds,
+      criminals: s.walkers
+        .filter((w) => isCriminal(w.kind) && w.kind !== 'thief' && w.people > 0)
+        .map((w) => {
+          const at = city.walkers.serviceAt.get(w.id);
+          return { id: w.id, kind: w.kind, home: w.home, target: w.target, back: w.back, wait: w.wait, mingling: w.kind === 'pickpocket' && w.steps === 1, drawn: at ? { x: at.pos.x, z: at.pos.z } : null };
+        }),
+      gangs: s.crime.gangs.map((g) => ({ ...g })),
+      broken: s.crime.broken.map((x) => ({ ...x })),
+      talk: s.crime.talk.map((x) => ({ ...x })),
+      marks: crimeMarks.count,
       tempted: s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= from).map((b) => ({ id: b.id, x: b.x, z: b.z, level: b.level, tempt: b.tempt })),
     };
   };
@@ -2288,6 +2313,7 @@ function start(preparedTown: string | null): void {
     }
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);
+    crimeMarks.update(s, camera, time);
     ledger.update(s, map, time);
     // Slice 39.
     ambitionPanel.update(s, time);

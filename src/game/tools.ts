@@ -72,6 +72,8 @@ import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal, HORSE_GRASS_MIN } from '.
 import { ESTATE, GREAT_ESTATE, HOME_CAPACITY, VILLA } from '../sim/buildings';
 import { HORSE_BATCH, HORSE_EVERY } from '../sim/production';
 import { TICKS_PER_YEAR } from '../sim/clock';
+// Slice 41 (review).
+import { denReachWords } from '../sim/gangs';
 const capacityOf = (level: number): number => HOME_CAPACITY[level];
 
 export type ToolName =
@@ -251,6 +253,9 @@ export class Tools {
   /** The same for a watch post or an architect's office, with the smoulders (creaks) it would reach. */
   private hazardKey = '';
   private hazard: ReturnType<typeof hazardReach> = { homes: 0, dry: 0, alarms: 0, first: null };
+  /** Slice 41 (review): the same for a watch post and the gangs' dens it would reach. */
+  private denKey = '';
+  private den: ReturnType<typeof denReachWords> = { line: '', warn: '' };
   /** What a release would send. */
   private pending: (() => void) | null = null;
 
@@ -890,6 +895,15 @@ export class Tools {
         else if (alarms > 1) lines.push(`It reaches ${alarms} of the ${now.length} buildings ${doing} now`);
         else if (now.length === 1) warn = `It doesn’t reach ${placeName(now[0])}, which is ${fire ? (now[0].fire === 2 ? 'burning' : 'smouldering') : 'creaking'}: try nearer to it`;
         else if (now.length > 1) warn = `It doesn’t reach any of the ${now.length} buildings ${doing} now: try nearer to them`;
+        // Slice 41 (review): whether its round would reach a gang's den, and what that does (a fire's warning first).
+        if (fire && s.crime.gangs.length) {
+          if (key !== this.denKey) {
+            this.denKey = key;
+            this.den = denReachWords(s, n, roads);
+          }
+          if (this.den.line) lines.push(this.den.line);
+          else if (this.den.warn && !warn) warn = this.den.warn;
+        }
       }
     } else if (kind === 'farm') {
       const fert = fertilityOf(map, x, z, side);

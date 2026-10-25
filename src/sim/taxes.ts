@@ -29,6 +29,8 @@ import type { Building, SimState, Walker } from './state';
 import { income, monthOf } from './treasury';
 import { besideRoad, COLLECTOR_SPEED } from './walk';
 import { restFor } from './water';
+// Slice 41: crooked collectors.
+import { skim, skimmed } from './misdeeds';
 
 /** The rates, from none to harsh (the state keeps the index). */
 export const TAX_RATES = ['none', 'light', 'fair', 'heavy', 'harsh'] as const;
@@ -121,7 +123,10 @@ export function purseTotal(w: Walker): number {
 
 /** The collector hands in his satchel: taxes by district, into the treasury. */
 export function handIn(s: SimState, w: Walker): void {
+  // Slice 41: a crooked collector (his office's wages owed, no watchman walking by it) keeps back a share: the taxes in full, and what he kept as "Skimmed" (misdeeds.ts).
+  const kept = skimmed(s, w);
   for (let i = 0; i < w.purse.length; i += 3) income(s, w.purse[i + 1], 'taxes', DISTRICTS[w.purse[i]]?.where ?? 'elsewhere', w.purse[i + 2]);
+  if (kept > 0) skim(s, w, kept);
   w.purse = [];
 }
 

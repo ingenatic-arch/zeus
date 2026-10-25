@@ -91,7 +91,14 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'recovered') return [`Taken back ${l.what}`, ''];
   // Slice 30: thieves.
   if (l.kind === 'stolen') return [`Stolen · ${l.what}`, n > 1 ? count(n, 'theft', 'thefts') : ''];
-  if (l.kind === 'fines') return [`Fines · ${l.what}`, n ? count(n, 'thief', 'thieves') : ''];
+  // (Slice 41: the fines for each kind of criminal caught, "pickpockets caught", counted as such.)
+  if (l.kind === 'fines') {
+    const one = /^(pickpocket|vandal|arsonist|smuggler)s caught$/.exec(l.what)?.[1];
+    return [`Fines · ${l.what}`, n ? count(n, one ?? 'thief', one ? `${one}s` : 'thieves') : ''];
+  }
+  // Slice 41: what a vandal smashed, mended; and what a crooked tax collector kept back.
+  if (l.kind === 'repairs') return [`Repairs · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'repair', 'repairs') : ''];
+  if (l.kind === 'skimmed') return [`Skimmed ${l.what}`, n > 1 ? count(n, 'time', 'times') : ''];
   // Slice 34: a vassal's tribute in coin.
   if (l.kind === 'vassals') return [`Tribute from ${l.what}, your vassal`, n > 1 ? count(n, 'caravan', 'caravans') : ''];
   // Slice 37: founding a colony.
@@ -121,6 +128,9 @@ ORDER.push('stolen');
 ORDER.splice(ORDER.indexOf('collected') + 1, 0, 'vassals');
 // Slice 37: fitting out a colony goes out after gifts and favours.
 ORDER.splice(ORDER.indexOf('favours') + 1, 0, 'colonies');
+// Slice 41: repairs go out after clearing rubble; what the tax collector skimmed is lost to thieves, after what they stole.
+ORDER.splice(ORDER.indexOf('clearing') + 1, 0, 'repairs');
+ORDER.push('skimmed');
 
 interface Row {
   kind: LedgerKind;
@@ -167,7 +177,7 @@ export function ledgerHtml(s: SimState, map: CoastMap): string {
   const body: string[] = [];
   let heading = '';
   for (const r of rows) {
-    const head = r.kind === 'stolen' ? 'Lost to thieves' : r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'seized' ? 'Seized against your debts' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'hirelings' || r.kind === 'rowers' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' || r.kind === 'lent' || r.kind === 'repaid' || r.kind === 'colonies' ? 'Going out' : 'Coming in';
+    const head = r.kind === 'stolen' || r.kind === 'skimmed' ? 'Lost to thieves' : r.kind === 'raid' ? 'Lost to raiders' : r.kind === 'seized' ? 'Seized against your debts' : r.kind === 'fire' || r.kind === 'collapse' ? 'Lost to fire and collapse' : r.kind === 'wages' || r.kind === 'soldiers' || r.kind === 'hirelings' || r.kind === 'rowers' || r.kind === 'building' || r.kind === 'clearing' || r.kind === 'repairs' || r.kind === 'imports' || r.kind === 'routes' || r.kind === 'gifts' || r.kind === 'favours' || r.kind === 'tribute' || r.kind === 'peace' || r.kind === 'lent' || r.kind === 'repaid' || r.kind === 'colonies' ? 'Going out' : 'Coming in';
     if (head !== heading) {
       heading = head;
       body.push(`<tr class="head"><th colspan="3">${head}</th></tr>`);

@@ -16,6 +16,8 @@ import { FLEECE, OIL, WINE, type Ware } from '../sim/foods';
 import { ACTOR_RANGE, CULTURE_LASTS, PRIESTESS_RANGE, RELIGION_LASTS, wantsBlessing, wantsPlays } from '../sim/culture';
 // Slice 30.
 import { robbedLately, TEMPT_FULL, TEMPT_HALF, TEMPT_SHOW } from '../sim/crime';
+// Slice 41.
+import { isCriminal } from '../sim/crime';
 import { FOOD_FARM, FOOD_GRANARY, MISSING_FINE, MISSING_WANT, MISSING_WARN, WATER_DRY, WATER_FOUNTAIN, WATER_HOME, WATER_PREVIEW, WATER_REACH, WATER_WALKED, type Placement } from './placement';
 
 /** How often (seconds) the overlay is brought up to date while it shows. */
@@ -351,6 +353,15 @@ export class ServiceOverlay {
     }
     const out = new Set<number>();
     for (const w of s.walkers) if (w.kind === 'thief' && w.people > 0) out.add(w.home);
+    // Slice 41: any kind of criminal out, a gang's den and talk of burning are as alarming as a thief out; a place
+    // smashed (red) or worked by pickpockets or smugglers this month (amber) shows too.
+    const smashed = new Set<number>();
+    if (s.crime.kinds) {
+      for (const w of s.walkers) if (isCriminal(w.kind) && w.people > 0) out.add(w.home);
+      for (const g of s.crime.gangs) out.add(g.den);
+      for (const t of s.crime.talk) out.add(t.home);
+      for (const x of s.crime.broken) smashed.add(x.at);
+    }
     let n = 0;
     if (s.buildings.length * 2 > this.columns.instanceMatrix.count) this.grow(s.buildings.length * 2);
     for (const b of s.buildings) {
@@ -381,6 +392,9 @@ export class ServiceOverlay {
           n++;
         }
       }
+      // Slice 41: a place smashed, or worked by pickpockets or smugglers this month.
+      else if (smashed.has(b.id)) code = MISSING_WARN;
+      else if (s.crime.kinds && b.kind !== 'home' && b.kind !== 'granary' && b.kind !== 'storehouse' && b.kind !== 'taxoffice' && b.robbedAt > 0 && s.tick - b.robbedAt < TICKS_PER_MONTH) code = MISSING_WANT;
       if (!code) continue;
       for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) codes[(b.z + dz) * size + b.x + dx] = code;
     }

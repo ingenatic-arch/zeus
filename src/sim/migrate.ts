@@ -149,6 +149,10 @@
  * since it was founded. What it sends is worked out afresh from its stage,
  * so a colony's next ship carries the new, smaller share of a cheap good.
  *
+ * Slice 41 (Crimes of every kind): the new kinds of crime and gangs are on
+ * from loading, with nothing smashed, no talk of burning, no quarter running
+ * hot, no gang and nothing of the new kinds tallied yet. Nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -239,6 +243,7 @@ export function migrate(st: unknown): number {
   if (st.version === 35) fromSlice36(st);
   if (st.version === 36) fromSlice37(st);
   if (st.version === 37) fromSlice43(st);
+  if (st.version === 38) fromSlice41(st);
   return from;
 }
 
@@ -963,6 +968,25 @@ function fromSlice43(st: Record<string, unknown>): void {
         if (typeof c.chooseBy !== 'number') c.chooseBy = 0;
         if (typeof c.govSince !== 'number') c.govSince = typeof c.since === 'number' ? c.since : tick;
       }
+    }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 41 (Crimes of every kind): see the note above. Only its own fields in
+ * `crime`, each only if it is missing: the new kinds on, nothing smashed, no
+ * talk, no heat, no gang, and the month's tallies' new counts at nothing.
+ */
+function fromSlice41(st: Record<string, unknown>): void {
+  const c = st.crime;
+  if (isObj(c)) {
+    if (typeof c.kinds !== 'boolean') c.kinds = true;
+    for (const k of ['broken', 'talk', 'heat', 'seats', 'gangs']) if (!Array.isArray(c[k])) c[k] = [];
+    if (typeof c.arsonAt !== 'number') c.arsonAt = 0;
+    for (const t of [c.now, c.last]) {
+      if (!isObj(t)) continue;
+      for (const k of ['picked', 'smashed', 'arson', 'smuggled', 'skimmed', 'beaten']) if (typeof t[k] !== 'number') t[k] = 0;
     }
   }
   st.version = (st.version as number) + 1;

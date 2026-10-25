@@ -71,6 +71,10 @@ import { news } from '../sim/diplomacy';
 import { allyOf } from '../sim/vassals';
 // Slice 40
 import { sendBlockade } from '../sim/blockades';
+// Slice 41.
+import { setOutAs, type CrimeKind } from '../sim/crime';
+import { crimeTargetsFrom, type Target } from '../sim/misdeeds';
+import type { Walker } from '../sim/state';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -1901,6 +1905,8 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     hazards(sim, true);
     // Slice 30: crime too (off while the history plays, as it is in a bare state), on as it opens.
     crime(sim, true);
+    // Slice 41: and the new kinds of crime and gangs (off while every history plays, slice 30's own too).
+    crimes(sim, true);
     // Slice 39: and the ambitions (off while the history plays, so no history changes): what the town already meets is recorded quietly as it opens.
     ambition(sim, true);
   };
@@ -1924,6 +1930,13 @@ function seasons(sim: Sim, on: boolean): void {
 function crime(sim: Sim, on: boolean): void {
   if (sim.state.crime.on === on) return;
   sim.enqueue({ type: 'crime', on });
+  sim.flush();
+}
+
+/** Slice 41: switch the new kinds of crime and gangs on or off now (a command, so a replay of the log does the same). */
+function crimes(sim: Sim, on: boolean): void {
+  if (sim.state.crime.kinds === on) return;
+  sim.enqueue({ type: 'crimes', on });
   sim.flush();
 }
 
@@ -3402,6 +3415,139 @@ const SCENES: Record<string, Demo> = {
   colonyworks: { view: 'bay', setup: COLONYWORKS_TOWN, overlay: 'missing', greece: 'site:thasos' },
   // Slice 40: an empire's city. #ambition's town carried on: a vassal, a colony sending its share, the Lighthouse rising, an estate and a great estate, winter coming, a thief out and Rhodes' fleet at sea against the harbour.
   empire: { view: 'empire', setup: empireCityTown, overlay: 'missing' },
+  // Slice 41: crimes of every kind. A pickpocket in the agora's crowd, a vandal nearing a fountain and a smuggler nearing the quay, paused, the crime overlay on.
+  crimes: { view: 'crimes', speed: 'paused', setup: crimesTown, overlay: 'crime', overlayOn: true },
+  // A gang's den in the hut street behind the core (its rag on a pole by the door), its men having beaten off the lone watchman of the one watch post there; the den's panel open, the crime overlay a key away.
+  gang: { view: 'gang', setup: gangTown, overlay: 'crime', open: gangDen },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
+
+// Slice 41
+/**
+ * Crimes of every kind (slice 41). #crimes: #richtown's town with no watch
+ * post over its core or the road down to the quay, and two new streets of huts
+ * off that road, each with its own fountain: an upper one below the core's
+ * villas, within reach of the core's agora and out of the quay's, and a lower
+ * one near the quay, out of the agoras' reach (so its huts go hungry). Crime
+ * and its new kinds are switched on once the huts are in. #richtown's people
+ * are content, so left to themselves its streets would take a year or more to
+ * turn to crime: the opening is staged (set up for this demo). One of the
+ * upper street goes to pick pockets at the agora, and two of the lower to
+ * smash a fountain and to smuggle from the quay once he is working the crowd;
+ * it opens as the vandal is a few steps from the fountain, the pickpocket
+ * still sidling round the agora and the smuggler nearly at the quay.
+ */
+const CRIMES_UPPER_ROAD = row(75, 89, 47);
+const CRIMES_UPPER_XS = [78, 80, 82, 84, 86];
+const CRIMES_UPPER_FOUNTAIN = { x: 88, z: 45 };
+const CRIMES_LOWER_ROAD = row(75, 89, 60);
+const CRIMES_LOWER_XS = [76, 78, 80, 82, 84, 86];
+const CRIMES_LOWER_FOUNTAIN = { x: 88, z: 58 };
+const CRIMES_SAFETY: Safety = { watch: [TOWN_WATCH[1]], architects: TOWN_ARCHITECTS };
+/** The two streets' homes (upper, then lower). */
+export const crimesStreets = (s: SimState): Building[] => [...crimesUpper(s), ...crimesLower(s)];
+const crimesUpper = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && (b.z === 45 || b.z === 48) && CRIMES_UPPER_XS.includes(b.x));
+const crimesLower = (s: SimState): Building[] => s.buildings.filter((b) => b.kind === 'home' && (b.z === 58 || b.z === 61) && CRIMES_LOWER_XS.includes(b.x));
+/** How many of the streets' plots must be huts before crime goes on, and the longest wait for it. */
+const CRIMES_HUTS = 14;
+const CRIMES_WAIT = 5 * TICKS_PER_MONTH;
+/** How far (tiles) the vandal still has to go when #crimes opens (about four seconds at normal speed), and the longest any of the staging waits. */
+const CRIMES_VANDAL_LEFT = 7;
+/** How far (tiles, at a walk) the pickpocket has been among the crowd by then. */
+const CRIMES_MINGLED = 3;
+const CRIMES_GUARD = 20 * TICKS_PER_DAY;
+/** How far a walker has still to go along its path (tiles). */
+const pathLeft = (w: Walker): number => {
+  let n = -w.along;
+  for (let i = w.seg * 2; i + 3 < w.path.length; i += 2) n += dhypot(w.path[i + 2] - w.path[i], w.path[i + 3] - w.path[i + 1]);
+  return Math.max(0, n);
+};
+function crimesTown(sim: Sim): void {
+  town(TOWN_TICKS, CRIMES_SAFETY, true, false)(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  const plots = 2 * CRIMES_UPPER_XS.length + 2 * CRIMES_LOWER_XS.length;
+  waitFor(sim, s.tick, (CRIMES_UPPER_ROAD.length + CRIMES_LOWER_ROAD.length) * ROAD_COST + plots * 10 + 2 * (FOUNTAIN_COST + JOBS.fountain * WAGE));
+  send({ type: 'road', tiles: CRIMES_UPPER_ROAD });
+  send({ type: 'road', tiles: CRIMES_LOWER_ROAD });
+  send({ type: 'plots', at: [...along(CRIMES_UPPER_XS, 45), ...along(CRIMES_UPPER_XS, 48), ...along(CRIMES_LOWER_XS, 58), ...along(CRIMES_LOWER_XS, 61)] });
+  send({ type: 'fountain', at: [T(CRIMES_UPPER_FOUNTAIN.x, CRIMES_UPPER_FOUNTAIN.z), T(CRIMES_LOWER_FOUNTAIN.x, CRIMES_LOWER_FOUNTAIN.z)] });
+  const huts = (): number => crimesStreets(s).filter((b) => b.level >= 2 && b.people > 0).length;
+  const end = s.tick + CRIMES_WAIT;
+  while (s.tick < end && huts() < CRIMES_HUTS) sim.run(10);
+  crime(sim, true);
+  crimes(sim, true);
+  // The staged opening: who goes where (a home of each street that has it within reach).
+  const size = sim.map.size;
+  const pick = (homes: Building[], kind: 'pickpocket' | 'vandal' | 'smuggling', not = 0): { b: Building; t: Target } | null => {
+    for (const b of homes) {
+      if (b.id === not || b.people <= 0 || !b.family) continue;
+      const t = crimeTargetsFrom(s, size, b)[kind];
+      if (t) return { b, t };
+    }
+    return null;
+  };
+  const pp = pick(crimesUpper(s), 'pickpocket');
+  const vd = pick(crimesLower(s), 'vandal');
+  const sm = pick(crimesLower(s), 'smuggling', vd?.b.id);
+  const day = (): number => Math.floor(s.tick / TICKS_PER_DAY);
+  const go = (c: { b: Building; t: Target } | null, kind: CrimeKind): Walker | null => (c ? setOutAs(s, size, c.b, { kind, target: c.t.target, part: c.t.part }, day(), true) : null);
+  // The pickpocket first (the furthest to go); the other two once he is near enough the agora that he will be
+  // working its crowd as the vandal nears the fountain. (Their ways are as long as his by road, plus his ways to and
+  // from the doors.)
+  const thief = go(pp, 'pickpocket');
+  const doors = thief && pp ? pathLeft(thief) - pp.t.steps : 0;
+  const vandalWay = (vd?.t.steps ?? 0) + doors;
+  for (let guard = 0; thief && thief.people > 0 && thief.steps === 0 && pathLeft(thief) > vandalWay - CRIMES_VANDAL_LEFT - CRIMES_MINGLED && guard < CRIMES_GUARD; guard++) sim.run(1);
+  const vandal = go(vd, 'vandal');
+  go(sm, 'smuggling');
+  for (let guard = 0; vandal && vandal.people > 0 && vandal.wait === 0 && pathLeft(vandal) > CRIMES_VANDAL_LEFT && guard < CRIMES_GUARD; guard++) sim.run(1);
+}
+
+/**
+ * A gang (slice 41). #gang: #thieves' town (its hut street on the slope behind
+ * the core's villas, no watch post over it), with crime and its new kinds on
+ * as soon as the huts are in, played on with still no watch on the slope until
+ * a gang has taken one of the huts as its den (about five months: the town
+ * hears of it gathering a season before). Then one watch post goes in by the
+ * west end of the street, and the town plays on until the gang's men have
+ * beaten off its lone watchman (or a season, at most). It opens on the den's
+ * panel: a second watch post whose round reaches the den breaks the gang up.
+ */
+const GANG_WATCH: Spot = { x: 64, z: 24 };
+/** The longest #gang waits for the gang to form, and then for its men to beat off the lone watchman. */
+const GANG_LOOK = 12 * TICKS_PER_MONTH;
+const GANG_BEATEN_LOOK = 3 * TICKS_PER_MONTH;
+function gangTown(sim: Sim): void {
+  town(TOWN_TICKS, THIEF_SAFETY, true, false)(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  waitFor(sim, s.tick, THIEF_ROAD.length * ROAD_COST + THIEF_XS.length * 10 + 150 + JOBS.fountain * WAGE);
+  send({ type: 'road', tiles: [...THIEF_ROAD].reverse() });
+  send({ type: 'plots', at: along(THIEF_XS, 27) });
+  send({ type: 'fountain', at: [T(THIEF_FOUNTAIN.x, THIEF_FOUNTAIN.z)] });
+  const huts = (): number => thiefStreet(s).filter((b) => b.level >= 2 && b.people > 0).length;
+  const end = s.tick + THIEF_WAIT;
+  while (s.tick < end && huts() < THIEF_HUTS) sim.run(10);
+  crime(sim, true);
+  crimes(sim, true);
+  const formed = s.tick + GANG_LOOK;
+  while (s.tick < formed && s.crime.gangs.length === 0) sim.run(TICKS_PER_DAY);
+  waitFor(sim, s.tick, WATCHPOST_COST + JOBS.watchpost * WAGE);
+  send({ type: 'build', kind: 'watchpost', at: [T(GANG_WATCH.x, GANG_WATCH.z)] });
+  const beaten = s.tick + GANG_BEATEN_LOOK;
+  const built = s.tick;
+  const beatenOff = (): boolean => s.crime.news.some((n) => n.kind === 'beaten' && n.tick >= built);
+  while (s.tick < beaten && s.crime.gangs.length > 0 && !beatenOff()) sim.run(TICKS_PER_DAY);
+}
+/** #gang's panel: the den (else the street's most tempted home). */
+function gangDen(s: SimState): number {
+  return s.crime.gangs[0]?.den ?? mostTempted(s);
+}
