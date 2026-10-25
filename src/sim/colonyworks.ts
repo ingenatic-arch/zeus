@@ -248,9 +248,11 @@ const PORTERS_MOST = 4;
 const PORTER_GAP = TICKS_PER_DAY / 2;
 const PORTER_LOAD: Partial<Record<Ware, number>> = { [WHEAT]: 50, [MEAT]: 40, [CHEESE]: 40, [OIL]: 40, [FLEECE]: 40, [WINE]: 40, [COPPER]: 40, [ARMOUR]: 5, [MARBLE]: 25, [TIMBER]: 25, [HORSES]: 2 };
 const SHIP_WAITS = 120 * TICKS_PER_DAY;
-/** She anchors this far back from the jetty, and to the other side from the settlers' ship first. */
-const ANCHOR_BACK = 7;
-const ANCHOR_ASIDE = [2.2, -2.2, 1.2, -1.2, 0] as const;
+/** The boat's trip out to her and back with one load (the city's rowing boat keeps this pace too). */
+export const ROW_TRIP = Math.round(TICKS_PER_DAY * 0.8);
+/** She anchors this far back from the jetty (further out than a colony's share ship, which lies near its end), and to the other side from the settlers' ship first. */
+const ANCHOR_BACK = 12;
+const ANCHOR_ASIDE = [2.6, -2.6, 1.4, -1.4, 0] as const;
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
@@ -594,7 +596,9 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
     }
     const anchored = !v || v.phase === SHIP_ANCHORED;
     const late = s.tick >= x.at + SHIP_WAITS && out === 0;
-    if (anchored && !closed && (allIn(x) || late) && x.items.some((it) => it.got > 0)) sail(s, x);
+    // (A boat rows the loads out to her one at a time: she sails once the last is aboard.)
+    const rowed = !v || s.tick >= v.since + rowTicks(x);
+    if (anchored && !closed && rowed && (allIn(x) || late) && x.items.some((it) => it.got > 0)) sail(s, x);
   } else if (x.phase === 'leaving') {
     if (!x.ship || s.tick >= x.ship.since + leaveTicks(x.ship)) {
       x.ship = null;
@@ -605,6 +609,13 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
       s.rev++;
     }
   } else if (x.phase === 'sea' && s.tick >= x.start + x.dur) land(s, x);
+}
+
+/** How long the boat takes to row a shipment's loads out to her at anchor: a trip a porter's load. */
+export function rowTicks(x: Cargo): number {
+  let loads = 0;
+  for (const it of x.items) loads += Math.ceil(Math.max(0, it.got) / (PORTER_LOAD[TRADE_GOODS[it.good]] ?? 40));
+  return loads * ROW_TRIP;
 }
 
 /** She sails out of the bay with what is aboard. */
@@ -954,7 +965,7 @@ export function worksTownLine(s: SimState): { text: string; site: string; urgent
 /** For the rowing boat: an anchored ship with something on the quay to row out (a shipment loading with goods in, or settlers waiting). Each: where the quay spot is (post id) and which ship. */
 export function rowingOut(s: SimState): Array<{ post: number; ship: Visitor }> {
   const out: Array<{ post: number; ship: Visitor }> = [];
-  for (const x of cargoesFor(s)) if (x.phase === 'loading' && x.ship?.phase === SHIP_ANCHORED && x.items.some((it) => it.got > 0) && !allIn(x)) out.push({ post: x.post, ship: x.ship });
+  for (const x of cargoesFor(s)) if (x.phase === 'loading' && x.ship?.phase === SHIP_ANCHORED && x.items.some((it) => it.got > 0)) out.push({ post: x.post, ship: x.ship });
   for (const f of s.empire.foundings) if (f.phase === 'gathering' && f.ship?.phase === SHIP_ANCHORED && f.households.some((h) => h.state === 'quay')) out.push({ post: f.post, ship: f.ship });
   return out;
 }

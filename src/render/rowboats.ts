@@ -10,15 +10,13 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { findBuilding } from '../sim/buildings';
-import { TICKS_PER_DAY } from '../sim/clock';
-import { rowingOut } from '../sim/colonyworks';
+import { ROW_TRIP, rowingOut } from '../sim/colonyworks';
 import { visitorAt } from '../sim/routes';
 import type { SimState } from '../sim/state';
 import { berthOf } from '../sim/trade';
 import { merge, type Part } from './trees';
 
-/** A trip out and back takes this many ticks; boats at most. */
-const TRIP = TICKS_PER_DAY * 0.8;
+/** Boats at most (a trip out and back takes the sim's ROW_TRIP, one load). */
 const MOST = 3;
 
 const box = (w: number, h: number, d: number, x: number, y: number, z: number): THREE.BufferGeometry => new THREE.BoxGeometry(w, h, d).translate(x, y + h / 2, z);
@@ -81,7 +79,8 @@ export class RowBoats {
       const az = berth.jz + berth.oz * 0.9 + berth.ox * side;
       const bx = at.x - at.dz * 0.75;
       const bz = at.z + at.dx * 0.75;
-      const k = ((t / TRIP + i * 0.37) % 1 + 1) % 1;
+      // (Her first trip starts as she anchors.)
+      const k = ((Math.max(0, t - x.ship.since) / ROW_TRIP) % 1 + 1) % 1;
       const out = k < 0.5;
       // (Easing in and out at each end: a pause to load and unload.)
       const u0 = out ? k * 2 : 2 - k * 2;
