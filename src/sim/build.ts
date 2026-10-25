@@ -4,7 +4,6 @@
  * sim state.
  */
 import { WATER_NONE, WATER_RIVER, WATER_SEA, type CoastMap } from '../map/bake';
-import { coast } from '../map/coast';
 import { dhypot } from '../map/dmath';
 import { beside, findBuilding, sideOf } from './buildings';
 import { shoreRefusal } from './trade';
@@ -477,7 +476,7 @@ export function tileCopper(map: CoastMap, t: number): number {
   if (!grid) {
     const n = map.size;
     grid = new Float32Array(n * n);
-    for (const o of coast.copper) {
+    for (const o of map.data.copper) {
       for (let z = Math.max(0, Math.floor(o.z - o.r)); z <= Math.min(n - 1, Math.ceil(o.z + o.r)); z++) {
         for (let x = Math.max(0, Math.floor(o.x - o.r)); x <= Math.min(n - 1, Math.ceil(o.x + o.r)); x++) {
           const d = dhypot(x + 0.5 - o.x, z + 0.5 - o.z) / o.r;
@@ -502,11 +501,11 @@ export function copperOf(map: CoastMap, x: number, z: number, side: number): num
   return g / (side * side);
 }
 
-/** Where the copper outcrop nearest a tile is said to be ("in the east hills"). */
-export function outcropPlace(x: number, z: number): string {
-  let best = coast.copper[0];
+/** Where the copper outcrop nearest a tile is said to be ("in the east hills"; slice 42: on the map's own land). */
+export function outcropPlace(map: CoastMap, x: number, z: number): string {
+  let best = map.data.copper[0];
   let bd = Infinity;
-  for (const o of coast.copper) {
+  for (const o of map.data.copper) {
     const d = dhypot(x - o.x, z - o.z);
     if (d < bd) {
       bd = d;

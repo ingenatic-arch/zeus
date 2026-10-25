@@ -37,6 +37,8 @@ import type { CoastMap } from '../map/bake';
 import { HORIZON_ALONG, lineLength, siteLaneId, siteOf, SITES, wayOf, wayPoints as tableWay } from '../map/greece';
 import { hash2 } from '../map/noise';
 import { dhypot } from '../map/dmath';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 import { findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import type { Command } from './commands';
@@ -595,7 +597,7 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
     }
     const v = x.ship;
     const closed = !!blockaded(s);
-    if (v && v.phase === SHIP_COMING && closed && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) v.since++;
+    if (v && v.phase === SHIP_COMING && closed && !pastMouth(v.path, visitorAt(v, s.tick, map.size)?.inward ?? 0, map.size)) v.since++;
     if (v && v.phase === SHIP_COMING && s.tick >= v.since + SAIL_IN) {
       v.phase = SHIP_ANCHORED;
       v.since = s.tick;
@@ -940,7 +942,7 @@ export function cargoDoing(s: SimState, x: Cargo): string {
   const missing = short.length ? ` Waiting for ${listWords(short.map((it) => goodWord(it.good)))}: your stores hold none` : '';
   const b = blockaded(s);
   const v = x.ship;
-  const held = b && v ? (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0) ? ` Your ship waits outside the harbour: the mouth is held by a blockade.` : v.phase === SHIP_ANCHORED && allIn(x) ? ` Your ship waits at anchor, laden: the mouth is held by a blockade.` : '') : '';
+  const held = b && v ? (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s)) ? ` Your ship waits outside the harbour: the mouth is held by a blockade.` : v.phase === SHIP_ANCHORED && allIn(x) ? ` Your ship waits at anchor, laden: the mouth is held by a blockade.` : '') : '';
   const where = !v ? '' : v.phase === SHIP_ANCHORED ? 'your ship rides at anchor off the jetty, and a boat rows the goods out to her' : `your ship sails in about ${dayWords(v.since + SAIL_IN)}`;
   return `Porters carry the goods for ${to} down to your quay: ${parts.join(', ')} on the quay or aboard; ${where}.${missing}${held}`;
 }

@@ -28,6 +28,8 @@
  */
 import type { CoastMap } from '../map/bake';
 import { WATER_SEA } from '../map/bake';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 import { dhypot } from '../map/dmath';
 import { HORIZON_ALONG, lineLength, PLACES, siteOf, wayOf, wayPoints, WAYS, type CityId } from '../map/greece';
 import { hash2 } from '../map/noise';
@@ -1531,8 +1533,8 @@ function seize(s: SimState): void {
     const at = stationAlong(p.way);
     for (const g of w.gifts.slice()) {
       if (g.from !== 'home' || g.by !== 'sea' || g.phase !== 2 || g.way !== p.way || g.loan) continue;
-      const now = giftOnMap(g, s.tick);
-      const before = giftOnMap(g, s.tick - 1);
+      const now = giftOnMap(g, s.tick, sizeOf(s));
+      const before = giftOnMap(g, s.tick - 1, sizeOf(s));
       if (!now || !before || !(before.along < at && now.along >= at)) continue;
       w.gifts = w.gifts.filter((x) => x !== g);
       const words = giftWords(g.good, g.amount);

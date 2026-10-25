@@ -65,6 +65,8 @@ import { dhypot } from '../map/dmath';
 // Slice 43: stages, works, wants and governors, and what a colony makes retuned (colonyworks.ts).
 import { worksTownLine } from './colonyworks';
 import { defenceWords, freshGrowth, govTrait, growthCauses, loyaltyCauses, offerAtLanding, ownDefence, raidTakes, secondYear, sendsMore, sendsYear, shipPace, stageFor, stageOf, walled, type ColonyGrowth } from './colonyworks';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 // ---------------------------------------------------------------------------
 // The records (kept in the `empire` field: vassals.ts' Empire has `colonies` and `foundings`).
@@ -490,7 +492,7 @@ function stepFounding(s: SimState, map: CoastMap, f: Founding): void {
     const v = f.ship;
     // (Integrating slice 37 with the trunk: while a blockade holds the harbour's mouth, your ship waits outside it, where she is, and sails in when it ends.)
     const closed = !!blockaded(s);
-    if (v && v.phase === SHIP_COMING && closed && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) v.since++;
+    if (v && v.phase === SHIP_COMING && closed && !pastMouth(v.path, visitorAt(v, s.tick, map.size)?.inward ?? 0, map.size)) v.since++;
     if (v && v.phase === SHIP_COMING && s.tick >= v.since + SAIL_IN) {
       v.phase = SHIP_ANCHORED;
       v.since = s.tick;
@@ -1070,7 +1072,7 @@ export function heldWords(s: SimState, f: Founding): string {
   const v = f.ship;
   if (!b || f.phase !== 'gathering' || !v) return '';
   const fleet = `${whose(b.city)} fleet holds the mouth of your harbour`;
-  if (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick)?.inward ?? 0)) return `Your ship waits outside the harbour: ${fleet}, and she sails in once the blockade is broken or lifted`;
+  if (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s))) return `Your ship waits outside the harbour: ${fleet}, and she sails in once the blockade is broken or lifted`;
   if (v.phase === SHIP_ANCHORED && f.households.every((h) => h.state === 'aboard' || h.state === 'stayed')) return `Your ship waits at anchor with the families aboard: ${fleet}, and she sails once the blockade is broken or lifted`;
   return '';
 }

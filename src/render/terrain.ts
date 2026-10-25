@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { FAR_STEP, FIELD_MIN, FIELD_N, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
-import { coast, MAP_SIZE } from '../map/coast';
+import { FAR_STEP, FIELD_MIN, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { clamp, fbm, hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
 import { col, PAL } from './palette';
 
@@ -114,13 +113,13 @@ function buildGrid(map: CoastMap, cells: Array<[number, number]>, step: number):
   return g;
 }
 
-/** Height of the far scenery: the coast carries on, with mountains rising inland. */
-function farHeight(x: number, z: number): number {
+/** Height of the far scenery: the coast carries on, with mountains rising inland (slice 42: the land's own coast). */
+function farHeight(map: CoastMap, x: number, z: number): number {
   // Away from the map the coastline wanders into headlands and bays, so
   // it doesn't run ruler-straight to the horizon.
-  const beyond = Math.max(FIELD_MIN - x, x - (FIELD_MIN + FIELD_N - 1), 0);
+  const beyond = Math.max(FIELD_MIN - x, x - (FIELD_MIN + map.fieldN - 1), 0);
   const wander = 55 * fbm(x * 0.0045, 3.3, 4343, 3) * smoothstep(0, 260, beyond);
-  const d = shoreZ(coast.shore, x) + wander - z;
+  const d = shoreZ(map.data.shore, x) + wander - z;
   // The sea floor shelves away from the beach (no step at the waterline).
   if (d < 0) return -Math.min(-d * 0.08, 10);
   const plain = 1.6 * (1 - Math.exp(-d / 15));
@@ -144,6 +143,8 @@ function farColour(h: number, ny: number, x: number, z: number, out: THREE.Color
  * there are no long thin facets to streak). Where a band meets a coarser
  * one, its in-between edge points sit on the coarser band's straight edge,
  * so nothing cracks; the field's own edge is shaped the same way in the bake.
+ * These are the Bay's (its field reaches 192 from its middle); a larger
+ * land's start as far beyond its own field (farBands).
  */
 const FAR_BANDS: Array<[cell: number, outerHalf: number]> = [
   [FAR_STEP, 224],
@@ -155,17 +156,31 @@ const FAR_BANDS: Array<[cell: number, outerHalf: number]> = [
   [256, 4352],
 ];
 
+/**
+ * Slice 42: the far bands round a field reaching `fieldHalf` from its
+ * middle: as far beyond it as the Bay's are beyond the Bay's, each band's
+ * edge on a whole number of the next band's cells (the Bay's are unchanged).
+ */
+function farBands(fieldHalf: number): Array<[cell: number, outerHalf: number]> {
+  const BAY_HALF = 192;
+  return FAR_BANDS.map(([cell, outer], i) => {
+    const unit = i + 1 < FAR_BANDS.length ? FAR_BANDS[i + 1][0] : cell;
+    return [cell, Math.ceil((fieldHalf + outer - BAY_HALF) / unit) * unit];
+  });
+}
+
 function buildFarLand(map: CoastMap): THREE.BufferGeometry {
   const lo = FIELD_MIN;
-  const hi = FIELD_MIN + FIELD_N - 1;
+  const hi = FIELD_MIN + map.fieldN - 1;
   const cx = (lo + hi) / 2;
   const fieldHalf = (hi - lo) / 2;
   const raw = (x: number, z: number): number => {
     const D = Math.max(Math.abs(x - cx), Math.abs(z - cx)) - fieldHalf;
     if (D <= 0) return map.corner(x, z);
     const edge = map.corner(clamp(x, lo, hi), clamp(z, lo, hi));
-    return lerp(edge, farHeight(x, z), smoothstep(0, 140, D));
+    return lerp(edge, farHeight(map, x, z), smoothstep(0, 140, D));
   };
+  const bands = farBands(fieldHalf);
   const pos: number[] = [];
   const colors: number[] = [];
   const c = new THREE.Color();
@@ -187,9 +202,9 @@ function buildFarLand(map: CoastMap): THREE.BufferGeometry {
     }
   };
   let inner = fieldHalf;
-  for (let b = 0; b < FAR_BANDS.length; b++) {
-    const [cell, outer] = FAR_BANDS[b];
-    const coarser = b + 1 < FAR_BANDS.length ? FAR_BANDS[b + 1][0] : cell;
+  for (let b = 0; b < bands.length; b++) {
+    const [cell, outer] = bands[b];
+    const coarser = b + 1 < bands.length ? bands[b + 1][0] : cell;
     // Height of a corner of this band; on its outer edge, points between the
     // next band's corners lie on that band's straight edge.
     const h = (x: number, z: number): number => {
@@ -251,7 +266,8 @@ export function buildTerrain(map: CoastMap): THREE.Group {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.96, metalness: 0 });
 
   const inner: Array<[number, number]> = [];
-  for (let z = 0; z < MAP_SIZE; z++) for (let x = 0; x < MAP_SIZE; x++) inner.push([x, z]);
+  const n = map.size;
+  for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) inner.push([x, z]);
   const innerMesh = new THREE.Mesh(buildGrid(map, inner, 1), mat);
   innerMesh.receiveShadow = true;
   innerMesh.castShadow = true;
@@ -259,10 +275,10 @@ export function buildTerrain(map: CoastMap): THREE.Group {
   group.add(innerMesh);
 
   const outer: Array<[number, number]> = [];
-  const max = FIELD_MIN + FIELD_N - 1;
+  const max = FIELD_MIN + map.fieldN - 1;
   for (let z = FIELD_MIN; z < max; z += OUTER_STEP) {
     for (let x = FIELD_MIN; x < max; x += OUTER_STEP) {
-      if (x >= 0 && x < MAP_SIZE && z >= 0 && z < MAP_SIZE) continue;
+      if (x >= 0 && x < n && z >= 0 && z < n) continue;
       outer.push([x, z]);
     }
   }

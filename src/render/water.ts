@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { FIELD_MIN, FIELD_N, RIVER_EDGE_FADE, type CoastMap } from '../map/bake';
-import { MAP_SIZE } from '../map/coast';
+import { FIELD_MIN, RIVER_EDGE_FADE, shoreZ, type CoastMap } from '../map/bake';
 import { smoothstep } from '../map/noise';
 import { finishOn } from './finish';
 import { col, PAL } from './palette';
@@ -20,6 +19,7 @@ const vertex = /* glsl */ `
   uniform sampler2D uGround;
   uniform vec2 uFieldMin;
   uniform float uFieldSize;
+  uniform float uMapHalf;
   attribute vec2 aFlow;
   attribute float aFade;
   attribute float aEdge;
@@ -58,7 +58,7 @@ const vertex = /* glsl */ `
     vBaseY = wp.y;
     vec2 g = groundAt(wp.xz);
     float depth = wp.y - g.r;
-    float edge = 1.0 - smoothstep(110.0, 128.0, max(abs(wp.x - 64.0), abs(wp.z - 64.0)) - 64.0);
+    float edge = 1.0 - smoothstep(110.0, 128.0, max(abs(wp.x - uMapHalf), abs(wp.z - uMapHalf)) - uMapHalf);
     float amp = uWaveAmp * smoothstep(0.0, 1.6, depth) * mix(1.0, edge, 1.0 - uRiver);
     // The sea lies flat under the river's mouth, so the river always shows above it.
     amp *= 1.0 - g.g * (1.0 - uRiver);
@@ -224,7 +224,7 @@ function riverCover(map: CoastMap, x: number, z: number): number {
 
 /** The ground under the water, baked for the shader: r is the height, g how much the river covers it. */
 function groundTexture(map: CoastMap): THREE.DataTexture {
-  const n = FIELD_N * FIELD_N;
+  const n = map.fieldN * map.fieldN;
   const data = new Uint16Array(n * 2);
   for (let i = 0; i < n; i++) data[i * 2] = THREE.DataUtils.toHalfFloat(map.heights[i]);
   // The river's cover only matters where it meets the sea, near its mouth.
@@ -247,7 +247,7 @@ function groundTexture(map: CoastMap): THREE.DataTexture {
       data[map.idx(x, z) * 2 + 1] = THREE.DataUtils.toHalfFloat(riverCover(map, x, z));
     }
   }
-  const tex = new THREE.DataTexture(data, FIELD_N, FIELD_N, THREE.RGFormat, THREE.HalfFloatType);
+  const tex = new THREE.DataTexture(data, map.fieldN, map.fieldN, THREE.RGFormat, THREE.HalfFloatType);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -277,7 +277,7 @@ function makeMaterial(shared: Record<string, THREE.IUniform>, river: boolean): T
 function seaGeometry(map: CoastMap): THREE.BufferGeometry {
   const step = 2;
   const lo = FIELD_MIN;
-  const hi = FIELD_MIN + FIELD_N - 1;
+  const hi = FIELD_MIN + map.fieldN - 1;
   const cells = Math.round((hi - lo) / step);
   const vid = new Int32Array((cells + 1) * (cells + 1)).fill(-1);
   const pos: number[] = [];
@@ -310,8 +310,8 @@ function seaGeometry(map: CoastMap): THREE.BufferGeometry {
   // only (south of the coast line where it leaves the field), so the land
   // beyond the map reads as more land rather than an island.
   const R = 6000;
-  // Far enough north to fill the far coast's bays; the land hides the rest.
-  const zs = 20;
+  // Far enough north to fill the far coast's bays; the land hides the rest (slice 42: 80 north of the coast at the field's sides, 20 on the Bay).
+  const zs = Math.floor((Math.min(shoreZ(map.data.shore, lo), shoreZ(map.data.shore, hi)) - 80) / step) * step;
   const quad = (x0: number, z0: number, x1: number, z1: number): void => {
     const b = pos.length / 3;
     pos.push(x0, 0, z0, x1, 0, z0, x0, 0, z1, x1, 0, z1);
@@ -360,8 +360,8 @@ function riverGeometry(map: CoastMap): THREE.BufferGeometry {
     }
     return v;
   };
-  for (let z = 0; z < MAP_SIZE; z++) {
-    for (let x = 0; x < MAP_SIZE; x++) {
+  for (let z = 0; z < map.size; z++) {
+    for (let x = 0; x < map.size; x++) {
       const q = map.riverAt(x + 0.5, z + 0.5);
       // Cover every cell the faded edge can reach (half a cell's diagonal past it).
       if (q.d > q.width + RIVER_EDGE_FADE[1] + 0.75 || q.t > 0.995) continue;
@@ -396,7 +396,8 @@ export function buildWater(map: CoastMap): Water {
     uSky: { value: col(PAL.skyReflect).clone() },
     uGround: { value: groundTexture(map) },
     uFieldMin: { value: new THREE.Vector2(FIELD_MIN, FIELD_MIN) },
-    uFieldSize: { value: FIELD_N },
+    uFieldSize: { value: map.fieldN },
+    uMapHalf: { value: map.size / 2 },
     uEdgeFade: { value: new THREE.Vector2(...RIVER_EDGE_FADE) },
     uSoft: { value: finishOn() ? 1 : 0 },
   };

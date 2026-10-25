@@ -415,11 +415,11 @@ export function stepGifts(s: SimState, map: CoastMap): void {
 }
 
 /** Where a gift is on the map of Greece at a tick: a distance along its way from your city (0 at your quay), and which way it goes; null while it is still in your city. */
-export function giftOnMap(g: Gift, tick: number): { along: number; homeward: boolean } | null {
+export function giftOnMap(g: Gift, tick: number, n: number): { along: number; homeward: boolean } | null {
   const toThem = g.from === 'home';
   if (g.phase === 1 && g.by === 'sea' && g.ship) {
     // Sailing out of the bay: where she is in it, as the city sees her (the horizon is the gulf's mouth).
-    const at = shipAt(g.ship, tick);
+    const at = shipAt(g.ship, tick, n);
     return { along: HORIZON_ALONG * (1 - (at ? at.inward : 0)), homeward: true };
   }
   if (g.phase !== 2) return null;

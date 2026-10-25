@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { coastMap, WATER_NONE, WATER_RIVER, WATER_SEA } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { Ground, mapIndex, PLOT_COST, plotRefusal, ROAD_COST, roadRefusal, STARTING_MONEY, TAX_OFFICE_COST } from '../src/sim/build';
 import { roadRoute } from '../src/sim/roads';
 import { HOME_CAPACITY } from '../src/sim/settlers';
@@ -8,7 +8,7 @@ import { Sim } from '../src/sim/sim';
 import { TILE_EMPTY, TILE_ROAD, type SimState } from '../src/sim/state';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));

@@ -22,6 +22,7 @@ import { cityHolds, SHIP_AWAY, tradingPost } from '../src/sim/trade';
 import { totals } from '../src/sim/treasury';
 import { cityOf, fadeFor, freshWorld, HOSTILE, memoryWorth, moodOf, moodReasons, moodWord, stepWorld, WARM } from '../src/sim/world';
 import { demoSim } from './prepared';
+import { BAY } from '../src/map/lands';
 
 const map = coastMap();
 
@@ -132,8 +133,8 @@ describe('sending a gift', () => {
     expect(giftRefusal(s, map, 'tyre', -1, 100)).toMatch(/no ruler/);
     // On the map: along the road from your city, as long as a caravan takes and a day.
     expect(g.dur).toBe(landTicks('corinth') + TICKS_PER_DAY);
-    const p0 = giftOnMap(g, s.tick)!;
-    const p1 = giftOnMap(g, s.tick + g.dur / 2)!;
+    const p0 = giftOnMap(g, s.tick, BAY.size)!;
+    const p1 = giftOnMap(g, s.tick + g.dur / 2, BAY.size)!;
     expect(p1.along).toBeGreaterThan(p0.along);
     expect(p1.homeward).toBe(true);
     const preview = giftMemory(s, c, -1, 250, s.tick + g.dur);
@@ -197,8 +198,8 @@ describe('sending a gift', () => {
     expect(g.by).toBe('sea');
     expect(until(sim, () => g.phase === 1, 3 * TICKS_PER_MONTH)).toBe(true);
     expect(g.ship).not.toBeNull();
-    const a = giftOnMap(g, s.tick + 1)!;
-    const b = giftOnMap(g, s.tick + 60)!;
+    const a = giftOnMap(g, s.tick + 1, BAY.size)!;
+    const b = giftOnMap(g, s.tick + 60, BAY.size)!;
     expect(b.along).toBeGreaterThan(a.along);
     expect(until(sim, () => g.phase === 2, 2 * TICKS_PER_MONTH)).toBe(true);
     expect(g.a0).toBe(HORIZON_ALONG);
@@ -259,7 +260,7 @@ describe('what the mood does to a route', () => {
     const sim = fresh('athensship');
     const s = sim.state;
     const r = routeOf(s, 'athens', 'sea')!;
-    const lane = (): ReturnType<typeof visitorOnMap> => visitorOnMap(r, s.tick);
+    const lane = (): ReturnType<typeof visitorOnMap> => visitorOnMap(r, s.tick, BAY.size);
     // Out at sea on her way in, past the middle of her voyage.
     expect(until(sim, () => lane().where === 'sea' && !lane().homeward && lane().along < 22, TICKS_PER_YEAR)).toBe(true);
     const was = lane().along;

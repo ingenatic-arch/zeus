@@ -11,7 +11,8 @@
  * Nothing in the sim reads it, so it can never change how a town plays: only
  * the UI does. A month turns on its first tick (stepBook), or on the next note.
  */
-import { coastMap } from '../map/bake';
+// Slice 42: the state's own land.
+import { mapOf } from '../map/lands';
 import { districtAt } from '../map/districts';
 import { TICKS_PER_MONTH } from './clock';
 import type { Building, SimState, StockBook, StockKind, StockLine, StockMonth } from './state';
@@ -89,5 +90,5 @@ export const districtOfLine = (what: string): number => (what.startsWith('homes:
 export function noteHomeUse(s: SimState, ware: number, home: Building, n: number): void {
   if (n <= 0) return;
   // The district under the middle of the home (homes are 2 x 2).
-  note(s, ware, 'used', homesIn(districtAt(coastMap(), home.x + 1, home.z + 1)), n);
+  note(s, ware, 'used', homesIn(districtAt(mapOf(s), home.x + 1, home.z + 1)), n);
 }

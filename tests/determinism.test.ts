@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ClockDriver } from '../src/game/clockDriver';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import type { Command } from '../src/sim/commands';
 import { warningOf } from '../src/sim/folk';
 import { deserialize, replay, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION } from '../src/sim/state';
 
-const T = (x: number, z: number): number => z * MAP_SIZE + x;
+const T = (x: number, z: number): number => z * BAY.size + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));
 

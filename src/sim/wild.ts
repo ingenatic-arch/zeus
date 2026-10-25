@@ -19,7 +19,6 @@
  * Pure functions of the map and the state; the scratch arrays live outside it.
  */
 import type { CoastMap } from '../map/bake';
-import { HERDS } from '../map/coast';
 import { datan2, dcos, dhypot, dsin, sq } from '../map/dmath';
 import { Ground, mapIndex } from './build';
 import { TICKS_PER_DAY } from './clock';
@@ -150,7 +149,7 @@ function nearestGround(map: CoastMap, s: SimState, x: number, z: number, reach: 
 /** The herds, whole, each on open ground nearest the middle of its range. A pure function of the map (and what is built). */
 export function freshHerds(map: CoastMap, s: SimState): Herd[] {
   const n = map.size;
-  return HERDS.map((h) => {
+  return map.herds.map((h) => {
     const t = nearestGround(map, s, h.x, h.z, h.r);
     const x = t >= 0 ? (t % n) + 0.5 : h.x;
     const z = t >= 0 ? Math.floor(t / n) + 0.5 : h.z;

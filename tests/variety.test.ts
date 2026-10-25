@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { GRACE, GRACE_OIL } from '../src/sim/migrate';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { COTTAGE, FINE, TOWNHOUSE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { DECLINE_AFTER, moodOf, WARN_AFTER, warningsOf } from '../src/sim/folk';
@@ -19,7 +19,7 @@ import { SIM_STATE_VERSION, type Building, type SimState } from '../src/sim/stat
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 
 const demo = (name: string): Sim => {
   const sim = demoSim(name);

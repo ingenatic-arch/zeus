@@ -7,6 +7,8 @@ import { shipAt, SHIP_ANCHORED, SHIP_BERTHING, SHIP_COMING, SHIP_LEAVING, SHIP_M
 import { cyl } from './homes';
 import { PAL } from './palette';
 import { lumpy, merge, type Part } from './trees';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 
 /**
  * The merchant ship: a round-bellied trader with a curling stern post, eyes
@@ -235,7 +237,7 @@ export interface ShipLook {
 /** The Tyre ship: sail set at sea, furled for the last of her way in, tied up and the first of her way out. */
 export function tyreLook(s: SimState, t: number): ShipLook | null {
   const ship = s.trade.ship;
-  const at = shipAt(ship, t);
+  const at = shipAt(ship, t, sizeOf(s));
   if (!at) return null;
   let furled = false;
   let laden = false;
@@ -255,16 +257,16 @@ export function tyreLook(s: SimState, t: number): ShipLook | null {
 export const giftLook = (city: string) => (s: SimState, t: number): ShipLook | null => {
   const g = s.world.gifts.find((x) => x.from === 'home' && x.to === city && x.phase === 1 && x.ship);
   if (!g?.ship) return null;
-  const at = shipAt(g.ship, t);
+  const at = shipAt(g.ship, t, sizeOf(s));
   if (!at) return null;
   return { at, furled: !underWay(g.ship, t), laden: true, calm: false };
 };
 
 /** A foreign ship: laden coming in with what you buy, her sail furled as she comes to anchor or alongside, laden going with what she bought. */
-export function visitorLook(r: TradeRoute, t: number): ShipLook | null {
+export function visitorLook(r: TradeRoute, t: number, n: number): ShipLook | null {
   const v = r.ship;
   if (!v) return null;
-  const at = visitorAt(v, t);
+  const at = visitorAt(v, t, n);
   if (!at) return null;
   const bringing = r.buy.some((x) => x);
   let furled = false;

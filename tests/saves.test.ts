@@ -12,13 +12,13 @@ import { coastMap } from '../src/map/bake';
 import { TICKS_PER_MONTH } from '../src/sim/clock';
 import { townLines } from '../src/sim/status';
 import { FAIR } from '../src/sim/taxes';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { serialize, Sim } from '../src/sim/sim';
 import { OLDEST_READABLE } from '../src/sim/migrate';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { demoSim } from './prepared';
 
-const T = (x: number, z: number): number => z * MAP_SIZE + x;
+const T = (x: number, z: number): number => z * BAY.size + x;
 
 const demo = (name: string): Sim => {
   const sim = demoSim(name);
@@ -133,7 +133,7 @@ describe('saves from before', () => {
     expect((st as unknown as Record<string, unknown>).rent).toBeUndefined();
     expect(st.taxRate).toBe(FAIR);
     expect(st.ledger.start).toBe(st.money);
-    expect(st.rounds.tax.walked.length).toBe(MAP_SIZE * MAP_SIZE);
+    expect(st.rounds.tax.walked.length).toBe(BAY.size * BAY.size);
     expect(st.buildings.every((b) => b.owed === 0 && b.taxedAt === 0)).toBe(true);
     expect(st.walkers.every((w) => Array.isArray(w.purse))).toBe(true);
     const sim = new Sim();

@@ -44,6 +44,7 @@ import {
 import { owedWages, totals } from '../src/sim/treasury';
 import { townLines } from '../src/sim/status';
 import { demoSim, liveSim } from './prepared';
+import { BAY } from '../src/map/lands';
 
 const map = coastMap();
 const N = map.size;
@@ -115,14 +116,14 @@ describe('the ship', () => {
     expect(due).toBe(s.tick + FIRST_SHIP);
     sim.run(due - SAIL_IN - 1 - s.tick);
     expect(ship.phase).toBe(SHIP_AWAY);
-    expect(shipAt(ship, s.tick)).toBeNull();
+    expect(shipAt(ship, s.tick, BAY.size)).toBeNull();
     sim.step();
     expect(ship.phase).toBe(SHIP_COMING);
     // Coming in: always on deep water (or beyond the edge), always further in, never jumping.
-    let last = shipAt(ship, s.tick)!;
+    let last = shipAt(ship, s.tick, BAY.size)!;
     expect(last.inward).toBe(0);
     for (let t = s.tick; t <= due; t += 0.25) {
-      const at = shipAt(ship, t)!;
+      const at = shipAt(ship, t, BAY.size)!;
       expect(sailable(map, at.x, at.z)).toBe(true);
       expect(at.inward).toBeGreaterThanOrEqual(last.inward);
       expect(Math.hypot(at.x - last.x, at.z - last.z)).toBeLessThan(4);
@@ -131,27 +132,27 @@ describe('the ship', () => {
     sim.run(due - s.tick);
     expect(ship.phase).toBe(SHIP_MOORED);
     const berth = berthAt(map, POST.x, POST.z)!;
-    const moored = shipAt(ship, s.tick + 0.5)!;
+    const moored = shipAt(ship, s.tick + 0.5, BAY.size)!;
     expect([moored.x, moored.z]).toEqual([berth.x, berth.z]);
     sim.run(LOADING);
     expect(ship.phase).toBe(SHIP_LEAVING);
     expect(ship.visits).toBe(1);
     // Leaving: she backs off astern, bow still to the quay, swings round clear of the jetty, then sails out bow first; never jumping, always on deep water.
     const from = s.tick;
-    let prev = shipAt(ship, from)!;
+    let prev = shipAt(ship, from, BAY.size)!;
     expect([prev.x, prev.z, prev.dx, prev.dz]).toEqual([moored.x, moored.z, moored.dx, moored.dz]);
     for (let t = from; t <= from + leaveTicks(ship); t += 0.25) {
-      const at = shipAt(ship, t)!;
+      const at = shipAt(ship, t, BAY.size)!;
       expect(sailable(map, at.x, at.z)).toBe(true);
       expect(Math.hypot(at.x - prev.x, at.z - prev.z)).toBeLessThan(4);
       // (Backing off and swinging round, her heading turns smoothly; further out it turns at the corners of her route, eased by the renderer.)
       if (t < from + BACK_TICKS + TURN_TICKS + 1) expect(at.dx * prev.dx + at.dz * prev.dz).toBeGreaterThan(0.8);
       prev = at;
     }
-    const backed = shipAt(ship, from + BACK_TICKS)!;
+    const backed = shipAt(ship, from + BACK_TICKS, BAY.size)!;
     expect(Math.hypot(backed.x - berth.x, backed.z - berth.z)).toBeCloseTo(BACK_OFF, 5);
     expect(backed.dx * moored.dx + backed.dz * moored.dz).toBeCloseTo(1, 5);
-    const round = shipAt(ship, from + BACK_TICKS + TURN_TICKS)!;
+    const round = shipAt(ship, from + BACK_TICKS + TURN_TICKS, BAY.size)!;
     expect(round.dx * moored.dx + round.dz * moored.dz).toBeCloseTo(-1, 5);
     // Nothing was for sale: she paid nothing.
     expect(ship.lastPaid).toBe(0);
@@ -171,11 +172,11 @@ describe('the ship', () => {
     sim.run(ship.due - SAIL_IN - s.tick);
     expect(ship.phase).toBe(SHIP_COMING);
     const inMap = (p: { x: number; z: number }): boolean => p.x >= 0 && p.z >= 0 && p.x < N && p.z < N;
-    let prev = shipAt(ship, ship.since)!;
+    let prev = shipAt(ship, ship.since, BAY.size)!;
     let pace = 0;
     let inside = 0;
     for (let t = ship.since + 1; t <= ship.due; t++) {
-      const at = shipAt(ship, t)!;
+      const at = shipAt(ship, t, BAY.size)!;
       const v = Math.hypot(at.x - prev.x, at.z - prev.z);
       if (inMap(at)) {
         inside++;
@@ -223,13 +224,13 @@ describe('the ship', () => {
     const ship = s.trade.ship;
     send(sim, { type: 'build', kind: 'trading', at: [T(POST.x, POST.z)] });
     until(sim, () => ship.phase === SHIP_COMING && s.tick - ship.since >= 30, FIRST_SHIP + 10);
-    const before = shipAt(ship, s.tick)!;
+    const before = shipAt(ship, s.tick, BAY.size)!;
     send(sim, { type: 'clear', x0: POST.x, z0: POST.z, x1: POST.x + 2, z1: POST.z + 2 });
     sim.step();
     expect(ship.phase).toBe(SHIP_LEAVING);
     expect(ship.due).toBe(0);
     // From where she was, back out the way she came.
-    const turned = shipAt(ship, s.tick)!;
+    const turned = shipAt(ship, s.tick, BAY.size)!;
     expect(Math.hypot(turned.x - before.x, turned.z - before.z)).toBeLessThan(4);
     sim.run(leaveTicks(ship) + 1);
     expect(ship.phase).toBe(SHIP_AWAY);

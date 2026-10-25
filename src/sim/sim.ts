@@ -1,5 +1,6 @@
-import { coastMap, type CoastMap } from '../map/bake';
-import { MAP_SIZE } from '../map/coast';
+import type { CoastMap } from '../map/bake';
+// Slice 42: lands of any size.
+import { BAY, mapOf, type Land } from '../map/lands';
 import { BRIDGE_COST, bridgeAt, bridgeSpan, buildingRefusal, clearFee, COST, Ground, isBridge, mapIndex, ROAD_COST, roadRefusal, STARTING_MONEY, stepOf } from './build';
 // Slice 36: estates' plots.
 import { ESTATE_PLOT_COST, ESTATE_SIZE, estateRefusal } from './build';
@@ -70,9 +71,11 @@ export const UNDO_WINDOW = TICKS_PER_MONTH;
 
 /**
  * A new game. Greece is shuffled from `worldSeed` (a new game on the bare link
- * gets its own; by default the city's seed), on its own random numbers.
+ * gets its own; by default the city's seed), on its own random numbers. The
+ * city is founded on `land` (slice 42; the Bay unless another is given).
  */
-export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldSeed: number = seed): SimState {
+export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldSeed: number = seed, land: Land = BAY): SimState {
+  const n = land.size;
   const rng = seedRng(seed);
   const s: SimState = {
     version: SIM_STATE_VERSION,
@@ -88,8 +91,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     money: STARTING_MONEY,
     hazards: false,
     population: 0,
-    tiles: new Array<number>(MAP_SIZE * MAP_SIZE).fill(TILE_EMPTY),
-    rounds: freshRounds(),
+    tiles: new Array<number>(n * n).fill(TILE_EMPTY),
+    rounds: freshRounds(n),
     taxRate: FAIR,
     ledger: freshLedger(STARTING_MONEY, 0),
     buildings: [],
@@ -120,26 +123,24 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     ambition: freshAmbition(),
     // Slice 44
     messages: freshMessages(),
+    // Slice 42
+    land: { ...land },
   };
-  s.herds = freshHerds(mapFor(mapId), s);
+  if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
+  s.herds = freshHerds(mapOf(s), s);
   return s;
 }
 
-export function freshRecord(): ServiceRecord {
-  return { walked: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0), exits: new Array<number>(MAP_SIZE * MAP_SIZE).fill(0) };
+/** A fresh record of a round's streets, for a map `n` tiles a side. */
+export function freshRecord(n: number): ServiceRecord {
+  return { walked: new Array<number>(n * n).fill(0), exits: new Array<number>(n * n).fill(0) };
 }
 
-/** A fresh record for every round (see ROUND_KINDS). */
-export function freshRounds(): Record<Round, ServiceRecord> {
+/** A fresh record for every round (see ROUND_KINDS), for a map `n` tiles a side. */
+export function freshRounds(n: number): Record<Round, ServiceRecord> {
   const out = {} as Record<Round, ServiceRecord>;
-  for (const r of ROUND_KINDS) out[r] = freshRecord();
+  for (const r of ROUND_KINDS) out[r] = freshRecord(n);
   return out;
-}
-
-/** The baked map a state's city sits on. */
-export function mapFor(mapId: string): CoastMap {
-  if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
-  return coastMap();
 }
 
 /**
@@ -154,13 +155,21 @@ export class Sim {
   /** Every command applied so far, in order, for replay. */
   readonly log: StampedCommand[] = [];
 
-  constructor(seed: number = DEFAULT_SEED, worldSeed: number = seed) {
-    this.state = createState(seed, 'coast', worldSeed);
+  constructor(seed: number = DEFAULT_SEED, worldSeed: number = seed, land: Land = BAY) {
+    this.state = createState(seed, 'coast', worldSeed, land);
   }
 
-  /** The baked map (not part of the state: it is the same for every game on this map). */
+  /** The baked map (not part of the state: it is the same for every game on this land). */
   get map(): CoastMap {
-    return mapFor(this.state.mapId);
+    return mapOf(this.state);
+  }
+
+  // Slice 42
+  /** Found the city afresh on another land, with the same seeds (nothing queued, nothing in the log). */
+  found(land: Land, seed: number = this.state.seed, worldSeed: number = seed): void {
+    this.state = createState(seed, 'coast', worldSeed, land);
+    this.queue = [];
+    this.log.length = 0;
   }
 
   /** Queue a command to apply on the next tick. */
@@ -1073,8 +1082,8 @@ export function deserialize(json: string): SimState {
 }
 
 /** Rebuild a sim from a seed and a command log, running to the given tick. */
-export function replay(seed: number, log: readonly StampedCommand[], toTick: number): Sim {
-  const sim = new Sim(seed);
+export function replay(seed: number, log: readonly StampedCommand[], toTick: number, land: Land = BAY): Sim {
+  const sim = new Sim(seed, seed, land);
   for (const c of log) sim.enqueueAt(c.tick, c.command);
   sim.run(toTick);
   return sim;

@@ -68,7 +68,7 @@ export class RowBoats {
       const x = xs[i];
       const post = x ? findBuilding(s, x.post) : undefined;
       const berth = post ? berthOf(this.map, post) : null;
-      const at = x ? visitorAt(x.ship, t) : null;
+      const at = x ? visitorAt(x.ship, t, this.map.size) : null;
       if (!x || !berth || !at) {
         m.visible = false;
         continue;

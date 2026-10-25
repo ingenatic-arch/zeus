@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAP_SIZE } from '../map/coast';
+import { BAY } from '../map/lands';
 import { clamp, lerp, smoothstep } from '../map/noise';
 import { CLASSIC_FOV, CLASSIC_PITCH, CLASSIC_REACH, EYE } from './classic';
 
@@ -42,8 +42,10 @@ export interface RigLimits {
   pitchFar: number;
 }
 
-/** The city's: within a few tiles of the map, down to street level. */
-export const CITY_LIMITS: RigLimits = { minDist: MIN_DIST, maxDist: MAX_DIST, x0: -6, z0: -6, x1: MAP_SIZE + 6, z1: MAP_SIZE + 6, pitchNear: 0.2, pitchFar: 1.0 };
+/** The city's: within a few tiles of a map `n` tiles a side, down to street level (slice 42: a little further back over a larger land, but never so far that the end of the sea shows). */
+export const cityLimits = (n: number): RigLimits => ({ minDist: MIN_DIST, maxDist: MAX_DIST * Math.sqrt(Math.sqrt(Math.max(1, n / BAY.size))), x0: -6, z0: -6, x1: n + 6, z1: n + 6, pitchNear: 0.2, pitchFar: 1.0 });
+/** The Bay's. */
+export const CITY_LIMITS: RigLimits = cityLimits(BAY.size);
 
 /**
  * A city-builder camera that always looks at a point on the ground. Zooming

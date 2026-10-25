@@ -62,7 +62,8 @@ import type { Colony, Founding } from './colonies';
 // Slice 43.
 import type { Cargo } from './colonyworks';
 import { caravanEntry } from './routes';
-import { MAP_SIZE } from '../map/coast';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
 import { TILE_ROAD } from './state';
 
@@ -912,12 +913,12 @@ function stepTribute(s: SimState, map: CoastMap): void {
 }
 
 /** Where a tribute ship is in your bay at a tick (null: none, or gone). */
-export const tributeShipAt = (t: Tribute, tick: number): ReturnType<typeof visitorAt> => (t.ship ? visitorAt(t.ship, tick) : null);
+export const tributeShipAt = (t: Tribute, tick: number, n: number): ReturnType<typeof visitorAt> => (t.ship ? visitorAt(t.ship, tick, n) : null);
 
 /** Where a tribute is on the map of Greece at a tick: along its way from your city (null once it is in your city). */
-export function tributeOnMap(t: Tribute, tick: number): { along: number } | null {
+export function tributeOnMap(t: Tribute, tick: number, n: number): { along: number } | null {
   if (t.phase === 'bay' && t.ship) {
-    const at = visitorAt(t.ship, tick);
+    const at = visitorAt(t.ship, tick, n);
     return at ? { along: HORIZON_ALONG * (1 - at.inward) } : null;
   }
   if (t.phase !== 'road') return null;
@@ -937,8 +938,8 @@ const edgeSide = (n: number, e: number): 'north' | 'south' | 'east' | 'west' => 
 /** (Slice 37) The side of your land a vassal's or ally's men come in by, for the news and the line: the road edge its caravans use to your yard (or tax office, or granary), as aidArrives walks them in; its road's side with no road in. */
 function aidSide(s: SimState, id: CityId): string {
   const depot = s.buildings.find((b) => b.kind === 'yard') ?? s.buildings.find((b) => b.kind === 'taxoffice') ?? s.buildings.find((b) => b.kind === 'granary');
-  const entry = depot ? caravanEntry(s, MAP_SIZE, depot, id) : null;
-  return entry ? edgeSide(MAP_SIZE, entry.edge) : (routeWay(id, 'land')?.side ?? 'north');
+  const entry = depot ? caravanEntry(s, sizeOf(s), depot, id) : null;
+  return entry ? edgeSide(sizeOf(s), entry.edge) : (routeWay(id, 'land')?.side ?? 'north');
 }
 
 /** What a vassal or ally would send against raiders: a quarter of its army or so, 8 to 16 men; none with no road to you. */

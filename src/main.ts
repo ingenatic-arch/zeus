@@ -18,12 +18,12 @@ import { cargoesFor, cargoShipStatus } from './sim/colonyworks';
 import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
-import { coastMap } from './map/bake';
-import { MAP_SIZE } from './map/coast';
+// Slice 42: the map is the state's land's, baked once the state is known.
+import { BAY, landOf, mapOf } from './map/lands';
 import { districtGrid } from './map/districts';
 import { CLASSIC_PIXELS, classicOn, classicSun, EYE, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
-import { CameraRig, type CameraView } from './render/cameraRig';
+import { CameraRig, cityLimits, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
 import { ServiceOverlay } from './render/overlay';
 import { HazardView } from './render/hazards';
@@ -303,6 +303,9 @@ interface Probe {
   messages?: (open?: boolean, filter?: string, last?: number) => Record<string, unknown>;
   /** What the town has heard: the lines under the top bar, then every message's words, oldest first (the news the lines once told). */
   heard?: () => string[];
+  // Slice 42
+  /** The town's land (kind, size, seed), its site, how many road tiles are laid (and the first on the west edge), the camera's view, and how long its map took to bake. */
+  land?: () => { kind: string; size: number; seed: number; site: { x: number; z: number } | null; roads: number; edgeRoad: number; view: { x: number; z: number; dist: number }; bakeMs: number };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -322,16 +325,37 @@ function start(preparedTown: string | null): void {
   setClassic(!launch.plain && !launch.modern);
   applyFinishPalette();
   classicSun(SUN_DIR);
-  const map = coastMap();
-  // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
-  districtGrid(map);
-  probe.bakeMs = performance.now() - t0;
   // A new game shuffles Greece from a seed of its own (the city keeps its seed, so the coast opens as ever); a demo's Greece comes from its city's seed.
-  const sim = demo || launch.load ? new Sim() : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
+  // Slice 42: a prepared town is read first, so that a demo on a generated land founds there (and the Bay isn't baked for nothing).
+  const ready = preparedTown ? decodeSave(preparedTown) : null;
+  // A saved town asked for by the link (#continue, #autosave, #saved) is read first too (slice 42's review: so a town on a generated land founds there, and the Bay isn't baked for nothing).
+  const saves = new Saves(browserStorage());
+  let loaded: SaveFile | null = null;
+  let problem = '';
+  if (launch.load && !demo) {
+    const slot: Slot | null = launch.load === 'newest' ? saves.newest() : launch.load;
+    if (!saves.available) problem = 'Saving isn’t available in this window, so there is no saved town here to open.';
+    else if (!slot) problem = 'There is no saved town in this browser yet.';
+    else {
+      const r = saves.load(slot);
+      if (r.ok) {
+        loaded = r.file;
+      } else problem = r.why;
+    }
+    // The link has done its work: reloading the page now starts afresh (with a way back to the save).
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch {
+      /* Not allowed here; reloading would open the save again, which is harmless. */
+    }
+  }
+  const tFound = performance.now();
+  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : loaded ? landOf(loaded.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
   const tSetup = performance.now();
+  // (Founding bakes the land's map: counted in the bake's time below.)
+  const foundMs = tSetup - tFound;
   // Fire risk and wear build up in every game (a demo turns them on as it opens).
   // A demo opens from its town prepared when the game was built (the same state its setup makes, checked then), or plays its setup.
-  const ready = preparedTown ? decodeSave(preparedTown) : null;
   if (demo?.setup && ready?.ok) {
     sim.state = ready.file.state;
     probe.prepared = true;
@@ -350,29 +374,18 @@ function start(preparedTown: string | null): void {
   }
   probe.setupMs = performance.now() - tSetup;
 
-  // A saved town asked for by the link (#continue, #autosave, #saved) is opened before anything draws it.
-  const saves = new Saves(browserStorage());
-  let loaded: SaveFile | null = null;
-  let problem = '';
-  if (launch.load && !demo) {
-    const slot: Slot | null = launch.load === 'newest' ? saves.newest() : launch.load;
-    if (!saves.available) problem = 'Saving isn’t available in this window, so there is no saved town here to open.';
-    else if (!slot) problem = 'There is no saved town in this browser yet.';
-    else {
-      const r = saves.load(slot);
-      if (r.ok) {
-        loaded = r.file;
-        sim.state = r.file.state;
-      } else problem = r.why;
-    }
-    // The link has done its work: reloading the page now starts afresh (with a way back to the save).
-    try {
-      history.replaceState(null, '', location.pathname + location.search);
-    } catch {
-      /* Not allowed here; reloading would open the save again, which is harmless. */
-    }
-  }
-  const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : view0;
+  // A saved town asked for by the link (#continue, #autosave, #saved), read above, is opened before anything draws it.
+  if (loaded) sim.state = loaded.state;
+  // Slice 42: the map of the town's land (a demo's, a save's, or a new game's: the Bay), baked now that the town is known.
+  const tBake = performance.now();
+  const map = mapOf(sim.state);
+  // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
+  districtGrid(map);
+  probe.bakeMs = foundMs + performance.now() - tBake;
+  // A generated land opens over its own bay (its site), unless the link asks for a view.
+  const site = map.data.site;
+  const landView: CameraView | null = site && !launch.cam && (!demo || demo.view === 'land') ? { x: site.x, z: site.z - 4, yaw: 0.12, dist: 100, tilt: -0.5 } : null;
+  const view = loaded?.view ? { ...VIEWS.coast, ...loaded.view } : (landView ?? view0);
   const driver = new ClockDriver(sim, speed);
 
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -430,7 +443,7 @@ function start(preparedTown: string | null): void {
   };
   probe.look = () => ({ phase: lookPhase, rain: wetNow, storm: stormNow });
   const finish = makeFinishPost(renderer, world.scene, camera);
-  const rig = new CameraRig(camera, map, view);
+  const rig = new CameraRig(camera, map, view, cityLimits(map.size));
   // The original look's fixed view (render/classic.ts).
   rig.setClassic(classicOn());
   // Slice 33: the camera keeps out of the trees on hillsides.
@@ -1829,7 +1842,7 @@ function start(preparedTown: string | null): void {
         const view = city.visitors.get(r.city);
         const w = r.kind === 'land' ? caravanOf(s, r.city) : undefined;
         const at = w ? drawnAt((x) => x === w) : null;
-        const onMap = r.kind === 'sea' ? (visitorOnMap(r, s.tick).where === 'home' ? [] : [visitorOnMap(r, s.tick).along]) : caravansOnMap(s, r, s.tick).map((c) => c.along);
+        const onMap = r.kind === 'sea' ? (visitorOnMap(r, s.tick, map.size).where === 'home' ? [] : [visitorOnMap(r, s.tick, map.size).along]) : caravansOnMap(s, r, s.tick).map((c) => c.along);
         return {
           key: `${r.city}-${r.kind}`,
           next: r.next,
@@ -2082,7 +2095,7 @@ function start(preparedTown: string | null): void {
     if (st.walls.length) {
       for (const p of st.walls) {
         const was = wallsSeen.get(p.t);
-        if (was !== undefined && p.hp < was && near(p.t % MAP_SIZE, Math.floor(p.t / MAP_SIZE))) cues.push('thud');
+        if (was !== undefined && p.hp < was && near(p.t % map.size, Math.floor(p.t / map.size))) cues.push('thud');
         wallsSeen.set(p.t, p.hp);
       }
     }
@@ -2493,6 +2506,8 @@ function start(preparedTown: string | null): void {
   document.getElementById('loading')?.classList.add('gone');
   probe.startMs = performance.now() - t0;
   probe.readyAt = performance.now();
+  // Slice 42.
+  probe.land = () => ({ ...landOf(sim.state), site: map.data.site ?? null, roads: sim.state.tiles.filter((v) => v === TILE_ROAD).length, edgeRoad: sim.state.tiles.findIndex((v, t) => v === TILE_ROAD && t % map.size === 0), view: { x: rig.view.x, z: rig.view.z, dist: rig.view.dist }, bakeMs: probe.bakeMs });
   probe.ready = true;
 }
 

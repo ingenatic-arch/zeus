@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { DEMOS } from '../src/game/demos';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { coastMap } from '../src/map/bake';
-import { MAP_SIZE } from '../src/map/coast';
+import { BAY } from '../src/map/lands';
 import { buildingRefusal, GROVE_OLIVE_MIN, oliveOf, STALL_COST } from '../src/sim/build';
 import { COTTAGE, FINE, jobsAt, TOWNHOUSE } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
@@ -26,7 +26,7 @@ import { totals } from '../src/sim/treasury';
 import { demoSim } from './prepared';
 
 const map = coastMap();
-const N = MAP_SIZE;
+const N = BAY.size;
 const T = (x: number, z: number): number => z * N + x;
 
 const demo = (name: string): Sim => {

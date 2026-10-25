@@ -3,7 +3,8 @@
  * queue (so it is an ordinary, replayable game) and runs the clock on a
  * little so there is something to see.
  */
-import { MAP_SIZE } from '../map/coast';
+// Slice 42: every demo before it is on the Bay.
+import { BAY, type Land } from '../map/lands';
 import type { OverlayMode } from '../render/overlay';
 import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, SHIPYARD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TOWER_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, FINE, JOBS, VILLA } from '../sim/buildings';
@@ -37,6 +38,7 @@ import { AT_TARGET, bandOut, GATHER, liveRaid, marchTicks, raidersOf, reachesEdg
 // Slice 36.
 import { onSchedule, seasonAt, WINTER } from '../sim/seasons';
 import { ESTATE_PLOT_COST, FOUNTAIN_COST, HORSEFARM_COST, SHRINE_COST } from '../sim/build';
+import { bridgeSpan, Ground, mapIndex, roadRefusal } from '../sim/build';
 import { capacity, ESTATE, GREAT_ESTATE } from '../sim/buildings';
 import { companySize } from '../sim/army';
 import { estateWarnings } from '../sim/estates';
@@ -202,7 +204,7 @@ export interface Demo {
   unread?: number;
 }
 
-const T = (x: number, z: number): number => z * MAP_SIZE + x;
+const T = (x: number, z: number): number => z * BAY.size + x;
 const row = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => T(x0 + i, z));
 const col = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => T(x, z0 + i));
 
@@ -1618,7 +1620,7 @@ function seaTown(stage: SeaStage): (sim: Sim) => void {
       const v = r?.ship;
       if (!v) return true;
       // #athensship: coming in up the bay, a few seconds from the jetty (she is only there a few days); #anchor: just anchored.
-      if (stage === 'athensship') return v.phase === SHIP_MOORED || (v.phase === SHIP_COMING && (visitorAt(v, s.tick)?.inward ?? 0) >= ATHENS_INWARD);
+      if (stage === 'athensship') return v.phase === SHIP_MOORED || (v.phase === SHIP_COMING && (visitorAt(v, s.tick, sim.map.size)?.inward ?? 0) >= ATHENS_INWARD);
       return v.phase === SHIP_ANCHORED && s.tick - v.since >= 2;
     };
     const stop = s.tick + 2 * SHIP_EVERY;
@@ -1872,7 +1874,7 @@ function landingTown(stage: 'landing' | 'triremes'): (sim: Sim) => void {
       const ships = shipsOf(s, r);
       // (Slice 38: the ships cross the bay at a fortnight's pace now, so twelve days off they are still beyond the edge:
       // #landing waits too for the first to be inside the bay, about ten days off.)
-      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS && ships.some((e) => e.z < MAP_SIZE - 2) : ships.some((e) => e.z < MAP_SIZE + 8);
+      return stage === 'landing' ? daysToBeach(s, sim.map, r) <= LANDING_DAYS && ships.some((e) => e.z < sim.map.size - 2) : ships.some((e) => e.z < sim.map.size + 8);
     };
     while (s.tick < stop && !ready()) sim.step();
   };
@@ -2001,7 +2003,7 @@ function thievesTown(stage: 'thieves' | 'nowatch'): (sim: Sim) => void {
     const end = s.tick + THIEF_WAIT;
     while (s.tick < end && huts() < THIEF_HUTS) sim.run(10);
     crime(sim, true);
-    const size = MAP_SIZE;
+    const size = BAY.size;
     const soon = (): boolean =>
       thiefStreet(s).some((b) => {
         const d = daysToThief(b, temptationOf(s, size, b));
@@ -2381,7 +2383,7 @@ function empireTown(stage: EmpireStage): (sim: Sim) => void {
       }
       send({ type: 'road', tiles: FORTRESS_LANE });
       send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
-      const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+      const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % BAY.size && b.z === Math.floor(FORTRESS_BARRACKS / BAY.size));
       if (!second) return;
       const staffed = s.tick + TICKS_PER_MONTH;
       while (s.tick < staffed && second.workers === 0) sim.run(10);
@@ -2525,7 +2527,7 @@ function fortressTown(): (sim: Sim) => void {
     afford(FORTRESS_LANE.length * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE, FORTRESS_WAIT);
     send({ type: 'road', tiles: FORTRESS_LANE });
     send({ type: 'build', kind: 'barracks', at: [FORTRESS_BARRACKS] });
-    const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % MAP_SIZE && b.z === Math.floor(FORTRESS_BARRACKS / MAP_SIZE));
+    const second = s.buildings.find((b) => b.kind === 'barracks' && b.x === FORTRESS_BARRACKS % BAY.size && b.z === Math.floor(FORTRESS_BARRACKS / BAY.size));
     if (second) {
       playOn(3 * TICKS_PER_DAY, () => second.workers > 0);
       send({ type: 'raise', barracks: second.id, kind: 'hoplite' });
@@ -3434,6 +3436,10 @@ const SCENES: Record<string, Demo> = {
   // Slice 44: the town's messages. #aftermath's town (a year of trade with Greece, Sparta's tribute refused twice, its
   // raiders in and gone), the Messages panel open on its scroll and the last season's messages still unread.
   messages: { view: 'raidwest', setup: raidTown('aftermath'), overlay: 'food', messages: true, unread: 3 * TICKS_PER_MONTH },
+  // Slice 42: lands of any size. A generated sheltered bay at 128, 192 and 256 tiles, a road in from the west edge, the treasury a new game's.
+  landsmall: { view: 'land', setup: landTown({ kind: 'sheltered', size: 128, seed: 1 }) },
+  landmedium: { view: 'land', setup: landTown({ kind: 'sheltered', size: 192, seed: 4 }) },
+  landlarge: { view: 'land', setup: landTown({ kind: 'sheltered', size: 256, seed: 2 }) },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3565,4 +3571,73 @@ function gangTown(sim: Sim): void {
 /** #gang's panel: the den (else the street's most tempted home). */
 function gangDen(s: SimState): number {
   return s.crime.gangs[0]?.den ?? mostTempted(s);
+}
+
+// Slice 42
+/** A new city founded on a generated land, the seasons turning, with a road in from the west edge towards the bay. */
+function landTown(land: Land): (sim: Sim) => void {
+  return (sim) => {
+    sim.found(land);
+    // (Founding starts afresh, so what calm() set before the setup is set again.)
+    seasons(sim, true);
+    hazards(sim, false);
+    const road = landRoad(sim);
+    if (road.length > 0) {
+      sim.enqueue({ type: 'road', tiles: road });
+      sim.flush();
+    }
+  };
+}
+
+/**
+ * A road in from the west edge towards the land's site above the bay: along
+ * the first row near the site where every tile takes a road, bridging the
+ * river on the way (up or down its bank a little, to where a bridge fits).
+ */
+export function landRoad(sim: Sim): number[] {
+  const map = sim.map;
+  const s = sim.state;
+  const n = map.size;
+  const site = map.data.site;
+  if (!site) return [];
+  const ground = mapIndex(map).ground;
+  const free = (x: number, z: number): boolean => roadRefusal(map, s, x, z) === '';
+  const x1 = Math.round(site.x);
+  for (let k = 0; k <= 30; k++) {
+    let z: number = Math.round(site.z) + (k % 2 === 1 ? -(k + 1) / 2 : k / 2);
+    if (z < 1 || z >= n - 1) continue;
+    const tiles: number[] = [];
+    let x = 0;
+    while (x <= x1) {
+      const t = z * n + x;
+      if (free(x, z)) {
+        tiles.push(t);
+        x++;
+        continue;
+      }
+      if (ground[t] !== Ground.Water || x === 0) break;
+      // A bridge here, or up or down the bank where one fits.
+      let crossed = false;
+      for (let d = 0; d <= 40 && !crossed; d++) {
+        const z2 = z + (d % 2 === 1 ? -(d + 1) / 2 : d / 2);
+        if (z2 < 1 || z2 >= n - 1) continue;
+        const along: number[] = [];
+        for (let zz = z; zz !== z2; ) {
+          zz += z2 > z ? 1 : -1;
+          if (!free(x - 1, zz)) break;
+          along.push(zz * n + x - 1);
+        }
+        if (along.length !== Math.abs(z2 - z)) continue;
+        const b = bridgeSpan(map, s, z2 * n + x - 1, 3);
+        if (b.reason !== '' || b.end < 0) continue;
+        tiles.push(...along, ...b.tiles);
+        z = z2;
+        x = b.end % n;
+        crossed = true;
+      }
+      if (!crossed) break;
+    }
+    if (x > x1) return tiles;
+  }
+  return [];
 }

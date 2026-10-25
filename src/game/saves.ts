@@ -9,7 +9,8 @@
  * windows, blocked site data, previews, a full quota), so every read and
  * write is wrapped, and the game plays on without it.
  */
-import { MAP_SIZE } from '../map/coast';
+// Slice 42: a save's land.
+import { BAY, landProblem } from '../map/lands';
 import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
 // Slice 44.
@@ -235,7 +236,7 @@ export function unpackRuns(p: unknown, len: number): number[] | null {
 /** Unpack a version-2 save's round records in place ('' if fine, or what's wrong). */
 function unpackRounds(st: unknown): string {
   if (!isObj(st) || !isObj(st.rounds)) return '';
-  const n = MAP_SIZE * MAP_SIZE;
+  const n = sideOf(st) ** 2;
   for (const [k, r] of Object.entries(st.rounds)) {
     if (!isObj(r)) continue;
     const walked = unpackRuns(r.walked, n);
@@ -271,7 +272,9 @@ export function decodeSave(text: string | null): Decoded {
     }
     // The tiles are packed as runs too.
     if (isObj(data.state)) {
-      const tiles = unpackRuns(data.state.tiles, MAP_SIZE * MAP_SIZE);
+      // (Slice 42: as many as its land has, once the land is one this game makes.)
+      if (data.state.land !== undefined && landProblem(data.state.land)) return { ok: false, why: `This save is damaged (${landProblem(data.state.land)}), so it can’t be opened.` };
+      const tiles = unpackRuns(data.state.tiles, sideOf(data.state) ** 2);
       if (!tiles) return { ok: false, why: 'This save is damaged (its map of roads and buildings is wrong), so it can’t be opened.' };
       data.state.tiles = tiles;
     }
@@ -299,6 +302,8 @@ export function decodeSave(text: string | null): Decoded {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+/** Slice 42: a saved state's map's side, in tiles: its land's if it is one this game makes, or the Bay's (a land that isn't is refused by stateProblem; slice 42's review: never unpacked to its size first). */
+const sideOf = (st: Record<string, unknown>): number => (isObj(st.land) && !landProblem(st.land) ? (st.land.size as number) : BAY.size);
 const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const nums = (v: unknown, len?: number): boolean => Array.isArray(v) && (len === undefined || v.length === len) && v.every(fin);
 const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof x === 'string');
@@ -342,6 +347,8 @@ export function stateProblem(st: unknown): string {
       : `This save is from an older version of the game (version ${v}); this one reads version ${SIM_STATE_VERSION}, so it can’t be opened.`;
   }
   if (st.mapId !== 'coast') return damaged('it is on a map this game doesn’t have');
+  // Slice 42: its land (none: the Bay).
+  if (st.land !== undefined && landProblem(st.land)) return damaged(landProblem(st.land));
   for (const k of STATE_NUMBERS) if (!fin(st[k])) return damaged(`its ${k} is missing`);
   if (typeof st.hazards !== 'boolean') return damaged('whether fire and wear build up is missing');
   if (!nums(st.rng, 4) || !nums(st.folk, 4) || !nums(st.wild, 4)) return damaged('its random numbers are missing');
@@ -351,7 +358,7 @@ export function stateProblem(st: unknown): string {
   }
   if (!isObj(st.wind) || !fin(st.wind.angle) || !fin(st.wind.strength)) return damaged('its wind is missing');
   if (!ledgerOk(st.ledger)) return damaged('its ledger is missing');
-  const n = MAP_SIZE * MAP_SIZE;
+  const n = sideOf(st) ** 2;
   if (!nums(st.tiles, n) || !(st.tiles as number[]).every((t) => Number.isInteger(t) && t >= -2)) return damaged('its map of roads and buildings is wrong');
   if (!isObj(st.rounds)) return damaged('the walkers’ rounds are missing');
   for (const sv of ROUNDS) {

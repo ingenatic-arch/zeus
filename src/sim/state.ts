@@ -13,9 +13,11 @@ import type { Blockade } from './blockades';
 import type { Ambition } from './laurels';
 // Slice 44: the town's messages (messages.ts).
 import type { Messages } from './messages';
+// Slice 42: the land a city is founded on.
+import type { Land } from '../map/lands';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 40;
+export const SIM_STATE_VERSION = 41;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -522,6 +524,8 @@ export interface SimState {
   ambition: Ambition;
   /** Slice 44: the town's message log, its read marks and pins, and how far it has heard (messages.ts, heard.ts). */
   messages: Messages;
+  /** Slice 42: the land the city is founded on, its kind, size and seed (src/map/lands.ts; none: the Bay, 128 tiles a side). */
+  land?: Land;
 }
 
 /**
