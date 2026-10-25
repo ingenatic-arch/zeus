@@ -56,6 +56,9 @@ import {
 import { COLONY_SHARE } from '../sim/colonies';
 import { cargoWords, secondYear, STAGE_NAMES, stageOf } from '../sim/colonyworks';
 import { cargoHtml, governorHtml, pictureHtml, wantHtml, worksEvent, worksHtml } from './colonygrowth';
+// Slice 47: a colonial empire.
+import { colonyEmpireEvent, defenceHtml, freeAllyHtml, freeAllyLine, freeAllySub, garrisonHtml, militiaHtml, strikeHtml, tradeHtml, treatyHtml } from './colonyempire';
+import { freedOf, stationedWords } from '../sim/colonyempire';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -104,6 +107,9 @@ export function sitePageHtml(s: SimState, site: string, map: CoastMap | undefine
     const owner = x.owner as CityId;
     return `${header(s, site, p.name, `${cap(adjective(owner))} colony since ${formatYear(dateOfTick(x.since).yearBC)}, about ${fmt(Math.round(x.pop / 10) * 10)} people`, map, false, '', false)}<section><p class="line">It makes ${esc(p.good)} for ${esc(name(owner))}, and grows ${esc(name(owner))} a little each year. Nobody else founds here while it stands.</p><div class="acts open"><button data-cityopen="${owner}">${esc(whose(owner))} page</button></div></section>`;
   }
+  // Slice 47: a colony you set free by treaty is your ally.
+  const fa = freedOf(s, site);
+  if (fa) return `${header(s, site, fa.name, freeAllySub(s, fa), map, false, '', false)}${freeAllyHtml(s, fa)}`;
   if (x.free) return `${header(s, site, x.free, `A city in its own right on ${p.name}, about ${fmt(Math.round(x.pop / 10) * 10)} people`, map, false, '', false)}<section><p class="line">It was your colony until it declared itself free, ${esc(dayWords(x.since))}. It answers to nobody now and sends you nothing; nobody founds on ${esc(p.name)} again.</p></section>`;
   if (x.bound) {
     const b = x.bound as CityId;
@@ -154,7 +160,7 @@ function colonyHtml(s: SimState, c: Colony, map: CoastMap | undefined, renaming:
   const pop = peopleOf(s, c);
   const sub = `Your colony on ${p?.name ?? c.site} since ${dayWords(c.since)} · ${fmt(pop)} people`;
   // (Slice 43: its picture and stage first, what it asks, the goods going out, its governor or the candidates; its works after its people.)
-  return `${header(s, c.site, c.name, sub, map, renaming, draft, true)}${pictureHtml(s, c)}${freedomHtml(s, c)}${threatHtml(s, c, map)}${wantHtml(s, c, map)}${cargoHtml(s, c)}${governorHtml(s, c)}${loyaltyHtml(s, c)}${shareHtml(s, c)}${peopleHtml(s, c)}${worksHtml(s, c, map)}${guardsHtml(s, c, map)}${homesHtml(c)}`;
+  return `${header(s, c.site, c.name, sub, map, renaming, draft, true)}${pictureHtml(s, c)}${freedomHtml(s, c)}${threatHtml(s, c, map)}${wantHtml(s, c, map)}${cargoHtml(s, c)}${governorHtml(s, c)}${loyaltyHtml(s, c)}${shareHtml(s, c)}${tradeHtml(s, c)}${garrisonHtml(s, c, map)}${strikeHtml(s, c)}${militiaHtml(s, c)}${peopleHtml(s, c)}${worksHtml(s, c, map)}${guardsHtml(s, c, map)}${homesHtml(c)}`;
 }
 
 /** Talk of freedom: the warning and what mends it. */
@@ -162,7 +168,7 @@ function freedomHtml(s: SimState, c: Colony): string {
   if (!c.talk) return '';
   const l = colonyLoyalty(s, c);
   const lighter = c.share > 0 ? button('share', `Lighten its share to ${SHARE_WORDS[c.share - 1]} <em class="up">+${c.share === 2 ? 20 : 15}</em>`, { site: c.site, share: c.share - 1 }, '', 'Its loyalty mends over the next months', 'send') : '';
-  return `<section class="deals arming"><h3>${esc(c.name)} talks of freedom</h3><div class="deal tribute"><div><p><b>Loyalty ${c.loyalty}</b>: ${esc(lowReasons(l, 3))}. It declares itself free about <b>${esc(dayWords(c.frees))}</b> unless its loyalty is back to ${COLONY_STAND_DOWN} by then.</p><div class="acts">${lighter}</div><p class="if">Your triremes count for it too (each +3), and a light share most of all. Free, it sends you nothing and is yours no more.</p></div></div></section>`;
+  return `<section class="deals arming"><h3>${esc(c.name)} talks of freedom</h3><div class="deal tribute"><div><p><b>Loyalty ${c.loyalty}</b>: ${esc(lowReasons(l, 3))}. It declares itself free about <b>${esc(dayWords(c.frees))}</b> unless its loyalty is back to ${COLONY_STAND_DOWN} by then.</p><div class="acts">${lighter}</div><p class="if">Your triremes count for it too (each +3), and a light share most of all. Free, it sends you nothing and is yours no more.</p>${treatyHtml(s, c)}</div></div></section>`;
 }
 
 /** A threat to it: whose ships, when, and the three answers. */
@@ -186,7 +192,9 @@ function threatHtml(s: SimState, c: Colony, map: CoastMap | undefined): string {
   const strike = button('strike', `Strike at ${esc(name(t.city))}${strikeWhy ? '' : ` <small>${inTen(plan.odds)}</small>`}`, { city: t.city, site: c.site }, strikeWhy, `A full force marches on ${name(t.city)}: its ships are called home as soon as your army sets out`, 'refuse');
   const fall = t.kind === 'claim' ? `${name(t.city)} takes it: it is yours no more` : `the raiders take 15 in every hundred of its people and its next shipment, and it remembers you did nothing (${signed(-25)})`;
   const guarding = there ? `<p class="eta sent">Your ${there === 1 ? 'trireme is' : `${there} triremes are`} on the way or on station: ${inTen(fightOdds(there, t.ships))} as they stand.</p>` : '';
-  return `<section class="deals"><h3>${esc(whose(t.city))} ships</h3><div class="deal threat"><div><p><b>${t.ships} ships of ${esc(name(t.city))}</b> are sailing for ${esc(c.name)} ${esc(what)}. They arrive about <b>${esc(dayWords(t.due))}</b>.</p>${guarding}
+  // Slice 47: every part of its defence on the one roll (triremes, walls, a soldier governor, a company stationed there).
+  const stands = defenceHtml(s, c, fightOdds(there, t.ships), there);
+  return `<section class="deals"><h3>${esc(whose(t.city))} ships</h3><div class="deal threat"><div><p><b>${t.ships} ships of ${esc(name(t.city))}</b> are sailing for ${esc(c.name)} ${esc(what)}. They arrive about <b>${esc(dayWords(t.due))}</b>.</p>${guarding}${stands}
 <div class="acts">${guard}${strike}</div>${guardWhy && !there ? `<p class="eta no">Triremes: ${esc(guardWhy)}.</p>` : ''}${strikeWhy ? `<p class="eta no">Your army: ${esc(strikeWhy)}.</p>` : ''}
 <p class="if">Triremes off its shore fight them when they come (driven off, it is grateful: ${signed(15)}). Your army marching on ${esc(name(t.city))} calls them home, though as any war without cause ${esc(name(t.city))} hates it. Let it be, and ${esc(fall)}.</p></div></div></section>`;
 }
@@ -249,15 +257,17 @@ function homesHtml(c: Colony): string {
 }
 
 /** A click on a colony's button: send its command. True if it was one. `open` opens a city's page. */
-export function colonyEvent(e: Event, send: (c: Command) => void, open: (id: CityId) => void): boolean {
+export function colonyEvent(e: Event, send: (c: Command) => void, open: (id: CityId, tab?: string) => void): boolean {
   const t = e.target as HTMLElement;
   if (e.type !== 'click') return false;
   const o = t.closest('button[data-cityopen]') as HTMLButtonElement | null;
   if (o) {
-    open(o.dataset.cityopen as CityId);
+    // (Slice 47: the empire's list opens a vassal's page on its Empire tab.)
+    open(o.dataset.cityopen as CityId, o.dataset.citytab);
     return true;
   }
   if (worksEvent(e, send)) return true;
+  if (colonyEmpireEvent(e, send)) return true;
   const b = t.closest('button[data-colony]') as HTMLButtonElement | null;
   if (!b || b.disabled) return false;
   const act = b.dataset.colony;
@@ -276,8 +286,12 @@ export function siteCardLine(s: SimState, site: string): string {
     const t = c.threat && c.threat.end === '' ? `; ${c.threat.ships} ships of ${name(c.threat.city)} coming to ${c.threat.kind} it` : '';
     // (Slice 43: its stage, and what it asks of you.)
     const w = c.want && c.want.end === '' && !c.want.cargo ? `; it asks you for ${cargoWords(c.want.good, c.want.amount)}` : '';
-    return `${c.name}, your colony: ${STAGE_NAMES[stageOf(c)]} of ${fmt(peopleOf(s, c))} people, loyalty ${c.loyalty}${c.talk ? ', talking of freedom' : ''}${t}${w}`;
+    // (Slice 47: what is stationed there.)
+    const g = stationedWords(s, c);
+    return `${c.name}, your colony: ${STAGE_NAMES[stageOf(c)]} of ${fmt(peopleOf(s, c))} people, loyalty ${c.loyalty}${c.talk ? ', talking of freedom' : ''}${g ? `; ${g} stationed there` : ''}${t}${w}`;
   }
+  const fa = freedOf(s, site);
+  if (fa) return freeAllyLine(s, fa);
   const f = foundingOf(s, site);
   if (f) return f.phase === 'gathering' ? 'Your settlers are coming down to your quay for it' : `Your settlers are ${f.phase === 'sea' ? 'at sea' : 'sailing out of your bay'} for it: they land about ${dayWords(landsAbout(s, f))}`;
   return '';

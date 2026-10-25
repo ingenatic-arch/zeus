@@ -69,6 +69,9 @@ import { askColony, spareOf as storesSpare, STAGE_FROM, stageOf, WORKS } from '.
 import { storeKind } from '../sim/trade';
 // Slice 37
 import { colonyOf, foundingOf, foundRefusal, FOUND_COST } from '../sim/colonies';
+// Slice 47.
+import { fightOdds, fightRoll, plantColony, siteRecord, threatenColony, type Colony, type ColonyThreat } from '../sim/colonies';
+import { ownDefence, stageFor } from '../sim/colonyworks';
 import { news } from '../sim/diplomacy';
 import { allyOf } from '../sim/vassals';
 // Slice 40
@@ -3128,6 +3131,102 @@ function grownColonyTown(stage: 'wants' | 'works'): (sim: Sim) => void {
 const COLONYWANTS_TOWN = grownColonyTown('wants');
 const COLONYWORKS_TOWN = grownColonyTown('works');
 
+// Slice 47
+/**
+ * A colonial empire (slice 47). #colonybase: #colonies' town carried on as a
+ * player building a colonial empire would, each step once the treasury can
+ * pay for it and a month's wages: a barracks (with the road to it) and a
+ * company of Arcadian hoplites hired there, then a shipyard and two
+ * triremes; Nea Thasos grown to a town (for the demo, and named so, if it is
+ * not one yet), Nea Naxos a settlement, and a third colony on Kythnos (or the
+ * first free site), planted for the demo and named so, an outpost; then
+ * Rhodes' ships sent against Nea Naxos (set up for the demo and named so) on
+ * a day whose roll your two triremes off its shore would win and Nea Naxos
+ * alone would lose. Nea Naxos' page open on the map of Greece.
+ * #freeally: #colonies' town, Nea Thasos grown to about 620 people and its
+ * people turned against being ruled from across the sea (both set up for
+ * the demo and named so), played on until it talks of freedom: its page
+ * open, with the treaty that would make it a free ally.
+ */
+/** #colonybase: how long it waits for the hirelings to walk in (two months), and the threat's roll it looks for (no higher). */
+const BASE_HIRE_WAIT = 2 * TICKS_PER_MONTH;
+const BASE_ROLL = 0.4;
+/** #freeally: Nea Thasos' people, and how long it plays on for its talk of freedom (a few months at most). */
+const FREE_PEOPLE = 620;
+const FREE_WAIT = 4 * TICKS_PER_MONTH;
+function colonyBaseTown(stage: 'base' | 'freeally'): (sim: Sim) => void {
+  return (sim) => {
+    COLONIES_TOWN(sim);
+    const s = sim.state;
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const thasos = s.empire.colonies.find((x) => x.site === 'thasos') ?? s.empire.colonies[s.empire.colonies.length - 1];
+    if (!thasos) return;
+    const grow = (c: Colony, people: number, why: string): void => {
+      const x = siteRecord(s, c.site);
+      if (!x || x.pop >= people) return;
+      x.pop = people;
+      c.stage = stageFor(people, c.stage);
+      news(s.world, s.tick, `site:${c.site}`, `${c.name} has grown to ${people} people (${why}, set up for this demo)`);
+    };
+    if (stage === 'freeally') {
+      grow(thasos, FREE_PEOPLE, 'newcomers from all over Greece');
+      thasos.memories.push({ kind: 'staged', why: 'its people resent being ruled from across the sea (set up for this demo)', amount: -55, tick: s.tick, fade: 3 * TICKS_PER_YEAR });
+      const stop = s.tick + FREE_WAIT;
+      while (s.tick < stop && !thasos.talk) sim.run(TICKS_PER_DAY);
+      return;
+    }
+    // A barracks and its road, and a company of Arcadian hoplites hired there.
+    const road = roadRoute(sim.map, s, T(TOWN_OIL_X, TOWN_OIL_ROAD), T(ARMS_ROAD_END.x, ARMS_ROAD_END.z)) ?? [];
+    waitFor(sim, s.tick, (road.length + ARMS_LANE.length) * ROAD_COST + BARRACKS_COST + JOBS.barracks * WAGE + HIRELINGS.arcadian.fee);
+    send({ type: 'road', tiles: road });
+    send({ type: 'road', tiles: ARMS_LANE });
+    send({ type: 'build', kind: 'barracks', at: [T(ARMS_BARRACKS.x, ARMS_BARRACKS.z)] });
+    const barracks = s.buildings.find((b) => b.kind === 'barracks');
+    if (barracks) {
+      const staffed = s.tick + 4 * TICKS_PER_DAY;
+      while (s.tick < staffed && barracks.workers === 0) sim.step();
+      send({ type: 'hire', barracks: barracks.id, kind: 'arcadian' });
+      const hired = s.army.companies.find((c) => c.hired === 'arcadian');
+      const stop = s.tick + BASE_HIRE_WAIT;
+      while (hired && s.tick < stop && readyOf(s, hired).length < COMPANY_SIZE) sim.run(10);
+    }
+    // A shipyard and two triremes.
+    fleetOf(sim, 2, (cost) => waitFor(sim, s.tick, cost + wageBill(s)));
+    // Three colonies at three stages.
+    grow(thasos, STAGE_FROM[2] + 30, 'newcomers from the north');
+    const free = (id: string): boolean => {
+      const x = siteRecord(s, id);
+      return !!x && !x.owner && !x.bound && !x.free;
+    };
+    const third = ['kythnos', 'melos', 'kythera', 'cyrene'].find(free);
+    if (third) {
+      const c = plantColony(s, third, 70, s.tick - 4 * TICKS_PER_MONTH, 'Lykon', 'steady');
+      news(s.world, s.tick, `site:${third}`, `${c.name} was founded on ${c.name.replace(/^Nea /, '')} four months ago (planted for this demo): an outpost of 70 people`);
+    }
+    // Rhodes' ships against Nea Naxos, on a day whose roll your two triremes would win.
+    const naxos = colonyOf(s, 'naxos');
+    if (!naxos) return;
+    const rhodes = cityOf(s.world, 'rhodes');
+    const ships = Math.max(2, Math.min(5, Math.round(rhodes.fleet / 4)));
+    const odds = fightOdds(2, ships);
+    for (let k = 0; k < 2 * TICKS_PER_MONTH; k++) {
+      const roll = fightRoll(s, naxos, { at: s.tick + k } as ColonyThreat);
+      if (roll < Math.min(BASE_ROLL, odds - 0.05) && roll >= ownDefence(naxos)) {
+        sim.run(k);
+        break;
+      }
+    }
+    threatenColony(s, naxos, 'rhodes', 'raid');
+    const last = s.world.news[s.world.news.length - 1];
+    if (last && last.line.startsWith(`${naxos.threat?.ships} ships of Rhodes`)) last.line = last.line.replace(' to raid it:', ' to raid it (set up for this demo):');
+  };
+}
+const COLONYBASE_TOWN = colonyBaseTown('base');
+const FREEALLY_TOWN = colonyBaseTown('freeally');
+
 // Slice 40
 /**
  * An empire's city (slice 40). #empire: #ambition's town (the ambitions on
@@ -3463,6 +3562,9 @@ const SCENES: Record<string, Demo> = {
   court: { view: 'court', speed: 'paused', setup: courtTown, building: courtOf, overlay: 'crime' },
   // The same town's prison crowded, the town warned of its unrest, the prison's panel open: played on, the prisoners break out.
   jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, building: prisonOf, overlay: 'crime' },
+  // Slice 47: a colonial empire. Three colonies at three stages, a company and two triremes at home, Rhodes' ships sailing for Nea Naxos, its page open; Nea Thasos grown and talking of freedom, its page open with the treaty.
+  colonybase: { view: 'bay', setup: COLONYBASE_TOWN, overlay: 'missing', greece: 'site:naxos' },
+  freeally: { view: 'bay', setup: FREEALLY_TOWN, overlay: 'missing', greece: 'site:thasos' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

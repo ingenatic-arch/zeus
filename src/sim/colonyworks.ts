@@ -51,6 +51,11 @@ import { ARMOUR, CHEESE, COPPER, FLEECE, held, HORSES, MARBLE, MEAT, OIL, setHel
 import { MEN } from './folk';
 import { blockaded } from './lanes';
 import { door, roadsBeside } from './rounds';
+// Slice 47: the stores the trading post's roads reach, a shipment called off, and this line's ships at the oars.
+import { nearestReached, roadSearch } from './roads';
+import { bayShips, militiaOut, militiaWords, passagesFor, passageWords, rowingPassages } from './colonyempire';
+import { income } from './treasury';
+import { roomFor } from './stores';
 import { visitorAt } from './routes';
 import { lateWords, seasonAt, AUTUMN, SPRING, SUMMER, stormDelay, WINTER } from './seasons';
 import type { SimState, Visitor, Walker } from './state';
@@ -259,6 +264,8 @@ const ROW_LOADS = 2;
 /** She anchors this far back from the jetty (further out than a colony's share ship, which lies near its end), and to the other side from the settlers' ship first. */
 const ANCHOR_BACK = 12;
 const ANCHOR_ASIDE = [2.6, -2.6, 1.4, -1.4, 0] as const;
+/** (Review of slice 47) How much further out the next ship of this line in the bay at once anchors. */
+const ANCHOR_NEXT = 5;
 
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
@@ -415,11 +422,39 @@ export const cargoOf = (s: SimState, id: number): Cargo | undefined => (s.empire
 /** A colony's shipment still loading at your quay, if any. */
 export const loadingFor = (s: SimState, site: string): Cargo | undefined => cargoesFor(s, site).find((x) => x.phase === 'loading');
 
-/** How much of a good your stores hold (granaries for foods, storehouses for goods). */
+/**
+ * How much of a good your stores hold (granaries for foods, storehouses for
+ * goods). Slice 47 (review of slice 43: a shipment stalled for ever on goods
+ * the porters could never fetch): only the stores the trading post's roads
+ * reach, as the porters fetch; every store with no trading post.
+ */
 function storedOf(s: SimState, k: number): number {
   const w = TRADE_GOODS[k];
   const kind = storeKind(w);
-  return s.buildings.reduce((a, b) => a + (b.kind === kind ? held(b, w) : 0), 0);
+  const reach = reachedStores(s);
+  return s.buildings.reduce((a, b) => a + (b.kind === kind && (!reach || reach.has(b.id)) ? held(b, w) : 0), 0);
+}
+
+/** Slice 47: the stores (granaries and storehouses) the trading post's roads reach, by id; null with no trading post or no road beside it. */
+export function reachedStores(s: SimState): Set<number> | null {
+  const post = tradingPost(s);
+  if (!post) return null;
+  const n = sizeOf(s);
+  const from = roadsBeside(s, n, post);
+  if (!from.length) return null;
+  const search = roadSearch(s, n, from);
+  const out = new Set<number>();
+  for (const b of s.buildings) if ((b.kind === 'granary' || b.kind === 'storehouse') && nearestReached(search, roadsBeside(s, n, b)) >= 0) out.add(b.id);
+  return out;
+}
+
+/** Slice 47: how much of a good lies in stores the trading post's roads don't reach (for the page's why). */
+export function cutOffOf(s: SimState, k: number): number {
+  const reach = reachedStores(s);
+  if (!reach) return 0;
+  const w = TRADE_GOODS[k];
+  const kind = storeKind(w);
+  return s.buildings.reduce((a, b) => a + (b.kind === kind && !reach.has(b.id) ? held(b, w) : 0), 0);
 }
 
 /** How much of a good your stores hold, less what shipments still loading will take of it. */
@@ -491,15 +526,20 @@ export function governorRefusal(c: Colony, act: 'governor' | 'dismiss', n?: numb
 // ---------------------------------------------------------------------------
 // Shipping out.
 
-/** A ship for goods to a colony: from the gulf to her anchorage off the jetty (null if there is no way in). */
-function newShip(s: SimState, map: CoastMap, postId: number): Visitor | null {
+/** A ship for goods to a colony: from the gulf to her anchorage off the jetty (null if there is no way in). Slice 47: a company's and the militia's ships too. */
+export function newShip(s: SimState, map: CoastMap, postId: number): Visitor | null {
   const post = findBuilding(s, postId);
   const berth = post ? berthOf(map, post) : null;
   if (!berth) return null;
   const path = shipRoute(map, berth);
   if (path.length < 4) return null;
   const L = pathLen(path);
-  const ship: Visitor = { phase: SHIP_COMING, since: s.tick, turned: 1, path, post: postId, stop: Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L)), aside: 0 };
+  // (Review of slice 47: a second ship of this line in your bay at once, a shipment's and a company's say, anchors further out, not on
+  // top of the first, so each is seen and has its own hover.)
+  const taken = bayShips(s).filter((b) => b.ship.phase !== SHIP_LEAVING).map((b) => b.ship.stop * pathLen(b.ship.path));
+  let back = ANCHOR_BACK;
+  while (back < ANCHOR_BACK + 4 * ANCHOR_NEXT && taken.some((d) => Math.abs(L - back - d) < ANCHOR_NEXT / 2)) back += ANCHOR_NEXT;
+  const ship: Visitor = { phase: SHIP_COMING, since: s.tick, turned: 1, path, post: postId, stop: Math.max(0.3, 1 - back / Math.max(1, L)), aside: 0 };
   const at = pointOn(path, ship.stop * L);
   ship.aside = ANCHOR_ASIDE.find((a) => a === 0 || [0.5, 1].every((k) => sailable(map, at.x - at.dz * a * k, at.z + at.dx * a * k))) ?? 0;
   return ship;
@@ -611,6 +651,8 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
     // (A boat rows the loads out to her one at a time: she sails once the last is aboard.)
     const rowed = !v || s.tick >= v.since + rowTicks(x);
     if (anchored && !closed && rowed && (allIn(x) || late) && x.items.some((it) => it.got > 0)) sail(s, x);
+    // Slice 47 (review of slice 43): nothing came down to her in four months: she is called off, and the page says why.
+    else if (late && anchored && !x.items.some((it) => it.got > 0)) callOff(s, map, x, `nothing reached your quay in four months: ${stallWords(s, x)}`);
   } else if (x.phase === 'leaving') {
     if (!x.ship || s.tick >= x.ship.since + leaveTicks(x.ship)) {
       x.ship = null;
@@ -632,6 +674,92 @@ export function rowTicks(x: Cargo, all = false): number {
   let loads = 0;
   for (const it of x.items) loads += loadsOf(it.good, all ? it.amount : it.got);
   return rowingFor(loads);
+}
+
+/** Slice 47: why a shipment's goods don't come down to the quay, in words. */
+function stallWords(s: SimState, x: Cargo): string {
+  const out: string[] = [];
+  for (const it of x.items) {
+    if (it.got >= it.amount) continue;
+    const off = cutOffOf(s, it.good);
+    out.push(off > 0 && storedOf(s, it.good) <= 0 ? `the ${goodWord(it.good)} is in stores no road from the trading post reaches` : `your stores the trading post's roads reach hold no ${goodWord(it.good)}`);
+  }
+  return listWords([...new Set(out)]) || 'its goods never came';
+}
+
+/** Slice 47: why a shipment loading can't sail now with what is aboard, or be called off ('' if it can). */
+export function cargoActRefusal(s: SimState, act: string, site: string): string {
+  const x = loadingFor(s, site);
+  if (!x) return 'Nothing is loading for it';
+  if (act === 'cancel') return '';
+  if (act !== 'sail') return 'Not an act';
+  if (!x.items.some((it) => it.got > 0)) return 'Nothing is on the quay or aboard yet';
+  if (x.items.some((it) => it.out > 0)) return 'Porters are still on the road with goods for her: wait for them';
+  if (x.ship && x.ship.phase !== SHIP_ANCHORED) return 'Your ship is not in yet';
+  if (blockaded(s)) return 'The mouth of your harbour is held by a blockade';
+  return '';
+}
+
+/** Slice 47: she sails now with what is on the quay or aboard (what is short lands short: a want late, a work slower). */
+export function sailNow(s: SimState, x: Cargo): void {
+  if (x.phase === 'loading') sail(s, x);
+}
+
+/**
+ * Slice 47: a shipment called off: the goods on the quay and with porters on
+ * the road go back to the stores, a work's drachmas come back and it can be
+ * funded again, a want can be sent again; your ship turns away.
+ */
+export function callOff(s: SimState, map: CoastMap, x: Cargo, why: string): void {
+  if (x.phase !== 'loading') return;
+  const back = new Map<number, number>();
+  for (const it of x.items) back.set(it.good, (back.get(it.good) ?? 0) + it.got);
+  for (const w of s.walkers) {
+    if (w.kind !== 'shipper' || w.origin !== x.id || w.load <= 0) continue;
+    const it = x.items[w.steps];
+    if (it) back.set(it.good, (back.get(it.good) ?? 0) + w.load);
+    w.load = 0;
+  }
+  s.walkers = s.walkers.filter((w) => !(w.kind === 'shipper' && w.origin === x.id));
+  const lost: string[] = [];
+  for (const [k, n] of back) {
+    if (n <= 0) continue;
+    const ware = TRADE_GOODS[k];
+    let left = n;
+    for (const b of s.buildings) {
+      if (left <= 0) break;
+      if (b.kind !== storeKind(ware)) continue;
+      const r = Math.min(left, roomFor(b, ware));
+      if (r <= 0) continue;
+      setHeld(b, ware, held(b, ware) + r);
+      left -= r;
+    }
+    if (n - left > 0) note(s, ware, 'bought', `colony:${x.site}`, n - left);
+    if (left > 0) lost.push(amountWords(k, left));
+  }
+  s.looks++;
+  const c = colonyOf(s, x.site);
+  const refund: string[] = [];
+  if (c) {
+    for (const wk of c.works.slice()) {
+      if (wk.phase !== 'shipping' || wk.cargo !== x.id) continue;
+      const p = workPrice(c, wk.kind);
+      income(s, p.dr, 'refund', `Works for ${c.name}`);
+      c.works = c.works.filter((o) => o !== wk);
+      refund.push(`${fmt(p.dr)} dr for ${WORKS[wk.kind].name} back in the treasury`);
+    }
+    if (c.want && c.want.cargo === x.id) c.want.cargo = 0;
+  }
+  x.phase = 'done';
+  if (x.ship) {
+    x.ship.phase = SHIP_LEAVING;
+    x.ship.turned = x.ship.stop;
+    x.ship.since = s.tick;
+  }
+  x.ship = null;
+  news(s.world, s.tick, siteKey(x.site), `Your shipment for ${c?.name ?? siteName(x.site)} is called off (${why})${back.size ? `: its goods go back to the stores${lost.length ? `, but there is no room for ${listWords(lost)}` : ''}` : ''}${refund.length ? `; ${listWords(refund)}` : ''}${c?.want && c.want.end === '' ? `. It still asks for ${amountWords(c.want.good, c.want.amount)} by ${dayWords(c.want.due)}` : ''}`, true);
+  void map;
+  s.rev++;
 }
 
 /** She sails out of the bay with what is aboard. */
@@ -942,7 +1070,10 @@ export function cargoDoing(s: SimState, x: Cargo): string {
   const parts = x.items.map((it) => `${fmt(Math.min(it.got, it.amount))} of ${amountWords(it.good, it.amount)}`);
   // (Review of slice 43: "hold none" when they hold none, not when what they hold is all promised to this shipment.)
   const short = x.items.filter((it) => it.amount - it.got - it.out > 0 && storedOf(s, it.good) <= 0 && !s.walkers.some((w) => w.kind === 'shipper' && w.origin === x.id && w.steps === x.items.indexOf(it)));
-  const missing = short.length ? ` Waiting for ${listWords(short.map((it) => goodWord(it.good)))}: your stores hold none` : '';
+  // (Slice 47: what is in stores no road from the trading post reaches says so, and when she gives up waiting.)
+  const cut = short.some((it) => cutOffOf(s, it.good) > 0);
+  const gives = x.items.some((it) => it.got > 0) ? `she sails with what is aboard about ${dayWords(x.at + SHIP_WAITS)}` : `she is called off about ${dayWords(x.at + SHIP_WAITS)} if nothing has come down to her`;
+  const missing = short.length ? ` Waiting for ${listWords(short.map((it) => goodWord(it.good)))}: ${cut ? 'what you have is in stores no road from the trading post reaches' : 'your stores hold none'}; ${gives}.` : '';
   const b = blockaded(s);
   const v = x.ship;
   const held = b && v ? (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s)) ? ` Your ship waits outside the harbour: the mouth is held by a blockade.` : v.phase === SHIP_ANCHORED && allIn(x) ? ` Your ship waits at anchor, laden: the mouth is held by a blockade.` : '') : '';
@@ -982,6 +1113,11 @@ export function worksTownLine(s: SimState): { text: string; site: string; urgent
     const all = x.items.reduce((a, it) => a + it.amount, 0);
     return { text: `Porters carry goods down to your quay for ${c?.name ?? siteName(x.site)}: ${fmt(got)} of ${fmt(all)} aboard or on the quay.`, site: x.site, urgent: false, rank: 1 };
   }
+  // Slice 47: a company boarding your ship for a colony or landing from one, a militia sailing in to help you.
+  const p = passagesFor(s).find((y) => y.ship && (y.phase === 'boarding' || y.phase === 'bay'));
+  if (p) return { text: `${passageWords(s, p)}.`, site: p.site, urgent: false, rank: 1 };
+  const m = militiaOut(s).find((y) => y.phase === 'bay');
+  if (m) return { text: `${militiaWords(s, m)}.`, site: m.site, urgent: false, rank: 1 };
   return null;
 }
 
@@ -990,6 +1126,8 @@ export function rowingOut(s: SimState): Array<{ post: number; ship: Visitor }> {
   const out: Array<{ post: number; ship: Visitor }> = [];
   for (const x of cargoesFor(s)) if (x.phase === 'loading' && x.ship?.phase === SHIP_ANCHORED && x.items.some((it) => it.got > 0)) out.push({ post: x.post, ship: x.ship });
   for (const f of s.empire.foundings) if (f.phase === 'gathering' && f.ship?.phase === SHIP_ANCHORED && f.households.some((h) => h.state === 'quay')) out.push({ post: f.post, ship: f.ship });
+  // (Slice 47: a company's men rowed out to her, or ashore.)
+  out.push(...rowingPassages(s));
   return out;
 }
 

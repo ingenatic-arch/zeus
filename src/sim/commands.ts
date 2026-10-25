@@ -84,7 +84,10 @@ export type Command =
   | { type: 'work'; id: number; paused?: boolean; first?: boolean }
   // Slice 45
   /** The law (justice.ts): the punishment the court gives for one kind of crime ('theft', 'pickpocket', 'vandal', 'arson', 'smuggling', or 'gang' for a gang's men), one of 'fine', 'stocks', 'prison', 'labour', 'exile', 'execution'. */
-  | { type: 'law'; crime: string; punishment: string };
+  | { type: 'law'; crime: string; punishment: string }
+  // Slice 47
+  /** A colonial empire (colonyempire.ts; an act it refuses does nothing): station a company (`company`, or the first at home) in a colony, or bring it home; station triremes at home off it (all, or `n`), or bring them home; strike at `city` from it with the company there; offer it a treaty that makes it a free ally; a shipment loading for it: sail with what is aboard, or call it off. */
+  | { type: 'colonyempire'; act: 'station' | 'home' | 'ships' | 'shipshome' | 'strike' | 'free' | 'sail' | 'cancel'; site: string; company?: number; n?: number; city?: string };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison';

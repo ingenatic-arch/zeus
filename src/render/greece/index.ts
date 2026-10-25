@@ -38,6 +38,8 @@ import { colonyEvent } from '../../ui/colonies';
 import { foundingOnMap, threatShare } from '../../sim/colonies';
 // Slice 43
 import { built, cargoesFor, cargoOnMap, secondGood, stageOf, WORK_KINDS } from '../../sim/colonyworks';
+// Slice 47: companies sailing to and from your colonies, the militia's ships, strikes from a colony.
+import { militiaOnMap, passageOnMap, strikeOnMap, strikeWay } from '../../sim/colonyempire';
 import { MARBLE, OIL, WINE } from '../../sim/foods';
 import { TRADE_GOODS } from '../../sim/trade';
 import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
@@ -312,7 +314,7 @@ export class GreeceMap {
     this.body.addEventListener('click', (e) => {
       routes(e);
       // A loan's buttons: ask, offer (and choosing its terms), accept, decline, repay (ui/loans.ts).
-      if (loanEvent(e, host.send) || empireEvent(e, host.send) || colonyEvent(e, host.send, (id) => this.show(id))) {
+      if (loanEvent(e, host.send) || empireEvent(e, host.send) || colonyEvent(e, host.send, (id, tab) => this.show(id, tab as CityTab | undefined))) {
         this.labelAt = -Infinity;
         setTimeout(() => this.redraw(), 0);
         return;
@@ -862,6 +864,8 @@ export class GreeceMap {
     }
     // Your expedition (slice 28): a little army in your colours along the road to their city and home again; crossed swords while it fights there.
     for (const e of s.world.expeditions) {
+      // (Slice 47: a strike from a colony is drawn with your colonies: drawColonies.)
+      if (e.from) continue;
       const at = expeditionOnMap(e, tick);
       if (!at) continue;
       const line = wayPoints(wayOf(e.way));
@@ -1023,7 +1027,7 @@ export class GreeceMap {
     for (const [key, m] of this.travellers) {
       if (seen.has(key)) continue;
       // A gift that has arrived is gone for good: its piece goes too (a route's trader comes again; a band's camp or march is over; an army home, a war over).
-      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('blockade-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-') || key.startsWith('found-') || key.startsWith('foe-')) {
+      if (key.startsWith('gift-') || key.startsWith('raid-') || key.startsWith('war-') || key.startsWith('pirates-') || key.startsWith('blockade-') || key.startsWith('trireme-') || key.startsWith('exp-') || key.startsWith('levy-') || key.startsWith('aid-') || key.startsWith('found-') || key.startsWith('foe-') || key.startsWith('cargo-') || key.startsWith('passage-') || key.startsWith('militia-') || key.startsWith('colexp-')) {
         this.scene.remove(m);
         m.geometry.dispose();
         this.travellers.delete(key);
@@ -1062,6 +1066,59 @@ export class GreeceMap {
       m.position.set(p.x, 0.02 + Math.sin(time * 1.6 + x.id) * 0.03, p.z);
       m.rotation.set(Math.sin(time * 1.25 + x.id) * 0.04, -Math.atan2(p.dz * dir, p.dx * dir), 0);
       m.scale.setScalar(far);
+    }
+    // Slice 47: a company sailing to or from a colony ('passage-<id>'), as your goods' ship does.
+    for (const p of s.empire.passages ?? []) {
+      if (p.phase === 'done') continue;
+      const at = passageOnMap(p, tick);
+      if (!at) continue;
+      busy.add(p.site);
+      const line = wayPoints(wayOf(siteLaneId(p.site)));
+      const L = lineLength(line);
+      const dir = at.homeward ? -1 : 1;
+      const m = piece(`passage-${p.id}`, () => shipModel(colour, trim), BODY.ship);
+      const q = alongLine(line, Math.max(0.9, Math.min(L - 1.1, at.along)));
+      m.position.set(q.x, 0.02 + Math.sin(time * 1.55 + p.id) * 0.03, q.z);
+      m.rotation.set(Math.sin(time * 1.2 + p.id) * 0.04, -Math.atan2(q.dz * dir, q.dx * dir), 0);
+      m.scale.setScalar(far);
+    }
+    // A colony's (or a free ally's) militia: along its lane to your city and home again ('militia-<id>'), or from its colony to your war.
+    for (const x of s.empire.militia ?? []) {
+      if (x.phase === 'done') continue;
+      const at = militiaOnMap(s, x, tick);
+      if (!at) continue;
+      const e = x.exp ? s.world.expeditions.find((y) => y.id === x.exp) : undefined;
+      const line = e ? strikeWay(x.site, e.city).pts : wayPoints(wayOf(siteLaneId(x.site)));
+      const L = lineLength(line);
+      const along = e ? (at.u ?? 0) * L : (at.along ?? 0);
+      const dir = e ? (at.homeward ? -1 : 1) : x.phase === 'home' ? 1 : -1;
+      busy.add(x.site);
+      const m = piece(`militia-${x.id}`, () => shipModel(trim, colour), BODY.ship);
+      const q = alongLine(line, Math.max(0.9, Math.min(L - 1.1, along)));
+      m.position.set(q.x, 0.02 + Math.sin(time * 1.45 + x.id) * 0.03, q.z);
+      m.rotation.set(Math.sin(time * 1.15 + x.id) * 0.04, -Math.atan2(q.dz * dir, q.dx * dir), 0);
+      m.scale.setScalar(0.9 * far);
+    }
+    // A strike from a colony ('colexp-<id>'): your company's ship from the colony to the city, crossed swords while it fights there, and back.
+    for (const e of s.world.expeditions) {
+      if (!e.from) continue;
+      const at = strikeOnMap(e, tick);
+      if (!at) continue;
+      const line = strikeWay(e.from, e.city).pts;
+      const L = lineLength(line);
+      const dir = at.homeward ? -1 : 1;
+      const m = piece(`colexp-${e.id}`, () => shipModel(colour, trim), BODY.ship);
+      const q = alongLine(line, Math.max(0.9, Math.min(L - (at.fighting ? 1.8 : 1.1), at.u * L)));
+      m.position.set(q.x, 0.02 + Math.sin(time * 1.6 + e.id) * 0.03, q.z);
+      m.rotation.set(Math.sin(time * 1.2 + e.id) * 0.04, -Math.atan2(q.dz * dir, q.dx * dir), 0);
+      m.scale.setScalar(0.95 * far);
+      if (at.fighting) {
+        const sw = piece(`colexp-${e.id}-swords`, () => swordsModel(), [-0.45, 0.45]);
+        const w = alongLine(line, Math.max(1.2, L - 1.2));
+        sw.position.set(w.x, this.relief.heightAt(w.x, w.z) + 0.25 + Math.sin(time * 1.6) * 0.06, w.z);
+        sw.rotation.set(0, time * 0.5, 0);
+        sw.scale.setScalar(1.15 * far);
+      }
     }
     for (const way of SITE_LANES) {
       const site = way.to as string;

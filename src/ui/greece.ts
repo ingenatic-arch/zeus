@@ -30,7 +30,9 @@ import { pricesBlock, termsLine, termsMeaning } from './prices';
 import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
 import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
-import { empireTabHtml, empireTabName } from './empire';
+import { empireOverviewHtml, empireTabHtml, empireTabName } from './empire';
+// Slice 47.
+import { colonyTravellerHtml, colonyTravellerPage } from './colonyempire';
 import { allyOf, tributeWords } from '../sim/vassals';
 // Slice 38 (review): tribute by sea held by a blockade.
 import { blockaded } from '../sim/lanes';
@@ -245,6 +247,9 @@ function travellerHtml(s: SimState, key: string): string {
     if (!t) return '<b>Your trireme</b>';
     return `<b>${esc(`The trireme ${triremeName(t)} · ${t.crew.length} rowers · ${Math.round(t.hp)}% sound`)}</b><span>${esc(triremeDoing(s, t))}</span>`;
   }
+  // Slice 47: your ships of the colonies' line (goods, a company, a militia), a strike from a colony.
+  const colonial = colonyTravellerHtml(s, key);
+  if (colonial) return colonial;
   const [city, kind, nth] = key.split('-') as [CityId, 'land' | 'sea', string?];
   const r = routeOf(s, city, kind);
   const name = PLACES[city]?.name ?? city;
@@ -348,6 +353,9 @@ function aidCard(s: SimState, id: number): string {
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): PageId | null {
   if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
+  // (Slice 47.)
+  const colonial = colonyTravellerPage(s, key);
+  if (colonial) return colonial as PageId;
   // (Slice 37: a site, your settlers' ship, a colony's share, a rival's ships against it, and your triremes guarding it open the site's page.)
   if (key.startsWith('found-') || key.startsWith('foe-')) return `site:${key.split('-')[1]}`;
   if (key.startsWith('levy-')) {
@@ -742,7 +750,7 @@ export function panelHtml(s: SimState, page: PageId, renaming: boolean, nameDraf
       : `<h2>${esc(s.world.name)} <button class="renamebtn" title="Rename your city" aria-label="Rename your city">✎</button></h2>`;
     const stores = TRADE_GOODS.map((w, k) => goodRow(k, `${fmt(cityHolds(s, w))}${s.trade.sell[k] ? ' <em>for sale</em>' : ''}`, `Your ${k < 3 ? 'granaries' : 'storehouses'} hold ${fmt(cityHolds(s, w))} ${WARE_NAMES[w]}${s.trade.sell[k] ? ', and it is ticked for sale to the Tyre ship' : ''}`)).join('');
     return `<header><div class="kicker">Your city · ${esc(place.blurb.replace('your city, ', ''))}</div>${name}<div class="from">${fmt(s.population)} people in ${fmt(homes)} homes</div></header>
-<section><h3>In your stores</h3><ul class="goodlist">${stores}</ul></section>
+${empireOverviewHtml(s) /* Slice 47 */}<section><h3>In your stores</h3><ul class="goodlist">${stores}</ul></section>
 <p class="foot">Between Corinth to the north, by road, and Sparta over the hills to the south-west; the sea lanes run out of the gulf to Athens, Troy and Tyre.</p>`;
   }
   if (!c.ruler) {

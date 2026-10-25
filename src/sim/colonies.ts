@@ -64,6 +64,8 @@ import { cityOf, COLD, memoryWorth, moodOf, nameRefusal, rulerShort, VOYAGE, WAR
 import { dhypot } from '../map/dmath';
 // Slice 43: stages, works, wants and governors, and what a colony makes retuned (colonyworks.ts).
 import { worksTownLine } from './colonyworks';
+// Slice 47: a colonial empire (colonyempire.ts).
+import { colonyLost, empireCauses, holdWith, holdWords, seasonTrade, shipsOf, type ColonyEmpire } from './colonyempire';
 import { defenceWords, freshGrowth, govTrait, growthCauses, loyaltyCauses, offerAtLanding, ownDefence, raidTakes, secondYear, sendsMore, sendsYear, shipPace, stageFor, stageOf, walled, type ColonyGrowth } from './colonyworks';
 // Slice 42: the land's size.
 import { sizeOf } from '../map/lands';
@@ -143,7 +145,7 @@ export interface ColonyThreat {
 }
 
 /** One of your colonies. Its people are its site's `pop`. (Slice 43: with its stage, works, want and governor candidates: ColonyGrowth.) */
-export interface Colony extends ColonyGrowth {
+export interface Colony extends ColonyGrowth, ColonyEmpire {
   site: string;
   name: string;
   /** Its governor: the head of the first household, and his trait. */
@@ -585,6 +587,9 @@ function land(s: SimState, f: Founding): void {
     skip: false,
     // Slice 43: its stage, works, wants and governor.
     ...freshGrowth(s, f.site, f.people, s.tick),
+    // Slice 47: nothing stationed there yet.
+    garrison: 0,
+    ships: [],
   };
   s.empire.colonies.push(c);
   // (Slice 43: its leader governs while you choose from him and two others.)
@@ -606,7 +611,7 @@ export function plantColony(s: SimState, site: string, people: number, since = s
   x.bound = '';
   x.since = since;
   x.pop = people;
-  const c: Colony = { site, name: `Nea ${siteName(site)}`, governor, trait, since, settlers: people, share: 1, loyalty: LOYAL_BASE, next: s.tick + SEASON, sent: 0, worth: 0, memories: [], talk: 0, frees: 0, threat: null, guards: [], homes: [], skip: false, ...freshGrowth(s, site, people, since) };
+  const c: Colony = { site, name: `Nea ${siteName(site)}`, governor, trait, since, settlers: people, share: 1, loyalty: LOYAL_BASE, next: s.tick + SEASON, sent: 0, worth: 0, memories: [], talk: 0, frees: 0, threat: null, guards: [], homes: [], skip: false, ...freshGrowth(s, site, people, since), garrison: 0, ships: [] };
   s.empire.colonies.push(c);
   c.loyalty = Math.round(colonyLoyalty(s, c).target);
   s.rev++;
@@ -673,6 +678,8 @@ export function colonyLoyalty(s: SimState, c: Colony): Loyalty {
   if (trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`);
   // Slice 43: its agora and temple, and its governor's new traits.
   for (const x of loyaltyCauses(c)) add(x.n, x.why);
+  // Slice 47: a company stationed there, triremes stationed off it.
+  for (const x of empireCauses(s, c)) add(x.n, x.why);
   why.sort((a, b) => Math.abs(b.n) - Math.abs(a.n));
   return { target: clamp(LOYAL_BASE + why.reduce((a, x) => a + x.n, 0), 0, 100), why };
 }
@@ -699,15 +706,19 @@ function sendShipment(s: SimState, c: Colony): void {
     { good: y.good, amount: season(y.good, y.amount) },
     { good: two.good, amount: season(two.good, two.amount) },
   ].filter((l) => l.good >= 0 && l.amount >= (TRADE_GOODS[l.good] === HORSES || TRADE_GOODS[l.good] === ARMOUR ? 1 : 10));
-  if (!loads.length) return;
+  // Slice 47: your share of its trade comes in coin with the first load (or on its own ship, with no goods to send).
+  const coin = seasonTrade(s, c);
+  if (!loads.length && coin <= 0) return;
   // (Integrating slice 37 with the trunk: a city at war with you whose warships prey on your lanes, slice 38's, takes the share as
   // it sails, unless a trireme guards the colony's lane.)
   const foe = s.fleet.pirates.find((p) => p.of && p.war === -1 && p.state === 'preying');
   if (foe && !guarded(s, siteLaneId(c.site))) {
-    const words = `${c.name}’s share of ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}`;
-    foe.took.push(words);
-    news(s.world, s.tick, siteKey(c.site), `${bandWords(foe)} ${foe.place} seized ${words} on its way to you: ${whose(foe.of as CityId)} ships are at war with you. A trireme guarding ${c.name} keeps its ships safe`, true);
-    armyNews(s, `${bandWords(foe)} ${foe.place} seized ${words}`, 0);
+    // (Slice 47: and the coin of its trade with it.)
+    const words = loads.length ? `${c.name}’s share of ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}` : `${c.name}’s share of its trade, ${fmt(coin)} dr`;
+    const andCoin = loads.length && coin > 0 ? `, and ${fmt(coin)} dr of its trade` : '';
+    foe.took.push(`${words}${andCoin}`);
+    news(s.world, s.tick, siteKey(c.site), `${bandWords(foe)} ${foe.place} seized ${words} on its way to you${andCoin}: ${whose(foe.of as CityId)} ships are at war with you. A trireme guarding ${c.name} keeps its ships safe`, true);
+    armyNews(s, `${bandWords(foe)} ${foe.place} seized ${words}${andCoin}`, 0);
     s.rev++;
     return;
   }
@@ -718,9 +729,13 @@ function sendShipment(s: SimState, c: Colony): void {
   for (const l of loads) {
     const worth = Math.round((l.amount * PRICES[l.good]) / 100);
     const t: Tribute = { id: s.empire.nextId++, city: 'home', good: l.good, amount: l.amount, worth, by: 'sea', way: siteLaneId(c.site), phase: 'road', start: s.tick, dur: voyage + late, ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0, colony: c.site };
+    // (Slice 47: its trade's coin with the first.)
+    if (coin > 0 && l === loads[0]) t.coin = coin;
     s.empire.tribute.push(t);
   }
-  news(s.world, s.tick, siteKey(c.site), `${c.name} sends you its share: ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}${loads.length > 1 ? ', on two ships' : ''}, in your bay about ${dayWords(s.tick + voyage + late + SAIL_IN)}${late ? lateWords(s, ship) : ''}`);
+  if (!loads.length) s.empire.tribute.push({ id: s.empire.nextId++, city: 'home', good: -1, amount: coin, worth: coin, by: 'sea', way: siteLaneId(c.site), phase: 'road', start: s.tick, dur: voyage + late, ship: null, put: 0, lost: 0, store: 0, how: '', ended: 0, colony: c.site });
+  const what = [...loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`), ...(coin > 0 ? [`${fmt(coin)} dr, your share of its trade`] : [])];
+  news(s.world, s.tick, siteKey(c.site), `${c.name} sends you its share: ${what.length > 1 ? `${what.slice(0, -1).join(', ')} and ${what[what.length - 1]}` : what[0]}${loads.length > 1 ? ', on two ships' : ''}, in your bay about ${dayWords(s.tick + voyage + late + SAIL_IN)}${late ? lateWords(s, ship) : ''}`);
 }
 
 /** Once a month: each colony grows, its loyalty moves, it talks of freedom (or stops, or declares it), and a threat may come. */
@@ -763,6 +778,9 @@ function goFree(s: SimState, map: CoastMap, c: Colony, l: Loyalty): void {
   x.free = c.name;
   x.since = s.tick;
   guardsHome(s, map, c);
+  // Slice 47: its stationed triremes and company come home.
+  letGo(s, map, c);
+  colonyLost(s, map, c, `: ${c.name} has declared itself free`);
   s.empire.colonies = s.empire.colonies.filter((y) => y !== c);
   news(s.world, s.tick, siteKey(c.site), `${c.name} has declared itself free: ${fmt(peopleOf(s, c))} people under ${c.governor || 'its council'}, with its loyalty at ${c.loyalty} (${lowReasons(l)}). It sends you nothing now`, true, 'rebellion');
   s.rev++;
@@ -816,14 +834,14 @@ export const guardsAtHome = (s: SimState): number[] => s.fleet.triremes.filter((
 export const fightOdds = (ours: number, theirs: number): number => (ours <= 0 ? 0 : Math.min(ODDS_MOST, Math.round((ODDS_BASE + (ODDS_PER * ours) / Math.max(1, theirs)) * 100) / 100));
 
 /** A colony's guards there now (on station off it). */
-const guardsThere = (s: SimState, c: Colony): number => c.guards.filter((id) => {
+const guardsThere = (s: SimState, c: Colony): number => [...c.guards, ...shipsOf(c)].filter((id) => {
   const t = triremeOf(s, id);
   // (Integrating slice 37 with the trunk: a crippled trireme, slice 38's, hull or oars, does not guard.)
   return !!t && afloat(t) && !crippled(t) && t.order === 'lane' && t.lane === siteLaneId(c.site) && t.state === 'away' && !t.homeward && s.tick >= t.start + t.dur;
 }).length;
 
 /** A colony's guards that can fight, there or on the way (afloat, not crippled): for its page and the line under the top bar. */
-export const colonyGuards = (s: SimState, c: Colony): number => c.guards.filter((id) => {
+export const colonyGuards = (s: SimState, c: Colony): number => [...c.guards, ...shipsOf(c)].filter((id) => {
   const t = triremeOf(s, id);
   return !!t && afloat(t) && !crippled(t);
 }).length;
@@ -853,21 +871,23 @@ function stepThreat(s: SimState, map: CoastMap, c: Colony): void {
   // (Slice 43: its walls and a soldier governor turn raiders away by themselves, on the same roll past your triremes' odds, so with
   // neither every fight comes out as it did.)
   const roll = fightRoll(s, c, t);
-  const own = ownDefence(c);
+  // (Slice 47: a company stationed there turns them away by itself too, on the same roll as its walls and a soldier governor.)
+  const own = holdWith(s, c, ownDefence(c));
   const held = ours > 0 ? 1 - (1 - p) * (1 - own) : own;
+  const ownWords = holdWords(s, c, defenceWords(c));
   if (!(ours > 0 && roll < p) && roll < held) {
     t.end = 'driven';
-    t.line = `${defenceWords(c)} turned ${whose(t.city)} ${t.ships} ships away${ours > 0 ? ' when your triremes could not' : ''}`;
-    if (ours > 0) for (const id of c.guards) hurt(s, id, 30);
-    news(s.world, s.tick, siteKey(c.site), `${whose(t.city)} raiders came to ${c.name} and went away again: ${defenceWords(c)} held them off`, true);
+    t.line = `${ownWords} turned ${whose(t.city)} ${t.ships} ships away${ours > 0 ? ' when your triremes could not' : ''}`;
+    if (ours > 0) for (const id of [...c.guards, ...shipsOf(c)]) hurt(s, id, 30);
+    news(s.world, s.tick, siteKey(c.site), `${whose(t.city)} raiders came to ${c.name} and went away again: ${ownWords} held them off`, true);
   } else if (ours > 0 && roll < p) {
     t.end = 'driven';
     t.line = `your ${ours} ${ours === 1 ? 'trireme' : 'triremes'} drove off ${whose(t.city)} ${t.ships} ships`;
-    for (const id of c.guards) hurt(s, id, 10);
+    for (const id of [...c.guards, ...shipsOf(c)]) hurt(s, id, 10);
     remember(c, s.tick, 'driven', `your triremes drove off ${whose(t.city)} raiders`, DRIVEN.amount, DRIVEN.fade);
     news(s.world, s.tick, siteKey(c.site), `Your triremes drove off ${whose(t.city)} ships from ${c.name}: it is safe, and grateful (${signed(DRIVEN.amount)})`, true);
   } else {
-    if (ours > 0) for (const id of c.guards) hurt(s, id, 30);
+    if (ours > 0) for (const id of [...c.guards, ...shipsOf(c)]) hurt(s, id, 30);
     const fought = ours > 0 ? `; your ${ours} ${ours === 1 ? 'trireme' : 'triremes'} fought and were beaten off` : '';
     const x = siteRecord(s, c.site) as Site;
     if (t.kind === 'claim' && !walled(c)) {
@@ -880,6 +900,9 @@ function stepThreat(s: SimState, map: CoastMap, c: Colony): void {
       if (k >= 0) r.make[k] += COLONY_MAKES;
       r.memories.push({ kind: 'colonytaken', why: `took your colony on ${siteName(c.site)}, and expects you to resent it`, amount: CLAIMED.amount, tick: s.tick, fade: CLAIMED.fade });
       guardsHome(s, map, c);
+      // Slice 47: its stationed triremes and company come home.
+      letGo(s, map, c);
+      colonyLost(s, map, c, `: ${cityName(t.city)} has taken ${c.name}`);
       s.empire.colonies = s.empire.colonies.filter((y) => y !== c);
       news(s.world, s.tick, siteKey(c.site), `${cityName(t.city)} has taken ${c.name}${fought}: ${siteName(c.site)} is ${whose(t.city)} colony now, and ${rulerShort(r)} expects you to resent it (${signed(CLAIMED.amount)})`, true);
     } else {
@@ -932,6 +955,38 @@ function guardsHome(s: SimState, map: CoastMap, c: Colony): void {
   c.guards = [];
 }
 
+// Slice 47: triremes stationed off a colony for good (they stay after a threat: colonyempire.ts' `colonyempire` command).
+
+/** Why triremes can't be stationed off a colony now ('' if they can). */
+export function shipsRefusal(s: SimState): string {
+  if (!s.fleet.triremes.some((t) => afloat(t) && t.state !== 'building')) return 'You have no triremes: build a shipyard on the shore and order one';
+  return guardsAtHome(s).length ? '' : 'No trireme at home has the rowers and the hull to go (or all are out)';
+}
+
+/** Station triremes at home off a colony (all of them, or `n`). */
+export function stationShips(s: SimState, map: CoastMap, c: Colony, n?: number): void {
+  const ids = guardsAtHome(s).slice(0, n && n > 0 ? n : undefined);
+  const went: number[] = [];
+  for (const id of ids) if (guardColony(s, map, id, siteLaneId(c.site))) went.push(id);
+  c.ships = [...(c.ships ?? []).filter((id) => !went.includes(id)), ...went];
+  if (went.length) news(s.world, s.tick, siteKey(c.site), `${went.length === 1 ? 'One of your triremes sails' : `${went.length} of your triremes sail`} to be stationed off ${c.name} for good: there about ${dayWords(s.tick + laneTicks(c.site) + 4 * TICKS_PER_DAY)}. They fight every threat that comes, and keep its ships safe`);
+}
+
+/** Bring a colony's stationed triremes home. */
+export function shipsHome(s: SimState, map: CoastMap, c: Colony): void {
+  for (const id of c.ships ?? []) {
+    const t = triremeOf(s, id);
+    if (t && t.order === 'lane' && t.lane === siteLaneId(c.site)) callHome(s, map, id);
+  }
+  c.ships = [];
+}
+
+/** A colony lost or let go: its guards and stationed triremes sail home. */
+export function letGo(s: SimState, map: CoastMap, c: Colony): void {
+  guardsHome(s, map, c);
+  shipsHome(s, map, c);
+}
+
 // ---------------------------------------------------------------------------
 // Each tick.
 
@@ -948,6 +1003,11 @@ export function stepColonies(s: SimState, map: CoastMap): void {
     stepThreat(s, map, c);
     // (Guards sunk or gone are let go.)
     c.guards = c.guards.filter((id) => !!triremeOf(s, id));
+    // (Slice 47: and stationed triremes sunk, gone, or sent elsewhere from the fleet's page.)
+    if (c.ships?.length) c.ships = c.ships.filter((id) => {
+      const tr = triremeOf(s, id);
+      return !!tr && afloat(tr) && tr.order === 'lane' && tr.lane === siteLaneId(c.site);
+    });
   }
   if (s.tick % TICKS_PER_MONTH === 0 && e.colonies.length) monthly(s, map);
 }

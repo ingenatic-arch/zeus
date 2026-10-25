@@ -17,7 +17,8 @@ import type { Messages } from './messages';
 import type { Land } from '../map/lands';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
-export const SIM_STATE_VERSION = 43;
+// (Slice 47: a colonial empire, renumbered 44 at its merge.)
+export const SIM_STATE_VERSION = 44;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -364,7 +365,9 @@ export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | '
   | 'colonies'
   // Slice 41: mending what vandals smashed, and what crooked tax collectors kept back.
   | 'repairs'
-  | 'skimmed';
+  | 'skimmed'
+  // Slice 47: your share of your colonies' and free allies' trade.
+  | 'colonytrade';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes
@@ -607,6 +610,11 @@ export interface Company {
   away: number;
   /** Slice 34: an allied company come to help against raiders (vassals.ts): the city it came from (missing: your own). */
   ally?: CityId;
+  // Slice 47 (colonyempire.ts)
+  /** Stationed in a colony (its site), or on its way there or home ('' or missing: not). While abroad `away` is -1. */
+  posted?: string;
+  /** A colony's or free ally's militia come to your aid: its name (`ally` then holds its site). */
+  militia?: string;
 }
 
 /** How the man who serves stands in his house. */
@@ -1155,6 +1163,8 @@ export interface Expedition {
   ended: number;
   /** Slice 34: what it was sent to do besides (vassals.ts): '' as slice 28's, 'conquer' (to make the city your vassal, or crush a vassal arming against you), 'war' (to fight an ally's war). */
   aim: '' | 'conquer' | 'war';
+  /** Slice 47: a raid from a colony by the company stationed there (its site; missing: from your city). */
+  from?: string;
 }
 
 /** A line of news from Greece. */
