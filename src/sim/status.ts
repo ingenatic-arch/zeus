@@ -980,7 +980,7 @@ function cropStatus(s: SimState, map: CoastMap, g: Building): Status {
   const fruit = grove ? 'olives' : 'grapes';
   let crop: string;
   if (picked >= store) crop = `The store is full of picked ${fruit}: nothing more is picked until carts take them away`;
-  else if (rate === 0) crop = `Nobody tends the ${grove ? 'trees' : 'vines'} or picks the ${fruit} with nobody working here`;
+  else if (rate === 0) crop = g.paused ? `Nobody tends the ${grove ? 'trees' : 'vines'} or picks the ${fruit} while it is paused` : `Nobody tends the ${grove ? 'trees' : 'vines'} or picks the ${fruit} with nobody working here`; // (Slice 51: the pause named.)
   else {
     const stage = stageOf(g, MAKERS[g.kind]!);
     const look = grove
@@ -1018,7 +1018,7 @@ function workshopStatus(s: SimState, map: CoastMap, p: Building): Status {
   const month = press ? OIL_MONTH : WINE_MONTH;
   let making: string;
   if (made >= store) making = `Its ${unitOf(ware, 2)} are all full: it ${press ? 'presses' : 'makes'} nothing more until carts take the ${WARE_NAMES[ware]} away`;
-  else if (rate === 0) making = `Nothing is ${press ? 'pressed' : 'trodden'} with nobody working here`;
+  else if (rate === 0) making = `Nothing is ${press ? 'pressed' : 'trodden'} ${p.paused ? 'while it is paused' : 'with nobody working here'}`; // (Slice 51: the pause named.)
   else if (raw <= 0) {
     if (!s.buildings.some((g) => g.kind === from)) making = press ? 'It waits for olives: build an olive grove on the dry slopes (M, four times)' : 'It waits for grapes: plant a vineyard on a sunny slope (M, seven times)';
     else if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.target === p.id)) making = `It waits for ${fruit}: a cart is on its way from a ${from}`;

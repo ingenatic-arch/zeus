@@ -46,7 +46,7 @@ export function mineStatus(s: SimState, map: CoastMap, b: Building, workers: str
   const rate = rateOf(b);
   let digging: string;
   if (ore >= store) digging = 'The ore heap is full: nobody digs until carts take the ore away';
-  else if (rate === 0) digging = 'No ore is dug with nobody working here';
+  else if (rate === 0) digging = b.paused ? 'No ore is dug while it is paused' : 'No ore is dug with nobody working here'; // (Slice 51: the pause named.)
   else digging = `Copper in the rock ${Math.round(rich * 100)}% · about ${fmt(roundTen(COPPER_MONTH * rich * rate))} measures of ore a month${rate < 1 ? ` (${fmt(roundTen(COPPER_MONTH * rich))} fully worked)` : ''}`;
   return { title, detail: lines(workers, digging, `The copper ${outcropPlace(map, b.x + 1, b.z + 1)} · an armoury (B) hammers ${ARMOUR_COPPER} measures into a set of armour`, cartLine(s, b, COPPER, 'copper')) };
 }

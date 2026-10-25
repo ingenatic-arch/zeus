@@ -111,7 +111,7 @@ console.log(`load #water (local, headless): ready in ${Date.now() - t2} ms`);
 for (const [cam, overlay] of [['water', false], ['water', true], ['carrier', false], ['overview', false]]) {
   await page.evaluate((c) => window.__zeus.setView(c), cam);
   const on = await page.evaluate(() => window.__zeus.city().overlay);
-  if (on !== overlay) await page.keyboard.press('o');
+  if (on !== overlay) await page.keyboard.press('Shift+O'); // (Slice 51: O is the overview; Shift+O the water overlay.)
   const f = await page.evaluate(() => window.__zeus.frames);
   await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
   const info = await page.evaluate(() => window.__zeus.info());
@@ -326,6 +326,9 @@ for (const [hash, views] of [
   // Slice 48: the quay's storehouse emptying its oil up the hill by ox cart, its panel open; the olive press's panel.
   ['#storeset-paused-shot', [null, 'town']],
   ['#workpanel-paused-shot', [null]],
+  // Slice 51: the overview open on #town's City page, and on #empire's city's Empire page.
+  ['#overview-paused-shot', [null]],
+  ['#overviewempire-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -597,6 +600,28 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
     const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
     console.log(`${hash.padEnd(18)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
   }
+}
+// Slice 51: the overview's cost. Each page of #empire's city built afresh (by the page's clock), and the window left open on
+// the Goods page while the city runs: its time a second (it is brought up to date about twice a second).
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('about:blank');
+  await page.goto(url + '#overviewempire-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const built = await page.evaluate(() =>
+    ['city', 'goods', 'treasury', 'distribution', 'crime', 'health', 'army', 'empire'].map((p) => {
+      const t = performance.now();
+      window.__zeus.overview(p);
+      return `${p} ${(performance.now() - t).toFixed(1)}`;
+    }),
+  );
+  console.log(`#overviewempire pages built in (ms): ${built.join(', ')}`);
+  await page.evaluate(() => window.__zeus.overview('goods'));
+  await page.waitForTimeout(4000);
+  const a = await page.evaluate(() => ({ ms: window.__zeus.overviewMs ?? 0, t: performance.now(), f: window.__zeus.frames }));
+  await page.waitForTimeout(10000);
+  const b = await page.evaluate(() => ({ ms: window.__zeus.overviewMs ?? 0, t: performance.now(), f: window.__zeus.frames }));
+  console.log(`#overviewempire running, the Goods page open: ${((b.ms - a.ms) / ((b.t - a.t) / 1000)).toFixed(1)} ms a second on the overview (${b.f - a.f} frames)`);
 }
 await browser.close();
 server.close();

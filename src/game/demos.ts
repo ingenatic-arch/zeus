@@ -79,6 +79,8 @@ import { crimeTargetsFrom, type Target } from '../sim/misdeeds';
 // Slice 48
 import { ACCEPT, EMPTY, GET } from '../sim/stores';
 import type { Walker } from '../sim/state';
+// Slice 51
+import type { OverviewPage } from '../ui/overview';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -207,6 +209,9 @@ export interface Demo {
   // Slice 48
   /** The building whose panel is open from the start (a building id, 0 for none). */
   building?: (s: SimState) => number;
+  // Slice 51
+  /** Open the overview from the start, on this page (as if O had been pressed). */
+  overview?: OverviewPage;
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;
@@ -3451,6 +3456,12 @@ const SCENES: Record<string, Demo> = {
   storerules: { view: 'storerules', setup: storeRulesTown, overlay: 'missing' },
   storeset: { view: 'storerules', setup: storeSetTown, overlay: 'missing', building: quayStoreId },
   workpanel: { view: 'workpanel', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', building: (s) => s.buildings.find((b) => b.kind === 'press')?.id ?? 0 },
+  // Slice 51: the overview, as if O had been pressed. #town (28 months in) on its City page and on Distribution, where
+  // its gaps are; #gang's town (a den behind the core) on the Crime page; #empire's city (over five years in) on Empire.
+  overview: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', overview: 'city' },
+  overviewgaps: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', overview: 'distribution' },
+  overviewcrime: { view: 'gang', setup: gangTown, overlay: 'crime', overview: 'crime' },
+  overviewempire: { view: 'empire', setup: empireCityTown, overlay: 'missing', overview: 'empire' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

@@ -193,10 +193,10 @@ if (c.fountains !== 1 || m0 - c.money !== 150) fail(`clicking placed ${c.fountai
 await page.keyboard.press('Escape');
 await frames(2);
 if ((await city()).overlay) fail('the overlay stayed on after putting the fountain tool down');
-await page.keyboard.press('o');
+await page.keyboard.press('Shift+O'); // (Slice 51: O is the overview; Shift+O the water overlay.)
 await frames(2);
 if (!(await city()).overlay) fail('O did not show the water overlay');
-await page.keyboard.press('o');
+await page.keyboard.press('Shift+O');
 await frames(2);
 if ((await city()).overlay) fail('O did not hide the water overlay');
 // The road tool's route isn't worked out again as settlers arrive and tents turn to huts.
@@ -271,10 +271,10 @@ if (sv) {
 await page.keyboard.press('l');
 await frames(2);
 if ((await city()).overlayMode !== 'food') fail('L did not show the food overlay');
-await page.keyboard.press('o');
+await page.keyboard.press('Shift+O');
 await frames(2);
 if ((await city()).overlayMode !== 'water') fail('O did not switch to the water overlay');
-await page.keyboard.press('o');
+await page.keyboard.press('Shift+O');
 await frames(2);
 if ((await city()).overlay) fail('O did not hide the overlay');
 // #chain opens on the watered town with the farm tool (and so the food overlay); #vendor and #harvest follow.
@@ -1005,7 +1005,7 @@ await page.click('.side-layers [data-mode="water"]');
 await frames(2);
 c = await city();
 if (c.overlayMode !== 'water' || !(await zeus(() => document.querySelector('.side-layers').hidden))) fail(`picking the water overlay from the list: ${c.overlayMode}`);
-await page.keyboard.press('o');
+await page.keyboard.press('Shift+O'); // (Slice 51.)
 const fits = await zeus(() => {
   const r = document.querySelector('.side').getBoundingClientRect();
   const w = document.querySelector('.side-wells').getBoundingClientRect();
@@ -3345,6 +3345,86 @@ await open('#messages-paused');
 }
 if (errors.length > err48) fail('page errors (slice 48):\n' + errors.slice(err48).join('\n'));
 
-console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#storerules, the quay storehouse\'s tip and panel, its rules set by its buttons and its oil carted out, #storeset, #workpanel, the press paused and its plaque, set going again, a farm\'s and a fountain\'s panels, Follow, the same message as one row, #messages and #raid\'s popup, #landsmall, #landmedium and #landlarge on their lands, over their bays, the road in from the west edge, settlers in the large land’s plots, its modern and plain looks, #town on the Bay, #crimes, a pickpocket, a vandal and a smuggler drawn, no line for them, the vandal\'s hover, the fountain smashed and its marks, purses cut, goods smuggled, each a Crime message, the fountain mended and the repair on the ledger, #gang, its den, its line, panel and flag, the watchman beaten off a warning, the watch post tool\'s tip, a second watch post and the gang broken up, #colonywants, Nea Thasos asking for wheat, its mark and picture, the wheat sent and the porters out, #colonyworks, its stage and works, the harbour funded and going up, #empire, its laurels, estates, Lighthouse, Rhodes\' fleet at sea, a thief out and his thefts in the scroll, the season, Nea Thasos\' and Corinth\'s pages, a month on, #ambition, its laurels, chip and panel, Esc and the chip, #achieved, Master of Greece achieved, the town line and the Colossus’s hover, #blockade, Troy’s ships holding the mouth, a ship’s hover, the Army tab’s line, the triremes rowing out, the blockade broken, the shipyard from the Army tab, #shipyard, the panel, a trireme under repair, Esc, #colony, its line and Thasos\' page, #colonies, Nea Thasos\' page, its share made light, renamed, Nea Naxos, an empty site\'s price, a rival\'s colony and its city\'s page, #ally, Corinth\'s men on its Empire tab, #estates, two great estates, the panel’s stable and yard, a great estate’s and the horse farm’s hovers, #horsemen, the riders’ banner, the Army tab, ridden west, #monument, the Lighthouse half built, the Monuments tab, the site’s, a builder’s, an ox cart’s and the masons’ yard’s hovers, #lit and its fire, #games and a visitors’ hover, #vassal, the tribute caravan followed in, its line, Corinth’s Empire tab, #submit, Argos’ ways and odds, the demand sent, #conquer, the report, the label, the tribute made heavy, #rebellion, the warning, the shield, the line, the tribute lightened, #seasons, the dial, the look turning and a season on, #winter, the late ship\'s chip and tip, #quarry, the quarry tool, its tip and refusal, marble on the Goods tab, the quarry, quarrymen and sledges and their hovers, #loggers, the camp, felled trees, timber on the Goods tab, the camp\'s and a logger\'s hovers, #greecegrows, its eleven cities, sites, colony, vassal, labels, a colony’s card, Rhodes’ size line and How it stands, #knossos, #memphis, no label under the lines at 1600 × 900, #thieves, the hut street tempted, the crime overlay, line and panel, a thief out, drawn, his tip and line, a villa robbed, a watch post built and the next thief caught, the fine on the ledger, #nowatch, the panel, its story and the Safety tab\'s row, #fortress, its walls, towers, companies, fleet, loans and Sparta’s band, the Army tab, the band met at the west gate, #overdue, its steps, chip and line, paid when the treasury could, #seized, the ledger, #creditors, #collect, a full force sent and away, the Army tab and the map, #report and the army\'s card, #forgive, #landing, Troy’s ships in the bay, the chip, a ship’s hover, the shipyard on the Military tab, drawn up and landed, #triremes, the Army tab’s fleet, rowing out and a ship sunk, a trireme’s hover, #pirates, the sea lane on Athens’ page, a trireme sent to guard it and on the map, the fight’s report, #borrow, Corinth’s terms and reasons, the town line, accepted, the debts chip, Sparta’s refusal, the coin in and the Administration tab’s loans, repaid early, #lend, Athens’ ask lent, the ledger, #repaid and the repayment arriving, #walls, a wall dragged across the road with its tip and gate, a tower by a click, the stretch\'s and tower\'s hovers, undo, #siege, the band hammering, its line, the towers shooting, the gate\'s hover, #battle, the band\'s numbers, both banners placed by clicks, the fight, a raider\'s hover, the band broken, the army\'s news and town line, #looted\'s ledger and line, #hirelings hired, the fee and the march in, #bronze, the mine tool, its tip and copper and armour on the Goods tab, #barracks, its company walking in, the chip and the Army tab, #companies, a banner in hand marched while paused, Esc, the Army tab row and the banner taking it, the soldiers’ pay, #rivals, #rivalstreet and #rivalsmap from their prepared town: every route, the caravans and the ship, the fleets, swords and labels, the News of Greece, Athens’ page and its Rivals tab built when shown, #war, the armies, swords and red way on the map, the labels, Sparta’s page, prices and Rivals tab, the army’s card along its body, the swords’ card, the News of Greece and a line to Athens’ page, #festival, banners, the wreath, the page, the gift tips, the wine price, the fields, #peace, the armies home and Sparta’s prices after, #threat, its page, line and seal, refused and the band gathering, #raid paid off and the band turning on the map, #raiders at the granary, the chip, the band\'s tip and their leaving, #aftermath, the ledger and the king\'s anger spent, #request, its answers, town line and label, the sending fetched, carried out and its tip, its arrival and thanks, #promise and the promise broken, #offer taken and its trade row, #tribute refused, #gift, its ruler tab, the city page tabs, a gift of coin on the map, its hover card, its arrival and reason, #hostile, the road closed, its line and the gift that opens it, #thanks and Corinth’s gift arriving, the terms once, #prices, Corinth’s prices, terms, harvest, reasons, arrows and charts, its route tab, #famine, the parched fields, the harvest line and its link, wheat dear after it, the caravan’s hover card on the map, #routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, the chip following it, #buywine and the yard tab, #athensship, its tabs, town line and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
+// Slice 51: the overview. #overview: #town with it open on the City page, as if O had been pressed; each page turned to by
+// its tab and naming its figures, with the annals' charts; Esc closes it, O opens it again and closes it, Shift+O is the
+// water overlay, the top bar's button opens it. #overviewgaps: a gap clicked flies there with its overlay on and the window
+// steps aside; a service clicked shows its overlay. #overviewcrime: the gang on the Crime page. #overviewempire: Corinth and
+// Nea Thasos on the Empire page.
+const err51 = errors.length;
+const ov51 = () => zeus(() => window.__zeus.overview());
+await open('#overview-paused');
+{
+  let o = await ov51();
+  if (!(o.open && o.page === 'city' && /People[\s\S]*Homes[\s\S]*Mood[\s\S]*Work[\s\S]*People by their homes[\s\S]*How the homes feel[\s\S]*Work and wages/.test(o.text))) fail(`#overview: not open on the City page: ${JSON.stringify(o).slice(0, 600)}`);
+  if (!/24 months in the annals/.test(o.text)) fail(`#overview: the annals' months: ${o.text.slice(0, 300)}`);
+  const pages51 = {
+    goods: /In store[\s\S]*Made[\s\S]*Used[\s\S]*Lasts[\s\S]*Wheat[\s\S]*Where it is kept/,
+    treasury: /Treasury[\s\S]*Last month[\s\S]*This year[\s\S]*The ledger[\s\S]*Taxes[\s\S]*Wages[\s\S]*Net/,
+    distribution: /Water[\s\S]*Food[\s\S]*Blessings[\s\S]*Wine[\s\S]*Tax collectors/,
+    crime: /Crimes last month[\s\S]*Caught[\s\S]*By kind[\s\S]*Thefts[\s\S]*No court/,
+    health: /Well kept[\s\S]*Clean water[\s\S]*Sickness and physicians[\s\S]*Where homes go without/,
+    army: /Soldiers[\s\S]*Triremes[\s\S]*Threats[\s\S]*Companies/,
+    empire: /Vassals[\s\S]*Colonies[\s\S]*Tribute and shares/,
+  };
+  for (const [p, re] of Object.entries(pages51)) {
+    await page.click(`.overview .ov-tab[data-page="${p}"]`);
+    await frames(2);
+    o = await ov51();
+    if (!(o.page === p && re.test(o.text))) fail(`#overview: the ${p} page: ${o.text.slice(0, 600)}`);
+  }
+  await page.click('.overview .ov-tab[data-page="city"]');
+  await frames(2);
+  const charts = await zeus(() => [...document.querySelectorAll('.overview .ov-tile svg.ov-chart')].map((e) => e.querySelectorAll('circle').length));
+  if (!(charts.length >= 4 && charts.every((n) => n >= 25))) fail(`#overview: the City page's charts (two years and now): ${JSON.stringify(charts)}`);
+  await page.keyboard.press('Escape');
+  await frames(2);
+  if ((await ov51()).open) fail('#overview: Esc did not close it');
+  await page.keyboard.press('o');
+  await frames(2);
+  if (!(await ov51()).open) fail('#overview: O did not open it');
+  await page.keyboard.press('o');
+  await frames(2);
+  if ((await ov51()).open) fail('#overview: O did not close it');
+  await page.keyboard.press('Shift+O');
+  await frames(2);
+  if (!((await city()).overlayMode === 'water' && !(await ov51()).open)) fail(`#overview: Shift+O, the water overlay: ${(await city()).overlayMode}`);
+  await page.keyboard.press('Shift+O');
+  await page.click('.topbar .overview-btn');
+  await frames(2);
+  if (!(await ov51()).open) fail('#overview: the top bar button did not open it');
+}
+await open('#overviewgaps-paused');
+{
+  const o = await ov51();
+  if (!(o.open && o.page === 'distribution')) fail(`#overviewgaps: not on Distribution: ${JSON.stringify(o).slice(0, 300)}`);
+  const v0 = await zeus(() => window.__zeus.view());
+  const gap = page.locator('.overview .ov-gap').first();
+  const mode = await gap.getAttribute('data-mode');
+  await gap.click();
+  await frames(4);
+  await page.waitForTimeout(1500);
+  await frames(2);
+  const v1 = await zeus(() => window.__zeus.view());
+  const c = await city();
+  if (!(c.overlayMode === mode && !(await ov51()).open && Math.hypot(v1.x - v0.x, v1.z - v0.z) > 3)) fail(`#overviewgaps: the gap clicked: ${JSON.stringify({ mode, overlay: c.overlayMode, v0, v1 })}`);
+  await page.keyboard.press('o');
+  await frames(2);
+  await page.click('.overview .ov-svc[data-mode="religion"]');
+  await frames(2);
+  if ((await city()).overlayMode !== 'religion') fail(`#overviewgaps: the service clicked: ${(await city()).overlayMode}`);
+}
+await open('#overviewcrime-paused');
+{
+  const o = await ov51();
+  if (!(o.open && o.page === 'crime' && /gang/i.test(o.text) && /By quarter/.test(o.text))) fail(`#overviewcrime: ${o.text.slice(0, 600)}`);
+}
+await open('#overviewempire-paused');
+{
+  const o = await ov51();
+  if (!(o.open && o.page === 'empire' && /Corinth/.test(o.text) && /Nea Thasos/.test(o.text))) fail(`#overviewempire: ${o.text.slice(0, 600)}`);
+}
+if (errors.length > err51) fail('page errors (slice 51):\n' + errors.slice(err51).join('\n'));
+
+console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#overview, its eight pages and charts, Esc, O, Shift+O and the top bar\'s button, #overviewgaps, a gap and a service clicked, #overviewcrime, #overviewempire, #storerules, the quay storehouse\'s tip and panel, its rules set by its buttons and its oil carted out, #storeset, #workpanel, the press paused and its plaque, set going again, a farm\'s and a fountain\'s panels, Follow, the same message as one row, #messages and #raid\'s popup, #landsmall, #landmedium and #landlarge on their lands, over their bays, the road in from the west edge, settlers in the large land’s plots, its modern and plain looks, #town on the Bay, #crimes, a pickpocket, a vandal and a smuggler drawn, no line for them, the vandal\'s hover, the fountain smashed and its marks, purses cut, goods smuggled, each a Crime message, the fountain mended and the repair on the ledger, #gang, its den, its line, panel and flag, the watchman beaten off a warning, the watch post tool\'s tip, a second watch post and the gang broken up, #colonywants, Nea Thasos asking for wheat, its mark and picture, the wheat sent and the porters out, #colonyworks, its stage and works, the harbour funded and going up, #empire, its laurels, estates, Lighthouse, Rhodes\' fleet at sea, a thief out and his thefts in the scroll, the season, Nea Thasos\' and Corinth\'s pages, a month on, #ambition, its laurels, chip and panel, Esc and the chip, #achieved, Master of Greece achieved, the town line and the Colossus’s hover, #blockade, Troy’s ships holding the mouth, a ship’s hover, the Army tab’s line, the triremes rowing out, the blockade broken, the shipyard from the Army tab, #shipyard, the panel, a trireme under repair, Esc, #colony, its line and Thasos\' page, #colonies, Nea Thasos\' page, its share made light, renamed, Nea Naxos, an empty site\'s price, a rival\'s colony and its city\'s page, #ally, Corinth\'s men on its Empire tab, #estates, two great estates, the panel’s stable and yard, a great estate’s and the horse farm’s hovers, #horsemen, the riders’ banner, the Army tab, ridden west, #monument, the Lighthouse half built, the Monuments tab, the site’s, a builder’s, an ox cart’s and the masons’ yard’s hovers, #lit and its fire, #games and a visitors’ hover, #vassal, the tribute caravan followed in, its line, Corinth’s Empire tab, #submit, Argos’ ways and odds, the demand sent, #conquer, the report, the label, the tribute made heavy, #rebellion, the warning, the shield, the line, the tribute lightened, #seasons, the dial, the look turning and a season on, #winter, the late ship\'s chip and tip, #quarry, the quarry tool, its tip and refusal, marble on the Goods tab, the quarry, quarrymen and sledges and their hovers, #loggers, the camp, felled trees, timber on the Goods tab, the camp\'s and a logger\'s hovers, #greecegrows, its eleven cities, sites, colony, vassal, labels, a colony’s card, Rhodes’ size line and How it stands, #knossos, #memphis, no label under the lines at 1600 × 900, #thieves, the hut street tempted, the crime overlay, line and panel, a thief out, drawn, his tip and line, a villa robbed, a watch post built and the next thief caught, the fine on the ledger, #nowatch, the panel, its story and the Safety tab\'s row, #fortress, its walls, towers, companies, fleet, loans and Sparta’s band, the Army tab, the band met at the west gate, #overdue, its steps, chip and line, paid when the treasury could, #seized, the ledger, #creditors, #collect, a full force sent and away, the Army tab and the map, #report and the army\'s card, #forgive, #landing, Troy’s ships in the bay, the chip, a ship’s hover, the shipyard on the Military tab, drawn up and landed, #triremes, the Army tab’s fleet, rowing out and a ship sunk, a trireme’s hover, #pirates, the sea lane on Athens’ page, a trireme sent to guard it and on the map, the fight’s report, #borrow, Corinth’s terms and reasons, the town line, accepted, the debts chip, Sparta’s refusal, the coin in and the Administration tab’s loans, repaid early, #lend, Athens’ ask lent, the ledger, #repaid and the repayment arriving, #walls, a wall dragged across the road with its tip and gate, a tower by a click, the stretch\'s and tower\'s hovers, undo, #siege, the band hammering, its line, the towers shooting, the gate\'s hover, #battle, the band\'s numbers, both banners placed by clicks, the fight, a raider\'s hover, the band broken, the army\'s news and town line, #looted\'s ledger and line, #hirelings hired, the fee and the march in, #bronze, the mine tool, its tip and copper and armour on the Goods tab, #barracks, its company walking in, the chip and the Army tab, #companies, a banner in hand marched while paused, Esc, the Army tab row and the banner taking it, the soldiers’ pay, #rivals, #rivalstreet and #rivalsmap from their prepared town: every route, the caravans and the ship, the fleets, swords and labels, the News of Greece, Athens’ page and its Rivals tab built when shown, #war, the armies, swords and red way on the map, the labels, Sparta’s page, prices and Rivals tab, the army’s card along its body, the swords’ card, the News of Greece and a line to Athens’ page, #festival, banners, the wreath, the page, the gift tips, the wine price, the fields, #peace, the armies home and Sparta’s prices after, #threat, its page, line and seal, refused and the band gathering, #raid paid off and the band turning on the map, #raiders at the granary, the chip, the band\'s tip and their leaving, #aftermath, the ledger and the king\'s anger spent, #request, its answers, town line and label, the sending fetched, carried out and its tip, its arrival and thanks, #promise and the promise broken, #offer taken and its trade row, #tribute refused, #gift, its ruler tab, the city page tabs, a gift of coin on the map, its hover card, its arrival and reason, #hostile, the road closed, its line and the gift that opens it, #thanks and Corinth’s gift arriving, the terms once, #prices, Corinth’s prices, terms, harvest, reasons, arrows and charts, its route tab, #famine, the parched fields, the harvest line and its link, wheat dear after it, the caravan’s hover card on the map, #routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, the chip following it, #buywine and the yard tab, #athensship, its tabs, town line and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();
 server.close();

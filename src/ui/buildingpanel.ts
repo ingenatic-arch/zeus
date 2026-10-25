@@ -41,6 +41,9 @@ import { ICONS as TOOL_ICONS, type ButtonName } from './buildbar';
 import { iconOfKind } from './messages';
 import { morph } from './morph';
 import { wareIcon } from './wareicons';
+// Slice 51
+import { STALL_ROOM, stallRoom } from '../sim/food';
+import { hasStall } from '../sim/goods';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -146,7 +149,8 @@ function holdsBlock(b: Building): string {
   const made = MAKERS[b.kind]?.ware;
   for (const w of WARES) {
     const n = held(b, w);
-    const room = roomOf(b.kind, w) || (w === made ? storeOf(b.kind) : 0);
+    // (Slice 51: the agora's stalls' room too, so its foods and goods have their bars.)
+    const room = roomOf(b.kind, w) || (w === made ? storeOf(b.kind) : 0) || (b.kind === 'agora' ? (w < STALL_ROOM.length ? STALL_ROOM[w] : hasStall(b, w) ? stallRoom(w) : 0) : 0);
     if (room <= 0 && n <= 0) continue;
     rows.push(holdRow(w, n, room));
   }
@@ -256,7 +260,8 @@ function storeBlock(s: SimState, g: Building): string {
     all++;
     const mode = modeOf(g, w);
     const cut = cutOf(g, w);
-    if (mode === REFUSE) refusing++;
+    // (Slice 51: a ware set to Empty counts as already refusing: Accept nothing leaves it emptying, so it changes nothing.)
+    if (mode === REFUSE || mode === EMPTY) refusing++;
     const n = held(g, w);
     const limit = Math.floor((room * (4 - cut)) / 4);
     const pct = Math.max(0, Math.min(100, (n / room) * 100));
