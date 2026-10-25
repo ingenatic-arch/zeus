@@ -33,6 +33,8 @@
  */
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
+// Slice 42: the land's size.
+import { sizeOf } from '../map/lands';
 import { centreOf, COTTAGE, findBuilding, livedIn } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import {
@@ -505,8 +507,8 @@ export function skimmed(s: SimState, w: Walker): number {
   if (!s.crime.on || !s.crime.kinds || w.purse.length === 0) return 0;
   const office = findBuilding(s, w.origin);
   if (!office || office.kind !== 'taxoffice' || office.owed <= 0) return 0;
-  // (The land's size from its tiles: handing in has no map to hand.)
-  const size = Math.round(Math.sqrt(s.tiles.length));
+  // (The land's size from the state: handing in has no map to hand.)
+  const size = sizeOf(s);
   if (watchedLately(s, size, office)) return 0;
   let bag = 0;
   for (let i = 0; i < w.purse.length; i += 3) bag += w.purse[i + 1];

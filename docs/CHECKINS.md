@@ -58,7 +58,16 @@ I went through every step above in the browser at 1920 × 1080 (the original loo
 
 Still for your eye, and handed on to the next land slice (the land kinds and the new-game screen): the three lands look much alike from their opening views (the bay to the left, the bridge at the river's mouth, the islet, the headland's knoll), and the large land's middle is quiet. On a big land, where the roads come in also matters more, because of that walk.
 
-## Slice 44 — The town's messages (25 Oct)
+### At the merge
+Slices 43 (colonies that grow up), 41 (crimes of every kind) and 44 (the town's messages) joined the main line first, so this slice's saves are version 41, not 38. Saves from before any of them still load on the Bay.
+
+Their work now follows the land's size too:
+- **Colonies.** Your ship for a colony's goods sails in from beyond a large land's own edge, rides at anchor off your jetty there, and the rowing boat goes between them on the land's own water. A blockade holds her outside the mouth of whatever bay you're on. I checked this by founding a small town with a quay on #landlarge and sending Nea Thasos its wheat: the ship came in on open water the whole way, anchored about ten tiles off the jetty (thirteen on the Bay), and sailed out again; the merchant ship tied up at the same jetty.
+- **Crime** already worked in the land's own size, so the quay's smugglers, the gangs' quarters and the crooked tax collectors needed nothing beyond one small tidy-up. The quarters keep their names on a generated land, each one placed where its feature is.
+- **Messages.** "Go there" finds its place on a land of any size: on #landlarge, the merchant ship's message took the camera to the trading post by the bay, well past where the Bay's map would end.
+
+Every earlier demo opens exactly as before and plays 900 ticks on exactly as before (all 139 prepared towns compared with the main line before this merge).
+ — The town's messages (25 Oct)
 
 Everything the town hears now goes into one log, kept with the save. A small scroll beside the date opens it, with a seal counting what you haven't read, and only alarms still pop up. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
