@@ -16,6 +16,8 @@ import { lumpy } from './trees';
 // Slice 36: estates' porters and grooms.
 import { ARMOUR, HORSES, MARBLE } from '../sim/foods';
 import { groomModel } from './estates';
+// Slice 41
+import { MINGLE_SPEED, THIEF_SPEED } from '../sim/crime';
 
 /** Space between people walking in a line. */
 const SPACING = 0.36;
@@ -741,6 +743,101 @@ function thief(loot: 'none' | 'purse' | 'sack'): THREE.BufferGeometry {
   return mergeTinted(parts);
 }
 
+// Slice 41
+/**
+ * Slice 41: the new kinds of criminal, each facing +x, its clothes the tinted
+ * part (a gang's men are tinted a rust red, whatever their kind).
+ *
+ * A pickpocket: a slight, bare-headed figure in a short drab tunic, hands
+ * low and close, quick on his feet; home with a purse at his belt.
+ */
+function pickpocket(purse: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.025, 0.12, 0.016, PAL.skin, -1.2),
+    leg(0, 0.025, 0.12, 0.016, PAL.skin, 1.2),
+    { geo: new THREE.CylinderGeometry(0.045, 0.068, 0.17, 6).rotateZ(-0.12).translate(0.01, 0.2, 0), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.048, 0).translate(0.025, 0.33, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.05, 0).scale(1, 0.6, 1).translate(0.01, 0.355, 0), color: PAL.hair },
+    // Hands low and forward, close at the waist.
+    { geo: new THREE.CylinderGeometry(0.013, 0.012, 0.13, 4).rotateZ(-0.7).translate(0.05, 0.22, 0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.013, 0.012, 0.13, 4).rotateZ(-0.7).translate(0.05, 0.22, -0.05), color: PAL.skin },
+  ];
+  if (purse) {
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.038, 0).scale(1, 1.2, 1).translate(0.0, 0.15, 0.07), color: PAL.leather });
+    parts.push({ geo: new THREE.CylinderGeometry(0.01, 0.01, 0.025, 4).translate(0.0, 0.2, 0.07), color: PAL.bronze });
+  }
+  return mergeTinted(parts);
+}
+
+/** A vandal: a big man in a dark tunic, a heavy club on his shoulder; `swing`: raised over his head, smashing. */
+function vandal(swing: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.035, 0.13, 0.024, PAL.skin, -1),
+    leg(0, 0.035, 0.13, 0.024, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.075, 0.095, 0.22, 6).translate(0, 0.23, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.02, 6).translate(0, 0.19, 0), color: PAL.leather },
+    { geo: new THREE.IcosahedronGeometry(0.058, 0).translate(0.01, 0.39, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.55, 1).translate(-0.005, 0.415, 0), color: PAL.hair },
+  ];
+  if (swing) {
+    // Both arms up, the club over his head.
+    for (const z of [-0.05, 0.05]) parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.018, 0.16, 4).rotateZ(0.25).translate(-0.01, 0.42, z), color: PAL.skin });
+    // (Its heavy end forward and up, about to come down.)
+    parts.push({ geo: new THREE.CylinderGeometry(0.032, 0.016, 0.32, 5).rotateZ(-1.2).translate(0.03, 0.55, 0), color: PAL.woodDark });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.042, 0).translate(0.175, 0.61, 0), color: PAL.woodDark });
+  } else {
+    parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.018, 0.15, 4).rotateX(0.9).translate(0.0, 0.33, -0.07), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.018, 0.016, 0.15, 4).translate(0.0, 0.24, 0.085), color: PAL.skin });
+    // The club on his shoulder, its heavy end up behind him.
+    parts.push({ geo: new THREE.CylinderGeometry(0.032, 0.016, 0.32, 5).rotateZ(0.9).translate(-0.03, 0.42, -0.07), color: PAL.woodDark });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.042, 0).translate(-0.155, 0.52, -0.07), color: PAL.woodDark });
+  }
+  return mergeTinted(parts);
+}
+
+/** An arsonist: hooded, in a dark cloak, a lit torch held low before him (out: the torch spent, black). */
+function arsonist(lit: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.11, 0.019, PAL.woodDark, -1.3),
+    leg(0, 0.03, 0.11, 0.019, PAL.woodDark, 1.3),
+    { geo: new THREE.CylinderGeometry(0.05, 0.1, 0.27, 7).rotateZ(-0.25).translate(0.02, 0.22, 0), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.05, 0).translate(0.08, 0.34, 0), color: THIEF_FACE },
+    { geo: new THREE.IcosahedronGeometry(0.068, 0).scale(1.05, 0.95, 1).translate(0.06, 0.36, 0), color: THIEF_HOOD },
+    { geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateZ(-1.0).translate(0.07, 0.26, 0.07), color: THIEF_FACE },
+    { geo: new THREE.CylinderGeometry(0.009, 0.011, 0.2, 4).rotateZ(-0.5).translate(0.15, 0.3, 0.07), color: PAL.wood },
+  ];
+  if (lit) {
+    parts.push({ geo: new THREE.ConeGeometry(0.035, 0.09, 5).translate(0.2, 0.42, 0.07), color: PAL.ember });
+    parts.push({ geo: new THREE.ConeGeometry(0.02, 0.06, 4).translate(0.2, 0.44, 0.07), color: PAL.flame });
+  } else parts.push({ geo: new THREE.IcosahedronGeometry(0.02, 0).translate(0.2, 0.4, 0.07), color: THIEF_HOOD });
+  return mergeTinted(parts);
+}
+
+/** A smuggler: a sea-blue tunic and a knitted cap, eyes on the quay; home with a sack on his shoulder. */
+const SMUGGLER_CAP = '#5e3328';
+function smuggler(load: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.03, 0.12, 0.02, PAL.skin, -1),
+    leg(0, 0.03, 0.12, 0.02, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.055, 0.08, 0.2, 6).translate(0, 0.21, 0), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.054, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    // The cap: a knitted one, pulled down snug, its rolled brim.
+    { geo: new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.7, 1).translate(-0.008, 0.39, 0), color: SMUGGLER_CAP },
+    { geo: new THREE.CylinderGeometry(0.06, 0.062, 0.022, 7).translate(-0.004, 0.37, 0), color: SMUGGLER_CAP },
+  ];
+  if (load) {
+    parts.push({ geo: new THREE.CylinderGeometry(0.015, 0.014, 0.14, 4).rotateX(0.9).translate(-0.01, 0.33, 0.06), color: PAL.skin });
+    parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.085, 1), 0.2, 4101).scale(1.1, 0.9, 0.9).translate(-0.08, 0.37, 0.06), color: PAL.sack });
+  } else {
+    parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).translate(0.0, 0.22, 0.07), color: PAL.skin });
+    parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).translate(0.0, 0.22, -0.07), color: PAL.skin });
+  }
+  return mergeTinted(parts);
+}
+/** The criminals' clothes, and a gang man's (rust red). */
+const CROOK_TUNIC: Record<'pickpocket' | 'vandal' | 'arsonist' | 'smuggler', string> = { pickpocket: '#7d705e', vandal: '#4a3c35', arsonist: '#3a3036', smuggler: '#3f6f86' };
+const GANG_RED = '#8e3a2a';
+
 /** How the raiders hold themselves: in to the target with torches and spears, out with sacks if they took anything. */
 const RAIDER_HOLDS = ['torch', 'spear', 'sack'] as const;
 
@@ -796,6 +893,8 @@ export class Walkers {
   private readonly jarDonkeys: Look;
   /** Thieves (slice 30): [on the way out, home with a purse, home with a sack]. */
   private readonly thieves: [Look, Look, Look];
+  /** Slice 41: pickpockets [out, home with a purse], vandals [club on the shoulder, swinging], arsonists [torch lit, spent], smugglers [out, home with a sack]. */
+  private readonly crooks: Record<'pickpocket' | 'vandal' | 'arsonist' | 'smuggler', [Look, Look]>;
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -836,7 +935,13 @@ export class Walkers {
     this.jarDonkeys = big(donkey(true));
     this.raiders = RAIDER_HOLDS.map((h) => small(raider(h)));
     this.thieves = [small(thief('none')), small(thief('purse')), small(thief('sack'))];
-    this.all = [...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
+    this.crooks = {
+      pickpocket: [small(pickpocket(false)), small(pickpocket(true))],
+      vandal: [small(vandal(false)), small(vandal(true))],
+      arsonist: [small(arsonist(true)), small(arsonist(false))],
+      smuggler: [small(smuggler(false)), small(smuggler(true))],
+    };
+    this.all = [...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
   }
 
   get count(): number {
@@ -886,6 +991,9 @@ export class Walkers {
     const blue = col(PAL.inspectorDress);
     const dockerTunic = col(PAL.dockerTunic);
     const cloak = col('#3a3540');
+    // Slice 41: the gangs' dens (their men are drawn in rust red).
+    const gangs = new Set(state.crime.gangs.map((g) => g.den));
+    const gangRed = col(GANG_RED);
     // Caravans waiting at the same gate stand one behind the other along the road, not in one another (slice 22): each one's place in the line, by who came first.
     const queue = new Map<number, number>();
     const gates = new Map<string, number>();
@@ -901,7 +1009,9 @@ export class Walkers {
       const cum = this.cum(w);
       const total = cum[cum.length - 1];
       // (Waiting, as a hunter stalking: no creeping on between ticks.)
-      const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * speedOf(w)));
+      // (Slice 41: the new criminals go at a thief's pace in the sim, a pickpocket at half that among a crowd.)
+      const pace = w.kind === 'pickpocket' && w.steps === 1 && !w.back ? MINGLE_SPEED : w.kind === 'vandal' || w.kind === 'arsonist' || w.kind === 'smuggler' || w.kind === 'pickpocket' ? THIEF_SPEED : speedOf(w);
+      const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * pace));
       if (w.kind === 'caravan') {
         const back = (queue.get(w.id) ?? 0) * (DROVER_GAP + w.people * DONKEY_SPACING + 0.35);
         // (Slice 34: a vassal's tribute of oil or wine comes in jars, until it is unloaded.)
@@ -958,7 +1068,14 @@ export class Walkers {
         else if (w.kind === 'thief') {
           // (Caught: gone from the street at once.)
           if (w.people <= 0) continue;
-          this.thieves[w.back && w.load > 0 ? (w.food < 0 ? 1 : 2) : 0].push(this.m, still(this.c.copy(cloak).multiplyScalar(0.85 + 0.3 * hash2(w.home, 7, 30))));
+          // (Slice 41: a gang's man in its rust red.)
+          this.thieves[w.back && w.load > 0 ? (w.food < 0 ? 1 : 2) : 0].push(this.m, still(this.c.copy(gangs.has(w.home) ? gangRed : cloak).multiplyScalar(0.85 + 0.3 * hash2(w.home, 7, 30))));
+        }
+        // Slice 41: the new kinds of criminal (caught: gone at once).
+        else if (w.kind === 'pickpocket' || w.kind === 'vandal' || w.kind === 'arsonist' || w.kind === 'smuggler') {
+          if (w.people <= 0) continue;
+          const pose = w.kind === 'vandal' ? (w.wait > 0 ? 1 : 0) : w.kind === 'arsonist' ? (w.back ? 1 : 0) : w.back && w.load > 0 ? 1 : 0;
+          this.crooks[w.kind][pose].push(this.m, still(this.c.copy(gangs.has(w.home) ? gangRed : col(CROOK_TUNIC[w.kind])).multiplyScalar(0.9 + 0.2 * hash2(w.home, 7, 31))));
         }
         else if (w.kind === 'inspector') this.inspectors.push(this.m, still(this.c.copy(blue)));
         else if (w.kind === 'tax') this.collectors[purseTotal(w) >= SATCHEL_FULL ? 1 : 0].push(this.m, still(this.c.copy(green)));

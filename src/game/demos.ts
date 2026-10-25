@@ -3366,10 +3366,10 @@ const SCENES: Record<string, Demo> = {
   ally: { view: 'ally', setup: ALLY_TOWN, overlay: 'missing' },
   // Slice 40: an empire's city. #ambition's town carried on: a vassal, a colony sending its share, the Lighthouse rising, an estate and a great estate, winter coming, a thief out and Rhodes' fleet at sea against the harbour.
   empire: { view: 'empire', setup: empireCityTown, overlay: 'missing' },
-  // Slice 41: crimes of every kind. A pickpocket in the agora's crowd, a vandal at a fountain and a smuggler on the quay, the crime overlay on.
-  crimes: { view: 'crimes', setup: crimesTown, overlay: 'crime', overlayOn: true },
-  // A gang's den in the hut street behind the core, its men having beaten off the lone watchman of the one watch post there; the den's panel open.
-  gang: { view: 'gang', setup: gangTown, overlay: 'crime', overlayOn: true, open: gangDen },
+  // Slice 41: crimes of every kind. A pickpocket in the agora's crowd, a vandal nearing a fountain and a smuggler nearing the quay, paused, the crime overlay on.
+  crimes: { view: 'crimes', speed: 'paused', setup: crimesTown, overlay: 'crime', overlayOn: true },
+  // A gang's den in the hut street behind the core (its rag on a pole by the door), its men having beaten off the lone watchman of the one watch post there; the den's panel open, the crime overlay a key away.
+  gang: { view: 'gang', setup: gangTown, overlay: 'crime', open: gangDen },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

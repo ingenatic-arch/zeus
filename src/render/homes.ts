@@ -378,6 +378,9 @@ function fountainModel(): { stone: THREE.BufferGeometry; water: THREE.BufferGeom
   return { stone, water: merge(water) };
 }
 
+/** Slice 41: is this fountain smashed (crime.broken), so it stands dry? */
+const dry = (s: SimState, b: Building): boolean => s.crime.broken.length > 0 && s.crime.broken.some((x) => x.at === b.id);
+
 /** A stake with a little pennant, marking a plot's corner. */
 function stake(): THREE.BufferGeometry {
   const flag = new THREE.BufferGeometry();
@@ -751,7 +754,7 @@ export class Homes {
       if (list) list.push(b);
       else next.set(k, [b]);
       const look = lookOf(b);
-      const sig = look === 'rubble' ? `rubble:${footSide(b)}:${b.level}` : `${look}:${facing(s, size, b).toFixed(2)}`;
+      const sig = look === 'rubble' ? `rubble:${footSide(b)}:${b.level}` : `${look}:${facing(s, size, b).toFixed(2)}${look === 'fountain' && dry(s, b) ? ':dry' : ''}`;
       now.set(b.id, { sig, key: k });
       const was = this.seen.get(b.id);
       if (!was || was.sig !== sig) {
@@ -936,7 +939,9 @@ export class Homes {
     const fountainUp = fountains.filter((b) => this.rising.has(b.id));
     if (all || fountainUp.length) {
       this.fountains[0].set(kx, kz, fountainUp.length, (i, m) => void place(fountainUp[i], m, false));
-      this.fountains[1].set(kx, kz, fountains.length, (i, m) => void place(fountains[i], m, false));
+      // (Slice 41: a fountain a vandal smashed stands dry.)
+      const wet = fountains.filter((b) => !dry(s, b));
+      this.fountains[1].set(kx, kz, wet.length, (i, m) => void place(wet[i], m, false));
     }
     if (all) {
       for (const b of fountains) {

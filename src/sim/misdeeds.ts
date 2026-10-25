@@ -520,51 +520,42 @@ export function skim(s: SimState, w: Walker, dr: number): void {
 // ---------------------------------------------------------------------------
 // In words.
 
+/** What a criminal is about, in words: "working the crowd at the agora", "on his way to smash the fountain’s spout". */
+export function criminalDoing(s: SimState, w: Walker): string {
+  const home = findBuilding(s, w.home);
+  const t = findBuilding(s, w.target);
+  const kind = crimeOfWalker(w.kind);
+  const pr = pronouns(home, w);
+  const place = t ? placeOf(t) : 'somewhere';
+  const depot = t?.kind === 'yard' ? 'the caravan yard' : 'the quay';
+  if (kind === 'pickpocket') {
+    if (w.back) return w.load > 0 ? `slipping home with ${w.load} dr in cut purses` : 'slipping home empty-handed';
+    return w.steps === 1 ? `working the crowd at ${place}` : `on ${pr.his} way to ${place}’s crowd`;
+  }
+  if (kind === 'vandal') return w.back ? `slipping home, having smashed ${smashWords(t, w.food)}` : w.wait > 0 ? `smashing ${smashWords(t, w.food)}` : `on ${pr.his} way to smash ${smashWords(t, w.food)}`;
+  if (kind === 'arson') return w.back ? `slipping home from the fire at ${place}` : w.wait > 0 ? `setting fire to ${place}` : `on ${pr.his} way to set fire to ${place}`;
+  if (kind === 'smuggling') return w.back ? (w.load > 0 ? `slipping home with ${lootWords(w)} from ${depot}` : 'slipping home empty-handed') : `on ${pr.his} way to ${depot}`;
+  return w.back ? (w.load > 0 ? `slipping home with ${lootWords(w)}` : 'slipping home empty-handed') : `on ${pr.his} way to ${place}`;
+}
+
 /** A criminal's tip: who, what about, and what the watchman would do. */
 export function criminalStatus(s: SimState, w: Walker): { title: string; detail: string } {
   const home = findBuilding(s, w.home);
-  const t = findBuilding(s, w.target);
   const kind = crimeOfWalker(w.kind);
   const who = thiefWho(home, w, 'nobody knows who');
   const pr = pronouns(home, w);
   const gang = s.crime.gangs.find((g) => g.den === w.home);
-  const place = t ? placeOf(t) : 'somewhere';
   const LOOK: Record<string, string> = {
+    thief: 'A hooded figure',
     pickpocket: 'A slight figure, quick hands, eyes on the purses',
     vandal: 'A big figure with a club, in a black mood',
     arsonist: 'A dark figure with a torch, keeping out of sight',
     smuggler: 'A figure in a sea-blue tunic and a knitted cap, eyes on the quay',
   };
-  const doing =
-    kind === 'pickpocket'
-      ? w.back
-        ? w.load > 0
-          ? `slipping home with ${w.load} dr in cut purses`
-          : 'slipping home empty-handed'
-        : w.steps === 1
-          ? `working the crowd at ${place}`
-          : `on ${pr.his} way to ${place}’s crowd`
-      : kind === 'vandal'
-        ? w.back
-          ? `slipping home, having smashed ${smashWords(t, w.food)}`
-          : w.wait > 0
-            ? `smashing ${smashWords(t, w.food)}`
-            : `on ${pr.his} way to smash ${smashWords(t, w.food)}`
-        : kind === 'arson'
-          ? w.back
-            ? `slipping home from the fire at ${place}`
-            : w.wait > 0
-              ? `setting fire to ${place}`
-              : `on ${pr.his} way to set fire to ${place}`
-          : w.back
-            ? w.load > 0
-              ? `slipping home with ${lootWords(w)} from ${t?.kind === 'yard' ? 'the caravan yard' : 'the quay'}`
-              : 'slipping home empty-handed'
-            : `on ${pr.his} way to ${t?.kind === 'yard' ? 'the caravan yard' : 'the quay'}`;
   const ganged = gang ? ` · one of ${gang.name}’s men: a lone watchman can’t take ${pr.him}` : '';
   const chased = w.meat > 0 ? ` · a watchman is after ${pr.him}` : ` · a watchman who sees ${pr.him} runs after ${pr.him}`;
   const title = KIND_NAME[kind][0].toUpperCase() + KIND_NAME[kind].slice(1);
-  return { title: gang ? `${title} (${gang.name})` : title, detail: `${LOOK[w.kind] ?? 'A hooded figure'}: ${who}, ${doing}${ganged}${chased}` };
+  return { title: gang ? `${title} (${gang.name})` : title, detail: `${LOOK[w.kind] ?? 'A hooded figure'}: ${who}, ${criminalDoing(s, w)}${ganged}${chased}` };
 }
 
 /** Is a criminal of any kind from this home out now? */
@@ -573,4 +564,49 @@ export const outFrom = (s: SimState, b: Building): Walker | undefined => s.walke
 /** "the fountain by the bay" for a broken building. */
 export function brokenPlace(map: CoastMap, b: Building): string {
   return `${b.kind === 'agora' ? 'the agora' : b.kind === 'shrine' ? 'the shrine' : 'the fountain'} ${whereOf(map, b)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Tips.
+
+/** "3 days", "a month". */
+const daysWords = (ticks: number): string => {
+  const d = Math.max(1, Math.round(ticks / TICKS_PER_DAY));
+  return d >= 28 && d <= 32 ? 'a month' : d === 1 ? 'a day' : `${d} days`;
+};
+
+/**
+ * What the new crimes have done to a building, for its tip (status.ts): a
+ * smashed fountain, shrine or stall and who mends it; pickpockets about an
+ * agora or theatre; smugglers at the quay or the yard; a tax office whose
+ * collector skims; a gang's den.
+ */
+export function misdeedLines(s: SimState, map: CoastMap, b: Building): string[] {
+  if (!s.crime.on || !s.crime.kinds) return [];
+  const out: string[] = [];
+  const x = brokenAt(s, b);
+  if (x) {
+    const stops = b.kind === 'fountain' ? 'no water carrier goes out from it' : b.kind === 'shrine' ? 'no priestess goes out from it' : x.part < 0 ? 'its food vendors stay at home' : 'that stall’s vendors stay at home';
+    const left = PATCH_DAYS * TICKS_PER_DAY - (s.tick - x.tick);
+    const architect = s.buildings.some((o) => o.kind === 'architect' && rateOf(o) > 0);
+    const mend = architect ? `The architect’s inspector comes to it first, if her round reaches it; if not, its own workers patch it up in about ${daysWords(left)}` : `No architect’s office: its own workers patch it up in about ${daysWords(left)} (an architect’s office nearby would mend it within days)`;
+    out.push(`Smashed ${daysWords(s.tick - x.tick)} ago by ${x.by}: ${smashWords(b, x.part)} is broken, and ${stops} · ${mend}`);
+  }
+  if (b.kind === 'agora' || b.kind === 'theatre') {
+    const w = s.walkers.find((o) => o.kind === 'pickpocket' && o.target === b.id && o.people > 0 && !o.back);
+    if (w) out.push(`Pickpockets about: one is ${w.steps === 1 ? 'working the crowd now' : 'on his way to the crowd'} · a watchman walking by would catch him`);
+    else if (b.robbedAt > 0 && s.tick - b.robbedAt < TICKS_PER_MONTH) out.push(`Pickpockets about: purses were cut in the crowd here ${daysWords(s.tick - b.robbedAt)} ago · the homes around mind it for a month`);
+  }
+  if (b.kind === 'trading' || b.kind === 'yard') {
+    const w = s.walkers.find((o) => o.kind === 'smuggler' && o.target === b.id && o.people > 0 && !o.back);
+    if (w) out.push(`A smuggler is on his way, after the goods waiting ${b.kind === 'yard' ? 'in the yard' : 'on the quay'}`);
+    else if (b.robbedAt > 0 && s.tick - b.robbedAt < TICKS_PER_MONTH) out.push(`Smugglers took goods from here ${daysWords(s.tick - b.robbedAt)} ago (the stock book’s “Smuggled away”) · a watchman walking by keeps them off`);
+  }
+  if (b.kind === 'taxoffice' && b.owed > 0) {
+    const size = map.size;
+    out.push(watchedLately(s, size, b) ? 'Its wages are owed, but the watchman walks by: the collector hands in every drachma' : `Its wages are owed and no watchman walks by: the collector keeps back ${Math.round(SKIM_SHARE * 100)}% of what he collects (the ledger’s “Skimmed” line) until they are paid`);
+  }
+  const g = b.kind === 'home' ? s.crime.gangs.find((o) => o.den === b.id) : undefined;
+  if (g) out.push(`The den of ${g.name}: its men go out every week or so, and beat off a lone watchman · two watch posts whose rounds reach it break the gang up`);
+  return out;
 }

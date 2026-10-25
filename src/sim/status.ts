@@ -66,6 +66,10 @@ import type { Service } from './state';
 import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
+// Slice 41.
+import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB } from './crime';
+import { brokenPlace, criminalDoing, criminalStatus, grievances, misdeedLines } from './misdeeds';
+import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { CREW, crewOut, distFrom, roadsBeside } from './rounds';
 import type { Building, BuildingKind, Deal, Herd, NewsItem, SimState, Walker } from './state';
@@ -133,7 +137,8 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'rubble') return rubbleStatus(s, b);
   if (b.kind === 'watchpost' || b.kind === 'architect') return { ...postStatus(s, map, b), detail: lines(postStatus(s, map, b).detail, ...hazardLines(s, map, b)) };
   const st = buildingStatus(s, map, b, reach);
-  const more = hazardLines(s, map, b);
+  // (Slice 41: and what the new crimes have done to it: a smashed fountain, pickpockets about, a skimming collector, a den.)
+  const more = [...misdeedLines(s, map, b), ...hazardLines(s, map, b)];
   // Smouldering, burning or creaking goes first: it is the news.
   if (b.fire > 0 || b.creakAt > 0) return { title: st.title, detail: lines(...more, st.detail) };
   return { title: st.title, detail: lines(st.detail, ...more) };
@@ -767,13 +772,18 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
     return { title: 'Actor', detail: `Out on his round, ${w.steps} of ${ACTOR_WALK} new road tiles walked · he heads for the townhouses and better that have gone longest without a play` };
   }
   // Slice 30: a thief, and the watchman after one.
+  // (Slice 41: a gang's thief says so; the new kinds of criminal.)
+  if (w.kind === 'thief' && s.crime.gangs.length && gangOf(s, w)) return criminalStatus(s, w);
   if (w.kind === 'thief') return thiefStatus(s, w);
+  if (isCriminal(w.kind)) return criminalStatus(s, w);
   // Slice 37: a household going to found a colony.
   if (w.kind === 'colonist') return colonistDoing(s, w);
   if (w.kind === 'watchman' && w.meat > 0) {
-    const t = s.walkers.find((o) => o.id === w.meat && o.kind === 'thief');
+    // (Slice 41: or any criminal, named by what he is.)
+    const t = s.walkers.find((o) => o.id === w.meat && isCriminal(o.kind));
     const home = t ? findBuilding(s, t.home) : undefined;
-    return { title: 'Watchman', detail: `Running after a thief${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and the thief’s family pays a fine` };
+    const name = t ? KIND_NAME[crimeOfWalker(t.kind)] : 'thief';
+    return { title: 'Watchman', detail: `Running after a ${name}${t && home?.family ? `, ${thiefWho(home, t)}` : ''} · he catches ${pronouns(home, t ?? null).him} if he gets within arm’s reach, and the ${name}’s family pays a fine` };
   }
   if (w.kind === 'watchman') {
     const f = w.target > 0 ? findBuilding(s, w.target) : undefined;
@@ -1885,6 +1895,9 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     const hint = news.kind === 'theft' ? (watched ? '' : ' No watchman walks the streets: a watch post (Z twice) would catch the next one.') : '';
     return { need: 'crime', text: `${news.line}.${hint}`, at: news.at };
   }
+  // Slice 41: talk of burning, before anything but the news (it is the threat to see coming).
+  const talk = s.crime.kinds ? talkTownLine(s, map) : null;
+  if (talk) return talk;
   const out = thievesOut(s);
   if (out.length) {
     const w = out[0];
@@ -1898,6 +1911,9 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
     return { need: 'crime', text: `A thief out ${where.toLowerCase()}: ${who}, ${doing}${more}.${chase}`, at: w.home };
   }
+  // Slice 41: one of the new kinds out, a gang's den, something smashed, a gang gathering.
+  const more = s.crime.kinds ? crimesTownLine(s, map) : null;
+  if (more) return more;
   const ctx = moodCtx(s);
   const tempted: Array<{ b: Building; t: Temptation; d: number }> = [];
   for (const b of s.buildings) {
@@ -1905,16 +1921,66 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     const t = temptationOf(s, size, b, ctx);
     if (t.watched || temptRate(t.score) <= 0) continue;
     const d = daysToThief(b, t);
-    // (Full, with nothing worth stealing within reach: not about to send anyone.)
-    if (d === 0 && !targetFor(s, size, b)) continue;
+    // (Full, with nothing worth stealing within reach: not about to send anyone. Slice 41: nothing for any crime.)
+    if (d === 0 && !(s.crime.kinds ? crimeFor(s, size, b, t) : targetFor(s, size, b))) continue;
     tempted.push({ b, t, d });
   }
   if (tempted.length === 0) return null;
   tempted.sort((a, c) => a.d - c.d || a.b.id - c.b.id);
   const f = tempted[0];
-  const n = tempted.length === 1 ? `${placeName(f.b)} is tempted to steal` : `${tempted.length} homes are tempted to steal`;
-  const when = f.d <= 0 ? (tempted.length === 1 ? ', ready to send someone out' : ', the first ready to send someone out') : `, ${tempted.length === 1 ? 'a thief' : 'the first thief'} in about ${days(f.d * TICKS_PER_DAY)}`;
+  // Slice 41: to steal, or whichever crimes their trouble points to ("to steal or pick pockets").
+  const verbs = s.crime.kinds ? [...new Set(tempted.map((x) => KIND_VERB[crimeFor(s, size, x.b, x.t)?.kind ?? 'theft']))] : ['steal'];
+  const verb = verbs.length <= 1 ? (verbs[0] ?? 'steal') : `${verbs.slice(0, -1).join(', ')} or ${verbs[verbs.length - 1]}`;
+  const n = tempted.length === 1 ? `${placeName(f.b)} is tempted to ${verb}` : `${tempted.length} homes are tempted to ${verb}`;
+  const firstName = verbs.length === 1 && verbs[0] !== 'steal' ? (verbs[0] === 'burn' ? 'talk of burning' : `a ${KIND_NAME[crimeFor(s, size, f.b, f.t)?.kind ?? 'theft']}`) : 'a thief';
+  const when = f.d <= 0 ? (tempted.length === 1 ? ', ready to send someone out' : ', the first ready to send someone out') : `, ${tempted.length === 1 ? firstName : `the first ${firstName.replace(/^a /, '')}`} in about ${days(f.d * TICKS_PER_DAY)}`;
   return { need: 'crime', text: `Crime ${whereIs(map, f.b).toLowerCase()}: ${n} (${sharedReasons(tempted.map((x) => x.t))})${when}. ${noWatchWords(s)}.`, at: f.b.id };
+}
+
+// Slice 41
+/** Talk of burning in a home: the town line, with how long before someone sets a fire. */
+function talkTownLine(s: SimState, map: CoastMap): TownLine | null {
+  const x = s.crime.talk[0];
+  const b = x ? findBuilding(s, x.home) : undefined;
+  if (!x || !b) return null;
+  const left = Math.max(0, x.at - s.tick);
+  const t = temptationOf(s, map.size, b);
+  return { need: 'crime', text: `Talk of burning ${whereIs(map, b).toLowerCase()}: the house of ${b.family?.name ?? 'a poor family'} has had enough (${grievances(s, b, t)}). Someone sets a fire ${left > 0 ? `in about ${days(left)}` : 'any day now'}, unless a watchman walks by (Z twice) or things get better for them.`, at: b.id };
+}
+
+/** One of the new kinds of criminal out, a gang's den, something smashed, or a gang gathering: the town line. */
+function crimesTownLine(s: SimState, map: CoastMap): TownLine | null {
+  const out = s.walkers.filter((w) => isCriminal(w.kind) && w.kind !== 'thief' && w.people > 0);
+  if (out.length) {
+    const w = out[0];
+    const home = findBuilding(s, w.home);
+    const name = KIND_NAME[crimeOfWalker(w.kind)];
+    const where = home ? whereIs(map, home) : 'In the city';
+    const more = out.length > 1 ? ` (and ${out.length - 1} more)` : '';
+    const pr = pronouns(home, w);
+    const chase = w.meat > 0 ? ` A watchman is after ${pr.him}.` : '';
+    return { need: 'crime', text: `${name === 'arsonist' ? 'An' : 'A'} ${name} out ${where.toLowerCase()}: ${thiefWho(home, w, 'a hooded figure')}, ${criminalDoing(s, w)}${more}.${chase}`, at: w.home };
+  }
+  const g = s.crime.gangs[0];
+  const den = g ? findBuilding(s, g.den) : undefined;
+  if (g && den) {
+    const n = postsReaching(s, map.size, den).length;
+    const posts = g.covered > 0 ? 'Two watch posts reach its den now: the gang breaks up within a month' : n === 1 ? 'One watch post reaches its den: a second whose round reaches it (Z twice) would break the gang up' : 'Two watch posts whose rounds reach its den (Z twice) would break the gang up';
+    return { need: 'crime', text: `${g.name.charAt(0).toUpperCase()}${g.name.slice(1)} has its den ${whereIs(map, den).toLowerCase()}, in the house of ${den.family?.name ?? 'a poor family'}: its men go out every week or so, and beat off a lone watchman. ${posts}.`, at: den.id };
+  }
+  const x = s.crime.broken[0];
+  const smashed = x ? findBuilding(s, x.at) : undefined;
+  if (x && smashed) {
+    const stops = smashed.kind === 'fountain' ? 'no water carrier goes out from it' : smashed.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
+    return { need: 'crime', text: `${brokenPlace(map, smashed).charAt(0).toUpperCase()}${brokenPlace(map, smashed).slice(1)} was smashed by a vandal: ${stops} until the architect’s inspector mends it.`, at: smashed.id };
+  }
+  const gath = gathering(s)[0];
+  const seat = gath ? findBuilding(s, gath.seat) : undefined;
+  if (gath && seat) {
+    const m = monthsToGang(gath.heat);
+    return { need: 'crime', text: `A gang is gathering ${whereIs(map, seat).toLowerCase()}, around the house of ${seat.family?.name ?? 'a poor family'}: ${m > 0 ? `in about ${m} ${m === 1 ? 'month' : 'months'}` : 'any day now'} it takes a house there as its den. A watch post whose round comes that way (Z twice) would scatter it.`, at: seat.id };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
