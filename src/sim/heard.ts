@@ -133,7 +133,7 @@ export function hear(s: SimState): void {
     const k = kindOfLine(n.line, false, false, 'army');
     say(s, { kind: k.kind, u: k.u, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
   }
-  for (const n of since(s.crime.news, h.crime)) say(s, { kind: 'crime', u: CRIME_URGENCY[n.kind] ?? NEWS, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined });
+  for (const n of since(s.crime.news, h.crime)) say(s, { kind: 'crime', u: CRIME_URGENCY[n.kind] ?? NEWS, words: `${n.line}.`, tick: n.tick, at: n.at > 0 ? { building: n.at } : undefined, of: n.kind });
 }
 
 /**
