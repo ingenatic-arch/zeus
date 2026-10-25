@@ -67,8 +67,8 @@ import { HORSE_BATCH, HORSE_EVERY } from './production';
 // Slice 30.
 import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, temptationOf, temptRate, thiefWho, thievesOut, pronouns, type Temptation } from './crime';
 // Slice 41.
-import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB } from './crime';
-import { brokenPlace, criminalDoing, criminalStatus, grievances, misdeedLines } from './misdeeds';
+import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeChoice } from './crime';
+import { brokenPlace, criminalDoing, criminalStatus, grievances, mendWords, misdeedLines } from './misdeeds';
 import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
 import { CREW, crewOut, distFrom, roadsBeside } from './rounds';
@@ -1915,6 +1915,12 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
   const more = s.crime.kinds ? crimesTownLine(s, map) : null;
   if (more) return more;
   const ctx = moodCtx(s);
+  // (Review of slice 41: each home's crime worked out once a line, not three times: each is a road search.)
+  const chosen = new Map<number, CrimeChoice | null>();
+  const choice = (b: Building, t: Temptation): CrimeChoice | null => {
+    if (!chosen.has(b.id)) chosen.set(b.id, crimeFor(s, size, b, t));
+    return chosen.get(b.id) ?? null;
+  };
   const tempted: Array<{ b: Building; t: Temptation; d: number }> = [];
   for (const b of s.buildings) {
     if (b.kind !== 'home' || b.tempt < TEMPT_HALF) continue;
@@ -1922,17 +1928,17 @@ export function crimeTownLine(s: SimState, map: CoastMap): TownLine | null {
     if (t.watched || temptRate(t.score) <= 0) continue;
     const d = daysToThief(b, t);
     // (Full, with nothing worth stealing within reach: not about to send anyone. Slice 41: nothing for any crime.)
-    if (d === 0 && !(s.crime.kinds ? crimeFor(s, size, b, t) : targetFor(s, size, b))) continue;
+    if (d === 0 && !(s.crime.kinds ? choice(b, t) : targetFor(s, size, b))) continue;
     tempted.push({ b, t, d });
   }
   if (tempted.length === 0) return null;
   tempted.sort((a, c) => a.d - c.d || a.b.id - c.b.id);
   const f = tempted[0];
   // Slice 41: to steal, or whichever crimes their trouble points to ("to steal or pick pockets").
-  const verbs = s.crime.kinds ? [...new Set(tempted.map((x) => KIND_VERB[crimeFor(s, size, x.b, x.t)?.kind ?? 'theft']))] : ['steal'];
+  const verbs = s.crime.kinds ? [...new Set(tempted.map((x) => KIND_VERB[choice(x.b, x.t)?.kind ?? 'theft']))] : ['steal'];
   const verb = verbs.length <= 1 ? (verbs[0] ?? 'steal') : `${verbs.slice(0, -1).join(', ')} or ${verbs[verbs.length - 1]}`;
   const n = tempted.length === 1 ? `${placeName(f.b)} is tempted to ${verb}` : `${tempted.length} homes are tempted to ${verb}`;
-  const firstName = verbs.length === 1 && verbs[0] !== 'steal' ? (verbs[0] === 'burn' ? 'talk of burning' : `a ${KIND_NAME[crimeFor(s, size, f.b, f.t)?.kind ?? 'theft']}`) : 'a thief';
+  const firstName = verbs.length === 1 && verbs[0] !== 'steal' ? (verbs[0] === 'burn' ? 'talk of burning' : `a ${KIND_NAME[choice(f.b, f.t)?.kind ?? 'theft']}`) : 'a thief';
   const when = f.d <= 0 ? (tempted.length === 1 ? ', ready to send someone out' : ', the first ready to send someone out') : `, ${tempted.length === 1 ? firstName : `the first ${firstName.replace(/^a /, '')}`} in about ${days(f.d * TICKS_PER_DAY)}`;
   return { need: 'crime', text: `Crime ${whereIs(map, f.b).toLowerCase()}: ${n} (${sharedReasons(tempted.map((x) => x.t))})${when}. ${noWatchWords(s)}.`, at: f.b.id };
 }
@@ -1972,7 +1978,7 @@ function crimesTownLine(s: SimState, map: CoastMap): TownLine | null {
   const smashed = x ? findBuilding(s, x.at) : undefined;
   if (x && smashed) {
     const stops = smashed.kind === 'fountain' ? 'no water carrier goes out from it' : smashed.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
-    return { need: 'crime', text: `${brokenPlace(map, smashed).charAt(0).toUpperCase()}${brokenPlace(map, smashed).slice(1)} was smashed by a vandal: ${stops} until the architect’s inspector mends it.`, at: smashed.id };
+    return { need: 'crime', text: `${brokenPlace(map, smashed).charAt(0).toUpperCase()}${brokenPlace(map, smashed).slice(1)} was smashed by a vandal: ${stops} ${mendWords(s)}.`, at: smashed.id };
   }
   const gath = gathering(s)[0];
   const seat = gath ? findBuilding(s, gath.seat) : undefined;

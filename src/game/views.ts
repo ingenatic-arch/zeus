@@ -186,7 +186,8 @@ export const VIEWS: Record<string, CameraView> = {
   // (Phase 5 review: further out and further south, so the island and the open water beyond it, where the fleet will hold the mouth, are in view too.)
   empire: { x: 80, z: 74, yaw: -1.2, dist: 84, tilt: -0.18 },
   // Slice 41, #crimes: the core's agora, the two new hut streets and the quay below, from over the bay (tuned by eye).
-  crimes: { x: 77, z: 55, yaw: -0.3, dist: 34, tilt: -0.15 },
+  // (Review of slice 41: a little further west and north, so the agora and its pickpocket aren't at the window's edge.)
+  crimes: { x: 73, z: 53, yaw: -0.3, dist: 34, tilt: -0.15 },
   // #gang: the hut street on the slope behind the core's villas, its watch post at the west end, right of the den's panel (tuned by eye).
   gang: { x: 69, z: 25, yaw: -0.2, dist: 20, tilt: 0.05 },
 };

@@ -32,6 +32,7 @@ import { unit, WATCH_RANGE } from './hazards';
 import { rateOf } from './labour';
 import { crimeTargetsFrom } from './misdeeds';
 import { distFrom, roadsBeside } from './rounds';
+import { roadSearch } from './roads';
 import type { Building, SimState, Walker } from './state';
 import { position } from './walk';
 
@@ -78,6 +79,30 @@ export function postsReaching(s: SimState, size: number, den: Building): Buildin
     if (roads.some((r) => dist[r] >= 0 && dist[r] <= WATCH_RANGE)) out.push(p);
   }
   return out;
+}
+
+/**
+ * (Review of slice 41.) Whether a watch post with these roads beside it would
+ * reach a gang's den, for the watch post tool's tip: a line when it would
+ * (and what that does), a warning when there is a den and it wouldn't ('' for
+ * either when there is nothing to say).
+ */
+export function denReachWords(s: SimState, size: number, roads: number[]): { line: string; warn: string } {
+  if (!s.crime.on || !s.crime.kinds || s.crime.gangs.length === 0 || roads.length === 0) return { line: '', warn: '' };
+  const dist = roadSearch(s, size, roads).dist;
+  let missed: Gang | null = null;
+  for (const g of s.crime.gangs) {
+    const den = findBuilding(s, g.den);
+    if (!den) continue;
+    if (!roadsBeside(s, size, den).some((r) => dist[r] >= 0 && dist[r] <= WATCH_RANGE)) {
+      missed ??= g;
+      continue;
+    }
+    const n = postsReaching(s, size, den).length;
+    const then = n >= 2 ? `Two watch posts reach it already: the gang breaks up within ${GANG_BREAK} days of the second` : n === 1 ? `With the one already there that makes two: once its men are in, the gang breaks up within ${GANG_BREAK} days` : 'A second watch post reaching it too would break the gang up';
+    return { line: `Its watchman’s round reaches the den of ${g.name}. ${then}`, warn: '' };
+  }
+  return { line: '', warn: missed ? `Its watchman’s round doesn’t reach the den of ${missed.name}: two watch posts whose rounds reach the den break the gang up. Try nearer to it` : '' };
 }
 
 /** The district a building stands in. */

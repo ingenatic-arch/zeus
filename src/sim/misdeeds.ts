@@ -308,7 +308,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     tl.smashed++;
     const what = smashWords(t, part);
     const stops = t.kind === 'fountain' ? 'no water carrier goes out from it' : t.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
-    tellNews(s, 'smashed', `A vandal smashed ${what} ${where}: ${stops} until the architect’s inspector mends it`, t.id);
+    tellNews(s, 'smashed', `A vandal smashed ${what} ${where}: ${stops} ${mendWords(s)}`, t.id);
   } else if (w.kind === 'arsonist') {
     if (t.fire === FIRE_BURNING || !burnable(t)) return;
     ignite(s, t);
@@ -414,6 +414,11 @@ export function holdBroken(s: SimState, map: CoastMap): void {
     if (x.part < 0) b.clock = Math.max(b.clock, 2);
     else b.vclock[x.part] = Math.max(b.vclock[x.part] ?? 0, 2);
   }
+}
+
+/** (Review of slice 41.) Who mends what a vandal smashed, for the news and the town line: the architect's inspector, or with no architect's office at work, its own workers after PATCH_DAYS. */
+export function mendWords(s: SimState): string {
+  return s.buildings.some((o) => o.kind === 'architect' && rateOf(o) > 0) ? 'until the architect’s inspector mends it' : 'until its own workers patch it up, in about a month (an architect’s office would mend it within days)';
 }
 
 /** The architect's inspector walks by a broken building (hazards.ts's round calls this), or its own workers patch it up: it is mended, for a small repair on the ledger. */

@@ -11,7 +11,7 @@ What breaks, or moves:
 - **Earlier demos open exactly as before.** The new crimes are off while a demo's history is played and on as it opens, like theft in slice 30. I compared all 134 earlier prepared towns with the starting commit's: identical, apart from the new fields, the one command that switches them on and the counter of changes. `#thieves`, `#nowatch` and `#harsh` open as their check-ins say, and the smoke run still finds `#thieves`' thief, his hover, the theft, the catch and the fine. Played on from opening, any town can now have every kind of crime: `#town` played a year at harsh taxes ends with 311 people, where with theft alone it ends with 342.
 - **Fewer thieves.** A full home whose trouble points elsewhere (angry and idle, or poor with a crowd or the quay in reach) turns to that crime instead of stealing. A home envying richer ones nearby still steals.
 - **The inspector goes to a smashed building first**, ahead of anything creaking, and mends it on the spot.
-- **"Repairs" and "Skimmed"** are new ledger lines. The crime overlay's colours now cover every kind (below).
+- **"Repairs" and "Skimmed"** are new ledger lines. The crime overlay now marks every kind (below).
 
 ### What's new
 - **Which crime, and why.** When a home's temptation fills, it turns to the first crime its trouble points to that has a target in reach:
@@ -42,11 +42,11 @@ What breaks, or moves:
   - A den sends a man out every 8 days or so (two at most at a time), to steal, smuggle or pick pockets.
   - A lone watchman (no other within 8 tiles) who lays hands on one of its men is beaten off.
   - Two staffed watch posts whose rounds reach the den break the gang up after 20 days. The den's panel and the town line count the posts that reach it.
-- **Where it shows.** The crime overlay marks the homes of every kind of criminal out, dens, talk of burning, smashed buildings and places robbed lately. Each kind has its town lines and news, and the Safety tab's crime row counts them.
+- **Where it shows.** The crime overlay marks the homes of every kind of criminal out, dens, talk of burning, smashed buildings and places robbed lately, all in the same colours as theft: it doesn't tell the kinds apart. Each kind has its town lines and news, and the Safety tab's crime row counts them.
 
 ### What to try
 1. #crimes: opens paused on two new hut streets below the core. A pickpocket is working the agora's crowd, a vandal is a few steps from the lower street's fountain, and a smuggler is nearing the quay. Hover each, then press space: the fountain is smashed within about five days (watch it go dry and the shards appear), goods are smuggled, purses are cut, and the inspector mends the fountain about three weeks later (see the ledger's Repairs line).
-2. #gang: a gang's den in the hut street behind the villas, its panel open. One watch post reaches it, and its lone watchman has just been beaten off. Build a second watch post nearby (Z twice) whose round reaches the den, and play on: within a month the watch breaks the gang up and the flag comes down.
+2. #gang: a gang's den in the hut street behind the villas, its panel open. One watch post reaches it, and its lone watchman has just been beaten off. Build a second watch post nearby (Z twice) whose round reaches the den (as you hover a spot, its tip now says whether it would), and play on: within a month the watch breaks the gang up and the flag comes down.
 3. #gang-overlay: the same den with the crime overlay on.
 4. #nowatch: slice 30's town, played on with every crime now possible.
 
@@ -57,10 +57,10 @@ What breaks, or moves:
 - **The patch-up.** Without an architect, a smashed fountain is mended by its own workers after a month. Without that, a town with no architect could lose its water for good to one vandal. Too forgiving?
 
 ### Known rough edges
-- I haven't seen an arsonist on screen. The tests cover the talk, its dying down and the fire, but no demo stages one.
+- No demo stages an arsonist. The tests cover the talk, its dying down and the fire, and the review watched one, staged by hand (see *What the review changed*).
 - A gang's beaten watchman just stops chasing that man; he doesn't go home hurt or miss rounds, as the plan had it.
 - The den has no brazier, only the flag and the plaque.
-- Neither demo shows a pickpocket at the theatre, a smuggler at the caravan yard, a smashed stall or shrine, or a crooked collector. The tests cover the collector, and the code treats the others like the agora, the quay and the fountain, but I haven't watched them.
+- Neither demo shows a pickpocket at the theatre, a smuggler at the caravan yard, a smashed stall or shrine, or a crooked collector. The tests cover the collector; the review watched a theatre pickpocket and a smashed stall, staged by hand. Nobody has watched a caravan-yard smuggler or a smashed shrine (#richtown has no caravan yard).
 
 ### Measurements before/after
 Both runs used a copy of `measure.mjs` with its waits loosened, the starting commit's (`53e5bb4`) while this slice was being built, this slice's after. The machine was shared with the other three lines building at once (a load of 30 to 40 on 4 cores), and far busier during the second run, so the timings below can't be compared; only the counts can.
@@ -73,6 +73,18 @@ Both runs used a copy of `measure.mjs` with its waits loosened, the starting com
 - **Build:** 5 min 3 s under that load, most of it baking the prepared towns afresh, as any change to the simulation does.
 
 ### What the review changed
+I played both demos at full screen as you would, and staged by hand the crimes no demo shows. Changes:
+- **The watch post's tip now tells you about the den.** In `#gang`, hovering a spot for a new watch post says whether its watchman's round would reach the gang's den, and if so, that with the post already there it makes two and the gang breaks up within 20 days. Before, you had to guess, and a spot one tile off the road reached nothing. If it doesn't reach, the tip says so and tells you to try nearer.
+- **Who mends a smashed building, said plainly.** The vandal's news and the town line used to promise the architect's inspector even in a town without an architect. Now, with no architect's office, they say its own workers patch it up in about a month, and that an architect's office would mend it within days.
+- **`#crimes` opens a little further west**, so the agora and its pickpocket sit inside the window rather than at its edge, with the lower street's fountain and the vandal still in view.
+- **The town line about crime costs less to work out** in a town with many tempted homes (it was working out each home's crime several times over).
+
+What I watched beyond the demos, staged by hand:
+- **An arsonist.** The talk came first, then he walked out with his torch and set a villa alight. My staged town had no watch, and the villa burnt down. His torch's flame is small at the usual zoom: please judge whether you can spot him.
+- **A smashed stall.** A vandal smashed the agora's oil stall; its shards and plaque showed, the stall's vendors stayed home, and the inspector mended it for 15 dr.
+- **A pickpocket at the theatre**, working its crowd and cutting purses.
+
+Left as they are, for later: the crime overlay doesn't colour each home by its crime (the plan said it would); nobody has watched a caravan-yard smuggler, a smashed shrine or a crooked collector in the game; and a criminal who beats off one watchman can be chased, and beat off, the next. Tests: 605, all passing. Measured after the review: the bundle is still 4,603 KB, every town view draws as before, and `#crimes`' new opening view draws 1,695,638 triangles in 97 draw calls.
 
 ## Side slice — The original Zeus look, and people at work (25 Oct)
 
