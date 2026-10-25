@@ -58,6 +58,8 @@ import { offMapPoint } from './walk';
 import { walkable } from './wild';
 import { cityOf, rulerShort } from './world';
 import { aimFought, aimSent, allyOf, conquestDefenders, helpersMight, vassalOf } from './vassals';
+// Slice 47: raids from a colony, and the colonies' militia in your wars.
+import { militiaFought, militiaMight, militiaMightNow, militiaSail, shareFrom, stepFromColony, strikeLine } from './colonyempire';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -164,7 +166,7 @@ export function stayingHome(s: SimState, kind: Expedition['kind'], city?: CityId
       continue;
     }
     let why: string;
-    if (c.away || c.order === 'away') why = 'away on an expedition already';
+    if (c.away || c.order === 'away') why = c.posted ? `stationed in ${shareFrom(s, c.posted)}` : 'away on an expedition already';
     else if (c.routed) why = 'broken, running back to its barracks';
     else if (ready === 0) why = men.length ? `none of its ${men.length} men is ready${not ? ` (${not})` : ''}` : 'no men yet';
     else if (sea && could.includes(c)) why = `no trireme to carry it (a company to each trireme, and ${going.length === 0 ? 'none is' : going.length === 1 ? 'one is' : `${going.length} are`} fit to sail)`;
@@ -195,7 +197,8 @@ export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind
   const c = cityOf(s.world, city);
   const companies = chosen(s, kind, city);
   const men = companies.reduce((a, x) => a + readyOf(s, x).length, 0);
-  const ours = Math.round(companies.reduce((a, x) => a + mightOf(s, x), 0));
+  // (Slice 47: to a war, your colonies' militia would sail to meet it.)
+  const ours = Math.round(companies.reduce((a, x) => a + mightOf(s, x), 0)) + (kind === 'force' || aim ? militiaMightNow(s) : 0);
   // (Slice 34: sent to conquer, or to fight an ally's war, it meets the city's whole army and those who stand by it: vassals.ts.)
   const theirs = aim ? conquestDefenders(s, c) : defenders(s, c, kind);
   const debt = aim ? undefined : debtFrom(s, city);
@@ -336,6 +339,8 @@ export function sendExpedition(s: SimState, map: CoastMap, city: CityId | string
   const why = aim === 'conquer' ? (crush ? `to crush ${whose(id)} rising` : `to conquer ${cityName(id)}`) : aim === 'war' ? `to fight your ally’s war against ${cityName(id)}` : debt ? `to collect the ${fmt(debt.owed)} dr ${cityName(id)} owes you` : 'against a city that owes you nothing';
   // (Slice 34: a conquest's record, and the allies who march with it.)
   if (aim) aimSent(s, e);
+  // (Slice 47: to a war, your colonies' militia sail to meet it.)
+  militiaSail(s, e);
   if (way.by === 'sea') {
     armyNews(s, `${cap(what)} of ${men} men marches out for ${cityName(id)}, ${why}: the companies make for the shipyard, to sail in your triremes`, 0);
     news(w, s.tick, id, `You sent ${what} of ${men} men against ${cityName(id)}, ${why}. They sail from your shipyard in your triremes`);
@@ -355,6 +360,11 @@ export function stepExpeditions(s: SimState, map: CoastMap): void {
   const w = s.world;
   if (w.expeditions.length === 0) return;
   for (const e of w.expeditions) {
+    // (Slice 47: a raid from a colony sails from there and back: colonyempire.ts.)
+    if (e.from) {
+      if (e.phase !== 'done') stepFromColony(s, e, () => fight(s, e));
+      continue;
+    }
     if (e.phase === 'mustering') muster(s, map, e);
     else if (e.phase === 'marching' && s.tick >= e.start + e.dur) fight(s, e);
     else if (e.phase === 'fighting' && s.tick >= e.start + e.dur) {
@@ -478,7 +488,8 @@ function fight(s: SimState, e: Expedition): void {
   }
   const comps = e.companies.map((id) => companyOf(s, id)).filter((x): x is Company => !!x);
   const kindOf = new Map(comps.map((x) => [x.id, x.kind] as const));
-  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e);
+  // (Slice 47: and your colonies' militia sailed to meet it.)
+  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e) + militiaMight(s, e);
   e.theirs = e.aim ? conquestDefenders(s, c) : defenders(s, c, e.kind);
   e.odds = oddsOf(e.ours, e.theirs);
   e.won = dice(s, e.id, 0, 11) < e.odds;
@@ -559,6 +570,9 @@ function fight(s: SimState, e: Expedition): void {
   else r.push(`They met ${e.kind === 'raid' ? `${whose(e.city)} watch in the countryside, about ${e.theirs} men` : `${whose(e.city)} garrison, about ${e.theirs} men${WALLED[e.city] ? ' behind its walls' : ''}`} (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
   // (Slice 34: what the aim came to: a city taken, a rising crushed, an ally's war turned.)
   if (e.aim) r.push(...aimFought(s, e));
+  // (Slice 47: your colonies' militia beside them.)
+  const militia = militiaFought(s, e);
+  if (militia) r.push(militia);
   const haul = [e.coin > 0 ? `${fmt(e.coin)} dr` : '', e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : ''].filter(Boolean).join(' and ');
   const goodsWords = e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : '';
   if (!e.won) r.push(`They took nothing${debt ? `: ${debtLine}` : ''}.`);
@@ -666,6 +680,8 @@ export function expeditionMen(s: SimState, e: Expedition): number {
 
 /** An expedition in a line: where it is and what it is doing. */
 export function expeditionLine(s: SimState, e: Expedition): string {
+  // (Slice 47: a raid from a colony.)
+  if (e.from) return strikeLine(s, e);
   const name = cityName(e.city);
   const what = e.kind === 'raid' ? 'Your raiding party' : 'Your army';
   const men = expeditionMen(s, e);

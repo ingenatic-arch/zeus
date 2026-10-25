@@ -149,6 +149,11 @@
  * since it was founded. What it sends is worked out afresh from its stage,
  * so a colony's next ship carries the new, smaller share of a cheap good.
  *
+ * Slice 47 (A colonial empire): no company or trireme is stationed in a
+ * colony, no company is sailing to or from one, no colony's militia is on
+ * its way, and no colony has been set free by treaty. A colony's next ship
+ * brings your share of its trade in coin with its goods.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -239,6 +244,7 @@ export function migrate(st: unknown): number {
   if (st.version === 35) fromSlice36(st);
   if (st.version === 36) fromSlice37(st);
   if (st.version === 37) fromSlice43(st);
+  if (st.version === 38) fromSlice47(st);
   return from;
 }
 
@@ -962,6 +968,28 @@ function fromSlice43(st: Record<string, unknown>): void {
         if (!Array.isArray(c.candidates)) c.candidates = [];
         if (typeof c.chooseBy !== 'number') c.chooseBy = 0;
         if (typeof c.govSince !== 'number') c.govSince = typeof c.since === 'number' ? c.since : tick;
+      }
+    }
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 47 (A colonial empire): see the note above. Only its own fields, each
+ * only if it is missing: the empire's `passages`, `militia` and `freed`, and
+ * each colony's `garrison` and `ships`.
+ */
+function fromSlice47(st: Record<string, unknown>): void {
+  if (isObj(st.empire)) {
+    const e = st.empire as Record<string, unknown>;
+    if (!Array.isArray(e.passages)) e.passages = [];
+    if (!Array.isArray(e.militia)) e.militia = [];
+    if (!Array.isArray(e.freed)) e.freed = [];
+    if (Array.isArray(e.colonies)) {
+      for (const c of e.colonies as unknown[]) {
+        if (!isObj(c)) continue;
+        if (typeof c.garrison !== 'number') c.garrison = 0;
+        if (!Array.isArray(c.ships)) c.ships = [];
       }
     }
   }

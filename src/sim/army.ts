@@ -126,7 +126,7 @@ export function ordinal(n: number): string {
 
 /** "the 2nd company". */
 // (Slice 34: an allied company is named for its city, vassals.ts.)
-export const companyName = (c: Company): string => (c.ally ? `the company from ${PLACES[c.ally]?.name ?? c.ally}` : `the ${ordinal(c.n)} company`);
+export const companyName = (c: Company): string => (c.militia ? `the militia of ${c.militia}` /* Slice 47 */ : c.ally ? `the company from ${PLACES[c.ally]?.name ?? c.ally}` : `the ${ordinal(c.n)} company`);
 /** "hoplites", "archers". */
 export const kindWord = (k: CompanyKind, many = true): string => (k === 'hoplite' ? (many ? 'hoplites' : 'hoplite') : k === 'horseman' ? (many ? 'horsemen' : 'horseman') : many ? 'archers' : 'archer');
 /** The homes a kind is drawn from, in words. */
@@ -581,6 +581,8 @@ export function wayFrom(s: SimState, map: CoastMap, x: number, z: number, goal: 
 /** Why a company can't march to a tile, or '' if it can (`way`: its way there, worked out). */
 export function marchRefusal(s: SimState, map: CoastMap, c: Company | undefined, tile: number): string {
   if (!c) return 'No such company';
+  // Slice 47: stationed in a colony (or sailing there or home).
+  if (c.posted) return 'Stationed in a colony: bring it home from the colony’s page on the map of Greece';
   if (c.away) return 'Away on an expedition';
   const n = map.size;
   if (!Number.isInteger(tile) || tile < 0 || tile >= n * n) return 'Beyond the edge of the map';
@@ -702,6 +704,8 @@ function daily(s: SimState, map: CoastMap): void {
     // (Away on an expedition (slice 28): its places are filled once it is home.)
     if (c.away) {
       c.why = 'Away on an expedition: its places are filled once it is home';
+      // Slice 47.
+      if (c.posted) c.why = 'Stationed in a colony: its places are filled once it is home';
       continue;
     }
     // (Hirelings come all at once, and nobody fills a hireling's place.)

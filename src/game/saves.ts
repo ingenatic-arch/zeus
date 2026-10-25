@@ -15,6 +15,8 @@ import { migrate } from '../sim/migrate';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState, type StockKind } from '../sim/state';
 // Slice 43.
 import { colonyWorksOk } from '../sim/colonyworks';
+// Slice 47: a colonial empire.
+import { colonyEmpireOk } from '../sim/colonyempire';
 import { STOCK_KINDS } from '../sim/stockbook';
 import { GOOD_COUNT } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
@@ -314,6 +316,8 @@ LEDGER_KINDS.push('stolen', 'fines');
 LEDGER_KINDS.push('vassals');
 // Slice 37: founding a colony.
 LEDGER_KINDS.push('colonies');
+// Slice 47: your share of your colonies' and free allies' trade.
+LEDGER_KINDS.push('colonytrade');
 /** A building's goods: one number per good. */
 const BUILDING_GOODS = ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch'];
 const WALKER_NUMBERS = ['id', 'people', 'home', 'seg', 'along', 'walked', 'route', 'origin', 'steps', 'since', 'target', 'load', 'food', 'meat', 'cheese', 'wait'];
@@ -427,7 +431,9 @@ function empireOk(e: unknown): boolean {
     all('colonies', (c) => typeof c.site === 'string' && typeof c.name === 'string' && typeof c.governor === 'string' && typeof c.trait === 'string' && Array.isArray(c.memories) && Array.isArray(c.guards) && Array.isArray(c.homes) && typeof c.skip === 'boolean' && (c.threat === null || isObj(c.threat)) && ['since', 'settlers', 'share', 'loyalty', 'next', 'sent', 'worth', 'talk', 'frees'].every((k) => fin(c[k]))) &&
     all('foundings', (f) => typeof f.site === 'string' && ['gathering', 'leaving', 'sea', 'done'].includes(f.phase as string) && Array.isArray(f.households) && (f.ship === null || isObj(f.ship)) && ['id', 'at', 'cost', 'wheat', 'post', 'until', 'start', 'dur', 'people'].every((k) => fin(f[k]))) &&
     // Slice 43: your colonies' stages, works, wants and governors, and goods going out to them.
-    colonyWorksOk(e)
+    colonyWorksOk(e) &&
+    // Slice 47: companies sailing to and from your colonies, the militia, free allies, and what is stationed in each colony.
+    colonyEmpireOk(e)
   );
 }
 

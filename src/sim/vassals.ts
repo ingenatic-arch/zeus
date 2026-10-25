@@ -61,6 +61,8 @@ import { blockaded } from './lanes';
 import type { Colony, Founding } from './colonies';
 // Slice 43.
 import type { Cargo } from './colonyworks';
+// Slice 47: a colonial empire (colonyempire.ts).
+import { shareFrom, type FreeAlly, type Militia, type Passage } from './colonyempire';
 import { caravanEntry } from './routes';
 import { MAP_SIZE } from '../map/coast';
 import { lineLength, siteOf, wayOf, wayPoints } from '../map/greece';
@@ -142,6 +144,8 @@ export interface Tribute {
   ended: number;
   /** Slice 37: a colony's shipment (its site; city 'home'), not a vassal's tribute. */
   colony?: string;
+  /** Slice 47: your share of the colony's trade, in coin, carried with its goods (paid in as they come ashore). */
+  coin?: number;
 }
 
 /** A company sent to your aid against raiders: on its road, in your city (`company`), going home, done. */
@@ -197,9 +201,13 @@ export interface Empire {
   foundings: Founding[];
   /** Slice 43: goods going out from your quay to your colonies (colonyworks.ts). */
   cargoes: Cargo[];
+  /** Slice 47: companies sailing to and from your colonies, colonies' militia coming to your aid, and colonies set free by treaty as your allies (colonyempire.ts). */
+  passages: Passage[];
+  militia: Militia[];
+  freed: FreeAlly[];
 }
 
-export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1, colonies: [], foundings: [], cargoes: [] });
+export const freshEmpire = (): Empire => ({ vassals: [], allies: [], heralds: [], tribute: [], aid: [], calls: [], conquests: [], nextId: 1, colonies: [], foundings: [], cargoes: [], passages: [], militia: [], freed: [] });
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -824,7 +832,8 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
   const w = s.world;
   const v = vassalOf(s, t.city);
   if (t.good < 0) {
-    income(s, t.amount, 'vassals', name(t.city));
+    // (Slice 47: a free ally's coin-only ship is its share of its trade.)
+    income(s, t.amount, t.colony ? 'colonytrade' : 'vassals', t.colony ? `from ${shareFrom(s, t.colony)}` : name(t.city));
     t.put = t.amount;
   } else {
     const ware = TRADE_GOODS[t.good] as Ware;
@@ -862,7 +871,11 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
     col.sent++;
     col.worth += t.worth;
   }
-  if (t.colony) news(w, s.tick, `site:${t.colony}`, `${col?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}`);
+  // Slice 47: your share of its trade, in coin, comes ashore with its goods.
+  if (t.colony && t.coin) income(s, t.coin, 'colonytrade', `from ${shareFrom(s, t.colony)}`);
+  const trade = t.colony && t.coin ? `, and ${fmt(t.coin)} dr of its trade into the treasury` : '';
+  if (t.colony && t.good < 0) news(w, s.tick, `site:${t.colony}`, `${shareFrom(s, t.colony).replace(/^your/, 'Your')}’s share of its trade is in: ${fmt(t.put)} dr into the treasury`);
+  else if (t.colony) news(w, s.tick, `site:${t.colony}`, `${col?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}${trade}`);
   else news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}`}${lost}`);
   s.rev++;
 }
@@ -967,8 +980,8 @@ function sendAid(s: SimState): void {
   }
 }
 
-/** Where the raiders are making for, to stand by: their target, or where a band from their side would make for. */
-function aidGoal(s: SimState, map: CoastMap, r: Raid): Building | undefined {
+/** Where the raiders are making for, to stand by: their target, or where a band from their side would make for. (Slice 47: the colonies' militia stand there too.) */
+export function aidGoal(s: SimState, map: CoastMap, r: Raid): Building | undefined {
   const b = r.target ? findBuilding(s, r.target) : undefined;
   if (b && b.kind !== 'rubble') return b;
   if (r.by === 'land') return landing(s, map, r.city)?.target;

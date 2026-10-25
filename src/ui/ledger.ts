@@ -96,6 +96,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'vassals') return [`Tribute from ${l.what}, your vassal`, n > 1 ? count(n, 'caravan', 'caravans') : ''];
   // Slice 37: founding a colony.
   if (l.kind === 'colonies') return [l.what, ''];
+  // Slice 47: your share of a colony's (or free ally's) trade, in coin with its ships.
+  if (l.kind === 'colonytrade') return [`Colonies’ trade · ${l.what.replace(/^from /, '')}`, n > 1 ? count(n, 'ship', 'ships') : ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
   if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
   if (l.kind === 'fire') return [`Burnt down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
@@ -121,6 +123,8 @@ ORDER.push('stolen');
 ORDER.splice(ORDER.indexOf('collected') + 1, 0, 'vassals');
 // Slice 37: fitting out a colony goes out after gifts and favours.
 ORDER.splice(ORDER.indexOf('favours') + 1, 0, 'colonies');
+// Slice 47: your share of the colonies' trade comes in after the vassals' tribute.
+ORDER.splice(ORDER.indexOf('vassals') + 1, 0, 'colonytrade');
 
 interface Row {
   kind: LedgerKind;

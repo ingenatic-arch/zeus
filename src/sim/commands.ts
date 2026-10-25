@@ -73,7 +73,10 @@ export type Command =
   | { type: 'colony'; act: 'found' | 'share' | 'name' | 'guard' | 'recall'; site: string; share?: number; name?: string; n?: number }
   // Slice 43
   /** A colony's works, wants and governor (colonyworks.ts; an act it refuses does nothing): fund a work (`work`: fields, harbour, agora, temple, walls, trade); send what it asks for; choose candidate `n` to govern it; dismiss its governor. */
-  | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number };
+  | { type: 'colonyworks'; act: 'work' | 'want' | 'governor' | 'dismiss'; site: string; work?: string; n?: number }
+  // Slice 47
+  /** A colonial empire (colonyempire.ts; an act it refuses does nothing): station a company (`company`, or the first at home) in a colony, or bring it home; station triremes at home off it (all, or `n`), or bring them home; strike at `city` from it with the company there; offer it a treaty that makes it a free ally; a shipment loading for it: sail with what is aboard, or call it off. */
+  | { type: 'colonyempire'; act: 'station' | 'home' | 'ships' | 'shipshome' | 'strike' | 'free' | 'sail' | 'cancel'; site: string; company?: number; n?: number; city?: string };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm';

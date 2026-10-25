@@ -56,6 +56,8 @@ import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
 import { moveShipper, stepColonyWorks, worksCommand } from './colonyworks';
+// Slice 47: a colonial empire.
+import { colonyEmpireCommand, stepColonyEmpire } from './colonyempire';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -244,6 +246,8 @@ export class Sim {
     stepColonies(s, map);
     // Slice 43: your colonies' stages, works, wants and governors, and the goods going out to them from your quay (nothing with no colony or shipment).
     stepColonyWorks(s, map);
+    // Slice 47: companies sailing to and from your colonies, the colonies' militia, your free allies (nothing with none and no colony).
+    stepColonyEmpire(s, map);
     // The army: its companies' calls, pay and drill, the barracks' porters, the banners' marches (nothing in a town with no barracks).
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
@@ -386,6 +390,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 43
     case 'colonyworks':
       if (typeof c.site === 'string' && typeof c.act === 'string') worksCommand(s, map, c);
+      break;
+    // Slice 47
+    case 'colonyempire':
+      if (typeof c.site === 'string' && typeof c.act === 'string') colonyEmpireCommand(s, map, c);
       break;
     case 'name':
       if (typeof c.name === 'string' && nameRefusal(c.name) === '' && c.name.trim() !== s.world.name) {
