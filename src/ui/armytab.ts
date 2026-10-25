@@ -59,7 +59,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   const out: string[] = [];
   const barracks = s.buildings.filter((b) => b.kind === 'barracks');
   const st = strength(s);
-  if (st.companies === 0 && barracks.length === 0) {
+  if (st.companies + st.allies === 0 && barracks.length === 0) {
     out.push('<div class="bigline"><span class="big">0</span><span>soldiers</span></div>');
     out.push(
       `<p class="side-note">The city has no army yet. Build a barracks (B ×4) beside a road, then raise companies there: hoplites from the fine houses and villas, archers from the townhouses and better. Hoplites each need a set of armour: a copper mine on the green-streaked rock in the hills (B B) and an armoury (B ×3) make it, or Corinth and Athens sell it. In a pinch a barracks can hire a company of Cretan archers or Arcadian hoplites, for a fee and three times the pay.</p>`,
@@ -69,7 +69,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   }
   // (Hoplites in without armour: counted among the soldiers, but not ready to march or go abroad.)
   const arming = s.army.soldiers.filter((x) => x.state === 'arming' && !companyOf(s, x.company)?.ally).length;
-  out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}</span></div>`);
+  out.push(`<div class="bigline"><span class="big">${fmt(st.men)}</span><span>${st.men === 1 ? 'soldier' : 'soldiers'} in ${st.companies} ${st.companies === 1 ? 'company' : 'companies'}${st.allies ? ` of yours, and ${st.allies} allied` : ''}</span></div>`);
   out.push(
     // (Your own men by kind, and hirelings once, so the three add up to the whole; a kind with none is left out when there are hirelings.)
     `<dl class="sums">${st.hoplites || !st.hirelings ? `<div><dt>Hoplites</dt><dd>${fmt(st.hoplites)}</dd></div>` : ''}${st.archers || !st.hirelings ? `<div><dt>Archers</dt><dd>${fmt(st.archers)}</dd></div>` : ''}${st.horsemen ? `<div><dt>Horsemen</dt><dd>${fmt(st.horsemen)}</dd></div>` : ''}${st.hirelings ? `<div><dt>Hirelings</dt><dd>${fmt(st.hirelings)}</dd></div>` : ''}${st.wounded ? `<div><dt>Wounded</dt><dd>${fmt(st.wounded)}</dd></div>` : ''}${arming ? `<div class="warn" title="Hoplites in at their barracks without a set of armour: they don’t drill, march or go on an expedition until the barracks’ porter brings them one from the storehouses"><dt>Waiting for armour</dt><dd>${fmt(arming)}</dd></div>` : ''}<div><dt>Pay a month</dt><dd>${fmt(st.pay)}<small> dr</small></dd></div></dl>`,
@@ -77,7 +77,7 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
   // The army's news: the last few things that happened to it.
   const news = s.army.news.filter((n) => n.tick <= s.tick).slice(-4).reverse();
   if (news.length) out.push(`<ul class="army-news">${news.map((n) => `<li><small>${esc(agoWords(s.tick - n.tick))}</small> ${esc(n.line)}.</li>`).join('')}</ul>`);
-  if (st.companies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there; the view stays where you are looking, and the company’s place on its row takes you to it. Esc lets go. Orders work while paused.</p>');
+  if (st.companies + st.allies > 0) out.push('<p class="side-note">Click a company (or its banner in the city) to take its banner in hand, then click a street or open ground to march it there; the view stays where you are looking, and the company’s place on its row takes you to it. Esc lets go. Orders work while paused.</p>');
   const serving = servingHomes(s);
   const homes = s.buildings.filter((b) => b.kind === 'home');
   const spare = { hoplite: homes.filter((b) => canSpare(s, b, 'hoplite', serving)).length, archer: homes.filter((b) => canSpare(s, b, 'archer', serving)).length, horseman: homes.filter((b) => canSpare(s, b, 'horseman', serving)).length };

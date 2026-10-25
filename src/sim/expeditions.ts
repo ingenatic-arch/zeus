@@ -229,7 +229,17 @@ export function expeditionRefusal(s: SimState, city: CityId | string, kind: stri
   const out = expeditionOut(s);
   if (out) return `Your soldiers are out already, after ${cityName(out.city)}: one expedition at a time`;
   if (s.world.raids.some((r) => r.phase === 'raiding')) return 'Not while raiders are on your land';
-  if (!chosen(s, kind, city as CityId).length) return s.army.companies.length ? 'No company has men ready in its ranks' : 'You have no soldiers: raise a company at a barracks';
+  if (!chosen(s, kind, city as CityId).length) {
+    // (Merge of slice 47: your own companies only, and one stationed in a colony is named, not counted as having none.)
+    const own = s.army.companies.filter((c) => !c.ally);
+    if (!own.length) return 'You have no soldiers: raise a company at a barracks';
+    const posted = own.filter((c) => c.posted);
+    if (posted.length) {
+      const where = posted.map((c) => `${companyName(c)} is stationed in ${shareFrom(s, c.posted as string)}`).join('; ');
+      return `${cap(where)}${posted.length < own.length ? ', and no other company has men ready in its ranks' : ''}: bring ${posted.length === 1 ? 'it' : 'them'} home from the colony’s page on the map of Greece`;
+    }
+    return 'No company has men ready in its ranks';
+  }
   const l = debtFrom(s, city as CityId);
   if (l?.demand) return 'Your demand stands: wait for its day';
   return '';
@@ -596,7 +606,9 @@ function fight(s: SimState, e: Expedition): void {
   e.a0 = e.a1;
   s.rev++;
   const lost = killed.length ? `; ${killed.length} of yours killed` : '';
-  news(w, s.tick, e.city, `Your ${e.kind === 'raid' ? 'raiding party' : 'army'} at ${name} ${e.won ? `won, and comes home with ${haul || 'little'}` : 'was beaten, and comes home with nothing'}${lost}${debt ? ` (${debtLine})` : ''}. The report is on ${whose(e.city)} page`, true);
+  // (Merge of slice 47: a strike from a colony sails back there, and its report is news, not a warning.)
+  const back = e.from ? `sails back to ${shareFrom(s, e.from)}` : 'comes home';
+  news(w, s.tick, e.city, `Your ${e.kind === 'raid' ? 'raiding party' : 'army'} at ${name} ${e.won ? `won, and ${back} with ${haul || 'little'}` : `was beaten, and ${back} with nothing`}${lost}${debt ? ` (${debtLine})` : ''}. The report is on ${whose(e.city)} page`, !e.from);
   armyNews(s, `Your ${e.kind === 'raid' ? 'raiding party' : 'army'} at ${name} ${e.won ? 'won' : 'was beaten'}: ${killed.length} killed, ${wounded.length} wounded${haul && e.won ? `; it brings ${haul}` : ''}`, 0);
 }
 

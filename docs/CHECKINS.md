@@ -70,6 +70,26 @@ I played the four steps above at 1920 × 1080 in all three looks and went throug
 
 Still not fixed, for a later slice: the army chip counts the militia and allied companies with your own, and a militia company can be marched like your own. Please judge the anchorages and the "on its way" line by eye.
 
+### At the merge
+Slices 43, 41, 44, 42, 48 and 45 joined the main line before this one, so a few things moved to fit with them:
+
+- **Saves.** The state version is 44, not 39. Older saves come up through each slice's step in turn, this one's last: nothing stationed, sailing or freed, as above.
+- **The empire's news is in the scroll** (the Messages panel), each piece once:
+  - Under **Empire**: a company marching down to sail, sailing, landing and holding a colony, sailing home and home again; triremes stationed off a colony or brought home; the colonies' and free allies' shares and trade coin; the treaty you sign. All news. A colony talking of freedom stays a warning.
+  - Under **War**: a colony's militia sailing to your aid and coming ashore (the ashore message's link goes to your quay); a strike sailing from a colony, its report (the link goes to the city struck, whose page holds the report) and the company back at its colony. All news, not warnings.
+  - The strike's report now says the raiding party "sails back to Nea Naxos", not "comes home". A militia that breaks runs "back to their ship at your quay", not to a barracks it doesn't have.
+- **The army chip counts only your own companies.** With allies or a colony's militia in the city it says so apart: "32 soldiers · 2 companies of yours, 1 ally" (the Military tab likewise). "1 out" counts your own companies out, a stationed one among them. If you send an army while your only ready company is stationed abroad, the refusal now names it ("the 1st company is stationed in Nea Naxos ...: bring it home from the colony's page") instead of saying no company has men ready.
+- **Lands of any size.** The ships for your companies and the militia sail in on the land's own bay. On generated lands of 128, 192 and 256 tiles I checked that three of them at once anchor in open water, each further out, and that a company is rowed out from the land's own quay and comes ashore there again.
+- **The quay is shared.** The company waits on the road beside the trading post, where the porters and dockers pass, and nobody blocks anybody (walkers pass through each other). The rowing boats take turns between the shipments, the settlers and the companies, three at most at once; one now also rows a company home from a colony that is no longer yours. Goods coming home (a strike's takings, a shipment called off) go only into stores whose rules accept them, as slice 48 wants.
+- **Earlier demos.** I compared all 147 prepared towns from the main line before this merge, at opening and 900 ticks on. 143 are exactly the same. #colonies, #colonywants and #colonyworks open 422 dr richer and are 518 dr richer 900 ticks on, and #empire 32 dr and 57 dr: the trade coin and nothing else, as above.
+
+Checked on the merged line: the typecheck and the build pass. 704 of 706 tests pass in the full run; the other two timed out under the machine's load (routes' determinism and the wages check that plays every demo) and passed when run alone. In headless Chromium:
+- The smoke checks pass for #colonybase and #freeally, and for the slices this one touches: #barracks (the chip), #vassal, #colony, #colonies, #ally, #empire (the thieves' checks included), #landsmall, #landmedium, #landlarge, #colonywants, #colonyworks, #messages and #raid.
+- #colonybase, #freeally, #colonies, #colonywants, #colonyworks, #empire, #raid, #landlarge, #landsmall, #colony, #ally, #vassal, #court, #storerules, #messages and #town open with no page errors.
+- I looked at screenshots of Nea Naxos' page, your empire list, the company's ship at anchor in the bay with the boat rowing, and the free ally's page.
+
+Left for slice 52: the militia's banner, and marching them by hand like your own companies. How it all feels to play is still yours to judge.
+
 ## Slice 45 — The court and the prison (25 Oct)
 
 The watch no longer just fines the people it catches. Build a court and the watchman walks whoever he catches there, a step behind them, and a magistrate and jurors try them a few days later by a law you set for each kind of crime: a fine, a day in the stocks at the agora, prison, hard labour at the quarry or the mine, exile, or execution (your decision on 25 Oct: "I'm fine with executions"; it is told plainly, without gore). Each punishment holds homes back from crime by how hard it is, and each has a price, which the court's panel spells out. A prison holds those the court sends there. Crowded or short of guards, it grows restless: the town is warned days ahead, and if nothing changes the prisoners break out and run home. You weren't here while it was built: every choice below is mine, from the spec's defaults.

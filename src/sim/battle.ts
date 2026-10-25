@@ -725,7 +725,8 @@ function rout(s: SimState, map: CoastMap, c: Company): void {
   c.routed = true;
   for (const x of s.army.soldiers) if (x.company === c.id) x.foe = 0;
   if (!sendBanner(s, map, c.id, -1)) c.order = 'hold';
-  armyNews(s, `${companyName(c)[0].toUpperCase()}${companyName(c).slice(1)} has lost half its men and breaks: they run back to the barracks`, c.barracks);
+  // (Merge of slice 47: a colony's militia have no barracks here: they run for their ship.)
+  armyNews(s, `${companyName(c)[0].toUpperCase()}${companyName(c).slice(1)} has lost half its men and breaks: they run back to ${c.militia ? 'their ship at your quay' : 'the barracks'}`, c.barracks);
   s.rev++;
 }
 

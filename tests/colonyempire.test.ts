@@ -82,6 +82,8 @@ describe('a company stationed in a colony', () => {
     expect(garrisonHold(s, naxos)).toBe(0.45);
     expect(colonyLoyalty(s, naxos).why.some((w) => w.n === 6 && /stationed there to hold it/.test(w.why))).toBe(true);
     expect(lines(s).some((x) => /has landed at Nea Naxos and holds it/.test(x))).toBe(true);
+    // (Merge of slice 47: the colony's news in the town's messages, under Empire, once.)
+    expect(s.messages.log.filter((x) => /has landed at Nea Naxos and holds it/.test(x.words)).map((x) => [x.kind, x.u, x.at])).toEqual([['colony', 0, { site: 'naxos' }]]);
     // Refused a second company.
     sim.enqueue({ type: 'colonyempire', act: 'station', site: 'naxos' });
     sim.flush();
@@ -210,6 +212,10 @@ describe('the militia', () => {
     expect(c.militia).toBe('Nea Thasos');
     expect(s.army.soldiers.filter((x) => x.company === c.id).length).toBe(m.men);
     expect(lines(s).some((x) => /The militia of Nea Thasos, \d+ men, are ashore at your quay/.test(x))).toBe(true);
+    // (Merge of slice 47: in the town's messages, the militia are the war's news, told once; ashore, the link goes to the quay.)
+    const said = (re: RegExp) => s.messages.log.filter((x) => re.test(x.words));
+    expect(said(/^Nea Thasos sends its militia/).map((x) => [x.kind, x.u, x.at])).toEqual([['army', 0, { site: 'thasos' }]]);
+    expect(said(/^The militia of Nea Thasos, \d+ men, are ashore at your quay/).map((x) => [x.kind, x.u, x.at])).toEqual([['army', 0, { building: m.post }]]);
     expect(until(sim, () => m.phase === 'home' || m.phase === 'done', 8 * TICKS_PER_MONTH)).toBe(true);
     expect(s.army.companies.some((x) => x.militia)).toBe(false);
   }, 240000);

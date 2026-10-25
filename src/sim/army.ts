@@ -1053,7 +1053,8 @@ function ready(s: SimState, map: CoastMap, x: Soldier, c: Company): void {
 // Reading the army.
 
 /** The city's whole strength: its own men by kind, its hirelings (counted once, not again under their kind: slice 24's review), the wounded among them all, and their pay a month. */
-export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number; horsemen: number } {
+// (Merge of slice 47: `companies` counts only your own; `allies` the allied companies and colonies' militia in your city.)
+export function strength(s: SimState): { hoplites: number; archers: number; men: number; pay: number; companies: number; wounded: number; hirelings: number; horsemen: number; allies: number } {
   let hoplites = 0;
   let archers = 0;
   let horsemen = 0;
@@ -1072,7 +1073,8 @@ export function strength(s: SimState): { hoplites: number; archers: number; men:
     wounded += woundedOf(s, c).length;
   }
   const men = hoplites + archers + hirelings + horsemen;
-  return { hoplites, archers, men, pay, companies: s.army.companies.length, wounded, hirelings, horsemen };
+  const allies = s.army.companies.filter((c) => c.ally).length;
+  return { hoplites, archers, men, pay, companies: s.army.companies.length - allies, wounded, hirelings, horsemen, allies };
 }
 
 /** Is any of a company's men fighting now? */

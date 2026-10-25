@@ -2453,7 +2453,8 @@ function start(preparedTown: string | null): void {
       topbar.showShip(traderChip);
       raidChip.show(raidChipNow(s));
       const army = strength(s);
-      armyChip.show(army.men, army.companies, s.army.companies.filter((c) => c.order !== 'drill').length);
+      // (Merge of slice 47: your own companies out, stationed in a colony too; allied companies and militia named apart.)
+      armyChip.show(army.men, army.companies, s.army.companies.filter((c) => !c.ally && c.order !== 'drill').length, army.allies);
       debtsChip.show(debtsNow(s));
       // Slice 39: the laurel chip, the nearest milestone across the three ambitions.
       if (time - laurelAt > 0.5 || laurelFresh) {

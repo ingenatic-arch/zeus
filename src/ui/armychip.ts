@@ -21,9 +21,10 @@ export class ArmyChip {
     this.el = el;
   }
 
-  /** Show the city's strength (no men: hidden). */
-  show(men: number, companies: number, marching: number): void {
-    const text = men > 0 ? `${men} ${men === 1 ? 'soldier' : 'soldiers'} · ${companies} ${companies === 1 ? 'company' : 'companies'}${marching ? ` · ${marching} out` : ''}` : '';
+  /** Show the city's strength (no men: hidden). (Merge of slice 47: your own companies, and the allied ones and colonies' militia beside them: "2 companies of yours, 1 ally".) */
+  show(men: number, companies: number, marching: number, allies = 0): void {
+    const theirs = allies ? ` of yours, ${allies} ${allies === 1 ? 'ally' : 'allies'}` : '';
+    const text = men > 0 ? `${men} ${men === 1 ? 'soldier' : 'soldiers'} · ${companies} ${companies === 1 ? 'company' : 'companies'}${theirs}${marching ? ` · ${marching} out` : ''}` : '';
     if (text === this.key) return;
     this.key = text;
     this.el.hidden = !text;

@@ -61,7 +61,8 @@ export class RowBoats {
   }
 
   update(s: SimState, alpha: number, time: number): void {
-    const xs = (s.empire.colonies.length || s.empire.foundings.length || (s.empire.cargoes ?? []).length) ? rowingOut(s) : [];
+    // (Merge of slice 47: a company's passage too, home from a colony that is yours no more.)
+    const xs = (s.empire.colonies.length || s.empire.foundings.length || (s.empire.cargoes ?? []).length || (s.empire.passages ?? []).length) ? rowingOut(s) : [];
     const t = s.tick + alpha;
     for (let i = 0; i < MOST; i++) {
       const m = this.meshes[i];

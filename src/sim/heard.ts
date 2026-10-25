@@ -65,6 +65,12 @@ function since<T extends { tick: number }>(list: readonly T[], cur: Cursor): T[]
 
 /** What a line of news is, from its words: the first rule that matches (urgency -1: the line's own, a warning if it can't wait). */
 const RULES: ReadonlyArray<[RegExp, MessageKind, Urgency | -1]> = [
+  // Merge of slice 47: a colony's (or free ally's) militia sailing to your aid, ashore at your quay or sailing with your army are the war's
+  // news; a strike from a colony sailing and coming back is the army's; a company landing in a colony, triremes stationed off one or home
+  // from it, and a treaty signed are the colony's. All of them news, not warnings (a colony talking of freedom stays a warning).
+  [/ sends its militia, |^The militia of .+ (are ashore at your quay|sail to meet your army)/, 'army', NEWS],
+  [/ sails from .+ to raid | is back at .+ from /, 'army', NEWS],
+  [/ has landed at .+ and holds it| to be stationed off | triremes? comes? home from |^You have signed a treaty with /, 'colony', NEWS],
   // A band in at the edge of your land or on your shore: the alarm.
   [/^Raiders! |army is in at the \w+ edge of your land|^Sails! .+ ships are in sight off your shore|army is ashore/, 'raid', ALARM],
   [/ships hold the mouth of your harbour/, 'blockade', ALARM],
@@ -115,6 +121,12 @@ function warPlace(s: SimState, city: string): Place {
   return { city };
 }
 
+/** Merge of slice 47: the trading post a colony's militia came ashore by, while they are ashore (0: none). */
+function militiaQuay(s: SimState, site: string): number {
+  const m = (s.empire.militia ?? []).find((x) => x.site === site && x.phase === 'ashore' && x.post > 0);
+  return m && s.buildings.some((b) => b.id === m.post) ? m.post : 0;
+}
+
 /** Hear what the three news logs have said since last time. */
 export function hear(s: SimState): void {
   const h = s.messages.heard;
@@ -125,7 +137,9 @@ export function hear(s: SimState): void {
     const site = n.city.startsWith('site:');
     // (Slice 48: an alarm is known by its kind; a line from before kinds, by its words.)
     const k = n.alarm ? { kind: n.alarm, u: ALARM as Urgency } : kindOfLine(n.line, !!n.urgent, site, 'greece', !!n.greece);
-    const at: Place = site ? { site: n.city.slice(5) } : k.kind === 'raid' ? warPlace(s, n.city) : { city: n.city };
+    // (Merge of slice 47: a colony's militia ashore at your quay are found there, at the trading post they landed by.)
+    const quay = site && k.kind === 'army' ? militiaQuay(s, n.city.slice(5)) : 0;
+    const at: Place = quay > 0 ? { building: quay } : site ? { site: n.city.slice(5) } : k.kind === 'raid' ? warPlace(s, n.city) : { city: n.city };
     say(s, { kind: k.kind, u: k.u, words: `${n.line}.`, tick: n.tick, at });
   }
   for (const n of since(s.army.news, h.army)) {
