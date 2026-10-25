@@ -2,6 +2,67 @@
 
 Notes to Oliver, newest first.
 
+## Slice 45 — The court and the prison (25 Oct)
+
+The watch no longer just fines the people it catches. Build a court and the watchman walks whoever he catches there, a step behind them, and a magistrate and jurors try them a few days later by a law you set for each kind of crime: a fine, a day in the stocks at the agora, prison, hard labour at the quarry or the mine, exile, or execution (your decision on 25 Oct: "I'm fine with executions"; it is told plainly, without gore). Each punishment holds homes back from crime by how hard it is, and each has a price, which the court's panel spells out. A prison holds those the court sends there. Crowded or short of guards, it grows restless: the town is warned days ahead, and if nothing changes the prisoners break out and run home. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is now 40. Older saves load with the default law (below), nobody at court or in prison, and an empty crime record. A version 37 save and all 136 of the version 38 prepared towns I kept load, and the version 37 one plays on.
+- **Earlier demos open exactly as before.** Nothing changes without a court, and no earlier demo has one. I compared all 138 earlier prepared towns with the starting commit's build: identical apart from the new fields.
+- **Watchmen help each other.** When a watchman starts after a criminal, a free watchman from a post whose round meets his (joined by road within a watchman's range) runs to help. Two watchmen always take a gang's man, and a lone watchman no longer chases one who has beaten a watchman off. This applies in any town with every crime on, court or not.
+- **Talk of burning and a restless prison now come first** in the crime line under the top bar, ahead of the latest crime news.
+- **The household panel's crime block reads differently** for the newer crimes: "Tempted to pick pockets", then "Why picking pockets: hungry, no work, and the agora's crowds close by. The agora by the bay is within reach." Before, the reasons were said twice. Theft's block is unchanged.
+- **The crime overlay is coloured by kind** (red theft, amber pickpockets, violet smashing, orange burning, blue smuggling), with a key under the top bar while it is on.
+
+### What's new
+- **The court** (Z four times, 300 dr, a magistrate and four jurors). Its panel opens when you click it:
+  - **The law**, a row for each crime (theft, picking pockets, vandalism, arson, smuggling, and a gang's men, whatever they did). Each row has six buttons, and each button's tip says what that punishment does, what it deters, what it costs and what it suits. "Death" is marked as far too harsh for pickpockets, vandals and smugglers, but you can still choose it. If a punishment can't be carried out here (no agora for the stocks, no prison, no quarry or mine), the row says what happens instead and why.
+  - **Cases**: who is being walked in and who waits for trial, and the last sentences.
+  - **The crime rate**, month by month: each kind, per thousand people, and how many were caught and tried.
+  - **What each punishment does.** The defaults are the stocks for theft, picking pockets and vandalism, a fine for smuggling, and prison for arson and a gang's men.
+- **The punishments**, each with a cost you can see in the city:
+  - **A fine**: as before. It holds back only the poorest.
+  - **The stocks**: a day pinned in a wooden frame at the agora nearest his home, drawn there. The household is shamed (mood −2 for two months). Homes within 12 tiles of that agora remember it for a month, and the rest of the city a little.
+  - **Prison**: four months, and the household is a worker short.
+  - **Hard labour**: six months as an unpaid hand at the quarry or the copper mine. He fills a job and draws no wage (the ledger shows none for him), but homes of his class are sore while he labours.
+  - **Exile**: the whole household walks out of the city and its home stands empty. The poor grumble, and kind rulers (generous or pious) think less of you.
+  - **Execution**: the condemned drinks hemlock in the court's cell. The household mourns for a season, the whole city is sombre for two months, and kind rulers think less of you. A gang whose man is exiled or executed breaks up.
+- **Deterrence with reasons.** Each home's temptation now lists the law as a reason holding it back ("the law: prison for theft"), weighed against the crime its own trouble points to, and only while a court has people at work.
+- **The prison** (Z five times, 400 dr, six guards), with 8 cells. Its panel shows its unrest, who it holds and for how long, and who is at hard labour anywhere. Over 8 prisoners, or under half its guards, its unrest climbs daily. At 50% the town hears that it is crowded or short of guards, what would calm it (another prison, or more guards) and roughly when they break out. At 100% they do, each running home as his own kind of criminal, and the watch can catch them again.
+- **Crooked collectors meet the court.** With a court at work, a collector who keeps back some of the takings is found out by the court's clerks, summoned and tried.
+- **Drawn in code:** the court (a columned hall on a stepped base, a bronze shield in its pediment, the magistrate's chair, jurors on benches, a voting urn); the prison (a squat dark block with barred windows and a walled yard where the prisoners stand, with sentries); the stocks; the convict (grey tunic, hands bound, head bowed). The arsonist's torch flame is about three times bigger, with an ember glow.
+- **The household panel** says when one of the family is being walked to court, waiting for trial, in prison, at hard labour or in the stocks.
+
+### What to try
+1. #court: opens paused on the court, its panel open. A watchman is walking a thief along the road to it. The panel's "Lately" shows the history: an arsonist caught before he could set his fire and sent to prison, a crooked collector who skimmed the tax office's takings and was put in the stocks, and a pickpocket. Press space: the thief reaches the court and is tried about three days later. Watch him stand in the stocks at the agora nearest his home (east of the court, by the olive grove). Then change the law on the panel (say, prison for thieves) and play on.
+2. #jailbreak: the prison holds eleven in its eight cells, its panel open, and the line under the top bar warns of a breakout in about four days. Press space and watch the prisoners run home, with the watch after them. Or, before that, build a second prison (Z five times) on a road nearby: the guards walk the overflow over to it the next day and the unrest falls.
+3. #court-overlay: the crime overlay coloured by kind, with its key.
+
+### What I'd like your eye on
+- **The law's weight.** Each punishment's deterrence is a guess, weighed against the crime a home is drawn to: a fine and the stocks −1 (and for a month after someone stands in the stocks, −2 more round that agora and −1 elsewhere), prison and labour −2, exile −3, execution −4. A fine counts only for tents and huts. Is the step from the stocks to the harsher punishments big enough to tempt you?
+- **The price of execution and exile:** a season's mourning, two sombre months for the city, and a memory with the kind rulers. Enough of a cost, or too much?
+- **The stocks** at the city's zoom: can you find the figure in the frame at the agora's edge? It is small.
+- **The convict and his watchman** walking to the court: do they read as a pair?
+- **Both demos are staged**: the arsonist, the collector and the thief are sent out by hand, and so are #jailbreak's eleven prisoners, so that everything is ready the moment the demo opens. From then on everything runs by the rules.
+
+### Known rough edges
+- A court with only some of its workers still tries at full speed. Only a court with nobody at work holds its cases.
+- After a breakout the warning line can stay under the top bar for a moment until the line refreshes.
+- The stocks' figure is partly hidden by the agora's awnings from some angles.
+
+### Measurements before/after
+Both runs used a copy of `measure.mjs` with its waits loosened, the starting commit's (`cbf302e`) while this slice was being built and this slice's at the end. The machine was shared with the other lines building at once (a load of 14 to 34 on 4 cores), so the timings can't be compared; only the counts can.
+- **Bundle:** 4,783 KB gzipped (was 4,669). The game itself is 871 KB (was 853), and the prepared towns 3,913 KB (was 3,816), with the two new demos' towns.
+- **Drawing:** every earlier view and demo shot (116 of them) draws exactly the same triangles and draw calls as before. `#court` draws 1,647,097 triangles in 88 draw calls from its own view and 1,779,218 in 107 from the town view; `#jailbreak` 1,593,506 in 84.
+- **Loads and frames:** the bare link was ready at 7.2 s (1.6 s in the starting commit's run), in step with the machine's load. Frame updates were mixed both ways (for example `#town` 19.8 ms against 20.6 ms). The run hit its two-hour limit before its last part, the load times of every demo; the two new demos opened from their prepared towns, ready at 5.0 s and 4.6 s by the page's clock.
+- **Tests:** 641 (was 622). The new file's 19 pass. In the full run under that load, 8 tests failed on their time limits (30 s, and 20 minutes for one); rerun on their own, all 8 passed, as did the 5 that had timed out in an earlier full run.
+- **Smoke:** the full smoke (loosened copy) passes `#court` and `#jailbreak` and every earlier check except these:
+  - **Z cycling** expected Z to go back to the tax office after the architect. It now goes on to the court and the prison, so I updated the check, and it passes.
+  - **`#battle`'s town line** failed once under load. Run alone, it passed on both this slice and the starting commit.
+  - **A trireme's hover, a blockading ship's hover, the quarry tool's refusal, and `#seized`'s line and chip** (1,470 dr left where the smoke looks for 1,474) fail the same way at the starting commit. I ran those blocks there.
+- **Old towns:** I compared all 138 earlier prepared towns with the starting commit's build: identical apart from the new fields. A version 37 save loads and plays on, and all 136 version 38 prepared towns I had kept load.
+- **Build:** 10 to 12 minutes under that load, nearly all of it re-baking the prepared towns, as any change to the simulation does.
+
 ## Slice 41 — Crimes of every kind (25 Oct)
 
 Theft now has company. A tempted home turns to the crime its own trouble points to: pickpockets work the agora's and the theatre's crowds, vandals smash a fountain, a stall or a shrine's statue, rare arsonists are talked about in the quarter before they strike, smugglers slip goods off the quay and out of the caravan yard, and a tax collector whose wages are owed keeps some of the takings. A quarter tempted for months grows a gang, which you hear about a season before it takes a house as its den. You weren't here while it was built: every choice below is mine, from the spec's defaults.
