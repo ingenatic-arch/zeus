@@ -3227,9 +3227,16 @@ function empireCityTown(sim: Sim): void {
     const x = lighthouse();
     return !!x && (x.stage >= 1 || x.finished > 0);
   };
-  playOn(EMPIRE_MOST, () => shared() && rising() && estates().every((e) => e.level >= ESTATE));
   // On to EMPIRE_WINTER_DAYS before the next winter (one with most of its autumn still to come), crime on EMPIRE_CRIME before.
-  const sail = winterAfter(s.tick + EMPIRE_CRIME + EMPIRE_WINTER_DAYS * TICKS_PER_DAY) - EMPIRE_WINTER_DAYS * TICKS_PER_DAY;
+  const sailFrom = (t: number): number => winterAfter(t + EMPIRE_CRIME + EMPIRE_WINTER_DAYS * TICKS_PER_DAY) - EMPIRE_WINTER_DAYS * TICKS_PER_DAY;
+  // (Merge of slice 41: since the dockers' fix moved this history, this step ran on past the day crime was due to go on, so
+  // crime had ten days instead of two months and no thief was out as the town opened. Crime now goes on on its day, even
+  // while this step is still playing.)
+  playOn(EMPIRE_MOST, () => {
+    if (!s.crime.on && s.tick >= sailFrom(s.tick) - EMPIRE_CRIME) crime(sim, true);
+    return shared() && rising() && estates().every((e) => e.level >= ESTATE);
+  });
+  const sail = sailFrom(s.tick);
   playOn(EMPIRE_MOST, () => s.tick >= sail - EMPIRE_CRIME);
   crime(sim, true);
   playOn(EMPIRE_MOST, () => s.tick >= sail);

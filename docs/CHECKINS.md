@@ -86,6 +86,14 @@ What I watched beyond the demos, staged by hand:
 
 Left as they are, for later: the crime overlay doesn't colour each home by its crime (the plan said it would); nobody has watched a caravan-yard smuggler, a smashed shrine or a crooked collector in the game; and a criminal who beats off one watchman can be chased, and beat off, the next. Tests: 605, all passing. Measured after the review: the bundle is still 4,603 KB, every town view draws as before, and `#crimes`' new opening view draws 1,695,638 triangles in 97 draw calls.
 
+### At the merge
+Slice 43 (colonies that grow up) joined the main line first, so this slice's saves are version 39, not 38. Saves from before either slice still load.
+
+- **`#empire` opens with thieves out again.** Since the armour-and-horses fix, its history reached the day crime should have been switched on (two months before Rhodes' fleet sails) late, so crime had only ten days and no thief was out as it opened. Crime now goes on on its day, and `#empire` opens with three thieves out and the fleet still at sea. That makes it open four days earlier, with 2 fewer people and 30 dr less, and it ends up about 270 dr poorer 900 days' ticks on (the watch catches thieves and fines them). Its estates, Lighthouse, colony and laurels are as before. The new crimes don't change this: they stay off while the history plays.
+- **Colonies and smugglers.** Goods carried down for a colony are counted as your ship's lading, not as the quay's stock for sale, so smugglers can't take them. They only take what waits on the quay or in the caravan yard to be sold.
+- **Repairs.** Nothing in slice 43 touches the inspector or wear, so he still mends a smashed building before anything creaking.
+- Every other demo opens exactly as before (all 136 compared). Played on 900 days' ticks, only `#missing` (a vandal smashed the agora's food stall; 12 dr less) and `#warning` (talk of burning, then an arson; 474 people where there were 496) differ, both from this slice's new crimes. `#crimes`, `#gang`, `#thieves`, `#nowatch`, `#harsh`, `#empire`, `#colonywants` and `#colonyworks` open with no errors, and the automatic checks for this slice, slice 43, `#empire`, the thieves, fire and the ledger pass. Tests: 622, all passing.
+
 ## Slice 43 — Colonies that grow up (25 Oct)
 
 A colony is now a place that grows up and asks things of you: it goes from tents on a beach to a settlement, a town and a city, you pay for works there with drachmas and goods carried down to your own quay, it asks for things by a day and remembers whether you sent them, and you choose who governs it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
