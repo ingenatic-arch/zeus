@@ -295,10 +295,13 @@ function cityPage(s: SimState, map: CoastMap): string {
   const peopleWhy = last && before
     ? `${signed(last.people - before.people)} in ${esc(monthName(last.m, true).split(' ')[0])}: ${plural(came, 'person', 'people')} came, ${went ? `${fmt(went)} left` : 'nobody left'}.${taxGone ? ` ${plural(taxGone, 'household has', 'households have')} left over taxes lately.` : ''}`
     : `${plural(s.arrived, 'person has', 'people have')} come since the founding, ${fmt(s.left)} left.`;
-  const lev = homes.reduce((a, b) => a + b.level, 0) / Math.max(1, homes.length);
+  // (The level most homes are at.)
+  const byLevel = new Map<number, number>();
+  for (const b of homes) byLevel.set(b.level, (byLevel.get(b.level) ?? 0) + 1);
+  const [lev, levN] = [...byLevel.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0] ?? [0, 0];
   out.push('<div class="ov-tiles">');
   out.push(tile('People', fmt(s.population), peopleWhy, chart(ids, [{ name: 'People', colour: '#5a4630', values: [...ms.map((x) => x.people), s.population] }])));
-  out.push(tile('Homes', fmt(homes.length), `${homes.length ? `Mostly ${esc(lower(HOME_NAMES[Math.round(lev)] ?? '').replace(/^an? /, ''))}s` : 'None lived in yet'}; ${plural(s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.people === 0).length, 'empty plot', 'empty plots')} marked out.`, chart(ids, [{ name: 'Homes', colour: '#8a6430', values: [...ms.map((x) => x.homes), homes.length] }])));
+  out.push(tile('Homes', fmt(homes.length), `${homes.length ? `${fmt(levN)} of them ${esc(lower(HOME_NAMES[lev] ?? '').replace(/^an? /, ''))}${levN === 1 ? '' : 's'}, the most of any kind` : 'None lived in yet'}; ${plural(s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.people === 0).length, 'empty plot', 'empty plots')} marked out.`, chart(ids, [{ name: 'Homes', colour: '#8a6430', values: [...ms.map((x) => x.homes), homes.length] }])));
   const worst = md.bad[0];
   out.push(
     tile(
