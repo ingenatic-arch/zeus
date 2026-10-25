@@ -839,6 +839,50 @@ export function bakeCoast(data: CoastData = defaultCoast): CoastMap {
   return map;
 }
 
+/**
+ * Slice 46's review: on a land with lakes or marsh, the tiles of sea water not
+ * joined to the map's edges (a lake, a pool in the marsh): water at sea level,
+ * but not the sea, which no ship reaches and no lighthouse looks out over.
+ * Null on any other land (the Bay and slice 42's lands), which keeps them as
+ * they were.
+ */
+const inland = new WeakMap<CoastMap, Uint8Array | null>();
+export function inlandWater(map: CoastMap): Uint8Array | null {
+  if (inland.has(map)) return inland.get(map) ?? null;
+  let out: Uint8Array | null = null;
+  if ((map.data.lakes?.length ?? 0) > 0 || (map.data.marsh?.length ?? 0) > 0) {
+    const n = map.size;
+    const w = map.tileWater;
+    const open = new Uint8Array(n * n);
+    const queue: number[] = [];
+    const reach = (t: number): void => {
+      if (w[t] === WATER_SEA && !open[t]) {
+        open[t] = 1;
+        queue.push(t);
+      }
+    };
+    for (let i = 0; i < n; i++) {
+      reach(i);
+      reach((n - 1) * n + i);
+      reach(i * n);
+      reach(i * n + n - 1);
+    }
+    for (let q = 0; q < queue.length; q++) {
+      const t = queue[q];
+      const x = t % n;
+      const z = (t - x) / n;
+      if (x > 0) reach(t - 1);
+      if (x < n - 1) reach(t + 1);
+      if (z > 0) reach(t - n);
+      if (z < n - 1) reach(t + n);
+    }
+    out = new Uint8Array(n * n);
+    for (let t = 0; t < n * n; t++) if (w[t] === WATER_SEA && !open[t]) out[t] = 1;
+  }
+  inland.set(map, out);
+  return out;
+}
+
 /** Slice 46: how far from the river's water, a lake's or the sea's shore water lies under a dry land (tiles). */
 export const GROUNDWATER_REACH = 9;
 

@@ -27,6 +27,9 @@ import { SIM_STATE_VERSION } from '../src/sim/state';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { DEMOS } from '../src/game/demos';
 import { TILE_ROAD } from '../src/sim/state';
+// Slice 46's review: a lake isn't the sea.
+import { inlandWater, WATER_SEA } from '../src/map/bake';
+import { monumentRefusal } from '../src/sim/monumentworks';
 
 const sheltered = (size: number, seed: number): Land => ({ kind: 'sheltered', size, seed });
 const sha = (a: ArrayLike<number> & { buffer: ArrayBufferLike; byteOffset: number; byteLength: number }): string =>
@@ -461,7 +464,7 @@ describe('many lands', () => {
     const before = JSON.stringify({ ...plain, land: null, version: 0 });
     expect(migrate(plain)).toBe(41);
     expect(plain.land).toEqual({ ...sheltered(128, 1), gen: 1 });
-    expect(plain.version).toBe(42);
+    expect(plain.version).toBe(SIM_STATE_VERSION);
     expect(JSON.stringify({ ...plain, land: null, version: 0 })).toBe(before);
     // The Bay, and a land already stamped, as they were.
     const bay = JSON.parse(JSON.stringify(createState(1)));
@@ -496,4 +499,34 @@ describe('many lands', () => {
       expect(roads.some((t) => t % n === 0 || t % n === n - 1 || t < n)).toBe(true);
     }, 120_000);
   }
+
+  // Slice 46's review: a lake is water at sea level, but no ship reaches it, so the Lighthouse doesn't stand by one.
+  it('a lake is not the sea: the Lighthouse is refused on a lake shore, and the Bay and slice 42’s lands are as they were', () => {
+    expect(inlandWater(coastMap())).toBeNull();
+    expect(inlandWater(landMap({ kind: 'sheltered', size: 192, seed: 4, gen: 1 }))).toBeNull();
+    const sim = new Sim(1, 1, { kind: 'delta', size: 192, seed: 2 });
+    const map = sim.map;
+    const n = map.size;
+    const inl = inlandWater(map)!;
+    expect(inl).not.toBeNull();
+    let lake = 0;
+    for (let t = 0; t < n * n; t++) if (inl[t]) lake++;
+    expect(lake).toBeGreaterThan(20);
+    // A footprint by the lake, with no sea near it: refused, and said why.
+    let tried = 0;
+    for (let t = 0; t < n * n && tried < 5; t++) {
+      if (!inl[t]) continue;
+      const x = (t % n) - 4;
+      const z = Math.floor(t / n);
+      let sea = false;
+      for (let dz = -2; dz < 5; dz++) for (let dx = -2; dx < 5; dx++) {
+        const u = (z + dz) * n + x + dx;
+        if (x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n && map.tileWater[u] === WATER_SEA && !inl[u]) sea = true;
+      }
+      if (sea) continue;
+      expect(monumentRefusal(map, sim.state, 'lighthouse', x, z)).toMatch(/not a lake/);
+      tried++;
+    }
+    expect(tried).toBeGreaterThan(0);
+  }, 120_000);
 });

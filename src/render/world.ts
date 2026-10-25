@@ -121,6 +121,8 @@ export class World {
   update(time: number, rig: CameraRig, windAngle: number, windStrength: number): void {
     this.water.update(time, windAngle, windStrength);
     this.plants.update(time);
+    // (Slice 46's review: the timber trees in fewer triangles from well back.)
+    this.plants.detail(rig.view.dist);
     const t = rig.target;
     const size = clamp(rig.distance * 0.9, 24, 120);
     const sh = this.sun.shadow.camera;

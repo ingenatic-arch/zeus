@@ -45,6 +45,8 @@
  */
 import type { CoastMap } from '../map/bake';
 import { WATER_SEA } from '../map/bake';
+// Slice 46's review: a lake isn't the sea.
+import { inlandWater } from '../map/bake';
 import { dhypot } from '../map/dmath';
 import { PLACES } from '../map/greece';
 import { findBuilding, footSide } from './buildings';
@@ -128,18 +130,23 @@ export const ATHLETES_MOOD = 5;
 // ---------------------------------------------------------------------------
 // Where they go.
 
-/** Is there sea within two tiles of a footprint? */
-function seaNear(map: CoastMap, x: number, z: number, side: number): boolean {
+/** Is there sea within two tiles of a footprint? (Slice 46's review: the sea, not a lake or a marsh pool: 'lake' when there is only that.) */
+function seaNear(map: CoastMap, x: number, z: number, side: number): boolean | 'lake' {
   const n = map.size;
+  const inl = inlandWater(map);
+  let lake = false;
   for (let dz = -2; dz < side + 2; dz++) {
     for (let dx = -2; dx < side + 2; dx++) {
       const tx = x + dx;
       const tz = z + dz;
       if (tx < 0 || tz < 0 || tx >= n || tz >= n) continue;
-      if (map.tileWater[tz * n + tx] === WATER_SEA) return true;
+      const t = tz * n + tx;
+      if (map.tileWater[t] !== WATER_SEA) continue;
+      if (inl && inl[t]) lake = true;
+      else return true;
     }
   }
-  return false;
+  return lake ? 'lake' : false;
 }
 
 /** The mean height of a footprint's corners. */
@@ -154,11 +161,13 @@ export function monumentRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   if (!isMonument(kind)) return '';
   if (monumentOf(s, kind) || s.buildings.some((b) => b.kind === kind)) return `Only one ${monumentName(kind).replace(/^the /, '')} to a city: yours is already ${monumentOf(s, kind)?.finished ? 'standing' : 'marked out'}`;
   if (kind === 'lighthouse') {
-    if (!seaNear(map, tx, tz, 3)) return 'The Lighthouse stands by the sea: on a headland over the water, where ships can see its fire';
+    const sea = seaNear(map, tx, tz, 3);
+    if (sea === 'lake') return 'The Lighthouse stands by the sea, not a lake: on a headland over the water, where ships can see its fire';
+    if (!sea) return 'The Lighthouse stands by the sea: on a headland over the water, where ships can see its fire';
     if (meanHeight(map, tx, tz, 3) < LIGHTHOUSE_HIGH) return 'Too low for the Lighthouse: it needs high ground over the sea, on the headland, so its fire is seen far out';
   }
   if (kind === 'colossus') {
-    if (!seaNear(map, tx, tz, 3)) return 'The Colossus stands at the harbour mouth: on the shore of the bay';
+    if (seaNear(map, tx, tz, 3) !== true) return 'The Colossus stands at the harbour mouth: on the shore of the bay';
     if (!berthAt(map, tx, tz)) return 'The Colossus stands over deep water, where the ships come in: the water off this shore is too shallow (the tint shows where it is deep)';
   }
   return '';

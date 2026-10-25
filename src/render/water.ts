@@ -186,6 +186,11 @@ const fragment = /* glsl */ `
     } else {
       // Where the river runs out into the bay, the sea gives way to it.
       alpha *= 1.0 - g.g;
+      // (Slice 46's review: the open sea goes opaque towards the baked field's edge and beyond, where no sea floor is
+      // drawn under it: otherwise what shows through the deep water changes there, a straight line across the sea.)
+      vec2 fuv = (vWorld.xz - uFieldMin + 0.5) / uFieldSize;
+      float inside = min(min(fuv.x, fuv.y), min(1.0 - fuv.x, 1.0 - fuv.y)) * uFieldSize;
+      alpha = mix(1.0, alpha, smoothstep(0.0, 32.0, inside));
     }
     if (alpha < 0.004) discard;
     gl_FragColor = vec4(c, alpha);

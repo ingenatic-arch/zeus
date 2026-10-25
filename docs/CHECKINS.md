@@ -32,19 +32,18 @@ What breaks, or moves:
 6. #delta-modern and #dryplain-plain — the other two looks.
 
 ### What I'd like your eye on
-- **Do the kinds read as different places at a glance?** The dry plain is clearly ochre. In the original look the delta, the woods and the mountains are still mostly the same bright green as the Bay near the city, and what sets them apart is their shapes. Should their colours go further?
+- **Do the kinds read as different places at a glance?** The dry plain is clearly ochre. The review pushed the others further in every look: the delta a deeper, wetter green with darker sand, the wooded coast darker and more olive, the mountain shore's grass paler and greyer. Is that far enough, or too far?
 - **The preview.** One pixel per tile, scaled up, with marks drawn over it. Is that what you had in mind, or should it look more like the original's maps?
-- **The wooded coast's opening view** is the clearing by the bay, so the deep woods show only at its edges. Should the city start nearer the woods? And are its woods thick enough? I thinned them by a third to keep the triangle count down (see below).
+- **The wooded coast's opening view** is the clearing by the bay, so the deep woods show only at its edges. Should the city start nearer the woods? And are its woods thick enough? I thinned them by a third to keep the triangle count down; the review's cheaper trees for the distance have since halved the count, so there may be room to thicken them again.
 
 ### Known rough edges
-- A lake is water at sea level that the game counts as sea, so a Lighthouse or a Colossus will accept a lake's shore if it's high enough. Ships never reach a lake: no berth or quay site forms on one.
-- The seam in the sea from slice 42's review is still there. In `-modern` at the furthest zoom, a faint straight line runs through the sea, and the Bay has it too when pushed that far out. It isn't where the sea's grid meets the skirt, which is what the review suspected, and I didn't find its cause.
+- Ships never reach a lake: no berth or quay site forms on one. (The review made the Lighthouse and the Colossus refuse a lake's shore too; a trading post there is refused as "too shallow", which is true but doesn't say why.)
 - Large lands bake in 1 to 4 s each in Node on this machine under load. The mountain shore, with the most hills, was about 1.4 times slice 42's sheltered bay before I made the bake skip hills too far from each row (which doesn't change any result); after that the times were too noisy to tell apart.
 - Rivers on the dry plain bend gently and look alike from seed to seed.
-- The wooded coast draws about 4.2 million triangles from its opening view, three and a half times the Bay's and more than slice 42's large land from as far back as the camera goes (2.9 million). Its 3,200 timber trees each cast a shadow. I couldn't time frames on a real GPU here; if it stutters on your laptop, a cheaper tree for the distance is the next step.
+- The wooded coast drew about 4.2 million triangles from its opening view, three and a half times the Bay's. The review added a cheaper tree for the distance, which brings it to about 2.2 million (see What the review changed). It is still the heaviest view in the game, and I couldn't time frames on a real GPU here.
 
 ### Measurements
-The starting build (`87f8476`) and this slice's, measured side by side on this machine (headless, software WebGL, load 21 to 34 on 4 cores, so every time below is noisy).
+These are the build's own figures, before the review; the review's changes to the triangle counts are under What the review changed. The starting build (`87f8476`) and this slice's, measured side by side on this machine (headless, software WebGL, load 21 to 34 on 4 cores, so every time below is noisy).
 
 | What | Before | After |
 |---|---|---|
@@ -75,6 +74,17 @@ The new kinds' demos (all medium lands, 192 tiles), opening / furthest, and thei
 - **Update time a frame** across the 63 demos the measure times: no change I can attribute to this slice. The same build varied by up to 3.4 times between runs (`#seized` 43 then 13 ms on the starting build); retimed in pairs, the six with the largest gaps were 5 to 20 ms before and 7 to 22 ms after, best of two. Nothing this slice adds runs each frame on the Bay.
 - **Large lands' bake in Node** (the tests' "bakes a large land", 6 s limit): 1 to 4 s for every kind under load; all within the limit.
 - **Playability**: 126 lands (each kind at 128 with seeds 1 to 12, 192 with 1 to 5, 256 with 1 to 4) pass `landCheck` with a road in of 32 to 74 tiles; the wooded coast's 21 again after thinning its woods.
+
+### What the review changed
+I went through every step above in the browser at 1920 × 1080, in the original look, the modern one and the plain one. I drove the new-game screen through every kind, a large land and "Another", and founded a mountain shore from it. I also ran the land checks again over all 126 lands.
+- **Cheaper trees from a distance.** When the camera stands well back, as it does in every opening view, the woods' trees are drawn with simpler models: about a third of the triangles, the same colours and shapes. The wooded coast's opening view drops from 4.15 to 2.17 million triangles. The other views drop too, the Bay's included: `#coast` goes from 1.18 to 1.04 million. Zoom in and the full trees come back. I compared the two side by side just either side of the switch and found them hard to tell apart, but the switch does happen on screen, so please watch for a pop as you zoom. The plain look doesn't change.
+- **A lake isn't the sea.** The Lighthouse now refuses a lake's shore and says why, and the Colossus refuses one too. The sea is unchanged on the Bay and on slice 42's lands.
+- **The line in the far sea is gone.** It came from the deep water being see-through out past where the sea floor is drawn. The open sea now turns solid there. I checked this in `-modern` at the furthest zoom, where the line showed before.
+- **The fountain on the dry plain** now shows the dry ground in rust as you move it, so you can see where it will work before you click.
+- **The delta, the wooded coast and the mountain shore are further from the Bay's green.** The delta is a deeper, wetter green with darker sand. The woods are darker and more olive. The mountain shore's grass is paler and greyer. This was my call, made by eye; the first question above still stands.
+- **The new-kind demos after the review**, opening view / furthest view, in triangles (draw calls unchanged): `#delta` 1.29 / 1.60 million, `#dryplain` 1.76 / 2.07, `#islands` 1.31 / 1.52, `#mountains` 0.99 / 1.34, `#woods` 2.17 / 2.55, `#sheltered` 1.28 / 1.64. Slice 42's `#landlarge` is now 1.84 / 2.58.
+
+Still open, for a later slice: the new-game screen draws its preview on the game's own thread (up to a few seconds for a large land on this loaded machine), and the game's keys still work behind it. A trading post on a lake's shore is refused as "too shallow", which is true but doesn't say why. The dark patch where the river rises on the wooded coast's and the mountain shore's massifs is the river's gorge in shadow.
 
 ## Slice 42 — Lands of any size (25 Oct)
 

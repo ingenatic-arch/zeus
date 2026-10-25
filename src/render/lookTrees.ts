@@ -208,6 +208,55 @@ function broom(seed: number): THREE.BufferGeometry {
   return mergeSoft(parts);
 }
 
+/**
+ * Slice 46's review: the timber trees as they are drawn from well back (the
+ * opening view and further), when a tree is a few pixels high: the same
+ * shapes in a few big clumps and no boughs, about a third of the triangles.
+ * A wooded coast has thousands of them, each drawn twice (its shadow too).
+ */
+function pineLite(seed: number): THREE.BufferGeometry {
+  const parts: Soft[] = [];
+  parts.push({ geo: limb(new THREE.Vector3(0, -0.05, 0), new THREE.Vector3(0.12, 1.5, 0.02), 0.11, 0.07, 5), color: col('#7a5a40') });
+  crown({ centre: new THREE.Vector3(0.1, 1.72, 0), radius: new THREE.Vector3(0.78, 0.18, 0.74), clumps: 6, size: [0.32, 0.4], light: '#628c44', dark: '#2c4a28', seed, flat: 0.5, shell: 0.55, fine: false }, parts);
+  return mergeSoft(parts);
+}
+
+function oakLite(seed: number): THREE.BufferGeometry {
+  const parts: Soft[] = [];
+  parts.push({ geo: limb(new THREE.Vector3(0, -0.05, 0), new THREE.Vector3(0.04, 0.95, 0), 0.15, 0.1, 5), color: col('#5f4a38') });
+  crown({ centre: new THREE.Vector3(0.03, 1.32, 0), radius: new THREE.Vector3(0.7, 0.46, 0.66), clumps: 6, size: [0.34, 0.42], light: '#6f9248', dark: '#2a4426', seed, flat: 0.8, shell: 0.7, fine: false }, parts);
+  return mergeSoft(parts);
+}
+
+function cypressLite(seed: number): THREE.BufferGeometry {
+  const parts: Soft[] = [];
+  parts.push({ geo: limb(new THREE.Vector3(0, -0.05, 0), new THREE.Vector3(0, 0.3, 0), 0.06, 0.05, 4), color: col(PAL.trunk) });
+  const light = col('#4f7a44');
+  const dark = col('#22392a');
+  // The dark flame in three stacked pieces, widest a third of the way up.
+  for (const [y, r, k] of [[0.72, 0.27, 0.3], [1.36, 0.22, 0.5], [1.92, 0.13, 0.75]] as const) {
+    const geo = nudge(new THREE.IcosahedronGeometry(r, 0), 0.25, seed + Math.round(y * 10));
+    geo.scale(1, 2.2, 1).translate(0, y, 0);
+    parts.push({ geo, color: dark.clone().lerp(light, k), centre: new THREE.Vector3(0, y, 0), soft: 0.3 });
+  }
+  return mergeSoft(parts);
+}
+
+/** Slice 46's review: the look's cheaper model of a timber tree for a view from well back, or null (the same model near and far). */
+export function lookTreeLite(kind: TreeKind): THREE.BufferGeometry | null {
+  if (!finishOn()) return null;
+  switch (kind) {
+    case TreeKind.Pine:
+      return pineLite(302);
+    case TreeKind.Cypress:
+      return cypressLite(303);
+    case TreeKind.Oak:
+      return oakLite(306);
+    default:
+      return null;
+  }
+}
+
 /** The look's model for a kind of plant, or null to keep today's. */
 export function lookTreeModel(kind: TreeKind): THREE.BufferGeometry | null {
   if (!finishOn()) return null;
