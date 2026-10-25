@@ -22,6 +22,7 @@ The phase is planned to be **built on four lines at once** (see *The parallel pl
 | What should the next phase be? (25 Oct) | His own list: crime and punishment, health, notifications, an overview, map generation, better sub-menus, building controls, deeper colonies. |
 | How should it be built? (25 Oct) | "As before, parallelisation where possible": parallel lines in worktrees, as in phase 5. |
 | How should a new game choose its land? (25 Oct) | A new-game screen with a preview: pick a kind of land, a size and a seed, see it, then found the city. The bay he knows stays as a choice. |
+| May the law put people to death? (25 Oct, his words) | "I'm fine with executions": execution is one of the punishments the law can set. |
 
 ## Claude's defaults (Oliver can change any of these)
 
@@ -43,8 +44,9 @@ The phase is planned to be **built on four lines at once** (see *The parallel pl
   - **the stocks**: a day pinned in the agora for all to see; a strong deterrent in that quarter, and the household's mood falls;
   - **prison**: months behind bars, so the household loses a worker; it needs room in a prison;
   - **hard labour**: months cutting stone in the quarry or digging in the mines as unpaid hands. It fills jobs, and it is harsh: the whole class's mood falls a little;
-  - **exile**: the household is banished and leaves an empty home. It is the strongest deterrent and the harshest: rulers hear of it, and the poor grumble.
-  The panel shows each choice's deterrence and cost with reasons. There are no executions, to keep the game's warm tone.
+  - **exile**: the household is banished and leaves an empty home. It is a strong deterrent and a harsh one: rulers hear of it, and the poor grumble;
+  - **execution** (Oliver's choice): the condemned drinks hemlock, as Socrates did. It is the strongest deterrent of all and the harshest: the household loses a member and mourns, the whole city's mood falls, and kind rulers think worse of you. It suits gang leaders and arsonists more than pickpockets, and the panel says so.
+  The panel shows each choice's deterrence and cost with reasons. The tone stays the game's own: told plainly and without gore.
 - **The prison** (new, 3×3): cells for a number of prisoners, and guards. A prison that is overfull or short of guards sees escapes, warned of first ("the prison is crowded and the guards are restless"). A jailbreak lets the prisoners out as criminals.
 - **The crime rate** is kept month by month (crimes per thousand people, by kind), which the overview shows.
 - The watch post gets a sergeant: with two posts within reach of each other, their watchmen help each other chase.
@@ -334,7 +336,7 @@ Slices are numbered across the whole project. Wave 1 (41 to 44), wave 2 (45 to 4
 *Oliver can:* open `#messages` to read a busy year, filter it to War and click a raid to go there, and play `#raid` to see one alarm pop up while the rest go quietly into the scroll.
 
 ### Slice 45 — The court and the prison (order line, wave 2)
-- The court, trials and the law on its panel; the stocks, prison, hard labour and exile alongside fines, each with its deterrence and cost.
+- The court, trials and the law on its panel; the stocks, prison, hard labour, exile and execution alongside fines, each with its deterrence and cost.
 - The prison, its cells and guards, crowding and escapes with warnings first; the crime rate by month; watchmen helping each other between posts.
 
 *Oliver can:* open `#court` to watch a thief walked to the court and sentenced, change the law and see the stocks in the agora, and `#jailbreak` to see a crowded prison warned of and then broken.
@@ -387,7 +389,6 @@ Slices are numbered across the whole project. Wave 1 (41 to 44), wave 2 (45 to 4
 ## Recorded for later
 
 - The gods: *Beloved of the gods*, sanctuaries, gods in war, monsters and heroes. This is still the vision's biggest gap.
-- Executions and other harsh punishments, if Oliver wants a darker law.
 - A burial ground and funeral processions; disease carried by rats or the dead.
 - Riots when a whole quarter is unhappy (still open from phase 5).
 - Land where the sea isn't to the south, and lands with no sea at all.
