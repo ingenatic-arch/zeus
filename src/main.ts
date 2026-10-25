@@ -222,7 +222,8 @@ interface Probe {
   homes?: () => Array<{ id: number; x: number; z: number; level: number; people: number; warned: boolean; left: number }>;
   tool?: (t: string | null) => void;
   /** Screen position of a world point (for driving the mouse in tests). */
-  screenOf?: (x: number, z: number) => { x: number; y: number };
+  /** Where a world point is on the screen: on the ground there, or at height `y` (merge of slice 48: a ship's hull is at the sea's surface, not on the sea bed under her). */
+  screenOf?: (x: number, z: number, y?: number) => { x: number; y: number };
   speed?: (s: Speed) => void;
   /** The save slots as the menu sees them, and what the last save said. */
   saves?: () => { available: boolean; manual: unknown; auto: unknown; autosaving: boolean; loaded: string; problem: string; lastSave: string };
@@ -2116,8 +2117,8 @@ function start(preparedTown: string | null): void {
       tempted: s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= from).map((b) => ({ id: b.id, x: b.x, z: b.z, level: b.level, tempt: b.tempt })),
     };
   };
-  probe.screenOf = (x, z) => {
-    const v = new THREE.Vector3(x, map.heightAt(x, z), z).project(camera);
+  probe.screenOf = (x, z, y) => {
+    const v = new THREE.Vector3(x, y ?? map.heightAt(x, z), z).project(camera);
     const r = canvas.getBoundingClientRect();
     return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
   };

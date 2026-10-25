@@ -79,6 +79,21 @@ A second pair of eyes went through every step above in the browser at 1920 × 10
 
 Checked after: all 651 tests pass; the game builds; the smoke checks for this slice and for #messages, #raid, #looted, #quay and the colonies' asks and works all pass; the download is the same size. I haven't judged how any of it feels to play: that's yours.
 
+### At the merge
+Slice 42 (lands of any size) joined the main line first, so old saves now come up to version 42, through slice 42's step (onto the Bay) and then this slice's (every store accepting everything, nothing paused).
+
+- **On a new land.** On #landlarge I built a storehouse, a granary and an olive press by the road in, clicked the storehouse open on the screen, set its oil to Don't and paused the press. The panels say where each stands from the land's own places ("By the bay"), and the paused plaque shows. No page errors.
+- **A paused building that a vandal smashed.** Its own workers no longer patch it up while it is paused, since nobody is at work there. They do it once you set it going again (or the architect's inspector mends it on her round, as before). The news and the building's tip say so.
+- **The five smoke checks that failed on every line now pass**, each testing the real thing again:
+  - #seized's line and chip now check against the loan itself: what is left and what was seized, adding up to the 2,220 dr that fell due. Before, they looked for fixed numbers that other slices' merges kept moving.
+  - The hovers on a trireme (#triremes) and on a blockading ship (#blockade) now aim at the ship's hull, where the hover looks for her. They had been aiming at the sea bed under her, which in the original look's fixed camera put the pointer on the ship she had rammed.
+  - The quarry tool's refusal (#quarry) is tried on plain ground that the original look's camera can see. The old spot was off the left edge of the screen.
+
+  None of the five was a bug in the game.
+- **Every earlier demo is unchanged.** All 142 prepared towns from the main line before this merge open the same and play 900 ticks on the same. The only difference in the saved towns is the one this slice adds: Greece's raid alarms carry their kind.
+
+Checked on the merged line: the typecheck and the build pass. All 668 tests pass; one timed out under the machine's load and passed when run alone. The smoke checks pass for this slice and for #messages, #raid, #crimes, #gang, the three lands, the colonies' asks and works, #landing, #triremes, #pirates, the debts, #quarry, #loggers, #blockade and #shipyard. The new demos open with no page errors and look as described above. How it feels to play is still yours to judge.
+
 ## Slice 42 — Lands of any size (25 Oct)
 
 A city can now be founded on a generated land, a sheltered bay of 128, 192 or 256 tiles made from a seed and checked playable by the game's own rules, while the Bay you know is untouched; until the new-game screen (slice 46, your choice) the three new demos are the way in. You weren't here while it was built: every choice below is mine, from the spec's defaults.

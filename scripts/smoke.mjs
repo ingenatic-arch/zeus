@@ -2162,8 +2162,10 @@ await open('#triremes-paused');
   const shown = (await zeus(() => window.__zeus.fleet())).shown.find((o) => o.kind === 'trireme' && o.id === t.id);
   let tip = '';
   if (shown) {
-    const p = await zeus(([x, z]) => window.__zeus.screenOf(x, z), [shown.x, shown.z]);
-    for (const dy of [-8, -16, 0]) {
+    // (Merge of slice 48: at her hull, where the hover looks for her, not on the sea bed under her: the original look's camera
+    // sees her rowing beside the ship she rammed, which the sea bed's point a little below her caught.)
+    const p = await zeus(([x, z]) => window.__zeus.screenOf(x, z, 0.4), [shown.x, shown.z]);
+    for (const dy of [0, -8, -16]) {
       await page.mouse.move(p.x, p.y + dy);
       await page.mouse.move(p.x + 1, p.y + dy);
       await frames(3);
@@ -2304,11 +2306,18 @@ await open('#seized-paused');
 await frames(2);
 const led28 = await zeus(() => window.__zeus.ledgerText());
 if (!/Seized against your debts[\s\S]*Seized by Corinth · drachmas\s*250/.test(led28) || !/Seized by Corinth · (oil|meat|wheat|cheese|wine|fleece)/.test(led28)) fail(`#seized: the ledger: ${led28.slice(0, 1400)}`);
-// (At the merge of slice 36: 1,474 left and 746 seized, as the trunk already had before that merge; the smoke still looked for
-// slice 28's 1,470 and 750.)
-if (!(await zeus(() => window.__zeus.townLines())).some((l) => /Corinth is seizing your goods against your debt \(1,474 dr left, 746 dr seized so far\)/.test(l))) fail(`#seized: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
+// (Merge of slice 48: the line and the chip name what the loan itself says is left and seized, and what was seized came off the
+// 2,220 dr that fell due in #overdue. The checks had pinned the town's history, which moved between 1,470 and 750 and 1,474 and 746
+// as other slices merged.)
 l28 = await zeus(() => window.__zeus.loans());
-if (!/Overdue: 1,474 dr to Corinth · seizing/.test(l28.chip)) fail(`#seized: the chip: ${l28.chip}`);
+const s28 = l28.loans.find((l) => l.city === 'corinth' && l.side === 'in');
+const dr28 = (n) => Math.round(n).toLocaleString('en-GB');
+if (!(s28?.state === 'overdue' && s28.step === 2 && s28.seized > 0 && Math.round(s28.owed + s28.seized) === 2220)) fail(`#seized: the loan: ${JSON.stringify(s28)}`);
+else {
+  const line28 = `Corinth is seizing your goods against your debt (${dr28(s28.owed)} dr left, ${dr28(s28.seized)} dr seized so far)`;
+  if (!(await zeus(() => window.__zeus.townLines())).some((l) => l.includes(line28))) fail(`#seized: the town line, not ${line28}: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
+  if (!l28.chip.includes(`Overdue: ${dr28(s28.owed)} dr to Corinth · seizing`)) fail(`#seized: the chip: ${l28.chip}`);
+}
 await open('#creditors-paused');
 const r28 = await zeus(() => window.__zeus.raids());
 if (!(r28.raids.some((r) => r.city === 'corinth' && r.phase === 'raiding') && r28.band && /Collectors in the city|Fighting in the city/.test(r28.chip) && !r28.raids.some((r) => r.fired))) fail(`#creditors: ${JSON.stringify(r28)}`);
@@ -2567,7 +2576,8 @@ const err32 = errors.length;
   if (!/Marble[\s\S]*blocks? in the city/.test(a32.side)) fail(`#quarry: marble's page on the Goods tab: ${a32.side.slice(0, 600)}`);
   const on32 = await hoverAt32(106.5, 93.5);
   if (!/marble in the rock \d+%[\s\S]*blocks of marble a month/.test(on32 ?? '')) fail(`#quarry: the quarry tool's tip on the outcrop above the bay: ${on32}`);
-  const off32 = await hoverAt32(101.5, 82.5);
+  // (Merge of slice 48: plain ground west of the outcrop, on the screen in the original look's fixed camera; 101.5, 82.5 is off its left edge.)
+  const off32 = await hoverAt32(100.5, 90.5);
   if (!/No marble in the rock here/.test(off32 ?? '')) fail(`#quarry: the quarry tool off the marble: ${off32}`);
   await zeus(() => window.__zeus.tool(null));
   await frames(2);
@@ -2894,8 +2904,9 @@ const err38 = errors.length;
   await zeus((v) => window.__zeus.jump(v), { x: e38.x, z: e38.z, yaw: 0.4, dist: 14, tilt: 0.2 });
   await frames(4);
   let tip38 = '';
-  const p38 = await zeus(([x, z]) => window.__zeus.screenOf(x, z), [e38.x, e38.z]);
-  for (const dy of [-8, -16, 0, -24]) {
+  // (Merge of slice 48: at her hull, where the hover looks for her, not on the deep sea bed under her.)
+  const p38 = await zeus(([x, z]) => window.__zeus.screenOf(x, z, 0.4), [e38.x, e38.z]);
+  for (const dy of [0, -8, -16]) {
     await page.mouse.move(p38.x, p38.y + dy);
     await page.mouse.move(p38.x + 1, p38.y + dy);
     await frames(3);

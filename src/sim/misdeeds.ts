@@ -310,7 +310,7 @@ export function act(s: SimState, map: CoastMap, w: Walker): void {
     tl.smashed++;
     const what = smashWords(t, part);
     const stops = t.kind === 'fountain' ? 'no water carrier goes out from it' : t.kind === 'shrine' ? 'no priestess goes out from it' : 'its vendors stay at home';
-    tellNews(s, 'smashed', `A vandal smashed ${what} ${where}: ${stops} ${mendWords(s)}`, t.id);
+    tellNews(s, 'smashed', `A vandal smashed ${what} ${where}: ${t.paused ? 'it is paused; set going again, ' : ''}${stops} ${mendWords(s, t)}`, t.id);
   } else if (w.kind === 'arsonist') {
     if (t.fire === FIRE_BURNING || !burnable(t)) return;
     ignite(s, t);
@@ -409,7 +409,8 @@ export function holdBroken(s: SimState, map: CoastMap): void {
       s.rev++;
       continue;
     }
-    if (s.tick - x.tick >= PATCH_DAYS * TICKS_PER_DAY) {
+    // (Merge of slice 48: a paused building has no workers at it to patch it up; they do it once it is set going again.)
+    if (s.tick - x.tick >= PATCH_DAYS * TICKS_PER_DAY && !b.paused) {
       mendBroken(s, map, b, false);
       continue;
     }
@@ -418,9 +419,11 @@ export function holdBroken(s: SimState, map: CoastMap): void {
   }
 }
 
-/** (Review of slice 41.) Who mends what a vandal smashed, for the news and the town line: the architect's inspector, or with no architect's office at work, its own workers after PATCH_DAYS. */
-export function mendWords(s: SimState): string {
-  return s.buildings.some((o) => o.kind === 'architect' && rateOf(o) > 0) ? 'until the architect’s inspector mends it' : 'until its own workers patch it up, in about a month (an architect’s office would mend it within days)';
+/** (Review of slice 41.) Who mends what a vandal smashed, for the news and the town line: the architect's inspector, or with no architect's office at work, its own workers after PATCH_DAYS (merge of slice 48: once it is set going again, if it is paused). */
+export function mendWords(s: SimState, b?: Building): string {
+  if (s.buildings.some((o) => o.kind === 'architect' && rateOf(o) > 0)) return 'until the architect’s inspector mends it';
+  if (b?.paused) return 'until its own workers patch it up, back at work, a month after it was smashed (an architect’s office would mend it within days)';
+  return 'until its own workers patch it up, in about a month (an architect’s office would mend it within days)';
 }
 
 /** The architect's inspector walks by a broken building (hazards.ts's round calls this), or its own workers patch it up: it is mended, for a small repair on the ledger. */
@@ -596,7 +599,9 @@ export function misdeedLines(s: SimState, map: CoastMap, b: Building): string[] 
     const stops = b.kind === 'fountain' ? 'no water carrier goes out from it' : b.kind === 'shrine' ? 'no priestess goes out from it' : x.part < 0 ? 'its food vendors stay at home' : 'that stall’s vendors stay at home';
     const left = PATCH_DAYS * TICKS_PER_DAY - (s.tick - x.tick);
     const architect = s.buildings.some((o) => o.kind === 'architect' && rateOf(o) > 0);
-    const mend = architect ? `The architect’s inspector comes to it first, if her round reaches it; if not, its own workers patch it up in about ${daysWords(left)}` : `No architect’s office: its own workers patch it up in about ${daysWords(left)} (an architect’s office nearby would mend it within days)`;
+    // (Merge of slice 48: paused, it has no workers at it to patch it up until it is set going again.)
+    const workers = !b.paused ? `its own workers patch it up in about ${daysWords(left)}` : left > 0 ? `paused, it has nobody at work to patch it up: set going again, its own workers do it in about ${daysWords(left)}` : 'paused, it has nobody at work to patch it up: its own workers do it as soon as it is set going again';
+    const mend = architect ? `The architect’s inspector comes to it first, if her round reaches it; if not, ${workers}` : `No architect’s office: ${workers} (an architect’s office nearby would mend it within days)`;
     out.push(`Smashed ${daysWords(s.tick - x.tick)} ago by ${x.by}: ${smashWords(b, x.part)} is broken, and ${stops} · ${mend}`);
   }
   if (b.kind === 'agora' || b.kind === 'theatre') {
