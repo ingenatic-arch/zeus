@@ -2,7 +2,8 @@
  * The welcome card on the bare link: a few warm lines on how to begin,
  * pointing at the control panel, a way to see a grown town (#town), and, when
  * this browser holds a saved town, a way back to it. It goes away when a
- * tool is picked or the player says so.
+ * tool is picked or the player says so. (Slice 46: and a way to found a new
+ * city on another kind of land, and its words for a city founded on one.)
  */
 import { ago, type SlotInfo } from '../game/saves';
 
@@ -14,6 +15,11 @@ export interface WelcomeOptions {
   problem: string;
   /** Saving isn't possible in this window. */
   noStorage: boolean;
+  // Slice 46
+  /** Open the new-game screen ("Found a new city"). */
+  onNewGame?: () => void;
+  /** A city founded on a land of its own: its name, a line on it, and the road in laid ('' if none). */
+  land?: { name: string; line: string; road: string };
 }
 
 export class Welcome {
@@ -31,10 +37,10 @@ export class Welcome {
     const problem = o.problem ? `<p class="problem">${esc(o.problem)}</p>` : '';
     el.innerHTML = `
       ${problem}
-      <h2>A coast to build on</h2>
-      <p>A sheltered bay, a river coming down from the hills, and green land along its banks. Families will come and settle wherever a road reaches the edge of the map.</p>
+      <h2>${o.land ? esc(o.land.name) : 'A coast to build on'}</h2>
+      <p>${o.land ? `${esc(o.land.line)} Families will come and settle wherever a road reaches the edge of the map.` : 'A sheltered bay, a river coming down from the hills, and green land along its banks. Families will come and settle wherever a road reaches the edge of the map.'}</p>
       <ol>
-        <li><b>Lay a road</b> in from the edge of the map <kbd>T</kbd></li>
+        <li>${o.land?.road ? `<b>The road in</b> is laid, ${esc(o.land.road)}; lay more road from it <kbd>T</kbd>` : '<b>Lay a road</b> in from the edge of the map <kbd>T</kbd>'}</li>
         <li><b>Mark out housing</b> beside it <kbd>H</kbd>, and settlers walk in and pitch their tents</li>
         <li><b>Bring water</b> with a fountain by the road <kbd>B</kbd>, and the tents become huts</li>
       </ol>
@@ -44,6 +50,7 @@ export class Welcome {
       <div class="actions">
         <button class="pill primary" data-act="start">Start building</button>
         <a class="pill" href="#town" title="A town of a few hundred people, a few years in">See a grown town</a>
+        ${o.onNewGame ? '<button class="pill" data-act="newgame" title="Choose a kind of land, a size and a seed, and see it before you found the city">Found a new city</button>' : ''}
       </div>
       ${o.noStorage ? '<p class="small">Saving isn’t available in this window, so this town can’t be kept when you leave.</p>' : ''}`;
     root.appendChild(el);
@@ -52,6 +59,7 @@ export class Welcome {
       const t = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
       if (!t) return;
       if (t.dataset.act === 'continue') o.onContinue();
+      else if (t.dataset.act === 'newgame') o.onNewGame?.();
       else this.dismiss();
     });
   }

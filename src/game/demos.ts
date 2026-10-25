@@ -5,6 +5,9 @@
  */
 // Slice 42: every demo before it is on the Bay.
 import { BAY, type Land } from '../map/lands';
+// Slice 46: the other kinds of land, founded as from the new-game screen.
+import { seedOf, type LandKind } from '../map/lands';
+import { roadsIn } from '../map/landcheck';
 import type { OverlayMode } from '../render/overlay';
 import { ARCHITECT_COST, ARMOURY_COST, BARRACKS_COST, FARM_COST, MINE_COST, GROVE_COST, PASTURE_COST, PRESS_COST, ROAD_COST, SHIPYARD_COST, STALL_COST, STOREHOUSE_COST, THEATRE_COST, TOWER_COST, TRADING_COST, VINEYARD_COST, WATCHPOST_COST, WINERY_COST, YARD_COST } from '../sim/build';
 import { COTTAGE, FINE, JOBS, VILLA } from '../sim/buildings';
@@ -3437,9 +3440,17 @@ const SCENES: Record<string, Demo> = {
   // raiders in and gone), the Messages panel open on its scroll and the last season's messages still unread.
   messages: { view: 'raidwest', setup: raidTown('aftermath'), overlay: 'food', messages: true, unread: 3 * TICKS_PER_MONTH },
   // Slice 42: lands of any size. A generated sheltered bay at 128, 192 and 256 tiles, a road in from the west edge, the treasury a new game's.
-  landsmall: { view: 'land', setup: landTown({ kind: 'sheltered', size: 128, seed: 1 }) },
-  landmedium: { view: 'land', setup: landTown({ kind: 'sheltered', size: 192, seed: 4 }) },
-  landlarge: { view: 'land', setup: landTown({ kind: 'sheltered', size: 256, seed: 2 }) },
+  // (Slice 46: on the first edition of the generator, slice 42's, so they open as they did.)
+  landsmall: { view: 'land', setup: landTown({ kind: 'sheltered', size: 128, seed: 1, gen: 1 }) },
+  landmedium: { view: 'land', setup: landTown({ kind: 'sheltered', size: 192, seed: 4, gen: 1 }) },
+  landlarge: { view: 'land', setup: landTown({ kind: 'sheltered', size: 256, seed: 2, gen: 1 }) },
+  // Slice 46: many lands. A fresh city on each kind of land (a medium one), its road in laid from the nearest edge, as the new-game screen founds it.
+  delta: { view: 'land', setup: kindTown('delta', 192, 'heron') },
+  dryplain: { view: 'land', setup: kindTown('dryplain', 192, 'olive') },
+  islands: { view: 'land', setup: kindTown('islands', 192, 'dolphin') },
+  mountains: { view: 'land', setup: kindTown('mountains', 192, 'kestrel') },
+  woods: { view: 'land', setup: kindTown('woods', 192, 'acorn') },
+  sheltered: { view: 'land', setup: kindTown('sheltered', 192, 'myrtle') },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3640,4 +3651,19 @@ export function landRoad(sim: Sim): number[] {
     if (x > x1) return tiles;
   }
   return [];
+}
+
+// Slice 46
+/** A new city on a kind of land (its seed a word, as the new-game screen's), the seasons turning, its road in laid from the nearest edge. */
+function kindTown(kind: LandKind, size: number, word: string): (sim: Sim) => void {
+  return (sim) => {
+    sim.found({ kind, size, seed: seedOf(word) });
+    seasons(sim, true);
+    hazards(sim, false);
+    const road = roadsIn(sim.map, sim.state).road;
+    if (road.length > 0) {
+      sim.enqueue({ type: 'road', tiles: road });
+      sim.flush();
+    }
+  };
 }

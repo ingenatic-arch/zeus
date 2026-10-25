@@ -3159,6 +3159,38 @@ await open('#town-paused');
 }
 if (errors.length > err42) fail('page errors (slice 42):\n' + errors.slice(err42).join('\n'));
 
+// Slice 46: many lands. Each kind's demo opens from its prepared town on its own medium land (the generator's second edition),
+// over where the city starts, its road in laid from an edge. #newgame opens the new-game screen over the bare link's Bay; a
+// mountain shore chosen there is drawn and founded (its own link), the welcome card telling of it. A founding link opens in
+// the other looks. The bare link's card offers the screen.
+const err46 = errors.length;
+for (const kind of ['delta', 'dryplain', 'islands', 'mountains', 'woods', 'sheltered']) {
+  await open(`#${kind}-paused`);
+  const l46 = await zeus(() => ({ ...window.__zeus.land(), prepared: window.__zeus.prepared }));
+  if (!(l46.prepared && l46.kind === kind && l46.size === 192 && l46.gen === 2 && l46.roads > 20 && l46.site && Math.hypot(l46.view.x - l46.site.x, l46.view.z - l46.site.z) < 8)) fail(`#${kind}: ${JSON.stringify(l46)}`);
+}
+await open('#newgame');
+{
+  const ng = await zeus(() => window.__zeus.newgame());
+  if (!(ng && ng.kind === 'sheltered' && ng.size === 192 && ng.word)) fail(`#newgame: the screen is not open: ${JSON.stringify(ng)}`);
+  await page.click('.ng-kind[data-kind="mountains"]');
+  await page.waitForFunction(() => /road in comes from the/.test(document.querySelector('.ng-facts')?.textContent ?? '') && !document.querySelector('.ng-map.busy'), null, { timeout: 120000 });
+  const word = (await zeus(() => window.__zeus.newgame())).word;
+  await Promise.all([page.waitForNavigation({ timeout: 120000 }), page.click('.newgame [data-act="found"]')]);
+  await page.waitForFunction(() => window.__zeus?.ready === true, null, { timeout: 120000 });
+  await frames(3);
+  const l46 = await zeus(() => ({ ...window.__zeus.land(), hash: location.hash, card: document.querySelector('.welcome h2')?.textContent ?? '' }));
+  if (!(l46.kind === 'mountains' && l46.size === 192 && l46.hash === `#found.mountains.192.${word}` && l46.roads > 20 && /mountain shore/i.test(l46.card))) fail(`#newgame, founded: ${JSON.stringify(l46)}`);
+}
+for (const look of ['modern', 'plain']) {
+  await open(`#found.dryplain.128.olive-paused-${look}`);
+  const l46 = await zeus(() => window.__zeus.land());
+  if (!(l46.kind === 'dryplain' && l46.size === 128 && l46.roads > 20)) fail(`#found.dryplain.128.olive-${look}: ${JSON.stringify(l46)}`);
+}
+await open('');
+if (!(await zeus(() => !!document.querySelector('.welcome [data-act="newgame"]')))) fail('the bare link: no "Found a new city" on the welcome card');
+if (errors.length > err46) fail('page errors (slice 46):\n' + errors.slice(err46).join('\n'));
+
 // Slice 43: colonies that grow up. #colonywants: Nea Thasos' page asking for wheat, the red mark on its label, the wheat sent and the
 // porters out for the quay. #colonyworks: its picture and stage, its works; the harbour funded, its goods going out, and built.
 const err43 = errors.length;

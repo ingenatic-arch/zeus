@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { FAR_STEP, FIELD_MIN, OUTER_STEP, RIVER_SHELF, shoreZ, splitsMainDiagonal, type CoastMap } from '../map/bake';
 import { clamp, fbm, hash2, lerp, ridged, smoothstep, valueNoise } from '../map/noise';
 import { col, PAL } from './palette';
+// Slice 46: marsh.
+import { marshColour } from './landlook';
 
 const tmp = new THREE.Color();
 const tmp2 = new THREE.Color();
@@ -53,6 +55,11 @@ function groundColour(map: CoastMap, x: number, z: number, h: number, ny: number
       if (d < 5 && h < 6) tmp2.lerp(col(PAL.cliff), 0.6 * (1 - smoothstep(2, 5, d)));
       out.lerp(tmp2, Math.min(1, rockAmt));
     }
+  }
+  // Slice 46: marsh, dark and wet, wherever the land has it (pools take the sea bed's colour above).
+  if (map.marsh && h > -0.04) {
+    const m = map.sample(map.marsh, x, z);
+    if (m > 0.02) out.lerp(col(marshColour(PAL)), Math.min(1, m * 0.9) * (1 - smoothstep(0.25, 0.7, h)));
   }
   // A little per-facet variation for the hand-made patchwork look.
   const j = 0.93 + 0.12 * hash2(Math.floor(x * 7.1), Math.floor(z * 7.3), 77);
