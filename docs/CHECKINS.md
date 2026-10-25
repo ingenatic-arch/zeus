@@ -32,7 +32,7 @@ What breaks, or moves:
 - Zoomed right out at a large land's southern corners, the sea shows a faint band where its near grid meets the skirt that carries it to the horizon. The Bay has the same seam, just out of view.
 - A large land draws more: the opening view is about 1.75 times the Bay's triangles, and zoomed fully out 2.4 times (more ground and more trees in view). See the measurements.
 - The camera's named views (overview, river, bay and the rest) are the Bay's places; on a generated land only the opening view is its own.
-- The full smoke's "right-drag did not turn" check fails on this build and on the trunk alike (the drag in the check is shorter than a quarter turn now needs); it isn't from this slice.
+- Five checks in the full smoke fail on this build and on the trunk's alike, so they aren't from this slice: the right-drag turn, the ship hovers in `#triremes` and `#blockade`, `#quarry`'s tip off the marble, and `#thanks` waiting for Corinth's gift line. The first four look like the smoke not yet following the original look's camera; the fifth may be this machine's load (the gift does arrive, 220 ticks in, when played without the page).
 
 ### Measurements
 Headless software rendering on a machine shared with three other builds (load 25 to 40 on 4 cores), so only the counts are firm; the times are slow and noisy.
