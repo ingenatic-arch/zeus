@@ -9,7 +9,8 @@ export interface Corner {
   onHelpOpen(f: () => void): void;
 }
 
-export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
+/** `classic`: the original look's fixed view (it turns a quarter at a time and doesn't tilt). */
+export function buildCorner(root: HTMLElement, showHint: boolean, classic = false): Corner {
   const corner = document.createElement('div');
   corner.className = 'corner';
   corner.innerHTML = `
@@ -24,11 +25,11 @@ export function buildCorner(root: HTMLElement, showHint: boolean): Corner {
     <dl>
       <dt>Left-drag</dt><dd>Move across the land (with a tool picked: build)</dd>
       <dt>Middle-drag</dt><dd>Move across the land</dd>
-      <dt>Right-drag</dt><dd>Turn and tilt the view</dd>
-      <dt>Wheel</dt><dd>Zoom, down to street level</dd>
+      ${classic ? '<dt>Right-drag</dt><dd>Turn the view a quarter (drag sideways)</dd>' : '<dt>Right-drag</dt><dd>Turn and tilt the view</dd>'}
+      ${classic ? '<dt>Wheel</dt><dd>Zoom</dd>' : '<dt>Wheel</dt><dd>Zoom, down to street level</dd>'}
       <dt>W A S D</dt><dd>Move (or the arrow keys)</dd>
       <dt>Q / E</dt><dd>Turn a quarter left / right</dd>
-      <dt>R / F</dt><dd>Tilt up / down</dd>
+      ${classic ? '' : '<dt>R / F</dt><dd>Tilt up / down</dd>'}
       <dt>+ / −</dt><dd>Zoom in / out</dd>
       <dt>N</dt><dd>Face north (or click the gold N on the minimap’s ring)</dd>
     </dl>

@@ -2,36 +2,36 @@ import * as THREE from 'three';
 import { PAL } from './palette';
 
 /**
- * Mock-ups only (24 Oct): looks that move the city towards the original
- * Zeus: Master of Olympus, switched on by `window.__look` for screenshots.
- * Nothing here is on unless a look name below is set.
- *
- * - `classic-view`: the original's fixed, high, near-flat (isometric) view, a clean high sun, no haze, no vignette.
- * - `classic-colour`: the view plus the original's brighter, cleaner colours and a crisper image.
- * - `classic-pixel`: the colours drawn at the original's pixel size (half resolution, hard pixels).
- * - `busy` (alone or after a `+`): workers at the farms, presses, stalls and fountains (workfolk.ts busy()).
+ * The original Zeus look (Oliver's pick, 25 Oct, from the mock-ups in the
+ * shared folder, zeus-original-look): the original's fixed, high, nearly flat
+ * view, its colours, and hard pixels (the city drawn at half resolution).
+ * Render only. A link ending in `-modern` opens with the sunlit terracotta
+ * look and free camera of 24 Oct, `-plain` with the first low-poly look.
  */
-export interface Classic {
-  view: boolean;
-  colour: boolean;
-  pixel: boolean;
-  busy: boolean;
+let on = false;
+
+/** Turn the look on or off (before the world is built). */
+export function setClassic(want: boolean): void {
+  on = want;
 }
 
-export function classic(): Classic {
-  const l = String((globalThis as { __look?: string }).__look ?? '');
-  const parts = l.split('+');
-  const has = (p: string): boolean => parts.includes(p);
-  const pixel = has('classic-pixel');
-  const colour = pixel || has('classic-colour');
-  const view = colour || has('classic-view');
-  return { view, colour, pixel, busy: has('busy') };
+export function classicOn(): boolean {
+  return on;
 }
+
+/**
+ * How much further back than the game's ordinary lens the camera stands (0
+ * with the free camera): marks and labels that size or thin out with distance
+ * take it off, so they look the same as from the ordinary camera.
+ */
+export const EYE = { back: 0 };
 
 /** The original's view angle: a 2:1 isometric diamond (30° above the ground). */
 export const CLASSIC_PITCH = Math.PI / 6;
 /** A long lens from far away: nearly flat, as the original's pictures were. */
 export const CLASSIC_FOV = 6;
+/** The game draws the city at this share of the screen's pixels, shown hard-edged. */
+export const CLASSIC_PIXELS = 0.5;
 /** How much further back the long lens stands to show what the game's 42° lens shows. */
 export const CLASSIC_REACH = Math.tan(THREE.MathUtils.degToRad(21)) / Math.tan(THREE.MathUtils.degToRad(CLASSIC_FOV / 2));
 
@@ -74,7 +74,7 @@ const CLASSIC_PALETTE: Partial<Record<keyof typeof PAL, string>> = {
 };
 
 export function applyClassicPalette(): void {
-  if (!classic().colour) return;
+  if (!on) return;
   const pal = PAL as unknown as Record<string, string>;
   for (const [k, v] of Object.entries(CLASSIC_PALETTE)) pal[k] = v as string;
 }
@@ -85,7 +85,7 @@ export function applyClassicPalette(): void {
  * the faces turned to you are lit and the shadows fall to the right.
  */
 export function classicSun(dir: THREE.Vector3): void {
-  if (!classic().view) return;
+  if (!on) return;
   const el = THREE.MathUtils.degToRad(55);
   dir.set(-0.99 * Math.cos(el), Math.sin(el), -0.14 * Math.cos(el)).normalize();
 }

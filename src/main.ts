@@ -19,7 +19,7 @@ import { VIEWS } from './game/views';
 import { coastMap } from './map/bake';
 import { MAP_SIZE } from './map/coast';
 import { districtGrid } from './map/districts';
-import { classic, classicSun } from './render/classicLab';
+import { CLASSIC_PIXELS, classicOn, classicSun, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
 import { CameraRig, type CameraView } from './render/cameraRig';
 import { CityView } from './render/city';
@@ -303,6 +303,8 @@ function start(preparedTown: string | null): void {
 
   // The city's finish (render/finish.ts); a link ending in -plain opens with the old look.
   setFinish(!launch.plain);
+  // The original Zeus look (render/classic.ts); -modern opens with the look of 24 Oct.
+  setClassic(!launch.plain && !launch.modern);
   applyFinishPalette();
   classicSun(SUN_DIR);
   const map = coastMap();
@@ -361,9 +363,9 @@ function start(preparedTown: string | null): void {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // Capped at 1.5: on high-density screens full resolution costs a lot of shading for little gain.
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-  // Mock-ups (classicLab.ts): the original's pixel size, drawn hard-edged.
-  if (classic().pixel) {
-    renderer.setPixelRatio(0.5);
+  // The original look (render/classic.ts): the original's pixel size, drawn hard-edged.
+  if (classicOn()) {
+    renderer.setPixelRatio(CLASSIC_PIXELS);
     canvas.style.imageRendering = 'pixelated';
   }
   renderer.shadowMap.enabled = true;
@@ -409,6 +411,8 @@ function start(preparedTown: string | null): void {
   probe.look = () => ({ phase: lookPhase, rain: wetNow, storm: stormNow });
   const finish = makeFinishPost(renderer, world.scene, camera);
   const rig = new CameraRig(camera, map, view);
+  // The original look's fixed view (render/classic.ts).
+  rig.setClassic(classicOn());
   // Slice 33: the camera keeps out of the trees on hillsides.
   rig.setCanopy((x, z) => world.plants.canopyAt(x, z));
 
@@ -417,7 +421,7 @@ function start(preparedTown: string | null): void {
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   // The bare link opens on the coast with a welcome card (which carries the controls line itself).
   const welcoming = !demo && !loaded && !shot;
-  const corner = buildCorner(ui, !shot && !demo?.tool && !welcoming);
+  const corner = buildCorner(ui, !shot && !demo?.tool && !welcoming, classicOn());
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
@@ -1790,7 +1794,7 @@ function start(preparedTown: string | null): void {
     sim.state.rev++;
   };
   probe.speed = (s) => driver.setSpeed(s);
-  // Mock-ups (classicLab.ts): step the paused sim by hand, for even frames of an animation.
+  // Step the paused sim by hand (for even frames of an animation in screenshots).
   (probe as unknown as { stepSim: (n: number) => void }).stepSim = (n) => {
     for (let i = 0; i < n; i++) sim.step();
   };

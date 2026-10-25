@@ -8,7 +8,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { col, PAL } from './palette';
 import { SEASON_UNIFORMS } from './seasons';
-import { applyClassicPalette, classic } from './classicLab';
+import { applyClassicPalette, classicOn } from './classic';
 
 /**
  * The city's finish (the new look, picked by Oliver on 19 Oct from the
@@ -458,8 +458,8 @@ export function applyFinishLight(scene: THREE.Scene, renderer: THREE.WebGLRender
     if (h.isHemisphereLight) h.intensity = F.hemi;
     const s = o as THREE.DirectionalLight;
     if (s.isDirectionalLight) s.intensity = F.sun;
-    // Mock-ups (classicLab.ts): crisper, shorter shadows, as the original's pre-drawn ones.
-    if (s.isDirectionalLight && classic().view) s.shadow.radius = 2;
+    // The original look (classic.ts): crisper shadows, as the original's pre-drawn ones.
+    if (s.isDirectionalLight && classicOn()) s.shadow.radius = 2;
   });
 }
 
@@ -549,11 +549,11 @@ export function makeFinishPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene
   if (!light) addDepth(composer, scene, camera, size);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE);
-  const lab = classic();
-  // Mock-ups (classicLab.ts): a clean, neutral image with no vignette or grain, crisper with the original's colours.
-  const g = lab.view ? { sat: lab.colour ? 1.05 : 1.0, contrast: lab.colour ? 1.06 : 1.03, shadow: [1, 1, 1] as const, high: [1, 1, 1] as const, vignette: 0, grain: 0 } : F.grade;
-  grade.uniforms.uSharp.value = lab.pixel ? 0.15 : lab.colour ? 0.3 : 0;
-  grade.uniforms.uLevels.value = lab.pixel ? 40 : 0;
+  // The original look (classic.ts): a clean, neutral image with no vignette or grain, a touch sharper, in fewer shades.
+  const classic = classicOn();
+  const g = classic ? { sat: 1.05, contrast: 1.06, shadow: [1, 1, 1] as const, high: [1, 1, 1] as const, vignette: 0, grain: 0 } : F.grade;
+  grade.uniforms.uSharp.value = classic ? 0.15 : 0;
+  grade.uniforms.uLevels.value = classic ? 40 : 0;
   grade.uniforms.uSat.value = g.sat;
   grade.uniforms.uContrast.value = g.contrast;
   grade.uniforms.uShadow.value.set(...g.shadow);

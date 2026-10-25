@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EYE } from './classic';
 import type { CoastMap } from '../map/bake';
 import { NEEDS, warningsOf, wantOf, WARNING } from '../sim/folk';
 import type { Building, Service, SimState } from '../sim/state';
@@ -415,7 +416,7 @@ export class Signs {
       this.p.set(cx, this.map.heightAt(cx, cz) + (noRoad ? PLOT_HEIGHT : HEIGHTS[Math.min(b.level, HEIGHTS.length - 1)]) + bob, cz);
       // The same size on screen from about 16 units away out to far off (up to three times its size), so a sign
       // reads from the default height and from afar; closer than that it grows, but not to fill the view.
-      const far = Math.min(3, Math.max(0.6, this.p.distanceTo(cam) / 27));
+      const far = Math.min(3, Math.max(0.6, (this.p.distanceTo(cam) - EYE.back) / 27));
       const pulse = urgency > 0.83 ? 1 + 0.1 * Math.sin(time * 6 + b.id) : 1;
       const k = SIZE * far * pulse * (urgency < 0 ? 0.85 : 1);
       // Lift the sign by its own tail so the tip stays above the roof as it grows.

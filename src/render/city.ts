@@ -20,7 +20,6 @@ import { Walkers } from './walkers';
 import { WallsView } from './walls';
 import { Works } from './works';
 import { Workfolk } from './workfolk';
-import { classic } from './classicLab';
 // Slice 35: the masons' yards and the monuments.
 import { MonumentsView } from './monuments';
 
@@ -108,8 +107,8 @@ export class CityView {
     this.walls.frame(s, this.walkers.hidden);
     this.walkers.update(s, alpha, time);
     this.workfolk.miners(s, alpha);
-    // Mock-ups (classicLab.ts): people at work in the works.
-    if (classic().busy) this.workfolk.busy(s, alpha);
+    // People at work in the works and service buildings (25 Oct).
+    this.workfolk.busy(s, alpha);
     this.animals.update(s, alpha, time);
     this.army.update(s, alpha, time);
     this.folk.end();

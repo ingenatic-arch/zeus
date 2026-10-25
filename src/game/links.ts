@@ -10,6 +10,8 @@ export interface Launch {
   overlay: boolean;
   /** Draw the city without its finish (the old look), for comparing and measuring. */
   plain: boolean;
+  /** Draw the city in the sunlit terracotta look with the free camera (24 Oct) instead of the original Zeus look. */
+  modern: boolean;
   /** Open a saved town: the newest save (`#continue`), the autosave (`#autosave`) or the one saved by hand (`#saved`). */
   load?: 'newest' | 'auto' | 'manual';
 }
@@ -19,16 +21,17 @@ const LOADS: Record<string, Launch['load']> = { continue: 'newest', autosave: 'a
 /**
  * Read a link. The published page only receives a bare hash, so links are
  * tokens like `#streets` or `#streets-fast` (parts joined by dashes, each a
- * demo, a camera view, a speed, `overlay`, `plain` or `shot`). Query parameters (`?demo=`,
+ * demo, a camera view, a speed, `overlay`, `plain`, `modern` or `shot`). Query parameters (`?demo=`,
  * `?cam=`, `?speed=`, `?shot=1`) still work for local runs and win over the hash.
  */
 export function readLaunch(search: string, hash: string, demos: Record<string, unknown>, views: Record<string, unknown>): Launch {
-  const out: Launch = { shot: false, overlay: false, plain: false };
+  const out: Launch = { shot: false, overlay: false, plain: false, modern: false };
   for (const part of hash.replace(/^#/, '').toLowerCase().split('-')) {
     if (!part) continue;
     if (part === 'shot') out.shot = true;
     else if (part === 'overlay') out.overlay = true;
     else if (part === 'plain') out.plain = true;
+    else if (part === 'modern') out.modern = true;
     else if (Object.hasOwn(LOADS, part)) out.load = LOADS[part];
     else if ((SPEEDS as readonly string[]).includes(part)) out.speed = part as Speed;
     else if (part in demos && !out.demo) out.demo = part;
@@ -44,5 +47,6 @@ export function readLaunch(search: string, hash: string, demos: Record<string, u
   if (q.has('shot')) out.shot = true;
   if (q.has('overlay')) out.overlay = true;
   if (q.has('plain')) out.plain = true;
+  if (q.has('modern')) out.modern = true;
   return out;
 }

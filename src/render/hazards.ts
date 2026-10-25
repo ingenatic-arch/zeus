@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EYE } from './classic';
 import type { CoastMap } from '../map/bake';
 import { findBuilding, footSide } from '../sim/buildings';
 import { FIRE_BURNING, FIRE_SMOULDER, HAZARD_FULL, HAZARD_MARK, wears, burnable } from '../sim/hazards';
@@ -393,7 +394,7 @@ export class HazardView {
     worst.clear();
     for (const k of this.marks) {
       this.p.set(k.cx, k.y, k.cz);
-      if (this.p.distanceTo(camera.position) < THIN_FROM) continue;
+      if (this.p.distanceTo(camera.position) - EYE.back < THIN_FROM) continue;
       const key = Math.floor(k.cz / BLOCK) * 64 + Math.floor(k.cx / BLOCK);
       for (const [v, i] of [[k.risk, 0], [k.wear, 1]] as const) {
         if (v < 0 || v >= 2) continue;
@@ -403,7 +404,7 @@ export class HazardView {
     }
     for (const k of this.marks) {
       this.p.set(k.cx, k.y, k.cz);
-      const dist = this.p.distanceTo(camera.position);
+      const dist = this.p.distanceTo(camera.position) - EYE.back;
       const far = Math.min(3, Math.max(0.6, dist / 27));
       const key = Math.floor(k.cz / BLOCK) * 64 + Math.floor(k.cx / BLOCK);
       const shows = (v: number, i: number): boolean => v >= 0 && (dist < THIN_FROM || v >= 2 || worst.get(key * 2 + i) === k);

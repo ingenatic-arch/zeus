@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EYE } from './classic';
 
 /**
  * Slice 33: rain, as streaks falling through a box that moves with the
@@ -94,6 +95,8 @@ export function buildRain(): Rain {
       mesh.visible = amount > 0.01;
       if (!mesh.visible) return;
       camera.getWorldPosition(camPos);
+      // (The original look's long lens stands far back: rain round where the ordinary camera would be.)
+      if (EYE.back > 0) camPos.lerp(target, EYE.back / camPos.distanceTo(target));
       const d = camPos.distanceTo(target);
       // A box around the near part of the view: the streaks are drawn where they read as rain, not as a haze on the city far below.
       const size = Math.max(18, Math.min(70, d * 0.55));
