@@ -318,6 +318,8 @@ for (const [hash, views] of [
   ['#achieved-paused-shot', [null]],
   // Slice 40: an empire's city (its own block below too).
   ['#empire-paused-shot', [null, 'town']],
+  // Slice 44: #aftermath's town with the Messages panel open on its scroll.
+  ['#messages-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
