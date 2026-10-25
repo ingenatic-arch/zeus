@@ -691,6 +691,11 @@ export const kindOut = (s: SimState, kind: CrimeKind): number => s.walkers.filte
 function turnTo(s: SimState, map: CoastMap, b: Building, t: Temptation, day: number): void {
   // (A den sends its men on the gang's own clock: gangs.ts.)
   if (denOf(s, b) || s.walkers.some((w) => isCriminal(w.kind) && w.home === b.id && w.people > 0)) return;
+  // (When every crime its trouble could point to already has its walkers out, crimeFor's choice would only be turned away
+  // below: skip its road search, a day's work for each full home in a town at its caps. Talk of burning has no cap.)
+  const capped = (k: CrimeKind): boolean => kindOut(s, k) >= KIND_OUT[k];
+  const poor = poorHome(b);
+  if (!(aggrieved(s, b, t) && arsonOpen(s, b)) && capped('theft') && (!((t.mood ?? 3) <= 1 && t.idle) || capped('vandal')) && (!poor || (capped('smuggling') && capped('pickpocket')))) return;
   const c = crimeFor(s, map.size, b, t);
   if (!c) return;
   if (c.kind === 'arson') {
