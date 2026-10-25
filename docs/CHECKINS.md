@@ -2,6 +2,73 @@
 
 Notes to Oliver, newest first.
 
+## Slice 48 — Building panels and the storehouse (25 Oct)
+
+Click any building and a panel opens: its picture, its staff, what it is doing and why not, what it holds, its walkers, its condition, its recent messages and its orders. The storehouse and granary have a row for each good, with what to accept and how much, and every cart, porter and docker keeps to it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is 41 on this line (renumbered when it merges). Older saves load with every store accepting everything, all of its room, and nothing paused, exactly as before. I loaded all 139 prepared towns from the starting build (version 40 saves) this way.
+- **Clicking a building opens its panel** instead of following one of its walkers. Each walker in the panel has a Follow button. Clicking a walker still follows her, and homes, the trading post, the shipyard, the barracks and the monuments open the panels they always did.
+- **The scroll's seal counts only warnings and alarms.** Ordinary news stays bold in the panel and is counted on its filter, but no longer on the seal. In #messages the seal says 10 where it said 22.
+- **The same message again is one row.** Within a month, messages of the same kind and title are one row at the newest, with "×5" beside it. A raid's run of fires and rubble is two rows, not twenty.
+- **Earlier demos.** Every one opens and plays 900 ticks on exactly as before: all 139 prepared towns from the starting build, the whole town compared, not only its counts. Nothing changes until you set a rule or an order.
+
+### What's new
+- **A panel for every building.** On the left, where a home's panel opens. From top to bottom:
+  - its picture, its name and the district it stands in;
+  - its staff, a pip for each job, and why it is short;
+  - what it is doing, and why not (the same lines as its hover tip);
+  - what it holds, as bars against its room;
+  - its walkers out, each with Follow, and when the next one is due;
+  - its condition: fire risk and wear as bars, and whether it is smouldering, burning, creaking or smashed;
+  - its recent messages; a click opens that message in the scroll.
+- **Storehouse and granary rules.** A row for each good: what is in store against its room, and four buttons:
+  - **Accept**: as before.
+  - **Don't**: nothing more comes in. What it holds stays, for porters to fetch.
+  - **Get**: it has the nearest store that holds some send an ox cart over.
+  - **Empty**: it sends its stock by ox cart to the nearest store that takes it, and porters fetch from it first.
+
+  A limit beside each (all, ¾, ½, ¼) stops deliveries once the store holds that share of its room; a mark on the bar shows where. "Accept nothing" and "Accept all" at the top set every row at once. A line under a row says what its rule is doing now, such as how many carts are taking the oil out. Makers' carts, the agora's porters, the barracks', armoury's and estates' porters, the dockers, the colony porters and the monuments' carts all keep to the rules. Goods never go round in a loop.
+- **Pause and Workers first** on every work and service building. Paused, its workers leave at once for other jobs and a small grey plaque with the pause bars floats over it. Workers first, it is filled before anything else, from the nearest homes.
+- **The Messages key is found by its place**, the key left of 1, on any keyboard layout (a Mac's included). The scroll's tip and the panel's head show the key.
+- **"Waiting on you"** no longer lists a band that is already leaving with its loot.
+
+### What to try
+1. #storerules — click the storehouse by the quay. Press Accept nothing, then Accept on wine and Empty on oil. Within a few days an ox cart of oil sets off up the road to the storehouse on the hill.
+2. #storeset — the same storehouse a few days after those settings, its panel open, the oil on its way out. Try a limit of ¼ on wine, or Get on oil to bring it back.
+3. #workpanel — the olive press's panel. Press Pause: its workers walk off and the plaque appears over it. Press it again, then try Workers first.
+4. #town or #empire — click a farm, a fountain, a granary, a shrine or an agora, and read what each says about itself.
+5. #messages — the runs of fires and rubble are single rows now, with ×N, and the seal counts only the warnings and alarms.
+
+### What I'd like your eye on
+- **The panel's order.** Staff, then a store's rows, then what it is doing, what it holds, its walkers, its condition, its messages, and the two orders at the foot. Is that the order you'd read it in?
+- **The store's rows.** Four buttons and a stepper on every row is a lot for a storehouse's eight goods. Is it clear which rule a row has? The row's border and bar take the mode's colour.
+- **The paused plaque.** Grey, with two bars, over the building. Does it read from far out?
+- **Clicking a building opens the panel.** The old click followed one of its walkers; now that is the panel's Follow button. Do you miss it?
+
+### Known rough edges
+- **Ox carts are slow.** A cart from the quay to the hill takes about two months of game time, so Empty and Get take a while to show. I kept the carts as they are.
+- **#storerules sets up the quay's oil itself.** In #richtown the dockers sell the oil to the ship as it comes, so the quay's storehouse never held any. The demo has the town keep its oil from the ship and has the quay's store get oil from the hill until it holds 700 or more, then puts its rules back to accept everything. Everything else about the town is as it was.
+- Some old wordings in the doing lines read oddly, such as "40 horses of horses" on an estate. They were there before this slice, and I left them alone.
+- The barracks, shipyard, trading post, caravan yard and masons' yard keep their own panels, so they have no Pause or Workers first yet.
+- The court's and prison's panels come with slice 45 at the merge.
+- Five smoke checks fail on this machine, and fail the same way on the starting build: hovering over a trireme, a blockading ship and the quarry tool, and #seized's line and chip, which look for different numbers from the ones its town has had since an earlier merge (1,470 dr left and 750 seized). I left them alone.
+
+### Measurements, before and after
+Headless Chromium with software WebGL, on a machine shared with the other lines the whole time (a load of 20 to 40 on 4 cores), so the times are mostly the load. Before is `9eba183`; after is this slice.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 638 in 52 files, all passing | 651 in 53 files, all passing (twelve ran out of time in the full run under the load and passed when their files ran alone) |
+| Build | 7 min 26 s | 12 min 34 s (a heavier load at the time) |
+| Download (gzipped) | 4,777 KB: the game 862 KB, the prepared towns 3,916 KB | 4,866 KB: the game 872 KB, the prepared towns 3,994 KB (two new demo towns) |
+| `#town`'s save | 188,637 characters | 189,397 (the budget is 190,000) |
+| Triangles and draw calls | | the same in all 114 views both runs reached, `#empire` included (2.08 million and 156 from its view) |
+| `#empire` running | 46 ms a frame of update before drawing | 86 ms, on a busier machine; the sim alone, timed both ways in turn, is the same (2 to 6 ms a tick on each) |
+| Every demo | | all 139 prepared towns open, and play 900 ticks on, exactly as at `9eba183` |
+
+The measure ran out of its time on the starting build before its last part, every demo's load time, so those weren't compared side by side.
+
 ## Slice 44 — The town's messages (25 Oct)
 
 Everything the town hears now goes into one log, kept with the save. A small scroll beside the date opens it, with a seal counting what you haven't read, and only alarms still pop up. You weren't here while it was built: every choice below is mine, from the spec's defaults.

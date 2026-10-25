@@ -101,4 +101,37 @@ At `9eba183`, on a loaded machine (four lines building on four cores; load 12 to
 
 ## As built
 
-*(Filled in at the end of the slice.)*
+Commits on `claude/p6-panels`: the plan (`c28b86d`), the sim (`8a78915`), the UI and demos (`0363a17`), the granary's line and the view (`728a9bb`), the checks and the check-in (this file's commit).
+
+**As planned:**
+- Rules on the stores and orders on the workplaces; everyone who brings goods keeps them through `roomFor`, everyone who fetches through the ranked `nearestBy` (`fromStores`): the makers' carts, the agora's food and stall porters, the barracks' and armoury's porters, the estates' porters, the dockers (fetching for sale and for gifts, and carrying back), slice 43's colony porters and the monuments' ox carts. Thieves bring stolen goods back to their own store; smugglers take from the quay, not the stores.
+- The stores' own carts (`storerules.ts`, after `stepCrime`): Empty sends to the nearest store that takes the ware; Get has the nearest store holding some (an emptying one first, never one getting it, never a paused one) send a cart over, so only ox carts (sledges for marble) are on the roads. No loops, by construction and tested.
+- Pause and workers first in `labour.ts`, the workers shared again at once.
+- The building panel and its registry, the store's rows, the controls, the paused plaque, the goods' icons in `wareicons.ts`; slice 44's five findings.
+- Demos `#storerules`, `#storeset`, `#workpanel`.
+
+**Changed on the way:**
+- **Orders are numbers, not booleans** (`paused` and `first` are 0 or 1), and **a store's rules are empty until it is given one** (and emptied again when every ware is back to accepting all). With booleans and a full row of rules on every store, `#town`'s save grew past its budget in `saves.test.ts` (190,287 characters against 190,000; 188,637 at `9eba183`); now it is 189,397.
+- **Clicking a building no longer follows its walker:** it opens the panel, whose walkers' rows each have Follow (main.ts' `FOLLOWS` map went). Clicking a walker still follows her; the household, trade, shipyard, Army and Monuments panels open as before.
+- **Where a building stands** is its district ("By the olive grove", "On the west bank"), from `map/districts.ts`, as the messages name places; the short-of-workers words are the staff line's own (why it is short), not a direction.
+- **The same message again** is grouped by month, not only when next to each other: within a month, every message of one kind and title is one row, at its newest, with "×N" (a raid's fires interleave with its rubble, so neighbours alone missed most of them).
+- **A store's rows come right after its staff**, above what it is doing (they are what it holds); its rooms' line is left out of the doing list, the rows show it.
+- **`#storerules`' staging:** #richtown's quay storehouse never holds oil (the dockers sell it to the ship as it comes), so the demo has the town keep its oil from the ship and sets the quay's storehouse to get oil (up to half) from the one on the hill until it holds 700 or more (about two months), then puts it back to accepting everything. Played with the slice's own rules, as a player would.
+- **The granary's "full" line** said "Its and undefined store is full" whenever two of its foods were full (it passed names where foods were wanted; there at `9eba183` too). Fixed, as it shows in the panel.
+
+**Touched outside the line** (each small, in a block or line marked Slice 48):
+- `src/sim/goods.ts`, `army.ts`, `estates.ts`, `trade.ts`, `colonyworks.ts`, `monumentworks.ts`: the fetching carriers pass the stores' rank to `nearestBy` (one argument each); `trade.ts`' dockers ask `takes` when carrying back.
+- `src/sim/diplomacy.ts` (`news` takes an alarm kind), `raids.ts` (its five alarm lines), `blockades.ts`, `vassals.ts`, `colonies.ts` (one each): Greece's alarms carry their kind.
+- `src/sim/status.ts`: the staff line says paused or workers first; the granary's full line (above).
+- `src/game/saves.ts` (the orders' and rules' check), `src/game/input.ts` (the key left of 1 by its place), `src/game/views.ts` (two views), `src/ui/household.ts` (its goods' icons from `wareicons.ts`, the same drawings), `src/ui/topbar.ts` (the seal's tip), `src/sim/state.ts`, `sim.ts`, `commands.ts`, `migrate.ts`, `src/main.ts`, `src/game/demos.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`.
+- `scripts/smoke.mjs`: `#messages`' seal check counts warnings and alarms; `#looted`'s check now wants the band making off **not** under Waiting on you.
+
+**`MAP_SIZE`:** no new uses.
+
+**Checks** (on the same loaded machine, load 20 to 40 on 4 cores, the other lines building beside it):
+- **Tests:** 651 in 53 files (638 in 52 before; `storerules.test.ts` is new). In the full run (36 min) twelve tests in eight files ran out of their time under the load (eleven timeouts, and `culture.test.ts`' per-call time budget at 2.5 ms against 2); the eight files run again on their own pass, all 107 tests.
+- **Build:** clean, 12 min 34 s (7 min 26 s at the start, on a lighter load).
+- **Demo probe:** all 139 prepared towns baked at `9eba183`, opened in the starting code and in this slice's and played 900 ticks on: the whole state the same in both (but this slice's new fields), at the open and after. The towns this build bakes afresh are the same as the starting build's (checked on `#seized` field by field).
+- **Old saves:** the 139 version 40 towns load through `fromSlice48`; `saves.test.ts`' version 40 and version 37 saves load.
+- **Smoke** (a copy with its waits loosened five times, 105 min, start to end): every slice 48 check passes. Five fail, each the same at the start: a trireme's and a blockading ship's hover and the quarry tool's refusal (as slice 44 found), and `#seized`' line and chip, which look for 1,474 dr left and 746 seized while the town, baked the same at `9eba183`, has 1,470 and 750.
+- **Measure** (loosened, both builds, side by side): every view both runs reached has the same triangles and draw calls (114 of them, `#empire`'s 2.08 million and 156 among them). Download 4,866 KB gzipped (4,777 before): the game 872 KB (862), the prepared towns 3,994 KB (3,916; two new towns). `#empire` running read 86 ms a frame against 46, but the machine was far busier during the second run; the sim alone, timed on `#empire` both ways in turn, is the same (2 to 6 ms a tick either way). The demo-load sweep at the end ran out of the two hours on the starting build, so it isn't compared.
