@@ -379,6 +379,8 @@ export function stateProblem(st: unknown): string {
     if (typeof b.ruin !== 'string' || typeof b.was !== 'string' || (b.was !== '' && !KINDS.includes(b.was))) return damaged('a heap of rubble is wrong');
     // Slice 36.
     if (typeof b.estate !== 'boolean') return damaged('whether a home is an estate is missing');
+    // Slice 48.
+    if ((b.paused !== 0 && b.paused !== 1) || (b.first !== 0 && b.first !== 1) || !nums(b.rules)) return damaged('a building’s orders or a store’s rules are wrong');
   }
   if (!Array.isArray(st.walkers)) return damaged('its walkers are missing');
   for (const w of st.walkers as unknown[]) {

@@ -764,7 +764,7 @@ function goFree(s: SimState, map: CoastMap, c: Colony, l: Loyalty): void {
   x.since = s.tick;
   guardsHome(s, map, c);
   s.empire.colonies = s.empire.colonies.filter((y) => y !== c);
-  news(s.world, s.tick, siteKey(c.site), `${c.name} has declared itself free: ${fmt(peopleOf(s, c))} people under ${c.governor || 'its council'}, with its loyalty at ${c.loyalty} (${lowReasons(l)}). It sends you nothing now`, true);
+  news(s.world, s.tick, siteKey(c.site), `${c.name} has declared itself free: ${fmt(peopleOf(s, c))} people under ${c.governor || 'its council'}, with its loyalty at ${c.loyalty} (${lowReasons(l)}). It sends you nothing now`, true, 'rebellion');
   s.rev++;
 }
 

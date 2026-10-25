@@ -82,7 +82,7 @@ import { nearestEdge, roadSearch, tracePath } from './roads';
 import { door, roadsBeside } from './rounds';
 import { TILE_ROAD, type Building, type BuildingKind, type SimState, type Walker, type WorldCity } from './state';
 import { note } from './stockbook';
-import { roomOf } from './stores';
+import { fromStores, roomOf } from './stores';
 import { berthAt } from './trade';
 import { income } from './treasury';
 import { CART_SPEED, centre, newWalker, OFF_MAP, offMapPoint, position, SENDING_SPEED, setPath, WALK_SPEED } from './walk';
@@ -303,7 +303,8 @@ function haul(s: SimState, map: CoastMap, x: Site, b: Building): void {
   for (const { w, n } of wants) {
     // (At the merge of slice 36: what the estates still want of it stays in the storehouse for their porters.)
     const keep = estatesKeep(s, w);
-    const found = nearestBy(s, size, roads, (g) => g.kind === 'storehouse' && held(g, w) > keep);
+    // (Slice 48: a storehouse emptying it first; none that is paused.)
+    const found = nearestBy(s, size, roads, (g) => g.kind === 'storehouse' && held(g, w) > keep, fromStores(w));
     if (!found) continue;
     const { g, way } = found;
     const load = Math.min(haulOf(w), n, held(g, w) - keep);

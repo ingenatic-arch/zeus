@@ -42,7 +42,7 @@ import { heraldArrived, heraldWords, seizing } from './loans';
 import { caravanEntry, caravanYard, landTicks, routeWay, voyageTicks, type RouteKind } from './routes';
 import { door } from './rounds';
 import { roomFor } from './stores';
-import type { Building, Gift, LedgerKind, Memory, SimState, TradeRoute, World, WorldCity } from './state';
+import type { Building, Gift, LedgerKind, Memory, NewsItem, SimState, TradeRoute, World, WorldCity } from './state';
 import { note } from './stockbook';
 import { berthOf, cityHolds, depotRoom, forSale, giftInHand, leaveTicks, SAIL_IN, shipAt, shipRoute, SHIP_AWAY, SHIP_LEAVING, storeKind, OLD_GOODS, TRADE_GOODS, tradeIndex, tradingPost } from './trade';
 import { dealOf, delivered, sentWords, undelivered } from './favours';
@@ -431,8 +431,9 @@ export function giftOnMap(g: Gift, tick: number, n: number): { along: number; ho
 // The mood: its turns, the routes it closes, whims and gifts back.
 
 /** A line of news from Greece. */
-export function news(w: World, tick: number, city: CityId, line: string, urgent = false): void {
-  w.news.push(urgent ? { tick, city, line, urgent: true } : { tick, city, line });
+export function news(w: World, tick: number, city: CityId, line: string, urgent = false, alarm?: NewsItem['alarm']): void {
+  // (Slice 48: an alarm says which kind it is.)
+  w.news.push(alarm ? { tick, city, line, urgent: true, alarm } : urgent ? { tick, city, line, urgent: true } : { tick, city, line });
   if (w.news.length > 12) w.news.splice(0, w.news.length - 12);
 }
 

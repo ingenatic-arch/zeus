@@ -123,7 +123,8 @@ export function hear(s: SimState): void {
     if (n.greece && !s.world.contact) continue;
     if (toldLately(s, n.tick, n.line)) continue;
     const site = n.city.startsWith('site:');
-    const k = kindOfLine(n.line, !!n.urgent, site, 'greece', !!n.greece);
+    // (Slice 48: an alarm is known by its kind; a line from before kinds, by its words.)
+    const k = n.alarm ? { kind: n.alarm, u: ALARM as Urgency } : kindOfLine(n.line, !!n.urgent, site, 'greece', !!n.greece);
     const at: Place = site ? { site: n.city.slice(5) } : k.kind === 'raid' ? warPlace(s, n.city) : { city: n.city };
     say(s, { kind: k.kind, u: k.u, words: `${n.line}.`, tick: n.tick, at });
   }

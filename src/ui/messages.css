@@ -132,3 +132,9 @@ body.greece-open #ui .household.messages { max-height: calc(100% - 106px); }
 @media (prefers-reduced-motion: reduce) { .msg-pop { animation: none; transition: none; } }
 /* On the map of Greece, beside a city's page rather than over it. */
 body.greece-open #ui:has(> .greece-panel:not([hidden])) > .msg-pop { left: 402px; }
+
+/* Slice 48: the key that opens the scroll, by the title; a run of the same message as one row, its count; each day's words in it. */
+.household.messages .mkey { display: inline-block; margin-left: 6px; padding: 0 5px; min-width: 14px; font-weight: bold; border: 1px solid var(--edge); border-bottom-width: 2px; border-radius: 4px; background: #fff8ea; font: 15px/1.2 var(--serif); color: var(--ink); vertical-align: 3px; text-align: center; cursor: help; }
+.household.messages .msg .times { flex: none; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: #7a5c3c; font-size: 11.5px; line-height: 1.5; color: #fff6e4; font-variant-numeric: tabular-nums; }
+.household.messages .msg.u2 .times { background: #a8321e; }
+.household.messages .msg .more p .when { font-weight: normal; color: var(--ink-soft); font-size: 12px; margin-right: 3px; }

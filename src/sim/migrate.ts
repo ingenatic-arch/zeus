@@ -164,6 +164,11 @@
  * hand-made coast of 128 tiles a side, as it always was. Nothing in the
  * city changes.
  *
+ * Slice 48 (Building panels and the storehouse): every granary and
+ * storehouse accepts every ware it has room for, all of its room, as stores
+ * always did; no workplace is paused or has its workers first. So an old town
+ * plays on exactly as before until its stores are given rules.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -200,6 +205,8 @@ import { freshAmbition } from './laurels';
 import { stageFor } from './colonyworks';
 // Slice 44.
 import { mendMessages } from './messages';
+// Slice 48.
+import { WARES } from './foods';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -259,6 +266,7 @@ export function migrate(st: unknown): number {
   if (st.version === 38) fromSlice41(st);
   if (st.version === 39) fromSlice44(st);
   if (st.version === 40) fromSlice42(st);
+  if (st.version === 41) fromSlice48(st);
   return from;
 }
 
@@ -1020,5 +1028,26 @@ function fromSlice44(st: Record<string, unknown>): void {
 // Slice 42
 function fromSlice42(st: Record<string, unknown>): void {
   if (!isObj(st.land)) st.land = { ...BAY };
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 48 (Building panels and the storehouse): see the note above. Only its
+ * own fields on each building, each only if it is missing: not paused, no
+ * workers first, and a store's rules all accept (one for every ware: padded to
+ * however many wares there are), none for any other building.
+ */
+function fromSlice48(st: Record<string, unknown>): void {
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as unknown[]) {
+      if (!isObj(b)) continue;
+      if (b.paused !== 0 && b.paused !== 1) b.paused = 0;
+      if (b.first !== 0 && b.first !== 1) b.first = 0;
+      if (!Array.isArray(b.rules)) b.rules = [];
+      // (A store's rules, if it has any, a rule for every ware.)
+      const r = b.rules as unknown[];
+      if (r.length) while (r.length < WARES.length) r.push(0);
+    }
+  }
   st.version = (st.version as number) + 1;
 }

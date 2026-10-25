@@ -96,6 +96,12 @@ import { talliesNow, type CrimeTally } from './sim/crime';
 import { RAIN, seasonNews, STORM, weatherNow, yearPhase } from './sim/seasons';
 import { applySeasonUniforms, seasonLook } from './render/seasons';
 import { buildRain } from './render/rain';
+// Slice 48: a building's panel, and a paused workplace's plaque.
+import { BuildingPanel, ownPanel } from './ui/buildingpanel';
+import { PauseMarks } from './render/pausemarks';
+import { ALARM, WARNING } from './sim/messages';
+import { storeCartsOf } from './sim/storerules';
+import { WARES } from './sim/foods';
 
 interface Probe {
   ready: boolean;
@@ -306,6 +312,11 @@ interface Probe {
   // Slice 42
   /** The town's land (kind, size, seed), its site, how many road tiles are laid (and the first on the west edge), the camera's view, and how long its map took to bake. */
   land?: () => { kind: string; size: number; seed: number; site: { x: number; z: number } | null; roads: number; edgeRoad: number; view: { x: number; z: number; dist: number }; bakeMs: number };
+  // Slice 48
+  /** A building's panel: opened on a building (an id; 0 closes it) first if given; what it shows, and the paused plaques drawn. */
+  building?: (id?: number) => { id: number; open: boolean; text: string; plaques: number };
+  /** A building's orders and a store's rules, and the store-to-store carts on the road from or to it. */
+  store?: (id: number) => { paused: boolean; first: boolean; workers: number; rules: number[]; held: number[]; out: number; coming: number } | null;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -420,6 +431,9 @@ function start(preparedTown: string | null): void {
   // Slice 41: what the new crimes leave in the street (smashed buildings, gangs' dens, talk of burning).
   const crimeMarks = new CrimeMarks(map);
   world.scene.add(crimeMarks.group);
+  // Slice 48: a paused workplace's plaque.
+  const pauseMarks = new PauseMarks(map);
+  world.scene.add(pauseMarks.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
   // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
@@ -1123,6 +1137,8 @@ function start(preparedTown: string | null): void {
       st.title = `The house of ${b.family.name} · ${st.title.replace(/^A /, 'a ')}`;
       if (panel.id !== b.id) st.detail = `${st.detail ? st.detail + '\n' : ''}Click to see who lives here`;
     }
+    // Slice 48.
+    else if (buildingPanel.id !== b.id && !ownPanel(b.kind)) st.detail = `${st.detail ? st.detail + '\n' : ''}Click for its panel`;
     showStatus(st, sx, sy);
   };
 
@@ -1180,8 +1196,7 @@ function start(preparedTown: string | null): void {
     return list[(i + (back ? list.length - 1 : 1)) % list.length];
   };
   const TOOL_KEYS: Record<string, ToolName> = { t: 'road', h: 'housing', b: 'fountain', m: 'farm', g: 'granary', k: 'agora', v: 'shrine', p: 'theatre', z: 'taxoffice', x: 'clear' };
-  /** What clicking a workplace follows. */
-  const FOLLOWS: Partial<Record<Building['kind'], Walker['kind']>> = { fountain: 'water', agora: 'food', farm: 'cart', shrine: 'priestess', theatre: 'actor', taxoffice: 'tax', lodge: 'hunter', dairy: 'cart', grove: 'cart', press: 'cart', pasture: 'cart', vineyard: 'cart', winery: 'cart', watchpost: 'watchman', architect: 'inspector', quarry: 'sledge', loggers: 'logger' };
+  // (Slice 48: clicking a workplace opens its panel, whose walkers each have a Follow button, where it once followed one of them.)
   const pointerTools: PointerTools = {
     get active() {
       return (tools.tool !== null || orders.selected !== 0) && !greeceOpen();
@@ -1217,6 +1232,8 @@ function start(preparedTown: string | null): void {
       // (Slice 38.)
       else if (shipyardPanel.open) shipyardPanel.toggle(false);
       else if (panel.open) panel.show(0);
+      // Slice 48.
+      else if (buildingPanel.open) buildingPanel.show(0);
       else tools.cancel();
     },
     click(w, sx, sy) {
@@ -1274,8 +1291,9 @@ function start(preparedTown: string | null): void {
         tradePanel.toggle(false);
         shipyardPanel.toggle(false);
       }
-      const kind = b ? FOLLOWS[b.kind] : undefined;
-      if (b && kind) startFollow(b.id, kind, sim.state.walkers.find((o) => o.origin === b.id && o.kind === kind)?.id ?? 0);
+      // Slice 48: any other building opens its panel (its walkers there, each with Follow); open ground closes it.
+      buildingPanel.show(b ? b.id : 0);
+      if (b) return hover(w, sx, sy);
     },
     key(k, e) {
       if (k === 'save') {
@@ -1530,6 +1548,63 @@ function start(preparedTown: string | null): void {
     if (ids.length) sendMessages({ type: 'messages', act: 'read', ids });
   }
   if (demo?.messages) msgPanel.toggle(true);
+
+  // Slice 48: a building's panel, on the left: one at a time with the household, trade, shipyard and Messages panels.
+  const buildingPanel = new BuildingPanel(ui, {
+    send: (c) => {
+      sim.enqueue(c);
+      sim.flush();
+      sound.play('build');
+      startAutosaving();
+      linesAt = -Infinity;
+    },
+    follow: (origin, kind, walker) => startFollow(origin, kind, walker),
+    openMessage: (id) => msgPanel.showMessage(id),
+    openOwn: (b) => {
+      if (b.kind === 'home') panel.show(b.id);
+      else if (b.kind === 'barracks') side.showBarracks(b.id);
+      else if (b.kind === 'shipyard') shipyardPanel.show(b.id);
+      else if (b.kind === 'trading' || b.kind === 'yard') tradePanel.showTab(b.kind === 'trading' ? 'tyre' : 'yard');
+      else side.showTab('monuments');
+    },
+  });
+  buildingPanel.onOpen = () => {
+    panel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+  };
+  for (const other of [tradePanel, shipyardPanel, msgPanel]) {
+    const was = other.onOpen;
+    other.onOpen = () => {
+      was?.();
+      buildingPanel.show(0);
+    };
+  }
+  /** The scroll's seal: the unread warnings and alarms (news stays bold in the panel and counted on its chips). */
+  const sealOf = (s: SimState): { n: number; u: number } => {
+    let n = 0;
+    let u = -1;
+    for (const m of s.messages.log) {
+      if (m.read || m.u < WARNING) continue;
+      n++;
+      if (m.u > u) u = m.u;
+    }
+    return { n, u: u >= ALARM ? ALARM : u };
+  };
+  // A demo can open with a building's panel showing (#workpanel, #storeset).
+  if (demo?.building) buildingPanel.show(demo.building(sim.state));
+  probe.building = (id) => {
+    if (id !== undefined) buildingPanel.show(id);
+    buildingPanel.update(sim.state, map, Infinity);
+    return { id: buildingPanel.id, open: buildingPanel.open, text: buildingPanel.text, plaques: pauseMarks.count };
+  };
+  probe.store = (id) => {
+    const b = findBuilding(sim.state, id);
+    if (!b) return null;
+    const c = storeCartsOf(sim.state, b);
+    return { paused: !!b.paused, first: !!b.first, workers: b.workers, rules: [...b.rules], held: WARES.map((w) => held(b, w)), out: c.out, coming: c.coming };
+  };
 
   /** "water", "water or bread", "water, bread or blessings". */
   const orList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`);
@@ -1904,6 +1979,11 @@ function start(preparedTown: string | null): void {
       log: s.messages.log.slice(-last).map((m) => ({ id: m.id, tick: m.tick, kind: m.kind, u: m.u, title: titleOf(m), words: m.words, at: m.at ?? null, read: !!m.read, pin: !!m.pin })),
     };
   };
+  {
+    // Slice 48: and the seal's count, of the unread warnings and alarms.
+    const was = probe.messages;
+    probe.messages = (open, filter, last) => ({ ...was(open, filter, last), sealed: sealOf(sim.state).n });
+  }
   probe.sideText = () => side.text;
   probe.side = (open) => side.toggle(open);
   probe.sideTab = (t) => side.showTab(t as Parameters<typeof side.showTab>[0]);
@@ -2368,8 +2448,9 @@ function start(preparedTown: string | null): void {
       if (cue) sound.play(cue);
       if (time - msgBadgeAt > 0.25) {
         msgBadgeAt = time;
-        const u = unread(s);
-        topbar.showMessages(u.n, u.u, msgPanel.open);
+        // (Slice 48: the seal counts the unread warnings and alarms.)
+        const u = sealOf(s);
+        topbar.showMessages(u.n, u.u, msgPanel.open, unread(s).n);
       }
       msgPanel.update(s, map, time);
       // (Real time: a card stays its six seconds however slow the frames. Review of slice 44.)
@@ -2461,6 +2542,10 @@ function start(preparedTown: string | null): void {
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);
     crimeMarks.update(s, camera, time);
+    // Slice 48.
+    pauseMarks.update(s, camera, time);
+    buildingPanel.update(s, map, time);
+    if (panel.open && buildingPanel.open) buildingPanel.show(0);
     ledger.update(s, map, time);
     // Slice 39.
     ambitionPanel.update(s, time);
@@ -2474,7 +2559,9 @@ function start(preparedTown: string | null): void {
     }
     const open = panel.update(s, map, time);
     // (Slice 36: an estate's ring goes round its whole 4 x 4.)
-    selection.set(open ?? (tradePanel.open ? ((tradePanel.tab === 'yard' || tradePanel.tab.endsWith('-land') ? caravanYard(s) : tradingPost(s)) ?? null) : null), open && 'estate' in open && open.estate ? footSide(open) : 2);
+    // (Slice 48: and the building whose panel is open.)
+    const bOpen = !open && buildingPanel.open ? findBuilding(s, buildingPanel.id) : undefined;
+    selection.set(open ?? bOpen ?? (tradePanel.open ? ((tradePanel.tab === 'yard' || tradePanel.tab.endsWith('-land') ? caravanYard(s) : tradingPost(s)) ?? null) : null), open && 'estate' in open && open.estate ? footSide(open) : bOpen ? footSide(bOpen) : 2);
     selection.update(time);
     if (mark?.mesh.visible && demo?.mark) {
       if (s.tiles[demo.mark.z * map.size + demo.mark.x] === TILE_ROAD) mark.set(null);

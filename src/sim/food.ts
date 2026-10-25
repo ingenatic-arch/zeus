@@ -21,6 +21,8 @@ import { TICKS_PER_MONTH } from './clock';
 import { DECLINE_AFTER, needsOf } from './folk';
 import { addComing, CHEESE, FIRST_GOOD, FOODS, foodUntil, held, kindsNeeded, MARBLE, MEAT, nth, setFoodUntil, setHeld, type Food, type Ware } from './foods';
 import { ARMOURY_COPPER, BARN, BARRACKS_RACK, DAIRY_STORE, GRANARY_CAP, GRANARY_ROOM, isStore, LODGE_STORE, roomFor, roomOf, storeOf } from './stores';
+// Slice 48: the stores' rules.
+import { fromStores, takes } from './stores';
 import { rateOf } from './labour';
 import { nearestReached, roadSearch, tracePath } from './roads';
 import { CREW_GAP, crewClock, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -225,17 +227,24 @@ const hasFood = (g: Building): boolean => g.stock > 0 || g.meat > 0 || g.cheese 
 /**
  * The nearest building (by road from road tile `from`, or from building `b`'s
  * roadside) that passes `ok`: the building and the shortest way there, from
- * `from`'s side to the building's.
+ * `from`'s side to the building's. Slice 48: with `rank` (fromStores in
+ * stores.ts, for a carrier fetching from the stores), a building ranked 0 is
+ * passed over and the nearest ranked 2 (a store emptying the ware) is taken
+ * before any ranked 1; with none ranked 2 it is the same choice as without.
  */
-export function nearestBy(s: SimState, size: number, fromTiles: number[], ok: (g: Building) => boolean): { g: Building; way: number[] } | null {
+export function nearestBy(s: SimState, size: number, fromTiles: number[], ok: (g: Building) => boolean, rank?: (g: Building) => number): { g: Building; way: number[] } | null {
   if (fromTiles.length === 0) return null;
   const search = roadSearch(s, size, fromTiles);
   let best: { g: Building; way: number[] } | null = null;
   let bd = Infinity;
+  let top = 0;
   for (const g of s.buildings) {
     if (!ok(g)) continue;
+    const r = rank ? rank(g) : 1;
+    if (r <= 0 || r < top) continue;
     const at = nearestReached(search, roadsBeside(s, size, g));
-    if (at < 0 || search.dist[at] >= bd) continue;
+    if (at < 0 || (r === top && search.dist[at] >= bd)) continue;
+    top = r;
     bd = search.dist[at];
     best = { g, way: tracePath(search, at) };
   }
@@ -310,7 +319,7 @@ function foodPorter(s: SimState, size: number, a: Building, rate: number): void 
   if (a.meat <= STALL_LOW_AT[MEAT] && anyGranaryHas(s, MEAT)) low |= 2;
   if (a.cheese <= STALL_LOW_AT[CHEESE] && anyGranaryHas(s, CHEESE)) low |= 4;
   if (low === 0) return;
-  const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => g.kind === 'granary' && (foodsIn(g) & low) !== 0);
+  const found = nearestBy(s, size, roadsBeside(s, size, a), (g) => g.kind === 'granary' && (foodsIn(g) & low) !== 0, fromStores(FOODS.filter((f) => low & (1 << f))));
   if (!found) {
     a.growth = PORTER_RETRY;
     return;
@@ -349,7 +358,9 @@ export function goTo(s: SimState, size: number, w: Walker, to: Building, from: n
 
 /** Is this where a cart or porter is going: a building with room for the cart's ware, the granary for the food porter, a store of his good for a goods porter? */
 export function fits(g: Building, w: Walker): boolean {
-  if (isCart(w)) return roomOf(g.kind, w.food) > 0;
+  // (Slice 48: a building that has stopped taking the ware, by its rules or paused, turns a cart away; a paused store a porter too.)
+  if (isCart(w)) return takes(g, w.food);
+  if (g.paused) return false;
   return w.food >= FIRST_GOOD ? isStore(g.kind) && roomOf(g.kind, w.food) > 0 : g.kind === 'granary';
 }
 
@@ -370,7 +381,7 @@ function rethink(s: SimState, size: number, w: Walker, origin: Building): boolea
         : w.food >= FIRST_GOOD
           ? (g: Building) => fits(g, w) && held(g, w.food) > 0
           : (g: Building) => g.kind === 'granary' && hasFood(g);
-    const found = nearestBy(s, size, [from], ok);
+    const found = nearestBy(s, size, [from], ok, isCart(w) ? undefined : fromStores(w.food >= FIRST_GOOD ? w.food : FOODS));
     if (found) {
       w.target = found.g.id;
       if (isCart(w)) addComing(found.g, w.food, w.load);
@@ -394,7 +405,8 @@ function lost(s: SimState, w: Walker, origin: Building): false {
 function bringBack(w: Walker, origin: Building, s: SimState): void {
   if (isCart(w)) {
     const f = w.food;
-    setHeld(origin, f, Math.min(storeOf(origin.kind), held(origin, f) + w.load));
+    // (Slice 48: a store's own cart, sent out with what it was emptying or another store asked for, puts it back in its room.)
+    setHeld(origin, f, Math.min(isStore(origin.kind) ? roomOf(origin.kind, f) : storeOf(origin.kind), held(origin, f) + w.load));
     return;
   }
   // (Slice 36: an estate's porter brings its marble, armour or horses home.)

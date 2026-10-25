@@ -76,6 +76,8 @@ import { sendBlockade } from '../sim/blockades';
 // Slice 41.
 import { setOutAs, type CrimeKind } from '../sim/crime';
 import { crimeTargetsFrom, type Target } from '../sim/misdeeds';
+// Slice 48
+import { ACCEPT, EMPTY, GET } from '../sim/stores';
 import type { Walker } from '../sim/state';
 
 /**
@@ -202,6 +204,9 @@ export interface Demo {
   messages?: boolean;
   /** A demo opens with its town's messages read, but for those of the last so many ticks (none if not given). */
   unread?: number;
+  // Slice 48
+  /** The building whose panel is open from the start (a building id, 0 for none). */
+  building?: (s: SimState) => number;
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;
@@ -3440,6 +3445,12 @@ const SCENES: Record<string, Demo> = {
   landsmall: { view: 'land', setup: landTown({ kind: 'sheltered', size: 128, seed: 1 }) },
   landmedium: { view: 'land', setup: landTown({ kind: 'sheltered', size: 192, seed: 4 }) },
   landlarge: { view: 'land', setup: landTown({ kind: 'sheltered', size: 256, seed: 2 }) },
+  // Slice 48: building panels and the storehouse. #richtown's town, the storehouse by the quay holding oil as well as
+  // wine, every store accepting everything; the same a few days after that storehouse was set to accept only wine and to
+  // empty its oil, its panel open; #richtown with the olive press's panel open.
+  storerules: { view: 'storerules', setup: storeRulesTown, overlay: 'missing' },
+  storeset: { view: 'storerules', setup: storeSetTown, overlay: 'missing', building: quayStoreId },
+  workpanel: { view: 'workpanel', setup: town(TOWN_TICKS, SAFE, true), overlay: 'missing', building: (s) => s.buildings.find((b) => b.kind === 'press')?.id ?? 0 },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3640,4 +3651,57 @@ export function landRoad(sim: Sim): number[] {
     if (x > x1) return tiles;
   }
   return [];
+}
+
+// Slice 48
+/**
+ * The stores' rules (slice 48). #storerules: #richtown's town, as its builder
+ * would carry it on: oil kept back from the Tyrian ship for the town, and the
+ * storehouse by the quay set to get oil from the one up the hill until it holds
+ * a few hundred jars beside the winery's wine, then put back to accepting
+ * everything. It opens with every store accepting everything, as before rules,
+ * and the quay's storehouse holding both. #storeset: the same, then that
+ * storehouse set to accept nothing but wine and to empty its oil, a few days
+ * on: its first carts of oil on the road up to the storehouse on the hill.
+ */
+function storeRulesTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  const quay = quayStore(s);
+  if (!quay) return;
+  send({ type: 'trade', good: OIL, sell: false });
+  // (Up to half its room; at most six months: the carts take a while up and down the hill.)
+  send({ type: 'store', id: quay.id, ware: OIL, mode: GET, limit: 2 });
+  const end = s.tick + 6 * TICKS_PER_MONTH;
+  while (s.tick < end && held(quay, OIL) < 700) sim.run(TICKS_PER_DAY);
+  send({ type: 'store', id: quay.id, all: 'all' });
+}
+function storeSetTown(sim: Sim): void {
+  storeRulesTown(sim);
+  const s = sim.state;
+  const quay = quayStore(s);
+  if (!quay) return;
+  for (const c of [
+    { type: 'store', id: quay.id, all: 'none' },
+    { type: 'store', id: quay.id, ware: WINE, mode: ACCEPT },
+    { type: 'store', id: quay.id, ware: OIL, mode: EMPTY },
+  ] as const) {
+    sim.enqueue(c);
+    sim.flush();
+  }
+  sim.run(2 * TICKS_PER_DAY);
+}
+/** The storehouse nearest the trading post (#richtown's by the quay, beside the winery). */
+function quayStore(s: SimState): Building | undefined {
+  const post = tradingPost(s);
+  if (!post) return undefined;
+  return s.buildings.filter((b) => b.kind === 'storehouse').sort((a, b) => Math.abs(a.x - post.x) + Math.abs(a.z - post.z) - (Math.abs(b.x - post.x) + Math.abs(b.z - post.z)))[0];
+}
+/** #storeset's panel: the storehouse by the quay. */
+export function quayStoreId(s: SimState): number {
+  return quayStore(s)?.id ?? 0;
 }

@@ -5,6 +5,11 @@
  * by road is taken in order of road distance, and each pair fills what it
  * can. A building works at the share of its jobs that are filled (half
  * that while its wages are unpaid: see treasury.ts).
+ *
+ * Slice 48: a workplace can be paused, and takes nobody (its workers go to
+ * the next nearest jobs, so it works at nothing), or given its workers first:
+ * the places with workers first are filled, nearest homes first, before the
+ * rest are filled as always.
  */
 import type { CoastMap } from '../map/bake';
 import { jobsAt, livedIn } from './buildings';
@@ -54,8 +59,10 @@ export function shareWork(s: SimState, map: CoastMap): void {
     b.workers = 0;
     b.unpaid = 0;
     const free = canWork(b, away.has(b.id) ? 1 : 0);
-    if (jobsAt(b) > 0) places.push(b);
-    else if (free > 0) homes.push({ b, roads: roadsBeside(s, size, b), free });
+    // (Slice 48: a paused workplace takes nobody.)
+    if (jobsAt(b) > 0) {
+      if (!b.paused) places.push(b);
+    } else if (free > 0) homes.push({ b, roads: roadsBeside(s, size, b), free });
   }
   if (places.length > 0 && homes.length > 0) fill(s, size, places, homes);
   // A workplace that works at a new rate may look different (the farm's field).
@@ -77,18 +84,23 @@ function fill(s: SimState, size: number, places: Building[], homes: Array<{ b: B
     });
   });
   const order = Float64Array.from(pairs).sort();
-  for (const key of order) {
-    const rest = key % span;
-    const p = places[Math.floor(rest / H)];
-    const h = homes[rest % H];
-    const want = jobsAt(p) - p.workers;
-    if (want <= 0 || h.free <= 0) continue;
-    const take = Math.min(want, h.free);
-    p.workers += take;
-    h.free -= take;
-    h.b.workers += take;
-    // Working where the wages went unpaid this month.
-    if (p.owed > 0) h.b.unpaid += take;
+  // (Slice 48: the places given their workers first are filled before the rest, in the same order.)
+  const firsts = places.some((p) => p.first);
+  for (let pass = firsts ? 0 : 1; pass < 2; pass++) {
+    for (const key of order) {
+      const rest = key % span;
+      const p = places[Math.floor(rest / H)];
+      if (pass === 0 && !p.first) continue;
+      const h = homes[rest % H];
+      const want = jobsAt(p) - p.workers;
+      if (want <= 0 || h.free <= 0) continue;
+      const take = Math.min(want, h.free);
+      p.workers += take;
+      h.free -= take;
+      h.b.workers += take;
+      // Working where the wages went unpaid this month.
+      if (p.owed > 0) h.b.unpaid += take;
+    }
   }
 }
 
@@ -99,7 +111,8 @@ export function workforce(s: SimState): { jobs: number; filled: number; able: nu
   let able = 0;
   const short: Building[] = [];
   for (const b of s.buildings) {
-    const j = jobsAt(b);
+    // (Slice 48: a paused workplace's jobs aren't counted, nor short.)
+    const j = b.paused ? 0 : jobsAt(b);
     if (j > 0) {
       jobs += j;
       filled += b.workers;

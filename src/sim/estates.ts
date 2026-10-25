@@ -43,7 +43,7 @@ import { edgeRoads, nearestReached, roadSearch, tracePath, type Search } from '.
 import { door, roadsBeside } from './rounds';
 import { sendLeavers } from './settlers';
 import { noteHomeUse } from './stockbook';
-import { isStore } from './stores';
+import { fromStores, isStore } from './stores';
 import { TILE_ROAD, type Building, type Need, type SimState } from './state';
 import { newWalker, offMapPoint, plotCentre, roadPoints, setPath } from './walk';
 
@@ -179,7 +179,7 @@ function sendPorters(s: SimState, size: number, b: Building): void {
       continue;
     }
     if (estatePorterOut(s, b, w)) continue;
-    const found = storesHave(s, w) ? nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && held(g, w) > 0) : null;
+    const found = storesHave(s, w) ? nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && held(g, w) > 0, fromStores(w)) : null;
     if (!found) {
       b.fetch[k] = FETCH_AGAIN;
       continue;

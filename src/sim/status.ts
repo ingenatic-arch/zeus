@@ -554,7 +554,9 @@ export function workersLine(s: SimState, map: CoastMap, b: Building): string {
 }
 
 function staffLine(s: SimState, map: CoastMap, b: Building, jobs: number): string {
-  if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}`;
+  // Slice 48: paused, or given its workers first.
+  if (b.paused) return `Paused · its ${jobs} workers have gone to other work until it is set going again`;
+  if (b.workers >= jobs) return `Workers: ${jobs} of ${jobs}${b.first ? ' · workers first' : ''}`;
   if (b.workers === 0) {
     if (roadsBeside(s, map.size, b).length === 0) return `No workers · it needs ${jobs}, and a road beside it`;
     // Workers are shared out once a day: a workplace built since then hasn't had its turn.
@@ -623,8 +625,9 @@ export function granaryStatus(s: SimState, map: CoastMap, g: Building): Status {
   const rooms = `Holds ${fmt(GRANARY_CAP)} measures of wheat and ${fmt(GRANARY_ROOM[MEAT])} each of meat and cheese, each in its own store`;
   const bringing = FOODS.filter((f) => coming(g, f) > 0).map((f) => `${fmt(coming(g, f))} ${FOOD_NAMES[f]}`);
   const coming_ = bringing.length ? `Carts are bringing ${bringing.join(', ')} more` : !s.buildings.some((f) => f.kind === 'farm') ? 'Build a wheat farm on the green land by the river to fill it' : '';
-  const full = FOODS.filter((f) => held(g, f) >= GRANARY_ROOM[f] && s.buildings.some((o) => o.kind === MAKER[f].kind)).map((f) => FOOD_NAMES[f]);
-  const fullLine = full.length ? `Its ${foodList(full as unknown as Food[]).replace(/bread/, 'wheat')} store is full: carts with more wait for room` : '';
+  // (Slice 48: the foods themselves, not their names, for foodList: "Its meat and cheese stores are full".)
+  const full = FOODS.filter((f) => held(g, f) >= GRANARY_ROOM[f] && s.buildings.some((o) => o.kind === MAKER[f].kind));
+  const fullLine = full.length ? `Its ${foodList(full).replace(/bread/, 'wheat')} ${full.length === 1 ? 'store is' : 'stores are'} full: carts with more wait for room` : '';
   const waiting = s.walkers.filter((w) => (w.kind === 'cart' || w.kind === 'sledge' || w.kind === 'porter') && w.target === g.id && w.wait > 0).length;
   const gate = waiting && g.workers === 0 ? `${waiting === 1 ? 'A cart is' : `${waiting} are`} waiting at the gate: nobody works here to take it in` : '';
   // Standing empty beside a granary that gets the grain: say why.
@@ -876,6 +879,8 @@ const STORE_NAME: Partial<Record<BuildingKind, string>> = { granary: 'granary', 
 const WARE_GOES: Partial<Record<Ware, string>> = { [OLIVES]: 'olive press', [GRAPES]: 'winery', [OIL]: 'storehouse', [FLEECE]: 'storehouse', [WINE]: 'storehouse', [MARBLE]: 'storehouse', [TIMBER]: 'storehouse', [HORSES]: 'storehouse' };
 
 /** "12 jars of oil", "300 measures of olives". */
+/** " of oil" after a ware's units, but nothing after "horses" (Review of slice 48: "40 horses of horses"). */
+const ofWare = (w: Ware): string => (w === HORSES ? '' : ` of ${WARE_NAMES[w]}`);
 const amount = (w: Ware, n: number): string => (w === HORSES ? `${fmt(n)} ${unitOf(w, n)}` : `${fmt(n)} ${unitOf(w, n)} of ${WARE_NAMES[w]}`);
 
 /** The wine vendor is a man; the oil and fleece vendors are women (see the walkers' looks). */
@@ -1076,9 +1081,9 @@ function estateLine(s: SimState, b: Building): string {
 /** A storehouse: what it holds, what carts are bringing, who fetches from it. */
 export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Status {
   const held_ = STORE_GOODS.filter((w) => held(g, w) > 0);
-  const title = `${BUILDING_NAMES.storehouse} · ${held_.length ? held_.map((w) => `${fmt(held(g, w))} of ${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(' · ') : 'empty'}`;
+  const title = `${BUILDING_NAMES.storehouse} · ${held_.length ? held_.map((w) => `${fmt(held(g, w))} of ${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)}${ofWare(w)}`).join(' · ') : 'empty'}`;
   if (roadsBeside(s, map.size, g).length === 0) return { title, detail: 'Needs a road beside it, for carts and porters to reach it' };
-  const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)} of ${WARE_NAMES[w]}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
+  const rooms = `Holds ${STORE_GOODS.map((w) => `${fmt(roomForWareKind('storehouse', w))} ${unitOf(w, 2)}${ofWare(w)}`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, each in its own room`;
   const bringing = STORE_GOODS.filter((w) => coming(g, w) > 0).map((w) => amount(w, coming(g, w)));
   const anyMaker = STALL_GOODS.some((w) => s.buildings.some((m) => MAKERS[m.kind]?.ware === w));
   // (Slice 32's review: a quarry's blocks come on sledges.)

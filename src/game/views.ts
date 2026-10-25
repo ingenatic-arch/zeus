@@ -190,4 +190,8 @@ export const VIEWS: Record<string, CameraView> = {
   crimes: { x: 73, z: 53, yaw: -0.3, dist: 34, tilt: -0.15 },
   // #gang: the hut street on the slope behind the core's villas, its watch post at the west end, right of the den's panel (tuned by eye).
   gang: { x: 69, z: 25, yaw: -0.2, dist: 20, tilt: 0.05 },
+  // Slice 48, #storerules and #storeset: the storehouse by the quay and the road up to the town, from over the bay, its panel's room on the left (tuned by eye).
+  storerules: { x: 76.5, z: 61, yaw: -0.3, dist: 24, tilt: -0.1 },
+  // #workpanel: the olive press and the storehouse beside it, right of the press's panel (tuned by eye).
+  workpanel: { x: 80, z: 29, yaw: -0.3, dist: 18, tilt: 0.02 },
 };

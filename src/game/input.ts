@@ -143,7 +143,10 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
       if (e.key === 'Enter' || (e.key === 'Tab' && target !== clicked)) return;
       target.blur();
     }
-    const k = e.key.toLowerCase();
+    // Slice 48: the key left of 1 (the Messages) by its place, whatever the layout prints on it ("^", "²", "§"); a Mac's
+    // ISO keyboard sends IntlBackslash for it.
+    const left1 = e.code === 'Backquote' || (e.code === 'IntlBackslash' && /Mac/i.test(navigator.platform));
+    const k = left1 ? '\u0060' : e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z' && !e.repeat && tools) {
       tools.key('undo', e);
       e.preventDefault();

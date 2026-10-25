@@ -62,6 +62,9 @@ import { isCriminal } from './crime';
 // Slice 44
 import { freshMessages, messagesCommand } from './messages';
 import { stepMessages } from './heard';
+// Slice 48
+import { freshRules } from './stores';
+import { stepStores, storeCommand, workCommand } from './storerules';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -241,6 +244,8 @@ export class Sim {
     stepHazards(s, map, (b, how) => toRubble(s, map, b, how));
     // Slice 30: temptation in every home, and the thieves it sends out (nothing with crime's switch off).
     stepCrime(s, map);
+    // Slice 48: the stores' own carts, for goods set to be fetched or emptied (nothing while every store accepts everything).
+    stepStores(s, map);
     // Greece, once a day: its prices and harvests, and once a month its history (it draws only on its own random numbers).
     stepWorld(s);
     // Greece goes on: its festivals, its rulers' quarrels and friendships with each other, their feuds and wars (never touching your city).
@@ -423,6 +428,13 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 44
     case 'messages':
       messagesCommand(s, c);
+      break;
+    // Slice 48: a store's rules, and a workplace paused or given its workers first.
+    case 'store':
+      storeCommand(s, c);
+      break;
+    case 'work':
+      workCommand(s, map, c);
       break;
   }
 }
@@ -628,6 +640,10 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
     tempt: 0,
     robbedAt: 0,
     estate,
+    // Slice 48: no orders yet, and a store accepts everything.
+    paused: 0,
+    first: 0,
+    rules: freshRules(kind),
   };
   s.buildings.push(b);
   // (Over rubble of a wall, or (a tower) standing wall: it takes their place. placePlots keeps what a tower took, for undo.)

@@ -27,6 +27,9 @@ import { ESTATE, GREAT_ESTATE } from '../sim/buildings';
 import { held } from '../sim/foods';
 // Slice 37: a home left by settlers for a colony.
 import { leftFor } from '../sim/colonies';
+// Slice 48: the goods' icons, in one place.
+import { WARE_ICONS } from './wareicons';
+import { ARMOUR, GRAPES, HORSES, MARBLE } from '../sim/foods';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -57,9 +60,10 @@ const ICON = {
   food: '<svg viewBox="0 0 24 24" class="ic"><path d="M3 15.5c0-4.6 4-8 9-8s9 3.4 9 8c0 1.4-1 2.5-2.4 2.5H5.4C4 18 3 16.9 3 15.5z" fill="#e0a548" stroke="#8a5a14" stroke-width="1.2"/><path d="M8.5 10.5l1.4 3M12 9.8v3.4M15.5 10.5l-1.4 3" stroke="#8a5a14" stroke-width="1.4" stroke-linecap="round"/></svg>',
   religion: '<svg viewBox="0 0 24 24" class="ic"><path d="M2.6 8.6 12 3.4l9.4 5.2z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.4 10.4v7.4M9.8 10.4v7.4M14.2 10.4v7.4M18.6 10.4v7.4" stroke="#4a3a6a" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 18.4h18.4v2.6H2.8z" fill="#a98ae0" stroke="#4a3a6a" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   culture: '<svg viewBox="0 0 24 24" class="ic"><path d="M4.6 4.2c4.8 1.4 10 1.4 14.8 0 .6 7.2-1.4 15.4-7.4 16.2C6 19.6 4 11.4 4.6 4.2z" fill="#e3778f" stroke="#7a2a40" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0zM13.4 9.4q1.6-1.4 3.2 0-1.6 1.2-3.2 0z" fill="#7a2a40"/><path d="M8.2 13.6q3.8 4.2 7.6 0" fill="none" stroke="#7a2a40" stroke-width="1.6" stroke-linecap="round"/></svg>',
-  oil: '<svg viewBox="0 0 24 24" class="ic"><path d="M10.4 3h3.2l-.3 3.2c3.6.9 5.4 3.9 5.4 7.3 0 3.6-2.2 6.4-4.6 7.5H9.9C7.5 19.9 5.3 17.1 5.3 13.5c0-3.4 1.8-6.4 5.4-7.3z" fill="#8aa83a" stroke="#3e4f12" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.8 6.8C6 6.6 5.4 8.4 6.6 9.6M16.2 6.8c1.8-.2 2.4 1.6 1.2 2.8" fill="none" stroke="#3e4f12" stroke-width="1.2" stroke-linecap="round"/><path d="M9 12.6q.4-2.4 2.2-3.2" fill="none" stroke="#d6e690" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  fleece: '<svg viewBox="0 0 24 24" class="ic"><path d="M5.2 14.6c-2.6-.4-3-4 -.4-4.8-.6-2.8 2.4-4.4 4.4-3 1-2.4 4.6-2.4 5.6 0 2-1.4 5 .2 4.4 3 2.6.8 2.2 4.4-.4 4.8.2 2.6-2.6 4.2-4.8 3-1.2 1.8-3.8 1.8-5 0-2.2 1.2-5-.4-4.8-3z" fill="#eee2c0" stroke="#8a744a" stroke-width="1.2" stroke-linejoin="round"/><path d="M11.4 4.6l.6 15" stroke="#4c5a8c" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  wine: '<svg viewBox="0 0 24 24" class="ic"><path d="M12.6 5.2c1.8-2.4 4.8-2.8 6.8-1.4-1.6 2.2-4 2.8-6.8 1.4z" fill="#6a9a34" stroke="#3a5a1a" stroke-width="1"/><path d="M11.6 6.6V3.4" stroke="#6a4a22" stroke-width="1.4" stroke-linecap="round"/><g fill="#7a2e80" stroke="#3e1240" stroke-width="1"><circle cx="7.6" cy="9" r="2.3"/><circle cx="12" cy="9" r="2.3"/><circle cx="16.4" cy="9" r="2.3"/><circle cx="9.8" cy="12.8" r="2.3"/><circle cx="14.2" cy="12.8" r="2.3"/><circle cx="12" cy="16.6" r="2.3"/></g></svg>',
+  // (Slice 48: the goods' icons live in wareicons.ts.)
+  oil: WARE_ICONS[OIL],
+  fleece: WARE_ICONS[FLEECE],
+  wine: WARE_ICONS[GRAPES],
   work: '<svg viewBox="0 0 16 16" class="ic"><path d="M3.2 14.4 9.6 8" stroke="#7a5c3c" stroke-width="2.2" stroke-linecap="round"/><path d="M8.2 2.2c2.6-.8 5.4.6 6 3.2l-2.6-.6-2.4 2.4-2.6-2.6z" fill="#7a5c3c"/></svg>',
   fire: '<svg viewBox="0 0 16 16" class="ic"><path d="M8 15c-3 0-4.8-2-4.8-4.6 0-2.4 1.6-3.6 2.4-5.4.4 1.2 1 2 1.8 2.4C7.6 4.8 8.6 2.6 10.4 1c-.2 2.2.6 3.4 1.6 4.8.9 1.2 1.2 2.4 1.2 3.8C13.2 12.6 11.2 15 8 15z" fill="#e2531e" stroke="#8a2a10" stroke-width=".8" stroke-linejoin="round"/><path d="M8 14c-1.4 0-2.2-.9-2.2-2.1 0-1.3.9-2 1.4-3 .6.9 1.4 1.2 1.7 2.1.5-.3.8-.8.9-1.4.6.8.6 1.5.6 2.1C10.4 13 9.4 14 8 14z" fill="#f6c13a"/></svg>',
   wear: '<svg viewBox="0 0 16 16" class="ic"><g fill="#c9b08a" stroke="#7a6446" stroke-width=".7"><rect x="1.5" y="2" width="6" height="3.6"/><rect x="8.5" y="2" width="6" height="3.6"/><rect x="1.5" y="10.4" width="6" height="3.6"/><rect x="8.5" y="10.4" width="6" height="3.6"/><rect x="5" y="6.2" width="6" height="3.6"/><rect x="1.5" y="6.2" width="3" height="3.6"/><rect x="11.5" y="6.2" width="3" height="3.6"/></g><path d="M8.6 1.5 7.4 5.6l1.6 2.2-1.8 2.8.8 3.9" fill="none" stroke="#3a2a22" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>',
@@ -420,9 +424,9 @@ function gangBlock(s: SimState, map: CoastMap, b: Building): string {
 
 /** Slice 36: a little icon for each of an estate's own needs. */
 const ESTATE_ICON: Record<EstateNeed, string> = {
-  marble: '<svg viewBox="0 0 24 24" class="ic"><path d="M4 9.6 12 6l8 3.6v8L12 21l-8-3.4z" fill="#f2ede0" stroke="#7a7260" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 9.6l8 3.4 8-3.4M12 13v8" fill="none" stroke="#7a7260" stroke-width="1.1"/></svg>',
-  armour: '<svg viewBox="0 0 24 24" class="ic"><path d="M6 4.4h12l-1 6.2c-.4 2.8 1 5 1 8.4H6c0-3.4 1.4-5.6 1-8.4z" fill="#c8963c" stroke="#5e4214" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 4.4q3 3 6 0M12 9v8" fill="none" stroke="#5e4214" stroke-width="1.1"/></svg>',
-  horses: '<svg viewBox="0 0 24 24" class="ic"><path d="M7 21c.4-3.4 1.6-6 1-8.4-.4-1.6-2.4-2.4-3.4-3.8L7.6 5c1-.8 2.4-1.4 3.6-1.4l.6-1.8 1.4 1.6c3.6.8 6.2 4 6.6 8.2.2 3.2-.4 6.6-1.6 9.4z" fill="#8a5a34" stroke="#3a2412" stroke-width="1.1" stroke-linejoin="round"/><circle cx="9.6" cy="7.2" r=".9" fill="#1a120c"/></svg>',
+  marble: WARE_ICONS[MARBLE],
+  armour: WARE_ICONS[ARMOUR],
+  horses: WARE_ICONS[HORSES],
 };
 
 /**
