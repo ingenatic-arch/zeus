@@ -16,6 +16,8 @@ import { SHIP_ANCHORED, SHIP_COMING } from '../sim/trade';
 import { visitorAt } from '../sim/routes';
 // Slice 43
 import { RowBoats } from './rowboats';
+// Slice 47: every ship of the line in your bay (goods, companies, militia).
+import { bayShips } from '../sim/colonyempire';
 import { Streets } from './streets';
 import type { Plants } from './trees';
 import { Walkers } from './walkers';
@@ -62,8 +64,8 @@ export class CityView {
   readonly tributeShips = new Map<string, ShipView>();
   /** (Slice 37) Your settlers' ships, by the site they sail for. */
   readonly colonyShips = new Map<string, ShipView>();
-  /** (Slice 43) Your ships taking goods to your colonies, by site; the rowing boats. */
-  readonly cargoShips = new Map<string, ShipView>();
+  /** (Slice 43) Your ships taking goods to your colonies; the rowing boats. (Slice 47: a pool, every ship of the line its own view, by key: cargo-<id>, passage-<id>, militia-<id>; '' a free view.) */
+  readonly cargoShips: Array<{ key: string; view: ShipView }> = [];
   readonly rowboats: RowBoats;
   /** The walkers' and animals' merged meshes. */
   readonly folk = new FolkLooks();
@@ -187,21 +189,34 @@ export class CityView {
     }
     for (const view of this.colonyShips.values()) view.update(s, alpha, time);
     // Slice 43: your ship for a colony's goods sailing in, riding at anchor while the porters' loads are rowed out, and sailing out laden; the rowing boat.
-    for (const x of s.empire.cargoes ?? []) {
-      if (!x.ship || this.cargoShips.has(x.site)) continue;
-      const site = x.site;
-      const view = new ShipView((st, tk) => {
-        const g = (st.empire.cargoes ?? []).find((y) => y.site === site && y.ship && (y.phase === 'loading' || y.phase === 'leaving'));
-        const v = g?.ship;
-        const at = v ? visitorAt(v, tk) : null;
-        if (!g || !v || !at) return null;
-        const coming = v.phase === SHIP_COMING;
-        return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: g.phase === 'leaving' || (v.phase === SHIP_ANCHORED && g.items.some((it) => it.got > 0)), calm: v.phase === SHIP_ANCHORED };
-      }, cityShipColours('home'), `ship-cargo-${site}`, 0.9 + this.cargoShips.size * 1.4);
-      this.cargoShips.set(site, view);
-      this.group.add(view.group);
+    // (Slice 47, review of slice 43: every ship of the line drawn, two for one colony too, and companies' and militia's ships; her sacks only once the
+    // first load is rowed out. Views are pooled: a ship gone frees hers, taken by a new ship the frame after.)
+    const bay = bayShips(s);
+    const here = new Set(bay.map((b) => b.key));
+    const taken = new Set(this.cargoShips.map((x) => x.key));
+    for (const b of bay) {
+      if (taken.has(b.key)) continue;
+      let slot = this.cargoShips.find((x) => x.key === '');
+      if (!slot) {
+        const n = this.cargoShips.length;
+        slot = { key: '', view: null as unknown as ShipView };
+        const me = slot;
+        slot.view = new ShipView((st, tk) => {
+          const g = me.key ? bayShips(st).find((y) => y.key === me.key) : undefined;
+          const v = g?.ship;
+          const at = v ? visitorAt(v, tk) : null;
+          if (!g || !v || !at) return null;
+          const coming = v.phase === SHIP_COMING;
+          return { at, furled: v.phase === SHIP_ANCHORED || (coming && at.inward > v.stop - 0.015), laden: g.laden, calm: v.phase === SHIP_ANCHORED };
+        }, cityShipColours('home'), `ship-cargo-${n}`, 0.9 + n * 1.4);
+        this.cargoShips.push(slot);
+        this.group.add(slot.view.group);
+      }
+      slot.key = b.key;
+      taken.add(b.key);
     }
-    for (const view of this.cargoShips.values()) view.update(s, alpha, time);
+    for (const x of this.cargoShips) if (x.key && !here.has(x.key)) x.key = '';
+    for (const x of this.cargoShips) x.view.update(s, alpha, time);
     this.rowboats.update(s, alpha, time);
   }
 

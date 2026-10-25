@@ -33,3 +33,39 @@
 .greece-panel ul.works li .state.locked { color: var(--ink-soft); font-style: italic; }
 .greece-panel ul.works li.built { background: #eef3e2; border-color: #a8bb74; }
 .greece-panel ul.works li.locked { opacity: 0.7; border-style: dashed; }
+
+/* Slice 47: a colony's garrison, strikes from it, its trade and militia, the treaty, the empire on your city's page, a free ally, the stationed mark on its label. */
+.greece-panel section.garrison h4 { margin: 8px 0 2px; font-size: 13px; font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; color: var(--ink-soft); }
+.greece-panel .acts.station, .greece-panel .acts.treaty, .greece-panel .acts.cargoacts, .greece-panel section.garrison .acts:not(.endally) { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; }
+.greece-panel .acts.station button, .greece-panel .acts.treaty button, .greece-panel section.garrison .acts:not(.endally) button { appearance: none; font: inherit; font-size: 12.5px; padding: 3px 9px; border-radius: 9px; border: 1.2px solid #2f6f8e; background: #2f6f8e; color: #fff6e4; cursor: pointer; text-align: left; }
+.greece-panel .acts.station button small, .greece-panel section.garrison .acts button small { font-size: 11.5px; opacity: 0.9; margin-left: 3px; }
+.greece-panel .acts.station button:hover:not(:disabled), .greece-panel .acts.treaty button:hover:not(:disabled), .greece-panel section.garrison .acts:not(.endally) button:hover:not(:disabled) { filter: brightness(1.08); }
+.greece-panel .acts.station button:disabled, .greece-panel .acts.treaty button:disabled, .greece-panel section.garrison .acts button:disabled, .greece-panel .acts.cargoacts button:disabled { opacity: 0.45; cursor: default; }
+.greece-panel .acts.cargoacts { margin-top: 6px; gap: 5px; }
+.greece-panel ul.works.strikes li { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.greece-panel ul.works.strikes li b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
+.greece-panel ul.works.strikes li.bad { background: #f8e6dc; border-color: #b8564a; }
+.greece-panel ul.works.strikes li .why { font-size: 12px; color: var(--terracotta-deep); }
+.greece-panel ul.works.strikes li button { background: #8c3a2a; border-color: #8c3a2a; }
+.greece-panel ul.whys.plain li .t::before { content: '·'; margin-right: 6px; color: var(--ink-soft); }
+.greece-panel ul.whys.plain li.bad .t { color: var(--terracotta-deep); }
+.greece-panel section.freeally .moodline { margin: 8px 0 4px; padding: 5px 9px; border-radius: 10px; background: rgba(255, 255, 255, 0.45); border: 1.2px solid var(--edge); }
+.greece-panel section.freeally .moodline .terms { margin: 1px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.greece-panel section.empirelist ul.empirelist { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.greece-panel ul.empirelist li { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'who go' 'loy go' 'what what'; gap: 2px 8px; padding: 5px 8px 6px; border-radius: 8px; background: #fbf1da; border: 1.2px solid #d9be86; font-size: 12.5px; line-height: 1.3; }
+.greece-panel ul.empirelist li.alarm { background: #f8e6dc; border-color: #b8564a; }
+.greece-panel ul.empirelist li.free, .greece-panel ul.empirelist li.ally { background: #eef3e2; border-color: #a8bb74; }
+.greece-panel ul.empirelist li .who { grid-area: who; }
+.greece-panel ul.empirelist li .who b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; margin-right: 6px; }
+.greece-panel ul.empirelist li .who .kind { color: var(--ink-soft); font-style: italic; }
+.greece-panel ul.empirelist li .loyrow { grid-area: loy; display: flex; align-items: center; gap: 6px; }
+.greece-panel ul.empirelist li .loy { position: relative; width: 90px; height: 5px; border-radius: 3px; background: rgba(74, 52, 32, 0.15); overflow: hidden; }
+.greece-panel ul.empirelist li .loy i { position: absolute; left: 0; top: 0; bottom: 0; background: #6f8f3c; }
+.greece-panel ul.empirelist li .loy.low i { background: #b8564a; }
+.greece-panel ul.empirelist li .loyrow .n { font-weight: normal; font-size: 12px; font-variant-numeric: tabular-nums; }
+.greece-panel ul.empirelist li .what { grid-area: what; color: var(--ink); }
+.greece-panel ul.empirelist li .warn { color: var(--terracotta-deep); }
+.greece-panel ul.empirelist li .what .warn { display: inline; }
+.greece-panel ul.empirelist li button { grid-area: go; align-self: start; appearance: none; font: inherit; font-size: 12px; padding: 2px 8px; border-radius: 9px; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.greece-panel ul.empirelist li button:hover { background: #fff2d6; }
+.glabel svg.held { margin-left: 4px; flex: none; }

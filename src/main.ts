@@ -14,6 +14,8 @@ import { PREPARED } from 'virtual:prepared';
 import { foundingOf, settlersShipStatus } from './sim/colonies';
 // Slice 43
 import { cargoesFor, cargoShipStatus } from './sim/colonyworks';
+// Slice 47: a company's or a militia's ship in your bay.
+import { bayShipStatus } from './sim/colonyempire';
 // Slice 40: the tribute and share ships' hover.
 import { tributeShipStatus } from './sim/vassals';
 import { Tools, type ToolName } from './game/tools';
@@ -1064,10 +1066,12 @@ function start(preparedTown: string | null): void {
       if (f) return showStatus(settlersShipStatus(sim.state, f), sx, sy);
     }
     // Slice 43: your ship taking goods out to a colony.
-    for (const [site, view] of city.cargoShips) {
-      if (!shipNear(sx, sy, view.info)) continue;
-      const x = cargoesFor(sim.state, site).find((y) => y.ship && (y.phase === 'loading' || y.phase === 'leaving'));
-      if (x) return showStatus(cargoShipStatus(sim.state, x), sx, sy);
+    // (Slice 47: every ship of the line, by her own key: two for one colony each have theirs; a company's or a militia's ship too.)
+    for (const { key, view } of city.cargoShips) {
+      if (!key || !shipNear(sx, sy, view.info)) continue;
+      const x = key.startsWith('cargo-') ? cargoesFor(sim.state).find((y) => y.id === Number(key.slice(6))) : undefined;
+      const st = x ? cargoShipStatus(sim.state, x) : bayShipStatus(sim.state, key);
+      if (st) return showStatus(st, sx, sy);
     }
     // Slice 40: a vassal's tribute ship, or a colony's share ship.
     for (const [key, view] of city.tributeShips) {
@@ -1612,9 +1616,13 @@ function start(preparedTown: string | null): void {
     return best;
   };
   probe.carrier = () => probe.walker?.('water') ?? null;
+  // (Slice 47, review of slice 43: where the sim has the first walker of a kind now, not where the renderer last drew one, which
+  // kept walkers gone or hidden indoors.)
   probe.where = (kind: string) => {
-    const first = [...city.walkers.serviceAt.values()].find((o) => o.kind === kind)?.pos;
-    return first ? { x: first.x, z: first.z } : null;
+    const w = sim.state.walkers.find((x) => x.kind === kind && x.path.length >= 2);
+    if (!w) return null;
+    const [x, z] = position(w);
+    return { x, z };
   };
   probe.tipText = () => {
     const el = document.querySelector('.pointer-tip') as HTMLElement | null;

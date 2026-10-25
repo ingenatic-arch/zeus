@@ -30,6 +30,11 @@ import { lateWords } from '../sim/seasons';
 import { SWATCH } from './prices';
 // Slice 38 (review): tribute by sea held off your gulf by a blockade says so.
 import { blockaded } from '../sim/lanes';
+// Slice 47: the whole empire on your city's page.
+import { colonyYear, goodName, peopleOf, SHARE_WORDS } from '../sim/colonies';
+import { cargoWords, STAGE_NAMES, stageOf } from '../sim/colonyworks';
+import { colonyTrade, freeTrade, militiaReady, stationedWords } from '../sim/colonyempire';
+import { siteRecord } from '../sim/colonies';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -202,6 +207,59 @@ export function empireTabHtml(s: SimState, id: CityId): string {
   if (allyOf(s, id)) return allyHtml(s, id);
   const conquest = conquestHtml(s, id);
   return `${takeHtml(s, id)}${conquest}`;
+}
+
+/**
+ * Slice 47: your empire on your city's page: every vassal, ally, colony and
+ * free ally, each with its loyalty, what it sends, what it asks, what is
+ * stationed there, and a button to its page.
+ */
+export function empireOverviewHtml(s: SimState): string {
+  const rows: string[] = [];
+  const go = (page: string, label: string, tab = ''): string => `<button data-cityopen="${esc(page)}"${tab ? ` data-citytab="${tab}"` : ''} title="Open its page">${esc(label)} ›</button>`;
+  const bar = (n: number, low: number): string => `<span class="loy${n < low ? ' low' : ''}" title="Loyalty ${n} of 100"><i style="width:${Math.max(0, Math.min(100, n))}%"></i></span><b class="n">${n}</b>`;
+  let tribute = 0;
+  let shares = 0;
+  let trade = 0;
+  for (const v of s.empire.vassals) {
+    const y = tributeYear(s, v);
+    tribute += y.dr;
+    const what = v.good < 0 ? `${fmt(y.dr)} dr a year` : `${fmt(y.amount)} ${WARE_NAMES[TRADE_GOODS[v.good]]} a year`;
+    const notes = [v.arming ? `<span class="warn">arming: rises ${esc(dayWords(v.rises))}</span>` : ''].filter(Boolean).join('');
+    rows.push(`<li class="vassal"><div class="who"><b>${esc(name(v.city))}</b><span class="kind">vassal</span></div><div class="loyrow">${bar(v.loyalty, ARMING)}</div><div class="what">${esc(cap(WEIGHT_WORDS[v.weight]))} tribute: ${esc(what)}${notes}</div>${go(v.city, 'Its page', 'empire')}</li>`);
+  }
+  for (const a of s.empire.allies) rows.push(`<li class="ally"><div class="who"><b>${esc(name(a.city))}</b><span class="kind">ally</span></div><div class="what">Sends men when you are raided${openCall(s, a.city) ? '; <span class="warn">calls you to its war</span>' : ''}</div>${go(a.city, 'Its page', 'empire')}</li>`);
+  for (const c of s.empire.colonies) {
+    const y = colonyYear(s, c);
+    const tr = colonyTrade(s, c);
+    shares += y.dr;
+    trade += tr.share;
+    const pop = peopleOf(s, c);
+    const asks = c.want && c.want.end === '' ? (c.want.cargo ? `You have sent the ${cargoWords(c.want.good, c.want.amount)} it asked for` : `<span class="warn">Asks you for ${esc(cargoWords(c.want.good, c.want.amount))} by ${esc(dayWords(c.want.due))}</span>`) : '';
+    const threat = c.threat && c.threat.end === '' ? `<span class="warn">${c.threat.ships} ships of ${esc(name(c.threat.city))} coming ${esc(dayWords(c.threat.due))}</span>` : '';
+    const talk = c.talk ? `<span class="warn">Talks of freedom: free ${esc(dayWords(c.frees))}</span>` : '';
+    const st = stationedWords(s, c);
+    const mil = militiaReady(s).find((x) => x.site === c.site);
+    const bits = [
+      `${esc(cap(SHARE_WORDS[c.share]))} share: ${fmt(y.amount)} ${esc(goodName(y.good))} a year, and ${fmt(tr.share)} dr of its trade`,
+      `${st ? `${esc(cap(st))} stationed there` : 'Nothing of yours stationed there'}${mil ? `; ${mil.men} militia when you need them` : ''}`,
+      asks,
+      threat,
+      talk,
+    ].filter(Boolean);
+    rows.push(`<li class="colony${c.talk || threat ? ' alarm' : ''}"><div class="who"><b>${esc(c.name)}</b><span class="kind">${STAGE_NAMES[stageOf(c)]} of ${fmt(pop)}</span></div><div class="loyrow">${bar(c.loyalty, 30)}</div><div class="what">${bits.join('<br>')}</div>${go(`site:${c.site}`, 'Its page')}</li>`);
+  }
+  for (const f of s.empire.freed ?? []) {
+    const t = freeTrade(s, f);
+    trade += t.share;
+    const pop = Math.round(siteRecord(s, f.site)?.pop ?? 0);
+    const m = militiaReady(s).find((x) => x.site === f.site);
+    rows.push(`<li class="free"><div class="who"><b>${esc(f.name)}</b><span class="kind">free ally of ${fmt(pop)}</span></div><div class="what">${fmt(t.share)} dr a year of its trade${m ? `; ${m.men} militia when you need them` : ''}</div>${go(`site:${f.site}`, 'Its page')}</li>`);
+  }
+  if (!rows.length) return '';
+  const militia = militiaReady(s).reduce((a, m) => a + m.men, 0);
+  const sum = [tribute ? `tribute about ${fmt(tribute)} dr` : '', shares ? `colonies’ shares worth about ${fmt(shares)} dr` : '', trade ? `${fmt(trade)} dr of their trade` : ''].filter(Boolean);
+  return `<section class="empirelist"><h3>Your empire</h3><p class="line">${sum.length ? `A year: ${esc(sum.join(', '))}.` : ''}${militia ? ` Militia: ${militia} men would come to your aid.` : ''}</p><ul class="empirelist">${rows.join('')}</ul></section>`;
 }
 
 /** A click on an Empire button: send its command. True if it was one. */

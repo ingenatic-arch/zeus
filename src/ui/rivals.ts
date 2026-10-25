@@ -17,6 +17,9 @@ import type { WorldCity } from '../sim/state';
 import { allyOf, openCall, vassalOf } from '../sim/vassals';
 // Slice 37: your colonies and your settlers on the sites' cards and labels.
 import { siteCardLine } from './colonies';
+// Slice 47: a company or triremes stationed at your colony; a colony set free by treaty.
+import { freedOf, shipsOf, stationedThere, stationedWords } from '../sim/colonyempire';
+import type { Colony } from '../sim/colonies';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
@@ -192,6 +195,15 @@ export function siteCard(s: SimState, id: string): string {
   return `<b>${esc(`${p.name} · ${p.good}`)}</b><span>${esc(cap(p.blurb))}</span><span>${esc(cap(siteWords(s, x)))}${x.owner ? esc(`: ${p.good} for ${name(x.owner as CityId)}`) : ''}</span><span class="sub">${who}</span>`;
 }
 
+/** Slice 47: a small shield on your colony's label while a company of yours holds it (a ring of ships, too, with triremes stationed off it). */
+function heldMark(s: SimState, c: Colony): string {
+  const held = !!stationedThere(s, c);
+  const ships = shipsOf(c).length;
+  if (!held && !ships) return '';
+  const words = stationedWords(s, c);
+  return `<svg class="held" viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><title>${esc(cap(words))} stationed there</title><path d="M6 1 11 3v4c0 3-2.3 5.2-5 6C3.3 12.2 1 10 1 7V3z" fill="${held ? PLACES.home.colour : 'none'}" stroke="${PLACES.home.trim}" stroke-width="1.4"/></svg>`;
+}
+
 /** A site's label on the map: its name and good, or whose colony it is (with the founder's colour). */
 export function siteLabelHtml(s: SimState, id: string): string {
   const p = siteOf(id);
@@ -199,8 +211,10 @@ export function siteLabelHtml(s: SimState, id: string): string {
   if (!p || !x) return '';
   // (Slice 37: your colony by its own name, with a red mark while it is threatened or talks of freedom; your settlers on their way; a colony gone free.)
   const c = s.empire.colonies.find((y) => y.site === id);
-  if (c) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(c.name)}</b> <span class="gd">${esc(p.good)}</span>${(c.threat && c.threat.end === '') || c.talk || (c.want && c.want.end === '' && !c.want.cargo) /* Slice 43: and while it asks you for something */ ? '<i class="alarm" title="It needs you"></i>' : ''}`;
+  if (c) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(c.name)}</b> <span class="gd">${esc(p.good)}</span>${(c.threat && c.threat.end === '') || c.talk || (c.want && c.want.end === '' && !c.want.cargo) /* Slice 43: and while it asks you for something */ ? '<i class="alarm" title="It needs you"></i>' : ''}${heldMark(s, c) /* Slice 47 */}`;
   if (x.bound === 'home') return `<b>${esc(p.name)}</b> <span class="gd">your settlers</span>`;
+  // (Slice 47: free by treaty, your ally.)
+  if (x.free && freedOf(s, id)) return `<i class="lord" style="background:${PLACES.home.colour}"></i><b>${esc(x.free)}</b> <span class="gd">your ally</span>`;
   if (x.free) return `<b>${esc(x.free)}</b> <span class="gd">free</span>`;
   if (x.owner) return `<i class="lord" style="background:${PLACES[x.owner as CityId]?.colour ?? '#888'}"></i><b>${esc(p.name)}</b> <span class="gd">${esc(adjective(x.owner as CityId))}</span>`;
   return `<b>${esc(p.name)}</b> <span class="gd">${esc(p.good)}</span>`;

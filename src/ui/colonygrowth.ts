@@ -38,6 +38,8 @@ import {
   type WorkKind,
 } from '../sim/colonyworks';
 import { colonyPicture } from './colonypicture';
+// Slice 47: sail now with what is aboard, or call it off.
+import { cargoActsHtml } from './colonyempire';
 import { SWATCH } from './prices';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -103,7 +105,7 @@ export function cargoHtml(s: SimState, c: Colony): string {
       return `<div class="deal sent cargo"><div><p class="eta sent">${esc(cargoDoing(s, x))}</p>${x.phase === 'loading' ? `<div class="bar" title="${fmt(got)} of ${fmt(all)} on the quay or aboard"><i style="width:${pct}%"></i></div>` : ''}</div></div>`;
     })
     .join('');
-  return `<section class="deals"><h3>Goods going out to it</h3>${rows}</section>`;
+  return `<section class="deals"><h3>Goods going out to it</h3>${rows}${cargoActsHtml(s, c)}</section>`;
 }
 
 /** Its governor: who and what he does, or the candidates to choose from. */

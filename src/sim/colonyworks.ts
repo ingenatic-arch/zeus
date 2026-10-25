@@ -49,7 +49,7 @@ import { blockaded } from './lanes';
 import { door, roadsBeside } from './rounds';
 // Slice 47: the stores the trading post's roads reach, a shipment called off, and this line's ships at the oars.
 import { nearestReached, roadSearch } from './roads';
-import { rowingPassages } from './colonyempire';
+import { militiaOut, militiaWords, passagesFor, passageWords, rowingPassages } from './colonyempire';
 import { income } from './treasury';
 import { roomFor } from './stores';
 import { visitorAt } from './routes';
@@ -1101,6 +1101,11 @@ export function worksTownLine(s: SimState): { text: string; site: string; urgent
     const all = x.items.reduce((a, it) => a + it.amount, 0);
     return { text: `Porters carry goods down to your quay for ${c?.name ?? siteName(x.site)}: ${fmt(got)} of ${fmt(all)} aboard or on the quay.`, site: x.site, urgent: false, rank: 1 };
   }
+  // Slice 47: a company boarding your ship for a colony or landing from one, a militia sailing in to help you.
+  const p = passagesFor(s).find((y) => y.ship && (y.phase === 'boarding' || y.phase === 'bay'));
+  if (p) return { text: `${passageWords(s, p)}.`, site: p.site, urgent: false, rank: 1 };
+  const m = militiaOut(s).find((y) => y.phase === 'bay');
+  if (m) return { text: `${militiaWords(s, m)}.`, site: m.site, urgent: false, rank: 1 };
   return null;
 }
 

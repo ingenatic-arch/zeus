@@ -1395,7 +1395,8 @@ export function tributeDoing(s: SimState, id: number, back: boolean): { title: s
 }
 
 /** Slice 37: the name of the colony a shipment is from. */
-const colonyName = (s: SimState, t: Tribute): string => s.empire.colonies.find((c) => c.site === t.colony)?.name ?? `your colony on ${siteOf(t.colony ?? '')?.name ?? t.colony}`;
+// (Slice 47: a free ally's by its name too.)
+const colonyName = (s: SimState, t: Tribute): string => shareFrom(s, t.colony ?? '');
 
 /**
  * Slice 40: the hover for a vassal's tribute ship or a colony's share ship in your bay (sailing in laden, at anchor while its
