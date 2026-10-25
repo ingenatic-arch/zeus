@@ -25,6 +25,8 @@ import { harvestLine, priceRows } from './prices';
 import type { TradeRoute } from '../sim/state';
 import { PLACES } from '../map/greece';
 import type { Building, SimState } from '../sim/state';
+// Slice 49: the quarantine order, at the head of the panel.
+import { quarantineHtml } from './health';
 import {
   cityHolds,
   dockerNews,
@@ -233,6 +235,13 @@ export class TradePanel {
       this.last = -Infinity;
     });
     this.body.addEventListener('click', (e) => {
+      // Slice 49: the quarantine, ordered or lifted.
+      const q = (e.target as HTMLElement).closest('button[data-act="quarantine"]') as HTMLButtonElement | null;
+      if (q) {
+        send({ type: 'quarantine', on: q.dataset.on === '1' });
+        this.last = -Infinity;
+        return;
+      }
       const tab = (e.target as HTMLElement).closest('button[data-tab]') as HTMLButtonElement | null;
       if (tab) {
         this.tab = tab.dataset.tab ?? 'tyre';
@@ -298,7 +307,9 @@ export class TradePanel {
     const route = this.tab === 'tyre' || this.tab === 'yard' ? undefined : routeOf(s, city, kind as RouteKind);
     const page = route ? routeHtml(s, map, route) : this.tab === 'yard' && yard ? yardHtml(s, map, yard) : post ? tradeHtml(s, map, post) : '';
     const nav = tabs.length > 1 ? `<nav class="tradetabs">${tabs.map((t) => `<button data-tab="${t}" class="${t === this.tab ? 'on' : ''}" title="${t === 'tyre' ? 'The merchant ship from Tyre' : t === 'yard' ? 'The caravan yard' : esc(routeName(t.split('-')[0] as never, t.split('-')[1] as RouteKind))}">${tabName(t)}</button>`).join('')}</nav>` : '';
-    const html = nav + page;
+    // (Slice 49: the quarantine order heads every tab, with health on or a quarantine running.)
+    const quarantine = s.health?.on || s.health?.quarantine > s.tick ? quarantineHtml(s) : '';
+    const html = nav + quarantine + page;
     if (html !== this.html) {
       // In place: only what changed, so a hover tip stays up and a click lands.
       if (this.html) morph(this.body, html);

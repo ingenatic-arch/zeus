@@ -32,6 +32,8 @@ import { WARE_ICONS } from './wareicons';
 import { ARMOUR, GRAPES, HORSES, MARBLE } from '../sim/foods';
 // Slice 45: the court and the prison.
 import { awayLines, crimeWords, STOCKS_SPAN, type CaseKind } from '../sim/justice';
+// Slice 49: a home's health.
+import { homeHealthHtml } from './health';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -520,6 +522,7 @@ ${hazardBlock(s, map, b)}
 ${crimeBlock(s, map, b)}
 ${awayBlock(s, map, b)}
 ${moodBlock(mood)}
+${homeHealthHtml(s, b)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}
 <section class="members"><h3>Who lives here</h3><ul>${members}</ul></section>

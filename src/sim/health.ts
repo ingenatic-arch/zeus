@@ -52,7 +52,7 @@ import { unit } from './hazards';
 import { rateOf } from './labour';
 import { ALARM, NEWS, say, WARNING, type Saying } from './messages';
 import { roadSearch, tracePath } from './roads';
-import { crewClock, CREW_GAP, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
+import { CREW, crewClock, CREW_GAP, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
 import { seasonAt, seasonOf, SUMMER, TICKS_PER_SEASON, WINTER } from './seasons';
 import { sendLeavers } from './settlers';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
@@ -455,7 +455,7 @@ function mayFallIll(s: SimState, map: CoastMap, b: Building): void {
 }
 
 /** One of a household falls ill (a fever, or the plague): who isn't already. Returns them, or null. */
-function fallIll(s: SimState, map: CoastMap, b: Building, plague: boolean, salt = 0): Sick | null {
+export function fallIll(s: SimState, map: CoastMap, b: Building, plague: boolean, salt = 0): Sick | null {
   const f = b.family;
   if (!f) return null;
   const h = s.health;
@@ -576,7 +576,7 @@ export function startGreekPlague(s: SimState, city: string, ticks: number): Gree
 }
 
 /** When the next trader from a city is due, in words ("her ship is due in 24 days"), or ''. */
-function traderDue(s: SimState, city: string): string {
+export function traderDue(s: SimState, city: string): string {
   const days = (t: number): number => Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
   const parts: string[] = [];
   for (const r of s.world.routes) {
@@ -1104,4 +1104,114 @@ export function placeLines(s: SimState, kind: 'infirmary' | 'asklepieion', roads
   if (f.on && f.homes) lines.push(`In the city: ${f.sick ? `${f.sick} sick${f.plague ? `, ${f.plague} of the plague` : ''}` : 'nobody sick'}; ${f.sickly + f.ailing} of ${f.homes} homes sickly or ailing; a physician called on ${f.called} this season`);
   const warn = roads ? '' : `No road beside it: its ${kind === 'infirmary' ? 'physicians' : 'bearers'} couldn’t go out. Lay a road along one side first.`;
   return { lines, warn };
+}
+
+// ---------------------------------------------------------------------------
+// In words: the tips, the panels and the town's line.
+
+const dayCount = (t: number): string => {
+  const d = Math.max(1, Math.ceil(t / TICKS_PER_DAY));
+  return d === 1 ? 'a day' : `${d} days`;
+};
+
+/** Where a sick one lies, and how they are cared for, in words. */
+export function sickWords(s: SimState, x: Sick): string {
+  const her = x.female ? 'her' : 'him';
+  const what = x.plague ? 'sick with the plague' : 'sick with a fever';
+  const left = `about ${dayCount(x.until - s.tick)} more`;
+  if (x.bed > 0) return `${x.name}: ${what}, in a bed at the asklepieion, the attendants tending ${her}, ${left}`;
+  if (x.bed < 0) {
+    const carried = s.walkers.some((w) => w.kind === 'bearer' && w.load === x.id && w.back && w.food === 1);
+    return `${x.name}: ${what}, ${carried ? `being carried to the asklepieion on a litter` : `stretcher-bearers are on their way for ${her}`}, ${left}`;
+  }
+  const tended = x.tended > 0 && s.tick - x.tended < 3 * TICKS_PER_DAY;
+  return `${x.name}: ${what}, at home, ${tended ? `a physician tended ${her} lately (half as likely to die)` : x.tended > 0 ? `a physician tended ${her} ${dayCount(s.tick - x.tended)} ago` : `no physician has seen ${her} yet`}, ${left}`;
+}
+
+/** A home's health and who is sick there, for its tip (nothing with health off). */
+export function homeHealthLines(s: SimState, b: Building): string[] {
+  if (!s.health?.on || !livedIn(b) || !b.family) return [];
+  const v = b.health > 0 ? b.health : healthOf(s, b).value;
+  const out = [`Health ${v}: ${healthLine(s, b)}`];
+  for (const x of s.health.sick) if (x.home === b.id) out.push(sickWords(s, x));
+  return out;
+}
+
+/** How many of a building's walkers of a kind are out. */
+const outOf = (s: SimState, b: Building, kind: Walker['kind']): number => s.walkers.filter((w) => w.kind === kind && w.origin === b.id).length;
+
+/** Homes within an infirmary's reach (as the crow flies, PHYSICIAN_RANGE) a physician called on this month, of all within it. */
+export function calledNear(s: SimState, b: Building): { called: number; homes: number } {
+  const [cx, cz] = centreOf(b);
+  let called = 0;
+  let homes = 0;
+  for (const o of s.buildings) {
+    if (!livedIn(o)) continue;
+    const [x, z] = centreOf(o);
+    if (dhypot(x - cx, z - cz) > PHYSICIAN_RANGE) continue;
+    homes++;
+    if (o.physician > 0 && s.tick - o.physician <= TICKS_PER_MONTH) called++;
+  }
+  return { called, homes };
+}
+
+/** An infirmary's lines: its physicians out, the homes called on this month. */
+export function infirmaryLines(s: SimState, b: Building): string[] {
+  if (!s.health?.on) return ['Nobody falls ill in this town yet: its physicians have nobody to tend'];
+  const n = outOf(s, b, 'physician');
+  const out = [n ? `${n} of ${CREW} physicians out on their rounds${n < CREW && b.workers > 0 && b.clock > 0 ? ` · another sets off in ${dayCount(b.clock)}` : ''}` : b.workers > 0 ? `Its physicians are in · the next sets off in ${dayCount(Math.max(1, b.clock))}` : 'Nobody works here: no physician goes out'];
+  const c = calledNear(s, b);
+  if (c.homes) out.push(`Called on ${c.called} of the ${c.homes} homes round it this month`);
+  return out;
+}
+
+/** The asklepieion's lines: its beds, who lies there, its bearers out. */
+export function templeLines(s: SimState, b: Building): string[] {
+  const lying = s.health.sick.filter((x) => x.bed === b.id).length;
+  const coming = s.health.sick.filter((x) => x.bed === -b.id).length;
+  const pairs = outOf(s, b, 'bearer');
+  const out = [`${lying} of its ${BEDS} beds taken${coming ? `, ${coming} more on the way` : ''}`];
+  out.push(pairs ? `${pairs === 1 ? 'A pair' : `${pairs} pairs`} of stretcher-bearers out` : b.workers > 0 ? (s.health.on ? 'Its stretcher-bearers are in: they go for the worst of the sick at home within reach by road' : 'Nobody falls ill in this town yet') : 'Nobody works here: no bearers go out, and its beds are left untended');
+  out.push(`Homes within ${TEMPLE_TILES} tiles are healthier, and the plague spreads half as fast among them`);
+  return out;
+}
+
+/** A physician or a pair of stretcher-bearers: what they are doing (null for any other walker). */
+export function healthWalkerStatus(s: SimState, w: Walker): { title: string; detail: string } | null {
+  if (w.kind === 'physician') {
+    if (w.back) return { title: 'Physician', detail: 'Heading back to the infirmary, calling on homes on the way' };
+    return { title: 'Physician', detail: `Out on her round, ${w.steps} of ${PHYSICIAN_WALK} new road tiles walked · she heads first for homes with someone sick, then those she called on longest ago · every home beside her way is called on, and the sick there tended` };
+  }
+  if (w.kind === 'bearer') {
+    const x = s.health.sick.find((o) => o.id === w.load);
+    const who = x ? x.name : 'one of the sick';
+    const home = findBuilding(s, w.target);
+    const fam = home?.family ? ` of the house of ${home.family.name}` : '';
+    if (w.wait > 0) return { title: 'Stretcher-bearers', detail: `Lifting ${who}${fam} onto the litter` };
+    if (w.back) return { title: 'Stretcher-bearers', detail: w.food === 1 ? `Carrying ${who}${fam} to a bed at the asklepieion` : 'Heading back to the asklepieion' };
+    return { title: 'Stretcher-bearers', detail: `Going for ${who}${fam}, sick at home, to carry ${x?.female ? 'her' : 'him'} to a bed at the asklepieion` };
+  }
+  return null;
+}
+
+/** The town's line under the top bar: the plague in the city, a fevered quarter or the quarantine (the most pressing), or null. */
+export function healthTownLine(s: SimState): { text: string; at: number } | null {
+  const h = s.health;
+  if (!h?.on && !quarantined(s)) return null;
+  const q = quarantined(s) ? ` The city is under quarantine for ${dayCount(h.quarantine - s.tick)} more.` : '';
+  if (h.outbreak) {
+    const o = h.outbreak;
+    const ill = h.sick.filter((x) => x.plague).length;
+    const first = o.struck.map((id) => findBuilding(s, id)).find((b) => !!b);
+    return { text: `Plague in the city: ${o.struck.length} ${o.struck.length === 1 ? 'home' : 'homes'} struck, ${ill} sick of it, ${o.dead} dead. Physicians and the asklepieion save lives; healthy homes (water, food, a physician’s call) resist it.${q}`, at: first?.id ?? 0 };
+  }
+  if (h.fever) {
+    const home = findBuilding(s, h.fever.home);
+    return { text: `Fever in a crowded, sickly quarter (${h.fever.homes} homes): it turns to plague if it lingers. Physicians, water and food would mend it.${q}`, at: home?.id ?? 0 };
+  }
+  if (q) {
+    const post = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
+    return { text: `Quarantine: no ship ties up and no caravan comes in for ${dayCount(h.quarantine - s.tick)} more. Lift it on the infirmary’s or the trade panel.`, at: post?.id ?? 0 };
+  }
+  return null;
 }

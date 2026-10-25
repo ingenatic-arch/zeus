@@ -138,7 +138,7 @@ export class ServiceOverlay {
     health: { has: new THREE.Color('#3aa860'), fresh: new THREE.Color('#e0b040'), none: new THREE.Color('#d0383a') },
   };
   /** Slice 49: a home with someone sick in it, and one with the plague. */
-  private readonly sickTones = { sick: new THREE.Color('#e8e0c8'), plague: new THREE.Color('#5a2a4a') };
+  private readonly sickTones = { sick: new THREE.Color('#7fb4dc'), plague: new THREE.Color('#5a2a4a') };
 
   /** Slice 30: the crime overlay's columns: tempted past half, past three-quarters (or a thief out), and robbed lately. */
   private readonly crimeTones = { half: new THREE.Color('#a0609a'), high: new THREE.Color('#d0383a'), robbed: new THREE.Color('#b8c8e8') };
@@ -438,7 +438,7 @@ export class ServiceOverlay {
    * walked within the month; every lived-in home tinted green (well or
    * healthy), amber (sickly) or red (ailing), with a column over each home
    * below healthy, as tall as how far below it is, green through amber to
-   * red; and over a home with someone sick at home a tall pale column (dark
+   * red; and over a home with someone sick at home a short sky-blue column (dark
    * plum for the plague). The infirmaries and asklepieia are the sources.
    */
   private refreshHealth(s: SimState): void {
@@ -476,19 +476,19 @@ export class ServiceOverlay {
         if (v < 75) {
           const k = (75 - v) / 70;
           this.p.set(cx, y, cz);
-          this.s.set(1.2, 0.25 + 2 * k, 1.2);
+          this.s.set(1.2, 0.15 + 1.0 * k, 1.2);
           this.m.compose(this.p, this.q, this.s);
           this.columns.setMatrixAt(n, this.m);
           if (v >= 50) this.c.copy(tone.has).lerp(tone.fresh, (75 - v) / 25);
           else this.c.copy(tone.fresh).lerp(tone.none, Math.min(1, (50 - v) / 25));
           this.columns.setColorAt(n, this.c);
           n++;
-          y += 0.25 + 2 * k;
+          y += 0.15 + 1.0 * k;
         }
         const ill = sick.get(b.id);
         if (ill) {
           this.p.set(cx, y, cz);
-          this.s.set(0.7, 1.4, 0.7);
+          this.s.set(0.7, 0.9, 0.7);
           this.m.compose(this.p, this.q, this.s);
           this.columns.setMatrixAt(n, this.m);
           this.columns.setColorAt(n, ill === 2 ? this.sickTones.plague : this.sickTones.sick);

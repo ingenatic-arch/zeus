@@ -106,10 +106,11 @@ export function courtHtml(s: SimState, _map: CoastMap, court: Building | undefin
     const home = findBuilding(s, x.home);
     lines.push(`<li><span class="who">${esc(memberWho(x.name, home?.family?.name))}</span> <span class="what">${esc(`${crimeWords(x.kind, x.gang)}: tried ${s.tick >= x.trial ? 'any day now' : `in about ${dayWords(x.trial - s.tick)}`}`)}</span></li>`);
   }
-  const sentences = s.crime.news.filter((n) => n.kind === 'sentence').slice(-5).reverse();
+  // (Slice 49, slice 45's finding: from the town's message log, which keeps them, not crime's news, which keeps only its last few lines of any kind.)
+  const sentences = sentencesLately(s, 5);
   out.push(
     `<section class="cases"><h3>Cases</h3>${lines.length ? `<ul class="cases">${lines.join('')}</ul>` : `<p class="none">Nobody waits for trial. The caught are tried about ${TRIAL_DAYS} days after they are brought in.</p>`}` +
-      (sentences.length ? `<h4>Lately</h4><ul class="lately">${sentences.map((n) => `<li><small>${esc(ago(s.tick - n.tick))}</small> ${esc(n.line)}.</li>`).join('')}</ul>` : '') +
+      (sentences.length ? `<h4>Lately</h4><ul class="lately">${sentences.map((n) => `<li><small>${esc(ago(s.tick - n.tick))}</small> ${esc(n.words)}</li>`).join('')}</ul>` : '') +
       '</section>',
   );
   out.push(rateHtml(s));
@@ -120,6 +121,18 @@ export function courtHtml(s: SimState, _map: CoastMap, court: Building | undefin
   });
   out.push(`<section class="words"><h3>The punishments</h3><ul class="punish">${words.join('')}</ul><p class="small">The law holds a home back from the crime its trouble points to, by how hard it punishes it; only while a court is at work.</p></section>`);
   return out.join('');
+}
+
+// Slice 49
+/** The court's sentences lately, newest first, from the town's message log (its crime messages that tell a sentence). */
+const SENTENCE = /^The court [^’]*? (sentenced|fined|sent|let) /;
+function sentencesLately(s: SimState, n: number): Array<{ tick: number; words: string }> {
+  const out: Array<{ tick: number; words: string }> = [];
+  for (let i = s.messages.log.length - 1; i >= 0 && out.length < n; i--) {
+    const m = s.messages.log[i];
+    if (m.kind === 'crime' && SENTENCE.test(m.words)) out.push({ tick: m.tick, words: m.words });
+  }
+  return out;
 }
 
 /** The crime rate: this month so far, and the last months closed, per thousand people. */

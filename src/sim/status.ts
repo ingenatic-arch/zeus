@@ -69,6 +69,8 @@ import { daysToThief, lootWords, moodCtx, placeOf, targetFor, TEMPT_HALF, tempta
 import { crimeFor, crimeOfWalker, isCriminal, KIND_NAME, KIND_VERB, type CrimeChoice } from './crime';
 // Slice 45: the court and the prison.
 import { convictStatus, courtLines, escorting, justiceLines, prisonLines, prisonWarning, sergeantLine } from './justice';
+// Slice 49: health.
+import { healthTownLine, healthWalkerStatus, homeHealthLines, infirmaryLines, templeLines } from './health';
 import { criminalStatus, grievances, misdeedLines } from './misdeeds';
 import { gangOf, gathering, monthsToGang, postsReaching } from './gangs';
 import { edgeRoads, nearestReached, roadSearch, type Search } from './roads';
@@ -137,6 +139,8 @@ export function homeStatus(s: SimState, map: CoastMap, b: Building, reach?: Sear
   if (b.kind === 'rubble') return rubbleStatus(s, b);
   if (b.kind === 'watchpost' || b.kind === 'architect') return { ...postStatus(s, map, b), detail: lines(postStatus(s, map, b).detail, ...hazardLines(s, map, b)) };
   const st = buildingStatus(s, map, b, reach);
+  // Slice 49: a home's health, and who is sick there.
+  if (b.kind === 'home') st.detail = lines(st.detail, ...homeHealthLines(s, b));
   // (Slice 41: and what the new crimes have done to it: a smashed fountain, pickpockets about, a skimming collector, a den.)
   // (Slice 45: and who stands in its stocks, or labours at it.)
   const more = [...misdeedLines(s, map, b), ...justiceLines(s, b), ...hazardLines(s, map, b)];
@@ -177,6 +181,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'horsefarm') return horseFarmStatus(s, map, b);
   // Slice 45: the court and the prison.
   if (b.kind === 'court' || b.kind === 'prison') return { title: BUILDING_NAMES[b.kind], detail: lines(workersLine(s, map, b), ...(b.kind === 'court' ? courtLines(s, b) : prisonLines(s, b))) };
+  // Slice 49: the infirmary and the asklepieion.
+  if (b.kind === 'infirmary' || b.kind === 'asklepieion') return { title: BUILDING_NAMES[b.kind], detail: lines(workersLine(s, map, b), ...(b.kind === 'infirmary' ? infirmaryLines(s, b) : templeLines(s, b))) };
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';
@@ -788,6 +794,8 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'shipper') return shipperDoing(s, w);
   // Slice 45: one of the caught, and the watchman walking him to the court.
   if (w.kind === 'convict') return convictStatus(s, w);
+  // Slice 49: a physician, a pair of stretcher-bearers.
+  if (w.kind === 'physician' || w.kind === 'bearer') return healthWalkerStatus(s, w);
   if (w.kind === 'watchman' && w.meat > 0 && escorting(s, w)) {
     const c = escorting(s, w)!;
     const home = findBuilding(s, c.home);
@@ -1219,7 +1227,9 @@ export const oilLine = (s: SimState, map: CoastMap, b: Building): string => good
 export interface TownLine {
   need: 'fire' | 'wear' | 'rubble' | 'food' | 'oil' | 'fleece' | 'wine' | 'workers' | 'money' | 'tax' | 'ship' | 'trader' | 'greece' | 'favour' | 'loan' | 'raid' | 'alarm' | 'battle' | 'crime' | 'season' | 'empire' | 'monument'
     // Slice 39
-    | 'ambition';
+    | 'ambition'
+    // Slice 49: the plague in the city, a fevered quarter, the quarantine.
+    | 'health';
   text: string;
   at: number;
   /** A trader's line: which route (its tab in the trade panel). News from Greece: which city (its page on the map). */
@@ -1501,6 +1511,9 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (money) out.push(money);
   const harsh = harshLine(s);
   if (harsh) out.push(harsh);
+  // Slice 49: the plague in the city, a fevered quarter or the quarantine.
+  const health = healthTownLine(s);
+  if (health) out.push({ need: 'health', ...health });
   return out;
 }
 

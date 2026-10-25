@@ -23,6 +23,8 @@ import { quarryFace, quarryYaw } from '../sim/materials';
 import { horseFarmModel } from './estates';
 // Slice 45: the court and the prison.
 import { courtModel, prisonModel } from './justice';
+// Slice 49: the infirmary and the asklepieion.
+import { asklepieionModel, infirmaryModel } from './health';
 
 // ---------------------------------------------------------------------------
 // Models. Local frame: the footprint's centre at the origin, spanning
@@ -599,7 +601,7 @@ const MAIN_FOOT: Partial<Record<Building['kind'], [number, number, number, numbe
  * hillsides, and their floors and yards stand on terraces whose foundations
  * run down the slope, so nothing is buried on the uphill side.
  */
-const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury', 'shipyard', 'court', 'prison']);
+const HIGH_FOOT: ReadonlySet<Building['kind']> = new Set(['grove', 'press', 'storehouse', 'vineyard', 'winery', 'trading', 'armoury', 'shipyard', 'court', 'prison', 'infirmary', 'asklepieion']);
 /** Kinds levelled half-way between the lowest and the highest ground under them: the caravan yard, whose walls run round the whole of it (part sunk into the slope uphill, on a low footing downhill). */
 const MID_FOOT: ReadonlySet<Building['kind']> = new Set(['yard', 'barracks', 'mine', 'loggers']);
 
@@ -1385,8 +1387,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** A ham laid on its side (applied after its placing). */
 const LIE = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const RISE_SECONDS = 0.9;
-type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard' | 'quarry' | 'loggers' | 'horsefarm' | 'court' | 'prison';
-const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard', 'quarry', 'loggers', 'horsefarm', 'court', 'prison']);
+type WorkKind = 'farm' | 'granary' | 'agora' | 'theatre' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'shipyard' | 'quarry' | 'loggers' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';
+const WORK_KINDS: ReadonlySet<string> = new Set<WorkKind>(['farm', 'granary', 'agora', 'theatre', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'shipyard', 'quarry', 'loggers', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion']);
 const isWork = (b: Building): b is Building & { kind: WorkKind } => WORK_KINDS.has(b.kind);
 
 /** How many stooks, sacks or loaves show for a building's stock. */
@@ -1562,6 +1564,9 @@ export class Works {
       // Slice 45.
       court: courtModel(),
       prison: prisonModel(),
+      // Slice 49.
+      infirmary: infirmaryModel(),
+      asklepieion: asklepieionModel(),
     };
     // The wheat takes its colour per row (green to gold); it casts no shadow of its own (too fine to read, and costly).
     this.wheat = new ChunkedInstances('wheat', wheatRow(), mat, HOME_CHUNK, { castShadow: false, receiveShadow: true, colors: true });
@@ -1730,6 +1735,8 @@ export class Works {
     if (b.kind === 'horsefarm') return `horsefarm:${face}`;
     // (Slice 45: the court and the prison: their people are drawn by Jobfolk and JusticeView.)
     if (b.kind === 'court' || b.kind === 'prison') return `${b.kind}:${face}`;
+    // (Slice 49: the infirmary and the asklepieion: their people are drawn by Jobfolk, the patients by HealthView.)
+    if (b.kind === 'infirmary' || b.kind === 'asklepieion') return `${b.kind}:${face}`;
     if (b.kind === 'loggers') return `loggers:${face}:${this.roadSides(s, b, this.yawOf(s, b))}:${shown(held(b, TIMBER), LOGGERS_STORE, CAMP_PILES)}`;
     if (b.kind === 'quarry' || b.kind === 'yard') {
       // (Slice 32: the roads beside it shape its skirt.)
@@ -2473,6 +2480,11 @@ export function workPicture(kind: string): PicturePart[] | null {
       return [at(courtModel())];
     case 'prison':
       return [at(prisonModel())];
+    // Slice 49.
+    case 'infirmary':
+      return [at(infirmaryModel())];
+    case 'asklepieion':
+      return [at(asklepieionModel())];
     case 'loggers': {
       const pile = logPile();
       return [at(campModel()), ...[0, 1].map((i) => ({ geo: pile, x: -0.55, z: 0.18 + i * 0.24, yaw: 0, s: [1, 1, 1] as [number, number, number] }))];

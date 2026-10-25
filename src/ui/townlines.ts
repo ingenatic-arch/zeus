@@ -65,6 +65,8 @@ export const ICONS: Record<TownLine['need'], string> = {
   tax: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="6.4" cy="11.6" rx="4.6" ry="1.8" fill="#a07a1e"/><ellipse cx="6.4" cy="10.4" rx="4.6" ry="1.8" fill="#d9b04a"/><path d="M12.4 2.4v8.2m-2.4-2.4 2.4 2.6 2.4-2.6" fill="none" stroke="#b23a22" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   greece:
     '<svg viewBox="0 0 18 16" aria-hidden="true"><path d="M1.5 3.2 6 1.6l6 1.8 4.5-1.6v11.2L12 14.6l-6-1.8-4.5 1.6z" fill="#f4e4bf" stroke="#8a6440" stroke-width=".9" stroke-linejoin="round"/><path d="M6 1.6v11.2M12 3.4v11.2" stroke="rgba(138,100,64,.55)" stroke-width=".8"/><path d="M3 6.4c1.6-.6 2.4.6 3.8.2s2.2-1.4 3.6-.6 2 .8 3.8.2" fill="none" stroke="#2f7f9e" stroke-width="1.1" stroke-linecap="round"/><circle cx="9.6" cy="10" r="1.3" fill="#c8643b"/></svg>',
+  // Slice 49: health's, the staff of Asklepios, a green snake coiled up it.
+  health: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.4v13.2" stroke="#6b4a2e" stroke-width="1.5" stroke-linecap="round"/><path d="M6.2 3.6c2.6-.8 4.2.6 2.4 1.8s-3.6 1.6-1.8 3.2 3.8 1 2.4 2.8-3.4.6-2.2 2" fill="none" stroke="#3f8a62" stroke-width="1.4" stroke-linecap="round"/><circle cx="6" cy="3.6" r="1" fill="#3f8a62"/></svg>',
   money:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="11.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="10.4" rx="5.6" ry="2" fill="#d9b04a"/><ellipse cx="8" cy="7.6" rx="5.6" ry="2" fill="#a07a1e"/><ellipse cx="8" cy="6.4" rx="5.6" ry="2" fill="#e3c060"/><path d="M5.4 6.4h5.2" stroke="#8a6414" stroke-width=".9" stroke-linecap="round"/></svg>',
 };
@@ -73,7 +75,7 @@ export const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument', 'ambition'];
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument', 'ambition', 'health'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -87,7 +89,7 @@ const rank = (need: TownLine['need']): number => {
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
 // (Review of slice 35: the monuments' line, the games on or a site stuck, before the News of Greece and the ships and caravans coming and going.)
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'ambition', 'greece', 'ship', 'trader'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'ambition', 'greece', 'ship', 'trader', 'health'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;
