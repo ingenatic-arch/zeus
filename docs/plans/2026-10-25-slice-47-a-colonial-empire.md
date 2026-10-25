@@ -149,7 +149,10 @@ The line's own files changed:
 - Every version 37 prepared town (134, slice 43's baseline) loads through `fromSlice43` and `fromSlice47` to version 39 and runs 300 ticks.
 - The build is clean.
 - The smoke blocks for slices 37, 40, 43 and 47, run on their own on the loaded machine, pass, except the two "#empire: the thieves" checks, which fail on the starting commit too.
-- The full slow smoke: SLOW.
+- The full slow smoke (a loosened copy) ran in two parts on the loaded machine:
+  - **First part:** from the start through slice 18's `#gift`, with no failures. It then waited its full hour at `#thanks` for Corinth's gift line under the top bar, which never came at about 1 frame a second. Headless, from the prepared town, the gift line appears 220 ticks in, both at `5586938` and on this line.
+  - **Second part:** slice 19 to the end, the same script with the earlier blocks left out. It failed on `#triremes` (a trireme's hover), `#seized` (the town line and the chip), `#quarry` (the tool off the marble), `#blockade` (a blockading ship's hover), the two `#empire` thieves checks, and once on `#request` (the caravan's tip).
+  - **The failing blocks against the starting build.** Run side by side on `5586938`'s build and this one, the first five fail identically on both. `#request` passed on both that time, so it is a flaky hover. The `#empire` checks fail at the start too. Nothing in the smoke fails because of this slice.
 - The measure, side by side with `5586938` (a slimmed copy: download, the colony demos' load, triangles, draw calls and frame work): see the check-in's table.
 - `#colonybase` and `#freeally` were walked at 1920 × 1080 in the original look, `-modern` and `-plain`.
 

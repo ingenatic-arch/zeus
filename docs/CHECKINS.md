@@ -39,6 +39,7 @@ What breaks, or moves:
 - While a colony is threatened, the line under the top bar names the threat, not your company being rowed out. The rowing shows in the News of Greece and the ship's hover.
 - A free ally stays warm for ever. Its mood doesn't move yet.
 - `#empire`'s automatic check for a thief already out fails, as it did before this slice: since the armour-and-horses fix the first thief comes about 15 days in.
+- Some older automatic checks fail on this machine, and fail the same way on the build this slice started from: `#triremes` and `#blockade` (a ship's hover), `#seized` (the town line and the chip) and `#quarry` (the tool's tip off the marble). They aren't from this slice, but someone should look at them.
 
 ### Measurements
 Headless software rendering on a shared, heavily loaded machine (load 27 to 36, the test suite running beside it), so only the counts and sizes mean much. "Before" is the starting build (`5586938`), measured the same way just before.
