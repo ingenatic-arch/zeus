@@ -83,4 +83,35 @@ At `97947e6`, on a loaded machine (four lines building on four cores; load 20 to
 
 ## As built
 
-*(To be filled in when the slice is built.)*
+Commits on `claude/p6-panels`: the plan (`a950b18`), the annals (`12d14bf`), the window, its pages, demos and slice 48's findings (`01ba3cf`), the homes tile's words (`c3e6dfb`), the window's refresh after a click (`1a91bcf`), the checks and the check-in (this file's commit).
+
+**As planned:**
+- The annals (`src/sim/annals.ts`): a record of plain numbers for each of the last 24 months, written on the first tick of the next month, last in the step; the year so far and last year by kind (money in and out by group, crime by kind). Nothing reads them but the overview. State version 43 with `fromSlice51` (an empty record from the save's tick); the save's checks mend a damaged record (only the history goes) and pad a month's stock to every ware.
+- The overview (`src/ui/overview.ts`, `overview.css`): one window over the city, opened by a button beside the scroll on the top bar or O by its place (`KeyO`), Esc closing it; eight pages, each tab naming its page and a word on where it stands, marked amber or red when it wants looking at; two years of small charts on every page, each point naming its month and value; every figure with its reasons; links that fly the camera to the place with the overlay that shows it, or open the household's or building's panel, the ware's page, the ledger, a city's or site's page on the map of Greece, or a company's banner, the window stepping aside.
+- The marked places: `courtFigures` (Crime, for slice 45) and `healthFigures` with the annals' `sickNow` (Health, for slice 49), each returning nothing until the integrator wires them.
+- Demos `#overview`, `#overviewgaps`, `#overviewcrime`, `#overviewempire` (each the same town as `#town`, `#gang` or `#empire`, checked state for state).
+- Slice 48's findings, as planned: the click on a building's footprint (a walker followed within 9 px there, 22 px elsewhere, as for the monuments); Accept nothing disabled when only emptying wares are left; a run's pin pinning every one of its days; the pause named in the doing lines (the press and winery, the grove and vineyard, the mine, the quarry and the masons' yard); the agora's room bars.
+
+**Changed on the way:**
+- **O is the overview; Shift+O is the water overlay.** Every letter was taken. The help card and the overlay list show Shift O; the smoke and measure scripts press Shift+O for the water overlay.
+- **The crime news carries its kind.** To count crimes by quarter, a message gets an optional `of` (the crime's kind: theft, picked, caught, gathering...), set where heard.ts tells the crime news. Its words are unchanged; older messages without it are skipped by the quarter count.
+- **A ware's outlook is its rate over the year**, from the stock book (last month's alone while the book has fewer than three months). Olives come in lumps every few months, so last month alone called them running out between pickings; a ware nothing has moved for three months is "steady". The table's columns stay last month's.
+- **Well kept** counts homes with a fountain's water and food on the table; homes whose level doesn't need a fountain yet but fetch water from the river are named on the Health page (they are the gap between "well kept" and "clean water").
+- **The window kept refreshing only until a click.** A tab or link refreshed it at once with the clock at Infinity, which then held it still until it was closed (found by the measure's running cost reading 0). The forced refresh now counts as made at the loop's last time; checked in the page: after a tab click at the fastest speed the page changes, where before the fix it didn't. The measure waits 45 s for the running cost, since the loop's clock moves at most 0.1 s a frame and headless draws about one frame in two seconds.
+- **The save's budget:** `#town`'s save grows by about 3.3 KB (192,911 characters, 189,582 without the annals), so `saves.test.ts`' budget rises from 190,000 to 194,000.
+
+**Touched outside the line** (each small, in a block or line marked Slice 51):
+- `src/sim/state.ts`, `sim.ts`, `migrate.ts` (the field, the step, the migration); `src/game/saves.ts` (`mendAnnals`); `tests/saves.test.ts` (the budget).
+- `src/sim/heard.ts`, `messages.ts` (the crime news' kind: these are the line's own).
+- `src/sim/status.ts`, `armystatus.ts`, `materialstatus.ts`, `monumentstatus.ts`: a paused building's doing line names the pause (one line each).
+- `src/main.ts` (the overview's wiring, Esc, O, the probe, and the click preferring the building on its footprint), `src/game/input.ts` (O by its place), `src/game/demos.ts` (the field and four demos), `src/ui/help.ts` (O and Shift O), `src/ui/buildbar.ts` (the water overlay's key, Shift O), `src/ui/topbar.ts` (the button), `src/ui/buildingpanel.ts` and `src/ui/messages.ts` (slice 48's findings: these are the line's own).
+- `scripts/smoke.mjs` (the slice's block; the water overlay by Shift+O), `scripts/measure.mjs` (two demo loads and the overview's cost; the water overlay by Shift+O).
+
+**`MAP_SIZE`:** no new uses.
+
+**Checks:**
+- Typecheck clean. Tests: 677 in 55 files (668 in 54 before; 9 new in `tests/annals.test.ts`, which also loads a version 37 save and a version 42 one). In the full run (21 min, beside the other lines' builds) the treasury's "no demo leaves wages unpaid" ran out of its 1,200,000 ms; alone, `tests/treasury.test.ts` passes 17 of 17.
+- Build (`vite build`): 4 min 6 s (4 min 34 s before). Download 5,008 KB gzipped (4,888 before): the game 895 KB (876), the prepared towns 4,114 KB (4,011; each now carries its annals). `#town`'s save 192,911 characters (budget 194,000).
+- The demo probe: all 145 prepared towns from `97947e6` loaded in this code and played 900 ticks, the same as in the old code apart from the crime news' `of`. The towns baked by both builds, 149 of 149 (the four new demos' included), are the same state for state without the annals and `of`.
+- Smoke: the full loosened copy, start to end on this slice's build before `1a91bcf` (79 min): every step passes, the slice's block and every earlier one. The fix after it was checked in the page on its own (above).
+- Measure (loosened copy, side by side with `97947e6`): triangles and draw calls the same in all 153 views both reached (`#creditors`' demo view differed by one frame's timing and settles on the same 1,359,454 and 92 on both, checked again); `#empire` running 63 ms a frame of update against 65; the median demo's update 13.0 against 14.1 ms. Both full runs ran out of their two hours in the demo-load sweep, so a set of 12 demo loads ran on each build twice, in turn: medians 4.2 and 4.7 s before, 4.9 and 3.4 s after, the second-run build slower each time. The overview's cost, on the fixed build: each page of `#overviewempire` built afresh in 6 to 26 ms headless; left open on Goods while running, 3.6 ms a second against 46 ms for the whole update. The new views: `#overview` 1,487,950 triangles in 102 draws, `#overviewempire` 2,081,015 in 156.
