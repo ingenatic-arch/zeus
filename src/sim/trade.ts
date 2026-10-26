@@ -25,6 +25,8 @@
  * here draws a random number, so a town without a post runs exactly as before.
  */
 import { WATER_SEA, type CoastMap } from '../map/bake';
+// Slice 50: a lake isn't the sea.
+import { inlandWater } from '../map/bake';
 import { dcos, dhypot, dsin } from '../map/dmath';
 import { Ground, mapIndex } from './build';
 import { findBuilding } from './buildings';
@@ -259,8 +261,31 @@ export function berthAt(map: CoastMap, x: number, z: number): Berth | null {
 /** Why a trading post can't go on the shore here ('' if the ship could come alongside it). */
 export function shoreRefusal(map: CoastMap, x: number, z: number): string {
   if (!nearSea(map, x, z)) return 'A trading post goes on the bay shore: no sea beside it here';
+  // Slice 50 (slice 46's finding): a lake's shore says so, rather than "too shallow".
+  if (!berthAt(map, x, z) && onlyLake(map, x, z)) return 'This is a lake, not the sea: the ship can’t come in. A trading post goes on the sea’s shore';
   if (!berthAt(map, x, z)) return 'The water off this shore is too shallow for the ship: try where the deep water comes closer (the tint shows where)';
   return '';
+}
+
+// Slice 50
+/** Is all the water within two tiles of a 3 x 3 footprint a lake (or a marsh pool), none of it the open sea? */
+function onlyLake(map: CoastMap, x: number, z: number): boolean {
+  const inl = inlandWater(map);
+  if (!inl) return false;
+  const n = map.size;
+  let lake = false;
+  for (let dz = -2; dz <= 4; dz++) {
+    for (let dx = -2; dx <= 4; dx++) {
+      const tx = x + dx;
+      const tz = z + dz;
+      if (tx < 0 || tz < 0 || tx >= n || tz >= n) continue;
+      const t = tz * n + tx;
+      if (map.tileWater[t] !== WATER_SEA) continue;
+      if (!inl[t]) return false;
+      lake = true;
+    }
+  }
+  return lake;
 }
 
 /** Is there sea within two tiles of a 3 x 3 footprint? */

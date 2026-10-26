@@ -38,12 +38,13 @@ import { MAKERS } from '../sim/production';
 import { hazardLines, homeStatus, workersLine } from '../sim/status';
 import { ACCEPT, cutOf, EMPTY, GET, isStore, LIMIT_NAMES, modeOf, REFUSE, roomFor, roomOf, storeOf } from '../sim/stores';
 import type { Building, BuildingKind, SimState, Walker } from '../sim/state';
-import { ICONS as TOOL_ICONS, type ButtonName } from './buildbar';
-import { iconOfKind } from './messages';
 import { morph } from './morph';
 import { wareIcon } from './wareicons';
 // Merge of slice 45.
 import { courtSections, JUSTICE_QUIET, prisonSections } from './justice';
+// Slice 50: the kit.
+import { actionIcon, buildingIcon, messageIcon } from './icons';
+import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -144,8 +145,7 @@ const unitWords = (w: Ware, n: number): string => {
 
 /** One line of a bar: a ware, what it holds against its room (no room: just the number). */
 function holdRow(w: Ware, n: number, room: number, extra = ''): string {
-  const pct = room > 0 ? Math.max(0, Math.min(100, (n / room) * 100)) : 0;
-  const bar = room > 0 ? `<span class="hbar"><i style="width:${pct.toFixed(1)}%"></i></span>` : '<span class="hbar none"></span>';
+  const bar = room > 0 ? kbar({ value: n, max: room, tone: 'stock', tip: `${fmt(n)} of ${fmt(room)} ${unitWords(w, room)}` }) : '<span class="hbar none"></span>';
   return `<li>${wareIcon(w)}<span class="hname">${cap(WARE_NAMES[w])}</span>${bar}<span class="hnum">${fmt(n)}${room > 0 ? `<small> / ${fmt(room)}</small>` : ''}</span>${extra}</li>`;
 }
 
@@ -168,7 +168,7 @@ function staffBlock(s: SimState, map: CoastMap, b: Building, entry: PanelEntry |
   const jobs = jobsAt(b);
   if (jobs === 0 || b.kind === 'home') return '';
   const n = Math.min(b.workers, jobs);
-  const pips = jobs <= 16 ? `<span class="pips" aria-hidden="true">${Array.from({ length: jobs }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>` : '';
+  const pips = jobs <= 16 ? kpips(Array.from({ length: jobs }, (_, i) => (i < n ? 'on' : 'off')), `${n} of ${jobs} workers`) : '';
   const lines = workersLine(s, map, b).split('\n').filter((l) => l);
   const head = b.paused ? 'Paused' : `${n} of ${jobs} workers`;
   const rate = rateOf(b);
@@ -181,8 +181,8 @@ function staffBlock(s: SimState, map: CoastMap, b: Building, entry: PanelEntry |
       : '';
   // (The staff line's own words after the count, without repeating it.)
   const why = lines.map((l) => l.replace(/^Workers: \d+ of \d+( · workers first)?$/, '').replace(/^Short of workers: \d+ of \d+ · working at \d+% · /, '')).filter((l) => l && !/^Paused/.test(l));
-  void entry;
-  return `<section class="staff"><h3>Staff</h3><div class="count">${pips}<b>${head}</b>${pace}</div>${why.map((l) => `<p class="why">${esc(cap(l))}</p>`).join('')}${note}</section>`;
+  // (Slice 50: its orders right under its staff, so they are above the fold whatever follows.)
+  return `<section class="staff"><h3>Staff</h3><div class="count">${pips}<b>${head}</b>${pace}</div>${why.map((l) => `<p class="why">${esc(cap(l))}</p>`).join('')}${note}${ordersBlock(b, entry)}</section>`;
 }
 
 /** What it is doing, and why not: the hover tip's lines, less the staff and the condition (which have their own sections). */
@@ -210,7 +210,7 @@ function walkersBlock(s: SimState, b: Building): string {
     const what = loaded.length && (k === 'cart' || k === 'sledge' || k === 'porter' || k === 'shipper') ? ` · ${[...new Set(loaded.map((w) => WARE_NAMES[w.food as Ware]).filter((x) => x))].join(', ')}` : '';
     const home = ws.filter((w) => w.back).length;
     const state = k === 'convict' ? '' : home === ws.length ? ' · on the way back' : home ? ` · ${home} on the way back` : ' · out';
-    rows.push(`<li><span>${esc(cap(walkerWords(k, ws.length)))}${esc(state)}${esc(what)}</span><button class="pill" data-act="follow" data-kind="${k}" data-walker="${ws[0].id}" title="Follow ${esc(walkerWords(k, 1).replace(/^\d+ /, ''))} through the streets">Follow</button></li>`);
+    rows.push(`<li><span>${esc(cap(walkerWords(k, ws.length)))}${esc(state)}${esc(what)}</span>${kbtn({ act: 'follow', data: { kind: k, walker: ws[0].id }, icon: 'follow', html: 'Follow', small: true, tip: `Follow ${walkerWords(k, 1).replace(/^\d+ /, '')} through the streets` })}</li>`);
   }
   const towards = [...coming].map(([k, n]) => (n === 1 ? `${/^[aeiou]/.test(walkerWords(k, 1)) ? 'an' : 'a'} ${walkerWords(k, 1)}` : walkerWords(k, n))).join(', ');
   if (!rows.length && !towards) return '';
@@ -220,7 +220,7 @@ function walkersBlock(s: SimState, b: Building): string {
 /** Fire risk and wear as bars, and what is wrong with it now. */
 function conditionBlock(s: SimState, map: CoastMap, b: Building, hz: string[], misdeeds: string[]): string {
   const bars: string[] = [];
-  const bar = (name: string, v: number, cls: string): string => `<li class="${cls}"><span class="hname">${name}</span><span class="hbar"><i style="width:${Math.min(100, (v / HAZARD_FULL) * 100).toFixed(1)}%"></i></span><span class="hnum">${Math.round((v / HAZARD_FULL) * 100)}%</span></li>`;
+  const bar = (name: string, v: number, cls: string): string => `<li class="${cls}"><span class="hname">${name}</span>${kbar({ value: v, max: HAZARD_FULL, tone: cls === 'risk' ? 'danger' : 'wear' })}<span class="hnum">${Math.round((v / HAZARD_FULL) * 100)}%</span></li>`;
   if (burnable(b)) bars.push(bar('Fire risk', b.risk, 'risk'));
   if (wears(b)) bars.push(bar('Wear', b.wear, 'wear'));
   const lines = [...hz, ...misdeeds];
@@ -236,17 +236,23 @@ function messagesBlock(s: SimState, b: Building): string {
   const ms = messagesAt(s, { building: b.id }).slice(0, 5);
   if (!ms.length) return '';
   return `<section class="bmsgs"><h3>Its messages</h3><ul>${ms
-    .map((m) => `<li><button class="u${m.u}${m.read ? '' : ' unread'}" data-act="msg" data-id="${m.id}" title="${esc(m.words)}"><span class="mic">${iconOfKind(m.kind)}</span><span class="day">${dayOf(m.tick)}</span><span class="t">${esc(titleOf(m))}</span></button></li>`)
+    .map((m) => `<li><button class="u${m.u}${m.read ? '' : ' unread'}" data-act="msg" data-id="${m.id}" title="${esc(m.words)}"><span class="mic">${messageIcon(m.kind)}</span><span class="day">${dayOf(m.tick)}</span><span class="t">${esc(titleOf(m))}</span></button></li>`)
     .join('')}</ul></section>`;
 }
 
-/** Pause and Workers first. */
+/** Pause and Workers first: two switches. */
 function ordersBlock(b: Building, entry: PanelEntry | undefined): string {
   if (b.kind === 'home' || jobsAt(b) === 0 || entry?.noOrders) return '';
-  return `<section class="orders"><h3>Orders</h3><div class="toggles"><button class="tog${b.paused ? ' on' : ''}" data-act="pause" aria-pressed="${!!b.paused}" title="${b.paused ? 'Set it going again: workers come back at once' : isStore(b.kind) ? 'Stop it: its workers go to other work, and it takes in and gives out nothing' : `Stop it: its workers go to other work, and it works at nothing${MAKERS[b.kind] ? ' and takes nothing in (what it has made still goes out by cart)' : ''}`}"><span class="glyph pause"></span>${b.paused ? 'Paused' : 'Pause'}</button><button class="tog${b.first ? ' on' : ''}" data-act="first" aria-pressed="${!!b.first}" title="${b.first ? 'Share its workers out as for any other workplace' : 'Fill it with workers before any other workplace'}"><span class="glyph first"></span>Workers first</button></div></section>`;
+  const pauseTip = b.paused ? 'Set it going again: workers come back at once' : isStore(b.kind) ? 'Stop it: its workers go to other work, and it takes in and gives out nothing' : `Stop it: its workers go to other work, and it works at nothing${MAKERS[b.kind] ? ' and takes nothing in (what it has made still goes out by cart)' : ''}`;
+  const firstTip = b.first ? 'Share its workers out as for any other workplace' : 'Fill it with workers before any other workplace';
+  return `<div class="orders k-orders"><h4>Orders</h4>${ktoggle({ on: !!b.paused, act: 'pause', html: `<span class="k-oi">${actionIcon('pause')}</span>${b.paused ? 'Paused' : 'Pause'}`, tip: pauseTip, cls: 'tog' })}${ktoggle({ on: !!b.first, act: 'first', html: `<span class="k-oi">${actionIcon('first')}</span>Workers first`, tip: firstTip, cls: 'tog' })}</div>`;
 }
 
 const MODE_SHORT = ['Accept', 'Don’t', 'Get', 'Empty'];
+/** Slice 50: each mode's drawing. */
+const MODE_ICONS = ['accept', 'refuse', 'get', 'empty'] as const;
+/** The key to them, over the rows. */
+const MODE_KEY = `<div class="k-modekey">${MODE_SHORT.map((w, m) => `<span>${actionIcon(MODE_ICONS[m])}${w}</span>`).join('')}</div>`;
 const MODE_TIPS = [
   'Accept it: carts bring it here, up to the limit',
   'Don’t accept it: carts take theirs to other stores (what it has stays, for porters to fetch)',
@@ -269,7 +275,6 @@ function storeBlock(s: SimState, g: Building): string {
     if (mode === REFUSE) refusing++;
     const n = held(g, w);
     const limit = Math.floor((room * (4 - cut)) / 4);
-    const pct = Math.max(0, Math.min(100, (n / room) * 100));
     let out = 0;
     let bring = 0;
     for (const c of s.walkers) {
@@ -296,16 +301,26 @@ function storeBlock(s: SimState, g: Building): string {
     } else if (mode === REFUSE) note = n > 0 ? `Doesn’t accept more: it keeps the ${fmt(n)} it has, for porters to fetch` : '';
     else if (cut) note = n >= limit ? `Full to its limit, ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)}): carts take more elsewhere` : `Accepts it up to ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)})`;
     const modes = [ACCEPT, REFUSE, GET, EMPTY]
-      .map((m) => `<button class="mode m${m}${mode === m ? ' on' : ''}" data-act="mode" data-ware="${w}" data-mode="${m}" aria-pressed="${mode === m}" title="${esc(MODE_TIPS[m])}">${MODE_SHORT[m]}</button>`)
+      .map((m) => `<button class="mode m${m}${mode === m ? ' on' : ''}" data-act="mode" data-ware="${w}" data-mode="${m}" aria-pressed="${mode === m}" aria-label="${MODE_SHORT[m]}" title="${esc(MODE_TIPS[m])}">${actionIcon(MODE_ICONS[m])}</button>`)
       .join('');
-    const lim = `<span class="lim" title="How full it fills: all of its room, three quarters, half or a quarter"><button data-act="limit" data-ware="${w}" data-dir="1" aria-label="Fill less"${cut >= 3 || mode === REFUSE || mode === EMPTY ? ' disabled' : ''}>‹</button><span class="lv">${LIMIT_NAMES[cut]}</span><button data-act="limit" data-ware="${w}" data-dir="-1" aria-label="Fill more"${cut <= 0 || mode === REFUSE || mode === EMPTY ? ' disabled' : ''}>›</button></span>`;
-    const tick = cut && mode !== REFUSE && mode !== EMPTY ? `<em style="left:${(((4 - cut) / 4) * 100).toFixed(1)}%"></em>` : '';
+    const off = mode === REFUSE || mode === EMPTY;
+    const lim = kstep({
+      value: LIMIT_NAMES[cut],
+      less: { act: 'limit', ware: w, dir: 1 },
+      more: { act: 'limit', ware: w, dir: -1 },
+      lessWhy: cut >= 3 ? 'A quarter of its room at the least' : off ? 'It takes none in' : undefined,
+      moreWhy: cut <= 0 ? 'All of its room already' : off ? 'It takes none in' : undefined,
+      tip: 'How full it fills: all of its room, three quarters, half or a quarter',
+      name: 'room',
+      small: true,
+    });
+    const top = `${fmt(n)}<small>/${fmt(room)}</small>`;
     rows.push(
-      `<div class="ware m${mode}" data-ware="${w}"><div class="wtop">${wareIcon(w)}<b>${cap(WARE_NAMES[w])}</b><span class="hnum">${fmt(n)}<small> / ${fmt(room)} ${unitWords(w, room)}</small></span></div><div class="wbar"><i style="width:${pct.toFixed(1)}%"></i>${tick}</div><div class="wset"><span class="modes" role="group" aria-label="${cap(WARE_NAMES[w])}">${modes}</span>${lim}</div>${note ? `<p class="wnote">${esc(note)}</p>` : ''}</div>`,
+      `<div class="ware m${mode}" data-ware="${w}"><div class="wtop">${wareIcon(w)}<b>${cap(WARE_NAMES[w])}</b>${kbar({ value: n, max: room, tone: mode === EMPTY ? 'danger' : mode === GET ? 'good' : mode === REFUSE ? 'stone' : 'stock', tick: cut && !off ? (4 - cut) / 4 : undefined, html: top, cls: 'tall', tip: `${fmt(n)} of ${fmt(room)} ${unitWords(w, room)}${cut && !off ? `; it fills to ${['', 'three quarters', 'half', 'a quarter'][cut]} of its room (${fmt(limit)}), the mark` : ''}` })}<span class="modes" role="group" aria-label="${cap(WARE_NAMES[w])}">${modes}</span>${lim}</div>${note ? `<p class="wnote">${esc(note)}</p>` : ''}</div>`,
     );
   }
   const head = g.paused ? '<p class="note paused">Paused: it takes nothing in and gives nothing out until it is set going again.</p>' : '';
-  return `<section class="stores"><h3>Its stores</h3><div class="storeacts"><button class="pill" data-act="all" data-all="none"${refusing === all ? ' disabled' : ''} title="Every ware: don’t accept (but what it is emptying)">Accept nothing</button><button class="pill" data-act="all" data-all="all" title="Every ware: accept, all of its room">Accept all</button></div>${head}${rows.join('')}</section>`;
+  return `<section class="stores k-stores"><h3>Its stores</h3><div class="storeacts">${kbtn({ act: 'all', data: { all: 'none' }, icon: 'refuse', html: 'Accept nothing', small: true, tip: 'Every ware: don’t accept (but what it is emptying)', why: refusing === all ? 'It accepts nothing already' : undefined })}${kbtn({ act: 'all', data: { all: 'all' }, icon: 'accept', html: 'Accept all', small: true, tip: 'Every ware: accept, all of its room' })}</div>${MODE_KEY}${head}${rows.join('')}</section>`;
 }
 
 /** The whole panel's HTML. */
@@ -317,10 +332,9 @@ export function buildingHtml(s: SimState, map: CoastMap, b: Building): string {
   const md = b.kind === 'home' ? [] : misdeedLines(s, map, b);
   const staff = workersLine(s, map, b).split('\n');
   const skip = new Set<string>([...hz, ...md, ...staff]);
-  const pic = TOOL_ICONS[(b.kind === 'home' ? 'housing' : b.kind) as ButtonName] ?? '';
   const kicker = whereWords(map, b);
-  const own = entry?.own ? `<p class="own"><button class="pill" data-act="own">${esc(entry.own)} ›</button></p>` : '';
-  const head = `<header class="bhead"><div class="pic">${pic}</div><div class="hd"><div class="kicker">${esc(kicker)}</div><h2>${esc(nameOf(b))}</h2>${sub.length ? `<div class="from">${esc(cap(sub.join(' · ')))}</div>` : ''}</div></header>`;
+  const own = entry?.own ? `<p class="own">${kbtn({ act: 'own', icon: 'go', html: `${esc(entry.own)} ›` })}</p>` : '';
+  const head = khead({ title: nameOf(b), kicker, sub: sub.length ? cap(sub.join(' · ')) : undefined, pic: buildingIcon(b.kind), cls: 'bhead' });
   // (A store's rows say what it holds and has room for: its rooms' line goes.)
   const store = isStore(b.kind);
   const detail = st.detail.split('\n').filter((l) => !(store && /^Holds .* each in its own (room|store)$/.test(l)) && !entry?.quiet?.test(l));
@@ -336,7 +350,6 @@ export function buildingHtml(s: SimState, map: CoastMap, b: Building): string {
     walkersBlock(s, b),
     conditionBlock(s, map, b, hz, md),
     messagesBlock(s, b),
-    ordersBlock(b, entry),
   ].join('');
 }
 
@@ -371,7 +384,7 @@ export class BuildingPanel {
     private readonly deps: BuildingPanelDeps,
   ) {
     const el = document.createElement('div');
-    el.className = 'household building';
+    el.className = 'household building kit';
     el.hidden = true;
     el.setAttribute('role', 'dialog');
     el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
@@ -437,7 +450,7 @@ export class BuildingPanel {
     }
     if (time - this.last < REFRESH) return b;
     this.last = time;
-    const html = buildingHtml(s, map, b);
+    const html = kitHtml(buildingHtml(s, map, b));
     if (html !== this.html) {
       this.html = html;
       morph(this.body, html);

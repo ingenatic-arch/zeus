@@ -14,6 +14,8 @@ import { held, WARE_NAMES } from '../sim/foods';
 import { boughtFrom, caravanYard, heldFor, keptIn, LAND_EVERY, routeNews, routeOf, routeRefusal, ROUTE_WAYS, SEA_EVERY, soldTo, tradesOf, yearlyLimit, type RouteKind } from '../sim/routes';
 import { offerLeft, offerOn, offerPrice } from '../sim/favours';
 import { termsLine, termsMeaning, yourPriceCell } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 import type { Building, SimState, TradeRoute } from '../sim/state';
 import { cityHolds, KEEP_MAX, keepNext, TRADE_GOODS, tradingPost } from '../sim/trade';
 
@@ -21,7 +23,6 @@ const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 /** The trade goods' colours, as in the trade panel. */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#c8963c', '#e8e2d4', '#8a6238', '#6b4a2e']; // (Slice 36: copper, armour, marble, timber and horses had none)
 const when = (tick: number): string => {
   const d = dateOfTick(tick);
   return `${d.monthName} ${formatYear(d.yearBC)}`;
@@ -96,7 +97,7 @@ export function routeGoods(s: SimState, r: TradeRoute, withTerms = true): string
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, true);
       const lim = limitOf(s, r, k, true);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Tick to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Tick to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
 ${priceTd(s, r.city, k, true)}
 <td class="left" title="${esc(`${name} buys up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
@@ -111,7 +112,7 @@ ${keepCell(s, k)}
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, false);
       const lim = limitOf(s, r, k, false);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Tick to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}><i style="background:${SWATCH[k]}"></i>${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Tick to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
 ${priceTd(s, r.city, k, false)}
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>

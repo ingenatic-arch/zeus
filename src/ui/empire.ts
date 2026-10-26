@@ -27,7 +27,8 @@ import { cityOf, rulerShort } from '../sim/world';
 // Integrating slice 34 with 33: a tribute ship held back by the winter storms says so.
 import { lateWords } from '../sim/seasons';
 // (Slice 40: the prices page's swatches, so tribute in marble, timber or horses has its colour too.)
-import { SWATCH } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 // Slice 38 (review): tribute by sea held off your gulf by a blockade says so.
 import { blockaded } from '../sim/lanes';
 // Slice 47: the whole empire on your city's page.
@@ -112,7 +113,7 @@ function tributeHtml(s: SimState, v: Vassal): string {
   const goodButtons = goods
     .map((g) => {
       const t = tributeYear(s, v, v.weight, g);
-      const label = g < 0 ? '<i class="coin"></i>Coin' : `<i style="background:${SWATCH[g]}"></i>${cap(WARE_NAMES[TRADE_GOODS[g]])}`;
+      const label = g < 0 ? '<i class="coin"></i>Coin' : `${tradeIcon(g)}${cap(WARE_NAMES[TRADE_GOODS[g]])}`;
       const why = empireRefusal(s, 'tribute', v.city, g, v.weight);
       return button('tribute', label, { city: v.city, good: g, weight: v.weight }, why, g < 0 ? `In coin: about ${fmt(t.dr)} dr a year, to your treasury` : `In ${WARE_NAMES[TRADE_GOODS[g]]}: about ${fmt(t.amount)} a year, to your stores. ${name(v.city)} holds about ${fmt(c.stock[g])} now, and sends at most half of what it holds`, g === v.good ? 'on' : '');
     })

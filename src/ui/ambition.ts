@@ -13,6 +13,8 @@
 import { formatYear, dateOfTick, TICKS_PER_DAY } from '../sim/clock';
 import { ambitionView, AMBITIONS, laurelCount, MILESTONE_COUNT, yearOf, type AmbitionKind, type AmbitionView, type MilestoneView } from '../sim/ambitions';
 import type { SimState } from '../sim/state';
+// Slice 50: the kit.
+import { kbar, kitHtml } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -47,14 +49,14 @@ function milestoneHtml(m: MilestoneView): string {
     return `<li class="${cls}" title="${esc(`${m.want}. ${m.words}.`)}">${head}<div class="when">${esc(when)}</div>${note}</div></li>`;
   }
   const pct = Math.round(m.share * 100);
-  return `<li class="${cls}">${head}<div class="want">${esc(m.want)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="words">${esc(m.words)}</div><div class="reward">Reward: ${esc(m.reward)}</div></div></li>`;
+  return `<li class="${cls}">${head}<div class="want">${esc(m.want)}</div>${kbar({ value: pct, max: 100, tone: 'good', tip: `${pct}% of the way` })}<div class="words">${esc(m.words)}</div><div class="reward">Reward: ${esc(m.reward)}</div></div></li>`;
 }
 
 function columnHtml(a: AmbitionView): string {
   const status = a.achieved
     ? `<div class="status done">${LAUREL}<span>${a.quiet ? `Achieved: already so when this town was opened (year ${yearOf(a.achieved)})` : `Achieved in year ${yearOf(a.achieved)}`}</span></div>`
     : `<div class="status">${a.count} of 5 milestones</div>`;
-  return `<section class="amb ${a.kind}${a.achieved ? ' achieved' : ''}"><header><span class="emblem">${EMBLEMS[a.kind]}</span><div><h3>${esc(a.name)}</h3><p>${esc(a.what)}</p></div></header>${status}<ol>${a.milestones.map(milestoneHtml).join('')}</ol></section>`;
+  return kitHtml(`<section class="amb k-card ${a.kind}${a.achieved ? ' achieved' : ''}"><header><span class="emblem">${EMBLEMS[a.kind]}</span><div><h3>${esc(a.name)}</h3><p>${esc(a.what)}</p></div></header>${status}<ol>${a.milestones.map(milestoneHtml).join('')}</ol></section>`);
 }
 
 export class AmbitionPanel {
@@ -75,7 +77,7 @@ export class AmbitionPanel {
 
   constructor(root: HTMLElement) {
     const el = document.createElement('div');
-    el.className = 'ambition-panel';
+    el.className = 'ambition-panel kit';
     el.hidden = true;
     el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><h2>Ambitions</h2><div class="sub"></div><div class="cols"></div>';
     root.appendChild(el);

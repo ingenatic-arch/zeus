@@ -114,6 +114,8 @@ import { ALARM, WARNING } from './sim/messages';
 import { say } from './sim/messages';
 import { storeCartsOf } from './sim/storerules';
 import { WARES } from './sim/foods';
+// Slice 50: the panels' kit (one tip for every panel, held steppers).
+import { installKit, tipShowing } from './ui/kit';
 
 interface Probe {
   ready: boolean;
@@ -336,6 +338,9 @@ interface Probe {
   // Slice 46
   /** The new-game screen's choice while it is open (null when it isn't). */
   newgame?: () => { kind: string; size: number; word: string; seed: number } | null;
+  // Slice 50
+  /** The kit's tip showing ('' when none). */
+  kitTip?: () => string;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -502,6 +507,8 @@ function start(preparedTown: string | null): void {
   rig.setCanopy((x, z) => world.plants.canopyAt(x, z));
 
   const ui = document.getElementById('ui') as HTMLElement;
+  // Slice 50
+  installKit(document.body);
   const topbar = new TopBar(ui, driver);
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   // The bare link opens on the coast with a welcome card (which carries the controls line itself).
@@ -896,6 +903,8 @@ function start(preparedTown: string | null): void {
     });
   };
   probe.newgame = () => (newGame?.open ? { ...newGame.choice } : null);
+  // Slice 50
+  probe.kitTip = tipShowing;
   const foundedLand = founding ? KIND_WORDS.find((k) => k.kind === founding.kind) : undefined;
   welcomeCard = welcoming || problem
     ? new Welcome(ui, {

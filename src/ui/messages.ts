@@ -21,6 +21,9 @@ import { dayWords } from '../sim/favours';
 import type { CoastMap } from '../map/bake';
 import type { CityId } from '../map/greece';
 import { ICONS } from './townlines';
+// Slice 50: the kit's icons (every kind of message has one, `land` too) and its dress.
+import { actionIcon, messageIcon, MESSAGE_ICONS } from './icons';
+import { kitHtml } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -55,7 +58,7 @@ const KIND_ICON: Partial<Record<MessageKind, string>> = {
   // Merge of slice 45.
   breakout: ICONS.crime,
 };
-export const iconOfKind = (k: MessageKind): string => KIND_ICON[k] ?? SCROLL;
+export const iconOfKind = (k: MessageKind): string => (MESSAGE_ICONS[k] ? messageIcon(k) : (KIND_ICON[k] ?? SCROLL));
 
 const SHORT_MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
 const dayOf = (tick: number): string => {
@@ -158,12 +161,12 @@ export class MessagesPanel {
     private deps: MessagesDeps,
   ) {
     const el = document.createElement('div');
-    el.className = 'household messages';
+    el.className = 'household messages kit';
     el.hidden = true;
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Messages');
     el.innerHTML = `<button class="close" title="Close (Esc)" aria-label="Close">×</button>
-      <header class="mhead"><h2>Messages <kbd class="mkey" title="The key left of 1 opens and closes the Messages">\u0060</kbd></h2><div class="kicker"></div><button class="pill allread" title="Mark every message read">Mark all read</button></header>
+      <header class="mhead"><h2>Messages <kbd class="mkey" data-tip="The key left of 1 opens and closes the Messages">\u0060</kbd></h2><div class="kicker"></div><button class="k-btn bronze small bare allread" data-tip="Mark every message read"><span class="k-bt">Mark all read</span></button></header>
       <div class="mchips" role="tablist" aria-label="Show"></div>
       <div class="body"></div>`;
     root.appendChild(el);
@@ -391,7 +394,7 @@ export class MessagesPanel {
         (k) => `<label><input type="checkbox" data-pop="${k}"${popupsOff.has(k) ? '' : ' checked'}>${iconOfKind(k)}<span>${esc(KINDS[k].name)}</span></label>`,
       ).join('')}</div><p class="foot">Only alarms pop up, one at a time at the bottom left; everything else comes quietly into this scroll. It keeps the last ${['', 'one', 'two', 'three', 'four', 'five'][Math.round(KEEP_TICKS / TICKS_PER_YEAR)] ?? Math.round(KEEP_TICKS / TICKS_PER_YEAR)} years, at most ${MAX_MESSAGES} messages; pinned ones stay.</p>`,
     );
-    this.body.innerHTML = parts.join('');
+    this.body.innerHTML = kitHtml(parts.join(''));
     this.body.scrollTop = scroll;
     // (Slice 48: opened from a building's panel: that message in view.)
     if (this.scrollTo) {
@@ -404,7 +407,7 @@ export class MessagesPanel {
   /** A message's row; with `run`, the newest of the same message again that month (Slice 48), its count shown and each day's words when open. */
   private row(s: SimState, m: Message, run: Message[] = [m]): string {
     const open = run.some((x) => this.opened.has(x.id));
-    const go = m.at && this.deps.canGo(s, m) ? `<button class="go pill">Go there ›</button>` : '';
+    const go = m.at && this.deps.canGo(s, m) ? `<button class="go k-btn lapis small"><span class="k-bi">${actionIcon('go')}</span><span class="k-bt">Go there</span></button>` : '';
     const unreadRun = run.some((x) => !x.read);
     const words = run.length > 1 ? run.map((x) => `<p><b class="when">${dayOf(x.tick)}</b> ${esc(x.words)}</p>`).join('') : `<p>${esc(m.words)}</p>`;
     const more = open ? `<div class="more">${words}<div class="acts">${go}${!unreadRun ? '<button class="markunread link">Mark unread</button>' : ''}</div></div>` : '';

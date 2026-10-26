@@ -1,0 +1,590 @@
+/*
+ * Slice 50: the panels' shared kit (kit.ts). The skin's materials (skin.css:
+ * the marble tile, the bronze frames, Cinzel cut into the stone), made into
+ * the pieces every panel uses: carved headers, bronze plaques for buttons,
+ * steppers, switches, sliders, bars, pips, chips, parchment cards and one
+ * tip. Text at 13 px or more on every control; hit areas of 26 px or more.
+ */
+:root {
+  /* Parchment: the marble under a warm wash, with a fibre of its own. */
+  --k-fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85 .35' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .3 0 0 0 0 .14 0 0 0 .13 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23f)'/%3E%3C/svg%3E");
+  --k-parch: var(--k-fibre) 0 0 / 160px 160px, linear-gradient(rgba(247, 236, 204, 0.66), rgba(238, 222, 184, 0.66)), var(--skin-marble) 40px 80px / 256px 256px, #ecdfc0;
+  /* A meander in bronze, for under a header. */
+  --k-meander: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12'%3E%3Cpath d='M0 11H12M0 1H12M9 11V3.4H3V8.6H6.6V5.8' fill='none' stroke='%237a5426' stroke-width='1.25'/%3E%3C/svg%3E");
+  --k-bronze: linear-gradient(180deg, #f0d08a, #c8963e 55%, #a07030);
+  --k-bronze-hi: linear-gradient(180deg, #f6dc9c, #d2a24a 55%, #ac7c38);
+  --k-lapis: linear-gradient(180deg, #4a70b4, var(--lapis) 50%, var(--lapis-deep));
+  --k-red: linear-gradient(180deg, #e08a64, #b04a2c 55%, #8c2f26);
+  --k-sunk: inset 1px 2px 3px rgba(40, 28, 16, 0.45), inset 0 0 1px rgba(40, 28, 16, 0.5), 0 1px 0 rgba(255, 252, 240, 0.7);
+}
+
+.kit { font-family: var(--serif); }
+.kit button { font-family: inherit; }
+.kit :is(button, input, select, a, [tabindex]):focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+
+/* ------------------------------------------------------------------------ a panel's carved plaque */
+.k-head { position: relative; display: flex; gap: 11px; align-items: center; padding: 2px 30px 12px 0; margin-bottom: 4px; }
+.k-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: var(--k-meander) 0 0 / 9px 9px repeat-x; opacity: 0.75; }
+.k-pic {
+  width: 54px; height: 54px; flex: none; border-radius: 50%; display: grid; place-items: center; position: relative;
+  background: radial-gradient(circle at 40% 35%, #fffaf0, #eadbb8 70%), #eadbb8;
+  box-shadow: 0 0 0 3px #b8893a, 0 0 0 4px #6a4a1c, 1px 3px 5px 4px rgba(40, 24, 8, 0.35), inset 1px 2px 4px rgba(40, 28, 16, 0.35);
+}
+.k-pic svg { width: 36px; height: 36px; }
+.k-pic svg.fig { width: 40px; height: 48px; margin-top: 2px; }
+.k-hd { min-width: 0; }
+.k-kicker { font: 500 12.5px/1.25 var(--display); letter-spacing: 0.05em; color: var(--ink-soft); }
+.k-head h2 { margin: 1px 0 0; font: 700 21px/1.12 var(--display); letter-spacing: 0.035em; color: #2b2016; text-shadow: 0 1px 0 rgba(255, 252, 240, 0.85), 0 -1px 0 rgba(40, 28, 16, 0.22); font-variant: normal; }
+.k-sub { margin-top: 2px; font: italic 13.5px/1.3 var(--serif); color: var(--ink-soft); }
+
+/* ------------------------------------------------------------------------ a section under a carved rule */
+.k-sec { margin-top: 11px; }
+.k-h {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 6px; padding: 0 0 5px;
+  font: 500 13.5px/1.2 var(--display) !important; letter-spacing: 0.06em; color: var(--ink-soft); font-variant: normal !important; border: 0 !important;
+  background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.85) 50%) left bottom / 100% 2px no-repeat;
+}
+.k-hic { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }
+.k-hic svg { width: 18px; height: 18px; }
+.k-ht { flex: 1; min-width: 0; }
+.k-aside { flex: none; font: 13px/1 var(--serif); letter-spacing: 0; color: var(--ink-soft); }
+
+/* ------------------------------------------------------------------------ icons */
+.kit svg.ki { width: 18px; height: 18px; flex: none; display: block; }
+.kit svg.fig { width: 40px; height: 48px; }
+.kit svg.fig.wide { width: 48px; }
+.kit svg.fig.ship { width: 48px; height: 36px; }
+/* A building's picture: the build bar's drawing, coloured for a pale ground. */
+svg.k-bic path, svg.k-bic ellipse, svg.k-bic circle, svg.k-bic rect { stroke-linejoin: round; stroke-linecap: round; }
+svg.k-bic .fill-soft { fill: #ead3a2; stroke: #6e4e30; stroke-width: 0.9; }
+svg.k-bic .fill-ink { fill: #5a3e26; }
+svg.k-bic .fill-gold { fill: #e3b34a; stroke: #8a5a14; stroke-width: 0.8; }
+svg.k-bic .fill-grape { fill: #7a2e80; stroke: #3e1240; stroke-width: 0.7; }
+svg.k-bic .fill-wine { fill: #8a2a3a; stroke: #40101a; stroke-width: 0.8; }
+svg.k-bic .fill-oil { fill: #9ab040; stroke: #3e4f12; stroke-width: 0.8; }
+svg.k-bic .fill-olive { fill: #6f8a34; stroke: #3e4f12; stroke-width: 0.8; }
+svg.k-bic .fill-wool { fill: #f4ead0; stroke: #8a744a; stroke-width: 0.8; }
+svg.k-bic .fill-meat { fill: #c4553a; stroke: #6e2a1a; stroke-width: 0.8; }
+svg.k-bic .fill-cheese { fill: #e8c25a; stroke: #8a6414; stroke-width: 0.8; }
+svg.k-bic .fill-water { fill: #4f9be0; stroke: #2c5f8f; stroke-width: 0.8; }
+svg.k-bic .fill-fire, svg.k-bic .fill-warn { fill: #e2531e; }
+svg.k-bic .fill-tax { fill: #e3c060; stroke: #8a5a14; stroke-width: 0.8; }
+svg.k-bic .fill-bless { fill: #a98ae0; stroke: #4a3a6a; stroke-width: 0.8; }
+svg.k-bic .fill-plays { fill: #e3778f; stroke: #7a2a40; stroke-width: 0.8; }
+svg.k-bic [class^='stroke-'] { fill: none; stroke-width: 1.5; }
+svg.k-bic .stroke-ink { stroke: #5a3e26; }
+svg.k-bic .stroke-gold { stroke: #c8963c; }
+svg.k-bic .stroke-water { stroke: #3a86c8; }
+svg.k-bic .stroke-meat { stroke: #a8442e; }
+svg.k-bic .stroke-shine { stroke: #f0c8a0; stroke-width: 1.1; }
+svg.k-bic .stroke-copper { stroke: #c8743a; }
+svg.k-bic .stroke-warn { stroke: #c63d24; }
+
+/* ------------------------------------------------------------------------ buttons: bronze plaques */
+.k-btn {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 11px 3px 6px; box-sizing: border-box;
+  font: 500 14px/1.15 var(--serif); color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6); cursor: pointer; text-align: left;
+  border: 1px solid #6a4a1c; border-radius: 3px; background: var(--k-bronze);
+  box-shadow: inset 0 1px 0 rgba(255, 246, 210, 0.75), inset 0 -1px 0 rgba(80, 50, 10, 0.35), 0 1px 2px rgba(20, 12, 4, 0.4);
+}
+.k-btn.bare { padding-left: 11px; }
+.k-btn:hover { background: var(--k-bronze-hi); }
+.k-btn:active { transform: translateY(1px); box-shadow: inset 0 1px 2px rgba(80, 50, 10, 0.4), 0 0 1px rgba(20, 12, 4, 0.4); }
+.k-bi { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255, 250, 235, 0.9), rgba(255, 240, 205, 0.55)); box-shadow: inset 0 1px 1px rgba(80, 50, 10, 0.35); }
+.k-bi svg { width: 17px; height: 17px; }
+.k-bi svg.fig { width: 17px; height: 20px; }
+.k-bt { min-width: 0; }
+.k-bt small { font-size: 12.5px; opacity: 0.82; font-variant-numeric: lining-nums; }
+.k-btn.small { min-height: 26px; padding: 2px 9px 2px 4px; font-size: 13px; }
+.k-btn.small .k-bi { width: 19px; height: 19px; }
+.k-btn.small .k-bi svg { width: 15px; height: 15px; }
+.k-btn.lapis { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: var(--k-lapis); box-shadow: inset 0 1px 0 rgba(200, 220, 255, 0.45), 0 1px 2px rgba(20, 12, 4, 0.45); }
+.k-btn.lapis:hover { background: linear-gradient(180deg, #5680c4, #34569a 50%, #22397a); }
+.k-btn.red { color: #fff1e0; text-shadow: 0 1px 1px rgba(60, 10, 0, 0.5); border-color: #5e1a10; background: var(--k-red); box-shadow: inset 0 1px 0 rgba(255, 220, 190, 0.5), 0 1px 2px rgba(20, 12, 4, 0.45); }
+.k-btn.red:hover { background: linear-gradient(180deg, #e89a74, #bc5634 55%, #96382c); }
+.k-btn.stone { border-color: rgba(110, 86, 52, 0.55); background: linear-gradient(rgba(255, 252, 240, 0.55), rgba(240, 232, 214, 0.55)), var(--skin-marble) 0 0 / 256px 256px; text-shadow: var(--cut); color: var(--ink); }
+.k-btn.stone:hover { background: linear-gradient(rgba(255, 252, 240, 0.8), rgba(250, 244, 230, 0.8)), var(--skin-marble) 0 0 / 256px 256px; }
+.k-btn.on { box-shadow: inset 0 1px 3px rgba(40, 20, 0, 0.45), 0 0 0 2px rgba(44, 74, 134, 0.55); }
+.k-btn:disabled, .k-btn:disabled:hover {
+  cursor: not-allowed; color: rgba(60, 48, 36, 0.62); text-shadow: var(--cut); border-color: rgba(110, 86, 52, 0.4);
+  background: linear-gradient(rgba(220, 212, 198, 0.75), rgba(204, 196, 182, 0.75)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.k-btn:disabled .k-bi { filter: grayscale(0.85) opacity(0.6); }
+.k-why { margin: 3px 0 0; font: italic 13px/1.3 var(--serif); color: var(--ink-soft); }
+.k-why.bad { color: var(--down); }
+.k-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* ------------------------------------------------------------------------ steppers: two bronze bosses and a sunk well */
+.k-step { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.k-boss {
+  appearance: none; width: 28px; height: 28px; padding: 0 0 2px; border: 0; border-radius: 50%; cursor: pointer; flex: none;
+  font: 700 18px/1 var(--serif); color: #3a2610; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6);
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 24%, #a8783a 64%, #6e4a1c 100%);
+  box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 2px 2px rgba(20, 12, 4, 0.45);
+  touch-action: manipulation;
+}
+.k-boss:hover { background: radial-gradient(circle at 34% 28%, #fff0c4 0, #e6bc70 24%, #b28244 64%, #7a5424 100%); }
+.k-boss:active { transform: translateY(1px); box-shadow: inset 0 1px 2px rgba(60, 36, 8, 0.5), 0 1px 1px rgba(20, 12, 4, 0.45); }
+.k-boss:disabled { cursor: default; filter: grayscale(0.8); opacity: 0.45; }
+.k-well {
+  min-width: 54px; height: 24px; padding: 0 5px; box-sizing: border-box; display: grid; place-items: center; border-radius: 3px;
+  font: 500 14px/1 var(--serif); font-variant-numeric: lining-nums tabular-nums; color: var(--ink);
+  background: linear-gradient(rgba(255, 252, 240, 0.5), rgba(255, 252, 240, 0.5)), var(--skin-marble) 30px 60px / 256px 256px; box-shadow: var(--k-sunk);
+}
+.k-step.small .k-boss { width: 26px; height: 26px; font-size: 17px; }
+.k-step.small .k-well { min-width: 40px; height: 22px; font-size: 13px; }
+
+/* ------------------------------------------------------------------------ switches */
+.k-tog { appearance: none; display: inline-flex; align-items: center; gap: 7px; padding: 2px 2px; min-height: 26px; border: 0; background: none; cursor: pointer; font: 14px/1.2 var(--serif); color: var(--ink); text-shadow: var(--cut); text-align: left; }
+.k-track { position: relative; width: 36px; height: 20px; flex: none; border-radius: 10px; background: linear-gradient(rgba(70, 52, 30, 0.22), rgba(70, 52, 30, 0.12)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: var(--k-sunk); transition: background 0.15s; }
+.k-track i {
+  position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; transition: transform 0.15s;
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 26%, #a8783a 66%, #6e4a1c 100%); box-shadow: 0 1px 2px rgba(20, 12, 4, 0.5);
+}
+.k-tog.on .k-track { background: var(--k-lapis); box-shadow: inset 1px 2px 3px rgba(0, 0, 20, 0.5), 0 1px 0 rgba(255, 252, 240, 0.7); }
+.k-tog.on .k-track i { transform: translateX(16px); }
+.k-tog:hover .k-track i { filter: brightness(1.08); }
+.k-tog:disabled { cursor: default; opacity: 0.55; }
+
+/* ------------------------------------------------------------------------ sliders */
+.k-slide { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.k-slide .k-sl { flex: none; }
+.k-slide output { min-width: 40px; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.k-slide input[type='range'] { appearance: none; -webkit-appearance: none; flex: 1; min-width: 60px; height: 26px; background: none; margin: 0; cursor: pointer; }
+.k-slide input[type='range']::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #c8963c var(--k), rgba(70, 52, 30, 0.18) var(--k)); box-shadow: var(--k-sunk); }
+.k-slide input[type='range']::-moz-range-track { height: 8px; border-radius: 4px; background: rgba(70, 52, 30, 0.18); box-shadow: var(--k-sunk); }
+.k-slide input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -6px; border-radius: 50%; border: 0; background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 26%, #a8783a 66%, #6e4a1c 100%); box-shadow: 0 1px 2px rgba(20, 12, 4, 0.5); }
+.k-slide input[type='range']::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; border: 0; background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 26%, #a8783a 66%, #6e4a1c 100%); }
+
+/* ------------------------------------------------------------------------ bars */
+.k-bar { position: relative; display: block; height: 10px; border-radius: 5px; background: rgba(70, 52, 30, 0.16); box-shadow: var(--k-sunk); min-width: 30px; }
+.k-bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(180deg, #e8c070, #b88438); box-shadow: inset 0 1px 0 rgba(255, 246, 210, 0.6); max-width: 100%; }
+.k-bar.strength > i { background: linear-gradient(180deg, #7c9ad2, var(--lapis)); box-shadow: inset 0 1px 0 rgba(220, 230, 255, 0.5); }
+.k-bar.good > i { background: linear-gradient(180deg, #9cb05a, #5f7a2a); box-shadow: inset 0 1px 0 rgba(230, 240, 200, 0.5); }
+.k-bar.danger > i { background: linear-gradient(180deg, #f0a04a, #c63d24); box-shadow: inset 0 1px 0 rgba(255, 220, 180, 0.5); }
+.k-bar.wear > i { background: linear-gradient(180deg, #c8b090, #7a6446); }
+.k-bar.stone > i { background: linear-gradient(180deg, #b8b0a6, #7c746a); }
+.k-bar.sea > i { background: linear-gradient(180deg, #7ab4cc, #2f6f8e); }
+.k-bar > em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #2b2016; border-radius: 1px; box-shadow: 0 0 0 1px rgba(255, 252, 240, 0.7); }
+.k-bar > b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; font: 500 11.5px/1 var(--serif); color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 0 1px 1px #000; font-variant-numeric: lining-nums tabular-nums; }
+.k-bar.tall { height: 16px; border-radius: 4px; }
+.k-bar.tall > i { border-radius: 4px; }
+.k-bar.tall > b { font-size: 12.5px; }
+
+/* ------------------------------------------------------------------------ pips */
+.k-pips { display: inline-flex; flex-wrap: wrap; gap: 2.5px; align-items: center; }
+.k-pips i { width: 10px; height: 10px; border-radius: 50%; flex: none; box-sizing: border-box; }
+.k-pips i.p-empty, .k-pips i.p-off { background: rgba(70, 52, 30, 0.14); box-shadow: inset 1px 1px 2px rgba(40, 28, 16, 0.45), 0 1px 0 rgba(255, 252, 240, 0.7); }
+.k-pips i.p-ready, .k-pips i.p-on { background: radial-gradient(circle at 35% 30%, #fff0b8, #d9a441 50%, #8a5e1c); box-shadow: 0 0.5px 1px rgba(40, 28, 16, 0.6); }
+.k-pips i.p-arming { background: radial-gradient(circle, rgba(70, 52, 30, 0.1) 2px, transparent 2.5px); border: 2px solid #b88438; }
+.k-pips i.p-wounded { background: radial-gradient(circle at 35% 30%, #f6b0a0, #c63d24 55%, #7a1a10); box-shadow: 0 0.5px 1px rgba(40, 28, 16, 0.6); }
+.k-pips i.p-coming { border: 1.6px dashed #8a6430; background: rgba(255, 252, 240, 0.4); }
+.k-pips i.p-away { background: radial-gradient(circle at 35% 30%, #b8ccf0, #3d63a8 55%, #1e3566); box-shadow: 0 0.5px 1px rgba(40, 28, 16, 0.6); }
+.k-pips.big i { width: 12px; height: 12px; }
+.k-key { display: flex; flex-wrap: wrap; gap: 3px 10px; margin: 4px 0 0; font-size: 13px; color: var(--ink-soft); }
+.k-key span { display: inline-flex; align-items: center; gap: 4px; }
+.k-key .k-pips i { width: 9px; height: 9px; }
+
+/* ------------------------------------------------------------------------ chips */
+.k-chip {
+  display: inline-flex; align-items: center; gap: 3px; height: 21px; padding: 0 6px; box-sizing: border-box; border-radius: 3px; white-space: nowrap;
+  font: 500 13.5px/1 var(--serif); font-variant-numeric: lining-nums tabular-nums; color: var(--ink); text-shadow: var(--cut);
+  background: linear-gradient(rgba(255, 252, 240, 0.6), rgba(244, 236, 220, 0.6)), var(--skin-marble) 0 0 / 256px 256px;
+  border: 1px solid rgba(110, 76, 30, 0.5); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.k-chip svg { width: 15px; height: 15px; }
+.k-chip.gold { background: linear-gradient(180deg, #f6e0a0, #d8a84c); border-color: #8a6020; color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6); }
+.k-chip.up { color: var(--up); }
+.k-chip.down { color: var(--down); }
+.k-chip.warn { color: var(--down); background: rgba(240, 200, 180, 0.55); border-color: rgba(140, 47, 38, 0.6); }
+.k-chip.sea { background: linear-gradient(180deg, #e2f0f4, #c4dde6); border-color: #2f6f8e; color: #1e4a60; }
+.k-chip.stone { color: var(--ink-soft); }
+
+/* ------------------------------------------------------------------------ cards */
+.k-card {
+  position: relative; padding: 7px 9px 8px; margin: 7px 0; box-sizing: border-box;
+  background: var(--k-parch); background-clip: padding-box;
+  border: 5px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch;
+  box-shadow: 0 2px 4px rgba(20, 12, 4, 0.22);
+}
+.k-card.on { box-shadow: 0 0 0 2px var(--lapis), 0 2px 6px rgba(20, 12, 4, 0.3); }
+/* A figure in its niche. */
+.k-niche { width: 48px; height: 56px; flex: none; display: grid; place-items: end center; border-radius: 24px 24px 3px 3px; background: linear-gradient(rgba(70, 52, 30, 0.14), rgba(70, 52, 30, 0.04)), var(--skin-marble) 20px 40px / 256px 256px; box-shadow: var(--k-sunk); overflow: hidden; }
+.k-niche svg.fig { width: 40px; height: 48px; margin-bottom: 2px; }
+.k-niche svg.fig.wide { width: 46px; height: 46px; }
+.k-niche svg.fig.ship { width: 46px; height: 34px; margin-bottom: 8px; }
+
+/* ------------------------------------------------------------------------ the one tip */
+.k-tip {
+  position: fixed; left: 0; top: 0; z-index: 1000; max-width: 320px; padding: 5px 10px 6px; pointer-events: none;
+  font: 13.5px/1.35 var(--serif); color: var(--ink); text-shadow: var(--cut);
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 5px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch;
+  box-shadow: 0 5px 14px rgba(20, 12, 4, 0.4);
+}
+.k-tip[hidden] { display: none; }
+
+/* ------------------------------------------------------------------------ the panels on the left, on the kit: parchment in a bronze frame */
+.household.kit { background: var(--k-parch); background-clip: padding-box; }
+.household.kit .close {
+  width: 28px; height: 28px; border: 0; border-radius: 50%; padding: 0 0 2px; font: 700 18px/1 var(--serif); color: #3a2610; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6);
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 24%, #a8783a 64%, #6e4a1c 100%);
+  box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 2px 2px rgba(20, 12, 4, 0.45);
+}
+.household.kit .close:hover { background: radial-gradient(circle at 34% 28%, #fff0c4 0, #e6bc70 24%, #b28244 64%, #7a5424 100%); }
+.household.kit .body { scrollbar-color: #9a7440 transparent; }
+.household.kit .body > section > h3, .household.kit .body h3:not(.k-h) {
+  font: 500 13.5px/1.2 var(--display); letter-spacing: 0.06em; font-variant: normal; color: var(--ink-soft); border: 0; padding: 0 0 5px; margin: 12px 0 6px;
+  background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.85) 50%) left bottom / 100% 2px no-repeat;
+}
+.household.kit .kicker { font: 500 12.5px/1.25 var(--display); letter-spacing: 0.05em; color: var(--ink-soft); }
+.household.kit header h2 { font: 700 21px/1.12 var(--display); letter-spacing: 0.035em; font-variant: normal; }
+.household.kit .pill { min-height: 26px; padding: 2px 10px; font-size: 13.5px; }
+
+/* ------------------------------------------------------------------------ the Army tab (the side panel's Military tab, 242 px inside) */
+.k-army .k-sum { margin: 0 0 8px; }
+.k-army .k-big { display: flex; align-items: baseline; gap: 7px; }
+.k-army .k-big b { font: 500 28px/1 var(--serif); font-variant-numeric: lining-nums; }
+.k-army .k-big span { font-size: 13.5px; color: var(--ink-soft); line-height: 1.25; }
+.k-figs { display: flex; gap: 4px; margin: 6px 0 7px; }
+.k-kind { flex: 1; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 3px; padding: 2px 4px 2px 2px; border-radius: 3px; background: rgba(255, 252, 240, 0.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 0 1px rgba(110, 86, 52, 0.2); }
+.k-kind svg.fig { grid-row: span 2; width: 22px; height: 27px; }
+.k-kind svg.fig.wide { width: 26px; }
+.k-kind b { font: 500 16px/1 var(--serif); font-variant-numeric: lining-nums tabular-nums; }
+.k-kind small { font-size: 11.5px; color: var(--ink-soft); line-height: 1.1; }
+.k-figs > svg.fig { width: 34px; height: 41px; }
+.k-ready { margin: 4px 0 0; font-size: 14px; }
+.k-ready.warn { color: var(--down); }
+.k-sums { margin-top: 6px; gap: 4px; }
+.k-army .k-news { margin-top: 0; }
+.side-body .k-army section.barracks { margin-top: 10px; padding-bottom: 4px; }
+.side-body .k-army section.barracks.focus { background: rgba(255, 236, 190, 0.45); box-shadow: 0 0 0 6px rgba(255, 236, 190, 0.45); border-radius: 2px; padding: 0 0 6px; margin-left: 0; margin-right: 0; }
+.k-army h3.k-bh { margin-top: 4px; }
+.k-army h3.k-bh .k-ht { font: 500 13.5px/1.25 var(--display); }
+.k-army h3.k-bh .link { font: 700 14px/1.2 var(--display); letter-spacing: 0.04em; color: var(--ink); }
+.k-army h3.k-bh small { display: block; font: 12.5px/1.25 var(--serif); letter-spacing: 0; color: var(--ink-soft); text-transform: none; }
+.k-army h3.k-bh .k-pips { max-width: 72px; justify-content: flex-end; gap: 2px; }
+.k-army h3.k-bh .k-pips i { width: 8px; height: 8px; }
+.k-army ul.companies { list-style: none; margin: 0; padding: 0; }
+.k-co { padding: 6px 7px 7px; }
+.k-cotop { display: flex; gap: 7px; align-items: flex-start; }
+.k-coname { flex: 1; min-width: 0; }
+.k-coname .pick { appearance: none; display: flex; align-items: center; gap: 4px; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: 700 14px/1.15 var(--display); letter-spacing: 0.02em; color: var(--ink); text-shadow: var(--cut); }
+.k-coname .pick .k-bi { width: 20px; height: 20px; }
+.k-coname .pick .k-bi svg { width: 15px; height: 15px; }
+.k-coname .pick:hover:not(:disabled) b { color: var(--lapis); }
+.k-coname .pick:disabled { cursor: default; }
+.k-coname .pick:disabled .k-bi { display: none; }
+.trireme .k-coname .pick { cursor: default; }
+.k-coname p, .k-cofoot { margin: 3px 0 0; font-size: 13px; line-height: 1.3; color: var(--ink-soft); }
+.k-coname .link { font-size: 13px; }
+.k-co .n { flex: none; font: 500 17px/1 var(--serif); font-variant-numeric: lining-nums tabular-nums; }
+.k-co .n small { font-size: 12.5px; color: var(--ink-soft); }
+.k-co > .k-pips { margin: 7px 0 1px; }
+.k-co .why { margin: 4px 0 0; font-size: 13px; color: var(--down); }
+.k-co .warn { color: var(--down); }
+.k-co.hired.cretan { box-shadow: inset 4px 0 0 #4f7a3a, 0 2px 4px rgba(20, 12, 4, 0.22); }
+.k-co.hired.arcadian { box-shadow: inset 4px 0 0 #38558a, 0 2px 4px rgba(20, 12, 4, 0.22); }
+.k-co.on { box-shadow: 0 0 0 2px var(--lapis), 0 0 10px rgba(44, 74, 134, 0.45); }
+.k-acts { margin-top: 7px; gap: 5px; }
+.k-lanes::before { content: 'Send to guard the lane to:'; width: 100%; font-size: 13px; color: var(--ink-soft); }
+.k-meters { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); }
+.k-meters .k-bar { height: 13px; }
+.k-meters .k-bar > b { font-size: 11px; }
+.k-recruit { margin-top: 10px; }
+.k-recruit h4.k-h { font-size: 13px !important; margin-bottom: 5px; }
+.k-raise { margin: 0 0 7px; }
+.k-btn.k-wide { width: 100%; }
+.k-recruit .k-btn .k-bi { width: 26px; height: 26px; border-radius: 4px; }
+.k-recruit .k-btn .k-bi svg.fig { width: 20px; height: 24px; }
+.k-recruit .k-btn .k-bi svg.fig.wide { width: 24px; height: 24px; }
+.k-recruit .k-btn .k-bi svg.fig.ship { width: 24px; height: 18px; }
+.k-recruit .k-why { margin-top: 2px; padding-left: 3px; }
+.k-coname .pick { font: 700 14.5px/1.2 var(--serif); letter-spacing: 0; }
+.k-ready { font-weight: 500; }
+.k-corow { display: flex; align-items: center; gap: 6px; margin: 7px 0 1px; }
+.k-corow .k-pips { flex: 1; }
+.k-army .link, .k-army h3 .link { appearance: none; border: 0; background: none; padding: 0; margin: 0; box-shadow: none; cursor: pointer; font: inherit; color: var(--lapis-deep); text-decoration: underline dotted rgba(44, 74, 134, 0.6); text-underline-offset: 3px; text-shadow: var(--cut); }
+.k-army .link:hover { color: var(--lapis); text-decoration-style: solid; }
+.k-btn:disabled .k-bi { filter: grayscale(0.75) opacity(0.75); }
+
+/* ------------------------------------------------------------------------ the trading post (the trade panel) */
+.household.trade.kit:not(.shipyard) { width: 412px; }
+.k-quaybox { margin: 2px 0 6px; border-radius: 3px; overflow: hidden; background: var(--k-parch); box-shadow: var(--k-sunk); }
+svg.k-quay { display: block; width: 100%; height: 96px; }
+.k-quaybox .shipnews.k-ship { margin: 0; padding: 6px 9px 8px; border: 0; border-radius: 0; background: none; }
+.k-quaybox .shipnews.k-ship.here { background: rgba(200, 226, 236, 0.45); }
+.k-ship b { font: 700 14px/1.2 var(--display); letter-spacing: 0.04em; font-variant: normal; }
+.k-ship p { margin: 2px 0 6px; font-size: 13.5px; }
+.k-ship .k-bar { height: 8px; }
+.k-goods { display: flex; flex-direction: column; gap: 3px; }
+.k-ghead, .k-good { display: grid; grid-template-columns: 40px 24px minmax(0, 1fr) 50px 46px 114px; column-gap: 5px; align-items: center; }
+.k-ghead { font: 500 11.5px/1.2 var(--display); letter-spacing: 0.04em; color: var(--ink-soft); padding: 0 4px 2px; }
+.k-ghead span:nth-child(4), .k-ghead span:nth-child(5), .k-ghead span:nth-child(6) { text-align: center; }
+.k-ghead span { white-space: nowrap; }
+.k-good { grid-template-rows: auto auto; padding: 4px 4px 5px; border-radius: 3px; background: rgba(255, 252, 240, 0.32); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 0 1px rgba(110, 86, 52, 0.16); }
+.k-good:hover { background: rgba(255, 252, 240, 0.6); }
+.k-good.off { background: rgba(220, 210, 192, 0.22); }
+.k-good .g-tog { grid-row: 1 / span 2; }
+.k-good .g-ic { grid-row: 1 / span 2; width: 24px; height: 24px; }
+.k-good .g-ic svg { width: 24px; height: 24px; display: block; }
+.k-good.off .g-ic svg { filter: saturate(0.45); opacity: 0.8; }
+.k-good .g-nm { grid-column: 3; grid-row: 1; font: 500 14.5px/1.2 var(--serif); }
+.k-good.off .g-nm { color: var(--ink-soft); }
+.k-good .price { grid-column: 4; grid-row: 1; justify-self: center; }
+.k-good .price small { font-size: 11px; opacity: 0.75; margin-left: 1px; }
+.k-good .g-bar { grid-column: 3 / span 2; grid-row: 2; display: flex; align-items: center; gap: 6px; }
+.k-good .g-bar .k-bar { flex: 1; height: 8px; }
+.k-good .g-bar small { flex: none; font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: lining-nums tabular-nums; }
+.k-good .quay { grid-column: 5; grid-row: 1 / span 2; justify-self: center; }
+.k-good .quay.none { color: var(--ink-soft); }
+.k-good .g-keep { grid-column: 6; grid-row: 1 / span 2; justify-self: end; }
+.k-good .k-tog { padding: 0; }
+.trade.kit .quayline, .trade.kit .dockers { margin: 7px 0 0; font-size: 13.5px; }
+.trade.kit .foot { font-size: 12.5px; }
+.k-bought { list-style: none; margin: 4px 0 0; padding: 0; }
+.k-bought li { display: grid; grid-template-columns: 20px 1fr auto; gap: 6px; align-items: center; font-size: 13.5px; }
+.k-bought li svg { width: 18px; height: 18px; }
+/* The tabs along its top, as bronze-edged plaques. */
+.trade.kit .tradetabs button { font: 500 13px/1.2 var(--display); letter-spacing: 0.04em; min-height: 26px; border-radius: 3px; border: 1px solid rgba(110, 76, 30, 0.55); background: linear-gradient(rgba(255, 252, 240, 0.55), rgba(240, 232, 214, 0.55)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6); color: var(--ink); text-shadow: var(--cut); }
+.trade.kit .tradetabs button.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: var(--k-lapis); }
+/* A route's tables (routes.ts): the goods' icons, the steppers as bosses. */
+.kit table.goods td.good svg.ic { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
+.kit table.goods td.keep button { width: 24px; height: 24px; border: 0; border-radius: 50%; padding: 0 0 2px; font: 700 15px/1 var(--serif); color: #3a2610; cursor: pointer; background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 24%, #a8783a 64%, #6e4a1c 100%); box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 1px 2px rgba(20, 12, 4, 0.45); }
+.kit table.goods td.keep button:disabled { filter: grayscale(0.8); opacity: 0.45; cursor: default; }
+.kit table.goods td.keep span { display: inline-block; min-width: 46px; padding: 2px 4px; border-radius: 3px; text-align: center; box-shadow: var(--k-sunk); background: rgba(255, 252, 240, 0.45); }
+.kit table.goods td, .kit table.goods th { font-size: 13.5px; }
+.k-cofoot .n { font: 500 14px/1 var(--serif); color: var(--ink); }
+.k-army .k-key { margin: 0 0 4px; }
+
+/* ------------------------------------------------------------------------ a building's panel (slice 48's registry) on the kit */
+.household.building.kit { width: 392px; }
+.household.building.kit .bhead .k-pic { width: 54px; height: 54px; }
+.household.building.kit .count { gap: 7px; font-size: 14px; }
+.household.building.kit .count .k-pips { max-width: 200px; }
+.household.building.kit .why, .household.building.kit .note { font-size: 13px; }
+.household.building.kit .note { border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.household.building.kit ul.hold { font-size: 13.5px; grid-template-columns: 18px 66px 1fr auto; }
+.household.building.kit ul.hold.cond { grid-template-columns: 88px 1fr auto; }
+.household.building.kit .lines, .household.building.kit ul.out { font-size: 13.5px; }
+.household.building.kit ul.out .k-btn { flex: none; }
+.household.building.kit .bmsgs button { font-size: 13px; min-height: 24px; border-radius: 3px; }
+.household.building.kit .bmsgs .mic svg { width: 16px; height: 16px; }
+/* Orders: two switches, under the staff. */
+.k-orders { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 12px; margin: 7px 0 0; padding: 4px 8px; border-radius: 3px; background: rgba(255, 252, 240, 0.45); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.k-orders h4 { margin: 0; font: 500 12.5px/1 var(--display); letter-spacing: 0.06em; color: var(--ink-soft); }
+.k-orders .k-tog { font-size: 13.5px; }
+.k-orders .k-oi svg { width: 15px; height: 15px; display: block; }
+.k-orders .k-tl { display: inline-flex; align-items: center; gap: 4px; }
+.household.building.kit .k-orders .tog { flex: none; padding: 2px; background: none; border: 0; box-shadow: none; border-radius: 0; color: var(--ink); justify-content: flex-start; }
+.household.building.kit .k-orders .tog.on { background: none; color: var(--ink); }
+/* A store's rows: one line each (its ware, a bar of what it holds, four mode buttons, a limit stepper), the note under it. */
+.household.building.kit:has(.k-stores) { width: 438px; }
+.k-stores .storeacts { display: flex; gap: 6px; margin: 0 0 4px; }
+.k-modekey { display: flex; gap: 10px; justify-content: flex-end; margin: 0 0 3px; padding-right: 96px; font-size: 12px; color: var(--ink-soft); }
+.k-modekey span { display: inline-flex; align-items: center; gap: 2px; }
+.k-modekey svg { width: 14px; height: 14px; }
+.household.building.kit .ware { padding: 2px 5px; margin: 0 0 3px; border-radius: 3px; background: rgba(255, 252, 240, 0.42); border: 0; box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.household.building.kit .ware.m1 { background: rgba(120, 110, 130, 0.13); }
+.household.building.kit .ware.m2 { box-shadow: 0 0 0 1.5px rgba(95, 122, 42, 0.75); }
+.household.building.kit .ware.m3 { box-shadow: 0 0 0 1.5px rgba(198, 92, 52, 0.75); }
+.household.building.kit .wtop { display: grid; grid-template-columns: 18px 58px minmax(44px, 1fr) auto auto; gap: 6px; align-items: center; font-size: 13.5px; }
+.household.building.kit .wtop > svg { width: 18px; height: 18px; }
+.household.building.kit .wtop b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.household.building.kit .wtop .k-bar > b small { font-size: 11px; opacity: 0.9; margin-left: 1px; }
+.household.building.kit .modes { display: inline-flex; gap: 0; border: 0; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.55), 1px 2px 2px rgba(20, 12, 4, 0.25); }
+.household.building.kit .mode { width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-left: 1px solid rgba(80, 56, 24, 0.35); background: linear-gradient(#fbf3de, #e9d6aa); cursor: pointer; }
+.household.building.kit .mode:first-child { border-left: 0; }
+.household.building.kit .mode svg { width: 16px; height: 16px; opacity: 0.72; }
+.household.building.kit .mode:hover { background: linear-gradient(#fff8e6, #f1dfb6); }
+.household.building.kit .mode:hover svg { opacity: 1; }
+.household.building.kit .mode.on svg { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 1px 0 rgba(0, 0, 0, 0.5)); }
+.household.building.kit .mode.m0.on { background: linear-gradient(#b08a50, #7a5a2c); }
+.household.building.kit .mode.m1.on { background: linear-gradient(#7a7488, #4e485c); }
+.household.building.kit .mode.m2.on { background: linear-gradient(#8a9a4c, #55682a); }
+.household.building.kit .mode.m3.on { background: linear-gradient(#d8784c, #a44a28); }
+.household.building.kit .wnote { margin: 1px 0 1px 24px; font-size: 13px; line-height: 1.25; }
+.household.building.kit .ware .k-step.small .k-well { min-width: 34px; }
+/* The court's laws and the prison, on the kit: 13 px, comfortable buttons. */
+.household.building.kit:has(.justice) { width: 404px; }
+.household.building.kit .justice ul.laws li, .household.building.kit .justice ul.cases li { border-radius: 3px; border: 0; background: rgba(255, 252, 240, 0.45); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.building.kit .justice ul.laws .row b { font: 500 14px/1.2 var(--display); font-variant: normal; letter-spacing: 0.03em; }
+.household.building.kit .justice ul.laws .deters, .household.building.kit .justice ul.laws .instead, .household.building.kit .justice p.small, .household.building.kit .justice .small { font-size: 13px; }
+.household.building.kit .justice .acts.law { gap: 4px; }
+.household.building.kit .justice .acts.law button {
+  min-height: 26px; padding: 2px 9px; font: 500 13px/1.2 var(--serif); border-radius: 3px; border: 0; color: #2b1d0e;
+  background: linear-gradient(#fbf3de, #e9d6aa); box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.5), 1px 2px 2px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.household.building.kit .justice .acts.law button:hover { background: linear-gradient(#fff8e6, #f1dfb6); }
+.household.building.kit .justice .acts.law button.on { color: #fff6e4; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); background: var(--k-bronze); }
+.household.building.kit .justice .acts.law button.harsh:not(.on) { color: #9a3f22; box-shadow: 0 0 0 1px rgba(154, 63, 34, 0.6), 1px 2px 2px rgba(20, 12, 4, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+.household.building.kit .justice .acts.law button.harsh.on { background: var(--k-red); }
+.household.building.kit .justice ul.punish, .household.building.kit .justice ul.cases, .household.building.kit .justice ul.lately, .household.building.kit .justice table.rate, .household.building.kit .justice .meter { font-size: 13px; }
+.household.building.kit .justice h4 { font: 500 12.5px/1.2 var(--display); letter-spacing: 0.06em; font-variant: normal; }
+.household.building.kit .justice .meter .bar { height: 10px; border-radius: 5px; box-shadow: var(--k-sunk); background: rgba(70, 52, 30, 0.16); }
+.household.building.kit .justice .meter .bar i { border-radius: 5px; background: linear-gradient(180deg, #e8c070, #b88438); }
+.household.building.kit .justice .meter.low .bar i { background: linear-gradient(180deg, #f0a04a, #c63d24); }
+
+/* ------------------------------------------------------------------------ the Messages panel (slice 44) on the kit */
+.household.messages.kit .mhead h2 { font: 700 21px/1.12 var(--display); letter-spacing: 0.035em; }
+.household.messages.kit .allread { position: absolute; right: 46px; top: 12px; }
+.household.messages.kit .mchips { gap: 4px; padding: 4px 14px 9px; border-bottom: 0; background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.85) 50%) left bottom / 100% 2px no-repeat; }
+.household.messages.kit .mchip {
+  min-height: 26px; padding: 3px 9px; font: 500 13px/1 var(--serif); border-radius: 3px; border: 0;
+  background: linear-gradient(#fbf3de, #e9d6aa); box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.5), 1px 2px 2px rgba(20, 12, 4, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.household.messages.kit .mchip:hover { background: linear-gradient(#fff8e6, #f1dfb6); }
+.household.messages.kit .mchip.on { color: #f6e2a8; background: var(--k-lapis); box-shadow: 0 0 0 1px #14254a, 1px 2px 2px rgba(20, 12, 4, 0.3), inset 0 1px 0 rgba(200, 220, 255, 0.4); }
+.household.messages.kit .mchip b { border-radius: 3px; background: linear-gradient(#a8844c, #7a5a2c); box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.4); }
+.household.messages.kit .msg { border-radius: 3px; }
+.household.messages.kit .msg .ic, .household.messages.kit .msg .ic svg { width: 18px; height: 18px; }
+.household.messages.kit .msg .day { font-size: 12.5px; }
+.household.messages.kit .msg.open { background: rgba(255, 252, 240, 0.6); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.messages.kit .msg .times { border-radius: 3px; background: linear-gradient(#a8844c, #7a5a2c); }
+.household.messages.kit .msg.u2 .times { background: linear-gradient(#d0604a, #9a2e22); }
+.household.messages.kit .msg .pin { width: 26px; height: 26px; }
+.household.messages.kit .link { font-size: 13px; }
+.household.messages.kit .waiting button { border-radius: 3px; border: 0; box-shadow: 0 0 0 1.5px rgba(208, 138, 30, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.messages.kit .waiting button.raid { box-shadow: 0 0 0 1.5px rgba(184, 50, 42, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.messages.kit .waiting svg { width: 18px; height: 18px; }
+.household.messages.kit .pops label { min-height: 24px; font-size: 13px; }
+.household.messages.kit .pops svg { width: 17px; height: 17px; }
+.household.messages.kit .pops input { width: 15px; height: 15px; accent-color: #2c4a86; }
+.household.messages.kit .foot { font-size: 12.5px; }
+.household.messages.kit .mkey { border-radius: 3px; background: linear-gradient(#fbf3de, #e9d6aa); }
+.msg-pop .ic svg { filter: drop-shadow(0 1px 0 rgba(255, 252, 240, 0.7)); }
+
+/* ------------------------------------------------------------------------ the shipyard (slice 38) on the kit */
+.household.shipyard.kit li.ship { padding: 6px 8px 8px; border: 0; border-radius: 3px; background: var(--k-parch); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.45), 0 2px 4px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.shipyard.kit li.ship.mending { box-shadow: 0 0 0 1.5px #b0783a, 0 2px 4px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.household.shipyard.kit .k-shipname { flex: 1; min-width: 0; }
+.household.shipyard.kit .k-shipname .k-pips { margin-top: 6px; }
+.household.shipyard.kit li.ship .name b { font: 700 15px/1.2 var(--display); font-variant: normal; letter-spacing: 0.03em; }
+.household.shipyard.kit li.ship .n { font-size: 13.5px; }
+.household.shipyard.kit li.ship > p { margin-top: 5px; font-size: 13.5px; }
+.household.shipyard.kit li.ship p.small, .household.shipyard.kit p.small, .household.shipyard.kit li.ship p.mend, .household.shipyard.kit li.ship p.why { font-size: 13px; }
+.household.shipyard.kit .meter { grid-template-columns: 42px 1fr 40px; font-size: 13px; margin-top: 5px; }
+.household.shipyard.kit .meter .lab { font: 500 12px/1 var(--display); font-variant: normal; letter-spacing: 0.05em; }
+.household.shipyard.kit .k-acts { display: flex; flex-wrap: wrap; align-items: center; }
+.household.shipyard.kit .k-acts .note { font-size: 13px; color: var(--ink-soft); font-style: italic; }
+.household.shipyard.kit .k-acts.build { margin-top: 8px; }
+.household.shipyard.kit .k-acts.build .k-why { width: 100%; margin: 0 0 2px; }
+.household.shipyard.kit ul.lanes, .household.shipyard.kit ul.fights, .household.shipyard.kit .foot { font-size: 13px; }
+.k-btn .k-bi svg.fig.ship { width: 24px; height: 18px; }
+.household.shipyard.kit .k-acts.build .k-bi { width: 28px; }
+
+/* ------------------------------------------------------------------------ the Monuments tab (slice 35) on the kit */
+.k-mons .places.monuments li.k-mon { display: block; margin: 0 0 6px; padding: 6px 8px 7px; }
+.k-montop { display: flex; align-items: center; gap: 6px; }
+.k-montop button, .k-montop .nm { flex: 1; min-width: 0; font: 700 14px/1.2 var(--display); letter-spacing: 0.02em; text-align: left; }
+.k-montop .n { font-size: 13.5px; }
+.k-monpic { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffaf0, #f0dcb2); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.5), inset 0 -1px 0 rgba(120, 80, 40, 0.2); }
+.k-monpic svg { width: 19px; height: 19px; }
+.k-mons .k-mon > .k-bar.tall { margin: 6px 0 3px; }
+.k-mons .places.monuments li .segs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin: 0 0 3px; }
+.k-mons .k-bar.seg { height: 6px; min-width: 0; }
+.k-mons .places.monuments li .why { display: block; font-size: 12.5px; line-height: 1.3; color: var(--ink-soft); }
+.k-mons .places.monuments li.none { opacity: 0.85; }
+.k-mons .places.staff li.k-yard { grid-template-columns: 26px 1fr auto; align-items: center; gap: 2px 6px; }
+.k-mons .places.staff li.k-yard .k-pips { grid-column: 2 / -1; }
+.k-mons .places.k-stored li { grid-template-columns: 20px 1fr auto; align-items: center; gap: 0 6px; }
+.k-mons .places.k-stored li > svg { width: 18px; height: 18px; }
+
+/* ------------------------------------------------------------------------ the Ambitions (slice 39) on the kit: parchment in the bronze frame */
+.ambition-panel.kit {
+  background: var(--k-parch); background-clip: padding-box; border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch; border-radius: 0;
+  box-shadow: 0 10px 24px rgba(20, 12, 4, 0.4); text-shadow: var(--cut); font-size: 14px;
+}
+.ambition-panel.kit h2 { font: 700 23px/1.15 var(--display); letter-spacing: 0.05em; font-variant: normal; padding-bottom: 10px; background: var(--k-meander) center bottom / 9px 9px repeat-x; background-size: 9px 9px; }
+.ambition-panel.kit .sub { font-size: 13.5px; margin-top: 6px; }
+.ambition-panel.kit .close {
+  width: 28px; height: 28px; top: 8px; right: 8px; padding: 0 0 2px; font: 700 18px/1 var(--serif); color: #3a2610; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6);
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 24%, #a8783a 64%, #6e4a1c 100%);
+  box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 2px 2px rgba(20, 12, 4, 0.45);
+}
+.ambition-panel.kit .amb { margin: 0; padding: 8px 10px 6px; border-radius: 0; }
+.ambition-panel.kit .amb.achieved { box-shadow: 0 0 0 2px rgba(201, 166, 58, 0.8), 0 2px 6px rgba(20, 12, 4, 0.3); }
+.ambition-panel.kit .amb .emblem { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffaf0, #eadbb8 70%); box-shadow: 0 0 0 1.5px #8a6a3a, 0 0 0 3px rgba(255, 246, 220, 0.7), 0 0 0 4px rgba(110, 76, 30, 0.5); }
+.ambition-panel.kit .amb .emblem svg { width: 28px; height: 28px; }
+.ambition-panel.kit .amb h3 { font: 700 15.5px/1.2 var(--display); letter-spacing: 0.03em; font-variant: normal; }
+.ambition-panel.kit .amb header p, .ambition-panel.kit .ms .want, .ambition-panel.kit .ms .words, .ambition-panel.kit .ms .when, .ambition-panel.kit .status { font-size: 13px; }
+.ambition-panel.kit .ms .reward, .ambition-panel.kit .ms .note { font-size: 12.5px; }
+.ambition-panel.kit .status { border-bottom: 0; padding-bottom: 6px; background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.85) 50%) left bottom / 100% 2px no-repeat; }
+.ambition-panel.kit .ms .k-bar { height: 8px; margin: 4px 0 3px; }
+.ambition-panel.kit .ms.great { border-radius: 3px; }
+
+/* ------------------------------------------------------------------------ a segmented control: plaques joined in one sunk frame, the one chosen lapis */
+.k-seg { display: inline-flex; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #6a4a1c, 1px 2px 2px rgba(20, 12, 4, 0.3); }
+.k-seg > button { appearance: none; min-height: 30px; padding: 3px 14px; border: 0; border-left: 1px solid rgba(80, 56, 24, 0.45); border-radius: 0; cursor: pointer; font: 500 14.5px/1.15 var(--serif); color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6); background: linear-gradient(#fbf3de, #e2cc9c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+.k-seg > button:first-child { border-left: 0; }
+.k-seg > button:hover:not(:disabled) { background: linear-gradient(#fff8e6, #ecd8ac); }
+.k-seg > button.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); background: var(--k-lapis); box-shadow: inset 0 1px 3px rgba(0, 0, 20, 0.45); }
+.k-seg > button:disabled { cursor: default; opacity: 0.5; }
+
+/* ------------------------------------------------------------------------ the new-game screen (slice 46) on the kit */
+.newgame.kit .ng-card { background: var(--k-parch); background-clip: padding-box; }
+.newgame.kit h2 { padding-bottom: 10px; margin-bottom: 8px; background: var(--k-meander) left bottom / 9px 9px repeat-x; }
+.newgame.kit .ng-kind { flex-direction: row; align-items: center; gap: 10px; padding: 5px 10px 5px 6px; border: 0; background: rgba(255, 252, 240, 0.4); box-shadow: 0 0 0 1px rgba(110, 76, 30, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.newgame.kit .ng-kind:hover { background: rgba(255, 252, 240, 0.75); }
+.newgame.kit .ng-kind.on { background: rgba(255, 246, 220, 0.95); box-shadow: inset 4px 0 0 var(--lapis), 0 0 0 1.5px #8a6a3a, 0 2px 4px rgba(60, 36, 8, 0.25); }
+.newgame.kit .ng-kpic { flex: none; width: 52px; height: 36px; display: grid; place-items: center; border-radius: 3px; background: rgba(255, 252, 240, 0.6); box-shadow: var(--k-sunk); }
+.newgame.kit .ng-kpic svg { width: 46px; height: 31px; display: block; }
+.newgame.kit .ng-kt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.newgame.kit .ng-kt > span { font-size: 13px; line-height: 1.3; color: var(--ink-soft); }
+.newgame.kit .ng-seed input { height: 30px; box-sizing: border-box; box-shadow: var(--k-sunk); border-color: rgba(110, 76, 30, 0.4); }
+.newgame.kit .k-btn { font: 500 15px/1.15 var(--serif); color: #2b1d0c; }
+.newgame.kit .k-btn.lapis { color: #f6e2a8; }
+.newgame.kit .actions .k-btn { min-height: 34px; padding-right: 16px; }
+.newgame.kit .actions .k-btn.bare, .newgame.kit .actions .k-btn:not(:has(.k-bi)) { padding-left: 16px; }
+.newgame.kit .k-seg > .ng-size { padding: 3px 16px; border: 0; border-left: 1px solid rgba(80, 56, 24, 0.45); border-radius: 0; background: linear-gradient(#fbf3de, #e2cc9c); font: 500 14.5px/1.15 var(--serif); }
+.newgame.kit .k-seg > .ng-size:first-child { border-left: 0; }
+.newgame.kit .k-seg > .ng-size:hover:not(:disabled) { background: linear-gradient(#fff8e6, #ecd8ac); }
+.newgame.kit .k-seg > .ng-size.on { background: var(--k-lapis); color: #f6e2a8; }
+
+/* ------------------------------------------------------------------------ the map of Greece's pages (ruler, prices, trade, loans, rivals, empire, colonies, vassals) on the kit */
+.greece-panel.kit { background: var(--k-parch); background-clip: padding-box; }
+.greece-panel.kit .body > header, .greece-panel.kit header.ruler { padding-bottom: 10px; background: var(--k-meander) left bottom / 9px 9px repeat-x; }
+.greece-panel.kit .pane section > h3, .greece-panel.kit .pane > h3, .greece-panel.kit .body > section > h3 {
+  font: 500 13.5px/1.2 var(--display); letter-spacing: 0.06em; font-variant: normal; color: var(--ink-soft); border: 0; padding: 0 0 5px; margin: 12px 0 6px;
+  background: linear-gradient(rgba(70, 52, 30, 0.3) 50%, rgba(255, 252, 240, 0.85) 50%) left bottom / 100% 2px no-repeat;
+}
+.greece-panel.kit header.ruler .moodline { border-radius: 3px; border: 0; background: rgba(255, 252, 240, 0.5); box-shadow: 0 0 0 1px rgba(110, 86, 52, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 12, 4, 0.15); }
+/* The tabs: carved plaques in a row, the open one lapis. */
+.greece-panel.kit .citytabs { gap: 3px; }
+.greece-panel.kit .citytabs button {
+  min-height: 26px; padding: 2px 9px; border: 0; border-radius: 3px; font: 500 12.5px/1.2 var(--display); letter-spacing: 0.04em; font-variant: normal; color: #3a2a16; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6);
+  background: linear-gradient(#fbf3de, #e2cc9c); box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.55), 1px 2px 2px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.greece-panel.kit .citytabs button:hover { background: linear-gradient(#fff8e6, #ecd8ac); }
+.greece-panel.kit .citytabs button.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); background: var(--k-lapis); box-shadow: 0 0 0 1px #14254a, inset 0 1px 3px rgba(0, 0, 20, 0.45); }
+/* Every button on a page: a plaque of pale bronze; the main ones (send, take, open, choose) lapis; one that breaks something terracotta. */
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss), .greece-panel.kit .rename button, .greece-panel.kit .body > section button:not(.link):not(.k-btn) {
+  min-height: 26px; padding: 2px 9px; border: 0; border-radius: 3px; font: 500 13px/1.2 var(--serif); color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6); cursor: pointer;
+  background: linear-gradient(#fbf3de, #e6d2a4); box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.55), 1px 2px 2px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):hover:not(:disabled) { background: linear-gradient(#fff8e6, #f0dcb0); filter: none; }
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):active:not(:disabled) { transform: translateY(1px); }
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):disabled { opacity: 0.5; filter: grayscale(0.6); cursor: default; }
+.greece-panel.kit .pane :is(button.send, button.take, .choice button.on, ul.candidates li button, ul.works li button, .acts.station button, .acts.treaty button, section.garrison .acts:not(.endally) button, .rename button.ok):not(.link):not(.k-btn) {
+  color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); background: var(--k-lapis); box-shadow: 0 0 0 1px #14254a, 1px 2px 2px rgba(20, 12, 4, 0.3), inset 0 1px 0 rgba(200, 220, 255, 0.45);
+}
+.greece-panel.kit .pane :is(button.send, button.take, ul.candidates li button, ul.works li button, .acts.station button, .acts.treaty button, section.garrison .acts:not(.endally) button):not(.link):not(.k-btn):hover:not(:disabled) { background: linear-gradient(180deg, #5680c4, #34569a 50%, #22397a); }
+.greece-panel.kit .pane :is(ul.works.strikes li button):not(.link) { background: var(--k-red); box-shadow: 0 0 0 1px #5e1a10, 1px 2px 2px rgba(20, 12, 4, 0.3), inset 0 1px 0 rgba(255, 220, 190, 0.5); color: #fff1e0; }
+.greece-panel.kit .pane .pickrow button.on:not(.link) { background: var(--k-bronze); box-shadow: 0 0 0 1px #6a4a1c, inset 0 1px 0 rgba(255, 246, 210, 0.75); font-weight: 700; }
+.greece-panel.kit .pane button em { font-style: normal; font-weight: 700; }
+.greece-panel.kit .pane button em.up, .greece-panel.kit ul.giftrows button em { color: #4c6a26; }
+.greece-panel.kit .pane :is(button.send, button.take, .choice button.on) em.up { color: #d9f0a8; }
+/* Boxes: a deal, a gift's news, an offer: parchment cards. */
+.greece-panel.kit :is(.deal, .giftnews) { border: 0; border-radius: 3px; background: rgba(255, 248, 228, 0.7); box-shadow: 0 0 0 1px rgba(160, 120, 60, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 12, 4, 0.14); }
+.greece-panel.kit .deal.late, .greece-panel.kit .deal.raid { box-shadow: 0 0 0 1.5px rgba(184, 50, 42, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 12, 4, 0.14); }
+.greece-panel.kit .deal b { font: 700 13.5px/1.25 var(--display); letter-spacing: 0.02em; font-variant: normal; }
+/* Bars: sunk grooves. */
+.greece-panel.kit :is(.deal .bar, .stagebar, ul.empirelist li .loy) { height: 9px; border-radius: 5px; background: rgba(70, 52, 30, 0.16); box-shadow: var(--k-sunk); }
+.greece-panel.kit :is(.deal .bar, .stagebar, ul.empirelist li .loy) i { border-radius: 5px; background: linear-gradient(180deg, #9cb05a, #5f7a2a); }
+.greece-panel.kit :is(.arming .bar, .loyalty .deal.tribute .bar, ul.empirelist li .loy.low) i { background: linear-gradient(180deg, #f0a04a, #c63d24); }
+/* The goods: their icons where colour swatches were. */
+svg.ic.sw { display: inline-block; width: 17px; height: 17px; flex: none; vertical-align: -4px; margin-right: 3px; }
+.greece-panel.kit ul.giftrows .g { font-size: 13.5px; }
+.greece-panel.kit ul.giftrows button { min-width: 62px; }
+.greece-panel.kit .pricelist li, .household.trade.kit .pricelist li { align-items: center; }
+.greece-panel.kit .choice button svg.sw { width: 15px; height: 15px; margin: 0; }

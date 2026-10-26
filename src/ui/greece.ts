@@ -27,6 +27,8 @@ import { bandWords, warWords } from '../sim/fleet';
 import { blockadeOf, blockadeWords } from '../sim/blockades';
 import { aimWords, bandMen, bandOut, daysToEdge, edgeWords, goodsArrive, live, lootWords, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
 import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
@@ -54,7 +56,6 @@ const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 /** A mood's number with its sign, the minus a true one as in the reasons: "+5", "−10", "0". */
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 /** The trade goods' colours, as in the trade panel. */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#c8963c', '#e8e2d4', '#8a6238', '#6b4a2e']; // (Slice 36: copper, armour, marble, timber and horses had none)
 
 const SKIN = ['#efcfa8', '#e2b48a', '#cf9b72', '#b5805a', '#9a6a48'];
 const HAIR = ['#2e2119', '#4a3020', '#6b4628', '#8a6a44', '#24201d', '#a59a8c'];
@@ -408,7 +409,7 @@ export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`):
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
-  `<li title="${esc(title)}"><i style="background:${SWATCH[k]}"></i><span class="g">${cap(WARE_NAMES[TRADE_GOODS[k]])}</span><span class="p">${price}</span></li>`;
+  `<li title="${esc(title)}">${tradeIcon(k)}<span class="g">${cap(WARE_NAMES[TRADE_GOODS[k]])}</span><span class="p">${price}</span></li>`;
 
 /** How a city is reached from yours. */
 const REACH: Partial<Record<CityId, string>> = {
@@ -492,7 +493,7 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
     const have = cityHolds(s, w);
     if (have < GIFT_LOTS[0]) return;
     goods++;
-    rows.push(`<li><span class="g" title="${esc(`Your stores hold ${fmt(have)} ${WARE_NAMES[w]}`)}"><i style="background:${SWATCH[k]}"></i>${cap(WARE_NAMES[w])}</span><span class="b">${GIFT_LOTS.map((n) => button(w, k, n)).join('')}</span></li>`);
+    rows.push(`<li><span class="g" title="${esc(`Your stores hold ${fmt(have)} ${WARE_NAMES[w]}`)}">${tradeIcon(k)}${cap(WARE_NAMES[w])}</span><span class="b">${GIFT_LOTS.map((n) => button(w, k, n)).join('')}</span></li>`);
   });
   // (Why goods can't go, if it is the way rather than the stores: no yard or post.)
   const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
