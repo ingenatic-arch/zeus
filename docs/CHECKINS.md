@@ -40,7 +40,7 @@ Before and after shots, at 1920 × 1080 (in `screenshots/s50/`, not in git):
 
 ### Known rough edges
 - The home's panel and the side panel's other tabs (overview, goods, people and so on) keep their old look; the spec didn't list them. Slice 51's overview and slice 49's infirmary come onto the kit at their merges.
-- On the map of Greece the restyle is mostly the stylesheet over the old markup, so a few rarely seen boxes (a rename form, an expedition's choices) may still look half old.
+- On the map of Greece the restyle is mostly the stylesheet over the old markup. The review looked at the rarer boxes too (naming your city, a colony's rename, the ways to collect a debt or take a city): they are in the same dress, but they are the least worked-on part.
 - At 1366 × 768 the storehouse's walkers and condition are a scroll away; the rows and orders fit.
 - The tip waits 380 ms on hover. That's a guess: tell me if it feels slow or jumpy.
 
@@ -64,6 +64,14 @@ The starting build (`f83499b`) and this slice's, measured side by side on this m
 - **Every earlier demo**: the 121 prepared towns in this build are byte-identical to the starting build's, so every demo opens in exactly the same state. All 157 demos open with no page error.
 - **The smoke** (loosened timeouts, 56 minutes): every earlier check passes. Five failed on the first run, all because the kit had moved something the checks looked for: the court's and the prison's Orders now come before their other sections (two checks on the court, one on the prison); the Army tab wrote "horsemen" in lower case where a check wanted "Horsemen"; and the storehouse's bar numbers were 12.5 px against my own 13 px rule. I fixed those and ran those sections again, and they all pass.
 - **Saves**: no format change. The old-save checks in the tests (the version 37 fixture among them) and in the smoke all pass.
+
+### What the review changed
+- **Holding a stepper and sliding off it.** If you held a keep stepper's + and slid the pointer off without letting go, it kept stepping until you let go somewhere. Now it stops as soon as the pointer leaves the button.
+- **The tip keeps up.** Flip a sell switch with the keyboard and its tip now changes to say what the switch does now; and a tip whose button vanished as the panel updated (a trireme's order once she is home) now goes with it, rather than staying until you move the mouse. Moving over a button's own icon no longer restarts the wait before its tip shows.
+- **Numbers inside bars** (the storehouse's 800/1,600, a trireme's hull and oars) are now dark ink with a pale edge rather than white, which was hard to read on the empty part of a bar.
+- **The goods stacked on the quay picture** show what they are in the same tip as everything else, not the browser's plain one.
+- **A trade route's tab** (Corinth by road, Athens by sea) had kept the browser's blue tick boxes for sell and buy. They are now the same switches as the Tyre tab, and its words say "switch on" instead of "tick".
+- What I checked, at 1920 × 1080 and 1366 × 768, in the original look and in -modern and -plain: every step under What to try, the map of Greece's pages and rarer boxes, the shipyard, the court, the Monuments tab, the Messages, the Ambitions and the new-game screen; the tip on hover, on keyboard focus and on disabled buttons with their reasons, and that it never covers what it describes; the gold focus ring and the Tab order through the Army tab and the trading post. Whether it all looks right is for you to judge.
 
 ## Slice 46 — Many lands (25 Oct)
 

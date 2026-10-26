@@ -553,7 +553,7 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     }
     return `<div class="deal offer">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} offers</b> ${esc(offerWords(d))}. <span class="why">${esc(cap(d.why))}.</span>
 <p class="if">${d.side === 'buy' ? `Without it, what ${esc(name)} pays falls as you sell: ${today} today, about ${priceAfter(s.world, d.city, d.good, d.amount, s.tick)} after another ${fmt(d.amount)} (and it comes back only slowly).${esc(spareWords(s, d))}` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
-<div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
+<div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} switched on ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
   }
   if (d.kind === 'threat') return threatHtml(s, d, map);
   if (d.kind === 'tribute') {
@@ -749,7 +749,7 @@ export function panelHtml(s: SimState, page: PageId, renaming: boolean, nameDraf
     const name = renaming
       ? `<form class="rename"><input name="cityname" maxlength="${NAME_MAX}" value="${esc(nameDraft)}" aria-label="Your city’s name" autocomplete="off" spellcheck="false"><button type="submit" class="ok"${why ? ' disabled' : ''}>Name it</button><button type="button" class="cancel">Cancel</button></form>${why && nameDraft.trim() ? `<div class="why">${esc(why)}</div>` : ''}`
       : `<h2>${esc(s.world.name)} <button class="renamebtn" title="Rename your city" aria-label="Rename your city">✎</button></h2>`;
-    const stores = TRADE_GOODS.map((w, k) => goodRow(k, `${fmt(cityHolds(s, w))}${s.trade.sell[k] ? ' <em>for sale</em>' : ''}`, `Your ${k < 3 ? 'granaries' : 'storehouses'} hold ${fmt(cityHolds(s, w))} ${WARE_NAMES[w]}${s.trade.sell[k] ? ', and it is ticked for sale to the Tyre ship' : ''}`)).join('');
+    const stores = TRADE_GOODS.map((w, k) => goodRow(k, `${fmt(cityHolds(s, w))}${s.trade.sell[k] ? ' <em>for sale</em>' : ''}`, `Your ${k < 3 ? 'granaries' : 'storehouses'} hold ${fmt(cityHolds(s, w))} ${WARE_NAMES[w]}${s.trade.sell[k] ? ', and it is switched on for sale to the Tyre ship' : ''}`)).join('');
     return `<header><div class="kicker">Your city · ${esc(place.blurb.replace('your city, ', ''))}</div>${name}<div class="from">${fmt(s.population)} people in ${fmt(homes)} homes</div></header>
 ${empireOverviewHtml(s) /* Slice 47 */}<section><h3>In your stores</h3><ul class="goodlist">${stores}</ul></section>
 <p class="foot">Between Corinth to the north, by road, and Sparta over the hills to the south-west; the sea lanes run out of the gulf to Athens, Troy and Tyre.</p>`;

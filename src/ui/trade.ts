@@ -100,7 +100,8 @@ function quayPicture(s: SimState, post: Building): string {
     // (A stack of sacks or jars: rounded blocks, one over another, in the good's colour.)
     let blocks = '';
     for (let y = 0; y < h; y += 5) blocks += `<rect x="${x}" y="${66 - y - 5}" width="9" height="5" rx="1.6" fill="${c}" stroke="rgba(40,24,8,.55)" stroke-width=".6"/>`;
-    stacks.push(`<g><title>${esc(`${fmt(n)} ${WARE_NAMES[TRADE_GOODS[k]]} on the quay`)}</title>${blocks}</g>`);
+    // (Review of slice 50: in the kit's tip, like everything else on the panel, not the browser's own.)
+    stacks.push(`<g data-tip="${esc(`${fmt(n)} ${WARE_NAMES[TRADE_GOODS[k]]} on the quay`)}">${blocks}</g>`);
     x += 11;
   });
   let boat = '';

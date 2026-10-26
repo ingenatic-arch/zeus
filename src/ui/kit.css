@@ -166,7 +166,8 @@ svg.k-bic .stroke-warn { stroke: #c63d24; }
 .k-bar.stone > i { background: linear-gradient(180deg, #b8b0a6, #7c746a); }
 .k-bar.sea > i { background: linear-gradient(180deg, #7ab4cc, #2f6f8e); }
 .k-bar > em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #2b2016; border-radius: 1px; box-shadow: 0 0 0 1px rgba(255, 252, 240, 0.7); }
-.k-bar > b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; font: 500 11.5px/1 var(--serif); color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 0 1px 1px #000; font-variant-numeric: lining-nums tabular-nums; }
+.k-bar > b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; font: 600 11.5px/1 var(--serif); color: #2b2016; text-shadow: 0 0 2px rgba(255, 250, 236, 0.95), 0 0 3px rgba(255, 250, 236, 0.8); font-variant-numeric: lining-nums tabular-nums; }
+/* (Review of slice 50: the words in a bar in dark ink on a pale halo; white on the pale groove was hard to read at 1x.) */
 .k-bar.tall { height: 16px; border-radius: 4px; }
 .k-bar.tall > i { border-radius: 4px; }
 .k-bar.tall > b { font-size: 13px; }
@@ -354,6 +355,18 @@ svg.k-quay { display: block; width: 100%; height: 96px; }
 .kit table.goods td.keep button:disabled { filter: grayscale(0.8); opacity: 0.45; cursor: default; }
 .kit table.goods td.keep span { display: inline-block; min-width: 46px; padding: 2px 4px; border-radius: 3px; text-align: center; box-shadow: var(--k-sunk); background: rgba(255, 252, 240, 0.45); }
 .kit table.goods td, .kit table.goods th { font-size: 13.5px; }
+/* (Review of slice 50: a route's sell and buy ticks drawn as the Tyre tab's switches, not the browser's blue boxes.) */
+.kit table.goods td.good input[type='checkbox'] {
+  appearance: none; position: relative; width: 30px; height: 17px; margin: 0 6px 0 0; vertical-align: -4px; border-radius: 9px; cursor: pointer; flex: none;
+  background: linear-gradient(rgba(70, 52, 30, 0.22), rgba(70, 52, 30, 0.12)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: var(--k-sunk); transition: background 0.15s;
+}
+.kit table.goods td.good input[type='checkbox']::before {
+  content: ''; position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; transition: transform 0.15s;
+  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 26%, #a8783a 66%, #6e4a1c 100%); box-shadow: 0 1px 2px rgba(20, 12, 4, 0.5);
+}
+.kit table.goods td.good input[type='checkbox']:checked { background: var(--k-lapis); box-shadow: inset 1px 2px 3px rgba(0, 0, 20, 0.5), 0 1px 0 rgba(255, 252, 240, 0.7); }
+.kit table.goods td.good input[type='checkbox']:checked::before { transform: translateX(13px); }
+.kit table.goods td.good input[type='checkbox']:disabled { cursor: default; opacity: 0.55; }
 .k-cofoot .n { font: 500 14px/1 var(--serif); color: var(--ink); }
 .k-army .k-key { margin: 0 0 4px; }
 

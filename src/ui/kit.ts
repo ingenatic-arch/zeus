@@ -156,7 +156,11 @@ export function installKit(root: HTMLElement = document.body): void {
   tip.hidden = true;
   root.appendChild(tip);
   let target: HTMLElement | null = null;
+  // (The element waited on before its tip shows; review of slice 50: moving over a button's own icon no longer starts the wait again.)
+  let pending: HTMLElement | null = null;
   let timer = 0;
+  // (While a tip shows, it is checked a few times a second: gone with its element, its words kept up to date, moved with it.)
+  let watch = 0;
   const textOf = (el: HTMLElement): string => {
     // (A title left in a kit panel's markup is taken over, so the browser's tooltip doesn't show too.)
     const t = el.getAttribute('title');
@@ -182,6 +186,7 @@ export function installKit(root: HTMLElement = document.body): void {
     tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(Math.max(4, y))}px)`;
   };
   const show = (el: HTMLElement): void => {
+    pending = null;
     const t = textOf(el);
     if (!t) return;
     target = el;
@@ -189,25 +194,39 @@ export function installKit(root: HTMLElement = document.body): void {
     tip.hidden = false;
     el.setAttribute('aria-describedby', 'k-tip');
     place();
+    window.clearInterval(watch);
+    watch = window.setInterval(() => {
+      // (Review of slice 50: a button that goes as the panel is brought up to date, say a trireme's once she is home,
+      // took its tip with it only when the mouse next moved; and a switch flipped kept its old words.)
+      if (!target || !target.isConnected || !target.closest('.kit')) return hide();
+      const now = textOf(target);
+      if (!now) return hide();
+      if (now !== tip.textContent) tip.textContent = now;
+      place();
+    }, 250);
   };
   function hide(): void {
     window.clearTimeout(timer);
+    window.clearInterval(watch);
     if (target) target.removeAttribute('aria-describedby');
     target = null;
+    pending = null;
     tip.hidden = true;
   }
   document.addEventListener('pointerover', (e) => {
     const el = find(e.target);
-    if (el === target) return;
+    if (el && (el === target || el === pending)) return;
     hide();
     if (!el) return;
     textOf(el);
+    pending = el;
     timer = window.setTimeout(() => show(el), 380);
   });
   document.addEventListener('pointerout', (e) => {
-    if (!target && !timer) return;
+    const at = target ?? pending;
+    if (!at) return;
     const to = find((e as PointerEvent).relatedTarget);
-    if (to !== target) hide();
+    if (to !== at) hide();
   });
   document.addEventListener('focusin', (e) => {
     const el = find(e.target);
@@ -230,19 +249,28 @@ export function installKit(root: HTMLElement = document.body): void {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && target) hide();
   });
-  // A held boss (a stepper's − or +) repeats its click while it is held.
+  // A held boss (a stepper's − or +) repeats its click while it is held, and stops when it is let go, when the pointer
+  // slides off it (review of slice 50: it went on stepping) or when the window loses the focus.
   let rep = 0;
   let repWait = 0;
+  let held: Element | null = null;
   const stop = (): void => {
     window.clearTimeout(repWait);
     window.clearInterval(rep);
     rep = 0;
+    held = null;
   };
+  document.addEventListener('pointerout', (e) => {
+    if (!held) return;
+    const to = (e as PointerEvent).relatedTarget;
+    if (!(to instanceof Node) || !held.contains(to)) stop();
+  });
   document.addEventListener('pointerdown', (e) => {
     hide();
     const b = e.target instanceof Element ? (e.target.closest('.kit [data-repeat]') as HTMLButtonElement | null) : null;
     if (!b || (e as PointerEvent).button !== 0) return;
     stop();
+    held = b;
     repWait = window.setTimeout(() => {
       rep = window.setInterval(() => {
         if (b.disabled || !b.isConnected) stop();

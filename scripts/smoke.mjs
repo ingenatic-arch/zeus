@@ -3568,9 +3568,11 @@ await open('#storerules-paused');
     const orders = document.querySelector('.household.building .k-orders')?.getBoundingClientRect().bottom ?? 9999;
     const small = [...document.querySelectorAll('.household.building .ware button, .household.building .ware .k-well, .household.building .ware b')].filter((e) => parseFloat(getComputedStyle(e).fontSize) < 13 && e.textContent.trim()).length;
     const tiny = [...document.querySelectorAll('.household.building .ware button')].filter((e) => e.getBoundingClientRect().height < 26).length;
-    return { rows: rows.length, low: Math.max(...rows), orders, bottom: el.getBoundingClientRect().bottom, small, tiny, h: innerHeight };
+    // (Review of slice 50: every row keeps its four mode buttons, named for a screen reader as the key names them.)
+    const modes = [...document.querySelectorAll('.household.building .ware')].every((r) => [...r.querySelectorAll('button[data-mode]')].map((b) => b.getAttribute('aria-label')).join(',') === 'Accept,Don’t,Get,Empty');
+    return { rows: rows.length, low: Math.max(...rows), orders, bottom: el.getBoundingClientRect().bottom, small, tiny, modes, h: innerHeight };
   });
-  if (!(f50.rows === 8 && f50.low <= f50.h && f50.orders < f50.low && f50.small === 0 && f50.tiny === 0)) fail(`#storerules (slice 50): the rows at 1080: ${JSON.stringify(f50)}`);
+  if (!(f50.rows === 8 && f50.modes && f50.low <= f50.h && f50.orders < f50.low && f50.small === 0 && f50.tiny === 0)) fail(`#storerules (slice 50): the rows at 1080: ${JSON.stringify(f50)}`);
   // The tip: on hovering a mode button after a moment, and at once on keyboard focus.
   const mb = await page.$('.household.building .ware[data-ware="4"] button[data-mode="2"]');
   const box = await mb.boundingBox();

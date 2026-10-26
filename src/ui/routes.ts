@@ -97,7 +97,7 @@ export function routeGoods(s: SimState, r: TradeRoute, withTerms = true): string
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, true);
       const lim = limitOf(s, r, k, true);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Tick to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Switch on to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
 ${priceTd(s, r.city, k, true)}
 <td class="left" title="${esc(`${name} buys up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
@@ -112,7 +112,7 @@ ${keepCell(s, k)}
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, false);
       const lim = limitOf(s, r, k, false);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Tick to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Switch on to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
 ${priceTd(s, r.city, k, false)}
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
@@ -142,7 +142,7 @@ export function routeWarnings(s: SimState, r: TradeRoute): string[] {
   const out: string[] = [];
   if (r.kind === 'land' && !caravanYard(s)) out.push('No caravan yard: the caravans turn back at the edge of the map. Build one (G).');
   if (r.kind === 'sea' && !tradingPost(s)) out.push('No trading post: the ships turn back. Build one on the bay shore (G).');
-  if (!r.sell.some((x) => x) && !r.buy.some((x) => x)) out.push('Nothing ticked: tick what to sell and what to buy below, or the trader comes and goes with nothing.');
+  if (!r.sell.some((x) => x) && !r.buy.some((x) => x)) out.push('Nothing switched on: switch on what to sell and what to buy below, or the trader comes and goes with nothing.');
   return out;
 }
 
