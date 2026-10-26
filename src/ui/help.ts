@@ -59,7 +59,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
     </dl>
     <h2 style="margin-top:12px">Looking</h2>
     <dl>
-      <dt>O</dt><dd>The water overlay: where water reaches</dd>
+      <dt>Shift O</dt><dd>The water overlay: where water reaches</dd><!-- (Slice 51: O is the overview.) -->
       <dt>L</dt><dd>The food overlay: where the food vendor reaches, and the farms, lodges, dairies and granaries</dd>
       <dt>L L</dt><dd>Food variety: what is on each home’s table, and the kinds it is short of; again for oil, fleece and wine</dd>
       <dt>Y</dt><dd>The religion overlay: where the priestess walks, and which homes are blessed</dd>
@@ -74,6 +74,8 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>Tab</dt><dd>The map of Greece: its cities and rulers, their prices, your routes and loans (a city’s Loans tab: borrow, lend, repay), and sea lanes to guard (Tab again, or the City button, to come back)</dd>
       <!-- Slice 44 -->
       <dt>&#96;</dt><dd>Messages, or the small scroll beside the date (its seal counts what you haven’t read): everything the town has heard, by month, with filters, pins and a link to where each happened, and what the rulers wait on you for at its top. Only alarms pop up, at the bottom left; you choose which</dd>
+      <!-- Slice 51 -->
+      <dt>O</dt><dd>The overview, or the tablet beside the scroll: the whole city on one page for each of the advisers (the city, goods, treasury, distribution, crime, health, the army and fleet, the empire), with two years of each in small charts and why each stands where it does. Its links fly you to the place, with the overlay that shows it</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

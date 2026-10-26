@@ -81,7 +81,7 @@ export function quarryStatus(s: SimState, map: CoastMap, b: Building, workers: s
   const rate = rateOf(b);
   let cutting: string;
   if (blocks >= store) cutting = 'The stack is full: the quarrymen wait for the sledges to take blocks away';
-  else if (rate === 0) cutting = 'No marble is cut with nobody working here';
+  else if (rate === 0) cutting = b.paused ? 'No marble is cut while it is paused' : 'No marble is cut with nobody working here'; // (Slice 51: the pause named.)
   else {
     const m = blocksPerMonth(rich, quarrymenFor(b));
     const full = blocksPerMonth(rich, MAX_QUARRYMEN);

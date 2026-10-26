@@ -186,6 +186,11 @@
  * generator made it (slice 42's sheltered bay), which this game still has.
  * A town on the Bay, and everything else, is unchanged.
  *
+ * Slice 51 (The overview): the town's annals start empty, as of the tick the
+ * save was made: the overview's charts begin with the first month that ends
+ * after loading, and say that months from before it weren't kept. Nothing
+ * else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -224,6 +229,8 @@ import { stageFor } from './colonyworks';
 import { mendMessages } from './messages';
 // Slice 48.
 import { WARES } from './foods';
+// Slice 51.
+import { freshAnnals } from './annals';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -287,6 +294,7 @@ export function migrate(st: unknown): number {
   if (st.version === 42) fromSlice45(st);
   if (st.version === 43) fromSlice47(st);
   if (st.version === 44) fromSlice46(st);
+  if (st.version === 45) fromSlice51(st);
   return from;
 }
 
@@ -1115,5 +1123,15 @@ function fromSlice47(st: Record<string, unknown>): void {
 // Slice 46: a generated land from before was made by the generator's first edition.
 function fromSlice46(st: Record<string, unknown>): void {
   if (isObj(st.land) && st.land.kind !== 'bay' && st.land.gen === undefined) st.land.gen = 1;
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 51 (The overview): see the note above. Only its own field, only if it
+ * is missing: empty annals beginning at the save's tick. (A month's wares are
+ * padded to however many wares there are by the save reader, mendAnnals.)
+ */
+function fromSlice51(st: Record<string, unknown>): void {
+  if (!isObj(st.annals)) st.annals = freshAnnals(typeof st.tick === 'number' ? st.tick : 0);
   st.version = (st.version as number) + 1;
 }

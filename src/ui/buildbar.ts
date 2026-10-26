@@ -430,7 +430,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     hint: 'Click beside a road. Its guards hold those the court sends to prison. Keep it from overflowing and staffed: a restless prison is warned of, and then its prisoners break out.',
   },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
-  water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'O', cost: '', hint: '' },
+  water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'Shift O', cost: '', hint: '' }, // (Slice 51: O is the overview.)
   food: { name: 'Food overlay: where the food vendor walks, which homes have food, and the farms and granaries', key: 'L', cost: '', hint: '' },
   religion: { name: 'Religion overlay: where the priestess walks, and which homes are blessed', key: 'Y', cost: '', hint: '' },
   culture: { name: 'Culture overlay: where the actor walks, and which homes have plays', key: 'C', cost: '', hint: '' },

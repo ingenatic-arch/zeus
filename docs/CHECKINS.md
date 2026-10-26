@@ -2,6 +2,84 @@
 
 Notes to Oliver, newest first.
 
+## Slice 51 — The overview (25 Oct)
+
+Press O, or the little chart button beside the scroll on the top bar, and one window shows the whole city: a page for each of the original's advisers, two years of small charts on each, and a reason beside every number. Click a gap and the camera flies there with the overlay that shows it. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **O is now the overview. The water overlay moved to Shift+O.** Every letter was already taken. The help card and the overlay list say Shift O.
+- **Saves.** The state version is 43 on this line (renumbered when it merges). From now on the town keeps its annals, a set of figures for each month. An older save starts its annals empty from the day it was loaded, and the charts say so. The annals add about 3 KB to a save.
+- **Earlier demos.** Every one opens and plays exactly as before. I opened all 145 prepared towns from the starting build in the old code and in the new, and played each 900 ticks: the whole town is the same in both, apart from the annals themselves and a hidden tag on crime news (see below).
+
+### What's new
+- **The overview**, from O or the top bar's button; Esc or O again closes it. It sits over the city between the left edge and the side panel. Each tab names its page and a word on where it stands ("736", "1 gap", "1 threat"), with an amber or red dot when a page wants looking at. It remembers the page you last had open.
+  - **City:** people, homes, mood and work as headline figures with their two years. People by the level of their homes. How the homes feel: a bar of the five moods, what weighs on most homes, each row a link to one such house, and what lifts them. What holds homes back from the next level, each a link to its overlay. Jobs, workers, the idle, wages, and the places short of workers, each a link.
+  - **Goods:** a row for every ware the city has: in store, made, used, bought, sold last month, how long it lasts, which way it is going and why ("1 of 2 makers short of workers", "no stall sells it", "more used than made over the year"). Click a ware for its two years of stock, all its reasons and where it is kept; each store is a link that opens its panel.
+  - **Treasury:** the treasury, last month, this year and debts. The ledger by kind for this month, last month, this year and last year; the taxes' row says the rate and how many homes the collectors reached. Loans, tribute from vassals and colonies, and tribute asked of you, each a link to that city's page.
+  - **Distribution:** water, food, blessings, oil, plays, fleece, wine and the tax collectors. For each: the homes that need it and have it, the homes it would lift a level, why, and up to three gaps by quarter ("25 on the west bank"). **Click a service to see its overlay; click a gap to fly there with that overlay on.** Two years of its reach.
+  - **Crime:** crimes last month (and per thousand people), caught, who is out now, and gangs. Crime by kind for this month, last month, this year and last year. Crimes and catches by quarter over the last year, with the homes tempted now and any gang, each quarter a link with the crime overlay on. The court's figures (punished, in prison, put to death) have a place waiting for slice 45.
+  - **Health:** homes well kept (a fountain's water, and food where their level eats from the market), clean water, crowded homes, the wounded, and where homes go without. The sick, the physicians and the plague have a place waiting for slice 49.
+  - **Army and fleet:** soldiers ready, triremes, threats, expeditions; each company (a click takes its banner in hand), each trireme, and each raid, blockade, pirate lane and expedition.
+  - **Empire:** vassals with their loyalty, what holds it back and their tribute; allies; colonies with their people, stage, loyalty, wants, threats and share. Each is a link to its page on the map of Greece.
+- **The annals.** The town writes down its figures on the first day of each month and keeps the last 24: people, homes, mood, comers and leavers, jobs, the treasury and what came in and went out, each good in store, each service's reach, crimes and catches, soldiers, ships, vassals and colonists. Hover any point on a chart for its month and value.
+- **Five things from slice 48's review:**
+  - Clicking on a building now opens its panel, even with a cart parked at its gate. Only a click right on a walker follows her there.
+  - "Accept nothing" is greyed out when every good left is being emptied, since pressing it would do nothing.
+  - Pinning a "×5" message pins all five days.
+  - A paused press says "Nothing is pressed while it is paused", and the same for the winery, grove, vineyard, mine, quarry and masons' yard.
+  - The agora's "What it holds" has bars against its stalls' room.
+
+### What to try
+1. #overview — #town with O already pressed, on the City page. Turn through the tabs. Press Esc, then O to bring it back.
+2. #overviewgaps — the Distribution page. Click a green or red gap ("21 to lift by the olive grove"): the window steps aside and the camera flies there with the overlay on. Press O to come back, and click Blessings to see the priestesses' reach.
+3. #overviewcrime — #gang's town on the Crime page: the Iris gang below the cypress hill, crimes by kind and by quarter. Click a quarter to fly there with the crime overlay on.
+4. #overviewempire — #empire's city, over five years in, on the Empire page: Corinth and Nea Thasos. Then try Treasury (a year of trade and tribute by kind) and Goods.
+5. #town or #empire — press O yourself, and Shift+O for the water overlay.
+
+### What I'd like your eye on
+- **Is it the overview you had in mind?** Eight tabs across one wide window, figures first and lists under them. The original had a separate adviser for each; this puts them side by side.
+- **The reasons.** Each line tries to say why ("more used than made over the year", "36 homes not called on in the last month"). Do any read wrong, or say too little?
+- **O moved the water overlay to Shift+O.** If you'd rather keep O for water, the overview could go on another key.
+- **The charts.** Small lines and bars, two years at a glance. Big enough to read?
+
+### Known rough edges
+- **How long a good lasts uses its rate over the past year**, because harvests come in lumps. The table's made and used columns are last month's, so a good can show "growing" in a month nothing was made.
+- **Crimes by quarter come from the message scroll**, so they cover the crimes the scroll told you about in the last year, in the quarter where each happened.
+- **The court's and the sick's figures are placeholders** until slices 45 and 49 merge.
+- **The window covers the city.** Clicking a link puts it away so you can see the place, and so does opening the Messages, the ledger, the map of Greece or another panel, or picking up a tool; O brings it back on the same page.
+- **While it is open, the window rebuilds its page about every 0.6 s** of play. Headless, a page takes 6 to 26 ms to build, which on a real laptop should be a fraction of that, but I couldn't check whether it shows there as a small stutter twice a second.
+
+### Measurements
+Headless Chromium with software WebGL, on a machine shared with the other lines the whole time, so the times are mostly the load. Before is `97947e6`; after is this slice.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 668 in 54 files, all passing | 677 in 55 files (9 new, for the annals). One, the treasury's check that no demo leaves wages unpaid, ran out of its 20 minutes in the full run under the load; alone it passed, 17 of 17 |
+| Build | 4 min 34 s | 4 min 6 s |
+| Download (gzipped) | 4,888 KB: the game 876 KB, the prepared towns 4,011 KB | 5,008 KB: the game 895 KB, the prepared towns 4,114 KB (each prepared town now carries its annals) |
+| `#town`'s save | about 189,500 characters | 192,911 (the budget rises from 190,000 to 194,000) |
+| Triangles and draw calls | | the same in all 153 views both runs reached, `#empire` included. One view, `#creditors`, differed by a frame's timing in the run; checked again on both builds it settles on the same 1,359,454 triangles in 92 draws |
+| The new views | | `#overview`: 1.49 million triangles in 102 draws (the same as `#town`; the window is HTML). `#overviewempire`: 2.08 million in 156 |
+| `#empire` running | 65 ms a frame of update before drawing | 63 ms |
+| Every demo's update, median of 63 | 14.1 ms a frame | 13.0 ms |
+| Demo loads, a set of 12, by the page's clock | median 4.2 s, then 4.7 s | median 4.9 s, then 3.4 s. Each time, the build that ran second was the slower, so it's the load |
+| The overview's cost | | each page of `#empire`'s city built from nothing in 6 to 26 ms (headless); open on the Goods page while the city runs, 3.6 ms a second, against 46 ms a second for the whole update |
+| Every demo | | all 145 prepared towns from `97947e6` open, and play 900 ticks on, exactly as there; the 149 towns each build bakes (the four new demos' among them) are the same, state for state, apart from the annals and the crime news' kind |
+| Smoke | | the full slow smoke (a copy with its waits loosened), start to end in 79 min: every step passes, this slice's and every earlier one |
+
+The full measure ran out of its two hours on both builds before its last parts (every demo's load and the lands), so I timed a set of 12 demos on each, twice, in turn, and the overview's cost on its own.
+
+### What the review changed
+A second pair of eyes went through every page at 1920 × 1080 and 1366 × 768, in the original look and with `-modern` and `-plain`, and checked the figures against the town. These were fixed:
+- **Debts said too little, or too much.** The Debts figure took off what had been seized from a loan twice, and counted loans other cities owe you as your own debts (and lit the Treasury tab for them). It now counts only what you owe, says "it is overdue" plainly when it is, and adds what others owe you as a separate line.
+- **A loan still being asked for showed as owed.** In the Treasury's loans, a loan whose herald is still on the way or whose terms wait on you now reads "Borrowing from" or "Lending to" with the sum asked, not "Owed to" with a debt that doesn't exist yet.
+- **"Would lift" counted homes that a service alone wouldn't lift.** A cottage needs both blessings and oil to become a townhouse; one missing both was counted under each. Now a home counts only when that service is the one thing its next level still lacks.
+- **A good's reason named the wrong cause.** Timber bought from abroad, with none cut, said "more made than used over the year". It now says "more came in than went out" when trade, not making, moved it (and "more went out than came in" for goods sold abroad).
+- **The overview covered whatever opened after it.** The Messages panel, the ledger and the map of Greece opened underneath it, hidden. Now anything opened over the city, or a tool picked up, puts the overview away, and an alarm's popup shows above it.
+- **Two lines on the Empire page read oddly** ("held back by you have no triremes"); they now read "held back: you have no triremes to protect it".
+
+I couldn't judge whether the twice-a-second refresh shows as a stutter on a real laptop. Headless, at the fastest speed, a refresh costs 3 to 14 ms against about 46 ms for the rest of a frame's update.
+
 ## Slice 46 — Many lands (25 Oct)
 
 You can now found a city on six kinds of generated land as well as the Bay: islands offshore, a river delta, a mountain shore, a dry plain, a wooded coast and a more varied sheltered bay. "Found a new city" on the welcome card opens a new-game screen where you choose the kind, size and seed and see the land drawn before founding there, which was your choice. You weren't here while it was built: every choice below is mine, from the spec's defaults.

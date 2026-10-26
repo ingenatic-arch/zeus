@@ -103,7 +103,7 @@ body.greece-open #ui .household.messages { max-height: calc(100% - 106px); }
 
 /* ------------------------------------------------------------------ the alarms popping up */
 .msg-pop {
-  position: absolute; left: 14px; bottom: 14px; z-index: 6; width: 392px; box-sizing: border-box;
+  position: absolute; left: 14px; bottom: 14px; z-index: 21; width: 392px; box-sizing: border-box; /* (Review of slice 51: above the overview.) */
   display: flex; gap: 10px; align-items: flex-start; padding: 8px 32px 9px 10px; cursor: pointer;
   background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
   border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch;

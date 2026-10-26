@@ -114,6 +114,8 @@ import { ALARM, WARNING } from './sim/messages';
 import { say } from './sim/messages';
 import { storeCartsOf } from './sim/storerules';
 import { WARES } from './sim/foods';
+// Slice 51: the overview.
+import { Overview, type OverviewPage } from './ui/overview';
 
 interface Probe {
   ready: boolean;
@@ -336,6 +338,11 @@ interface Probe {
   // Slice 46
   /** The new-game screen's choice while it is open (null when it isn't). */
   newgame?: () => { kind: string; size: number; word: string; seed: number } | null;
+  // Slice 51
+  /** The overview: opened on a page (or closed, with null) first if given; whether it is open, its page, and what it says. */
+  overview?: (page?: string | null) => { open: boolean; page: string; text: string };
+  /** Time spent bringing the overview up to date (ms, summed). */
+  overviewMs?: number;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -1292,6 +1299,8 @@ function start(preparedTown: string | null): void {
       else if (ambitionPanel.open) ambitionPanel.toggle(false);
       // Slice 44.
       else if (msgPanel.open) msgPanel.toggle(false);
+      // Slice 51.
+      else if (overview.open) overview.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (greece && greeceOpen()) {
@@ -1320,7 +1329,9 @@ function start(preparedTown: string | null): void {
       }
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
       const tall = monumentAt(sx, sy);
-      const c = walkerNear(sx, sy, tall ? 9 : 22);
+      // (Slice 51: a click on a building's footprint is for the building, unless right on a walker there: carts waiting at
+      // a store's gate took the clicks meant for its panel.)
+      const c = walkerNear(sx, sy, tall || buildingAt(w) ? 9 : 22);
       const walker = c >= 0 ? sim.state.walkers.find((o) => o.id === c) : undefined;
       if (walker) return startFollow(walker.origin, walker.kind, walker.id);
       const fl = fleetNear(sx, sy);
@@ -1387,6 +1398,12 @@ function start(preparedTown: string | null): void {
       // Slice 44: the Messages panel (every letter is taken: the key left of 1, as a game's log often is).
       if (k === '\u0060') {
         msgPanel.toggle();
+        return true;
+      }
+      // Slice 51: the overview (O, by its place on the keyboard), over the city.
+      if (k === 'overview') {
+        if (greeceOpen() && !overview.open) toggleGreece(false);
+        overview.toggle();
         return true;
       }
       // On the map, the city's tools and overlays are put away.
@@ -1679,6 +1696,71 @@ function start(preparedTown: string | null): void {
     if (!b) return null;
     const c = storeCartsOf(sim.state, b);
     return { paused: !!b.paused, first: !!b.first, workers: b.workers, rules: [...b.rules], held: WARES.map((w) => held(b, w)), out: c.out, coming: c.coming };
+  };
+
+  // Slice 51: the overview, the whole city in one window (the top bar's button, or O). Its links fly the camera to the
+  // place (with the overlay that shows it), or open the panel or page that has more; the window steps aside for them.
+  /** Fly the camera over a spot. */
+  const flyOver = (x: number, z: number): void => {
+    if (greeceOpen()) toggleGreece(false);
+    stopFollow();
+    const v = rig.view;
+    rig.flyTo({ ...v, x, z, dist: Math.min(v.dist, 30) });
+  };
+  const overview = new Overview(ui, {
+    goTo: (x, z, mode) => {
+      if (mode) overlay.wanted = mode;
+      flyOver(x, z);
+    },
+    overlay: (mode) => {
+      overlay.wanted = mode;
+    },
+    openHome: (id) => {
+      const b = findBuilding(sim.state, id);
+      if (!b) return;
+      flyOver(...centreOf(b));
+      panel.show(id);
+    },
+    openBuilding: (id) => {
+      const b = findBuilding(sim.state, id);
+      if (!b) return;
+      flyOver(...centreOf(b));
+      if (b.kind === 'home' && b.people > 0) panel.show(id);
+      else buildingPanel.show(id);
+    },
+    openWare: (w) => side.showWare(w),
+    ledger: () => ledger.toggle(true),
+    city: (id, tab) => toggleGreece(true, id, (tab as CityTab | undefined) ?? 'ruler'),
+    site: (id) => toggleGreece(true, `site:${id}` as CityId),
+    company: (id) => {
+      side.showTab('army');
+      takeBanner(id);
+    },
+  });
+  overview.onOpen = () => {
+    panel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+    buildingPanel.show(0);
+    ledger.toggle(false);
+    tools.select(null);
+    // (Review of slice 51: and the cards over the city's middle.)
+    ambitionPanel.toggle(false);
+    if (saveMenu.open) saveMenu.toggle(false);
+    corner.toggleHelp(false);
+  };
+  topbar.onOverview(() => {
+    if (greeceOpen() && !overview.open) toggleGreece(false);
+    overview.toggle();
+  });
+  if (demo?.overview) overview.toggle(true, demo.overview);
+  probe.overviewMs = 0;
+  probe.overview = (page) => {
+    if (page === null) overview.toggle(false);
+    else if (page) overview.toggle(true, page as OverviewPage);
+    overview.update(sim.state, map, Infinity);
+    return { open: overview.open, page: overview.pageNow, text: overview.text };
   };
 
   /** "water", "water or bread", "water, bread or blessings". */
@@ -2588,6 +2670,11 @@ function start(preparedTown: string | null): void {
     sound.update(dt);
     if (onMap && greece) {
       // The map of Greece instead of the city (which runs on, undrawn).
+      // (Review of slice 51: the overview steps aside for the map, as for the panels in the city's loop.)
+      if (overview.open) {
+        overview.toggle(false);
+        topbar.showOverview(false);
+      }
       greece.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, dt);
       topbar.showDate(sim.date);
       // Slice 43 (review): the season dial keeps time on the map too (it read "Summer" into December while the colony demos ran on there).
@@ -2651,6 +2738,17 @@ function start(preparedTown: string | null): void {
     pauseMarks.update(s, camera, time);
     buildingPanel.update(s, map, time);
     if (panel.open && buildingPanel.open) buildingPanel.show(0);
+    // Slice 51.
+    {
+      const t = performance.now();
+      overview.mode = overlay.mode;
+      // (Review of slice 51: a panel or card opened while it is open, or a tool picked up, comes first: it steps aside
+      // rather than covering them. Opening it puts them away, so one still open was opened after it.)
+      if (overview.open && (msgPanel.open || ledger.open || ambitionPanel.open || tradePanel.open || shipyardPanel.open || panel.open || buildingPanel.open || saveMenu.open || corner.helpOpen || tools.tool)) overview.toggle(false);
+      overview.update(s, map, time);
+      topbar.showOverview(overview.open);
+      probe.overviewMs = (probe.overviewMs ?? 0) + performance.now() - t;
+    }
     ledger.update(s, map, time);
     // Slice 39.
     ambitionPanel.update(s, time);

@@ -161,7 +161,7 @@ export function masonsStatus(s: SimState, b: Building, workers: string): Status 
   const title = `A masons’ yard · ${mine.length} of ${most} builders out`;
   const sites = s.monuments.sites.filter((x) => !x.finished);
   let doing: string;
-  if (most === 0) doing = 'No builders go out with nobody working here';
+  if (most === 0) doing = b.paused ? 'No builders go out while it is paused' : 'No builders go out with nobody working here'; // (Slice 51: the pause named.)
   else if (mine.length) {
     const at = [...new Set(mine.map((w) => w.target))].map((id) => findBuilding(s, id)).filter((g): g is Building => !!g);
     doing = `Its builders are at ${at.map((g) => monumentName(g.kind as MonumentKind)).join(' and ')}`;

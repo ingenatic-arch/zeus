@@ -15,11 +15,14 @@ import type { Ambition } from './laurels';
 import type { Messages } from './messages';
 // Slice 42: the land a city is founded on.
 import type { Land } from '../map/lands';
+// Slice 51: the town's annals, a figure for each month (annals.ts).
+import type { Annals } from './annals';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
 // (Slice 46: many lands, renumbered 45 at its merge.)
-export const SIM_STATE_VERSION = 45;
+// (Slice 51: the overview, renumbered 46 at its merge.)
+export const SIM_STATE_VERSION = 46;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -545,6 +548,8 @@ export interface SimState {
   messages: Messages;
   /** Slice 42: the land the city is founded on, its kind, size and seed (src/map/lands.ts; none: the Bay, 128 tiles a side). */
   land?: Land;
+  /** Slice 51: the town's annals, a figure for each month and the year's money and crime by kind (annals.ts). */
+  annals: Annals;
 }
 
 /**

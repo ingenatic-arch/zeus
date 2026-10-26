@@ -64,6 +64,8 @@ import { isCriminal } from './crime';
 // Slice 44
 import { freshMessages, messagesCommand } from './messages';
 import { stepMessages } from './heard';
+// Slice 51
+import { freshAnnals, stepAnnals } from './annals';
 // Slice 48
 import { freshRules } from './stores';
 import { stepStores, storeCommand, workCommand } from './storerules';
@@ -134,6 +136,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     messages: freshMessages(),
     // Slice 42
     land: stampLand(land),
+    // Slice 51
+    annals: freshAnnals(),
   };
   if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
   s.herds = freshHerds(mapOf(s), s);
@@ -290,6 +294,8 @@ export class Sim {
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
     stepMessages(s, map);
+    // Slice 51: and on the first of the month, last month's figures into the annals (it only reads the town).
+    stepAnnals(s);
   }
 
   run(ticks: number): void {

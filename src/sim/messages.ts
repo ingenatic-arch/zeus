@@ -93,6 +93,8 @@ export interface Message {
   at?: Place;
   read?: true;
   pin?: true;
+  /** Slice 51: what kind of thing it tells, within its kind, where the overview counts by it (a crime's: 'theft', 'picked', 'caught'…). */
+  of?: string;
 }
 
 /** Where a news log has been heard up to: the tick of its last line heard, and how many lines of that tick. */
@@ -141,6 +143,8 @@ export interface Saying {
   at?: Place;
   /** When it happened, if not now (a line heard from a news log keeps its own tick). */
   tick?: number;
+  /** Slice 51: what kind of thing it tells, within its kind (see Message). */
+  of?: string;
 }
 
 /**
@@ -156,6 +160,8 @@ export function say(s: SimState, m: Saying): Message | null {
   const msg: Message = { id: g.next++, tick, kind: m.kind, u: m.u ?? NEWS, words };
   if (m.title) msg.title = m.title;
   if (m.at) msg.at = m.at;
+  // Slice 51.
+  if (m.of) msg.of = m.of;
   g.log.push(msg);
   prune(g, s.tick);
   return msg;

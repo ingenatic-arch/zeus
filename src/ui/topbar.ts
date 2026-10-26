@@ -54,6 +54,7 @@ export class TopBar {
           <div class="season" hidden><svg viewBox="0 0 20 20" aria-hidden="true" class="dial"><path d="M10 10V1a9 9 0 0 1 9 9z" class="q0"/><path d="M10 10h9a9 9 0 0 1-9 9z" class="q1"/><path d="M10 10v9a9 9 0 0 1-9-9z" class="q2"/><path d="M10 10H1a9 9 0 0 1 9-9z" class="q3"/><circle cx="10" cy="10" r="9" class="rim"/><path d="M10 10V2.4" class="hand"/><circle cx="10" cy="10" r="1.6" class="hub"/></svg><b class="nm"></b><span class="cm"></span><i class="wx"></i></div>
         </div>
         <button class="scroll-btn" title="Messages: what the town has heard · the key left of 1 (\u0060)" aria-label="Messages"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sheet" d="M5 4.2h10v11.6H5z"/><path class="lines" d="M7.2 7.6h5.6M7.2 10h5.6M7.2 12.4h3.6"/><rect class="roll" x="3" y="2" width="14" height="3.6" rx="1.8"/><rect class="roll" x="3" y="14.4" width="14" height="3.6" rx="1.8"/></svg><span class="seal" hidden></span></button>
+        <button class="scroll-btn overview-btn" title="The overview: the whole city on one page · O" aria-label="Overview"><svg viewBox="0 0 20 20" aria-hidden="true"><rect class="sheet" x="2.6" y="3" width="14.8" height="14" rx="1.2"/><path class="bars" d="M6 14.2v-4M9 14.2V7.4M12 14.2v-3M15 14.2V5.8"/><path class="lines" d="M4.6 14.8h11"/></svg></button>
         <div class="divider"></div>
         <div class="speeds"></div>
         <div class="divider"></div>
@@ -367,6 +368,20 @@ export class TopBar {
   /** Clicking the scroll. */
   onMessages(f: () => void): void {
     (this.bar.querySelector('.scroll-btn') as HTMLElement).addEventListener('click', f);
+  }
+
+  // Slice 51: the overview's button, beside the scroll.
+  /** Clicking it. */
+  onOverview(f: () => void): void {
+    (this.bar.querySelector('.overview-btn') as HTMLElement).addEventListener('click', f);
+  }
+
+  /** Whether the overview is open. */
+  showOverview(open: boolean): void {
+    const el = this.bar.querySelector('.overview-btn') as HTMLElement;
+    if (el.classList.contains('open') === open) return;
+    el.classList.toggle('open', open);
+    el.setAttribute('aria-pressed', String(open));
   }
 
   // Slice 39: the laurel chip.

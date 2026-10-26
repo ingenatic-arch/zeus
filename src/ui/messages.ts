@@ -239,7 +239,9 @@ export class MessagesPanel {
     const m = s.messages.log.find((x) => x.id === id);
     if (!m) return;
     if (t.closest('.pin')) {
-      this.deps.send({ type: 'messages', act: m.pin ? 'unpin' : 'pin', ids: [id] });
+      // (Slice 51: a run's row, "×N", pins or unpins every one of its days.)
+      const run = (row.dataset.ids ?? '').split(' ').map(Number).filter((x) => x > 0);
+      this.deps.send({ type: 'messages', act: m.pin ? 'unpin' : 'pin', ids: run.length ? run : [id] });
       return;
     }
     if (t.closest('.go')) {

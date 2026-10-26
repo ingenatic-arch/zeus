@@ -15,6 +15,8 @@ import { dateOfTick, formatDate } from '../sim/clock';
 import { migrate } from '../sim/migrate';
 // Slice 44.
 import { mendMessages } from '../sim/messages';
+// Slice 51.
+import { mendAnnals } from '../sim/annals';
 import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState, type StockKind } from '../sim/state';
 // Slice 43.
 import { colonyWorksOk } from '../sim/colonyworks';
@@ -293,6 +295,8 @@ export function decodeSave(text: string | null): Decoded {
   const from = migrate(data.state);
   // Slice 44: a damaged message log costs only the history (messages.ts).
   mendMessages(data.state);
+  // Slice 51: damaged annals cost only their history (annals.ts).
+  mendAnnals(data.state);
   const why = stateProblem(data.state);
   if (why) return { ok: false, why };
   const state = data.state as SimState;
