@@ -75,7 +75,8 @@ export const ICONS: Record<TownLine['need'], string> = {
 const iconOf = (l: TownLine): string => (l.need === 'trader' && l.route?.endsWith('-sea') ? ICONS.ship : ICONS[l.need]);
 
 /** The order the lines always stand in, whichever showed first (so two lines never swap places). */
-const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument', 'ambition', 'health'];
+// (Slice 52: health, a plague, a fever or a quarantine, with the fires; slice 49's review saw it last, folded out of sight.)
+const ORDER: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'ship', 'trader', 'favour', 'loan', 'empire', 'greece', 'health', 'fire', 'wear', 'rubble', 'food', 'oil', 'fleece', 'wine', 'workers', 'money', 'tax', 'crime', 'season', 'monument', 'ambition'];
 const rank = (need: TownLine['need']): number => {
   const i = ORDER.indexOf(need);
   return i < 0 ? ORDER.length : i;
@@ -89,7 +90,7 @@ const rank = (need: TownLine['need']): number => {
  * hid #fortress's meat shortfall, and could have hidden a fire.)
  */
 // (Review of slice 35: the monuments' line, the games on or a site stuck, before the News of Greece and the ships and caravans coming and going.)
-const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'ambition', 'greece', 'ship', 'trader', 'health'];
+const WEIGHT: readonly TownLine['need'][] = ['raid', 'battle', 'alarm', 'health', 'fire', 'crime', 'loan', 'empire', 'money', 'favour', 'food', 'season', 'oil', 'fleece', 'wine', 'wear', 'rubble', 'workers', 'tax', 'monument', 'ambition', 'greece', 'ship', 'trader'];
 const weight = (need: string): number => {
   const i = WEIGHT.indexOf(need as TownLine['need']);
   return i < 0 ? WEIGHT.length : i;
