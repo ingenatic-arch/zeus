@@ -279,7 +279,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     name: 'Loggers’ camp',
     key: 'M ×10',
     cost: `${LOGGERS_COST} dr`,
-    hint: 'Click at the edge of a wood of pines and cypresses, beside a road. Its loggers fell the trees in reach and carry the logs home; its carts take them to a storehouse. The wood grows back slowly: a camp can strip a hillside.',
+    hint: 'Click at the edge of a wood of pines and cypresses (and oaks, on a wooded coast), beside a road. Its loggers fell the trees in reach and carry the logs home; its carts take them to a storehouse. The wood grows back slowly: a camp can strip a hillside.',
   },
   // Slice 35: the masons' yard and the monuments, on the Monuments tab (no key: every letter is taken).
   masons: {

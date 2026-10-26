@@ -68,6 +68,8 @@ export const KINDS = {
   monument: { cat: 'works', name: 'Monuments' },
   // Merge of slice 45: a prison's breakout, an alarm that may pop up.
   breakout: { cat: 'crime', name: 'Prison breakouts', pop: true },
+  // Merge of slice 46: a city founded on a land of the player's choosing, its road in laid.
+  land: { cat: 'city', name: 'The land' },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

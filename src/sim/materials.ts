@@ -211,6 +211,18 @@ export function timberTrees(map: CoastMap): number[] {
   return list;
 }
 
+// Merge of slice 46: the trees a logger fells, named as the land has them (the oaks only where there are any).
+const oaky = new WeakMap<CoastMap, boolean>();
+/** The timber trees' names on this land: many ("pines and cypresses"), any one ("pine or cypress") and either ("pines or cypresses"), with the oaks where the land has them. */
+export function timberWords(map: CoastMap): { many: string; one: string; any: string } {
+  let oaks = oaky.get(map);
+  if (oaks === undefined) {
+    oaks = timberTrees(map).some((i) => map.trees[i].kind === TreeKind.Oak);
+    oaky.set(map, oaks);
+  }
+  return oaks ? { many: 'pines, oaks and cypresses', one: 'pine, oak or cypress', any: 'pines, oaks or cypresses' } : { many: 'pines and cypresses', one: 'pine or cypress', any: 'pines or cypresses' };
+}
+
 const sets = new WeakMap<object, Set<number>>();
 /** The numbers in a list as a set, worked out once per list (the lists are replaced, never changed, so this holds). */
 function setOf<T>(xs: readonly T[], key: (x: T) => number): Set<number> {
@@ -331,7 +343,7 @@ export function materialRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   }
   if (kind === 'loggers') {
     const n = campWoods(map, s, { x: tx, z: tz }).standing.length;
-    if (n < CAMP_TREES_MIN) return `Not at a wood’s edge: a loggers’ camp needs at least ${CAMP_TREES_MIN} standing pines or cypresses within ${CAMP_REACH} tiles (${n === 0 ? 'there are none' : n === 1 ? 'there is 1' : `there are ${n}`})`;
+    if (n < CAMP_TREES_MIN) return `Not at a wood’s edge: a loggers’ camp needs at least ${CAMP_TREES_MIN} standing ${timberWords(map).any} within ${CAMP_REACH} tiles (${n === 0 ? 'there are none' : n === 1 ? 'there is 1' : `there are ${n}`})`;
     return '';
   }
   return '';

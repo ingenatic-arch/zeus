@@ -5,7 +5,7 @@
  * Slice 35: the masons' yard and the monuments, what each takes and does.
  */
 import type { CoastMap } from '../map/bake';
-import { CAMP_REACH, campOutlook, LOGS_PER_TREE, MAX_LOGGERS, quarryOutlook, REGROW } from '../sim/materials';
+import { CAMP_REACH, campOutlook, LOGS_PER_TREE, MAX_LOGGERS, quarryOutlook, REGROW, timberWords } from '../sim/materials';
 import { spanWords } from '../sim/materialstatus';
 import type { SimState } from '../sim/state';
 import { MAX_BUILDERS } from '../sim/monumentworks';
@@ -65,7 +65,8 @@ export function worksLines(s: SimState, map: CoastMap, kind: WorksTool, x: numbe
     else if (!has(s, 'storehouse')) lines.push('Its ox sledges take the blocks to a storehouse: build one too (G twice)');
   } else {
     const o = campOutlook(map, s, { x, z }, MAX_LOGGERS);
-    lines.push(`Pines and cypresses within ${CAMP_REACH} tiles: ${fmt(o.standing)} standing${o.felled ? `, ${fmt(o.felled)} felled and growing back` : ''} · the olive trees are Athena’s, and left alone`);
+    const tw = timberWords(map).many; // (Merge of slice 46: the oaks named where the land has them.)
+    lines.push(`${tw[0].toUpperCase()}${tw.slice(1)} within ${CAMP_REACH} tiles: ${fmt(o.standing)} standing${o.felled ? `, ${fmt(o.felled)} felled and growing back` : ''} · the olive trees are Athena’s, and left alone`);
     if (o.standing > 0) {
       const lasts = o.lasts < 120 ? `: at that pace the wood in reach is gone in about ${spanWords(o.lasts * TICKS_PER_MONTH)}` : '';
       lines.push(`About ${fmt(roundTen(o.logsMonth))} logs a month fully worked (${LOGS_PER_TREE} a tree)${lasts}, and a felled tree takes ${spanWords(REGROW)} to grow back`);

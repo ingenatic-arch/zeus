@@ -26,6 +26,7 @@ import {
   quarrymenAt,
   quarrymenFor,
   REGROW,
+  timberWords,
 } from './materials';
 import { roadsBeside } from './rounds';
 import { roomFor, storeOf } from './stores';
@@ -106,7 +107,9 @@ export function campStatus(s: SimState, map: CoastMap, b: Building, workers: str
     felling = `${out.length === 1 ? 'A logger is' : `${out.length} loggers are`} out: ${[...new Set(doing)].join(', ')}`;
   } else if (logs + LOGS_PER_TREE > store) felling = 'The log pile is full: nobody goes out until carts take logs away';
   else felling = o.standing ? 'The loggers are resting · one sets out again soon' : 'Nobody goes out: every tree in reach is felled';
-  const wood = `Trees in reach (${CAMP_REACH} tiles): ${o.standing === 0 ? 'no pine or cypress standing' : o.standing === 1 ? '1 pine or cypress standing' : `${fmt(o.standing)} pines and cypresses standing`}${o.felled ? ` · ${fmt(o.felled)} felled and growing back, the first standing again in ${spanWords(o.firstBack)}` : ''}`;
+  // (Merge of slice 46: the oaks named where the land has them.)
+  const tw = timberWords(map);
+  const wood = `Trees in reach (${CAMP_REACH} tiles): ${o.standing === 0 ? `no ${tw.one} standing` : o.standing === 1 ? `1 ${tw.one} standing` : `${fmt(o.standing)} ${tw.many} standing`}${o.felled ? ` · ${fmt(o.felled)} felled and growing back, the first standing again in ${spanWords(o.firstBack)}` : ''}`;
   let pace = '';
   if (men > 0 && o.standing > 0) {
     pace = `About ${fmt(roundTen(o.logsMonth))} logs a month (${LOGS_PER_TREE} a tree)`;

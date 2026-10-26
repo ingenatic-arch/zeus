@@ -86,6 +86,36 @@ I went through every step above in the browser at 1920 × 1080, in the original 
 
 Still open, for a later slice: the new-game screen draws its preview on the game's own thread (up to a few seconds for a large land on this loaded machine), and the game's keys still work behind it. A trading post on a lake's shore is refused as "too shallow", which is true but doesn't say why. The dark patch where the river rises on the wooded coast's and the mountain shore's massifs is the river's gorge in shadow.
 
+### At the merge
+Slices 48 (building panels and the storehouse), 45 (the court and the prison) and 47 (a colonial empire) joined the main line before this one, so a few things moved to fit with them:
+
+- **Saves.** The state version is 45, not 42. Older saves come up through each slice's step in turn, this one's last: a town on slice 42's sheltered bay is marked as the first edition, as above.
+- **The game's keys leave the game alone while the new-game screen is open.** T, Space, the speeds and the camera keys do nothing behind it. Esc puts it away, and you can still type a seed word. (This was the review's open point above.)
+- **The founding is news.** A city founded from the new-game screen starts with one message in the scroll, under City: "Your city is founded on a mountain shore. The road in is laid, 46 tiles from the east edge: families will come along it." Its link goes to the road's end by the city's ground. The fountain's "too dry" stays a tool message, like every other refusal.
+- **Oaks.** The loggers' camp's hover, its tool tip and its refusal say "pines, oaks and cypresses" on a land that has oaks, and "pines and cypresses" everywhere else, as before. Oaks are trees, not a ware, so the storehouse's rules and panel are unchanged.
+- **The newer systems on the new lands.** On a medium land of each of the six kinds I built a trading post by where the city starts, then a granary, a storehouse, a court and a prison by the road. All of them could be placed. On each land:
+  - the Tyrian ship sailed in over water, moored, and the dockers took the wheat;
+  - Nea Thasos asked for wheat, its ship anchored in open water, the porters brought the wheat to the quay and the boat rowed it out;
+  - a company stationed in Nea Naxos sailed from the land's own quay, three ships at once each anchored further out, and the men came home ashore at that quay.
+
+  Nothing sails or anchors over land. Two small things are left for slice 52. On the islands' gentle shore and on the delta, the anchorage lies past a wide shallow shelf, so the rowing boat crosses shallows for a few tiles. And on the delta, the third of three ships at once anchors in the shallows rather than in deep water.
+- **Earlier demos.** I compared all 149 prepared towns from the main line before this merge, at opening and 900 ticks on. They are exactly the same.
+- **Triangles.** The cheaper distant trees cut what every outdoor view draws, the Bay's included, with the same draw calls. Opening and furthest views:
+  - `#coast` 1.18 / 1.20 million triangles before, 1.04 / 1.06 after;
+  - `#empire` 2.08 / 2.18 before, 1.94 / 2.04 after;
+  - `#court` 1.65 / 2.06 before, 1.65 / 1.92 after;
+  - `#landlarge` 2.07 / 2.92 before, 1.84 / 2.58 after.
+
+  `#town`'s opening view stands close, so it is unchanged at 1.49 million (its furthest view went from 1.76 to 1.63).
+
+Checked on the merged line: the typecheck and the build pass, and all 738 tests pass. In headless Chromium:
+- The smoke checks pass for this slice's demos and #newgame, now including the keys behind it and the founding news. They also pass for the slices it touches: the bare link's welcome card, #quarry and #loggers, #landsmall, #landmedium and #landlarge, #colonybase and #freeally.
+- I drove #newgame: picked the delta, Small and Another, then founded it. I also tried the fountain on #dryplain.
+- #newgame, #delta, #dryplain, #woods, #islands, #mountains, #sheltered, #landlarge, #town, #colonybase, #court, #loggers, #delta-modern and #dryplain-plain open with no page errors.
+- I looked at screenshots of the screen, the founded delta with its message, #delta, #dryplain, #woods and #court.
+
+How it all feels to play is still yours to judge.
+
 ## Slice 47 — A colonial empire (25 Oct)
 
 Your colonies are now an empire you can hold. You can station a company or triremes in a colony and strike from it, each colony pays you a share of its trade in coin, a grown colony's militia sails to your aid, and a colony that wants its freedom can be let go by treaty as your ally. You weren't here while it was built: every choice below is mine, from the spec's defaults.

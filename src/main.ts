@@ -110,6 +110,8 @@ import { buildRain } from './render/rain';
 import { BuildingPanel, ownPanel } from './ui/buildingpanel';
 import { PauseMarks } from './render/pausemarks';
 import { ALARM, WARNING } from './sim/messages';
+// Merge of slice 46: a founding's news.
+import { say } from './sim/messages';
 import { storeCartsOf } from './sim/storerules';
 import { WARES } from './sim/foods';
 
@@ -411,6 +413,9 @@ function start(preparedTown: string | null): void {
         sim.enqueue({ type: 'road', tiles: road });
         sim.flush();
       }
+      // (Merge of slice 46: the founding is the scroll's first news, under City, its link at the road's end by the city's ground.)
+      const name = (KIND_WORDS.find((k) => k.kind === founding.kind)?.name ?? 'A new land').replace(/^A /, 'a ').replace(/^Islands offshore/, 'a coast with islands offshore');
+      say(sim.state, { kind: 'land', words: `Your city is founded on ${name}. ${road.length > 0 ? `The road in is laid, ${foundRoad}: families will come along it.` : 'Lay a road in from the edge of the map, and families will come along it.'}`, at: road.length > 0 ? { tile: road[road.length - 1] } : undefined });
     }
   }
   probe.setupMs = performance.now() - tSetup;
@@ -1442,7 +1447,8 @@ function start(preparedTown: string | null): void {
   tools.onChange((t) => {
     if (!t) hover(lastPointer.world, lastPointer.sx, lastPointer.sy);
   });
-  const pollKeys = attachInput(canvas, () => (greece?.open ? greece.rig : rig), driver, () => corner.toggleHelp(), pointerTools);
+  // (Merge of slice 46: the game's keys leave the game alone while the new-game screen is open.)
+  const pollKeys = attachInput(canvas, () => (greece?.open ? greece.rig : rig), driver, () => corner.toggleHelp(), pointerTools, () => !!newGame?.open);
   if (demo?.tool) tools.select(demo.tool);
   if (demo?.follow) {
     const kind = demo.follow;

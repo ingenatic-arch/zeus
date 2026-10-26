@@ -44,8 +44,11 @@ export interface PointerTools {
  * puts the tool down), the wheel zooms towards the pointer. WASD/arrows pan,
  * Q/E turn 90°, R/F tilt, +/- zoom, Space pauses, 1-3 pick a speed, N faces
  * north.
+ * (Merge of slice 46: while `covered` answers true, a screen stands over the
+ * game, such as the new-game screen, and the keys leave the game alone: only
+ * Escape, which puts the screen away.)
  */
-export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() => CameraRig), driver: ClockDriver, onHelp: () => void, tools?: PointerTools): (dt: number) => void {
+export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() => CameraRig), driver: ClockDriver, onHelp: () => void, tools?: PointerTools, covered?: () => boolean): (dt: number) => void {
   // The camera the keys and mouse drive: the city's, or the map of Greece's while it is open.
   const rig = (): CameraRig => (typeof rigOf === 'function' ? rigOf() : rigOf);
   const held = new Map<string, HoldAction>();
@@ -135,6 +138,12 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
     const target = e.target;
     // Typing in a text box is not for the game.
     if (target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !/^(checkbox|radio|range|button)$/.test(target.type))) return;
+    // Merge of slice 46: a screen over the game (the new-game screen) keeps the keys; Escape puts it away.
+    if (covered?.()) {
+      held.clear();
+      if (e.key === 'Escape') tools?.cancel();
+      return;
+    }
     // A panel's button or tick keeps the focus once clicked (panels are brought up to date in place): let go of it,
     // so the keys still drive the game and Space doesn't press it again.
     // Enter stays with the page (pressing the control), and so does Tab while the keyboard is moving between a panel's
@@ -197,6 +206,10 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
 
   return (dt: number) => {
     if (held.size === 0) return;
+    if (covered?.()) {
+      held.clear();
+      return;
+    }
     const on = new Set(held.values());
     const speed = rig().distance * 0.9 * dt;
     let r = 0;
