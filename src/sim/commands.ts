@@ -87,11 +87,16 @@ export type Command =
   | { type: 'law'; crime: string; punishment: string }
   // Slice 47
   /** A colonial empire (colonyempire.ts; an act it refuses does nothing): station a company (`company`, or the first at home) in a colony, or bring it home; station triremes at home off it (all, or `n`), or bring them home; strike at `city` from it with the company there; offer it a treaty that makes it a free ally; a shipment loading for it: sail with what is aboard, or call it off. */
-  | { type: 'colonyempire'; act: 'station' | 'home' | 'ships' | 'shipshome' | 'strike' | 'free' | 'sail' | 'cancel'; site: string; company?: number; n?: number; city?: string };
+  | { type: 'colonyempire'; act: 'station' | 'home' | 'ships' | 'shipshome' | 'strike' | 'free' | 'sail' | 'cancel'; site: string; company?: number; n?: number; city?: string }
+  // Slice 49
+  /** Health's switch (health.ts): on as a game starts or a demo opens, off while a demo's history is played. */
+  | { type: 'health'; on: boolean }
+  /** A quarantine for a season (on), or lifted (off). */
+  | { type: 'quarantine'; on: boolean };
 
 /** What the build command builds. */
-export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison';
-export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison'];
+export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';
+export const BUILD_KINDS: readonly BuildKind[] = ['farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion'];
 
 export interface StampedCommand {
   /** The tick on which the command is applied. */

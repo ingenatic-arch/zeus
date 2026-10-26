@@ -38,6 +38,8 @@
 import { preyingOn } from './lanes';
 // Slice 38: a blockade holds the harbour.
 import { blockaded } from './lanes';
+// Slice 49: the quarantine, and the plague a trader may bring.
+import { landed, quarantined } from './health';
 import { pastMouth } from './trade';
 import type { CoastMap } from '../map/bake';
 import { dhypot } from '../map/dmath';
@@ -496,6 +498,13 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
   // At your map's edge: in by the road to the yard, or back home if there is none. Either way the next is due LAND_EVERY after this one was.
   s.world.travellers = s.world.travellers.filter((t) => t !== coming);
   nextCaravan(s, r);
+  // (Slice 49: a quarantine turns it back at the edge, which the ruler doesn't take as a snub.)
+  if (quarantined(s)) {
+    r.missedAt = s.tick;
+    r.missed = 'quarantine';
+    homeward(s, r);
+    return;
+  }
   const yard = caravanYard(s);
   const entry = yard ? caravanEntry(s, map.size, yard, r.city) : null;
   if (!yard || !entry) {
@@ -609,6 +618,8 @@ function arrive(s: SimState, r: TradeRoute, yard: Building, w: Walker): void {
   unload(s, r, yard);
   w.wait = TRADE_TICKS;
   w.since = s.tick;
+  // (Slice 49: from a plagued city, it may bring the plague.)
+  landed(s, r.city, yard);
 }
 
 /** Move a caravan one tick along: in to the yard, trading there, and out again. False when it has left the map. */
@@ -735,7 +746,8 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
   v.aside = 0;
   // (Pirates preying on her lane, unguarded, take her cargo on her way: slice 26.)
   r.robbed = preyingOn(s, routeWay(r.city, 'sea')?.way ?? '') ? s.tick : 0;
-  if (!jettyFree(s, post, v, r.next, r.next + LOADING + clearTicks())) {
+  // (Slice 49: under quarantine she makes for an anchorage, and rides there until it ends.)
+  if (!jettyFree(s, post, v, r.next, r.next + LOADING + clearTicks()) || quarantined(s)) {
     const L = pathLength(v.path);
     v.stop = Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L));
     const p = pointAlong(v.path, v.stop * L);
@@ -797,6 +809,8 @@ function moor(s: SimState, r: TradeRoute, v: Visitor, post: Building): void {
   // (Robbed by pirates on her way in: nothing to unload this time.)
   if (r.robbed) r.robbed = 0;
   else unload(s, r, post);
+  // (Slice 49: from a plagued city, she may bring the plague ashore.)
+  landed(s, r.city, post);
 }
 
 /** A sea route's ship, once a tick. */
@@ -856,13 +870,25 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
       r.missed = 'blockade';
       return;
     }
+    // Slice 49: a quarantine ordered while she sails for the jetty: she turns back, to come again next time (no snub).
+    if (quarantined(s) && v.stop >= 1) {
+      const at = visitorAt(v, s.tick, sizeOf(s));
+      v.turned = at ? at.inward : 1;
+      v.phase = SHIP_LEAVING;
+      v.since = s.tick;
+      v.aside = 0;
+      r.missedAt = s.tick;
+      r.missed = 'quarantine';
+      return;
+    }
     if (s.tick < v.since + SAIL_IN) return;
     if (v.stop < 1) {
       v.phase = SHIP_ANCHORED;
       v.since = s.tick;
     } else moor(s, r, v, post);
   } else if (v.phase === SHIP_ANCHORED) {
-    if (jettyFree(s, post, v, s.tick, s.tick + BERTH_TICKS + LOADING + clearTicks(), v.since)) {
+    // (Slice 49: under quarantine she rides at anchor until it ends.)
+    if (!quarantined(s) && jettyFree(s, post, v, s.tick, s.tick + BERTH_TICKS + LOADING + clearTicks(), v.since)) {
       v.phase = SHIP_BERTHING;
       v.since = s.tick;
     }
@@ -972,6 +998,8 @@ const MISSED: Record<string, string> = {
   post: 'the city has no trading post',
   // (Slice 38.)
   blockade: 'a blockade held the mouth of your harbour',
+  // (Slice 49.)
+  quarantine: 'your quarantine turned it back',
 };
 
 /** Where a route's trader is, as the top bar's chip (`chip`, `short`) and the panels (`line`) say: `phase` 0 due, 1 coming, 2 here, 3 gone, `days` until the next thing. */
@@ -1027,6 +1055,8 @@ export function routeNews(s: SimState, r: TradeRoute): TraderNews {
       ? { phase: 1, days, chip: `${days} d`, short: `${whose} ship sighted`, line: `The ship from ${name} is sailing in: the jetty will be taken, so she anchors in the bay in ${dayWords(days)} and waits her turn`, who, kind: 'sea' }
       : { phase: 1, days, chip: `${days} d`, short: `${whose} ship sighted · ${days} d`, line: `The ship from ${name} is sailing in: she ties up at the jetty in ${dayWords(days)}`, who, kind: 'sea' };
   }
+  // Slice 49: held off by your quarantine.
+  if (v.phase === SHIP_ANCHORED && quarantined(s)) return { phase: 1, days: 0, chip: 'Held', short: `${whose} ship held off`, line: `The ship from ${name} rides at anchor off the quay: your quarantine holds her off until it ends, or is lifted`, who, kind: 'sea' };
   if (v.phase === SHIP_ANCHORED || v.phase === SHIP_BERTHING) return { phase: 1, days: 0, chip: 'Anchored', short: `${whose} ship at anchor`, line: v.phase === SHIP_ANCHORED ? `The ship from ${name} is at anchor in the bay, waiting for the jetty` : `The ship from ${name} is coming alongside the jetty`, who, kind: 'sea' };
   if (v.phase === SHIP_MOORED) {
     const days = daysTo(s, v.since + LOADING);

@@ -31,8 +31,13 @@ import { MonumentsView } from './monuments';
 import { sizeOf } from '../map/lands';
 // Slice 45: the stocks and the prisoners.
 import { JusticeView } from './justice';
+// Slice 49: the sick at their doors, the plague's braziers, the asklepieion's patients, the quarantine's pennants.
+import { HealthView } from './health';
+import { healthFigures } from './walkers';
 
 const NO_ONE: ReadonlySet<number> = new Set();
+// Slice 49.
+const NO_TURN = new THREE.Quaternion();
 
 /**
  * Everything the player has built and everyone walking about, read from the
@@ -52,6 +57,8 @@ export class CityView {
   readonly monuments: MonumentsView;
   /** Slice 45: the stocks at an agora with the one pinned in them, and the prisoners in a prison's yard. */
   readonly justice: JusticeView;
+  /** Slice 49: the sick at their doors, the plague's braziers, the asklepieion's patients, the quarantine's pennants. */
+  readonly health: HealthView;
   readonly bridges: Bridges;
   /** The walls, gates, towers and breaches (slice 25). */
   readonly walls: WallsView;
@@ -117,6 +124,9 @@ export class CityView {
     // Slice 45.
     this.justice = new JusticeView(map, (st, b) => this.works.floorOf(st, b));
     this.group.add(this.justice.group);
+    // Slice 49.
+    this.health = new HealthView(map, this.folk, (st, b) => this.works.floorOf(st, b), healthFigures());
+    this.group.add(this.health.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -138,6 +148,8 @@ export class CityView {
     this.workfolk.miners(s, alpha);
     // People at work in the works and service buildings (25 Oct).
     this.jobfolk.update(s, alpha);
+    // Slice 49.
+    this.health.update(s, time, face ?? NO_TURN);
     this.animals.update(s, alpha, time);
     this.army.update(s, alpha, time);
     this.folk.end();

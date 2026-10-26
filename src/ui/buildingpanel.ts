@@ -47,6 +47,8 @@ import { courtSections, JUSTICE_QUIET, prisonSections } from './justice';
 // Slice 51
 import { STALL_ROOM, stallRoom } from '../sim/food';
 import { hasStall } from '../sim/goods';
+// Slice 49: the infirmary and the asklepieion.
+import { asklepieionSections, HEALTH_QUIET, infirmarySections } from './health';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -80,6 +82,9 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   // Merge of slice 45: the court (the law, its cases, the crime rate) and the prison (its cells, unrest, prisoners), src/ui/justice.ts.
   court: { more: courtSections, quiet: JUSTICE_QUIET },
   prison: { more: prisonSections, quiet: JUSTICE_QUIET },
+  // Slice 49: the infirmary (its physicians, the city's health, the quarantine) and the asklepieion (its beds, the city's health, the quarantine), src/ui/health.ts.
+  infirmary: { more: infirmarySections, quiet: HEALTH_QUIET },
+  asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
 };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
@@ -112,6 +117,9 @@ const WALKER_WORDS: Partial<Record<Walker['kind'], [string, string]>> = {
   caravan: ['caravan', 'caravans'],
   // (Merge of slice 45: one of the caught, walked to the court.)
   convict: ['one of the caught, walked here by a watchman', 'of the caught, walked here by watchmen'],
+  // Slice 49.
+  physician: ['physician', 'physicians'],
+  bearer: ['pair of stretcher-bearers', 'pairs of stretcher-bearers'],
 };
 const walkerWords = (k: Walker['kind'], n: number): string => {
   const w = WALKER_WORDS[k] ?? [k, `${k}s`];
@@ -426,6 +434,8 @@ export class BuildingPanel {
     else if (act === 'all') this.deps.send({ type: 'store', id: b.id, all: t.dataset.all === 'none' ? 'none' : 'all' });
     // (Merge of slice 45: the court's law, a punishment for a kind of crime.)
     else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
+    // (Slice 49: the quarantine, ordered or lifted from the infirmary's or the asklepieion's panel.)
+    else if (act === 'quarantine') this.deps.send({ type: 'quarantine', on: t.dataset.on === '1' });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

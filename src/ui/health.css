@@ -1,0 +1,42 @@
+/* Slice 49: health in the building panel (the infirmary, the asklepieion), the trade panel's quarantine row, and a home's health. */
+.household.building:has(.healthp) { width: 380px; }
+.household .healthp p.small, .household .hhome p.small { font-size: 12px; color: var(--ink-soft); margin: 3px 0 0; }
+.household .healthp p.late { margin: 4px 0 0; font-size: 12.5px; color: #8a3a1c; }
+.household .healthp p.none { margin: 2px 0; font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
+.household .hmeter { display: grid; grid-template-columns: 62px 1fr 40px; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; }
+.household .hmeter .word { font-variant: small-caps; letter-spacing: 0.05em; font-size: 14px; }
+.household .hmeter .bar { height: 8px; border-radius: 4px; background: rgba(107, 74, 46, 0.16); overflow: hidden; }
+.household .hmeter .bar i { display: block; height: 100%; border-radius: 4px; }
+.household .hmeter.good .bar i { background: linear-gradient(90deg, #7fa64c, #3f8a62); }
+.household .hmeter.fair .bar i { background: linear-gradient(90deg, #c9b35a, #7fa64c); }
+.household .hmeter.poor .bar i { background: linear-gradient(90deg, #e3a23a, #c9a35a); }
+.household .hmeter.bad .bar i { background: linear-gradient(90deg, #c63d24, #e3a23a); }
+.household .hmeter .num { text-align: right; font-variant-numeric: tabular-nums; }
+.household ul.hsick { list-style: none; margin: 5px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.3; }
+.household ul.hsick li { padding: 3px 7px; border-radius: 7px; background: rgba(255, 255, 255, 0.45); border: 1px solid rgba(63, 138, 98, 0.35); }
+.household ul.hsick li.plague { background: #f6e4dc; border-color: #b8564a; }
+.household ul.hsick small { color: var(--ink-soft); }
+.household ul.hrows { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12.5px; }
+.household ul.hrows li { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; border-top: 1px solid rgba(184, 138, 80, 0.25); }
+.household ul.hrows li span { color: var(--ink-soft); }
+.household ul.hrows li b { font-weight: normal; text-align: right; font-variant-numeric: tabular-nums; }
+.household p.risk { margin: 5px 0 0; font-size: 12.5px; line-height: 1.3; }
+.household p.risk.high b { color: #9a3f22; }
+.household p.risk.rising b { color: #8a6418; }
+.household p.risk.low b, .household p.risk.none b { color: #3f6f4e; }
+.household .beds { display: flex; gap: 4px; margin-top: 6px; }
+.household .beds i { width: 22px; height: 10px; border-radius: 3px; border: 1.2px solid #8a6440; background: #f4ecd6; }
+.household .beds i.full { background: #a8865c; }
+.household .beds i.coming { background: repeating-linear-gradient(45deg, #f4ecd6 0 3px, #c9ab7f 3px 6px); }
+.household section.quarantine p.qstate { margin: 3px 0 0; font-size: 12.5px; line-height: 1.3; }
+.household section.quarantine p.qstate.on { color: #6a4e10; background: #fbf0c4; border: 1.4px solid #d9b02a; border-radius: 8px; padding: 4px 8px; }
+.household p.qwarn { margin: 4px 0 0; padding: 4px 8px; border-radius: 8px; font-size: 12.5px; line-height: 1.3; color: #8a2e18; background: #f8e6dc; border: 1.4px solid #b8564a; }
+.household section.quarantine .qacts { margin-top: 6px; display: flex; gap: 6px; }
+.household section.quarantine .pill.urge { background: #d9b02a; border-color: #8a6414; color: #3a2a08; font-weight: bold; }
+.household .hhome .reasons { margin-top: 4px; }
+.household.trade section.quarantine { margin: 0 0 8px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(184, 138, 80, 0.4); }
+.household.trade section.quarantine h3 { margin: 0; }
+/* (Review of slice 49: the quiet row, with nothing threatening.) */
+.household section.quarantine.quiet { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.household section.quarantine.quiet p.qstate { margin: 0; }
+.household section.quarantine.quiet .pill { flex: none; }

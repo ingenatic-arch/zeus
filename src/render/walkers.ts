@@ -21,6 +21,13 @@ import { MINGLE_SPEED, THIEF_SPEED } from '../sim/crime';
 // Slice 45.
 import { PATROL_SPEED } from '../sim/walk';
 import { CONVICT_ROPE, CONVICT_TUNIC } from './justice';
+// Slice 49
+import { BEARER_SPEED } from '../sim/health';
+import { CARRIER_SPEED } from '../sim/walk';
+import { BEARER_TUNIC, BLANKET, LITTER_CLOTH, PHYSICIAN_ROBE, PHYSICIAN_SASH, type HealthFigures } from './health';
+
+/** Slice 49: how far behind one of the caught his watchman walks. */
+const ESCORT_STEP = 0.34;
 
 /** Space between people walking in a line. */
 const SPACING = 0.36;
@@ -842,8 +849,8 @@ function smuggler(load: boolean): THREE.BufferGeometry {
 // Slice 45
 /**
  * One of the caught, walked to the court: a plain grey tunic (the tinted
- * part), head bowed, his hands bound before him with a rope, the rope's end
- * trailing to the watchman ahead.
+ * part), head bowed, his hands bound behind him with a rope, the rope's end
+ * trailing to the watchman a step behind.
  */
 function convict(): THREE.BufferGeometry {
   const parts: TPart[] = [
@@ -853,13 +860,100 @@ function convict(): THREE.BufferGeometry {
     // The head hung forward.
     { geo: new THREE.IcosahedronGeometry(0.05, 0).translate(0.05, 0.315, 0), color: PAL.skin },
     { geo: new THREE.IcosahedronGeometry(0.052, 0).scale(1, 0.6, 1).translate(0.03, 0.345, 0), color: PAL.hair },
-    // Both forearms forward and together, the wrists bound.
-    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-1.2).rotateX(0.35).translate(0.05, 0.23, 0.03), color: PAL.skin },
-    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-1.2).rotateX(-0.35).translate(0.05, 0.23, -0.03), color: PAL.skin },
-    { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.035, 6).rotateX(Math.PI / 2).translate(0.105, 0.21, 0), color: CONVICT_ROPE },
-    { geo: new THREE.CylinderGeometry(0.005, 0.005, 0.22, 3).rotateZ(-1.3).translate(0.21, 0.24, 0), color: CONVICT_ROPE },
+    // (Slice 49, slice 45's finding: the watchman walks a step behind him now.) Both arms behind his back, the wrists bound, the rope's end trailing back to the watchman's hand.
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-0.66).rotateX(0.3).translate(-0.04, 0.235, 0.035), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-0.66).rotateX(-0.3).translate(-0.04, 0.235, -0.035), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.035, 6).rotateX(Math.PI / 2).translate(-0.08, 0.19, 0), color: CONVICT_ROPE },
+    { geo: new THREE.CylinderGeometry(0.005, 0.005, 0.24, 3).rotateZ(1.25).translate(-0.19, 0.22, 0), color: CONVICT_ROPE },
   ];
   return mergeTinted(parts);
+}
+
+// Slice 49
+/**
+ * The physician: a woman in a long white robe (the tinted part) with a
+ * herb-green sash, a leather bag of herbs and salves at her hip, and a tall
+ * staff in her hand with the healer's snake coiled up it.
+ */
+function physician(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.025, 0.08, 0.018, PAL.skin, -1),
+    leg(0, 0.025, 0.08, 0.018, PAL.skin, 1),
+    { geo: new THREE.CylinderGeometry(0.05, 0.095, 0.29, 7).translate(0, 0.19, 0), color: '', tint: true },
+    // The sash across the chest, the bag on its strap at the left hip.
+    { geo: new THREE.BoxGeometry(0.014, 0.2, 0.024).rotateX(0.7).translate(0.048, 0.26, 0), color: PHYSICIAN_SASH },
+    { geo: new THREE.BoxGeometry(0.07, 0.065, 0.04).translate(-0.005, 0.17, -0.092), color: PAL.satchel },
+    { geo: new THREE.BoxGeometry(0.072, 0.02, 0.042).translate(-0.005, 0.2, -0.092), color: PHYSICIAN_SASH },
+    { geo: new THREE.IcosahedronGeometry(0.054, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.058, 0).scale(1, 0.8, 1).translate(-0.014, 0.385, 0), color: PAL.hair },
+    { geo: new THREE.IcosahedronGeometry(0.03, 0).translate(-0.06, 0.37, 0), color: PAL.hair },
+    // The staff, upright in her right hand, the bronze-green snake coiled up it.
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).rotateX(-0.5).translate(0.02, 0.25, 0.08), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.008, 0.009, 0.52, 4).translate(0.05, 0.27, 0.12), color: PAL.woodDark },
+    // The other arm at her side, on the bag.
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.14, 4).translate(0.0, 0.22, -0.075), color: PAL.skin },
+  ];
+  for (let i = 0; i < 3; i++) parts.push({ geo: new THREE.TorusGeometry(0.02, 0.006, 3, 6).rotateX(Math.PI / 2 + (i % 2 ? 0.4 : -0.4)).translate(0.05, 0.24 + i * 0.08, 0.12), color: PAL.bronzeGreen });
+  return mergeTinted(parts);
+}
+
+/**
+ * The asklepieion's stretcher-bearers: two men in linen (the tinted part),
+ * one before and one behind, a litter of two poles and a cloth slung between
+ * them at their hands. `laden`: someone lies on it under a blanket.
+ */
+function bearers(laden: boolean): THREE.BufferGeometry {
+  const parts: TPart[] = [];
+  for (const [x, sw] of [[0.24, 1], [-0.24, -1]] as const) {
+    parts.push(leg(x, -0.028, 0.12, 0.019, PAL.skin, -sw), leg(x, 0.028, 0.12, 0.019, PAL.skin, sw));
+    parts.push({ geo: new THREE.CylinderGeometry(0.05, 0.078, 0.2, 6).translate(x, 0.2, 0), color: '', tint: true });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.052, 0).translate(x + 0.005, 0.35, 0), color: PAL.skin });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.055, 0).scale(1, 0.62, 1).translate(x - 0.008, 0.375, 0), color: PAL.hair });
+    // Both arms down to the poles at his sides (the one in front reaching back, the one behind forward).
+    for (const z of [-0.075, 0.075]) parts.push({ geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(x > 0 ? 0.35 : -0.35).translate(x + (x > 0 ? -0.02 : 0.02), 0.22, z), color: PAL.skin });
+  }
+  // The litter: two poles from man to man at their hands, the cloth slung between them.
+  for (const z of [-0.08, 0.08]) parts.push({ geo: new THREE.CylinderGeometry(0.008, 0.008, 0.56, 4).rotateZ(Math.PI / 2).translate(0, 0.165, z), color: PAL.wood });
+  parts.push({ geo: new THREE.BoxGeometry(0.32, 0.012, 0.15).translate(0, 0.158, 0), color: LITTER_CLOTH });
+  if (laden) {
+    // Lying on it, head forward, under a blanket.
+    parts.push({ geo: new THREE.BoxGeometry(0.24, 0.045, 0.11).translate(-0.02, 0.188, 0), color: BLANKET });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.04, 0).scale(1, 0.8, 1).translate(0.13, 0.19, 0), color: PAL.skin });
+    parts.push({ geo: new THREE.IcosahedronGeometry(0.042, 0).scale(1, 0.55, 1).translate(0.14, 0.205, 0), color: PAL.hair });
+  }
+  return mergeTinted(parts);
+}
+
+/** A sick one at the door: bent, a blanket (the tinted part) over head and shoulders, a hand to the mouth (drawn by HealthView). */
+function sickFigure(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    leg(0, -0.026, 0.11, 0.018, PAL.skin),
+    leg(0, 0.026, 0.11, 0.018, PAL.skin),
+    { geo: new THREE.CylinderGeometry(0.045, 0.07, 0.18, 6).rotateZ(-0.3).translate(0.02, 0.19, 0), color: '#d9cfb8' },
+    { geo: new THREE.IcosahedronGeometry(0.05, 0).translate(0.075, 0.3, 0), color: PAL.skin },
+    // The blanket: over the head and round the shoulders, falling down the back.
+    { geo: new THREE.IcosahedronGeometry(0.058, 0).scale(1, 0.85, 1.05).translate(0.055, 0.32, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.06, 0.1, 0.2, 7, 1, true, Math.PI * 0.45, Math.PI * 1.1).rotateZ(-0.3).translate(0.0, 0.22, 0), color: '', tint: true },
+    // A hand to the mouth; the other arm wrapped in the blanket.
+    { geo: new THREE.CylinderGeometry(0.014, 0.013, 0.12, 4).rotateZ(-1.0).rotateX(0.3).translate(0.08, 0.25, 0.03), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.018, 0).translate(0.12, 0.29, 0.012), color: PAL.skin },
+  ];
+  return mergeTinted(parts);
+}
+
+/** A patient lying on a bed, along z, head to -z, under a blanket (the tinted part) (drawn by HealthView). */
+function patientFigure(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.BoxGeometry(0.11, 0.05, 0.25).translate(0, 0.025, 0.03), color: '', tint: true },
+    { geo: new THREE.IcosahedronGeometry(0.042, 0).scale(1, 0.75, 1).translate(0, 0.03, -0.12), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.045, 0).scale(1, 0.5, 1).translate(0, 0.045, -0.135), color: PAL.hair },
+  ];
+  return mergeTinted(parts);
+}
+
+/** The figures HealthView draws (made here, with the walkers' kit). */
+export function healthFigures(): HealthFigures {
+  return { sick: sickFigure(), patient: patientFigure() };
 }
 
 /** The criminals' clothes, and a gang man's (rust red). */
@@ -889,7 +983,10 @@ export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | '
   | 'arsonist'
   | 'smuggler'
   // Slice 45: someone caught, walked to the court by a watchman.
-  | 'convict';
+  | 'convict'
+  // Slice 49: an infirmary's physician, and an asklepieion's stretcher-bearers.
+  | 'physician'
+  | 'bearer';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -929,6 +1026,9 @@ export class Walkers {
   private readonly crooks: Record<'pickpocket' | 'vandal' | 'arsonist' | 'smuggler', [Look, Look]>;
   /** Slice 45: one of the caught, walked to the court. */
   private readonly convicts: Look;
+  /** Slice 49: physicians on their rounds; stretcher-bearers [going out, carrying someone back]. */
+  private readonly physicians: Look;
+  private readonly bearers: [Look, Look];
   private readonly all: Look[];
   /** Where each walker with a job was drawn this frame (for hovering, clicking and following). */
   readonly serviceAt = new Map<number, { pos: THREE.Vector3; kind: ServiceKind }>();
@@ -976,7 +1076,12 @@ export class Walkers {
       smuggler: [small(smuggler(false)), small(smuggler(true))],
     };
     this.convicts = small(convict());
-    this.all = [this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
+    // Slice 49.
+    this.physicians = small(physician());
+    // (In the big batch with the carts: two men and a litter run as many vertices as a cart, and among the people they would raise
+    // every walker's cost to theirs; see MergedLooks' tiers in looks.ts.)
+    this.bearers = [big(bearers(false)), big(bearers(true))];
+    this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
   }
 
   get count(): number {
@@ -1011,6 +1116,19 @@ export class Walkers {
     return [x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, (x1 - x0) / len, (z1 - z0) / len];
   }
 
+  // Slice 49
+  /** Where a watchman walking one of the caught is drawn: a step behind him on his way (null: he walks nobody, or the convict is handed in). */
+  private behind(state: SimState, w: Walker, alpha: number): [number, number, number, number, number] | null {
+    const c = state.walkers.find((o) => o.id === w.meat && o.kind === 'convict' && o.people > 0);
+    if (!c) return null;
+    const cum = this.cum(c);
+    const total = cum[cum.length - 1];
+    const lead = Math.min(total, cum[c.seg] + c.along + (c.wait > 0 ? 0 : alpha * PATROL_SPEED));
+    const d = Math.max(0, lead - ESCORT_STEP);
+    const [x, z, dx, dz] = this.at(c, cum, d);
+    return [x, z, dx, dz, lead < total && c.wait <= 0 ? 1 : 0];
+  }
+
   update(state: SimState, alpha: number, _time: number): void {
     const live = new Set<number>();
     const dress = col(PAL.carrierDress);
@@ -1030,6 +1148,9 @@ export class Walkers {
     const gangs = new Set(state.crime.gangs.map((g) => g.den));
     const gangRed = col(GANG_RED);
     const convictTunic = col(CONVICT_TUNIC);
+    // Slice 49.
+    const physicianRobe = col(PHYSICIAN_ROBE);
+    const bearerTunic = col(BEARER_TUNIC);
     // Caravans waiting at the same gate stand one behind the other along the road, not in one another (slice 22): each one's place in the line, by who came first.
     const queue = new Map<number, number>();
     const gates = new Map<string, number>();
@@ -1047,7 +1168,7 @@ export class Walkers {
       // (Waiting, as a hunter stalking: no creeping on between ticks.)
       // (Slice 41: the new criminals go at a thief's pace in the sim, a pickpocket at half that among a crowd.)
       // (Slice 45: one of the caught walks at the watchman's pace.)
-      const pace = w.kind === 'pickpocket' && w.steps === 1 && !w.back ? MINGLE_SPEED : w.kind === 'vandal' || w.kind === 'arsonist' || w.kind === 'smuggler' || w.kind === 'pickpocket' ? THIEF_SPEED : w.kind === 'convict' ? PATROL_SPEED : speedOf(w);
+      const pace = w.kind === 'pickpocket' && w.steps === 1 && !w.back ? MINGLE_SPEED : w.kind === 'vandal' || w.kind === 'arsonist' || w.kind === 'smuggler' || w.kind === 'pickpocket' ? THIEF_SPEED : w.kind === 'convict' ? PATROL_SPEED : w.kind === 'physician' ? CARRIER_SPEED : w.kind === 'bearer' ? BEARER_SPEED : speedOf(w);
       const lead = Math.min(total, cum[w.seg] + w.along + (w.wait > 0 ? 0 : alpha * pace));
       if (w.kind === 'caravan') {
         const back = (queue.get(w.id) ?? 0) * (DROVER_GAP + w.people * DONKEY_SPACING + 0.35);
@@ -1073,8 +1194,10 @@ export class Walkers {
         }
       }
       if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist') {
-        const [x, z, dx, dz] = this.at(w, cum, lead);
-        const moving = lead < total && w.wait <= 0 ? 1 : 0;
+        // (Slice 49, slice 45's finding: a watchman walking one of the caught is drawn a step behind him, on his way.)
+        const behind = w.kind === 'watchman' && w.meat > 0 ? this.behind(state, w, alpha) : null;
+        const [x, z, dx, dz] = behind ?? this.at(w, cum, lead);
+        const moving = behind ? behind[4] : lead < total && w.wait <= 0 ? 1 : 0;
         const cart = w.kind === 'cart';
         // In step with the legs (see STRIDE): highest as the legs pass, lowest at each footfall.
         const phase = ((x + z) * Math.PI * 2) / STRIDE;
@@ -1108,6 +1231,9 @@ export class Walkers {
           if (w.people <= 0) continue;
           this.convicts.push(this.m, still(this.c.copy(convictTunic)));
         }
+        // Slice 49: a physician on her round; a pair of stretcher-bearers, carrying someone back once they have lifted her.
+        else if (w.kind === 'physician') this.physicians.push(this.m, still(this.c.copy(physicianRobe)));
+        else if (w.kind === 'bearer') this.bearers[w.back && w.food === 1 ? 1 : 0].push(this.m, still(this.c.copy(bearerTunic)));
         else if (w.kind === 'thief') {
           // (Caught: gone from the street at once.)
           if (w.people <= 0) continue;

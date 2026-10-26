@@ -67,6 +67,8 @@ import { TradePanel } from './ui/trade';
 import { ShipyardPanel } from './ui/shipyard';
 // Slice 45: the crime overlay's colours. (Merge of slice 45: the court's and the prison's panels are the building panel's, through its registry.)
 import { CRIME_KIND_TONES } from './render/overlay';
+// Slice 49: health, for the probes.
+import { healthFigures } from './sim/health';
 import { blockadeWords } from './sim/blockades';
 import { shipNews, SHIP_AWAY, SHIP_COMING, tradingPost } from './sim/trade';
 import { giftNews, giftWords } from './sim/diplomacy';
@@ -343,6 +345,11 @@ interface Probe {
   overview?: (page?: string | null) => { open: boolean; page: string; text: string };
   /** Time spent bringing the overview up to date (ms, summed). */
   overviewMs?: number;
+  // Slice 49
+  /** Health: the city's figures, the plague in Greece, the outbreak, the quarantine; what is drawn (the sick at doors, patients, braziers, pennants, physicians and bearers walking); the trade panel's and the building panel's text. */
+  health?: () => { on: boolean; sick: number; plague: number; inBeds: number; average: number; called: number; risk: string; greece: Array<{ city: string; warned: boolean }>; outbreak: { struck: number; dead: number; fled: number } | null; quarantine: number; drawn: { doors: number; beds: number; fires: number; flags: number }; physicians: number; bearers: number; ship: number; trade: string; building: string; lines: string[] };
+  /** Order or lift the quarantine (as the panels' button does). */
+  quarantine?: (on: boolean) => void;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -410,6 +417,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'ambition', on: true });
     // Slice 41: and the new kinds of crime and gangs.
     sim.enqueue({ type: 'crimes', on: true });
+    // Slice 49: and health (no plague in the town's first year).
+    sim.enqueue({ type: 'health', on: true });
     sim.flush();
     // Slice 46: on a land founded from the new-game screen, the road in is laid at once (from the edge nearest the city's ground).
     if (founding) {
@@ -629,6 +638,8 @@ function start(preparedTown: string | null): void {
   const CRIME_LEGEND = `<b>Crime</b>${(['theft', 'pickpocket', 'vandal', 'arson', 'smuggling'] as const).map((k) => `<span><i style="background:${CRIME_KIND_TONES[k]}"></i>${{ theft: 'Theft', pickpocket: 'Picking pockets', vandal: 'Smashing things', arson: 'Burning', smuggling: 'Smuggling' }[k]}</span>`).join('')}<span><i class="fine"></i>Content</span>`;
   legend.innerHTML = MISSING_LEGEND;
   let legendFor = 'missing';
+  // Slice 49: the health overlay's legend.
+  const HEALTH_LEGEND = '<b>Health</b><span><i class="fine"></i>Well or healthy</span><span><i class="want"></i>Sickly</span><span><i class="warn"></i>Ailing</span><span><i style="background:#7fb4dc"></i>Someone sick</span><span><i style="background:#5a2a4a"></i>Plague</span>';
   const lines = new TownLines(notices, (l) => {
     if (l.need === 'money') return ledger.toggle(true);
     // Slice 39: a laurel's line opens the Ambition panel.
@@ -1268,6 +1279,8 @@ function start(preparedTown: string | null): void {
   const SELLERS: ToolName[] = ['agora', 'stall', 'fleecestall', 'winestall'];
   /** What Z cycles through: the offices. */
   const OFFICES: ToolName[] = ['taxoffice', 'watchpost', 'architect', 'court', 'prison'];
+  // Slice 49: the infirmary and the asklepieion (Z ×6, Z ×7).
+  OFFICES.push('infirmary', 'asklepieion');
   const next = (list: ToolName[], now: ToolName | null, back = false): ToolName => {
     const i = now ? list.indexOf(now) : -1;
     if (i < 0) return list[0];
@@ -1433,6 +1446,11 @@ function start(preparedTown: string | null): void {
       }
       if (k === 'c') {
         overlay.toggle('culture');
+        return true;
+      }
+      // Slice 49: J after crime: the health overlay, then off.
+      if (k === 'j' && (overlay.wanted === 'crime' || overlay.wanted === 'health')) {
+        overlay.wanted = overlay.wanted === 'crime' ? 'health' : null;
         return true;
       }
       if (k === 'j') {
@@ -2069,6 +2087,38 @@ function start(preparedTown: string | null): void {
   probe.trade = (open, tab) => {
     tradePanel.toggle(open);
     if (open && tab) tradePanel.showTab(tab);
+  };
+  // Slice 49
+  probe.health = () => {
+    const s = sim.state;
+    const f = healthFigures(s);
+    const o = s.health.outbreak;
+    tradePanel.update(s, map, Infinity);
+    if (buildingPanel.open) buildingPanel.update(s, map, Infinity);
+    const sea = s.world.routes.find((r) => r.kind === 'sea' && r.city === 'athens');
+    return {
+      on: f.on,
+      sick: f.sick,
+      plague: f.plague,
+      inBeds: f.inBeds,
+      average: f.average,
+      called: f.called,
+      risk: f.risk,
+      greece: s.health.greece.map((p) => ({ city: p.city, warned: p.warned > 0 })),
+      outbreak: o ? { struck: o.struck.length, dead: o.dead, fled: o.fled } : null,
+      quarantine: Math.max(0, s.health.quarantine - s.tick),
+      drawn: city.health.drawn,
+      physicians: s.walkers.filter((w) => w.kind === 'physician').length,
+      bearers: s.walkers.filter((w) => w.kind === 'bearer').length,
+      ship: sea?.ship?.phase ?? -1,
+      trade: tradePanel.text,
+      building: buildingPanel.text,
+      lines: townLines(s, map).filter((l) => l.need === 'health').map((l) => l.text),
+    };
+  };
+  probe.quarantine = (on) => {
+    sim.enqueue({ type: 'quarantine', on });
+    sim.flush();
   };
   probe.ship = () => {
     const sh = sim.state.trade.ship;
@@ -2734,6 +2784,14 @@ function start(preparedTown: string | null): void {
     if (!legend.hidden && legendFor !== overlay.mode) {
       legendFor = overlay.mode as string;
       legend.innerHTML = legendFor === 'variety' ? VARIETY_LEGEND : legendFor === 'crime' ? CRIME_LEGEND : MISSING_LEGEND;
+    }
+    // Slice 49: the health overlay's legend.
+    if (overlay.mode === 'health') {
+      legend.hidden = false;
+      if (legendFor !== 'health') {
+        legendFor = 'health';
+        legend.innerHTML = HEALTH_LEGEND;
+      }
     }
     signs.update(s, camera, time, overlay.mode === 'missing');
     hazardView.update(s, camera, time, city.walkers.serviceAt);

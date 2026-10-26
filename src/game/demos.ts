@@ -95,6 +95,10 @@ import { ageOf } from '../sim/folk';
 import { livedIn } from '../sim/buildings';
 // Slice 51
 import type { OverviewPage } from '../ui/overview';
+// Slice 49
+import { buildingRefusal, INFIRMARY_COST } from '../sim/build';
+import { fallIll, PHYSICIAN_RANGE, startGreekPlague } from '../sim/health';
+import { roadsBeside } from '../sim/rounds';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -1940,7 +1944,17 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     crimes(sim, true);
     // Slice 39: and the ambitions (off while the history plays, so no history changes): what the town already meets is recorded quietly as it opens.
     ambition(sim, true);
+    // Slice 49: and health (off while the history plays): every home at its fair level as it opens, nobody ill for four months, no plague for a year.
+    health(sim, true);
   };
+}
+
+// Slice 49
+/** Switch health on or off now (a command, so a replay of the log does the same). */
+function health(sim: Sim, on: boolean): void {
+  if (sim.state.health.on === on) return;
+  sim.enqueue({ type: 'health', on });
+  sim.flush();
 }
 
 /** Slice 39: switch the ambitions on or off now (a command, so a replay of the log does the same). */
@@ -3589,6 +3603,12 @@ const SCENES: Record<string, Demo> = {
   overviewempire: { view: 'empire', setup: empireCityTown, overlay: 'missing', overview: 'empire' },
   // Merge of slice 51 with slice 45: #jailbreak's town (a court and a crowded, restless prison) on the Crime page, with the court's figures.
   overviewcourt: { view: 'jailbreak', setup: jailbreakTown, overlay: 'crime', overview: 'crime' },
+  // Slice 49: #town with health on and an infirmary in its hut streets, a physician out on her round, three homes sick (one
+  // coughing at its door), the health overlay on and the sickliest home's panel open; #athensship's town two weeks before
+  // her next call, with no infirmary or asklepieion, the town just warned of plague in Athens, the trade panel
+  // open on the Athens route with the quarantine order at its head.
+  physicians: { view: 'physicians', speed: 'paused', setup: physiciansTown, overlay: 'health', overlayOn: true, open: sickliestHome },
+  plague: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', trade: 'athens-sea' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -3988,4 +4008,96 @@ function kindTown(kind: LandKind, size: number, word: string): (sim: Sim) => voi
       sim.flush();
     }
   };
+}
+
+// Slice 49
+/**
+ * Physicians and plague (slice 49). #physicians: #town with health on (every
+ * home at its fair level), an infirmary built beside the road nearest its
+ * sickliest home and staffed, played on until its first physician is out;
+ * then three of the sickliest homes within her reach fall ill (staged: health's
+ * four months' grace would keep everyone well for a while yet), and three days
+ * on it opens, paused, the physician out on her round. #plague: #athensship's town played
+ * on through her call, with no infirmary or asklepieion, and on to about two
+ * weeks before her next call; then plague breaks out in Athens (staged:
+ * Greece's dice would give it once in a dozen years) and the town is warned;
+ * it opens paused, so the choice is yours before a day passes. Played on
+ * without a quarantine, her ship brings it ashore at the homes by the quay
+ * and it spreads street to street; an infirmary or an asklepieion built by
+ * the quay in the two weeks stops it at the first house.
+ */
+/** How many homes #physicians stages sick. */
+const PHYSICIANS_SICK = 3;
+/** How long before her next call #plague's town is warned (days). */
+const PLAGUE_WARNING_DAYS = 14;
+/** How long the plague in Athens lasts (#plague). */
+const PLAGUE_ATHENS = 3 * TICKS_PER_MONTH;
+/** The longest any of slice 49's staging waits. */
+const HEALTH_GUARD = 4 * TICKS_PER_MONTH;
+
+/** Build an infirmary or an asklepieion as near a point as it fits beside a road (the nearest spot first, ties by row then column). */
+function buildNear(sim: Sim, kind: 'infirmary' | 'asklepieion', cx: number, cz: number, reach = 14): Building | null {
+  const s = sim.state;
+  const size = sim.map.size;
+  const side = kind === 'infirmary' ? 2 : 4;
+  const spots: Array<[number, number, number]> = [];
+  for (let z = Math.max(0, Math.floor(cz - reach)); z < Math.min(size - side, cz + reach); z++) {
+    for (let x = Math.max(0, Math.floor(cx - reach)); x < Math.min(size - side, cx + reach); x++) {
+      if (buildingRefusal(sim.map, s, kind, x, z) !== '') continue;
+      if (!roadsBeside(s, size, { x, z, kind, estate: false } as Building).length) continue;
+      spots.push([dhypot(x + side / 2 - cx, z + side / 2 - cz), x, z]);
+    }
+  }
+  spots.sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1]);
+  for (const [, x, z] of spots) {
+    const before = s.buildings.length;
+    sim.enqueue({ type: 'build', kind, at: [z * size + x] });
+    sim.flush();
+    if (s.buildings.length > before) return s.buildings.find((b) => b.kind === kind && b.x === x && b.z === z) ?? null;
+  }
+  return null;
+}
+
+/** Lived-in homes, the sickliest first. */
+const sickliest = (s: SimState): Building[] => s.buildings.filter((b) => livedIn(b) && b.family && b.health > 0).sort((a, b) => a.health - b.health || a.id - b.id);
+
+function physiciansTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  const s = sim.state;
+  health(sim, true);
+  const worst = sickliest(s)[0];
+  if (!worst) return;
+  waitFor(sim, s.tick, INFIRMARY_COST + JOBS.infirmary * WAGE);
+  const inf = buildNear(sim, 'infirmary', worst.x + 1, worst.z + 1, 22);
+  if (!inf) return;
+  const out = (): boolean => s.walkers.some((w) => w.kind === 'physician' && w.origin === inf.id);
+  for (let guard = 0; guard < HEALTH_GUARD && !(inf.workers > 0 && out()); guard += 5) sim.run(5);
+  // Three of the sickliest homes within her reach fall ill.
+  const near = sickliest(s).filter((b) => dhypot(b.x - inf.x, b.z - inf.z) <= PHYSICIAN_RANGE / 2);
+  near.slice(0, PHYSICIANS_SICK).forEach((b, i) => fallIll(s, sim.map, b, false, 4990 + i));
+  // (A few days on, so a physician is out in the streets on her round.)
+  sim.run(3 * TICKS_PER_DAY);
+}
+
+/** #physicians' panel: the sickliest home with someone sick at home (or the sickliest). */
+function sickliestHome(s: SimState): number {
+  const homes = sickliest(s);
+  return (homes.find((b) => s.health.sick.some((x) => x.home === b.id && x.bed === 0)) ?? homes[0])?.id ?? 0;
+}
+
+function plagueTown(sim: Sim): void {
+  seaTown('athensship')(sim);
+  const s = sim.state;
+  health(sim, true);
+  const r = routeOf(s, 'athens', 'sea');
+  const post = tradingPost(s);
+  if (!r || !post) return;
+  // Her call over.
+  for (let guard = 0; guard < HEALTH_GUARD && r.ship && r.ship.phase !== SHIP_AWAY; guard += 5) sim.run(5);
+  // (No infirmary or asklepieion: building one by the quay in the two weeks is one of the answers.)
+  // On to two weeks before her next call.
+  const at = r.next - PLAGUE_WARNING_DAYS * TICKS_PER_DAY;
+  if (at > s.tick) sim.run(at - s.tick);
+  startGreekPlague(s, 'athens', PLAGUE_ATHENS);
+  sim.run(1);
 }

@@ -20,6 +20,8 @@ import { ESTATE, GREAT_ESTATE } from './buildings';
 import { estateStocked } from './estates';
 // Slice 45: the court's sentences.
 import { justiceMoods } from './justice';
+// Slice 49
+import { healthMoods } from './health';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -443,6 +445,8 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
     if (b.people >= capacity(b) && b.level >= HUT) add(0, 'A full house');
     // Slice 45: the court's sentences.
     for (const m of justiceMoods(s, b)) add(m.w, m.text);
+    // Slice 49: sickness in the house, the plague, a death lately.
+    for (const m of healthMoods(s, b)) add(m.w, m.text);
   }
   // A few days from giving up: as low as it goes.
   const warn = warningOf(s, b);

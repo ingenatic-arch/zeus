@@ -32,6 +32,8 @@ import { WARE_ICONS } from './wareicons';
 import { ARMOUR, GRAPES, HORSES, MARBLE } from '../sim/foods';
 // Slice 45: the court and the prison.
 import { awayLines, crimeWords, STOCKS_SPAN, type CaseKind } from '../sim/justice';
+// Slice 49: a home's health.
+import { homeHealthHtml } from './health';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -176,6 +178,13 @@ function storyLine(f: Family, e: Story, i: number): string {
     }
     case 'freed':
       return `${e.names[0]} came home from ${e.names[1] ?? 'prison'}`;
+    // Slice 49.
+    case 'ill':
+      return e.n ? `${e.names[0]} fell ill of the plague` : `${e.names[0]} fell ill with a fever`;
+    case 'mended':
+      return e.n ? `${e.names[0]} lived through the plague` : `${e.names[0]} was well again`;
+    case 'died':
+      return e.n ? `${e.names[0]} died of the plague` : `${e.names[0]} died of a fever`;
   }
 }
 
@@ -513,6 +522,7 @@ ${hazardBlock(s, map, b)}
 ${crimeBlock(s, map, b)}
 ${awayBlock(s, map, b)}
 ${moodBlock(mood)}
+${homeHealthHtml(s, b)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}
 <section class="members"><h3>Who lives here</h3><ul>${members}</ul></section>

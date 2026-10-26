@@ -329,6 +329,9 @@ const NOBODY = { frame: { x: 0, y: 0, z: 0, yaw: 0, mirror: 1 }, list: [] as Spo
 // Slice 45: the magistrate's white robe, and the prison guards' dun tunics.
 const MAGISTRATE_ROBE = '#ece4d2';
 const GUARD_TUNIC = '#6b5a48';
+// Slice 49: the physicians' white robes, the asklepieion's priest and attendants.
+const HEALER_ROBE = '#f2ede2';
+const ATTENDANT_TUNIC = '#9fb8b4';
 
 const TUNICS = ['#8a7a52', '#7b5b3a', '#5f6a4a', '#a35a3a', '#4e6a86', '#b8ab8e'].map((c) => col(c));
 const DRESSES = ['#b8573a', '#3f6f9a', '#d2a640', '#6f8a4e', '#8c5a7a', '#e2d6bc'].map((c) => col(c));
@@ -451,6 +454,11 @@ export class Jobfolk {
         return [at(0.24, 0.0, E, P.architect, 16, col(MAGISTRATE_ROBE), { y: 0.24 }), at(0.92, -0.6, S, P.scribe, 9, t(1)), at(1.2, 0.6, N, P.scribe, 10, t(2)), at(1.2, -0.6, S, P.scribe, 11, t(3)), at(0.92, 0.6, N, P.scribe, 9, t(4))];
       case 'prison':
         return [at(1.18, -0.42, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.8 }), at(-0.02, 0.4, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.6 }), at(0.3, -0.85, E, P.sentry, 50, col(GUARD_TUNIC), { to: [1.1, -0.85] }), at(1.18, 0.75, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.8 }), at(0.3, 0.85, E, P.sentry, 56, col(GUARD_TUNIC), { to: [1.0, 0.85] }), at(0.0, -0.4, E, P.sentry, 1, col(GUARD_TUNIC), { look: 0.5 })];
+      // Slice 49: a physician under the infirmary's porch, one in the herb beds; at the asklepieion, the priest at the altar, attendants bent over the beds under the stoa, one carrying water from the spring to them, one in the herb garden.
+      case 'infirmary':
+        return [at(0.32, -0.25, E, P.architect, 16, col(HEALER_ROBE), { y: 0.05 }), at(0.72, 0.7, N, P.pick, 12, col(HEALER_ROBE), { y: 0.06 })];
+      case 'asklepieion':
+        return [at(1.05, 0.0, E, P.priestess, 30, col(PAL.priestessRobe), { y: 0.06 }), at(0.05, -1.28, S, P.pick, 12, col(ATTENDANT_TUNIC), { y: 0.06 }), at(0.55, 0.05, S, P.amphora, 70, col(ATTENDANT_TUNIC), { y: 0.06, to: [0.9, -1.28] }), at(0.75, -1.28, S, P.pick, 13, col(HEALER_ROBE), { y: 0.06 }), at(0.6, 1.25, N, P.pick, 12, d(1), { y: 0.06 })];
       default:
         return [];
     }

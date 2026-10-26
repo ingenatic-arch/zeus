@@ -191,6 +191,15 @@
  * after loading, and say that months from before it weren't kept. Nothing
  * else changes.
  *
+ * Slice 49 (Physicians and plague): health is on if crime is (a game played
+ * on, which turned both on as it began) and off otherwise, counted from the
+ * tick the save loads in: nobody falls ill for four months and no plague
+ * comes for a year. Every building's health is 0, which a lived-in home reads
+ * as "not yet reckoned" and takes its fair level on its first tick; no
+ * physician has called; nobody is sick; no city of Greece has plague; there is
+ * no outbreak, fever or quarantine; and the physicians' round has walked
+ * nowhere. Nothing else changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -231,6 +240,8 @@ import { mendMessages } from './messages';
 import { WARES } from './foods';
 // Slice 51.
 import { freshAnnals } from './annals';
+// Slice 49.
+import { freshHealth } from './health';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -295,6 +306,7 @@ export function migrate(st: unknown): number {
   if (st.version === 43) fromSlice47(st);
   if (st.version === 44) fromSlice46(st);
   if (st.version === 45) fromSlice51(st);
+  if (st.version === 46) fromSlice49(st);
   return from;
 }
 
@@ -1133,5 +1145,32 @@ function fromSlice46(st: Record<string, unknown>): void {
  */
 function fromSlice51(st: Record<string, unknown>): void {
   if (!isObj(st.annals)) st.annals = freshAnnals(typeof st.tick === 'number' ? st.tick : 0);
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 49 (Physicians and plague): see the note above. Only its own fields,
+ * each only if it is missing: every building's health and physician's call,
+ * the physicians' round record, and `health` (on if crime is).
+ */
+function fromSlice49(st: Record<string, unknown>): void {
+  const tick = typeof st.tick === 'number' ? st.tick : 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as unknown[]) {
+      if (!isObj(b)) continue;
+      if (typeof b.health !== 'number') b.health = 0;
+      if (typeof b.physician !== 'number') b.physician = 0;
+    }
+  }
+  if (isObj(st.rounds) && !isObj(st.rounds.health)) {
+    const land = st.land;
+    const size = isObj(land) && typeof land.size === 'number' ? land.size : BAY.size;
+    const n = size * size;
+    st.rounds.health = { walked: new Array<number>(n).fill(0), exits: new Array<number>(n).fill(0) };
+  }
+  if (!isObj(st.health)) {
+    const crime = st.crime;
+    st.health = freshHealth(isObj(crime) && crime.on === true, tick);
+  }
   st.version = (st.version as number) + 1;
 }

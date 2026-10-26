@@ -517,7 +517,8 @@ export class MessagePopups {
     this.el.className = `msg-pop ${URGENCY[m.u]}`;
     // (The title in bold, then the rest of the words, not the title's again.)
     const title = titleOf(m);
-    const after = m.words.startsWith(title) ? m.words.slice(title.length).replace(/^[\s,:;.·]+/, '') : m.words;
+    // (Slice 49: and an exclamation mark after the title, as in "Plague in the city! It came in …".)
+    const after = m.words.startsWith(title) ? m.words.slice(title.length).replace(/^[\s,:;.·!]+/, '') : m.words;
     const rest = after ? `${after[0].toUpperCase()}${after.slice(1)}` : '';
     this.el.innerHTML = `<span class="ic">${iconOfKind(m.kind)}</span><div class="txt"><b>${esc(title)}</b>${rest ? `<p>${esc(rest)}</p>` : ''}${m.at ? '<span class="go">Click to go there</span>' : ''}</div><button class="close" title="Put away" aria-label="Put away">×</button>`;
     this.el.hidden = false;

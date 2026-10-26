@@ -280,7 +280,8 @@ describe('saves and sameness', () => {
     old.version = 41;
     expect(migrate(old)).toBe(41);
     expect(old.version).toBe(SIM_STATE_VERSION);
-    expect(JSON.stringify(old)).toBe(JSON.stringify(sim.state));
+    // (Slice 49: compared field by field, not as text. A later slice's fields on a building come after slice 48's in a new building, but before them here, where slice 48's step adds its fields back at the end.)
+    expect(old).toEqual(JSON.parse(JSON.stringify(sim.state)));
   });
 });
 

@@ -50,6 +50,8 @@ import { fromStores } from './stores';
 import { ARMOUR, CHEESE, COPPER, FLEECE, held, HORSES, MARBLE, MEAT, OIL, setHeld, TIMBER, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
 import { MEN } from './folk';
 import { blockaded } from './lanes';
+// Slice 49.
+import { quarantined } from './health';
 import { door, roadsBeside } from './rounds';
 // Slice 47: the stores the trading post's roads reach, a shipment called off, and this line's ships at the oars.
 import { nearestReached, roadSearch } from './roads';
@@ -631,7 +633,8 @@ const allIn = (x: Cargo): boolean => x.items.every((it) => it.got >= it.amount &
 function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
   if (x.phase === 'loading') {
     const out = s.walkers.filter((w) => w.kind === 'shipper' && w.origin === x.id).length;
-    if (out < PORTERS_MOST && s.tick >= x.next) {
+    // (Slice 49: under quarantine the porters carry nothing more to the quay.)
+    if (out < PORTERS_MOST && s.tick >= x.next && !quarantined(s)) {
       const i = x.items.findIndex((it) => it.amount - it.got - it.out > 0);
       if (i >= 0) {
         sendPorter(s, map, x, i);
@@ -650,7 +653,8 @@ function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
     const late = s.tick >= x.at + SHIP_WAITS && out === 0;
     // (A boat rows the loads out to her one at a time: she sails once the last is aboard.)
     const rowed = !v || s.tick >= v.since + rowTicks(x);
-    if (anchored && !closed && rowed && (allIn(x) || late) && x.items.some((it) => it.got > 0)) sail(s, x);
+    // (Slice 49: nor does she sail under quarantine.)
+    if (anchored && !closed && !quarantined(s) && rowed && (allIn(x) || late) && x.items.some((it) => it.got > 0)) sail(s, x);
     // Slice 47 (review of slice 43): nothing came down to her in four months: she is called off, and the page says why.
     else if (late && anchored && !x.items.some((it) => it.got > 0)) callOff(s, map, x, `nothing reached your quay in four months: ${stallWords(s, x)}`);
   } else if (x.phase === 'leaving') {

@@ -198,4 +198,8 @@ export const VIEWS: Record<string, CameraView> = {
   court: { x: 87, z: 49, yaw: -0.3, dist: 14, tilt: -0.05 },
   // #jailbreak: the crowded prison right of its panel, the court beside it and the lower street the prisoners run home to.
   jailbreak: { x: 88.5, z: 53.5, yaw: -0.3, dist: 15, tilt: -0.05 },
+  // Slice 49, #physicians: the hut streets in the west, the infirmary at their east end and its first sick homes, right of the home's panel.
+  physicians: { x: 17, z: 49, yaw: -0.3, dist: 16, tilt: -0.02 },
+  // #plague: the town's south side, the road down to the trading post, the quay where her ship calls and (review of slice 49) the anchorage off it where a quarantine holds her.
+  plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
 };

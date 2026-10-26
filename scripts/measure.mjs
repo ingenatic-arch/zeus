@@ -332,6 +332,9 @@ for (const [hash, views] of [
   // Slice 51: the overview open on #town's City page, and on #empire's city's Empire page.
   ['#overview-paused-shot', [null]],
   ['#overviewempire-paused-shot', [null]],
+  // Slice 49: the hut streets with their infirmary, a physician out and the sick at their doors, the health overlay on; the quay town warned of plague in Athens, the trade panel open.
+  ['#physicians-paused-shot', [null, 'town']],
+  ['#plague-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

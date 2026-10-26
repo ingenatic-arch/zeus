@@ -17,12 +17,15 @@ import type { Messages } from './messages';
 import type { Land } from '../map/lands';
 // Slice 51: the town's annals, a figure for each month (annals.ts).
 import type { Annals } from './annals';
+// Slice 49
+import type { Health } from './health';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
 // (Slice 46: many lands, renumbered 45 at its merge.)
 // (Slice 51: the overview, renumbered 46 at its merge.)
-export const SIM_STATE_VERSION = 46;
+// (Slice 49: physicians and plague, renumbered 47 at its merge.)
+export const SIM_STATE_VERSION = 47;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -70,17 +73,22 @@ export type BuildingKind =
   | 'horsefarm'
   // Slice 45: the court and the prison (justice.ts).
   | 'court'
-  | 'prison';
+  | 'prison'
+  // Slice 49: the infirmary and the asklepieion (health.ts).
+  | 'infirmary'
+  | 'asklepieion';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
 
 /** Every walker's round with a record of the streets: the services, the tax collector's, the watchman's (`fire`) and the inspector's (`wear`). */
-export type Round = Service | 'tax' | 'fire' | 'wear';
+export type Round = Service | 'tax' | 'fire' | 'wear'
+  // Slice 49: the physicians' (health.ts).
+  | 'health';
 /** Every round, in a fixed order (what a save holds a record for). */
-export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax', 'fire', 'wear'];
+export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax', 'fire', 'wear', 'health'];
 
 /**
  * A building on a square footprint (2 x 2 for homes, fountains, shrines, tax offices,
@@ -191,6 +199,11 @@ export interface Building {
   first: 0 | 1;
   /** A granary's or storehouse's rule for each ware, in ware order (see stores.ts: what it does with it, and how full it fills); empty until it is given one (a ware past its end: 0), and for every other building. 0: accept, all of its room (as before). */
   rules: number[];
+  // Slice 49: health (health.ts).
+  /** A lived-in home's health, 0 to 100 (0: not yet reckoned, and for everything else). */
+  health: number;
+  /** A home: the tick a physician last called (0: never). */
+  physician: number;
 }
 
 /** Slice 36: what a home can need: a service walked round the streets, or what an estate's porter fetches (estates.ts). */
@@ -208,9 +221,12 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   | 'arsonist'
   | 'smuggler'
   // Slice 45: one of the caught, walked to the court by a watchman (justice.ts).
-  | 'convict';
+  | 'convict'
+  // Slice 49: an infirmary's physician, and an asklepieion's pair of stretcher-bearers (health.ts).
+  | 'physician'
+  | 'bearer';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -237,7 +253,11 @@ export interface Story {
     | 'den'
     // Slice 45: one of them sentenced by the court (names: who, the punishment, the crime's kind, and the place for the stocks, prison or hard labour; `n` the fine or the months), or home from prison or hard labour (names: who, where from).
     | 'sentence'
-    | 'freed';
+    | 'freed'
+    // Slice 49: one of them fell ill (names: who; `n` 1 the plague), mended, or died of it.
+    | 'ill'
+    | 'mended'
+    | 'died';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */
@@ -546,6 +566,8 @@ export interface SimState {
   ambition: Ambition;
   /** Slice 44: the town's message log, its read marks and pins, and how far it has heard (messages.ts, heard.ts). */
   messages: Messages;
+  /** Slice 49: health's switch, the sick, plague in Greece and in the city, the quarantine and the month's tallies (health.ts; each home's health is its `health`). */
+  health: Health;
   /** Slice 42: the land the city is founded on, its kind, size and seed (src/map/lands.ts; none: the Bay, 128 tiles a side). */
   land?: Land;
   /** Slice 51: the town's annals, a figure for each month and the year's money and crime by kind (annals.ts). */

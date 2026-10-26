@@ -80,9 +80,9 @@ const BOSSES = ['road', 'clear', 'undo', 'layers'] as const;
 type Boss = (typeof BOSSES)[number];
 
 /** Every overlay, in the order the overlays' list shows them (the open tab's first). */
-const ALL_OVERLAYS: readonly OverlayMode[] = ['missing', 'water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear', 'crime'];
+const ALL_OVERLAYS: readonly OverlayMode[] = ['missing', 'water', 'food', 'variety', 'oil', 'fleece', 'wine', 'religion', 'culture', 'tax', 'fire', 'wear', 'crime', 'health'];
 /** An overlay's colour on its row (as its walkers' paths are drawn). */
-const OVERLAY_COLOUR: Record<OverlayMode, string> = { missing: '#7a8f3a', water: '#4f9be0', food: '#e0a548', variety: '#c98f2a', oil: '#8aa83a', fleece: '#c8b68a', wine: '#8e2f4e', religion: '#a98ae0', culture: '#e3778f', tax: '#4f9f88', fire: '#d8542a', wear: '#8a7458', crime: '#5a4e68' };
+const OVERLAY_COLOUR: Record<OverlayMode, string> = { missing: '#7a8f3a', water: '#4f9be0', food: '#e0a548', variety: '#c98f2a', oil: '#8aa83a', fleece: '#c8b68a', wine: '#8e2f4e', religion: '#a98ae0', culture: '#e3778f', tax: '#4f9f88', fire: '#d8542a', wear: '#8a7458', crime: '#5a4e68', health: '#4aa878' };
 
 /** The drachmas a tool's building costs (0 for a tool with none, or a cost by the tile). */
 const costOf = (t: ToolName): number => Number(/^\d[\d,]*/.exec(INFO[t].cost)?.[0].replace(/,/g, '') ?? 0);

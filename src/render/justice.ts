@@ -19,8 +19,8 @@ import { lumpy, merge, type Part } from './trees';
  * the road) facing +x; a 3×3 runs -1.5..1.5.
  */
 
-/** A convict's plain grey tunic, and his rope. */
-export const CONVICT_TUNIC = '#8f897d';
+/** A convict's plain tunic of undyed wool (slice 49: lighter and warmer than the grey it was, which was lost on grey roads), and his rope. */
+export const CONVICT_TUNIC = '#c9ad7f';
 export const CONVICT_ROPE = '#c8b48a';
 
 // ---------------------------------------------------------------------------
@@ -240,8 +240,18 @@ function placed(parts: Part[], lx: number, lz: number, yaw: number, y = 0): Part
   return parts.map((p) => ({ geo: p.geo.clone().rotateY(yaw).translate(lx, y, lz), color: p.color }));
 }
 
-/** Where on an agora (its local frame) the stocks stand: at the corner of its square by the road. */
-const STOCKS_AT: [number, number] = [1.15, 1.18];
+/** Where on an agora (its local frame) the stocks stand: just outside its square, at the corner the camera usually looks from (slice 49: they stood at the corner by the road, often behind the awnings). */
+const STOCKS_AT: [number, number] = [1.68, 1.2];
+/** The camera's usual view: from the -x, +z side of what it looks at (cameraRig.ts's diagonal). */
+const VIEW_FROM: [number, number] = [-Math.SQRT1_2, Math.SQRT1_2];
+/** Which corner of a building turned by `yaw` faces the camera's usual view (signs of its local x and z). */
+function stocksCorner(yaw: number): [number, number] {
+  const c = Math.cos(yaw);
+  const sn = Math.sin(yaw);
+  const lx = VIEW_FROM[0] * c - VIEW_FROM[1] * sn;
+  const lz = VIEW_FROM[0] * sn + VIEW_FROM[1] * c;
+  return [lx >= 0 ? 1 : -1, lz >= 0 ? 1 : -1];
+}
 
 /** How Works places a building of its kinds (the agora and the prison): its middle, floor and turn. */
 export type WorksFrame = (s: SimState, b: Building) => { x: number; y: number; z: number; yaw: number };
@@ -288,14 +298,15 @@ export class JusticeView {
           const c = Math.cos(f.yaw);
           const sn = Math.sin(f.yaw);
           const parts: Part[] = [];
+          // (Slice 49, slice 45's finding: just outside the square, at its corner towards the camera's usual view, so the awnings don't hide them; facing out, towards the camera.)
+          const [sx, sz] = stocksCorner(f.yaw);
           who.slice(0, 2).forEach((p, i) => {
-            const lx = STOCKS_AT[0] - i * 0.55;
-            const lz = STOCKS_AT[1];
+            const lx = sx * STOCKS_AT[0];
+            const lz = sz * (STOCKS_AT[1] - i * 0.55);
             const wx = f.x + lx * c + lz * sn;
             const wz = f.z - lx * sn + lz * c;
             const y = this.map.heightAt(wx, wz) - f.y;
-            // (Facing the agora's square, across it.)
-            parts.push(...placed([...stocksFrame(), ...pinnedFigure(p.female, findBuilding(s, p.home)?.id ?? 0)], lx, lz, Math.PI / 2, Math.max(0, y)));
+            parts.push(...placed([...stocksFrame(), ...pinnedFigure(p.female, findBuilding(s, p.home)?.id ?? 0)], lx, lz, sx > 0 ? 0 : Math.PI, y));
           });
           return { geo: merge(parts), f };
         });
