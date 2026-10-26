@@ -328,7 +328,9 @@ export class ArmyView {
         (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.25 * Math.sin(time * 4);
       }
       // Its cell of the atlas (drawn again only when what it shows changes).
-      const cell = (c.n - 1) % MAX_BANNERS;
+      // (Review of slice 52: a cell for each banner drawn, not for each company's number: an ally's or a colony's militia
+      // numbers its companies from 1 as you do, so its 1st company and yours shared a cell and both flew the last drawn.)
+      const cell = k;
       const sig = `${c.n}:${c.emblem}:${c.kind}:${c.ally ?? ''}:${c.militia ?? ''}`;
       if (this.drawn.get(cell) !== sig) {
         this.drawn.set(cell, sig);

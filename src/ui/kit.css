@@ -355,13 +355,14 @@ svg.k-quay { display: block; width: 100%; height: 96px; }
 .kit table.goods td.good .k-tl { display: inline-flex; align-items: center; }
 .kit table.goods td.keep { white-space: nowrap; }
 .kit table.goods td, .kit table.goods th { font-size: 13.5px; }
-/* The map of Greece's panel is narrower (376 px): the tables close up so the stepper and the quay fit. */
-.greece-panel.kit table.goods td, .greece-panel.kit table.goods th { padding-left: 2px; padding-right: 2px; font-size: 13px; }
+/* The map of Greece's panel is narrower (376 px): the tables close up so the stepper and the quay fit. (Review of slice 52:
+   they still ran 7 px past the panel's edge, the quay column cut, so a little closer still.) */
+.greece-panel.kit table.goods td, .greece-panel.kit table.goods th { padding-left: 1px; padding-right: 1px; font-size: 13px; }
 .greece-panel.kit table.goods td.good .k-tog { gap: 4px; }
 .greece-panel.kit table.goods td.good svg.ic { width: 16px; height: 16px; margin-right: 2px; }
 .greece-panel.kit table.goods .k-step { gap: 2px; }
-.greece-panel.kit table.goods .k-step.small .k-boss { width: 22px; height: 22px; font-size: 15px; }
-.greece-panel.kit table.goods .k-step.small .k-well { min-width: 36px; }
+.greece-panel.kit table.goods .k-step.small .k-boss { width: 21px; height: 21px; font-size: 15px; }
+.greece-panel.kit table.goods .k-step.small .k-well { min-width: 34px; }
 .k-cofoot .n { font: 500 14px/1 var(--serif); color: var(--ink); }
 .k-army .k-key { margin: 0 0 4px; }
 

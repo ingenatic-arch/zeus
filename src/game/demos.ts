@@ -4331,12 +4331,10 @@ export function orderTown(sim: Sim): void {
     rule(quayStore, { ware: OIL, mode: GET });
     rule(quayStore, { ware: WINE, mode: GET });
   }
-  // The press's storehouse keeps up to 200 oil for the agoras and takes no wine (it goes down to the quay).
+  // The press's storehouse takes no wine (it goes down to the quay). (Review of slice 52: it was also given an oil limit of
+  // 200, which the store's rules don't take, a limit being a share of the room; the command did nothing, so it is gone.)
   const pressStore = s.buildings.find((b) => b.kind === 'storehouse' && b.x === 23 && b.z === 120);
-  if (pressStore) {
-    rule(pressStore, { ware: OIL, mode: ACCEPT, limit: ORDER_PRESS_OIL });
-    rule(pressStore, { ware: WINE, mode: REFUSE });
-  }
+  if (pressStore) rule(pressStore, { ware: WINE, mode: REFUSE });
   const second = found('naxos');
   playOn(TICKS_PER_YEAR, () => !!colonyOf(s, second) || !foundingOf(s, second));
   // (Slice 52's look pass: Athens buys wheat, meat and cheese, not the oil and wine switched on with the route, so its route
@@ -4385,8 +4383,6 @@ const granaryWheat = (s: SimState): number => s.buildings.reduce((a, b) => a + (
 const ORDER_MARGIN = 400;
 /** How many of Athens' calls #order waits through, at most, for a gang and a prisoner together. */
 const ORDER_TRIES = 4;
-/** What #order's press storehouse keeps of oil. */
-const ORDER_PRESS_OIL = 200;
 /** What #order's town keeps back of the oil and wine it sells. */
 const ORDER_KEEP = 300;
 /** #order's law (on the court's panel). */

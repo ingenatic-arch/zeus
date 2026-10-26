@@ -1165,8 +1165,12 @@ export function whyNoGood(s: SimState, map: CoastMap, b: Building, good: Ware): 
     if (s.buildings.some((g) => g.kind === 'storehouse' && held(g, good) > 0)) return `the ${stallName} is empty for now; its porter fetches ${unitOf(good, 2)} from the storehouse`;
     // The goods are on the way: the stall's porter bringing them, or the makers' carts taking them to a storehouse (an ox cart covers about a tile a day).
     if (s.walkers.some((w) => w.kind === 'porter' && w.food === good && w.load > 0 && reaching.some((a) => a.id === w.origin))) return `the ${stallName}’s porter is on his way back from the storehouse with ${unitOf(good, 2)} of ${what}`;
-    if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.food === good && w.load > 0 && !w.back)) return `no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`;
-    return chain.stuck(s);
+    // (Review of slice 52: in a town whose homes have had it before, not "yet" nor "the first": #order's fleece, six years
+    // on, said the first bales were on their way.)
+    const before = s.buildings.some((h) => h.kind === 'home' && goodUntil(h, good) > 0);
+    const told = (t: string): string => (before ? t.replace(/^no .+? has reached a storehouse yet/, `the storehouses are out of ${what} just now`).replace(' the first ', ' the next ') : t);
+    if (s.walkers.some((w) => (w.kind === 'cart' || w.kind === 'sledge') && w.food === good && w.load > 0 && !w.back)) return told(`no ${what} has reached a storehouse yet: the first ${unitOf(good, 2)} are on their way there by ox cart (slow: about a tile of road a day)`);
+    return told(chain.stuck(s));
   }
   // (Slice 36's review: "an oil stall", not "a oil stall".)
   const aStall = `${/^[aeiou]/.test(stallName) ? 'an' : 'a'} ${stallName}`;

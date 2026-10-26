@@ -48,6 +48,8 @@ import { spendable } from './treasury';
 import { GIFT_CARAVAN_SPEED, SENDING_FETCH_SPEED } from './walk';
 import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, yourPrice } from './world';
 import { boundTo } from './vassals';
+// Review of slice 52: what you send for a deal waits out your quarantine, as a gift does.
+import { quarantined } from './health';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -856,7 +858,8 @@ export function sentWords(s: SimState, g: Gift, d: Deal | undefined): string {
     const depot = findBuilding(s, g.depot);
     const where = depot?.kind === 'yard' ? 'the caravan yard' : 'the quay';
     const who = depot?.kind === 'yard' ? 'porters' : 'dockers';
-    const stalled = depot && rateOf(depot) === 0 ? `: ${where} has no workers to fetch it` : '';
+    // (Review of slice 52: held in the city by your quarantine, as a gift is (diplomacy.ts), it says so.)
+    const stalled = quarantined(s) ? ': your quarantine keeps it in until it ends or is lifted' : depot && rateOf(depot) === 0 ? `: ${where} has no workers to fetch it` : '';
     return `${what}: the ${who} are fetching it from the stores to ${where} (${fmt(g.got)} there so far)${stalled}`;
   }
   if (g.phase === 1) return g.by === 'land' ? `${what} is leaving the city by the road out` : `${what} is sailing out of the bay`;

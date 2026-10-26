@@ -188,8 +188,11 @@ export const PLAGUE_DAYS = 60;
 export const PLAGUE_TILES = 5;
 export const PLAGUE_BASE = 0.003;
 export const PLAGUE_POOR = 0.12;
-/** A struck home with the plague in it: its household's chance a day of fleeing the city. */
+/** A struck home with the plague in it: its household's chance a day of fleeing the city, once it has been ill there FLEE_AFTER days. */
 export const FLEE_CHANCE = 0.015;
+// (Review of slice 52: #order's first struck household fled the day the plague came ashore, and it passed the next day with
+// nobody else touched. A household takes a few days to give up its home.)
+export const FLEE_AFTER = 4 * TICKS_PER_DAY;
 /** The quarantine lasts a season. */
 export const QUARANTINE_TICKS = TICKS_PER_SEASON;
 /** The physician: how far by road, how much fresh road a round, her rest, and the first. */
@@ -714,7 +717,7 @@ function stepOutbreak(s: SimState, map: CoastMap): void {
   for (const id of o.struck) {
     const b = findBuilding(s, id);
     if (!b || !livedIn(b) || !b.family) continue;
-    if (!h.sick.some((x) => x.home === id && x.plague && x.bed <= 0)) continue;
+    if (!h.sick.some((x) => x.home === id && x.plague && x.bed <= 0 && s.tick - x.since >= FLEE_AFTER)) continue;
     if (unit(s.seed, id, day(s), SALT_FLEE) < FLEE_CHANCE) flee(s, map, b);
   }
   if (!h.sick.some((x) => x.plague) && s.tick > o.start) {
