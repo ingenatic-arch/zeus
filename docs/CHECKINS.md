@@ -122,6 +122,53 @@ So the city's own frame work grew by about a quarter over the phase, and the sim
 
 **What I checked**: typecheck, all 783 tests, the build, the full smoke (with loosened timeouts) and the measure, and the published copy from the bare link, `#town`, `#order` and the main demos. Whether any of it looks or feels right is for you to judge.
 
+### The phase, all told
+
+Phase 6, "Crime, health and a polished city", in twelve slices, from your own list of eight asks. As you asked, it was built in parallel, on four lines side by side (order, land, empire and panels), each slice reviewed on its own line and then joined to the main line, so the check-ins sit in the order they were joined, not by number. Slice 52 then brought it all together on the main line. Here's what you can do now that you couldn't at the end of phase 5:
+- **Slice 41, crimes of every kind.** A tempted home now turns to the crime its trouble points to: theft, picking pockets at a busy agora, smuggling by the quay, vandalism when it's angry and out of work, and, rarely, arson, talked of 20 days before it happens. Gangs form in the worst quarters and grow, and watchmen help each other against them. Try `#crimes` and `#gang`.
+- **Slice 42, lands of any size.** Generated lands at 128, 192 or 256 tiles, each one checked to be playable before you get it, with the ship sailing in from beyond a large land's own edge. Try `#landsmall`, `#landmedium` and `#landlarge`.
+- **Slice 43, colonies that grow up.** A colony grows from an outpost through settlement and town to city, with a picture of each stage. You fund its works (fields, a harbour, an agora, a temple, walls, a second trade), your porters and ship carry the goods out from your quay, it asks you for things, and you choose its governors. Try `#colonywants` and `#colonyworks`.
+- **Slice 44, the town's messages** (your ask for a proper place with history). A scroll on the top bar with its unread seal opens a Messages panel: filters, months, pins, "Go there" and "Waiting on you". Only alarms pop up now, one at a time at the bottom left. Everything else arrives quietly. Try `#messages`.
+- **Slice 45, the court and the prison.** Set the law crime by crime, choosing a fine, the stocks, prison, hard labour, exile or execution (as you said, executions are fine). Each punishment has a cost you can see in the city. Convicts are walked to court, prisons can grow restless and break out. Try `#court` and `#jailbreak`.
+- **Slice 46, many lands** (your choice: a new-game screen with a preview). Pick a kind of land (the Bay, a sheltered bay, islands, a river delta, a mountain shore, a dry plain or a wooded coast), a size and a seed word. You see it drawn before you found it, and the road in is laid from the nearest edge. Try `#newgame`, `#delta`, `#dryplain` and `#woods`.
+- **Slice 47, a colonial empire.** Station a company at a colony, marching to your quay and rowed out to your ship, or station triremes there. Strike rivals from a colony, take a share of its trade in coin, and call on its militia when you're raided. A colony that talks of freedom can be offered a treaty as a free ally. Try `#colonybase` and `#freeally`.
+- **Slice 48, building panels and the storehouse** (your "a bit like the original game"). Every building has a panel showing staff, what it's doing and why not, what it holds, its walkers, its condition and its messages. Storehouses and granaries have Accept, Don't, Get and Empty for each good, with a limit, and every cart in the city obeys them. Any work building can be paused or set to "workers first". Try `#storerules` and `#workpanel`.
+- **Slice 49, physicians and plague.** Every home has a health with its reasons. The infirmary's physicians walk rounds, and the asklepieion's stretcher-bearers carry the worst sick to its beds. Sickness spreads among weak homes. Plague comes on a ship from a plagued city, always warned first, and you can quarantine the city for a season. Try `#physicians` and `#plague`.
+- **Slice 50, a new look for the panels** (your Army tab and trading post screenshots). A shared kit in the original's colours: carved headers, bronze buttons, drawn icons for every good, unit, building and message, steppers, switches and bars, and one tip everywhere. The Army tab is now cards with figures and pips, and says why when you can't recruit. The trading post has a picture of its quay and a row per good. Try `#companies` and `#goods`.
+- **Slice 51, the overview** (O). Eight pages (City, Goods, Treasury, Distribution, Crime, Health, Army and fleet, Empire), each figure with its reasons, two years of monthly charts, and links that fly to the place with its overlay on. Try `#overview`, `#overviewgaps`, `#overviewcourt` and `#overviewhealth`.
+- **Slice 52, a city in order.** `#order` has it all at once on a generated delta: 1,909 people, a gang and a court at work, two in prison, an infirmary, two colonies (one held by your company), store rules set, a plague warned in Athens, and two years of messages and annals. Fevers were tuned down (an unhealthy town lost about 80 people a year to them, now about 25), the remaining panels moved onto the new kit, and the phase review fixed a dozen things that only showed together (the map of Greece's frame cost had doubled, lines hiding under panels, widows and women governors named wrongly, and more). Try `#order` and `#bigwoods`.
+
+**Recorded for later**
+- From the spec: the gods (*Beloved of the gods*, sanctuaries, gods in war, monsters and heroes), still the vision's biggest gap; a burial ground and funeral processions; disease carried by rats or the dead; riots when a whole quarter is unhappy; land where the sea isn't to the south, or with no sea; laying out a colony's streets yourself.
+- From the way:
+  - a city built from nothing stayed flat at 400 to 500 people with no money for about ten game years in the review's long game, because collectors reached only 40 to 60% of homes and wages ran above taxes. A loan, a trading post and a copper mine turned it, reaching 1,650 people by year 21;
+  - crime and sickness barely press a well-run town; harsh law has no standing cost while it stands;
+  - `#bigwoods` at its furthest is the heaviest view in the game (4.76 million triangles). Casting shadows only from near trees brings it to 4.04 million with no change the review could see; that change is ready but not made, waiting for your eye;
+  - the new-game preview is drawn while the game waits (up to about 6 seconds for a large land on this machine);
+  - on the delta and the islands, ships anchor past a wide shallow shelf, and a third ship can anchor in shallows;
+  - war fleets never prey on a free ally's coin ships; a colony's freedom warning doesn't mention the treaty;
+  - in `#order` two thirds of those who could work have no job;
+  - on the map of Greece, Sparta's and Rhodes' labels sometimes fade and triremes overlap at the jetties; faint lines show in the far distance;
+  - the militia's pale banner is faint against white walls.
+- Done from earlier lists: the court and prison, and the many smaller things each review fixed.
+
+**Budgets that moved** (start of the phase against now, measured on this machine with software graphics)
+- **Download:** the game's own files went from 823 KB to 997 KB compressed. With the 167 demos' prepared towns it's about 5.5 MB in all, but each demo fetches only its own file (the largest 82 KB, `#order`).
+- **Load:** the bare link is ready in 1.3 s, and the median demo in 1.4 s; none takes over 3 s. `#order` takes about 2 s.
+- **Frame work** (before drawing): `#town` 4.8 to 6.0 ms; `#empire` 7.3–7.8 ms to 8.8–10.6 ms; the map of Greece back to 2.4 ms after the review's fix; `#order` 16.6 ms. Real frames a second can't be measured here, so please watch for stutter on your laptop, especially in `#order` and `#bigwoods`.
+- **Time per tick:** `#town` 0.24 to 0.33 ms, `#empire` 0.42 to 0.61 ms.
+- **Saves:** `#town` 187 KB to 194 KB; `#empire` 280 KB to 307 KB; `#order` 429 KB.
+- **Tests:** 590 at the start of the phase, now 783. Old saves from phase 5 still load.
+
+**Questions for you**
+- Is the slow, cash-starved start of a city built from nothing what you want, or should a new city find its feet sooner?
+- Should crime and sickness bite harder in a well-run town, and should harsh law cost something while it stands?
+- Do the new panels, the overview and the messages make the city easier to read than before? Compare `#companies` and `#goods` with your screenshots.
+- On the large wooded coast: thin the far trees, or take their shadows away?
+- Should a colony that talks of freedom be offered the treaty in its warning? And is its trade share (about 4 dr a settler a year) right?
+- What should the next phase be?
+
+
 ## Slice 50 — A new look for the panels (26 Oct)
 
 The panels and sub-menus now share one kit in the original look: parchment and marble, carved headings, bronze plaques with drawn icons, proper steppers, switches, bars and pips, and one tip that works the same everywhere. The Army tab and the trading post, the two you sent screenshots of, are rebuilt on it, and every other panel the spec named has moved onto it too. You weren't here while it was built: every choice below is mine, from the spec's defaults.
