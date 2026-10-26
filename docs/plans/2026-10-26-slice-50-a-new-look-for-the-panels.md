@@ -120,3 +120,6 @@ At `f83499b`, on the shared, loaded machine (load 10 to 20 on 4 cores, three lin
 **`MAP_SIZE`:** no new uses.
 
 **Not done, or left:** the household (home) panel isn't restyled beyond the tip (not in the spec's list). The side panel's other tabs (overview, goods, people and so on) keep their look; slice 51's overview moves onto the kit at its merge. Slice 49's infirmary and asklepieion sections and the home's health aren't on this branch; they move onto the kit at the merge (see above).
+
+**Checks at the end:** tests 745 in 57 files, all pass (738 before, plus `tests/kit.test.ts`'s 7); the build 5 min 3 s; the full loosened smoke (56 min) passed every earlier check, and failed five where the kit had moved what they read (the court's and the prison's Orders before their other sections, in three checks; "Horsemen" in lower case, the storehouse's bar numbers at 12.5 px): fixed, and those sections run again and pass. The loosened measure, side by side with `f83499b`: the game 947 KB gzipped (926 before), the prepared towns byte-identical, every view's triangles and draw calls the same, every demo's load under 3 s, a frame's work with the trading post or the Army tab open within the noise. All 157 demos open with no page error.
+

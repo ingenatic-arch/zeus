@@ -2,6 +2,69 @@
 
 Notes to Oliver, newest first.
 
+## Slice 50 — A new look for the panels (26 Oct)
+
+The panels and sub-menus now share one kit in the original look: parchment and marble, carved headings, bronze plaques with drawn icons, proper steppers, switches, bars and pips, and one tip that works the same everywhere. The Army tab and the trading post, the two you sent screenshots of, are rebuilt on it, and every other panel the spec named has moved onto it too. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Nothing in how the town plays.** This is a look-only slice: no save format change, and every demo town in the build is byte-for-byte the same as before.
+- **`#goods` now opens the trading post's panel** beside the Goods tab, so you can set it against your screenshot. Its town is the same.
+- **One rule's words:** a trading post (or shipyard) on a lake's shore now says "This is a lake, not the sea: the ship can't come in", where it used to say the water was too shallow.
+- **For the other lines:** the kit is `src/ui/kit.ts`, `kit.css` and `icons.ts`. The plan's As built says how to move a panel onto it in a few steps, for slice 49's sections and slice 51's overview at their merges.
+
+### What's new
+- **The Army tab.** A plaque at the top gives your soldiers in all, your companies and allies counted apart, a figure and count for each kind, a strength bar, and the readiness in words ("All 32 ready", or "16 of 32 ready: 16 wait for armour"). Each company is a card with a drawn soldier in a niche (hirelings and allies in their own colours), its men as pips (ready, waiting for armour, wounded, walking in, away), what it is doing with a link to where, and its orders as buttons with icons. The three "Raise a company" plaques carry their figures and say how many homes could send a man, or why not. Triremes are cards too, with crew pips and hull and oar bars.
+- **The trading post.** A picture of the quay at the top is drawn from the game: the stoa, a coloured stack for each good waiting on the quay, the jetty, and the ship where she really is (a sail on the horizon growing as she comes in, tied up, sailing away). Each good is one row: a sell switch, its icon, a price chip (the routes' prices in its tip), a bar of what the stores hold with a mark where the city's keep is, what is on the quay, and a bigger keep stepper that repeats while you hold it.
+- **Building panels.** The storehouse's eight rows are one line each: an icon, a stock bar with the limit marked, four icon buttons for Accept, Don't, Get and Empty with a key above them, and a limit stepper. Pause and Workers first are switches right under the staff. At 1920 × 1080 the whole storehouse panel fits without scrolling. The court's laws and the prison have bigger buttons and text.
+- **Everything else on the kit:** the Messages panel (every kind of message has an icon now, the new-land kind included), the shipyard, the Monuments tab (each monument a card with its picture and stage bars), the Ambitions, the new-game screen (a little map for each kind of land, the size as one control, dice on Another), and every page on the map of Greece (ware icons where the colour dots were, plaques for buttons and tabs, cards for deals and offers).
+- **One tip for everything.** Hover anything on a kit panel and its tip appears after a moment, framed in bronze. Tab to it with the keyboard and it shows at once, with a gold focus ring. The browser's plain tooltip no longer shows as well.
+
+### What to try
+1. #companies — the Army tab with two full companies. Compare it with your screenshot. Hover a recruit button for its tip, and click a card's banner button.
+2. #goods — the trading post's panel beside the Goods tab. Compare it with your screenshot. Hold a keep stepper's + to see it repeat, and flip a sell switch.
+3. #storerules — click the storehouse by the quay: all eight rows, the orders under the staff, the walkers and condition below.
+4. #empire — press Tab for the map of Greece and look through Corinth's tabs, then the empire page. Open the Messages (the key left of 1) and the Ambitions too.
+5. #newgame — the new-game screen with its land pictures.
+6. #shipyard, #court and #monument — the shipyard's cards, the court's laws and the Monuments tab.
+7. #companies-modern and #goods-plain — the other two looks (the panels are the same in all three).
+
+Before and after shots, at 1920 × 1080 (in `screenshots/s50/`, not in git):
+- The Army tab: `before/companies.png` and `after/companies.png`.
+- The trading post: `before/goods.png` and `after/goods.png` (and `after/goods-full.png` for the whole screen).
+
+### What I'd like your eye on
+- **Is this the "polish" you meant?** The materials are the skin's: parchment for cards, bronze for buttons, lapis for the main action and what is chosen. Is it too busy anywhere, or still too plain?
+- **The soldier figures and the quay picture** are drawn in code at small sizes. Do they read? Are the hirelings' and allies' colours different enough from yours?
+- **The trading post's row**: is a switch the right control for "sell", and is the stock bar with the keep's mark clear without reading its tip?
+- **The storehouse's mode buttons** are icons only, with a key above the rows and words in their tips. Clear enough, or should they keep their words?
+
+### Known rough edges
+- The home's panel and the side panel's other tabs (overview, goods, people and so on) keep their old look; the spec didn't list them. Slice 51's overview and slice 49's infirmary come onto the kit at their merges.
+- On the map of Greece the restyle is mostly the stylesheet over the old markup, so a few rarely seen boxes (a rename form, an expedition's choices) may still look half old.
+- At 1366 × 768 the storehouse's walkers and condition are a scroll away; the rows and orders fit.
+- The tip waits 380 ms on hover. That's a guess: tell me if it feels slow or jumpy.
+
+### Measurements
+The starting build (`f83499b`) and this slice's, measured side by side on this machine with the same (loosened) measure script: headless, software WebGL, load 12 to 23 on 4 cores, so every time below is noisy.
+
+| What | Before | After |
+|---|---|---|
+| Tests | 738 in 56 files, all pass | 745 in 57 files, all pass (the 7 new ones in `tests/kit.test.ts`) |
+| Build | 6 min 35 s | 5 min 3 s (the prepared towns baked again, the same towns) |
+| The game itself (measure) | 2,753 KB, 926 KB gzipped | 2,832 KB, 947 KB gzipped |
+| of which the main script / the stylesheet | 773 / 24 KB gzipped | 786 / 32 KB gzipped |
+| Prepared towns | 121 files, 4,234 KB gzipped | the same 121 files, byte for byte |
+| The bare link, ready (page's clock) | 2.0 s | 1.8 s |
+| Every demo's load at 1920 × 1080 (157) | median 1.30 s, slowest `#delta` 2.4 s, none over 3 s | median 1.30 s, slowest `#delta` 2.5 s, none over 3 s |
+| Triangles and draw calls, every view the measure takes | | identical (one overlay view caught mid-animation in one run, both builds alike) |
+| `#goods`, a frame's work with the trading post open / shut | 11.4 / 10.3 ms | 10.8 / 10.9 ms |
+| `#companies`, a frame's work with the Army tab open | 11.6 ms | 11.4 ms |
+| Update a frame, the 64 demos the measure times (mean) | 11.5 ms | 10.7 ms |
+
+- **Every earlier demo**: the 121 prepared towns in this build are byte-identical to the starting build's, so every demo opens in exactly the same state. All 157 demos open with no page error.
+- **The smoke** (loosened timeouts, 56 minutes): every earlier check passes. Five failed on the first run, all because the kit had moved something the checks looked for: the court's and the prison's Orders now come before their other sections (two checks on the court, one on the prison); the Army tab wrote "horsemen" in lower case where a check wanted "Horsemen"; and the storehouse's bar numbers were 12.5 px against my own 13 px rule. I fixed those and ran those sections again, and they all pass.
+- **Saves**: no format change. The old-save checks in the tests (the version 37 fixture among them) and in the smoke all pass.
+
 ## Slice 46 — Many lands (25 Oct)
 
 You can now found a city on six kinds of generated land as well as the Bay: islands offshore, a river delta, a mountain shore, a dry plain, a wooded coast and a more varied sheltered bay. "Found a new city" on the welcome card opens a new-game screen where you choose the kind, size and seed and see the land drawn before founding there, which was your choice. You weren't here while it was built: every choice below is mine, from the spec's defaults.
