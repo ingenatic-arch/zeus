@@ -99,6 +99,14 @@ import type { OverviewPage } from '../ui/overview';
 import { buildingRefusal, INFIRMARY_COST } from '../sim/build';
 import { fallIll, PHYSICIAN_RANGE, startGreekPlague } from '../sim/health';
 import { roadsBeside } from '../sim/rounds';
+// Slice 52
+import { clearFee, COST } from '../sim/build';
+import { FIRE_NONE } from '../sim/hazards';
+import { footSide } from '../sim/buildings';
+import type { BuildKind } from '../sim/commands';
+import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
+import { FOUND_WHEAT } from '../sim/colonies';
+import { REFUSE } from '../sim/stores';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3611,6 +3619,10 @@ const SCENES: Record<string, Demo> = {
   plague: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', trade: 'athens-sea' },
   // Merge of slice 51 with slice 49: #plague's town (warned of plague in Athens, no infirmary) on the overview's Health page.
   overviewhealth: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', overview: 'health' },
+  // Slice 52: a city in order. A town on a generated medium delta some years in, with every system of the phase at work
+  // (see orderTown); a founded large wooded land, the heaviest kind, for the budgets.
+  order: { view: 'order', setup: orderTown, overlay: 'missing' },
+  bigwoods: { view: 'land', setup: kindTown('woods', 256, 'acorn') },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4105,3 +4117,274 @@ function plagueTown(sim: Sim): void {
   startGreekPlague(s, 'athens', PLAGUE_ATHENS);
   sim.run(1);
 }
+
+// Slice 52
+/**
+ * A city in order (slice 52). #order: a town founded on a generated medium
+ * river delta (the word "order"), built up over some years as a player
+ * would, each step once the treasury can pay for it and a month's wages.
+ */
+const ORDER_WORD = 'order';
+const ORDER_SIZE = 192;
+const O = (x: number, z: number): number => z * ORDER_SIZE + x;
+const orow = (x0: number, x1: number, z: number): number[] => Array.from({ length: x1 - x0 + 1 }, (_, i) => O(x0 + i, z));
+const ocol = (x: number, z0: number, z1: number): number[] => Array.from({ length: z1 - z0 + 1 }, (_, i) => O(x, z0 + i));
+const oalong = (xs: number[], z: number): number[] => xs.map((x) => O(x, z));
+const steps = (a: number, b: number, by = 2): number[] => Array.from({ length: Math.floor((b - a) / by) + 1 }, (_, i) => a + i * by);
+
+export function orderTown(sim: Sim): void {
+  sim.found({ kind: 'delta', size: ORDER_SIZE, seed: seedOf(ORDER_WORD) });
+  seasons(sim, true);
+  hazards(sim, false);
+  const s = sim.state;
+  const seen = new Set<number>();
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  // A storehouse's rules (to set them again if it burns).
+  const rules = new Map<number, Array<Extract<Parameters<Sim['enqueue']>[0], { type: 'store' }>>>();
+  const rule = (b: Building, c: { ware?: number; mode?: number; limit?: number; all?: 'none' | 'all' }): void => {
+    const at = O(b.x, b.z);
+    rules.set(at, [...(rules.get(at) ?? []), { type: 'store', id: b.id, ...c }]);
+    send({ type: 'store', id: b.id, ...c });
+  };
+  // What each agora sells (to put its stalls back if it burns).
+  const sells = new Map<number, number[]>();
+  const stall = (at: number, good: number): void => {
+    sells.set(at, [...(sells.get(at) ?? []), good]);
+    send({ type: 'stall', at, good });
+  };
+  // As a careful player: whatever burns or falls is cleared and built again, once the treasury can pay for it.
+  const rebuild = (): void => {
+    for (const b of s.buildings) {
+      if (b.kind !== 'rubble' || b.fire !== FIRE_NONE) continue;
+      const was = b.was || 'home';
+      const side = footSide(b);
+      const cost = clearFee(side) + (was === 'home' ? PLOT_COST : COST[was]) + JOBS[was] * WAGE;
+      if (spendable(s) < cost + wageBill(s)) return;
+      const at = O(b.x, b.z);
+      send({ type: 'clear', x0: b.x, z0: b.z, x1: b.x + side - 1, z1: b.z + side - 1 });
+      if (was === 'home') send({ type: 'plots', at: [at] });
+      else if (was === 'fountain') send({ type: 'fountain', at: [at] });
+      else send({ type: 'build', kind: was as BuildKind, at: [at] });
+      for (const g of sells.get(at) ?? []) send({ type: 'stall', at, good: g });
+      const fresh = s.buildings.find((y) => y.kind === was && y.x === b.x && y.z === b.z);
+      if (fresh) for (const c of rules.get(at) ?? []) send({ ...c, id: fresh.id });
+      return;
+    }
+  };
+  const playOn = (most: number, done: () => boolean = () => false): void => {
+    const end = s.tick + most;
+    while (s.tick < end && !done()) {
+      sim.run(TICKS_PER_DAY);
+      answerCarefully(sim, seen);
+      if (s.hazards) rebuild();
+    }
+  };
+  const afford = (cost: number, most = 2 * TICKS_PER_YEAR): void => playOn(most, () => spendable(s) >= cost + wageBill(s));
+  const W = steps(27, 41);
+  const E = steps(45, 59);
+  const but = (xs: number[], ...out: number[]): number[] => xs.filter((x) => !out.includes(x));
+  // The road in from the west edge, as the new-game screen lays it.
+  send({ type: 'road', tiles: roadsIn(sim.map, s).road });
+  // The main street on east from where the road in turns down to the shore, the avenue north from it, two cross streets and the second street.
+  send({ type: 'road', tiles: [...orow(45, 62, 127), ...ocol(44, 111, 126).reverse(), ...ocol(26, 111, 126).reverse(), ...ocol(62, 111, 126).reverse(), ...orow(27, 43, 119), ...orow(45, 61, 119)] });
+  send({ type: 'plots', at: [...oalong(W, 125), ...oalong(E, 125), ...oalong(steps(29, 39), 128), ...oalong(but(W, 33), 120), ...oalong(but(E, 53), 120)] });
+  send({ type: 'fountain', at: [O(33, 120), O(53, 120)] });
+  send({ type: 'tax', rate: HEAVY });
+  // Bread: farms on the green land below the main street's east end, a granary and an agora, and a tax office.
+  send({ type: 'road', tiles: orow(45, 70, 134) });
+  send({ type: 'build', kind: 'farm', at: [O(57, 135), O(60, 135), O(63, 135)] });
+  send({ type: 'build', kind: 'granary', at: [O(52, 131)] });
+  send({ type: 'build', kind: 'agora', at: [O(45, 128)] });
+  send({ type: 'build', kind: 'taxoffice', at: [O(41, 128)] });
+  // A shrine, then cheese and meat: a dairy by the farms and a hunting lodge up by the lake's deer.
+  afford(SHRINE_COST + 450, 6 * TICKS_PER_MONTH);
+  send({ type: 'build', kind: 'shrine', at: [O(27, 122)] });
+  send({ type: 'build', kind: 'dairy', at: [O(48, 131)] });
+  send({ type: 'road', tiles: [...ocol(44, 103, 110).reverse(), ...orow(27, 43, 111), ...orow(45, 61, 111), ...ocol(26, 103, 110).reverse(), ...ocol(62, 103, 110).reverse(), ...orow(27, 43, 103)] });
+  send({ type: 'build', kind: 'lodge', at: [O(41, 100)] });
+  // The third street, with its fountains, and a tax office for it.
+  afford(2 * FOUNTAIN_COST + 32 * PLOT_COST + TAX_OFFICE_COST);
+  send({ type: 'build', kind: 'taxoffice', at: [O(45, 114)] });
+  send({ type: 'plots', at: [...oalong(W, 109), ...oalong(E, 109), ...oalong(but(W, 33), 112), ...oalong(but(E, 53), 112)] });
+  send({ type: 'fountain', at: [O(33, 112), O(53, 112)] });
+  // Oil: groves on the dry ground west of the town, a press and a storehouse, and an oil stall at the agora.
+  afford(3 * GROVE_COST + PRESS_COST + STOREHOUSE_COST + STALL_COST + (3 * JOBS.grove + JOBS.press + JOBS.storehouse + 1) * WAGE);
+  send({ type: 'build', kind: 'grove', at: [O(23, 104), O(23, 108), O(23, 112)] });
+  send({ type: 'build', kind: 'press', at: [O(23, 116)] });
+  send({ type: 'build', kind: 'storehouse', at: [O(23, 120)] });
+  stall(O(45, 128), OIL);
+  // Fleece: a pasture east of the town and a fleece stall.
+  afford(PASTURE_COST + STALL_COST + (JOBS.pasture + 1) * WAGE);
+  send({ type: 'build', kind: 'pasture', at: [O(63, 112)] });
+  stall(O(45, 128), FLEECE);
+  // The theatre and a second agora in the town's middle, and a second tax office.
+  afford(THEATRE_COST + AGORA_COST + (JOBS.theatre + JOBS.agora) * WAGE);
+  send({ type: 'build', kind: 'theatre', at: [O(45, 122)] });
+  send({ type: 'build', kind: 'agora', at: [O(41, 114)] });
+  playOn(4 * TICKS_PER_MONTH);
+  // The watch and the architects, and fire and wear from now on.
+  afford(4 * (WATCHPOST_COST + ARCHITECT_COST) + 4 * (JOBS.watchpost + JOBS.architect) * WAGE);
+  send({ type: 'build', kind: 'watchpost', at: [O(27, 114), O(60, 122), O(42, 106), O(48, 128)] });
+  send({ type: 'build', kind: 'architect', at: [O(60, 114), O(42, 122), O(27, 107), O(50, 128)] });
+  hazards(sim, true);
+  // Wine for villas: the street north of the town, vineyards along it, a winery and a wine stall at each agora.
+  afford(17 * ROAD_COST + 3 * VINEYARD_COST + WINERY_COST + 2 * STALL_COST + (3 * JOBS.vineyard + JOBS.winery + 2) * WAGE);
+  send({ type: 'road', tiles: orow(45, 61, 103) });
+  send({ type: 'build', kind: 'vineyard', at: [O(27, 104), O(30, 104), O(33, 104)] });
+  send({ type: 'build', kind: 'winery', at: [O(36, 104)] });
+  stall(O(45, 128), WINE);
+  stall(O(41, 114), OIL);
+  stall(O(41, 114), WINE);
+  // A second shrine on the north street, for the town's east half.
+  afford(SHRINE_COST + JOBS.shrine * WAGE);
+  send({ type: 'build', kind: 'shrine', at: [O(53, 104)] });
+  // The quay: the road down from the avenue's end to the shore, the trading post and a storehouse by it.
+  afford(12 * ROAD_COST + TRADING_COST + STOREHOUSE_COST + (JOBS.trading + JOBS.storehouse) * WAGE);
+  send({ type: 'road', tiles: [...ocol(44, 135, 140), O(43, 140)] });
+  send({ type: 'build', kind: 'trading', at: [O(40, 140)] });
+  send({ type: 'build', kind: 'storehouse', at: [O(45, 136)] });
+  // Oil and wine for the Tyrian ship, the town keeping its own.
+  send({ type: 'trade', good: OIL, sell: true, keep: ORDER_KEEP });
+  send({ type: 'trade', good: WINE, sell: true, keep: ORDER_KEEP });
+  // The east quarter: the streets carried on east to a fourth avenue, two more streets of houses with their fountains, a tax
+  // office, a watch post, an architect and a shrine.
+  const E2 = steps(63, 75);
+  afford(70 * ROAD_COST + 26 * PLOT_COST + 2 * FOUNTAIN_COST + TAX_OFFICE_COST + WATCHPOST_COST + ARCHITECT_COST + SHRINE_COST + (JOBS.taxoffice + JOBS.watchpost + JOBS.architect + JOBS.shrine + 2 * JOBS.fountain) * WAGE + ORDER_MARGIN);
+  send({ type: 'road', tiles: [...orow(62, 77, 103), ...ocol(77, 104, 127), ...orow(63, 76, 111), ...orow(63, 76, 119), ...orow(63, 76, 127)] });
+  send({ type: 'plots', at: [...oalong(E2, 109), ...oalong(but(E2, 63, 65, 69), 112), ...oalong(but(E2, 69), 120), ...oalong(E2, 125)] });
+  send({ type: 'fountain', at: [O(69, 112), O(69, 120)] });
+  send({ type: 'build', kind: 'taxoffice', at: [O(63, 104)] });
+  send({ type: 'build', kind: 'watchpost', at: [O(65, 104)] });
+  send({ type: 'build', kind: 'architect', at: [O(67, 104)] });
+  send({ type: 'build', kind: 'shrine', at: [O(69, 104)] });
+  // Its agora below the main street, with oil, fleece and wine.
+  afford(AGORA_COST + 3 * STALL_COST + (JOBS.agora + 3) * WAGE);
+  send({ type: 'build', kind: 'agora', at: [O(73, 128)] });
+  for (const g of [OIL, FLEECE, WINE]) stall(O(73, 128), g);
+  // A second dairy by the farms and a second hunting lodge, after the boar on the knoll.
+  afford(DAIRY_COST + LODGE_COST + (JOBS.dairy + JOBS.lodge) * WAGE);
+  send({ type: 'build', kind: 'dairy', at: [O(70, 131)] });
+  send({ type: 'build', kind: 'lodge', at: [O(23, 123)] });
+  // A watch post by the farms, whose fields burn as well as anything.
+  afford(WATCHPOST_COST + JOBS.watchpost * WAGE);
+  send({ type: 'build', kind: 'watchpost', at: [O(55, 132)] });
+  // Crime goes on (a town at play: the watch is out).
+  crime(sim, true);
+  crimes(sim, true);
+  // A street of huts by the road in, for the newcomers, with its fountain: the town's poor.
+  afford(14 * PLOT_COST + FOUNTAIN_COST + JOBS.fountain * WAGE);
+  send({ type: 'plots', at: [...oalong([4, 6, 8, 12, 14, 16], 125), ...oalong(steps(4, 16), 128)] });
+  send({ type: 'fountain', at: [O(10, 125)] });
+  // A sea route to Athens, selling it oil and wine.
+  afford(routeWay('athens', 'sea')!.fee + 300, 2 * TICKS_PER_YEAR);
+  if (!routeRefusal(s, 'athens', 'sea')) {
+    send({ type: 'route', city: 'athens', kind: 'sea' });
+    send({ type: 'deal', city: 'athens', kind: 'sea', good: WINE, sell: true });
+    send({ type: 'deal', city: 'athens', kind: 'sea', good: OIL, sell: true });
+  }
+  // More farms above and below the farm road, so the granary can spare the settlers' wheat.
+  afford(3 * FARM_COST + 3 * JOBS.farm * WAGE);
+  send({ type: 'build', kind: 'farm', at: [O(64, 131), O(67, 131), O(66, 135)] });
+  // Colonies: settlers to Thasos, then to the first free site, each once the treasury and the granary can spare them.
+  const open = (id: string): boolean => {
+    const x = siteRecord(s, id);
+    return !!x && !x.owner && !x.free && !x.bound;
+  };
+  const found = (want: string): string => {
+    playOn(2 * TICKS_PER_YEAR, () => spendable(s) >= FOUND_COST + wageBill(s) && granaryWheat(s) >= FOUND_WHEAT);
+    const site = open(want) ? want : (s.world.sites.find((x) => open(x.id))?.id ?? want);
+    send({ type: 'colony', act: 'found', site });
+    return site;
+  };
+  const first = found('thasos');
+  // A barracks beyond the east quarter and a company of Arcadian hoplites hired there, while the settlers sail.
+  afford(BARRACKS_COST + JOBS.barracks * WAGE + HIRELINGS.arcadian.fee);
+  send({ type: 'build', kind: 'barracks', at: [O(78, 112)] });
+  const barracks = s.buildings.find((b) => b.kind === 'barracks');
+  if (barracks) {
+    playOn(TICKS_PER_MONTH, () => barracks.workers > 0);
+    send({ type: 'hire', barracks: barracks.id, kind: 'arcadian' });
+  }
+  playOn(TICKS_PER_YEAR, () => !!colonyOf(s, first) || !foundingOf(s, first));
+  // The company sails to hold the new colony.
+  const hired = s.army.companies.find((c) => c.hired === 'arcadian');
+  if (hired && colonyOf(s, first)) {
+    playOn(3 * TICKS_PER_MONTH, () => readyOf(s, hired).length >= COMPANY_SIZE);
+    send({ type: 'colonyempire', act: 'station', site: first, company: hired.id });
+  }
+  // The court and the prison on the north street, and the law.
+  afford(COURT_COST + PRISON_COST + (JOBS.court + JOBS.prison) * WAGE);
+  send({ type: 'build', kind: 'court', at: [O(45, 104)] });
+  send({ type: 'build', kind: 'prison', at: [O(48, 104)] });
+  for (const [c, p] of ORDER_LAW) send({ type: 'law', crime: c, punishment: p });
+  // Physicians: an infirmary on the north street, health from now on.
+  afford(INFIRMARY_COST + JOBS.infirmary * WAGE);
+  send({ type: 'build', kind: 'infirmary', at: [O(51, 104)] });
+  health(sim, true);
+  // The storehouses' rules: the one by the quay keeps the ship's oil and wine, fetching them from the others, and takes nothing else.
+  const quayStore = s.buildings.find((b) => b.kind === 'storehouse' && b.x === 45 && b.z === 136);
+  if (quayStore) {
+    rule(quayStore, { all: 'none' });
+    rule(quayStore, { ware: OIL, mode: GET });
+    rule(quayStore, { ware: WINE, mode: GET });
+  }
+  // The press's storehouse keeps up to 200 oil for the agoras and takes no wine (it goes down to the quay).
+  const pressStore = s.buildings.find((b) => b.kind === 'storehouse' && b.x === 23 && b.z === 120);
+  if (pressStore) {
+    rule(pressStore, { ware: OIL, mode: ACCEPT, limit: ORDER_PRESS_OIL });
+    rule(pressStore, { ware: WINE, mode: REFUSE });
+  }
+  const second = found('naxos');
+  playOn(TICKS_PER_YEAR, () => !!colonyOf(s, second) || !foundingOf(s, second));
+  // Two years on, so every page of the overview has two years of charts.
+  playOn(2 * TICKS_PER_YEAR);
+  // Then on to a fortnight before Athens' ship is due with a gang in its den and someone in the prison (trying again a
+  // call later, a few times at most, if either is missing then).
+  const r = routeOf(s, 'athens', 'sea');
+  if (!r) return;
+  const ready = (): boolean => s.crime.gangs.length > 0 && s.crime.held.some((x) => x.as === 'prison' && s.tick < x.until);
+  for (let tries = 0; tries < ORDER_TRIES; tries++) {
+    playOn(TICKS_PER_YEAR, ready);
+    playOn(TICKS_PER_YEAR, () => !r.ship || r.ship.phase === SHIP_AWAY);
+    const at = r.next - PLAGUE_WARNING_DAYS * TICKS_PER_DAY;
+    if (at > s.tick) playOn(at - s.tick);
+    if (ready()) break;
+  }
+  // Plague in Athens (as #plague): warned, not landed.
+  startGreekPlague(s, 'athens', PLAGUE_ATHENS);
+  sim.run(1);
+}
+/**
+ * #order's answers to Greece: a careful player, who never borrows, takes an
+ * offer or meets a request or a demand for tribute only with coin to spare,
+ * and otherwise lets it run out.
+ */
+function answerCarefully(sim: Sim, seen: Set<number>): void {
+  const s = sim.state;
+  for (const d of s.world.deals) {
+    if (seen.has(d.id) || d.state !== 'open') continue;
+    seen.add(d.id);
+    const spare = spendable(s) - wageBill(s) * ORDER_SPARE_MONTHS;
+    const act = d.kind === 'loanoffer' ? 'decline' : d.kind === 'offer' && spare > 0 ? 'take' : (d.kind === 'request' || d.kind === 'tribute') && spare > 0 ? 'send' : '';
+    if (!act) continue;
+    sim.enqueue({ type: 'answer', deal: d.id, act });
+    sim.flush();
+  }
+}
+/** How many months' wages #order's careful player keeps before it gives anything away. */
+const ORDER_SPARE_MONTHS = 3;
+/** The wheat in the town's granaries (what settlers take). */
+const granaryWheat = (s: SimState): number => s.buildings.reduce((a, b) => a + (b.kind === 'granary' ? held(b, WHEAT) : 0), 0);
+/** What #order's player keeps in hand beyond a month's wages before the east quarter's big outlay (the new streets' homes fill before they pay). */
+const ORDER_MARGIN = 400;
+/** How many of Athens' calls #order waits through, at most, for a gang and a prisoner together. */
+const ORDER_TRIES = 4;
+/** What #order's press storehouse keeps of oil. */
+const ORDER_PRESS_OIL = 200;
+/** What #order's town keeps back of the oil and wine it sells. */
+const ORDER_KEEP = 300;
+/** #order's law (on the court's panel). */
+const ORDER_LAW: ReadonlyArray<[string, string]> = [['theft', 'prison'], ['vandal', 'prison'], ['arson', 'execution'], ['smuggling', 'fine']];

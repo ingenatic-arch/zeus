@@ -202,4 +202,6 @@ export const VIEWS: Record<string, CameraView> = {
   physicians: { x: 17, z: 49, yaw: -0.3, dist: 16, tilt: -0.02 },
   // #plague: the town's south side, the road down to the trading post, the quay where her ship calls and (review of slice 49) the anchorage off it where a quarantine holds her.
   plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
+  // Slice 52, #order: the town on the delta from over its south side, the quay and the farms in front, the streets up to the north street behind.
+  order: { x: 45, z: 113, yaw: -0.785, dist: 64, tilt: -0.15 },
 };

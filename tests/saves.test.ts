@@ -118,6 +118,24 @@ describe('a save carries on identically', () => {
     b.run(1500);
     expect(serialize(b.state)).toEqual(serialize(a.state));
   });
+
+  // Slice 52 (the phase's spec): a prisoner, a plague, store rules, messages and a generated land.
+  it('in #order: a generated delta, a gang, prisoners, plague warned in Athens, store rules, a colony held by a company and years of messages', () => {
+    const a = demo('order');
+    expect(a.state.land?.kind).toBe('delta');
+    expect(a.state.crime.gangs.length).toBeGreaterThan(0);
+    expect(a.state.crime.held.some((x) => x.as === 'prison')).toBe(true);
+    expect(a.state.health.greece.some((p) => p.city === 'athens' && p.warned > 0)).toBe(true);
+    expect(a.state.buildings.some((x) => x.kind === 'storehouse' && x.rules.some((r) => r !== 0))).toBe(true);
+    expect(a.state.empire.colonies.length).toBe(2);
+    expect(a.state.empire.colonies.some((c) => c.garrison)).toBe(true);
+    expect(a.state.messages.log.length).toBeGreaterThan(200);
+    a.run(37);
+    const b = reload(a);
+    a.run(1500);
+    b.run(1500);
+    expect(serialize(b.state)).toEqual(serialize(a.state));
+  }, 300000);
 });
 
 describe('saves from before', () => {

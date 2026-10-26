@@ -649,5 +649,72 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   await run('#goods-shot', 'window.__zeus.trade(false)', '#goods, the trading post shut');
   await run('#companies-shot', "window.__zeus.sideTab('military')", '#companies, the Army tab');
 }
+// Slice 52: the budgets on a large land. #order (a town of about 1,900 on a generated medium delta) as #empire: load, triangles and
+// draws from its view and the overview, people and walkers, a save, its meshes and the main thread's work a frame at normal speed;
+// #bigwoods (a founded large wooded land, the heaviest kind) as the lands: load and bake, opening and furthest views, frame work.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const t = Date.now();
+  await page.goto('about:blank');
+  await page.goto(url + '#order-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 0, null, { timeout: 120000 });
+  const tp = await page.evaluate(() => ({ setup: window.__zeus.setupMs, ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt, fetch: window.__zeus.fetchMs, bake: window.__zeus.bakeMs }));
+  console.log(`#order by the page's clock: prepared town fetched in ${(tp.fetch ?? 0).toFixed(0)} ms and opened in ${tp.setup.toFixed(0)} ms (its map baked in ${tp.bake.toFixed(0)} ms), ready at ${tp.ready.toFixed(0)} ms, first frame at ${tp.first.toFixed(0)} ms (Playwright saw ready after ${Date.now() - t} ms)`);
+  for (const cam of [null, 'overview']) {
+    if (cam) await page.evaluate((c) => window.__zeus.setView(c), cam);
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    console.log(`#order view ${(cam ?? 'demo').padEnd(9)} triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+  }
+  const c = await page.evaluate(() => window.__zeus.city());
+  console.log(`  #order: ${c.population} people, ${c.homes} homes, ${c.walkers} walkers`);
+  await summarise();
+  const size = await page.evaluate(() => {
+    window.__zeus.saveNow();
+    let n = 0;
+    try {
+      n = (localStorage.getItem('zeus-remake.save.manual') ?? '').length;
+      localStorage.clear();
+    } catch {
+      /* no storage */
+    }
+    return n;
+  });
+  console.log(`  a save of #order: ${(size / 1024).toFixed(0)} KB`);
+  for (const [w, h] of [[960, 540], [1920, 1080]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.evaluate(() => window.__zeus.speed('normal'));
+    await page.waitForTimeout(10000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const z = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, c: window.__zeus.city() }));
+    console.log(`#order running at ${w} x ${h}   update ${((z.ms - a.ms) / Math.max(1, z.f - a.f)).toFixed(2)} ms a frame before drawing (${z.f - a.f} frames; ${z.c.walkers} walkers)`);
+  }
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('about:blank');
+  await page.goto(`${url}#bigwoods-paused-shot`);
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 2, null, { timeout: 120000 });
+  const l = await page.evaluate(() => ({ ...window.__zeus.land(), ready: window.__zeus.readyAt, first: window.__zeus.firstFrameAt }));
+  const shots = [];
+  for (const far of [false, true]) {
+    if (far) await page.evaluate((n) => window.__zeus.jump({ x: n / 2, z: n / 2, yaw: 0.12, dist: 175 * Math.sqrt(Math.sqrt(n / 128)), tilt: -0.5 }), l.size); // (cameraRig.ts: cityLimits)
+    const f = await page.evaluate(() => window.__zeus.frames);
+    await page.waitForFunction((f0) => window.__zeus.frames > f0 + 3, f, { timeout: 120000 });
+    const info = await page.evaluate(() => window.__zeus.info());
+    shots.push(`${far ? 'furthest' : 'opening'} ${info.triangles} triangles, ${info.calls} draws`);
+  }
+  console.log(`#bigwoods   ${l.size} tiles: map baked in ${l.bakeMs.toFixed(0)} ms, ready at ${l.ready.toFixed(0)} ms, first frame at ${l.first.toFixed(0)} ms; ${shots.join('; ')}`);
+  await summarise();
+  await page.setViewportSize({ width: 960, height: 540 });
+  await page.goto('about:blank');
+  await page.goto(url + '#bigwoods-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  await page.waitForTimeout(10000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  await page.waitForTimeout(8000);
+  const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  console.log(`#bigwoods-shot      update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+}
 await browser.close();
 server.close();
