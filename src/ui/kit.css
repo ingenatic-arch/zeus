@@ -52,7 +52,7 @@
 /* ------------------------------------------------------------------------ icons */
 .kit svg.ki { width: 18px; height: 18px; flex: none; display: block; }
 .kit svg.fig { width: 40px; height: 48px; }
-.kit svg.fig.wide { width: 48px; }
+.kit svg.fig.fwide { width: 48px; }
 .kit svg.fig.ship { width: 48px; height: 36px; }
 /* A building's picture: the build bar's drawing, coloured for a pale ground. */
 svg.k-bic path, svg.k-bic ellipse, svg.k-bic circle, svg.k-bic rect { stroke-linejoin: round; stroke-linecap: round; }
@@ -211,7 +211,7 @@ svg.k-bic .stroke-warn { stroke: #c63d24; }
 /* A figure in its niche. */
 .k-niche { width: 48px; height: 56px; flex: none; display: grid; place-items: end center; border-radius: 24px 24px 3px 3px; background: linear-gradient(rgba(70, 52, 30, 0.14), rgba(70, 52, 30, 0.04)), var(--skin-marble) 20px 40px / 256px 256px; box-shadow: var(--k-sunk); overflow: hidden; }
 .k-niche svg.fig { width: 40px; height: 48px; margin-bottom: 2px; }
-.k-niche svg.fig.wide { width: 46px; height: 46px; }
+.k-niche svg.fig.fwide { width: 46px; height: 46px; }
 .k-niche svg.fig.ship { width: 46px; height: 34px; margin-bottom: 8px; }
 
 /* ------------------------------------------------------------------------ the one tip */
@@ -249,7 +249,7 @@ svg.k-bic .stroke-warn { stroke: #c63d24; }
 .k-figs { display: flex; gap: 4px; margin: 6px 0 7px; }
 .k-kind { flex: 1; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 3px; padding: 2px 4px 2px 2px; border-radius: 3px; background: rgba(255, 252, 240, 0.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 0 1px rgba(110, 86, 52, 0.2); }
 .k-kind svg.fig { grid-row: span 2; width: 22px; height: 27px; }
-.k-kind svg.fig.wide { width: 26px; }
+.k-kind svg.fig.fwide { width: 26px; }
 .k-kind b { font: 500 16px/1 var(--serif); font-variant-numeric: lining-nums tabular-nums; }
 .k-kind small { font-size: 11.5px; color: var(--ink-soft); line-height: 1.1; }
 .k-figs > svg.fig { width: 34px; height: 41px; }
@@ -297,7 +297,7 @@ svg.k-bic .stroke-warn { stroke: #c63d24; }
 .k-btn.k-wide { width: 100%; }
 .k-recruit .k-btn .k-bi { width: 26px; height: 26px; border-radius: 4px; }
 .k-recruit .k-btn .k-bi svg.fig { width: 20px; height: 24px; }
-.k-recruit .k-btn .k-bi svg.fig.wide { width: 24px; height: 24px; }
+.k-recruit .k-btn .k-bi svg.fig.fwide { width: 24px; height: 24px; }
 .k-recruit .k-btn .k-bi svg.fig.ship { width: 24px; height: 18px; }
 .k-recruit .k-why { margin-top: 2px; padding-left: 3px; }
 .k-coname .pick { font: 700 14.5px/1.2 var(--serif); letter-spacing: 0; }

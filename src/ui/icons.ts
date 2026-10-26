@@ -99,7 +99,7 @@ function horsemanFigure(d: Dress): string {
       `<path d="M20.6 13.6h7.4l1 9.6h-9.4z" fill="${d.tunic}" stroke="#4a1a10" stroke-width=".8" stroke-linejoin="round"/><path d="M21 14h6.6l.4 4.6H20.6z" fill="${BRONZE}" stroke="${BRONZE_EDGE}" stroke-width=".6"/>` +
       `<path d="M38 2.6 14 34" stroke="#6a4a24" stroke-width="1.5" stroke-linecap="round"/><path d="M38.8 1.4l-.4 3.6-2.6-1.8z" fill="#d8d6cc" stroke="#55524a" stroke-width=".5"/><path d="M27.4 15.6l3.4 1.4" stroke="${SKIN}" stroke-width="2.2" stroke-linecap="round"/>` +
       `<circle cx="24.2" cy="10" r="3.4" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".7"/><path d="M20.6 10.4c0-3.6 1.6-5.2 3.6-5.2s3.6 1.6 3.6 5.2l-1.2.2-.6-1.6h-3.6l-.6 1.6z" fill="${BRONZE}" stroke="${BRONZE_EDGE}" stroke-width=".7"/><path d="M20 6.4c1-3.4 7.4-3.4 8.4 0l-1.4.2c-.8-1.8-4.8-1.8-5.6 0z" fill="${d.crest}" stroke="#4a1410" stroke-width=".5"/>`,
-    'ki fig wide',
+    'ki fig fwide',
   );
 }
 

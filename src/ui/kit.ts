@@ -215,7 +215,18 @@ export function installKit(root: HTMLElement = document.body): void {
     else hide();
   });
   document.addEventListener('focusout', () => hide());
-  document.addEventListener('scroll', () => hide(), true);
+  // (Gone when the player scrolls; a panel's own scrolling as it is redrawn only moves the tip with its element.)
+  document.addEventListener('wheel', () => hide(), { capture: true, passive: true });
+  document.addEventListener(
+    'scroll',
+    () => {
+      if (!target) return;
+      const r = target.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) hide();
+      else place();
+    },
+    true,
+  );
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && target) hide();
   });
