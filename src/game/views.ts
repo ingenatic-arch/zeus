@@ -200,6 +200,6 @@ export const VIEWS: Record<string, CameraView> = {
   jailbreak: { x: 88.5, z: 53.5, yaw: -0.3, dist: 15, tilt: -0.05 },
   // Slice 49, #physicians: the hut streets in the west, the infirmary at their east end and its first sick homes, right of the home's panel.
   physicians: { x: 17, z: 49, yaw: -0.3, dist: 16, tilt: -0.02 },
-  // #plague: the town's south side with the asklepieion and the infirmary, the road down to the trading post, and the quay where her ship calls.
-  plague: { x: 66, z: 56, yaw: -0.785, dist: 38, tilt: -0.12 },
+  // #plague: the town's south side, the road down to the trading post, the quay where her ship calls and (review of slice 49) the anchorage off it where a quarantine holds her.
+  plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
 };

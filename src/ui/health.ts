@@ -67,6 +67,10 @@ export function quarantineHtml(s: SimState): string {
   const btn = on
     ? '<button class="pill" data-act="quarantine" data-on="0" title="Lift the quarantine: ships tie up and caravans come in again">Lift the quarantine</button>'
     : `<button class="pill${warn.length ? ' urge' : ''}" data-act="quarantine" data-on="1" title="Close the quay and the roads in for a season">Order a quarantine</button>`;
+  // (Review of slice 49: with nothing threatening and no quarantine, one quiet line, so every trade panel isn't headed by a block about plague.)
+  if (!on && !warn.length && !s.health.outbreak) {
+    return `<section class="quarantine quiet"><p class="qstate"><b>Quarantine:</b> none. No plague threatens your traders.</p>${btn.replace('title="Close the quay and the roads in for a season"', `title="Close the quay and the roads in for a season (${season} days), or until you lift it: no plague can come ashore, and no trade either"`)}</section>`;
+  }
   const w = warn.map((l) => `<p class="qwarn">${esc(l)}</p>`).join('');
   return `<section class="quarantine"><h3>Quarantine</h3>${w}${state}<div class="qacts">${btn}</div></section>`;
 }
@@ -80,7 +84,7 @@ function cityHtml(s: SimState): string {
   rows.push(`<li><span>Homes sickly or ailing</span><b>${f.sickly + f.ailing} of ${f.homes}</b></li>`);
   rows.push(`<li><span>Called on by a physician this season</span><b>${f.called} of ${f.homes}</b></li>`);
   rows.push(`<li><span>This month</span><b>${f.month.ill} fell ill · ${f.month.mended} mended · ${f.month.died} died${f.month.fled ? ` · ${f.month.fled} fled` : ''}</b></li>`);
-  const risk = `<p class="risk ${f.risk}"><b>Plague risk: ${f.risk === 'none' ? 'none' : f.risk}</b>${f.reasons.length ? `: ${esc(f.reasons.map((r, i) => (i ? r.charAt(0).toLowerCase() + r.slice(1) : r)).join('; '))}` : ''}</p>`;
+  const risk = `<p class="risk ${f.risk}"><b>Plague risk: ${f.risk === 'none' ? 'none' : f.risk}</b>${f.reasons.length ? `: ${esc(f.reasons.map((r) => r.charAt(0).toLowerCase() + r.slice(1)).join('; '))}` : ''}</p>`;
   const out = f.outbreak ? `<p class="qwarn">${esc(f.outbreak)}</p>` : '';
   return `<section class="hcity"><h3>The city’s health</h3>${out}<ul class="hrows">${rows.join('')}</ul>${risk}</section>`;
 }
@@ -92,7 +96,8 @@ function infirmaryHtml(s: SimState, b: Building): string {
   const lead = b.workers === 0 ? '<p class="late">Nobody works here yet: no physician goes out.</p>' : '';
   out.push(`<section class="hwork"><h3>Its physicians</h3><p class="small lead">They walk the streets in a crew of three, calling on every home beside their way and tending the sick there: a home called on is healthier for a month, and the sick a physician tends are half as likely to die.</p>${lead}${c.homes ? bar((c.called / c.homes) * 100).replace(/<span class="word">[^<]*<\/span>/, '<span class="word">Called</span>').replace(/<span class="num">\d+<\/span>/, `<span class="num">${c.called}/${c.homes}</span>`) : ''}${c.homes ? `<p class="small">${esc(`Called on ${c.called} of the ${c.homes} homes round it this month.`)}</p>` : ''}</section>`);
   // The sick in its reach, worst first.
-  const sick = s.health.sick.filter((x) => x.bed === 0).slice(0, 6);
+  // (Review of slice 49: and those whose stretcher-bearers are on their way: they are still at home.)
+  const sick = s.health.sick.filter((x) => x.bed <= 0).slice(0, 6);
   if (sick.length) out.push(`<section><h3>The sick at home</h3><ul class="hsick">${sick.map((x) => `<li>${esc(sickWords(s, x))}${housePart(s, x.home)}</li>`).join('')}</ul></section>`);
   out.push(cityHtml(s));
   out.push(quarantineHtml(s));

@@ -36,3 +36,7 @@
 .household .hhome .reasons { margin-top: 4px; }
 .household.trade section.quarantine { margin: 0 0 8px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(184, 138, 80, 0.4); }
 .household.trade section.quarantine h3 { margin: 0; }
+/* (Review of slice 49: the quiet row, with nothing threatening.) */
+.household section.quarantine.quiet { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.household section.quarantine.quiet p.qstate { margin: 0; }
+.household section.quarantine.quiet .pill { flex: none; }

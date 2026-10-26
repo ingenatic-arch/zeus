@@ -1999,7 +1999,9 @@ export function traderLine(s: SimState, r: TradeRoute): { text: string; at: numb
   const name = PLACES[r.city].name;
   const at = (r.kind === 'land' ? s.buildings.find((b) => b.kind === 'yard') : s.buildings.find((b) => b.kind === 'trading'))?.id ?? 0;
   if (r.missedAt > 0 && s.tick - r.missedAt < TICKS_PER_MONTH && r.missed) {
-    const text = r.missed === 'road' ? `The caravan from ${name} turned back at the edge of the map: no road leads from there to the caravan yard. Lay a road from the edge to the yard.` : r.missed === 'yard' ? `The caravan from ${name} turned back: the city has no caravan yard.` : `The ship from ${name} turned back: the city has no trading post.`;
+    // (Review of slice 49: a quarantine's, and a blockade's, said as they are, not as a missing trading post.)
+    const what = r.kind === 'land' ? 'caravan' : 'ship';
+    const text = r.missed === 'road' ? `The caravan from ${name} turned back at the edge of the map: no road leads from there to the caravan yard. Lay a road from the edge to the yard.` : r.missed === 'yard' ? `The caravan from ${name} turned back: the city has no caravan yard.` : r.missed === 'quarantine' ? `The ${what} from ${name} turned back: your quarantine keeps ${r.kind === 'land' ? 'the roads in' : 'the quay'} closed. It comes again next time.` : r.missed === 'blockade' ? `The ship from ${name} turned back: a blockade holds the mouth of your harbour.` : `The ship from ${name} turned back: the city has no trading post.`;
     return { text, at, rank: 0, missed: true };
   }
   if (r.kind === 'land') {

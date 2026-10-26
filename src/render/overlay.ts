@@ -459,7 +459,8 @@ export class ServiceOverlay {
       } else if (pre && pre[t] >= 0 && pre[t] <= mode.range) codes[t] = WATER_PREVIEW;
     }
     const sick = new Map<number, number>();
-    for (const x of s.health.sick) if (x.bed === 0) sick.set(x.home, Math.max(sick.get(x.home) ?? 0, x.plague ? 2 : 1));
+    // (Review of slice 49: still at home while the asklepieion's bearers are on their way.)
+    for (const x of s.health.sick) if (x.bed <= 0) sick.set(x.home, Math.max(sick.get(x.home) ?? 0, x.plague ? 2 : 1));
     const tone = this.tones.health;
     let n = 0;
     if (s.buildings.length * 2 > this.columns.instanceMatrix.count) this.grow(s.buildings.length * 2);

@@ -37,6 +37,7 @@ import { seasonAt, SUMMER } from '../src/sim/seasons';
 import { Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Building, type BuildingKind, type SimState } from '../src/sim/state';
 import { totals } from '../src/sim/treasury';
+import { traderLine } from '../src/sim/status';
 import { SHIP_ANCHORED, SHIP_AWAY, SHIP_LEAVING, SHIP_MOORED } from '../src/sim/trade';
 import { demoSim } from './prepared';
 
@@ -327,6 +328,8 @@ describe('plague', () => {
     sim.flush();
     const mood = s.world.cities.find((c) => c.id === r.city)!.memories.length;
     expect(until(sim, () => r.missed === 'quarantine', 3 * TICKS_PER_MONTH)).toBe(true);
+    // (Review of slice 49: said as it is, not as a missing trading post.)
+    expect(traderLine(s, r)!.text).toMatch(/^The caravan from .* turned back: your quarantine keeps the roads in closed/);
     expect(s.walkers.some((w) => w.kind === 'caravan' && w.origin > 0 && !w.back && w.wait === 0 && w.since === s.tick)).toBe(false);
     expect(s.world.cities.find((c) => c.id === r.city)!.memories.length).toBe(mood);
     expect(until(sim, () => !quarantined(s), 4 * TICKS_PER_MONTH)).toBe(true);
@@ -353,6 +356,22 @@ describe('plague', () => {
     expect(end.words).toContain(`${o.dead} died`);
     expect(s.population).toBe(s.buildings.reduce((n, b) => n + b.people, 0));
     ledgerAddsUp(s);
+  });
+
+  it('the plague reaches healthy homes too, but far less often than sickly ones (review of slice 49)', () => {
+    const struck = (v: number): number => {
+      const sim = demoSim('town');
+      const s = sim.state;
+      const all = homes(s);
+      for (const b of all) b.health = v;
+      startOutbreak(s, map, '', all[Math.floor(all.length / 2)]);
+      sim.run(12 * TICKS_PER_DAY);
+      return s.health.outbreak?.struck.length ?? 0;
+    };
+    const healthy = struck(90);
+    const sickly = struck(30);
+    expect(healthy).toBeGreaterThanOrEqual(1);
+    expect(sickly).toBeGreaterThan(healthy * 2);
   });
 
   it('a crowded, sickly quarter in summer is warned of as a fever before it turns to plague; never in the first year', () => {

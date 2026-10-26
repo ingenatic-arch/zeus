@@ -3479,7 +3479,7 @@ const SCENES: Record<string, Demo> = {
   jailbreak: { view: 'jailbreak', speed: 'paused', setup: jailbreakTown, building: prisonOf, overlay: 'crime' },
   // Slice 49: #town with health on and an infirmary in its hut streets, a physician out on her round, three homes sick (one
   // coughing at its door), the health overlay on and the sickliest home's panel open; #athensship's town two weeks before
-  // her next call, an infirmary and an asklepieion by its homes, the town just warned of plague in Athens, the trade panel
+  // her next call, with no infirmary or asklepieion, the town just warned of plague in Athens, the trade panel
   // open on the Athens route with the quarantine order at its head.
   physicians: { view: 'physicians', speed: 'paused', setup: physiciansTown, overlay: 'health', overlayOn: true, open: sickliestHome },
   plague: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', trade: 'athens-sea' },

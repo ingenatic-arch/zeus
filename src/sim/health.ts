@@ -50,6 +50,7 @@ import { ageOf, kinship, tell } from './folk';
 import { FOODS, foodUntil } from './foods';
 import { unit } from './hazards';
 import { rateOf } from './labour';
+import { isAway } from './justice';
 import { ALARM, NEWS, say, WARNING, type Saying } from './messages';
 import { roadSearch, tracePath } from './roads';
 import { CREW, crewClock, CREW_GAP, door, moveRounds, roadsBeside, sendOut, type ServiceSpec } from './rounds';
@@ -176,12 +177,17 @@ export const FEVER_BELOW = 30;
 export const FEVER_HOMES = 6;
 export const FEVER_TILES = 4;
 export const FEVER_DAYS = 20;
-/** An outbreak strikes new homes for this long, within PLAGUE_TILES of a home with it, below PLAGUE_BELOW. */
+/**
+ * An outbreak strikes new homes for this long, within PLAGUE_TILES of a home with it: each a day with a chance of
+ * PLAGUE_BASE, and PLAGUE_POOR more the further its health is below HEALTH_MAX (review of slice 49: no home is safe
+ * from it, but a healthy one seldom takes it, so an infirmary's calls slow it rather than stop it dead).
+ */
 export const PLAGUE_DAYS = 60;
 export const PLAGUE_TILES = 5;
-export const PLAGUE_BELOW = 75;
+export const PLAGUE_BASE = 0.003;
+export const PLAGUE_POOR = 0.12;
 /** A struck home with the plague in it: its household's chance a day of fleeing the city. */
-export const FLEE_CHANCE = 0.03;
+export const FLEE_CHANCE = 0.015;
 /** The quarantine lasts a season. */
 export const QUARANTINE_TICKS = TICKS_PER_SEASON;
 /** The physician: how far by road, how much fresh road a round, her rest, and the first. */
@@ -200,6 +206,8 @@ export const BED_DEATH = 0.3;
 export const TEMPLE_TILES = 12;
 /** Foul air carries this far (tiles between footprints). */
 export const FOUL_TILES = 4;
+/** Near a staffed asklepieion the plague spreads this much as fast. */
+export const TEMPLE_SPREAD = 0.5;
 
 const SALT_ILL = 4901;
 const SALT_WHO = 4902;
@@ -262,7 +270,8 @@ function aroundOf(s: SimState): Around {
   }
   const plague = new Set<number>();
   for (const x of s.health?.sick ?? []) {
-    if (x.bed !== 0) continue;
+    // (In an asklepieion's bed, not at home; still at home while its bearers are on their way.)
+    if (x.bed > 0) continue;
     if (x.plague) plague.add(x.home);
     else a.sickHomes.add(x.home);
   }
@@ -459,7 +468,8 @@ export function fallIll(s: SimState, map: CoastMap, b: Building, plague: boolean
   const f = b.family;
   if (!f) return null;
   const h = s.health;
-  const well = f.members.filter((p) => !h.sick.some((x) => x.home === b.id && x.name === p.name && x.female === p.female));
+  // (Review of slice 49: not one who is away, at court, in prison, at hard labour or in the stocks, nor a man serving in a company.)
+  const well = f.members.filter((p) => !h.sick.some((x) => x.home === b.id && x.name === p.name && x.female === p.female) && !isAway(s, b, p.name) && !(!p.female && s.army.soldiers.some((x) => x.home === b.id && x.name === p.name)));
   if (!well.length) return null;
   const p = well[Math.floor(unit(s.seed, b.id, day(s) + salt * 7919, SALT_WHO) * well.length)];
   const [lo, hi] = plague ? PLAGUE_SICK_DAYS : SICK_DAYS;
@@ -679,10 +689,10 @@ function stepOutbreak(s: SimState, map: CoastMap): void {
   if (s.tick < o.until && sources.length) {
     const hit: Building[] = [];
     for (const b of s.buildings) {
-      if (!livedIn(b) || !b.family || o.struck.includes(b.id) || b.health >= PLAGUE_BELOW) continue;
+      if (!livedIn(b) || !b.family || o.struck.includes(b.id)) continue;
       if (!sources.some((src) => gap(src, b) <= PLAGUE_TILES)) continue;
-      let p = 0.03 + (0.12 * (PLAGUE_BELOW - Math.max(0, b.health))) / PLAGUE_BELOW;
-      if (a.temples.some((t) => gap(t, b) <= TEMPLE_TILES)) p *= 0.5;
+      let p = PLAGUE_BASE + (PLAGUE_POOR * Math.max(0, HEALTH_MAX - b.health)) / HEALTH_MAX;
+      if (a.temples.some((t) => gap(t, b) <= TEMPLE_TILES)) p *= TEMPLE_SPREAD;
       if (unit(s.seed, b.id, day(s), SALT_STRIKE) < p) hit.push(b);
     }
     for (const b of hit) strike(s, map, b);
@@ -691,7 +701,7 @@ function stepOutbreak(s: SimState, map: CoastMap): void {
   for (const id of o.struck) {
     const b = findBuilding(s, id);
     if (!b || !livedIn(b) || !b.family) continue;
-    if (!h.sick.some((x) => x.home === id && x.plague && x.bed === 0)) continue;
+    if (!h.sick.some((x) => x.home === id && x.plague && x.bed <= 0)) continue;
     if (unit(s.seed, id, day(s), SALT_FLEE) < FLEE_CHANCE) flee(s, map, b);
   }
   if (!h.sick.some((x) => x.plague) && s.tick > o.start) {
@@ -791,7 +801,7 @@ export const PHYSICIAN: ServiceSpec = {
     for (const b of besideRoad(s, size, t, near)) {
       if (!livedIn(b)) continue;
       b.physician = s.tick;
-      for (const x of s.health.sick) if (x.home === b.id && x.bed === 0) x.tended = s.tick;
+      for (const x of s.health.sick) if (x.home === b.id && x.bed <= 0) x.tended = s.tick;
     }
   },
   rest: (b) => restFor(b, PHYSICIAN_REST),
@@ -1222,12 +1232,14 @@ export function healthTownLine(s: SimState): { text: string; at: number } | null
     if (p) {
       const due = traderDue(s, p.city);
       const where = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
-      return { text: `Plague in ${cityName(p.city)}${due ? `: ${due}` : ''}. A quarantine (the trade panel) holds her traders off; physicians and an asklepieion by the quay keep it from spreading.`, at: where?.id ?? 0 };
+      return { text: `Plague in ${cityName(p.city)}${due ? `: ${due}` : ''}. A quarantine (the trade panel) holds her traders off; physicians and an asklepieion by the quay slow its spread.`, at: where?.id ?? 0 };
     }
   }
   if (q) {
     const post = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
-    return { text: `Quarantine: no ship ties up and no caravan comes in for ${dayCount(h.quarantine - s.tick)} more. Lift it on the infirmary’s or the trade panel.`, at: post?.id ?? 0 };
+    // (Review of slice 49: where it can be lifted in this town.)
+    const healers = s.buildings.some((b) => b.kind === 'infirmary' || b.kind === 'asklepieion');
+    return { text: `Quarantine: no ship ties up and no caravan comes in for ${dayCount(h.quarantine - s.tick)} more. Lift it on the trade panel${healers ? ' or an infirmary’s' : ''}.`, at: post?.id ?? 0 };
   }
   return null;
 }
