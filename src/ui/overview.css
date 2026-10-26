@@ -53,6 +53,9 @@
 .ov-lead { margin: 0 0 8px; font-size: 14.5px; color: var(--ink-soft); }
 .ov-note { margin: 6px 0; font-size: 14px; color: var(--ink-soft); }
 .ov-note.bad, .ov-why.bad li:first-child { color: var(--down); }
+/* Merge of slice 51: a page's part still to come (the Health page's sick, physicians and plague, with slice 49). */
+.ov-coming { margin: 4px 0 2px; font-size: 14px; color: var(--ink-soft); }
+.ov-coming b { display: inline-block; margin-right: 6px; padding: 1px 7px; border: 1px dashed rgba(110, 76, 30, 0.55); border-radius: 3px; font: 600 12px/1.4 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
 .ov-since { margin: 2px 0 8px; font-size: 13.5px; font-style: italic; color: var(--ink-soft); }
 .ov-page .up { color: var(--up); }
 .ov-page .down { color: var(--down); }

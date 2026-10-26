@@ -21,11 +21,21 @@
  * For the merge (marked "Slice 49 at the merge"): `sickNow` counts nobody
  * today, as nobody falls ill; it is where the sick are counted once homes
  * have a health.
+ *
+ * Merge of slice 51 with slice 45: a crime is one criminal act, counted as
+ * the court's monthly rate counts it (justice.ts' RATE_KINDS: a theft, a
+ * crowd's pockets picked, a building smashed, a fire set, a lot smuggled, the
+ * takings skimmed), so the month's crimes, the year's by kind and the quarters
+ * all agree. The court's sentences, the prisoners home again and the
+ * breakouts are counted for the month as they happen (`court`, justice.ts
+ * adds to it), and written with the month.
  */
 import { canWorkIn, workforce } from './labour';
 import { livedIn } from './buildings';
 import { START_MONTH, TICKS_PER_MONTH } from './clock';
 import { moodCtx, talliesNow, type CrimeTally } from './crime';
+// Merge of slice 51 with slice 45: the court's monthly rate, its punishments.
+import { PUNISHMENTS, RATE_KINDS, type RateMonth } from './justice';
 import { moodOf, needsOf, NEEDS, untilOf } from './folk';
 import { WARES } from './foods';
 import { peopleOf } from './colonies';
@@ -57,9 +67,12 @@ export interface AnnalMonth {
   stock: number[];
   /** Of the homes whose level needs each service (NEEDS order), the share that had it at the month's end, in percent (-1: no home needed it). */
   reach: number[];
-  /** The month's crimes (every kind), and criminals caught. */
+  /** The month's crimes (every kind, each act once, as the court's rate counts them), and criminals caught. */
   crimes: number;
   caught: number;
+  /** Merge of slice 45: the court's month (COURT_ROWS order: sentences by punishment, home again, broken out; empty for a month with none, to keep saves small), and those in prison at its end. */
+  court: number[];
+  jailed: number;
   /** The sick at the month's end (none fall ill yet), and the share of homes with water and food on the table, in percent (-1: no homes). */
   sick: number;
   well: number;
@@ -88,6 +101,8 @@ export interface Annals {
   /** The tick the record begins: 0 for a new game; an older save's tick when it was loaded (its earlier months weren't kept). */
   since: number;
   months: AnnalMonth[];
+  /** Merge of slice 45: this month's court so far (COURT_ROWS order), added to as it happens (justice.ts). */
+  court: number[];
   /** This year's finished months, and last year (null: none kept). */
   year: AnnalYear;
   last: AnnalYear | null;
@@ -98,6 +113,8 @@ export const IN_GROUPS: ReadonlyArray<{ id: string; name: string; kinds: readonl
   { id: 'taxes', name: 'Taxes', kinds: ['taxes'] },
   { id: 'trade', name: 'Trade', kinds: ['sales'] },
   { id: 'empire', name: 'Tribute, gifts and spoils', kinds: ['vassals', 'given', 'collected', 'recovered'] },
+  // (Merge of slice 47: the colonies' and free allies' share of their trade, in coin.)
+  { id: 'colonytrade', name: 'Colonies’ trade', kinds: ['colonytrade'] },
   { id: 'loans', name: 'Loans', kinds: ['borrowed', 'repayment', 'returned'] },
   { id: 'fines', name: 'Fines', kinds: ['fines'] },
   { id: 'other', name: 'Other', kinds: [] },
@@ -115,20 +132,65 @@ export const OUT_GROUPS: ReadonlyArray<{ id: string; name: string; kinds: readon
   { id: 'other', name: 'Other', kinds: [] },
 ];
 
-/** Crime by kind, as crime's tallies keep it: each row's tally field and name. (Slice 45 at the merge: the court's rows go at the end.) */
-export const CRIME_ROWS: ReadonlyArray<{ key: keyof CrimeTally; name: string; crime: boolean; dr?: boolean }> = [
-  { key: 'thefts', name: 'Thefts', crime: true },
-  { key: 'picked', name: 'Purses cut', crime: true },
-  { key: 'smashed', name: 'Buildings smashed', crime: true },
-  { key: 'arson', name: 'Fires set', crime: true },
-  { key: 'smuggled', name: 'Goods smuggled', crime: true },
-  { key: 'skimmed', name: 'Skimmed from taxes', crime: false, dr: true },
-  { key: 'caught', name: 'Caught', crime: false },
-  { key: 'fines', name: 'Fines', crime: false, dr: true },
+/**
+ * The court's rows (merge of slice 45): a sentence of each punishment (PUNISHMENTS order), then a prisoner or labourer
+ * home again, then one broken out of prison.
+ */
+export const COURT_ROWS: ReadonlyArray<{ key: string; name: string }> = [
+  { key: 'fine', name: 'Fined by the court' },
+  { key: 'stocks', name: 'Put in the stocks' },
+  { key: 'prison', name: 'Sent to prison' },
+  { key: 'labour', name: 'Sent to hard labour' },
+  { key: 'exile', name: 'Exiled' },
+  { key: 'execution', name: 'Put to death' },
+  { key: 'freed', name: 'Home from their sentence' },
+  { key: 'broke', name: 'Broke out of prison' },
+];
+/** COURT_ROWS' index of the prisoners home again, and of those broken out (a sentence's is its punishment's in PUNISHMENTS). */
+export const COURT_FREED = PUNISHMENTS.length;
+export const COURT_BROKE = PUNISHMENTS.length + 1;
+const freshCourt = (): number[] => COURT_ROWS.map(() => 0);
+
+/** Where a crime row's figure comes from: the court's rate (a kind, the caught, the tried), crime's tally, or the court's month. */
+type RowFrom = { rate: number } | { caught: true } | { tried: true } | { tally: keyof CrimeTally } | { court: number };
+
+/**
+ * Crime by kind (merge of slice 45): each kind of crime as an act (`crime`, from the court's rate, RATE_KINDS order),
+ * then what they took, the caught, the tried and the fines, then the court's sentences, home-comings and breakouts
+ * (`court`).
+ */
+export const CRIME_ROWS: ReadonlyArray<{ key: string; name: string; crime: boolean; dr?: boolean; court?: boolean; from: RowFrom }> = [
+  { key: 'theft', name: 'Thefts', crime: true, from: { rate: RATE_KINDS.indexOf('theft') } },
+  { key: 'pickpocket', name: 'Crowds’ pockets picked', crime: true, from: { rate: RATE_KINDS.indexOf('pickpocket') } },
+  { key: 'vandal', name: 'Buildings smashed', crime: true, from: { rate: RATE_KINDS.indexOf('vandal') } },
+  { key: 'arson', name: 'Fires set', crime: true, from: { rate: RATE_KINDS.indexOf('arson') } },
+  { key: 'smuggling', name: 'Goods smuggled', crime: true, from: { rate: RATE_KINDS.indexOf('smuggling') } },
+  { key: 'skimming', name: 'Takings skimmed', crime: true, from: { rate: RATE_KINDS.indexOf('skimming') } },
+  { key: 'picked', name: 'Purses cut', crime: false, from: { tally: 'picked' } },
+  { key: 'skimmed', name: 'Skimmed from taxes', crime: false, dr: true, from: { tally: 'skimmed' } },
+  { key: 'caught', name: 'Caught', crime: false, from: { caught: true } },
+  { key: 'tried', name: 'Tried at the court', crime: false, from: { tried: true } },
+  { key: 'fines', name: 'Fines', crime: false, dr: true, from: { tally: 'fines' } },
+  ...COURT_ROWS.map((r, i) => ({ key: r.key, name: r.name, crime: false, court: true, from: { court: i } })),
 ];
 
-/** The crimes a tally counts (every kind, not the drachmas skimmed: a crooked collector's takings count once, as a crime, by the times he skimmed are not kept). */
-export const crimesIn = (t: CrimeTally): number => CRIME_ROWS.reduce((a, r) => a + (r.crime ? (t[r.key] ?? 0) : 0), 0);
+/** The court's rate for a month (this month's, or a closed one kept), or null if it has none. Pure. */
+export function rateFor(s: SimState, month: number): RateMonth | null {
+  const c = s.crime;
+  if (c.rate?.month === month) return c.rate;
+  return c.rates?.find((r) => r.month === month) ?? null;
+}
+
+/** The crimes in a month of the rate (every kind, each act once). */
+export const crimesIn = (r: RateMonth | null): number => (r ? r.n.reduce((a, b) => a + b, 0) : 0);
+
+/** Each crime row's figure for a month, from its rate, crime's tally and the court's month. */
+export function crimeRows(t: CrimeTally, r: RateMonth | null, court: readonly number[]): number[] {
+  return CRIME_ROWS.map(({ from: f }) => ('rate' in f ? (r?.n[f.rate] ?? 0) : 'caught' in f ? (r?.caught ?? 0) : 'tried' in f ? (r?.tried ?? 0) : 'tally' in f ? (t[f.tally] ?? 0) : (court[f.court] ?? 0)));
+}
+
+/** Those in prison now. */
+export const jailedNow = (s: SimState): number => s.crime.held.filter((x) => x.as === 'prison').length;
 
 /** The year of the city's calendar a month falls in (0: the founding year). */
 export const yearOfMonth = (m: number): number => Math.floor((m + START_MONTH) / 12);
@@ -138,7 +200,7 @@ const freshYear = (y: number): AnnalYear => ({ y, in: IN_GROUPS.map(() => 0), ou
 /** Empty annals, beginning at `tick` (a new game's 0; an older save's tick when it was loaded). */
 export function freshAnnals(tick = 0): Annals {
   const m = Math.floor(tick / TICKS_PER_MONTH);
-  return { month: m - 1, since: tick, months: [], year: freshYear(yearOfMonth(m)), last: null };
+  return { month: m - 1, since: tick, months: [], court: freshCourt(), year: freshYear(yearOfMonth(m)), last: null };
 }
 
 /** Which group a ledger line goes in: its index in IN_GROUPS (money in) or OUT_GROUPS (money out). */
@@ -149,22 +211,22 @@ export function groupOf(l: { kind: string; amount: number }): { out: boolean; i:
   return { out, i: i < 0 ? groups.length - 1 : i };
 }
 
-/** Add a month's ledger lines and crime tally into a year. */
-export function addToYear(y: AnnalYear, lines: readonly LedgerLine[], t: CrimeTally): void {
+/** Add a month's ledger lines and crime rows (crimeRows) into a year. */
+export function addToYear(y: AnnalYear, lines: readonly LedgerLine[], crime: readonly number[]): void {
   for (const l of lines) {
     if (!l.amount) continue;
     const g = groupOf(l);
     if (g.out) y.out[g.i] = (y.out[g.i] ?? 0) - l.amount;
     else y.in[g.i] = (y.in[g.i] ?? 0) + l.amount;
   }
-  CRIME_ROWS.forEach((r, i) => (y.crime[i] = (y.crime[i] ?? 0) + (t[r.key] ?? 0)));
+  CRIME_ROWS.forEach((_, i) => (y.crime[i] = (y.crime[i] ?? 0) + (crime[i] ?? 0)));
 }
 
 /** Slice 49 at the merge: the sick in the city now (nobody falls ill yet). */
 export const sickNow = (_s: SimState): number => 0;
 
 /** The figures that stand at a moment (everything but the month's flows): for the month's end, and for "now" on the overview. */
-export function figures(s: SimState): Omit<AnnalMonth, 'm' | 'in' | 'out' | 'crimes' | 'caught'> {
+export function figures(s: SimState): Omit<AnnalMonth, 'm' | 'in' | 'out' | 'crimes' | 'caught' | 'court'> {
   const homes = s.buildings.filter(livedIn);
   const ctx = moodCtx(s);
   let glad = 0;
@@ -200,10 +262,12 @@ export function figures(s: SimState): Omit<AnnalMonth, 'm' | 'in' | 'out' | 'cri
     reach,
     sick: sickNow(s),
     well: homes.length ? Math.round((well / homes.length) * 100) : -1,
-    soldiers: s.army.soldiers.filter((x) => x.state !== 'fallen' && x.state !== 'leaving').length,
+    // (Merge of slice 47: your own companies' men, not an ally's or a colony's militia.)
+    soldiers: s.army.soldiers.filter((x) => x.state !== 'fallen' && x.state !== 'leaving' && !s.army.companies.find((c) => c.id === x.company)?.ally).length,
     ships: s.fleet.triremes.filter((t) => t.state !== 'sinking').length,
     vassals: s.empire.vassals.length,
     colonists: s.empire.colonies.reduce((a, c) => a + peopleOf(s, c), 0),
+    jailed: jailedNow(s),
   };
 }
 
@@ -224,6 +288,8 @@ export function stepAnnals(s: SimState): void {
   if (ended <= a.month) return;
   const { lines, money } = lastMonthsLedger(s, m);
   const t = talliesNow(s).last;
+  const r = rateFor(s, ended);
+  const court = a.court ?? freshCourt();
   let i = 0;
   let o = 0;
   for (const x of lines) {
@@ -231,7 +297,7 @@ export function stepAnnals(s: SimState): void {
     else o -= x.amount;
   }
   const now = figures(s);
-  a.months.push({ m: ended, ...now, money, in: i, out: o, crimes: crimesIn(t), caught: t.caught });
+  a.months.push({ m: ended, ...now, money, in: i, out: o, crimes: crimesIn(r), caught: r?.caught ?? 0, court: court.some((n) => n > 0) ? court.slice() : [] });
   if (a.months.length > ANNAL_MONTHS) a.months.splice(0, a.months.length - ANNAL_MONTHS);
   // The year: a new one begun moves this one to last.
   const y = yearOfMonth(ended);
@@ -239,7 +305,8 @@ export function stepAnnals(s: SimState): void {
     a.last = a.year.y === y - 1 ? a.year : null;
     a.year = freshYear(y);
   }
-  addToYear(a.year, lines, t);
+  addToYear(a.year, lines, crimeRows(t, r, court));
+  a.court = freshCourt();
   a.month = ended;
 }
 
@@ -257,7 +324,7 @@ export function yearNow(s: SimState): { now: AnnalYear; last: AnnalYear | null }
     last = a.last && a.last.y === y - 1 ? a.last : null;
   } else if (a.year.y === y - 1) last = a.year;
   const l = s.ledger;
-  addToYear(now, l.month === m ? l.now : [], talliesNow(s).now);
+  addToYear(now, l.month === m ? l.now : [], crimeRows(talliesNow(s).now, rateFor(s, m), a.court ?? []));
   return { now, last };
 }
 
@@ -265,12 +332,12 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const finList = (v: unknown): boolean => Array.isArray(v) && v.every(fin);
 const yearOk = (y: unknown): boolean => isObj(y) && fin(y.y) && finList(y.in) && finList(y.out) && finList(y.crime);
-const MONTH_NUMBERS = ['m', 'people', 'homes', 'glad', 'came', 'went', 'jobs', 'filled', 'money', 'in', 'out', 'crimes', 'caught', 'sick', 'well', 'soldiers', 'ships', 'vassals', 'colonists'] as const;
+const MONTH_NUMBERS = ['m', 'people', 'homes', 'glad', 'came', 'went', 'jobs', 'filled', 'money', 'in', 'out', 'crimes', 'caught', 'sick', 'well', 'soldiers', 'ships', 'vassals', 'colonists', 'jailed'] as const;
 
 /** Are saved annals whole? */
 export function annalsOk(a: unknown): boolean {
-  if (!isObj(a) || !fin(a.month) || !fin(a.since) || !Array.isArray(a.months) || !yearOk(a.year) || !(a.last === null || yearOk(a.last))) return false;
-  return a.months.every((x) => isObj(x) && MONTH_NUMBERS.every((k) => fin(x[k])) && finList(x.stock) && finList(x.reach));
+  if (!isObj(a) || !fin(a.month) || !fin(a.since) || !Array.isArray(a.months) || !finList(a.court) || !yearOk(a.year) || !(a.last === null || yearOk(a.last))) return false;
+  return a.months.every((x) => isObj(x) && MONTH_NUMBERS.every((k) => fin(x[k])) && finList(x.stock) && finList(x.reach) && finList(x.court));
 }
 
 /**
@@ -282,7 +349,12 @@ export function annalsOk(a: unknown): boolean {
 export function mendAnnals(st: unknown): void {
   if (!isObj(st)) return;
   if (annalsOk(st.annals)) {
-    for (const x of (st.annals as Annals).months) while (x.stock.length < WARES.length) x.stock.push(0);
+    const an = st.annals as Annals;
+    for (const x of an.months) {
+      while (x.stock.length < WARES.length) x.stock.push(0);
+    }
+    while (an.court.length < COURT_ROWS.length) an.court.push(0);
+    for (const y of [an.year, an.last]) if (y) while (y.crime.length < CRIME_ROWS.length) y.crime.push(0);
     return;
   }
   st.annals = freshAnnals(fin(st.tick) ? st.tick : 0);

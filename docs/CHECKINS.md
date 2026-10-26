@@ -80,6 +80,28 @@ A second pair of eyes went through every page at 1920 × 1080 and 1366 × 768, i
 
 I couldn't judge whether the twice-a-second refresh shows as a stutter on a real laptop. Headless, at the fastest speed, a refresh costs 3 to 14 ms against about 46 ms for the rest of a frame's update.
 
+### At the merge
+Slice 46 (many lands) joined the main line just before this one, after 48, 45 and 47, so the overview now has the court, the colonies and the new lands to show. A few things moved to fit:
+
+- **Saves.** The state version is 46, not 43. Older saves come up through each slice's step in turn, this one's last, and start their annals empty as above.
+- **One way of counting crime.** The Crime page, the annals and the court now count crime the same way: one act is one crime, counted as the court counts it, with takings skimmed as a kind of its own. "Caught" is the court's figure for the month. When more were caught than the month's crimes (some done the month before), it says so instead of showing more than 100%.
+- **The court on the Crime page.** The place waiting for slice 45 is filled: who is in prison against the cells, the court's sentences by kind (fines, the stocks, prison, labour, exile, death, the freed and those who broke out) for this month, last month, this year and last year, and each prison with its unrest and why. The court and each prison are links that open their panels. The Crime tab turns red when a prison is close to breaking out. A town with no court says so, with the keys to build one. The new demo #overviewcourt opens #jailbreak's town on this page; #overviewcrime stays on #gang's town, which has no court.
+- **Army and fleet.** "Your companies" lists only your own. A company stationed in a colony says where it is ("stationed in Nea Naxos", "on its way", "sailing home", "out striking") with a link to the colony, and triremes stationed off a colony say so too. Allies and colonial militia have a section of their own, so the soldiers ready are no longer counted with them.
+- **Empire and Treasury.** Each colony shows its trade coin, what is stationed there and its militia, and free allies have a row. The Treasury's ledger has a "Colonies' trade" line, and colonies' rows count their trade with their tribute.
+- **Health.** The sick, the physicians and the plague are marked "Coming", since slice 49 has not joined yet.
+- **Keys.** O does nothing behind the new-game screen, like the other keys. Shift+O is still the water overlay everywhere.
+- **From the review.** Clicking an alarm's popup now puts the overview away, so you see the place it points at. On Distribution, clicking a service also flies the camera to where it is most missed.
+- **The new lands.** The overview opens on #delta and #landlarge with no page errors, and #delta's Distribution page reads right.
+- **Earlier demos.** I compared all 155 prepared towns from the main line before this merge, at opening and 900 ticks on. They are the same, state for state, apart from the annals and a hidden tag on crime news.
+- **#town's save** is 193,465 characters against its budget of 194,000. Slice 49 will probably need to raise it.
+
+Checked on the merged line: the typecheck and the build pass, and all 749 tests pass. In headless Chromium:
+- The smoke checks pass for this slice's demos and the new #overviewcourt, including its court link, a service flown to, #colonybase's Army, Empire and Treasury pages, an alarm's popup clicked from #jailbreak, and O behind #newgame. They also pass for slices 45 to 48.
+- #overview, #overviewgaps, #overviewcrime, #overviewempire, #overviewcourt, #court, #jailbreak, #colonybase, #newgame, #delta, #town, #empire, #gang, #landlarge, #storerules and #messages open with no page errors.
+- I looked at screenshots of #overviewcourt's Crime page, the Health and Treasury pages, and a stationed company and its triremes on the Army and Empire pages.
+
+How it all feels to play is still yours to judge.
+
 ## Slice 46 — Many lands (25 Oct)
 
 You can now found a city on six kinds of generated land as well as the Bay: islands offshore, a river delta, a mountain shore, a dry plain, a wooded coast and a more varied sheltered bay. "Found a new city" on the welcome card opens a new-game screen where you choose the kind, size and seed and see the land drawn before founding there, which was your choice. You weren't here while it was built: every choice below is mine, from the spec's defaults.

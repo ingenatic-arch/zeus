@@ -1624,7 +1624,11 @@ function start(preparedTown: string | null): void {
     const g = greece as GreeceMap | null;
     if (g?.open && g.shown) g.show(null);
   };
-  const msgPops = new MessagePopups(ui, goToMessage, (m) => {
+  // (Merge of slice 51: a click on an alarm's popup puts the overview away, so you see where it takes you.)
+  const msgPops = new MessagePopups(ui, (m) => {
+    if (overview.open) overview.toggle(false);
+    goToMessage(m);
+  }, (m) => {
     if (!m.read) sendMessages({ type: 'messages', act: 'read', ids: [m.id] });
   });
   const msgWatch = new MessageWatch();

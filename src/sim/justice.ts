@@ -675,6 +675,16 @@ export function stepJustice(s: SimState, map: CoastMap): void {
   if (s.tick % TICKS_PER_DAY === 7) stepPrisons(s, map);
 }
 
+/**
+ * Merge of slice 51: a sentence (its punishment's index in PUNISHMENTS), a
+ * prisoner home again or prisoners broken out, counted for this month in the
+ * town's annals (the overview's Crime page). Nothing in the sim reads them.
+ */
+function annal(s: SimState, i: number, n = 1): void {
+  const c = s.annals.court;
+  c[i] = (c[i] ?? 0) + n;
+}
+
 /** A sentence served (or cut short): home again. */
 function free(s: SimState, map: CoastMap, x: Held, why: string): void {
   const home = findBuilding(s, x.home);
@@ -682,6 +692,7 @@ function free(s: SimState, map: CoastMap, x: Held, why: string): void {
   if (!home || !f || !f.members.some((m) => m.name === x.name)) return;
   const from = x.as === 'prison' ? 'prison' : 'hard labour';
   tell(s, f, 'freed', home.level, [x.name, from]);
+  annal(s, PUNISHMENTS.length);
   tellNews(s, 'freed', `${memberWho(x.name, f.name)} is home ${whereOf(map, home)} from ${from}${why ? `: ${why}` : `, ${x.as === 'prison' ? PRISON_MONTHS : LABOUR_MONTHS} months on`}`, home.id);
   s.rev++;
 }
@@ -713,6 +724,7 @@ function sentence(s: SimState, map: CoastMap, x: Case, court: Building | null): 
     f.story[f.story.length - 1].n = n;
   };
   const gang = x.gang ? s.crime.gangs.find((g) => g.den === home.id) : undefined;
+  annal(s, PUNISHMENTS.indexOf(p));
   if (p === 'fine') {
     if (fineOf > 0) income(s, fineOf, 'fines', `${caseName(x.kind)}s caught`);
     tally(s).fines += fineOf;
@@ -956,6 +968,7 @@ function breakOut(s: SimState, map: CoastMap, prison: Building, j: Jail): void {
   s.crime.held = s.crime.held.filter((x) => !(x.as === 'prison' && x.at === prison.id));
   j.unrest = 0;
   j.warned = 0;
+  annal(s, PUNISHMENTS.length + 1, out.length);
   let ran = 0;
   for (const x of out) {
     const home = findBuilding(s, x.home);

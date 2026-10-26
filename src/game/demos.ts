@@ -3587,6 +3587,8 @@ const SCENES: Record<string, Demo> = {
   overviewgaps: { view: 'town', setup: town(TOWN_TICKS), overlay: 'missing', overview: 'distribution' },
   overviewcrime: { view: 'gang', setup: gangTown, overlay: 'crime', overview: 'crime' },
   overviewempire: { view: 'empire', setup: empireCityTown, overlay: 'missing', overview: 'empire' },
+  // Merge of slice 51 with slice 45: #jailbreak's town (a court and a crowded, restless prison) on the Crime page, with the court's figures.
+  overviewcourt: { view: 'jailbreak', setup: jailbreakTown, overlay: 'crime', overview: 'crime' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

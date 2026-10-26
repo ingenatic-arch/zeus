@@ -29,11 +29,11 @@ import type { CoastMap } from '../map/bake';
 import { districtAt, districtTitle, DISTRICTS } from '../map/districts';
 import { PLACES, siteOf, type CityId } from '../map/greece';
 import type { OverlayMode } from '../render/overlay';
-import { ANNAL_MONTHS, CRIME_ROWS, figures, IN_GROUPS, OUT_GROUPS, yearNow, type AnnalMonth, type AnnalYear } from '../sim/annals';
-import { companyName, kindWord, menOf, readyOf, woundedOf } from '../sim/army';
+import { ANNAL_MONTHS, CRIME_ROWS, crimeRows, crimesIn, figures, IN_GROUPS, OUT_GROUPS, rateFor, yearNow, type AnnalMonth, type AnnalYear } from '../sim/annals';
+import { companyName, kindWord, menOf, readyOf, strength, woundedOf } from '../sim/army';
 import { BUILDING_NAMES, centreOf, GREAT_ESTATE, HOME_NAMES, jobsAt, livedIn, capacity } from '../sim/buildings';
 import { formatYear, MONTH_NAMES, START_MONTH, START_YEAR_BC, TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
-import { colonyLoyalty, colonyYear, peopleOf } from '../sim/colonies';
+import { colonyLoyalty, colonyYear, peopleOf, siteRecord } from '../sim/colonies';
 import { STAGE_NAMES, stageOf } from '../sim/colonyworks';
 import { criminalsOut, crimeOfWalker, KIND_NAME, moodCtx, talliesNow, TEMPT_HALF } from '../sim/crime';
 import { expeditionLine } from '../sim/expeditions';
@@ -50,6 +50,11 @@ import { goneForTaxes, TAX_RATES, taxedLately } from '../sim/taxes';
 import { owedWages, WAGE, wageBill } from '../sim/treasury';
 import { loyaltyOf, tributeYear } from '../sim/vassals';
 import { morph } from './morph';
+// Merge of slice 51 with slice 47: stationed companies and triremes, the colonies' trade, free allies and militia.
+import { colonyTrade, freeTrade, militiaReady, passageOf, postedTo, shipsOf, stationedWords } from '../sim/colonyempire';
+import type { Colony } from '../sim/colonies';
+// Merge of slice 51 with slice 45: the court and the prisons.
+import { calmWords, CELLS, prisoners, restlessWords, UNREST_WARN } from '../sim/justice';
 import { wareIcon } from './wareicons';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -570,8 +575,11 @@ function treasuryPage(s: SimState): string {
   }
   for (const c of colonies) {
     const t = colonyYear(s, c);
-    tribute.push(`<li><button class="ov-row" data-act="site" data-site="${c.site}"><span>From ${esc(c.name)}, your colony</span><span class="n">about ${fmt(t.dr)} dr a year</span></button></li>`);
+    // (Merge of slice 47: and its share of its trade, in coin.)
+    const tr = colonyTrade(s, c).share;
+    tribute.push(`<li><button class="ov-row" data-act="site" data-site="${c.site}"><span>From ${esc(c.name)}, your colony</span><span class="n">about ${fmt(t.dr + tr)} dr a year</span></button>${tr ? `<small>Its share in goods about ${fmt(t.dr)} dr; ${fmt(tr)} dr of its trade, in coin.</small>` : ''}</li>`);
   }
+  for (const f of s.empire.freed ?? []) tribute.push(`<li><button class="ov-row" data-act="site" data-site="${esc(f.site)}"><span>From ${esc(f.name)}, your free ally</span><span class="n">about ${fmt(freeTrade(s, f).share)} dr a year</span></button><small>Its share of its trade, in coin.</small></li>`);
   const asked = s.world.deals.filter((d) => d.kind === 'tribute' && d.state === 'open');
   for (const d of asked) tribute.push(`<li class="bad"><button class="ov-row" data-act="city" data-city="${d.city}"><span>Asked of you by ${esc(cityName(d.city))}${d.yearly ? ', yearly' : ''}</span><span class="n">${d.good < 0 ? `${fmt(d.amount)} dr` : `${fmt(d.amount)} goods`}</span></button><small>Due ${esc(dueWords(s, d.due))}</small></li>`);
   side.push(`<h3>Tribute and shares</h3>${tribute.length ? `<ul class="ov-list">${tribute.join('')}</ul><p class="ov-note">Tribute and shares come in goods or coin by caravan or ship; their worth is at your stores’ prices.</p>` : '<p class="ov-note">No vassal or colony sends you anything yet, and nobody asks tribute of you.</p>'}`);
@@ -625,8 +633,11 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
           : `${plural(lacking.length, 'home goes', 'homes go')} without${builds === 0 ? `: there is no ${esc(HOW[sv.need].replace(/^an? /, '').replace(/ \(.*$/, ''))} yet` : ''}.`;
     const gapHtml = [...gaps.map((g) => `<button class="ov-gap" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="${sv.need}" title="${esc(`Go there, with the ${sv.name.toLowerCase()} overlay on`)}">${fmt(g.n)} ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`), ...(lift.length ? liftGaps.map((g) => `<button class="ov-gap lift" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="missing" title="Go there, with the missing overlay on">${fmt(g.n)} to lift ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`) : [])].join('');
     const noBuild = builds === 0 && (lacking.length > 0 || lift.length > 0) ? `<small class="how">Build ${esc(HOW[sv.need])}.</small>` : '';
+    // (Merge of slice 51: a click on the service flies to its biggest gap, or, with none, to the middle of the homes it reaches.)
+    const spot = gaps[0] ?? byDistrict(map, need)[0];
+    const flyTo = spot ? ` data-x="${spot.x.toFixed(1)}" data-z="${spot.z.toFixed(1)}"` : '';
     rows.push(
-      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}" title="${esc(`Show ${sv.name.toLowerCase()} on the map`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? `<i style="width:${share}%;background:${sv.colour}"></i>` : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, w: 140, h: 28, empty: '·' })}</td></tr>`,
+      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}"${flyTo} title="${esc(`Show ${sv.name.toLowerCase()} on the map${gaps.length ? ', where it fails most' : need.length ? ', where it reaches' : ''}`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? `<i style="width:${share}%;background:${sv.colour}"></i>` : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, w: 140, h: 28, empty: '·' })}</td></tr>`,
     );
   }
   // Taxes: the collectors' reach.
@@ -635,8 +646,10 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
     const missed = homes.filter((b) => !taxedLately(s, b));
     const gaps = byDistrict(map, missed).slice(0, 3);
     const offices = s.buildings.filter((b) => b.kind === 'taxoffice').length;
+    const spot = gaps[0] ?? byDistrict(map, taxed)[0];
+    const flyTo = spot ? ` data-x="${spot.x.toFixed(1)}" data-z="${spot.z.toFixed(1)}"` : '';
     rows.push(
-      `<tr class="${mode === 'tax' ? 'on' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="tax" title="Show the tax collectors’ reach on the map"><i style="background:#4f9f88"></i>Tax collectors</button></td><td class="n">${homes.length ? `${fmt(taxed.length)}<small> of ${fmt(homes.length)}</small>` : '—'}</td><td class="bar">${homes.length ? `<i style="width:${pct(taxed.length, homes.length)}%;background:#4f9f88"></i>` : ''}</td><td class="n">·</td><td class="gaps"><span class="why">${offices ? (missed.length ? `${plural(missed.length, 'home', 'homes')} not called on in the last month.` : 'Every home was called on in the last month.') : 'No tax office yet: build one (Z).'}</span>${gaps.map((g) => `<button class="ov-gap" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="tax">${fmt(g.n)} ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`).join('')}</td><td class="spark"></td></tr>`,
+      `<tr class="${mode === 'tax' ? 'on' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="tax"${flyTo} title="Show the tax collectors’ reach on the map"><i style="background:#4f9f88"></i>Tax collectors</button></td><td class="n">${homes.length ? `${fmt(taxed.length)}<small> of ${fmt(homes.length)}</small>` : '—'}</td><td class="bar">${homes.length ? `<i style="width:${pct(taxed.length, homes.length)}%;background:#4f9f88"></i>` : ''}</td><td class="n">·</td><td class="gaps"><span class="why">${offices ? (missed.length ? `${plural(missed.length, 'home', 'homes')} not called on in the last month.` : 'Every home was called on in the last month.') : 'No tax office yet: build one (Z).'}</span>${gaps.map((g) => `<button class="ov-gap" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="tax">${fmt(g.n)} ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`).join('')}</td><td class="spark"></td></tr>`,
     );
   }
   out.push(`<table class="ov-table dist"><thead><tr><th></th><th>Have it</th><th></th><th title="Homes that would go up a level with it">Would lift</th><th>Where the gaps are</th><th>Two years</th></tr></thead><tbody>${rows.join('')}</tbody></table>`);
@@ -649,63 +662,130 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
 
 // ---------------------------------------------------------------------------- Crime
 
-/** Slice 45 at the merge: the court's figures (the caught punished, held in prison, put to death), or null with no court. */
-export function courtFigures(_s: SimState): { punished: number; prison: number; executed: number; words: string } | null {
-  return null;
+/**
+ * The court and the prisons now (merge of slice 45), or null with neither: those waiting for trial, in prison (and
+ * the cells), at hard labour and in the stocks, and each prison's unrest.
+ */
+export function courtFigures(s: SimState): { courts: Building[]; prisons: Building[]; waiting: number; jailed: number; cells: number; labour: number; stocks: number; jails: Array<{ b: Building; n: number; unrest: number; why: string }> } | null {
+  const courts = s.buildings.filter((b) => b.kind === 'court');
+  const prisons = s.buildings.filter((b) => b.kind === 'prison');
+  const c = s.crime;
+  if (!courts.length && !prisons.length && !c.held.length && !c.cases.length) return null;
+  return {
+    courts,
+    prisons,
+    waiting: c.cases.length,
+    jailed: c.held.filter((x) => x.as === 'prison').length,
+    cells: prisons.length * CELLS,
+    labour: c.held.filter((x) => x.as === 'labour').length,
+    stocks: c.stocks.filter((x) => x.until > s.tick).length,
+    jails: prisons.map((b) => ({ b, n: prisoners(s, b).length, unrest: c.jails.find((j) => j.at === b.id)?.unrest ?? 0, why: restlessWords(s, b) })),
+  };
 }
 
-/** The crimes in the scroll over the last twelve months, by the quarter they were done in (the place's district). */
-function crimesByQuarter(s: SimState, map: CoastMap): Map<number, { n: number; caught: number }> {
+/** The crimes in the scroll that the overview counts as one act each (the court's rate's kinds), by the news' kind. */
+const CRIME_NEWS = new Set(['theft', 'picked', 'smashed', 'arson', 'smuggled', 'skimmed']);
+
+/**
+ * The crimes in the scroll over the last twelve months, by the quarter they were done in (the place's district),
+ * and the caught fined on the spot, by the quarter of their home. (The caught a watchman walks to a court are told of at
+ * the court, so they are counted apart: `court`.)
+ */
+function crimesByQuarter(s: SimState, map: CoastMap): { by: Map<number, { n: number; caught: number }>; court: number } {
   const by = new Map<number, { n: number; caught: number }>();
+  let court = 0;
   const from = s.tick - 12 * TICKS_PER_MONTH;
-  const CRIMES = new Set(['theft', 'picked', 'smashed', 'arson', 'smuggled', 'skimmed']);
   for (const m of s.messages.log) {
-    if (m.tick < from || catOf(m.kind) !== 'crime' || !m.of || !m.at || !('building' in m.at)) continue;
+    if (m.tick < from || catOf(m.kind) !== 'crime' || !m.of) continue;
+    if (m.of === 'court' && /brought before the court|is summoned before the court/.test(m.words)) {
+      court++;
+      continue;
+    }
+    if (!m.at || !('building' in m.at)) continue;
+    if (!CRIME_NEWS.has(m.of) && m.of !== 'caught') continue;
     const id = m.at.building;
     const b = s.buildings.find((x) => x.id === id);
     if (!b) continue;
     const d = districtAt(map, ...centreOf(b));
     const e = by.get(d) ?? { n: 0, caught: 0 };
-    if (CRIMES.has(m.of)) e.n++;
-    else if (m.of === 'caught') e.caught++;
-    else continue;
+    if (CRIME_NEWS.has(m.of)) e.n++;
+    else e.caught++;
     by.set(d, e);
   }
-  return by;
+  return { by, court };
 }
+
+/** Per thousand people, to a tenth. */
+const perK = (n: number, people: number): string => (people > 0 ? ((n * 1000) / people).toFixed(1).replace(/\.0$/, '') : '0');
 
 function crimePage(s: SimState, map: CoastMap): string {
   const { ms, ids } = annalsOf(s);
-  const { now, last } = talliesNow(s);
+  const m = Math.floor(s.tick / TICKS_PER_MONTH);
+  const tallies = talliesNow(s);
+  const rNow = rateFor(s, m);
+  const rLast = rateFor(s, m - 1);
+  const lastWritten = back(ms, 1)?.m === m - 1 ? back(ms, 1) : undefined;
+  // (Each row this month so far and last month; the year's from the annals and this month.)
+  const rowsNow = crimeRows(tallies.now, rNow, s.annals.court);
+  const rowsLast = crimeRows(tallies.last, rLast, lastWritten?.court ?? []);
   const { now: yr, last: lastYr } = yearNow(s);
-  const crimes = (t: typeof now): number => CRIME_ROWS.reduce((a, r) => a + (r.crime ? (t[r.key] ?? 0) : 0), 0);
   const out: string[] = [];
-  const per1000 = (n: number): string => (s.population > 0 ? ((n * 1000) / s.population).toFixed(1).replace(/\.0$/, '') : '0');
+  const nowN = crimesIn(rNow);
+  const lastN = crimesIn(rLast);
+  const lastPeople = rLast?.people || s.population;
   const tempted = s.buildings.filter((b) => b.kind === 'home' && b.people > 0 && b.tempt >= TEMPT_HALF);
   const outNow = criminalsOut(s);
   const gangs = s.crime.gangs;
   const posts = s.buildings.filter((b) => b.kind === 'watchpost').length;
-  const lastN = crimes(last);
+  const court = courtFigures(s);
   out.push('<div class="ov-tiles">');
-  out.push(tile('Crimes last month', fmt(lastN), s.crime.on ? `${per1000(lastN)} for every thousand people; ${fmt(crimes(now))} so far this month. ${tempted.length ? `${plural(tempted.length, 'home is', 'homes are')} more than half way to sending one out.` : 'No home is close to it.'}` : 'No crime in the city yet.', chart(ids, [{ name: 'Crimes', colour: '#5a4e68', values: [...ms.map((x) => x.crimes), crimes(now)], bars: true }])));
-  out.push(tile('Caught', fmt(last.caught), `${lastN ? `${pct(last.caught, lastN)}% of last month’s crimes. ` : ''}${plural(posts, 'watch post', 'watch posts')}; ${fmt(last.fines)} dr in fines last month.`, chart(ids, [{ name: 'Caught', colour: '#2c4a86', values: [...ms.map((x) => x.caught), now.caught], bars: true }])));
-  out.push(tile('Out now', fmt(outNow.length), outNow.length ? cap(countKinds(outNow.map((w) => KIND_NAME[crimeOfWalker(w.kind)]))) + '.' : 'Nobody is out to do harm.', ''));
+  out.push(
+    tile(
+      'Crimes last month',
+      `${fmt(lastN)}<small> · ${perK(lastN, lastPeople)} a thousand</small>`,
+      s.crime.on
+        ? `${perK(lastN, lastPeople)} for every thousand people; ${fmt(nowN)} so far this month. ${outNow.length ? `Out now: ${countKinds(outNow.map((w) => KIND_NAME[crimeOfWalker(w.kind)]))}. ` : ''}${tempted.length ? `${plural(tempted.length, 'home is', 'homes are')} more than half way to sending one out.` : 'No home is close to it.'}`
+        : 'No crime in the city yet.',
+      chart(ids, [{ name: 'Crimes', colour: '#5a4e68', values: [...ms.map((x) => x.crimes), nowN], bars: true }]),
+    ),
+  );
+  out.push(tile('Caught', fmt(rLast?.caught ?? 0), `${lastN ? ((rLast?.caught ?? 0) <= lastN ? `${pct(rLast?.caught ?? 0, lastN)}% of last month’s crimes. ` : `More than last month’s ${fmt(lastN)}: some were done before it. `) : ''}${plural(posts, 'watch post', 'watch posts')}; ${court?.courts.length ? `${fmt(rLast?.tried ?? 0)} tried at the court last month` : `${fmt(tallies.last.fines)} dr in fines last month`}.`, chart(ids, [{ name: 'Caught', colour: '#2c4a86', values: [...ms.map((x) => x.caught), rNow?.caught ?? 0], bars: true }])));
+  if (court)
+    out.push(
+      tile(
+        'In prison',
+        `${fmt(court.jailed)}<small>${court.cells ? ` of ${fmt(court.cells)} cells` : ''}</small>`,
+        `${court.prisons.length ? `${plural(court.prisons.length, 'prison', 'prisons')}` : 'No prison: the court can’t send anyone there'}${court.labour ? `; ${fmt(court.labour)} at hard labour` : ''}${court.waiting ? `; ${fmt(court.waiting)} waiting for trial` : ''}${court.stocks ? `; ${fmt(court.stocks)} in the stocks` : ''}.${court.jails.some((j) => j.unrest >= UNREST_WARN) ? ' A prison is restless.' : ''}`,
+        chart(ids, [{ name: 'In prison', colour: '#5a4e68', values: [...ms.map((x) => x.jailed), court.jailed] }]),
+        court.jails.some((j) => j.unrest >= UNREST_WARN) || (court.cells > 0 && court.jailed > court.cells) ? 'bad' : '',
+      ),
+    );
+  else out.push(tile('Out now', fmt(outNow.length), outNow.length ? cap(countKinds(outNow.map((w) => KIND_NAME[crimeOfWalker(w.kind)]))) + '.' : 'Nobody is out to do harm.', ''));
   out.push(tile('Gangs', gangs.length ? fmt(gangs.length) : 'None', gangs.length ? gangs.map((g) => `${esc(cap(g.name))} ${esc(DISTRICTS[g.district]?.where ?? '')}`).join('; ') + '. Two watch posts reaching a den break it up.' : 'No gang has a den in the city.', '', gangs.length ? 'bad' : ''));
   out.push('</div>');
   out.push(sinceNote(s));
   out.push('<div class="ov-cols two">');
-  // By kind.
-  const body = CRIME_ROWS.map((r, i) => {
-    const c = (n: number | undefined): string => `<td class="n${n ? '' : ' nil'}">${n ? `${fmt(n)}${r.dr ? '<small> dr</small>' : ''}` : '·'}</td>`;
-    return `<tr class="${r.crime ? '' : 'sub'}"><td class="what">${esc(r.name)}</td>${c(now[r.key])}${c(last[r.key])}${c(yr.crime[i])}${lastYr ? c(lastYr.crime[i]) : '<td class="n nil">·</td>'}</tr>`;
-  });
-  const court = courtFigures(s);
-  const courtHtml = court
-    ? `<p class="ov-note">The court: ${fmt(court.punished)} punished, ${fmt(court.prison)} in prison, ${fmt(court.executed)} put to death. ${esc(court.words)}</p>`
-    : `<p class="ov-note">No court: the caught are fined on the spot (${fmt(yr.crime[CRIME_ROWS.findIndex((r) => r.key === 'fines')] ?? 0)} dr this year).</p>`;
-  out.push(`<section><h3>By kind</h3><table class="ov-table book"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th><th>This year<small>so far</small></th><th>Last year</th></tr></thead><tbody>${body.join('')}</tbody></table>${courtHtml}</section>`);
+  // By kind, and the court's month by month.
+  const cell = (n: number | undefined, dr = false): string => `<td class="n${n ? '' : ' nil'}">${n ? `${fmt(n)}${dr ? '<small> dr</small>' : ''}` : '·'}</td>`;
+  const line = (i: number): string => {
+    const r = CRIME_ROWS[i];
+    return `<tr class="${r.crime ? '' : 'sub'}"><td class="what">${esc(r.name)}</td>${cell(rowsNow[i], r.dr)}${cell(rowsLast[i], r.dr)}${cell(yr.crime[i], r.dr)}${lastYr ? cell(lastYr.crime[i], r.dr) : '<td class="n nil">·</td>'}</tr>`;
+  };
+  const head = '<thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th><th>This year<small>so far</small></th><th>Last year</th></tr></thead>';
+  const kinds = CRIME_ROWS.map((r, i) => (r.court ? '' : line(i))).join('');
+  const total = (xs: readonly number[]): number => CRIME_ROWS.reduce((a, r, i) => a + (r.crime ? (xs[i] ?? 0) : 0), 0);
+  const totalRow = `<tr class="total"><td class="what">Every crime</td>${cell(total(rowsNow))}${cell(total(rowsLast))}${cell(total(yr.crime))}${lastYr ? cell(total(lastYr.crime)) : '<td class="n nil">·</td>'}</tr>`;
+  out.push(`<section><h3>By kind</h3><table class="ov-table book">${head}<tbody>${kinds}${totalRow}</tbody></table><p class="ov-note">A crime is one act: a theft, a crowd’s pockets picked, a building smashed, a fire set, a lot smuggled or the takings skimmed, as the court’s rate counts them.</p>`);
+  const fines = yr.crime[CRIME_ROWS.findIndex((r) => r.key === 'fines')] ?? 0;
+  if (!court) out.push(`<p class="ov-note">No court: the caught are fined on the spot (${fmt(fines)} dr this year). A court (Z four times) tries them by the law you set, and a prison (Z five times) holds those it sends there.</p></section>`);
+  else {
+    const crows = CRIME_ROWS.map((r, i) => (r.court ? line(i) : '')).join('');
+    const links = [...court.courts.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}" title="Go there and open its panel: the law, the cases, the rate">The court ${esc(lower(districtTitle(districtAt(map, ...centreOf(b)))))}</button>`), ...court.prisons.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}" title="Go there and open its panel: its prisoners and its unrest">the prison ${esc(lower(districtTitle(districtAt(map, ...centreOf(b)))))}</button>`)];
+    const jails = court.jails.map(({ b, n, unrest, why }) => `<li class="${unrest >= UNREST_WARN ? 'bad' : ''}"><button class="ov-row" data-act="building" data-id="${b.id}" title="Go there and open its panel"><span>The prison ${esc(lower(districtTitle(districtAt(map, ...centreOf(b)))))}</span><span class="n">${fmt(n)}<small> of ${CELLS}</small></span></button><small>${esc(cap(why ? `${why}: unrest ${unrest}%` : unrest > 0 ? `calming: unrest ${unrest}%` : 'quiet'))}${why ? `. ${esc(cap(calmWords(s, b)))} would calm it` : ''}.</small></li>`);
+    out.push(`<h3>The court</h3><table class="ov-table book">${head}<tbody>${crows}</tbody></table>${jails.length ? `<ul class="ov-list">${jails.join('')}</ul>` : ''}<p class="ov-note">${links.length ? `${cap(links.join(', '))}.` : ''}${court.courts.length ? '' : ' No court stands: the caught are fined on the spot.'}</p></section>`);
+  }
   // By quarter.
-  const byQ = crimesByQuarter(s, map);
+  const { by: byQ, court: toCourt } = crimesByQuarter(s, map);
   const temptBy = new Map(byDistrict(map, tempted).map((g) => [g.d, g]));
   const ds = new Set<number>([...byQ.keys(), ...temptBy.keys(), ...gangs.map((g) => g.district)]);
   const qrows = [...ds]
@@ -715,7 +795,7 @@ function crimePage(s: SimState, map: CoastMap): string {
       const at = temptBy.get(q.d) ?? districtSpot(map, q.d);
       return `<tr class="${q.g ? 'bad' : ''}"><td class="what"><button class="ov-link" data-act="go" data-x="${at.x.toFixed(1)}" data-z="${at.z.toFixed(1)}" data-mode="crime" title="Go there, with the crime overlay on">${esc(districtTitle(q.d))}</button></td><td class="n">${q.c.n || '·'}</td><td class="n">${q.c.caught || '·'}</td><td class="n">${q.t || '·'}</td><td>${q.g ? esc(cap(q.g.name)) : ''}</td></tr>`;
     });
-  out.push(`<section><h3>By quarter</h3>${qrows.length ? `<table class="ov-table"><thead><tr><th></th><th title="Crimes in the last twelve months, as the scroll tells them">Crimes<small>a year</small></th><th>Caught</th><th title="Homes more than half way to sending someone out">Tempted<small>now</small></th><th>Gang</th></tr></thead><tbody>${qrows.join('')}</tbody></table><p class="ov-note">Crimes and catches over the last twelve months, as the scroll tells them; homes tempted now. The crime overlay (J four times) shows each home’s temptation.</p>` : '<p class="ov-note">No quarter has had a crime this year, and no home is tempted.</p>'}</section>`);
+  out.push(`<section><h3>By quarter</h3>${qrows.length ? `<table class="ov-table"><thead><tr><th></th><th title="Crimes in the last twelve months, as the scroll tells them">Crimes<small>a year</small></th><th title="The caught fined on the spot, by the quarter of their home">Caught</th><th title="Homes more than half way to sending someone out">Tempted<small>now</small></th><th>Gang</th></tr></thead><tbody>${qrows.join('')}</tbody></table><p class="ov-note">Crimes over the last twelve months, as the scroll tells them, where each was done; the caught fined on the spot, by their home’s quarter${toCourt ? `; besides them, ${toCourt === 1 ? 'one was' : `${fmt(toCourt)} were`} brought before the court` : ''}; homes tempted now. The crime overlay (J four times) shows each home’s temptation.</p>` : '<p class="ov-note">No quarter has had a crime this year, and no home is tempted.</p>'}</section>`);
   out.push('</div>');
   return out.join('');
 }
@@ -761,7 +841,7 @@ function healthPage(s: SimState, map: CoastMap): string {
     `<section><h3>Sickness and physicians</h3>${
       h
         ? `<table class="ov-table kv"><tbody><tr><td>The sick</td><td class="n">${fmt(h.sick)}</td></tr><tr><td>Homes a physician called on</td><td class="n">${fmt(h.reached)}<small> of ${fmt(h.homes)}</small></td></tr><tr><td>Plague</td><td class="n">${esc(h.plague)}</td></tr></tbody></table><p class="ov-note">${esc(h.words)}</p>`
-        : '<p class="ov-note">Nobody in the city falls ill yet, so there are no sick, no physicians and no plague to count. When they come, their figures are kept here: the sick, the homes the physicians reach, and how near the plague is.</p>'
+        : '<p class="ov-coming"><b>Coming</b> with the physicians and the plague.</p><p class="ov-note">Nobody in the city falls ill yet, so there are no sick, no physicians and no plague to count. When they come, their figures are kept here: the sick, the homes the physicians reach, and how near the plague is.</p>'
     }${h ? chart(ids, [{ name: 'The sick', colour: '#8c2f26', values: [...ms.map((x) => x.sick), h.sick], bars: true }], { w: 420, h: 40 }) : ''}</section>`,
   );
   // Where homes go without.
@@ -779,35 +859,66 @@ function healthPage(s: SimState, map: CoastMap): string {
 function armyPage(s: SimState, map: CoastMap): string {
   const { ms, ids } = annalsOf(s);
   const out: string[] = [];
-  const companies = s.army.companies;
-  const men = s.army.soldiers.filter((x) => x.state !== 'fallen' && x.state !== 'leaving');
-  const ready = s.army.soldiers.filter((x) => x.state === 'ready');
-  const arming = s.army.soldiers.filter((x) => x.state === 'arming');
+  // (Merge of slice 47: your own companies, apart from allies' and colonies' militia; a company stationed in a colony is
+  // yours and abroad, not missing.)
+  const st = strength(s);
+  const own = s.army.companies.filter((c) => !c.ally);
+  const allied = s.army.companies.filter((c) => c.ally);
+  const mine = (x: { company: number }): boolean => own.some((c) => c.id === x.company);
+  const men = s.army.soldiers.filter((x) => mine(x) && x.state !== 'fallen' && x.state !== 'leaving');
+  const ready = men.filter((x) => x.state === 'ready');
+  const arming = men.filter((x) => x.state === 'arming');
+  const abroad = own.filter((c) => postedTo(c));
   const triremes = s.fleet.triremes.filter((t) => t.state !== 'sinking');
+  const offColony = new Map<number, Colony>();
+  for (const c of s.empire.colonies) for (const id of shipsOf(c)) offColony.set(id, c);
   const raids = s.world.raids.filter((r) => r.ended === 0 && r.phase !== 'done');
   const blockades = s.fleet.blockades.filter((b) => b.ended === 0);
   const pirates = s.fleet.pirates.filter((p) => p.state === 'seen' || p.state === 'preying');
   const expeditions = s.world.expeditions.filter((e) => e.phase !== 'done');
   const armour = stockOf(s, 9).total;
   out.push('<div class="ov-tiles">');
-  out.push(tile('Soldiers', `${fmt(ready.length)}<small> of ${fmt(men.length)} ready</small>`, companies.length ? `${plural(companies.length, 'company', 'companies')}${arming.length ? `; ${plural(arming.length, 'man waits', 'men wait')} for armour (${fmt(armour)} sets in store)` : ''}.` : 'No companies: a barracks (B four times) raises them from the better homes.', chart(ids, [{ name: 'Soldiers', colour: '#8a3a24', values: [...ms.map((x) => x.soldiers), men.length] }])));
-  out.push(tile('Triremes', fmt(triremes.length), triremes.length ? `${triremes.filter((t) => t.state === 'moored').length} moored, ${triremes.filter((t) => t.state === 'away').length} away, ${triremes.filter((t) => t.state === 'building').length} building.` : 'No fleet: a shipyard (B seven times) on the shore builds them.', chart(ids, [{ name: 'Triremes', colour: '#2c4a86', values: [...ms.map((x) => x.ships), triremes.length] }])));
+  out.push(tile('Soldiers', `${fmt(ready.length)}<small> of ${fmt(men.length)} ready</small>`, st.companies ? `${plural(st.companies, 'company', 'companies')} of yours${abroad.length ? `, ${fmt(abroad.length)} stationed abroad` : ''}${arming.length ? `; ${plural(arming.length, 'man waits', 'men wait')} for armour (${fmt(armour)} sets in store)` : ''}.${st.allies ? ` And ${plural(st.allies, 'allied company', 'allied companies')} in the city.` : ''}` : `No companies of yours: a barracks (B four times) raises them from the better homes.${st.allies ? ` ${cap(plural(st.allies, 'allied company stands', 'allied companies stand'))} with you.` : ''}`, chart(ids, [{ name: 'Soldiers of yours', colour: '#8a3a24', values: [...ms.map((x) => x.soldiers), men.length] }])));
+  out.push(tile('Triremes', fmt(triremes.length), triremes.length ? `${triremes.filter((t) => t.state === 'moored').length} moored, ${triremes.filter((t) => t.state === 'away' && !offColony.has(t.id)).length} away${offColony.size ? `, ${offColony.size} stationed off your colonies` : ''}, ${triremes.filter((t) => t.state === 'building').length} building.` : 'No fleet: a shipyard (B seven times) on the shore builds them.', chart(ids, [{ name: 'Triremes', colour: '#2c4a86', values: [...ms.map((x) => x.ships), triremes.length] }])));
   const threats = raids.length + blockades.length + pirates.length;
   out.push(tile('Threats', threats ? fmt(threats) : 'None', threats ? [raids.length ? plural(raids.length, 'war band', 'war bands') : '', blockades.length ? plural(blockades.length, 'blockade', 'blockades') : '', pirates.length ? `pirates on ${plural(pirates.length, 'lane', 'lanes')}` : ''].filter((x) => x).join(', ') + '.' : 'Nothing threatens the city now.', '', threats ? 'bad' : ''));
-  out.push(tile('Away', fmt(expeditions.length), expeditions.length ? `${plural(expeditions.length, 'expedition is', 'expeditions are')} out.` : 'No expedition is out.', ''));
+  out.push(tile('Away', fmt(expeditions.length + abroad.length), expeditions.length || abroad.length ? [expeditions.length ? `${plural(expeditions.length, 'expedition is', 'expeditions are')} out` : '', abroad.length ? `${plural(abroad.length, 'company is', 'companies are')} stationed in a colony or sailing to or from one` : ''].filter((x) => x).join('; ') + '.' : 'No expedition is out, and no company is stationed abroad.', ''));
   out.push('</div>');
   out.push(sinceNote(s));
   out.push('<div class="ov-cols two">');
-  const crows = companies.map((c) => {
+  const crows = own.map((c) => {
     const m = menOf(s, c);
     const r = readyOf(s, c).length;
+    const site = postedTo(c);
+    if (site) {
+      // Stationed in a colony (or sailing to or from it): a link to the colony's page.
+      const col = s.empire.colonies.find((x) => x.site === site);
+      const p = passageOf(s, c.id);
+      const where = col?.name ?? siteOf(site)?.name ?? site;
+      const doing = p ? (p.dir === 'out' ? `on its way to ${where}` : `sailing home from ${where}`) : c.away > 0 ? `out striking from ${where}` : `stationed in ${where}`;
+      return `<li><button class="ov-row" data-act="site" data-site="${esc(site)}" title="Open the colony’s page on the map of Greece"><span>${esc(cap(companyName(c)))} · ${esc(kindWord(c.kind))}</span><span class="n">${esc(doing)}</span></button><small>${fmt(m.length)} men abroad.</small></li>`;
+    }
     const w = woundedOf(s, c).length;
     const a = m.filter((x) => x.state === 'arming').length;
     const why = [a ? `${a} waiting for armour` : '', w ? `${w} wounded` : '', m.filter((x) => x.state === 'coming').length ? `${m.filter((x) => x.state === 'coming').length} walking in` : ''].filter((x) => x).join(', ');
     return `<li><button class="ov-row" data-act="company" data-id="${c.id}" title="Its banner in hand, on the Army tab"><span>${esc(cap(companyName(c)))} · ${esc(kindWord(c.kind))}</span><span class="n">${r} of ${m.length} ready</span></button>${why ? `<small>${esc(cap(why))}.</small>` : ''}</li>`;
   });
-  out.push(`<section><h3>Companies</h3>${crows.length ? `<ul class="ov-list">${crows.join('')}</ul>` : '<p class="ov-note">None raised.</p>'}`);
-  const trows = triremes.map((t) => `<li><span class="ov-row static"><span>${esc(triremeName(t))}</span><span class="n">${t.state === 'building' ? `building, ${Math.min(100, Math.round(t.hp))}%` : `${t.state === 'away' ? 'away' : t.state}, hull ${Math.round(t.hp)}%`}</span></span></li>`);
+  out.push(`<section><h3>Your companies</h3>${crows.length ? `<ul class="ov-list">${crows.join('')}</ul>` : '<p class="ov-note">None raised.</p>'}`);
+  if (allied.length) {
+    // Allies' companies and colonies' militia in the city: links to their city's or colony's page.
+    const arows = allied.map((c) => {
+      const n = menOf(s, c).length;
+      const name = c.militia ? `The militia of ${c.militia}` : `${cityName(c.ally as CityId)}’s ${kindWord(c.kind)}`;
+      const link = c.militia ? `data-act="site" data-site="${esc(String(c.ally))}"` : `data-act="city" data-city="${esc(String(c.ally))}" data-tab="empire"`;
+      return `<li><button class="ov-row" ${link} title="Open its page on the map of Greece"><span>${esc(name)}</span><span class="n">${plural(n, 'man', 'men')}</span></button></li>`;
+    });
+    out.push(`<h3>Allies and militia</h3><ul class="ov-list">${arows.join('')}</ul><p class="ov-note">They fight beside your soldiers while the threat lasts, then go home.</p>`);
+  }
+  const trows = triremes.map((t) => {
+    const col = offColony.get(t.id);
+    if (col) return `<li><button class="ov-row" data-act="site" data-site="${esc(col.site)}" title="Open the colony’s page on the map of Greece"><span>${esc(triremeName(t))}</span><span class="n">stationed off ${esc(col.name)}, hull ${Math.round(t.hp)}%</span></button></li>`;
+    return `<li><span class="ov-row static"><span>${esc(triremeName(t))}</span><span class="n">${t.state === 'building' ? `building, ${Math.min(100, Math.round(t.hp))}%` : `${t.state === 'away' ? 'away' : t.state}, hull ${Math.round(t.hp)}%`}</span></span></li>`;
+  });
   out.push(`<h3>The fleet</h3>${trows.length ? `<ul class="ov-list">${trows.join('')}</ul>` : '<p class="ov-note">No triremes.</p>'}</section>`);
   const lines: string[] = [];
   for (const r of raids) lines.push(`<li class="bad"><button class="ov-row" data-act="city" data-city="${r.city}"><span>${esc(raidLine(s, map, r))}</span></button></li>`);
@@ -827,12 +938,19 @@ function empirePage(s: SimState): string {
   const vassals = s.empire.vassals;
   const allies = s.empire.allies;
   const colonies = s.empire.colonies;
+  const freed = s.empire.freed ?? [];
   const people = colonies.reduce((a, c) => a + peopleOf(s, c), 0);
-  const yearDr = vassals.reduce((a, v) => a + tributeYear(s, v).dr, 0) + colonies.reduce((a, c) => a + colonyYear(s, c).dr, 0);
+  // (Merge of slice 47: the colonies' and free allies' share of their trade comes in coin besides their goods.)
+  const trade = colonies.reduce((a, c) => a + colonyTrade(s, c).share, 0) + freed.reduce((a, f) => a + freeTrade(s, f).share, 0);
+  const yearDr = vassals.reduce((a, v) => a + tributeYear(s, v).dr, 0) + colonies.reduce((a, c) => a + colonyYear(s, c).dr, 0) + trade;
+  const militia = militiaReady(s);
+  const militiaMen = militia.reduce((a, m) => a + m.men, 0);
+  const stationed = colonies.filter((c) => stationedWords(s, c));
   out.push('<div class="ov-tiles">');
-  out.push(tile('Vassals', fmt(vassals.length), vassals.length ? `${vassals.map((v) => `${esc(cityName(v.city))}, loyalty ${Math.round(v.loyalty)}${v.arming ? ', arming against you' : ''}`).join('; ')}.${allies.length ? ` And ${plural(allies.length, 'ally', 'allies')}.` : ''}` : allies.length ? `None, but ${plural(allies.length, 'ally', 'allies')}.` : 'No city of Greece is bound to you.', chart(ids, [{ name: 'Vassals', colour: '#8a3a24', values: [...ms.map((x) => x.vassals), vassals.length] }])));
-  out.push(tile('Colonies', fmt(colonies.length), colonies.length ? `${plural(people, 'person lives', 'people live')} in them.` : 'None founded. The quay sends settlers to a free site of Greece from its page on the map (Tab).', chart(ids, [{ name: 'Colonists', colour: '#2c4a86', values: [...ms.map((x) => x.colonists), people] }])));
-  out.push(tile('Tribute and shares', yearDr ? `${fmt(yearDr)}<small> dr a year</small>` : 'None', yearDr ? 'What your vassals and colonies send you in a year, at their prices.' : 'Nothing comes in from an empire yet.', ''));
+  out.push(tile('Vassals', fmt(vassals.length), vassals.length ? `${vassals.map((v) => `${esc(cityName(v.city))}, loyalty ${Math.round(v.loyalty)}${v.arming ? ', arming against you' : ''}`).join('; ')}.${allies.length + freed.length ? ` And ${plural(allies.length + freed.length, 'ally', 'allies')}.` : ''}` : allies.length + freed.length ? `None, but ${plural(allies.length + freed.length, 'ally', 'allies')}.` : 'No city of Greece is bound to you.', chart(ids, [{ name: 'Vassals', colour: '#8a3a24', values: [...ms.map((x) => x.vassals), vassals.length] }])));
+  out.push(tile('Colonies', fmt(colonies.length), colonies.length ? `${plural(people, 'person lives', 'people live')} in them.${stationed.length ? ` Something of yours is stationed in ${plural(stationed.length, 'of them', 'of them')}.` : ''}` : 'None founded. The quay sends settlers to a free site of Greece from its page on the map (Tab).', chart(ids, [{ name: 'Colonists', colour: '#2c4a86', values: [...ms.map((x) => x.colonists), people] }])));
+  out.push(tile('Tribute and shares', yearDr ? `${fmt(yearDr)}<small> dr a year</small>` : 'None', yearDr ? `What your vassals and colonies send you in a year, at their prices${trade ? `, ${fmt(trade)} dr of it your share of the colonies’ trade, in coin` : ''}.` : 'Nothing comes in from an empire yet.', ''));
+  out.push(tile('Militia', militiaMen ? fmt(militiaMen) : 'None', militiaMen ? `${plural(militiaMen, 'man', 'men')} of ${plural(militia.length, 'colony or free ally', 'colonies and free allies')} would sail to your aid when you are raided, and with your army to its wars.` : 'No colony sends militia yet: a town-stage colony, loyal and not talking of freedom, does.', ''));
   out.push('</div>');
   out.push(sinceNote(s));
   out.push('<div class="ov-cols two">');
@@ -843,14 +961,21 @@ function empirePage(s: SimState): string {
     return `<li class="${v.arming ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${v.city}" data-tab="empire" title="Open its page"><span>${esc(cityName(v.city))}</span><span class="n">loyalty ${Math.round(v.loyalty)}</span></button><small>${esc(cap([v.arming ? 'Arming against you' : '', low ? `held back: ${low}` : '', high ? `glad of ${lower(high)}` : ''].filter((x) => x).join('; ')))}. Tribute about ${fmt(tributeYear(s, v).dr)} dr a year.</small></li>`;
   });
   const arows = allies.map((a) => `<li><button class="ov-row" data-act="city" data-city="${a.city}" data-tab="empire"><span>${esc(cityName(a.city))}, your ally</span></button></li>`);
-  out.push(`<section><h3>Vassals and allies</h3>${vrows.length + arows.length ? `<ul class="ov-list">${vrows.join('')}${arows.join('')}</ul>` : '<p class="ov-note">None. A city can be made your vassal by conquest, by a herald, or for its debt, from its page on the map (Tab).</p>'}</section>`);
+  const frows = freed.map((f) => {
+    const m = militia.find((x) => x.site === f.site);
+    return `<li><button class="ov-row" data-act="site" data-site="${esc(f.site)}" title="Open its page"><span>${esc(f.name)}, your free ally</span><span class="n">${fmt(Math.round(siteRecord(s, f.site)?.pop ?? 0))} people</span></button><small>${fmt(freeTrade(s, f).share)} dr a year of its trade${m ? `; ${m.men} militia when you need them` : ''}.</small></li>`;
+  });
+  out.push(`<section><h3>Vassals and allies</h3>${vrows.length + arows.length + frows.length ? `<ul class="ov-list">${vrows.join('')}${arows.join('')}${frows.join('')}</ul>` : '<p class="ov-note">None. A city can be made your vassal by conquest, by a herald, or for its debt, from its page on the map (Tab).</p>'}</section>`);
   const crows = colonies.map((c) => {
     const l = colonyLoyalty(s, c);
     const low = l.why.filter((x) => x.n < 0).slice(0, 2).map((x) => x.why.replace(/[:(].*$/, '').trim()).join('; ');
     const want = c.want && c.want.end === '' ? `wants ${fmt(c.want.amount)} ${wareInfo(WANT_WARE[c.want.kind] ?? 0).name.toLowerCase()} ${dueWords(s, c.want.due)}` : '';
     const threat = c.threat && c.threat.end === '' ? `threatened by ${cityName(c.threat.city)}` : '';
     const where = siteOf(c.site)?.name ?? c.site;
-    return `<li class="${threat || c.talk ? 'bad' : ''}"><button class="ov-row" data-act="site" data-site="${c.site}" title="Open its page"><span>${esc(c.name)} <small>on ${esc(where)}</small></span><span class="n">${fmt(peopleOf(s, c))} · ${esc(STAGE_NAMES[stageOf(c)])}</span></button><small>${esc(cap([`loyalty ${Math.round(c.loyalty)}`, low ? `held back: ${low}` : '', want, threat, c.talk ? 'talking of freedom' : ''].filter((x) => x).join('; ')))}. Its share about ${fmt(colonyYear(s, c).dr)} dr a year.</small></li>`;
+    const st = stationedWords(s, c);
+    const m = militia.find((x) => x.site === c.site);
+    const held = [st ? `${st} stationed there` : '', m ? `${m.men} militia when you need them` : ''].filter((x) => x).join('; ');
+    return `<li class="${threat || c.talk ? 'bad' : ''}"><button class="ov-row" data-act="site" data-site="${c.site}" title="Open its page"><span>${esc(c.name)} <small>on ${esc(where)}</small></span><span class="n">${fmt(peopleOf(s, c))} · ${esc(STAGE_NAMES[stageOf(c)])}</span></button><small>${esc(cap([`loyalty ${Math.round(c.loyalty)}`, low ? `held back: ${low}` : '', want, threat, c.talk ? 'talking of freedom' : ''].filter((x) => x).join('; ')))}. Its share about ${fmt(colonyYear(s, c).dr)} dr a year, and ${fmt(colonyTrade(s, c).share)} dr of its trade.${held ? ` ${esc(cap(held))}.` : ''}</small></li>`;
   });
   out.push(`<section><h3>Colonies</h3>${crows.length ? `<ul class="ov-list">${crows.join('')}</ul>` : '<p class="ov-note">None yet.</p>'}</section>`);
   out.push('</div>');
@@ -876,8 +1001,7 @@ function tabState(s: SimState): Record<OverviewPage, { word: string; warn: 0 | 1
     const need = homes.filter((b) => needsOf(b).includes(sv.need));
     return a + need.filter((b) => untilOf(b, sv.need) <= s.tick).length;
   }, 0);
-  const { now } = talliesNow(s);
-  const crimeNow = CRIME_ROWS.reduce((a, r) => a + (r.crime ? (now[r.key] ?? 0) : 0), 0);
+  const crimeNow = crimesIn(rateFor(s, Math.floor(s.tick / TICKS_PER_MONTH)));
   const threats = s.world.raids.filter((r) => r.ended === 0 && r.phase !== 'done').length + s.fleet.blockades.filter((b) => b.ended === 0).length;
   const owed = owedWages(s).owed;
   const debt = debts(s.world).filter((l) => l.side === 'in');
@@ -888,7 +1012,7 @@ function tabState(s: SimState): Record<OverviewPage, { word: string; warn: 0 | 1
     goods: { word: short ? `${short} short` : 'in hand', warn: short ? 1 : 0 },
     treasury: { word: `${fmt(s.money)} dr`, warn: owed > 0 || debt.some((l) => l.state === 'overdue') ? 2 : debt.length ? 1 : 0 },
     distribution: { word: lacking ? plural(lacking, 'gap', 'gaps') : 'all reached', warn: lacking ? 1 : 0 },
-    crime: { word: !s.crime.on ? 'none' : s.crime.gangs.length ? `${plural(s.crime.gangs.length, 'gang', 'gangs')}` : `${fmt(crimeNow)} this month`, warn: s.crime.gangs.length ? 2 : crimeNow ? 1 : 0 },
+    crime: { word: !s.crime.on ? 'none' : s.crime.gangs.length ? `${plural(s.crime.gangs.length, 'gang', 'gangs')}` : `${fmt(crimeNow)} this month`, warn: s.crime.gangs.length || s.crime.jails.some((j) => j.unrest >= UNREST_WARN) ? 2 : crimeNow ? 1 : 0 },
     health: { word: dry ? `${fmt(dry)} dry` : 'well', warn: dry ? 1 : 0 },
     army: { word: threats ? `${plural(threats, 'threat', 'threats')}` : `${fmt(s.army.soldiers.filter((x) => x.state === 'ready').length)} ready`, warn: threats ? 2 : 0 },
     empire: { word: s.empire.vassals.length + s.empire.colonies.length ? [s.empire.vassals.length ? plural(s.empire.vassals.length, 'vassal', 'vassals') : '', s.empire.colonies.length ? plural(s.empire.colonies.length, 'colony', 'colonies') : ''].filter((x) => x).join(', ') : 'none yet', warn: restless ? 1 : 0 },
@@ -1014,7 +1138,9 @@ export class Overview {
       this.deps.goTo(Number(t.dataset.x), Number(t.dataset.z), (t.dataset.mode as OverlayMode | undefined) || undefined);
       this.toggle(false);
     } else if (act === 'overlay') {
-      this.deps.overlay(t.dataset.mode as OverlayMode);
+      // (Merge of slice 51: with a place, the camera flies there too.)
+      if (t.dataset.x !== undefined) this.deps.goTo(Number(t.dataset.x), Number(t.dataset.z), t.dataset.mode as OverlayMode);
+      else this.deps.overlay(t.dataset.mode as OverlayMode);
       this.toggle(false);
     } else if (act === 'home') {
       this.deps.openHome(n);

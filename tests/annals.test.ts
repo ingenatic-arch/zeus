@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
-import { ANNAL_MONTHS, annalsOk, CRIME_ROWS, freshAnnals, groupOf, IN_GROUPS, mendAnnals, OUT_GROUPS, yearNow, yearOfMonth } from '../src/sim/annals';
-import { TICKS_PER_MONTH } from '../src/sim/clock';
+import { ANNAL_MONTHS, annalsOk, COURT_BROKE, COURT_FREED, CRIME_ROWS, freshAnnals, groupOf, IN_GROUPS, mendAnnals, OUT_GROUPS, rateFor, yearNow, yearOfMonth } from '../src/sim/annals';
+import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { WARES } from '../src/sim/foods';
 import { NEEDS } from '../src/sim/folk';
 import { migrate } from '../src/sim/migrate';
@@ -84,6 +84,51 @@ describe('the annals', () => {
     expect(groupOf({ kind: 'wages', amount: -5 })).toEqual({ out: true, i: 0 });
     expect(OUT_GROUPS[groupOf({ kind: 'something-new', amount: -5 }).i].id).toBe('other');
     expect(IN_GROUPS[groupOf({ kind: 'refund', amount: 5 }).i].id).toBe('other');
+    // (Merge of slice 51 with slice 47: the colonies' trade in coin has a group of its own.)
+    expect(IN_GROUPS[groupOf({ kind: 'colonytrade', amount: 5 }).i].id).toBe('colonytrade');
+  });
+
+  // Merge of slice 51 with slice 45.
+  it('a crime is one act, as the court’s rate counts it: the month’s crimes, the year’s by kind and the rate agree', () => {
+    const sim = demoSim('gang');
+    const s = sim.state;
+    const end = (Math.floor(s.tick / TICKS_PER_MONTH) + 2) * TICKS_PER_MONTH;
+    sim.run(end - s.tick);
+    const a = s.annals;
+    const last = a.months[a.months.length - 1];
+    const r = rateFor(s, last.m);
+    expect(r).not.toBeNull();
+    const total = r!.n.reduce((p, q) => p + q, 0);
+    expect(total).toBeGreaterThan(0);
+    expect(last.crimes).toBe(total);
+    expect(last.caught).toBe(r!.caught);
+    // The year's crime rows (the kinds, skimming among them) add up to its months' crimes.
+    const y = yearOfMonth(last.m);
+    const months = a.months.filter((x) => yearOfMonth(x.m) === y);
+    const kinds = CRIME_ROWS.reduce((p, row, i) => p + (row.crime ? a.year.crime[i] : 0), 0);
+    expect(a.since).toBe(0);
+    expect(a.year.y).toBe(y);
+    expect(kinds).toBe(months.reduce((p, x) => p + x.crimes, 0));
+    expect(CRIME_ROWS.find((row) => row.key === 'skimming')?.crime).toBe(true);
+  });
+
+  it('the court’s month: each sentence by its punishment, and a breakout’s prisoners, counted as they happen', () => {
+    const sim = demoSim('jailbreak');
+    const s = sim.state;
+    const jailed = s.crime.held.filter((x) => x.as === 'prison').length;
+    expect(jailed).toBeGreaterThan(8);
+    const m0 = Math.floor(s.tick / TICKS_PER_MONTH);
+    const broke = (): number => s.annals.court[COURT_BROKE] + s.annals.months.filter((x) => x.m >= m0).reduce((p, x) => p + (x.court[COURT_BROKE] ?? 0), 0);
+    const sentenced = (): number => [s.annals.court, ...s.annals.months.filter((x) => x.m >= m0).map((x) => x.court)].reduce((p, c) => p + c.slice(0, COURT_FREED).reduce((q, n) => q + n, 0), 0);
+    const tried0 = s.crime.rates.filter((r) => r.month >= m0).reduce((p, r) => p + r.tried, 0) + (s.crime.rate.month >= m0 ? s.crime.rate.tried : 0);
+    const before = sentenced();
+    for (let i = 0; i < 90 && !s.crime.news.some((n) => n.kind === 'breakout'); i++) sim.run(TICKS_PER_DAY);
+    expect(s.crime.news.some((n) => n.kind === 'breakout')).toBe(true);
+    expect(broke()).toBeGreaterThanOrEqual(jailed);
+    // Every trial since the month began is one sentence counted (the rate's tried, the annals' sentences).
+    const tried = s.crime.rates.filter((r) => r.month >= m0).reduce((p, r) => p + r.tried, 0) + (s.crime.rate.month >= m0 ? s.crime.rate.tried : 0);
+    expect(sentenced() - before).toBe(tried - tried0);
+    expect(annalsOk(s.annals)).toBe(true);
   });
 
   it('keeping them never changes how the town plays', () => {
