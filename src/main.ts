@@ -1671,6 +1671,10 @@ function start(preparedTown: string | null): void {
     buildingPanel.show(0);
     ledger.toggle(false);
     tools.select(null);
+    // (Review of slice 51: and the cards over the city's middle.)
+    ambitionPanel.toggle(false);
+    if (saveMenu.open) saveMenu.toggle(false);
+    corner.toggleHelp(false);
   };
   topbar.onOverview(() => {
     if (greeceOpen() && !overview.open) toggleGreece(false);
@@ -2562,6 +2566,11 @@ function start(preparedTown: string | null): void {
     sound.update(dt);
     if (onMap && greece) {
       // The map of Greece instead of the city (which runs on, undrawn).
+      // (Review of slice 51: the overview steps aside for the map, as for the panels in the city's loop.)
+      if (overview.open) {
+        overview.toggle(false);
+        topbar.showOverview(false);
+      }
       greece.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, dt);
       topbar.showDate(sim.date);
       // Slice 43 (review): the season dial keeps time on the map too (it read "Summer" into December while the colony demos ran on there).
@@ -2629,6 +2638,9 @@ function start(preparedTown: string | null): void {
     {
       const t = performance.now();
       overview.mode = overlay.mode;
+      // (Review of slice 51: a panel or card opened while it is open, or a tool picked up, comes first: it steps aside
+      // rather than covering them. Opening it puts them away, so one still open was opened after it.)
+      if (overview.open && (msgPanel.open || ledger.open || ambitionPanel.open || tradePanel.open || shipyardPanel.open || panel.open || buildingPanel.open || saveMenu.open || corner.helpOpen || tools.tool)) overview.toggle(false);
       overview.update(s, map, time);
       topbar.showOverview(overview.open);
       probe.overviewMs = (probe.overviewMs ?? 0) + performance.now() - t;

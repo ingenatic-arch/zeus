@@ -41,7 +41,7 @@ import { triremeName } from '../sim/fleet';
 import { citySells, LEVEL_NEEDS, moodOf, NEED_WORDS, needsOf, NEEDS, untilOf, warningsOf } from '../sim/folk';
 import { GOOD_SERVICE, isGood, WARES, type Ware } from '../sim/foods';
 import { canWorkIn, workforce } from '../sim/labour';
-import { debts, loanLine } from '../sim/loans';
+import { debts, loanLine, owing } from '../sim/loans';
 import { catOf } from '../sim/messages';
 import { raidLine } from '../sim/raids';
 import type { Building, Service, SimState } from '../sim/state';
@@ -419,7 +419,14 @@ function wareOutlook(s: SimState, w: Ware): { total: number; m: WareMonth; full:
   if (users.kind && users.count === 0 && st.total > 0) why.push('nothing uses it yet');
   const held = why.some((x) => /short|to work up|nothing makes/.test(x));
   const over = yearly(s) ? ' over the year' : '';
-  if ((m.made || m.used || net || st.total > 0) && !(held && trend < 0)) why.unshift(trend > 0 ? `more made than used${over}` : trend < 0 ? `more used than made${over}` : m.made || m.used ? 'as much made as used' : 'nothing made or used lately');
+  // (Which way it goes, in words true to what moved it: made and used, or bought and sold abroad, over the same months
+  // as its rate.)
+  const span = yearly(s) ? bookNow(s).months.slice(-12).map((x) => stockMonth(x, w)) : [m];
+  const made = span.reduce((a, x) => a + x.made, 0);
+  const used = span.reduce((a, x) => a + x.used, 0);
+  const rising = made > used ? `more made than used${over}` : `more came in than went out${over}`;
+  const falling = used > made ? `more used than made${over}` : `more went out than came in${over}`;
+  if ((m.made || m.used || net || st.total > 0) && !(held && trend < 0)) why.unshift(trend > 0 ? rising : trend < 0 ? falling : m.made || m.used ? 'as much made as used' : 'nothing made or used lately');
   if (m.sold > 0) why.push(`${fmt(m.sold)} sold abroad`);
   if (m.bought > 0) why.push(`${fmt(m.bought)} came from abroad`);
   if (m.lost > 0) why.push(`${fmt(m.lost)} lost`);
@@ -494,8 +501,10 @@ function treasuryPage(s: SimState): string {
   const out: string[] = [];
   const lastNet = sum(lm.in) - sum(lm.out);
   const yearNet = sum(yr.in) - sum(yr.out);
-  const dl = debts(s.world);
-  const owe = dl.reduce((a, x) => a + x.owed - x.seized, 0);
+  // (What the city owes: its loans in. A loan's owed is already less anything seized. Its loans out are owed to it.)
+  const dl = debts(s.world).filter((x) => x.side === 'in');
+  const owe = dl.reduce((a, x) => a + x.owed, 0);
+  const lentOut = debts(s.world).filter((x) => x.side === 'out').reduce((a, x) => a + x.owed, 0);
   const taxesWhy = (() => {
     const homes = s.buildings.filter(livedIn);
     const taxed = homes.filter((b) => taxedLately(s, b)).length;
@@ -515,7 +524,7 @@ function treasuryPage(s: SimState): string {
     ),
   );
   out.push(tile('This year', `<span class="${yearNet >= 0 ? 'up' : 'down'}">${signed(yearNet)}</span><small> dr</small>`, `${fmt(sum(yr.in))} in, ${fmt(sum(yr.out))} out since January${lastYr ? `; last year ${signed(sum(lastYr.in) - sum(lastYr.out))} dr` : ''}.`, ''));
-  out.push(tile('Debts', owe > 0 ? `${fmt(owe)}<small> dr</small>` : 'None', owe > 0 ? `${plural(dl.length, 'loan', 'loans')} to repay; the next due ${esc(dueWords(s, Math.min(...dl.map((x) => x.due || Infinity))))}.` : 'The city owes nobody.', '', owe > 0 ? 'bad' : ''));
+  out.push(tile('Debts', owe > 0 ? `${fmt(owe)}<small> dr</small>` : 'None', `${owe > 0 ? `${plural(dl.length, 'loan', 'loans')} to repay; ${dl.some((x) => x.state === 'overdue') ? `${dl.length > 1 ? 'one is' : 'it is'} overdue` : `the next due ${esc(dueWords(s, Math.min(...dl.map((x) => x.due || Infinity))))}`}.` : 'The city owes nobody.'}${lentOut > 0 ? ` ${fmt(lentOut)} dr is owed to it.` : ''}`, '', owe > 0 ? 'bad' : ''));
   out.push('</div>');
   out.push(sinceNote(s));
   // The ledger by kind.
@@ -544,7 +553,12 @@ function treasuryPage(s: SimState): string {
   const loans = s.world.loans.filter((x) => x.ended === 0 && x.state !== 'proposed');
   if (loans.length) {
     side.push(`<h3>Loans</h3><ul class="ov-list">${loans
-      .map((x) => `<li class="${x.state === 'overdue' ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${x.city}" data-tab="loans" title="${esc(`${loanLine(s, x)}: open ${cityName(x.city)}’s page`)}"><span>${x.side === 'in' ? 'Owed to' : 'Owed by'} ${esc(cityName(x.city))}</span><span class="n">${fmt(x.owed)} dr</span></button><small>${esc(loanLine(s, x))}</small></li>`)
+      // (Owed only once agreed: before that, a loan being asked or offered.)
+      .map((x) => {
+        const owed = owing(x) || x.state === 'repaying';
+        const what = owed ? (x.side === 'in' ? 'Owed to' : 'Owed by') : x.side === 'in' ? 'Borrowing from' : 'Lending to';
+        return `<li class="${x.state === 'overdue' ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${x.city}" data-tab="loans" title="${esc(`${loanLine(s, x)}: open ${cityName(x.city)}’s page`)}"><span>${what} ${esc(cityName(x.city))}</span><span class="n">${fmt(owed ? x.owed : x.amount)} dr</span></button><small>${esc(loanLine(s, x))}</small></li>`;
+      })
       .join('')}</ul>`);
   } else side.push('<h3>Loans</h3><p class="ov-note">No loans either way. A city of Greece may lend to you, or borrow, from its page on the map (Tab).</p>');
   const vassals = s.empire.vassals;
@@ -587,7 +601,13 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
   for (const sv of SERVICES) {
     const need = homes.filter((b) => needsOf(b).includes(sv.need));
     const lacking = need.filter((b) => untilOf(b, sv.need) <= s.tick);
-    const lift = homes.filter((b) => !b.estate && b.level >= 1 && b.level < 6 && !LEVEL_NEEDS[b.level].includes(sv.need) && LEVEL_NEEDS[b.level + 1].includes(sv.need) && untilOf(b, sv.need, b.level + 1) <= s.tick && warningsOf(s, b).length === 0);
+    // (A home it would lift: its next level needs it, and it lacks only that of what its next level adds.)
+    const lift = homes.filter((b) => {
+      if (b.estate || b.level < 1 || b.level >= 6 || LEVEL_NEEDS[b.level].includes(sv.need) || !LEVEL_NEEDS[b.level + 1].includes(sv.need)) return false;
+      if (untilOf(b, sv.need, b.level + 1) > s.tick) return false;
+      const others = LEVEL_NEEDS[b.level + 1].filter((n) => n !== sv.need && !LEVEL_NEEDS[b.level].includes(n));
+      return others.every((n) => untilOf(b, n, b.level + 1) > s.tick) && warningsOf(s, b).length === 0;
+    });
     const share = need.length ? pct(need.length - lacking.length, need.length) : -1;
     // (The market's goods are sold by their stall at an agora: oil, fleece and wine need theirs, not just the agora.)
     const ware = WARES.find((w) => GOOD_SERVICE[w] === sv.need && isGood(w));
@@ -820,7 +840,7 @@ function empirePage(s: SimState): string {
     const l = loyaltyOf(s, v);
     const low = l.why.filter((x) => x.n < 0).slice(0, 2).map((x) => x.why).join('; ');
     const high = l.why.filter((x) => x.n > 0).slice(0, 1).map((x) => x.why).join('');
-    return `<li class="${v.arming ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${v.city}" data-tab="empire" title="Open its page"><span>${esc(cityName(v.city))}</span><span class="n">loyalty ${Math.round(v.loyalty)}</span></button><small>${esc(cap([v.arming ? 'Arming against you' : '', low ? `held back by ${low}` : '', high ? `glad of ${lower(high)}` : ''].filter((x) => x).join('; ')))}. Tribute about ${fmt(tributeYear(s, v).dr)} dr a year.</small></li>`;
+    return `<li class="${v.arming ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${v.city}" data-tab="empire" title="Open its page"><span>${esc(cityName(v.city))}</span><span class="n">loyalty ${Math.round(v.loyalty)}</span></button><small>${esc(cap([v.arming ? 'Arming against you' : '', low ? `held back: ${low}` : '', high ? `glad of ${lower(high)}` : ''].filter((x) => x).join('; ')))}. Tribute about ${fmt(tributeYear(s, v).dr)} dr a year.</small></li>`;
   });
   const arows = allies.map((a) => `<li><button class="ov-row" data-act="city" data-city="${a.city}" data-tab="empire"><span>${esc(cityName(a.city))}, your ally</span></button></li>`);
   out.push(`<section><h3>Vassals and allies</h3>${vrows.length + arows.length ? `<ul class="ov-list">${vrows.join('')}${arows.join('')}</ul>` : '<p class="ov-note">None. A city can be made your vassal by conquest, by a herald, or for its debt, from its page on the map (Tab).</p>'}</section>`);
@@ -830,7 +850,7 @@ function empirePage(s: SimState): string {
     const want = c.want && c.want.end === '' ? `wants ${fmt(c.want.amount)} ${wareInfo(WANT_WARE[c.want.kind] ?? 0).name.toLowerCase()} ${dueWords(s, c.want.due)}` : '';
     const threat = c.threat && c.threat.end === '' ? `threatened by ${cityName(c.threat.city)}` : '';
     const where = siteOf(c.site)?.name ?? c.site;
-    return `<li class="${threat || c.talk ? 'bad' : ''}"><button class="ov-row" data-act="site" data-site="${c.site}" title="Open its page"><span>${esc(c.name)} <small>on ${esc(where)}</small></span><span class="n">${fmt(peopleOf(s, c))} · ${esc(STAGE_NAMES[stageOf(c)])}</span></button><small>${esc(cap([`loyalty ${Math.round(c.loyalty)}`, low ? `held back by ${low}` : '', want, threat, c.talk ? 'talking of freedom' : ''].filter((x) => x).join('; ')))}. Its share about ${fmt(colonyYear(s, c).dr)} dr a year.</small></li>`;
+    return `<li class="${threat || c.talk ? 'bad' : ''}"><button class="ov-row" data-act="site" data-site="${c.site}" title="Open its page"><span>${esc(c.name)} <small>on ${esc(where)}</small></span><span class="n">${fmt(peopleOf(s, c))} · ${esc(STAGE_NAMES[stageOf(c)])}</span></button><small>${esc(cap([`loyalty ${Math.round(c.loyalty)}`, low ? `held back: ${low}` : '', want, threat, c.talk ? 'talking of freedom' : ''].filter((x) => x).join('; ')))}. Its share about ${fmt(colonyYear(s, c).dr)} dr a year.</small></li>`;
   });
   out.push(`<section><h3>Colonies</h3>${crows.length ? `<ul class="ov-list">${crows.join('')}</ul>` : '<p class="ov-note">None yet.</p>'}</section>`);
   out.push('</div>');
@@ -860,7 +880,7 @@ function tabState(s: SimState): Record<OverviewPage, { word: string; warn: 0 | 1
   const crimeNow = CRIME_ROWS.reduce((a, r) => a + (r.crime ? (now[r.key] ?? 0) : 0), 0);
   const threats = s.world.raids.filter((r) => r.ended === 0 && r.phase !== 'done').length + s.fleet.blockades.filter((b) => b.ended === 0).length;
   const owed = owedWages(s).owed;
-  const debt = debts(s.world);
+  const debt = debts(s.world).filter((l) => l.side === 'in');
   const dry = homes.filter((b) => needsOf(b).includes('water') && b.waterUntil <= s.tick).length;
   const restless = s.empire.vassals.some((v) => v.arming) || s.empire.colonies.some((c) => c.talk || (c.threat && c.threat.end === ''));
   return {

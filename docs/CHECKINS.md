@@ -46,7 +46,7 @@ What breaks, or moves:
 - **How long a good lasts uses its rate over the past year**, because harvests come in lumps. The table's made and used columns are last month's, so a good can show "growing" in a month nothing was made.
 - **Crimes by quarter come from the message scroll**, so they cover the crimes the scroll told you about in the last year, in the quarter where each happened.
 - **The court's and the sick's figures are placeholders** until slices 45 and 49 merge.
-- **The window covers the city.** Clicking a link puts it away so you can see the place; O brings it back on the same page.
+- **The window covers the city.** Clicking a link puts it away so you can see the place, and so does opening the Messages, the ledger, the map of Greece or another panel, or picking up a tool; O brings it back on the same page.
 - **While it is open, the window rebuilds its page about every 0.6 s** of play. Headless, a page takes 6 to 26 ms to build, which on a real laptop should be a fraction of that, but I couldn't check whether it shows there as a small stutter twice a second.
 
 ### Measurements
@@ -68,6 +68,17 @@ Headless Chromium with software WebGL, on a machine shared with the other lines 
 | Smoke | | the full slow smoke (a copy with its waits loosened), start to end in 79 min: every step passes, this slice's and every earlier one |
 
 The full measure ran out of its two hours on both builds before its last parts (every demo's load and the lands), so I timed a set of 12 demos on each, twice, in turn, and the overview's cost on its own.
+
+### What the review changed
+A second pair of eyes went through every page at 1920 × 1080 and 1366 × 768, in the original look and with `-modern` and `-plain`, and checked the figures against the town. These were fixed:
+- **Debts said too little, or too much.** The Debts figure took off what had been seized from a loan twice, and counted loans other cities owe you as your own debts (and lit the Treasury tab for them). It now counts only what you owe, says "it is overdue" plainly when it is, and adds what others owe you as a separate line.
+- **A loan still being asked for showed as owed.** In the Treasury's loans, a loan whose herald is still on the way or whose terms wait on you now reads "Borrowing from" or "Lending to" with the sum asked, not "Owed to" with a debt that doesn't exist yet.
+- **"Would lift" counted homes that a service alone wouldn't lift.** A cottage needs both blessings and oil to become a townhouse; one missing both was counted under each. Now a home counts only when that service is the one thing its next level still lacks.
+- **A good's reason named the wrong cause.** Timber bought from abroad, with none cut, said "more made than used over the year". It now says "more came in than went out" when trade, not making, moved it (and "more went out than came in" for goods sold abroad).
+- **The overview covered whatever opened after it.** The Messages panel, the ledger and the map of Greece opened underneath it, hidden. Now anything opened over the city, or a tool picked up, puts the overview away, and an alarm's popup shows above it.
+- **Two lines on the Empire page read oddly** ("held back by you have no triremes"); they now read "held back: you have no triremes to protect it".
+
+I couldn't judge whether the twice-a-second refresh shows as a stutter on a real laptop. Headless, at the fastest speed, a refresh costs 3 to 14 ms against about 46 ms for the rest of a frame's update.
 
 ## Slice 48 — Building panels and the storehouse (25 Oct)
 
