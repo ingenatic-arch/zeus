@@ -1061,14 +1061,15 @@ if (!(c.tradingPosts === 1 && c.dockers >= 1 && c.onQuay >= 1800 && c.tradeOpen 
 let tt = await zeus(() => window.__zeus.tradeText());
 if (!/The trading post[\s\S]*Ship (in|late ·) \d+ d[\s\S]*Wheat\s*20[\s\S]*Meat\s*35[\s\S]*Cheese\s*35[\s\S]*Oil\s*70[\s\S]*Fleece\s*55[\s\S]*Wine\s*100[\s\S]*On the quay: [\d,]+ wheat[\s\S]*No ship has called yet/.test(tt ?? '')) fail(`#quay panel: ${tt}`);
 // Unticking a good and raising a keep go through the command queue.
-const keep0 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
+// (Slice 50: the keep is a stepper's well in the good's row; the sell tick a switch.)
+const keep0 = await zeus(() => document.querySelector('.trade .k-good[data-good="0"] .k-well')?.textContent ?? '');
 await page.click('.trade button[data-keep="0"][data-by="1"]');
 await frames(3);
-const keep1 = await zeus(() => document.querySelector('.trade td.keep span')?.textContent ?? '');
+const keep1 = await zeus(() => document.querySelector('.trade .k-good[data-good="0"] .k-well')?.textContent ?? '');
 if (!(keep0 === '1,600' && keep1 === '1,800')) fail(`keep + for wheat: ${keep0} -> ${keep1}`);
-await page.click('.trade input[data-sell="1"]');
+await page.click('.trade button[data-sell="1"]');
 await frames(3);
-const meatTick = await zeus(() => document.querySelector('.trade input[data-sell="1"]').checked);
+const meatTick = await zeus(() => document.querySelector('.trade button[data-sell="1"]').getAttribute('aria-checked') === 'true');
 if (meatTick) fail('unticking meat did not take');
 // Esc closes the panel; hovering the post says what is on the quay and when she is due; clicking it opens the panel again.
 await page.keyboard.press('Escape');
@@ -1198,13 +1199,13 @@ if (!/whole households leave/.test(await zeus(() => document.querySelector('.rat
 await open('#quay');
 await frames(2);
 await zeus(() => {
-  const t = document.querySelector('.trade table.goods');
+  const t = document.querySelector('.trade .k-goods'); // (Slice 50: the goods' rows.)
   if (t) t.kept14 = 'kept';
 });
 await page.waitForFunction(() => window.__zeus.tick() > 0 && window.__zeus.frames > 0, null, { timeout: 60000 });
 const t0q = await zeus(() => window.__zeus.tick());
 await page.waitForFunction((t) => window.__zeus.tick() > t + 30, t0q, { timeout: 300000, polling: 200 });
-if ((await zeus(() => document.querySelector('.trade table.goods')?.kept14)) !== 'kept') fail('the trade panel table was rebuilt rather than updated in place');
+if ((await zeus(() => document.querySelector('.trade .k-goods')?.kept14)) !== 'kept') fail('the trade panel table was rebuilt rather than updated in place');
 // A slice 13 (version 12) save at harsh opens with a note that taxes were retuned.
 await zeus((text) => localStorage.setItem('zeus-remake.save.manual', text), gunzipSync(readFileSync('tests/fixtures/slice13-harsh.save.json.gz')).toString());
 await open('#saved-paused');
@@ -1767,7 +1768,8 @@ g = await gi();
 if (!(g.shown === 'athens' && g.feasts.includes('athens'))) fail(`#festival: ${g.shown} ${JSON.stringify(g.feasts)}`);
 if (!(await zeus(() => !!document.querySelector('.glabel.athens svg.ask.feast')))) fail('#festival: no wreath on the label');
 if (!/The Panathenaia is on, until 1 August: wine and meat dear; a gift that arrives now counts for more/.test(g.panel)) fail(`#festival: the page: ${g.panel.slice(0, 1200)}`);
-if (!(await zeus(() => [...document.querySelectorAll('.greece-panel button[data-gift]')].some((b) => /for the Panathenaia/.test(b.title))))) fail('#festival: no gift tip names the festival');
+// (Slice 50: a kit panel's titles are its tip's words.)
+if (!(await zeus(() => [...document.querySelectorAll('.greece-panel button[data-gift]')].some((b) => /for the Panathenaia/.test(b.dataset.tip ?? b.title))))) fail('#festival: no gift tip names the festival');
 await page.click('.greece-panel button[data-tab="prices"]');
 await frames(2);
 g = await gi();
@@ -3433,7 +3435,8 @@ await open('#storerules-paused');
   await page.mouse.click(q.x, q.y - 4);
   await frames(3);
   let b48 = await zeus(() => window.__zeus.building());
-  if (!(b48.open && b48.id === quay.id && /Storehouse[\s\S]*Staff[\s\S]*Its stores[\s\S]*Accept nothing[\s\S]*Oil[\s\S]*Accept[\s\S]*Don’t[\s\S]*Get[\s\S]*Empty[\s\S]*Wine/.test(b48.text))) fail(`#storerules: the panel: ${JSON.stringify(b48).slice(0, 900)}`);
+  // (Slice 50: the modes are icon buttons, their words once in the key above the rows.)
+  if (!(b48.open && b48.id === quay.id && /Storehouse[\s\S]*Staff[\s\S]*Its stores[\s\S]*Accept nothing[\s\S]*Accept[\s\S]*Don’t[\s\S]*Get[\s\S]*Empty[\s\S]*Oil[\s\S]*Wine/.test(b48.text))) fail(`#storerules: the panel: ${JSON.stringify(b48).slice(0, 900)}`);
   const s0 = await zeus((id) => window.__zeus.store(id), quay.id);
   if (!(s0.rules.every((r) => r === 0) && s0.held[4] > 0 && s0.held[7] > 0)) fail(`#storerules: as it opens: ${JSON.stringify(s0)}`);
   await page.click('.household.building button[data-all="none"]');
@@ -3461,7 +3464,8 @@ await open('#storeset-paused');
 await open('#workpanel-paused');
 {
   let b = await zeus(() => window.__zeus.building());
-  if (!(b.open && /Olive press[\s\S]*Staff[\s\S]*\d of 4 workers[\s\S]*What it is doing[\s\S]*What it holds[\s\S]*Olives[\s\S]*Its condition[\s\S]*Orders[\s\S]*Pause[\s\S]*Workers first/.test(b.text))) fail(`#workpanel: the press's panel: ${b.text.slice(0, 900)}`);
+  // (Slice 50: the orders sit under the staff, above the fold.)
+  if (!(b.open && /Olive press[\s\S]*Staff[\s\S]*\d of 4 workers[\s\S]*Orders[\s\S]*Pause[\s\S]*Workers first[\s\S]*What it is doing[\s\S]*What it holds[\s\S]*Olives[\s\S]*Its condition/.test(b.text))) fail(`#workpanel: the press's panel: ${b.text.slice(0, 900)}`);
   await page.click('.household.building button[data-act="pause"]');
   await frames(3);
   let st = await zeus((id) => window.__zeus.store(id), b.id);
@@ -3485,7 +3489,7 @@ await open('#workpanel-paused');
     await page.mouse.click(q.x, q.y);
     await frames(3);
     const p = await zeus(() => window.__zeus.building());
-    if (!(p.id === f.id && /Staff[\s\S]*What it is doing[\s\S]*Orders/.test(p.text))) fail(`#workpanel: clicking a ${kind}: ${JSON.stringify(p).slice(0, 600)}`);
+    if (!(p.id === f.id && /Staff[\s\S]*Orders[\s\S]*What it is doing/.test(p.text))) fail(`#workpanel: clicking a ${kind}: ${JSON.stringify(p).slice(0, 600)}`);
   }
   // Its Follow button follows one of its walkers.
   await page.click('.household.building button[data-act="follow"]');
@@ -3498,6 +3502,89 @@ await open('#messages-paused');
   if (!(runs.length > 0 && runs.every((r) => /^×\d+$/.test(r)))) fail(`#messages: no message shown once with its count: ${JSON.stringify(runs)}`);
 }
 if (errors.length > err48) fail('page errors (slice 48):\n' + errors.slice(err48).join('\n'));
+
+// Slice 50: the panels' kit. #companies: the Army tab's cards (a figure, the men as pips, the order buttons), the summary
+// spelled out and the three recruit plaques; a card's banner button still takes its banner. #goods: the trading post open
+// beside the Goods tab, its quay picture and a row for each good; a keep stepper and a sell switch still send their
+// commands. #storerules at 1920 x 1080: the storehouse's rows and its orders above the fold. The one tip, on hover and
+// on keyboard focus.
+const err50 = errors.length;
+await open('#companies-paused');
+{
+  await zeus(() => window.__zeus.sideTab('military'));
+  await frames(2);
+  const k50 = await zeus(() => ({
+    cards: document.querySelectorAll('.side .k-army .k-co').length,
+    figs: document.querySelectorAll('.side .k-army .k-co .k-niche svg.fig').length,
+    pips: document.querySelectorAll('.side .k-army .k-co .k-pips i.p-ready').length,
+    raise: [...document.querySelectorAll('.side .k-recruit button[data-act="raise"]')].map((b) => b.dataset.kind),
+    side: window.__zeus.sideText(),
+  }));
+  if (!(k50.cards === 2 && k50.figs === 2 && k50.pips === 32)) fail(`#companies (slice 50): the cards: ${JSON.stringify({ ...k50, side: '' })}`);
+  if (k50.raise.join(',') !== 'hoplite,archer,horseman') fail(`#companies (slice 50): the recruit plaques: ${k50.raise}`);
+  if (!/32[\s\S]*soldiers in 2 companies[\s\S]*All 32 ready/.test(k50.side)) fail(`#companies (slice 50): the summary: ${k50.side.slice(0, 600)}`);
+  const arc = (await zeus(() => window.__zeus.army())).companies.find((c) => c.kind === 'archer');
+  await page.click(`.side .k-co button[data-act="company"][data-id="${arc.id}"]`);
+  await frames(2);
+  if ((await zeus(() => window.__zeus.army().selected)) !== arc.id) fail('#companies (slice 50): the card did not take the archers\' banner');
+  await page.keyboard.press('Escape');
+  await frames(2);
+}
+await open('#goods-paused');
+{
+  const g50 = await zeus(() => ({
+    open: !!document.querySelector('.household.trade:not([hidden])'),
+    quay: !!document.querySelector('.household.trade svg.k-quay'),
+    rows: document.querySelectorAll('.household.trade .k-good').length,
+    icons: document.querySelectorAll('.household.trade .k-good .g-ic svg').length,
+    ware: window.__zeus.sideState().ware,
+  }));
+  if (!(g50.open && g50.quay && g50.rows === 11 && g50.icons === 11)) fail(`#goods (slice 50): the trading post: ${JSON.stringify(g50)}`);
+  const well = () => zeus(() => document.querySelector('.trade .k-good[data-good="5"] .k-well')?.textContent ?? '');
+  const w0 = await well();
+  await page.click('.trade .k-good[data-good="5"] button[data-by="1"]');
+  await frames(3);
+  const w1 = await well();
+  if (!(w0 && w1 && w0 !== w1)) fail(`#goods (slice 50): the wine's keep stepper: ${w0} -> ${w1}`);
+  const on = () => zeus(() => document.querySelector('.trade button[data-sell="5"]')?.getAttribute('aria-checked'));
+  const s0 = await on();
+  await page.click('.trade button[data-sell="5"]');
+  await frames(3);
+  if ((await on()) === s0) fail(`#goods (slice 50): the wine's sell switch did not take (${s0})`);
+}
+await open('#storerules-paused');
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await frames(3);
+  const quay = (await zeus(() => window.__zeus.buildingsOf('storehouse'))).sort((a, b) => b.z - a.z)[0];
+  await zeus((id) => window.__zeus.building(id), quay.id);
+  await frames(3);
+  const f50 = await zeus(() => {
+    const el = document.querySelector('.household.building');
+    const rows = [...document.querySelectorAll('.household.building .ware')].map((r) => r.getBoundingClientRect().bottom);
+    const orders = document.querySelector('.household.building .k-orders')?.getBoundingClientRect().bottom ?? 9999;
+    const small = [...document.querySelectorAll('.household.building .ware button, .household.building .ware .k-well, .household.building .ware b')].filter((e) => parseFloat(getComputedStyle(e).fontSize) < 13 && e.textContent.trim()).length;
+    const tiny = [...document.querySelectorAll('.household.building .ware button')].filter((e) => e.getBoundingClientRect().height < 26).length;
+    return { rows: rows.length, low: Math.max(...rows), orders, bottom: el.getBoundingClientRect().bottom, small, tiny, h: innerHeight };
+  });
+  if (!(f50.rows === 8 && f50.low <= f50.h && f50.orders < f50.low && f50.small === 0 && f50.tiny === 0)) fail(`#storerules (slice 50): the rows at 1080: ${JSON.stringify(f50)}`);
+  // The tip: on hovering a mode button after a moment, and at once on keyboard focus.
+  const mb = await page.$('.household.building .ware[data-ware="4"] button[data-mode="2"]');
+  const box = await mb.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction(() => window.__zeus.kitTip() !== '', null, { timeout: 5000 }).catch(() => {});
+  const t50 = await zeus(() => window.__zeus.kitTip());
+  if (!/^Get/.test(t50)) fail(`#storerules (slice 50): the tip on hover: ${t50}`);
+  await page.mouse.move(5, 500);
+  await page.waitForFunction(() => window.__zeus.kitTip() === '', null, { timeout: 5000 }).catch(() => {});
+  await page.keyboard.press('Shift');
+  await zeus(() => document.querySelector('.household.building button[data-act="first"]')?.focus());
+  await frames(2);
+  const f50t = await zeus(() => window.__zeus.kitTip());
+  if (!f50t) fail('#storerules (slice 50): no tip on keyboard focus');
+  await page.setViewportSize({ width: 1280, height: 720 });
+}
+if (errors.length > err50) fail('page errors (slice 50):\n' + errors.slice(err50).join('\n'));
 
 console.log(process.exitCode ? 'smoke: FAILED' : 'smoke: ok (#delta, #dryplain, #islands, #mountains, #woods and #sheltered on their own lands, the road in laid, #newgame, the game\'s keys left alone behind it, a mountain shore chosen, drawn and founded from its link, the card and the scroll telling of it, a founding link in the modern and plain looks, Found a new city on the bare link\'s card, #colonybase, Nea Naxos\' defence, trade and garrison, the company stationed, the empire list, #freeally, the treaty and the free ally, #court, its panel, the law, a thief walked in, the arsonist and the skimming collector tried, the law changed and the thief tried, Esc, a click on the court opening its panel, #jailbreak, the warning and the breakout, each told once in the scroll, the breakout\'s popup, #storerules, the quay storehouse\'s tip and panel, its rules set by its buttons and its oil carted out, #storeset, #workpanel, the press paused and its plaque, set going again, a farm\'s and a fountain\'s panels, Follow, the same message as one row, #messages and #raid\'s popup, #landsmall, #landmedium and #landlarge on their lands, over their bays, the road in from the west edge, settlers in the large land’s plots, its modern and plain looks, #town on the Bay, #crimes, a pickpocket, a vandal and a smuggler drawn, no line for them, the vandal\'s hover, the fountain smashed and its marks, purses cut, goods smuggled, each a Crime message, the fountain mended and the repair on the ledger, #gang, its den, its line, panel and flag, the watchman beaten off a warning, the watch post tool\'s tip, a second watch post and the gang broken up, #colonywants, Nea Thasos asking for wheat, its mark and picture, the wheat sent and the porters out, #colonyworks, its stage and works, the harbour funded and going up, #empire, its laurels, estates, Lighthouse, Rhodes\' fleet at sea, a thief out and his thefts in the scroll, the season, Nea Thasos\' and Corinth\'s pages, a month on, #ambition, its laurels, chip and panel, Esc and the chip, #achieved, Master of Greece achieved, the town line and the Colossus’s hover, #blockade, Troy’s ships holding the mouth, a ship’s hover, the Army tab’s line, the triremes rowing out, the blockade broken, the shipyard from the Army tab, #shipyard, the panel, a trireme under repair, Esc, #colony, its line and Thasos\' page, #colonies, Nea Thasos\' page, its share made light, renamed, Nea Naxos, an empty site\'s price, a rival\'s colony and its city\'s page, #ally, Corinth\'s men on its Empire tab, #estates, two great estates, the panel’s stable and yard, a great estate’s and the horse farm’s hovers, #horsemen, the riders’ banner, the Army tab, ridden west, #monument, the Lighthouse half built, the Monuments tab, the site’s, a builder’s, an ox cart’s and the masons’ yard’s hovers, #lit and its fire, #games and a visitors’ hover, #vassal, the tribute caravan followed in, its line, Corinth’s Empire tab, #submit, Argos’ ways and odds, the demand sent, #conquer, the report, the label, the tribute made heavy, #rebellion, the warning, the shield, the line, the tribute lightened, #seasons, the dial, the look turning and a season on, #winter, the late ship\'s chip and tip, #quarry, the quarry tool, its tip and refusal, marble on the Goods tab, the quarry, quarrymen and sledges and their hovers, #loggers, the camp, felled trees, timber on the Goods tab, the camp\'s and a logger\'s hovers, #greecegrows, its eleven cities, sites, colony, vassal, labels, a colony’s card, Rhodes’ size line and How it stands, #knossos, #memphis, no label under the lines at 1600 × 900, #thieves, the hut street tempted, the crime overlay, line and panel, a thief out, drawn, his tip and line, a villa robbed, a watch post built and the next thief caught, the fine on the ledger, #nowatch, the panel, its story and the Safety tab\'s row, #fortress, its walls, towers, companies, fleet, loans and Sparta’s band, the Army tab, the band met at the west gate, #overdue, its steps, chip and line, paid when the treasury could, #seized, the ledger, #creditors, #collect, a full force sent and away, the Army tab and the map, #report and the army\'s card, #forgive, #landing, Troy’s ships in the bay, the chip, a ship’s hover, the shipyard on the Military tab, drawn up and landed, #triremes, the Army tab’s fleet, rowing out and a ship sunk, a trireme’s hover, #pirates, the sea lane on Athens’ page, a trireme sent to guard it and on the map, the fight’s report, #borrow, Corinth’s terms and reasons, the town line, accepted, the debts chip, Sparta’s refusal, the coin in and the Administration tab’s loans, repaid early, #lend, Athens’ ask lent, the ledger, #repaid and the repayment arriving, #walls, a wall dragged across the road with its tip and gate, a tower by a click, the stretch\'s and tower\'s hovers, undo, #siege, the band hammering, its line, the towers shooting, the gate\'s hover, #battle, the band\'s numbers, both banners placed by clicks, the fight, a raider\'s hover, the band broken, the army\'s news and town line, #looted\'s ledger and line, #hirelings hired, the fee and the march in, #bronze, the mine tool, its tip and copper and armour on the Goods tab, #barracks, its company walking in, the chip and the Army tab, #companies, a banner in hand marched while paused, Esc, the Army tab row and the banner taking it, the soldiers’ pay, #rivals, #rivalstreet and #rivalsmap from their prepared town: every route, the caravans and the ship, the fleets, swords and labels, the News of Greece, Athens’ page and its Rivals tab built when shown, #war, the armies, swords and red way on the map, the labels, Sparta’s page, prices and Rivals tab, the army’s card along its body, the swords’ card, the News of Greece and a line to Athens’ page, #festival, banners, the wreath, the page, the gift tips, the wine price, the fields, #peace, the armies home and Sparta’s prices after, #threat, its page, line and seal, refused and the band gathering, #raid paid off and the band turning on the map, #raiders at the granary, the chip, the band\'s tip and their leaving, #aftermath, the ledger and the king\'s anger spent, #request, its answers, town line and label, the sending fetched, carried out and its tip, its arrival and thanks, #promise and the promise broken, #offer taken and its trade row, #tribute refused, #gift, its ruler tab, the city page tabs, a gift of coin on the map, its hover card, its arrival and reason, #hostile, the road closed, its line and the gift that opens it, #thanks and Corinth’s gift arriving, the terms once, #prices, Corinth’s prices, terms, harvest, reasons, arrows and charts, its route tab, #famine, the parched fields, the harvest line and its link, wheat dear after it, the caravan’s hover card on the map, #routes and opening a road on the map, its caravan on the map, #caravan, its follow, town line, chip and tip, the chip following it, #buywine and the yard tab, #athensship, its tabs, town line and chip, #anchor, #greece, its hover card and ruler panel, the map camera, Esc, Tab and the Greece button, Tab after a side panel click, a city’s label, naming the city, #ruler, #greecesail and the ship on the map, #richtown and #richstreet, the harsh line and rate card, the trade panel updated in place, slice 13 save, a new town keeping the old autosave, trading post tool, tip and refusal, building it and the countdown, G cycling, #quay and the trade panel, keep and sell commands, post and docker hovers, #sail and the town line, #ship tied up and its tip, #black paid back, slice 12 save, fire, blaze, rubble and clearing it, creak, watchman and inspector follows and hovers, hazard town lines and tips, Z and J cycling, the grouped build bar, slice 11 save, pasture, fleece and wine vendor follows and overlays, vineyard tool and tip, winery follow and hovers, villas and their panel, the seven-wide sign, grove tool and tip, oil stall tool, grove, press and storehouse hovers, oil vendor follow and overlay, oil shortfall line and panel, hunter follow, dairy hover and goats, variety overlay and legend, L cycling, over-hunting and the lodge tip, ledger, tax rate, tax overlay, collector follow and hover, tax office tool, harsh taxes, unpaid wages, phase 1 save, welcome card, sound and mute, #town, saving by hand and by itself, opening saves, old and damaged saves, blocked storage, shortfall lines, shrine and theatre tools, townhouses, fine houses, religion and culture overlays, actor follow, wide signs, households, panel, signs, trouble count, what’s missing, decline, pan, orbit, zoom, quarter turn, speed, pause, all views, hash links, roads, plots, settlers, clearing, undo, fountain tool and preview, overlay, carrier hover and follow, huts, route cache, food town and overlay, vendor hover and follow, workers, farm tool, bridge drag and undo, carts on the bridge, clearing a farm)');
 await browser.close();

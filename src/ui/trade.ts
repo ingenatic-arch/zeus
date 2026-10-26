@@ -156,7 +156,7 @@ function goodsTable(s: SimState, post: Building): string {
     const step = kstep({ value: fmt(keep), less: { keep: k, by: -1 }, more: { keep: k, by: 1 }, lessWhy: keep <= 0 ? 'The city keeps none' : undefined, moreWhy: keep >= KEEP_MAX ? `It keeps ${fmt(KEEP_MAX)} at the most` : undefined, tip: keepTitle, name: `${name} kept`, small: true });
     return `<div class="k-good${sell ? ' on' : ' off'}" data-good="${k}"><span class="g-tog">${tog}</span><span class="g-ic">${goodIcon(w)}</span><span class="g-nm">${cap(name)}</span>${price}<span class="g-bar">${bar}<small>${fmt(holds)}</small></span>${q}<span class="g-keep">${step}</span></div>`;
   }).join('');
-  return `<div class="k-goods"><div class="k-ghead"><span>Sell</span><span></span><span data-tip="Each good, and a bar of what the city’s stores hold: the mark is what it keeps">Good · in store</span><span data-tip="Drachmas for every 100">Price</span><span data-tip="Waiting on the quay for the ship">Quay</span><span data-tip="What the city keeps, not for sale">Keep</span></div>${rows}</div>`;
+  return `<div class="k-goods"><div class="k-ghead"><span>Sell</span><span></span><span data-tip="Each good, and under it a bar of what the city’s stores hold: the mark is what it keeps">Good</span><span data-tip="Drachmas for every 100">Price</span><span data-tip="Waiting on the quay for the ship">Quay</span><span data-tip="What the city keeps, not for sale">Keep</span></div>${rows}</div>`;
 }
 
 /** The whole panel's inner HTML. */
