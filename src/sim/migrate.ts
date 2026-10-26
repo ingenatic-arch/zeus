@@ -181,6 +181,11 @@
  * its way, and no colony has been set free by treaty. A colony's next ship
  * brings your share of its trade in coin with its goods.
  *
+ * Slice 46 (Many lands): a town on a generated land from before keeps the
+ * ground it was founded on: its land records that the first edition of the
+ * generator made it (slice 42's sheltered bay), which this game still has.
+ * A town on the Bay, and everything else, is unchanged.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -281,6 +286,7 @@ export function migrate(st: unknown): number {
   if (st.version === 41) fromSlice48(st);
   if (st.version === 42) fromSlice45(st);
   if (st.version === 43) fromSlice47(st);
+  if (st.version === 44) fromSlice46(st);
   return from;
 }
 
@@ -1103,5 +1109,11 @@ function fromSlice47(st: Record<string, unknown>): void {
       }
     }
   }
+  st.version = (st.version as number) + 1;
+}
+
+// Slice 46: a generated land from before was made by the generator's first edition.
+function fromSlice46(st: Record<string, unknown>): void {
+  if (isObj(st.land) && st.land.kind !== 'bay' && st.land.gen === undefined) st.land.gen = 1;
   st.version = (st.version as number) + 1;
 }

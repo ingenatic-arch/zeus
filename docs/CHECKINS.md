@@ -2,6 +2,90 @@
 
 Notes to Oliver, newest first.
 
+## Slice 46 — Many lands (25 Oct)
+
+You can now found a city on six kinds of generated land as well as the Bay: islands offshore, a river delta, a mountain shore, a dry plain, a wooded coast and a more varied sheltered bay. "Found a new city" on the welcome card opens a new-game screen where you choose the kind, size and seed and see the land drawn before founding there, which was your choice. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** A town on a generated land now records which edition of the generator made it (state version 42). A town saved on slice 42's sheltered bay is marked as the first edition and rebuilds on exactly the ground it was founded on: that generator is kept as it was. Towns on the Bay don't change.
+- **Nothing in the earlier demos moves.** I compared all 142 earlier demos against the trunk. Every opening is exactly the same state, and after 900 ticks they have the same people, money and building levels; ten of them (`#town`, `#empire`, `#ship`, `#landsmall`, `#landlarge` among them) are exactly the same state too. `#landsmall`, `#landmedium` and `#landlarge` stay on slice 42's edition of the sheltered bay.
+- **For the other lines:** on the dry plain a fountain needs water under the ground. That rule lives in `build.ts`, with its own refusal message. Oaks are a new plant kind, and the loggers fell them like pines.
+
+### What's new
+- **Six kinds of generated land**, each with its own shapes, resources and colours:
+  - **A sheltered bay**: the bay now sits anywhere along a small land and near one side of a larger one, in one of four shapes: broad, deep, twin coves or open. The river can rise anywhere along the north. A medium or large land also has a lake, uplands or a tributary in its middle.
+  - **Islands offshore**: a wider sea with two or three islands you can see from the city and more out past the map's edge, and a cove for the quay.
+  - **A river delta**: low green land where the river splits into three or four channels across a lobe pushed out into the sea, with marsh and reed-fringed pools between the mouths. On larger lands there are also a tributary and a lake or two.
+  - **A mountain shore**: grey rocky ranges and cliffs, one small bay with a plain behind it, and copper and marble on many slopes.
+  - **A dry plain**: ochre ground with low hills, an olive grove on each, a narrow green river valley, one small wood and a few springs. Fountains only work by the river, the springs and the shore.
+  - **A wooded coast**: thick woods of pine and oak over the hills and down to the shore, with clearings for the river and the bay.
+- **The new-game screen** lists the seven kinds, with a line on each. It also has the three sizes and a seed word, plus "Another" for a fresh word. The preview draws the land from above and marks where the city starts, the road in, the roads in from each edge, the quay sites, copper, marble, the woods and, on the dry plain, the springs. Its legend uses the land's own colours, and a line underneath counts the farmland, grassland, timber and outcrops. "Found the city here" opens the land's own link. The same kind, size and word always make the same land, so you can share the link.
+- **The road in is laid when the city is founded**, from the edge nearest the city's ground. Across 126 lands it's 32 to 74 tiles long (the large land in slice 42 had about 128). The welcome card names the land and says where its road comes from.
+- **Every land is checked playable by the game's own rules**: 126 lands across the six kinds and three sizes all pass, and the tests check 66 on every run.
+
+### What to try
+1. #newgame — the new-game screen over the Bay. Go through the kinds and sizes, press "Another" a few times, then found a city on a mountain shore.
+2. #delta — a fresh medium river delta with its road in laid. Scroll north-west to see where the channels split.
+3. #dryplain — a fresh dry plain. Pick a fountain (B) and hover it out on the plain, then near the river.
+4. #islands, #mountains, #woods and #sheltered — the other kinds, the same way.
+5. #found.delta.256.heron — a large delta, founded from its link as the screen does it.
+6. #delta-modern and #dryplain-plain — the other two looks.
+
+### What I'd like your eye on
+- **Do the kinds read as different places at a glance?** The dry plain is clearly ochre. The review pushed the others further in every look: the delta a deeper, wetter green with darker sand, the wooded coast darker and more olive, the mountain shore's grass paler and greyer. Is that far enough, or too far?
+- **The preview.** One pixel per tile, scaled up, with marks drawn over it. Is that what you had in mind, or should it look more like the original's maps?
+- **The wooded coast's opening view** is the clearing by the bay, so the deep woods show only at its edges. Should the city start nearer the woods? And are its woods thick enough? I thinned them by a third to keep the triangle count down; the review's cheaper trees for the distance have since halved the count, so there may be room to thicken them again.
+
+### Known rough edges
+- Ships never reach a lake: no berth or quay site forms on one. (The review made the Lighthouse and the Colossus refuse a lake's shore too; a trading post there is refused as "too shallow", which is true but doesn't say why.)
+- Large lands bake in 1 to 4 s each in Node on this machine under load. The mountain shore, with the most hills, was about 1.4 times slice 42's sheltered bay before I made the bake skip hills too far from each row (which doesn't change any result); after that the times were too noisy to tell apart.
+- Rivers on the dry plain bend gently and look alike from seed to seed.
+- The wooded coast drew about 4.2 million triangles from its opening view, three and a half times the Bay's. The review added a cheaper tree for the distance, which brings it to about 2.2 million (see What the review changed). It is still the heaviest view in the game, and I couldn't time frames on a real GPU here.
+
+### Measurements
+These are the build's own figures, before the review; the review's changes to the triangle counts are under What the review changed. The starting build (`87f8476`) and this slice's, measured side by side on this machine (headless, software WebGL, load 21 to 34 on 4 cores, so every time below is noisy).
+
+| What | Before | After |
+|---|---|---|
+| Tests | 655: 639 pass, 16 fail on the load (time-outs and two timing bounds) | 686: 685 pass; the one that failed (no demo leaves wages unpaid) timed out under load and passes on its own |
+| Build | 8 min 38 s | 10 to 13 min under heavier load (six more prepared towns) |
+| Main script | 2,271 kB, 709 kB gzipped | 2,319 kB, 725 kB gzipped |
+| The game itself (measure) | 866 KB gzipped | 883 KB gzipped |
+| Prepared towns | 109 files, 3,933 KB gzipped | 115 files, 3,962 KB gzipped |
+| The bare link, ready (page's clock) | 3.2, 5.4 and 4.5 s | 3.0, 3.6, 5.0 and 7.4 s |
+| Triangles and draw calls, every view the measure takes of the Bay's demos (535 lines) | | identical |
+| `#coast` opening / furthest | 1,179,652 triangles, 71 draws / 1,200,724, 78 | the same |
+| `#landsmall`, `#landmedium`, `#landlarge` opening / furthest | 1.16 M, 77 / 1.20 M, 83; 1.74 M, 100 / 2.06 M, 132; 2.07 M, 95 / 2.92 M, 171 | the same |
+| `#landlarge` map baked (browser) | 1,145 and 791 ms | 1,069, 606 and 665 ms |
+| `#landsmall` / `#landlarge` update a frame | 1.6, 1.8 / 1.7, 1.5 ms | 1.5, 2.1, 2.3 / 2.2, 1.1, 2.7 ms |
+
+The new kinds' demos (all medium lands, 192 tiles), opening / furthest, and their bake in the browser over three runs:
+
+| Demo | Triangles, draws | Bake |
+|---|---|---|
+| `#delta` | 1.50 M, 84 / 1.82 M, 126 | 1.3 to 1.8 s |
+| `#dryplain` | 1.87 M, 79 / 2.19 M, 122 | 0.7 to 0.8 s |
+| `#islands` | 1.55 M, 92 / 1.75 M, 128 | 0.6 to 1.3 s |
+| `#mountains` | 1.10 M, 85 / 1.47 M, 134 | 0.5 to 1.0 s |
+| `#woods` | 4.15 M, 113 / 4.54 M, 151 (5.25 M / 5.64 M before I thinned the woods) | 0.5 to 0.7 s |
+| `#sheltered` | 1.44 M, 76 / 1.84 M, 121 | 0.6 to 1.3 s |
+
+- **Every earlier demo**: all 142 open in exactly the same state as at the start and have the same people, money and levels 900 ticks on (`scratch-46/demoprobe`).
+- **Update time a frame** across the 63 demos the measure times: no change I can attribute to this slice. The same build varied by up to 3.4 times between runs (`#seized` 43 then 13 ms on the starting build); retimed in pairs, the six with the largest gaps were 5 to 20 ms before and 7 to 22 ms after, best of two. Nothing this slice adds runs each frame on the Bay.
+- **Large lands' bake in Node** (the tests' "bakes a large land", 6 s limit): 1 to 4 s for every kind under load; all within the limit.
+- **Playability**: 126 lands (each kind at 128 with seeds 1 to 12, 192 with 1 to 5, 256 with 1 to 4) pass `landCheck` with a road in of 32 to 74 tiles; the wooded coast's 21 again after thinning its woods.
+
+### What the review changed
+I went through every step above in the browser at 1920 × 1080, in the original look, the modern one and the plain one. I drove the new-game screen through every kind, a large land and "Another", and founded a mountain shore from it. I also ran the land checks again over all 126 lands.
+- **Cheaper trees from a distance.** When the camera stands well back, as it does in every opening view, the woods' trees are drawn with simpler models: about a third of the triangles, the same colours and shapes. The wooded coast's opening view drops from 4.15 to 2.17 million triangles. The other views drop too, the Bay's included: `#coast` goes from 1.18 to 1.04 million. Zoom in and the full trees come back. I compared the two side by side just either side of the switch and found them hard to tell apart, but the switch does happen on screen, so please watch for a pop as you zoom. The plain look doesn't change.
+- **A lake isn't the sea.** The Lighthouse now refuses a lake's shore and says why, and the Colossus refuses one too. The sea is unchanged on the Bay and on slice 42's lands.
+- **The line in the far sea is gone.** It came from the deep water being see-through out past where the sea floor is drawn. The open sea now turns solid there. I checked this in `-modern` at the furthest zoom, where the line showed before.
+- **The fountain on the dry plain** now shows the dry ground in rust as you move it, so you can see where it will work before you click.
+- **The delta, the wooded coast and the mountain shore are further from the Bay's green.** The delta is a deeper, wetter green with darker sand. The woods are darker and more olive. The mountain shore's grass is paler and greyer. This was my call, made by eye; the first question above still stands.
+- **The new-kind demos after the review**, opening view / furthest view, in triangles (draw calls unchanged): `#delta` 1.29 / 1.60 million, `#dryplain` 1.76 / 2.07, `#islands` 1.31 / 1.52, `#mountains` 0.99 / 1.34, `#woods` 2.17 / 2.55, `#sheltered` 1.28 / 1.64. Slice 42's `#landlarge` is now 1.84 / 2.58.
+
+Still open, for a later slice: the new-game screen draws its preview on the game's own thread (up to a few seconds for a large land on this loaded machine), and the game's keys still work behind it. A trading post on a lake's shore is refused as "too shallow", which is true but doesn't say why. The dark patch where the river rises on the wooded coast's and the mountain shore's massifs is the river's gorge in shadow.
+
 ## Slice 47 — A colonial empire (25 Oct)
 
 Your colonies are now an empire you can hold. You can station a company or triremes in a colony and strike from it, each colony pays you a share of its trade in coin, a grown colony's militia sails to your aid, and a colony that wants its freedom can be let go by treaty as your ally. You weren't here while it was built: every choice below is mine, from the spec's defaults.

@@ -3,7 +3,7 @@ import { TreeKind, type CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { finishBuilding } from './buildFinish';
 import { finishOn } from './finish';
-import { lookTreeModel } from './lookTrees';
+import { lookTreeLite, lookTreeModel } from './lookTrees';
 import { col, PAL } from './palette';
 import { REGROW, tileMarble, timberTrees, TRIM } from '../sim/materials';
 import type { SimState } from '../sim/state';
@@ -155,6 +155,25 @@ function flowers(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+/** Slice 46: the oaks' leaves (their own, not the palette's: the look keeps today's colours for everything else). */
+const OAK = '#557a35';
+const OAK_DARK = '#44652c';
+
+/** Slice 46: an oak of the wooded coast: a stout trunk and a broad, round, dark crown. */
+function oak(): THREE.BufferGeometry {
+  const trunk = new THREE.CylinderGeometry(0.09, 0.15, 0.95, 5).translate(0, 0.47, 0);
+  const limb = new THREE.CylinderGeometry(0.04, 0.07, 0.5, 4).rotateZ(0.8).translate(0.2, 0.9, 0);
+  return merge([
+    { geo: trunk, color: PAL.trunk },
+    { geo: limb, color: PAL.trunk },
+    { geo: blob(0.66, 0, 1.38, 0, 0.78, 16), color: OAK },
+    { geo: blob(0.48, 0.46, 1.2, 0.12, 0.8, 17), color: OAK_DARK },
+    { geo: blob(0.46, -0.44, 1.24, -0.16, 0.8, 18), color: OAK },
+    { geo: blob(0.42, 0.06, 1.3, 0.48, 0.8, 19), color: OAK_DARK },
+    { geo: blob(0.4, -0.08, 1.74, -0.06, 0.75, 20), color: OAK },
+  ]);
+}
+
 const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Olive]: olive,
   [TreeKind.Pine]: pine,
@@ -164,6 +183,7 @@ const MODELS: Record<TreeKind, () => THREE.BufferGeometry> = {
   [TreeKind.Rock]: rock,
   [TreeKind.Reed]: reeds,
   [TreeKind.Flowers]: flowers,
+  [TreeKind.Oak]: oak,
 };
 
 /** How much the colour of each kind varies between instances. */
@@ -176,6 +196,7 @@ const TINT: Record<TreeKind, number> = {
   [TreeKind.Rock]: 0.1,
   [TreeKind.Reed]: 0.1,
   [TreeKind.Flowers]: 0.12,
+  [TreeKind.Oak]: 0.1,
 };
 
 /**
@@ -263,7 +284,18 @@ export interface Plants {
   works(s: SimState, alpha: number, time: number): void;
   /** Slice 33: how high the crowns of the trees (and the rocks) standing near a point reach, or -Infinity: the camera keeps above them. */
   canopyAt(x: number, z: number): number;
+  /** Slice 46's review: how far back the camera stands (the view's distance): from well back the timber trees are drawn in fewer triangles. */
+  detail(dist: number): void;
 }
+
+/**
+ * Slice 46's review: from this far back (the view's distance) the timber trees
+ * are drawn with their cheaper models, and back from a little nearer (so a
+ * zoom that rests at the line doesn't flicker between the two). The opening
+ * view stands at 100; at 55 a tree is a dozen pixels high.
+ */
+export const LITE_FROM = 55;
+const LITE_UNTIL = 48;
 
 /** Slice 33: how far round a crown the camera keeps off it (world units). */
 const CANOPY_MARGIN = 1.2;
@@ -434,6 +466,14 @@ export function buildTrees(map: CoastMap): Plants {
     else byTimber.set(key, [i]);
   }
   const timberMeshes: THREE.InstancedMesh[] = [];
+  // Slice 46's review: each timber mesh's kind, for its cheaper model from well back.
+  const timberKind = new Map<THREE.InstancedMesh, TreeKind>();
+  const lites = new Map<TreeKind, THREE.BufferGeometry | null>();
+  const liteOf = (k: TreeKind): THREE.BufferGeometry | null => {
+    if (!lites.has(k)) lites.set(k, lookTreeLite(k));
+    return lites.get(k) ?? null;
+  };
+  let far = false;
   const tc = new THREE.Color();
   for (const [key, ids] of byTimber) {
     const kind = Number(key.split(':')[0]) as TreeKind;
@@ -451,6 +491,7 @@ export function buildTrees(map: CoastMap): Plants {
     mesh.computeBoundingSphere();
     if (mesh.boundingSphere) mesh.boundingSphere.radius += 2.5;
     timberMeshes.push(mesh);
+    timberKind.set(mesh, kind);
     group.add(mesh);
   }
   // Their stumps, while each grows back.
@@ -606,6 +647,12 @@ export function buildTrees(map: CoastMap): Plants {
       gone = next;
       for (const key of dirty) fill(key, next);
       if (dirty.size) bakeCanopy();
+    },
+    detail(dist: number) {
+      const want = far ? dist > LITE_UNTIL : dist > LITE_FROM;
+      if (want === far) return;
+      far = want;
+      for (const [mesh, kind] of timberKind) mesh.geometry = (far ? liteOf(kind) : null) ?? model(kind);
     },
     canopyAt(x: number, z: number) {
       const ix = Math.round(x);

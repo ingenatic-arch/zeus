@@ -521,6 +521,15 @@ export function outcropPlace(map: CoastMap, x: number, z: number): string {
   return best.place;
 }
 
+/** Slice 46: is there water under the ground anywhere on a footprint (always, but on a dry land)? */
+export function wellWater(map: CoastMap, x: number, z: number, side: number): boolean {
+  const gw = map.groundwater;
+  if (!gw) return true;
+  const n = map.size;
+  for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) if (gw[Math.min(n - 1, z + dz) * n + Math.min(n - 1, x + dx)]) return true;
+  return false;
+}
+
 /** Kinds planted on the slopes, each tree or vine on its own ground (and the copper mine and the marble quarry, cut into the hillside): they take ground too steep and uneven for a house. */
 export const onSlopes = (kind: BuildingKind): boolean => kind === 'grove' || kind === 'vineyard' || kind === 'mine' || kind === 'quarry' || kind === 'lighthouse';
 
@@ -534,6 +543,8 @@ export function buildingRefusal(map: CoastMap, s: SimState, kind: BuildingKind, 
   if (r === GROUND_REASON[Ground.SteepForHome] && kind !== 'home') return 'Too steep to build on: roads, olive groves, vineyards, mines and quarries can take a slope like this';
   if (r) return r;
   if (kind === 'farm' && fertilityOf(map, tx, tz, side) < FARM_FERTILE_MIN) return 'Not fertile enough for wheat: farms need the green land by the river';
+  // Slice 46: on a dry land, a fountain needs water under the ground.
+  if (kind === 'fountain' && !wellWater(map, tx, tz, side)) return 'Too dry for a fountain here: on the dry plain, water lies under the ground only near the river, the springs and the shore';
   if (kind === 'dairy' && grassOf(map, tx, tz, side) < DAIRY_GRASS_MIN) return 'Too little grass for goats: a dairy needs green pasture, not rock or sand';
   if (kind === 'pasture' && grassOf(map, tx, tz, side) < PASTURE_GRASS_MIN) return 'Too little grass for sheep: a pasture needs green grass, not rock or sand';
   // Slice 36.

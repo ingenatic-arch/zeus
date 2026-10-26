@@ -1,4 +1,6 @@
 import { SPEEDS, type Speed } from './clockDriver';
+// Slice 46: a founding link names its land.
+import { cleanWord, LAND_KINDS, LAND_SIZES } from '../map/lands';
 
 /** What a link asks for: a prepared scene, a camera view, a speed, and the screenshot flag. */
 export interface Launch {
@@ -14,6 +16,21 @@ export interface Launch {
   modern: boolean;
   /** Open a saved town: the newest save (`#continue`), the autosave (`#autosave`) or the one saved by hand (`#saved`). */
   load?: 'newest' | 'auto' | 'manual';
+  /** Slice 46: found a new city on this land (`#found.<kind>.<size>.<seed word>`), and the new-game screen open from the start (`#newgame`). */
+  found?: { kind: string; size: number; word: string };
+  newgame?: boolean;
+}
+
+/** Slice 46: a founding link's part for a land (the new-game screen opens it). */
+export const foundPart = (kind: string, size: number, word: string): string => `found.${kind}.${size}.${cleanWord(word)}`;
+
+/** Slice 46: the land a founding link's part names, if it is one this game can make. */
+function readFound(part: string): Launch['found'] {
+  const [, kind, size, word] = part.split('.');
+  if (!(LAND_KINDS as readonly string[]).includes(kind) || kind === 'bay') return undefined;
+  if (!(LAND_SIZES as readonly number[]).includes(Number(size))) return undefined;
+  const w = cleanWord(word ?? '');
+  return w ? { kind, size: Number(size), word: w } : undefined;
 }
 
 const LOADS: Record<string, Launch['load']> = { continue: 'newest', autosave: 'auto', saved: 'manual' };
@@ -33,6 +50,9 @@ export function readLaunch(search: string, hash: string, demos: Record<string, u
     else if (part === 'plain') out.plain = true;
     else if (part === 'modern') out.modern = true;
     else if (Object.hasOwn(LOADS, part)) out.load = LOADS[part];
+    // Slice 46.
+    else if (part.startsWith('found.')) out.found = readFound(part);
+    else if (part === 'newgame') out.newgame = true;
     else if ((SPEEDS as readonly string[]).includes(part)) out.speed = part as Speed;
     else if (part in demos && !out.demo) out.demo = part;
     else if (part in views) out.cam = part;

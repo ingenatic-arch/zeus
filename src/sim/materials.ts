@@ -201,7 +201,8 @@ export function timberTrees(map: CoastMap): number[] {
     list = [];
     const n = map.size;
     map.trees.forEach((t, i) => {
-      if (t.kind !== TreeKind.Pine && t.kind !== TreeKind.Cypress) return;
+      // (Slice 46: and the oaks of a wooded land.)
+      if (t.kind !== TreeKind.Pine && t.kind !== TreeKind.Cypress && t.kind !== TreeKind.Oak) return;
       if (t.x < 0 || t.z < 0 || t.x >= n || t.z >= n) return;
       list!.push(i);
     });

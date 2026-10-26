@@ -22,6 +22,12 @@ import { Tools, type ToolName } from './game/tools';
 import { VIEWS } from './game/views';
 // Slice 42: the map is the state's land's, baked once the state is known.
 import { BAY, landOf, mapOf } from './map/lands';
+// Slice 46: founding on a land of the player's choosing, each kind in its own colours.
+import { pinLand, seedOf, type LandKind } from './map/lands';
+import { roadsIn } from './map/landcheck';
+import { applyLandPalette } from './render/landlook';
+import { KIND_WORDS, NewGame } from './ui/newgame';
+import { foundPart } from './game/links';
 import { districtGrid } from './map/districts';
 import { CLASSIC_PIXELS, classicOn, classicSun, EYE, setClassic } from './render/classic';
 import { applyFinishLight, applyFinishPalette, makeFinishPost, patchFinish, setFinish } from './render/finish';
@@ -325,6 +331,9 @@ interface Probe {
   /** Slice 45: the court's or a prison's panel opened on a building (0 shuts it), and its text; the law, the cases, the held, the stocks, the convicts walking and each prison's unrest. */
   justicePanel?: (at: number) => string;
   justice?: () => { law: Record<string, string>; cases: number; held: number; stocks: number; pinned: number[]; convicts: number; jails: Array<{ at: number; unrest: number; warned: boolean }>; text: string };
+  // Slice 46
+  /** The new-game screen's choice while it is open (null when it isn't). */
+  newgame?: () => { kind: string; size: number; word: string; seed: number } | null;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -369,7 +378,10 @@ function start(preparedTown: string | null): void {
     }
   }
   const tFound = performance.now();
-  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : loaded ? landOf(loaded.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0);
+  // Slice 46: a founding link (#found.<kind>.<size>.<word>) founds a new game on its land.
+  const founding = !demo && !launch.load && launch.found ? { kind: launch.found.kind as LandKind, size: launch.found.size, seed: seedOf(launch.found.word) } : null;
+  let foundRoad = '';
+  const sim = demo || launch.load ? new Sim(DEFAULT_SEED, DEFAULT_SEED, demo?.setup && ready?.ok ? landOf(ready.file.state) : loaded ? landOf(loaded.state) : BAY) : new Sim(DEFAULT_SEED, (Math.random() * 0x100000000) >>> 0, founding ?? BAY);
   const tSetup = performance.now();
   // (Founding bakes the land's map: counted in the bake's time below.)
   const foundMs = tSetup - tFound;
@@ -390,6 +402,16 @@ function start(preparedTown: string | null): void {
     // Slice 41: and the new kinds of crime and gangs.
     sim.enqueue({ type: 'crimes', on: true });
     sim.flush();
+    // Slice 46: on a land founded from the new-game screen, the road in is laid at once (from the edge nearest the city's ground).
+    if (founding) {
+      const r = roadsIn(sim.map, sim.state);
+      const road = r.road;
+      foundRoad = road.length > 0 ? `${road.length} tiles from the ${r.from} edge` : '';
+      if (road.length > 0) {
+        sim.enqueue({ type: 'road', tiles: road });
+        sim.flush();
+      }
+    }
   }
   probe.setupMs = performance.now() - tSetup;
 
@@ -398,6 +420,9 @@ function start(preparedTown: string | null): void {
   // Slice 42: the map of the town's land (a demo's, a save's, or a new game's: the Bay), baked now that the town is known.
   const tBake = performance.now();
   const map = mapOf(sim.state);
+  // Slice 46: the town's land is kept baked whatever the new-game screen shows, and drawn in its kind's colours.
+  pinLand(landOf(sim.state));
+  applyLandPalette(landOf(sim.state).kind);
   // Which district each tile is in (for the ledger's taxes), worked out now rather than as the first collector calls (about 25 ms).
   districtGrid(map);
   probe.bakeMs = foundMs + performance.now() - tBake;
@@ -846,9 +871,38 @@ function start(preparedTown: string | null): void {
 
   // The welcome card on the bare link.
   const newest = saves.newest();
+  // Slice 46: with a way to the new-game screen, and its words for a city founded on a land of its own.
+  let newGame: NewGame | null = null;
+  const lookPart = launch.plain ? '-plain' : launch.modern ? '-modern' : '';
+  const openNewGame = (): void => {
+    if (newGame?.open) return;
+    newGame = new NewGame(ui, {
+      start: launch.found ? { kind: launch.found.kind as LandKind, size: launch.found.size, word: launch.found.word } : undefined,
+      onBack: () => {
+        newGame = null;
+      },
+      onFound: (kind, size, word) => {
+        // The Bay is the bare link's coast: on it already, the card just goes.
+        if (kind === 'bay' && !founding && !launch.newgame) {
+          newGame?.close();
+          welcomeCard?.dismiss();
+        } else go(kind === 'bay' ? (lookPart ? `#${lookPart.slice(1)}` : '') : `#${foundPart(kind, size, word)}${lookPart}`);
+      },
+    });
+  };
+  probe.newgame = () => (newGame?.open ? { ...newGame.choice } : null);
+  const foundedLand = founding ? KIND_WORDS.find((k) => k.kind === founding.kind) : undefined;
   welcomeCard = welcoming || problem
-    ? new Welcome(ui, { saved: newest ? saves.info(newest) : null, onContinue: () => go('#continue'), problem: problem ? `That saved town couldn’t be opened. ${problem}` : '', noStorage: !saves.available })
+    ? new Welcome(ui, {
+        saved: newest ? saves.info(newest) : null,
+        onContinue: () => go('#continue'),
+        problem: problem ? `That saved town couldn’t be opened. ${problem}` : '',
+        noStorage: !saves.available,
+        onNewGame: openNewGame,
+        land: foundedLand ? { name: foundedLand.name, line: foundedLand.line, road: foundRoad } : undefined,
+      })
     : null;
+  if (launch.newgame && welcoming) openNewGame();
   if (loaded) {
     // A town saved before taxes came in (phase 1) says what changed.
     let changed = loaded.from === 6 ? ' · Rent is gone: taxes come in with a tax collector now. Build a tax office (Z) by the houses.' : '';
@@ -1224,7 +1278,9 @@ function start(preparedTown: string | null): void {
     up: () => (tools.tool ? tools.up() : orders.up()),
     cancel: () => {
       // Esc puts away the welcome card, the saves card and the controls card first.
-      if (welcomeCard?.open) welcomeCard.dismiss();
+      // Slice 46: the new-game screen before it.
+      if (newGame?.open) newGame.close();
+      else if (welcomeCard?.open) welcomeCard.dismiss();
       else if (topbar.ratesOpen) topbar.toggleRates(false);
       else if (ledger.open) ledger.toggle(false);
       // Slice 39.

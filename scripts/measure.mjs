@@ -574,7 +574,8 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
 // opening view and from as far back as the camera goes over its centre, at 1920 x 1080; and the large land's main-thread time a frame.
 {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  for (const d of ['coast', 'landsmall', 'landmedium', 'landlarge']) {
+  // (Slice 46: and each kind of land's demo.)
+  for (const d of ['coast', 'landsmall', 'landmedium', 'landlarge', 'delta', 'dryplain', 'islands', 'mountains', 'woods', 'sheltered']) {
     await page.goto('about:blank');
     await page.goto(`${url}#${d}-paused-shot`);
     await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 2, null, { timeout: 120000 });

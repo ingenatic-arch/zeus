@@ -13,6 +13,8 @@
  */
 import { WATER_SEA, type CoastMap } from './bake';
 import { buildingRefusal, bridgeSpan, Ground, mapIndex } from '../sim/build';
+// Slice 46: the roads in.
+import { roadRefusal } from '../sim/build';
 import { quayTiles } from '../sim/trade';
 import type { BuildingKind, SimState } from '../sim/state';
 
@@ -120,4 +122,169 @@ export function landCheck(map: CoastMap, s: SimState): LandReport {
     if (spots[kind] < 0) problems.push(`nowhere for ${WORDS[kind]} the roads in reach`);
   }
   return { ok: problems.length === 0, problems, spots, room, edges };
+}
+
+// Slice 46: the roads in.
+
+/** The edges a road comes in from (the sea is to the south). */
+export type Side = 'north' | 'east' | 'west';
+
+export interface RoadsIn {
+  /** On each edge, the tile where a road from there to the city's site is shortest (-1: none reaches it). */
+  ins: Record<Side, number>;
+  /** How long each of those roads is, in tiles (bridges counted as tiles). */
+  lengths: Record<Side, number>;
+  /** The nearest edge, and its road: from the edge tile to the site, in order, a bridge's tiles among them where it crosses the river. */
+  from: Side | '';
+  road: number[];
+}
+
+/** Each step's cost for a turn: roads run straight where they can, as a player lays them. */
+const TURN = 2.5;
+/** A bridge's tile costs this many of a road's (they cost ten times as much). */
+const BRIDGE_STEP = 4;
+
+/**
+ * Where the roads in come from, on a town with nothing built (`s`, founded
+ * on that land): from the land's site (its `site`, where the city starts),
+ * the cheapest road to each of the north, east and west edges, bridging the
+ * river where a bridge can go, turning as little as it can. Pure; a few tens
+ * of milliseconds.
+ */
+export function roadsIn(map: CoastMap, s: SimState): RoadsIn {
+  const n = map.size;
+  const ground = mapIndex(map).ground;
+  const free = (t: number): boolean => roadRefusal(map, s, t % n, Math.floor(t / n)) === '';
+  const none: RoadsIn = { ins: { north: -1, east: -1, west: -1 }, lengths: { north: 0, east: 0, west: 0 }, from: '', road: [] };
+  const site = map.data.site;
+  if (!site) return none;
+  // The free tile nearest the site.
+  let start = -1;
+  let bd = Infinity;
+  const sx = Math.round(site.x);
+  const sz = Math.round(site.z);
+  for (let r = 0; r < 24 && start < 0; r++) {
+    for (let z = sz - r; z <= sz + r; z++) {
+      for (let x = sx - r; x <= sx + r; x++) {
+        if (x < 0 || z < 0 || x >= n || z >= n) continue;
+        const t = z * n + x;
+        const d = (x - site.x) * (x - site.x) + (z - site.z) * (z - site.z);
+        if (d < bd && ground[t] === Ground.Ok && free(t)) [start, bd] = [t, d];
+      }
+    }
+  }
+  if (start < 0) return none;
+  // Dijkstra over (tile, the way it was entered), from the site outwards.
+  const STATES = n * n * 4;
+  const cost = new Float64Array(STATES).fill(Infinity);
+  const prev = new Int32Array(STATES).fill(-1);
+  /** A jump over a bridge: the state it came from, and its tiles. */
+  const spans = new Map<number, number[]>();
+  const heap: number[] = [];
+  const keyCost = (st: number): number => cost[st];
+  const push = (st: number): void => {
+    heap.push(st);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (keyCost(heap[p]) <= keyCost(heap[i])) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]];
+      i = p;
+    }
+  };
+  const pop = (): number => {
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length > 0) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < heap.length && keyCost(heap[l]) < keyCost(heap[m])) m = l;
+        if (r < heap.length && keyCost(heap[r]) < keyCost(heap[m])) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]];
+        i = m;
+      }
+    }
+    return top;
+  };
+  // Directions: 0 north, 1 west, 2 east, 3 south (bridgeSpan's 1..4).
+  const DX = [0, -1, 1, 0];
+  const DZ = [-1, 0, 0, 1];
+  for (let d = 0; d < 4; d++) {
+    cost[start * 4 + d] = 0;
+    push(start * 4 + d);
+  }
+  const done = new Uint8Array(STATES);
+  const best: Record<Side, number> = { north: -1, east: -1, west: -1 };
+  while (heap.length > 0) {
+    const st = pop();
+    if (done[st]) continue;
+    done[st] = 1;
+    const t = st >> 2;
+    const dir = st & 3;
+    const x = t % n;
+    const z = (t - x) / n;
+    const c = cost[st];
+    // An edge reached: the first time is that edge's cheapest.
+    for (const [side, on] of [['north', z === 0], ['west', x === 0], ['east', x === n - 1]] as Array<[Side, boolean]>) {
+      if (on && best[side] < 0) best[side] = st;
+    }
+    for (let d = 0; d < 4; d++) {
+      if (d === 3 - dir && t !== start) continue;
+      const ux = x + DX[d];
+      const uz = z + DZ[d];
+      if (ux < 0 || uz < 0 || ux >= n || uz >= n) continue;
+      const u = uz * n + ux;
+      const turn = d === dir || t === start ? 0 : TURN;
+      if (free(u)) {
+        const step = 1 + turn + (ground[u] === Ground.SteepForHome ? 0.6 : 0);
+        const v = u * 4 + d;
+        if (c + step < cost[v]) {
+          cost[v] = c + step;
+          prev[v] = st;
+          push(v);
+        }
+      } else if (ground[u] === Ground.Water && map.tileWater[u] !== WATER_SEA) {
+        const b = bridgeSpan(map, s, t, d + 1);
+        if (b.end < 0 || !free(b.end)) continue;
+        const v = b.end * 4 + d;
+        const step = 1 + turn + b.tiles.length * BRIDGE_STEP;
+        if (c + step < cost[v]) {
+          cost[v] = c + step;
+          prev[v] = st;
+          spans.set(v, b.tiles);
+          push(v);
+        }
+      }
+    }
+  }
+  const out: RoadsIn = { ins: { north: -1, east: -1, west: -1 }, lengths: { north: 0, east: 0, west: 0 }, from: '', road: [] };
+  const trace = (st: number): number[] => {
+    // From the edge back to the site: the tiles in order from the edge.
+    const tiles: number[] = [];
+    for (let v = st; v >= 0; v = prev[v]) {
+      tiles.push(v >> 2);
+      const span = spans.get(v);
+      if (span) tiles.push(...span.slice().reverse());
+    }
+    return tiles;
+  };
+  let bestCost = Infinity;
+  for (const side of ['west', 'north', 'east'] as Side[]) {
+    const st = best[side];
+    if (st < 0) continue;
+    const tiles = trace(st);
+    out.ins[side] = st >> 2;
+    out.lengths[side] = tiles.length;
+    if (cost[st] < bestCost) {
+      bestCost = cost[st];
+      out.from = side;
+      out.road = tiles;
+    }
+  }
+  return out;
 }

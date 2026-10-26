@@ -318,6 +318,8 @@ export class Tools {
         if (t === 'trading' || t === 'shipyard' || t === 'colossus') return g !== Ground.Ok || quay[i] === 0;
         // Slice 35: the Lighthouse takes a slope, as a quarry does (on the headland: its tip says where).
         if (t === 'lighthouse') return g !== Ground.Ok && g !== Ground.SteepForHome;
+        // Slice 46's review: on a dry land a fountain needs water under the ground: the dry ground is washed rust (elsewhere it goes anywhere).
+        if (t === 'fountain' && map.groundwater) return g !== Ground.Ok || map.groundwater[i] === 0;
         // A stall goes on an agora: nothing is washed.
         if (isStallTool(t)) return false;
         if (isFooted(t)) return g !== Ground.Ok;

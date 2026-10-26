@@ -18,7 +18,8 @@ import type { Land } from '../map/lands';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
-export const SIM_STATE_VERSION = 44;
+// (Slice 46: many lands, renumbered 45 at its merge.)
+export const SIM_STATE_VERSION = 45;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
