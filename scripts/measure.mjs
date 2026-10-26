@@ -329,6 +329,9 @@ for (const [hash, views] of [
   // Slice 48: the quay's storehouse emptying its oil up the hill by ox cart, its panel open; the olive press's panel.
   ['#storeset-paused-shot', [null, 'town']],
   ['#workpanel-paused-shot', [null]],
+  // Slice 49: the hut streets with their infirmary, a physician out and the sick at their doors, the health overlay on; the quay town warned of plague in Athens, the trade panel open.
+  ['#physicians-paused-shot', [null, 'town']],
+  ['#plague-paused-shot', [null, 'town']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

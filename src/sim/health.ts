@@ -581,10 +581,17 @@ export function traderDue(s: SimState, city: string): string {
   const parts: string[] = [];
   for (const r of s.world.routes) {
     if (r.city !== city) continue;
-    if (r.kind === 'sea') parts.push(`her ship is due in ${days(r.next)} days`);
-    else parts.push(`her caravan is due in ${days(r.next)} days`);
+    const what = r.kind === 'sea' ? 'her ship' : 'her caravan';
+    const due = r.next <= s.tick ? 'any day' : `in ${days(r.next) === 1 ? 'a day' : `${days(r.next)} days`}`;
+    // (Where her ship is, not a day that has passed: SHIP_AWAY 0, COMING 1, MOORED 2, LEAVING 3, ANCHORED 4, BERTHING 5, in trade.ts.)
+    const phase = r.kind === 'sea' && r.ship ? r.ship.phase : 0;
+    if (phase === 1) parts.push(`her ship is sailing in, due at the jetty ${due}`);
+    else if (phase === 4) parts.push('her ship rides at anchor off the quay');
+    else if (phase === 2 || phase === 5) parts.push('her ship is at the jetty');
+    else if (phase === 3) parts.push('her ship is sailing home');
+    else parts.push(`${what} is due ${due}`);
   }
-  if (city === 'tyre' && s.trade.ship.due > s.tick) parts.push(`the Tyrian ship is due in ${days(s.trade.ship.due)} days`);
+  if (city === 'tyre' && s.trade.ship.due > s.tick) parts.push(`the Tyrian ship is due in ${days(s.trade.ship.due) === 1 ? 'a day' : `${days(s.trade.ship.due)} days`}`);
   return parts.join(', and ');
 }
 
@@ -1208,6 +1215,15 @@ export function healthTownLine(s: SimState): { text: string; at: number } | null
   if (h.fever) {
     const home = findBuilding(s, h.fever.home);
     return { text: `Fever in a crowded, sickly quarter (${h.fever.homes} homes): it turns to plague if it lingers. Physicians, water and food would mend it.${q}`, at: home?.id ?? 0 };
+  }
+  // Plague in a city of Greece the town trades with, while its traders still come: the warning, with what to do, before it lands.
+  if (!q && h.on) {
+    const p = h.greece.find((g) => g.warned > 0 && s.tick < g.until && tradesWith(s, g.city));
+    if (p) {
+      const due = traderDue(s, p.city);
+      const where = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
+      return { text: `Plague in ${cityName(p.city)}${due ? `: ${due}` : ''}. A quarantine (the trade panel) holds her traders off; physicians and an asklepieion by the quay keep it from spreading.`, at: where?.id ?? 0 };
+    }
   }
   if (q) {
     const post = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');

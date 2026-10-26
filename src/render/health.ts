@@ -32,7 +32,7 @@ export const BLANKET = '#8e5a3c';
 /** The quarantine's yellow. */
 export const QUARANTINE_YELLOW = '#f2c824';
 /** Herb smoke, a little green. */
-const HERB_SMOKE = 0xd8dfcc;
+const HERB_SMOKE = 0xb9c2a8;
 
 // ---------------------------------------------------------------------------
 // The infirmary (2×2).
@@ -203,7 +203,7 @@ function pennantModel(): THREE.BufferGeometry {
   parts.push({ geo: slab(-0.05, -0.05, 0.05, 0.05, 0, 0.05), color: PAL.stone });
   const g = new THREE.BufferGeometry();
   // A long swallow-tailed pennant, flying from the pole's top.
-  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.92, 0, 0, 0.74, 0, 0.42, 0.86, 0.02, 0, 0.74, 0, 0.42, 0.78, 0.02, 0.42, 0.86, 0.02, 0.42, 0.86, 0.02, 0.42, 0.78, 0.02, 0.32, 0.82, 0.015], 3));
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.94, 0, 0, 0.7, 0, 0.56, 0.86, 0.02, 0, 0.7, 0, 0.56, 0.76, 0.02, 0.56, 0.86, 0.02, 0.56, 0.86, 0.02, 0.56, 0.76, 0.02, 0.43, 0.81, 0.015], 3));
   const back = g.clone();
   const p = back.attributes.position as THREE.BufferAttribute;
   // (Both faces: the same triangles wound the other way.)
@@ -256,6 +256,7 @@ export class HealthView {
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly e = new THREE.Euler();
+  private readonly camE = new THREE.Euler();
   private readonly p = new THREE.Vector3();
   private readonly sc = new THREE.Vector3(1, 1, 1);
   private readonly c = new THREE.Color();
@@ -274,7 +275,7 @@ export class HealthView {
     this.patients = folk.people.look(figures.patient);
     this.braziers = folk.big.look(brazierModel());
     this.pennants = folk.big.look(pennantModel());
-    const mat = new THREE.MeshBasicMaterial({ color: HERB_SMOKE, map: puffTexture(), transparent: true, opacity: 0.5, depthWrite: false });
+    const mat = new THREE.MeshBasicMaterial({ color: HERB_SMOKE, map: puffTexture(), transparent: true, opacity: 0.6, depthWrite: false });
     this.puffs = this.makePuffs(mat, 32);
   }
 
@@ -383,16 +384,18 @@ export class HealthView {
       this.patients.push(this.m, this.c.copy(this.sheet).multiplyScalar(-(0.85 + 0.15 * sp.seed)));
     }
     for (const sp of this.fires) {
-      this.place(sp.x, sp.y, sp.z, sp.yaw, 0, 1);
+      this.place(sp.x, sp.y, sp.z, sp.yaw, 0, 1.35);
       this.braziers.push(this.m, this.c.copy(this.plain).multiplyScalar(-1));
     }
+    // (The pennants turn broadside to the camera, whichever way it looks, so the yellow always shows.)
+    const camYaw = this.flags.length ? this.camE.setFromQuaternion(face, 'YXZ').y : 0;
     for (const sp of this.flags) {
       // (The pennant streams with a little flutter.)
-      this.place(sp.x, sp.y, sp.z, sp.yaw + Math.PI * 0.75 + Math.sin(time * 2.2 + sp.seed) * 0.12, 0, 1);
+      this.place(sp.x, sp.y, sp.z, camYaw + 0.35 + Math.sin(time * 2.2 + sp.seed) * 0.12, 0, 1);
       this.pennants.push(this.m, this.c.copy(this.plain).multiplyScalar(-1));
     }
-    // The braziers' smoke: three puffs each, rising and swelling.
-    const need = this.fires.length * 3;
+    // The braziers' smoke: four puffs each, rising and swelling into a column that marks the house from afar.
+    const need = this.fires.length * 4;
     if (need > this.cap) {
       const mat = this.puffs.material as THREE.Material;
       this.group.remove(this.puffs);
@@ -401,10 +404,10 @@ export class HealthView {
     }
     let n = 0;
     for (const sp of this.fires) {
-      for (let k = 0; k < 3; k++) {
-        const f = (time / 3.2 + k / 3 + sp.seed) % 1;
-        const r = (0.03 + 0.09 * f) * Math.min(1, (1 - f) * 4);
-        this.p.set(sp.x + f * f * 0.12, sp.y + 0.24 + f * 0.55, sp.z + f * 0.05);
+      for (let k = 0; k < 4; k++) {
+        const f = (time / 3.6 + k / 4 + sp.seed) % 1;
+        const r = (0.04 + 0.14 * f) * Math.min(1, (1 - f) * 4);
+        this.p.set(sp.x + f * f * 0.16, sp.y + 0.3 + f * 0.9, sp.z + f * 0.06);
         this.sc.set(r * 1.3, r * 1.2, 1);
         this.m.compose(this.p, face, this.sc);
         this.puffs.setMatrixAt(n++, this.m);
