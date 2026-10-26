@@ -28,7 +28,9 @@ export const PHYSICIAN_ROBE = '#f2ede2';
 export const PHYSICIAN_SASH = '#3f8a62';
 export const BEARER_TUNIC = '#9fb8b4';
 export const LITTER_CLOTH = '#e8dcc0';
-export const BLANKET = '#8e5a3c';
+// (Slice 52: slice 49's review found the sick hard to pick out at the usual zoom in a brown blanket among the roofs and earth:
+// the health overlay's pale blue for the sick, a little deeper, and the figure a little larger.)
+export const BLANKET = '#4f8fcc';
 /** The quarantine's yellow. */
 export const QUARANTINE_YELLOW = '#f2c824';
 /** Herb smoke, a little green. */
@@ -214,6 +216,10 @@ function pennantModel(): THREE.BufferGeometry {
   return merge(parts);
 }
 
+/** How large the sick at their doors and the quarantine's pennant are drawn (slice 52: both were hard to see; were 1.08 and 1). */
+const SICK_SCALE = 1.3;
+const PENNANT_SCALE = 1.8;
+
 /** Where on a trading post or caravan yard (its local frame) the quarantine's pennant stands. */
 const PENNANT_AT: Record<'trading' | 'yard', [number, number]> = { trading: [1.25, -1.25], yard: [1.3, -1.25] };
 
@@ -376,7 +382,7 @@ export class HealthView {
       // A cough every few seconds: a quick bow forward and back.
       const ph = (time / 2.6 + sp.seed) % 1;
       const bow = ph < 0.12 ? Math.sin((ph / 0.12) * Math.PI) * 0.35 : 0;
-      this.place(sp.x, sp.y, sp.z, sp.yaw + Math.PI * 0.15, bow, 1.08);
+      this.place(sp.x, sp.y, sp.z, sp.yaw + Math.PI * 0.15, bow, SICK_SCALE);
       this.sick.push(this.m, this.c.copy(this.blanket).multiplyScalar(-(0.9 + 0.2 * sp.seed)));
     }
     for (const sp of this.beds) {
@@ -391,7 +397,7 @@ export class HealthView {
     const camYaw = this.flags.length ? this.camE.setFromQuaternion(face, 'YXZ').y : 0;
     for (const sp of this.flags) {
       // (The pennant streams with a little flutter.)
-      this.place(sp.x, sp.y, sp.z, camYaw + 0.35 + Math.sin(time * 2.2 + sp.seed) * 0.12, 0, 1);
+      this.place(sp.x, sp.y, sp.z, camYaw + 0.35 + Math.sin(time * 2.2 + sp.seed) * 0.12, 0, PENNANT_SCALE);
       this.pennants.push(this.m, this.c.copy(this.plain).multiplyScalar(-1));
     }
     // The braziers' smoke: four puffs each, rising and swelling into a column that marks the house from afar.

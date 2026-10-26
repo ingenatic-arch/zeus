@@ -56,6 +56,8 @@ import { lateWords, seasonAt, stormDelay, WINTER } from './seasons';
 import type { Building, Memory, SimState, Site, Visitor, Walker } from './state';
 import { TILE_ROAD } from './state';
 import { note } from './stockbook';
+// Slice 52: the quarantine holds the boat that rows the settlers out.
+import { quarantined } from './health';
 import { berthOf, leaveTicks, PRICES, sailable, SAIL_IN, shipRoute, SHIP_ANCHORED, SHIP_COMING, SHIP_LEAVING, tradeIndex, TRADE_GOODS, tradingPost } from './trade';
 import { pay, spendable } from './treasury';
 import { boundTo, SEASON, type Tribute } from './vassals';
@@ -502,9 +504,12 @@ function stepFounding(s: SimState, map: CoastMap, f: Founding): void {
       s.rev++;
     }
     const anchored = !v || v.phase === SHIP_ANCHORED;
+    // (Slice 52: under your quarantine the boat stays in: nobody is rowed out, and the day she sails at the latest waits with it.)
+    const held = quarantined(s);
+    if (held) f.until++;
     const late = s.tick >= f.until;
     for (const h of f.households) {
-      if (!anchored) continue;
+      if (!anchored || held) continue;
       if ((h.state === 'quay' && s.tick - h.at >= BOARD) || (late && (h.state === 'quay' || h.state === 'walking'))) aboard(s, f, h);
       if (late && h.state === 'packing') h.state = 'stayed';
     }
@@ -1130,6 +1135,8 @@ export function colonistDoing(s: SimState, w: Walker): { title: string; detail: 
 export function heldWords(s: SimState, f: Founding): string {
   const b = blockaded(s);
   const v = f.ship;
+  // (Slice 52: under your quarantine the boat stays in.)
+  if (!b && quarantined(s) && f.phase === 'gathering' && v?.phase === SHIP_ANCHORED) return 'Your ship rides at anchor off the jetty: your quarantine keeps the boat at the quay, so nobody is rowed out until it ends or is lifted';
   if (!b || f.phase !== 'gathering' || !v) return '';
   const fleet = `${whose(b.city)} fleet holds the mouth of your harbour`;
   if (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s))) return `Your ship waits outside the harbour: ${fleet}, and she sails in once the blockade is broken or lifted`;

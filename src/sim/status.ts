@@ -1398,6 +1398,10 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   const out: TownLine[] = hazardTownLines(s, map);
   const debt = debtTownLine(s);
   if (debt) out.push(debt);
+  // Slice 49: the plague in the city, a fevered quarter or the quarantine. (Slice 52: with the risks and debts at the head,
+  // not last: slice 49's review saw a fever's warning sit behind a shortage, out of sight under "more".)
+  const health = healthTownLine(s);
+  if (health) out.push({ need: 'health', ...health });
   const farms = s.buildings.filter((b) => b.kind === 'farm');
   const agora = s.buildings.find((b) => b.kind === 'agora');
   const bal = foodBalance(s, map);
@@ -1511,9 +1515,6 @@ export function townLines(s: SimState, map: CoastMap): TownLine[] {
   if (money) out.push(money);
   const harsh = harshLine(s);
   if (harsh) out.push(harsh);
-  // Slice 49: the plague in the city, a fevered quarter or the quarantine.
-  const health = healthTownLine(s);
-  if (health) out.push({ need: 'health', ...health });
   return out;
 }
 

@@ -1146,6 +1146,10 @@ export function shipNews(s: SimState): { phase: number; days: number; chip: stri
     if (ship.phase === SHIP_AWAY && ship.due - sailInNow(s) <= s.tick + 1) return { phase: SHIP_AWAY, days: 0, chip: 'Held', short: 'Ship held · blockade', line: `The ship waits out at sea: ${by}. She sails in as soon as it is broken or lifted` };
     if (ship.phase === SHIP_MOORED && s.tick - ship.since >= LOADING) return { phase: SHIP_MOORED, days: 0, chip: 'Held', short: 'Ship held at the quay', line: `The ship has loaded and waits at the quay: ${by}. She pays and sails as soon as it is broken or lifted` };
   }
+  // Slice 52: held off by your quarantine, she waits out at sea (her day moves on with it), and the chip and line say so.
+  if (post && quarantined(s) && ship.phase === SHIP_AWAY && ship.due - sailInNow(s) <= s.tick + 1) {
+    return { phase: SHIP_AWAY, days: 0, chip: 'Held', short: 'Ship held · quarantine', line: `The ship waits out at sea: your quarantine holds her off for ${dayWords(daysTo(s, s.health.quarantine))} more. She sails in as soon as it ends or is lifted` };
+  }
   if (ship.phase === SHIP_COMING) {
     const days = daysTo(s, ship.since + sailInTicks(ship));
     const near = (shipAt(ship, s.tick, sizeOf(s))?.inward ?? 0) >= 0.6;

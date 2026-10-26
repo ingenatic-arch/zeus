@@ -39,6 +39,11 @@ import { SIM_STATE_VERSION, type Building, type BuildingKind, type SimState } fr
 import { totals } from '../src/sim/treasury';
 import { traderLine } from '../src/sim/status';
 import { SHIP_ANCHORED, SHIP_AWAY, SHIP_LEAVING, SHIP_MOORED } from '../src/sim/trade';
+// Slice 52
+import { shipNews } from '../src/sim/trade';
+import { foundingOf } from '../src/sim/colonies';
+import { OIL } from '../src/sim/foods';
+import { GIFT_LOTS, giftRefusal } from '../src/sim/diplomacy';
 import { demoSim } from './prepared';
 
 const map = coastMap();
@@ -499,6 +504,44 @@ describe('the quarantine and the colonial empire (merge of slice 49 with slice 4
     expect(until(sim, () => t!.phase === 'done' && !t!.ship, 60 * TICKS_PER_DAY)).toBe(true);
     expect(t!.put).toBeGreaterThan(0);
     ledgerAddsUp(s);
+  });
+});
+
+// Slice 52: what slice 49's review found a quarantine let through, and the Tyrian ship's chip.
+describe('the quarantine and what sails out (slice 52)', () => {
+  it('keeps your settlers on the quay (her latest day waits with it) and a gift of goods in the city; lifted, both go', () => {
+    const sim = demoSim('colony');
+    const s = sim.state;
+    const f = foundingOf(s)!;
+    expect(f).toBeDefined();
+    expect(until(sim, () => f.ship?.phase === SHIP_ANCHORED && f.households.some((h) => h.state === 'quay'), 60 * TICKS_PER_DAY)).toBe(true);
+    const lot = GIFT_LOTS[0];
+    const to = s.world.cities.map((c) => c.id).find((c) => giftRefusal(s, sim.map, c, OIL, lot) === '')!;
+    expect(to).toBeDefined();
+    sim.enqueue({ type: 'gift', city: to, good: OIL, amount: lot });
+    sim.enqueue({ type: 'quarantine', on: true });
+    sim.flush();
+    const aboard = f.households.filter((h) => h.state === 'aboard').length;
+    const gift = s.world.gifts.find((g) => g.from === 'home' && g.to === to)!;
+    expect(gift).toBeDefined();
+    sim.run(40 * TICKS_PER_DAY);
+    expect(f.households.filter((h) => h.state === 'aboard').length).toBe(aboard);
+    expect(f.phase).toBe('gathering');
+    expect(gift.phase).toBe(0);
+    sim.enqueue({ type: 'quarantine', on: false });
+    sim.flush();
+    expect(until(sim, () => f.phase !== 'gathering', 60 * TICKS_PER_DAY)).toBe(true);
+    expect(until(sim, () => gift.phase >= 1 || !s.world.gifts.includes(gift), 60 * TICKS_PER_DAY)).toBe(true);
+    ledgerAddsUp(s);
+  });
+
+  it('the Tyrian ship held off says so: held, not "Ship in N d"', () => {
+    const sim = demoSim('athensship');
+    const s = sim.state;
+    sim.enqueue({ type: 'quarantine', on: true });
+    sim.flush();
+    expect(until(sim, () => s.trade.ship.phase === SHIP_AWAY && shipNews(s)?.chip === 'Held', 3 * TICKS_PER_MONTH)).toBe(true);
+    expect(shipNews(s)!.line).toMatch(/^The ship waits out at sea: your quarantine holds her off for .* more/);
   });
 });
 

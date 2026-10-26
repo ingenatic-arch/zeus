@@ -329,7 +329,7 @@ export class ArmyView {
       }
       // Its cell of the atlas (drawn again only when what it shows changes).
       const cell = (c.n - 1) % MAX_BANNERS;
-      const sig = `${c.n}:${c.emblem}:${c.kind}:${c.ally ?? ''}`;
+      const sig = `${c.n}:${c.emblem}:${c.kind}:${c.ally ?? ''}:${c.militia ?? ''}`;
       if (this.drawn.get(cell) !== sig) {
         this.drawn.set(cell, sig);
         drawCell(this.canvas, cell, c);
@@ -398,6 +398,28 @@ function drawCell(canvas: HTMLCanvasElement, cell: number, c: Company): void {
   const x0 = (cell % COLS) * CELL;
   const y0 = Math.floor(cell / COLS) * CELL;
   // Slice 34: an ally's or vassal's company carries its own city's banner: its colours, its letter, its name.
+  // (Slice 52: a colony's militia, whose ally is a site, not a city, carries your city's colours turned about, trim for the
+  // field and your red for the border and letter, with its colony's initial and name: slice 47's review saw your own.)
+  const militia = c.militia ? c.militia.replace(/^Nea /, '') : '';
+  if (militia) {
+    g.save();
+    g.translate(x0, y0);
+    g.clearRect(0, 0, CELL, CELL);
+    g.fillStyle = CITY_TRIM;
+    g.fillRect(0, 0, CELL, CELL);
+    g.strokeStyle = CITY_COLOUR;
+    g.lineWidth = 7;
+    g.strokeRect(7, 7, CELL - 14, CELL - 14);
+    g.fillStyle = CITY_COLOUR;
+    g.textAlign = 'center';
+    g.textBaseline = 'alphabetic';
+    g.font = 'bold 64px Georgia, serif';
+    g.fillText(militia[0], CELL / 2, CELL * 0.62);
+    g.font = `bold ${militia.length > 7 ? 18 : 22}px Georgia, serif`;
+    g.fillText(militia.toUpperCase(), CELL / 2, CELL - 20);
+    g.restore();
+    return;
+  }
   if (c.ally && PLACES[c.ally]) {
     const p = PLACES[c.ally];
     g.save();

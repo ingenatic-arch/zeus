@@ -53,6 +53,8 @@ import { festivalOf, festivalOn } from './festivals';
 import { helpedFoe } from './rivals';
 // Slice 38 (review): a blockade holds gifts by sea.
 import { blockaded } from './lanes';
+// Slice 52: a quarantine keeps your gifts in.
+import { quarantined } from './health';
 
 /** What you can give: drachmas, or so many of a trade good. */
 export const GIFT_COINS: readonly number[] = [100, 250, 500];
@@ -404,7 +406,8 @@ export function stepGifts(s: SimState, map: CoastMap): void {
       const inHand = giftInHand(s, g.id);
       // All fetched; or nothing more to fetch (none in the stores, none in hand), or the depot gone, or it has taken too long: it goes with what there is.
       const done = g.got >= g.amount || (inHand === 0 && (cityHolds(s, TRADE_GOODS[g.good]) <= 0 || !depot || s.tick - g.at >= GATHER_MOST));
-      if (done) leave(s, map, g);
+      // (Slice 52: your quarantine keeps it in the city, on the quay or at the yard, until it ends or is lifted.)
+      if (done && !quarantined(s)) leave(s, map, g);
     } else if (g.phase === 1) {
       const { L } = wayFor(g.to, g.by);
       if (g.by === 'land') {
@@ -701,7 +704,7 @@ export function giftNews(s: SimState, g: Gift): string {
     const depot = findBuilding(s, g.depot);
     const where = depot?.kind === 'yard' ? 'the caravan yard' : 'the quay';
     const who = depot?.kind === 'yard' ? 'porters' : 'dockers';
-    const stalled = depot && rateOf(depot) === 0 ? `: ${where} has no workers to fetch it` : '';
+    const stalled = quarantined(s) ? `: your quarantine keeps it in until it ends or is lifted` : depot && rateOf(depot) === 0 ? `: ${where} has no workers to fetch it` : '';
     return `Your gift of ${words} for ${to}: the ${who} are fetching it from the stores to ${where} (${fmt(g.got)} there so far)${stalled}`;
   }
   if (g.phase === 1) return g.by === 'land' ? `Your gift of ${words} is leaving the city for ${to}, by the road out` : `Your gift of ${words} is sailing out of the bay for ${to}`;

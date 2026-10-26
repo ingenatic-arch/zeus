@@ -690,7 +690,11 @@ export function loyaltyOf(s: SimState, v: Vassal): Loyalty {
   const ours = ourMen(s);
   const r = ours / Math.max(1, c.army);
   const might = clamp(ARMY_LEAST + ((r - 1) * (ARMY_MOST - ARMY_LEAST)) / 3, ARMY_LEAST, ARMY_MOST);
-  add(might, `${might < 0 ? 'your army too small to fear' : 'your army'}: ${ours} men against its ${Math.round(c.army)}`);
+  // (Slice 52: slice 51's review read "too small to fear: 32 men against its 31". Below about twice its size your army counts
+  // against you; the words say whether it is smaller, or not yet large enough to awe it, and how many would be.)
+  const awe = Math.ceil((1 + (3 * -ARMY_LEAST) / (ARMY_MOST - ARMY_LEAST)) * Math.max(1, c.army));
+  const armyWords = might >= 0 ? 'your army' : ours < c.army ? 'your army smaller than its own' : `your army not yet large enough to awe it (about ${awe} would)`;
+  add(might, `${armyWords}: ${ours} men against its ${Math.round(c.army)}`);
   if (expeditionOut(s) && expeditionOut(s)?.city !== v.city) add(ABROAD, 'your army abroad');
   let gifts = 0;
   let rest = 0;
