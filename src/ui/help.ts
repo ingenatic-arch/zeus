@@ -79,7 +79,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>
-      <dt>Space</dt><dd>Pause or carry on</dd>
+      <dt>Space</dt><dd>Pause or carry on, even with a panel’s button in focus (Enter presses the button)</dd>
       <dt>1 2 3</dt><dd>Normal, fast, fastest</dd>
     </dl>
     <h2 style="margin-top:12px">Keeping the town</h2>

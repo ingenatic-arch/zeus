@@ -349,24 +349,19 @@ svg.k-quay { display: block; width: 100%; height: 96px; }
 /* The tabs along its top, as bronze-edged plaques. */
 .trade.kit .tradetabs button { font: 500 13px/1.2 var(--display); letter-spacing: 0.04em; min-height: 26px; border-radius: 3px; border: 1px solid rgba(110, 76, 30, 0.55); background: linear-gradient(rgba(255, 252, 240, 0.55), rgba(240, 232, 214, 0.55)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6); color: var(--ink); text-shadow: var(--cut); }
 .trade.kit .tradetabs button.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); border-color: #14254a; background: var(--k-lapis); }
-/* A route's tables (routes.ts): the goods' icons, the steppers as bosses. */
+/* A route's tables (routes.ts): the goods' icons; slice 52: the switches and steppers are the kit's own (ktoggle, kstep). */
 .kit table.goods td.good svg.ic { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
-.kit table.goods td.keep button { width: 24px; height: 24px; border: 0; border-radius: 50%; padding: 0 0 2px; font: 700 15px/1 var(--serif); color: #3a2610; cursor: pointer; background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 24%, #a8783a 64%, #6e4a1c 100%); box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.45), inset 0 1px 1px rgba(255, 244, 210, 0.8), 1px 1px 2px rgba(20, 12, 4, 0.45); }
-.kit table.goods td.keep button:disabled { filter: grayscale(0.8); opacity: 0.45; cursor: default; }
-.kit table.goods td.keep span { display: inline-block; min-width: 46px; padding: 2px 4px; border-radius: 3px; text-align: center; box-shadow: var(--k-sunk); background: rgba(255, 252, 240, 0.45); }
+.kit table.goods td.good .k-tog { padding: 0; font-size: 13.5px; white-space: nowrap; }
+.kit table.goods td.good .k-tl { display: inline-flex; align-items: center; }
+.kit table.goods td.keep { white-space: nowrap; }
 .kit table.goods td, .kit table.goods th { font-size: 13.5px; }
-/* (Review of slice 50: a route's sell and buy ticks drawn as the Tyre tab's switches, not the browser's blue boxes.) */
-.kit table.goods td.good input[type='checkbox'] {
-  appearance: none; position: relative; width: 30px; height: 17px; margin: 0 6px 0 0; vertical-align: -4px; border-radius: 9px; cursor: pointer; flex: none;
-  background: linear-gradient(rgba(70, 52, 30, 0.22), rgba(70, 52, 30, 0.12)), var(--skin-marble) 0 0 / 256px 256px; box-shadow: var(--k-sunk); transition: background 0.15s;
-}
-.kit table.goods td.good input[type='checkbox']::before {
-  content: ''; position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; transition: transform 0.15s;
-  background: radial-gradient(circle at 34% 28%, #fbe7b0 0, #dcb062 26%, #a8783a 66%, #6e4a1c 100%); box-shadow: 0 1px 2px rgba(20, 12, 4, 0.5);
-}
-.kit table.goods td.good input[type='checkbox']:checked { background: var(--k-lapis); box-shadow: inset 1px 2px 3px rgba(0, 0, 20, 0.5), 0 1px 0 rgba(255, 252, 240, 0.7); }
-.kit table.goods td.good input[type='checkbox']:checked::before { transform: translateX(13px); }
-.kit table.goods td.good input[type='checkbox']:disabled { cursor: default; opacity: 0.55; }
+/* The map of Greece's panel is narrower (376 px): the tables close up so the stepper and the quay fit. */
+.greece-panel.kit table.goods td, .greece-panel.kit table.goods th { padding-left: 2px; padding-right: 2px; font-size: 13px; }
+.greece-panel.kit table.goods td.good .k-tog { gap: 4px; }
+.greece-panel.kit table.goods td.good svg.ic { width: 16px; height: 16px; margin-right: 2px; }
+.greece-panel.kit table.goods .k-step { gap: 2px; }
+.greece-panel.kit table.goods .k-step.small .k-boss { width: 22px; height: 22px; font-size: 15px; }
+.greece-panel.kit table.goods .k-step.small .k-well { min-width: 36px; }
 .k-cofoot .n { font: 500 14px/1 var(--serif); color: var(--ink); }
 .k-army .k-key { margin: 0 0 4px; }
 
@@ -575,11 +570,11 @@ svg.k-quay { display: block; width: 100%; height: 96px; }
 .greece-panel.kit .citytabs button:hover { background: linear-gradient(#fff8e6, #ecd8ac); }
 .greece-panel.kit .citytabs button.on { color: #f6e2a8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); background: var(--k-lapis); box-shadow: 0 0 0 1px #14254a, inset 0 1px 3px rgba(0, 0, 20, 0.45); }
 /* Every button on a page: a plaque of pale bronze; the main ones (send, take, open, choose) lapis; one that breaks something terracotta. */
-.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss), .greece-panel.kit .rename button, .greece-panel.kit .body > section button:not(.link):not(.k-btn) {
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):not(.k-tog), .greece-panel.kit .rename button, .greece-panel.kit .body > section button:not(.link):not(.k-btn):not(.k-boss):not(.k-tog) {
   min-height: 26px; padding: 2px 9px; border: 0; border-radius: 3px; font: 500 13px/1.2 var(--serif); color: #2b1d0c; text-shadow: 0 1px 0 rgba(255, 238, 190, 0.6); cursor: pointer;
   background: linear-gradient(#fbf3de, #e6d2a4); box-shadow: 0 0 0 1px rgba(80, 56, 24, 0.55), 1px 2px 2px rgba(20, 12, 4, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):hover:not(:disabled) { background: linear-gradient(#fff8e6, #f0dcb0); filter: none; }
+.greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):not(.k-tog):hover:not(:disabled) { background: linear-gradient(#fff8e6, #f0dcb0); filter: none; }
 .greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):active:not(:disabled) { transform: translateY(1px); }
 .greece-panel.kit .pane button:not(.link):not([data-tab]):not(.k-btn):not(.k-boss):disabled { opacity: 0.5; filter: grayscale(0.6); cursor: default; }
 .greece-panel.kit .pane :is(button.send, button.take, .choice button.on, ul.candidates li button, ul.works li button, .acts.station button, .acts.treaty button, section.garrison .acts:not(.endally) button, .rename button.ok):not(.link):not(.k-btn) {
@@ -605,3 +600,41 @@ svg.ic.sw { display: inline-block; width: 17px; height: 17px; flex: none; vertic
 .greece-panel.kit ul.giftrows button { min-width: 62px; }
 .greece-panel.kit .pricelist li, .household.trade.kit .pricelist li { align-items: center; }
 .greece-panel.kit .choice button svg.sw { width: 15px; height: 15px; margin: 0; }
+
+/* ------------------------------------------------------------------------ slice 52: the town lines under the top bar, on the kit */
+/* Parchment in the thin bronze frame, as a card; the line's icon in a sunk socket ringed in its colour (the skin's frame
+   hid the old coloured left edge); "+N more" a small bronze plaque. */
+.townlines.kit .townline {
+  --tl: #d9a441;
+  background: var(--k-parch); background-clip: padding-box; border: 5px solid transparent; border-image: var(--skin-frame-thin) var(--skin-frame-thin-cut) / 5px stretch; border-radius: 0;
+  padding: 2px 12px 2px 3px; gap: 8px; align-items: center; font-size: 14px; line-height: 1.32; box-shadow: 0 3px 8px rgba(20, 12, 4, 0.3);
+}
+.townlines.kit .townline:hover { background: linear-gradient(rgba(255, 250, 232, 0.55), rgba(255, 250, 232, 0.55)), var(--k-parch); background-clip: padding-box; }
+.townlines.kit .townline > svg { box-sizing: content-box; width: 16px; height: 16px; padding: 4px; margin: 1px 0; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffaf0, #eadbb8 70%); box-shadow: var(--k-sunk), 0 0 0 2px var(--tl); }
+.townlines.kit .townline.ship > svg, .townlines.kit .townline.greece > svg { width: 18px; height: 16px; padding: 4px 3px; }
+.townlines.kit .townline.workers { --tl: #a9773f; }
+.townlines.kit .townline.oil { --tl: #7d9636; }
+.townlines.kit .townline.fleece { --tl: #b8a678; }
+.townlines.kit .townline.wine { --tl: #8e2f4e; }
+.townlines.kit .townline:is(.fire, .tax, .raid, .alarm) { --tl: #b8322a; }
+.townlines.kit .townline:is(.wear, .rubble) { --tl: #8a7458; }
+.townlines.kit .townline.health { --tl: #3f8a62; }
+.townlines.kit .townline.ship { --tl: #2f6f8e; }
+.townlines.kit .townline.greece { --tl: #c8643b; }
+.townlines.kit .townline.battle { --tl: #a87a2a; }
+.townlines.kit .townline.loan { --tl: #8a6414; }
+.townlines.kit .townlines-more {
+  min-height: 24px; padding: 2px 12px; border: 0; border-radius: 3px; font: 13px/1.2 var(--serif); color: #2e1e0c; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6);
+  background: var(--k-bronze); box-shadow: inset 0 -1.5px 1px rgba(60, 36, 8, 0.4), inset 0 1px 1px rgba(255, 244, 210, 0.75), 1px 2px 3px rgba(20, 12, 4, 0.4);
+}
+.townlines.kit .townlines-more:hover { background: var(--k-bronze-hi); color: #2e1e0c; }
+
+/* ------------------------------------------------------------------------ slice 52: the side panel's other tabs on the kit */
+.k-side .svc .k-bar.fill, .k-side .places li .k-bar.fill { height: 8px; margin-top: 3px; overflow: visible; background: rgba(70, 52, 30, 0.16); box-shadow: var(--k-sunk); border-radius: 4px; }
+.k-side .svc .k-bar.fill.low { background: rgba(200, 100, 59, 0.28); }
+.k-side .levels td.bar .k-bar { height: 9px; }
+.k-side .levels td.bar .k-bar > i { height: auto; min-width: 2px; border-radius: 5px; }
+.k-side .side-row { margin-top: 6px; }
+.k-side .k-acts { margin-top: 12px; }
+.k-side .k-acts .k-btn { width: 100%; justify-content: center; }
+.k-side .k-btn kbd { font: 12px/1 var(--serif); padding: 1px 5px; border-radius: 3px; background: rgba(255, 252, 240, 0.25); box-shadow: inset 0 0 0 1px rgba(255, 252, 240, 0.4); }

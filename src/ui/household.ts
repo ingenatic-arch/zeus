@@ -34,6 +34,9 @@ import { ARMOUR, GRAPES, HORSES, MARBLE } from '../sim/foods';
 import { awayLines, crimeWords, STOCKS_SPAN, type CaseKind } from '../sim/justice';
 // Slice 49: a home's health.
 import { homeHealthHtml } from './health';
+// Slice 52: the home panel on slice 50's kit.
+import { khead, ksec, kitHtml } from './kit';
+import { buildingIcon } from './icons';
 
 /** The food a level needs, for its story: bread for a cottage, a second kind for a townhouse, all three for a fine house. */
 const foodFor = (level: number): string => (kindsNeeded(level) >= 3 ? 'all three kinds of food' : kindsNeeded(level) === 2 ? 'a second kind of food' : NEED_WORDS.food);
@@ -290,7 +293,7 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   const tax = taxLine(s, map, b).replace(/^Taxes: /, '');
   const taxes = tax ? `<p class="next taxes">${ICON.tax}<span><b>Taxes</b> · ${esc(tax)}</span></p>` : '';
   const list = (items: string[]): string => (items.length ? `<ul class="chips">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '<p class="none">Nothing</p>');
-  return `<section class="needs"><h3>What they have</h3>${list(has)}<h3>What they lack</h3>${list(lack)}${taxes}<p class="next">${ICON.home}<span>${esc(next)}</span></p></section>`;
+  return ksec('What they have', list(has), { icon: 'home', cls: 'needs' }) + ksec('What they lack', `${list(lack)}${taxes}<p class="next">${ICON.home}<span>${esc(next)}</span></p>`, { icon: 'warn', cls: 'needs' });
 }
 
 /** The warning box: what ran out, how long ago, how long they will put up with it, and what would help. */
@@ -493,17 +496,27 @@ function stableBlock(s: SimState, b: Building): string {
     return `<li>${ESTATE_ICON[n]}<span><b>${ESTATE_WORDS[n][0].toUpperCase()}${ESTATE_WORDS[n].slice(1)}</b> · ${esc(lasts)} · ${esc(fetchWords(s, b, n))}</span></li>`;
   }).join('');
   const use = great ? `A great estate uses a block of marble every ${days(LASTS.marble)}, a set of armour every ${days(LASTS.armour)} and a horse every ${days(LASTS.horses)}` : 'An estate gathers them for when it becomes a great estate';
-  return `${warn}<section class="needs stable"><h3>Their stable and yard</h3><ul class="chips">${rows}</ul><p class="none">${esc(use)}</p></section>`;
+  return warn + ksec('Their stable and yard', `<ul class="chips">${rows}</ul><p class="none">${esc(use)}</p>`, { icon: 'home', cls: 'needs stable' });
+}
+
+/** Slice 52: the home's picture on its plaque, by its level: a tent, a thatched hut, a tiled house, a villa (the estate's drawing). */
+const HUT_PIC = '<svg viewBox="0 0 24 24" class="k-bic" aria-hidden="true"><path d="M5 12.4h14v8.2H5z" class="fill-soft"/><path d="M2.8 13 12 5.2l9.2 7.8z" fill="#c9a24a" stroke="#6e4e30" stroke-width=".9"/><path d="M10.4 20.6v-4.8h3.2v4.8" class="fill-ink"/><path d="M2 20.8h20" class="stroke-ink"/></svg>';
+const HOUSE_PIC = '<svg viewBox="0 0 24 24" class="k-bic" aria-hidden="true"><path d="M4 11.4h16v9.2H4z" class="fill-soft"/><path d="M2.4 11.8 12 5l9.6 6.8z" fill="#c0573a" stroke="#6e2a18" stroke-width=".9"/><path d="M10.4 20.6v-5h3.2v5" class="fill-ink"/><path d="M6.4 14h2.2v2H6.4zM15.4 14h2.2v2h-2.2z" class="fill-ink"/><path d="M2 20.8h20" class="stroke-ink"/></svg>';
+function homePic(b: Building): string {
+  if (b.estate || b.level >= VILLA) return buildingIcon('estate');
+  if (b.level >= COTTAGE) return HOUSE_PIC;
+  return b.level === HUT ? HUT_PIC : buildingIcon('home');
 }
 
 /** The whole panel's inner HTML for a home. */
 export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const f = b.family;
   const level = HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)];
-  if (!f && b.estate) return `<header><div class="kicker">An estate’s plot</div><h2>Waiting for a noble house</h2></header><section class="needs"><p class="next">${ICON.home}<span>${esc(plotWaits(s, map, b))}</span></p></section>`;
+  const pic = homePic(b);
+  if (!f && b.estate) return `${khead({ kicker: 'An estate’s plot', title: 'Waiting for a noble house', pic, cls: 'hhead' })}<section class="needs"><p class="next">${ICON.home}<span>${esc(plotWaits(s, map, b))}</span></p></section>`;
   // (Slice 37 review: a home its household left to found a colony says so, as its hover does.)
   const left = f ? '' : leftFor(s, b.id);
-  if (!f) return `<header><div class="kicker">${level}</div><h2>Nobody lives here</h2>${left ? `<div class="from">${esc(left)}</div>` : ''}</header>`;
+  if (!f) return khead({ kicker: level, title: 'Nobody lives here', sub: left || undefined, pic, cls: 'hhead' });
   const cap = capacity(b);
   const room = b.people >= cap ? 'full' : `room for ${cap - b.people} more`;
   const since = ` · here since ${when(f.came)}`;
@@ -518,7 +531,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
     .map((e, i) => `<li><span class="when">${when(e.tick)}</span><span>${esc(storyLine(f, e, i))}</span></li>`)
     .reverse()
     .join('');
-  return `<header><div class="kicker">${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}</div><h2>The house of ${esc(f.name)}</h2><div class="from">From ${esc(f.origin)}${since}</div></header>
+  return `${khead({ kicker: `${level} · ${b.people} ${b.people === 1 ? 'person' : 'people'}, ${room}`, title: `The house of ${f.name}`, sub: `From ${f.origin}${since}`, pic, cls: 'hhead' })}
 ${warningBlock(s, map, b)}
 ${b.estate ? stableBlock(s, b) : ''}
 ${hazardBlock(s, map, b)}
@@ -528,8 +541,8 @@ ${moodBlock(mood)}
 ${homeHealthHtml(s, b)}
 <section class="talk">${talk}</section>
 ${needsBlock(s, map, b)}
-<section class="members"><h3>Who lives here</h3><ul>${members}</ul></section>
-<section class="story"><h3>Their story</h3><ul>${story}</ul></section>`;
+${ksec('Who lives here', `<ul>${members}</ul>`, { icon: 'men', cls: 'members' })}
+${ksec('Their story', `<ul>${story}</ul>`, { icon: 'read', cls: 'story' })}`;
 }
 
 /** How often (seconds) the open panel is brought up to date. */
@@ -544,9 +557,9 @@ export class HouseholdPanel {
 
   constructor(root: HTMLElement, onClose: () => void) {
     const el = document.createElement('div');
-    el.className = 'household';
+    el.className = 'household home kit';
     el.hidden = true;
-    el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
+    el.innerHTML = '<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     root.appendChild(el);
     this.el = el;
     this.body = el.querySelector('.body') as HTMLElement;
@@ -579,7 +592,7 @@ export class HouseholdPanel {
     }
     if (time - this.last < REFRESH) return b;
     this.last = time;
-    const html = householdHtml(s, map, b);
+    const html = kitHtml(householdHtml(s, map, b));
     if (html !== this.html) {
       this.html = html;
       // In place (see morph): a hover tip stays up while the figures move.

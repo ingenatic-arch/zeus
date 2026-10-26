@@ -16,6 +16,8 @@ import { offerLeft, offerOn, offerPrice } from '../sim/favours';
 import { termsLine, termsMeaning, yourPriceCell } from './prices';
 // Slice 50: the kit's icons for the goods (they had colour swatches).
 import { tradeIcon } from './icons';
+// Slice 52: the route tables' switches and steppers from the kit.
+import { kstep, ktoggle } from './kit';
 import type { Building, SimState, TradeRoute } from '../sim/state';
 import { cityHolds, KEEP_MAX, keepNext, TRADE_GOODS, tradingPost } from '../sim/trade';
 
@@ -59,18 +61,20 @@ function limitOf(s: SimState, r: TradeRoute, k: number, selling: boolean): numbe
   return o ? o.amount : yearlyLimit(s, r.city, k);
 }
 
-/** The keep figure's − and + (the one the trading post has always had, shared by every route). */
+/** The keep figure's − and + (the one the trading post has always had, shared by every route). Slice 52: the kit's stepper. */
 function keepCell(s: SimState, k: number): string {
   const keep = s.trade.keep[k];
   const name = WARE_NAMES[TRADE_GOODS[k]];
-  return `<td class="keep" title="${esc(`The city keeps ${fmt(keep)} ${name} in its ${keptIn(k)}; only what is beyond that goes to the yard or the quay (one figure, for every trader)`)}"><button data-keep="${k}" data-by="-1" aria-label="Keep less ${name}"${keep <= 0 ? ' disabled' : ''}>−</button><span>${fmt(keep)}</span><button data-keep="${k}" data-by="1" aria-label="Keep more ${name}"${keep >= KEEP_MAX ? ' disabled' : ''}>+</button></td>`;
+  const tip = `The city keeps ${fmt(keep)} ${name} in its ${keptIn(k)}; only what is beyond that goes to the yard or the quay (one figure, for every trader). Hold a button down to step faster.`;
+  return `<td class="keep">${kstep({ value: fmt(keep), less: { keep: k, by: -1 }, more: { keep: k, by: 1 }, lessWhy: keep <= 0 ? 'The city keeps none' : undefined, moreWhy: keep >= KEEP_MAX ? `It keeps ${fmt(KEEP_MAX)} at the most` : undefined, tip, name: `${name} kept`, small: true })}</td>`;
 }
 
 /** The up-to figure's − and +. */
 function uptoCell(r: TradeRoute, k: number): string {
   const n = r.upto[k];
   const name = WARE_NAMES[TRADE_GOODS[k]];
-  return `<td class="keep" title="${esc(`Buy enough ${name} to stock the ${keptIn(k)} up to ${fmt(n)}`)}"><button data-upto="${k}" data-by="-1" data-route="${routeKey(r)}" aria-label="Stock up to less ${name}"${n <= 0 ? ' disabled' : ''}>−</button><span>${fmt(n)}</span><button data-upto="${k}" data-by="1" data-route="${routeKey(r)}" aria-label="Stock up to more ${name}"${n >= KEEP_MAX ? ' disabled' : ''}>+</button></td>`;
+  const route = routeKey(r);
+  return `<td class="keep">${kstep({ value: fmt(n), less: { upto: k, by: -1, route }, more: { upto: k, by: 1, route }, lessWhy: n <= 0 ? 'Up to none' : undefined, moreWhy: n >= KEEP_MAX ? `Up to ${fmt(KEEP_MAX)} at the most` : undefined, tip: `Buy enough ${name} to stock the ${keptIn(k)} up to ${fmt(n)}. Hold a button down to step faster.`, name: `${name} to stock up to`, small: true })}</td>`;
 }
 
 /** A price cell: your price with the city (the market's and its ruler's terms) and its arrow, with a tip saying what moved it. */
@@ -97,7 +101,7 @@ export function routeGoods(s: SimState, r: TradeRoute, withTerms = true): string
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, true);
       const lim = limitOf(s, r, k, true);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Switch on to sell spare ${ware} to ${name}`)}"><input type="checkbox" data-rsell="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good">${ktoggle({ on, data: { rsell: k, route: routeKey(r) }, label: `Sell ${ware} to ${name}`, html: `${tradeIcon(k)}${cap(ware)}`, tip: on ? `Selling ${ware} to ${name}: the ${r.kind === 'land' ? 'porters carry' : 'dockers carry'} spare ${ware} to the ${r.kind === 'land' ? 'yard' : 'quay'}` : `Switch on to sell spare ${ware} to ${name}` })}</td>
 ${priceTd(s, r.city, k, true)}
 <td class="left" title="${esc(`${name} buys up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
@@ -112,7 +116,7 @@ ${keepCell(s, k)}
       const ware = WARE_NAMES[w];
       const left = leftOf(s, r, k, false);
       const lim = limitOf(s, r, k, false);
-      return `<tr class="${on ? 'on' : 'off'}"><td class="good"><label title="${esc(on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Switch on to buy ${ware} from ${name}`)}"><input type="checkbox" data-rbuy="${k}" data-route="${routeKey(r)}"${on ? ' checked' : ''}>${tradeIcon(k)}${cap(ware)}</label></td>
+      return `<tr class="${on ? 'on' : 'off'}"><td class="good">${ktoggle({ on, data: { rbuy: k, route: routeKey(r) }, label: `Buy ${ware} from ${name}`, html: `${tradeIcon(k)}${cap(ware)}`, tip: on ? `Buying ${ware} from ${name}: its trader brings enough to stock the ${keptIn(k)} up to the figure` : `Switch on to buy ${ware} from ${name}` })}</td>
 ${priceTd(s, r.city, k, false)}
 <td class="left" title="${esc(`${name} sells up to ${fmt(lim)} ${ware} a year: ${fmt(left)} left this year`)}">${fmt(left)}</td>
 <td class="holds" title="${esc(`Your ${keptIn(k)} hold ${fmt(cityHolds(s, w))} ${ware}`)}">${fmt(cityHolds(s, w))}</td>
@@ -175,16 +179,17 @@ export function routeEvent(e: Event, s: SimState, send: (c: Command) => void): b
     const [city, kind] = key.split('-');
     return kind === 'land' || kind === 'sea' ? { city, kind } : null;
   };
-  if (e.type === 'change') {
-    const input = t as HTMLInputElement;
-    const rk = routeOfKey(input.dataset.route);
-    if (!rk) return false;
-    if (input.dataset.rsell !== undefined) send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[Number(input.dataset.rsell)], sell: input.checked });
-    else if (input.dataset.rbuy !== undefined) send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[Number(input.dataset.rbuy)], buy: input.checked });
-    else return false;
+  if (e.type !== 'click') return false;
+  // Slice 52: a good's switch (the kit's), selling or buying it on the route.
+  const sw = t.closest('button[data-rsell], button[data-rbuy]') as HTMLButtonElement | null;
+  if (sw) {
+    const rk = routeOfKey(sw.dataset.route);
+    const r = rk ? routeOf(s, rk.city, rk.kind) : undefined;
+    if (!rk || !r || sw.disabled) return false;
+    if (sw.dataset.rsell !== undefined) send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[Number(sw.dataset.rsell)], sell: !r.sell[Number(sw.dataset.rsell)] });
+    else send({ type: 'deal', city: rk.city, kind: rk.kind, good: TRADE_GOODS[Number(sw.dataset.rbuy)], buy: !r.buy[Number(sw.dataset.rbuy)] });
     return true;
   }
-  if (e.type !== 'click') return false;
   const open = t.closest('button[data-open]') as HTMLButtonElement | null;
   if (open) {
     const rk = routeOfKey(open.dataset.open);

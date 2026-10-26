@@ -58,9 +58,14 @@ export function khead(o: { title: string; kicker?: string; sub?: string; pic?: s
   return `<header class="k-head${o.cls ? ` ${o.cls}` : ''}">${o.pic ? `<div class="k-pic">${o.pic}</div>` : ''}<div class="k-hd">${o.kicker ? `<div class="k-kicker">${esc(o.kicker)}</div>` : ''}<h2>${esc(o.title)}</h2>${o.sub ? `<div class="k-sub">${esc(o.sub)}</div>` : ''}</div></header>`;
 }
 
+/** A carved rule with its title (text) and icon: a section's heading (slice 52: on its own, for a list that runs on under it). */
+export function kh(title: string, o: { icon?: ActionIcon | string; aside?: string } = {}): string {
+  return `<h3 class="k-h">${o.icon ? `<span class="k-hic">${iconOf(o.icon)}</span>` : ''}<span class="k-ht">${esc(title)}</span>${o.aside ? `<span class="k-aside">${o.aside}</span>` : ''}</h3>`;
+}
+
 /** A section under a carved rule: `title` is text, `body` HTML; `aside`: HTML at the rule's right end. */
 export function ksec(title: string, body: string, o: { icon?: ActionIcon | string; cls?: string; aside?: string } = {}): string {
-  return `<section class="k-sec${o.cls ? ` ${o.cls}` : ''}"><h3 class="k-h">${o.icon ? `<span class="k-hic">${iconOf(o.icon)}</span>` : ''}<span class="k-ht">${esc(title)}</span>${o.aside ? `<span class="k-aside">${o.aside}</span>` : ''}</h3>${body}</section>`;
+  return `<section class="k-sec${o.cls ? ` ${o.cls}` : ''}">${kh(title, o)}${body}</section>`;
 }
 
 /** A button's options. `html` is its words (already safe HTML). */

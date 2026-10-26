@@ -544,18 +544,7 @@ kbd {
 :is(.household.trade, .greece-panel) table.goods td { padding: 2px 3px; text-align: right; font-variant-numeric: tabular-nums; border-top: 1px solid rgba(184, 138, 80, 0.25); }
 :is(.household.trade, .greece-panel) table.goods tr.off td { color: var(--ink-soft); }
 :is(.household.trade, .greece-panel) table.goods td.good { text-align: left; }
-:is(.household.trade, .greece-panel) table.goods td.good label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
-:is(.household.trade, .greece-panel) table.goods td.good input { margin: 0; accent-color: #2f6f8e; cursor: pointer; }
-:is(.household.trade, .greece-panel) table.goods td.good i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(74, 52, 32, 0.6); }
 :is(.household.trade, .greece-panel) table.goods td.price { color: #8a6418; }
-:is(.household.trade, .greece-panel) table.goods td.keep { white-space: nowrap; }
-:is(.household.trade, .greece-panel) table.goods td.keep span { display: inline-block; min-width: 40px; text-align: center; }
-:is(.household.trade, .greece-panel) table.goods td.keep button {
-  appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1.2px solid var(--edge); background: #fff8ea; color: var(--ink);
-  font: inherit; font-size: 14px; line-height: 1; padding: 0 0 1px; cursor: pointer;
-}
-:is(.household.trade, .greece-panel) table.goods td.keep button:hover { background: #fff2d6; }
-:is(.household.trade, .greece-panel) table.goods td.keep button:disabled { opacity: 0.4; cursor: default; }
 :is(.household.trade, .greece-panel) table.goods td.quay { color: #2f5f72; font-weight: bold; min-width: 40px; }
 :is(.household.trade, .greece-panel) .quayline, :is(.household.trade, .greece-panel) .dockers { margin: 6px 0 0; font-size: 13px; }
 :is(.household.trade, .greece-panel) .dockers { color: var(--ink-soft); }

@@ -165,7 +165,7 @@ export class MessagesPanel {
     el.hidden = true;
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Messages');
-    el.innerHTML = `<button class="close" title="Close (Esc)" aria-label="Close">×</button>
+    el.innerHTML = `<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button>
       <header class="mhead"><h2>Messages <kbd class="mkey" data-tip="The key left of 1 opens and closes the Messages">\u0060</kbd></h2><div class="kicker"></div><button class="k-btn bronze small bare allread" data-tip="Mark every message read"><span class="k-bt">Mark all read</span></button></header>
       <div class="mchips" role="tablist" aria-label="Show"></div>
       <div class="body"></div>`;

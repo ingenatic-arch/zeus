@@ -269,7 +269,8 @@ function fleetHtml(s: SimState, map: CoastMap, focus: number, out: string[]): vo
     // (Slice 38: her oars too, and her repair.)
     const days = daysToMend(s, t);
     const mend = t.state === 'building' ? '' : t.mend ? ` <span class="warn">(under repair${days > 0 ? `: whole in ${days} ${days === 1 ? 'day' : 'days'}` : ''})</span>` : t.hp < FIT || t.oars < FIT ? ' <span class="warn">(mending before she goes out)</span>' : '';
-    const bars = t.state === 'building' ? '' : `<div class="k-meters"><span>Hull</span>${kbar({ value: t.hp, max: 100, tone: t.hp < FIT ? 'danger' : 'good', html: `${Math.round(t.hp)}%` })}<span>Oars</span>${kbar({ value: t.oars, max: 100, tone: t.oars < FIT ? 'danger' : 'good', html: `${Math.round(t.oars)}%` })}</div>`;
+    // (Slice 52: the shipyard's tone, sea, with its mark where she is fit to sail.)
+    const bars = t.state === 'building' ? '' : `<div class="k-meters"><span>Hull</span>${kbar({ value: t.hp, max: 100, tone: t.hp < FIT ? 'danger' : 'sea', tick: FIT / 100, tip: `Hull: ${Math.round(t.hp)}%; she goes out at ${FIT} or better`, html: `${Math.round(t.hp)}%` })}<span>Oars</span>${kbar({ value: t.oars, max: 100, tone: t.oars < FIT ? 'danger' : 'sea', tick: FIT / 100, tip: `Oars: ${Math.round(t.oars)}%; she goes out at ${FIT} or better`, html: `${Math.round(t.oars)}%` })}</div>`;
     const pay = t.crew.length ? ` · ${fmt(t.crew.length * ROWER_PAY)} dr a month` : '';
     const owed = t.owed > 0 ? ` · <span class="warn">${fmt(t.owed)} dr pay owed</span>` : '';
     // (Sailing home already, or carrying your soldiers on an expedition (she comes home with them): no button. Review of slice 26.)

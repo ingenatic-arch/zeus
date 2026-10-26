@@ -404,7 +404,7 @@ export class BuildingPanel {
     el.className = 'household building kit';
     el.hidden = true;
     el.setAttribute('role', 'dialog');
-    el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
+    el.innerHTML = '<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     root.appendChild(el);
     this.el = el;
     this.body = el.querySelector('.body') as HTMLElement;

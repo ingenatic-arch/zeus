@@ -40,6 +40,8 @@ import { citySells, lackWords, NEED_WORDS, NEEDS, needsOf, untilOf, warningsOf }
 import { GOOD_SERVICE, isGood, type Ware } from '../sim/foods';
 import { burnable, HAZARD_MARK, wears } from '../sim/hazards';
 import { canWorkIn, workforce } from '../sim/labour';
+// Slice 52: the tabs on the kit.
+import { kbar, kbtn, kh, kitHtml } from './kit';
 import { armyHtml } from './armytab';
 import { ICONS, INFO } from './buildbar';
 import { CATEGORIES, categoryOf, HEAD_TOOLS, OLD_TABS, type Category, type CategoryInfo } from './categories';
@@ -606,7 +608,9 @@ export class SidePanel {
   }
 
   private render(s: SimState): void {
-    const html = this.html(s);
+    // Slice 52: every tab on slice 50's kit (the Military and Monuments tabs already were): its titles in the kit's one tip.
+    const own = this.html(s);
+    const html = this.tab === 'military' || this.tab === 'monuments' ? own : kitHtml(`<div class="kit k-side">${own}</div>`);
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     morph(this.body, html);
@@ -632,7 +636,7 @@ export class SidePanel {
     });
     const b = bookNow(s);
     const out: string[] = [];
-    out.push(`<h3>${b.full ? 'Made last month' : 'Made this month so far'}</h3><ul class="wares">${wares.map((w) => this.wareRow(s, w)).join('')}</ul>`);
+    out.push(`${kh(b.full ? 'Made last month' : 'Made this month so far', { icon: 'build' })}<ul class="wares">${wares.map((w) => this.wareRow(s, w)).join('')}</ul>`);
     const lines: string[] = [];
     for (const t of c.tools) {
       const kind = t as BuildingKind;
@@ -645,7 +649,7 @@ export class SidePanel {
       const name = all.length === 1 ? one : (MANY[kind] ?? (/[^aeiou]y$/.test(one) ? `${one.slice(0, -1)}ies` : `${one}s`));
       lines.push(`<li class="${short ? 'bad' : ''}"><span>${all.length} ${esc(name)}</span><span class="n">${short ? `${short} short of workers` : paused === all.length ? 'paused' : 'all staffed'}${paused && paused < all.length ? ` · ${paused} paused` : ''}</span></li>`);
     }
-    out.push('<h3>Their workers</h3>');
+    out.push(kh('Their workers', { icon: 'men' }));
     out.push(lines.length ? `<ul class="places staff">${lines.join('')}</ul>` : `<p class="side-note">None built yet: pick one above to place it.</p>`);
     out.push('<p class="side-note">Click a ware for where it comes from and goes.</p>');
     return out.join('');
@@ -674,7 +678,7 @@ export class SidePanel {
     for (const g of WARE_GROUPS) {
       const ws = panelWares().filter((w) => wareInfo(w).group === g.group);
       if (!ws.length) continue;
-      out.push(`<h3>${g.title}</h3><ul class="wares">${ws.map((w) => this.wareRow(s, w)).join('')}</ul>`);
+      out.push(`${kh(g.title, { icon: 'keep' })}<ul class="wares">${ws.map((w) => this.wareRow(s, w)).join('')}</ul>`);
     }
     return out.join('');
   }
@@ -762,18 +766,18 @@ export class SidePanel {
         }
         body.push(this.flowRow(s, r));
       }
-      out.push(`<h3>Where it comes from and goes</h3><table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${body.join('')}</tbody></table>`);
+      out.push(`${kh('Where it comes from and goes', { icon: 'caravan' })}<table class="flows"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th></tr></thead><tbody>${body.join('')}</tbody></table>`);
     } else if (b.months.length === 0 && b.now.length === 0) {
       out.push('<p class="side-note">Nothing noted yet: what is made, used and sold shows here from this month on.</p>');
     }
     // Where it is kept.
     if (st.places.length || st.moving) {
-      out.push('<h3>Where it is kept</h3><ul class="places">');
+      out.push(`${kh('Where it is kept', { icon: 'keep' })}<ul class="places">`);
       for (const p of st.places.slice(0, 6)) {
         const [cx, cz] = centreOf(p.b);
         const share = p.room > 0 ? Math.min(1, p.n / p.room) : 0;
         out.push(
-          `<li><button data-act="go" data-x="${cx}" data-z="${cz}" title="Go there">${esc(placeName(p.b, this.map))}</button><span class="n">${fmt(p.n)}${p.room ? `<small> / ${fmt(p.room)}</small>` : ''}</span>${p.room ? `<i class="fill"><b style="width:${(share * 100).toFixed(0)}%"></b></i>` : ''}</li>`,
+          `<li><button data-act="go" data-x="${cx}" data-z="${cz}" title="Go there">${esc(placeName(p.b, this.map))}</button><span class="n">${fmt(p.n)}${p.room ? `<small> / ${fmt(p.room)}</small>` : ''}</span>${p.room ? kbar({ value: share, max: 1, cls: 'fill' }) : ''}</li>`,
         );
       }
       const more = st.places.length - 6;
@@ -859,7 +863,7 @@ export class SidePanel {
       out.push(`<p class="side-note">${esc(why)}</p>`);
     }
     // Homes by level.
-    out.push('<h3>Homes</h3><table class="levels"><tbody>');
+    out.push(`${kh('Homes', { icon: 'home' })}<table class="levels"><tbody>`);
     // (Slice 36's review: and the estates and great estates above the villas.)
     const most = Math.max(1, ...Array.from({ length: GREAT_ESTATE }, (_, i) => homes.filter((b) => b.level === i + 1).reduce((a, b) => a + b.people, 0)));
     for (let lv = GREAT_ESTATE; lv >= 1; lv--) {
@@ -867,7 +871,7 @@ export class SidePanel {
       if (!at.length) continue;
       const people = at.reduce((a, b) => a + b.people, 0);
       const name = HOME_NAMES[lv].replace(/^An? /, '');
-      out.push(`<tr><td class="what">${at.length} ${esc(at.length === 1 ? lower(name) : plural(lower(name)))}</td><td class="bar"><i style="width:${((people / most) * 100).toFixed(0)}%"></i></td><td class="amt">${fmt(people)}</td></tr>`);
+      out.push(`<tr><td class="what">${at.length} ${esc(at.length === 1 ? lower(name) : plural(lower(name)))}</td><td class="bar">${kbar({ value: people, max: most, tone: 'strength' })}</td><td class="amt">${fmt(people)}</td></tr>`);
     }
     const plots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && !b.estate).length;
     const estatePlots = s.buildings.filter((b) => b.kind === 'home' && b.level === 0 && b.estate).length;
@@ -877,7 +881,7 @@ export class SidePanel {
     // Work.
     const wf = workforce(s);
     const able = homes.reduce((a, b) => a + canWorkIn(s, b), 0);
-    out.push('<h3>Work</h3>');
+    out.push(kh('Work', { icon: 'men' }));
     out.push(`<dl class="sums"><div><dt>Jobs filled</dt><dd>${fmt(wf.filled)}<small> / ${fmt(wf.jobs)}</small></dd></div><div><dt>Can work</dt><dd>${fmt(able)}</dd></div><div><dt>Without work</dt><dd>${fmt(Math.max(0, able - wf.filled))}</dd></div></dl>`);
     if (wf.short.length) {
       const list = wf.short.slice(0, 4).map((b) => {
@@ -893,7 +897,7 @@ export class SidePanel {
       if (ws.length) trouble.push({ b, left: ws[0].left, need: ws.map((x) => lackWords(s, b, x.need)).join(', ') });
     }
     trouble.sort((a, b) => a.left - b.left || a.b.id - b.b.id);
-    out.push(`<h3>Homes in trouble</h3>`);
+    out.push(kh('Homes in trouble', { icon: 'warn' }));
     if (!trouble.length) out.push('<p class="side-note">None: every home has what its level needs.</p>');
     else {
       out.push('<ul class="places trouble">');
@@ -917,7 +921,7 @@ export class SidePanel {
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const mode = this.hooks.overlayMode();
     const out: string[] = [];
-    if (title) out.push(`<h3>${esc(title)}</h3>`);
+    if (title) out.push(kh(title, { icon: 'sell' }));
     out.push(`<p class="side-note">${esc(note)} Click one to see it on the map.</p><ul class="svc">`);
     for (const r of SERVICE_ROWS) {
       if (!needs.includes(r.need)) continue;
@@ -928,7 +932,7 @@ export class SidePanel {
       const word = off ? 'no home needs it yet' : `${fmt(have)} of ${fmt(need.length)}`;
       const lacking = need.length - have;
       out.push(
-        `<li><button class="svc-row ${mode === r.need ? 'on' : ''} ${off ? 'off' : ''}" data-act="overlay" data-mode="${r.need}" title="${esc(`${r.label}: ${off ? 'no home needs it yet' : `${have} of the ${need.length} homes that need it have it${lacking ? `; ${lacking} without` : ''}`} · click to ${mode === r.need ? 'hide' : 'show'} it on the map`)}"><i class="dot" style="background:${r.colour}"></i><span class="nm">${r.label}</span><span class="cnt">${word}</span><i class="fill ${share < 0.75 && !off ? 'low' : ''}"><b style="width:${(share * 100).toFixed(0)}%;background:${r.colour}"></b></i></button></li>`,
+        `<li><button class="svc-row ${mode === r.need ? 'on' : ''} ${off ? 'off' : ''}" data-act="overlay" data-mode="${r.need}" title="${esc(`${r.label}: ${off ? 'no home needs it yet' : `${have} of the ${need.length} homes that need it have it${lacking ? `; ${lacking} without` : ''}`} · click to ${mode === r.need ? 'hide' : 'show'} it on the map`)}"><i class="dot" style="background:${r.colour}"></i><span class="nm">${r.label}</span><span class="cnt">${word}</span>${kbar({ value: share, max: 1, fill: r.colour, cls: `fill${share < 0.75 && !off ? ' low' : ''}` })}</button></li>`,
       );
     }
     out.push('</ul>');
@@ -969,7 +973,7 @@ export class SidePanel {
     const posts = s.buildings.filter((b) => b.kind === 'watchpost').length;
     const offices = s.buildings.filter((b) => b.kind === 'architect').length;
     const rubble = s.buildings.filter((b) => b.kind === 'rubble').length;
-    out.push('<h3>Fire, wear and crime</h3><ul class="svc">');
+    out.push(`${kh('Fire, wear and crime', { icon: 'guard' })}<ul class="svc">`);
     const fireWord = fires ? `${fires} burning` : smoulder ? `${smoulder} smouldering` : risky ? `${risky} past half way` : s.hazards ? 'all safe' : 'no risk yet';
     out.push(
       `<li><button class="svc-row ${mode === 'fire' ? 'on' : ''} ${fires ? 'alarm' : ''}" data-act="overlay" data-mode="fire" title="${esc(`Fire: ${fires} burning, ${smoulder} smouldering, ${risky} more past half way to catching · ${posts} watch ${posts === 1 ? 'post' : 'posts'} · click to ${mode === 'fire' ? 'hide' : 'show'} fire risk on the map`)}"><i class="dot" style="background:#d8542a"></i><span class="nm">Fire</span><span class="cnt">${fireWord}</span></button></li>`,
@@ -1010,10 +1014,10 @@ export class SidePanel {
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.level > 0 && b.people > 0);
     const taxed = homes.filter((b) => taxedLately(s, b)).length;
     const offices = s.buildings.filter((b) => b.kind === 'taxoffice').length;
-    out.push('<h3>Taxes</h3>');
-    out.push(`<p class="side-row"><span>The rate</span><button class="chip" data-act="rates" title="Change the tax rate">${cap(TAX_RATES[s.taxRate] ?? '?')}</button></p>`);
+    out.push(kh('Taxes', { icon: 'pay' }));
+    out.push(`<p class="side-row"><span>The rate</span>${kbtn({ act: 'rates', html: esc(cap(TAX_RATES[s.taxRate] ?? '?')), small: true, tip: 'Change the tax rate' })}</p>`);
     out.push(`<p class="side-note">${offices ? `Collectors from ${offices} tax ${offices === 1 ? 'office' : 'offices'} called on ${fmt(taxed)} of ${fmt(homes.length)} homes in the last month.` : 'No tax office yet: build one (Z) by the houses, so a collector brings the taxes in.'}</p>`);
-    out.push(`<button class="wide" data-act="ledger">Open the ledger <kbd>$</kbd></button>`);
+    out.push(`<div class="k-acts">${kbtn({ act: 'ledger', icon: 'read', html: 'Open the ledger <kbd>$</kbd>', tip: 'Every line of the treasury, month by month' })}</div>`);
     out.push(moneyLoansHtml(s));
     return out.join('');
   }

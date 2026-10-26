@@ -56,6 +56,9 @@ import {
   TRADE_GOODS,
   tradingPost,
 } from '../sim/trade';
+// Slice 52: your own ships of slice 47 in the bay (a colony's cargo, a company's passage, a militia's), in the quay's picture.
+import { bayShips, bayShipStatus } from '../sim/colonyempire';
+import { cargoesFor, cargoShipStatus } from '../sim/colonyworks';
 // Slice 50: the kit.
 import { actionIcon, buildingIcon, goodIcon } from './icons';
 import { kbar, kchip, khead, kitHtml, ksec, kstep, ktoggle } from './kit';
@@ -126,17 +129,27 @@ function quayPicture(s: SimState, post: Building): string {
   // quay, and the Tyrian ship, due, waiting out at sea.
   const q = quarantined(s);
   const flag = (x: number, y: number, k = 1): string => `<path d="M${x} ${y}v${-14 * k}" stroke="#5a3a1e" stroke-width="${1.2 * k}"/><path d="M${x + 0.6 * k} ${y - 14 * k}h${11 * k}l${-3 * k} ${2.4 * k} ${3 * k} ${2.4 * k}h${-11 * k}z" fill="#e8c23a" stroke="#7a5a10" stroke-width="${0.6 * k}" stroke-linejoin="round"/>`;
-  const off: Array<{ who: string; far: boolean }> = [];
+  const off: Array<{ who: string; far: boolean; tip?: string; stripe?: string; sacks?: boolean }> = [];
   for (const r of s.world.routes) if (r.kind === 'sea' && r.ship && r.ship.phase === SHIP_ANCHORED) off.push({ who: PLACES[r.city]?.name ?? r.city, far: false });
+  // Slice 52: your own ships at anchor off the jetty (slice 47): a colony's cargo (her sacks once the boat has rowed some out), a company's passage, a militia's ship. Three at the most fit the bay.
+  for (const v of bayShips(s)) {
+    if (v.ship.phase !== SHIP_ANCHORED || (v.ship.post && v.ship.post !== post.id)) continue;
+    const x = v.kind === 'cargo' ? cargoesFor(s).find((y) => y.id === v.id) : undefined;
+    const st = x ? cargoShipStatus(s, x) : bayShipStatus(s, v.key);
+    off.push({ who: '', far: false, tip: st ? `${st.title}: ${st.detail.split('\n')[0]}` : 'Your ship at anchor in the bay', stripe: v.kind === 'militia' ? '#b8322a' : '#2c4a86', sacks: v.laden });
+  }
   if (q && ship.phase === SHIP_AWAY && ship.due - sailInNow(s) <= s.tick + 1) off.push({ who: 'Tyre', far: true });
-  const anchored = off
+  const near = off.filter((h) => !h.far).slice(0, 3);
+  const anchored = [...near, ...off.filter((h) => h.far)]
     .map((h, i) => {
       const bx = h.far ? 336 : 318 - i * 50;
-      const by = h.far ? 44 : 62 + (i % 2) * 6;
+      // (Your own ships ride nearer, in front of the Tyrian's way in to the jetty.)
+      const by = h.far ? 44 : h.stripe ? 84 : 62 + (i % 2) * 6;
       const sc = h.far ? 0.3 : 0.62;
-      const tip = h.far ? 'The ship from Tyre waits out at sea: your quarantine holds her off until it ends, or is lifted' : q ? `The ship from ${h.who} rides at anchor off the quay: your quarantine holds her off until it ends, or is lifted` : `The ship from ${h.who} is at anchor in the bay, waiting for the jetty`;
+      const tip = h.tip ?? (h.far ? 'The ship from Tyre waits out at sea: your quarantine holds her off until it ends, or is lifted' : q ? `The ship from ${h.who} rides at anchor off the quay: your quarantine holds her off until it ends, or is lifted` : `The ship from ${h.who} is at anchor in the bay, waiting for the jetty`);
+      const sacks = h.sacks ? '<rect x="-12" y="-9" width="7" height="5" rx="1" fill="#a8874f"/><rect x="-4" y="-9" width="7" height="5" rx="1" fill="#c9a24a"/><rect x="4" y="-9" width="7" height="5" rx="1" fill="#a8874f"/>' : '';
       const cable = h.far ? '' : '<path d="M-26 0q-6 10-10 16" stroke="#3a2010" stroke-width="1.2" fill="none" stroke-dasharray="2 1.4"/>';
-      return `<g class="held" data-tip="${esc(tip)}" transform="translate(${bx} ${by}) scale(${sc})">${cable}<path d="M0 -42v38" stroke="#5a3a1e" stroke-width="2"/><path d="M-14 -38h28v4h-28z" fill="#e8dcc0" stroke="#8a6a44" stroke-width=".6"/>${q ? flag(0, -41, 1.3) : ''}<path d="M-30 -5h58l6-4-2 6c-2 6-8 9-14 9h-40c-5 0-8-4-8-11z" fill="#6a4a3c" stroke="#3a2010" stroke-width="1"/><path d="M-28 -2h54" stroke="#3a6a8a" stroke-width="1.6"/></g>`;
+      return `<g class="held" data-tip="${esc(tip)}" transform="translate(${bx} ${by}) scale(${sc})">${cable}<path d="M0 -42v38" stroke="#5a3a1e" stroke-width="2"/><path d="M-14 -38h28v4h-28z" fill="#e8dcc0" stroke="#8a6a44" stroke-width=".6"/>${q ? flag(0, -41, 1.3) : ''}<path d="M-30 -5h58l6-4-2 6c-2 6-8 9-14 9h-40c-5 0-8-4-8-11z" fill="#6a4a3c" stroke="#3a2010" stroke-width="1"/><path d="M-28 -2h54" stroke="${h.stripe ?? '#3a6a8a'}" stroke-width="1.6"/>${sacks}</g>`;
     })
     .join('');
   return `<svg class="k-quay" viewBox="0 0 360 96" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(shipNews(s)?.short ?? 'The quay')}">
@@ -285,7 +298,7 @@ export class TradePanel {
     const el = document.createElement('div');
     el.className = 'household trade kit';
     el.hidden = true;
-    el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
+    el.innerHTML = '<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     root.appendChild(el);
     this.el = el;
     this.body = el.querySelector('.body') as HTMLElement;

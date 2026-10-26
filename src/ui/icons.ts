@@ -163,7 +163,7 @@ export function walkerFigure(kind: string): string {
 // ---------------------------------------------------------------------------- buildings
 
 /** A building's picture: its build button's drawing (coloured by `.k-bic`), the tent for a home. */
-export function buildingIcon(kind: BuildingKind | 'housing'): string {
+export function buildingIcon(kind: BuildingKind | ButtonName): string {
   const name = (kind === 'home' ? 'housing' : kind) as ButtonName;
   const body = TOOL_ICONS[name] ?? TOOL_ICONS.housing;
   return body.replace('<svg ', '<svg class="k-bic" aria-hidden="true" ');

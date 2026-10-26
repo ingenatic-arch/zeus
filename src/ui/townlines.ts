@@ -112,7 +112,7 @@ export class TownLines {
     private go: (line: TownLine) => void,
   ) {
     const el = document.createElement('div');
-    el.className = 'townlines';
+    el.className = 'townlines kit';
     parent.appendChild(el);
     this.el = el;
     const more = document.createElement('button');

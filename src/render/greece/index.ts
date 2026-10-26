@@ -303,7 +303,7 @@ export class GreeceMap {
     const panel = document.createElement('div');
     panel.className = 'household greece-panel kit';
     panel.hidden = true;
-    panel.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
+    panel.innerHTML = '<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     host.ui.appendChild(panel);
     this.panel = panel;
     this.body = panel.querySelector('.body') as HTMLElement;

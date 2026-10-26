@@ -79,7 +79,7 @@ export class AmbitionPanel {
     const el = document.createElement('div');
     el.className = 'ambition-panel kit';
     el.hidden = true;
-    el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><h2>Ambitions</h2><div class="sub"></div><div class="cols"></div>';
+    el.innerHTML = '<button class="close" data-tip="Close (Esc)" aria-label="Close">×</button><h2>Ambitions</h2><div class="sub"></div><div class="cols"></div>';
     root.appendChild(el);
     this.el = el;
     this.body = el.querySelector('.cols') as HTMLElement;

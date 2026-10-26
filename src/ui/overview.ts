@@ -148,7 +148,7 @@ interface Series {
  * says its month and value when hovered. `months` are the annals' months'
  * numbers (now follows them).
  */
-function chart(months: readonly number[], series: readonly Series[], opts: { unit?: string; w?: number; h?: number; floor0?: boolean; percent?: boolean; empty?: string } = {}): string {
+function chart(months: readonly number[], series: readonly Series[], opts: { unit?: string; w?: number; h?: number; floor0?: boolean; percent?: boolean; empty?: string; fit?: number } = {}): string {
   // (Drawn at about the size it shows, so its dots stay round; its words are the page's, under and over it, not the drawing's.
   // Merge of slice 50: each point's words in the kit's one tip, not an SVG title.)
   const W = opts.w ?? 260;
@@ -161,6 +161,9 @@ function chart(months: readonly number[], series: readonly Series[], opts: { uni
   if (opts.percent) {
     top = 100;
     bot = 0;
+    // Slice 52: a sparkline fitted to its own range under 100%, never closer than `fit` points, so a service that wavers
+    // between 70% and 90% shows it (on 0 to 100 in 40 px every line read flat), while one always at 100% stays a flat line.
+    if (opts.fit) bot = Math.max(0, Math.min(Math.min(...all) - 4, 100 - opts.fit));
   }
   if (top === bot) top = bot + 1;
   const pad = 4;
@@ -649,7 +652,7 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
     const spot = gaps[0] ?? byDistrict(map, need)[0];
     const flyTo = spot ? ` data-x="${spot.x.toFixed(1)}" data-z="${spot.z.toFixed(1)}"` : '';
     rows.push(
-      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}"${flyTo} title="${esc(`Show ${sv.name.toLowerCase()} on the map${gaps.length ? ', where it fails most' : need.length ? ', where it reaches' : ''}`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? kbar({ value: share, max: 100, fill: sv.colour }) : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, w: 150, h: 40, empty: '·' })}</td></tr>`,
+      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}"${flyTo} title="${esc(`Show ${sv.name.toLowerCase()} on the map${gaps.length ? ', where it fails most' : need.length ? ', where it reaches' : ''}`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? kbar({ value: share, max: 100, fill: sv.colour }) : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, fit: 30, w: 150, h: 40, empty: '·' })}</td></tr>`,
     );
   }
   // Taxes: the collectors' reach.
