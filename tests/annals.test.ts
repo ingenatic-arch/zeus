@@ -37,7 +37,9 @@ describe('the annals', () => {
       expect(x.homes).toBeGreaterThan(0);
       expect(x.glad).toBeLessThanOrEqual(x.homes);
       expect(x.filled).toBeLessThanOrEqual(x.jobs);
+      // (Health is off while a history plays: nobody sick, and no month's health kept. Merge of slice 49.)
       expect(x.sick).toBe(0);
+      expect(x.health).toBeUndefined();
     }
     // The town grew over its two years.
     expect(a.months[a.months.length - 1].people).toBeGreaterThan(a.months[0].people);

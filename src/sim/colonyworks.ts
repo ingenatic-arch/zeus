@@ -632,6 +632,8 @@ const allIn = (x: Cargo): boolean => x.items.every((it) => it.got >= it.amount &
 /** Each tick, a shipment: porters setting out, your ship coming in and at anchor, sailing, the voyage, the landing. */
 function stepCargo(s: SimState, map: CoastMap, x: Cargo): void {
   if (x.phase === 'loading') {
+    // (Merge of slice 47 with slice 49: her four months' wait stands still while a quarantine holds her, so she isn't called off for it.)
+    if (quarantined(s)) x.at++;
     const out = s.walkers.filter((w) => w.kind === 'shipper' && w.origin === x.id).length;
     // (Slice 49: under quarantine the porters carry nothing more to the quay.)
     if (out < PORTERS_MOST && s.tick >= x.next && !quarantined(s)) {
@@ -701,6 +703,8 @@ export function cargoActRefusal(s: SimState, act: string, site: string): string 
   if (x.items.some((it) => it.out > 0)) return 'Porters are still on the road with goods for her: wait for them';
   if (x.ship && x.ship.phase !== SHIP_ANCHORED) return 'Your ship is not in yet';
   if (blockaded(s)) return 'The mouth of your harbour is held by a blockade';
+  // (Merge of slice 47 with slice 49.)
+  if (quarantined(s)) return 'Your quarantine holds her at anchor until it ends or is lifted';
   return '';
 }
 
@@ -1082,6 +1086,8 @@ export function cargoDoing(s: SimState, x: Cargo): string {
   const v = x.ship;
   const held = b && v ? (v.phase === SHIP_COMING && !pastMouth(v.path, visitorAt(v, s.tick, sizeOf(s))?.inward ?? 0, sizeOf(s)) ? ` Your ship waits outside the harbour: the mouth is held by a blockade.` : v.phase === SHIP_ANCHORED && allIn(x) ? ` Your ship waits at anchor, laden: the mouth is held by a blockade.` : '') : '';
   const where = !v ? '' : v.phase === SHIP_ANCHORED ? 'your ship rides at anchor off the jetty, and a boat rows the goods out to her' : `your ship sails in about ${dayWords(v.since + SAIL_IN)}`;
+  // (Merge of slice 47 with slice 49: under quarantine nobody carries or rows, and she waits.)
+  if (quarantined(s)) return `Your quarantine holds the goods for ${to}: ${parts.join(', ')} on the quay or aboard; ${v ? (v.phase === SHIP_ANCHORED ? 'your ship rides at anchor off the jetty' : `your ship sails in about ${dayWords(v.since + SAIL_IN)}`) : 'your ship is not in yet'}, and nothing more is carried down or rowed out to her until it ends or is lifted.`;
   return `Porters carry the goods for ${to} down to your quay: ${parts.join(', ')} on the quay or aboard; ${where}.${missing}${held}`;
 }
 
@@ -1128,7 +1134,8 @@ export function worksTownLine(s: SimState): { text: string; site: string; urgent
 /** For the rowing boat: an anchored ship with something on the quay to row out (a shipment loading with goods in, or settlers waiting). Each: where the quay spot is (post id) and which ship. */
 export function rowingOut(s: SimState): Array<{ post: number; ship: Visitor }> {
   const out: Array<{ post: number; ship: Visitor }> = [];
-  for (const x of cargoesFor(s)) if (x.phase === 'loading' && x.ship?.phase === SHIP_ANCHORED && x.items.some((it) => it.got > 0)) out.push({ post: x.post, ship: x.ship });
+  // (Merge of slice 49: no boat rows the goods out under quarantine.)
+  if (!quarantined(s)) for (const x of cargoesFor(s)) if (x.phase === 'loading' && x.ship?.phase === SHIP_ANCHORED && x.items.some((it) => it.got > 0)) out.push({ post: x.post, ship: x.ship });
   for (const f of s.empire.foundings) if (f.phase === 'gathering' && f.ship?.phase === SHIP_ANCHORED && f.households.some((h) => h.state === 'quay')) out.push({ post: f.post, ship: f.ship });
   // (Slice 47: a company's men rowed out to her, or ashore.)
   out.push(...rowingPassages(s));

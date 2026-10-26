@@ -30,6 +30,9 @@ import { districtAt, districtTitle, DISTRICTS } from '../map/districts';
 import { PLACES, siteOf, type CityId } from '../map/greece';
 import type { OverlayMode } from '../render/overlay';
 import { ANNAL_MONTHS, CRIME_ROWS, crimeRows, crimesIn, figures, IN_GROUPS, OUT_GROUPS, rateFor, yearNow, type AnnalMonth, type AnnalYear } from '../sim/annals';
+// Merge of slice 51 with slice 49: the city's health, the month's sick and deaths, the plague.
+import { HEALTH_ROWS } from '../sim/annals';
+import { BEDS, bedsTaken, calledNear, FEVER_DAYS, healthFigures, healthWord, mendingFromPlague, quarantined, traderDue, tradesWith, type HealthFigures } from '../sim/health';
 import { companyName, kindWord, menOf, readyOf, strength, woundedOf } from '../sim/army';
 import { BUILDING_NAMES, centreOf, GREAT_ESTATE, HOME_NAMES, jobsAt, livedIn, capacity } from '../sim/buildings';
 import { formatYear, MONTH_NAMES, START_MONTH, START_YEAR_BC, TICKS_PER_DAY, TICKS_PER_MONTH } from '../sim/clock';
@@ -366,7 +369,10 @@ function cityPage(s: SimState, map: CoastMap): string {
       return `<li><button class="ov-row" data-act="home" data-id="${b.id}" title="${esc(`Go to one of them: the house of ${b.family?.name ?? '?'}`)}"><span>${esc(r.text)}</span><span class="n">${fmt(r.homes.length)}</span></button></li>`;
     });
     const goodRows = md.good.slice(0, 4).map((r) => `<li class="good"><span>${esc(r.text)}</span><span class="n">${fmt(r.n)}</span></li>`);
-    out.push(`<section><h3>How the homes feel</h3>${homes.length ? `<div class="ov-moodbar">${bar}</div><p class="ov-keyline">${md.at.map((k, i) => (k ? `<span><i style="background:${MOOD_COLOURS[i]}"></i>${MOOD_WORDS[i]} ${fmt(k)}</span>` : '')).reverse().join('')}</p>` : ''}${badRows.length ? `<h5>Weighing on them</h5><ul class="ov-list">${badRows.join('')}</ul>` : ''}${goodRows.length ? `<h5>Lifting them</h5><ul class="ov-list">${goodRows.join('')}</ul>` : ''}</section>`);
+    // (Merge of slice 49: the city's health, in a line, with the Health page a click away.)
+    const hf = healthFigures(s);
+    const healthNote = hf.on && hf.homes ? `<p class="ov-note">Health: ${fmt(hf.average)} on average (${esc(lower(healthWord(hf.average)))})${hf.sick ? `; ${fmt(hf.sick)} sick${hf.plague ? `, ${fmt(hf.plague)} of the plague` : ''}` : '; nobody sick'}${hf.risk === 'high' ? '; the plague’s risk is high' : ''}. <button class="ov-link" data-act="page" data-page="health" title="The Health page">More on the Health page</button>.</p>` : '';
+    out.push(`<section><h3>How the homes feel</h3>${healthNote}${homes.length ? `<div class="ov-moodbar">${bar}</div><p class="ov-keyline">${md.at.map((k, i) => (k ? `<span><i style="background:${MOOD_COLOURS[i]}"></i>${MOOD_WORDS[i]} ${fmt(k)}</span>` : '')).reverse().join('')}</p>` : ''}${badRows.length ? `<h5>Weighing on them</h5><ul class="ov-list">${badRows.join('')}</ul>` : ''}${goodRows.length ? `<h5>Lifting them</h5><ul class="ov-list">${goodRows.join('')}</ul>` : ''}</section>`);
   }
   // Work and wages.
   {
@@ -810,10 +816,8 @@ function countKinds(names: readonly string[]): string {
 
 // ---------------------------------------------------------------------------- Health
 
-/** Slice 49 at the merge: the sick, the physicians' reach and the plague's risk, or null while nobody falls ill. */
-export function healthFigures(_s: SimState): { sick: number; reached: number; homes: number; plague: string; words: string } | null {
-  return null;
-}
+/** Merge of slice 49: the plague's risk in a word. */
+const RISK_WORDS: Record<HealthFigures['risk'], string> = { none: 'None', low: 'Low', rising: 'Rising', high: 'High' };
 
 function healthPage(s: SimState, map: CoastMap): string {
   const { ms, ids } = annalsOf(s);
@@ -827,29 +831,84 @@ function healthPage(s: SimState, map: CoastMap): string {
   const wounded = s.army.soldiers.filter((x) => x.state === 'wounded' || x.state === 'healing');
   const wi = NEEDS.indexOf('water');
   const out: string[] = [];
+  // Merge of slice 49: the sick, the physicians and the plague (health.ts' figures), with the annals' months.
   const h = healthFigures(s);
+  const hs = s.health;
+  const m = Math.floor(s.tick / TICKS_PER_MONTH);
+  const lastWritten = back(ms, 1)?.m === m - 1 ? back(ms, 1) : undefined;
+  const rowNow = h.on ? HEALTH_ROWS.map((r) => h.month[r.key]) : HEALTH_ROWS.map(() => 0);
+  const rowLast = lastWritten ? HEALTH_ROWS.map((_, i) => lastWritten.health?.[i] ?? 0) : h.on ? HEALTH_ROWS.map((r) => h.lastMonth[r.key]) : HEALTH_ROWS.map(() => 0);
+  const year = HEALTH_ROWS.map((_, i) => ms.filter((x) => x.m > m - 12).reduce((a, x) => a + (x.health?.[i] ?? 0), 0) + rowNow[i]);
+  const ill = (x: AnnalMonth): number => x.health?.[0] ?? 0;
+  const died = (x: AnnalMonth): number => x.health?.[1] ?? 0;
+  const healers = s.buildings.filter((b) => b.kind === 'infirmary' || b.kind === 'asklepieion');
   out.push('<div class="ov-tiles">');
+  if (h.on) {
+    out.push(tile('The sick', `${fmt(h.sick)}${h.plague ? `<small> · ${fmt(h.plague)} of the plague</small>` : ''}`, `${h.sick ? `${h.inBeds ? `${fmt(h.inBeds)} in the asklepieion’s beds, the rest at home. ` : 'All of them at home. '}` : 'Nobody is ill now. '}${plural(rowNow[0], 'person', 'people')} fell ill this month so far, ${fmt(rowLast[0])} last month.`, chart(ids, [{ name: 'The sick', colour: '#8c2f26', values: [...ms.map((x) => x.sick), h.sick], bars: true }]), h.plague ? 'bad' : ''));
+    out.push(tile('Deaths', `${fmt(rowLast[1])}<small> last month</small>`, `${fmt(rowNow[1])} so far this month, ${fmt(year[1])} in the last twelve months${year[2] ? `; ${plural(year[2], 'household', 'households')} fled the plague` : ''}. A physician’s visit halves the chance of dying, an asklepieion’s bed cuts it to a third.`, chart(ids, [
+      { name: 'Fell ill', colour: '#c08a2e', values: [...ms.map(ill), rowNow[0]], bars: true },
+      { name: 'Died', colour: '#5a2a24', values: [...ms.map(died), rowNow[1]], bars: true },
+    ])));
+    out.push(tile('Physicians', h.homes ? `${pct(h.called, h.homes)}%<small> of homes</small>` : '—', `${h.homes ? `A physician called on ${fmt(h.called)} of ${plural(h.homes, 'home', 'homes')} this season. ` : ''}${h.infirmaries ? plural(h.infirmaries, 'infirmary', 'infirmaries') : 'No infirmary (Z six times)'}, ${h.temples ? plural(h.temples, 'asklepieion', 'asklepieia') : 'no asklepieion (Z seven times)'}. Average health ${fmt(h.average)}${h.sickly + h.ailing ? `; ${fmt(h.sickly + h.ailing)} homes sickly or ailing` : ''}.`, ''));
+    out.push(tile('Plague risk', RISK_WORDS[h.risk], h.outbreak ? `${esc(h.outbreak)}.` : h.reasons.length ? `${esc(h.reasons.slice(0, 2).join('; '))}.` : 'Nothing threatens the city’s health.', '', h.risk === 'high' ? 'bad' : ''));
+  }
   out.push(tile('Well kept', f.well < 0 ? '—' : `${f.well}%`, homes.length ? `Homes with a fountain’s water and, where their level eats from the market, food on the table. ${[river.length ? `${plural(river.length, 'home fetches', 'homes fetch')} water from the river` : '', dry.length ? `${plural(dry.length, 'home goes', 'homes go')} dry` : '', hungry.length ? `${plural(hungry.length, 'home goes', 'homes go')} hungry` : ''].filter((x) => x).join(', ') || 'None goes dry or hungry'}.` : 'No homes yet.', chart(ids, [{ name: 'Well kept', colour: '#4c6a26', values: [...ms.map((x) => (x.well < 0 ? null : x.well)), f.well < 0 ? null : f.well] }], { percent: true })));
   out.push(tile('Clean water', f.reach[wi] < 0 ? '—' : `${f.reach[wi]}%`, `Of the homes that need water, those a fountain’s carrier reached lately. ${plural(s.buildings.filter((b) => b.kind === 'fountain').length, 'fountain', 'fountains')}.`, chart(ids, [{ name: 'Water', colour: '#4f9be0', values: [...ms.map((x) => ((x.reach[wi] ?? -1) < 0 ? null : x.reach[wi])), f.reach[wi] < 0 ? null : f.reach[wi]] }], { percent: true })));
-  out.push(tile('Crowded', fmt(full.length), `${plural(full.length, 'home is', 'homes are')} full to the rafters. More plots, and homes growing a level, give room.`, ''));
+  out.push(tile('Crowded', fmt(full.length), `${plural(full.length, 'home is', 'homes are')} full to the rafters${h.on ? ', which tells on their health' : ''}. More plots, and homes growing a level, give room.`, ''));
   out.push(tile('Wounded', fmt(wounded.length), wounded.length ? `Soldiers wounded in battle, mending at home over about a month.` : 'No soldier lies wounded.', ''));
   out.push('</div>');
   out.push(sinceNote(s));
   out.push('<div class="ov-cols two">');
-  // Slice 49 at the merge: the sick, the physicians and the plague.
-  out.push(
-    `<section><h3>Sickness and physicians</h3>${
-      h
-        ? `<table class="ov-table kv"><tbody><tr><td>The sick</td><td class="n">${fmt(h.sick)}</td></tr><tr><td>Homes a physician called on</td><td class="n">${fmt(h.reached)}<small> of ${fmt(h.homes)}</small></td></tr><tr><td>Plague</td><td class="n">${esc(h.plague)}</td></tr></tbody></table><p class="ov-note">${esc(h.words)}</p>`
-        : '<p class="ov-coming"><b>Coming</b> with the physicians and the plague.</p><p class="ov-note">Nobody in the city falls ill yet, so there are no sick, no physicians and no plague to count. When they come, their figures are kept here: the sick, the homes the physicians reach, and how near the plague is.</p>'
-    }${h ? chart(ids, [{ name: 'The sick', colour: '#8c2f26', values: [...ms.map((x) => x.sick), h.sick], bars: true }], { w: 420, h: 40 }) : ''}</section>`,
-  );
-  // Where homes go without.
+  if (!h.on) out.push('<section><h3>Sickness and physicians</h3><p class="ov-note">Nobody in this town falls ill: health was never turned on in it. A new game has the sick, the physicians and the plague.</p></section>');
+  else {
+    // The month by month, the sickest quarters, and the infirmaries and asklepieia.
+    const cell = (n: number): string => `<td class="n${n ? '' : ' nil'}">${n ? fmt(n) : '·'}</td>`;
+    const rows = HEALTH_ROWS.map((r, i) => `<tr><td class="what">${esc(r.name)}</td>${cell(rowNow[i])}${cell(rowLast[i])}${cell(year[i])}</tr>`).join('');
+    const table = `<table class="ov-table book"><thead><tr><th></th><th>This month<small>so far</small></th><th>Last month</th><th>Twelve months</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const sickHomes = homes.filter((b) => hs.sick.some((x) => x.home === b.id));
+    const weak = homes.filter((b) => b.health > 0 && b.health < 50);
+    const qs = byDistrict(map, sickHomes.length ? sickHomes : weak).slice(0, 4);
+    const quarters = qs.length
+      ? `<h5>${sickHomes.length ? 'Where the sick are' : 'The sickliest quarters'}</h5><ul class="ov-list">${qs.map((x) => `<li><button class="ov-row" data-act="go" data-x="${x.x.toFixed(1)}" data-z="${x.z.toFixed(1)}" data-mode="health" title="Go there, with the health overlay on"><span>${esc(districtTitle(x.d))}</span><span class="n">${plural(x.n, 'home', 'homes')}</span></button></li>`).join('')}</ul>`
+      : '';
+    const hrows = healers.map((b) => {
+      const where = lower(districtTitle(districtAt(map, ...centreOf(b))));
+      if (b.kind === 'infirmary') {
+        const c = calledNear(s, b);
+        return `<li><button class="ov-row" data-act="building" data-id="${b.id}" title="Go there and open its panel"><span>The infirmary ${esc(where)}</span><span class="n">${c.homes ? `${fmt(c.called)} of ${fmt(c.homes)} called on` : 'no homes near'}</span></button><small>${b.workers ? `${plural(b.workers, 'physician', 'physicians')} at work; the homes round it a physician called on this month.` : 'Nobody works here: no physician goes out.'}</small></li>`;
+      }
+      return `<li><button class="ov-row" data-act="building" data-id="${b.id}" title="Go there and open its panel"><span>The asklepieion ${esc(where)}</span><span class="n">${fmt(bedsTaken(s, b))} of ${BEDS} beds</span></button><small>${b.workers ? 'Its stretcher-bearers bring the worst of the sick to its beds; homes round it are healthier.' : 'Nobody works here: no bearers go out.'}</small></li>`;
+    });
+    out.push(`<section><h3>Sickness and physicians</h3>${table}${quarters}<h5>Infirmaries and asklepieia</h5>${hrows.length ? `<ul class="ov-list">${hrows.join('')}</ul>` : '<p class="ov-note">None. An infirmary (Z six times) sends physicians on rounds; an asklepieion (Z seven times) takes the sick into its beds.</p>'}<p class="ov-note">A home’s health rises with water, a varied table and a physician’s calls, and falls with hunger, crowding, winter and foul air. The health overlay (J after crime) shows each home’s.</p></section>`);
+  }
+  // The plague, and where homes go without.
   const gap = (title: string, list: readonly Building[], mode: OverlayMode): string => {
     const g = byDistrict(map, list).slice(0, 4);
     return `<h5>${esc(title)}</h5>${g.length ? `<ul class="ov-list">${g.map((x) => `<li><button class="ov-row" data-act="go" data-x="${x.x.toFixed(1)}" data-z="${x.z.toFixed(1)}" data-mode="${mode}" title="Go there, with its overlay on"><span>${esc(districtTitle(x.d))}</span><span class="n">${fmt(x.n)}</span></button></li>`).join('')}</ul>` : '<p class="ov-note">None.</p>'}`;
   };
-  out.push(`<section><h3>Where homes go without</h3>${gap('Without water', dry, 'water')}${gap('Without food', hungry, 'food')}${river.length ? gap('Fetching water from the river', river, 'water') : ''}</section>`);
+  const plague: string[] = [];
+  if (h.on) {
+    const o = hs.outbreak;
+    const first = o ? o.struck.map((id) => s.buildings.find((b) => b.id === id)).find((b) => !!b && livedIn(b)) : undefined;
+    const lines: string[] = [];
+    if (o) lines.push(`<li class="bad">${first ? `<button class="ov-row" ${goB(first)} data-mode="health" title="Go to the first home struck, with the health overlay on"><span>${esc(h.outbreak)}</span></button>` : `<span class="ov-row static"><span>${esc(h.outbreak)}</span></span>`}</li>`);
+    if (hs.fever && !o) {
+      const at = s.buildings.find((b) => b.id === hs.fever?.home);
+      lines.push(`<li class="warn">${at ? `<button class="ov-row" ${goB(at)} data-mode="health" title="Go there, with the health overlay on">` : '<span class="ov-row static">'}<span>Fever in a crowded, sickly quarter (${plural(hs.fever.homes, 'home', 'homes')}): it turns to plague if it lingers ${FEVER_DAYS} days</span>${at ? '</button>' : '</span>'}</li>`);
+    }
+    for (const p of hs.greece) {
+      if (s.tick >= p.until) continue;
+      const trades = tradesWith(s, p.city);
+      const due = trades ? traderDue(s, p.city) : '';
+      lines.push(`<li class="${trades && !quarantined(s) ? 'warn' : ''}"><button class="ov-row" data-act="city" data-city="${esc(p.city)}" title="Open its page on the map of Greece"><span>Plague in ${esc(cityName(p.city as CityId))}${trades ? `, a city you trade with${due ? `: ${esc(due)}` : ''}` : ': none of its traders comes here'}</span></button></li>`);
+    }
+    const post = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
+    const qWords = h.quarantine ? `${esc(h.quarantine)}.` : 'No quarantine.';
+    const qLink = post ? ` <button class="ov-link" data-act="building" data-id="${post.id}" title="Go there and open its panel">The ${post.kind === 'trading' ? 'trading post' : 'caravan yard'}</button> ${h.quarantine ? 'can lift it' : 'can order one for a season'}${healers.some((b) => b.kind === 'infirmary') ? ', as can an infirmary' : ''}.` : '';
+    const reasons = h.reasons.length ? `<ul class="ov-reasons">${h.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '';
+    plague.push(`<h3>The plague</h3><p class="ov-risk"><b>${RISK_WORDS[h.risk]}</b> risk${h.reasons.length ? ':' : '.'}</p>${reasons}${lines.length ? `<ul class="ov-list">${lines.join('')}</ul>` : '<p class="ov-note">No plague in the city or among the cities of Greece.</p>'}<p class="ov-note">${qWords}${qLink}</p>`);
+  }
+  out.push(`<section>${plague.join('')}<h3>Where homes go without</h3>${gap('Without water', dry, 'water')}${gap('Without food', hungry, 'food')}${river.length ? gap('Fetching water from the river', river, 'water') : ''}</section>`);
   out.push('</div>');
   return out.join('');
 }
@@ -1013,10 +1072,23 @@ function tabState(s: SimState): Record<OverviewPage, { word: string; warn: 0 | 1
     treasury: { word: `${fmt(s.money)} dr`, warn: owed > 0 || debt.some((l) => l.state === 'overdue') ? 2 : debt.length ? 1 : 0 },
     distribution: { word: lacking ? plural(lacking, 'gap', 'gaps') : 'all reached', warn: lacking ? 1 : 0 },
     crime: { word: !s.crime.on ? 'none' : s.crime.gangs.length ? `${plural(s.crime.gangs.length, 'gang', 'gangs')}` : `${fmt(crimeNow)} this month`, warn: s.crime.gangs.length || s.crime.jails.some((j) => j.unrest >= UNREST_WARN) ? 2 : crimeNow ? 1 : 0 },
-    health: { word: dry ? `${fmt(dry)} dry` : 'well', warn: dry ? 1 : 0 },
+    // (Merge of slice 49: red for plague in the city, amber for a fevered quarter or plague in a city whose traders may bring it.)
+    health: healthTab(s, dry),
     army: { word: threats ? `${plural(threats, 'threat', 'threats')}` : `${fmt(s.army.soldiers.filter((x) => x.state === 'ready').length)} ready`, warn: threats ? 2 : 0 },
     empire: { word: s.empire.vassals.length + s.empire.colonies.length ? [s.empire.vassals.length ? plural(s.empire.vassals.length, 'vassal', 'vassals') : '', s.empire.colonies.length ? plural(s.empire.colonies.length, 'colony', 'colonies') : ''].filter((x) => x).join(', ') : 'none yet', warn: restless ? 1 : 0 },
   };
+}
+
+/** Merge of slice 49: the Health tab's word and mark. */
+function healthTab(s: SimState, dry: number): { word: string; warn: 0 | 1 | 2 } {
+  const h = s.health;
+  if (!h?.on) return { word: dry ? `${fmt(dry)} dry` : 'well', warn: dry ? 1 : 0 };
+  const threat = !quarantined(s) && !mendingFromPlague(s) && h.greece.some((p) => p.warned > 0 && s.tick < p.until && tradesWith(s, p.city));
+  const sick = h.sick.length;
+  if (h.outbreak) return { word: 'plague', warn: 2 };
+  if (h.fever) return { word: 'fever', warn: 1 };
+  if (threat) return { word: 'plague near', warn: 1 };
+  return { word: sick ? `${fmt(sick)} sick` : dry ? `${fmt(dry)} dry` : 'well', warn: dry ? 1 : 0 };
 }
 
 /** The page's HTML. */

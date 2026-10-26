@@ -69,6 +69,7 @@ import {
   pointAlong,
   sailable,
   SAIL_IN,
+  seaFacts,
   shipAt,
   shipRoute,
   SHIP_ANCHORED,
@@ -750,10 +751,15 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
   if (!jettyFree(s, post, v, r.next, r.next + LOADING + clearTicks()) || quarantined(s)) {
     const L = pathLength(v.path);
     v.stop = Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L));
+    // (Merge of slice 49 with slice 46: held off by a quarantine she may ride there a season, so she anchors off the shallow
+    // shelf (the delta's and the islands' shores have wide ones), in the deepest water near her usual anchorage: deepAnchor.)
+    const held = quarantined(s);
+    const deep = held ? deepAnchor(map, v.path, L) : null;
+    if (deep) v.stop = deep.stop;
     const p = pointAlong(v.path, v.stop * L);
     // A little to one side of her way, where the water is deep.
-    for (const side of [ANCHOR_SIDE, -ANCHOR_SIDE, ANCHOR_SIDE / 2, -ANCHOR_SIDE / 2]) {
-      const ok = [0.5, 1].every((f) => sailable(map, p.x - p.dz * side * f, p.z + p.dx * side * f)) && sailable(map, p.x - p.dz * side + p.dx * 1.8, p.z + p.dx * side + p.dz * 1.8) && sailable(map, p.x - p.dz * side - p.dx * 1.8, p.z + p.dx * side - p.dz * 1.8);
+    for (const side of deep ? [deep.aside] : [ANCHOR_SIDE, -ANCHOR_SIDE, ANCHOR_SIDE / 2, -ANCHOR_SIDE / 2]) {
+      const ok = side !== 0 && [0.5, 1].every((f) => sailable(map, p.x - p.dz * side * f, p.z + p.dx * side * f)) && sailable(map, p.x - p.dz * side + p.dx * 1.8, p.z + p.dx * side + p.dz * 1.8) && sailable(map, p.x - p.dz * side - p.dx * 1.8, p.z + p.dx * side - p.dz * 1.8);
       if (ok) {
         v.aside = side;
         break;
@@ -761,6 +767,54 @@ function setSailVisitor(s: SimState, map: CoastMap, r: TradeRoute, v: Visitor, p
     }
   }
   return true;
+}
+
+/** Merge of slice 49 with slice 46: water this deep or more is off the shallow shelf, as it is drawn (render/water.ts). */
+export const ANCHOR_DEEP = 1.5;
+
+/** The shallowest water under a hull lying at (x, z) along (dx, dz), bow and stern (beyond the map's edge: deep). */
+function hullDepth(map: CoastMap, x: number, z: number, dx: number, dz: number): number {
+  const n = map.size;
+  const { depth } = seaFacts(map);
+  let least = Infinity;
+  for (const k of [0, 1.8, -1.8]) {
+    const px = x + dx * k;
+    const pz = z + dz * k;
+    if (px < 0 || pz < 0 || px >= n || pz >= n) continue;
+    least = Math.min(least, depth[Math.floor(pz) * n + Math.floor(px)]);
+  }
+  return least;
+}
+
+/** How much further out than ANCHOR_BACK a ship held off by a quarantine may anchor, looking for deep water (tiles). */
+const DEEP_REACH = 12;
+
+/**
+ * Merge of slice 49 with slice 46: where a ship held off by a quarantine anchors: from ANCHOR_BACK tiles back along her way
+ * out to DEEP_REACH more, on her way or to one side of it (as a ship waiting for the jetty), the first spot with ANCHOR_DEEP of
+ * water under her whole hull, else the deepest.
+ */
+function deepAnchor(map: CoastMap, path: readonly number[], L: number): { stop: number; aside: number } {
+  let best = { stop: Math.max(0.3, 1 - ANCHOR_BACK / Math.max(1, L)), aside: 0 };
+  let bestDepth = -1;
+  for (let k = ANCHOR_BACK; k <= ANCHOR_BACK + DEEP_REACH; k++) {
+    const stop = Math.max(0.3, 1 - k / Math.max(1, L));
+    const p = pointAlong(path, stop * L);
+    for (const side of [ANCHOR_SIDE, -ANCHOR_SIDE, ANCHOR_SIDE / 2, -ANCHOR_SIDE / 2, 0]) {
+      const x = p.x - p.dz * side;
+      const z = p.z + p.dx * side;
+      const ok = [0.5, 1].every((f) => sailable(map, p.x - p.dz * side * f, p.z + p.dx * side * f)) && sailable(map, x + p.dx * 1.8, z + p.dz * 1.8) && sailable(map, x - p.dx * 1.8, z - p.dz * 1.8);
+      if (!ok) continue;
+      const d = hullDepth(map, x, z, p.dx, p.dz);
+      if (d >= ANCHOR_DEEP) return { stop, aside: side };
+      if (d > bestDepth) {
+        bestDepth = d;
+        best = { stop, aside: side };
+      }
+    }
+    if (stop <= 0.3) break;
+  }
+  return best;
 }
 
 /** The post went (or she can't reach it): she turns back from where she is, paying for anything she took. */

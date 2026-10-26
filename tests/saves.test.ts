@@ -186,7 +186,10 @@ describe('saves from before', () => {
     // (The crews of walkers: three water carriers, food vendors and the rest out at once, each with her trail: 183,450.)
     // (Slice 51: the annals, a figure for each of the last two years' months, add about 3,300 characters: 192,911.)
     // (Slice 49: each building's health and physician's call, and the physicians' crews: 190,511.)
-    expect(text.length).toBeLessThan(194_000);
+    // (Slice 49 at the merge, with slice 51's annals: 194,232, after leaving a month's health figures out when it had none.
+    //  Leaving the buildings' health and physician out at 0 made it bigger, not smaller: each building left without them is
+    //  a second shape with every key. So the budget goes up once, by the least that holds it.)
+    expect(text.length).toBeLessThan(194_500);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

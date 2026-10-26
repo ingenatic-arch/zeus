@@ -18,9 +18,9 @@
  * Nothing in the sim reads the annals, so keeping them never changes how the
  * town plays. Pure: no random numbers, no clock but the tick.
  *
- * For the merge (marked "Slice 49 at the merge"): `sickNow` counts nobody
- * today, as nobody falls ill; it is where the sick are counted once homes
- * have a health.
+ * Merge of slice 51 with slice 49: `sick` is everyone ill at the month's
+ * end, and `health` the month's tally from health.ts (fell ill, died, fled
+ * the plague; left out of a month with none, to keep saves small).
  *
  * Merge of slice 51 with slice 45: a crime is one criminal act, counted as
  * the court's monthly rate counts it (justice.ts' RATE_KINDS: a theft, a
@@ -73,9 +73,11 @@ export interface AnnalMonth {
   /** Merge of slice 45: the court's month (COURT_ROWS order: sentences by punishment, home again, broken out; empty for a month with none, to keep saves small), and those in prison at its end. */
   court: number[];
   jailed: number;
-  /** The sick at the month's end (none fall ill yet), and the share of homes with water and food on the table, in percent (-1: no homes). */
+  /** The sick at the month's end, and the share of homes with water and food on the table, in percent (-1: no homes). */
   sick: number;
   well: number;
+  /** Merge of slice 49: the month's health (HEALTH_ROWS order: fell ill, died, households fled the plague; left out of a month with none, to keep saves small). */
+  health?: number[];
   /** Soldiers in your companies, and triremes afloat or building. */
   soldiers: number;
   ships: number;
@@ -222,11 +224,26 @@ export function addToYear(y: AnnalYear, lines: readonly LedgerLine[], crime: rea
   CRIME_ROWS.forEach((_, i) => (y.crime[i] = (y.crime[i] ?? 0) + (crime[i] ?? 0)));
 }
 
-/** Slice 49 at the merge: the sick in the city now (nobody falls ill yet). */
-export const sickNow = (_s: SimState): number => 0;
+/** Merge of slice 49: the sick in the city now. */
+export const sickNow = (s: SimState): number => (s.health?.on ? s.health.sick.length : 0);
+
+/** Merge of slice 49: the month's health rows (a month's `health`, in this order). */
+export const HEALTH_ROWS: ReadonlyArray<{ key: 'ill' | 'died' | 'fled'; name: string }> = [
+  { key: 'ill', name: 'Fell ill' },
+  { key: 'died', name: 'Died' },
+  { key: 'fled', name: 'Households fled the plague' },
+];
+
+/** Merge of slice 49: a month's health rows from health's tally of it (`last` once the month has ended, `now` while it runs), or none. */
+export function healthRows(s: SimState, month: number): number[] {
+  const h = s.health;
+  if (!h) return [];
+  const t = h.month === month ? h.now : h.month === month + 1 ? h.last : null;
+  return t ? HEALTH_ROWS.map((r) => t[r.key]) : HEALTH_ROWS.map(() => 0);
+}
 
 /** The figures that stand at a moment (everything but the month's flows): for the month's end, and for "now" on the overview. */
-export function figures(s: SimState): Omit<AnnalMonth, 'm' | 'in' | 'out' | 'crimes' | 'caught' | 'court'> {
+export function figures(s: SimState): Omit<AnnalMonth, 'm' | 'in' | 'out' | 'crimes' | 'caught' | 'court' | 'health'> {
   const homes = s.buildings.filter(livedIn);
   const ctx = moodCtx(s);
   let glad = 0;
@@ -297,7 +314,9 @@ export function stepAnnals(s: SimState): void {
     else o -= x.amount;
   }
   const now = figures(s);
-  a.months.push({ m: ended, ...now, money, in: i, out: o, crimes: crimesIn(r), caught: r?.caught ?? 0, court: court.some((n) => n > 0) ? court.slice() : [] });
+  // (Merge of slice 49: health's tally rolls over before the annals are written, so last month's is health's `last`.)
+  const hr = healthRows(s, ended);
+  a.months.push({ m: ended, ...now, money, in: i, out: o, crimes: crimesIn(r), caught: r?.caught ?? 0, court: court.some((n) => n > 0) ? court.slice() : [], ...(hr.some((n) => n > 0) ? { health: hr } : {}) });
   if (a.months.length > ANNAL_MONTHS) a.months.splice(0, a.months.length - ANNAL_MONTHS);
   // The year: a new one begun moves this one to last.
   const y = yearOfMonth(ended);
@@ -337,7 +356,8 @@ const MONTH_NUMBERS = ['m', 'people', 'homes', 'glad', 'came', 'went', 'jobs', '
 /** Are saved annals whole? */
 export function annalsOk(a: unknown): boolean {
   if (!isObj(a) || !fin(a.month) || !fin(a.since) || !Array.isArray(a.months) || !finList(a.court) || !yearOk(a.year) || !(a.last === null || yearOk(a.last))) return false;
-  return a.months.every((x) => isObj(x) && MONTH_NUMBERS.every((k) => fin(x[k])) && finList(x.stock) && finList(x.reach) && finList(x.court));
+  // (Merge of slice 49: a month's health is left out when there was none.)
+  return a.months.every((x) => isObj(x) && MONTH_NUMBERS.every((k) => fin(x[k])) && finList(x.stock) && finList(x.reach) && finList(x.court) && (x.health === undefined || finList(x.health)));
 }
 
 /**

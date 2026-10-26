@@ -57,6 +57,8 @@ import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sell
 import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
 // Slice 38: a blockade holds the harbour.
 import { blockaded } from './lanes';
+// Merge of slice 49: a quarantine holds tribute and colonies' shares off the quay and the roads in.
+import { quarantined } from './health';
 // Slice 37: your colonies (colonies.ts) keep their records here, and their ships bring their share as tribute does.
 import type { Colony, Founding } from './colonies';
 // Slice 43.
@@ -910,12 +912,22 @@ function stepTribute(s: SimState, map: CoastMap): void {
   // (Review of slice 40: nor while the last ship of hers still rides in the bay, held there by a blockade, so that the two never
   // sail the bay at once: the bay draws one ship a city or a colony.)
   const inBay = (t: Tribute): boolean => s.empire.tribute.some((o) => o !== t && !!o.ship && o.city === t.city && o.colony === t.colony);
+  // (Merge of slice 49: under quarantine a ship sails in and rides at anchor, her cargo kept aboard, and donkeys wait at the edge of your
+  // land; when it ends or is lifted, both come in.)
+  const held = quarantined(s);
   for (const t of s.empire.tribute) {
-    if (t.phase === 'road' && s.tick >= t.start + t.dur && !(closed && t.by === 'sea') && !(t.by === 'sea' && inBay(t))) {
+    if (t.phase === 'road' && s.tick >= t.start + t.dur && !(closed && t.by === 'sea') && !(t.by === 'sea' && inBay(t)) && !(held && t.by === 'land')) {
       if (t.by === 'land') tributeIn(s, map, t);
       else if (!sailIn(s, map, t)) unload(s, t, undefined, 'landed on the beach and carried straight to the stores (you have no trading post)');
     } else if (t.phase === 'bay' && t.ship && t.ship.phase === SHIP_COMING && s.tick >= t.start + t.dur) {
       t.ship.phase = SHIP_ANCHORED;
+      t.ship.since = s.tick;
+      const post = findBuilding(s, t.ship.post);
+      if (held && post) continue;
+      if (post) tributeIn(s, map, t, post);
+      else unload(s, t, undefined, 'landed on the beach and carried straight to the stores (the trading post is gone)');
+    } else if (t.phase === 'bay' && t.ship && t.ship.phase === SHIP_ANCHORED && !held) {
+      // (Merge of slice 49: held at anchor by a quarantine, now ended or lifted.)
       t.ship.since = s.tick;
       const post = findBuilding(s, t.ship.post);
       if (post) tributeIn(s, map, t, post);
@@ -1419,7 +1431,9 @@ export function tributeShipStatus(s: SimState, t: Tribute): { title: string; det
       ? `Sailing into your bay laden: she anchors off your jetty and her cargo comes ashore`
       : ph === SHIP_ANCHORED
         ? t.phase === 'bay'
-          ? `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
+          ? quarantined(s)
+            ? `At anchor off your jetty, laden: your quarantine keeps her cargo aboard until it ends or is lifted` /* (Merge of slice 49.) */
+            : `At anchor off your jetty: her cargo is rowed ashore and carried to your stores`
           : `At anchor off your jetty, unladen: ${tributeWords(t)} ${t.phase === 'done' ? 'in your stores' : 'on its way to your stores'}; ${blockaded(s) ? 'she waits for the blockade to lift before she sails home' : 'she sails home soon'}`
         : `Unladen, sailing home to ${from}: ${tributeWords(t)} on its way to your stores`;
   return { title: `${who} · ${tributeWords(t)}`, detail: `${doing}

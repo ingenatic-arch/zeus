@@ -3609,6 +3609,8 @@ const SCENES: Record<string, Demo> = {
   // open on the Athens route with the quarantine order at its head.
   physicians: { view: 'physicians', speed: 'paused', setup: physiciansTown, overlay: 'health', overlayOn: true, open: sickliestHome },
   plague: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', trade: 'athens-sea' },
+  // Merge of slice 51 with slice 49: #plague's town (warned of plague in Athens, no infirmary) on the overview's Health page.
+  overviewhealth: { view: 'plague', speed: 'paused', setup: plagueTown, overlay: 'health', overview: 'health' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));

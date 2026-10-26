@@ -221,6 +221,8 @@ const SALT_FLEE = 4909;
 
 /** Is the city under quarantine now? */
 export const quarantined = (s: SimState): boolean => (s.health?.quarantine ?? 0) > s.tick;
+/** Merge of slice 49: the city came through a plague less than a year ago, so none can take hold yet (from a ship, a caravan or a fevered quarter). */
+export const mendingFromPlague = (s: SimState): boolean => !!s.health && !s.health.outbreak && s.health.lastPlague > 0 && s.tick < s.health.lastPlague + TICKS_PER_YEAR;
 
 // ---------------------------------------------------------------------------
 // A home's health.
@@ -378,7 +380,8 @@ export function quarantineCommand(s: SimState, on: boolean): void {
   if (on) {
     if (quarantined(s)) return;
     h.quarantine = s.tick + QUARANTINE_TICKS;
-    tellHealth(s, { kind: 'plague', u: NEWS, title: 'Quarantine', words: 'The city is under quarantine for a season: ships from Greece ride at anchor off the quay, caravans are turned back at the edge of your land, and the dockers stay in. No trade comes in or goes out until it is lifted or ends.' });
+    // (Merge of slice 49 with slice 47: your colonies' and vassals' ships and your own ship's boat are held too; colonial militia coming to your aid still land.)
+    tellHealth(s, { kind: 'plague', u: NEWS, title: 'Quarantine', words: 'The city is under quarantine for a season: ships from Greece and from your colonies ride at anchor off the quay, caravans are turned back at the edge of your land, and the dockers and the boat to the anchorage stay in. No trade comes in or goes out until it is lifted or ends. A colony’s militia sailing to your aid still comes ashore.' });
   } else if (h.quarantine > 0) {
     h.quarantine = 0;
     tellHealth(s, { kind: 'plague', u: NEWS, title: 'Quarantine lifted', words: 'The quarantine is lifted: ships may tie up at the quay again, and caravans come in.' });
@@ -610,6 +613,12 @@ function warnOf(s: SimState, p: GreekPlague): void {
   p.warned = s.tick;
   const name = cityName(p.city);
   const due = traderDue(s, p.city);
+  // (Merge of slice 49: within a year of the last plague's end none comes ashore, and the warning says so.)
+  const h = s.health;
+  if (h.lastPlague > 0 && s.tick < h.lastPlague + TICKS_PER_YEAR) {
+    tellHealth(s, { kind: 'plague', u: HEALTH_URGENCY.greece, title: `Plague in ${name}`, words: `Plague in ${name}${due ? `: ${due}` : ''}. The city came through a plague lately, so it can’t take hold here for ${dayCount(h.lastPlague + TICKS_PER_YEAR - s.tick)} yet; after that a trader of theirs may bring it ashore.`, at: { city: p.city } });
+    return;
+  }
   tellHealth(s, {
     kind: 'plague',
     u: HEALTH_URGENCY.greece,
@@ -632,6 +641,8 @@ function warnGreece(s: SimState): void {
 export function landed(s: SimState, city: string, at: Building): void {
   const h = s.health;
   if (!h?.on || h.outbreak || quarantined(s)) return;
+  // (Merge of slice 49: not within a year of the last plague's end, as for a fevered quarter, so the city has its year to mend.)
+  if (h.lastPlague > 0 && s.tick < h.lastPlague + TICKS_PER_YEAR) return;
   const p = plagueIn(s, city);
   if (!p || p.warned === 0 || s.tick < p.warned + WARN_LEAD) return;
   const [cx, cz] = centreOf(at);
@@ -1063,10 +1074,14 @@ export function healthFigures(s: SimState): HealthFigures {
       rise('high');
       reasons.push('Plague is in the city now');
     }
+    // (Merge of slice 49: a year after the last plague's end, none can come ashore.)
+    const mending = mendingFromPlague(s);
+    let near = false;
     for (const p of h.greece) {
       if (s.tick >= p.until || !tradesWith(s, p.city)) continue;
-      rise(quarantined(s) ? 'rising' : 'high');
-      reasons.push(`Plague in ${cityName(p.city)}, a city you trade with${quarantined(s) ? ' (the quarantine holds its traders off)' : ''}`);
+      near = true;
+      rise(quarantined(s) || mending ? 'rising' : 'high');
+      reasons.push(`Plague in ${cityName(p.city)}, a city you trade with${quarantined(s) ? ' (the quarantine holds its traders off)' : mending ? ' (it can’t take hold here so soon after the last)' : ''}`);
     }
     if (h.fever) {
       rise('high');
@@ -1080,7 +1095,12 @@ export function healthFigures(s: SimState): HealthFigures {
       rise('rising');
       reasons.push('No infirmary: no physician calls on anyone');
     } else if (homes && called / homes < 0.5) reasons.push(`A physician called on only ${called} of ${homes} homes this season`);
-    if (s.tick < h.since + PLAGUE_FREE) reasons.push('No plague can come in the town’s first year');
+    // (Merge of slice 49: said only when no plague is already abroad in a city you trade with, as on #plague, whose ship can still bring it.)
+    if (s.tick < h.since + PLAGUE_FREE) {
+      if (!near && !h.outbreak) reasons.push('No plague can come in the town’s first year');
+    }
+    // (Merge of slice 49: nor within a year of the last one's end.)
+    else if (mending) reasons.push('The city came through a plague lately: none can take hold here for a year after it ended');
   }
   const o = h.outbreak;
   const outbreak = o ? `Plague${o.from ? ` from ${cityName(o.from)}` : ''}: ${o.struck.length} ${o.struck.length === 1 ? 'home' : 'homes'} struck, ${h.sick.filter((x) => x.plague).length} sick of it now, ${o.dead} dead, ${o.fled} ${o.fled === 1 ? 'household' : 'households'} fled` : '';
@@ -1227,7 +1247,8 @@ export function healthTownLine(s: SimState): { text: string; at: number } | null
     return { text: `Fever in a crowded, sickly quarter (${h.fever.homes} homes): it turns to plague if it lingers. Physicians, water and food would mend it.${q}`, at: home?.id ?? 0 };
   }
   // Plague in a city of Greece the town trades with, while its traders still come: the warning, with what to do, before it lands.
-  if (!q && h.on) {
+  // (Merge of slice 49: not while the city is mending from its last plague, when none can come ashore.)
+  if (!q && h.on && !mendingFromPlague(s)) {
     const p = h.greece.find((g) => g.warned > 0 && s.tick < g.until && tradesWith(s, g.city));
     if (p) {
       const due = traderDue(s, p.city);

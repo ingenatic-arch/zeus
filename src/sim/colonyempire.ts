@@ -56,6 +56,8 @@ import { cargoesFor, callOff, newShip, ROW_TRIP, shipPace, stageOf, STAGE_NAMES,
 import { colonyOf, laneTicks, letGo, peopleOf, quaySpot, shipsHome, shipsRefusal, siteKey, siteRecord, stationShips, COLONY_CEILING, FREE_FROM, type Colony } from './colonies';
 import { cargoActRefusal, loadingFor, sailNow } from './colonyworks';
 import { hash2 } from '../map/noise';
+// Merge of slice 47 with slice 49: the quarantine holds your ship's boat at the quay and a company coming home at anchor.
+import { quarantined } from './health';
 
 // ---------------------------------------------------------------------------
 // The records.
@@ -425,6 +427,10 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
     return;
   }
   const closed = !!blockaded(s);
+  // (Merge of slice 49: under quarantine nobody is rowed out or ashore and the ship doesn't sail; her two months' wait for the
+  // company stands still while it lasts, and all of it goes on from where it stood when it is lifted or ends.)
+  const held = quarantined(s);
+  if (held && p.phase === 'boarding') p.at++;
   if (v && v.phase === SHIP_COMING) {
     if (closed && !pastMouth(v.path, visitorAt(v, s.tick, map.size)?.inward ?? 0, map.size)) v.since++;
     if (s.tick >= v.since + SAIL_IN) {
@@ -438,7 +444,7 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
       const anchored = !!v && v.phase === SHIP_ANCHORED;
       const late = s.tick - p.at >= WAIT_MOST;
       // (The boat takes a trip's men when it sets out from the quay: the first as she anchors, then one each trip.)
-      if (anchored && c.order === 'hold' && c.target === p.tile && s.tick >= (v as Visitor).since + p.trips * ROW_TRIP) {
+      if (anchored && !held && c.order === 'hold' && c.target === p.tile && s.tick >= (v as Visitor).since + p.trips * ROW_TRIP) {
         const waiting = readyOf(s, c).filter((x) => dhypot(x.x - c.x, x.z - c.z) < 2.5 && x.foe === 0);
         if (waiting.length) {
           const post = findBuilding(s, p.post);
@@ -457,7 +463,7 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
       }
       const left = readyOf(s, c).length;
       const rowed = !!v && s.tick >= v.since + p.trips * ROW_TRIP;
-      if (anchored && !closed && p.men.length && rowed && (left === 0 || late)) {
+      if (anchored && !closed && !held && p.men.length && rowed && (left === 0 || late)) {
         c.order = 'away';
         c.path = [];
         p.phase = 'leaving';
@@ -498,6 +504,8 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
   // Home.
   if (p.phase === 'sea' && s.tick >= p.start + p.dur) {
     const q = quayTile(s, map);
+    // (Merge of slice 49: with no quay to anchor off, under quarantine they wait at sea rather than land on the beach.)
+    if (held && !q) return;
     p.phase = 'bay';
     p.start = s.tick;
     if (q) {
@@ -512,6 +520,11 @@ function stepPassage(s: SimState, map: CoastMap, p: Passage): void {
     }
     s.rev++;
   } else if (p.phase === 'bay' && v && v.phase === SHIP_ANCHORED) {
+    // (Merge of slice 49: under quarantine she rides at anchor with them, like the traders, the boat's trips counted from the lifting.)
+    if (held) {
+      v.since++;
+      return;
+    }
     // (A trip's men come ashore as the boat reaches the quay: half a trip after it sets out.)
     if (s.tick >= v.since + p.trips * ROW_TRIP + ROW_TRIP / 2 && p.men.length) {
       ashore(s, map, c, p, ROW_MEN, false);
@@ -1222,6 +1235,8 @@ export function bayShips(s: SimState): Array<{ key: string; ship: Visitor; laden
 /** For the rowing boat (colonyworks.ts' rowingOut): passages with men to row out or ashore. */
 export function rowingPassages(s: SimState): Array<{ post: number; ship: Visitor }> {
   const out: Array<{ post: number; ship: Visitor }> = [];
+  // (Merge of slice 49: no boat rows under quarantine.)
+  if (quarantined(s)) return out;
   for (const p of passagesFor(s)) {
     const v = p.ship;
     if (!v || v.phase !== SHIP_ANCHORED) continue;
@@ -1241,6 +1256,8 @@ export function passageWords(s: SimState, p: Passage): string {
   if (p.dir === 'out') {
     if (p.phase === 'boarding') {
       if (!v || v.phase === SHIP_COMING) return `Your ship sails in for ${who}, bound for ${to}: at anchor off the jetty about ${dayWords((v?.since ?? s.tick) + SAIL_IN)}. The company waits for her by the trading post`;
+      // (Merge of slice 49.)
+      if (quarantined(s)) return `Your ship rides at anchor for ${who}, bound for ${to}: your quarantine keeps the boat at the quay until it ends or is lifted (${p.men.length} aboard)`;
       return `Your ship rides at anchor for ${who}, bound for ${to}: a boat rows the men out to her, ${ROW_MEN} a trip (${p.men.length} aboard)`;
     }
     if (p.phase === 'leaving') return `Your ship sails out of the bay with ${who} (${p.men.length} men), bound for ${to}`;
@@ -1248,6 +1265,8 @@ export function passageWords(s: SimState, p: Passage): string {
   }
   if (p.phase === 'sea') return `${cap(who)} is at sea, sailing home from ${to}: in your bay about ${dayWords(p.start + p.dur + SAIL_IN)}`;
   if (!v || v.phase === SHIP_COMING) return `Your ship brings ${who} home from ${to}: at anchor off the jetty about ${dayWords((v?.since ?? s.tick) + SAIL_IN)}`;
+  // (Merge of slice 49.)
+  if (quarantined(s)) return `Your ship rides at anchor with ${who}, home from ${to}: your quarantine keeps them aboard until it ends or is lifted (${p.men.length} aboard)`;
   return `Your ship rides at anchor with ${who}, home from ${to}: a boat rows the men ashore, ${ROW_MEN} a trip (${p.men.length} still aboard)`;
 }
 

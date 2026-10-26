@@ -435,6 +435,71 @@ describe('plague', () => {
     landed(s, 'athens', post);
     expect(s.health.outbreak).not.toBeNull();
   });
+
+  it('a ship’s plague waits a year after the last outbreak ended, as a fevered quarter’s does (merge of slice 49: its review)', () => {
+    const sim = demoSim('athensship');
+    const s = sim.state;
+    const post = s.buildings.find((b) => b.kind === 'trading')!;
+    const p = startGreekPlague(s, 'athens', 3 * TICKS_PER_MONTH);
+    p.warned -= WARN_LEAD;
+    s.health.lastPlague = s.tick - TICKS_PER_YEAR + 10;
+    landed(s, 'athens', post);
+    expect(s.health.outbreak).toBeNull();
+    expect(healthFigures(s).risk).toBe('rising');
+    expect(healthFigures(s).reasons.join(' ')).toMatch(/can’t take hold here so soon after the last/);
+    s.health.lastPlague = s.tick - TICKS_PER_YEAR;
+    landed(s, 'athens', post);
+    expect(s.health.outbreak).not.toBeNull();
+  });
+
+  it('the annals keep each month’s fell ill, died and fled (left out of a month with none), and the sick at its end (merge of slice 49 with slice 51)', () => {
+    const sim = demoSim('physicians');
+    const s = sim.state;
+    const month = Math.floor(s.tick / TICKS_PER_MONTH);
+    const before = s.annals.months.length;
+    expect(until(sim, () => s.annals.months.some((x) => x.m === month), 2 * TICKS_PER_MONTH)).toBe(true);
+    const m = s.annals.months.find((x) => x.m === month)!;
+    // (#physicians stages three homes sick that month.)
+    expect(m.health?.length).toBe(3);
+    expect(m.health![0]).toBeGreaterThanOrEqual(3);
+    expect(m.sick).toBe(s.health.sick.length);
+    // (A month with nobody ill, dead or fled keeps no health figures at all.)
+    expect(s.annals.months.slice(0, before).every((x) => x.health === undefined || x.health.some((n) => n > 0))).toBe(true);
+  });
+});
+
+describe('the quarantine and the colonial empire (merge of slice 49 with slice 47)', () => {
+  it('holds the boat that rows a company out and the colonies’ share ships at anchor; lifted, both go on to their end', () => {
+    const sim = demoSim('colonybase');
+    const s = sim.state;
+    const q = (on: boolean): void => {
+      sim.enqueue({ type: 'quarantine', on });
+      sim.flush();
+    };
+    sim.enqueue({ type: 'colonyempire', act: 'station', site: 'naxos' });
+    sim.flush();
+    const p = s.empire.passages.find((x) => x.dir === 'out' && x.phase === 'boarding')!;
+    expect(p).toBeDefined();
+    expect(until(sim, () => p.trips >= 1 && p.ship?.phase === SHIP_ANCHORED, 60 * TICKS_PER_DAY)).toBe(true);
+    q(true);
+    const aboard = p.men.length;
+    sim.run(70 * TICKS_PER_DAY);
+    // (Past the two months she waits for a company: not given up, nobody more rowed out.)
+    expect([p.phase, p.men.length]).toEqual(['boarding', aboard]);
+    q(false);
+    expect(until(sim, () => p.phase === 'sea', 60 * TICKS_PER_DAY)).toBe(true);
+    // A colony's share ship: in to anchor, her cargo kept aboard; lifted, unloaded and away.
+    let t = s.empire.tribute.find((x) => x.colony && x.by === 'sea' && x.phase === 'road');
+    expect(until(sim, () => !!(t = s.empire.tribute.find((x) => x.colony && x.by === 'sea' && x.phase === 'road')), 200 * TICKS_PER_DAY)).toBe(true);
+    q(true);
+    expect(until(sim, () => t!.ship?.phase === SHIP_ANCHORED, 200 * TICKS_PER_DAY)).toBe(true);
+    sim.run(15 * TICKS_PER_DAY);
+    expect([t!.phase, t!.put]).toEqual(['bay', 0]);
+    q(false);
+    expect(until(sim, () => t!.phase === 'done' && !t!.ship, 60 * TICKS_PER_DAY)).toBe(true);
+    expect(t!.put).toBeGreaterThan(0);
+    ledgerAddsUp(s);
+  });
 });
 
 describe('the same town twice, and saves', () => {

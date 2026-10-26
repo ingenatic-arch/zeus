@@ -264,12 +264,15 @@ function needsBlock(s: SimState, map: CoastMap, b: Building): string {
   // The needs of their level, and the next level's if it is to be had in the city.
   const shown = new Set<Service>(['water', ...needsOf(b)]);
   if (b.level >= COTTAGE) for (const n of newNeeds(b.level)) if (cityOffers(s, n)) shown.add(n);
+  // (Merge of slice 49: a hut needs no bread to stay a hut, but its health counts going without ("Hungry"), so its food is shown too.)
+  const hutFood = b.level === HUT && !!s.health?.on;
+  if (hutFood) shown.add('food');
   for (const need of NEEDS) {
     if (!shown.has(need)) continue;
     const left = untilOf(b, need) - s.tick;
     const table = need === 'food' ? ` · ${foodList(foodsOnTable(b, s.tick))}` : '';
     if (left > 0) has.push(`${ICON[need]}<span><b>${TITLE[need]}</b>${table} · ${need === 'religion' || need === 'culture' ? 'last' : 'lasts'} ${days(left)} more</span>`);
-    else lack.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${esc(whyLacks(s, map, b, need))}</span>`);
+    else lack.push(`${ICON[need]}<span><b>${TITLE[need]}</b> · ${esc(need === 'food' && hutFood ? `not needed to stay a hut, but hunger tells on their health: ${whyLacks(s, map, b, need)}` : whyLacks(s, map, b, need))}</span>`);
   }
   const able = canWorkIn(s, b);
   // Their man in the army (slice 23): a line of its own.
