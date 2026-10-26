@@ -382,6 +382,12 @@ button.stat.money:hover { background: rgba(255, 246, 228, 0.8); }
 .legend .meat { background: #b8603e; }
 .legend .cheese { background: #f1d86e; }
 .legend .short { background: #5e3a46; border-radius: 50%; }
+/* Merge of slice 50 with slice 49: the health overlay's legend (its rod, someone sick, the plague) and the health line's tone. */
+.legend .hl { display: inline-flex; align-items: center; gap: 5px; }
+.legend .hl svg { width: 17px; height: 17px; }
+.legend .sick { background: #7fb4dc; }
+.legend .plague { background: #5a2a4a; }
+.townline.health { border-left-color: #3f8a62; }
 
 /* Under the top bar: the shortfall lines, then the follow chip and the overlay legend. */
 .notices {

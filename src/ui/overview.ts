@@ -59,6 +59,9 @@ import type { Colony } from '../sim/colonies';
 // Merge of slice 51 with slice 45: the court and the prisons.
 import { calmWords, CELLS, prisoners, restlessWords, UNREST_WARN } from '../sim/justice';
 import { wareIcon } from './wareicons';
+// Merge of slice 51 with slice 50: the overview on the kit (carved head, kit cards, bars and buttons, drawn icons, the one tip).
+import { actionIcon, type ActionIcon } from './icons';
+import { kbar, kitHtml } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -74,6 +77,8 @@ const cityName = (id: CityId): string => PLACES[id]?.name ?? cap(id);
 export const PAGES = ['city', 'goods', 'treasury', 'distribution', 'crime', 'health', 'army', 'empire'] as const;
 export type OverviewPage = (typeof PAGES)[number];
 const PAGE_NAMES: Record<OverviewPage, string> = { city: 'City', goods: 'Goods', treasury: 'Treasury', distribution: 'Distribution', crime: 'Crime', health: 'Health', army: 'Army and fleet', empire: 'Empire' };
+/** Merge of slice 50: each page's drawing, on its tab and its go-to buttons. */
+const PAGE_ICONS: Record<OverviewPage, ActionIcon> = { city: 'home', goods: 'keep', treasury: 'pay', distribution: 'reach', crime: 'crime', health: 'health', army: 'guard', empire: 'station' };
 
 /** Each service as the overview shows it: its overlay's colour and its name. */
 const SERVICES: ReadonlyArray<{ need: Service; name: string; colour: string; by: string }> = [
@@ -144,7 +149,8 @@ interface Series {
  * numbers (now follows them).
  */
 function chart(months: readonly number[], series: readonly Series[], opts: { unit?: string; w?: number; h?: number; floor0?: boolean; percent?: boolean; empty?: string } = {}): string {
-  // (Drawn at about the size it shows, so its dots stay round; its words are the page's, under and over it, not the drawing's.)
+  // (Drawn at about the size it shows, so its dots stay round; its words are the page's, under and over it, not the drawing's.
+  // Merge of slice 50: each point's words in the kit's one tip, not an SVG title.)
   const W = opts.w ?? 260;
   const H = opts.h ?? 52;
   const n = months.length + 1;
@@ -174,7 +180,7 @@ function chart(months: readonly number[], series: readonly Series[], opts: { uni
         const cx = x(i) + (k - 0.5) * bw * (series.length > 1 ? 1 : 0);
         const y0 = y(Math.max(bot, 0));
         const y1 = y(v);
-        parts.push(`<rect x="${(cx - bw / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.8, Math.abs(y1 - y0)).toFixed(1)}" fill="${sr.colour}" class="${i === n - 1 ? 'now' : ''}"><title>${esc(`${names[i]}: ${sr.name} ${say(v)}`)}</title></rect>`);
+        parts.push(`<rect x="${(cx - bw / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.8, Math.abs(y1 - y0)).toFixed(1)}" fill="${sr.colour}" class="${i === n - 1 ? 'now' : ''}" data-tip="${esc(`${names[i]}: ${sr.name} ${say(v)}`)}"></rect>`);
       });
       return;
     }
@@ -193,7 +199,7 @@ function chart(months: readonly number[], series: readonly Series[], opts: { uni
       if (v === null) return;
       // (On a small chart only now's dot shows; the others are there to hover.)
       const hit = W < 200 && i < n - 1;
-      parts.push(`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${hit ? 3 : i === n - 1 ? 2.6 : 1.6}" fill="${sr.colour}" class="${i === n - 1 ? 'now' : hit ? 'hit' : ''}"><title>${esc(`${names[i]}: ${sr.name} ${say(v)}`)}</title></circle>`);
+      parts.push(`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${hit ? 3 : i === n - 1 ? 2.6 : 1.6}" fill="${sr.colour}" class="${i === n - 1 ? 'now' : hit ? 'hit' : ''}" data-tip="${esc(`${names[i]}: ${sr.name} ${say(v)}`)}"></circle>`);
     });
   });
   const key = series.length > 1 ? `<p class="ov-key">${series.map((sr) => `<i style="background:${sr.colour}"></i>${esc(sr.name)}`).join(' ')}</p>` : '';
@@ -203,7 +209,7 @@ function chart(months: readonly number[], series: readonly Series[], opts: { uni
 
 /** A headline figure: its name, its value, why, and its chart. */
 function tile(name: string, value: string, why: string, chartHtml: string, cls = ''): string {
-  return `<section class="ov-tile ${cls}"><h4>${esc(name)}</h4><p class="big">${value}</p><p class="why">${why}</p>${chartHtml}</section>`;
+  return `<section class="ov-tile k-card ${cls}"><h4>${esc(name)}</h4><p class="big">${value}</p><p class="why">${why}</p>${chartHtml}</section>`;
 }
 
 /** The annals' months, oldest first, and their numbers. */
@@ -344,7 +350,7 @@ function cityPage(s: SimState, map: CoastMap): string {
       const room = at.reduce((a, b) => a + capacity(b), 0);
       const name = HOME_NAMES[lv].replace(/^An? /, '');
       const full = at.filter((b) => b.people >= capacity(b)).length;
-      rows.push(`<tr title="${esc(`${at.length} ${name}${at.length === 1 ? '' : 's'}: ${people} people of room for ${room}${full ? `; ${full} full` : ''}`)}"><td class="what">${esc(cap(name))}${at.length === 1 ? '' : 's'}</td><td class="n">${fmt(at.length)}</td><td class="bar"><i style="width:${pct(people, most)}%"></i></td><td class="n">${fmt(people)}</td></tr>`);
+      rows.push(`<tr title="${esc(`${at.length} ${name}${at.length === 1 ? '' : 's'}: ${people} people of room for ${room}${full ? `; ${full} full` : ''}`)}"><td class="what">${esc(cap(name))}${at.length === 1 ? '' : 's'}</td><td class="n">${fmt(at.length)}</td><td class="bar">${kbar({ value: people, max: most, tone: 'stock' })}</td><td class="n">${fmt(people)}</td></tr>`);
     }
     out.push(`<section><h3>People by their homes</h3>${rows.length ? `<table class="ov-table"><thead><tr><th></th><th>Homes</th><th></th><th>People</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<p class="ov-note">Nobody lives here yet: mark out plots (H) by a road.</p>'}`);
     // What holds homes back from the next level.
@@ -643,7 +649,7 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
     const spot = gaps[0] ?? byDistrict(map, need)[0];
     const flyTo = spot ? ` data-x="${spot.x.toFixed(1)}" data-z="${spot.z.toFixed(1)}"` : '';
     rows.push(
-      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}"${flyTo} title="${esc(`Show ${sv.name.toLowerCase()} on the map${gaps.length ? ', where it fails most' : need.length ? ', where it reaches' : ''}`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? `<i style="width:${share}%;background:${sv.colour}"></i>` : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, w: 140, h: 28, empty: '·' })}</td></tr>`,
+      `<tr class="${mode === sv.need ? 'on' : ''}${share >= 0 && share < 75 ? ' low' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="${sv.need}"${flyTo} title="${esc(`Show ${sv.name.toLowerCase()} on the map${gaps.length ? ', where it fails most' : need.length ? ', where it reaches' : ''}`)}"><i style="background:${sv.colour}"></i>${esc(sv.name)}</button></td><td class="n">${need.length ? `${fmt(need.length - lacking.length)}<small> of ${fmt(need.length)}</small>` : '—'}</td><td class="bar">${share >= 0 ? kbar({ value: share, max: 100, fill: sv.colour }) : ''}</td><td class="n">${lift.length ? fmt(lift.length) : '·'}</td><td class="gaps"><span class="why">${why}</span>${gapHtml}${noBuild}</td><td class="spark">${chart(ids, [{ name: `${sv.name} reaches`, colour: sv.colour, values: [...ms.map((x) => ((x.reach[i] ?? -1) < 0 ? null : x.reach[i])), share < 0 ? null : share] }], { percent: true, w: 150, h: 40, empty: '·' })}</td></tr>`,
     );
   }
   // Taxes: the collectors' reach.
@@ -655,7 +661,7 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
     const spot = gaps[0] ?? byDistrict(map, taxed)[0];
     const flyTo = spot ? ` data-x="${spot.x.toFixed(1)}" data-z="${spot.z.toFixed(1)}"` : '';
     rows.push(
-      `<tr class="${mode === 'tax' ? 'on' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="tax"${flyTo} title="Show the tax collectors’ reach on the map"><i style="background:#4f9f88"></i>Tax collectors</button></td><td class="n">${homes.length ? `${fmt(taxed.length)}<small> of ${fmt(homes.length)}</small>` : '—'}</td><td class="bar">${homes.length ? `<i style="width:${pct(taxed.length, homes.length)}%;background:#4f9f88"></i>` : ''}</td><td class="n">·</td><td class="gaps"><span class="why">${offices ? (missed.length ? `${plural(missed.length, 'home', 'homes')} not called on in the last month.` : 'Every home was called on in the last month.') : 'No tax office yet: build one (Z).'}</span>${gaps.map((g) => `<button class="ov-gap" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="tax">${fmt(g.n)} ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`).join('')}</td><td class="spark"></td></tr>`,
+      `<tr class="${mode === 'tax' ? 'on' : ''}"><td class="what"><button class="ov-svc" data-act="overlay" data-mode="tax"${flyTo} title="Show the tax collectors’ reach on the map"><i style="background:#4f9f88"></i>Tax collectors</button></td><td class="n">${homes.length ? `${fmt(taxed.length)}<small> of ${fmt(homes.length)}</small>` : '—'}</td><td class="bar">${homes.length ? kbar({ value: pct(taxed.length, homes.length), max: 100, fill: '#4f9f88' }) : ''}</td><td class="n">·</td><td class="gaps"><span class="why">${offices ? (missed.length ? `${plural(missed.length, 'home', 'homes')} not called on in the last month.` : 'Every home was called on in the last month.') : 'No tax office yet: build one (Z).'}</span>${gaps.map((g) => `<button class="ov-gap" data-act="go" data-x="${g.x.toFixed(1)}" data-z="${g.z.toFixed(1)}" data-mode="tax">${fmt(g.n)} ${esc(DISTRICTS[g.d]?.where ?? 'elsewhere')}</button>`).join('')}</td><td class="spark"></td></tr>`,
     );
   }
   out.push(`<table class="ov-table dist"><thead><tr><th></th><th>Have it</th><th></th><th title="Homes that would go up a level with it">Would lift</th><th>Where the gaps are</th><th>Two years</th></tr></thead><tbody>${rows.join('')}</tbody></table>`);
@@ -1113,6 +1119,29 @@ export function overviewHtml(s: SimState, map: CoastMap, page: OverviewPage, war
   }
 }
 
+// ---------------------------------------------------------------------------- on the kit (merge of slice 50)
+
+/** The drawing for a go-to button or row, by what it does: a place, a home, a page, a ware, the ledger, a city, a colony, a company. */
+function linkIcon(attrs: string): string {
+  const act = /data-act="([^"]*)"/.exec(attrs)?.[1] ?? '';
+  if (act === 'page') return actionIcon(PAGE_ICONS[(/data-page="([^"]*)"/.exec(attrs)?.[1] ?? 'city') as OverviewPage] ?? 'go');
+  const by: Record<string, ActionIcon> = { home: 'home', ware: 'keep', wareside: 'keep', ledger: 'pay', city: 'treaty', site: 'station', company: 'banner' };
+  return actionIcon(by[act] ?? 'go');
+}
+
+/**
+ * A page's HTML on the kit: its links become stone plaques with a drawing of where they go, its rows that go somewhere
+ * end in that drawing, its one plain button a bronze plaque, and its titles the one tip's words.
+ */
+function onKit(html: string): string {
+  return kitHtml(
+    html
+      .replace(/<button class="ov-link"([^>]*)>([\s\S]*?)<\/button>/g, (_, a: string, w: string) => `<button class="ov-link k-btn stone small"${a}><span class="k-bi">${linkIcon(a)}</span><span class="k-bt">${w}</span></button>`)
+      .replace(/<button class="ov-btn"([^>]*)>([\s\S]*?)<\/button>/g, (_, a: string, w: string) => `<button class="ov-btn k-btn small"${a}><span class="k-bi">${linkIcon(a)}</span><span class="k-bt">${w}</span></button>`)
+      .replace(/<button class="ov-row"([^>]*)>([\s\S]*?)<\/button>/g, (_, a: string, w: string) => `<button class="ov-row"${a}>${w}<span class="ov-go">${linkIcon(a)}</span></button>`),
+  );
+}
+
 /** How often (seconds) the open window is brought up to date. */
 const REFRESH = 0.6;
 /** Remembered between visits (where the browser lets it): the page last open. */
@@ -1143,11 +1172,11 @@ export class Overview {
     private readonly deps: OverviewDeps,
   ) {
     const el = document.createElement('div');
-    el.className = 'overview';
+    el.className = 'overview kit';
     el.hidden = true;
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Overview of the city');
-    el.innerHTML = '<button class="close" title="Close (O or Esc)" aria-label="Close">×</button><header class="ov-head"></header><nav class="ov-tabs" role="tablist"></nav><div class="ov-body"></div>';
+    el.innerHTML = '<button class="close" data-tip="Close (O or Esc)" aria-label="Close">×</button><header class="ov-head k-head"></header><nav class="ov-tabs" role="tablist"></nav><div class="ov-body"></div>';
     root.appendChild(el);
     this.el = el;
     this.head = el.querySelector('.ov-head') as HTMLElement;
@@ -1246,13 +1275,15 @@ export class Overview {
     if (this.el.hidden || time - this.last < REFRESH) return;
     this.last = this.clock;
     const st = tabState(s);
-    const tabs = PAGES.map((p) => `<button role="tab" class="ov-tab${p === this.page ? ' on' : ''}${st[p].warn ? ` warn${st[p].warn}` : ''}" data-act="page" data-page="${p}" aria-selected="${p === this.page}"><b>${esc(PAGE_NAMES[p])}</b><span>${esc(st[p].word)}</span></button>`).join('');
+    // (Merge of slice 50: each tab a plaque with its page's drawing; its dot says the page wants looking at, or is urgent.)
+    const tabs = PAGES.map((p) => `<button role="tab" class="ov-tab${p === this.page ? ' on' : ''}${st[p].warn ? ` warn${st[p].warn}` : ''}" data-act="page" data-page="${p}" aria-selected="${p === this.page}" data-tip="${esc(`${PAGE_NAMES[p]}: ${st[p].word}${st[p].warn === 2 ? ' · urgent' : st[p].warn ? ' · worth a look' : ''}`)}"><span class="ov-ti">${actionIcon(PAGE_ICONS[p])}</span><b>${esc(PAGE_NAMES[p])}</b><span>${esc(st[p].word)}</span></button>`).join('');
     if (tabs !== this.tabsHtml) {
       this.tabsHtml = tabs;
       morph(this.tabs, tabs);
     }
     const d = monthName(Math.floor(s.tick / TICKS_PER_MONTH), true);
-    const head = `<h2>${esc(s.world.name || 'Your city')}</h2><p class="kicker">The overview · ${esc(d)} · ${plural(Math.min(ANNAL_MONTHS, s.annals.months.length), 'month', 'months')} in the annals</p>`;
+    // (Merge of slice 50: the kit's carved plaque, with the overview's tablets.)
+    const head = `<div class="k-pic">${actionIcon('overview')}</div><div class="k-hd"><div class="k-kicker">The overview · ${esc(d)} · ${plural(Math.min(ANNAL_MONTHS, s.annals.months.length), 'month', 'months')} in the annals</div><h2>${esc(s.world.name || 'Your city')}</h2></div>`;
     if (head !== this.headHtml) {
       this.headHtml = head;
       morph(this.head, head);
@@ -1260,7 +1291,7 @@ export class Overview {
     const html = overviewHtml(s, map, this.page, this.ware, this.mode);
     if (html !== this.html) {
       this.html = html;
-      morph(this.body, `<div class="ov-page ov-${this.page}">${html}</div>`);
+      morph(this.body, `<div class="ov-page ov-${this.page}">${onKit(html)}</div>`);
     }
   }
 }

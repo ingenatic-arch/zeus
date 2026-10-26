@@ -120,6 +120,8 @@ import { WARES } from './sim/foods';
 import { Overview, type OverviewPage } from './ui/overview';
 // Slice 50: the panels' kit (one tip for every panel, held steppers).
 import { installKit, tipShowing } from './ui/kit';
+// Merge of slice 50 with slice 49: the health legend's rod.
+import { actionIcon } from './ui/icons';
 
 interface Probe {
   ready: boolean;
@@ -646,7 +648,8 @@ function start(preparedTown: string | null): void {
   legend.innerHTML = MISSING_LEGEND;
   let legendFor = 'missing';
   // Slice 49: the health overlay's legend.
-  const HEALTH_LEGEND = '<b>Health</b><span><i class="fine"></i>Well or healthy</span><span><i class="want"></i>Sickly</span><span><i class="warn"></i>Ailing</span><span><i style="background:#7fb4dc"></i>Someone sick</span><span><i style="background:#5a2a4a"></i>Plague</span>';
+  // (Merge of slice 50: the kit's rod of Asklepios before its name, and its swatches in the stylesheet.)
+  const HEALTH_LEGEND = `<b class="hl">${actionIcon('health')}Health</b><span><i class="fine"></i>Well or healthy</span><span><i class="want"></i>Sickly</span><span><i class="warn"></i>Ailing</span><span><i class="sick"></i>Someone sick</span><span><i class="plague"></i>Plague</span>`;
   const lines = new TownLines(notices, (l) => {
     if (l.need === 'money') return ledger.toggle(true);
     // Slice 39: a laurel's line opens the Ambition panel.

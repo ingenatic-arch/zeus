@@ -119,3 +119,26 @@ describe('a trading post by a lake', () => {
     expect(tried).toBeGreaterThan(0);
   }, 120_000);
 });
+
+// Merge of slice 50 with slices 49 and 51: the health buildings, their walkers, the quarantine, health's kinds of message
+// and the overview's pages have drawings of their own.
+describe('the kit’s drawings for health and the overview', () => {
+  it('draw the infirmary, the asklepieion, the physician, the bearers, the quarantine and the plague apart', async () => {
+    const { ACTION_ICONS, buildingIcon, walkerFigure, PHYSICIAN_FIGURE, BEARERS_FIGURE } = await import('../src/ui/icons');
+    const home = buildingIcon('housing');
+    for (const k of ['infirmary', 'asklepieion'] as const) {
+      expect(buildingIcon(k), k).toMatch(/^<svg [^>]*class="k-bic"/);
+      expect(buildingIcon(k), `${k} falls back to the home's tent`).not.toBe(home);
+    }
+    expect(buildingIcon('infirmary')).not.toBe(buildingIcon('asklepieion'));
+    expect(walkerFigure('physician')).toBe(PHYSICIAN_FIGURE);
+    expect(walkerFigure('bearer')).toBe(BEARERS_FIGURE);
+    expect(PHYSICIAN_FIGURE).toMatch(/^<svg [^>]*class="ki fig"/);
+    expect(BEARERS_FIGURE).toMatch(/^<svg [^>]*class="ki fig fwide"/);
+    expect(walkerFigure('cart')).toBe('');
+    for (const a of ['quarantine', 'lift', 'health', 'bed', 'overview', 'reach', 'crime'] as const) expect(ACTION_ICONS[a], a).toMatch(/^<svg /);
+    expect(ACTION_ICONS.quarantine).not.toBe(ACTION_ICONS.lift);
+    // Health's two kinds of message: the plague's brazier and the sickness' bowl.
+    expect(messageIcon('plague')).not.toBe(messageIcon('sickness'));
+  });
+});

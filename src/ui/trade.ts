@@ -27,6 +27,7 @@ import { PLACES } from '../map/greece';
 import type { Building, SimState } from '../sim/state';
 // Slice 49: the quarantine order, at the head of the panel.
 import { quarantineHtml } from './health';
+import { quarantined } from '../sim/health';
 import {
   cityHolds,
   dockerNews,
@@ -47,6 +48,9 @@ import {
   // Slice 50: the quay's picture.
   SAIL_OUT,
   sailInTicks,
+  // Merge of slice 50 with slice 49: ships held off by a quarantine, at anchor in the picture.
+  SHIP_ANCHORED,
+  sailInNow,
   storeKind,
   surplusOf,
   TRADE_GOODS,
@@ -117,6 +121,24 @@ function quayPicture(s: SimState, post: Building): string {
     const goods = ship.phase === SHIP_MOORED && ship.hold.some((n) => n > 0) ? '<rect x="-12" y="-9" width="7" height="5" rx="1" fill="#a8874f"/><rect x="-4" y="-9" width="7" height="5" rx="1" fill="#8aa83a"/><rect x="4" y="-9" width="7" height="5" rx="1" fill="#7a2e80"/>' : '';
     boat = `<g transform="translate(${bx.toFixed(1)} ${by.toFixed(1)}) scale(${sc.toFixed(3)})"><path d="M0 -42v38" stroke="#5a3a1e" stroke-width="2"/>${sail}<path d="M-30 -5h58l6-4-2 6c-2 6-8 9-14 9h-40c-5 0-8-4-8-11z" fill="#7a4a2c" stroke="#3a2010" stroke-width="1"/><path d="M-28 -2h54" stroke="#c0462e" stroke-width="1.6"/>${goods}</g>`;
   }
+  // Merge of slice 50 with slice 49: under a quarantine, the yellow pennant flies over the post, and the ships it holds off
+  // ride at anchor out in the bay, their sails furled and the pennant at their mastheads: a route's ship waiting off the
+  // quay, and the Tyrian ship, due, waiting out at sea.
+  const q = quarantined(s);
+  const flag = (x: number, y: number, k = 1): string => `<path d="M${x} ${y}v${-14 * k}" stroke="#5a3a1e" stroke-width="${1.2 * k}"/><path d="M${x + 0.6 * k} ${y - 14 * k}h${11 * k}l${-3 * k} ${2.4 * k} ${3 * k} ${2.4 * k}h${-11 * k}z" fill="#e8c23a" stroke="#7a5a10" stroke-width="${0.6 * k}" stroke-linejoin="round"/>`;
+  const off: Array<{ who: string; far: boolean }> = [];
+  for (const r of s.world.routes) if (r.kind === 'sea' && r.ship && r.ship.phase === SHIP_ANCHORED) off.push({ who: PLACES[r.city]?.name ?? r.city, far: false });
+  if (q && ship.phase === SHIP_AWAY && ship.due - sailInNow(s) <= s.tick + 1) off.push({ who: 'Tyre', far: true });
+  const anchored = off
+    .map((h, i) => {
+      const bx = h.far ? 336 : 318 - i * 50;
+      const by = h.far ? 44 : 62 + (i % 2) * 6;
+      const sc = h.far ? 0.3 : 0.62;
+      const tip = h.far ? 'The ship from Tyre waits out at sea: your quarantine holds her off until it ends, or is lifted' : q ? `The ship from ${h.who} rides at anchor off the quay: your quarantine holds her off until it ends, or is lifted` : `The ship from ${h.who} is at anchor in the bay, waiting for the jetty`;
+      const cable = h.far ? '' : '<path d="M-26 0q-6 10-10 16" stroke="#3a2010" stroke-width="1.2" fill="none" stroke-dasharray="2 1.4"/>';
+      return `<g class="held" data-tip="${esc(tip)}" transform="translate(${bx} ${by}) scale(${sc})">${cable}<path d="M0 -42v38" stroke="#5a3a1e" stroke-width="2"/><path d="M-14 -38h28v4h-28z" fill="#e8dcc0" stroke="#8a6a44" stroke-width=".6"/>${q ? flag(0, -41, 1.3) : ''}<path d="M-30 -5h58l6-4-2 6c-2 6-8 9-14 9h-40c-5 0-8-4-8-11z" fill="#6a4a3c" stroke="#3a2010" stroke-width="1"/><path d="M-28 -2h54" stroke="#3a6a8a" stroke-width="1.6"/></g>`;
+    })
+    .join('');
   return `<svg class="k-quay" viewBox="0 0 360 96" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(shipNews(s)?.short ?? 'The quay')}">
 <defs><linearGradient id="kq-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe2ea"/><stop offset="1" stop-color="#f4ead6"/></linearGradient><linearGradient id="kq-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6ea4bc"/><stop offset="1" stop-color="#2f6f8e"/></linearGradient></defs>
 <rect width="360" height="40" fill="url(#kq-sky)"/><rect y="40" width="360" height="56" fill="url(#kq-sea)"/>
@@ -125,7 +147,7 @@ function quayPicture(s: SimState, post: Building): string {
 <path d="M0 66h204v30H0z" fill="#c9b48c" stroke="#7a6446" stroke-width="1"/><path d="M0 72h204M0 80h204M0 88h204M30 66v6M70 66v6M110 66v6M150 66v6M190 66v6M50 72v8M90 72v8M130 72v8M170 72v8M20 80v8M60 80v8M100 80v8M140 80v8M180 80v8" stroke="rgba(90,70,40,.45)" stroke-width=".8"/>
 <path d="M204 63h66v6h-66z" fill="#a8743e" stroke="#5a3a1e" stroke-width=".8"/><path d="M214 69v14M234 69v14M254 69v14M268 69v14" stroke="#5a3a1e" stroke-width="2.2"/>
 <g><path d="M12 64V44h70v20z" fill="#efe6d0" stroke="#7a6446" stroke-width=".9"/><path d="M8 45 47 31l39 14z" fill="#b04a2c" stroke="#6e2a1a" stroke-width=".9" stroke-linejoin="round"/><path d="M20 47v17M32 47v17M44 47v17M56 47v17M68 47v17" stroke="#b8a682" stroke-width="2.6"/><path d="M10 64h76" stroke="#7a6446" stroke-width="1.4"/></g>
-${stacks.join('')}${boat}
+${q ? `<g data-tip="The quarantine’s yellow pennant flies over the post">${flag(47, 31.5)}</g>` : ''}${stacks.join('')}${anchored}${boat}
 </svg>`;
 }
 
@@ -368,9 +390,11 @@ export class TradePanel {
     const route = this.tab === 'tyre' || this.tab === 'yard' ? undefined : routeOf(s, city, kind as RouteKind);
     const page = route ? routeHtml(s, map, route) : this.tab === 'yard' && yard ? yardHtml(s, map, yard) : post ? tradeHtml(s, map, post) : '';
     const nav = tabs.length > 1 ? `<nav class="tradetabs">${tabs.map((t) => `<button data-tab="${t}" class="${t === this.tab ? 'on' : ''}" title="${t === 'tyre' ? 'The merchant ship from Tyre' : t === 'yard' ? 'The caravan yard' : esc(routeName(t.split('-')[0] as never, t.split('-')[1] as RouteKind))}">${tabName(t)}</button>`).join('')}</nav>` : '';
-    // (Slice 49: the quarantine order heads every tab, with health on or a quarantine running.)
+    // (Slice 49: the quarantine order heads every tab, with health on or a quarantine running. Merge of slice 50: right under
+    // the tab's plaque, above the quay's picture or the route's news.)
     const quarantine = s.health?.on || s.health?.quarantine > s.tick ? quarantineHtml(s) : '';
-    const html = kitHtml(nav + quarantine + page);
+    const at = page.indexOf('</header>');
+    const html = kitHtml(nav + (at >= 0 ? page.slice(0, at + 9) + quarantine + page.slice(at + 9) : quarantine + page));
     if (html !== this.html) {
       // In place: only what changed, so a hover tip stays up and a click lands.
       if (this.html) morph(this.body, html);

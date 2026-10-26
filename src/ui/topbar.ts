@@ -7,6 +7,9 @@ import type { Building } from '../sim/state';
 import { TAX_RATES, taxOf } from '../sim/taxes';
 // Slice 39.
 import { LAUREL } from './ambition';
+// Merge of slice 50 with slice 51: the overview's button carries the kit's drawing of it (the overview's tablets).
+import { actionIcon } from './icons';
+const OVERVIEW_ICON = actionIcon('overview');
 
 const ICONS: Record<Speed, string> = {
   paused: '<svg viewBox="0 0 16 16"><rect x="3" y="2.5" width="3.6" height="11" rx="1"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1"/></svg>',
@@ -54,7 +57,7 @@ export class TopBar {
           <div class="season" hidden><svg viewBox="0 0 20 20" aria-hidden="true" class="dial"><path d="M10 10V1a9 9 0 0 1 9 9z" class="q0"/><path d="M10 10h9a9 9 0 0 1-9 9z" class="q1"/><path d="M10 10v9a9 9 0 0 1-9-9z" class="q2"/><path d="M10 10H1a9 9 0 0 1 9-9z" class="q3"/><circle cx="10" cy="10" r="9" class="rim"/><path d="M10 10V2.4" class="hand"/><circle cx="10" cy="10" r="1.6" class="hub"/></svg><b class="nm"></b><span class="cm"></span><i class="wx"></i></div>
         </div>
         <button class="scroll-btn" title="Messages: what the town has heard · the key left of 1 (\u0060)" aria-label="Messages"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sheet" d="M5 4.2h10v11.6H5z"/><path class="lines" d="M7.2 7.6h5.6M7.2 10h5.6M7.2 12.4h3.6"/><rect class="roll" x="3" y="2" width="14" height="3.6" rx="1.8"/><rect class="roll" x="3" y="14.4" width="14" height="3.6" rx="1.8"/></svg><span class="seal" hidden></span></button>
-        <button class="scroll-btn overview-btn" title="The overview: the whole city on one page · O" aria-label="Overview"><svg viewBox="0 0 20 20" aria-hidden="true"><rect class="sheet" x="2.6" y="3" width="14.8" height="14" rx="1.2"/><path class="bars" d="M6 14.2v-4M9 14.2V7.4M12 14.2v-3M15 14.2V5.8"/><path class="lines" d="M4.6 14.8h11"/></svg></button>
+        <button class="scroll-btn overview-btn" title="The overview: the whole city on one page · O" aria-label="Overview">${OVERVIEW_ICON}</button>
         <div class="divider"></div>
         <div class="speeds"></div>
         <div class="divider"></div>

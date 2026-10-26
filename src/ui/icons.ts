@@ -122,6 +122,44 @@ export function unitFigure(kind: CompanyKind, hired: '' | 'cretan' | 'arcadian' 
   return hopliteFigure(d);
 }
 
+// ---------------------------------------------------------------------------- the city's walkers (merge of slice 50 with slice 49)
+
+/** A physician on her round: a pale himation with a blue hem, a satchel, the rod of Asklepios in her hand. */
+export const PHYSICIAN_FIGURE = svg(
+  '0 0 40 48',
+  `${SHADOW}<path d="M31 6v39" stroke="#6a4a24" stroke-width="1.6" stroke-linecap="round"/><path d="M29.4 38.6c3.2-1 3.2-3 0-4s-3.2-3 0-4 3.2-3 0-4-3.2-3 0-4 2.6-2.4 1.6-3.8" fill="none" stroke="#3f8a62" stroke-width="1.5" stroke-linecap="round"/><circle cx="30.8" cy="14.4" r="1.1" fill="#3f8a62"/>` +
+    `<path d="M16 36.4l-1 8.4h3l1.2-8.4zM21.4 36.4l1 8.4h3l-1-8.4z" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".7"/><path d="M14.4 44.4h3.6M22.2 44.4h3.6" stroke="#5a3a1e" stroke-width="1.6"/>` +
+    `<path d="M13.6 17.6h12.6l2.6 20.4H11.2z" fill="#efe6d0" stroke="#7a6446" stroke-width=".8" stroke-linejoin="round"/><path d="M11.6 36.4h17" stroke="#2c6a8a" stroke-width="1.5"/><path d="M14 18.4l11.6 9.6M14.4 24.6l9.8 8" stroke="rgba(120,96,60,.45)" stroke-width=".8" fill="none"/>` +
+    `<path d="M9.4 26.2h6.2v5.8c0 1-.8 1.6-1.6 1.6H11c-.8 0-1.6-.6-1.6-1.6z" fill="#8a5a2c" stroke="#3a2410" stroke-width=".7" stroke-linejoin="round"/><path d="M12.4 26.2l2.6-8" stroke="#5a3a1e" stroke-width=".9"/>` +
+    `<path d="M25.6 20.6l5 3.8" stroke="${SKIN}" stroke-width="2.4" stroke-linecap="round"/><circle cx="31" cy="24.6" r="1.4" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".5"/>` +
+    `<circle cx="19.8" cy="12.2" r="4.4" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".8"/><circle cx="21.3" cy="11.9" r=".6" fill="#2a1a0a"/><path d="M15.2 12.4c-.4-4.4 1.8-6.6 4.6-6.6s5 2.2 4.6 6.4c-.8-2.2-2.4-3.4-4.6-3.4s-3.8 1.2-4.6 3.6z" fill="#4a2e1a" stroke="#2a1a0a" stroke-width=".6" stroke-linejoin="round"/><path d="M15.4 12.2c-.6 2.2-.2 4 .8 5" stroke="#4a2e1a" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+  'ki fig',
+);
+
+/** One stretcher-bearer, facing the way he walks (dir 1 right, -1 left), at x. */
+const bearer = (x: number, dir: number): string =>
+  `<path d="M${x - 3} 33.6l-1.2 10.6h2.8l1.4-10.6zM${x + 1.2} 33.6l1.2 10.6h2.8l-1.2-10.6z" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".7"/><path d="M${x - 4.8} 43.8h3.6M${x + 1.6} 43.8h3.6" stroke="#5a3a1e" stroke-width="1.5"/>` +
+  `<path d="M${x - 4.6} 18.8h9.2l1.8 15.6H${x - 6.4}z" fill="#6f8aa0" stroke="#2c3e4e" stroke-width=".8" stroke-linejoin="round"/><path d="M${x - 5.6} 26.4h11.4" stroke="#3a4a58" stroke-width="1.2"/>` +
+  `<path d="M${x + dir * 2.6} 20.8l${dir * 3.4} 6.2" stroke="${SKIN}" stroke-width="2.3" stroke-linecap="round"/>` +
+  `<circle cx="${x}" cy="13.6" r="3.8" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".8"/><circle cx="${x + dir * 1.5}" cy="13.3" r=".55" fill="#2a1a0a"/><path d="M${x - 3.8} 13c0-3.4 1.6-5 3.8-5s3.8 1.6 3.8 5c-1-1.4-2.2-2-3.8-2s-2.8.6-3.8 2z" fill="#3a2414"/>`;
+
+/** The asklepieion's stretcher-bearers: two men carrying the sick one between them on a litter. */
+export const BEARERS_FIGURE = svg(
+  '0 0 48 48',
+  `<ellipse cx="24" cy="45.4" rx="21" ry="2.2" fill="rgba(40,24,8,0.22)"/>${bearer(40, -1)}` +
+    `<path d="M5 27.4h38" stroke="#6a4a24" stroke-width="1.7" stroke-linecap="round"/><path d="M11.6 23.4h24.6v4H11.6z" fill="#e8dcc0" stroke="#8a6a44" stroke-width=".8" stroke-linejoin="round"/>` +
+    `<path d="M16.4 23.6c1.4-2.6 4.6-3.6 9.6-3.4 4.4.2 7.6 1.2 9.6 3.4z" fill="#b8564a" stroke="#6e2a1a" stroke-width=".8" stroke-linejoin="round"/><circle cx="14.2" cy="21.4" r="2.6" fill="${SKIN}" stroke="${SKIN_EDGE}" stroke-width=".7"/>` +
+    bearer(8, 1),
+  'ki fig fwide',
+);
+
+/** A walker's figure for a building panel's row (the health buildings' for now; '' for one without). */
+export function walkerFigure(kind: string): string {
+  if (kind === 'physician') return PHYSICIAN_FIGURE;
+  if (kind === 'bearer') return BEARERS_FIGURE;
+  return '';
+}
+
 // ---------------------------------------------------------------------------- buildings
 
 /** A building's picture: its build button's drawing (coloured by `.k-bic`), the tent for a home. */
@@ -210,6 +248,21 @@ export const ACTION_ICONS = {
   wounded: I(`<circle cx="12" cy="12" r="9.4" fill="#f4ead2" stroke="#8c2f26" stroke-width="1.3"/><path d="M12 6.6v10.8M6.6 12h10.8" stroke="#b8322a" stroke-width="3.2" stroke-linecap="round"/>`),
   /** Pay: drachmas a month. */
   pay: I(`<ellipse cx="12" cy="17.4" rx="8" ry="3" fill="#a07a1e" stroke="#5e4214" stroke-width=".9"/><ellipse cx="12" cy="14.6" rx="8" ry="3" fill="#d9b04a" stroke="#5e4214" stroke-width=".9"/><ellipse cx="12" cy="11.8" rx="8" ry="3" fill="#e8c460" stroke="#5e4214" stroke-width=".9"/><path d="M9.4 11.8h5.2" stroke="#8a5a14" stroke-width="1.1" stroke-linecap="round"/>`),
+  // Merge of slice 50 with slices 49 and 51: health's and the overview's actions.
+  /** The quarantine: the yellow pennant over the sea. */
+  quarantine: I(`<path d="M5.6 2.4v19.2" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/><path d="M6.2 3.4h14.4l-3.6 3.2 3.6 3.2H6.2z" fill="#e8c23a" stroke="#7a5a10" stroke-width="1" stroke-linejoin="round"/><path d="M9 17.2q2.4-1.6 4.8 0t4.8 0M9 20.6q2.4-1.6 4.8 0t4.8 0" stroke="#3f86b4" stroke-width="1.5" fill="none" stroke-linecap="round"/>`),
+  /** Lift the quarantine: the pennant hauled down. */
+  lift: I(`<path d="M5.6 2.4v19.2" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/><path d="M6.2 12.4h11.4l-3 2.8 3 2.8H6.2z" fill="#e8c23a" stroke="#7a5a10" stroke-width="1" stroke-linejoin="round"/><path d="M15.6 2.8v6.4m-2.8-2.8 2.8 2.8 2.8-2.8" stroke="#4c6a26" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
+  /** Health: the rod of Asklepios, its serpent coiled up it. */
+  health: I(`<path d="M12 2.4v19.2" stroke="#6b4a2e" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 5.6c3.8-1.2 6.2.8 3.6 2.6s-5.2 2.4-2.6 4.6 5.6 1.4 3.6 4-5 .8-3.2 2.8" fill="none" stroke="#3f8a62" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.2" cy="5.6" r="1.5" fill="#3f8a62"/>`),
+  /** A bed in the asklepieion: its frame, pillow and blanket. */
+  bed: I(`<path d="M2.6 20V8.6M21.4 20v-6.4" stroke="${INK}" stroke-width="1.7" stroke-linecap="round"/><path d="M2.6 14.4h18.8v3H2.6z" fill="#e4d2a6" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/><rect x="3.6" y="11.2" width="4.8" height="3.2" rx="1.2" fill="#f4ead2" stroke="${INK}" stroke-width=".9"/><path d="M8.8 14.4c1.4-2.6 4.2-3.4 12.6-2.2v2.2z" fill="#3f8a62" stroke="#1f4a32" stroke-width=".9" stroke-linejoin="round"/>`),
+  /** The overview: a diptych of wax tablets, a chart on one leaf and lines on the other. */
+  overview: I(`<path d="M2.2 5.4l9.4-1.8v16.6l-9.4 1.8z" fill="#f4e4bf" stroke="#8a6440" stroke-width="1" stroke-linejoin="round"/><path d="M21.8 5.4l-9.4-1.8v16.6l9.4 1.8z" fill="#f4e4bf" stroke="#8a6440" stroke-width="1" stroke-linejoin="round"/><path d="M12 3.4v17" stroke="#6e4e30" stroke-width="1.3"/><path d="M4.6 17.6v-4" stroke="#c8963c" stroke-width="2" stroke-linecap="round"/><path d="M7.1 17.1V9.4" stroke="#2c4a86" stroke-width="2" stroke-linecap="round"/><path d="M9.6 16.6v-5.4" stroke="#b04a2c" stroke-width="2" stroke-linecap="round"/><path d="M14.2 7.2h5.4M14.2 9.2h3.8" stroke="#8a6440" stroke-width=".9" stroke-linecap="round"/><path d="M14.2 16.4l2.2-3 2 1.4 2-4" stroke="#4c6a26" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
+  /** Distribution: a service's reach, a drop of water over three homes. */
+  reach: I(`<path d="M12 2.2c2.4 3.2 4 5.2 4 7.2a4 4 0 0 1-8 0c0-2 1.6-4 4-7.2z" fill="#4f9be0" stroke="#2c5f8f" stroke-width="1.1" stroke-linejoin="round"/><path d="M2.6 21.4v-3.6l2.7-2.3 2.7 2.3v3.6zM9.3 21.4v-3.6l2.7-2.3 2.7 2.3v3.6zM16 21.4v-3.6l2.7-2.3 2.7 2.3v3.6z" fill="#e4d2a6" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/><path d="M1.8 18.2l3.5-3 3.5 3M8.5 18.2l3.5-3 3.5 3M15.2 18.2l3.5-3 3.5 3" stroke="#b04a2c" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
+  /** Crime: a cut purse. */
+  crime: I(`<path d="M8.4 6.4h7.2l-1.4 2.4c3.2 1.6 5 4.4 5 7.4 0 3.2-2.6 5.2-7.2 5.2s-7.2-2-7.2-5.2c0-3 1.8-5.8 5-7.4z" fill="#a8743e" stroke="#4a2a10" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 6.4 7.8 3.2h8.4L15 6.4" fill="#c8964c" stroke="#4a2a10" stroke-width="1" stroke-linejoin="round"/><path d="M5.6 12.6l13 4.4" stroke="#8c2f26" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2.4 1.6"/><circle cx="17.6" cy="20.2" r="1.6" fill="#e8c460" stroke="#6a4a14" stroke-width=".8"/>`),
 } as const;
 export type ActionIcon = keyof typeof ACTION_ICONS;
 
@@ -222,6 +275,8 @@ export const actionIcon = (a: ActionIcon): string => ACTION_ICONS[a];
 const LAND_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 11.4 5 5.6l2.6 3 2.4-4.4 5 7.2z" fill="#8a9a5a" stroke="#3e4f12" stroke-width=".8" stroke-linejoin="round"/><path d="M8.6 4.8l1.4 1.6" stroke="#f0ead8" stroke-width=".9" stroke-linecap="round"/><path d="M1 11.4h14v3.4H1z" fill="#4f8ab8" stroke="#2c5f8f" stroke-width=".8"/><path d="M6 8.6c1 1.6.2 2.6 1.4 2.8" stroke="#4f8ab8" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>';
 /** Health's: Hygieia's bowl with its serpent (as the Messages panel's). */
 const BOWL_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 8.2h11.2c-.3 3-2.6 5-5.6 5s-5.3-2-5.6-5z" fill="#c8963c" stroke="#5e4214" stroke-width=".9" stroke-linejoin="round"/><path d="M6.2 13.2 5.6 15h4.8l-.6-1.8" fill="#a07a1e" stroke="#5e4214" stroke-width=".8" stroke-linejoin="round"/><path d="M9.4 8.2C11 6.6 9 5.4 7.6 4.8 6.2 4.2 6.6 2.4 8.4 2.2c1.2-.1 1.8.6 1.6 1.3" fill="none" stroke="#3e6a2c" stroke-width="1.3" stroke-linecap="round"/><circle cx="9.9" cy="3.4" r=".9" fill="#3e6a2c"/></svg>';
+/** The plague: a brazier of herbs smoking, as at a struck house's door (merge of slice 50 with slice 49). */
+const BRAZIER_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.6 15.2l1.8-5.2M11.4 15.2l-1.8-5.2M8 15.2V10.6" stroke="#5e4214" stroke-width="1.1" stroke-linecap="round"/><path d="M2.4 8.4h11.2c-.4 2-2.4 3-5.6 3s-5.2-1-5.6-3z" fill="#c8963c" stroke="#5e4214" stroke-width=".8" stroke-linejoin="round"/><path d="M5.2 8.4c-.4-1.6.6-2.4 1.2-3.4.2 1 .8 1.4 1.2 1.6-.2-1.4.4-2.6 1.4-3.4 0 1.4 1 2 1.6 3 .4.8.2 1.6 0 2.2z" fill="#e2531e" stroke="#8c2f26" stroke-width=".5" stroke-linejoin="round"/><path d="M10.4 3.6c-1-.8-.2-1.8.4-2.4M7.4 2.8c-.6-.6 0-1.4.4-1.8" stroke="#6a5a6a" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>';
 /** A prison's breakout: a barred window, one bar bent. */
 const BREAKOUT_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h12v12H2z" fill="#9a948a" stroke="#4a4440" stroke-width=".9"/><path d="M4 4h8v8H4z" fill="#2e2a26"/><path d="M6 4v8M8 4v3.4c0 1.2 1.6 1.6 2 3M10 4v2" stroke="#c8c4bc" stroke-width="1.1" stroke-linecap="round" fill="none"/><path d="M11.4 9.6l2.4-1" stroke="#c8963c" stroke-width="1" stroke-linecap="round"/></svg>';
 /** A rebellion: a broken chain. */
@@ -248,7 +303,7 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   season: LINE_ICONS.season,
   laurel: LINE_ICONS.ambition,
   crime: LINE_ICONS.crime,
-  plague: BOWL_ICON,
+  plague: BRAZIER_ICON,
   sickness: BOWL_ICON,
   monument: LINE_ICONS.monument,
   breakout: BREAKOUT_ICON,

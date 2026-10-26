@@ -49,6 +49,8 @@ import { hasStall } from '../sim/goods';
 import { asklepieionSections, HEALTH_QUIET, infirmarySections } from './health';
 // Slice 50: the kit.
 import { actionIcon, buildingIcon, messageIcon } from './icons';
+// Merge of slice 50 with slice 49.
+import { walkerFigure } from './icons';
 import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -222,7 +224,9 @@ function walkersBlock(s: SimState, b: Building): string {
     const what = loaded.length && (k === 'cart' || k === 'sledge' || k === 'porter' || k === 'shipper') ? ` · ${[...new Set(loaded.map((w) => WARE_NAMES[w.food as Ware]).filter((x) => x))].join(', ')}` : '';
     const home = ws.filter((w) => w.back).length;
     const state = k === 'convict' ? '' : home === ws.length ? ' · on the way back' : home ? ` · ${home} on the way back` : ' · out';
-    rows.push(`<li><span>${esc(cap(walkerWords(k, ws.length)))}${esc(state)}${esc(what)}</span>${kbtn({ act: 'follow', data: { kind: k, walker: ws[0].id }, icon: 'follow', html: 'Follow', small: true, tip: `Follow ${walkerWords(k, 1).replace(/^\d+ /, '')} through the streets` })}</li>`);
+    // (Merge of slice 50 with slice 49: the physician and the stretcher-bearers drawn beside their row.)
+    const fig = walkerFigure(k);
+    rows.push(`<li>${fig ? `<span class="wfig">${fig}</span>` : ''}<span>${esc(cap(walkerWords(k, ws.length)))}${esc(state)}${esc(what)}</span>${kbtn({ act: 'follow', data: { kind: k, walker: ws[0].id }, icon: 'follow', html: 'Follow', small: true, tip: `Follow ${walkerWords(k, 1).replace(/^\d+ /, '')} through the streets` })}</li>`);
   }
   const towards = [...coming].map(([k, n]) => (n === 1 ? `${/^[aeiou]/.test(walkerWords(k, 1)) ? 'an' : 'a'} ${walkerWords(k, 1)}` : walkerWords(k, n))).join(', ');
   if (!rows.length && !towards) return '';

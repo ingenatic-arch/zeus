@@ -16,7 +16,7 @@
  *   held down, a boss repeats.
  * - `ktoggle`: a switch (a sunk groove, a bronze knob, lapis when on).
  * - `kslider`: a range in a sunk groove.
- * - `kbar`: a sunk groove filled in a tone, with a tick (a limit, what is kept).
+ * - `kbar`: a sunk groove filled in a tone (or a colour of its own), with a tick (a limit, what is kept).
  * - `kpips`: a row of sockets, each filled by its state.
  * - `kchip`: a small plaque for a price or a count.
  * - `kcard`: parchment in a thin bronze frame.
@@ -112,10 +112,12 @@ export function kslider(o: { value: number; min: number; max: number; step?: num
 export type BarTone = 'stock' | 'strength' | 'good' | 'danger' | 'wear' | 'stone' | 'sea';
 
 /** A bar: `value` of `max` filled in its tone; `tick` (0 to 1): a mark (a limit, what is kept); `html`: words inside it. */
-export function kbar(o: { value: number; max: number; tone?: BarTone; tick?: number; tip?: string; html?: string; cls?: string }): string {
+export function kbar(o: { value: number; max: number; tone?: BarTone; tick?: number; tip?: string; html?: string; cls?: string; fill?: string }): string {
   const pct = o.max > 0 ? Math.max(0, Math.min(100, (o.value / o.max) * 100)) : 0;
   const tick = o.tick !== undefined && o.tick > 0 && o.tick < 1 ? `<em style="left:${(o.tick * 100).toFixed(1)}%"></em>` : '';
-  return `<span class="k-bar ${o.tone ?? 'stock'}${o.cls ? ` ${o.cls}` : ''}"${tipAttr(o.tip)}><i style="width:${pct.toFixed(1)}%"></i>${tick}${o.html ? `<b>${o.html}</b>` : ''}</span>`;
+  // (Merge of slice 50 with slice 51: `fill`, a colour of its own, as each of the overview's services has its overlay's.)
+  const fill = o.fill ? `background:${esc(o.fill)};` : '';
+  return `<span class="k-bar ${o.tone ?? 'stock'}${o.cls ? ` ${o.cls}` : ''}"${tipAttr(o.tip)}><i style="${fill}width:${pct.toFixed(1)}%"></i>${tick}${o.html ? `<b>${o.html}</b>` : ''}</span>`;
 }
 
 /** A pip's state: a place filled by a man ready, waiting for armour, wounded, walking in, away; or empty. */
