@@ -40,7 +40,7 @@ At `0f9dc87`, on a loaded machine (load about 4 on 4 cores, other lines' browser
 |---|---|
 | Tests | 780 in 59 files, all passing (4 min 7 s) |
 | Build | 2.9 s with the prepared towns cached |
-| Download, loads and frame work | the loosened `measure.mjs` at `0f9dc87` (`dist` built at the starting commit), side by side with this slice's build in the check-in's Measurements |
+| Download, loads and frame work | the loosened `measure.mjs` on `dist` built at `0f9dc87`: the game 993 KB gzipped, prepared towns 4,433 KB gzipped, the bare link ready at 1.49 s, 165 demos with a median load of 1.38 s and none over 3 s (slowest `#delta` 2.53 s) |
 
 ## Design decisions
 
@@ -88,4 +88,59 @@ At `0f9dc87`, on a loaded machine (load about 4 on 4 cores, other lines' browser
 
 ## As built
 
-(To be filled in.)
+Commits: `97019e7` (plan), `572a1c8` (`#order` and `#bigwoods`), `6777ba7` (leftovers), `cd32a09` (tuning), `78f335e` (the look pass), `121b4df` (`#order` sells its wheat to Athens), `a6d063d` (the families test), `074af16` (the health line's rank under the top bar), and the check-in. State version stays **47**: nothing saved was added.
+
+**`#order`** (`orderTown` in `src/game/demos.ts`, view `order` in `views.ts`) is built as planned on `{ kind: 'delta', size: 192, seed: seedOf('order') }`, with what the build needed on top: the careful answerer (`answerCarefully`: never borrows; takes an offer, meets a request or a demand only with three months' wages to spare), heavy taxes kept throughout (the plan's switch to fair taxes left the treasury too thin), a second shrine, three olive groves, an east quarter (`ORDER_MARGIN` 400 dr over its cost before it is laid, so no wage is ever owed), an east agora with oil, fleece and wine stalls, a dairy and a lodge, a watch post by the farms, three more farms so the granary can spare the settlers' wheat (`FOUND_WHEAT`), and a caretaker that rebuilds what burns or falls, stalls and store rules included. The second colony goes to the first open site (Naxos was Rhodes'). The law: theft and vandalism to prison, arson to death, smuggling a fine. It plays two years after the last building, then waits (at most `ORDER_TRIES` = 4 calls of Athens' ship) for a gang in its den and someone in prison, and starts the plague in Athens a fortnight before her ship is due. After the colonies are founded it sells wheat to Athens (Athens buys wheat, meat and cheese, not the oil and wine switched on with the route, whose tab said "nothing switched on"). It opens 16 Dec 744 BC with 1,909 people in 103 homes (41 villas), 7,813 dr, the Aristomache gang in its den, two in prison, Nea Thasos (held by the Arcadian company) and Nea Kythnos, the quay storehouse fetching oil and wine and taking nothing else, plague warned in Athens, 394 messages and 24 months of annals. Setup takes about 13 s at build time.
+
+**`#bigwoods`**: `kindTown('woods', 256, 'acorn')` on the `land` view.
+
+**Smoke and measure**: `smoke.mjs` opens `#order-paused` and checks the land, homes, a level 6, the gang, the law and a prisoner, physicians and the plague warned with no outbreak, 200 messages or more, a store rule set to Get, the company away at Nea Thasos and its page, a month on with 80% of the people; and `#bigwoods-paused` on its land. `measure.mjs` adds `#order` (load, views, people, save size, a frame's work at 960 × 540 and 1920 × 1080) and `#bigwoods` (load, bake, triangles at its opening and furthest views, frame work). `tests/saves.test.ts` round-trips `#order`.
+
+**Leftovers fixed** (`6777ba7`):
+- `shipNews` (`trade.ts`): the Tyrian ship held off by a quarantine says "Held · quarantine", she waits out at sea.
+- A quarantine holds the settlers on the quay (`colonies.ts`: the founding's days wait, nobody is rowed out) and a gift in the city (`diplomacy.ts`), each saying why. Tribute you pay and what a ruler asked for sail as gifts do (a gift with its deal), so they wait too.
+- A vassal's loyalty words (`vassals.ts`): "your army smaller than its own", or "not yet large enough to awe it (about N would)".
+- A colony's militia carries its own banner (`render/army.ts`: your city's colours turned about, its colony's initial and name). Marching it by hand is kept: slice 34's aid companies march by hand too, so the plan's "refuse it as for aid companies" was wrong about them.
+- The health town line comes right after the debts (`status.ts`), not last; and (`074af16`) the top bar's own order and weights (`townlines.ts`) put it after a raid, a battle and an alarm, before a fire, since they decide what folds: `#order`'s plague warning had been folded under "+1 more".
+- The sick at their doors in a pale blue blanket, 1.3 times larger; the quarantine pennant 1.8 times larger (`render/health.ts`).
+- Tests for the first two in `tests/health.test.ts`.
+
+**Tuning** (`cd32a09`): one constant. `SPREAD_CHANCE` (`health.ts`) 0.02 → 0.008: `#town` with no physicians lost 22, 82, 96 and 71 a year over four years (ill 216 to 1,017 a year), against the spec's "about 50"; after, 6, 24, 25 and 24 (ill 42 to 344), and it grows to 1,285 instead of stalling at 1,210. `#plague` with no quarantine and no infirmary: 71 dead in its year before, 57 after (210 ill instead of 426), and it still grows. Left as they are, with the numbers for Oliver: colony trade at 4 dr a settler (about 8 to 13% of `#order`'s taxes); the law's deterrence (fines left 52, 38 and 21 thefts a year in `#order`, prison 27, 25 and 29, death 22, 9 and 0, and harsh law costs nothing standing, only rulers' memories when a sentence is passed); the watch against crime (`#order`'s thefts fall from 31 to 6 a year as its posts cover the hut street). The families test (`tests/people.test.ts`) now allows for a partner who died of a fever before the move (with fevers spreading less, `#missing`'s history moved and showed it).
+
+**The look pass** (`78f335e`):
+- Home panel (`household.ts`): root `household home kit`, `khead` with a picture by level (tent, thatched hut, tiled house, the estate's drawing for a villa or estate), `ksec` sections with icons, `kitHtml`.
+- Side panel's other tabs (`sidepanel.ts`): wrapped in `kit k-side` and passed through `kitHtml`; `kh` headings with icons (a new export of `kit.ts`, which `ksec` now uses), `kbar` for the homes, services and places bars, `kbtn` for the tax rate and the ledger. Military and Monuments were on the kit already.
+- Route tables (`routes.ts`): `ktoggle` for sell and buy, `kstep` for keep and up-to; `routeEvent` takes the switch's click (no `change` events any more). The old checkbox and stepper CSS is gone from `style.css` and `kit.css`; the map of Greece's 376 px panel closes the table up so the stepper and the quay column fit.
+- Trireme bars on the Army tab: tone `sea` with the fit mark, as in the shipyard.
+- Town lines (`townlines.ts`, `kit.css`): root `townlines kit`; parchment in the thin bronze frame, the icon in a socket ringed in the line's colour (the skin's frame had hidden the old coloured left edge); "+N more" a bronze plaque.
+- The quay picture (`trade.ts`) draws your own ships at anchor off the jetty (`bayShips`: a colony's cargo with its sacks, a company's passage, a militia's in red), nearer than the route ships, three at the most, each with its hover's words as its tip.
+- Close buttons: `data-tip` on the home, building, trade, shipyard, messages, ambitions and Greece panels (the ledger and the message pop-ups are not kit panels and keep `title`).
+- The overview's tabs under 1500 px wide drop their icons and close up (`overview.css`): at 1366 × 768 every name shows whole. Distribution's sparklines are fitted to their own range, never closer than 30 points (`chart`'s new `fit`).
+- Help: "Space: pause or carry on, even with a panel's button in focus (Enter presses the button)".
+- Looked at, at 1920 × 1080 and 1366 × 768: the home panel, every side tab, the trade panel's Athens route, the map of Greece's Trade tab, the court, prison, infirmary, quay storehouse and watch post panels, the overview's City, Distribution, Crime, Health, Empire and Army pages, the Messages panel, the quay picture with a company's ship at anchor (`#colonybase`), and the sick at a door in `#physicians`.
+
+**Touched outside the line** (files of other slices): `src/sim/trade.ts`, `colonies.ts`, `diplomacy.ts`, `vassals.ts`, `status.ts`, `health.ts`; `src/render/army.ts`, `render/health.ts`, `render/greece/index.ts` (its close button); `src/ui/household.ts`, `townlines.ts` (its order and weights too), `sidepanel.ts`, `routes.ts`, `trade.ts`, `armytab.ts`, `shipyard.ts`, `buildingpanel.ts`, `messages.ts`, `ambition.ts`, `help.ts`, `overview.ts`, `overview.css`, `icons.ts` (`buildingIcon` takes any build button's name), `kit.ts` (`kh`), `kit.css`, `style.css`; `tests/health.test.ts`, `tests/people.test.ts`. No `MAP_SIZE` was added anywhere.
+
+**Recorded for later** (not fixed): war fleets never prey on a free ally's coin ships; the delta's and islands' anchorage past a wide shelf and the third ship anchoring shallow (not seen in `#order`'s bay); Sparta's or Rhodes' label fading and overlapping triremes at the jetties on the map of Greece; the new-game preview on the main thread; the wooded coast's opening; the delta's road over the knoll; the dry plain's site; faint far-band lines; routes' far anchorage; whether the overview's refresh stutters on a real laptop; a widow stays "wife of" a husband who died (seen in the families test); harsh law has no standing cost; the militia's banner not yet seen on screen in a screenshot (the drawing is in code only).
+
+**Checks before the check-in**
+
+The starting build (`0f9dc87`) and this slice's, measured with the same loosened `measure.mjs` on this machine: headless, software WebGL, load about 4 on 4 cores for the first run and about 8 for the second (the full smoke and the tests ran beside it), so every time below is noisy, the second's more so.
+
+| What | Before (`0f9dc87`) | After |
+|---|---|---|
+| Tests | 780 in 59 files, all pass (4 min 7 s) | 783 in 59 files, all pass (5 min 24 s, under load) |
+| Build | 2.9 s with the prepared towns cached | about 4 s cached; 1 min 37 s when the demos bake again (`#order` takes about 13 s of it) |
+| The game itself | 2,990 KB, 993 KB gzipped | 3,000 KB, 997 KB gzipped |
+| Prepared towns | 123 files, 4,433 KB gzipped (largest 57 KB) | 125 files, 4,520 KB gzipped (largest 82 KB, `#order`) |
+| The bare link, ready (page's clock) | 1.49 s | 1.67 s |
+| Every demo's load at 1920 × 1080 | 165 demos, median 1.38 s, slowest `#delta` 2.53 s, none over 3 s | 167 demos, median 1.67 s, slowest `#delta` 2.39 s, then `#lend` 2.21 s and `#order` 2.15 s, none over 3 s |
+| `#order` | (new) | ready at 2.05 s, first frame 3.44 s; its view 2.52 M triangles and 150 draw calls, the overview 2.94 M and 204; 1,909 people, 173 walkers; a save of 429 KB |
+| `#order`, a frame's work before drawing | (new) | 19.7 ms at 960 × 540, 17.8 ms at 1920 × 1080; `#empire` in the same run 25.6 ms (13.8 ms in the quieter first run) |
+| `#bigwoods` (256, woods) | (new) | baked in 392 ms, ready at 2.11 s; opening 2.66 M triangles and 117 draws, furthest 4.76 M and 227 (`#landlarge`, 256, plain: 1.84 M and 95, 2.58 M and 171); 1.2 ms a frame before drawing |
+| Triangles and draw calls in every earlier view | | identical |
+| The smoke (loosened timeouts) | | every check passes, `#order`'s and `#bigwoods`' included (50 min) |
+
+- **Every earlier demo opens exactly as before.** I opened all 165 earlier demos from the starting build and from this one, paused, and compared the date, people, money, homes, levels and buildings: all 165 are the same. The fever change moves a demo's history only after it opens, once its homes fall sickly (the families test caught it in `#missing`).
+- **Saves**: no format change; the version 37 save in the tests loads, and `#order` saves and loads round.
+- **The budgets**: every demo is under 3 s. `#order`'s frame work is about three quarters of `#empire`'s in the same run. `#bigwoods` at its furthest is the heaviest view in the game, about 1.8 times `#landlarge`'s, almost all of it trees and timber. Headless software rendering can't say what that does to a laptop's frame rate. I left it as it is and would like you to look at it on a real machine; if it stutters, thinning the far trees is the fix I'd try.

@@ -2,6 +2,68 @@
 
 Notes to Oliver, newest first.
 
+## Slice 52 — A city in order (26 Oct)
+
+The phase's last slice puts everything the phase built into one town, `#order`, on a generated river delta: streets up to villas, a gang in its den, a court and a prison with men inside, physicians out, two colonies, a storehouse with its rules, two years of messages and charts, and plague reported in Athens with her ship on the way. Around it, one number tuned, the panels slice 50 left behind brought onto the kit, a large wooded land measured, and the small leftovers from the phase's reviews closed. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Ordinary fevers spread less.** Without an infirmary, `#town` lost 70 to 95 people a year to fever; the spec wanted about 50. One constant (how likely a fever jumps to a sickly neighbour) went from 0.02 to 0.008, and it now loses about 25 a year. Every demo opens exactly as before, but any demo whose homes fall sick plays on a little differently after it opens (see Measurements).
+- **No save format change** (state version 47). Saves load as before, the version 37 fixture among them.
+- **The route tables' switches are buttons now**, not check boxes, on the trading post's route tabs and on the map of Greece.
+
+### What's new
+- **`#order`.** A town of about 1,900 on a generated medium delta, built up over six years as a careful player would (never borrowing, heavy taxes, paying for each step only with a month's wages to spare). It has the Aristomache gang in a hut street by the road in, a court with the law set (theft and vandalism to prison, arson to death, smuggling a fine) and two men in prison, an infirmary with its physicians on their rounds, Nea Thasos (held by an Arcadian company) and Nea Kythnos, the quay's storehouse set to fetch the ship's oil and wine and take nothing else, wheat sold to Athens, 394 messages and 24 months of annals. Plague is reported in Athens and her ship is 14 days out: you can order a quarantine, or not.
+- **`#bigwoods`.** A founded large (256) wooded land, the heaviest land there is, for the budgets.
+- **The home panel on the kit.** A carved plaque with a picture of the house as it stands (a tent, a thatched hut, a tiled house, a villa), and its sections under carved rules with icons, like the building panels.
+- **The side panel's other tabs on the kit.** Population, the goods tabs, Hygiene and safety, Administration, Culture, Mythology and a good's page now have the kit's headings with icons, sunk bars and bronze buttons.
+- **The route tables** use the kit's own switch and stepper (hold the stepper to repeat), and fit the map of Greece's narrower panel.
+- **The town lines under the top bar** are parchment cards in the bronze frame, each icon in a socket ringed in its line's colour (the frame had been hiding the coloured edge).
+- **Your own ships in the quay picture.** A colony's cargo ship, a company's passage and a colony's militia ship ride at anchor off the jetty, with their tips.
+- **Smaller fixes from the reviews.** Tyre's ship held by a quarantine says she waits out at sea, not "Ship in N d"; a quarantine also keeps your settlers on the quay and your gifts and tribute in the city; a vassal's loyalty no longer calls an army larger than its own "too small to fear"; a colony's militia carries its own banner; the health line (a plague, a fever, a quarantine) now stands at the head of the lines under the top bar, not folded out of sight under "more"; the sick at their doors have a pale blue blanket and are larger, and the quarantine pennant is larger; one tone (the sea's) for a trireme's hull and oars everywhere; the close buttons use the kit's tip; at 1366 × 768 the overview's tabs show their names whole; Distribution's little charts are scaled to their own range, so a service that wavers shows it; and the help says Space pauses even with a panel's button in focus (Enter presses it).
+
+### What to try
+1. #order — play it for a few years. Look at the gang's den (the hut street by the road in), the court and the prison, the infirmary, the quay storehouse's rules, Nea Thasos on the map of Greece, and the overview's pages. Then decide about Athens' ship.
+2. #order — click a villa for the new home panel, and go through the side panel's tabs.
+3. #order — open the trading post's Athens tab, and Athens' Trade tab on the map of Greece (Tab), for the new switches and steppers.
+4. #physicians — the sick at their doors in their blue blankets.
+5. #colonybase — station the company at Nea Naxos, then open the trading post to see your ship at anchor in its picture.
+6. #bigwoods — the large wooded land.
+7. #order-plain and #order-modern — the other two looks.
+
+### What I'd like your eye on
+- **Does `#order` read as a city in order?** Is it clear where you stand, what threatens you and why, from the town lines, the overview and the panels? It opens with 14 homes in trouble in the top bar's count, most of them short of meat or fleece, and four lines under the bar: the plague in Athens, a fire risk on the headland, meat, and the gang.
+- **The fever rate.** About 25 deaths a year in a town of 1,300 with no physician, a handful with one. Too gentle now?
+- **The law.** Harsh law is cheap: in `#order`, with every crime punished by death, thefts fall to none within two years, and the only cost is the kind rulers' memories when a sentence is passed. Fines leave about 20 to 50 thefts a year, prison about 25. Should harsh law cost something while it stands (the city's mood, say)? I left it, as it would be a new rule.
+- **Colony trade** brings in about 8 to 13% of what taxes do in `#order` (4 dr a settler a year). I left it; 5 dr would be my next step if it feels thin.
+- **The home panel's pictures** and **the town lines' sockets**: do they read, at a glance?
+
+### Known rough edges
+- `#order` takes about 13 seconds to build when the demos are baked (once, at build time). It opens quickly from the link.
+- Not fixed, recorded for later: war fleets never prey on a free ally's coin ships; an anchorage past a wide shelf on some deltas and islands (not seen in `#order`); Sparta's or Rhodes' label sometimes faded and two triremes overlapping at the jetties on the map of Greece; the new-game preview drawn on the main thread; the wooded coast's opening, the delta's road over the knoll and the dry plain's site; faint far-band lines; whether the overview's refresh stutters on a real laptop.
+- A widow stays "wife of" a husband who died of a fever (found by a test); the words don't change when a household loses its head or a partner.
+- The militia's new banner is drawn in code; I didn't catch a militia in the city in a screenshot.
+
+### Measurements
+The starting build (`0f9dc87`) and this slice's, measured with the same loosened `measure.mjs` on this machine: headless, software WebGL, load about 4 on 4 cores for the first run and about 8 for the second (the full smoke and the tests ran beside it), so every time below is noisy, the second's more so.
+
+| What | Before (`0f9dc87`) | After |
+|---|---|---|
+| Tests | 780 in 59 files, all pass (4 min 7 s) | 783 in 59 files, all pass (5 min 24 s, under load) |
+| Build | 2.9 s with the prepared towns cached | about 4 s cached; 1 min 37 s when the demos bake again (`#order` takes about 13 s of it) |
+| The game itself | 2,990 KB, 993 KB gzipped | 3,000 KB, 997 KB gzipped |
+| Prepared towns | 123 files, 4,433 KB gzipped (largest 57 KB) | 125 files, 4,520 KB gzipped (largest 82 KB, `#order`) |
+| The bare link, ready (page's clock) | 1.49 s | 1.67 s |
+| Every demo's load at 1920 × 1080 | 165 demos, median 1.38 s, slowest `#delta` 2.53 s, none over 3 s | 167 demos, median 1.67 s, slowest `#delta` 2.39 s, then `#lend` 2.21 s and `#order` 2.15 s, none over 3 s |
+| `#order` | (new) | ready at 2.05 s, first frame 3.44 s; its view 2.52 M triangles and 150 draw calls, the overview 2.94 M and 204; 1,909 people, 173 walkers; a save of 429 KB |
+| `#order`, a frame's work before drawing | (new) | 19.7 ms at 960 × 540, 17.8 ms at 1920 × 1080; `#empire` in the same run 25.6 ms (13.8 ms in the quieter first run) |
+| `#bigwoods` (256, woods) | (new) | baked in 392 ms, ready at 2.11 s; opening 2.66 M triangles and 117 draws, furthest 4.76 M and 227 (`#landlarge`, 256, plain: 1.84 M and 95, 2.58 M and 171); 1.2 ms a frame before drawing |
+| Triangles and draw calls in every earlier view | | identical |
+| The smoke (loosened timeouts) | | every check passes, `#order`'s and `#bigwoods`' included (50 min) |
+
+- **Every earlier demo opens exactly as before.** I opened all 165 earlier demos from the starting build and from this one, paused, and compared the date, people, money, homes, levels and buildings: all 165 are the same. The fever change moves a demo's history only after it opens, once its homes fall sickly (the families test caught it in `#missing`).
+- **Saves**: no format change; the version 37 save in the tests loads, and `#order` saves and loads round.
+- **The budgets**: every demo is under 3 s. `#order`'s frame work is about three quarters of `#empire`'s in the same run. `#bigwoods` at its furthest is the heaviest view in the game, about 1.8 times `#landlarge`'s, almost all of it trees and timber. Headless software rendering can't say what that does to a laptop's frame rate. I left it as it is and would like you to look at it on a real machine; if it stutters, thinning the far trees is the fix I'd try.
+
 ## Slice 50 — A new look for the panels (26 Oct)
 
 The panels and sub-menus now share one kit in the original look: parchment and marble, carved headings, bronze plaques with drawn icons, proper steppers, switches, bars and pips, and one tip that works the same everywhere. The Army tab and the trading post, the two you sent screenshots of, are rebuilt on it, and every other panel the spec named has moved onto it too. You weren't here while it was built: every choice below is mine, from the spec's defaults.
