@@ -229,7 +229,8 @@ describe('sickness', () => {
       if (!s.health.sick.some((x) => x.home === sick.id)) makeSick(s, sick, 30);
     };
     hold();
-    for (let d = 0; d < 120; d++) {
+    // (Slice 52: the spread is gentler, so it is held longer: was 120 days.)
+    for (let d = 0; d < 300; d++) {
       hold();
       sim.run(TICKS_PER_DAY);
     }

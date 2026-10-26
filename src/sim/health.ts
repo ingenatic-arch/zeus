@@ -161,7 +161,9 @@ export const SICK_ODDS = 600;
 /** A sick home gives every home within SPREAD_TILES below SPREAD_BELOW this chance a day. */
 export const SPREAD_TILES = 3;
 export const SPREAD_BELOW = 45;
-export const SPREAD_CHANCE = 0.02;
+// (Slice 52: was 0.02. Played four years, #town with no physicians had 900 to 1,000 fall ill a year and 70 to 96 die, and stopped
+// growing at about 1,250; at 0.008, 200 to 340 ill and about 25 dead a year, the plague's toll in #plague about as before.)
+export const SPREAD_CHANCE = 0.008;
 /** How long an illness lasts, in days: a fever and the plague. */
 export const SICK_DAYS: readonly [number, number] = [10, 20];
 export const PLAGUE_SICK_DAYS: readonly [number, number] = [8, 14];
