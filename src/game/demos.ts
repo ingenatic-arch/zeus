@@ -4278,7 +4278,7 @@ export function orderTown(sim: Sim): void {
   afford(14 * PLOT_COST + FOUNTAIN_COST + JOBS.fountain * WAGE);
   send({ type: 'plots', at: [...oalong([4, 6, 8, 12, 14, 16], 125), ...oalong(steps(4, 16), 128)] });
   send({ type: 'fountain', at: [O(10, 125)] });
-  // A sea route to Athens, selling it oil and wine.
+  // A sea route to Athens, selling it oil and wine (if it buys them).
   afford(routeWay('athens', 'sea')!.fee + 300, 2 * TICKS_PER_YEAR);
   if (!routeRefusal(s, 'athens', 'sea')) {
     send({ type: 'route', city: 'athens', kind: 'sea' });
@@ -4339,6 +4339,9 @@ export function orderTown(sim: Sim): void {
   }
   const second = found('naxos');
   playOn(TICKS_PER_YEAR, () => !!colonyOf(s, second) || !foundingOf(s, second));
+  // (Slice 52's look pass: Athens buys wheat, meat and cheese, not the oil and wine switched on with the route, so its route
+  // showed "nothing switched on". With the colonies founded, the granary's wheat beyond what the city keeps goes to Athens.)
+  send({ type: 'deal', city: 'athens', kind: 'sea', good: WHEAT, sell: true });
   // Two years on, so every page of the overview has two years of charts.
   playOn(2 * TICKS_PER_YEAR);
   // Then on to a fortnight before Athens' ship is due with a gang in its den and someone in the prison (trying again a
