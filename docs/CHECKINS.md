@@ -72,6 +72,7 @@ The starting build (`f83499b`) and this slice's, measured side by side on this m
 - **The goods stacked on the quay picture** show what they are in the same tip as everything else, not the browser's plain one.
 - **A trade route's tab** (Corinth by road, Athens by sea) had kept the browser's blue tick boxes for sell and buy. They are now the same switches as the Tyre tab, and its words say "switch on" instead of "tick".
 - What I checked, at 1920 × 1080 and 1366 × 768, in the original look and in -modern and -plain: every step under What to try, the map of Greece's pages and rarer boxes, the shipyard, the court, the Monuments tab, the Messages, the Ambitions and the new-game screen; the tip on hover, on keyboard focus and on disabled buttons with their reasons, and that it never covers what it describes; the gold focus ring and the Tab order through the Army tab and the trading post. Whether it all looks right is for you to judge.
+- After these fixes the tests (745) pass, the smoke's checks for the panels this slice touched pass, and the measure is as before: the same download size, every demo under 3 seconds.
 
 ## Slice 46 — Many lands (25 Oct)
 
