@@ -2,6 +2,58 @@
 
 Notes to Oliver, newest first.
 
+## Slice 49 — Physicians and plague (25 Oct)
+
+Every home now has a health, from 0 to 100, with its reasons, and people in sickly homes fall ill, stay home from work, and mend or die. The infirmary sends physicians on their rounds and the asklepieion sends stretcher-bearers to carry the sick to its beds. Plague comes in from Greece on a ship or a caravan, or rises in a crowded quarter in summer, always with a warning first, and a quarantine can close the quay and the roads for a season. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Saves.** The state version is now 44. Older saves load with health on if crime was on (a game being played), every home taking its fair level on its first day, nobody sick, no plague and no quarantine. A version 37 save loads and plays on.
+- **Earlier demos open exactly as before.** I compared all 113 earlier prepared towns with the starting commit's build: identical apart from the new health fields and the one extra order that switches health on. Health switches on as each demo opens, and nobody falls ill for the first four months and no plague comes for the first year, so they play on as before for a good while.
+- **The infirmary and the asklepieion are on Z** (six and seven times, after the court and the prison), and in the Hygiene and safety group. **J** now goes on from crime to the health overlay before switching off.
+- **A new line under the top bar** for health: plague in the city, a fever in a crowded quarter, plague in a city you trade with, or a quarantine. It ranks below every other line.
+- **The court's "Lately"** reads the town's message log, so it always shows the last five sentences, however busy crime is. **The stocks** stand at the agora's corner facing the camera, the **convict** wears a paler tunic with his hands bound behind him, and the **watchman** walks a step behind him (slice 45's review).
+
+### What's new
+- **Health in every home.** Each lived-in home has a health from 0 to 100. It moves a little each day toward a fair level of 50 plus its reasons: water close at hand, food (more kinds help more), a physician's call this month or this season, an asklepieion nearby. Hunger, a full house, winter, no water and foul air from a hunting lodge, a dairy, a pasture or the caravan yard pull it down. The household panel shows it as a word (Healthy, Well, Sickly, Ailing), a bar, whether it is rising or falling, the reasons, and who is sick and for how long.
+- **Sickness.** A home below 35 can fall ill. The sick one stays home from work and coughs at the door, a bent figure in a blanket. They mend after 10 to 20 days or die. A physician's visit halves the chance of dying, and a bed in the asklepieion cuts it to a third. Sickness spreads to weak neighbours, never to healthy ones. Deaths are told in the household's story and the town's news.
+- **The infirmary** (Z six times, 150 dr, four workers). It sends physicians in white robes, each with a bag and the snake-wound staff, on rounds in crews of three. They call on every home beside their way and tend anyone sick there. Its panel shows how many homes round it were called on this month, the sick at home, the city's health and its plague risk with the reasons.
+- **The asklepieion** (Z seven times, 600 dr, twelve workers). It is a walled sanctuary with a small temple, a spring, an altar, an herb garden and a colonnade of eight beds. Pairs of stretcher-bearers carry the worst of the sick there by road. In a bed they mend sooner and die a third as often. Homes within 12 tiles are healthier, and plague spreads half as fast among them.
+- **Plague.** A city of Greece can fall to plague, about once in a dozen years each. If you trade with it, you are warned at once, with where its ship or caravan is. A trader of theirs who arrives ten or more days after the warning brings it ashore at the homes nearest the quay or the yard. It pops up as an alarm, then spreads to weaker homes within 5 tiles for about two months. Struck houses smoke with a brazier of herbs at the door, families flee the city, and the whole city's mood drops. It always ends, and you are told its toll. A crowded, sickly quarter in summer can also become feverish (warned of), and if it lasts 20 days, plague breaks out there.
+- **Quarantine.** You can order one from the trade panel (where the warning sends you) or from the infirmary's and asklepieion's panels. For a season (90 days), or until you lift it, ships ride at anchor off the quay, caravans turn back at the edge, the dockers stay in and a colony's ship waits. No plague can land, and no trade comes in or goes out. A yellow pennant flies at the trading post and the caravan yard. Lift it and everything resumes from where it stood.
+- **The health overlay** (J, or the side panel's Health): roads the physicians have walked lately, each home tinted green, amber or red with a short column for how far below healthy it is, a sky-blue marker over a home with someone sick, plum for plague. A key under the top bar explains the colours.
+- **Built for slice 51's Health page**: the city's figures (the sick, the physicians' coverage, the average health, the plague risk and its reasons) are there for the overview to show.
+
+### What to try
+1. #physicians: opens paused on the hut streets with the health overlay on. The new infirmary at the end of the street has sent out its first physician, and three homes have someone sick. The panel of Nikarete's hut is open: "Sickly", what holds its health down, and "Nikarete: sick with a fever, at home, no physician has seen her yet". Zoom in to see the sick at their doors and the physician, in white, walking her round. Press space and watch the bars rise as she calls. Click the infirmary for its panel.
+2. #plague: opens paused on the sea-trading town. Plague has broken out in Athens, and her ship is sailing in, due at the jetty in 14 days. The line under the top bar and the trade panel's quarantine row both say so. Try one of three things:
+   - **Order a quarantine** on the trade panel and play on. Her ship anchors off the quay and waits, and the yellow pennant goes up at the trading post. Lift the quarantine and she ties up.
+   - **Build an asklepieion or an infirmary** near the homes at the bottom of the town (Z seven or six times) before she arrives. The plague then stops at the first house.
+   - **Let her in.** The plague comes ashore at the fine houses nearest the quay road and spreads street to street. Braziers smoke at the struck doors and families walk out of the city.
+3. #physicians-modern, #plague-plain and so on: the same in the other looks.
+
+### What I'd like your eye on
+- **How strong the answers are.** With neither an infirmary nor an asklepieion, a plague in #plague's town struck 39 homes, killed 44 and drove 11 households out in about two and a half months. With either one built near the quay, it stopped at the first house, every time I tried. Is one infirmary too complete an answer?
+- **The sick at their doors and the braziers** at the city's usual zoom. Both are small. The brazier's smoke is a pale, slightly green column. Can you pick out a struck street without the overlay?
+- **The physician and the bearers.** Do the white robe and staff read as a physician among the town's carriers? Do the two men with a litter read as bearers?
+- **The overlay**: with every home tinted and a column over each one below healthy, the hut streets get busy. Is it readable?
+- **Both demos are staged**: the three sick homes in #physicians and the plague in Athens in #plague are set off by hand so you don't have to wait for them. From then on everything runs by the rules.
+
+### Known rough edges
+- A quarantine doesn't stop tribute, gifts or colonists sailing out, and settlers still come in.
+- At the city's usual zoom, the sick at their doors are hard to tell from other people standing about.
+- The health line under the top bar ranks below every other line, so in a busy town a fever's warning can sit behind a shortage.
+- The asklepieion's patients lie under its colonnade's roof and are hard to see from the city's usual angle; the panel lists them.
+- The overlay's columns block the view of the street when you zoom right in. Switch it off (J) to look closely.
+
+### Measurements (before and after)
+All taken headless on this machine, in software, while other work was running on it, so the times swing a lot from run to run. "Before" is the build at the start of the slice.
+- **Download:** 5,108 KB compressed, was 5,004. The game itself is 912 KB (was 894); the demos' prepared towns are 4,197 KB (was 4,111), most of the rise being the two new demos.
+- **First load** of a fresh game: ready at 3.4 to 3.6 seconds, was 3.4 to 4.4 in two runs of the old build. Demos: ready in a median of 2.4 seconds over 53 demos (was 4.1 over 52, measured while the machine was busier, and 2.7 over 10 more measured later). A good share of demos on both builds go over 3 seconds here; I don't read a change into these.
+- **Triangles drawn:** in the 121 views of the earlier demos, up by a median 0.08% and at most 0.23%; the number of draw calls is unchanged in every view. #physicians' opening view draws 1.27 million triangles in 76 draw calls, #plague's 1.50 million in 102.
+- **Work per frame** before drawing: a median of 11.7 ms over 63 demos, was 12.6; faster in 35, slower in 28, which is noise.
+- **A saved game** (the town demo) is 190,511 characters, was under 190,000; the check's limit is now 194,000.
+- A first cut drew the stretcher-bearers along with the townspeople, which made every walker in a town cost as much to draw as a bearer and its litter: the earlier views drew 5% more triangles (up to 10%). They are now drawn with the carts, which gave the figures above.
+
 ## Slice 45 — The court and the prison (25 Oct)
 
 The watch no longer just fines the people it catches. Build a court and the watchman walks whoever he catches there, a step behind them, and a magistrate and jurors try them a few days later by a law you set for each kind of crime: a fine, a day in the stocks at the agora, prison, hard labour at the quarry or the mine, exile, or execution (your decision on 25 Oct: "I'm fine with executions"; it is told plainly, without gore). Each punishment holds homes back from crime by how hard it is, and each has a price, which the court's panel spells out. A prison holds those the court sends there. Crowded or short of guards, it grows restless: the town is warned days ahead, and if nothing changes the prisoners break out and run home. You weren't here while it was built: every choice below is mine, from the spec's defaults.

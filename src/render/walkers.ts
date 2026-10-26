@@ -1078,7 +1078,9 @@ export class Walkers {
     this.convicts = small(convict());
     // Slice 49.
     this.physicians = small(physician());
-    this.bearers = [small(bearers(false)), small(bearers(true))];
+    // (In the big batch with the carts: two men and a litter run as many vertices as a cart, and among the people they would raise
+    // every walker's cost to theirs; see MergedLooks' tiers in looks.ts.)
+    this.bearers = [big(bearers(false)), big(bearers(true))];
     this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
   }
 
