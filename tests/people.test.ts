@@ -221,7 +221,9 @@ describe('who moves away', () => {
     let drops = 0;
     let extra = 0;
     for (let t = 0; t < 2 * TICKS_PER_YEAR; t++) {
-      const before = new Map(homes(sim.state).map((b) => [b.id, { level: b.level, people: b.people }]));
+      // (Slice 52: with the names in the house before the step, so one whose partner or parent died of a fever earlier,
+      // since health came on with the demos, is not taken for one left behind by a move.)
+      const before = new Map(homes(sim.state).map((b) => [b.id, { level: b.level, people: b.people, names: new Set((b.family?.members ?? []).map((p) => p.name)) }]));
       sim.step();
       for (const b of homes(sim.state)) {
         const was = before.get(b.id);
@@ -235,7 +237,7 @@ describe('who moves away', () => {
         const here = new Set(f.members.map((p) => p.name));
         for (const p of f.members) {
           const tied = p.role === 'wife' || p.role === 'husband' || ((p.role === 'son' || p.role === 'daughter') && ageOf(sim.state, p) < 16);
-          if (tied) expect(here.has(p.kin), `${p.name}, ${p.role} of ${p.kin}, left behind`).toBe(true);
+          if (tied && was.names.has(p.kin)) expect(here.has(p.kin), `${p.name}, ${p.role} of ${p.kin}, left behind`).toBe(true);
         }
       }
     }
