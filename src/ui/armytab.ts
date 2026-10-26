@@ -128,7 +128,7 @@ function armyInner(s: SimState, map: CoastMap, focus: number, selected: number):
   const arming = s.army.soldiers.filter((x) => x.state === 'arming' && !companyOf(s, x.company)?.ally).length;
   // The muster: the whole strength, by kind, and how many are ready.
   const kinds: string[] = [];
-  const kindChip = (fig: string, n: number, name: string): string => `<span class="k-kind" data-tip="${esc(`${fmt(n)} ${name}`)}">${fig}<b>${fmt(n)}</b><small>${esc(name)}</small></span>`;
+  const kindChip = (fig: string, n: number, name: string): string => `<span class="k-kind" data-tip="${esc(`${fmt(n)} ${name}`)}">${fig}<b>${fmt(n)}</b><small>${esc(name[0].toUpperCase() + name.slice(1))}</small></span>`;
   if (st.hoplites || !st.hirelings) kinds.push(kindChip(unitFigure('hoplite'), st.hoplites, 'hoplites'));
   if (st.archers || !st.hirelings) kinds.push(kindChip(unitFigure('archer'), st.archers, 'archers'));
   if (st.horsemen) kinds.push(kindChip(unitFigure('horseman'), st.horsemen, 'horsemen'));

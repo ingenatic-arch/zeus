@@ -34,8 +34,8 @@ At `f83499b`, on the shared, loaded machine (load 10 to 20 on 4 cores, three lin
 
 | What | Before |
 |---|---|
-| Tests | (filled in below once run) |
-| Build | (filled in below) |
+| Tests | 738 in 56 files, all pass (18 min 2 s, under load) |
+| Build | 6 min 35 s (121 prepared towns baked) |
 | Download, triangles, draw calls, demo loads | the loosened `measure.mjs` at `f83499b` (`scratch-50/dist-before`), side by side with this slice's build (in the check-in) |
 
 ## Design decisions
@@ -82,4 +82,41 @@ At `f83499b`, on the shared, loaded machine (load 10 to 20 on 4 cores, three lin
 
 ## As built
 
-(Filled in at the end.)
+**No state version.** The slice adds no sim state: `SIM_STATE_VERSION` stays 45 and there is no `fromSlice50` (nothing for the integrator to hook at `st.version === 45`). Every prepared town in the build is byte-identical to the starting build's (all 121 chunks the same by content hash), so no history moved.
+
+**The kit** (`src/ui/kit.ts`, `src/ui/kit.css`, `src/ui/icons.ts`) as designed above, plus:
+- `k-seg`, a segmented control (plaques joined in one frame, the chosen one lapis), made for the new-game screen's sizes.
+- `LAND_ICONS`: a little map from above for each kind of land; `tradeIcon(k)`: a trade good's icon by its index in `TRADE_GOODS` (where the Greece pages had colour swatches); `messageIcon` gives every kind of message a drawing, `land` included (`iconOfKind` in `messages.ts` now asks it first, and falls back to its own `KIND_ICON`, so a kind another line adds there still shows).
+- The tip: one element (`#k-tip`), installed once from `main.ts`. It shows any `title` or `data-tip` inside a `.kit` element: on hover after 380 ms, at once on keyboard focus (`:focus-visible`), below its element (above near the screen's foot); gone on leaving, a press, Esc or the mouse wheel. A panel that scrolls itself as it is redrawn only moves the tip with its element (it had put the tip away before it showed). A held stepper boss repeats (after 450 ms, every 110 ms). `window.__zeus.kitTip()` reads it.
+
+**How to move a panel onto the kit** (for slices 49 and 51's panels at their merges, or slice 52): give the panel's root the class `kit` (a `household` panel then gets the parchment, the bronze close boss and the carved section rules for free); build its header with `khead({ title, kicker, sub, pic: buildingIcon(kind) })`, its sections with `ksec(title, body, { icon })` or a plain `<h3>` under `.household.kit`; its buttons with `kbtn({ act, data, icon, html, tip, why })`, keeping the same `data-act` and data attributes so its click handler and the smoke still work (`why` disables it and is its tip; `kwhy(why)` says it under the button too); numbers with `kbar` (a stock, strength or danger bar), `kchip` (a price or a count), `kpips` (people as sockets), `kstep` (a stepper; its bosses carry the `less` and `more` data) and `ktoggle` (a switch, `aria-checked`); and pass the HTML through `kitHtml` before morphing it in (titles become the tip's words). Goods get `goodIcon(ware)`, units `unitFigure(kind)`, buildings `buildingIcon(kind)`, actions `actionIcon(name)`. Avoid generic class names on drawings: the horseman's figure was squashed by the side panel's old `.side-body .wide` until its class was renamed `fwide`.
+
+**Panels moved onto it:**
+- The Army tab (`armytab.ts`): the summary plaque (the soldiers, the companies of yours and the allies apart, a figure and count for each kind, the strength bar, `readyWords`: "All 32 ready" or "16 of 32 ready: 16 wait for armour, …", chips for pay, wounded, without armour and allied), a key to the pips, each barracks under a carved head with its staff as pips, each company a card (figure in a niche, its banner button, what it is doing and a link to where, its tags, its men as pips, men, wounded and pay, its order buttons with icons), the recruit plaques with their figures and why not, the hirelings with their fee and why not; the fleet's triremes as cards with crew pips and hull and oars bars.
+- The trading post (`trade.ts`): the quay picture (`quayPicture`, drawn from the state: the stoa, the quay with a stack for each good waiting, the jetty, the ship by her phase, from a sail on the horizon to tied up and away), the ship's state and bar under it, each good a row (sell switch, icon, name, price chip with the routes' prices in its tip, a bar of the stores' stock with the keep's mark, what is on the quay, a keep stepper that repeats when held); the route and yard tabs with carved heads and ware icons.
+- The building panels (`buildingpanel.ts`): the head plaque, staff pips, the orders as two switches right under the staff, the store's rows one line each (icon, name, a bar of what it holds with the limit's mark, four icon mode buttons with a key above them, a limit stepper; the note under the row only when there is one), condition bars, the follow and own-page buttons. The court's laws and the prison (`justice.ts`) by the stylesheet only: 13 px text, 26 px buttons, the laws as plaques.
+- The Messages panel: kit chips and buttons, icons for every kind, the tip for each row's words.
+- The shipyard: head plaque, trireme cards with figure, crew pips, hull and oars bars marked at the 60 she needs, order buttons with icons, the build plaque with why not.
+- The Monuments tab: each monument a card with its picture, its progress bar and three stage bars; the masons' yards with builder pips; the stores' marble, timber and copper with icons.
+- The Ambitions: parchment in the bronze frame, the columns as cards, the milestones' bars.
+- The new-game screen: each kind of land with its little map, the size as a segmented control, Another with dice, Found and Back as plaques.
+- The map of Greece's pages (ruler, prices, trade, loans, rivals, empire, colonies, vassals): parchment, carved heads, the tabs as plaques, every button a plaque (the main ones lapis, a strike terracotta), deals and offers as cards, sunk bars, and ware icons where colour swatches were (`greece.ts`, `prices.ts`, `routes.ts`, `empire.ts`, `colonies.ts`, `colonygrowth.ts`). Their words and commands are unchanged.
+
+**Slice 48's finding:** at 1920 x 1080 the quay's storehouse shows all eight rows, its orders above them, and its walkers and condition under them without scrolling (the panel is 438 px wide when it has stores, 392 px otherwise, 404 px for the court). At 1366 x 768 the rows and orders fit and the walkers and condition are a scroll away. Row text and buttons are 13 px or more, buttons 26 px.
+
+**Slice 46's findings:** the game's keys behind the new-game screen were already left alone after the merge (the smoke's check passes); the new-game screen is on the kit; the `land` message has its icon; a trading post (or a shipyard) on a lake's shore is refused with "This is a lake, not the sea: the ship can't come in. A trading post goes on the sea's shore" (`onlyLake` in `src/sim/trade.ts`, words only; tested in `tests/kit.test.ts` on a delta's lake). The new-game preview off the main thread is left for slice 52.
+
+**Demos:** `#goods` now opens the trading post's panel too (a Slice 50 line after `DEMOS` in `src/game/demos.ts`; its town is unchanged). No new tokens.
+
+**Touched outside the line** (shared files, each change in a block or line marked "Slice 50"):
+- `src/main.ts`: imports and installs the kit's tip; `probe.kitTip`.
+- `src/game/demos.ts`: `#goods` opens the trading post.
+- `src/sim/trade.ts`: the lake's refusal (`onlyLake`), words only.
+- `src/render/greece/index.ts`: the Greece panel gets the class `kit` and its HTML goes through `kitHtml`.
+- `scripts/smoke.mjs`: checks that followed the old markup now follow the kit's: the trade panel's keep (`.k-good .k-well`) and sell (`button[data-sell]`, `aria-checked`), the in-place check on `.k-goods`, the festival gift's tip (`dataset.tip`), the storehouse's text (the mode words are in the key before the rows), the olive press's and a workplace's text (Orders now under Staff); and the Slice 50 block.
+- `scripts/measure.mjs`: the Slice 50 block.
+- Not shared but other lines' files, changed for the kit: `messages.ts` (slice 44), `buildingpanel.ts` (slice 48), `shipyard.ts`, `monuments.ts`, `ambition.ts`, `newgame.ts` (slice 46), `greece.ts`, `prices.ts`, `routes.ts`, `empire.ts`, `colonies.ts`, `colonygrowth.ts` (slices 43 and 47).
+
+**`MAP_SIZE`:** no new uses.
+
+**Not done, or left:** the household (home) panel isn't restyled beyond the tip (not in the spec's list). The side panel's other tabs (overview, goods, people and so on) keep their look; slice 51's overview moves onto the kit at its merge. Slice 49's infirmary and asklepieion sections and the home's health aren't on this branch; they move onto the kit at the merge (see above).

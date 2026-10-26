@@ -3274,7 +3274,8 @@ await frames(3);
 {
   let j45 = await zeus(() => window.__zeus.justice());
   // (Merge of slice 45: the building's panel, slice 48's, with the court's own sections, its condition, messages and orders.)
-  if (!/Court[\s\S]*Staff[\s\S]*The law[\s\S]*Thieves[\s\S]*Arsonists[\s\S]*Cases[\s\S]*being walked here by a watchman[\s\S]*Lately[\s\S]*arson[\s\S]*Crime, month by month[\s\S]*Its condition[\s\S]*Orders[\s\S]*Pause[\s\S]*Workers first/.test(j45.text)) fail(`#court: the panel: ${j45.text.slice(0, 2000)}`);
+  // (Slice 50: the orders sit under the staff, above the fold.)
+  if (!/Court[\s\S]*Staff[\s\S]*Orders[\s\S]*Pause[\s\S]*Workers first[\s\S]*The law[\s\S]*Thieves[\s\S]*Arsonists[\s\S]*Cases[\s\S]*being walked here by a watchman[\s\S]*Lately[\s\S]*arson[\s\S]*Crime, month by month[\s\S]*Its condition/.test(j45.text)) fail(`#court: the panel: ${j45.text.slice(0, 2000)}`);
   if (!/skimming the takings|crooked|takings/.test(j45.text + (await zeus(() => window.__zeus.crime())).news.join(' '))) fail(`#court: no skimming collector tried: ${j45.text.slice(0, 2000)}`);
   if (j45.convicts < 1 || !(await zeus(() => window.__zeus.where('convict')))) fail(`#court: no convict drawn: ${JSON.stringify(j45)}`);
   const t45 = await zeus(() => window.__zeus.tick());
@@ -3308,7 +3309,8 @@ await frames(3);
   await page.mouse.click(q45.x, q45.y - 6);
   await frames(3);
   const b45 = await zeus(() => window.__zeus.building());
-  if (!(b45.open && b45.id === c45.id && /The law[\s\S]*Orders/.test(b45.text))) fail(`#court: clicking the court: ${JSON.stringify(b45).slice(0, 600)}`);
+  // (Slice 50: the orders sit under the staff, above the fold.)
+  if (!(b45.open && b45.id === c45.id && /Orders[\s\S]*The law/.test(b45.text))) fail(`#court: clicking the court: ${JSON.stringify(b45).slice(0, 600)}`);
 }
 await open('#jailbreak');
 await frames(3);
@@ -3317,7 +3319,8 @@ await frames(3);
   await frames(10);
   if ((await zeus(() => window.__zeus.tick())) !== t45) fail('#jailbreak did not open paused');
   let j45 = await zeus(() => window.__zeus.justice());
-  if (!/Prison[\s\S]*Staff[\s\S]*Cells and unrest[\s\S]*break out in about[\s\S]*Prisoners[\s\S]*Orders[\s\S]*Pause/.test(j45.text)) fail(`#jailbreak: the panel: ${j45.text.slice(0, 2000)}`);
+  // (Slice 50: the orders sit under the staff, above the fold.)
+  if (!/Prison[\s\S]*Staff[\s\S]*Orders[\s\S]*Pause[\s\S]*Cells and unrest[\s\S]*break out in about[\s\S]*Prisoners/.test(j45.text)) fail(`#jailbreak: the panel: ${j45.text.slice(0, 2000)}`);
   if (!j45.jails.some((x) => x.warned)) fail(`#jailbreak: not warned: ${JSON.stringify(j45.jails)}`);
   if (!(await zeus(() => window.__zeus.townLines())).some((l) => /prison/.test(l))) fail(`#jailbreak: the town line: ${JSON.stringify(await zeus(() => window.__zeus.townLines()))}`);
   j45 = await zeus(() => {
