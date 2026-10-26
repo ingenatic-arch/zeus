@@ -11,6 +11,8 @@ import { WARE_NAMES } from '../sim/foods';
 import type { SimState, WorldCity } from '../sim/state';
 import { PRICES, TRADE_GOODS } from '../sim/trade';
 import { cityOf, HARVEST_MONTH, HARVEST_WORDS, moodOf, moodWord, outlookWords, priceWhy, sellsAndBuys, termsOf, yourPrice, type Arrow } from '../sim/world';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
@@ -129,7 +131,7 @@ export function priceRows(s: SimState, city: CityId, goods: readonly number[]): 
       // Only a price something is moving gets a reason line (the tip has the rest).
       const easing = (w.word === 'dear' && w.arrow < 0) || (w.word === 'cheap' && w.arrow > 0) ? ', easing' : '';
       const why = w.word === 'usual' ? '' : `<span class="why"><b class="${w.word}">${cap(w.word)}${easing}</b> (usually ${w.usual}): ${esc(w.why)}</span>`;
-      return `<li class="${w.word}" title="${esc(`${line}. Usually ${w.usual} here; the Tyre ship pays ${PRICES[k]}.`)}"><i style="background:${SWATCH[k]}"></i><span class="g">${ware}</span><span class="p"><b>${c.price[k]}</b>${arrowHtml(w.arrow, sideOf(c, k))}</span>${sparkHtml(s, c, k)}${why}</li>`;
+      return `<li class="${w.word}" title="${esc(`${line}. Usually ${w.usual} here; the Tyre ship pays ${PRICES[k]}.`)}">${tradeIcon(k)}<span class="g">${ware}</span><span class="p"><b>${c.price[k]}</b>${arrowHtml(w.arrow, sideOf(c, k))}</span>${sparkHtml(s, c, k)}${why}</li>`;
     })
     .join('');
 }

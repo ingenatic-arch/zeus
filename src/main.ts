@@ -118,6 +118,8 @@ import { storeCartsOf } from './sim/storerules';
 import { WARES } from './sim/foods';
 // Slice 51: the overview.
 import { Overview, type OverviewPage } from './ui/overview';
+// Slice 50: the panels' kit (one tip for every panel, held steppers).
+import { installKit, tipShowing } from './ui/kit';
 
 interface Probe {
   ready: boolean;
@@ -350,6 +352,9 @@ interface Probe {
   health?: () => { on: boolean; sick: number; plague: number; inBeds: number; average: number; called: number; risk: string; greece: Array<{ city: string; warned: boolean }>; outbreak: { struck: number; dead: number; fled: number } | null; quarantine: number; drawn: { doors: number; beds: number; fires: number; flags: number }; physicians: number; bearers: number; ship: number; trade: string; building: string; lines: string[] };
   /** Order or lift the quarantine (as the panels' button does). */
   quarantine?: (on: boolean) => void;
+  // Slice 50
+  /** The kit's tip showing ('' when none). */
+  kitTip?: () => string;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -518,6 +523,8 @@ function start(preparedTown: string | null): void {
   rig.setCanopy((x, z) => world.plants.canopyAt(x, z));
 
   const ui = document.getElementById('ui') as HTMLElement;
+  // Slice 50
+  installKit(document.body);
   const topbar = new TopBar(ui, driver);
   // The first-time hint says left-drag moves the view, which isn't so with a tool already picked.
   // The bare link opens on the coast with a welcome card (which carries the controls line itself).
@@ -914,6 +921,8 @@ function start(preparedTown: string | null): void {
     });
   };
   probe.newgame = () => (newGame?.open ? { ...newGame.choice } : null);
+  // Slice 50
+  probe.kitTip = tipShowing;
   const foundedLand = founding ? KIND_WORDS.find((k) => k.kind === founding.kind) : undefined;
   welcomeCard = welcoming || problem
     ? new Welcome(ui, {

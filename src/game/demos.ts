@@ -3614,6 +3614,8 @@ const SCENES: Record<string, Demo> = {
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
+// Slice 50: #goods opens the trading post's panel too, beside the Goods tab on wine (to set beside Oliver's screenshot of it).
+DEMOS.goods = { ...DEMOS.goods, trade: true };
 
 // Slice 41
 /**

@@ -43,6 +43,9 @@ import {
 import { rateOf } from '../sim/labour';
 import type { Building, SimState, Trireme } from '../sim/state';
 import { morph } from './morph';
+// Slice 50: the kit.
+import { buildingIcon, TRIREME_FIGURE } from './icons';
+import { kbar, kbtn, khead, kitHtml, kpips, kwhy } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -55,14 +58,14 @@ const REFRESH = 0.25;
 /** A bar from 0 to 100, its words beside it. */
 function bar(label: string, n: number, warnBelow: number): string {
   const v = Math.max(0, Math.min(100, Math.round(n)));
-  return `<div class="meter${v < warnBelow ? ' low' : ''}"><span class="lab">${esc(label)}</span><span class="bar"><i style="width:${v}%"></i></span><span class="num">${v}%</span></div>`;
+  return `<div class="meter k-meter${v < warnBelow ? ' low' : ''}"><span class="lab">${esc(label)}</span>${kbar({ value: v, max: 100, tone: v < warnBelow ? 'danger' : 'sea', tick: warnBelow / 100, tip: `${label}: ${v}%; she goes out at ${warnBelow} or better` })}<span class="num">${v}%</span></div>`;
 }
 
 /** A trireme's card. */
 function triremeCard(s: SimState, map: CoastMap, t: Trireme): string {
   const why = crewWhy(s, map, t);
   const doing = triremeDoing(s, t);
-  if (t.state === 'building') return `<li class="ship building"><div class="name"><b>The ${esc(triremeName(t))}</b></div><p>${esc(doing)}</p></li>`;
+  if (t.state === 'building') return `<li class="ship building k-card"><div class="k-cotop"><div class="k-niche">${TRIREME_FIGURE}</div><div class="name"><b>The ${esc(triremeName(t))}</b></div></div><p>${esc(doing)}</p></li>`;
   const days = daysToMend(s, t);
   const mend = t.hp >= 100 && t.oars >= 100 ? '' : t.state !== 'moored' ? 'She is mended at her mooring when she is in' : days < 0 ? 'Not being mended: her yard has no shipwrights' : t.mend ? `Under repair: whole in about ${dayWords(days)}, then ready to go out` : `Being mended at her mooring: whole in about ${dayWords(days)}`;
   const pay = t.crew.length ? `${fmt(t.crew.length * ROWER_PAY)} dr a month` : 'no rowers to pay';
@@ -71,27 +74,27 @@ function triremeCard(s: SimState, map: CoastMap, t: Trireme): string {
   const acts: string[] = [];
   const out = t.order === 'lane' || t.state === 'away' || (t.state === 'rowing' && t.task === 'out');
   if (t.order === 'away') acts.push('<span class="note">Away with your soldiers: she comes home with them</span>');
-  else if (out && !(t.state === 'away' && t.order === 'bay')) acts.push(`<button data-act="trihome" data-id="${t.id}" title="Back along the lane, into the bay and to her mooring">Bring her home</button>`);
+  else if (out && !(t.state === 'away' && t.order === 'bay')) acts.push(kbtn({ act: 'trihome', data: { id: t.id }, icon: 'home', html: 'Bring her home', small: true, tip: 'Back along the lane, into the bay and to her mooring' }));
   else if (!(t.state === 'away' && t.order === 'bay')) {
     const lanes = LANES.filter((l) => s.world.routes.some((r) => r.kind === 'sea' && r.city === l.city) || piratesOn(s, l.way));
     for (const l of lanes) {
       const no = guardRefusal(t, l.way);
       const p = piratesOn(s, l.way);
       const tip = no || `She rows out of the bay and along the lane to ${cityName(l.city)}, and keeps watch ${l.name}: what of yours passes there is safe${p ? `; she fights the ${p.of ? 'warships' : 'pirates'} there` : ''}`;
-      acts.push(`<button data-act="guard" data-id="${t.id}" data-lane="${l.way}" title="${esc(tip)}"${no ? ' disabled' : ''}>Guard: ${esc(cityName(l.city))}${p ? ` <small>(${p.of ? 'warships' : 'pirates'})</small>` : ''}</button>`);
+      acts.push(kbtn({ act: 'guard', data: { id: t.id, lane: l.way }, icon: 'guard', html: `Guard: ${esc(cityName(l.city))}${p ? ` <small>(${p.of ? 'warships' : 'pirates'})</small>` : ''}`, small: true, tip, why: no || undefined, tone: p ? 'lapis' : 'bronze' }));
     }
   }
   const noFix = repairRefusal(t);
-  if (t.order !== 'away' && !t.mend) acts.push(`<button data-act="repair" data-id="${t.id}" title="${esc(noFix || 'Home to her mooring (if she is out) and laid up there until hull and oars are whole: she does not go out meanwhile')}"${noFix ? ' disabled' : ''}>Call in for repair</button>`);
+  if (t.order !== 'away' && !t.mend) acts.push(kbtn({ act: 'repair', data: { id: t.id }, icon: 'build', html: 'Call in for repair', small: true, tip: 'Home to her mooring (if she is out) and laid up there until hull and oars are whole: she does not go out meanwhile', why: noFix || undefined }));
   return (
-    `<li class="ship${t.mend ? ' mending' : ''}"><div class="name"><b>The ${esc(triremeName(t))}</b><span class="n">${t.crew.length}<small> / ${CREW} rowers</small></span></div>` +
-    `<p>${esc(doing)}</p>` +
+    `<li class="ship k-card${t.mend ? ' mending' : ''}"><div class="k-cotop"><div class="k-niche">${TRIREME_FIGURE}</div><div class="k-shipname"><div class="name"><b>The ${esc(triremeName(t))}</b><span class="n">${t.crew.length}<small> / ${CREW} rowers</small></span></div>` +
+    `${kpips(Array.from({ length: CREW }, (_, k) => (k < t.crew.length ? 'ready' : 'empty')), `${t.crew.length} of ${CREW} rowers`)}</div></div><p>${esc(doing)}</p>` +
     bar('Hull', t.hp, FIT) +
     bar('Oars', t.oars, FIT) +
     (mend ? `<p class="mend">${esc(mend)}</p>` : '') +
     `<p class="small">${pay}${owed}</p>` +
     (why ? `<p class="why">${esc(why)}</p>` : '') +
-    (acts.length ? `<div class="acts">${acts.join('')}</div>` : '') +
+    (acts.length ? `<div class="k-acts">${acts.join('')}</div>` : '') +
     '</li>'
   );
 }
@@ -139,7 +142,7 @@ export function shipyardHtml(s: SimState, map: CoastMap, focus: number): string 
   const order = pick ? [pick, ...yards.filter((b) => b !== pick)] : [];
   const out: string[] = [];
   const head = pick ? `${pick.workers} of ${jobsAt(pick)} shipwrights` : 'No shipyard';
-  out.push(`<header><div class="kicker">${esc(head)}</div><h2>${yards.length > 1 ? 'The shipyards' : 'The shipyard'}</h2><div class="from">Triremes to fight ships in your bay and guard your sea lanes</div></header>`);
+  out.push(khead({ kicker: head, title: yards.length > 1 ? 'The shipyards' : 'The shipyard', sub: 'Triremes to fight ships in your bay and guard your sea lanes', pic: buildingIcon('shipyard') }));
   out.push(harbourHtml(s));
   order.forEach((b: Building, i) => {
     const [cx, cz] = centreOf(b);
@@ -152,7 +155,7 @@ export function shipyardHtml(s: SimState, map: CoastMap, focus: number): string 
     out.push(at.length ? `<ul class="ships">${at.map((t) => triremeCard(s, map, t)).join('')}</ul>` : '<p class="none">No triremes yet.</p>');
     const no = orderRefusal(s, b);
     const short = no ? '' : rowersWarning(s);
-    out.push(`<div class="acts build"><button data-act="trireme" data-id="${b.id}" title="${esc(no || `Built on the slip in about a month while the yard is staffed, then ${CREW} rowers come from the huts and cottages, one a home, at ${ROWER_PAY} dr a man a month${short ? `. ${short}` : ''}`)}"${no ? ' disabled' : ''}>Build a trireme <small>${TRIREME_COST} dr</small></button></div>`);
+    out.push(`<div class="k-acts build">${no ? kwhy(no) : ''}${kbtn({ act: 'trireme', data: { id: b.id }, icon: TRIREME_FIGURE, tone: 'lapis', html: `Build a trireme <small>${TRIREME_COST} dr</small>`, tip: `Built on the slip in about a month while the yard is staffed, then ${CREW} rowers come from the huts and cottages, one a home, at ${ROWER_PAY} dr a man a month${short ? `. ${short}` : ''}`, why: no || undefined })}</div>`);
     if (short) out.push(`<div class="late">${esc(short)}.</div>`);
     out.push('</section>');
   });
@@ -176,7 +179,7 @@ export class ShipyardPanel {
 
   constructor(root: HTMLElement, send: (c: Command) => void) {
     const el = document.createElement('div');
-    el.className = 'household trade shipyard';
+    el.className = 'household trade shipyard kit';
     el.hidden = true;
     el.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     root.appendChild(el);
@@ -237,7 +240,7 @@ export class ShipyardPanel {
     }
     if (this.pressed || time - this.last < REFRESH) return;
     this.last = time;
-    const html = shipyardHtml(s, map, this.yard);
+    const html = kitHtml(shipyardHtml(s, map, this.yard));
     if (html !== this.html) {
       if (this.html) morph(this.body, html);
       else this.body.innerHTML = html;

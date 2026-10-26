@@ -14,6 +14,8 @@ import type { CoastMap } from '../map/bake';
 import { createState } from '../sim/sim';
 import { landColours } from '../render/landlook';
 import { landMarks, paintLand, type LandMarks } from './landpreview';
+// Slice 50: the kit (a drawn map for each kind, the size as one control, dice for Another).
+import { actionIcon, LAND_ICONS } from './icons';
 
 /** The kinds of land as the screen offers them, with a line on each. */
 export const KIND_WORDS: ReadonlyArray<{ kind: LandKind; name: string; line: string }> = [
@@ -58,16 +60,16 @@ export class NewGame {
     this.size = o.start?.size ?? 192;
     this.word = cleanWord(o.start?.word ?? '') || pick(-1);
     const el = document.createElement('div');
-    el.className = 'newgame';
+    el.className = 'newgame kit';
     el.innerHTML = `
       <div class="ng-card" role="dialog" aria-label="Found a new city">
         <h2>Found a new city</h2>
         <div class="ng-body">
           <div class="ng-choose">
             <h3>The land</h3>
-            <div class="ng-kinds">${KIND_WORDS.map((k) => `<button class="ng-kind" data-kind="${k.kind}"><b>${k.name}</b><span>${k.line}</span></button>`).join('')}</div>
-            <div class="ng-row ng-sizes"><h3>Its size</h3>${LAND_SIZES.map((n) => `<button class="ng-size" data-size="${n}" title="${n} tiles a side">${SIZE_WORDS[n]}</button>`).join('')}</div>
-            <div class="ng-row ng-seed"><h3>Its seed</h3><input type="text" maxlength="24" spellcheck="false" aria-label="The seed: a word" /><button class="pill" data-act="another" title="A new word, a new land of this kind">Another</button></div>
+            <div class="ng-kinds">${KIND_WORDS.map((k) => `<button class="ng-kind" data-kind="${k.kind}"><span class="ng-kpic">${LAND_ICONS[k.kind] ?? ''}</span><span class="ng-kt"><b>${k.name}</b><span>${k.line}</span></span></button>`).join('')}</div>
+            <div class="ng-row ng-sizes"><h3>Its size</h3><span class="k-seg" role="group" aria-label="Its size">${LAND_SIZES.map((n) => `<button class="ng-size" data-size="${n}" data-tip="${n} tiles a side">${SIZE_WORDS[n]}</button>`).join('')}</span></div>
+            <div class="ng-row ng-seed"><h3>Its seed</h3><input type="text" maxlength="24" spellcheck="false" aria-label="The seed: a word" /><button class="k-btn bronze" data-act="another" data-tip="A new word, a new land of this kind"><span class="k-bi">${actionIcon('another')}</span><span class="k-bt">Another</span></button></div>
             <p class="ng-note">The same kind, size and word always make the same land, so a land can be shared by its link.</p>
           </div>
           <div class="ng-look">
@@ -88,8 +90,8 @@ export class NewGame {
           </div>
         </div>
         <div class="actions">
-          <button class="pill primary" data-act="found">Found the city here</button>
-          <button class="pill" data-act="back">Back</button>
+          <button class="k-btn lapis" data-act="found"><span class="k-bi">${actionIcon('found')}</span><span class="k-bt">Found the city here</span></button>
+          <button class="k-btn bronze" data-act="back"><span class="k-bt">Back</span></button>
         </div>
       </div>`;
     root.appendChild(el);

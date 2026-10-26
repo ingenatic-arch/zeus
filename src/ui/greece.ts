@@ -27,6 +27,8 @@ import { bandWords, warWords } from '../sim/fleet';
 import { blockadeOf, blockadeWords } from '../sim/blockades';
 import { aimWords, bandMen, bandOut, daysToEdge, edgeWords, goodsArrive, live, lootWords, RAID_SIDE, raidersOf, raidOf, reachesEdge } from '../sim/raids';
 import { pricesBlock, termsLine, termsMeaning } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 import { armyCard, fieldsCard, foeNote, labelIcons, menWords, peopleShort, rivalsHtml, siteCard, statusHtml, trendHtml, warCard } from './rivals';
 import { lordWords, trendOf, wealthWord } from '../sim/growth';
 import { waysHtml } from './routes';
@@ -54,7 +56,6 @@ const cap = (t: string): string => `${t[0].toUpperCase()}${t.slice(1)}`;
 /** A mood's number with its sign, the minus a true one as in the reasons: "+5", "−10", "0". */
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 /** The trade goods' colours, as in the trade panel. */
-const SWATCH = ['#a8874f', '#b5524a', '#f3d874', '#8aa83a', '#eee2c0', '#7a2e80', '#b87333', '#c8963c', '#e8e2d4', '#8a6238', '#6b4a2e']; // (Slice 36: copper, armour, marble, timber and horses had none)
 
 const SKIN = ['#efcfa8', '#e2b48a', '#cf9b72', '#b5805a', '#9a6a48'];
 const HAIR = ['#2e2119', '#4a3020', '#6b4628', '#8a6a44', '#24201d', '#a59a8c'];
@@ -408,7 +409,7 @@ export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`):
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
-  `<li title="${esc(title)}"><i style="background:${SWATCH[k]}"></i><span class="g">${cap(WARE_NAMES[TRADE_GOODS[k]])}</span><span class="p">${price}</span></li>`;
+  `<li title="${esc(title)}">${tradeIcon(k)}<span class="g">${cap(WARE_NAMES[TRADE_GOODS[k]])}</span><span class="p">${price}</span></li>`;
 
 /** How a city is reached from yours. */
 const REACH: Partial<Record<CityId, string>> = {
@@ -492,7 +493,7 @@ function giftsHtml(s: SimState, id: CityId, map: CoastMap | undefined): string {
     const have = cityHolds(s, w);
     if (have < GIFT_LOTS[0]) return;
     goods++;
-    rows.push(`<li><span class="g" title="${esc(`Your stores hold ${fmt(have)} ${WARE_NAMES[w]}`)}"><i style="background:${SWATCH[k]}"></i>${cap(WARE_NAMES[w])}</span><span class="b">${GIFT_LOTS.map((n) => button(w, k, n)).join('')}</span></li>`);
+    rows.push(`<li><span class="g" title="${esc(`Your stores hold ${fmt(have)} ${WARE_NAMES[w]}`)}">${tradeIcon(k)}${cap(WARE_NAMES[w])}</span><span class="b">${GIFT_LOTS.map((n) => button(w, k, n)).join('')}</span></li>`);
   });
   // (Why goods can't go, if it is the way rather than the stores: no yard or post.)
   const first = TRADE_GOODS.find((w) => cityHolds(s, w) >= GIFT_LOTS[0]);
@@ -552,7 +553,7 @@ function dealHtml(s: SimState, d: Deal, map: CoastMap | undefined): string {
     }
     return `<div class="deal offer">${dealIcon(d)}<div><b>${esc(cap(rulerTitle(c)))} offers</b> ${esc(offerWords(d))}. <span class="why">${esc(cap(d.why))}.</span>
 <p class="if">${d.side === 'buy' ? `Without it, what ${esc(name)} pays falls as you sell: ${today} today, about ${priceAfter(s.world, d.city, d.good, d.amount, s.tick)} after another ${fmt(d.amount)} (and it comes back only slowly).${esc(spareWords(s, d))}` : `Today ${esc(name)} asks ${today} a hundred.`} Taking it is a promise: ${d.side === 'buy' ? 'sell' : 'buy'} at least ${fmt(bound)} in the year, or it counts as broken (${signed(w.reneged?.amount ?? 0)}). Answer ${esc(dueWords(s, d))}.</p>
-<div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} ticked ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
+<div class="acts">${actButton(s, map, d, 'take', 'Take it', w.taken?.amount, `${cap(w.taken?.why ?? '')}: ${signed(w.taken?.amount ?? 0)}, and ${ware} switched on ${d.side === 'buy' ? 'for sale' : 'to buy'} on your routes to ${name}`)}${actButton(s, map, d, 'decline', 'Decline', w.declined?.amount, w.declined?.amount ? `${cap(w.declined.why)}: ${signed(w.declined.amount)}` : 'Nothing lost but the deal')}</div></div></div>`;
   }
   if (d.kind === 'threat') return threatHtml(s, d, map);
   if (d.kind === 'tribute') {
@@ -748,7 +749,7 @@ export function panelHtml(s: SimState, page: PageId, renaming: boolean, nameDraf
     const name = renaming
       ? `<form class="rename"><input name="cityname" maxlength="${NAME_MAX}" value="${esc(nameDraft)}" aria-label="Your city’s name" autocomplete="off" spellcheck="false"><button type="submit" class="ok"${why ? ' disabled' : ''}>Name it</button><button type="button" class="cancel">Cancel</button></form>${why && nameDraft.trim() ? `<div class="why">${esc(why)}</div>` : ''}`
       : `<h2>${esc(s.world.name)} <button class="renamebtn" title="Rename your city" aria-label="Rename your city">✎</button></h2>`;
-    const stores = TRADE_GOODS.map((w, k) => goodRow(k, `${fmt(cityHolds(s, w))}${s.trade.sell[k] ? ' <em>for sale</em>' : ''}`, `Your ${k < 3 ? 'granaries' : 'storehouses'} hold ${fmt(cityHolds(s, w))} ${WARE_NAMES[w]}${s.trade.sell[k] ? ', and it is ticked for sale to the Tyre ship' : ''}`)).join('');
+    const stores = TRADE_GOODS.map((w, k) => goodRow(k, `${fmt(cityHolds(s, w))}${s.trade.sell[k] ? ' <em>for sale</em>' : ''}`, `Your ${k < 3 ? 'granaries' : 'storehouses'} hold ${fmt(cityHolds(s, w))} ${WARE_NAMES[w]}${s.trade.sell[k] ? ', and it is switched on for sale to the Tyre ship' : ''}`)).join('');
     return `<header><div class="kicker">Your city · ${esc(place.blurb.replace('your city, ', ''))}</div>${name}<div class="from">${fmt(s.population)} people in ${fmt(homes)} homes</div></header>
 ${empireOverviewHtml(s) /* Slice 47 */}<section><h3>In your stores</h3><ul class="goodlist">${stores}</ul></section>
 <p class="foot">Between Corinth to the north, by road, and Sparta over the hills to the south-west; the sea lanes run out of the gulf to Athens, Troy and Tyre.</p>`;

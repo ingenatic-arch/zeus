@@ -40,13 +40,14 @@ import {
 import { colonyPicture } from './colonypicture';
 // Slice 47: sail now with what is aboard, or call it off.
 import { cargoActsHtml } from './colonyempire';
-import { SWATCH } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
 const a = (stage: number): string => (stage === 0 ? 'an' : 'a');
-const swatch = (k: number): string => (k >= 0 && SWATCH[k] ? `<i class="sw" style="background:${SWATCH[k]}"></i>` : '');
+const swatch = (k: number): string => tradeIcon(k);
 const days = (s: SimState, t: number): number => Math.max(1, Math.ceil((t - s.tick) / TICKS_PER_DAY));
 
 function button(act: string, label: string, attrs: Record<string, string | number>, why: string, tip: string, cls = ''): string {

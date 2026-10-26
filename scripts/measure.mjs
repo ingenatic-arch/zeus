@@ -630,5 +630,24 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   const b = await page.evaluate(() => ({ ms: window.__zeus.overviewMs ?? 0, t: performance.now(), f: window.__zeus.frames }));
   console.log(`#overviewempire running, the Goods page open: ${((b.ms - a.ms) / ((b.t - a.t) / 1000)).toFixed(1)} ms a second on the overview (${b.f - a.f} frames)`);
 }
+// Slice 50: the panels on the kit. The main thread's work a frame at normal speed with the trading post open beside the
+// Goods tab (#goods) and with it shut, and with the Army tab open on two companies (#companies), at 1920 x 1080.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const run = async (hash, act, label) => {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    if (act) await page.evaluate(act);
+    await page.waitForTimeout(10000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+  };
+  await run('#goods-shot', 'window.__zeus.trade(true)', '#goods, the trading post open');
+  await run('#goods-shot', 'window.__zeus.trade(false)', '#goods, the trading post shut');
+  await run('#companies-shot', "window.__zeus.sideTab('military')", '#companies, the Army tab');
+}
 await browser.close();
 server.close();

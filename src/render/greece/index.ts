@@ -46,6 +46,8 @@ import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks, type SiteGrowth } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
+// Slice 50: the panels' kit (its tips; the page in its dress).
+import { kitHtml } from '../../ui/kit';
 
 /** Where the camera first looks: the whole Aegean, a little tilted, your city towards the lower left.
  * (Slice 31: drawn back and south so Memphis and Cyrene on the southern edge and Thasos in the north are on the table at first look.) */
@@ -299,7 +301,7 @@ export class GreeceMap {
       if (li?.dataset.city) this.show(li.dataset.city as CityId);
     });
     const panel = document.createElement('div');
-    panel.className = 'household greece-panel';
+    panel.className = 'household greece-panel kit';
     panel.hidden = true;
     panel.innerHTML = '<button class="close" title="Close (Esc)" aria-label="Close">×</button><div class="body"></div>';
     host.ui.appendChild(panel);
@@ -544,7 +546,7 @@ export class GreeceMap {
     const s = this.state;
     if (!s || !this.shown) return;
     if (!now && this.renaming) return;
-    const html = panelHtml(s, this.shown, this.renaming, this.draft, this.tab, this.host.map);
+    const html = kitHtml(panelHtml(s, this.shown, this.renaming, this.draft, this.tab, this.host.map));
     if (now) this.body.innerHTML = html;
     else morph(this.body, html);
   }

@@ -23,7 +23,8 @@ import { tributeWords } from '../sim/vassals';
 import { blockaded } from '../sim/lanes';
 import { NAME_MAX } from '../sim/world';
 // (Integrating slice 37 with the trunk: the trade goods' colours are the trade panel's own, horses and all, in TRADE_GOODS' order.)
-import { SWATCH } from './prices';
+// Slice 50: the kit's icons for the goods (they had colour swatches).
+import { tradeIcon } from './icons';
 import {
   COLONY_ARMING,
   COLONY_STAND_DOWN,
@@ -79,7 +80,7 @@ function button(act: string, label: string, attrs: Record<string, string | numbe
   return `<button data-colony="${act}"${data}${cls ? ` class="${cls}"` : ''} title="${esc(why || tip)}"${why ? ' disabled' : ''}>${label}</button>`;
 }
 
-const swatch = (k: number): string => (k >= 0 && SWATCH[k] ? `<i class="sw" style="background:${SWATCH[k]}"></i>` : '');
+const swatch = (k: number): string => tradeIcon(k);
 
 /** The page's heading: the site's name and good, what it is, and (your colony) its name to rename. */
 function header(s: SimState, site: string, title: string, sub: string, map: CoastMap | undefined, renaming: boolean, draft: string, rename: boolean): string {
