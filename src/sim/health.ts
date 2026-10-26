@@ -1245,7 +1245,10 @@ export function healthTownLine(s: SimState): { text: string; at: number } | null
     const o = h.outbreak;
     const ill = h.sick.filter((x) => x.plague).length;
     const first = o.struck.map((id) => findBuilding(s, id)).find((b) => !!b);
-    return { text: `Plague in the city: ${o.struck.length} ${o.struck.length === 1 ? 'home' : 'homes'} struck, ${ill} sick of it, ${o.dead} dead. Physicians and the asklepieion save lives; healthy homes (water, food, a physician’s call) resist it.${q}`, at: first?.id ?? 0 };
+    // (Phase 6 review: what saves lives in this town, and what would: the line named "the asklepieion" in towns without one.)
+    const has = (k: Building['kind']): boolean => s.buildings.some((b) => b.kind === k);
+    const healers = has('asklepieion') ? (has('infirmary') ? 'Physicians and the asklepieion save lives' : 'The asklepieion saves lives; an infirmary’s physicians (Z six times) would save more') : has('infirmary') ? 'Physicians save lives; an asklepieion (Z seven times) would carry the worst to its beds' : 'An infirmary’s physicians (Z six times) would save lives';
+    return { text: `Plague in the city: ${o.struck.length} ${o.struck.length === 1 ? 'home' : 'homes'} struck, ${ill} sick of it, ${o.dead} dead. ${healers}; healthy homes (water, food, a physician’s call) resist it.${q}`, at: first?.id ?? 0 };
   }
   if (h.fever) {
     const home = findBuilding(s, h.fever.home);

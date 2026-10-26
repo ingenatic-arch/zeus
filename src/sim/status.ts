@@ -1115,7 +1115,14 @@ export function storehouseStatus(s: SimState, map: CoastMap, g: Building): Statu
   const fetching = STORE_GOODS.map((w) => [w, s.walkers.filter((p) => p.kind === 'porter' && p.target === g.id && p.food === w).length] as const).filter(([, n]) => n > 0);
   const unsold = STALL_GOODS.filter((w) => held(g, w) > 0 && !citySells(s, w));
   const fetch = fetching.length
-    ? fetching.map(([w, n]) => `${n === 1 ? 'A porter is' : `${n} porters are`} fetching ${WARE_NAMES[w]} from here ${w === ARMOUR ? 'for a barracks’ men' : `for an agora’s ${WARE_NAMES[w]} stall`}`).join('\n')
+    ? fetching
+        .map(([w, n]) => {
+          const why = w === ARMOUR ? 'for a barracks’ men' : `for an agora’s ${WARE_NAMES[w]} stall`;
+          // (Phase 6 review: a porter set out while there was some, and the dockers or another porter took the last: "fetching oil from here" read oddly over an empty store.)
+          if (held(g, w) <= 0 && coming(g, w) <= 0) return `${n === 1 ? 'A porter is' : `${n} porters are`} on the way here for ${WARE_NAMES[w]}, ${why}, but none is left: unless some comes in first, ${n === 1 ? 'he goes' : 'they go'} back empty-handed`;
+          return `${n === 1 ? 'A porter is' : `${n} porters are`} fetching ${WARE_NAMES[w]} from here ${why}`;
+        })
+        .join('\n')
     : unsold.length
       ? unsold.map((w) => `No agora has a ${STALL_NAMES[w]} to sell its ${WARE_NAMES[w]} yet: ${CHAINS[w]?.key ?? 'K'}, then click an agora`).join('\n')
       : '';

@@ -510,8 +510,9 @@ export class MessagePopups {
       return;
     }
     if (time < this.gone) return;
-    this.el.hidden = true;
-    this.el.classList.remove('out');
+    // (Phase 6 review: only when it changes, not every frame: each write restyled the page.)
+    if (!this.el.hidden) this.el.hidden = true;
+    if (this.el.classList.contains('out')) this.el.classList.remove('out');
     const m = this.queue.shift();
     if (!m) return;
     this.shown = m;

@@ -52,6 +52,7 @@ import { bookNow, makersOf, monthOf as stockMonth, panelWares, stockOf, totalsOf
 import { goneForTaxes, TAX_RATES, taxedLately } from '../sim/taxes';
 import { owedWages, WAGE, wageBill } from '../sim/treasury';
 import { loyaltyOf, tributeYear } from '../sim/vassals';
+import { whoseName } from '../sim/world';
 import { morph } from './morph';
 // Merge of slice 51 with slice 47: stationed companies and triremes, the colonies' trade, free allies and militia.
 import { colonyTrade, freeTrade, militiaReady, passageOf, postedTo, shipsOf, stationedWords } from '../sim/colonyempire';
@@ -577,7 +578,7 @@ function treasuryPage(s: SimState): string {
       .map((x) => {
         const owed = owing(x) || x.state === 'repaying';
         const what = owed ? (x.side === 'in' ? 'Owed to' : 'Owed by') : x.side === 'in' ? 'Borrowing from' : 'Lending to';
-        return `<li class="${x.state === 'overdue' ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${x.city}" data-tab="loans" title="${esc(`${loanLine(s, x)}: open ${cityName(x.city)}’s page`)}"><span>${what} ${esc(cityName(x.city))}</span><span class="n">${fmt(owed ? x.owed : x.amount)} dr</span></button><small>${esc(loanLine(s, x))}</small></li>`;
+        return `<li class="${x.state === 'overdue' ? 'bad' : ''}"><button class="ov-row" data-act="city" data-city="${x.city}" data-tab="loans" title="${esc(`${loanLine(s, x)}: open ${whoseName(cityName(x.city))} page`)}"><span>${what} ${esc(cityName(x.city))}</span><span class="n">${fmt(owed ? x.owed : x.amount)} dr</span></button><small>${esc(loanLine(s, x))}</small></li>`;
       })
       .join('')}</ul>`);
   } else side.push('<h3>Loans</h3><p class="ov-note">No loans either way. A city of Greece may lend to you, or borrow, from its page on the map (Tab).</p>');
@@ -671,7 +672,8 @@ function distributionPage(s: SimState, map: CoastMap, mode: OverlayMode | null):
   out.push(sinceNote(s));
   // The agora's goods, in store against what homes use.
   const goods = [4, 5, 7].map((w) => ({ w, st: stockOf(s, w).total, sells: citySells(s, w) }));
-  out.push(`<p class="ov-note">At the agora: ${goods.map((g) => `${esc(wareInfo(g.w).name.toLowerCase())} ${g.sells ? `on sale (${fmt(g.st)} in store)` : g.st > 0 ? `in store (${fmt(g.st)}) but no stall sells it` : 'none'}`).join('; ')}.</p>`);
+  // (Phase 6 review: "in store" read as the storehouses' while the count is everything in the city, the makers' own stores and the stalls too, as the Goods page counts it.)
+  out.push(`<p class="ov-note">At the agora: ${goods.map((g) => `${esc(wareInfo(g.w).name.toLowerCase())} ${g.sells ? `on sale (${fmt(g.st)} in the city)` : g.st > 0 ? `in the city (${fmt(g.st)}) but no stall sells it` : 'none'}`).join('; ')}.</p>`);
   return out.join('');
 }
 
@@ -909,13 +911,17 @@ function healthPage(s: SimState, map: CoastMap): string {
       if (s.tick >= p.until) continue;
       const trades = tradesWith(s, p.city);
       const due = trades ? traderDue(s, p.city) : '';
-      lines.push(`<li class="${trades && !quarantined(s) ? 'warn' : ''}"><button class="ov-row" data-act="city" data-city="${esc(p.city)}" title="Open its page on the map of Greece"><span>Plague in ${esc(cityName(p.city as CityId))}${trades ? `, a city you trade with${due ? `: ${esc(due)}` : ''}` : ': none of its traders comes here'}</span></button></li>`);
+      // (Phase 6 review: the reasons above no longer repeat this line, so it carries their words on the quarantine and the year after a plague.)
+      const held = !trades ? '' : quarantined(s) ? ' (the quarantine holds its traders off)' : mendingFromPlague(s) ? ' (it can’t take hold here so soon after the last)' : '';
+      lines.push(`<li class="${trades && !quarantined(s) ? 'warn' : ''}"><button class="ov-row" data-act="city" data-city="${esc(p.city)}" title="Open its page on the map of Greece"><span>Plague in ${esc(cityName(p.city as CityId))}${trades ? `, a city you trade with${held}${due ? `: ${esc(due)}` : ''}` : ': none of its traders comes here'}</span></button></li>`);
     }
     const post = s.buildings.find((b) => b.kind === 'trading') ?? s.buildings.find((b) => b.kind === 'yard');
     const qWords = h.quarantine ? `${esc(h.quarantine)}.` : 'No quarantine.';
     const qLink = post ? ` <button class="ov-link" data-act="building" data-id="${post.id}" title="Go there and open its panel">The ${post.kind === 'trading' ? 'trading post' : 'caravan yard'}</button> ${h.quarantine ? 'can lift it' : 'can order one for a season'}${healers.some((b) => b.kind === 'infirmary') ? ', as can an infirmary' : ''}.` : '';
-    const reasons = h.reasons.length ? `<ul class="ov-reasons">${h.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '';
-    plague.push(`<h3>The plague</h3><p class="ov-risk"><b>${RISK_WORDS[h.risk]}</b> risk${h.reasons.length ? ':' : '.'}</p>${reasons}${lines.length ? `<ul class="ov-list">${lines.join('')}</ul>` : '<p class="ov-note">No plague in the city or among the cities of Greece.</p>'}<p class="ov-note">${qWords}${qLink}</p>`);
+    // (Phase 6 review: the plague in the city, in a city of Greece and a fevered quarter each have their own line below, with a link, so the reasons leave them out instead of saying them twice.)
+    const own = h.reasons.filter((r) => !/^Plague in |^Plague is in the city now/.test(r) && !(/^A fevered quarter/.test(r) && !o));
+    const reasons = own.length ? `<ul class="ov-reasons">${own.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '';
+    plague.push(`<h3>The plague</h3><p class="ov-risk"><b>${RISK_WORDS[h.risk]}</b> risk${own.length ? ':' : lines.length ? ':' : '.'}</p>${reasons}${lines.length ? `<ul class="ov-list">${lines.join('')}</ul>` : '<p class="ov-note">No plague in the city or among the cities of Greece.</p>'}<p class="ov-note">${qWords}${qLink}</p>`);
   }
   out.push(`<section>${plague.join('')}<h3>Where homes go without</h3>${gap('Without water', dry, 'water')}${gap('Without food', hungry, 'food')}${river.length ? gap('Fetching water from the river', river, 'water') : ''}</section>`);
   out.push('</div>');
@@ -976,7 +982,7 @@ function armyPage(s: SimState, map: CoastMap): string {
     // Allies' companies and colonies' militia in the city: links to their city's or colony's page.
     const arows = allied.map((c) => {
       const n = menOf(s, c).length;
-      const name = c.militia ? `The militia of ${c.militia}` : `${cityName(c.ally as CityId)}’s ${kindWord(c.kind)}`;
+      const name = c.militia ? `The militia of ${c.militia}` : `${whoseName(cityName(c.ally as CityId))} ${kindWord(c.kind)}`;
       const link = c.militia ? `data-act="site" data-site="${esc(String(c.ally))}"` : `data-act="city" data-city="${esc(String(c.ally))}" data-tab="empire"`;
       return `<li><button class="ov-row" ${link} title="Open its page on the map of Greece"><span>${esc(name)}</span><span class="n">${plural(n, 'man', 'men')}</span></button></li>`;
     });
@@ -990,7 +996,7 @@ function armyPage(s: SimState, map: CoastMap): string {
   out.push(`<h3>The fleet</h3>${trows.length ? `<ul class="ov-list">${trows.join('')}</ul>` : '<p class="ov-note">No triremes.</p>'}</section>`);
   const lines: string[] = [];
   for (const r of raids) lines.push(`<li class="bad"><button class="ov-row" data-act="city" data-city="${r.city}"><span>${esc(raidLine(s, map, r))}</span></button></li>`);
-  for (const b of blockades) lines.push(`<li class="bad"><button class="ov-row" data-act="city" data-city="${b.city}"><span>${esc(`${cityName(b.city)}’s ${plural(b.ships, 'ship', 'ships')} ${b.phase === 'holding' ? 'hold your harbour’s mouth' : 'are coming to blockade your harbour'}: ${b.why}`)}</span></button></li>`);
+  for (const b of blockades) lines.push(`<li class="bad"><button class="ov-row" data-act="city" data-city="${b.city}"><span>${esc(`${whoseName(cityName(b.city))} ${plural(b.ships, 'ship', 'ships')} ${b.phase === 'holding' ? 'hold your harbour’s mouth' : 'are coming to blockade your harbour'}: ${b.why}`)}</span></button></li>`);
   for (const p of pirates) lines.push(`<li class="bad"><span class="ov-row static"><span>${esc(`Pirates ${p.place ? `at ${p.place}` : ''} on the lane to ${cityName(p.city)}: ${plural(p.ships, 'ship', 'ships')}, ${p.state === 'preying' ? 'preying on your goods' : 'seen'}`)}</span></span></li>`);
   for (const e of expeditions) lines.push(`<li><button class="ov-row" data-act="city" data-city="${e.city}"><span>${esc(expeditionLine(s, e))}</span></button></li>`);
   out.push(`<section><h3>Threats and expeditions</h3>${lines.length ? `<ul class="ov-list">${lines.join('')}</ul>` : '<p class="ov-note">Nothing threatens the city, and no expedition is out.</p>'}</section>`);

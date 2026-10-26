@@ -527,7 +527,7 @@ export function helpedFoe(s: SimState, city: CityId, words: string): Memory | nu
   const m: Memory = { kind: 'foehelp', why: `you sent ${words} to their enemy ${name(city)} during the war`, amount: cost.amount, tick: s.tick, fade: FOE_HELP_FADE };
   foe.memories.push(m);
   const line = settleMood(s, foe, m.why, true);
-  news(w, s.tick, foe.id, line || `${rulerShort(foe)} has heard that you sent ${words} to ${name(city)}, ${foe.ruler.female ? 'her' : 'his'} enemy (${m.amount})`);
+  news(w, s.tick, foe.id, line || `${rulerShort(foe)} has heard that you sent ${words} to ${name(city)}, ${foe.ruler.female ? 'her' : 'his'} enemy (${String(m.amount).replace('-', '−')})`);
   s.rev++;
   return m;
 }

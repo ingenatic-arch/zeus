@@ -37,6 +37,8 @@ import { sizeOf } from '../map/lands';
 export const DEFAULT_NAME = 'Nea Argos';
 /** A name's length, at least and at most. */
 export const NAME_MIN = 2;
+/** A name's possessive as the game writes it: "Corinth’s", "Nea Naxos’" (but "your colony on Thasos’s"). (Review of phase 6: colonies' names the same way as the cities'.) */
+export const whoseName = (name: string): string => (/^your colony/i.test(name) || !name.endsWith('s') ? `${name}’s` : `${name}’`);
 export const NAME_MAX = 20;
 
 export const TRAITS: readonly Trait[] = ['proud', 'greedy', 'generous', 'warlike', 'pious', 'shrewd', 'fickle', 'steadfast'];

@@ -528,6 +528,8 @@ kbd {
 @media (max-width: 1720px) {
   .household { top: 92px; max-height: calc(100% - 212px); }
   #ui:has(> .household:not([hidden]):not(.greece-panel)) > .notices { width: min(640px, max(260px, calc(100% - 760px))); }
+  /* (Phase 6 review: the Messages and the building panels are wider than a household's, up to 438 pixels, and covered the lines' left ends: beside them, the lines stand to their right.) */
+  #ui:has(> .household:is(.messages, .building, .trade):not([hidden])) > .notices { left: 468px; transform: none; width: min(640px, calc(100% - var(--side) - 484px)); }
 }
 
 /* The trading post's panel (slice 13): the ship's schedule and the goods she buys. */
@@ -768,6 +770,7 @@ body.greece-open .floater, body.greece-open .hint, body.greece-open .tool-hint, 
 @media (max-width: 2016px) {
   #ui.side-open .household { top: 92px; max-height: calc(100% - 212px); }
   #ui.side-open:has(> .household:not([hidden]):not(.greece-panel)) > .notices { width: min(640px, max(260px, calc(100% - var(--side) - 760px))); }
+  #ui.side-open:has(> .household:is(.messages, .building, .trade):not([hidden])) > .notices { left: 468px; transform: none; width: min(640px, calc(100% - var(--side) - 484px)); }
 }
 
 
@@ -890,7 +893,7 @@ body.greece-open .notices { width: min(560px, calc(100% - 432px)); }
 /* On a window up to 1440 wide they narrow again, so Troy's label, just under the top bar there, stays clear of them (phase 3's review). */
 @media (max-width: 1440px) { body.greece-open .notices { width: min(400px, calc(100% - 432px)); } }
 /* With a city's page open on a window up to 1400 wide, they start just right of it, rather than under it. */
-@media (max-width: 1400px) { body.greece-open #ui:has(> .greece-panel:not([hidden])) > .notices { left: 402px; transform: none; width: min(400px, calc(100% - 942px)); } }
+@media (max-width: 1400px) { body.greece-open.greece-paged #ui > .notices { left: 402px; transform: none; width: min(400px, calc(100% - 942px)); } }
 body.greece-open .townline { font-size: 12.5px; padding-top: 3px; padding-bottom: 3px; width: 100%; }
 body.greece-open .townline > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.greece-open .townline:hover > span { white-space: normal; }

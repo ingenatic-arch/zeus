@@ -271,9 +271,20 @@ export function moveOut(s: SimState, b: Building, n: number, need: Story['need']
   return gone;
 }
 
-/** How someone is related, in a few words: "head of the house", "son of Lykos". */
-export function kinship(p: Person): string {
-  return p.role === 'head' ? 'head of the house' : `${p.role} of ${p.kin}`;
+/**
+ * How someone is related, in a few words: "head of the house", "son of Lykos".
+ * (Phase 6 review: given the household, one whose husband or wife, or parent,
+ * died here, of a fever or the plague, in battle or by the court's sentence, is
+ * "widow of Lykos", "widower of Theano", "son of the late Lykos".)
+ */
+export function kinship(p: Person, f?: Family | null): string {
+  if (p.role === 'head') return 'head of the house';
+  if (f && !f.members.some((m) => m.name === p.kin) && f.story.some((x) => x.names[0] === p.kin && (x.what === 'died' || x.what === 'fell' || (x.what === 'sentence' && x.names[1] === 'execution')))) {
+    if (p.role === 'wife') return `widow of ${p.kin}`;
+    if (p.role === 'husband') return `widower of ${p.kin}`;
+    if (p.role === 'son' || p.role === 'daughter') return `${p.role} of the late ${p.kin}`;
+  }
+  return `${p.role} of ${p.kin}`;
 }
 
 // ---------------------------------------------------------------------------

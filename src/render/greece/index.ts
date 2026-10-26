@@ -416,6 +416,16 @@ export class GreeceMap {
       this.tab = 'ruler';
     } else if (this.shown) this.panel.hidden = false;
     document.body.classList.toggle('greece-open', on);
+    this.paged();
+  }
+
+  /**
+   * (Phase 6 review: whether a city's panel is open, as a class on the body, for the lines and popups that step aside
+   * for it. The rules had asked "#ui:has(> .greece-panel:not([hidden]))", and with it every hidden switched anywhere
+   * in the interface (the popups' each frame) cost the map of Greece a whole restyle, about 2 ms a frame.)
+   */
+  private paged(): void {
+    document.body.classList.toggle('greece-paged', this.open && !this.panel.hidden);
   }
 
   /** Open a city's panel (null closes it), on a tab if given. */
@@ -424,6 +434,7 @@ export class GreeceMap {
     if (tab && !id?.startsWith('site:')) this.tab = tab;
     this.renaming = false;
     this.panel.hidden = !id || !this.open;
+    this.paged();
     this.redraw(true);
   }
 

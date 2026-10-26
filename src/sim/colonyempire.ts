@@ -381,7 +381,7 @@ function station(s: SimState, map: CoastMap, col: Colony, id: number): void {
   c.posted = col.site;
   col.garrison = c.id;
   const men = readyOf(s, c).length;
-  news(s.world, s.tick, siteKey(col.site), `${cap(companyName(c))} of ${kindWord(c.kind)} (${men} men) marches down to your quay to sail for ${col.name}: your ship sails in for them about ${dayWords(s.tick + SAIL_IN)}, and a boat rows them out to her`);
+  news(s.world, s.tick, siteKey(col.site), `${cap(companyName(c))} of ${kindWord(c.kind)} marches down to your quay to sail for ${col.name} with its ${men} men: your ship sails in for them about ${dayWords(s.tick + SAIL_IN)}, and a boat rows them out to her`);
   s.rev++;
 }
 

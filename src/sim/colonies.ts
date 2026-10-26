@@ -62,7 +62,7 @@ import { berthOf, leaveTicks, PRICES, sailable, SAIL_IN, shipRoute, SHIP_ANCHORE
 import { pay, spendable } from './treasury';
 import { boundTo, SEASON, type Tribute } from './vassals';
 import { newWalker, roadPoints, setPath, speedOf } from './walk';
-import { cityOf, COLD, memoryWorth, moodOf, nameRefusal, rulerShort, VOYAGE, WARM } from './world';
+import { cityOf, COLD, memoryWorth, moodOf, nameRefusal, rulerShort, VOYAGE, WARM, whoseName } from './world';
 import { dhypot } from '../map/dmath';
 // Slice 43: stages, works, wants and governors, and what a colony makes retuned (colonyworks.ts).
 import { worksTownLine } from './colonyworks';
@@ -71,6 +71,7 @@ import { colonyLost, empireCauses, holdWith, holdWords, seasonTrade, shipsOf, ty
 import { defenceWords, freshGrowth, govTrait, growthCauses, loyaltyCauses, offerAtLanding, ownDefence, raidTakes, secondYear, sendsMore, sendsYear, shipPace, stageFor, stageOf, walled, type ColonyGrowth } from './colonyworks';
 // Slice 42: the land's size.
 import { sizeOf } from '../map/lands';
+import { WOMEN } from './folk';
 
 // ---------------------------------------------------------------------------
 // The records (kept in the `empire` field: vassals.ts' Empire has `colonies` and `foundings`).
@@ -91,6 +92,9 @@ export const GOV_WORDS: Record<GovTrait, string> = {
   soldier: 'a soldier: he drills its men',
   favourite: 'a favourite of its people',
 };
+
+/** A governor's words with "she" and "her" for a woman (the settlers' leader, the head of the first household, can be a widow). (Review of phase 6.) */
+export const asGovernor = (name: string, text: string): string => (WOMEN.includes(name) ? text.replace(/\bhe\b/g, 'she').replace(/\b(him|his)\b/g, 'her') : text);
 
 /** One household going out with a founding: its home, its name, how many, and where it is. */
 export interface Household {
@@ -332,7 +336,7 @@ export function foundRefusal(s: SimState, map: CoastMap, site: string, household
   if (x.owner) return `${siteName(site)} is ${whose(x.owner)} colony`;
   if (x.free) return `${x.free} stands free there now: nobody founds on ${siteName(site)} again`;
   if (x.bound === 'home') return 'Your settlers are on their way there';
-  if (x.bound) return `${cityName(x.bound)}’s settlers are on their way there`;
+  if (x.bound) return `${whoseName(cityName(x.bound))} settlers are on their way there`;
   if (foundingOf(s)) return `Your settlers for ${siteName(foundingOf(s)?.site ?? '')} are still on their way: one founding at a time`;
   const post = tradingPost(s);
   if (!post || !berthOf(map, post)) return 'Settlers sail from the quay: build a trading post on the bay shore';
@@ -680,7 +684,7 @@ export function colonyLoyalty(s: SimState, c: Colony): Loyalty {
   if (trait === 'steady') add(5, `${c.governor}, its governor, is steady`);
   if (trait === 'proud' && pop > FREE_FROM) add(-10, `${c.governor}, its governor, is proud, and it has grown`);
   // (Review of slice 37: the share is already its own reason, so this one doesn't name it again in the short list.)
-  if (trait === 'grasping' && c.share === 2) add(-10, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`);
+  if (trait === 'grasping' && c.share === 2) add(-10, asGovernor(c.governor, `${c.governor}, its governor, is grasping: he keeps back what he can of a heavy share`));
   // Slice 43: its agora and temple, and its governor's new traits.
   for (const x of loyaltyCauses(c)) add(x.n, x.why);
   // Slice 47: a company stationed there, triremes stationed off it.
@@ -719,7 +723,7 @@ function sendShipment(s: SimState, c: Colony): void {
   const foe = s.fleet.pirates.find((p) => p.of && p.war === -1 && p.state === 'preying');
   if (foe && !guarded(s, siteLaneId(c.site))) {
     // (Slice 47: and the coin of its trade with it.)
-    const words = loads.length ? `${c.name}’s share of ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}` : `${c.name}’s share of its trade, ${fmt(coin)} dr`;
+    const words = loads.length ? `${whoseName(c.name)} share of ${loads.map((l) => `${fmt(l.amount)} ${goodName(l.good)}`).join(' and ')}` : `${whoseName(c.name)} share of its trade, ${fmt(coin)} dr`;
     const andCoin = loads.length && coin > 0 ? `, and ${fmt(coin)} dr of its trade` : '';
     foe.took.push(`${words}${andCoin}`);
     news(s.world, s.tick, siteKey(c.site), `${bandWords(foe)} ${foe.place} seized ${words} on its way to you${andCoin}: ${whose(foe.of as CityId)} ships are at war with you. A trireme guarding ${c.name} keeps its ships safe`, true);
@@ -1053,7 +1057,7 @@ export function colonyCommand(s: SimState, map: CoastMap, cmd: Extract<Command, 
     const lighter = (cmd.share as number) < c.share;
     c.share = cmd.share as number;
     const y = colonyYear(s, c);
-    news(s.world, s.tick, siteKey(site), `You set ${c.name}’s share ${SHARE_WORDS[c.share]}: about ${fmt(y.amount)} ${goodName(y.good)} a year (${fmt(y.dr)} dr)${lighter ? '. Its loyalty will mend over the next months' : ''}`);
+    news(s.world, s.tick, siteKey(site), `You set ${whoseName(c.name)} share ${SHARE_WORDS[c.share]}: about ${fmt(y.amount)} ${goodName(y.good)} a year (${fmt(y.dr)} dr)${lighter ? '. Its loyalty will mend over the next months' : ''}`);
   } else if (cmd.act === 'name') {
     const was = c.name;
     c.name = String(cmd.name).trim().replace(/\s+/g, ' ');

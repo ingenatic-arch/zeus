@@ -13,7 +13,7 @@ import type { SimState } from '../sim/state';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { WARE_NAMES } from '../sim/foods';
 import { TRADE_GOODS } from '../sim/trade';
-import { colonyGrowth, GOV_WORDS, peopleOf, type Colony } from '../sim/colonies';
+import { asGovernor, colonyGrowth, GOV_WORDS, peopleOf, type Colony } from '../sim/colonies';
 import {
   cargoDoing,
   cargoesFor,
@@ -115,7 +115,7 @@ export function governorHtml(s: SimState, c: Colony): string {
     const rows = c.candidates
       .map((g, n) => {
         const pick = button('governor', `Choose ${esc(g.name)}`, { site: c.site, n }, governorRefusal(c, 'governor', n), `${g.name} governs ${c.name}: ${TRAIT_WORDS[g.trait]}`, 'send');
-        return `<li><div><b>${esc(g.name)}</b>, ${esc(TRAIT_WORDS[g.trait])}${n === 0 && !c.governor ? ' <span class="why">(the council’s choice)</span>' : ''}<div class="does">${esc(cap(TRAIT_DOES[g.trait]))}.</div></div>${pick}</li>`;
+        return `<li><div><b>${esc(g.name)}</b>, ${esc(TRAIT_WORDS[g.trait])}${n === 0 && !c.governor ? ' <span class="why">(the council’s choice)</span>' : ''}<div class="does">${esc(cap(asGovernor(g.name, TRAIT_DOES[g.trait])))}.</div></div>${pick}</li>`;
       })
       .join('');
     const holds = c.governor ? `${esc(c.governor)} governs it until you choose` : 'Its council holds it';
@@ -123,8 +123,9 @@ export function governorHtml(s: SimState, c: Colony): string {
   }
   if (!c.governor) return '';
   const fav = c.trait === 'favourite';
-  const dismiss = button('dismiss', `Dismiss him <em class="down">${fav ? '−15' : '−5'}</em>`, { site: c.site }, governorRefusal(c, 'dismiss'), `Its council holds it while you choose another from two or three; ${fav ? 'its people loved him, and remember it (−15)' : 'it remembers (−5)'}`);
-  return `<section class="governor"><h3>Its governor</h3><p class="line">${esc(c.governor)} governs it: ${esc(GOV_WORDS[c.trait])}. ${esc(cap(TRAIT_DOES[c.trait]))}.</p><div class="acts endally">${dismiss}</div></section>`;
+  const her = (t: string): string => asGovernor(c.governor, t);
+  const dismiss = button('dismiss', `${her('Dismiss him')} <em class="down">${fav ? '−15' : '−5'}</em>`, { site: c.site }, governorRefusal(c, 'dismiss'), `Its council holds it while you choose another from two or three; ${fav ? her('its people loved him, and remember it (−15)') : 'it remembers (−5)'}`);
+  return `<section class="governor"><h3>Its governor</h3><p class="line">${esc(c.governor)} governs it: ${esc(her(GOV_WORDS[c.trait]))}. ${esc(cap(her(TRAIT_DOES[c.trait])))}.</p><div class="acts endally">${dismiss}</div></section>`;
 }
 
 /** One work's row: what it does, and its state or the button to fund it. */

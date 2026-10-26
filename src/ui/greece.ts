@@ -41,7 +41,7 @@ import { blockaded } from '../sim/lanes';
 // Slice 37: a site's page (an empty site, your settlers, your colony).
 import { sitePageHtml } from './colonies';
 import { siteLaneId, siteOf } from '../map/greece';
-import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, yourPrice, type MoodWord } from '../sim/world';
+import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, whoseName, yourPrice, type MoodWord } from '../sim/world';
 
 /** (Slice 37) What a page on the map is of: a city, or a site ('site:thasos'). */
 export type PageId = CityId | `site:${string}`;
@@ -337,7 +337,7 @@ function tributeCard(s: SimState, id: number): string {
   // (Slice 37: your colony's share, on its ship.)
   if (t.colony) {
     const nm = s.empire.colonies.find((c) => c.site === t.colony)?.name ?? `Your colony on ${siteOf(t.colony)?.name ?? t.colony}`;
-    return `<b>${esc(`${nm}’s share · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its page</span>`;
+    return `<b>${esc(`${whoseName(nm)} share · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its page</span>`;
   }
   return `<b>${esc(`${PLACES[t.city].name}’s tribute · ${tributeWords(t)}`)}</b><span>${esc(line)}</span><span class="sub">Click for its Empire tab</span>`;
 }

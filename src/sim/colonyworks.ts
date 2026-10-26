@@ -65,8 +65,8 @@ import { note } from './stockbook';
 import { berthOf, leaveTicks, PRICES, sailable, SAIL_IN, shipRoute, SHIP_ANCHORED, SHIP_COMING, SHIP_LEAVING, storeKind, tradeIndex, TRADE_GOODS, tradingPost, pastMouth } from './trade';
 import { pay, spendable } from './treasury';
 import { newWalker, roadPoints, setPath, speedOf } from './walk';
-import { memoryWorth } from './world';
-import { colonyOf, laneTicks, peopleOf, pointOn, pathLen, quaySpot, siteKey, type Colony, type GovTrait } from './colonies';
+import { memoryWorth, whoseName } from './world';
+import { asGovernor, colonyOf, laneTicks, peopleOf, pointOn, pathLen, quaySpot, siteKey, type Colony, type GovTrait } from './colonies';
 
 // ---------------------------------------------------------------------------
 // The records (inside slice 37's Colony, and `cargoes` in the empire).
@@ -362,7 +362,7 @@ export function loyaltyCauses(c: Colony): Array<{ why: string; n: number }> {
   if (built(c, 'temple')) out.push({ why: 'its temple, which you paid for', n: TEMPLE_LOYALTY });
   const t = govTrait(c);
   if (t === 'favourite') out.push({ why: `${c.governor}, its governor, is a favourite of its people`, n: FAVOURITE_LOYALTY });
-  if (t === 'miser') out.push({ why: `${c.governor}, its governor, is a miser: he pinches its people`, n: MISER_LOYALTY });
+  if (t === 'miser') out.push({ why: asGovernor(c.governor, `${c.governor}, its governor, is a miser: he pinches its people`), n: MISER_LOYALTY });
   return out;
 }
 
@@ -982,7 +982,7 @@ function choose(s: SimState, c: Colony, n: number, council: boolean): void {
   c.candidates = [];
   c.chooseBy = 0;
   if (!same) c.govSince = s.tick;
-  news(s.world, s.tick, siteKey(c.site), `${council ? `${c.name}’s council has chosen` : 'You have chosen'} ${g.name} to govern ${council ? 'it' : c.name}: ${TRAIT_WORDS[g.trait]} (${TRAIT_DOES[g.trait]})`);
+  news(s.world, s.tick, siteKey(c.site), asGovernor(g.name, `${council ? `${whoseName(c.name)} council has chosen` : 'You have chosen'} ${g.name} to govern ${council ? 'it' : c.name}: ${TRAIT_WORDS[g.trait]} (${TRAIT_DOES[g.trait]})`));
   s.rev++;
 }
 

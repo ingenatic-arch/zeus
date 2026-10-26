@@ -48,7 +48,7 @@ import {
   wouldHold,
   type FreeAlly,
 } from '../sim/colonyempire';
-import { moodWord } from '../sim/world';
+import { moodWord, whoseName } from '../sim/world';
 import { moodFace } from './greece';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -233,7 +233,7 @@ export function colonyTravellerHtml(s: SimState, key: string): string {
   }
   if (kind === 'colexp') {
     const e = s.world.expeditions.find((y) => y.id === id);
-    return e ? `<b>${esc(`Your raiding party from ${shareFrom(s, e.from ?? '')}`)}</b><span>${esc(strikeLine(s, e))}</span><span class="sub">Click for ${esc(name(e.city))}’s page</span>` : '<b>Your raiding party</b>';
+    return e ? `<b>${esc(`Your raiding party from ${shareFrom(s, e.from ?? '')}`)}</b><span>${esc(strikeLine(s, e))}</span><span class="sub">Click for ${esc(whoseName(name(e.city)))} page</span>` : '<b>Your raiding party</b>';
   }
   return '';
 }

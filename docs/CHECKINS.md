@@ -75,6 +75,53 @@ The starting build (`0f9dc87`) and this slice's, measured with the same loosened
 - **What I checked**: every step under What to try, at 1920 × 1080 (and the panels at 1366 × 768), in the original look and in -modern and -plain: the home panel on a villa and a hut, every side panel tab, the trading post's Athens tab (Enter on a route switch flips it and back), Athens' Trade tab on the map of Greece (holding + repeats), the overview's pages, the quay storehouse, court, prison and infirmary, `#physicians`' sick, your ship at anchor in `#colonybase`'s quay picture, and `#order` played on for three years. Whether it all looks right is for you to judge.
 - **`#bigwoods` at its furthest, not changed.** Its 4.76 M triangles are nearly all trees: about 2 M of them in the scene, drawn twice, since from that far back the box the sun's shadows are drawn in covers nearly the whole land. Every cure I can see (no shadows from far trees, a third, plainer tree, or fewer trees far off) changes how the woods look, so I'd rather you looked at it on a real machine first.
 
+### What the phase review changed
+I played the phase through as a new player would: from the bare link, through the new-game screen, onto a medium mountain shore (the word "amphora"), built up by mouse at first and then by a steady hand for about 22 game years, to 1,650 people, a colony on Kythera, a court, a prison, two infirmaries and an asklepieion, hired hoplites stationed in the colony, store rules set from the storehouse's panel, a farm paused, a press put on workers first, the law changed, and the town saved, reloaded and played on. I also played `#order` on for four years, tried one step from every slice's What to try and the older demos, and went through the panels, keys and overlays at 1920 × 1080, 1600 × 900 and 1366 × 768. What I changed:
+
+- **The map of Greece costs what it did again.** During the phase its work each frame had doubled (from about 2.4 ms to 5 ms before drawing), because the corner where alarms pop up rewrote itself every frame, and each rewrite made the browser restyle the whole page while the map was open. Now it writes only when something changes; the map is back to about 2.4 ms.
+- **The lines under the top bar no longer slide under a panel.** At 1366 × 768, and at 1600 × 900 with the side panel open, the Messages panel, a building panel and the trading post covered the start of the lines by up to 70 pixels. The lines now start to the right of whichever is open. On the map of Greece, the alarms and lines step aside for a city's page only when one is open.
+- **The plague's advice names what you have.** The plague line said "physicians and the asklepieion save lives" in a city with no asklepieion. It now names the healers the city has, and what to build next (an infirmary is Z six times, an asklepieion Z seven).
+- **The Health page's plague section** no longer repeats the news of Greece among its own reasons, or lists a fevered quarter when nobody is ill, and its line about a plagued city says when your quarantine is holding its traders off, or when the plague can't take hold so soon after the last.
+- **A share lost for want of room says so.** In `#order`, Nea Kythnos' copper was lost every season because no store had room, and the message only half said it. It now reads "no store had room for its 120 copper, so it was lost", and says what would take the next (a storehouse with room for copper, or selling some at the trading post).
+- **Widows and orphans.** A widow stayed "wife of" a husband who had died (slice 52's rough edge). A member now reads "widow of", "widower of" or "son of the late" once the one they're named by has died, fallen or been put to death.
+- **A woman governor.** A colony's first governor is the head of its first household, who can be a widow: Korinna, governing Nea Kythera, was "grasping: he keeps back what he can". The governor's words now say "she" and "her" for a woman.
+- **Colony names ending in s** take the bare apostrophe the cities already did ("Memphis' harvest"): "Nea Naxos' share is in", not "Nea Naxos's". A few city names in the overview, and Rhodes' settlers, the same.
+- **A company sailing for a colony** had the message title "The 1st company of hoplites" and nothing more; the title now says where it is marching and why.
+- **A new city's people tip** told you to "mark out more plots, or bring water so tents grow into huts" before there was a single plot. With no homes yet, it says to mark out housing plots beside the road (H), and that settlers walk in to them.
+- **A porter sent to a store that has run out** said he was "fetching oil from here"; it now says none is left there, and that he goes back empty-handed unless some comes in first.
+- Smaller: the Distribution page's agora note says how much of a good the city holds when no stall sells it; a ruler's displeasure at your gift to his enemy shows a proper minus sign.
+
+**Every demo is unchanged.** All 165 demos, from slice 52's build and from this one, are the same in every number when they open and 900 ticks later; only the words of some messages differ. No change to the save format.
+
+What I saw while playing, for you to judge:
+- **Money is the hard part of a new city.** On the mountain shore my town sat at 400 to 500 people with the treasury near nothing for about ten game years: the tax collectors called on only 40 to 60% of the homes, and the wages of a fully staffed town cost more than the taxes brought in. A loan, a trading post selling oil and a copper mine turned it round: 815 people in year 14, 1,650 and 6,000 to 7,000 dr by year 21. Each time the lines and tips pointed the right way (another tax office beside the homes not called on, a watch post nearer, a road beside a plot). Is that slow start what you want?
+- **Crime and sickness hardly pressed a well-run town.** With two watch posts, a court and physicians, crime stayed at 0 to 3 a month and almost nobody fell ill in 20 years. No plague came, because I never got a sea route open (only Tyre's ship called). `#order` shows them far more: its plague came when warned, and if let in it made 70 ill and killed 26.
+- **A colony left wanting drifts.** Nea Kythera's loyalty fell from 70 to 43 in six years, with two asks unmet and a grasping governor; the stationed hoplites lifted it to 54 for a while.
+- **Nea Kythnos rebelled in `#order`** after a raid and two unmet asks, warned three months ahead. The warning says "lighten its share, or guard it" and doesn't mention offering it freedom as an ally.
+- **`#bigwoods` at its furthest.** As a test, not kept: drawing shadows only for near trees cut its furthest view from 4.76 M to 4.04 M triangles, and `#landlarge`'s from 2.58 M to 2.20 M; side by side, I couldn't tell the shots apart. Fewer far trees would cut more. I've left the woods as they are until you've seen them on a real machine.
+
+The budgets, phase start (`#town` and the rest as phase 5 left them) against now, measured with the same loosened script on this machine, one after the other under the same load (headless, software drawing, so every time is noisy):
+
+| What | Phase start | Now |
+|---|---|---|
+| The game itself | 2,417 KB, 823 KB gzipped | 3,001 KB, 997 KB gzipped |
+| Prepared towns | 103 files, 3,679 KB gzipped | 125 files, 4,520 KB gzipped (largest 82 KB, `#order`) |
+| The bare link, ready / first frame | 1.40 s / 2.03 s | 1.30 s / 1.94 s |
+| `#town`, `#richtown`, `#fortress`, `#empire`, `#colonies`, `#rivals` ready | about 1.4 to 1.5 s | about 1.4 to 1.5 s |
+| `#order` ready, view, furthest | (new) | 2.0 s; 2.52 M triangles and 150 draws; 2.94 M and 205 |
+| `#bigwoods` ready, furthest | (new) | 1.9 s; 4.76 M triangles and 227 draws |
+| `#town` view | 1.49 M triangles, 102 draws | 1.49 M, 102 |
+| `#empire` view | 2.09 M, 152 | 1.95 M, 156 |
+| A frame's work before drawing, `#town` | 4.8 ms | 6.0 ms |
+| The same, `#empire` / `#order` | 7.3 to 7.8 ms / (new) | 8.8 to 10.6 ms / 17.9 ms |
+| The same, the map of Greece | 2.4 ms | 2.4 ms |
+| The sim's tick, `#town` / `#empire` | 0.24 / 0.42 ms | 0.33 / 0.61 ms |
+| Saves, `#town` / `#empire` | 187 / 280 KB | 194 / 307 KB |
+
+So the city's own frame work grew by about a quarter over the phase, and the sim's tick by a quarter to a half, as crime, health, messages and the annals came in; every demo still opens well under 3 s.
+
+**What I checked**: typecheck, all 783 tests, the build, the full smoke (with loosened timeouts) and the measure, and the published copy from the bare link, `#town`, `#order` and the main demos. Whether any of it looks or feels right is for you to judge.
+
 ## Slice 50 — A new look for the panels (26 Oct)
 
 The panels and sub-menus now share one kit in the original look: parchment and marble, carved headings, bronze plaques with drawn icons, proper steppers, switches, bars and pips, and one tip that works the same everywhere. The Army tab and the trading post, the two you sent screenshots of, are rebuilt on it, and every other panel the spec named has moved onto it too. You weren't here while it was built: every choice below is mine, from the spec's defaults.

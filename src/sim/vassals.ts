@@ -52,7 +52,7 @@ import { berthOf, leaveTicks, SAIL_IN, shipRoute, SHIP_ANCHORED, SHIP_COMING, SH
 import { income } from './treasury';
 import { offMapPoint } from './walk';
 import { offRoadPath, prunePath, walkable } from './wild';
-import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sellsAndBuys, WARM } from './world';
+import { cityOf, COLD, HOSTILE, memoryWorth, moodOf, rulerName, rulerShort, sellsAndBuys, WARM, whoseName } from './world';
 // Integrating slice 34 with 33: winter holds tribute ships back and keeps most allies at home.
 import { armiesHome, lateWords, seasonOf, stormDelay, WINTER } from './seasons';
 // Slice 38: a blockade holds the harbour.
@@ -872,7 +872,10 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
     v.sent++;
     v.worth += t.worth;
   }
-  const lost = t.lost > 0 ? `; no room for the other ${fmt(t.lost)}, lost` : '';
+  // (Phase 6 review: a shipment that found no room at all said "0 copper carried straight to the stores; no room for the other 230, lost", every season: now it says so plainly, and what would take the next.)
+  const room = t.good >= 0 && t.lost > 0 ? ` (a storehouse with room for ${WARE_NAMES[TRADE_GOODS[t.good]]}${s.buildings.some((b) => b.kind === 'trading') ? ', or selling some at the trading post,' : ''} would take the next)` : '';
+  const lost = t.lost > 0 ? `; no room for the other ${fmt(t.lost)}, lost${room}` : '';
+  const what = t.good >= 0 && t.put <= 0 && t.lost > 0 ? `no store had room for its ${fmt(t.lost)} ${WARE_NAMES[TRADE_GOODS[t.good]]}, so it was lost${room}` : '';
   // Slice 37: a colony's shipment.
   const col = t.colony ? s.empire.colonies.find((c) => c.site === t.colony) : undefined;
   if (col) {
@@ -888,9 +891,9 @@ export function unload(s: SimState, t: Tribute, at: Building | undefined, how: s
   // Slice 47: your share of its trade, in coin, comes ashore with its goods.
   if (t.colony && t.coin) income(s, t.coin, 'colonytrade', `from ${shareFrom(s, t.colony)}`);
   const trade = t.colony && t.coin ? `, and ${fmt(t.coin)} dr of its trade into the treasury` : '';
-  if (t.colony && t.good < 0) news(w, s.tick, `site:${t.colony}`, `${shareFrom(s, t.colony).replace(/^your/, 'Your')}’s share of its trade is in: ${fmt(t.put)} dr into the treasury`);
-  else if (t.colony) news(w, s.tick, `site:${t.colony}`, `${shareFrom(s, t.colony).replace(/^your/, 'Your') /* Slice 47: a free ally's by its name */}’s share is in: ${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}${trade}`);
-  else news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}`}${lost}`);
+  if (t.colony && t.good < 0) news(w, s.tick, `site:${t.colony}`, `${whoseName(shareFrom(s, t.colony)).replace(/^your/, 'Your')} share of its trade is in: ${fmt(t.put)} dr into the treasury`);
+  else if (t.colony) news(w, s.tick, `site:${t.colony}`, `${whoseName(shareFrom(s, t.colony)).replace(/^your/, 'Your') /* Slice 47: a free ally's by its name */} share is in: ${what || `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}`}${trade}`);
+  else news(w, s.tick, t.city, `${whose(t.city)} tribute is in: ${t.good < 0 ? `${fmt(t.put)} dr into the treasury` : what || `${fmt(t.put)} ${WARE_NAMES[TRADE_GOODS[t.good]]} ${how}${lost}`}`);
   s.rev++;
 }
 
@@ -1399,7 +1402,7 @@ export function empireTownLine(s: SimState): { text: string; city: CityId; urgen
   const aid = s.empire.aid.find((a) => a.phase === 'road');
   if (aid) return { text: `${aid.men} men of ${name(aid.city)} are coming down the road to help you: at the ${aidSide(s, aid.city)} edge of your land about ${dayWords(aid.start + aid.dur)}.`, city: aid.city, urgent: false, rank: 2 };
   const t = s.empire.tribute.find((x) => x.phase === 'city' || x.phase === 'bay');
-  if (t) return { text: `${t.colony ? `${colonyName(s, t)}’s share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false, rank: 0 };
+  if (t) return { text: `${t.colony ? `${whoseName(colonyName(s, t))} share` : `${whose(t.city)} tribute`} is ${t.phase === 'bay' ? 'sailing into your bay' : 'coming in to your stores'}: ${tributeWords(t)}.`, city: t.colony ? `site:${t.colony}` : t.city, urgent: false, rank: 0 };
   return null;
 }
 
@@ -1411,8 +1414,8 @@ export function tributeDoing(s: SimState, id: number, back: boolean): { title: s
   // Slice 37: a colony's share.
   if (t?.colony) {
     const nm = colonyName(s, t);
-    if (back || t.phase === 'done') return { title: `${nm}’s share`, detail: `Your donkeys, heading back to the quay · they brought ${tributeWords(t)}` };
-    return { title: `${nm}’s share`, detail: `Your donkeys bringing ${tributeWords(t)} from the jetty to ${to ? `the ${to.kind}` : 'your stores'} · your colony’s share for the season` };
+    if (back || t.phase === 'done') return { title: `${whoseName(nm)} share`, detail: `Your donkeys, heading back to the quay · they brought ${tributeWords(t)}` };
+    return { title: `${whoseName(nm)} share`, detail: `Your donkeys bringing ${tributeWords(t)} from the jetty to ${to ? `the ${to.kind}` : 'your stores'} · your colony’s share for the season` };
   }
   if (!t || back || t.phase === 'done') return { title: `${whose(city)} tribute`, detail: `Donkeys of ${name(city)}, heading home along the road${t ? ` · they brought ${tributeWords(t)}` : ''}` };
   return { title: `${whose(city)} tribute`, detail: `Donkeys of ${name(city)} bringing ${tributeWords(t)} to ${to ? (to.kind === 'taxoffice' ? 'the tax office' : `the ${to.kind}`) : 'your stores'} · your vassal’s tribute for the season` };
@@ -1427,7 +1430,7 @@ const colonyName = (s: SimState, t: Tribute): string => shareFrom(s, t.colony ??
  * cargo comes ashore, or sailing home): whose it is, what it brings and what it is doing.
  */
 export function tributeShipStatus(s: SimState, t: Tribute): { title: string; detail: string } {
-  const who = t.colony ? `${colonyName(s, t)}’s share ship` : `${whose(t.city)} tribute ship`;
+  const who = t.colony ? `${whoseName(colonyName(s, t))} share ship` : `${whose(t.city)} tribute ship`;
   const from = t.colony ? colonyName(s, t) : name(t.city);
   // (By where the ship is, not where the goods are: the goods are 'bay' from the horizon on, while she still sails in.)
   const ph = t.ship?.phase;

@@ -196,8 +196,8 @@ const CAUGHT_AT: Record<string, string> = { theft: 'stealing', pickpocket: 'pick
 const cap = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** The members, head first, with their ages and how they are related. */
-function memberRow(s: SimState, p: Person): string {
-  return `<li><span class="nm">${esc(p.name)}</span><span class="age">${ageOf(s, p)}</span><span class="kin">${esc(kinship(p))}</span></li>`;
+function memberRow(s: SimState, p: Person, f: Family): string {
+  return `<li><span class="nm">${esc(p.name)}</span><span class="age">${ageOf(s, p)}</span><span class="kin">${esc(kinship(p, f))}</span></li>`;
 }
 
 function moodBlock(m: Mood): string {
@@ -526,7 +526,7 @@ export function householdHtml(s: SimState, map: CoastMap, b: Building): string {
   const talk = chatterOf(s, b, able > b.workers)
     .map((l) => `<blockquote>“${esc(l.text)}”<cite>${esc(l.who.name)}, ${ageOf(s, l.who)}</cite></blockquote>`)
     .join('');
-  const members = f.members.map((p) => memberRow(s, p)).join('');
+  const members = f.members.map((p) => memberRow(s, p, f)).join('');
   const story = f.story
     .map((e, i) => `<li><span class="when">${when(e.tick)}</span><span>${esc(storyLine(f, e, i))}</span></li>`)
     .reverse()

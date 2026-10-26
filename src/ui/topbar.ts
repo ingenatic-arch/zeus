@@ -287,12 +287,14 @@ export class TopBar {
   }
 
   /** The population's tooltip: how often newcomers are arriving, and why. */
-  setPeopleTip(o: Outlook): void {
+  setPeopleTip(o: Outlook, noHomes = false): void {
     const el = this.bar.querySelector('.stat.people') as HTMLElement;
     let why: string;
     if (!o.road) why = 'Settlers come in where a road meets the edge of the map.';
     else if (o.room === 0 && o.cutOff > 0)
       why = `No room for newcomers: ${o.cutOff === 1 ? 'the empty plot you marked out has' : `the ${o.cutOff} empty plots you marked out have`} no road beside ${o.cutOff === 1 ? 'it' : 'them'} that leads to the edge of the map. Lay a road past ${o.cutOff === 1 ? 'it' : 'them'}.`;
+    // (Phase 6 review: as the Population tab says it, for a city just founded with no plots at all.)
+    else if (o.room === 0 && noHomes) why = 'No room for newcomers yet: mark out housing plots (H) beside the road, and settlers walk in to them.';
     else if (o.room === 0) why = 'No room for newcomers: mark out more plots, or bring water so tents grow into huts.';
     else {
       const secs = o.interval / TICKS_PER_SECOND;

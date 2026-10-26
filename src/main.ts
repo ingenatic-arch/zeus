@@ -2646,7 +2646,7 @@ function start(preparedTown: string | null): void {
     }
     if (time - outlookAt > 2) {
       outlookAt = time;
-      topbar.setPeopleTip(arrivalOutlook(s, map));
+      topbar.setPeopleTip(arrivalOutlook(s, map), !s.buildings.some((b) => b.kind === 'home'));
       // Slice 39: settlers drawn by fame, named in the people's tooltip.
       topbar.notePeople(fameWords(s));
       topbar.setMoneyTip(moneyTip(s));

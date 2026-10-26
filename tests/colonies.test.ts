@@ -113,7 +113,7 @@ describe('founding a colony', () => {
     expect(foundRefusal(s, sim.map, 'naxos')).toMatch(/Athens’ colony/);
     site.owner = '';
     site.bound = 'rhodes';
-    expect(foundRefusal(s, sim.map, 'naxos')).toMatch(/Rhodes’s settlers/);
+    expect(foundRefusal(s, sim.map, 'naxos')).toMatch(/Rhodes’ settlers/);
     site.bound = '';
     expect(foundRefusal(s, sim.map, 'naxos', 3)).toMatch(/Four households/);
     const money = s.money;
@@ -148,7 +148,7 @@ describe('the colony', () => {
     expect(bookLine(s, TIMBER, 'bought', 'colony:thasos')).toBeGreaterThan(0);
     expect(s.buildings.reduce((a, b) => a + held(b, TIMBER), 0)).toBeGreaterThan(timber);
     expect(peopleOf(s, c)).toBeGreaterThan(400);
-    expect(lines(s).some((x) => /Nea Thasos’s share is in: \d+ timber/.test(x))).toBe(true);
+    expect(lines(s).some((x) => /Nea Thasos’ share is in: \d+ timber/.test(x))).toBe(true);
   }, 240000);
 
   it('a heavier share lowers its loyalty, every reason named; the years loosen its ties', () => {
@@ -412,8 +412,8 @@ describe('colonies and contested seas (at the merge)', () => {
       return s.empire.tribute.filter((x) => x.colony === 'thasos').length - sent;
     };
     expect(seize()).toBe(0);
-    expect(p.took.some((w) => /Nea Thasos’s share of \d+ timber/.test(w))).toBe(true);
-    expect(lines(s).some((x) => /warships .* seized Nea Thasos’s share of \d+ timber on its way to you/.test(x))).toBe(true);
+    expect(p.took.some((w) => /Nea Thasos’ share of \d+ timber/.test(w))).toBe(true);
+    expect(lines(s).some((x) => /warships .* seized Nea Thasos’ share of \d+ timber on its way to you/.test(x))).toBe(true);
     // A trireme on station off the colony keeps its ships safe.
     const g = s.fleet.triremes[0];
     g.order = 'lane';
