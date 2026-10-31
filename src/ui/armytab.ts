@@ -27,6 +27,8 @@ import { bandWords, daysToMend, warWords } from '../sim/fleet';
 // Slice 50: the kit.
 import { actionIcon, buildingIcon, TRIREME_FIGURE, unitFigure } from './icons';
 import { kbar, kbtn, kcard, kchip, kitHtml, kpips, kwhy, type PipState } from './kit';
+// Slice 60.
+import { godWarCard } from './godwarcard';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -114,6 +116,9 @@ export function armyHtml(s: SimState, map: CoastMap, focus: number, selected: nu
 
 function armyInner(s: SimState, map: CoastMap, focus: number, selected: number): string {
   const out: string[] = [];
+  // Slice 60: the gods in war, and calling on one.
+  const gw = godWarCard(s);
+  if (gw) out.push(gw);
   const barracks = s.buildings.filter((b) => b.kind === 'barracks');
   const st = strength(s);
   if (st.companies + st.allies === 0 && barracks.length === 0) {

@@ -45,6 +45,9 @@ import { TRADE_GOODS } from '../../sim/trade';
 import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks, type SiteGrowth } from './models';
+// Slice 60.
+import { godMarchModel } from '../gods';
+import { marchOf } from '../../sim/godwar';
 import { buildRelief, reliefMesh, type Relief } from './relief';
 // Slice 50: the panels' kit (its tips; the page in its dress).
 import { kitHtml } from '../../ui/kit';
@@ -873,6 +876,23 @@ export class GreeceMap {
         // (Larger than life, as the caravans are, and more so: a band must be seen coming.)
         m.scale.setScalar(2.3 * far);
         m.rotation.set(0, at.gathering ? 0 : -Math.atan2(p.dz * dir, p.dx * dir), 0);
+      }
+      // Slice 60: a god marching with the band, towering beside it in their colours (beside the ship, by sea).
+      const gm = s.gods.on ? marchOf(s, r.id) : undefined;
+      if (gm && !at.homeward) {
+        const god = gm.god;
+        const g = piece(`raid-${r.id}-god`, () => godMarchModel(god), [-0.3, 0.3]);
+        const sea = r.by === 'sea' && !at.gathering;
+        const q = alongLine(line, Math.max(sea ? 0.9 : 0.6, Math.min(L - (sea ? 1.1 : at.gathering ? 1.6 : 0.9), at.along)));
+        const turn = at.gathering ? 0 : -Math.atan2(q.dz * dir, q.dx * dir);
+        const k = 2.3 * far;
+        const lx = at.gathering ? 0.9 : 0.25;
+        const lz = at.gathering ? 0 : 0.62;
+        const gx = q.x + (lx * Math.cos(turn) + lz * Math.sin(turn)) * k;
+        const gz = q.z + (-lx * Math.sin(turn) + lz * Math.cos(turn)) * k;
+        g.position.set(gx, sea ? 0.02 + Math.sin(time * 1.4) * 0.05 : this.relief.heightAt(gx, gz), gz);
+        g.scale.setScalar(0.62 * k);
+        g.rotation.set(0, turn + Math.PI / 2, 0);
       }
     }
     // Your expedition (slice 28): a little army in your colours along the road to their city and home again; crossed swords while it fights there.

@@ -131,6 +131,7 @@ import type { MonsterId } from './sim/pantheon';
 import { GodsView, godTriangles } from './render/gods';
 import { GodPanel } from './ui/godpanel';
 import { blessingWords, figureOf, godStatus } from './sim/epiphany';
+import { warStatus } from './sim/godwar'; // Slice 60
 import { GODS } from './sim/pantheon';
 
 interface Probe {
@@ -1223,7 +1224,7 @@ function start(preparedTown: string | null): void {
     const godId = godUnder(sx, sy);
     const god = godId ? figureOf(sim.state, godId) : undefined;
     if (god) {
-      const gs = godStatus(sim.state, god);
+      const gs = warStatus(sim.state, god) ?? godStatus(sim.state, god); // Slice 60: a god at war says whom they fight and why
       if (godPanel.id !== god.id) gs.detail = `${gs.detail}\nClick for more`;
       return showStatus(gs, sx, sy);
     }

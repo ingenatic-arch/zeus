@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
 import { centreOf, findBuilding, footSide } from '../sim/buildings';
-import { ARRIVE_TICKS, LEAVE_TICKS, type GodFigure } from '../sim/epiphany';
+import { arriveTicks, leaveTicks, type GodFigure } from '../sim/epiphany';
+// Slice 60: gods in war (their blows).
+import type { Strike } from '../sim/godwar';
 import { GODS, type GodId } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 
@@ -603,6 +605,10 @@ export class GodsView {
   private readonly blessedMotes = new Map<number, number>();
   /** Particles drawn last frame (for the probes). */
   drawnParticles = 0;
+  // Slice 60: the last blow drawn (by its id; -1 before the first frame, when those already struck are passed over), when each god last struck (their lunge), and blows drawn (for the probes).
+  private lastBlow = -1;
+  private readonly lunges = new Map<GodId, number>();
+  blowsDrawn = 0;
 
   constructor(private readonly map: CoastMap) {
     this.group.name = 'gods';
@@ -683,7 +689,7 @@ export class GodsView {
       if (!v) {
         v = this.make(f, time);
         // (A god seen first as they arrive, or in a demo just opened: the flourish; one already walking, loaded from a save: none.)
-        if (f.state === 'arriving' && s.tick - f.since < ARRIVE_TICKS) {
+        if (f.state === 'arriving' && s.tick - f.since < arriveTicks(f)) {
           this.flourish(f.god, f.x, this.floor(f.x, f.z), f.z, time, false);
           this.events.push({ god: f.god, kind: 'arrive' });
         }
@@ -713,6 +719,8 @@ export class GodsView {
     this.drawBirds(time, dt);
     this.drawShafts(time, face);
     this.drawBolts(time);
+    // Slice 60: the blows struck since the last frame.
+    this.drawBlows(s, time);
   }
 
   private make(f: GodFigure, time: number): Shown {
@@ -742,6 +750,9 @@ export class GodsView {
     const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
     // (Zeus, Ares and Hermes come quick as lightning; the rest rise slowly with their flourish.)
     const quick = f.god === 'zeus' || f.god === 'ares' || f.god === 'hermes';
+    // (Slice 60: a god at war comes and goes in a day or two, not three.)
+    const ARRIVE_TICKS = arriveTicks(f);
+    const LEAVE_TICKS = leaveTicks(f);
     if (f.state === 'arriving') return ease((age - ARRIVE_TICKS * (quick ? 0.12 : 0.1)) / (ARRIVE_TICKS * (quick ? 0.12 : 0.7)));
     if (f.state === 'leaving') return 1 - ease((age - LEAVE_TICKS * 0.25) / (LEAVE_TICKS * (quick ? 0.15 : 0.65)));
     return 1;
@@ -771,6 +782,13 @@ export class GodsView {
     v.body.rotation.z = walking ? Math.sin(phase) * 0.03 : 0;
     // Blessing: a slight bow towards the place.
     v.body.rotation.x = f.state === 'blessing' ? 0.12 : walking ? 0.03 : 0;
+    // Slice 60: fighting, a god leans into each blow and draws back.
+    if (f.state === 'fighting') {
+      const since = time - (this.lunges.get(f.god) ?? -9);
+      v.body.rotation.x = 0.06 + (since < 0.45 ? Math.sin((since / 0.45) * Math.PI) * 0.22 : 0);
+      v.legs[0].rotation.x = 0.22;
+      v.legs[1].rotation.x = -0.18;
+    }
     const sink = (1 - risen) * GOD_HEIGHT * 1.05;
     v.root.position.set(x, y0 - sink + bob, z);
     v.root.rotation.y = v.yaw;
@@ -1200,4 +1218,155 @@ export class GodsView {
       ((b.mesh.material as THREE.MeshBasicMaterial).color as THREE.Color).setRGB(1, 0.98, 0.85).multiplyScalar(1 - Math.max(0, age) / b.life + 0.3);
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Slice 60: blows in war, each god their own way (godwar.ts's strikes, drawn once each as they are first seen).
+
+  private drawBlows(s: SimState, time: number): void {
+    const list = s.gods.war?.strikes;
+    if (!list || !list.length) return;
+    const newest = list[list.length - 1].id;
+    if (this.lastBlow < 0) {
+      // (A town just opened: the blows already struck are passed over.)
+      this.lastBlow = newest;
+      return;
+    }
+    if (newest <= this.lastBlow) return;
+    for (const k of list) {
+      if (k.id <= this.lastBlow) continue;
+      this.blow(k, time);
+      this.blowsDrawn++;
+    }
+    this.lastBlow = newest;
+  }
+
+  /** One blow: from the god's hand to where it lands. */
+  private blow(k: Strike, time: number): void {
+    this.lunges.set(k.god, time);
+    const y0 = this.floor(k.x0, k.z0);
+    const y1 = this.floor(k.x1, k.z1);
+    const hand = y0 + GOD_HEIGHT * 0.72;
+    const dx = k.x1 - k.x0;
+    const dz = k.z1 - k.z0;
+    const d = Math.max(0.01, Math.hypot(dx, dz));
+    let h = (k.id * 2654435761) >>> 0;
+    const rnd = (): number => {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      return h / 4294967296;
+    };
+    const burst = (n: number, colors: number[], speed: number, up: number, size: number, life: number, grav = 2.5, at = y1 + 0.4): void => {
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * Math.PI * 2;
+        const sp = speed * (0.4 + rnd() * 0.8);
+        this.spawn({ x: k.x1, y: at, z: k.z1, vx: Math.cos(a) * sp, vy: up * (0.5 + rnd()), vz: Math.sin(a) * sp, grav, drag: 1.2, size, grow: 0.6, color: colors[i % colors.length], born: time + rnd() * 0.08, life: life * (0.7 + rnd() * 0.5) });
+      }
+    };
+    /** Something flying from the hand to the mark: `n` motes along the way, each a little later, with an arc. */
+    const fly = (n: number, color: number, size: number, secs: number, arc: number, from = hand): void => {
+      for (let i = 0; i <= n; i++) {
+        const u = i / n;
+        this.spawn({ x: k.x0 + dx * u, y: from + (y1 + 0.5 - from) * u + Math.sin(u * Math.PI) * arc, z: k.z0 + dz * u, vx: 0, vy: 0, vz: 0, grav: 0, drag: 0, size, grow: 0.4, color, born: time + u * secs, life: 0.22 + secs * 0.3 });
+      }
+    };
+    const flash = (size: number, color: number, life = 0.2, at = y1 + 0.6): void => this.spawn({ x: k.x1, y: at, z: k.z1, vx: 0, vy: 0, vz: 0, grav: 0, drag: 0, size, grow: 1.3, color, born: time, life });
+    switch (k.kind) {
+      case 'spear':
+        // A thrust and a burst of bronze sparks where it lands.
+        fly(4, 0xffd890, 0.16, 0.08, 0);
+        burst(26, [0xffc060, 0xfff0b0, 0xc88a3a], 3.2, 2, 0.14, 0.5, 6);
+        flash(1.4, 0xffc070, 0.14);
+        break;
+      case 'bolt':
+        this.bolt(k.x1, y1, k.z1, time, rnd);
+        flash(7, 0xfff6c8, 0.16, y1 + 2);
+        burst(30, [0xfff2a0, 0xffffff], 4, 2.5, 0.2, 0.7, 4);
+        break;
+      case 'wave': {
+        // A wall of spray rolling from Poseidon to the mark, breaking over it.
+        const n = Math.max(6, Math.round(d * 2.5));
+        for (let i = 0; i <= n; i++) {
+          const u = i / n;
+          for (let j = -2; j <= 2; j++) {
+            const ox = (-dz / d) * j * 0.35;
+            const oz = (dx / d) * j * 0.35;
+            this.spawn({ x: k.x0 + dx * u + ox, y: y0 + 0.2, z: k.z0 + dz * u + oz, vx: (dx / d) * 1.2, vy: 1.6 + rnd() * 1.4, vz: (dz / d) * 1.2, grav: 4, drag: 0.8, size: 0.35 + rnd() * 0.25, grow: 1.6, color: j === 0 || rnd() < 0.3 ? 0xe4f8ff : 0x5ac8d0, born: time + u * 0.6, life: 0.9 });
+          }
+        }
+        for (let i = 0; i < 50; i++) {
+          const a = rnd() * Math.PI * 2;
+          const sp = 0.8 + rnd() * 2.2;
+          this.spawn({ x: k.x1, y: y1 + 0.2, z: k.z1, vx: Math.cos(a) * sp, vy: 3 + rnd() * 3, vz: Math.sin(a) * sp, grav: 5, drag: 0.4, size: 0.3, grow: 1.6, color: i % 3 ? 0xd8f4ff : 0x6ad0d8, born: time + 0.6, life: 1.2 });
+        }
+        break;
+      }
+      case 'arrow': {
+        const silver = k.god === 'artemis';
+        fly(9, silver ? 0xeef4ff : 0xffe070, 0.14, 0.18, 0.5);
+        burst(12, silver ? [0xe0e8ff, 0xffffff] : [0xffd040, 0xfff0b0], 2, 1.4, 0.12, 0.4, 4);
+        break;
+      }
+      case 'fire':
+        fly(10, 0xff8a20, 0.32, 0.35, 1.2);
+        burst(40, [0xff9a20, 0xffd060, 0xff5a10], 2.6, 3, 0.22, 0.9, 5);
+        flash(3, 0xff6a20, 0.3);
+        break;
+      case 'light':
+        this.shaft(k.x1, y1, k.z1, 0.7, time, 0.9, 0xbfe0ff);
+        burst(18, [0x2a6aff, 0x2abf9a, 0xf0c040], 2, 1.6, 0.18, 0.7, 2);
+        flash(2.4, 0xe0f0ff, 0.2);
+        break;
+      case 'earth':
+        // The ground heaves: clods and dust thrown up in a ring.
+        for (let i = 0; i < 36; i++) {
+          const a = (i / 36) * Math.PI * 2;
+          this.spawn({ x: k.x1 + Math.cos(a) * 0.4, y: y1 + 0.1, z: k.z1 + Math.sin(a) * 0.4, vx: Math.cos(a) * 1.6, vy: 2 + rnd() * 2.5, vz: Math.sin(a) * 1.6, grav: 7, drag: 0.6, size: 0.18 + rnd() * 0.12, grow: 0.6, color: i % 3 ? 0x7a5a32 : 0x9ab040, born: time + rnd() * 0.1, life: 0.9 });
+        }
+        burst(14, [0xb09068], 1.2, 0.4, 0.8, 1.4, 0, y1 + 0.2);
+        break;
+      case 'madness':
+        for (let i = 0; i < 30; i++) {
+          const a = rnd() * Math.PI * 2;
+          const r = rnd() * 1.4;
+          this.spawn({ x: k.x1 + Math.cos(a) * r, y: y1 + 0.3 + rnd() * 1.2, z: k.z1 + Math.sin(a) * r, vx: 0, vy: 0.3, vz: 0, grav: 0, drag: 0, size: 0.6, grow: 1.8, color: i % 3 ? 0x6a1a6a : 0x5aa83a, born: time + rnd() * 0.3, life: 1.6, swirl: 2.2, cx: k.x1, cz: k.z1 });
+        }
+        break;
+      case 'nerve': {
+        // A ring of light rolling out from the god: rose for Aphrodite, pale blue and white for Hermes.
+        const c = k.god === 'aphrodite' ? 0xff8ab0 : 0xa8e0ff;
+        for (let i = 0; i < 48; i++) {
+          const a = (i / 48) * Math.PI * 2;
+          this.spawn({ x: k.x0, y: y0 + 0.5, z: k.z0, vx: Math.cos(a) * 4.5, vy: 0.2, vz: Math.sin(a) * 4.5, grav: 0, drag: 0.6, size: 0.3, grow: 1.4, color: i % 4 ? c : 0xffffff, born: time, life: 1.1 });
+        }
+        if (k.god === 'aphrodite') for (let i = 0; i < 3; i++) this.bird(k.x0, y0 + 1.4 + i * 0.3, k.z0, 0.8 + i * 0.3, 2.6, (i / 3) * Math.PI * 2, time, 2.2, 0.5, 0xffffff, 1.4);
+        break;
+      }
+      case 'clash':
+        // Two gods' blows meeting: a white flash and great sparks of both their colours.
+        flash(4.5, 0xffffff, 0.12, y1 + GOD_HEIGHT * 0.6);
+        burst(36, [GODS[k.god].colour, 0xfff0c0, 0xffffff], 4.5, 3, 0.2, 0.7, 4, y1 + GOD_HEIGHT * 0.6);
+        break;
+      case 'burn':
+        // Fire thrown on a roof.
+        fly(6, 0xff7a20, 0.28, 0.25, 0.8);
+        burst(30, [0xff8a20, 0xffc040, 0x802010], 1.6, 3, 0.26, 1.1, 1, y1 + 0.8);
+        break;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slice 60: a god marching with a band, on the map of Greece.
+
+/**
+ * A god's figure for the map of Greece, where they march beside a band: the
+ * body and both legs merged, on a disc of their colour; 1.5 tall in model
+ * units (the map scales it), facing +z.
+ */
+export function godMarchModel(g: GodId): THREE.BufferGeometry {
+  const { body, leg, hip } = figureParts(g);
+  const parts: Part[] = [...body];
+  for (const side of [-1, 1]) for (const p of leg) parts.push({ geo: p.geo.clone().translate(side * 0.1, hip, 0), color: p.color });
+  const c = new THREE.Color(GODS[g].colour);
+  parts.push({ geo: cyl(0.42, 0.46, 0.04, 14).translate(0, 0.02, 0), color: `#${c.clone().lerp(new THREE.Color('#ffffff'), 0.35).getHexString()}` });
+  return merge(parts);
 }

@@ -540,6 +540,12 @@ export class SidePanel {
     else if (act === 'trireme') this.hooks.army({ type: 'trireme', yard: Number(a.dataset.id) });
     else if (act === 'guard') this.hooks.army({ type: 'fleet', trireme: Number(a.dataset.id), act: 'guard', lane: a.dataset.lane ?? '' });
     else if (act === 'trihome') this.hooks.army({ type: 'fleet', trireme: Number(a.dataset.id), act: 'home' });
+    // Slice 60: call on a god to fight for you.
+    if (act === 'callgod') {
+      this.hooks.army({ type: 'callgod', god: a.dataset.god ?? '' });
+      this.shownAt = -Infinity;
+      if (this.s) this.render(this.s);
+    }
     if (act === 'company' || act === 'recall' || act === 'dismiss' || act === 'raise' || act === 'hire' || act === 'repay' || act === 'trireme' || act === 'guard' || act === 'trihome') {
       this.shownAt = -Infinity;
       if (this.s) this.render(this.s);

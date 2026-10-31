@@ -12,7 +12,8 @@
 import type { CoastMap } from '../map/bake';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { findBuilding } from '../sim/buildings';
-import { doingWords, figureOf, nextWords, placeName, untilWords, type GodFigure } from '../sim/epiphany';
+import { atWar, doingWords, figureOf, nextWords, placeName, untilWords, type GodFigure } from '../sim/epiphany';
+import { duelLine, warDoing, warHelp, warWhy } from '../sim/godwar';
 import { blessingOn, GODS, goddess, moodOfGod, moodWord, reasonsOf, type Emblem, type GodId } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { esc, kbar, kbtn, khead, kitHtml, ksec } from './kit';
@@ -48,7 +49,7 @@ export function emblemIcon(g: GodId): string {
 /** The whole panel's HTML. */
 export function godHtml(s: SimState, map: CoastMap, f: GodFigure): string {
   const g = GODS[f.god];
-  const head = khead({ title: g.name, kicker: `In your city · ${g.epithet}`, sub: `${goddess(f.god) ? 'Goddess' : 'God'} of ${g.of}`, pic: emblemIcon(f.god), cls: 'bhead' });
+  const head = khead({ title: g.name, kicker: `${f.why === 'foe' ? 'Against your city' : f.why === 'champion' ? 'Fighting for your city' : 'In your city'} · ${g.epithet}`, sub: `${goddess(f.god) ? 'Goddess' : 'God'} of ${g.of}`, pic: emblemIcon(f.god), cls: 'bhead' });
   const mood = moodOfGod(s, f.god);
   const reasons = reasonsOf(s, f.god).slice(0, 4);
   const moodBody = [
@@ -56,6 +57,21 @@ export function godHtml(s: SimState, map: CoastMap, f: GodFigure): string {
     kbar({ value: mood + 100, max: 200, tone: mood >= 0 ? 'good' : 'danger', tick: 100, tip: 'From furious to loving' }),
     reasons.length ? `<ul class="k-list">${reasons.map((r) => `<li>${r.worth > 0 ? '+' : ''}${Math.round(r.worth)} ${esc(r.why)}</li>`).join('')}</ul>` : '<p>Nothing remembered yet.</p>',
   ].join('');
+  // Slice 60: a god at war: whom they fight and why, the duel if any, and what can be done.
+  if (atWar(f)) {
+    const d = s.gods.war.duel;
+    const now = [`<p>${esc(cap(warDoing(s, f)))}.</p>`];
+    if (d && (d.a === f.id || d.b === f.id)) now.push(`<p>${esc(duelLine(s, d))}.</p>`);
+    const help = warHelp(s, f);
+    if (help) now.push(`<p>${esc(help)}.</p>`);
+    return [
+      head,
+      ksec('Mood', moodBody, { icon: 'go' }),
+      ksec(f.why === 'champion' ? `Why ${goddess(f.god) ? 'she' : 'he'} fights for you` : `Why ${goddess(f.god) ? 'she' : 'he'} fights against you`, `<p>${esc(cap(warWhy(s, f)))}.</p>`),
+      ksec('Now', now.join('')),
+      `<p class="own">${kbtn({ act: 'follow', icon: 'go', html: `Follow ${goddess(f.god) ? 'her' : 'him'}` })}</p>`,
+    ].join('');
+  }
   const lines: string[] = [];
   lines.push(`<p>${esc(cap(doingWords(s, f)))}.</p>`);
   const next = nextWords(s, f);
