@@ -70,6 +70,8 @@ import { act, crimeTargets, criminalHome, holdBroken, mingle, catchOther, startT
 import { denOf, gangOf, lone, stepGangs } from './gangs';
 // Slice 45: the court and the prison.
 import { countCrime, courtFor, deterrence, escort, escorting, freshJustice, isAway, lawCtx, postsInReach, rateNow, stepJustice, toCourt, type Case, type Cut, type Held, type Jail, type Law, type Pinned, type RateMonth } from './justice';
+// Slice 57.
+import { godCrime } from './pantheon';
 
 /** Temptation runs from 0 to this; full, a thief goes out. */
 export const TEMPT_FULL = 1000;
@@ -637,7 +639,9 @@ export function stepCrime(s: SimState, map: CoastMap): void {
     }
     ctx ??= moodCtx(s);
     const t = temptationOf(s, size, b, ctx);
-    b.tempt = Math.max(0, Math.min(TEMPT_FULL, b.tempt + temptRate(t.score)));
+    // (Slice 57: temptation grows half as fast under Athena's blessing, twice as fast in Hermes's season of thieves.)
+    const rate = temptRate(t.score);
+    b.tempt = Math.max(0, Math.min(TEMPT_FULL, b.tempt + (rate > 0 ? rate * godCrime(s) : rate)));
     if (b.tempt < TEMPT_FULL) continue;
     // Slice 41: the crime its own trouble points to.
     if (s.crime.kinds) {

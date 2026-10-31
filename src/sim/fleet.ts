@@ -59,6 +59,8 @@ import { change } from './growth';
 import { seaTilt, seaWords } from './greecegods';
 // Slice 60: a ship sunk by a god (godwar.ts).
 import { godSank, GODS } from './pantheon';
+// Slice 57.
+import { fairSeas, FOUL_FOR_FOES } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -909,7 +911,8 @@ function moveEnemy(s: SimState, map: CoastMap, e: EnemyShip): void {
   if (e.state === 'beached' || e.state === 'holding') return;
   const engaged = s.fleet.triremes.some((t) => t.task === 'fight' && t.foe === e.id && dhypot(t.x - e.x, t.z - e.z) <= STRIKE_REACH);
   // (Slice 38: at her own pace, if she has one: collectors and raiders reach the beach within about a fortnight.)
-  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (e.pace ?? 1) * (engaged ? 0.5 : 1) * seaPace(s);
+  // (Slice 57: slower under Poseidon's fair seas, which are yours.)
+  const pace = (e.x >= 0 && e.z >= 0 && e.x < map.size && e.z < map.size ? BAY_PACE : FAR_PACE) * (e.pace ?? 1) * (engaged ? 0.5 : 1) * seaPace(s) * (fairSeas(s) ? FOUL_FOR_FOES : 1);
   const done = sail(e, pace);
   if (!done) return;
   if (e.state === 'sailing' && e.blockade) {

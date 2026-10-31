@@ -92,6 +92,9 @@ import { colonyEmpireCommand, stepColonyEmpire } from './colonyempire';
 import { FIRST_PHYSICIAN, freshHealth, moveBearer, movePhysician, quarantineCommand, setHealth, stepHealth, stepInfirmaries } from './health';
 // Slice 54 (GOD_IDS and GodId as slice 56's import above).
 import { movePriest, sanctuaryRefusal, stepSanctuaries } from './sanctuaries';
+// Slice 57
+import { stepWrath } from './wrath';
+import { askBlessing, stepBlessings } from './blessings';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -334,6 +337,9 @@ export class Sim {
     stepWorship(s, map);
     // Slice 58: the gods of Greece: pious rulers remember, on the first of the month, how their patron feels about you (nothing with the gods off).
     stepGreeceGods(s);
+    // Slice 57: the gods' wrath (omens turned, told, met in person, or landing; an angry god choosing a curse) and their blessings (run out, Zeus's lightning, given unasked); nothing with the gods off.
+    stepWrath(s, map, (b, how) => toRubble(s, map, b, how));
+    stepBlessings(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
@@ -422,6 +428,13 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 60.
     case 'callgod':
       if (GOD_IDS.includes(c.god as GodId)) callGod(s, c.god as GodId);
+      break;
+    // Slice 57: blessings and wrath.
+    case 'bless':
+      askBlessing(s, map, Number(c.id));
+      break;
+    case 'wrath':
+      s.gods.wrath.on = c.on === true;
       break;
     // Slice 33.
     case 'seasons':

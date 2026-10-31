@@ -37,6 +37,8 @@ import { HORSES } from './foods';
 import { makerPace } from './seasons';
 // Slice 56: a maker blessed by a god works a quarter faster.
 import { boonOf } from './pantheon';
+// Slice 57.
+import { godPace } from './pantheon';
 
 /** An olive grove's harvest on the best olive ground, fully worked, every OLIVE_GROW ticks (two months). */
 export const OLIVE_HARVEST = 400;
@@ -156,7 +158,9 @@ function stepKind(s: SimState, map: CoastMap, kind: BuildingKind): void {
   if (!m) return;
   const pace = makerPace(s, kind);
   // (Slice 56: and a quarter faster while a god's blessing is on it.)
-  for (const b of s.buildings) if (b.kind === kind) stepMaker(s, map, b, m, pace * boonOf(s, b));
+  // (Slice 57: and a god's blessing or curse on the whole kind: Demeter's farms doubled, blight, the olives failed.)
+  const god = godPace(s, kind);
+  for (const b of s.buildings) if (b.kind === kind) stepMaker(s, map, b, m, pace * boonOf(s, b) * god);
 }
 
 /**

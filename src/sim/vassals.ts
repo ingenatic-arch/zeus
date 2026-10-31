@@ -70,6 +70,8 @@ import { caravanEntry } from './routes';
 import { sizeOf } from '../map/lands';
 import { lineLength, wayOf, wayPoints } from '../map/greece';
 import { TILE_ROAD } from './state';
+// Slice 57.
+import { godBond } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The records.
@@ -709,6 +711,8 @@ export function loyaltyOf(s: SimState, v: Vassal): Loyalty {
   }
   add(clamp(gifts * GIFT_SHARE, 0, GIFT_MOST), 'your gifts');
   add(colossus * MOOD_SHARE, 'they speak of your Colossus');
+  // Slice 57: Hera's blessing on the ties between you, for its season.
+  add(godBond(s), 'Hera’s blessing on the ties between you');
   add(clamp(rest * MOOD_SHARE, -MOOD_MOST, MOOD_MOST), `${rulerShort(c)}’s feelings otherwise`);
   // Whispers: rivals cold to you and friendly with it.
   let whispers = 0;

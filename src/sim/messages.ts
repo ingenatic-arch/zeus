@@ -82,6 +82,8 @@ export const KINDS = {
   hero: { cat: 'city', name: 'Heroes', pop: true },
   // Slice 60: a god marching with a rival's band, a god called to fight for you, two gods fighting, a band broken by a god (an alarm may pop up).
   godwar: { cat: 'war', name: 'Gods in war', pop: true },
+  // Slice 57: a god's omens, their curse landing or turned, and a lasting curse lifting (an alarm may pop up).
+  wrath: { cat: 'city', name: 'Omens and curses', pop: true },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

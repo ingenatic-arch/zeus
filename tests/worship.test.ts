@@ -83,8 +83,8 @@ describe('worship and rivalry', () => {
     expect(kinds(s, 'dionysus')).toEqual(['staged']);
   });
 
-  it('shrines to one god are worth less each: 5, 8, 10, 11, at most 12', () => {
-    expect([1, 2, 3, 4, 5, 8].map(shrinesWorth)).toEqual([5, 8, 10, 11, 12, 12]);
+  it('shrines to one god are worth less each: 8, 12, 14, 15, at most 16 (slice 57 tuning)', () => {
+    expect([1, 2, 3, 4, 5, 8].map(shrinesWorth)).toEqual([8, 12, 14, 15, 16, 16]);
   });
 });
 
@@ -93,11 +93,11 @@ describe('shrines dedicated', () => {
     const { sim, shrine } = town();
     const s = sim.state;
     expect(s.buildings.find((b) => b.id === shrine)!.god).toBe('demeter');
-    expect(reasonsOf(s, 'demeter')).toEqual([expect.objectContaining({ worth: 5, why: 'your shrine to Demeter' })]);
+    expect(reasonsOf(s, 'demeter')).toEqual([expect.objectContaining({ worth: 8, why: 'your shrine to Demeter' })]);
     sim.enqueue({ type: 'dedicate', id: shrine, god: 'apollo' });
     sim.flush();
     expect(kinds(s, 'demeter')).not.toContain('shrine');
-    expect(moodOfGod(s, 'apollo')).toBe(5);
+    expect(moodOfGod(s, 'apollo')).toBe(8);
     sim.enqueue({ type: 'dedicate', id: shrine, god: '' });
     sim.flush();
     expect(s.buildings.find((b) => b.id === shrine)!.god).toBeUndefined();

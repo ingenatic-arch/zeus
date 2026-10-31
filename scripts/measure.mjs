@@ -348,6 +348,11 @@ for (const [hash, views] of [
   ['#godduel-paused-shot', [null]],
   // Merge of slice 60 with slice 59: Perseus holding Ares by the bridge.
   ['#herogod-paused-shot', [null]],
+  // Slice 57: Athena's omens over #richtown, Olympus open on her page; Demeter's sanctuary by #town's fields, its panel open;
+  // Poseidon standing over the harbour in wrath.
+  ['#omen-paused-shot', [null]],
+  ['#blessing-paused-shot', [null, 'town']],
+  ['#wrath-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -746,6 +751,22 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   await page.waitForTimeout(8000);
   const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
   console.log(`#monsterraid-shot  update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+}
+// Slice 57: wrath's cost. The main thread's work a frame at normal speed on #wrath (Poseidon in wrath over the harbour,
+// his storm cloud and the omen's, the ring and the birds) and on #omen (the storm over the town), at 1920 x 1080.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  for (const [hash, label] of [['#wrath-shot', '#wrath, Poseidon in wrath'], ['#omen-shot', '#omen, the storm gathering']]) {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    await page.evaluate(() => window.__zeus.olympus(null));
+    await page.waitForTimeout(3000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(6000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, w: window.__zeus.wrath(), info: window.__zeus.info() }));
+    console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.w.drawn.clouds} clouds of ${b.w.drawn.puffs} puffs; ${b.info.triangles} triangles, ${b.info.calls} draws)`);
+  }
 }
 // Slice 56: the gods' cost. The main thread's work a frame at normal speed with Demeter walking #town's fields (her trail,
 // motes and the blessed farms' shimmer), and with the twelve standing in #pantheon (twelve figures, halos and glows), at

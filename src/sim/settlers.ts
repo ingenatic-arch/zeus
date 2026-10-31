@@ -7,6 +7,8 @@ import { nextInt } from './rng';
 import { edgeRoads, nearestEdge, nearestReached, overland, roadSearch, tracePath, type Search } from './roads';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 import { newWalker, offMapPoint, plotCentre, position, roadPoints, setPath, WALK_SPEED } from './walk';
+// Slice 57.
+import { godSettle } from './pantheon';
 
 export { capacity, findBuilding, HOME_CAPACITY, recountPopulation, WALK_SPEED };
 
@@ -102,7 +104,8 @@ export function spawnSettlers(s: SimState, map: CoastMap): void {
   const search = roadSearch(s, size, edges);
   const room = reachableRoom(s, size, search);
   if (room === 0) return;
-  s.settlerClock = arrivalInterval(room, waterShare(s), harshNow(s));
+  // (Slice 57: twice as often under Aphrodite's blessing.)
+  s.settlerClock = Math.max(1, Math.round(arrivalInterval(room, waterShare(s), harshNow(s)) / godSettle(s)));
   let groups = 0;
   for (const w of s.walkers) if (w.kind === 'settler') groups++;
   if (groups >= maxGroups(room)) return;

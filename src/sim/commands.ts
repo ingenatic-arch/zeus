@@ -122,7 +122,12 @@ export type Command =
   | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail' | 'face'; monster?: number; on?: boolean; figure?: number }
   // Slice 60
   /** Call a god who loves you to fight the invaders on your map (godwar.ts; refused, nothing happens, unless they love you, their sanctuary stands, invaders are on your land and they haven't fought for you within a year). */
-  | { type: 'callgod'; god: string };
+  | { type: 'callgod'; god: string }
+  // Slice 57 (blessings.ts, wrath.ts; an act refused does nothing)
+  /** Ask a god's blessing at their finished sanctuary (its id): once a year, when they are warm or better. */
+  | { type: 'bless'; id: number }
+  /** Wrath's switch: on as a game starts or a demo opens (omens may begin, blessings come unasked), off while a demo's history is played. */
+  | { type: 'wrath'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

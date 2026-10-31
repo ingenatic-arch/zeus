@@ -675,7 +675,8 @@ export function startOutbreak(s: SimState, map: CoastMap, from: string, home: Bu
   h.outbreak = { from, start: s.tick, until: s.tick + PLAGUE_DAYS * TICKS_PER_DAY, struck: [], ill: 0, dead: 0, fled: 0 };
   strike(s, map, home);
   const name = home.family?.name ?? '';
-  const how = from ? `It came in with ${by} from ${cityName(from)}` : 'It rose in the fevered quarter';
+  // (Slice 57: or from Apollo's arrows, `by`, with no city.)
+  const how = from ? `It came in with ${by} from ${cityName(from)}` : by !== 'the ship' ? `It came on ${by}` : 'It rose in the fevered quarter';
   tellHealth(s, {
     kind: 'plague',
     u: HEALTH_URGENCY.outbreak,
@@ -1271,4 +1272,31 @@ export function healthTownLine(s: SimState): { text: string; at: number } | null
     return { text: `Quarantine: no ship ties up and no caravan comes in for ${dayCount(h.quarantine - s.tick)} more. Lift it on the trade panel${healers ? ' or an infirmary’s' : ''}.`, at: post?.id ?? 0 };
   }
   return null;
+}
+
+// Slice 57 (Blessings and wrath): Apollo's blessing heals every sick soul at once, and ends a plague.
+
+/** Everyone sick mends now (their households' stories say so), and a plague is over: how many were healed, and whether a plague ended. */
+export function healAll(s: SimState, by: string): { healed: number; plague: boolean } {
+  const h = s.health;
+  let healed = 0;
+  for (const x of h.sick) {
+    const home = findBuilding(s, x.home);
+    const f = home && home.kind === 'home' ? home.family : null;
+    if (!home || !f || !f.members.some((m) => m.name === x.name && m.female === x.female)) continue;
+    h.now.mended++;
+    tell(s, f, 'mended', home.level, [x.name]);
+    f.story[f.story.length - 1].n = x.plague;
+    healed++;
+  }
+  h.sick = [];
+  aroundCache.delete(s);
+  const o = h.outbreak;
+  if (o) {
+    h.outbreak = null;
+    h.lastPlague = s.tick;
+    tellHealth(s, { kind: 'plague', u: HEALTH_URGENCY.ended, title: 'The plague has passed', words: `The plague is over at a stroke: ${by} healed every sick soul in the city. ${o.ill} fell ill of it in ${o.struck.length} ${o.struck.length === 1 ? 'home' : 'homes'}; ${o.dead} died, and ${o.fled} ${o.fled === 1 ? 'household' : 'households'} fled.` });
+  }
+  if (healed || o) s.rev++;
+  return { healed, plague: !!o };
 }

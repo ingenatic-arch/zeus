@@ -41,6 +41,8 @@ import { HERO_IDS } from '../sim/pantheon';
 import { HERO_STATES } from '../sim/heroes';
 // Slice 60.
 import { WAR_WHYS } from '../sim/epiphany';
+// Slice 57
+import { CURSES } from '../sim/wrath';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -452,6 +454,8 @@ export function stateProblem(st: unknown): string {
   if (!worshipOk(st.gods)) return damaged('its record of the gods’ worship is wrong');
   // Slice 60.
   if (!godWarOk((st.gods as Record<string, unknown>).war)) return damaged('its record of the gods in war is wrong');
+  // Slice 57: the omens, curses and blessings.
+  if (!wrathOk((st.gods as Record<string, unknown>).wrath)) return damaged('its record of the gods’ blessings and wrath is wrong');
   return '';
 }
 
@@ -532,6 +536,21 @@ function godWarOk(w: unknown): boolean {
   );
 }
 
+/** Slice 57: the switch, the omens running, the spells in force, and when each god was last asked, gave, and cursed. */
+function wrathOk(w: unknown): boolean {
+  if (!isObj(w) || typeof w.on !== 'boolean' || !Array.isArray(w.omens) || !Array.isArray(w.spells)) return false;
+  const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
+  const curse = (c: unknown): boolean => typeof c === 'string' && (c === '' || c in CURSES);
+  const ticks = (x: unknown): boolean => isObj(x) && Object.entries(x).every(([g, t]) => god(g) && fin(t));
+  return (
+    ticks(w.asked) &&
+    ticks(w.given) &&
+    ticks(w.cursed) &&
+    (w.omens as unknown[]).every((o) => isObj(o) && god(o.god) && o.curse !== '' && curse(o.curse) && ['at', 'day', 'x', 'z', 'target', 'told', 'figure'].every((k) => fin(o[k])) && typeof o.why === 'string') &&
+    (w.spells as unknown[]).every((x) => isObj(x) && god(x.god) && curse(x.curse) && fin(x.from) && fin(x.until))
+  );
+}
+
 /** Slice 56: the gods in the city, the places they blessed, who was loving, when each last came. */
 function walksOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.next) || !Array.isArray(w.figures) || !Array.isArray(w.blessed) || !Array.isArray(w.loving) || !isObj(w.last) || !Object.entries(w.last).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
@@ -547,7 +566,7 @@ function walksOk(w: unknown): boolean {
         god(f.god) &&
         ['id', 'x', 'z', 'px', 'pz', 'heading', 'since', 'at', 'came', 'leaves'].every((k) => fin(f[k])) &&
         states.includes(f.state as string) &&
-        (VISIT_WHYS.includes(f.why as never) || WAR_WHYS.includes(f.why as never)) &&
+        (VISIT_WHYS.includes(f.why as never) || WAR_WHYS.includes(f.why as never) || f.why === 'wrath') && // (Slice 57: a god come in wrath, never sent by the 'visit' command.)
         typeof f.words === 'string' &&
         nums(f.blessed) &&
         Array.isArray(f.stops) &&

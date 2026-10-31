@@ -234,4 +234,9 @@ export const VIEWS: Record<string, CameraView> = {
   godduel: { x: 40.4, z: 41.9, yaw: 0.785, dist: 15, tilt: -0.05 },
   // Merge of slice 60 with slice 59, #herogod: Perseus and Ares fighting on the road east of the bridge, seen side on.
   herogod: { x: 45, z: 42, yaw: 0.785, dist: 15, tilt: -0.05 },
+  // Slice 57, #omen: #richtown from over its south side, the storm gathering over the town (tuned by eye); #blessing: #town's
+  // fields and Demeter's sanctuary beside them; #wrath: the shore below the trading post, Poseidon standing over the harbour.
+  omen: { x: 68, z: 40, yaw: -0.3, dist: 44, tilt: -0.12 },
+  blessing: { x: 48, z: 42, yaw: 2.356, dist: 26, tilt: -0.08 },
+  wrath: { x: 71, z: 67, yaw: -0.785, dist: 26, tilt: -0.08 },
 };

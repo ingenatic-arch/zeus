@@ -230,6 +230,11 @@
  * to fight, no two gods fight and no blow has been struck (`gods.war`).
  * Nothing in the city changes.
  *
+ * Slice 57 (Blessings and wrath): the gods' omens, curses and blessings are
+ * kept now (`gods.wrath`), none running and none ever asked or given; wrath's
+ * switch is on if the gods are watching (a game under way), so an angry god
+ * may begin to warn of a curse. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -280,6 +285,8 @@ import { freshLegends } from './monsters';
 import { freshWalks } from './pantheon';
 // Slice 60.
 import { freshWars } from './pantheon';
+// Slice 57.
+import { freshWrath } from './pantheon';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -352,6 +359,7 @@ export function migrate(st: unknown): number {
   if (st.version === 51) fromSlice53(st);
   if (st.version === 52) fromSlice59(st);
   if (st.version === 53) fromSlice60(st);
+  if (st.version === 54) fromSlice57(st);
   return from;
 }
 
@@ -1311,5 +1319,20 @@ function fromSlice59(st: Record<string, unknown>): void {
  */
 function fromSlice60(st: Record<string, unknown>): void {
   if (isObj(st.gods) && !isObj(st.gods.war)) st.gods.war = freshWars();
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 57 (Blessings and wrath): the gods' record of omens, curses and
+ * blessings (`gods.wrath`), empty, its switch on with the gods'. (Only a state
+ * from before this slice comes here, so a record already there was made by an
+ * earlier step of this same load, off: it is switched on with the gods too.)
+ */
+function fromSlice57(st: Record<string, unknown>): void {
+  if (isObj(st.gods)) {
+    const g = st.gods;
+    if (!isObj(g.wrath)) g.wrath = freshWrath(g.on === true);
+    else if (g.on === true) g.wrath.on = true;
+  }
   st.version = (st.version as number) + 1;
 }

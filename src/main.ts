@@ -134,6 +134,9 @@ import { beastTip, monsterOf, sendMonster, STIR } from './sim/monsters';
 import type { MonsterId } from './sim/pantheon';
 // Slice 56: the gods in the city (their figures, flourishes and stings; a god's panel; a blessed place's line).
 import { GodsView, godTriangles } from './render/gods';
+// Slice 57: the signs of the gods' wrath in the city.
+import { OmensView } from './render/omens';
+import { godsTab } from './ui/olympus';
 import { GodPanel } from './ui/godpanel';
 import { blessingWords, figureOf, godStatus } from './sim/epiphany';
 import { warStatus } from './sim/godwar'; // Slice 60
@@ -406,6 +409,9 @@ interface Probe {
   heroOnScreen?: (hero: string) => { x: number; y: number } | null;
   /** For looking: a hero set down at (x, z), facing `face`, as if at home (paused, a look at their figure). */
   heroStage?: (hero: string, x: number, z: number, face: number) => boolean;
+  // Slice 57
+  /** Blessings and wrath: the switch, each omen (its god, curse, days left, where), the spells in force, what the signs draw, and the Gods tab's word. */
+  wrath?: () => { on: boolean; omens: Array<{ god: string; curse: string; days: number; x: number; z: number; target: number; figure: number }>; spells: Array<{ god: string; curse: string; until: number }>; drawn: { clouds: number; puffs: number; rings: number; birds: number; patches: number; flashes: number }; tab: string };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -477,6 +483,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'health', on: true });
     // Phase 7 groundwork: and the gods, watching from the founding.
     sim.enqueue({ type: 'gods', on: true });
+    // Slice 57: and their wrath (omens may begin, blessings come unasked).
+    sim.enqueue({ type: 'wrath', on: true });
     sim.flush();
     // Slice 46: on a land founded from the new-game screen, the road in is laid at once (from the edge nearest the city's ground).
     if (founding) {
@@ -534,6 +542,10 @@ function start(preparedTown: string | null): void {
   const godsView = new GodsView(map);
   godsView.ground = city.walkers.ground;
   world.scene.add(godsView.group);
+  // Slice 57: the omens' clouds, rings, dead birds and blight.
+  const omensView = new OmensView(map);
+  omensView.ground = city.walkers.ground;
+  world.scene.add(omensView.group);
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
@@ -2065,6 +2077,18 @@ function start(preparedTown: string | null): void {
       triangles: godTriangles(),
     };
   };
+  // Slice 57: blessings and wrath.
+  probe.wrath = () => {
+    const s = sim.state;
+    const w = s.gods.wrath;
+    return {
+      on: w.on,
+      omens: w.omens.map((o) => ({ god: o.god, curse: o.curse, days: Math.ceil((o.day - s.tick) / TICKS_PER_DAY), x: o.x, z: o.z, target: o.target, figure: o.figure })),
+      spells: w.spells.map((x) => ({ god: x.god, curse: x.curse, until: x.until })),
+      drawn: { ...omensView.drawn },
+      tab: godsTab(s).word,
+    };
+  };
   /** Send a god into the city now (the 'visit' command, as a festival or a finished sanctuary would): for looking at the flourishes. */
   probe.visit = (god, why = 'festival') => {
     sim.enqueue({ type: 'visit', god, why });
@@ -3233,6 +3257,7 @@ function start(preparedTown: string | null): void {
     // Slice 56: the gods in the city (their stings as they arrive and leave), following one, their panel.
     godsView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     for (const e of godsView.events.splice(0)) sound.sting(e.god, e.kind === 'leave');
+    omensView.update(s, time, camera.quaternion); // (Slice 57.)
     updateGodFollow();
     godPanel.update(s, map, time);
     updateFollow();
