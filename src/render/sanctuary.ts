@@ -3,7 +3,7 @@ import { hash2 } from '../map/noise';
 import { footSide } from '../sim/buildings';
 import { COPPER, held, MARBLE, TIMBER, WHEAT, MEAT, CHEESE, OIL, WINE, FLEECE, ARMOUR, HORSES } from '../sim/foods';
 import { siteOf, stagesOf, workOf, type Site } from '../sim/monuments';
-import { dimmed } from '../sim/sanctuaries';
+import { ALTAR_AHEAD, dimmed } from '../sim/sanctuaries';
 import { GODS, type GodId } from '../sim/pantheon';
 import type { Building, SimState } from '../sim/state';
 import { crane, ingotPile, logPile, marblePile, mergeParts, pad, piecesFor, rodGeo, scaffold, slab, TONE } from './monumentmodels';
@@ -60,8 +60,8 @@ const FRIEZE = 0.09;
 const CORNICE = 0.05;
 const EAVES = ENT + ARCH + FRIEZE + CORNICE;
 const RIDGE = EAVES + 0.42;
-/** Where the altar, the statue and the god's own thing stand in the court. */
-const ALTAR: [number, number] = [1.55, 0];
+/** Where the altar (ALTAR_AHEAD before the middle: where its god rises, sanctuaries.ts altarOf), the statue and the god's own thing stand in the court. */
+const ALTAR: [number, number] = [ALTAR_AHEAD, 0];
 const STATUE: [number, number] = [0.95, -1.62];
 const EXTRA: [number, number] = [0.95, 1.6];
 const PLINTH_H = 0.3;
