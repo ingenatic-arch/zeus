@@ -39,8 +39,11 @@ At `11f9290`, on a shared, loaded machine (load 10 to 20 on 4 cores, three other
 
 | What | Before |
 |---|---|
-| Tests | (filled in below once the run ends) |
-| Download, loads and frame work | a timeout-loosened copy of `measure.mjs` on `dist` built at `11f9290` (filled in below) |
+| Tests | 803 in 60 files (the groundwork's run) |
+| Download (gzipped) | 5,530 KB in all; the game itself 998 KB; prepared towns 4,532 KB in 125 files |
+| Bare link ready (page's clock, loaded machine) | 13.9 s |
+| `#town` / `#richtown` / `#empire` ready | 13.4 s / 7.7 s / 7.6 s |
+| Triangles and draws, `#town`'s view / `#empire`'s view | 1,488,490 and 102 / 1,946,231 and 156 |
 
 ## Design decisions
 
@@ -100,4 +103,53 @@ It walks across country as raiders do (`foeWay`: open ground and roads, round bu
 
 ## As built
 
-(Filled in at the end.)
+All five tasks done. Commits on `claude/p7-legends`: the plan (`d1f47e7`), the sim (`e01c0d0`), the figures, tip, panel and demos (`30346c8`), the smoke and measure entries (`38856a2`), and this write-up with the check-in.
+
+**What differs from the design above.**
+- **Numbers, tuned in scratch fights against `#companies`' hoplites:** health 1,000 (Medusa) to 1,900 (Talos); blows of 290 to 380, every 9 to 14 ticks, each one able to kill a hoplite outright (the battle's own `TAKES` for his armour), the Hydra's, the Cyclops' and Talos' catching a second man beside him for six tenths. Against 16 hoplites ordered beside its target: the Medusa broke off having killed 1, the Chimera 2, the Minotaur 4, the Boar about 4, the Cyclops 8, and the Hydra routed the company (9 dead) before breaking off itself. It stays **five days** at its target (not two), wrecking something every 12 ticks up to its kind's limit (the Boar 2, the Cyclops, Hydra and Minotaur 3, the Chimera and Talos 4).
+- **Not getting at a soldier:** a monster that has a soldier in sight but can't reach him (a building between) goes on its way, and after 40 ticks of that pays soldiers no mind for 60 (found when the Boar and a company stood either side of a pasture for ever).
+- **No "independence" test.** Instead every earlier demo's prepared town was compared with the starting commit's (below): the same.
+- **The slain are kept in `legends.slain`** (kind, lair tile and kind, tick, by whom), not `legends.places`.
+- **Figures' heights:** the Boar 1.35 tiles to its back, Medusa 1.9, the Minotaur and the Hydra 2.1, the Chimera 2.0 (built at a lion's size, scaled 1.3), the Cyclops 3.0, Talos 3.4. Medusa has a bronze knife, not a bow. No slump while healing: a healing monster is inside its lair and not drawn (its lair still is, and hovering the lair gives its tip).
+- **`#bestiary` is staged:** the seven set down side by side before lairs of their own kind on `#town`'s open ground below the town (real lairs are far apart), in a diagonal row across the classic view, the lairs' mouths to the camera and the seven turned a little to show their shapes. `#monsterraid` holds the hoplites part of the way first, then sends them beside the Boar when it reaches the pasture, so they meet it there.
+
+**State.** `legends: { monsters, next, stones, slain }`. A `Beast` as described, plus `den`, `mouth`, `siege`/`smash` (a wall it is smashing through), `wait` (time left at its target), `broke`, `wrecked`, `stoned`, `men` (soldiers it struck down this raid), `dead` (everyone it has killed), `cool`, `chase` and `calm`. Version 49 on this line; `fromSlice55` adds an empty record to older saves.
+
+**Touched outside the line** (beyond `src/sim/monsters.ts` and `src/render/monsters.ts`):
+- `src/sim/battle.ts` (the brief's small hook): monster foes (`raid < 0`) kept in the battle while the monster stands in it; `monsterFight` called after the raiders' blows; reach widened by the monster's bulk for soldiers closing with it and striking it; the raiders' spread, blows and falls skip it; a man killed by it mourned as "fell fighting the Cyclops".
+- `src/sim/raids.ts`: `bandsAt` adds each monster out of its lair (`monstersAbout`), so walkers near it run indoors and gates shut as for raiders.
+- `src/sim/state.ts`, `sim.ts`, `migrate.ts`, `src/game/saves.ts`: the field, its step (before the battle's), the migration, the save check (a monster's way must be whole points, and may be empty: one standing still has none).
+- `src/sim/messages.ts`: the message kind `monster` (war, pops up).
+- `src/sim/armystatus.ts`: a soldier fighting a monster says "Fighting the Calydonian Boar", not "a raider".
+- `src/ui/household.ts`: the story kind `slain` ("was killed by the Minotaur as the house fell"; "caught in Medusa's gaze in the street and turned to stone").
+- `src/ui/monsterpanel.ts` (new): the monster's small panel on the kit.
+- `src/ui/icons.ts`: the `monster` message kind's icon (three claw marks), which the kit's test asks of every kind.
+- `src/render/walkers.ts`: the raiders' drawing skips monster foes.
+- `src/main.ts` (blocks headed "Slice 55"): the view, the hover tip (a monster or its lair, after soldiers and banners, before raiders), the click opening its panel, Esc, the panel's place among the left-hand panels, and the probes `monsters`, `monsterSend`, `monsterRaid`, `monsterOnScreen`.
+- `src/game/demos.ts`, `src/game/views.ts`, `scripts/smoke.mjs`, `scripts/measure.mjs`: the three demos, their views and checks.
+
+**Exported hooks for the other lines** (all in `src/sim/monsters.ts`):
+- `sendMonster(s, kind, why)`: for slice 57's curses. Returns the `Beast`, or `null` if one of that kind is already on the land or there is nowhere for its lair.
+- `monsterAt(s, x, z, reach = 1)`, `monsterOf(s, id)`, `lairSpot(s, m)` (the walkable tile before its lair, and its middle: a place a walker can go), `slayMonster(s, id, by)` (ends it: out of any fight, a message, kept in `legends.slain` with its lair): for slice 59's heroes.
+- `beastTip(s, m)`, `beastDoing(s, m)`, `beastName`, `itOf`/`itsOf`/`himOf`, `MAKES`, `fightable`, `roaming`, `onMap`: for anything that wants to show one.
+
+**Measurements and checks.** On a shared machine at load 25 to 45 on 4 cores, with the other three lines building and testing beside it (and a container restart part way, which killed the first full smoke and measure).
+- **Tests:** 815 in 61 files (12 new, in `tests/monsters.test.ts`). The full run under load: 810 passed; the 5 that failed were the two land-bake timings (the page measures real time) and three runs that went past their own time limits (`routes` and `trade` replays, the every-demo wages run at 75 minutes). Each passed run alone; the three new demos leave no wages unpaid (checked alone).
+- **Build:** clean; 169 prepared towns (165 before; 128 files served, 125 before).
+- **Same as before:** every one of the 165 earlier demos' prepared towns matches the starting build's in tick, people, money, home levels, buildings, walkers, soldiers and messages.
+- **Smoke:** the full smoke could not finish inside the two-hour limit under this load (twice). Run instead: the bare link, `#town`, `#companies`, `#battle`, `#richtown`, `#bestiary-modern` and `#bestiary-plain` opened with no page errors, and the whole Slice 55 block (`#monster`, `#monsterraid-paused`, `#bestiary-paused` with Talos' tip, panel and Esc): passed.
+- **Measure** (a shortened copy of `measure.mjs`, base then this build back to back):
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Download (gzipped) | 5,530 KB | 5,669 KB (+139 KB: +20 KB the game, +119 KB three prepared towns) |
+| The game itself (gzipped) | 998 KB | 1,018 KB |
+| Bare link ready (page's clock) | 13.9 s | 15.5 s (the machine's load; the coast bake alone went 3.2 to 3.7 s) |
+| `#town` / `#richtown` / `#empire` ready | 13.4 / 7.7 / 7.6 s | 9.3 / 7.9 / 9.8 s |
+| Triangles and draws in every older view measured | (as listed) | the same, to the triangle |
+| GPU geometries after the frame-work run | 67 | 68 (the stone figures' mesh) |
+| `#bestiary` (seven monsters and lairs) | n/a | 1,336,071 triangles, 144 draws |
+| `#monsterraid` at normal speed | n/a | 140 ms a frame over 2 frames (noise: `#food` read 122 then 48 ms, `#companies` 75 then 204 ms) |
+
+The frame-work numbers are not usable on this machine: two to six frames in eight seconds under software rendering. The monster view adds nothing to a town without a monster (same triangles and draws); `#bestiary`'s 144 draws are about 40 over `#town`'s, from fourteen figures and lairs built of separate meshes, a cost only while monsters are on screen.
+
