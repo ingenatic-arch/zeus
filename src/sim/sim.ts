@@ -57,6 +57,8 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Phase 7 groundwork.
 import { freshGods, setGods, stepGods } from './pantheon';
+// Slice 55: monsters at the gates.
+import { freshLegends, stepMonsters } from './monsters';
 // Slice 56.
 import { GOD_IDS, type GodId } from './pantheon';
 import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
@@ -149,6 +151,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     annals: freshAnnals(),
     // Phase 7 groundwork
     gods: freshGods(),
+    // Slice 55
+    legends: freshLegends(),
   };
   if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
   s.herds = freshHerds(mapOf(s), s);
@@ -297,6 +301,8 @@ export class Sim {
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
     stepExpeditions(s, map);
+    // Slice 55: the monsters on your land: coming in, their lairs, raids, healing, leaving (nothing with no monster sent and no stone standing).
+    stepMonsters(s, map, (b, how) => toRubble(s, map, b, how));
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
