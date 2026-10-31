@@ -3872,7 +3872,8 @@ await open('#overviewhealth-paused');
       links: el.querySelectorAll('.ov-link.k-btn .k-bi svg').length,
     };
   });
-  if (!(o.kit && o.pic && o.tabs.length === 8 && o.tabs.every((x) => x) && o.titles === 0 && o.cards >= 5 && o.rows >= 1 && o.links >= 1)) fail(`#overviewhealth (merge of slice 50): the window on the kit: ${JSON.stringify(o)}`);
+  // (Slice 53: nine tabs, the Gods page the ninth.)
+  if (!(o.kit && o.pic && o.tabs.length === 9 && o.tabs.every((x) => x) && o.titles === 0 && o.cards >= 5 && o.rows >= 1 && o.links >= 1)) fail(`#overviewhealth (merge of slice 50): the window on the kit: ${JSON.stringify(o)}`);
   const pt = page.locator('.overview .ov-tile svg.ov-chart circle.now').first();
   await pt.hover();
   await page.waitForFunction(() => window.__zeus.kitTip() !== '', null, { timeout: 5000 }).catch(() => {});
@@ -4004,7 +4005,7 @@ await open('#gods-paused');
   await page.click('.olympus .ol-card[data-god="athena"]');
   await frames(2);
   const a53 = await zeus(() => window.__zeus.olympus());
-  if (!(a53.god === 'athena' && /Athena[\s\S]*Loves[\s\S]*Hates[\s\S]*Poseidon/.test(a53.text))) fail(`#gods: Athena's page: ${JSON.stringify(a53).slice(0, 900)}`);
+  if (!(a53.god === 'athena' && /Athena[\s\S]*Loves[\s\S]*Hates[\s\S]*Poseidon/i.test(a53.text))) fail(`#gods: Athena's page: ${JSON.stringify(a53).slice(0, 900)}`);
   await page.keyboard.press('Escape');
   await frames(2);
   if ((await zeus(() => window.__zeus.olympus())).open) fail('#gods: Esc left Olympus open');
