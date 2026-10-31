@@ -576,7 +576,7 @@ export class GodsView {
   /** Gods who arrived ('arrive') or began to leave ('leave') since the last frame: main.ts plays their stings. */
   readonly events: Array<{ god: GodId; kind: 'arrive' | 'leave' }> = [];
   /** Each figure's screen-pickable spot (its middle) and height, by figure id, as drawn this frame. */
-  readonly at = new Map<number, { x: number; y: number; z: number; h: number }>();
+  readonly at = new Map<number, { x: number; y: number; z: number; h: number; hx?: number; hz?: number }>();
   /** Where the ground is (bridges included): set by CityView. */
   ground: (x: number, z: number) => number;
   private readonly shown = new Map<number, Shown>();
@@ -795,7 +795,9 @@ export class GodsView {
     v.root.visible = risen > 0.01;
     // Brighter as they arrive and leave, a slow pulse while they walk.
     v.model.glow.value = 1 + (1 - risen) * 2 + Math.sin(time * 1.7 + f.id) * 0.08;
-    this.at.set(f.id, { x, y: y0 - sink, z, h: GOD_HEIGHT * risen });
+    // (Slice 60: a god leaning into a blow carries their head forward, and the halo about it with them.)
+    const lean = f.state === 'fighting' ? Math.sin(v.body.rotation.x) * GOD_HEIGHT * risen * 0.93 : 0;
+    this.at.set(f.id, { x, y: y0 - sink, z, h: GOD_HEIGHT * risen, hx: Math.sin(v.yaw) * lean, hz: Math.cos(v.yaw) * lean });
     // Footprints of light, left and right.
     if (walking && v.walked >= v.nextStep) {
       v.nextStep = v.walked + STRIDE / 2;
@@ -1088,7 +1090,7 @@ export class GodsView {
       // The halo about the head, facing the eye.
       this.sc.setScalar(0.46 * (GOD_HEIGHT / 1.5));
       this.back.set(0, 0, -0.25).applyQuaternion(face);
-      this.p.set(at.x + this.back.x, at.y + at.h * 0.93 + this.back.y, at.z + this.back.z);
+      this.p.set(at.x + (at.hx ?? 0) + this.back.x, at.y + at.h * 0.93 + this.back.y, at.z + (at.hz ?? 0) + this.back.z);
       this.m.compose(this.p, face, this.sc);
       this.crowns.setMatrixAt(n, this.m);
       this.crowns.setColorAt(n, this.c.set(GODS[f.god].colour).lerp(this.white, 0.55).multiplyScalar(0.95 * pulse * risen));
