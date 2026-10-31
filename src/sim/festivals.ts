@@ -4,13 +4,16 @@
  * Corinth in April, each lasting a month. While one is on (and for a
  * fortnight before, as the city lays in for it) wine and meat grow dear
  * there (world.ts: the `feast` push), easing within a season after; a gift
- * that arrives while it is on counts for more (diplomacy.ts).
+ * that arrives while it is on counts for more (diplomacy.ts), and (slice 58)
+ * pleases the god it is held for: Poseidon, Athena and Apollo.
  *
  * Pure, and only the calendar: when a city's festival is, and what it is
  * called. No random numbers at all.
  */
 import { PLACES, type CityId } from '../map/greece';
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
+// Slice 58: each festival's god (types only, so the load order is unchanged).
+import type { GodId } from './pantheon';
 
 export interface Festival {
   city: CityId;
@@ -23,12 +26,14 @@ export interface Festival {
   atWar?: string;
   /** Its name is plural ("the Isthmian Games are on"). */
   many?: true;
+  /** Slice 58: the god it is held for (a gift that arrives while it is on pleases them: greecegods.ts). */
+  god: GodId;
 }
 
 export const FESTIVALS: readonly Festival[] = [
-  { city: 'corinth', name: 'the Isthmian Games', month: 3, what: 'games for Poseidon on the isthmus', many: true },
-  { city: 'athens', name: 'the Panathenaia', month: 6, what: 'Athena’s birthday, with a procession up to her temple' },
-  { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, when by custom Sparta begins no war', atWar: 'at war now, its army keeps the feast where it stands' },
+  { city: 'corinth', name: 'the Isthmian Games', month: 3, what: 'games for Poseidon on the isthmus', many: true, god: 'poseidon' },
+  { city: 'athens', name: 'the Panathenaia', month: 6, what: 'Athena’s birthday, with a procession up to her temple', god: 'athena' },
+  { city: 'sparta', name: 'the Karneia', month: 7, what: 'nine days of feasting for Apollo, when by custom Sparta begins no war', atWar: 'at war now, its army keeps the feast where it stands', god: 'apollo' },
 ];
 
 /** The trade goods a festival makes dear (TRADE_GOODS order: wheat, meat, cheese, oil, fleece, wine, copper, armour, marble, timber, horses), and how far it draws each one's stock down at most (a share of normal). */

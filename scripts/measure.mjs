@@ -341,6 +341,8 @@ for (const [hash, views] of [
   // Slice 54: four sanctuaries at four stages on #quarry's town, Athena's panel open; all twelve finished in two rows.
   ['#sanctuaries-paused-shot', [null]],
   ['#twelve-paused-shot', [null]],
+  // Slice 58: the map of Greece open on the Olympus page, the mountain and its label, the patrons' marks on the labels.
+  ['#greecegods-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

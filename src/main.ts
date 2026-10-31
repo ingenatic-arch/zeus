@@ -1768,7 +1768,7 @@ function start(preparedTown: string | null): void {
   if (yard) side.showBarracks(yard.id);
   // (Slice 38: the shipyard's panel open from the start.)
   if (demo?.shipyard) shipyardPanel.show(sim.state.buildings.find((b) => b.kind === 'shipyard')?.id ?? 0);
-  if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : demo.greece, demo.greeceTab);
+  if (demo?.greece) toggleGreece(true, demo.greece === true ? undefined : (demo.greece as CityId), demo.greeceTab); // (Slice 58: 'olympus' opens the Olympus page.)
   // A demo can open with a company's banner in hand (slice 23).
   const banner = demo?.select?.(sim.state) ?? 0;
   if (banner) takeBanner(banner);

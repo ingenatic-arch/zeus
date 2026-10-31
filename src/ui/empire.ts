@@ -36,6 +36,8 @@ import { colonyYear, goodName, peopleOf, SHARE_WORDS } from '../sim/colonies';
 import { cargoWords, STAGE_NAMES, stageOf } from '../sim/colonyworks';
 import { colonyTrade, freeTrade, militiaReady, stationedWords } from '../sim/colonyempire';
 import { siteRecord } from '../sim/colonies';
+// Review of slice 58: the gods' hands in a conquest's odds.
+import { abroadWords } from '../sim/greecegods';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -93,7 +95,9 @@ function takeHtml(s: SimState, id: CityId): string {
   const cq = conquestPlan(s, id);
   const theirs = cq.parts.map((p) => `${p.who} ${p.n}`).join(', ');
   const allies = cq.allies.length ? ` Your allies who might march with you: ${cq.allies.join(', ')}.` : '';
-  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `${cq.men ? `A full force of ${cq.men} men` : 'A full force'} marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}`, `Won, it bows to you as your vassal, beaten and cowed for a while, with what your men carry off; lost, they come home fewer. As any war without cause: ${name(id)} hates it (−60 or worse), and every other ruler thinks the worse of you (−12 or more each).`, stayingHome(s, 'force', id)));
+  // (Review of slice 58: the gods' hands in the odds, said: a loving god's blessing, the city's angry patron.)
+  const gods = abroadWords(s, id);
+  out.push(wayCard('conquer', id, 'Conquer it', 'Send a full force to conquer', cq, `${cq.men ? `A full force of ${cq.men} men` : 'A full force'} marches on ${name(id)} and meets ${theirs} (${fmt(cq.theirs)} in all).${allies}${gods ? ` ${gods}` : ''}`, `Won, it bows to you as your vassal, beaten and cowed for a while, with what your men carry off; lost, they come home fewer. As any war without cause: ${name(id)} hates it (−60 or worse), and every other ruler thinks the worse of you (−12 or more each).`, stayingHome(s, 'force', id)));
   const sp = submitPlan(s, id);
   out.push(wayCard('submit', id, 'Demand it submit', 'Send a herald: submit to us', sp, `For a city cold or wary towards you whose side is no more than half your army (your ${sp.ours} men against its ${sp.theirs}).`, `It may bow; refuse and remember it (−20); or call on its friends, who think the worse of you too. One demand a year.`));
   const dp = debtPlan(s, id);

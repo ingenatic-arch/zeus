@@ -7,6 +7,9 @@
  */
 import { PLACES, rivalWay, RULED, type CityId } from '../map/greece';
 import { dateOfTick, formatDate, formatYear, TICKS_PER_DAY, TICKS_PER_YEAR } from '../sim/clock';
+// Slice 58: the festivals' gods.
+import { GODS } from '../sim/pantheon';
+import { feastMark } from './greecegods';
 import { festivalMonth, festivalOf, festivalOn, isAre, nextFestival } from '../sim/festivals';
 import { armiesOnMap, foeIn, helpCost, PAIR_LULL, sinceWords, tieOf, tieReasons, tieWord, warLine, warOf } from '../sim/rivals';
 import type { SimState, War } from '../sim/state';
@@ -104,10 +107,12 @@ export function statusHtml(s: SimState, id: CityId): string {
   const f = festivalOf(id);
   const n = nextFestival(id, s.tick);
   if (f && n) {
-    if (s.tick >= n.start) out.push(`<li class="feast">${FEAST_ICON}<span><b>${esc(cap(f.name))}</b> ${isAre(f)} on, until ${esc(dayMonth(n.end))}: wine and meat dear; a gift that arrives now counts for more.</span></li>`);
+    // (Slice 58: named with the god it is held for, whom a gift arriving in it pleases while the gods are watching.)
+    const god = GODS[f.god].name;
+    if (s.tick >= n.start) out.push(`<li class="feast">${FEAST_ICON}<span><b>${esc(cap(f.name))}</b>, for ${feastMark(f)}${esc(god)}, ${isAre(f)} on until ${esc(dayMonth(n.end))}: wine and meat dear; a gift that arrives now counts for more${s.gods.on ? `, and pleases ${esc(god)}` : ''}.</span></li>`);
     else {
       const d = Math.ceil((n.start - s.tick) / TICKS_PER_DAY);
-      if (d <= 30) out.push(`<li class="feast">${FEAST_ICON}<span>${esc(cap(f.name))} in ${esc(days(d))}: they are laying in wine and meat for it.</span></li>`);
+      if (d <= 30) out.push(`<li class="feast">${FEAST_ICON}<span>${esc(cap(f.name))}, for ${feastMark(f)}${esc(god)}, in ${esc(days(d))}: they are laying in wine and meat for it.</span></li>`);
     }
   }
   out.push(`<li class="crop"><i style="background:${fieldColour(s, id)}"></i><span>${esc(harvestLine(s, id))}.</span></li>`);
@@ -243,7 +248,7 @@ export function rivalsHtml(s: SimState, id: CityId): string {
   const war = x ? `<section class="wars"><h3>War</h3><p class="line">${esc(warLine(x, s.tick))}.</p>${x.ended ? '' : `<p class="foot">It ends in a season or two, in a peace or a defeat. While it lasts each side may ask your city for help, and whatever you trade with or send to one side, the other remembers.</p>`}</section>` : '';
   const f = festivalOf(id);
   const n = nextFestival(id, s.tick);
-  const feast = f && n ? `<section class="festival"><h3>Festival</h3><p class="line"><b>${esc(cap(f.name))}</b>, every ${esc(festivalMonth(f))}: ${esc(f.what)}${c.war && f.atWar ? ` (${esc(f.atWar)})` : ''}. ${s.tick >= n.start ? `On now, until ${esc(dayMonth(n.end))}.` : `Next on ${esc(dayMonth(n.start))}.`} For a fortnight before it and while it lasts, wine and meat are dear in ${esc(name(id))}; a gift that arrives while it is on counts half as much again${c.ruler?.traits.includes('pious') ? ` (twice as much: ${they} is pious)` : ''}.</p></section>` : '';
+  const feast = f && n ? `<section class="festival"><h3>Festival</h3><p class="line"><b>${esc(cap(f.name))}</b>, held for ${feastMark(f)}${esc(GODS[f.god].name)} every ${esc(festivalMonth(f))}: ${esc(f.what)}${c.war && f.atWar ? ` (${esc(f.atWar)})` : ''}. ${s.tick >= n.start ? `On now, until ${esc(dayMonth(n.end))}.` : `Next on ${esc(dayMonth(n.start))}.`} For a fortnight before it and while it lasts, wine and meat are dear in ${esc(name(id))}; a gift that arrives while it is on counts half as much again${c.ruler?.traits.includes('pious') ? ` (twice as much: ${they} is pious)` : ''}${s.gods.on ? `, and pleases ${esc(GODS[f.god].name)}` : ''}.</p></section>` : '';
   return `${standsHtml(s, id)}<section class="rivals"><h3>How ${they} feels about the others</h3>${rows}<p class="foot">Rulers far enough out fall to feuding (${signed(-25)} or worse), and may go to war. Quarrels and friendships come and fade.</p></section>${war}${feast}`;
 }
 

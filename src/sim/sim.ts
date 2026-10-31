@@ -66,6 +66,8 @@ import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany'
 import { dedicate, holdFestival, moveOffering, moveProcession, sendOffering, stepWorship } from './worship';
 // Slice 59: heroes answer.
 import { hallRaised, hallRefusal, heroCommand, stepHeroes } from './heroes';
+// Slice 58: the gods of Greece.
+import { stepGreeceGods } from './greecegods';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -326,6 +328,8 @@ export class Sim {
     stepEpiphany(s);
     // Slice 53: worship (festivals beginning, each god's day of the month, the month's record; nothing with the switch off).
     stepWorship(s, map);
+    // Slice 58: the gods of Greece: pious rulers remember, on the first of the month, how their patron feels about you (nothing with the gods off).
+    stepGreeceGods(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).

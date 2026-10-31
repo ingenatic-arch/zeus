@@ -2,6 +2,69 @@
 
 Notes to Oliver, newest first.
 
+## Slice 58 — The gods of Greece (31 Oct)
+
+The Temples line's second slice: Greece's cities now have gods of their own, and the twelve watch what you do beyond your walls. Making war on a city, plundering it, paying tribute, breaking a promise or sending a gift for a city's festival is remembered by the god it touches, with the reason named; a god who loves you blesses your expeditions, an angry patron stands with their city's men, and Poseidon's mood tips the fights at sea. Mount Olympus stands on the map of Greece, and its page shows the twelve's moods towards you. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: nothing in a save (still **state version 51**: the deeds are the gods' memories and a pious ruler's memory). Every one of the 175 earlier demos opens exactly as it did; everything new only happens with the gods watching, which they are in a new game and as every demo opens. One thing changes for any town with a statue or the Colossus rising and an armoury: the armoury's smiths no longer take the copper the site still needs (slice 54's finding). The map of Greece has one more piece on it (1,200 triangles, two draw calls).
+
+### What's new
+- **Patrons.** Athena watches over Athens, Ares over Sparta, Poseidon over Corinth, Apollo over Troy, Dionysus over Thebes, Hera over Argos, Zeus over Knossos and Hermes over Rhodes. Each god's emblem sits beside the city's name on its label and under the ruler on its page, and the Ruler tab has a section for the city's god: their mood towards you with its bar, the reasons (those from Greece first), and what it means for an expedition there.
+- **Deeds in Greece**, each remembered by the god it touches, fading over a year or two: a war on a patron's city (−8 with cause, −20 without), plunder from it (−20 more), a win for Ares (+6), a war won well or a foolish war lost for Athena (+4 / −4), a gift that arrives during a city's festival for the festival's god (half what it is worth to the ruler, 3 to 10, and no more than 20 from one feast's gifts together), tribute or a raid's price paid (Ares −6), a promise broken (Zeus −8, Hera −5) or kept (Zeus +3), a band broken in your streets or sunk in your bay (Ares +6). The news line where each happens says what the god made of it ("Poseidon, whose feast it is, is pleased (+10)"), and so does an expedition's report.
+- **Pious rulers** remember, each month, how their city's god feels about you: from +8 if the god loves you to −10 if furious ("Pious: Poseidon, Corinth's patron, is pleased with your city").
+- **The gods abroad.** The most loving god (60 or more) blesses an expedition: its strength counts a quarter more. A city's patron, angry with you, stands with its men (a fifth more; two fifths if furious). The odds before you send say so, and so does the report. Poseidon's mood tips every fight at sea, from 0.7 to 1.3 of your ships' strength, in your bay and on the lanes.
+- **Greece's festivals are held for their gods**: the Isthmian Games for Poseidon, the Panathenaia for Athena, the Karneia for Apollo. Their banners on the map fly in the god's colour, and the city's status line and Rivals tab name the god.
+- **Mount Olympus** on the map of Greece, north over Thessaly: a snowy massif with the twelve's gold temple on its summit, and a label with how many gods love you (♥) and are angry (⚡). Its hover card names the god warmest and coldest to you; a click opens its page: the gods who think something of you first, as cards with their emblem, the city they watch over, their mood word and bar and their top three reasons, then the rest as short rows.
+- **Copper is kept for the sites.** A store keeps back the copper an unfinished statue or the Colossus still needs, so an armoury's smiths no longer empty it (slice 54's finding).
+
+### What to try
+1. #greecegods — your town with an army, after two gifts of coin reached Corinth during the Isthmian Games and a full force went against Athens without cause and plundered it. It opens on the map of Greece with the Olympus page: Athena angry and Poseidon pleased, each with the reason, and Ares remembering the win (+6, not yet enough to move him from watchful).
+2. #greecegods — click Athens on the map: under the ruler, "Athena watches over Athens", her anger and why, and what she will do to your next expedition there (the odds on the Ruler tab say so too).
+3. #greecegods — click Corinth: Lord Periandros is pious, and Poseidon's mood is among his reasons; the Rivals tab says the Isthmian Games are held for Poseidon.
+4. #greecegods — a gift at a god's feast. Athens' page says the Panathenaia, held for Athena, is a few weeks off. Play on until it is about ten days off, then send Athens 500 dr from its Ruler tab: a gift takes about sixteen days on the road, so it arrives while the feast is on. Its news line says Athena, whose feast it is, is pleased (+10), and on the Olympus page (click the mountain) she is no longer angry. (In #festival the feast is nearly over as it opens, so a gift sent then arrives a week too late.)
+5. #companies — send a full force against Athens from its Ruler tab, then read the report on its Loans tab when they have fought: what Athena and Ares made of it comes after what Greece thinks of it.
+6. #greecegods-modern and #greecegods-plain — the other two looks.
+
+### What I'd like your eye on
+- **Mount Olympus on the map.** A grey massif with snow and a small gold temple, a little west of the true summit so it stays on land. Does it read as the gods' mountain from the opening view, or does it need to be bigger, or to glow?
+- **The weight of a deed.** A war without cause on a god's own city and plunder are each −20, enough for Athena to stay angry for months. Tribute is −6 for Ares, a broken promise −8 for Zeus. Too harsh, too mild?
+- **The blessing and the angry patron**: a quarter more strength with a loving god, a fifth or two fifths more for the defenders with an angry patron. Should they be felt more?
+- **The Olympus page**: the gods who think something of you come first as full cards (the most moved first), the rest as short rows under them, so all twelve fit on the screen. Is that the right order, or would you rather keep the twelve in their own order?
+
+### Known rough edges
+- `#greecegods` plays its gifts and its war in the setup (as a player would, by commands): the gods' memories of them are real, but the war is staged to open the moment the force is home.
+- Slice 53's Olympus panel was not on this line: the Olympus page here has simple cards of its own, to be made one with slice 53's when the lines merge. When they do, Ares will count tribute twice (slice 53's monthly reading and this slice's deed) until one of the two is dropped.
+- A festival's news line, when it begins, doesn't name its god (the groundwork's rule that the gods change nothing in a city that honours none of them covers the news); the god is named on the city's page and in a gift's arrival line.
+- The checks ran with three other lines building on the same 4 cores (load average about 30), so every time in Measurements is noise, and a handful of tests bound to the clock fail under it.
+
+### Measurements
+The base build (`4b3949c`) and this slice's, measured side by side with a shortened `measure.mjs`. Headless, software WebGL, load average about 30: **every time below is noise**.
+
+| What | Before (`4b3949c`) | After |
+|---|---|---|
+| Tests | 804 in 63 files | 846 in 64 files: 839 pass under load; the 7 failures are bound to the clock (two land-bake times, a culture "quickly", time-outs in trade, routes and treasury). The four files with a time-out or a timed check, rerun on 2 workers: 63 of 64 pass; the one left is treasury's "no demo leaves wages unpaid", which plays all 176 demos from their founding within 20 minutes and timed out at that load. Run alone, `#greecegods`' setup leaves no wages unpaid. |
+| Build | | succeeds (28 min with every prepared town baked again under this load) |
+| The game itself | 3,171 KB, 1,054 KB gzipped | 3,188 KB, 1,060 KB gzipped |
+| Prepared towns | 133 files, 4,819 KB gzipped | 134 files, 4,865 KB gzipped |
+| Every earlier demo opened paused (date, money, people, homes, levels, buildings, every count in the probe's city) | 175 demos | all 175 identical |
+| Version 47 and 48 saves (`#monument` and `#town`) | | load to 51, play a quarter on and save again |
+| The map of Greece (`#greece`, `#rivalsmap`, `#greecegrows`, `#festival`) | 314,970 to 320,554 triangles, 57 to 66 draws | 1,200 triangles and 2 draws more each (Olympus) |
+| The city's views (`#town`, `#sanctuary`, `#empire`) | | identical triangles and draws |
+| `#greecegods` | (new) | 322,618 triangles, 58 draws |
+| The main thread's work a frame on the map, running | `#greece` 30 ms, `#rivalsmap` 128 ms | `#greece` 51 ms, `#rivalsmap` 160 ms, `#greecegods` 136 ms (noise: the same build measured minutes apart differs by more) |
+| The focused smoke (the map of Greece, labels under the lines at 1600 × 900, slice 58) | | passes |
+
+### What the review changed
+A second pair of eyes went through every step above at full-HD size in all three looks, and changed a few things:
+- **What to try 4 now works.** As first written it sent you to #festival, but that town opens with the Panathenaia nearly over, and a gift to Athens takes about sixteen days on the road, so it arrived a week late and Athena never heard of it. The step now starts from #greecegods, a few weeks before the feast; played through, the gift arrived while it was on, Athena was pleased (+10), and she went from angry to displeased.
+- **A feast's gifts can't buy a god outright.** Every gift that arrived during a festival pleased its god by at least 3, so a stream of small gifts could have bought a god's love for a few thousand drachmas. Now all the gifts of one feast together count for 20 at most, and a gift past that says the god has had gifts enough this feast. #greecegods' two gifts come to 16, so it opens as before.
+- **The Olympus page fits on the screen**: the gods who think something of you come first (the most moved first), and the rest are short rows under them.
+- **Olympus's label no longer covers the mountain.** Where it would sit under the top bar, it now stands beside the mountain's shoulder with a little stem to it (on a small window it keeps clear of the army's chip under the bar too).
+- **Conquering a city says when the gods are in its odds**, as sending soldiers already did: with Athena angry, the Conquer card on Athens' Empire tab says she would stand with its men.
+- Item 1 said Ares was a little pleased with the win; he remembers it (+6), but is still watchful. Corrected above.
+
+What I'd still like your eye on is as above; I haven't judged how any of it feels for you.
+
 ## Slice 59 — Heroes answer (1 Nov)
 
 The seven heroes can come to your city now: raise a hero's hall, meet what they ask, and they come by sea or by road to live in it, walk your streets, and slay the monster you send them against, in a long fight before its lair that they always win. You weren't here while it was built: every choice below is mine, from the spec's defaults.

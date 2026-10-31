@@ -55,6 +55,8 @@ import { helpedFoe } from './rivals';
 import { blockaded } from './lanes';
 // Slice 52: a quarantine keeps your gifts in.
 import { quarantined } from './health';
+// Slice 58: a gift at a city's festival pleases its god.
+import { feastGift } from './greecegods';
 
 /** What you can give: drachmas, or so many of a trade good. */
 export const GIFT_COINS: readonly number[] = [100, 250, 500];
@@ -354,8 +356,10 @@ function arrive(s: SimState, g: Gift): void {
     const words = giftWords(g.good, g.amount);
     const turn = settleMood(s, c, `your gift of ${words}`, true);
     const pleased = m.amount >= 15 ? 'is delighted' : m.amount >= 6 ? 'is pleased' : 'is pleased, a little';
+    // (Slice 58: arriving while the city's festival is on, it pleases the festival's god too.)
+    const god = feastGift(s, g.to, m.amount);
     // (The turn's line names the gift as its cause: here it is said once, at the start.)
-    news(w, s.tick, g.to, turn ? `Your gift of ${words} reached ${cityName(g.to)} (+${m.amount}): ${turn.replace(/: your gift of .*$/, '')}` : `Your gift of ${words} reached ${cityName(g.to)}: ${rulerShort(c)} ${pleased} (+${m.amount})`);
+    news(w, s.tick, g.to, `${turn ? `Your gift of ${words} reached ${cityName(g.to)} (+${m.amount}): ${turn.replace(/: your gift of .*$/, '')}` : `Your gift of ${words} reached ${cityName(g.to)}: ${rulerShort(c)} ${pleased} (+${m.amount})`}${god ? `. ${god}` : ''}`);
     return;
   }
   // A ruler's gift to you.

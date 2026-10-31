@@ -266,7 +266,9 @@ export function soldiersHtml(s: SimState, id: CityId, cause: boolean): string {
     // (Who stays home from a full force, and why: men waiting for armour, a broken company, no trireme for it. Without it a full force of half your army read as a miscount.)
     const stay = kind === 'force' && !/trireme|No way|no soldiers|no ruler|your vassal|your ally/i.test(why) ? stayingHome(s, kind, id) : [];
     const staying = stay.length ? `<ul class="stay">${stay.map((x) => `<li>${esc(cap(x))}</li>`).join('')}</ul>` : '';
-    return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}${staying}</li>`;
+    // (Slice 58: what the gods would make of it: a loving god's blessing, the city's angry patron.)
+    const gods = line && p.gods ? `<p class="if gods">${esc(p.gods)}</p>` : '';
+    return `<li>${button}${line ? `<p class="if">${esc(line)}</p>` : ''}${gods}${staying}</li>`;
   });
   const why = expeditionRefusal(s, id, 'raid');
   // (Slice 34 review: your vassal or your ally, too, says why rather than showing two dead buttons with odds.)

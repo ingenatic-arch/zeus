@@ -33,6 +33,9 @@ import { noteHomeUse } from './stockbook';
 import { restFor } from './water';
 // Slice 36: an estate's porter.
 import { bringHome, estateTake } from './estates';
+// Slice 58: copper kept for the sites.
+import { sitesKeep } from './monuments';
+import { COPPER } from './foods';
 
 /** Ticks a crop takes to grow at full strength (two months). */
 export const GROW = 2 * TICKS_PER_MONTH;
@@ -444,7 +447,9 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
       // A goods porter: up to a handcart of his good, as much as the stall has room for.
       const f = w.food;
       // (Slice 36: an estate's porter takes what its yard or stable has room for.)
-      const take = origin.kind === 'home' ? estateTake(origin, f, held(g, f)) : Math.min(porterTake(f), held(g, f), Math.max(0, stallRoom(f) - held(origin, f)));
+      // (Slice 58: an armoury's porter leaves the copper the sites still want.)
+      const there = origin.kind === 'armoury' && f === COPPER ? Math.max(0, held(g, f) - sitesKeep(s, f)) : held(g, f);
+      const take = origin.kind === 'home' ? estateTake(origin, f, held(g, f)) : Math.min(porterTake(f), there, Math.max(0, stallRoom(f) - held(origin, f)));
       setHeld(g, f, held(g, f) - take);
       w.load = take;
       if (take === 0 && origin.kind !== 'home') origin.fetch[f - FIRST_GOOD] = PORTER_RETRY;

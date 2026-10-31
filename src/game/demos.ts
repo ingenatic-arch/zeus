@@ -129,6 +129,8 @@ import { TILE_ROAD } from '../sim/state';
 import { GODS } from '../sim/pantheon';
 import { HORSES } from '../sim/foods';
 import { festivalGoods, festivalUnderWay } from '../sim/worship';
+// Slice 58: the gods of Greece.
+import { festivalOn } from '../sim/festivals';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -237,7 +239,7 @@ export interface Demo {
   /** Open the trade panel from the start (on a tab: a route's key, such as 'athens-sea', if one is named). */
   trade?: true | string;
   /** Open the map of Greece from the start, with a city's panel if one is named. */
-  greece?: true | CityId;
+  greece?: true | CityId | 'olympus'; // (Slice 58: or the Olympus page.)
   /** The tab that city's page opens on (its ruler's, unless named). */
   greeceTab?: 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
   /** Open the side panel from the start, on a tab or a ware's page (whatever the window's width or the last visit chose). */
@@ -3879,6 +3881,9 @@ const SCENES: Record<string, Demo> = {
   // to its cave.
   hero: { view: 'hero', setup: heroTown, overlay: 'missing', building: heroHall('perseus'), unread: TICKS_PER_DAY },
   slay: { view: 'slay', setup: slayTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
+  // Slice 58: the gods of Greece. #companies' town with its gods watching: a full force sent against Athens without cause, and
+  // two gifts of coin reaching Corinth during the Isthmian Games; it opens on the map of Greece with the Olympus page open.
+  greecegods: { view: 'town', setup: greeceGodsTown, overlay: 'missing', greece: 'olympus' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4983,4 +4988,38 @@ function slayTown(sim: Sim): void {
   const spot = lairSpot(s, m);
   end = s.tick + TICKS_PER_MONTH;
   while (s.tick < end && c.state === 'hunting' && dhypot(c.x - spot.x, c.z - spot.z) > SLAY_LEFT + HASTE) sim.step();
+}
+
+// Slice 58
+/** #greecegods: each of the two gifts of coin sent to Corinth for the Isthmian Games. */
+const GREECEGODS_GIFT = 500;
+/**
+ * #greecegods: #companies' town with the gods switched on before its deeds (as
+ * calm() does as a demo opens), so they remember them: two gifts of coin
+ * reaching Corinth during the Isthmian Games, one after the other, and then a
+ * full force sent against Athens without cause; played on until the force is
+ * home.
+ */
+function greeceGodsTown(sim: Sim): void {
+  COMPANIES(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  gods(sim, true);
+  const n = nextFestival('corinth', s.tick);
+  if (n) {
+    while (s.tick < n.start) sim.run(10);
+    for (let i = 0; i < 2; i++) {
+      const was = new Set(s.world.gifts.map((g) => g.id));
+      send({ type: 'gift', city: 'corinth', good: -1, amount: GREECEGODS_GIFT });
+      const g = s.world.gifts.find((x) => !was.has(x.id));
+      while (g && s.world.gifts.includes(g) && festivalOn('corinth', s.tick)) sim.run(1);
+    }
+  }
+  send({ type: 'expedition', city: 'athens', kind: 'force' });
+  const e = s.world.expeditions.find((x) => x.city === 'athens');
+  const stop = s.tick + 6 * TICKS_PER_MONTH;
+  while (e && s.tick < stop && e.phase !== 'back' && e.phase !== 'done') sim.run(10);
 }

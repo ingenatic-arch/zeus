@@ -1058,6 +1058,10 @@ export class Walkers {
   private readonly priests: Look;
   // Slice 53: a festival's procession.
   private readonly marchers: Look;
+  /** Slice 58: each sanctuary's god's colour, by its building (a sanctuary's god never changes), looked up once, not for every priest every frame. */
+  private readonly priestTint = new Map<number, number>();
+  /** The town the tints were cached for (a game loaded or a demo opened starts afresh). */
+  private tintFor: unknown = null;
   private readonly actors: Look;
   /** Tax collectors: [a light satchel, a full one]. */
   private readonly collectors: [Look, Look];
@@ -1296,7 +1300,20 @@ export class Walkers {
           this.priestesses.push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(robe)));
         }
         // Slice 54: a sanctuary's priest, robed in his god's colour.
-        else if (w.kind === 'priest') this.priests.push(this.m, still(this.c.setHex(GODS[findBuilding(state, w.origin)?.god ?? 'zeus'].colour)));
+        else if (w.kind === 'priest') {
+          // (Slice 58: the colour cached by the priest's sanctuary.)
+          if (this.tintFor !== state) {
+            this.tintFor = state;
+            this.priestTint.clear();
+          }
+          let hex = this.priestTint.get(w.origin);
+          if (hex === undefined) {
+            const g = findBuilding(state, w.origin)?.god;
+            hex = GODS[g ?? 'zeus'].colour;
+            if (g) this.priestTint.set(w.origin, hex);
+          }
+          this.priests.push(this.m, still(this.c.setHex(hex)));
+        }
         // Slice 53: a porter carrying an offering to a shrine, in the god's colour, the sacred good on his shoulder.
         else if (w.kind === 'offering') {
           const god = GOD_IDS[w.steps];

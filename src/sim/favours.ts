@@ -50,6 +50,8 @@ import { cityOf, COLD, fadeFor, moodOf, rulerName, rulerShort, sellsAndBuys, you
 import { boundTo } from './vassals';
 // Review of slice 52: what you send for a deal waits out your quarantine, as a gift does.
 import { quarantined } from './health';
+// Slice 58: promises and tribute, as the gods see them.
+import { dealDeeds } from './greecegods';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -230,7 +232,9 @@ function remember(s: SimState, d: Deal, m: Memory, line: string): void {
   if (m.kind !== 'promise' && d.promised) c.memories = c.memories.filter((x) => x.kind !== 'promise');
   if (m.amount !== 0) c.memories.push(m);
   const turn = settleMood(s, c, '§', true).replace(/: §$/, '');
-  if (line) news(s.world, s.tick, d.city, `${line}${m.amount !== 0 ? ` (${signed(m.amount)})` : ''}${turn ? `. ${turn}` : ''}`);
+  // (Slice 58: a promise kept or broken, tribute paid: what the gods make of it.)
+  const gods = dealDeeds(s, d, m);
+  if (line) news(s.world, s.tick, d.city, `${line}${m.amount !== 0 ? ` (${signed(m.amount)})` : ''}${turn ? `. ${turn}` : ''}${gods ? `. ${gods}` : ''}`);
   s.rev++;
 }
 
