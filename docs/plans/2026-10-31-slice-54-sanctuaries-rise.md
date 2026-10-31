@@ -148,6 +148,6 @@ Review checks:
 - Twelve older demos open identical to `11f9290`'s probe: `#monument`, `#lit`, `#games`, `#achieved`, `#empire`, `#quarry`, `#loggers`, `#estates`, `#colonyworks`, `#town`, `#order` and `#storerules`.
 - The real version 47 and 48 saves of `#monument` and `#town` load to 49, play a quarter on and save again.
 - The check-in's steps were walked at 1920 × 1080 in all three looks. The chooser was opened beside a building panel and was readable. Hermes's sanctuary was marked out: 1,200 dr were taken and his card was greyed afterwards.
-- A shortened measure ran (in the check-in).
+- A shortened measure against the base (`11f9290`) at 1920 × 1080 gave identical triangles and draw calls for `#monument`, `#lit`, `#games`, `#quarry`, `#town`, `#empire` and `#order`. The new demos came in under `#empire`/`#order`: `#sanctuaries` had 1.50 M triangles and 94 calls, `#sanctuary` 1.43 M and 83, `#twelve` 1.94 M and 129. The game itself grew from 998 to 1,018 KB gz. Frame work was taken at a load average of about 13, so the readings are noise: `#quarry` was 38 then 32 ms, `#empire` 69 then 53, `#sanctuaries` 79 (6 frames) and `#twelve` 34. They need a rerun on a quiet machine.
 
-**Touched outside the line** (added by the review): none beyond the files already listed (`heard.ts`, `monumentstatus.ts`, `tools.ts`, `buildbar.ts`, `demos.ts`' own block).
+**Touched outside the line** (added by the review): none beyond the files already listed (`heard.ts`, `monumentstatus.ts`, `tools.ts`, `buildbar.ts`, `demos.ts`' own block; `migrate.ts`' `fromSlice54` and `sanctuary.css` are this line's own).
