@@ -204,4 +204,6 @@ export const VIEWS: Record<string, CameraView> = {
   plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
   // Slice 52, #order: the town on the delta from over its south side, the quay and the farms in front, the streets up to the north street behind.
   order: { x: 45, z: 113, yaw: -0.785, dist: 64, tilt: -0.15 },
+  // Slice 53, #procession: the core's agora and Demeter's shrine beside it, the procession rounding the agora, right of the shrine's panel.
+  procession: { x: 66, z: 41, yaw: -0.3, dist: 22, tilt: -0.05 },
 };

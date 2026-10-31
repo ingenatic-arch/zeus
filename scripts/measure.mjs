@@ -716,5 +716,25 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
   console.log(`#bigwoods-shot      update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
 }
+// Slice 53: the gods. Olympus built afresh on #gods (the twelve, and a god's page) by the page's clock; the main thread's work a
+// frame at normal speed on #gods with Olympus open and shut, and on #procession with Demeter's procession out, at 1920 x 1080.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const run = async (hash, act, label) => {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    if (act) console.log(`${label}: ${await page.evaluate(act)}`);
+    await page.waitForTimeout(10000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, c: window.__zeus.city() }));
+    console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.c.walkers} walkers)`);
+  };
+  const built = `(() => { const out = []; for (const g of [null, 'all', 'athena', 'all']) { const t = performance.now(); window.__zeus.olympus(g); out.push(\`\${g ?? 'shut'} \${(performance.now() - t).toFixed(1)}\`); } return 'Olympus built in (ms): ' + out.join(', '); })()`;
+  await run('#gods-shot', built, '#gods, Olympus open');
+  await run('#gods-shot', 'window.__zeus.olympus(null), "shut"', '#gods, Olympus shut');
+  await run('#procession-shot', '', '#procession, the procession out');
+}
 await browser.close();
 server.close();

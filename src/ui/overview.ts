@@ -471,7 +471,7 @@ function goodsPage(s: SimState, map: CoastMap, picked: number): string {
   const outlooks = new Map(wares.map((w) => [w, wareOutlook(s, w)]));
   const b = bookNow(s);
   const out: string[] = [];
-  if (!wares.length) return '<p class="ov-note">The city has no goods yet: farms (M) and a granary (G) are where it starts.</p>';
+  if (!wares.length) return '<p class="ov-note">The city has no goods yet: farms (M) and a granary (Shift G) are where it starts.</p>';
   const sel = wares.includes(picked) ? picked : (wares.slice().sort((a, c) => (outlooks.get(a)!.months || 0) - (outlooks.get(c)!.months || 0))[0] ?? wares[0]);
   const rows = wares.map((w) => {
     const o = outlooks.get(w)!;

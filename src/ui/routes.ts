@@ -144,8 +144,8 @@ export function routeLast(r: TradeRoute): string {
 /** Why a route can't trade now, if anything stops it (for the warnings). */
 export function routeWarnings(s: SimState, r: TradeRoute): string[] {
   const out: string[] = [];
-  if (r.kind === 'land' && !caravanYard(s)) out.push('No caravan yard: the caravans turn back at the edge of the map. Build one (G).');
-  if (r.kind === 'sea' && !tradingPost(s)) out.push('No trading post: the ships turn back. Build one on the bay shore (G).');
+  if (r.kind === 'land' && !caravanYard(s)) out.push('No caravan yard: the caravans turn back at the edge of the map. Build one (Shift G).');
+  if (r.kind === 'sea' && !tradingPost(s)) out.push('No trading post: the ships turn back. Build one on the bay shore (Shift G).');
   if (!r.sell.some((x) => x) && !r.buy.some((x) => x)) out.push('Nothing switched on: switch on what to sell and what to buy below, or the trader comes and goes with nothing.');
   return out;
 }

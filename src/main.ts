@@ -1494,7 +1494,8 @@ function start(preparedTown: string | null): void {
       // M again: the farm, then the hunting lodge, the dairy, the olive grove, the olive press, the sheep pasture, the vineyard and the winery.
       if (k === 'm') t = next(MAKERS, tools.tool, e?.shiftKey);
       // G again: the granary, then the storehouse, then the trading post, then the caravan yard; K again: the agora, then its oil, fleece and wine stalls.
-      if (k === 'g') t = next(['granary', 'storehouse', 'trading', 'yard'], tools.tool, e?.shiftKey);
+      // (Slice 53: G is Olympus, so the stores are Shift+G, cycling forward.)
+      if (k === 'g') t = next(['granary', 'storehouse', 'trading', 'yard'], tools.tool, false);
       if (k === 'k') t = next(SELLERS, tools.tool, e?.shiftKey);
       // H again (slice 36): an estate's plot.
       if (k === 'h') t = next(['housing', 'estate'], tools.tool, e?.shiftKey);
