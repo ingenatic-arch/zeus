@@ -7,6 +7,9 @@
  * Commands carry exactly what to build (tile lists), not how the tool chose
  * it, so a replay never depends on the route-finding of the day.
  */
+// Slice 59.
+import type { HeroId } from './pantheon';
+
 export type Command =
   /** Lay road on these tiles (tile indices), in order; a run of wet tiles is a bridge, laid whole or not at all. */
   | { type: 'road'; tiles: number[] }
@@ -95,7 +98,12 @@ export type Command =
   | { type: 'quarantine'; on: boolean }
   // Phase 7 groundwork
   /** The gods' switch (pantheon.ts): on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'gods'; on: boolean };
+  | { type: 'gods'; on: boolean }
+  // Slice 59
+  /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
+  | { type: 'herohall'; hero: HeroId; at: number[] }
+  /** A hero's order (heroes.ts): sent against a monster (`monster`: its id), to ride with the next expedition or not (`on`), or let sail for a season (Odysseus's wish). */
+  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail'; monster?: number; on?: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

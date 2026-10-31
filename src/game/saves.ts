@@ -34,6 +34,9 @@ import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 import { GOD_IDS } from '../sim/pantheon';
 // Slice 55.
 import { MONSTER_IDS } from '../sim/pantheon';
+// Slice 59.
+import { HERO_IDS } from '../sim/pantheon';
+import { HERO_STATES } from '../sim/heroes';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -399,6 +402,8 @@ export function stateProblem(st: unknown): string {
     if ((b.paused !== 0 && b.paused !== 1) || (b.first !== 0 && b.first !== 1) || !nums(b.rules)) return damaged('a building’s orders or a store’s rules are wrong');
     // Phase 7 groundwork.
     if (b.god !== undefined && !GOD_IDS.includes(b.god as never)) return damaged('a shrine is dedicated to no known god');
+    // Slice 59.
+    if (b.hero !== undefined && !HERO_IDS.includes(b.hero as never)) return damaged('a hero’s hall is for no known hero');
   }
   if (!Array.isArray(st.walkers)) return damaged('its walkers are missing');
   for (const w of st.walkers as unknown[]) {
@@ -440,7 +445,7 @@ export function stateProblem(st: unknown): string {
 
 // Slice 55
 const BEAST_STATES = ['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving'];
-const BEAST_NUMBERS = ['chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
+const BEAST_NUMBERS = ['held', 'tower', 'chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
 const LAIRS = ['cave', 'marsh', 'shore'];
 /** Slice 55: the monsters on the land (each of a known kind, sent by one of the twelve, with its way, its lair and its numbers), Medusa's stones, and those slain. */
 function legendsOk(l: unknown): boolean {
@@ -461,7 +466,25 @@ function legendsOk(l: unknown): boolean {
     (m.wrecked as unknown[]).every((w) => typeof w === 'string');
   const stone = (x: unknown): boolean => isObj(x) && ['x', 'z', 'face', 'tick'].every((k) => fin(x[k])) && typeof x.kind === 'string';
   const slain = (x: unknown): boolean => isObj(x) && MONSTER_IDS.includes(x.kind as never) && LAIRS.includes(x.den as string) && fin(x.lair) && fin(x.tick) && typeof x.by === 'string';
-  return (l.monsters as unknown[]).every(beast) && (l.stones as unknown[]).every(stone) && (l.slain as unknown[]).every(slain);
+  return (l.monsters as unknown[]).every(beast) && (l.stones as unknown[]).every(stone) && (l.slain as unknown[]).every(slain) && heroesOk(l);
+}
+
+// Slice 59
+const CHAMPION_NUMBERS = ['hall', 'word', 'came', 'next', 'x', 'z', 'face', 'walked', 'seg', 'along', 'foe', 'fight', 'from', 'swung', 'wish', 'warned', 'away', 'again'];
+/** Slice 59: the heroes (each a known hero, once, in a known state, with their way and numbers) and the fête. */
+function heroesOk(l: Record<string, unknown>): boolean {
+  if (!Array.isArray(l.heroes)) return false;
+  const seen = new Set<string>();
+  for (const c of l.heroes as unknown[]) {
+    if (!isObj(c) || !HERO_IDS.includes(c.hero as never) || seen.has(c.hero as string)) return false;
+    seen.add(c.hero as string);
+    if (!HERO_STATES.includes(c.state as never) || !CHAMPION_NUMBERS.every((k) => fin(c[k]))) return false;
+    if (!nums(c.path) || (c.path as number[]).length % 2 !== 0 || typeof c.ride !== 'boolean' || !['', 'sea', 'road'].includes(c.by as string)) return false;
+    if (!Array.isArray(c.slain) || !(c.slain as unknown[]).every((k) => MONSTER_IDS.includes(k as never))) return false;
+  }
+  const f = l.fete;
+  if (f === null) return true;
+  return isObj(f) && fin(f.until) && fin(f.hall) && HERO_IDS.includes(f.hero as never) && MONSTER_IDS.includes(f.kind as never);
 }
 
 /** Phase 7 groundwork: the gods' switch, when the city was noticed, and each of the twelve's memories. */

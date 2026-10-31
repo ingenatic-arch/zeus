@@ -286,6 +286,9 @@ const COLLAPSE_ICON = LINE_ICONS.rubble;
 // Slice 55: a monster's: three claw marks torn across a dark ground.
 const MONSTER_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.8" fill="#3a2e28" stroke="#1e1612" stroke-width=".8"/><path d="M4.4 3.6c1.4 3 1.6 6 .6 9M7.6 2.8c1.4 3.4 1.6 6.8.4 10.2M10.8 3.6c1.2 3 1.2 6-.2 9" stroke="#d8432a" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
 
+// Slice 59: a hero's: a laurel wreath round a bronze sword's hilt.
+const HERO_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6v9.4" stroke="#b8862e" stroke-width="1.8" stroke-linecap="round"/><path d="M5.4 10.6h5.2" stroke="#6e4e30" stroke-width="1.4" stroke-linecap="round"/><path d="M8 11.4v2.4" stroke="#6e4e30" stroke-width="1.4" stroke-linecap="round"/><path d="M3.2 5.6c-.8 3.6.8 7 4.2 8.2M12.8 5.6c.8 3.6-.8 7-4.2 8.2" stroke="#4f7a32" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M3 7.2l-1.4-.6M3.4 9.4l-1.4.2M4.4 11.4l-1.2.8M13 7.2l1.4-.6M12.6 9.4l1.4.2M11.6 11.4l1.2.8" stroke="#6a9a3e" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
 /** Each kind of message's drawing. Kinds added later fall back to the scroll; the kit's test asks for every kind. */
 export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   greece: LINE_ICONS.greece,
@@ -312,6 +315,8 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   land: LAND_ICON,
   // Slice 55
   monster: MONSTER_ICON,
+  // Slice 59
+  hero: HERO_ICON,
 };
 
 /** A message with no kind of its own: a small scroll. */

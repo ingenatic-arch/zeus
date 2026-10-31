@@ -59,6 +59,8 @@ import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 import { freshGods, setGods, stepGods } from './pantheon';
 // Slice 55: monsters at the gates.
 import { freshLegends, stepMonsters } from './monsters';
+// Slice 59: heroes answer.
+import { hallRaised, hallRefusal, heroCommand, stepHeroes } from './heroes';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -300,6 +302,8 @@ export class Sim {
     stepExpeditions(s, map);
     // Slice 55: the monsters on your land: coming in, their lairs, raids, healing, leaving (nothing with no monster sent and no stone standing).
     stepMonsters(s, map, (b, how) => toRubble(s, map, b, how));
+    // Slice 59: the heroes: awaited, coming, at home and in the streets, at a fight, away, leaving; the fête; the places of legend's visitors (nothing with no hall raised and no monster slain).
+    stepHeroes(s, map);
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
@@ -487,6 +491,22 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'quarantine':
       quarantineCommand(s, c.on === true);
+      break;
+    // Slice 59: a hero's hall, at the first of the tiles that takes it (one to a hero); a hero's order.
+    case 'herohall':
+      if (Array.isArray(c.at) && hallRefusal(s, c.hero) === '') {
+        for (const t of c.at) {
+          const e = placePlots(s, map, [t], 'herohall');
+          if (!e.plots.length) continue;
+          const b = findBuilding(s, e.plots[0]);
+          if (b) hallRaised(s, b, c.hero);
+          record(s, e);
+          break;
+        }
+      }
+      break;
+    case 'hero':
+      if (typeof c.act === 'string') heroCommand(s, map, c);
       break;
   }
 }

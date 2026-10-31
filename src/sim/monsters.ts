@@ -54,12 +54,16 @@ import { tell } from './folk';
 import { burnable, FIRE_BURNING, ignite, type Fall } from './hazards';
 import { ALARM, NEWS, say, WARNING, type Place } from './messages';
 import { GODS, MONSTERS, moodAtLeast, moodOfGod, type GodId, type Lair, type MonsterId } from './pantheon';
+// Slice 59.
+import { HERO_IDS, HEROES } from './pantheon';
 import { SHELTER } from './raids';
 import { TILE_EMPTY, TILE_ROAD, TILE_WALL, type Building, type BuildingKind, type SimState, type Soldier, type Walker } from './state';
 import { SHIP_MOORED, tradingPost } from './trade';
 import { position } from './walk';
 import { breakPiece, foeToll, foeWalkable, TOWER_RANGE, towerArchers, wallAt } from './walls';
 import { lineClear, offRoadPath, prunePath, walkable } from './wild';
+// Slice 59: the heroes' records live in `legends`.
+import type { Champion, Fete } from './heroes';
 
 // ---------------------------------------------------------------------------
 // The state: the slice's one top-level field.
@@ -129,6 +133,11 @@ export interface Beast {
   calm: number;
   /** When your archers last shot at it (-1 never): stung, it goes for them as far as a bow carries (the slice's review). */
   shot: number;
+  // Slice 59.
+  /** The hero holding it in a fight (HERO_IDS' place + 1; 0 none): it stands and fights, nothing else (heroes.ts drives it). */
+  held: number;
+  /** A tower whose archers stung it before its lair (its building id; 0 none): it comes out for that tower. */
+  tower: number;
 }
 
 /** A walker Medusa turned to stone: where it stood, which way it faced, when, and what it was. */
@@ -155,9 +164,14 @@ export interface Legends {
   next: number;
   stones: Stone[];
   slain: Slain[];
+  // Slice 59 (heroes.ts).
+  /** The heroes whose halls stand, come or awaited. */
+  heroes: Champion[];
+  /** The city celebrating a monster slain, while it lasts. */
+  fete: Fete | null;
 }
 
-export const freshLegends = (): Legends => ({ monsters: [], next: 1, stones: [], slain: [] });
+export const freshLegends = (): Legends => ({ monsters: [], next: 1, stones: [], slain: [], heroes: [], fete: null });
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -169,6 +183,8 @@ export const FIRST_RAID: readonly [number, number] = [21 * TICKS_PER_DAY, 35 * T
 export const RAID_GAP: readonly [number, number] = [21 * TICKS_PER_DAY, 42 * TICKS_PER_DAY];
 /** A raid is announced this long before it sets out. */
 export const STIR = TICKS_PER_DAY;
+/** Slice 59 (slice 55's finding: a day was about a second at normal speed): the raid's warning comes this long before it sets out. */
+export const STIR_WARN = 3 * TICKS_PER_DAY;
 /** How long it stays at its target, and how often it wrecks something there. */
 export const AT_TARGET = 5 * TICKS_PER_DAY;
 export const WRECK_EVERY = 12;
@@ -371,6 +387,9 @@ export function sendMonster(s: SimState, kind: MonsterId, why: string): Beast | 
     chase: 0,
     calm: 0,
     shot: -1,
+    // Slice 59.
+    held: 0,
+    tower: 0,
   };
   s.legends.monsters.push(m);
   const where = whereWords(map, m.x, m.z);
@@ -385,13 +404,14 @@ export function sendMonster(s: SimState, kind: MonsterId, why: string): Beast | 
  * fight, and its lair kept in `legends.slain` (a place of legend to be). `by`
  * names who slew it ("Heracles"). False if there is no such monster.
  */
-export function slayMonster(s: SimState, id: number, by: string): boolean {
+export function slayMonster(s: SimState, id: number, by: string, quiet = false): boolean {
   const m = monsterOf(s, id);
   if (!m) return false;
   dropFoe(s, m);
   s.legends.monsters = s.legends.monsters.filter((o) => o !== m);
   s.legends.slain.push({ kind: m.kind, lair: m.lair, den: m.den, tick: s.tick, by });
-  say(s, { kind: 'monster', u: ALARM, title: `${Cap(beastName(m.kind))} is slain`, words: `${Cap(beastName(m.kind))} has been slain by ${by}. Its ${denNoun(m.den)} is quiet, and ${GODS[m.god].name} has nothing more to send against you for it.`, at: { tile: m.lair }, of: 'slain' });
+  // (Slice 59: `quiet`, for a hero's own words of it.)
+  if (!quiet) say(s, { kind: 'monster', u: ALARM, title: `${Cap(beastName(m.kind))} is slain`, words: `${Cap(beastName(m.kind))} has been slain by ${by}. ${Cap(itsOf(m.kind))} ${denNoun(m.den)} is quiet, and ${GODS[m.god].name} has nothing more to send against you for it.`, at: { tile: m.lair }, of: 'slain' });
   s.rev++;
   return true;
 }
@@ -451,7 +471,7 @@ function townMiddle(map: CoastMap, s: SimState): number {
 }
 
 /** Every tile reachable on foot from `from` (four ways), as a mark per tile. */
-function reach(map: CoastMap, s: SimState, from: number): Uint8Array {
+export function reach(map: CoastMap, s: SimState, from: number): Uint8Array {
   const n = map.size;
   const seen = new Uint8Array(n * n);
   if (from < 0) return seen;
@@ -576,7 +596,7 @@ export function lairFor(map: CoastMap, s: SimState, kind: MonsterId): { tile: nu
 }
 
 /** The walkable tile nearest `t` within `most` tiles (t itself if it is), or -1. */
-function nearestWalkable(map: CoastMap, s: SimState, t: number, most: number): number {
+export function nearestWalkable(map: CoastMap, s: SimState, t: number, most: number): number {
   const n = map.size;
   if (t >= 0 && t < n * n && walkable(map, s, t)) return t;
   const tx = t % n;
@@ -744,6 +764,8 @@ export function stepMonsters(s: SimState, map: CoastMap, fall: (b: Building, how
 }
 
 function stepOne(s: SimState, map: CoastMap, m: Beast, fall: (b: Building, how: Fall) => void): void {
+  // (Slice 59: held in a hero's fight, it fights the hero and nothing else: heroes.ts moves it.)
+  if (m.held) return;
   // The battle's blows since last tick.
   const f = m.foe ? s.army.foes.find((o) => o.id === m.foe) : undefined;
   if (f) {
@@ -881,9 +903,18 @@ function atLair(s: SimState, map: CoastMap, m: Beast): void {
     m.walked += step;
   } else m.face = m.mouth;
   if (m.hp < m.full) m.hp = Math.min(m.full, m.hp + m.full / MEND);
-  if (!m.warned && s.tick >= m.next - STIR) {
+  // (Slice 59: stung by a tower's archers, it comes out for that tower now, unannounced but for the alarm.)
+  if (m.tower) {
+    const t = findBuilding(s, m.tower);
+    if (t && t.kind === 'tower' && m.kind !== 'medusa') {
+      m.next = s.tick;
+      m.warned = true;
+    } else m.tower = 0;
+  }
+  if (!m.warned && s.tick >= m.next - STIR_WARN) {
     m.warned = true;
-    say(s, { kind: 'monster', u: WARNING, title: `${Cap(shortName(m.kind))} is stirring`, words: `${Cap(shortName(m.kind))} is stirring in ${itsOf(m.kind)} ${denNoun(m.den)} ${whereWords(map, m.x, m.z)}: tomorrow ${itOf(m.kind)} comes out for ${targetWords(m.kind)}. People will run indoors from ${himOf(m.kind)}; soldiers holding ground where ${itOf(m.kind)} passes will fight ${himOf(m.kind)}.`, at: { tile: m.lair }, of: 'stirring' });
+    const days = Math.max(1, Math.round((m.next - s.tick) / TICKS_PER_DAY));
+    say(s, { kind: 'monster', u: WARNING, title: `${Cap(shortName(m.kind))} is stirring`, words: `${Cap(shortName(m.kind))} is stirring in ${itsOf(m.kind)} ${denNoun(m.den)} ${whereWords(map, m.x, m.z)}: ${days === 1 ? 'tomorrow' : `in ${['', 'one', 'two', 'three', 'four'][days] ?? days} days`} ${itOf(m.kind)} comes out for ${targetWords(m.kind)}. People will run indoors from ${himOf(m.kind)}; soldiers holding ground where ${itOf(m.kind)} passes will fight ${himOf(m.kind)}.`, at: { tile: m.lair }, of: 'stirring' });
   }
   if (s.tick >= m.next) setOut(s, map, m);
 }
@@ -895,7 +926,11 @@ function setOut(s: SimState, map: CoastMap, m: Beast): void {
   m.stoned = 0;
   m.men = 0;
   m.broke = false;
-  for (const t of targetsFor(map, s, m).slice(0, 4)) {
+  // (Slice 59: stung by a tower, that tower first.)
+  const stung = m.tower ? findBuilding(s, m.tower) : undefined;
+  m.tower = 0;
+  const first = stung && stung.kind === 'tower' ? [{ id: stung.id, words: `the tower whose archers stung ${himOf(m.kind)}` }] : [];
+  for (const t of [...first, ...targetsFor(map, s, m)].slice(0, 4)) {
     m.target = t.id;
     m.aim = t.words;
     m.state = 'raiding';
@@ -904,7 +939,7 @@ function setOut(s: SimState, map: CoastMap, m: Beast): void {
     m.last = s.tick;
     m.warned = false;
     const at: Place = t.id > 0 ? { building: t.id } : { tile: -t.id - 1 };
-    say(s, { kind: 'monster', u: ALARM, title: `${Cap(shortName(m.kind))} is out`, words: `${Cap(beastName(m.kind))} is out of ${itsOf(m.kind)} ${denNoun(m.den)}, making for ${t.words}! People near ${himOf(m.kind)} run indoors. Soldiers holding ground in ${itsOf(m.kind)} way will fight ${himOf(m.kind)}; take a company’s banner in hand and click by ${himOf(m.kind)} to send them.`, at, of: 'raid' });
+    say(s, { kind: 'monster', u: ALARM, title: `${Cap(shortName(m.kind))} is out`, words: `${first.length && t.id === first[0].id ? `Stung by your tower’s arrows, ${beastName(m.kind)} comes out of ${itsOf(m.kind)} ${denNoun(m.den)} for it!` : `${Cap(beastName(m.kind))} is out of ${itsOf(m.kind)} ${denNoun(m.den)}, making for ${t.words}!`} People near ${himOf(m.kind)} run indoors. Soldiers holding ground in ${itsOf(m.kind)} way will fight ${himOf(m.kind)}; take a company’s banner in hand and click by ${himOf(m.kind)} to send them.`, at, of: 'raid' });
     s.rev++;
     return;
   }
@@ -1096,8 +1131,8 @@ function wreck(s: SimState, map: CoastMap, m: Beast, fall: (b: Building, how: Fa
     }
   }
   const [tx, tz] = m.target > 0 && findBuilding(s, m.target) ? centreOf(findBuilding(s, m.target)!) : [m.x, m.z];
-  // Of what it wrecks, the nearest standing within its reach of the target.
-  const wants = (b: Building): boolean => wrecks(m.kind, b);
+  // Of what it wrecks, the nearest standing within its reach of the target (slice 59: and a tower that stung it, made for).
+  const wants = (b: Building): boolean => wrecks(m.kind, b) || (b.id === m.target && b.kind === 'tower' && m.kind !== 'medusa');
   let best: Building | null = null;
   let bd = Infinity;
   for (const b of s.buildings) {
@@ -1353,6 +1388,19 @@ function dropFoe(s: SimState, m: Beast): void {
   s.rev++;
 }
 
+/** Slice 59: the tower nearest a point (an arrow's start), its id (0 none within two tiles). */
+function towerAt(s: SimState, x: number, z: number): number {
+  let best = 0;
+  let bd = 2;
+  for (const b of s.buildings) {
+    if (b.kind !== 'tower') continue;
+    const [cx, cz] = centreOf(b);
+    const d = dhypot(cx - x, cz - z);
+    if (d < bd) [best, bd] = [b.id, d];
+  }
+  return best;
+}
+
 const roll = (s: SimState, m: Beast, salt: number): number => hash2(s.tick, m.id * 64 + salt, (s.seed ^ 0x6265_6173) | 0);
 
 /**
@@ -1375,6 +1423,11 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
     const lz = Math.floor(m.lair / n) + 0.5;
     // (Stung by your archers' arrows, not a tower's: it goes for them, wherever they shoot from.)
     if (s.army.arrows.some((ar) => ar.foe === f.id && ar.h0 === undefined)) m.shot = s.tick;
+    // (Slice 59: a tower's, before its lair: it will come out for that tower.)
+    if (m.state === 'lair' && !m.tower) {
+      const ar = s.army.arrows.find((a) => a.foe === f.id && a.h0 !== undefined);
+      if (ar) m.tower = towerAt(s, ar.x0, ar.z0);
+    }
     const stung = m.shot >= 0 && s.tick - m.shot <= STUNG;
     const stall = stung ? 2 * STALL : STALL;
     const ok = (x: Soldier): boolean => stung || m.state !== 'lair' || dhypot(x.x - lx, x.z - lz) <= LAIR_GUARD;
@@ -1393,8 +1446,14 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
       const step = calm ? 0 : Math.min(d - reachTo * 0.85, mk.pace * 0.8);
       const nx = m.x + ((t.x - m.x) / d) * step;
       const nz = m.z + ((t.z - m.z) / d) * step;
-      const tt = tileOf(n, nx, nz);
-      if (step > 0 && (nx < 0 || nz < 0 || nx >= n || nz >= n || s.tiles[tt] === TILE_EMPTY || s.tiles[tt] === TILE_ROAD)) {
+      // (Slice 59, slice 55's finding: its whole bulk on open ground or road, not just its middle, so it never stands over a building.)
+      const open = (x: number, z: number): boolean => {
+        if (x < 0 || z < 0 || x >= n || z >= n) return true;
+        const v = s.tiles[tileOf(n, x, z)];
+        return v === TILE_EMPTY || v === TILE_ROAD;
+      };
+      const b2 = mk.bulk * 0.6;
+      if (step > 0 && open(nx, nz) && open(nx + b2, nz) && open(nx - b2, nz) && open(nx, nz + b2) && open(nx, nz - b2)) {
         m.x = nx;
         m.z = nz;
         m.walked += step;
@@ -1471,6 +1530,8 @@ export function beastDoing(s: SimState, m: Beast): string {
   const den = denNoun(m.den);
   const it = itOf(m.kind);
   const its = itsOf(m.kind);
+  // (Slice 59: in a hero's fight.)
+  if (m.held) return `Fighting ${HEROES[HERO_IDS[m.held - 1]]?.name ?? 'a hero'} before ${its} ${den}, blow for blow`;
   switch (m.state) {
     case 'coming':
       return 'Not yet come: something vast was seen where its lair will be';
@@ -1479,7 +1540,11 @@ export function beastDoing(s: SimState, m: Beast): string {
     case 'lair': {
       const days = Math.max(0, Math.ceil((m.next - s.tick) / TICKS_PER_DAY));
       if (m.fought >= s.tick - 1) return `Fighting your soldiers before ${its} ${den}`;
-      return m.warned ? `Stirring: ${it} comes out tomorrow for ${targetWords(m.kind)}` : `Before ${its} ${den}; ${it} will raid in about ${days} ${days === 1 ? 'day' : 'days'}`;
+      if (m.warned) {
+        const d = Math.max(1, Math.ceil((m.next - s.tick) / TICKS_PER_DAY));
+        return `Stirring: ${it} comes out ${d === 1 ? 'tomorrow' : `in ${d} days`} for ${targetWords(m.kind)}`;
+      }
+      return `Before ${its} ${den}; ${it} will raid in about ${days} ${days === 1 ? 'day' : 'days'}`;
     }
     case 'raiding':
       if (m.fought >= s.tick - 1) return 'Fighting your soldiers';

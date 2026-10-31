@@ -60,6 +60,8 @@ import { cityOf, rulerShort } from './world';
 import { aimFought, aimSent, allyOf, conquestDefenders, helpersMight, vassalOf } from './vassals';
 // Slice 47: raids from a colony, and the colonies' militia in your wars.
 import { militiaFought, militiaMight, militiaMightNow, militiaSail, shareFrom, stepFromColony, strikeLine } from './colonyempire';
+// Slice 59: heroes who ride with an expedition.
+import { heroesFought, heroMight } from './heroes';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -499,7 +501,9 @@ function fight(s: SimState, e: Expedition): void {
   const comps = e.companies.map((id) => companyOf(s, id)).filter((x): x is Company => !!x);
   const kindOf = new Map(comps.map((x) => [x.id, x.kind] as const));
   // (Slice 47: and your colonies' militia sailed to meet it.)
-  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e) + militiaMight(s, e);
+  e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e) + militiaMight(s, e)
+    // Slice 59: and the heroes who ride with it (heroes.ts).
+    + heroMight(s, e);
   e.theirs = e.aim ? conquestDefenders(s, c) : defenders(s, c, e.kind);
   e.odds = oddsOf(e.ours, e.theirs);
   e.won = dice(s, e.id, 0, 11) < e.odds;
@@ -583,6 +587,9 @@ function fight(s: SimState, e: Expedition): void {
   // (Slice 47: your colonies' militia beside them.)
   const militia = militiaFought(s, e);
   if (militia) r.push(militia);
+  // Slice 59: the heroes beside them.
+  const heroes = heroesFought(s, e);
+  if (heroes) r.push(heroes);
   const haul = [e.coin > 0 ? `${fmt(e.coin)} dr` : '', e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : ''].filter(Boolean).join(' and ');
   const goodsWords = e.goods > 0 ? `${fmt(e.goods)} ${WARE_NAMES[TRADE_GOODS[k]]}` : '';
   if (!e.won) r.push(`They took nothing${debt ? `: ${debtLine}` : ''}.`);

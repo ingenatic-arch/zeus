@@ -207,7 +207,8 @@ describe('saves from before', () => {
     // (Slice 49 at the merge, with slice 51's annals: 194,232, after leaving a month's health figures out when it had none.
     //  Leaving the buildings' health and physician out at 0 made it bigger, not smaller: each building left without them is
     //  a second shape with every key. So the budget goes up once, by the least that holds it.)
-    expect(text.length).toBeLessThan(194_500);
+    // Slice 59: the heroes' list, the fête and each monster's hold and tower, empty in #town: a little over a dozen characters.
+    expect(text.length).toBeLessThan(194_600);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

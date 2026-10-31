@@ -716,6 +716,8 @@ export class Tools {
       // Slice 49.
       infirmary: ['infirmary', 'infirmaries'],
       asklepieion: ['asklepieion', 'asklepieia'],
+      // Slice 59.
+      herohall: ['hero’s hall', 'heroes’ halls'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
