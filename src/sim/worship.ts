@@ -46,6 +46,10 @@ import { BUILDING_NAMES, capacity, centreOf, findBuilding, HUT, livedIn } from '
 import { dateOfTick, MONTH_NAMES, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { ARMOUR, COPPER, FLEECE, held, HORSES, OIL, setHeld, tableUntil, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
 import { quarantined } from './health';
+import { crimesIn, rateFor } from './annals';
+import { moodCtx } from './crime';
+import { moodOf } from './folk';
+import { canWorkIn } from './labour';
 import { NEWS, say, WARNING } from './messages';
 import { MONUMENT_KINDS, finished } from './monuments';
 import { FESTIVE_LASTS, forget, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, type Festival, type GodId } from './pantheon';
@@ -614,7 +618,7 @@ export interface CityLook {
   fed: number;
   hungry: number;
   full: number;
-  /** From last month's annals: content homes, crimes, the sick (-1: not kept). */
+  /** Content homes now (a share; -1: none asked for or none lived in), last month's crimes (-1: crime off), the sick (-1: not kept). Read from the city itself, never from the annals, so keeping them changes nothing. */
   glad: number;
   crimes: number;
   sick: number;
@@ -639,7 +643,7 @@ export interface CityLook {
   festivals: boolean;
 }
 
-export function lookAtCity(s: SimState): CityLook {
+export function lookAtCity(s: SimState, gladToo = true): CityLook {
   const count = new Map<string, number>();
   const staffed = new Map<string, number>();
   let wheat = 0;
@@ -669,7 +673,13 @@ export function lookAtCity(s: SimState): CityLook {
       else if (s.tick >= b.grace) hungry++;
     }
   }
-  const last = s.annals.months[s.annals.months.length - 1];
+  let glad = -1;
+  if (gladToo && homes > 0) {
+    const ctx = moodCtx(s);
+    let n = 0;
+    for (const b of s.buildings) if (livedIn(b) && moodOf(s, b, ctx, canWorkIn(s, b)).level >= 3) n++;
+    glad = n / homes;
+  }
   const herds = s.herds.reduce((a, h) => [a[0] + h.head, a[1] + h.full], [0, 0]);
   const routes = s.world.routes;
   const loyal = [...s.empire.vassals.map((v) => v.loyalty), ...s.empire.colonies.map((c) => c.loyalty)];
@@ -685,8 +695,8 @@ export function lookAtCity(s: SimState): CityLook {
     fed,
     hungry,
     full,
-    glad: last && last.homes > 0 ? last.glad / last.homes : -1,
-    crimes: last && s.crime.on ? last.crimes : -1,
+    glad,
+    crimes: s.crime.on ? crimesIn(rateFor(s, Math.floor(s.tick / TICKS_PER_MONTH) - 1)) : -1,
     sick: s.health?.on ? s.health.sick.length : -1,
     plague: !!s.health?.outbreak,
     quarantine: quarantined(s),
@@ -818,7 +828,7 @@ export function stepWorship(s: SimState, map: CoastMap): void {
   const day = t / TICKS_PER_DAY;
   if (day === 0) record(s, map);
   const i = (day - 1) / 2;
-  if (Number.isInteger(i) && i >= 0 && i < GOD_IDS.length) godDay(s, GOD_IDS[i], lookAtCity(s));
+  if (Number.isInteger(i) && i >= 0 && i < GOD_IDS.length) godDay(s, GOD_IDS[i], lookAtCity(s, GOD_IDS[i] === 'aphrodite'));
 }
 
 /** The first of the month: each god's mood into the record; the news of any whose mood has crossed a word; homes glad from a procession long ago let go. */

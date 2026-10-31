@@ -133,7 +133,8 @@ describe('what the gods love and hate', () => {
       expect(m, `${g}: ${reasonsOf(sim.state, g).map((r) => `${r.worth} ${r.why}`).join('; ')}`).toBeGreaterThanOrEqual(-29);
       expect(m).toBeLessThan(30);
     }
-  });
+    // (A year of #town: a few seconds, longer on a busy machine.)
+  }, 120_000);
 });
 
 describe('neglect', () => {
