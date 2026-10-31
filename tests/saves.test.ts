@@ -209,7 +209,9 @@ describe('saves from before', () => {
     //  a second shape with every key. So the budget goes up once, by the least that holds it.)
     // (Phase 7 at the merge of slices 55 and 56: 194,557. Each adds only its own empty record: the monsters' ("legends",
     //  58 characters) and the gods in the city ("walks", 67). The budget goes up by those 125.)
-    expect(text.length).toBeLessThan(194_625);
+    // (Slice 53 at its merge: the gods' record of worship, festivals and moods by month, empty until the gods watch: 85 more,
+    //  194,642. The budget goes up by those 85.)
+    expect(text.length).toBeLessThan(194_710);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

@@ -1,0 +1,147 @@
+/*
+ * Slice 53: the Olympus panel (one window over the city, as the overview is),
+ * a shrine's section of its panel, and the overview's Gods page. Each god's
+ * colour arrives as --gc.
+ */
+.olympus {
+  position: absolute; z-index: 20; top: 86px; max-height: calc(100% - 104px);
+  left: calc((100% - var(--side)) / 2); transform: translateX(-50%);
+  width: min(1240px, calc(100% - var(--side) - 36px));
+  display: flex; flex-direction: column; box-sizing: border-box;
+  background: var(--skin-marble) 0 0 / 256px 256px, #e7dfcf; background-clip: padding-box;
+  border: 8px solid transparent; border-image: var(--skin-frame) var(--skin-frame-cut) / 8px stretch;
+  box-shadow: 0 12px 30px rgba(20, 12, 4, 0.5);
+  font: 15px/1.36 var(--serif); color: var(--ink); text-shadow: var(--cut); user-select: none;
+}
+.olympus[hidden] { display: none; }
+.olympus .close {
+  position: absolute; top: 8px; right: 10px; z-index: 1; width: 30px; height: 30px; border-radius: 50%; padding: 0 0 2px; cursor: pointer;
+  border: 1px solid rgba(110, 76, 30, 0.75); background: rgba(255, 252, 240, 0.55); color: var(--ink-soft); font: 21px/1 var(--serif);
+}
+.olympus .close:hover { background: rgba(255, 252, 240, 0.95); }
+.ol-head { flex: none; }
+.ol-head .k-pic svg { width: 30px; height: 30px; }
+.ol-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px 12px; scrollbar-width: thin; scrollbar-color: #9a7440 transparent; background: rgba(255, 252, 240, 0.28); }
+
+/* The emblems. */
+.olympus svg.emb, .ol-shrine svg.emb, .ol-ov svg.emb { width: 40px; height: 40px; display: block; flex: none; filter: drop-shadow(0 1px 1px rgba(40, 24, 8, 0.35)); }
+.ol-emb { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(255, 252, 240, 0.95), color-mix(in srgb, var(--gc) 26%, #efe4c8) 72%); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gc) 70%, #4a3416), 0 1px 2px rgba(40, 24, 8, 0.35); }
+.ol-emb.big { width: 92px; height: 92px; }
+.ol-emb.big svg.emb { width: 72px; height: 72px; }
+
+/* The mood: a word with its number, and a groove banded from furious to loving with a pin. */
+.ol-word { display: inline-block; font: 700 14.5px/1.2 var(--display); letter-spacing: 0.03em; white-space: nowrap; }
+.ol-word em { font: 600 13px/1 var(--serif); font-style: normal; color: var(--ink-soft); margin-left: 2px; }
+.ol-word.r0, .ol-word.r1 { color: #8c1f18; }
+.ol-word.r2 { color: #9a4a18; }
+.ol-word.r3 { color: var(--ink-soft); }
+.ol-word.r4 { color: #6e6410; }
+.ol-word.r5, .ol-word.r6 { color: #2c6a24; }
+.ol-bar { position: relative; display: block; height: 10px; margin: 4px 0 2px; border-radius: 5px; overflow: visible; box-shadow: var(--k-sunk); background: #cfc2a2; }
+.ol-bar i { position: absolute; top: 0; bottom: 0; opacity: 0.85; }
+.ol-bar i.b0 { background: #7a1a14; border-radius: 5px 0 0 5px; }
+.ol-bar i.b1 { background: #b23a24; }
+.ol-bar i.b2 { background: #d8854a; }
+.ol-bar i.b3 { background: #cfc5a8; }
+.ol-bar i.b4 { background: #d9c45a; }
+.ol-bar i.b5 { background: #9ab84a; }
+.ol-bar i.b6 { background: #4f9a3e; border-radius: 0 5px 5px 0; }
+.ol-bar b { position: absolute; top: -4px; width: 6px; height: 16px; margin-left: -3px; border-radius: 2px; background: var(--k-bronze); border: 1px solid #4a3416; box-shadow: 0 1px 2px rgba(20, 12, 4, 0.5); }
+.ol-bar.wide { height: 12px; margin: 6px 0 4px; }
+
+/* The twelve's cards. */
+.ol-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.ol-card {
+  appearance: none; cursor: pointer; text-align: left; font: inherit; color: inherit; text-shadow: inherit;
+  display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 8px; min-height: 0;
+  border: 1px solid #8a6430; border-radius: 4px; background: var(--k-parch);
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--gc) 85%, #3a2a10), 0 1px 3px rgba(40, 24, 8, 0.3);
+}
+.ol-card:hover { box-shadow: inset 0 3px 0 var(--gc), 0 0 0 2px color-mix(in srgb, var(--gc) 55%, transparent), 0 2px 6px rgba(40, 24, 8, 0.35); }
+.ol-top { display: flex; align-items: center; gap: 8px; }
+.ol-nm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ol-nm b { font: 700 17px/1.15 var(--display); letter-spacing: 0.02em; white-space: nowrap; }
+.ol-nm small { font-size: 13.5px; color: var(--ink-soft); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-rs { display: flex; flex-direction: column; gap: 1px; min-height: 40px; font-size: 13.5px; line-height: 1.3; }
+.ol-rs span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.ol-rs .up, .ol-why .up b { color: #2c6a24; }
+.ol-rs .down, .ol-why .down b { color: #9a2a1c; }
+.ol-rs .none { color: var(--ink-soft); font-style: italic; }
+.ol-ft { display: flex; flex-direction: column; font-size: 13px; color: var(--ink-soft); border-top: 1px solid rgba(138, 100, 48, 0.35); padding-top: 3px; margin-top: auto; }
+.ol-ft .riv { color: #8a3a14; }
+.ol-can { display: flex; flex-direction: column; font-size: 12.5px; line-height: 1.3; color: var(--ink-soft); }
+.ol-can span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.ol-can b { font: 700 11px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; margin-right: 3px; }
+.ol-can .bl b { color: #6e6410; }
+.ol-can .cu b { color: #8c1f18; }
+.ol-foot { margin: 10px 4px 0; font-size: 14px; color: var(--ink-soft); }
+
+/* A god's page. */
+.ol-back { margin: 0 0 6px; }
+.ol-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 18px; }
+.ol-gh { display: flex; gap: 14px; align-items: center; padding: 4px 0 8px; }
+.ol-gh > div { flex: 1; }
+.ol-gh h3 { margin: 0; font: 700 28px/1.1 var(--display); letter-spacing: 0.05em; color: color-mix(in srgb, var(--gc) 45%, #2a1c0c); }
+.ol-ep { margin: 0 0 4px; font-style: italic; color: var(--ink-soft); }
+.ol-lh { margin: 3px 0; }
+.ol-lh b { font: 700 13px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin-right: 4px; }
+.ol-note { margin: 4px 0; font-size: 13.5px; color: var(--ink-soft); }
+.ol-riv { display: flex; gap: 10px; align-items: center; margin: 4px 0; }
+.ol-riv svg.emb { width: 34px; height: 34px; }
+.ol-why { list-style: none; margin: 2px 0 4px; padding: 0; }
+.ol-why li { padding: 2px 0; border-bottom: 1px dotted rgba(138, 100, 48, 0.35); font-size: 14.5px; }
+.ol-why li b { display: inline-block; min-width: 34px; font-weight: 700; }
+.ol-why small { color: var(--ink-soft); }
+.ol-sum { font: 700 15px/1 var(--display); }
+.ol-months { display: block; width: 100%; }
+.ol-months .axis { stroke: rgba(110, 76, 30, 0.45); stroke-width: 1; }
+.ol-months .band { stroke: rgba(110, 76, 30, 0.5); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.ol-months rect.up { fill: #c8a23a; }
+.ol-months rect.even { fill: #b8ac90; }
+.ol-months rect.down { fill: #b4422a; }
+.ol-months rect.now { stroke: #3a2a10; stroke-width: 1; }
+.ol-shrines { list-style: none; margin: 2px 0 4px; padding: 0; }
+.ol-shrines li { margin: 2px 0; }
+.ol-link { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: var(--lapis-deep); text-decoration: underline; text-decoration-color: rgba(44, 74, 134, 0.4); cursor: pointer; text-shadow: none; }
+.ol-link:hover { color: var(--lapis); }
+.ol-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.ol-acts .k-bi svg.ki { width: 18px; height: 18px; }
+
+/* A shrine's section of its panel. */
+.ol-shrine .ol-lead { margin: 2px 0 6px; font-size: 14px; }
+.ol-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; }
+.ol-pick {
+  appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px 3px;
+  border: 1px solid rgba(110, 76, 30, 0.6); border-radius: 3px; background: rgba(255, 252, 240, 0.6); font: inherit; color: var(--ink); text-shadow: var(--cut);
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--gc, #b8ab8e) 75%, transparent);
+}
+.ol-pick:hover { background: rgba(255, 252, 240, 0.95); }
+.ol-pick.on { border-color: #3a2a10; background: rgba(255, 246, 214, 0.95); }
+.ol-pick svg.emb, .ol-pick svg.ki { width: 30px; height: 30px; }
+.ol-pick b { font: 700 12.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
+.ol-pick small { font-size: 12px; color: var(--ink-soft); }
+.ol-pick.all { --gc: #b8ab8e; grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; }
+.ol-pick.all svg.ki { width: 24px; height: 24px; }
+.ol-shr { display: flex; gap: 10px; align-items: center; margin: 2px 0 4px; }
+.ol-shr > div { flex: 1; min-width: 0; }
+.ol-who { margin: 0 0 2px; font-size: 14px; }
+.ol-who b { font: 700 16px/1.1 var(--display); letter-spacing: 0.04em; }
+
+/* The overview's Gods page. */
+.ol-ov { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; }
+.ol-ovrow { display: grid; grid-template-columns: auto minmax(0, 1fr) 210px; grid-template-rows: auto auto; gap: 2px 10px; align-items: center; padding: 5px 6px; border-bottom: 1px solid rgba(138, 100, 48, 0.3); }
+.ol-ovrow .ol-emb { grid-row: span 2; width: 42px; height: 42px; }
+.ol-ovrow .ol-emb svg.emb { width: 32px; height: 32px; }
+.ol-ovnm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.ol-ovnm b { font: 700 16px/1.1 var(--display); letter-spacing: 0.04em; }
+.ol-ovnm small { flex-basis: 100%; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-ovrow .ol-months { grid-row: span 2; width: 210px; }
+.ol-ovsh { display: flex; flex-wrap: wrap; gap: 3px; }
+
+/* The top bar's button. */
+.scroll-btn.olympus-btn { margin: 0 -4px 0 2px; }
+
+/* With the Gods page the overview has nine tabs: a little less room round each, so their names fit at 1920 wide. */
+.overview.kit .ov-tabs { gap: 3px; }
+.overview.kit .ov-tabs .ov-tab { padding-right: 4px; column-gap: 4px; }
+.overview.kit .ov-tabs .ov-tab b { letter-spacing: 0.01em; }

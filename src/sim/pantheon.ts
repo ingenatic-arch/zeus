@@ -334,13 +334,41 @@ export interface Gods {
   memories: Record<GodId, Memory[]>;
   // Slice 56 (The gods walk your streets): the gods in the city now, the places they blessed, who was loving at the last look (epiphany.ts).
   walks: Walks;
+  // Slice 53: worship (worship.ts).
+  /** Festivals announced or under way (one per god at most). */
+  festivals: Festival[];
+  /** When each god was last honoured by worship (a shrine, a festival, an offering; later a sanctuary), absent never: for neglect. */
+  worshipped: Partial<Record<GodId, number>>;
+  /** The day each god's last festival began (its procession set out), absent never. */
+  lastFestival: Partial<Record<GodId, number>>;
+  /** Each god's mood at the start of each month, oldest first, at most MOOD_MONTHS (absent until the first month the gods watch: small saves). */
+  months: Partial<Record<GodId, number[]>>;
+  /** The month (since the founding) the last figures were kept for (-1: none yet). */
+  month: number;
+  /** Homes a procession passed (by building id): [the tick, the god's index in GOD_IDS], glad for a season. */
+  festive: Record<string, [number, number]>;
 }
+
+/** Slice 53: a festival at home (worship.ts): announced a month ahead, then its procession walks. */
+export interface Festival {
+  god: GodId;
+  /** The shrine it is held at (a building id). */
+  shrine: number;
+  /** When it was announced, and the day its procession sets out. */
+  at: number;
+  day: number;
+  /** Its procession (a walker id; 0 before it sets out). */
+  walker: number;
+}
+
+/** Slice 53: how many months of moods the record keeps (the overview's two years). */
+export const MOOD_MONTHS = 24;
 
 export function freshGods(on = false, noticedAt = -1): Gods {
   const memories = {} as Record<GodId, Memory[]>;
   for (const g of GOD_IDS) memories[g] = [];
-  // (Slice 56: and nobody walking in the city.)
-  return { on, noticedAt, memories, walks: freshWalks() };
+  // (Slice 56: and nobody walking in the city. Slice 53: worship's record, empty.)
+  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {} };
 }
 
 /** How many people a city needs before the gods notice it. */
@@ -511,3 +539,39 @@ export const boonOf = (s: SimState, b: Building): number => (blessingOn(s, b.id)
 
 /** Is this god a goddess (for "she" and "her")? */
 export const goddess = (g: GodId): boolean => g === 'hera' || g === 'demeter' || g === 'athena' || g === 'artemis' || g === 'aphrodite';
+// Slice 53: the mood maths that worship.ts needs (the Olympus line's).
+
+/** Forget every memory of a kind a god has (a reading of the city that no longer holds). */
+export function forget(s: SimState, god: GodId, kind: string): void {
+  const list = s.gods.memories[god];
+  for (let i = list.length - 1; i >= 0; i--) if (list[i].kind === kind) list.splice(i, 1);
+}
+
+/**
+ * Something standing whose words may change ("your 2 shrines to Demeter",
+ * "bread on 9 tables in 10"): the one memory of its kind, replaced whatever
+ * its old words were; 0 forgets it.
+ */
+export function setStanding(s: SimState, god: GodId, kind: string, why: string, amount: number): void {
+  const list = s.gods.memories[god];
+  const at = list.findIndex((m) => m.kind === kind);
+  if (at >= 0 && list[at].why === why && list[at].amount === amount && list[at].fade === 0) return;
+  forget(s, god, kind);
+  assert(s, god, kind, why, amount);
+}
+
+/** A god's words: she or he. */
+export const FEMALE: ReadonlySet<GodId> = new Set<GodId>(['hera', 'demeter', 'athena', 'artemis', 'aphrodite']);
+export const herOf = (g: GodId): string => (goddess(g) ? 'her' : 'his');
+
+/** How long a home a procession passed stays glad (a season), and how glad. */
+export const FESTIVE_LASTS = 90 * TICKS_PER_DAY;
+export const FESTIVE_MOOD = 2;
+
+/** A home's mood from a festival's procession passing its door this season (folk.ts reads it), or null. */
+export function festiveMood(s: SimState, homeId: number): { w: number; text: string } | null {
+  const f = s.gods?.festive?.[homeId];
+  if (!f || s.tick - f[0] >= FESTIVE_LASTS) return null;
+  const g = GOD_IDS[f[1]];
+  return g ? { w: FESTIVE_MOOD, text: `The procession for ${GODS[g].name} passed their door` } : null;
+}

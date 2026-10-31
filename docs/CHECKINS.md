@@ -2,6 +2,72 @@
 
 Notes to Oliver, newest first.
 
+## Slice 53 — The twelve and their tempers (31 Oct)
+
+The twelve gods now have tempers that move: you dedicate shrines to them, hold festivals with a procession through the streets, send offerings, and each god reads your city for what they love and hate, minds when you honour their rival, and slides slowly if you never honour them; Olympus (G) shows all twelve and why. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **G opens Olympus.** The stores' tool (granary, then storehouse, trading post, caravan yard) moves to **Shift+G**, as the water overlay moved to Shift+O for the overview. Shift no longer cycles it backwards.
+- **State version 49** (on this line; renumbered when the lines merge). Older saves load: the gods' new record starts empty.
+- **Every earlier demo opens as before** (people, money, house levels), and the gods stay watchful in all of them. A city of 300 or more is noticed by the gods as before; from now, a year after that, a god with no dedicated shrine, festival or offering begins to slide (never below displeased by neglect alone), so long games of the old demos will see the gods drift down unless you dedicate a shrine.
+
+### What's new
+- **Dedicating shrines.** Click a shrine: its panel offers the twelve (and "all the gods", which honours none). A new shrine opens its panel asking. Each god's shrines honour them, the first most (5, then 3, 2 and 1). Its priestess wears her god's colour, out on her rounds and at her altar.
+- **What the gods love and hate,** read from the city once a month each: Demeter's full granaries and hunger, Zeus's court (or a big city without one), Poseidon's quay, Athena's olive groves and theatre, Apollo's physicians and a healthy city, Artemis' herds, Ares' army and tribute, Aphrodite's happy homes and executions, Hephaestus' armouries and fires, Hermes' trade routes and closed roads, Dionysus' wine and a sober city, and more. Each shows as a named reason with its weight.
+- **Rivalry.** Each god has a rival. While the rival is honoured less than the god you honour, the rival minds a third as much ("you honoured Poseidon, her rival").
+- **Neglect,** as above: slow, it fades once you honour them, and it never takes a god past displeased.
+- **Festivals.** From a dedicated shrine's panel: 250 dr from the treasury (its own line in the ledger) and 20 of the god's sacred good from the stores (wheat for Demeter, wine for Dionysus; 4 horses for Poseidon). One per god a year. Announced a month ahead; on the day a procession of eight, in the god's colour and white by turns, walks from the shrine round the nearest agora and back, and every home beside its way is glad for a season.
+- **Offerings.** A porter in the god's colour carries 10 of the sacred good from the nearest store to the shrine; the god is honoured when he arrives.
+- **Olympus** (G, or the thunderbolt beside the overview's tablet in the top bar): twelve cards, each with its emblem drawn in the god's colour, the mood word and a bar from furious to loving, the two weightiest reasons, shrines, the rival and how they stand, and what the god can do in blessing and in wrath (words only for now). A card opens the god's page: every reason, loves and hates, the rival, two years of moods month by month, their shrines (each a link), and the festival and offering buttons.
+- **The overview's Gods page:** the twelve's moods with their months, and links to their shrines.
+- **News** of festivals, offerings and a god's mood crossing a word, under a new filter, "The gods" (City).
+
+### What to try
+1. #gods — Olympus is open. Read Athena's card and page (she is jealous of Poseidon), then Poseidon's. Close it (Esc) and press G.
+2. #gods — click a shrine (the one by the hunting lodge is Apollo's), change its god, and watch the reasons move on Olympus. Hold a festival to Dionysus from his shrine by the vineyards.
+3. #gods — follow the porter carrying wheat to Demeter's shrine by the wheat farm; open the overview (O) on its new Gods page.
+4. #procession — Demeter's procession leaving her shrine for the agora, her shrine's panel open. Play it on at normal speed and follow it (Follow on the panel).
+5. #town — build a shrine (V): its panel asks for its god.
+6. #gods-plain and #gods-modern — the priestesses and the procession in the other two looks.
+
+### What I'd like your eye on
+- **Do the moods read?** Can you tell from a card where a god stands and why, and is the whole panel readable at a glance? Do the emblems read as their gods?
+- **The weights.** They aim at this: a city doing nothing special for a god sits about watchful; a well-run city with a shrine to a god gets them to pleased within a year; a festival lifts a god a good deal (15, fading over a year). Played on three years without touching anything, `#town` and `#richtown` keep every god between -3 and +4 for the first year. A single shrine lands its god at about +7 to +9 there (Demeter: her shrine, full granaries and farms, less the hungry homes), which is the top of watchful, not pleased: pleased takes an offering or a festival as well, or a second shrine. Too gentle, or too quick?
+- **The procession.** Eight figures, the god's colour and white, walking slowly. Does it feel like a festival, or should it be bigger, louder, or carry something (a sheaf, an amphora)?
+- **Shift+G for the stores.** Fine, or would you rather Olympus had another key?
+
+### Known rough edges
+- The festival and offering buttons on a god's Olympus page act at one of the god's shrines (named above the buttons); to choose another, use that shrine's own panel.
+- Olympus is drawn afresh each time it opens: a third of a second here (software rendering on a loaded machine). Tell me if G feels slow on your laptop.
+- Blessings and wrath are words only (slice 57), and sanctuaries are a slot on the card (slice 54).
+
+### Measurements
+The starting build (`11f9290`) and this slice's, measured with the same loosened, shortened `measure.mjs` on this machine: headless, software WebGL, load 25 to 30 on 4 cores (three other lines building beside it), so every time below is several times what your laptop will see, and they move by seconds from run to run.
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Tests | 803: 794 pass, 9 time out under the load (38 min) | 820: under load about 40, 39 time out (92 min); the 23 files with a failure again with longer timeouts, 304 of 308 pass, the four left timings and limits (three of them fail the same at `11f9290`; the fourth passes alone). After the review: 822, 821 pass with longer timeouts (29 min); the one left is the wages test at its own 20-minute limit, as at `11f9290` |
+| Build | 14 s cached | 14 to 20 s cached; 32 min 40 s when the 168 demos bake again (under this load) |
+| The game itself | 3,004 KB, 998 KB gzipped | 3,064 KB, 1,017 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 127 files, 4,618 KB gzipped (largest 82 KB) |
+| The bare link, ready (page's clock) | 7.0 s (first frame 11.8 s) | 7.8 s (first frame 10.6 s) |
+| `#town` | 1,488,490 triangles, 102 draws, a save of 190 KB; ready at 12.9 s at 1920 × 1080 | identical triangles, draws and save; ready at 11.4 s |
+| `#richtown` | 1,749,254 triangles, 113 draws, a save of 220 KB; ready at 16.9 s | identical; ready at 12.1 s |
+| `#festival` (Athens' Panathenaia) | 315,318 triangles, 59 draws | the same once the map of Greece is up (one load measured the frame before it: 1.15 M) |
+| `#gods` | (new) | ready at 16.7 s; 1.82 M triangles, 112 draws |
+| `#procession` | (new) | ready at 17.9 s; 1.52 M triangles, 91 draws |
+| Olympus built (page's clock) | (new) | the twelve cards 461 ms the first time, 336 ms after; Athena's page 174 ms (measured again after the review, under a lighter load: 117 ms, 150 ms; 69 ms) |
+| A frame's work before drawing | | not measurable under this load: one or two frames in eight seconds under software rendering (`#gods` with Olympus open 39 ms, shut 208 ms; `#procession` 148 ms) |
+| Every earlier demo, people, money, levels and state (less the gods) at opening and 900 ticks on | | identical, all 165 |
+| The smoke (loosened timeouts) | | every check passes, run in two parts (3 h 34 min, then 10 min from `#newgame` on): the long run stopped at `#jailbreak`, whose popup fades before a click under this load, at `11f9290` too |
+
+### What the review changed
+- **Neglect is told once, not twelve times.** A year after the city is noticed, if no god has had a shrine, festival or offering, one warning says so, naming the gods ("The gods feel neglected"), before it shows in their moods. When moods then cross a word, the gods that cross in the same month share one message ("Four gods are displeased", with the reasons they share said once), and a god whose mood sits right on the edge of a word is no longer told back and forth each month. In a `#town` left alone for three years that is now about seven messages over a year, where it was fourteen.
+- **A festival can no longer get stuck.** Pulling down a shrine while its procession walked left the festival "under way" for ever, so its god could never have another. Now the festival is cut short (and the news says so), and the god can have the next one a year after it began. A shrine pulled down also stops counting for its god the next day, not at their day of the month.
+- **A god's page names the shrine** its festival and offering buttons act at.
+- **The month-by-month bars' tips** said the month before the one each bar was kept in; they now say the right month, and they use the game's own tip like every other panel rather than the browser's.
+- **Shift+G everywhere.** The help still said Shift steps back through G's stores, and about twenty tips (the storehouse in a press's, a pasture's, a mine's or a stall's hover, the full granary's warning, the new-need lines) still said "G twice" or "G ×3" for the stores; they all say Shift G now.
+
 ## Slice 54 — Sanctuaries rise (31 Oct)
 
 The first slice on phase 7's Temples line: you can now raise a great sanctuary to any of the twelve gods from the Mythology tab, watch the ox carts and the masons' builders put it up in three stages, and see the god take notice as it rises. You weren't here while it was built: every choice below is mine, from the spec's defaults.

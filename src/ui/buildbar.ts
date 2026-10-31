@@ -250,19 +250,19 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
   },
   storehouse: {
     name: 'Storehouse',
-    key: 'G G',
+    key: 'Shift G ×2',
     cost: `${STOREHOUSE_COST} dr`,
     hint: 'Click beside a road, near the agora if you can. Carts bring oil, fleece and wine here, and the agoras’ stall porters walk here to fetch them.',
   },
   trading: {
     name: 'Trading post',
-    key: 'G ×3',
+    key: 'Shift G ×3',
     cost: `${TRADING_COST} dr`,
     hint: 'Click on the bay shore where deep water comes close (the tint shows where), beside a road; only one. Its dockers carry what you choose to sell to the quay, and a ship calls every three months to buy it.',
   },
   yard: {
     name: 'Caravan yard',
-    key: 'G ×4',
+    key: 'Shift G ×4',
     cost: `${YARD_COST} dr`,
     hint: 'Click beside a road, between the road in from the map’s edge and the granaries and storehouses; only one. Its porters carry what you choose to sell here, and caravans from the cities you open land routes to come down the road to buy it and bring what you order.',
   },
@@ -353,7 +353,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     cost: `${STALL_COST} dr`,
     hint: 'Click an agora to add a wine stall. Its porter fetches wine from a storehouse and its wine vendor sells it; a villa needs wine.',
   },
-  granary: { name: 'Granary', key: 'G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Carts bring wheat, meat and cheese here, each in its own store, and the agora’s porter fetches them.' },
+  granary: { name: 'Granary', key: 'Shift G', cost: `${GRANARY_COST} dr`, hint: 'Click beside a road. Carts bring wheat, meat and cheese here, each in its own store, and the agora’s porter fetches them.' },
   agora: {
     name: 'Agora',
     key: 'K',

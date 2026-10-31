@@ -62,6 +62,8 @@ import { freshLegends, stepMonsters } from './monsters';
 // Slice 56.
 import { GOD_IDS, type GodId } from './pantheon';
 import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
+// Slice 53
+import { dedicate, holdFestival, moveOffering, moveProcession, sendOffering, stepWorship } from './worship';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -318,6 +320,8 @@ export class Sim {
     stepGods(s);
     // Slice 56: the gods in the city walk on and bless; a god who has just come to love the city comes to see it (nothing with none and the switch off).
     stepEpiphany(s);
+    // Slice 53: worship (festivals beginning, each god's day of the month, the month's record; nothing with the switch off).
+    stepWorship(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
@@ -392,6 +396,16 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 54.
     case 'sanctuary':
       if (GOD_IDS.includes(c.god) && Array.isArray(c.at)) record(s, placePlots(s, map, c.at, 'sanctuary', c.god));
+      break;
+    // Slice 53: worship.
+    case 'dedicate':
+      dedicate(s, Number(c.id), typeof c.god === 'string' ? c.god : '');
+      break;
+    case 'festival':
+      holdFestival(s, map, Number(c.id));
+      break;
+    case 'offer':
+      sendOffering(s, map, Number(c.id));
       break;
     // Slice 33.
     case 'seasons':
@@ -1159,6 +1173,11 @@ function stepWalkers(s: SimState, map: CoastMap): void {
               // Slice 54: a sanctuary's priests.
               : w.kind === 'priest'
                 ? movePriest(s, map, w)
+              // Slice 53: a festival's procession, and a porter carrying an offering to a shrine.
+              : w.kind === 'procession'
+                ? moveProcession(s, map, w)
+              : w.kind === 'offering'
+                ? moveOffering(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

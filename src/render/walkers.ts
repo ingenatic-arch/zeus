@@ -27,6 +27,9 @@ import { CARRIER_SPEED } from '../sim/walk';
 import { BEARER_TUNIC, BLANKET, LITTER_CLOTH, PHYSICIAN_ROBE, PHYSICIAN_SASH, type HealthFigures } from './health';
 // Slice 54: a priest robed in his god's colour.
 import { GODS } from '../sim/pantheon';
+// Slice 53: the gods' colours (a dedicated shrine's priestess, a procession, an offering's porter).
+import { GOD_IDS } from '../sim/pantheon';
+import { findBuilding } from '../sim/buildings';
 
 /** Slice 49: how far behind one of the caught his watchman walks. */
 const ESCORT_STEP = 0.34;
@@ -324,6 +327,27 @@ function priest(): THREE.BufferGeometry {
     { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.39, 0), color: PAL.skin },
     { geo: new THREE.ConeGeometry(0.04, 0.07, 5).rotateZ(Math.PI).translate(0.03, 0.34, 0), color: PAL.hair },
     { geo: new THREE.TorusGeometry(0.052, 0.012, 4, 8).rotateX(Math.PI / 2).translate(0.004, 0.41, 0), color: PAL.oliveLeafDark },
+  ];
+  return mergeTinted(parts);
+}
+
+/**
+ * Slice 53: one of a festival's procession: the priestess's figure robed,
+ * mantled and veiled all in one colour (the tinted part), the god's or white
+ * by turns, her bowl and its flame before her.
+ */
+function marcher(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.1, 0.32, 7).translate(0, 0.16, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.066, 0.09, 0.2, 7, 1, true, Math.PI * 0.55, Math.PI * 0.9).translate(0, 0.22, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.064, 0.058, 0.05, 7).translate(0, 0.31, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, 0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, -0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.065, 0.03, 0.03, 7).translate(0.13, 0.3, 0), color: PAL.offeringBowl },
+    { geo: new THREE.ConeGeometry(0.026, 0.07, 4).translate(0.13, 0.35, 0), color: PAL.flame },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.064, 0).scale(1, 0.85, 1).translate(-0.016, 0.38, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.05, 0.068, 0.08, 6).translate(-0.022, 0.32, 0), color: '', tint: true },
   ];
   return mergeTinted(parts);
 }
@@ -1018,7 +1042,10 @@ export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | '
   | 'physician'
   | 'bearer'
   // Slice 54: a sanctuary's priest.
-  | 'priest';
+  | 'priest'
+  // Slice 53: a festival's procession (by its first), and a porter with an offering.
+  | 'procession'
+  | 'offering';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -1029,6 +1056,8 @@ export class Walkers {
   private readonly priestesses: Look;
   /** Slice 54: a sanctuary's priests. */
   private readonly priests: Look;
+  // Slice 53: a festival's procession.
+  private readonly marchers: Look;
   private readonly actors: Look;
   /** Tax collectors: [a light satchel, a full one]. */
   private readonly collectors: [Look, Look];
@@ -1118,6 +1147,9 @@ export class Walkers {
     // every walker's cost to theirs; see MergedLooks' tiers in looks.ts.)
     this.bearers = [big(bearers(false)), big(bearers(true))];
     this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.priests, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
+    // Slice 53
+    this.marchers = small(marcher());
+    this.all.push(this.marchers);
   }
 
   get count(): number {
@@ -1229,7 +1261,7 @@ export class Walkers {
           continue;
         }
       }
-      if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist') {
+      if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist' && w.kind !== 'procession') {
         // (Slice 49, slice 45's finding: a watchman walking one of the caught is drawn a step behind him, on his way.)
         const behind = w.kind === 'watchman' && w.meat > 0 ? this.behind(state, w, alpha) : null;
         const [x, z, dx, dz] = behind ?? this.at(w, cum, lead);
@@ -1258,9 +1290,18 @@ export class Walkers {
           const kill = w.back && w.load > 0 ? (state.herds[w.food]?.kind === 'boar' ? 2 : 1) : 0;
           this.hunters[kill].push(this.m, still(this.c.copy(olive)));
         }
-        else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
+        // (Slice 53: a dedicated shrine's priestess wears her god's colour.)
+        else if (w.kind === 'priestess') {
+          const god = findBuilding(state, w.origin)?.god;
+          this.priestesses.push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(robe)));
+        }
         // Slice 54: a sanctuary's priest, robed in his god's colour.
-        else if (w.kind === 'priest') this.priests.push(this.m, still(this.c.setHex(GODS[state.buildings.find((b) => b.id === w.origin)?.god ?? 'zeus'].colour)));
+        else if (w.kind === 'priest') this.priests.push(this.m, still(this.c.setHex(GODS[findBuilding(state, w.origin)?.god ?? 'zeus'].colour)));
+        // Slice 53: a porter carrying an offering to a shrine, in the god's colour, the sacred good on his shoulder.
+        else if (w.kind === 'offering') {
+          const god = GOD_IDS[w.steps];
+          this.porters[w.load > 0 ? (PORTER_LOOK[w.food] ?? DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(dockerTunic)));
+        }
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
         // (Slice 45: walking one of the caught to the court, he walks, not runs.)
         else if (w.kind === 'watchman') this.watchmen[w.target > 0 || (w.meat > 0 && !state.walkers.some((o) => o.id === w.meat && o.kind === 'convict')) ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
@@ -1325,6 +1366,20 @@ export class Walkers {
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
+        // Slice 53: a procession walks in long robes, in the god's colour and white by turns.
+        if (w.kind === 'procession') {
+          const god = GOD_IDS[w.steps];
+          if (god && k % 2 === 0) this.c.setHex(GODS[god].colour);
+          else this.c.copy(robe);
+          if (!moving) this.c.multiplyScalar(-1);
+          this.marchers.push(this.m, this.c);
+          if (k === 0) {
+            const v = this.serviceAt.get(w.id);
+            if (v) v.pos.copy(this.p);
+            else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'procession' });
+          }
+          continue;
+        }
         this.c.copy(col(TUNICS[Math.floor(hash2(seed, 2, 62) * TUNICS.length)]));
         if (!moving) this.c.multiplyScalar(-1);
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);

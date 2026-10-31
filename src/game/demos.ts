@@ -121,6 +121,10 @@ import { type GodId } from '../sim/pantheon';
 import { sanctuaryOf } from '../sim/sanctuaries';
 import { income } from '../sim/treasury';
 import { TILE_ROAD } from '../sim/state';
+// Slice 53 (honour and GodId come in above)
+import { GODS } from '../sim/pantheon';
+import { HORSES } from '../sim/foods';
+import { festivalGoods, festivalUnderWay } from '../sim/worship';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -252,6 +256,9 @@ export interface Demo {
   // Slice 51
   /** Open the overview from the start, on this page (as if O had been pressed). */
   overview?: OverviewPage;
+  // Slice 53
+  /** Open Olympus from the start, on a god's page or on the twelve ('all'). */
+  olympus?: GodId | 'all';
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;
@@ -3857,6 +3864,12 @@ const SCENES: Record<string, Demo> = {
   sanctuaries: { view: 'sanctuaries', setup: SANCTUARIES_TOWN, overlay: 'religion', building: (s) => sanctuaryOf(s, 'athena')?.id ?? 0 },
   sanctuary: { view: 'sanctuary', setup: SANCTUARY_TOWN, overlay: 'religion', building: (s) => s.buildings.find((b) => b.kind === 'sanctuary')?.id ?? 0 },
   twelve: { view: 'twelve', setup: twelveTown, overlay: 'religion' },
+  // Slice 53: the twelve and their tempers. #gods: #richtown with shrines to four gods, Poseidon honoured and Athena
+  // jealous, an offering on its way to Demeter, Olympus open; #procession: Demeter's festival under way, her procession
+  // round the core's agora, her shrine's panel open.
+  gods: { view: 'richtown', setup: godsTown, overlay: 'missing', olympus: 'all' },
+  // (#festival is already Athens' Panathenaia, from slice 21: Demeter's is #procession.)
+  procession: { view: 'procession', setup: processionTown, overlay: 'missing', building: demeterShrine },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4784,4 +4797,99 @@ function pantheonField(sim: Sim): void {
   const last = GOD_IDS.length - 1;
   GOD_IDS.forEach((god, i) => sim.enqueue({ type: 'visit', god, why: 'pose', at: { x: PANTHEON_AT.x + (last - i) * step, z: PANTHEON_AT.z + (last - i) * step } }));
   sim.flush();
+}
+
+// Slice 53
+/**
+ * The twelve and their tempers (slice 53). #gods: #richtown, the gods
+ * watching from the start (its 900 people noticed at once), its shrine by the
+ * core given to Poseidon, and four more shrines built as the treasury can pay
+ * for them: Poseidon's second by the quay, Demeter's by the farms, Apollo's
+ * by the theatre and Dionysus's by the vineyards. A few months on, a festival
+ * to Poseidon at the quay (the four horses it takes brought into the quay's
+ * storehouse for this demo: the town keeps none), so Athena, his rival,
+ * minds both his shrines and his festival; and her jealousy is staged a
+ * little deeper, so the rivalry bites as the demo opens. Two months later an
+ * offering sets out for Demeter from the granary, and the demo opens with
+ * Olympus open on the twelve.
+ */
+const GODS_SHRINES: ReadonlyArray<[number, number, GodId]> = [
+  [72, 66, 'poseidon'],
+  [44, 39, 'demeter'],
+  [60, 36, 'apollo'],
+  [85, 66, 'dionysus'],
+];
+/** The core's shrine (#richtown's own, by the agora). */
+const CORE_SHRINE = { x: 68, z: 39 };
+/** How long #gods plays with its shrines before the festival, and after it before the offering (each month a bar on Olympus's record). */
+const GODS_BEFORE = 3 * TICKS_PER_MONTH;
+const GODS_AFTER = 2 * TICKS_PER_MONTH;
+/** Athena's staged jealousy (set up for this demo). */
+const ATHENA_JEALOUS = -12;
+
+function godsTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const n = sim.map.size;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  gods(sim, true);
+  const at = (x: number, z: number): Building | undefined => s.buildings.find((b) => b.kind === 'shrine' && b.x === x && b.z === z);
+  const core = at(CORE_SHRINE.x, CORE_SHRINE.z);
+  if (core) send({ type: 'dedicate', id: core.id, god: 'poseidon' });
+  for (const [x, z, god] of GODS_SHRINES) {
+    waitFor(sim, s.tick, SHRINE_COST + JOBS.shrine * WAGE);
+    send({ type: 'build', kind: 'shrine', at: [z * n + x] });
+    const b = at(x, z);
+    if (b) send({ type: 'dedicate', id: b.id, god });
+  }
+  sim.run(GODS_BEFORE);
+  // Poseidon's festival at the quay: its horses brought in for this demo, and the coin when the treasury has it.
+  const quay = at(GODS_SHRINES[0][0], GODS_SHRINES[0][1]);
+  const store = s.buildings.find((b) => b.kind === 'storehouse' && b.x === 76 && b.z === 65) ?? s.buildings.find((b) => b.kind === 'storehouse');
+  if (quay && store) {
+    setHeld(store, HORSES, held(store, HORSES) + festivalGoods(HORSES));
+    waitFor(sim, s.tick, 250 + wageBill(s));
+    send({ type: 'festival', id: quay.id });
+    const end = s.tick + 4 * TICKS_PER_MONTH;
+    while (s.tick < end && s.gods.festivals.length > 0) sim.run(TICKS_PER_DAY);
+  }
+  honour(s, 'athena', ATHENA_JEALOUS, 'staged', `jealous of the honours paid to ${GODS.poseidon.name} in a city she might have had (set up for this demo)`, 2 * TICKS_PER_YEAR);
+  sim.run(GODS_AFTER);
+  // An offering on its way to Demeter, from the granary.
+  const demeter = at(GODS_SHRINES[1][0], GODS_SHRINES[1][1]);
+  if (demeter) send({ type: 'offer', id: demeter.id });
+  sim.run(TICKS_PER_DAY);
+}
+
+/**
+ * #procession: #richtown, the gods watching, its shrine by the core's agora
+ * given to Demeter, a festival to her held there (the wheat from the
+ * granary, the coin from the treasury), and the demo opens a few days after
+ * the procession sets out, as it rounds the agora.
+ */
+function processionTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  gods(sim, true);
+  const core = s.buildings.find((b) => b.kind === 'shrine' && b.x === CORE_SHRINE.x && b.z === CORE_SHRINE.z);
+  if (!core) return;
+  send({ type: 'dedicate', id: core.id, god: 'demeter' });
+  waitFor(sim, s.tick, 250);
+  send({ type: 'festival', id: core.id });
+  const end = s.tick + 2 * TICKS_PER_MONTH;
+  while (s.tick < end && !festivalUnderWay(s, 'demeter')) sim.run(1);
+  sim.run(PROCESSION_OPENS);
+}
+/** How long #procession's procession has walked as it opens (ticks). */
+const PROCESSION_OPENS = 30;
+/** #procession's panel: Demeter's shrine. */
+function demeterShrine(s: SimState): number {
+  return s.buildings.find((b) => b.kind === 'shrine' && b.god === 'demeter')?.id ?? 0;
 }

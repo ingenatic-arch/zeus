@@ -63,6 +63,8 @@ import { wareIcon } from './wareicons';
 // Merge of slice 51 with slice 50: the overview on the kit (carved head, kit cards, bars and buttons, drawn icons, the one tip).
 import { actionIcon, type ActionIcon } from './icons';
 import { kbar, kitHtml } from './kit';
+// Slice 53: the Gods page.
+import { godsPage, godsTab } from './olympus';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(Math.abs(n)).toLocaleString('en-GB');
@@ -75,11 +77,11 @@ const pct = (a: number, b: number): number => (b > 0 ? Math.round((a / b) * 100)
 const cityName = (id: CityId): string => PLACES[id]?.name ?? cap(id);
 
 /** The pages, in the order of their tabs. */
-export const PAGES = ['city', 'goods', 'treasury', 'distribution', 'crime', 'health', 'army', 'empire'] as const;
+export const PAGES = ['city', 'goods', 'treasury', 'distribution', 'crime', 'health', 'army', 'empire', 'gods'] as const;
 export type OverviewPage = (typeof PAGES)[number];
-const PAGE_NAMES: Record<OverviewPage, string> = { city: 'City', goods: 'Goods', treasury: 'Treasury', distribution: 'Distribution', crime: 'Crime', health: 'Health', army: 'Army and fleet', empire: 'Empire' };
+const PAGE_NAMES: Record<OverviewPage, string> = { city: 'City', goods: 'Goods', treasury: 'Treasury', distribution: 'Distribution', crime: 'Crime', health: 'Health', army: 'Army and fleet', empire: 'Empire', gods: 'Gods' };
 /** Merge of slice 50: each page's drawing, on its tab and its go-to buttons. */
-const PAGE_ICONS: Record<OverviewPage, ActionIcon> = { city: 'home', goods: 'keep', treasury: 'pay', distribution: 'reach', crime: 'crime', health: 'health', army: 'guard', empire: 'station' };
+const PAGE_ICONS: Record<OverviewPage, ActionIcon> = { city: 'home', goods: 'keep', treasury: 'pay', distribution: 'reach', crime: 'crime', health: 'health', army: 'guard', empire: 'station', gods: 'gods' };
 
 /** Each service as the overview shows it: its overlay's colour and its name. */
 const SERVICES: ReadonlyArray<{ need: Service; name: string; colour: string; by: string }> = [
@@ -469,7 +471,7 @@ function goodsPage(s: SimState, map: CoastMap, picked: number): string {
   const outlooks = new Map(wares.map((w) => [w, wareOutlook(s, w)]));
   const b = bookNow(s);
   const out: string[] = [];
-  if (!wares.length) return '<p class="ov-note">The city has no goods yet: farms (M) and a granary (G) are where it starts.</p>';
+  if (!wares.length) return '<p class="ov-note">The city has no goods yet: farms (M) and a granary (Shift G) are where it starts.</p>';
   const sel = wares.includes(picked) ? picked : (wares.slice().sort((a, c) => (outlooks.get(a)!.months || 0) - (outlooks.get(c)!.months || 0))[0] ?? wares[0]);
   const rows = wares.map((w) => {
     const o = outlooks.get(w)!;
@@ -1090,6 +1092,8 @@ function tabState(s: SimState): Record<OverviewPage, { word: string; warn: 0 | 1
     // (Merge of slice 49: red for plague in the city, amber for a fevered quarter or plague in a city whose traders may bring it.)
     health: healthTab(s, dry),
     army: { word: threats ? `${plural(threats, 'threat', 'threats')}` : `${fmt(s.army.soldiers.filter((x) => x.state === 'ready').length)} ready`, warn: threats ? 2 : 0 },
+    // Slice 53: the gods (amber with one displeased, red with one angry).
+    gods: godsTab(s),
     empire: { word: s.empire.vassals.length + s.empire.colonies.length ? [s.empire.vassals.length ? plural(s.empire.vassals.length, 'vassal', 'vassals') : '', s.empire.colonies.length ? plural(s.empire.colonies.length, 'colony', 'colonies') : ''].filter((x) => x).join(', ') : 'none yet', warn: restless ? 1 : 0 },
   };
 }
@@ -1125,6 +1129,9 @@ export function overviewHtml(s: SimState, map: CoastMap, page: OverviewPage, war
       return armyPage(s, map);
     case 'empire':
       return empirePage(s);
+    // Slice 53.
+    case 'gods':
+      return godsPage(s, map);
   }
 }
 

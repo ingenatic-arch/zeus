@@ -57,6 +57,8 @@ import { blessingWords } from '../sim/epiphany';
 // Slice 54: a sanctuary's sections.
 import { SANCTUARY_QUIET, sanctuarySections } from './sanctuarypanel';
 import { GODS } from '../sim/pantheon';
+// Slice 53: the shrine's god.
+import { SHRINE_QUIET, shrineAct, shrineSections } from './olympus';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -74,6 +76,8 @@ export interface PanelEntry {
   more?: (s: SimState, map: CoastMap, b: Building) => string;
   /** Lines of its tip that its own sections say, left out of "What it is doing" (merge of slice 45: the court's law, the prison's cells). */
   quiet?: RegExp;
+  /** Slice 53: its own sections' buttons: a command to send, 'redraw' (its own state changed), or null (not one of its own). */
+  act?: (act: string, el: HTMLElement, b: Building) => Command | 'redraw' | null;
 }
 
 /** Each kind's entry (a kind with none gets the panel as it is). */
@@ -95,6 +99,8 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
   // Slice 54: a sanctuary (its god, its stages, the god's mood, its priests), src/ui/sanctuarypanel.ts.
   sanctuary: { more: sanctuarySections, quiet: SANCTUARY_QUIET },
+  // Slice 53: the shrine (its god, or the twelve to choose from; the god's mood; a festival and an offering), src/ui/olympus.ts.
+  shrine: { more: shrineSections, quiet: SHRINE_QUIET, act: shrineAct },
 };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
@@ -467,6 +473,12 @@ export class BuildingPanel {
     else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
     // (Slice 49: the quarantine, ordered or lifted from the infirmary's or the asklepieion's panel.)
     else if (act === 'quarantine') this.deps.send({ type: 'quarantine', on: t.dataset.on === '1' });
+    // (Slice 53: a building's own sections' buttons, the shrine's.)
+    else if (act && PANELS[b.kind]?.act) {
+      const c = PANELS[b.kind]!.act!(act, t, b);
+      if (c === null) return;
+      if (c !== 'redraw') this.deps.send(c);
+    }
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

@@ -76,6 +76,8 @@ export const KINDS = {
   epiphany: { cat: 'city', name: 'The gods in the city' },
   // Slice 54: a sanctuary marked out, its stages, finished, dimmed and lit again.
   sanctuary: { cat: 'works', name: 'Sanctuaries' },
+  // Slice 53: the gods (worship.ts): festivals, offerings, a god's mood crossing a word.
+  gods: { cat: 'city', name: 'The gods' },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

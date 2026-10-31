@@ -33,7 +33,8 @@ import type { Legends } from './monsters';
 // (Slice 55: monsters at the gates, 49 on its line and at its merge.)
 // (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
 // (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
-export const SIM_STATE_VERSION = 51;
+// (Slice 53: the twelve and their tempers, 49 on its line, renumbered 52 at its merge.)
+export const SIM_STATE_VERSION = 52;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -239,9 +240,12 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   | 'physician'
   | 'bearer'
   // Slice 54: a sanctuary's priest (sanctuaries.ts).
-  | 'priest';
+  | 'priest'
+  // Slice 53: a festival's procession, and a porter carrying an offering to a shrine (worship.ts).
+  | 'procession'
+  | 'offering';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest', 'procession', 'offering'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -408,7 +412,9 @@ export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | '
   | 'repairs'
   | 'skimmed'
   // Slice 47: your share of your colonies' and free allies' trade.
-  | 'colonytrade';
+  | 'colonytrade'
+  // Slice 53: festivals to the gods (worship.ts).
+  | 'worship';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes

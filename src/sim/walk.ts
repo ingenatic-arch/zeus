@@ -42,8 +42,15 @@ export const SENDING_SPEED = CARAVAN_SPEED * 2;
 /** Slice 40: your caravan with a gift or a sending goes three times a trader's pace (it was twice, as tribute donkeys and colonists still go), so a sending across the whole map is not a month and a half in your own streets. */
 export const GIFT_CARAVAN_SPEED = CARAVAN_SPEED * 3;
 
+// Slice 53: a festival's procession walks at a stately pace; a porter with an offering hurries, as a watchman walks.
+export const PROCESSION_SPEED = WALK_SPEED * 0.8;
+export const OFFERING_SPEED = PATROL_SPEED;
+
 export function speedOf(w: Walker): number {
   if (w.kind === 'cart') return CART_SPEED;
+  // (Slice 53.)
+  if (w.kind === 'procession') return PROCESSION_SPEED;
+  if (w.kind === 'offering') return OFFERING_SPEED;
   if (w.kind === 'sledge') return SLEDGE_SPEED;
   // (Slice 35: the monuments' ox carts go at a cart's pace; the games' visitors hurry, at your own caravan's.)
   if (w.kind === 'oxcart') return CART_SPEED;

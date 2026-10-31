@@ -219,4 +219,6 @@ export const VIEWS: Record<string, CameraView> = {
   sanctuaries: { x: 104, z: 71, yaw: -0.4, dist: 26, tilt: -0.05 },
   sanctuary: { x: 102.5, z: 67, yaw: -0.4, dist: 20, tilt: -0.05 },
   twelve: { x: 86.5, z: 50.5, yaw: -0.3, dist: 36, tilt: -0.05 },
+  // Slice 53, #procession: the core's agora and Demeter's shrine beside it, the procession rounding the agora, right of the shrine's panel.
+  procession: { x: 66, z: 41, yaw: -0.3, dist: 22, tilt: -0.05 },
 };

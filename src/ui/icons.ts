@@ -263,6 +263,8 @@ export const ACTION_ICONS = {
   reach: I(`<path d="M12 2.2c2.4 3.2 4 5.2 4 7.2a4 4 0 0 1-8 0c0-2 1.6-4 4-7.2z" fill="#4f9be0" stroke="#2c5f8f" stroke-width="1.1" stroke-linejoin="round"/><path d="M2.6 21.4v-3.6l2.7-2.3 2.7 2.3v3.6zM9.3 21.4v-3.6l2.7-2.3 2.7 2.3v3.6zM16 21.4v-3.6l2.7-2.3 2.7 2.3v3.6z" fill="#e4d2a6" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/><path d="M1.8 18.2l3.5-3 3.5 3M8.5 18.2l3.5-3 3.5 3M15.2 18.2l3.5-3 3.5 3" stroke="#b04a2c" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
   /** Crime: a cut purse. */
   crime: I(`<path d="M8.4 6.4h7.2l-1.4 2.4c3.2 1.6 5 4.4 5 7.4 0 3.2-2.6 5.2-7.2 5.2s-7.2-2-7.2-5.2c0-3 1.8-5.8 5-7.4z" fill="#a8743e" stroke="#4a2a10" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 6.4 7.8 3.2h8.4L15 6.4" fill="#c8964c" stroke="#4a2a10" stroke-width="1" stroke-linejoin="round"/><path d="M5.6 12.6l13 4.4" stroke="#8c2f26" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2.4 1.6"/><circle cx="17.6" cy="20.2" r="1.6" fill="#e8c460" stroke="#6a4a14" stroke-width=".8"/>`),
+  /** Slice 53: the gods (the Olympus panel, the overview's Gods page): Zeus's thunderbolt. */
+  gods: I(`<path d="M14.2 1.6 5.2 13.4h5.6L8 22.4l10.6-13.2h-5.8L16.4 1.6z" fill="#f0cf5a" stroke="#7a5a10" stroke-width="1.2" stroke-linejoin="round"/><path d="M13.4 4.2 9.2 10.6" stroke="#fff6d8" stroke-width=".9" stroke-linecap="round"/>`),
 } as const;
 export type ActionIcon = keyof typeof ACTION_ICONS;
 
@@ -314,6 +316,8 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   monster: MONSTER_ICON,
   // Slice 56: a god in the city: a tall figure in white under a gold halo.
   epiphany: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="3.2" rx="3.6" ry="1.3" fill="none" stroke="#e8b830" stroke-width="1.1"/><circle cx="8" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M5.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M3 15h10" stroke="#c8963c" stroke-width="1" stroke-linecap="round"/></svg>',
+  // Slice 53: the gods' news, Zeus's thunderbolt.
+  gods: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.6 .8 3.2 8.8h3.8L5.2 15.2l7.4-9.2H8.6L11 .8z" fill="#f0cf5a" stroke="#7a5a10" stroke-width=".9" stroke-linejoin="round"/></svg>',
 };
 
 // Slice 54: a sanctuary's news: a small temple, its pediment and columns in marble.

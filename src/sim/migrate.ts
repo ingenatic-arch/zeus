@@ -216,6 +216,11 @@
  * sanctuary lost its workers (`idle`); an older town has no sanctuary, so
  * every monument's site gets 0 where it has none, and nothing else is
  * touched (no new ware). Nothing in the city changes.
+ * Slice 53 (The twelve and their tempers): worship's record is there now,
+ * empty: no festival announced or held, no god worshipped yet (so neglect
+ * waits a year from when the city was noticed), no months of moods kept, and
+ * no home glad from a procession. Every shrine stays "to all the gods" until
+ * it is dedicated. Nothing in the city changes.
  *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
@@ -334,6 +339,7 @@ export function migrate(st: unknown): number {
   if (st.version === 48) fromSlice55(st);
   if (st.version === 49) fromSlice56(st);
   if (st.version === 50) fromSlice54(st);
+  if (st.version === 51) fromSlice53(st);
   return from;
 }
 
@@ -1243,6 +1249,23 @@ function fromSlice56(st: Record<string, unknown>): void {
 function fromSlice54(st: Record<string, unknown>): void {
   if (isObj(st.monuments) && Array.isArray(st.monuments.sites)) {
     for (const x of st.monuments.sites as unknown[]) if (isObj(x) && x.idle === undefined) x.idle = 0;
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 53 (The twelve and their tempers): see the note above. Only its own
+ * fields on `gods`, each only if it is missing.
+ */
+function fromSlice53(st: Record<string, unknown>): void {
+  if (isObj(st.gods)) {
+    const g = st.gods;
+    if (!Array.isArray(g.festivals)) g.festivals = [];
+    if (!isObj(g.worshipped)) g.worshipped = {};
+    if (!isObj(g.lastFestival)) g.lastFestival = {};
+    if (!isObj(g.months)) g.months = {};
+    if (typeof g.month !== 'number') g.month = -1;
+    if (!isObj(g.festive)) g.festive = {};
   }
   st.version = (st.version as number) + 1;
 }

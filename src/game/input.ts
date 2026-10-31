@@ -157,7 +157,9 @@ export function attachInput(canvas: HTMLCanvasElement, rigOf: CameraRig | (() =>
     const left1 = e.code === 'Backquote' || (e.code === 'IntlBackslash' && /Mac/i.test(navigator.platform));
     // Slice 51: O by its place (KeyO), whatever the layout prints on it, opens the overview; Shift+O, the water overlay O was.
     const keyO = e.code === 'KeyO' ? (e.shiftKey ? 'o' : 'overview') : '';
-    const k = left1 ? '\u0060' : keyO || e.key.toLowerCase();
+    // Slice 53: G by its place opens Olympus, the twelve gods; Shift+G, the stores' tool G was.
+    const keyG = e.code === 'KeyG' ? (e.shiftKey ? 'g' : 'olympus') : '';
+    const k = left1 ? '\u0060' : keyO || keyG || e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z' && !e.repeat && tools) {
       tools.key('undo', e);
       e.preventDefault();
