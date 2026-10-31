@@ -2,6 +2,62 @@
 
 Notes to Oliver, newest first.
 
+## Slice 60 — Gods in war (1 Nov)
+
+The second slice on phase 7's Epiphany line: the gods now take sides in your wars, in your own streets. A rival's patron who is angry with you marches with their band and strikes your soldiers, and a god who loves you, with a finished sanctuary, answers your call and fights for you; when both are there, the two gods fight each other. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: **state version 52** on this line (slice 54 joined the trunk as 51 while this was built, and is merged in here; the number changes again when the lines merge). Saves from versions 47 to 51 load and play on, with no god at war. Nothing changes until a god is at war, and no older demo has one: all 173 earlier demos open exactly as they do on the trunk. A band's chip, its line and its card on the map of Greece say so first when a god marches with it. A finished sanctuary's panel has a new section while invaders are on your land, and the Army tab has a new card at its head while war is about.
+
+### What's new
+- **A god marches against you.** When a rival's patron god (Ares for Sparta, Athena for Athens, Poseidon for Corinth, Apollo for Troy and so on) is angry or furious with you, they march with that city's band. You hear it first, while the band is still gathering or on the road: an alarm under a new kind, Gods in war ("Ares marches with Sparta's raiders: he is furious with you (you paid tribute to Athens) ..."), the band's chip ("· Ares with them") and its line, and its card on the map of Greece, where the god walks beside the band in their own figure. Calm them before the band comes and they stay home, and that is said too.
+- **In your streets** the god rises among the band once it is a few tiles onto your land, towering over it. They walk with it, strike down your nearest soldiers (a few at a blow; a soldier's house mourns him "fell fighting Ares"), and every two days set a building near them alight (never the store or tax office the band came for; at most four, and only with fire switched on). **Your soldiers can't hurt a god.** The god goes home when the band breaks, turns, is paid off or leaves, and says what they did.
+- **Calling a god to fight for you.** A god who loves you, whose sanctuary stands finished in your city, answers a call while invaders are on your land, once a year. Call from the Army tab's new **Call on the gods** card (each god who could come, with their emblem, how they fight and a button; why each other god won't, on their dimmed emblems), or from the sanctuary's own panel. They rise beside the danger in a day and fight in their own way: Ares and Athena hand to hand, Zeus with lightning from afar, Poseidon with a wave (and at ships coming in), Apollo's golden and Artemis's silver arrows, Hephaestus's fire, Hera's blinding light, Demeter heaving the earth, Dionysus's madness; Aphrodite and Hermes strike nobody but break the raiders' nerve. With a god on it a band breaks once a third of its men fall, not half. They stay until it breaks (ten days at most) and leave where they stand.
+- **Gods fight gods.** Call a god while an enemy god is on your map and they go for that god first. The two fight in the street for six days, trading blows, and the stronger wins: your god's love (their mood) against the enemy god's anger, a tie to yours. Beaten, the enemy god flees and their band breaks at once; beaten, yours goes home and the enemy fights on.
+- **Readable.** Hover a god at war, or click them: what they are doing, why they fight (with the mood's reasons), the duel's two numbers and who will win, and what you can do ("Your soldiers can't hurt him. Hold out until the band breaks, or call on Athena (the Army tab)"). For your champion, how they fight and what they have done so far.
+
+### What to try
+1. #godwar — Sparta's band has crossed the bridge with Ares towering among it, and he has just struck down the first of your hoplites. Paused, with the Army tab open on the Call on the gods card. Hover Ares, read the card, then press Call on Athena and play.
+2. #godduel — the same played on after the call: Athena and Ares fighting in the road beside her sanctuary, half a day in. Hover either for the duel's weights; play it on to see who wins and the band break.
+3. #godwar — instead of calling from the card, click Athena's sanctuary (behind the fight, beside the road) and call her from its panel.
+4. #godwar — call nobody: let it play and watch Ares strike the hoplites and set a roof alight; when the band is beaten or leaves, he goes home with it and says what he did.
+5. #godwar-modern and #godduel-plain — the other two looks.
+
+### What I'd like your eye on
+- **Is a god at war frightening enough, and fair?** Ares strikes two men at a blow every half day or so, and sets a building alight every two days; your soldiers can do nothing to him. Too much, or too little?
+- **Is calling a god worth it, and too strong?** With Athena on it Sparta's band of 31 breaks in about three days; with Zeus about four and a half; with Aphrodite (who strikes nobody) about six. Once a year per god, and only with a finished sanctuary.
+- **The duel**: six days of standing and trading blows in the street, a small flash between them each blow. Readable, too long, too short?
+- **The blows**: each god's own look (lightning, the wave, arrows, fire, light, earth, madness, the nerve-breakers' ring). They are quick and small; I could only judge stills.
+
+### Known rough edges
+- The demos' moods are staged ("you paid tribute to Athens" for Ares, "the city keeps her festivals" for Athena), and #godwar's sanctuary is built in one go in the setup (its 1,200 dr given and noted, its three stages' messages all on the same day), as slice 54's #twelve does.
+- An enemy god walks straight over everything beside the band, as a visiting god does.
+- The blows are drawn from the shared particle pool, so on a busy screen a few may be cut short.
+- On the map of Greece the god beside a band is the same small figure for every god, in their colours; it doesn't show what they will do.
+- Heroes facing a god (slice 61) and the patrons' emblems on the map (slice 58) are other slices.
+- The checks ran with other lines building on the same cores, so the tests, the build and the smoke needed long timeouts, and every time in Measurements is noise.
+
+### Measurements
+Before is the trunk at `67cfde3` (where this line branched), after is this branch with slice 54 merged in, so the sizes include slice 54's too. Every time here was taken with other lines building on the same cores (load 27 to 31) and is noise.
+
+| | Before | After |
+|---|---|---|
+| Bundle | 140 files, 28,184 KB (5,728 KB gzipped) | 145 files, 29,543 KB (5,984 KB gzipped) |
+| The game's script | 3,114 KB (1,035 KB gzipped) | 3,203 KB (1,064 KB gzipped) |
+| Prepared towns | 130 files, 4,692 KB gzipped | 135 files, 4,920 KB gzipped (largest 82 KB) |
+| Load to ready | 8,309 ms | 8,360 ms |
+| Views (coast, overview, river, street, bay) | 1,041,412 / 1,062,484 / 780,652 / 724,960 / 935,240 triangles | the same |
+| #town's three views | 1,488,490 (102 draws), 1,279,497 (79), 1,626,312 (131) triangles | the same; its save 190 KB |
+| #battle, #siege | 1,823,779 (108 draws), 1,607,441 (91) | the same |
+| #battle update per frame | 6.95 ms | 7.10 ms |
+| #godwar | | 1,713,513 triangles, 107 draws, 8.5 ms update per frame |
+| #godduel | | 1,695,313 triangles, 111 draws, 10.6 ms update per frame |
+| A god's figure | zeus 584 … dionysus 696 triangles | the same |
+
+- **Tests:** 844 in 64 files; 839 pass. The 5 that fail are timing budgets under the load: a culture call's time (5.05 ms against 2), two of the lands' bake times (12.6 s against 6), the routes replay's 60 s timeout, and the every-demo wages check's 20-minute timeout. Run again alone, the routes, culture and lands files pass (81 of 81); the wages check on #godwar and #godduel alone owes nothing. The new godwar tests pass (9 of 9), and the saves, epiphany, pantheon and monsters tests, so saves from versions 47 to 51 load.
+- **Build:** 27 min 20 s with every town baked again (the sim changed), under load; 32 s when only the drawing changed. The trunk's own build at `fd44330` took 16 min 18 s on the same machine.
+- **Every earlier demo:** all 173 prepared towns are the same as the trunk's at `fd44330` (setting aside the version number and the new empty record of the gods at war).
+- **Smoke:** #battle, #companies, and the slice 54, 55, 56 and 60 checks pass in the browser after the merge; slice 60's again on the final build (`smoke (slice 60): ok`).
+
 ## Slice 54 — Sanctuaries rise (31 Oct)
 
 The first slice on phase 7's Temples line: you can now raise a great sanctuary to any of the twelve gods from the Mythology tab, watch the ox carts and the masons' builders put it up in three stages, and see the god take notice as it rises. You weren't here while it was built: every choice below is mine, from the spec's defaults.
