@@ -45,7 +45,9 @@ import type { CityId } from '../map/greece';
 import { TICKS_PER_DAY } from './clock';
 import { ARMOUR, CHEESE, COPPER, FLEECE, HORSES, MEAT, OIL, WHEAT, WINE, type Ware } from './foods';
 import { memoryWorth } from './memory';
-import type { Memory, SimState } from './state';
+import type { Building, Memory, SimState } from './state';
+// Slice 56: the gods in the city (epiphany.ts; types only, so the load order is unchanged).
+import type { Blessing, Walks } from './epiphany';
 
 // ---------------------------------------------------------------------------
 // The twelve.
@@ -330,12 +332,15 @@ export interface Gods {
   noticedAt: number;
   /** Each god's memories of your city, by god. */
   memories: Record<GodId, Memory[]>;
+  // Slice 56 (The gods walk your streets): the gods in the city now, the places they blessed, who was loving at the last look (epiphany.ts).
+  walks: Walks;
 }
 
 export function freshGods(on = false, noticedAt = -1): Gods {
   const memories = {} as Record<GodId, Memory[]>;
   for (const g of GOD_IDS) memories[g] = [];
-  return { on, noticedAt, memories };
+  // (Slice 56: and nobody walking in the city.)
+  return { on, noticedAt, memories, walks: freshWalks() };
 }
 
 /** How many people a city needs before the gods notice it. */
@@ -480,3 +485,29 @@ export function stepGods(s: SimState): void {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Slice 56 (The gods walk your streets): the gods' walks through the city and
+// the places they bless live in `gods.walks` (epiphany.ts moves them). The
+// blessing is read here, so the systems it touches (production.ts, hazards.ts,
+// folk.ts) import only this module, which imports only leaves.
+
+/** A fresh record of the gods in the city: nobody walking, nothing blessed, nobody loving yet, no god ever come. */
+export const freshWalks = (): Walks => ({ figures: [], blessed: [], loving: [], last: {}, next: 1 });
+
+/** The blessing on a building now (by its id), if any. */
+export function blessingOn(s: SimState, id: number): Blessing | undefined {
+  const list = s.gods?.walks?.blessed;
+  if (!list || list.length === 0) return undefined;
+  for (const x of list) if (x.id === id && x.until > s.tick) return x;
+  return undefined;
+}
+
+/** How much faster a blessed maker works (a quarter). */
+export const BOON = 1.25;
+
+/** The pace a blessing gives a building's work: BOON while it is blessed, 1 otherwise. */
+export const boonOf = (s: SimState, b: Building): number => (blessingOn(s, b.id) ? BOON : 1);
+
+/** Is this god a goddess (for "she" and "her")? */
+export const goddess = (g: GodId): boolean => g === 'hera' || g === 'demeter' || g === 'athena' || g === 'artemis' || g === 'aphrodite';

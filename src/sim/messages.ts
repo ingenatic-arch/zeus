@@ -72,6 +72,8 @@ export const KINDS = {
   land: { cat: 'city', name: 'The land' },
   // Slice 55: a monster seen, settled, stirring, out on a raid, broken off, healed or called home (an alarm may pop up).
   monster: { cat: 'war', name: 'Monsters', pop: true },
+  // Slice 56: a god in the city: come, blessing a place, gone.
+  epiphany: { cat: 'city', name: 'The gods in the city' },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

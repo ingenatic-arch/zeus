@@ -210,4 +210,8 @@ export const VIEWS: Record<string, CameraView> = {
   monsterraid: { x: 54, z: 44, yaw: -0.785, dist: 18, tilt: -0.05 },
   // #bestiary: the seven before their lairs in a row on the open ground below #town, facing the camera.
   bestiary: { x: 75.5, z: 58.5, yaw: -0.785, dist: 27, tilt: -0.05 },
+  // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.
+  epiphany: { x: 47.5, z: 44, yaw: 2.356, dist: 14, tilt: -0.05 },
+  // #pantheon: the twelve in a row across the view on the Bay's flood plain, facing the camera.
+  pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 21, tilt: -0.05 },
 };

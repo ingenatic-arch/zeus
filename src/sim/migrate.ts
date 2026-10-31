@@ -209,6 +209,9 @@
  * Slice 55 (Monsters at the gates): the town has its record of monsters now,
  * empty: no monster on its land, no stone figure, none slain. Nothing in the
  * city changes.
+ * Slice 56 (The gods walk your streets): no god is in the city, nothing has
+ * been blessed, no god was loving at the last look and none has ever come
+ * (`gods.walks`). Nothing in the city changes.
  *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
@@ -256,6 +259,8 @@ import { freshHealth } from './health';
 import { freshGods, NOTICE_PEOPLE } from './pantheon';
 // Slice 55.
 import { freshLegends } from './monsters';
+// Slice 56.
+import { freshWalks } from './pantheon';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -323,6 +328,7 @@ export function migrate(st: unknown): number {
   if (st.version === 46) fromSlice49(st);
   if (st.version === 47) fromSlice53g(st);
   if (st.version === 48) fromSlice55(st);
+  if (st.version === 49) fromSlice56(st);
   return from;
 }
 
@@ -1211,5 +1217,15 @@ function fromSlice53g(st: Record<string, unknown>): void {
  */
 function fromSlice55(st: Record<string, unknown>): void {
   if (!isObj(st.legends)) st.legends = freshLegends();
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 56 (The gods walk your streets): see the note above. Only its own
+ * field, only if it is missing: `gods.walks`, nobody in the city. (A `gods`
+ * that is missing is left for the save checks to refuse.)
+ */
+function fromSlice56(st: Record<string, unknown>): void {
+  if (isObj(st.gods) && !isObj(st.gods.walks)) st.gods.walks = freshWalks();
   st.version = (st.version as number) + 1;
 }
