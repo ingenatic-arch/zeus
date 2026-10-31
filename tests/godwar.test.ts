@@ -62,6 +62,7 @@ function battle(ares = -75): { sim: Sim; s: SimState; r: Raid } {
   return { sim, s, r };
 }
 /** Play on until the band is on your map. */
+/** The band on your land (its god rises once its middle is a few tiles in: up to a week or so later). */
 const inMap = (sim: Sim, r: Raid): void => {
   expect(until(sim, () => r.phase === 'raiding' && !!raidersOf(sim.state, r), 60 * TICKS_PER_DAY)).toBe(true);
 };
@@ -93,7 +94,7 @@ describe('gods in war (slice 60)', () => {
     const hop = s.army.companies.find((c) => c.kind === 'hoplite')!;
     send(sim, { type: 'banner', company: hop.id, tile: 41 * 128 + 40 });
     inMap(sim, r);
-    expect(until(sim, () => enemyRisen(sim, r), 3 * TICKS_PER_DAY)).toBe(true);
+    expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
     const f = s.gods.walks.figures.find((o) => o.id === m.figure)!;
     expect(f.why).toBe('foe');
     expect(warStatus(s, f)!.detail).toMatch(/Ares marches with Sparta: he is furious with you \(you paid tribute to Athens\)/);
@@ -166,7 +167,7 @@ describe('gods in war (slice 60)', () => {
       mood(s, 'athena', 80, 'your olive groves');
       stageSanctuary(s, 'athena');
       inMap(sim, r);
-      until(sim, () => enemyRisen(sim, r), 3 * TICKS_PER_DAY);
+      until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY);
       stageSanctuary(s, 'athena');
     send(sim, { type: 'callgod', god: 'athena' });
       sim.run(8 * TICKS_PER_DAY);
@@ -185,7 +186,7 @@ describe('gods in war (slice 60)', () => {
       mood(s, 'athena', love, 'your olive groves');
       stageSanctuary(s, 'athena');
       inMap(sim, r);
-      expect(until(sim, () => enemyRisen(sim, r), 3 * TICKS_PER_DAY)).toBe(true);
+      expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
       stageSanctuary(s, 'athena');
     send(sim, { type: 'callgod', god: 'athena' });
       expect(until(sim, () => !!s.gods.war.duel, 10 * TICKS_PER_DAY)).toBe(true);
@@ -224,7 +225,7 @@ describe('gods in war (slice 60)', () => {
     mood(s, 'athena', 80, 'your olive groves');
     stageSanctuary(s, 'athena');
     inMap(sim, r);
-    until(sim, () => enemyRisen(sim, r), 3 * TICKS_PER_DAY);
+    until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY);
     stageSanctuary(s, 'athena');
     send(sim, { type: 'callgod', god: 'athena' });
     until(sim, () => !!s.gods.war.duel, 10 * TICKS_PER_DAY);

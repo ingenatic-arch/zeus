@@ -338,6 +338,9 @@ for (const [hash, views] of [
   // Slice 56: Demeter come to #town's fields, her flourish and the blessed farms' shimmer; the twelve posed in a row.
   ['#epiphany-paused-shot', [null, 'town']],
   ['#pantheon-paused-shot', [null]],
+  // Slice 60: Ares with Sparta's band by the bridge; Athena and Ares fighting there.
+  ['#godwar-paused-shot', [null]],
+  ['#godduel-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -751,6 +754,17 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
     await page.waitForTimeout(8000);
     const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, g: window.__zeus.gods(), info: window.__zeus.info() }));
     console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.g.drawn.gods} gods, ${b.g.drawn.particles} particles; ${b.info.triangles} triangles, ${b.info.calls} draws)`);
+  }
+  // Slice 60: and with two gods at war, Ares among Sparta's band and Athena fighting him, their blows drawn.
+  for (const [hash, label] of [['#godwar-shot', '#godwar, Ares with the band'], ['#godduel-shot', '#godduel, two gods fighting']]) {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    await page.waitForTimeout(6000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, g: window.__zeus.gods(), w: window.__zeus.godwar(), info: window.__zeus.info() }));
+    console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.g.drawn.gods} gods, ${b.g.drawn.particles} particles, ${b.w.blows} blows; ${b.info.triangles} triangles, ${b.info.calls} draws)`);
   }
   const tri = await page.evaluate(() => window.__zeus.gods().triangles);
   console.log(`each god's triangles: ${Object.entries(tri).map(([g, n]) => `${g} ${n}`).join(', ')}`);

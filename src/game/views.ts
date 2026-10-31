@@ -215,4 +215,8 @@ export const VIEWS: Record<string, CameraView> = {
   // #pantheon: the twelve in a row across the view on the Bay's flood plain, facing the camera.
   // (Merge of slice 56: from further back, 31 not 21, for the row of gods 2.8 apart, not 2.2.)
   pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 31, tilt: -0.05 },
+  // Slice 60, #godwar: the west road by the bridge, Sparta's band coming in with Ares towering among it, the hoplites meeting them.
+  godwar: { x: 39.5, z: 42, yaw: -0.785, dist: 18, tilt: -0.05 },
+  // #godduel: the same, Athena and Ares fighting there.
+  godduel: { x: 40, z: 41.8, yaw: -0.785, dist: 15, tilt: -0.05 },
 };

@@ -160,6 +160,8 @@ export const BURN_MOST = 4;
 const STRIKE_KEEP = 3 * TICKS_PER_DAY;
 /** How far beside their band an enemy god walks. */
 const BESIDE = 1.4;
+/** How far onto your map (tiles) a band's middle comes before its god rises among it. */
+const RISE_IN = 3;
 /** How far from the danger a champion rises, towards the town. */
 const RISE_OFF = 3.5;
 /** How much a ship's hull a wave or a bolt takes. */
@@ -498,7 +500,8 @@ function stepMarch(s: SimState, map: CoastMap, m: GodMarch): void {
     }
     if (r.phase !== 'raiding' || !band || r.broke || r.end !== '') return;
     const at = bandAt(s, r);
-    if (!at) return;
+    // (Once the band's middle is a little way onto your map: it walks in from beyond the edge.)
+    if (!at || at[0] < RISE_IN || at[1] < RISE_IN || at[0] > map.size - RISE_IN || at[1] > map.size - RISE_IN) return;
     const [x, z] = onLand(map, at[0] + BESIDE, at[1]);
     const words = `${she(m.god)} is ${moodWord(moodOfGod(s, m.god))} with you${angerWhy(s, m.god) ? ` (${angerWhy(s, m.god)})` : ''}, and marches with ${whose(r.city)} ${bandWord(r)}`;
     f = rise(s, m.god, 'foe', x, z, words, at);

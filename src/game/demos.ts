@@ -114,6 +114,8 @@ import { centreOf } from '../sim/buildings';
 import { walkable } from '../sim/wild';
 // Slice 56
 import { GOD_IDS, honour } from '../sim/pantheon';
+// Slice 60.
+import type { GodId } from '../sim/pantheon';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3651,6 +3653,11 @@ const SCENES: Record<string, Demo> = {
   // All twelve gods posed in a row on the open flood plain of the Bay, to compare (they never walk or leave).
   epiphany: { view: 'epiphany', setup: epiphanyTown, overlay: 'missing' },
   pantheon: { view: 'pantheon', setup: pantheonField },
+  // Slice 60: gods in war. #battle's town, the gods on, Ares (Sparta's patron) furious with it and Athena loving it (staged
+  // through the mood API), her sanctuary finished: Sparta's band on the land with Ares towering among it, the Army tab open
+  // on the call; and the same played on after calling on Athena, the two gods fighting.
+  godwar: { view: 'godwar', speed: 'paused', setup: godWarTown, overlay: 'missing', side: { tab: 'army' }, unread: 3 * TICKS_PER_DAY },
+  godduel: { view: 'godduel', speed: 'paused', setup: godDuelTown, overlay: 'missing', unread: 3 * TICKS_PER_DAY },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4578,4 +4585,49 @@ function pantheonField(sim: Sim): void {
   const last = GOD_IDS.length - 1;
   GOD_IDS.forEach((god, i) => sim.enqueue({ type: 'visit', god, why: 'pose', at: { x: PANTHEON_AT.x + (last - i) * step, z: PANTHEON_AT.z + (last - i) * step } }));
   sim.flush();
+}
+
+// Slice 60
+/** Why #godwar's Ares is furious with the town, and why Athena loves it (staged: slice 53 makes moods real). */
+export const GODWAR_ANGER = 'you paid tribute to Athens';
+export const GODWAR_LOVE = 'the city keeps her festivals';
+/** Where #godwar's companies are marched to meet the band: the west road by the bridge (hoplites), the archers behind. */
+const GODWAR_HOLD = { hoplite: { x: 41, z: 41 }, archer: { x: 44, z: 43 } };
+/** A finished sanctuary to a god (slice 54's), standing in a site record until that line merges here. */
+function godWarSanctuary(sim: Sim, god: GodId): void {
+  const s = sim.state;
+  const sites = s.monuments.sites as unknown as Array<Record<string, unknown>>;
+  if (sites.some((x) => x.kind === 'sanctuary' && x.god === god)) return;
+  const b = s.buildings.find((x) => x.kind === 'shrine') ?? s.buildings[0];
+  sites.push({ id: b.id, kind: 'sanctuary', stage: 3, building: false, work: 0, marked: 1, done: [1, 2, 3], finished: 3, god });
+}
+/** #godwar: #battle's band on the land with Ares among it, Athena ready to be called. */
+function godWarTown(sim: Sim): void {
+  BATTLE(sim);
+  const s = sim.state;
+  gods(sim, true);
+  honour(s, 'ares', -75, 'staged', GODWAR_ANGER, 0);
+  honour(s, 'athena', 80, 'staged', GODWAR_LOVE, 0);
+  const until = s.tick + 3 * TICKS_PER_MONTH;
+  const risen = (): boolean => s.gods.war.marches.some((m) => m.figure > 0);
+  while (s.tick < until && !risen()) sim.step();
+  // Both companies marched to meet the band by the bridge, and played on until Ares has struck the first of them down.
+  for (const c of s.army.companies) {
+    const at = GODWAR_HOLD[c.kind === 'archer' ? 'archer' : 'hoplite'];
+    sim.enqueue({ type: 'banner', company: c.id, tile: T(at.x, at.z) });
+  }
+  sim.flush();
+  while (s.tick < until && !s.gods.war.marches.some((m) => m.felled > 0)) sim.step();
+  godWarSanctuary(sim, 'athena');
+}
+/** #godduel: #godwar played on after calling on Athena, until she and Ares have fought about a day. */
+function godDuelTown(sim: Sim): void {
+  godWarTown(sim);
+  const s = sim.state;
+  sim.enqueue({ type: 'callgod', god: 'athena' });
+  sim.flush();
+  const until = s.tick + 10 * TICKS_PER_DAY;
+  while (s.tick < until && !s.gods.war.duel) sim.step();
+  const d = s.gods.war.duel;
+  if (d) sim.run(Math.min(TICKS_PER_DAY, Math.max(0, d.ends - s.tick - 2)));
 }
