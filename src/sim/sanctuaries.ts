@@ -26,7 +26,9 @@
  *   pass for four months.
  * - **Finished** is `sanctuaryFinished` (called by monumentworks.ts): the
  *   one place a later slice hooks what a god does when their sanctuary is
- *   finished (slice 56's visit).
+ *   finished. (Merge with slice 56: with the gods switched on, the god comes
+ *   to see it, rising at its altar, `altarOf`; the visit's cap of three gods
+ *   at once holds, and while a demo's history is played nobody comes.)
  *
  * The switch: nothing here acts on its own. Everything follows from a
  * sanctuary the player built, so it runs whether or not the gods are
@@ -36,7 +38,9 @@
  * functions, so the order modules load in can't spoil them.
  */
 import type { CoastMap } from '../map/bake';
-import { COTTAGE, findBuilding } from './buildings';
+import { mapOf } from '../map/lands';
+import { hash2 } from '../map/noise';
+import { COTTAGE, findBuilding, footSide } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { RELIGION_LASTS } from './culture';
 import { serviceDue, serviceScore } from './folk';
@@ -45,7 +49,9 @@ import { say, WARNING } from './messages';
 import { siteName, type Site } from './monuments';
 import { assert, GODS, honour, type GodId } from './pantheon';
 import { CREW_GAP, crewClock, moveRounds, sendOut, type ServiceSpec } from './rounds';
-import type { Building, SimState, Walker } from './state';
+import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
+// Merge with slice 56: the god comes to see their sanctuary finished.
+import { startVisit } from './epiphany';
 import { besideRoad, CARRIER_SPEED } from './walk';
 import { restFor } from './water';
 
@@ -142,7 +148,40 @@ export function sanctuaryFinished(s: SimState, x: Site): void {
   assert(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
   const g = GODS[x.god];
   say(s, { kind: 'sanctuary', words: `${sanctuaryName(x.god, true)} is finished and consecrated: ${g.name}’s statue stands in its court. Once its priests come to work it, they walk far through the streets, blessing homes.`, at: { building: x.id } });
-  // (Slice 56 calls the god's visit here at merge.)
+  // Merge with slice 56: the god comes to see it, rising at its altar (only with the gods switched on, so never while a
+  // demo's history is played; refused, as any visit is, with three gods in the city already).
+  if (b && b.kind === 'sanctuary' && s.gods.on) startVisit(s, x.god, 'sanctuary', altarOf(s, b));
+}
+
+/** How far before a sanctuary's middle its altar stands, towards its gate (src/render/sanctuary.ts draws it there). */
+export const ALTAR_AHEAD = 1.55;
+
+/**
+ * Where a sanctuary's altar stands in the world (merge with slice 56: where
+ * its god rises): ALTAR_AHEAD from its middle towards its gate, which faces
+ * its road as the renderer turns it (src/render/homes.ts `facingOf`: the
+ * first side with a road of east, south, north and west).
+ */
+export function altarOf(s: SimState, b: Building): { x: number; z: number } {
+  const size = mapOf(s).size;
+  const n = footSide(b);
+  const road = (tx: number, tz: number): boolean => tx >= 0 && tz >= 0 && tx < size && tz < size && s.tiles[tz * size + tx] === TILE_ROAD;
+  const any = (f: (d: number) => boolean): boolean => {
+    for (let d = 0; d < n; d++) if (f(d)) return true;
+    return false;
+  };
+  // (The quarter turns as facingOf counts them: 0 east, π/2 north, π west, 3π/2 south.)
+  const QUARTERS: Array<[number, number]> = [[1, 0], [0, -1], [-1, 0], [0, 1]];
+  const [dx, dz] = any((d) => road(b.x + n, b.z + d))
+    ? QUARTERS[0]
+    : any((d) => road(b.x + d, b.z + n))
+      ? QUARTERS[3]
+      : any((d) => road(b.x + d, b.z - 1))
+        ? QUARTERS[1]
+        : any((d) => road(b.x - 1, b.z + d))
+          ? QUARTERS[2]
+          : QUARTERS[Math.floor(hash2(b.id, 3, 41) * 4)];
+  return { x: b.x + n / 2 + dx * ALTAR_AHEAD, z: b.z + n / 2 + dz * ALTAR_AHEAD };
 }
 
 /** A sanctuary is taken down or lost (monumentworks.ts, as its record goes): its god's standing honour goes with it. */

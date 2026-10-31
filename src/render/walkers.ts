@@ -1404,6 +1404,8 @@ export class Walkers {
     for (const w of state.walkers) if (w.kind === 'raider') bands.set(w.home, w);
     const live = new Set<number>();
     for (const f of foes) {
+      // (Slice 55: a monster in the battle is drawn by itself.)
+      if (f.raid < 0) continue;
       const was = this.foeWas.get(f.id);
       if (!was) continue;
       live.add(f.id);

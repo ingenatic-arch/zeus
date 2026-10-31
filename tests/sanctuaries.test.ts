@@ -18,11 +18,13 @@ import { needOf, progressOf, sacredMeasure, siteMaterials, stagesOf, workOf, typ
 import { cartsTo, isBronze, smithsAt } from '../src/sim/monumentworks';
 import { siteStatus } from '../src/sim/monumentstatus';
 import { GODS, moodOfGod, reasonsOf } from '../src/sim/pantheon';
-import { DIM_AFTER, dimmed, PRIEST_RANGE, priestsRound, sanctuaryDone, sanctuaryOf, sanctuaryRefusal, STAGE_HONOUR, STANDING_HONOUR, standingWhy } from '../src/sim/sanctuaries';
+import { altarOf, DIM_AFTER, dimmed, PRIEST_RANGE, priestsRound, sanctuaryDone, sanctuaryOf, sanctuaryRefusal, STAGE_HONOUR, STANDING_HONOUR, standingWhy } from '../src/sim/sanctuaries';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, TILE_ROAD, type Building } from '../src/sim/state';
 import { income } from '../src/sim/treasury';
 import { demoSim } from './prepared';
+// Merge with slice 56.
+import { MOST_STOPS, placesFor, startVisit } from '../src/sim/epiphany';
 
 const N = 128;
 const T = (x: number, z: number): number => z * N + x;
@@ -235,7 +237,7 @@ describe('sanctuaries', () => {
     expect(got.ok).toBe(true);
   });
 
-  it('a save from before sanctuaries (version 48, and 47 through both steps) loads, its monuments’ sites given no idle time', () => {
+  it('a save from before sanctuaries (version 50, and 47 through every step since) loads, its monuments’ sites given no idle time', () => {
     const { sim } = sanctuaryTown();
     const s = sim.state;
     // (A monument's site stands in for the older town's: built by hand as an older save would hold it.)
@@ -243,14 +245,58 @@ describe('sanctuaries', () => {
     const mon = now.monuments as { sites: Array<Record<string, unknown>> };
     mon.sites = mon.sites.filter((y) => y.kind !== 'sanctuary').concat([{ id: 999999, kind: 'lighthouse', stage: 1, building: false, work: 0, marked: 0, done: [10], finished: 0 }]);
     now.buildings = (now.buildings as Array<Record<string, unknown>>).filter((g) => g.kind !== 'sanctuary');
-    for (const v of [SIM_STATE_VERSION - 1, SIM_STATE_VERSION - 2]) {
+    // (50: the version before this step, slice 56's, renumbered at the merge; 47: phase 6's, before the gods.)
+    for (const v of [50, 47]) {
       const old = JSON.parse(JSON.stringify(now)) as Record<string, unknown>;
       old.version = v;
-      if (v === SIM_STATE_VERSION - 2) delete old.gods;
+      if (v === 47) delete old.gods;
       expect(migrate(old)).toBe(v);
       expect(old.version).toBe(SIM_STATE_VERSION);
       const sites = (old.monuments as { sites: Array<Record<string, unknown>> }).sites;
       expect(sites.find((y) => y.id === 999999)?.idle).toBe(0);
     }
+  });
+});
+
+// Merge of slices 54 and 56: a god comes to see their sanctuary finished.
+describe('a sanctuary finished brings its god (merge with slice 56)', () => {
+  const finishAll = (sim: Sim, x: Site): void => {
+    for (let k = 0; k < 3 && !x.finished; k++) finishStage(sim, x);
+  };
+
+  it('rises at its altar, inside the court before the temple, and goes to the sanctuary first', () => {
+    const { sim, b, x } = sanctuaryTown();
+    const s = sim.state;
+    expect(s.gods.on).toBe(true);
+    finishAll(sim, x);
+    expect(x.finished).toBeGreaterThan(0);
+    const f = s.gods.walks.figures.find((g) => g.god === 'demeter')!;
+    expect(f).toBeDefined();
+    expect(f.why).toBe('sanctuary');
+    const altar = altarOf(s, b);
+    expect([f.x, f.z]).toEqual([altar.x, altar.z]);
+    expect(altar.x > b.x && altar.x < b.x + 5 && altar.z > b.z && altar.z < b.z + 5).toBe(true);
+    expect(f.stops[0].id).toBe(b.id);
+    expect(f.stops.length).toBeLessThanOrEqual(MOST_STOPS);
+    const said = s.messages.log.filter((m) => m.kind === 'epiphany').map((m) => m.words);
+    expect(said.some((w) => /^Demeter rises at the altar of her new sanctuary, come to see it\. She blesses it first, then means to visit /.test(w))).toBe(true);
+    // Any visit of hers from now on goes there first, wherever she arrives.
+    expect(placesFor(s, sim.map, 'demeter', 10, 10).stops[0].id).toBe(b.id);
+    // She blesses it, and walks on.
+    runUntil(sim, () => f.blessed.length > 0, 20 * TICKS_PER_DAY);
+    expect(f.blessed[0]).toBe(b.id);
+  });
+
+  it('never comes with the gods switched off (a demo’s history), nor past three gods at once', () => {
+    const off = sanctuaryTown();
+    send(off.sim, { type: 'gods', on: false });
+    finishAll(off.sim, off.x);
+    expect(off.x.finished).toBeGreaterThan(0);
+    expect(off.sim.state.gods.walks.figures).toEqual([]);
+    const full = sanctuaryTown();
+    for (const g of ['zeus', 'hera', 'apollo'] as const) expect(startVisit(full.sim.state, g, 'loving')).not.toBeNull();
+    finishAll(full.sim, full.x);
+    expect(full.x.finished).toBeGreaterThan(0);
+    expect(full.sim.state.gods.walks.figures.some((g) => g.god === 'demeter')).toBe(false);
   });
 });

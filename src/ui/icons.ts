@@ -283,6 +283,8 @@ const BREAKOUT_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2
 const REBELLION_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.4" y="5.6" width="6" height="4" rx="2" fill="none" stroke="#6a6460" stroke-width="1.5" transform="rotate(-20 4.4 7.6)"/><rect x="8.6" y="6.4" width="6" height="4" rx="2" fill="none" stroke="#6a6460" stroke-width="1.5" transform="rotate(25 11.6 8.4)"/><path d="M8 2.4v2.4M6 3.2l.8 1.6M10 3.2l-.8 1.6" stroke="#c63d24" stroke-width="1.1" stroke-linecap="round"/></svg>';
 /** A collapse: the build bar's rubble. */
 const COLLAPSE_ICON = LINE_ICONS.rubble;
+// Slice 55: a monster's: three claw marks torn across a dark ground.
+const MONSTER_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.8" fill="#3a2e28" stroke="#1e1612" stroke-width=".8"/><path d="M4.4 3.6c1.4 3 1.6 6 .6 9M7.6 2.8c1.4 3.4 1.6 6.8.4 10.2M10.8 3.6c1.2 3 1.2 6-.2 9" stroke="#d8432a" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
 
 /** Each kind of message's drawing. Kinds added later fall back to the scroll; the kit's test asks for every kind. */
 export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
@@ -308,6 +310,10 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   monument: LINE_ICONS.monument,
   breakout: BREAKOUT_ICON,
   land: LAND_ICON,
+  // Slice 55
+  monster: MONSTER_ICON,
+  // Slice 56: a god in the city: a tall figure in white under a gold halo.
+  epiphany: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="3.2" rx="3.6" ry="1.3" fill="none" stroke="#e8b830" stroke-width="1.1"/><circle cx="8" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M5.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M3 15h10" stroke="#c8963c" stroke-width="1" stroke-linecap="round"/></svg>',
 };
 
 // Slice 54: a sanctuary's news: a small temple, its pediment and columns in marble.

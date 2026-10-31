@@ -70,6 +70,10 @@ export const KINDS = {
   breakout: { cat: 'crime', name: 'Prison breakouts', pop: true },
   // Merge of slice 46: a city founded on a land of the player's choosing, its road in laid.
   land: { cat: 'city', name: 'The land' },
+  // Slice 55: a monster seen, settled, stirring, out on a raid, broken off, healed or called home (an alarm may pop up).
+  monster: { cat: 'war', name: 'Monsters', pop: true },
+  // Slice 56: a god in the city: come, blessing a place, gone.
+  epiphany: { cat: 'city', name: 'The gods in the city' },
   // Slice 54: a sanctuary marked out, its stages, finished, dimmed and lit again.
   sanctuary: { cat: 'works', name: 'Sanctuaries' },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;

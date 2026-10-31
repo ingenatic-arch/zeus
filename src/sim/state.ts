@@ -21,6 +21,8 @@ import type { Annals } from './annals';
 import type { Health } from './health';
 // Phase 7 groundwork: the twelve gods and their moods (pantheon.ts).
 import type { GodId, Gods } from './pantheon';
+// Slice 55: the monsters on your land (monsters.ts).
+import type { Legends } from './monsters';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
@@ -28,8 +30,10 @@ import type { GodId, Gods } from './pantheon';
 // (Slice 51: the overview, renumbered 46 at its merge.)
 // (Slice 49: physicians and plague, renumbered 47 at its merge.)
 // (Phase 7 groundwork: the gods' moods, 48.)
-// (Slice 54: sanctuaries, 49 on the Temples line; renumbered at its merge.)
-export const SIM_STATE_VERSION = 49;
+// (Slice 55: monsters at the gates, 49 on its line and at its merge.)
+// (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
+// (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
+export const SIM_STATE_VERSION = 51;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -268,7 +272,9 @@ export interface Story {
     // Slice 49: one of them fell ill (names: who; `n` 1 the plague), mended, or died of it.
     | 'ill'
     | 'mended'
-    | 'died';
+    | 'died'
+    // Slice 55: one of them killed by a monster (names: who, the monster, or "Medusa’s gaze").
+    | 'slain';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */
@@ -585,6 +591,8 @@ export interface SimState {
   annals: Annals;
   /** Phase 7 groundwork: the gods' switch, when the city was first noticed, and each god's memories of it (pantheon.ts). */
   gods: Gods;
+  /** Slice 55: the monsters on your land, their lairs and raids, Medusa's stones, and those slain (monsters.ts; slice 59 adds the heroes). */
+  legends: Legends;
 }
 
 /**

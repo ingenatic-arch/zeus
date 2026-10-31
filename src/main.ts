@@ -124,6 +124,16 @@ import { Overview, type OverviewPage } from './ui/overview';
 import { installKit, tipShowing } from './ui/kit';
 // Merge of slice 50 with slice 49: the health legend's rod.
 import { actionIcon } from './ui/icons';
+// Slice 55: the monsters at the gates, drawn, and a monster's panel.
+import { MonstersView } from './render/monsters';
+import { MonsterPanel } from './ui/monsterpanel';
+import { beastTip, monsterOf, sendMonster, STIR } from './sim/monsters';
+import type { MonsterId } from './sim/pantheon';
+// Slice 56: the gods in the city (their figures, flourishes and stings; a god's panel; a blessed place's line).
+import { GodsView, godTriangles } from './render/gods';
+import { GodPanel } from './ui/godpanel';
+import { blessingWords, figureOf, godStatus } from './sim/epiphany';
+import { GODS } from './sim/pantheon';
 
 interface Probe {
   ready: boolean;
@@ -359,6 +369,20 @@ interface Probe {
   // Slice 50
   /** The kit's tip showing ('' when none). */
   kitTip?: () => string;
+  // Slice 55
+  /** The monsters: each one's kind, state, place and health; what is drawn; the panel (opened on a monster first if given, 0 shuts it) and its text; the tip over the first one drawn. */
+  monsters?: (open?: number) => { list: Array<{ id: number; kind: string; state: string; x: number; z: number; hp: number; full: number; lair: number; den: string }>; drawn: { figures: number; lairs: number; stones: number }; panel: string; tip: string };
+  /** For the smoke test and looking: a monster sent as its god would (walking in at once), or one in its lair sent out (due in a day). */
+  monsterSend?: (kind: string, why: string) => number;
+  monsterRaid?: (id: number) => boolean;
+  /** Where a monster is on screen (its middle), or null. */
+  monsterOnScreen?: (id: number) => { x: number; y: number } | null;
+  // Slice 56
+  /** The gods in the city: each figure (its god, state, where, what it has blessed), what is drawn, the god's panel's text, the stings played, each figure's triangles. */
+  gods?: () => { figures: Array<{ id: number; god: string; state: string; x: number; z: number; blessed: number[]; stops: number }>; blessed: Array<{ id: number; god: string; until: number }>; drawn: { gods: number; particles: number; steps: number; shimmer: number; birds: number }; panel: string; stings: number; triangles: Record<string, number> };
+  /** Where a god in the city is on the screen (their middle), if drawn. */
+  visit?: (god: string, why?: string) => void;
+  godAt?: (god: string) => { x: number; y: number } | null;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -483,6 +507,10 @@ function start(preparedTown: string | null): void {
   const world = new World(map);
   const city = new CityView(map, world.plants);
   world.scene.add(city.group);
+  // Slice 56: the gods in the city, their halos, trails and flourishes, and the shimmer on the places they bless.
+  const godsView = new GodsView(map);
+  godsView.ground = city.walkers.ground;
+  world.scene.add(godsView.group);
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
@@ -499,6 +527,9 @@ function start(preparedTown: string | null): void {
   // Slice 48: a paused workplace's plaque.
   const pauseMarks = new PauseMarks(map);
   world.scene.add(pauseMarks.group);
+  // Slice 55: the monsters, their lairs and Medusa's stone figures.
+  const monstersView = new MonstersView(map);
+  world.scene.add(monstersView.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
   // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
@@ -1177,9 +1208,38 @@ function start(preparedTown: string | null): void {
     return { title: 'The merchant ship from Tyre', detail: [news?.line ?? '', 'She buys wheat, meat and cheese from the granaries, oil, fleece and wine from the storehouses, at steady prices · click for the trading post'].filter((x) => x).join('\n') };
   };
   const showStatus = (st: Status, sx: number, sy: number): void => tip.show(st.detail ? `${st.title}\n${st.detail}` : st.title, sx, sy);
+  // Slice 55: the monster under a screen point (its body, or its lair while it is inside healing or before it).
+  const beastUnder = (sx: number, sy: number) => {
+    if (!sim.state.legends.monsters.length) return undefined;
+    const r = canvas.getBoundingClientRect();
+    const id = monstersView.pick(camera, r, sx, sy) || monstersView.pickLair(camera, r, sx, sy);
+    return id > 0 ? monsterOf(sim.state, id) : undefined;
+  };
+  // Merge of slices 55 and 56: the god under a screen point, unless a monster is under it too and nearer the eye (it is
+  // drawn in front): then the monster's tip and click, as it is the one seen there.
+  const godUnder = (sx: number, sy: number): number => {
+    const id = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+    if (!id) return 0;
+    const bm = beastUnder(sx, sy);
+    const a = godsView.at.get(id);
+    if (!bm || !a) return id;
+    const o = monstersView.shown.find((x) => x.id === bm.id);
+    const l = o ? undefined : monstersView.lairsShown.find((x) => x.id === bm.id);
+    const mid = o ? new THREE.Vector3(o.x, o.y + o.tall / 2, o.z) : l ? new THREE.Vector3(l.x, l.y, l.z) : null;
+    if (!mid) return id;
+    return camera.position.distanceToSquared(new THREE.Vector3(a.x, a.y + a.h / 2, a.z)) <= camera.position.distanceToSquared(mid) ? id : 0;
+  };
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
+    // Slice 56: a god in the city, towering over whatever is under them: who, what they're doing and why.
+    const godId = godUnder(sx, sy);
+    const god = godId ? figureOf(sim.state, godId) : undefined;
+    if (god) {
+      const gs = godStatus(sim.state, god);
+      if (godPanel.id !== god.id) gs.detail = `${gs.detail}\nClick for more`;
+      return showStatus(gs, sx, sy);
+    }
     // A soldier, or a company's banner; a raider nearer the pointer than the soldier (in a fight they stand close: slice 24's review).
     const pickedArmy = armyPick(sx, sy);
     const foeFirst = pickedArmy.soldier && pickedArmy.d !== undefined ? foeNear(sx, sy, pickedArmy.d) : 0;
@@ -1197,6 +1257,14 @@ function start(preparedTown: string | null): void {
       const co = companyOf(sim.state, pickedArmy.company);
       const hurt = co ? woundedOf(sim.state, co).length : 0;
       if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men${hurt ? `, ${hurt} wounded` : ''}`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
+    }
+    // Slice 55: a monster, or its lair.
+    {
+      const bm = beastUnder(sx, sy);
+      if (bm) {
+        const st = beastTip(sim.state, bm);
+        return showStatus({ title: st.title, detail: `${st.detail}${monsterPanel.id === bm.id ? '' : '\nClick for its panel'}` }, sx, sy);
+      }
     }
     // A raider (each of a band's men is a figure of his own).
     const foe = foeNear(sx, sy);
@@ -1255,6 +1323,9 @@ function start(preparedTown: string | null): void {
     }
     // Slice 48.
     else if (buildingPanel.id !== b.id && !ownPanel(b.kind)) st.detail = `${st.detail ? st.detail + '\n' : ''}Click for its panel`;
+    // Slice 56: a god's blessing on it.
+    const blessed = blessingWords(sim.state, b);
+    if (blessed) st.detail = `${blessed}${st.detail ? '\n' + st.detail : ''}`;
     showStatus(st, sx, sy);
   };
 
@@ -1358,16 +1429,33 @@ function start(preparedTown: string | null): void {
       else if (panel.open) panel.show(0);
       // Slice 48.
       else if (buildingPanel.open) buildingPanel.show(0);
+      // Slice 55.
+      else if (monsterPanel.open) monsterPanel.show(0);
+      // Slice 56.
+      else if (godFollow) stopGodFollow();
+      else if (godPanel.open) godPanel.show(0);
       else tools.cancel();
     },
     click(w, sx, sy) {
       if (greeceOpen()) return greece?.click(sx, sy);
+      // Slice 56: a god in the city: their panel.
+      const godHit = godUnder(sx, sy);
+      if (godHit) {
+        godPanel.show(godHit);
+        return hover(w, sx, sy);
+      }
       // A banner or a soldier: take his company's banner in hand.
       const army = armyPick(sx, sy);
       if (army.company) {
         stopFollow();
         takeBanner(army.company);
         return;
+      }
+      // Slice 55: a monster (or its lair): its panel.
+      const bm = beastUnder(sx, sy);
+      if (bm) {
+        monsterPanel.show(bm.id);
+        return hover(w, sx, sy);
       }
       // A walker with a job, or the fountain, agora or farm she works from: follow her.
       const tall = monumentAt(sx, sy);
@@ -1724,6 +1812,53 @@ function start(preparedTown: string | null): void {
       buildingPanel.show(0);
     };
   }
+  // Slice 55: a monster's panel, one at a time with the others on the left.
+  const monsterPanel = new MonsterPanel(ui);
+  monsterPanel.onOpen = () => {
+    panel.show(0);
+    buildingPanel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+  };
+  for (const other of [tradePanel, shipyardPanel, msgPanel, buildingPanel]) {
+    const was = other.onOpen;
+    other.onOpen = () => {
+      was?.();
+      monsterPanel.show(0);
+    };
+  }
+  probe.monsterSend = (kind, why) => {
+    const m = sendMonster(sim.state, kind as MonsterId, why);
+    if (m) m.next = sim.state.tick;
+    return m?.id ?? 0;
+  };
+  probe.monsterRaid = (id) => {
+    const m = monsterOf(sim.state, id);
+    if (!m || m.state !== 'lair') return false;
+    m.next = sim.state.tick + STIR + 1;
+    return true;
+  };
+  probe.monsterOnScreen = (id) => {
+    const o = monstersView.shown.find((x) => x.id === id);
+    if (!o) return null;
+    const r = canvas.getBoundingClientRect();
+    const v = new THREE.Vector3(o.x, o.y + o.tall * 0.5, o.z).project(camera);
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
+  probe.monsters = (open) => {
+    if (open !== undefined) monsterPanel.show(open);
+    monsterPanel.update(sim.state, Infinity);
+    const first = monstersView.shown[0];
+    const m = first ? monsterOf(sim.state, first.id) : undefined;
+    const t = m ? beastTip(sim.state, m) : null;
+    return {
+      list: sim.state.legends.monsters.map((o) => ({ id: o.id, kind: o.kind, state: o.state, x: o.x, z: o.z, hp: o.hp, full: o.full, lair: o.lair, den: o.den })),
+      drawn: monstersView.counts,
+      panel: monsterPanel.text,
+      tip: t ? `${t.title}\n${t.detail}` : '',
+    };
+  };
   /** The scroll's seal: the unread warnings and alarms (news stays bold in the panel and counted on its chips). */
   const sealOf = (s: SimState): { n: number; u: number } => {
     let n = 0;
@@ -1737,6 +1872,82 @@ function start(preparedTown: string | null): void {
   };
   // A demo can open with a building's panel showing (#workpanel, #storeset).
   if (demo?.building) buildingPanel.show(demo.building(sim.state));
+  // Slice 56: a god's panel, on the left, one at a time with the others; its Follow keeps the camera on the god until the map is dragged (or Esc).
+  const godPanel = new GodPanel(ui);
+  let godFollow: { id: number; pans: number } | null = null;
+  const stopGodFollow = (): void => {
+    godFollow = null;
+    followChip.hidden = true;
+  };
+  const updateGodFollow = (): void => {
+    if (!godFollow) return;
+    // (Following a walker since: she has the camera, and the chip.)
+    if (follow) {
+      godFollow = null;
+      return;
+    }
+    const a = godsView.at.get(godFollow.id);
+    if (!a || rig.pans !== godFollow.pans) return stopGodFollow();
+    rig.follow(a.x, a.z);
+  };
+  godPanel.onFollow = (id) => {
+    const f = figureOf(sim.state, id);
+    if (!f) return;
+    stopFollow();
+    godFollow = { id, pans: rig.pans };
+    followChip.textContent = `Following ${GODS[f.god].name} · drag the map or press Esc to stop`;
+    followChip.hidden = false;
+  };
+  godPanel.onOpen = () => {
+    panel.show(0);
+    buildingPanel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+  };
+  for (const other of [buildingPanel, tradePanel, shipyardPanel, msgPanel]) {
+    const was = other.onOpen;
+    other.onOpen = () => {
+      was?.();
+      godPanel.show(0);
+    };
+  }
+  // Merge of slices 55 and 56: a god's panel and a monster's share the left side, one at a time.
+  {
+    const wasGod = godPanel.onOpen;
+    godPanel.onOpen = () => {
+      wasGod?.();
+      monsterPanel.show(0);
+    };
+    const wasMonster = monsterPanel.onOpen;
+    monsterPanel.onOpen = () => {
+      wasMonster?.();
+      godPanel.show(0);
+    };
+  }
+  probe.gods = () => {
+    const w = sim.state.gods.walks;
+    return {
+      figures: w.figures.map((f) => ({ id: f.id, god: f.god, state: f.state, x: f.x, z: f.z, blessed: [...f.blessed], stops: f.stops.length })),
+      blessed: w.blessed.map((x) => ({ ...x })),
+      drawn: godsView.drawn,
+      panel: godPanel.text,
+      stings: sound.stings,
+      triangles: godTriangles(),
+    };
+  };
+  /** Send a god into the city now (the 'visit' command, as a festival or a finished sanctuary would): for looking at the flourishes. */
+  probe.visit = (god, why = 'festival') => {
+    sim.enqueue({ type: 'visit', god, why });
+  };
+  probe.godAt = (god) => {
+    const f = sim.state.gods.walks.figures.find((o) => o.god === god);
+    const a = f ? godsView.at.get(f.id) : undefined;
+    if (!a) return null;
+    const v = new THREE.Vector3(a.x, a.y + a.h * 0.5, a.z).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
   probe.building = (id) => {
     if (id !== undefined) buildingPanel.show(id);
     buildingPanel.update(sim.state, map, Infinity);
@@ -2806,6 +3017,11 @@ function start(preparedTown: string | null): void {
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.army.selected = orders.selected;
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
+    // Slice 56: the gods in the city (their stings as they arrive and leave), following one, their panel.
+    godsView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
+    for (const e of godsView.events.splice(0)) sound.sting(e.god, e.kind === 'leave');
+    updateGodFollow();
+    godPanel.update(s, map, time);
     updateFollow();
     overlay.update(s, time);
     side.showOverlay(overlay.mode);
@@ -2829,6 +3045,12 @@ function start(preparedTown: string | null): void {
     pauseMarks.update(s, camera, time);
     buildingPanel.update(s, map, time);
     if (panel.open && buildingPanel.open) buildingPanel.show(0);
+    // Slice 55.
+    monstersView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
+    monsterPanel.update(s, time);
+    if (panel.open && monsterPanel.open) monsterPanel.show(0);
+    // (Merge of slices 55 and 56: a home's panel puts a god's away too, as it does a monster's.)
+    if (panel.open && godPanel.open) godPanel.show(0);
     // Slice 51.
     {
       const t = performance.now();
