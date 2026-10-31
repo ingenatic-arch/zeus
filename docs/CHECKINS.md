@@ -2,6 +2,54 @@
 
 Notes to Oliver, newest first.
 
+## Slice 57 — Blessings and wrath (1 Nov)
+
+The gods now act. A god who is warm or better gives their blessing when you ask it at their finished sanctuary, once a year, and walks into the city to give it; a loving god sometimes gives one unasked. An angry god curses the city, but never without warning: a month of omens first, with the curse, the day and the reasons named, and anything that lifts the god back past angry turns it. The curses do real damage through what the city already has (fires, rubble, plague, monsters, people leaving, thieves, the fields' yield). You weren't here while it was built: every choice below is mine, from the spec and the brief.
+
+What breaks, or moves:
+- **State version 54** (on this line, after slice 59; renumbered when the lines merge). Older saves load: the gods' new record of wrath starts empty, switched on if the gods were on.
+- **The gods' tuning moved.** One shrine now lifts its god to pleased in an ordinary city, and every god has things they can see there (Ares: barracks, the watch, walls; Hephaestus: workshops at work, no fires; Hermes: the agora's stalls, a quay or caravan yard). Ares no longer counts your tribute each month. Every older demo opens with the same people, money and houses as before; only `#gods`' and `#procession`'s moods read a few points different.
+- **Wrath is on in every demo as it opens and in a new game.** A long game with an angry god will now see omens.
+
+### What's new
+- **Twelve blessings**, one per god: Zeus a gift of 2,000 dr and his lightning on raiders for a season; Hera a child in every house with room and loyal colonies and vassals; Poseidon fair seas for a year and the rubble cleared; Demeter double farms; Athena double olives and half the crime; Apollo the sick healed and a plague ended; Artemis whole herds and double hunting; Ares armour for the men waiting for it and the wounded healed; Aphrodite happier homes and more settlers; Hephaestus every fire out and double armouries, mines and masons; Hermes better prices; Dionysus double wine and a festival in every home. Ask at the god's finished sanctuary (its panel has a new Blessing section) or from their Olympus page.
+- **Omens.** An angry god chooses a curse and warns you a month ahead: an alarm naming the god, the curse, the day and why; a red card on Olympus with the days left; the overview's Gods tab marked; and signs in the city (a storm cloud gathering over the place, darker as the day nears, a red ring where it will strike, dead birds, blight creeping into the fields). Five days before, a second warning. An offering, a festival or a new shrine that lifts the god past angry turns it: "Athena is appeased".
+- **Eighteen curses**, one or two per god, from lightning and an earthquake by the shore to the Hydra, Medusa, plague, blight, thieves for a season and a drunken riot. One omen at a time in the city, one curse from a god at a time, and a god who has cursed or been appeased waits half a year.
+- **Wrath in person.** For lightning, the earthquake, plague and the riot, the god comes eight days before, dark as a storm, and stands over the place until the day.
+- **Olympus tells you where you stand:** each card says what the god's blessing and curses really do, and shows an omen, a curse or a blessing in force; the god's page leads with it and says exactly what would turn an omen ("Lift her 3 or more, back to displeased (−30)…").
+
+### What to try
+1. #omen — Athena is angry and Medusa is due in 25 days. Olympus is open on her page: read why, then press **Send an offering** and play on until it arrives. She should be appeased. Close Olympus to see the storm over the town; open the overview's Gods page (O).
+2. #omen again, and don't send it: play on at full speed and watch Medusa come.
+3. #blessing — Demeter is warm and her sanctuary stands beside #town's fields, its panel open. Press **Ask Demeter's blessing** and watch her come and walk the fields.
+4. #wrath — Poseidon stands over the harbour in wrath, four days before his earthquake. Play it at normal speed and watch the trading post fall.
+
+### What I'd like your eye on
+- **Does the warning read?** Is a month the right lead, and do the alarm, the red card, the Gods tab and the storm cloud tell you enough to act without opening anything?
+- **The storm cloud and the god in wrath.** The cloud is low-poly dark puffs; the god is their own figure darkened with a thin red rim, embers and lightning. Do they look threatening, or just odd?
+- **How hard the curses hit.** The earthquake in `#wrath` brings down the trading post and its storehouse and breaks eight stretches of road; lightning fires four buildings; blight cuts the farms to a quarter for a season. Too gentle, or too much?
+- **How generous the blessings are.** Doubling a trade for a season is a lot, and Zeus's gift is 2,000 dr.
+
+### Known rough edges
+- Some blessings and curses are smaller than planned: Ares' blessing gives armour and heals but doesn't fill companies; Hermes' doesn't quicken caravans and porters; Poseidon's fair seas don't speed your own triremes; there is no shipwreck curse for Poseidon and no lost caravan for Hermes.
+- A monster's omen points at its far-off lair, but its storm gathers over the town's middle so you see it; the ring on the ground is drawn only for curses that strike a place in the city.
+- The cloud's puffs are lit like any mesh, so in bright summer light it reads greyer than in winter.
+- Brawls (one of Ares' curses) need a barracks: a city without one gets the Chimera.
+
+### Measurements
+Built at `4f62b45` and at this slice's end, each measured with the same loosened, shortened `measure.mjs` on this machine: headless, software WebGL, a shared machine with other lines building beside it, so every time below is several times what your laptop will see, and they move by seconds from run to run.
+
+| What | Before (`4f62b45`) | After |
+|---|---|---|
+| Tests | 857: 853 pass, 4 fail on time under the load (40 min 47 s) | 893 before the second merge: 890 pass (24 min 46 s); of the three that failed, two were mine and are fixed (a slice 56 test that now needs wrath off, my own old-save test's expectation), and the wages test passes alone (17 of 17, 9 min). After merging slice 59: the 9 files that touch it, 121 of 121 |
+| Build | 21 min 7 s with every demo baked | 7 to 8.5 min with every demo baked (a lighter load) |
+| The game itself | 1,069 KB gzipped | 1,085 KB gzipped |
+| Prepared towns | 135 files, 4,906 KB gzipped (largest 82 KB) | 138 files, 5,022 KB gzipped (largest 82 KB) |
+| The bare link, ready (page's clock) | 6.8 s, first frame 9.8 s | 3.3 s, first frame 4.8 s (a lighter load, not this slice) |
+| `#town` | 1,488,490 triangles, 102 draws; a save of 194,806 characters | identical triangles and draws; 194,883 characters (+77, the empty record of wrath) |
+| A frame's work before drawing | `#town` 30.6 ms, `#gods` 110.2 ms | `#town` 70.5 ms, `#gods` 47.9 ms, `#omen` 70.8 ms, `#wrath` 32.3 ms: one to four frames each under software rendering, so these say nothing about your laptop |
+| Focused smoke | | ok: the three new demos, slices 52, 53, 54, 55, 56 and 59's blocks, and #town, #richtown, #food, #festival and #plague opened |
+
 ## Slice 59 — Heroes answer (1 Nov)
 
 The seven heroes can come to your city now: raise a hero's hall, meet what they ask, and they come by sea or by road to live in it, walk your streets, and slay the monster you send them against, in a long fight before its lair that they always win. You weren't here while it was built: every choice below is mine, from the spec's defaults.
