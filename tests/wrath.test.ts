@@ -165,7 +165,7 @@ describe('determinism and saves', () => {
     expect(run()).toEqual(run());
   });
 
-  it('a version 52 state gets its record of wrath, on with the gods', () => {
+  it('a state from before slice 57 gets its record of wrath, on with the gods', () => {
     const sim = rich();
     const st = JSON.parse(JSON.stringify(sim.state));
     delete st.gods.wrath;

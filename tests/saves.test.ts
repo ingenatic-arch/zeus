@@ -210,10 +210,12 @@ describe('saves from before', () => {
     // (Phase 7 at the merge of slices 55 and 56: 194,557. Each adds only its own empty record: the monsters' ("legends",
     //  58 characters) and the gods in the city ("walks", 67). The budget goes up by those 125.)
     // (Slice 53 at its merge: the gods' record of worship, festivals and moods by month, empty until the gods watch: 85 more,
-    //  194,642. The budget goes up by those 85.)
-    // (Slice 57: the gods' record of wrath and blessings, empty and switched off in #town: 77 more, 194,719. The budget
-    //  goes up by those 77.)
-    expect(text.length).toBeLessThan(194_787);
+    //  194,642.)
+    // (Slice 59 at its merge: the heroes' list and the fete, empty in #town's "legends": 24 more, 194,666. The budget goes
+    //  up by those 24.)
+    // (Slice 57: the gods' record of wrath and blessings, empty and switched off in #town: 77 more. The budget goes up by
+    //  those 77.)
+    expect(text.length).toBeLessThan(194_811);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

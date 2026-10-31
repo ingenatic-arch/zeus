@@ -15,6 +15,8 @@ import type { Building, Family, Kin, Person, Service, SimState, Story } from './
 import { gamesMood } from './monuments';
 // Slice 39.
 import { prideMood } from './laurels';
+// Slice 59.
+import { heroMoods } from './heroes';
 // Slice 36: the estates' own needs.
 import { ESTATE, GREAT_ESTATE } from './buildings';
 import { estateStocked } from './estates';
@@ -437,6 +439,8 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   // Slice 53: a festival's procession passed their door this season.
   const fest = festiveMood(s, b.id);
   if (fest) add(fest.w, fest.text);
+  // Slice 59: a monster slain (the fête), and a hero living near.
+  for (const m of heroMoods(s, b)) add(m.w, m.text);
   // Slice 57: Aphrodite's blessing or her curse, this season.
   const love = godMood(s);
   if (love) add(love.w, love.text);

@@ -208,6 +208,12 @@ export const VIEWS: Record<string, CameraView> = {
   monster: { x: 63, z: 66, yaw: -0.785, dist: 24, tilt: -0.05 },
   // #monsterraid: the Boar at the sheep pasture west of the town, the hoplites coming along the road from the barracks.
   monsterraid: { x: 54, z: 44, yaw: -0.785, dist: 18, tilt: -0.05 },
+  // Slice 59, #hero: Perseus' hall in #richtown, west of the core's agora.
+  hero: { x: 60, z: 39, yaw: -0.785, dist: 13, tilt: -0.05 },
+  // #slay: the Minotaur's cave on #order's west shore and Theseus walking to it from his hall, side on, the cave's mouth
+  // (where they fight) towards the town. (The review: drawn back a little and the fight brought down the screen, clear of the
+  // town's lines at the top, with Theseus still in view as it opens.)
+  slay: { x: 25.8, z: 137.43, yaw: 0.785, dist: 15, tilt: -0.05 },
   // #bestiary: the seven before their lairs in a row on the open ground below #town, facing the camera.
   bestiary: { x: 75.5, z: 58.5, yaw: -0.785, dist: 27, tilt: -0.05 },
   // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.
@@ -221,7 +227,7 @@ export const VIEWS: Record<string, CameraView> = {
   twelve: { x: 86.5, z: 50.5, yaw: -0.3, dist: 36, tilt: -0.05 },
   // Slice 53, #procession: the core's agora and Demeter's shrine beside it, the procession rounding the agora, right of the shrine's panel.
   procession: { x: 66, z: 41, yaw: -0.3, dist: 22, tilt: -0.05 },
-  // Slice 57, #omen: #richtown from over its south side, the storm gathering over Medusa's cave (tuned by eye); #blessing: #town's
+  // Slice 57, #omen: #richtown from over its south side, the storm gathering over the town (tuned by eye); #blessing: #town's
   // fields and Demeter's sanctuary beside them; #wrath: the shore below the trading post, Poseidon standing over the harbour.
   omen: { x: 68, z: 40, yaw: -0.3, dist: 44, tilt: -0.12 },
   blessing: { x: 48, z: 42, yaw: 2.356, dist: 26, tilt: -0.08 },

@@ -67,6 +67,8 @@ const PLURAL: Record<BuildingKind, string> = {
   asklepieion: 'asklepieia',
   // Slice 54.
   sanctuary: 'sanctuaries',
+  // Slice 59.
+  herohall: 'heroes’ halls',
 };
 
 const count = (n: number, one: string, many: string): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;

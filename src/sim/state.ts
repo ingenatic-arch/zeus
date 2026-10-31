@@ -21,6 +21,8 @@ import type { Annals } from './annals';
 import type { Health } from './health';
 // Phase 7 groundwork: the twelve gods and their moods (pantheon.ts).
 import type { GodId, Gods } from './pantheon';
+// Slice 59: a hero's hall (heroes.ts).
+import type { HeroId } from './pantheon';
 // Slice 55: the monsters on your land (monsters.ts).
 import type { Legends } from './monsters';
 
@@ -34,8 +36,9 @@ import type { Legends } from './monsters';
 // (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
 // (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
 // (Slice 53: the twelve and their tempers, 49 on its line, renumbered 52 at its merge.)
-// (Slice 57: blessings and wrath, 53 on its line.)
-export const SIM_STATE_VERSION = 53;
+// (Slice 59: heroes answer, 50 on its line, 52 when it last met the trunk, renumbered 53 at its merge.)
+// (Slice 57: blessings and wrath, 53 on its line, 54 after meeting the trunk with slice 59.)
+export const SIM_STATE_VERSION = 54;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -88,9 +91,11 @@ export type BuildingKind =
   | 'infirmary'
   | 'asklepieion'
   // Slice 54: a great sanctuary to one of the twelve (sanctuaries.ts).
-  | 'sanctuary';
+  | 'sanctuary'
+  // Slice 59: a hero's hall (heroes.ts), with its hero.
+  | 'herohall';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary', 'herohall'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -219,6 +224,9 @@ export interface Building {
   // Phase 7 groundwork (pantheon.ts).
   /** A shrine: the god it is dedicated to (absent: "to all the gods", honouring none of them; and for everything else). */
   god?: GodId;
+  // Slice 59 (heroes.ts).
+  /** A hero's hall: whose it is (absent for everything else). */
+  hero?: HeroId;
 }
 
 /** Slice 36: what a home can need: a service walked round the streets, or what an estate's porter fetches (estates.ts). */
@@ -415,7 +423,9 @@ export type LedgerKind = 'taxes' | 'sales' | 'refund' | 'wages' | 'building' | '
   // Slice 47: your share of your colonies' and free allies' trade.
   | 'colonytrade'
   // Slice 53: festivals to the gods (worship.ts).
-  | 'worship';
+  | 'worship'
+  // Slice 59: visitors' coin at the places of legend (heroes.ts).
+  | 'legends';
 
 /**
  * A line of the ledger: every payment of one kind and about one thing (taxes

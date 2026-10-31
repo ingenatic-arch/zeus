@@ -60,6 +60,10 @@ import { GODS } from '../sim/pantheon';
 // Slice 53: the shrine's god.
 import { SHRINE_QUIET, shrineAct, shrineSections } from './olympus';
 import { sanctuaryAct } from './olympus';
+// Slice 59: a hero's hall (its hero, demands, wish, monsters to send them against).
+import { hallSections } from './heroes';
+import { hallName } from '../sim/heroes';
+import type { HeroId } from '../sim/pantheon';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -104,6 +108,9 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   // Slice 53: the shrine (its god, or the twelve to choose from; the god's mood; a festival and an offering), src/ui/olympus.ts.
   shrine: { more: shrineSections, quiet: SHRINE_QUIET, act: shrineAct },
 };
+
+// Slice 59: a hero's hall: no Pause or Workers (nobody works there), its hero's sections (which say all its tip does).
+PANELS.herohall = { noOrders: true, more: hallSections, quiet: /./ };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
 export const ownPanel = (kind: BuildingKind): boolean => !!PANELS[kind]?.own;
@@ -151,6 +158,8 @@ export function nameOf(b: Building): string {
   if (b.kind === 'home') return HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)].replace(/^(A|An) /, '').replace(/^./, (c) => c.toUpperCase());
   // Slice 54: whose sanctuary it is.
   if (b.kind === 'sanctuary' && b.god) return `Sanctuary to ${GODS[b.god].name}`;
+  // Slice 59: whose hall it is (the review).
+  if (b.kind === 'herohall' && b.hero) return hallName(b.hero);
   return cap((BUILDING_NAMES[b.kind] ?? b.kind).replace(/^(A|An|The) /, ''));
 }
 
@@ -481,6 +490,8 @@ export class BuildingPanel {
       if (c === null) return;
       if (c !== 'redraw') this.deps.send(c);
     }
+    // Slice 59: a hero's order from their hall's panel (send against a monster, ride, sail).
+    else if (act === 'hero' && b.hero) this.deps.send({ type: 'hero', hero: (t.dataset.hero as HeroId) || b.hero, act: t.dataset.do as 'slay' | 'ride' | 'sail', monster: Number(t.dataset.monster) || undefined, on: t.dataset.on === '1' });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

@@ -13,7 +13,7 @@ import { LAND_KINDS, LAND_SIZES, seedOf } from '../src/map/lands';
 import { Ground, mapIndex } from '../src/sim/build';
 import { around, findBuilding } from '../src/sim/buildings';
 import { TICKS_PER_DAY } from '../src/sim/clock';
-import { BREAK_AT, HEAL, LAIR_ROOM, lairFor, lairSpot, monsterAt, MAKES, sendMonster, slayMonster, STIR, type Beast } from '../src/sim/monsters';
+import { BREAK_AT, HEAL, LAIR_ROOM, lairFor, lairSpot, monsterAt, MAKES, sendMonster, slayMonster, STIR_WARN, type Beast } from '../src/sim/monsters';
 import { honour, MONSTER_IDS, MONSTERS } from '../src/sim/pantheon';
 import { bandsAt } from '../src/sim/raids';
 import { Sim } from '../src/sim/sim';
@@ -81,7 +81,7 @@ describe('lairs', () => {
 });
 
 describe('a monster sent', () => {
-  it('is seen first (neither it nor its god named), settles in days later named with its god and why, and each raid is announced a day before', () => {
+  it('is seen first (neither it nor its god named), settles in days later named with its god and why, and each raid is announced three days before (slice 59)', () => {
     const sim = demoSim('town');
     const s = sim.state;
     const t0 = s.tick;
@@ -101,8 +101,9 @@ describe('a monster sent', () => {
     expect(until(sim, () => m.state === 'raiding', 60 * TICKS_PER_DAY)).toBe(true);
     const stir = s.messages.log.find((x) => x.of === 'stirring')!;
     const out = s.messages.log.find((x) => x.of === 'raid')!;
-    expect(out.tick - stir.tick).toBeGreaterThanOrEqual(STIR);
+    expect(out.tick - stir.tick).toBeGreaterThanOrEqual(STIR_WARN);
     expect(stir.words).toMatch(/the Boar is stirring/i);
+    expect(stir.words).toMatch(/in three days/);
   });
 
   it('raids: walkers near it run indoors, it reaches its target, wrecks it, and goes home to its lair', () => {
@@ -219,6 +220,43 @@ describe('against archers (the review)', () => {
   });
 });
 
+describe('against a tower (slice 59)', () => {
+  it('stung by a tower’s arrows before its lair, it comes out for that tower and wrecks it', () => {
+    const sim = demoSim('town');
+    const s = sim.state;
+    const n = sim.map.size;
+    const m = sendMonster(s, 'boar', 'a test')!;
+    expect(until(sim, () => m.state === 'lair', 60 * TICKS_PER_DAY)).toBe(true);
+    m.next = s.tick + 20 * TICKS_PER_DAY;
+    // A manned tower standing a few tiles from its marsh (staged: on open ground, as if on a wall's line).
+    const spot = lairSpot(s, m);
+    let at = -1;
+    for (let r = 4; r <= 8 && at < 0; r++)
+      for (let a = 0; a < 16 && at < 0; a++) {
+        const x = Math.floor(spot.x + Math.cos((a / 16) * Math.PI * 2) * r);
+        const z = Math.floor(spot.z + Math.sin((a / 16) * Math.PI * 2) * r);
+        const tiles = [z * n + x, z * n + x + 1, (z + 1) * n + x, (z + 1) * n + x + 1];
+        if (tiles.every((u) => walkable(sim.map, s, u))) at = z * n + x;
+      }
+    expect(at).toBeGreaterThan(0);
+    const proto = s.buildings.find((b) => b.kind === 'watchpost')!;
+    const id = Math.max(...s.buildings.map((b) => b.id)) + 1;
+    const tower = { ...JSON.parse(JSON.stringify(proto)), id, kind: 'tower', x: at % n, z: Math.floor(at / n), workers: 4, owed: 0 };
+    s.buildings.push(tower);
+    for (const u of [at, at + 1, at + n, at + n + 1]) s.tiles[u] = id;
+    // (Kept manned: off the roads, the labour office would take its archers away.)
+    const manned = (): boolean => {
+      const b = findBuilding(s, id);
+      if (b && b.kind === 'tower') b.workers = 4;
+      return m.state === 'raiding';
+    };
+    expect(until(sim, manned, 10 * TICKS_PER_DAY)).toBe(true);
+    expect(m.target).toBe(id);
+    expect(s.messages.log.some((x) => x.of === 'raid' && /Stung by your tower’s arrows/.test(x.words))).toBe(true);
+    expect(until(sim, () => !findBuilding(s, id) || findBuilding(s, id)!.kind !== 'tower', 20 * TICKS_PER_DAY)).toBe(true);
+  });
+});
+
 describe('the end of a monster', () => {
   it('its god warm to the city again calls it home: it walks off the land', () => {
     const sim = demoSim('town');
@@ -286,7 +324,7 @@ describe('saves', () => {
     const got = decodeSave(JSON.stringify(old));
     if (!got.ok) throw new Error(got.why);
     expect(got.file.state.version).toBe(SIM_STATE_VERSION);
-    expect(got.file.state.legends).toEqual({ monsters: [], next: 1, stones: [], slain: [] });
+    expect(got.file.state.legends).toEqual({ monsters: [], next: 1, stones: [], slain: [], heroes: [], fete: null });
     const sim = new Sim();
     sim.state = got.file.state;
     sim.run(TICKS_PER_DAY);

@@ -9,6 +9,8 @@
  */
 // Slice 54.
 import type { GodId } from './pantheon';
+// Slice 59.
+import type { HeroId } from './pantheon';
 
 export type Command =
   /** Lay road on these tiles (tile indices), in order; a run of wet tiles is a bridge, laid whole or not at all. */
@@ -112,6 +114,11 @@ export type Command =
   | { type: 'festival'; id: number }
   /** Send an offering of its god's sacred good to a shrine (its id), carried from the stores. */
   | { type: 'offer'; id: number }
+  // Slice 59
+  /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
+  | { type: 'herohall'; hero: HeroId; at: number[] }
+  /** A hero's order (heroes.ts): sent against a monster (`monster`: its id), to ride with the next expedition or not (`on`), or let sail for a season (Odysseus's wish). */
+  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail'; monster?: number; on?: boolean }
   // Slice 57 (blessings.ts, wrath.ts; an act refused does nothing)
   /** Ask a god's blessing at their finished sanctuary (its id): once a year, when they are warm or better. */
   | { type: 'bless'; id: number }

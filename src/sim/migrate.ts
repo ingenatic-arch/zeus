@@ -226,6 +226,10 @@
  * switch is on if the gods are watching (a game under way), so an angry god
  * may begin to warn of a curse. Nothing in the city changes.
  *
+ * Slice 59 (Heroes answer): the record of monsters gains the heroes (none:
+ * no hall raised) and the fête (none), and each monster on the land is held
+ * by no hero and stung by no tower. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -346,7 +350,8 @@ export function migrate(st: unknown): number {
   if (st.version === 49) fromSlice56(st);
   if (st.version === 50) fromSlice54(st);
   if (st.version === 51) fromSlice53(st);
-  if (st.version === 52) fromSlice57(st);
+  if (st.version === 52) fromSlice59(st);
+  if (st.version === 53) fromSlice57(st);
   return from;
 }
 
@@ -1273,6 +1278,28 @@ function fromSlice53(st: Record<string, unknown>): void {
     if (!isObj(g.months)) g.months = {};
     if (typeof g.month !== 'number') g.month = -1;
     if (!isObj(g.festive)) g.festive = {};
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 59 (Heroes answer): see the note above. Only its own fields, only if
+ * they are missing: the heroes and the fête in `legends`, and each monster's
+ * `held` and `tower`.
+ */
+function fromSlice59(st: Record<string, unknown>): void {
+  if (isObj(st.legends)) {
+    const l = st.legends as Record<string, unknown>;
+    if (!Array.isArray(l.heroes)) l.heroes = [];
+    if (!('fete' in l)) l.fete = null;
+    if (Array.isArray(l.monsters)) {
+      for (const m of l.monsters as unknown[]) {
+        if (!isObj(m)) continue;
+        const b = m as Record<string, unknown>;
+        if (b.held === undefined) b.held = 0;
+        if (b.tower === undefined) b.tower = 0;
+      }
+    }
   }
   st.version = (st.version as number) + 1;
 }
