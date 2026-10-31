@@ -80,6 +80,8 @@ export const KINDS = {
   gods: { cat: 'city', name: 'The gods' },
   // Slice 59: a hero's word sent, their coming, their deeds, their wishes and their leaving.
   hero: { cat: 'city', name: 'Heroes', pop: true },
+  // Slice 60: a god marching with a rival's band, a god called to fight for you, two gods fighting, a band broken by a god (an alarm may pop up).
+  godwar: { cat: 'war', name: 'Gods in war', pop: true },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

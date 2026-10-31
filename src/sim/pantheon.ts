@@ -48,6 +48,8 @@ import { memoryWorth } from './memory';
 import type { Building, Memory, SimState } from './state';
 // Slice 56: the gods in the city (epiphany.ts; types only, so the load order is unchanged).
 import type { Blessing, Walks } from './epiphany';
+// Slice 60: gods in war (godwar.ts; types only).
+import type { Wars } from './godwar';
 
 // ---------------------------------------------------------------------------
 // The twelve.
@@ -347,6 +349,8 @@ export interface Gods {
   month: number;
   /** Homes a procession passed (by building id): [the tick, the god's index in GOD_IDS], glad for a season. */
   festive: Record<string, [number, number]>;
+  // Slice 60 (Gods in war): the rivals' patron gods marching with their bands, the gods you called, a duel, the blows struck (godwar.ts).
+  war: Wars;
 }
 
 /** Slice 53: a festival at home (worship.ts): announced a month ahead, then its procession walks. */
@@ -368,7 +372,8 @@ export function freshGods(on = false, noticedAt = -1): Gods {
   const memories = {} as Record<GodId, Memory[]>;
   for (const g of GOD_IDS) memories[g] = [];
   // (Slice 56: and nobody walking in the city. Slice 53: worship's record, empty.)
-  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {} };
+  // (Slice 60: and no god at war.)
+  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {}, war: freshWars() };
 }
 
 /** How many people a city needs before the gods notice it. */
@@ -623,4 +628,28 @@ export function festiveMood(s: SimState, homeId: number): { w: number; text: str
   if (!f || s.tick - f[0] >= FESTIVE_LASTS) return null;
   const g = GOD_IDS[f[1]];
   return g ? { w: FESTIVE_MOOD, text: `The procession for ${GODS[g].name} passed their door` } : null;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 60 (Gods in war): gods fighting in your streets live in `gods.war`
+// (godwar.ts moves them). What battle.ts and fleet.ts read of it is here, so
+// they import only this module, which imports only leaves.
+
+/** A fresh record of gods in war: none marching, none called, no duel, no blows. */
+export const freshWars = (): Wars => ({ marches: [], champions: [], duel: null, called: {}, strikes: [], next: 1 });
+
+/** The god whose blow struck one of your soldiers this tick ("Ares"), or '' (battle.ts: who he fell to). */
+export function godBlowOn(s: SimState, man: number): string {
+  const list = s.gods?.war?.strikes;
+  if (!list || list.length === 0) return '';
+  for (let i = list.length - 1; i >= 0 && list[i].t === s.tick; i--) if (list[i].men.includes(man)) return GODS[list[i].god].name;
+  return '';
+}
+
+/** The god who struck a ship of a band (fleet.ts: who sank her), or null. */
+export function godSank(s: SimState, ship: number): GodId | null {
+  const list = s.gods?.war?.strikes;
+  if (!list || list.length === 0) return null;
+  for (let i = list.length - 1; i >= 0; i--) if (list[i].ship === ship) return list[i].god;
+  return null;
 }

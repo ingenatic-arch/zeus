@@ -484,6 +484,8 @@ export class BuildingPanel {
     else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
     // (Slice 49: the quarantine, ordered or lifted from the infirmary's or the asklepieion's panel.)
     else if (act === 'quarantine') this.deps.send({ type: 'quarantine', on: t.dataset.on === '1' });
+    // (Slice 60: a sanctuary's god called to war; before the kinds' own buttons, which would refuse it.)
+    else if (act === 'callgod') this.deps.send({ type: 'callgod', god: t.dataset.god ?? '' });
     // (Slice 53: a building's own sections' buttons, the shrine's.)
     else if (act && PANELS[b.kind]?.act) {
       const c = PANELS[b.kind]!.act!(act, t, b);

@@ -226,6 +226,10 @@
  * no hall raised) and the fête (none), and each monster on the land is held
  * by no hero and stung by no tower. Nothing in the city changes.
  *
+ * Slice 60 (Gods in war): no god marches with a band, none has been called
+ * to fight, no two gods fight and no blow has been struck (`gods.war`).
+ * Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -274,6 +278,8 @@ import { freshGods, NOTICE_PEOPLE } from './pantheon';
 import { freshLegends } from './monsters';
 // Slice 56.
 import { freshWalks } from './pantheon';
+// Slice 60.
+import { freshWars } from './pantheon';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -345,6 +351,7 @@ export function migrate(st: unknown): number {
   if (st.version === 50) fromSlice54(st);
   if (st.version === 51) fromSlice53(st);
   if (st.version === 52) fromSlice59(st);
+  if (st.version === 53) fromSlice60(st);
   return from;
 }
 
@@ -1294,5 +1301,15 @@ function fromSlice59(st: Record<string, unknown>): void {
       }
     }
   }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 60 (Gods in war): see the note above. Only its own field, only if it
+ * is missing: `gods.war`, no god at war. (A `gods` that is missing is left
+ * for the save checks to refuse.)
+ */
+function fromSlice60(st: Record<string, unknown>): void {
+  if (isObj(st.gods) && !isObj(st.gods.war)) st.gods.war = freshWars();
   st.version = (st.version as number) + 1;
 }

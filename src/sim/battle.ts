@@ -55,6 +55,8 @@ import type { Company, Foe, Raid, SimState, Soldier, Walker } from './state';
 import { income } from './treasury';
 // Slice 55: monsters in the battle (a foe whose `raid` is minus the monster's id): its own blows, its bulk, its name.
 import { bulkOfFoe, foeName, monsterFight } from './monsters';
+// Slice 60: a soldier struck down by a god marching with a band (godwar.ts).
+import { godBlowOn } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -677,8 +679,10 @@ function fallMan(s: SimState, x: Soldier, c: Company | undefined, bands: Map<num
   // (Slice 55: or a monster's blow that caught him beside the man it struck at.)
   const by = s.army.foes.find((f) => f.foe === x.id && up(f)) ?? s.army.foes.find((f) => f.raid < 0 && dhypot(f.x - x.x, f.z - x.z) <= REACH + bulkOfFoe(s, f.raid) + 0.2);
   // (Slice 55: struck down by a monster.)
-  const beast = by && by.raid < 0 ? foeName(s, by.raid) : '';
-  const r = beast ? undefined : ((by ? bands.get(by.raid)?.r : undefined) ?? [...bands.values()][0]?.r);
+  // (Slice 60: or a god marching with the band, whose blow struck him this tick.)
+  const deity = godBlowOn(s, x.id);
+  const beast = deity || (by && by.raid < 0 ? foeName(s, by.raid) : '');
+  const r = beast && !deity ? undefined : ((by && by.raid > 0 ? bands.get(by.raid)?.r : undefined) ?? [...bands.values()][0]?.r);
   for (const f of s.army.foes) if (f.foe === x.id) {
     f.foe = 0;
     f.state = 'with';
@@ -700,6 +704,18 @@ function fallMan(s: SimState, x: Soldier, c: Company | undefined, bands: Map<num
   if (beast) mournMan(s, x, c, beast);
   else mourn(s, x, c, r);
   s.rev++;
+}
+
+/** Slice 60: a band broken by a god (godwar.ts), as one that has lost half its men breaks: its men stand to fight no more, and it runs for its edge (`why` for the news). */
+export function breakNow(s: SimState, map: CoastMap, r: Raid, why: string): void {
+  const w = raidersOf(s, r);
+  if (!w || r.broke) return;
+  for (const f of s.army.foes) if (f.raid === r.id && up(f)) {
+    f.state = 'with';
+    f.foe = 0;
+  }
+  breakBand(s, map, r, why);
+  battleNews(map, r, w);
 }
 
 /** A man killed: his house mourns him (its story, its mood, one fewer living there), and the town hears. */

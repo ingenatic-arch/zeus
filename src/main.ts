@@ -136,6 +136,7 @@ import type { MonsterId } from './sim/pantheon';
 import { GodsView, godTriangles } from './render/gods';
 import { GodPanel } from './ui/godpanel';
 import { blessingWords, figureOf, godStatus } from './sim/epiphany';
+import { warStatus } from './sim/godwar'; // Slice 60
 import { GODS } from './sim/pantheon';
 // Slice 59: the heroes, drawn; the hall chooser; their tips.
 import { HeroesView } from './render/heroes';
@@ -388,6 +389,8 @@ interface Probe {
   // Slice 56
   /** The gods in the city: each figure (its god, state, where, what it has blessed), what is drawn, the god's panel's text, the stings played, each figure's triangles. */
   gods?: () => { figures: Array<{ id: number; god: string; state: string; x: number; z: number; blessed: number[]; stops: number }>; blessed: Array<{ id: number; god: string; until: number }>; drawn: { gods: number; particles: number; steps: number; shimmer: number; birds: number }; panel: string; stings: number; triangles: Record<string, number> };
+  /** Slice 60: the gods in war (src/sim/godwar.ts), and the blows drawn. */
+  godwar?: () => { marches: Array<{ raid: number; god: string; figure: number; felled: number; fires: number }>; champions: Array<{ figure: number; god: string; felled: number; ships: number; nerve: number }>; duel: { a: number; b: number; since: number; ends: number } | null; strikes: number; called: Record<string, number>; figures: Array<{ id: number; god: string; why: string; state: string; x: number; z: number }>; blows: number; drawn: number };
   /** Where a god in the city is on the screen (their middle), if drawn. */
   visit?: (god: string, why?: string) => void;
   godAt?: (god: string) => { x: number; y: number } | null;
@@ -1270,7 +1273,7 @@ function start(preparedTown: string | null): void {
     const godId = godUnder(sx, sy);
     const god = godId ? figureOf(sim.state, godId) : undefined;
     if (god) {
-      const gs = godStatus(sim.state, god);
+      const gs = warStatus(sim.state, god) ?? godStatus(sim.state, god); // Slice 60: a god at war says whom they fight and why
       if (godPanel.id !== god.id) gs.detail = `${gs.detail}\nClick for more`;
       return showStatus(gs, sx, sy);
     }
@@ -2066,6 +2069,20 @@ function start(preparedTown: string | null): void {
     const v = new THREE.Vector3(a.x, a.y + a.h * 0.5, a.z).project(camera);
     const r = canvas.getBoundingClientRect();
     return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
+  // Slice 60: the gods in war: the marches, champions, duel and blows; who is drawn; how many blows were drawn.
+  probe.godwar = () => {
+    const w = sim.state.gods.war;
+    return {
+      marches: w.marches.map((m) => ({ ...m })),
+      champions: w.champions.map((c) => ({ ...c })),
+      duel: w.duel ? { ...w.duel } : null,
+      strikes: w.strikes.length,
+      called: { ...w.called },
+      figures: sim.state.gods.walks.figures.map((f) => ({ id: f.id, god: f.god, why: f.why, state: f.state, x: f.x, z: f.z })),
+      blows: godsView.blowsDrawn,
+      drawn: godsView.drawn.gods,
+    };
   };
   probe.building = (id) => {
     if (id !== undefined) buildingPanel.show(id);

@@ -44,6 +44,8 @@ import { siteLaneId, siteOf } from '../map/greece';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, whoseName, yourPrice, type MoodWord } from '../sim/world';
 // Slice 58: the gods of Greece (patrons' marks, a city's god on its page, Olympus).
 import { olympusCardHtml, olympusPageHtml, patronHoverLine, patronKicker, patronMark, patronSection } from './greecegods';
+// Slice 60.
+import { marchWords } from '../sim/godwar';
 
 /** (Slice 37) What a page on the map is of: a city, or a site ('site:thasos'). */
 export type PageId = CityId | `site:${string}` | 'olympus';
@@ -203,7 +205,7 @@ function travellerHtml(s: SimState, key: string): string {
   // (Slice 58: Mount Olympus.)
   if (key === 'olympus') return olympusCardHtml(s);
   if (key.startsWith('gift-')) return giftCard(s, Number(key.slice(5)));
-  if (key.startsWith('raid-')) return bandCard(s, Number(key.slice(5).replace('-camp', '')));
+  if (key.startsWith('raid-')) return bandCard(s, Number(key.slice(5).replace(/-(camp|god)$/, ''))); // (Slice 60: or its god)
   // An army or fleet ('war-3-sparta'), the crossed swords where they meet ('war-3'), a city's fields ('fields-sparta').
   if (key.startsWith('war-')) {
     const [, n, city] = key.split('-');
@@ -313,8 +315,11 @@ function bandCard(s: SimState, id: number): string {
             ? `Called off: going home to ${name}`
             : `Going home to ${name}${r.took ? ` with ${fmt(r.took)} ${WARE_NAMES[r.ware]}` : ''}`;
   const pay = live(r) ? `Pay ${fmt(r.coin)} dr on ${whose} page to turn them back` : `Click for ${name}’s page`;
-  if (r.loan) return `<b>${esc(`${whose} army · ${r.men} men`)}</b><span>${esc(line.replace(/to (march|sail) on your city/, 'to collect what you owe').replace('on your city:', 'on your city, to collect what you owe:'))}</span><span class="sub">${esc(pay)}</span>`;
-  return `<b>${esc(`${whose} raiders · ${r.men} men`)}</b><span>${esc(line)}</span><span class="sub">${esc(pay)}</span>`;
+  // Slice 60: the god marching with them, said first after who they are.
+  const god = marchWords(s, r);
+  const godLine = god ? `<span style="color:var(--terracotta-deep)">${esc(god.line)}</span>` : '';
+  if (r.loan) return `<b>${esc(`${whose} army · ${r.men} men`)}</b>${godLine}<span>${esc(line.replace(/to (march|sail) on your city/, 'to collect what you owe').replace('on your city:', 'on your city, to collect what you owe:'))}</span><span class="sub">${esc(pay)}</span>`;
+  return `<b>${esc(`${whose} raiders · ${r.men} men`)}</b>${godLine}<span>${esc(line)}</span><span class="sub">${esc(pay)}</span>`;
 }
 
 /** The card over your expedition on the map (slice 28): who, how many, where and when; after the fight, how it went. */
@@ -370,7 +375,7 @@ export function cityOfTraveller(s: SimState, key: string): PageId | null {
     return t?.colony ? `site:${t.colony}` : (t?.city ?? null);
   }
   if (key.startsWith('aid-')) return s.empire.aid.find((x) => x.id === Number(key.slice(4)))?.city ?? null;
-  if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace('-camp', '')))?.city ?? null;
+  if (key.startsWith('raid-')) return s.world.raids.find((x) => x.id === Number(key.slice(5).replace(/-(camp|god)$/, '')))?.city ?? null; // (Slice 60: or its god)
   if (key.startsWith('fields-')) return key.slice(7) as CityId;
   if (key.startsWith('site-')) return s.world.sites.some((y) => y.id === key.slice(5)) ? `site:${key.slice(5)}` : null;
   if (key.startsWith('pirates-')) return s.fleet.pirates.find((x) => x.id === Number(key.slice(8)))?.city ?? null;

@@ -23,6 +23,8 @@ import { sacredWords } from './godchooser';
 // (Merge of slice 53: the twelve's emblems drawn once, in emblems.ts, the same on Olympus, here and on a god's panel.)
 import { emblemSvg as godEmblem, godColour as godColourCss } from './emblems';
 import { kbar, ksec } from './kit';
+// Slice 60.
+import { sanctuaryCall } from './godwarcard';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -125,6 +127,8 @@ export function sanctuarySections(s: SimState, _map: CoastMap, b: Building): str
     const reach = `Its priests walk up to ${PRIEST_RANGE} tiles of road from it, blessing every home they pass for four months (a shrine’s priestess goes ${PRIESTESS_RANGE}).`;
     out.push(ksec('Its priests', `${state}<p>${priests ? `${priests} out now. ` : staffed ? 'They set out soon. ' : ''}${esc(reach)}</p><p class="sn-staff">${Math.min(b.workers, jobsAt(b))} of ${jobsAt(b)} priests and temple servants.</p>`, { cls: 'sn' }));
   }
+  // Slice 60: while invaders are on your land, the god's call to war (or why they can't come).
+  if (x.finished) out.push(sanctuaryCall(s, god));
   // (The places later slices fill: empty, and not shown, until they do.)
   out.push(`<div class="sn-slot" data-slot="offerings">${SANCTUARY_SLOTS.offerings?.(s, b, god) ?? ''}</div>`);
   out.push(`<div class="sn-slot" data-slot="blessing">${SANCTUARY_SLOTS.blessing?.(s, b, god) ?? ''}</div>`);

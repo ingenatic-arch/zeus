@@ -3884,6 +3884,11 @@ const SCENES: Record<string, Demo> = {
   // Slice 58: the gods of Greece. #companies' town with its gods watching: a full force sent against Athens without cause, and
   // two gifts of coin reaching Corinth during the Isthmian Games; it opens on the map of Greece with the Olympus page open.
   greecegods: { view: 'town', setup: greeceGodsTown, overlay: 'missing', greece: 'olympus' },
+  // Slice 60: gods in war. #battle's town, the gods on, Ares (Sparta's patron) furious with it and Athena loving it (staged
+  // through the mood API), her sanctuary finished (slice 54's, its stages done at once): Sparta's band on the land with Ares towering among it, the Army tab open
+  // on the call; and the same played on after calling on Athena, the two gods fighting.
+  godwar: { view: 'godwar', speed: 'paused', setup: godWarTown, overlay: 'missing', side: { tab: 'army' }, unread: 3 * TICKS_PER_DAY },
+  godduel: { view: 'godduel', speed: 'paused', setup: godDuelTown, overlay: 'missing', unread: 3 * TICKS_PER_DAY },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -5022,4 +5027,60 @@ function greeceGodsTown(sim: Sim): void {
   const e = s.world.expeditions.find((x) => x.city === 'athens');
   const stop = s.tick + 6 * TICKS_PER_MONTH;
   while (e && s.tick < stop && e.phase !== 'back' && e.phase !== 'done') sim.run(10);
+}
+
+// Slice 60
+/** Why #godwar's Ares is furious with the town, and why Athena loves it (staged: slice 53 makes moods real). */
+export const GODWAR_ANGER = 'you paid tribute to Athens';
+export const GODWAR_LOVE = 'the city keeps her festivals';
+/** Where #godwar's companies are marched to meet the band: the west road by the bridge (hoplites), the archers behind them on the same road (review of slice 60: 44, 43 was a wheat farm, so the archers' order was refused and they stayed at their barracks). */
+const GODWAR_HOLD = { hoplite: { x: 41, z: 41 }, archer: { x: 45, z: 41 } };
+/** Where #godwar's sanctuary to Athena stands: beside the road north-east of the bridge, in sight of the fight. */
+const GODWAR_SANCTUARY = { x: 44, z: 36 };
+/** A finished sanctuary to a god (slice 54's), marked out and its three stages done at once (its coin given, and noted so). */
+function godWarSanctuary(sim: Sim, god: GodId): void {
+  const s = sim.state;
+  income(s, SANCTUARY_COST, 'gifts', 'set up for this demo: the sanctuary’s coin');
+  sim.enqueue({ type: 'sanctuary', god, at: [T(GODWAR_SANCTUARY.x, GODWAR_SANCTUARY.z)] });
+  sim.flush();
+  const site = sanctuaryOf(s, god);
+  const b = site ? s.buildings.find((x) => x.id === site.id) : undefined;
+  if (!site || !b) return;
+  // (No ox carts called for materials it won't need.)
+  b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3 && !site.finished; stage++) {
+    site.building = true;
+    site.work = workOf(stagesOf(site)[site.stage]);
+    sim.step();
+  }
+}
+/** #godwar: #battle's band on the land with Ares among it, Athena ready to be called. */
+function godWarTown(sim: Sim): void {
+  BATTLE(sim);
+  const s = sim.state;
+  gods(sim, true);
+  honour(s, 'ares', -75, 'staged', GODWAR_ANGER, 0);
+  honour(s, 'athena', 80, 'staged', GODWAR_LOVE, 0);
+  godWarSanctuary(sim, 'athena');
+  const until = s.tick + 3 * TICKS_PER_MONTH;
+  const risen = (): boolean => s.gods.war.marches.some((m) => m.figure > 0);
+  while (s.tick < until && !risen()) sim.step();
+  // Both companies marched to meet the band by the bridge, and played on until Ares has struck the first of them down.
+  for (const c of s.army.companies) {
+    const at = GODWAR_HOLD[c.kind === 'archer' ? 'archer' : 'hoplite'];
+    sim.enqueue({ type: 'banner', company: c.id, tile: T(at.x, at.z) });
+  }
+  sim.flush();
+  while (s.tick < until && !s.gods.war.marches.some((m) => m.felled > 0)) sim.step();
+}
+/** #godduel: #godwar played on after calling on Athena, until she and Ares have fought half a day. */
+function godDuelTown(sim: Sim): void {
+  godWarTown(sim);
+  const s = sim.state;
+  sim.enqueue({ type: 'callgod', god: 'athena' });
+  sim.flush();
+  const until = s.tick + 10 * TICKS_PER_DAY;
+  while (s.tick < until && !s.gods.war.duel) sim.step();
+  const d = s.gods.war.duel;
+  if (d) sim.run(Math.min(TICKS_PER_DAY / 2, Math.max(0, d.ends - s.tick - 2)));
 }

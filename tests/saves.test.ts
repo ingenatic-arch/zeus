@@ -213,7 +213,9 @@ describe('saves from before', () => {
     //  194,642.)
     // (Slice 59 at its merge: the heroes' list and the fete, empty in #town's "legends": 24 more, 194,666. The budget goes
     //  up by those 24.)
-    expect(text.length).toBeLessThan(194_734);
+    // (Slice 60 at its merge: its own empty record of the gods in war, "war" in #town's "gods": 82 more, 194,748, as on its
+    //  line. The budget goes up by those 82.)
+    expect(text.length).toBeLessThan(194_816);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

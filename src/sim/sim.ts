@@ -68,6 +68,8 @@ import { dedicate, holdFestival, moveOffering, moveProcession, sendOffering, ste
 import { hallRaised, hallRefusal, heroCommand, stepHeroes } from './heroes';
 // Slice 58: the gods of Greece.
 import { stepGreeceGods } from './greecegods';
+// Slice 60: gods in war.
+import { callGod, stepGodWar } from './godwar';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -315,6 +317,8 @@ export class Sim {
     stepMonsters(s, map, (b, how) => toRubble(s, map, b, how));
     // Slice 59: the heroes: awaited, coming, at home and in the streets, at a fight, away, leaving; the fête; the places of legend's visitors (nothing with no hall raised and no monster slain).
     stepHeroes(s, map);
+    // Slice 60: gods in war, before the battle (a raider a god strikes down falls this tick): a rival's patron joining its band, gods called, their blows, a duel (nothing with none and no threat).
+    stepGodWar(s, map);
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
@@ -414,6 +418,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
       break;
     case 'offer':
       sendOffering(s, map, Number(c.id));
+      break;
+    // Slice 60.
+    case 'callgod':
+      if (GOD_IDS.includes(c.god as GodId)) callGod(s, c.god as GodId);
       break;
     // Slice 33.
     case 'seasons':

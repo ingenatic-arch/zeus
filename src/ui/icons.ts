@@ -323,6 +323,8 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   gods: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.6 .8 3.2 8.8h3.8L5.2 15.2l7.4-9.2H8.6L11 .8z" fill="#f0cf5a" stroke="#7a5a10" stroke-width=".9" stroke-linejoin="round"/></svg>',
   // Slice 59
   hero: HERO_ICON,
+  // Slice 60: gods in war: a god's figure under a red halo, a spear crossing it.
+  godwar: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="7" cy="3.2" rx="3.4" ry="1.2" fill="none" stroke="#c83a2a" stroke-width="1.1"/><circle cx="7" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M4.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M14.4 1.6 9.4 15" stroke="#6e4e30" stroke-width="1.1" stroke-linecap="round"/><path d="m14.6 1 .2 2.6-1.8-.8z" fill="#b8823a" stroke="#6e4e30" stroke-width=".5"/></svg>',
 };
 
 // Slice 54: a sanctuary's news: a small temple, its pediment and columns in marble.

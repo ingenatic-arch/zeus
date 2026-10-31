@@ -118,7 +118,10 @@ export type Command =
   /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
   | { type: 'herohall'; hero: HeroId; at: number[] }
   /** A hero's order (heroes.ts): sent against a monster (`monster`: its id), to ride with the next expedition or not (`on`), or let sail for a season (Odysseus's wish). */
-  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail'; monster?: number; on?: boolean };
+  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail'; monster?: number; on?: boolean }
+  // Slice 60
+  /** Call a god who loves you to fight the invaders on your map (godwar.ts; refused, nothing happens, unless they love you, their sanctuary stands, invaders are on your land and they haven't fought for you within a year). */
+  | { type: 'callgod'; god: string };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';
