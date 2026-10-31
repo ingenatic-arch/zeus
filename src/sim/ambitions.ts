@@ -1,8 +1,8 @@
 /**
- * Ambitions (slice 39): what the city plays towards. Three ambitions run side
- * by side from the founding, and there is nothing to pick (Oliver's choice,
- * 21 Oct: "chase all three at once"): every town works toward all three, and
- * whatever you do counts toward one of them.
+ * Ambitions (slice 39): what the city plays towards. Four ambitions (three
+ * until slice 61) run side by side from the founding, and there is nothing to
+ * pick (Oliver's choice, 21 Oct: "chase all three at once"): every town works
+ * toward all of them, and whatever you do counts toward one of them.
  *
  * - **Master of Greece**: vassals and colonies, an army feared across
  *   Greece; its great monument is the Colossus.
@@ -10,6 +10,9 @@
  *   great monument is the Lighthouse.
  * - **A city of wonders**: monuments, grand estates and a great population;
  *   its great monument is the Stadium.
+ * - **Beloved of the gods** (slice 61): a shrine to every one of the twelve,
+ *   a first sanctuary, three gods loving at once, a monster slain by a hero;
+ *   its crown is six sanctuaries standing (sanctuaries aren't monuments).
  *
  * Each has five milestones, from easy to grand, and each one names exactly
  * what it wants and how far you are ("2 of 3: Corinth, Argos"). A milestone
@@ -20,7 +23,7 @@
  * often for a while), or renown (every ruler warmer for a year). The last of
  * each is its great monument standing. All five reached, the ambition is
  * achieved ("Achieved in year 9"), and the city is proud of it for a year;
- * all three achieved is the grand finish, with a word from every ruler. Play
+ * all four achieved is the grand finish, with a word from every ruler. Play
  * goes on after either.
  *
  * The milestones only read what the town already has: vassals (slice 34),
@@ -43,6 +46,11 @@ import { monumentName, monumentOf, progressOf, STAGE_COUNT, STAGES, type Monumen
 import type { SimState, WorldCity } from './state';
 import { cityOf, fadeFor, moodOf, rulerName, rulerShort } from './world';
 import { achieved, AMBITION_IN, AMBITIONS, laurelOf, MILESTONE_IDS, type AmbitionKind, type Laurel } from './laurels';
+// Slice 61: Beloved of the gods reads the gods' moods through the groundwork's API (pantheon.ts, a leaf), the sanctuaries
+// from the monuments' sites, and the monsters slain from the legends' record (no import of theirs, so no load order moves).
+import { findBuilding } from './buildings';
+import { GOD_IDS, GOD_MOODS, GODS, HEROES, HERO_IDS, MONSTERS, moodOfGod, type GodId } from './pantheon';
+import { say } from './messages';
 
 // ---------------------------------------------------------------------------
 // The record, when an ambition was achieved and the city's pride (laurels.ts, which imports nothing but the clock).
@@ -50,17 +58,18 @@ import { achieved, AMBITION_IN, AMBITIONS, laurelOf, MILESTONE_IDS, type Ambitio
 export { achieved, AMBITION_IN, AMBITIONS, freshAmbition, GRAND_MOOD, laurelOf, MILESTONE_IDS, PRIDE_FOR, PRIDE_MOOD, prideMood, type Ambition, type AmbitionKind, type Laurel } from './laurels';
 
 // ---------------------------------------------------------------------------
-// The three ambitions and their milestones.
+// The four ambitions and their milestones.
 
-export const AMBITION_NAMES: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'The great trading city', wonders: 'A city of wonders' };
+export const AMBITION_NAMES: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'The great trading city', wonders: 'A city of wonders', gods: 'Beloved of the gods' };
 /** What each is about, in a line. */
 export const AMBITION_WHAT: Record<AmbitionKind, string> = {
   greece: 'Vassals and colonies, and an army feared across Greece',
   trade: 'Routes, trade and the richest treasury in Greece',
   wonders: 'Monuments, grand estates and a great population',
+  gods: 'Shrines to all twelve, great sanctuaries, and gods who love you',
 };
-/** Each ambition's great monument, its last milestone. */
-export const GREAT_MONUMENT: Record<AmbitionKind, MonumentKind> = { greece: 'colossus', trade: 'lighthouse', wonders: 'stadium' };
+/** Each ambition's great monument, its last milestone (Beloved of the gods has none: its crown is its sixth sanctuary). */
+export const GREAT_MONUMENT: Partial<Record<AmbitionKind, MonumentKind>> = { greece: 'colossus', trade: 'lighthouse', wonders: 'stadium' };
 
 /** A milestone's reward: a gift of coin from the warmest ruler, settlers drawn by fame for some months, or every ruler warmer for a year. */
 export type Reward = { kind: 'gift'; dr: number } | { kind: 'fame'; months: number } | { kind: 'renown'; mood: number };
@@ -100,6 +109,9 @@ export const TOWN_PEOPLE = 300;
 export const VILLAS = 20;
 export const ESTATES = 2;
 export const GREAT_PEOPLE = 2000;
+/** Slice 61, Beloved of the gods: this many gods loving at once; this many sanctuaries standing (the ambition's crown). */
+export const LOVING_GODS = 3;
+export const SANCTUARIES = 6;
 /** Egypt is not Greece: Memphis' army and treasury don't count against "the strongest" and "the richest in Greece". */
 const NOT_GREECE: readonly CityId[] = ['memphis'];
 
@@ -173,6 +185,69 @@ function monumentProgress(s: SimState, kind: MonumentKind): Progress {
   const st = STAGES[kind][x.stage];
   const stage = st ? `${st.name.toLowerCase()} ${x.building ? 'going up' : 'waiting for its materials'}` : '';
   return { have: pct / 100, need: 1, words: `${name}: ${pct}% built, stage ${Math.min(STAGE_COUNT, x.stage + 1)} of ${STAGE_COUNT}${stage ? `, ${stage}` : ''}` };
+}
+
+
+// ---------------------------------------------------------------------------
+// Slice 61: Beloved of the gods, read from what the town has.
+
+/** "Zeus, Hera and Ares". */
+const godList = (gods: readonly GodId[], or = false): string => (gods.length <= 1 ? (gods[0] ? GODS[gods[0]].name : '') : `${gods.slice(0, -1).map((g) => GODS[g].name).join(', ')} ${or ? 'or' : 'and'} ${GODS[gods[gods.length - 1]].name}`);
+
+/** The gods with a shrine given to them (not "all the gods"), in the twelve's order. */
+export const godsWithShrines = (s: SimState): GodId[] => GOD_IDS.filter((g) => s.buildings.some((b) => b.kind === 'shrine' && b.god === g));
+
+/** The town's sanctuaries: those standing (finished, their building there; a dimmed one still stands), in the order they were marked out, and those rising with how far (0 to under 1). */
+export function sanctuaryState(s: SimState): { standing: GodId[]; rising: Array<{ god: GodId; share: number; stage: number }> } {
+  const standing: GodId[] = [];
+  const rising: Array<{ god: GodId; share: number; stage: number }> = [];
+  for (const x of s.monuments.sites) {
+    if (x.kind !== 'sanctuary' || !x.god) continue;
+    const b = findBuilding(s, x.id);
+    if (!b || b.kind !== 'sanctuary') continue;
+    if (x.finished) standing.push(x.god);
+    // (As a great monument's: rounded down and kept under 1, so the laurel never comes before it stands.)
+    else rising.push({ god: x.god, share: Math.min(0.99, Math.floor(progressOf(x) * 100) / 100), stage: x.stage });
+  }
+  return { standing, rising };
+}
+
+/** The mood a god is loving from. */
+const LOVING_FROM = GOD_MOODS.find((m) => m.word === 'loving')?.from ?? 60;
+
+/** The gods loving now, and the nearest of the rest (by mood). */
+export function lovingGods(s: SimState): { loving: GodId[]; next: GodId | null; mood: number } {
+  const loving: GodId[] = [];
+  let next: GodId | null = null;
+  let mood = -Infinity;
+  for (const g of GOD_IDS) {
+    const m = moodOfGod(s, g);
+    if (m >= LOVING_FROM) loving.push(g);
+    else if (m > mood) [next, mood] = [g, m];
+  }
+  return { loving, next, mood: Math.round(mood) };
+}
+
+const moodShown = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u2212${-n}` : '0');
+const word = (n: number): string => GOD_MOODS.reduce((w, m) => (n >= m.from ? m.word : w), GOD_MOODS[0].word);
+
+/** The rising sanctuary furthest along, in words ("Apollo’s rising, 40% built, stage 2 of 3"). */
+const risingWords = (r: { god: GodId; share: number; stage: number }): string => `${GODS[r.god].name}’s rising, ${Math.round(r.share * 100)}% built, stage ${Math.min(STAGE_COUNT, r.stage + 1)} of ${STAGE_COUNT}`;
+
+/** A monster on your land, and who could slay it, for the words of a monster slain not yet. */
+function monsterWords(s: SimState): string {
+  const m = s.legends.monsters[0];
+  if (!m) return 'none has come to your land (an angry god sends one)';
+  const M = MONSTERS[m.kind];
+  const name = `${M.name[0].toUpperCase()}${M.name.slice(1)}`;
+  const slayers = HERO_IDS.filter((h) => HEROES[h].slays.includes(m.kind)).map((h) => HEROES[h].name);
+  const here = s.legends.heroes.find((c) => HEROES[c.hero].slays.includes(m.kind) && c.came >= 0 && c.state !== 'awaited');
+  const hall = s.legends.heroes.find((c) => HEROES[c.hero].slays.includes(m.kind));
+  const him = m.kind === 'medusa' ? 'her' : m.kind === 'cyclops' || m.kind === 'minotaur' || m.kind === 'talos' ? 'him' : 'it';
+  const his = m.kind === 'medusa' ? 'her' : m.kind === 'cyclops' || m.kind === 'minotaur' || m.kind === 'talos' ? 'his' : 'its';
+  const den = m.den === 'cave' ? 'cave' : m.den === 'marsh' ? 'marsh' : 'den';
+  const who = here ? `${HEROES[here.hero].name} lives in your city and could slay ${him}` : hall ? `${HEROES[hall.hero].name}’s hall stands, waiting on ${hall.hero === 'atalanta' ? 'her' : 'his'} demands` : `only ${slayers.join(' or ')} can slay ${him}`;
+  return `${name} ${m.state === 'coming' || m.state === 'settling' ? 'is coming' : `holds ${his} ${den}`}, and ${who}`;
 }
 
 /** The game's year a tick falls in, counted from the founding (year 1). */
@@ -356,6 +431,80 @@ export const MILESTONES: readonly Milestone[] = [
     reward: { kind: 'fame', months: 6 },
     progress: (s) => monumentProgress(s, 'stadium'),
   },
+  // Slice 61: Beloved of the gods.
+  {
+    id: 'shrines',
+    ambition: 'gods',
+    name: 'A shrine to every god',
+    want: 'A shrine given to each of the twelve',
+    deed: 'your shrines to all twelve gods',
+    reward: { kind: 'gift', dr: 300 },
+    progress: (s) => {
+      const have = godsWithShrines(s);
+      const none = GOD_IDS.filter((g) => !have.includes(g));
+      const n = have.length;
+      return { have: n, need: GOD_IDS.length, words: n >= GOD_IDS.length ? 'A shrine to each of the twelve' : n === 0 ? 'No shrine given to a god yet: a shrine’s panel asks whom it serves' : `Shrines to ${n} of the twelve: none yet to ${godList(none, true)}` };
+    },
+  },
+  {
+    id: 'sanctuary',
+    ambition: 'gods',
+    name: 'A first sanctuary',
+    want: 'A great sanctuary finished and standing',
+    deed: 'your first sanctuary',
+    reward: { kind: 'fame', months: 3 },
+    progress: (s) => {
+      const { standing, rising } = sanctuaryState(s);
+      if (standing.length) return { have: 1, need: 1, words: `The sanctuary to ${GODS[standing[0]].name} stands` };
+      const best = rising.sort((a, b) => b.share - a.share)[0];
+      if (!best) return { have: 0, need: 1, words: 'No sanctuary yet: mark one out from the Mythology tab' };
+      return { have: best.share, need: 1, words: `The sanctuary to ${GODS[best.god].name}: ${Math.round(best.share * 100)}% built, stage ${Math.min(STAGE_COUNT, best.stage + 1)} of ${STAGE_COUNT}` };
+    },
+  },
+  {
+    id: 'loving',
+    ambition: 'gods',
+    name: 'Loved on Olympus',
+    want: `${LOVING_GODS} gods loving your city at once`,
+    deed: 'the gods’ love for your city',
+    reward: { kind: 'renown', mood: 5 },
+    progress: (s) => {
+      const { loving, next, mood } = lovingGods(s);
+      const n = loving.length;
+      const near = n < LOVING_GODS && next ? `; ${GODS[next].name} nearest, ${word(mood)} (${moodShown(mood)} of +${LOVING_FROM})` : '';
+      return { have: Math.min(n, LOVING_GODS), need: LOVING_GODS, words: n === 0 ? `No god loves your city yet${near}` : `${n >= LOVING_GODS ? fmt(n) : `${n} of ${LOVING_GODS}`} gods loving: ${godList(loving)}${near}` };
+    },
+  },
+  {
+    id: 'slain',
+    ambition: 'gods',
+    name: 'A monster slain',
+    want: 'A monster on your land slain by a hero',
+    deed: 'the monster your hero slew',
+    reward: { kind: 'gift', dr: 1000 },
+    progress: (s) => {
+      const d = s.legends.slain[0];
+      if (d) return { have: 1, need: 1, words: `${MONSTERS[d.kind].name[0].toUpperCase()}${MONSTERS[d.kind].name.slice(1)} slain by ${d.by} in year ${yearOf(d.tick)}` };
+      return { have: 0, need: 1, words: `No monster slain yet: ${monsterWords(s)}` };
+    },
+  },
+  {
+    id: 'sanctuaries',
+    ambition: 'gods',
+    name: 'Six sanctuaries',
+    want: `${SANCTUARIES} great sanctuaries standing, the crown of the gods’ city`,
+    deed: 'your six sanctuaries',
+    reward: { kind: 'renown', mood: 10 },
+    progress: (s) => {
+      const { standing, rising } = sanctuaryState(s);
+      const n = standing.length;
+      if (n >= SANCTUARIES) return { have: n, need: SANCTUARIES, words: `${fmt(n)} sanctuaries standing: ${godList(standing)}` };
+      const up = rising.sort((a, b) => b.share - a.share).slice(0, SANCTUARIES - n);
+      const part = up.reduce((a, r) => a + r.share, 0);
+      const now = n ? `${n} of ${SANCTUARIES} sanctuaries standing: ${godList(standing)}` : `No sanctuary standing yet`;
+      return { have: n + Math.min(SANCTUARIES - n - 0.01, part), need: SANCTUARIES, words: `${now}${up.length ? `; ${up.map(risingWords).join('; ')}` : ''}` };
+    },
+  },
 ];
 
 export const milestoneOf = (id: string): Milestone | undefined => MILESTONES.find((m) => m.id === id);
@@ -424,23 +573,30 @@ function grandWords(s: SimState, c: WorldCity): string {
   const town = s.world.name;
   const mood = moodOf(c, s.tick);
   const t = c.ruler?.traits ?? [];
-  if (mood >= 30) return `${rulerShort(c)} raises a cup to ${town}: “master of Greece, its greatest market and its wonder, and our friend”`;
+  if (mood >= 30) return `${rulerShort(c)} raises a cup to ${town}: “master of Greece, its greatest market and its wonder, beloved of the gods, and our friend”`;
+  // (Slice 61: a pious ruler speaks of the gods.)
+  if (t.includes('pious')) return `${rulerShort(c)} bows towards ${town}: “the gods themselves walk its streets, and its sanctuaries shine across the sea”`;
   if (t.includes('proud') || mood <= -30) return `${rulerShort(c)} grudges it, but owns it: “there is no city in Greece like ${town} now”`;
   if (t.includes('warlike')) return `${rulerShort(c)} salutes ${town}: “its army is feared, its ships are everywhere, and its Colossus looks down on us all”`;
   if (t.includes('greedy') || t.includes('shrewd')) return `${rulerShort(c)} counts it up: “${town} holds the richest treasury and the busiest quays in Greece”`;
   return `${rulerShort(c)} sends word: “all Greece speaks of ${town}, its Colossus, its Lighthouse and its games”`;
 }
 
-/** Look at the town: record each milestone met, quietly or with its reward, and an ambition or all three achieved. */
-function look(s: SimState, quiet: boolean): void {
+/**
+ * Look at the town: record each milestone met, quietly or with its reward, and an ambition or all four achieved.
+ * `only` (slice 61): look at these ambitions alone (quietly), for a record that had not known them.
+ */
+function look(s: SimState, quiet: boolean, only?: readonly AmbitionKind[]): void {
   const a = s.ambition;
   const done = new Set(a.reached.map((l) => l.id));
   const before = AMBITIONS.filter((k) => achieved(s, k).tick > 0);
   for (const m of MILESTONES) {
-    if (done.has(m.id) || !met(m.progress(s))) continue;
+    if (done.has(m.id) || (only && !only.includes(m.ambition)) || !met(m.progress(s))) continue;
     a.reached.push({ id: m.id, tick: s.tick, quiet, note: quiet ? '' : give(s, m) });
     s.rev++;
   }
+  // (Slice 61: a quiet look has looked at every ambition.)
+  if (quiet) a.known = [...AMBITIONS];
   if (quiet) {
     if (!a.grand && AMBITIONS.every((k) => achieved(s, k).tick > 0)) {
       a.grand = s.tick;
@@ -486,9 +642,33 @@ export function stepAmbition(s: SimState): void {
     look(s, true);
     return;
   }
+  // Slice 61: a record from before an ambition was added (Beloved of the gods) looks at it quietly, and says so once.
+  if (a.known.length < AMBITIONS.length) {
+    meetNew(s);
+    return;
+  }
   // Fame: the settlers' clock runs FAME_PACE times as fast (never past its next look).
   if (a.fameUntil > s.tick && s.settlerClock > 1) s.settlerClock -= FAME_PACE - 1;
   if (s.tick % TICKS_PER_DAY === 0) look(s, false);
+}
+
+/**
+ * Slice 61: the ambitions a record has not looked at (an older save's: Beloved of the gods), looked at quietly
+ * (what the town already meets recorded with no reward and no fanfare), and one message saying so.
+ */
+function meetNew(s: SimState): void {
+  const a = s.ambition;
+  const fresh = AMBITIONS.filter((k) => !a.known.includes(k));
+  const had = new Set(a.reached.map((l) => l.id));
+  look(s, true, fresh);
+  for (const k of fresh) {
+    const got = milestonesOf(k).filter((m) => !had.has(m.id) && laurelOf(s, m.id));
+    const all = got.length === milestonesOf(k).length;
+    const words = got.length
+      ? `A new ambition beside the other three: ${AMBITION_NAMES[k]}. Your city already has ${all ? 'all five' : `${got.length} of its 5`} milestones (${list(got.map((m) => m.name.toLowerCase()))})${all ? ': achieved' : ''}. The laurel in the top bar shows the rest.`
+      : `A new ambition beside the other three: ${AMBITION_NAMES[k]}, ${AMBITION_WHAT[k][0].toLowerCase()}${AMBITION_WHAT[k].slice(1)}. The laurel in the top bar shows how near you are.`;
+    say(s, { kind: 'laurel', title: `A fourth ambition: ${AMBITION_NAMES[k]}`, words });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -524,7 +704,7 @@ export interface AmbitionView {
   milestones: MilestoneView[];
 }
 
-/** The three side by side, for the panel. */
+/** The four side by side, for the panel. */
 export function ambitionView(s: SimState): AmbitionView[] {
   return AMBITIONS.map((k) => {
     const milestones = milestonesOf(k).map((m, i): MilestoneView => {
@@ -538,11 +718,11 @@ export function ambitionView(s: SimState): AmbitionView[] {
 }
 
 /** Which ambition the chip offers first when two are as far along (phase 5 review: not an army for a town of tents). */
-const FIRST: Record<AmbitionKind, number> = { wonders: 0, trade: 1, greece: 2 };
+const FIRST: Record<AmbitionKind, number> = { wonders: 0, trade: 1, greece: 2, gods: 3 };
 
 /**
- * The nearest milestone not yet reached, across all three: each ambition's
- * next one (its lowest not yet reached), and of those three the furthest
+ * The nearest milestone not yet reached, across all four: each ambition's
+ * next one (its lowest not yet reached), and of those the furthest
  * along (ties: wonders, trade, Greece; phase 5 review: it was Greece first,
  * so a town of tents was offered an army under arms). Null once all are reached. (Slice 40:
  * it was the furthest along of all fifteen, so a new town's chip named the
@@ -570,12 +750,12 @@ export const MILESTONE_COUNT = MILESTONES.length;
 /**
  * The town line for the newest laurel (not one already met when the town
  * was opened), for LINE_DAYS days: what it was, for which ambition, and its
- * reward; an ambition achieved, or all three.
+ * reward; an ambition achieved, or all four.
  */
 export function ambitionTownLine(s: SimState): string {
   const a = s.ambition;
   if (!a.on) return '';
-  if (a.grand && !a.grandQuiet && s.tick - a.grand < LINE_DAYS * TICKS_PER_DAY) return `All three ambitions achieved: ${s.world.name} is master of Greece, its greatest market and its wonder. Every ruler sends word, and the city celebrates. Play on as long as you like.`;
+  if (a.grand && !a.grandQuiet && s.tick - a.grand < LINE_DAYS * TICKS_PER_DAY) return `All four ambitions achieved: ${s.world.name} is master of Greece, its greatest market, its wonder and beloved of the gods. Every ruler sends word, and the city celebrates. Play on as long as you like.`;
   let last: Laurel | undefined;
   for (const l of a.reached) if (!l.quiet && (!last || l.tick >= last.tick)) last = l;
   if (!last || s.tick - last.tick >= LINE_DAYS * TICKS_PER_DAY) return '';
@@ -594,4 +774,22 @@ export function fameWords(s: SimState): string {
   if (!a.on || a.fameUntil <= s.tick) return '';
   const days = Math.ceil((a.fameUntil - s.tick) / TICKS_PER_DAY);
   return `Your city’s fame draws settlers: newcomers come twice as often for ${days} more days.`;
+}
+
+/**
+ * Slice 61: one ambition in a line, for Olympus and the overview's Gods page:
+ * its laurels, and its next milestone with how far ("Beloved of the gods: 2 of
+ * 5 laurels. Next, loved on Olympus (2 of 3 gods loving: …)"). '' with the
+ * ambitions off.
+ */
+export function ambitionLine(s: SimState, k: AmbitionKind): string {
+  if (!s.ambition.on) return '';
+  const ms = milestonesOf(k);
+  const won = ms.filter((m) => laurelOf(s, m.id)).length;
+  const a = achieved(s, k);
+  if (a.tick) return `${AMBITION_NAMES[k]}: achieved in year ${yearOf(a.tick)}, all 5 laurels won.`;
+  const next = ms.find((m) => !laurelOf(s, m.id));
+  if (!next) return '';
+  const w = next.progress(s).words;
+  return `${AMBITION_NAMES[k]}: ${won} of 5 laurels. Next, ${next.name[0].toLowerCase()}${next.name.slice(1)} (${w[0].toLowerCase()}${w.slice(1)}).`;
 }

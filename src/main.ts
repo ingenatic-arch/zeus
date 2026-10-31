@@ -2161,6 +2161,8 @@ function start(preparedTown: string | null): void {
     },
     openWare: (w) => side.showWare(w),
     ledger: () => ledger.toggle(true),
+    // Slice 61.
+    ambitions: () => ambitionPanel.toggle(true),
     city: (id, tab) => toggleGreece(true, id, (tab as CityTab | undefined) ?? 'ruler'),
     site: (id) => toggleGreece(true, `site:${id}` as CityId),
     company: (id) => {
@@ -2210,6 +2212,8 @@ function start(preparedTown: string | null): void {
       flyOver(...centreOf(b));
       buildingPanel.show(id);
     },
+    // Slice 61.
+    openAmbitions: () => ambitionPanel.toggle(true),
   });
   olympus.onOpen = () => {
     if (greeceOpen()) toggleGreece(false);

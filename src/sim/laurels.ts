@@ -30,22 +30,31 @@ export interface Ambition {
   reached: Laurel[];
   /** Settlers drawn by fame come twice as often until this tick (0: none). */
   fameUntil: number;
-  /** When all three were achieved (0: not yet), and whether that was already so when the town was opened. */
+  /** When every ambition was achieved (all three before slice 61, all four since) (0: not yet), and whether that was already so when the town was opened. */
   grand: number;
   grandQuiet: boolean;
+  /**
+   * Slice 61: the ambitions this record has looked at. A town whose record
+   * lacks one (a save from before it was added) looks at that one quietly on
+   * its next look and says so once (ambitions.ts).
+   */
+  known: AmbitionKind[];
 }
 
-export const freshAmbition = (on = false): Ambition => ({ on, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false });
+export const freshAmbition = (on = false): Ambition => ({ on, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false, known: [...AMBITIONS] });
 
-export type AmbitionKind = 'greece' | 'trade' | 'wonders';
-export const AMBITIONS: readonly AmbitionKind[] = ['greece', 'trade', 'wonders'];
-/** Each ambition's name within a sentence: "Master of Greece", "the great trading city", "a city of wonders". */
-export const AMBITION_IN: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'the great trading city', wonders: 'a city of wonders' };
+// (Slice 61: Beloved of the gods appended.)
+export type AmbitionKind = 'greece' | 'trade' | 'wonders' | 'gods';
+export const AMBITIONS: readonly AmbitionKind[] = ['greece', 'trade', 'wonders', 'gods'];
+/** Each ambition's name within a sentence: "Master of Greece", "the great trading city", "a city of wonders", "beloved of the gods". */
+export const AMBITION_IN: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'the great trading city', wonders: 'a city of wonders', gods: 'beloved of the gods' };
 /** Each ambition's five milestones, easy to grand, by id (ambitions.ts defines them, in this order). */
 export const MILESTONE_IDS: Record<AmbitionKind, readonly string[]> = {
   greece: ['army', 'vassal', 'feared', 'lord', 'colossus'],
   trade: ['routes', 'market', 'cities', 'treasury', 'lighthouse'],
   wonders: ['town', 'villas', 'estates', 'great', 'stadium'],
+  // Slice 61.
+  gods: ['shrines', 'sanctuary', 'loving', 'slain', 'sanctuaries'],
 };
 
 /** The laurel for a milestone, if it has been reached. */
@@ -66,7 +75,7 @@ export function achieved(s: SimState, k: AmbitionKind): { tick: number; quiet: b
   return { tick, quiet };
 }
 
-/** Pride: every home happier while an ambition (or all three) was achieved within this long. */
+/** Pride: every home happier while an ambition (or all four) was achieved within this long. */
 export const PRIDE_FOR = TICKS_PER_YEAR;
 export const PRIDE_MOOD = 1;
 export const GRAND_MOOD = 2;

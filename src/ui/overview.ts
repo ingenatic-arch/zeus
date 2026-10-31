@@ -123,6 +123,8 @@ export interface OverviewDeps {
   site(id: string): void;
   /** A company: the Army tab, its banner in hand. */
   company(id: number): void;
+  /** Slice 61: the Ambitions panel. */
+  ambitions?(): void;
 }
 
 // ---------------------------------------------------------------------------- the months
@@ -1278,6 +1280,10 @@ export class Overview {
     } else if (act === 'company') {
       this.deps.company(n);
       this.toggle(false);
+    } else if (act === 'ambitions') {
+      // (Slice 61.)
+      this.toggle(false);
+      this.deps.ambitions?.();
     } else return;
     this.last = -Infinity;
     if (this.s && this.map && this.open) this.update(this.s, this.map, Infinity);

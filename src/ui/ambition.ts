@@ -1,5 +1,5 @@
 /**
- * The Ambition panel (slice 39): the three ambitions side by side, opened from
+ * The Ambition panel (slice 39): the four ambitions (three until slice 61) side by side, opened from
  * the laurel chip in the top bar (or a laurel's town line). Each column names
  * its ambition and what it is about, says "Achieved in year 9" once all five
  * of its milestones are reached, and lists them from easy to grand: a laurel
@@ -25,7 +25,7 @@ export const LAUREL =
 /** A laurel not yet won: the wreath's outline, faint. */
 const LAUREL_OPEN = LAUREL.replace('fill="#7f9a3a" stroke="#3f5216"', 'fill="none" stroke="#b39b78"').replace(/fill="#b8322a"/g, 'fill="#d8c8a8"').replace('stroke="#b8322a"', 'stroke="#d8c8a8"');
 
-/** Each ambition's emblem: a crested helmet, a merchant ship, a column. */
+/** Each ambition's emblem: a crested helmet, a merchant ship, a column; (slice 61) a temple's front before a golden glory. */
 const EMBLEMS: Record<AmbitionKind, string> = {
   greece:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.2c3.8-2.6 11.2-2.6 15 0" fill="none" stroke="#b8322a" stroke-width="3" stroke-linecap="round"/><path d="M12 5c-4.6 0-7.6 3.2-7.6 7.8v8.2h5v-5l-1.4-1.8v-3.4h8v3.4l-1.4 1.8v5h5v-8.2C19.6 8.2 16.6 5 12 5z" fill="#c8963c" stroke="#5e4214" stroke-width="1.1" stroke-linejoin="round"/><path d="M10.8 11v6M13.2 11v6" stroke="#5e4214" stroke-width="1.1"/></svg>',
@@ -33,6 +33,8 @@ const EMBLEMS: Record<AmbitionKind, string> = {
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.4 2v13" stroke="#6e4e30" stroke-width="1.6"/><path d="M12.4 3.2c4.2 2 6.4 5.6 6.8 10.4h-6.8z" fill="#f7edd6" stroke="#c0462e" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.4 4.6C7.4 6.4 5.6 9.4 5.2 13.6h5.2z" fill="#f7edd6" stroke="#c0462e" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.6 15.4h20.8c-1 3.4-3.6 5.4-7 5.4H8.4c-3 0-5.4-1.8-6.8-5.4z" fill="#7a4a2c"/><path d="M3 22.2c2-1 3.6 1 5.6 0s3.6 1 5.6 0 3.6 1 5.6 0" fill="none" stroke="#2f7f9e" stroke-width="1.1" stroke-linecap="round"/></svg>',
   wonders:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 3.4h17.2l-1.8 2.4H5.2z" fill="#f1e8d2" stroke="#7a6446" stroke-width="1" stroke-linejoin="round"/><path d="M6.4 5.8h11.2v12.6H6.4z" fill="#efe6cf" stroke="#7a6446" stroke-width="1"/><path d="M9 6.4v11.4M12 6.4v11.4M15 6.4v11.4" stroke="#b8a682" stroke-width=".9"/><path d="M4.4 18.4h15.2l1.2 2.4H3.2z" fill="#f1e8d2" stroke="#7a6446" stroke-width="1" stroke-linejoin="round"/></svg>',
+  gods:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11" r="10" fill="#f6dc7a" opacity=".55"/><path d="M12 1.6v2.2M4.4 4.6l1.5 1.5M19.6 4.6l-1.5 1.5" stroke="#c9a63a" stroke-width="1.2" stroke-linecap="round"/><path d="M3.2 9.6 12 4.6l8.8 5z" fill="#f7efd8" stroke="#7a6446" stroke-width="1" stroke-linejoin="round"/><circle cx="12" cy="8" r="1.3" fill="#c9a63a"/><path d="M4.2 10.2h15.6v1.4H4.2z" fill="#efe6cf" stroke="#7a6446" stroke-width=".9"/><path d="M6.2 11.8v6.4M9.4 11.8v6.4M14.6 11.8v6.4M17.8 11.8v6.4" stroke="#8a7656" stroke-width="1.5"/><path d="M3.6 18.4h16.8l1 2.4H2.6z" fill="#f1e8d2" stroke="#7a6446" stroke-width="1" stroke-linejoin="round"/><path d="M11 13.2l1.9-.1-1 2.1 1.9-.1-3 3.4.9-2.4-1.6.1z" fill="#c8963c"/></svg>',
 };
 
 const dateWords = (tick: number): string => {
@@ -133,7 +135,9 @@ export class AmbitionPanel {
     if (key === this.key) return;
     this.key = key;
     const views = ambitionView(s);
-    const sub = `${laurelCount(s)} of ${MILESTONE_COUNT} laurels. All three count from the founding, and whatever you build or do counts toward one of them. ${a.grand ? 'All three achieved: play on as long as you like.' : 'An ambition achieved, play goes on.'}`;
+    // (Slice 61: four; a town that finished the three before the fourth came keeps its finish, but the line says what is so now.)
+    const all = AMBITIONS.every((k) => views.find((v) => v.kind === k)?.achieved);
+    const sub = `${laurelCount(s)} of ${MILESTONE_COUNT} laurels. All four count from the founding, and whatever you build or do counts toward one of them. ${all ? 'All four achieved: play on as long as you like.' : 'An ambition achieved, play goes on.'}`;
     if (sub !== this.sub) {
       this.sub = sub;
       (this.el.querySelector('.sub') as HTMLElement).textContent = sub;

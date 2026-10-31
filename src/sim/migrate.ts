@@ -235,6 +235,11 @@
  * switch is on if the gods are watching (a game under way), so an angry god
  * may begin to warn of a curse. Nothing in the city changes.
  *
+ * Slice 61 (Beloved of the gods): the ambitions' record says which
+ * ambitions it has looked at (`ambition.known`): the three it had. On its
+ * next look the town looks at the fourth, Beloved of the gods, quietly (what
+ * it already meets recorded with no reward), and says so once.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -360,6 +365,7 @@ export function migrate(st: unknown): number {
   if (st.version === 52) fromSlice59(st);
   if (st.version === 53) fromSlice60(st);
   if (st.version === 54) fromSlice57(st);
+  if (st.version === 55) fromSlice61(st);
   return from;
 }
 
@@ -1334,5 +1340,16 @@ function fromSlice57(st: Record<string, unknown>): void {
     if (!isObj(g.wrath)) g.wrath = freshWrath(g.on === true);
     else if (g.on === true) g.wrath.on = true;
   }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 61 (Beloved of the gods): see the note above. Only its own field,
+ * only if it is missing: the ambitions the record has looked at, the three it
+ * had (a record made by an earlier step of this same load, fresh, knows all
+ * four already). (An `ambition` that is missing is left for the save checks.)
+ */
+function fromSlice61(st: Record<string, unknown>): void {
+  if (isObj(st.ambition) && !Array.isArray(st.ambition.known)) st.ambition.known = ['greece', 'trade', 'wonders'];
   st.version = (st.version as number) + 1;
 }

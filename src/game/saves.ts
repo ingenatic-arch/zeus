@@ -43,6 +43,8 @@ import { HERO_STATES } from '../sim/heroes';
 import { WAR_WHYS } from '../sim/epiphany';
 // Slice 57
 import { CURSES } from '../sim/wrath';
+// Slice 61.
+import { AMBITIONS } from '../sim/laurels';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -595,6 +597,8 @@ function healthOk(h: unknown): boolean {
 /** The ambitions (slice 39): the switch, the milestones reached (each by its id, when, and quietly or not), fame and the grand finish. */
 function ambitionOk(a: unknown): boolean {
   if (!isObj(a) || typeof a.on !== 'boolean' || typeof a.looked !== 'boolean' || !fin(a.fameUntil) || !fin(a.grand) || typeof a.grandQuiet !== 'boolean' || !Array.isArray(a.reached)) return false;
+  // (Slice 61: and the ambitions it has looked at.)
+  if (!Array.isArray(a.known) || !(a.known as unknown[]).every((k) => typeof k === 'string' && (AMBITIONS as readonly string[]).includes(k))) return false;
   return (a.reached as unknown[]).every((l) => isObj(l) && typeof l.id === 'string' && fin(l.tick) && typeof l.quiet === 'boolean' && typeof l.note === 'string');
 }
 

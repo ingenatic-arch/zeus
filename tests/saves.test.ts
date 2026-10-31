@@ -217,7 +217,9 @@ describe('saves from before', () => {
     //  line. The budget goes up by those 82.)
     // (Slice 57 at its merge: the gods' record of wrath and blessings, empty and switched off in #town: 77 more, 194,825. The
     //  budget goes up by those 77.)
-    expect(text.length).toBeLessThan(194_893);
+    // (Slice 61: the ambitions' record says which ambitions it has looked at, all four in #town: 44 more, 194,869. The
+    //  budget goes up by those 44.)
+    expect(text.length).toBeLessThan(194_937);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);
     expect(Object.keys(f.state.buildings)).toEqual(['$rows']);

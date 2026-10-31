@@ -45,6 +45,9 @@ import { curseInForce, curseWords, CURSES, daysLeft, GOD_CURSES, omenOf, turnWor
 import { heroAnswer, marchingWith } from '../sim/wrath';
 import { placeName } from '../sim/epiphany';
 import { DISTRICTS, districtAt } from '../map/districts';
+// Slice 61: Beloved of the gods' line.
+import { ambitionLine } from '../sim/ambitions';
+import { LAUREL } from './ambition';
 
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
@@ -314,6 +317,8 @@ export interface OlympusDeps {
   send: (c: Command) => void;
   /** Fly to a building and open its panel. */
   openBuilding: (id: number) => void;
+  /** Slice 61: open the Ambitions panel. */
+  openAmbitions?: () => void;
 }
 
 /** How often (seconds) the open panel is brought up to date. */
@@ -391,6 +396,12 @@ export class OlympusPanel {
     } else if (act === 'festival') this.deps.send({ type: 'festival', id: Number(t.dataset.id) });
     else if (act === 'offer') this.deps.send({ type: 'offer', id: Number(t.dataset.id) });
     else if (act === 'bless') this.deps.send({ type: 'bless', id: Number(t.dataset.id) }); // (Slice 57.)
+    else if (act === 'ambitions') {
+      // (Slice 61.)
+      this.toggle(false);
+      this.deps.openAmbitions?.();
+      return;
+    }
     else return;
     this.last = -Infinity;
     if (this.s && this.map) this.update(this.s, this.map, Infinity);
@@ -409,7 +420,7 @@ export class OlympusPanel {
       this.headHtml = head;
       morph(this.head, head);
     }
-    const html = kitHtml(this.god ? godPage(s, map, this.god) : `<div class="ol-grid">${GOD_IDS.map((g) => card(s, g)).join('')}</div><p class="ol-foot">${esc(noticed(s) ? 'Each god’s mood is the sum of what they remember: worship (shrines, festivals, offerings), what they love and hate in your city, your deeds in Greece, and neglect. Honouring a god stirs their rival, while the rival is honoured less. Click a god for their page.' : 'Your town is beneath the gods’ notice until it has 300 people: nothing it does yet moves them but worship. Click a god for their page.')}</p>`);
+    const html = kitHtml(this.god ? godPage(s, map, this.god) : `<div class="ol-grid">${GOD_IDS.map((g) => card(s, g)).join('')}</div>${ambitionHtml(s, 'ol-amb')}<p class="ol-foot">${esc(noticed(s) ? 'Each god’s mood is the sum of what they remember: worship (shrines, festivals, offerings), what they love and hate in your city, your deeds in Greece, and neglect. Honouring a god stirs their rival, while the rival is honoured less. Click a god for their page.' : 'Your town is beneath the gods’ notice until it has 300 people: nothing it does yet moves them but worship. Click a god for their page.')}</p>`);
     if (html !== this.html) {
       this.html = html;
       morph(this.body, html);
@@ -432,7 +443,7 @@ export function godsPage(s: SimState, map: CoastMap): string {
   }).join('');
   const kept = Math.min(MOOD_MONTHS, s.gods.months.zeus?.length ?? 0);
   const lead = `The twelve’s moods towards your city, and how they have moved${kept ? ` over the last ${kept === 1 ? 'month' : `${kept} months`}` : ' (kept from the first month the gods watch)'}: gold bars for pleased and better, red for displeased and worse. The Olympus panel (G) has every reason.`;
-  return `<p class="ov-lead">${esc(lead)}</p><ul class="ol-ov">${rows}</ul>`;
+  return `<p class="ov-lead">${esc(lead)}</p>${ambitionHtml(s, 'ov-note ol-amb')}<ul class="ol-ov">${rows}</ul>`;
 }
 
 /** The Gods tab's word and mark: amber with a god displeased, red with one angry or worse. */
@@ -565,4 +576,13 @@ function overviewMark(s: SimState, god: GodId): string {
   if (c && c.curse) return `<em class="ol-ovomen">${esc(`Cursed: ${CURSES[c.curse].name} ${untilWords(c.until)}`)}</em>`;
   const until = blessingUntil(s, god);
   return until ? `<em class="ol-ovbless">${esc(`Blessing on your city ${until}`)}</em>` : '';
+}
+
+// ---------------------------------------------------------------------------- Slice 61: Beloved of the gods
+
+/** The fourth ambition in a line, with a link to the Ambitions panel ('' with the ambitions off). */
+function ambitionHtml(s: SimState, cls: string): string {
+  const line = ambitionLine(s, 'gods');
+  if (!line) return '';
+  return `<p class="${cls}"><span class="ol-lau">${LAUREL}</span><span>${esc(line)} <button class="ov-link" data-act="ambitions" data-tip="Open the Ambitions panel: all four, side by side">All four ambitions</button></span></p>`;
 }

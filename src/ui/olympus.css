@@ -175,3 +175,7 @@
 .ol-ovomen, .ol-ovbless { display: block; flex-basis: 100%; font-style: normal; font-size: 13px; font-weight: 700; }
 .ol-ovomen { color: #8c1f18; }
 .ol-ovbless { color: #6e6410; }
+/* Slice 61: Beloved of the gods, the fourth ambition, in a line under the twelve and on the overview's Gods page. */
+.ol-amb { display: flex; align-items: flex-start; gap: 7px; margin: 10px 4px 0; font-size: 14px; }
+.ol-amb .ol-lau svg { width: 20px; height: 20px; display: block; margin-top: 1px; }
+.ov-note.ol-amb { margin: 4px 0 8px; }

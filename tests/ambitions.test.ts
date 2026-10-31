@@ -36,6 +36,8 @@ import { ESTATE, GREAT_ESTATE } from '../src/sim/buildings';
 import { cityOf, moodReasons } from '../src/sim/world';
 import { plantColony } from '../src/sim/colonies';
 import { demoSim } from './prepared';
+// Slice 61.
+import { honour } from '../src/sim/pantheon';
 
 const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
   sim.enqueue(c);
@@ -52,7 +54,7 @@ describe('ambitions', () => {
     expect(sim.state.ambition.on).toBe(true);
     expect(sim.state.ambition.reached).toEqual([]);
     const cols = ambitionView(sim.state);
-    expect(cols.map((c) => c.name)).toEqual(['Master of Greece', 'The great trading city', 'A city of wonders']);
+    expect(cols.map((c) => c.name)).toEqual(['Master of Greece', 'The great trading city', 'A city of wonders', 'Beloved of the gods']);
     for (const c of cols) {
       expect(c.milestones.length).toBe(5);
       expect(c.achieved).toBe(0);
@@ -64,7 +66,7 @@ describe('ambitions', () => {
   it('off (a bare state, a demo’s history), nothing is looked at or given', () => {
     const sim = new Sim();
     sim.run(5 * TICKS_PER_DAY);
-    expect(sim.state.ambition).toEqual({ on: false, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false } satisfies Ambition);
+    expect(sim.state.ambition).toEqual({ on: false, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false, known: ['greece', 'trade', 'wonders', 'gods'] } satisfies Ambition);
   });
 
   it('a town opened records what it already meets quietly, with no reward', () => {
@@ -173,7 +175,7 @@ describe('ambitions', () => {
     expect(achieved(s, 'greece').tick).toBe(0);
   });
 
-  it('all three achieved: the grand finish, a word from every ruler, the town line and a year’s pride; play goes on', () => {
+  it('all four achieved: the grand finish, a word from every ruler, the town line and a year’s pride; play goes on', () => {
     const sim = demoSim('lit');
     const s = sim.state;
     // Every milestone but the last won in play, as if; then the last (the Lighthouse, standing) is won on the next look.
@@ -184,7 +186,7 @@ describe('ambitions', () => {
     expect(s.ambition.grandQuiet).toBe(false);
     const words = s.world.news.filter((n) => n.tick === s.ambition.grand);
     expect(words.length).toBeGreaterThanOrEqual(Math.min(8, s.world.cities.filter((c) => c.ruler && c.pop > 0).length - 1));
-    expect(ambitionTownLine(s)).toMatch(/^All three ambitions achieved: .* Play on as long as you like\.$/);
+    expect(ambitionTownLine(s)).toMatch(/^All four ambitions achieved: .* Play on as long as you like\.$/);
     expect(prideMood(s)).toEqual({ w: 2, text: 'All Greece speaks of our city' });
     const before = s.tick;
     sim.run(TICKS_PER_MONTH);
@@ -199,7 +201,7 @@ describe('ambitions', () => {
       expect(p.have, m.id).toBeLessThan(p.need);
       expect(p.need, m.id).toBeGreaterThan(0);
     }
-    expect(MILESTONES.length).toBe(15);
+    expect(MILESTONES.length).toBe(20);
     // laurels.ts lists them by id (so the homes' pride needs nothing of the milestones' imports): the same, in the same order.
     for (const k of AMBITIONS) expect(milestonesOf(k).map((m) => m.id)).toEqual(MILESTONES.filter((m) => m.ambition === k).map((m) => m.id));
   });
@@ -233,7 +235,7 @@ describe('ambitions', () => {
     old.version = 34;
     expect(migrate(old)).toBe(34);
     expect(old.version).toBe(SIM_STATE_VERSION);
-    expect(old.ambition).toEqual({ on: true, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false });
+    expect(old.ambition).toEqual({ on: true, looked: false, reached: [], fameUntil: 0, grand: 0, grandQuiet: false, known: ['greece', 'trade', 'wonders', 'gods'] });
     const back = new Sim();
     back.state = old as unknown as SimState;
     back.step();
@@ -321,5 +323,166 @@ describe('ambitions', () => {
     expect(colonyNames(s)).toEqual(names);
     expect(milestoneOf('vassal')!.progress(s).have).toBeGreaterThanOrEqual(2);
     expect(laurelOf(s, 'vassal')?.quiet).toBe(true);
+  });
+});
+
+// Slice 61: Beloved of the gods, the fourth ambition.
+describe('Beloved of the gods (slice 61)', () => {
+  const gods = (s: SimState): string[] => s.ambition.reached.filter((l) => milestoneOf(l.id)?.ambition === 'gods').map((l) => l.id);
+
+  it('runs beside the other three, its five milestones easy to grand, the last its crown', () => {
+    expect(AMBITIONS).toEqual(['greece', 'trade', 'wonders', 'gods']);
+    expect(milestonesOf('gods').map((m) => m.id)).toEqual(['shrines', 'sanctuary', 'loving', 'slain', 'sanctuaries']);
+    expect(milestonesOf('gods').map((m) => m.reward.kind)).toEqual(['gift', 'fame', 'renown', 'gift', 'renown']);
+    const col = ambitionView(new Sim().state)[3];
+    expect(col.name).toBe('Beloved of the gods');
+    expect(col.milestones[4].monument).toBe(true);
+  });
+
+  it('a bare town meets none of the five, and each says what is missing', () => {
+    const s = new Sim().state;
+    const words = (id: string): string => milestoneOf(id)!.progress(s).words;
+    expect(words('shrines')).toBe('No shrine given to a god yet: a shrine’s panel asks whom it serves');
+    expect(words('sanctuary')).toBe('No sanctuary yet: mark one out from the Mythology tab');
+    expect(words('loving')).toMatch(/^No god loves your city yet; Zeus nearest, watchful \(0 of \+60\)$/);
+    expect(words('slain')).toBe('No monster slain yet: none has come to your land (an angry god sends one)');
+    expect(words('sanctuaries')).toBe('No sanctuary standing yet');
+  });
+
+  it('a shrine to every god: given shrines counted, and the gods still without one named', () => {
+    const s = demoSim('town').state;
+    const shrine = s.buildings.find((b) => b.kind === 'shrine')!;
+    const p = milestoneOf('shrines')!.progress;
+    expect(p(s).have).toBe(0);
+    // (Copies of a shrine, given to nine gods, read only: the sim is not stepped with them.)
+    const nine = ['zeus', 'hera', 'poseidon', 'demeter', 'athena', 'apollo', 'artemis', 'aphrodite', 'dionysus'] as const;
+    let id = 1e6;
+    const copies = nine.map((god) => ({ ...shrine, id: id++, god }));
+    s.buildings.push(...copies);
+    expect(p(s)).toEqual({ have: 9, need: 12, words: 'Shrines to 9 of the twelve: none yet to Ares, Hephaestus or Hermes' });
+    s.buildings.push({ ...shrine, id: id++, god: 'ares' }, { ...shrine, id: id++, god: 'hephaestus' }, { ...shrine, id: id++, god: 'hermes' });
+    expect(p(s)).toEqual({ have: 12, need: 12, words: 'A shrine to each of the twelve' });
+  });
+
+  it('sanctuaries: a first finished, the rising ones named with how far, and six standing its crown', () => {
+    const s = demoSim('sanctuaries').state;
+    // #sanctuaries: Athena's finished, Poseidon's, Apollo's and Demeter's rising.
+    expect(milestoneOf('sanctuary')!.progress(s)).toEqual({ have: 1, need: 1, words: 'The sanctuary to Athena stands' });
+    expect(laurelOf(s, 'sanctuary')?.quiet).toBe(true);
+    const six = milestoneOf('sanctuaries')!.progress(s);
+    expect(six.have).toBeGreaterThan(1);
+    expect(six.have).toBeLessThan(4);
+    expect(six.words).toMatch(/^1 of 6 sanctuaries standing: Athena; Poseidon’s rising, \d+% built, stage 3 of 3; /);
+    expect(six.words).toContain('Demeter’s rising, 0% built, stage 1 of 3');
+    expect(laurelOf(s, 'sanctuaries')).toBeUndefined();
+    // #twelve: all twelve standing, both met quietly as it opened.
+    const t = demoSim('twelve').state;
+    expect(milestoneOf('sanctuaries')!.progress(t).words).toMatch(/^12 sanctuaries standing: Zeus, Hera, /);
+    expect(gods(t)).toEqual(expect.arrayContaining(['sanctuary', 'sanctuaries']));
+    expect(t.ambition.reached.filter((l) => milestoneOf(l.id)?.ambition === 'gods').every((l) => l.quiet)).toBe(true);
+  });
+
+  it('a first sanctuary won in play: settlers drawn by fame, its town line', () => {
+    const sim = demoSim('sanctuaries');
+    const s = sim.state;
+    s.ambition.reached = s.ambition.reached.filter((l) => l.id !== 'sanctuary');
+    sim.run(TICKS_PER_DAY);
+    const l = laurelOf(s, 'sanctuary');
+    expect(l?.quiet).toBe(false);
+    expect(l?.note).toBe('settlers drawn by its fame come twice as often for 3 months');
+    expect(s.ambition.fameUntil).toBeGreaterThan(s.tick);
+    expect(ambitionTownLine(s)).toMatch(/^A laurel for beloved of the gods \(\d of 5\): a first sanctuary\. Settlers drawn by its fame/);
+  });
+
+  it('three gods loving at once: the loving named and the nearest of the rest; met, renown in every ruler', () => {
+    const sim = demoSim('godwar');
+    const s = sim.state;
+    const p = milestoneOf('loving')!.progress;
+    expect(p(s).have).toBe(1);
+    expect(p(s).words).toMatch(/^1 of 3 gods loving: Athena; \w+ nearest, \w+ \([+−]?\d+ of \+60\)$/);
+    s.ambition.reached = s.ambition.reached.filter((l) => l.id !== 'loving');
+    honour(s, 'demeter', 90, 'staged', 'for a test', 0);
+    expect(p(s).words).toMatch(/^2 of 3 gods loving: Demeter and Athena; /);
+    sim.run(TICKS_PER_DAY);
+    expect(laurelOf(s, 'loving')).toBeUndefined();
+    honour(s, 'zeus', 90, 'staged', 'for a test', 0);
+    sim.run(TICKS_PER_DAY);
+    expect(laurelOf(s, 'loving')?.note).toBe('every ruler in Greece is 5 warmer for it');
+    expect(moodReasons(cityOf(s.world, 'athens'), s.tick).some((r) => r.why === 'Your city’s renown: the gods’ love for your city' && r.worth === 5)).toBe(true);
+    ledgerHolds(s);
+  });
+
+  it('a monster slain: unmet while it holds its lair (and who could slay it), met in play when the hero slays it', () => {
+    const sim = demoSim('slay');
+    const s = sim.state;
+    const p = milestoneOf('slain')!.progress;
+    expect(p(s)).toEqual({ have: 0, need: 1, words: 'No monster slain yet: The Minotaur holds his cave, and Theseus lives in your city and could slay him' });
+    const end = s.tick + 3 * TICKS_PER_MONTH;
+    while (s.tick < end && !laurelOf(s, 'slain')) sim.run(TICKS_PER_DAY);
+    const l = laurelOf(s, 'slain');
+    expect(l?.quiet).toBe(false);
+    expect(l?.note).toMatch(/^.+ sends 1,000 dr in honour of it$/);
+    expect(p(s).words).toMatch(/^The Minotaur slain by Theseus in year \d+$/);
+    ledgerHolds(s);
+  });
+
+  it('all five: achieved, its town line, a ruler’s word', () => {
+    const sim = demoSim('twelve');
+    const s = sim.state;
+    s.ambition.reached = s.ambition.reached.filter((l) => milestoneOf(l.id)?.ambition !== 'gods');
+    for (const id of ['shrines', 'sanctuary', 'loving', 'slain']) s.ambition.reached.push({ id, tick: s.tick - 100, quiet: false, note: '' });
+    sim.run(TICKS_PER_DAY);
+    const a = achieved(s, 'gods');
+    expect(a.tick).toBeGreaterThan(0);
+    expect(ambitionTownLine(s)).toMatch(/^Beloved of the gods: achieved in year \d+, with your six sanctuaries; every ruler in Greece is 10 warmer for it\. The other ambitions carry on\.$/);
+    expect(s.world.news.some((n) => n.tick === a.tick && / calls .* beloved of the gods now$/.test(n.line))).toBe(true);
+  });
+
+  it('a save from before (version 55) gains it: what it meets recorded quietly, said once, no reward', () => {
+    const sim = demoSim('twelve');
+    const old = JSON.parse(serialize(sim.state)) as Record<string, unknown>;
+    const a = old.ambition as Record<string, unknown>;
+    delete a.known;
+    a.reached = (a.reached as Ambition['reached']).filter((l) => milestoneOf(l.id)?.ambition !== 'gods');
+    old.version = SIM_STATE_VERSION - 1;
+    expect(migrate(old)).toBe(SIM_STATE_VERSION - 1);
+    expect(old.version).toBe(SIM_STATE_VERSION);
+    expect((old.ambition as Ambition).known).toEqual(['greece', 'trade', 'wonders']);
+    const back = new Sim();
+    back.state = old as unknown as SimState;
+    const s = back.state;
+    const money = s.money;
+    const fame = s.ambition.fameUntil;
+    const msgs = s.messages.log.length;
+    back.step();
+    expect(s.ambition.known).toEqual(['greece', 'trade', 'wonders', 'gods']);
+    expect(gods(s)).toEqual(['sanctuary', 'sanctuaries']);
+    expect(s.ambition.reached.filter((l) => milestoneOf(l.id)?.ambition === 'gods').every((l) => l.quiet && l.note === '')).toBe(true);
+    const said = s.messages.log.slice(msgs).filter((m) => m.kind === 'laurel');
+    expect(said.length).toBe(1);
+    expect(said[0].title).toBe('A fourth ambition: Beloved of the gods');
+    expect(said[0].words).toBe('A new ambition beside the other three: Beloved of the gods. Your city already has 2 of its 5 milestones (a first sanctuary and six sanctuaries). The laurel in the top bar shows the rest.');
+    expect(s.ambition.fameUntil).toBe(fame);
+    expect(s.money).toBe(money);
+    back.run(5 * TICKS_PER_DAY);
+    expect(s.messages.log.slice(msgs).filter((m) => m.kind === 'laurel').length).toBe(1);
+  });
+
+  it('a phase 7 save from the groundwork (version 48) comes up with the fourth ambition, said once, nothing met', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/groundwork-town.save.json.gz')).toString();
+    const got = decodeSave(text);
+    if (!got.ok) throw new Error(got.why);
+    const sim = new Sim();
+    sim.state = got.file.state;
+    const s = sim.state;
+    expect(s.ambition.known).toEqual(['greece', 'trade', 'wonders']);
+    const msgs = s.messages.log.length;
+    sim.run(TICKS_PER_MONTH);
+    expect(s.ambition.known).toEqual(['greece', 'trade', 'wonders', 'gods']);
+    expect(gods(s)).toEqual([]);
+    const said = s.messages.log.slice(msgs).filter((m) => m.kind === 'laurel' && m.title === 'A fourth ambition: Beloved of the gods');
+    expect(said.length).toBe(1);
+    expect(said[0].words).toMatch(/^A new ambition beside the other three: Beloved of the gods, shrines to all twelve, great sanctuaries, and gods who love you\./);
+    ledgerHolds(s);
   });
 });

@@ -39,7 +39,8 @@ import type { Legends } from './monsters';
 // (Slice 59: heroes answer, 50 on its line, 52 when it last met the trunk, renumbered 53 at its merge.)
 // (Slice 60: gods in war, 51 on its line, 52 after slice 54 joined it, renumbered 54 at its merge.)
 // (Slice 57: blessings and wrath, 53 on its line, 54 after meeting the trunk with slice 59, renumbered 55 at its merge.)
-export const SIM_STATE_VERSION = 55;
+// (Slice 61: Beloved of the gods, the fourth ambition: which ambitions a record has looked at, 56.)
+export const SIM_STATE_VERSION = 56;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
