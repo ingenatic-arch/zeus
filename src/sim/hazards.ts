@@ -136,6 +136,8 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   // Slice 49: the infirmary's lamps and the asklepieion's sacred fire.
   infirmary: 420,
   asklepieion: 420,
+  // Slice 54: marble, as the monuments.
+  sanctuary: Infinity,
   // Slice 59: a hero's hall: stone and bronze, its hearth the only fire.
   herohall: 600,
 };
@@ -186,6 +188,8 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   // Slice 49.
   infirmary: 480,
   asklepieion: 420,
+  // Slice 54.
+  sanctuary: Infinity,
   // Slice 59: stone, slow to wear.
   herohall: 720,
 };

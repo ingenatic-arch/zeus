@@ -34,8 +34,9 @@ import type { Legends } from './monsters';
 // (Phase 7 groundwork: the gods' moods, 48.)
 // (Slice 55: monsters at the gates, 49 on its line and at its merge.)
 // (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
-// (Slice 59: heroes answer, 50 on its line, 51 after slice 56; renumbered at its merge.)
-export const SIM_STATE_VERSION = 51;
+// (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
+// (Slice 59: heroes answer, 50 on its line, 51 after slice 56, 52 after slice 54; renumbered at its merge.)
+export const SIM_STATE_VERSION = 52;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -87,10 +88,12 @@ export type BuildingKind =
   // Slice 49: the infirmary and the asklepieion (health.ts).
   | 'infirmary'
   | 'asklepieion'
+  // Slice 54: a great sanctuary to one of the twelve (sanctuaries.ts).
+  | 'sanctuary'
   // Slice 59: a hero's hall (heroes.ts), with its hero.
   | 'herohall';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'herohall'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary', 'herohall'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -242,9 +245,11 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   | 'convict'
   // Slice 49: an infirmary's physician, and an asklepieion's pair of stretcher-bearers (health.ts).
   | 'physician'
-  | 'bearer';
+  | 'bearer'
+  // Slice 54: a sanctuary's priest (sanctuaries.ts).
+  | 'priest';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest'];
 
 /** Someone living in a home. */
 export interface Person {

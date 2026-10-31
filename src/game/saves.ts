@@ -583,7 +583,9 @@ function monumentsOk(m: unknown): boolean {
     (x) =>
       isObj(x) &&
       Number.isInteger(x.id) &&
-      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium') &&
+      // (Slice 54: or a sanctuary, to a known god; and when a finished one lost its workers.)
+      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium' || (x.kind === 'sanctuary' && GOD_IDS.includes(x.god as never))) &&
+      fin(x.idle) &&
       Number.isInteger(x.stage) &&
       (x.stage as number) >= 0 &&
       (x.stage as number) <= 3 &&

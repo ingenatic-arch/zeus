@@ -34,6 +34,8 @@ import { JusticeView } from './justice';
 // Slice 49: the sick at their doors, the plague's braziers, the asklepieion's patients, the quarantine's pennants.
 import { HealthView } from './health';
 import { healthFigures } from './walkers';
+// Slice 54: the sanctuaries.
+import { SanctuaryView } from './sanctuary';
 
 const NO_ONE: ReadonlySet<number> = new Set();
 // Slice 49.
@@ -59,6 +61,8 @@ export class CityView {
   readonly justice: JusticeView;
   /** Slice 49: the sick at their doors, the plague's braziers, the asklepieion's patients, the quarantine's pennants. */
   readonly health: HealthView;
+  /** Slice 54: the sanctuaries, at every stage of their building. */
+  readonly sanctuaries: SanctuaryView;
   readonly bridges: Bridges;
   /** The walls, gates, towers and breaches (slice 25). */
   readonly walls: WallsView;
@@ -110,7 +114,9 @@ export class CityView {
     this.walkers.workfolk = this.workfolk;
     // Slice 35: the monuments, and where their builders and the games' visitors stand on them.
     this.monuments = new MonumentsView(map);
-    this.workfolk.stand = (st, b, x, z) => this.monuments.standAt(st, b, x, z);
+    // (Slice 54: and on the sanctuaries.)
+    this.sanctuaries = new SanctuaryView((st, b) => this.monuments.frameOf(st, b));
+    this.workfolk.stand = (st, b, x, z) => (b.kind === 'sanctuary' ? this.sanctuaries.standAt(st, b, x, z) : this.monuments.standAt(st, b, x, z));
     this.jobfolk = new Jobfolk(map, this.folk, {
       works: (st, b) => this.works.floorOf(st, b),
       monuments: (st, b) => this.monuments.frameOf(st, b),
@@ -127,6 +133,8 @@ export class CityView {
     // Slice 49.
     this.health = new HealthView(map, this.folk, (st, b) => this.works.floorOf(st, b), healthFigures());
     this.group.add(this.health.group);
+    // Slice 54.
+    this.group.add(this.sanctuaries.group);
   }
 
   update(s: SimState, alpha: number, time: number, face?: THREE.Quaternion): void {
@@ -134,6 +142,8 @@ export class CityView {
     this.homes.update(time, s.wind.angle, face);
     this.works.update(s, time);
     this.monuments.update(s, time);
+    // Slice 54.
+    this.sanctuaries.update(s);
     // Slice 45.
     this.justice.update(s);
     // Slice 32: the trees being chopped and felled, and the woods growing back.

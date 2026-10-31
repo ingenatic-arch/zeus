@@ -78,6 +78,11 @@ import { denReachWords } from '../sim/gangs';
 import { placeLines as justicePlaceLines } from '../sim/justice';
 // Slice 49.
 import { placeLines as healthPlaceLines } from '../sim/health';
+// Slice 54: the sanctuary, to a god chosen first.
+import { GODS, type GodId } from '../sim/pantheon';
+import { PRIEST_RANGE, sanctuaryName, sanctuaryRefusal } from '../sim/sanctuaries';
+import { needOf, sanctuaryStages, siteMaterials, type Site } from '../sim/monuments';
+import { materialName } from '../sim/monumentstatus';
 // Slice 59: a hero's hall, for the hero chosen on the chooser.
 import { hallName, hallRefusal } from '../sim/heroes';
 import type { HeroId } from '../sim/pantheon';
@@ -133,6 +138,8 @@ export type ToolName =
   // Slice 49.
   | 'infirmary'
   | 'asklepieion'
+  // Slice 54.
+  | 'sanctuary'
   // Slice 59.
   | 'herohall';
 export const TOOLS: readonly ToolName[] = [
@@ -184,6 +191,8 @@ export const TOOLS: readonly ToolName[] = [
   // Slice 49.
   'infirmary',
   'asklepieion',
+  // Slice 54.
+  'sanctuary',
   // Slice 59.
   'herohall',
 ];
@@ -195,7 +204,7 @@ export const stallTool = (w: Ware): ToolName => (w === FLEECE ? 'fleecestall' : 
 const isStallTool = (t: ToolName | null): boolean => t !== null && STALL_TOOLS[t] !== undefined;
 
 /** The tools that place one building where you click. */
-type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';
+type Placer = 'fountain' | 'farm' | 'lodge' | 'dairy' | 'grove' | 'press' | 'pasture' | 'vineyard' | 'winery' | 'granary' | 'storehouse' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion' | 'sanctuary';
 const isPlacer = (t: ToolName | null): t is Placer => t !== null && t !== 'road' && t !== 'housing' && t !== 'clear' && t !== 'wall' && t !== 'estate' && !isStallTool(t);
 /** Slice 36: tools that put down a footprint where you click (a building, plots, an estate's plot). */
 const isFooted = (t: ToolName | null): boolean => t === 'housing' || t === 'estate' || isPlacer(t);
@@ -232,6 +241,8 @@ function keptBack(s: Parameters<typeof reserve>[0]): string {
 
 export class Tools {
   tool: ToolName | null = null;
+  /** Slice 54: the god the sanctuary tool places a sanctuary to (chosen on the chooser first). */
+  god: GodId | null = null;
   private anchor = -1;
   private hover = -1;
   private hoverX = 0;
@@ -303,6 +314,13 @@ export class Tools {
 
   get dragging(): boolean {
     return this.anchor >= 0;
+  }
+
+  /** Slice 54: put the sanctuary tool in hand for a god (the chooser's card). */
+  chooseGod(god: GodId): void {
+    this.god = god;
+    if (this.tool === 'sanctuary') this.preview();
+    else this.select('sanctuary');
   }
 
   select(t: ToolName | null): void {
@@ -736,6 +754,8 @@ export class Tools {
       // Slice 49.
       infirmary: ['infirmary', 'infirmaries'],
       asklepieion: ['asklepieion', 'asklepieia'],
+      // Slice 54.
+      sanctuary: ['sanctuary', 'sanctuaries'],
       // Slice 59.
       herohall: ['hero’s hall', 'heroes’ halls'],
     };
@@ -871,7 +891,9 @@ export class Tools {
     const x = at % n;
     const z = Math.floor(at / n);
     const cost = priceOf(s, kind);
-    const r = buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? keptBack(s) : 'Not enough drachmas');
+    // (Slice 54: a sanctuary to the god chosen, one to a god.)
+    const holy = kind === 'sanctuary' ? (this.god ? sanctuaryRefusal(s, this.god) : 'Choose a god first: the Sanctuary button on the Mythology tab') : '';
+    const r = holy || buildingRefusal(map, s, kind, x, z) || (spendable(s, kind) >= cost ? '' : s.money >= cost ? keptBack(s) : 'Not enough drachmas');
     const roads = (side === PLOT_SIZE ? plotNeighbours(n, x, z) : beside(n, x, z, side)).filter((t) => s.tiles[t] === TILE_ROAD);
     // Allowed, but no use without a road beside it: amber, not red.
     const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;
@@ -1040,6 +1062,12 @@ export class Tools {
       const more = justicePlaceLines(s, kind, roads.length > 0);
       lines.push(...more.lines);
       warn = more.warn;
+    } else if (kind === 'sanctuary' && this.god) {
+      // Slice 54.
+      const more = sanctuaryPlaceLines(s, this.god, roads.length > 0);
+      text = `${sanctuaryName(this.god, true).replace(/^The s/, 'S')} · ${fmt(cost)} dr · ${JOBS.sanctuary} workers once finished`;
+      lines.push(...more.lines);
+      warn = more.warn;
     } else if (kind === 'infirmary' || kind === 'asklepieion') {
       // Slice 49.
       const more = healthPlaceLines(s, kind, roads.length > 0);
@@ -1072,7 +1100,15 @@ export class Tools {
       if (roads.length === 0) warn = 'No road beside it: carts and porters couldn’t reach it. Lay a road along one side first.';
     }
     this.tip.show([text, ...lines].join('\n'), sx, sy, false, warn);
-    this.pending = () => this.send(kind === 'fountain' ? { type: 'fountain', at: [at] } : { type: 'build', kind, at: [at] });
+    // (Slice 54: a sanctuary is its own command, with its god.)
+    const god = this.god;
+    this.pending = () => {
+      if (kind === 'sanctuary') {
+        if (god) this.send({ type: 'sanctuary', god, at: [at] });
+        return;
+      }
+      this.send(kind === 'fountain' ? { type: 'fountain', at: [at] } : { type: 'build', kind, at: [at] });
+    };
   }
 
   /** Slice 59: a hero's hall, 4 x 4, where you click, for the hero chosen. */
@@ -1157,3 +1193,21 @@ function straight(n: number, a: number, b: number): number[] {
   return out;
 }
 
+// Slice 54.
+
+/** What placing a sanctuary to a god says: its stages and what each needs, its priests, what its god makes of it, and what it waits for in this city. */
+function sanctuaryPlaceLines(s: Sim['state'], god: GodId, road: boolean): { lines: string[]; warn: string } {
+  const g = GODS[god];
+  const probe = { kind: 'sanctuary', god } as Site;
+  // (Review of slice 54: a line to a stage, so the tip, which never wraps, stays narrow.)
+  const stages = sanctuaryStages(god).map((st) => `  ${st.name}: ${siteMaterials(probe).filter((w) => needOf(st, w) > 0).map((w) => `${fmt(needOf(st, w))} ${materialName(w)}`).join(', ')}`);
+  const lines = [
+    'Three stages, hauled by the ox carts from the stores and raised by the masons’ builders:',
+    ...stages,
+    `${g.name} notices each stage; finished and staffed, it honours ${g.name} while it stands so`,
+    `Its priests walk up to ${PRIEST_RANGE} tiles of road blessing homes (a shrine’s priestess goes ${PRIESTESS_RANGE})`,
+  ];
+  if (!s.buildings.some((b) => b.kind === 'masons')) lines.push('No masons’ yard yet: build one (the Monuments tab) to send its builders');
+  if (!s.buildings.some((b) => b.kind === 'armoury')) lines.push('Its statue’s bronze is cast by an armoury’s smiths: the city has no armoury yet');
+  return { lines, warn: road ? '' : 'No road beside it: the ox carts and builders couldn’t reach it, nor its priests the streets. Lay a road along one side first.' };
+}

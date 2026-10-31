@@ -65,6 +65,8 @@ const PLURAL: Record<BuildingKind, string> = {
   // Slice 49.
   infirmary: 'infirmaries',
   asklepieion: 'asklepieia',
+  // Slice 54.
+  sanctuary: 'sanctuaries',
   // Slice 59.
   herohall: 'heroes’ halls',
 };

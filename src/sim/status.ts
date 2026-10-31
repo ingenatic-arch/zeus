@@ -106,6 +106,8 @@ import {
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 // Slice 36: the bread line at this season's pace.
 import { SEASON_NAMES, seasonAt } from './seasons';
+// Slice 54.
+import { sanctuaryStatus } from './sanctuarystatus';
 // Slice 59: a hero's hall's tip.
 import { hallStatus } from './heroes';
 
@@ -179,6 +181,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   // Slice 35.
   if (b.kind === 'masons') return masonsStatus(s, b, workersLine(s, map, b));
   if (b.kind === 'lighthouse' || b.kind === 'colossus' || b.kind === 'stadium') return siteStatus(s, map, b);
+  // Slice 54.
+  if (b.kind === 'sanctuary') return sanctuaryStatus(s, map, b, workersLine(s, map, b));
   // Slice 36.
   if (b.kind === 'horsefarm') return horseFarmStatus(s, map, b);
   // Slice 45: the court and the prison.

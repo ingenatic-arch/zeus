@@ -7,7 +7,7 @@ Notes to Oliver, newest first.
 The seven heroes can come to your city now: raise a hero's hall, meet what they ask, and they come by sea or by road to live in it, walk your streets, and slay the monster you send them against, in a long fight before its lair that they always win. You weren't here while it was built: every choice below is mine, from the spec's defaults.
 
 What breaks, or moves:
-- **State version 51** (50 on this line; renumbered when slice 56 reached the main line first). Older saves load: a version 50 save comes up with no hero, and the groundwork's `#town` save (version 48) and the same as a phase 6 save (version 47) load through every step and play on.
+- **State version 52** (50 on this line; renumbered as slices 56 and 54 reached the main line first). Older saves load: a version 51 save comes up with no hero, and the groundwork's `#town` save (version 48) and the same as a phase 6 save (version 47) load through every step and play on.
 - **Nothing in any earlier demo changes**: every one of the 168 earlier demos' prepared towns is identical to before, key for key, once brought up to this version. No hero exists unless you raise their hall.
 - **A monster's raid is now announced three days before it sets out** (it was one day: about a second at normal speed). The raids themselves come when they did.
 - **A monster stung by a tower's arrows before its lair now comes out for that tower** and wrecks it. Towers still shoot it on its raids at no cost.
@@ -23,7 +23,7 @@ What breaks, or moves:
 - **Messages** about the heroes have a kind of their own, Heroes. Hovering a hero says who they are and what they are doing, and clicking one opens their hall's panel.
 
 ### What to try
-1. #hero — Perseus's hall in `#richtown`'s town, with its panel open: Athena is warm and a sanctuary to her is the one demand left. Press V twice to see the chooser of the seven.
+1. #hero — Perseus's hall in `#richtown`'s town, with its panel open: Athena is warm and a sanctuary to her is the one demand left (mark one out, and once it is finished word goes out to him). Press V twice to see the chooser of the seven.
 2. #slay — Theseus walking from his hall to the Minotaur's cave on the headland by `#order`'s town, seen side on. Let it run: he fights it before the cave, wins, the city celebrates at his hall, and the cave gets its stele and tripod. Hover him and click him.
 3. #hero-modern and #hero-plain, #slay-modern and #slay-plain — the other two looks.
 
@@ -35,7 +35,7 @@ What breaks, or moves:
 - **The new Medusa and Chimera**, side by side in #bestiary.
 
 ### Known rough edges
-- **Two demands can't be met yet.** No sanctuary can be built on this line until slice 54 merges, so the sanctuary demands of Heracles, Perseus and Odysseus stay unmet, and Heracles' festival wish can't be kept until slice 53's festivals arrive. Both read loosely now and are marked for the merge.
+- **Heracles' wish can't be kept yet.** He wants a festival to Zeus each year, and festivals at home are slice 53's: until it merges, his wish reads loosely (marked for the merge) and goes unkept, so he grows restless after a year. The sanctuary demands are real: slice 54 reached this line before the check-in, so a sanctuary to Athena, finished, meets Perseus's last demand.
 - The build bar shows the general icon for the hall, not a picture of it, and its panel's title is the general "Hero's hall": the hero's name is in the first section.
 - In `#slay` the town's lines (fire risk, cheese, fleece, the gang) cover the top middle of the view, just above the fight.
 - A hero walks straight across open ground and round buildings, as a monster does, not along the roads.
@@ -61,6 +61,74 @@ The starting build (`afd1461`: the main line with slice 55, before slice 56) and
 | A save of `#empire` | 300 KB | 300 KB |
 | A frame's work before drawing | `#empire` 45, `#town-shot` 22, `#richtown-shot` 29, `#monsterraid-shot` 149 ms | `#empire` 61, `#town-shot` 36, `#richtown-shot` 22, `#monsterraid-shot` 48, `#slay-shot` 84 ms (2 to 9 frames in 8 s: not a measurement) |
 | The smoke (loosened, on this build) | | this slice's checks, slice 55's (`#monster`, `#monsterraid`, `#bestiary`), slice 56's (`#epiphany`, `#pantheon`), slice 52's `#order`, slice 50's `#companies`, and `#town`, `#richtown`, `#battle`, `#order`, `#physicians`, `#empire` and `#streets` opening: all pass, no page errors |
+
+## Slice 54 — Sanctuaries rise (31 Oct)
+
+The first slice on phase 7's Temples line: you can now raise a great sanctuary to any of the twelve gods from the Mythology tab, watch the ox carts and the masons' builders put it up in three stages, and see the god take notice as it rises. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: **state version 49** on this line (it is renumbered when the phase's lines merge); version 47 and 48 saves load and play on. The monuments' code now serves sanctuaries too, but the Lighthouse, the Colossus and the Stadium are raised exactly as before, and every one of the 167 earlier demos opens exactly as it did. The Mythology tab has a second button.
+
+### What's new
+- **The sanctuary.** A 5 × 5 walled precinct for one of the twelve, one to a god, 1,200 dr to mark out. The Sanctuary button on the Mythology tab opens a card of the twelve, each with their emblem in their colour, what they are god of and the sacred good their sanctuary needs; gods already honoured are greyed out with the reason.
+- **Three stages**, raised by the same ox carts and masons' builders as the monuments: the foundations (160 marble, 80 timber), the temple (320 marble, 160 timber) and the statue and finish (120 marble, 120 copper cast into bronze by an armoury's smiths, and the god's sacred good: 200 measures of a food, 100 of oil, wine, fleece or copper, 16 sets of armour or 8 horses, carted from whichever granary or storehouse has it). With one masons' yard, a year or more from marking out to finished: about fifteen months in `#sanctuary`, whose storehouse is across town (see What the review changed).
+- **The god notices.** Each stage finished is remembered (+6, +8, +10 to the god's mood, fading over two years). Finished and staffed, the sanctuary is a standing honour (+18) while it stands so. Left without workers for a season it **dims**: its lamps go out, the honour lapses and a message says so; workers bring it back.
+- **Priests.** A finished sanctuary takes 8 workers and sends priests in its god's colour on the religion round, blessing homes as a priestess does but reaching half as far again (48 tiles of road, against a shrine's 32). Priestesses tend its altar.
+- **Its panel**: the god's emblem and name, the three stages with bars and what each still wants, the god's mood word and reasons, and its priests. Two places are left empty for later slices (festivals and offerings, and blessings).
+- **The look.** One builder for all twelve: the walled court, the stepped temple with its ring of columns, the altar, cypresses, banners, and the god's statue in their own pose with their emblem. Each temple's roof is glazed in a tone of its god's (Zeus's in marble tiles). Aphrodite's and Hermes's are round tholoi. Each god also has a side court: Zeus's oak, Hera's irises, Poseidon's pool, Demeter's wheat, Athena's olives, Apollo's laurels, Artemis's wild grove, Ares' yard of arms, Aphrodite's roses, Hephaestus's smoking forge, Hermes's herms and Dionysus's vines. Each stage looks different: stakes and cords on a levelled pad, the platform laid course by course, the columns rising in scaffolding under a crane, then the statue rising in its own scaffold beside a casting pit.
+
+### What to try
+1. #sanctuaries — four sanctuaries at four stages east of #quarry's vineyards. Athena's is finished and staffed, with her panel open (her mood and its reasons) and her priests out. Poseidon's statue is going up, Apollo's temple is rising and Demeter's has just been marked out. Play it on and watch Demeter's ox carts.
+2. #sanctuary — Demeter's site alone, just marked out, its first marble on the road. Play it on to watch the stages come (the foundations start after about three months, the temple after seven or eight).
+3. #twelve — all twelve finished in two rows, to tell apart.
+4. #sanctuaries — open the Mythology tab and press the Sanctuary button for the chooser, pick a god, and mark one out beside a road.
+5. #sanctuaries-modern and #twelve-plain — the other two looks.
+
+### What I'd like your eye on
+- **Can you tell the twelve apart at a glance in #twelve?** I leaned on the roofs' glaze and two round temples. Too loud for the city, or not enough?
+- **The pace and the price**: about a year with one yard, 1,200 dr to mark out, and 600 marble, 240 timber and 120 copper in all, besides the sacred good. Too quick or too slow for a centrepiece?
+- **How much the god cares**: +18 while it stands and is staffed, and +6, +8 and +10 for the stages, each fading over two years. Does that feel like the biggest thing you can do for a god?
+- **The priests' reach** (half as far again as a priestess), and dimming after a season without workers.
+
+### Known rough edges
+- `#twelve` is a demo shortcut: its sanctuaries' stages are completed directly in the setup, so every stage's message and every god's memory of it fall on the same day (the scroll opens with 48 sanctuary messages). `#sanctuaries` and `#sanctuary` play their stages for real, but their coin and materials are put on site "set up for this demo" (in the ledger and the stock book).
+- From some angles a side court is behind its temple; turn the view to see it.
+- A dimmed sanctuary is drawn greyer and its banners furled; there is no other sign in the city yet.
+- The god's mood shows on the sanctuary's panel only. The Olympus panel is another line's slice.
+- The panel's "What it is doing" and "Its stages" overlap a little while it rises: the first says where each material comes from, the second how far each stage is.
+- The checks ran with three other lines building on the same 4 cores, so the tests and the smoke needed long timeouts, and every time in Measurements is noise. A handful of time-bound tests still fail under that load, as they do on the starting build (see Measurements).
+
+### Measurements
+The starting build (`11f9290`) and this slice's, measured side by side with the same loosened `measure.mjs` (in three parts, as one run no longer fits the two-hour limit on this machine). Headless, software WebGL, with three other lines building on 4 cores (load average 30 to 50), so **every time below is noise**: the bare link took 10 to 14 s to be ready in both. Triangles, draw calls and sizes are exact.
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Tests | 803 in 60 files, all pass (the groundwork's run) | 809 in 61 files. Under load 40 to 50: 768 pass, 37 time out, 4 fail. Of the 4, the kit's icon test was real: fixed (`52d379f`), 8 of 8 pass. The other 3 (a per-call time, two land-bake times) are measured on the clock. The 21 files with a failure, rerun with long timeouts on 2 workers: 283 of 288 pass. Of the 5 left: two land-bake times and the routes replay's 60 s fail the same way on `11f9290` run beside it; the routes and trade replays pass in a scratch copy with longer timeouts; the every-demo wages test ran out of its 20 minutes, and my three demos pass it alone |
+| Build | | succeeds; 44 s with the prepared towns cached, 15 to 23 min when they bake again under this load |
+| The game itself | 3,004 KB, 998 KB gzipped | 3,066 KB, 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 128 files, 4,658 KB gzipped (largest 82 KB) |
+| Every earlier demo opened paused (date, money, people, homes, levels, buildings, every count in the probe's city) | 167 demos | all 167 identical |
+| Version 47 and 48 saves (`#monument` and `#town`, saved by the code at `11f9290^` and `11f9290`) | | load to 49, play a quarter on and save again |
+| Triangles and draw calls in every earlier view, the map of Greece, every land and `#order` | | identical. (Two things differ, both animated: a mesh count in `#food`'s overlay columns, where the view's own triangles are identical, and one more smoke puff in `#creak`, 2 triangles) |
+| `#sanctuaries` | (new) | 1.50 M triangles, 91 draw calls |
+| `#twelve` (twelve sanctuaries, finished, in one view) | (new) | 1.94 M triangles, 129 draw calls (`#order`'s view: 2.52 M and 150) |
+| The slow smoke | | passes, with every slice 54 check. It ran in four parts because the whole would not fit in two hours. The one failure is `#jailbreak`'s popup, gone before the smoke could click it (slice 51); that step also fails on `11f9290` run alone under this load |
+
+### What the review changed
+- **`#sanctuary` and `#sanctuaries` now rise when played on.** `#quarry`'s town cuts marble but has no loggers' camp and no copper mine, so Demeter's site waited for its timber for ever, and Apollo's statue for its copper. The storehouse now holds the timber and copper they still need (set up for the demo, in the stock book), and `#sanctuary` has an armoury for the bronze. Played on in my run, `#sanctuaries`' Poseidon finishes a month in, Apollo's about six months in and Demeter's after about thirteen months. In `#sanctuary`, Demeter's foundations started after about three months (the carts are slow across town, and marble comes only as the quarry cuts it), the temple after about seven and a half and the statue after about eleven and a half; with its stages' work, that is about fifteen months in all. Left alone, though, that town's masons' yard catches fire and burns about fourteen months in, and its storehouse on the headland falls down. The town warns you first: it needs a watch post and an architect's office nearer.
+- **A sanctuary's stuck line is under Sanctuaries** in the Messages panel, not Monuments. When it waits for a granary's food and a storehouse's good at once, the line names both.
+- **The chooser sits a little lower**, clear of the Greece button. The Sanctuary button's hint says "a year or more with one masons' yard, longer when the stores are far from it".
+- **Nothing else in an old save is touched** as it loads: the step to version 49 now only gives each site its new field.
+- **Corrected above:** `#twelve`'s scroll and the gods' memories show every stage, all dated the same day, not only the finishing. The time a sanctuary takes is now given as I measured it.
+
+Still for your eye: whether fifteen months in `#sanctuary` feels right for a centrepiece, and whether the roofs' colours are too loud in the classic look (in `#twelve`).
+
+### At the merge
+Slices 55 (the monsters) and 56 (the gods in the city) joined the main line first, so this slice's saves are now version 51, not 49. Every older save still loads.
+- **A god comes to see their sanctuary.** When a sanctuary is finished, its god now rises at its altar, blesses it first and then walks on to the places they love: play `#sanctuaries` on for about a month and Poseidon rises in his court ("Poseidon rises at the altar of his new sanctuary, come to see it"), blesses it and then the trading post, and goes. At most three gods walk the city at once, as before, so a fourth sanctuary finished while three are about brings nobody. `#twelve` raises its twelve while the demo is being set up, so no god comes there.
+- **A god's own sanctuary is the first place they visit**, whenever they come.
+- **Monsters can wreck a sanctuary** like any other building: one that falls, finished or half built, leaves 5 × 5 rubble, its god's +18 honour goes with it, and ox carts on their way turn home with their loads.
+- **Every earlier town is as it was.** I played all 170 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on. The only difference is the new empty "idle" field on the monuments' sites. `#town`'s save is the same size as before.
+- **Checked on the merged game:** `#sanctuaries`, `#sanctuary`, `#twelve`, `#pantheon`, `#epiphany`, `#monster`, `#monument` and `#town` open with no errors, and the sanctuaries', monuments', monsters' and gods' own browser checks pass. All 835 tests pass. On this busy machine, 3 of them ran out of time or missed a timing budget in the full run, and their files passed when run alone.
 
 ## Slice 56 — The gods walk your streets (31 Oct)
 

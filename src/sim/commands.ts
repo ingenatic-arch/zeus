@@ -7,6 +7,8 @@
  * Commands carry exactly what to build (tile lists), not how the tool chose
  * it, so a replay never depends on the route-finding of the day.
  */
+// Slice 54.
+import type { GodId } from './pantheon';
 // Slice 59.
 import type { HeroId } from './pantheon';
 
@@ -102,6 +104,9 @@ export type Command =
   // Slice 56
   /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
   | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } }
+  // Slice 54
+  /** Mark out a sanctuary to a god (sanctuaries.ts) at these top-left tiles (the first that can take it; one to a god). */
+  | { type: 'sanctuary'; god: GodId; at: number[] }
   // Slice 59
   /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
   | { type: 'herohall'; hero: HeroId; at: number[] }

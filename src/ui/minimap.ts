@@ -63,6 +63,8 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   // Slice 49: the infirmary in pale green-washed plaster, the asklepieion's marble.
   infirmary: '#d8e8d0',
   asklepieion: '#f2efe4',
+  // Slice 54: a sanctuary's court and temple in gleaming marble, warmer than the asklepieion's.
+  sanctuary: '#fff4dc',
   // Slice 59: a hero's hall in warm stone, its roof tiles red.
   herohall: '#e0b48a',
 };

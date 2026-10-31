@@ -10,7 +10,7 @@
  * - **Demands** (`demandsOf`), each a named check with its progress, read
  *   only from what the city already has: people, granaries, the court, fine
  *   houses, triremes, horsemen, routes, lodges, a god's mood (the mood API),
- *   a sanctuary (`sanctuaryStands`, slice 54's on the trunk).
+ *   a sanctuary (`sanctuaryStands`: slice 54's `sanctuaryDone`).
  * - **Arrival.** All met with the hall standing, word goes out (a message)
  *   and the hero comes ARRIVE days later: by sea at the trading post if there
  *   is one, else by road from the nearest edge they can walk in by, and walks
@@ -55,6 +55,8 @@ import { GRANARY_CAP } from './stores';
 import { tradingPost } from './trade';
 import { income } from './treasury';
 import { offRoadPath, prunePath, walkable } from './wild';
+// (Slice 54, at the second merge of the trunk.)
+import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
 
 // ---------------------------------------------------------------------------
 // The state (in the line's `legends`).
@@ -207,19 +209,11 @@ export interface Demand {
 }
 
 /**
- * Slice 54's sanctuaries, read loosely so this works before and after its
- * merge: a monument site of kind 'sanctuary' to this god, finished, its
- * building standing. INTEGRATOR: replace with `sanctuaryDone(s, god)` from
- * './sanctuaries' once slice 54 is on the trunk.
+ * Slice 54's sanctuaries: this god's finished and standing (`sanctuaryDone`).
+ * (Read loosely on the Legends line until slice 54 reached it, at its second
+ * merge of the trunk.)
  */
-export function sanctuaryStands(s: SimState, god: GodId): boolean {
-  for (const x of s.monuments.sites as ReadonlyArray<{ id: number; kind: string; finished: number; god?: string }>) {
-    if (x.kind !== 'sanctuary' || x.god !== god || !x.finished) continue;
-    const b = findBuilding(s, x.id);
-    if (b && (b.kind as string) === 'sanctuary') return true;
-  }
-  return false;
-}
+export const sanctuaryStands = (s: SimState, god: GodId): boolean => sanctuaryDone(s, god);
 
 /**
  * Slice 53's festivals at home, read loosely: the tick of the last festival
@@ -244,7 +238,9 @@ const godWarm = (s: SimState, god: GodId): Demand => {
 };
 const sanctuary = (s: SimState, god: GodId): Demand => {
   const ok = sanctuaryStands(s, god);
-  return { what: `A sanctuary to ${GODS[god].name}`, met: ok, have: ok ? 'finished' : 'none finished yet' };
+  // (Slice 54's merge: how far along one marked out is.)
+  const x = ok ? undefined : sanctuaryOf(s, god);
+  return { what: `A sanctuary to ${GODS[god].name}`, met: ok, have: ok ? 'finished' : x ? 'marked out, rising' : 'none finished yet' };
 };
 /** The fullest granary: its food against FULL of its wheat room. */
 const FULL = 0.9;
