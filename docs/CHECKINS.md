@@ -65,6 +65,24 @@ A second pair of eyes went through every step above at full-HD size in all three
 
 What I'd still like your eye on is as above; I haven't judged how any of it feels for you.
 
+### At the merge
+Slices 53 (the twelve and their tempers) and 59 (heroes answer) joined the main line first. This slice adds nothing to a save, so saves stay at version 53, and every save that loaded before still loads.
+- **One Olympus.** The Olympus page on the map of Greece now uses the same cards and emblems as the Olympus panel (G), and the same banded mood bar, so the two read as one thing. The gods who think something of you come first as full cards (Athena, Poseidon and Ares in `#greecegods`), and the rest are short rows with their mood and their main reason, so all twelve still fit at 1080. Since slice 53 the gods also notice your city each month, so nearly every god has some small reason. A full card now goes to a god who is no longer watchful, or who remembers something you did in Greece.
+- **Click a god to see their page.** On the map, a god's card, or a city's god on its Ruler tab, opens that god's page on Olympus. The page now says which city the god watches over ("watches over Athens"), and your deeds in Greece are listed with the other reasons.
+- **Olympus's label was drawn as a huge window** on the merged game, because it shared a name with the Olympus panel. I renamed it, and it now sits beside the mountain again, with its ♥ and ⚡ counts.
+- **Crushing a vassal's rising is now a war with cause** for the city's god (−8, not −20), as this slice's plan meant. Before, the god judged it as a war without cause, the way the rulers do.
+- **Copper kept for a statue is now shared between the stores.** Before, every store held back the whole amount a statue or the Colossus still needed. Now the stores together hold back only that amount, taking it first from the store nearest the site, and the armoury's smiths can take the rest. No demo's town moves because of it.
+- **The gods' numbers in `#greecegods` moved a little**, because slice 53's monthly reading counts the city too: Athena is −36 (was −38), Poseidon +17 (was +16), and Ares +7 (was +6, with +1 for an army of 30). He is still watchful.
+- **Ares still counts tribute twice.** Slice 53 reads "you paid tribute" every month, and this slice remembers each payment when it happens. Slice 57 drops the monthly reading when it merges.
+- **Every earlier town opens as it was.** I played all 177 earlier demos from the main line before and after the merge, as they open and 900 ticks on. Date, people and money were the same in every one. The other differences all come from this slice, now that slice 53's gods have moods:
+  - In `#gods`, the pious rulers of Corinth and Thebes remember, as the demo opens, that Poseidon and Dionysus are pleased with you (+2 each). The same thing happens a month or so into `#sanctuaries`, `#twelve` and `#slay`.
+  - In `#promise`, breaking the promise to Athens now angers Zeus (−8) and Hera (−5), and its news line says so.
+  - In `#triremes`, sinking Troy's ships pleases Ares (+6), with a line in the army's news.
+- **Checked on the merged game:**
+  - `#greecegods` (all three looks), `#festival`, `#companies`, `#gods`, `#sanctuaries`, `#monument`, `#empire`, `#town` and `#greece` open with no errors. `#town` opens as before: 8400 ticks, 736 people, 751 dr.
+  - The browser checks pass for this slice, for the merge's own check (a god's card opening their page), for the map of Greece, `#festival`, `#companies`, `#greecegrows`, `#monument` and `#empire`, and for slices 53 and 54. The map's check of clicking a city's label now skips Olympus's label, which belongs to no city.
+  - There are 885 tests, two of them new: copper shared between two stores, and a crushed rising counted as a war with cause. All 885 passed in one full run, the treasury's check of every demo's wages among them.
+
 ## Slice 59 — Heroes answer (1 Nov)
 
 The seven heroes can come to your city now: raise a hero's hall, meet what they ask, and they come by sea or by road to live in it, walk your streets, and slay the monster you send them against, in a long fight before its lair that they always win. You weren't here while it was built: every choice below is mine, from the spec's defaults.
