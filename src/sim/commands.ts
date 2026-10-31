@@ -95,7 +95,10 @@ export type Command =
   | { type: 'quarantine'; on: boolean }
   // Phase 7 groundwork
   /** The gods' switch (pantheon.ts): on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'gods'; on: boolean };
+  | { type: 'gods'; on: boolean }
+  // Slice 56
+  /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
+  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

@@ -28,7 +28,8 @@ import type { GodId, Gods } from './pantheon';
 // (Slice 51: the overview, renumbered 46 at its merge.)
 // (Slice 49: physicians and plague, renumbered 47 at its merge.)
 // (Phase 7 groundwork: the gods' moods, 48.)
-export const SIM_STATE_VERSION = 48;
+// (Slice 56: the gods walk your streets, 49 on its line; renumbered at its merge.)
+export const SIM_STATE_VERSION = 49;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
