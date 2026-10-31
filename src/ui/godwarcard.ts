@@ -71,8 +71,9 @@ export function godWarCard(s: SimState): string {
   }
   // The others: a dimmed emblem each, its tip saying why.
   const rest = all.filter((c) => c.why && !near.includes(c));
-  const lovingNoSanctuary = rest.filter((c) => loving(s, c.god) && !sanctuaryStands(s, c.god));
-  if (!answer.length) {
+  const busy = (g: string): boolean => w.champions.some((c) => c.god === g) || w.marches.some((m) => m.god === g);
+  const lovingNoSanctuary = rest.filter((c) => !busy(c.god) && loving(s, c.god) && !sanctuaryStands(s, c.god));
+  if (!answer.length && !w.champions.length) {
     const none = !invaders(s).length && !w.marches.length ? 'No god who loves you has a sanctuary in your city yet.' : 'No god can answer a call now.';
     answer.push(`<p class="gw-none">${esc(none)} A god answers a call to war only if they love your city and have a finished sanctuary here, once a year.</p>`);
   }
@@ -80,7 +81,7 @@ export function godWarCard(s: SimState): string {
     answer.push(`<p class="gw-note">${esc(lovingNoSanctuary.map((c) => GODS[c.god].name).join(' and '))} ${lovingNoSanctuary.length === 1 ? 'loves' : 'love'} you, but ${lovingNoSanctuary.length === 1 ? 'has' : 'have'} no finished sanctuary to answer from: build one to call on ${lovingNoSanctuary.length === 1 ? (goddess(lovingNoSanctuary[0].god) ? 'her' : 'him') : 'them'}.</p>`);
   }
   const dim = rest
-    .filter((c) => !lovingNoSanctuary.includes(c))
+    .filter((c) => !lovingNoSanctuary.includes(c) && !busy(c.god))
     .map((c) => `<span class="gw-dim" data-tip="${esc(`${c.why}${/only .* towards you/.test(c.why) ? '' : ` (${moodWord(moodOfGod(s, c.god))})`}`)}" aria-label="${esc(`${GODS[c.god].name}: ${c.why}`)}">${emblemIcon(c.god)}</span>`);
   if (dim.length) answer.push(`<div class="gw-rest"><small>Won’t come:</small>${dim.join('')}</div>`);
   out.push(answer.join(''));

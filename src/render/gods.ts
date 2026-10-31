@@ -1342,8 +1342,9 @@ export class GodsView {
       }
       case 'clash':
         // Two gods' blows meeting: a white flash and great sparks of both their colours.
-        flash(4.5, 0xffffff, 0.12, y1 + GOD_HEIGHT * 0.6);
-        burst(36, [GODS[k.god].colour, 0xfff0c0, 0xffffff], 4.5, 3, 0.2, 0.7, 4, y1 + GOD_HEIGHT * 0.6);
+        // (Small and brief: the two gods must still be seen through it; slice 60's look and tune.)
+        flash(1.6, 0xfff0c0, 0.08, y1 + GOD_HEIGHT * 0.6);
+        burst(14, [GODS[k.god].colour, 0xffd070], 2.6, 2, 0.11, 0.5, 4, y1 + GOD_HEIGHT * 0.6);
         break;
       case 'burn':
         // Fire thrown on a roof.
