@@ -31,7 +31,9 @@ import { NEWS_KINDS } from '../sim/crime';
 // Slice 45: the court and the prison.
 import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 // Phase 7 groundwork.
-import { GOD_IDS, MONSTER_IDS } from '../sim/pantheon';
+import { GOD_IDS } from '../sim/pantheon';
+// Slice 55.
+import { MONSTER_IDS } from '../sim/pantheon';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -451,7 +453,6 @@ function legendsOk(l: unknown): boolean {
     LAIRS.includes(m.den as string) &&
     BEAST_NUMBERS.every((k) => fin(m[k])) &&
     nums(m.path) &&
-    (m.path as number[]).length >= 4 &&
     (m.path as number[]).length % 2 === 0 &&
     ['why', 'aim', 'lastWords'].every((k) => typeof m[k] === 'string') &&
     typeof m.warned === 'boolean' &&

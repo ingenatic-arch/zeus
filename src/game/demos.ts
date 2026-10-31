@@ -3641,7 +3641,7 @@ const SCENES: Record<string, Demo> = {
   // Slice 55: monsters at the gates. #richtown's town with the Cyclops walking the last of the way to his den on the shore
   // below the trading post, Poseidon's warning in the scroll; #companies' town with the Boar out wrecking the sheep pasture
   // and the hoplites marching to it, their banner in hand; all seven before their lairs on #town's open ground, still.
-  monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 6 * TICKS_PER_DAY },
+  monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
   monsterraid: { view: 'monsterraid', setup: monsterRaidTown, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner, unread: 3 * TICKS_PER_DAY },
   bestiary: { view: 'bestiary', speed: 'paused', setup: bestiaryTown, overlay: 'missing' },
 };

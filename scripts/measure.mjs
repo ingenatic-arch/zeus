@@ -716,5 +716,23 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
   console.log(`#bigwoods-shot      update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
 }
+// Slice 55: monsters at the gates. #bestiary's seven and their lairs: triangles and draws from its view, and the main thread's
+// work a frame with them; #monsterraid at normal speed, the Boar fought by the hoplites.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('about:blank');
+  await page.goto(url + '#bestiary-paused-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  const info = await page.evaluate(() => window.__zeus.info());
+  console.log(`#bestiary view   triangles ${String(info.triangles).padStart(8)}  draw calls ${String(info.calls).padStart(3)}`);
+  await page.goto('about:blank');
+  await page.goto(url + '#monsterraid-shot');
+  await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+  await page.waitForTimeout(4000);
+  const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  await page.waitForTimeout(8000);
+  const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+  console.log(`#monsterraid-shot  update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+}
 await browser.close();
 server.close();
