@@ -122,6 +122,11 @@ import { Overview, type OverviewPage } from './ui/overview';
 import { installKit, tipShowing } from './ui/kit';
 // Merge of slice 50 with slice 49: the health legend's rod.
 import { actionIcon } from './ui/icons';
+// Slice 56: the gods in the city (their figures, flourishes and stings; a god's panel; a blessed place's line).
+import { GodsView, godTriangles } from './render/gods';
+import { GodPanel } from './ui/godpanel';
+import { blessingWords, figureOf, godStatus } from './sim/epiphany';
+import { GODS } from './sim/pantheon';
 
 interface Probe {
   ready: boolean;
@@ -357,6 +362,11 @@ interface Probe {
   // Slice 50
   /** The kit's tip showing ('' when none). */
   kitTip?: () => string;
+  // Slice 56
+  /** The gods in the city: each figure (its god, state, where, what it has blessed), what is drawn, the god's panel's text, the stings played, each figure's triangles. */
+  gods?: () => { figures: Array<{ id: number; god: string; state: string; x: number; z: number; blessed: number[]; stops: number }>; blessed: Array<{ id: number; god: string; until: number }>; drawn: { gods: number; particles: number; steps: number; shimmer: number; birds: number }; panel: string; stings: number; triangles: Record<string, number> };
+  /** Where a god in the city is on the screen (their middle), if drawn. */
+  godAt?: (god: string) => { x: number; y: number } | null;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -481,6 +491,10 @@ function start(preparedTown: string | null): void {
   const world = new World(map);
   const city = new CityView(map, world.plants);
   world.scene.add(city.group);
+  // Slice 56: the gods in the city, their halos, trails and flourishes, and the shimmer on the places they bless.
+  const godsView = new GodsView(map);
+  godsView.ground = city.walkers.ground;
+  world.scene.add(godsView.group);
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);
   world.scene.add(placement.mesh);
@@ -1167,6 +1181,14 @@ function start(preparedTown: string | null): void {
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
+    // Slice 56: a god in the city, towering over whatever is under them: who, what they're doing and why.
+    const godId = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+    const god = godId ? figureOf(sim.state, godId) : undefined;
+    if (god) {
+      const gs = godStatus(sim.state, god);
+      if (godPanel.id !== god.id) gs.detail = `${gs.detail}\nClick for more`;
+      return showStatus(gs, sx, sy);
+    }
     // A soldier, or a company's banner; a raider nearer the pointer than the soldier (in a fight they stand close: slice 24's review).
     const pickedArmy = armyPick(sx, sy);
     const foeFirst = pickedArmy.soldier && pickedArmy.d !== undefined ? foeNear(sx, sy, pickedArmy.d) : 0;
@@ -1242,6 +1264,9 @@ function start(preparedTown: string | null): void {
     }
     // Slice 48.
     else if (buildingPanel.id !== b.id && !ownPanel(b.kind)) st.detail = `${st.detail ? st.detail + '\n' : ''}Click for its panel`;
+    // Slice 56: a god's blessing on it.
+    const blessed = blessingWords(sim.state, b);
+    if (blessed) st.detail = `${blessed}${st.detail ? '\n' + st.detail : ''}`;
     showStatus(st, sx, sy);
   };
 
@@ -1343,10 +1368,19 @@ function start(preparedTown: string | null): void {
       else if (panel.open) panel.show(0);
       // Slice 48.
       else if (buildingPanel.open) buildingPanel.show(0);
+      // Slice 56.
+      else if (godFollow) stopGodFollow();
+      else if (godPanel.open) godPanel.show(0);
       else tools.cancel();
     },
     click(w, sx, sy) {
       if (greeceOpen()) return greece?.click(sx, sy);
+      // Slice 56: a god in the city: their panel.
+      const godHit = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+      if (godHit) {
+        godPanel.show(godHit);
+        return hover(w, sx, sy);
+      }
       // A banner or a soldier: take his company's banner in hand.
       const army = armyPick(sx, sy);
       if (army.company) {
@@ -1722,6 +1756,60 @@ function start(preparedTown: string | null): void {
   };
   // A demo can open with a building's panel showing (#workpanel, #storeset).
   if (demo?.building) buildingPanel.show(demo.building(sim.state));
+  // Slice 56: a god's panel, on the left, one at a time with the others; its Follow keeps the camera on the god until the map is dragged (or Esc).
+  const godPanel = new GodPanel(ui);
+  let godFollow: { id: number; pans: number } | null = null;
+  const stopGodFollow = (): void => {
+    godFollow = null;
+    followChip.hidden = true;
+  };
+  const updateGodFollow = (): void => {
+    if (!godFollow) return;
+    const a = godsView.at.get(godFollow.id);
+    if (!a || rig.pans !== godFollow.pans) return stopGodFollow();
+    rig.follow(a.x, a.z);
+  };
+  godPanel.onFollow = (id) => {
+    const f = figureOf(sim.state, id);
+    if (!f) return;
+    stopFollow();
+    godFollow = { id, pans: rig.pans };
+    followChip.textContent = `Following ${GODS[f.god].name} · drag the map or press Esc to stop`;
+    followChip.hidden = false;
+  };
+  godPanel.onOpen = () => {
+    panel.show(0);
+    buildingPanel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+  };
+  for (const other of [buildingPanel, tradePanel, shipyardPanel, msgPanel]) {
+    const was = other.onOpen;
+    other.onOpen = () => {
+      was?.();
+      godPanel.show(0);
+    };
+  }
+  probe.gods = () => {
+    const w = sim.state.gods.walks;
+    return {
+      figures: w.figures.map((f) => ({ id: f.id, god: f.god, state: f.state, x: f.x, z: f.z, blessed: [...f.blessed], stops: f.stops.length })),
+      blessed: w.blessed.map((x) => ({ ...x })),
+      drawn: godsView.drawn,
+      panel: godPanel.text,
+      stings: sound.stings,
+      triangles: godTriangles(),
+    };
+  };
+  probe.godAt = (god) => {
+    const f = sim.state.gods.walks.figures.find((o) => o.god === god);
+    const a = f ? godsView.at.get(f.id) : undefined;
+    if (!a) return null;
+    const v = new THREE.Vector3(a.x, a.y + a.h * 0.5, a.z).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
   probe.building = (id) => {
     if (id !== undefined) buildingPanel.show(id);
     buildingPanel.update(sim.state, map, Infinity);
@@ -2791,6 +2879,11 @@ function start(preparedTown: string | null): void {
     world.update(time, rig, s.wind.angle, s.wind.strength);
     city.army.selected = orders.selected;
     city.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
+    // Slice 56: the gods in the city (their stings as they arrive and leave), following one, their panel.
+    godsView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
+    for (const e of godsView.events.splice(0)) sound.sting(e.god, e.kind === 'leave');
+    updateGodFollow();
+    godPanel.update(s, map, time);
     updateFollow();
     overlay.update(s, time);
     side.showOverlay(overlay.mode);
