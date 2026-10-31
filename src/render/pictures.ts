@@ -9,6 +9,8 @@ import { isHuge, isLarge, isSmall } from '../sim/buildings';
 // Slice 54.
 import { sideOf } from '../sim/buildings';
 import { sanctuaryPicture } from './sanctuary';
+// Slice 59 (the review): the hero's hall.
+import { heroHallPicture } from './heroes';
 // Slice 35.
 import { monumentPicture } from './monuments';
 import type { BuildingKind } from '../sim/state';
@@ -28,7 +30,7 @@ function partsOf(tool: string): PicturePart[] | null {
   const homes = homePicture(tool);
   if (homes) return homes.map((geo) => ({ geo, x: 0, z: 0, yaw: 0, s: [1, 1, 1] }));
   // (Slice 35: the masons' yard and the monuments.)
-  return monumentPicture(tool) ?? sanctuaryPicture(tool) ?? workPicture(tool);
+  return monumentPicture(tool) ?? sanctuaryPicture(tool) ?? heroHallPicture(tool) ?? workPicture(tool);
 }
 
 /** Pictures for these tools, by tool (a tool with no model of its own gets none). */

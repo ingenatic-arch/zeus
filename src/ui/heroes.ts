@@ -20,7 +20,7 @@ import './heroes.css';
 import type { CoastMap } from '../map/bake';
 import { HEROHALL_COST } from '../sim/build';
 import { TICKS_PER_MONTH } from '../sim/clock';
-import { demandsOf, hallRefusal, heroDoing, heroOf, isCome, LEAVE, LEGEND_COIN, placeName, RESTLESS, sailRefusal, sendRefusal, slayersOf, slaysWords, unmetFor, wishOf, type Champion } from '../sim/heroes';
+import { demandsOf, worthWords, hallRefusal, heroDoing, heroOf, isCome, LEAVE, LEGEND_COIN, placeName, RESTLESS, sailRefusal, sendRefusal, slayersOf, slaysWords, unmetFor, wishOf, type Champion } from '../sim/heroes';
 import { beastName, type Beast } from '../sim/monsters';
 import { HERO_IDS, HEROES, type HeroId } from '../sim/pantheon';
 import type { Building, SimState } from '../sim/state';
@@ -83,7 +83,7 @@ export function hallSections(s: SimState, map: CoastMap, b: Building): string {
   out.push(
     ksec(
       'Ride with your armies',
-      `${ktoggle({ on: c.ride || away, act: 'hero', data: { do: 'ride', on: c.ride ? 0 : 1 }, html: esc(away ? `Away with your expedition` : c.ride ? `Rides with the next expedition` : `Stays home`), why: away ? `${g.name} is away with your expedition` : c.state === 'leaving' ? `${g.name} is leaving` : '', tip: `${g.name} rides with your next expedition and fights beside your men, worth ${h === 'heracles' ? 60 : 40} of them` })}`,
+      `${ktoggle({ on: c.ride || away, act: 'hero', data: { do: 'ride', on: c.ride ? 0 : 1 }, html: esc(away ? `Away with your expedition` : c.ride ? `Rides with the next expedition` : `Stays home`), why: away ? `${g.name} is away with your expedition` : c.state === 'leaving' ? `${g.name} is leaving` : '', tip: `${g.name} rides with your next expedition and fights beside your men, worth ${worthWords(h)} on ${his(h)} own` })}`,
     ),
   );
   if (h === 'odysseus') {

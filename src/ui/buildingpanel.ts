@@ -59,6 +59,7 @@ import { SANCTUARY_QUIET, sanctuarySections } from './sanctuarypanel';
 import { GODS } from '../sim/pantheon';
 // Slice 59: a hero's hall (its hero, demands, wish, monsters to send them against).
 import { hallSections } from './heroes';
+import { hallName } from '../sim/heroes';
 import type { HeroId } from '../sim/pantheon';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -149,6 +150,8 @@ export function nameOf(b: Building): string {
   if (b.kind === 'home') return HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)].replace(/^(A|An) /, '').replace(/^./, (c) => c.toUpperCase());
   // Slice 54: whose sanctuary it is.
   if (b.kind === 'sanctuary' && b.god) return `Sanctuary to ${GODS[b.god].name}`;
+  // Slice 59: whose hall it is (the review).
+  if (b.kind === 'herohall' && b.hero) return hallName(b.hero);
   return cap((BUILDING_NAMES[b.kind] ?? b.kind).replace(/^(A|An|The) /, ''));
 }
 

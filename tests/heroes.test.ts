@@ -129,6 +129,19 @@ describe('a hero comes', () => {
     expect(heroDoing(sim.state, c)).toMatch(/two of his demands still to meet/);
   }, 240000);
 
+  // (The review: a hall pulled down while its hero walked in left them standing in its place for good.)
+  it('the hall pulled down while they walk in: they turn and leave, and are forgotten', () => {
+    const sim = demoSim('order');
+    const s = sim.state;
+    const c = raise(sim, 'theseus');
+    expect(until(sim, () => c.state === 'arriving', TICKS_PER_MONTH + 2 * TICKS_PER_DAY)).toBe(true);
+    const hall = findBuilding(s, c.hall)!;
+    send(sim, { type: 'clear', x0: hall.x, z0: hall.z, x1: hall.x + 3, z1: hall.z + 3 });
+    expect(s.buildings.some((b) => b.kind === 'herohall')).toBe(false);
+    expect(until(sim, () => c.state === 'leaving', 2 * TICKS_PER_MONTH)).toBe(true);
+    expect(until(sim, () => !heroOf(s, 'theseus'), 2 * TICKS_PER_MONTH)).toBe(true);
+  }, 240000);
+
   it('one hall to a hero', () => {
     const sim = demoSim('order');
     raise(sim, 'theseus');

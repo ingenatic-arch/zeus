@@ -513,10 +513,15 @@ function stepOne(s: SimState, map: CoastMap, c: Champion): void {
       if (s.tick >= c.next) arrive(s, map, c);
       return;
     case 'arriving':
-      if (walkOn(c)) atHome(s, c, true);
+      // (The hall gone while they walked in: they turn and leave, as from home.)
+      if (walkOn(c)) {
+        if (hall) atHome(s, c, true);
+        else leave(s, map, c, '');
+      }
       return;
     case 'home':
-      if (hall && rideOut(s, map, c)) return;
+      if (!hall) return leave(s, map, c, '');
+      if (rideOut(s, map, c)) return;
       if (wishes(s, map, c)) return;
       if (s.tick >= c.next && hall) stroll(s, map, c, hall);
       return;
@@ -830,7 +835,7 @@ function rideOut(s: SimState, map: CoastMap, c: Champion): boolean {
   c.away = e.id;
   c.state = 'mustering';
   wayTo(map, s, c, e.edge);
-  say(s, { kind: 'hero', u: NEWS, title: `${nameOf(c.hero)} rides out`, words: `${nameOf(c.hero)} goes with your expedition against ${placeOfCity(e)}: ${heOf(c.hero)} is worth ${c.hero === 'heracles' ? 'fifty' : 'thirty'} men or more in the fight.`, at: { tile: e.edge }, of: 'ride' });
+  say(s, { kind: 'hero', u: NEWS, title: `${nameOf(c.hero)} rides out`, words: `${nameOf(c.hero)} goes with your expedition against ${placeOfCity(e)}: ${heOf(c.hero)} is worth ${worthWords(c.hero)} in the fight.`, at: { tile: e.edge }, of: 'ride' });
   s.rev++;
   return true;
 }
@@ -863,6 +868,9 @@ function abroad(s: SimState, map: CoastMap, c: Champion): void {
   goHome(s, map, c);
 }
 
+/** A hero's worth in your men (hoplites, at 1.2 each): "fifty men" for Heracles, "over thirty men" for the others (the review: the words had said thirty, forty and sixty). */
+export const worthWords = (h: HeroId): string => (h === 'heracles' ? 'fifty men' : 'over thirty men');
+
 /** A hero's might in an expedition's fight (expeditions.ts adds it to yours). */
 export function heroMight(s: SimState, e: Expedition): number {
   let k = 0;
@@ -875,8 +883,7 @@ export function heroesFought(s: SimState, e: Expedition): string {
   const with_ = s.legends.heroes.filter((c) => c.away === e.id && (c.state === 'abroad' || c.state === 'mustering'));
   if (!with_.length) return '';
   const names = with_.map((c) => nameOf(c.hero));
-  const worth = (c: Champion): string => (c.hero === 'heracles' ? 'fifty men' : 'forty men');
-  return with_.length === 1 ? `${names[0]} fought beside them, worth ${worth(with_[0])} on ${hisOf(with_[0].hero)} own: the odds were the better for it.` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} fought beside them, each worth forty men or more: the odds were the better for it.`;
+  return with_.length === 1 ? `${names[0]} fought beside them, worth ${worthWords(with_[0].hero)} on ${hisOf(with_[0].hero)} own: the odds were the better for it.` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} fought beside them, each worth thirty men or more: the odds were the better for it.`;
 }
 
 /** Odysseus let go for a season at sea (a command): to the quay or the edge, and gone SAIL. */

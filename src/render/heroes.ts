@@ -595,7 +595,9 @@ export class HeroesView {
     r.root.position.set(x, this.ground(x, z) + 0.005, z);
     r.root.rotation.set(0, -c.face, 0);
     r.ring.position.set(0, 0.02, 0);
-    r.ring.scale.setScalar(r.mounted ? 1.4 : 1);
+    // (The review: a little wider always, and wide and beating in a fight, so the hero reads beside a monster many times their height.)
+    const wide = c.state === 'fighting' ? 1.8 + Math.sin(time * 4) * 0.15 : 1.2;
+    r.ring.scale.setScalar((r.mounted ? 1.4 : 1) * wide);
   }
 
   /** The hero nearest a screen point (their figure, foot to head), or null. */
@@ -645,4 +647,12 @@ export class HeroesView {
   get counts(): { halls: number; heroes: number; legends: number; dancers: number } {
     return { halls: this.halls.size, heroes: this.figures.size, legends: this.legends.count, dancers: this.dancers.count };
   }
+}
+
+// ---------------------------------------------------------------------------- the build panel's picture
+
+/** Slice 59 (the review): the Hero's hall tool's picture, Heracles' hall (pictures.ts draws it). */
+export function heroHallPicture(tool: string): Array<{ geo: THREE.BufferGeometry; x: number; z: number; yaw: number; s: [number, number, number] }> | null {
+  if (tool !== 'herohall') return null;
+  return [{ geo: hallModel('heracles'), x: 0, z: 0, yaw: 0, s: [1, 1, 1] }];
 }
