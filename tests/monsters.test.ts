@@ -281,7 +281,7 @@ describe('saves', () => {
   it('a save from before the monsters loads with none, and plays on', () => {
     const s = demoSim('town').state;
     const old = JSON.parse(encodeSave(s, 1));
-    old.state.version = SIM_STATE_VERSION - 1;
+    old.state.version = 48; // (the version before this step: 48, the phase 7 groundwork)
     delete old.state.legends;
     const got = decodeSave(JSON.stringify(old));
     if (!got.ok) throw new Error(got.why);
@@ -291,7 +291,7 @@ describe('saves', () => {
     sim.state = got.file.state;
     sim.run(TICKS_PER_DAY);
     // And one from before the gods too (version 47, phase 6).
-    old.state.version = SIM_STATE_VERSION - 2;
+    old.state.version = 47;
     delete old.state.gods;
     const older = decodeSave(JSON.stringify(old));
     if (!older.ok) throw new Error(older.why);

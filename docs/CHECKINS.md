@@ -67,6 +67,12 @@ The starting build (11f9290) and this slice's, measured back to back with a shor
 - Checked and left as they are: a monster that can't get at a soldier gives up on soldiers for a while and goes on (it can't be held in place for ever, and it can't stall a company), the save check that lets a monster stand with no way to walk (nothing else gets through it), and no monster leaking into the raiders' code (their spread, blows, falls and drawing all skip it).
 - **For your eye** (I didn't change them): Medusa is hard to pick out at the usual zoom, a thin pale figure against the grey of her cave; the Chimera reads as a lion with a goat's head, its serpent tail as a green stick. A tower within range of a lair or a raid's path shoots the monster with no cost in men; that may be right (it is what towers are for) or may want a cost (the monster wrecking the tower, say).
 
+### At the merge
+Slice 55 is the first of the phase's slices to join the main line, so nothing needed renumbering: saves are at version 49, and a save from before the monsters (48, or the phase 6 saves before it) loads with no monster on its land. Nothing of the slice changed on the way in.
+- **Every earlier town is as it was.** I played all 165 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on.
+- **Checked on the merged game:** #monster, #monsterraid and #bestiary (in all three looks) open with no errors and do what is described above, with their own checks passing; #town, #battle, #raid, #raiders, #threat, #walls and #siege still pass their checks. All 816 tests pass (on this busy machine 20 ran out of time in the full run; each of their files passed when run alone).
+- Nothing in the game sends a monster yet: that comes with the gods' wrath in slice 57, so for now you meet them only in the three demos.
+
 ## Slice 52 — A city in order (26 Oct)
 
 The phase's last slice puts everything the phase built into one town, `#order`, on a generated river delta: streets up to villas, a gang in its den, a court and a prison with men inside, physicians out, two colonies, a storehouse with its rules, two years of messages and charts, and plague reported in Athens with her ship on the way. Around it, one number tuned, the panels slice 50 left behind brought onto the kit, a large wooded land measured, and the small leftovers from the phase's reviews closed. You weren't here while it was built: every choice below is mine, from the spec's defaults.
