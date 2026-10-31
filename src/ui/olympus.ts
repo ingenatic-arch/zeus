@@ -35,6 +35,12 @@ import { emblemSvg, godColour } from './emblems';
 import { actionIcon } from './icons';
 import { esc, kbtn, kitHtml, ksec } from './kit';
 import { morph } from './morph';
+// Slice 57: blessings and wrath on the cards, the god's page, a sanctuary's panel and the overview's Gods page.
+import { BLESSINGS, blessingUntil, blessRefusal, nextAsk } from '../sim/blessings';
+import { blessingFrom } from '../sim/pantheon';
+import { curseInForce, curseWords, CURSES, daysLeft, GOD_CURSES, omenOf, turnWords } from '../sim/wrath';
+import { placeName } from '../sim/epiphany';
+import { DISTRICTS, districtAt } from '../map/districts';
 
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
 const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
@@ -222,6 +228,7 @@ SANCTUARY_SLOTS.offerings = sanctuaryWorship;
 
 /** A sanctuary's festival, offering and Olympus buttons (the registry's `act`), as a shrine's. */
 export function sanctuaryAct(act: string, el: HTMLElement, b: Building): Command | 'redraw' | null {
+  if (act === 'bless') return { type: 'bless', id: b.id }; // (Slice 57.)
   return act === 'festival' || act === 'offer' || act === 'olympus' ? shrineAct(act, el, b) : null;
 }
 
@@ -240,7 +247,7 @@ function card(s: SimState, god: GodId): string {
   const shrines = n ? plural(n, 'shrine', 'shrines') : 'no shrine';
   const fest = f ? (f.walker ? ' · festival under way' : ` · festival on ${dayWords(f.day)}`) : '';
   const holy = sanctuaryWords(s, god).short;
-  return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
+  return `<button class="ol-card${cardClass(s, god)}" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}${cardMark(s, god)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
 }
 
 /** A god's page. */
@@ -258,7 +265,7 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
     `<div class="ol-gh" style="--gc:${godColour(god)}"><span class="ol-emb big">${emblemSvg(god)}</span><div><h3>${esc(G.name)}</h3><p class="ol-ep">${esc(cap(G.epithet))}, god of ${esc(G.of)}</p>${moodChip(m)}${moodBar(m, 'wide')}</div></div>`,
     ksec('Loves and hates', `<p class="ol-lh"><b>Loves</b> ${esc(G.loves.join(', '))}.</p><p class="ol-lh"><b>Hates</b> ${esc(G.hates.join(', '))}.</p><p class="ol-note">${esc(`What ${they} sees in your city is counted once a month, each thing with its reason. Deeds in Greece (wars, tribute, promises) come later.`)}</p>`, { icon: 'reach' }),
     ksec('Rival', `<p class="ol-riv" style="--gc:${godColour(G.rival)}">${emblemSvg(G.rival)}<span><b>${esc(rival.name)}</b>, ${esc(rival.epithet)}. ${esc(rivalWords)}</span></p>`, { icon: 'refuse' }),
-    ksec('What they can do', `<p class="ol-lh"><b>In blessing</b> ${esc(G.blessWords)}</p><p class="ol-lh"><b>In wrath</b> ${esc(G.curseWords)}</p><p class="ol-note">The gods don’t act on these yet: their blessings and their wrath are still to come.</p>`, { icon: 'gods' }),
+    canDo(s, god), // (Slice 57: what they can do, now real.)
   ].join('');
   const why = rs.length ? `<ul class="ol-why">${rs.map(reasonLine).join('')}</ul>` : `<p class="ol-note">${esc(`${G.name} has noticed nothing of yours yet${noticed(s) ? '' : ': a town of under 300 is beneath the gods’ notice'}.`)}</p>`;
   const list = shrines.length ? `<ul class="ol-shrines">${shrines.map((b) => `<li><button class="ol-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>${offeringTo(s, b.id) ? '<small> · an offering on its way</small>' : ''}</li>`).join('')}</ul>` : `<p class="ol-note">${esc(`No shrine is dedicated to ${G.name}. Click a shrine to choose its god, or build one (V).`)}</p>`;
@@ -266,6 +273,7 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
   const sw = sanctuaryWords(s, god);
   const holy = sw.b ? `<p class="ol-holy"><button class="ol-link" data-act="building" data-id="${sw.b.id}">${esc(cap(sanctuaryName(god)))}</button>${offeringTo(s, sw.b.id) ? '<small> · an offering on its way</small>' : ''}</p><p class="ol-note">${esc(sw.long)}</p>` : `<p class="ol-note">${esc(sw.long)}</p>`;
   const right = [
+    threat(s, map, god), // (Slice 57: an omen, a curse or a blessing in force, first.)
     ksec(`Why ${they} is ${moodWord(m)}`, why, { icon: 'reach', aside: `<b class="ol-sum">${signed(m)}</b>` }),
     ksec('Two years', `${moodMonths(s, god, 420, 64)}<p class="ol-note">${esc(`Month by month, at the start of each, and now: gold for pleased and better, red for displeased and worse; the dotted lines are watchful’s edges.`)}</p>`, { icon: 'overview' }),
     ksec('Worship', `${holy}${list}<p class="ol-note">${esc(festivalWords(s, god))}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
@@ -353,6 +361,7 @@ export class OlympusPanel {
       this.toggle(false);
     } else if (act === 'festival') this.deps.send({ type: 'festival', id: Number(t.dataset.id) });
     else if (act === 'offer') this.deps.send({ type: 'offer', id: Number(t.dataset.id) });
+    else if (act === 'bless') this.deps.send({ type: 'bless', id: Number(t.dataset.id) }); // (Slice 57.)
     else return;
     this.last = -Infinity;
     if (this.s && this.map) this.update(this.s, this.map, Infinity);
@@ -365,7 +374,7 @@ export class OlympusPanel {
     this.last = Number.isFinite(time) ? time : this.last;
     const pleased = GOD_IDS.filter((g) => moodRank(moodOfGod(s, g)) >= 4).length;
     const cross = GOD_IDS.filter((g) => moodRank(moodOfGod(s, g)) <= 2).length;
-    const kicker = `Olympus · ${pleased ? `${plural(pleased, 'god', 'gods')} pleased or better` : 'none pleased yet'}${cross ? ` · ${plural(cross, 'god', 'gods')} displeased or worse` : ''}`;
+    const kicker = `Olympus · ${pleased ? `${plural(pleased, 'god', 'gods')} pleased or better` : 'none pleased yet'}${cross ? ` · ${plural(cross, 'god', 'gods')} displeased or worse` : ''}${omenKicker(s)}`;
     const head = `<div class="k-pic">${actionIcon('gods')}</div><div class="k-hd"><div class="k-kicker">${esc(kicker)}</div><h2>${esc(this.god ? `${GODS[this.god].name}` : 'The twelve')}</h2></div>`;
     if (head !== this.headHtml) {
       this.headHtml = head;
@@ -390,7 +399,7 @@ export function godsPage(s: SimState, map: CoastMap): string {
     const shrines = shrinesTo(s, god);
     const holy = sanctuaryWords(s, god);
     const links = [holy.b ? `<button class="ov-link" data-act="building" data-id="${holy.b.id}">${esc(cap(holy.short === 'a sanctuary' ? sanctuaryName(god) : holy.short))}</button>` : '', ...shrines.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>`)].join('') || '<span class="ov-note">no shrine</span>';
-    return `<li class="ol-ovrow" style="--gc:${godColour(god)}"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-ovnm"><b>${esc(G.name)}</b>${moodChip(m)}<small>${esc(rs.map((r) => `${signed(r.worth)} ${r.why}`).join('; ') || 'nothing noticed yet')}</small></span>${moodMonths(s, god, 300, 44)}<span class="ol-ovsh">${links}</span></li>`;
+    return `<li class="ol-ovrow${omenOf(s, god) ? ' omen' : ''}" style="--gc:${godColour(god)}"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-ovnm"><b>${esc(G.name)}</b>${moodChip(m)}<small>${esc(rs.map((r) => `${signed(r.worth)} ${r.why}`).join('; ') || 'nothing noticed yet')}</small>${overviewMark(s, god)}</span>${moodMonths(s, god, 300, 44)}<span class="ol-ovsh">${links}</span></li>`;
   }).join('');
   const kept = Math.min(MOOD_MONTHS, s.gods.months.zeus?.length ?? 0);
   const lead = `The twelve’s moods towards your city, and how they have moved${kept ? ` over the last ${kept === 1 ? 'month' : `${kept} months`}` : ' (kept from the first month the gods watch)'}: gold bars for pleased and better, red for displeased and worse. The Olympus panel (G) has every reason.`;
@@ -403,5 +412,116 @@ export function godsTab(s: SimState): { word: string; warn: 0 | 1 | 2 } {
   const low = Math.min(...ranks);
   const pleased = ranks.filter((r) => r >= 4).length;
   const cross = ranks.filter((r) => r <= 2).length;
+  // (Slice 57: an omen running marks the tab red and names the god.)
+  const omen = s.gods.wrath?.omens[0];
+  if (omen) return { word: `omen: ${GODS[omen.god].name}`, warn: 2 };
   return { word: cross ? `${cross} displeased` : pleased ? `${pleased} pleased` : 'watchful', warn: low <= 1 ? 2 : low <= 2 ? 1 : 0 };
+}
+
+// ---------------------------------------------------------------------------- Slice 57: blessings and wrath
+
+/** A god's card's class: an omen running, a curse in force, a blessing on the city. */
+function cardClass(s: SimState, god: GodId): string {
+  if (omenOf(s, god)) return ' omen';
+  if (curseInForce(s, god)) return ' cursed';
+  return blessingFrom(s, god) ? ' blessed' : '';
+}
+
+/** A god's card's line for an omen, a curse or a blessing in force ('' for none). */
+function cardMark(s: SimState, god: GodId): string {
+  const o = omenOf(s, god);
+  if (o) return `<span class="ol-mark omen"><b>Omen</b> ${esc(cap(curseWords(s, o)))}</span>`;
+  const c = curseInForce(s, god);
+  if (c && c.curse) return `<span class="ol-mark cursed"><b>Cursed</b> ${esc(cap(CURSES[c.curse].name))} ${esc(untilWords(c.until))}</span>`;
+  const until = blessingUntil(s, god);
+  if (until) return `<span class="ol-mark blessed"><b>Blessing</b> ${esc(`on your city ${until}`)}</span>`;
+  return '';
+}
+
+/** "until 3 June". */
+const untilWords = (tick: number): string => `until ${dayWords(tick)}`;
+
+/** The kicker's word on omens: " · an omen: Athena". */
+function omenKicker(s: SimState): string {
+  const os = s.gods.wrath?.omens ?? [];
+  return os.length ? ` · an omen: ${os.map((o) => GODS[o.god].name).join(', ')}` : '';
+}
+
+/** What a god can do, from the tables: their blessing and each of their curses, with how you stand towards each. */
+function canDo(s: SimState, god: GodId): string {
+  const G = GODS[god];
+  const B = BLESSINGS[god];
+  const coming = omenOf(s, god)?.curse;
+  const curses = GOD_CURSES[god].map((c) => `<li${c === coming ? ' class="now"' : ''}><b>${esc(cap(CURSES[c].name))}</b>: ${esc(CURSES[c].does)}.</li>`).join('');
+  return ksec(
+    'What they can do',
+    `<p class="ol-lh"><b>In blessing</b> ${esc(cap(B.does))}.</p><p class="ol-note">${esc(`Asked at ${herOf(god)} finished sanctuary once a year, when ${G.name} is warm or better (+30); a loving god sometimes gives it unasked.`)}</p><p class="ol-lh"><b>In wrath</b></p><ul class="ol-curses">${curses}</ul><p class="ol-note">${esc(`When ${G.name} is angry (below −30), the omens come a month before the curse lands. Lift ${herOf(god) === 'her' ? 'her' : 'him'} past angry in that month and it is turned.`)}</p>`,
+    { icon: 'gods' },
+  );
+}
+
+const herOf = (god: GodId): 'her' | 'his' => (['hera', 'demeter', 'athena', 'artemis', 'aphrodite'].includes(god) ? 'her' : 'his');
+
+/** A god's page's first section: an omen (the curse, the day counting down, why, and what would turn it), a curse in force, a blessing in force, or the blessing to ask. */
+function threat(s: SimState, map: CoastMap, god: GodId): string {
+  const G = GODS[god];
+  const o = omenOf(s, god);
+  if (o) {
+    const C = CURSES[o.curse];
+    const d = daysLeft(s, o);
+    const total = Math.max(1, Math.round((o.day - o.at) / (TICKS_PER_MONTH / 30)));
+    const gone = Math.max(0, Math.min(1, 1 - d / total));
+    const off = shrineFor(s, god);
+    return ksec(
+      `Omens: ${C.name}`,
+      `<div class="ol-omen"><p class="ol-omen-big"><b>${d}</b><span>${d === 1 ? 'day' : 'days'} left</span></p><div><p class="ol-lh">${esc(`${C.signs}. On ${dayWords(o.day)}, ${G.name} will ${C.verb}${C.local ? ` ${placeAt(s, map, o)}` : ''}: ${C.does}.`)}</p><span class="ol-count" role="img" aria-label="${esc(`${d} days left of the month’s warning`)}"><i style="width:${(gone * 100).toFixed(1)}%"></i></span></div></div><p class="ol-lh"><b>Why</b> ${esc(o.why)}.</p><p class="ol-lh"><b>To turn it</b> ${esc(turnWords(s, god))}</p>${off ? '' : `<p class="ol-note">${esc(`No shrine or sanctuary to ${G.name} for an offering or a festival: dedicate a shrine to ${herOf(god) === 'her' ? 'her' : 'him'} (it honours at once).`)}</p>`}`,
+      { icon: 'warn', cls: 'ol-threat', aside: `<b class="ol-sum">${esc(dayWords(o.day))}</b>` },
+    );
+  }
+  const c = curseInForce(s, god);
+  if (c && c.curse) {
+    const C = CURSES[c.curse];
+    return ksec(`${cap(C.name)}`, `<p class="ol-lh">${esc(`${G.name}’s curse is on your city ${untilWords(c.until)}: ${C.does}.`)}</p>`, { icon: 'warn', cls: 'ol-threat' });
+  }
+  const holy = holyOf(s, god);
+  const until = blessingUntil(s, god);
+  if (until) return ksec(`${G.name}’s blessing`, `<p class="ol-lh">${esc(`On your city ${until}: ${BLESSINGS[god].does}.`)}</p>`, { icon: 'gods', cls: 'ol-blessing' });
+  if (!holy) return '';
+  return ksec(`${G.name}’s blessing`, blessingBody(s, holy, god), { icon: 'gods', cls: 'ol-blessing' });
+}
+
+/** Where a curse will strike: "at the agora on the flood plain", "by the harbour". */
+function placeAt(s: SimState, map: CoastMap, o: { target: number; x: number; z: number }): string {
+  const b = o.target ? findBuilding(s, o.target) : undefined;
+  return b ? `at ${placeName(map, b)}` : (DISTRICTS[districtAt(map, o.x, o.z)]?.where ?? 'in the city');
+}
+
+/** The blessing's words and its button for a finished sanctuary. */
+function blessingBody(s: SimState, b: Building, god: GodId): string {
+  const G = GODS[god];
+  const why = blessRefusal(s, b.id);
+  const until = blessingUntil(s, god);
+  const last = s.gods.wrath?.asked[god];
+  const next = nextAsk(s, god);
+  const note = until
+    ? `${G.name}’s blessing is on your city ${until}: ${BLESSINGS[god].does}.`
+    : `${cap(BLESSINGS[god].does)}. Asked here once a year, when ${G.name} is warm or better.${last !== undefined ? ` Last asked on ${dayWords(last)}${next ? `; next from ${dayWords(next)}` : ''}.` : ''}`;
+  return `<p class="ol-note">${esc(note)}</p><div class="ol-acts">${kbtn({ act: 'bless', data: { id: b.id }, icon: emblemSvg(god, 'ki'), html: `Ask ${G.name}’s blessing`, tone: 'lapis', small: true, why: why || undefined, tip: `${G.name} hears you at ${herOf(god)} sanctuary and comes in person to give it.` })}</div>${why && !until ? `<p class="k-why">${esc(why)}.</p>` : ''}`;
+}
+
+/** A finished sanctuary's blessing section (SANCTUARY_SLOTS.blessing). */
+export function sanctuaryBlessing(s: SimState, b: Building, god: GodId): string {
+  if (!sanctuaryDone(s, god) || sanctuaryOf(s, god)?.id !== b.id) return '';
+  return ksec('Blessing', blessingBody(s, b, god), { icon: 'gods', cls: 'ol-shrine ol-blessing' });
+}
+SANCTUARY_SLOTS.blessing = sanctuaryBlessing;
+
+/** The overview's Gods page's mark on a god's row: an omen with its countdown, or a curse or blessing in force. */
+function overviewMark(s: SimState, god: GodId): string {
+  const o = omenOf(s, god);
+  if (o) return `<em class="ol-ovomen">${esc(`Omen: ${CURSES[o.curse].name} in ${daysLeft(s, o)} ${daysLeft(s, o) === 1 ? 'day' : 'days'}. Lift ${GODS[god].name} past angry to turn it.`)}</em>`;
+  const c = curseInForce(s, god);
+  if (c && c.curse) return `<em class="ol-ovomen">${esc(`Cursed: ${CURSES[c.curse].name} ${untilWords(c.until)}`)}</em>`;
+  const until = blessingUntil(s, god);
+  return until ? `<em class="ol-ovbless">${esc(`Blessing on your city ${until}`)}</em>` : '';
 }

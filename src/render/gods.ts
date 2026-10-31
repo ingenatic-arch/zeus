@@ -376,6 +376,56 @@ function modelOf(g: GodId): Model {
   return m;
 }
 
+// Slice 57: wrath in person: the god's figure darkened as a storm, their rim light a storm red.
+
+/** The storm's colours: the robes darken towards a thundercloud; the rim and glow lean to a dark red. */
+const STORM = new THREE.Color('#2a2834');
+const STORM_LIGHT = '#c8281e';
+const wrathModels = new Map<GodId, Model>();
+
+/** The light a figure glows with: their colour, or in wrath a storm red with a little of theirs. */
+function lightOf(f: GodFigure): THREE.ColorRepresentation {
+  return f.why === 'wrath' ? new THREE.Color(STORM_LIGHT).lerp(new THREE.Color(GODS[f.god].colour), 0.2) : GODS[f.god].colour;
+}
+
+/** A god's figure in wrath, made once: their own parts darkened, glowing a storm red at the rim. */
+function wrathModelOf(g: GodId): Model {
+  let m = wrathModels.get(g);
+  if (m) return m;
+  const base = modelOf(g);
+  const dark = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
+    const out = geo.clone();
+    const col = out.attributes.color as THREE.BufferAttribute | undefined;
+    if (col) {
+      const c = new THREE.Color();
+      for (let i = 0; i < col.count; i++) {
+        c.setRGB(col.getX(i), col.getY(i), col.getZ(i)).lerp(STORM, 0.6);
+        col.setXYZ(i, c.r, c.g, c.b);
+      }
+    }
+    return out;
+  };
+  const rim = new THREE.Color(STORM_LIGHT).lerp(new THREE.Color(GODS[g].colour), 0.2);
+  const glow = { value: 1 };
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0.05, emissive: new THREE.Color('#300808') });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uRim = { value: rim };
+    shader.uniforms.uGlow = glow;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uRim;\nuniform float uGlow;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        float rimF = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.02 + 0.98 * rimF * rimF) * 0.9 * uGlow;`,
+      );
+  };
+  mat.customProgramCacheKey = () => `god-wrath-${g}`;
+  m = { body: dark(base.body), leg: dark(base.leg), hip: base.hip, mat, glow, triangles: base.triangles };
+  wrathModels.set(g, m);
+  return m;
+}
+
 /** The triangles in each god's figure (for the probes and the budget). */
 export function godTriangles(): Record<string, number> {
   const out: Record<string, number> = {};
@@ -555,6 +605,8 @@ interface Shown {
   yaw: number;
   /** Real time of its last mote of light (blessing). */
   mote: number;
+  /** Slice 57: the last tenth of a second a god in wrath struck lightning at the place. */
+  struck?: number;
 }
 
 /** A footprint of light. */
@@ -695,7 +747,11 @@ export class GodsView {
         }
         if (f.state === 'blessing') {
           const p = f.stops[f.at];
-          if (p) this.blessBurst(p.x, p.z, time);
+          // (Slice 57: a god come in wrath stands over the place in a storm, not a gold burst.)
+          if (p) {
+            if (f.why === 'wrath') this.stormBurst(p.x, p.z, time);
+            else this.blessBurst(p.x, p.z, time);
+          }
         }
         v.state = f.state;
       }
@@ -716,7 +772,7 @@ export class GodsView {
   }
 
   private make(f: GodFigure, time: number): Shown {
-    const model = modelOf(f.god);
+    const model = f.why === 'wrath' ? wrathModelOf(f.god) : modelOf(f.god); // (Slice 57: in wrath, the darker figure.)
     const root = new THREE.Group();
     root.name = `god-${f.god}`;
     const body = new THREE.Mesh(model.body, model.mat);
@@ -787,8 +843,10 @@ export class GodsView {
       this.steps.push({ x: x + ox, y: this.floor(x + ox, z + oz) + 0.04, z: z + oz, yaw: v.yaw, born: time, color: new THREE.Color(GODS[f.god].colour) });
       if (this.steps.length > TRAIL_MOST) this.steps.shift();
     }
+    // (Slice 57: a god in wrath: embers and storm-light about them, lightning at the place.)
+    if (f.why === 'wrath') this.wrathAbout(f, v, x, y0, z, risen, time);
     // A blessing: motes of gold rising from the place.
-    if (f.state === 'blessing' && time - v.mote > 0.08) {
+    else if (f.state === 'blessing' && time - v.mote > 0.08) {
       v.mote = time;
       const p = f.stops[f.at];
       if (p) {
@@ -806,6 +864,48 @@ export class GodsView {
       const sp = 1.2 + (i % 5) * 0.25;
       this.spawn({ x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.4 + (i % 3) * 0.5, vz: Math.sin(a) * sp, grav: 1.4, drag: 1.2, size: 0.3, grow: 0.2, color: 0xffe080, born: time, life: 1.4 });
     }
+  }
+
+  // Slice 57: wrath in person.
+
+  /** A god come in wrath: embers rising about them and a flicker of storm-light; standing over the place, lightning now and then. */
+  private wrathAbout(f: GodFigure, v: Shown, x: number, y: number, z: number, risen: number, time: number): void {
+    if (risen < 0.2 || time - v.mote < 0.07) return;
+    v.mote = time;
+    const a = time * 5.1 + f.id;
+    const r = 0.7 * GROW;
+    this.spawn({ x: x + Math.cos(a) * r, y: y + 0.2 + (time * 3.7) % (GOD_HEIGHT * 0.6), z: z + Math.sin(a) * r, vx: 0, vy: 0.8, vz: 0, grav: -0.1, drag: 0.4, size: 0.2, grow: 0.2, color: 0xff5a1e, born: time, life: 1.3 });
+    if (f.state !== 'blessing') return;
+    const p = f.stops[f.at];
+    if (!p) return;
+    // (A small fixed sequence: render only.)
+    const k = Math.floor(time * 10);
+    if (k % 23 === 0 && v.struck !== k) {
+      v.struck = k;
+      let h = (k * 2654435761 + f.id) >>> 0;
+      const rnd = (): number => {
+        h = (h * 1664525 + 1013904223) >>> 0;
+        return h / 4294967296;
+      };
+      this.bolt(p.x + (rnd() - 0.5) * 2, this.floor(p.x, p.z), p.z + (rnd() - 0.5) * 2, time, rnd);
+    }
+    const b = time * 2.3 + f.id;
+    this.spawn({ x: p.x + Math.cos(b) * 1.6, y: this.floor(p.x, p.z) + 0.3, z: p.z + Math.sin(b) * 1.6, vx: -Math.sin(b) * 0.6, vy: 0.4, vz: Math.cos(b) * 0.6, grav: 0, drag: 0.3, size: 0.35, grow: 0.6, color: 0x9a3cff, born: time, life: 1.1, swirl: 1.2, cx: p.x, cz: p.z });
+  }
+
+  /** A storm breaking over a place as a curse is about to land: dark red and violet sparks flung out, and a bolt. */
+  private stormBurst(x: number, z: number, time: number): void {
+    const y = this.floor(x, z);
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      const sp = 1.4 + (i % 4) * 0.3;
+      this.spawn({ x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 0.8 + (i % 3) * 0.4, vz: Math.sin(a) * sp, grav: 1.2, drag: 1.4, size: 0.3, grow: 0.3, color: i % 3 ? 0xd8361a : 0x8a3cff, born: time, life: 1.2 });
+    }
+    let h = (Math.floor(x * 131 + z * 71) >>> 0) || 1;
+    this.bolt(x, y, z, time, () => {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      return h / 4294967296;
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1049,7 +1149,7 @@ export class GodsView {
       const at = this.at.get(f.id);
       if (!at || n >= 16) continue;
       const risen = at.h / GOD_HEIGHT;
-      const colour = this.c.set(GODS[f.god].colour);
+      const colour = this.c.set(lightOf(f)); // (Slice 57: in wrath, a storm red.)
       const pulse = 0.85 + Math.sin(time * 1.7 + f.id) * 0.1;
       // The halo on the ground.
       const hy = this.floor(at.x, at.z) + 0.06;
@@ -1059,7 +1159,7 @@ export class GodsView {
       this.halos.setMatrixAt(n, this.m);
       this.halos.setColorAt(n, this.c.copy(colour).multiplyScalar(0.55 * pulse * Math.max(0.3, risen)));
       // The glow behind them, at their middle.
-      this.c.set(GODS[f.god].colour);
+      this.c.set(lightOf(f));
       this.sc.set(2.5, 3.2, 1).multiplyScalar(GOD_HEIGHT / 1.5);
       // (Set back from the eye, so it glows behind the figure rather than washing over it.)
       this.back.set(0, 0, -0.9).applyQuaternion(face);
@@ -1073,7 +1173,7 @@ export class GodsView {
       this.p.set(at.x + this.back.x, at.y + at.h * 0.93 + this.back.y, at.z + this.back.z);
       this.m.compose(this.p, face, this.sc);
       this.crowns.setMatrixAt(n, this.m);
-      this.crowns.setColorAt(n, this.c.set(GODS[f.god].colour).lerp(this.white, 0.55).multiplyScalar(0.95 * pulse * risen));
+      this.crowns.setColorAt(n, this.c.set(lightOf(f)).lerp(this.white, f.why === 'wrath' ? 0.15 : 0.55).multiplyScalar((f.why === 'wrath' ? 0.6 : 0.95) * pulse * risen));
       n++;
     }
     for (const mesh of [this.halos, this.glows, this.crowns]) {

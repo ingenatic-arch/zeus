@@ -125,6 +125,10 @@ import { TILE_ROAD } from '../sim/state';
 import { GODS } from '../sim/pantheon';
 import { HORSES } from '../sim/foods';
 import { festivalGoods, festivalUnderWay } from '../sim/worship';
+// Slice 57
+import { sideOf } from '../sim/buildings';
+import { moodOfGod } from '../sim/pantheon';
+import { beginOmen } from '../sim/wrath';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3880,6 +3884,13 @@ const SCENES: Record<string, Demo> = {
   gods: { view: 'richtown', setup: godsTown, overlay: 'missing', olympus: 'all' },
   // (#festival is already Athens' Panathenaia, from slice 21: Demeter's is #procession.)
   procession: { view: 'procession', setup: processionTown, overlay: 'missing', building: demeterShrine },
+  // Slice 57: blessings and wrath. #omen: #richtown with its core shrine Athena's and Athena angry (staged), her omens five
+  // days in, Medusa due in a little under a month, Olympus open on her page (an offering lifts her past angry and turns it);
+  // #blessing: #town's fields with Demeter's sanctuary finished beside them and Demeter warm, its panel open on the blessing
+  // to ask; #wrath: #richtown with Poseidon angry (staged), standing over the harbour in wrath, his earthquake four days off.
+  omen: { view: 'omen', setup: omenTown, overlay: 'missing', olympus: 'athena', unread: 6 * TICKS_PER_DAY },
+  blessing: { view: 'blessing', setup: blessingTown, overlay: 'missing', building: (s) => sanctuaryOf(s, 'demeter')?.id ?? 0 },
+  wrath: { view: 'wrath', setup: wrathTown, overlay: 'missing', unread: TICKS_PER_MONTH },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4902,4 +4913,82 @@ const PROCESSION_OPENS = 30;
 /** #procession's panel: Demeter's shrine. */
 function demeterShrine(s: SimState): number {
   return s.buildings.find((b) => b.kind === 'shrine' && b.god === 'demeter')?.id ?? 0;
+}
+
+// Slice 57
+/**
+ * Blessings and wrath (slice 57). A god's anger is staged through the mood API
+ * (`honour`, named as set up for the demo) and the omen begun through the
+ * hook (`beginOmen`); everything after plays as the sim has it.
+ */
+/** #omen: Athena's staged anger: a little past angry, so one offering (+4) lifts her back to displeased. */
+export const OMEN_MOOD = -33;
+export const OMEN_WHY = 'the sacred olive cut down to widen the agora (set up for this demo)';
+/** How far into the omen's month #omen opens. */
+const OMEN_OPENS = 5 * TICKS_PER_DAY;
+function omenTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  gods(sim, true);
+  const core = s.buildings.find((b) => b.kind === 'shrine' && b.x === CORE_SHRINE.x && b.z === CORE_SHRINE.z);
+  if (core) {
+    sim.enqueue({ type: 'dedicate', id: core.id, god: 'athena' });
+    sim.flush();
+  }
+  // (Played into the next month, so what she counts in the city each month is counted, then her anger set, never fading,
+  // so the mood is OMEN_MOOD and stays there unless the player lifts her.)
+  sim.run(TICKS_PER_MONTH - (s.tick % TICKS_PER_MONTH) + TICKS_PER_DAY);
+  honour(s, 'athena', OMEN_MOOD - moodOfGod(s, 'athena'), 'staged', OMEN_WHY, 0);
+  beginOmen(s, sim.map, 'athena', 'medusa');
+  sim.run(OMEN_OPENS);
+  // (Kept at OMEN_MOOD as it opens, whatever the days counted.)
+  honour(s, 'athena', OMEN_MOOD - moodOfGod(s, 'athena'), 'staged', OMEN_WHY, 0);
+}
+
+/** #blessing: where Demeter's sanctuary goes (beside #town's fields), and her staged warmth. */
+const BLESSING_AT = { x: 50, z: 40 };
+export const BLESSING_MOOD = 42;
+export const BLESSING_WHY = 'the first fruits of your fields laid on her altar (set up for this demo)';
+function blessingTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  const s = sim.state;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  gods(sim, true);
+  income(s, SANCTUARY_COST, 'gifts', 'set up for this demo: the sanctuary’s coin');
+  const at = spotNear(sim, 'sanctuary' as BuildKind, sideOf('sanctuary'), BLESSING_AT.x, BLESSING_AT.z, 20);
+  if (at < 0) return;
+  send({ type: 'sanctuary', god: 'demeter', at: [at] });
+  const site = sanctuaryOf(s, 'demeter');
+  if (!site) return;
+  // Raised at once, stage by stage, as if its builders had just finished each (as #twelve's: no materials hauled).
+  const b = s.buildings.find((x) => x.id === site.id);
+  if (b) b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3 && !site.finished; stage++) {
+    site.building = true;
+    site.work = workOf(stagesOf(site)[site.stage]);
+    sim.step();
+  }
+  // (Played on until Demeter has come to see her new sanctuary and gone, so she can come again to give her blessing.)
+  const end = s.tick + 2 * TICKS_PER_MONTH;
+  sim.run(10 * TICKS_PER_DAY);
+  while (s.tick < end && s.gods.walks.figures.some((f) => f.god === 'demeter')) sim.run(TICKS_PER_DAY);
+  sim.run(2 * TICKS_PER_DAY);
+  honour(s, 'demeter', BLESSING_MOOD - moodOfGod(s, 'demeter'), 'staged', BLESSING_WHY, 0);
+}
+
+/** #wrath: Poseidon's staged anger, and how many days before the earthquake it opens. */
+export const WRATH_WHY = 'the quay built over his sacred rocks (set up for this demo)';
+const WRATH_OPENS = 4 * TICKS_PER_DAY;
+function wrathTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  gods(sim, true);
+  sim.run(TICKS_PER_DAY);
+  honour(s, 'poseidon', -50 - moodOfGod(s, 'poseidon'), 'staged', WRATH_WHY, 2 * TICKS_PER_YEAR);
+  const o = beginOmen(s, sim.map, 'poseidon', 'earthquake');
+  if (!o) return;
+  sim.run(Math.max(0, o.day - WRATH_OPENS - s.tick));
 }

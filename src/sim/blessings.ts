@@ -136,7 +136,7 @@ export const BLESSINGS: Record<GodId, Blessing> = {
     ends: 'the farms yield as before',
     does: 'every farm yields double for a season',
     lasts: SEASON,
-    give: (s) => `every farm yields double ${untilWords(s, s.tick + SEASON)}: the fields turn gold.`,
+    give: (s) => `every farm yields double ${untilWords(s, s.tick + SEASON)}, and the fields turn gold.`,
   },
   athena: {
     ends: 'the groves and presses work as before, and crime is what it was',

@@ -146,3 +146,32 @@
 .overview.kit .ov-tabs { gap: 3px; }
 .overview.kit .ov-tabs .ov-tab { padding-right: 4px; column-gap: 4px; }
 .overview.kit .ov-tabs .ov-tab b { letter-spacing: 0.01em; }
+
+/* Slice 57: blessings and wrath. An omen's card glows a storm red; a blessing's gold. */
+.ol-card.omen { border-color: #8c1f18; background: linear-gradient(180deg, rgba(140, 31, 24, 0.14), rgba(140, 31, 24, 0.04) 60%), var(--k-parch); box-shadow: inset 0 3px 0 #8c1f18, 0 0 0 2px rgba(140, 31, 24, 0.55), 0 2px 6px rgba(40, 24, 8, 0.35); }
+.ol-card.cursed { border-color: #5a2a40; }
+.ol-card.blessed { box-shadow: inset 0 3px 0 #c8a020, 0 0 0 2px rgba(200, 160, 32, 0.55), 0 1px 3px rgba(40, 24, 8, 0.3); }
+.ol-mark { display: block; font-size: 13px; line-height: 1.3; padding: 2px 5px; border-radius: 3px; }
+.ol-mark b { font: 700 11px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; margin-right: 4px; }
+.ol-mark.omen { background: #8c1f18; color: #fbe9d6; text-shadow: none; animation: ol-omen 1.6s ease-in-out infinite alternate; }
+.ol-mark.cursed { background: rgba(90, 42, 64, 0.16); color: #5a2a40; }
+.ol-mark.blessed { background: rgba(200, 160, 32, 0.2); color: #5e5010; }
+@keyframes ol-omen { from { background: #8c1f18; } to { background: #b0301e; } }
+@media (prefers-reduced-motion: reduce) { .ol-mark.omen { animation: none; } }
+.ol-threat { border-left: 3px solid #8c1f18; padding-left: 8px; }
+.ol-blessing { border-left: 3px solid #c8a020; padding-left: 8px; }
+.ol-omen { display: flex; gap: 12px; align-items: flex-start; margin: 2px 0 6px; }
+.ol-omen > div { flex: 1; min-width: 0; }
+.ol-omen-big { margin: 0; display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 4px 6px; border-radius: 4px; background: #8c1f18; color: #fbe9d6; text-shadow: none; }
+.ol-omen-big b { font: 700 28px/1 var(--display); }
+.ol-omen-big span { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.ol-count { display: block; height: 6px; margin-top: 4px; border-radius: 3px; background: rgba(138, 100, 48, 0.25); overflow: hidden; }
+.ol-count i { display: block; height: 100%; background: linear-gradient(90deg, #c8761e, #8c1f18); }
+.ol-curses { list-style: none; margin: 2px 0 4px; padding: 0; font-size: 14px; }
+.ol-curses li { padding: 1px 0; }
+.ol-curses li b { color: #8c1f18; }
+.ol-curses li.now { background: rgba(140, 31, 24, 0.12); border-radius: 3px; padding: 1px 4px; }
+.ol-ovrow.omen { background: rgba(140, 31, 24, 0.1); box-shadow: inset 3px 0 0 #8c1f18; }
+.ol-ovomen, .ol-ovbless { display: block; flex-basis: 100%; font-style: normal; font-size: 13px; font-weight: 700; }
+.ol-ovomen { color: #8c1f18; }
+.ol-ovbless { color: #6e6410; }
