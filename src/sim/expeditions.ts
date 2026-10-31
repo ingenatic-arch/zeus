@@ -60,6 +60,8 @@ import { cityOf, rulerShort } from './world';
 import { aimFought, aimSent, allyOf, conquestDefenders, helpersMight, vassalOf } from './vassals';
 // Slice 47: raids from a colony, and the colonies' militia in your wars.
 import { militiaFought, militiaMight, militiaMightNow, militiaSail, shareFrom, stepFromColony, strikeLine } from './colonyempire';
+// Slice 58: the gods of Greece (a loving god's blessing, an angry patron, the deeds remembered).
+import { abroadWords, expeditionDeeds, godsAbroad } from './greecegods';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -193,7 +195,7 @@ export const oddsOf = (ours: number, theirs: number): number => {
 };
 
 /** An expedition as it would go now: its companies, men, strength against theirs, the odds, and what it would bring if it won. */
-export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind'], aim: Expedition['aim'] = ''): { companies: Company[]; men: number; ours: number; theirs: number; odds: number; brings: string; why: string } {
+export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind'], aim: Expedition['aim'] = ''): { companies: Company[]; men: number; ours: number; theirs: number; odds: number; brings: string; why: string; gods?: string } {
   const c = cityOf(s.world, city);
   const companies = chosen(s, kind, city);
   const men = companies.reduce((a, x) => a + readyOf(s, x).length, 0);
@@ -213,7 +215,10 @@ export function expeditionPlan(s: SimState, city: CityId, kind: Expedition['kind
       : debt
         ? `the whole ${fmt(owed)} dr, and a fifth more in goods`
         : `about ${fmt(men * FORCE_COIN)} dr and ${fmt(men * FORCE_GOODS)} of their goods`;
-  return { companies, men, ours, theirs, odds: oddsOf(ours, theirs), brings, why: '' };
+  // (Slice 58: a loving god's blessing, an angry patron's stand, in the odds, and said.)
+  const g = godsAbroad(s, city);
+  const odds = g.ours === 1 && g.theirs === 1 ? oddsOf(ours, theirs) : oddsOf(ours * g.ours, theirs * g.theirs);
+  return { companies, men, ours, theirs, odds, brings, why: '', gods: abroadWords(s, city) };
 }
 
 /** Why an expedition can't go now, or '' if it can. */
@@ -501,7 +506,9 @@ function fight(s: SimState, e: Expedition): void {
   // (Slice 47: and your colonies' militia sailed to meet it.)
   e.ours = Math.round(men.reduce((a, x) => a + MIGHT[kindOf.get(x.company) ?? 'hoplite'], 0)) + helpersMight(s, e) + militiaMight(s, e);
   e.theirs = e.aim ? conquestDefenders(s, c) : defenders(s, c, e.kind);
-  e.odds = oddsOf(e.ours, e.theirs);
+  // (Slice 58: the gods' hands in it: a loving god's blessing, an angry patron standing with them.)
+  const gods = godsAbroad(s, e.city);
+  e.odds = gods.ours === 1 && gods.theirs === 1 ? oddsOf(e.ours, e.theirs) : oddsOf(e.ours * gods.ours, e.theirs * gods.theirs);
   e.won = dice(s, e.id, 0, 11) < e.odds;
   e.fallen = Math.round(e.theirs * (e.won ? 0.3 + 0.2 * dice(s, e.id, 1, 12) : 0.1 + 0.1 * dice(s, e.id, 1, 12)));
   // Who falls: the men in an order the dice set, the first killed, the next wounded.
@@ -578,6 +585,8 @@ function fight(s: SimState, e: Expedition): void {
   r.push(`${what}: ${went}, ${men.length} men in all, ${aimLine || (cause ? `for the ${fmt((l?.owed ?? 0) + (debt ? e.value : 0))} dr ${name} owed you` : `against ${name}, which owed you nothing`)}.`);
   if (e.aim) r.push(`They met ${whose(e.city)} army on its home ground${WALLED[e.city] ? ', behind its walls,' : ''} with those who stood by it, about ${e.theirs} in all (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
   else r.push(`They met ${e.kind === 'raid' ? `${whose(e.city)} watch in the countryside, about ${e.theirs} men` : `${whose(e.city)} garrison, about ${e.theirs} men${WALLED[e.city] ? ' behind its walls' : ''}`} (the odds were about ${Math.round(e.odds * 10)} in 10), and ${e.won ? 'won' : 'were beaten'}: about ${e.fallen} of theirs fell.`);
+  // (Slice 58: the gods who weighed in.)
+  r.push(...gods.words);
   // (Slice 34: what the aim came to: a city taken, a rising crushed, an ally's war turned.)
   if (e.aim) r.push(...aimFought(s, e));
   // (Slice 47: your colonies' militia beside them.)
@@ -598,6 +607,9 @@ function fight(s: SimState, e: Expedition): void {
     .join('. ');
   r.push(`${byCompany}.`);
   r.push(`${cap(rulerShort(c))} will not soon forget it (${signed(m.amount)}), and Greece ${cause ? 'frowns on it' : 'is shocked'} (${signed(heardAmount)} with every other ruler).`);
+  // (Slice 58: and what the gods make of it.)
+  const godsLine = expeditionDeeds(s, e, cause);
+  if (godsLine) r.push(godsLine);
   r.push(e.by === 'sea' ? `They sail home: in your bay about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.` : `They march home by road: at the edge of your land about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.`);
   e.report = r;
   e.phase = 'fighting';

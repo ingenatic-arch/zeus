@@ -53,8 +53,8 @@ At `4b3949c`, on a loaded machine (four lines building at once on 4 cores; load 
 | Deed | God | Amount | Fades over |
 |---|---|---|---|
 | An expedition against a patron's city, with cause (a debt, an ally's war, crushing a vassal's rising) | its patron | −8 | two years |
-| The same, without cause | its patron | −18 | two years |
-| Plunder: a won expedition that took coin or goods | the city's patron | −15 more | two years |
+| The same, without cause | its patron | −20 | two years |
+| Plunder: a won expedition that took coin or goods | the city's patron | −20 more | two years |
 | An expedition won, or a band broken in your streets, or sunk in your bay | Ares | +6 | a year |
 | An expedition won with cause (not on Athena's own city) | Athena ("war won well") | +4 | a year |
 | An expedition lost | Athena ("a foolish war") | −4 | a year |

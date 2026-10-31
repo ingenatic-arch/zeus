@@ -62,6 +62,8 @@ import { freshLegends, stepMonsters } from './monsters';
 // Slice 56.
 import { GOD_IDS, type GodId } from './pantheon';
 import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
+// Slice 58: the gods of Greece.
+import { stepGreeceGods } from './greecegods';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -318,6 +320,8 @@ export class Sim {
     stepGods(s);
     // Slice 56: the gods in the city walk on and bless; a god who has just come to love the city comes to see it (nothing with none and the switch off).
     stepEpiphany(s);
+    // Slice 58: the gods of Greece: pious rulers remember, on the first of the month, how their patron feels about you (nothing with the gods off).
+    stepGreeceGods(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).

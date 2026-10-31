@@ -22,7 +22,7 @@
  * list and plays exactly as it did.
  */
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
-import { ARMOUR, CHEESE, COPPER, HORSES, MARBLE, MEAT, TIMBER, WARE_NAMES, WHEAT, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, held, HORSES, MARBLE, MEAT, TIMBER, WARE_NAMES, WHEAT, type Ware } from './foods';
 // Slice 54: a sanctuary's site, its god and their sacred good.
 import { GODS, type GodId } from './pantheon';
 import type { BuildingKind, SimState } from './state';
@@ -227,8 +227,10 @@ const sanctuaryStageCache = new Map<GodId, readonly Stage[]>();
 /**
  * A god's sanctuary's three stages, the same for every god but the last's
  * sacred good. With one fully staffed masons' yard (four builders) the work
- * takes about 285 days, and the first stage's materials a month or so to
- * haul: about a year. Two sanctuaries sharing that yard take about two.
+ * takes about 285 days, and the materials must be hauled besides: a year or
+ * more (about fifteen months in #sanctuary, its storehouse across town and
+ * marble only as the quarry cuts it). Two sanctuaries sharing that yard take
+ * about two.
  * (Worked out inside a function, so the order modules load in can't spoil it.)
  */
 export function sanctuaryStages(god: GodId): readonly Stage[] {
@@ -272,4 +274,30 @@ export function siteMaterials(x: Site): readonly Ware[] {
 export function siteName(x: { kind: SiteKind; god?: GodId }, cap = false): string {
   if (x.kind !== 'sanctuary') return monumentName(x.kind, cap);
   return `${cap ? 'The' : 'the'} sanctuary to ${GODS[x.god ?? 'zeus'].name}`;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 58 (from slice 54's review): copper kept for the sites.
+
+/**
+ * How much of a ware the unfinished sites still want brought to them: the
+ * stage gathering now and every stage after it, less what is on site and on
+ * its way. A store keeps this much back from an armoury's smiths (army.ts,
+ * food.ts), so a statue's or the Colossus's copper isn't hammered into armour
+ * before the ox carts can take it; 0 with no site wanting any.
+ */
+export function sitesKeep(s: SimState, w: Ware): number {
+  let n = 0;
+  for (const x of s.monuments.sites) {
+    if (x.finished) continue;
+    const st = stagesOf(x);
+    let need = 0;
+    for (let i = x.building ? x.stage + 1 : x.stage; i < st.length; i++) need += needOf(st[i], w);
+    if (need <= 0) continue;
+    const b = s.buildings.find((y) => y.id === x.id);
+    let have = b ? held(b, w) : 0;
+    for (const k of s.walkers) if (k.kind === 'oxcart' && k.target === x.id && !k.back && k.food === w) have += k.load;
+    n += Math.max(0, need - have);
+  }
+  return n;
 }

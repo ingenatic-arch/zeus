@@ -80,6 +80,8 @@ import { armiesHome } from './seasons';
 import { boundTo } from './vassals';
 // Slice 55.
 import { monstersAbout } from './monsters';
+// Slice 58: what Ares makes of a band broken, or of the price of peace.
+import { bandBeaten, tributePaid } from './greecegods';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -1332,11 +1334,13 @@ function settle(s: SimState, r: Raid, how: string): void {
     }
   }
   // The fight that broke the band, counted whole now it is over (slice 25's review: towers often bring down more as it runs).
+  // (Slice 58: Ares, pleased, said with it; or with the sinking in the bay.)
+  const ares = (r.broke && r.brokeAt) || how === 'sunk' ? bandBeaten(s, r.city, how === 'sunk' && !(r.broke && r.brokeAt)) : '';
   if (r.broke && r.brokeAt) {
     const ours = [r.killed ? `${r.killed} of yours ${r.killed === 1 ? 'was' : 'were'} killed` : '', r.wounded ? `${r.wounded} wounded` : ''].filter(Boolean).join(' and ');
-    armyNews(s, `Your soldiers broke ${whose(r.city)} raiders ${r.brokeAt}: ${r.fallen} of their ${bandMen(r)} men fell${ours ? `; ${ours}` : ', and none of yours'}`, 0);
+    armyNews(s, `Your soldiers broke ${whose(r.city)} raiders ${r.brokeAt}: ${r.fallen} of their ${bandMen(r)} men fell${ours ? `; ${ours}` : ', and none of yours'}${ares ? `. ${ares}` : ''}`, 0);
     r.brokeAt = '';
-  }
+  } else if (ares) armyNews(s, `${whose(r.city)} ships sunk in your bay: ${ares}`, 0);
   s.rev++;
 }
 
@@ -1382,7 +1386,9 @@ export function callOff(s: SimState, r: Raid, how: 'paid' | 'called'): void {
       : was === 'threat'
         ? `${rulerShort(c)}’s anger has cooled: the threat is lifted`
         : `${rulerShort(c)}’s anger has cooled: ${his(c)} raiders${band}`;
-  news(w, s.tick, r.city, `${line}${turn ? `. ${turn}` : ''}`, true);
+  // (Slice 58: the price of peace is tribute, as Ares sees it.)
+  const gods = how === 'paid' && !r.loan ? tributePaid(s, r.city, true) : '';
+  news(w, s.tick, r.city, `${line}${turn ? `. ${turn}` : ''}${gods ? `. ${gods}` : ''}`, true);
   s.rev++;
 }
 

@@ -55,6 +55,8 @@ import { BAY_TICKS, blockadeOf, stepBlockades, stepWarships, type Blockade } fro
 import { expeditionOnMap } from './expeditions';
 import { regainAtSea } from './raids';
 import { change } from './growth';
+// Slice 58: Poseidon's mood tips the fights at sea.
+import { seaTilt, seaWords } from './greecegods';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -723,6 +725,8 @@ function stepBay(s: SimState, map: CoastMap): void {
     }
   }
   // Blows: rams, and the enemy striking back.
+  // (Slice 58: Poseidon's lean on how often they strike home.)
+  const tilt = foes.length ? seaTilt(s) : 1;
   for (const t of f.triremes) {
     if (t.cool > 0) t.cool--;
     const e = t.task === 'fight' ? byFoe.get(t.foe) : undefined;
@@ -730,7 +734,7 @@ function stepBay(s: SimState, map: CoastMap): void {
     t.cool = RAM_COOL + Math.floor(roll(s, t.id, 1) * 5);
     t.rammed = s.tick;
     const share = Math.min(1, t.crew.length / CREW);
-    if (roll(s, t.id, 2) < RAM_HIT * (0.5 + 0.5 * share)) {
+    if (roll(s, t.id, 2) < (tilt === 1 ? RAM_HIT * (0.5 + 0.5 * share) : RAM_HIT * (0.5 + 0.5 * share) * tilt)) {
       const hurt = (RAM_HURT + RAM_MORE * roll(s, t.id, 3)) * (e.state === 'beached' ? BEACHED_HURT : 1);
       e.hp -= hurt;
       e.hit = s.tick;
@@ -756,7 +760,7 @@ function stepBay(s: SimState, map: CoastMap): void {
     e.cool = STRIKE_COOL + Math.floor(roll(s, 1000 + e.id, 4) * 5);
     e.struck = s.tick;
     const odds = e.state === 'beached' ? STRIKE_HIT_BEACHED : STRIKE_HIT;
-    if (roll(s, 1000 + e.id, 5) < odds) {
+    if (roll(s, 1000 + e.id, 5) < (tilt === 1 ? odds : odds / tilt)) {
       near.hp -= STRIKE_HURT + STRIKE_MORE * roll(s, 1000 + e.id, 6);
       near.struck = s.tick;
       // (Slice 38: and breaks her oars along that side.)
@@ -797,7 +801,9 @@ function armyNewsOnce(s: SimState, t: Trireme, e: EnemyShip): void {
   if (!city) return;
   const key = `The trireme ${triremeName(t)} rows out`;
   if (s.army.news.some((n) => n.line.startsWith(key) && s.tick - n.tick < 20 * TICKS_PER_DAY)) return;
-  armyNews(s, `${key} to meet ${whose(city)} ships ${e.blockade ? 'across the harbour’s mouth' : 'in the bay'}`, t.yard);
+  // (Slice 58: with Poseidon's lean, if he leans.)
+  const sea = seaWords(s, true);
+  armyNews(s, `${key} to meet ${whose(city)} ships ${e.blockade ? 'across the harbour’s mouth' : 'in the bay'}${sea ? `: ${sea}` : ''}`, t.yard);
 }
 
 /** Slice 38: whose an enemy ship is: her band's city, or her blockade's. */
@@ -1573,8 +1579,11 @@ function laneFight(s: SimState, p: Pirates): void {
   if (!guards.length) return;
   p.fought = s.tick;
   const ours = guards.reduce((a, t) => a + 2 * (t.hp / 100) * Math.min(1, t.crew.length / CREW), 0);
+  // (Slice 58: Poseidon's lean, if he leans.)
+  const tilt = seaTilt(s);
+  const tipped = tilt === 1 ? ours : ours * tilt;
   // (Slice 38: a city's warship counts half again a pirate ship.)
-  const odds = clamp(ours / (ours + p.ships * (p.of ? WARSHIP_WORTH : 1)), 0.15, 0.92);
+  const odds = clamp(tipped / (tipped + p.ships * (p.of ? WARSHIP_WORTH : 1)), 0.15, 0.92);
   const n = p.id * 7 + Math.floor(s.tick / TICKS_PER_DAY);
   const won = dice(s, n, 11) < odds;
   const names = guards.map((t) => triremeName(t));
@@ -1622,6 +1631,9 @@ function laneFight(s: SimState, p: Pirates): void {
       t.homeward = true;
     }
   }
+  // (Slice 58: and Poseidon's lean, said.)
+  const sea = tilt === 1 ? '' : seaWords(s);
+  if (sea) line = `${line}. ${sea}`;
   s.fleet.reports.push({ tick: s.tick, way: p.way, city: p.city, won, line });
   news(s.world, s.tick, p.city, line, true);
   armyNews(s, line, 0);
@@ -1692,7 +1704,9 @@ function seaFight(s: SimState, e: Expedition, p: Pirates): void {
   const ships = e.ships.map((id) => triremeOf(s, id)).filter((t): t is Trireme => !!t && afloat(t));
   const ours = ships.reduce((a, t) => a + 2 * (t.hp / 100) * Math.min(1, t.crew.length / CREW), 0) + 2 * e.companies.length;
   const theirs = p.ships * (p.of ? WARSHIP_WORTH : 1);
-  const odds = clamp(ours / (ours + theirs), 0.15, 0.95);
+  // (Slice 58: Poseidon's lean, if he leans.)
+  const tilt = seaTilt(s);
+  const odds = clamp((tilt === 1 ? ours : ours * tilt) / ((tilt === 1 ? ours : ours * tilt) + theirs), 0.15, 0.95);
   const n = p.id * 11 + e.id * 3 + Math.floor(s.tick / TICKS_PER_DAY);
   const won = dice(s, n, 21) < odds;
   const hurt: string[] = [];
@@ -1717,6 +1731,9 @@ function seaFight(s: SimState, e: Expedition, p: Pirates): void {
     }
     line = `${what}, ${going}, met ${many} ${p.place} and its triremes sank ${p.ships === 1 ? 'her' : p.ships === 2 ? 'both' : 'all three'}${hurt.length ? `; ${hurt.join(', ')}` : ''}. The lane to ${cityName(p.city)} is clear`;
   } else line = `${what}, ${going}, met ${many} ${p.place} and was beaten off: they keep the lane${hurt.length ? `; ${hurt.join(', ')}` : ''}. The triremes keep with the men aboard, and are mended when home`;
+  // (Slice 58: and Poseidon's lean, said.)
+  const sea = tilt === 1 ? '' : seaWords(s);
+  if (sea) line = `${line}. ${sea}`;
   s.fleet.reports.push({ tick: s.tick, way: p.way, city: p.city, won, line });
   news(s.world, s.tick, p.city, line, true);
   armyNews(s, line, 0);

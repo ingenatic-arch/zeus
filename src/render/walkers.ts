@@ -1029,6 +1029,10 @@ export class Walkers {
   private readonly priestesses: Look;
   /** Slice 54: a sanctuary's priests. */
   private readonly priests: Look;
+  /** Slice 58: each sanctuary's god's colour, by its building (a sanctuary's god never changes), looked up once, not for every priest every frame. */
+  private readonly priestTint = new Map<number, number>();
+  /** The town the tints were cached for (a game loaded or a demo opened starts afresh). */
+  private tintFor: unknown = null;
   private readonly actors: Look;
   /** Tax collectors: [a light satchel, a full one]. */
   private readonly collectors: [Look, Look];
@@ -1260,7 +1264,20 @@ export class Walkers {
         }
         else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
         // Slice 54: a sanctuary's priest, robed in his god's colour.
-        else if (w.kind === 'priest') this.priests.push(this.m, still(this.c.setHex(GODS[state.buildings.find((b) => b.id === w.origin)?.god ?? 'zeus'].colour)));
+        else if (w.kind === 'priest') {
+          // (Slice 58: the colour cached by the priest's sanctuary.)
+          if (this.tintFor !== state) {
+            this.tintFor = state;
+            this.priestTint.clear();
+          }
+          let hex = this.priestTint.get(w.origin);
+          if (hex === undefined) {
+            const g = state.buildings.find((b) => b.id === w.origin)?.god;
+            hex = GODS[g ?? 'zeus'].colour;
+            if (g) this.priestTint.set(w.origin, hex);
+          }
+          this.priests.push(this.m, still(this.c.setHex(hex)));
+        }
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
         // (Slice 45: walking one of the caught to the court, he walks, not runs.)
         else if (w.kind === 'watchman') this.watchmen[w.target > 0 || (w.meat > 0 && !state.walkers.some((o) => o.id === w.meat && o.kind === 'convict')) ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
