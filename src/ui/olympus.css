@@ -118,9 +118,10 @@
 .ol-pick:hover { background: rgba(255, 252, 240, 0.95); }
 .ol-pick.on { border-color: #3a2a10; background: rgba(255, 246, 214, 0.95); }
 .ol-pick svg.emb, .ol-pick svg.ki { width: 30px; height: 30px; }
-.ol-pick b { font: 700 13px/1.1 var(--display); letter-spacing: 0.03em; }
+.ol-pick b { font: 700 12.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
 .ol-pick small { font-size: 12px; color: var(--ink-soft); }
-.ol-pick.all { --gc: #b8ab8e; }
+.ol-pick.all { --gc: #b8ab8e; grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; }
+.ol-pick.all svg.ki { width: 24px; height: 24px; }
 .ol-shr { display: flex; gap: 10px; align-items: center; margin: 2px 0 4px; }
 .ol-shr > div { flex: 1; min-width: 0; }
 .ol-who { margin: 0 0 2px; font-size: 14px; }
