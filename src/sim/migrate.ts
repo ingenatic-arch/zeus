@@ -206,6 +206,11 @@
  * the save was made, a smaller one when it grows to that. Every shrine is
  * "to all the gods", as it always was. Nothing in the city changes.
  *
+ * Slice 54 (Sanctuaries rise): a site's record says when a finished
+ * sanctuary lost its workers (`idle`); an older town has no sanctuary, so
+ * every monument's site gets 0 where it has none. The goods are padded to
+ * however many there are now (no new ware). Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -316,6 +321,7 @@ export function migrate(st: unknown): number {
   if (st.version === 45) fromSlice51(st);
   if (st.version === 46) fromSlice49(st);
   if (st.version === 47) fromSlice53g(st);
+  if (st.version === 48) fromSlice54(st);
   return from;
 }
 
@@ -1194,6 +1200,25 @@ function fromSlice53g(st: Record<string, unknown>): void {
     const tick = typeof st.tick === 'number' ? st.tick : 0;
     const people = typeof st.population === 'number' ? st.population : 0;
     st.gods = freshGods(true, people >= NOTICE_PEOPLE ? tick : -1);
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 54 (Sanctuaries rise): see the notes at the top. It fills in only its
+ * own field (a site's `idle`), only where it is absent, and assumes nothing
+ * of any other line's.
+ */
+function fromSlice54(st: Record<string, unknown>): void {
+  if (isObj(st.monuments) && Array.isArray(st.monuments.sites)) {
+    for (const x of st.monuments.sites as unknown[]) if (isObj(x) && x.idle === undefined) x.idle = 0;
+  }
+  const zero = (): number => 0;
+  if (Array.isArray(st.buildings)) {
+    for (const b of st.buildings as Array<Record<string, unknown>>) {
+      if (!isObj(b)) continue;
+      for (const k of ['goods', 'goodsIn', 'goodsUntil', 'vclock', 'fetch']) pad(b[k], GOOD_COUNT, zero);
+    }
   }
   st.version = (st.version as number) + 1;
 }

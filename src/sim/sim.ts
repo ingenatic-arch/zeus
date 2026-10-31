@@ -77,6 +77,9 @@ import { lawCommand, moveConvict } from './justice';
 import { colonyEmpireCommand, stepColonyEmpire } from './colonyempire';
 // Slice 49
 import { FIRST_PHYSICIAN, freshHealth, moveBearer, movePhysician, quarantineCommand, setHealth, stepHealth, stepInfirmaries } from './health';
+// Slice 54.
+import { GOD_IDS, type GodId } from './pantheon';
+import { movePriest, sanctuaryRefusal, stepSanctuaries } from './sanctuaries';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -251,6 +254,8 @@ export class Sim {
     // Trade routes, their caravans and ships, and the caravan yard's porters (nothing in a town with neither).
     stepRoutes(s, map, stepDockers);
     stepCulture(s, map);
+    // Slice 54: the sanctuaries' priests, their staff watched, their gods' standing honour (nothing with no sanctuary finished).
+    stepSanctuaries(s, map);
     stepTaxOffices(s, map);
     stepWatchPosts(s, map);
     stepArchitects(s, map);
@@ -369,6 +374,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Phase 7 groundwork.
     case 'gods':
       setGods(s, c.on === true);
+      break;
+    // Slice 54.
+    case 'sanctuary':
+      if (GOD_IDS.includes(c.god) && Array.isArray(c.at)) record(s, placePlots(s, map, c.at, 'sanctuary', c.god));
       break;
     // Slice 33.
     case 'seasons':
@@ -704,7 +713,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
 }
 
 /** Housing plots, fountains, farms, granaries, the agora, shrines or theatres, on the same ground rules. */
-function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
+function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind, god?: GodId): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
   const covered: number[] = [];
@@ -715,6 +724,8 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     const x = t % n;
     const z = Math.floor(t / n);
     if (buildingRefusal(map, s, kind, x, z) !== '') continue;
+    // Slice 54: a sanctuary needs its god, one to a god.
+    if (kind === 'sanctuary' && (!god || sanctuaryRefusal(s, god) !== '')) continue;
     // (A tower takes the stretches of wall under it into it: undo gives them back.)
     if (s.walls.length) {
       const took = dropWalls(s, footprint(n, x, z, sideOf(kind)));
@@ -729,6 +740,11 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     if (kind === 'quarry') for (let dz = -1; dz <= 3; dz++) for (let dx = -1; dx <= 3; dx++) if ((dz < 0 || dz > 2 || dx < 0 || dx > 2) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
     // Slice 35: a monument's site is marked out the moment it is placed.
     if (isMonument(kind)) markSite(s, b);
+    // Slice 54: so is a sanctuary's, with its god.
+    if (kind === 'sanctuary') {
+      b.god = god;
+      markSite(s, b);
+    }
     // Slice 35 (slice 32's review): the loggers' camp clears the trees right round it too, so none stands (or grows back) through its corner.
     if (kind === 'loggers') for (let dz = -1; dz <= 2; dz++) for (let dx = -1; dx <= 2; dx++) if ((dz < 0 || dz > 1 || dx < 0 || dx > 1) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
   }
@@ -1126,6 +1142,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? movePhysician(s, map, w)
               : w.kind === 'bearer'
                 ? moveBearer(s, map, w)
+              // Slice 54: a sanctuary's priests.
+              : w.kind === 'priest'
+                ? movePriest(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

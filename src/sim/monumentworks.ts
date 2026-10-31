@@ -65,7 +65,6 @@ import {
   gamesOn,
   GAMES_NOTICE,
   isMonument,
-  MATERIALS,
   monumentName,
   monumentOf,
   needOf,
@@ -74,17 +73,22 @@ import {
   COLOSSUS_MOOD,
   COLOSSUS_WHY,
   STAGE_COUNT,
-  STAGES,
   stageNow,
   workOf,
-  type MonumentKind,
+  // Slice 54: sites that are sanctuaries.
+  isSiteKind,
+  siteMaterials,
+  stagesOf,
   type Site,
+  type SiteKind,
 } from './monuments';
+// Slice 54: what a sanctuary's god notices as it rises.
+import { sanctuaryFinished, sanctuaryGone, sanctuaryMarked, sanctuaryStageDone } from './sanctuaries';
 import { nearestEdge, roadSearch, tracePath } from './roads';
 import { door, roadsBeside } from './rounds';
 import { TILE_ROAD, type Building, type BuildingKind, type SimState, type Walker, type WorldCity } from './state';
 import { note } from './stockbook';
-import { fromStores, roomOf } from './stores';
+import { fromStores, isStore, roomOf } from './stores';
 import { berthAt } from './trade';
 import { income } from './treasury';
 import { CART_SPEED, centre, newWalker, OFF_MAP, offMapPoint, position, SENDING_SPEED, setPath, WALK_SPEED } from './walk';
@@ -204,7 +208,7 @@ export const gathering = (x: Site): number => (x.building ? x.stage + 1 : x.stag
 
 /** What a site still wants of a ware for the stage it gathers for: its need, less what is on site and on the way. */
 export function wantOf(s: SimState, x: Site, b: Building, w: Ware): number {
-  const st = STAGES[x.kind][gathering(x)];
+  const st = stagesOf(x)[gathering(x)];
   if (!st) return 0;
   return Math.max(0, needOf(st, w) - held(b, w) - comingTo(s, x.id, w));
 }
@@ -212,7 +216,7 @@ export function wantOf(s: SimState, x: Site, b: Building, w: Ware): number {
 /** Is everything the stage waiting to start needs on site? */
 export const allOnSite = (x: Site, b: Building): boolean => {
   const st = stageNow(x);
-  return !!st && MATERIALS.every((w) => held(b, w) >= needOf(st, w));
+  return !!st && siteMaterials(x).every((w) => held(b, w) >= needOf(st, w));
 };
 
 /** A stage of bronze (the Colossus's frame and skin): cast on site by the armourers. */
@@ -221,12 +225,15 @@ export const isBronze = (x: Site): boolean => (stageNow(x)?.bronze ?? 0) > 0;
 // ---------------------------------------------------------------------------
 // The sites.
 
-const freshSite = (b: Building, kind: MonumentKind): Site => ({ id: b.id, kind, stage: 0, building: false, work: 0, marked: b.placed, done: [], finished: 0 });
+// (Slice 54: a sanctuary's site has its god, from its building.)
+const freshSite = (b: Building, kind: SiteKind): Site => (kind === 'sanctuary' ? { id: b.id, kind, stage: 0, building: false, work: 0, marked: b.placed, done: [], finished: 0, god: b.god ?? 'zeus', idle: 0 } : { id: b.id, kind, stage: 0, building: false, work: 0, marked: b.placed, done: [], finished: 0, idle: 0 });
 
-/** A monument's site is marked out (sim.ts, as it is placed): its record. */
+/** A monument's site (slice 54: or a sanctuary's) is marked out (sim.ts, as it is placed): its record. */
 export function markSite(s: SimState, b: Building): void {
-  if (!isMonument(b.kind) || s.monuments.sites.some((x) => x.id === b.id)) return;
-  s.monuments.sites = [...s.monuments.sites, freshSite(b, b.kind)];
+  if (!isSiteKind(b.kind) || s.monuments.sites.some((x) => x.id === b.id)) return;
+  const x = freshSite(b, b.kind);
+  s.monuments.sites = [...s.monuments.sites, x];
+  if (x.kind === 'sanctuary') sanctuaryMarked(s, x);
 }
 
 /** A record for every monument standing, none for those gone (their goods went with them). */
@@ -243,11 +250,13 @@ function syncSites(s: SimState): void {
         s.monuments.games.next = 0;
         s.monuments.games.until = 0;
       }
+      // Slice 54: a sanctuary taken down: its god's standing honour goes with it.
+      if (x.kind === 'sanctuary') sanctuaryGone(s, x);
     }
     changed = true;
   }
   for (const b of s.buildings) {
-    if (!isMonument(b.kind) || keep.some((x) => x.id === b.id)) continue;
+    if (!isSiteKind(b.kind) || keep.some((x) => x.id === b.id)) continue;
     keep.push(freshSite(b, b.kind));
     changed = true;
   }
@@ -260,7 +269,7 @@ function syncSites(s: SimState): void {
 /** A stage starts: its materials are used, all at once. */
 function startStage(s: SimState, x: Site, b: Building): void {
   const st = stageNow(x)!;
-  for (const w of MATERIALS) {
+  for (const w of siteMaterials(x)) {
     const n = needOf(st, w);
     if (n <= 0) continue;
     setHeld(b, w, held(b, w) - n);
@@ -287,6 +296,8 @@ function stepSite(s: SimState, map: CoastMap, x: Site, b: Building): void {
       x.work = 0;
       s.looks++;
       s.rev++;
+      // Slice 54: its god notices each stage of a sanctuary.
+      if (x.kind === 'sanctuary') sanctuaryStageDone(s, x, x.stage - 1);
       if (x.stage >= STAGE_COUNT) finish(s, x);
       else if (allOnSite(x, b) && (!isBronze(x) || smithsAt(s))) startStage(s, x, b);
     }
@@ -306,14 +317,16 @@ function haul(s: SimState, map: CoastMap, x: Site, b: Building): void {
     b.clock = HAUL_GAP;
     return;
   }
-  const wants = MATERIALS.map((w) => ({ w, n: wantOf(s, x, b, w) }))
+  const wants = siteMaterials(x)
+    .map((w) => ({ w, n: wantOf(s, x, b, w) }))
     .filter((o) => o.n > 0)
     .sort((a, c) => c.n / haulOf(c.w) - a.n / haulOf(a.w) || a.w - c.w);
   for (const { w, n } of wants) {
     // (At the merge of slice 36: what the estates still want of it stays in the storehouse for their porters.)
     const keep = estatesKeep(s, w);
     // (Slice 48: a storehouse emptying it first; none that is paused.)
-    const found = nearestBy(s, size, roads, (g) => g.kind === 'storehouse' && held(g, w) > keep, fromStores(w));
+    // (Slice 54: a sanctuary's sacred good from whichever store keeps it, a granary's food too; the monuments' materials only ever from the storehouses, as before.)
+    const found = nearestBy(s, size, roads, (g) => isStore(g.kind) && roomOf(g.kind, w) > 0 && held(g, w) > keep, fromStores(w));
     if (!found) continue;
     const { g, way } = found;
     const load = Math.min(haulOf(w), n, held(g, w) - keep);
@@ -338,6 +351,12 @@ function haul(s: SimState, map: CoastMap, x: Site, b: Building): void {
 /** A monument finished: what Greece says of it, and what it does from now on. */
 function finish(s: SimState, x: Site): void {
   x.finished = s.tick;
+  // Slice 54: a sanctuary finished is its god's affair, not Greece's (sanctuaries.ts: the one place it happens).
+  if (x.kind === 'sanctuary') {
+    sanctuaryFinished(s, x);
+    s.rev++;
+    return;
+  }
   const name = monumentName(x.kind);
   const w = s.world;
   // Every ruler admires it; the Colossus is remembered for good.
@@ -417,7 +436,7 @@ function homeward(s: SimState, map: CoastMap, k: Walker, g: Building | undefined
 export function moveOxcart(s: SimState, map: CoastMap, k: Walker): boolean {
   const store = findBuilding(s, k.origin);
   const site = k.back ? undefined : findBuilding(s, k.target);
-  if (!k.back && (!site || !isMonument(site.kind))) {
+  if (!k.back && (!site || !isSiteKind(site.kind))) {
     if (homeward(s, map, k, store)) return true;
     putBack(s, k, undefined);
     return false;
@@ -540,12 +559,12 @@ export function moveBuilder(s: SimState, map: CoastMap, w: Walker): boolean {
   if (w.steps === 1) {
     // At work: until his site is gone (stepYards calls him home otherwise).
     const site = findBuilding(s, w.target);
-    if (site && isMonument(site.kind)) return true;
+    if (site && isSiteKind(site.kind)) return true;
     return sendHome(s, map, w);
   }
   if (!w.back) {
     const site = findBuilding(s, w.target);
-    if (!site || !isMonument(site.kind)) return sendHome(s, map, w);
+    if (!site || !isSiteKind(site.kind)) return sendHome(s, map, w);
   }
   const r = roll(s, w, WALK_SPEED);
   if (r === 'on') return true;
@@ -717,7 +736,7 @@ function stepGames(s: SimState, map: CoastMap): void {
  */
 export function stepMonuments(s: SimState, map: CoastMap): void {
   const m = s.monuments;
-  if (m.sites.length === 0 && !s.buildings.some((b) => isMonument(b.kind) || b.kind === 'masons')) return;
+  if (m.sites.length === 0 && !s.buildings.some((b) => isSiteKind(b.kind) || b.kind === 'masons')) return;
   syncSites(s);
   for (const x of s.monuments.sites) {
     const b = siteBuilding(s, x);
