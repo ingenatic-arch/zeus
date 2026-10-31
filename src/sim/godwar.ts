@@ -402,7 +402,8 @@ function marches(s: SimState): void {
     const on = r.phase === 'threat' || r.phase === 'gathering' || r.phase === 'marching' || r.phase === 'raiding';
     if (!on) continue;
     if (!m) {
-      if (!noticed(s) || !angry(s, god) || war.marches.some((o) => o.god === god)) continue;
+      // (Review of slice 60: never with a band already broken and running, nor one settled: a god who went home with it stays gone.)
+      if (r.broke || r.end !== '' || !noticed(s) || !angry(s, god) || war.marches.some((o) => o.god === god)) continue;
       war.marches.push({ raid: r.id, god, figure: 0, since: s.tick, cool: 0, lastFire: -BURN_GAP, fires: 0, felled: 0 });
       const st = STYLES[god];
       say(s, {
@@ -487,7 +488,8 @@ function stepMarch(s: SimState, map: CoastMap, m: GodMarch): void {
   const band = r ? raidersOf(s, r) : undefined;
   if (!f) {
     // Not on your map yet: the god rises among the band as it comes onto your land (from the sea, as its men land).
-    if (!r || (!live(r) && r.phase !== 'raiding')) {
+    // (Review of slice 60: or the band broke, or was settled, before the god rose with it: they stay home, and the band's chip no longer names them.)
+    if (!r || (!live(r) && r.phase !== 'raiding') || r.broke || r.end !== '') {
       war.marches.splice(war.marches.indexOf(m), 1);
       return;
     }
@@ -714,8 +716,8 @@ function breakSooner(s: SimState, map: CoastMap): void {
     if (lost < men * BREAK_SHARE && nerve < NERVE_BREAK) continue;
     const g = near[0].god;
     const why = nerve >= NERVE_BREAK && lost < men * BREAK_SHARE ? `${GODS[g].name} has broken their nerve` : `${GODS[g].name} is among them, and a third of their men have fallen`;
+    // (Review of slice 60: said once, by the raid's own news as it breaks: "Sparta's raiders break and run for the west edge: Athena is among them, ...".)
     breakNow(s, map, r, why);
-    say(s, { kind: 'godwar', u: WARNING, title: `${whose(r.city)} ${bandWord(r)} break`, words: `${whose(r.city)} ${bandWord(r)} break and run: ${why}.` });
   }
 }
 
@@ -873,7 +875,8 @@ export function duelLine(s: SimState, d: Duel): string {
 /** The band's god, for the raid's chip and line: "Ares with them" (null for none). */
 export function marchWords(s: SimState, r: Raid): { chip: string; line: string } | null {
   const m = marchOf(s, r.id);
-  if (!m) return null;
+  // (Review of slice 60: not once the band has broken, nor while the god is going home: they no longer march with it.)
+  if (!m || r.broke || figure(s, m.figure)?.state === 'leaving') return null;
   const g = GODS[m.god];
   return { chip: `${g.name} with them`, line: `${g.name} marches with them: ${angerWords(s, m.god).replace(`${g.name} is `, `${she(m.god)} is `)}` };
 }

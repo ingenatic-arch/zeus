@@ -4154,6 +4154,9 @@ await open('#godwar-paused');
   if (!(g.marches.length === 1 && g.marches[0].god === 'ares' && g.marches[0].figure > 0 && g.marches[0].felled >= 1 && g.figures.some((f) => f.god === 'ares' && f.why === 'foe'))) fail(`#godwar: Ares not among the band: ${JSON.stringify(g).slice(0, 800)}`);
   const side = await zeus(() => window.__zeus.sideText());
   if (!/Call on the gods[\s\S]*Ares is against you[\s\S]*Call on Athena/.test(side)) fail(`#godwar: the Army tab's card: ${side.slice(0, 900)}`);
+  // (Review of slice 60: both companies marched out to meet the band, none left drilling at the barracks.)
+  const a60 = await zeus(() => window.__zeus.army());
+  if (!(a60.companies.length === 2 && a60.companies.every((c) => c.order !== 'drill'))) fail(`#godwar: both companies out: ${JSON.stringify(a60.companies)}`);
   await frames(3);
   const p60 = await zeus(() => window.__zeus.godAt('ares'));
   if (!p60) fail('#godwar: Ares not on the screen');

@@ -215,6 +215,14 @@ describe('gods in war (slice 60)', () => {
       expect(winner.state).not.toBe('leaving');
       expect(r.broke).toBe(wins === 'athena');
       expect(s.gods.war.strikes.some((k) => k.kind === 'clash')).toBe(true);
+      if (wins === 'athena') {
+        // (Review of slice 60: the band broken and running home, Ares, gone, doesn't march with it again, nor is it said again.)
+        sim.run(4 * TICKS_PER_DAY);
+        expect(r.ended).toBe(0);
+        expect(marchOf(s, r.id)).toBeUndefined();
+        expect(raidChip(s, r)?.chip ?? '').not.toMatch(/Ares/);
+        expect(s.messages.log.filter((x) => x.kind === 'godwar' && /^Ares marches with/.test(x.words)).length).toBe(1);
+      }
     }
   }, 600_000);
 

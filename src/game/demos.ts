@@ -4795,8 +4795,8 @@ function pantheonField(sim: Sim): void {
 /** Why #godwar's Ares is furious with the town, and why Athena loves it (staged: slice 53 makes moods real). */
 export const GODWAR_ANGER = 'you paid tribute to Athens';
 export const GODWAR_LOVE = 'the city keeps her festivals';
-/** Where #godwar's companies are marched to meet the band: the west road by the bridge (hoplites), the archers behind. */
-const GODWAR_HOLD = { hoplite: { x: 41, z: 41 }, archer: { x: 44, z: 43 } };
+/** Where #godwar's companies are marched to meet the band: the west road by the bridge (hoplites), the archers behind them on the same road (review of slice 60: 44, 43 was a wheat farm, so the archers' order was refused and they stayed at their barracks). */
+const GODWAR_HOLD = { hoplite: { x: 41, z: 41 }, archer: { x: 45, z: 41 } };
 /** Where #godwar's sanctuary to Athena stands: beside the road north-east of the bridge, in sight of the fight. */
 const GODWAR_SANCTUARY = { x: 44, z: 36 };
 /** A finished sanctuary to a god (slice 54's), marked out and its three stages done at once (its coin given, and noted so). */

@@ -42,6 +42,11 @@ export function godWarCard(s: SimState): string {
     const f = m.figure ? figureOf(s, m.figure) : undefined;
     const him = goddess(m.god) ? 'her' : 'him';
     const where = f ? cap(warDoing(s, f)) : `Marches with ${whose(r.city)} ${r.loan ? 'army' : 'raiders'}`;
+    // (Review of slice 60: going home, no advice: there is nothing left to hold out against.)
+    if (f?.state === 'leaving') {
+      out.push(`<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} was against you.</b> ${esc(where)}.</p></div>`);
+      continue;
+    }
     out.push(
       `<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} is against you.</b> ${esc(where)}. ${esc(angerWords(s, m.god))}. Your soldiers can’t hurt ${him}: hold out until the band breaks${f ? '' : `, calm ${him} before they come`}, or call on a god who loves you.</p></div>`,
     );
@@ -52,7 +57,7 @@ export function godWarCard(s: SimState): string {
     if (!f) continue;
     const days = Math.max(1, Math.ceil((f.leaves - s.tick) / TICKS_PER_DAY));
     const done = [c.felled ? `${c.felled} struck down` : '', c.ships ? `${c.ships} ${c.ships === 1 ? 'ship' : 'ships'} struck` : '', c.nerve ? `their nerve shaken ${c.nerve === 1 ? 'once' : `${c.nerve} times`}` : ''].filter(Boolean).join(', ');
-    out.push(`<div class="gw-row friend"><span class="gw-em">${emblemIcon(f.god)}</span><p><b>${esc(GODS[f.god].name)} fights for you.</b> ${esc(cap(warDoing(s, f)))}${done ? ` · so far ${esc(done)}` : ''}. Gone once the band breaks, within ${days} ${days === 1 ? 'day' : 'days'}.</p></div>`);
+    out.push(`<div class="gw-row friend"><span class="gw-em">${emblemIcon(f.god)}</span><p><b>${esc(GODS[f.god].name)} ${f.state === 'leaving' ? 'fought' : 'fights'} for you.</b> ${esc(cap(warDoing(s, f)))}${done ? ` · ${f.state === 'leaving' ? '' : 'so far '}${esc(done)}` : ''}.${f.state === 'leaving' ? '' : ` Gone once the band breaks, within ${days} ${days === 1 ? 'day' : 'days'}.`}</p></div>`);
   }
   if (w.duel) {
     const line = duelLine(s, w.duel);
