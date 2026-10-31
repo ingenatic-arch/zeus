@@ -2020,6 +2020,13 @@ function start(preparedTown: string | null): void {
     followChip.textContent = `Following ${GODS[f.god].name} · drag the map or press Esc to stop`;
     followChip.hidden = false;
   };
+  // (Merge of slice 60: a hero sent against an enemy god from the god's panel.)
+  godPanel.onSend = (c) => {
+    sim.enqueue(c);
+    sim.flush();
+    sound.play('build');
+    startAutosaving();
+  };
   godPanel.onOpen = () => {
     panel.show(0);
     buildingPanel.show(0);

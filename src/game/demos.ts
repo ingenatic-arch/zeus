@@ -124,6 +124,7 @@ import { income } from '../sim/treasury';
 import type { HeroId } from '../sim/pantheon';
 import { beside as besideTiles } from '../sim/buildings';
 import { HASTE, heroOf, type Champion } from '../sim/heroes';
+import { courtyard } from '../sim/heroes';
 import { TILE_ROAD } from '../sim/state';
 // Slice 53 (honour and GodId come in above)
 import { GODS } from '../sim/pantheon';
@@ -3889,6 +3890,9 @@ const SCENES: Record<string, Demo> = {
   // on the call; and the same played on after calling on Athena, the two gods fighting.
   godwar: { view: 'godwar', speed: 'paused', setup: godWarTown, overlay: 'missing', side: { tab: 'army' }, unread: 3 * TICKS_PER_DAY },
   godduel: { view: 'godduel', speed: 'paused', setup: godDuelTown, overlay: 'missing', unread: 3 * TICKS_PER_DAY },
+  // Merge of slice 60 with slice 59: #herogod: #godwar with Perseus come to his hall (staged) and sent against Ares, the two
+  // fighting by the bridge, Ares held (striking none of your soldiers) for a day of the five before Perseus must withdraw.
+  herogod: { view: 'herogod', speed: 'paused', setup: heroGodTown, overlay: 'missing', unread: 3 * TICKS_PER_DAY },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -5084,3 +5088,37 @@ function godDuelTown(sim: Sim): void {
   const d = s.gods.war.duel;
   if (d) sim.run(Math.min(TICKS_PER_DAY / 2, Math.max(0, d.ends - s.tick - 2)));
 }
+
+// Merge of slice 60 with slice 59
+/** Where #herogod's hall to Perseus goes (the free spot beside a road nearest this): north-east of the bridge, near the fight. */
+const HEROGOD_HALL = { x: 50, z: 38 };
+/**
+ * #herogod: #godwar, then Perseus' hall raised by its command (its coin given,
+ * and noted so) and Perseus come and at home in it (staged: his demands are a
+ * city's work of years), sent against Ares by the command, and played on
+ * until the two have fought a day.
+ */
+function heroGodTown(sim: Sim): void {
+  godWarTown(sim);
+  const s = sim.state;
+  income(s, COST.herohall, 'gifts', 'set up for this demo: Perseus’ hall');
+  const c = raiseHall(sim, 'perseus', HEROGOD_HALL.x, HEROGOD_HALL.z);
+  const hall = c ? s.buildings.find((b) => b.id === c.hall) : undefined;
+  if (!c || !hall) return;
+  // (Come and at home, set up for this demo.)
+  [c.x, c.z] = courtyard(hall);
+  c.state = 'home';
+  c.came = s.tick;
+  c.word = s.tick;
+  c.by = 'road';
+  c.wish = s.tick;
+  c.next = s.tick + 20 * TICKS_PER_DAY;
+  const m = s.gods.war.marches.find((x) => x.figure > 0);
+  if (!m) return;
+  sim.enqueue({ type: 'hero', hero: 'perseus', act: 'face', figure: m.figure });
+  sim.flush();
+  const until = s.tick + 20 * TICKS_PER_DAY;
+  while (s.tick < until && m.held < 0 && m.hero === 'perseus') sim.step();
+  sim.run(TICKS_PER_DAY);
+}
+

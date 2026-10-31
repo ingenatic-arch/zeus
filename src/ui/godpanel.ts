@@ -20,6 +20,11 @@ import { esc, kbar, kbtn, khead, kitHtml, ksec } from './kit';
 import { morph } from './morph';
 import './godpanel.css';
 import { emblemSvg } from './emblems';
+// Merge of slice 60 with slice 59: heroes sent against an enemy god, from the god's panel.
+import { faceRefusal, heroDoing, isCome } from '../sim/heroes';
+import { HEROES, type HeroId } from '../sim/pantheon';
+import { marchByFigure } from '../sim/godwar';
+import type { Command } from '../sim/commands';
 
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
@@ -49,6 +54,7 @@ export function godHtml(s: SimState, map: CoastMap, f: GodFigure): string {
       ksec('Mood', moodBody, { icon: 'go' }),
       ksec(f.why === 'champion' ? `Why ${goddess(f.god) ? 'she' : 'he'} fights for you` : `Why ${goddess(f.god) ? 'she' : 'he'} fights against you`, `<p>${esc(cap(warWhy(s, f)))}.</p>`),
       ksec('Now', now.join('')),
+      heroRows(s, f),
       `<p class="own">${kbtn({ act: 'follow', icon: 'go', html: `Follow ${goddess(f.god) ? 'her' : 'him'}` })}</p>`,
     ].join('');
   }
@@ -70,6 +76,22 @@ export function godHtml(s: SimState, map: CoastMap, f: GodFigure): string {
   ].join('');
 }
 
+/** Merge of slice 60 with slice 59: an enemy god's panel: each hero come to your city, with a button to send them to hold the god off (or why not); '' with none come. */
+function heroRows(s: SimState, f: GodFigure): string {
+  const m = f.why === 'foe' && f.state !== 'leaving' ? marchByFigure(s, f.id) : undefined;
+  if (!m) return '';
+  const come = s.legends.heroes.filter((c) => isCome(c));
+  if (!come.length) return '';
+  const him = goddess(f.god) ? 'her' : 'him';
+  const rows = come.map((c) => {
+    const h = HEROES[c.hero];
+    const going = m.hero === c.hero;
+    const why = going ? '' : faceRefusal(s, c.hero, f.id);
+    return `<div class="hero-row"><span class="hero-what">${esc(h.name)}<small>${esc(heroDoing(s, c))}</small></span>${going ? '' : kbtn({ act: 'hero', data: { hero: c.hero }, html: `Send ${esc(h.name)}`, why, small: true, tone: 'red', tip: `Send ${h.name} to hold ${GODS[f.god].name} off: while they fight, ${goddess(f.god) ? 'she' : 'he'} strikes none of your soldiers and sets nothing alight. No hero can beat a god: ${c.hero === 'atalanta' ? 'she' : 'he'} withdraws wounded after a few days, unless the band breaks first` })}</div>`;
+  });
+  return ksec(`A hero to hold ${him}`, rows.join(''));
+}
+
 const REFRESH = 0.3;
 
 export class GodPanel {
@@ -82,6 +104,8 @@ export class GodPanel {
   onOpen: (() => void) | null = null;
   /** Follow the god with the camera (by figure id). */
   onFollow: ((id: number) => void) | null = null;
+  /** Merge of slice 60: send a command (a hero sent against the god). */
+  onSend: ((c: Command) => void) | null = null;
 
   constructor(root: HTMLElement) {
     const el = document.createElement('div');
@@ -96,6 +120,11 @@ export class GodPanel {
     el.addEventListener('click', (e) => {
       const t = (e.target as HTMLElement).closest('button[data-act]') as HTMLButtonElement | null;
       if (t?.dataset.act === 'follow' && this.shownId) this.onFollow?.(this.shownId);
+      // (Merge of slice 60: a hero sent against this god.)
+      if (t?.dataset.act === 'hero' && t.dataset.hero && this.shownId && !t.disabled) {
+        this.onSend?.({ type: 'hero', hero: t.dataset.hero as HeroId, act: 'face', figure: this.shownId });
+        this.last = -Infinity;
+      }
     });
   }
 

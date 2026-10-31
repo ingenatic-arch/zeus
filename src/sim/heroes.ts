@@ -47,7 +47,7 @@ import { companyOf } from './army';
 import { around, centreOf, findBuilding } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { held, HORSES } from './foods';
-import { ALARM, NEWS, say, WARNING } from './messages';
+import { ALARM, NEWS, say, WARNING, type Urgency } from './messages';
 import { beastName, denNoun, himOf as monsterHim, itOf, itsOf, lairSpot, MAKES, monsterOf, nearestWalkable, reach, slayMonster, type Beast } from './monsters';
 import { festivalHeld, GODS, HERO_IDS, HEROES, honour, MONSTERS, moodAtLeast, moodOfGod, moodWord, type GodId, type HeroId, type MonsterId } from './pantheon';
 import type { Building, Expedition, SimState } from './state';
@@ -62,6 +62,10 @@ import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
 import { Ground, mapIndex } from './build';
 import { mapOf } from '../map/lands';
 import { TILE_EMPTY, TILE_ROAD } from './state';
+// (Merge of slice 60: a hero sent against an enemy god. Its number from the leaf; the war's records read as plain data, types only.)
+import { HERO_HOLDS } from './pantheon';
+import type { GodMarch } from './godwar';
+import type { GodFigure } from './epiphany';
 
 // ---------------------------------------------------------------------------
 // The state (in the line's `legends`).
@@ -501,6 +505,11 @@ function stepOne(s: SimState, map: CoastMap, c: Champion): void {
     hallLost(s, map, c);
     if (!s.legends.heroes.includes(c)) return;
   }
+  // (Merge of slice 60: on the way to an enemy god, or holding them.)
+  if (c.state === 'hunting' || c.state === 'fighting') {
+    const gm = godFaced(s, c.hero);
+    if (gm) return faceGod(s, map, c, gm);
+  }
   switch (c.state) {
     case 'awaited':
       if (s.tick % TICKS_PER_DAY === 0 && hall && s.tick >= c.again && demandsMet(s, c.hero)) sendWord(s, c, hall);
@@ -876,6 +885,130 @@ function slay(s: SimState, map: CoastMap, c: Champion, m: Beast): void {
   goHome(s, map, c);
 }
 
+// ---------------------------------------------------------------------------
+// Merge of slice 60: a hero against an enemy god.
+//
+// A hero at home can be sent against a god marching with a rival's band on
+// your map (godwar.ts). They walk to the god and fight them where they meet,
+// blow for blow as two gods duel; while they fight the god is held: they
+// strike none of your soldiers and set nothing alight (godwar.ts reads the
+// march's `hero` and `held`). No hero beats a god: after HERO_HOLDS the hero
+// withdraws wounded and walks home (and won't face that god again), unless
+// the god's band breaks first, when the god goes home with it and the hero
+// comes home unhurt. A god of yours called into the fight takes it over.
+
+/** The enemy god's march this hero is sent against, if any. */
+export const godFaced = (s: SimState, h: HeroId): GodMarch | undefined => s.gods.war.marches.find((m) => m.hero === h);
+const godFigure = (s: SimState, id: number): GodFigure | undefined => (id ? s.gods.walks.figures.find((f) => f.id === id) : undefined);
+/** How close a hero comes to a god to fight them, and where they stand to fight (tiles from the god). */
+const FACE_REACH = 2;
+const FACE_GAP = 1.3;
+const godHim = (g: GodId): string => (g === 'hera' || g === 'demeter' || g === 'athena' || g === 'artemis' || g === 'aphrodite' ? 'her' : 'him');
+
+/** The marching gods on your map that a hero could be sent against (risen, not leaving). */
+export function godsAgainst(s: SimState): GodMarch[] {
+  return s.gods.war.marches.filter((m) => {
+    const f = godFigure(s, m.figure);
+    return !!f && f.state !== 'leaving';
+  });
+}
+
+/** Why a hero can't be sent against an enemy god (by their figure's id) now ('' if they can). */
+export function faceRefusal(s: SimState, h: HeroId, figure: number): string {
+  const c = heroOf(s, h);
+  const name = nameOf(h);
+  if (!c || !isCome(c)) return `${name} has not come to your city`;
+  const m = s.gods.war.marches.find((x) => x.figure > 0 && x.figure === figure);
+  const f = m ? godFigure(s, figure) : undefined;
+  if (!m || !f || f.state === 'leaving') return 'No god marches against you there';
+  const g = GODS[m.god].name;
+  if (c.state === 'abroad' || c.state === 'mustering') return `${name} is away with your expedition`;
+  if (c.state === 'sailing') return `${name} is away at sea`;
+  if (c.state === 'leaving') return `${name} is leaving your city`;
+  if (m.hero === h) return c.state === 'fighting' ? `${name} is fighting ${g}` : `${name} is on ${hisOf(h)} way to ${g} already`;
+  if (c.state === 'hunting' || c.state === 'waiting' || c.state === 'fighting') return `${name} is out against a monster`;
+  if (m.hero) return `${nameOf(m.hero)} is ${m.held >= 0 ? 'fighting' : 'on the way to'} ${g} already`;
+  if (m.wounded.includes(h)) return `${name} has fought ${g} already, and is nursing ${hisOf(h)} wounds`;
+  const d = s.gods.war.duel;
+  const a = d && d.b === figure ? godFigure(s, d.a) : undefined;
+  if (a) return `${GODS[a.god].name} is fighting ${g} for you`;
+  return '';
+}
+
+/** Send a hero against an enemy god (a command; nothing if faceRefusal says no). */
+export function sendAgainstGod(s: SimState, map: CoastMap, h: HeroId, figure: number): void {
+  if (faceRefusal(s, h, figure) !== '') return;
+  const c = heroOf(s, h) as Champion;
+  const m = s.gods.war.marches.find((x) => x.figure === figure) as GodMarch;
+  const f = godFigure(s, figure) as GodFigure;
+  m.hero = h;
+  m.held = -1;
+  c.foe = 0;
+  c.fight = -1;
+  c.ride = false;
+  c.state = 'hunting';
+  wayTo(map, s, c, startAt(map, s, f.x, f.z));
+  const g = GODS[m.god].name;
+  say(s, { kind: 'hero', u: NEWS, title: `${nameOf(h)} sets out against ${g}`, words: `${nameOf(h)} sets out from ${hisOf(h)} hall to face ${g}. No hero can beat a god, but ${heOf(h)} can hold ${godHim(m.god)} off a few days: while they fight, ${g} strikes none of your soldiers and sets nothing alight.`, at: { tile: Math.floor(f.z) * map.size + Math.floor(f.x) }, of: 'hunt' });
+  s.rev++;
+}
+
+/** A hero on the way to an enemy god, or fighting them: until they withdraw wounded, the band breaks, or your god takes the fight over. */
+function faceGod(s: SimState, map: CoastMap, c: Champion, m: GodMarch): void {
+  const f = godFigure(s, m.figure);
+  const g = GODS[m.god].name;
+  const r = s.world.raids.find((x) => x.id === m.raid);
+  const held = m.held >= 0 ? Math.max(1, Math.round((s.tick - m.held) / TICKS_PER_DAY)) : 0;
+  const end = (title: string, words: string, wounded: boolean, u: Urgency = NEWS): void => {
+    m.hero = '';
+    m.held = -1;
+    if (wounded && !m.wounded.includes(c.hero)) m.wounded.push(c.hero);
+    c.fight = -1;
+    if (words) say(s, { kind: 'hero', u, title, words, at: { tile: Math.floor(c.z) * map.size + Math.floor(c.x) }, of: 'fight' });
+    goHome(s, map, c);
+  };
+  const days = (n: number): string => `${num(n)} ${n === 1 ? 'day' : 'days'}`;
+  // The god gone home (their band broken, turned or gone): the hero comes home unhurt.
+  if (!f || f.state === 'leaving' || !r || r.broke || r.end !== '') {
+    return end(`${nameOf(c.hero)} comes home`, held ? `${g} has gone with the band, and ${nameOf(c.hero)}, who held ${godHim(m.god)} ${days(held)}, comes home unhurt.` : `${g} has gone with the band before ${nameOf(c.hero)} reached ${godHim(m.god)}: ${heOf(c.hero)} turns for home.`, false);
+  }
+  // Your god called into the fight: they take it over.
+  const d = s.gods.war.duel;
+  if (d && d.b === f.id) {
+    const a = godFigure(s, d.a);
+    return end(`${nameOf(c.hero)} stands aside`, `${a ? GODS[a.god].name : 'Your god'} has come to fight ${g}: ${nameOf(c.hero)} leaves ${godHim(m.god)} to ${a ? godHim(a.god) : 'them'} and comes home.`, false);
+  }
+  if (c.state === 'hunting') {
+    if (dhypot(f.x - c.x, f.z - c.z) <= FACE_REACH) {
+      // Met: the fight begins where the god stands.
+      m.held = s.tick;
+      c.state = 'fighting';
+      c.fight = s.tick;
+      c.path = [];
+      const d0 = dhypot(c.x - f.x, c.z - f.z);
+      const [ux, uz] = d0 > 1e-6 ? [(c.x - f.x) / d0, (c.z - f.z) / d0] : [1, 0];
+      c.x = f.x + ux * FACE_GAP;
+      c.z = f.z + uz * FACE_GAP;
+      c.face = datan2(f.z - c.z, f.x - c.x);
+      say(s, { kind: 'hero', u: ALARM, title: `${nameOf(c.hero)} fights ${g}`, words: `${nameOf(c.hero)} has met ${g} in your streets, and they fight. While they do, ${g} strikes none of your soldiers and sets nothing alight. No hero can beat a god: ${heOf(c.hero)} will hold ${godHim(m.god)} ${days(Math.round(HERO_HOLDS / TICKS_PER_DAY))} at most before withdrawing wounded.`, at: { tile: Math.floor(f.z) * map.size + Math.floor(f.x) }, of: 'fight' });
+      s.rev++;
+      return;
+    }
+    // On the way: after the god (a fresh way now and then while they walk on with the band).
+    const p = c.path;
+    const far = p.length >= 2 ? dhypot(p[p.length - 2] - f.x, p[p.length - 1] - f.z) : Infinity;
+    if (walkOn(c) || (far > FACE_REACH && s.tick % 10 === 0)) wayTo(map, s, c, startAt(map, s, f.x, f.z));
+    return;
+  }
+  // Fighting: blow for blow, facing the god, who stands where they met.
+  const t = s.tick - m.held;
+  c.face = datan2(f.z - c.z, f.x - c.x);
+  if (t % BLOW === 0) c.swung = s.tick;
+  if (t >= HERO_HOLDS) {
+    end(`${nameOf(c.hero)} withdraws wounded`, `${nameOf(c.hero)} withdraws wounded from ${g} after ${days(held)} and walks home to ${hisOf(c.hero)} hall: no hero can beat a god. ${g} fights on with the band.`, true, WARNING);
+  }
+}
+
 /** "the Minotaur's cave", "the Hydra's marsh". */
 export function placeName(kind: MonsterId, den: Beast['den']): string {
   return `${beastName(kind)}’s ${denNoun(den)}`;
@@ -1056,10 +1189,12 @@ function hallLost(s: SimState, map: CoastMap, c: Champion): void {
 // The commands.
 
 /** A hero's order (a command; anything refused does nothing). */
-export function heroCommand(s: SimState, map: CoastMap, c: { hero: HeroId; act: string; monster?: number; on?: boolean }): void {
+export function heroCommand(s: SimState, map: CoastMap, c: { hero: HeroId; act: string; monster?: number; on?: boolean; figure?: number }): void {
   if (!HERO_IDS.includes(c.hero)) return;
   if (c.act === 'slay' && Number.isInteger(c.monster)) sendHero(s, map, c.hero, c.monster as number);
   else if (c.act === 'sail') letSail(s, map, c.hero);
+  // (Merge of slice 60: against an enemy god.)
+  else if (c.act === 'face' && Number.isInteger(c.figure)) sendAgainstGod(s, map, c.hero, c.figure as number);
   else if (c.act === 'ride') {
     const h = heroOf(s, c.hero);
     if (!h || !isCome(h) || h.state === 'leaving') return;
@@ -1101,6 +1236,14 @@ export function heroMoods(s: SimState, b: Building): Array<{ w: number; text: st
 export function heroDoing(s: SimState, c: Champion): string {
   const he = heOf(c.hero);
   const m = c.foe ? monsterOf(s, c.foe) : undefined;
+  // (Merge of slice 60: against an enemy god.)
+  const gm = c.state === 'hunting' || c.state === 'fighting' ? godFaced(s, c.hero) : undefined;
+  if (gm) {
+    const g = GODS[gm.god].name;
+    if (c.state === 'hunting') return `On ${hisOf(c.hero)} way to face ${g}, to hold ${godHim(gm.god)} off`;
+    const d = Math.max(1, Math.ceil((gm.held + HERO_HOLDS - s.tick) / TICKS_PER_DAY));
+    return `Fighting ${g}, holding ${godHim(gm.god)} off: no hero can beat a god, and ${he} withdraws wounded in about ${d} ${d === 1 ? 'day' : 'days'} unless the band breaks first`;
+  }
   switch (c.state) {
     case 'awaited': {
       if (c.again > s.tick) return `Gone from your city; ${he} may be won back in ${Math.ceil((c.again - s.tick) / TICKS_PER_MONTH)} months`;

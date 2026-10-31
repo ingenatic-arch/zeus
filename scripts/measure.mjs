@@ -346,6 +346,8 @@ for (const [hash, views] of [
   // Slice 60: Ares with Sparta's band by the bridge; Athena and Ares fighting there.
   ['#godwar-paused-shot', [null]],
   ['#godduel-paused-shot', [null]],
+  // Merge of slice 60 with slice 59: Perseus holding Ares by the bridge.
+  ['#herogod-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

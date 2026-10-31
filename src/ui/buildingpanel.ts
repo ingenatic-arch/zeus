@@ -493,7 +493,7 @@ export class BuildingPanel {
       if (c !== 'redraw') this.deps.send(c);
     }
     // Slice 59: a hero's order from their hall's panel (send against a monster, ride, sail).
-    else if (act === 'hero' && b.hero) this.deps.send({ type: 'hero', hero: (t.dataset.hero as HeroId) || b.hero, act: t.dataset.do as 'slay' | 'ride' | 'sail', monster: Number(t.dataset.monster) || undefined, on: t.dataset.on === '1' });
+    else if (act === 'hero' && b.hero) this.deps.send({ type: 'hero', hero: (t.dataset.hero as HeroId) || b.hero, act: t.dataset.do as 'slay' | 'ride' | 'sail', monster: Number(t.dataset.monster) || undefined, on: t.dataset.on === '1', figure: Number(t.dataset.figure) || undefined });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

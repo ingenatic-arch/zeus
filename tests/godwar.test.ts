@@ -28,6 +28,14 @@ import { raidChip, raidersOf } from '../src/sim/raids';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Raid, type SimState } from '../src/sim/state';
 import { demoSim } from './prepared';
+// Merge of slice 60 with the trunk.
+import { dhypot } from '../src/map/dmath';
+import { buildingRefusal } from '../src/sim/build';
+import { beside, centreOf, findBuilding } from '../src/sim/buildings';
+import { courtyard, faceRefusal, heroDoing, heroOf, type Champion as HeroChampion } from '../src/sim/heroes';
+import { breakNow } from '../src/sim/battle';
+import { HERO_HOLDS, patronOf } from '../src/sim/pantheon';
+import { TILE_ROAD } from '../src/sim/state';
 
 const made: Record<string, string> = {};
 const fresh = (name: string): Sim => {
@@ -278,4 +286,125 @@ describe('gods in war (slice 60)', () => {
       expect(st.hurt > 0 || st.nerve).toBe(true);
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// Merge of slice 60 with the trunk: heroes (slice 59) against an enemy god, and the gods of Greece (slice 58).
+
+/** Tiles a 4 x 4 hall can stand on beside a road, nearest the first agora first (as heroes.test's). */
+function hallTiles(sim: Sim): number[] {
+  const s = sim.state;
+  const n = sim.map.size;
+  const agora = s.buildings.find((b) => b.kind === 'agora');
+  const [ax, az] = agora ? centreOf(agora) : [n / 2, n / 2];
+  const out: Array<[number, number]> = [];
+  for (let t = 0; t < n * n; t++) {
+    const x = t % n;
+    const z = Math.floor(t / n);
+    if (buildingRefusal(sim.map, s, 'herohall', x, z) === '' && beside(n, x, z, 4).some((u) => s.tiles[u] === TILE_ROAD)) out.push([t, dhypot(x + 2 - ax, z + 2 - az)]);
+  }
+  return out.sort((a, b) => a[1] - b[1] || a[0] - b[0]).map(([t]) => t);
+}
+
+/** Perseus' hall raised by its command (the coin given for the test) and Perseus come and at home (staged). */
+function perseus(sim: Sim): HeroChampion {
+  const s = sim.state;
+  income(s, 5000, 'gifts', 'for the test');
+  send(sim, { type: 'herohall', hero: 'perseus', at: hallTiles(sim).slice(0, 40) });
+  const c = heroOf(s, 'perseus')!;
+  expect(c).toBeTruthy();
+  const hall = findBuilding(s, c.hall)!;
+  [c.x, c.z] = courtyard(hall);
+  c.state = 'home';
+  c.came = s.tick;
+  c.word = s.tick;
+  c.by = 'road';
+  c.wish = s.tick;
+  c.next = s.tick + 20 * TICKS_PER_DAY;
+  return c;
+}
+
+describe('gods in war at the merge (slices 58 and 59)', () => {
+  it('a hero sent against an enemy god holds them a few days (no blows on your soldiers, no fires), then withdraws wounded', () => {
+    const { sim, s, r } = battle();
+    const c = perseus(sim);
+    const hop = s.army.companies.find((x) => x.kind === 'hoplite')!;
+    send(sim, { type: 'banner', company: hop.id, tile: 41 * 128 + 40 });
+    inMap(sim, r);
+    expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
+    const m = marchOf(s, r.id)!;
+    const f = s.gods.walks.figures.find((o) => o.id === m.figure)!;
+    // Hovering Ares names Perseus among what can be done.
+    expect(warStatus(s, f)!.detail).toMatch(/send Perseus to hold him \(his hall\)/);
+    expect(faceRefusal(s, 'perseus', f.id)).toBe('');
+    send(sim, { type: 'hero', hero: 'perseus', act: 'face', figure: f.id });
+    expect(m.hero).toBe('perseus');
+    expect(c.state).toBe('hunting');
+    expect(heroDoing(s, c)).toMatch(/^On his way to face Ares/);
+    expect(until(sim, () => m.held >= 0, 20 * TICKS_PER_DAY)).toBe(true);
+    expect(c.state).toBe('fighting');
+    expect(f.state).toBe('fighting');
+    expect(dhypot(c.x - f.x, c.z - f.z)).toBeLessThan(2);
+    expect(warStatus(s, f)!.detail).toMatch(/Perseus holds him: while they fight, Ares strikes none of your soldiers/);
+    expect(warStatus(s, f)!.detail).not.toMatch(/call on/);
+    // Held: no blow on a soldier, no fire, while they fight; clashes between them.
+    const blows = (): number => s.gods.war.strikes.filter((k) => k.god === 'ares' && (k.men.length > 0 || k.kind === 'burn')).length;
+    const felled = m.felled;
+    const fires = m.fires;
+    const since = s.tick;
+    const at = [f.x, f.z];
+    let struck = 0;
+    while (s.tick - since < HERO_HOLDS - 1) {
+      const b0 = blows();
+      sim.step();
+      struck += Math.max(0, blows() - b0);
+    }
+    expect(struck).toBe(0);
+    expect(m.felled).toBe(felled);
+    expect(m.fires).toBe(fires);
+    expect([f.x, f.z]).toEqual(at);
+    expect(s.gods.war.strikes.some((k) => k.kind === 'clash' && k.god === 'ares' && k.t >= since)).toBe(true);
+    // Then he withdraws wounded and walks home; he won't face Ares again; Ares fights on.
+    expect(until(sim, () => c.state !== 'fighting', 3 * TICKS_PER_DAY)).toBe(true);
+    expect(c.state).toBe('returning');
+    expect(m.hero).toBe('');
+    expect(m.wounded).toEqual(['perseus']);
+    expect(faceRefusal(s, 'perseus', f.id)).toMatch(/nursing his wounds/);
+    expect(s.messages.log.some((x) => x.kind === 'hero' && /^Perseus withdraws wounded from Ares/.test(x.words))).toBe(true);
+    expect(f.state).not.toBe('leaving');
+    // A save mid-war keeps the hero's mark on the march.
+    const back = decodeSave(encodeSave(s, 1));
+    if (!back.ok) throw new Error(back.why);
+    expect(JSON.stringify(back.file.state.gods.war)).toBe(JSON.stringify(s.gods.war));
+  }, 600_000);
+
+  it('a band broken while its god is held: the god goes home, the hero comes home unhurt', () => {
+    const { sim, s, r } = battle();
+    const c = perseus(sim);
+    inMap(sim, r);
+    expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
+    const m = marchOf(s, r.id)!;
+    send(sim, { type: 'hero', hero: 'perseus', act: 'face', figure: m.figure });
+    expect(until(sim, () => m.held >= 0, 20 * TICKS_PER_DAY)).toBe(true);
+    breakNow(s, sim.map, r, 'for the test');
+    expect(until(sim, () => c.state !== 'fighting', 2)).toBe(true);
+    expect(c.state).toBe('returning');
+    expect(m.wounded).toEqual([]);
+    expect(s.messages.log.some((x) => x.kind === 'hero' && /^Ares has gone with the band, and Perseus, who held him .+, comes home unhurt/.test(x.words))).toBe(true);
+  }, 600_000);
+
+  it('the god who marches is the band’s city’s patron; a band broken by your god pleases Ares once, as slice 58 counts a band beaten', () => {
+    const { sim, s, r } = battle(-70);
+    expect(patronOf(r.city)).toBe('ares');
+    sanctuaryFor(sim, 'athena');
+    moodTo(s, 'athena', 80, 'your olive groves');
+    inMap(sim, r);
+    expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
+    expect(marchOf(s, r.id)!.god).toBe(patronOf(r.city));
+    send(sim, { type: 'callgod', god: 'athena' });
+    expect(until(sim, () => r.broke, 12 * TICKS_PER_DAY)).toBe(true);
+    expect(until(sim, () => r.ended > 0, 90 * TICKS_PER_DAY)).toBe(true);
+    const deeds = s.gods.memories.ares.filter((x) => x.kind === 'greece' && /broke Sparta’s raiders/.test(x.why));
+    expect(deeds.length).toBe(1);
+  }, 600_000);
 });

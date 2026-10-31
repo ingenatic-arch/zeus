@@ -232,4 +232,6 @@ export const VIEWS: Record<string, CameraView> = {
   godwar: { x: 40, z: 41, yaw: 0.785, dist: 18, tilt: -0.05 },
   // #godduel: the same, Athena and Ares fighting there, seen side on.
   godduel: { x: 40.4, z: 41.9, yaw: 0.785, dist: 15, tilt: -0.05 },
+  // Merge of slice 60 with slice 59, #herogod: Perseus and Ares fighting on the road east of the bridge, seen side on.
+  herogod: { x: 45, z: 42, yaw: 0.785, dist: 15, tilt: -0.05 },
 };

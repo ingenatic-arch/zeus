@@ -118,7 +118,8 @@ export type Command =
   /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
   | { type: 'herohall'; hero: HeroId; at: number[] }
   /** A hero's order (heroes.ts): sent against a monster (`monster`: its id), to ride with the next expedition or not (`on`), or let sail for a season (Odysseus's wish). */
-  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail'; monster?: number; on?: boolean }
+  /** (Merge of slice 60: or sent to hold an enemy god marching with a band, `act` 'face', `figure` the god's figure's id.) */
+  | { type: 'hero'; hero: HeroId; act: 'slay' | 'ride' | 'sail' | 'face'; monster?: number; on?: boolean; figure?: number }
   // Slice 60
   /** Call a god who loves you to fight the invaders on your map (godwar.ts; refused, nothing happens, unless they love you, their sanctuary stands, invaders are on your land and they haven't fought for you within a year). */
   | { type: 'callgod'; god: string };

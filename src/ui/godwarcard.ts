@@ -14,6 +14,8 @@ import { PLACES } from '../map/greece';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { figureOf } from '../sim/epiphany';
 import { angerWords, callable, callRefusal, duelLine, invaders, loving, sanctuaryStands, STYLES, warDoing } from '../sim/godwar';
+// Merge of slice 60: what is already being done about an enemy god (a duel, a hero holding them).
+import { foeHeld } from '../sim/godwar';
 import { GODS, goddess, moodOfGod, moodWord, type GodId } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { emblemIcon } from './godpanel';
@@ -47,8 +49,10 @@ export function godWarCard(s: SimState): string {
       out.push(`<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} was against you.</b> ${esc(where)}.</p></div>`);
       continue;
     }
+    // (Merge of slice 60: fought already, by your god or a hero: say so, not what to do.)
+    const held = f ? foeHeld(s, f) : '';
     out.push(
-      `<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} is against you.</b> ${esc(where)}. ${esc(angerWords(s, m.god))}. Your soldiers can’t hurt ${him}: hold out until the band breaks${f ? '' : `, calm ${him} before they come`}, or call on a god who loves you.</p></div>`,
+      `<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} is against you.</b> ${esc(where)}. ${esc(angerWords(s, m.god))}. ${held ? `${esc(held)}.` : `Your soldiers can’t hurt ${him}: hold out until the band breaks${f ? '' : `, calm ${him} before they come`}, or call on a god who loves you.`}</p></div>`,
     );
   }
   // The gods fighting for you.
@@ -66,7 +70,8 @@ export function godWarCard(s: SimState): string {
   // The gods who could come: those who love you with a finished sanctuary (a button each, or why not now).
   const all = callable(s);
   const ready = all.filter((c) => !c.why);
-  const near = all.filter((c) => c.why && loving(s, c.god) && sanctuaryStands(s, c.god));
+  // (Merge of slice 60: not a god fighting for you already: their row above says so, and the duel's line.)
+  const near = all.filter((c) => c.why && loving(s, c.god) && sanctuaryStands(s, c.god) && !w.champions.some((x) => x.god === c.god));
   const answer: string[] = [];
   for (const c of [...ready, ...near]) {
     const st = STYLES[c.god];
@@ -96,6 +101,14 @@ export function godWarCard(s: SimState): string {
 /** A finished sanctuary's call (its panel): while invaders are on your land or a god marches against you, the god's button, or why they can't come; '' otherwise. */
 export function sanctuaryCall(s: SimState, god: GodId): string {
   if (!s.gods.on || (!invaders(s).length && !s.gods.war.marches.length)) return '';
+  // (Merge of slice 60: the god fighting for you already: what they are doing, and the duel's line, not a button that can't be pressed.)
+  const c = s.gods.war.champions.find((x) => x.god === god);
+  const f = c ? figureOf(s, c.figure) : undefined;
+  if (f) {
+    const d = s.gods.war.duel;
+    const duel = d && d.a === f.id ? duelLine(s, d) : '';
+    return ksec('Call to war', `<p>${esc(`${GODS[god].name} ${f.state === 'leaving' ? 'fought' : 'fights'} for you: ${warDoing(s, f)}`)}.</p>${duel ? `<p class="gw-duel">${esc(duel)}.</p>` : ''}`, { cls: 'k-godwar' });
+  }
   const why = callRefusal(s, god);
   const st = STYLES[god];
   return ksec(

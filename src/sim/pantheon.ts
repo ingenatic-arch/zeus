@@ -653,3 +653,9 @@ export function godSank(s: SimState, ship: number): GodId | null {
   for (let i = list.length - 1; i >= 0; i--) if (list[i].ship === ship) return list[i].god;
   return null;
 }
+
+// Merge of slice 60 with slice 59: a hero sent against an enemy god (heroes.ts walks and fights; godwar.ts holds the god).
+// Here, in the leaf both import, so neither imports the other.
+
+/** How long a hero holds an enemy god before withdrawing wounded (unless the god's band breaks first). */
+export const HERO_HOLDS = 5 * TICKS_PER_DAY;

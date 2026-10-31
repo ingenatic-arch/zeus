@@ -21,6 +21,10 @@ import type { CoastMap } from '../map/bake';
 import { HEROHALL_COST } from '../sim/build';
 import { TICKS_PER_MONTH } from '../sim/clock';
 import { demandsOf, worthWords, hallRefusal, heroDoing, heroOf, isCome, LEAVE, LEGEND_COIN, placeName, RESTLESS, sailRefusal, sendRefusal, slayersOf, slaysWords, unmetFor, wishOf, type Champion } from '../sim/heroes';
+// Merge of slice 60: a hero sent against an enemy god.
+import { faceRefusal, godsAgainst } from '../sim/heroes';
+import { GODS } from '../sim/pantheon';
+import { PLACES } from '../map/greece';
 import { beastName, type Beast } from '../sim/monsters';
 import { HERO_IDS, HEROES, type HeroId } from '../sim/pantheon';
 import type { Building, SimState } from '../sim/state';
@@ -56,6 +60,22 @@ function slayRows(s: SimState, c: Champion): string {
     .join('');
 }
 
+/** Merge of slice 60: the gods marching against you on your map, each with a button to send this hero to hold them (or why not); '' with none. */
+export function faceRows(s: SimState, c: Champion): string {
+  const ms = godsAgainst(s);
+  if (!ms.length) return '';
+  const name = HEROES[c.hero].name;
+  return ms
+    .map((m) => {
+      const r = s.world.raids.find((x) => x.id === m.raid);
+      const g = GODS[m.god].name;
+      const with_ = r ? `Marches with ${PLACES[r.city].name}’s ${r.loan ? 'army' : 'raiders'}` : 'Marches against you';
+      const going = m.hero === c.hero;
+      return `<div class="hero-row"><span class="hero-what">${esc(g)}<small>${esc(with_)}</small></span>${going ? kchip(m.held >= 0 ? 'Fighting' : 'On the way', { tone: 'gold' }) : kbtn({ html: `Send ${esc(name)}`, act: 'hero', data: { do: 'face', figure: m.figure, hero: c.hero }, why: faceRefusal(s, c.hero, m.figure), tone: 'red', small: true, tip: `Send ${name} to hold ${g} off: while they fight, ${g} strikes none of your soldiers and sets nothing alight. No hero can beat a god: ${c.hero === 'atalanta' ? 'she' : 'he'} withdraws wounded after a few days, unless the band breaks first` })}</div>`;
+    })
+    .join('');
+}
+
 /** A hall's sections (the building panel's registry entry). */
 export function hallSections(s: SimState, map: CoastMap, b: Building): string {
   void map;
@@ -76,6 +96,9 @@ export function hallSections(s: SimState, map: CoastMap, b: Building): string {
   const unmet = unmetFor(s, c);
   const wishWhy = w.met ? 'Kept' : unmet >= RESTLESS ? `Not kept for ${months(unmet)}: restless. ${cap(h === 'atalanta' ? 'she' : 'he')} leaves your city if it goes unkept ${months(LEAVE - unmet)} more` : `Not kept for ${months(unmet)}: restless after a year, gone after two`;
   out.push(ksec(`${cap(his(h))} wish`, `<p><b>${esc(w.words)}</b></p><p class="k-why${w.met ? '' : ' bad'}">${esc(wishWhy)}</p>`));
+  // Merge of slice 60: a god marching against you on your map.
+  const faces = faceRows(s, c);
+  if (faces) out.push(ksec('Face a god', faces));
   // Monsters.
   out.push(ksec('Slay a monster', slayRows(s, c)));
   // Abroad.

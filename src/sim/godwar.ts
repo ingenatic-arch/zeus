@@ -55,6 +55,8 @@ import { burnable, FIRE_BURNING, ignite } from './hazards';
 import { mapOf } from '../map/lands';
 import { ALARM, NEWS, say, WARNING } from './messages';
 import { GODS, goddess, GOD_IDS, moodOfGod, moodRank, moodWord, noticed, patronOf, reasonsOf, type GodId } from './pantheon';
+// (Merge of slice 60 with slice 59: a hero holding an enemy god. From the leaf both read, so no new module is loaded here.)
+import { HERO_HOLDS, HEROES, type HeroId } from './pantheon';
 import { bandMen, live, raidersOf } from './raids';
 import type { Building, Raid, SimState } from './state';
 import { position } from './walk';
@@ -77,6 +79,12 @@ export interface GodMarch {
   /** Buildings set alight, your soldiers struck down (killed or wounded). */
   fires: number;
   felled: number;
+  // Merge of slice 60 with slice 59: a hero (heroes.ts) sent against the god.
+  /** The hero sent against the god ('' none); when their fight began (-1: on the way, or none). */
+  hero: HeroId | '';
+  held: number;
+  /** Heroes who have fought the god and withdrawn wounded: they don't go against them again. */
+  wounded: HeroId[];
 }
 
 /** A god who loves you, called to fight for you. */
@@ -404,7 +412,7 @@ function marches(s: SimState): void {
     if (!m) {
       // (Review of slice 60: never with a band already broken and running, nor one settled: a god who went home with it stays gone.)
       if (r.broke || r.end !== '' || !noticed(s) || !angry(s, god) || war.marches.some((o) => o.god === god)) continue;
-      war.marches.push({ raid: r.id, god, figure: 0, since: s.tick, cool: 0, lastFire: -BURN_GAP, fires: 0, felled: 0 });
+      war.marches.push({ raid: r.id, god, figure: 0, since: s.tick, cool: 0, lastFire: -BURN_GAP, fires: 0, felled: 0, hero: '', held: -1, wounded: [] });
       const st = STYLES[god];
       say(s, {
         kind: 'godwar',
@@ -527,6 +535,17 @@ function stepMarch(s: SimState, map: CoastMap, m: GodMarch): void {
   // (Fighting your champion: the duel holds them.)
   const d = war.duel;
   if (d && d.b === f.id) return;
+  // (Merge of slice 60 with slice 59: a hero holds them: the two fight where they met, and the god strikes none of your
+  //  soldiers and sets nothing alight while they do. heroes.ts ends it.)
+  if (m.hero && m.held >= 0) {
+    const h = s.legends.heroes.find((c) => c.hero === m.hero);
+    setState(s, f, 'fighting');
+    if (h) {
+      f.heading = datan2(h.x - f.x, h.z - f.z);
+      if ((s.tick - m.held) % 6 === 3) strike(s, m.god, 'clash', f, (f.x + h.x) / 2, (f.z + h.z) / 2);
+    }
+    return;
+  }
   // Walk beside the band.
   const at = bandAt(s, r);
   if (at) {
@@ -828,6 +847,8 @@ export function warDoing(s: SimState, f: GodFigure): string {
     const m = marchByFigure(s, f.id);
     const r = m ? raidOf(s, m.raid) : undefined;
     const st = STYLES[f.god];
+    // (Merge of slice 60 with slice 59: held by a hero.)
+    if (m && m.hero && m.held >= 0) return `fighting ${HEROES[m.hero].name}`;
     if (!r) return 'with the band';
     return `${f.state === 'fighting' ? (st.nerve && !st.hurt ? 'unsettling your soldiers' : 'striking at your soldiers') : 'marching'} with ${whose(r.city)} ${bandWord(r)}`;
   }
@@ -851,15 +872,48 @@ export function warWhy(s: SimState, f: GodFigure): string {
 export function warHelp(s: SimState, f: GodFigure): string {
   if (f.state === 'leaving') return '';
   if (f.why === 'foe') {
+    // (Merge of slice 60: a god or a hero already fighting them: what is happening, not what to do.)
+    const now = foeHeld(s, f);
+    if (now) return now;
     const callers = callable(s).filter((c) => !c.why);
     const call = callers.length ? `call on ${callers.map((c) => GODS[c.god].name).join(' or ')} (the Army tab)` : 'call on a god who loves you, from a sanctuary of theirs';
-    return `Your soldiers can’t hurt ${goddess(f.god) ? 'her' : 'him'}. Hold out until the band breaks, or ${call}`;
+    // (Merge of slice 60 with slice 59: or send a hero at home to hold them.)
+    const m = marchByFigure(s, f.id);
+    const heroes = m ? heroesFree(s, m) : [];
+    const hero = heroes.length ? `, or send ${heroes.map((h) => HEROES[h].name).join(' or ')} to hold ${goddess(f.god) ? 'her' : 'him'} (${heroes.length === 1 ? (heroes[0] === 'atalanta' ? 'her' : 'his') : 'their'} hall)` : '';
+    return `Your soldiers can’t hurt ${goddess(f.god) ? 'her' : 'him'}. Hold out until the band breaks${hero ? ', ' : ', or '}${call}${hero}`;
   }
   const st = STYLES[f.god];
   const c = championOf(s, f.id);
   const done = c && (c.felled || c.ships || c.nerve) ? ` · so far ${[c.felled ? `${c.felled} struck down` : '', c.ships ? `${c.ships} ${c.ships === 1 ? 'ship' : 'ships'} struck` : '', c.nerve ? `their nerve shaken ${c.nerve === 1 ? 'once' : `${c.nerve} times`}` : ''].filter(Boolean).join(', ')}` : '';
   const days = Math.max(1, Math.ceil((f.leaves - s.tick) / TICKS_PER_DAY));
   return `${cap(she(f.god))} ${st.words}${done}. Gone once the band breaks, within ${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/**
+ * Merge of slice 60: an enemy god already being fought, in words (for their
+ * hover, panel and the Army tab's card): by your god in a duel, or held by a
+ * hero, or a hero on the way to them; '' if none.
+ */
+export function foeHeld(s: SimState, f: GodFigure): string {
+  if (f.why !== 'foe' || f.state === 'leaving') return '';
+  const him = goddess(f.god) ? 'her' : 'him';
+  const d = s.gods.war.duel;
+  const a = d && d.b === f.id ? figure(s, d.a) : undefined;
+  if (a) return `${GODS[a.god].name} is fighting ${him} for you: your soldiers can’t hurt ${him}, but ${she(a.god)} can`;
+  const m = marchByFigure(s, f.id);
+  if (!m || !m.hero) return '';
+  const h = HEROES[m.hero];
+  const hs = m.hero === 'atalanta' ? 'she' : 'he';
+  if (m.held < 0) return `${h.name} is on ${m.hero === 'atalanta' ? 'her' : 'his'} way to hold ${him} off. Your soldiers can’t hurt ${him}: hold out until the band breaks`;
+  const days = Math.max(1, Math.ceil((m.held + HERO_HOLDS - s.tick) / TICKS_PER_DAY));
+  return `${h.name} holds ${him}: while they fight, ${GODS[f.god].name} strikes none of your soldiers and sets nothing alight. No hero can beat a god: ${hs} withdraws wounded within ${days} ${days === 1 ? 'day' : 'days'}, unless the band breaks first`;
+}
+
+/** Merge of slice 60 with slice 59: the heroes in your city who could be sent against a marching god now (come, at home or out walking, not wounded by them). heroes.ts' faceRefusal says why not, in full. */
+export function heroesFree(s: SimState, m: GodMarch): HeroId[] {
+  if (m.hero || s.gods.war.duel?.b === m.figure) return [];
+  return s.legends.heroes.filter((c) => c.came >= 0 && (c.state === 'home' || c.state === 'strolling' || c.state === 'returning') && !m.wounded.includes(c.hero)).map((c) => c.hero);
 }
 
 /** A duel in a line: "Athena's love (78) against Ares' anger (64): Athena will win, in 2 days". */

@@ -522,9 +522,11 @@ function godWarOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.next) || !Array.isArray(w.marches) || !Array.isArray(w.champions) || !Array.isArray(w.strikes) || !isObj(w.called) || !Object.entries(w.called).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
   const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
   const kinds = ['spear', 'bolt', 'wave', 'arrow', 'fire', 'light', 'earth', 'madness', 'nerve', 'clash', 'burn'];
+  // (Merge of slice 60 with slice 59: the hero sent against a marching god, '' none; the heroes it wounded.)
+  const hero = (h: unknown): boolean => h === '' || HERO_IDS.includes(h as never);
   return (
     (w.duel === null || (isObj(w.duel) && ['a', 'b', 'since', 'ends'].every((k) => fin((w.duel as Record<string, unknown>)[k])))) &&
-    (w.marches as unknown[]).every((m) => isObj(m) && god(m.god) && ['raid', 'figure', 'since', 'cool', 'lastFire', 'fires', 'felled'].every((k) => fin(m[k]))) &&
+    (w.marches as unknown[]).every((m) => isObj(m) && god(m.god) && ['raid', 'figure', 'since', 'cool', 'lastFire', 'fires', 'felled', 'held'].every((k) => fin(m[k])) && hero(m.hero) && Array.isArray(m.wounded) && (m.wounded as unknown[]).every(hero)) &&
     (w.champions as unknown[]).every((c) => isObj(c) && god(c.god) && ['figure', 'cool', 'felled', 'ships', 'nerve'].every((k) => fin(c[k]))) &&
     (w.strikes as unknown[]).every((k) => isObj(k) && god(k.god) && kinds.includes(k.kind as string) && ['id', 't', 'x0', 'z0', 'x1', 'z1', 'ship'].every((n) => fin(k[n])) && nums(k.men))
   );
