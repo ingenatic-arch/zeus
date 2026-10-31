@@ -43,7 +43,7 @@ The starting build (11f9290) and this slice's, measured back to back with a shor
 
 | What | Before (11f9290) | After |
 |---|---|---|
-| Tests | 803 in 60 files | 815 in 61 files; under load 810 passed and the other 5 were timing checks or ran out of time; each passed when run alone |
+| Tests | 803 in 60 files | 816 in 61 files (one added in review); under load 810 passed and the other 5 were timing checks or ran out of time; each passed when run alone |
 | The game itself | 998 KB gzipped | 1,018 KB gzipped |
 | Prepared towns | 125 files, 4,532 KB gzipped | 128 files, 4,651 KB gzipped |
 | The bare link, ready (page's clock) | 13.9 s | 15.5 s (machine load: the land's bake alone went from 3.2 to 3.7 s) |
@@ -63,6 +63,7 @@ The starting build (11f9290) and this slice's, measured back to back with a shor
 - **"He has wrecked", "she has wrecked".** A raid's line in the tip and panel said "it has wrecked" for the Cyclops, the Minotaur, Talos and Medusa too.
 - **A monster's health bar is easier to see.** It was a hairline over its head, lost against a roof behind it; it is now a tile wide or more and thick enough to read at the usual zoom, green, then amber, then red.
 - **The trial fights' numbers** above now say "struck down" (killed or wounded): the counts I gave first were all the men struck down, not the dead.
+- **Checked again after the changes:** every earlier demo still opens exactly as before (all 165 towns compared with the starting build), the bare link and a handful of older demos open with no errors, the new demos' checks pass, and the download, triangles and draw calls are unchanged.
 - Checked and left as they are: a monster that can't get at a soldier gives up on soldiers for a while and goes on (it can't be held in place for ever, and it can't stall a company), the save check that lets a monster stand with no way to walk (nothing else gets through it), and no monster leaking into the raiders' code (their spread, blows, falls and drawing all skip it).
 - **For your eye** (I didn't change them): Medusa is hard to pick out at the usual zoom, a thin pale figure against the grey of her cave; the Chimera reads as a lion with a goat's head, its serpent tail as a green stick. A tower within range of a lair or a raid's path shoots the monster with no cost in men; that may be right (it is what towers are for) or may want a cost (the monster wrecking the tower, say).
 
