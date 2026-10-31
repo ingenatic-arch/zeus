@@ -73,8 +73,8 @@ import { startVisit } from './epiphany';
 // pleased within a year; a sanctuary and festivals make them warm).
 
 /** A god's shrines: the first is worth this much, the next these, and each after the last of them. At most SHRINE_MOST in all. */
-export const SHRINE_HONOURS = [5, 3, 2, 1];
-export const SHRINE_MOST = 12;
+export const SHRINE_HONOURS = [8, 4, 2, 1];
+export const SHRINE_MOST = 16;
 /** A rival minds a third as much (pantheon.ts, with worship and standing). */
 export { RIVAL_SHARE } from './pantheon';
 /** A festival: what it costs, what it honours and how long that lasts, how far ahead it is announced, one a year per god. */
@@ -146,6 +146,15 @@ export const W = {
   vines: 2,
   dionysusTheatres: 1,
   sober: 2,
+  // Slice 57: readings an ordinary city can show for the gods who saw nothing in one (Ares, Hephaestus, Hermes).
+  watch: 1,
+  barracks: 2,
+  walls: 1,
+  menEnough: 1,
+  workshops: 2,
+  noFires: 1,
+  agora: 2,
+  quayOrYard: 1,
 };
 
 /** How much of a god's sacred good an offering and a festival take (horses and armour come fewer to the measure). */
@@ -444,7 +453,8 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
     kind: 'gods',
     u: NEWS,
     title: `${G.name}’s festival begins`,
-    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${altar ? `the altar of ${placeWords(map, b, s)}` : placeWords(map, b, s)}${s.buildings.some((a) => a.kind === 'agora') ? ' for the agora' : ' through the streets'}. Homes it passes will be glad for a season.`,
+    // (Slice 57: a shrine named by its agora walks round it, not "by the agora for the agora".)
+    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${altar ? `the altar of ${placeWords(map, b, s)}` : placeWords(map, b, s)}${!s.buildings.some((a) => a.kind === 'agora') ? ' through the streets' : !altar && placeWords(map, b, s).endsWith('by the agora') ? ', to walk round it' : ' for the agora'}. Homes it passes will be glad for a season.`,
     at: { building: b.id },
   });
   // Merge with slice 56: the god comes in person for their festival, rising where the procession sets out (the shrine, or
@@ -642,6 +652,9 @@ export interface CityLook {
   loyalty: number;
   wine: number;
   festivals: boolean;
+  // Slice 57: wall pieces standing, and workshops with someone at work (presses, wineries, dairies, the forge and the quarries).
+  walls: number;
+  workshops: number;
 }
 
 export function lookAtCity(s: SimState, gladToo = true): CityLook {
@@ -716,8 +729,13 @@ export function lookAtCity(s: SimState, gladToo = true): CityLook {
     loyalty: loyal.length ? loyal.reduce((a, b) => a + b, 0) / loyal.length : -1,
     wine: sacredStock(s, WINE),
     festivals: GOD_IDS.some((g) => festivalHeld(s, g) >= yearAgo),
+    walls: s.walls.filter((p) => p.hp > 0).length,
+    workshops: WORKSHOPS.reduce((a, k) => a + (staffed.get(k) ?? 0), 0),
   };
 }
+
+/** Slice 57: Hephaestus's workshops. */
+const WORKSHOPS = ['press', 'winery', 'dairy', 'armoury', 'mine', 'quarry', 'masons', 'loggers', 'horsefarm'];
 
 const n = (l: CityLook, kind: string): number => l.count.get(kind) ?? 0;
 const at = (l: CityLook, kind: string): number => l.staffed.get(kind) ?? 0;
@@ -762,7 +780,10 @@ export const READINGS: Record<GodId, readonly Reading[]> = {
   artemis: [{ id: 'herds', read: (l) => (l.herds < 0 ? null : l.herds >= 0.8 ? [W.herds, 'wild herds left to breed'] : l.herds < 0.5 ? [-W.thinHerds, 'herds hunted thin'] : null) }],
   ares: [
     { id: 'army', read: (l) => (l.soldiers >= 48 ? [W.bigArmy, `a big army (${l.soldiers} men)`] : l.soldiers >= 16 ? [W.army, `an army of ${l.soldiers}`] : l.people >= 1500 ? [-W.noArmy, 'a city with no army to speak of'] : null) },
-    { id: 'tribute', read: (l) => (l.tribute ? [-W.tribute, 'you paid tribute'] : null) },
+    // (Slice 57: tribute paid is slice 58's deed, remembered as it is paid, so the monthly reading of it went.)
+    { id: 'barracks', read: (l) => (at(l, 'barracks') ? [W.barracks, at(l, 'barracks') === 1 ? 'a barracks drilling' : 'barracks drilling'] : l.soldiers < 16 && l.people >= 500 && l.people < 1500 ? [W.menEnough, 'young men enough for an army'] : null) },
+    { id: 'watch', read: (l) => (at(l, 'watchpost') ? [W.watch, 'the watch under arms'] : null) },
+    { id: 'walls', read: (l) => (l.walls >= 8 || n(l, 'tower') ? [W.walls, n(l, 'tower') ? 'walls and towers' : 'walls'] : null) },
   ],
   aphrodite: [
     { id: 'happy', read: (l) => (l.glad < 0 || l.homes < 10 ? null : l.glad >= 0.8 ? [W.happy, 'happy homes'] : l.glad < 0.5 ? [-W.misery, 'misery in many homes'] : null) },
@@ -774,13 +795,18 @@ export const READINGS: Record<GodId, readonly Reading[]> = {
     { id: 'armouries', read: (l) => (at(l, 'armoury') ? [W.armouries, at(l, 'armoury') === 1 ? 'an armoury at work' : 'armouries at work'] : null) },
     { id: 'mines', read: (l) => (at(l, 'mine') + at(l, 'quarry') ? [W.mines, at(l, 'mine') && at(l, 'quarry') ? 'mines and quarries' : at(l, 'mine') ? 'a mine' : 'a quarry'] : null) },
     { id: 'monuments', read: (l) => (l.monuments ? [W.monuments, l.monuments === 1 ? 'a monument raised' : 'monuments raised'] : null) },
-    { id: 'fires', read: (l) => (l.burning ? [-W.fires, l.burning === 1 ? 'a fire burning' : `${l.burning} fires burning`] : null) },
+    { id: 'fires', read: (l) => (l.burning ? [-W.fires, l.burning === 1 ? 'a fire burning' : `${l.burning} fires burning`] : at(l, 'watchpost') ? [W.noFires, 'no fire left to burn'] : null) },
+    // (Slice 57.)
+    { id: 'workshops', read: (l) => (l.workshops >= 2 ? [W.workshops, `${l.workshops} workshops at work`] : null) },
   ],
   hermes: [
     { id: 'routes', read: (l) => (l.routes ? [Math.min(W.routesMost, W.routes * l.routes), l.routes === 1 ? 'a trade route' : `${l.routes} trade routes`] : null) },
     { id: 'trade', read: (l) => (l.sold >= 500 ? [W.trade, 'brisk trade'] : null) },
     { id: 'closed', read: (l) => (l.closedRoads ? [-W.closedRoads, 'closed roads'] : null) },
     { id: 'quarantine', read: (l) => (l.quarantine ? [-W.quarantine, 'your quarantine'] : null) },
+    // (Slice 57.)
+    { id: 'agora', read: (l) => (at(l, 'agora') ? [W.agora, at(l, 'agora') === 1 ? 'a busy agora' : 'busy agoras'] : null) },
+    { id: 'quay', read: (l) => (at(l, 'trading') + at(l, 'yard') ? [W.quayOrYard, at(l, 'trading') && at(l, 'yard') ? 'a trading post and a caravan yard' : at(l, 'trading') ? 'a trading post' : 'a caravan yard'] : null) },
   ],
   dionysus: [
     { id: 'vines', read: (l) => (at(l, 'vineyard') + at(l, 'winery') ? [W.vines, at(l, 'winery') ? 'vineyards and wineries' : 'vineyards'] : null) },
@@ -793,6 +819,8 @@ export const READINGS: Record<GodId, readonly Reading[]> = {
 /** A god's day of the month: their shrines, what they love and hate in the city, and neglect. */
 export function godDay(s: SimState, god: GodId, look: CityLook): void {
   honourShrines(s, god);
+  // (Slice 57: Ares' monthly reading of tribute paid is gone, slice 58 remembering it as a deed: an older save's forgotten.)
+  if (god === 'ares') setStanding(s, god, 'city:tribute', '', 0);
   const seen = noticed(s);
   for (const r of READINGS[god]) {
     const v = seen ? r.read(look) : null;
